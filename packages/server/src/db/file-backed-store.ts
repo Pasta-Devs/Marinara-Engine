@@ -114,6 +114,7 @@ export type FileNativeDB = {
     (): SelectFromBuilder<undefined>;
     <TProjection extends Projection>(projection: TProjection): SelectFromBuilder<TProjection>;
   };
+  count: (table: Table, condition?: Condition) => number;
   insert: (table: Table) => InsertBuilder;
   update: (table: Table) => UpdateSetBuilder;
   delete: (table: Table) => DeleteBuilder;
@@ -1011,6 +1012,17 @@ function matchesLike(value: unknown, pattern: unknown) {
   return new RegExp(`^${escaped}$`, "i").test(String(value ?? ""));
 }
 
+function parseJsonRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (typeof value !== "string") return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 function evaluateCondition(condition: Condition, ctx: RowContext): boolean {
   if (!condition) return true;
   if (!isFileCondition(condition)) return false;
@@ -1031,6 +1043,10 @@ function evaluateCondition(condition: Condition, ctx: RowContext): boolean {
   }
   if (condition.kind === "file-pattern") {
     return matchesLike(resolveValue(condition.value, ctx), resolveValue(condition.pattern, ctx));
+  }
+  if (condition.kind === "file-json-flags-not-true") {
+    const record = parseJsonRecord(resolveValue(condition.value, ctx));
+    return condition.flags.every((flag) => record[flag] !== true);
   }
 
   const left = resolveValue(condition.left, ctx);
@@ -1548,6 +1564,15 @@ class FileTableStore {
     return {
       from: (table) => new SelectQuery(this, getMeta(table), projection) as never,
     };
+  }
+
+  count(table: Table, condition?: Condition) {
+    const meta = getMeta(table);
+    let count = 0;
+    for (const row of this.rows(meta.name)) {
+      if (evaluateCondition(condition, this.contextForRow(meta, row))) count += 1;
+    }
+    return count;
   }
 
   insert(table: Table): InsertBuilder {
@@ -2561,6 +2586,7 @@ export async function createFileNativeDB(testHooks?: FileNativeStoreTestHooks): 
   let db: FileNativeDB;
   db = {
     select: store.select.bind(store) as FileNativeDB["select"],
+    count: store.count.bind(store),
     insert: (table) => store.insert(table),
     update: (table) => store.update(table),
     delete: (table) => store.delete(table),

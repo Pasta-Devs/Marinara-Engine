@@ -13267,7 +13267,8 @@ test("Home lifecycle stays bounded across repeated tab and chat navigation", asy
   });
   expect(auditChatResponse.ok()).toBeTruthy();
   const auditChat = (await auditChatResponse.json()) as { id: string };
-  await page.goto("/");
+  try {
+    await page.goto("/");
   await expect(page.locator('[data-component="HomeBrowserHub.HomePage"]')).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(3_000);
 
@@ -13367,9 +13368,11 @@ test("Home lifecycle stays bounded across repeated tab and chat navigation", asy
   expect(after.lifecycle.resizeObservers).toBe(baseline.lifecycle.resizeObservers);
   expect(after.lifecycle.homeSurfaceTimeouts).toBe(baseline.lifecycle.homeSurfaceTimeouts);
   expect(after.lifecycle.animationFrames).toBeLessThanOrEqual(baseline.lifecycle.animationFrames + 1);
-  expect(after.homePages).toBe(1);
-  expect(after.professorPages).toBe(0);
-  await page.request.delete(`/api/chats/${auditChat.id}?force=true`);
+    expect(after.homePages).toBe(1);
+    expect(after.professorPages).toBe(0);
+  } finally {
+    await bestEffortDelete(page.request, `/api/chats/${auditChat.id}?force=true`);
+  }
 });
 
 test("Home widget order can be dragged and persists across reloads", async ({ page }, testInfo) => {

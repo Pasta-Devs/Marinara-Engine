@@ -13,6 +13,7 @@ Avoid: cat ears, animal ears, tail, extra limbs, duplicated hands, malformed fin
 Generated with the built-in image generation tool, then converted from chroma key to alpha with the imagegen skill's remove_chroma_key.py helper using border sampling, a soft matte, and despill.
 
 Derived outputs used by Home navigation:
+- `packages/client/public/sprites/mari/generated/professor-mari-assistant-sheet.png` — the generated four-frame entrance strip.
 - `packages/client/public/sprites/mari/generated/professor-mari-assistant-idle.png` — the final calm pose.
 - `packages/client/public/sprites/mari/generated/professor-mari-assistant-blink-v3.png` — the corrected closed-eye blink frame.
 - `packages/client/public/sprites/mari/generated/professor-mari-assistant-map.png` — Mari holding Marinara's pixel map after a successful search.

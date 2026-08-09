@@ -34,6 +34,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
+import { api } from "../../lib/api-client";
 import { parsePngCharacterCard } from "../../lib/png-parser";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
@@ -41,6 +42,7 @@ import { cn } from "../../lib/utils";
 import {
   countLorebookEntries,
   hasLorebookEntries,
+  readCharacterCardData,
   readCharacterCardDetailFields,
   readEmbeddedLorebookFromCharacterPayload,
 } from "../../lib/character-import";
@@ -265,18 +267,6 @@ function attachEmbeddedLorebookToCharacterJson(raw: Record<string, unknown>, emb
   return cloned;
 }
 
-function readCharacterCardData(raw: Record<string, unknown>): Record<string, unknown> {
-  if (
-    (raw.spec === "chara_card_v2" || raw.spec === "chara_card_v3") &&
-    raw.data &&
-    typeof raw.data === "object" &&
-    !Array.isArray(raw.data)
-  ) {
-    return raw.data as Record<string, unknown>;
-  }
-  return raw;
-}
-
 function readCardTags(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String).map((tag) => tag.trim()).filter(Boolean);
   if (typeof value === "string") return value.split(",").map((tag) => tag.trim()).filter(Boolean);
@@ -297,6 +287,17 @@ function optionalStringArray(value: unknown): string[] | undefined {
 
 function optionalRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+}
+
+async function filterPersonaImportTags(sourceTags: string[], mode: TagImportMode): Promise<string[]> {
+  if (mode === "all" || sourceTags.length === 0) return sourceTags;
+  if (mode === "none") return [];
+
+  const characters = await api.get<Array<{ data?: unknown }>>("/characters");
+  const existingTagKeys = new Set(
+    characters.flatMap((character) => readCardTags(optionalRecord(character.data)?.tags)).map((tag) => tag.toLocaleLowerCase()),
+  );
+  return sourceTags.filter((tag) => existingTagKeys.has(tag.toLocaleLowerCase()));
 }
 
 // ════════════════════════════════════════════════
@@ -1920,6 +1921,7 @@ export function BotBrowserView() {
     const extensions = optionalRecord(cardData.extensions) ?? {};
     const personaName = optionalString(cardData.name) ?? prepared.card.name;
     const sourceTags = readCardTags(cardData.tags);
+    const personaTags = await filterPersonaImportTags(sourceTags, tagImportMode);
     const personaResponse = await fetch("/api/characters/personas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1933,7 +1935,7 @@ export function BotBrowserView() {
         creator: optionalString(cardData.creator) ?? prepared.card.creator,
         creatorNotes: optionalString(cardData.creator_notes) ?? "",
         personaVersion: optionalString(cardData.character_version) ?? "",
-        tags: JSON.stringify(tagImportMode === "none" ? [] : sourceTags),
+        tags: JSON.stringify(personaTags),
       }),
     });
     const persona = (await personaResponse.json()) as { id?: string; error?: string };

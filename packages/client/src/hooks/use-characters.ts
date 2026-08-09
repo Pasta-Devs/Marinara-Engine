@@ -467,9 +467,14 @@ export function useCharacterSprites(characterId: string | null) {
  * Fetch the small, bounded set of sprite lists used by Home's recent-chat
  * previews without coupling the feed contract to filesystem-backed assets.
  */
+const MAX_HOME_SPRITE_PREVIEWS = 6;
+
 export function useCharacterSpritePreviews(characterIds: string[]) {
   const uniqueIds = useMemo(
-    () => Array.from(new Set(characterIds.filter((id) => id.trim().length > 0))).sort(),
+    () =>
+      Array.from(new Set(characterIds.filter((id) => id.trim().length > 0)))
+        .sort()
+        .slice(0, MAX_HOME_SPRITE_PREVIEWS),
     [characterIds],
   );
   const queries = useQueries({

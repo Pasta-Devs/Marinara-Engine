@@ -6389,10 +6389,14 @@ export function ChatSettingsDrawer({
                 {chat.connectedChatId ? (
                   (() => {
                     const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
+                    const linkedMode =
+                      linked?.mode === "conversation" || linked?.mode === "roleplay" || linked?.mode === "game"
+                        ? linked.mode
+                        : "roleplay";
                     return (
                       <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
                         {linked ? (
-                          <ChatModeIcon mode={linked.mode} size="0.875rem" className="text-[var(--primary)]" />
+                          <ChatModeIcon mode={linkedMode} size="0.875rem" className="text-[var(--primary)]" />
                         ) : (
                           <ArrowRightLeft size="0.875rem" className="text-[var(--primary)]" />
                         )}
@@ -6404,9 +6408,9 @@ export function ChatSettingsDrawer({
                           </span>
                           <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                             {linked
-                              ? linked.mode === "roleplay"
+                              ? linkedMode === "roleplay"
                                 ? localizeUi("settings.modes.roleplay")
-                                : linked.mode
+                                : linkedMode
                               : localizeUi("ui.chat.chatsettingsdrawer.deleted")}
                           </p>
                         </div>

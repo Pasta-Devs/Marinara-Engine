@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Storage: Chats
 // ──────────────────────────────────────────────
-import { eq, ne, desc, and, gt, inArray, isNull, isNotNull, lt } from "../../db/file-query.js";
+import { eq, ne, desc, and, gt, inArray, isNull, isNotNull, jsonFlagsNotTrue } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import {
   chats,
@@ -210,14 +210,16 @@ function isUsableTimestamp(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0 && !Number.isNaN(Date.parse(value));
 }
 
-function parseMessageCursor(before?: string): { createdAt: string; rowid: number } | null {
+export function parseMessageCursor(before?: string): { createdAt: string; rowid: number } | null {
   if (!before) return null;
   const separatorIndex = before.indexOf("|");
   if (separatorIndex <= 0 || separatorIndex === before.length - 1) return null;
+  const createdAt = before.slice(0, separatorIndex);
+  if (!isUsableTimestamp(createdAt)) return null;
   const rowid = Number(before.slice(separatorIndex + 1));
   if (!Number.isSafeInteger(rowid) || rowid < 1) return null;
   return {
-    createdAt: before.slice(0, separatorIndex),
+    createdAt,
     rowid,
   };
 }
@@ -916,8 +918,7 @@ export function createChatsStorage(db: DB) {
     },
 
     async countMessages(chatId: string): Promise<number> {
-      const rows = await db.select({ id: messages.id }).from(messages).where(eq(messages.chatId, chatId));
-      return rows.length;
+      return db.count(messages, eq(messages.chatId, chatId));
     },
 
     async hasGameDeletePayload(chatId: string): Promise<boolean> {
@@ -941,12 +942,10 @@ export function createChatsStorage(db: DB) {
     /** Paginated: returns the latest `limit` messages (optionally before a cursor). */
     async listMessagesPaginated(chatId: string, limit: number, before?: string) {
       const cursor = parseMessageCursor(before);
-      const condition = and(
-        eq(messages.chatId, chatId),
-        !cursor && before ? lt(messages.createdAt, before) : undefined,
-      );
-      const countRows = await db.select({ id: messages.id }).from(messages).where(condition);
-      const offset = cursor ? Math.max(0, countRows.length - cursor.rowid + 1) : 0;
+      if (before && !cursor) throw new Error("Invalid message cursor");
+      const condition = eq(messages.chatId, chatId);
+      const totalCount = db.count(messages, condition);
+      const offset = cursor ? Math.max(0, totalCount - cursor.rowid + 1) : 0;
       const rowsDescending = await db
         .select()
         .from(messages)
@@ -956,7 +955,7 @@ export function createChatsStorage(db: DB) {
         .limit(Math.max(1, Math.floor(limit)));
       const reversed = rowsDescending.reverse().map((message, index) => ({
         ...message,
-        rowid: countRows.length - offset - rowsDescending.length + index + 1,
+        rowid: totalCount - offset - rowsDescending.length + index + 1,
       }));
       const countMap = await countSwipesByMessageId(
         db,
@@ -970,7 +969,14 @@ export function createChatsStorage(db: DB) {
       const rows = await db
         .select()
         .from(messages)
-        .where(and(eq(messages.chatId, chatId), ne(messages.role, "system")))
+        .where(
+          and(
+            eq(messages.chatId, chatId),
+            ne(messages.role, "system"),
+            ne(messages.content, ""),
+            jsonFlagsNotTrue(messages.extra, ["hiddenFromUser", "commandOnly"]),
+          ),
+        )
         .orderBy(desc(messages.createdAt), desc(messages.id))
         .limit(Math.max(1, Math.floor(limit)));
       return rows.reverse();

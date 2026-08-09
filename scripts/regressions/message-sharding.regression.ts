@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { eq } from "../../packages/server/src/db/file-query.js";
+import { and, eq, jsonFlagsNotTrue, ne } from "../../packages/server/src/db/file-query.js";
 import {
   createFileNativeDB,
   encodeShardKey,
@@ -1050,6 +1050,48 @@ assert.equal(
       notice.migratedTables.includes("messages") && notice.migratedTables.includes("memory_chunks"),
       "the migrated-table lists union across the merged notices",
     );
+  } finally {
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// Home previews apply metadata filtering before LIMIT, while count() returns
+// the aggregate without projecting one row per message.
+{
+  const dir = tempStorageDir();
+  const db = await createFileNativeDB();
+  try {
+    await db.insert(chats).values({ id: "preview-chat", name: "Preview", mode: "conversation" });
+    await db.insert(messages).values([
+      messageRow("preview-visible", "preview-chat", "Visible"),
+      { ...messageRow("preview-empty", "preview-chat", ""), role: "assistant" },
+      {
+        ...messageRow("preview-hidden", "preview-chat", "Hidden"),
+        role: "assistant",
+        extra: JSON.stringify({ hiddenFromUser: true }),
+      },
+      {
+        ...messageRow("preview-command", "preview-chat", "Command"),
+        role: "assistant",
+        extra: JSON.stringify({ commandOnly: true }),
+      },
+    ]);
+
+    assert.equal(db.count(messages, eq(messages.chatId, "preview-chat")), 4, "aggregate count covers every row");
+    const previews = await db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.chatId, "preview-chat"),
+          ne(messages.role, "system"),
+          ne(messages.content, ""),
+          jsonFlagsNotTrue(messages.extra, ["hiddenFromUser", "commandOnly"]),
+        ),
+      )
+      .limit(1);
+    assert.deepEqual(previews, [{ id: "preview-visible" }], "hidden command anchors cannot consume preview slots");
   } finally {
     await db._fileStore.close();
     rmSync(dir, { recursive: true, force: true });

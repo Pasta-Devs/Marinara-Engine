@@ -543,6 +543,7 @@ function OnboardingTutorialInner() {
   const setCompleted = useUIStore((s) => s.setHasCompletedOnboarding);
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
+  const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const setSettingsTab = useUIStore((s) => s.setSettingsTab);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const requestChatModeShortcut = useUIStore((s) => s.requestChatModeShortcut);
@@ -624,6 +625,7 @@ function OnboardingTutorialInner() {
   // ── Side-effects when step changes ──
   useEffect(() => {
     if (currentStep.openHome) {
+      closeAllDetails();
       setActiveChatId(null);
       closeRightPanel();
       setSidebarOpen(false);
@@ -650,6 +652,7 @@ function OnboardingTutorialInner() {
       }
     }
   }, [
+    closeAllDetails,
     closeRightPanel,
     currentStep,
     openRightPanel,

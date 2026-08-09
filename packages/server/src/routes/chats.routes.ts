@@ -49,7 +49,7 @@ import type {
   WorldCustomField,
   HomeFeedSnapshot,
 } from "@marinara-engine/shared";
-import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { createChatsStorage, parseMessageCursor } from "../services/storage/chats.storage.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
@@ -1685,9 +1685,12 @@ export async function chatsRoutes(app: FastifyInstance) {
   // List messages for a chat (supports pagination via ?limit=N&before=CURSOR)
   app.get<{ Params: { id: string }; Querystring: { limit?: string; before?: string } }>(
     "/:id/messages",
-    async (req) => {
+    async (req, reply) => {
       const limit = req.query.limit ? parseInt(req.query.limit, 10) : 0;
       if (limit > 0) {
+        if (req.query.before && !parseMessageCursor(req.query.before)) {
+          return reply.status(400).send({ error: "Invalid message cursor" });
+        }
         return storage.listMessagesPaginated(req.params.id, limit, req.query.before || undefined);
       }
       return storage.listMessages(req.params.id);

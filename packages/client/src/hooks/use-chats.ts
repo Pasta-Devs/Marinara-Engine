@@ -288,7 +288,7 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
       if (!oldestLoaded) return undefined;
       return typeof oldestLoaded.rowid === "number"
         ? `${oldestLoaded.createdAt}|${oldestLoaded.rowid}`
-        : oldestLoaded.createdAt;
+        : undefined;
     },
     enabled: !!chatId && enabled,
     // #4703: a reconnect refetch re-drains every loaded page back-to-back, so

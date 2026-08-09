@@ -39,14 +39,20 @@ function optionalRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 }
 
-export function readCharacterCardDetailFields(raw: Record<string, unknown>): CharacterCardDetailFields | null {
-  const data =
+export function readCharacterCardData(raw: Record<string, unknown>): Record<string, unknown> {
+  if (
     (raw.spec === "chara_card_v2" || raw.spec === "chara_card_v3") &&
     raw.data &&
     typeof raw.data === "object" &&
     !Array.isArray(raw.data)
-      ? (raw.data as Record<string, unknown>)
-      : raw;
+  ) {
+    return raw.data as Record<string, unknown>;
+  }
+  return raw;
+}
+
+export function readCharacterCardDetailFields(raw: Record<string, unknown>): CharacterCardDetailFields | null {
+  const data = readCharacterCardData(raw);
   const embeddedLorebook = data.character_book;
   const detail: CharacterCardDetailFields = {
     description: optionalString(data.description),
@@ -80,15 +86,7 @@ export function hasLorebookEntries(value: unknown): boolean {
 }
 
 export function readEmbeddedLorebookFromCharacterPayload(raw: Record<string, unknown>): unknown {
-  const target =
-    (raw.spec === "chara_card_v2" || raw.spec === "chara_card_v3") &&
-    raw.data &&
-    typeof raw.data === "object" &&
-    !Array.isArray(raw.data)
-      ? (raw.data as Record<string, unknown>)
-      : raw;
-
-  return target.character_book;
+  return readCharacterCardData(raw).character_book;
 }
 
 export async function inspectCharacterFilesForEmbeddedLorebooks(
