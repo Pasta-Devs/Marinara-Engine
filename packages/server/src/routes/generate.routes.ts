@@ -1594,6 +1594,9 @@ export async function generateRoutes(app: FastifyInstance) {
         swipeIndex: number;
       }> = [];
       const collectedOocMessages: string[] = [];
+      // Embed the Mari relevance-ranking query once per turn, not once per
+      // follow-up iteration (the query is invariant across the turn's passes).
+      const mariQueryEmbeddingCache = new Map<string, number[] | null>();
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
@@ -2466,9 +2469,30 @@ export async function generateRoutes(app: FastifyInstance) {
           });
 
           // ── Home Professor Mari: inject assistant knowledge & commands ──
+          // The instruction half (stablePrompt) rides the system message so it
+          // stays a static, cacheable prefix; the volatile half (name lists +
+          // fetched data) is injected as a tail user message below so a library
+          // change or a [fetch:] no longer invalidates that prefix (#4768).
+          let professorMariVolatileContext = "";
           if (isHomeProfessorMariAssistantChat) {
-            conversationSystemPrompt +=
-              "\n\n" + (await resolveProfessorMariPromptContext({ chatMeta, chars, lorebooksStore, chats, presets }));
+            const { stablePrompt, volatileContext } = await resolveProfessorMariPromptContext({
+              chatMeta,
+              chars,
+              lorebooksStore,
+              chats,
+              presets,
+              // Rank the name lists by relevance to the current message (#4768 ph3);
+              // degrades to the alphabetical list when the embedder is unavailable.
+              // Use the effective current input so a regeneration (no input.userMessage)
+              // still ranks against the preserved original text.
+              db: app.db,
+              queryText: currentUserInputContent() ?? "",
+              embeddingSource: memoryRecallEmbeddingSource,
+              vectorizerAvailable: memoryRecallVectorizerAvailable,
+              queryEmbeddingCache: mariQueryEmbeddingCache,
+            });
+            conversationSystemPrompt += "\n\n" + stablePrompt;
+            professorMariVolatileContext = volatileContext;
           }
 
           // Build the context injection (last user-role message before generation)
@@ -2575,6 +2599,21 @@ export async function generateRoutes(app: FastifyInstance) {
             // Post-history-strategy behavior stays near the generation tail; context remains last unless relocated.
             ...(convoProfileBlocks.behaviorPostHistoryBlock
               ? [{ role: "user" as const, content: convoProfileBlocks.behaviorPostHistoryBlock }]
+              : []),
+            // Home Professor Mari's name lists + fetched data, injected at the
+            // tail rather than the system prefix (#4768). contextKind "injection"
+            // means the normal history-trim pass leaves it alone (that pass only
+            // targets contextKind "history"); it is preferentially retained and
+            // only yields in the last-resort fitMessagesToContext passes once all
+            // history is gone — matching the recentSocialMediaActivityBlock pattern.
+            ...(professorMariVolatileContext.trim().length > 0
+              ? [
+                  {
+                    role: "user" as const,
+                    content: professorMariVolatileContext,
+                    contextKind: "injection" as const,
+                  },
+                ]
               : []),
           ];
           if (conversationContextMacroSlots.context) {
@@ -9538,6 +9577,8 @@ export async function generateRoutes(app: FastifyInstance) {
                   isHomeProfessorMariAssistantChat,
                   db: app.db,
                   stores: { chars, chats, lorebooksStore, presets },
+                  embeddingSource: memoryRecallEmbeddingSource,
+                  vectorizerAvailable: memoryRecallVectorizerAvailable,
                   sendAssistantAction: (data) => {
                     reply.raw.write(
                       `data: ${JSON.stringify({

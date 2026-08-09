@@ -92,6 +92,7 @@ function parseResolvedSkillCheckBody(body: string): SkillCheckResult | null {
   const modeValue = values.get("mode")?.trim().toLowerCase();
   const rollMode: SkillCheckResult["rollMode"] =
     modeValue === "advantage" ? "advantage" : modeValue === "disadvantage" ? "disadvantage" : "normal";
+  const resolution: SkillCheckResult["resolution"] = values.get("resolution")?.trim().toLowerCase() === "successes" ? "successes" : "sum";
   const explicitUsedRoll = Number.parseInt(values.get("used") ?? "", 10);
   const inferredRollFromTotal = total - modifier;
   const usedRoll = Number.isFinite(explicitUsedRoll)
@@ -118,6 +119,8 @@ function parseResolvedSkillCheckBody(body: string): SkillCheckResult | null {
     criticalSuccess,
     criticalFailure,
     rollMode,
+    resolution,
+    dice: values.get("dice")?.trim().toLowerCase(),
   };
 }
 

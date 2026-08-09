@@ -31,6 +31,8 @@ export const lorebooks = fileTable("lorebooks", {
   tags: text("tags").notNull().default("[]"),
   generatedBy: text("generated_by"),
   sourceAgentId: text("source_agent_id"),
+  /** Pre-computed book-level semantic embedding of name/description/category/tags (JSON float[]), null until vectorized (#4768). Distinct from per-entry lorebook_entries.embedding. */
+  embedding: text("embedding"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

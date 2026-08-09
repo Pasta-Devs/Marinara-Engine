@@ -151,6 +151,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Kept the first confirmed edit to a sent Roleplay message after stopping generation, including on mobile where a transient missing/default swipe index previously made the edit look stale (#4592).
 - Restored Chub NSFW search results, including cards whose current search payload exposes the canonical NSFW topic without a boolean flag; filtered result totals and pagination now follow Chub's reported count, and the page label has its missing space (#4593).
 - Kept a provider-refused prompt out of the composer when that user turn was already saved in chat history, while still restoring drafts for requests that genuinely failed before persistence (#4594).
+- Made Game Mode dice cards preserve declared dice notation and avoid presenting discarded dice or success pools as false addition equations (#4683).
 
 ## [2.4.0]
 

@@ -27,6 +27,7 @@ import {
   normalizeLorebookCategory,
   normalizePersonalExtensionCapabilities,
   type MariDbCommandResult,
+  type MariDbReadTruncation,
   type MariDbDiffSummary,
   type MariDbHistoryEntry,
   type MariDbPendingApproval,
@@ -1317,6 +1318,219 @@ function truncateStr(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
+// ── Field-aware bounding for full-object reads (#4767) ──────────────────────
+// A `.get` returns the whole parsed row, which for a heavy card (many long
+// alternate greetings, a big lorebook body) used to overflow the workspace
+// output cap and get sliced mid-field — silently, and sometimes dropping
+// name/description entirely. Instead we elide whole oversized fields (strings
+// and arrays, as a unit) largest-first, keeping the object structurally valid
+// and reporting exactly what was cut so the model can re-read any elided field
+// with `app_data { field, offset }`. A hard cap guarantees the serialized
+// overview stays under the char command cap even for pathological rows, so the
+// downstream compactOutput never has to re-slice it mid-JSON.
+const MARI_READ_OUTPUT_BUDGET = 24_000; // structured-elision target (pretty chars)
+const MARI_READ_HARD_CAP = 28_000; // absolute pretty-char ceiling, guaranteed
+const MARI_READ_FIELD_ELIDE_MIN = 200; // don't bother eliding values smaller than this
+const MARI_READ_FIELD_WINDOW_MAX = 20_000;
+// Identity fields are never elided, so a bounded overview always tells the model
+// what it is looking at even when every large field was cut.
+const MARI_NEVER_ELIDE_PATHS = new Set(["id", "name", "data.id", "data.name"]);
+// The description is important context but can legitimately be the bulk of a card;
+// elide it only as a last resort (after all other bulk), so an ordinary card keeps
+// it inline while a description-dominated one is still bounded and recoverable.
+const MARI_DEPRIORITIZED_ELIDE_PATHS = new Set(["description", "data.description"]);
+
+function prettyLength(value: unknown): number {
+  try {
+    return JSON.stringify(value, null, 2)?.length ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+function serializedSize(value: unknown): number {
+  try {
+    return JSON.stringify(value)?.length ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Path grammar: simple identifiers as `.key`, array indices as `[3]`, and any
+// other key (dots, brackets, empty, leading digits) JSON-quoted as `["key"]`, so
+// the collect→elide→drill-down round-trip survives real-world extension keys.
+function appendKeyPath(path: string, key: string): string {
+  if (/^[A-Za-z_$][\w$]*$/.test(key)) return path ? `${path}.${key}` : key;
+  return `${path}[${JSON.stringify(key)}]`;
+}
+
+function parseFieldPath(path: string): Array<string | number> {
+  const tokens: Array<string | number> = [];
+  let rest = path;
+  const token = /^\.?([A-Za-z_$][\w$]*)|^\[(\d+)\]|^\[("(?:[^"\\]|\\.)*")\]/;
+  while (rest.length > 0) {
+    const match = rest.match(token);
+    if (!match) return []; // malformed path — resolve to nothing rather than mis-index
+    if (match[1] !== undefined) tokens.push(match[1]);
+    else if (match[2] !== undefined) tokens.push(Number(match[2]));
+    else tokens.push(JSON.parse(match[3]!) as string);
+    rest = rest.slice(match[0].length);
+  }
+  return tokens;
+}
+
+// Numeric tokens index arrays; against an object they are string keys — so the
+// container type, not the token type, decides how each hop resolves. Object hops
+// resolve OWN properties only, so a caller-supplied path like "constructor" or
+// "__proto__" reads nothing instead of walking the prototype chain.
+function resolveHop(current: object, tokenValue: string | number): unknown {
+  if (Array.isArray(current)) return current[Number(tokenValue)];
+  const key = String(tokenValue);
+  if (!Object.prototype.hasOwnProperty.call(current, key)) return undefined;
+  return (current as Record<string, unknown>)[key];
+}
+
+function getByPath(root: unknown, path: string): unknown {
+  const tokens = parseFieldPath(path);
+  if (tokens.length === 0) return undefined;
+  let current: unknown = root;
+  for (const tokenValue of tokens) {
+    if (current == null || typeof current !== "object") return undefined;
+    current = resolveHop(current, tokenValue);
+  }
+  return current;
+}
+
+function setByPath(root: unknown, path: string, next: unknown): void {
+  const tokens = parseFieldPath(path);
+  if (tokens.length === 0) return;
+  let current: unknown = root;
+  for (let i = 0; i < tokens.length - 1; i += 1) {
+    if (current == null || typeof current !== "object") return;
+    current = resolveHop(current, tokens[i]!);
+  }
+  if (current == null || typeof current !== "object") return;
+  const last = tokens[tokens.length - 1]!;
+  if (Array.isArray(current)) current[Number(last)] = next;
+  else if (Object.prototype.hasOwnProperty.call(current, String(last)))
+    (current as Record<string, unknown>)[String(last)] = next;
+}
+
+// Elidable nodes are whole strings and whole arrays (elided as a unit — so a big
+// tags/greetings array becomes one placeholder rather than thousands). We recurse
+// into plain objects to reach their large fields, but never elide an object as a
+// unit, so identity siblings (name, id) always stay inline.
+function collectElidableNodes(
+  value: unknown,
+  path: string,
+  out: Array<{ path: string; size: number }>,
+): Array<{ path: string; size: number }> {
+  if (path && MARI_NEVER_ELIDE_PATHS.has(path)) return out;
+  if (typeof value === "string") {
+    if (path && value.length >= MARI_READ_FIELD_ELIDE_MIN) out.push({ path, size: value.length });
+  } else if (Array.isArray(value)) {
+    if (path) {
+      const size = serializedSize(value);
+      if (size >= MARI_READ_FIELD_ELIDE_MIN) out.push({ path, size });
+    }
+  } else if (value && typeof value === "object") {
+    for (const [key, entry] of Object.entries(value)) {
+      collectElidableNodes(entry, appendKeyPath(path, key), out);
+    }
+  }
+  return out;
+}
+
+function elisionPlaceholder(path: string, size: number): string {
+  return `[elided ${size} chars — read this field with app_data { field: "${path}" }]`;
+}
+
+function boundReadObject(output: Row, budget: number): { output: Row | string; truncation: MariDbReadTruncation } {
+  if (prettyLength(output) <= budget) return { output, truncation: { truncated: false } };
+
+  const clone = JSON.parse(JSON.stringify(output)) as Row;
+  const candidates = collectElidableNodes(clone, "", []).sort((a, b) => {
+    const depA = MARI_DEPRIORITIZED_ELIDE_PATHS.has(a.path) ? 1 : 0;
+    const depB = MARI_DEPRIORITIZED_ELIDE_PATHS.has(b.path) ? 1 : 0;
+    return depA - depB || b.size - a.size;
+  });
+
+  const fields: NonNullable<MariDbReadTruncation["fields"]> = [];
+  for (const node of candidates) {
+    if (prettyLength(clone) <= budget) break;
+    const placeholder = elisionPlaceholder(node.path, node.size);
+    if (placeholder.length >= node.size) continue; // only elide when it actually shrinks
+    setByPath(clone, node.path, placeholder);
+    fields.push({ path: node.path, fullLength: node.size, returnedLength: placeholder.length });
+  }
+
+  // Guaranteed ceiling: structured elision handles realistic cards, but a row
+  // whose bulk lives in tiny scalar fields we can't name (or JSON-quoting overhead)
+  // could still exceed the cap. Hard-cap the serialized overview so the char-level
+  // command truncation never re-slices it. Output becomes a string in this case.
+  const pretty = JSON.stringify(clone, null, 2) ?? "";
+  if (pretty.length > MARI_READ_HARD_CAP) {
+    const capped = `${pretty.slice(0, MARI_READ_HARD_CAP)}\n… overview hard-capped; re-read individual fields with field= …`;
+    return { output: capped, truncation: { truncated: true, fields, hardCapped: true } };
+  }
+  return { output: clone, truncation: { truncated: fields.length > 0, fields } };
+}
+
+function projectReadField(
+  output: Row,
+  path: string,
+  offset: number,
+  limit: number,
+): { found: false } | { found: true; value: string; meta: NonNullable<MariDbReadTruncation["field"]> } {
+  const raw = getByPath(output, path);
+  if (raw === undefined) return { found: false };
+  const text = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+  // A value that does not serialize (e.g. a function reached via an odd path) has
+  // no readable window — treat it as unresolved rather than throwing on .slice.
+  if (typeof text !== "string") return { found: false };
+  const window = text.slice(offset, offset + limit);
+  return { found: true, value: window, meta: { path, offset, returned: window.length, total: text.length } };
+}
+
+// Post-processes a structured read so a single response stays bounded while the
+// model retains a path to every byte. Only touches single-object reads (`.get`):
+// list/search results are already summarized arrays and pass straight through.
+function applyReadBounding(result: MariDbCommandResult, envelope: Row): MariDbCommandResult {
+  if (result.ok === false || result.mode !== "read") return result;
+  const output = result.output;
+  if (!output || typeof output !== "object" || Array.isArray(output)) return result;
+
+  const fieldPath = firstString(envelope, ["field"]);
+  if (fieldPath) {
+    const offset = normalizeOffset(firstNumber(envelope, ["offset"]));
+    const limit = normalizeLimit(firstNumber(envelope, ["limit"]), MARI_READ_FIELD_WINDOW_MAX, MARI_READ_FIELD_WINDOW_MAX);
+    const projected = projectReadField(output as Row, fieldPath, offset, limit);
+    if (projected.found) {
+      return {
+        ...result,
+        output: projected.value,
+        truncation: {
+          truncated: projected.meta.offset > 0 || projected.meta.returned < projected.meta.total,
+          field: projected.meta,
+        },
+      };
+    }
+    // Requested field did not resolve: return the bounded overview but flag the
+    // miss, so the model sees the real field paths (in the elision notes) and
+    // retries rather than silently getting the whole object back.
+    const overview = boundReadObject(output as Row, MARI_READ_OUTPUT_BUDGET);
+    return {
+      ...result,
+      output: overview.output,
+      truncation: { ...overview.truncation, truncated: true, unresolvedField: fieldPath },
+    };
+  }
+
+  const bounded = boundReadObject(output as Row, MARI_READ_OUTPUT_BUDGET);
+  if (!bounded.truncation.truncated) return result;
+  return { ...result, output: bounded.output, truncation: bounded.truncation };
+}
+
 function summarizeCharacterRow(row: Row): Row {
   const data = (tryParseJsonColumn(row, "data") as Record<string, unknown>) ?? {};
   return {
@@ -1704,22 +1918,27 @@ export class MariDbService {
         cwd: typeof envelope.cwd === "string" ? envelope.cwd : undefined,
       };
       const key = normalizeAppDataActionName(action);
-      if (key.startsWith("character.")) return await this.executeCharacterAction(key.slice("character.".length), envelope, context);
-      if (key.startsWith("persona.")) return await this.executePersonaAction(key.slice("persona.".length), envelope, context);
-      if (key.startsWith("lorebook.")) return await this.executeLorebookAction(key.slice("lorebook.".length), envelope, context);
-      if (key.startsWith("theme.")) return await this.executeThemeAction(key.slice("theme.".length), envelope, context);
-      if (key.startsWith("personalextension.")) {
-        return await this.executePersonalExtensionAction(key.slice("personalextension.".length), envelope, context);
-      }
-      if (key.startsWith("agent.")) return await this.executeAgentAction(key.slice("agent.".length), envelope, context);
-      if (key.startsWith("preset.")) return await this.executePresetAction(key.slice("preset.".length), envelope, context);
-      return {
-        ok: false,
-        mode: "read",
-        command,
-        error:
-          "Unsupported app_data action. Use character.*, persona.*, lorebook.*, theme.*, personal_extension.*, agent.*, or preset.* actions for structured no-shell app-data work.",
+      const dispatch = async (): Promise<MariDbCommandResult> => {
+        if (key.startsWith("character.")) return this.executeCharacterAction(key.slice("character.".length), envelope, context);
+        if (key.startsWith("persona.")) return this.executePersonaAction(key.slice("persona.".length), envelope, context);
+        if (key.startsWith("lorebook.")) return this.executeLorebookAction(key.slice("lorebook.".length), envelope, context);
+        if (key.startsWith("theme.")) return this.executeThemeAction(key.slice("theme.".length), envelope, context);
+        if (key.startsWith("personalextension.")) {
+          return this.executePersonalExtensionAction(key.slice("personalextension.".length), envelope, context);
+        }
+        if (key.startsWith("agent.")) return this.executeAgentAction(key.slice("agent.".length), envelope, context);
+        if (key.startsWith("preset.")) return this.executePresetAction(key.slice("preset.".length), envelope, context);
+        return {
+          ok: false,
+          mode: "read",
+          command,
+          error:
+            "Unsupported app_data action. Use character.*, persona.*, lorebook.*, theme.*, personal_extension.*, agent.*, or preset.* actions for structured no-shell app-data work.",
+        };
       };
+      // Field-aware bounding keeps a single read response within the workspace
+      // output cap while leaving every elided field re-readable (#4767).
+      return applyReadBounding(await dispatch(), envelope);
     } catch (err) {
       logger.warn(err, "[mari-db] structured app_data action failed");
       return { ok: false, mode: "read", command, error: err instanceof Error ? err.message : String(err) };

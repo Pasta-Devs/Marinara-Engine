@@ -48,7 +48,7 @@ export function AnimatedSkillCheckResult({ result, accentColor, animate = false,
         <span>{localizeUi("ui.dice.animatedskillcheckresult.dc")} {result.dc}{rollMode}</span>
       </div>
       <AnimatedDiceRoll
-        notation={`${result.rolls.length}d20`}
+        notation={result.dice ?? `${result.rolls.length}d20`}
         rolls={result.rolls}
         modifier={result.modifier}
         total={result.total}
@@ -58,9 +58,19 @@ export function AnimatedSkillCheckResult({ result, accentColor, animate = false,
         onDismiss={onDismiss}
         hero
         highlightValue={result.rollMode !== "normal" ? result.usedRoll : undefined}
+        resolution={result.resolution}
       />
       <div className="skill-check-roll-result">
-        <span>{result.rollMode !== "normal" ?localizeUi("ui.dice.animatedskillcheckresult.usingValue1", { value1: result.usedRoll }) :localizeUi("ui.dice.animatedskillcheckresult.rolledValue1", { value1: result.usedRoll })}</span>
+        <span>
+          {result.rollMode !== "normal"
+            ? localizeUi("ui.dice.animatedskillcheckresult.usingValue1", { value1: result.usedRoll })
+            : result.resolution === "sum" &&
+                result.rolls.length === 1 &&
+                result.usedRoll === result.rolls[0] &&
+                result.total === result.usedRoll + result.modifier
+              ? localizeUi("ui.dice.animatedskillcheckresult.rolledValue1", { value1: result.usedRoll })
+              : localizeUi("ui.dice.animatedskillcheckresult.resultValue1", { value1: result.total })}
+        </span>
         <strong>{label}</strong>
       </div>
     </div>

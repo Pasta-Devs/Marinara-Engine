@@ -20,6 +20,7 @@ import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { WhatsNewModal } from "./components/modals/WhatsNewModal";
+import { StorageMigrationNoticeModal } from "./components/modals/StorageMigrationNoticeModal";
 import { AppDialogRenderer } from "./components/ui/AppDialogRenderer";
 import { ChibiProfessorMariEasterEgg } from "./components/ui/ChibiProfessorMariEasterEgg";
 import { CsrfOriginWarningBanner } from "./components/diagnostics/CsrfOriginWarningBanner";
@@ -44,6 +45,7 @@ import {
 import { normalizeThemeCss } from "./lib/theme-css";
 import { useLegacyThemeMigration, useThemes } from "./hooks/use-themes";
 import { useSettingsSync } from "./hooks/use-settings-sync";
+import { useStorageMigrationNotice } from "./hooks/use-storage-migration-notice";
 import { useCustomNotificationSoundStatus } from "./hooks/use-custom-notification-sound";
 import { useReducedAmbientEffects } from "./hooks/use-reduced-ambient-effects";
 import { installLongTaskWarner } from "./lib/perf-diagnostics";
@@ -507,6 +509,11 @@ export function App() {
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [whatsNewResolved, setWhatsNewResolved] = useState(false);
   const handleWhatsNewResolved = useCallback(() => setWhatsNewResolved(true), []);
+  // Shares the modal's query via the cache; gating the prompter on the QUERY
+  // (pending or a notice still waiting) instead of the modal's open state
+  // closes the race where the prompter fires in the window before the notice
+  // fetch resolves.
+  const { data: migrationNotice, isPending: migrationNoticePending } = useStorageMigrationNotice();
 
   useEffect(() => {
     setCustomNotificationSoundUrl(customNotificationSound?.url ?? null);
@@ -1044,9 +1051,20 @@ export function App() {
         onOpenChange={setWhatsNewOpen}
         onResolved={handleWhatsNewResolved}
       />
-      <AgentUpdatePrompter
+      <StorageMigrationNoticeModal
         presentationAllowed={
           whatsNewResolved && !hasModalOpen && !hasAppDialogOpen && !whatsNewOpen && (isLite || !showDownloadModal)
+        }
+      />
+      <AgentUpdatePrompter
+        presentationAllowed={
+          whatsNewResolved &&
+          !hasModalOpen &&
+          !hasAppDialogOpen &&
+          !whatsNewOpen &&
+          !migrationNoticePending &&
+          !migrationNotice &&
+          (isLite || !showDownloadModal)
         }
       />
       {!isLite && <ModelDownloadModal open={showDownloadModal} onClose={() => setShowDownloadModal(false)} />}

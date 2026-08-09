@@ -11,6 +11,8 @@ export const characters = fileTable("characters", {
   comment: text("comment").notNull().default(""),
   avatarPath: text("avatar_path"),
   spriteFolderPath: text("sprite_folder_path"),
+  /** Pre-computed semantic embedding (JSON float[]), null until vectorized (#4768) */
+  embedding: text("embedding"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -81,6 +83,8 @@ export const personas = fileTable("personas", {
   aboutMe: text("about_me").notNull().default(""),
   /** Conversation mode ONLY: behavior directive + insertion strategy (JSON, empty = unset) */
   convoBehavior: text("convo_behavior").notNull().default(""),
+  /** Pre-computed semantic embedding (JSON float[]), null until vectorized (#4768) */
+  embedding: text("embedding"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

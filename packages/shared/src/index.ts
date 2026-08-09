@@ -72,6 +72,7 @@ export * from "./constants/agent-activation.js";
 export * from "./constants/impersonate.js";
 export * from "./constants/image-generation-defaults.js";
 export * from "./constants/video-generation-defaults.js";
+export * from "./constants/storage-migration-notice.js";
 export * from "./constants/video-generation-settings.js";
 export * from "./constants/image-style-profiles.js";
 export * from "./constants/security.js";

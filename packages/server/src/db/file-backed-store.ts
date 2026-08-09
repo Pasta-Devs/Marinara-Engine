@@ -9,6 +9,10 @@ import { copyFile, open, rename, unlink, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  STORAGE_MIGRATION_NOTICE_SETTINGS_KEY,
+  type StorageMigrationNotice,
+} from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import { getFileStorageDir } from "../config/runtime-config.js";
 import * as schema from "./schema/index.js";
@@ -1112,6 +1116,10 @@ class FileTableStore {
    * nothing on the ordinary insert path.
    */
   private orphanSwipeMessageIds = new Set<string>();
+  /** Manifest version read by the pre-migration gate; feeds the #4756 notice. */
+  private preMigrationManifestVersion: number | null = null;
+  /** Tables migrated monolith -> shards THIS boot; feeds the #4756 notice. */
+  private migratedTables: string[] = [];
   private shardDirsCreated = new Set<string>();
   /** Monotonic per-table write counters (#4705); bumped in markDirty, never rolled back. */
   private tableWriteGenerations = new Map<string, number>();
@@ -1155,6 +1163,10 @@ class FileTableStore {
     if (fileStoreManifestExists(this.rootDir) || tableSnapshotsExist(this.rootDir)) {
       await this.loadFileSnapshots();
     }
+
+    // AFTER the load (the row must land in the loaded table) and BEFORE the
+    // startup flush persists it alongside the migrated shards.
+    this.recordMigrationNotice();
 
     if (this.dirty || this.dirtyTables.size > 0) {
       await this.flush(true);
@@ -1394,8 +1406,9 @@ class FileTableStore {
       await rename(path, target);
     }
     await unlink(sentinelPath).catch(() => undefined);
-    // Land the version-3 manifest on the next flush.
+    // Land the current-version manifest on the next flush.
     this.dirty = true;
+    this.migratedTables.push(table);
     logger.info(
       "[file-storage] Sharded %s: %d rows into %d per-chat files (originals preserved as .pre-shard)",
       table,
@@ -1928,6 +1941,55 @@ class FileTableStore {
   }
 
   /**
+   * Persists the one-time post-migration notice (#4756) as an app_settings
+   * row so the client can explain what just happened. Durable across
+   * restarts — a headless first boot cannot lose it. An unacknowledged
+   * notice from an earlier migration is merged (its original fromFormat and
+   * table list win) rather than overwritten; an acknowledged (empty) value
+   * is replaced only when a NEW migration ran this boot. Fresh installs
+   * migrate nothing and never write one.
+   */
+  private recordMigrationNotice() {
+    if (this.migratedTables.length === 0) return;
+    const rows = this.tables.get("app_settings") ?? [];
+    const existing = rows.find((row) => row.key === STORAGE_MIGRATION_NOTICE_SETTINGS_KEY);
+    let fromFormat = this.preMigrationManifestVersion;
+    let tables = [...this.migratedTables];
+    if (existing && typeof existing.value === "string" && existing.value) {
+      try {
+        const prior = JSON.parse(existing.value) as { fromFormat?: unknown; migratedTables?: unknown };
+        // The ORIGINAL fromFormat wins the merge — including an explicit null
+        // (no manifest existed); only an absent/invalid property falls back
+        // to this boot's value.
+        if (prior.fromFormat === null || typeof prior.fromFormat === "number") fromFormat = prior.fromFormat;
+        if (Array.isArray(prior.migratedTables)) {
+          tables = [
+            ...new Set([...prior.migratedTables.filter((entry): entry is string => typeof entry === "string"), ...tables]),
+          ];
+        }
+      } catch {
+        /* unparseable prior value -> replace it */
+      }
+    }
+    const notice: StorageMigrationNotice = {
+      fromFormat,
+      toFormat: STORAGE_VERSION,
+      migratedTables: tables,
+      migratedAt: new Date().toISOString(),
+    };
+    const value = JSON.stringify(notice);
+    const updatedAt = new Date().toISOString();
+    if (existing) {
+      existing.value = value;
+      existing.updatedAt = updatedAt;
+    } else {
+      rows.push({ key: STORAGE_MIGRATION_NOTICE_SETTINGS_KEY, value, updatedAt });
+      this.tables.set("app_settings", rows);
+    }
+    this.markDirty("app_settings");
+  }
+
+  /**
    * Forward version gate, run before the shard migration: a manifest written
    * by a NEWER storage format means this build cannot read the directory, so
    * it must not mutate it either. An unparseable or absent manifest falls
@@ -1946,6 +2008,10 @@ class FileTableStore {
     } catch {
       return;
     }
+    // Captured for the post-migration notice (#4756): this is the last read
+    // of the PRE-migration manifest, so it is the only place the "migrated
+    // from format N" value exists.
+    if (typeof version === "number") this.preMigrationManifestVersion = version;
     if (typeof version === "number" && version > STORAGE_VERSION) {
       throw new StorageFormatTooNewError(version, STORAGE_VERSION);
     }

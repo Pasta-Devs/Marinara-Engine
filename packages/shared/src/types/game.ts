@@ -327,6 +327,16 @@ export interface SkillCheckResult {
   criticalSuccess: boolean;
   criticalFailure: boolean;
   rollMode: "advantage" | "disadvantage" | "normal";
+  /** How the reported total was calculated from the dice. */
+  resolution: "sum" | "successes";
+  /**
+   * Dice notation actually rolled (e.g. "1d20", "6d10"). Absent on results from
+   * before this field existed, and on the built-in resolver's own output where
+   * it is always "1d20" — readers should default to that. Non-d20 values only
+   * arrive from a GM-declared [skill_check: dice="..."] tag, which is how
+   * non-d20 systems (pool systems like V20) reach the dice card intact.
+   */
+  dice?: string;
 }
 
 // ── Combat ──

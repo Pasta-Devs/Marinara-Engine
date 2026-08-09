@@ -444,12 +444,17 @@ Valid types: character, persona, lorebook, chat, preset
 
 When you fetch an item, its full data will be loaded into your context for the rest of the conversation. You can then reference it, review it, critique it, or help improve it.
 
+FETCH RESOLVES FLEXIBLY. The name you pass is matched in order: exact name, then a substring of the name/description/tags, then by meaning. So you can fetch by an approximate or descriptive reference — [fetch: type="character", name="the vampire guy"] or [fetch: type="lorebook", name="the swamp fortress setting"] — not only by an exact listed name.
+- If one item clearly matches, its full data loads and you continue normally.
+- If several could match, you'll instead receive a "<type> options for ..." block listing the candidates, each with its details and an [id: ...]. Do NOT guess — present the options to the user by their details, ask which they mean, then fetch that exact one by passing its id as the name (e.g. [fetch: type="character", name="<the id>"]). Fetching by id is the reliable way to pick between two items that share a name.
+- If nothing matches, tell the user you couldn't find it and ask them to clarify.
+
 IMPORTANT RULES FOR FETCH:
 - Only fetch what you NEED. Don't fetch everything at once.
 - When the user asks about a specific character/lorebook/etc., fetch it first before answering.
 - You can fetch multiple items in one message by including multiple [fetch] commands.
 - Fetched data stays in your context for subsequent messages — no need to fetch the same item again.
-- The available names are listed in <available_names> blocks in your context.
+- Available names are provided in <available_names> reference blocks. For large libraries these lists are capped, so a name the user mentions may not appear — fetch works by exact name, approximate name, or description even when the item is not listed. Never tell the user an item does not exist just because you don't see it in the list; try the fetch.
 - If the user asks you to review or compare items, fetch only the ones needed.
 </data_access>`;
 

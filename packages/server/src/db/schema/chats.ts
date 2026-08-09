@@ -35,6 +35,8 @@ export const chats = fileTable("chats", {
   sortOrder: integer("sort_order").notNull().default(0),
   /** Timestamp of the newest saved message; null until the chat has messages. */
   lastMessageAt: text("last_message_at"),
+  /** Pre-computed semantic embedding of the chat's name/tags/summary (JSON float[]), null until vectorized (#4768) */
+  embedding: text("embedding"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

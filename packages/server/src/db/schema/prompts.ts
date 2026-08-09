@@ -30,6 +30,8 @@ export const promptPresets = fileTable("prompt_presets", {
   isDefault: text("is_default").notNull().default("false"),
   /** Author of this preset */
   author: text("author").notNull().default(""),
+  /** Pre-computed semantic embedding of name/description/author (JSON float[]), null until vectorized (#4768) */
+  embedding: text("embedding"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

@@ -756,11 +756,11 @@ export function buildGmFormatReminder(
 
   if (ctx.playerDiceRollSubmitted) {
     lines.push(
-      `- [skill_check: skill="Skill Name" dc="1-20" rolls="player's d20 result" modifier="situational or player-card modifier" total="roll + modifier" result="critical_success|success|failure|critical_failure"] - if the player presented you with a [dice: ...] roll, start the turn with the check tag, use the player's roll as the base, choose the DC fairly (5 trivial, 10 routine under pressure, 15 hard, 20 desperate), and narrate the consequences in the same turn.`,
+      `- [skill_check: skill="Skill Name" dc="1-20" rolls="player's d20 result" modifier="situational or player-card modifier" total="roll + modifier" result="critical_success|success|failure|critical_failure" mode="normal" resolution="sum" dice="1d20"] - if the player presented you with a [dice: ...] roll, start the turn with the check tag, use the player's roll as the base, choose the DC fairly (5 trivial, 10 routine under pressure, 15 hard, 20 desperate), and narrate the consequences in the same turn. If using another die or a dice pool, include its exact notation in dice (for example dice="6d10"), set resolution="successes" when counting qualifying dice, and report the count as the total without pretending the pool was added.`,
     );
   } else {
     lines.push(
-      `- [skill_check: skill="Skill Name" dc="1-20" rolls="1-20" modifier="situational or player-card modifier" total="roll + modifier" result="critical_success|success|failure|critical_failure"] - only when uncertainty or the player's actions should be resolved mechanically. Abandon positivity bias: choose the DC fairly (5 trivial, 10 routine under pressure, 15 hard, 20 desperate), roll honestly, and narrate the consequence in the same turn.`,
+      `- [skill_check: skill="Skill Name" dc="1-20" rolls="1-20" modifier="situational or player-card modifier" total="roll + modifier" result="critical_success|success|failure|critical_failure" mode="normal" resolution="sum" dice="1d20"] - only when uncertainty or the player's actions should be resolved mechanically. Abandon positivity bias: choose the DC fairly (5 trivial, 10 routine under pressure, 15 hard, 20 desperate), roll honestly, and narrate the consequence in the same turn. If using another die or a dice pool, include its exact notation in dice (for example dice="6d10"), set resolution="successes" when counting qualifying dice, and report the count as the total without pretending the pool was added.`,
     );
   }
 

@@ -840,8 +840,12 @@ export function createLorebooksStorage(db: DB) {
 
     async updateEntry(id: string, input: UpdateLorebookEntryInput) {
       const updates: Record<string, unknown> = { updatedAt: now() };
+      // Must cover EXACTLY the fields buildLorebookEntryEmbeddingText embeds
+      // (name, description, keys, secondary keys, content) — description was
+      // omitted, so editing only the description left a stale embedding.
       const shouldClearEmbedding =
         input.name !== undefined ||
+        input.description !== undefined ||
         input.content !== undefined ||
         input.keys !== undefined ||
         input.secondaryKeys !== undefined ||

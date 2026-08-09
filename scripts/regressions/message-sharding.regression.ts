@@ -26,6 +26,7 @@ import {
   StorageFormatTooNewError,
 } from "../../packages/server/src/db/file-backed-store.js";
 import {
+  appSettings,
   chats,
   gameCheckpoints,
   memoryChunks,
@@ -936,6 +937,118 @@ assert.equal(
     assert.ok(
       readdirSync(join(dir, "tables")).some((name) => /^memory_chunks\.json\.pre-shard-.+/.test(name)),
       "the re-migrated monolith is preserved under a timestamped .pre-shard- name",
+    );
+  } finally {
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ── The post-migration notice marker (#4756) ──
+// A migration boot writes a durable app_settings marker the client shows
+// once; fresh installs never write one; an acknowledged (cleared) marker is
+// not resurrected by later boots that migrate nothing.
+
+{
+  const dir = tempStorageDir();
+  mkdirSync(join(dir, "tables"), { recursive: true });
+  writeFileSync(join(dir, "tables", "messages.json"), JSON.stringify([messageRow("m-1", "chat-x", "old world")]));
+  writeFileSync(
+    join(dir, "manifest.json"),
+    JSON.stringify({ version: 2, savedAt: "2026-08-08T00:00:00.000Z", backend: "file-native", tables: {} }),
+  );
+  const db = await createFileNativeDB();
+  try {
+    const settings = JSON.parse(readFileSync(join(dir, "tables", "app_settings.json"), "utf8")) as Array<{
+      key: string;
+      value: string;
+    }>;
+    const marker = settings.find((row) => row.key === "storage-migration-notice");
+    assert.ok(marker, "a migration boot persists the notice marker");
+    const notice = JSON.parse(marker!.value) as { fromFormat: number; toFormat: number; migratedTables: string[] };
+    assert.equal(notice.fromFormat, 2, "the notice records the pre-migration format");
+    assert.equal(notice.toFormat, STORAGE_VERSION, "the notice records the current format");
+    assert.ok(notice.migratedTables.includes("messages"), "the notice lists the migrated tables");
+
+    // Acknowledge, then boot again without a migration: stays acknowledged.
+    await db.update(appSettings).set({ value: "" }).where(eq(appSettings.key, "storage-migration-notice"));
+    await db._fileStore.flush();
+  } finally {
+    await db._fileStore.close();
+  }
+  const db2 = await createFileNativeDB();
+  try {
+    const settings = JSON.parse(readFileSync(join(dir, "tables", "app_settings.json"), "utf8")) as Array<{
+      key: string;
+      value: string;
+    }>;
+    const marker = settings.find((row) => row.key === "storage-migration-notice");
+    assert.equal(marker?.value, "", "an acknowledged notice is not resurrected by a migration-free boot");
+  } finally {
+    await db2._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+{
+  const dir = tempStorageDir();
+  const db = await createFileNativeDB();
+  try {
+    await db.insert(chats).values({ id: "chat-a", name: "A", mode: "conversation" });
+    await db._fileStore.flush();
+    const settings = existsSync(join(dir, "tables", "app_settings.json"))
+      ? (JSON.parse(readFileSync(join(dir, "tables", "app_settings.json"), "utf8")) as Array<{ key: string }>)
+      : [];
+    assert.equal(
+      settings.some((row) => row.key === "storage-migration-notice"),
+      false,
+      "a fresh install migrates nothing and never writes the notice marker",
+    );
+  } finally {
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// An UNACKNOWLEDGED prior notice merges with a new migration instead of
+// being overwritten: the original fromFormat wins and the table lists union.
+
+{
+  const dir = tempStorageDir();
+  mkdirSync(join(dir, "tables"), { recursive: true });
+  writeFileSync(
+    join(dir, "tables", "app_settings.json"),
+    JSON.stringify([
+      {
+        key: "storage-migration-notice",
+        value: JSON.stringify({ fromFormat: 2, toFormat: 3, migratedTables: ["messages"], migratedAt: "t" }),
+        updatedAt: "2026-08-08T00:00:00.000Z",
+      },
+    ]),
+  );
+  writeFileSync(
+    join(dir, "tables", "memory_chunks.json"),
+    JSON.stringify([
+      { id: "chunk-1", chatId: "chat-x", content: "c", messageCount: 1, firstMessageAt: "t", lastMessageAt: "t", createdAt: "2026-08-08T10:00:00.000Z" },
+    ]),
+  );
+  writeFileSync(
+    join(dir, "manifest.json"),
+    JSON.stringify({ version: 3, savedAt: "2026-08-08T00:00:00.000Z", backend: "file-native", tables: {} }),
+  );
+  const db = await createFileNativeDB();
+  try {
+    const settings = JSON.parse(readFileSync(join(dir, "tables", "app_settings.json"), "utf8")) as Array<{
+      key: string;
+      value: string;
+    }>;
+    const marker = settings.find((row) => row.key === "storage-migration-notice");
+    const notice = JSON.parse(marker!.value) as { fromFormat: number; toFormat: number; migratedTables: string[] };
+    assert.equal(notice.fromFormat, 2, "the prior unacknowledged notice's fromFormat wins the merge");
+    assert.equal(notice.toFormat, STORAGE_VERSION, "toFormat advances to the current format");
+    assert.ok(
+      notice.migratedTables.includes("messages") && notice.migratedTables.includes("memory_chunks"),
+      "the migrated-table lists union across the merged notices",
     );
   } finally {
     await db._fileStore.close();

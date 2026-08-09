@@ -87,6 +87,7 @@ import {
   type TTSConfig,
   type GameNpc,
   type SkillCheckResult,
+  formatSkillCheckResultSummary,
 } from "@marinara-engine/shared";
 import type { CharacterMap, PersonaInfo } from "../chat/chat-area.types";
 import { MESSAGE_SELECTION_SURFACE_CLASS } from "../chat/message-selection-styles";
@@ -944,18 +945,7 @@ function formatSkillCheckLogContent(message: NarrationMessage): NarrationSegment
   const skillChecks = parseGmTags(message.content || "").skillChecks;
   if (skillChecks.length === 0) return [];
 
-  const formatResult = (result: SkillCheckResult): string => {
-    const label = result.criticalSuccess
-      ? "Critical success"
-      : result.criticalFailure
-        ? "Critical failure"
-        : result.success
-          ? "Success"
-          : "Failure";
-    const modifier = result.modifier === 0 ? "" : ` ${result.modifier > 0 ? "+" : ""}${result.modifier}`;
-    const rollMode = result.rollMode !== "normal" ? ` (${result.rollMode})` : "";
-    return `${result.skill} check (DC ${result.dc}): [${result.rolls.join(", ")}]${modifier}${rollMode} = ${result.total}. ${label}.`;
-  };
+  const formatResult = (result: SkillCheckResult): string => formatSkillCheckResultSummary(result);
 
   return skillChecks.map((skillCheck, index) => {
     const result = skillCheck.resolvedResult;

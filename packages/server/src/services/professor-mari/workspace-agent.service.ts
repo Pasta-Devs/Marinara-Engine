@@ -55,6 +55,7 @@ import {
 } from "@marinara-engine/shared";
 import type {
   MariDbCommandResult,
+  MariDbReadTruncation,
   MariDependencyTarget,
   MariGuidedPlanStep,
   MariSuggestionChip,
@@ -357,7 +358,7 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
   {
     name: "app_data",
     description:
-      "Read or change live app data through structured actions, without shell commands. Use this for characters, character folders, personas, lorebooks, lorebook entries, themes, Personal Extension drafts, agents, and prompt presets. lorebook.entries returns entry summaries; call lorebook.getEntry with entryId to read one complete entry body.",
+      "Read or change live app data through structured actions, without shell commands. Use this for characters, character folders, personas, lorebooks, lorebook entries, themes, Personal Extension drafts, agents, and prompt presets. lorebook.entries returns entry summaries; call lorebook.getEntry with entryId to read one complete entry body. Single-item reads (e.g. character.get) are size-bounded: oversized fields come back elided with a note naming each one — re-read any elided field in full by passing field=\"<path>\" (e.g. field=\"data.alternate_greetings[0]\"), optionally with offset to page through a long value.",
     parameters: {
       type: "object",
       properties: {
@@ -377,6 +378,12 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
         extensionId: { type: "string" },
         query: { type: "string" },
         limit: { type: "integer", minimum: 1 },
+        field: {
+          type: "string",
+          description:
+            'Dotted/indexed path of a single field to read in full from a get result, e.g. "data.alternate_greetings[0]". Use the paths named in an elision note.',
+        },
+        offset: { type: "integer", minimum: 0, description: "Start character offset when paging through a field= read." },
         name: { type: "string" },
         version: { type: "string" },
         description: { type: "string" },
@@ -705,6 +712,46 @@ function stringifyOutput(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+// Renders the structured read-bounding signal (#4767) into a short instruction
+// the model can act on, so a size-bounded read never looks like a silent cut.
+// The note itself is capped so it can never grow toward the output limit.
+const MARI_MAX_NOTE_FIELDS = 20;
+
+function formatMariReadTruncation(truncation: MariDbReadTruncation | undefined): string | null {
+  if (!truncation?.truncated) return null;
+  if (truncation.field) {
+    const { path, offset, returned, total } = truncation.field;
+    const end = offset + returned;
+    const more = end < total ? ` Re-read with field="${path}" offset=${end} for the next window.` : "";
+    return `Field "${path}": showing characters ${offset}–${end} of ${total}.${more}`;
+  }
+  const lines: string[] = [];
+  const fields = truncation.fields ?? [];
+  if (truncation.unresolvedField) {
+    const hint = fields.length > 0 ? " Valid field paths are named below." : "";
+    lines.push(
+      `Requested field "${truncation.unresolvedField}" was not found on this item; showing the bounded overview instead.${hint}`,
+    );
+  }
+  if (fields.length > 0) {
+    lines.push(
+      'Note: oversized fields were elided to fit the output limit. Read any one in full by repeating this action with field="<path>" (add offset to page a long value):',
+    );
+    for (const entry of fields.slice(0, MARI_MAX_NOTE_FIELDS)) {
+      lines.push(`  - ${entry.path} (${entry.fullLength} chars)`);
+    }
+    if (fields.length > MARI_MAX_NOTE_FIELDS) {
+      lines.push(`  … and ${fields.length - MARI_MAX_NOTE_FIELDS} more elided field(s).`);
+    }
+  }
+  if (truncation.hardCapped) {
+    lines.push(
+      "The overview was hard-capped to fit the output limit; re-read specific fields with field= for their complete values.",
+    );
+  }
+  return lines.length > 0 ? lines.join("\n") : null;
 }
 
 function compactMutationResult(result: MariDbCommandResult): MariDbCommandResult | Record<string, unknown> {
@@ -2695,6 +2742,7 @@ ${sections.join("\n\n")}
     }
     const printable =
       isRecord(result) && "output" in result && !("summary" in result) ? result.output : compactMutationResult(result);
+    const truncationNote = formatMariReadTruncation(result.truncation);
     const output = compactOutput(
       [
         `Command: app_data ${action}`,
@@ -2702,6 +2750,7 @@ ${sections.join("\n\n")}
         "",
         "stdout:",
         stringifyOutput(printable),
+        ...(truncationNote ? ["", truncationNote] : []),
       ].join("\n"),
     );
     if (result.ok === false) throw new Error(output);
