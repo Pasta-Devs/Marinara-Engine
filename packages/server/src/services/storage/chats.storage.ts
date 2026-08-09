@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Storage: Chats
 // ──────────────────────────────────────────────
-import { eq, desc, and, gt, inArray, isNull, isNotNull, lt } from "../../db/file-query.js";
+import { eq, ne, desc, and, gt, inArray, isNull, isNotNull, lt } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import {
   chats,
@@ -458,6 +458,73 @@ export function createChatsStorage(db: DB) {
     if (!hasSharedLocalFile && existsSync(galleryDir)) rmSync(galleryDir, { recursive: true, force: true });
   }
 
+  async function removeChatDatabaseRecords(database: DB, chatId: string): Promise<string[]> {
+    await database.delete(agentRuns).where(eq(agentRuns.chatId, chatId));
+    await database.delete(agentMemory).where(eq(agentMemory.chatId, chatId));
+    await database.delete(gameCheckpoints).where(eq(gameCheckpoints.chatId, chatId));
+    await database.delete(gameStateSnapshots).where(eq(gameStateSnapshots.chatId, chatId));
+    await database.delete(spatialContextSnapshots).where(eq(spatialContextSnapshots.chatId, chatId));
+    await database.delete(gameEngineState).where(eq(gameEngineState.chatId, chatId));
+    await database.delete(conversationCallMessages).where(eq(conversationCallMessages.chatId, chatId));
+    await database.delete(conversationCallSessions).where(eq(conversationCallSessions.chatId, chatId));
+    const storyboards = await database
+      .select({ id: gameTurnStoryboards.id })
+      .from(gameTurnStoryboards)
+      .where(eq(gameTurnStoryboards.chatId, chatId));
+    for (const storyboard of storyboards) {
+      await database
+        .delete(gameTurnStoryboardKeyframes)
+        .where(eq(gameTurnStoryboardKeyframes.storyboardId, storyboard.id));
+    }
+    await database.delete(gameTurnStoryboards).where(eq(gameTurnStoryboards.chatId, chatId));
+    await database.delete(gameSceneVideos).where(eq(gameSceneVideos.chatId, chatId));
+    const galleryFiles = await database
+      .select({ filePath: chatImages.filePath })
+      .from(chatImages)
+      .where(eq(chatImages.chatId, chatId));
+    await database.delete(chatImages).where(eq(chatImages.chatId, chatId));
+    await database.delete(chats).where(eq(chats.id, chatId));
+    return galleryFiles.map((image) => image.filePath);
+  }
+
+  async function cleanupDeletedChatFiles(chatId: string, galleryFilePaths: string[]): Promise<void> {
+    for (const filePath of galleryFilePaths) {
+      try {
+        await unlinkGalleryFileIfUnreferenced({ db, filePath });
+      } catch (error) {
+        logger.warn(error, "Failed to remove gallery file after deleting chat %s", chatId);
+      }
+    }
+
+    const localPathPrefix = `${chatId}/`;
+    const hasSharedLocalFile = (
+      await Promise.all(
+        galleryFilePaths
+          .filter((filePath) => filePath.replace(/\\/g, "/").startsWith(localPathPrefix))
+          .map(async (filePath) => {
+            try {
+              return await galleryFileHasReferences(db, filePath);
+            } catch (error) {
+              logger.warn(error, "Failed to check gallery references after deleting chat %s", chatId);
+              return true;
+            }
+          }),
+      )
+    ).some(Boolean);
+    const directories = [
+      ...(hasSharedLocalFile ? [] : [join(GALLERY_DIR, chatId)]),
+      join(GAME_SCENE_VIDEOS_DIR, chatId),
+    ];
+    for (const directory of directories) {
+      if (!existsSync(directory)) continue;
+      try {
+        rmSync(directory, { recursive: true, force: true });
+      } catch (error) {
+        logger.warn(error, "Failed to remove files after deleting chat %s", chatId);
+      }
+    }
+  }
+
   return {
     async list() {
       await ensureChatLastMessageAtBackfilled();
@@ -766,46 +833,29 @@ export function createChatsStorage(db: DB) {
     },
 
     async remove(id: string) {
-      // Clean up agent data referencing this chat
-      await db.delete(agentRuns).where(eq(agentRuns.chatId, id));
-      await db.delete(agentMemory).where(eq(agentMemory.chatId, id));
-      await db.delete(gameCheckpoints).where(eq(gameCheckpoints.chatId, id));
-      await db.delete(gameStateSnapshots).where(eq(gameStateSnapshots.chatId, id));
-      await db.delete(spatialContextSnapshots).where(eq(spatialContextSnapshots.chatId, id));
-      await db.delete(gameEngineState).where(eq(gameEngineState.chatId, id));
-      await db.delete(conversationCallMessages).where(eq(conversationCallMessages.chatId, id));
-      await db.delete(conversationCallSessions).where(eq(conversationCallSessions.chatId, id));
-      const storyboards = await db
-        .select({ id: gameTurnStoryboards.id })
-        .from(gameTurnStoryboards)
-        .where(eq(gameTurnStoryboards.chatId, id));
-      for (const storyboard of storyboards) {
-        await db.delete(gameTurnStoryboardKeyframes).where(eq(gameTurnStoryboardKeyframes.storyboardId, storyboard.id));
-      }
-      await db.delete(gameTurnStoryboards).where(eq(gameTurnStoryboards.chatId, id));
-      await db.delete(gameSceneVideos).where(eq(gameSceneVideos.chatId, id));
-
-      // Clean up gallery images (DB records + files on disk)
-      await cleanupChatGallery(id);
-      const videoDir = join(GAME_SCENE_VIDEOS_DIR, id);
-      if (existsSync(videoDir)) rmSync(videoDir, { recursive: true, force: true });
-
-      await db.delete(chats).where(eq(chats.id, id));
+      const galleryFilePaths = await db.transaction((tx) => removeChatDatabaseRecords(tx, id));
+      await cleanupDeletedChatFiles(id, galleryFilePaths);
     },
 
     /** Atomically remove a marked Roleplay DM thread only while it is still empty. */
     async removeEmptyRoleplayDmChat(id: string): Promise<boolean> {
-      return db.transaction(async () => {
-        const rows = await db.select().from(chats).where(eq(chats.id, id)).limit(1);
+      const galleryFilePaths = await db.transaction(async (tx) => {
+        const rows = await tx.select().from(chats).where(eq(chats.id, id)).limit(1);
         const chat = rows[0];
-        if (!chat) return false;
+        if (!chat) return null;
         const metadata = parseMetadata(chat.metadata);
-        if (metadata.roleplayDmThread !== true && typeof metadata.dmOriginChatId !== "string") return false;
-        const existingMessages = await db.select({ id: messages.id }).from(messages).where(eq(messages.chatId, id)).limit(1);
-        if (existingMessages.length > 0) return false;
-        await this.remove(id);
-        return true;
+        if (metadata.roleplayDmThread !== true && typeof metadata.dmOriginChatId !== "string") return null;
+        const existingMessages = await tx
+          .select({ id: messages.id })
+          .from(messages)
+          .where(eq(messages.chatId, id))
+          .limit(1);
+        if (existingMessages.length > 0) return null;
+        return removeChatDatabaseRecords(tx, id);
       });
+      if (!galleryFilePaths) return false;
+      await cleanupDeletedChatFiles(id, galleryFilePaths);
+      return true;
     },
 
     /** Delete all chats in a group (all branches). */
@@ -920,7 +970,7 @@ export function createChatsStorage(db: DB) {
       const rows = await db
         .select()
         .from(messages)
-        .where(eq(messages.chatId, chatId))
+        .where(and(eq(messages.chatId, chatId), ne(messages.role, "system")))
         .orderBy(desc(messages.createdAt), desc(messages.id))
         .limit(Math.max(1, Math.floor(limit)));
       return rows.reverse();
