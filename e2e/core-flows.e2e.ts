@@ -12935,11 +12935,13 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
   const content = page.locator('[data-component="HomeBrowserHub.Content"]');
   const sprite = page.locator('[data-component="HomeBrowserHub.ProfessorAssistantSprite"]');
   const bubble = page.locator('[data-component="HomeBrowserHub.ProfessorAssistantBubble"]');
+  const dragAnimation = page.locator('[data-component="HomeBrowserHub.ProfessorDragAnimation"]');
   await expect(assistant).toBeVisible({ timeout: 6_000 });
   await expect(sprite).toBeVisible();
   await sprite.hover();
   await expect(handle).toBeVisible();
   await expect(handle).toHaveCSS("opacity", "1");
+  await expect(dragAnimation).toBeHidden();
 
   const [handleBounds, initialSpriteBounds, contentBounds] = await Promise.all([
     handle.boundingBox(),
@@ -12952,9 +12954,14 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
   await page.mouse.move(handleBounds!.x + handleBounds!.width / 2, handleBounds!.y + handleBounds!.height / 2);
   await page.mouse.down();
   await expect(assistant).toHaveAttribute("data-dragging", "true");
-  const dragAnimation = page.locator('[data-component="HomeBrowserHub.ProfessorDragAnimation"]');
   await expect(dragAnimation).toBeVisible();
   await expect(bubble).toContainText("W-What are you doing? Put me down! (˶>⩊<˶)");
+  await page.waitForTimeout(80);
+  const firstDragTimeline = await dragAnimation.evaluate((element) => ({
+    currentTime: Number(element.getAnimations()[0]?.currentTime ?? 0),
+    frame: getComputedStyle(element).backgroundPositionX,
+  }));
+  expect(["3.1%", "34.48%", "66.12%", "98.15%"]).toContain(firstDragTimeline.frame);
   const dragAnimationBounds = await dragAnimation.boundingBox();
   expect(dragAnimationBounds).not.toBeNull();
   const dragScaleX = dragAnimationBounds!.width / initialSpriteBounds!.width;
@@ -12966,6 +12973,12 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
     contentBounds!.x + contentBounds!.width - 16 - initialSpriteBounds!.width * (1 - 0.45);
   await page.mouse.move(rightEdgeGrabX, contentBounds!.y + 220, { steps: 6 });
   await expect(bubble).toHaveAttribute("data-tail-side", "right");
+  const movedDragTimeline = await dragAnimation.evaluate((element) => ({
+    currentTime: Number(element.getAnimations()[0]?.currentTime ?? 0),
+    frame: getComputedStyle(element).backgroundPositionX,
+  }));
+  expect(movedDragTimeline.currentTime).toBeGreaterThan(firstDragTimeline.currentTime);
+  expect(["3.1%", "34.48%", "66.12%", "98.15%"]).toContain(movedDragTimeline.frame);
   const rightTailStyle = await bubble.evaluate((element) => {
     const tail = getComputedStyle(element, "::before");
     return {
@@ -12980,6 +12993,7 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
   expect(rightTailStyle.transform).toBe("matrix(-1, 0, 0, 1, 0, 0)");
   await page.mouse.up();
   await expect(assistant).toHaveAttribute("data-dragging", "false");
+  await expect(dragAnimation).toBeHidden();
   await expect(bubble).toHaveAttribute("data-tail-side", "right");
 
   await sprite.hover();
@@ -12992,6 +13006,9 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
   await page.mouse.down();
   await expect(assistant).toHaveAttribute("data-dragging", "true");
   await expect(dragAnimation).toBeVisible();
+  expect(
+    await dragAnimation.evaluate((element) => Number(element.getAnimations()[0]?.currentTime ?? Number.POSITIVE_INFINITY)),
+  ).toBeLessThan(150);
 
   const dragTarget = {
     x: contentBounds!.x + contentBounds!.width * 0.35,
@@ -13029,7 +13046,7 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
   );
   await page.mouse.up();
   await expect(assistant).toHaveAttribute("data-dragging", "false");
-  await expect(dragAnimation).toHaveCount(0);
+  await expect(dragAnimation).toBeHidden();
   await expect
     .poll(() =>
       page.evaluate(() => {

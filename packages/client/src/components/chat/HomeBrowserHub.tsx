@@ -118,6 +118,27 @@ type ProfessorAssistantDragLayout = {
   bubbleHeight: number;
 };
 
+function getProfessorAssistantBubblePlacement(
+  layout: ProfessorAssistantDragLayout,
+  position: ProfessorAssistantPosition,
+) {
+  const overlap = 12;
+  const availableRight = layout.boundaryRight - (position.x + layout.spriteWidth);
+  const preferBubbleOnLeft = availableRight < layout.bubbleWidth - overlap;
+  const preferredLeft = preferBubbleOnLeft
+    ? position.x - layout.bubbleWidth + overlap
+    : position.x + layout.spriteWidth - overlap;
+  const maxBubbleLeft = Math.max(layout.boundaryLeft, layout.boundaryRight - layout.bubbleWidth);
+  const left = Math.max(layout.boundaryLeft, Math.min(maxBubbleLeft, preferredLeft));
+  const preferredTop = position.y + layout.spriteHeight * 0.6 - layout.bubbleHeight / 2;
+  const maxBubbleTop = Math.max(layout.boundaryTop, layout.boundaryBottom - layout.bubbleHeight);
+  return {
+    bubbleOnLeft: left + layout.bubbleWidth / 2 < position.x + layout.spriteWidth / 2,
+    left,
+    top: Math.max(layout.boundaryTop, Math.min(maxBubbleTop, preferredTop)),
+  };
+}
+
 function clampProfessorAssistantPosition(value: number) {
   return Math.max(0, Math.min(1, value));
 }
@@ -753,6 +774,9 @@ function FloatingProfessorMari({
   const overlayRef = useRef<HTMLElement | null>(null);
   const spriteRef = useRef<HTMLDivElement | null>(null);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
+  const dragAnimationRef = useRef<HTMLSpanElement | null>(null);
+  const dragMoveFrameRef = useRef<number | null>(null);
+  const pendingDragPositionRef = useRef<ProfessorAssistantPosition | null>(null);
   const normalizedPositionRef = useRef<ProfessorAssistantPosition | null>(readProfessorAssistantPosition());
   const positionRef = useRef<ProfessorAssistantPosition | null>(null);
   const dragLayoutRef = useRef<ProfessorAssistantDragLayout | null>(null);
@@ -893,7 +917,10 @@ function FloatingProfessorMari({
     () => () => {
       clearTimers();
       if (focusFrameRef.current !== null) window.cancelAnimationFrame(focusFrameRef.current);
+      if (dragMoveFrameRef.current !== null) window.cancelAnimationFrame(dragMoveFrameRef.current);
       focusFrameRef.current = null;
+      dragMoveFrameRef.current = null;
+      pendingDragPositionRef.current = null;
       dragRef.current = null;
       document.documentElement.classList.remove("mari-home-professor-drag-active");
     },
@@ -903,6 +930,9 @@ function FloatingProfessorMari({
   useEffect(() => {
     if (!pageActive || !enabled) {
       clearTimers();
+      if (dragMoveFrameRef.current !== null) window.cancelAnimationFrame(dragMoveFrameRef.current);
+      dragMoveFrameRef.current = null;
+      pendingDragPositionRef.current = null;
       dragRef.current = null;
       document.documentElement.classList.remove("mari-home-professor-drag-active");
       setDragging(false);
@@ -938,6 +968,19 @@ function FloatingProfessorMari({
     return clearTimers;
   }, [clearTimers, enabled, pageActive, reduceMotion]);
 
+  const applyProfessorDragPosition = useCallback((position: ProfessorAssistantPosition) => {
+    const sprite = spriteRef.current;
+    const bubble = bubbleRef.current;
+    const layout = dragLayoutRef.current;
+    if (!sprite || !bubble || !layout) return;
+    const placement = getProfessorAssistantBubblePlacement(layout, position);
+    sprite.style.left = `${position.x}px`;
+    sprite.style.top = `${position.y}px`;
+    bubble.style.left = `${placement.left}px`;
+    bubble.style.top = `${placement.top}px`;
+    bubble.dataset.tailSide = placement.bubbleOnLeft ? "right" : "left";
+  }, []);
+
   const beginProfessorDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
     if (!desktopDragEnabled || !dragSpriteReady || !dragLayoutRef.current || !positionRef.current) return;
     event.preventDefault();
@@ -951,8 +994,12 @@ function FloatingProfessorMari({
       offsetX: spriteBounds.width * PROFESSOR_ASSISTANT_HOOD_GRAB_X,
       offsetY: spriteBounds.height * PROFESSOR_ASSISTANT_HOOD_GRAB_Y,
     };
+    if (dragMoveFrameRef.current !== null) window.cancelAnimationFrame(dragMoveFrameRef.current);
+    dragMoveFrameRef.current = null;
+    pendingDragPositionRef.current = null;
+    for (const animation of dragAnimationRef.current?.getAnimations() ?? []) animation.currentTime = 0;
     document.documentElement.classList.add("mari-home-professor-drag-active");
-    setDragging(true);
+    flushSync(() => setDragging(true));
   };
 
   const moveProfessorDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
@@ -967,7 +1014,14 @@ function FloatingProfessorMari({
       y: Math.max(layout.minY, Math.min(layout.maxY, event.clientY - overlayBounds.top - drag.offsetY)),
     };
     positionRef.current = nextPosition;
-    setDragPosition(nextPosition);
+    pendingDragPositionRef.current = nextPosition;
+    if (dragMoveFrameRef.current !== null) return;
+    dragMoveFrameRef.current = window.requestAnimationFrame(() => {
+      dragMoveFrameRef.current = null;
+      const pendingPosition = pendingDragPositionRef.current;
+      pendingDragPositionRef.current = null;
+      if (pendingPosition) applyProfessorDragPosition(pendingPosition);
+    });
   };
 
   const finishProfessorDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
@@ -976,11 +1030,16 @@ function FloatingProfessorMari({
     const position = positionRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     dragRef.current = null;
+    if (dragMoveFrameRef.current !== null) window.cancelAnimationFrame(dragMoveFrameRef.current);
+    dragMoveFrameRef.current = null;
+    pendingDragPositionRef.current = null;
+    if (position) applyProfessorDragPosition(position);
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
     document.documentElement.classList.remove("mari-home-professor-drag-active");
     setDragging(false);
     if (!layout || !position) return;
+    setDragPosition(position);
     const normalized = {
       x: layout.maxX === layout.minX ? 0 : (position.x - layout.minX) / (layout.maxX - layout.minX),
       y: layout.maxY === layout.minY ? 0 : (position.y - layout.minY) / (layout.maxY - layout.minY),
@@ -1020,34 +1079,24 @@ function FloatingProfessorMari({
     rememberProfessorAssistantPosition(normalized);
   };
 
+  const renderedDragPosition = dragging ? positionRef.current : dragPosition;
   const desktopSpriteStyle = useMemo<CSSProperties | undefined>(() => {
     if (!desktopDragEnabled) return undefined;
-    if (!dragPosition) return { visibility: "hidden" };
-    return { left: dragPosition.x, top: dragPosition.y };
-  }, [desktopDragEnabled, dragPosition]);
+    if (!renderedDragPosition) return { visibility: "hidden" };
+    return { left: renderedDragPosition.x, top: renderedDragPosition.y };
+  }, [desktopDragEnabled, renderedDragPosition]);
 
   const desktopBubblePlacement = useMemo(() => {
-    if (!desktopDragEnabled || !dragLayout || !dragPosition) return null;
-    const overlap = 12;
-    const availableRight = dragLayout.boundaryRight - (dragPosition.x + dragLayout.spriteWidth);
-    const preferBubbleOnLeft = availableRight < dragLayout.bubbleWidth - overlap;
-    const preferredLeft = preferBubbleOnLeft
-      ? dragPosition.x - dragLayout.bubbleWidth + overlap
-      : dragPosition.x + dragLayout.spriteWidth - overlap;
-    const maxBubbleLeft = Math.max(dragLayout.boundaryLeft, dragLayout.boundaryRight - dragLayout.bubbleWidth);
-    const bubbleLeft = Math.max(dragLayout.boundaryLeft, Math.min(maxBubbleLeft, preferredLeft));
-    const preferredTop = dragPosition.y + dragLayout.spriteHeight * 0.6 - dragLayout.bubbleHeight / 2;
-    const maxBubbleTop = Math.max(dragLayout.boundaryTop, dragLayout.boundaryBottom - dragLayout.bubbleHeight);
-    const bubbleOnLeft =
-      bubbleLeft + dragLayout.bubbleWidth / 2 < dragPosition.x + dragLayout.spriteWidth / 2;
+    if (!desktopDragEnabled || !dragLayout || !renderedDragPosition) return null;
+    const placement = getProfessorAssistantBubblePlacement(dragLayout, renderedDragPosition);
     return {
-      bubbleOnLeft,
+      bubbleOnLeft: placement.bubbleOnLeft,
       style: {
-        left: bubbleLeft,
-        top: Math.max(dragLayout.boundaryTop, Math.min(maxBubbleTop, preferredTop)),
+        left: placement.left,
+        top: placement.top,
       } satisfies CSSProperties,
     };
-  }, [desktopDragEnabled, dragLayout, dragPosition]);
+  }, [desktopDragEnabled, dragLayout, renderedDragPosition]);
 
   if (!pageActive || !enabled) return null;
   if (!visible) {
@@ -1165,58 +1214,56 @@ function FloatingProfessorMari({
             <GripVertical size="0.9rem" />
           </span>
         ) : null}
-        {dragging ? (
+        {desktopDragEnabled && dragSpriteReady ? (
           <span
+            ref={dragAnimationRef}
             className="mari-home-professor-popup__drag-frame absolute z-[5] bg-no-repeat [background-size:400%_100%]"
             style={{ backgroundImage: `url(${MARI_ASSISTANT_DRAG_SHEET})` }}
             aria-hidden="true"
             data-component="HomeBrowserHub.ProfessorDragAnimation"
           />
-        ) : (
-          <>
-            <span
-              className={cn(
-                "mari-home-professor-popup__arrival-frame absolute inset-0 z-[2] bg-no-repeat opacity-0 [background-size:400%_100%]",
-                phase === "arriving" && "opacity-100",
-              )}
-              style={{ backgroundImage: `url(${MARI_ASSISTANT_ARRIVAL_SHEET})` }}
-              aria-hidden="true"
+        ) : null}
+        <div className="mari-home-professor-popup__rest-frame absolute inset-0" aria-hidden="true">
+          <span
+            className={cn(
+              "mari-home-professor-popup__arrival-frame absolute inset-0 z-[2] bg-no-repeat opacity-0 [background-size:400%_100%]",
+              phase === "arriving" && "opacity-100",
+            )}
+            style={{ backgroundImage: `url(${MARI_ASSISTANT_ARRIVAL_SHEET})` }}
+          />
+          <span
+            className={cn(
+              "mari-home-professor-popup__idle-stage absolute inset-0 z-[1] opacity-0",
+              phase === "idle" && "mari-home-professor-popup__idle-stage--active opacity-100",
+            )}
+          >
+            <img
+              src={MARI_ASSISTANT_IDLE}
+              alt=""
+              draggable={false}
+              className="mari-home-professor-popup__idle absolute inset-0 h-full w-full object-contain object-bottom"
             />
-            <span
+            <img
+              src={MARI_ASSISTANT_BLINK}
+              alt=""
+              draggable={false}
+              className="mari-home-professor-popup__blink absolute inset-0 h-full w-full object-contain object-bottom"
+            />
+          </span>
+          {phase === "map" || phase === "shrug" ? (
+            <img
+              src={phase === "map" ? MARI_ASSISTANT_MAP : MARI_ASSISTANT_SHRUG}
+              alt=""
+              draggable={false}
               className={cn(
-                "mari-home-professor-popup__idle-stage absolute inset-0 z-[1] opacity-0",
-                phase === "idle" && "mari-home-professor-popup__idle-stage--active opacity-100",
+                "mari-home-professor-popup__state-image absolute inset-0 z-[3] h-full w-full object-contain object-bottom",
+                phase === "map"
+                  ? "mari-home-professor-popup__state-image--map"
+                  : "mari-home-professor-popup__state-image--shrug",
               )}
-              aria-hidden="true"
-            >
-              <img
-                src={MARI_ASSISTANT_IDLE}
-                alt=""
-                draggable={false}
-                className="mari-home-professor-popup__idle absolute inset-0 h-full w-full object-contain object-bottom"
-              />
-              <img
-                src={MARI_ASSISTANT_BLINK}
-                alt=""
-                draggable={false}
-                className="mari-home-professor-popup__blink absolute inset-0 h-full w-full object-contain object-bottom"
-              />
-            </span>
-            {phase === "map" || phase === "shrug" ? (
-              <img
-                src={phase === "map" ? MARI_ASSISTANT_MAP : MARI_ASSISTANT_SHRUG}
-                alt=""
-                draggable={false}
-                className={cn(
-                  "mari-home-professor-popup__state-image absolute inset-0 z-[3] h-full w-full object-contain object-bottom",
-                  phase === "map"
-                    ? "mari-home-professor-popup__state-image--map"
-                    : "mari-home-professor-popup__state-image--shrug",
-                )}
-              />
-            ) : null}
-          </>
-        )}
+            />
+          ) : null}
+        </div>
       </div>
       <div
         ref={bubbleRef}
