@@ -468,7 +468,7 @@ export function createChatsStorage(db: DB) {
       return db
         .select()
         .from(chats)
-        .orderBy(desc(chats.updatedAt))
+        .orderBy(desc(chats.updatedAt), desc(chats.id))
         .offset(Math.max(0, Math.floor(offset)))
         .limit(Math.max(1, Math.min(100, Math.floor(limit))));
     },
@@ -913,6 +913,17 @@ export function createChatsStorage(db: DB) {
         reversed.map((m) => m.id),
       );
       return reversed.map((m) => ({ ...m, swipeCount: countMap.get(m.id) ?? 0 }));
+    },
+
+    /** Bounded message snapshots for surfaces that do not need cursors or swipe metadata. */
+    async listMessagePreviews(chatId: string, limit: number) {
+      const rows = await db
+        .select()
+        .from(messages)
+        .where(eq(messages.chatId, chatId))
+        .orderBy(desc(messages.createdAt), desc(messages.id))
+        .limit(Math.max(1, Math.floor(limit)));
+      return rows.reverse();
     },
 
     async getMessage(id: string) {

@@ -637,13 +637,17 @@ export async function chatsRoutes(app: FastifyInstance) {
   // glimpse per chat instead of making the browser load recent transcripts.
   app.get("/home-feed", async (): Promise<HomeFeedSnapshot> => {
     const recentChats = [];
+    const seenRecentChatIds = new Set<string>();
     const pageSize = 24;
     let offset = 0;
     while (recentChats.length < 6) {
       const page = await storage.listRecent(pageSize, offset);
       if (page.length === 0) break;
       for (const chat of page) {
-        if (!shouldHideProfessorMariChat(chat)) recentChats.push(chat);
+        if (!shouldHideProfessorMariChat(chat) && !seenRecentChatIds.has(chat.id)) {
+          seenRecentChatIds.add(chat.id);
+          recentChats.push(chat);
+        }
         if (recentChats.length === 6) break;
       }
       offset += page.length;
@@ -653,7 +657,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       generatedAt: new Date().toISOString(),
       recentChats: await Promise.all(
         recentChats.map(async (chat) => {
-          const messages = await storage.listMessagesPaginated(chat.id, 12);
+          const messages = await storage.listMessagePreviews(chat.id, 12);
           const metadata = parseChatMetadata(chat.metadata);
           const background = typeof metadata.background === "string" ? metadata.background.trim() : "";
           const gameBackgroundTag =
