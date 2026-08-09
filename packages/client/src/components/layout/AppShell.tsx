@@ -93,7 +93,6 @@ const BotBrowserView = lazy(() =>
 const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
 );
-const NoodleView = lazy(() => import("../noodle/NoodleView").then((module) => ({ default: module.NoodleView })));
 const RightPanel = lazy(() => import("./RightPanel").then((module) => ({ default: module.RightPanel })));
 const TrackerDataSidebar = lazy(() =>
   import("./TrackerDataSidebar").then((module) => ({ default: module.TrackerDataSidebar })),
@@ -545,7 +544,6 @@ export function AppShell() {
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
   const gameAssetsBrowserOpen = useUIStore((s) => s.gameAssetsBrowserOpen);
-  const noodleOpen = useUIStore((s) => s.noodleOpen);
   const hasCompletedOnboarding = useUIStore((s) => s.hasCompletedOnboarding);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const activeChat = useChatStore((s) => s.activeChat);
@@ -807,19 +805,17 @@ export function AppShell() {
     <LorebookEditor />
   ) : null;
 
-  const showAmbientDecor =
-    isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen && !noodleOpen;
+  const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
   const hasDetailView = detailView != null;
   const trackerPanelModeAvailable = activeChat?.mode === "roleplay";
   const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen;
   const trackerPanelDetached = trackerPanelWindowTarget !== null;
   const trackerPanelSurfaceAvailable =
-    trackerPanelModeAvailable && !botBrowserOpen && !gameAssetsBrowserOpen && !noodleOpen && !hasDetailView;
+    trackerPanelModeAvailable && !botBrowserOpen && !gameAssetsBrowserOpen && !hasDetailView;
   const trackerPanelVisible = trackerPanelActive && trackerPanelSurfaceAvailable && !trackerPanelDetached;
   const chatSurfaceActive =
     !botBrowserOpen &&
     !gameAssetsBrowserOpen &&
-    !noodleOpen &&
     !hasDetailView &&
     (!shellOverlayMode || (!sidebarOpen && !rightPanelOpen && !trackerPanelVisible));
   const trackerWindowHost = trackerPanelWindowTarget?.popup ?? window;
@@ -1316,7 +1312,7 @@ export function AppShell() {
           <div
             className={cn(
               "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
-              (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView && !noodleOpen)) &&
+              (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) &&
                 "hidden",
             )}
             style={
@@ -1328,14 +1324,14 @@ export function AppShell() {
             }
           >
             <Suspense fallback={<MainPaneFallback />}>
-              {noodleOpen ? <NoodleView /> : (shellOverlayMode || !hasDetailView) && <ChatArea />}
+              {(shellOverlayMode || !hasDetailView) && <ChatArea />}
             </Suspense>
           </div>
           {/* Keep the detail host at one React tree position across the mobile breakpoint.
               Moving an editor between separate desktop/mobile branches remounts it and
               discards component-local unsaved form state. */}
           <AnimatePresence mode="wait">
-            {detailView && (shellOverlayMode || !noodleOpen) && (
+            {detailView && (
               <motion.aside
                 key="detail-editor"
                 initial={shellOverlayMode ? { opacity: 0, x: 24 } : false}

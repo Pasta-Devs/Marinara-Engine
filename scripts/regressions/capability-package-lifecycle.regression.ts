@@ -12,6 +12,7 @@ process.env.MARINARA_GIT_BRANCH = "staging";
 const packagesRoot = join(dataDir, "capability-packages");
 const registryPath = join(packagesRoot, "installed.json");
 const migrationPath = join(packagesRoot, "availability-migration-v1.json");
+const noodleMigrationPath = join(packagesRoot, "noodle-extraction-migration-v1.json");
 const mapsCorrectionPath = join(packagesRoot, "hierarchical-maps-selection-correction-v1.json");
 const modelsRoot = join(dataDir, "models");
 const speechConfigPath = join(modelsRoot, "sidecar-speech-config.json");
@@ -209,8 +210,52 @@ try {
   assert.equal(resolveOfficialAgentBranch("staging"), "staging");
   assert.equal(resolveOfficialAgentBranch("release/v2.4.0"), "staging");
   assert.equal(resolveOfficialAgentBranch("main"), "main");
-  assert.equal(resolveOfficialAgentBranch("feature/catalog-ui"), "main");
+  assert.equal(
+    resolveOfficialAgentBranch("feature/catalog-ui"),
+    "staging",
+    "Feature branches must follow the staging Agent catalog so extracted packages can be reviewed before release",
+  );
+  assert.equal(resolveOfficialAgentBranch("hotfix/noodle-recovery"), "main");
+  assert.equal(resolveOfficialAgentBranch(null), "main");
   assert.equal(getCapabilityPackageInstallIssue(legacyManifest), null);
+
+  const brandedHomeTabManifest = capabilityPackageManifestSchema.parse({
+    ...legacyManifest,
+    id: "branded-home-tab",
+    name: "Branded Home Tab",
+    contributions: {
+      slots: ["home-browser-tab"],
+      homeBrowserTab: {
+        label: "Branded",
+        ariaLabel: "Open branded Home destination",
+        iconPaths: ["brand-primary.png", "brand-secondary.png"],
+      },
+    },
+    files: [
+      ...legacyManifest.files,
+      { path: "brand-primary.png", sha256: "1".repeat(64), bytes: 1 },
+      { path: "brand-secondary.png", sha256: "2".repeat(64), bytes: 1 },
+    ],
+  });
+  assert.deepEqual(brandedHomeTabManifest.contributions?.homeBrowserTab?.iconPaths, [
+    "brand-primary.png",
+    "brand-secondary.png",
+  ]);
+  assert.throws(
+    () =>
+      capabilityPackageManifestSchema.parse({
+        ...brandedHomeTabManifest,
+        contributions: {
+          ...brandedHomeTabManifest.contributions,
+          homeBrowserTab: {
+            ...brandedHomeTabManifest.contributions?.homeBrowserTab,
+            iconPaths: ["undeclared.png"],
+          },
+        },
+      }),
+    /must be declared in the package file manifest/u,
+    "Home tab artwork cannot escape the package's verified file manifest",
+  );
   const agentDetailFixture = {
     name: "Agent detail fixture",
     description: "Capability lifecycle regression fixture.",
@@ -300,6 +345,19 @@ try {
     { prefix: "/api/long-term-memory" },
   );
   assert.equal(registeredRoutes, 1, "Capability routes must register normally before Fastify starts");
+  const rootRouteApp = {
+    server: { listening: false },
+    hasRoute: () => false,
+    route: (definition: { url: string }) => assert.equal(definition.url, "/api/root-package"),
+  } as Parameters<typeof registerCapabilityPrivilegedRoutes>[0];
+  const rootRoutePackage = installedPackage("root-package", ["agent"]);
+  rootRoutePackage.manifest.permissions = ["routes"];
+  await registerCapabilityPrivilegedRoutes(
+    rootRouteApp,
+    rootRoutePackage as Parameters<typeof registerCapabilityPrivilegedRoutes>[1],
+    async (routes) => routes.get("/", async () => ({ ok: true })),
+    { prefix: "/api/root-package" },
+  );
   routeServer.listening = true;
   const deactivateReactivatedRoutes = await registerCapabilityPrivilegedRoutes(
     routeApp,
@@ -675,6 +733,58 @@ try {
     false,
     "A fresh-install marker must not later be mistaken for the faulty legacy migration",
   );
+
+  rmSync(noodleMigrationPath, { force: true });
+  writeRegistry([]);
+  assert.deepEqual(
+    await capabilityPackageManager.migrateExtractedNoodleAvailability(false),
+    { migrated: false, legacy: false },
+    "Fresh profiles must not receive the optional Noodle package",
+  );
+  assert.equal(JSON.parse(readFileSync(noodleMigrationPath, "utf8")).kind, "fresh");
+  assert.deepEqual(
+    await capabilityPackageManager.migrateExtractedNoodleAvailability(true),
+    { migrated: false, legacy: false },
+    "A completed fresh-profile marker must not later auto-install Noodle",
+  );
+
+  rmSync(noodleMigrationPath, { force: true });
+  writeRegistry([installedPackage("noodle", ["agent"])]);
+  assert.deepEqual(
+    await capabilityPackageManager.migrateExtractedNoodleAvailability(true),
+    { migrated: false, legacy: true },
+    "Upgraded profiles with Noodle already installed must record legacy availability without downloading again",
+  );
+  assert.equal(JSON.parse(readFileSync(noodleMigrationPath, "utf8")).kind, "legacy");
+  await capabilityPackageManager.uninstall("noodle");
+  assert.deepEqual(
+    await capabilityPackageManager.migrateExtractedNoodleAvailability(true),
+    { migrated: false, legacy: true },
+    "Explicit Noodle removal must survive later startups instead of being mistaken for an interrupted migration",
+  );
+
+  rmSync(noodleMigrationPath, { force: true });
+  writeRegistry([]);
+  const originalCatalog = capabilityPackageManager.catalog;
+  capabilityPackageManager.catalog = async () => ({
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    packages: [],
+  });
+  try {
+    assert.deepEqual(
+      await capabilityPackageManager.migrateExtractedNoodleAvailability(true),
+      { migrated: false, legacy: true, pending: true },
+      "A catalog publication gap must remain retryable without failing Engine startup",
+    );
+    assert.equal(
+      existsSync(noodleMigrationPath),
+      false,
+      "A missing catalog entry must not prematurely complete the extraction migration",
+    );
+  } finally {
+    capabilityPackageManager.catalog = originalCatalog;
+  }
   const catalogEntry = (manifest: typeof legacyManifest) => ({
     manifest,
     category: "misc",
@@ -797,9 +907,14 @@ try {
     manifest: {
       ...installedPackage("agent-suite", ["agent"]).manifest,
       entrypoints: { server: "server.mjs", client: "client.js", agents: "agents.json" },
+      contributions: {
+        slots: ["home-browser-tab"],
+        homeBrowserTab: { label: "Agent Suite", iconPaths: ["suite-tab.png"] },
+      },
       files: [
         ...installedPackage("agent-suite", ["agent"]).manifest.files,
         { path: "agents.json", sha256: "0".repeat(64), bytes: 1 },
+        { path: "suite-tab.png", sha256: "0".repeat(64), bytes: 1 },
       ],
     },
   };
@@ -826,6 +941,23 @@ try {
         defaultPromptTemplate: "Helper prompt.",
       },
     ]),
+  );
+  writeFileSync(join(packagesRoot, "versions", agentSuite.id, agentSuite.version, "suite-tab.png"), "x");
+  const browserTabAsset = await capabilityPackageManager.browserTabAsset(agentSuite.id, "suite-tab.png");
+  assert.equal(browserTabAsset?.contentType, "image/png");
+  assert.equal(
+    browserTabAsset?.file,
+    join(packagesRoot, "versions", agentSuite.id, agentSuite.version, "suite-tab.png"),
+  );
+  assert.equal(
+    await capabilityPackageManager.browserTabAsset(agentSuite.id, "server.mjs"),
+    null,
+    "Package payloads not declared as tab artwork must not be exposed as public assets",
+  );
+  assert.equal(
+    await capabilityPackageManager.browserTabAsset(agentSuite.id, "../installed.json"),
+    null,
+    "Home tab asset requests must retain package traversal protection",
   );
   assert.deepEqual(
     (await capabilityPackageManager.agentDefinitions()).map(({ id, packageId }) => ({ id, packageId })),

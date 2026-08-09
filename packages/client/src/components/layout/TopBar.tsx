@@ -12,7 +12,6 @@ import {
   FileText,
   VenetianMask,
   Bot,
-  AtSign,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
@@ -100,7 +99,6 @@ export function TopBar() {
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
-  const openNoodle = useUIStore((s) => s.openNoodle);
   const characterDetailId = useUIStore((s) => s.characterDetailId);
   const lorebookDetailId = useUIStore((s) => s.lorebookDetailId);
   const presetDetailId = useUIStore((s) => s.presetDetailId);
@@ -111,7 +109,6 @@ export function TopBar() {
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
   const gameAssetsBrowserOpen = useUIStore((s) => s.gameAssetsBrowserOpen);
-  const noodleOpen = useUIStore((s) => s.noodleOpen);
   const musicPlayerEnabled = useUIStore((s) => s.musicPlayerEnabled);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
@@ -160,7 +157,6 @@ export function TopBar() {
     !regexDetailId &&
     !botBrowserOpen &&
     !gameAssetsBrowserOpen &&
-    !noodleOpen &&
     !characterLibraryOpen;
 
   const isTopbarHovered = (key: string) => hoveredTopbarKey === key;
@@ -306,32 +302,6 @@ export function TopBar() {
             </MessageSquareText>
             {sidebarOpen && (
               <span className="mari-topbar-chat-gradient-underline absolute -bottom-0.5 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full" />
-            )}
-          </button>
-
-          <button
-            onClick={() => {
-              window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
-              setActiveChatId(null);
-              openNoodle();
-            }}
-            data-tour="noodle-tab"
-            data-topbar-hover-key="noodle"
-            className={cn(
-              TOPBAR_BUTTON_CLASS,
-              noodleOpen
-                ? TOPBAR_ACTIVE_BUTTON_CLASS
-                : cn(
-                    "text-[var(--muted-foreground)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
-                    isTopbarHovered("noodle") &&
-                      cn(TOPBAR_FORCE_HOVER_CLASS, "text-[var(--marinara-chat-chrome-button-text-hover)]"),
-                  ),
-            )}
-            title={localize("Noodle")}
-          >
-            <AtSign size={15} className={TOPBAR_ACCENT_ICON_CLASS} />
-            {noodleOpen && (
-              <span className="mari-topbar-active-underline absolute -bottom-0.5 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full" />
             )}
           </button>
 

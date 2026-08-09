@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: transparent decorative PNG for the Marinara Engine Home page Continue Chatting module
+Primary request: Create a whimsical story comet made from an open chat-book, with two small speech bubbles and a ribbon-like pasta trail curling behind it through a few crisp stars.
+Style/medium: polished 2D game UI sticker illustration, clean bold silhouette, softly painted highlights, charming and premium rather than childish
+Composition/framing: one isolated diagonal subject, compact horizontal composition, generous padding, no cropped edges
+Lighting/mood: nocturnal magical glow, cozy and energetic
+Color palette: use Marinara logo colors, electric cyan, warm pasta gold, tomato orange, coral pink, and a small violet accent
+Constraints: no text, no letters, no watermark, no shadow outside the subject. Create on a perfectly flat solid #00ff00 chroma-key background for background removal. Background must be one uniform color with no gradients, texture, floor, reflections, or lighting variation. Keep crisp separated edges. Do not use #00ff00 anywhere in the subject.
+Avoid: photorealism, 3D plastic, beige, gray dashboard iconography, excessive tiny details

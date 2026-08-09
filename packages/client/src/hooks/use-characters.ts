@@ -463,6 +463,32 @@ export function useCharacterSprites(characterId: string | null) {
   });
 }
 
+/**
+ * Fetch the small, bounded set of sprite lists used by Home's recent-chat
+ * previews without coupling the feed contract to filesystem-backed assets.
+ */
+export function useCharacterSpritePreviews(characterIds: string[]) {
+  const uniqueIds = useMemo(
+    () => Array.from(new Set(characterIds.filter((id) => id.trim().length > 0))).sort(),
+    [characterIds],
+  );
+  const queries = useQueries({
+    queries: uniqueIds.map((characterId) => ({
+      queryKey: spriteKeys.list(characterId),
+      queryFn: () => api.get<SpriteInfo[]>(`/sprites/${characterId}`),
+      staleTime: 5 * 60_000,
+    })),
+  });
+
+  return useMemo(() => {
+    const previews = new Map<string, SpriteInfo[]>();
+    uniqueIds.forEach((characterId, index) => {
+      previews.set(characterId, queries[index]?.data ?? []);
+    });
+    return previews;
+  }, [queries, uniqueIds]);
+}
+
 export function useUploadSprite() {
   const qc = useQueryClient();
   return useMutation({
@@ -1111,11 +1137,7 @@ export function useUpdatePersona() {
               : { portrait: trackerCardPortrait },
             keepalive ? { keepalive: true } : undefined,
           )
-        : api.patch<Persona>(
-            `/characters/personas/${id}`,
-            requestedData,
-            keepalive ? { keepalive: true } : undefined,
-          ),
+        : api.patch<Persona>(`/characters/personas/${id}`, requestedData, keepalive ? { keepalive: true } : undefined),
     onSuccess: (updatedPersona) => {
       if (!updatedPersona || typeof updatedPersona.id !== "string" || !updatedPersona.id) return;
 

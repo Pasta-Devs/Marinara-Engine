@@ -69,6 +69,19 @@ export function selectGameExperiencePackages(
   );
 }
 
+/** Installed destinations that Home can safely expose as browser tabs. */
+export function selectHomeBrowserPackages(
+  installed: InstalledCapabilityPackage[] | undefined,
+): InstalledCapabilityPackage[] {
+  return (installed ?? []).filter(
+    (pkg) =>
+      isInstalledCapabilityReady(pkg) &&
+      pkg.manifest.contributions?.slots?.includes("home-browser-tab") &&
+      Boolean(pkg.manifest.entrypoints.client?.trim()) &&
+      Boolean(pkg.manifest.contributions.homeBrowserTab),
+  );
+}
+
 export function useInstalledCapabilityPackages(enabled = true) {
   return useQuery({
     queryKey: capabilityPackageKeys.installed(),

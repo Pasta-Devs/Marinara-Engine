@@ -13,6 +13,7 @@ import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 
 const packageParams = z.object({ id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80) });
+const packageAssetParams = packageParams.extend({ "*": z.string().min(1).max(240) });
 const packageVersion = z
   .string()
   .regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/)
@@ -67,6 +68,15 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
     reply.header("Cache-Control", "no-cache, must-revalidate");
     reply.header("X-Content-Type-Options", "nosniff");
     return reply.send(await readFile(entrypoint.file));
+  });
+  app.get<{ Params: { id: string; "*": string } }>("/:id/assets/*", async (request, reply) => {
+    const { id, "*": assetPath } = packageAssetParams.parse(request.params);
+    const asset = await capabilityPackageManager.browserTabAsset(id, assetPath);
+    if (!asset) return reply.status(404).send({ error: "Active package asset not found" });
+    reply.header("Content-Type", asset.contentType);
+    reply.header("Cache-Control", "private, no-cache, must-revalidate");
+    reply.header("X-Content-Type-Options", "nosniff");
+    return reply.send(await readFile(asset.file));
   });
   app.post<{ Params: { id: string }; Body: { expectedVersion?: string } | undefined }>(
     "/:id/install",

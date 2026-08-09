@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Rebuilt Home as a full-width, Firefox-inspired Marinara browser with theme-matched chrome, generated bookmark and tab artwork, a responsive draggable and hideable widget desk with equal spatial slots, space-aware large-widget packing, and a focused five-widget first-run composition, Community shortcuts, a live timezone-aware clock and calendar, visit-ordered mode-colored recent chats with scene backgrounds and expression sprites, latest-unlock and nearest-goal achievement previews with a dedicated trophy bookmark, separate FAQ and widget-manager windows, a highlighted Home onboarding tour, and an optional Professor Mari navigator with an optically centered recall control that finds Engine destinations and named resource editors locally without AI (#4763).
 - Added a compact context-budget indicator to Professor Mari Workspace when message token usage is enabled (#4752).
 - Added per-chat image style overrides for custom image agents, alongside their existing connection overrides (#4718).
 - Added attributed `marinara.fetch` traffic totals and sustained-rate warnings for full-page extensions (#4720).
@@ -17,6 +18,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Moved Noodle into an optional downloadable package that keeps its familiar interface in a Home tab with its paired Noodle/NoodleR logo, automatically preserves availability for existing profiles, follows the staging Agent catalog during feature review, and leaves timeline data ready for reinstall after removal (#4763, Pasta-Devs/Marinara-Agents#278).
 - Shared Professor Mari's robust JSON repair waterfall with structured agents so repairable malformed or truncated output no longer wastes retries (#4753).
 - Revalidated replaceable user backgrounds so re-importing a different image under a deleted filename no longer displays stale browser-cached pixels (#4757).
 - Kept NovelAI V4.5 style-plate uploads inside the Connection editor by decoding oversized images directly to a bounded preview and avoiding redundant copies of their encoded data (#4748).

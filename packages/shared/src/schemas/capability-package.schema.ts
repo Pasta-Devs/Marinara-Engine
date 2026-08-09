@@ -43,6 +43,8 @@ const capabilityPackageManifestBaseSchema = z
               "spatial-workspace",
               "chat-runtime",
               "game-world-map",
+              // Adds a top-level destination to Home's browser shell.
+              "home-browser-tab",
               // Mounts the package's own game UI over the narration.
               "game-surface",
             ]),
@@ -58,6 +60,20 @@ const capabilityPackageManifestBaseSchema = z
               .string()
               .regex(/^[a-z][a-z0-9-]*$/)
               .max(60)
+              .optional(),
+          })
+          .strict()
+          .optional(),
+        /** Browser metadata is declarative so Home can paint the tab before the client bundle loads. */
+        homeBrowserTab: z
+          .object({
+            label: z.string().min(1).max(40),
+            ariaLabel: z.string().min(1).max(100).optional(),
+            /** One or two package-owned images rendered together as the compact browser-tab mark. */
+            iconPaths: z
+              .array(z.string().min(1).max(240).regex(/\.(?:gif|jpe?g|png|webp)$/iu))
+              .min(1)
+              .max(2)
               .optional(),
           })
           .strict()
@@ -149,6 +165,31 @@ export const capabilityPackageManifestSchema = z
         path: ["entrypoints", "client"],
         message: 'A package declaring the "game-surface" slot must provide a client entrypoint to render it',
       });
+    }
+    if (manifest.contributions?.slots?.includes("home-browser-tab")) {
+      if (!manifest.entrypoints.client?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["entrypoints", "client"],
+          message: 'A package declaring the "home-browser-tab" slot must provide a client entrypoint',
+        });
+      }
+      if (!manifest.contributions.homeBrowserTab) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "homeBrowserTab"],
+          message: 'A package declaring the "home-browser-tab" slot must describe its browser tab',
+        });
+      }
+      for (const [index, iconPath] of (manifest.contributions.homeBrowserTab?.iconPaths ?? []).entries()) {
+        if (!manifest.files.some((file) => file.path === iconPath)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["contributions", "homeBrowserTab", "iconPaths", index],
+            message: "A Home browser tab icon must be declared in the package file manifest",
+          });
+        }
+      }
     }
   });
 

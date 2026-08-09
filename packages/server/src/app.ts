@@ -38,9 +38,6 @@ import {
 import { corsDelegate } from "./config/cors-config.js";
 import { sidecarProcessService } from "./services/sidecar/sidecar-process.service.js";
 import { startServerAutonomousScheduler } from "./services/conversation/server-autonomous-scheduler.service.js";
-import { startNoodleRefreshScheduler } from "./services/noodle/noodle-refresh-scheduler.service.js";
-import { startNoodleAutoPostScheduler } from "./services/noodle/noodle-autopost-scheduler.service.js";
-import { startNoodlerFanActivityScheduler } from "./services/noodle/noodle-fan-activity-scheduler.service.js";
 import { preparePersonalExtensionTrust } from "./services/setup/personal-extension-trust.js";
 import { personalServerExtensionRuntime } from "./services/extensions/personal-server-extension-runtime.js";
 import { runWithGenerationFallbackNotifier } from "./services/generation/fallback-notification.js";
@@ -115,6 +112,14 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
         app.log.info("Removed obsolete downloadable copies of core features: %s", removedCorePackages.join(", "));
       }
       await migrateLegacyCapabilities(db, hadUserStateBeforeStartup);
+      const noodleMigration = await capabilityPackageManager.migrateExtractedNoodleAvailability(
+        hadUserStateBeforeStartup,
+      );
+      if ("pending" in noodleMigration && noodleMigration.pending) {
+        app.log.debug("Optional Noodle package is not in the active catalog yet; migration remains pending");
+      } else if (noodleMigration.migrated) {
+        app.log.info("Installed the optional Noodle package for an upgraded profile");
+      }
     } catch (error) {
       app.log.warn(error, "Optional package availability migration did not complete; it will retry next startup");
     }
@@ -221,15 +226,6 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
 
   // ── Server-side autonomous conversation scheduler ──
   startServerAutonomousScheduler(app);
-
-  // ── Automatic Noodle timeline refresh scheduler ──
-  startNoodleRefreshScheduler(app);
-
-  // ── NoodleR per-creator automatic-posting scheduler ──
-  startNoodleAutoPostScheduler(app);
-
-  // ── NoodleR synthetic audience activity scheduler ──
-  startNoodlerFanActivityScheduler(app);
 
   // ── Sidecar bootstrap (background, skipped in lite mode) ──
   if (!isLite) {

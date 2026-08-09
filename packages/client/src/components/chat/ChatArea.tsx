@@ -11,7 +11,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useQueries, useQueryClient, type InfiniteData } from "@tanstack/react-query";
@@ -44,7 +43,6 @@ import {
   type SpriteInfo,
 } from "../../hooks/use-characters";
 import { usePageActivity } from "../../hooks/use-page-activity";
-import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { useRenderTimer, useWhyRender } from "../../lib/perf-diagnostics";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { useKeepLatestChatMessageVisible } from "../../hooks/use-visual-viewport-chat-bottom";
@@ -61,15 +59,13 @@ import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useGalleryStore } from "../../stores/gallery.store";
 import { toast } from "sonner";
-import { BookOpen, Check, HelpCircle, List, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import {
-  APP_VERSION,
   BUILT_IN_AGENTS,
   PROFESSOR_MARI_ID,
   buildGuidedGenerationInstructionMessage,
   normalizeAvatarCrop,
   normalizeManualTrackerAgentTypes,
-  type AchievementEvent,
   type GeneratedSceneVideo,
   type SpritePlacement,
   type SpriteSide,
@@ -79,7 +75,6 @@ import { resolveLiveConversationStatus } from "../../lib/conversation-presence-s
 import { useUIStore } from "../../stores/ui.store";
 import { useAgentStore, EMPTY_AGENT_TYPES } from "../../stores/agent.store";
 import { illustratorRetryTargetsForFailures } from "../../lib/agent-failures";
-import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { useEncounter } from "../../hooks/use-encounter";
 import { useScene } from "../../hooks/use-scene";
@@ -87,7 +82,6 @@ import { useEncounterStore } from "../../stores/encounter.store";
 import { useTranslationStore } from "../../stores/translation.store";
 import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
-import { achievementKeys, trackAchievementEvent } from "../../hooks/use-achievements";
 import { buildTTSVoiceRequests, normalizeTTSCharacterName, withTTSVoiceRequestCacheKeys } from "../../lib/tts-dialogue";
 import {
   findLatestTTSAutoplayMessage,
@@ -123,11 +117,8 @@ import type {
   MessageWithSwipes,
   PeekPromptData,
 } from "./chat-area.types";
-import { RecentChats } from "./RecentChats";
-import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
 import { HomeCreditsModal } from "./HomeCreditsModal";
-import { HomeProfessorMariChat } from "./HomeProfessorMariChat";
-import { HomeAchievements } from "./HomeAchievements";
+import { HomeBrowserHub } from "./HomeBrowserHub";
 import { NewChatConnectionGate } from "./NewChatConnectionGate";
 import { ChatCommonOverlays, preloadChatSettingsDrawer, type ChatSettingsInitialSection } from "./ChatCommonOverlays";
 import { CreatorNotesCssInjector, type CardCssMode, type PersonaCssRow } from "./CreatorNotesCssInjector";
@@ -137,7 +128,7 @@ import {
   type ImagePromptOverride,
   type ImagePromptReviewItem,
 } from "../ui/ImagePromptReviewModal";
-import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
+import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChatResourceDropOverlay } from "./ChatResourceDropOverlay";
 
 export type { CharacterMap };
@@ -444,75 +435,8 @@ const CharacterScheduleEditorModal = lazy(preloadCharacterScheduleEditorModal);
 type FloatingPanelAnchor = ReturnType<typeof readChatToolbarFloatingPanelAnchor>;
 type OpenSettingsOptions = { initialSection?: ChatSettingsInitialSection };
 
-type HomeGlistenStar = {
-  id: number;
-  x: number;
-  y: number;
-  size: number;
-  duration: number;
-};
-
-function HomeStarfield() {
-  const [stars, setStars] = useState<HomeGlistenStar[]>([]);
-  const nextStarIdRef = useRef(0);
-
-  useEffect(() => {
-    let spawnTimer: number | null = null;
-    const removalTimers = new Set<number>();
-
-    const spawnStar = () => {
-      const duration = 4_200 + Math.random() * 2_400;
-      const star: HomeGlistenStar = {
-        id: nextStarIdRef.current,
-        x: 5 + Math.random() * 90,
-        y: 6 + Math.random() * 86,
-        size: 2 + Math.random() * 5.5,
-        duration,
-      };
-      nextStarIdRef.current += 1;
-
-      setStars((current) => [...current.slice(-9), star]);
-
-      const removalTimer = window.setTimeout(() => {
-        setStars((current) => current.filter((item) => item.id !== star.id));
-        removalTimers.delete(removalTimer);
-      }, duration + 250);
-      removalTimers.add(removalTimer);
-
-      spawnTimer = window.setTimeout(spawnStar, 700 + Math.random() * 1_600);
-    };
-
-    spawnTimer = window.setTimeout(spawnStar, 180);
-
-    return () => {
-      if (spawnTimer !== null) window.clearTimeout(spawnTimer);
-      removalTimers.forEach((timer) => window.clearTimeout(timer));
-    };
-  }, []);
-
-  return (
-    <div className="mari-home-starfield" aria-hidden="true">
-      {stars.map((star) => (
-        <span
-          key={star.id}
-          className="mari-home-starfield__star"
-          style={
-            {
-              "--mari-home-star-x": `${star.x}%`,
-              "--mari-home-star-y": `${star.y}%`,
-              "--mari-home-star-size": `${star.size}px`,
-              "--mari-home-star-duration": `${star.duration}ms`,
-            } as CSSProperties
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
 export const ChatArea = memo(function ChatArea() {
   const { t: localizeUi } = useUiTranslation();
-  const { t } = useTranslation();
   useRenderTimer("chat-area"); // [#3104 diagnostic]
   const activeChatId = useChatStore((s) => s.activeChatId);
   const streamingChatId = useChatStore((s) => s.streamingChatId);
@@ -523,7 +447,6 @@ export const ChatArea = memo(function ChatArea() {
   );
   const isTextStreaming = isStreaming && !isBackgroundIllustration;
   const isPageActive = usePageActivity();
-  const reduceAmbientEffects = useReducedAmbientEffects();
   const regenerateMessageId = useChatStore((s) => s.regenerateMessageId);
   const chatBackground = useUIStore((s) => s.chatBackground);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
@@ -560,86 +483,18 @@ export const ChatArea = memo(function ChatArea() {
   const [homeProfessorChatOpen, setHomeProfessorChatOpen] = useState(false);
   const [homeProfessorChatActive, setHomeProfessorChatActive] = useState(false);
   const homeProfessorChatOpenRef = useRef(false);
-  const homeViewportRef = useRef<HTMLDivElement>(null);
-  const homeContentRef = useRef<HTMLDivElement>(null);
-  const [homeFitScale, setHomeFitScale] = useState(1);
   const queryClient = useQueryClient();
   useEffect(() => {
     homeProfessorChatOpenRef.current = homeProfessorChatOpen;
   }, [homeProfessorChatOpen]);
   const handleHomeProfessorChatOpenChange = useCallback((open: boolean) => {
+    homeProfessorChatOpenRef.current = open;
     if (open) setHomeProfessorChatActive(true);
     setHomeProfessorChatOpen(open);
   }, []);
   const handleHomeProfessorChatExitComplete = useCallback(() => {
     if (!homeProfessorChatOpenRef.current) setHomeProfessorChatActive(false);
   }, []);
-  useLayoutEffect(() => {
-    if (activeChatId || homeProfessorChatActive) {
-      setHomeFitScale(1);
-      return;
-    }
-
-    const viewport = homeViewportRef.current;
-    const content = homeContentRef.current;
-    if (!viewport || !content) return;
-
-    let frame: number | null = null;
-    let disposed = false;
-    const updateScale = () => {
-      frame = null;
-      if (disposed) return;
-
-      const viewportStyle = getComputedStyle(viewport);
-      const availableHeight =
-        viewport.clientHeight -
-        Number.parseFloat(viewportStyle.paddingTop || "0") -
-        Number.parseFloat(viewportStyle.paddingBottom || "0");
-      const availableWidth =
-        viewport.clientWidth -
-        Number.parseFloat(viewportStyle.paddingLeft || "0") -
-        Number.parseFloat(viewportStyle.paddingRight || "0");
-      const naturalHeight = content.scrollHeight;
-      const naturalWidth = content.scrollWidth;
-
-      if (availableHeight <= 0 || availableWidth <= 0 || naturalHeight <= 0 || naturalWidth <= 0) return;
-
-      const nextScale = Math.min(1, availableHeight / naturalHeight, availableWidth / naturalWidth);
-      const fittedScale = Math.max(0, Math.floor(nextScale * 1000) / 1000);
-      setHomeFitScale((current) => (Math.abs(current - fittedScale) < 0.001 ? current : fittedScale));
-    };
-    const scheduleScaleUpdate = () => {
-      if (disposed) return;
-      if (frame !== null) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(updateScale);
-    };
-
-    const resizeObserver =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => scheduleScaleUpdate());
-    resizeObserver?.observe(viewport);
-    resizeObserver?.observe(content);
-    window.addEventListener("resize", scheduleScaleUpdate);
-    void document.fonts?.ready.then(scheduleScaleUpdate);
-    updateScale();
-
-    return () => {
-      disposed = true;
-      if (frame !== null) cancelAnimationFrame(frame);
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", scheduleScaleUpdate);
-    };
-  }, [activeChatId, homeProfessorChatActive]);
-  const trackHomeFooterAchievement = useCallback(
-    (event: AchievementEvent) => {
-      void trackAchievementEvent(event, { keepalive: true })
-        .catch(() => undefined)
-        .finally(() => {
-          void queryClient.invalidateQueries({ queryKey: achievementKeys.all });
-        });
-    },
-    [queryClient],
-  );
-
   // Delete dialog & multi-select state
   const [deleteDialogMessageId, setDeleteDialogMessageId] = useState<string | null>(null);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
@@ -2888,209 +2743,17 @@ export const ChatArea = memo(function ChatArea() {
   // Empty state (no active chat)
   // ═══════════════════════════════════════════════
   if (!activeChatId) {
-    const showEmptyStateEffects = isPageActive && !reduceAmbientEffects;
-
     return (
       <>
         <HomeCreditsModal open={creditsOpen} onClose={() => setCreditsOpen(false)} />
-        <div
-          ref={homeViewportRef}
-          data-component="ChatArea.EmptyState"
-          className={cn(
-            "mari-app-background-paint mari-chrome-token-scope relative isolate flex flex-1 flex-col items-center",
-            homeProfessorChatActive ? "overflow-hidden p-0 sm:p-3 lg:p-3" : "overflow-hidden p-1.5 sm:p-3 lg:p-3",
-          )}
-        >
-          {showEmptyStateEffects && !homeProfessorChatActive && <HomeStarfield />}
-          <div
-            ref={homeContentRef}
-            data-component="ChatArea.HomeContent"
-            className={cn(
-              "relative z-[1] flex w-full flex-col items-center",
-              homeProfessorChatActive
-                ? "min-h-0 flex-1 max-w-none gap-0 py-0"
-                : "home-viewport-fit-content max-w-5xl shrink-0 gap-1.5 py-0 sm:gap-2 lg:pt-0 lg:pb-2",
-            )}
-            style={
-              homeProfessorChatActive ? undefined : ({ "--mari-home-fit-scale": String(homeFitScale) } as CSSProperties)
-            }
-          >
-            {!homeProfessorChatActive && (
-              <>
-                {/* Central hero */}
-                <div className="relative">
-                  <div
-                    className={cn(
-                      "flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl shadow-xl shadow-orange-500/20 sm:h-16 sm:w-16",
-                      showEmptyStateEffects && "animate-pulse-ring bunny-glow",
-                    )}
-                  >
-                    <img
-                      src={showEmptyStateEffects ? "/logo-splash.gif" : "/logo.png"}
-                      alt={localizeUi("app.documentTitle")}
-                      width={80}
-                      height={80}
-                      decoding="async"
-                      className={cn(
-                        "h-full w-full",
-                        showEmptyStateEffects ? "object-cover" : "object-contain p-1.5 sm:p-2",
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <div className="text-center">
-                  <h3
-                    className={cn(
-                      "mari-logo-gradient-text text-base font-bold sm:text-xl",
-                      showEmptyStateEffects && "mari-logo-gradient-text--active",
-                    )}
-                  >
-                    {localizeUi("app.documentTitle")}
-                  </h3>
-                  <p className="mari-chrome-text-muted mt-0.5 text-[0.625rem] tracking-wide opacity-65">
-                    {localizeUi("ui.characters.charactereditor.v")}
-                    {APP_VERSION}
-                  </p>
-                </div>
-
-                <HomeNewChatLauncher />
-
-                {/* Recent Chats */}
-                <RecentChats />
-              </>
-            )}
-
-            <div
-              className={cn(
-                "flex w-full flex-col",
-                homeProfessorChatActive ? "min-h-0 flex-1 max-w-none" : "max-w-5xl",
-              )}
-            >
-              <HomeProfessorMariChat
-                pageActive={isPageActive}
-                attachedFooter={!homeProfessorChatActive}
-                chatWindowOpen={homeProfessorChatOpen}
-                launchHidden={homeProfessorChatActive}
-                onChatWindowOpenChange={handleHomeProfessorChatOpenChange}
-                onChatWindowExitComplete={handleHomeProfessorChatExitComplete}
-              />
-              {!homeProfessorChatActive && <HomeAchievements attached />}
-            </div>
-
-            {!homeProfessorChatActive && (
-              <>
-                <div
-                  className={cn(
-                    "w-48 [--retro-divider-margin:0]",
-                    showEmptyStateEffects ? "retro-divider" : "h-px rounded-[1px] bg-[var(--border)]/40",
-                  )}
-                />
-
-                {/* Footer */}
-                <div className="flex w-full max-w-2xl flex-col items-center gap-1">
-                  <div className="mari-chrome-text-muted flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-center text-[0.625rem] leading-tight sm:text-xs">
-                    <span>
-                      {t("home.footer.createdBy")}{" "}
-                      <a
-                        href="https://spicymarinara.github.io/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mari-chrome-text underline decoration-[var(--marinara-chat-chrome-panel-muted)]/30 transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)] hover:decoration-[var(--marinara-chat-chrome-button-border-hover)]"
-                      >
-                        {localizeUi("ui.chat.chatarea.marinara")}
-                      </a>
-                    </span>
-                    <span>
-                      {t("home.footer.partneredWith")}{" "}
-                      <a
-                        href="https://linkapi.ai/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mari-chrome-text underline decoration-[var(--marinara-chat-chrome-panel-muted)]/30 transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)] hover:decoration-[var(--marinara-chat-chrome-button-border-hover)]"
-                      >
-                        {localizeUi("ui.panels.connectionspanel.linkapi")}
-                      </a>
-                    </span>
-                    <span>
-                      {t("home.footer.artBy")}{" "}
-                      <a
-                        href="https://huntercolliex.carrd.co/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mari-chrome-text underline decoration-[var(--marinara-chat-chrome-panel-muted)]/30 transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)] hover:decoration-[var(--marinara-chat-chrome-button-border-hover)]"
-                      >
-                        {localizeUi("ui.chat.chatarea.huntercolliex")}
-                      </a>
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <a
-                      href="https://discord.com/invite/KdAkTg94ME"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => trackHomeFooterAchievement("discord_clicked")}
-                      className="mari-chrome-control mari-chrome-control--small text-xs"
-                    >
-                      <svg width="0.875rem" height="0.875rem" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.947 2.418-2.157 2.418z" />
-                      </svg>
-                      {localizeUi("ui.chat.chatarea.discord")}
-                    </a>
-                    <a
-                      href="https://ko-fi.com/marinara_spaghetti"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => trackHomeFooterAchievement("kofi_clicked")}
-                      className="mari-chrome-control mari-chrome-control--small text-xs"
-                    >
-                      <svg width="0.875rem" height="0.875rem" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                      </svg>
-                      {t("home.actions.support")}
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCreditsOpen(true);
-                        trackHomeFooterAchievement("credits_viewed");
-                      }}
-                      className="mari-chrome-control mari-chrome-control--small text-xs"
-                    >
-                      <List size="0.875rem" />
-                      {t("home.actions.credits")}
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {/* In-app documentation */}
-                    <button
-                      type="button"
-                      data-tour="home-documentation"
-                      onClick={() => useUIStore.getState().openModal("docs-viewer")}
-                      className="mari-chrome-control mari-chrome-control--small text-xs"
-                      title={t("home.actions.documentationHelp")}
-                    >
-                      <BookOpen size="0.875rem" />
-                      {t("home.actions.documentation")}
-                    </button>
-
-                    {/* Restart tutorial */}
-                    <button
-                      type="button"
-                      onClick={() => useUIStore.getState().setHasCompletedOnboarding(false)}
-                      className="mari-chrome-control mari-chrome-control--small text-xs"
-                      title={t("home.actions.replayTutorialHelp")}
-                    >
-                      <HelpCircle size="0.875rem" />
-                      {t("home.actions.replayTutorial")}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <HomeBrowserHub
+          pageActive={isPageActive}
+          professorChatActive={homeProfessorChatActive}
+          professorChatOpen={homeProfessorChatOpen}
+          onProfessorChatOpenChange={handleHomeProfessorChatOpenChange}
+          onProfessorChatExitComplete={handleHomeProfessorChatExitComplete}
+          onOpenCredits={() => setCreditsOpen(true)}
+        />
         {pendingNewChatMode && (
           <NewChatConnectionGate
             mode={pendingNewChatMode}

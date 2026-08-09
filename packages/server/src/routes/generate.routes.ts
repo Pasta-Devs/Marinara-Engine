@@ -341,7 +341,7 @@ import {
 } from "./generate/spatial-transition-request.js";
 import { runTurnGameBotTurns } from "../services/turn-games/turn-game-bot-runner.service.js";
 import { getTurnGameContextBuilder } from "../services/turn-games/turn-game-runner.service.js";
-import { buildRecentSocialMediaActivityBlock } from "../services/noodle/noodle-context.js";
+import { getCapabilityService } from "../services/capability-packages/capability-service-registry.service.js";
 import { normalizeContextInjections } from "./generate/agent-normalizers.js";
 import {
   buildGenerationPromptPresetCandidates,
@@ -2726,13 +2726,24 @@ export async function generateRoutes(app: FastifyInstance) {
           finalMessages,
         });
 
-        const recentSocialMediaActivityBlock = await buildRecentSocialMediaActivityBlock({
-          db: app.db,
-          chatMode,
-          characterIds: promptCharacterIds,
-          personaId,
-          wrapFormat,
-        });
+        const noodlePromptContext = getCapabilityService<{
+          build(input: {
+            db: typeof app.db;
+            chatMode: typeof chatMode;
+            characterIds: string[];
+            personaId: string | null;
+            wrapFormat: typeof wrapFormat;
+          }): Promise<string | null>;
+        }>("noodle:prompt-context");
+        const recentSocialMediaActivityBlock = noodlePromptContext
+          ? await noodlePromptContext.build({
+              db: app.db,
+              chatMode,
+              characterIds: promptCharacterIds,
+              personaId,
+              wrapFormat,
+            })
+          : null;
         if (recentSocialMediaActivityBlock) {
           const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
           const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
