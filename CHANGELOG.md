@@ -24,6 +24,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Mirrored Professor Mari's navigation speech-bubble tail from one canonical shape when her dialog switches sides.
 - Standardized chat-mode icons across Home, Chats, creation flows, shortcuts, and linked chats: Conversation keeps its message bubble, Roleplay uses theater masks, and Game uses a gamepad without colliding with Lorebooks.
 - Kept mobile Chats, Settings, and tracker panels above the Home browser chrome so their controls remain tappable.
 - Stopped hidden Home and Professor surfaces from retaining navigation timers, pending focus frames, message-history requests, Discovery rotation, and workspace-status polling after their lifecycle ended.

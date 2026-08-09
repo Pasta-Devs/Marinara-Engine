@@ -12966,12 +12966,18 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
     contentBounds!.x + contentBounds!.width - 16 - initialSpriteBounds!.width * (1 - 0.45);
   await page.mouse.move(rightEdgeGrabX, contentBounds!.y + 220, { steps: 6 });
   await expect(bubble).toHaveAttribute("data-tail-side", "right");
-  expect(
-    await bubble.evaluate((element) => {
-      const tail = getComputedStyle(element, "::before");
-      return Number.parseFloat(tail.right) < 0;
-    }),
-  ).toBe(true);
+  const rightTailStyle = await bubble.evaluate((element) => {
+    const tail = getComputedStyle(element, "::before");
+    return {
+      clipPath: tail.clipPath,
+      height: tail.height,
+      right: Number.parseFloat(tail.right),
+      transform: tail.transform,
+      width: tail.width,
+    };
+  });
+  expect(rightTailStyle.right).toBeLessThan(0);
+  expect(rightTailStyle.transform).toBe("matrix(-1, 0, 0, 1, 0, 0)");
   await page.mouse.up();
   await expect(assistant).toHaveAttribute("data-dragging", "false");
   await expect(bubble).toHaveAttribute("data-tail-side", "right");
@@ -12993,12 +12999,21 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
   };
   await page.mouse.move(dragTarget.x, dragTarget.y, { steps: 10 });
   await expect(bubble).toHaveAttribute("data-tail-side", "left");
-  expect(
-    await bubble.evaluate((element) => {
-      const tail = getComputedStyle(element, "::before");
-      return Number.parseFloat(tail.left) < 0;
-    }),
-  ).toBe(true);
+  const leftTailStyle = await bubble.evaluate((element) => {
+    const tail = getComputedStyle(element, "::before");
+    return {
+      clipPath: tail.clipPath,
+      height: tail.height,
+      left: Number.parseFloat(tail.left),
+      transform: tail.transform,
+      width: tail.width,
+    };
+  });
+  expect(leftTailStyle.left).toBeLessThan(0);
+  expect(leftTailStyle.transform).toBe("none");
+  expect(rightTailStyle.clipPath).toBe(leftTailStyle.clipPath);
+  expect(rightTailStyle.width).toBe(leftTailStyle.width);
+  expect(rightTailStyle.height).toBe(leftTailStyle.height);
   const movedSpriteBounds = await sprite.boundingBox();
   expect(movedSpriteBounds).not.toBeNull();
   expect(Math.abs(movedSpriteBounds!.x - initialSpriteBounds!.x)).toBeGreaterThan(100);

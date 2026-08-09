@@ -2933,7 +2933,7 @@ html.mari-home-widget-drag-active * {
 .mari-home-professor-popup__bubble[data-tail-side="right"]::after {
   right: -0.82rem;
   left: auto;
-  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  transform: scaleX(-1);
 }
 
 .mari-home-professor-popup__bubble[data-tail-side="right"]::after {
