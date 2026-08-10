@@ -12,6 +12,34 @@ export type TranscriptRenderWindow<T> = {
   isWindowed: boolean;
 };
 
+/**
+ * Window start that mounts `targetIndex`, roughly centred.
+ *
+ * Only 80 messages are mounted at a time, so jumping to an older message needs
+ * the render window moved as well as the data paginated — otherwise the target
+ * has no DOM node to scroll to and the jump silently does nothing.
+ *
+ * Returns `null` when the target is already mounted and the window should be
+ * left alone.
+ */
+export function getTranscriptWindowStartForIndex(
+  targetIndex: number,
+  loadedCount: number,
+  currentStartIndex: number,
+  maxMountedMessages: number = MAX_MOUNTED_TRANSCRIPT_MESSAGES,
+): number | null {
+  const safeMax = Number.isFinite(maxMountedMessages) && maxMountedMessages > 0 ? Math.floor(maxMountedMessages) : 1;
+  if (loadedCount <= safeMax) return null;
+  if (targetIndex < 0 || targetIndex >= loadedCount) return null;
+
+  const currentEnd = currentStartIndex + safeMax;
+  if (targetIndex >= currentStartIndex && targetIndex < currentEnd) return null;
+
+  const latestStartIndex = Math.max(0, loadedCount - safeMax);
+  const centred = targetIndex - Math.floor(safeMax / 2);
+  return Math.max(0, Math.min(latestStartIndex, centred));
+}
+
 export function getTranscriptRenderWindow<T>(
   messages: readonly T[] | undefined,
   options: { maxMountedMessages?: number; startIndex?: number | null } = {},

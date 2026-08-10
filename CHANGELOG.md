@@ -25,6 +25,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Made `/goto <n>` reach messages outside the mounted transcript window instead of silently doing nothing. Conversation and Roleplay render at most 80 messages at a time, so a jump to an older message paginated the data in but never mounted the target, leaving the scroll with no element to find and clearing the request without feedback — which covered most targets in a chat of several hundred messages. The surfaces now move their render window onto a pending jump, and the scroll retries for a few frames while that happens.
 - Kept blank messages and hidden command anchors out of Home's Recent Chats previews, counted paginated chat histories without materializing every message ID, stabilized history cursors across deletions, and rejected malformed cursors.
 - Applied the selected tag-import mode when a downloaded character card is imported as a persona.
 - Matched the Character and Persona Download/Open Library launchers to the Chats segmented controls with an exact centered split, fixed icon sizing, and single-line labels.

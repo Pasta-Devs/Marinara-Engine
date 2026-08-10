@@ -403,6 +403,9 @@ function areCharacterMapsEqual(a: CharacterMap, b: CharacterMap): boolean {
   return true;
 }
 
+/** Frames a /goto jump waits for the surface to mount its target message. */
+const GOTO_MOUNT_ATTEMPTS = 30;
+
 const ChatConversationSurface = lazy(async () => {
   const module = await import("./ChatConversationSurface");
   return { default: module.ChatConversationSurface };
@@ -2657,15 +2660,28 @@ export const ChatArea = memo(function ChatArea() {
         useChatStore.getState().clearGotoRequest();
         return;
       }
-      // Wait one frame so newly-loaded messages are painted before scrolling.
-      const raf = requestAnimationFrame(() => {
+      // The message may be loaded but not yet mounted: the surfaces render only
+      // MAX_MOUNTED_TRANSCRIPT_MESSAGES at a time and move their window in
+      // response to this same request. Retry for a few frames rather than
+      // giving up after one, which used to make /goto a silent no-op for any
+      // target outside the mounted window.
+      let raf = 0;
+      let attempts = 0;
+      const tryScroll = () => {
         const el = document.querySelector(`[data-message-id="${CSS.escape(targetId)}"]`);
         if (el instanceof HTMLElement) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
           userScrolledAwayRef.current = true; // suppress auto-scroll-to-bottom hijacking the jump
+          useChatStore.getState().clearGotoRequest();
+          return;
         }
-        useChatStore.getState().clearGotoRequest();
-      });
+        if (++attempts > GOTO_MOUNT_ATTEMPTS) {
+          useChatStore.getState().clearGotoRequest();
+          return;
+        }
+        raf = requestAnimationFrame(tryScroll);
+      };
+      raf = requestAnimationFrame(tryScroll);
       return () => cancelAnimationFrame(raf);
     }
 

@@ -55,7 +55,11 @@ import { getConnectedChatDisplayName } from "../../lib/chat-display";
 import { playConfiguredNotificationPing } from "../../lib/notification-sound";
 import { messageHasPendingPostProcessing } from "../../lib/chat-message-extra";
 import { isMessageHiddenFromUser } from "../../lib/chat-message-visibility";
-import { getTranscriptRenderWindow, TRANSCRIPT_RENDER_WINDOW_STEP } from "../../lib/transcript-render-window";
+import {
+  getTranscriptRenderWindow,
+  getTranscriptWindowStartForIndex,
+  TRANSCRIPT_RENDER_WINDOW_STEP,
+} from "../../lib/transcript-render-window";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameStateStore } from "../../stores/game-state.store";
@@ -1512,6 +1516,26 @@ export function ChatRoleplaySurface({
   const jumpToLatestTranscriptMessages = () => {
     setTranscriptWindowStart(null);
   };
+
+  // A /goto jump can target a message that is loaded but not mounted, because
+  // only MAX_MOUNTED_TRANSCRIPT_MESSAGES render at once. Move the render window
+  // onto the target so ChatArea has a DOM node to scroll to.
+  const gotoRequest = useChatStore((s) => s.gotoRequest);
+  useLayoutEffect(() => {
+    if (!gotoRequest || gotoRequest.chatId !== activeChatId) return;
+    if (!messages?.length) return;
+
+    const targetLoadedIndex = gotoRequest.messageNumber - 1 - (totalMessageCount - messages.length);
+    // Still outside the paginated data — ChatArea fetches older pages first.
+    if (targetLoadedIndex < 0 || targetLoadedIndex >= messages.length) return;
+
+    const nextStart = getTranscriptWindowStartForIndex(
+      targetLoadedIndex,
+      messages.length,
+      transcriptWindow.startIndex,
+    );
+    if (nextStart !== null) setTranscriptWindowStart(nextStart);
+  }, [gotoRequest, activeChatId, messages, totalMessageCount, transcriptWindow.startIndex]);
 
   const handleLoadMoreClick = () => {
     if (transcriptWindow.hiddenBeforeCount > 0) {
