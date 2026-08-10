@@ -319,7 +319,11 @@ export function ChatSearchPanel() {
               </span>
               <span className="block text-[0.6875rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-text)]">
                 {hit.snippet.slice(0, hit.matchStart)}
-                <mark className="rounded-sm bg-[var(--marinara-chat-chrome-highlight-bg)] px-0.5 text-[var(--marinara-chat-chrome-highlight-text)]">
+                {/* The highlight bg and highlight text tokens are the same hue at
+                    different alphas, which reads fine on a dark panel and washes out
+                    on a light one. Take the match's colour from the panel title
+                    instead, and let the tint plus weight carry the emphasis. */}
+                <mark className="rounded-sm bg-[var(--marinara-chat-chrome-highlight-bg)] px-0.5 font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
                   {hit.snippet.slice(hit.matchStart, hit.matchStart + hit.matchLength)}
                 </mark>
                 {hit.snippet.slice(hit.matchStart + hit.matchLength)}
