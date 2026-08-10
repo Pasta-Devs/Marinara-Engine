@@ -91,6 +91,8 @@ Chats that are not in any folder appear in a plain list below the folders.
 
 Each mode tab has its own search box at the top of the list. The placeholder text changes per tab: **Search conversations...**, **Search roleplays...**, or **Search games...**. The search matches the chat name, its tags, and the names of its characters. It does not search inside message text.
 
+To search the text of the messages in a chat, open that chat and use **Find in chat** instead. See [Finding a message in this chat](messages.md#finding-a-message-in-this-chat).
+
 Next to the search box is a sort menu with the tooltip **Sort chats**. It has four options:
 
 - **Newest**, the default, shows the most recently active chats first.

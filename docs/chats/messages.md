@@ -87,6 +87,27 @@ In a Roleplay group chat with more than one character, **Hide from AI** opens a 
 
 You can also hide or unhide messages by number with the `/hide` and `/unhide` slash commands. Message numbers start at 1, counting from the first message in the chat.
 
+## Finding a message in this chat
+
+Long chats are hard to scroll back through. **Find in chat** searches the chat you have open and jumps to any match.
+
+Click the magnifying glass in the chat toolbar, at the top right of the chat, or press **Ctrl+K** (**Cmd+K** on a Mac). On a phone the same button sits in the toolbar row rather than behind the **...** menu, so it is one tap.
+
+Type what you remember. Results appear as you type, each showing who wrote the message, its message number, and the part of the text that matched. Click a result to jump to that message; it is highlighted so you can spot it after the chat scrolls.
+
+The panel stays open after you jump, so you can try the next candidate without searching again. Use the up and down arrows next to the result count to step through matches in order. On a phone the results sheet shrinks to a small bar with those arrows once you jump, leaving the chat visible.
+
+Search works the way you would expect and nothing more:
+
+- It searches only the chat you have open, not your other chats.
+- Capitals do not matter. Searching for `mira` finds "Mira".
+- The text is matched exactly as you type it. There are no wildcards, regular expressions, or search operators.
+- It finds matches anywhere in the chat, including messages far enough back that they have not loaded yet.
+
+Press **Escape** or click the close button to dismiss it. Browser find (**Ctrl+F**) is left alone and still searches only what is currently on screen.
+
+Game mode does not have this panel, because it shows one narration beat at a time instead of a scrolling transcript. Use its **Logs** button to read back through a session.
+
 ## Message display toggles
 
 Two toggles change what extra detail shows on messages. Both live in **Settings**, then the **Advanced** tab, in the **Message Tools** section. Both are off by default.
