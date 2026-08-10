@@ -4509,6 +4509,32 @@ strong {
   animation: roleplay-hud-field-scroll 9s linear infinite;
 }
 
+/* ── Find in chat: match marking ──
+   Applied by ChatSearchPanel to [data-message-id] elements. Every match gets a
+   quiet tint so you can see the shape of the hits while scrolling; the one you
+   jumped to gets a ring, so it is unmistakable after the list scrolls it into
+   view. Both use chat-chrome tokens, so they follow the active theme. */
+[data-message-id][data-mari-search-hit] {
+  border-radius: 0.5rem;
+  background-color: color-mix(in srgb, var(--marinara-chat-chrome-highlight-bg) 55%, transparent);
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+[data-message-id][data-mari-search-current] {
+  background-color: color-mix(in srgb, var(--marinara-chat-chrome-highlight-bg) 92%, transparent);
+  box-shadow:
+    0 0 0 2px var(--marinara-chat-chrome-button-border-active),
+    0 8px 26px -14px rgb(0 0 0 / 0.75);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-message-id][data-mari-search-hit] {
+    transition: none;
+  }
+}
+
 /* ── Chat resource drop target ──
    Accent comes from the panel gradient tokens (.mari-panel-gradient--*), so a dropped
    lorebook reads amber, a persona reads emerald, and so on. */

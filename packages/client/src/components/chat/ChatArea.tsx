@@ -121,6 +121,7 @@ import { HomeCreditsModal } from "./HomeCreditsModal";
 import { HomeBrowserHub } from "./HomeBrowserHub";
 import { NewChatConnectionGate } from "./NewChatConnectionGate";
 import { ChatCommonOverlays, preloadChatSettingsDrawer, type ChatSettingsInitialSection } from "./ChatCommonOverlays";
+import { ChatSearchPanel } from "./ChatSearchPanel";
 import { CreatorNotesCssInjector, type CardCssMode, type PersonaCssRow } from "./CreatorNotesCssInjector";
 import type { ChatModeFilter } from "../../lib/card-css";
 import {
@@ -2938,6 +2939,7 @@ export const ChatArea = memo(function ChatArea() {
         {cardCssInjector}
         {scheduleModal}
         {resourceDropOverlay}
+        <ChatSearchPanel />
         <Suspense fallback={surfaceFallback}>
           <ChatConversationSurface
             activeChatId={activeChatId}
@@ -3035,6 +3037,7 @@ export const ChatArea = memo(function ChatArea() {
       {cardCssInjector}
       {scheduleModal}
       {resourceDropOverlay}
+      <ChatSearchPanel />
       <Suspense fallback={surfaceFallback}>
         <ChatRoleplaySurface
           activeChatId={activeChatId}

@@ -22,6 +22,7 @@ import { SceneBanner, EndSceneBar } from "./SceneBanner";
 import { ChatBranchSelector } from "./ChatBranchSelector";
 import { ActiveLorebookEntriesButton } from "./ActiveLorebookEntriesButton";
 import { ChatToolbarButton, ChatToolbarMenu, getChatToolbarButtonClass } from "./ChatToolbarControls";
+import { ChatSearchButton } from "./ChatSearchButton";
 import { ConversationPresenceCard } from "./ConversationPresenceCard";
 import { PendingTypingDots } from "./PendingTypingDots";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
@@ -528,6 +529,8 @@ export function ConversationView({
           desktopChildren={renderToolbarActions()}
           mobileChildren={renderToolbarActions(true)}
         />
+        {/* After the menu so it lands at the right edge: the menu takes flex-1. */}
+        <ChatSearchButton />
       </div>
     </div>
   );

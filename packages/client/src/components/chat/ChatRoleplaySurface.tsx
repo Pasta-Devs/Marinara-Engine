@@ -72,6 +72,7 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CyoaChoices } from "./CyoaChoices";
 import { ChatBranchSelector } from "./ChatBranchSelector";
+import { ChatSearchButton } from "./ChatSearchButton";
 import {
   CHAT_TOOLBAR_ICON_GAP_CLASS,
   CHAT_TOOLBAR_OVERFLOW_MENU_SELECTOR,
@@ -1840,6 +1841,7 @@ export function ChatRoleplaySurface({
                       className="contents"
                     />
                   ))}
+                  <ChatSearchButton />
                   <ChatBranchSelector
                     activeChatId={activeChatId}
                     activeChatName={chat?.name}
@@ -1964,6 +1966,7 @@ export function ChatRoleplaySurface({
                           className="contents"
                         />
                       ))}
+                      <ChatSearchButton compact />
                       <ChatToolbarMenu openSummaryOnRequest>
                         <ChatBranchSelector
                           activeChatId={activeChatId}
@@ -2048,6 +2051,7 @@ export function ChatRoleplaySurface({
                   <div
                     className={cn("flex w-full items-center justify-end px-2 pb-1 pt-2", CHAT_TOOLBAR_ICON_GAP_CLASS)}
                   >
+                    <ChatSearchButton compact />
                     <ChatToolbarMenu openSummaryOnRequest>
                       <ChatBranchSelector
                         activeChatId={activeChatId}
