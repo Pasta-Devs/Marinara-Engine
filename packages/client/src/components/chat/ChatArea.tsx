@@ -2643,7 +2643,10 @@ export const ChatArea = memo(function ChatArea() {
     if (!messages) return;
 
     const targetNumber = gotoRequest.messageNumber;
-    if (totalMessageCount > 0 && targetNumber > totalMessageCount) {
+    const requestedId = gotoRequest.messageId;
+
+    // A number has to be validated against the chat length; an id does not.
+    if (!requestedId && totalMessageCount > 0 && targetNumber > totalMessageCount) {
       toast.error(
         localizeUi("ui.chat.chatarea.messageValue1DoesnTExistThisChatHasValue2", {
           value1: targetNumber,
@@ -2654,9 +2657,13 @@ export const ChatArea = memo(function ChatArea() {
       return;
     }
 
+    // With an id, "is it loaded?" is a lookup rather than index arithmetic, so
+    // the jump is unaffected by duplicate entries in the paginated cache.
     const targetIndex = targetNumber - 1; // 0-based global index
-    if (targetIndex >= messageOffset) {
-      const targetId = messageIdByOrderIndex.get(targetIndex);
+    const isLoaded = requestedId ? messages.some((message) => message.id === requestedId) : targetIndex >= messageOffset;
+
+    if (isLoaded) {
+      const targetId = requestedId ?? messageIdByOrderIndex.get(targetIndex);
       if (!targetId) {
         useChatStore.getState().clearGotoRequest();
         return;

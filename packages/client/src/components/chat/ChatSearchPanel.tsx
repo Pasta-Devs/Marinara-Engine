@@ -30,8 +30,11 @@ type Anchor = { top: number; right: number };
  * costs one tap.
  *
  * Jumping delegates to the existing `/goto` machinery via
- * `requestGotoMessage` — ChatArea paginates back until the target message is
- * loaded, centres it, and suppresses auto-scroll-to-bottom.
+ * `requestGotoMessageId` — ChatArea paginates back until the target message is
+ * loaded, centres it, and suppresses auto-scroll-to-bottom. The id form is used
+ * rather than the message number because search already knows the id, and
+ * resolving a number depends on `totalMessageCount - messages.length`, which
+ * duplicate entries in the paginated cache distort.
  */
 export function ChatSearchPanel() {
   const { t } = useUiTranslation();
@@ -39,7 +42,7 @@ export function ChatSearchPanel() {
   const open = useChatStore((s) => s.chatSearchOpen);
   const openChatSearch = useChatStore((s) => s.openChatSearch);
   const closeChatSearch = useChatStore((s) => s.closeChatSearch);
-  const requestGotoMessage = useChatStore((s) => s.requestGotoMessage);
+  const requestGotoMessageId = useChatStore((s) => s.requestGotoMessageId);
   const setChatSearchCurrent = useChatStore((s) => s.setChatSearchCurrent);
 
   const [query, setQuery] = useState("");
@@ -129,10 +132,12 @@ export function ChatSearchPanel() {
       if (!hit) return;
       setActiveIndex(wrapped);
       setChatSearchCurrent(hit.messageNumber);
-      requestGotoMessage(activeChatId, hit.messageNumber);
+      // Jump by id: search already knows it, so the jump does not depend on
+      // the message-number arithmetic the paginated cache can distort.
+      requestGotoMessageId(activeChatId, hit.messageId, hit.messageNumber);
       if (isMobile) setCollapsed(true);
     },
-    [activeChatId, results, isMobile, requestGotoMessage, setChatSearchCurrent],
+    [activeChatId, results, isMobile, requestGotoMessageId, setChatSearchCurrent],
   );
 
   const step = useCallback((delta: number) => jumpTo(activeIndex < 0 ? 0 : activeIndex + delta), [activeIndex, jumpTo]);

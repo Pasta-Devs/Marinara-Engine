@@ -263,7 +263,13 @@ interface ChatState {
   /** Manually dismissed notification chatIds (won't re-appear until next message). */
   dismissedNotifications: Set<string>;
   /** Pending /goto request — ChatArea fulfils by paginating + scrolling to the target message. Token forces re-fire on identical N. */
-  gotoRequest: { chatId: string; messageNumber: number; token: number } | null;
+  /**
+   * Pending jump. `messageId` is authoritative when present: resolving a
+   * message *number* depends on `totalMessageCount - messages.length`, which
+   * drifts whenever the paginated cache holds duplicate entries. Callers that
+   * already know the id (in-chat search) should pass it and skip that maths.
+   */
+  gotoRequest: { chatId: string; messageNumber: number; messageId?: string; token: number } | null;
   /** Whether the "Find in chat" panel is open for the active chat. */
   chatSearchOpen: boolean;
   /**
@@ -353,6 +359,7 @@ interface ChatState {
   dismissNotification: (chatId: string) => void;
   dismissNotifications: (chatIds: string[]) => void;
   requestGotoMessage: (chatId: string, messageNumber: number) => void;
+  requestGotoMessageId: (chatId: string, messageId: string, messageNumber: number) => void;
   openChatSearch: () => void;
   closeChatSearch: () => void;
   setChatSearchCurrent: (messageNumber: number | null) => void;
@@ -1012,6 +1019,15 @@ export const useChatStore = create<ChatState>()(
         gotoRequest: {
           chatId,
           messageNumber,
+          token: (state.gotoRequest?.token ?? 0) + 1,
+        },
+      })),
+    requestGotoMessageId: (chatId, messageId, messageNumber) =>
+      set((state) => ({
+        gotoRequest: {
+          chatId,
+          messageNumber,
+          messageId,
           token: (state.gotoRequest?.token ?? 0) + 1,
         },
       })),

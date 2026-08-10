@@ -1526,7 +1526,11 @@ export function ChatRoleplaySurface({
     if (!gotoRequest || gotoRequest.chatId !== activeChatId) return;
     if (!messages?.length) return;
 
-    const targetLoadedIndex = gotoRequest.messageNumber - 1 - (totalMessageCount - messages.length);
+    // Prefer the id: locating by index depends on totalMessageCount matching
+    // messages.length, which duplicate paginated entries break.
+    const targetLoadedIndex = gotoRequest.messageId
+      ? messages.findIndex((message) => message.id === gotoRequest.messageId)
+      : gotoRequest.messageNumber - 1 - (totalMessageCount - messages.length);
     // Still outside the paginated data — ChatArea fetches older pages first.
     if (targetLoadedIndex < 0 || targetLoadedIndex >= messages.length) return;
 
