@@ -458,7 +458,6 @@ export function ConversationView({
   const conversationCapabilityProps = { chatId, metadata: chatMeta, characterMap, chatCharIds, personaInfo };
   const renderToolbarActions = (compact = false) => (
     <>
-      <ChatSearchButton compact={compact} />
       <ChatBranchSelector
         activeChatId={chatId}
         activeChatName={chatName}
@@ -490,6 +489,7 @@ export function ConversationView({
         panelAction="settings"
         onClick={onOpenSettings}
       />
+      <ChatSearchButton compact={compact} />
     </>
   );
   const renderHeader = () => (

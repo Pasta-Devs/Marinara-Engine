@@ -1852,7 +1852,6 @@ export function ChatRoleplaySurface({
                     variant="roleplay"
                   />
                   <ChatToolbarMenu openSummaryOnRequest>
-                    <ChatSearchButton />
                     <SummaryButton
                       chatId={chat?.id ?? null}
                       summary={chatMeta.summary ?? null}
@@ -1921,6 +1920,7 @@ export function ChatRoleplaySurface({
                       panelAction="settings"
                       onClick={onOpenSettings}
                     />
+                    <ChatSearchButton />
                   </ChatToolbarMenu>
                 </div>
               </div>
@@ -1971,7 +1971,6 @@ export function ChatRoleplaySurface({
                         />
                       ))}
                       <ChatToolbarMenu openSummaryOnRequest>
-                        <ChatSearchButton compact />
                         <ChatBranchSelector
                           activeChatId={activeChatId}
                           activeChatName={chat?.name}
@@ -2047,6 +2046,7 @@ export function ChatRoleplaySurface({
                           panelAction="settings"
                           onClick={onOpenSettings}
                         />
+                        <ChatSearchButton compact />
                       </ChatToolbarMenu>
                     </div>
                   </div>
@@ -2056,7 +2056,6 @@ export function ChatRoleplaySurface({
                     className={cn("flex w-full items-center justify-end px-2 pb-1 pt-2", CHAT_TOOLBAR_ICON_GAP_CLASS)}
                   >
                     <ChatToolbarMenu openSummaryOnRequest>
-                      <ChatSearchButton compact />
                       <ChatBranchSelector
                         activeChatId={activeChatId}
                         activeChatName={chat?.name}
@@ -2130,6 +2129,7 @@ export function ChatRoleplaySurface({
                         panelAction="settings"
                         onClick={onOpenSettings}
                       />
+                      <ChatSearchButton compact />
                     </ChatToolbarMenu>
                   </div>
                 )}
