@@ -125,8 +125,6 @@
   "chat.search.placeholder": "Search this conversation…",
   "chat.search.position": "{{current}} of {{total}}",
   "chat.search.previous": "Previous match",
-  "chat.search.scope_one": "This chat only • {{count}} message",
-  "chat.search.scope_other": "This chat only • {{count}} messages",
   "chat.search.title": "Find in chat",
   "chat.search.you": "You",
   "chat.settings.actions.editCharacterCard": "Edit character card",

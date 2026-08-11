@@ -11,7 +11,6 @@ import {
   ROLEPLAY_POPOVER_HEADER,
   ROLEPLAY_POPOVER_SCROLL_AREA,
   ROLEPLAY_POPOVER_SHELL,
-  ROLEPLAY_POPOVER_SUBTITLE,
   ROLEPLAY_POPOVER_TITLE,
 } from "./roleplay-popover-styles";
 
@@ -210,7 +209,6 @@ export function ChatSearchPanel() {
 
   if (!open || !activeChatId) return null;
 
-  const total = corpus?.length ?? 0;
   const authorOf = (hit: ChatSearchHit) =>
     hit.role === "user" ? t("chat.search.you") : (hit.characterId && nameById.get(hit.characterId)) || "";
 
@@ -338,12 +336,9 @@ export function ChatSearchPanel() {
   const header = (
     <div className={cn(ROLEPLAY_POPOVER_HEADER, "flex flex-col gap-2")}>
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className={ROLEPLAY_POPOVER_TITLE}>
-            <Search size="0.8125rem" />
-            <span className="truncate">{t("chat.search.title")}</span>
-          </div>
-          <div className={ROLEPLAY_POPOVER_SUBTITLE}>{t("chat.search.scope", { count: total })}</div>
+        <div className={cn(ROLEPLAY_POPOVER_TITLE, "min-w-0")}>
+          <Search size="0.8125rem" />
+          <span className="truncate">{t("chat.search.title")}</span>
         </div>
         <button
           type="button"
