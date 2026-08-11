@@ -5,6 +5,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat.store";
 import { useCharacterSummaries } from "../../hooks/use-characters";
 import { useChatSearchCorpus, useChatSearchResults, type ChatSearchHit } from "../../hooks/use-chat-search";
+import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import { cn } from "../../lib/utils";
 import {
   ROLEPLAY_POPOVER_CLOSE_BUTTON,
@@ -160,6 +161,17 @@ export function ChatSearchPanel() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [openChatSearch, closeChatSearch]);
+
+  // ── Yield to the mobile shell drawers ────────────────────────────
+  // Opening Settings, Agents, Connections and the like on mobile announces a
+  // dismiss; every other chat floating panel closes on it. Without this the
+  // search panel stays painted over the drawer that replaced it.
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    const handleDismiss = () => closeChatSearch();
+    window.addEventListener(CHAT_FLOATING_UI_DISMISS_EVENT, handleDismiss);
+    return () => window.removeEventListener(CHAT_FLOATING_UI_DISMISS_EVENT, handleDismiss);
+  }, [open, closeChatSearch]);
 
   // ── Mark matching messages in the rendered list ───────────────────
   // The message list re-renders as older pages load, so re-apply on mutation.
