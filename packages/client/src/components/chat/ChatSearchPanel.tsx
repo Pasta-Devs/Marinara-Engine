@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat.store";
 import { useCharacterSummaries } from "../../hooks/use-characters";
 import { useChatSearchCorpus, useChatSearchResults, type ChatSearchHit } from "../../hooks/use-chat-search";
+import { sortChatSearchHits, type ChatSearchSort } from "../../lib/chat-search";
 import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import { cn } from "../../lib/utils";
 import {
@@ -48,6 +49,7 @@ export function ChatSearchPanel() {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
   const [collapsed, setCollapsed] = useState(false);
+  const [sort, setSort] = useState<ChatSearchSort>("newest");
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches,
   );
@@ -55,7 +57,9 @@ export function ChatSearchPanel() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: corpus, isLoading } = useChatSearchCorpus(activeChatId, open);
-  const results = useChatSearchResults(corpus, query);
+  const chronological = useChatSearchResults(corpus, query);
+  // Display order is a view concern; the hook keeps canonical chat order.
+  const results = useMemo(() => sortChatSearchHits(chronological, sort), [chronological, sort]);
 
   const characterIds = useMemo(() => {
     const ids = new Set<string>();
@@ -116,12 +120,12 @@ export function ChatSearchPanel() {
     setQuery("");
   }, [activeChatId]);
 
-  // A new query invalidates the previous selection.
+  // A new query or a reordering invalidates the current position.
   useEffect(() => {
     setActiveIndex(-1);
     setCollapsed(false);
     setChatSearchCurrent(null);
-  }, [query, setChatSearchCurrent]);
+  }, [query, sort, setChatSearchCurrent]);
 
   // ── Jumping ──────────────────────────────────────────────────────
   const jumpTo = useCallback(
@@ -264,6 +268,19 @@ export function ChatSearchPanel() {
     </div>
   );
 
+  const sortToggle = results.length > 0 && (
+    <button
+      type="button"
+      onClick={() => setSort((current) => (current === "newest" ? "oldest" : "newest"))}
+      className="flex shrink-0 items-center gap-1 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] px-1.5 py-1 text-[0.625rem] text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] active:scale-95"
+      aria-label={t(sort === "newest" ? "chat.search.sortToOldest" : "chat.search.sortToNewest")}
+      title={t(sort === "newest" ? "chat.search.sortToOldest" : "chat.search.sortToNewest")}
+    >
+      {sort === "newest" ? <ArrowDownWideNarrow size="0.6875rem" /> : <ArrowUpNarrowWide size="0.6875rem" />}
+      <span className="whitespace-nowrap">{t(sort === "newest" ? "chat.search.newestFirst" : "chat.search.oldestFirst")}</span>
+    </button>
+  );
+
   const stepper = results.length > 0 && (
     <div className="flex shrink-0 items-center gap-1">
       <span className="mr-1 whitespace-nowrap font-mono text-[0.625rem] tabular-nums text-[var(--marinara-chat-chrome-panel-muted)]">
@@ -362,7 +379,12 @@ export function ChatSearchPanel() {
         </button>
       </div>
       {searchField}
-      {results.length > 0 && <div className="flex items-center justify-end">{stepper}</div>}
+      {results.length > 0 && (
+        <div className="flex items-center justify-between gap-2">
+          {sortToggle}
+          {stepper}
+        </div>
+      )}
     </div>
   );
 

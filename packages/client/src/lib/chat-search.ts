@@ -57,6 +57,21 @@ export function buildChatSearchSnippet(content: string, index: number, length: n
   };
 }
 
+/** Which end of the chat results are listed from. */
+export type ChatSearchSort = "newest" | "oldest";
+
+/**
+ * Orders hits for display.
+ *
+ * `findChatSearchHits` always returns chat order (oldest first) because that is
+ * the order message numbers run in; this decides how they are shown. Returns a
+ * new array so the caller's canonical order is never mutated.
+ */
+export function sortChatSearchHits(hits: readonly ChatSearchHit[], sort: ChatSearchSort): ChatSearchHit[] {
+  const ordered = [...hits];
+  return sort === "newest" ? ordered.reverse() : ordered;
+}
+
 /**
  * Every message containing `query`, in chat order.
  *

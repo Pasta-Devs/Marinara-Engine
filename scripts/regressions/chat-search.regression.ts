@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   buildChatSearchSnippet,
   findChatSearchHits,
+  sortChatSearchHits,
   toSearchableText,
   type ChatSearchMessage,
 } from "../../packages/client/src/lib/chat-search.js";
@@ -96,5 +97,43 @@ const withCharacter = findChatSearchHits(
 assert.equal(withCharacter[0]?.characterId, "char-1");
 assert.equal(withCharacter[0]?.role, "assistant");
 assert.equal(withCharacter[0]?.createdAt, "2026-01-01");
+
+// ── Display order is a view concern; matching stays chronological ──────
+const chronological = findChatSearchHits(messages, "Mira");
+assert.deepEqual(
+  chronological.map((hit) => hit.messageNumber),
+  [2, 3],
+  "findChatSearchHits must keep chat order regardless of how results are shown",
+);
+
+assert.deepEqual(
+  sortChatSearchHits(chronological, "newest").map((hit) => hit.messageNumber),
+  [3, 2],
+  "newest-first lists the latest match first",
+);
+assert.deepEqual(
+  sortChatSearchHits(chronological, "oldest").map((hit) => hit.messageNumber),
+  [2, 3],
+  "oldest-first preserves chat order",
+);
+
+// Sorting must not mutate the caller's array — the panel keeps the
+// chronological list around and re-sorts it whenever the toggle flips.
+const untouched = findChatSearchHits(messages, "Mira");
+sortChatSearchHits(untouched, "newest");
+assert.deepEqual(
+  untouched.map((hit) => hit.messageNumber),
+  [2, 3],
+  "sortChatSearchHits must return a new array, not reverse in place",
+);
+
+// Round-tripping both directions returns the original order.
+assert.deepEqual(
+  sortChatSearchHits(sortChatSearchHits(chronological, "newest"), "newest").map((h) => h.messageNumber),
+  [2, 3],
+  "reversing twice restores chat order",
+);
+
+assert.deepEqual(sortChatSearchHits([], "newest"), [], "empty results sort to empty");
 
 console.info("Chat search regression checks passed.");
