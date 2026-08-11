@@ -91,11 +91,13 @@ You can also hide or unhide messages by number with the `/hide` and `/unhide` sl
 
 Long chats are hard to scroll back through. **Find in chat** searches the chat you have open and jumps to any match.
 
-Click the magnifying glass in the chat toolbar, at the top right of the chat, or press **Ctrl+K** (**Cmd+K** on a Mac). On a phone the same button sits in the toolbar row rather than behind the **...** menu, so it is one tap.
+Open the **...** menu in the chat toolbar and click the magnifying glass, or press **Ctrl+K** (**Cmd+K** on a Mac).
 
 Type what you remember. Results appear as you type, each showing who wrote the message, its message number, and the part of the text that matched. Click a result to jump to that message; it is highlighted so you can spot it after the chat scrolls.
 
-The panel stays open after you jump, so you can try the next candidate without searching again. Use the up and down arrows next to the result count to step through matches in order. On a phone the results sheet shrinks to a small bar with those arrows once you jump, leaving the chat visible.
+Newest matches are listed first. Click the **Newest first** button to switch to **Oldest first** and back.
+
+The panel stays open after you jump, so you can try the next candidate without searching again. Use the up and down arrows next to the result count to step through matches in the listed order. On a phone the results sheet shrinks to a small bar with those arrows once you jump, leaving the chat visible.
 
 Search works the way you would expect and nothing more:
 

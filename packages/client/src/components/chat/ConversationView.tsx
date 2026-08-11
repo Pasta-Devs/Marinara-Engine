@@ -458,6 +458,7 @@ export function ConversationView({
   const conversationCapabilityProps = { chatId, metadata: chatMeta, characterMap, chatCharIds, personaInfo };
   const renderToolbarActions = (compact = false) => (
     <>
+      <ChatSearchButton compact={compact} />
       <ChatBranchSelector
         activeChatId={chatId}
         activeChatName={chatName}
@@ -529,8 +530,6 @@ export function ConversationView({
           desktopChildren={renderToolbarActions()}
           mobileChildren={renderToolbarActions(true)}
         />
-        {/* After the menu so it lands at the right edge: the menu takes flex-1. */}
-        <ChatSearchButton />
       </div>
     </div>
   );

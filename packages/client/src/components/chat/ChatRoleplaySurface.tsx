@@ -1845,7 +1845,6 @@ export function ChatRoleplaySurface({
                       className="contents"
                     />
                   ))}
-                  <ChatSearchButton />
                   <ChatBranchSelector
                     activeChatId={activeChatId}
                     activeChatName={chat?.name}
@@ -1853,6 +1852,7 @@ export function ChatRoleplaySurface({
                     variant="roleplay"
                   />
                   <ChatToolbarMenu openSummaryOnRequest>
+                    <ChatSearchButton />
                     <SummaryButton
                       chatId={chat?.id ?? null}
                       summary={chatMeta.summary ?? null}
@@ -1970,8 +1970,8 @@ export function ChatRoleplaySurface({
                           className="contents"
                         />
                       ))}
-                      <ChatSearchButton compact />
                       <ChatToolbarMenu openSummaryOnRequest>
+                        <ChatSearchButton compact />
                         <ChatBranchSelector
                           activeChatId={activeChatId}
                           activeChatName={chat?.name}
@@ -2055,8 +2055,8 @@ export function ChatRoleplaySurface({
                   <div
                     className={cn("flex w-full items-center justify-end px-2 pb-1 pt-2", CHAT_TOOLBAR_ICON_GAP_CLASS)}
                   >
-                    <ChatSearchButton compact />
                     <ChatToolbarMenu openSummaryOnRequest>
+                      <ChatSearchButton compact />
                       <ChatBranchSelector
                         activeChatId={activeChatId}
                         activeChatName={chat?.name}
