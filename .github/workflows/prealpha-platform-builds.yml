@@ -67,7 +67,7 @@ jobs:
 
       - name: Create draft GitHub pre-release with warning notes
         id: create
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           TAG_NAME: ${{ steps.version.outputs.tag_name }}
           RELEASE_NAME: ${{ steps.version.outputs.release_name }}
@@ -347,7 +347,7 @@ jobs:
       contents: write
     steps:
       - name: Publish draft pre-release without marking it latest
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           RELEASE_ID: ${{ needs.create-prealpha-release.outputs.release_id }}
         with:
