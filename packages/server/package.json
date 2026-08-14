@@ -18,7 +18,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.141",
     "@fastify/cors": "^11.2.0",
     "@fastify/multipart": "^9.4.0",
-    "@fastify/static": "^10.1.2",
+    "@fastify/static": "^10.1.3",
     "@huggingface/transformers": "^3.8.1",
     "@marinara-engine/shared": "workspace:*",
     "adm-zip": "^0.6.0",
