@@ -108,7 +108,7 @@
   "devDependencies": {
     "@playwright/test": "^1.61.0",
     "@types/adm-zip": "^0.5.8",
-    "@types/node": "^24.12.2",
+    "@types/node": "^26.2.0",
     "adm-zip": "^0.6.0",
     "esbuild": "^0.28.1",
     "prettier": "^3.8.3"
