@@ -1,4 +1,10 @@
-import type { GameState, PlayerStats } from "@marinara-engine/shared";
+import {
+  INVENTORY_TRACKER_GROUPS,
+  INVENTORY_TRACKER_GROUP_FIELDS,
+  normalizeInventoryTrackerItems,
+  type GameState,
+  type PlayerStats,
+} from "@marinara-engine/shared";
 
 export type AgentSuiteTrackerSlice = {
   label: string;
@@ -98,6 +104,31 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
             },
           }
         : { error: "Custom tracker fields must be a JSON array" },
+  },
+  "inventory-tracker": {
+    label: "Inventory",
+    description: "Currencies, equipped items, and carried items maintained by the Inventory Tracker agent.",
+    getValue: (gameState) =>
+      Object.fromEntries(
+        INVENTORY_TRACKER_GROUPS.map((group) => [
+          group,
+          gameState.playerStats?.[INVENTORY_TRACKER_GROUP_FIELDS[group]] ?? [],
+        ]),
+      ),
+    buildPatch: (gameState, parsed) => {
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return { error: "Inventory data must be a JSON object" };
+      }
+      const record = parsed as Record<string, unknown>;
+      const playerStats = { ...(gameState.playerStats ?? createEmptyPlayerStats()) };
+      // As with the scene slice, an omitted group means "leave unchanged".
+      for (const group of INVENTORY_TRACKER_GROUPS) {
+        if (!(group in record)) continue;
+        if (!Array.isArray(record[group])) return { error: `Inventory "${group}" must be a JSON array` };
+        playerStats[INVENTORY_TRACKER_GROUP_FIELDS[group]] = normalizeInventoryTrackerItems(record[group]);
+      }
+      return { playerStats };
+    },
   },
   quest: {
     label: "Active Quests",

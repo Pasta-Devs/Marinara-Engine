@@ -10,11 +10,13 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import {
+  Backpack,
   CalendarDays,
   CheckCircle2,
   Circle,
   Clock,
   CloudSun,
+  Coins,
   ImagePlus,
   Lock,
   MapPin,
@@ -22,6 +24,7 @@ import {
   Pencil,
   Plus,
   Scroll,
+  Shield,
   Sparkles,
   SlidersHorizontal,
   Swords,
@@ -42,11 +45,14 @@ import type {
   CharacterStat,
   CustomTrackerField,
   InventoryItem,
+  InventoryTrackerGroup,
+  InventoryTrackerItem,
   PresentCharacter,
   QuestProgress,
   WorldCustomField,
 } from "@marinara-engine/shared";
 import {
+  INVENTORY_TRACKER_GROUPS,
   characterStatTrackerLockKey,
   characterCustomFieldTrackerLockKey,
   characterTrackerLockKey,
@@ -54,6 +60,8 @@ import {
   customTrackerFieldLockPrefix,
   customTrackerLockKey,
   inventoryItemTrackerLockPrefix,
+  inventorySectionTrackerLockKey,
+  inventorySectionTrackerRowPrefix,
   inventoryTrackerLockKey,
   isTrackerFieldHidden,
   isTrackerFieldLocked,
@@ -79,6 +87,7 @@ interface CombinedPlayerPanelProps {
   showPersona: boolean;
   showCharacters: boolean;
   showQuests: boolean;
+  showInventoryTracker: boolean;
   showCustomTracker: boolean;
   personaStats: CharacterStat[];
   onUpdatePersonaStats: (bars: CharacterStat[]) => void;
@@ -93,6 +102,8 @@ interface CombinedPlayerPanelProps {
   onUpdateQuests: (quests: QuestProgress[]) => void;
   customTrackerFields: CustomTrackerField[];
   onUpdateCustomTracker: (fields: CustomTrackerField[]) => void;
+  inventoryTrackerGroups: InventoryTrackerPanelGroups;
+  onUpdateInventoryTrackerGroup: (group: InventoryTrackerGroup, items: InventoryTrackerItem[]) => void;
   onClose: () => void;
   onRerunSingleTracker?: (agentType: string) => void;
   isTrackerRetryBusy?: boolean;
@@ -217,6 +228,7 @@ export function CombinedPlayerPanel({
   showPersona,
   showCharacters,
   showQuests,
+  showInventoryTracker,
   showCustomTracker,
   personaStats,
   onUpdatePersonaStats,
@@ -231,6 +243,8 @@ export function CombinedPlayerPanel({
   onUpdateQuests,
   customTrackerFields,
   onUpdateCustomTracker,
+  inventoryTrackerGroups,
+  onUpdateInventoryTrackerGroup,
   onClose,
   onRerunSingleTracker,
   isTrackerRetryBusy,
@@ -671,6 +685,38 @@ export function CombinedPlayerPanel({
                   questIndex={idx}
                   onUpdate={(updatedQuest) => updateQuest(idx, updatedQuest)}
                   onRemove={() => removeQuest(idx)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {showInventoryTracker && (
+          <div className="p-2">
+            <div className="flex items-center justify-between px-1 pb-1">
+              <span className={TRACKER_SECTION_TITLE}>
+                <Backpack size="0.5625rem" className="text-amber-400/80" />{" "}
+                {localizeUi("ui.chat.combinedplayerpanel.inventoryTrackerValue1", {
+                  value1: INVENTORY_TRACKER_GROUPS.reduce(
+                    (total, group) => total + inventoryTrackerGroups[group].length,
+                    0,
+                  ),
+                })}
+              </span>
+              <TrackerSectionRefresh
+                agentType="inventory-tracker"
+                onRerunSingleTracker={onRerunSingleTracker}
+                busy={isTrackerRetryBusy}
+                title={localizeUi("ui.chat.inventorytrackerpanel.reRunInventoryTrackerOnly")}
+              />
+            </div>
+            <div className="space-y-2">
+              {INVENTORY_TRACKER_GROUPS.map((group) => (
+                <InventoryTrackerGroupSection
+                  key={group}
+                  group={group}
+                  items={inventoryTrackerGroups[group]}
+                  onUpdateGroup={onUpdateInventoryTrackerGroup}
                 />
               ))}
             </div>
@@ -1264,6 +1310,178 @@ export function InventoryPanel({
     </>
   );
 }
+
+export type InventoryTrackerPanelGroups = Record<InventoryTrackerGroup, InventoryTrackerItem[]>;
+
+const INVENTORY_TRACKER_GROUP_ICONS: Record<InventoryTrackerGroup, ReactNode> = {
+  currencies: <Coins size="0.625rem" className="shrink-0 text-amber-400/70" />,
+  equipped: <Shield size="0.625rem" className="shrink-0 text-amber-400/70" />,
+  carried: <Backpack size="0.625rem" className="shrink-0 text-amber-400/70" />,
+};
+
+function useInventoryTrackerGroupLabels(): Record<InventoryTrackerGroup, string> {
+  const { t: localizeUi } = useUiTranslation();
+  return {
+    currencies: localizeUi("ui.trackerPanel.inventorytrackerpanel.currencies"),
+    equipped: localizeUi("ui.trackerPanel.inventorytrackerpanel.equipped"),
+    carried: localizeUi("ui.trackerPanel.inventorytrackerpanel.carried"),
+  };
+}
+
+/**
+ * One tracked group: a label row with an add button, then its editable items.
+ *
+ * Shared by the standalone Inventory Tracker popover and the mobile combined
+ * player popover so both stay in step.
+ */
+function InventoryTrackerGroupSection({
+  group,
+  items,
+  onUpdateGroup,
+}: {
+  group: InventoryTrackerGroup;
+  items: InventoryTrackerItem[];
+  onUpdateGroup: (group: InventoryTrackerGroup, items: InventoryTrackerItem[]) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const { onUpdateFieldLocks } = useTrackerLockContext();
+  const lockFor = useHudFieldLockResolver();
+  const groupLabels = useInventoryTrackerGroupLabels();
+
+  const addItem = () => onUpdateGroup(group, [...items, { name: "New Item", qty: 1 }]);
+
+  const removeItem = (idx: number) => {
+    onUpdateFieldLocks?.((locks) =>
+      removeTrackerFieldLockPrefix(locks, inventorySectionTrackerRowPrefix(group, items[idx]!, idx)),
+    );
+    onUpdateGroup(
+      group,
+      items.filter((_, i) => i !== idx),
+    );
+  };
+
+  const updateItem = (idx: number, updated: InventoryTrackerItem) => {
+    const previous = items[idx];
+    if (previous && previous.name !== updated.name) {
+      onUpdateFieldLocks?.((locks) =>
+        renameTrackerFieldLockPrefix(
+          locks,
+          inventorySectionTrackerRowPrefix(group, previous, idx),
+          inventorySectionTrackerRowPrefix(group, updated, idx),
+        ),
+      );
+    }
+    const next = [...items];
+    next[idx] = updated;
+    onUpdateGroup(group, next);
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-1">
+        <span className="flex min-w-0 items-center gap-1 text-[0.5625rem] font-semibold uppercase tracking-[0.06em] text-[var(--muted-foreground)]/75">
+          {INVENTORY_TRACKER_GROUP_ICONS[group]} {groupLabels[group]}
+        </span>
+        <button onClick={addItem} className={TRACKER_SECTION_ACTION}>
+          <Plus size="0.625rem" /> {localizeUi("ui.characters.metadatatab.add")}
+        </button>
+      </div>
+      {items.length === 0 && (
+        <div className={EMPTY_STATE}>{localizeUi("ui.trackerPanel.inventorytrackerpanel.nothingTracked")}</div>
+      )}
+      {items.map((item, idx) => {
+        const nameLock = lockFor(inventorySectionTrackerLockKey(group, item, "name", idx));
+        const qtyLock = lockFor(inventorySectionTrackerLockKey(group, item, "qty", idx));
+        const itemLabel = item.name || localizeUi("ui.chat.databaseworkspaceapprovalcard.item");
+        return (
+          <div key={idx} className="group/field flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/20 px-2 py-1.5">
+            {INVENTORY_TRACKER_GROUP_ICONS[group]}
+            <InlineEdit
+              value={item.name}
+              onSave={(value) => updateItem(idx, { ...item, name: value })}
+              className="min-w-0 flex-1"
+              placeholder={localizeUi("ui.chat.combinedplayerpanel.itemName")}
+              locked={nameLock.locked}
+            />
+            <HudFieldLockButton
+              {...nameLock}
+              label={localizeUi("ui.chat.combinedplayerpanel.value1Name", { value1: itemLabel })}
+            />
+            <input
+              type="number"
+              value={item.qty}
+              onChange={(event) => updateItem(idx, { ...item, qty: Math.max(1, Number(event.target.value)) })}
+              className={cn(
+                "w-8 rounded bg-transparent text-center text-[0.5625rem] text-[var(--foreground)]/60 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                qtyLock.locked && HUD_LOCKED_FIELD_CLASS,
+              )}
+              title={localizeUi("ui.chat.combinedplayerpanel.quantity")}
+            />
+            <HudFieldLockButton
+              {...qtyLock}
+              label={localizeUi("ui.chat.combinedplayerpanel.value1Quantity", { value1: itemLabel })}
+            />
+            <button
+              onClick={() => removeItem(idx)}
+              className="shrink-0 text-[var(--muted-foreground)]/40 transition-colors hover:text-red-500"
+              title={localizeUi("ui.chat.combinedplayerpanel.removeItem")}
+            >
+              <X size="0.5625rem" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+interface InventoryTrackerPanelProps {
+  groups: InventoryTrackerPanelGroups;
+  onUpdateGroup: (group: InventoryTrackerGroup, items: InventoryTrackerItem[]) => void;
+  onRerunSingleTracker?: (agentType: string) => void;
+  isTrackerRetryBusy?: boolean;
+}
+
+export function InventoryTrackerPanel({
+  groups,
+  onUpdateGroup,
+  onRerunSingleTracker,
+  isTrackerRetryBusy,
+}: InventoryTrackerPanelProps) {
+  const { t: localizeUi } = useUiTranslation();
+  const totalItems = INVENTORY_TRACKER_GROUPS.reduce((total, group) => total + groups[group].length, 0);
+
+  return (
+    <>
+      <div className={cn(NEUTRAL_PANEL_HEADER, "flex items-center justify-between")}>
+        <span className={NEUTRAL_PANEL_TITLE}>
+          <Backpack size="0.625rem" className="text-amber-400/80" />{" "}
+          {localizeUi("ui.chat.inventorytrackerpanel.inventoryValue1", { value1: totalItems })}
+        </span>
+        <span className="flex items-center gap-1">
+          <TrackerSectionRefresh
+            agentType="inventory-tracker"
+            onRerunSingleTracker={onRerunSingleTracker}
+            busy={isTrackerRetryBusy}
+            title={localizeUi("ui.chat.inventorytrackerpanel.reRunInventoryTrackerOnly")}
+          />
+          <HudLockModeToggle />
+        </span>
+      </div>
+      <div className="space-y-2 p-2">
+        {INVENTORY_TRACKER_GROUPS.map((group) => (
+          <InventoryTrackerGroupSection
+            key={group}
+            group={group}
+            items={groups[group]}
+            onUpdateGroup={onUpdateGroup}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
 
 interface QuestsPanelProps {
   quests: QuestProgress[];

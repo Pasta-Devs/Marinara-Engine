@@ -1,6 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
 import {
   GENERATION_PARAMETER_SEND_KEYS,
+  INVENTORY_TRACKER_GROUPS,
+  INVENTORY_TRACKER_GROUP_FIELDS,
   SUMMARY_TAIL_MESSAGES,
   applyTrackerFieldLocksToGameStatePatch,
   compileChatSummaryEntries,
@@ -21,6 +23,8 @@ import {
   type GenerationParameterSendMap,
   type GenerationParameters,
   type InventoryItem,
+  type InventoryTrackerGroup,
+  type InventoryTrackerItem,
   type MacroContext,
   type PlayerStats,
   type WrapFormat,
@@ -237,6 +241,44 @@ export function buildLockedPersonaTrackerPatch({
       : [],
     patch,
     updates,
+  };
+}
+
+/**
+ * Apply an Inventory Tracker result to a snapshot's player stats.
+ *
+ * All three groups go through one lock pass and land in a single combined patch, so
+ * the client receives one `game_state_patch` per run instead of three racing writes.
+ * A group the agent omitted is left untouched rather than cleared.
+ */
+export function buildLockedInventoryTrackerPatch({
+  groups,
+  snapshot,
+  lockState,
+}: {
+  groups: Partial<Record<InventoryTrackerGroup, InventoryTrackerItem[]>>;
+  snapshot: { playerStats?: unknown } | null | undefined;
+  lockState: GameState | null | undefined;
+}) {
+  const rawPlayerStatsPatch: Record<string, unknown> = {};
+  for (const group of INVENTORY_TRACKER_GROUPS) {
+    const items = groups[group];
+    if (items) rawPlayerStatsPatch[INVENTORY_TRACKER_GROUP_FIELDS[group]] = items;
+  }
+
+  const existingPlayerStats = parseSnapshotPlayerStats(snapshot);
+  if (Object.keys(rawPlayerStatsPatch).length === 0) {
+    return { changed: false, patch: { playerStats: {} }, playerStats: existingPlayerStats };
+  }
+
+  const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ playerStats: rawPlayerStatsPatch }, lockState);
+  const lockedPlayerStatsPatch = extractPlayerStatsPatch(lockedPatch);
+  const playerStats = { ...existingPlayerStats, ...lockedPlayerStatsPatch } as PlayerStats;
+
+  return {
+    changed: !isDeepStrictEqual(playerStats, existingPlayerStats),
+    patch: { playerStats: lockedPlayerStatsPatch },
+    playerStats,
   };
 }
 

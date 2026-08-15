@@ -1,4 +1,8 @@
-import { compactQuestProgressForContext, formatCustomTrackerFieldForPrompt } from "@marinara-engine/shared";
+import {
+  compactQuestProgressForContext,
+  formatCustomTrackerFieldForPrompt,
+  formatInventoryTrackerForPrompt,
+} from "@marinara-engine/shared";
 import { wrapContent } from "../prompt/format-engine.js";
 
 type WrapFormat = "xml" | "markdown" | "none";
@@ -159,7 +163,10 @@ export function buildCommittedTrackerContextBlock(args: {
   const hasPersonaStats = active.has("persona-stats");
   const hasQuest = active.has("quest");
   const hasCustomTracker = active.has("custom-tracker");
-  if (!hasWorldState && !hasCharTracker && !hasPersonaStats && !hasQuest && !hasCustomTracker) return null;
+  const hasInventoryTracker = active.has("inventory-tracker");
+  if (!hasWorldState && !hasCharTracker && !hasPersonaStats && !hasQuest && !hasCustomTracker && !hasInventoryTracker) {
+    return null;
+  }
 
   const snap = args.latestGameState ?? undefined;
   if (!snap) return null;
@@ -232,6 +239,15 @@ export function buildCommittedTrackerContextBlock(args: {
       if (hasCustomTracker && Array.isArray(stats.customTrackerFields) && stats.customTrackerFields.length > 0) {
         const customLines = stats.customTrackerFields.map(formatCustomTrackerFieldForPrompt);
         trackerParts.push(wrapContent(customLines.join("\n"), "Custom Tracker", args.wrapFormat));
+      }
+
+      if (hasInventoryTracker) {
+        // Labelled "Inventory Tracker" rather than "Inventory" so it stays distinct
+        // from the persona-stats inventory block above when both agents are active.
+        const inventoryLines = formatInventoryTrackerForPrompt(stats);
+        if (inventoryLines) {
+          trackerParts.push(wrapContent(inventoryLines, "Inventory Tracker", args.wrapFormat));
+        }
       }
     }
   }

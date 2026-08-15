@@ -231,6 +231,7 @@ type CustomAgentResultType = Extract<
   | "character_tracker_update"
   | "persona_stats_update"
   | "custom_tracker_update"
+  | "inventory_tracker_update"
   | "game_state_update"
   | "image_prompt"
   | "prompt_patch"
@@ -415,6 +416,12 @@ const CUSTOM_AGENT_RESULT_TYPE_OPTIONS: Array<{
     id: "custom_tracker_update",
     label: "Custom Tracker",
     description: 'Expects JSON with "fields" to replace custom tracker fields.',
+    requiredCapability: "edit_trackers",
+  },
+  {
+    id: "inventory_tracker_update",
+    label: "Inventory Tracker",
+    description: 'Expects JSON with "currencies", "equipped", and "inventory" arrays of { name, qty }.',
     requiredCapability: "edit_trackers",
   },
   {

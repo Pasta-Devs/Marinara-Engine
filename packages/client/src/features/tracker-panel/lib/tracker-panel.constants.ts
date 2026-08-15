@@ -13,6 +13,7 @@ export const TRACKER_SECTION_AGENT_TYPES: Partial<Record<TrackerPanelSection, st
   persona: "persona-stats",
   characters: "character-tracker",
   quests: "quest",
+  inventory: "inventory-tracker",
   custom: "custom-tracker",
 };
 
@@ -21,6 +22,7 @@ export const TRACKER_SECTION_RERUN_TITLES: Partial<Record<TrackerPanelSection, s
   persona: "Re-run persona tracker",
   characters: "Re-run character tracker",
   quests: "Re-run quest tracker",
+  inventory: "Re-run inventory tracker",
   custom: "Re-run custom tracker",
 };
 

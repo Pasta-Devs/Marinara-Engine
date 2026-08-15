@@ -70,7 +70,7 @@ A cheaper alternative to Knowledge Retrieval. Instead of summarizing, it reads s
 
 ## Tracker agents
 
-Tracker agents keep a running record of the scene, the characters, and your stats. You can add their latest output to the prompt as a section, so the model stays consistent. Five of the trackers below default to **Add as Prompt Section** on: World State, Quest Tracker, Character Tracker, Persona Stats, and Custom Tracker. Expression Engine and Background are the exceptions.
+Tracker agents keep a running record of the scene, the characters, and your stats. You can add their latest output to the prompt as a section, so the model stays consistent. Six of the trackers below default to **Add as Prompt Section** on: World State, Quest Tracker, Character Tracker, Persona Stats, Custom Tracker, and Inventory Tracker. Expression Engine and Background are the exceptions.
 
 ### World State
 
@@ -125,6 +125,16 @@ Tracks status bars for your own character, such as Satiety, Energy, and Hygiene,
 ### Custom Tracker
 
 Tracks fields you define yourself, such as currencies, counters, or flags. Use it when the built-in trackers do not cover something your story needs.
+
+- **Phase**: Post-Processing.
+- **Where it works**: Roleplay.
+- **Key settings**: **Add as Prompt Section** (on by default).
+
+### Inventory Tracker
+
+Keeps what your persona has in three separate lists: **Currencies** for money, **Equipped** for what is worn or held, and **Carried** for everything else. Each entry is just a name and a quantity, so the tracker panel can lay them out as a grid instead of one long line of text. An item is only ever in one list at a time — equipping something moves it out of **Carried**.
+
+Use this instead of the Custom Tracker when your story keeps a real inventory. It keeps its own lists and does not touch the Persona Stats inventory, so you can run either one on its own.
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.

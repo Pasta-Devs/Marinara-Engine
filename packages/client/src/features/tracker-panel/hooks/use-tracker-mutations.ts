@@ -3,13 +3,17 @@ import type {
   CharacterStat,
   CustomTrackerField,
   InventoryItem,
+  InventoryTrackerGroup,
+  InventoryTrackerItem,
   PlayerStats,
   PresentCharacter,
   QuestProgress,
   TrackerHiddenFields,
 } from "@marinara-engine/shared";
 import {
+  INVENTORY_TRACKER_GROUP_FIELDS,
   characterTrackerLockPrefix,
+  inventorySectionTrackerRowPrefix,
   inventoryItemTrackerLockPrefix,
   normalizeTrackerHiddenFields,
   removeTrackerCharacterLocks,
@@ -111,6 +115,7 @@ export function useTrackerMutations({
   activeChatId,
   customFields,
   inventory,
+  inventoryTrackerGroups,
   personaStats,
   presentCharacters,
   quests,
@@ -121,6 +126,7 @@ export function useTrackerMutations({
   activeChatId: string | null;
   customFields: CustomTrackerField[];
   inventory: InventoryItem[];
+  inventoryTrackerGroups: Record<InventoryTrackerGroup, InventoryTrackerItem[]>;
   personaStats: CharacterStat[];
   presentCharacters: PresentCharacter[];
   quests: QuestProgress[];
@@ -436,7 +442,68 @@ export function useTrackerMutations({
     [customFields, patchPlayerStats, readCustomFields],
   );
 
+  const readInventoryTrackerGroup = useCallback(
+    (group: InventoryTrackerGroup) =>
+      readPlayerStats()?.[INVENTORY_TRACKER_GROUP_FIELDS[group]] ?? inventoryTrackerGroups[group],
+    [inventoryTrackerGroups, readPlayerStats],
+  );
+
+  const updateInventoryTrackerGroup = useCallback(
+    (group: InventoryTrackerGroup, items: InventoryTrackerItem[]) =>
+      patchPlayerStats(INVENTORY_TRACKER_GROUP_FIELDS[group], items),
+    [patchPlayerStats],
+  );
+
+  const updateInventoryTrackerItem = useCallback(
+    (group: InventoryTrackerGroup, index: number, item: InventoryTrackerItem) => {
+      const liveItems = readInventoryTrackerGroup(group);
+      const { renderedItem, targetIndex } = resolveIndexedMutationTarget(
+        liveItems,
+        inventoryTrackerGroups[group],
+        index,
+      );
+      if (targetIndex < 0) return;
+      const next = [...liveItems];
+      next[targetIndex] = mergeChangedRecord(
+        liveItems[targetIndex]! as InventoryTrackerItem & Record<string, unknown>,
+        renderedItem as (InventoryTrackerItem & Record<string, unknown>) | undefined,
+        item as InventoryTrackerItem & Record<string, unknown>,
+      ) as InventoryTrackerItem;
+      updateInventoryTrackerGroup(group, next);
+    },
+    [inventoryTrackerGroups, readInventoryTrackerGroup, updateInventoryTrackerGroup],
+  );
+
+  const removeInventoryTrackerItem = useCallback(
+    (group: InventoryTrackerGroup, index: number) => {
+      const liveItems = readInventoryTrackerGroup(group);
+      const { targetIndex } = resolveIndexedMutationTarget(liveItems, inventoryTrackerGroups[group], index);
+      if (targetIndex < 0) return;
+      updateInventoryTrackerGroup(
+        group,
+        liveItems.filter((_, itemIndex) => itemIndex !== targetIndex),
+      );
+      updateFieldLocks((locks) =>
+        removeTrackerFieldLockPrefix(
+          locks,
+          inventorySectionTrackerRowPrefix(group, liveItems[targetIndex]!, targetIndex),
+        ),
+      );
+    },
+    [inventoryTrackerGroups, readInventoryTrackerGroup, updateFieldLocks, updateInventoryTrackerGroup],
+  );
+
+  const addInventoryTrackerItem = useCallback(
+    (group: InventoryTrackerGroup) => {
+      updateInventoryTrackerGroup(group, [...readInventoryTrackerGroup(group), { name: "New Item", qty: 1 }]);
+    },
+    [readInventoryTrackerGroup, updateInventoryTrackerGroup],
+  );
+
   return {
+    addInventoryTrackerItem,
+    removeInventoryTrackerItem,
+    updateInventoryTrackerItem,
     addCharacter,
     addInventoryItem,
     addPersonaStat,

@@ -543,6 +543,7 @@ async function expandAgentData(config: MarkerConfig, ctx: MarkerContext): Promis
     "character-tracker",
     "persona-stats",
     "custom-tracker",
+    "inventory-tracker",
   ]);
   if (AUTO_INJECTED_TRACKERS.has(agentType)) return { content: "" };
 

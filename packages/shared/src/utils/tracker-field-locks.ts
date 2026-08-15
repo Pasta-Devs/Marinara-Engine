@@ -3,6 +3,7 @@ import type {
   CustomTrackerField,
   GameState,
   InventoryItem,
+  InventoryTrackerItem,
   PlayerStats,
   PresentCharacter,
   QuestProgress,
@@ -14,6 +15,11 @@ import {
   DEFAULT_WORLD_CUSTOM_FIELD_ICON,
   normalizeWorldCustomFields,
 } from "../constants/tracker-custom-field-icons.js";
+import {
+  INVENTORY_TRACKER_GROUPS,
+  INVENTORY_TRACKER_GROUP_FIELDS,
+  type InventoryTrackerGroup,
+} from "./inventory-tracker-fields.js";
 
 type WorldTrackerField = "date" | "time" | "location" | "weather" | "temperature";
 type TextCharacterField = "emoji" | "name" | "mood" | "appearance" | "outfit" | "thoughts";
@@ -22,6 +28,7 @@ type InventoryField = "name" | "quantity" | "description" | "location";
 type QuestField = "name" | "completed" | "currentStage";
 type QuestObjectiveField = "text" | "completed";
 type CustomTrackerFieldKey = "name" | "value";
+type InventoryTrackerItemField = "name" | "qty";
 type NamedLockRow = { name?: string | null };
 type ObjectiveLockRow = { text?: string | null };
 
@@ -468,6 +475,32 @@ export function customTrackerLockKey(
   return `${customTrackerFieldLockPrefix(fieldOrIndex, index)}.${field}`;
 }
 
+/**
+ * Inventory Tracker locks. Deliberately namespaced under `player.inventoryTracker`
+ * rather than the persona-stats `player.inventory` used by {@link inventoryTrackerLockKey},
+ * so the two agents' locks can never collide on a same-named item.
+ */
+export function inventorySectionTrackerPrefix(group: InventoryTrackerGroup) {
+  return `player.inventoryTracker.${group}`;
+}
+
+export function inventorySectionTrackerRowPrefix(
+  group: InventoryTrackerGroup,
+  rowOrIndex: Pick<InventoryTrackerItem, "name"> | number | null | undefined,
+  index?: number,
+) {
+  return `${inventorySectionTrackerPrefix(group)}.${namedRowLockRef(rowOrIndex, index)}`;
+}
+
+export function inventorySectionTrackerLockKey(
+  group: InventoryTrackerGroup,
+  rowOrIndex: Pick<InventoryTrackerItem, "name"> | number | null | undefined,
+  field: InventoryTrackerItemField,
+  index?: number,
+) {
+  return `${inventorySectionTrackerRowPrefix(group, rowOrIndex, index)}.${field}`;
+}
+
 export function customTrackerLockPrefix() {
   return "player.custom";
 }
@@ -750,6 +783,26 @@ function mergeCustomTrackerFieldsWithGenericLocks(
   });
 }
 
+function mergeInventoryTrackerItemsWithLocks(
+  nextItems: InventoryTrackerItem[],
+  currentItems: InventoryTrackerItem[] | null | undefined,
+  locks: TrackerFieldLocks,
+  group: InventoryTrackerGroup,
+) {
+  return mergeNamedRowsWithLocks(nextItems, currentItems, locks, {
+    mergeRow: (item, currentItem, currentIndex) => {
+      const next = { ...item };
+      for (const field of ["name", "qty"] as const) {
+        if (isTrackerFieldLocked(locks, inventorySectionTrackerLockKey(group, currentItem, field, currentIndex))) {
+          next[field] = currentItem[field] as never;
+        }
+      }
+      return next;
+    },
+    prefixFor: (item, index) => `${inventorySectionTrackerRowPrefix(group, item, index)}.`,
+  });
+}
+
 function mergeQuestObjectivesWithLocks(
   nextObjectives: QuestProgress["objectives"],
   currentObjectives: QuestProgress["objectives"] | null | undefined,
@@ -1027,6 +1080,17 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
         playerStatsPatch.customTrackerFields,
         currentPlayerStats.customTrackerFields,
         locks,
+      );
+    }
+    for (const group of INVENTORY_TRACKER_GROUPS) {
+      const field = INVENTORY_TRACKER_GROUP_FIELDS[group];
+      const groupPatch = playerStatsPatch[field];
+      if (!Array.isArray(groupPatch)) continue;
+      playerStatsPatch[field] = mergeInventoryTrackerItemsWithLocks(
+        groupPatch,
+        currentPlayerStats[field],
+        locks,
+        group,
       );
     }
     next.playerStats = playerStatsPatch;

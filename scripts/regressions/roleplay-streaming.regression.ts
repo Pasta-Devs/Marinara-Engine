@@ -936,6 +936,7 @@ for (const resultType of [
   "persona_stats_update",
   "quest_update",
   "custom_tracker_update",
+  "inventory_tracker_update",
 ]) {
   assert.doesNotMatch(
     retryAgentRouteSource,

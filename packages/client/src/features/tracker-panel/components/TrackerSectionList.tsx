@@ -1,6 +1,12 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { RefreshCw, Sparkles } from "lucide-react";
-import type { GameState, Persona, PresentCharacter } from "@marinara-engine/shared";
+import {
+  INVENTORY_TRACKER_GROUPS,
+  INVENTORY_TRACKER_GROUP_FIELDS,
+  type GameState,
+  type Persona,
+  type PresentCharacter,
+} from "@marinara-engine/shared";
 import { useUpdateAgent, type AgentConfigRow } from "../../../hooks/use-agents";
 import type { GameStatePatchField } from "../../../hooks/use-game-state-patcher";
 import type {
@@ -21,6 +27,7 @@ import type { TrackerPanelSection, TrackerSpriteLookup } from "../tracker-panel.
 import { SectionIconButton } from "./controls/SectionControls";
 import { CharacterTrackerPanel } from "./sections/CharacterTrackerPanel";
 import { CustomTrackerPanel } from "./sections/CustomTrackerPanel";
+import { InventoryTrackerPanel, type InventoryTrackerGroups } from "./sections/InventoryTrackerPanel";
 import { PersonaInventoryPanel } from "./sections/PersonaInventoryPanel";
 import { QuestTrackerPanel } from "./sections/quest-tracker/QuestTrackerPanel";
 import { WorldStatePanel } from "./sections/WorldStatePanel";
@@ -111,8 +118,21 @@ export function TrackerSectionList({
   const inventory = Array.isArray(playerStats?.inventory) ? playerStats.inventory : [];
   const quests = Array.isArray(playerStats?.activeQuests) ? playerStats.activeQuests : [];
   const customFields = Array.isArray(playerStats?.customTrackerFields) ? playerStats.customTrackerFields : [];
+  const inventoryTrackerGroups = useMemo(
+    () =>
+      Object.fromEntries(
+        INVENTORY_TRACKER_GROUPS.map((group) => {
+          const value = playerStats?.[INVENTORY_TRACKER_GROUP_FIELDS[group]];
+          return [group, Array.isArray(value) ? value : []];
+        }),
+      ) as InventoryTrackerGroups,
+    [playerStats],
+  );
   const {
     addCharacter,
+    addInventoryTrackerItem,
+    removeInventoryTrackerItem,
+    updateInventoryTrackerItem,
     addInventoryItem,
     addPersonaStat,
     addQuest,
@@ -132,6 +152,7 @@ export function TrackerSectionList({
     activeChatId,
     customFields,
     inventory,
+    inventoryTrackerGroups,
     personaStats,
     presentCharacters,
     quests,
@@ -277,6 +298,22 @@ export function TrackerSectionList({
             trackerPanelSizeProfile={trackerPanelSizeProfile}
             collapsed={isPanelCollapsed("quests")}
             onToggleCollapsed={() => toggleTrackerPanelSectionCollapsed("quests")}
+          />
+        );
+      case "inventory":
+        return (
+          <InventoryTrackerPanel
+            key="inventory"
+            groups={inventoryTrackerGroups}
+            action={renderRerunAction("inventory")}
+            onAddItem={addInventoryTrackerItem}
+            onUpdateItem={updateInventoryTrackerItem}
+            onRemoveItem={removeInventoryTrackerItem}
+            deleteMode={deleteMode}
+            addMode={addMode}
+            trackerPanelSizeProfile={trackerPanelSizeProfile}
+            collapsed={isPanelCollapsed("inventory")}
+            onToggleCollapsed={() => toggleTrackerPanelSectionCollapsed("inventory")}
           />
         );
       case "custom":

@@ -1732,6 +1732,10 @@ const TRACKER_PANEL_CARD_OPTIONS: Record<TrackerDataPanelSection, { label: strin
     label: "Quests",
     desc: "Active quest progress and objectives.",
   },
+  inventory: {
+    label: "Inventory",
+    desc: "Currencies, equipped items, and carried items.",
+  },
   custom: {
     label: "Custom",
     desc: "Extra tracker fields from custom tracker agents.",

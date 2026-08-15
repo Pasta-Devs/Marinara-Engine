@@ -107,6 +107,7 @@ const EXPECTED_AGENT_RESULT_TYPE_VALUES = [
   "character_tracker_update",
   "persona_stats_update",
   "custom_tracker_update",
+  "inventory_tracker_update",
   "spotify_control",
   "youtube_control",
   "local_music_control",

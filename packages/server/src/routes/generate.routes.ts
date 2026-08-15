@@ -33,6 +33,7 @@ import {
   applyTrackerFieldLocksToGameStatePatch,
   normalizeWorldCustomFields,
   normalizeTrackerFieldLocksForState,
+  parseInventoryTrackerResult,
   trackerFieldLocksAreEmpty,
   customAgentHasCapability,
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
@@ -239,6 +240,7 @@ import {
   buildUserMessageRegenerationPromptFromSource,
   buildLockedPlayerStatsArrayPatch,
   buildLockedPersonaTrackerPatch,
+  buildLockedInventoryTrackerPatch,
   applyTrackerCharacterCardIdentity,
   canonicalizeGamePartySpeakerLabels,
   collectLatestTrackerCharacterHistory,
@@ -8604,6 +8606,52 @@ export async function generateRoutes(app: FastifyInstance) {
                 }
               } catch (err) {
                 logger.error(err, "[generate] Failed to apply custom tracker update");
+              }
+            }
+
+            // Inventory Tracker agent → merge currencies, equipped, and carried items
+            if (
+              result.success &&
+              result.type === "inventory_tracker_update" &&
+              result.data &&
+              typeof result.data === "object" &&
+              customAgentCanApplyResult(result, resolvedAgents, builtInAgentTypes, "edit_trackers")
+            ) {
+              try {
+                const groups = parseInventoryTrackerResult(result.data);
+                if (Object.keys(groups).length > 0) {
+                  // Ensure a snapshot exists for this (messageId, swipeIndex)
+                  let snap = await gameStateStore.getByMessage(messageId, targetSwipeIndex);
+                  if (!snap) {
+                    await gameStateStore.updateByMessage(messageId, targetSwipeIndex, input.chatId, {}, undefined, {
+                      baseSnapshot: trackerBaseGameStateSnapshot,
+                    });
+                    snap = await gameStateStore.getByMessage(messageId, targetSwipeIndex);
+                  }
+                  const inventoryLockState = snap ? parseGameStateRow(snap as Record<string, unknown>) : null;
+                  const inventoryTrackerPatch = buildLockedInventoryTrackerPatch({
+                    groups,
+                    snapshot: snap,
+                    lockState: inventoryLockState,
+                  });
+                  if (snap && inventoryTrackerPatch.changed) {
+                    await app.db
+                      .update(gameStateSnapshotsTable)
+                      .set({
+                        playerStats: JSON.stringify(inventoryTrackerPatch.playerStats),
+                        fieldLocks: serializeMigratedTrackerLocks(inventoryLockState),
+                      })
+                      .where(eq(gameStateSnapshotsTable.id, snap.id));
+                  }
+                  if (inventoryTrackerPatch.changed) {
+                    logger.debug("[game_state_patch] inventory-tracker: %j", inventoryTrackerPatch.patch);
+                    reply.raw.write(
+                      `data: ${JSON.stringify({ type: "game_state_patch", data: inventoryTrackerPatch.patch })}\n\n`,
+                    );
+                  }
+                }
+              } catch (err) {
+                logger.error(err, "[generate] Failed to apply inventory tracker update");
               }
             }
 

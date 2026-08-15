@@ -104,6 +104,22 @@ export interface CustomTrackerField {
   locked?: boolean;
 }
 
+/**
+ * A row tracked by the Inventory Tracker agent.
+ *
+ * The same shape serves currencies, equipped items, and carried items so the
+ * three groups share one merge path, one lock-key family, and one row control.
+ */
+export interface InventoryTrackerItem {
+  name: string;
+  /**
+   * Whole units, always >= 1. The agent omits it when 1 to keep its output compact;
+   * `normalizeInventoryTrackerItems` fills it back in. Kept short (not `quantity`,
+   * as on {@link InventoryItem}) because it is also the wire field the agent writes.
+   */
+  qty: number;
+}
+
 /** Player-specific stats and inventory. */
 export interface PlayerStats {
   /** Custom stat bars */
@@ -120,6 +136,16 @@ export interface PlayerStats {
   status: string;
   /** User-defined custom tracker fields */
   customTrackerFields?: CustomTrackerField[];
+
+  // ── Inventory Tracker agent ──
+  // Separate from `inventory` above, which the persona-stats agent owns. The two
+  // agents never write to each other's rows.
+  /** Money-like resources only (coins, notes, credits) */
+  inventoryTrackerCurrencies?: InventoryTrackerItem[];
+  /** Worn or wielded items. Mutually exclusive with `inventoryTrackerCarried`. */
+  inventoryTrackerEquipped?: InventoryTrackerItem[];
+  /** Carried but not equipped */
+  inventoryTrackerCarried?: InventoryTrackerItem[];
 }
 
 /** Classic D&D-style attributes. */

@@ -106,6 +106,13 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
     summary: "tracks user-defined currencies, counters, flags, and other structured fields",
   },
   {
+    id: "inventory-tracker",
+    name: "Inventory Tracker",
+    category: "tracker",
+    modes: "Roleplay",
+    summary: "tracks currencies, equipped items, and carried items as separate structured lists",
+  },
+  {
     id: "hierarchical-maps",
     name: "World Maps",
     category: "tracker",

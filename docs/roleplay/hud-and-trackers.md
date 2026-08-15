@@ -12,7 +12,7 @@ A widget only appears when its tracker agent is turned on for the chat. You turn
 
 ## The HUD widgets
 
-There are six tracker widgets. Each one needs its own agent enabled to appear.
+There are seven tracker widgets. Each one needs its own agent enabled to appear.
 
 | Widget                 | Needs this agent  | Shows                                                                            |
 | ---------------------- | ----------------- | -------------------------------------------------------------------------------- |
@@ -21,11 +21,14 @@ There are six tracker widgets. Each one needs its own agent enabled to appear.
 | **Present Characters** | Character Tracker | Who is in the scene, with mood, appearance, and character-specific custom fields |
 | **Inventory**          | Persona Stats     | Items you are carrying, with quantities                                          |
 | **Active Quests**      | Quest Tracker     | Your current objective                                                           |
+| **Inventory Tracker**  | Inventory Tracker | Your currencies, equipped items, and carried items, as three separate lists      |
 | **Custom Tracker**     | Custom Tracker    | Your own named fields, such as counters or currency                              |
 
 Note that the **Inventory** widget is driven by the same **Persona Stats** agent that powers the **Persona Stats** widget. Turn on **Persona Stats** to get both.
 
-The **Present Characters** widget shows up to three character emoji plus a "+N" count for any extras. The **Inventory** and **Custom Tracker** widgets cycle through their entries one at a time.
+The **Present Characters** widget shows up to three character emoji plus a "+N" count for any extras. The **Inventory**, **Inventory Tracker**, and **Custom Tracker** widgets cycle through their entries one at a time.
+
+The **Inventory** and **Inventory Tracker** widgets are separate and keep separate lists. **Inventory** is a simple item list kept by the Persona Stats agent. **Inventory Tracker** is its own agent that splits what you have into three lists: **Currencies** for money, **Equipped** for what you are wearing or holding, and **Carried** for everything else you are carrying. An item is only ever in one of those lists at a time, so equipping something moves it out of **Carried**. Turn on whichever suits your story; you do not need both.
 
 ## Editing values in a popover
 
@@ -38,6 +41,7 @@ Here is what each popover lets you edit:
 - **Present Characters**: add or remove characters, and edit each one's emoji, name, **Mood**, **Look**, **Outfit**, **Thinks** (private thoughts), and custom field values. You can upload an avatar per character. An **Auto** button toggles "Auto-generate avatars: ON" or "Auto-generate avatars: OFF".
 - **Inventory**: add or remove items, and edit each item's name and quantity.
 - **Active Quests**: add or remove quests. Each quest has named objectives with completion checkboxes.
+- **Inventory Tracker**: add, remove, or edit items in **Currencies**, **Equipped**, and **Carried**. Each item has a name and a quantity.
 - **Custom Tracker**: add, remove, or edit name and value fields.
 
 ## Lock mode

@@ -18,6 +18,7 @@ import {
   normalizeAgentPhaseValue,
   normalizeAgentPromptTemplateSelectionMap,
   normalizeImagePromptInstructions,
+  parseInventoryTrackerResult,
   resolveMacros,
   resolveGameSetupArtStylePrompt,
   resolveAgentPromptTemplate,
@@ -112,6 +113,7 @@ import { gameStateSnapshots as gameStateSnapshotsTable } from "../../db/schema/i
 import {
   buildLockedPlayerStatsArrayPatch,
   buildLockedPersonaTrackerPatch,
+  buildLockedInventoryTrackerPatch,
   applyTrackerCharacterCardIdentity,
   collectLatestTrackerCharacterHistory,
   isMessageHiddenFromAI,
@@ -2824,6 +2826,37 @@ async function applyRetryResultEffects(args: {
           }
           if (customTrackerPatch.changed) {
             sendSseEvent(reply, { type: "game_state_patch", data: customTrackerPatch.patch });
+          }
+        }
+      } catch {
+        // Non-critical patching failure.
+      }
+    }
+
+    if (
+      result.success &&
+      result.type === "inventory_tracker_update" &&
+      result.data &&
+      typeof result.data === "object" &&
+      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
+    ) {
+      try {
+        const groups = parseInventoryTrackerResult(result.data);
+        if (Object.keys(groups).length > 0) {
+          const snap = await loadRetryTargetGameStateSnapshot();
+          const inventoryTrackerPatch = buildLockedInventoryTrackerPatch({
+            groups,
+            snapshot: snap,
+            lockState: snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
+          });
+          if (snap && inventoryTrackerPatch.changed) {
+            await app.db
+              .update(gameStateSnapshotsTable)
+              .set({ playerStats: JSON.stringify(inventoryTrackerPatch.playerStats) })
+              .where(eq(gameStateSnapshotsTable.id, snap.id));
+          }
+          if (inventoryTrackerPatch.changed) {
+            sendSseEvent(reply, { type: "game_state_patch", data: inventoryTrackerPatch.patch });
           }
         }
       } catch {
