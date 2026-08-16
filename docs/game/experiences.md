@@ -17,9 +17,9 @@ An Experience owns the surface of the game. The engine keeps running everything 
 
 ## Installing an Experience
 
-Experiences install like agents. Open **Agents > Download Agents**, find the Experience in the catalog, and install it. No restart is needed.
+Experiences install like agents. Open **Agents → Download Agents**, find the Experience in the catalog, and install it. Installing Pixelforge needs no restart — it is ready as soon as the install finishes. A package that does need a restart says so when it installs, and appears in the wizard after you restart.
 
-Each catalog entry lists the minimum engine version it needs. Pixelforge needs Marinara Engine 2.4.3 or newer. On older engines the entry does not appear.
+Each catalog entry lists the minimum engine version it needs; Pixelforge needs Marinara Engine 2.4.3 or newer. Older engines don't offer it: an engine too old to understand the package skips its catalog entry entirely, and installing a package that needs a newer engine is refused with an error naming the version it needs.
 
 ## Starting a game with an Experience
 
@@ -33,9 +33,9 @@ Every Experience still needs a GM connection — the Experience runs the surface
 
 ## Playing Pixelforge
 
-Pixelforge's setup form fits on one screen: a game name, a **Theme** (cozy village or sci-fi colony), a world seed, and the setting, tone, difficulty, and content rating you would normally set in the wizard. Pick a GM connection and click **Begin**.
+Pixelforge's setup form fits on one screen: a game name, a **Theme** (**Cozy village** or **Sci-fi colony**), a world seed, the setting, tone, difficulty, and content rating you would normally set in the wizard, and an optional **Party characters** pick — the villagers are NPCs, so bring your own characters or none. Pick a GM connection and click **Begin in Hearthvale** (the Begin button carries the current village name).
 
-You start walking immediately. Move with the arrow keys, WASD, or the on-screen D-pad. Walk up to a villager and press **Talk (E)** — what you say becomes a story turn, and the GM's narration appears in the panel below the world. Combat, when it happens, is the engine's own combat screen.
+You start walking immediately. Move with the arrow keys, WASD, or the on-screen D-pad. Walk up to a villager and press **E** — or tap the Talk button, which reads **Talk to <name> (E)** once you are close enough. Pixelforge opens the conversation by sending a greeting turn for you; everything you then type in the message box drives the story, and the GM's narration appears in the panel below the world. Combat, when it happens, is the engine's own combat screen.
 
 ### Your preferences generate the world
 
@@ -47,7 +47,7 @@ This happens in the background while you play:
 - **"The world takes shape."** means the generated world is ready. The map rebuilds in place.
 - **"World generation couldn't run — it will retry next visit."** means something temporary got in the way (the engine was busy, or the network dropped). The default world is fully playable, and generation tries again the next time you open the chat.
 
-Generation happens once per game. If the AI's plan cannot be used at all, Pixelforge keeps the default themed world — the game always works.
+Generation happens once per game. If the AI's plan cannot be used at all, Pixelforge falls back to a built-in plan for your theme — the map still rebuilds ("The world takes shape."), just with the stock cast and places. The game always works.
 
 ### Saves follow the story
 
@@ -63,11 +63,11 @@ If you uninstall an Experience's package while a campaign is using it, the chat 
 
 ## Building your own
 
-An Experience is a capability package that contributes a `game-surface` — the same packaging system agents use, with a client entrypoint that renders the game. Pixelforge is open source and is the reference implementation: its package source, build scripts, and the World Brief specification behind its world generation live in the [Marinara-Agents repository](https://github.com/Pasta-Devs/Marinara-Agents/tree/main/packages/pixelforge).
+An Experience is a capability package that contributes a `game-surface` — the same packaging system agents use, with a client entrypoint that renders the game. Pixelforge is open source and is the reference implementation: its package source, build scripts, and the World Brief specification behind its world generation live in the `packages/pixelforge` folder of the [Marinara-Agents repository](https://github.com/Pasta-Devs/Marinara-Agents).
 
-## Related pages
+## Related guides
 
-- [Game Mode: Getting Started](getting-started.md) — the standard setup wizard and Game Mode basics
-- [Agents Overview](../agents/agents-overview.md) — installing packages from **Download Agents**
-- [Sessions and Saves](sessions-and-saves.md) — checkpoints, branching, and the story timeline
-- [Combat](combat.md) — the engine combat every Experience shares
+- [Game Mode: Getting Started](getting-started.md)
+- [Agents: AI Helpers for Your Chats](../agents/agents-overview.md)
+- [Game Mode: Sessions and Saves](sessions-and-saves.md)
+- [Game Mode: Combat](combat.md)

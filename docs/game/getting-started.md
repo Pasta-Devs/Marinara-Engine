@@ -111,6 +111,7 @@ For the full parameter reference, see [Generation Parameters](../prompts/generat
 
 This guide gets you into a game. Each deeper topic has its own guide:
 
+- [Game Mode: Experiences](experiences.md) covers downloadable Experiences such as Pixelforge, which replace the standard wizard and play area with their own.
 - [Game Mode: Combat](combat.md) covers encounters, the action menu, damage math, and quick-time events.
 - [Game Mode: Party and NPCs](party-and-npcs.md) covers the party bar, character sheets, and the Adventure Journal.
 - [Game Mode: Sessions and Saves](sessions-and-saves.md) covers ending and starting sessions and the session history.
