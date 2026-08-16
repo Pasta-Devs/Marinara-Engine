@@ -128,7 +128,12 @@ export function installLongTaskWarner(): void {
       `(${SLOW_MS}ms+ tagged SLOW). Run \`localStorage.mariPerfVerbose = "0"\` (or remove the key) and reload to disable.`,
   );
 
-  if (typeof PerformanceObserver === "undefined") return;
+  if (
+    typeof PerformanceObserver === "undefined" ||
+    !PerformanceObserver.supportedEntryTypes?.includes("longtask")
+  ) {
+    return;
+  }
   try {
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {

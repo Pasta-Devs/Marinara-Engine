@@ -53,6 +53,7 @@ import { buildSpotifyDjConstraints } from "../../services/spotify/spotify-dj-con
 import { fingerprintChatSummary } from "../../services/prompt/chat-summary-fingerprint.js";
 import {
   buildPromptMacroContext,
+  normalizeChatMacroVariables,
   resolveCharacterMacroData,
   resolvePromptIdleDuration,
   resolvePromptMessageMacros,
@@ -743,6 +744,7 @@ async function buildRetryAgentContext(args: {
     personaDescription: personaContext.personaDescription,
     personaFields: personaContext.personaFields,
     variables: {},
+    localVariables: normalizeChatMacroVariables(chatMeta.macroVariables),
     groupScenarioOverrideText:
       typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim()
         ? (chatMeta.groupScenarioText as string).trim()

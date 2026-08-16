@@ -187,14 +187,12 @@ Variables let one part of your prompt store a value and let a later part read it
 | --- | --- |
 | `{{setvar::name::value}}` | Stores a value and leaves nothing in the text. |
 | `{{getvar::name}}` | Reads a stored value (nothing if it was never set). |
-| `{{addvar::name::value}}` | Adds text to the end of a stored value. |
-| `{{addnumvar::name::value}}` | Adds a number to a stored numeric value. Missing or invalid numbers count as 0; an overflowing addition is ignored. |
-| `{{incvar::name}}` | Adds 1 to a numeric variable. |
-| `{{decvar::name}}` | Takes 1 away from a numeric variable. |
+| `{{addvar::name::value}}` | Adds numbers when both values are numeric; otherwise appends the new text. |
+| `{{addnumvar::name::value}}` | Marinara extension: always adds a number to a stored numeric value. Missing or invalid numbers count as 0; an overflowing addition is ignored. |
+| `{{incvar::name}}` | Adds 1 to a numeric variable and inserts the new value. |
+| `{{decvar::name}}` | Takes 1 away from a numeric variable and inserts the new value. |
 
-Variables resolve from left to right in one prompt build. A value set early, for example in a lorebook entry that comes first, can be read later in the same prompt.
-
-Important scope limit: these variables only live for a single reply. Marinara does not save them anywhere. When the next reply is generated, every variable starts empty again. Do not expect `{{setvar}}` to remember a value across turns.
+Variables resolve from left to right in one prompt build. A value set early, for example in a lorebook entry that comes first, can be read later in the same prompt. Marinara also saves them in the current chat, matching SillyTavern local-variable behavior: later turns and app restarts retain them, while another chat has its own separate values.
 
 Any `{{NAME}}` that is not a built-in macro is treated as a preset variable and looked up by name. If no variable with that name exists, the tag is left in the text exactly as you typed it. See [Preset Variables](preset-variables.md) for how to define these.
 
@@ -232,7 +230,7 @@ Conditional blocks can combine comparisons with `||` (OR), `&&` (AND), and paren
 ## Common mistakes
 
 - Do not write variables inside a `{{random::...}}` block. A `{{setvar}}` inside a random option runs for every option before the choice is made, not just the chosen one.
-- Do not expect variables to persist. Values set with `{{setvar}}` reset on the next reply.
+- Do not use a local variable as global state. It persists only inside the chat where it was set.
 - `{{prompt}}` is not a macro. If your whole message is `{{prompt}}`, Marinara opens the **Peek Prompt** viewer instead of sending it. See [Peek Prompt](../chats/peek-prompt.md).
 - Custom Tools do not use `{{macro}}` text. Do not paste `{{roll:1d20}}` into a tool field expecting it to resolve.
 - The **Impersonate** prompt template accepts only a few placeholders, not the full macro list. Its names differ too, so a macro that works in a card may not work there.

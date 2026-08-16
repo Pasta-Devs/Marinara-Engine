@@ -36,6 +36,7 @@ export interface BuildPromptMacroContextInput {
   personaDescription?: string;
   personaFields?: PersonaFields;
   variables?: Record<string, string>;
+  localVariables?: Record<string, string>;
   groupScenarioOverrideText?: string | null;
   lastInput?: string;
   chatId?: string;
@@ -75,6 +76,17 @@ export interface MacroResolutionTransaction {
 export const MAX_REFERENCED_CHARACTERS = 8;
 const MAX_REFERENCED_FIELD_CHARS = 8_000;
 const MAX_REFERENCED_LOREBOOK_CHARS = 8_000;
+
+export function normalizeChatMacroVariables(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const entries: Array<[string, string]> = [];
+  for (const [name, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (!/^[\w.-]+$/u.test(name) || typeof entry !== "string") continue;
+    entries.push([name, entry]);
+    if (entries.length >= 500) break;
+  }
+  return Object.fromEntries(entries);
+}
 
 export function extractCharacterReferenceIds(sources: readonly string[]): string[] {
   const ids: string[] = [];
@@ -131,7 +143,11 @@ function clipReferencedText(value: string, limit: number): string {
 function resolveReferencedField(value: string, macroCtx: MacroContext, wrapFormat: WrapFormat): string {
   const resolved = resolveMacros(
     clipReferencedText(stripMacroComments(value), MAX_REFERENCED_FIELD_CHARS),
-    { ...macroCtx, variables: { ...macroCtx.variables } },
+    {
+      ...macroCtx,
+      variables: { ...macroCtx.variables },
+      localVariables: { ...macroCtx.localVariables },
+    },
     { trimResult: false },
   ).trim();
   return resolved ? sanitizePromptLeaf(resolved, wrapFormat) : "";
@@ -243,7 +259,11 @@ export async function buildReferencedCharacterContext(input: {
     ...message,
     content: resolveMacros(
       message.content,
-      { ...macroCtx, variables: { ...macroCtx.variables } },
+      {
+        ...macroCtx,
+        variables: { ...macroCtx.variables },
+        localVariables: { ...macroCtx.localVariables },
+      },
       { trimResult: false },
     ),
   }));
@@ -268,7 +288,11 @@ export async function buildReferencedCharacterContext(input: {
             previewOnly: true,
             generationTriggers: input.generationTriggers,
             resolveContent: (value) =>
-              resolveMacros(value, { ...scopedContext, variables: { ...scopedContext.variables } }),
+              resolveMacros(value, {
+                ...scopedContext,
+                variables: { ...scopedContext.variables },
+                localVariables: { ...scopedContext.localVariables },
+              }),
           })
         : null;
     blocks.push(buildReferencedCharacterFields(id, data, macroCtx, input.wrapFormat, lorebookScan));
@@ -286,12 +310,16 @@ export function resolveMacrosWithVariableSnapshot(
   options?: ResolveMacroOptions,
 ): MacroResolutionTransaction {
   const before = { ...macroCtx.variables };
+  const localBefore = { ...macroCtx.localVariables };
   const content = resolveMacros(template, macroCtx, options);
   let settled = false;
 
   const rollback = () => {
     if (settled) return;
     macroCtx.variables = before;
+    const localVariables = (macroCtx.localVariables ??= {});
+    for (const key of Object.keys(localVariables)) delete localVariables[key];
+    Object.assign(localVariables, localBefore);
     settled = true;
   };
 
@@ -478,6 +506,7 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
     groupCharacters: groupCharacterMacroData.names,
     characterProfiles: characterMacroData.profiles,
     variables,
+    localVariables: input.localVariables,
     lastInput: input.lastInput,
     chatId: input.chatId,
     model: input.model,

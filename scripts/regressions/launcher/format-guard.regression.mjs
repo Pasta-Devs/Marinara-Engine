@@ -98,6 +98,11 @@ assert.doesNotMatch(
   /exec node dist\/index\.js/u,
   "the Termux launcher must retain its shell so the EXIT cleanup trap can run",
 );
+assert.match(
+  termuxLauncherSource,
+  /node dist\/index\.js 2>&1 \| tee -a "\$MARINARA_TERMUX_LOG_FILE"/u,
+  "the Termux launcher must preserve server output in a durable per-run log",
+);
 const installerSource = readFileSync(join(repositoryRoot, "win/installer/install.bat"), "utf8");
 assert.ok(
   installerSource.includes("check-target") && installerSource.includes("if errorlevel 2"),

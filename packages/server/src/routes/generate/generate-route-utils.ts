@@ -103,6 +103,7 @@ export function buildGenerationGuideInstruction(
     {
       ...promptMacroContext,
       variables: { ...promptMacroContext.variables },
+      localVariables: { ...promptMacroContext.localVariables },
     },
     { trimResult: false },
   ).trim();

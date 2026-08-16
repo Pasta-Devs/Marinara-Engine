@@ -347,6 +347,8 @@ export interface ChatMetadata {
   presetChoices: Record<string, string | string[]>;
   /** Chat-wide string variables persisted by agent tool calls (key → value). */
   agentVariables?: Record<string, string>;
+  /** SillyTavern-compatible local macro variables persisted in this chat. */
+  macroVariables?: Record<string, string>;
   /** Group chat mode: "merged" (narrator) or "individual" (separate characters) */
   groupChatMode?: GroupChatMode;
   /** Group individual mode: color dialogues with speaker tags */

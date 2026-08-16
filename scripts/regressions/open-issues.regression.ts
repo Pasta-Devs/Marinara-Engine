@@ -246,6 +246,7 @@ import { normalizeGoogleGenerativeLanguageBaseUrl } from "../../packages/server/
 import {
   buildReferencedCharacterContext,
   MAX_REFERENCED_CHARACTERS,
+  normalizeChatMacroVariables,
 } from "../../packages/server/src/services/prompt/macro-context.js";
 import { assemblePrompt } from "../../packages/server/src/services/prompt/assembler.js";
 import { resolveRunPodComfyUiTimeoutSeconds } from "../../packages/server/src/services/image/runpod-comfyui.service.js";
@@ -485,11 +486,20 @@ assert.equal(
   ),
   "macOS 15.6",
 );
+assert.equal(
+  resolveClientOs(
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/27.0 Safari/605.1.15",
+    "MacIntel",
+    5,
+  ),
+  "iPadOS 27.0",
+);
 const copiedSupportDiagnostics = formatSupportDiagnostics({
   version: "2.4.2",
   build: "2.4.2+abcdef123456",
   commit: "abcdef123456",
-  os: "macOS 15.6",
+  serverOs: "Linux 6.8.0 (x64)",
+  clientOs: "macOS 15.6",
   browser: "Marinara test shell",
   gpu: "Test GPU",
   connectionName: "Sol",
@@ -500,7 +510,8 @@ for (const expectedLine of [
   "Version: 2.4.2",
   "Build: 2.4.2+abcdef123456",
   "Commit: abcdef123456",
-  "OS: macOS 15.6",
+  "Server OS: Linux 6.8.0 (x64)",
+  "Client OS: macOS 15.6",
   "Browser / app shell: Marinara test shell",
   "GPU: Test GPU",
   "Active connection: Sol",
@@ -8723,6 +8734,83 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     /args\.debugLog\?\.\([\s\S]*?JSON\.stringify\(moveMessages, null, 2\)[\s\S]*?provider\.chatComplete\(moveMessages/u,
     "Turn-game bot moves must log the final provider prompt immediately before submission",
   );
+}
+
+{
+  // #5142, #5147, #5155, #5158, #5160, and #5164: pin the thin integration
+  // seams that connect the focused behavior fixes to their production hosts.
+  const presetEditorSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/presets/PresetEditor.tsx"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    presetEditorSource,
+    /useEffect\([\s\S]{0,500}duplicatePreset\.mutateAsync/u,
+    "Opening a stock preset must never create an editable copy as a mount side effect",
+  );
+  assert.match(presetEditorSource, /ui\.presets\.preseteditor\.createEditableCopy/u);
+
+  const imageGenerationSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/server/src/services/image/image-generation.ts"),
+    "utf8",
+  );
+  assert.equal(
+    (imageGenerationSource.match(/detectedMime \? imageExtensionFromMimeType\(detectedMime\) : null/gu) ?? []).length,
+    2,
+    "Saved and staged gallery images must derive their extension from their decoded bytes",
+  );
+
+  const generateRouteSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/server/src/routes/generate.routes.ts"),
+    "utf8",
+  );
+  assert.match(generateRouteSource, /chatMode === "roleplay" && assistantMessageReadySent\) releaseActiveGeneration\(\)/u);
+  assert.match(
+    generateRouteSource,
+    /const targetSwipeIndex =[\s\S]{0,300}lastSavedMsg[\s\S]{0,300}activeSwipeIndex/u,
+    "Post-processing agents must remain anchored to the swipe saved by their own generation",
+  );
+  assert.doesNotMatch(
+    generateRouteSource,
+    /refreshedForSwipe = await chats\.getMessage/u,
+    "An old agent run must not retarget itself from a newly active swipe",
+  );
+
+  const generateHookSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/hooks/use-generate.ts"),
+    "utf8",
+  );
+  const agentStoreSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/stores/agent.store.ts"),
+    "utf8",
+  );
+  assert.match(generateHookSource, /case "assistant_message_ready":[\s\S]{0,1600}setAbortController\(params\.chatId, null\)/u);
+  assert.match(generateHookSource, /setProcessingRun\(agentProcessingRunId, false, params\.chatId\)/u);
+  assert.match(agentStoreSource, /processingRunIdsByChat/u);
+
+  assert.deepEqual(normalizeChatMacroVariables({ score: "8", invalid: 4, "bad name": "x" }), { score: "8" });
+  const macroVariables = normalizeChatMacroVariables({ counter: "2" });
+  assert.deepEqual(normalizeChatMacroVariables({ ...macroVariables, counter: "3" }), { counter: "3" });
+  assert.match(generateRouteSource, /macroVariables: \{ \.\.\.chatMacroVariables \}/u);
+
+  const perfDiagnosticsSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/lib/perf-diagnostics.ts"),
+    "utf8",
+  );
+  assert.match(perfDiagnosticsSource, /PerformanceObserver\.supportedEntryTypes\?\.includes\("longtask"\)/u);
+
+  const backupRoutesSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/server/src/routes/backup.routes.ts"),
+    "utf8",
+  );
+  const settingsPanelSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/panels/SettingsPanel.tsx"),
+    "utf8",
+  );
+  assert.match(backupRoutesSource, /app\.post\("\/download\/start"/u);
+  assert.match(backupRoutesSource, /app\.get<\{ Params: \{ jobId: string \} \}>\("\/download\/status\/:jobId"/u);
+  assert.match(backupRoutesSource, /app\.get<\{ Params: \{ jobId: string \} \}>\("\/download\/file\/:jobId"/u);
+  assert.match(settingsPanelSource, /\/backup\/download\/status\/\$\{encodeURIComponent\(started\.jobId\)\}/u);
 }
 
 console.info("Open-issue regressions passed.");

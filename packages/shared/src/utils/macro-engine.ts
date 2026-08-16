@@ -26,6 +26,8 @@ export interface MacroContext {
   }>;
   /** Custom variables from prompt toggle groups */
   variables: Record<string, string>;
+  /** SillyTavern-compatible local variables persisted in the current chat. */
+  localVariables?: Record<string, string>;
   /** Last user input message (for {{input}}) */
   lastInput?: string;
   /** Chat ID (for {{chatId}}) */
@@ -529,6 +531,7 @@ function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: 
     groupCharacters: base?.groupCharacters,
     characterProfiles: base?.characterProfiles ?? [profile],
     variables: base?.variables ?? {},
+    localVariables: base?.localVariables,
     lastInput: base?.lastInput,
     chatId: base?.chatId,
     model: base?.model,
@@ -1661,38 +1664,56 @@ function resolveVariableOperationMacros(input: string, ctx: MacroContext, option
     const name = readMatch?.[2] ?? writeMatch?.[2];
     if (!op || !name) return undefined;
     if (!consumeMacroExpansion(options)) return original;
+    // Older internal callers provide only `variables`; retain that in-memory
+    // fallback while production prompt contexts supply a distinct chat-local map.
+    const localVariables = (ctx.localVariables ??= ctx.variables);
 
     switch (op) {
       case "getvar":
-        return ctx.variables[name] ?? "";
+        return localVariables[name] ?? "";
       case "setvar":
-        ctx.variables[name] = resolveMacros(writeMatch?.[3] ?? "", ctx, {
+        localVariables[name] = resolveMacros(writeMatch?.[3] ?? "", ctx, {
           ...nestedMacroOptions(options),
           trimResult: false,
         });
         return "";
-      case "addvar":
-        ctx.variables[name] =
-          (ctx.variables[name] ?? "") +
-          resolveMacros(writeMatch?.[3] ?? "", ctx, { ...nestedMacroOptions(options), trimResult: false });
+      case "addvar": {
+        const current = localVariables[name] ?? "";
+        const added = resolveMacros(writeMatch?.[3] ?? "", ctx, {
+          ...nestedMacroOptions(options),
+          trimResult: false,
+        });
+        const currentNumber = Number(current);
+        const addedNumber = Number(added);
+        localVariables[name] =
+          current.trim() && added.trim() && Number.isFinite(currentNumber) && Number.isFinite(addedNumber)
+            ? String(currentNumber + addedNumber)
+            : current + added;
         return "";
+      }
       case "addnumvar": {
-        const currentValue = Number(ctx.variables[name] ?? "0");
+        const currentValue = Number(localVariables[name] ?? "0");
         const addedValue = Number(
           resolveMacros(writeMatch?.[3] ?? "", ctx, { ...nestedMacroOptions(options), trimResult: false }),
         );
         const currentNumber = Number.isFinite(currentValue) ? currentValue : 0;
         const addedNumber = Number.isFinite(addedValue) ? addedValue : 0;
         const sum = currentNumber + addedNumber;
-        ctx.variables[name] = String(Number.isFinite(sum) ? sum : currentNumber);
+        localVariables[name] = String(Number.isFinite(sum) ? sum : currentNumber);
         return "";
       }
-      case "incvar":
-        ctx.variables[name] = String((parseInt(ctx.variables[name] ?? "0", 10) || 0) + 1);
-        return "";
-      case "decvar":
-        ctx.variables[name] = String((parseInt(ctx.variables[name] ?? "0", 10) || 0) - 1);
-        return "";
+      case "incvar": {
+        const current = Number(localVariables[name] ?? "0");
+        const next = (Number.isFinite(current) ? current : 0) + 1;
+        localVariables[name] = String(next);
+        return localVariables[name];
+      }
+      case "decvar": {
+        const current = Number(localVariables[name] ?? "0");
+        const next = (Number.isFinite(current) ? current : 0) - 1;
+        localVariables[name] = String(next);
+        return localVariables[name];
+      }
       default:
         return "";
     }

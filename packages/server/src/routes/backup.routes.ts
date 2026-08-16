@@ -3200,6 +3200,33 @@ export async function backupRoutes(app: FastifyInstance) {
   await hardenPrivateBackupTree(getBackupsRoot());
   const automaticBackupStorage = createAppSettingsStorage(app.db);
   let automaticBackupRunning = false;
+  type BackupDownloadJob = {
+    status: "preparing" | "ready" | "failed";
+    backupName: string;
+    tempDir: string;
+    archivePath: string;
+    createdAt: number;
+    size?: number;
+    omittedCount?: number;
+    error?: string;
+  };
+  const backupDownloadJobs = new Map<string, BackupDownloadJob>();
+  const removeBackupDownloadJob = async (jobId: string) => {
+    const job = backupDownloadJobs.get(jobId);
+    backupDownloadJobs.delete(jobId);
+    if (job) await rm(job.tempDir, { recursive: true, force: true }).catch(() => {});
+  };
+  const backupDownloadCleanupTimer = setInterval(() => {
+    const cutoff = Date.now() - 60 * 60 * 1_000;
+    for (const [jobId, job] of backupDownloadJobs) {
+      if (job.createdAt < cutoff) void removeBackupDownloadJob(jobId);
+    }
+  }, 5 * 60 * 1_000);
+  backupDownloadCleanupTimer.unref();
+  app.addHook("onClose", async () => {
+    clearInterval(backupDownloadCleanupTimer);
+    await Promise.all([...backupDownloadJobs.keys()].map(removeBackupDownloadJob));
+  });
 
   const loadAutomaticBackupSettings = async () => {
     const raw = await automaticBackupStorage.get(AUTOMATIC_BACKUP_SETTINGS_KEY);
@@ -3373,6 +3400,74 @@ export async function backupRoutes(app: FastifyInstance) {
       if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => {});
       return sendBackupRouteError(reply, err, "Backup download");
     }
+  });
+
+  // Safari can terminate a request that receives no response bytes while a
+  // large archive is being assembled. Start that work asynchronously and let
+  // the client poll short status requests before opening the finished stream.
+  app.post("/download/start", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
+    const jobId = randomUUID();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").replace("T", "_").slice(0, 19);
+    const backupName = `marinara-backup-${timestamp}`;
+    const tempDir = await mkdtemp(join(tmpdir(), "marinara-backup-download-"));
+    const archivePath = join(tempDir, `${backupName}.zip`);
+    const job: BackupDownloadJob = {
+      status: "preparing",
+      backupName,
+      tempDir,
+      archivePath,
+      createdAt: Date.now(),
+    };
+    backupDownloadJobs.set(jobId, job);
+
+    void (async () => {
+      try {
+        await flushDB();
+        const { omittedEntries } = await writeFullBackupArchive(app, archivePath, backupName, tempDir);
+        const archiveStat = await stat(archivePath);
+        job.status = "ready";
+        job.size = archiveStat.size;
+        job.omittedCount = omittedEntries.length;
+      } catch (error) {
+        job.status = "failed";
+        job.error = getBackupErrorMessage(error, "Backup download failed");
+        logger.error(error, "[backup] Asynchronous backup download failed");
+      }
+    })();
+
+    return reply.status(202).send({ jobId, status: job.status });
+  });
+
+  app.get<{ Params: { jobId: string } }>("/download/status/:jobId", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
+    const job = backupDownloadJobs.get(req.params.jobId);
+    if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
+    return reply.send({
+      status: job.status,
+      filename: `${job.backupName}.zip`,
+      ...(job.status === "ready" ? { size: job.size, omittedCount: job.omittedCount ?? 0 } : {}),
+      ...(job.status === "failed" ? { error: job.error ?? "Backup download failed" } : {}),
+    });
+  });
+
+  app.get<{ Params: { jobId: string } }>("/download/file/:jobId", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
+    const jobId = req.params.jobId;
+    const job = backupDownloadJobs.get(jobId);
+    if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
+    if (job.status === "failed") return reply.status(500).send({ error: job.error ?? "Backup download failed" });
+    if (job.status !== "ready" || job.size === undefined) {
+      return reply.status(409).send({ error: "Backup is still being prepared" });
+    }
+    backupDownloadJobs.delete(jobId);
+    cleanupTempDirAfterReply(reply, job.tempDir);
+    return reply
+      .header("Content-Type", "application/zip")
+      .header("Content-Disposition", `attachment; filename="${job.backupName}.zip"`)
+      .header("Content-Length", job.size.toString())
+      .header("X-Marinara-Backup-Omitted-Count", String(job.omittedCount ?? 0))
+      .send(createReadStream(job.archivePath));
   });
 
   // List existing backups

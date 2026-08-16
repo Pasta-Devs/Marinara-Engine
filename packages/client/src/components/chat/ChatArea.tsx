@@ -2167,7 +2167,7 @@ export const ChatArea = memo(function ChatArea() {
     (direction: -1 | 1) => {
       const supportsMode = chatMode === "conversation" || isRoleplay;
       if (!supportsMode || !intuitiveSwipeNavigation || intuitiveSwipeBlocked) return false;
-      if (!activeChatId || isStreaming || agentProcessing || !latestAssistantMessageForSwipes) return false;
+      if (!activeChatId || isStreaming || !latestAssistantMessageForSwipes) return false;
 
       const swipeCount = latestAssistantMessageForSwipes.swipeCount ?? 1;
       const activeIndex = latestAssistantMessageForSwipes.activeSwipeIndex ?? 0;
@@ -2189,7 +2189,6 @@ export const ChatArea = memo(function ChatArea() {
     },
     [
       activeChatId,
-      agentProcessing,
       chatMode,
       handleRegenerate,
       handleSetActiveSwipe,

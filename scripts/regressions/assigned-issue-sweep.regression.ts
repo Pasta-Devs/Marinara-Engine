@@ -28,6 +28,20 @@ import {
 
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
 
+useAgentStore.getState().reset();
+useAgentStore.getState().setProcessingRun("older-swipe", true, "roleplay-chat");
+useAgentStore.getState().setProcessingRun("newer-swipe", true, "roleplay-chat");
+useAgentStore.getState().setProcessingRun("older-swipe", false, "roleplay-chat");
+assert.equal(
+  useAgentStore.getState().isProcessing,
+  true,
+  "finishing an older swipe pipeline must not clear a newer pipeline's processing state",
+);
+assert.deepEqual(useAgentStore.getState().processingChatIds, ["roleplay-chat"]);
+useAgentStore.getState().setProcessingRun("newer-swipe", false, "roleplay-chat");
+assert.equal(useAgentStore.getState().isProcessing, false);
+useAgentStore.getState().reset();
+
 assert.equal(
   resolveGameImageDynamicPromptEnabled({}),
   false,

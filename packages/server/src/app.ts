@@ -51,9 +51,37 @@ import { migrateLegacyCapabilities } from "./services/capability-packages/legacy
 import { createClientStaticOptions } from "./config/client-static-config.js";
 import { hostValidationHook } from "./middleware/host-validation.js";
 import { androidLocalAuthHook, androidLocalLoginRoute } from "./middleware/android-local-auth.js";
+import { arch, platform, release } from "node:os";
+import { execFileSync } from "node:child_process";
 
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 const MAX_UPLOAD_BYTES = 256 * 1024 * 1024;
+
+function resolveServerOs(): string {
+  const hostPlatform = platform();
+  const hostRelease = release();
+  const hostArch = arch();
+  if (hostPlatform === "darwin") {
+    try {
+      const version = execFileSync("sw_vers", ["-productVersion"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        timeout: 2_000,
+      }).trim();
+      return `macOS ${version || hostRelease} (${hostArch})`;
+    } catch {
+      return `macOS ${hostRelease} (${hostArch})`;
+    }
+  }
+  if (hostPlatform === "win32") return `Windows ${hostRelease} (${hostArch})`;
+  if (hostPlatform === "android" || process.env.PREFIX?.includes("com.termux")) {
+    return `Android / Termux ${hostRelease} (${hostArch})`;
+  }
+  if (hostPlatform === "linux") return `Linux ${hostRelease} (${hostArch})`;
+  return `${hostPlatform} ${hostRelease} (${hostArch})`;
+}
+
+const SERVER_OS = resolveServerOs();
 
 export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   const hadUserStateBeforeStartup = existsSync(join(getFileStorageDir(), "manifest.json"));
@@ -287,6 +315,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       version: APP_VERSION,
       commit,
       build: getBuildLabel(),
+      serverOs: SERVER_OS,
       timestamp: new Date().toISOString(),
       capabilityPackages: {
         status: capabilityPackages

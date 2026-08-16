@@ -291,7 +291,7 @@ export function PresetEditor() {
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
   const [stockCopyError, setStockCopyError] = useState<string | null>(null);
-  const stockCopyAttemptRef = useRef<string | null>(null);
+  const [stockCopyPending, setStockCopyPending] = useState(false);
 
   // Local editable state
   const [localName, setLocalName] = useState("");
@@ -323,35 +323,9 @@ export function PresetEditor() {
   }, [data, presetDetailId]);
 
   useEffect(() => {
-    if (stockCopyAttemptRef.current && stockCopyAttemptRef.current !== presetDetailId) {
-      stockCopyAttemptRef.current = null;
-      setStockCopyError(null);
-    }
-  }, [presetDetailId]);
-
-  useEffect(() => {
-    const preset = data?.preset;
-    if (!presetDetailId || !preset || !isStockMarinaraUniversalPreset(preset)) return;
-    if (stockCopyAttemptRef.current === presetDetailId) return;
-
-    stockCopyAttemptRef.current = presetDetailId;
     setStockCopyError(null);
-    void duplicatePreset(presetDetailId)
-      .then((copy) => {
-        if (useUIStore.getState().presetDetailId !== presetDetailId) return;
-        if (!copy?.id) throw new Error(localizeUi("ui.presets.preseteditor.couldNotCreateEditableCopy"));
-        toast.success(localizeUi("ui.presets.preseteditor.createdEditableCopy"));
-        openPresetDetail(copy.id, { initialTab: presetDetailInitialTab ?? undefined });
-      })
-      .catch((error) => {
-        if (useUIStore.getState().presetDetailId !== presetDetailId) return;
-        setStockCopyError(
-          error instanceof Error
-            ? error.message
-            : localizeUi("ui.presets.preseteditor.couldNotCreateEditableCopy"),
-        );
-      });
-  }, [data?.preset, duplicatePreset, localizeUi, openPresetDetail, presetDetailId, presetDetailInitialTab]);
+    setStockCopyPending(false);
+  }, [presetDetailId]);
 
   const handleClose = useCallback(() => {
     if (dirty) {
@@ -360,6 +334,26 @@ export function PresetEditor() {
     }
     closePresetDetail();
   }, [dirty, closePresetDetail]);
+
+  const handleCreateStockCopy = useCallback(async () => {
+    if (!presetDetailId || stockCopyPending) return;
+    setStockCopyPending(true);
+    setStockCopyError(null);
+    try {
+      const copy = await duplicatePreset(presetDetailId);
+      if (useUIStore.getState().presetDetailId !== presetDetailId) return;
+      if (!copy?.id) throw new Error(localizeUi("ui.presets.preseteditor.couldNotCreateEditableCopy"));
+      toast.success(localizeUi("ui.presets.preseteditor.createdEditableCopy"));
+      openPresetDetail(copy.id, { initialTab: presetDetailInitialTab ?? undefined });
+    } catch (error) {
+      if (useUIStore.getState().presetDetailId !== presetDetailId) return;
+      setStockCopyError(
+        error instanceof Error ? error.message : localizeUi("ui.presets.preseteditor.couldNotCreateEditableCopy"),
+      );
+    } finally {
+      if (useUIStore.getState().presetDetailId === presetDetailId) setStockCopyPending(false);
+    }
+  }, [duplicatePreset, localizeUi, openPresetDetail, presetDetailId, presetDetailInitialTab, stockCopyPending]);
 
   const handleSave = useCallback(async () => {
     if (!presetDetailId) return;
@@ -505,22 +499,34 @@ export function PresetEditor() {
     return (
       <div className="mari-editor-shell flex flex-1 items-center justify-center p-6">
         <div className="mari-editor-panel flex max-w-md flex-col items-center gap-3 p-5 text-center">
-          {stockCopyError ? (
-            <>
-              <p className="text-sm text-[var(--destructive)]">{stockCopyError}</p>
-              <button type="button" onClick={closePresetDetail} className="mari-editor-action inline-flex px-3 py-2">
-                <ArrowLeft size="0.875rem" />
-                {localizeUi("ui.presets.preseteditor.backToPresets")}
-              </button>
-            </>
-          ) : (
-            <>
-              <Loader2 size="1.25rem" className="animate-spin text-[var(--primary)]" />
-              <p className="text-sm text-[var(--marinara-editor-muted)]">
-                {localizeUi("ui.presets.preseteditor.preparingEditableCopy")}
-              </p>
-            </>
-          )}
+          <FileText size="1.5rem" className="text-[var(--primary)]" />
+          <h2 className="text-base font-semibold">{data.preset.name}</h2>
+          {data.preset.description ? (
+            <p className="text-sm text-[var(--marinara-editor-muted)]">{data.preset.description}</p>
+          ) : null}
+          <p className="text-sm text-[var(--marinara-editor-muted)]">
+            {localizeUi("ui.presets.preseteditor.stockPresetReadOnly")}
+          </p>
+          {stockCopyError ? <p className="text-sm text-[var(--destructive)]">{stockCopyError}</p> : null}
+          <div className="flex flex-wrap justify-center gap-2">
+            <button type="button" onClick={closePresetDetail} className="mari-editor-action inline-flex px-3 py-2">
+              <ArrowLeft size="0.875rem" />
+              {localizeUi("ui.presets.preseteditor.backToPresets")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCreateStockCopy()}
+              disabled={stockCopyPending}
+              className="mari-editor-action mari-editor-action--primary inline-flex px-3 py-2 disabled:opacity-50"
+            >
+              {stockCopyPending ? <Loader2 size="0.875rem" className="animate-spin" /> : <Copy size="0.875rem" />}
+              {localizeUi(
+                stockCopyPending
+                  ? "ui.presets.preseteditor.creatingEditableCopy"
+                  : "ui.presets.preseteditor.createEditableCopy",
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -725,42 +731,29 @@ export function QuickPresetSectionsEditor({
   const updateVariable = useUpdateVariable();
   const deleteVariable = useDeleteVariable();
   const reorderVariables = useReorderVariables();
-  const quickCopyAttemptRef = useRef<string | null>(null);
-  const quickEditorMountedRef = useRef(true);
   const [quickCopyError, setQuickCopyError] = useState<string | null>(null);
+  const [quickCopyPending, setQuickCopyPending] = useState(false);
 
   useEffect(() => {
-    quickEditorMountedRef.current = true;
-    return () => {
-      quickEditorMountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const preset = data?.preset;
-    if (!preset || !isStockMarinaraUniversalPreset(preset)) {
-      quickCopyAttemptRef.current = null;
-      setQuickCopyError(null);
-      return;
-    }
-    if (quickCopyAttemptRef.current === presetId) return;
-
-    quickCopyAttemptRef.current = presetId;
     setQuickCopyError(null);
-    void duplicatePreset(presetId)
-      .then((copy) => {
-        if (!quickEditorMountedRef.current) return;
-        if (!copy?.id) throw new Error(t("ui.presets.preseteditor.couldNotCreateEditableCopy"));
-        toast.success(t("ui.presets.preseteditor.createdEditableCopy"));
-        onEditableCopyCreated(copy.id);
-      })
-      .catch((error) => {
-        if (!quickEditorMountedRef.current) return;
-        setQuickCopyError(
-          error instanceof Error ? error.message : t("ui.presets.preseteditor.couldNotCreateEditableCopy"),
-        );
-      });
-  }, [data?.preset, duplicatePreset, onEditableCopyCreated, presetId, t]);
+    setQuickCopyPending(false);
+  }, [presetId]);
+
+  const handleCreateQuickCopy = useCallback(async () => {
+    if (quickCopyPending) return;
+    setQuickCopyPending(true);
+    setQuickCopyError(null);
+    try {
+      const copy = await duplicatePreset(presetId);
+      if (!copy?.id) throw new Error(t("ui.presets.preseteditor.couldNotCreateEditableCopy"));
+      toast.success(t("ui.presets.preseteditor.createdEditableCopy"));
+      onEditableCopyCreated(copy.id);
+    } catch (error) {
+      setQuickCopyError(error instanceof Error ? error.message : t("ui.presets.preseteditor.couldNotCreateEditableCopy"));
+    } finally {
+      setQuickCopyPending(false);
+    }
+  }, [duplicatePreset, onEditableCopyCreated, presetId, quickCopyPending, t]);
 
   const sectionOrder = useMemo<string[]>(() => {
     const rawOrder = data?.preset?.sectionOrder;
@@ -811,15 +804,22 @@ export function QuickPresetSectionsEditor({
 
   if (isStockMarinaraUniversalPreset(data.preset)) {
     return (
-      <div className="mari-editor-empty flex min-h-24 items-center justify-center gap-2 px-3 py-6 text-xs">
-        {quickCopyError ? (
-          <span className="text-[var(--destructive)]">{quickCopyError}</span>
-        ) : (
-          <>
-            <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />
-            <span>{t("ui.presets.preseteditor.preparingEditableCopy")}</span>
-          </>
-        )}
+      <div className="mari-editor-empty flex min-h-24 flex-col items-center justify-center gap-2 px-3 py-6 text-center text-xs">
+        <span>{t("ui.presets.preseteditor.stockPresetReadOnly")}</span>
+        {quickCopyError ? <span className="text-[var(--destructive)]">{quickCopyError}</span> : null}
+        <button
+          type="button"
+          onClick={() => void handleCreateQuickCopy()}
+          disabled={quickCopyPending}
+          className="mari-editor-action mari-editor-action--primary inline-flex px-3 py-2 disabled:opacity-50"
+        >
+          {quickCopyPending ? <Loader2 size="0.875rem" className="animate-spin" /> : <Copy size="0.875rem" />}
+          {t(
+            quickCopyPending
+              ? "ui.presets.preseteditor.creatingEditableCopy"
+              : "ui.presets.preseteditor.createEditableCopy",
+          )}
+        </button>
       </div>
     );
   }

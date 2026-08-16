@@ -248,8 +248,8 @@ function stripTTSMarkup(value: string, preserveSpeakerTags = false): string {
   return withoutNonSpeechBlocks.replace(/<(?!\/?speaker(?:=|\s|>))[^>]+>/gi, " ");
 }
 
-export function cleanTTSInputText(value: string): string {
-  return stripTTSMarkup(value)
+export function cleanTTSInputText(value: string, options: { preserveEmotionIndicators?: boolean } = {}): string {
+  let cleaned = stripTTSMarkup(value)
     .replace(VN_TTS_LINE_PREFIX_RE, "")
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/~~~[\s\S]*?~~~/g, " ")
@@ -265,9 +265,11 @@ export function cleanTTSInputText(value: string): string {
     .replace(/\*([^*\n]+)\*/g, "$1")
     .replace(/_([^_\n]+)_/g, "$1")
     .replace(/[*~`]/g, "")
-    .replace(/\{(shake|shout|whisper|glow|pulse|wave|flicker|drip|bounce|tremble|glitch|expand):([^}]+)\}/gi, "$2")
-    .replace(/\[[a-z_]+:[^\]]*\]/gi, "")
-    .replace(VN_TTS_METADATA_TAG_RE, " ")
+    .replace(/\{(shake|shout|whisper|glow|pulse|wave|flicker|drip|bounce|tremble|glitch|expand):([^}]+)\}/gi, "$2");
+  if (!options.preserveEmotionIndicators) {
+    cleaned = cleaned.replace(/\[[a-z_]+:[^\]]*\]/gi, "").replace(VN_TTS_METADATA_TAG_RE, " ");
+  }
+  return cleaned
     .replace(/\s+/g, " ")
     .replace(/\s+([,.;:!?])/g, "$1")
     .trim();
@@ -345,10 +347,10 @@ function splitCleanTTSInputIntoChunks(value: string, maxChars = DEFAULT_TTS_CHUN
   return packTTSChunkPieces(sentencePieces, maxChars);
 }
 
-export function splitTTSChunks(value: string): string[] {
+export function splitTTSChunks(value: string, options: { preserveEmotionIndicators?: boolean } = {}): string[] {
   return value
     .split(/\r?\n+/)
-    .map(cleanTTSInputText)
+    .map((chunk) => cleanTTSInputText(chunk, options))
     .filter(Boolean)
     .flatMap((chunk) => splitCleanTTSInputIntoChunks(chunk));
 }

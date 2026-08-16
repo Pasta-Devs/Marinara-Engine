@@ -7477,9 +7477,17 @@ function AdvancedSettings() {
   const handleCreateBackup = async () => {
     setCreatingBackup(true);
     try {
-      const res = await api.raw("/backup/download", {
-        method: "POST",
-      });
+      const started = await api.post<{ jobId: string; status: "preparing" }>("/backup/download/start");
+      const deadline = Date.now() + 60 * 60 * 1_000;
+      let status: { status: "preparing" | "ready" | "failed"; error?: string } = { status: started.status };
+      while (status.status === "preparing") {
+        if (Date.now() >= deadline) throw new Error("Backup preparation timed out after one hour.");
+        await new Promise((resolve) => window.setTimeout(resolve, 2_000));
+        status = await api.get(`/backup/download/status/${encodeURIComponent(started.jobId)}`);
+      }
+      if (status.status === "failed") throw new Error(status.error || "Backup failed");
+
+      const res = await api.raw(`/backup/download/file/${encodeURIComponent(started.jobId)}`);
       if (!res.ok) throw new Error(await readSettingsResponseError(res, "Backup failed"));
 
       // Pull the filename from Content-Disposition if provided
@@ -7593,6 +7601,7 @@ function AdvancedSettings() {
     version: string;
     commit: string | null;
     build: string;
+    serverOs: string;
   }>({
     queryKey: ["health"],
     queryFn: () => api.get("/health"),
@@ -7610,7 +7619,8 @@ function AdvancedSettings() {
         version: health.data?.version ?? APP_VERSION,
         build: health.data?.build ?? APP_VERSION,
         commit: health.data?.commit ?? null,
-        os: resolveClientOs(navigator.userAgent, navigator.platform),
+        serverOs: health.data?.serverOs ?? "Unavailable",
+        clientOs: resolveClientOs(navigator.userAgent, navigator.platform, navigator.maxTouchPoints),
         browser: navigator.userAgent,
         gpu: detectBrowserGpu(),
         connectionName: activeConnection?.name ?? null,

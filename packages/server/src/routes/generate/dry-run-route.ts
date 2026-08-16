@@ -31,6 +31,7 @@ import { getLocalSidecarProvider } from "../../services/llm/local-sidecar.js";
 import {
   assemblePrompt,
   buildPromptMacroContext,
+  normalizeChatMacroVariables,
   collectCharacterAdvancedPromptEntries,
   resolveCharacterAdvancedPromptIds,
   resolveCharacterMacroData,
@@ -813,6 +814,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     const chatChoices: Record<string, string | string[]> =
       requestChoices ?? (isDifferentPresetOverride ? (presetDefaultChoices ?? {}) : chatChoicesFromMeta);
+    const chatMacroVariables = normalizeChatMacroVariables(chatMeta.macroVariables);
     const promptMacroContext = await buildPromptMacroContext({
       db: app.db,
       characterIds: promptCharacterIds,
@@ -823,6 +825,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       variables: {
         gameStoryboardKeyframeCount: String(normalizeGameStoryboardKeyframeCount(chatMeta.gameStoryboardKeyframeCount)),
       },
+      localVariables: chatMacroVariables,
       groupScenarioOverrideText:
         typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim()
           ? (chatMeta.groupScenarioText as string).trim()
@@ -1234,6 +1237,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         groups: groups as any,
         choiceBlocks: choiceBlocks as any,
         chatChoices,
+        localVariables: chatMacroVariables,
         chatId,
         characterIds: promptCharacterIds,
         groupCharacterIds: characterIds,

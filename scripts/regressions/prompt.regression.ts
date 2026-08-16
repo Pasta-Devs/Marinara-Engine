@@ -2169,6 +2169,53 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "Spotify search pages requests above the provider's ten-result limit",
+    async run() {
+      const originalFetch = globalThis.fetch;
+      const requestedPages: Array<{ limit: number; offset: number }> = [];
+      globalThis.fetch = (async (input: string | URL | Request) => {
+        const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+        const limit = Number(url.searchParams.get("limit"));
+        const offset = Number(url.searchParams.get("offset"));
+        requestedPages.push({ limit, offset });
+        return new Response(
+          JSON.stringify({
+            tracks: {
+              items: Array.from({ length: limit }, (_, index) => ({
+                uri: `spotify:track:search${offset + index}`,
+                name: `Search result ${offset + index}`,
+                artists: [{ name: "Regression Artist" }],
+                album: { name: "Regression Album" },
+              })),
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }) as typeof fetch;
+
+      try {
+        const [result] = await executeToolCalls(
+          [
+            {
+              id: "call_spotify_search_twenty",
+              type: "function",
+              function: { name: "spotify_search", arguments: JSON.stringify({ query: "laboratory", limit: 20 }) },
+            },
+          ],
+          { spotify: { accessToken: "regression-token" } },
+        );
+        assert.equal(result?.success, true);
+        assert.deepEqual(requestedPages, [
+          { limit: 10, offset: 0 },
+          { limit: 10, offset: 10 },
+        ]);
+        assert.equal((JSON.parse(result!.result) as { count?: number }).count, 20);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  },
+  {
     name: "Spotify playlist candidates suppress the extended recent-track window",
     async run() {
       const originalFetch = globalThis.fetch;
@@ -2773,7 +2820,7 @@ const cases: RegressionCase[] = [
     },
   },
   {
-    name: "addnumvar adds numbers without changing addvar concatenation",
+    name: "local variable macros match SillyTavern numeric and return-value semantics",
     run() {
       const resolve = (template: string) =>
         resolveMacros(template, {
@@ -2797,7 +2844,9 @@ const cases: RegressionCase[] = [
         resolve("{{setvar::score::1e308}}{{addnumvar::score::1e308}}{{addnumvar::score::-1e308}}{{getvar::score}}"),
         "0",
       );
-      assert.equal(resolve("{{setvar::score::20}}{{addvar::score::-2}}{{getvar::score}}"), "20-2");
+      assert.equal(resolve("{{setvar::score::20}}{{addvar::score::-2}}{{getvar::score}}"), "18");
+      assert.equal(resolve("{{setvar::label::Lab}}{{addvar::label:: Thirteen}}{{getvar::label}}"), "Lab Thirteen");
+      assert.equal(resolve("{{setvar::score::2}}{{incvar::score}}/{{decvar::score}}/{{getvar::score}}"), "3/2/2");
 
       const conditionalVariables = { score: "10" };
       resolveMacros("{{#if addnumvar::score::5}}unchanged{{/if}}", {

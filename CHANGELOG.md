@@ -31,9 +31,19 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Expanded Haptic Feedback to Conversation, Roleplay, and Game with capability-aware device descriptions, the full `0.0-1.0` intensity range, every Intiface output type, and named patterns for scalar and positional pumping actions.
 - Added an optional Roleplay speaker extractor for TTS autoplay that uses a dedicated connection to queue narration and exact dialogue with assigned character voices, stable Random NPC Voices fallbacks, and optional emotion cues.
 - Added an on-demand Advanced Settings storage optimizer that scans for old, unreferenced avatar images and deletes them only after an explicit confirmation (#5039).
+- Roleplay now releases Swipe, Continue, and the composer as soon as a reply is durably saved while its non-rewriting post-processing agents finish against that exact message and swipe in the background; overlapping runs keep independent progress state (#5155).
 
 ### Fixed
 
+- Opening the immutable Universal Preset no longer creates duplicate presets; its editor now offers an explicit **Create editable copy** action instead (#5142).
+- Gallery files now use the image format detected from their decoded bytes, preventing JPEG output advertised as PNG from being stored under a broken `.png` name (#5147).
+- Support Diagnostics now reports the Engine host OS separately from the browser OS, including correct iPadOS detection for desktop-class iPad user agents (#5157).
+- SillyTavern-style `setvar`, `getvar`, `addvar`, `incvar`, and `decvar` macros now persist independently in each chat across turns and restarts, with numeric `addvar` and returned increment/decrement values matching their compatible semantics (#5158).
+- Roleplay speaker-extractor emotion cues now remain inline as one or more bracketed indicators within the exact dialogue—such as `[irritated] ... [sigh]`—instead of being collapsed into a separate tone field (#5159).
+- Performance diagnostics now feature-detect the browser's `longtask` observer support before registering it, avoiding the unsupported-entry console warning (#5160).
+- Roleplay Spotify search now paginates requests in provider-safe batches of ten, and Music DJ restores an enabled context-repeat setting even when Spotify's immediate playback verification lags (#5163, #5165).
+- Large manual backups now prepare as a short-lived server job before Safari opens the completed ZIP stream, avoiding long idle download requests that Safari could terminate (#5164).
+- The Termux launcher now preserves timestamped server logs across Android process restarts and documents OnePlus battery-management exclusions, making otherwise silent host-level terminations diagnosable (#5154).
 - Game Mode's Spotify Music DJ no longer fails deterministically for the artist and generic-search sources on apps subject to Spotify's February 2026 `GET /search` limit reduction (Development Mode apps, capped at 10 results per request; Extended Quota Mode apps kept the old behavior): the candidate pool's default of 50 was passed straight through, producing a 400 on every request for affected apps. Search now paginates in pages of 10 up to the requested pool size — safe under both quota modes — and a transient failure on a later page returns the results already collected instead of discarding them (#5163, Game-mode half; the Roleplay `spotify_search` tool half is tracked separately on the issue).
 - Conversation branches now retain active turn-game state at copied message and swipe anchors instead of resetting or losing the game after branching (#5131).
 - Professor Mari now wires up the preset variables she creates: her authoring guidance and worked example make her drop a variable's `{{variableName}}` macro into a prompt section, so a choice block she adds actually changes the assembled prompt instead of leaving the user a picker that does nothing (#5080).
