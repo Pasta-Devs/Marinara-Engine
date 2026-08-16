@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Backpack, X } from "lucide-react";
 import {
   isTrackerFieldLocked,
+  normalizeInventoryTrackerName,
   removeTrackerFieldLockPrefix,
   renameTrackerFieldLockPrefix,
   roleplayInventoryTrackerLockKey,
@@ -14,6 +15,23 @@ import { InlineEdit, InlineNumber } from "../controls/InlineControls";
 import { TrackerReadabilityVeil } from "../controls/TrackerProfileChrome";
 import { AddRowButton, EmptySection, SectionHeader } from "../controls/SectionControls";
 import { useTrackerLockContext } from "../TrackerLockContext";
+
+/**
+ * Give a new row a name no existing row already has.
+ *
+ * Rows are deduplicated by name on the way to storage, so two untouched "New item"
+ * placeholders would collapse into one row with `qty: 2` instead of giving the user a
+ * second row to name.
+ */
+function nextPlaceholderName(rows: InventoryTrackerRow[], base: string): string {
+  const taken = new Set(rows.map((row) => normalizeInventoryTrackerName(row.name).toLocaleLowerCase("en-US")));
+  if (!taken.has(base.toLocaleLowerCase("en-US"))) return base;
+  for (let suffix = 2; suffix < 1000; suffix += 1) {
+    const candidate = `${base} ${suffix}`;
+    if (!taken.has(candidate.toLocaleLowerCase("en-US"))) return candidate;
+  }
+  return base;
+}
 
 type InventoryGroupProps = {
   group: InventoryTrackerGroup;
@@ -34,7 +52,9 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
         renameTrackerFieldLockPrefix(
           locks,
           roleplayInventoryTrackerRowLockPrefix(group, previous, index),
-          roleplayInventoryTrackerRowLockPrefix(group, row, index),
+          // Remap from the stored form of the name, not the raw keystrokes — storage
+          // trims and collapses whitespace, so an un-normalized key would orphan the lock.
+          roleplayInventoryTrackerRowLockPrefix(group, { ...row, name: normalizeInventoryTrackerName(row.name) }, index),
         ),
       );
     }
@@ -50,7 +70,7 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
   };
 
   return (
-    <div className="min-w-0 border-b border-[var(--border)]/25 p-1.5 @min-[360px]:border-b-0 @min-[360px]:border-r last:border-0">
+    <div className="min-w-0 border-b border-[var(--border)]/25 p-1.5 last:border-0">
       <div className="mb-1 flex min-h-6 items-center justify-between gap-1 px-0.5">
         <span className="truncate text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
           {label}
@@ -58,49 +78,68 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
         {addMode && (
           <AddRowButton
             title={localizeUi("ui.trackerPanel.inventoryTracker.addToGroup", { group: label })}
-            onClick={() => onUpdate([...rows, { name: localizeUi("ui.trackerPanel.inventoryTracker.newItem") }])}
+            onClick={() =>
+              onUpdate([
+                ...rows,
+                { name: nextPlaceholderName(rows, localizeUi("ui.trackerPanel.inventoryTracker.newItem")) },
+              ])
+            }
             className="h-5 min-h-5 w-5 min-w-5"
           />
         )}
       </div>
-      <div className="space-y-1">
+      {/* Below ~300px a wrapping row fits barely two chips and the ragged right edge
+          costs more than the wrapping saves, so narrow panels keep one row per item. */}
+      <div className="flex flex-col gap-1 @min-[300px]:flex-row @min-[300px]:flex-wrap">
         {rows.length === 0 && (
-          <EmptySection>{localizeUi("ui.trackerPanel.inventoryTracker.emptyGroup")}</EmptySection>
+          <EmptySection className="w-full">{localizeUi("ui.trackerPanel.inventoryTracker.emptyGroup")}</EmptySection>
         )}
         {rows.map((row, index) => {
           const nameKey = roleplayInventoryTrackerLockKey(group, row, "name", index);
           const qtyKey = roleplayInventoryTrackerLockKey(group, row, "qty", index);
+          const quantity = row.qty ?? 1;
+          // A quantity of 1 is the overwhelmingly common case and the number carries no
+          // information, so it is hidden — but it still has to be reachable when the user
+          // is deliberately editing structure or pinning values, or a qty-1 row could
+          // never be raised or locked.
+          const showQuantity = quantity > 1 || addMode || lockMode;
           return (
             <div
               key={`${row.name}-${index}`}
-              className="relative grid min-h-6 grid-cols-[minmax(0,1fr)_2.25rem] items-center gap-1 rounded-sm border border-[var(--tracker-profile-slot-rule)] bg-[image:var(--tracker-profile-slot-surface)] px-1 shadow-[inset_0_1px_2px_var(--tracker-profile-slot-shadow)]"
+              className="flex min-h-6 min-w-0 max-w-full items-center gap-1 rounded-full border border-[var(--tracker-profile-slot-rule)] bg-[image:var(--tracker-profile-slot-surface)] px-1.5 shadow-[inset_0_1px_2px_var(--tracker-profile-slot-shadow)] [@media(pointer:coarse)]:min-h-7"
             >
               <InlineEdit
                 value={row.name}
                 onSave={(name) => updateRow(index, { ...row, name: name || localizeUi("ui.trackerPanel.inventoryTracker.item") })}
                 placeholder={localizeUi("ui.trackerPanel.inventoryTracker.item")}
                 className="min-w-0 px-0.5 text-[0.625rem] font-medium"
+                title={row.name}
                 showEditHint={false}
                 scrollOnHover
                 locked={isTrackerFieldLocked(fieldLocks, nameKey)}
                 lockMode={lockMode}
                 onToggleLock={() => onToggleFieldLock?.(nameKey)}
               />
-              <InlineNumber
-                value={row.qty ?? 1}
-                min={1}
-                onChange={(qty) => updateRow(index, qty > 1 ? { ...row, qty } : { name: row.name })}
-                className="px-0 text-right text-[0.625rem] tabular-nums"
-                title={localizeUi("ui.trackerPanel.inventoryTracker.quantityFor", { item: row.name })}
-                locked={isTrackerFieldLocked(fieldLocks, qtyKey)}
-                lockMode={lockMode}
-                onToggleLock={() => onToggleFieldLock?.(qtyKey)}
-              />
+              {showQuantity && (
+                <span className="flex shrink-0 items-center text-[0.625rem] text-[var(--muted-foreground)]">
+                  <span aria-hidden="true">×</span>
+                  <InlineNumber
+                    value={quantity}
+                    min={1}
+                    onChange={(qty) => updateRow(index, qty > 1 ? { ...row, qty } : { name: row.name })}
+                    className="px-0 text-right text-[0.625rem] tabular-nums"
+                    title={localizeUi("ui.trackerPanel.inventoryTracker.quantityFor", { item: row.name })}
+                    locked={isTrackerFieldLocked(fieldLocks, qtyKey)}
+                    lockMode={lockMode}
+                    onToggleLock={() => onToggleFieldLock?.(qtyKey)}
+                  />
+                </span>
+              )}
               {deleteMode && (
                 <button
                   type="button"
                   onClick={() => removeRow(index)}
-                  className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--background)] text-[var(--destructive)] ring-1 ring-[var(--border)]"
+                  className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[var(--destructive)] ring-1 ring-[var(--border)]"
                   title={localizeUi("ui.trackerPanel.inventoryTracker.removeItem", { item: row.name })}
                   aria-label={localizeUi("ui.trackerPanel.inventoryTracker.removeItem", { item: row.name })}
                 >
@@ -142,7 +181,10 @@ export function InventoryTrackerPanel({
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <section className="relative z-10 overflow-hidden border-b border-[var(--border)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_10%,transparent))]">
+    // Own the query container rather than inheriting one. The docked sidebar provides
+    // `@container`, but the HUD popover is portaled to document.body and has none — so
+    // the same component used to lay itself out differently in its two hosts.
+    <section className="@container relative z-10 overflow-hidden border-b border-[var(--border)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_10%,transparent))]">
       <TrackerReadabilityVeil strength="strong" />
       <div className="relative z-10">
         <SectionHeader
@@ -154,7 +196,10 @@ export function InventoryTrackerPanel({
           onToggle={onToggleCollapsed}
         />
         {!collapsed && (
-          <div className="grid grid-cols-1 @min-[360px]:grid-cols-3">
+          // Groups stack full-width. Splitting the panel into three columns gave the
+          // longest group a third of the width and truncated its names, while a group
+          // with two rows sat mostly empty.
+          <div className="flex flex-col">
             <InventoryGroup
               group="currencies"
               label={localizeUi("ui.trackerPanel.inventoryTracker.currencies")}
