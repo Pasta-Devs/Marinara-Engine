@@ -19,6 +19,8 @@ import {
 import { useAgentStore } from "../../packages/client/src/stores/agent.store.js";
 import { agentResultMatchesVisibleSwipe } from "../../packages/client/src/lib/agent-result-ownership.js";
 import { createAgentEventDispatcher } from "../../packages/server/src/services/generation/agent-event-dispatcher.js";
+import { cloneMacroContextForPreview } from "../../packages/server/src/services/prompt/macro-context.js";
+import { resolveMacros } from "../../packages/shared/src/utils/macro-engine.js";
 import {
   isStockMarinaraUniversalPreset,
   MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
@@ -540,14 +542,20 @@ assert.equal(
   "the message editor shortcut hint covers both macOS and Windows modifiers",
 );
 
-const promptMacroContextSource = readFileSync(
-  join(repositoryRoot, "packages/server/src/services/prompt/macro-context.ts"),
-  "utf8",
+const liveMacroContext = {
+  user: "Mari",
+  char: "Dottore",
+  characters: ["Dottore"],
+  variables: {},
+  localVariables: { existing: "kept" },
+};
+const previewMacroContext = cloneMacroContextForPreview(liveMacroContext);
+resolveMacros("{{setvar::previewOnly::yes}}", previewMacroContext);
+assert.deepEqual(
+  liveMacroContext.localVariables,
+  { existing: "kept" },
+  "preview macro resolution cannot mutate the live chat-local variables",
 );
-assert.match(
-  promptMacroContextSource,
-  /export function cloneMacroContextForPreview\(macroCtx: MacroContext\): MacroContext/u,
-  "preview-only prompt resolution uses a shared isolated macro-context clone",
-);
+assert.deepEqual(previewMacroContext.localVariables, { existing: "kept", previewOnly: "yes" });
 
 console.info("Assigned issue-sweep regressions passed.");

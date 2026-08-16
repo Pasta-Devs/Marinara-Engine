@@ -22,10 +22,14 @@ assert.deepEqual(
   [
     { id: "older-message", activeSwipeIndex: 1 },
     { id: "newer-message", activeSwipeIndex: 3 },
+    { id: "null-message", activeSwipeIndex: null },
+    { id: "default-message" },
   ].map(resolveLorebookKeeperRetryAnchor),
   [
     { messageId: "older-message", swipeIndex: 1 },
     { messageId: "newer-message", swipeIndex: 3 },
+    { messageId: "null-message", swipeIndex: 0 },
+    { messageId: "default-message", swipeIndex: 0 },
   ],
   "Lorebook Keeper backfill results preserve each target message and swipe anchor",
 );

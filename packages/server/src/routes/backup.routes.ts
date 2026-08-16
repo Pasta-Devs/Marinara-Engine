@@ -3209,6 +3209,7 @@ export async function backupRoutes(app: FastifyInstance) {
     createdAt: number;
     completedAt?: number;
     stallWarningIssued?: boolean;
+    workPromise?: Promise<void>;
     size?: number;
     omittedCount?: number;
     error?: string;
@@ -3240,6 +3241,9 @@ export async function backupRoutes(app: FastifyInstance) {
   backupDownloadCleanupTimer.unref();
   app.addHook("onClose", async () => {
     clearInterval(backupDownloadCleanupTimer);
+    await Promise.allSettled(
+      [...backupDownloadJobs.values()].flatMap((job) => (job.workPromise ? [job.workPromise] : [])),
+    );
     await Promise.all([...backupDownloadJobs.keys()].map(removeBackupDownloadJob));
   });
 
@@ -3450,7 +3454,7 @@ export async function backupRoutes(app: FastifyInstance) {
     };
     backupDownloadJobs.set(jobId, job);
 
-    void (async () => {
+    job.workPromise = (async () => {
       try {
         await flushDB();
         const { omittedEntries } = await writeFullBackupArchive(app, archivePath, backupName, tempDir);
@@ -3468,6 +3472,7 @@ export async function backupRoutes(app: FastifyInstance) {
         if (activeBackupDownloadJobId === jobId) activeBackupDownloadJobId = null;
       }
     })();
+    void job.workPromise;
 
     return reply.status(202).send({ jobId, status: job.status });
   });
