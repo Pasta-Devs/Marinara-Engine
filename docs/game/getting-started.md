@@ -142,6 +142,7 @@ Some models stay upbeat no matter the tone. You have two options. Add a clear in
 
 ## Related guides
 
+- [Game Mode: Experiences](experiences.md)
 - [Game Mode: Combat](combat.md)
 - [Game Mode: Party and NPCs](party-and-npcs.md)
 - [Game Mode: Sessions and Saves](sessions-and-saves.md)
