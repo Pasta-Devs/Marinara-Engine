@@ -455,7 +455,9 @@ export function saveImageToDisk(
   const ownerDir = options.shared ? "shared" : chatId;
   const dir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ownerDir));
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const filename = `${newId()}.${ext}`;
+  const detectedMime = detectImageMimeType(base64);
+  const effectiveExt = (detectedMime ? imageExtensionFromMimeType(detectedMime) : null) ?? ext;
+  const filename = `${newId()}.${effectiveExt}`;
   const filePath = assertInsideDir(GALLERY_DIR, join(dir, filename));
   const tempPath = assertInsideDir(GALLERY_DIR, `${filePath}.${process.pid}.${Date.now()}.tmp`);
   try {
@@ -513,7 +515,9 @@ export function sweepStagedImages(): number {
 
 /** Stage provider output without making it visible in the gallery. */
 export function stageImageToDisk(chatId: string, base64: string, ext: string): StagedGalleryImage {
-  const filename = `${newId()}.${ext}`;
+  const detectedMime = detectImageMimeType(base64);
+  const effectiveExt = (detectedMime ? imageExtensionFromMimeType(detectedMime) : null) ?? ext;
+  const filename = `${newId()}.${effectiveExt}`;
   const relativePath = `${chatId}/${filename}`;
   const finalPath = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, relativePath));
   const stagingDir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ".staging", "noodle"));
