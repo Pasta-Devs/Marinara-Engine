@@ -34,6 +34,7 @@ import { getFileStorageDir } from "../config/runtime-config.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import { flushDB, type DB } from "../db/connection.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { BACKUP_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { assertInsideDir } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { crc32Buffer, finishCrc32, updateCrc32State } from "../utils/crc32.js";
@@ -3211,17 +3212,21 @@ export async function backupRoutes(app: FastifyInstance) {
     error?: string;
   };
   const backupDownloadJobs = new Map<string, BackupDownloadJob>();
+  let activeBackupDownloadJobId: string | null = null;
   const removeBackupDownloadJob = async (jobId: string) => {
     const job = backupDownloadJobs.get(jobId);
     backupDownloadJobs.delete(jobId);
     if (job) await rm(job.tempDir, { recursive: true, force: true }).catch(() => {});
   };
-  const backupDownloadCleanupTimer = setInterval(() => {
-    const cutoff = Date.now() - 60 * 60 * 1_000;
-    for (const [jobId, job] of backupDownloadJobs) {
-      if (job.createdAt < cutoff) void removeBackupDownloadJob(jobId);
-    }
-  }, 5 * 60 * 1_000);
+  const backupDownloadCleanupTimer = setInterval(
+    () => {
+      const cutoff = Date.now() - 60 * 60 * 1_000;
+      for (const [jobId, job] of backupDownloadJobs) {
+        if (job.createdAt < cutoff) void removeBackupDownloadJob(jobId);
+      }
+    },
+    5 * 60 * 1_000,
+  );
   backupDownloadCleanupTimer.unref();
   app.addHook("onClose", async () => {
     clearInterval(backupDownloadCleanupTimer);
@@ -3405,12 +3410,26 @@ export async function backupRoutes(app: FastifyInstance) {
   // Safari can terminate a request that receives no response bytes while a
   // large archive is being assembled. Start that work asynchronously and let
   // the client poll short status requests before opening the finished stream.
-  app.post("/download/start", async (req, reply) => {
+  app.post("/download/start", { config: { rateLimit: BACKUP_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
+    if (activeBackupDownloadJobId) {
+      const activeJob = backupDownloadJobs.get(activeBackupDownloadJobId);
+      if (activeJob) {
+        return reply.status(202).send({ jobId: activeBackupDownloadJobId, status: activeJob.status });
+      }
+      return reply.status(409).send({ error: "A backup download is already being prepared" });
+    }
     const jobId = randomUUID();
+    activeBackupDownloadJobId = jobId;
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-").replace("T", "_").slice(0, 19);
     const backupName = `marinara-backup-${timestamp}`;
-    const tempDir = await mkdtemp(join(tmpdir(), "marinara-backup-download-"));
+    let tempDir: string;
+    try {
+      tempDir = await mkdtemp(join(tmpdir(), "marinara-backup-download-"));
+    } catch (error) {
+      activeBackupDownloadJobId = null;
+      throw error;
+    }
     const archivePath = join(tempDir, `${backupName}.zip`);
     const job: BackupDownloadJob = {
       status: "preparing",
@@ -3433,42 +3452,52 @@ export async function backupRoutes(app: FastifyInstance) {
         job.status = "failed";
         job.error = getBackupErrorMessage(error, "Backup download failed");
         logger.error(error, "[backup] Asynchronous backup download failed");
+      } finally {
+        if (activeBackupDownloadJobId === jobId) activeBackupDownloadJobId = null;
       }
     })();
 
     return reply.status(202).send({ jobId, status: job.status });
   });
 
-  app.get<{ Params: { jobId: string } }>("/download/status/:jobId", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
-    const job = backupDownloadJobs.get(req.params.jobId);
-    if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
-    return reply.send({
-      status: job.status,
-      filename: `${job.backupName}.zip`,
-      ...(job.status === "ready" ? { size: job.size, omittedCount: job.omittedCount ?? 0 } : {}),
-      ...(job.status === "failed" ? { error: job.error ?? "Backup download failed" } : {}),
-    });
-  });
+  app.get<{ Params: { jobId: string } }>(
+    "/download/status/:jobId",
+    { config: { rateLimit: BACKUP_RATE_LIMIT } },
+    async (req, reply) => {
+      if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
+      const job = backupDownloadJobs.get(req.params.jobId);
+      if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
+      return reply.send({
+        status: job.status,
+        filename: `${job.backupName}.zip`,
+        ...(job.status === "ready" ? { size: job.size, omittedCount: job.omittedCount ?? 0 } : {}),
+        ...(job.status === "failed" ? { error: job.error ?? "Backup download failed" } : {}),
+      });
+    },
+  );
 
-  app.get<{ Params: { jobId: string } }>("/download/file/:jobId", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
-    const jobId = req.params.jobId;
-    const job = backupDownloadJobs.get(jobId);
-    if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
-    if (job.status === "failed") return reply.status(500).send({ error: job.error ?? "Backup download failed" });
-    if (job.status !== "ready" || job.size === undefined) {
-      return reply.status(409).send({ error: "Backup is still being prepared" });
-    }
-    backupDownloadJobs.delete(jobId);
-    cleanupTempDirAfterReply(reply, job.tempDir);
-    return reply
-      .header("Content-Type", "application/zip")
-      .header("Content-Disposition", `attachment; filename="${job.backupName}.zip"`)
-      .header("Content-Length", job.size.toString())
-      .header("X-Marinara-Backup-Omitted-Count", String(job.omittedCount ?? 0))
-      .send(createReadStream(job.archivePath));
-  });
+  app.get<{ Params: { jobId: string } }>(
+    "/download/file/:jobId",
+    { config: { rateLimit: BACKUP_RATE_LIMIT } },
+    async (req, reply) => {
+      if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
+      const jobId = req.params.jobId;
+      const job = backupDownloadJobs.get(jobId);
+      if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
+      if (job.status === "failed") return reply.status(500).send({ error: job.error ?? "Backup download failed" });
+      if (job.status !== "ready" || job.size === undefined) {
+        return reply.status(409).send({ error: "Backup is still being prepared" });
+      }
+      backupDownloadJobs.delete(jobId);
+      cleanupTempDirAfterReply(reply, job.tempDir);
+      return reply
+        .header("Content-Type", "application/zip")
+        .header("Content-Disposition", `attachment; filename="${job.backupName}.zip"`)
+        .header("Content-Length", job.size.toString())
+        .header("X-Marinara-Backup-Omitted-Count", String(job.omittedCount ?? 0))
+        .send(createReadStream(job.archivePath));
+    },
+  );
 
   // List existing backups
   app.get("/", async () => {

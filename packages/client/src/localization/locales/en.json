@@ -7007,6 +7007,7 @@
   "ui.panels.advancedsettings.automaticBackupWillBeCreatedShortly": "The first automatic backup will be created shortly.",
   "ui.panels.advancedsettings.backupDeleted": "Backup deleted",
   "ui.panels.advancedsettings.backupDownloaded": "Backup downloaded!",
+  "ui.panels.advancedsettings.backupPreparationTimedOut": "Backup preparation timed out after one hour.",
   "ui.panels.advancedsettings.backupSaved": "Backup saved!",
   "ui.panels.advancedsettings.branch": "Branch:",
   "ui.panels.advancedsettings.checkForUpdates": "Check for Updates",

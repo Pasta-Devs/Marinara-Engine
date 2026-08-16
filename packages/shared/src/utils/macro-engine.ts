@@ -233,7 +233,10 @@ function getMacroBudget(options: ResolveMacroOptions): MacroResolutionBudget {
   return budget;
 }
 
-function macroLimit(options: ResolveMacroOptions, key: "maxMacroDepth" | "maxMacroExpansions" | "maxMacroOutputLength") {
+function macroLimit(
+  options: ResolveMacroOptions,
+  key: "maxMacroDepth" | "maxMacroExpansions" | "maxMacroOutputLength",
+) {
   switch (key) {
     case "maxMacroDepth":
       return options.maxMacroDepth ?? MAX_MACRO_RESOLUTION_DEPTH;
@@ -354,8 +357,7 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   {
     category: "Identity",
     syntax: "{{21-character-card-ID}}",
-    description:
-      "Name of another character, pulls the card into the context; referenced by its exact 21-character ID",
+    description: "Name of another character, pulls the card into the context; referenced by its exact 21-character ID",
   },
   {
     category: "Identity",
@@ -567,13 +569,19 @@ export function resolveCharacterScopedMacros(
     .replace(/\{\{\s*char(?:Name)?\s*\}\}/gi, profile.name)
     .replace(/\{\{\s*char(?:Name)?Phonetic\s*\}\}/gi, profile.phoneticName ?? profile.name)
     .replace(/\{\{\s*group\s*\}\}/gi, resolveGroupCharacters(scopedContext))
-    .replace(/\{\{\s*description\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "description", depth, baseContext))
-    .replace(/\{\{\s*personality\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "personality", depth, baseContext))
+    .replace(/\{\{\s*description\s*\}\}/gi, () =>
+      resolveCharacterFieldValue(profile, "description", depth, baseContext),
+    )
+    .replace(/\{\{\s*personality\s*\}\}/gi, () =>
+      resolveCharacterFieldValue(profile, "personality", depth, baseContext),
+    )
     .replace(/\{\{\s*backstory\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "backstory", depth, baseContext))
     .replace(/\{\{\s*appearance\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "appearance", depth, baseContext))
     .replace(/\{\{\s*scenario\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "scenario", depth, baseContext))
     .replace(/\{\{\s*example\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "example", depth, baseContext))
-    .replace(/\{\{\s*charSysInfo\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "systemPrompt", depth, baseContext))
+    .replace(/\{\{\s*charSysInfo\s*\}\}/gi, () =>
+      resolveCharacterFieldValue(profile, "systemPrompt", depth, baseContext),
+    )
     .replace(/\{\{\s*charPostHistory\s*\}\}/gi, () =>
       resolveCharacterFieldValue(profile, "postHistoryInstructions", depth, baseContext),
     );
@@ -617,9 +625,7 @@ export function resolveDeferredCharacterMacros(
   result = result
     .split(DEFERRED_CHARACTER_MACRO_TOKENS.convoDisplay)
     .join(scopedContext.convoFields?.charDisplayName ?? "");
-  result = result
-    .split(DEFERRED_CHARACTER_MACRO_TOKENS.charAbout)
-    .join(scopedContext.convoFields?.charAbout ?? "");
+  result = result.split(DEFERRED_CHARACTER_MACRO_TOKENS.charAbout).join(scopedContext.convoFields?.charAbout ?? "");
   result = result
     .split(DEFERRED_CHARACTER_MACRO_TOKENS.convoBehavior)
     .join(scopedContext.convoFields?.convoBehavior ?? "");
@@ -687,10 +693,7 @@ function hasCharacterConditionalOperandCandidate(condition: string): boolean {
     while (candidateEnd < condition.length) {
       const code = condition.charCodeAt(candidateEnd);
       const isIdentifierCharacter =
-        (code >= 48 && code <= 57) ||
-        (code >= 65 && code <= 90) ||
-        code === 95 ||
-        (code >= 97 && code <= 122);
+        (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || code === 95 || (code >= 97 && code <= 122);
       if (!isIdentifierCharacter) break;
       candidateEnd++;
     }
@@ -731,8 +734,7 @@ function hasCharacterMacro(template: string): boolean {
       name === "else" &&
       directEnd > nameEnd &&
       template.slice(directEnd, elseIfEnd).toLowerCase() === "if" &&
-      (template.startsWith("}}", elseIfEnd) ||
-        (elseIfEnd < template.length && /\s/u.test(template[elseIfEnd]!)));
+      (template.startsWith("}}", elseIfEnd) || (elseIfEnd < template.length && /\s/u.test(template[elseIfEnd]!)));
     if (!isIf && !isElseIf) {
       searchIndex = Math.max(start + 2, nameEnd);
       continue;
@@ -996,7 +998,7 @@ function isCharacterConditionalOperand(raw: string): boolean {
 }
 
 type ParsedConditionExpression = { left: string; operator: string; right?: string };
-const CONDITION_WORD_OPERATOR_RE = /(?:is\s+not|not\s+contains|not\s+includes|contains|includes|is)(?=\s|$)/iyu;
+const CONDITION_WORD_OPERATOR_RE = /(?:is\s+not|not\s+contains|not\s+includes|contains|includes|is)(?=\s|$)/iuy;
 
 function parseConditionExpression(condition: string): ParsedConditionExpression {
   const symbolicOperators = [">=", "<=", "==", "!=", ">", "<", "="] as const;
@@ -1118,12 +1120,7 @@ function conditionSyntaxNodeText(node: ConditionSyntaxNode): string {
   return parts.join("");
 }
 
-function appendConditionAtom(
-  frame: ConditionSyntaxFrame,
-  condition: string,
-  end: number,
-  forceEmpty: boolean,
-): void {
+function appendConditionAtom(frame: ConditionSyntaxFrame, condition: string, end: number, forceEmpty: boolean): void {
   const value = condition.slice(frame.atomStart, end).trim();
   frame.atomStart = end;
   if (!value && !(forceEmpty && frame.expectsOperand)) return;
@@ -1644,7 +1641,10 @@ export function selectConditionalPayloadBranch(
   const branches: ConditionalBranchPayload[] = Array.isArray(chainBranches)
     ? chainBranches
     : [
-        { condition: (payload as ConditionalBlockPayload).condition, content: (payload as ConditionalBlockPayload).truthy },
+        {
+          condition: (payload as ConditionalBlockPayload).condition,
+          content: (payload as ConditionalBlockPayload).truthy,
+        },
         { condition: null, content: (payload as ConditionalBlockPayload).falsy },
       ];
 
@@ -1667,52 +1667,64 @@ function resolveVariableOperationMacros(input: string, ctx: MacroContext, option
     // Older internal callers provide only `variables`; retain that in-memory
     // fallback while production prompt contexts supply a distinct chat-local map.
     const localVariables = (ctx.localVariables ??= ctx.variables);
+    const readLocalVariable = () =>
+      Object.prototype.hasOwnProperty.call(localVariables, name) ? localVariables[name] : undefined;
+    const writeLocalVariable = (value: string) => {
+      Object.defineProperty(localVariables, name, {
+        value,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+      return value;
+    };
 
     switch (op) {
       case "getvar":
-        return localVariables[name] ?? "";
+        return readLocalVariable() ?? "";
       case "setvar":
-        localVariables[name] = resolveMacros(writeMatch?.[3] ?? "", ctx, {
-          ...nestedMacroOptions(options),
-          trimResult: false,
-        });
+        writeLocalVariable(
+          resolveMacros(writeMatch?.[3] ?? "", ctx, {
+            ...nestedMacroOptions(options),
+            trimResult: false,
+          }),
+        );
         return "";
       case "addvar": {
-        const current = localVariables[name] ?? "";
+        const current = readLocalVariable() ?? "";
         const added = resolveMacros(writeMatch?.[3] ?? "", ctx, {
           ...nestedMacroOptions(options),
           trimResult: false,
         });
         const currentNumber = Number(current);
         const addedNumber = Number(added);
-        localVariables[name] =
+        writeLocalVariable(
           current.trim() && added.trim() && Number.isFinite(currentNumber) && Number.isFinite(addedNumber)
             ? String(currentNumber + addedNumber)
-            : current + added;
+            : current + added,
+        );
         return "";
       }
       case "addnumvar": {
-        const currentValue = Number(localVariables[name] ?? "0");
+        const currentValue = Number(readLocalVariable() ?? "0");
         const addedValue = Number(
           resolveMacros(writeMatch?.[3] ?? "", ctx, { ...nestedMacroOptions(options), trimResult: false }),
         );
         const currentNumber = Number.isFinite(currentValue) ? currentValue : 0;
         const addedNumber = Number.isFinite(addedValue) ? addedValue : 0;
         const sum = currentNumber + addedNumber;
-        localVariables[name] = String(Number.isFinite(sum) ? sum : currentNumber);
+        writeLocalVariable(String(Number.isFinite(sum) ? sum : currentNumber));
         return "";
       }
       case "incvar": {
-        const current = Number(localVariables[name] ?? "0");
+        const current = Number(readLocalVariable() ?? "0");
         const next = (Number.isFinite(current) ? current : 0) + 1;
-        localVariables[name] = String(next);
-        return localVariables[name];
+        return writeLocalVariable(String(next));
       }
       case "decvar": {
-        const current = Number(localVariables[name] ?? "0");
+        const current = Number(readLocalVariable() ?? "0");
         const next = (Number.isFinite(current) ? current : 0) - 1;
-        localVariables[name] = String(next);
-        return localVariables[name];
+        return writeLocalVariable(String(next));
       }
       default:
         return "";
@@ -2253,9 +2265,7 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
     const match = body.match(/^outlet::([\s\S]*)$/i);
     if (!match) return undefined;
     const name = (match[1] ?? "").trim();
-    return name && ctx.outlets && Object.prototype.hasOwnProperty.call(ctx.outlets, name)
-      ? ctx.outlets[name]!
-      : "";
+    return name && ctx.outlets && Object.prototype.hasOwnProperty.call(ctx.outlets, name) ? ctx.outlets[name]! : "";
   });
 
   if (options.trimResult !== false) {

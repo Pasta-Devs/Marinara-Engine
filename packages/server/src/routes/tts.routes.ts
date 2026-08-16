@@ -360,16 +360,45 @@ function extractJsonObject(value: string): string {
   return value.slice(start, end + 1);
 }
 
-function normalizeExtractorDialogue(value: string): string {
-  return value.replace(/\s+/gu, " ").trim();
-}
-
 function validateAnnotatedDialogue(source: string, speech: string): string {
-  const withoutIndicators = speech.replace(/\[[^\]\r\n]{1,80}\]/gu, "");
-  if (normalizeExtractorDialogue(withoutIndicators) !== normalizeExtractorDialogue(source)) {
-    throw new Error("Speaker extractor changed dialogue while adding emotion indicators");
+  const pending = [{ sourceCursor: 0, speechCursor: 0 }];
+  const visited = new Set<string>();
+  while (pending.length > 0) {
+    let { sourceCursor, speechCursor } = pending.pop()!;
+    const stateKey = `${sourceCursor}:${speechCursor}`;
+    if (visited.has(stateKey)) continue;
+    visited.add(stateKey);
+
+    while (speechCursor < speech.length) {
+      if (speech[speechCursor] === "[") {
+        const indicatorEnd = speech.indexOf("]", speechCursor + 1);
+        const indicatorLength = indicatorEnd - speechCursor - 1;
+        const canSkipIndicator =
+          indicatorEnd > speechCursor &&
+          indicatorLength >= 1 &&
+          indicatorLength <= 80 &&
+          !/[\r\n]/u.test(speech.slice(speechCursor + 1, indicatorEnd));
+        if (canSkipIndicator) {
+          // When the source itself begins with a bracket, retain that exact
+          // character as an alternative instead of assuming every bracketed
+          // span is a newly inserted emotion cue.
+          if (source[sourceCursor] === "[") {
+            pending.push({ sourceCursor: sourceCursor + 1, speechCursor: speechCursor + 1 });
+          }
+          speechCursor = indicatorEnd + 1;
+          if (speech[speechCursor] === " " && source[sourceCursor] !== " ") speechCursor += 1;
+          continue;
+        }
+      }
+
+      if (sourceCursor >= source.length || speech[speechCursor] !== source[sourceCursor]) break;
+      sourceCursor += 1;
+      speechCursor += 1;
+    }
+
+    if (sourceCursor === source.length && speechCursor === speech.length) return speech;
   }
-  return speech.trim();
+  throw new Error("Speaker extractor changed dialogue while adding emotion indicators");
 }
 
 /** Build an exact, ordered queue by locating extracted dialogue inside the original message. */
@@ -1369,9 +1398,7 @@ export async function ttsRoutes(app: FastifyInstance) {
     const normalizedPrompt = normalizeGameAudioPrompt(prompt);
     // Context generations lock on their KEY: two turns racing the same area
     // must collapse into one composition even when their prompts differ.
-    const lockKey = context
-      ? `context\0${context.axis}\0${context.key}`
-      : `${kind}\0${normalizedPrompt.toLowerCase()}`;
+    const lockKey = context ? `context\0${context.axis}\0${context.key}` : `${kind}\0${normalizedPrompt.toLowerCase()}`;
     let generation = gameAudioGenerationLocks.get(lockKey);
     if (!generation) {
       generation = generateElevenLabsGameAudio(cfg, kind, normalizedPrompt, context).finally(() => {

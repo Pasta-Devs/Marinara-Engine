@@ -29,6 +29,11 @@ export const AVATAR_STORAGE_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+export const BACKUP_RATE_LIMIT = {
+  max: 60,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
   { pattern: /^\/api\/generate(?:\/|$)/, rule: { key: "generate", limit: 60, windowMs: 60_000 } },
   { pattern: /^\/api\/tts(?:\/|$)/, rule: { key: "tts", limit: 90, windowMs: 60_000 } },
@@ -37,7 +42,10 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
     rule: { key: "image-test", limit: 20, windowMs: 60_000 },
   },
   { pattern: /^\/api\/import\/st-bulk(?:\/|$)/, rule: { key: "bulk-import", limit: 20, windowMs: 60_000 } },
-  { pattern: /^\/api\/backup(?:\/|$)/, rule: { key: "backup", limit: 30, windowMs: 60_000 } },
+  {
+    pattern: /^\/api\/backup(?:\/|$)/,
+    rule: { key: "backup", limit: BACKUP_RATE_LIMIT.max, windowMs: BACKUP_RATE_LIMIT.timeWindow },
+  },
   {
     pattern: /^\/api\/admin\/avatar-storage(?:\/|$)/,
     rule: {

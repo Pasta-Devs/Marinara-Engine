@@ -17,6 +17,8 @@ import {
   shouldRunAndroidHostHeartbeat,
 } from "../../packages/client/src/lib/keep-alive.js";
 import { useAgentStore } from "../../packages/client/src/stores/agent.store.js";
+import { agentResultMatchesVisibleSwipe } from "../../packages/client/src/lib/agent-result-ownership.js";
+import { createAgentEventDispatcher } from "../../packages/server/src/services/generation/agent-event-dispatcher.js";
 import {
   isStockMarinaraUniversalPreset,
   MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
@@ -27,6 +29,49 @@ import {
 } from "../../packages/shared/src/types/game.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
+
+const dispatchedAgentEvents: Array<Record<string, unknown>> = [];
+const immutableAgentOwnership = {
+  chatId: "roleplay-chat",
+  messageId: "assistant-message",
+  swipeIndex: 1,
+  generationId: "generation-one",
+};
+createAgentEventDispatcher({
+  resolvedAgents: [],
+  sendEvent: (payload) => dispatchedAgentEvents.push(payload),
+  getOwnership: () => immutableAgentOwnership,
+}).sendAgentResultEvent({
+  agentId: "quest",
+  agentType: "quest",
+  type: "quest_update",
+  data: {},
+  tokensUsed: 0,
+  durationMs: 1,
+  success: true,
+  error: null,
+});
+assert.deepEqual(
+  (dispatchedAgentEvents[0]?.data as Record<string, unknown> | undefined) ?? {},
+  {
+    agentType: "quest",
+    agentName: "quest",
+    resultType: "quest_update",
+    data: {},
+    success: true,
+    error: null,
+    durationMs: 1,
+    ...immutableAgentOwnership,
+  },
+  "agent result events must carry the immutable message, swipe, and generation owner",
+);
+const ownershipMessages = [{ id: "assistant-message", activeSwipeIndex: 1 }] as never;
+assert.equal(agentResultMatchesVisibleSwipe(ownershipMessages, immutableAgentOwnership), true);
+assert.equal(
+  agentResultMatchesVisibleSwipe(ownershipMessages, { ...immutableAgentOwnership, swipeIndex: 2 }),
+  false,
+  "an old agent result must not update UI stores after the user changes swipes",
+);
 
 useAgentStore.getState().reset();
 useAgentStore.getState().setProcessingRun("older-swipe", true, "roleplay-chat");

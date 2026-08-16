@@ -1616,12 +1616,27 @@ function formatStorageBytes(bytes: number): string {
     return new Intl.NumberFormat(undefined, { style: "unit", unit: "byte", unitDisplay: "short" }).format(safeBytes);
   }
   if (safeBytes < 1_000_000) {
-    return new Intl.NumberFormat(undefined, { style: "unit", unit: "kilobyte", unitDisplay: "short", maximumFractionDigits: 1 }).format(safeBytes / 1_000);
+    return new Intl.NumberFormat(undefined, {
+      style: "unit",
+      unit: "kilobyte",
+      unitDisplay: "short",
+      maximumFractionDigits: 1,
+    }).format(safeBytes / 1_000);
   }
   if (safeBytes < 1_000_000_000) {
-    return new Intl.NumberFormat(undefined, { style: "unit", unit: "megabyte", unitDisplay: "short", maximumFractionDigits: 1 }).format(safeBytes / 1_000_000);
+    return new Intl.NumberFormat(undefined, {
+      style: "unit",
+      unit: "megabyte",
+      unitDisplay: "short",
+      maximumFractionDigits: 1,
+    }).format(safeBytes / 1_000_000);
   }
-  return new Intl.NumberFormat(undefined, { style: "unit", unit: "gigabyte", unitDisplay: "short", maximumFractionDigits: 1 }).format(safeBytes / 1_000_000_000);
+  return new Intl.NumberFormat(undefined, {
+    style: "unit",
+    unit: "gigabyte",
+    unitDisplay: "short",
+    maximumFractionDigits: 1,
+  }).format(safeBytes / 1_000_000_000);
 }
 
 const ROLEPLAY_AVATAR_STYLE_OPTIONS: Array<{ id: RoleplayAvatarStyle; label: string; desc: string }> = [
@@ -2276,7 +2291,9 @@ function TrackerPanelCardOrderSetting() {
                     type="button"
                     onClick={() => moveCard(section, -1)}
                     disabled={index === 0}
-                    title={localizeUi("ui.panels.trackerpanelcardordersetting.moveValue1Up", { value1: localizeUi(option.label) })}
+                    title={localizeUi("ui.panels.trackerpanelcardordersetting.moveValue1Up", {
+                      value1: localizeUi(option.label),
+                    })}
                     aria-label={localizeUi("ui.panels.trackerpanelcardordersetting.moveValue1Up", {
                       value1: localizeUi(option.label),
                     })}
@@ -7295,8 +7312,7 @@ function AdvancedSettings() {
     },
   });
   const cleanAvatarStorage = useMutation({
-    mutationFn: () =>
-      api.post<AvatarStorageSummary>("/admin/avatar-storage/cleanup", { confirm: true }),
+    mutationFn: () => api.post<AvatarStorageSummary>("/admin/avatar-storage/cleanup", { confirm: true }),
     onSuccess: (result) => {
       setAvatarStorageSummary({ ...result, files: 0, bytes: 0 });
       toast.success(
@@ -7481,14 +7497,22 @@ function AdvancedSettings() {
       const deadline = Date.now() + 60 * 60 * 1_000;
       let status: { status: "preparing" | "ready" | "failed"; error?: string } = { status: started.status };
       while (status.status === "preparing") {
-        if (Date.now() >= deadline) throw new Error("Backup preparation timed out after one hour.");
+        if (Date.now() >= deadline) {
+          throw new Error(localizeUi("ui.panels.advancedsettings.backupPreparationTimedOut"));
+        }
         await new Promise((resolve) => window.setTimeout(resolve, 2_000));
         status = await api.get(`/backup/download/status/${encodeURIComponent(started.jobId)}`);
       }
-      if (status.status === "failed") throw new Error(status.error || "Backup failed");
+      if (status.status === "failed") {
+        throw new Error(status.error || localizeUi("ui.panels.advancedsettings.failedToCreateBackup"));
+      }
 
       const res = await api.raw(`/backup/download/file/${encodeURIComponent(started.jobId)}`);
-      if (!res.ok) throw new Error(await readSettingsResponseError(res, "Backup failed"));
+      if (!res.ok) {
+        throw new Error(
+          await readSettingsResponseError(res, localizeUi("ui.panels.advancedsettings.failedToCreateBackup")),
+        );
+      }
 
       // Pull the filename from Content-Disposition if provided
       const disposition = res.headers.get("content-disposition") ?? "";

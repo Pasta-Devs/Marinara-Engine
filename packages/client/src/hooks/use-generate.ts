@@ -321,6 +321,21 @@ function getCachedMessages(qc: QueryClient, chatId: string): Message[] {
   return qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId))?.pages.flat() ?? [];
 }
 
+type AgentResultEventPayload = {
+  agentType: string;
+  agentName: string;
+  resultType: string;
+  data: unknown;
+  tokensUsed?: number;
+  success: boolean;
+  error: string | null;
+  durationMs: number;
+  chatId?: string;
+  messageId?: string | null;
+  swipeIndex?: number | null;
+  generationId?: string;
+};
+
 function assistantMessageFingerprint(message: Message): string {
   return JSON.stringify([
     message.content,
@@ -581,6 +596,7 @@ function createGenerationSubmissionId(): string {
 }
 import { useChatStore } from "../stores/chat.store";
 import { useAgentStore } from "../stores/agent.store";
+import { agentResultMatchesVisibleSwipe } from "../lib/agent-result-ownership";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useTranslationStore } from "../stores/translation.store";
@@ -1368,6 +1384,7 @@ export function useGenerate() {
       let spatialTransitionCommitted = false;
       let committedSpatialTravel: ResolvedSpatialTravel | undefined;
       let spatialCapabilityRefreshDispatched = false;
+      let agentEventGenerationId: string | null = null;
       let passiveStreamSettled = false;
       let passiveRecoveryDurableMessage: Message | null = null;
       let typingActive = false;
@@ -1803,16 +1820,13 @@ export function useGenerate() {
             }
 
             case "agent_result": {
-              const result = event.data as {
-                agentType: string;
-                agentName: string;
-                resultType: string;
-                data: unknown;
-                tokensUsed?: number;
-                success: boolean;
-                error: string | null;
-                durationMs: number;
-              };
+              const result = event.data as AgentResultEventPayload;
+              if (result.chatId && result.chatId !== params.chatId) break;
+              if (result.generationId) {
+                if (agentEventGenerationId && agentEventGenerationId !== result.generationId) break;
+                agentEventGenerationId ??= result.generationId;
+              }
+              const ownsVisibleSwipe = agentResultMatchesVisibleSwipe(getCachedMessages(qc, params.chatId), result);
 
               if (debugMode) {
                 if (result.success) {
@@ -1848,12 +1862,12 @@ export function useGenerate() {
                 : null;
               if (writeApproval) {
                 enqueuePendingAgentWriteApproval(createPendingAgentWriteApproval(writeApproval));
-                if (isActiveChat()) useUIStore.getState().openModal("agent-write-approval");
+                if (isActiveChat() && ownsVisibleSwipe) useUIStore.getState().openModal("agent-write-approval");
               }
 
               // Only update agent/game/UI stores for the active chat so a
               // background generation doesn't corrupt what the user sees.
-              if (!isActiveChat()) break;
+              if (!isActiveChat() || !ownsVisibleSwipe) break;
 
               // Store the result
               addResult(result.agentType, {
@@ -1936,7 +1950,12 @@ export function useGenerate() {
                       for (const pending of pendingEntries) {
                         enqueuePendingCardUpdate(pending);
                       }
-                      useUIStore.getState().openModal("character-card-update");
+                      if (
+                        isActiveChat() &&
+                        agentResultMatchesVisibleSwipe(getCachedMessages(qc, params.chatId), result)
+                      ) {
+                        useUIStore.getState().openModal("character-card-update");
+                      }
                     }
                   })
                   .catch((err) => console.warn("[Agent] Failed to build card update entry:", err));
@@ -3338,6 +3357,7 @@ export function useGenerate() {
         let agentResultCount = 0;
         let trackerPatchCount = 0;
         let spriteChangeReceived = false;
+        let retryAgentEventGenerationId: string | null = null;
         const failedRetryFailures: Array<ReturnType<typeof toAgentFailure>> = [];
         const retryDebugMode = useUIStore.getState().debugMode;
         for await (const event of api.streamEvents(
@@ -3371,16 +3391,14 @@ export function useGenerate() {
             }
 
             case "agent_result": {
-              const result = event.data as {
-                agentType: string;
-                agentName: string;
-                resultType: string;
-                data: unknown;
-                tokensUsed?: number;
-                success: boolean;
-                error: string | null;
-                durationMs: number;
-              };
+              const result = event.data as AgentResultEventPayload;
+              if (result.chatId && result.chatId !== chatId) break;
+              if (result.generationId) {
+                if (retryAgentEventGenerationId && retryAgentEventGenerationId !== result.generationId) break;
+                retryAgentEventGenerationId ??= result.generationId;
+              }
+              const ownsVisibleSwipe = agentResultMatchesVisibleSwipe(getCachedMessages(qc, chatId), result);
+              const shouldApplyVisibleResult = isActiveChat() && ownsVisibleSwipe;
               agentResultCount += 1;
 
               if (retryDebugMode) {
@@ -3408,16 +3426,18 @@ export function useGenerate() {
                 }
               }
 
-              addResult(result.agentType, {
-                agentId: result.agentType,
-                agentType: result.agentType,
-                type: result.resultType as any,
-                data: result.data,
-                tokensUsed: result.tokensUsed ?? 0,
-                durationMs: result.durationMs,
-                success: result.success,
-                error: result.error,
-              });
+              if (shouldApplyVisibleResult) {
+                addResult(result.agentType, {
+                  agentId: result.agentType,
+                  agentType: result.agentType,
+                  type: result.resultType as any,
+                  data: result.data,
+                  tokensUsed: result.tokensUsed ?? 0,
+                  durationMs: result.durationMs,
+                  success: result.success,
+                  error: result.error,
+                });
+              }
               const writeApproval = result.success
                 ? readAgentWriteApprovalProposal(result.data, {
                     chatId,
@@ -3427,7 +3447,7 @@ export function useGenerate() {
                 : null;
               if (writeApproval) {
                 enqueuePendingAgentWriteApproval(createPendingAgentWriteApproval(writeApproval));
-                if (isActiveChat()) useUIStore.getState().openModal("agent-write-approval");
+                if (shouldApplyVisibleResult) useUIStore.getState().openModal("agent-write-approval");
               }
               if (result.success && result.resultType === "character_card_update") {
                 buildPendingCardUpdates(qc, chatId, result.agentType, result.agentName, result.data)
@@ -3436,7 +3456,9 @@ export function useGenerate() {
                       for (const pending of pendingEntries) {
                         enqueuePendingCardUpdate(pending);
                       }
-                      useUIStore.getState().openModal("character-card-update");
+                      if (isActiveChat() && agentResultMatchesVisibleSwipe(getCachedMessages(qc, chatId), result)) {
+                        useUIStore.getState().openModal("character-card-update");
+                      }
                     }
                   })
                   .catch((err) => console.warn("[Agent] Failed to build card update entry:", err));
@@ -3445,23 +3467,23 @@ export function useGenerate() {
                 ? (formatAgentBubble(result.agentType, result.agentName, result.data) ??
                   formatRetryAgentActivityBubble(result, isTrackerRetry))
                 : null;
-              if (isActiveChat() && bubble) addThoughtBubble(result.agentType, result.agentName, bubble);
+              if (shouldApplyVisibleResult && bubble) addThoughtBubble(result.agentType, result.agentName, bubble);
 
               if (result.success && result.data) {
                 if (result.agentType === "echo-chamber") {
                   const d = result.data as Record<string, unknown>;
                   const reactions = (d.reactions as Array<{ characterName: string; reaction: string }>) ?? [];
-                  if (isActiveChat()) enqueueEchoMessages(reactions);
+                  if (shouldApplyVisibleResult) enqueueEchoMessages(reactions);
                 }
                 // CYOA re-roll: push the freshly generated choices into the store
                 // so the buttons in CyoaChoices.tsx swap in immediately.
                 if (result.agentType === "cyoa") {
                   const d = result.data as Record<string, unknown>;
                   const choices = (d.choices as Array<{ label: string; text: string }>) ?? [];
-                  if (isActiveChat()) setCyoaChoices(choices, chatId);
+                  if (shouldApplyVisibleResult) setCyoaChoices(choices, chatId);
                 }
                 // YouTube re-pick: drive the in-app player with the fresh intent.
-                if (result.resultType === "youtube_control" && isActiveChat()) {
+                if (result.resultType === "youtube_control" && shouldApplyVisibleResult) {
                   const d = result.data as Record<string, unknown>;
                   const action = d.action as string;
                   if (typeof d.volume === "number" && Number.isFinite(d.volume)) {
@@ -3471,7 +3493,7 @@ export function useGenerate() {
                     setYoutubePlay({ searchQuery: d.searchQuery.trim(), mood: (d.mood as string) ?? "" });
                   }
                 }
-                if (result.resultType === "local_music_control" && isActiveChat()) {
+                if (result.resultType === "local_music_control" && shouldApplyVisibleResult) {
                   const d = result.data as Record<string, unknown>;
                   const action = d.action as string;
                   if (typeof d.volume === "number" && Number.isFinite(d.volume)) {
@@ -3493,7 +3515,7 @@ export function useGenerate() {
                     });
                   }
                 }
-                if (result.resultType === "background_change") {
+                if (result.resultType === "background_change" && shouldApplyVisibleResult) {
                   const bg = result.data as { chosen?: string | null; generated?: boolean };
                   if (bg.chosen) {
                     applyAgentBackgroundChoice(bg.chosen);
@@ -3503,7 +3525,7 @@ export function useGenerate() {
                   }
                 }
                 // Apply quest updates directly so the widget updates immediately
-                if (result.agentType === "quest") {
+                if (result.agentType === "quest" && shouldApplyVisibleResult) {
                   const qd = result.data as Record<string, unknown>;
                   const updates = Array.isArray(qd.updates) ? qd.updates : [];
                   if (updates.length > 0) {

@@ -1972,11 +1972,11 @@ async function spotifyPlay(
       requireFirstUri: requireFirstUriMatch,
     });
     if (singleTrackUri && effectiveRepeatAfterPlay === "track" && current?.repeatState !== "track") {
-      repeat = await applySpotifyRepeatAfterPlay(creds.accessToken, "track", current?.deviceId ?? playDeviceId, 3);
+      repeat = await applySpotifyRepeatAfterPlay(creds.accessToken, "track", targetDeviceId, 3);
       current = await verifyOrNudgeSpotifyPlayback({
         accessToken: creds.accessToken,
         body,
-        initialDeviceId: current?.deviceId ?? playDeviceId,
+        initialDeviceId: targetDeviceId,
         targetDeviceId,
         targetDeviceName,
         expectedTrackUri: firstUri,
@@ -1987,7 +1987,7 @@ async function spotifyPlay(
     if (repeatTrackList && current?.repeatState !== "context") {
       for (const delay of SPOTIFY_REPEAT_RETRY_DELAYS_MS) {
         if (delay > 0) await wait(delay);
-        repeat = await applySpotifyRepeatAfterPlay(creds.accessToken, "context", current?.deviceId ?? playDeviceId);
+        repeat = await applySpotifyRepeatAfterPlay(creds.accessToken, "context", targetDeviceId);
         const repeatSnapshot = await fetchSpotifyPlaybackSnapshot(creds.accessToken);
         if (repeatSnapshot) current = repeatSnapshot;
         if (spotifyPlaybackMatches(current, playbackUris, true) && current?.repeatState === "context") break;

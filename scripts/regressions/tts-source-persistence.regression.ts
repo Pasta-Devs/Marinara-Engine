@@ -381,6 +381,32 @@ assert.throws(
     ),
   /changed dialogue while adding emotion indicators/,
 );
+assert.throws(
+  () =>
+    parseRoleplaySpeakerExtractorOutput(
+      JSON.stringify({
+        dialogue: [{ speaker: "Dottore", text: '"Wait  here."', speech: '[tense] "Wait here."' }],
+      }),
+      'Dottore says, "Wait  here."',
+      true,
+    ),
+  /changed dialogue while adding emotion indicators/,
+  "emotion annotation must not normalize or rewrite source whitespace",
+);
+assert.deepEqual(
+  parseRoleplaySpeakerExtractorOutput(
+    JSON.stringify({
+      dialogue: [{ speaker: "Dottore", text: '"Use [A] now."', speech: '[firm] "Use [A] now."' }],
+    }),
+    'Dottore orders, "Use [A] now."',
+    true,
+  ).segments,
+  [
+    { kind: "narration", text: "Dottore orders," },
+    { kind: "dialogue", speaker: "Dottore", text: '[firm] "Use [A] now."' },
+  ],
+  "source-authored brackets must survive alongside inserted emotion indicators",
+);
 assert.match(
   buildRoleplaySpeakerExtractorPrompt({
     group: "Lab group",

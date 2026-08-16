@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { randomUUID } from "crypto";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
   BUILT_IN_AGENTS,
@@ -2294,6 +2295,7 @@ async function applyRetryResultEffects(args: {
   chat: any;
   retryMessageId: string;
   retrySwipeIndex: number;
+  generationId: string;
   results: AgentResult[];
   agentContext: AgentContext;
   /** Raw (unresolved) stored content of the message being retried, used as the
@@ -2319,6 +2321,7 @@ async function applyRetryResultEffects(args: {
     chat,
     retryMessageId,
     retrySwipeIndex,
+    generationId,
     results,
     agentContext,
     mainResponseRaw,
@@ -3492,6 +3495,10 @@ async function applyRetryResultEffects(args: {
           },
           success: true,
           error: null,
+          chatId,
+          messageId: retryMessageId || null,
+          swipeIndex: retryMessageId ? retrySwipeIndex : null,
+          generationId,
         },
       });
       logger.info(
@@ -3602,6 +3609,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
     // writing to a closed socket. Mirrors the main /generate handler so a dropped
     // retry tab does not leak upstream provider requests to completion.
     const abortController = new AbortController();
+    const generationId = randomUUID();
     let clientDisconnected = false;
     const stopSseKeepalive = startSseKeepalive(reply);
     const onClientClose = () => {
@@ -3678,6 +3686,8 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
           swipeIndex: preGenerationLastAssistant.activeSwipeIndex ?? 0,
         };
       }
+      const retryMessageId = lastAssistant?.id ?? "";
+      const retrySwipeIndex = lastAssistant?.activeSwipeIndex ?? 0;
 
       const activeMusicPlayerSource =
         musicPlayerEnabled === false
@@ -4073,6 +4083,10 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
             success: result.success,
             error: result.error,
             durationMs: result.durationMs,
+            chatId,
+            messageId: retryMessageId || null,
+            swipeIndex: retryMessageId ? retrySwipeIndex : null,
+            generationId,
           },
         });
       }
@@ -4098,12 +4112,14 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
             success: entry.result.success,
             error: entry.result.error,
             durationMs: entry.result.durationMs,
+            chatId,
+            messageId: retryMessageId || null,
+            swipeIndex: retryMessageId ? retrySwipeIndex : null,
+            generationId,
           },
         });
       }
 
-      const retryMessageId = lastAssistant?.id ?? "";
-      const retrySwipeIndex = lastAssistant?.activeSwipeIndex ?? 0;
       const permittedResults = results.filter((result) => customAgentCanEmitRetryResult(result, resolvedAgents));
       await persistRetryResults(agentsStore, chatId, retryMessageId, permittedResults);
       for (const entry of lorebookKeeperRunEntries) {
@@ -4125,6 +4141,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         chat,
         retryMessageId,
         retrySwipeIndex,
+        generationId,
         results: permittedResults,
         agentContext,
         mainResponseRaw: (lastAssistant?.content as string) ?? "",
