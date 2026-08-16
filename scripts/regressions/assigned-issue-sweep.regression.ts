@@ -19,8 +19,7 @@ import {
 import { useAgentStore } from "../../packages/client/src/stores/agent.store.js";
 import { agentResultMatchesVisibleSwipe } from "../../packages/client/src/lib/agent-result-ownership.js";
 import { createAgentEventDispatcher } from "../../packages/server/src/services/generation/agent-event-dispatcher.js";
-import { cloneMacroContextForPreview } from "../../packages/server/src/services/prompt/macro-context.js";
-import { resolveMacros } from "../../packages/shared/src/utils/macro-engine.js";
+import { resolveMacrosForPreview } from "../../packages/server/src/services/prompt/macro-context.js";
 import {
   isStockMarinaraUniversalPreset,
   MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
@@ -549,13 +548,15 @@ const liveMacroContext = {
   variables: {},
   localVariables: { existing: "kept" },
 };
-const previewMacroContext = cloneMacroContextForPreview(liveMacroContext);
-resolveMacros("{{setvar::previewOnly::yes}}", previewMacroContext);
+const previewMacroResult = resolveMacrosForPreview(
+  "{{setvar::previewOnly::yes}}{{getvar::previewOnly}}",
+  liveMacroContext,
+);
+assert.equal(previewMacroResult, "yes", "the production preview resolver evaluates against its isolated clone");
 assert.deepEqual(
   liveMacroContext.localVariables,
   { existing: "kept" },
   "preview macro resolution cannot mutate the live chat-local variables",
 );
-assert.deepEqual(previewMacroContext.localVariables, { existing: "kept", previewOnly: "yes" });
 
 console.info("Assigned issue-sweep regressions passed.");

@@ -25,9 +25,9 @@ import type { LorebookScanResult } from "../lorebook/index.js";
 import {
   buildReferencedCharacterContext,
   buildPromptMacroContext,
-  cloneMacroContextForPreview,
   collectCharacterAdvancedPromptEntries,
   MAX_REFERENCED_CHARACTERS,
+  resolveMacrosForPreview,
   resolveMacrosWithVariableSnapshot,
 } from "./macro-context.js";
 
@@ -428,7 +428,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     if (extraContext.content) referencedCharacterContextBlocks.push(extraContext.content);
 
     const resolveReferenceMacros = (value: string) =>
-      resolveMacros(value, cloneMacroContextForPreview(macroCtx), deferNameMacroOptions);
+      resolveMacrosForPreview(value, macroCtx, deferNameMacroOptions);
     result.worldInfoBefore = resolveReferenceMacros(result.worldInfoBefore);
     result.worldInfoAfter = resolveReferenceMacros(result.worldInfoAfter);
     result.depthEntries = result.depthEntries.map((entry) => ({

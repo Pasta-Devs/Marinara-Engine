@@ -97,6 +97,15 @@ export function cloneMacroContextForPreview(macroCtx: MacroContext): MacroContex
   };
 }
 
+/** Resolve macros while discarding variable writes made by preview and scan-only paths. */
+export function resolveMacrosForPreview(
+  template: string,
+  macroCtx: MacroContext,
+  options?: ResolveMacroOptions,
+): string {
+  return resolveMacros(template, cloneMacroContextForPreview(macroCtx), options);
+}
+
 export function extractCharacterReferenceIds(sources: readonly string[]): string[] {
   const ids: string[] = [];
   const seen = new Set<string>();
@@ -150,9 +159,9 @@ function clipReferencedText(value: string, limit: number): string {
 }
 
 function resolveReferencedField(value: string, macroCtx: MacroContext, wrapFormat: WrapFormat): string {
-  const resolved = resolveMacros(
+  const resolved = resolveMacrosForPreview(
     clipReferencedText(stripMacroComments(value), MAX_REFERENCED_FIELD_CHARS),
-    cloneMacroContextForPreview(macroCtx),
+    macroCtx,
     { trimResult: false },
   ).trim();
   return resolved ? sanitizePromptLeaf(resolved, wrapFormat) : "";
@@ -262,7 +271,7 @@ export async function buildReferencedCharacterContext(input: {
   const excludedByRequest = new Set(input.excludedLorebookIds ?? []);
   const scanMessages = input.chatMessages.map((message) => ({
     ...message,
-    content: resolveMacros(message.content, cloneMacroContextForPreview(macroCtx), { trimResult: false }),
+    content: resolveMacrosForPreview(message.content, macroCtx, { trimResult: false }),
   }));
   const blocks: string[] = [];
 
@@ -284,7 +293,7 @@ export async function buildReferencedCharacterContext(input: {
             excludedSourceAgentIds: input.excludedLorebookSourceAgentIds,
             previewOnly: true,
             generationTriggers: input.generationTriggers,
-            resolveContent: (value) => resolveMacros(value, cloneMacroContextForPreview(scopedContext)),
+            resolveContent: (value) => resolveMacrosForPreview(value, scopedContext),
           })
         : null;
     blocks.push(buildReferencedCharacterFields(id, data, macroCtx, input.wrapFormat, lorebookScan));

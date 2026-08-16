@@ -139,12 +139,12 @@ import { buildSpotifyDjConstraints } from "../services/spotify/spotify-dj-constr
 import {
   assemblePrompt,
   buildPromptMacroContext,
-  cloneMacroContextForPreview,
   normalizeChatMacroVariables,
   collectCharacterAdvancedPromptEntries,
   resolveCharacterAdvancedPromptIds,
   resolveCharacterMacroData,
   resolveMacrosWithVariableSnapshot,
+  resolveMacrosForPreview,
   resolvePromptIdleDuration,
   resolvePromptLastGenerationType,
   resolvePromptMessageMacros,
@@ -1881,7 +1881,7 @@ export async function generateRoutes(app: FastifyInstance) {
         ): T[] => resolvePromptMessageMacros(messages, promptMacroContext, historyMacroProfilesById);
         const resolvePromptMacros = (value: string) => resolveMacros(value, promptMacroContext);
         const resolvePromptMacrosWithoutVariableWrites = (value: string) =>
-          resolveMacros(value, cloneMacroContextForPreview(promptMacroContext), { trimResult: false });
+          resolveMacrosForPreview(value, promptMacroContext, { trimResult: false });
         const resolvePromptMacrosForLorebook = (value: string) =>
           resolveMacrosWithVariableSnapshot(
             value,
