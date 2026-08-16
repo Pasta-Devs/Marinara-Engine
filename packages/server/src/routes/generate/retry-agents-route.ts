@@ -609,6 +609,13 @@ export function resolveRetryAgentContextPolicy(resolvedAgents: readonly Resolved
   return { contextSize, customAgentVectorAccessEnabled, musicPlayerSource };
 }
 
+export function resolveLorebookKeeperRetryAnchor(target: {
+  id: string;
+  activeSwipeIndex?: number | null;
+}): { messageId: string; swipeIndex: number } {
+  return { messageId: target.id, swipeIndex: target.activeSwipeIndex ?? 0 };
+}
+
 type RetryAgentPhaseToolInputs = {
   requestBody: Record<string, unknown>;
   promptCharacterIds: string[];
@@ -738,6 +745,8 @@ async function buildRetryAgentContext(args: {
   }
 
   const personaContext = await resolvePersonaContext(chars, chat);
+  const initialMacroVariables = normalizeChatMacroVariables(chatMeta.macroVariables);
+  const retryMacroVariables = { ...initialMacroVariables };
   const promptMacroContext = await buildPromptMacroContext({
     db,
     characterIds,
@@ -745,7 +754,7 @@ async function buildRetryAgentContext(args: {
     personaDescription: personaContext.personaDescription,
     personaFields: personaContext.personaFields,
     variables: {},
-    localVariables: normalizeChatMacroVariables(chatMeta.macroVariables),
+    localVariables: retryMacroVariables,
     groupScenarioOverrideText:
       typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim()
         ? (chatMeta.groupScenarioText as string).trim()
@@ -1197,7 +1206,31 @@ async function buildRetryAgentContext(args: {
     };
   }
 
-  return agentContext;
+  return { agentContext, initialMacroVariables, macroVariables: retryMacroVariables };
+}
+
+async function persistRetryMacroVariables(
+  chats: ReturnType<typeof createChatsStorage>,
+  chatId: string,
+  initialVariables: Record<string, string>,
+  macroVariables: Record<string, string>,
+): Promise<void> {
+  const normalizedVariables = normalizeChatMacroVariables(macroVariables);
+  const requestChanges = Object.fromEntries(
+    Object.entries(normalizedVariables).filter(([name, value]) => initialVariables[name] !== value),
+  );
+  if (Object.keys(requestChanges).length === 0) return;
+  await chats.patchMetadata(
+    chatId,
+    (current) => ({
+      ...current,
+      macroVariables: normalizeChatMacroVariables({
+        ...normalizeChatMacroVariables(current.macroVariables),
+        ...requestChanges,
+      }),
+    }),
+    { touchUpdatedAt: false },
+  );
 }
 
 function readTrimmedRetryString(value: unknown): string | null {
@@ -2192,7 +2225,7 @@ async function executeLorebookKeeperRetries(args: {
   chatId: string;
   chatName: string | null | undefined;
   requireApproval: boolean;
-}): Promise<Array<{ messageId: string; result: AgentResult }>> {
+}): Promise<Array<{ messageId: string; swipeIndex: number; result: AgentResult }>> {
   const {
     lorebookKeeperAgent,
     baseContext,
@@ -2215,7 +2248,7 @@ async function executeLorebookKeeperRetries(args: {
       ? (baseContext.memory._lorebookKeeperTargetLorebookId as string)
       : null;
 
-  const results: Array<{ messageId: string; result: AgentResult }> = [];
+  const results: Array<{ messageId: string; swipeIndex: number; result: AgentResult }> = [];
   for (const target of targets) {
     const startedAt = Date.now();
     try {
@@ -2266,11 +2299,11 @@ async function executeLorebookKeeperRetries(args: {
         }
       }
 
-      results.push({ messageId: target.id, result });
+      results.push({ ...resolveLorebookKeeperRetryAnchor(target), result });
     } catch (err) {
       logger.error(err, "[retry-agents] Lorebook Keeper retry failed for target message %s", target.id);
       results.push({
-        messageId: target.id,
+        ...resolveLorebookKeeperRetryAnchor(target),
         result: {
           agentId: lorebookKeeperAgent.resolved.id,
           agentType: lorebookKeeperAgent.resolved.type,
@@ -3725,7 +3758,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         };
       }
       const cyoaAgentWillRun = resolvedAgents.some((e) => e.resolved.type === "cyoa");
-      const agentContext = await buildRetryAgentContext({
+      const agentContextResult = await buildRetryAgentContext({
         cyoaAgentWillRun,
         chatId,
         db: app.db,
@@ -3745,9 +3778,10 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         forceCustomImageGeneration: forceImageGeneration === true,
         historicalGameStateAnchor,
       });
+      const agentContext = agentContextResult.agentContext;
       agentContext.signal = abortController.signal;
       const hasPreGenerationRetries = resolvedAgents.some((entry) => entry.resolved.phase === "pre_generation");
-      const preGenerationAgentContext =
+      const preGenerationAgentContextResult =
         hasPreGenerationRetries && preGenerationRecentMessages
           ? await buildRetryAgentContext({
               cyoaAgentWillRun: false,
@@ -3771,6 +3805,21 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
               useLatestGameStateFallback: false,
             })
           : null;
+      const preGenerationAgentContext = preGenerationAgentContextResult?.agentContext ?? null;
+      await persistRetryMacroVariables(
+        chats,
+        chatId,
+        agentContextResult.initialMacroVariables,
+        agentContextResult.macroVariables,
+      );
+      if (preGenerationAgentContextResult) {
+        await persistRetryMacroVariables(
+          chats,
+          chatId,
+          preGenerationAgentContextResult.initialMacroVariables,
+          preGenerationAgentContextResult.macroVariables,
+        );
+      }
 
       const activeLorebookIds = Array.isArray(chatMeta.activeLorebookIds)
         ? chatMeta.activeLorebookIds.filter(
@@ -3974,7 +4023,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
             ? markRetryLorebookResultForApproval({ result, chatId, agentContext, resolvedAgents: nonLorebookAgents })
             : result,
         );
-      let rawLorebookKeeperRunEntries: Array<{ messageId: string; result: AgentResult }> = [];
+      let rawLorebookKeeperRunEntries: Array<{ messageId: string; swipeIndex: number; result: AgentResult }> = [];
       if (lorebookKeeperAgent) {
         try {
           rawLorebookKeeperRunEntries = await executeLorebookKeeperRetries({
@@ -4113,8 +4162,8 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
             error: entry.result.error,
             durationMs: entry.result.durationMs,
             chatId,
-            messageId: retryMessageId || null,
-            swipeIndex: retryMessageId ? retrySwipeIndex : null,
+            messageId: entry.messageId,
+            swipeIndex: entry.swipeIndex,
             generationId,
           },
         });

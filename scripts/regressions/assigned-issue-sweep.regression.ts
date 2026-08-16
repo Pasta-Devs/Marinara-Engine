@@ -333,6 +333,11 @@ const presetEditorSource = readFileSync(
   join(repositoryRoot, "packages/client/src/components/presets/PresetEditor.tsx"),
   "utf8",
 );
+assert.match(
+  presetEditorSource,
+  /useLayoutEffect\(\(\) => \{\s*currentPresetIdRef\.current = presetId;\s*\}, \[presetId\]\)/u,
+  "quick preset copy ownership updates only after the selected preset commits",
+);
 assert.equal(
   presetEditorSource.match(/showMarkdownPreview/gu)?.length,
   3,
@@ -533,6 +538,16 @@ assert.equal(
   canonicalEnglish["ui.chat.edittextarea.saveCmdEnter"],
   "Save (Cmd/Ctrl+Enter)",
   "the message editor shortcut hint covers both macOS and Windows modifiers",
+);
+
+const promptMacroContextSource = readFileSync(
+  join(repositoryRoot, "packages/server/src/services/prompt/macro-context.ts"),
+  "utf8",
+);
+assert.match(
+  promptMacroContextSource,
+  /export function cloneMacroContextForPreview\(macroCtx: MacroContext\): MacroContext/u,
+  "preview-only prompt resolution uses a shared isolated macro-context clone",
 );
 
 console.info("Assigned issue-sweep regressions passed.");

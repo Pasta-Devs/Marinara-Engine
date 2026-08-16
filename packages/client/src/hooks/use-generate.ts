@@ -2381,7 +2381,9 @@ export function useGenerate() {
                 if (pendingText.length > 0 || typingActive) await waitForTypewriterDrain();
                 const savedMessage = persistedMessages.get(message.id);
                 if (savedMessage) upsertPersistedMessages(qc, params.chatId, [savedMessage]);
-                setStreaming(false);
+                if (useChatStore.getState().streamingChatId === params.chatId) {
+                  setStreaming(false);
+                }
                 clearStreamBuffer(params.chatId);
                 setStreamedMessageId(params.chatId, null);
                 useChatStore.getState().setAbortController(params.chatId, null);

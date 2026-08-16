@@ -747,7 +747,10 @@ export function QuickPresetSectionsEditor({
   const [quickCopyError, setQuickCopyError] = useState<string | null>(null);
   const [quickCopyPending, setQuickCopyPending] = useState(false);
   const currentPresetIdRef = useRef(presetId);
-  currentPresetIdRef.current = presetId;
+
+  useLayoutEffect(() => {
+    currentPresetIdRef.current = presetId;
+  }, [presetId]);
 
   useEffect(() => {
     setQuickCopyError(null);

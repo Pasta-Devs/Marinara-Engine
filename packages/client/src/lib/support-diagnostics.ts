@@ -19,8 +19,8 @@ export function resolveClientOs(userAgent: string, platform: string, maxTouchPoi
   const ios = userAgent.match(/(?:iPhone OS|CPU OS) ([\d_]+)/u);
   if (ios) return `iOS ${ios[1]!.replaceAll("_", ".")}`;
   if (/Macintosh/u.test(userAgent) && maxTouchPoints > 1) {
-    const webkitVersion = userAgent.match(/Version\/([\d.]+)/u)?.[1];
-    return webkitVersion ? `iPadOS ${webkitVersion}` : "iPadOS";
+    const webkitVersion = userAgent.match(/AppleWebKit\/([\d.]+)/u)?.[1];
+    return webkitVersion ? `iPadOS (WebKit ${webkitVersion})` : "iPadOS";
   }
   const mac = userAgent.match(/Mac OS X ([\d_]+)/u);
   if (mac) return `macOS ${mac[1]!.replaceAll("_", ".")}`;

@@ -88,6 +88,15 @@ export function normalizeChatMacroVariables(value: unknown): Record<string, stri
   return Object.fromEntries(entries);
 }
 
+/** Clone mutable macro maps for preview-only resolution that must discard variable writes. */
+export function cloneMacroContextForPreview(macroCtx: MacroContext): MacroContext {
+  return {
+    ...macroCtx,
+    variables: { ...macroCtx.variables },
+    localVariables: { ...macroCtx.localVariables },
+  };
+}
+
 export function extractCharacterReferenceIds(sources: readonly string[]): string[] {
   const ids: string[] = [];
   const seen = new Set<string>();
@@ -143,11 +152,7 @@ function clipReferencedText(value: string, limit: number): string {
 function resolveReferencedField(value: string, macroCtx: MacroContext, wrapFormat: WrapFormat): string {
   const resolved = resolveMacros(
     clipReferencedText(stripMacroComments(value), MAX_REFERENCED_FIELD_CHARS),
-    {
-      ...macroCtx,
-      variables: { ...macroCtx.variables },
-      localVariables: { ...macroCtx.localVariables },
-    },
+    cloneMacroContextForPreview(macroCtx),
     { trimResult: false },
   ).trim();
   return resolved ? sanitizePromptLeaf(resolved, wrapFormat) : "";
@@ -257,15 +262,7 @@ export async function buildReferencedCharacterContext(input: {
   const excludedByRequest = new Set(input.excludedLorebookIds ?? []);
   const scanMessages = input.chatMessages.map((message) => ({
     ...message,
-    content: resolveMacros(
-      message.content,
-      {
-        ...macroCtx,
-        variables: { ...macroCtx.variables },
-        localVariables: { ...macroCtx.localVariables },
-      },
-      { trimResult: false },
-    ),
+    content: resolveMacros(message.content, cloneMacroContextForPreview(macroCtx), { trimResult: false }),
   }));
   const blocks: string[] = [];
 
@@ -287,12 +284,7 @@ export async function buildReferencedCharacterContext(input: {
             excludedSourceAgentIds: input.excludedLorebookSourceAgentIds,
             previewOnly: true,
             generationTriggers: input.generationTriggers,
-            resolveContent: (value) =>
-              resolveMacros(value, {
-                ...scopedContext,
-                variables: { ...scopedContext.variables },
-                localVariables: { ...scopedContext.localVariables },
-              }),
+            resolveContent: (value) => resolveMacros(value, cloneMacroContextForPreview(scopedContext)),
           })
         : null;
     blocks.push(buildReferencedCharacterFields(id, data, macroCtx, input.wrapFormat, lorebookScan));

@@ -3207,6 +3207,8 @@ export async function backupRoutes(app: FastifyInstance) {
     tempDir: string;
     archivePath: string;
     createdAt: number;
+    completedAt?: number;
+    stallWarningIssued?: boolean;
     size?: number;
     omittedCount?: number;
     error?: string;
@@ -3215,6 +3217,7 @@ export async function backupRoutes(app: FastifyInstance) {
   let activeBackupDownloadJobId: string | null = null;
   const removeBackupDownloadJob = async (jobId: string) => {
     const job = backupDownloadJobs.get(jobId);
+    if (job?.status === "preparing") return;
     backupDownloadJobs.delete(jobId);
     if (job) await rm(job.tempDir, { recursive: true, force: true }).catch(() => {});
   };
@@ -3222,7 +3225,14 @@ export async function backupRoutes(app: FastifyInstance) {
     () => {
       const cutoff = Date.now() - 60 * 60 * 1_000;
       for (const [jobId, job] of backupDownloadJobs) {
-        if (job.createdAt < cutoff) void removeBackupDownloadJob(jobId);
+        if (job.status === "preparing") {
+          if (job.createdAt < cutoff && !job.stallWarningIssued) {
+            job.stallWarningIssued = true;
+            logger.warn("[backup] Asynchronous backup download job %s is still preparing after one hour", jobId);
+          }
+          continue;
+        }
+        if ((job.completedAt ?? job.createdAt) < cutoff) void removeBackupDownloadJob(jobId);
       }
     },
     5 * 60 * 1_000,
@@ -3446,10 +3456,12 @@ export async function backupRoutes(app: FastifyInstance) {
         const { omittedEntries } = await writeFullBackupArchive(app, archivePath, backupName, tempDir);
         const archiveStat = await stat(archivePath);
         job.status = "ready";
+        job.completedAt = Date.now();
         job.size = archiveStat.size;
         job.omittedCount = omittedEntries.length;
       } catch (error) {
         job.status = "failed";
+        job.completedAt = Date.now();
         job.error = getBackupErrorMessage(error, "Backup download failed");
         logger.error(error, "[backup] Asynchronous backup download failed");
       } finally {

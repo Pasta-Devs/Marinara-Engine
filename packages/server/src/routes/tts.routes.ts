@@ -361,43 +361,38 @@ function extractJsonObject(value: string): string {
 }
 
 function validateAnnotatedDialogue(source: string, speech: string): string {
-  const pending = [{ sourceCursor: 0, speechCursor: 0 }];
-  const visited = new Set<string>();
-  while (pending.length > 0) {
-    let { sourceCursor, speechCursor } = pending.pop()!;
-    const stateKey = `${sourceCursor}:${speechCursor}`;
-    if (visited.has(stateKey)) continue;
-    visited.add(stateKey);
-
-    while (speechCursor < speech.length) {
-      if (speech[speechCursor] === "[") {
-        const indicatorEnd = speech.indexOf("]", speechCursor + 1);
-        const indicatorLength = indicatorEnd - speechCursor - 1;
-        const canSkipIndicator =
-          indicatorEnd > speechCursor &&
-          indicatorLength >= 1 &&
-          indicatorLength <= 80 &&
-          !/[\r\n]/u.test(speech.slice(speechCursor + 1, indicatorEnd));
-        if (canSkipIndicator) {
-          // When the source itself begins with a bracket, retain that exact
-          // character as an alternative instead of assuming every bracketed
-          // span is a newly inserted emotion cue.
-          if (source[sourceCursor] === "[") {
-            pending.push({ sourceCursor: sourceCursor + 1, speechCursor: speechCursor + 1 });
-          }
-          speechCursor = indicatorEnd + 1;
-          if (speech[speechCursor] === " " && source[sourceCursor] !== " ") speechCursor += 1;
-          continue;
+  let sourceCursor = 0;
+  let speechCursor = 0;
+  while (speechCursor < speech.length) {
+    if (speech[speechCursor] === "[") {
+      let indicatorEnd = -1;
+      for (let cursor = speechCursor + 1; cursor <= speechCursor + 81 && cursor < speech.length; cursor++) {
+        if (speech[cursor] === "\r" || speech[cursor] === "\n") break;
+        if (speech[cursor] === "]") {
+          indicatorEnd = cursor;
+          break;
         }
       }
-
-      if (sourceCursor >= source.length || speech[speechCursor] !== source[sourceCursor]) break;
-      sourceCursor += 1;
-      speechCursor += 1;
+      if (indicatorEnd > speechCursor + 1) {
+        const bracketSpan = speech.slice(speechCursor, indicatorEnd + 1);
+        if (source.startsWith(bracketSpan, sourceCursor)) {
+          sourceCursor += bracketSpan.length;
+          speechCursor += bracketSpan.length;
+        } else {
+          speechCursor = indicatorEnd + 1;
+          if (speech[speechCursor] === " " && source[sourceCursor] !== " ") speechCursor += 1;
+        }
+        continue;
+      }
     }
 
-    if (sourceCursor === source.length && speechCursor === speech.length) return speech;
+    if (sourceCursor >= source.length || speech[speechCursor] !== source[sourceCursor]) {
+      throw new Error("Speaker extractor changed dialogue while adding emotion indicators");
+    }
+    sourceCursor += 1;
+    speechCursor += 1;
   }
+  if (sourceCursor === source.length) return speech;
   throw new Error("Speaker extractor changed dialogue while adding emotion indicators");
 }
 

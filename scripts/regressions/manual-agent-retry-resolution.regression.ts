@@ -12,10 +12,23 @@ import {
 import { resolveAgentGenerationTools } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
 import type { SpotifyRuntimeAgent } from "../../packages/server/src/services/generation/spotify-agent-runtime.js";
 import {
+  resolveLorebookKeeperRetryAnchor,
   resolveRetryAgentContextPolicy,
   resolveRetryAgentPhaseToolInputs,
   validateSpotifyRetryPlayback,
 } from "../../packages/server/src/routes/generate/retry-agents-route.js";
+
+assert.deepEqual(
+  [
+    { id: "older-message", activeSwipeIndex: 1 },
+    { id: "newer-message", activeSwipeIndex: 3 },
+  ].map(resolveLorebookKeeperRetryAnchor),
+  [
+    { messageId: "older-message", swipeIndex: 1 },
+    { messageId: "newer-message", swipeIndex: 3 },
+  ],
+  "Lorebook Keeper backfill results preserve each target message and swipe anchor",
+);
 
 const manifests = [
   {

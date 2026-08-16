@@ -111,6 +111,16 @@ assert.match(
   /exit "\$MARINARA_SERVER_STATUS"/u,
   "the Termux launcher must preserve the server process exit status",
 );
+assert.match(
+  termuxLauncherSource,
+  /if \[ "\$MARINARA_TEE_STATUS" -ne 0 \]; then[\s\S]{0,180}Could not write the persistent server log/u,
+  "the Termux launcher must report a persistent-log write failure",
+);
+assert.match(
+  termuxLauncherSource,
+  /if \[ "\$MARINARA_TEE_STATUS" -ne 0 \]; then[\s\S]{0,120}exit "\$MARINARA_TEE_STATUS"/u,
+  "the Termux launcher must propagate a nonzero tee exit status",
+);
 const installerSource = readFileSync(join(repositoryRoot, "win/installer/install.bat"), "utf8");
 assert.ok(
   installerSource.includes("check-target") && installerSource.includes("if errorlevel 2"),

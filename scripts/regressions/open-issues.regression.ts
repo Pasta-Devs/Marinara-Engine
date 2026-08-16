@@ -492,7 +492,7 @@ assert.equal(
     "MacIntel",
     5,
   ),
-  "iPadOS 27.0",
+  "iPadOS (WebKit 605.1.15)",
 );
 const copiedSupportDiagnostics = formatSupportDiagnostics({
   version: "2.4.2",
@@ -8791,7 +8791,17 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.deepEqual(normalizeChatMacroVariables({ score: "8", invalid: 4, "bad name": "x" }), { score: "8" });
   const macroVariables = normalizeChatMacroVariables({ counter: "2" });
   assert.deepEqual(normalizeChatMacroVariables({ ...macroVariables, counter: "3" }), { counter: "3" });
-  assert.match(generateRouteSource, /macroVariables: \{ \.\.\.chatMacroVariables \}/u);
+  assert.equal(
+    Object.keys(normalizeChatMacroVariables(Object.fromEntries(Array.from({ length: 501 }, (_, i) => [`v${i}`, "x"]))))
+      .length,
+    500,
+    "persisted chat-local macro variables remain capped",
+  );
+  assert.match(
+    generateRouteSource,
+    /macroVariables: normalizeChatMacroVariables\(\{[\s\S]{0,200}normalizeChatMacroVariables\(current\.macroVariables\)[\s\S]{0,120}requestChanges/u,
+    "generation writes reapply the macro-variable cap after merging request changes",
+  );
 
   const perfDiagnosticsSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/client/src/lib/perf-diagnostics.ts"),
@@ -8808,9 +8818,29 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     "utf8",
   );
   assert.match(backupRoutesSource, /app\.post\("\/download\/start"/u);
-  assert.match(backupRoutesSource, /app\.get<\{ Params: \{ jobId: string \} \}>\("\/download\/status\/:jobId"/u);
-  assert.match(backupRoutesSource, /app\.get<\{ Params: \{ jobId: string \} \}>\("\/download\/file\/:jobId"/u);
+  assert.match(backupRoutesSource, /app\.get<\{ Params: \{ jobId: string \} \}>\(\s*"\/download\/status\/:jobId"/u);
+  assert.match(backupRoutesSource, /app\.get<\{ Params: \{ jobId: string \} \}>\(\s*"\/download\/file\/:jobId"/u);
+  assert.match(
+    backupRoutesSource,
+    /if \(job\?\.status === "preparing"\) return;/u,
+    "backup cleanup cannot remove a temporary directory while its archive is still being written",
+  );
   assert.match(settingsPanelSource, /\/backup\/download\/status\/\$\{encodeURIComponent\(started\.jobId\)\}/u);
+
+  const retryAgentsRouteSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/server/src/routes/generate/retry-agents-route.ts"),
+    "utf8",
+  );
+  assert.match(
+    retryAgentsRouteSource,
+    /persistRetryMacroVariables\([\s\S]{0,240}agentContextResult\.macroVariables/u,
+    "retry-agent prompt macro writes are persisted back to chat metadata",
+  );
+  assert.match(
+    retryAgentsRouteSource,
+    /for \(const entry of lorebookKeeperRunEntries\)[\s\S]{0,900}messageId: entry\.messageId,[\s\S]{0,80}swipeIndex: entry\.swipeIndex/u,
+    "Lorebook Keeper backfill results retain each target message and swipe anchor",
+  );
 }
 
 console.info("Open-issue regressions passed.");

@@ -139,6 +139,7 @@ import { buildSpotifyDjConstraints } from "../services/spotify/spotify-dj-constr
 import {
   assemblePrompt,
   buildPromptMacroContext,
+  cloneMacroContextForPreview,
   normalizeChatMacroVariables,
   collectCharacterAdvancedPromptEntries,
   resolveCharacterAdvancedPromptIds,
@@ -1618,10 +1619,10 @@ export async function generateRoutes(app: FastifyInstance) {
           input.chatId,
           (current) => ({
             ...current,
-            macroVariables: {
+            macroVariables: normalizeChatMacroVariables({
               ...normalizeChatMacroVariables(current.macroVariables),
               ...requestChanges,
-            },
+            }),
           }),
           { touchUpdatedAt: false },
         );
@@ -1880,15 +1881,7 @@ export async function generateRoutes(app: FastifyInstance) {
         ): T[] => resolvePromptMessageMacros(messages, promptMacroContext, historyMacroProfilesById);
         const resolvePromptMacros = (value: string) => resolveMacros(value, promptMacroContext);
         const resolvePromptMacrosWithoutVariableWrites = (value: string) =>
-          resolveMacros(
-            value,
-            {
-              ...promptMacroContext,
-              variables: { ...promptMacroContext.variables },
-              localVariables: { ...promptMacroContext.localVariables },
-            },
-            { trimResult: false },
-          );
+          resolveMacros(value, cloneMacroContextForPreview(promptMacroContext), { trimResult: false });
         const resolvePromptMacrosForLorebook = (value: string) =>
           resolveMacrosWithVariableSnapshot(
             value,
