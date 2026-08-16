@@ -53,6 +53,7 @@ import type {
 } from "@marinara-engine/shared";
 import {
   INVENTORY_TRACKER_GROUPS,
+  normalizeInventoryTrackerQuantity,
   characterStatTrackerLockKey,
   characterCustomFieldTrackerLockKey,
   characterTrackerLockKey,
@@ -1410,7 +1411,7 @@ function InventoryTrackerGroupSection({
             <input
               type="number"
               value={item.qty}
-              onChange={(event) => updateItem(idx, { ...item, qty: Math.max(1, Number(event.target.value)) })}
+              onChange={(event) => updateItem(idx, { ...item, qty: normalizeInventoryTrackerQuantity(event.target.value) })}
               className={cn(
                 "w-8 rounded bg-transparent text-center text-[0.5625rem] text-[var(--foreground)]/60 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                 qtyLock.locked && HUD_LOCKED_FIELD_CLASS,

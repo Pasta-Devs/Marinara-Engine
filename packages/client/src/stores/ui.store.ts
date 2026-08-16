@@ -2503,7 +2503,11 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 93,
+      // v93 -> v94: add the Inventory tracker-panel section. The bump matters:
+      // `migrate` re-normalizes `trackerPanelSectionOrder`, and without it an
+      // existing user's saved five-section order would never gain "inventory",
+      // leaving the new section invisible until they reordered by hand.
+      version: 94,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;

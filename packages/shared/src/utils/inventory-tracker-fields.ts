@@ -28,12 +28,25 @@ const INVENTORY_TRACKER_GROUP_PROMPT_LABELS: Record<InventoryTrackerGroup, strin
   carried: "Carried",
 };
 
-function normalizeQuantity(value: unknown): number {
-  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
-  if (!Number.isFinite(numeric)) return 1;
+/**
+ * Upper bound for a tracked quantity.
+ *
+ * Beyond this, arithmetic stops being exact and a sum can reach `Infinity`,
+ * which `JSON.stringify` writes as `null` — silently corrupting the stored row.
+ */
+const MAX_INVENTORY_TRACKER_QUANTITY = Number.MAX_SAFE_INTEGER;
+
+function clampQuantity(value: number): number {
   // The agent omits qty for single items and occasionally emits 0 for "none left";
   // a row that exists means at least one unit, so clamp rather than drop it.
-  return Math.max(1, Math.floor(numeric));
+  return Math.min(MAX_INVENTORY_TRACKER_QUANTITY, Math.max(1, Math.floor(value)));
+}
+
+/** Coerce any user- or agent-supplied quantity into a storable whole number >= 1. */
+export function normalizeInventoryTrackerQuantity(value: unknown): number {
+  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  if (!Number.isFinite(numeric)) return 1;
+  return clampQuantity(numeric);
 }
 
 function comparableName(value: string): string {
@@ -54,14 +67,14 @@ export function normalizeInventoryTrackerItems(value: unknown): InventoryTracker
     const record = raw as Record<string, unknown>;
     const name = typeof record.name === "string" ? record.name.trim() : "";
     if (!name) continue;
-    const qty = normalizeQuantity(record.qty ?? record.quantity);
+    const qty = normalizeInventoryTrackerQuantity(record.qty ?? record.quantity);
     const existingIndex = indexByName.get(comparableName(name));
     if (existingIndex === undefined) {
       indexByName.set(comparableName(name), items.length);
       items.push({ name, qty });
       continue;
     }
-    items[existingIndex]!.qty += qty;
+    items[existingIndex]!.qty = clampQuantity(items[existingIndex]!.qty + qty);
   }
   return items;
 }

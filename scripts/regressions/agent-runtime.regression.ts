@@ -17,7 +17,13 @@ import {
   type ChatMessage,
   type ChatOptions,
 } from "../../packages/server/src/services/llm/base-provider.js";
+import { buildLockedInventoryTrackerPatch } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { agentResultTypeSchema } from "../../packages/shared/src/schemas/agent.schema.js";
+import {
+  normalizeInventoryTrackerItems,
+  parseInventoryTrackerResult,
+} from "../../packages/shared/src/utils/inventory-tracker-fields.js";
+import { applyTrackerFieldLocksToGameStatePatch } from "../../packages/shared/src/utils/tracker-field-locks.js";
 import {
   AGENT_RESULT_TYPE_VALUES,
   type AgentContext,
@@ -470,6 +476,132 @@ assert.deepEqual(
   parallelLlamaArgs.slice(parallelLlamaArgs.indexOf("--parallel"), parallelLlamaArgs.indexOf("--port")),
   ["--parallel", "4", "--ctx-size", "32768"],
   "local parallel slots should preserve the configured context budget per request",
+);
+
+// ── Inventory Tracker ────────────────────────────────────────────────
+// The agent's contract promises three independent lists whose equipped and
+// carried halves are mutually exclusive. Locks and duplicate model output can
+// both break that, so pin the parsing, merge, and patch-building behavior.
+
+assert.deepEqual(
+  parseInventoryTrackerResult({
+    currencies: [{ name: "Silver coin", qty: 6 }],
+    equipped: [{ name: "Longsword" }],
+    inventory: [{ name: "Axe", qty: 2 }],
+  }),
+  {
+    currencies: [{ name: "Silver coin", qty: 6 }],
+    equipped: [{ name: "Longsword", qty: 1 }],
+    carried: [{ name: "Axe", qty: 2 }],
+  },
+  "omitted qty should default to a single unit",
+);
+
+assert.deepEqual(
+  Object.keys(parseInventoryTrackerResult({ equipped: [{ name: "Longsword" }] })),
+  ["equipped"],
+  "an omitted group must mean 'leave unchanged', never 'delete'",
+);
+assert.deepEqual(
+  parseInventoryTrackerResult({ inventory: [] }),
+  { carried: [] },
+  "an explicitly empty group must still clear that group",
+);
+
+assert.deepEqual(
+  normalizeInventoryTrackerItems([
+    { name: "Arrow", qty: 5 },
+    { name: " arrow ", qty: 3 },
+    { name: "", qty: 9 },
+    { name: "Torch", qty: 0 },
+  ]),
+  [
+    { name: "Arrow", qty: 8 },
+    { name: "Torch", qty: 1 },
+  ],
+  "same-named rows merge, unnamed rows drop, and a row that exists means at least one unit",
+);
+assert.equal(
+  normalizeInventoryTrackerItems([
+    { name: "Coin", qty: Number.MAX_SAFE_INTEGER },
+    { name: "Coin", qty: Number.MAX_SAFE_INTEGER },
+  ])[0]?.qty,
+  Number.MAX_SAFE_INTEGER,
+  "accumulated quantities must stay a finite safe integer, since Infinity serializes to null",
+);
+
+const equipMoveState = {
+  playerStats: {
+    stats: [],
+    attributes: null,
+    skills: {},
+    inventory: [],
+    activeQuests: [],
+    status: "",
+    inventoryTrackerEquipped: [],
+    inventoryTrackerCarried: [{ name: "Sword", qty: 1 }],
+  },
+  fieldLocks: { "player.inventoryTracker.carried.name:Sword.qty": true },
+} as unknown as Parameters<typeof applyTrackerFieldLocksToGameStatePatch>[1];
+
+const equipMovePatch = applyTrackerFieldLocksToGameStatePatch(
+  { playerStats: { inventoryTrackerEquipped: [{ name: "Sword", qty: 1 }], inventoryTrackerCarried: [] } },
+  equipMoveState,
+);
+assert.deepEqual(
+  (equipMovePatch.playerStats as Record<string, unknown>).inventoryTrackerCarried,
+  [],
+  "equipping a locked carried item must move it, not leave a copy behind in Carried",
+);
+
+const equippedOnlyPatch = applyTrackerFieldLocksToGameStatePatch(
+  { playerStats: { inventoryTrackerEquipped: [{ name: "Sword", qty: 1 }] } },
+  {
+    playerStats: {
+      stats: [],
+      attributes: null,
+      skills: {},
+      inventory: [],
+      activeQuests: [],
+      status: "",
+      inventoryTrackerCarried: [
+        { name: "Sword", qty: 1 },
+        { name: "Rope", qty: 1 },
+      ],
+    },
+  } as unknown as Parameters<typeof applyTrackerFieldLocksToGameStatePatch>[1],
+);
+assert.deepEqual(
+  (equippedOnlyPatch.playerStats as Record<string, unknown>).inventoryTrackerCarried,
+  [{ name: "Rope", qty: 1 }],
+  "a patch that only sets Equipped must still correct a now-duplicated Carried row",
+);
+
+const inventoryTrackerPatch = buildLockedInventoryTrackerPatch({
+  groups: { carried: [{ name: "Billhook", qty: 1 }] },
+  snapshot: { playerStats: JSON.stringify({ status: "Resting", inventory: [{ name: "Ration", quantity: 1 }] }) },
+  lockState: null,
+});
+assert.equal(inventoryTrackerPatch.changed, true);
+assert.deepEqual(
+  inventoryTrackerPatch.patch,
+  { playerStats: { inventoryTrackerCarried: [{ name: "Billhook", qty: 1 }] } },
+  "the streamed patch should carry only the groups the agent touched",
+);
+assert.equal(
+  inventoryTrackerPatch.playerStats.status,
+  "Resting",
+  "persisting the inventory tracker must not drop unrelated playerStats fields",
+);
+assert.deepEqual(
+  inventoryTrackerPatch.playerStats.inventory,
+  [{ name: "Ration", quantity: 1 }],
+  "the inventory tracker must leave the persona-stats inventory alone",
+);
+assert.equal(
+  buildLockedInventoryTrackerPatch({ groups: {}, snapshot: null, lockState: null }).changed,
+  false,
+  "an agent result with no inventory groups should not rewrite the snapshot",
 );
 
 console.log("Agent runtime regression checks passed.");

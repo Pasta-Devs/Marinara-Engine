@@ -587,6 +587,7 @@ The lightweight Engine ships with an empty runtime agent registry. Packages inst
 | `character-tracker`      | post_processing | Tracks character state changes                                    |
 | `persona-stats`          | post_processing | Tracks player persona stat changes                                |
 | `custom-tracker`         | post_processing | Tracks user-defined structured state                              |
+| `inventory-tracker`      | post_processing | Tracks currencies, equipped items, and carried items              |
 | `illustrator`            | post_processing | Generates scene image prompts and media requests                  |
 | `lorebook-keeper`        | post_processing | Auto-creates and updates lorebook entries                         |
 | `card-evolution-auditor` | post_processing | Audits character cards for suggested evolution                    |
@@ -613,7 +614,7 @@ The lightweight Engine ships with an empty runtime agent registry. Packages inst
 
 Agents produce typed results that the frontend handles. The `AgentResultType` union in `packages/shared/src/types/agent.ts` includes:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`, and `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`, and `about_me_update`.
 
 ## Chat modes
 

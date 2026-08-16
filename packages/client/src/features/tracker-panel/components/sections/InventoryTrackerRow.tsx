@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import {
+  normalizeInventoryTrackerQuantity,
   inventorySectionTrackerLockKey,
   inventorySectionTrackerRowPrefix,
   isTrackerFieldLocked,
@@ -73,7 +74,7 @@ export function InventoryTrackerRow({
         <div className="flex h-4 min-w-0 items-center justify-end">
           <InlineNumber
             value={item.qty}
-            onChange={(qty) => onUpdate({ ...item, qty: Math.max(1, qty) })}
+            onChange={(qty) => onUpdate({ ...item, qty: normalizeInventoryTrackerQuantity(qty) })}
             min={1}
             className="justify-self-end px-0 text-right text-[0.625rem] leading-4 text-[color:var(--tracker-profile-number-text)] hover:bg-transparent focus:bg-transparent focus:ring-0"
             title={localizeUi("ui.trackerPanel.inventorytrackerrow.value1Quantity", { value1: itemName })}

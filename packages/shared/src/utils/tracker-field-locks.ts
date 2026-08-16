@@ -803,6 +803,39 @@ function mergeInventoryTrackerItemsWithLocks(
   });
 }
 
+/**
+ * Keep an equipped item out of the carried list.
+ *
+ * The Inventory Tracker promises the two are mutually exclusive, but neither the
+ * prompt nor the per-group merge can guarantee it: a model may list an item in
+ * both, and `mergeNamedRowsWithLocks` deliberately re-appends a locked row the
+ * agent dropped — which is exactly what happens when a locked carried item gets
+ * equipped. Reconcile after merging, with equipped winning, so the invariant
+ * holds on every path that reaches state (both server apply routes and the
+ * client's SSE patch merge).
+ *
+ * Correcting the carried list can require adding it to a patch that only touched
+ * `equipped`; that is intended, since leaving it out would persist the duplicate.
+ */
+function enforceInventoryTrackerExclusivity(
+  playerStatsPatch: Partial<PlayerStats>,
+  currentPlayerStats: PlayerStats,
+) {
+  const equippedField = INVENTORY_TRACKER_GROUP_FIELDS.equipped;
+  const carriedField = INVENTORY_TRACKER_GROUP_FIELDS.carried;
+  const patchedEquipped = playerStatsPatch[equippedField];
+  const patchedCarried = playerStatsPatch[carriedField];
+  if (!Array.isArray(patchedEquipped) && !Array.isArray(patchedCarried)) return;
+
+  const equipped = Array.isArray(patchedEquipped) ? patchedEquipped : (currentPlayerStats[equippedField] ?? []);
+  const carried = Array.isArray(patchedCarried) ? patchedCarried : (currentPlayerStats[carriedField] ?? []);
+  if (equipped.length === 0 || carried.length === 0) return;
+
+  const equippedNames = new Set(equipped.map((item) => normalizeComparableText(item?.name)));
+  const deduped = carried.filter((item) => !equippedNames.has(normalizeComparableText(item?.name)));
+  if (deduped.length !== carried.length) playerStatsPatch[carriedField] = deduped;
+}
+
 function mergeQuestObjectivesWithLocks(
   nextObjectives: QuestProgress["objectives"],
   currentObjectives: QuestProgress["objectives"] | null | undefined,
@@ -1093,6 +1126,7 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
         group,
       );
     }
+    enforceInventoryTrackerExclusivity(playerStatsPatch, currentPlayerStats);
     next.playerStats = playerStatsPatch;
   }
 
