@@ -53,6 +53,7 @@ export const generationParametersSchema = z.object({
   verbosity: z.enum(["low", "medium", "high"]).nullable().default(null),
   serviceTier: z.enum(["flex", "priority"]).nullable().default(null),
   assistantPrefill: z.string().default(""),
+  assistantReasoningPrefill: z.string().default(""),
   customThinkingTags: z
     .array(
       z.object({

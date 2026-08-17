@@ -57,6 +57,7 @@ export type SimpleMessage = {
   images?: string[];
   files?: Array<{ type: string; data: string; filename?: string }>;
   contextKind?: "prompt" | "history" | "injection";
+  providerMetadata?: Record<string, unknown>;
 };
 export type SpeakerPrefixMessage = SimpleMessage & {
   characterId?: string | null;
@@ -986,6 +987,7 @@ export function appendGenerationTailMessages(
   messages: SimpleMessage[],
   options: {
     assistantPrefill: string;
+    assistantReasoningPrefill: string;
     followUpIteration: number;
     impersonate: boolean;
     isGoogleProvider: boolean;
@@ -1000,13 +1002,27 @@ export function appendGenerationTailMessages(
     !options.impersonate && options.isGoogleProvider && !!options.regenerateUserMessage;
   const assistantPrefill = options.assistantPrefill.trim();
   const shouldAppendAssistantPrefill = !options.impersonate && !!assistantPrefill;
+  const assistantReasoningPrefill = options.assistantReasoningPrefill.trim();
+  const shouldAppendAssistantMessage =
+    !options.impersonate && (shouldAppendAssistantPrefill || !!assistantReasoningPrefill);
 
-  if (shouldAppendAssistantPrefill) {
+  if (shouldAppendAssistantMessage) {
     // Strip the trailing edge: Anthropic's Messages API rejects a final assistant
     // message ending in whitespace (HTTP 400), which surfaces to users as a refusal.
     // A prefill ending in "\n" or a space is common. The user-facing prefill is
     // rendered separately, so only what is sent to the API is trimmed.
-    messages.push({ role: "assistant", content: options.assistantPrefill.trimEnd() });
+    messages.push({
+      role: "assistant",
+      content: shouldAppendAssistantPrefill ? options.assistantPrefill.trimEnd() : "",
+      ...(assistantReasoningPrefill
+        ? {
+            providerMetadata: {
+              reasoning_content: options.assistantReasoningPrefill.trimEnd(),
+              partial: true,
+            },
+          }
+        : {}),
+    });
   }
 
   if (shouldAppendGoogleUserRegeneration) {

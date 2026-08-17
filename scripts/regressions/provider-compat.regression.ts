@@ -58,6 +58,10 @@ import {
 import { resolveStoredChatOptions } from "../../packages/server/src/services/generation/generation-parameters.js";
 import { resolveMainGenerationToolChoice } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
 import {
+  appendGenerationTailMessages,
+  type SimpleMessage,
+} from "../../packages/server/src/routes/generate/generate-route-utils.js";
+import {
   generateImage,
   imageAdmissionKey,
   resolveNovelAiStyleReferenceSecondaryStrength,
@@ -206,6 +210,11 @@ const customParametersServer = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   customParametersRequestBody = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+  if (customParametersRequestBody.stream === true) {
+    response.writeHead(200, { "content-type": "text/event-stream" });
+    response.end(['data: {"choices":[{"delta":{"content":"configured"}}]}', "data: [DONE]", ""].join("\n"));
+    return;
+  }
   response.writeHead(200, { "content-type": "application/json" });
   response.end(JSON.stringify({ choices: [{ message: { content: "configured" }, finish_reason: "stop" }] }));
 });
@@ -239,6 +248,76 @@ try {
     "unknown custom models must not receive inherited reasoning effort",
   );
   assert.equal(customParametersRequestBody.verbosity, "low");
+
+  const buildPrefillMessages = (
+    assistantPrefill: string,
+    assistantReasoningPrefill: string,
+    overrides: Partial<Parameters<typeof appendGenerationTailMessages>[1]> = {},
+  ) => {
+    const messages: SimpleMessage[] = [{ role: "user", content: "Continue." }];
+    appendGenerationTailMessages(messages, {
+      assistantPrefill,
+      assistantReasoningPrefill,
+      followUpIteration: 0,
+      impersonate: false,
+      isGoogleProvider: false,
+      regenerateUserMessage: null,
+      ...overrides,
+    });
+    return messages;
+  };
+
+  customParametersRequestBody = null;
+  await provider.chatComplete(buildPrefillMessages("Visible prefix  \n", "Reasoning prefix  \n"), {
+    model: "kimi-k3",
+    stream: false,
+  });
+  assert.ok(customParametersRequestBody);
+  assert.deepEqual((customParametersRequestBody.messages as unknown[]).at(-1), {
+    role: "assistant",
+    content: "Visible prefix",
+    reasoning_content: "Reasoning prefix",
+    partial: true,
+  });
+
+  customParametersRequestBody = null;
+  let streamedPrefillOutput = "";
+  for await (const chunk of provider.chat(buildPrefillMessages("", "Reasoning only"), {
+    model: "kimi-k3",
+    stream: true,
+  })) {
+    streamedPrefillOutput += chunk;
+  }
+  assert.equal(streamedPrefillOutput, "configured");
+  assert.ok(customParametersRequestBody);
+  assert.deepEqual((customParametersRequestBody.messages as unknown[]).at(-1), {
+    role: "assistant",
+    content: "",
+    reasoning_content: "Reasoning only",
+    partial: true,
+  });
+
+  customParametersRequestBody = null;
+  await provider.chatComplete(buildPrefillMessages("Visible only", ""), { model: "kimi-k3", stream: false });
+  assert.ok(customParametersRequestBody);
+  assert.deepEqual((customParametersRequestBody.messages as unknown[]).at(-1), {
+    role: "assistant",
+    content: "Visible only",
+  });
+
+  assert.deepEqual(buildPrefillMessages("Visible", "Reasoning", { followUpIteration: 1 }), [
+    { role: "user", content: "Continue." },
+  ]);
+  assert.deepEqual(buildPrefillMessages("Visible", "Reasoning", { impersonate: true }), [
+    { role: "user", content: "Continue." },
+  ]);
+  assert.deepEqual(
+    buildPrefillMessages("Visible", "Reasoning", {
+      isGoogleProvider: true,
+      regenerateUserMessage: { role: "user", content: "Regenerate this user turn." },
+    }).map((message) => message.role),
+    ["user", "assistant", "user"],
+  );
 
   customParametersRequestBody = null;
   await provider.chatComplete([{ role: "user", content: "disable reasoning" }], {

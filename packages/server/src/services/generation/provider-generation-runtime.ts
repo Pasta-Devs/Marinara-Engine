@@ -66,6 +66,7 @@ type GenerationProviderRuntimeArgs = {
     verbosity: "low" | "medium" | "high" | null;
     serviceTier: "flex" | "priority" | null;
     assistantPrefill: string;
+    assistantReasoningPrefill: string;
     customThinkingTags: ThinkingTagPair[];
     customParameters: Record<string, unknown>;
     enabledParameters: GenerationParameterSendMap | undefined;
@@ -105,6 +106,9 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
     if (params.verbosity !== undefined) runtime.verbosity = params.verbosity;
     if (params.serviceTier !== undefined) runtime.serviceTier = normalizeServiceTier(params.serviceTier);
     if (typeof params.assistantPrefill === "string") runtime.assistantPrefill = params.assistantPrefill;
+    if (typeof params.assistantReasoningPrefill === "string") {
+      runtime.assistantReasoningPrefill = params.assistantReasoningPrefill;
+    }
     if (params.customThinkingTags !== undefined) {
       runtime.customThinkingTags = normalizeThinkingTagPairs(params.customThinkingTags);
     }

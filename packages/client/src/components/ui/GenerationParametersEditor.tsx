@@ -29,6 +29,7 @@ export type EditableGenerationParameters = Pick<
   | "verbosity"
   | "serviceTier"
   | "assistantPrefill"
+  | "assistantReasoningPrefill"
   | "customThinkingTags"
   | "customParameters"
   | "managedCustomParameters"
@@ -73,6 +74,7 @@ export const CHAT_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   verbosity: "high",
   serviceTier: null,
   assistantPrefill: "",
+  assistantReasoningPrefill: "",
   customThinkingTags: [],
   customParameters: {},
   managedCustomParameters: {},
@@ -90,6 +92,7 @@ export const ROLEPLAY_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   verbosity: "high",
   serviceTier: null,
   assistantPrefill: "",
+  assistantReasoningPrefill: "",
   customThinkingTags: [],
   customParameters: {},
   managedCustomParameters: {},
@@ -163,6 +166,9 @@ export function parseEditableGenerationParameters(raw: unknown): EditableGenerat
   }
   if (typeof source.assistantPrefill === "string") {
     next.assistantPrefill = source.assistantPrefill;
+  }
+  if (typeof source.assistantReasoningPrefill === "string") {
+    next.assistantReasoningPrefill = source.assistantReasoningPrefill;
   }
   if (Array.isArray(source.customThinkingTags)) {
     next.customThinkingTags = normalizeThinkingTagPairs(source.customThinkingTags);
@@ -356,6 +362,21 @@ export function GenerationParametersFields({
               value1: "<",
               value2: ">",
             }).trimStart()}
+          />
+        </div>
+        <div>
+          <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.ui.generationparametersfields.assistantReasoningPrefill")}
+            <HelpTooltip
+              text={localizeUi("ui.ui.generationparametersfields.optionalReasoningContentOnTheFinalAssistantMessage")}
+              size="0.625rem"
+            />
+          </span>
+          <DraftTextarea
+            value={value.assistantReasoningPrefill ?? ""}
+            onCommit={(nextValue) => set("assistantReasoningPrefill", nextValue)}
+            rows={3}
+            className={PARAM_TEXTAREA_CLASS}
           />
         </div>
         <ThinkingTagsInput

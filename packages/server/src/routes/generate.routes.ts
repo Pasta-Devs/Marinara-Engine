@@ -1709,6 +1709,7 @@ export async function generateRoutes(app: FastifyInstance) {
         let verbosity: "low" | "medium" | "high" | null = null;
         let serviceTier: "flex" | "priority" | null = null;
         let assistantPrefill = "";
+        let assistantReasoningPrefill = "";
         let customThinkingTags: ThinkingTagPair[] = [];
         let customParameters: Record<string, unknown> = {};
         let enabledParameters: GenerationParameterSendMap | undefined;
@@ -2261,6 +2262,7 @@ export async function generateRoutes(app: FastifyInstance) {
           verbosity = assembled.parameters.verbosity ?? null;
           serviceTier = assembled.parameters.serviceTier ?? null;
           assistantPrefill = assembled.parameters.assistantPrefill ?? "";
+          assistantReasoningPrefill = assembled.parameters.assistantReasoningPrefill ?? "";
           customThinkingTags = normalizeThinkingTagPairs(assembled.parameters.customThinkingTags);
           customParameters = mergeCustomParameters(customParameters, assembled.parameters.customParameters);
           if (assembled.parameters.enabledParameters) {
@@ -2894,6 +2896,7 @@ export async function generateRoutes(app: FastifyInstance) {
             verbosity,
             serviceTier,
             assistantPrefill,
+            assistantReasoningPrefill,
             customThinkingTags,
             customParameters,
             enabledParameters,
@@ -2924,6 +2927,7 @@ export async function generateRoutes(app: FastifyInstance) {
           verbosity,
           serviceTier,
           assistantPrefill,
+          assistantReasoningPrefill,
           customThinkingTags,
           customParameters,
           enabledParameters,
@@ -5045,6 +5049,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
         const tailMessages = appendGenerationTailMessages(finalMessages, {
           assistantPrefill,
+          assistantReasoningPrefill,
           followUpIteration,
           impersonate: input.impersonate,
           isGoogleProvider,
