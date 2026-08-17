@@ -46,6 +46,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Preserved Long-Term Memory recall in Roleplay chats when a custom preset's agent marker cannot be matched, using a logged fallback injection instead of silently dropping the selected memories.
 - Roleplay speaker extraction now prints the connection's raw response when debug mode is enabled, supplies the current reply's character as the fallback for ambiguous lines, and lets harmless label formatting such as `Maukie:` or `Maukie [chuckle]` resolve to the character's assigned voice instead of Random NPC Voice (#5210).
 - Termux session logging now starts before update checks, dependency repair, and builds, so launcher-stage crashes create the same timestamped diagnostic log as server-stage crashes; it starts only after restrictive log permissions are confirmed, flushes before exit, reports logging failures, and preserves the server's own exit status (#5208).
 - Automatic card versioning now preserves imported nonnumeric version labels instead of resetting them to `1.0` on the next content edit (#5202).
