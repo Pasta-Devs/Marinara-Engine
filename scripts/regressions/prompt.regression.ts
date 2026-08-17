@@ -9190,6 +9190,59 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         "<long_term_memory>\nMEMORY\n</long_term_memory>",
       );
 
+      const freshContextInjections = [
+        { agentType: "long-term-memory", text: "MEMORY" },
+        { agentType: "prose-guardian", text: "GUIDANCE" },
+      ];
+      const freshFallback = splitRuntimeHandledAgentInjectionsForTest(
+        [{ content: "preset" }],
+        new Map([["long-term-memory", tokens]]),
+        freshContextInjections,
+      );
+      assert.deepEqual(freshFallback.fallbackInjections, freshContextInjections);
+      assert.deepEqual(freshFallback.omittedInjections, []);
+
+      const fallbackForUnmatchedMarker = splitRuntimeHandledAgentInjectionsForTest(
+        [{ content: "preset" }],
+        new Map([["long-term-memory", tokens]]),
+        freshContextInjections,
+        { omitUnmatched: true },
+      );
+      const cachedFallbackInjections = [
+        ...fallbackForUnmatchedMarker.fallbackInjections,
+        ...fallbackForUnmatchedMarker.omittedInjections.filter(
+          (injection) => injection.agentType === "long-term-memory",
+        ),
+      ];
+      assert.deepEqual(fallbackForUnmatchedMarker.omittedInjections, freshContextInjections);
+      const regeneratedContextInjections = freshContextInjections.filter(
+        (injection) =>
+          injection.agentType === "long-term-memory" ||
+          !fallbackForUnmatchedMarker.omittedInjections.includes(injection),
+      );
+      const longTermMemoryOnly = [freshContextInjections[0]];
+      assert.deepEqual(regeneratedContextInjections, longTermMemoryOnly);
+      assert.deepEqual(cachedFallbackInjections, longTermMemoryOnly);
+      const generateRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      const ltmFallbackStart = generateRouteSource.indexOf("if (!handledByPresetSection) {");
+      const ltmFallbackEnd = generateRouteSource.indexOf("longTermMemoryRecallReceipt = recall.receipt;", ltmFallbackStart);
+      const ltmFallbackSource = generateRouteSource.slice(
+        ltmFallbackStart,
+        ltmFallbackEnd + "longTermMemoryRecallReceipt = recall.receipt;".length,
+      );
+      assert.match(ltmFallbackSource, /appendSeparateAgentInjection/u);
+      assert.match(ltmFallbackSource, /longTermMemoryRecallReceipt = recall\.receipt/u);
+      assert.doesNotMatch(generateRouteSource, /handledByPresetSection \|\| !presetOwnsAgentPlacement/u);
+
+      const cachedReplayStart = generateRouteSource.indexOf("const runtimeHandledCached");
+      const cachedReplayEnd = generateRouteSource.indexOf("const cachedPipelineInjections", cachedReplayStart);
+      const cachedReplaySource = generateRouteSource.slice(cachedReplayStart, cachedReplayEnd);
+      assert.match(cachedReplaySource, /unmatchedCachedLongTermMemory/u);
+      assert.match(cachedReplaySource, /fallbackInjections\.push/u);
+
       const fallback = splitRuntimeHandledAgentInjectionsForTest([{ content: "conversation" }], new Map(), [
         { agentType: "long-term-memory", text: "MEMORY" },
       ]);
