@@ -8317,7 +8317,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
-    name: "character markers omit removed or disabled Example Dialogue sections",
+    name: "character markers own Example Dialogue only when no dedicated marker exists",
     async run() {
       const characterRow = {
         id: "char-example-fallback",
@@ -8402,13 +8402,21 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         });
 
       for (const wrapFormat of ["xml", "markdown", "none"] as const) {
-        for (const dialogueMarker of ["absent", "disabled"] as const) {
-          const result = await assemble(wrapFormat, dialogueMarker);
-          const promptText = result.messages.map((message) => message.content).join("\n");
-          assert.equal(promptText.includes("CHARACTER_EXAMPLE_DIALOGUE"), false);
-          assert.equal(promptText.includes("mes_example"), false);
-          assert.equal(promptText.includes("dialogue_examples"), false);
-        }
+        const absentMarkerResult = await assemble(wrapFormat, "absent");
+        const absentMarkerPromptText = absentMarkerResult.messages.map((message) => message.content).join("\n");
+        assert.equal(absentMarkerPromptText.match(/CHARACTER_EXAMPLE_DIALOGUE/g)?.length, 1);
+        assert.ok(
+          absentMarkerPromptText.indexOf("CHARACTER_EXAMPLE_DIALOGUE") <
+            absentMarkerPromptText.indexOf("CHARACTER_SYSTEM_PROMPT"),
+          "fallback Example Dialogue should retain canonical character field order",
+        );
+        if (wrapFormat === "xml") assert.match(absentMarkerPromptText, /<mes_example>/);
+
+        const disabledMarkerResult = await assemble(wrapFormat, "disabled");
+        const disabledMarkerPromptText = disabledMarkerResult.messages.map((message) => message.content).join("\n");
+        assert.equal(disabledMarkerPromptText.includes("CHARACTER_EXAMPLE_DIALOGUE"), false);
+        assert.equal(disabledMarkerPromptText.includes("mes_example"), false);
+        assert.equal(disabledMarkerPromptText.includes("dialogue_examples"), false);
       }
 
       const explicitCharacterField = await assemble("xml", "absent", ["mes_example"]);

@@ -101,6 +101,8 @@ export interface MarkerContext {
   lorebookScanResultApplied?: boolean;
   /** When set, replaces all individual character scenario fields with this shared group scenario. */
   groupScenarioOverrideText?: string | null;
+  /** Include card example dialogue in Character Info when the preset has no dedicated marker for it. */
+  includeExampleDialogueInCharacterMarker?: boolean;
 }
 
 /** Expanded marker result. */
@@ -194,7 +196,15 @@ async function expandCharacter(config: MarkerConfig, ctx: MarkerContext): Promis
     const profile = characterMacroProfileFromData(data);
     const characterMacroContext = macroContextForCharacterProfile(ctx.macroCtx, profile);
 
-    const fields = resolveCharacterMarkerFields(config.characterFields);
+    let fields = resolveCharacterMarkerFields(config.characterFields);
+    if (
+      ctx.includeExampleDialogueInCharacterMarker === true &&
+      config.characterFields === undefined &&
+      !fields.includes("mes_example") &&
+      !fields.includes("example_dialogue")
+    ) {
+      fields = orderCharacterMarkerFields([...fields, "mes_example"]);
+    }
 
     const charParts: string[] = [];
     for (const field of fields) {
