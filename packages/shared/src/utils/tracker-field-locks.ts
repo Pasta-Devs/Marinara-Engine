@@ -15,6 +15,7 @@ import {
   DEFAULT_WORLD_CUSTOM_FIELD_ICON,
   normalizeWorldCustomFields,
 } from "../constants/tracker-custom-field-icons.js";
+import { excludeInventoryTrackerCarriedDuplicates } from "./inventory-tracker-rows.js";
 
 type WorldTrackerField = "date" | "time" | "location" | "weather" | "temperature";
 type TextCharacterField = "emoji" | "name" | "mood" | "appearance" | "outfit" | "thoughts";
@@ -806,10 +807,7 @@ function enforceRoleplayInventoryTrackerExclusivity(
   const carried = Array.isArray(patchedCarried)
     ? patchedCarried
     : (currentPlayerStats.inventoryTrackerInventory ?? []);
-  if (carried.length === 0 || (currencies.length === 0 && equipped.length === 0)) return;
-
-  const excluded = new Set([...currencies, ...equipped].map((row) => normalizeComparableText(row?.name)));
-  const deduped = carried.filter((row) => !excluded.has(normalizeComparableText(row?.name)));
+  const deduped = excludeInventoryTrackerCarriedDuplicates(carried, currencies, equipped);
   if (deduped.length !== carried.length) playerStatsPatch.inventoryTrackerInventory = deduped;
 }
 

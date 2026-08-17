@@ -236,6 +236,7 @@ import {
   dedupeLastMessageWrappers,
   findLastIndex,
   findTrackerContextInsertIndex,
+  hasProviderMessagePayload,
   formatConversationInstructionsForWrap,
   extractFileAttachmentInputs,
   buildGenerationGuideInstruction,
@@ -1709,6 +1710,7 @@ export async function generateRoutes(app: FastifyInstance) {
         let verbosity: "low" | "medium" | "high" | null = null;
         let serviceTier: "flex" | "priority" | null = null;
         let assistantPrefill = "";
+        let assistantReasoningPrefill = "";
         let customThinkingTags: ThinkingTagPair[] = [];
         let customParameters: Record<string, unknown> = {};
         let enabledParameters: GenerationParameterSendMap | undefined;
@@ -2261,6 +2263,7 @@ export async function generateRoutes(app: FastifyInstance) {
           verbosity = assembled.parameters.verbosity ?? null;
           serviceTier = assembled.parameters.serviceTier ?? null;
           assistantPrefill = assembled.parameters.assistantPrefill ?? "";
+          assistantReasoningPrefill = assembled.parameters.assistantReasoningPrefill ?? "";
           customThinkingTags = normalizeThinkingTagPairs(assembled.parameters.customThinkingTags);
           customParameters = mergeCustomParameters(customParameters, assembled.parameters.customParameters);
           if (assembled.parameters.enabledParameters) {
@@ -2894,6 +2897,7 @@ export async function generateRoutes(app: FastifyInstance) {
             verbosity,
             serviceTier,
             assistantPrefill,
+            assistantReasoningPrefill,
             customThinkingTags,
             customParameters,
             enabledParameters,
@@ -2908,6 +2912,7 @@ export async function generateRoutes(app: FastifyInstance) {
           enableThinking,
           isClaudeNoSampling,
           providerTopK,
+          supportsAssistantReasoningPrefill: providerSupportsAssistantReasoningPrefill,
           primaryProvider: agentChatProvider,
           provider,
         } = providerRuntime;
@@ -2924,6 +2929,7 @@ export async function generateRoutes(app: FastifyInstance) {
           verbosity,
           serviceTier,
           assistantPrefill,
+          assistantReasoningPrefill,
           customThinkingTags,
           customParameters,
           enabledParameters,
@@ -5045,6 +5051,8 @@ export async function generateRoutes(app: FastifyInstance) {
 
         const tailMessages = appendGenerationTailMessages(finalMessages, {
           assistantPrefill,
+          assistantReasoningPrefill,
+          supportsAssistantReasoningPrefill: providerSupportsAssistantReasoningPrefill,
           followUpIteration,
           impersonate: input.impersonate,
           isGoogleProvider,
@@ -5731,7 +5739,7 @@ export async function generateRoutes(app: FastifyInstance) {
           const mergeProviderAdjacentMessages = (messages: ChatMessage[]): ChatMessage[] => {
             const merged: ChatMessage[] = [];
             for (const message of messages) {
-              if (!message.content.trim() && !message.images?.length && !message.files?.length) continue;
+              if (!hasProviderMessagePayload(message)) continue;
 
               const last = merged[merged.length - 1];
               if (last && last.role === message.role) {
@@ -5810,7 +5818,10 @@ export async function generateRoutes(app: FastifyInstance) {
           let finishReason: string | undefined;
 
           const logPromptSentToModel = (messages: ChatMessage[], label = "Prompt sent to model") => {
-            if (isDebug || requestDebug) {
+            const promptDebugOverride = requestDebug || isDebugAgentsEnabled();
+            if (isDebug || promptDebugOverride) {
+              const logProviderPrompt = (message: string, ...args: unknown[]) =>
+                logDebugOverride(promptDebugOverride, message, ...args);
               const effModel = conn.model.toLowerCase();
               const tempSuppressed =
                 ((conn.provider === "openai" || conn.provider === "openrouter") &&
@@ -5819,7 +5830,7 @@ export async function generateRoutes(app: FastifyInstance) {
               const effTemp = tempSuppressed ? "N/A" : temperature;
               const effTopP = tempSuppressed ? "N/A" : topP;
 
-              debugLog(
+              logProviderPrompt(
                 "\n[debug] %s (%d messages):\n  Model: %s (%s)  Temp: %s  MaxTokens: %s  MaxContext: %s  TopP: %s  TopK: %s  EnableThinking: %s  ShowThoughts: %s  Effort: %s  Verbosity: %s  Stream: %s",
                 label,
                 messages.length,
@@ -5842,9 +5853,23 @@ export async function generateRoutes(app: FastifyInstance) {
                 if (m.files?.length) extras.push(`files=${m.files.length}`);
                 if (m.tool_call_id) extras.push(`tool_call_id=${m.tool_call_id}`);
                 if (m.tool_calls?.length) extras.push(`tool_calls=${JSON.stringify(m.tool_calls)}`);
-                if (m.providerMetadata)
+                if (m.providerMetadata) {
                   extras.push(`providerMetadataKeys=${Object.keys(m.providerMetadata).join(",")}`);
-                debugLog("  [%s]%s %s", m.role.toUpperCase(), extras.length ? ` ${extras.join(" ")}` : "", m.content);
+                  const reasoningMetadata = readChatCompletionsReasoningMetadata(m.providerMetadata);
+                  const promptMetadata = {
+                    ...(reasoningMetadata ?? {}),
+                    ...(m.providerMetadata.partial === true ? { partial: true } : {}),
+                  };
+                  if (Object.keys(promptMetadata).length > 0) {
+                    extras.push(`providerMetadata=${JSON.stringify(promptMetadata)}`);
+                  }
+                }
+                logProviderPrompt(
+                  "  [%s]%s %s",
+                  m.role.toUpperCase(),
+                  extras.length ? ` ${extras.join(" ")}` : "",
+                  m.content,
+                );
               }
             }
           };
@@ -6945,6 +6970,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 verbosity: verbosity ?? null,
                 serviceTier,
                 assistantPrefill: assistantPrefill || null,
+                assistantReasoningPrefill: assistantReasoningPrefill || null,
                 customParameters: Object.keys(customParameters).length > 0 ? customParameters : null,
                 tokensPrompt: usage?.promptTokens ?? null,
                 tokensCompletion: usage?.completionTokens ?? null,
@@ -6978,7 +7004,11 @@ export async function generateRoutes(app: FastifyInstance) {
             extraUpdate.generationReplay = buildGenerationReplay(input);
             extraUpdate.startsNewAssistantBubble = startsNewAssistantBubble;
             // Cache the final prompt (what was actually sent to the model) for Peek Prompt
-            extraUpdate.cachedPrompt = finalPromptSent.map((m) => ({ role: m.role, content: m.content }));
+            extraUpdate.cachedPrompt = finalPromptSent.map((m) => ({
+              role: m.role,
+              content: m.content,
+              ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
+            }));
             // Cache the lorebook scan that produced the prompt so Active Context
             // reflects the last generation instead of a best-effort rescan.
             extraUpdate.lorebookScan = lorebookScanSnapshot;

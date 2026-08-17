@@ -78,7 +78,10 @@ export function TrackerDataSidebar({
   const { t: localizeUi } = useUiTranslation();
   useRenderTimer("tracker-panel"); // [#3104 diagnostic]
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const { patchField, patchPlayerStats, flushPatch } = useGameStatePatcher(activeChatId, "tracker-data-sidebar");
+  const { patchField, patchPlayerStats, patchPlayerStatsMany, flushPatch } = useGameStatePatcher(
+    activeChatId,
+    "tracker-data-sidebar",
+  );
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   const trackerPanelCollapsedSections = useUIStore((s) => s.trackerPanelCollapsedSections);
   const trackerPanelSectionOrder = useUIStore((s) => s.trackerPanelSectionOrder);
@@ -236,6 +239,7 @@ export function TrackerDataSidebar({
                 orderedTrackerSections={orderedTrackerSections}
                 patchField={patchField}
                 patchPlayerStats={patchPlayerStats}
+                patchPlayerStatsMany={patchPlayerStatsMany}
                 resolveSpriteCharacterId={resolveSpriteCharacterId}
                 spriteExpressions={spriteExpressions}
                 trackerPanelCollapsedSections={trackerPanelCollapsedSections}

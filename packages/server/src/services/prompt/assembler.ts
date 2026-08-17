@@ -24,9 +24,11 @@ import { injectAtDepth } from "../lorebook/prompt-injector.js";
 import type { LorebookScanResult } from "../lorebook/index.js";
 import {
   buildReferencedCharacterContext,
+  buildReferencedPersonaContext,
   buildPromptMacroContext,
   collectCharacterAdvancedPromptEntries,
   MAX_REFERENCED_CHARACTERS,
+  MAX_REFERENCED_PERSONAS,
   resolveMacrosForPreview,
   resolveMacrosWithVariableSnapshot,
 } from "./macro-context.js";
@@ -369,16 +371,21 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const personaReferenceSources = Object.values(input.personaFields ?? {}).filter(
     (value): value is string => typeof value === "string",
   );
+  const activeCharacterReferenceSources = (macroCtx.characterProfiles ?? []).flatMap((profile) =>
+    Object.values(profile).filter((value): value is string => typeof value === "string"),
+  );
+  const cardReferenceSources = [
+    ...enabledSectionContents,
+    ...Object.values(variableValues),
+    input.chatSummary ?? "",
+    input.personaDescription,
+    ...personaReferenceSources,
+    ...activeCharacterReferenceSources,
+  ];
   const referencedCharacterContext = await buildReferencedCharacterContext({
     db: input.db,
     activeCharacterIds: input.groupCharacterIds ?? input.characterIds,
-    sources: [
-      ...enabledSectionContents,
-      ...Object.values(variableValues),
-      input.chatSummary ?? "",
-      input.personaDescription,
-      ...personaReferenceSources,
-    ],
+    sources: cardReferenceSources,
     chatMessages: input.lorebookScanMessages ?? input.chatMessages,
     macroCtx,
     wrapFormat,
@@ -390,42 +397,90 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     excludedLorebookSourceAgentIds: input.excludedLorebookSourceAgentIds,
   });
   macroCtx.characterReferences = referencedCharacterContext.references;
-  const referencedCharacterContextBlocks = referencedCharacterContext.content
-    ? [referencedCharacterContext.content]
-    : [];
+  const referencedPersonaContext = await buildReferencedPersonaContext({
+    db: input.db,
+    activePersonaId: input.personaId,
+    sources: cardReferenceSources,
+    chatMessages: input.lorebookScanMessages ?? input.chatMessages,
+    macroCtx,
+    wrapFormat,
+    chatId: input.chatId,
+    gameState: input.gameState,
+    generationTriggers: input.generationTriggers,
+    includeLorebooks: input.disableLorebooks !== true,
+    excludedLorebookIds: input.excludedLorebookIds,
+    excludedLorebookSourceAgentIds: input.excludedLorebookSourceAgentIds,
+  });
+  macroCtx.personaReferences = referencedPersonaContext.references;
+  const referencedCardContextBlocks = [referencedCharacterContext.content, referencedPersonaContext.content].filter(
+    Boolean,
+  );
 
   // Resolve macros inside variable values themselves (e.g. {{user}} in a choice value)
   for (const key of Object.keys(variableValues)) {
     variableValues[key] = resolveMacros(variableValues[key]!, macroCtx, deferAllMacroOptions);
   }
 
-  const addActivatedLorebookCharacterReferences = async (result: LorebookScanResult) => {
+  const addActivatedLorebookCardReferences = async (result: LorebookScanResult) => {
+    let discoveredReferences = false;
     const existingReferenceIds = Object.keys(macroCtx.characterReferences ?? {});
     const remainingReferenceSlots = Math.max(0, MAX_REFERENCED_CHARACTERS - existingReferenceIds.length);
-    if (remainingReferenceSlots === 0) return;
+    if (remainingReferenceSlots > 0) {
+      const extraContext = await buildReferencedCharacterContext({
+        db: input.db,
+        activeCharacterIds: [...(input.groupCharacterIds ?? input.characterIds), ...existingReferenceIds],
+        sources: result.activatedEntries.map((entry) => entry.content),
+        chatMessages: input.lorebookScanMessages ?? input.chatMessages,
+        macroCtx,
+        wrapFormat,
+        chatId: input.chatId,
+        gameState: input.gameState,
+        generationTriggers: input.generationTriggers,
+        includeLorebooks: input.disableLorebooks !== true,
+        excludedLorebookIds: input.excludedLorebookIds,
+        excludedLorebookSourceAgentIds: input.excludedLorebookSourceAgentIds,
+        maxReferences: remainingReferenceSlots,
+      });
+      if (Object.keys(extraContext.references).length > 0) {
+        macroCtx.characterReferences = {
+          ...(macroCtx.characterReferences ?? {}),
+          ...extraContext.references,
+        };
+        if (extraContext.content) referencedCardContextBlocks.push(extraContext.content);
+        discoveredReferences = true;
+      }
+    }
 
-    const extraContext = await buildReferencedCharacterContext({
-      db: input.db,
-      activeCharacterIds: [...(input.groupCharacterIds ?? input.characterIds), ...existingReferenceIds],
-      sources: result.activatedEntries.map((entry) => entry.content),
-      chatMessages: input.lorebookScanMessages ?? input.chatMessages,
-      macroCtx,
-      wrapFormat,
-      chatId: input.chatId,
-      gameState: input.gameState,
-      generationTriggers: input.generationTriggers,
-      includeLorebooks: input.disableLorebooks !== true,
-      excludedLorebookIds: input.excludedLorebookIds,
-      excludedLorebookSourceAgentIds: input.excludedLorebookSourceAgentIds,
-      maxReferences: remainingReferenceSlots,
-    });
-    if (Object.keys(extraContext.references).length === 0) return;
+    const existingPersonaReferenceIds = Object.keys(macroCtx.personaReferences ?? {});
+    const remainingPersonaReferenceSlots = Math.max(0, MAX_REFERENCED_PERSONAS - existingPersonaReferenceIds.length);
+    if (remainingPersonaReferenceSlots > 0) {
+      const extraPersonaContext = await buildReferencedPersonaContext({
+        db: input.db,
+        activePersonaId: input.personaId,
+        sources: result.activatedEntries.map((entry) => entry.content),
+        chatMessages: input.lorebookScanMessages ?? input.chatMessages,
+        macroCtx,
+        wrapFormat,
+        chatId: input.chatId,
+        gameState: input.gameState,
+        generationTriggers: input.generationTriggers,
+        includeLorebooks: input.disableLorebooks !== true,
+        excludedLorebookIds: input.excludedLorebookIds,
+        excludedLorebookSourceAgentIds: input.excludedLorebookSourceAgentIds,
+        knownPersonaIds: existingPersonaReferenceIds,
+        maxReferences: remainingPersonaReferenceSlots,
+      });
+      if (Object.keys(extraPersonaContext.references).length > 0) {
+        macroCtx.personaReferences = {
+          ...(macroCtx.personaReferences ?? {}),
+          ...extraPersonaContext.references,
+        };
+        if (extraPersonaContext.content) referencedCardContextBlocks.push(extraPersonaContext.content);
+        discoveredReferences = true;
+      }
+    }
 
-    macroCtx.characterReferences = {
-      ...(macroCtx.characterReferences ?? {}),
-      ...extraContext.references,
-    };
-    if (extraContext.content) referencedCharacterContextBlocks.push(extraContext.content);
+    if (!discoveredReferences) return;
 
     const resolveReferenceMacros = (value: string) =>
       resolveMacrosForPreview(value, macroCtx, deferNameMacroOptions);
@@ -476,7 +531,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     generationTriggers: input.generationTriggers ?? ["chat"],
     previewOnly: input.previewOnly === true,
     resolveLorebookContent: (value) => resolveMacrosWithVariableSnapshot(value, macroCtx, deferNameMacroOptions),
-    onLorebookScan: addActivatedLorebookCharacterReferences,
+    onLorebookScan: addActivatedLorebookCardReferences,
     groupScenarioOverrideText: input.groupScenarioOverrideText ?? null,
     macroCtx,
   };
@@ -556,10 +611,10 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     }
   }
 
-  const referencedCharacterContent = referencedCharacterContextBlocks.join("\n");
-  if (referencedCharacterContent && idMacroCardMarkerSection) {
+  const referencedCardContent = referencedCardContextBlocks.join("\n");
+  if (referencedCardContent && idMacroCardMarkerSection) {
     idMacroCardMarkerSection.messages = [
-      { role: idMacroCardMarkerSection.role, content: referencedCharacterContent, contextKind: "prompt" },
+      { role: idMacroCardMarkerSection.role, content: referencedCardContent, contextKind: "prompt" },
     ];
   }
 
@@ -605,10 +660,10 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       }
     }
   }
-  if (referencedCharacterContent && !idMacroCardMarkerSection) {
+  if (referencedCardContent && !idMacroCardMarkerSection) {
     messages.unshift({
       role: "system",
-      content: referencedCharacterContent,
+      content: referencedCardContent,
       contextKind: "prompt",
     });
   }

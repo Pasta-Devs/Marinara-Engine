@@ -28,6 +28,7 @@ const EDITABLE_PARAMETER_KEYS: Array<keyof EditableGenerationParameters> = [
   "verbosity",
   "serviceTier",
   "assistantPrefill",
+  "assistantReasoningPrefill",
   "customThinkingTags",
   "customParameters",
   "managedCustomParameters",

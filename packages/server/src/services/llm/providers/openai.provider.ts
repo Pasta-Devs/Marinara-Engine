@@ -511,6 +511,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (!providerMetadata) return {};
     if (model && !this.shouldReplayChatCompletionsReasoning(model)) return {};
     const metadata = OpenAIProvider.extractReasoningMetadata(providerMetadata);
+    if (providerMetadata.partial === true) metadata.partial = true;
     if (Array.isArray(metadata.reasoning_details) && metadata.reasoning_details.length) {
       return { reasoning_details: metadata.reasoning_details };
     }
@@ -1016,9 +1017,12 @@ export class OpenAIProvider extends BaseLLMProvider {
     const devRole = model && this.usesDeveloperRole(model);
     return messages
       .filter((m) => {
+        const reasoningPayload =
+          m.role === "assistant" ? this.assistantReasoningPayload(m.providerMetadata, model) : {};
         // Keep tool messages and assistant messages with tool_calls regardless of content
         if (m.role === "tool") return true;
         if (m.role === "assistant" && m.tool_calls?.length) return true;
+        if (Object.keys(reasoningPayload).length > 0) return true;
         // Drop messages with no text or provider-native attachments.
         return m.content?.trim() || m.images?.length || m.files?.length || m.media?.length;
       })

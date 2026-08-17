@@ -39,6 +39,7 @@ These macros pull in the names and card fields of the person speaking and the ch
 | `{{userNamePhonetic}}` | Your persona's Phonetic name, or `{{user}}` when it is empty. |
 | `{{char}}` / `{{charName}}` | The current character's name. Defaults to `Character`. |
 | `{{21-character-card-ID}}` | Name of another character. Replace the placeholder text with that card's exact 21-character ID to pull the card into context. |
+| `{{persona-21-character-card-ID}}` | Name of another persona. Replace the placeholder text after `persona-` with that card's exact 21-character ID to pull the card into context. |
 | `{{charNamePhonetic}}` | The character's Phonetic name, or `{{char}}` when it is empty. |
 | `{{characters}}` | Every character in the chat, joined by commas. |
 | `{{group}}` | Every other active character in the group chat, excluding the current responder. The persona is not part of this character roster. |
@@ -69,6 +70,8 @@ In a chat with one character, these resolve against that character. In a group c
 The Phonetic name field has two jobs. It sets how the name is pronounced by text-to-speech. It also feeds `{{charNamePhonetic}}` and `{{userNamePhonetic}}`. You will find it in both the **Character Editor** and the **Persona Editor**.
 
 To reference a character who is not part of the current chat, copy that card's ID and place it directly inside double braces, such as `{{V1StGXR8_Z5jdHi6B-myT}}`. Do not include literal `<` or `>` characters. Marinara replaces the macro with the character's name and adds the referenced card's Description, Personality, Appearance, Backstory, Scenario, and Example Dialogue to the system prompt. This works in chat messages, prompt fields, and activated lorebook entries. The referenced card's initial greetings are excluded. Enabled lorebooks attached to that card remain subject to their normal keyword, constant, filter, probability, and token-budget rules.
+
+To reference a persona other than the active one, prefix its copied ID with `persona-`, such as `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara replaces the macro with the persona's name and adds that card's Description, Personality, Appearance, Backstory, and Scenario to the same ID Macro Cards context. Enabled lorebooks attached to that persona keep their normal activation rules.
 
 ## Conversation mode macros
 

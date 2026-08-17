@@ -7,6 +7,7 @@
 
 import {
   CHARACTER_REFERENCE_ID_PATTERN,
+  PERSONA_REFERENCE_ID_PATTERN,
   formatRpgStatsForPrompt,
   resolveMacros,
   stripMacroComments,
@@ -19,7 +20,7 @@ import {
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { processLorebooks, type LorebookScanResult } from "../lorebook/index.js";
-import { createCharactersStorage } from "../storage/characters.storage.js";
+import { createCharactersStorage, type PersonaStorageRow } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { wrapContent } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
@@ -74,6 +75,7 @@ export interface MacroResolutionTransaction {
 }
 
 export const MAX_REFERENCED_CHARACTERS = 8;
+export const MAX_REFERENCED_PERSONAS = 8;
 const MAX_REFERENCED_FIELD_CHARS = 8_000;
 const MAX_REFERENCED_LOREBOOK_CHARS = 8_000;
 
@@ -121,6 +123,22 @@ export function extractCharacterReferenceIds(sources: readonly string[]): string
   return ids;
 }
 
+export function extractPersonaReferenceIds(sources: readonly string[], excludeIds?: ReadonlySet<string>): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const source of sources) {
+    for (const match of source.matchAll(PERSONA_REFERENCE_ID_PATTERN)) {
+      const id = match[1]!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      if (excludeIds?.has(id)) continue;
+      ids.push(id);
+      if (ids.length >= MAX_REFERENCED_PERSONAS) return ids;
+    }
+  }
+  return ids;
+}
+
 function referencedCharacterSourceFields(data: CharacterData): string[] {
   const depthPrompt = data.extensions?.depth_prompt?.prompt;
   const convoBehavior = data.extensions?.convoBehavior?.instruction;
@@ -156,6 +174,19 @@ function referencedCharacterProfile(data: CharacterData): CharacterMacroProfile 
 
 function clipReferencedText(value: string, limit: number): string {
   return value.length <= limit ? value : value.slice(0, limit);
+}
+
+function referencedLorebookBlock(lorebookScan: LorebookScanResult | null, wrapFormat: WrapFormat): string[] {
+  const content = clipReferencedText(
+    (lorebookScan?.activatedEntries ?? [])
+      .map((entry) => entry.content.trim())
+      .filter(Boolean)
+      .join("\n\n"),
+    MAX_REFERENCED_LOREBOOK_CHARS,
+  );
+  return content
+    ? [wrapContent(sanitizePromptLeaf(content, wrapFormat), "attached_lorebook_context", wrapFormat, 2)]
+    : [];
 }
 
 function resolveReferencedField(value: string, macroCtx: MacroContext, wrapFormat: WrapFormat): string {
@@ -209,20 +240,145 @@ function buildReferencedCharacterFields(
     return content ? [wrapContent(content, label, wrapFormat, 2)] : [];
   });
 
-  const lorebookContent = clipReferencedText(
-    (lorebookScan?.activatedEntries ?? [])
-      .map((entry) => entry.content.trim())
-      .filter(Boolean)
-      .join("\n\n"),
-    MAX_REFERENCED_LOREBOOK_CHARS,
-  );
-  if (lorebookContent) {
-    fields.push(
-      wrapContent(sanitizePromptLeaf(lorebookContent, wrapFormat), "attached_lorebook_context", wrapFormat, 2),
-    );
-  }
+  fields.push(...referencedLorebookBlock(lorebookScan, wrapFormat));
 
   return wrapContent(fields.join("\n"), "referenced_character", wrapFormat, 1);
+}
+
+function referencedPersonaMacroContext(macroCtx: MacroContext, persona: PersonaStorageRow): MacroContext {
+  return {
+    ...macroCtx,
+    user: persona.name || "User",
+    userPhonetic: persona.phoneticName || persona.name || "User",
+    personaFields: {
+      phoneticName: persona.phoneticName ?? "",
+      description: persona.description ?? "",
+      personality: persona.personality ?? "",
+      backstory: persona.backstory ?? "",
+      appearance: persona.appearance ?? "",
+      scenario: persona.scenario ?? "",
+    },
+  };
+}
+
+function buildReferencedPersonaFields(
+  id: string,
+  persona: PersonaStorageRow,
+  macroCtx: MacroContext,
+  wrapFormat: WrapFormat,
+  lorebookScan: LorebookScanResult | null,
+): string {
+  const scopedContext = referencedPersonaMacroContext(macroCtx, persona);
+  const fields = [
+    { label: "persona_id", value: id },
+    { label: "name", value: persona.name },
+    { label: "description", value: persona.description },
+    { label: "personality", value: persona.personality },
+    { label: "backstory", value: persona.backstory },
+    { label: "appearance", value: persona.appearance },
+    { label: "scenario", value: persona.scenario },
+    { label: "creator", value: persona.creator },
+    { label: "persona_version", value: persona.personaVersion },
+    { label: "creator_notes", value: persona.creatorNotes },
+    { label: "about_me", value: persona.aboutMe },
+  ].flatMap(({ label, value }) => {
+    if (typeof value !== "string" || !value.trim()) return [];
+    const content = resolveReferencedField(value, scopedContext, wrapFormat);
+    return content ? [wrapContent(content, label, wrapFormat, 2)] : [];
+  });
+
+  fields.push(...referencedLorebookBlock(lorebookScan, wrapFormat));
+
+  return wrapContent(fields.join("\n"), "referenced_persona", wrapFormat, 1);
+}
+
+export async function buildReferencedPersonaContext(input: {
+  db: DB;
+  activePersonaId?: string | null;
+  sources: readonly string[];
+  chatMessages: Array<{ role: string; content: string }>;
+  macroCtx: MacroContext;
+  wrapFormat: WrapFormat;
+  chatId: string;
+  gameState?: Record<string, unknown> | null;
+  generationTriggers?: string[];
+  includeLorebooks?: boolean;
+  excludedLorebookIds?: string[];
+  excludedLorebookSourceAgentIds?: string[];
+  knownPersonaIds?: string[];
+  maxReferences?: number;
+}): Promise<{ content: string; references: Record<string, string> }> {
+  const characters = createCharactersStorage(input.db);
+  const sources = [...input.sources, ...input.chatMessages.map((message) => message.content)];
+
+  const knownPersonaIds = new Set(input.knownPersonaIds ?? []);
+  const candidateIds = extractPersonaReferenceIds(sources, knownPersonaIds).slice(
+    0,
+    Math.max(0, input.maxReferences ?? MAX_REFERENCED_PERSONAS),
+  );
+  const referencedIds = candidateIds.filter((id) => id !== input.activePersonaId);
+  const referencedRows = await Promise.all(referencedIds.map((id) => characters.getPersona(id)));
+  const referenced = referencedIds.flatMap((id, index) => {
+    const persona = referencedRows[index];
+    return persona ? [{ id, persona }] : [];
+  });
+  const references = Object.fromEntries([
+    ...(input.activePersonaId && candidateIds.includes(input.activePersonaId)
+      ? [[input.activePersonaId, input.macroCtx.user] as const]
+      : []),
+    ...referenced.map(({ id, persona }) => [id, persona.name || "User"] as const),
+  ]);
+  if (referenced.length === 0) return { content: "", references };
+
+  const macroCtx = {
+    ...input.macroCtx,
+    personaReferences: {
+      ...(input.macroCtx.personaReferences ?? {}),
+      ...references,
+    },
+  };
+  const lorebooks = createLorebooksStorage(input.db);
+  const allLorebooks = (await lorebooks.list()) as unknown as Array<{
+    id: string;
+    personaId?: string | null;
+    personaIds?: string[];
+  }>;
+  const excludedByRequest = new Set(input.excludedLorebookIds ?? []);
+  const scanMessages = input.chatMessages.map((message) => ({
+    ...message,
+    content: resolveMacrosForPreview(message.content, macroCtx, { trimResult: false }),
+  }));
+  const blocks: string[] = [];
+
+  for (const { id, persona } of referenced) {
+    const attachedIds = new Set(
+      allLorebooks.filter((book) => book.personaId === id || book.personaIds?.includes(id)).map((book) => book.id),
+    );
+    const excludedLorebookIds = allLorebooks
+      .filter((book) => !attachedIds.has(book.id) || excludedByRequest.has(book.id))
+      .map((book) => book.id);
+    const scopedContext = referencedPersonaMacroContext(macroCtx, persona);
+    const lorebookScan =
+      input.includeLorebooks !== false && attachedIds.size > 0
+        ? await processLorebooks(input.db, scanMessages, input.gameState, {
+            chatId: input.chatId,
+            characterIds: [],
+            personaId: id,
+            activeLorebookIds: [],
+            excludedLorebookIds,
+            excludedSourceAgentIds: input.excludedLorebookSourceAgentIds,
+            previewOnly: true,
+            generationTriggers: input.generationTriggers,
+            resolveContent: (value) => resolveMacrosForPreview(value, scopedContext),
+          })
+        : null;
+    blocks.push(buildReferencedPersonaFields(id, persona, macroCtx, input.wrapFormat, lorebookScan));
+  }
+
+  return {
+    content: wrapContent(blocks.join("\n"), "referenced_personas", input.wrapFormat),
+    references,
+  };
 }
 
 export async function buildReferencedCharacterContext(input: {

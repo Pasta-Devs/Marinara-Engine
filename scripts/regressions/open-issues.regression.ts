@@ -245,6 +245,8 @@ import { buildGoogleModelsPageUrl } from "../../packages/server/src/routes/conne
 import { normalizeGoogleGenerativeLanguageBaseUrl } from "../../packages/server/src/services/llm/providers/google.provider.js";
 import {
   buildReferencedCharacterContext,
+  buildReferencedPersonaContext,
+  extractPersonaReferenceIds,
   MAX_REFERENCED_CHARACTERS,
   normalizeChatMacroVariables,
 } from "../../packages/server/src/services/prompt/macro-context.js";
@@ -1394,6 +1396,34 @@ try {
       keys: ["cafe"],
     }),
   );
+  const knownPersonaReferenceId = "PriorPersonaRef123456";
+  const referencedPersona = await characterStorage.createPersona(
+    "Professor Mari",
+    "A brilliant engineer who understands every machine in the laboratory.",
+    undefined,
+    {
+      personality: "Warm, incisive, and knowingly amused.",
+      backstory: "She designed the laboratory's most reliable systems.",
+      appearance: "Pink hair, a lab coat, and a knowing smile.",
+      scenario: `She is visiting the cafe after a long experiment with {{persona-${knownPersonaReferenceId}}}.`,
+    },
+  );
+  assert.ok(referencedPersona);
+  const hiddenPersonaLorebook = await lorebookStorage.create(
+    createLorebookSchema.parse({
+      name: "Professor Mari's private notes",
+      personaIds: [referencedPersona.id],
+      hiddenFromLibrary: true,
+    }),
+  );
+  await lorebookStorage.createEntry(
+    createLorebookEntrySchema.parse({
+      lorebookId: hiddenPersonaLorebook.id,
+      name: "The cafe prototype",
+      content: "REFERENCED_PERSONA_LOREBOOK_MEMORY",
+      keys: ["cafe"],
+    }),
+  );
   assert.equal(
     (await lorebookStorage.list()).some((book) => book.id === hiddenCharacterLorebook.id),
     true,
@@ -1500,6 +1530,60 @@ try {
   assert.doesNotMatch(referencedContext.content, /REFERENCED_GREETING_MUST_STAY_OUT/u);
   assert.match(referencedContext.content, /REFERENCED_EXAMPLE_SHOULD_APPEAR/u);
 
+  const referencedPersonaContext = await buildReferencedPersonaContext({
+    db,
+    activePersonaId: null,
+    sources: [],
+    chatMessages: [
+      {
+        role: "user",
+        content: `I went to the cafe with {{persona-${referencedPersona.id}}}.`,
+      },
+    ],
+    macroCtx: {
+      user: "Mari",
+      char: "Version snapshot fixture",
+      characters: ["Version snapshot fixture"],
+      variables: {},
+      personaReferences: { [knownPersonaReferenceId]: "Ada" },
+    },
+    wrapFormat: "xml",
+    chatId: "persona-reference-regression",
+  });
+  assert.equal(referencedPersonaContext.references[referencedPersona.id], "Professor Mari");
+  assert.match(referencedPersonaContext.content, /A brilliant engineer who understands every machine/u);
+  assert.match(referencedPersonaContext.content, /Warm, incisive, and knowingly amused\./u);
+  assert.match(referencedPersonaContext.content, /with Ada\./u);
+  assert.match(referencedPersonaContext.content, /REFERENCED_PERSONA_LOREBOOK_MEMORY/u);
+
+  const activePersonaReferenceContext = await buildReferencedPersonaContext({
+    db,
+    activePersonaId: referencedPersona.id,
+    sources: [],
+    chatMessages: [{ role: "user", content: `I am {{persona-${referencedPersona.id}}}.` }],
+    macroCtx: {
+      user: "Mari",
+      char: "Version snapshot fixture",
+      characters: ["Version snapshot fixture"],
+      variables: {},
+    },
+    wrapFormat: "xml",
+    chatId: "persona-reference-regression-active",
+  });
+  assert.equal(activePersonaReferenceContext.references[referencedPersona.id], "Mari");
+  assert.equal(activePersonaReferenceContext.content, "");
+
+  const knownPersonaIds = new Set(Array.from({ length: 8 }, (_, index) => `KnownPersona${String(index).padStart(9, "0")}`));
+  const newPersonaId = "NewPersona00000000001";
+  assert.deepEqual(
+    extractPersonaReferenceIds(
+      [[...knownPersonaIds, newPersonaId].map((id) => `{{persona-${id}}}`).join(" ")],
+      knownPersonaIds,
+    ),
+    [newPersonaId],
+    "known Persona references must not consume the discovery cap",
+  );
+
   const macroLorebook = await lorebookStorage.create(
     createLorebookSchema.parse({
       name: "Active character references",
@@ -1512,6 +1596,14 @@ try {
       lorebookId: macroLorebook.id,
       name: "Cafe companion",
       content: `The cafe companion is {{${referencedCharacter.id}}}.`,
+      keys: ["cafe"],
+    }),
+  );
+  await lorebookStorage.createEntry(
+    createLorebookEntrySchema.parse({
+      lorebookId: macroLorebook.id,
+      name: "Cafe specialist",
+      content: `The cafe specialist is {{persona-${referencedPersona.id}}}.`,
       keys: ["cafe"],
     }),
   );
@@ -1624,6 +1716,9 @@ try {
   assert.match(assembledReferenceText, /The cafe companion is Susie\./u);
   assert.match(assembledReferenceText, /A trusted friend from the western district\./u);
   assert.match(assembledReferenceText, /REFERENCED_EXAMPLE_SHOULD_APPEAR/u);
+  assert.match(assembledReferenceText, /The cafe specialist is Professor Mari\./u);
+  assert.match(assembledReferenceText, /A brilliant engineer who understands every machine/u);
+  assert.match(assembledReferenceText, /REFERENCED_PERSONA_LOREBOOK_MEMORY/u);
   assert.doesNotMatch(assembledReferenceText, /REFERENCED_GREETING_MUST_STAY_OUT/u);
   assert.ok(
     assembledReferenceText.indexOf("<referenced_characters>") <
@@ -8647,6 +8742,38 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     AGENT_SUITE_TRACKER_SLICES["persona-stats"]!.buildPatch(gameState, { personaStats: [] }),
     { personaStats: [] },
     "Dropping inventory from an AI rewrite must leave the saved inventory unchanged",
+  );
+
+  // The Inventory Tracker editor must refuse malformed rows rather than normalize
+  // them away. The shared normalizer drops rows it cannot read, so accepting this
+  // payload would empty a group the author had just typed out.
+  const inventorySlice = AGENT_SUITE_TRACKER_SLICES["inventory-tracker"]!;
+  const malformedRows = inventorySlice.buildPatch(gameState, {
+    currencies: [],
+    equipped: [],
+    inventory: [{ foo: 1 }],
+  }) as { error?: string };
+  assert.match(
+    String(malformedRows.error),
+    /inventory/iu,
+    "a row without a name must be reported, naming the group it came from",
+  );
+  assert.match(
+    String((inventorySlice.buildPatch(gameState, { currencies: [], equipped: [], inventory: [{ name: "Rope", qty: 0 }] }) as { error?: string }).error),
+    /qty/iu,
+    "a quantity below 1 must be reported rather than silently clamped",
+  );
+
+  // Accepted payloads still get the shared invariants applied.
+  const equippedWins = inventorySlice.buildPatch(gameState, {
+    currencies: [],
+    equipped: [{ name: "Short axe" }],
+    inventory: [{ name: "short  axe" }, { name: "Waterskin" }],
+  }) as { playerStats: Record<string, unknown> };
+  assert.deepEqual(
+    equippedWins.playerStats.inventoryTrackerInventory,
+    [{ name: "Waterskin" }],
+    "an equipped item must not survive in carried inventory through the JSON editor",
   );
 }
 
