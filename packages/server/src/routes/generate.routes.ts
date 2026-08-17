@@ -497,6 +497,7 @@ import {
   resolveStoredChatOptions,
   resolveStoredMaxTokens,
   shouldReplayStoredChatCompletionsReasoning,
+  supportsAssistantReasoningPrefill,
 } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
@@ -5050,6 +5051,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const tailMessages = appendGenerationTailMessages(finalMessages, {
           assistantPrefill,
           assistantReasoningPrefill,
+          supportsAssistantReasoningPrefill: supportsAssistantReasoningPrefill(conn.provider),
           followUpIteration,
           impersonate: input.impersonate,
           isGoogleProvider,
@@ -5847,8 +5849,17 @@ export async function generateRoutes(app: FastifyInstance) {
                 if (m.files?.length) extras.push(`files=${m.files.length}`);
                 if (m.tool_call_id) extras.push(`tool_call_id=${m.tool_call_id}`);
                 if (m.tool_calls?.length) extras.push(`tool_calls=${JSON.stringify(m.tool_calls)}`);
-                if (m.providerMetadata)
+                if (m.providerMetadata) {
                   extras.push(`providerMetadataKeys=${Object.keys(m.providerMetadata).join(",")}`);
+                  const reasoningMetadata = readChatCompletionsReasoningMetadata(m.providerMetadata);
+                  const promptMetadata = {
+                    ...(reasoningMetadata ?? {}),
+                    ...(m.providerMetadata.partial === true ? { partial: true } : {}),
+                  };
+                  if (Object.keys(promptMetadata).length > 0) {
+                    extras.push(`providerMetadata=${JSON.stringify(promptMetadata)}`);
+                  }
+                }
                 debugLog("  [%s]%s %s", m.role.toUpperCase(), extras.length ? ` ${extras.join(" ")}` : "", m.content);
               }
             }

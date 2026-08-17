@@ -988,6 +988,7 @@ export function appendGenerationTailMessages(
   options: {
     assistantPrefill: string;
     assistantReasoningPrefill: string;
+    supportsAssistantReasoningPrefill: boolean;
     followUpIteration: number;
     impersonate: boolean;
     isGoogleProvider: boolean;
@@ -1003,8 +1004,10 @@ export function appendGenerationTailMessages(
   const assistantPrefill = options.assistantPrefill.trim();
   const shouldAppendAssistantPrefill = !options.impersonate && !!assistantPrefill;
   const assistantReasoningPrefill = options.assistantReasoningPrefill.trim();
+  const shouldAppendReasoningPrefill =
+    !options.impersonate && options.supportsAssistantReasoningPrefill && !!assistantReasoningPrefill;
   const shouldAppendAssistantMessage =
-    !options.impersonate && (shouldAppendAssistantPrefill || !!assistantReasoningPrefill);
+    !options.impersonate && (shouldAppendAssistantPrefill || shouldAppendReasoningPrefill);
 
   if (shouldAppendAssistantMessage) {
     // Strip the trailing edge: Anthropic's Messages API rejects a final assistant
@@ -1014,7 +1017,7 @@ export function appendGenerationTailMessages(
     messages.push({
       role: "assistant",
       content: shouldAppendAssistantPrefill ? options.assistantPrefill.trimEnd() : "",
-      ...(assistantReasoningPrefill
+      ...(shouldAppendReasoningPrefill
         ? {
             providerMetadata: {
               reasoning_content: options.assistantReasoningPrefill.trimEnd(),

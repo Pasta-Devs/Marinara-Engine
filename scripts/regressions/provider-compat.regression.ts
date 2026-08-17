@@ -55,7 +55,10 @@ import {
   runWithGenerationFallbackNotifier,
   type GenerationFallbackNotice,
 } from "../../packages/server/src/services/generation/fallback-notification.js";
-import { resolveStoredChatOptions } from "../../packages/server/src/services/generation/generation-parameters.js";
+import {
+  resolveStoredChatOptions,
+  supportsAssistantReasoningPrefill,
+} from "../../packages/server/src/services/generation/generation-parameters.js";
 import { resolveMainGenerationToolChoice } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
 import {
   appendGenerationTailMessages,
@@ -259,6 +262,7 @@ try {
     appendGenerationTailMessages(messages, {
       assistantPrefill,
       assistantReasoningPrefill,
+      supportsAssistantReasoningPrefill: true,
       followUpIteration: 0,
       impersonate: false,
       isGoogleProvider: false,
@@ -288,6 +292,20 @@ try {
     reasoning_content: "Reasoning prefix",
     partial: true,
   });
+
+  assert.equal(supportsAssistantReasoningPrefill("custom"), true);
+  assert.equal(supportsAssistantReasoningPrefill("grok_subscription"), false);
+  assert.deepEqual(
+    buildPrefillMessages("", "Unsupported reasoning", { supportsAssistantReasoningPrefill: false }),
+    [{ role: "user", content: "Continue." }],
+  );
+  assert.deepEqual(
+    buildPrefillMessages("Visible", "Unsupported reasoning", { supportsAssistantReasoningPrefill: false }),
+    [
+      { role: "user", content: "Continue." },
+      { role: "assistant", content: "Visible" },
+    ],
+  );
 
   customParametersRequestBody = null;
   let streamedPrefillOutput = "";
