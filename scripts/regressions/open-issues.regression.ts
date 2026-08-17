@@ -8743,6 +8743,38 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     { personaStats: [] },
     "Dropping inventory from an AI rewrite must leave the saved inventory unchanged",
   );
+
+  // The Inventory Tracker editor must refuse malformed rows rather than normalize
+  // them away. The shared normalizer drops rows it cannot read, so accepting this
+  // payload would empty a group the author had just typed out.
+  const inventorySlice = AGENT_SUITE_TRACKER_SLICES["inventory-tracker"]!;
+  const malformedRows = inventorySlice.buildPatch(gameState, {
+    currencies: [],
+    equipped: [],
+    inventory: [{ foo: 1 }],
+  }) as { error?: string };
+  assert.match(
+    String(malformedRows.error),
+    /inventory/iu,
+    "a row without a name must be reported, naming the group it came from",
+  );
+  assert.match(
+    String((inventorySlice.buildPatch(gameState, { currencies: [], equipped: [], inventory: [{ name: "Rope", qty: 0 }] }) as { error?: string }).error),
+    /qty/iu,
+    "a quantity below 1 must be reported rather than silently clamped",
+  );
+
+  // Accepted payloads still get the shared invariants applied.
+  const equippedWins = inventorySlice.buildPatch(gameState, {
+    currencies: [],
+    equipped: [{ name: "Short axe" }],
+    inventory: [{ name: "short  axe" }, { name: "Waterskin" }],
+  }) as { playerStats: Record<string, unknown> };
+  assert.deepEqual(
+    equippedWins.playerStats.inventoryTrackerInventory,
+    [{ name: "Waterskin" }],
+    "an equipped item must not survive in carried inventory through the JSON editor",
+  );
 }
 
 {

@@ -5,6 +5,7 @@ import {
   applyTrackerFieldLocksToGameStatePatch,
   compileChatSummaryEntries,
   generationParametersSchema,
+  normalizeInventoryTrackerRows,
   normalizeChatSummaryEntries,
   normalizeTextForMatch,
   normalizeSummaryTailMessages,
@@ -57,6 +58,7 @@ export type SimpleMessage = {
   images?: string[];
   files?: Array<{ type: string; data: string; filename?: string }>;
   contextKind?: "prompt" | "history" | "injection";
+  providerMetadata?: Record<string, unknown>;
 };
 export type SpeakerPrefixMessage = SimpleMessage & {
   characterId?: string | null;
@@ -65,6 +67,24 @@ export type SpeakerPrefixMessage = SimpleMessage & {
   providerMetadata?: Record<string, unknown>;
 };
 export type StoredGenerationParameters = Partial<GenerationParameters>;
+
+export function hasProviderMessagePayload(message: {
+  content: string;
+  images?: unknown[];
+  files?: unknown[];
+  providerMetadata?: Record<string, unknown>;
+  tool_calls?: unknown[];
+  tool_call_id?: string;
+}): boolean {
+  return (
+    !!message.content.trim() ||
+    !!message.images?.length ||
+    !!message.files?.length ||
+    Object.keys(message.providerMetadata ?? {}).length > 0 ||
+    !!message.tool_calls?.length ||
+    !!message.tool_call_id
+  );
+}
 
 /**
  * Preserve the route-layer export while sharing the same Persona policy with
@@ -177,41 +197,10 @@ const INVENTORY_TRACKER_PLAYER_STATS_FIELDS = [
 
 type InventoryTrackerPlayerStatsField = (typeof INVENTORY_TRACKER_PLAYER_STATS_FIELDS)[number];
 
-/**
- * Keep a tracked quantity a finite safe integer.
- *
- * Without an upper bound, deduplicating two very large rows sums to `Infinity`,
- * which `JSON.stringify` writes as `null` — persisting a row whose qty can no
- * longer be read back as a number.
- */
-function clampInventoryTrackerQty(value: number): number {
-  return Math.min(Number.MAX_SAFE_INTEGER, Math.max(1, Math.floor(value)));
-}
-
-function normalizeInventoryTrackerRows(value: unknown): InventoryTrackerRow[] {
-  if (!Array.isArray(value)) return [];
-
-  const rows: InventoryTrackerRow[] = [];
-  const indexByName = new Map<string, number>();
-  for (const candidate of value) {
-    if (!isPlainRecord(candidate) || typeof candidate.name !== "string") continue;
-    const name = candidate.name.normalize("NFKC").trim().replace(/\s+/gu, " ").slice(0, 160);
-    if (!name) continue;
-    const key = name.toLocaleLowerCase("en-US");
-    const numericQty = Number(candidate.qty);
-    const qty = Number.isFinite(numericQty) ? clampInventoryTrackerQty(numericQty) : 1;
-    const existingIndex = indexByName.get(key);
-    if (existingIndex !== undefined) {
-      const existing = rows[existingIndex]!;
-      const combinedQty = clampInventoryTrackerQty((existing.qty ?? 1) + qty);
-      rows[existingIndex] = combinedQty > 1 ? { ...existing, qty: combinedQty } : existing;
-      continue;
-    }
-    indexByName.set(key, rows.length);
-    rows.push(qty > 1 ? { name, qty } : { name });
-  }
-  return rows.slice(0, 250);
-}
+// `clampInventoryTrackerQty` and `normalizeInventoryTrackerRows` now live in
+// `@marinara-engine/shared` so the hand-edit paths (tracker panel, HUD popover,
+// Agent Suite editor, chat game-state route) apply the same rules this route
+// already applied to agent output.
 
 export function buildLockedInventoryTrackerPatch({
   data,
@@ -986,6 +975,8 @@ export function appendGenerationTailMessages(
   messages: SimpleMessage[],
   options: {
     assistantPrefill: string;
+    assistantReasoningPrefill: string;
+    supportsAssistantReasoningPrefill: boolean;
     followUpIteration: number;
     impersonate: boolean;
     isGoogleProvider: boolean;
@@ -1000,13 +991,29 @@ export function appendGenerationTailMessages(
     !options.impersonate && options.isGoogleProvider && !!options.regenerateUserMessage;
   const assistantPrefill = options.assistantPrefill.trim();
   const shouldAppendAssistantPrefill = !options.impersonate && !!assistantPrefill;
+  const assistantReasoningPrefill = options.assistantReasoningPrefill.trim();
+  const shouldAppendReasoningPrefill =
+    !options.impersonate && options.supportsAssistantReasoningPrefill && !!assistantReasoningPrefill;
+  const shouldAppendAssistantMessage =
+    !options.impersonate && (shouldAppendAssistantPrefill || shouldAppendReasoningPrefill);
 
-  if (shouldAppendAssistantPrefill) {
+  if (shouldAppendAssistantMessage) {
     // Strip the trailing edge: Anthropic's Messages API rejects a final assistant
     // message ending in whitespace (HTTP 400), which surfaces to users as a refusal.
     // A prefill ending in "\n" or a space is common. The user-facing prefill is
     // rendered separately, so only what is sent to the API is trimmed.
-    messages.push({ role: "assistant", content: options.assistantPrefill.trimEnd() });
+    messages.push({
+      role: "assistant",
+      content: shouldAppendAssistantPrefill ? options.assistantPrefill.trimEnd() : "",
+      ...(shouldAppendReasoningPrefill
+        ? {
+            providerMetadata: {
+              reasoning_content: options.assistantReasoningPrefill.trimEnd(),
+              partial: true,
+            },
+          }
+        : {}),
+    });
   }
 
   if (shouldAppendGoogleUserRegeneration) {
@@ -1252,6 +1259,9 @@ export function parseStoredGenerationParameters(raw: unknown): StoredGenerationP
     out.serviceTier = source.serviceTier as StoredGenerationParameters["serviceTier"];
   }
   if (typeof source.assistantPrefill === "string") out.assistantPrefill = source.assistantPrefill;
+  if (typeof source.assistantReasoningPrefill === "string") {
+    out.assistantReasoningPrefill = source.assistantReasoningPrefill;
+  }
   if (Array.isArray(source.customThinkingTags)) {
     out.customThinkingTags = normalizeThinkingTagPairs(source.customThinkingTags);
   }

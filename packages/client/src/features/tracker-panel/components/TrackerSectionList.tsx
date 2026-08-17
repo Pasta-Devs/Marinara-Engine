@@ -1,6 +1,12 @@
 import { useCallback } from "react";
 import { RefreshCw, Sparkles } from "lucide-react";
-import type { GameState, Persona, PresentCharacter } from "@marinara-engine/shared";
+import type {
+  GameState,
+  InventoryTrackerGroup,
+  InventoryTrackerRow,
+  Persona,
+  PresentCharacter,
+} from "@marinara-engine/shared";
 import { useUpdateAgent, type AgentConfigRow } from "../../../hooks/use-agents";
 import type { GameStatePatchField } from "../../../hooks/use-game-state-patcher";
 import type {
@@ -16,6 +22,7 @@ import type { StatIconLookup } from "../hooks/use-stat-icons";
 import { useTrackerMutations } from "../hooks/use-tracker-mutations";
 import { useTrackerRerun } from "../hooks/use-tracker-rerun";
 import type { PersonaPortraitSaveSnapshot } from "../hooks/use-persona-portrait-save";
+import { buildInventoryTrackerEditPatch } from "../lib/inventory-tracker-edit";
 import { TRACKER_SECTION_AGENT_TYPES, TRACKER_SECTION_RERUN_TITLES } from "../lib/tracker-panel.constants";
 import type { TrackerPanelSection, TrackerSpriteLookup } from "../tracker-panel.types";
 import { SectionIconButton } from "./controls/SectionControls";
@@ -41,6 +48,7 @@ export function TrackerSectionList({
   orderedTrackerSections,
   patchField,
   patchPlayerStats,
+  patchPlayerStatsMany,
   resolveSpriteCharacterId,
   spriteExpressions,
   trackerPanelCollapsedSections,
@@ -71,6 +79,11 @@ export function TrackerSectionList({
   orderedTrackerSections: TrackerPanelSection[];
   patchField: (field: GameStatePatchField, value: unknown) => void;
   patchPlayerStats: (field: keyof NonNullable<GameState["playerStats"]>, value: unknown) => void;
+  patchPlayerStatsMany: (
+    patch:
+      | Partial<NonNullable<GameState["playerStats"]>>
+      | ((current: NonNullable<GameState["playerStats"]>) => Partial<NonNullable<GameState["playerStats"]>>),
+  ) => void;
   resolveSpriteCharacterId: (character: PresentCharacter) => string | null;
   spriteExpressions: Record<string, string>;
   trackerPanelCollapsedSections: TrackerPanelCollapsedSections;
@@ -121,6 +134,9 @@ export function TrackerSectionList({
   const inventoryTrackerInventory = Array.isArray(playerStats?.inventoryTrackerInventory)
     ? playerStats.inventoryTrackerInventory
     : [];
+  // Editing one group can rewrite two, so this must land as a single patch.
+  const editInventoryTracker = (group: InventoryTrackerGroup, rows: InventoryTrackerRow[]) =>
+    patchPlayerStatsMany((current) => buildInventoryTrackerEditPatch(current, group, rows));
   const {
     addCharacter,
     addInventoryItem,
@@ -297,9 +313,9 @@ export function TrackerSectionList({
             equipped={inventoryTrackerEquipped}
             inventory={inventoryTrackerInventory}
             action={renderRerunAction("inventory")}
-            onUpdateCurrencies={(rows) => patchPlayerStats("inventoryTrackerCurrencies", rows)}
-            onUpdateEquipped={(rows) => patchPlayerStats("inventoryTrackerEquipped", rows)}
-            onUpdateInventory={(rows) => patchPlayerStats("inventoryTrackerInventory", rows)}
+            onUpdateCurrencies={(rows) => editInventoryTracker("currencies", rows)}
+            onUpdateEquipped={(rows) => editInventoryTracker("equipped", rows)}
+            onUpdateInventory={(rows) => editInventoryTracker("inventory", rows)}
             deleteMode={deleteMode}
             addMode={addMode}
             collapsed={isPanelCollapsed("inventory")}

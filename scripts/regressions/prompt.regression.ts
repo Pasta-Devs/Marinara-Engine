@@ -62,8 +62,13 @@ import {
   resolveCharacterScopedMacros,
   selectConditionalPayloadBranch,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
+  normalizeInventoryTrackerRows,
+  normalizeInventoryTrackerPlayerStats,
+  findInvalidInventoryTrackerRow,
 } from "../../packages/shared/src/index.js";
 import { replaceBuiltInAgentDefinitions as replaceBuiltInAgentDefinitionsDist } from "../../packages/shared/dist/index.js";
+import { buildInventoryTrackerEditPatch } from "../../packages/client/src/features/tracker-panel/lib/inventory-tracker-edit.js";
+
 import {
   formatNoodleTimelineForPrompt,
   NOODLE_PERSONA_IDENTITY_INSTRUCTION,
@@ -9848,6 +9853,150 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         JSON.stringify(hugeQuantityPatch.values.inventoryTrackerInventory).includes('"qty":null'),
         false,
         "a persisted quantity must never serialize to null",
+      );
+
+      // The normalizer moved to @marinara-engine/shared so hand edits get the same
+      // treatment as agent output. Pin the rules it must keep.
+      assert.deepEqual(
+        normalizeInventoryTrackerRows([
+          { name: "  Silver   coin " },
+          { name: "silver coin", qty: 5 },
+          { name: "" },
+          { name: "Rope", qty: -3 },
+          "not a row",
+        ]),
+        [{ name: "Silver coin", qty: 6 }, { name: "Rope" }],
+        "shared normalizer must trim, merge by name, drop junk, and floor quantities to 1",
+      );
+      assert.deepEqual(
+        normalizeInventoryTrackerRows([{ name: "New item" }, { name: "New item" }], { merge: false }),
+        [{ name: "New item" }, { name: "New item" }],
+        "opting out of merging must keep two same-named rows distinct so add-mode can create a second row",
+      );
+
+      // findInvalidInventoryTrackerRow is what lets the Agent Suite editor refuse bad
+      // input instead of silently normalizing a hand-written group down to [].
+      assert.equal(findInvalidInventoryTrackerRow([{ name: "Rope" }]), null, "well-formed rows must validate");
+      assert.match(
+        String(findInvalidInventoryTrackerRow([{ foo: 1 }])),
+        /row 0/u,
+        "a row without a name must be reported, not silently dropped",
+      );
+      assert.deepEqual(
+        normalizeInventoryTrackerRows([{ foo: 1 }]),
+        [],
+        "normalization stays lossy — which is exactly why the editor validates first",
+      );
+
+      // Exclusivity on a payload the agent never produced (a hand edit or direct API call).
+      const manualExclusivity = normalizeInventoryTrackerPlayerStats({
+        inventoryTrackerEquipped: [{ name: "Short axe" }],
+        inventoryTrackerInventory: [{ name: "short  axe" }, { name: "Waterskin" }],
+      }) as Record<string, unknown>;
+      assert.deepEqual(
+        manualExclusivity.inventoryTrackerInventory,
+        [{ name: "Waterskin" }],
+        "an equipped item must not also sit in carried inventory after a manual write",
+      );
+
+      // Absent must never read as empty — the failure mode #5117 fixed on the agent path.
+      const untouchedGroups = normalizeInventoryTrackerPlayerStats({
+        inventoryTrackerCurrencies: [{ name: "Silver coin", qty: 6 }],
+      }) as Record<string, unknown>;
+      assert.equal(
+        "inventoryTrackerEquipped" in untouchedGroups,
+        false,
+        "normalizing one group must not materialize the groups the caller never sent",
+      );
+
+      // The normalizer repairs the three tracker arrays but hands back anything that is
+      // not an object untouched, so the game-state route must reject a non-object
+      // `playerStats` itself rather than persist a value that breaks the type contract.
+      // `null` stays allowed because that is how a caller clears the stats.
+      {
+        const gameStateRouteSource = readFileSync(
+          new URL("../../packages/server/src/routes/chats.routes.ts", import.meta.url),
+          "utf8",
+        );
+        assert.match(
+          gameStateRouteSource,
+          /if \(body\.playerStats !== null && !isRecord\(body\.playerStats\)\)/u,
+          "the game-state route must reject a non-object, non-null playerStats payload",
+        );
+        assert.equal(
+          normalizeInventoryTrackerPlayerStats("nope"),
+          "nope",
+          "the normalizer deliberately passes non-objects through, which is why the route guards the shape",
+        );
+      }
+
+      // A key sent with a non-array value is a malformed write to repair, not an absent
+      // key. Treating the two alike threw on `.filter` and 500'd the game-state route.
+      const malformedField = normalizeInventoryTrackerPlayerStats({
+        inventoryTrackerEquipped: [{ name: "Rope" }],
+        inventoryTrackerInventory: {},
+      }) as Record<string, unknown>;
+      assert.deepEqual(
+        malformedField.inventoryTrackerInventory,
+        [],
+        "a malformed group must be repaired to an empty list rather than crash or persist as-is",
+      );
+      assert.deepEqual(
+        (normalizeInventoryTrackerPlayerStats({ inventoryTrackerCurrencies: "nope" }) as Record<string, unknown>)
+          .inventoryTrackerCurrencies,
+        [],
+        "a malformed group must be repaired even when it is the only inventory key present",
+      );
+      assert.equal(
+        normalizeInventoryTrackerPlayerStats({ status: "fine" } as Record<string, unknown>) &&
+          (normalizeInventoryTrackerPlayerStats({ status: "fine" }) as Record<string, unknown>).status,
+        "fine",
+        "player-stats fields outside the three inventory groups must pass through untouched",
+      );
+
+      // The panel and HUD share this builder; editing one group may rewrite two, and
+      // dropping the second field would silently leave the item in both lists.
+      const equipMove = buildInventoryTrackerEditPatch(
+        {
+          stats: [],
+          attributes: null,
+          skills: {},
+          inventory: [],
+          activeQuests: [],
+          status: "",
+          inventoryTrackerEquipped: [],
+          inventoryTrackerInventory: [{ name: "Short axe" }, { name: "Waterskin" }],
+        },
+        "equipped",
+        [{ name: "Short axe" }],
+      );
+      assert.deepEqual(
+        equipMove.inventoryTrackerEquipped,
+        [{ name: "Short axe" }],
+        "the edited group must be written",
+      );
+      assert.deepEqual(
+        equipMove.inventoryTrackerInventory,
+        [{ name: "Waterskin" }],
+        "equipping a carried item must also rewrite carried inventory in the same patch",
+      );
+      assert.equal(
+        "inventoryTrackerInventory" in
+          buildInventoryTrackerEditPatch(
+            {
+              stats: [],
+              attributes: null,
+              skills: {},
+              inventory: [],
+              activeQuests: [],
+              status: "",
+              inventoryTrackerInventory: [{ name: "Waterskin" }],
+            },
+            "currencies",
+            [{ name: "Silver coin", qty: 6 }],
+          ),
+        false,
+        "an edit that changes nothing else must not rewrite the other groups",
       );
 
       const nextCharacters: Array<Record<string, unknown>> = [

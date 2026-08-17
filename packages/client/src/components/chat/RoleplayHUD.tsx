@@ -40,6 +40,7 @@ import {
   type WorldWeatherFamily,
 } from "../../lib/world-state-helpers";
 import { TrackerLockProvider } from "../../features/tracker-panel/components/TrackerLockContext";
+import { buildInventoryTrackerEditPatch } from "../../features/tracker-panel/lib/inventory-tracker-edit";
 import { useTrackerFieldLockUpdater } from "../../features/tracker-panel/hooks/use-tracker-field-lock-updater";
 import { NEUTRAL_PANEL_SCROLL_AREA, NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
 import {
@@ -52,6 +53,7 @@ import type {
   PresentCharacter,
   CharacterStat,
   InventoryItem,
+  InventoryTrackerGroup,
   InventoryTrackerRow,
   QuestProgress,
   CustomTrackerField,
@@ -131,7 +133,7 @@ export function RoleplayHUD({
   const gameState = useGameStateStore((s) => s.current);
   const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
   const setGameState = useGameStateStore((s) => s.setGameState);
-  const { patchField, patchPlayerStats } = useGameStatePatcher(chatId, "roleplay-hud");
+  const { patchField, patchPlayerStats, patchPlayerStatsMany } = useGameStatePatcher(chatId, "roleplay-hud");
 
   const { data: agentConfigs } = useAgentConfigs();
   const enabledAgentTypes = enabledAgentTypesProp ?? EMPTY_AGENT_TYPE_SET;
@@ -237,6 +239,9 @@ export function RoleplayHUD({
   const inventoryTrackerCurrencies = playerStats?.inventoryTrackerCurrencies ?? [];
   const inventoryTrackerEquipped = playerStats?.inventoryTrackerEquipped ?? [];
   const inventoryTrackerInventory = playerStats?.inventoryTrackerInventory ?? [];
+  // Editing one group can rewrite two, so this must land as a single patch.
+  const editInventoryTracker = (group: InventoryTrackerGroup, rows: InventoryTrackerRow[]) =>
+    patchPlayerStatsMany((current) => buildInventoryTrackerEditPatch(current, group, rows));
   const fieldLocks = gameState ? normalizeTrackerFieldLocksForState(gameState.fieldLocks, gameState) : null;
   const hiddenTrackerFields = gameState ? normalizeTrackerHiddenFields(gameState.hiddenTrackerFields) : null;
   const updateFieldLocks = useTrackerFieldLockUpdater({ chatId, fieldLocks, patchField });
@@ -381,9 +386,9 @@ export function RoleplayHUD({
                 currencies={inventoryTrackerCurrencies}
                 equipped={inventoryTrackerEquipped}
                 inventory={inventoryTrackerInventory}
-                onUpdateCurrencies={(rows) => patchPlayerStats("inventoryTrackerCurrencies", rows)}
-                onUpdateEquipped={(rows) => patchPlayerStats("inventoryTrackerEquipped", rows)}
-                onUpdateInventory={(rows) => patchPlayerStats("inventoryTrackerInventory", rows)}
+                onUpdateCurrencies={(rows) => editInventoryTracker("currencies", rows)}
+                onUpdateEquipped={(rows) => editInventoryTracker("equipped", rows)}
+                onUpdateInventory={(rows) => editInventoryTracker("inventory", rows)}
                 onRerunSingleTracker={onRerunSingleTracker}
                 isTrackerRetryBusy={isTrackerBusy}
               />
@@ -484,9 +489,9 @@ export function RoleplayHUD({
                 currencies={inventoryTrackerCurrencies}
                 equipped={inventoryTrackerEquipped}
                 inventory={inventoryTrackerInventory}
-                onUpdateCurrencies={(rows) => patchPlayerStats("inventoryTrackerCurrencies", rows)}
-                onUpdateEquipped={(rows) => patchPlayerStats("inventoryTrackerEquipped", rows)}
-                onUpdateInventory={(rows) => patchPlayerStats("inventoryTrackerInventory", rows)}
+                onUpdateCurrencies={(rows) => editInventoryTracker("currencies", rows)}
+                onUpdateEquipped={(rows) => editInventoryTracker("equipped", rows)}
+                onUpdateInventory={(rows) => editInventoryTracker("inventory", rows)}
                 onRerunSingleTracker={onRerunSingleTracker}
                 isTrackerRetryBusy={isTrackerBusy}
               />
