@@ -4786,6 +4786,7 @@
   "ui.game.gamenarration.combatStartingPleaseWait": "Combat starting, please wait...",
   "ui.game.gamenarration.deleteSegment": "Delete segment",
   "ui.game.gamenarration.expandNarration": "Expand narration",
+  "ui.game.gamenarration.expandNarrationNeedsYourAttention": "Expand narration — needs your attention",
   "ui.game.gamenarration.generatingSprites": "Generating sprites…",
   "ui.game.gamenarration.generatingVoiceOver": "Generating voice-over",
   "ui.game.gamenarration.generationFailed": "Generation failed",

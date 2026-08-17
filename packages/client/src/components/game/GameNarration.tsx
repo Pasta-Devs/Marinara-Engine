@@ -3905,9 +3905,7 @@ export function GameNarration({
       title={localizeUi("ui.game.gamenarration.expandNarration")}
       aria-label={
         narrationNeedsAttention
-          ? `${localizeUi("ui.game.gamenarration.expandNarration")} — ${localizeUi(
-              "ui.game.gamenarration.narrationNeedsYourAttention",
-            )}`
+          ? localizeUi("ui.game.gamenarration.expandNarrationNeedsYourAttention")
           : localizeUi("ui.game.gamenarration.expandNarration")
       }
     >
