@@ -77,10 +77,24 @@ export function prepareAssistantReasoningPrefillMessages(messages: ChatMessage[]
       !!next.content.trim() ||
       !!next.images?.length ||
       !!next.files?.length ||
+      Object.keys(next.providerMetadata ?? {}).length > 0 ||
       !!next.tool_calls?.length ||
       !!next.tool_call_id;
     return hasPayload ? [next] : [];
   });
+}
+
+export function isFallbackConnectionUsable(
+  fallbackConnection: FallbackConnection | null | undefined,
+  primaryConnectionId: string,
+  fallbackBaseUrl: string,
+): fallbackConnection is FallbackConnection {
+  return (
+    !!fallbackConnection &&
+    fallbackConnection.id !== primaryConnectionId &&
+    !!fallbackConnection.model?.trim() &&
+    !!fallbackBaseUrl.trim()
+  );
 }
 
 function fallbackOptions(options: ChatOptions, connection: FallbackConnection): ChatOptions {
@@ -358,12 +372,7 @@ export function withConnectionFallbackProvider({
   fallbackSupportsAssistantReasoningPrefill = true,
 }: ConnectionFallbackProviderArgs): BaseLLMProvider {
   const { primaryMode, fallbackMode, settle } = splitConnectionAttemptAcrossFallback(admissionMode);
-  if (
-    !fallbackConnection ||
-    fallbackConnection.id === primaryConnectionId ||
-    !fallbackConnection.model?.trim() ||
-    !fallbackBaseUrl
-  ) {
+  if (!isFallbackConnectionUsable(fallbackConnection, primaryConnectionId, fallbackBaseUrl)) {
     // No fallback exists, so the primary is the whole logical attempt and owns its own outcome.
     return withConnectionAdmissionProvider(primary, primaryConnectionId, admissionMode);
   }

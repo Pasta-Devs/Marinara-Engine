@@ -342,6 +342,19 @@ try {
   assert.deepEqual(prepareAssistantReasoningPrefillMessages(reasoningOnlyMessages, false), [
     { role: "user", content: "Continue." },
   ]);
+  assert.deepEqual(
+    prepareAssistantReasoningPrefillMessages(
+      [
+        {
+          role: "assistant",
+          content: "",
+          providerMetadata: { partial: true, reasoning_content: "Reasoning only", trace_id: "keep-me" },
+        },
+      ],
+      false,
+    ),
+    [{ role: "assistant", content: "", providerMetadata: { trace_id: "keep-me" } }],
+  );
 
   customParametersRequestBody = null;
   await provider.chatComplete(buildPrefillMessages("Visible only", ""), { model: "kimi-k3", stream: false });

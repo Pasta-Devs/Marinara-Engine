@@ -22,6 +22,7 @@ import { mergeModelContextLimit, resolveStoredModelContextLimit } from "./model-
 import { normalizeChatTopP, supportsAssistantReasoningPrefill } from "./generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "./output-token-limits.js";
 import {
+  isFallbackConnectionUsable,
   withConnectionFallbackProvider,
   type FallbackConnection,
   type GenerationProviderOrigin,
@@ -223,11 +224,11 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
           args.connection.defaultParameters,
         );
   const primarySupportsAssistantReasoningPrefill = supportsAssistantReasoningPrefill(args.connection.provider);
-  const hasUsableFallback =
-    !!args.fallbackConnection &&
-    args.fallbackConnection.id !== args.connectionId &&
-    !!args.fallbackConnection.model?.trim() &&
-    !!args.fallbackBaseUrl?.trim();
+  const hasUsableFallback = isFallbackConnectionUsable(
+    args.fallbackConnection,
+    args.connectionId,
+    args.fallbackBaseUrl ?? "",
+  );
   const fallbackSupportsAssistantReasoningPrefill = Boolean(
     hasUsableFallback &&
       args.fallbackConnection &&
