@@ -791,7 +791,7 @@ function canonicalizePersonaForExport(persona: Record<string, unknown>): {
   if (!parsed.success) throw new Error("Persona export invariant failed after salvage");
 
   const { name, description, extra } = encodePersonaCreate(parsed.data);
-  const row = { ...persona, ...extra, name, description };
+  const row: Record<string, unknown> = { ...persona, ...extra, name, description };
   // Export the public boolean contract rather than the storage-only text flag
   // so compatible and native Persona payloads can be imported unchanged.
   row.versioningEnabled = parsed.data.versioningEnabled ?? true;
