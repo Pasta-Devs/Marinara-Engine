@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Backpack, X } from "lucide-react";
+import { Backpack, Lock, X } from "lucide-react";
 import {
   isTrackerFieldLocked,
   normalizeInventoryTrackerName,
@@ -35,14 +35,23 @@ function nextPlaceholderName(rows: InventoryTrackerRow[], base: string): string 
 }
 
 /**
- * Cancels the background and ring that InlineEdit/InlineNumber paint for their locked
- * and hover states. Those were designed for bare rows; inside a bordered chip they draw
- * a second surface within the first. The chip expresses both states instead.
+ * Cancels the fill and ring InlineEdit/InlineNumber paint when a field is locked.
  *
+ * Those were designed for bare rows on a panel. Inside a chip that already has its own
+ * border they draw a second surface within the first, so a pinned entry stopped looking
+ * like its neighbours. A padlock marks the lock instead, which leaves every chip the
+ * same colour and shape — the alternative, restyling the chip, means guessing at the
+ * tracker panel's scoped colour tokens, which do not resolve to the same values as the
+ * app-level ones.
+ *
+ * The hover fill is deliberately kept: it is transient, and it is the only cue that an
+ * individual field is clickable in lock mode. `rounded-full` makes it nest cleanly.
  * `cn` merges by Tailwind group and this is passed last, so it wins over the control's
  * own classes without touching the shared component.
  */
-const LOCK_SURFACE_RESET = "rounded-full bg-transparent ring-0 hover:bg-transparent";
+const LOCK_SURFACE_RESET = "rounded-full bg-transparent ring-0";
+
+const LOCK_GLYPH = <Lock size="0.5rem" className="shrink-0 opacity-70" aria-hidden="true" />;
 
 type InventoryGroupProps = {
   group: InventoryTrackerGroup;
@@ -119,16 +128,9 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
           return (
             <div
               key={`${row.name}-${index}`}
-              className={cn(
-                "flex min-h-6 min-w-0 max-w-full items-center gap-1 rounded-full border border-[var(--tracker-profile-slot-rule)] bg-[image:var(--tracker-profile-slot-surface)] px-1.5 shadow-[inset_0_1px_2px_var(--tracker-profile-slot-shadow)] [@media(pointer:coarse)]:min-h-7",
-                // A pinned entry brightens the whole pill rather than painting a panel
-                // behind its text. The inner controls own no background of their own
-                // (see LOCK_SURFACE_RESET), so the chip stays one shape instead of
-                // reading as a box nested inside a box.
-                (nameLocked || qtyLocked) &&
-                  "border-[color-mix(in_srgb,var(--foreground)_34%,transparent)] bg-[color-mix(in_srgb,var(--foreground)_9%,transparent)]",
-              )}
+              className="flex min-h-6 min-w-0 max-w-full items-center gap-1 rounded-full border border-[var(--tracker-profile-slot-rule)] bg-[image:var(--tracker-profile-slot-surface)] px-1.5 shadow-[inset_0_1px_2px_var(--tracker-profile-slot-shadow)] [@media(pointer:coarse)]:min-h-7"
             >
+              {nameLocked && LOCK_GLYPH}
               <InlineEdit
                 value={row.name}
                 onSave={(name) => updateRow(index, { ...row, name: name || localizeUi("ui.trackerPanel.inventoryTracker.item") })}
@@ -142,7 +144,8 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
                 onToggleLock={() => onToggleFieldLock?.(nameKey)}
               />
               {showQuantity && (
-                <span className="flex shrink-0 items-center text-[0.625rem] text-[var(--muted-foreground)]">
+                <span className="flex shrink-0 items-center gap-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                  {qtyLocked && LOCK_GLYPH}
                   <span aria-hidden="true">×</span>
                   <InlineNumber
                     value={quantity}
