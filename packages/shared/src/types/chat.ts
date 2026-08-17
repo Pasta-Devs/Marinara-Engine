@@ -412,6 +412,8 @@ export interface ChatMetadata {
   proseGuardianHoldForRewrite?: boolean;
   /** When true, tracker agents only run when the user manually triggers them (not after every generation) */
   manualTrackers?: boolean;
+  /** When true, Roleplay tracker agents receive lorebook entries activated for the main generation. */
+  attachLorebooksToTrackers?: boolean;
   /** Per-agent manual tracker mode overrides (agent type → manual). */
   manualTrackerAgentTypes?: Record<string, boolean>;
   /** Whether to recall memories from this chat during generation. Default: true for conversation/scenes, false for roleplay. */

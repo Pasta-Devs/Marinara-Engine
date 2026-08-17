@@ -998,7 +998,7 @@ function findHistoryBounds(messages: ChatMLMessage[]): { start: number; end: num
   return start >= 0 ? { start, end } : null;
 }
 
-function appendFallbackChatSummaryToSystemPrompt(
+export function appendFallbackChatSummaryToSystemPrompt(
   messages: ChatMLMessage[],
   chatSummary: string | null,
   wrapFormat: WrapFormat,

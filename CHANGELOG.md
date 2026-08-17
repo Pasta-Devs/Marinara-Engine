@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Roleplay chats with active Tracker agents now expose an opt-in **Attach Lorebooks to Trackers** setting, which forwards the exact lorebook entries activated for the main response to automatic and manually retriggered Tracker prompts while leaving Author Notes attached (#5197).
 - Professor Mari (and every other connection) now survives proxy rate limits (#5183): a rate-limit response — HTTP 429, 529, or 503 with `Retry-After` — now pauses and automatically resumes the same request, honoring `Retry-After` with capped exponential backoff, instead of aborting the task the way Mari's up-to-13 back-to-back tool-call rounds previously did on a proxy capped at, say, five messages per minute. A new optional per-connection **Max Requests Per Minute** cap (Settings → Connections; `0` = unlimited, round-trips through connection import/export) proactively paces bursty callers so the limit is not exceeded in the first place, and the pause is surfaced as a "paused, resuming in Ns" status instead of a silent wait. Professor Mari also no longer discards the workspace steps she already completed when a request ultimately fails, and local-sidecar connections get a larger JSON command-protocol repair budget that no longer consumes her command-round budget, so a small local model can fumble the tool-call format a few times without starving the actual task.
 - Added Beholder as an official downloadable, Roleplay-only physical-state Agent. It tracks clothing by body slot, held items, wounds, missing parts, bare slots, and species; validates and carries its full snapshot into the next turn; and exposes the latest state plus Agent setup in a native Chat Settings drawer (#5188, Pasta-Devs/Marinara-Agents#401).
 - Echo Chamber now exposes an editable message delay in its Agents editor, and extensions can update the same `messageDelaySeconds` agent setting instead of relying on hardcoded reveal timing (#5177).
@@ -41,6 +42,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Active Roleplay summaries now form a leading system block when no prompt preset is selected, matching the existing fallback used when a preset omits its Chat Summary marker (#5196).
 - Stale file-storage writer leases on macOS now survive VPN and virtual-interface changes: new leases use the stable platform identity instead of hashing the currently visible network adapters, and existing v1 leases from the same Mac are reclaimed after their PID exits instead of blocking startup (#5194).
 - Custom lorebook-writing agents now support a configurable Read Behind depth, keep each delayed run attached to the assistant reply it processed, and avoid duplicate work when the newest reply is swiped. Lorebook Keeper's mobile Backfill controls now stack inside their settings card instead of overflowing it (#5191).
 - The staging update-channel warning now follows the active theme accent color instead of always rendering in amber (#5184).

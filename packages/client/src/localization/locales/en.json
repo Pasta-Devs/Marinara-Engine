@@ -2792,6 +2792,8 @@
   "ui.chat.chatsettingsdrawer.arrange": "Arrange",
   "ui.chat.chatsettingsdrawer.arrangeModeLetsYouDragSpritesAnywhereInThe": "Arrange mode lets you drag sprites anywhere in the chat area. Reset clears saved positions. Changing the side flips the current layout.",
   "ui.chat.chatsettingsdrawer.askThePromptModelToRewriteGameNpcPortrait": "Ask the prompt model to rewrite Game NPC portrait, location background, and key-moment prompts before sending them to the image provider.",
+  "ui.chat.chatsettingsdrawer.attachLorebooksToTrackers": "Attach Lorebooks to Trackers",
+  "ui.chat.chatsettingsdrawer.attachLorebooksToTrackersDescription": "Include the lorebook entries activated for the main response in every Tracker agent prompt.",
   "ui.chat.chatsettingsdrawer.autoGenerateSceneIllustrationsNpcPortraitsAndLocationBackgrounds": "Auto-generate scene illustrations, NPC portraits, and location backgrounds during gameplay.",
   "ui.chat.chatsettingsdrawer.automaticallyCreateStillKeyframeIllustrationsAfterCompletedGmTurns": "Automatically create still keyframe illustrations after completed GM turns. Automatic runs cannot pause for prompt review; use Storyboard turn to review prompts first.",
   "ui.chat.chatsettingsdrawer.automaticallyRequestNpcPortraitsAndSceneIllustrationsLocationBackground": "Automatically request NPC portraits and scene illustrations. Location background generation is disabled while storyboard visuals are used as the background.",
