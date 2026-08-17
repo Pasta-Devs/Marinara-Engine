@@ -81,6 +81,12 @@ El valor sigue mostrándose en la casilla aunque el **Send toggle** (interruptor
 
 Úsalo solo para modelos que admiten un prefill o una etiqueta de apertura fija. Por ejemplo, podrías escribir una etiqueta de apertura como la que se muestra en el marcador de posición para forzar al modelo a empezar de cierta manera. Si no estás seguro de necesitarlo, déjalo en blanco.
 
+## Assistant Reasoning Prefill
+
+**Assistant Reasoning Prefill** (prellenado del razonamiento del asistente) es un texto oculto opcional que se añade justo al comienzo del razonamiento de la IA, antes de que escriba la respuesta visible. La mayoría de la gente lo deja vacío.
+
+Úsalo solo con modelos que admitan un prefill de razonamiento independiente, como Kimi K3. Puedes usarlo junto con **Assistant Prefill**: uno inicia el razonamiento oculto del modelo y el otro inicia su respuesta visible. Si no estás seguro de que tu modelo lo admita, déjalo en blanco.
+
 ## Thinking Tags
 
 **Thinking Tags** le dice a Marinara cómo marca un modelo su razonamiento oculto dentro del texto plano. Algunos modelos envuelven su razonamiento en etiquetas. Si Marinara conoce esas etiquetas, puede ocultar ese razonamiento tras la acción **View thoughts** (Ver pensamientos) en lugar de mostrarlo en la respuesta.

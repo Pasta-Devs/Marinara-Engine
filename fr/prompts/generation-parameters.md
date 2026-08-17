@@ -81,6 +81,12 @@ La valeur reste affichée dans le champ même quand le **Send toggle** est coup�
 
 Réserve-le aux modèles compatibles avec un préremplissage ou une balise d'ouverture imposée. Tu peux par exemple saisir une balise d'ouverture comme celle du texte indicatif, pour forcer le modèle à démarrer d'une certaine façon. Dans le doute, laisse le champ vide.
 
+## Assistant Reasoning Prefill
+
+**Assistant Reasoning Prefill** (préremplissage du raisonnement de l'assistant) est un texte caché facultatif ajouté tout au début du raisonnement de l'IA, avant qu'elle écrive sa réponse visible. La plupart des gens laissent ce champ vide.
+
+Réserve-le aux modèles compatibles avec un préremplissage de raisonnement distinct, comme Kimi K3. Tu peux l'utiliser avec **Assistant Prefill** : l'un démarre le raisonnement caché du modèle, l'autre sa réponse visible. Dans le doute sur la compatibilité de ton modèle, laisse le champ vide.
+
 ## Thinking Tags
 
 **Thinking Tags** (balises de réflexion) indiquent à Marinara comment un modèle délimite son raisonnement caché à l'intérieur du texte. Certains modèles encadrent leur raisonnement par des balises. Si Marinara connaît ces balises, il masque ce raisonnement derrière l'action **View thoughts** au lieu de l'afficher dans la réponse.

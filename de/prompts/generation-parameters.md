@@ -81,6 +81,12 @@ Der Wert bleibt im Feld sichtbar, auch wenn der **Send toggle** aus ist. Er geht
 
 Sinnvoll ist es nur bei Modellen, die ein Prefill oder ein festes Eröffnungs-Tag unterstützen. Du könntest dort etwa ein Eröffnungs-Tag wie im Platzhaltertext eintragen, um dem Modell einen bestimmten Einstieg aufzuzwingen. Im Zweifel lass das Feld leer.
 
+## Assistant Reasoning Prefill
+
+**Assistant Reasoning Prefill** (vorgegebener Anfang des Denkprozesses) ist optionaler verborgener Text, der ganz am Anfang des Denkprozesses der KI steht, bevor sie die sichtbare Antwort schreibt. Die meisten Leute lassen das Feld leer.
+
+Sinnvoll ist es nur bei Modellen, die ein separates Reasoning-Prefill unterstützen, etwa Kimi K3. Du kannst es zusammen mit **Assistant Prefill** verwenden: Das eine gibt den Anfang des verborgenen Reasonings vor, das andere den Anfang der sichtbaren Antwort. Wenn du nicht sicher bist, ob dein Modell das unterstützt, lass das Feld leer.
+
 ## Thinking Tags
 
 **Thinking Tags** (Denk-Tags) sagen Marinara, mit welchen Markierungen ein Modell sein verborgenes Reasoning im normalen Text kennzeichnet. Manche Modelle klammern ihr Reasoning in Tags ein. Kennt Marinara diese Tags, versteckt es das Reasoning hinter der Aktion **View thoughts**, statt es in der Antwort anzuzeigen.

@@ -81,6 +81,12 @@ Wartość widnieje w polu nawet wtedy, gdy przełącznik **Send toggle** jest wy
 
 Korzystaj z niego tylko przy modelach, które obsługują prefill albo ustalony znacznik otwierający. Można na przykład wpisać znacznik otwierający taki jak w tekście zastępczym pola, żeby wymusić na modelu określony początek odpowiedzi. W razie wątpliwości zostaw to pole puste.
 
+## Assistant Reasoning Prefill
+
+**Assistant Reasoning Prefill** (wstępne rozumowanie asystenta) to opcjonalny ukryty tekst dopisywany na samym początku rozumowania modelu, zanim powstanie widoczna odpowiedź. Większość osób zostawia to pole puste.
+
+Korzystaj z niego tylko przy modelach, które obsługują osobny prefill rozumowania, takich jak Kimi K3. Można używać go razem z **Assistant Prefill**: jedno rozpoczyna ukryte rozumowanie modelu, a drugie jego widoczną odpowiedź. Jeśli nie masz pewności, czy model to obsługuje, zostaw pole puste.
+
 ## Thinking Tags
 
 Pole **Thinking Tags** mówi aplikacji Marinara Engine, jak dany model oznacza ukryte rozumowanie w zwykłym tekście. Część modeli opakowuje rozumowanie w znaczniki. Jeśli Marinara zna te znaczniki, chowa rozumowanie pod akcją **View thoughts** zamiast pokazywać je w odpowiedzi.

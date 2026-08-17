@@ -81,6 +81,12 @@ O valor continua visível na caixa mesmo com o **botão de envio** desativado. E
 
 Use só com modelos que aceitam um prefill ou uma marcação de abertura fixa. Você pode digitar, por exemplo, uma marcação de abertura como a que aparece no texto de exemplo do campo, para forçar o modelo a começar de um jeito específico. Na dúvida, deixe em branco.
 
+## Assistant Reasoning Prefill
+
+**Assistant Reasoning Prefill** (preenchimento inicial do raciocínio do assistente) é um texto oculto opcional inserido bem no começo do raciocínio da IA, antes que ela escreva a resposta visível. A maioria das pessoas deixa esse campo vazio.
+
+Use só com modelos que aceitam um prefill de raciocínio separado, como o Kimi K3. Você pode usá-lo junto com **Assistant Prefill**: um inicia o raciocínio oculto do modelo, enquanto o outro inicia a resposta visível. Se não souber se o modelo aceita esse recurso, deixe em branco.
+
 ## Thinking Tags
 
 **Thinking Tags** informa a Marinara como um modelo marca o raciocínio oculto dentro do texto comum. Alguns modelos envolvem o raciocínio em marcações. Se Marinara conhece essas marcações, consegue esconder o raciocínio atrás da ação **View thoughts** em vez de mostrá-lo na resposta.
