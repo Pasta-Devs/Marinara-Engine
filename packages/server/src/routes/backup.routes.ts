@@ -3762,6 +3762,8 @@ export async function backupRoutes(app: FastifyInstance) {
                   comment: p.comment,
                   creator: p.creator,
                   personaVersion: p.personaVersion,
+                  versioningEnabled:
+                    p.versioningEnabled === false || p.versioningEnabled === "false" ? "false" : "true",
                   creatorNotes: p.creatorNotes,
                   phoneticName: typeof p.phoneticName === "string" ? p.phoneticName : "",
                   personality: p.personality,

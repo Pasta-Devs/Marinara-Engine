@@ -112,9 +112,10 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
           />
         )}
       </div>
-      {/* Below ~300px a wrapping row fits barely two chips and the ragged right edge
-          costs more than the wrapping saves, so narrow panels keep one row per item. */}
-      <div className="flex flex-col gap-1 @min-[300px]:flex-row @min-[300px]:flex-wrap">
+      {/* Chips wrap at every width. A narrow panel does get a ragged right edge, but the
+          stacked fallback stretched each chip to the full row, which read as a list of
+          buttons rather than as the item pills the wide layout shows. */}
+      <div className="flex flex-wrap gap-1">
         {rows.length === 0 && (
           <EmptySection className="w-full">{localizeUi("ui.trackerPanel.inventoryTracker.emptyGroup")}</EmptySection>
         )}

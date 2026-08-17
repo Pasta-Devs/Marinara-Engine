@@ -20,6 +20,7 @@ export function projectPersona(row: PersonaStorageRow): Persona {
     comment: stringValue(row.comment),
     creator: stringValue(row.creator),
     personaVersion: personaVersion || "1.0",
+    versioningEnabled: row.versioningEnabled !== "false",
     creatorNotes: stringValue(row.creatorNotes),
     phoneticName: stringValue(row.phoneticName) || undefined,
     description: stringValue(row.description),
@@ -77,6 +78,7 @@ export function encodePersonaUpdate(input: PersonaUpdateInput): EncodedPersonaUp
   for (const field of scalarFields) {
     if (Object.hasOwn(input, field)) encoded[field] = input[field]!;
   }
+  if (Object.hasOwn(input, "versioningEnabled")) encoded.versioningEnabled = String(input.versioningEnabled);
   if (Object.hasOwn(input, "avatarPath")) encoded.avatarPath = input.avatarPath;
   if (Object.hasOwn(input, "avatarCrop"))
     encoded.avatarCrop = input.avatarCrop === null ? "" : encodeStructured(input.avatarCrop);

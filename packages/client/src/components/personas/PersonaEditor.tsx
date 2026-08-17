@@ -211,6 +211,7 @@ interface PersonaFormData {
   phoneticName: string;
   creator: string;
   personaVersion: string;
+  versioningEnabled: boolean;
   creatorNotes: string;
   description: string;
   personality: string;
@@ -321,6 +322,7 @@ function personaFormFromPersona(persona: Persona): PersonaFormData {
     phoneticName: persona.phoneticName ?? "",
     creator: persona.creator ?? "",
     personaVersion: persona.personaVersion ?? "1.0",
+    versioningEnabled: persona.versioningEnabled !== false,
     creatorNotes: persona.creatorNotes ?? "",
     description: persona.description,
     personality: persona.personality ?? "",
@@ -1237,6 +1239,7 @@ function createCharacterDataFromPersona(formData: PersonaFormData): CharacterDat
       depth_prompt: { prompt: "", depth: 4, role: "system" },
       backstory: formData.backstory ?? "",
       appearance: formData.appearance ?? "",
+      versioningEnabled: formData.versioningEnabled,
       phoneticName: formData.phoneticName.trim() || undefined,
       nameColor: formData.nameColor || undefined,
       dialogueColor: formData.dialogueColor || undefined,
@@ -3663,17 +3666,52 @@ function PersonaMetadataTab({
             placeholder={localizeUi("ui.personas.personametadatatab.yourName")}
           />
         </label>
-        <label className="space-y-1.5">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.personas.personametadatatab.version")}{" "}
-            <HelpTooltip
-              text={localizeUi("ui.personas.personametadatatab.versionNumberForTrackingChangesToThisPersonaDefinition")}
-            />
-          </span>
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.personas.personametadatatab.version")}{" "}
+              <HelpTooltip
+                text={localizeUi(
+                  "ui.personas.personametadatatab.versionNumberForTrackingChangesToThisPersonaDefinition",
+                )}
+              />
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={formData.versioningEnabled}
+              onClick={() => {
+                updateField("versioningEnabled", !formData.versioningEnabled);
+                if (!formData.versioningEnabled && !formData.personaVersion.trim()) {
+                  updateField("personaVersion", "1.0");
+                }
+              }}
+              className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40"
+              title={localizeUi("ui.cardversionhistory.automaticVersioningDescription")}
+            >
+              <span
+                className={cn(
+                  "relative h-5 w-9 rounded-full border transition-colors",
+                  formData.versioningEnabled
+                    ? "border-[var(--primary)] bg-[var(--primary)]"
+                    : "border-[var(--border)] bg-[var(--secondary)]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--background)] shadow-sm transition-transform",
+                    formData.versioningEnabled && "translate-x-4",
+                  )}
+                />
+              </span>
+              {localizeUi("ui.cardversionhistory.automaticVersioning")}
+            </button>
+          </div>
           <input
             value={formData.personaVersion}
             onChange={(e) => updateField("personaVersion", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            disabled={!formData.versioningEnabled}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
             placeholder="1.0"
           />
           <PersonaVersionHistoryPanel
@@ -3682,7 +3720,7 @@ function PersonaMetadataTab({
             currentAvatarPath={avatarPreview}
             hasUnsavedChanges={hasUnsavedChanges}
           />
-        </label>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -3917,6 +3955,7 @@ function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnap
     name: formData.name,
     creator: formData.creator,
     personaVersion: formData.personaVersion,
+    versioningEnabled: String(formData.versioningEnabled),
     creatorNotes: formData.creatorNotes,
     description: formData.description,
     personality: formData.personality,

@@ -77,6 +77,11 @@ import {
   resolveConnectionImageQuality,
 } from "../../services/image/image-generation-defaults.js";
 import { injectMemoryRecallContext } from "../../services/generation/memory-recall-context.js";
+import {
+  appendTrackerLorebookBatchContextKey,
+  applyTrackerLorebookContextPolicy,
+  getTrackerAgentTypes,
+} from "../../services/generation/tracker-agent-context.js";
 import { resolveMemoryRecallEmbeddingSource } from "../../services/memory-recall-embedding.js";
 import {
   loadImageGenerationUserSettings,
@@ -2062,6 +2067,9 @@ async function executeRetryBatches(
   customLorebookReadBehindContexts: ReadonlyMap<string, AgentContext> = new Map(),
 ) {
   const retryAgents = mergeRetryPairedBuiltInRewriteAgents(resolvedAgents);
+  const effectiveChatMode: ChatMode = chatMode ?? (agentContext.chatMode as ChatMode);
+  const attachLorebooksToTrackers = effectiveChatMode === "roleplay" && chatMeta?.attachLorebooksToTrackers === true;
+  const trackerAgentTypes = getTrackerAgentTypes();
   const providerModelGroups = new Map<
     string,
     { agents: ResolvedRetryAgent[]; provider: any; model: string; context: AgentContext; maxParallelJobs: number }
@@ -2070,12 +2078,23 @@ async function executeRetryBatches(
   for (const entry of retryAgents) {
     const phaseContext =
       preGenerationContext && entry.resolved.phase === "pre_generation" ? preGenerationContext : agentContext;
-    const context = customLorebookReadBehindContexts.get(entry.resolved.id) ?? phaseContext;
-    const contextKind = customLorebookReadBehindContexts.has(entry.resolved.id)
+    const baseContext = customLorebookReadBehindContexts.get(entry.resolved.id) ?? phaseContext;
+    const isTracker = trackerAgentTypes.has(entry.resolved.type);
+    const context = applyTrackerLorebookContextPolicy({
+      context: baseContext,
+      chatMode: effectiveChatMode,
+      isTracker,
+      attachLorebooksToTrackers,
+    });
+    const baseContextKind = customLorebookReadBehindContexts.has(entry.resolved.id)
       ? `read-behind:${entry.resolved.batchContextKey ?? entry.resolved.id}`
-      : context === preGenerationContext
+      : baseContext === preGenerationContext
         ? "pre_generation"
         : "default";
+    const contextKind =
+      effectiveChatMode === "roleplay" && isTracker
+        ? appendTrackerLorebookBatchContextKey(baseContextKind, attachLorebooksToTrackers)
+        : baseContextKind;
     const key = `${retryProviderKey(entry.agentProvider)}::${entry.agentModel}::${contextKind}::${getAgentBatchLane(entry.resolved)}`;
     if (!providerModelGroups.has(key)) {
       providerModelGroups.set(key, {

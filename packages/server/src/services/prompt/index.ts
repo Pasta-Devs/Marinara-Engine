@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 export {
   assemblePrompt,
+  appendFallbackChatSummaryToSystemPrompt,
   resolveChoiceVariableValue,
   type AssemblerInput,
   type AssemblerOutput,

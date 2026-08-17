@@ -155,6 +155,7 @@ const roleplaySpeakerExtractorSchema = z.object({
   group: z.string().trim().max(500).default(""),
   user: z.string().trim().max(120).default("User"),
   characters: z.array(z.string().trim().min(1).max(120)).max(100).default([]),
+  messageAuthor: z.string().trim().max(120).default(""),
   debugMode: z.boolean().default(false),
 });
 
@@ -319,10 +320,14 @@ export function buildRoleplaySpeakerExtractorPrompt(input: {
   group: string;
   user: string;
   characters: string[];
+  messageAuthor?: string;
   includeEmotions: boolean;
 }): string {
   const participants = input.characters.length > 0 ? input.characters.join(", ") : "the roleplay characters";
   const roleplayName = input.group || participants;
+  const messageAuthorInstruction = input.messageAuthor
+    ? `This response was generated for ${input.messageAuthor}. Use that exact name for dialogue not explicitly attributed to a different speaker.`
+    : "";
   const emotionInstruction = input.includeEmotions
     ? 'In "speech", copy the exact dialogue and insert emotional indicators directly in [brackets] before the words they affect. You may use multiple bracketed emotional indicators within a dialogue line, including pauses, small sounds, sighs, and different intonations for different parts. Do not otherwise add, remove, reorder, or rewrite any dialogue.'
     : 'Do not add emotional indicators. Omit the "speech" field.';
@@ -330,6 +335,7 @@ export function buildRoleplaySpeakerExtractorPrompt(input: {
   return `You are preparing a message for text-to-speech reading from a roleplay chat between ${roleplayName} and ${input.user}, but it is possible there are other characters involved and mentioned in the message itself.
 
 Known chat characters: ${participants}
+${messageAuthorInstruction}
 
 Extract all dialogue lines. Copy every dialogue line exactly without changing any part of it, skip all narration beats, and assign who says it. ${emotionInstruction}
 
@@ -1287,6 +1293,7 @@ export async function ttsRoutes(app: FastifyInstance) {
       group: input.group,
       user: input.user || "User",
       characters: input.characters,
+      messageAuthor: input.messageAuthor,
       includeEmotions,
     });
     const userPrompt = buildRoleplaySpeakerExtractorUserPrompt(input.message);
@@ -1344,7 +1351,8 @@ export async function ttsRoutes(app: FastifyInstance) {
           signal: AbortSignal.timeout(getChatGenerationTimeoutMs()),
         },
       );
-      const raw = result.content?.trim();
+      const raw = result.content?.trim() ?? "";
+      logDebugOverride(input.debugMode, "[debug/tts/speaker-extractor] raw response:\n%s", raw);
       if (!raw) throw new Error("Speaker extractor returned an empty response");
       return parseRoleplaySpeakerExtractorOutput(raw, input.message, includeEmotions);
     } catch (error) {

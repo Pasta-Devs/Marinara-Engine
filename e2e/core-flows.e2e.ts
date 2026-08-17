@@ -2980,8 +2980,9 @@ test("Character and Persona avatar actions stay separated and visually balanced"
 
   try {
     await page.goto("/");
-    await verifyEditor("characters", characterName, characterCreator, characterVersion);
-    await verifyEditor("personas", personaName, personaCreator, personaVersion);
+    // Avatar replacements are card revisions while automatic versioning is enabled.
+    await verifyEditor("characters", characterName, characterCreator, "12.35");
+    await verifyEditor("personas", personaName, personaCreator, "56.79");
   } finally {
     await Promise.all([
       page.request.delete(`/api/characters/${character.id}`).catch(() => undefined),

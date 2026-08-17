@@ -83,6 +83,10 @@ assert.match(
 const wakeLockTrapIndex = termuxLauncherSource.search(/^[ \t]*trap release_termux_wake_lock EXIT[ \t]*$/mu);
 const wakeLockAcquireIndex = termuxLauncherSource.search(/^[ \t]*if[ \t]+termux-wake-lock\b[^\n]*;[ \t]*then[ \t]*$/mu);
 const serverStartIndex = termuxLauncherSource.lastIndexOf("node dist/index.js");
+const persistentLogIndex = termuxLauncherSource.indexOf(
+  'exec > >(tee -a "$MARINARA_TERMUX_LOG_FILE") 2>&1',
+);
+const dependencySetupIndex = termuxLauncherSource.indexOf("resolve_pnpm_runner || exit 1");
 assert.ok(
   wakeLockTrapIndex >= 0 && wakeLockAcquireIndex >= 0 && wakeLockTrapIndex < wakeLockAcquireIndex,
   "the Termux launcher must register wake-lock cleanup before acquiring the lock",
@@ -98,28 +102,32 @@ assert.doesNotMatch(
 );
 assert.match(
   termuxLauncherSource,
-  /node dist\/index\.js 2>&1 \| tee -a "\$MARINARA_TERMUX_LOG_FILE"/u,
-  "the Termux launcher must preserve server output in a durable per-run log",
+  /MARINARA_TERMUX_LOG_DIR="\$HOME\/\.marinara-engine\/logs"[\s\S]{0,1600}exec > >\(tee -a "\$MARINARA_TERMUX_LOG_FILE"\) 2>&1/u,
+  "the Termux launcher must preserve complete launcher and server output in a durable per-run log",
 );
 assert.match(
   termuxLauncherSource,
-  /MARINARA_PIPE_STATUS=\("\$\{PIPESTATUS\[@\]\}"\)[\s\S]{0,180}MARINARA_SERVER_STATUS=\$\{MARINARA_PIPE_STATUS\[0\]\}[\s\S]{0,120}MARINARA_TEE_STATUS=\$\{MARINARA_PIPE_STATUS\[1\]\}/u,
-  "the Termux launcher must capture both pipeline statuses before another command overwrites PIPESTATUS",
+  /if chmod 700 "\$MARINARA_TERMUX_LOG_DIR"[\s\S]{0,900}chmod 600 "\$MARINARA_TERMUX_LOG_FILE"[\s\S]{0,500}Could not restrict permissions/u,
+  "the Termux launcher must not persist logs unless their directory and file permissions are restricted",
+);
+assert.ok(
+  persistentLogIndex >= 0 && dependencySetupIndex >= 0 && persistentLogIndex < dependencySetupIndex,
+  "the Termux launcher must start persistent logging before dependency setup, updates, and builds",
 );
 assert.match(
   termuxLauncherSource,
-  /exit "\$MARINARA_SERVER_STATUS"/u,
+  /node dist\/index\.js\s+MARINARA_SERVER_STATUS=\$\?[\s\S]{0,900}exit "\$MARINARA_SERVER_STATUS"/u,
   "the Termux launcher must preserve the server process exit status",
 );
 assert.match(
   termuxLauncherSource,
-  /if \[ "\$MARINARA_TEE_STATUS" -ne 0 \]; then[\s\S]{0,180}Could not write the persistent server log/u,
-  "the Termux launcher must report a persistent-log write failure",
+  /MARINARA_TERMUX_LOG_TEE_PID=\$![\s\S]{0,30000}exec 1>&3 2>&4 3>&- 4>&-[\s\S]{0,200}wait "\$MARINARA_TERMUX_LOG_TEE_PID"[\s\S]{0,300}Persistent Termux logging failed with status \$MARINARA_TERMUX_LOG_TEE_STATUS/u,
+  "the Termux launcher must flush and report tee failures without replacing the server status",
 );
 assert.match(
   termuxLauncherSource,
-  /if \[ "\$MARINARA_TEE_STATUS" -ne 0 \]; then[\s\S]{0,120}exit "\$MARINARA_TEE_STATUS"/u,
-  "the Termux launcher must propagate a nonzero tee exit status",
+  /if \[ "\$MARINARA_SERVER_STATUS" -ne 0 \]; then[\s\S]{0,160}server exited with status \$MARINARA_SERVER_STATUS/u,
+  "the Termux launcher must record a nonzero server exit status",
 );
 const installerSource = readFileSync(join(repositoryRoot, "win/installer/install.bat"), "utf8");
 assert.ok(
