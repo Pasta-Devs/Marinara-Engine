@@ -67,14 +67,14 @@ function personaVersionedContentChanged(current: PersonaCardSnapshot, next: Pers
 }
 
 export function bumpCardVersion(version: string): string {
-  const parts = version
-    .trim()
+  const trimmedVersion = version.trim();
+  const parts = trimmedVersion
     .match(/^\d+(?:\.\d+){1,2}$/u)?.[0]
     .split(".")
     .map(Number);
-  if (!parts || parts.some((part) => !Number.isSafeInteger(part))) return "1.0";
+  if (!parts || parts.some((part) => !Number.isSafeInteger(part))) return trimmedVersion;
   const last = parts.length - 1;
-  if (parts[last] === Number.MAX_SAFE_INTEGER) return "1.0";
+  if (parts[last] === Number.MAX_SAFE_INTEGER) return trimmedVersion;
   parts[last]! += 1;
   return parts.join(".");
 }

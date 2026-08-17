@@ -271,6 +271,8 @@ function mergeSlotDelta(
         .map(normalizeWound)
         .filter((wound) => wound !== null);
       if (wounds.length > 0) {
+        // Wound arrays are authoritative for a changed slot: the protocol has
+        // no stable wound identity, so a non-empty delta replaces the list.
         next.wounds = wounds;
         used = true;
       }

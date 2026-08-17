@@ -244,7 +244,10 @@ import { explicitlyRequestsTextRewrite } from "../../packages/server/src/service
 import { ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
 import { createAgentsStorage } from "../../packages/server/src/services/storage/agents.storage.js";
 import { createCustomToolsStorage } from "../../packages/server/src/services/storage/custom-tools.storage.js";
-import { createCharactersStorage } from "../../packages/server/src/services/storage/characters.storage.js";
+import {
+  bumpCardVersion,
+  createCharactersStorage,
+} from "../../packages/server/src/services/storage/characters.storage.js";
 import { characterOverrideDb } from "../../packages/server/src/services/professor-mari/workspace-edit-render.js";
 import { createLorebooksStorage } from "../../packages/server/src/services/storage/lorebooks.storage.js";
 import { createNoodleStorage } from "../../packages/server/src/services/storage/noodle.storage.js";
@@ -1909,7 +1912,7 @@ try {
   // versioning preserves the visible number without retaining new snapshots;
   // and reset returns to a clean 1.0 state.
   const versionControlCharacter = await characterStorage.create(
-    characterDataSchema.parse({ name: "Version control character", character_version: "1.0" }),
+    characterDataSchema.parse({ name: "Version control character" }),
   );
   assert.ok(versionControlCharacter);
   const createdVersionControlCharacterData = JSON.parse(versionControlCharacter.data) as {
@@ -1918,6 +1921,8 @@ try {
   };
   assert.equal(createdVersionControlCharacterData.character_version, "1.0");
   assert.equal(createdVersionControlCharacterData.extensions.versioningEnabled, true);
+  assert.equal(bumpCardVersion("2.4.3"), "2.4.4");
+  assert.equal(bumpCardVersion(" 1.0-rc1 "), "1.0-rc1");
   const editedVersionControlCharacter = await characterStorage.update(versionControlCharacter.id, {
     description: "First automatic version bump",
   });

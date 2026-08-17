@@ -10518,6 +10518,15 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(result.success, true);
       assert.deepEqual(result.data, previousState);
 
+      const suppressed = makeCapturingProvider(`{"changed":false}`);
+      await executeAgent(
+        { ...config, suppressModelParameters: true } as any,
+        context,
+        suppressed.provider as any,
+        "regression-model",
+      );
+      assert.equal(suppressed.callOptions[0]?.temperature, undefined);
+
       const firstRun = makeCapturingProvider(`{"changed":false}`);
       const firstRunResult = await executeAgent(
         config as any,

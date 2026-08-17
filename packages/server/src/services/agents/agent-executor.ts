@@ -541,8 +541,8 @@ function normalizeAgentTemperature(value: unknown, fallback = DEFAULT_AGENT_TEMP
 }
 
 function resolveAgentTemperature(config: AgentExecConfig): number | undefined {
-  if (config.type === "beholder") return 0;
   if (config.suppressModelParameters || config.enabledParameters?.temperature === false) return undefined;
+  if (config.type === "beholder") return 0;
   return normalizeAgentTemperature(config.temperature);
 }
 
