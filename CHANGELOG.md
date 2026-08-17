@@ -37,6 +37,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Gallery routes now serve valid raster images with the format detected from their bytes, so generated Noodle images stored with a mismatched `.png` extension render instead of returning 404 (Pasta-Devs/Marinara-Agents#392).
 - Opening the immutable Universal Preset no longer creates duplicate presets; its editor now offers an explicit **Create editable copy** action instead (#5142).
 - Gallery files now use the image format detected from their decoded bytes, preventing JPEG output advertised as PNG from being stored under a broken `.png` name (#5147).
 - Support Diagnostics now reports the Engine host OS separately from the browser OS, including correct iPadOS detection for desktop-class iPad user agents (#5157).
