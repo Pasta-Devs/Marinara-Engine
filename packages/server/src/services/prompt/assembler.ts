@@ -325,6 +325,15 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   // Build lookup maps
   const sectionMap = new Map(input.sections.map((s) => [s.id, s]));
   const groupMap = new Map(input.groups.map((g) => [g.id, g]));
+  const hasDialogueExamplesMarker = sectionOrder.some((sectionId) => {
+    const section = sectionMap.get(sectionId);
+    if (section?.isMarker !== "true" || !section.markerConfig) return false;
+    try {
+      return (JSON.parse(section.markerConfig) as MarkerConfig).type === "dialogue_examples";
+    } catch {
+      return false;
+    }
+  });
 
   // Inject choice variable values into variableValues
   // chatChoices is { variableName: value | value[] } — resolve and merge into variables so {{varName}} resolves
@@ -532,6 +541,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     resolveLorebookContent: (value) => resolveMacrosWithVariableSnapshot(value, macroCtx, deferNameMacroOptions),
     onLorebookScan: addActivatedLorebookCardReferences,
     groupScenarioOverrideText: input.groupScenarioOverrideText ?? null,
+    includeExampleDialogueInCharacterMarker: !hasDialogueExamplesMarker,
     macroCtx,
   };
 
