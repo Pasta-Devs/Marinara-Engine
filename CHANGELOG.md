@@ -45,6 +45,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Termux session logging now starts before update checks, dependency repair, and builds, so launcher-stage crashes create the same timestamped diagnostic log as server-stage crashes and nonzero server exits record their status (#5208).
 - Active Roleplay summaries now form a leading system block when no prompt preset is selected, matching the existing fallback used when a preset omits its Chat Summary marker (#5196).
 - Stale file-storage writer leases on macOS now survive VPN and virtual-interface changes: new leases use the stable platform identity instead of hashing the currently visible network adapters, and existing v1 leases from the same Mac are reclaimed after their PID exits instead of blocking startup (#5194).
 - Custom lorebook-writing agents now support a configurable Read Behind depth, keep each delayed run attached to the assistant reply it processed, and avoid duplicate work when the newest reply is swiped. Lorebook Keeper's mobile Backfill controls now stack inside their settings card instead of overflowing it (#5191).
