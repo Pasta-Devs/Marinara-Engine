@@ -9861,7 +9861,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       const manualExclusivity = normalizeInventoryTrackerPlayerStats({
         inventoryTrackerEquipped: [{ name: "Short axe" }],
         inventoryTrackerInventory: [{ name: "short  axe" }, { name: "Waterskin" }],
-      });
+      }) as Record<string, unknown>;
       assert.deepEqual(
         manualExclusivity.inventoryTrackerInventory,
         [{ name: "Waterskin" }],
