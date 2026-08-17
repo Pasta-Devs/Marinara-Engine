@@ -3782,20 +3782,29 @@ export function GameNarration({
   );
   const showInterruptControls = !reviewingPast && !narrationComplete && !partyTurnPending && !!onInterruptRequest;
   const showNav = reviewingPast || (!narrationComplete && !isStreaming && !interruptPending);
-  // The handle's attention dot. Each clause mirrors the render condition of the banner it
-  // stands for (scene-analysis retry, GM-generation retry, combat-generation failure) so the
-  // indicator can never claim something is waiting when the expanded box would show nothing.
+  // The handle's attention dot — what the collapsed box is holding that the player
+  // may want. The three failure clauses each mirror the render condition of the banner
+  // they stand for, so the dot can never claim something is waiting when the expanded
+  // box would show nothing. `showNav` is the softer fourth case: not an error, just
+  // narration still to read. It is load-bearing rather than decorative — collapsing is
+  // allowed over the advance controls, so this is the only thing telling the player the
+  // turn is not finished.
   const narrationNeedsAttention =
     (!!sceneAnalysisFailed && !active) ||
     (!!generationFailed && !isStreaming && !scenePreparing && !sceneAnalysisFailed && !!onRetryGeneration) ||
-    !!combatGenerationFailed;
-  // SOFT-LOCK GUARD — do not remove `showNav` from this condition.
-  // `navControls` is the only reliable way to advance segments, and advancing segments is the
-  // only way to reach `narrationComplete`, which is what makes the player input appear at all.
-  // Collapsing while the Next button is live therefore hides the Next button AND the input,
-  // stranding the player mid-turn with no way back except re-expanding by memory. Attention
-  // state is deliberately NOT in here: it only lights the handle, it does not force the box open.
-  const effectiveCollapsed = collapsePreferred && !narrationInputVisible && !showNav;
+    !!combatGenerationFailed ||
+    showNav;
+  // The box NEVER collapses over the player's input — that is the one thing that
+  // would leave them with no way to take their turn, and it is why the input has
+  // two render sites checked above rather than one.
+  //
+  // It MAY collapse over the segment-advance controls, because the handle is always
+  // on screen and raises its indicator while there is more to read (`showNav` feeds
+  // `narrationNeedsAttention`), so nothing is ever lost — one click brings it back.
+  // An earlier revision force-expanded on `showNav` too, which was strictly safer but
+  // made the feature inert: the advance controls are live for most of a turn, so both
+  // the toggle and an experience's request silently did nothing.
+  const effectiveCollapsed = collapsePreferred && !narrationInputVisible;
   const navControls =
     !showInterruptControls && !showNav ? null : (
       <div className="flex h-8 items-stretch gap-1">
