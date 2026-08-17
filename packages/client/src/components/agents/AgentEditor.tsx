@@ -70,6 +70,12 @@ import {
   parseOptionalCadenceInputValue,
   stepCadenceValue,
 } from "../../lib/agent-cadence";
+import {
+  DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,
+  MAX_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,
+  MIN_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,
+  normalizeEchoChamberMessageDelaySeconds,
+} from "../../lib/echo-chamber-queue";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -694,6 +700,9 @@ export function AgentEditor() {
   const [localContextSize, setLocalContextSize] = useState<number | "">("");
   const [localMaxTokens, setLocalMaxTokens] = useState<number | "">("");
   const [localRunInterval, setLocalRunInterval] = useState<number | "">("");
+  const [localEchoMessageDelaySeconds, setLocalEchoMessageDelaySeconds] = useState(
+    DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,
+  );
   const [localActivationKeywordsText, setLocalActivationKeywordsText] = useState("");
   const [localActivationScanDepth, setLocalActivationScanDepth] = useState<number | "">(
     DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
@@ -790,6 +799,7 @@ export function AgentEditor() {
       setLocalRunInterval(
         (settings.runInterval as number | undefined) ?? (defaultSettings.runInterval as number) ?? "",
       );
+      setLocalEchoMessageDelaySeconds(normalizeEchoChamberMessageDelaySeconds(settings.messageDelaySeconds));
       setLocalActivationKeywordsText(
         Array.isArray(settings.activationKeywords)
           ? settings.activationKeywords.filter((keyword: unknown) => typeof keyword === "string").join("\n")
@@ -896,6 +906,7 @@ export function AgentEditor() {
       setLocalContextSize("");
       setLocalMaxTokens((defaultSettings.maxTokens as number) ?? "");
       setLocalRunInterval((defaultSettings.runInterval as number) ?? "");
+      setLocalEchoMessageDelaySeconds(DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
       setLocalActivationKeywordsText("");
       setLocalActivationScanDepth(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH);
       setLocalInjectAsSection(defaultSettings.injectAsSection === true);
@@ -953,6 +964,7 @@ export function AgentEditor() {
       setLocalContextSize("");
       setLocalMaxTokens(DEFAULT_AGENT_MAX_TOKENS);
       setLocalRunInterval(customRunIntervalMeta?.defaultValue ?? "");
+      setLocalEchoMessageDelaySeconds(DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
       setLocalActivationKeywordsText("");
       setLocalActivationScanDepth(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH);
       setLocalInjectAsSection(false);
@@ -1028,6 +1040,7 @@ export function AgentEditor() {
 
   // Narrative Director agent — one-shot story push setting
   const isDirectorAgent = agentDetailId === "director" || dbConfig?.type === "director";
+  const isEchoChamberAgent = agentDetailId === "echo-chamber" || dbConfig?.type === "echo-chamber";
 
   // Illustrator agent — run interval setting
   const isIllustratorAgent = agentDetailId === "illustrator" || dbConfig?.type === "illustrator";
@@ -1255,6 +1268,7 @@ export function AgentEditor() {
         ...(!isDirectorAgent && !isStoryboardAgent && localRunInterval !== ""
           ? { runInterval: Number(localRunInterval) }
           : {}),
+        ...(isEchoChamberAgent ? { messageDelaySeconds: localEchoMessageDelaySeconds } : {}),
         ...(localInjectAsSection ? { injectAsSection: true } : {}),
         ...(isMusicAgent
           ? {
@@ -1356,6 +1370,7 @@ export function AgentEditor() {
     localContextSize,
     localMaxTokens,
     localRunInterval,
+    localEchoMessageDelaySeconds,
     localActivationKeywordsText,
     localActivationScanDepth,
     localInjectAsSection,
@@ -1393,6 +1408,7 @@ export function AgentEditor() {
     isContinuityAgent,
     isHtmlAgent,
     isDirectorAgent,
+    isEchoChamberAgent,
     isMusicAgent,
     isKnowledgeRetrievalAgent,
     isKnowledgeRouterAgent,
@@ -1451,6 +1467,7 @@ export function AgentEditor() {
       ...(!isDirectorAgent && !isStoryboardAgent && localRunInterval !== ""
         ? { runInterval: Number(localRunInterval) }
         : {}),
+      ...(isEchoChamberAgent ? { messageDelaySeconds: localEchoMessageDelaySeconds } : {}),
       ...(localInjectAsSection ? { injectAsSection: true } : {}),
       ...(exportingMusicAgent
         ? {
@@ -2603,6 +2620,34 @@ export function AgentEditor() {
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.agents.agenteditor.leaveKeywordsEmptyToRunThisCustomAgentOn")}
+              </p>
+            </FieldGroup>
+          )}
+
+          {isEchoChamberAgent && (
+            <FieldGroup
+              label={localizeUi("ui.agents.agenteditor.messageDelay")}
+              icon={<Clock size="0.875rem" className="text-[var(--primary)]" />}
+              help={localizeUi("ui.agents.agenteditor.howLongEchoChamberWaitsBetweenMessages")}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={MIN_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS}
+                  max={MAX_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS}
+                  value={localEchoMessageDelaySeconds}
+                  onChange={(event) => {
+                    setLocalEchoMessageDelaySeconds(normalizeEchoChamberMessageDelaySeconds(event.target.value));
+                    markDirty();
+                  }}
+                  className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                />
+                <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.agents.agenteditor.seconds")}
+                </span>
+              </div>
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.agents.agenteditor.echoChamberMessagesAppearOneAtATime")}
               </p>
             </FieldGroup>
           )}

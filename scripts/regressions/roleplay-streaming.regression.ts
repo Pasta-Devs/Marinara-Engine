@@ -24,10 +24,10 @@ import { getAgentBatchLane, type ResolvedAgent } from "../../packages/server/src
 import { mergePairedBuiltInRewriteAgents } from "../../packages/server/src/services/generation/prose-guardian-settings.js";
 import { estimateAgentLoadCost } from "../../packages/shared/src/utils/agent-cost.js";
 import {
-  ECHO_CHAMBER_MESSAGE_INTERVAL_MAX_MS,
-  ECHO_CHAMBER_MESSAGE_INTERVAL_MIN_MS,
+  DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,
   enqueueEchoChamberMessages,
   getEchoChamberMessageInterval,
+  normalizeEchoChamberMessageDelaySeconds,
   resolveEchoChamberPersistedBaseline,
 } from "../../packages/client/src/lib/echo-chamber-queue.js";
 import { useAgentStore } from "../../packages/client/src/stores/agent.store.js";
@@ -187,8 +187,14 @@ assert.equal(
   reconciledMessages.find((message) => message.id === "durable-matching")?.content,
   "Literal durable server content",
 );
-assert.equal(reconciledMessages.some((message) => message.id === "__optimistic_matching"), false);
-assert.equal(reconciledMessages.some((message) => message.id === "__optimistic_unmatched"), true);
+assert.equal(
+  reconciledMessages.some((message) => message.id === "__optimistic_matching"),
+  false,
+);
+assert.equal(
+  reconciledMessages.some((message) => message.id === "__optimistic_unmatched"),
+  true,
+);
 
 const duplicateIncoming: Parameters<typeof reconcilePersistedMessages>[1] = [
   {
@@ -1483,10 +1489,10 @@ const queuedEchoBatch = enqueueEchoChamberMessages(
 assert.equal(queuedEchoBatch.messages.length, 4);
 assert.equal(queuedEchoBatch.visibleCount, 1, "a fresh Echo result must remain behind the reveal cursor");
 assert.equal(queuedEchoBatch.baseline, 1);
-assert.equal(getEchoChamberMessageInterval(0), ECHO_CHAMBER_MESSAGE_INTERVAL_MIN_MS);
-assert.equal(getEchoChamberMessageInterval(0.5), 20_000);
-assert.ok(getEchoChamberMessageInterval(0.999999) < ECHO_CHAMBER_MESSAGE_INTERVAL_MAX_MS);
-assert.equal(getEchoChamberMessageInterval(1), ECHO_CHAMBER_MESSAGE_INTERVAL_MAX_MS);
+assert.equal(getEchoChamberMessageInterval(12), 12_000);
+assert.equal(normalizeEchoChamberMessageDelaySeconds(undefined), DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
+assert.equal(normalizeEchoChamberMessageDelaySeconds(0), 1);
+assert.equal(normalizeEchoChamberMessageDelaySeconds(999), 300);
 
 const staleEchoCursor = enqueueEchoChamberMessages(
   { messages: [], visibleCount: 99, baseline: 99 },
