@@ -62,11 +62,7 @@ function between(sourceText: string, startMarker: string, endMarker: string, lab
 
 function assertDecoded(scope: string, label: string) {
   for (const field of structuredFields) {
-    assert.doesNotMatch(
-      scope,
-      new RegExp(`JSON\\.stringify\\(\\s*${field}\\b|${field}:\\s*JSON\\.stringify\\(`, "u"),
-      label,
-    );
+    assert.doesNotMatch(scope, new RegExp(`JSON\\.stringify\\(\\s*${field}\\b|${field}:\\s*JSON\\.stringify\\(`, "u"), label);
   }
   assert.doesNotMatch(scope, /serializeTrackerCardColorConfig\(/u, label);
 }
@@ -97,9 +93,7 @@ async function assertAuthoritativePersonaCacheOrdering() {
   const oldActive = deferred<Persona | null>();
   const pendingReads = [
     qc.fetchQuery({ queryKey: personaCacheKeys.list, queryFn: () => oldList.promise }).catch(() => undefined),
-    qc
-      .fetchQuery({ queryKey: personaCacheKeys.detail(stale.id), queryFn: () => oldDetail.promise })
-      .catch(() => undefined),
+    qc.fetchQuery({ queryKey: personaCacheKeys.detail(stale.id), queryFn: () => oldDetail.promise }).catch(() => undefined),
     qc.fetchQuery({ queryKey: personaCacheKeys.active(), queryFn: () => oldActive.promise }).catch(() => undefined),
   ];
   const cancellationGate = deferred<void>();
@@ -124,12 +118,7 @@ async function assertAuthoritativePersonaCacheOrdering() {
   const concurrentC = persona("c", "concurrent C", false);
   const concurrentD = persona("d", "concurrent D", false);
   await Promise.all([syncCachedPersona(qc, concurrentC), syncCachedPersona(qc, concurrentD)]);
-  assert.deepEqual((qc.getQueryData(personaCacheKeys.list) as Persona[]).map((row) => row.id).sort(), [
-    "a",
-    "b",
-    "c",
-    "d",
-  ]);
+  assert.deepEqual((qc.getQueryData(personaCacheKeys.list) as Persona[]).map((row) => row.id).sort(), ["a", "b", "c", "d"]);
   qc.clear();
 }
 
@@ -218,27 +207,17 @@ function assertMutationTypesCompile() {
     projectReferences: parsed.projectReferences,
   });
   const diagnostics = [...parsed.errors, ...ts.getPreEmitDiagnostics(program)];
-  assert.equal(
-    diagnostics.length,
-    0,
-    ts.formatDiagnosticsWithColorAndContext(diagnostics, {
-      getCanonicalFileName: (name) => name,
-      getCurrentDirectory: () => repoRoot,
-      getNewLine: () => "\n",
-    }),
-  );
+  assert.equal(diagnostics.length, 0, ts.formatDiagnosticsWithColorAndContext(diagnostics, {
+    getCanonicalFileName: (name) => name,
+    getCurrentDirectory: () => repoRoot,
+    getNewLine: () => "\n",
+  }));
 }
 
 // Formatter: nested field paths, malformed issue fallback, ordinary errors.
 const issue = (issues: unknown) => new ApiError(400, "Invalid request", { issues });
-assert.equal(
-  formatFirstApiValidationIssue(issue([{ path: ["personaStats", "hp"], message: "Too high" }]), "fallback"),
-  "personaStats.hp: Too high",
-);
-assert.equal(
-  formatFirstApiValidationIssue(issue([null, { path: ["name"], message: "  Required  " }]), "fallback"),
-  "name: Required",
-);
+assert.equal(formatFirstApiValidationIssue(issue([{ path: ["personaStats", "hp"], message: "Too high" }]), "fallback"), "personaStats.hp: Too high");
+assert.equal(formatFirstApiValidationIssue(issue([null, { path: ["name"], message: "  Required  " }]), "fallback"), "name: Required");
 assert.equal(formatFirstApiValidationIssue(new Error("Network unavailable"), "fallback"), "Network unavailable");
 
 // Every changed first-party create/PATCH scope keeps structured values decoded.
@@ -251,41 +230,22 @@ const trackerSettings = source("components/panels/settings/TrackerCardColorSetti
 const portraitSave = source("features/tracker-panel/hooks/use-persona-portrait-save.ts");
 const hooks = source("hooks/use-characters.ts");
 const saveScope = balanced(editor, "const handleSave = useCallback(", "Persona save", "=> {");
-const conversion = between(
-  characterEditor,
-  "const rpgStats = formData.extensions.rpgStats",
-  "})) as { id?: string };",
-  "character conversion",
-);
+const conversion = between(characterEditor, "const rpgStats = formData.extensions.rpgStats", "})) as { id?: string };", "character conversion");
 assert.match(conversion, /tags: formData\.tags \?\? \[\]/u);
 assert.match(conversion, /trackerCardColors: parseTrackerCardColorConfig\(/u);
 assert.match(conversion, /personaStats,/u);
 assert.match(panel, /updatePersona\.mutateAsync\(\{ id: p\.id, tags: newTags \}\)/u);
-const importScope = between(
-  importer,
-  'await api.post<{ id: string; name: string }>("/characters/personas", {',
-  "});",
-  "JSON import",
-);
+const importScope = between(importer, 'await api.post<{ id: string; name: string }>("/characters/personas", {', "});", "JSON import");
 assertDecoded(importScope, "JSON import serializes a structured field");
 assert.match(importScope, /\.\.\.json,/u);
-const botScope = between(
-  botBrowser,
-  "creatorNotes: optionalString(cardData.creator_notes)",
-  "}),",
-  "Bot Browser import",
-);
+const botScope = between(botBrowser, "creatorNotes: optionalString(cardData.creator_notes)", "}),", "Bot Browser import");
 assertDecoded(botScope, "Bot Browser import serializes a structured field");
 assert.match(botScope, /tags: personaTags,/u);
 
 // Structural sentries where the browser/runtime owner is not importable here.
 const genericHook = balanced(hooks, "export function useUpdatePersona()", "generic update");
 const trackerHook = balanced(hooks, "export function useUpdatePersonaTrackerCard()", "tracker update");
-assert.equal(
-  hooks.match(/await syncCachedPersona\(qc, /gu)?.length,
-  5,
-  "every retained authoritative write must await cache ordering",
-);
+assert.equal(hooks.match(/await syncCachedPersona\(qc, /gu)?.length, 5, "every retained authoritative write must await cache ordering");
 assert.match(genericHook, /api\.patch<Persona>\(\s*`\/characters\/personas\/\$\{id\}`/u);
 assert.match(genericHook, /syncCachedPersona\(qc, updatedPersona\)/u);
 assert.match(genericHook, /invalidatePersonaVersions/u);
@@ -319,39 +279,22 @@ assert.equal(personaEditorValuesEqual(sameReference, sameReference), true);
 assert.equal(sameReferenceSerializationCount, 0, "identical values avoid stable serialization");
 assert.equal(personaEditorValuesEqual(Number.NaN, Number.NaN), true, "NaN preserves stable-key fallback equality");
 assert.equal(personaEditorValuesEqual(undefined, undefined), true, "undefined preserves stable-key fallback equality");
-assert.equal(
-  personaEditorValuesEqual(
-    () => undefined,
-    () => undefined,
-  ),
-  true,
-  "functions preserve stable-key fallback equality",
-);
+assert.equal(personaEditorValuesEqual(() => undefined, () => undefined), true, "functions preserve stable-key fallback equality");
 assert.equal(
   personaEditorValuesEqual({ beta: 2, alpha: 1 }, { alpha: 1, beta: 2 }),
   true,
   "distinct objects retain stable-key comparison",
 );
-assert.deepEqual(
-  personaEditorFieldsDifferingFromBaseline({ ...baseline, structured: { beta: 2, alpha: 1 } }, baseline),
-  [],
-);
+assert.deepEqual(personaEditorFieldsDifferingFromBaseline({ ...baseline, structured: { beta: 2, alpha: 1 } }, baseline), []);
 const changed = { ...baseline, name: "B" };
 const keys = personaEditorFieldsDifferingFromBaseline(changed, baseline);
 assert.deepEqual(keys, ["name"]);
 assert.deepEqual(pickPersonaEditorFields(changed, keys), { name: "B" });
-assert.deepEqual(
-  personaEditorFieldsDifferingFromBaseline({ ...changed, name: "A" }, baseline),
-  [],
-  "reverted fields omit from PATCH",
-);
+assert.deepEqual(personaEditorFieldsDifferingFromBaseline({ ...changed, name: "A" }, baseline), [], "reverted fields omit from PATCH");
 const authoritative = { ...baseline, name: "Canonical B", comment: "server comment" };
 const submitted = new Map<keyof Form, number>([["name", 1]]);
 const adoptedDraft = reconcileVersionedPersonaEditorSave({
-  draft: { ...baseline, name: "  b  " },
-  baseline,
-  authoritative,
-  submittedVersions: submitted,
+  draft: { ...baseline, name: "  b  " }, baseline, authoritative, submittedVersions: submitted,
   currentVersions: new Map<keyof Form, number>([["name", 1]]),
 });
 assert.equal(adoptedDraft.name, "Canonical B");
@@ -359,9 +302,7 @@ assert.equal(adoptedDraft.comment, "server comment", "untouched fields adopt aut
 assert.deepEqual(personaEditorFieldsDifferingFromBaseline(adoptedDraft, authoritative), []);
 const secondAuthority = { ...authoritative, name: "Canonical second" };
 const laterEditDraft = reconcileVersionedPersonaEditorSave({
-  draft: { ...adoptedDraft, name: "C" },
-  baseline: authoritative,
-  authoritative: secondAuthority,
+  draft: { ...adoptedDraft, name: "C" }, baseline: authoritative, authoritative: secondAuthority,
   submittedVersions: new Map<keyof Form, number>([["name", 2]]),
   currentVersions: new Map<keyof Form, number>([["name", 3]]),
 });
@@ -369,54 +310,34 @@ assert.equal(laterEditDraft.name, "C", "newer edit after canonical adoption surv
 assert.deepEqual(personaEditorFieldsDifferingFromBaseline(laterEditDraft, secondAuthority), ["name"]);
 const revertAuthority = { ...baseline, name: "B" };
 const laterRevertDraft = reconcileVersionedPersonaEditorSave({
-  draft: baseline,
-  baseline,
-  authoritative: revertAuthority,
-  submittedVersions: submitted,
+  draft: baseline, baseline, authoritative: revertAuthority, submittedVersions: submitted,
   currentVersions: new Map<keyof Form, number>([["name", 2]]),
 });
 assert.equal(laterRevertDraft.name, "A");
 assert.equal(revertAuthority.name, "B");
-const hydrated = mergeAuthoritativePersonaEditorDraft({ ...baseline, name: "local" }, baseline, {
-  ...baseline,
-  name: "external",
-  comment: "external",
-});
+const hydrated = mergeAuthoritativePersonaEditorDraft(
+  { ...baseline, name: "local" }, baseline, { ...baseline, name: "external", comment: "external" },
+);
 assert.equal(hydrated.name, "local");
 assert.equal(hydrated.comment, "external", "authoritative untouched fields merge into the draft");
 
 // The immediate mutex and Delete paths remain source-level browser-proof gaps.
 const mutationScope = balanced(editor, "const beginMutation = useCallback(", "immediate mutex", "=> {");
 const finishMutationScope = balanced(editor, "const finishMutation = useCallback(", "mutex release", "=> {");
-const hydrationScope = between(
-  editor,
-  "// Hydrate the form from the shared decoded persona.",
-  "// Forced teardown",
-  "Persona hydration",
-);
+const hydrationScope = between(editor, "// Hydrate the form from the shared decoded persona.", "// Forced teardown", "Persona hydration");
 const teardownScope = between(editor, "// Forced teardown", "const updateField = useCallback(", "Persona teardown");
 assert.match(editor, /const mutationKindRef = useRef<PersonaMutationKind \| null>\(null\);/u);
 assert.match(mutationScope, /if \(mutationTokenRef\.current\) return null;/u);
-assert.match(
-  mutationScope,
-  /mutationTokenRef\.current = token;\s*mutationKindRef\.current = kind;\s*setMutationKind\(kind\);/u,
-);
+assert.match(mutationScope, /mutationTokenRef\.current = token;\s*mutationKindRef\.current = kind;\s*setMutationKind\(kind\);/u);
 assert.match(finishMutationScope, /if \(mutationTokenRef\.current !== token\) return;/u);
-assert.match(
-  finishMutationScope,
-  /mutationTokenRef\.current = null;\s*mutationKindRef\.current = null;\s*setMutationKind\(null\);/u,
-);
-assert.match(
-  hydrationScope,
-  /mutationTokenRef\.current = null;\s*mutationKindRef\.current = null;\s*setMutationKind\(null\);/u,
-);
+assert.match(finishMutationScope, /mutationTokenRef\.current = null;\s*mutationKindRef\.current = null;\s*setMutationKind\(null\);/u);
+assert.match(hydrationScope, /mutationTokenRef\.current = null;\s*mutationKindRef\.current = null;\s*setMutationKind\(null\);/u);
 assert.match(
   hydrationScope,
   /const avatarOperationActive = mutationKindRef\.current === "avatar" \|\| mutationKindRef\.current === "gallery-avatar";/u,
 );
 assert.match(teardownScope, /mutationTokenRef\.current = null;\s*mutationKindRef\.current = null;/u);
-for (const kind of ["save", "avatar", "gallery-avatar", "delete"])
-  assert.ok(editor.includes(`beginMutation("${kind}")`));
+for (const kind of ["save", "avatar", "gallery-avatar", "delete"]) assert.ok(editor.includes(`beginMutation("${kind}")`));
 const deleteScope = balanced(editor, "const handleDelete = async () =>", "Delete");
 const deleteSuccessScope = between(deleteScope, "try {", "} finally {", "Delete success");
 const deleteFailureScope = between(deleteScope, "} catch (error) {", "} finally {", "Delete failure");
@@ -454,7 +375,7 @@ assert.match(
 assert.match(deleteFailureScope, /console\.error\("\[PersonaEditor\] Delete failed:", error\);/u);
 assert.match(
   deleteFailureScope,
-  /toast\.error\(\s*formatFirstApiValidationIssue\(error, localizeUi\("ui\.personas\.personaeditor\.failedToDeletePersona"\)\),?\s*\);/u,
+  /toast\.error\(\s*formatFirstApiValidationIssue\(error, localizeUi\("ui\.personas\.personaeditor\.failedToDeletePersona"\)\),\s*\);/u,
 );
 assert.doesNotMatch(deleteFailureScope, /closeDetail\(\)/u);
 
@@ -467,9 +388,6 @@ assert.match(closeScope, /const baseline = baselineFormRef\.current;/u);
 assert.match(closeScope, /personaFieldsDifferingFromBaseline\(draft, baseline\)\.length > 0/u);
 const discardScope = balanced(editor, "const discardAndNavigate = useCallback(", "Discard & Close", "=> {");
 assert.match(discardScope, /if \(mutationTokenRef\.current\) return;/u);
-assert.doesNotMatch(
-  between(saveScope, "} catch (error) {", "} finally {", "save failure"),
-  /adoptAuthoritativePersona|commitBaseline|reconcileVersionedPersonaEditorSave/u,
-);
+assert.doesNotMatch(between(saveScope, "} catch (error) {", "} finally {", "save failure"), /adoptAuthoritativePersona|commitBaseline|reconcileVersionedPersonaEditorSave/u);
 
 process.stdout.write("Persona client contract regression passed.\n");

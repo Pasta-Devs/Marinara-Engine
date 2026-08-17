@@ -792,9 +792,6 @@ function canonicalizePersonaForExport(persona: Record<string, unknown>): {
 
   const { name, description, extra } = encodePersonaCreate(parsed.data);
   const row = { ...persona, ...extra, name, description };
-  // Export the public boolean contract rather than the storage-only text flag
-  // so compatible and native Persona payloads can be imported unchanged.
-  row.versioningEnabled = parsed.data.versioningEnabled ?? true;
   // Never restore raw rejected top-level paint over the repaired export copy.
   for (const field of topLevelPaintFields) if (!Object.hasOwn(parsed.data, field)) delete row[field];
   return { row, usesFallbackName };
