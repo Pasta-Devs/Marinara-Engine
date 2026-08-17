@@ -2341,7 +2341,16 @@ export async function chatsRoutes(app: FastifyInstance) {
     // apply path is the only writer that enforces row shape, quantity bounds, and
     // the equipped/carried split — an older client, a direct API call, or the
     // Agent Suite editor could persist rows the agent itself could never produce.
-    if (body.playerStats !== undefined) fields.playerStats = normalizeInventoryTrackerPlayerStats(body.playerStats);
+    //
+    // The normalizer only repairs the three tracker arrays and hands anything that is
+    // not an object straight back, so the shape of `playerStats` itself is checked here.
+    // `null` stays allowed: that is how a caller clears the stats.
+    if (body.playerStats !== undefined) {
+      if (body.playerStats !== null && !isRecord(body.playerStats)) {
+        return reply.status(400).send({ error: "playerStats must be an object or null" });
+      }
+      fields.playerStats = normalizeInventoryTrackerPlayerStats(body.playerStats);
+    }
     if (body.personaStats !== undefined) fields.personaStats = body.personaStats as any[];
     if (body.fieldLocks !== undefined) fields.fieldLocks = normalizeTrackerFieldLocks(body.fieldLocks);
     if (body.hiddenTrackerFields !== undefined)

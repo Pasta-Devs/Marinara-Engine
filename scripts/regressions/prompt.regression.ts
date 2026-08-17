@@ -9878,6 +9878,27 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         "normalizing one group must not materialize the groups the caller never sent",
       );
 
+      // The normalizer repairs the three tracker arrays but hands back anything that is
+      // not an object untouched, so the game-state route must reject a non-object
+      // `playerStats` itself rather than persist a value that breaks the type contract.
+      // `null` stays allowed because that is how a caller clears the stats.
+      {
+        const gameStateRouteSource = readFileSync(
+          new URL("../../packages/server/src/routes/chats.routes.ts", import.meta.url),
+          "utf8",
+        );
+        assert.match(
+          gameStateRouteSource,
+          /if \(body\.playerStats !== null && !isRecord\(body\.playerStats\)\)/u,
+          "the game-state route must reject a non-object, non-null playerStats payload",
+        );
+        assert.equal(
+          normalizeInventoryTrackerPlayerStats("nope"),
+          "nope",
+          "the normalizer deliberately passes non-objects through, which is why the route guards the shape",
+        );
+      }
+
       // A key sent with a non-array value is a malformed write to repair, not an absent
       // key. Treating the two alike threw on `.filter` and 500'd the game-state route.
       const malformedField = normalizeInventoryTrackerPlayerStats({
