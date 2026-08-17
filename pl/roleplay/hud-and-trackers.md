@@ -20,10 +20,17 @@ Trackery mają sześć widgetów. Każdy z nich pojawia się dopiero po włącze
 | **Persona Stats**      | Persona Stats     | Paski statusu persony (postaci, w którą się wcielasz) i linię statusu            |
 | **Present Characters** | Character Tracker | Kto jest w scenie, wraz z nastrojem, wyglądem i własnymi polami danej postaci    |
 | **Inventory**          | Persona Stats     | Przedmioty w ekwipunku wraz z liczbą sztuk                                       |
+| **Inventory Tracker**  | Inventory Tracker | Osobne listy walut, założonego wyposażenia i noszonych przedmiotów               |
 | **Active Quests**      | Quest Tracker     | Bieżący cel                                                                      |
 | **Custom Tracker**     | Custom Tracker    | Własne nazwane pola, na przykład liczniki albo walutę                            |
 
 Uwaga: widget **Inventory** zasila ten sam agent **Persona Stats**, który obsługuje widget **Persona Stats**. Włącz agenta **Persona Stats**, żeby mieć oba.
+
+Osobny **Inventory Tracker** działa niezależnie od ekwipunku z Persona Stats. Trzyma zwięzłe wpisy złożone z nazwy i liczby sztuk w trzech grupach – **Currencies**, **Equipped** i **Inventory** – i pilnuje, żeby założone wyposażenie nie pojawiało się dodatkowo wśród noszonych przedmiotów.
+
+Każdy wpis to mała pigułka. Pigułki układają się wzdłuż szerokości panelu i zawijają do kolejnego wiersza, więc długa lista przedmiotów pozostaje czytelna, zamiast rozciągać się w wysoką kolumnę. Liczba sztuk pojawia się tylko wtedy, gdy przekracza jeden, w postaci `×4` po nazwie; pojedynczy przedmiot pokazuje samą nazwę. W wąskim panelu pigułki układają się po jednej w wierszu.
+
+Aby zmienić liczbę sztuk, która wynosi teraz jeden, włącz tryb dodawania albo tryb blokady – oba pokazują pole liczby przy każdym wpisie.
 
 Widget **Present Characters** pokazuje maksymalnie trzy emoji postaci, a resztę zlicza jako "+N". Widgety **Inventory** i **Custom Tracker** przewijają swoje wpisy pojedynczo.
 
@@ -37,6 +44,7 @@ Oto, co da się zmienić w poszczególnych panelach podręcznych:
 - **Persona Stats**: linia **Status** oraz nazwane paski statystyk z wartością bieżącą i maksymalną. Paski da się dodawać i usuwać.
 - **Present Characters**: dodawanie i usuwanie postaci oraz zmiana emoji, imienia, pól **Mood**, **Look**, **Outfit**, **Thinks** (prywatne myśli) i wartości własnych pól każdej z nich. Do każdej postaci można wgrać awatar. Przycisk **Auto** przełącza między "Auto-generate avatars: ON" a "Auto-generate avatars: OFF".
 - **Inventory**: dodawanie i usuwanie przedmiotów oraz zmiana nazwy i liczby sztuk.
+- **Inventory Tracker**: dodawanie i usuwanie wpisów w grupach **Currencies**, **Equipped** i **Inventory** oraz zmiana nazwy lub liczby sztuk. Przeniesienie przedmiotu między grupami nie jest jeszcze jedną czynnością – usuń go z jednej grupy i dodaj do drugiej.
 - **Active Quests**: dodawanie i usuwanie zadań. Każde zadanie ma nazwane cele z polami wyboru oznaczającymi ukończenie.
 - **Custom Tracker**: dodawanie, usuwanie i zmiana pól z nazwą oraz wartością.
 

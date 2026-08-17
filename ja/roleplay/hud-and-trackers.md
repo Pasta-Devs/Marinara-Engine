@@ -20,10 +20,17 @@ HUD(heads-up display)は、チャット画面の上部に並ぶ小さなアイ�
 | **Persona Stats**      | Persona Stats     | ペルソナのステータスバーと、状態を示す1行                                        |
 | **Present Characters** | Character Tracker | シーンにいるキャラクターと、その気分、外見、キャラクターごとの独自項目           |
 | **Inventory**          | Persona Stats     | 持ち物と、その個数                                                               |
+| **Inventory Tracker**  | Inventory Tracker | 通貨、装備中の装具、持ち歩いている品物を分けた一覧                               |
 | **Active Quests**      | Quest Tracker     | 現在の目標                                                                       |
 | **Custom Tracker**     | Custom Tracker    | カウンターや通貨など、自分で名前を付けた項目                                     |
 
 **Inventory**ウィジェットを動かしているのは、**Persona Stats**ウィジェットと同じ**Persona Stats**エージェントです。**Persona Stats**をオンにすれば、両方がそろいます。
+
+専用の**Inventory Tracker**は、Persona Statsの持ち物とは別のものです。名前と個数だけの簡潔な項目を**Currencies**、**Equipped**、**Inventory**の3つのグループで管理し、装備中の装具が持ち物の側にも重ねて並ぶことを防ぎます。
+
+項目はそれぞれ小さなピル型で表示されます。ピルはパネルの幅に沿って並び、収まらない分は次の行に折り返すので、持ち物が増えても縦に長く伸びず読みやすいままです。個数は2以上のときだけ名前のうしろに`×4`の形で表示され、1つだけの品物は名前のみになります。パネルが狭いときは、ピルが1行に1つずつ縦に並びます。
+
+現在1になっている個数を変えたいときは、追加モードかロックモードをオンにしてください。どちらでも、すべての項目に個数の入力欄が表示されます。
 
 **Present Characters**ウィジェットには、キャラクターの絵文字が最大3つ並び、残りは「+N」という数で表示します。**Inventory**と**Custom Tracker**のウィジェットは、エントリーを1つずつ順番に切り替えて表示します。
 
@@ -37,6 +44,7 @@ HUD(heads-up display)は、チャット画面の上部に並ぶ小さなアイ�
 - **Persona Stats**: **Status**の行と、現在値と最大値を持つ名前付きのステータスバー。バーは追加も削除もできます。
 - **Present Characters**: キャラクターの追加と削除、および各キャラクターの絵文字、名前、**Mood**、**Look**、**Outfit**、**Thinks**(心の中の思考)、独自項目の値の編集。キャラクターごとにアバターをアップロードできます。**Auto**ボタンを押すと「Auto-generate avatars: ON」と「Auto-generate avatars: OFF」が切り替わります。
 - **Inventory**: アイテムの追加と削除、および各アイテムの名前と個数の編集。
+- **Inventory Tracker**: **Currencies**、**Equipped**、**Inventory**の各グループで項目を追加・削除し、それぞれの名前や個数を編集できます。品物をグループ間で移す操作はまだ1回では行えないため、一方のグループから削除して、もう一方に追加してください。
 - **Active Quests**: クエストの追加と削除。クエストごとに、完了のチェックボックスが付いた名前付きの目標を持ちます。
 - **Custom Tracker**: 名前と値の項目の追加、削除、編集。
 

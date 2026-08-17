@@ -20,10 +20,17 @@ HUD(抬头显示) 是聊天区顶部的一排图标小组件。每个小组件�
 | **Persona Stats**      | Persona Stats     | 用户角色的状态条和一行状态文字                                                   |
 | **Present Characters** | Character Tracker | 场景里在场的角色，附带心情、外貌和角色专属的自定义字段                           |
 | **Inventory**          | Persona Stats     | 身上携带的物品及数量                                                             |
+| **Inventory Tracker**  | Inventory Tracker | 货币、已装备的装具和随身携带物品的独立清单                                        |
 | **Active Quests**      | Quest Tracker     | 当前的目标                                                                       |
 | **Custom Tracker**     | Custom Tracker    | 自己命名的字段，比如计数器或货币                                                 |
 
 注意 **Inventory**(物品栏) 小组件和 **Persona Stats** 小组件靠的是同一个 **Persona Stats** 智能体。开启 **Persona Stats** 就能同时得到这两个。
+
+独立的 **Inventory Tracker** 与 Persona Stats 的物品栏互不相干。它把名称加数量的精简条目分成 **Currencies**、**Equipped**、**Inventory** 三组，并且不让已装备的装具同时出现在随身携带的物品里。
+
+每个条目都是一颗小胶囊。胶囊沿着面板宽度排开，放不下就换到下一行，所以携带的东西再多，列表也保持好读，不会拉成很高的一列。数量只有大于 1 时才显示，写成名称后面的 `×4`；只有一件的物品就只显示名称。面板较窄时，胶囊会一行一个往下排。
+
+要改动当前为 1 的数量，请打开添加模式或锁定模式，这两种模式都会在每个条目上露出数量控件。
 
 **Present Characters** 小组件最多显示 3 个角色 emoji，多出来的用一个“+N”的计数表示。**Inventory** 和 **Custom Tracker** 小组件会把各自的条目逐条轮播。
 
@@ -37,6 +44,7 @@ HUD(抬头显示) 是聊天区顶部的一排图标小组件。每个小组件�
 - **Persona Stats**：一行 **Status**，再加上若干带名字的状态条，每条有当前值和最大值。状态条可以增删。
 - **Present Characters**：增删角色，并修改每个角色的 emoji、名字、**Mood**、**Look**、**Outfit**、**Thinks**(内心想法) 和自定义字段的值。每个角色都可以单独上传头像。**Auto** 按钮用来在“Auto-generate avatars: ON”和“Auto-generate avatars: OFF”之间切换。
 - **Inventory**：增删物品，并修改每件物品的名称和数量。
+- **Inventory Tracker**：在 **Currencies**、**Equipped**、**Inventory** 下增删条目，并修改每条的名称或数量。把物品从一组挪到另一组还不能一步完成，需要先从一组删掉，再添加到另一组。
 - **Active Quests**：增删任务。每个任务下面是带完成复选框的具体目标。
 - **Custom Tracker**：增删字段，或修改字段的名称和值。
 

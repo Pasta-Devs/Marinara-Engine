@@ -20,10 +20,17 @@ São seis widgets de tracker. Cada um precisa do agente correspondente ativado p
 | **Persona Stats**      | Persona Stats     | As barras de status da sua persona e uma linha de status                         |
 | **Present Characters** | Character Tracker | Quem está na cena, com humor, aparência e campos próprios de cada personagem     |
 | **Inventory**          | Persona Stats     | Os itens que você carrega, com as quantidades                                    |
+| **Inventory Tracker**  | Inventory Tracker | Listas separadas para moedas, equipamento em uso e itens carregados              |
 | **Active Quests**      | Quest Tracker     | O seu objetivo atual                                                             |
 | **Custom Tracker**     | Custom Tracker    | Campos com nomes definidos por você, como contadores ou moeda                    |
 
 Repare que o widget **Inventory** é alimentado pelo mesmo agente **Persona Stats** que abastece o widget **Persona Stats**. Ative **Persona Stats** para ter os dois.
+
+O **Inventory Tracker** dedicado é separado do inventário do Persona Stats. Ele mantém entradas enxutas de nome e quantidade em três grupos, **Currencies**, **Equipped** e **Inventory**, e impede que o equipamento em uso apareça também entre os itens carregados.
+
+Cada entrada é uma pequena pílula. As pílulas seguem pela largura do painel e quebram para a linha seguinte, então uma lista longa de itens continua legível em vez de esticar numa coluna alta. A quantidade só aparece quando é maior que um, escrita como `×4` depois do nome; um item sozinho mostra apenas o nome. Num painel estreito, as pílulas ficam uma por linha.
+
+Para mudar uma quantidade que agora é um, ative o modo de adição ou o modo de bloqueio: os dois revelam o controle de quantidade em todas as entradas.
 
 O widget **Present Characters** mostra até três emojis de personagem, mais uma contagem "+N" para os demais. Os widgets **Inventory** e **Custom Tracker** alternam entre as entradas, uma de cada vez.
 
@@ -37,6 +44,7 @@ Veja o que cada popover permite editar:
 - **Persona Stats**: uma linha **Status**, mais barras de atributo com nome, valor atual e valor máximo. Adicione ou remova barras.
 - **Present Characters**: adicione ou remova personagens e edite o emoji, o nome, **Mood** (humor), **Look** (aparência), **Outfit** (roupa), **Thinks** (pensamentos particulares) e os valores dos campos personalizados de cada um. Faça upload de um avatar por personagem. O botão **Auto** alterna entre "Auto-generate avatars: ON" e "Auto-generate avatars: OFF".
 - **Inventory**: adicione ou remova itens e edite o nome e a quantidade de cada um.
+- **Inventory Tracker**: adicione ou remova entradas em **Currencies**, **Equipped** e **Inventory**, e edite o nome ou a quantidade de cada uma. Mover um item de um grupo para outro ainda não é uma ação única: remova de um grupo e adicione no outro.
 - **Active Quests**: adicione ou remova missões. Cada missão tem objetivos com nome e caixas de seleção para marcar o que foi concluído.
 - **Custom Tracker**: adicione, remova ou edite os campos de nome e valor.
 

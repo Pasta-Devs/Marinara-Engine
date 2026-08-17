@@ -20,10 +20,17 @@ HUD(heads-up display)는 채팅 영역 위쪽에 놓인 작은 아이콘 위젯�
 | **Persona Stats**(페르소나 스탯)      | Persona Stats     | 페르소나의 상태 막대와 상태 문구                                                 |
 | **Present Characters**(등장 캐릭터) | Character Tracker | 장면에 있는 캐릭터와 그 기분, 겉모습, 캐릭터별 사용자 지정 필드                  |
 | **Inventory**          | Persona Stats     | 지니고 있는 물품과 수량                                                          |
+| **Inventory Tracker**  | Inventory Tracker | 화폐, 착용 중인 장비, 지니고 다니는 물품을 나눈 목록                              |
 | **Active Quests**(진행 중인 퀘스트)      | Quest Tracker     | 현재 목표                                                                        |
 | **Custom Tracker**(커스텀 트래커)     | Custom Tracker    | 카운터나 화폐처럼 직접 이름을 붙인 필드                                          |
 
 **Inventory**(인벤토리) 위젯은 **Persona Stats** 위젯과 같은 **Persona Stats** 에이전트가 움직인다는 점에 유의하세요. **Persona Stats**를 켜면 두 위젯이 함께 나옵니다.
+
+별도의 **Inventory Tracker**는 Persona Stats의 소지품과 다릅니다. 이름과 수량만 담은 간결한 항목을 **Currencies**, **Equipped**, **Inventory** 세 그룹으로 관리하고, 착용 중인 장비가 지니고 다니는 물품에도 겹쳐 나오지 않게 합니다.
+
+항목은 저마다 작은 알약 모양으로 표시됩니다. 알약은 패널 너비를 따라 늘어서다가 다음 줄로 넘어가므로, 물품이 많아져도 세로로 길게 늘어지지 않고 읽기 좋은 상태를 유지합니다. 수량은 2 이상일 때만 이름 뒤에 `×4` 형태로 붙고, 하나뿐인 물품은 이름만 나옵니다. 패널이 좁으면 알약이 한 줄에 하나씩 쌓입니다.
+
+지금 1인 수량을 바꾸려면 추가 모드나 잠금 모드를 켜세요. 둘 다 모든 항목에 수량 조절 칸을 드러냅니다.
 
 **Present Characters** 위젯은 캐릭터 이모지를 최대 3개까지 보여 주고, 그보다 많으면 "+N" 형태로 나머지 수를 표시합니다. **Inventory**와 **Custom Tracker** 위젯은 항목을 하나씩 번갈아 보여 줍니다.
 
@@ -37,6 +44,7 @@ HUD(heads-up display)는 채팅 영역 위쪽에 놓인 작은 아이콘 위젯�
 - **Persona Stats**: **Status**(상태) 문구, 그리고 현재 값과 최대 값을 가진 이름 붙은 상태 막대. 막대는 추가하거나 삭제할 수 있습니다.
 - **Present Characters**: 캐릭터를 추가하거나 삭제하고, 캐릭터마다 이모지, 이름, **Mood**(기분), **Look**(외형), **Outfit**(복장), **Thinks**(속마음), 사용자 지정 필드 값을 수정합니다. 캐릭터별로 아바타를 업로드할 수도 있습니다. **Auto** 버튼을 누르면 "Auto-generate avatars: ON"과 "Auto-generate avatars: OFF"가 번갈아 전환됩니다.
 - **Inventory**: 물품을 추가하거나 삭제하고, 물품마다 이름과 수량을 수정합니다.
+- **Inventory Tracker**: **Currencies**, **Equipped**, **Inventory** 아래에서 항목을 추가하거나 삭제하고, 항목마다 이름과 수량을 수정합니다. 물품을 다른 그룹으로 옮기는 일은 아직 한 번에 되지 않으므로, 한 그룹에서 삭제한 뒤 다른 그룹에 추가하세요.
 - **Active Quests**: 퀘스트를 추가하거나 삭제합니다. 퀘스트마다 이름 붙은 목표가 있고 완료 체크박스가 달려 있습니다.
 - **Custom Tracker**: 이름과 값 필드를 추가, 삭제, 수정합니다.
 

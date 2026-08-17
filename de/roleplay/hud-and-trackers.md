@@ -20,10 +20,17 @@ Es gibt sechs Tracker-Widgets. Jedes braucht seinen eigenen aktivierten Agenten,
 | **Persona Stats**      | Persona Stats     | Die Statusbalken deiner Persona sowie eine Statuszeile                            |
 | **Present Characters** | Character Tracker | Wer in der Szene ist – samt Stimmung, Aussehen und charakterspezifischen Feldern  |
 | **Inventory**          | Persona Stats     | Gegenstände, die du bei dir trägst, mit Stückzahl                                 |
+| **Inventory Tracker**  | Inventory Tracker | Getrennte Listen für Währungen, angelegte Ausrüstung und getragene Gegenstände   |
 | **Active Quests**      | Quest Tracker     | Dein aktuelles Ziel                                                               |
 | **Custom Tracker**     | Custom Tracker    | Selbst benannte Felder, etwa Zähler oder eine Währung                             |
 
 Beachte: Das Widget **Inventory** wird von demselben Agenten **Persona Stats** gespeist, der auch das Widget **Persona Stats** füllt. Aktiviere **Persona Stats**, und du bekommst beide.
+
+Der eigenständige **Inventory Tracker** ist unabhängig vom Inventar der Persona Stats. Er führt kompakte Einträge aus Name und Stückzahl in drei Gruppen – **Currencies**, **Equipped** und **Inventory** – und verhindert, dass angelegte Ausrüstung zusätzlich im getragenen Inventar auftaucht.
+
+Jeder Eintrag ist eine kleine Pille. Die Pillen laufen über die Breite des Panels und brechen in die nächste Zeile um, sodass eine lange Inventarliste lesbar bleibt, statt sich zu einer hohen Spalte zu strecken. Eine Stückzahl steht nur dabei, wenn sie größer als eins ist, und zwar als `×4` hinter dem Namen; bei einem einzelnen Gegenstand steht nur der Name. In einem schmalen Panel stehen die Pillen einzeln untereinander.
+
+Um eine Stückzahl zu ändern, die gerade eins ist, schalte den Hinzufügen-Modus oder den Sperrmodus ein – beide blenden bei jedem Eintrag das Feld für die Stückzahl ein.
 
 Das Widget **Present Characters** zeigt bis zu drei Charakter-Emoji und dahinter ein „+N“ für alle weiteren. Die Widgets **Inventory** und **Custom Tracker** blättern ihre Einträge nacheinander durch.
 
@@ -37,6 +44,7 @@ Diese Angaben lassen sich pro Popover bearbeiten:
 - **Persona Stats**: eine **Status**-Zeile und benannte Statusbalken mit aktuellem Wert und Maximalwert. Balken lassen sich hinzufügen und entfernen.
 - **Present Characters**: Charaktere hinzufügen oder entfernen und je Charakter Emoji, Name, **Mood**, **Look**, **Outfit**, **Thinks** (private Gedanken) und eigene Feldwerte bearbeiten. Pro Charakter lässt sich ein Avatar hochladen. Die Schaltfläche **Auto** schaltet zwischen „Auto-generate avatars: ON“ und „Auto-generate avatars: OFF“ um.
 - **Inventory**: Gegenstände hinzufügen oder entfernen und Name sowie Stückzahl bearbeiten.
+- **Inventory Tracker**: Einträge unter **Currencies**, **Equipped** und **Inventory** hinzufügen oder entfernen und jeweils Name oder Stückzahl bearbeiten. Einen Gegenstand zwischen zwei Gruppen zu verschieben, geht noch nicht in einem Schritt – entferne ihn aus der einen Gruppe und füge ihn der anderen hinzu.
 - **Active Quests**: Quests hinzufügen oder entfernen. Jede Quest hat benannte Ziele mit Kontrollkästchen zum Abhaken.
 - **Custom Tracker**: Name-Wert-Felder hinzufügen, entfernen oder bearbeiten.
 

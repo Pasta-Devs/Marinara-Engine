@@ -20,10 +20,17 @@ Hay seis widgets tracker. Cada uno necesita su propio agente activado para apare
 | **Persona Stats**      | Persona Stats     | Las barras de estado de tu persona y una línea de estado                                     |
 | **Present Characters** | Character Tracker | Quién está en la escena, con ánimo, apariencia y campos personalizados propios del personaje |
 | **Inventory**          | Persona Stats     | Los objetos que llevas, con cantidades                                          |
+| **Inventory Tracker**  | Inventory Tracker | Listas separadas para monedas, equipo puesto y objetos que llevas                |
 | **Active Quests**      | Quest Tracker     | Tu objetivo actual                                                           |
 | **Custom Tracker**     | Custom Tracker    | Tus propios campos con nombre, como contadores o moneda                              |
 
 Ten en cuenta que el widget **Inventory** lo alimenta el mismo agente **Persona Stats** que impulsa el widget **Persona Stats**. Activa **Persona Stats** para obtener ambos.
+
+El **Inventory Tracker** dedicado es independiente del inventario de Persona Stats. Mantiene entradas compactas de nombre y cantidad en tres grupos, **Currencies**, **Equipped** e **Inventory**, y evita que el equipo puesto aparezca también entre los objetos que llevas.
+
+Cada entrada es una pastilla pequeña. Las pastillas fluyen a lo ancho del panel y saltan a la línea siguiente, así una lista larga de objetos se sigue leyendo bien en vez de estirarse en una columna muy alta. La cantidad solo aparece cuando es mayor que uno, escrita como `×4` después del nombre; si hay un solo objeto se ve nada más el nombre. En un panel estrecho las pastillas se apilan una por línea.
+
+Para cambiar una cantidad que ahora mismo es uno, activa el modo de añadir o el modo de bloqueo: ambos muestran el control de cantidad en todas las entradas.
 
 El widget **Present Characters** muestra hasta tres emoji de personaje más un conteo "+N" para los adicionales. Los widgets **Inventory** y **Custom Tracker** van rotando sus entradas de una en una.
 
@@ -37,6 +44,7 @@ Esto es lo que cada panel emergente te permite editar:
 - **Persona Stats**: una línea de **Status**, más barras de estadística con nombre, con un valor actual y un valor máximo. Puedes añadir o quitar barras.
 - **Present Characters**: añade o quita personajes, y edita el emoji, el nombre, el **Mood**, el **Look**, el **Outfit**, los **Thinks** (pensamientos privados) y los valores de campos personalizados de cada uno. Puedes subir un avatar por personaje. Un botón **Auto** alterna entre "Auto-generate avatars: ON" y "Auto-generate avatars: OFF".
 - **Inventory**: añade o quita objetos, y edita el nombre y la cantidad de cada objeto.
+- **Inventory Tracker**: añade o quita entradas en **Currencies**, **Equipped** e **Inventory**, y edita el nombre o la cantidad de cada una. Mover un objeto de un grupo a otro todavía no es una sola acción: quítalo de un grupo y añádelo al otro.
 - **Active Quests**: añade o quita misiones. Cada misión tiene objetivos con nombre con casillas de finalización.
 - **Custom Tracker**: añade, quita o edita campos de nombre y valor.
 
