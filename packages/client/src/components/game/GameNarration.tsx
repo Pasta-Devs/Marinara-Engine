@@ -3609,30 +3609,6 @@ export function GameNarration({
       </span>
     </button>
   ) : null;
-  // Icon-only toggle that lives in every meta row. It reflects the PREFERENCE, not the
-  // rendered state: while a safety rule force-expands the box (mid-turn, input on screen)
-  // pressing it still records the intent, and the box folds away as soon as it is safe.
-  const collapseMetaButton = (
-    <button
-      type="button"
-      ref={collapseToggleRef}
-      onClick={handleToggleNarrationCollapsed}
-      className={NARRATION_META_BTN}
-      aria-expanded={!effectiveCollapsed}
-      title={
-        collapsePreferred
-          ? localizeUi("ui.game.gamenarration.expandNarration")
-          : localizeUi("ui.game.gamenarration.collapseNarration")
-      }
-      aria-label={
-        collapsePreferred
-          ? localizeUi("ui.game.gamenarration.expandNarration")
-          : localizeUi("ui.game.gamenarration.collapseNarration")
-      }
-    >
-      {collapsePreferred ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-    </button>
-  );
   const combatStatusNotice =
     combatStarting || combatGenerationFailed ? (
       <div
@@ -3824,6 +3800,31 @@ export function GameNarration({
     const target = effectiveCollapsed ? collapsedHandleRef.current : collapseToggleRef.current;
     target?.focus();
   }, [effectiveCollapsed]);
+  // Icon-only toggle, repeated in every meta row. The CLICK writes the player's
+  // preference; `aria-expanded` reports the region that is actually rendered, which
+  // differ whenever the input forces the box open. Declared after `effectiveCollapsed`
+  // because it reads it.
+  const collapseMetaButton = (
+    <button
+      type="button"
+      ref={collapseToggleRef}
+      onClick={handleToggleNarrationCollapsed}
+      className={NARRATION_META_BTN}
+      aria-expanded={!effectiveCollapsed}
+      title={
+        collapsePreferred
+          ? localizeUi("ui.game.gamenarration.expandNarration")
+          : localizeUi("ui.game.gamenarration.collapseNarration")
+      }
+      aria-label={
+        collapsePreferred
+          ? localizeUi("ui.game.gamenarration.expandNarration")
+          : localizeUi("ui.game.gamenarration.collapseNarration")
+      }
+    >
+      {collapsePreferred ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+    </button>
+  );
   const navControls =
     !showInterruptControls && !showNav ? null : (
       <div className="flex h-8 items-stretch gap-1">
