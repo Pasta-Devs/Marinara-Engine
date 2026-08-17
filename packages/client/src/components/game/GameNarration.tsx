@@ -3552,10 +3552,16 @@ export function GameNarration({
   // The force-expand rules in §`effectiveCollapsed` below then win over all three, and
   // the force-expand is NEVER written back to the store — the preference must survive.
   const [manualExpandDuringRequest, setManualExpandDuringRequest] = useState(false);
+  const collapsedHandleRef = useRef<HTMLButtonElement | null>(null);
+  const collapseToggleRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     if (!requestsCollapsedNarration) setManualExpandDuringRequest(false);
   }, [requestsCollapsedNarration]);
   const collapsePreferred = requestsCollapsedNarration ? !manualExpandDuringRequest : gameNarrationCollapsed;
+  // Whichever side of the toggle just unmounted took the focused element with it,
+  // leaving focus on <body>. Only adopt it in that case — never steal focus the
+  // player has since put somewhere else, and never on the first render.
+  const collapseRenderedRef = useRef<boolean | null>(null);
   const handleToggleNarrationCollapsed = useCallback(() => {
     if (requestsCollapsedNarration) {
       // Under an experience request the player's click is scoped to the request, so it
@@ -3609,9 +3615,10 @@ export function GameNarration({
   const collapseMetaButton = (
     <button
       type="button"
+      ref={collapseToggleRef}
       onClick={handleToggleNarrationCollapsed}
       className={NARRATION_META_BTN}
-      aria-expanded={!collapsePreferred}
+      aria-expanded={!effectiveCollapsed}
       title={
         collapsePreferred
           ? localizeUi("ui.game.gamenarration.expandNarration")
@@ -3805,6 +3812,18 @@ export function GameNarration({
   // made the feature inert: the advance controls are live for most of a turn, so both
   // the toggle and an experience's request silently did nothing.
   const effectiveCollapsed = collapsePreferred && !narrationInputVisible;
+  useEffect(() => {
+    const previous = collapseRenderedRef.current;
+    collapseRenderedRef.current = effectiveCollapsed;
+    if (previous === null || previous === effectiveCollapsed) return;
+    const doc = collapsedHandleRef.current?.ownerDocument ?? collapseToggleRef.current?.ownerDocument ?? null;
+    if (!doc) return;
+    const active = doc.activeElement;
+    // Focus only moved to <body> if the element holding it was just unmounted.
+    if (active && active !== doc.body) return;
+    const target = effectiveCollapsed ? collapsedHandleRef.current : collapseToggleRef.current;
+    target?.focus();
+  }, [effectiveCollapsed]);
   const navControls =
     !showInterruptControls && !showNav ? null : (
       <div className="flex h-8 items-stretch gap-1">
@@ -3876,6 +3895,7 @@ export function GameNarration({
   // on the bare scene and advances the narration behind it.
   const collapsedNarrationHandle = (
     <button
+      ref={collapsedHandleRef}
       type="button"
       onClick={handleToggleNarrationCollapsed}
       data-game-skip-bg-nav="true"
@@ -3883,7 +3903,13 @@ export function GameNarration({
       aria-expanded={false}
       className="flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 px-3 py-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--foreground)]/70 shadow-[0_10px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-colors hover:bg-[var(--card)]/90 hover:text-[var(--foreground)] dark:border-white/15 dark:bg-black/40 dark:text-white/70 dark:hover:bg-black/60 dark:hover:text-white"
       title={localizeUi("ui.game.gamenarration.expandNarration")}
-      aria-label={localizeUi("ui.game.gamenarration.expandNarration")}
+      aria-label={
+        narrationNeedsAttention
+          ? `${localizeUi("ui.game.gamenarration.expandNarration")} — ${localizeUi(
+              "ui.game.gamenarration.narrationNeedsYourAttention",
+            )}`
+          : localizeUi("ui.game.gamenarration.expandNarration")
+      }
     >
       <ChevronUp size={12} />
       <span>{localizeUi("ui.game.gamenarration.narration")}</span>
