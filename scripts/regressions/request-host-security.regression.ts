@@ -16,7 +16,7 @@ const { corsDelegate } = await import("../../packages/server/src/config/cors-con
 const { getCsrfTrustedOrigins } = await import("../../packages/server/src/config/runtime-config.js");
 const { hostValidationHook, parseRequestHostname } =
   await import("../../packages/server/src/middleware/host-validation.js");
-const { AVATAR_STORAGE_RATE_LIMIT, rateLimitHook, resetRateLimitBucketsForTests } =
+const { AVATAR_STORAGE_RATE_LIMIT, BACKUP_RATE_LIMIT, rateLimitHook, resetRateLimitBucketsForTests } =
   await import("../../packages/server/src/middleware/rate-limit.js");
 
 process.env.CSRF_TRUSTED_ORIGINS = "null";
@@ -42,12 +42,16 @@ rateLimitedApp.addHook("onRequest", rateLimitHook);
 rateLimitedApp.post("/api/backup/", async () => ({ ok: true }));
 rateLimitedApp.post("/api/admin/avatar-storage/cleanup", async () => ({ ok: true }));
 try {
-  for (let requestNumber = 1; requestNumber <= 30; requestNumber += 1) {
+  for (let requestNumber = 1; requestNumber <= BACKUP_RATE_LIMIT.max; requestNumber += 1) {
     const response = await rateLimitedApp.inject({ method: "POST", url: "/api/backup/" });
     assert.equal(response.statusCode, 200, `backup request ${requestNumber} remains within its explicit limit`);
   }
   const rejectedBackup = await rateLimitedApp.inject({ method: "POST", url: "/api/backup/" });
-  assert.equal(rejectedBackup.statusCode, 429, "expensive backup routes are capped at 30 requests per minute and IP");
+  assert.equal(
+    rejectedBackup.statusCode,
+    429,
+    `expensive backup routes are capped at ${BACKUP_RATE_LIMIT.max} requests per minute and IP`,
+  );
   for (let requestNumber = 1; requestNumber <= AVATAR_STORAGE_RATE_LIMIT.max; requestNumber += 1) {
     const response = await rateLimitedApp.inject({
       method: "POST",
