@@ -792,6 +792,7 @@ export function CharacterEditor() {
         comment: formData.creator_notes ?? "",
         creator: formData.creator ?? "",
         personaVersion: formData.character_version ?? "1.0",
+        versioningEnabled: formData.extensions.versioningEnabled !== false,
         creatorNotes: formData.creator_notes ?? "",
         description: formData.description ?? "",
         personality: formData.personality ?? "",
@@ -1628,16 +1629,48 @@ function MetadataTab({
           />
         </label>
         <div className="space-y-1.5">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.characters.metadatatab.version")}{" "}
-            <HelpTooltip
-              text={localizeUi("ui.characters.metadatatab.versionNumberForTrackingChangesToThisCharacterDefinition")}
-            />
-          </span>
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.characters.metadatatab.version")}{" "}
+              <HelpTooltip
+                text={localizeUi("ui.characters.metadatatab.versionNumberForTrackingChangesToThisCharacterDefinition")}
+              />
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={formData.extensions.versioningEnabled !== false}
+              onClick={() => {
+                const enabled = formData.extensions.versioningEnabled !== false;
+                updateExtension("versioningEnabled", !enabled);
+                if (enabled === false && !formData.character_version.trim()) updateField("character_version", "1.0");
+              }}
+              className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40"
+              title={localizeUi("ui.cardversionhistory.automaticVersioningDescription")}
+            >
+              <span
+                className={cn(
+                  "relative h-5 w-9 rounded-full border transition-colors",
+                  formData.extensions.versioningEnabled !== false
+                    ? "border-[var(--primary)] bg-[var(--primary)]"
+                    : "border-[var(--border)] bg-[var(--secondary)]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--background)] shadow-sm transition-transform",
+                    formData.extensions.versioningEnabled !== false && "translate-x-4",
+                  )}
+                />
+              </span>
+              {localizeUi("ui.cardversionhistory.automaticVersioning")}
+            </button>
+          </div>
           <input
             value={formData.character_version}
             onChange={(e) => updateField("character_version", e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            disabled={formData.extensions.versioningEnabled === false}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
             placeholder="1.0"
           />
           <CharacterVersionHistoryPanel

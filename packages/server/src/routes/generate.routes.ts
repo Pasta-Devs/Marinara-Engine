@@ -138,6 +138,7 @@ import { resolveCustomAgentStyleProfileId } from "../services/generation/custom-
 import { buildSpotifyDjConstraints } from "../services/spotify/spotify-dj-constraints.js";
 import {
   assemblePrompt,
+  appendFallbackChatSummaryToSystemPrompt,
   buildPromptMacroContext,
   normalizeChatMacroVariables,
   collectCharacterAdvancedPromptEntries,
@@ -534,6 +535,11 @@ import { injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt
 import { mergeConversationCharacterMemories } from "../services/generation/conversation-memory-context.js";
 import { injectMemoryRecallContext } from "../services/generation/memory-recall-context.js";
 import { shouldSkipAgentByMessageInterval } from "../services/generation/agent-cadence.js";
+import {
+  appendTrackerLorebookBatchContextKey,
+  applyTrackerLorebookContextPolicy,
+  getTrackerAgentTypes,
+} from "../services/generation/tracker-agent-context.js";
 import {
   createAgentEventDispatcher,
   shouldDeferExpressionAgentEvent,
@@ -3120,6 +3126,16 @@ export async function generateRoutes(app: FastifyInstance) {
           });
         }
 
+        if (chatMode === "roleplay" && !resolvedPreset) {
+          finalMessages = appendFallbackChatSummaryToSystemPrompt(
+            finalMessages,
+            activeChatSummary,
+            wrapFormat,
+            promptMacroContext,
+            deferCharacterMacros ? { deferCharacterMacros: "all" } : undefined,
+          );
+        }
+
         if (isSceneChat) {
           injectSceneContextMessages({ messages: finalMessages, chatMetadata: chatMeta, charInfo, personaName });
         }
@@ -4417,15 +4433,16 @@ export async function generateRoutes(app: FastifyInstance) {
         let pipelineAgents = resolvedAgents.filter(
           (a) => !textRewriteAgentIds.has(a.id) && a.type !== "lorebook-keeper",
         );
+        const trackerAgentTypes = getTrackerAgentTypes();
+        const attachLorebooksToTrackers = chatMode === "roleplay" && chatMeta.attachLorebooksToTrackers === true;
 
         // Manual tracker agents are stripped from the automatic pipeline — the
         // user will trigger them manually via retry-agents.
         const manualTrackers = chatMeta.manualTrackers === true;
         const manualTrackerAgentTypes = normalizeManualTrackerAgentTypes(chatMeta.manualTrackerAgentTypes);
         if (manualTrackers || Object.keys(manualTrackerAgentTypes).length > 0) {
-          const trackerIds = new Set(BUILT_IN_AGENTS.filter((a) => a.category === "tracker").map((a) => a.id));
           pipelineAgents = pipelineAgents.filter(
-            (a) => !trackerIds.has(a.type) || (!manualTrackers && manualTrackerAgentTypes[a.type] !== true),
+            (a) => !trackerAgentTypes.has(a.type) || (!manualTrackers && manualTrackerAgentTypes[a.type] !== true),
           );
         }
 
@@ -4508,6 +4525,15 @@ export async function generateRoutes(app: FastifyInstance) {
           eligiblePipelineAgents.push(agent);
         }
         pipelineAgents = eligiblePipelineAgents;
+        if (chatMode === "roleplay") {
+          for (const agent of pipelineAgents) {
+            if (!trackerAgentTypes.has(agent.type)) continue;
+            agent.batchContextKey = appendTrackerLorebookBatchContextKey(
+              agent.batchContextKey,
+              attachLorebooksToTrackers,
+            );
+          }
+        }
         if (enableChatTools && toolDefs && toolDefs.length > 0 && conn.treatAsLocalEndpoint === "true") {
           const toolLines = toolDefs.map(
             (t) =>
@@ -4521,12 +4547,18 @@ export async function generateRoutes(app: FastifyInstance) {
         agentContext.memory._mainPromptPreview = promptPreviewForAgents(finalMessages);
         const resolveAgentContext = async (agent: AgentExecConfig, context: AgentContext): Promise<AgentContext> => {
           const resolvedContext = customLorebookReadBehindTargets.get(agent.id)?.context ?? context;
+          const trackerContext = applyTrackerLorebookContextPolicy({
+            context: resolvedContext,
+            chatMode,
+            isTracker: trackerAgentTypes.has(agent.type),
+            attachLorebooksToTrackers,
+          });
           const isImagePromptAgent =
             agent.type === "illustrator" ||
             (agent.isCustomAgent === true && customAgentHasCapability(agent.settings, "trigger_image_generation"));
-          if (!isImagePromptAgent) return resolvedContext;
+          if (!isImagePromptAgent) return trackerContext;
 
-          const memory = { ...resolvedContext.memory };
+          const memory = { ...trackerContext.memory };
           delete memory._imagePromptInstructions;
           const imageConnectionId =
             agent.type === "illustrator"
@@ -4538,7 +4570,7 @@ export async function generateRoutes(app: FastifyInstance) {
           imageConnection ??= await connections.getDefaultForImageGeneration();
           const imagePromptInstructions = normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions);
           if (imagePromptInstructions) memory._imagePromptInstructions = imagePromptInstructions;
-          return { ...resolvedContext, memory };
+          return { ...trackerContext, memory };
         };
         const pipeline = createAgentPipeline(
           pipelineAgents,

@@ -14,6 +14,8 @@ export interface Persona {
   creator: string;
   /** Human-visible persona card version string. */
   personaVersion: string;
+  /** Retain prior card revisions and automatically advance personaVersion on edits. */
+  versioningEnabled: boolean;
   /** Private notes about intended use, quirks, or recommended settings. */
   creatorNotes: string;
   /** Optional pronunciation override used when this persona name is sent to TTS. */

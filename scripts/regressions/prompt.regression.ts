@@ -45,6 +45,7 @@ import {
   testSecondaryKeys,
   type AgentContext,
   type ChatMLMessage,
+  type MacroContext,
   DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
   DEFAULT_CONVERSATION_PROMPT,
   getDefaultAgentPrompt,
@@ -269,8 +270,10 @@ import {
   resolveAgentResultType,
 } from "../../packages/server/src/services/agents/agent-executor.js";
 import {
+  formatBeholderRequestContext,
   loadPriorBeholderState,
   normalizeBeholderState,
+  resolveBeholderStateResponse,
 } from "../../packages/server/src/services/agents/beholder-state.js";
 import {
   CLEAN_HTML_FIND_REGEX,
@@ -289,7 +292,11 @@ import {
   mergeAdjacentMessages,
   squashLeadingSystemMessages,
 } from "../../packages/server/src/services/prompt/merger.js";
-import type { ResolvedAgent } from "../../packages/server/src/services/agents/agent-pipeline.js";
+import {
+  runParallelAgents,
+  runPreGenerationAgents,
+  type ResolvedAgent,
+} from "../../packages/server/src/services/agents/agent-pipeline.js";
 import { loadGameVideoPrompt } from "../../packages/server/src/services/video/game-video-prompt.js";
 import {
   resolveComfyUiVideoWorkflowPlaceholders,
@@ -784,11 +791,16 @@ import {
 import { fitMessagesForModelAccess } from "../../packages/server/src/services/generation/model-access-policy.js";
 import {
   assemblePrompt,
+  appendFallbackChatSummaryToSystemPrompt,
   resolveChoiceVariableValue,
   resolvePromptMessageMacros,
   scopePromptMacroContextToCharacter,
   type AssemblerInput,
 } from "../../packages/server/src/services/prompt/index.js";
+import {
+  appendTrackerLorebookBatchContextKey,
+  applyTrackerLorebookContextPolicy,
+} from "../../packages/server/src/services/generation/tracker-agent-context.js";
 import {
   createCustomToolArgumentsValidator,
   executeToolCalls,
@@ -847,12 +859,15 @@ type RegressionPromptSection = AssemblerInput["sections"][number];
 
 function makeCapturingProvider(response: string) {
   const calls: any[][] = [];
+  const callOptions: any[] = [];
   return {
     calls,
+    callOptions,
     provider: {
       maxTokensOverrideValue: null,
-      async chatComplete(messages: any[]) {
+      async chatComplete(messages: any[], options: any) {
         calls.push(messages);
+        callOptions.push(options);
         return {
           content: response,
           usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
@@ -8689,6 +8704,163 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
+    name: "preset-less roleplay summary creates a leading system block before history",
+    run() {
+      const history: ChatMLMessage[] = [
+        { role: "user", content: "Where are we?", contextKind: "history" },
+        { role: "assistant", content: "At the harbor.", contextKind: "history" },
+      ];
+      const result = appendFallbackChatSummaryToSystemPrompt(
+        history,
+        "Mari and Dottore reached the harbor.",
+        "xml",
+        {} as MacroContext,
+      );
+
+      assert.equal(result[0]?.role, "system");
+      assert.equal(result[0]?.contextKind, "prompt");
+      assert.match(result[0]?.content ?? "", /<chat_summary>/u);
+      assert.match(result[0]?.content ?? "", /Mari and Dottore reached the harbor\./u);
+      assert.deepEqual(result.slice(1), history);
+
+      const generateRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      const fallbackBranchStart = generateRouteSource.indexOf('if (chatMode === "roleplay" && !resolvedPreset) {');
+      const fallbackBranchEnd = generateRouteSource.indexOf("\n        }", fallbackBranchStart);
+      assert.notEqual(fallbackBranchStart, -1);
+      assert.notEqual(fallbackBranchEnd, -1);
+      assert.match(
+        generateRouteSource.slice(fallbackBranchStart, fallbackBranchEnd),
+        /appendFallbackChatSummaryToSystemPrompt\(/u,
+      );
+    },
+  },
+  {
+    name: "automatic agent phases keep distinct request contexts in separate batches",
+    async run() {
+      for (const phase of ["pre_generation", "parallel"] as const) {
+        const capture = makeCapturingProvider("Context checked.");
+        const agents = ["tracker-lorebooks-off", "tracker-lorebooks-on"].map(
+          (batchContextKey, index) =>
+            ({
+              ...makeRegressionAgentConfig({
+                id: `custom:${phase}-${index}`,
+                type: `context-reader-${index}`,
+                name: `Context Reader ${index}`,
+                isCustomAgent: true,
+                phase,
+                promptTemplate: "Check the supplied context.",
+                settings: { resultType: "context_injection" },
+              }),
+              provider: capture.provider,
+              model: "regression-model",
+              batchContextKey,
+            }) as ResolvedAgent,
+        );
+
+        if (phase === "pre_generation") {
+          await runPreGenerationAgents(agents, makeRegressionAgentContext());
+        } else {
+          await runParallelAgents(agents, makeRegressionAgentContext());
+        }
+
+        assert.equal(capture.calls.length, 2, `${phase} agents with different contexts must not share a batch`);
+      }
+    },
+  },
+  {
+    name: "roleplay tracker lorebook context is opt-in and keeps author notes",
+    run() {
+      const context = makeRegressionAgentContext({
+        authorNotes: "AUTHOR_NOTES_STAY_ATTACHED",
+        activatedLorebookEntries: [{ id: "lore-entry", content: "MAIN_GENERATION_LOREBOOK_MATCH" }],
+        vectorContext: {
+          recalledMemories: ["RECALLED_MEMORY_STAYS_ATTACHED"],
+          semanticLorebookEntries: [{ id: "semantic-lore-entry", content: "SEMANTIC_MAIN_GENERATION_LOREBOOK_MATCH" }],
+        },
+      });
+
+      const disabled = applyTrackerLorebookContextPolicy({
+        context,
+        chatMode: "roleplay",
+        isTracker: true,
+        attachLorebooksToTrackers: false,
+      });
+      assert.deepEqual(disabled.activatedLorebookEntries, []);
+      assert.deepEqual(disabled.vectorContext?.semanticLorebookEntries, []);
+      assert.deepEqual(disabled.vectorContext?.recalledMemories, ["RECALLED_MEMORY_STAYS_ATTACHED"]);
+      assert.equal(disabled.authorNotes, "AUTHOR_NOTES_STAY_ATTACHED");
+
+      const legacyContext = makeRegressionAgentContext({
+        vectorContext: { recalledMemories: ["LEGACY_RECALLED_MEMORY"] } as AgentContext["vectorContext"],
+      });
+      assert.equal(
+        applyTrackerLorebookContextPolicy({
+          context: legacyContext,
+          chatMode: "roleplay",
+          isTracker: true,
+          attachLorebooksToTrackers: false,
+        }),
+        legacyContext,
+      );
+
+      const enabled = applyTrackerLorebookContextPolicy({
+        context,
+        chatMode: "roleplay",
+        isTracker: true,
+        attachLorebooksToTrackers: true,
+      });
+      assert.equal(enabled, context);
+      assert.deepEqual(enabled.activatedLorebookEntries, context.activatedLorebookEntries);
+
+      const nonTracker = applyTrackerLorebookContextPolicy({
+        context,
+        chatMode: "roleplay",
+        isTracker: false,
+        attachLorebooksToTrackers: false,
+      });
+      assert.equal(nonTracker, context);
+      assert.equal(appendTrackerLorebookBatchContextKey(undefined, false), "tracker-lorebooks-off");
+      assert.equal(
+        appendTrackerLorebookBatchContextKey("message:previous", true),
+        "message:previous|tracker-lorebooks-on",
+      );
+
+      const retryRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
+        "utf8",
+      );
+      assert.match(retryRouteSource, /applyTrackerLorebookContextPolicy\(/u);
+      assert.match(retryRouteSource, /chatMeta\?\.attachLorebooksToTrackers === true/u);
+      assert.match(retryRouteSource, /getTrackerAgentTypes\(\)/u);
+
+      const chatSettingsSource = readFileSync(
+        new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+        "utf8",
+      );
+      const trackerControlsComment = chatSettingsSource.indexOf(
+        "{/* Manual trackers run only in roleplay-style chats. */}",
+      );
+      const trackerControlsStart = chatSettingsSource.indexOf(
+        "{metadata.enableAgents && isRoleplayMode && activeTrackerAgents.length > 0 && (",
+        trackerControlsComment,
+      );
+      const trackerControlsEnd = chatSettingsSource.indexOf(
+        "{metadata.enableAgents && isRoleplayMode && activeTrackerAgents.length > 0 && (",
+        trackerControlsStart + 1,
+      );
+      assert.notEqual(trackerControlsComment, -1);
+      assert.notEqual(trackerControlsStart, -1);
+      assert.notEqual(trackerControlsEnd, -1);
+      assert.match(
+        chatSettingsSource.slice(trackerControlsStart, trackerControlsEnd),
+        /ui\.chat\.chatsettingsdrawer\.attachLorebooksToTrackers/u,
+      );
+    },
+  },
+  {
     name: "chat summary marker keeps explicit preset placement",
     async run() {
       const result = await assemblePrompt({
@@ -10241,7 +10413,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
-    name: "Beholder receives its prior snapshot and parses structured state",
+    name: "Beholder sends keyed state and safely resolves delta and legacy responses",
     async run() {
       let stateReads = 0;
       const priorState = await loadPriorBeholderState({
@@ -10291,35 +10463,137 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       assert.equal(stateReads, 2);
 
-      const { calls, provider } = makeCapturingProvider(
-        `{"characters":[{"name":"Mira","body":{"left_hand":{"holding":{"item":"silver key","damage":"pristine"}}}}]}`,
+      const previousState = normalizeBeholderState({
+        characters: [
+          {
+            name: "Mari",
+            species: "human",
+            body: {
+              chest: {
+                worn: [
+                  { item: "dress", color: "blue", damage: "pristine" },
+                  { item: "coat", color: "black", damage: "pristine" },
+                ],
+              },
+              face: { worn: [{ item: "veil", damage: "pristine" }] },
+              left_hand: { holding: { item: "silver key", damage: "pristine" } },
+              right_arm: { wounds: [{ text: "shallow cut", severity: "minor", bleeding: true }] },
+            },
+          },
+          { name: "Dottore", body: { head: { bare: true } } },
+        ],
+      });
+      assert.ok(previousState);
+      const requestContext = formatBeholderRequestContext(previousState, "Mari");
+      assert.match(requestContext, /^Persona: Mari\nCurrent state:/u);
+      assert.match(requestContext, /"self": \{/u);
+      assert.match(requestContext, /"Dottore": \{/u);
+
+      const unchanged = resolveBeholderStateResponse({ changed: false }, previousState, "Mari");
+      assert.equal(unchanged.valid, true);
+      assert.deepEqual(unchanged.state, previousState);
+
+      const merged = resolveBeholderStateResponse(
+        {
+          changed: true,
+          delta: {
+            self: {
+              body: {
+                chest: { worn: [{ item: "dress", color: "red", damage: "damaged" }] },
+                face: { worn: [] },
+                left_hand: { holding: {} },
+                right_arm: {
+                  missing: true,
+                  worn: [{ item: "bracelet", damage: "pristine" }],
+                  wounds: [{ text: "ignored wound", severity: "critical", bleeding: true }],
+                  bare: true,
+                },
+              },
+            },
+            Dottore: { species: "human", body: { left_eye: { bare: true } } },
+            Columbina: { species: "seer", body: { neck: { bare: true } } },
+          },
+        },
+        previousState,
+        "Mari",
       );
+      assert.equal(merged.valid, true);
+      const mergedMari = merged.state.characters.find((character) => character.name === "Mari");
+      assert.deepEqual(mergedMari?.body.chest?.worn, [
+        { item: "dress", color: "red", damage: "damaged" },
+        { item: "coat", color: "black", damage: "pristine" },
+      ]);
+      assert.equal(mergedMari?.body.face?.worn, undefined);
+      assert.equal(mergedMari?.body.left_hand?.holding, undefined);
+      assert.deepEqual(mergedMari?.body.right_arm, { missing: true });
+      assert.equal(merged.state.characters.find((character) => character.name === "Dottore")?.species, "human");
+      assert.equal(
+        merged.state.characters.some((character) => character.name === "Columbina"),
+        true,
+      );
+
+      const invalid = resolveBeholderStateResponse(
+        { changed: true, delta: { self: { body: { invented_slot: { bare: true } } } } },
+        previousState,
+        "Mari",
+      );
+      assert.equal(invalid.valid, false);
+      assert.deepEqual(invalid.state, previousState);
+
+      const legacy = resolveBeholderStateResponse(
+        { characters: [{ name: "Mira", body: { left_hand: { holding: { item: "key" } } } }] },
+        previousState,
+        "Mari",
+      );
+      assert.equal(legacy.valid, true);
+      assert.deepEqual(legacy.state.characters, [
+        { name: "Mira", body: { left_hand: { holding: { item: "key", damage: "pristine" } } } },
+      ]);
+
+      const { calls, callOptions, provider } = makeCapturingProvider(`{"changed":false}`);
       const config = makeRegressionAgentConfig({
         id: "builtin:beholder",
         type: "beholder",
         name: "Beholder",
-        promptTemplate: "Return the complete physical state as JSON.",
+        promptTemplate: "Return a physical-state delta as JSON.",
+        temperature: 1.7,
         settings: { resultType: "context_injection" },
       });
       const context = makeRegressionAgentContext({
-        mainResponse: "Mira keeps hold of the silver key.",
-        memory: {
-          _beholderState: {
-            characters: [
-              {
-                name: "Mira",
-                body: { left_hand: { holding: { item: "silver key", damage: "pristine" } } },
-              },
-            ],
-          },
-        },
+        mainResponse: "Mari keeps hold of the silver key.",
+        memory: { _beholderState: previousState },
       });
       const result = await executeAgent(config as any, context, provider as any, "regression-model");
       const system = calls[0]?.[0]?.content ?? "";
-      assert.match(system, /<previous_beholder_state>/u);
-      assert.match(system, /holding: silver key/u);
+      assert.match(system, /Persona: Mari\nCurrent state:/u);
+      assert.match(system, /"self": \{/u);
+      assert.equal(callOptions[0]?.temperature, 0);
       assert.equal(result.success, true);
-      assert.deepEqual((result.data as any)?.characters?.[0]?.name, "Mira");
+      assert.deepEqual(result.data, previousState);
+
+      const suppressed = makeCapturingProvider(`{"changed":false}`);
+      await executeAgent(
+        { ...config, suppressModelParameters: true } as any,
+        context,
+        suppressed.provider as any,
+        "regression-model",
+      );
+      assert.equal(suppressed.callOptions[0]?.temperature, undefined);
+
+      const firstRun = makeCapturingProvider(`{"changed":false}`);
+      const firstRunResult = await executeAgent(
+        config as any,
+        makeRegressionAgentContext({ memory: {} }),
+        firstRun.provider as any,
+        "regression-model",
+      );
+      assert.match(firstRun.calls[0]?.[0]?.content ?? "", /Current state:\n\{\}/u);
+      assert.deepEqual(firstRunResult.data, { characters: [] });
+
+      const invalidRun = makeCapturingProvider(`{"changed":true,"delta":{"self":{"body":{"fake":{}}}}}`);
+      const invalidResult = await executeAgent(config as any, context, invalidRun.provider as any, "regression-model");
+      assert.equal(invalidResult.success, false);
+      assert.deepEqual(invalidResult.data, previousState);
     },
   },
   {

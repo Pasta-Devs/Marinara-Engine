@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { TTS_API_KEY_MASK, ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
-import { buildTTSVoiceRequests } from "../../packages/client/src/lib/tts-dialogue.ts";
+import { buildTTSVoiceRequests, findTTSCharacterIdBySpeakerName } from "../../packages/client/src/lib/tts-dialogue.ts";
 import { buildExtractedRoleplayTTSVoiceRequests } from "../../packages/client/src/lib/tts-roleplay-speaker-extractor.ts";
 import { normalizeTTSPlaybackDelayMs, ttsService } from "../../packages/client/src/lib/tts-service.ts";
 import {
@@ -41,6 +41,11 @@ assert.match(
   ttsRouteSource,
   /clearPocketTtsApiModeCache\(existing\);\s*clearPocketTtsApiModeCache\(storedConfig\);/u,
   "Saving TTS settings must invalidate the old and new PocketTTS mode cache entries",
+);
+assert.match(
+  ttsRouteSource,
+  /\[debug\/tts\/speaker-extractor\] raw response:/u,
+  "Speaker extractor debug mode must log the provider's raw response",
 );
 
 assert.deepEqual(
@@ -412,6 +417,7 @@ assert.match(
     group: "Lab group",
     user: "Mari",
     characters: ["Dottore", "Mari"],
+    messageAuthor: "Dottore",
     includeEmotions: true,
   }),
   /"speech":"Exact dialogue with only inserted \[indicators\]"/,
@@ -421,9 +427,20 @@ assert.match(
     group: "Lab group",
     user: "Mari",
     characters: ["Dottore", "Mari"],
+    messageAuthor: "Dottore",
     includeEmotions: true,
   }),
   /\[irritated\].*\[sigh\]/s,
+);
+assert.match(
+  buildRoleplaySpeakerExtractorPrompt({
+    group: "Lab group",
+    user: "Mari",
+    characters: ["Dottore", "Maukie"],
+    messageAuthor: "Maukie",
+    includeEmotions: true,
+  }),
+  /response was generated for Maukie.*exact name.*not explicitly attributed to a different speaker/su,
 );
 const responsesCompatibleExtractorInput = buildRoleplaySpeakerExtractorUserPrompt('Columbina says, "Sing."');
 assert.match(responsesCompatibleExtractorInput, /\bjson\b/u);
@@ -571,6 +588,29 @@ assert.deepEqual(
     { speaker: "Dottore", voice: "random-npc-voice" },
     { speaker: "Fatui Guard", voice: "random-npc-voice" },
   ],
+);
+const extractedDecoratedSpeakerRequests = buildExtractedRoleplayTTSVoiceRequests(
+  [{ kind: "dialogue", speaker: "**Maukie:** [chuckle]", text: '[chuckle] "I said it."' }],
+  {
+    ...extractedVoiceFallbackConfig,
+    voiceAssignments: [{ characterId: "maukie-id", characterName: "Maukie", voice: "maukie-voice" }],
+  },
+  null,
+  null,
+  (speaker) => findTTSCharacterIdBySpeakerName(speaker, [["maukie-id", { name: "Maukie" }]] as const),
+);
+assert.deepEqual(
+  extractedDecoratedSpeakerRequests.map(({ speaker, voice }) => ({ speaker, voice })),
+  [{ speaker: "**Maukie:** [chuckle]", voice: "maukie-voice" }],
+  "Extractor label formatting must not send a known character through the Random NPC Voice pool",
+);
+assert.equal(
+  findTTSCharacterIdBySpeakerName("Maukie", [
+    ["maukie-one", { name: "Maukie" }],
+    ["maukie-two", { name: "Maukie" }],
+  ]),
+  null,
+  "duplicate exact character names must not select an arbitrary voice assignment",
 );
 assert.equal(buildElevenLabsTextInput('"Skill issue."', "chuckle"), '[chuckle] "Skill issue."');
 assert.equal(buildElevenLabsTextInput('[chuckle] "Skill issue."', "chuckle"), '[chuckle] "Skill issue."');

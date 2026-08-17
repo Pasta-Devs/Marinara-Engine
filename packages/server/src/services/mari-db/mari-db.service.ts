@@ -1187,6 +1187,13 @@ export function buildPersonaCreateRow(data: Row, id: string, timestamp: string):
     comment: firstString(data, ["comment"]) ?? "",
     creator: firstString(data, ["creator"]) ?? "",
     personaVersion: firstString(data, ["personaVersion", "persona_version"]) ?? "1.0",
+    versioningEnabled:
+      data.versioningEnabled === false ||
+      data.versioningEnabled === "false" ||
+      data.versioning_enabled === false ||
+      data.versioning_enabled === "false"
+        ? "false"
+        : "true",
     creatorNotes: firstString(data, ["creatorNotes", "creator_notes", "creator-notes"]) ?? "",
     phoneticName: firstString(data, ["phoneticName", "phonetic_name", "phonetic-name"]) ?? "",
     description: firstString(data, ["description"]) ?? "",
