@@ -37,6 +37,7 @@ import {
 } from "../../packages/server/src/utils/openrouter-attribution.js";
 import {
   ConnectionFallbackProvider,
+  prepareAssistantReasoningPrefillMessages,
   withConnectionFallbackProvider,
   type FallbackConnection,
   type GenerationProviderOrigin,
@@ -62,6 +63,7 @@ import {
 import { resolveMainGenerationToolChoice } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
 import {
   appendGenerationTailMessages,
+  hasProviderMessagePayload,
   parseStoredGenerationParameters,
   type SimpleMessage,
 } from "../../packages/server/src/routes/generate/generate-route-utils.js";
@@ -87,6 +89,7 @@ import {
 class RegressionProvider extends BaseLLMProvider {
   calls = 0;
   lastOptions: ChatOptions | null = null;
+  lastMessages: ChatMessage[] | null = null;
 
   constructor(
     private readonly chunks: string[],
@@ -96,8 +99,9 @@ class RegressionProvider extends BaseLLMProvider {
     super("", "");
   }
 
-  async *chat(_messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
+  async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
     this.calls += 1;
+    this.lastMessages = messages;
     this.lastOptions = options;
     for (const chunk of this.chunks) yield chunk;
     if (this.failure) throw this.failure;
@@ -122,6 +126,16 @@ class TokenCallbackFailureProvider extends BaseLLMProvider {
 async function collectProviderOutput(provider: BaseLLMProvider, options: ChatOptions): Promise<string> {
   let output = "";
   for await (const chunk of provider.chat([{ role: "user", content: "test" }], options)) output += chunk;
+  return output;
+}
+
+async function collectProviderOutputForMessages(
+  provider: BaseLLMProvider,
+  messages: ChatMessage[],
+  options: ChatOptions,
+): Promise<string> {
+  let output = "";
+  for await (const chunk of provider.chat(messages, options)) output += chunk;
   return output;
 }
 
@@ -323,6 +337,11 @@ try {
     reasoning_content: "Reasoning only",
     partial: true,
   });
+  const reasoningOnlyMessages = buildPrefillMessages("", "Reasoning only") as ChatMessage[];
+  assert.equal(hasProviderMessagePayload(reasoningOnlyMessages.at(-1)!), true);
+  assert.deepEqual(prepareAssistantReasoningPrefillMessages(reasoningOnlyMessages, false), [
+    { role: "user", content: "Continue." },
+  ]);
 
   customParametersRequestBody = null;
   await provider.chatComplete(buildPrefillMessages("Visible only", ""), { model: "kimi-k3", stream: false });
@@ -991,6 +1010,57 @@ const fallbackConnection: FallbackConnection = {
     },
   }),
 };
+
+const fallbackReasoningMessages: ChatMessage[] = [
+  { role: "user", content: "Continue." },
+  {
+    role: "assistant",
+    content: "",
+    providerMetadata: { reasoning_content: "Fallback reasoning prefix", partial: true },
+  },
+];
+const unsupportedPrimary = new RegressionProvider([], new Error("primary unavailable"));
+const supportedReasoningFallback = new RegressionProvider(["fallback response"]);
+assert.equal(
+  await collectProviderOutputForMessages(
+    new ConnectionFallbackProvider(
+      unsupportedPrimary,
+      supportedReasoningFallback,
+      fallbackConnection,
+      "main",
+      undefined,
+      undefined,
+      undefined,
+      false,
+      true,
+    ),
+    fallbackReasoningMessages,
+    { model: "primary-model" },
+  ),
+  "fallback response",
+);
+assert.deepEqual(unsupportedPrimary.lastMessages, [{ role: "user", content: "Continue." }]);
+assert.deepEqual(supportedReasoningFallback.lastMessages, fallbackReasoningMessages);
+
+const supportedReasoningPrimary = new RegressionProvider([], new Error("primary unavailable"));
+const unsupportedFallback = new RegressionProvider(["fallback response"]);
+await collectProviderOutputForMessages(
+  new ConnectionFallbackProvider(
+    supportedReasoningPrimary,
+    unsupportedFallback,
+    fallbackConnection,
+    "main",
+    undefined,
+    undefined,
+    undefined,
+    true,
+    false,
+  ),
+  fallbackReasoningMessages,
+  { model: "primary-model" },
+);
+assert.deepEqual(supportedReasoningPrimary.lastMessages, fallbackReasoningMessages);
+assert.deepEqual(unsupportedFallback.lastMessages, [{ role: "user", content: "Continue." }]);
 
 resetConnectionAdmissionForTests();
 let releasePrimaryCall!: () => void;

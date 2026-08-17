@@ -67,6 +67,24 @@ export type SpeakerPrefixMessage = SimpleMessage & {
 };
 export type StoredGenerationParameters = Partial<GenerationParameters>;
 
+export function hasProviderMessagePayload(message: {
+  content: string;
+  images?: unknown[];
+  files?: unknown[];
+  providerMetadata?: Record<string, unknown>;
+  tool_calls?: unknown[];
+  tool_call_id?: string;
+}): boolean {
+  return (
+    !!message.content.trim() ||
+    !!message.images?.length ||
+    !!message.files?.length ||
+    Object.keys(message.providerMetadata ?? {}).length > 0 ||
+    !!message.tool_calls?.length ||
+    !!message.tool_call_id
+  );
+}
+
 /**
  * Preserve the route-layer export while sharing the same Persona policy with
  * the client: only Conversation falls back to the globally active Persona.

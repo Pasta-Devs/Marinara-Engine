@@ -236,6 +236,7 @@ import {
   dedupeLastMessageWrappers,
   findLastIndex,
   findTrackerContextInsertIndex,
+  hasProviderMessagePayload,
   formatConversationInstructionsForWrap,
   extractFileAttachmentInputs,
   buildGenerationGuideInstruction,
@@ -497,7 +498,6 @@ import {
   resolveStoredChatOptions,
   resolveStoredMaxTokens,
   shouldReplayStoredChatCompletionsReasoning,
-  supportsAssistantReasoningPrefill,
 } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
@@ -2912,6 +2912,7 @@ export async function generateRoutes(app: FastifyInstance) {
           enableThinking,
           isClaudeNoSampling,
           providerTopK,
+          supportsAssistantReasoningPrefill: providerSupportsAssistantReasoningPrefill,
           primaryProvider: agentChatProvider,
           provider,
         } = providerRuntime;
@@ -5051,7 +5052,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const tailMessages = appendGenerationTailMessages(finalMessages, {
           assistantPrefill,
           assistantReasoningPrefill,
-          supportsAssistantReasoningPrefill: supportsAssistantReasoningPrefill(conn.provider),
+          supportsAssistantReasoningPrefill: providerSupportsAssistantReasoningPrefill,
           followUpIteration,
           impersonate: input.impersonate,
           isGoogleProvider,
@@ -5738,7 +5739,7 @@ export async function generateRoutes(app: FastifyInstance) {
           const mergeProviderAdjacentMessages = (messages: ChatMessage[]): ChatMessage[] => {
             const merged: ChatMessage[] = [];
             for (const message of messages) {
-              if (!message.content.trim() && !message.images?.length && !message.files?.length) continue;
+              if (!hasProviderMessagePayload(message)) continue;
 
               const last = merged[merged.length - 1];
               if (last && last.role === message.role) {
@@ -5817,7 +5818,10 @@ export async function generateRoutes(app: FastifyInstance) {
           let finishReason: string | undefined;
 
           const logPromptSentToModel = (messages: ChatMessage[], label = "Prompt sent to model") => {
-            if (isDebug || requestDebug) {
+            const promptDebugOverride = requestDebug || isDebugAgentsEnabled();
+            if (isDebug || promptDebugOverride) {
+              const logProviderPrompt = (message: string, ...args: unknown[]) =>
+                logDebugOverride(promptDebugOverride, message, ...args);
               const effModel = conn.model.toLowerCase();
               const tempSuppressed =
                 ((conn.provider === "openai" || conn.provider === "openrouter") &&
@@ -5826,7 +5830,7 @@ export async function generateRoutes(app: FastifyInstance) {
               const effTemp = tempSuppressed ? "N/A" : temperature;
               const effTopP = tempSuppressed ? "N/A" : topP;
 
-              debugLog(
+              logProviderPrompt(
                 "\n[debug] %s (%d messages):\n  Model: %s (%s)  Temp: %s  MaxTokens: %s  MaxContext: %s  TopP: %s  TopK: %s  EnableThinking: %s  ShowThoughts: %s  Effort: %s  Verbosity: %s  Stream: %s",
                 label,
                 messages.length,
@@ -5860,7 +5864,12 @@ export async function generateRoutes(app: FastifyInstance) {
                     extras.push(`providerMetadata=${JSON.stringify(promptMetadata)}`);
                   }
                 }
-                debugLog("  [%s]%s %s", m.role.toUpperCase(), extras.length ? ` ${extras.join(" ")}` : "", m.content);
+                logProviderPrompt(
+                  "  [%s]%s %s",
+                  m.role.toUpperCase(),
+                  extras.length ? ` ${extras.join(" ")}` : "",
+                  m.content,
+                );
               }
             }
           };
