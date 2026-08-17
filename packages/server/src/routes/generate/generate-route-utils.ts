@@ -5,6 +5,7 @@ import {
   applyTrackerFieldLocksToGameStatePatch,
   compileChatSummaryEntries,
   generationParametersSchema,
+  normalizeInventoryTrackerRows,
   normalizeChatSummaryEntries,
   normalizeTextForMatch,
   normalizeSummaryTailMessages,
@@ -196,41 +197,10 @@ const INVENTORY_TRACKER_PLAYER_STATS_FIELDS = [
 
 type InventoryTrackerPlayerStatsField = (typeof INVENTORY_TRACKER_PLAYER_STATS_FIELDS)[number];
 
-/**
- * Keep a tracked quantity a finite safe integer.
- *
- * Without an upper bound, deduplicating two very large rows sums to `Infinity`,
- * which `JSON.stringify` writes as `null` — persisting a row whose qty can no
- * longer be read back as a number.
- */
-function clampInventoryTrackerQty(value: number): number {
-  return Math.min(Number.MAX_SAFE_INTEGER, Math.max(1, Math.floor(value)));
-}
-
-function normalizeInventoryTrackerRows(value: unknown): InventoryTrackerRow[] {
-  if (!Array.isArray(value)) return [];
-
-  const rows: InventoryTrackerRow[] = [];
-  const indexByName = new Map<string, number>();
-  for (const candidate of value) {
-    if (!isPlainRecord(candidate) || typeof candidate.name !== "string") continue;
-    const name = candidate.name.normalize("NFKC").trim().replace(/\s+/gu, " ").slice(0, 160);
-    if (!name) continue;
-    const key = name.toLocaleLowerCase("en-US");
-    const numericQty = Number(candidate.qty);
-    const qty = Number.isFinite(numericQty) ? clampInventoryTrackerQty(numericQty) : 1;
-    const existingIndex = indexByName.get(key);
-    if (existingIndex !== undefined) {
-      const existing = rows[existingIndex]!;
-      const combinedQty = clampInventoryTrackerQty((existing.qty ?? 1) + qty);
-      rows[existingIndex] = combinedQty > 1 ? { ...existing, qty: combinedQty } : existing;
-      continue;
-    }
-    indexByName.set(key, rows.length);
-    rows.push(qty > 1 ? { name, qty } : { name });
-  }
-  return rows.slice(0, 250);
-}
+// `clampInventoryTrackerQty` and `normalizeInventoryTrackerRows` now live in
+// `@marinara-engine/shared` so the hand-edit paths (tracker panel, HUD popover,
+// Agent Suite editor, chat game-state route) apply the same rules this route
+// already applied to agent output.
 
 export function buildLockedInventoryTrackerPatch({
   data,

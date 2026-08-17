@@ -37,6 +37,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- The Inventory Tracker section now appears for installs whose synced UI settings were saved before the section existed. The cross-device settings blob overwrote the locally migrated panel order on every load, and `trackerPanelSectionOrder` was the one tracker preference that blob never re-normalized on the way in, so the section stayed invisible until the panel was reordered by hand. Ingest now normalizes both the section order and the collapsed-section map and writes the corrected value back, so the stale order does not survive to re-arrive on another device. Any tracker section added in future would have hit the same gap.
+- Inventory Tracker entries edited by hand now get the same treatment as agent output. Tracker Panel and HUD edits wrote rows straight to state, skipping name trimming, duplicate merging, the quantity clamp, and the rule that keeps equipped gear out of carried inventory — so a value the agent could never emit could still be typed in. Equipping a carried item now moves it in a single write instead of leaving it in both lists, and the same rules are enforced on the server, which previously accepted any `playerStats` payload unchecked.
+- The Agent Suite JSON editor now reports malformed Inventory Tracker rows instead of accepting them. It only checked that the three keys were arrays, so a row without a name was stored as-is; validating first also avoids silently normalizing a hand-written group down to an empty list.
 - Gallery routes now serve valid raster images with the format detected from their bytes, so generated Noodle images stored with a mismatched `.png` extension render instead of returning 404 (Pasta-Devs/Marinara-Agents#392).
 - Opening the immutable Universal Preset no longer creates duplicate presets; its editor now offers an explicit **Create editable copy** action instead (#5142).
 - Gallery files now use the image format detected from their decoded bytes, preventing JPEG output advertised as PNG from being stored under a broken `.png` name (#5147).
@@ -48,7 +51,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Large manual backups now prepare as a short-lived server job before Safari opens the completed ZIP stream, avoiding long idle download requests that Safari could terminate (#5164).
 - The Termux launcher now preserves timestamped server logs across Android process restarts and documents Android battery-optimization exclusions, making otherwise silent host-level terminations diagnosable (#5154).
 - Game Mode's Spotify Music DJ no longer fails deterministically for the artist and generic-search sources on apps subject to Spotify's February 2026 `GET /search` limit reduction (Development Mode apps, capped at 10 results per request; Extended Quota Mode apps kept the old behavior): the candidate pool's default of 50 was passed straight through, producing a 400 on every request for affected apps. Search now paginates in pages of 10 up to the requested pool size — safe under both quota modes — and a transient failure on a later page returns the results already collected instead of discarding them (#5163).
-- Conversation branches now retain active turn-game state at copied message and swipe anchors instead of resetting or losing the game after branching (#5131).
+
 - Professor Mari now wires up the preset variables she creates: her authoring guidance and worked example make her drop a variable's `{{variableName}}` macro into a prompt section, so a choice block she adds actually changes the assembled prompt instead of leaving the user a picker that does nothing (#5080).
 - Preserved omitted Inventory Tracker groups, kept equipped items out of carried inventory after lock merging and name normalization, clamped oversized quantities, and migrated existing Tracker Panel layouts to show the new section (#5125).
 - Kept launcher update snapshots small by excluding downloaded model caches and sidecar runtimes, while continuing to preserve user content and recovery backups (#5124).
@@ -83,6 +86,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Restored persona creation through Professor Mari by supplying the persona reference-image default expected by storage validation (#5033).
 - Kept supported placement settings when importing character-scoped SillyTavern regexes that also contain unsupported placements, with a warning for the ignored values (#5036).
 - Capped game auto-checkpoints to the newest five per trigger type (session start/end, combat start/end, and the rest) so a long campaign no longer duplicates every captured tracker, map, and engine-state snapshot into unbounded memory and ever-larger checkpoint shard rewrites; your own manual checkpoints are never pruned (#5110).
+
+### Changed
+
+- The Inventory Tracker panel now flows its entries as wrapping pills across the full panel width, with the quantity shown as `×N` only when it is above one. The previous layout split the panel into three fixed columns and reserved a quantity cell on every row, so at the widest setting each column was around 95 px and item names truncated — while a group holding two rows sat mostly empty. The panel also establishes its own container context, so it now lays out identically in the docked sidebar and the HUD popover instead of differing between them (#5125).
 
 ## [2.4.3]
 
