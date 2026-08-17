@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- The Game Mode narration box can now be collapsed to a slim handle, so the scene art, map, or running Experience behind it is visible without leaving the game. The choice is a saved preference that persists across chats and sessions, the handle raises an attention indicator when the folded box is holding a retry banner, and the readability scrim and stacked segment log fold away with it. The box refuses to collapse whenever it holds something you must act on — your text input, or the segment controls that advance a turn — so it can never strand you mid-turn, and capability API 1.13 lets a game-surface Experience request a temporary collapse for a cutscene without touching your saved preference (#5209).
 - Character and Persona cards now start at version `1.0`, automatically increase their version when saved edits change the card, and provide an enabled-by-default switch that can pause automatic versioning and revision snapshots without deleting existing history (#5202).
 - Beholder's Roleplay host now sends the active Persona and a name-keyed current-state object on every call, accepts both delta responses and legacy full snapshots, and safely merges deltas into the last valid full state before saving it (#5204).
 - Expanded Simplified Chinese UI localization across nearly the entire app, with the normal English fallback retained for newer strings that have not yet been translated (#5201).

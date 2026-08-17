@@ -336,6 +336,18 @@ type ExperienceChromeDeclaration = {
   /** The experience offers the turn's choices itself, so Classic choice cards stay out of its way and the
    *  in-flow anchor it portals into stays mounted even on a turn the narration emitted choices for. */
   providesChoices?: boolean;
+  /**
+   * Asks the narration box to fold down to its handle for as long as the request stands —
+   * a cutscene, a full-screen beat. This is a TRANSIENT REQUEST, not a preference: it never
+   * touches the player's stored `gameNarrationCollapsed` setting, and because it is read off
+   * `activeExperienceChrome` it clears the moment the experience stops being the live surface,
+   * which is what guarantees the box always comes back.
+   *
+   * The engine's own safety rules still win: the box force-expands whenever the player's input
+   * is on screen or the segment-advance controls are live, and the handle still raises its
+   * attention indicator. A package cannot lock the player out of their own turn with this.
+   */
+  requestsCollapsedNarration?: boolean;
 };
 const GAME_ACTION_MENU_ITEM =
   "marinara-chat-popover__item flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent";
@@ -3744,7 +3756,11 @@ function GameSurfaceComponent({
         previous?.providesInventory === next?.providesInventory &&
         previous?.providesCombat === next?.providesCombat &&
         previous?.providesPlayerInput === next?.providesPlayerInput &&
-        previous?.providesChoices === next?.providesChoices
+        previous?.providesChoices === next?.providesChoices &&
+        // Every declared field belongs in this comparison. A package that toggles ONLY the
+        // narration-collapse request would otherwise be handed back the previous object and
+        // its cutscene would never fold the box away.
+        previous?.requestsCollapsedNarration === next?.requestsCollapsedNarration
       ) {
         return previous;
       }
@@ -12541,6 +12557,9 @@ function GameSurfaceComponent({
                           onSetReviewOffset={setMessageOffset}
                           nextActionToken={nextActionToken}
                           onMaxNavOffsetChange={handleMaxNavOffsetChange}
+                          // Read off activeExperienceChrome, never raw experienceChrome: the request
+                          // has to evaporate when the experience is no longer the live surface.
+                          requestsCollapsedNarration={activeExperienceChrome?.requestsCollapsedNarration}
                           inputSlot={
                             activeExperienceChrome?.providesPlayerInput ? undefined : (
                               <GameInput
@@ -12630,6 +12649,9 @@ function GameSurfaceComponent({
                       onSetReviewOffset={setMessageOffset}
                       nextActionToken={nextActionToken}
                       onMaxNavOffsetChange={handleMaxNavOffsetChange}
+                      // Read off activeExperienceChrome, never raw experienceChrome: the request
+                      // has to evaporate when the experience is no longer the live surface.
+                      requestsCollapsedNarration={activeExperienceChrome?.requestsCollapsedNarration}
                       // Withheld while the experience drives the turn through its own menus. The
                       // declaration is dynamic, so the input returns when it has no action to offer.
                       inputSlot={

@@ -159,6 +159,29 @@ keep your pending state until the completing event. This is a soft seam like 1.1
 delivered regardless of the declared `capabilityApi`; declare 1.12 only if your package
 requires them.
 
+### Capability API 1.13: transient narration collapse
+
+Capability API 1.13 adds `requestsCollapsedNarration` to the chrome declaration a
+`game-surface` package passes to `setExperienceChrome`. While the flag is true the Game Mode
+narration box folds down to its slim handle, so an Experience can clear the screen for a
+cutscene or a full-screen beat.
+
+It is a REQUEST, not a preference. The player's own collapse setting is never written, and
+the flag is honored only while your Experience is the live surface — drop the flag, or stop
+being the active surface, and the box returns to whatever the player chose. That is the
+"always reopens afterwards" guarantee; there is deliberately no way to persist a collapse
+from a package.
+
+The Engine's safety rules outrank the request. The box force-expands whenever the player's
+text input is on screen (including at the very start of a scene, before any segment exists)
+and whenever the segment-advance controls are live, because those controls are the only way
+to finish a turn — a package that could hide them could strand the player permanently. The
+handle also keeps raising its attention indicator for a pending scene-analysis, generation,
+or combat-generation retry. A player who expands the box by hand during a request keeps it
+open until the request drops. Like the 1.11/1.12 seams, this is a soft seam: the field is
+honored regardless of the declared `capabilityApi`, and the 1.13 label marks when it
+appeared, so a package that *requires* it declares 1.13.
+
 ## Initial packages
 
 - all currently built-in agents;
