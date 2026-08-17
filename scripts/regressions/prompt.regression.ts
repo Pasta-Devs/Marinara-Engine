@@ -8405,6 +8405,11 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         const absentMarkerResult = await assemble(wrapFormat, "absent");
         const absentMarkerPromptText = absentMarkerResult.messages.map((message) => message.content).join("\n");
         assert.equal(absentMarkerPromptText.match(/CHARACTER_EXAMPLE_DIALOGUE/g)?.length, 1);
+        assert.ok(
+          absentMarkerPromptText.indexOf("CHARACTER_EXAMPLE_DIALOGUE") <
+            absentMarkerPromptText.indexOf("CHARACTER_SYSTEM_PROMPT"),
+          "fallback Example Dialogue should retain canonical character field order",
+        );
         if (wrapFormat === "xml") assert.match(absentMarkerPromptText, /<mes_example>/);
 
         const disabledMarkerResult = await assemble(wrapFormat, "disabled");

@@ -196,14 +196,14 @@ async function expandCharacter(config: MarkerConfig, ctx: MarkerContext): Promis
     const profile = characterMacroProfileFromData(data);
     const characterMacroContext = macroContextForCharacterProfile(ctx.macroCtx, profile);
 
-    const fields = resolveCharacterMarkerFields(config.characterFields);
+    let fields = resolveCharacterMarkerFields(config.characterFields);
     if (
       ctx.includeExampleDialogueInCharacterMarker === true &&
       config.characterFields === undefined &&
       !fields.includes("mes_example") &&
       !fields.includes("example_dialogue")
     ) {
-      fields.push("mes_example");
+      fields = orderCharacterMarkerFields([...fields, "mes_example"]);
     }
 
     const charParts: string[] = [];
