@@ -5014,12 +5014,14 @@ export async function generateRoutes(app: FastifyInstance) {
             contextInjections,
             { omitUnmatched: presetOwnsAgentPlacement },
           );
-          contextInjections = contextInjections.filter(
-            (injection) => !runtimeHandledCached.omittedInjections.includes(injection),
+          const unmatchedCachedLongTermMemory = runtimeHandledCached.omittedInjections.filter(
+            (injection) => injection.agentType === "long-term-memory",
           );
-          if (runtimeHandledCached.omittedInjections.some((injection) => injection.agentType === "long-term-memory")) {
-            longTermMemoryRecallReceipt = undefined;
-          }
+          contextInjections = contextInjections.filter(
+            (injection) =>
+              injection.agentType === "long-term-memory" || !runtimeHandledCached.omittedInjections.includes(injection),
+          );
+          runtimeHandledCached.fallbackInjections.push(...unmatchedCachedLongTermMemory);
 
           const cachedPipelineInjections = runtimeHandledCached.fallbackInjections.filter(
             (inj) => !SEPARATE_INJECTION_AGENTS.has(inj.agentType),
