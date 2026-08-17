@@ -246,6 +246,7 @@ import { normalizeGoogleGenerativeLanguageBaseUrl } from "../../packages/server/
 import {
   buildReferencedCharacterContext,
   buildReferencedPersonaContext,
+  extractPersonaReferenceIds,
   MAX_REFERENCED_CHARACTERS,
   normalizeChatMacroVariables,
 } from "../../packages/server/src/services/prompt/macro-context.js";
@@ -1554,6 +1555,34 @@ try {
   assert.match(referencedPersonaContext.content, /Warm, incisive, and knowingly amused\./u);
   assert.match(referencedPersonaContext.content, /with Ada\./u);
   assert.match(referencedPersonaContext.content, /REFERENCED_PERSONA_LOREBOOK_MEMORY/u);
+
+  const activePersonaReferenceContext = await buildReferencedPersonaContext({
+    db,
+    activePersonaId: referencedPersona.id,
+    sources: [],
+    chatMessages: [{ role: "user", content: `I am {{persona-${referencedPersona.id}}}.` }],
+    macroCtx: {
+      user: "Mari",
+      char: "Version snapshot fixture",
+      characters: ["Version snapshot fixture"],
+      variables: {},
+    },
+    wrapFormat: "xml",
+    chatId: "persona-reference-regression-active",
+  });
+  assert.equal(activePersonaReferenceContext.references[referencedPersona.id], "Mari");
+  assert.equal(activePersonaReferenceContext.content, "");
+
+  const knownPersonaIds = new Set(Array.from({ length: 8 }, (_, index) => `KnownPersona${String(index).padStart(9, "0")}`));
+  const newPersonaId = "NewPersona00000000001";
+  assert.deepEqual(
+    extractPersonaReferenceIds(
+      [[...knownPersonaIds, newPersonaId].map((id) => `{{persona-${id}}}`).join(" ")],
+      knownPersonaIds,
+    ),
+    [newPersonaId],
+    "known Persona references must not consume the discovery cap",
+  );
 
   const macroLorebook = await lorebookStorage.create(
     createLorebookSchema.parse({

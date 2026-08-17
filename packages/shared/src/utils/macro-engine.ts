@@ -549,6 +549,7 @@ function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: 
     idleDuration: base?.idleDuration,
     timeZone: base?.timeZone,
     agentData: base?.agentData,
+    personaReferences: base?.personaReferences,
     personaFields: base?.personaFields,
     convoFields: base?.convoFields,
     characterFields: {

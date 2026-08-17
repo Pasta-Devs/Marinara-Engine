@@ -59,6 +59,7 @@ import {
   normalizeGameStoryboardKeyframeCount,
   parseDeferredConditionalPayload,
   resolveDeferredCharacterMacros,
+  resolveCharacterScopedMacros,
   selectConditionalPayloadBranch,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
 } from "../../packages/shared/src/index.js";
@@ -2725,6 +2726,15 @@ const cases: RegressionCase[] = [
         resolveMacros(`I consulted {{persona-${unknownId}}}.`, context),
         `I consulted {{persona-${unknownId}}}.`,
         "Unknown Persona IDs must remain visible",
+      );
+      assert.equal(
+        resolveCharacterScopedMacros(
+          `{{#if {{persona-${referencedId}}} == "Professor Mari"}}known{{else}}unknown{{/if}}`,
+          { name: "Dottore" },
+          0,
+          context,
+        ),
+        "known",
       );
     },
   },

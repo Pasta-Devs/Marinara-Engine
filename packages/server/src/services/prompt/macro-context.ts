@@ -123,7 +123,7 @@ export function extractCharacterReferenceIds(sources: readonly string[]): string
   return ids;
 }
 
-export function extractPersonaReferenceIds(sources: readonly string[]): string[] {
+export function extractPersonaReferenceIds(sources: readonly string[], excludeIds?: ReadonlySet<string>): string[] {
   const ids: string[] = [];
   const seen = new Set<string>();
   for (const source of sources) {
@@ -131,6 +131,7 @@ export function extractPersonaReferenceIds(sources: readonly string[]): string[]
       const id = match[1]!;
       if (seen.has(id)) continue;
       seen.add(id);
+      if (excludeIds?.has(id)) continue;
       ids.push(id);
       if (ids.length >= MAX_REFERENCED_PERSONAS) return ids;
     }
@@ -173,6 +174,19 @@ function referencedCharacterProfile(data: CharacterData): CharacterMacroProfile 
 
 function clipReferencedText(value: string, limit: number): string {
   return value.length <= limit ? value : value.slice(0, limit);
+}
+
+function referencedLorebookBlock(lorebookScan: LorebookScanResult | null, wrapFormat: WrapFormat): string[] {
+  const content = clipReferencedText(
+    (lorebookScan?.activatedEntries ?? [])
+      .map((entry) => entry.content.trim())
+      .filter(Boolean)
+      .join("\n\n"),
+    MAX_REFERENCED_LOREBOOK_CHARS,
+  );
+  return content
+    ? [wrapContent(sanitizePromptLeaf(content, wrapFormat), "attached_lorebook_context", wrapFormat, 2)]
+    : [];
 }
 
 function resolveReferencedField(value: string, macroCtx: MacroContext, wrapFormat: WrapFormat): string {
@@ -226,18 +240,7 @@ function buildReferencedCharacterFields(
     return content ? [wrapContent(content, label, wrapFormat, 2)] : [];
   });
 
-  const lorebookContent = clipReferencedText(
-    (lorebookScan?.activatedEntries ?? [])
-      .map((entry) => entry.content.trim())
-      .filter(Boolean)
-      .join("\n\n"),
-    MAX_REFERENCED_LOREBOOK_CHARS,
-  );
-  if (lorebookContent) {
-    fields.push(
-      wrapContent(sanitizePromptLeaf(lorebookContent, wrapFormat), "attached_lorebook_context", wrapFormat, 2),
-    );
-  }
+  fields.push(...referencedLorebookBlock(lorebookScan, wrapFormat));
 
   return wrapContent(fields.join("\n"), "referenced_character", wrapFormat, 1);
 }
@@ -284,18 +287,7 @@ function buildReferencedPersonaFields(
     return content ? [wrapContent(content, label, wrapFormat, 2)] : [];
   });
 
-  const lorebookContent = clipReferencedText(
-    (lorebookScan?.activatedEntries ?? [])
-      .map((entry) => entry.content.trim())
-      .filter(Boolean)
-      .join("\n\n"),
-    MAX_REFERENCED_LOREBOOK_CHARS,
-  );
-  if (lorebookContent) {
-    fields.push(
-      wrapContent(sanitizePromptLeaf(lorebookContent, wrapFormat), "attached_lorebook_context", wrapFormat, 2),
-    );
-  }
+  fields.push(...referencedLorebookBlock(lorebookScan, wrapFormat));
 
   return wrapContent(fields.join("\n"), "referenced_persona", wrapFormat, 1);
 }
@@ -320,9 +312,10 @@ export async function buildReferencedPersonaContext(input: {
   const sources = [...input.sources, ...input.chatMessages.map((message) => message.content)];
 
   const knownPersonaIds = new Set(input.knownPersonaIds ?? []);
-  const candidateIds = extractPersonaReferenceIds(sources)
-    .filter((id) => !knownPersonaIds.has(id))
-    .slice(0, Math.max(0, input.maxReferences ?? MAX_REFERENCED_PERSONAS));
+  const candidateIds = extractPersonaReferenceIds(sources, knownPersonaIds).slice(
+    0,
+    Math.max(0, input.maxReferences ?? MAX_REFERENCED_PERSONAS),
+  );
   const referencedIds = candidateIds.filter((id) => id !== input.activePersonaId);
   const referencedRows = await Promise.all(referencedIds.map((id) => characters.getPersona(id)));
   const referenced = referencedIds.flatMap((id, index) => {
