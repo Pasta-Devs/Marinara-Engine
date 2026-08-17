@@ -1395,6 +1395,7 @@ try {
       keys: ["cafe"],
     }),
   );
+  const knownPersonaReferenceId = "PriorPersonaRef123456";
   const referencedPersona = await characterStorage.createPersona(
     "Professor Mari",
     "A brilliant engineer who understands every machine in the laboratory.",
@@ -1403,7 +1404,7 @@ try {
       personality: "Warm, incisive, and knowingly amused.",
       backstory: "She designed the laboratory's most reliable systems.",
       appearance: "Pink hair, a lab coat, and a knowing smile.",
-      scenario: "She is visiting the cafe after a long experiment.",
+      scenario: `She is visiting the cafe after a long experiment with {{persona-${knownPersonaReferenceId}}}.`,
     },
   );
   assert.ok(referencedPersona);
@@ -1543,6 +1544,7 @@ try {
       char: "Version snapshot fixture",
       characters: ["Version snapshot fixture"],
       variables: {},
+      personaReferences: { [knownPersonaReferenceId]: "Ada" },
     },
     wrapFormat: "xml",
     chatId: "persona-reference-regression",
@@ -1550,6 +1552,7 @@ try {
   assert.equal(referencedPersonaContext.references[referencedPersona.id], "Professor Mari");
   assert.match(referencedPersonaContext.content, /A brilliant engineer who understands every machine/u);
   assert.match(referencedPersonaContext.content, /Warm, incisive, and knowingly amused\./u);
+  assert.match(referencedPersonaContext.content, /with Ada\./u);
   assert.match(referencedPersonaContext.content, /REFERENCED_PERSONA_LOREBOOK_MEMORY/u);
 
   const macroLorebook = await lorebookStorage.create(

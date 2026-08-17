@@ -337,7 +337,13 @@ export async function buildReferencedPersonaContext(input: {
   ]);
   if (referenced.length === 0) return { content: "", references };
 
-  const macroCtx = { ...input.macroCtx, personaReferences: references };
+  const macroCtx = {
+    ...input.macroCtx,
+    personaReferences: {
+      ...(input.macroCtx.personaReferences ?? {}),
+      ...references,
+    },
+  };
   const lorebooks = createLorebooksStorage(input.db);
   const allLorebooks = (await lorebooks.list()) as unknown as Array<{
     id: string;
