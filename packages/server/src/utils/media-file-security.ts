@@ -89,10 +89,6 @@ export async function sendValidatedMediaFile(
   return reply.send(media.handle.createReadStream({ start, end }));
 }
 
-function normalizedRasterExtension(extension: string): string {
-  return extension === ".jpeg" ? "jpg" : extension.slice(1);
-}
-
 function isXmlNameCharacter(character: string | undefined): boolean {
   if (!character) return false;
   const code = character.charCodeAt(0);
@@ -325,8 +321,11 @@ export function validateImageAssetBuffer(
     return options.allowSvg && isSafeSvgImageBuffer(buffer) ? { mimeType: "image/svg+xml", isSvg: true } : null;
   }
   if (!RASTER_IMAGE_EXTENSIONS.has(extension)) return null;
+  // Serve any recognized raster by its detected format so a mislabeled but valid
+  // image (e.g. WebP/JPEG bytes stored under a .png name) still renders with an
+  // honest Content-Type. Raster formats are inert; SVG stays strict above.
   const image = isAllowedImageBuffer(buffer, extension);
-  if (!image || image.ext !== normalizedRasterExtension(extension)) return null;
+  if (!image) return null;
   return { mimeType: image.mimeType, isSvg: false };
 }
 

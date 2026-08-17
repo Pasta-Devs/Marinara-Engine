@@ -92,7 +92,7 @@ export function safeBasename(value: string, fallback = "file"): string {
   return name || fallback;
 }
 
-export function isAllowedImageBuffer(buffer: Buffer, expectedExt?: string): { ext: string; mimeType: string } | null {
+export function isAllowedImageBuffer(buffer: Buffer, _expectedExt?: string): { ext: string; mimeType: string } | null {
   if (
     buffer.length >= 8 &&
     buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
@@ -114,7 +114,6 @@ export function isAllowedImageBuffer(buffer: Buffer, expectedExt?: string): { ex
     if (sig === "GIF87a" || sig === "GIF89a") return { ext: "gif", mimeType: "image/gif" };
   }
   if (
-    expectedExt?.toLowerCase() === ".avif" &&
     buffer.length >= 16 &&
     buffer.subarray(4, 8).toString("ascii") === "ftyp"
   ) {
