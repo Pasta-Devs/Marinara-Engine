@@ -12,7 +12,7 @@ Widget pojawia się tylko wtedy, gdy jego tracker jest włączony w danym czacie
 
 ## Widgety paska HUD
 
-Trackery mają sześć widgetów. Każdy z nich pojawia się dopiero po włączeniu własnego agenta.
+Trackery mają siedem widgetów. Każdy z nich pojawia się dopiero po włączeniu własnego agenta.
 
 | Widget                 | Wymagany agent    | Co pokazuje                                                                      |
 | ---------------------- | ----------------- | -------------------------------------------------------------------------------- |

@@ -12,7 +12,7 @@ Ein Widget erscheint nur, wenn sein Tracker-Agent für den Chat aktiviert ist. A
 
 ## Die HUD-Widgets
 
-Es gibt sechs Tracker-Widgets. Jedes braucht seinen eigenen aktivierten Agenten, um zu erscheinen.
+Es gibt sieben Tracker-Widgets. Jedes braucht seinen eigenen aktivierten Agenten, um zu erscheinen.
 
 | Widget                 | Braucht diesen Agenten | Zeigt                                                                                     |
 | ---------------------- | ----------------- | -------------------------------------------------------------------------------- |

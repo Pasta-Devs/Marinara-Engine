@@ -12,7 +12,7 @@ Um widget só aparece quando o agente de tracker dele está ativado no chat. Ati
 
 ## Os widgets do HUD
 
-São seis widgets de tracker. Cada um precisa do agente correspondente ativado para aparecer.
+São sete widgets de tracker. Cada um precisa do agente correspondente ativado para aparecer.
 
 | Widget                 | Precisa deste agente | Mostra                                                                           |
 | ---------------------- | ----------------- | -------------------------------------------------------------------------------- |

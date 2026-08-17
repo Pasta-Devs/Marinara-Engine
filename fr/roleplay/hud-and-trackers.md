@@ -12,7 +12,7 @@ Un widget n'apparaît que si son tracker est activé pour le chat. L'activation 
 
 ## Les widgets du HUD
 
-Il existe six widgets de tracker. Chacun a besoin de son propre agent pour s'afficher.
+Il existe sept widgets de tracker. Chacun a besoin de son propre agent pour s'afficher.
 
 | Widget                 | Agent requis      | Contenu affiché                                                                  |
 | ---------------------- | ----------------- | -------------------------------------------------------------------------------- |
