@@ -11,6 +11,7 @@ import {
   type InventoryTrackerRow,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { cn } from "../../../../lib/utils";
 import { InlineEdit, InlineNumber } from "../controls/InlineControls";
 import { TrackerReadabilityVeil } from "../controls/TrackerProfileChrome";
 import { AddRowButton, EmptySection, SectionHeader } from "../controls/SectionControls";
@@ -32,6 +33,16 @@ function nextPlaceholderName(rows: InventoryTrackerRow[], base: string): string 
   }
   return base;
 }
+
+/**
+ * Cancels the background and ring that InlineEdit/InlineNumber paint for their locked
+ * and hover states. Those were designed for bare rows; inside a bordered chip they draw
+ * a second surface within the first. The chip expresses both states instead.
+ *
+ * `cn` merges by Tailwind group and this is passed last, so it wins over the control's
+ * own classes without touching the shared component.
+ */
+const LOCK_SURFACE_RESET = "rounded-full bg-transparent ring-0 hover:bg-transparent";
 
 type InventoryGroupProps = {
   group: InventoryTrackerGroup;
@@ -103,22 +114,30 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
           // is deliberately editing structure or pinning values, or a qty-1 row could
           // never be raised or locked.
           const showQuantity = quantity > 1 || addMode || lockMode;
+          const nameLocked = isTrackerFieldLocked(fieldLocks, nameKey);
+          const qtyLocked = isTrackerFieldLocked(fieldLocks, qtyKey);
           return (
             <div
               key={`${row.name}-${index}`}
-              className="flex min-h-6 min-w-0 max-w-full items-center gap-1 rounded-full border border-[var(--tracker-profile-slot-rule)] bg-[image:var(--tracker-profile-slot-surface)] px-1.5 shadow-[inset_0_1px_2px_var(--tracker-profile-slot-shadow)] [@media(pointer:coarse)]:min-h-7"
+              className={cn(
+                "flex min-h-6 min-w-0 max-w-full items-center gap-1 rounded-full border border-[var(--tracker-profile-slot-rule)] bg-[image:var(--tracker-profile-slot-surface)] px-1.5 shadow-[inset_0_1px_2px_var(--tracker-profile-slot-shadow)] [@media(pointer:coarse)]:min-h-7",
+                // A pinned entry brightens the whole pill rather than painting a panel
+                // behind its text. The inner controls own no background of their own
+                // (see LOCK_SURFACE_RESET), so the chip stays one shape instead of
+                // reading as a box nested inside a box.
+                (nameLocked || qtyLocked) &&
+                  "border-[color-mix(in_srgb,var(--foreground)_34%,transparent)] bg-[color-mix(in_srgb,var(--foreground)_9%,transparent)]",
+              )}
             >
               <InlineEdit
                 value={row.name}
                 onSave={(name) => updateRow(index, { ...row, name: name || localizeUi("ui.trackerPanel.inventoryTracker.item") })}
                 placeholder={localizeUi("ui.trackerPanel.inventoryTracker.item")}
-                // The locked/hover states paint their own background, which defaults to a
-                // small radius — a square-ish block sitting inside a pill. Match the chip.
-                className="min-w-0 rounded-full px-1 text-[0.625rem] font-medium"
+                className={cn("min-w-0 px-0.5 text-[0.625rem] font-medium", LOCK_SURFACE_RESET)}
                 title={row.name}
                 showEditHint={false}
                 scrollOnHover
-                locked={isTrackerFieldLocked(fieldLocks, nameKey)}
+                locked={nameLocked}
                 lockMode={lockMode}
                 onToggleLock={() => onToggleFieldLock?.(nameKey)}
               />
@@ -129,11 +148,9 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
                     value={quantity}
                     min={1}
                     onChange={(qty) => updateRow(index, qty > 1 ? { ...row, qty } : { name: row.name })}
-                    // Radius only: InlineNumber sizes itself with an exact inline `width`,
-                    // and with border-box sizing any horizontal padding clips the digits.
-                    className="rounded-full px-0 text-right text-[0.625rem] tabular-nums"
+                    className={cn("px-0 text-right text-[0.625rem] tabular-nums", LOCK_SURFACE_RESET)}
                     title={localizeUi("ui.trackerPanel.inventoryTracker.quantityFor", { item: row.name })}
-                    locked={isTrackerFieldLocked(fieldLocks, qtyKey)}
+                    locked={qtyLocked}
                     lockMode={lockMode}
                     onToggleLock={() => onToggleFieldLock?.(qtyKey)}
                   />
