@@ -112,7 +112,9 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
                 value={row.name}
                 onSave={(name) => updateRow(index, { ...row, name: name || localizeUi("ui.trackerPanel.inventoryTracker.item") })}
                 placeholder={localizeUi("ui.trackerPanel.inventoryTracker.item")}
-                className="min-w-0 px-0.5 text-[0.625rem] font-medium"
+                // The locked/hover states paint their own background, which defaults to a
+                // small radius — a square-ish block sitting inside a pill. Match the chip.
+                className="min-w-0 rounded-full px-1 text-[0.625rem] font-medium"
                 title={row.name}
                 showEditHint={false}
                 scrollOnHover
@@ -127,7 +129,9 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
                     value={quantity}
                     min={1}
                     onChange={(qty) => updateRow(index, qty > 1 ? { ...row, qty } : { name: row.name })}
-                    className="px-0 text-right text-[0.625rem] tabular-nums"
+                    // Radius only: InlineNumber sizes itself with an exact inline `width`,
+                    // and with border-box sizing any horizontal padding clips the digits.
+                    className="rounded-full px-0 text-right text-[0.625rem] tabular-nums"
                     title={localizeUi("ui.trackerPanel.inventoryTracker.quantityFor", { item: row.name })}
                     locked={isTrackerFieldLocked(fieldLocks, qtyKey)}
                     lockMode={lockMode}
