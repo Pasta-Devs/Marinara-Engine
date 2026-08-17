@@ -2708,6 +2708,27 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "persona ID macros resolve exact card references without matching unknown IDs",
+    run() {
+      const referencedId = "P1StGXR8_Z5jdHi6B-myT";
+      const unknownId = "Q1StGXR8_Z5jdHi6B-myT";
+      const context = {
+        user: "Mari",
+        char: "Dottore",
+        characters: ["Dottore"],
+        variables: {},
+        personaReferences: { [referencedId]: "Professor Mari" },
+      };
+
+      assert.equal(resolveMacros(`I consulted {{persona-${referencedId}}}.`, context), "I consulted Professor Mari.");
+      assert.equal(
+        resolveMacros(`I consulted {{persona-${unknownId}}}.`, context),
+        `I consulted {{persona-${unknownId}}}.`,
+        "Unknown Persona IDs must remain visible",
+      );
+    },
+  },
+  {
     name: "lorebook Outlets collect only named position-7 entries and resolve case-sensitively",
     run() {
       const activated = [

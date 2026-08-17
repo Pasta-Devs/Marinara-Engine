@@ -245,6 +245,7 @@ import { buildGoogleModelsPageUrl } from "../../packages/server/src/routes/conne
 import { normalizeGoogleGenerativeLanguageBaseUrl } from "../../packages/server/src/services/llm/providers/google.provider.js";
 import {
   buildReferencedCharacterContext,
+  buildReferencedPersonaContext,
   MAX_REFERENCED_CHARACTERS,
   normalizeChatMacroVariables,
 } from "../../packages/server/src/services/prompt/macro-context.js";
@@ -1394,6 +1395,33 @@ try {
       keys: ["cafe"],
     }),
   );
+  const referencedPersona = await characterStorage.createPersona(
+    "Professor Mari",
+    "A brilliant engineer who understands every machine in the laboratory.",
+    undefined,
+    {
+      personality: "Warm, incisive, and knowingly amused.",
+      backstory: "She designed the laboratory's most reliable systems.",
+      appearance: "Pink hair, a lab coat, and a knowing smile.",
+      scenario: "She is visiting the cafe after a long experiment.",
+    },
+  );
+  assert.ok(referencedPersona);
+  const hiddenPersonaLorebook = await lorebookStorage.create(
+    createLorebookSchema.parse({
+      name: "Professor Mari's private notes",
+      personaIds: [referencedPersona.id],
+      hiddenFromLibrary: true,
+    }),
+  );
+  await lorebookStorage.createEntry(
+    createLorebookEntrySchema.parse({
+      lorebookId: hiddenPersonaLorebook.id,
+      name: "The cafe prototype",
+      content: "REFERENCED_PERSONA_LOREBOOK_MEMORY",
+      keys: ["cafe"],
+    }),
+  );
   assert.equal(
     (await lorebookStorage.list()).some((book) => book.id === hiddenCharacterLorebook.id),
     true,
@@ -1500,6 +1528,30 @@ try {
   assert.doesNotMatch(referencedContext.content, /REFERENCED_GREETING_MUST_STAY_OUT/u);
   assert.match(referencedContext.content, /REFERENCED_EXAMPLE_SHOULD_APPEAR/u);
 
+  const referencedPersonaContext = await buildReferencedPersonaContext({
+    db,
+    activePersonaId: null,
+    sources: [],
+    chatMessages: [
+      {
+        role: "user",
+        content: `I went to the cafe with {{persona-${referencedPersona.id}}}.`,
+      },
+    ],
+    macroCtx: {
+      user: "Mari",
+      char: "Version snapshot fixture",
+      characters: ["Version snapshot fixture"],
+      variables: {},
+    },
+    wrapFormat: "xml",
+    chatId: "persona-reference-regression",
+  });
+  assert.equal(referencedPersonaContext.references[referencedPersona.id], "Professor Mari");
+  assert.match(referencedPersonaContext.content, /A brilliant engineer who understands every machine/u);
+  assert.match(referencedPersonaContext.content, /Warm, incisive, and knowingly amused\./u);
+  assert.match(referencedPersonaContext.content, /REFERENCED_PERSONA_LOREBOOK_MEMORY/u);
+
   const macroLorebook = await lorebookStorage.create(
     createLorebookSchema.parse({
       name: "Active character references",
@@ -1512,6 +1564,14 @@ try {
       lorebookId: macroLorebook.id,
       name: "Cafe companion",
       content: `The cafe companion is {{${referencedCharacter.id}}}.`,
+      keys: ["cafe"],
+    }),
+  );
+  await lorebookStorage.createEntry(
+    createLorebookEntrySchema.parse({
+      lorebookId: macroLorebook.id,
+      name: "Cafe specialist",
+      content: `The cafe specialist is {{persona-${referencedPersona.id}}}.`,
       keys: ["cafe"],
     }),
   );
@@ -1624,6 +1684,9 @@ try {
   assert.match(assembledReferenceText, /The cafe companion is Susie\./u);
   assert.match(assembledReferenceText, /A trusted friend from the western district\./u);
   assert.match(assembledReferenceText, /REFERENCED_EXAMPLE_SHOULD_APPEAR/u);
+  assert.match(assembledReferenceText, /The cafe specialist is Professor Mari\./u);
+  assert.match(assembledReferenceText, /A brilliant engineer who understands every machine/u);
+  assert.match(assembledReferenceText, /REFERENCED_PERSONA_LOREBOOK_MEMORY/u);
   assert.doesNotMatch(assembledReferenceText, /REFERENCED_GREETING_MUST_STAY_OUT/u);
   assert.ok(
     assembledReferenceText.indexOf("<referenced_characters>") <

@@ -44,6 +44,8 @@ export interface MacroContext {
   agentData?: Record<string, string>;
   /** Referenced character names keyed by exact card ID (for {{CHARACTER_ID}}) */
   characterReferences?: Record<string, string>;
+  /** Referenced persona names keyed by exact card ID (for {{persona-PERSONA_ID}}) */
+  personaReferences?: Record<string, string>;
   /** Activated lorebook Outlet content keyed by its exact, case-sensitive name */
   outlets?: Record<string, string>;
   /** Current character card fields used by macros like {{description}} */
@@ -118,6 +120,7 @@ export interface SupportedMacroDefinition {
 }
 
 export const CHARACTER_REFERENCE_ID_PATTERN = /\{\{([A-Za-z0-9_-]{21})\}\}/g;
+export const PERSONA_REFERENCE_ID_PATTERN = /\{\{persona-([A-Za-z0-9_-]{21})\}\}/gi;
 
 const CHARACTER_MACRO_NAMES = new Set([
   "appearance",
@@ -358,6 +361,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     category: "Identity",
     syntax: "{{21-character-card-ID}}",
     description: "Name of another character, pulls the card into the context; referenced by its exact 21-character ID",
+  },
+  {
+    category: "Identity",
+    syntax: "{{persona-21-character-card-ID}}",
+    description: "Name of another persona, pulls the card into the context; referenced by its exact 21-character ID",
   },
   {
     category: "Identity",
@@ -1981,6 +1989,7 @@ function formatMacroDateTime(now: Date, requestedTimeZone?: string): MacroDateTi
  *  - {{persona}} — active persona description, personality, backstory, appearance, and scenario joined by new lines
  *  - {{char}} — current character name
  *  - {{CHARACTER_ID}} — name of another character card referenced by its exact ID
+ *  - {{persona-PERSONA_ID}} — name of another persona card referenced by its exact ID
  *  - {{characters}} — comma-separated list of all character names
  *  - {{group}} — comma-separated list of other active chat characters
  *  - {{description}} / {{personality}} / {{backstory}} / {{appearance}} / {{scenario}} / {{example}} — current character card fields
@@ -2153,6 +2162,10 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   result = result.replace(/\{\{chatId\}\}/gi, ctx.chatId ?? "");
   result = result.replace(/\{\{lastGenerationType\}\}/gi, ctx.lastGenerationType ?? "");
   result = result.replace(/\{\{idle_duration\}\}/gi, ctx.idleDuration ?? "");
+  result = result.replace(PERSONA_REFERENCE_ID_PATTERN, (match, personaId: string) => {
+    const reference = ctx.personaReferences?.[personaId];
+    return reference !== undefined ? reference : match;
+  });
   const unresolvedCharacterReferences = new Set<string>();
   result = result.replace(CHARACTER_REFERENCE_ID_PATTERN, (match, characterId: string) => {
     const reference = ctx.characterReferences?.[characterId];
