@@ -604,6 +604,14 @@ assert.deepEqual(
   [{ speaker: "**Maukie:** [chuckle]", voice: "maukie-voice" }],
   "Extractor label formatting must not send a known character through the Random NPC Voice pool",
 );
+assert.equal(
+  findTTSCharacterIdBySpeakerName("Maukie", [
+    ["maukie-one", { name: "Maukie" }],
+    ["maukie-two", { name: "Maukie" }],
+  ]),
+  null,
+  "duplicate exact character names must not select an arbitrary voice assignment",
+);
 assert.equal(buildElevenLabsTextInput('"Skill issue."', "chuckle"), '[chuckle] "Skill issue."');
 assert.equal(buildElevenLabsTextInput('[chuckle] "Skill issue."', "chuckle"), '[chuckle] "Skill issue."');
 

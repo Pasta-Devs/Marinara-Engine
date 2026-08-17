@@ -48,8 +48,11 @@ export function findTTSCharacterIdBySpeakerName(
   const normalizedSpeaker = normalizeTTSCharacterName(speaker);
   if (!normalizedSpeaker) return null;
 
-  const exactMatch = entries.find(([, character]) => normalizeTTSCharacterName(character.name) === normalizedSpeaker);
-  if (exactMatch) return exactMatch[0];
+  const exactMatches = entries.filter(
+    ([, character]) => normalizeTTSCharacterName(character.name) === normalizedSpeaker,
+  );
+  if (exactMatches.length === 1) return exactMatches[0]![0];
+  if (exactMatches.length > 1) return null;
 
   const speakerBase = normalizeTTSCharacterBaseName(speaker);
   if (!speakerBase) return null;
