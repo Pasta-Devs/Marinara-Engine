@@ -230,7 +230,7 @@ const customParametersServer = createServer(async (request, response) => {
   customParametersRequestBody = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
   if (customParametersRequestBody.stream === true) {
     response.writeHead(200, { "content-type": "text/event-stream" });
-    response.end(['data: {"choices":[{"delta":{"content":"configured"}}]}', "data: [DONE]", ""].join("\n"));
+    response.end(['data: {"choices":[{"delta":{"content":"configured"}}]}', "", "data: [DONE]", "", ""].join("\n"));
     return;
   }
   response.writeHead(200, { "content-type": "application/json" });
