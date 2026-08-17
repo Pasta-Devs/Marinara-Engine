@@ -347,7 +347,7 @@ Pole **Content** wpisu rozwija się jak każdy inny tekst promptu: makra promptu
 - `{{char}}` i `{{user}}` – imię bieżącej postaci oraz imię użytkownika lub persony, dzięki czemu wspólny wpis brzmi naturalnie w każdym czacie.
 - `{{random::a::b::c}}` i `{{roll:1d6}}` – losują opcję albo rzucają kością, żeby klimat zmieniał się przy każdym uruchomieniu wpisu. Dodaj wagi po `@`, jak w `{{random::common@3::rare@1}}`, żeby część opcji wypadała częściej.
 - `{{#if ...}}...{{else}}...{{/if}}` – zmienia tekst zależnie od tego, kto mówi, od zmiennej albo od aktywnej postaci.
-- `{{getvar::name}}` i `{{setvar::name::value}}` – odczytują albo ustawiają trwałą zmienną, dzięki czemu wpis reaguje na stan czatu lub nim steruje.
+- `{{getvar::name}}` i `{{setvar::name::value}}` – odczytują albo ustawiają trwałą zmienną lokalną czatu, dzięki czemu wpis reaguje na stan lub nim steruje w kolejnych turach, bez przenoszenia wartości do innych czatów.
 
 Losowanie z wagami dobrze łączy się z **Probability** i pozwala zwinąć całą tabelę w jeden wpis. Zamiast grupy dwudziestu wpisów o potworach zrób jeden wpis "wędrujące starcie". Daj mu niskie **Probability**, żeby starcie zdarzało się tylko czasem, i ważoną listę tego, co się pojawia:
 

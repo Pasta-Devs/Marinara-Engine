@@ -276,6 +276,12 @@ Le code de sortie 134 signifie en général qu'Android a manqué de mémoire pen
 
 Si ça s'arrête encore, ferme les autres applications Android, rouvre Termux et relance la commande.
 
+### Termux se ferme ou redémarre pendant l'exécution de Marinara
+
+Le lanceur demande un verrou de veille Android pendant l'exécution du serveur et enregistre chaque session dans `~/.marinara-engine/logs/`. Après un redémarrage inattendu, joins au rapport le fichier `server-*.log` le plus récent. S'il se termine sans erreur Marinara ou Node, Android ou le fabricant du téléphone a très probablement arrêté Termux en dehors du processus serveur.
+
+Autorise Termux à s'exécuter en arrière-plan et désactive son optimisation de la batterie dans les réglages Android. Sur les appareils compatibles avec l'extension Termux:API, installe cette extension et le paquet `termux-api` afin que `termux-wake-lock` soit disponible. Ces réglages ne peuvent pas empêcher tous les arrêts propres aux fabricants, mais ils éliminent la cause courante de suspension en veille, tandis que le journal persistant conserve les indices des échecs de l'application.
+
 ### La mise à jour Android manque d'espace de stockage pendant l'installation des dépendances
 
 L'application Marinara compilée ne pèse pas plusieurs gigaoctets, et Noodle ne télécharge pas ses propres modèles d'IA. Une empreinte temporaire importante pendant une mise à jour vient en général du magasin de dépendances de pnpm et de son magasin virtuel, surtout après plusieurs versions ou une réinstallation forcée interrompue.

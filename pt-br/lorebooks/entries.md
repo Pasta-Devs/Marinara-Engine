@@ -347,7 +347,7 @@ O campo **Content** da entrada é expandido como qualquer outro texto do prompt:
 - `{{char}}` e `{{user}}`: os nomes do personagem atual e do usuário ou da persona, para uma entrada compartilhada soar natural em qualquer chat.
 - `{{random::a::b::c}}` e `{{roll:1d6}}`: sorteiam uma opção ou rolam os dados, para um detalhe que muda a cada acionamento da entrada. Acrescente pesos com `@`, como em `{{random::common@3::rare@1}}`, para deixar algumas opções mais prováveis que outras.
 - `{{#if ...}}...{{else}}...{{/if}}`: muda o texto conforme quem está falando, o valor de uma variável ou o personagem ativo.
-- `{{getvar::name}}` e `{{setvar::name::value}}`: leem ou definem uma variável persistente, para a entrada reagir ao estado do chat ou alterá-lo.
+- `{{getvar::name}}` e `{{setvar::name::value}}`: leem ou definem uma variável persistente local do chat, para a entrada reagir ao estado ou alterá-lo nos turnos seguintes sem levar o valor a outros chats.
 
 O sorteio com pesos combina bem com **Probability** e resume uma tabela inteira em uma única entrada. Em vez de um grupo com vinte entradas de monstros, dê a uma entrada de "encontro aleatório" uma **Probability** baixa (assim o encontro é ocasional) e uma lista com pesos do que pode aparecer:
 

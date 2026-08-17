@@ -276,6 +276,12 @@ Exit-Status 134 heißt meist, dass Android während eines Build-Schritts der Arb
 
 Bricht es weiterhin ab, schließ andere Android-Apps, öffne Termux neu und führ den Befehl noch einmal aus.
 
+### Termux schließt sich oder startet neu, während Marinara läuft
+
+Der Launcher fordert einen Android-Wake-Lock an, solange der Server läuft, und speichert jede Serversitzung unter `~/.marinara-engine/logs/`. Füg nach einem unerwarteten Neustart die neueste Datei `server-*.log` dem Bericht bei. Endet sie ohne Marinara- oder Node-Fehler, hat Android oder der Gerätehersteller Termux höchstwahrscheinlich außerhalb des Serverprozesses beendet.
+
+Erlaub Termux in den Android-Einstellungen die Ausführung im Hintergrund und nimm es von der Akkuoptimierung aus. Unterstützt das Gerät das Add-on Termux:API, installier es zusammen mit dem Paket `termux-api`, damit `termux-wake-lock` verfügbar ist. Das verhindert nicht jeden herstellerspezifischen Prozessabbruch, beseitigt aber die häufige Ruhestands-Ursache und bewahrt in den dauerhaften Logs Hinweise auf Fehler innerhalb der Anwendung.
+
 ### Beim Android-Update geht während der Installation der Abhängigkeiten der Speicher aus
 
 Die fertige Marinara-App ist nicht mehrere Gigabyte groß, und Noodle lädt auch keine eigenen KI-Modelle herunter. Ein großer temporärer Platzbedarf beim Update kommt fast immer vom Paket- und vom virtuellen Store von pnpm – besonders nach mehreren Releases oder einer abgebrochenen erzwungenen Neuinstallation.

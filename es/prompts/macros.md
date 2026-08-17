@@ -39,6 +39,7 @@ Estas macros traen los nombres y los campos de la tarjeta de la persona que habl
 | `{{userNamePhonetic}}` | El nombre Phonetic de tu persona, o `{{user}}` cuando está vacío. |
 | `{{char}}` / `{{charName}}` | El nombre del personaje actual. El valor predeterminado es `Character`. |
 | `{{<21-character-card-ID>}}` | Sintaxis de marcador de posición para el nombre de otra tarjeta de personaje. Reemplaza el texto entre corchetes angulares por el ID exacto de 21 caracteres de esa tarjeta. |
+| `{{persona-21-character-card-ID}}` | Sintaxis de marcador de posición para el nombre de otra persona. Reemplaza el texto después de `persona-` por el ID exacto de 21 caracteres de esa tarjeta para incluir el contexto de su tarjeta. |
 | `{{charNamePhonetic}}` | El nombre Phonetic del personaje, o `{{char}}` cuando está vacío. |
 | `{{characters}}` | Todos los personajes del chat, unidos por comas. |
 | `{{group}}` | Todos los demás personajes activos del chat grupal, excluyendo al que responde en ese momento. La persona no forma parte de esta lista de personajes. |
@@ -69,6 +70,8 @@ En un chat con un solo personaje, estas se resuelven contra ese personaje. En un
 El campo del nombre Phonetic tiene dos funciones. Define cómo pronuncia el nombre el text-to-speech. También alimenta a `{{charNamePhonetic}}` y `{{userNamePhonetic}}`. Lo encontrarás tanto en el **Character Editor** como en el **Persona Editor**.
 
 Para referirte a un personaje que no está en el chat actual, copia el ID de esa tarjeta y ponlo directamente dentro de llaves dobles, como `{{V1StGXR8_Z5jdHi6B-myT}}`. Marinara reemplaza la macro por el nombre de la tarjeta y agrega al prompt de sistema el contexto de personaje de la tarjeta referida. Los saludos iniciales y el diálogo de ejemplo de esa tarjeta quedan fuera. Los lorebooks activados que estén vinculados a esa tarjeta siguen sujetos a sus reglas normales de palabras clave, entradas **Constant**, filtros, probabilidad y presupuesto de tokens.
+
+Para referirte a una persona inactiva, antepón `persona-` al ID copiado, por ejemplo `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara reemplaza la macro por el nombre de la persona y añade sus campos Description, Personality, Appearance, Backstory y Scenario a ID Macro Cards. Los lorebooks adjuntos siguen sus reglas normales de activación.
 
 ## Macros del modo de conversación
 
@@ -187,13 +190,12 @@ Las variables permiten que una parte de tu prompt almacene un valor y que una pa
 | --- | --- |
 | `{{setvar::name::value}}` | Almacena un valor y no deja nada en el texto. |
 | `{{getvar::name}}` | Lee un valor almacenado (nada si nunca se definió). |
-| `{{addvar::name::value}}` | Añade texto al final de un valor almacenado. |
-| `{{incvar::name}}` | Suma 1 a una variable numérica. |
-| `{{decvar::name}}` | Resta 1 a una variable numérica. |
+| `{{addvar::name::value}}` | Suma si ambos valores son numéricos; de lo contrario, añade el texto. |
+| `{{addnumvar::name::value}}` | Extensión de Marinara que siempre suma numéricamente. Los valores ausentes o no válidos cuentan como 0 y se ignora el desbordamiento. |
+| `{{incvar::name}}` | Suma 1 a una variable numérica e inserta el nuevo valor. |
+| `{{decvar::name}}` | Resta 1 a una variable numérica e inserta el nuevo valor. |
 
-Las variables se resuelven de izquierda a derecha en un mismo armado de prompt. Un valor definido pronto, por ejemplo en una entrada de lorebook que aparece primero, puede leerse más adelante en el mismo prompt.
-
-Límite de alcance importante: estas variables solo viven durante una única respuesta. Marinara no las guarda en ningún lado. Cuando se genera la siguiente respuesta, cada variable vuelve a empezar vacía. No esperes que `{{setvar}}` recuerde un valor entre turnos.
+Las variables se resuelven de izquierda a derecha durante el armado del prompt y se guardan en el chat actual. Un valor definido pronto, por ejemplo en una entrada de lorebook que aparece primero, puede leerse más adelante en el mismo prompt. Como las variables locales de SillyTavern, se conserva en turnos posteriores y tras reiniciar, sin filtrarse a otros chats.
 
 Cualquier `{{NAME}}` que no sea una macro integrada se trata como una variable de preset y se busca por nombre. Si no existe ninguna variable con ese nombre, la etiqueta se deja en el texto exactamente como la escribiste. Consulta [Variables de preset](preset-variables.md) para saber cómo definirlas.
 
@@ -231,7 +233,7 @@ Los bloques condicionales pueden combinar comparaciones con `||` (OR), `&&` (AND
 ## Errores comunes
 
 - No escribas variables dentro de un bloque `{{random::...}}`. Un `{{setvar}}` dentro de una opción aleatoria se ejecuta para cada opción antes de hacer la elección, no solo para la elegida.
-- No esperes que las variables persistan. Los valores definidos con `{{setvar}}` se reinician en la siguiente respuesta.
+- No uses una variable local como si fuera global. Los valores definidos con `{{setvar}}` solo persisten en el chat actual; cada otro chat tiene su propio valor.
 - `{{prompt}}` no es una macro. Si todo tu mensaje es `{{prompt}}`, Marinara abre el visor **Peek Prompt** en lugar de enviarlo. Consulta [Peek Prompt](../chats/peek-prompt.md).
 - Los Custom Tools no usan texto `{{macro}}`. No pegues `{{roll:1d20}}` en un campo de herramienta esperando que se resuelva.
 - La plantilla de prompt de **Impersonate** acepta solo unos pocos marcadores de posición, no la lista completa de macros. Sus nombres también difieren, así que una macro que funciona en una tarjeta puede no funcionar ahí.

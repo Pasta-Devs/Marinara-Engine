@@ -1,6 +1,6 @@
 {
   "language": "es",
-  "sourceCommit": "8042577dd68a67482e121e1a196caec313b87d37",
+  "sourceCommit": "014be8ddfb61c07e47ff23cd178ff4a95a204e84",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "c07774f97cbdc3a32545bd2624d5b106a4ac86729798b1f6c5bffdaf2a42669f",
-      "bytes": 33367
+      "sha256": "683284d2204249aadc682e9805d5b39d54de842b3a51ea67cd67c887567d4067",
+      "bytes": 34323
     },
     {
       "path": "UPGRADING.md",
@@ -474,8 +474,8 @@
     },
     {
       "path": "lorebooks/entries.md",
-      "sha256": "a17420c75d78345ce299297137a5eb590897d8f84fc30dac791320131ed06936",
-      "bytes": 40960
+      "sha256": "239818bc48c99451c03c7e5fb2a62acc78b8507537c719818f0c5f2994d2ac65",
+      "bytes": 41014
     },
     {
       "path": "lorebooks/import-export.md",
@@ -569,8 +569,8 @@
     },
     {
       "path": "prompts/macros.md",
-      "sha256": "5a894bcafdf4324074982666d6aff682a2d63b8aa45f670befb2deadf0488850",
-      "bytes": 18938
+      "sha256": "3c796a1756b2c1d62f11ec5bb18ced99b8b9cbe6515f0036637d51efb9751768",
+      "bytes": 19694
     },
     {
       "path": "prompts/preset-variables.md",

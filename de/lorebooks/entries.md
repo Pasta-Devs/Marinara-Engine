@@ -347,7 +347,7 @@ Der **Content** eines Eintrags wird wie jeder andere Prompt-Text ausgewertet: Pr
 - `{{char}}` und `{{user}}` – der Name des aktuellen Charakters und dein eigener Name beziehungsweise der deiner Persona, damit ein geteilter Eintrag in jedem Chat natürlich klingt.
 - `{{random::a::b::c}}` und `{{roll:1d6}}` – eine zufällige Option ziehen oder würfeln, für Details, die bei jedem Auslösen anders ausfallen. Mit `@`-Gewichten wie in `{{random::common@3::rare@1}}` machst du einzelne Optionen wahrscheinlicher.
 - `{{#if ...}}...{{else}}...{{/if}}` – den Text ändern, je nachdem, wer spricht, wie eine Variable steht oder welcher Charakter aktiv ist.
-- `{{getvar::name}}` und `{{setvar::name::value}}` – eine dauerhafte Variable lesen oder setzen, damit ein Eintrag auf den Zustand im Chat reagiert oder ihn steuert.
+- `{{getvar::name}}` und `{{setvar::name::value}}` – eine chatlokale dauerhafte Variable lesen oder setzen, damit ein Eintrag über spätere Züge hinweg auf den Zustand reagiert oder ihn steuert, ohne ihn in andere Chats zu übertragen.
 
 Gewichteter Zufall passt gut zu **Probability**: Damit steckt eine ganze Tabelle in einem einzigen Eintrag. Statt einer Gruppe aus zwanzig Monster-Einträgen gib einem Eintrag für zufällige Begegnungen eine niedrige **Probability** – so bleibt die Begegnung selten – und eine gewichtete Liste dessen, was auftaucht:
 

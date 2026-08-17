@@ -39,6 +39,7 @@
 | `{{userNamePhonetic}}` | 用户角色的 Phonetic 名称；留空时等同 `{{user}}`。 |
 | `{{char}}` / `{{charName}}` | 当前角色的名字。默认是 `Character`。 |
 | `{{<21-character-card-ID>}}` | 引用另一张角色卡名字的占位写法。把尖括号里的内容换成那张卡精确的 21 位 ID。 |
+| `{{persona-21-character-card-ID}}` | 引用另一个用户角色名字的占位写法。把 `persona-` 后面的内容换成那张卡精确的 21 位 ID，即可带入卡片上下文。 |
 | `{{charNamePhonetic}}` | 角色的 Phonetic 名称；留空时等同 `{{char}}`。 |
 | `{{characters}}` | 聊天里的所有角色，用逗号连接。 |
 | `{{group}}` | 群聊里除当前回复者之外的所有启用角色。用户角色不算在这份角色名单里。 |
@@ -69,6 +70,8 @@
 Phonetic 名称字段有两个作用。一是决定语音合成怎么念这个名字，二是给 `{{charNamePhonetic}}` 和 `{{userNamePhonetic}}` 提供内容。**Character Editor** 和 **Persona Editor** 里都有这个字段。
 
 想引用不在当前聊天里的角色，把那张卡的 ID 复制出来，直接放进双大括号，比如 `{{V1StGXR8_Z5jdHi6B-myT}}`。Marinara 会把这个宏换成卡片名字，并把被引用卡片的角色上下文加进系统提示词。被引用卡片的开场白和示例对话不会带进来。挂在那张卡上、并且处于启用状态的世界书，照常受关键词、常驻、筛选、概率和 Token(模型切分文本的最小单位) 预算规则约束。
+
+想引用当前未启用的用户角色，请在复制的 ID 前加上 `persona-`，例如 `{{persona-P1StGXR8_Z5jdHi6B-myT}}`。Marinara 会把宏换成用户角色名，并把其 Description、Personality、Appearance、Backstory 和 Scenario 字段加入 ID Macro Cards。所附世界书仍按通常的激活规则运行。
 
 ## Conversation 模式相关的宏
 
@@ -187,13 +190,12 @@ Outlet 宏可以用在 Conversation、Roleplay 或 Game Mode 的提示词小节�
 | --- | --- |
 | `{{setvar::name::value}}` | 存下一个值，在文本里不留任何痕迹。 |
 | `{{getvar::name}}` | 读取存下的值（从没设过就是空）。 |
-| `{{addvar::name::value}}` | 在已存值的末尾追加文本。 |
-| `{{incvar::name}}` | 给数值变量加 1。 |
-| `{{decvar::name}}` | 给数值变量减 1。 |
+| `{{addvar::name::value}}` | 两个值都是数字时做加法，否则在末尾追加文本。 |
+| `{{addnumvar::name::value}}` | Marinara 扩展，始终按数字相加。缺失或无效值按 0 处理，溢出则忽略。 |
+| `{{incvar::name}}` | 给数值变量加 1，并插入新值。 |
+| `{{decvar::name}}` | 给数值变量减 1，并插入新值。 |
 
-变量在一次提示词组装中按从左到右的顺序解析。靠前的位置设好的值，比如排在最前面的那条世界书条目，同一次提示词里后面就能读到。
-
-有一个重要的作用域限制：这些变量只在单次回复内存在。Marinara 不会把它们保存到任何地方。下一次生成回复时，所有变量重新变空。别指望 `{{setvar}}` 能跨回合记住内容。
+变量在提示词组装时按从左到右的顺序解析，并保存到当前聊天。靠前的位置设好的值，比如排在最前面的那条世界书条目，同一次提示词里后面就能读到。与 SillyTavern 的局部变量一样，它会在后续回合和重启后保留，但不会泄漏到其他聊天。
 
 凡是不属于内置宏的 `{{NAME}}`，都会被当作预设变量按名字查找。如果找不到同名的变量，这个标签就原样留在文本里，跟你输入的一模一样。定义方法见[预设变量](preset-variables.md)。
 
@@ -231,7 +233,7 @@ Outlet 宏可以用在 Conversation、Roleplay 或 Game Mode 的提示词小节�
 ## 常见错误
 
 - 不要在 `{{random::...}}` 块里写变量。放在随机选项里的 `{{setvar}}` 会在选择发生之前对每个选项都跑一遍，而不是只跑被选中的那个。
-- 不要指望变量能留存。`{{setvar}}` 设的值在下一次回复时就会重置。
+- 不要把局部变量当成全局变量。`{{setvar}}` 设置的值只在当前聊天中保留，其他聊天各有自己的值。
 - `{{prompt}}` 不是宏。如果整条消息就是 `{{prompt}}`，Marinara 不会把它发出去，而是打开 **Peek Prompt** 查看器。见 [Peek Prompt](../chats/peek-prompt.md)。
 - Custom Tools 不认 `{{macro}}` 这种写法。别把 `{{roll:1d20}}` 粘进工具的字段里，指望它会解析。
 - **Impersonate**(代写) 提示词模板只接受少数几个占位符，不是完整的宏列表。它用的名字也不一样，所以在角色卡里能用的宏，放到那里未必有效。

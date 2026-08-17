@@ -276,6 +276,12 @@ O código 134 normalmente significa que o Android ficou sem memória durante uma
 
 Se ainda parar, feche outros aplicativos do Android, abra o Termux de novo e rode o comando outra vez.
 
+### O Termux fecha ou reinicia enquanto o Marinara está em execução
+
+O inicializador solicita um wake lock do Android enquanto o servidor está em execução e salva cada sessão do servidor em `~/.marinara-engine/logs/`. Depois de uma reinicialização inesperada, anexe ao relato o arquivo `server-*.log` mais recente. Se o arquivo terminar sem um erro do Marinara ou do Node, é muito provável que o Android ou o fabricante do celular tenha encerrado o Termux fora do processo do servidor.
+
+Permita que o Termux rode em segundo plano e remova a otimização de bateria dele nas configurações do Android. Nos dispositivos compatíveis com o complemento Termux:API, instale esse complemento e o pacote `termux-api` para disponibilizar o `termux-wake-lock`. Essas configurações não evitam todos os encerramentos de processo específicos do fabricante, mas removem a causa comum de suspensão por inatividade, enquanto o log persistente preserva indícios das falhas no nível do aplicativo.
+
 ### A atualização no Android fica sem espaço ao instalar as dependências
 
 O aplicativo Marinara compilado não tem vários gigabytes, e o Noodle não baixa modelos de IA próprios. Um consumo temporário grande durante a atualização normalmente vem do repositório de dependências e do repositório virtual do pnpm, principalmente depois de várias versões ou de uma reinstalação forçada interrompida.

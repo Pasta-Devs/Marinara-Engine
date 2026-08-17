@@ -39,6 +39,7 @@ Te makra wstawiają imiona oraz pola kart osoby mówiącej i odpowiadającej pos
 | `{{userNamePhonetic}}` | Pole Phonetic name twojej persony, a przy pustym polu `{{user}}`. |
 | `{{char}}` / `{{charName}}` | Nazwa bieżącej postaci. Domyślnie `Character`. |
 | `{{<21-character-card-ID>}}` | Zapis zastępczy dla nazwy innej karty postaci. Tekst w nawiasach kątowych zastąp dokładnym 21-znakowym ID tej karty. |
+| `{{persona-21-character-card-ID}}` | Zapis zastępczy dla nazwy innej persony. Tekst po `persona-` zastąp dokładnym 21-znakowym ID jej karty, aby pobrać kontekst z tej karty. |
 | `{{charNamePhonetic}}` | Pole Phonetic name postaci, a przy pustym polu `{{char}}`. |
 | `{{characters}}` | Wszystkie postacie w czacie, oddzielone przecinkami. |
 | `{{group}}` | Wszystkie pozostałe aktywne postacie w czacie grupowym, bez postaci właśnie odpowiadającej. Persona nie należy do tej listy postaci. |
@@ -69,6 +70,8 @@ Makro `{{group}}` podąża za postacią, która właśnie odpowiada – równie�
 Pole Phonetic name pełni dwie funkcje. Decyduje o tym, jak imię wymawia syntezator mowy. Zasila też makra `{{charNamePhonetic}}` i `{{userNamePhonetic}}`. Znajdziesz je zarówno w panelu **Character Editor**, jak i w panelu **Persona Editor**.
 
 Aby odwołać się do postaci, której nie ma w bieżącym czacie, skopiuj ID jej karty i wstaw je bezpośrednio w podwójne nawiasy klamrowe, na przykład `{{V1StGXR8_Z5jdHi6B-myT}}`. Marinara zamienia to makro na nazwę karty i dodaje do promptu systemowego kontekst postaci z przywołanej karty. Powitania i przykładowe dialogi tej karty zostają pominięte. Włączone lorebooki podpięte do tej karty nadal podlegają swoim zwykłym regułom słów kluczowych, wpisów **Constant**, filtrów, prawdopodobieństwa i limitu tokenów.
+
+Aby odwołać się do nieaktywnej persony, dodaj `persona-` przed skopiowanym ID, na przykład `{{persona-P1StGXR8_Z5jdHi6B-myT}}`. Marinara zamienia makro na nazwę persony i dodaje jej pola Description, Personality, Appearance, Backstory i Scenario do ID Macro Cards. Podpięte lorebooki nadal podlegają swoim zwykłym regułom aktywacji.
 
 ## Makra trybu Conversation
 
@@ -187,13 +190,12 @@ Dzięki zmiennym jedna część promptu zapisuje wartość, a dalsza część mo
 | --- | --- |
 | `{{setvar::name::value}}` | Zapisuje wartość i nie zostawia nic w tekście. |
 | `{{getvar::name}}` | Odczytuje zapisaną wartość (pusty tekst, jeśli nigdy jej nie ustawiono). |
-| `{{addvar::name::value}}` | Dopisuje tekst na końcu zapisanej wartości. |
-| `{{incvar::name}}` | Dodaje 1 do zmiennej liczbowej. |
-| `{{decvar::name}}` | Odejmuje 1 od zmiennej liczbowej. |
+| `{{addvar::name::value}}` | Dodaje liczby, jeśli obie wartości są liczbowe; w przeciwnym razie dopisuje tekst. |
+| `{{addnumvar::name::value}}` | Rozszerzenie Marinara, które zawsze wykonuje dodawanie liczbowe. Brakującą lub nieprawidłową wartość traktuje jak 0, a przepełnienie ignoruje. |
+| `{{incvar::name}}` | Dodaje 1 do zmiennej liczbowej i wstawia nową wartość. |
+| `{{decvar::name}}` | Odejmuje 1 od zmiennej liczbowej i wstawia nową wartość. |
 
-Zmienne rozwijają się od lewej do prawej w ramach jednego budowania promptu. Wartość ustawioną wcześnie, na przykład we wpisie lorebooka stojącym na początku, da się odczytać dalej w treści tego samego promptu.
-
-Ważne ograniczenie zasięgu: te zmienne żyją tylko przez jedną odpowiedź. Marinara nigdzie ich nie zapisuje. Przy generowaniu kolejnej odpowiedzi każda zmienna znów jest pusta. Nie licz na to, że `{{setvar}}` zapamięta wartość między turami.
+Zmienne rozwijają się od lewej do prawej podczas budowania promptu i są zapisywane w bieżącym czacie. Wartość ustawioną wcześnie, na przykład we wpisie lorebooka stojącym na początku, da się odczytać dalej w treści tego samego promptu. Tak jak zmienne lokalne w SillyTavern, zachowuje się przez kolejne tury i restarty, ale nie przechodzi do innych czatów.
 
 Każdy zapis `{{NAME}}`, który nie jest wbudowanym makrem, Marinara traktuje jak zmienną presetu i wyszukuje po nazwie. Jeśli zmiennej o takiej nazwie nie ma, tag zostaje w tekście dokładnie tak, jak został wpisany. Sposób definiowania takich zmiennych opisuje przewodnik [Zmienne presetu](preset-variables.md).
 
@@ -231,7 +233,7 @@ Bloki warunkowe łączą porównania operatorami `||` (LUB) i `&&` (ORAZ) oraz n
 ## Częste błędy
 
 - Nie wpisuj zmiennych wewnątrz bloku `{{random::...}}`. Makro `{{setvar}}` w opcji losowania wykonuje się dla każdej opcji jeszcze przed wyborem, a nie tylko dla tej wylosowanej.
-- Nie licz na trwałość zmiennych. Wartości ustawione przez `{{setvar}}` zerują się przy kolejnej odpowiedzi.
+- Nie używaj zmiennej lokalnej jak globalnej. Wartości ustawione przez `{{setvar}}` zachowują się tylko w bieżącym czacie; każdy inny czat ma własną wartość.
 - `{{prompt}}` nie jest makrem. Jeśli cała wiadomość to `{{prompt}}`, Marinara jej nie wysyła, tylko otwiera podgląd **Peek Prompt**. Zobacz [Peek Prompt](../chats/peek-prompt.md).
 - Custom Tools (narzędzia własne) nie korzystają z zapisu `{{macro}}`. Nie wklejaj `{{roll:1d20}}` do pola narzędzia z nadzieją, że się rozwinie.
 - Szablon promptu **Impersonate** przyjmuje tylko kilka symboli zastępczych, a nie pełną listę makr. Ich nazwy też się różnią, więc makro działające w karcie może tam nie zadziałać.

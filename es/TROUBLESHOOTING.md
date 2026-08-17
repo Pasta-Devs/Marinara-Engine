@@ -276,6 +276,12 @@ El exit status 134 normalmente significa que Android se quedó sin memoria duran
 
 Si sigue deteniéndose, cierra otras apps de Android, reabre Termux y ejecuta el comando de nuevo.
 
+### Termux se cierra o reinicia mientras Marinara está funcionando
+
+El lanzador solicita un wake lock de Android mientras el servidor funciona y guarda cada sesión del servidor en `~/.marinara-engine/logs/`. Después de un reinicio inesperado, adjunta al informe el archivo `server-*.log` más reciente. Si termina sin un error de Marinara o Node, lo más probable es que Android o el fabricante del teléfono haya terminado Termux fuera del proceso del servidor.
+
+Permite que Termux funcione en segundo plano y quítale la optimización de batería en los ajustes de Android. En dispositivos compatibles con el complemento Termux:API, instala ese complemento y el paquete `termux-api` para disponer de `termux-wake-lock`. Estos ajustes no evitan todos los cierres de procesos específicos del fabricante, pero eliminan la causa habitual de suspensión por inactividad, mientras el registro persistente conserva pruebas de los fallos de la aplicación.
+
 ### La actualización de Android se queda sin almacenamiento al instalar dependencias
 
 La app de Marinara compilada no ocupa varios gigabytes, y Noodle no descarga sus propios modelos de IA. Una huella temporal grande durante una actualización normalmente viene del almacén de dependencias y del almacén virtual de pnpm, sobre todo después de varias versiones o de una reinstalación forzada interrumpida.

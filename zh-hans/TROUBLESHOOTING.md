@@ -276,6 +276,12 @@ exit status 134 通常表示构建过程中 Android 内存不够了。用最新�
 
 还是停下来的话，关掉其他 Android 应用，重新打开 Termux，再运行一次这条命令。
 
+### Marinara 运行时 Termux 关闭或重启
+
+服务器运行期间，启动脚本会申请 Android 唤醒锁，并把每次服务器会话保存到 `~/.marinara-engine/logs/`。意外重启后，请在报告中附上最新的 `server-*.log` 文件。如果文件结尾没有 Marinara 或 Node 错误，最可能是 Android 或手机厂商在服务器进程之外终止了 Termux。
+
+请在 Android 设置中允许 Termux 在后台运行，并取消其电池优化。在支持 Termux:API 附加组件的设备上，请安装该附加组件和 `termux-api` 软件包，以便使用 `termux-wake-lock`。这些设置无法阻止所有厂商特有的进程终止，但能消除常见的闲置暂停原因，同时持久日志会保留应用层故障的证据。
+
 ### Android 更新时安装依赖把存储空间占满
 
 构建好的 Marinara 应用并没有好几个 GB，Noodle 也不会自己下载 AI 模型。更新期间临时占用大，通常来自 pnpm 的依赖存储和虚拟存储，尤其是连着更新了好几个版本，或者曾经中断过一次强制重装之后。
