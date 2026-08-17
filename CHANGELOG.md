@@ -41,6 +41,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Preserved Long-Term Memory recall in Roleplay chats when a custom preset's agent marker cannot be matched, using a logged fallback injection instead of silently dropping the selected memories.
 - Stale file-storage writer leases on macOS now survive VPN and virtual-interface changes: new leases use the stable platform identity instead of hashing the currently visible network adapters, and existing v1 leases from the same Mac are reclaimed after their PID exits instead of blocking startup (#5194).
 - Custom lorebook-writing agents now support a configurable Read Behind depth, keep each delayed run attached to the assistant reply it processed, and avoid duplicate work when the newest reply is swiped. Lorebook Keeper's mobile Backfill controls now stack inside their settings card instead of overflowing it (#5191).
 - The staging update-channel warning now follows the active theme accent color instead of always rendering in amber (#5184).

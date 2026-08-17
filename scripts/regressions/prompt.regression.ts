@@ -9010,6 +9010,20 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         "<long_term_memory>\nMEMORY\n</long_term_memory>",
       );
 
+      const fallbackForUnmatchedMarker = splitRuntimeHandledAgentInjectionsForTest(
+        [{ content: "preset" }],
+        new Map([["long-term-memory", tokens]]),
+        [{ agentType: "long-term-memory", text: "MEMORY" }],
+      );
+      assert.deepEqual(fallbackForUnmatchedMarker.omittedInjections, []);
+      assert.equal(fallbackForUnmatchedMarker.fallbackInjections.length, 1);
+      const generateRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      assert.match(generateRouteSource, /if \(!handledByPresetSection\)[\s\S]+appendSeparateAgentInjection/u);
+      assert.doesNotMatch(generateRouteSource, /handledByPresetSection \|\| !presetOwnsAgentPlacement/u);
+
       const fallback = splitRuntimeHandledAgentInjectionsForTest([{ content: "conversation" }], new Map(), [
         { agentType: "long-term-memory", text: "MEMORY" },
       ]);

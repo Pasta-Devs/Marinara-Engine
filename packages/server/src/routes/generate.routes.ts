@@ -5070,11 +5070,17 @@ export async function generateRoutes(app: FastifyInstance) {
             const tokens = runtimeAgentSectionTokens.get("long-term-memory");
             const handledByPresetSection =
               tokens !== undefined && replaceRuntimeAgentSection(finalMessages, tokens, recall.text);
-            if (handledByPresetSection || !presetOwnsAgentPlacement) {
-              if (!handledByPresetSection) appendSeparateAgentInjection("long-term-memory", recall.text);
-              contextInjections.push({ agentType: "long-term-memory", text: recall.text });
-              longTermMemoryRecallReceipt = recall.receipt;
+            if (!handledByPresetSection) {
+              if (presetOwnsAgentPlacement) {
+                logger.warn(
+                  "[long-term-memory] Preset marker was not found; using fallback injection chatId=%s",
+                  input.chatId,
+                );
+              }
+              appendSeparateAgentInjection("long-term-memory", recall.text);
             }
+            contextInjections.push({ agentType: "long-term-memory", text: recall.text });
+            longTermMemoryRecallReceipt = recall.receipt;
           }
         }
         clearUnusedRuntimeAgentSections(finalMessages, runtimeAgentSectionTokens);
