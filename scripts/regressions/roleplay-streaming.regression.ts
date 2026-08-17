@@ -1491,6 +1491,8 @@ assert.equal(queuedEchoBatch.visibleCount, 1, "a fresh Echo result must remain b
 assert.equal(queuedEchoBatch.baseline, 1);
 assert.equal(getEchoChamberMessageInterval(12), 12_000);
 assert.equal(normalizeEchoChamberMessageDelaySeconds(undefined), DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
+assert.equal(normalizeEchoChamberMessageDelaySeconds(null), DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
+assert.equal(normalizeEchoChamberMessageDelaySeconds("  "), DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
 assert.equal(normalizeEchoChamberMessageDelaySeconds(0), 1);
 assert.equal(normalizeEchoChamberMessageDelaySeconds(999), 300);
 

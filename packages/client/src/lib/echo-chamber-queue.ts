@@ -4,7 +4,9 @@ export const MAX_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS = 300;
 export const ECHO_CHAMBER_MESSAGE_LIMIT = 500;
 
 export function normalizeEchoChamberMessageDelaySeconds(value: unknown): number {
-  const numeric = typeof value === "number" ? value : Number(value);
+  if (typeof value !== "number" && typeof value !== "string") return DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS;
+  if (typeof value === "string" && !value.trim()) return DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS;
+  const numeric = Number(value);
   if (!Number.isFinite(numeric)) return DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS;
   return Math.max(
     MIN_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,

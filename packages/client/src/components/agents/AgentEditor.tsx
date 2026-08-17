@@ -2633,6 +2633,7 @@ export function AgentEditor() {
               <div className="flex items-center gap-3">
                 <input
                   type="number"
+                  aria-label={localizeUi("ui.agents.agenteditor.messageDelay")}
                   min={MIN_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS}
                   max={MAX_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS}
                   value={localEchoMessageDelaySeconds}
