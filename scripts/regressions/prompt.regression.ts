@@ -270,8 +270,10 @@ import {
   resolveAgentResultType,
 } from "../../packages/server/src/services/agents/agent-executor.js";
 import {
+  formatBeholderRequestContext,
   loadPriorBeholderState,
   normalizeBeholderState,
+  resolveBeholderStateResponse,
 } from "../../packages/server/src/services/agents/beholder-state.js";
 import {
   CLEAN_HTML_FIND_REGEX,
@@ -857,12 +859,15 @@ type RegressionPromptSection = AssemblerInput["sections"][number];
 
 function makeCapturingProvider(response: string) {
   const calls: any[][] = [];
+  const callOptions: any[] = [];
   return {
     calls,
+    callOptions,
     provider: {
       maxTokensOverrideValue: null,
-      async chatComplete(messages: any[]) {
+      async chatComplete(messages: any[], options: any) {
         calls.push(messages);
+        callOptions.push(options);
         return {
           content: response,
           usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
@@ -10355,7 +10360,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
-    name: "Beholder receives its prior snapshot and parses structured state",
+    name: "Beholder sends keyed state and safely resolves delta and legacy responses",
     async run() {
       let stateReads = 0;
       const priorState = await loadPriorBeholderState({
@@ -10405,35 +10410,128 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       assert.equal(stateReads, 2);
 
-      const { calls, provider } = makeCapturingProvider(
-        `{"characters":[{"name":"Mira","body":{"left_hand":{"holding":{"item":"silver key","damage":"pristine"}}}}]}`,
+      const previousState = normalizeBeholderState({
+        characters: [
+          {
+            name: "Mari",
+            species: "human",
+            body: {
+              chest: {
+                worn: [
+                  { item: "dress", color: "blue", damage: "pristine" },
+                  { item: "coat", color: "black", damage: "pristine" },
+                ],
+              },
+              face: { worn: [{ item: "veil", damage: "pristine" }] },
+              left_hand: { holding: { item: "silver key", damage: "pristine" } },
+              right_arm: { wounds: [{ text: "shallow cut", severity: "minor", bleeding: true }] },
+            },
+          },
+          { name: "Dottore", body: { head: { bare: true } } },
+        ],
+      });
+      assert.ok(previousState);
+      const requestContext = formatBeholderRequestContext(previousState, "Mari");
+      assert.match(requestContext, /^Persona: Mari\nCurrent state:/u);
+      assert.match(requestContext, /"self": \{/u);
+      assert.match(requestContext, /"Dottore": \{/u);
+
+      const unchanged = resolveBeholderStateResponse({ changed: false }, previousState, "Mari");
+      assert.equal(unchanged.valid, true);
+      assert.deepEqual(unchanged.state, previousState);
+
+      const merged = resolveBeholderStateResponse(
+        {
+          changed: true,
+          delta: {
+            self: {
+              body: {
+                chest: { worn: [{ item: "dress", color: "red", damage: "damaged" }] },
+                face: { worn: [] },
+                left_hand: { holding: {} },
+                right_arm: {
+                  missing: true,
+                  worn: [{ item: "bracelet", damage: "pristine" }],
+                  wounds: [{ text: "ignored wound", severity: "critical", bleeding: true }],
+                  bare: true,
+                },
+              },
+            },
+            Dottore: { species: "human", body: { left_eye: { bare: true } } },
+            Columbina: { species: "seer", body: { neck: { bare: true } } },
+          },
+        },
+        previousState,
+        "Mari",
       );
+      assert.equal(merged.valid, true);
+      const mergedMari = merged.state.characters.find((character) => character.name === "Mari");
+      assert.deepEqual(mergedMari?.body.chest?.worn, [
+        { item: "dress", color: "red", damage: "damaged" },
+        { item: "coat", color: "black", damage: "pristine" },
+      ]);
+      assert.equal(mergedMari?.body.face?.worn, undefined);
+      assert.equal(mergedMari?.body.left_hand?.holding, undefined);
+      assert.deepEqual(mergedMari?.body.right_arm, { missing: true });
+      assert.equal(merged.state.characters.find((character) => character.name === "Dottore")?.species, "human");
+      assert.equal(
+        merged.state.characters.some((character) => character.name === "Columbina"),
+        true,
+      );
+
+      const invalid = resolveBeholderStateResponse(
+        { changed: true, delta: { self: { body: { invented_slot: { bare: true } } } } },
+        previousState,
+        "Mari",
+      );
+      assert.equal(invalid.valid, false);
+      assert.deepEqual(invalid.state, previousState);
+
+      const legacy = resolveBeholderStateResponse(
+        { characters: [{ name: "Mira", body: { left_hand: { holding: { item: "key" } } } }] },
+        previousState,
+        "Mari",
+      );
+      assert.equal(legacy.valid, true);
+      assert.deepEqual(legacy.state.characters, [
+        { name: "Mira", body: { left_hand: { holding: { item: "key", damage: "pristine" } } } },
+      ]);
+
+      const { calls, callOptions, provider } = makeCapturingProvider(`{"changed":false}`);
       const config = makeRegressionAgentConfig({
         id: "builtin:beholder",
         type: "beholder",
         name: "Beholder",
-        promptTemplate: "Return the complete physical state as JSON.",
+        promptTemplate: "Return a physical-state delta as JSON.",
+        temperature: 1.7,
         settings: { resultType: "context_injection" },
       });
       const context = makeRegressionAgentContext({
-        mainResponse: "Mira keeps hold of the silver key.",
-        memory: {
-          _beholderState: {
-            characters: [
-              {
-                name: "Mira",
-                body: { left_hand: { holding: { item: "silver key", damage: "pristine" } } },
-              },
-            ],
-          },
-        },
+        mainResponse: "Mari keeps hold of the silver key.",
+        memory: { _beholderState: previousState },
       });
       const result = await executeAgent(config as any, context, provider as any, "regression-model");
       const system = calls[0]?.[0]?.content ?? "";
-      assert.match(system, /<previous_beholder_state>/u);
-      assert.match(system, /holding: silver key/u);
+      assert.match(system, /Persona: Mari\nCurrent state:/u);
+      assert.match(system, /"self": \{/u);
+      assert.equal(callOptions[0]?.temperature, 0);
       assert.equal(result.success, true);
-      assert.deepEqual((result.data as any)?.characters?.[0]?.name, "Mira");
+      assert.deepEqual(result.data, previousState);
+
+      const firstRun = makeCapturingProvider(`{"changed":false}`);
+      const firstRunResult = await executeAgent(
+        config as any,
+        makeRegressionAgentContext({ memory: {} }),
+        firstRun.provider as any,
+        "regression-model",
+      );
+      assert.match(firstRun.calls[0]?.[0]?.content ?? "", /Current state:\n\{\}/u);
+      assert.deepEqual(firstRunResult.data, { characters: [] });
+
+      const invalidRun = makeCapturingProvider(`{"changed":true,"delta":{"self":{"body":{"fake":{}}}}}`);
+      const invalidResult = await executeAgent(config as any, context, invalidRun.provider as any, "regression-model");
+      assert.equal(invalidResult.success, false);
+      assert.deepEqual(invalidResult.data, previousState);
     },
   },
   {

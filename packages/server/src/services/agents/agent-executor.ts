@@ -41,7 +41,7 @@ import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { settleAgentJobsWithConcurrencyLimit } from "./agent-concurrency.js";
 import { normalizeCyoaChoiceOutput } from "./cyoa-choice-normalization.js";
 import { getAssetManifest } from "../game/asset-manifest.service.js";
-import { formatBeholderStateForPrompt, normalizeBeholderState } from "./beholder-state.js";
+import { formatBeholderRequestContext, resolveBeholderStateResponse } from "./beholder-state.js";
 
 const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
@@ -541,6 +541,7 @@ function normalizeAgentTemperature(value: unknown, fallback = DEFAULT_AGENT_TEMP
 }
 
 function resolveAgentTemperature(config: AgentExecConfig): number | undefined {
+  if (config.type === "beholder") return 0;
   if (config.suppressModelParameters || config.enabledParameters?.temperature === false) return undefined;
   return normalizeAgentTemperature(config.temperature);
 }
@@ -851,15 +852,18 @@ export async function executeAgent(
       invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
     }
 
+    const structured = invalidJson
+      ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
+      : resolveStructuredAgentResult(config, context, parsed.data);
     return {
       agentId: config.id,
       agentType: config.type,
       type: parsed.type,
-      data: parsed.data,
+      data: structured.data,
       tokensUsed: totalTokens,
       durationMs: Date.now() - startTime,
-      success: !invalidJson,
-      error: invalidJson ? invalidJsonAgentError(parsed.type) : null,
+      success: structured.valid,
+      error: structured.error ?? null,
     };
   } catch (err) {
     emitAgentDebug(context, {
@@ -948,15 +952,18 @@ async function executeAgentWithTools(
       const responseText = result.content?.trim() ?? "";
       const parsed = parseAgentResponse(config, responseText);
       const invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
+      const structured = invalidJson
+        ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
+        : resolveStructuredAgentResult(config, context, parsed.data);
       return {
         agentId: config.id,
         agentType: config.type,
         type: parsed.type,
-        data: parsed.data,
+        data: structured.data,
         tokensUsed: totalTokens,
         durationMs: Date.now() - startTime,
-        success: !invalidJson,
-        error: invalidJson ? invalidJsonAgentError(parsed.type) : null,
+        success: structured.valid,
+        error: structured.error ?? null,
       };
     }
 
@@ -1030,15 +1037,18 @@ async function executeAgentWithTools(
   });
   const parsed = parseAgentResponse(config, responseText);
   const invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
+  const structured = invalidJson
+    ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
+    : resolveStructuredAgentResult(config, context, parsed.data);
   return {
     agentId: config.id,
     agentType: config.type,
     type: parsed.type,
-    data: parsed.data,
+    data: structured.data,
     tokensUsed: totalTokens,
     durationMs: Date.now() - startTime,
-    success: !invalidJson,
-    error: invalidJson ? invalidJsonAgentError(parsed.type) : null,
+    success: structured.valid,
+    error: structured.error ?? null,
   };
 }
 
@@ -1615,6 +1625,16 @@ function shouldFailInvalidJsonResult(config: Pick<AgentExecConfig, "type" | "set
 
 function invalidJsonAgentError(resultType: AgentResultType): string {
   return `Agent returned invalid JSON instead of the requested ${resultType} format. Check this agent's model/connection settings and try again.`;
+}
+
+function resolveStructuredAgentResult(
+  config: Pick<AgentExecConfig, "type">,
+  context: AgentContext,
+  data: unknown,
+): { data: unknown; valid: boolean; error?: string } {
+  if (config.type !== "beholder") return { data, valid: true };
+  const resolution = resolveBeholderStateResponse(data, context.memory._beholderState, context.persona?.name ?? "User");
+  return { data: resolution.state, valid: resolution.valid, error: resolution.error };
 }
 
 function shouldRetryInvalidJsonAgent(config: Pick<AgentExecConfig, "type" | "settings">): boolean {
@@ -2600,12 +2620,7 @@ function buildAgentExtras(
   }
 
   if (agentTypes.includes("beholder")) {
-    const state = normalizeBeholderState(context.memory._beholderState);
-    if (state && state.characters.length > 0) {
-      parts.push(`<previous_beholder_state>`);
-      parts.push(escapeXml(formatBeholderStateForPrompt(state)));
-      parts.push(`</previous_beholder_state>`);
-    }
+    parts.push(formatBeholderRequestContext(context.memory._beholderState, context.persona?.name ?? "User"));
   }
 
   if (sources.trackerData && context.gameState) {

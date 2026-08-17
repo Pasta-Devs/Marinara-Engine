@@ -51,6 +51,8 @@ export const characterExtensionsSchema = z
     depth_prompt: depthPromptSchema.default({}),
     backstory: z.string().default(""),
     appearance: z.string().default(""),
+    /** Marinara Engine: retain card revisions and advance the visible version on edits. */
+    versioningEnabled: z.boolean().default(true),
     // Conversation-mode-only fields (optional — absent on non-convo cards).
     convoDisplayName: z.string().optional(),
     convoDisplayNameInCard: z.boolean().optional(),
@@ -105,7 +107,7 @@ export const characterDataSchema = z
     post_history_instructions: z.string().default(""),
     tags: z.array(z.string()).default([]),
     creator: z.string().default(""),
-    character_version: z.string().default(""),
+    character_version: z.string().default("1.0"),
     alternate_greetings: z.array(z.string()).default([]),
     extensions: characterExtensionsSchema.default({}),
     character_book: characterBookSchema.nullable().default(null),

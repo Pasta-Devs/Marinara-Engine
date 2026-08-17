@@ -1904,12 +1904,50 @@ try {
     entries: [],
   });
 
-  // Issue #4130 — saved card versions can be renamed, and versioning can be
-  // reset to a clean 0.0 state without recreating the Character or Persona.
+  // Issues #4130 / #5202 — saved card versions can be renamed; newly created
+  // cards start at 1.0; enabled versioning advances on edits; disabled
+  // versioning preserves the visible number without retaining new snapshots;
+  // and reset returns to a clean 1.0 state.
   const versionControlCharacter = await characterStorage.create(
     characterDataSchema.parse({ name: "Version control character", character_version: "1.0" }),
   );
   assert.ok(versionControlCharacter);
+  const createdVersionControlCharacterData = JSON.parse(versionControlCharacter.data) as {
+    character_version: string;
+    extensions: { versioningEnabled?: boolean };
+  };
+  assert.equal(createdVersionControlCharacterData.character_version, "1.0");
+  assert.equal(createdVersionControlCharacterData.extensions.versioningEnabled, true);
+  const editedVersionControlCharacter = await characterStorage.update(versionControlCharacter.id, {
+    description: "First automatic version bump",
+  });
+  assert.equal(
+    (JSON.parse(editedVersionControlCharacter?.data ?? "{}") as { character_version?: string }).character_version,
+    "1.1",
+  );
+  await characterStorage.update(versionControlCharacter.id, { extensions: { versioningEnabled: false } });
+  const characterSavedCountBeforeDisabledEdit = (
+    await characterStorage.listVersions(versionControlCharacter.id)
+  ).filter((version) => !version.isCurrent).length;
+  const disabledVersionControlCharacter = await characterStorage.update(versionControlCharacter.id, {
+    personality: "This edit is deliberately not versioned",
+  });
+  assert.equal(
+    (JSON.parse(disabledVersionControlCharacter?.data ?? "{}") as { character_version?: string }).character_version,
+    "1.1",
+  );
+  assert.equal(
+    (await characterStorage.listVersions(versionControlCharacter.id)).filter((version) => !version.isCurrent).length,
+    characterSavedCountBeforeDisabledEdit,
+  );
+  await characterStorage.update(versionControlCharacter.id, { extensions: { versioningEnabled: true } });
+  const reenabledVersionControlCharacter = await characterStorage.update(versionControlCharacter.id, {
+    scenario: "Automatic versioning is active again",
+  });
+  assert.equal(
+    (JSON.parse(reenabledVersionControlCharacter?.data ?? "{}") as { character_version?: string }).character_version,
+    "1.2",
+  );
   await characterStorage.update(versionControlCharacter.id, { character_version: "2.0" });
   const characterVersionsBeforeReset = await characterStorage.listVersions(versionControlCharacter.id);
   const savedCharacterVersion = characterVersionsBeforeReset.find((version) => !version.isCurrent);
@@ -1922,7 +1960,7 @@ try {
   assert.equal(renamedCharacterVersion?.version, "1.0-fixed");
   assert.equal(renamedCharacterVersion?.data.character_version, "1.0-fixed");
   const resetCharacter = await characterStorage.resetVersions(versionControlCharacter.id);
-  assert.equal((JSON.parse(resetCharacter?.data ?? "{}") as { character_version?: string }).character_version, "0.0");
+  assert.equal((JSON.parse(resetCharacter?.data ?? "{}") as { character_version?: string }).character_version, "1.0");
   const characterVersionsAfterReset = await characterStorage.listVersions(versionControlCharacter.id);
   assert.equal(characterVersionsAfterReset.length, 1);
   assert.equal(characterVersionsAfterReset[0]?.isCurrent, true);
@@ -1935,6 +1973,30 @@ try {
     { personaVersion: "1.0" },
   );
   assert.ok(versionControlPersona);
+  assert.equal(versionControlPersona.personaVersion, "1.0");
+  assert.equal(versionControlPersona.versioningEnabled, "true");
+  const editedVersionControlPersona = await characterStorage.updatePersona(versionControlPersona.id, {
+    description: "First automatic version bump",
+  });
+  assert.equal(editedVersionControlPersona?.personaVersion, "1.1");
+  await characterStorage.updatePersona(versionControlPersona.id, { versioningEnabled: "false" });
+  const personaSavedCountBeforeDisabledEdit = (
+    await characterStorage.listPersonaVersions(versionControlPersona.id)
+  ).filter((version) => !version.isCurrent).length;
+  const disabledVersionControlPersona = await characterStorage.updatePersona(versionControlPersona.id, {
+    personality: "This edit is deliberately not versioned",
+  });
+  assert.equal(disabledVersionControlPersona?.personaVersion, "1.1");
+  assert.equal(
+    (await characterStorage.listPersonaVersions(versionControlPersona.id)).filter((version) => !version.isCurrent)
+      .length,
+    personaSavedCountBeforeDisabledEdit,
+  );
+  await characterStorage.updatePersona(versionControlPersona.id, { versioningEnabled: "true" });
+  const reenabledVersionControlPersona = await characterStorage.updatePersona(versionControlPersona.id, {
+    scenario: "Automatic versioning is active again",
+  });
+  assert.equal(reenabledVersionControlPersona?.personaVersion, "1.2");
   await characterStorage.updatePersona(versionControlPersona.id, { personaVersion: "2.0" });
   const personaVersionsBeforeReset = await characterStorage.listPersonaVersions(versionControlPersona.id);
   const savedPersonaVersion = personaVersionsBeforeReset.find((version) => !version.isCurrent);
@@ -1947,7 +2009,7 @@ try {
   assert.equal(renamedPersonaVersion?.version, "1.0-fixed");
   assert.equal(renamedPersonaVersion?.data.personaVersion, "1.0-fixed");
   const resetPersona = await characterStorage.resetPersonaVersions(versionControlPersona.id);
-  assert.equal(resetPersona?.personaVersion, "0.0");
+  assert.equal(resetPersona?.personaVersion, "1.0");
   const personaVersionsAfterReset = await characterStorage.listPersonaVersions(versionControlPersona.id);
   assert.equal(personaVersionsAfterReset.length, 1);
   assert.equal(personaVersionsAfterReset[0]?.isCurrent, true);
