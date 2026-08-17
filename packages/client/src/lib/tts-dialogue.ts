@@ -29,12 +29,32 @@ export function normalizeTTSCharacterBaseName(value?: string | null): string {
   let previous = "";
   while (normalized && normalized !== previous) {
     previous = normalized;
-    normalized = normalized.replace(/\s*(?:\([^()]*\)|\[[^\]]*\]|\{[^{}]*})\s*$/g, "").trim();
+    normalized = normalized
+      .replace(/^[`*"'“”‘’]+|[`*"'“”‘’:]+$/g, "")
+      .replace(/\s*(?:\([^()]*\)|\[[^\]]*\]|\{[^{}]*})\s*$/g, "")
+      .trim();
   }
 
   const separatedVariant = normalized.match(/^(.+?)\s+(?:[-–—:|])\s+[^-–—:|]+$/);
   const base = separatedVariant?.[1]?.trim();
   return base && base.length > 0 ? base : normalized;
+}
+
+export function findTTSCharacterIdBySpeakerName(
+  speaker: string | null | undefined,
+  characters: Iterable<readonly [string, { name: string }]>,
+): string | null {
+  const entries = [...characters];
+  const normalizedSpeaker = normalizeTTSCharacterName(speaker);
+  if (!normalizedSpeaker) return null;
+
+  const exactMatch = entries.find(([, character]) => normalizeTTSCharacterName(character.name) === normalizedSpeaker);
+  if (exactMatch) return exactMatch[0];
+
+  const speakerBase = normalizeTTSCharacterBaseName(speaker);
+  if (!speakerBase) return null;
+  const baseMatches = entries.filter(([, character]) => normalizeTTSCharacterBaseName(character.name) === speakerBase);
+  return baseMatches.length === 1 ? baseMatches[0]![0] : null;
 }
 
 export function isTTSNarratorSpeaker(value?: string | null): boolean {

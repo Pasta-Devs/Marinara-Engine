@@ -19,6 +19,7 @@ export type ExtractRoleplayTTSSpeakersInput = {
   group: string;
   user: string;
   characters: string[];
+  messageAuthor?: string;
   debugMode: boolean;
 };
 

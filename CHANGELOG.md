@@ -45,6 +45,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Roleplay speaker extraction now prints the connection's raw response when debug mode is enabled, supplies the current reply's character as the fallback for ambiguous lines, and lets harmless label formatting such as `Maukie:` or `Maukie [chuckle]` resolve to the character's assigned voice instead of Random NPC Voice (#5210).
 - Termux session logging now starts before update checks, dependency repair, and builds, so launcher-stage crashes create the same timestamped diagnostic log as server-stage crashes and nonzero server exits record their status (#5208).
 - Active Roleplay summaries now form a leading system block when no prompt preset is selected, matching the existing fallback used when a preset omits its Chat Summary marker (#5196).
 - Stale file-storage writer leases on macOS now survive VPN and virtual-interface changes: new leases use the stable platform identity instead of hashing the currently visible network adapters, and existing v1 leases from the same Mac are reclaimed after their PID exits instead of blocking startup (#5194).
