@@ -1268,6 +1268,9 @@ export function parseStoredGenerationParameters(raw: unknown): StoredGenerationP
     out.serviceTier = source.serviceTier as StoredGenerationParameters["serviceTier"];
   }
   if (typeof source.assistantPrefill === "string") out.assistantPrefill = source.assistantPrefill;
+  if (typeof source.assistantReasoningPrefill === "string") {
+    out.assistantReasoningPrefill = source.assistantReasoningPrefill;
+  }
   if (Array.isArray(source.customThinkingTags)) {
     out.customThinkingTags = normalizeThinkingTagPairs(source.customThinkingTags);
   }

@@ -6950,6 +6950,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 verbosity: verbosity ?? null,
                 serviceTier,
                 assistantPrefill: assistantPrefill || null,
+                assistantReasoningPrefill: assistantReasoningPrefill || null,
                 customParameters: Object.keys(customParameters).length > 0 ? customParameters : null,
                 tokensPrompt: usage?.promptTokens ?? null,
                 tokensCompletion: usage?.completionTokens ?? null,
@@ -6983,7 +6984,11 @@ export async function generateRoutes(app: FastifyInstance) {
             extraUpdate.generationReplay = buildGenerationReplay(input);
             extraUpdate.startsNewAssistantBubble = startsNewAssistantBubble;
             // Cache the final prompt (what was actually sent to the model) for Peek Prompt
-            extraUpdate.cachedPrompt = finalPromptSent.map((m) => ({ role: m.role, content: m.content }));
+            extraUpdate.cachedPrompt = finalPromptSent.map((m) => ({
+              role: m.role,
+              content: m.content,
+              ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
+            }));
             // Cache the lorebook scan that produced the prompt so Active Context
             // reflects the last generation instead of a best-effort rescan.
             extraUpdate.lorebookScan = lorebookScanSnapshot;

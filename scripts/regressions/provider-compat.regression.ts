@@ -59,6 +59,7 @@ import { resolveStoredChatOptions } from "../../packages/server/src/services/gen
 import { resolveMainGenerationToolChoice } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
 import {
   appendGenerationTailMessages,
+  parseStoredGenerationParameters,
   type SimpleMessage,
 } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import {
@@ -266,6 +267,14 @@ try {
     });
     return messages;
   };
+
+  const recoveredPrefills = parseStoredGenerationParameters({
+    assistantPrefill: "Visible prefix",
+    assistantReasoningPrefill: "Reasoning prefix",
+    temperature: "malformed",
+  });
+  assert.equal(recoveredPrefills?.assistantPrefill, "Visible prefix");
+  assert.equal(recoveredPrefills?.assistantReasoningPrefill, "Reasoning prefix");
 
   customParametersRequestBody = null;
   await provider.chatComplete(buildPrefillMessages("Visible prefix  \n", "Reasoning prefix  \n"), {
