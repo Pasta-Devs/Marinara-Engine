@@ -1348,10 +1348,7 @@ export function PersonaEditor() {
 
   /** True while the completion still belongs to the mounted editor session.
    *  Anything else may touch caches but not local state. */
-  const isCurrentEditorSession = useCallback(
-    (session: string) => editorSessionRef.current === session,
-    [],
-  );
+  const isCurrentEditorSession = useCallback((session: string) => editorSessionRef.current === session, []);
   const imageGenerationAvailable =
     Array.isArray(connectionsList) &&
     (connectionsList as Array<{ provider?: string }>).some((connection) => connection.provider === "image_generation");
@@ -1568,8 +1565,7 @@ export function PersonaEditor() {
       previousAvatarPreview: string | null;
       previousAvatarCrop: AvatarCrop | null;
     }) => {
-      const stillCurrent = () =>
-        isCurrentEditorSession(session) && mutationTokenRef.current === operationToken;
+      const stillCurrent = () => isCurrentEditorSession(session) && mutationTokenRef.current === operationToken;
       if (!stillCurrent()) return false;
 
       // The pending image is its own crop owner, so the incoming picture is never
@@ -1745,9 +1741,7 @@ export function PersonaEditor() {
     } catch (error) {
       if (!isCurrentEditorSession(session) || loadedPersonaIdRef.current !== deletedPersonaId) return;
       console.error("[PersonaEditor] Delete failed:", error);
-      toast.error(
-        formatFirstApiValidationIssue(error, localizeUi("ui.personas.personaeditor.failedToDeletePersona")),
-      );
+      toast.error(formatFirstApiValidationIssue(error, localizeUi("ui.personas.personaeditor.failedToDeletePersona")));
     } finally {
       // A failure retains the editor and draft; success closes once above. An old
       // completion cannot clear a newer session's operation token.

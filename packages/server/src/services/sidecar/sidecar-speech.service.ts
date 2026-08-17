@@ -300,7 +300,10 @@ class SidecarSpeechService {
     return dirSize(safeModelCachePath(getSpeechModel(modelId).repoId));
   }
 
-  private createProgressCallback(modelId: SidecarSpeechModelId, onProgress?: (progress: SidecarDownloadProgress) => void) {
+  private createProgressCallback(
+    modelId: SidecarSpeechModelId,
+    onProgress?: (progress: SidecarDownloadProgress) => void,
+  ) {
     const model = getSpeechModel(modelId);
     let lastReportAt = Date.now();
     let lastLoaded = 0;

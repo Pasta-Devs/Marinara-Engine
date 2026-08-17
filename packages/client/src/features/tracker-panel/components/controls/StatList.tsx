@@ -133,9 +133,7 @@ function StatBar({
     : isCompact
       ? "h-3 text-[0.625rem] leading-3"
       : cn("h-[0.875rem]", TRACKER_TEXT_ROW);
-  const compactNameClass = isTight
-    ? "text-[0.5625rem] leading-[0.6875rem]"
-    : "text-[0.625rem] leading-3";
+  const compactNameClass = isTight ? "text-[0.5625rem] leading-[0.6875rem]" : "text-[0.625rem] leading-3";
   const nameInlineEditClass = compactNameRhythm ? cn(inlineEditClass, compactNameClass) : inlineEditClass;
   const numberClass = isTight ? "text-[0.5625rem] leading-[0.6875rem]" : "text-[0.625rem] leading-3";
   const barClass = isInstrument
@@ -224,8 +222,12 @@ function StatBar({
             type="button"
             onClick={onRemove}
             className="flex h-4 w-4 items-center justify-center rounded text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10"
-            title={localizeUi("ui.trackerPanel.charactertrackercard.removeValue1", { value1: visibleText(stat.name, "stat") })}
-            aria-label={localizeUi("ui.trackerPanel.charactertrackercard.removeValue1", { value1: visibleText(stat.name, "stat") })}
+            title={localizeUi("ui.trackerPanel.charactertrackercard.removeValue1", {
+              value1: visibleText(stat.name, "stat"),
+            })}
+            aria-label={localizeUi("ui.trackerPanel.charactertrackercard.removeValue1", {
+              value1: visibleText(stat.name, "stat"),
+            })}
           >
             <X size={isCondensed ? "0.6rem" : "0.65rem"} />
           </button>
@@ -267,11 +269,7 @@ export function StatList({
     stat: CharacterStat,
     occurrence: number,
   ) => { value: SupportedStatIcon | null | undefined; displayIcon: SupportedStatIcon | null };
-  onSetIcon: (
-    stat: CharacterStat,
-    occurrence: number,
-    icon: SupportedStatIcon | null | undefined,
-  ) => void;
+  onSetIcon: (stat: CharacterStat, occurrence: number, icon: SupportedStatIcon | null | undefined) => void;
   onRemapIcons: (
     previousStats: CharacterStat[],
     nextStats: CharacterStat[],
@@ -362,8 +360,7 @@ export function StatList({
       </div>
     );
   }
-  const compactNameRhythm =
-    density === "normal" && stats.some((stat) => getStatNameFitNeed(stat.name) >= 24);
+  const compactNameRhythm = density === "normal" && stats.some((stat) => getStatNameFitNeed(stat.name) >= 24);
   const useWideColumns = visualTone === "instrument" && stats.length > 1;
   const shouldRenderWideColumnGhost = useWideColumns && stats.length % 2 === 1;
 

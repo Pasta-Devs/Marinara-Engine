@@ -63,11 +63,7 @@ function findUniqueNamedIndex<T extends { name?: string }>(items: T[], item: T |
   return matches.length === 1 ? matches[0]!.index : -1;
 }
 
-function resolveIndexedMutationTarget<T extends { name?: string }>(
-  liveItems: T[],
-  renderedItems: T[],
-  index: number,
-) {
+function resolveIndexedMutationTarget<T extends { name?: string }>(liveItems: T[], renderedItems: T[], index: number) {
   const renderedItem = renderedItems[index];
   const namedIndex = findUniqueNamedIndex(liveItems, renderedItem);
   const targetIndex = namedIndex >= 0 ? namedIndex : index;
@@ -83,7 +79,9 @@ function reconcileListUpdate<T extends { name?: string }>(liveItems: T[], render
   }
 
   if (updatedItems.length === renderedItems.length - 1) {
-    const removedIndex = renderedItems.findIndex((renderedItem, index) => !shallowRecordEqual(renderedItem, updatedItems[index]));
+    const removedIndex = renderedItems.findIndex(
+      (renderedItem, index) => !shallowRecordEqual(renderedItem, updatedItems[index]),
+    );
     const fallbackIndex = removedIndex >= 0 ? removedIndex : renderedItems.length - 1;
     const { targetIndex } = resolveIndexedMutationTarget(liveItems, renderedItems, fallbackIndex);
     if (targetIndex < 0) return liveItems;
@@ -91,7 +89,9 @@ function reconcileListUpdate<T extends { name?: string }>(liveItems: T[], render
   }
 
   if (updatedItems.length === renderedItems.length) {
-    const changedIndex = updatedItems.findIndex((updatedItem, index) => !shallowRecordEqual(updatedItem, renderedItems[index]));
+    const changedIndex = updatedItems.findIndex(
+      (updatedItem, index) => !shallowRecordEqual(updatedItem, renderedItems[index]),
+    );
     if (changedIndex < 0) return liveItems;
     const { renderedItem, targetIndex } = resolveIndexedMutationTarget(liveItems, renderedItems, changedIndex);
     if (targetIndex < 0) return updatedItems;
@@ -160,10 +160,7 @@ export function useTrackerMutations({
     () => readCurrentGameState()?.personaStats ?? personaStats,
     [personaStats, readCurrentGameState],
   );
-  const readCustomFields = useCallback(
-    () => readPlayerStats()?.customTrackerFields ?? [],
-    [readPlayerStats],
-  );
+  const readCustomFields = useCallback(() => readPlayerStats()?.customTrackerFields ?? [], [readPlayerStats]);
 
   const openAvatarUpload = useCallback(
     (index: number) => {
@@ -419,7 +416,8 @@ export function useTrackerMutations({
   const savePersonaStatus = useCallback((status: string) => patchPlayerStats("status", status), [patchPlayerStats]);
 
   const updatePersonaStats = useCallback(
-    (stats: CharacterStat[]) => patchField("personaStats", reconcileListUpdate(readPersonaStats(), personaStats, stats)),
+    (stats: CharacterStat[]) =>
+      patchField("personaStats", reconcileListUpdate(readPersonaStats(), personaStats, stats)),
     [patchField, personaStats, readPersonaStats],
   );
 

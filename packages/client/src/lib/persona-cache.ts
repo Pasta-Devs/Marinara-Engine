@@ -24,7 +24,9 @@ export async function syncCachedPersona(qc: QueryClient, persona: Persona) {
   await Promise.all([
     qc.cancelQueries({ queryKey: personaCacheKeys.list, exact: true }),
     qc.cancelQueries({ queryKey: personaCacheKeys.detail(persona.id), exact: true }),
-    ...(persona.isActive || activeNeedsRefetch ? [qc.cancelQueries({ queryKey: personaCacheKeys.active(), exact: true })] : []),
+    ...(persona.isActive || activeNeedsRefetch
+      ? [qc.cancelQueries({ queryKey: personaCacheKeys.active(), exact: true })]
+      : []),
   ]);
 
   qc.setQueryData<Persona>(personaCacheKeys.detail(persona.id), persona);

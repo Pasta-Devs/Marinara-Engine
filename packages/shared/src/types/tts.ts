@@ -139,6 +139,12 @@ const ttsConfigBaseSchema = z.object({
   autoplayGame: z.boolean().default(false),
   progressivePlayback: z.boolean().default(false),
   dialogueOnly: z.boolean().default(false),
+  /** Use a short auxiliary LLM call to separate Roleplay dialogue by speaker before autoplay. */
+  roleplaySpeakerExtractorEnabled: z.boolean().default(false),
+  /** Empty uses the connection marked as the default for agents. */
+  roleplaySpeakerExtractorConnectionId: z.string().default(""),
+  /** Ask the extractor to annotate dialogue with provider-supported emotion cues. */
+  roleplaySpeakerExtractorEmotionsEnabled: z.boolean().default(false),
   /** Stored in milliseconds for backward compatibility; the setting is configured in whole seconds. */
   dialoguePauseMs: z
     .number()
@@ -229,6 +235,27 @@ export function ttsSourceProfileFromConfig(config: TTSConfig): TTSSourceProfile 
 
 export const TTS_SETTINGS_KEY = "tts";
 export const TTS_API_KEY_MASK = "••••••";
+
+export const ttsRoleplaySpeakerSegmentSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("narration"),
+    text: z.string().trim().min(1).max(100_000),
+  }),
+  z.object({
+    kind: z.literal("dialogue"),
+    speaker: z.string().trim().min(1).max(120),
+    text: z.string().trim().min(1).max(100_000),
+    tone: z.string().trim().min(1).max(80).optional(),
+  }),
+]);
+export type TTSRoleplaySpeakerSegment = z.infer<typeof ttsRoleplaySpeakerSegmentSchema>;
+
+export const ttsRoleplaySpeakerExtractorResponseSchema = z.object({
+  // Up to 500 dialogue lines can produce one narration segment before, between,
+  // and after them: 500 dialogue + 501 narration segments.
+  segments: z.array(ttsRoleplaySpeakerSegmentSchema).max(1001),
+});
+export type TTSRoleplaySpeakerExtractorResponse = z.infer<typeof ttsRoleplaySpeakerExtractorResponseSchema>;
 
 /** Returned by GET /api/tts/voices */
 export interface TTSVoicesResponse {

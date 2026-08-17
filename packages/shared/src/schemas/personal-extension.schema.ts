@@ -5,8 +5,6 @@ import { z } from "zod";
 import { PERSONAL_EXTENSION_CAPABILITIES } from "../types/personal-extension.js";
 import { cssByteLimit, cssByteMessage } from "./css-size.js";
 
-const MAX_EXTENSION_JS_BYTES = 1024 * 1024;
-
 function utf8ByteLength(value: string): number {
   let bytes = 0;
   for (let index = 0; index < value.length; index += 1) {
@@ -28,9 +26,6 @@ function utf8ByteLength(value: string): number {
   return bytes;
 }
 
-const jsByteLimit = (value: string | null | undefined) =>
-  value == null || utf8ByteLength(value) <= MAX_EXTENSION_JS_BYTES;
-const jsByteMessage = `JavaScript must be at most ${MAX_EXTENSION_JS_BYTES} bytes`;
 const extensionRuntimeSchema = z.enum(["client", "server"]);
 const extensionCapabilitySchema = z.enum(PERSONAL_EXTENSION_CAPABILITIES);
 const extensionVersionSchema = z
@@ -44,8 +39,8 @@ const personalExtensionPayloadSchema = z.object({
   runtime: extensionRuntimeSchema.optional().default("client"),
   capabilities: z.array(extensionCapabilitySchema).max(PERSONAL_EXTENSION_CAPABILITIES.length).default([]),
   css: z.string().nullable().optional().refine(cssByteLimit, { message: cssByteMessage }),
-  js: z.string().nullable().optional().refine(jsByteLimit, { message: jsByteMessage }),
-  serverJs: z.string().nullable().optional().refine(jsByteLimit, { message: jsByteMessage }),
+  js: z.string().nullable().optional(),
+  serverJs: z.string().nullable().optional(),
 });
 
 function validateRuntimePayload(

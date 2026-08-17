@@ -1,0 +1,12 @@
+{
+  "kind": "marinara.personal-server-extension",
+  "version": 1,
+  "config": {
+    "name": "Server Counter",
+    "version": "1.0.0",
+    "description": "A minimal sandboxed Server Extension.",
+    "runtime": "server",
+    "capabilities": [],
+    "serverJsPath": "server-extension.js"
+  }
+}

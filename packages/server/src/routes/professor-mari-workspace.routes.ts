@@ -4,7 +4,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
-import { startSseKeepalive, startSseReply, trySendSseEvent } from "./generate/sse.js";
+import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } from "./generate/sse.js";
 import { getProfessorMariWorkspaceService } from "../services/professor-mari/workspace-agent.service.js";
 import { getProfessorMariWorkspaceSkillsService } from "../services/professor-mari/workspace-skills.service.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
@@ -17,6 +17,11 @@ import {
   MAX_INSTRUCTION_DESCRIPTION_LENGTH,
   MAX_INSTRUCTION_NAME_LENGTH,
 } from "../services/storage/mari-instructions.storage.js";
+import {
+  createMariWorkspaceContextStorage,
+  MAX_CONTEXT_ITEM_CONTENT_LENGTH,
+  MAX_CONTEXT_LABEL_LENGTH,
+} from "../services/storage/mari-workspace-context.storage.js";
 
 const promptSchema = z.object({
   chatId: z.string().min(1),
@@ -39,6 +44,17 @@ const promptSchema = z.object({
 
 const resetSchema = z.object({
   clearHistory: z.boolean().optional(),
+});
+
+// #5073: attached workspace context (chat-history slices). content is the already-serialized JSON;
+// the client builds it from the chat-history picker and estimates the token cost.
+const contextCreateSchema = z.object({
+  chatId: z.string().min(1),
+  kind: z.literal("chat_history").optional(),
+  label: z.string().min(1).max(MAX_CONTEXT_LABEL_LENGTH),
+  sourceChatId: z.string().optional().nullable(),
+  content: z.string().min(1).max(MAX_CONTEXT_ITEM_CONTENT_LENGTH),
+  tokenEstimate: z.number().int().nonnegative().optional(),
 });
 
 const cliSchema = z.object({
@@ -185,6 +201,29 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  // #5073: attached workspace context (chat-history slices). Direct user-managed writes (the user is
+  // the reviewer of their own attached context) — the Context Viewer + chat-history picker back these.
+  app.get<{ Querystring: { chatId?: string } }>("/context", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    const chatId = (req.query.chatId ?? "").trim();
+    if (!chatId) return reply.status(400).send({ error: "chatId is required" });
+    return { context: await createMariWorkspaceContextStorage(app.db).listForChat(chatId) };
+  });
+
+  app.post("/context", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    const input = contextCreateSchema.parse(req.body);
+    const item = await createMariWorkspaceContextStorage(app.db).create(input);
+    return { ok: true, item };
+  });
+
+  app.delete<{ Params: { id: string } }>("/context/:id", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    const removed = await createMariWorkspaceContextStorage(app.db).remove(req.params.id);
+    if (!removed) return reply.status(404).send({ error: "Attached context not found" });
+    return { ok: true };
+  });
+
   app.post("/prompt", async (req, reply) => {
     if (!privileged(req, reply)) return;
     const body = promptSchema.parse(req.body);
@@ -204,8 +243,8 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     };
     reply.raw.on("close", onClose);
 
-    const send = (event: Parameters<typeof trySendSseEvent>[1]) => {
-      if (!clientDisconnected && !reply.raw.destroyed) trySendSseEvent(reply, event);
+    const send = (event: Parameters<typeof sendSseEvent>[1]) => {
+      if (!clientDisconnected && isSseReplyWritable(reply)) sendSseEvent(reply, event);
     };
 
     try {
@@ -226,7 +265,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       complete = true;
       stopSseKeepalive();
       reply.raw.off("close", onClose);
-      if (!clientDisconnected && !reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.end();
+      if (!clientDisconnected && isSseReplyWritable(reply)) reply.raw.end();
     }
   });
 

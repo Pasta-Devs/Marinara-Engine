@@ -27,14 +27,16 @@ export function ConnectionSection({ connectionId, connections, isGame, onConnect
       icon={<Plug size="0.875rem" />}
       help={
         isGame
-          ?localizeUi("ui.chatSettings.connectionsection.chooseTheModelUsedForGameGenerationInThis")
-          :localizeUi("ui.chatSettings.connectionsection.whichAiProviderAndModelToUseForThis")
+          ? localizeUi("ui.chatSettings.connectionsection.chooseTheModelUsedForGameGenerationInThis")
+          : localizeUi("ui.chatSettings.connectionsection.whichAiProviderAndModelToUseForThis")
       }
     >
       {isGame ? (
         <div className="space-y-2">
           <div>
-            <label className="mb-1 block text-[0.6875rem] font-medium text-foreground/50">{localizeUi("ui.game.gamesurfacecomponent.gmPartyModel")}</label>
+            <label className="mb-1 block text-[0.6875rem] font-medium text-foreground/50">
+              {localizeUi("ui.game.gamesurfacecomponent.gmPartyModel")}
+            </label>
             <select
               value={connectionId ?? ""}
               onChange={(e) => onConnectionChange(e.target.value || null)}
@@ -45,7 +47,9 @@ export function ConnectionSection({ connectionId, connections, isGame, onConnect
               {connections.map((connection) => (
                 <option key={connection.id} value={connection.id}>
                   {connection.name}
-                  {connection.model ?localizeUi("ui.chatSettings.connectionsection.value1", { value1: connection.model }) : ""}
+                  {connection.model
+                    ? localizeUi("ui.chatSettings.connectionsection.value1", { value1: connection.model })
+                    : ""}
                 </option>
               ))}
             </select>
@@ -67,12 +71,16 @@ export function ConnectionSection({ connectionId, connections, isGame, onConnect
             ))}
           </select>
           {connectionId === "random" && (
-            <p className="mt-1.5 text-[0.625rem] text-foreground/50">{localizeUi("ui.chatSettings.connectionsection.eachGenerationWillRandomlyPickFromConnectionsMarkedFor")}</p>
+            <p className="mt-1.5 text-[0.625rem] text-foreground/50">
+              {localizeUi("ui.chatSettings.connectionsection.eachGenerationWillRandomlyPickFromConnectionsMarkedFor")}
+            </p>
           )}
           {selectedLocalSidecar && (
             <div className="mt-2 flex items-start gap-2 rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
               <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0 text-[var(--warning)]" />
-              <span>{localizeUi("ui.chatSettings.connectionsection.localModelIsTinyAndIntendedForTrackersHelpers")}</span>
+              <span>
+                {localizeUi("ui.chatSettings.connectionsection.localModelIsTinyAndIntendedForTrackersHelpers")}
+              </span>
             </div>
           )}
         </>

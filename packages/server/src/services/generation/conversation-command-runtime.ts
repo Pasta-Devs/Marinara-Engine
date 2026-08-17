@@ -12,7 +12,7 @@ import type { CharacterCommand } from "../conversation/character-commands.js";
 import { wrapContent } from "../prompt/format-engine.js";
 import { resolveSpotifyCredentials, spotifyHasScope } from "../spotify/spotify.service.js";
 import { getActiveTurnGame } from "../turn-games/turn-game-runner.service.js";
-import { getChatHapticIntifaceUrl } from "./haptic-runtime.js";
+import { describeHapticDeviceType, getChatHapticIntifaceUrl } from "./haptic-runtime.js";
 import { listCapabilityConversationCommandInstructions } from "../capability-packages/capability-command-registry.service.js";
 
 type ChatRowForCommands = {
@@ -154,8 +154,7 @@ export async function buildConversationCommandsReminder(args: {
   const memoryCommandEnabled = isConversationCommandEnabled(chatMeta, "memory");
   const sceneCommandEnabled = isConversationCommandEnabled(chatMeta, "scene");
   const reactCommandEnabled = isConversationCommandEnabled(chatMeta, "react");
-  const callCommandEnabled =
-    isConversationCommandAvailable("call") && isConversationCommandEnabled(chatMeta, "call");
+  const callCommandEnabled = isConversationCommandAvailable("call") && isConversationCommandEnabled(chatMeta, "call");
   const musicCommandEnabled =
     isConversationCommandAvailable("music") && isConversationCommandEnabled(chatMeta, "music");
   const hapticCommandEnabled =
@@ -320,7 +319,12 @@ export async function buildConversationCommandsReminder(args: {
     isConversationCommandEnabled(chatMeta, "rock_paper_scissors") &&
     characterIds.length >= 1;
   const noActiveTurnGame =
-    (unoAdvertisable || chessAdvertisable || pokerAdvertisable || eightballAdvertisable || ticTacToeAdvertisable || rpsAdvertisable) &&
+    (unoAdvertisable ||
+      chessAdvertisable ||
+      pokerAdvertisable ||
+      eightballAdvertisable ||
+      ticTacToeAdvertisable ||
+      rpsAdvertisable) &&
     !(await getActiveTurnGame(args.db, args.chatId));
   if (unoAdvertisable && noActiveTurnGame) {
     addCommandLines(
@@ -393,11 +397,16 @@ export async function buildConversationCommandsReminder(args: {
       }
     }
     if (hapticService.connected && hapticService.devices.length > 0) {
-      const deviceNames = hapticService.devices.map((d) => d.name).join(", ");
+      const deviceDescriptions = hapticService.devices
+        .map(
+          (device) =>
+            `${device.name} (index ${device.index}; ${device.type ?? describeHapticDeviceType(device.capabilities)}; actions: ${device.capabilities.join("|")})`,
+        )
+        .join(", ");
       addCommandLines(
-        `- [haptic: action="vibrate|oscillate|rotate|position|stop", intensity=0.0-1.0, duration=seconds (0 = loop until next command)] or [haptic: action="stop"] - control or stop the user's connected intimate device(s) (${deviceNames}). Use this during physical/intimate/sensual moments to provide haptic feedback that matches the narrative. Vary intensity based on the scene.`,
-        `   You can include multiple [haptic] commands in one message for patterns (e.g., escalating: 0.2 → 0.5 → 0.8).`,
-        `   Example: *trails a finger slowly down your arm* [haptic: action="vibrate", intensity=0.3, duration=2]`,
+        `- [haptic: action="supported action", intensity=0.0-1.0, duration=seconds, pattern="steady|tap|pulse|wave|ramp|impact"] or [haptic: action="stop"] - control or stop the user's connected intimate device(s): ${deviceDescriptions}.`,
+        `   Match the action to the device and scene. Position controls linear stroking, thrusting, or pumping; inflate controls air-pressure pumping; constrict controls squeezing. Every named pattern works with scalar and position actions. Use the full intensity range when appropriate.`,
+        `   Example: *sets a firm, rhythmic pace* [haptic: action="position", intensity=1, duration=3, pattern="pulse"]`,
       );
     }
   }

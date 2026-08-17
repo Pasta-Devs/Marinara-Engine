@@ -3,7 +3,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runInNewContext } from "node:vm";
-import { createPersonalExtensionSchema } from "../../packages/shared/src/schemas/personal-extension.schema.js";
+import {
+  createPersonalExtensionSchema,
+  updatePersonalExtensionSchema,
+} from "../../packages/shared/src/schemas/personal-extension.schema.js";
 import type { DB } from "../../packages/server/src/db/connection.js";
 import { createFileNativeDB } from "../../packages/server/src/db/file-backed-store.js";
 import { appSettings, installedExtensions } from "../../packages/server/src/db/schema/index.js";
@@ -176,6 +179,19 @@ const manifestWithEnabled = createPersonalExtensionSchema.parse({
 });
 assert.equal("enabled" in manifestWithEnabled, false);
 
+const sourceOverOneMiB = `/*${"x".repeat(1024 * 1024)}*/`;
+assert.equal(
+  createPersonalExtensionSchema.parse({ name: "Large browser draft", runtime: "client", js: sourceOverOneMiB }).js,
+  sourceOverOneMiB,
+);
+assert.equal(
+  createPersonalExtensionSchema.parse({ name: "Large server draft", runtime: "server", serverJs: sourceOverOneMiB })
+    .serverJs,
+  sourceOverOneMiB,
+);
+assert.equal(updatePersonalExtensionSchema.parse({ js: sourceOverOneMiB }).js, sourceOverOneMiB);
+assert.equal(updatePersonalExtensionSchema.parse({ serverJs: sourceOverOneMiB }).serverJs, sourceOverOneMiB);
+
 const storageDir = mkdtempSync(join(tmpdir(), "marinara-personal-extension-security-"));
 const previousFileStorageDir = process.env.FILE_STORAGE_DIR;
 const previousExternalGate = process.env.ENABLE_EXTERNAL_EXTENSIONS;
@@ -216,6 +232,20 @@ try {
   assert.equal(migratedRows[0]!.source, "legacy");
 
   const storage = createPersonalExtensionsStorage(db);
+  const largeDraft = await storage.create({
+    name: "Large source draft",
+    runtime: "client",
+    js: sourceOverOneMiB,
+  });
+  assert.ok(largeDraft);
+  assert.equal(largeDraft.js, sourceOverOneMiB);
+  const largeServerUpdate = await storage.update(largeDraft.id, {
+    runtime: "server",
+    serverJs: sourceOverOneMiB,
+  });
+  assert.equal(largeServerUpdate?.serverJs, sourceOverOneMiB);
+  assert.equal(largeServerUpdate?.revisions[0]?.js, sourceOverOneMiB);
+
   const externalDraft = await storage.create(
     {
       name: "Dropped external extension",
@@ -354,6 +384,7 @@ try {
         name: "Sandbox capability proof",
         runtime: "server",
         serverJs: `
+          ${sourceOverOneMiB}
           const escapedProcess = globalThis.constructor.constructor("return process")();
           const fs = escapedProcess.getBuiltinModule("node:fs");
           const childProcess = escapedProcess.getBuiltinModule("node:child_process");
@@ -800,8 +831,11 @@ try {
 }
 
 {
-  const { normalizePersonalExtensionImportEntry, personalExtensionEntriesFromJson } =
-    await import("../../packages/client/src/lib/personal-extension-import.js");
+  const {
+    normalizePersonalExtensionImportEntry,
+    personalExtensionEntriesFromJson,
+    personalExtensionEntryFromSourceFile,
+  } = await import("../../packages/client/src/lib/personal-extension-import.js");
   const [legacyEntry] = personalExtensionEntriesFromJson(
     {
       kind: "marinara.extension",
@@ -825,6 +859,17 @@ try {
   assert.ok(explicitSandboxEntry);
   const explicitSandboxDraft = normalizePersonalExtensionImportEntry(explicitSandboxEntry, "Safe");
   assert.deepEqual(explicitSandboxDraft?.capabilities, []);
+
+  for (const [fileName, runtime, sourceField] of [
+    ["large-browser.js", "client", "js"],
+    ["large-server.server.js", "server", "serverJs"],
+  ] as const) {
+    const entry = personalExtensionEntryFromSourceFile(fileName, sourceOverOneMiB);
+    assert.ok(entry);
+    const draft = normalizePersonalExtensionImportEntry(entry, fileName);
+    assert.equal(draft?.runtime, runtime);
+    assert.equal(draft?.[sourceField], sourceOverOneMiB);
+  }
 }
 
 {

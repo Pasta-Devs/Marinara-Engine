@@ -131,24 +131,22 @@ export function QuestRow({
             title={
               lockMode
                 ? questCompletedLocked
-                  ?localizeUi("ui.trackerPanel.questrow.unlockQuestCompletion")
-                  :localizeUi("ui.trackerPanel.questrow.lockQuestCompletion")
+                  ? localizeUi("ui.trackerPanel.questrow.unlockQuestCompletion")
+                  : localizeUi("ui.trackerPanel.questrow.lockQuestCompletion")
                 : quest.completed
-                  ?localizeUi("ui.chat.questcardeditable.markIncomplete")
-                  :localizeUi("ui.chat.questcardeditable.markComplete")
+                  ? localizeUi("ui.chat.questcardeditable.markIncomplete")
+                  : localizeUi("ui.chat.questcardeditable.markComplete")
             }
             aria-label={
               lockMode
                 ? questCompletedLocked
-                  ?localizeUi("ui.trackerPanel.questrow.unlockQuestCompletion")
-                  :localizeUi("ui.trackerPanel.questrow.lockQuestCompletion")
+                  ? localizeUi("ui.trackerPanel.questrow.unlockQuestCompletion")
+                  : localizeUi("ui.trackerPanel.questrow.lockQuestCompletion")
                 : quest.completed
-                  ?localizeUi("ui.trackerPanel.questrow.markQuestIncomplete")
-                  :localizeUi("ui.trackerPanel.questrow.markQuestComplete")
+                  ? localizeUi("ui.trackerPanel.questrow.markQuestIncomplete")
+                  : localizeUi("ui.trackerPanel.questrow.markQuestComplete")
             }
-            aria-pressed={
-              lockMode ? questCompletedLocked : undefined
-            }
+            aria-pressed={lockMode ? questCompletedLocked : undefined}
           >
             {lockMode ? (
               questCompletedLocked ? (
@@ -204,7 +202,9 @@ export function QuestRow({
             onClick={onRemove}
             className={QUEST_REMOVE_BUTTON_CLASS}
             title={localizeUi("ui.trackerPanel.questrow.removeQuest")}
-            aria-label={localizeUi("ui.trackerPanel.charactertrackercard.removeValue1", { value1: visibleText(quest.name, "quest") })}
+            aria-label={localizeUi("ui.trackerPanel.charactertrackercard.removeValue1", {
+              value1: visibleText(quest.name, "quest"),
+            })}
           >
             <X size="0.625rem" />
           </button>
@@ -213,10 +213,7 @@ export function QuestRow({
 
       <div className={QUEST_PROGRESS_TRACK_CLASS}>
         <div
-          className={cn(
-            QUEST_PROGRESS_FILL_CLASS,
-            quest.completed ? "bg-emerald-300/85" : "bg-emerald-400/70",
-          )}
+          className={cn(QUEST_PROGRESS_FILL_CLASS, quest.completed ? "bg-emerald-300/85" : "bg-emerald-400/70")}
           style={{ width: `${completionPercent}%` }}
         />
       </div>

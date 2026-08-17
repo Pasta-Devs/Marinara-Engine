@@ -71,11 +71,9 @@ export function trimInactiveMessagePageCaches(
     // setQueryData stamps dataUpdatedAt with "now" unless told otherwise, which
     // would mark the trimmed cache FRESH and suppress the stale-gated
     // refetchOnMount when the user reopens the chat. Preserve the original.
-    qc.setQueryData<InfiniteData<unknown>>(
-      query.queryKey,
-      (old) => trimMessagePagesToNewest(old, keep),
-      { updatedAt: query.state.dataUpdatedAt },
-    );
+    qc.setQueryData<InfiniteData<unknown>>(query.queryKey, (old) => trimMessagePagesToNewest(old, keep), {
+      updatedAt: query.state.dataUpdatedAt,
+    });
     if (wasInvalidated) {
       // The 'success' dispatch from the trim write cleared isInvalidated;
       // restore the pending stale-mark so the next mount still refetches.

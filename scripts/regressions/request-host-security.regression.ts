@@ -13,10 +13,21 @@ delete process.env.CORS_ORIGINS;
 delete process.env.MARINARA_E2E_DISABLE_RATE_LIMIT;
 
 const { corsDelegate } = await import("../../packages/server/src/config/cors-config.js");
+const { getCsrfTrustedOrigins } = await import("../../packages/server/src/config/runtime-config.js");
 const { hostValidationHook, parseRequestHostname } =
   await import("../../packages/server/src/middleware/host-validation.js");
-const { rateLimitHook, resetRateLimitBucketsForTests } =
+const { AVATAR_STORAGE_RATE_LIMIT, BACKUP_RATE_LIMIT, rateLimitHook, resetRateLimitBucketsForTests } =
   await import("../../packages/server/src/middleware/rate-limit.js");
+
+process.env.CSRF_TRUSTED_ORIGINS = "null";
+assert.deepEqual(getCsrfTrustedOrigins(), [], "a literal null CSRF origin is treated as unset");
+process.env.CSRF_TRUSTED_ORIGINS = "NULL, https://proxy.example.com";
+assert.deepEqual(
+  getCsrfTrustedOrigins(),
+  ["https://proxy.example.com"],
+  "a null sentinel does not discard configured trusted origins",
+);
+delete process.env.CSRF_TRUSTED_ORIGINS;
 
 assert.equal(parseRequestHostname("192.168.1.50:7860"), "192.168.1.50");
 assert.equal(parseRequestHostname("[fd7a:115c:a1e0::1]:7860"), "fd7a:115c:a1e0::1");
@@ -29,13 +40,34 @@ assert.equal(parseRequestHostname("attacker.example, localhost:7860"), null);
 const rateLimitedApp = Fastify();
 rateLimitedApp.addHook("onRequest", rateLimitHook);
 rateLimitedApp.post("/api/backup/", async () => ({ ok: true }));
+rateLimitedApp.post("/api/admin/avatar-storage/cleanup", async () => ({ ok: true }));
 try {
-  for (let requestNumber = 1; requestNumber <= 30; requestNumber += 1) {
+  for (let requestNumber = 1; requestNumber <= BACKUP_RATE_LIMIT.max; requestNumber += 1) {
     const response = await rateLimitedApp.inject({ method: "POST", url: "/api/backup/" });
     assert.equal(response.statusCode, 200, `backup request ${requestNumber} remains within its explicit limit`);
   }
   const rejectedBackup = await rateLimitedApp.inject({ method: "POST", url: "/api/backup/" });
-  assert.equal(rejectedBackup.statusCode, 429, "expensive backup routes are capped at 30 requests per minute and IP");
+  assert.equal(
+    rejectedBackup.statusCode,
+    429,
+    `expensive backup routes are capped at ${BACKUP_RATE_LIMIT.max} requests per minute and IP`,
+  );
+  for (let requestNumber = 1; requestNumber <= AVATAR_STORAGE_RATE_LIMIT.max; requestNumber += 1) {
+    const response = await rateLimitedApp.inject({
+      method: "POST",
+      url: "/api/admin/avatar-storage/cleanup",
+    });
+    assert.equal(response.statusCode, 200, `avatar storage request ${requestNumber} remains within its explicit limit`);
+  }
+  const rejectedAvatarCleanup = await rateLimitedApp.inject({
+    method: "POST",
+    url: "/api/admin/avatar-storage/cleanup",
+  });
+  assert.equal(
+    rejectedAvatarCleanup.statusCode,
+    429,
+    "avatar storage maintenance is capped at 20 requests per minute and IP",
+  );
 } finally {
   await rateLimitedApp.close();
   resetRateLimitBucketsForTests();

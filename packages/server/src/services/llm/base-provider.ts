@@ -49,9 +49,7 @@ export function llmFetch(
     maxResponseBytes: 50 * 1024 * 1024,
     agentOptions:
       init?.agentOptions ??
-      (requestTimeoutMs
-        ? { bodyTimeout: requestTimeoutMs, headersTimeout: requestTimeoutMs }
-        : llmAgentOptions()),
+      (requestTimeoutMs ? { bodyTimeout: requestTimeoutMs, headersTimeout: requestTimeoutMs } : llmAgentOptions()),
     bufferResponse,
     decodeCompressedResponse: init?.decodeCompressedResponse ?? bufferResponse,
   });
@@ -59,6 +57,62 @@ export function llmFetch(
 
 export function yieldToEventLoop(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
+}
+
+/**
+ * Structured HTTP failure from a provider call. Plain `Error`s only carry the status in their
+ * message text, so a 429 is not distinguishable from any other failure without regexing strings.
+ * Providers throw this on `!response.ok` so retry/throttle logic above them can detect a rate
+ * limit and honour `Retry-After`.
+ */
+export class LLMHttpError extends Error {
+  readonly status: number;
+  readonly retryAfterMs?: number;
+  constructor(message: string, options: { status: number; retryAfterMs?: number }) {
+    super(message);
+    this.name = "LLMHttpError";
+    this.status = options.status;
+    this.retryAfterMs = options.retryAfterMs;
+  }
+}
+
+/**
+ * Parse an HTTP `Retry-After` header into milliseconds. Accepts either a delta-seconds integer
+ * (`"12"`) or an HTTP date (`"Wed, 21 Oct 2026 07:28:00 GMT"`). Returns undefined when absent or
+ * unparseable so callers fall back to their own backoff.
+ */
+export function parseRetryAfterMs(headerValue: string | null | undefined): number | undefined {
+  if (!headerValue) return undefined;
+  const trimmed = headerValue.trim();
+  if (/^\d+$/.test(trimmed)) {
+    const seconds = Number.parseInt(trimmed, 10);
+    return Number.isFinite(seconds) ? seconds * 1000 : undefined;
+  }
+  const dateMs = Date.parse(trimmed);
+  if (Number.isNaN(dateMs)) return undefined;
+  const deltaMs = dateMs - Date.now();
+  return deltaMs > 0 ? deltaMs : 0;
+}
+
+/** Read the status + Retry-After off a Response and build a typed rate-limit-aware error. */
+export function llmHttpErrorFromResponse(message: string, response: Response): LLMHttpError {
+  return new LLMHttpError(message, {
+    status: response.status,
+    retryAfterMs: parseRetryAfterMs(response.headers.get("retry-after")),
+  });
+}
+
+/**
+ * True when an error is a provider rate-limit / transient-overload the caller should pause and
+ * retry rather than surface: HTTP 429 (rate limited) or 529 (Anthropic "overloaded").
+ */
+export function isRateLimitError(error: unknown): error is LLMHttpError {
+  if (!(error instanceof LLMHttpError)) return false;
+  // 429 (rate limited) and 529 (Anthropic "overloaded") are always retryable. Some gateways signal
+  // intentional throttling with 503 plus a Retry-After; treat that as retryable too, but let a bare
+  // 503 (likely a real outage, not throttling) propagate.
+  if (error.status === 429 || error.status === 529) return true;
+  return error.status === 503 && typeof error.retryAfterMs === "number";
 }
 
 export interface ChatMessage {
@@ -156,6 +210,12 @@ export interface ChatOptions {
   serviceTier?: "flex" | "priority" | null;
   /** Abort signal — when triggered, the in-flight LLM request should be cancelled. */
   signal?: AbortSignal;
+  /**
+   * Invoked when a rate-limit-aware retry pauses before re-attempting the request (proxy 429 /
+   * per-connection throttle). Callers (e.g. Professor Mari) use this to surface a "paused,
+   * resuming in Ns" indicator instead of appearing to hang.
+   */
+  onRateLimitPause?: (info: { attempt: number; delayMs: number; reason: "rate_limit" | "throttle" }) => void;
   /** Callback to receive the full response parts (for providers that return structured metadata like Gemini thought signatures) */
   onResponseParts?: (parts: unknown[]) => void;
   /** OpenRouter: preferred provider for model routing */
@@ -752,7 +812,7 @@ export abstract class BaseLLMProvider {
     });
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`Embedding request failed (${res.status}): ${sanitizeApiError(body)}`);
+      throw llmHttpErrorFromResponse(`Embedding request failed (${res.status}): ${sanitizeApiError(body)}`, res);
     }
     const json = await res.json();
     return parseEmbeddingResponse(json);

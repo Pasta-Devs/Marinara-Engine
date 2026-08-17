@@ -30,7 +30,6 @@ interface WeatherEffectsProps {
   paused?: boolean;
 }
 
-
 // ═══════════════════════════════════════════════
 // Main component
 // ═══════════════════════════════════════════════

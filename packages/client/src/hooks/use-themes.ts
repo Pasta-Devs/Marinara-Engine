@@ -30,10 +30,7 @@ function isPermanentThemeMigrationError(error: unknown) {
 }
 
 function isTransientThemeMigrationError(error: unknown) {
-  return (
-    error instanceof ApiError &&
-    (error.status === 408 || error.status === 429 || error.status >= 500)
-  );
+  return error instanceof ApiError && (error.status === 408 || error.status === 429 || error.status >= 500);
 }
 
 /**

@@ -4,6 +4,7 @@
 import {
   BaseLLMProvider,
   llmFetch,
+  llmHttpErrorFromResponse,
   sanitizeApiError,
   type ChatCompletionResult,
   type ChatMessage,
@@ -441,7 +442,10 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Anthropic API error ${response.status}: ${sanitizeApiError(errorText)}`);
+      throw llmHttpErrorFromResponse(
+        `Anthropic API error ${response.status}: ${sanitizeApiError(errorText)}`,
+        response,
+      );
     }
 
     const json = (await response.json()) as AnthropicMessageResponse;
@@ -624,7 +628,10 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Anthropic API error ${response.status}: ${sanitizeApiError(errorText)}`);
+      throw llmHttpErrorFromResponse(
+        `Anthropic API error ${response.status}: ${sanitizeApiError(errorText)}`,
+        response,
+      );
     }
 
     if (!options.stream) {

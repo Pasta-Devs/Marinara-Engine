@@ -84,7 +84,9 @@ export function PromptPresetSection({
       {showLorebookMarkerWarning && (
         <div className="mt-2 flex items-start gap-2 rounded-lg bg-amber-400/10 px-3 py-2 text-[0.6875rem] text-amber-200 ring-1 ring-amber-400/25">
           <AlertTriangle size="0.75rem" className="mt-[0.125rem] shrink-0" />
-          <span>{localizeUi("ui.chatSettings.promptpresetsection.thisPresetHasActiveLorebooksAvailableButNoLorebook")}</span>
+          <span>
+            {localizeUi("ui.chatSettings.promptpresetsection.thisPresetHasActiveLorebooksAvailableButNoLorebook")}
+          </span>
         </div>
       )}
       {promptPresetId && (

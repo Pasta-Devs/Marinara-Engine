@@ -91,7 +91,11 @@ const mountedPanels = new Set<string>();
 
 function PanelFallback() {
   const { t: localizeUi } = useUiTranslation();
-  return <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">{localizeUi("ui.characters.characterlibraryview.loading")}</div>;
+  return (
+    <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
+      {localizeUi("ui.characters.characterlibraryview.loading")}
+    </div>
+  );
 }
 
 export function RightPanel() {
@@ -140,11 +144,7 @@ export function RightPanel() {
         </div>
         <div className="flex min-w-0 shrink-0 items-center gap-1">
           {contributionSurface && (
-            <PersonalExtensionContributionSlot
-              surface={contributionSurface}
-              position="header"
-              className="max-w-28"
-            />
+            <PersonalExtensionContributionSlot surface={contributionSurface} position="header" className="max-w-28" />
           )}
           <button
             onClick={close}

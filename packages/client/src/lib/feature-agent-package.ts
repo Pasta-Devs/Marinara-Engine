@@ -6,9 +6,7 @@ export function resolveFeatureAgentPackage(
 ): InstalledCapabilityPackage | null {
   return (
     installedPackages.find((item) => item.id === agent.packageId) ??
-    installedPackages.find(
-      (item) => item.manifest.contributions?.agentDetail?.agentIds.includes(agent.id) === true,
-    ) ??
+    installedPackages.find((item) => item.manifest.contributions?.agentDetail?.agentIds.includes(agent.id) === true) ??
     null
   );
 }

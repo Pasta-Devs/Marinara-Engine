@@ -2760,10 +2760,7 @@ function CharacterGalleryTab({
       let failedDownloads = 0;
       for (const [index, image] of selectedImages.entries()) {
         try {
-          await downloadUrlToDevice(
-            image.url,
-            image.filePath.split("/").pop() || `character-gallery-${index + 1}.png`,
-          );
+          await downloadUrlToDevice(image.url, image.filePath.split("/").pop() || `character-gallery-${index + 1}.png`);
         } catch {
           failedDownloads += 1;
         }

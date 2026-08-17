@@ -161,7 +161,9 @@ export async function downloadFileWithProgress(options: DownloadFileOptions): Pr
     await streamPipeline(readable, writable);
     const writtenBytes = statSync(tempPath).size;
     if (canValidateSize && writtenBytes !== expectedBytes) {
-      throw new Error(`Downloaded file size mismatch: expected ${expectedBytes} bytes, received ${writtenBytes} bytes.`);
+      throw new Error(
+        `Downloaded file size mismatch: expected ${expectedBytes} bytes, received ${writtenBytes} bytes.`,
+      );
     }
     if (expectedSha256) {
       const actualSha256 = sha256!.digest("hex");

@@ -21,11 +21,36 @@ interface DiceGlyphProps {
 
 const D6_PIPS: Record<number, Array<[number, number]>> = {
   1: [[48, 54]],
-  2: [[34, 40], [62, 68]],
-  3: [[34, 40], [48, 54], [62, 68]],
-  4: [[34, 40], [62, 40], [34, 68], [62, 68]],
-  5: [[34, 40], [62, 40], [48, 54], [34, 68], [62, 68]],
-  6: [[34, 38], [62, 38], [34, 54], [62, 54], [34, 70], [62, 70]],
+  2: [
+    [34, 40],
+    [62, 68],
+  ],
+  3: [
+    [34, 40],
+    [48, 54],
+    [62, 68],
+  ],
+  4: [
+    [34, 40],
+    [62, 40],
+    [34, 68],
+    [62, 68],
+  ],
+  5: [
+    [34, 40],
+    [62, 40],
+    [48, 54],
+    [34, 68],
+    [62, 68],
+  ],
+  6: [
+    [34, 38],
+    [62, 38],
+    [34, 54],
+    [62, 54],
+    [34, 70],
+    [62, 70],
+  ],
 };
 
 function renderD6Pips(value: number) {
@@ -34,7 +59,16 @@ function renderD6Pips(value: number) {
   ));
 }
 
-export function DiceGlyph({ sides, value, phase, size = "standard", index = 0, emphasized = true, hero = false, className }: DiceGlyphProps) {
+export function DiceGlyph({
+  sides,
+  value,
+  phase,
+  size = "standard",
+  index = 0,
+  emphasized = true,
+  hero = false,
+  className,
+}: DiceGlyphProps) {
   const { t: localizeUi } = useUiTranslation();
   const uid = useId();
   const shape = getDiceShape(sides);
@@ -59,15 +93,22 @@ export function DiceGlyph({ sides, value, phase, size = "standard", index = 0, e
         className,
       )}
       data-emphasized={emphasized ? "true" : "false"}
-      style={{
-        "--dice-delay": delay,
-        "--dice-rest-rot": restRot,
-        "--dice-rest-x": restX,
-        "--dice-rest-y": restY,
-      } as CSSProperties}
+      style={
+        {
+          "--dice-delay": delay,
+          "--dice-rest-rot": restRot,
+          "--dice-rest-x": restX,
+          "--dice-rest-y": restY,
+        } as CSSProperties
+      }
     >
       <span className="dice-glyph-shadow" />
-      <svg className="dice-glyph-svg" viewBox="0 0 100 100" role="img" aria-label={localizeUi("ui.dice.diceglyph.dValue1ShowingValue2", { value1: sides, value2: face })}>
+      <svg
+        className="dice-glyph-svg"
+        viewBox="0 0 100 100"
+        role="img"
+        aria-label={localizeUi("ui.dice.diceglyph.dValue1ShowingValue2", { value1: sides, value2: face })}
+      >
         <defs>
           <radialGradient id={`die-shine-${uid}`} cx="36%" cy="26%" r="70%">
             <stop offset="0%" stopColor="white" stopOpacity="0.28" />
@@ -87,9 +128,17 @@ export function DiceGlyph({ sides, value, phase, size = "standard", index = 0, e
         ) : (
           <>
             <text className="dice-glyph-label" x="50" y={shape.labelY} textAnchor="middle">
-              {shape.kind === "coin" ?localizeUi("ui.dice.diceglyph.d2") :localizeUi("ui.dice.diceglyph.dValue1", { value1: sides })}
+              {shape.kind === "coin"
+                ? localizeUi("ui.dice.diceglyph.d2")
+                : localizeUi("ui.dice.diceglyph.dValue1", { value1: sides })}
             </text>
-            <text className={cn("dice-glyph-value", shape.renderMode === "coin" && "dice-glyph-value--coin")} x="50" y={shape.valueY} textAnchor="middle" style={{ fontSize: shape.valueSize }}>
+            <text
+              className={cn("dice-glyph-value", shape.renderMode === "coin" && "dice-glyph-value--coin")}
+              x="50"
+              y={shape.valueY}
+              textAnchor="middle"
+              style={{ fontSize: shape.valueSize }}
+            >
               {face}
             </text>
           </>

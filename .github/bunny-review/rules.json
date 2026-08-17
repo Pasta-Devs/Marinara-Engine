@@ -52,7 +52,7 @@
         "docs/development/frontend.md"
       ],
       "checks": [
-        "Server calls go through the @/lib/api-client wrapper (api.get/post/patch/delete/upload/download/stream/streamEvents), never raw fetch().",
+        "Server calls go through the @/lib/api-client wrapper (api.get/post/patch/delete/upload/download/streamEvents), never raw fetch().",
         "Async server access lives in React Query hooks; Zustand stores stay synchronous state plus actions. Only ui.store uses persist.",
         "Navigation is state-based via ui.store (no URL router), new editors are lazy-loaded in AppShell, and there are no barrel/index files.",
         "console.* is acceptable in client code (the browser has no Pino and production builds strip console.log); do not flag it here as a logging violation."
@@ -110,7 +110,7 @@
         "docs/prompts/generation-parameters.md"
       ],
       "checks": [
-        "SSE/streaming changes preserve the token and event contract on both ends: api.stream/streamEvents on the client and the onToken/event emitters in generate.routes.ts on the server.",
+        "SSE/streaming changes preserve the event contract on both ends: api.streamEvents on the client and the onToken/event emitters in generate.routes.ts on the server.",
         "Prompt assembly changes are evaluated against every chat mode that shares the path, not only the mode being edited.",
         "Parser, tag-stripper, or JSON-extraction changes must not eat legitimate content. Prefer root-cause fixes over blanket trailing-character strips, and confirm a negative control (content that should pass through untouched)."
       ]

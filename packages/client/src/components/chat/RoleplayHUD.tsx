@@ -10,6 +10,7 @@ import {
   MapPin,
   Users,
   Package,
+  Backpack,
   Scroll,
   Sparkles,
   Swords,
@@ -39,8 +40,9 @@ import {
   type WorldWeatherFamily,
 } from "../../lib/world-state-helpers";
 import { TrackerLockProvider } from "../../features/tracker-panel/components/TrackerLockContext";
+import { buildInventoryTrackerEditPatch } from "../../features/tracker-panel/lib/inventory-tracker-edit";
 import { useTrackerFieldLockUpdater } from "../../features/tracker-panel/hooks/use-tracker-field-lock-updater";
-import { ROLEPLAY_POPOVER_SCROLL_AREA, ROLEPLAY_POPOVER_SHELL } from "./roleplay-popover-styles";
+import { NEUTRAL_PANEL_SCROLL_AREA, NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
 import {
   CHAT_TOOLBAR_ICON_GAP_CLASS,
   CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS,
@@ -51,6 +53,8 @@ import type {
   PresentCharacter,
   CharacterStat,
   InventoryItem,
+  InventoryTrackerGroup,
+  InventoryTrackerRow,
   QuestProgress,
   CustomTrackerField,
   WorldCustomField,
@@ -101,6 +105,9 @@ const CharactersPanel = lazy(async () =>
 const InventoryPanel = lazy(async () =>
   import("./RoleplayHUDPanels").then((module) => ({ default: module.InventoryPanel })),
 );
+const RoleplayInventoryTrackerPanel = lazy(async () =>
+  import("./RoleplayHUDPanels").then((module) => ({ default: module.RoleplayInventoryTrackerPanel })),
+);
 const QuestsPanel = lazy(async () => import("./RoleplayHUDPanels").then((module) => ({ default: module.QuestsPanel })));
 const CustomTrackerPanel = lazy(async () =>
   import("./RoleplayHUDPanels").then((module) => ({ default: module.CustomTrackerPanel })),
@@ -126,7 +133,7 @@ export function RoleplayHUD({
   const gameState = useGameStateStore((s) => s.current);
   const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
   const setGameState = useGameStateStore((s) => s.setGameState);
-  const { patchField, patchPlayerStats } = useGameStatePatcher(chatId, "roleplay-hud");
+  const { patchField, patchPlayerStats, patchPlayerStatsMany } = useGameStatePatcher(chatId, "roleplay-hud");
 
   const { data: agentConfigs } = useAgentConfigs();
   const enabledAgentTypes = enabledAgentTypesProp ?? EMPTY_AGENT_TYPE_SET;
@@ -186,6 +193,9 @@ export function RoleplayHUD({
         attributes: null,
         skills: {},
         inventory: [],
+        inventoryTrackerCurrencies: [],
+        inventoryTrackerEquipped: [],
+        inventoryTrackerInventory: [],
         activeQuests: [],
         status: "",
       },
@@ -226,6 +236,12 @@ export function RoleplayHUD({
   const inventory = playerStats?.inventory ?? EMPTY_INVENTORY;
   const activeQuests = playerStats?.activeQuests ?? [];
   const customTrackerFields = playerStats?.customTrackerFields ?? [];
+  const inventoryTrackerCurrencies = playerStats?.inventoryTrackerCurrencies ?? [];
+  const inventoryTrackerEquipped = playerStats?.inventoryTrackerEquipped ?? [];
+  const inventoryTrackerInventory = playerStats?.inventoryTrackerInventory ?? [];
+  // Editing one group can rewrite two, so this must land as a single patch.
+  const editInventoryTracker = (group: InventoryTrackerGroup, rows: InventoryTrackerRow[]) =>
+    patchPlayerStatsMany((current) => buildInventoryTrackerEditPatch(current, group, rows));
   const fieldLocks = gameState ? normalizeTrackerFieldLocksForState(gameState.fieldLocks, gameState) : null;
   const hiddenTrackerFields = gameState ? normalizeTrackerHiddenFields(gameState.hiddenTrackerFields) : null;
   const updateFieldLocks = useTrackerFieldLockUpdater({ chatId, fieldLocks, patchField });
@@ -265,6 +281,7 @@ export function RoleplayHUD({
     enabledAgentTypes.has("character-tracker") ||
     enabledAgentTypes.has("quest") ||
     enabledAgentTypes.has("custom-tracker");
+  const hasInventoryTracker = enabledAgentTypes.has("inventory-tracker");
 
   // If mobileCompact, widgets are even narrower and action buttons are not cut off
 
@@ -278,14 +295,7 @@ export function RoleplayHUD({
       onUpdateFieldLocks={updateFieldLocks}
       onUpdateHiddenFields={updateHiddenTrackerFields}
     >
-      <div
-        className={cn(
-          "rpg-hud",
-          "flex items-center",
-          CHAT_TOOLBAR_ICON_GAP_CLASS,
-          mobileCompact && "min-w-0",
-        )}
-      >
+      <div className={cn("rpg-hud", "flex items-center", CHAT_TOOLBAR_ICON_GAP_CLASS, mobileCompact && "min-w-0")}>
         {trackerPanelEnabled && !trackerPanelOpen && (
           <TrackerPanelToggleButton onToggle={() => toggleTrackerPanel(chatId)} />
         )}
@@ -364,6 +374,19 @@ export function RoleplayHUD({
               />
             )}
 
+            {hasInventoryTracker && (
+              <InventoryTrackerWidget
+                currencies={inventoryTrackerCurrencies}
+                equipped={inventoryTrackerEquipped}
+                inventory={inventoryTrackerInventory}
+                onUpdateCurrencies={(rows) => editInventoryTracker("currencies", rows)}
+                onUpdateEquipped={(rows) => editInventoryTracker("equipped", rows)}
+                onUpdateInventory={(rows) => editInventoryTracker("inventory", rows)}
+                onRerunSingleTracker={onRerunSingleTracker}
+                isTrackerRetryBusy={isTrackerBusy}
+              />
+            )}
+
             {/* Manual tracker trigger button (mobile) */}
             {manualTrackers && onRetriggerTrackers && (
               <button
@@ -429,11 +452,7 @@ export function RoleplayHUD({
             )}
 
             {hasPersonaStatsTracker && (
-              <InventoryWidget
-                items={inventory}
-                onUpdate={updateInventoryItems}
-                onRemoveItem={removeInventoryItem}
-              />
+              <InventoryWidget items={inventory} onUpdate={updateInventoryItems} onRemoveItem={removeInventoryItem} />
             )}
 
             {enabledAgentTypes.has("quest") && (
@@ -454,6 +473,19 @@ export function RoleplayHUD({
               />
             )}
 
+            {hasInventoryTracker && (
+              <InventoryTrackerWidget
+                currencies={inventoryTrackerCurrencies}
+                equipped={inventoryTrackerEquipped}
+                inventory={inventoryTrackerInventory}
+                onUpdateCurrencies={(rows) => editInventoryTracker("currencies", rows)}
+                onUpdateEquipped={(rows) => editInventoryTracker("equipped", rows)}
+                onUpdateInventory={(rows) => editInventoryTracker("inventory", rows)}
+                onRerunSingleTracker={onRerunSingleTracker}
+                isTrackerRetryBusy={isTrackerBusy}
+              />
+            )}
+
             {/* Manual tracker trigger button (desktop) */}
             {manualTrackers && onRetriggerTrackers && (
               <button
@@ -463,7 +495,11 @@ export function RoleplayHUD({
                 }}
                 disabled={isTrackerBusy}
                 className={cn(WIDGET, isTrackerBusy && "text-[var(--marinara-chat-chrome-button-text-active)]")}
-                title={isTrackerBusy ?localizeUi("ui.chat.roleplayhud.trackersRunning") :localizeUi("ui.chat.roleplayhud.runTrackers")}
+                title={
+                  isTrackerBusy
+                    ? localizeUi("ui.chat.roleplayhud.trackersRunning")
+                    : localizeUi("ui.chat.roleplayhud.runTrackers")
+                }
               >
                 <RefreshCw size="0.875rem" className={cn(isTrackerBusy && "animate-spin")} />
               </button>
@@ -491,7 +527,9 @@ function DeferredActionsFallback({ isAgentProcessing }: { isAgentProcessing: boo
   const { t: localizeUi } = useUiTranslation();
   return (
     <div className="px-3 py-4 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">
-      {isAgentProcessing ?localizeUi("ui.chat.deferredactionsfallback.loadingAgentActivity") :localizeUi("ui.chat.deferredactionsfallback.loadingActions")}
+      {isAgentProcessing
+        ? localizeUi("ui.chat.deferredactionsfallback.loadingAgentActivity")
+        : localizeUi("ui.chat.deferredactionsfallback.loadingActions")}
     </div>
   );
 }
@@ -632,8 +670,8 @@ function ActionsGroup({
       <div
         ref={dropdownRef}
         className={cn(
-          ROLEPLAY_POPOVER_SHELL,
-          ROLEPLAY_POPOVER_SCROLL_AREA,
+          NEUTRAL_PANEL_SHELL,
+          NEUTRAL_PANEL_SCROLL_AREA,
           "fixed z-[9999] max-h-80 w-72 max-w-[calc(100vw-1rem)] overflow-y-auto",
         )}
         style={{ top: pos.top, left: pos.left }}
@@ -762,7 +800,12 @@ function CombinedPlayerWidget({
 
   return (
     <div className="relative">
-      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title={localizeUi("ui.chat.combinedplayerwidget.playerTracker")}>
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen(!open)}
+        className={WIDGET}
+        title={localizeUi("ui.chat.combinedplayerwidget.playerTracker")}
+      >
         <div className="flex h-4 items-center justify-center shrink-0">
           <Swords size="0.875rem" className="max-md:h-4 max-md:w-4" />
         </div>
@@ -775,7 +818,9 @@ function CombinedPlayerWidget({
         anchorRef={buttonRef}
         className="w-80 max-h-[min(75vh,32rem)]"
       >
-        <Suspense fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.combinedplayerwidget.loadingTrackers")} />}>
+        <Suspense
+          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.combinedplayerwidget.loadingTrackers")} />}
+        >
           <CombinedPlayerPanel
             showPersona={showPersona}
             showCharacters={showCharacters}
@@ -885,8 +930,8 @@ function WidgetPopover({
       ref={ref}
       style={pos ? { position: "fixed", top: pos.top, left: pos.left } : { position: "fixed", top: -9999, left: -9999 }}
       className={cn(
-        ROLEPLAY_POPOVER_SHELL,
-        ROLEPLAY_POPOVER_SCROLL_AREA,
+        NEUTRAL_PANEL_SHELL,
+        NEUTRAL_PANEL_SCROLL_AREA,
         "z-[9999] min-h-24 min-w-60 max-w-[calc(100vw-1rem)] resize overflow-auto",
         className,
         "!max-h-[calc(100vh-1rem)]",
@@ -919,7 +964,12 @@ function CharactersWidget({
 
   return (
     <div className="relative">
-      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title={localizeUi("ui.chat.characterswidget.presentCharacters")}>
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen(!open)}
+        className={WIDGET}
+        title={localizeUi("ui.chat.characterswidget.presentCharacters")}
+      >
         {characters.length > 0 ? (
           <div className="flex items-center -space-x-0.5">
             {characters.slice(0, 3).map((c, i) => (
@@ -944,7 +994,9 @@ function CharactersWidget({
         anchorRef={buttonRef}
         className="w-72 max-h-80 overflow-y-auto"
       >
-        <Suspense fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.characterswidget.loadingCharacters")} />}>
+        <Suspense
+          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.characterswidget.loadingCharacters")} />}
+        >
           <CharactersPanel
             characters={characters}
             onUpdate={onUpdate}
@@ -981,7 +1033,12 @@ function PersonaStatsWidget({
 
   return (
     <div className="relative">
-      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title={localizeUi("ui.chat.personastatswidget.personaStats")}>
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen(!open)}
+        className={WIDGET}
+        title={localizeUi("ui.chat.personastatswidget.personaStats")}
+      >
         {bars.length > 0 ? (
           <div className="flex w-6 max-md:w-8 flex-col justify-center gap-0.5 max-md:gap-px shrink-0">
             {bars.map((bar) => {
@@ -1014,7 +1071,9 @@ function PersonaStatsWidget({
         anchorRef={buttonRef}
         className="w-60 max-h-80 overflow-y-auto"
       >
-        <Suspense fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.personastatswidget.loadingPersonaStats")} />}>
+        <Suspense
+          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.personastatswidget.loadingPersonaStats")} />}
+        >
           <PersonaStatsPanel
             bars={bars}
             onUpdate={onUpdate}
@@ -1074,7 +1133,12 @@ function CustomTrackerWidget({
 
   return (
     <div className="relative">
-      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title={localizeUi("ui.chat.customtrackerwidget.customTracker")}>
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen(!open)}
+        className={WIDGET}
+        title={localizeUi("ui.chat.customtrackerwidget.customTracker")}
+      >
         {fields.length > 0 && currentField ? (
           <span
             key={animKey}
@@ -1097,7 +1161,9 @@ function CustomTrackerWidget({
         anchorRef={buttonRef}
         className="w-72 max-h-80 overflow-y-auto"
       >
-        <Suspense fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.customtrackerwidget.loadingCustomTracker")} />}>
+        <Suspense
+          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.customtrackerwidget.loadingCustomTracker")} />}
+        >
           <CustomTrackerPanel
             fields={fields}
             onUpdate={onUpdate}
@@ -1157,7 +1223,12 @@ function InventoryWidget({
 
   return (
     <div className="relative">
-      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title={localizeUi("ui.chat.inventorywidget.inventory")}>
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen(!open)}
+        className={WIDGET}
+        title={localizeUi("ui.chat.inventorywidget.inventory")}
+      >
         {items.length > 0 && currentItem ? (
           <span
             key={animKey}
@@ -1180,8 +1251,67 @@ function InventoryWidget({
         anchorRef={buttonRef}
         className="w-64 max-h-80 overflow-y-auto"
       >
-        <Suspense fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.inventorywidget.loadingInventory")} />}>
+        <Suspense
+          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.inventorywidget.loadingInventory")} />}
+        >
           <InventoryPanel items={items} onUpdate={onUpdate} onRemoveItem={onRemoveItem} />
+        </Suspense>
+      </WidgetPopover>
+    </div>
+  );
+}
+
+function InventoryTrackerWidget({
+  currencies,
+  equipped,
+  inventory,
+  onUpdateCurrencies,
+  onUpdateEquipped,
+  onUpdateInventory,
+  onRerunSingleTracker,
+  isTrackerRetryBusy,
+}: {
+  currencies: InventoryTrackerRow[];
+  equipped: InventoryTrackerRow[];
+  inventory: InventoryTrackerRow[];
+  onUpdateCurrencies: (rows: InventoryTrackerRow[]) => void;
+  onUpdateEquipped: (rows: InventoryTrackerRow[]) => void;
+  onUpdateInventory: (rows: InventoryTrackerRow[]) => void;
+  onRerunSingleTracker?: (agentType: string) => void;
+  isTrackerRetryBusy?: boolean;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const total = currencies.length + equipped.length + inventory.length;
+  return (
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen(!open)}
+        className={WIDGET}
+        title={localizeUi("ui.chat.inventoryTracker.title")}
+      >
+        <Backpack size="0.875rem" className="max-md:h-3 max-md:w-3" />
+        {total > 0 && <span className="text-[0.5rem] font-semibold tabular-nums">{total}</span>}
+      </button>
+      <WidgetPopover
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={buttonRef}
+        className="w-[min(34rem,calc(100vw-1rem))] max-h-80 overflow-y-auto"
+      >
+        <Suspense fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.inventoryTracker.loading")} />}>
+          <RoleplayInventoryTrackerPanel
+            currencies={currencies}
+            equipped={equipped}
+            inventory={inventory}
+            onUpdateCurrencies={onUpdateCurrencies}
+            onUpdateEquipped={onUpdateEquipped}
+            onUpdateInventory={onUpdateInventory}
+            onRerunSingleTracker={onRerunSingleTracker}
+            isTrackerRetryBusy={isTrackerRetryBusy}
+          />
         </Suspense>
       </WidgetPopover>
     </div>
@@ -1212,7 +1342,12 @@ function QuestsWidget({
 
   return (
     <div className="relative">
-      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title={localizeUi("ui.chat.questswidget.activeQuests")}>
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen(!open)}
+        className={WIDGET}
+        title={localizeUi("ui.chat.questswidget.activeQuests")}
+      >
         {currentObjective ? (
           <span className="widget-scroll-text w-full px-0.5 text-center text-[0.375rem] font-semibold leading-[1.15] max-md:text-[0.5rem]">
             <span className="inline-flex animate-[widget-scroll_8s_linear_infinite] whitespace-nowrap">
@@ -1303,13 +1438,9 @@ function CombinedWorldWidget({
   const dateDisplay = getWorldDateDisplay(date);
   const timeDisplay = getWorldTimeDisplay(time);
   const timeColor =
-    timeDisplay.kind === "empty"
-      ? "text-[var(--muted-foreground)]/70"
-      : HUD_TIME_COLORS[timeDisplay.timeOfDay];
+    timeDisplay.kind === "empty" ? "text-[var(--muted-foreground)]/70" : HUD_TIME_COLORS[timeDisplay.timeOfDay];
   const weatherColor =
-    weatherFamily === "atmosphere" && !weather
-      ? "text-[var(--muted-foreground)]/70"
-      : weatherStyle.color;
+    weatherFamily === "atmosphere" && !weather ? "text-[var(--muted-foreground)]/70" : weatherStyle.color;
   const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
   const tempColor = temperatureDisplay.color;
 
@@ -1354,11 +1485,7 @@ function CombinedWorldWidget({
           {weatherEmoji}
         </span>
 
-        <WorldThermometerIcon
-          display={temperatureDisplay}
-          variant="solid-bulb"
-          className="h-4 w-[0.625rem] shrink-0"
-        />
+        <WorldThermometerIcon display={temperatureDisplay} variant="solid-bulb" className="h-4 w-[0.625rem] shrink-0" />
         {temperatureDisplay.isPure && (
           <span
             className="shrink-0 text-[0.5rem] font-bold leading-none md:text-[0.5625rem]"
@@ -1369,13 +1496,10 @@ function CombinedWorldWidget({
         )}
       </button>
 
-      <WidgetPopover
-        open={open}
-        onClose={() => setOpen(false)}
-        anchorRef={buttonRef}
-        className="w-64"
-      >
-        <Suspense fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.combinedworldwidget.loadingWorldState")} />}>
+      <WidgetPopover open={open} onClose={() => setOpen(false)} anchorRef={buttonRef} className="w-64">
+        <Suspense
+          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.combinedworldwidget.loadingWorldState")} />}
+        >
           <CombinedWorldPanel
             location={location}
             date={date}

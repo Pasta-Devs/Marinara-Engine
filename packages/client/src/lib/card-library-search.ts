@@ -48,10 +48,7 @@ export function getCardLibrarySummary(values: readonly unknown[]): string {
   return values.map(getText).find(Boolean) ?? "No creator notes yet.";
 }
 
-export function matchesCardLibrarySearch(
-  document: CardLibrarySearchDocument,
-  query: CardLibrarySearchQuery,
-): boolean {
+export function matchesCardLibrarySearch(document: CardLibrarySearchDocument, query: CardLibrarySearchQuery): boolean {
   const tags = document.tags ?? [];
   const tagSet = new Set(tags.map((tag) => normalizeTextForMatch(tag)));
   if (query.excludedTags.some((tag) => tagSet.has(tag))) return false;

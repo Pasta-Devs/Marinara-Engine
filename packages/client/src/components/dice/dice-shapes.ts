@@ -1,4 +1,13 @@
-export type DiceShapeKind = "coin" | "tetra" | "cube" | "diamond" | "kite" | "dodeca" | "crystal" | "icosa" | "medallion";
+export type DiceShapeKind =
+  | "coin"
+  | "tetra"
+  | "cube"
+  | "diamond"
+  | "kite"
+  | "dodeca"
+  | "crystal"
+  | "icosa"
+  | "medallion";
 
 export interface DiceShapeDefinition {
   kind: DiceShapeKind;
@@ -70,10 +79,7 @@ const SHAPES: Record<DiceShapeKind, DiceShapeDefinition> = {
     face: "M50 15 76 48 50 82 24 48 Z",
     highlight: "M50 4 18 19 24 48 50 15 Z",
     shadow: "M50 82 72 88 50 96 28 88 Z",
-    facets: [
-      "M50 4 50 15", "M82 19 76 48", "M18 19 24 48",
-      "M92 50 76 48", "M8 50 24 48", "M50 82 50 96",
-    ],
+    facets: ["M50 4 50 15", "M82 19 76 48", "M18 19 24 48", "M92 50 76 48", "M8 50 24 48", "M50 82 50 96"],
     labelY: 36,
     valueY: 55,
     valueSize: 18,
@@ -86,8 +92,13 @@ const SHAPES: Record<DiceShapeKind, DiceShapeDefinition> = {
     highlight: "M50 7 22 17 23 41 50 22 Z",
     shadow: "M33 73 67 73 64 92 36 92 Z",
     facets: [
-      "M50 7 50 22", "M22 17 23 41", "M78 17 77 41",
-      "M13 73 33 73", "M87 73 67 73", "M36 92 33 73", "M64 92 67 73",
+      "M50 7 50 22",
+      "M22 17 23 41",
+      "M78 17 77 41",
+      "M13 73 33 73",
+      "M87 73 67 73",
+      "M36 92 33 73",
+      "M64 92 67 73",
     ],
     labelY: 40,
     valueY: 57,
@@ -101,10 +112,15 @@ const SHAPES: Record<DiceShapeKind, DiceShapeDefinition> = {
     highlight: "M50 3 23 16 32 27 50 15 Z",
     shadow: "M65 74 76 84 50 97 50 84 65 74Z",
     facets: [
-      "M50 3 50 15", "M23 16 32 27", "M77 16 68 27",
-      "M8 50 24 50", "M92 50 76 50",
-      "M24 84 35 74", "M76 84 65 74",
-      "M32 27 68 27", "M35 74 65 74",
+      "M50 3 50 15",
+      "M23 16 32 27",
+      "M77 16 68 27",
+      "M8 50 24 50",
+      "M92 50 76 50",
+      "M24 84 35 74",
+      "M76 84 65 74",
+      "M32 27 68 27",
+      "M35 74 65 74",
     ],
     labelY: 40,
     valueY: 60,
@@ -119,9 +135,15 @@ const SHAPES: Record<DiceShapeKind, DiceShapeDefinition> = {
     highlight: "M50 5 83 18 96 50 78 63 50 15 Z",
     shadow: "M22 63 78 63 75 86 50 96 25 86 4 50 Z",
     facets: [
-      "M50 15 78 63", "M78 63 22 63", "M22 63 50 15",
-      "M50 5 83 18", "M83 18 96 50", "M96 50 75 86",
-      "M4 50 17 18", "M17 18 50 5", "M25 86 4 50",
+      "M50 15 78 63",
+      "M78 63 22 63",
+      "M22 63 50 15",
+      "M50 5 83 18",
+      "M83 18 96 50",
+      "M96 50 75 86",
+      "M4 50 17 18",
+      "M17 18 50 5",
+      "M25 86 4 50",
     ],
     labelY: 39,
     valueY: 52,
@@ -135,10 +157,15 @@ const SHAPES: Record<DiceShapeKind, DiceShapeDefinition> = {
     highlight: "M50 6 20 16 30 28 50 20 Z",
     shadow: "M60 81 88 74 64 94 36 94 12 74 40 81 Z",
     facets: [
-      "M50 6 50 20", "M20 16 30 28", "M80 16 70 28",
-      "M5 42 19 47", "M95 42 81 47",
-      "M12 74 25 68", "M88 74 75 68",
-      "M36 94 40 81", "M64 94 60 81",
+      "M50 6 50 20",
+      "M20 16 30 28",
+      "M80 16 70 28",
+      "M5 42 19 47",
+      "M95 42 81 47",
+      "M12 74 25 68",
+      "M88 74 75 68",
+      "M36 94 40 81",
+      "M64 94 60 81",
     ],
     labelY: 40,
     valueY: 58,

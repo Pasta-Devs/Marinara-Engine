@@ -51,7 +51,9 @@ export function GameNodeMap({
   // Guard against empty nodes — no SVG to render
   if (nodes.length === 0) {
     return (
-      <div className="flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] p-4 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">{localizeUi("ui.game.gamenodemap.noMapNodesAvailable")}</div>
+      <div className="flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] p-4 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
+        {localizeUi("ui.game.gamenodemap.noMapNodesAvailable")}
+      </div>
     );
   }
 

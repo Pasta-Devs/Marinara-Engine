@@ -22,9 +22,8 @@ export function normalizeConversationTimeZone(value: unknown): string {
 }
 
 export function listConversationTimeZones(selectedTimeZone?: string): string[] {
-  const supportedValuesOf = (
-    Intl as unknown as { supportedValuesOf?: (key: "timeZone") => string[] }
-  ).supportedValuesOf;
+  const supportedValuesOf = (Intl as unknown as { supportedValuesOf?: (key: "timeZone") => string[] })
+    .supportedValuesOf;
   const supported = supportedValuesOf ? supportedValuesOf("timeZone") : [];
   return Array.from(
     new Set([

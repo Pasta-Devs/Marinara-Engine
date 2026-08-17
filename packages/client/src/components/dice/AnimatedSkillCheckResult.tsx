@@ -16,8 +16,8 @@ type Tone = "critical-success" | "success" | "failure" | "critical-failure";
 
 const TONE_ACCENT: Record<Tone, string> = {
   "critical-success": "oklch(0.82 0.15 86)",
-  "success": "oklch(0.72 0.16 158)",
-  "failure": "oklch(0.68 0.18 20)",
+  success: "oklch(0.72 0.16 158)",
+  failure: "oklch(0.68 0.18 20)",
   "critical-failure": "oklch(0.60 0.22 20)",
 };
 
@@ -27,7 +27,13 @@ function resultLabel(result: SkillCheckResult): string {
   return result.success ? "SUCCESS" : "FAILURE";
 }
 
-export function AnimatedSkillCheckResult({ result, accentColor, animate = false, onDismiss, className }: AnimatedSkillCheckResultProps) {
+export function AnimatedSkillCheckResult({
+  result,
+  accentColor,
+  animate = false,
+  onDismiss,
+  className,
+}: AnimatedSkillCheckResultProps) {
   const { t: localizeUi } = useUiTranslation();
   const label = resultLabel(result);
   const tone = result.criticalSuccess
@@ -42,10 +48,18 @@ export function AnimatedSkillCheckResult({ result, accentColor, animate = false,
   const style = resolvedAccent ? ({ "--dice-accent": resolvedAccent } as CSSProperties) : undefined;
 
   return (
-    <div className={cn("skill-check-roll", `skill-check-roll--${tone}`, animate && "is-animating", className)} style={style}>
+    <div
+      className={cn("skill-check-roll", `skill-check-roll--${tone}`, animate && "is-animating", className)}
+      style={style}
+    >
       <div className="skill-check-roll-meta">
-        <span>{result.skill} {localizeUi("ui.agents.customagentrepositoriesmodal.check")}</span>
-        <span>{localizeUi("ui.dice.animatedskillcheckresult.dc")} {result.dc}{rollMode}</span>
+        <span>
+          {result.skill} {localizeUi("ui.agents.customagentrepositoriesmodal.check")}
+        </span>
+        <span>
+          {localizeUi("ui.dice.animatedskillcheckresult.dc")} {result.dc}
+          {rollMode}
+        </span>
       </div>
       <AnimatedDiceRoll
         notation={result.dice ?? `${result.rolls.length}d20`}

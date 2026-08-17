@@ -30,11 +30,7 @@ export function ChatResourceActionButton({
         event.stopPropagation();
         requestChatResourceAssignment(payload);
       }}
-      className={cn(
-        "mari-chrome-control",
-        size === "small" && "mari-chrome-control--small p-1.5",
-        className,
-      )}
+      className={cn("mari-chrome-control", size === "small" && "mari-chrome-control--small p-1.5", className)}
       title={label}
       aria-label={label}
     >

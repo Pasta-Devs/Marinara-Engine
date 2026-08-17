@@ -460,7 +460,7 @@ export function isAdminSecretRequiredOnLoopback() {
 }
 
 export function getCsrfTrustedOrigins() {
-  return parseCsv(process.env.CSRF_TRUSTED_ORIGINS);
+  return parseCsv(process.env.CSRF_TRUSTED_ORIGINS).filter((origin) => origin.toLowerCase() !== "null");
 }
 
 export function isUpdatesApplyEnabled() {

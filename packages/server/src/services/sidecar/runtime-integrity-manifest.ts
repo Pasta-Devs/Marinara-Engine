@@ -169,13 +169,11 @@ export const LLAMA_CPP_RUNTIME_MANIFEST = {
 export const MLX_RUNTIME_MANIFEST = {
   mlxLm: {
     revision: "e5baded8c1d286754edb479ffbde4655a68e2758",
-    packageSpec:
-      "mlx-lm @ https://github.com/ml-explore/mlx-lm/archive/e5baded8c1d286754edb479ffbde4655a68e2758.zip",
+    packageSpec: "mlx-lm @ https://github.com/ml-explore/mlx-lm/archive/e5baded8c1d286754edb479ffbde4655a68e2758.zip",
     requirementsLockSha256: "e77db61b3f9fac368bd654b1625789c7ee59acee5ea1508fb3b61f52014caecc",
     archive: {
       name: "mlx-lm-e5baded8c1d286754edb479ffbde4655a68e2758.zip",
-      browser_download_url:
-        "https://github.com/ml-explore/mlx-lm/archive/e5baded8c1d286754edb479ffbde4655a68e2758.zip",
+      browser_download_url: "https://github.com/ml-explore/mlx-lm/archive/e5baded8c1d286754edb479ffbde4655a68e2758.zip",
       size: 516_242,
       sha256: "0ceac44ed08546e5ce7cb786ac438b3377936d9ddaf06c7555070fd9c7ea630e",
     },
@@ -184,8 +182,7 @@ export const MLX_RUNTIME_MANIFEST = {
     version: "0.12.0",
     archive: {
       name: "uv-aarch64-apple-darwin.tar.gz",
-      browser_download_url:
-        "https://github.com/astral-sh/uv/releases/download/0.12.0/uv-aarch64-apple-darwin.tar.gz",
+      browser_download_url: "https://github.com/astral-sh/uv/releases/download/0.12.0/uv-aarch64-apple-darwin.tar.gz",
       size: 17_387_877,
       sha256: "2b9e582af54f84fa50c115427451a6c13e80f43b52f8282b8af5791077317bbf",
     },
@@ -193,10 +190,7 @@ export const MLX_RUNTIME_MANIFEST = {
 } as const;
 
 export function getLlamaRuntimeManifestEntry(variant: string): LlamaRuntimeManifestEntry | null {
-  return (
-    LLAMA_CPP_RUNTIME_MANIFEST.entries.find((entry) => entry.variant === variant) ??
-    null
-  );
+  return LLAMA_CPP_RUNTIME_MANIFEST.entries.find((entry) => entry.variant === variant) ?? null;
 }
 
 export function serializeMlxRuntimeManifestStamp(): string {

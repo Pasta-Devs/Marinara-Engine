@@ -518,7 +518,10 @@ export const EMOJI_KEYWORDS: Readonly<Record<string, string>> = {
 
 /** Split a name or query into lowercase alphanumeric words. */
 function tokenize(value: string): string[] {
-  return value.toLowerCase().split(/[^a-z0-9]+/iu).filter(Boolean);
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/iu)
+    .filter(Boolean);
 }
 
 const searchWordsCache = new Map<string, string[]>();

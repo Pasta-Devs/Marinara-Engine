@@ -81,6 +81,12 @@ The value still shows in the box even when the **Send toggle** is off. It is jus
 
 Use it only for models that support a prefill or a set opening tag. For example, you might type an opening tag like the one shown in the placeholder to force the model to start in a certain way. If you are not sure you need this, leave it blank.
 
+## Assistant Reasoning Prefill
+
+**Assistant Reasoning Prefill** is optional hidden text added at the very start of the AI's reasoning, before it writes the visible reply. Most people leave it empty.
+
+Use it only for models that support a separate reasoning prefill, such as Kimi K3. You can use it alongside **Assistant Prefill**: one starts the model's hidden reasoning, while the other starts its visible reply. If you are not sure your model supports this, leave it blank.
+
 ## Thinking Tags
 
 **Thinking Tags** tell Marinara how a model marks its hidden reasoning inside plain text. Some models wrap their reasoning in tags. If Marinara knows those tags, it can hide that reasoning behind the **View thoughts** action instead of showing it in the reply.

@@ -1,16 +1,9 @@
-import {
-  useCallback,
-  useRef,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useCallback, useRef, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 
 function isBackdropTarget(currentTarget: HTMLElement, target: EventTarget | null): boolean {
   if (target === currentTarget) return true;
   return (
-    target instanceof HTMLElement &&
-    target.dataset.backdropDismissSurface === "true" &&
-    currentTarget.contains(target)
+    target instanceof HTMLElement && target.dataset.backdropDismissSurface === "true" && currentTarget.contains(target)
   );
 }
 
@@ -33,9 +26,7 @@ export function useBackdropDismiss<T extends HTMLElement>(onDismiss: () => void,
   const onClick = useCallback(
     (event: ReactMouseEvent<T>) => {
       const shouldDismiss =
-        !disabled &&
-        pointerStartedOnBackdropRef.current &&
-        isBackdropTarget(event.currentTarget, event.target);
+        !disabled && pointerStartedOnBackdropRef.current && isBackdropTarget(event.currentTarget, event.target);
       pointerStartedOnBackdropRef.current = false;
       if (shouldDismiss) onDismiss();
     },

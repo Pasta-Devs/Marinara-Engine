@@ -199,10 +199,7 @@ function getWorldAmbienceStyle({
   const sceneInk = WORLD_SCENE_INK[scene.tone];
   const temperatureTone =
     temperature.value === null ? "transparent" : `color-mix(in srgb, ${temperature.color} 8%, transparent)`;
-  const hasAtmosphere =
-    time.timeOfDay !== "unknown" ||
-    weatherFamily !== "atmosphere" ||
-    temperature.value !== null;
+  const hasAtmosphere = time.timeOfDay !== "unknown" || weatherFamily !== "atmosphere" || temperature.value !== null;
 
   return {
     background: "var(--tracker-panel-section-background, color-mix(in srgb, var(--card) 6%, transparent))",

@@ -45,7 +45,7 @@ type CapabilityActivationContext = {
   api: {
     runtime: CapabilityRuntimeHost;
     registerTurnGameEngine(engine: AnyTurnGameEngine): Cleanup;
-  registerConversationCommand(registration: CapabilityConversationCommandRegistration): Cleanup;
+    registerConversationCommand(registration: CapabilityConversationCommandRegistration): Cleanup;
     registerService<T>(key: string, service: T): Cleanup;
     /** Contribute text to each turn's system prompt. Requires the `prompt-context` permission. */
     registerPromptContext(contributor: CapabilityPromptContextContributor): Cleanup;

@@ -13,6 +13,7 @@ import type {
   LorebookSchedule,
 } from "@marinara-engine/shared";
 import { LIMITS, testPrimaryKeys, testSecondaryKeys } from "@marinara-engine/shared";
+import { logger } from "../../lib/logger.js";
 import { calibrateLorebookSimilarity } from "./embeddings.js";
 import { vmRegexExecutor } from "./regex-timeout.js";
 
@@ -415,6 +416,8 @@ export interface ScanOptions {
   chatEmbedding?: number[] | null;
   /** Per-lorebook chat context embeddings for semantic matching. */
   semanticEmbeddingsByLorebookId?: ReadonlyMap<string, number[] | null>;
+  /** Provider/model/profile identity used to produce semantic query vectors. */
+  semanticEmbeddingSpaceId?: string | null;
   /** Cosine similarity threshold for semantic matching (0-1, default 0.3). */
   semanticThreshold?: number;
   /** Unrelated-text cosine floor used to calibrate clustered embedding models. */
@@ -458,6 +461,7 @@ export function scanForActivatedEntries(
     timingStates = new Map(),
     chatEmbedding = null,
     semanticEmbeddingsByLorebookId = new Map<string, number[] | null>(),
+    semanticEmbeddingSpaceId = null,
     semanticThreshold = 0.3,
     semanticSimilarityBaseline = 0,
     semanticThresholdByLorebookId = new Map<string, number>(),
@@ -605,13 +609,38 @@ export function scanForActivatedEntries(
       if (!entry.embedding || entry.embedding.length === 0) continue;
       const queryEmbedding = semanticEmbeddingsByLorebookId.get(entry.lorebookId) ?? chatEmbedding;
       if (!queryEmbedding || queryEmbedding.length === 0) continue;
+      if (semanticEmbeddingSpaceId && entry.embeddingSpaceId !== semanticEmbeddingSpaceId) {
+        logger.debug(
+          "[lorebook-vectors] Rejected entry %s: stored vector space %s differs from active space %s",
+          entry.id,
+          entry.embeddingSpaceId,
+          semanticEmbeddingSpaceId,
+        );
+        continue;
+      }
+      if (entry.embedding.length !== queryEmbedding.length) {
+        logger.debug(
+          "[lorebook-vectors] Rejected entry %s: stored dimension %d differs from query dimension %d",
+          entry.id,
+          entry.embedding.length,
+          queryEmbedding.length,
+        );
+        continue;
+      }
       const timingState = timingStates.get(entry.id);
       if (!passesActivationGate(entry, timingState, filterContext, gameState, ignoreTiming)) continue;
 
       const threshold = semanticThresholdByLorebookId.get(entry.lorebookId) ?? semanticThreshold;
-      const similarity = calibrateLorebookSimilarity(
-        cosineSimilarity(queryEmbedding, entry.embedding),
+      const rawSimilarity = cosineSimilarity(queryEmbedding, entry.embedding);
+      const similarity = calibrateLorebookSimilarity(rawSimilarity, semanticSimilarityBaseline);
+      logger.debug(
+        "[lorebook-vectors] Scored entry %s: raw=%d calibrated=%d baseline=%d threshold=%d accepted=%s",
+        entry.id,
+        rawSimilarity,
+        similarity,
         semanticSimilarityBaseline,
+        threshold,
+        similarity >= threshold,
       );
       if (similarity >= threshold) {
         const entryScanText = getEntryScanText(entry);

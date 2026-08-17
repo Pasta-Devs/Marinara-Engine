@@ -2,6 +2,13 @@ import type { AgentResult } from "@marinara-engine/shared";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import { shouldDeferSpotifyAgentEvent } from "./spotify-agent-runtime.js";
 
+export type AgentResultOwnership = {
+  chatId: string;
+  messageId: string | null;
+  swipeIndex: number | null;
+  generationId: string;
+};
+
 export function shouldDeferExpressionAgentEvent(result: AgentResult): boolean {
   return result.success && result.agentType === "expression" && result.type === "sprite_change";
 }
@@ -9,9 +16,11 @@ export function shouldDeferExpressionAgentEvent(result: AgentResult): boolean {
 export function createAgentEventDispatcher({
   resolvedAgents,
   sendEvent,
+  getOwnership,
 }: {
   resolvedAgents: ResolvedAgent[];
   sendEvent(payload: Record<string, unknown>): void;
+  getOwnership?: (result: AgentResult) => AgentResultOwnership;
 }) {
   const sendAgentResultEvent = (result: AgentResult) => {
     sendEvent({
@@ -24,6 +33,7 @@ export function createAgentEventDispatcher({
         success: result.success,
         error: result.error,
         durationMs: result.durationMs,
+        ...(getOwnership?.(result) ?? {}),
       },
     });
   };

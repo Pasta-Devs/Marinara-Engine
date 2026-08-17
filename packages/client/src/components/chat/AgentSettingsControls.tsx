@@ -6,8 +6,7 @@ import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 
-export const AGENT_SETTINGS_SURFACE_CLASS =
-  "border border-[var(--border)] bg-[var(--secondary)]/70";
+export const AGENT_SETTINGS_SURFACE_CLASS = "border border-[var(--border)] bg-[var(--secondary)]/70";
 
 export function AgentCategorySection({
   label,

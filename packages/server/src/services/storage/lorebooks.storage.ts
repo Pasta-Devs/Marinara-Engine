@@ -209,6 +209,7 @@ function parseEntryRow(row: Record<string, unknown>) {
     activationConditions: JSON.parse((row.activationConditions as string) || "[]"),
     schedule: row.schedule ? JSON.parse(row.schedule as string) : null,
     embedding: row.embedding ? JSON.parse(row.embedding as string) : null,
+    embeddingSpaceId: (row.embeddingSpaceId as string | null | undefined) ?? null,
   };
 }
 
@@ -943,7 +944,10 @@ export function createLorebooksStorage(db: DB) {
       if (input.delayUntilRecursion !== undefined) updates.delayUntilRecursion = String(input.delayUntilRecursion);
       if (input.excludeFromVectorization !== undefined)
         updates.excludeFromVectorization = String(input.excludeFromVectorization);
-      if (shouldClearEmbedding) updates.embedding = null;
+      if (shouldClearEmbedding) {
+        updates.embedding = null;
+        updates.embeddingSpaceId = null;
+      }
 
       await db.update(lorebookEntries).set(updates).where(eq(lorebookEntries.id, id));
       return this.getEntry(id);
@@ -1008,7 +1012,10 @@ export function createLorebooksStorage(db: DB) {
       if (changes.delayUntilRecursion !== undefined) updates.delayUntilRecursion = String(changes.delayUntilRecursion);
       if (changes.excludeFromVectorization !== undefined)
         updates.excludeFromVectorization = String(changes.excludeFromVectorization);
-      if (changes.excludeFromVectorization === true) updates.embedding = null;
+      if (changes.excludeFromVectorization === true) {
+        updates.embedding = null;
+        updates.embeddingSpaceId = null;
+      }
 
       await db
         .update(lorebookEntries)
@@ -1018,10 +1025,14 @@ export function createLorebooksStorage(db: DB) {
     },
 
     /** Update just the embedding vector for an entry. */
-    async updateEntryEmbedding(id: string, embedding: number[] | null) {
+    async updateEntryEmbedding(id: string, embedding: number[] | null, embeddingSpaceId: string | null = null) {
       await db
         .update(lorebookEntries)
-        .set({ embedding: embedding ? JSON.stringify(embedding) : null, updatedAt: now() })
+        .set({
+          embedding: embedding ? JSON.stringify(embedding) : null,
+          embeddingSpaceId: embedding ? embeddingSpaceId : null,
+          updatedAt: now(),
+        })
         .where(eq(lorebookEntries.id, id));
     },
 
@@ -1029,7 +1040,7 @@ export function createLorebooksStorage(db: DB) {
     async clearEntryEmbeddings(lorebookId: string) {
       await db
         .update(lorebookEntries)
-        .set({ embedding: null, updatedAt: now() })
+        .set({ embedding: null, embeddingSpaceId: null, updatedAt: now() })
         .where(eq(lorebookEntries.lorebookId, lorebookId));
     },
 

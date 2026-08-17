@@ -141,8 +141,12 @@ export function GameGridMap({
                       disabled={!isMovable}
                       title={
                         cell.discovered
-                          ?localizeUi("ui.game.gamegridmap.value1Value2Value3", { value1: cell.label, value2: cell.description || cell.terrain, value3: isMovable ?localizeUi("ui.game.gamegridmap.clickToSelect") : "" })
-                          :localizeUi("ui.game.gamegridmap.undiscovered")
+                          ? localizeUi("ui.game.gamegridmap.value1Value2Value3", {
+                              value1: cell.label,
+                              value2: cell.description || cell.terrain,
+                              value3: isMovable ? localizeUi("ui.game.gamegridmap.clickToSelect") : "",
+                            })
+                          : localizeUi("ui.game.gamegridmap.undiscovered")
                       }
                       className={cn(
                         "relative flex aspect-square items-center justify-center rounded text-base transition-all",

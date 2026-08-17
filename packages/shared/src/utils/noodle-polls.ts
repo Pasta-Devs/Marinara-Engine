@@ -41,9 +41,7 @@ export function mergeNoodlePollVoteInteractions(
     optionIdsByPostId.set(post.id, new Set(poll.options.map((option) => option.id)));
   }
 
-  const nextVoteKeys = new Set(
-    nextInteractions.filter((interaction) => interaction.type === "vote").map(pollVoteKey),
-  );
+  const nextVoteKeys = new Set(nextInteractions.filter((interaction) => interaction.type === "vote").map(pollVoteKey));
   const preservedVotes = previousInteractions.filter((interaction) => {
     if (interaction.type !== "vote" || nextVoteKeys.has(pollVoteKey(interaction))) return false;
     const optionIds = optionIdsByPostId.get(interaction.postId);

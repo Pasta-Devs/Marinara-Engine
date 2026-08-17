@@ -26,10 +26,7 @@ import {
 import type { GameStatePatchField } from "../../../../hooks/use-game-state-patcher";
 import type { TrackerPanelSizeProfile, TrackerTemperatureUnit } from "../../../../stores/ui.store";
 import { cn } from "../../../../lib/utils";
-import {
-  getLocationPinColor,
-  getWorldDateDisplay,
-} from "../../../../lib/world-state-helpers";
+import { getLocationPinColor, getWorldDateDisplay } from "../../../../lib/world-state-helpers";
 import { getWorldStatePresentation, type WorldSceneGlyph } from "../../lib/world-state-display";
 import { visibleText } from "../../lib/tracker-display";
 import { WorldCustomFieldIcon } from "../../lib/world-custom-field-icons";

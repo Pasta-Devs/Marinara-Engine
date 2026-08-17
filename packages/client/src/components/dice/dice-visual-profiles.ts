@@ -49,6 +49,7 @@ export function getDiceVisualProfile(sides: number, hero: boolean): DiceVisualPr
   if (sides === 6) return CUBE_PROFILE;
   if (sides === 16) return LONG_DIE_PROFILE;
   if (sides === 20 && hero) return HERO_D20_PROFILE;
-  if (sides === 4 || sides === 8 || sides === 10 || sides === 12 || sides === 20 || sides >= 30) return SHARP_DIE_PROFILE;
+  if (sides === 4 || sides === 8 || sides === 10 || sides === 12 || sides === 20 || sides >= 30)
+    return SHARP_DIE_PROFILE;
   return LONG_DIE_PROFILE;
 }

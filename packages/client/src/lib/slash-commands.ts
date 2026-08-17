@@ -1304,8 +1304,7 @@ const COMMANDS: SlashCommand[] = [
           .map((index) => messages[index - 1]!)
           .filter(
             (message) =>
-              !isMessageHidden(message) &&
-              !readHiddenFromAICharacterIds(message.extra).includes(parsed.character.id),
+              !isMessageHidden(message) && !readHiddenFromAICharacterIds(message.extra).includes(parsed.character.id),
           );
         await Promise.all(
           targets.map((message) =>

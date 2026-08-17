@@ -5,7 +5,9 @@ import { join } from "node:path";
 import type { ProfileNoodleImportWarning } from "../../packages/server/src/services/import/profile-import-noodle.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-profile-import-noodle-"));
+const fileStorageDir = join(dataDir, "storage");
 process.env.DATA_DIR = dataDir;
+process.env.FILE_STORAGE_DIR = fileStorageDir;
 process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
 

@@ -122,9 +122,13 @@ export function AssetGrid({
   const loadMore = () => setVisibleCount((count) => Math.min(nodes.length, count + ASSET_GRID_PAGE_SIZE));
   const paginationFooter = hasMoreNodes ? (
     <div className="flex items-center justify-center gap-3 px-3 py-3 text-xs text-[var(--muted-foreground)]">
-      <span>{localizeUi("ui.gameAssets.assetgrid.showing")} {visibleNodes.length} {localizeUi("ui.noodle.noodlehome.of")} {nodes.length}
+      <span>
+        {localizeUi("ui.gameAssets.assetgrid.showing")} {visibleNodes.length} {localizeUi("ui.noodle.noodlehome.of")}{" "}
+        {nodes.length}
       </span>
-      <button type="button" onClick={loadMore} className="mari-chrome-control mari-chrome-control--small text-xs">{localizeUi("ui.gameAssets.assetgrid.loadMore")}</button>
+      <button type="button" onClick={loadMore} className="mari-chrome-control mari-chrome-control--small text-xs">
+        {localizeUi("ui.gameAssets.assetgrid.loadMore")}
+      </button>
     </div>
   ) : null;
 
@@ -149,9 +153,7 @@ export function AssetGrid({
                 }}
                 className={
                   "group relative flex flex-col items-center gap-2 rounded-xl border bg-[var(--card)] p-[clamp(0.5rem,1.3vmin,0.875rem)] transition-all hover:border-[var(--foreground)]/25 hover:shadow-sm " +
-                  (isSelected
-                    ? "border-[var(--primary)]/45 ring-2 ring-[var(--primary)]/20"
-                    : "border-[var(--border)]")
+                  (isSelected ? "border-[var(--primary)]/45 ring-2 ring-[var(--primary)]/20" : "border-[var(--border)]")
                 }
               >
                 {/* Checkbox — files only, always visible */}
@@ -182,7 +184,9 @@ export function AssetGrid({
                         : "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)]/15")
                     }
                     title={localizeUi("ui.gameAssets.assetgrid.selectAssetsForThisGame")}
-                    aria-label={localizeUi("ui.gameAssets.assetgrid.selectValue1AssetsForThisGame", { value1: node.name })}
+                    aria-label={localizeUi("ui.gameAssets.assetgrid.selectValue1AssetsForThisGame", {
+                      value1: node.name,
+                    })}
                   >
                     <FolderSelectionMark status={folderSelectionStatus} />
                   </button>
@@ -286,7 +290,9 @@ export function AssetGrid({
                       : "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)]/15")
                   }
                   title={localizeUi("ui.gameAssets.assetgrid.selectAssetsForThisGame")}
-                  aria-label={localizeUi("ui.gameAssets.assetgrid.selectValue1AssetsForThisGame", { value1: node.name })}
+                  aria-label={localizeUi("ui.gameAssets.assetgrid.selectValue1AssetsForThisGame", {
+                    value1: node.name,
+                  })}
                 >
                   <FolderSelectionMark status={folderSelectionStatus} />
                 </button>

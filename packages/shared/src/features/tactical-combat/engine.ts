@@ -306,11 +306,7 @@ export function forecastAttack(state: TacticalCombatState, attackerId: string, d
   // Counter: defender survives an expected hit and can reach back at basic range.
   const expected = defender.hp - main.damage;
   const dist = manhattan(attacker, defender);
-  if (
-    expected > 0 &&
-    dist >= defender.attackRange.min &&
-    dist <= defender.attackRange.max
-  ) {
+  if (expected > 0 && dist >= defender.attackRange.min && dist <= defender.attackRange.max) {
     forecast.counter = {
       ...forecastFrom(state, defender, attacker, { x: defender.x, y: defender.y }, { hitPenalty: 10 }),
     };
@@ -846,4 +842,15 @@ export function buildTacticalSummary(state: TacticalCombatState): CombatSummary 
 
 // Internal helpers re-exported for the AI module (ai.ts imports these directly,
 // NOT via the feature's public index.ts — keeps the shared public surface clean).
-export { aliveUnits, appendLog, canCounter, checkTerminal, clone, findSkill, forecastFrom, performUnitAction, skillReady, tickRound };
+export {
+  aliveUnits,
+  appendLog,
+  canCounter,
+  checkTerminal,
+  clone,
+  findSkill,
+  forecastFrom,
+  performUnitAction,
+  skillReady,
+  tickRound,
+};

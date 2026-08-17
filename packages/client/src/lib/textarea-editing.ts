@@ -137,13 +137,7 @@ function applyTextareaEdit(textarea: HTMLTextAreaElement, edit: TextareaEdit) {
  * browser's native undo transaction.
  */
 export function handleTextareaTab(event: TextareaTabEvent): boolean {
-  if (
-    event.defaultPrevented ||
-    event.key !== "Tab" ||
-    event.altKey ||
-    event.ctrlKey ||
-    event.metaKey
-  ) {
+  if (event.defaultPrevented || event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey) {
     return false;
   }
 

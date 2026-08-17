@@ -15,6 +15,7 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import {
   Ban,
   ChevronDown,
@@ -35,7 +36,7 @@ import {
   Square,
   Trash2,
 } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { cn, copyToClipboard } from "../../lib/utils";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useUpdateLorebookEntry, useDeleteLorebookEntry, useDuplicateLorebookEntry } from "../../hooks/use-lorebooks";
 import { useUIStore } from "../../stores/ui.store";
@@ -1517,6 +1518,29 @@ function ExpandedDrawer({
         flushAutosave();
       }}
     >
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 px-3 py-2">
+        <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+          {localizeUi("ui.lorebooks.lorebookentryrow.entryId")}
+        </span>
+        <code className="min-w-0 flex-1 break-all rounded-lg bg-[var(--background)] px-2 py-1 text-[0.6875rem] text-[var(--foreground)]">
+          {entry.id}
+        </code>
+        <button
+          type="button"
+          onClick={async () => {
+            const copied = await copyToClipboard(entry.id);
+            if (copied) toast.success(localizeUi("ui.lorebooks.lorebookentryrow.entryIdCopied"));
+            else toast.error(localizeUi("ui.lorebooks.lorebookentryrow.couldNotCopyEntryId"));
+          }}
+          className="mari-editor-action inline-flex h-8 px-2 text-[0.6875rem]"
+          aria-label={localizeUi("ui.lorebooks.lorebookentryrow.copyEntryId")}
+          title={localizeUi("ui.lorebooks.lorebookentryrow.copyEntryId")}
+        >
+          <Copy size="0.75rem" />
+          {localizeUi("lorebook.editor.batch.copy")}
+        </button>
+      </div>
+
       <div
         className={cn(
           "grid items-start gap-3",

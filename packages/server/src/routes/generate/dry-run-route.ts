@@ -15,6 +15,7 @@ import { createChatsStorage } from "../../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
 import { createCharactersStorage } from "../../services/storage/characters.storage.js";
+import { createAgentsStorage } from "../../services/storage/agents.storage.js";
 import { createRegexScriptsStorage } from "../../services/storage/regex-scripts.storage.js";
 import {
   injectOwnerSpatialPrompt,
@@ -31,6 +32,7 @@ import { getLocalSidecarProvider } from "../../services/llm/local-sidecar.js";
 import {
   assemblePrompt,
   buildPromptMacroContext,
+  normalizeChatMacroVariables,
   collectCharacterAdvancedPromptEntries,
   resolveCharacterAdvancedPromptIds,
   resolveCharacterMacroData,
@@ -97,6 +99,7 @@ import { buildGenerationPromptPresetCandidates, type PromptPresetCandidateSource
 import { CONVERSATION_NO_REPEAT_INSTRUCTION } from "./conversation-prompt-formatting.js";
 import { createGameStateStorage, type GameStateVisibleAnchor } from "../../services/storage/game-state.storage.js";
 import { buildCommittedTrackerContextBlock } from "../../services/generation/committed-tracker-context.js";
+import { loadPriorBeholderState } from "../../services/agents/beholder-state.js";
 import { logger } from "../../lib/logger.js";
 import { resolveGameGmPromptTemplate } from "../../services/generation/game-gm-prompt-runtime.js";
 
@@ -166,6 +169,7 @@ async function loadLatestGameSnapshot(
 function formatTrackersContextBlock(args: {
   wrapFormat: WrapFormat;
   snap: any;
+  beholderState?: unknown;
   chatMeta: Record<string, unknown>;
   chatEnableAgents: boolean;
   activeAgentIds: string[];
@@ -174,6 +178,7 @@ function formatTrackersContextBlock(args: {
     chatEnableAgents: args.chatEnableAgents,
     activeAgentIds: args.activeAgentIds,
     latestGameState: args.snap,
+    beholderState: args.beholderState,
     chatMetadata: args.chatMeta,
     wrapFormat: args.wrapFormat,
   });
@@ -605,6 +610,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       typeof body.regenerateMessageId === "string" && body.regenerateMessageId.trim()
         ? body.regenerateMessageId.trim()
         : null;
+    const dryRunBeholderState = await loadPriorBeholderState({
+      agentsStore: createAgentsStorage(app.db),
+      chatId,
+      chatMode,
+      activeAgentIds: dryRunActiveAgentIds,
+      chatEnableAgents: dryRunChatEnableAgents,
+      excludeMessageId: regenerateMessageId,
+    });
     const ownerSpatialProjection = await resolveOwnerSpatialProjection(
       chatId,
       regenerateMessageId ? { beforeMessageId: regenerateMessageId } : {},
@@ -813,6 +826,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     const chatChoices: Record<string, string | string[]> =
       requestChoices ?? (isDifferentPresetOverride ? (presetDefaultChoices ?? {}) : chatChoicesFromMeta);
+    const chatMacroVariables = normalizeChatMacroVariables(chatMeta.macroVariables);
     const promptMacroContext = await buildPromptMacroContext({
       db: app.db,
       characterIds: promptCharacterIds,
@@ -823,6 +837,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       variables: {
         gameStoryboardKeyframeCount: String(normalizeGameStoryboardKeyframeCount(chatMeta.gameStoryboardKeyframeCount)),
       },
+      localVariables: chatMacroVariables,
       groupScenarioOverrideText:
         typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim()
           ? (chatMeta.groupScenarioText as string).trim()
@@ -1110,10 +1125,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       const trackersBlock = includeTrackers
         ? await (async () => {
             const snap = await loadLatestGameSnapshot(app, chatId, visibleGameStateAnchor, regenerateMessageId);
-            if (!snap) return null;
             return formatTrackersContextBlock({
               wrapFormat,
               snap,
+              beholderState: dryRunBeholderState,
               chatMeta,
               chatEnableAgents: dryRunChatEnableAgents,
               activeAgentIds: dryRunActiveAgentIds,
@@ -1234,6 +1249,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         groups: groups as any,
         choiceBlocks: choiceBlocks as any,
         chatChoices,
+        localVariables: chatMacroVariables,
         chatId,
         characterIds: promptCharacterIds,
         groupCharacterIds: characterIds,
@@ -1499,15 +1515,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         await loadLatestGameSnapshot(app, chatId, visibleGameStateAnchor, regenerateMessageId),
         ownerSpatialProjection,
       );
-      const contextBlock = snap
-        ? formatTrackersContextBlock({
-            wrapFormat,
-            snap,
-            chatMeta,
-            chatEnableAgents: dryRunChatEnableAgents,
-            activeAgentIds: dryRunActiveAgentIds,
-          })
-        : null;
+      const contextBlock = formatTrackersContextBlock({
+        wrapFormat,
+        snap,
+        beholderState: dryRunBeholderState,
+        chatMeta,
+        chatEnableAgents: dryRunChatEnableAgents,
+        activeAgentIds: dryRunActiveAgentIds,
+      });
       if (contextBlock) {
         finalMessages = injectTrackerContext(finalMessages, contextBlock, "beforeLastHistoryMessage");
       }

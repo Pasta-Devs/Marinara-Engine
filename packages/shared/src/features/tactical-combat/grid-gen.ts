@@ -97,7 +97,14 @@ function inSpawnZone(grid: TacticalGrid, x: number): boolean {
 }
 
 /** Grow a blob of `terrain` around a center via a bounded random walk. */
-function growBlob(grid: TacticalGrid, cx: number, cy: number, size: number, terrain: TacticalTerrain, rng: () => number): void {
+function growBlob(
+  grid: TacticalGrid,
+  cx: number,
+  cy: number,
+  size: number,
+  terrain: TacticalTerrain,
+  rng: () => number,
+): void {
   let x = cx;
   let y = cy;
   for (let i = 0; i < size; i++) {
@@ -373,7 +380,7 @@ function formationTargets(
         }
       }
       quadrant.sort((a, b) => b.def - a.def || a.dist - b.dist);
-      const party = Array.from({ length: partyCount }, (_, i) => (quadrant[i]?.c ?? home));
+      const party = Array.from({ length: partyCount }, (_, i) => quadrant[i]?.c ?? home);
       // Enemies fan out along the two edges meeting at the opposite corner.
       const enemies: TacticalCoord[] = [];
       for (let i = 0; i < enemyCount; i++) {
@@ -443,7 +450,10 @@ export function placeSpawns(
     u.y = tile.y;
   });
 
-  const lastEnemyTarget = targets.enemies[targets.enemies.length - 1] ?? { x: grid.width - 1, y: Math.floor(grid.height / 2) };
+  const lastEnemyTarget = targets.enemies[targets.enemies.length - 1] ?? {
+    x: grid.width - 1,
+    y: Math.floor(grid.height / 2),
+  };
   bossFirst.forEach((u, i) => {
     const tile = claimNear(grid, occupied, targets.enemies[i] ?? lastEnemyTarget);
     u.x = tile.x;

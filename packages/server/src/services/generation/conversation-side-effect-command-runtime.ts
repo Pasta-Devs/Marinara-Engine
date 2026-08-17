@@ -17,7 +17,12 @@ type CharactersStore = {
 
 type ChatsStore = {
   getById(id: string): Promise<{ connectedChatId?: unknown } | null>;
-  createInfluence(sourceChatId: string, targetChatId: string, content: string, anchorMessageId?: string): Promise<unknown>;
+  createInfluence(
+    sourceChatId: string,
+    targetChatId: string,
+    content: string,
+    anchorMessageId?: string,
+  ): Promise<unknown>;
   createNote(sourceChatId: string, targetChatId: string, content: string, anchorMessageId?: string): Promise<unknown>;
 };
 

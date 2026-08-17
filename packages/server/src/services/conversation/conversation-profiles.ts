@@ -50,9 +50,7 @@ export function readCharacterConvoFields(data: CharacterData | null | undefined)
 } {
   const ext = (data?.extensions ?? {}) as Record<string, unknown>;
   const behavior =
-    ext.convoBehavior && typeof ext.convoBehavior === "object"
-      ? (ext.convoBehavior as ConvoBehaviorConfig)
-      : null;
+    ext.convoBehavior && typeof ext.convoBehavior === "object" ? (ext.convoBehavior as ConvoBehaviorConfig) : null;
   return {
     convoDisplayName: typeof ext.convoDisplayName === "string" ? ext.convoDisplayName : "",
     aboutMe: typeof ext.aboutMe === "string" ? ext.aboutMe : "",
@@ -116,8 +114,7 @@ export function buildConversationProfileBlocks(args: {
 
   const characters = participants.filter((p) => !p.isPersona);
   const persona = participants.find((p) => p.isPersona) ?? null;
-  const primary =
-    characters.find((p) => p.id === primaryCharacterId) ?? characters[0] ?? null;
+  const primary = characters.find((p) => p.id === primaryCharacterId) ?? characters[0] ?? null;
 
   // ── About-me block (all present participants) ──
   let aboutMeBlock = "";

@@ -104,6 +104,13 @@ export interface CustomTrackerField {
   locked?: boolean;
 }
 
+/** A concise row maintained by the dedicated roleplay Inventory Tracker. */
+export interface InventoryTrackerRow {
+  name: string;
+  /** Omitted when the quantity is one. */
+  qty?: number;
+}
+
 /** Player-specific stats and inventory. */
 export interface PlayerStats {
   /** Custom stat bars */
@@ -120,6 +127,12 @@ export interface PlayerStats {
   status: string;
   /** User-defined custom tracker fields */
   customTrackerFields?: CustomTrackerField[];
+  /** Money and other currencies maintained by the Inventory Tracker agent. */
+  inventoryTrackerCurrencies?: InventoryTrackerRow[];
+  /** Items currently equipped, maintained by the Inventory Tracker agent. */
+  inventoryTrackerEquipped?: InventoryTrackerRow[];
+  /** Carried non-equipped items maintained by the Inventory Tracker agent. */
+  inventoryTrackerInventory?: InventoryTrackerRow[];
 }
 
 /** Classic D&D-style attributes. */

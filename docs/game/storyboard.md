@@ -6,14 +6,14 @@ This is the current agent-based workflow. The Storyboard package supplies the pl
 
 ## Roleplay and Game Mode at a glance
 
-| | Roleplay | Game Mode |
-| --- | --- | --- |
-| Story source | Completed user and assistant messages since the previous successful episode | One completed GM narration turn |
-| Automatic choices | **Manual only**, **Still images**, or **Animations** | Separate **Automatic Storyboard Illustrations** and **Automatic Storyboard Animations** switches |
-| Manual action | **Gallery > Create storyboard** for the latest completed assistant response | **Gallery > Create storyboard** for the latest completed GM turn |
-| Display | Inline below the assistant response that ends the episode | Floating viewer or Game background, synchronized to the narration |
-| Planning prompts | Episode contract, visual style, optional animation addon, and output contract | Separate still and animation planners |
-| Shared final prompts | Illustration image prompt and animation video prompt | Illustration image prompt and animation video prompt |
+|                      | Roleplay                                                                      | Game Mode                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Story source         | Completed user and assistant messages since the previous successful episode   | One completed GM narration turn                                                                  |
+| Automatic choices    | **Manual only**, **Still images**, or **Animations**                          | Separate **Automatic Storyboard Illustrations** and **Automatic Storyboard Animations** switches |
+| Manual action        | **Gallery > Create storyboard** for the latest completed assistant response   | **Gallery > Create storyboard** for the latest completed GM turn                                 |
+| Display              | Inline below the assistant response that ends the episode                     | Floating viewer or Game background, synchronized to the narration                                |
+| Planning prompts     | Episode contract, visual style, optional animation addon, and output contract | Separate still and animation planners                                                            |
+| Shared final prompts | Illustration image prompt and animation video prompt                          | Illustration image prompt and animation video prompt                                             |
 
 Both modes save keyframe images to the Gallery's **Images** tab and clips to its **Videos** tab.
 
@@ -35,28 +35,28 @@ Open the **Agents** panel, select **Storyboard**, and open its setup. These valu
 
 ### Generation and media defaults
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| Agent connection | Your selected Agent connection | Plans the storyboard with an LLM |
-| **Image connection** | Use the Game image connection | Generates every keyframe; an image connection is required somewhere in the fallback chain |
-| **Video connection** | Use the Game video connection | Generates clips when animations are enabled |
-| **Automatic generation** | Still images | Chooses the starting automatic behavior for newly activated chats |
-| **Keyframes per turn** | 3, range 1-6 | Sets the target number of ordered frames |
-| **Clip seconds** | 6, range 1-15 | Sets the requested duration of each clip |
-| **Viewer display** | Floating viewer | Sets the Game Mode viewer default; Roleplay always displays Storyboards inline |
-| **Default Roleplay episode interval** | 1, range 1-100 | Sets how much new Roleplay material accumulates between automatic episodes |
-| **Attach Card Appearance** | On | Adds matched character appearance details to image prompts |
-| **Send Avatar References** | On | Sends matched character and persona avatars when the image provider supports references |
-| **Use the final image template** | On | Formats a planned frame before it is sent to the image provider |
-| **Use NovelAI character prompts** | On | Uses native per-character prompting on supported official NovelAI V4/V4.5 connections |
+| Setting                               | Default                        | Purpose                                                                                   |
+| ------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
+| Agent connection                      | Your selected Agent connection | Plans the storyboard with an LLM                                                          |
+| **Image connection**                  | Use the Game image connection  | Generates every keyframe; an image connection is required somewhere in the fallback chain |
+| **Video connection**                  | Use the Game video connection  | Generates clips when animations are enabled                                               |
+| **Automatic generation**              | Still images                   | Chooses the starting automatic behavior for newly activated chats                         |
+| **Keyframes per turn**                | 3, range 1-6                   | Sets the target number of ordered frames                                                  |
+| **Clip seconds**                      | 5, range 1-15                  | Sets the requested duration of each clip                                                  |
+| **Viewer display**                    | Floating viewer                | Sets the Game Mode viewer default; Roleplay always displays Storyboards inline            |
+| **Default Roleplay episode interval** | 1, range 1-100                 | Sets how much new Roleplay material accumulates between automatic episodes                |
+| **Attach Card Appearance**            | On                             | Adds matched character appearance details to image prompts                                |
+| **Send Avatar References**            | On                             | Sends matched character and persona avatars when the image provider supports references   |
+| **Use the final image template**      | On                             | Formats a planned frame before it is sent to the image provider                           |
+| **Use NovelAI character prompts**     | On                             | Uses native per-character prompting on supported official NovelAI V4/V4.5 connections     |
 
 ### Game prompt library
 
 The Game library supplies two different planning lanes. The active lane is chosen by whether the Game is making stills or clips.
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| **Still planner** | Still Keyframes | Splits one completed GM turn into finished still-image moments |
+| Setting               | Default              | Purpose                                                                   |
+| --------------------- | -------------------- | ------------------------------------------------------------------------- |
+| **Still planner**     | Still Keyframes      | Splits one completed GM turn into finished still-image moments            |
 | **Animation planner** | Comic Page Animation | Creates animation-ready first frames and duration-aware motion directions |
 
 The package also includes NovelAI, comic, colored manga, black-and-white manga, anime episode, and LTX-oriented planners. Planner prompt text is editable in the global Agent setup. The Game chat chooses among the still and animation options under **Chat Settings > Agents > Storyboards**.
@@ -65,25 +65,25 @@ The package also includes NovelAI, comic, colored manga, black-and-white manga, 
 
 Roleplay assembles four selected prompts into one planner request.
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| **Episode contract** | Completed Roleplay Episode | Chooses completed source-supported beats and keeps them in message order |
-| **Visual style** | Normal / Anime | Defines the visual treatment of every keyframe |
-| **Animation addon** | Simple Storyboard Motion | Adds motion, camera, source dialogue and sound, ambience, and an ending hold only for clips |
-| **Output contract** | Roleplay Keyframe JSON | Defines the structured keyframe fields returned by the planner |
+| Setting              | Default                    | Purpose                                                                                     |
+| -------------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
+| **Episode contract** | Completed Roleplay Episode | Chooses completed source-supported beats and keeps them in message order                    |
+| **Visual style**     | Normal / Anime             | Defines the visual treatment of every keyframe                                              |
+| **Animation addon**  | Simple Storyboard Motion   | Adds motion, camera, source dialogue and sound, ambience, and an ending hold only for clips |
+| **Output contract**  | Roleplay Keyframe JSON     | Defines the structured keyframe fields returned by the planner                              |
 
-Each selector has an editable collection below it. Use **Add option** for a custom prompt, rename it, add a short description, and edit the prompt body. The built-in options can be restored to their package defaults.
+Open the collapsed **Prompt library** inside Stage 1 to edit these complete collections. Use **Add option** for a custom prompt, rename it, add a short description, and edit the prompt body. The built-in options can be restored to their package defaults.
 
 ### Shared provider formatters
 
 After either mode plans its frames, shared formatters create the final provider requests.
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| **Default image prompt** | Game Scene Illustration | Formats each planned keyframe for the image provider |
-| **Default video prompt** | Cinematic Scene Video | Formats the first-frame image and motion plan for the video provider |
+| Setting                  | Default                 | Purpose                                                              |
+| ------------------------ | ----------------------- | -------------------------------------------------------------------- |
+| **Default image prompt** | Game Scene Illustration | Formats each planned keyframe for the image provider                 |
+| **Default video prompt** | Cinematic Scene Video   | Formats the first-frame image and motion plan for the video provider |
 
-The built-in image choices also include **Storyboard Illustration** and **Storyboard First Frame**. Video choices include **Anime Game Video**, **Comic Page Video**, and **LTX Director Video**. Game and Roleplay chats can select different formatters without changing the underlying shared prompt collection.
+Each numbered stage has its own collapsed **Prompt library**, so Stage 2 owns image formatters, Stage 3 owns image-aware motion planners, and Stage 4 owns video passthrough formatters. The built-in image choices also include **Storyboard Illustration** and **Storyboard First Frame**. Video choices include **Anime Game Video**, **Comic Page Video**, and **Narration Passthrough**. Game and Roleplay chats can select different formatters without changing the underlying shared prompt collection.
 
 ### Global defaults and chat overrides
 
@@ -168,19 +168,19 @@ If **Expose image prompts before sending** is enabled under Generation settings,
 
 Open **Chat Settings > Agents > Storyboards**.
 
-| Setting | Agent default | What it controls |
-| --- | --- | --- |
-| **Enable Storyboards** | Off per chat | Activates the installed Agent for this Game |
-| **Automatic Storyboard Illustrations** | Derived from Automatic generation | Still keyframes after each finished GM turn |
-| **Automatic Storyboard Animations** | Derived from Automatic generation | MP4 clips for every keyframe |
-| **Keyframes per Turn** | 3, range 1-6 | Target number of frames; short turns may produce fewer |
-| **Animation Clip Duration** | 6 seconds, range 1-15 | Requested duration for each clip; a provider may clamp it |
-| **Viewer Display** | Floating | Draggable viewer or full Game background |
-| **Still Planner** | Still Keyframes | Plans completed still illustrations |
-| **Animation Planner** | Comic Page Animation | Plans animation-ready first frames and motion directions |
-| **Use Storyboard Template** | On | Applies the selected final illustration formatter |
-| **Storyboard Illustration Prompt** | Game Scene Illustration | Formats the planned frame for the image provider |
-| **Storyboard Video Prompt** | Cinematic Scene Video | Formats the first frame and motion plan for the video provider |
+| Setting                                | Agent default                     | What it controls                                               |
+| -------------------------------------- | --------------------------------- | -------------------------------------------------------------- |
+| **Enable Storyboards**                 | Off per chat                      | Activates the installed Agent for this Game                    |
+| **Automatic Storyboard Illustrations** | Derived from Automatic generation | Still keyframes after each finished GM turn                    |
+| **Automatic Storyboard Animations**    | Derived from Automatic generation | MP4 clips for every keyframe                                   |
+| **Keyframes per Turn**                 | 3, range 1-6                      | Target number of frames; short turns may produce fewer         |
+| **Animation Clip Duration**            | 5 seconds, range 1-15             | Requested duration for each clip; a provider may clamp it      |
+| **Viewer Display**                     | Floating                          | Draggable viewer or full Game background                       |
+| **Still Planner**                      | Still Keyframes                   | Plans completed still illustrations                            |
+| **Animation Planner**                  | Comic Page Animation              | Plans animation-ready first frames and motion directions       |
+| **Use Storyboard Template**            | On                                | Applies the selected final illustration formatter              |
+| **Storyboard Illustration Prompt**     | Game Scene Illustration           | Formats the planned frame for the image provider               |
+| **Storyboard Video Prompt**            | Cinematic Scene Video             | Formats the first frame and motion plan for the video provider |
 
 The package also supplies NovelAI, comic, manga, anime, and LTX-oriented planners. Selecting an animation planner does not enable video generation by itself; **Automatic Storyboard Animations** and a video connection are still required.
 
@@ -260,7 +260,7 @@ Package-applied chain:
 - **Illustration Planner**: Still Keyframes as the still-only fallback
 - **Animation Planner**: LTX Simple Image-to-Video
 - **Storyboard Illustration Prompt**: Storyboard First Frame
-- **Storyboard Video Prompt**: LTX Director Video
+- **Storyboard Video Prompt**: Narration Passthrough
 - **Use Storyboard Template**: On
 
 For an 8 GB VRAM GPU, start with one keyframe at 480p. After that completes successfully, move toward three keyframes and higher resolutions. See [LTX 2.3 Storyboards in Game Mode](ltx-2-3-storyboards.md) for the ComfyUI connection, placeholders, and full test procedure.

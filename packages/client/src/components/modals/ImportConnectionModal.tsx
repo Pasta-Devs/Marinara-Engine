@@ -124,11 +124,16 @@ export function ImportConnectionModal({ open, onClose }: Props) {
         >
           <Download size="2rem" className={dragOver ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"} />
           <div>
-            <p className="text-sm font-medium">{localizeUi("ui.modals.importconnectionmodal.dropOneOrMoreConnectionFilesHereOrClick")}</p>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">{localizeUi("ui.modals.importconnectionmodal.importedConnectionsNeverIncludeApiKeysAddEachKey")}</p>
+            <p className="text-sm font-medium">
+              {localizeUi("ui.modals.importconnectionmodal.dropOneOrMoreConnectionFilesHereOrClick")}
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              {localizeUi("ui.modals.importconnectionmodal.importedConnectionsNeverIncludeApiKeysAddEachKey")}
+            </p>
           </div>
           <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-            <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.json")}</span>
+            <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.json")}
+          </span>
         </div>
 
         <input
@@ -145,7 +150,9 @@ export function ImportConnectionModal({ open, onClose }: Props) {
 
         {status === "loading" && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] p-3 text-xs">
-            <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" /> {localizeUi("ui.modals.importconnectionmodal.importing")}</div>
+            <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />{" "}
+            {localizeUi("ui.modals.importconnectionmodal.importing")}
+          </div>
         )}
 
         {status === "done" && results.length > 0 && (
@@ -158,8 +165,10 @@ export function ImportConnectionModal({ open, onClose }: Props) {
               }`}
             >
               {results.some((result) => result.success) ? <CheckCircle size="0.875rem" /> : <XCircle size="0.875rem" />}
-              {results.filter((result) => result.success).length} {localizeUi("ui.modals.importcharactermodal.succeeded")}{" "}
-              {results.filter((result) => !result.success).length} {localizeUi("ui.modals.importcharactermodal.failed")}</div>
+              {results.filter((result) => result.success).length}{" "}
+              {localizeUi("ui.modals.importcharactermodal.succeeded")}{" "}
+              {results.filter((result) => !result.success).length} {localizeUi("ui.modals.importcharactermodal.failed")}
+            </div>
             <div className="max-h-52 overflow-y-auto rounded-lg border border-[var(--border)]">
               {results.map((result) => (
                 <div

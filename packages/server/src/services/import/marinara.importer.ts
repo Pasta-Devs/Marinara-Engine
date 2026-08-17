@@ -596,7 +596,8 @@ async function importPersona(data: unknown, db: DB) {
 
   const parsed = parseNativePersonaInput(personaInput);
   const { name, description, extra } = encodePersonaCreate(parsed);
-  const useCharacterSheetAsReference = d.useCharacterSheetAsReference === true || d.useCharacterSheetAsReference === "true";
+  const useCharacterSheetAsReference =
+    d.useCharacterSheetAsReference === true || d.useCharacterSheetAsReference === "true";
   const result = await storage.createPersona(
     name,
     description,

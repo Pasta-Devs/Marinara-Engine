@@ -172,7 +172,7 @@ export function GameReadableDisplay({ type, content, onClose }: GameReadableDisp
         {/* Type label */}
         <div className={cn("px-6 pt-5 pb-2", style.accent)}>
           <span className={cn("text-[0.65rem] font-semibold uppercase tracking-[0.15em]", style.heading)}>
-            {type === "note" ?localizeUi("ui.game.libraryview.note") :localizeUi("ui.game.libraryview.book")}
+            {type === "note" ? localizeUi("ui.game.libraryview.note") : localizeUi("ui.game.libraryview.book")}
           </span>
         </div>
 

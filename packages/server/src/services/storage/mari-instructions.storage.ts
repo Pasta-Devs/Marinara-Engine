@@ -52,7 +52,9 @@ export interface MariInstructionPatch {
 
 function requireLength(value: string, max: number, field: string): string {
   if (value.length > max) {
-    throw new Error(`A memory's ${field} is ${value.length} characters; the maximum is ${max}. Trim it or split it into two memories.`);
+    throw new Error(
+      `A memory's ${field} is ${value.length} characters; the maximum is ${max}. Trim it or split it into two memories.`,
+    );
   }
   return value;
 }
@@ -126,7 +128,14 @@ export function createMariInstructionsStorage(db: DB) {
       // (e.g. one toggling persistent, one toggling enabled) can't restore an unrelated field from
       // a stale snapshot. Reject a provided-but-blank name/content instead of silently keeping the
       // old value (matches create). Re-read after the write for the authoritative return value.
-      const next: Partial<{ name: string; description: string; content: string; persistent: number; enabled: number; updatedAt: string }> = {
+      const next: Partial<{
+        name: string;
+        description: string;
+        content: string;
+        persistent: number;
+        enabled: number;
+        updatedAt: string;
+      }> = {
         updatedAt: now(),
       };
       if (patch.name != null) {

@@ -7,13 +7,7 @@ export type ConversationCallParticipantKind = "user" | "character";
 export type ConversationCallMessageKind = "speech" | "text" | "system" | "command" | "soundboard";
 export type ConversationCallTurnMode = "voice" | "text" | "command";
 export type ConversationCallAudioInputMode = "system" | "auto" | "transcribe" | "local_whisper";
-export type ConversationCallCharacterVideoClipKind =
-  | "idle"
-  | "talking"
-  | "laughing"
-  | "angry"
-  | "crying"
-  | "sighing";
+export type ConversationCallCharacterVideoClipKind = "idle" | "talking" | "laughing" | "angry" | "crying" | "sighing";
 export type ConversationCallCharacterVideoClipStatus = "missing" | "generating" | "ready" | "error";
 
 export const CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS: ConversationCallCharacterVideoClipKind[] = [

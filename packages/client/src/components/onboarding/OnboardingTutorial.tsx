@@ -16,14 +16,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 
 // ─── Step definitions ─────────────────────────
 
-type TourPanel =
-  | "characters"
-  | "lorebooks"
-  | "presets"
-  | "connections"
-  | "agents"
-  | "personas"
-  | "settings";
+type TourPanel = "characters" | "lorebooks" | "presets" | "connections" | "agents" | "personas" | "settings";
 
 interface TourStep {
   /** data-tour attribute value of the element to highlight, or null for centered modal */
@@ -455,12 +448,8 @@ function TourCardContent({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
-  const localizedBody = currentStep.bodyKey
-    ? localizeUi(currentStep.bodyKey)
-    : localize(currentStep.body ?? "");
-  const localizedTitle = currentStep.titleKey
-    ? localizeUi(currentStep.titleKey)
-    : localize(currentStep.title ?? "");
+  const localizedBody = currentStep.bodyKey ? localizeUi(currentStep.bodyKey) : localize(currentStep.body ?? "");
+  const localizedTitle = currentStep.titleKey ? localizeUi(currentStep.titleKey) : localize(currentStep.title ?? "");
   return (
     <>
       {/* Professor Mari sprite */}
@@ -478,9 +467,7 @@ function TourCardContent({
 
       {/* Header */}
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
-          {localizedTitle}
-        </h3>
+        <h3 className="text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">{localizedTitle}</h3>
       </div>
 
       {/* Body */}
@@ -755,8 +742,7 @@ function OnboardingTutorialInner() {
               left: rect.left - PAD,
               width: rect.width + PAD * 2,
               height: rect.height + PAD * 2,
-              boxShadow:
-                "0 0 16px 4px color-mix(in srgb, var(--marinara-chat-chrome-focus-ring) 40%, transparent)",
+              boxShadow: "0 0 16px 4px color-mix(in srgb, var(--marinara-chat-chrome-focus-ring) 40%, transparent)",
             }}
           />
         ))}
@@ -779,7 +765,14 @@ function OnboardingTutorialInner() {
               data-component="OnboardingTutorial.Card"
               style={{ width: Math.min(380, getViewportWidth() - 32), maxHeight: centeredCardMaxHeight }}
             >
-              <TourCardContent step={step} currentStep={currentStep} isLast={isLast} onNext={next} onSkip={finish} pickerSlot={pickerSlot} />
+              <TourCardContent
+                step={step}
+                currentStep={currentStep}
+                isLast={isLast}
+                onNext={next}
+                onSkip={finish}
+                pickerSlot={pickerSlot}
+              />
             </motion.div>
           </AnimatePresence>
         </div>
@@ -795,7 +788,14 @@ function OnboardingTutorialInner() {
             data-component="OnboardingTutorial.Card"
             style={computeTooltipStyle(targetRect!, currentStep)}
           >
-            <TourCardContent step={step} currentStep={currentStep} isLast={isLast} onNext={next} onSkip={finish} pickerSlot={pickerSlot} />
+            <TourCardContent
+              step={step}
+              currentStep={currentStep}
+              isLast={isLast}
+              onNext={next}
+              onSkip={finish}
+              pickerSlot={pickerSlot}
+            />
           </motion.div>
         </AnimatePresence>
       )}

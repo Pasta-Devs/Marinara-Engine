@@ -118,7 +118,8 @@ function readBooleanFlag(value: unknown): boolean {
 
 function convertStRegexApplyMode(s: Record<string, unknown>): "prompt" | "display" | "both" {
   if (s.applyMode === "prompt" || s.applyMode === "display" || s.applyMode === "both") return s.applyMode;
-  const promptOnly = readBooleanFlag(s.promptOnly) || readBooleanFlag(s.prompt_only) || readBooleanFlag(s.onlyFormatPrompt);
+  const promptOnly =
+    readBooleanFlag(s.promptOnly) || readBooleanFlag(s.prompt_only) || readBooleanFlag(s.onlyFormatPrompt);
   const markdownOnly =
     readBooleanFlag(s.markdownOnly) || readBooleanFlag(s.markdown_only) || readBooleanFlag(s.onlyFormatDisplay);
   if (promptOnly && !markdownOnly) return "prompt";

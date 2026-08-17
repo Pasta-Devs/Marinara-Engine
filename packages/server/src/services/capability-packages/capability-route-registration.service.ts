@@ -33,9 +33,7 @@ function normalizeRoute(method: RouteMethod, path: string, optionsOrHandler: unk
     method,
     path,
     options:
-      typeof optionsOrHandler === "object" && optionsOrHandler
-        ? (optionsOrHandler as Record<string, unknown>)
-        : {},
+      typeof optionsOrHandler === "object" && optionsOrHandler ? (optionsOrHandler as Record<string, unknown>) : {},
     handler,
   } satisfies RouteDefinition;
 }
@@ -72,7 +70,8 @@ export async function registerCapabilityPrivilegedRoutes(
   const slots = slotsByApp.get(app) ?? new Map<string, RouteSlot>();
   slotsByApp.set(app, slots);
   const prepared: PreparedRoute[] = definitions.map((definition) => {
-    const suffix = definition.path === "/" ? "" : definition.path.startsWith("/") ? definition.path : `/${definition.path}`;
+    const suffix =
+      definition.path === "/" ? "" : definition.path.startsWith("/") ? definition.path : `/${definition.path}`;
     const path = `${options.prefix}${suffix}`;
     const key = routeKey(definition.method, path);
     const existing = slots.get(key);
@@ -115,7 +114,8 @@ export async function registerCapabilityPrivilegedRoutes(
       ownedSlots.push(slot);
       const onRequest = async (request: FastifyRequest, reply: FastifyReply) => {
         if (!slot.active) return reply.status(404).send({ error: "Capability routes are not active" });
-        if (!requirePrivilegedAccess(request, reply, { feature: `${installed.manifest.name} package routes` })) return reply;
+        if (!requirePrivilegedAccess(request, reply, { feature: `${installed.manifest.name} package routes` }))
+          return reply;
       };
       app.route({
         ...definition.options,

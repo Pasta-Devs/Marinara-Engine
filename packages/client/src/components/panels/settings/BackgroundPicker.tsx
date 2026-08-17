@@ -198,12 +198,7 @@ function CardTagInput({
           <option key={tag} value={tag} />
         ))}
       </datalist>
-      <button
-        type="button"
-        onClick={submit}
-        disabled={!value.trim() || pending}
-        className={INLINE_ACCENT_BUTTON_CLASS}
-      >
+      <button type="button" onClick={submit} disabled={!value.trim() || pending} className={INLINE_ACCENT_BUTTON_CLASS}>
         {addLabel}
       </button>
     </div>
@@ -598,8 +593,7 @@ export function BackgroundPicker({
     (event: DragEvent, folderId: string | null) => {
       event.preventDefault();
       const backgroundId = (
-        event.dataTransfer.getData("application/x-marinara-background-id") ||
-        event.dataTransfer.getData("text/plain")
+        event.dataTransfer.getData("application/x-marinara-background-id") || event.dataTransfer.getData("text/plain")
       ).trim();
       if (backgroundId) assignBackground(backgroundId, folderId);
     },
@@ -898,10 +892,7 @@ export function BackgroundPicker({
                   cancelPendingClose();
                   void handleDeleteBackground(background);
                 }}
-                className={cn(
-                  CARD_ACTION_CLASS,
-                  "text-[var(--destructive)] hover:bg-[var(--destructive)]/12",
-                )}
+                className={cn(CARD_ACTION_CLASS, "text-[var(--destructive)] hover:bg-[var(--destructive)]/12")}
                 title={localizeUi("ui.panels.backgroundpicker.deleteBackground")}
                 aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: title })}
               >

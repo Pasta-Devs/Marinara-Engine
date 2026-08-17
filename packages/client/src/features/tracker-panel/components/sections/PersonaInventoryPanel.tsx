@@ -4,10 +4,7 @@ import type { CharacterStat, InventoryItem, Persona } from "@marinara-engine/sha
 import { isTrackerFieldLocked, personaStatTrackerLockKey, personaStatusTrackerLockKey } from "@marinara-engine/shared";
 import type { TrackerPanelSide, TrackerPanelSizeProfile, TrackerStatDisplayMode } from "../../../../stores/ui.store";
 import { useCharacterSprites, type SpriteInfo } from "../../../../hooks/use-characters";
-import {
-  getTrackerCardPortraitView,
-  parseTrackerCardColorConfig,
-} from "../../../../lib/tracker-card-colors";
+import { getTrackerCardPortraitView, parseTrackerCardColorConfig } from "../../../../lib/tracker-card-colors";
 import { cn } from "../../../../lib/utils";
 import {
   TRACKER_PORTRAIT_EXPRESSION_DEFAULT_FOCUS_Y,
@@ -177,10 +174,15 @@ export function PersonaInventoryPanel({
           size="0.6875rem"
           className="relative z-[1] shrink-0 text-[color-mix(in_srgb,var(--tracker-profile-label-muted-text)_42%,var(--tracker-profile-label-icon)_58%)]"
         />
-        <span className="relative z-[1] min-w-0 flex-1 truncate font-semibold uppercase tracking-[0.06em] text-[color-mix(in_srgb,var(--tracker-profile-label-muted-text)_62%,var(--tracker-profile-label-text)_38%)]">{localizeUi("ui.trackerPanel.personainventorypanel.inventory")}</span>
+        <span className="relative z-[1] min-w-0 flex-1 truncate font-semibold uppercase tracking-[0.06em] text-[color-mix(in_srgb,var(--tracker-profile-label-muted-text)_62%,var(--tracker-profile-label-text)_38%)]">
+          {localizeUi("ui.trackerPanel.personainventorypanel.inventory")}
+        </span>
         {addMode && (
           <span className="relative z-[1]">
-            <AddRowButton title={localizeUi("ui.trackerPanel.personainventorypanel.addItem")} onClick={onAddInventoryItem} />
+            <AddRowButton
+              title={localizeUi("ui.trackerPanel.personainventorypanel.addItem")}
+              onClick={onAddInventoryItem}
+            />
           </span>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--tracker-profile-dialogue-border)_42%,transparent),transparent)] opacity-80" />
@@ -189,12 +191,12 @@ export function PersonaInventoryPanel({
         className={cn(
           PERSONA_INVENTORY_SHELF_CLASS,
           inventory.length === 0
-              ? "flex items-center justify-center px-1 py-2"
-              : [
-                  "grid auto-rows-max content-start items-start gap-px overflow-y-auto p-0.5 text-left",
-                  "grid-cols-1",
-                  trackerPanelSizeProfile === "expanded" && inventory.length >= 6 && "@min-[420px]:grid-cols-2",
-                ],
+            ? "flex items-center justify-center px-1 py-2"
+            : [
+                "grid auto-rows-max content-start items-start gap-px overflow-y-auto p-0.5 text-left",
+                "grid-cols-1",
+                trackerPanelSizeProfile === "expanded" && inventory.length >= 6 && "@min-[420px]:grid-cols-2",
+              ],
           "min-h-10",
         )}
       >
@@ -298,7 +300,10 @@ export function PersonaInventoryPanel({
                 TRACKER_PROFILE_GRID_CLASS_BY_PORTRAIT_SIDE[personaPortraitSide],
               )}
             >
-              <TrackerProfileNameplate placeholder={localizeUi("ui.characters.cardlibrarydetailcard.persona")} value={persona?.name} />
+              <TrackerProfileNameplate
+                placeholder={localizeUi("ui.characters.cardlibrarydetailcard.persona")}
+                value={persona?.name}
+              />
               <div aria-hidden="true" className={PERSONA_COCKPIT_SHELF_CLASS}>
                 <div className={TRACKER_PROFILE_SURFACE_TEXTURE_CLASS} />
                 <div className={TRACKER_PROFILE_SURFACE_TOP_RULE_CLASS} />
@@ -337,9 +342,7 @@ export function PersonaInventoryPanel({
                     addMode={addMode}
                     visualTone="instrument"
                     displayMode={statDisplayMode}
-                    resolveIcon={(stat, occurrence) =>
-                      resolveStatIcon.resolvePersonaStatIcon(stat.name, occurrence)
-                    }
+                    resolveIcon={(stat, occurrence) => resolveStatIcon.resolvePersonaStatIcon(stat.name, occurrence)}
                     onSetIcon={(stat, occurrence, icon) =>
                       resolveStatIcon.setPersonaStatIcon(stat.name, occurrence, icon)
                     }

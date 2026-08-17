@@ -64,21 +64,13 @@ interface GmTagHead {
 function isAsciiWordCharacter(character: string | undefined): boolean {
   if (!character) return false;
   const code = character.charCodeAt(0);
-  return (
-    (code >= 48 && code <= 57) ||
-    (code >= 65 && code <= 90) ||
-    code === 95 ||
-    (code >= 97 && code <= 122)
-  );
+  return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || code === 95 || (code >= 97 && code <= 122);
 }
 
 /** Parse only the name immediately after `[`, so malformed nested input stays linear. */
 function readGmTagHead(content: string, start: number, allowHyphen: boolean): GmTagHead | null {
   let cursor = start + 1;
-  while (
-    isAsciiWordCharacter(content[cursor]) ||
-    (allowHyphen && content[cursor] === "-")
-  ) {
+  while (isAsciiWordCharacter(content[cursor]) || (allowHyphen && content[cursor] === "-")) {
     cursor++;
   }
   if (cursor === start + 1 || (content[cursor] !== ":" && content[cursor] !== "]")) return null;
@@ -250,7 +242,8 @@ function parseResolvedSkillCheckBody(body: string): SkillCheckResult | null {
   const modeValue = values.get("mode")?.trim().toLowerCase();
   const rollMode: SkillCheckResult["rollMode"] =
     modeValue === "advantage" ? "advantage" : modeValue === "disadvantage" ? "disadvantage" : "normal";
-  const resolution: SkillCheckResult["resolution"] = values.get("resolution")?.trim().toLowerCase() === "successes" ? "successes" : "sum";
+  const resolution: SkillCheckResult["resolution"] =
+    values.get("resolution")?.trim().toLowerCase() === "successes" ? "successes" : "sum";
   const explicitUsedRoll = Number.parseInt(values.get("used") ?? "", 10);
   const inferredRollFromTotal = total - modifier;
   const usedRoll = Number.isFinite(explicitUsedRoll)

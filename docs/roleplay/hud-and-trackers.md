@@ -12,7 +12,7 @@ A widget only appears when its tracker agent is turned on for the chat. You turn
 
 ## The HUD widgets
 
-There are six tracker widgets. Each one needs its own agent enabled to appear.
+There are seven tracker widgets. Each one needs its own agent enabled to appear.
 
 | Widget                 | Needs this agent  | Shows                                                                            |
 | ---------------------- | ----------------- | -------------------------------------------------------------------------------- |
@@ -20,10 +20,17 @@ There are six tracker widgets. Each one needs its own agent enabled to appear.
 | **Persona Stats**      | Persona Stats     | Your persona's status bars and a status line                                     |
 | **Present Characters** | Character Tracker | Who is in the scene, with mood, appearance, and character-specific custom fields |
 | **Inventory**          | Persona Stats     | Items you are carrying, with quantities                                          |
+| **Inventory Tracker**  | Inventory Tracker | Separate lists for currencies, equipped gear, and carried items                  |
 | **Active Quests**      | Quest Tracker     | Your current objective                                                           |
 | **Custom Tracker**     | Custom Tracker    | Your own named fields, such as counters or currency                              |
 
 Note that the **Inventory** widget is driven by the same **Persona Stats** agent that powers the **Persona Stats** widget. Turn on **Persona Stats** to get both.
+
+The dedicated **Inventory Tracker** is separate from Persona Stats inventory. It keeps compact name-and-quantity entries in three groups — **Currencies**, **Equipped**, and **Inventory** — and prevents equipped gear from also appearing in carried inventory.
+
+Each entry is a small pill. Pills flow across the panel and wrap onto the next line, so a long carried list stays readable instead of stretching into a tall column. A quantity is shown only when it is more than one, written as `×4` after the name; a single item shows just its name. On a narrow panel the pills stack one per line.
+
+To change a quantity that is currently one, turn on **add mode** or **lock mode** — both reveal the quantity control on every entry.
 
 The **Present Characters** widget shows up to three character emoji plus a "+N" count for any extras. The **Inventory** and **Custom Tracker** widgets cycle through their entries one at a time.
 
@@ -37,6 +44,7 @@ Here is what each popover lets you edit:
 - **Persona Stats**: a **Status** line, plus named stat bars with a current value and a max value. You can add or remove bars.
 - **Present Characters**: add or remove characters, and edit each one's emoji, name, **Mood**, **Look**, **Outfit**, **Thinks** (private thoughts), and custom field values. You can upload an avatar per character. An **Auto** button toggles "Auto-generate avatars: ON" or "Auto-generate avatars: OFF".
 - **Inventory**: add or remove items, and edit each item's name and quantity.
+- **Inventory Tracker**: add or remove entries under **Currencies**, **Equipped**, and **Inventory**, and edit each name or quantity. Moving an item between groups is not yet a single action — remove it from one group and add it to the other.
 - **Active Quests**: add or remove quests. Each quest has named objectives with completion checkboxes.
 - **Custom Tracker**: add, remove, or edit name and value fields.
 

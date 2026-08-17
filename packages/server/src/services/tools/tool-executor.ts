@@ -1794,28 +1794,43 @@ async function spotifySearch(
   const limit = clampNumber(args.limit ?? 5, 5, 1, 20);
 
   try {
-    const res = await fetch(
-      `https://api.spotify.com/v1/search?${new URLSearchParams({ q: query, type: "track", limit: String(limit) })}`,
-      {
-        headers: { Authorization: `Bearer ${creds.accessToken}` },
-        signal: AbortSignal.timeout(10_000),
-      },
-    );
-    if (!res.ok) {
-      const body = await res.text();
-      return { error: `Spotify API error (${res.status}): ${body.slice(0, 200)}` };
-    }
-    const data = (await res.json()) as {
-      tracks?: {
-        items?: Array<{ uri: string; name: string; artists: Array<{ name: string }>; album: { name: string } }>;
+    const tracks: Array<{ uri: string; name: string; artist: string; album: string }> = [];
+    while (tracks.length < limit) {
+      // Spotify accepts at most 10 search results per request. Keep Marinara's
+      // useful 20-result contract by paging within the provider limit.
+      const pageSize = Math.min(10, limit - tracks.length);
+      const res = await fetch(
+        `https://api.spotify.com/v1/search?${new URLSearchParams({
+          q: query,
+          type: "track",
+          limit: String(pageSize),
+          offset: String(tracks.length),
+        })}`,
+        {
+          headers: { Authorization: `Bearer ${creds.accessToken}` },
+          signal: AbortSignal.timeout(10_000),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        return { error: `Spotify API error (${res.status}): ${body.slice(0, 200)}` };
+      }
+      const data = (await res.json()) as {
+        tracks?: {
+          items?: Array<{ uri: string; name: string; artists: Array<{ name: string }>; album: { name: string } }>;
+        };
       };
-    };
-    const tracks = (data.tracks?.items ?? []).map((t) => ({
-      uri: t.uri,
-      name: t.name,
-      artist: t.artists.map((a) => a.name).join(", "),
-      album: t.album.name,
-    }));
+      const page = data.tracks?.items ?? [];
+      tracks.push(
+        ...page.map((track) => ({
+          uri: track.uri,
+          name: track.name,
+          artist: track.artists.map((artist) => artist.name).join(", "),
+          album: track.album.name,
+        })),
+      );
+      if (page.length < pageSize) break;
+    }
     return { query, tracks, count: tracks.length };
   } catch (err) {
     return { error: `Spotify search failed: ${err instanceof Error ? err.message : "unknown"}` };
@@ -1956,13 +1971,12 @@ async function spotifyPlay(
       expectedUris: playbackUris,
       requireFirstUri: requireFirstUriMatch,
     });
-    const playbackVerified = spotifyPlaybackMatches(current, playbackUris, requireFirstUriMatch);
     if (singleTrackUri && effectiveRepeatAfterPlay === "track" && current?.repeatState !== "track") {
-      repeat = await applySpotifyRepeatAfterPlay(creds.accessToken, "track", current?.deviceId ?? playDeviceId, 3);
+      repeat = await applySpotifyRepeatAfterPlay(creds.accessToken, "track", targetDeviceId, 3);
       current = await verifyOrNudgeSpotifyPlayback({
         accessToken: creds.accessToken,
         body,
-        initialDeviceId: current?.deviceId ?? playDeviceId,
+        initialDeviceId: targetDeviceId,
         targetDeviceId,
         targetDeviceName,
         expectedTrackUri: firstUri,
@@ -1970,10 +1984,10 @@ async function spotifyPlay(
         requireFirstUri: true,
       });
     }
-    if (repeatTrackList && playbackVerified && current?.repeatState !== "context") {
+    if (repeatTrackList && current?.repeatState !== "context") {
       for (const delay of SPOTIFY_REPEAT_RETRY_DELAYS_MS) {
         if (delay > 0) await wait(delay);
-        repeat = await applySpotifyRepeatAfterPlay(creds.accessToken, "context", current?.deviceId ?? playDeviceId);
+        repeat = await applySpotifyRepeatAfterPlay(creds.accessToken, "context", targetDeviceId);
         const repeatSnapshot = await fetchSpotifyPlaybackSnapshot(creds.accessToken);
         if (repeatSnapshot) current = repeatSnapshot;
         if (spotifyPlaybackMatches(current, playbackUris, true) && current?.repeatState === "context") break;

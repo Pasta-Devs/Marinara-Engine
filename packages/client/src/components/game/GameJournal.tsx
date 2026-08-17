@@ -347,7 +347,9 @@ export function GameJournal({
 function TimelineView({ entries }: { entries: JournalEntry[] }) {
   const { t: localizeUi } = useUiTranslation();
   if (entries.length === 0) {
-    return <div className="text-center text-xs text-white/40">{localizeUi("ui.game.timelineview.noJournalEntriesYet")}</div>;
+    return (
+      <div className="text-center text-xs text-white/40">{localizeUi("ui.game.timelineview.noJournalEntriesYet")}</div>
+    );
   }
 
   return (
@@ -419,7 +421,9 @@ function NpcsView({
   );
 
   if (!hasContent) {
-    return <div className="text-center text-xs text-white/40">{localizeUi("ui.game.npcsview.noNpcsEncounteredYet")}</div>;
+    return (
+      <div className="text-center text-xs text-white/40">{localizeUi("ui.game.npcsview.noNpcsEncounteredYet")}</div>
+    );
   }
 
   const npcMap = new Map<string, { npc: GameNpc; interactions: string[]; displayName: string; originalName: string }>();
@@ -511,7 +515,7 @@ function NpcsView({
                 </div>
               )}
               <span className="flex-1 text-xs font-medium text-white/80">
-                {entry.npc.emoji ?localizeUi("ui.game.npcsview.value1", { value1: entry.npc.emoji }) : ""}
+                {entry.npc.emoji ? localizeUi("ui.game.npcsview.value1", { value1: entry.npc.emoji }) : ""}
                 {name}
               </span>
               {showReputation && <span className={cn("text-[10px] font-medium", rep.color)}>{rep.text}</span>}
@@ -541,7 +545,11 @@ function NpcsView({
 function LocationsView({ locations }: { locations: string[] }) {
   const { t: localizeUi } = useUiTranslation();
   if (locations.length === 0) {
-    return <div className="text-center text-xs text-white/40">{localizeUi("ui.game.locationsview.noLocationsDiscoveredYet")}</div>;
+    return (
+      <div className="text-center text-xs text-white/40">
+        {localizeUi("ui.game.locationsview.noLocationsDiscoveredYet")}
+      </div>
+    );
   }
 
   return (
@@ -570,7 +578,11 @@ function InventoryView({
   const visibleItems = dedupeAdjacentInventoryEntries(items);
 
   if (visibleItems.length === 0) {
-    return <div className="text-center text-xs text-white/40">{localizeUi("ui.game.inventoryview.noItemsInInventoryLog")}</div>;
+    return (
+      <div className="text-center text-xs text-white/40">
+        {localizeUi("ui.game.inventoryview.noItemsInInventoryLog")}
+      </div>
+    );
   }
 
   const actionColors: Record<string, string> = {
@@ -588,7 +600,7 @@ function InventoryView({
           className="flex items-center justify-between rounded-lg border border-white/5 bg-white/3 px-3 py-1.5"
         >
           <span className="text-xs text-white/70">
-            {item.quantity > 1 ?localizeUi("ui.game.inventoryview.value1X", { value1: item.quantity }) : ""}
+            {item.quantity > 1 ? localizeUi("ui.game.inventoryview.value1X", { value1: item.quantity }) : ""}
             {item.item}
           </span>
           <span className={cn("text-[0.625rem] font-medium", actionColors[item.action])}>{item.action}</span>
@@ -601,7 +613,11 @@ function InventoryView({
 function LibraryView({ entries }: { entries: JournalEntry[] }) {
   const { t: localizeUi } = useUiTranslation();
   if (entries.length === 0) {
-    return <div className="text-center text-xs text-white/40">{localizeUi("ui.game.libraryview.noBooksOrNotesFoundYet")}</div>;
+    return (
+      <div className="text-center text-xs text-white/40">
+        {localizeUi("ui.game.libraryview.noBooksOrNotesFoundYet")}
+      </div>
+    );
   }
 
   return (
@@ -619,7 +635,7 @@ function LibraryView({ entries }: { entries: JournalEntry[] }) {
                   isBook ? "text-amber-400/70" : "text-blue-400/70",
                 )}
               >
-                {isBook ?localizeUi("ui.game.libraryview.book") :localizeUi("ui.game.libraryview.note")}
+                {isBook ? localizeUi("ui.game.libraryview.book") : localizeUi("ui.game.libraryview.note")}
               </span>
               <span className="ml-auto text-[0.5625rem] text-white/30">{entry.timestamp}</span>
             </div>
@@ -636,11 +652,13 @@ function NotesView({ notes, onChange, saved }: { notes: string; onChange: (text:
   return (
     <div className="flex h-full flex-col gap-2">
       <div className="flex items-center justify-between">
-        <p className="text-[0.625rem] text-white/40">{localizeUi("ui.game.notesview.yourPersonalNotesVisibleToTheGameMasterAnd")}</p>
+        <p className="text-[0.625rem] text-white/40">
+          {localizeUi("ui.game.notesview.yourPersonalNotesVisibleToTheGameMasterAnd")}
+        </p>
         <span
           className={cn("text-[0.5625rem] transition-opacity", saved ? "text-emerald-400/60" : "text-amber-400/60")}
         >
-          {saved ?localizeUi("chat.settings.inlineEditor.saved") :localizeUi("ui.noodle.stageprofileform.saving")}
+          {saved ? localizeUi("chat.settings.inlineEditor.saved") : localizeUi("ui.noodle.stageprofileform.saving")}
         </span>
       </div>
       <div className="grid min-h-0 flex-1 gap-2 md:grid-cols-2">

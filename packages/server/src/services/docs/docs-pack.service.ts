@@ -106,17 +106,20 @@ async function resolvePinnedBase(base: string): Promise<string> {
   const ref = match[3]!;
   if (/^[0-9a-f]{40}$/.test(ref)) return base;
   try {
-    const response = await safeFetch(`https://api.github.com/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}`, {
-      policy: { allowedProtocols: ["https:"], allowedHostnames: ["api.github.com"] },
-      maxResponseBytes: 64 * 1024,
-      allowedContentTypes: ["application/vnd.github.sha", "text/plain", "application/json"],
-      allowMissingContentType: true,
-      headers: {
-        Accept: "application/vnd.github.sha",
-        "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+    const response = await safeFetch(
+      `https://api.github.com/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}`,
+      {
+        policy: { allowedProtocols: ["https:"], allowedHostnames: ["api.github.com"] },
+        maxResponseBytes: 64 * 1024,
+        allowedContentTypes: ["application/vnd.github.sha", "text/plain", "application/json"],
+        allowMissingContentType: true,
+        headers: {
+          Accept: "application/vnd.github.sha",
+          "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+        },
+        signal: AbortSignal.timeout(15_000),
       },
-      signal: AbortSignal.timeout(15_000),
-    });
+    );
     if (!response.ok) throw new Error(`GitHub ref lookup failed with HTTP ${response.status}`);
     const sha = (await response.text()).trim();
     if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error("GitHub ref lookup returned an unexpected body");
@@ -135,7 +138,10 @@ export function validateDocsPackPath(value: string): string {
     throw new Error(`Documentation pack manifest contains an unsafe path: ${JSON.stringify(value)}`);
   }
   const parts = value.split("/");
-  if (parts.length > MAX_PATH_DEPTH || parts.some((part) => !part || part === "." || part === ".." || part.includes(":"))) {
+  if (
+    parts.length > MAX_PATH_DEPTH ||
+    parts.some((part) => !part || part === "." || part === ".." || part.includes(":"))
+  ) {
     throw new Error(`Documentation pack manifest contains an unsafe path: ${JSON.stringify(value)}`);
   }
   if (!value.toLowerCase().endsWith(".md")) {
@@ -168,7 +174,8 @@ export function validateDocsPackManifest(raw: unknown, expectedLanguage: string)
     const folded = path.toLowerCase();
     if (seen.has(folded)) throw new Error(`Documentation pack manifest lists ${path} twice`);
     seen.add(folded);
-    if (!/^[0-9a-f]{64}$/.test(item.sha256)) throw new Error(`Documentation pack manifest has an invalid hash for ${path}`);
+    if (!/^[0-9a-f]{64}$/.test(item.sha256))
+      throw new Error(`Documentation pack manifest has an invalid hash for ${path}`);
     if (!Number.isInteger(item.bytes) || item.bytes <= 0 || item.bytes > MAX_FILE_BYTES) {
       throw new Error(`Documentation pack manifest has an invalid size for ${path}`);
     }
@@ -296,7 +303,9 @@ export async function listInstalledDocsPacks(): Promise<string[]> {
   if (!existsSync(root)) return [];
   const entries = await readdir(root, { withFileTypes: true });
   return entries
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && normalizeDocsLanguage(entry.name) === entry.name)
+    .filter(
+      (entry) => entry.isDirectory() && !entry.name.startsWith(".") && normalizeDocsLanguage(entry.name) === entry.name,
+    )
     .map((entry) => entry.name)
     .sort();
 }

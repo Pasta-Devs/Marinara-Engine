@@ -41,10 +41,7 @@ export function resolveRunPodComfyUiTimeoutSeconds(rawValue: string | undefined)
 }
 
 const COMFYUI_GEN_TIMEOUT_SECONDS = resolveRunPodComfyUiTimeoutSeconds(process.env.COMFYUI_GEN_TIMEOUT);
-const RUNPOD_MAX_POLLS = Math.max(
-  1,
-  Math.ceil((COMFYUI_GEN_TIMEOUT_SECONDS * 1000) / DEFAULT_RUNPOD_POLL_INTERVAL_MS),
-);
+const RUNPOD_MAX_POLLS = Math.max(1, Math.ceil((COMFYUI_GEN_TIMEOUT_SECONDS * 1000) / DEFAULT_RUNPOD_POLL_INTERVAL_MS));
 const RUNPOD_MAX_RESPONSE_BYTES = 30 * 1024 * 1024;
 interface RunPodRunResponse {
   id: string;
@@ -132,10 +129,7 @@ export async function generateRunPodComfyUI(
     for (const index of findMissingComfyReferenceSlots(wfStr, "reference_image", referenceImages.length)) {
       const placeholder = numberedComfyReferencePlaceholder("reference_image", index);
       logger.debug("Backfilled RunPod ComfyUI reference slot %s with the placeholder image", placeholder);
-      wfStr = wfStr.replaceAll(
-        placeholder,
-        escapeJsonStr(COMFYUI_PLACEHOLDER_REFERENCE_BASE64),
-      );
+      wfStr = wfStr.replaceAll(placeholder, escapeJsonStr(COMFYUI_PLACEHOLDER_REFERENCE_BASE64));
     }
   }
 

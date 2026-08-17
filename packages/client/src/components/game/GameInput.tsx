@@ -491,7 +491,9 @@ export function GameInput({
         <div className={cn("flex items-center", inline ? "px-0 pb-1" : "border-b border-foreground/10 px-4 py-2")}>
           <div className="flex min-w-0 items-center gap-1.5 rounded-lg border border-foreground/10 bg-foreground/10 px-2.5 py-1 text-[0.6875rem] text-foreground/80">
             <span className="shrink-0">📍</span>
-            <span className="min-w-0 truncate">{localizeUi("ui.game.gameinput.mapPosition")} {pendingMoveLabel}</span>
+            <span className="min-w-0 truncate">
+              {localizeUi("ui.game.gameinput.mapPosition")} {pendingMoveLabel}
+            </span>
             {onClearPendingMove && (
               <button
                 onClick={onClearPendingMove}
@@ -510,12 +512,15 @@ export function GameInput({
         ref={inputBarRef}
         className={getChatInputShellClass({
           className: cn(
-            riskyInterrupt &&
-              "ring-1 ring-red-500/40 bg-red-500/5 shadow-[0_0_18px_-6px_rgba(248,113,113,0.55)]",
+            riskyInterrupt && "ring-1 ring-red-500/40 bg-red-500/5 shadow-[0_0_18px_-6px_rgba(248,113,113,0.55)]",
             forceInterrupt && "ring-1",
           ),
           hasContent:
-            text.trim().length > 0 || attachments.length > 0 || !!queuedDice || !!pendingMoveLabel || canSubmitSpatialMove,
+            text.trim().length > 0 ||
+            attachments.length > 0 ||
+            !!queuedDice ||
+            !!pendingMoveLabel ||
+            canSubmitSpatialMove,
           inline,
           layout: "game",
         })}
@@ -562,7 +567,11 @@ export function GameInput({
                 >
                   <Users size={14} className="shrink-0" />
                   <span className="flex-1">{localizeUi("ui.game.gameinput.talkToParty")}</span>
-                  {addressMode === "party" && <span className="text-[0.625rem] uppercase tracking-wide">{localizeUi("ui.game.gameinput.on")}</span>}
+                  {addressMode === "party" && (
+                    <span className="text-[0.625rem] uppercase tracking-wide">
+                      {localizeUi("ui.game.gameinput.on")}
+                    </span>
+                  )}
                 </button>
               )}
               <button
@@ -576,7 +585,9 @@ export function GameInput({
               >
                 <MessageCircle size={14} className="shrink-0" />
                 <span className="flex-1">{localizeUi("ui.game.gameinput.talkToGm")}</span>
-                {addressMode === "gm" && <span className="text-[0.625rem] uppercase tracking-wide">{localizeUi("ui.game.gameinput.on")}</span>}
+                {addressMode === "gm" && (
+                  <span className="text-[0.625rem] uppercase tracking-wide">{localizeUi("ui.game.gameinput.on")}</span>
+                )}
               </button>
             </div>
           )}
@@ -593,10 +604,10 @@ export function GameInput({
             )}
             title={
               addressMode === "party"
-                ?localizeUi("ui.game.gameinput.chooseWhoToAddressCurrentlyParty")
+                ? localizeUi("ui.game.gameinput.chooseWhoToAddressCurrentlyParty")
                 : addressMode === "gm"
-                  ?localizeUi("ui.game.gameinput.chooseWhoToAddressCurrentlyGm")
-                  :localizeUi("ui.game.gameinput.chooseWhoToAddress")
+                  ? localizeUi("ui.game.gameinput.chooseWhoToAddressCurrentlyGm")
+                  : localizeUi("ui.game.gameinput.chooseWhoToAddress")
             }
             aria-haspopup="menu"
             aria-expanded={addressMenuOpen}
@@ -653,13 +664,17 @@ export function GameInput({
 
         {/* Right: Dice, Emoji (desktop), Send */}
         {riskyInterrupt && !queuedDice && (
-          <span className="hidden text-[0.625rem] font-medium uppercase tracking-wide text-red-300/80 sm:inline">{localizeUi("ui.game.gameinput.usingDiceRecommended")}</span>
+          <span className="hidden text-[0.625rem] font-medium uppercase tracking-wide text-red-300/80 sm:inline">
+            {localizeUi("ui.game.gameinput.usingDiceRecommended")}
+          </span>
         )}
         {forceInterrupt && (
           <span
             className="hidden text-[0.625rem] font-medium uppercase tracking-wide sm:inline"
             style={{ color: "#20C20E", opacity: 0.9 }}
-          >{localizeUi("ui.game.gameinput.forceInterrupting")}</span>
+          >
+            {localizeUi("ui.game.gameinput.forceInterrupting")}
+          </span>
         )}
         <button
           type="button"
@@ -673,7 +688,11 @@ export function GameInput({
               !queuedDice &&
               "animate-pulse text-red-300 ring-1 ring-red-400/60 shadow-[0_0_12px_-2px_rgba(248,113,113,0.85)] hover:text-red-200",
           )}
-          title={riskyInterrupt && !queuedDice ?localizeUi("ui.game.gameinput.rollDiceRecommendedForAnInterruptAttempt") :localizeUi("ui.game.gameinput.rollDice")}
+          title={
+            riskyInterrupt && !queuedDice
+              ? localizeUi("ui.game.gameinput.rollDiceRecommendedForAnInterruptAttempt")
+              : localizeUi("ui.game.gameinput.rollDice")
+          }
         >
           <Dices size={18} />
         </button>

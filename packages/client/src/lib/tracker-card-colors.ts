@@ -343,8 +343,7 @@ export function cleanTrackerCardColorConfig(config: unknown): TrackerCardColorCo
       : rawBoxColorOpacity;
   const glowIntensity = normalized.glowIntensity;
   const contrastIntensity = normalized.contrastIntensity;
-  const portraitStageBackground =
-    normalized.portraitStageBackground ?? DEFAULT_TRACKER_CARD_PORTRAIT_STAGE_BACKGROUND;
+  const portraitStageBackground = normalized.portraitStageBackground ?? DEFAULT_TRACKER_CARD_PORTRAIT_STAGE_BACKGROUND;
   const portraitFocusX = normalized.portraitFocusX;
   const portraitFocusY = normalized.portraitFocusY;
   const portraitZoom = normalized.portraitZoom;

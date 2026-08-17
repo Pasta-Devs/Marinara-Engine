@@ -11,10 +11,10 @@ type ChatModeAgentPolicy = { kind: "all" } | { kind: "allowlist"; allowedAgentId
 const CHAT_MODE_AGENT_POLICIES: Record<ChatMode, ChatModeAgentPolicy> = {
   // Conversation mode's About Me profile and update_about_me tool are core
   // features, not downloadable agents. User-authored custom agents remain allowed.
-  conversation: { kind: "allowlist", allowedAgentIds: [] },
+  conversation: { kind: "allowlist", allowedAgentIds: ["haptic"] },
   roleplay: { kind: "all" },
   // Music DJ is opt-in through the game music toggle, not enabled by default.
-  game: { kind: "allowlist", allowedAgentIds: ["spotify"] },
+  game: { kind: "allowlist", allowedAgentIds: ["spotify", "haptic"] },
 };
 
 export function isAgentManifestAvailableInChatMode(

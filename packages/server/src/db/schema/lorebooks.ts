@@ -181,6 +181,8 @@ export const lorebookEntries = fileTable("lorebook_entries", {
 
   /** Pre-computed embedding vector (JSON array of floats) for semantic matching */
   embedding: text("embedding"),
+  /** Stable provider/model/profile identity for the stored embedding */
+  embeddingSpaceId: text("embedding_space_id"),
 
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

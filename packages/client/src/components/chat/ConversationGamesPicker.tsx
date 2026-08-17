@@ -27,7 +27,12 @@ export function ConversationGamesPicker({ chatId, open, onClose }: Props) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={localizeUi("ui.chat.conversationgamespicker.startAGame")} width="max-w-lg">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={localizeUi("ui.chat.conversationgamespicker.startAGame")}
+      width="max-w-lg"
+    >
       <div className="space-y-3">
         <div className="grid gap-2 sm:grid-cols-2">
           {games.map((game) => (
@@ -56,18 +61,19 @@ export function ConversationGamesPicker({ chatId, open, onClose }: Props) {
                   className="mt-1 shrink-0 text-[var(--muted-foreground)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--primary)]"
                 />
               </span>
-              <span className="mt-3 text-xs leading-5 text-[var(--muted-foreground)]">
-                {game.manifest.description}
-              </span>
+              <span className="mt-3 text-xs leading-5 text-[var(--muted-foreground)]">{game.manifest.description}</span>
             </button>
           ))}
         </div>
         {games.length > 0 ? (
-          <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("ui.chat.conversationgamespicker.youCanAlsoStartTheseDirectlyWith")}{" "}
+          <p className="text-xs text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.conversationgamespicker.youCanAlsoStartTheseDirectlyWith")}{" "}
             {games.map((game) => game.manifest.contributions!.conversationGame!.command).join(", ")}.
           </p>
         ) : (
-          <p className="rounded-lg border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--muted-foreground)]">{localizeUi("ui.chat.conversationgamespicker.noConversationGamesAreInstalledOpenAgentsDownloadAgents")}</p>
+          <p className="rounded-lg border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.conversationgamespicker.noConversationGamesAreInstalledOpenAgentsDownloadAgents")}
+          </p>
         )}
       </div>
     </Modal>

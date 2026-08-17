@@ -211,9 +211,14 @@ export function GameInventory({
         <div className="flex items-center justify-between border-b border-white/8 bg-white/[0.02] px-4 py-3">
           <div className="flex items-center gap-2">
             <Package size={15} className="text-amber-400/80" />
-            <h2 className="text-sm font-semibold tracking-wide text-white/90">{localizeUi("ui.game.gamecharactersheet.inventory")}</h2>
+            <h2 className="text-sm font-semibold tracking-wide text-white/90">
+              {localizeUi("ui.game.gamecharactersheet.inventory")}
+            </h2>
             <span className="rounded bg-white/8 px-1.5 py-0.5 text-[0.6rem] tabular-nums text-white/80">
-              {items.length} {items.length === 1 ?localizeUi("ui.game.gameinventory.item") :localizeUi("ui.panels.importsettings.items")}
+              {items.length}{" "}
+              {items.length === 1
+                ? localizeUi("ui.game.gameinventory.item")
+                : localizeUi("ui.panels.importsettings.items")}
             </span>
           </div>
           <button
@@ -238,7 +243,8 @@ export function GameInventory({
                   >
                     <ChevronLeft size={12} />
                   </button>
-                  <span className="tabular-nums">{localizeUi("ui.game.gameinventory.page")} {pageIndex + 1} / {pageCount}
+                  <span className="tabular-nums">
+                    {localizeUi("ui.game.gameinventory.page")} {pageIndex + 1} / {pageCount}
                   </span>
                   <button
                     onClick={() => setPageIndex((page) => Math.min(pageCount - 1, page + 1))}
@@ -271,8 +277,12 @@ export function GameInventory({
           ) : (
             <div className="flex min-h-40 flex-col items-center justify-center rounded border border-dashed border-white/10 bg-white/[0.02] px-4 text-center">
               <Package size={18} className="mb-2 text-white/25" />
-              <div className="text-[0.75rem] font-medium text-white/55">{localizeUi("ui.game.gameinventory.inventoryEmpty")}</div>
-              <div className="mt-1 text-[0.65rem] text-white/35">{localizeUi("ui.game.gameinventory.addAnItemToStartTrackingSupplies")}</div>
+              <div className="text-[0.75rem] font-medium text-white/55">
+                {localizeUi("ui.game.gameinventory.inventoryEmpty")}
+              </div>
+              <div className="mt-1 text-[0.65rem] text-white/35">
+                {localizeUi("ui.game.gameinventory.addAnItemToStartTrackingSupplies")}
+              </div>
             </div>
           )}
         </div>
@@ -285,7 +295,9 @@ export function GameInventory({
                 {selectedItem}
               </div>
             ) : (
-              <div className="mb-2 text-[0.7rem] font-medium text-white/45">{localizeUi("ui.game.gameinventory.addANewItemThenRenameIt")}</div>
+              <div className="mb-2 text-[0.7rem] font-medium text-white/45">
+                {localizeUi("ui.game.gameinventory.addANewItemThenRenameIt")}
+              </div>
             )}
             {onRenameItem && selectedInventoryItem && (
               <div className="mb-2.5 flex gap-1.5">
@@ -312,7 +324,9 @@ export function GameInventory({
                   }
                   className="flex shrink-0 items-center justify-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-1.5 text-[0.7rem] font-semibold text-amber-300 transition-colors hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <Check size={12} />{localizeUi("ui.noodle.noodlehome.save")}</button>
+                  <Check size={12} />
+                  {localizeUi("ui.noodle.noodlehome.save")}
+                </button>
               </div>
             )}
             <div className="flex gap-1.5">
@@ -322,12 +336,16 @@ export function GameInventory({
                   disabled={addPending}
                   className="flex flex-1 items-center justify-center gap-1 rounded border border-white/8 bg-white/[0.03] py-1.5 text-[0.7rem] text-white/70 transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <Plus size={12} />{localizeUi("ui.characters.metadatatab.add")}</button>
+                  <Plus size={12} />
+                  {localizeUi("ui.characters.metadatatab.add")}
+                </button>
               )}
               {selectedInventoryItem && (onRemoveItem || onIncrementItem) && (
                 <div
                   className="flex h-7 shrink-0 items-center overflow-hidden rounded border border-white/8 bg-white/[0.03]"
-                  aria-label={localizeUi("ui.game.gameinventory.value1AmountControls", { value1: selectedInventoryItem.name })}
+                  aria-label={localizeUi("ui.game.gameinventory.value1AmountControls", {
+                    value1: selectedInventoryItem.name,
+                  })}
                 >
                   {onRemoveItem && (
                     <button
@@ -337,10 +355,16 @@ export function GameInventory({
                       className="flex h-full w-7 items-center justify-center text-white/65 transition-colors hover:bg-white/[0.07] hover:text-white/90 disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label={
                         selectedInventoryItem.quantity > 1
-                          ?localizeUi("ui.game.gameinventory.decreaseValue1Amount", { value1: selectedInventoryItem.name })
-                          :localizeUi("ui.game.gameinventory.deleteValue1", { value1: selectedInventoryItem.name })
+                          ? localizeUi("ui.game.gameinventory.decreaseValue1Amount", {
+                              value1: selectedInventoryItem.name,
+                            })
+                          : localizeUi("ui.game.gameinventory.deleteValue1", { value1: selectedInventoryItem.name })
                       }
-                      title={selectedInventoryItem.quantity > 1 ?localizeUi("ui.game.gameinventory.decreaseAmount") :localizeUi("ui.game.gameinventory.deleteItem")}
+                      title={
+                        selectedInventoryItem.quantity > 1
+                          ? localizeUi("ui.game.gameinventory.decreaseAmount")
+                          : localizeUi("ui.game.gameinventory.deleteItem")
+                      }
                     >
                       <Minus size={12} />
                     </button>
@@ -354,7 +378,9 @@ export function GameInventory({
                       onClick={() => void handleIncrement(selectedInventoryItem.name)}
                       disabled={amountPending !== null}
                       className="flex h-full w-7 items-center justify-center text-white/65 transition-colors hover:bg-white/[0.07] hover:text-white/90 disabled:cursor-not-allowed disabled:opacity-40"
-                      aria-label={localizeUi("ui.game.gameinventory.increaseValue1Amount", { value1: selectedInventoryItem.name })}
+                      aria-label={localizeUi("ui.game.gameinventory.increaseValue1Amount", {
+                        value1: selectedInventoryItem.name,
+                      })}
                       title={localizeUi("ui.game.gameinventory.increaseAmount")}
                     >
                       <Plus size={12} />
@@ -367,7 +393,9 @@ export function GameInventory({
                   onClick={() => handleUse(selectedItem)}
                   className="flex flex-1 items-center justify-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 py-1.5 text-[0.7rem] font-semibold text-amber-400 transition-colors hover:bg-amber-500/15"
                 >
-                  <Wand2 size={12} />{localizeUi("ui.agents.agenteditor.use")}</button>
+                  <Wand2 size={12} />
+                  {localizeUi("ui.agents.agenteditor.use")}
+                </button>
               )}
             </div>
           </div>
@@ -415,8 +443,20 @@ function InventorySlot({ item, globalIndex, selected, reorderEnabled, onClick }:
       {...listeners}
       onClick={onClick}
       disabled={!item}
-      title={item ? (item.quantity > 1 ?localizeUi("ui.game.inventoryslot.value1Value2", { value1: item.name, value2: item.quantity }) : item.name) : undefined}
-      aria-label={item ? (item.quantity > 1 ?localizeUi("ui.game.inventoryslot.value1XValue2", { value1: item.name, value2: item.quantity }) : item.name) : undefined}
+      title={
+        item
+          ? item.quantity > 1
+            ? localizeUi("ui.game.inventoryslot.value1Value2", { value1: item.name, value2: item.quantity })
+            : item.name
+          : undefined
+      }
+      aria-label={
+        item
+          ? item.quantity > 1
+            ? localizeUi("ui.game.inventoryslot.value1XValue2", { value1: item.name, value2: item.quantity })
+            : item.name
+          : undefined
+      }
       aria-pressed={enabled ? isDragging : undefined}
       className={cn(
         "group relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded border transition-all",
@@ -444,7 +484,9 @@ function InventorySlot({ item, globalIndex, selected, reorderEnabled, onClick }:
                 {item.name}
               </span>
               {item.quantity > 1 && (
-                <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 text-[0.55rem] font-semibold tabular-nums text-white">{localizeUi("ui.panels.imagedimensionrow.x")}{item.quantity}
+                <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 text-[0.55rem] font-semibold tabular-nums text-white">
+                  {localizeUi("ui.panels.imagedimensionrow.x")}
+                  {item.quantity}
                 </span>
               )}
             </div>

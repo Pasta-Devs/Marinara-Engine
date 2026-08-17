@@ -53,14 +53,16 @@ export function createAgentLorebookTriggerResolver(
 ): (contextMessages: AgentContext["recentMessages"]) => Promise<TriggeredEntriesByAgentId> {
   let enabledLorebooksByIdPromise: Promise<Map<string, Lorebook>> | null = null;
   const getEnabledLorebooksById = () => {
-    enabledLorebooksByIdPromise ??= options.listLorebooks().then(
-      (lorebooks) =>
-        new Map(
-          lorebooks
-            .filter((lorebook) => lorebook.enabled !== false)
-            .map((lorebook) => [lorebook.id, lorebook] as const),
-        ),
-    );
+    enabledLorebooksByIdPromise ??= options
+      .listLorebooks()
+      .then(
+        (lorebooks) =>
+          new Map(
+            lorebooks
+              .filter((lorebook) => lorebook.enabled !== false)
+              .map((lorebook) => [lorebook.id, lorebook] as const),
+          ),
+      );
     return enabledLorebooksByIdPromise;
   };
   const entriesBySourceKey = new Map<string, Promise<LorebookEntry[]>>();
@@ -135,6 +137,7 @@ export function createAgentLorebookTriggerResolver(
         let chatEmbedding: number[] | null = null;
         let semanticEmbeddingsByLorebookId: Map<string, number[] | null> | undefined;
         let semanticSimilarityBaseline = 0;
+        let semanticEmbeddingSpaceId: string | null = null;
         if (
           source.entries.some((entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0) &&
           options.vectorizerAvailable
@@ -150,6 +153,7 @@ export function createAgentLorebookTriggerResolver(
             chatEmbedding = semanticEmbeddings.defaultEmbedding;
             semanticEmbeddingsByLorebookId = semanticEmbeddings.embeddingsByLorebookId;
             semanticSimilarityBaseline = semanticEmbeddings.similarityBaseline;
+            semanticEmbeddingSpaceId = semanticEmbeddings.embeddingSpaceId;
           } catch (err) {
             logger.warn(
               err,
@@ -164,6 +168,7 @@ export function createAgentLorebookTriggerResolver(
           gameState: options.gameState,
           chatEmbedding,
           semanticEmbeddingsByLorebookId,
+          semanticEmbeddingSpaceId,
           semanticSimilarityBaseline,
           activeCharacterIds: options.activeCharacterIds,
           activeCharacterTags: options.activeCharacterTags,

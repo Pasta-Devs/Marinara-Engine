@@ -113,9 +113,7 @@ function ExpandedMacroEditor({
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
       const textarea = event.currentTarget;
-      const nextValue = formatOnChange
-        ? formatOnChange(textarea, event.nativeEvent as InputEvent)
-        : textarea.value;
+      const nextValue = formatOnChange ? formatOnChange(textarea, event.nativeEvent as InputEvent) : textarea.value;
       onChange(nextValue);
       setLocalValue(textarea.value);
     },

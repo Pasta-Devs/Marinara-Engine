@@ -79,7 +79,9 @@ async function fetchAutonomousCandidates(): Promise<Array<{ id: string }>> {
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
         candidatesEndpointUnavailable = true;
-        console.debug("[background-autonomous] Server predates /chats/autonomous-candidates; using legacy chat-list polling");
+        console.debug(
+          "[background-autonomous] Server predates /chats/autonomous-candidates; using legacy chat-list polling",
+        );
       }
       // Fall through to the legacy path either way.
     }

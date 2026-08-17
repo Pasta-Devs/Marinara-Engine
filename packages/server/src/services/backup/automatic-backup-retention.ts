@@ -25,10 +25,7 @@ export function normalizeAutomaticBackupRetentionCount(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return DEFAULT_AUTOMATIC_BACKUP_RETENTION_COUNT;
   }
-  return Math.min(
-    AUTOMATIC_BACKUP_RETENTION_MAX,
-    Math.max(AUTOMATIC_BACKUP_RETENTION_MIN, Math.trunc(value)),
-  );
+  return Math.min(AUTOMATIC_BACKUP_RETENTION_MAX, Math.max(AUTOMATIC_BACKUP_RETENTION_MIN, Math.trunc(value)));
 }
 
 export function automaticBackupArchiveFilename(date: Date, uniqueSuffix = ""): string {
@@ -78,10 +75,7 @@ export async function automaticBackupExists(backupsRoot: string): Promise<boolea
   return (await listAutomaticBackupFiles(backupsRoot)).length > 0;
 }
 
-export async function pruneAutomaticBackupFiles(
-  backupsRoot: string,
-  retentionCount: number,
-): Promise<string[]> {
+export async function pruneAutomaticBackupFiles(backupsRoot: string, retentionCount: number): Promise<string[]> {
   const keep = normalizeAutomaticBackupRetentionCount(retentionCount);
   const files = await listAutomaticBackupFiles(backupsRoot);
   const removed: string[] = [];

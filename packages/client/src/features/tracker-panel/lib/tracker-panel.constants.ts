@@ -12,6 +12,7 @@ export const TRACKER_SECTION_AGENT_TYPES: Partial<Record<TrackerPanelSection, st
   world: "world-state",
   persona: "persona-stats",
   characters: "character-tracker",
+  inventory: "inventory-tracker",
   quests: "quest",
   custom: "custom-tracker",
 };
@@ -20,6 +21,7 @@ export const TRACKER_SECTION_RERUN_TITLES: Partial<Record<TrackerPanelSection, s
   world: "Re-run world state tracker",
   persona: "Re-run persona tracker",
   characters: "Re-run character tracker",
+  inventory: "Re-run inventory tracker",
   quests: "Re-run quest tracker",
   custom: "Re-run custom tracker",
 };

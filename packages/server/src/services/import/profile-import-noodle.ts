@@ -17,9 +17,7 @@ export type ProfileNoodleImportWarning = {
   path?: string;
   message: string;
 };
-type ProfileImportWarning =
-  | ProfileNoodleImportWarning
-  | { type: "missing_asset"; path: string; message: string };
+type ProfileImportWarning = ProfileNoodleImportWarning | { type: "missing_asset"; path: string; message: string };
 
 type AccountIdentity = { platform: string; kind: string; entityId: string };
 

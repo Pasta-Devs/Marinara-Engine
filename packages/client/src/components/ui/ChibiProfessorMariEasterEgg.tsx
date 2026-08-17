@@ -48,9 +48,7 @@ function showChibiProfessorMariToast() {
           }}
         />
         <div className="space-y-2 text-sm leading-relaxed">
-          <p>
-            {translate("ui.chibiProfessorMari.visit")}
-          </p>
+          <p>{translate("ui.chibiProfessorMari.visit")}</p>
           <p>{translate("ui.chibiProfessorMari.fortune")}</p>
           <p>{translate("ui.chibiProfessorMari.loved")}</p>
         </div>

@@ -7,11 +7,7 @@ interface GamePeekPromptButtonProps {
   onPeekPrompt: (messageId: string) => void;
 }
 
-export default function GamePeekPromptButton({
-  messageId,
-  className,
-  onPeekPrompt,
-}: GamePeekPromptButtonProps) {
+export default function GamePeekPromptButton({ messageId, className, onPeekPrompt }: GamePeekPromptButtonProps) {
   const { t: localizeUi } = useUiTranslation();
   return (
     <button

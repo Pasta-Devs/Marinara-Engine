@@ -5,12 +5,12 @@ import {
   type GenerationFallbackNotice,
   type GenerationFallbackNotifier,
 } from "../../services/generation/fallback-notification.js";
-import { trySendSseEvent } from "./sse.js";
+import { sendSseEvent } from "./sse.js";
 
 export function createReplyFallbackNotifier(reply: FastifyReply): GenerationFallbackNotifier {
   return (notice: GenerationFallbackNotice) => {
     if (reply.raw.headersSent) {
-      trySendSseEvent(reply, { type: "fallback_used", data: notice });
+      sendSseEvent(reply, { type: "fallback_used", data: notice });
       return;
     }
     reply.header(GENERATION_FALLBACK_HEADER, encodeGenerationFallbackNotice(notice));

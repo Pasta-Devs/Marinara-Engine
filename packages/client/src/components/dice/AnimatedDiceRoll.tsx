@@ -100,11 +100,14 @@ export function AnimatedDiceRoll({
     const interval = window.setInterval(() => {
       setDisplayValues(rolls.map(() => randomFace(sides)));
     }, 72);
-    const impactTimer = window.setTimeout(() => {
-      window.clearInterval(interval);
-      setDisplayValues(rolls);
-      setPhase("impact");
-    }, Math.min(980, 620 + rolls.length * 46));
+    const impactTimer = window.setTimeout(
+      () => {
+        window.clearInterval(interval);
+        setDisplayValues(rolls);
+        setPhase("impact");
+      },
+      Math.min(980, 620 + rolls.length * 46),
+    );
     const settledTimer = window.setTimeout(() => setPhase("settled"), Math.min(1180, 820 + rolls.length * 48));
 
     return () => {
@@ -136,11 +139,16 @@ export function AnimatedDiceRoll({
       style={style}
     >
       <div className="dice-roll-header">
-        <span className="dice-roll-header-mark" aria-hidden="true">✦</span>
+        <span className="dice-roll-header-mark" aria-hidden="true">
+          ✦
+        </span>
         <span>{notation}</span>
       </div>
 
-      <div className="dice-stage" aria-label={localizeUi("ui.dice.animateddiceroll.rolledValue1Value2", { value1: notation, value2: rollText })}>
+      <div
+        className="dice-stage"
+        aria-label={localizeUi("ui.dice.animateddiceroll.rolledValue1Value2", { value1: notation, value2: rollText })}
+      >
         {rolls.map((roll, index) => {
           const shown = displayValues[index] ?? roll;
           const emphasized = highlightValue == null || roll === highlightValue;
@@ -166,9 +174,15 @@ export function AnimatedDiceRoll({
               in pool systems that count successes, and printing "4 + 1 + 9 = 1"
               makes correct results look like broken arithmetic. */}
           {sumsToTotal ? (
-            <>{rolls.join(" + ")}{modifierText && ` ${modifierText}`}</>
+            <>
+              {rolls.join(" + ")}
+              {modifierText && ` ${modifierText}`}
+            </>
           ) : (
-            <>{rolls.join(" · ")}{resolution === "sum" && modifierText && ` ${modifierText}`}</>
+            <>
+              {rolls.join(" · ")}
+              {resolution === "sum" && modifierText && ` ${modifierText}`}
+            </>
           )}
         </span>
         <span className={cn("dice-roll-total", totalVisible && "is-visible")}>
@@ -181,7 +195,12 @@ export function AnimatedDiceRoll({
       </div>
 
       {onDismiss && (
-        <button type="button" onClick={onDismiss} className="dice-roll-dismiss" aria-label={localizeUi("ui.dice.animateddiceroll.dismissDiceRollResult")}>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="dice-roll-dismiss"
+          aria-label={localizeUi("ui.dice.animateddiceroll.dismissDiceRollResult")}
+        >
           <X size={14} />
         </button>
       )}

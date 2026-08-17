@@ -197,6 +197,7 @@ export interface PostProcessContext {
   availableSfx: string[];
   useSpotifyMusic?: boolean;
   generateSoundEffects?: boolean;
+  /** Accepted for caller compatibility; music free-text is retired (#5161) and this no longer changes behavior. */
   generateMusic?: boolean;
   availableSpotifyTracks?: SceneSpotifyTrackCandidate[];
   validWidgetIds: Set<string>;
@@ -264,8 +265,9 @@ function postProcessSegment(seg: SceneSegmentEffect, ctx: PostProcessContext): S
       out.sfx = matched;
     }
   }
-  out.music =
-    ctx.generateMusic && !ctx.useSpotifyMusic ? (sanitizeGeneratedAudioPrompt(out.music) ?? undefined) : undefined;
+  // Music is never a free-text prompt anymore (#5161): segment music strings
+  // are dropped outright — deterministic scoring owns every music decision.
+  out.music = undefined;
 
   // Widget Updates
   const outWithWidgets = out as SceneSegmentEffect & { widgetUpdates?: Array<{ widgetId?: string }> };
@@ -334,10 +336,13 @@ export function postProcessSceneResult(raw: SceneAnalysis, ctx: PostProcessConte
   if (result.background === "null") result.background = null;
   if (result.weather === "null") result.weather = null;
   result.timeOfDay = normalizeSceneTimeOfDay(rawRecord.timeOfDay);
-  result.music =
-    ctx.generateMusic && !ctx.useSpotifyMusic ? sanitizeGeneratedAudioPrompt(rawRecord.music) : null;
+  // Music is never a free-text prompt anymore (#5161): postprocess always
+  // clears it and the deterministic scoring pass downstream fills it with a
+  // library tag (context tracks included). Genre/intensity hints are parsed
+  // whenever Spotify isn't driving playback.
+  result.music = null;
   result.ambient = null;
-  if (ctx.useSpotifyMusic || ctx.generateMusic) {
+  if (ctx.useSpotifyMusic) {
     result.musicGenre = null;
     result.musicIntensity = null;
   } else {
@@ -429,6 +434,10 @@ export function postProcessSceneResult(raw: SceneAnalysis, ctx: PostProcessConte
 
 function sanitizeGeneratedAudioPrompt(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const prompt = value.replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 500);
+  const prompt = value
+    .replace(/[\u0000-\u001f<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 500);
   return prompt && prompt.toLowerCase() !== "null" ? prompt : null;
 }

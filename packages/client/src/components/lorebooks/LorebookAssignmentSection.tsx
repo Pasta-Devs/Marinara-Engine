@@ -104,9 +104,17 @@ export function LorebookAssignmentSection({
     try {
       const res = await embedLorebook.mutateAsync({ characterId: ownerId, lorebookId: lorebook.id });
       onEmbedded?.({ lorebookId: lorebook.id, characterBook: res.characterBook });
-      toast.success(res.refreshed ?localizeUi("ui.lorebooks.lorebookassignmentsection.refreshedEmbeddedValue1", { value1: lorebook.name }) :localizeUi("ui.lorebooks.lorebookassignmentsection.embeddedValue1IntoTheCard", { value1: lorebook.name }));
+      toast.success(
+        res.refreshed
+          ? localizeUi("ui.lorebooks.lorebookassignmentsection.refreshedEmbeddedValue1", { value1: lorebook.name })
+          : localizeUi("ui.lorebooks.lorebookassignmentsection.embeddedValue1IntoTheCard", { value1: lorebook.name }),
+      );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.lorebooks.lorebookassignmentsection.failedToEmbedLorebook"));
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : localizeUi("ui.lorebooks.lorebookassignmentsection.failedToEmbedLorebook"),
+      );
     } finally {
       onEmbeddingChange?.(false);
     }
@@ -173,10 +181,16 @@ export function LorebookAssignmentSection({
           ? { characterIds: uniqueIds([...ownerIds, ownerId]) }
           : { personaIds: uniqueIds([...ownerIds, ownerId]) }),
       });
-      toast.success(localizeUi("ui.lorebooks.lorebookassignmentsection.assignedValue1", { value1: selectedLorebook.name }));
+      toast.success(
+        localizeUi("ui.lorebooks.lorebookassignmentsection.assignedValue1", { value1: selectedLorebook.name }),
+      );
       setDraft(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.lorebooks.lorebookassignmentsection.failedToAssignLorebook"));
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : localizeUi("ui.lorebooks.lorebookassignmentsection.failedToAssignLorebook"),
+      );
     }
   };
 
@@ -191,11 +205,17 @@ export function LorebookAssignmentSection({
       });
       toast.success(
         isEmbedded
-          ?localizeUi("ui.lorebooks.lorebookassignmentsection.unlinkedValue1ItSStillEmbeddedInTheCard", { value1: lorebook.name })
-          :localizeUi("ui.lorebooks.lorebookassignmentsection.removedValue1", { value1: lorebook.name }),
+          ? localizeUi("ui.lorebooks.lorebookassignmentsection.unlinkedValue1ItSStillEmbeddedInTheCard", {
+              value1: lorebook.name,
+            })
+          : localizeUi("ui.lorebooks.lorebookassignmentsection.removedValue1", { value1: lorebook.name }),
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.lorebooks.lorebookassignmentsection.failedToRemoveLorebook"));
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : localizeUi("ui.lorebooks.lorebookassignmentsection.failedToRemoveLorebook"),
+      );
     }
   };
 
@@ -207,7 +227,11 @@ export function LorebookAssignmentSection({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold">{localizeUi("navigation.topbar.lorebooks")}</h3>
-          <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{localizeUi("ui.lorebooks.lorebookassignmentsection.assignCharacterCategoryLorebooksAndDecideWhichChatsCan")}</p>
+          <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+            {localizeUi(
+              "ui.lorebooks.lorebookassignmentsection.assignCharacterCategoryLorebooksAndDecideWhichChatsCan",
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-1.5">
           <button
@@ -216,14 +240,18 @@ export function LorebookAssignmentSection({
             disabled={!ownerId}
             className="mari-editor-action mari-editor-action--compact inline-flex gap-1.5 rounded-lg px-3 py-1.5 text-xs"
           >
-            <Plus size="0.75rem" />{localizeUi("ui.lorebooks.lorebookassignmentsection.new")}</button>
+            <Plus size="0.75rem" />
+            {localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
+          </button>
           <button
             type="button"
             onClick={() => openAssignment()}
             disabled={!ownerId}
             className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex gap-1.5 rounded-lg px-3 py-1.5 text-xs"
           >
-            <BookOpen size="0.75rem" />{localizeUi("ui.lorebooks.lorebookassignmentsection.assignLorebook")}</button>
+            <BookOpen size="0.75rem" />
+            {localizeUi("ui.lorebooks.lorebookassignmentsection.assignLorebook")}
+          </button>
         </div>
       </div>
 
@@ -256,18 +284,26 @@ export function LorebookAssignmentSection({
                   type="button"
                   onClick={() => openAssignment(lorebook)}
                   className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
-                >{localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}</button>
+                >
+                  {localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}
+                </button>
                 {ownerType === "character" &&
                   (lorebook.id === embeddedLorebookId ? (
                     <>
-                      <span className="rounded-lg bg-emerald-500/15 px-2 py-1 text-[0.625rem] font-medium text-emerald-500">{localizeUi("ui.lorebooks.lorebookassignmentsection.embedded")}</span>
+                      <span className="rounded-lg bg-emerald-500/15 px-2 py-1 text-[0.625rem] font-medium text-emerald-500">
+                        {localizeUi("ui.lorebooks.lorebookassignmentsection.embedded")}
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleEmbed(lorebook)}
                         disabled={embedLorebook.isPending}
                         className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
-                        title={localizeUi("ui.lorebooks.lorebookassignmentsection.rewriteTheCardSEmbeddedCopyFromThisLorebook")}
-                      >{localizeUi("ui.noodle.noodlehome.refresh")}</button>
+                        title={localizeUi(
+                          "ui.lorebooks.lorebookassignmentsection.rewriteTheCardSEmbeddedCopyFromThisLorebook",
+                        )}
+                      >
+                        {localizeUi("ui.noodle.noodlehome.refresh")}
+                      </button>
                     </>
                   ) : embeddedLorebookId || slotOccupied ? (
                     <button
@@ -275,15 +311,21 @@ export function LorebookAssignmentSection({
                       disabled
                       className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
                       title={localizeUi("ui.lorebooks.lorebookassignmentsection.removeTheCurrentEmbeddedLorebookFirst")}
-                    >{localizeUi("ui.lorebooks.lorebookassignmentsection.embedIntoCard")}</button>
+                    >
+                      {localizeUi("ui.lorebooks.lorebookassignmentsection.embedIntoCard")}
+                    </button>
                   ) : (
                     <button
                       type="button"
                       onClick={() => handleEmbed(lorebook)}
                       disabled={embedLorebook.isPending}
                       className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
-                      title={localizeUi("ui.lorebooks.lorebookassignmentsection.writeThisLorebookIntoTheCharacterCardSoIt")}
-                    >{localizeUi("ui.lorebooks.lorebookassignmentsection.embedIntoCard")}</button>
+                      title={localizeUi(
+                        "ui.lorebooks.lorebookassignmentsection.writeThisLorebookIntoTheCharacterCardSoIt",
+                      )}
+                    >
+                      {localizeUi("ui.lorebooks.lorebookassignmentsection.embedIntoCard")}
+                    </button>
                   ))}
                 <button
                   type="button"
@@ -292,8 +334,8 @@ export function LorebookAssignmentSection({
                   className="mari-editor-action mari-editor-action--compact mari-editor-action--danger inline-flex h-7 w-7 rounded-lg p-0"
                   title={
                     ownerType === "character" && lorebook.id === embeddedLorebookId
-                      ?localizeUi("ui.lorebooks.lorebookassignmentsection.unlinkLorebookTheCardSEmbeddedCopyStaysUse")
-                      :localizeUi("ui.lorebooks.lorebookassignmentsection.removeLorebook")
+                      ? localizeUi("ui.lorebooks.lorebookassignmentsection.unlinkLorebookTheCardSEmbeddedCopyStaysUse")
+                      : localizeUi("ui.lorebooks.lorebookassignmentsection.removeLorebook")
                   }
                 >
                   <Trash2 size="0.75rem" />
@@ -304,7 +346,12 @@ export function LorebookAssignmentSection({
         </div>
       ) : null}
 
-      <Modal open={draft !== null} onClose={() => setDraft(null)} title={localizeUi("ui.lorebooks.lorebookassignmentsection.assignLorebook")} width="max-w-3xl">
+      <Modal
+        open={draft !== null}
+        onClose={() => setDraft(null)}
+        title={localizeUi("ui.lorebooks.lorebookassignmentsection.assignLorebook")}
+        width="max-w-3xl"
+      >
         {draft && (
           <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto">
             <div className="relative">
@@ -325,7 +372,9 @@ export function LorebookAssignmentSection({
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_16rem]">
               <div className="min-h-48 space-y-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-1.5">
                 {filteredLorebooks.length === 0 ? (
-                  <p className="px-3 py-6 text-center text-xs text-[var(--muted-foreground)]">{localizeUi("ui.lorebooks.lorebookassignmentsection.noMatchingLorebooks")}</p>
+                  <p className="px-3 py-6 text-center text-xs text-[var(--muted-foreground)]">
+                    {localizeUi("ui.lorebooks.lorebookassignmentsection.noMatchingLorebooks")}
+                  </p>
                 ) : (
                   filteredLorebooks.map((lorebook) => {
                     const assigned = isLorebookAssignedToOwner(lorebook, ownerType, ownerId);
@@ -357,7 +406,9 @@ export function LorebookAssignmentSection({
                           <span className="block truncate text-xs font-medium">{lorebook.name}</span>
                           <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
                             {assigned
-                              ?localizeUi("ui.lorebooks.lorebookassignmentsection.alreadyAssignedToValue1", { value1: ownerName || ownerType })
+                              ? localizeUi("ui.lorebooks.lorebookassignmentsection.alreadyAssignedToValue1", {
+                                  value1: ownerName || ownerType,
+                                })
                               : lorebook.description || "No description"}
                           </span>
                         </span>
@@ -371,7 +422,13 @@ export function LorebookAssignmentSection({
               <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
                 <div>
                   <p className="text-xs font-semibold">{localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}</p>
-                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">{localizeUi("ui.lorebooks.lorebookassignmentsection.controlsWhereThisAssignmentIsActiveAllChatsMeans")} {ownerLabel}{localizeUi("ui.lorebooks.lorebookassignmentsection.notEveryChatInMarinara")}</p>
+                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi(
+                      "ui.lorebooks.lorebookassignmentsection.controlsWhereThisAssignmentIsActiveAllChatsMeans",
+                    )}{" "}
+                    {ownerLabel}
+                    {localizeUi("ui.lorebooks.lorebookassignmentsection.notEveryChatInMarinara")}
+                  </p>
                 </div>
 
                 {(["all", "disabled", "specific"] as const).map((mode) => (
@@ -387,10 +444,10 @@ export function LorebookAssignmentSection({
                     )}
                   >
                     {mode === "all"
-                      ?localizeUi("ui.lorebooks.lorebookassignmentsection.allChatsWithValue1", { value1: ownerLabel })
+                      ? localizeUi("ui.lorebooks.lorebookassignmentsection.allChatsWithValue1", { value1: ownerLabel })
                       : mode === "disabled"
-                        ?localizeUi("ui.lorebooks.lorebookassignmentsection.disabledForAllChats")
-                        :localizeUi("ui.lorebooks.lorebookassignmentsection.specificChats")}
+                        ? localizeUi("ui.lorebooks.lorebookassignmentsection.disabledForAllChats")
+                        : localizeUi("ui.lorebooks.lorebookassignmentsection.specificChats")}
                     {draft.mode === mode && <Check size="0.75rem" />}
                   </button>
                 ))}
@@ -398,7 +455,10 @@ export function LorebookAssignmentSection({
                 {draft.mode === "specific" && (
                   <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg bg-[var(--card)] p-1.5 ring-1 ring-[var(--border)]">
                     {eligibleChats.length === 0 ? (
-                      <p className="px-2 py-3 text-[0.625rem] text-[var(--muted-foreground)]">{localizeUi("ui.lorebooks.lorebookassignmentsection.noChatsInclude")} {ownerName || ownerType} {localizeUi("ui.lorebooks.lorebookassignmentsection.yet")}</p>
+                      <p className="px-2 py-3 text-[0.625rem] text-[var(--muted-foreground)]">
+                        {localizeUi("ui.lorebooks.lorebookassignmentsection.noChatsInclude")} {ownerName || ownerType}{" "}
+                        {localizeUi("ui.lorebooks.lorebookassignmentsection.yet")}
+                      </p>
                     ) : (
                       eligibleChats.map((chat) => {
                         const selected = draft.chatIds.includes(chat.id);
@@ -450,7 +510,9 @@ export function LorebookAssignmentSection({
                 onClick={() => setDraft(null)}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
               >
-                <X size="0.75rem" />{localizeUi("chat.delete.dialog.cancel")}</button>
+                <X size="0.75rem" />
+                {localizeUi("chat.delete.dialog.cancel")}
+              </button>
               <button
                 type="button"
                 onClick={saveAssignment}
@@ -461,7 +523,9 @@ export function LorebookAssignmentSection({
                   <Loader2 size="0.75rem" className="animate-spin" />
                 ) : (
                   <Check size="0.75rem" />
-                )}{localizeUi("ui.lorebooks.lorebookassignmentsection.assign")}</button>
+                )}
+                {localizeUi("ui.lorebooks.lorebookassignmentsection.assign")}
+              </button>
             </div>
           </div>
         )}

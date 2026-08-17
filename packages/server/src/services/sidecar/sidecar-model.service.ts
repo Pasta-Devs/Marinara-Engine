@@ -155,11 +155,7 @@ class SidecarModelService {
           SIDECAR_DEFAULT_CONFIG.contextSize,
           512,
         );
-        nextConfig.maxTokens = normalizeIntegerSetting(
-          nextConfig.maxTokens,
-          SIDECAR_DEFAULT_CONFIG.maxTokens,
-          64,
-        );
+        nextConfig.maxTokens = normalizeIntegerSetting(nextConfig.maxTokens, SIDECAR_DEFAULT_CONFIG.maxTokens, 64);
         nextConfig.temperature = normalizeFloatSetting(
           nextConfig.temperature,
           SIDECAR_DEFAULT_CONFIG.temperature,

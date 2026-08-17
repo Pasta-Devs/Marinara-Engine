@@ -20,13 +20,19 @@ import { useUIStore } from "../../stores/ui.store";
 import type { EchoChamberSide, EchoChamberSize } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useChat } from "../../hooks/use-chats";
+import { useAgentConfigs } from "../../hooks/use-agents";
 import { useGenerate } from "../../hooks/use-generate";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
-import { ROLEPLAY_POPOVER_SHELL } from "./roleplay-popover-styles";
-import { getEchoChamberMessageInterval, resolveEchoChamberPersistedBaseline } from "../../lib/echo-chamber-queue";
+import { NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
+import {
+  getEchoChamberMessageInterval,
+  normalizeEchoChamberMessageDelaySeconds,
+  resolveEchoChamberPersistedBaseline,
+} from "../../lib/echo-chamber-queue";
 import { resolveEchoChamberTopLayout } from "../../lib/echo-chamber-layout";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { parseAgentSettingsRecord } from "@marinara-engine/shared";
 
 const NAME_COLORS = [
   "text-red-400",
@@ -202,6 +208,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   const isStreaming = useChatStore((s) => s.isStreaming);
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const { data: chat } = useChat(activeChatId);
+  const { data: agentConfigs } = useAgentConfigs();
   const { retryAgents } = useGenerate();
   const echoRetryBusy = isAgentProcessing || (isStreaming && streamingChatId === activeChatId);
 
@@ -219,6 +226,10 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     const activeAgentIds: string[] = Array.isArray(meta.activeAgentIds) ? meta.activeAgentIds : [];
     return activeAgentIds.includes("echo-chamber");
   }, [chat]);
+  const messageDelaySeconds = useMemo(() => {
+    const config = agentConfigs?.find((agent) => agent.type === "echo-chamber");
+    return normalizeEchoChamberMessageDelaySeconds(parseAgentSettingsRecord(config?.settings).messageDelaySeconds);
+  }, [agentConfigs]);
 
   // ── Timed reveal: show one more message after each short chat-like delay ──
   // visibleCount and baseline live in the Zustand store so they survive
@@ -295,9 +306,9 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       setEchoVisibleCount(baseline);
       return;
     }
-    const id = setTimeout(revealNextEchoMessage, getEchoChamberMessageInterval());
+    const id = setTimeout(revealNextEchoMessage, getEchoChamberMessageInterval(messageDelaySeconds));
     return () => clearTimeout(id);
-  }, [visibleCount, echoMessages.length, baseline, revealNextEchoMessage, setEchoVisibleCount]);
+  }, [visibleCount, echoMessages.length, baseline, messageDelaySeconds, revealNextEchoMessage, setEchoVisibleCount]);
 
   // Auto-scroll when a new message becomes visible
   useEffect(() => {
@@ -558,7 +569,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
         type="button"
         onClick={toggleEchoChamber}
         className={cn(
-          ROLEPLAY_POPOVER_SHELL,
+          NEUTRAL_PANEL_SHELL,
           "absolute z-[60] pointer-events-auto inline-flex items-center gap-2 px-2.5 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-wider",
           "text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
         )}
@@ -593,7 +604,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     <div
       ref={panelRef}
       className={cn(
-        ROLEPLAY_POPOVER_SHELL,
+        NEUTRAL_PANEL_SHELL,
         "absolute z-[60] flex min-w-0 flex-col",
         "pointer-events-auto max-md:w-auto md:w-[14.75rem]",
         !panelSize && "max-md:max-h-28 md:max-h-[22rem]",

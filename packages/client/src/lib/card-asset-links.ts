@@ -56,7 +56,10 @@ export function normalizeCardAssetImageSyntax(text: string): string {
       continue;
     }
 
-    const safeAlt = text.slice(candidateStart + 1, index).replace(/[\]\r\n]/g, " ").trim();
+    const safeAlt = text
+      .slice(candidateStart + 1, index)
+      .replace(/[\]\r\n]/g, " ")
+      .trim();
     result += `${text.slice(outputCursor, candidateStart)}![${safeAlt}](${text.slice(urlStart, urlEnd)})`;
     outputCursor = urlEnd + 1;
     index = urlEnd;
@@ -131,7 +134,9 @@ export function resolveSelfCardAssets(
     // unknown ownership, not confirmed non-ownership, and treating them the
     // same would flash another character's same-named image until it resolves.
     if (!speakerOwns && galleryIndex.byCharacter.has(characterId)) {
-      const owner = galleryIndex.order.find((id) => id !== characterId && galleryIndex.byCharacter.get(id)?.has(filename));
+      const owner = galleryIndex.order.find(
+        (id) => id !== characterId && galleryIndex.byCharacter.get(id)?.has(filename),
+      );
       if (owner) return `${prefixFor(owner)}${rawFilename}`;
     }
     return `${speakerPrefix}${rawFilename}`;
@@ -199,5 +204,7 @@ export function buildCardAssetMarkdown(label: string, cardUrl: string): string {
 
 export function dispatchCardAssetInsert(markdown: string, chatId?: string): void {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent<CardAssetInsertDetail>(CARD_ASSET_INSERT_EVENT, { detail: { markdown, chatId } }));
+  window.dispatchEvent(
+    new CustomEvent<CardAssetInsertDetail>(CARD_ASSET_INSERT_EVENT, { detail: { markdown, chatId } }),
+  );
 }

@@ -3,10 +3,10 @@ import { Volume2, VolumeX, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import {
-  ROLEPLAY_POPOVER_CLOSE_BUTTON,
-  ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
-  ROLEPLAY_POPOVER_SHELL,
-} from "../chat/roleplay-popover-styles";
+  NEUTRAL_PANEL_CLOSE_BUTTON,
+  NEUTRAL_PANEL_CLOSE_ICON_SIZE,
+  NEUTRAL_PANEL_SHELL,
+} from "../ui/neutral-surface-styles";
 
 interface GameVolumeMixerProps {
   audioMuted: boolean;
@@ -67,7 +67,7 @@ export function GameVolumeMixer({
   return (
     <div
       data-chat-floating-panel
-      className={cn(ROLEPLAY_POPOVER_SHELL, "w-64 max-w-[calc(100vw-1.5rem)] p-3", className)}
+      className={cn(NEUTRAL_PANEL_SHELL, "w-64 max-w-[calc(100vw-1.5rem)] p-3", className)}
       style={style}
     >
       <div className="mb-2 flex items-center justify-between gap-3 border-b border-[var(--marinara-chat-chrome-panel-divider)] pb-2">
@@ -96,10 +96,10 @@ export function GameVolumeMixer({
           <button
             type="button"
             onClick={onClose}
-            className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
+            className={NEUTRAL_PANEL_CLOSE_BUTTON}
             aria-label={localizeUi("ui.game.gamevolumemixer.closeVolume")}
           >
-            <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+            <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
           </button>
         </div>
       </div>

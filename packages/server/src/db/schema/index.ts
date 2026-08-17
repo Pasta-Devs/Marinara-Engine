@@ -28,6 +28,8 @@ export * from "./extensions.js";
 export * from "./app-settings.js";
 export * from "./prompt-overrides.js";
 export * from "./mari-instructions.js";
+export * from "./mari-workspace-context.js";
 export * from "./achievements.js";
 export * from "./noodle.js";
+export * from "./slurp.js";
 export * from "./library-folders.js";

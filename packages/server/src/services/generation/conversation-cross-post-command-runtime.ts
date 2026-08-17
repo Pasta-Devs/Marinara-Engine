@@ -12,12 +12,7 @@ type ChatRow = {
 type ChatsStore = {
   list(): Promise<ChatRow[]>;
   getMessage(id: string): Promise<{ content?: unknown } | null>;
-  createMessage(input: {
-    chatId: string;
-    role: string;
-    characterId: string | null;
-    content: string;
-  }): Promise<unknown>;
+  createMessage(input: { chatId: string; role: string; characterId: string | null; content: string }): Promise<unknown>;
   removeMessage(id: string): Promise<unknown>;
 };
 

@@ -186,4 +186,15 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     usesAuthHeader: false,
     apiKeyHeader: "x-goog-api-key",
   },
+  audio: {
+    id: "audio",
+    name: "Audio",
+    // The per-source default is applied by the audio resolver; ElevenLabs is
+    // the fullest-featured backend (speech + sound effects + music).
+    defaultBaseUrl: "https://api.elevenlabs.io",
+    modelsEndpoint: "",
+    supportsStreaming: false,
+    usesAuthHeader: false,
+    apiKeyHeader: "xi-api-key",
+  },
 };

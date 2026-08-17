@@ -16,7 +16,7 @@ Keep the existing opt-in template IDs and settings controls for saved-chat compa
 
 - **LTX Director Storyboard** plans the first frame and one complete LTX 2.3 image-to-video prompt per shot.
 - **Storyboard First Frame** formats the exact T=0 illustration used as the reference image.
-- **LTX Director Video** is only `${narrationSummary}` and therefore passes the planner's completed prompt through the same universal video-template path used by every other workflow.
+- **Narration Passthrough** is only `${narrationSummary}` and therefore passes the planner's completed prompt through the same universal video-template path used by every other workflow.
 
 The Storyboard route must not inspect those template IDs, manufacture local segments, or attach an LTX-specific prompt payload. The selected video template remains fully customizable.
 
@@ -52,7 +52,7 @@ She opens the door and walks outside as the camera follows behind her. A light b
 
 1. The planner returns one T=0 `imagePrompt` and one complete `narrationBeat` for each shot.
 2. Storyboard image generation creates the first-frame reference illustration.
-3. The LTX Director Video template resolves `${narrationSummary}` to that shot's `narrationBeat`.
+3. The Narration Passthrough template resolves `${narrationSummary}` to that shot's `narrationBeat`.
 4. The normal video-generation request carries the result in its existing `prompt` field.
 5. The ComfyUI adapter replaces `%prompt%` in the saved workflow and supplies the existing reference image, dimensions, duration, frame count, seed, and model values.
 
@@ -89,7 +89,7 @@ No client UI, localization, storage schema, migration, version, service restart,
 ## Acceptance criteria
 
 - The LTX Storyboard planner requests one complete duration-aware image-to-video prompt with readable action phases, relative camera direction, and optional audio or dialogue.
-- The LTX Director Video template is exactly `${narrationSummary}`.
+- The Narration Passthrough template is exactly `${narrationSummary}`.
 - The Storyboard route has no exact-template-ID bypass, local-prompt sanitizer, or LTX-specific handoff.
 - A workflow with `global_prompt: "%prompt%"` receives the planner's complete prompt; `local_prompts` and `segment_lengths` stay empty.
 - Existing `%global_prompt%` workflows still receive the normal request prompt as a compatibility fallback.

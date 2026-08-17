@@ -30,7 +30,9 @@ export function getSkillCheckOutcomeKey(
 export function skillCheckDiceSumToTotal(
   result: Pick<SkillCheckResult, "rolls" | "modifier" | "total" | "resolution">,
 ): boolean {
-  return result.resolution === "sum" && result.rolls.reduce((sum, roll) => sum + roll, 0) + result.modifier === result.total;
+  return (
+    result.resolution === "sum" && result.rolls.reduce((sum, roll) => sum + roll, 0) + result.modifier === result.total
+  );
 }
 
 export function formatSkillCheckResultSummary(result: SkillCheckResult): string {

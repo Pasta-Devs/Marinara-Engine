@@ -45,6 +45,16 @@ export function useCreateRegexScript() {
   });
 }
 
+export function useImportRegexScript() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post<RegexScriptRow>("/regex-scripts/import", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: regexKeys.all });
+    },
+  });
+}
+
 export function useUpdateRegexScript() {
   const qc = useQueryClient();
   return useMutation({

@@ -113,6 +113,8 @@ export const memoryChunks = fileTable("memory_chunks", {
   content: text("content").notNull(),
   /** JSON-serialized float[] embedding (null until vectorized) */
   embedding: text("embedding"),
+  /** Stable provider/model/profile identity for the stored embedding */
+  embeddingSpaceId: text("embedding_space_id"),
   /** How many messages were grouped into this chunk */
   messageCount: integer("message_count").notNull(),
   /** Non-null for imported chunks; they should not advance local chunk cursors. */

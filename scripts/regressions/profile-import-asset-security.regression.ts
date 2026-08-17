@@ -37,7 +37,13 @@ const [
     promoteStagedProfileAssets,
     stageProfileImportAssets,
   },
-  { sendValidatedMediaFile, validateImageAssetBuffer, validateImageAssetFile, validateVideoAssetFile },
+  {
+    isCanonicalMediaPathInsideRoot,
+    sendValidatedMediaFile,
+    validateImageAssetBuffer,
+    validateImageAssetFile,
+    validateVideoAssetFile,
+  },
 ] = await Promise.all([
   import("../../packages/server/src/db/file-backed-store.js"),
   import("../../packages/server/src/db/schema/index.js"),
@@ -92,6 +98,39 @@ const validMp4 = Buffer.from([0, 0, 0, 20, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0
 const videoManifest = Buffer.from('{"version":1,"videos":[]}', "utf8");
 
 try {
+  assert.equal(
+    isCanonicalMediaPathInsideRoot(
+      "F:\\MarinaraEngine2\\packages\\server\\data\\gallery\\chat-1\\selfie.png",
+      "f:\\marinaraengine2\\packages\\server\\data",
+      "win32",
+    ),
+    true,
+    "Windows media containment must ignore canonical drive and directory casing",
+  );
+  assert.equal(
+    isCanonicalMediaPathInsideRoot(
+      "F:\\MarinaraEngine2\\packages\\server\\data-escape\\selfie.png",
+      "f:\\marinaraengine2\\packages\\server\\data",
+      "win32",
+    ),
+    false,
+    "Windows media containment must still reject sibling-prefix escapes",
+  );
+  assert.equal(
+    isCanonicalMediaPathInsideRoot(
+      "G:\\MarinaraEngine2\\packages\\server\\data\\gallery\\selfie.png",
+      "F:\\MarinaraEngine2\\packages\\server\\data",
+      "win32",
+    ),
+    false,
+    "Windows media containment must reject a different drive",
+  );
+  assert.equal(
+    isCanonicalMediaPathInsideRoot("/srv/Marinara/data/gallery/selfie.png", "/srv/marinara/data", "linux"),
+    false,
+    "case-sensitive hosts must retain case-sensitive media containment",
+  );
+
   assert.ok(validateImageAssetBuffer(validPng, "valid.png"));
   assert.equal(validateImageAssetBuffer(html, "payload.png"), null);
   assert.equal(validateImageAssetBuffer(javascript, "payload.js"), null);
@@ -130,20 +169,35 @@ try {
   assert.ok(validatedRaceSafeImage);
   const replacementPath = join(dataDir, "replacement.html");
   writeFileSync(replacementPath, html);
-  renameSync(replacementPath, raceSafePath);
-  const descriptorApp = Fastify();
-  descriptorApp.get("/validated-image", (req, reply) =>
-    sendValidatedMediaFile(reply, validatedRaceSafeImage, { method: req.method, rangeHeader: req.headers.range }),
-  );
-  await descriptorApp.ready();
-  const descriptorResponse = await descriptorApp.inject({ method: "GET", url: "/validated-image" });
-  assert.equal(descriptorResponse.statusCode, 200);
-  assert.deepEqual(
-    descriptorResponse.rawPayload,
-    validPng,
-    "serving must use the validated descriptor even when its path is replaced",
-  );
-  await descriptorApp.close();
+  if (process.platform === "win32") {
+    try {
+      assert.throws(
+        () => renameSync(replacementPath, raceSafePath),
+        (error: unknown) => (error as NodeJS.ErrnoException).code === "EPERM",
+        "Windows must block replacing the validated file while its descriptor is open",
+      );
+    } finally {
+      await validatedRaceSafeImage.handle.close();
+    }
+  } else {
+    const descriptorApp = Fastify();
+    try {
+      renameSync(replacementPath, raceSafePath);
+      descriptorApp.get("/validated-image", (req, reply) =>
+        sendValidatedMediaFile(reply, validatedRaceSafeImage, { method: req.method, rangeHeader: req.headers.range }),
+      );
+      await descriptorApp.ready();
+      const descriptorResponse = await descriptorApp.inject({ method: "GET", url: "/validated-image" });
+      assert.equal(descriptorResponse.statusCode, 200);
+      assert.deepEqual(
+        descriptorResponse.rawPayload,
+        validPng,
+        "serving must use the validated descriptor even when its path is replaced",
+      );
+    } finally {
+      await descriptorApp.close();
+    }
+  }
 
   const videoPath = join(dataDir, "range.mp4");
   const rangeVideo = Buffer.concat([validMp4, Buffer.from(Array.from({ length: 128 }, (_, index) => index))]);

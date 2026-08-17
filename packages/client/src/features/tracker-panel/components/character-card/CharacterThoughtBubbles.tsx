@@ -210,8 +210,16 @@ function ThoughtBubble({
             <button
               type="button"
               onClick={onToggleHidden}
-              title={hidden ?localizeUi("ui.trackerPanel.thoughtbubble.showThoughts") :localizeUi("ui.trackerPanel.thoughtbubble.hideThoughts")}
-              aria-label={hidden ?localizeUi("ui.trackerPanel.thoughtbubble.showThoughts") :localizeUi("ui.trackerPanel.thoughtbubble.hideThoughts")}
+              title={
+                hidden
+                  ? localizeUi("ui.trackerPanel.thoughtbubble.showThoughts")
+                  : localizeUi("ui.trackerPanel.thoughtbubble.hideThoughts")
+              }
+              aria-label={
+                hidden
+                  ? localizeUi("ui.trackerPanel.thoughtbubble.showThoughts")
+                  : localizeUi("ui.trackerPanel.thoughtbubble.hideThoughts")
+              }
               aria-pressed={hidden}
               className={cn(
                 "px-0 py-0 text-left font-medium italic text-[color-mix(in_srgb,var(--foreground)_86%,transparent)] transition-colors hover:bg-[var(--foreground)]/8",
@@ -221,7 +229,7 @@ function ThoughtBubble({
               style={thoughtTextStyle}
             >
               <span className={cn("break-words", thoughtTextFit.previewClassName)}>
-                {hidden ?localizeUi("ui.trackerPanel.thoughtbubble.hidden") : thoughtText}
+                {hidden ? localizeUi("ui.trackerPanel.thoughtbubble.hidden") : thoughtText}
               </span>
             </button>
           ) : (
@@ -307,8 +315,16 @@ export function InlineThoughtBubble({
             <button
               type="button"
               onClick={onToggleHidden}
-              title={hidden ?localizeUi("ui.trackerPanel.thoughtbubble.showThoughts") :localizeUi("ui.trackerPanel.thoughtbubble.hideThoughts")}
-              aria-label={hidden ?localizeUi("ui.trackerPanel.thoughtbubble.showThoughts") :localizeUi("ui.trackerPanel.thoughtbubble.hideThoughts")}
+              title={
+                hidden
+                  ? localizeUi("ui.trackerPanel.thoughtbubble.showThoughts")
+                  : localizeUi("ui.trackerPanel.thoughtbubble.hideThoughts")
+              }
+              aria-label={
+                hidden
+                  ? localizeUi("ui.trackerPanel.thoughtbubble.showThoughts")
+                  : localizeUi("ui.trackerPanel.thoughtbubble.hideThoughts")
+              }
               aria-pressed={hidden}
               className={cn(
                 "w-full px-0 py-0 text-left font-medium italic text-[color:var(--tracker-profile-text)] transition-colors hover:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_10%,transparent)]",
@@ -317,7 +333,7 @@ export function InlineThoughtBubble({
               style={thoughtTextStyle}
             >
               <span className={cn("break-words", getThoughtPreviewClampClass(previewLineCount))}>
-                {hidden ?localizeUi("ui.trackerPanel.thoughtbubble.hidden") : thoughtText}
+                {hidden ? localizeUi("ui.trackerPanel.thoughtbubble.hidden") : thoughtText}
               </span>
             </button>
           ) : (

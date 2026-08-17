@@ -11,7 +11,11 @@ const GIPHY_REQUEST_TIMEOUT_MS = 12_000;
 const giphyImageAssetSchema = z.preprocess(
   (value) => (value && typeof value === "object" && !Array.isArray(value) ? value : {}),
   z.object({
-    url: z.string().url().regex(/^https?:\/\//i).optional(),
+    url: z
+      .string()
+      .url()
+      .regex(/^https?:\/\//i)
+      .optional(),
     width: z.unknown().optional(),
     height: z.unknown().optional(),
   }),

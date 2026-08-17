@@ -223,7 +223,9 @@ export function MusicDjUnavailablePlayer({
           >
             <div className="mb-1.5 flex items-center gap-1">
               <GripVertical size="0.875rem" className="text-[var(--marinara-music-player-icon)]" />
-              <span className="flex-1 text-[0.625rem] font-medium text-[var(--marinara-music-player-muted)]">{localizeUi("settings.controls.musicPlayer.label")}</span>
+              <span className="flex-1 text-[0.625rem] font-medium text-[var(--marinara-music-player-muted)]">
+                {localizeUi("settings.controls.musicPlayer.label")}
+              </span>
               <button
                 type="button"
                 onPointerDown={(event) => event.stopPropagation()}
@@ -236,14 +238,18 @@ export function MusicDjUnavailablePlayer({
             </div>
             <div className="flex items-center gap-2">
               <Music2 size="0.875rem" className="shrink-0 text-[var(--marinara-music-player-icon)]" />
-              <span className="min-w-0 flex-1 text-[0.6875rem] leading-tight text-[var(--marinara-music-player-text)]">{localizeUi("ui.music.musicdjunavailableplayer.downloadMusicDjAgentToConfigure")}</span>
+              <span className="min-w-0 flex-1 text-[0.6875rem] leading-tight text-[var(--marinara-music-player-text)]">
+                {localizeUi("ui.music.musicdjunavailableplayer.downloadMusicDjAgentToConfigure")}
+              </span>
               <button
                 type="button"
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={openDownloadAgents}
                 className="mari-chrome-control mari-chrome-control--primary mari-chrome-control--compact shrink-0 gap-1.5 whitespace-nowrap"
               >
-                <Sparkles size="0.75rem" />{localizeUi("ui.agents.agentcatalogview.downloadAgents")}</button>
+                <Sparkles size="0.75rem" />
+                {localizeUi("ui.agents.agentcatalogview.downloadAgents")}
+              </button>
             </div>
           </div>
         )}
@@ -262,13 +268,17 @@ export function MusicDjUnavailablePlayer({
       )}
     >
       <Music2 size="0.875rem" className="shrink-0 text-[var(--marinara-music-player-icon)]" />
-      <span className="min-w-0 flex-1 text-[0.6875rem] leading-tight text-[var(--marinara-music-player-text)]">{localizeUi("ui.music.musicdjunavailableplayer.downloadMusicDjAgentToConfigure")}</span>
+      <span className="min-w-0 flex-1 text-[0.6875rem] leading-tight text-[var(--marinara-music-player-text)]">
+        {localizeUi("ui.music.musicdjunavailableplayer.downloadMusicDjAgentToConfigure")}
+      </span>
       <button
         type="button"
         onClick={openDownloadAgents}
         className="mari-chrome-control mari-chrome-control--primary mari-chrome-control--compact shrink-0 gap-1.5 whitespace-nowrap"
       >
-        <Sparkles size="0.75rem" />{localizeUi("ui.agents.agentcatalogview.downloadAgents")}</button>
+        <Sparkles size="0.75rem" />
+        {localizeUi("ui.agents.agentcatalogview.downloadAgents")}
+      </button>
     </div>
   );
 }

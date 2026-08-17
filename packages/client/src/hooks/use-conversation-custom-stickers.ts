@@ -13,12 +13,7 @@ import { useChat } from "./use-chats";
 import { getChatCharacterIds } from "../lib/chat-macros";
 import { parseCharacterDisplayData } from "../lib/character-display";
 import { useCustomStickers } from "./use-custom-stickers";
-import {
-  usePersona,
-  usePersonaGalleryImages,
-  characterKeys,
-  type CharacterGalleryImage,
-} from "./use-characters";
+import { usePersona, usePersonaGalleryImages, characterKeys, type CharacterGalleryImage } from "./use-characters";
 
 export interface ConversationCustomSticker {
   name: string;

@@ -191,9 +191,7 @@ export const MAPS_LOCATION_ARTWORK: PromptOverrideKeyDef<MapsLocationArtworkCtx>
     },
   ],
   defaultBuilder: (ctx) =>
-    [ctx.locationPrompt, ctx.genreLine, ctx.campaignArtStyleLine, ctx.imageInstructionsLine]
-      .filter(Boolean)
-      .join(" "),
+    [ctx.locationPrompt, ctx.genreLine, ctx.campaignArtStyleLine, ctx.imageInstructionsLine].filter(Boolean).join(" "),
   exampleContext: {
     locationName: "Moonwell Floor",
     locationDescription: "A quiet tiled bath beneath blue crystals.",
@@ -262,7 +260,8 @@ export const GAME_SCENE_ILLUSTRATION: PromptOverrideKeyDef<GameSceneIllustration
     },
     {
       name: "referenceHandlingLine",
-      description: "Pre-formatted character-reference instruction, or empty string when no character images are attached.",
+      description:
+        "Pre-formatted character-reference instruction, or empty string when no character images are attached.",
       example:
         "Reference handling: attached character reference images are available. Use them to match faces, hair, build, colors, and distinctive features for the referenced characters.",
     },

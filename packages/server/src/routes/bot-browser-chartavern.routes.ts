@@ -16,7 +16,10 @@ const CT_UA =
 // In-memory session cookie store (persists until server restart)
 let ctSessionCookie: string = "";
 
-async function fetchAvatarImage(url: string, signal: AbortSignal): Promise<
+async function fetchAvatarImage(
+  url: string,
+  signal: AbortSignal,
+): Promise<
   | {
       status: "ok";
       buf: Buffer;
@@ -209,13 +212,10 @@ export async function botBrowserChartavernRoutes(app: FastifyInstance) {
     const { author, slug } = req.params;
     if (!author || !slug) throw new Error("Missing author or slug");
 
-    return fetchBotBrowserJson(
-      `${CT_API_BASE}/character/${encodeURIComponent(author)}/${encodeURIComponent(slug)}`,
-      {
-        allowedHosts: ["character-tavern.com"],
-        headers: ctHeaders(),
-      },
-    );
+    return fetchBotBrowserJson(`${CT_API_BASE}/character/${encodeURIComponent(author)}/${encodeURIComponent(slug)}`, {
+      allowedHosts: ["character-tavern.com"],
+      headers: ctHeaders(),
+    });
   });
 
   /** Fetch top tags from CharacterTavern */
@@ -276,7 +276,10 @@ export async function botBrowserChartavernRoutes(app: FastifyInstance) {
           : reply.status(415).send({ error: "Unsupported avatar content type" });
       }
       const image = fallback;
-      return reply.header("Content-Type", image.mimeType).header("Cache-Control", "public, max-age=86400").send(image.buf);
+      return reply
+        .header("Content-Type", image.mimeType)
+        .header("Cache-Control", "public, max-age=86400")
+        .send(image.buf);
     } finally {
       clearTimeout(timeout);
     }

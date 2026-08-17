@@ -218,8 +218,11 @@ export const ConversationMessage = memo(function ConversationMessage({
       : null;
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
   const canRegenerate = !isUser || generationReplay !== null;
-  const { summary: thinking, summaryUnavailable: reasoningSummaryUnavailable, hasReasoning } =
-    resolveMessageReasoningDisplay(extra);
+  const {
+    summary: thinking,
+    summaryUnavailable: reasoningSummaryUnavailable,
+    hasReasoning,
+  } = resolveMessageReasoningDisplay(extra);
 
   useEffect(() => {
     if (!hasReasoning) setShowThinking(false);
@@ -443,7 +446,9 @@ export const ConversationMessage = memo(function ConversationMessage({
         await api.patch(`/chats/${message.chatId}/messages/${message.id}/extra`, { attachments: updated });
       } catch (err) {
         qc.setQueryData(msgKey, previous);
-        toast.error(err instanceof Error ? err.message :localizeUi("ui.chat.conversationmessage.failedToRemoveAttachment"));
+        toast.error(
+          err instanceof Error ? err.message : localizeUi("ui.chat.conversationmessage.failedToRemoveAttachment"),
+        );
       } finally {
         await qc.invalidateQueries({ queryKey: msgKey });
       }
@@ -475,7 +480,9 @@ export const ConversationMessage = memo(function ConversationMessage({
         await api.patch(`/chats/${message.chatId}/messages/${message.id}/extra`, { reactions: next });
       } catch (err) {
         qc.setQueryData(msgKey, previous);
-        toast.error(err instanceof Error ? err.message :localizeUi("ui.chat.conversationmessage.failedToUpdateReaction"));
+        toast.error(
+          err instanceof Error ? err.message : localizeUi("ui.chat.conversationmessage.failedToUpdateReaction"),
+        );
       } finally {
         await qc.invalidateQueries({ queryKey: msgKey });
       }

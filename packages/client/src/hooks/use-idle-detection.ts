@@ -36,7 +36,16 @@ export function useIdleDetection() {
     };
 
     // Activity events
-    const events = ["pointermove", "pointerdown", "mousemove", "mousedown", "keydown", "touchstart", "wheel", "scroll"] as const;
+    const events = [
+      "pointermove",
+      "pointerdown",
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "touchstart",
+      "wheel",
+      "scroll",
+    ] as const;
     for (const evt of events) {
       window.addEventListener(evt, resetTimer, { passive: true });
     }

@@ -8,6 +8,8 @@ The default message is:
 
 There is no New Draft action and there are no import controls in this section. Ask Professor Mari to create or revise a draft. She can save code, but she cannot approve or enable it.
 
+To write and import your own package, use the [Personal Extension authoring guide](writing-personal-extensions.md). Self-authored packages use the separately gated External Extensions flow.
+
 ## Review and enable
 
 Every draft starts disabled. Marinara fingerprints the exact executable code with SHA-256. Open the draft, inspect the code, compare the displayed hash, then choose **Review and Run** only if you accept that exact version. Any executable edit or restored revision disables the extension and requires a fresh approval.
@@ -206,6 +208,7 @@ If an extension misbehaves, choose **Disable**. If the interface is unavailable,
 
 ## Related guides
 
+- [Writing Personal Extensions](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [Server Configuration](../CONFIGURATION.md)
 - [Backup and Restore](../data/backup-and-restore.md)

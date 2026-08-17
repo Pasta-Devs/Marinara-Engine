@@ -749,14 +749,13 @@ export const noodleGeneratedInteractionSchema = z
     }
   });
 
-export const noodleGeneratedFanActivitySchema = z
-  .object({
-    actorHandle: z.string().min(1),
-    creatorAccountId: z.string().min(1),
-    targetPostId: z.string().min(1),
-    type: z.enum(["like", "reply", "repost"]),
-    content: z.string().trim().max(2000).nullable().optional(),
-  });
+export const noodleGeneratedFanActivitySchema = z.object({
+  actorHandle: z.string().min(1),
+  creatorAccountId: z.string().min(1),
+  targetPostId: z.string().min(1),
+  type: z.enum(["like", "reply", "repost"]),
+  content: z.string().trim().max(2000).nullable().optional(),
+});
 
 export const noodleGeneratedFollowSchema = z.object({
   actorHandle: z.string().min(1),

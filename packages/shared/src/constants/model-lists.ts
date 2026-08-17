@@ -899,6 +899,23 @@ const VIDEO_GEN_MODELS: KnownModel[] = [
   ...ATLAS_CLOUD_VIDEO_MODELS,
 ];
 
+// Seed catalog only — each source's real model/voice lists are fetched at
+// runtime through the TTS discovery endpoints (/api/tts/models, /api/tts/voices).
+const AUDIO_GEN_MODELS: KnownModel[] = [
+  // ElevenLabs
+  { id: "eleven_multilingual_v2", name: "Eleven Multilingual v2", context: 0, maxOutput: 0 },
+  { id: "eleven_turbo_v2_5", name: "Eleven Turbo v2.5", context: 0, maxOutput: 0 },
+  { id: "eleven_flash_v2_5", name: "Eleven Flash v2.5", context: 0, maxOutput: 0 },
+  // OpenAI
+  { id: "gpt-4o-mini-tts", name: "GPT-4o Mini TTS", context: 0, maxOutput: 0 },
+  { id: "tts-1", name: "TTS-1", context: 0, maxOutput: 0 },
+  { id: "tts-1-hd", name: "TTS-1 HD", context: 0, maxOutput: 0 },
+  // PocketTTS (local)
+  { id: "pocket-tts", name: "PocketTTS", context: 0, maxOutput: 0 },
+  // xAI
+  { id: "grok-tts", name: "Grok TTS", context: 0, maxOutput: 0 },
+];
+
 export function inferVideoSource(model: string, baseUrl: string): string {
   const m = model.toLowerCase();
   const u = baseUrl.toLowerCase();
@@ -992,6 +1009,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   custom: [...OPENAI_MODELS, ...ZAI_MODELS],
   image_generation: IMAGE_GEN_MODELS,
   video_generation: VIDEO_GEN_MODELS,
+  audio: AUDIO_GEN_MODELS,
 };
 
 const OPENAI_COMPATIBLE_AGGREGATOR_MODELS: KnownModel[] = [

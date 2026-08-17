@@ -13,7 +13,8 @@ export function trackerEditableText(value: unknown) {
     const name = typeof record.name === "string" ? record.name.trim() : "";
     const statValue = typeof record.value === "number" || typeof record.value === "string" ? record.value : null;
     const statMax = typeof record.max === "number" || typeof record.max === "string" ? record.max : null;
-    if (name && statValue !== null) return statMax !== null ? `${name}: ${statValue}/${statMax}` : `${name}: ${statValue}`;
+    if (name && statValue !== null)
+      return statMax !== null ? `${name}: ${statValue}/${statMax}` : `${name}: ${statValue}`;
   }
   try {
     return JSON.stringify(value) ?? String(value);

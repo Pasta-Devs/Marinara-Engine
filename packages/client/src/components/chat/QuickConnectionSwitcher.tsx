@@ -79,8 +79,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
     const frame = window.requestAnimationFrame(() => {
       const menu = menuRef.current;
       const focusTarget =
-        menu?.querySelector<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') ??
-        menu;
+        menu?.querySelector<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') ?? menu;
       focusTarget?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
@@ -129,7 +128,11 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
               <button
                 type="button"
                 onClick={handleToggleRandom}
-                title={isRandom ?localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable") :localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")}
+                title={
+                  isRandom
+                    ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
+                    : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
+                }
                 className={cn(
                   "flex h-6 w-6 items-center justify-center rounded-md transition-all active:scale-90",
                   isRandom
@@ -151,7 +154,11 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
                       key={conn.id}
                       onClick={() => handleTogglePool(conn.id, inPool)}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-foreground/10"
-                      title={inPool ?localizeUi("ui.chat.quickconnectionswitcher.inRandomPoolClickToRemove") :localizeUi("ui.chat.quickconnectionswitcher.clickToAddToRandomPool")}
+                      title={
+                        inPool
+                          ? localizeUi("ui.chat.quickconnectionswitcher.inRandomPoolClickToRemove")
+                          : localizeUi("ui.chat.quickconnectionswitcher.clickToAddToRandomPool")
+                      }
                     >
                       <span className="flex-1 truncate">{conn.name || conn.id}</span>
                       <span
@@ -184,7 +191,9 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
               })}
 
               {sorted.length === 0 && (
-                <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">{localizeUi("ui.chat.quickconnectionswitcher.noConnectionsFound")}</div>
+                <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">
+                  {localizeUi("ui.chat.quickconnectionswitcher.noConnectionsFound")}
+                </div>
               )}
             </div>
           </div>,

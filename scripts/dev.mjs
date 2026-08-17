@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
-import { basename } from "node:path";
 import { getWorkspaceInstallProblems } from "./check-workspace-install.mjs";
 import { resolveDevSharedBuildScript } from "./dev-shared-build.mjs";
+import { resolvePnpmRunner } from "./pnpm-runner.mjs";
 
 function parseIntegerEnv(name, fallback) {
   const raw = process.env[name];
@@ -15,23 +15,18 @@ const SERVER_HEALTH_URL = `http://127.0.0.1:${SERVER_PORT}/api/health`;
 const HEALTH_TIMEOUT_MS = parseIntegerEnv("DEV_SERVER_READY_TIMEOUT_MS", 120_000);
 const SHARED_BUILD_SCRIPT = resolveDevSharedBuildScript();
 
-const pnpmCliPath = process.env.npm_execpath;
-const npmUserAgent = process.env.npm_config_user_agent ?? "";
-const useCurrentPnpm =
-  Boolean(pnpmCliPath) && (npmUserAgent.startsWith("pnpm/") || basename(pnpmCliPath ?? "").startsWith("pnpm"));
-const pnpmCommand = useCurrentPnpm ? process.execPath : "pnpm";
-const pnpmBaseArgs = useCurrentPnpm && pnpmCliPath ? [pnpmCliPath] : [];
+const pnpmRunner = resolvePnpmRunner();
 const children = new Set();
 let shuttingDown = false;
 
 function spawnPnpm(args, options = {}) {
-  const child = spawn(pnpmCommand, [...pnpmBaseArgs, ...args], {
+  const child = spawn(pnpmRunner.command, [...pnpmRunner.args, ...args], {
     stdio: "inherit",
     windowsHide: true,
+    detached: process.platform !== "win32",
     ...options,
   });
   children.add(child);
-  child.once("exit", () => children.delete(child));
   return child;
 }
 
@@ -39,6 +34,7 @@ function runPnpm(args) {
   return new Promise((resolve, reject) => {
     const child = spawnPnpm(args);
     child.once("exit", (code, signal) => {
+      children.delete(child);
       if (code === 0) {
         resolve();
         return;
@@ -52,13 +48,45 @@ function stopChildren(signal = "SIGTERM") {
   if (shuttingDown) return;
   shuttingDown = true;
   for (const child of children) {
-    if (child.killed || child.exitCode !== null) continue;
+    if (!child.pid) continue;
     if (process.platform === "win32") {
       spawnSync("taskkill.exe", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
     } else {
-      child.kill(signal);
+      try {
+        process.kill(-child.pid, signal);
+      } catch (err) {
+        if (err?.code !== "ESRCH") child.kill(signal);
+      }
     }
   }
+}
+
+async function fetchMarinaraHealth() {
+  const response = await fetch(SERVER_HEALTH_URL, {
+    signal: AbortSignal.timeout(1_500),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const health = await response.json();
+  if (
+    !health ||
+    typeof health !== "object" ||
+    health.status !== "ok" ||
+    typeof health.version !== "string" ||
+    typeof health.build !== "string"
+  ) {
+    throw new Error("the port answered, but it was not a Marinara Engine health response");
+  }
+  return health;
+}
+
+function hasErrorCode(error, expectedCode, seen = new Set()) {
+  if (!error || typeof error !== "object" || seen.has(error)) return false;
+  seen.add(error);
+  if (error.code === expectedCode) return true;
+  if (hasErrorCode(error.cause, expectedCode, seen)) return true;
+  return (
+    Array.isArray(error.errors) && error.errors.some((nestedError) => hasErrorCode(nestedError, expectedCode, seen))
+  );
 }
 
 async function waitForServer() {
@@ -66,11 +94,8 @@ async function waitForServer() {
   let lastError = null;
   while (!shuttingDown && Date.now() - startedAt < HEALTH_TIMEOUT_MS) {
     try {
-      const response = await fetch(SERVER_HEALTH_URL, {
-        signal: AbortSignal.timeout(1_500),
-      });
-      if (response.ok) return Date.now() - startedAt;
-      lastError = new Error(`HTTP ${response.status}`);
+      await fetchMarinaraHealth();
+      return Date.now() - startedAt;
     } catch (err) {
       lastError = err;
     }
@@ -85,8 +110,18 @@ async function waitForServer() {
   throw new Error(`Server did not become ready at ${SERVER_HEALTH_URL} within ${HEALTH_TIMEOUT_MS}ms (${detail})`);
 }
 
-process.on("SIGINT", () => stopChildren("SIGINT"));
-process.on("SIGTERM", () => stopChildren("SIGTERM"));
+process.on("SIGINT", () => {
+  process.exitCode = 130;
+  stopChildren("SIGINT");
+});
+process.on("SIGTERM", () => {
+  process.exitCode = 143;
+  stopChildren("SIGTERM");
+});
+process.on("SIGHUP", () => {
+  process.exitCode = 129;
+  stopChildren("SIGTERM");
+});
 
 try {
   const installProblems = getWorkspaceInstallProblems();
@@ -105,17 +140,38 @@ try {
     await runPnpm(["--filter", "@marinara-engine/shared", SHARED_BUILD_SCRIPT]);
   }
 
-  const server = spawnPnpm(["--filter", "@marinara-engine/server", "dev"]);
-  server.once("exit", (code, signal) => {
-    if (!shuttingDown) {
-      stopChildren();
-      process.exitCode = code ?? (signal ? 1 : 0);
+  let existingServer = null;
+  try {
+    existingServer = await fetchMarinaraHealth();
+  } catch (err) {
+    if (!hasErrorCode(err, "ECONNREFUSED")) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `[dev] Cannot start the server because ${SERVER_HEALTH_URL} is occupied or unavailable (${detail}).`,
+        { cause: err },
+      );
     }
-  });
+    // Nothing is listening, so start this session's server below.
+  }
 
-  console.log(`[dev] Waiting for server at ${SERVER_HEALTH_URL}...`);
-  const readyMs = await waitForServer();
-  console.log(`[dev] Server ready in ${readyMs}ms; starting client.`);
+  if (existingServer) {
+    console.log(
+      `[dev] Marinara Engine ${existingServer.build} is already running at ${SERVER_HEALTH_URL}. ` +
+        "Reusing it and starting the client.",
+    );
+  } else {
+    const server = spawnPnpm(["--filter", "@marinara-engine/server", "dev"]);
+    server.once("exit", (code, signal) => {
+      if (!shuttingDown) {
+        stopChildren();
+        process.exitCode = code ?? (signal ? 1 : 0);
+      }
+    });
+
+    console.log(`[dev] Waiting for server at ${SERVER_HEALTH_URL}...`);
+    const readyMs = await waitForServer();
+    console.log(`[dev] Server ready in ${readyMs}ms; starting client.`);
+  }
 
   const client = spawnPnpm(["--filter", "@marinara-engine/client", "dev"]);
   client.once("exit", (code, signal) => {

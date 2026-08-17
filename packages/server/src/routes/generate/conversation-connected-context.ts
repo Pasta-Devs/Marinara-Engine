@@ -130,9 +130,7 @@ export async function resolveConversationConnectedChatContext(args: {
     }
   } else if (connectedChat && connectedChat.mode === "game") {
     const gameMeta =
-      typeof connectedChat.metadata === "string"
-        ? JSON.parse(connectedChat.metadata)
-        : (connectedChat.metadata ?? {});
+      typeof connectedChat.metadata === "string" ? JSON.parse(connectedChat.metadata) : (connectedChat.metadata ?? {});
     const sessionNumber = (gameMeta.gameSessionNumber as number) ?? 1;
     const sessionStatus = (gameMeta.gameSessionStatus as string) ?? "setup";
     const activeState = (gameMeta.gameActiveState as string) ?? "exploration";

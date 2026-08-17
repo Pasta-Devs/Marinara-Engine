@@ -416,8 +416,10 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           MUSIC_NEUTRAL_ICON_CLASS,
           MUSIC_NEUTRAL_ICON_HOVER_CLASS,
         )}
-        title={volumeMuted ?localizeUi("ui.game.gamevolumemixer.unmute") :localizeUi("ui.game.gamevolumemixer.mute")}
-        aria-label={volumeMuted ?localizeUi("ui.game.gamevolumemixer.unmute") :localizeUi("ui.game.gamevolumemixer.mute")}
+        title={volumeMuted ? localizeUi("ui.game.gamevolumemixer.unmute") : localizeUi("ui.game.gamevolumemixer.mute")}
+        aria-label={
+          volumeMuted ? localizeUi("ui.game.gamevolumemixer.unmute") : localizeUi("ui.game.gamevolumemixer.mute")
+        }
       >
         <VolumeIcon size="0.75rem" />
       </button>
@@ -474,7 +476,9 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
             MUSIC_NEUTRAL_ACTION_BG_CLASS,
             MUSIC_NEUTRAL_ACTION_TEXT_CLASS,
           )}
-          aria-label={paused ?localizeUi("ui.chat.localmusicplayer.play") :localizeUi("ui.chat.localmusicplayer.pause")}
+          aria-label={
+            paused ? localizeUi("ui.chat.localmusicplayer.play") : localizeUi("ui.chat.localmusicplayer.pause")
+          }
         >
           {paused ? <Play size="0.8125rem" className="translate-x-px" /> : <Pause size="0.8125rem" />}
         </button>
@@ -488,7 +492,9 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
             MUSIC_NEUTRAL_ICON_CLASS,
             MUSIC_NEUTRAL_ICON_HOVER_CLASS,
           )}
-          aria-label={showVideo ?localizeUi("ui.chat.youtubeplayer.hideVideo") :localizeUi("ui.chat.youtubeplayer.showVideo")}
+          aria-label={
+            showVideo ? localizeUi("ui.chat.youtubeplayer.hideVideo") : localizeUi("ui.chat.youtubeplayer.showVideo")
+          }
         >
           {showVideo ? <ChevronUp size="0.8125rem" /> : <ChevronDown size="0.8125rem" />}
         </button>
@@ -573,7 +579,9 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
               >
                 <div className="mb-1 flex items-center gap-1">
                   <GripVertical size="0.875rem" className={MUSIC_NEUTRAL_ICON_CLASS} />
-                  <span className={cn("flex-1 truncate text-[0.625rem] font-medium", MUSIC_NEUTRAL_ICON_CLASS)}>{localizeUi("ui.chat.youtubeplayer.youtube")}</span>
+                  <span className={cn("flex-1 truncate text-[0.625rem] font-medium", MUSIC_NEUTRAL_ICON_CLASS)}>
+                    {localizeUi("ui.chat.youtubeplayer.youtube")}
+                  </span>
                   <button
                     type="button"
                     onPointerDown={(event) => event.stopPropagation()}

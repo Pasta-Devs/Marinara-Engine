@@ -175,11 +175,7 @@ export function computeFieldChanges(change: MariDbRowChange): FieldChange[] {
     const before = beforeMap.get(path) ?? "";
     const after = afterMap.get(path) ?? "";
     if (before === after) continue;
-    const kind: FieldChange["kind"] = !beforeMap.has(path)
-      ? "added"
-      : !afterMap.has(path)
-        ? "removed"
-        : "changed";
+    const kind: FieldChange["kind"] = !beforeMap.has(path) ? "added" : !afterMap.has(path) ? "removed" : "changed";
     changes.push({ path, label: humanizeLabel(path), before, after, kind });
   }
   changes.sort((a, b) => {

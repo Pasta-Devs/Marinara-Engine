@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import { formatTextQuotes } from "@marinara-engine/shared";
 import { useUIStore } from "../stores/ui.store";
-import { captureTextSelection, restoreTextSelectionAfterRender, type TextSelectionSnapshot } from "../lib/text-selection";
+import {
+  captureTextSelection,
+  restoreTextSelectionAfterRender,
+  type TextSelectionSnapshot,
+} from "../lib/text-selection";
 
 type TextInputElement = HTMLInputElement | HTMLTextAreaElement;
 

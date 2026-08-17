@@ -128,10 +128,7 @@ function firstBodyLine(content: string) {
 function normalizeDescription(value: string | null | undefined, content: string) {
   const frontmatter = parseFrontmatter(content);
   const candidate =
-    value?.trim() ||
-    frontmatter.description?.trim() ||
-    firstBodyLine(content) ||
-    "User-defined Professor Mari skill.";
+    value?.trim() || frontmatter.description?.trim() || firstBodyLine(content) || "User-defined Professor Mari skill.";
   return candidate.slice(0, MAX_SKILL_DESCRIPTION_LENGTH);
 }
 
@@ -193,7 +190,10 @@ export class ProfessorMariWorkspaceSkillsService {
     this.assertContent(input.content);
     const records = await this.readRecords();
     const frontmatter = parseFrontmatter(input.content);
-    const name = normalizeSkillName(input.name ?? frontmatter.name, titleFromBody(input.content) || titleFromFileName(input.fileName));
+    const name = normalizeSkillName(
+      input.name ?? frontmatter.name,
+      titleFromBody(input.content) || titleFromFileName(input.fileName),
+    );
     const id = this.uniqueId(name, records);
     const description = normalizeDescription(input.description, input.content);
     const timestamp = now();
@@ -223,7 +223,10 @@ export class ProfessorMariWorkspaceSkillsService {
     const previousContent = await readFile(skillFilePath(current.id), "utf8");
     const nextContentSource = input.content ?? skillInstructions(previousContent);
     if (input.content !== undefined && input.content !== null) this.assertContent(input.content);
-    const name = normalizeSkillName(input.name ?? parseFrontmatter(nextContentSource).name ?? current.name, current.name);
+    const name = normalizeSkillName(
+      input.name ?? parseFrontmatter(nextContentSource).name ?? current.name,
+      current.name,
+    );
     const description = normalizeDescription(input.description ?? current.description, nextContentSource);
     const nextRecord: SkillRecord = {
       ...current,
@@ -261,7 +264,9 @@ export class ProfessorMariWorkspaceSkillsService {
       if (!Array.isArray(parsed)) return [];
       const records: SkillRecord[] = [];
       const usedIds = new Set<string>();
-      for (const entry of parsed.filter((entry): entry is Partial<SkillRecord> => !!entry && typeof entry === "object")) {
+      for (const entry of parsed.filter(
+        (entry): entry is Partial<SkillRecord> => !!entry && typeof entry === "object",
+      )) {
         const baseId = normalizeSkillId(typeof entry.id === "string" ? entry.id : entry.name, "skill");
         let id = baseId;
         let suffix = 2;

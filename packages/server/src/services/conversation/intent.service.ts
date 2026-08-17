@@ -5,9 +5,9 @@ export type MessageIntent = ConversationMessageIntent;
 
 const INTENT_HINTS: Record<MessageIntent, string> = {
   check_in: "You have a free moment and the user has been quiet.",
-  long_absence_check_in:
-    "The user has been away for a long while. Check in with them.",
-  came_back_online: "You were unavailable earlier when the user wrote. You just became free and are getting back to them.",
+  long_absence_check_in: "The user has been away for a long while. Check in with them.",
+  came_back_online:
+    "You were unavailable earlier when the user wrote. You just became free and are getting back to them.",
   after_busy: "You just wrapped up a busy stretch. You have some breathing room now.",
   good_morning: "You just woke up and are starting your day. This is your first message of the morning.",
   good_night: "You are winding down for the night and checking in before you go offline.",
@@ -115,10 +115,7 @@ export function isMessageIntent(value: string): value is MessageIntent {
   return MESSAGE_INTENTS.has(value as MessageIntent);
 }
 
-export function getIntentCooldowns(
-  chatMeta: Record<string, unknown>,
-  characterId: string,
-): Record<string, string> {
+export function getIntentCooldowns(chatMeta: Record<string, unknown>, characterId: string): Record<string, string> {
   const all = chatMeta.intentCooldowns as Record<string, Record<string, string>> | undefined;
   return all?.[characterId] ?? {};
 }

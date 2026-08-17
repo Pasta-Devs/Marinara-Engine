@@ -1,5 +1,5 @@
 import { open, realpath, type FileHandle } from "node:fs/promises";
-import { basename, extname, join, resolve, sep } from "node:path";
+import { basename, extname, join, posix, resolve, win32 } from "node:path";
 import type { FastifyReply } from "fastify";
 import { getDataDir, getFileStorageDir } from "../config/runtime-config.js";
 import { assertInsideDir, isAllowedImageBuffer } from "./security.js";
@@ -87,10 +87,6 @@ export async function sendValidatedMediaFile(
   }
   // Fastify suppresses this stream body for HEAD while retaining Content-Length.
   return reply.send(media.handle.createReadStream({ start, end }));
-}
-
-function normalizedRasterExtension(extension: string): string {
-  return extension === ".jpeg" ? "jpg" : extension.slice(1);
 }
 
 function isXmlNameCharacter(character: string | undefined): boolean {
@@ -242,6 +238,21 @@ function hasUnsafeSvgHref(source: string): boolean {
   return false;
 }
 
+/** Compare canonical paths using the host filesystem's case and separator rules. */
+export function isCanonicalMediaPathInsideRoot(
+  canonicalPath: string,
+  canonicalRoot: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  const pathApi = platform === "win32" ? win32 : posix;
+  const normalizeCase = (value: string) => (platform === "win32" ? value.toLowerCase() : value);
+  const relativePath = pathApi.relative(normalizeCase(canonicalRoot), normalizeCase(canonicalPath));
+  return (
+    relativePath === "" ||
+    (relativePath !== ".." && !relativePath.startsWith(`..${pathApi.sep}`) && !pathApi.isAbsolute(relativePath))
+  );
+}
+
 /** Resolve symlinks and permit reads only from Marinara's configured media roots. */
 async function resolveAllowedMediaPath(filePath: string, additionalRoot?: string): Promise<string | null> {
   let canonicalPath: string;
@@ -256,8 +267,7 @@ async function resolveAllowedMediaPath(filePath: string, additionalRoot?: string
   )) {
     try {
       const canonicalRoot = await realpath(resolve(configuredRoot));
-      const rootPrefix = canonicalRoot.endsWith(sep) ? canonicalRoot : `${canonicalRoot}${sep}`;
-      if (canonicalPath === canonicalRoot || canonicalPath.startsWith(rootPrefix)) return canonicalPath;
+      if (isCanonicalMediaPathInsideRoot(canonicalPath, canonicalRoot)) return canonicalPath;
     } catch {
       // A configured root may not exist yet; it cannot contain this file.
     }
@@ -311,8 +321,11 @@ export function validateImageAssetBuffer(
     return options.allowSvg && isSafeSvgImageBuffer(buffer) ? { mimeType: "image/svg+xml", isSvg: true } : null;
   }
   if (!RASTER_IMAGE_EXTENSIONS.has(extension)) return null;
+  // Serve any recognized raster by its detected format so a mislabeled but valid
+  // image (e.g. WebP/JPEG bytes stored under a .png name) still renders with an
+  // honest Content-Type. Raster formats are inert; SVG stays strict above.
   const image = isAllowedImageBuffer(buffer, extension);
-  if (!image || image.ext !== normalizedRasterExtension(extension)) return null;
+  if (!image) return null;
   return { mimeType: image.mimeType, isSvg: false };
 }
 

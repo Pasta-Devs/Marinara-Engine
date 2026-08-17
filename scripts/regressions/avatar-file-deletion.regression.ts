@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { PROFESSOR_MARI_ID } from "../../packages/shared/src/constants/defaults.js";
@@ -15,8 +15,10 @@ import {
 import {
   collectCharacterAvatarPaths,
   collectPersonaAvatarPaths,
+  deleteAbandonedAvatarFiles,
   mutateAvatarReferencesAndCleanup,
   resolveStoredAvatarFile,
+  scanAbandonedAvatarFiles,
   unlinkAvatarFilesIfUnreferenced,
 } from "../../packages/server/src/services/image/avatar-file-lifecycle.js";
 import { createCharactersStorage } from "../../packages/server/src/services/storage/characters.storage.js";
@@ -221,6 +223,34 @@ try {
   assert.equal(existsSync(dangerZoneFile), false, "Danger Zone character deletion must remove owned avatars");
   assert.equal(existsSync(mariFile), true, "Danger Zone character deletion must preserve Professor Mari's avatar");
   assert.equal((await db.select().from(characters)).length, 1);
+
+  const optimizerNow = Date.now();
+  const oldOrphanFile = writeAvatar("old-orphan.png");
+  const recentOrphanFile = writeAvatar("recent-orphan.webp");
+  const ignoredNonImageFile = join(avatarRoot, "notes.txt");
+  const nestedNpcFile = join(avatarRoot, "npc", "chat", "npc.png");
+  writeFileSync(ignoredNonImageFile, "not an avatar image");
+  mkdirSync(join(avatarRoot, "npc", "chat"), { recursive: true });
+  writeFileSync(nestedNpcFile, "nested npc avatar");
+  const oldTimestamp = new Date(optimizerNow - 120_000);
+  utimesSync(oldOrphanFile, oldTimestamp, oldTimestamp);
+  utimesSync(ignoredNonImageFile, oldTimestamp, oldTimestamp);
+  utimesSync(nestedNpcFile, oldTimestamp, oldTimestamp);
+
+  assert.deepEqual(
+    await scanAbandonedAvatarFiles({ db, avatarRoot, nowMs: optimizerNow, minimumAgeMs: 60_000 }),
+    { files: 1, bytes: Buffer.byteLength("old-orphan.png") },
+    "the optimizer must report only old, direct, unreferenced avatar images",
+  );
+  assert.deepEqual(
+    await deleteAbandonedAvatarFiles({ db, avatarRoot, nowMs: optimizerNow, minimumAgeMs: 60_000 }),
+    { files: 1, bytes: Buffer.byteLength("old-orphan.png") },
+  );
+  assert.equal(existsSync(oldOrphanFile), false, "an old unreferenced avatar must be deleted");
+  assert.equal(existsSync(mariFile), true, "a referenced avatar must survive storage optimization");
+  assert.equal(existsSync(recentOrphanFile), true, "a recent unreferenced avatar must keep its upload grace period");
+  assert.equal(existsSync(ignoredNonImageFile), true, "non-image files must not be treated as abandoned avatars");
+  assert.equal(existsSync(nestedNpcFile), true, "nested NPC avatars must stay outside direct-avatar optimization");
 
   writeFileSync(outsideFile, "outside");
   assert.equal(resolveStoredAvatarFile("https://example.com/avatar.png", avatarRoot), null);

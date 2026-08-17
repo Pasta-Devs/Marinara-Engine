@@ -10,7 +10,14 @@
 
 import type { CombatStatusEffect } from "../../types/game.js";
 import { CLASS_PROFILES } from "./classes.js";
-import { TERRAIN_DATA, type TacticalCoord, type TacticalDifficulty, type TacticalGrid, type TacticalTerrain, type TacticalUnit } from "./types.js";
+import {
+  TERRAIN_DATA,
+  type TacticalCoord,
+  type TacticalDifficulty,
+  type TacticalGrid,
+  type TacticalTerrain,
+  type TacticalUnit,
+} from "./types.js";
 
 export function clamp(value: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, value));

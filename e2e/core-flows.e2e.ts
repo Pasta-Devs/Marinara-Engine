@@ -234,105 +234,12 @@ test("What's New opens once for each Marinara Engine version", async ({ page }) 
   const announcement = page.getByRole("dialog", { name: "What's New?" });
   await expect(announcement).toBeVisible();
   await expect(announcement.getByText(`Version ${APP_VERSION}`, { exact: true })).toBeVisible();
-  await expect(announcement.getByRole("heading", { name: "Hello and welcome to the new version!" })).toBeVisible();
-  await expect(
-    announcement.getByText(
-      "Aside from the usual portion of bug fixes and minor QoL improvements, we also tightened the security again, improved Professor Mari's capabilities, updated our agents, and worked on the newly enhanced home page!",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  const exactReleaseCopy = [
-    "Hello and welcome to the new version!",
-    "Aside from the usual portion of bug fixes and minor QoL improvements, we also tightened the security again, improved Professor Mari's capabilities, updated our agents, and worked on the newly enhanced home page!",
-    "Your home page is now a fully customizable hub with widgets. You can add, remove, and rearrange them however you want. These include widgets with recent chats, useful help centers, Professor Mari, clock and calendar, and many others. You can also ask Professor Mari to create new, custom ones for you.",
-    "You probably also noticed that there's a small new Professor Mari on the home page. She is your new personal navigator, that will take you to different parts of Marinara Engine, including your lorebooks, chats, characters, and even agents. Hopefully, no more trouble with finding the Chats tab anymore.",
-    "Be gentle when moving her around, though…",
-    "Additionally, Professor Mari (the assistant version) now has Memories that you can access on her tab (right, forgot to mention, she has her tab now accessible from Home; check at the top of the screen). She will remember your instructions and important details between the chats.",
-    "One significant change is that Noodle is now moved to be an Agent (don't worry, it will be there i you already had it installed). You can access it as a separate tab from the Home page menu. This should declutter the main top bar a little, plus allow you to uninstall it if you would rather not use it.",
-    "You may have noticed that the Browser tab was removed: don't worry, the option to download characters was merged into the Characters and Personas tabs.",
-    "These are the most significant changes in this version and we hope you will enjoy them. Read the entire list of changes here:",
-    "https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.4.2",
-    "Thank you for supporting the project. Cheers.",
-  ];
-  await expect.poll(() => announcement.locator("[data-release-copy]").allTextContents()).toEqual(exactReleaseCopy);
-
-  await expect(announcement.locator("[data-release-story='2.4.2']")).toBeAttached();
-  const releaseVideos = announcement.locator('video[data-release-media-kind="video"]');
-  await expect(releaseVideos).toHaveCount(3);
+  await expect(announcement.getByRole("heading", { name: "Wlecome to Marinara Engine's v2.4.3 Beta!" })).toBeVisible();
   await expect
-    .poll(() =>
-      releaseVideos.evaluateAll((videos) =>
-        videos.map((video) => {
-          const media = video as HTMLVideoElement;
-          return {
-            autoplay: media.autoplay,
-            controls: media.controls,
-            loop: media.loop,
-            muted: media.muted,
-            playsInline: media.playsInline,
-            src: new URL(media.currentSrc || media.src).pathname,
-          };
-        }),
-      ),
-    )
-    .toEqual([
-      {
-        autoplay: true,
-        controls: true,
-        loop: true,
-        muted: true,
-        playsInline: true,
-        src: "/releases/2.4.2/home-widgets.mp4",
-      },
-      {
-        autoplay: true,
-        controls: true,
-        loop: true,
-        muted: true,
-        playsInline: true,
-        src: "/releases/2.4.2/home-widgets-custom.mp4",
-      },
-      {
-        autoplay: true,
-        controls: true,
-        loop: true,
-        muted: true,
-        playsInline: true,
-        src: "/releases/2.4.2/home-navigator.mp4",
-      },
-    ]);
-
-  const releaseImages = announcement.locator('img[data-release-media-kind="image"]');
-  await expect(releaseImages).toHaveCount(3);
-  await expect
-    .poll(() =>
-      releaseImages.evaluateAll((images) =>
-        images.map(
-          (image) => new URL((image as HTMLImageElement).currentSrc || (image as HTMLImageElement).src).pathname,
-        ),
-      ),
-    )
-    .toEqual([
-      "/releases/2.4.2/professor-mari-memories.png",
-      "/releases/2.4.2/noodle-agent.png",
-      "/releases/2.4.2/character-downloads.png",
-    ]);
-  for (const asset of [
-    "/releases/2.4.2/home-widgets.mp4",
-    "/releases/2.4.2/home-widgets-custom.mp4",
-    "/releases/2.4.2/home-navigator.mp4",
-    "/releases/2.4.2/professor-mari-memories.png",
-    "/releases/2.4.2/noodle-agent.png",
-    "/releases/2.4.2/character-downloads.png",
-  ]) {
-    expect((await page.request.get(asset)).ok(), `${asset} should be bundled and served`).toBe(true);
-  }
-
-  await expect(
-    announcement.getByRole("link", {
-      name: "https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.4.2",
-    }),
-  ).toHaveAttribute("href", "https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.4.2");
+    .poll(() => announcement.locator("[data-release-copy]").allTextContents())
+    .toEqual(["Wlecome to Marinara Engine's v2.4.3 Beta!"]);
+  await expect(announcement.locator("[data-release-story]")).toHaveCount(0);
+  await expect(announcement.locator("[data-release-media-kind]")).toHaveCount(0);
   const announcementScrollArea = announcement.locator('[data-component="WhatsNewModal"]').locator("..");
   await expect
     .poll(() => announcementScrollArea.evaluate((element) => getComputedStyle(element).overflowY))
@@ -5526,8 +5433,8 @@ test("new Roleplay chats seed character Tracker custom-field defaults without re
   }
 });
 
-test("desktop Tracker preserves its controls without shifting the chat column", async ({ page }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("desktop"), "Desktop Tracker overlap behavior is covered on desktop.");
+test("desktop Tracker scales into either Roleplay gutter without shifting chat", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Desktop Tracker gutter behavior is covered on desktop.");
 
   // Keep this device-local layout test isolated from the shared settings
   // record used by the parallel browser project.
@@ -5569,11 +5476,16 @@ test("desktop Tracker preserves its controls without shifting the chat column", 
 
     const main = page.locator('[data-component="CenterContent"]');
     const chatColumn = page.locator('[data-roleplay-chat-column="true"]');
+    const chatScroll = page.locator("[data-chat-scroll]");
     const trackerToggle = page.locator('[data-tracker-panel-toggle="roleplay-hud"]:visible').first();
     await expect(chatColumn).toBeVisible();
     await expect(trackerToggle).toBeVisible();
-    const chatColumnBefore = await chatColumn.boundingBox();
+    const [chatColumnBefore, chatScrollBefore] = await Promise.all([
+      chatColumn.boundingBox(),
+      chatScroll.boundingBox(),
+    ]);
     expect(chatColumnBefore).not.toBeNull();
+    expect(chatScrollBefore).not.toBeNull();
 
     await trackerToggle.click();
     const tracker = page.locator('[data-component="TrackerDataSidebarDesktop.left"]');
@@ -5584,25 +5496,29 @@ test("desktop Tracker preserves its controls without shifting the chat column", 
       );
     });
 
-    const [mainBox, chatColumnAfter, trackerBox] = await Promise.all([
+    const [mainBox, chatColumnAfter, chatScrollAfter, trackerBox] = await Promise.all([
       main.boundingBox(),
       chatColumn.boundingBox(),
+      chatScroll.boundingBox(),
       tracker.boundingBox(),
     ]);
     expect(mainBox).not.toBeNull();
     expect(chatColumnAfter).not.toBeNull();
+    expect(chatScrollAfter).not.toBeNull();
     expect(trackerBox).not.toBeNull();
     expect(Math.abs(chatColumnAfter!.x - chatColumnBefore!.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(chatColumnAfter!.width - chatColumnBefore!.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(chatScrollAfter!.x - chatScrollBefore!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(chatScrollAfter!.width - chatScrollBefore!.width)).toBeLessThanOrEqual(1);
 
-    const expectedWidth = Math.min(420, Math.floor(mainBox!.width - 8));
+    const expectedWidth = Math.max(0, Math.min(420, Math.floor(chatColumnAfter!.x - mainBox!.x - 8)));
     expect(Math.abs(trackerBox!.width - expectedWidth)).toBeLessThanOrEqual(1);
     expect(trackerBox!.x).toBeGreaterThanOrEqual(mainBox!.x - 1);
     expect(trackerBox!.x).toBeLessThanOrEqual(mainBox!.x + 1);
-    expect(trackerBox!.x + trackerBox!.width).toBeGreaterThan(chatColumnAfter!.x);
+    expect(trackerBox!.x + trackerBox!.width).toBeLessThanOrEqual(chatColumnAfter!.x - 7);
 
     const trackerContent = tracker.locator(".mari-tracker-panel-scroll");
-    const expectedScale = Math.max(0.65, expectedWidth / 420);
+    const expectedScale = expectedWidth === 0 ? 1 : Math.max(0.65, expectedWidth / 420);
     const appliedScale = Number(await trackerContent.getAttribute("data-tracker-content-scale"));
     expect(Math.abs(appliedScale - expectedScale)).toBeLessThanOrEqual(0.001);
     const emptyTrackerText = tracker.getByText("No enabled tracker panels.", { exact: true });
@@ -5656,13 +5572,54 @@ test("desktop Tracker preserves its controls without shifting the chat column", 
     });
     expect(horizontalOverflow).toBeNull();
 
-    await page.reload();
-    await expect(tracker).toBeVisible();
+    await tracker.getByRole("button", { name: /Tracker panel anchored left\. Click to anchor right\./ }).click();
+    const rightTracker = page.locator('[data-component="TrackerDataSidebarDesktop.right"]');
+    await expect(rightTracker).toBeVisible();
+    await rightTracker.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)),
+      );
+    });
+    const [rightChatColumn, rightChatScroll, rightTrackerBox] = await Promise.all([
+      chatColumn.boundingBox(),
+      chatScroll.boundingBox(),
+      rightTracker.boundingBox(),
+    ]);
+    expect(rightChatColumn).not.toBeNull();
+    expect(rightChatScroll).not.toBeNull();
+    expect(rightTrackerBox).not.toBeNull();
+    expect(Math.abs(rightChatColumn!.x - chatColumnBefore!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(rightChatColumn!.width - chatColumnBefore!.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(rightChatScroll!.x - chatScrollBefore!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(rightChatScroll!.width - chatScrollBefore!.width)).toBeLessThanOrEqual(1);
 
-    await tracker.getByRole("button", { name: "Close tracker panel" }).click();
-    await expect(tracker).toBeHidden();
+    const expectedRightWidth = Math.max(
+      0,
+      Math.min(420, Math.floor(mainBox!.x + mainBox!.width - (rightChatColumn!.x + rightChatColumn!.width) - 8)),
+    );
+    expect(Math.abs(rightTrackerBox!.width - expectedRightWidth)).toBeLessThanOrEqual(1);
+    expect(rightTrackerBox!.x).toBeGreaterThanOrEqual(rightChatColumn!.x + rightChatColumn!.width + 7);
+    expect(rightTrackerBox!.x + rightTrackerBox!.width).toBeLessThanOrEqual(mainBox!.x + mainBox!.width + 1);
+
+    const rightTrackerContent = rightTracker.locator(".mari-tracker-panel-scroll");
+    const expectedRightScale = expectedRightWidth === 0 ? 1 : Math.max(0.65, expectedRightWidth / 420);
+    const appliedRightScale = Number(await rightTrackerContent.getAttribute("data-tracker-content-scale"));
+    expect(Math.abs(appliedRightScale - expectedRightScale)).toBeLessThanOrEqual(0.001);
+    const rightTrackerContentBox = await rightTrackerContent.boundingBox();
+    expect(rightTrackerContentBox).not.toBeNull();
+    expect(rightTrackerContentBox!.x).toBeGreaterThanOrEqual(rightTrackerBox!.x - 1);
+    expect(rightTrackerContentBox!.x + rightTrackerContentBox!.width).toBeLessThanOrEqual(
+      rightTrackerBox!.x + rightTrackerBox!.width + 1,
+    );
+
     await page.reload();
-    await expect(tracker).toBeHidden();
+    const reloadedTracker = page.locator('[data-component^="TrackerDataSidebarDesktop."]');
+    await expect(reloadedTracker).toBeVisible();
+
+    await reloadedTracker.getByRole("button", { name: "Close tracker panel" }).click();
+    await expect(reloadedTracker).toBeHidden();
+    await page.reload();
+    await expect(reloadedTracker).toBeHidden();
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`);
   }
@@ -5720,7 +5677,7 @@ test("legacy browser records are cleaned while extension imports stay locked", a
         };
       }),
     )
-    .toEqual({ version: 93, hasExtensionRecords: false, hasCleanupFlag: false });
+    .toEqual({ version: 94, hasExtensionRecords: false, hasCleanupFlag: false });
 
   expect(
     await page.evaluate(
@@ -13338,6 +13295,52 @@ test("Lorebook Save keeps Overview stable while the updated detail cache settles
   }
 });
 
+test("Lorebook and entry IDs are visible and copyable", async ({ page }) => {
+  const name = `Lorebook IDs ${Date.now()}`;
+  const createResponse = await page.request.post("/api/lorebooks", {
+    data: { name, description: "Temporary ID control regression lorebook.", category: "world", enabled: true },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const lorebook = (await createResponse.json()) as { id: string };
+  const entryResponse = await page.request.post(`/api/lorebooks/${lorebook.id}/entries`, {
+    data: { name: "ID control entry", content: "Regression content", keys: ["regression"] },
+  });
+  expect(entryResponse.ok()).toBeTruthy();
+  const entry = (await entryResponse.json()) as { id: string };
+
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          window.sessionStorage.setItem("copied-lorebook-id", value);
+        },
+      },
+    });
+  });
+
+  try {
+    await page.goto("/");
+    await page.locator('[data-tour="panel-lorebooks"]').click();
+    await page.getByText(name, { exact: true }).click();
+
+    await expect(page.getByText(lorebook.id, { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Copy lorebook ID" }).click();
+    await expect(page.getByText("Lorebook ID copied", { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("copied-lorebook-id"))).toBe(lorebook.id);
+
+    await page.getByRole("button", { name: /^Entries/ }).click();
+    const row = page.locator(`[data-lorebook-entry-row-id="${entry.id}"]`);
+    await row.getByRole("button", { name: "Expand entry" }).click();
+    await expect(row.getByText(entry.id, { exact: true })).toBeVisible();
+    await row.getByRole("button", { name: "Copy entry ID" }).click();
+    await expect(page.getByText("Entry ID copied", { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("copied-lorebook-id"))).toBe(entry.id);
+  } finally {
+    await page.request.delete(`/api/lorebooks/${lorebook.id}`).catch(() => undefined);
+  }
+});
+
 test("Lorebook entry type descriptions inherit editor chrome text", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop entry-type popover regression.");
 
@@ -14349,7 +14352,7 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await expect(content).toHaveCSS("overflow-y", "auto");
   expect(await content.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBeTruthy();
   await expect(page.getByRole("heading", { name: "Recent chats" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "What's new in v2.4.2" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: `What's new in v${APP_VERSION}` })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Something new for your engine" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Character of the Day" })).toBeVisible();
   await expect(

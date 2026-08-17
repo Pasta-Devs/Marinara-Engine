@@ -27,9 +27,7 @@ export function resolveSpriteExpressionState(
   const expressions = normalizeSpriteExpressionMap(fallback);
 
   for (const message of messages ?? []) {
-    const update = normalizeSpriteExpressionMap(
-      parseMessageExtraRecord(message.extra).spriteExpressions,
-    );
+    const update = normalizeSpriteExpressionMap(parseMessageExtraRecord(message.extra).spriteExpressions);
     for (const [characterId, expression] of Object.entries(update)) {
       expressions[characterId] = expression;
     }

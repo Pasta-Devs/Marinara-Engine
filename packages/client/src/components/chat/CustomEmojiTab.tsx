@@ -70,13 +70,7 @@ export function CustomEmojiTab({
   const filteredGlobal = filterCustomEmojisByName(visibleGlobal, q);
   const filteredGroups: [string, ConversationCustomEmoji[]][] = q
     ? sourceGroups
-        .map(
-          ([source, emojis]) =>
-            [source, filterCustomEmojisByName(emojis, q)] as [
-              string,
-              ConversationCustomEmoji[],
-            ],
-        )
+        .map(([source, emojis]) => [source, filterCustomEmojisByName(emojis, q)] as [string, ConversationCustomEmoji[]])
         .filter(([, emojis]) => emojis.length > 0)
     : sourceGroups;
 
@@ -99,11 +93,11 @@ export function CustomEmojiTab({
           }
           const suggested = slugifyCustomName(file.name.replace(/\.[^.]+$/, ""));
           const raw = await showPromptDialog({
-            title:localizeUi("ui.chat.customemojitab.nameThisEmoji"),
-            message:localizeUi("ui.chat.customemojitab.useItInMessagesAsNameLowercaseLettersNumbers"),
+            title: localizeUi("ui.chat.customemojitab.nameThisEmoji"),
+            message: localizeUi("ui.chat.customemojitab.useItInMessagesAsNameLowercaseLettersNumbers"),
             defaultValue: suggested,
             placeholder: "e.g. kekw",
-            confirmLabel:localizeUi("ui.characters.metadatatab.add"),
+            confirmLabel: localizeUi("ui.characters.metadatatab.add"),
             previewImageUrl: objectUrl,
           });
           if (raw == null) continue; // skipped this one — keep going through the rest
@@ -126,10 +120,10 @@ export function CustomEmojiTab({
   const handleRename = useCallback(
     async (id: string, current: string) => {
       const raw = await showPromptDialog({
-        title:localizeUi("ui.chat.customemojitab.renameEmoji"),
-        message:localizeUi("ui.chat.customemojitab.newNameUsedAsName"),
+        title: localizeUi("ui.chat.customemojitab.renameEmoji"),
+        message: localizeUi("ui.chat.customemojitab.newNameUsedAsName"),
         defaultValue: current,
-        confirmLabel:localizeUi("ui.chat.chatbranchselector.rename"),
+        confirmLabel: localizeUi("ui.chat.chatbranchselector.rename"),
       });
       if (raw == null) return;
       const name = slugifyCustomName(raw);
@@ -143,9 +137,9 @@ export function CustomEmojiTab({
     async (id: string, name: string) => {
       if (
         await showConfirmDialog({
-          title:localizeUi("ui.chat.customemojitab.deleteEmoji"),
-          message:localizeUi("ui.chat.customemojitab.deleteValue1MessagesThatAlreadyUsedItWillShow", { value1: name }),
-          confirmLabel:localizeUi("lorebook.editor.batch.delete"),
+          title: localizeUi("ui.chat.customemojitab.deleteEmoji"),
+          message: localizeUi("ui.chat.customemojitab.deleteValue1MessagesThatAlreadyUsedItWillShow", { value1: name }),
+          confirmLabel: localizeUi("lorebook.editor.batch.delete"),
           tone: "destructive",
         })
       ) {
@@ -193,20 +187,25 @@ export function CustomEmojiTab({
               onClick={() => fileRef.current?.click()}
               className="inline-flex items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/70 ring-1 ring-foreground/10 transition-colors hover:bg-foreground/10 hover:text-foreground/90"
             >
-              <ImagePlus size="0.875rem" /> {localizeUi("ui.characters.characterclipcard.upload")}</button>
+              <ImagePlus size="0.875rem" /> {localizeUi("ui.characters.characterclipcard.upload")}
+            </button>
             {editing && (
               <>
                 <button
                   type="button"
                   onClick={() => importFileRef.current?.click()}
                   className="rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/70 ring-1 ring-foreground/10 transition-colors hover:bg-foreground/10 hover:text-foreground/90"
-                >{localizeUi("ui.chat.chatbranchselector.import")}</button>
+                >
+                  {localizeUi("ui.chat.chatbranchselector.import")}
+                </button>
                 {list.length > 0 && (
                   <button
                     type="button"
                     onClick={() => void handleExport()}
                     className="rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/70 ring-1 ring-foreground/10 transition-colors hover:bg-foreground/10 hover:text-foreground/90"
-                  >{localizeUi("ui.characters.spritestab.export")}</button>
+                  >
+                    {localizeUi("ui.characters.spritestab.export")}
+                  </button>
                 )}
               </>
             )}
@@ -244,7 +243,7 @@ export function CustomEmojiTab({
                   : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
               )}
             >
-              {editing ?localizeUi("lorebook.editor.batch.done") :localizeUi("ui.noodle.noodlepostcard.edit")}
+              {editing ? localizeUi("lorebook.editor.batch.done") : localizeUi("ui.noodle.noodlepostcard.edit")}
             </button>
           </div>
         </div>
@@ -257,9 +256,14 @@ export function CustomEmojiTab({
       {filteredGlobal.length === 0 && filteredGroups.length === 0 ? (
         <p className="px-1 py-6 text-center text-[0.6875rem] text-foreground/45">
           {q ? (
-            <>{localizeUi("ui.chat.customemojitab.noCustomEmojisMatch")}{query.trim()}”.</>
+            <>
+              {localizeUi("ui.chat.customemojitab.noCustomEmojisMatch")}
+              {query.trim()}”.
+            </>
           ) : (
-            <>{localizeUi("ui.chat.customemojitab.noCustomEmojisYetUploadOneMax256256")} <span className="font-mono">{localizeUi("ui.chat.customemojitab.name")}</span>.
+            <>
+              {localizeUi("ui.chat.customemojitab.noCustomEmojisYetUploadOneMax256256")}{" "}
+              <span className="font-mono">{localizeUi("ui.chat.customemojitab.name")}</span>.
             </>
           )}
         </p>
@@ -269,7 +273,9 @@ export function CustomEmojiTab({
             <>
               {(searchResultsOnly || filteredGroups.length > 0) && (
                 <p className="mb-1 px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-foreground/40">
-                  {searchResultsOnly ?localizeUi("settings.notifications.customSound.status.custom") :localizeUi("ui.lorebooks.lorebookeditor.global")}
+                  {searchResultsOnly
+                    ? localizeUi("settings.notifications.customSound.status.custom")
+                    : localizeUi("ui.lorebooks.lorebookeditor.global")}
                 </p>
               )}
               <div className="grid grid-cols-6 gap-1">
@@ -278,10 +284,18 @@ export function CustomEmojiTab({
                     <button
                       type="button"
                       onClick={() => (editing ? void handleRename(emoji.id, emoji.name) : onInsert(`:${emoji.name}:`))}
-                      title={editing ?localizeUi("ui.chat.customemojitab.renameValue1", { value1: emoji.name }) :localizeUi("ui.chat.conversationinput.value1", { value1: emoji.name })}
+                      title={
+                        editing
+                          ? localizeUi("ui.chat.customemojitab.renameValue1", { value1: emoji.name })
+                          : localizeUi("ui.chat.conversationinput.value1", { value1: emoji.name })
+                      }
                       className="flex aspect-square w-full items-center justify-center rounded-md p-1 transition-transform hover:scale-110 hover:bg-foreground/10 active:scale-100"
                     >
-                      <img src={emoji.url} alt={localizeUi("ui.chat.conversationinput.value1", { value1: emoji.name })} className="max-h-9 max-w-full object-contain" />
+                      <img
+                        src={emoji.url}
+                        alt={localizeUi("ui.chat.conversationinput.value1", { value1: emoji.name })}
+                        className="max-h-9 max-w-full object-contain"
+                      />
                     </button>
                     {editing && (
                       <button
@@ -313,7 +327,11 @@ export function CustomEmojiTab({
                       title={localizeUi("ui.chat.customemojitab.value1Value2", { value1: emoji.name, value2: source })}
                       className="flex aspect-square w-full items-center justify-center rounded-md p-1 transition-transform hover:scale-110 hover:bg-foreground/10 active:scale-100"
                     >
-                      <img src={emoji.url} alt={localizeUi("ui.chat.conversationinput.value1", { value1: emoji.name })} className="max-h-9 max-w-full object-contain" />
+                      <img
+                        src={emoji.url}
+                        alt={localizeUi("ui.chat.conversationinput.value1", { value1: emoji.name })}
+                        className="max-h-9 max-w-full object-contain"
+                      />
                     </button>
                   </div>
                 ))}

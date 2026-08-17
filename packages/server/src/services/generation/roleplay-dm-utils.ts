@@ -13,9 +13,7 @@ function normalizeDmTargetName(value: string): string {
 
 export function parseChatCharacterIdsForDm(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return value
-      .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
-      .map((id) => id.trim());
+    return value.filter((id): id is string => typeof id === "string" && id.trim().length > 0).map((id) => id.trim());
   }
   if (typeof value !== "string") return [];
   try {
@@ -74,7 +72,11 @@ export function formatUnresolvedRoleplayDmFallback(command: DirectMessageCommand
   return character ? `${character}: "${message}"` : message;
 }
 
-export function replaceRoleplayDmCommandText(source: string, command: DirectMessageCommand, replacement: string): string {
+export function replaceRoleplayDmCommandText(
+  source: string,
+  command: DirectMessageCommand,
+  replacement: string,
+): string {
   if (command.raw && source.includes(command.raw)) {
     return source.replace(command.raw, replacement);
   }

@@ -88,7 +88,9 @@ function TextBlock({
             title={localizeUi("ui.chat.textblock.copyAsGuidedCommand")}
             aria-label={localizeUi("ui.chat.textblock.copyAsGuidedCommand")}
           >
-            <Copy size="0.75rem" className="shrink-0" />{localizeUi("ui.chat.textblock.copyGuided")}</button>
+            <Copy size="0.75rem" className="shrink-0" />
+            {localizeUi("ui.chat.textblock.copyGuided")}
+          </button>
         )}
       </div>
       <pre
@@ -152,29 +154,46 @@ export function GenerationReplayDetailsModal({
 
         {hasImpersonate && (
           <section className="space-y-3">
-            <h3 className="text-[0.75rem] font-semibold uppercase tracking-normal text-[var(--muted-foreground)]">{localizeUi("ui.chat.generationreplaydetailsmodal.impersonate")}</h3>
+            <h3 className="text-[0.75rem] font-semibold uppercase tracking-normal text-[var(--muted-foreground)]">
+              {localizeUi("ui.chat.generationreplaydetailsmodal.impersonate")}
+            </h3>
             <TextBlock
               label={localizeUi("ui.chat.generationreplaydetailsmodal.currentGuidance")}
               value={impersonateGuidance ?? "No guidance stored"}
               muted={!impersonateGuidance}
             />
-            {impersonatePromptTemplate && <TextBlock label={localizeUi("ui.chat.generationreplaydetailsmodal.promptTemplate")} value={impersonatePromptTemplate} />}
+            {impersonatePromptTemplate && (
+              <TextBlock
+                label={localizeUi("ui.chat.generationreplaydetailsmodal.promptTemplate")}
+                value={impersonatePromptTemplate}
+              />
+            )}
             {hasMetadata && (
               <dl className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2">
                 {storedText(replay?.impersonatePresetId) && (
-                  <MetadataRow label={localizeUi("chat.toolbar.preset")} value={storedText(replay?.impersonatePresetId)!} />
+                  <MetadataRow
+                    label={localizeUi("chat.toolbar.preset")}
+                    value={storedText(replay?.impersonatePresetId)!}
+                  />
                 )}
                 {storedText(replay?.impersonateConnectionId) && (
-                  <MetadataRow label={localizeUi("ui.chat.conversationquicksetup.connection")} value={storedText(replay?.impersonateConnectionId)!} />
+                  <MetadataRow
+                    label={localizeUi("ui.chat.conversationquicksetup.connection")}
+                    value={storedText(replay?.impersonateConnectionId)!}
+                  />
                 )}
-                {replay?.impersonateBlockAgents === true && <MetadataRow label={localizeUi("navigation.topbar.agents")} value="Blocked" />}
+                {replay?.impersonateBlockAgents === true && (
+                  <MetadataRow label={localizeUi("navigation.topbar.agents")} value="Blocked" />
+                )}
               </dl>
             )}
           </section>
         )}
 
         {!generationGuide && !hasImpersonate && (
-          <p className="text-sm text-[var(--muted-foreground)]">{localizeUi("ui.chat.generationreplaydetailsmodal.noStoredGuidanceOnThisSwipe")}</p>
+          <p className="text-sm text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.generationreplaydetailsmodal.noStoredGuidanceOnThisSwipe")}
+          </p>
         )}
       </div>
     </Modal>

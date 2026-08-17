@@ -122,6 +122,7 @@ import {
   BookOpen,
   BarChart3,
   Gauge,
+  HardDrive,
   LifeBuoy,
   SlidersHorizontal,
 } from "lucide-react";
@@ -261,6 +262,7 @@ type SettingsSectionId =
   | "parameters"
   | "message-tools"
   | "backup-export"
+  | "storage-optimization"
   | "danger-zone";
 
 type SettingsSectionMeta = {
@@ -519,6 +521,13 @@ const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "Backup & Export",
     description: "Backups and manual export tools.",
     aliases: ["backup", "export", "download", "archive", "automatic", "scheduled"],
+  },
+  {
+    id: "storage-optimization",
+    tab: "advanced",
+    label: "Storage Optimization",
+    description: "Find and remove abandoned avatar files.",
+    aliases: ["storage", "avatar", "cleanup", "optimize", "orphan", "abandoned"],
   },
   {
     id: "danger-zone",
@@ -1308,6 +1317,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     aliases: ["backup", "retention", "history", "rotate", "automatic"],
     kind: "Input",
   },
+  {
+    id: "avatar-storage-optimization",
+    sectionId: "storage-optimization",
+    label: "Optimize avatar storage",
+    description: "Find old avatar image files that are no longer referenced by Marinara data.",
+    aliases: ["storage", "avatar", "cleanup", "orphan", "abandoned", "disk space"],
+    kind: "Button group",
+  },
 ] as const;
 
 const SETTINGS_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";
@@ -1593,6 +1610,35 @@ async function readSettingsResponseError(res: Response, fallback: string) {
   }
 }
 
+function formatStorageBytes(bytes: number): string {
+  const safeBytes = Math.max(0, Number.isFinite(bytes) ? bytes : 0);
+  if (safeBytes < 1_000) {
+    return new Intl.NumberFormat(undefined, { style: "unit", unit: "byte", unitDisplay: "short" }).format(safeBytes);
+  }
+  if (safeBytes < 1_000_000) {
+    return new Intl.NumberFormat(undefined, {
+      style: "unit",
+      unit: "kilobyte",
+      unitDisplay: "short",
+      maximumFractionDigits: 1,
+    }).format(safeBytes / 1_000);
+  }
+  if (safeBytes < 1_000_000_000) {
+    return new Intl.NumberFormat(undefined, {
+      style: "unit",
+      unit: "megabyte",
+      unitDisplay: "short",
+      maximumFractionDigits: 1,
+    }).format(safeBytes / 1_000_000);
+  }
+  return new Intl.NumberFormat(undefined, {
+    style: "unit",
+    unit: "gigabyte",
+    unitDisplay: "short",
+    maximumFractionDigits: 1,
+  }).format(safeBytes / 1_000_000_000);
+}
+
 const ROLEPLAY_AVATAR_STYLE_OPTIONS: Array<{ id: RoleplayAvatarStyle; label: string; desc: string }> = [
   {
     id: "none",
@@ -1696,6 +1742,10 @@ const TRACKER_PANEL_CARD_OPTIONS: Record<TrackerDataPanelSection, { label: strin
   characters: {
     label: "Characters",
     desc: "Present character cards, stats, portraits, and thoughts.",
+  },
+  inventory: {
+    label: "ui.panels.trackerOrder.inventoryTracker",
+    desc: "ui.panels.trackerOrder.inventoryTrackerDescription",
   },
   quests: {
     label: "Quests",
@@ -2229,11 +2279,11 @@ function TrackerPanelCardOrderSetting() {
               <div
                 key={section}
                 className="grid min-h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm bg-[var(--secondary)]/42 px-1.5 py-1 ring-1 ring-[var(--border)]/60"
-                title={option.desc}
+                title={localizeUi(option.desc)}
               >
                 <div className="min-w-0">
                   <div className="truncate text-[0.6875rem] font-medium leading-4 text-[var(--foreground)]">
-                    {option.label}
+                    {localizeUi(option.label)}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5">
@@ -2241,9 +2291,11 @@ function TrackerPanelCardOrderSetting() {
                     type="button"
                     onClick={() => moveCard(section, -1)}
                     disabled={index === 0}
-                    title={localizeUi("ui.panels.trackerpanelcardordersetting.moveValue1Up", { value1: option.label })}
+                    title={localizeUi("ui.panels.trackerpanelcardordersetting.moveValue1Up", {
+                      value1: localizeUi(option.label),
+                    })}
                     aria-label={localizeUi("ui.panels.trackerpanelcardordersetting.moveValue1Up", {
-                      value1: option.label,
+                      value1: localizeUi(option.label),
                     })}
                     className="flex h-5 w-5 items-center justify-center rounded-sm text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--background)] hover:text-[var(--primary)] active:scale-95 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--muted-foreground)]"
                   >
@@ -2254,10 +2306,10 @@ function TrackerPanelCardOrderSetting() {
                     onClick={() => moveCard(section, 1)}
                     disabled={index === orderedSections.length - 1}
                     title={localizeUi("ui.panels.trackerpanelcardordersetting.moveValue1Down", {
-                      value1: option.label,
+                      value1: localizeUi(option.label),
                     })}
                     aria-label={localizeUi("ui.panels.trackerpanelcardordersetting.moveValue1Down", {
-                      value1: option.label,
+                      value1: localizeUi(option.label),
                     })}
                     className="flex h-5 w-5 items-center justify-center rounded-sm text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--background)] hover:text-[var(--primary)] active:scale-95 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[var(--muted-foreground)]"
                   >
@@ -7250,6 +7302,30 @@ function AdvancedSettings() {
   const setExternalExtensionsEnabled = useSetExternalExtensionsEnabled();
   const { data: agentImportPolicy, isLoading: agentImportPolicyLoading } = useAgentImportPolicy();
   const setAgentImportsEnabled = useSetAgentImportsEnabled();
+  type AvatarStorageSummary = { files: number; bytes: number; minimumAgeMinutes: number };
+  const [avatarStorageSummary, setAvatarStorageSummary] = useState<AvatarStorageSummary | null>(null);
+  const scanAvatarStorage = useMutation({
+    mutationFn: () => api.get<AvatarStorageSummary>("/admin/avatar-storage/abandoned"),
+    onSuccess: setAvatarStorageSummary,
+    onError: (error) => {
+      toast.error(getPrivilegedActionErrorMessage(error, localizeUi("settings.storageOptimization.error")));
+    },
+  });
+  const cleanAvatarStorage = useMutation({
+    mutationFn: () => api.post<AvatarStorageSummary>("/admin/avatar-storage/cleanup", { confirm: true }),
+    onSuccess: (result) => {
+      setAvatarStorageSummary({ ...result, files: 0, bytes: 0 });
+      toast.success(
+        localizeUi("settings.storageOptimization.deleted", {
+          count: result.files,
+          size: formatStorageBytes(result.bytes),
+        }),
+      );
+    },
+    onError: (error) => {
+      toast.error(getPrivilegedActionErrorMessage(error, localizeUi("settings.storageOptimization.error")));
+    },
+  });
   const nativeConsoleBridge = getMarinaraAndroidBridge();
   const canOpenNativeConsole = typeof nativeConsoleBridge?.openConsole === "function";
   const nativeConsoleHelp = getNativeConsoleShortcutHelp();
@@ -7310,6 +7386,24 @@ function AdvancedSettings() {
     },
     [setAgentImportsEnabled, t],
   );
+
+  const handleDeleteAbandonedAvatars = useCallback(async () => {
+    if (!avatarStorageSummary || avatarStorageSummary.files < 1) return;
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("settings.storageOptimization.confirm.title", {
+        count: avatarStorageSummary.files,
+      }),
+      message: localizeUi("settings.storageOptimization.confirm.message", {
+        count: avatarStorageSummary.files,
+        minutes: avatarStorageSummary.minimumAgeMinutes,
+        size: formatStorageBytes(avatarStorageSummary.bytes),
+      }),
+      confirmLabel: localizeUi("settings.storageOptimization.action.delete"),
+      cancelLabel: localizeUi("chat.delete.dialog.cancel"),
+      tone: "destructive",
+    });
+    if (confirmed) cleanAvatarStorage.mutate();
+  }, [avatarStorageSummary, cleanAvatarStorage, localizeUi]);
 
   type ProfileExportFormat = "native" | "compatible" | "zip";
   const profileExportFallbackNames: Record<ProfileExportFormat, string> = {
@@ -7399,10 +7493,26 @@ function AdvancedSettings() {
   const handleCreateBackup = async () => {
     setCreatingBackup(true);
     try {
-      const res = await api.raw("/backup/download", {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error(await readSettingsResponseError(res, "Backup failed"));
+      const started = await api.post<{ jobId: string; status: "preparing" }>("/backup/download/start");
+      const deadline = Date.now() + 60 * 60 * 1_000;
+      let status: { status: "preparing" | "ready" | "failed"; error?: string } = { status: started.status };
+      while (status.status === "preparing") {
+        if (Date.now() >= deadline) {
+          throw new Error(localizeUi("ui.panels.advancedsettings.backupPreparationTimedOut"));
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 2_000));
+        status = await api.get(`/backup/download/status/${encodeURIComponent(started.jobId)}`);
+      }
+      if (status.status === "failed") {
+        throw new Error(status.error || localizeUi("ui.panels.advancedsettings.failedToCreateBackup"));
+      }
+
+      const res = await api.raw(`/backup/download/file/${encodeURIComponent(started.jobId)}`);
+      if (!res.ok) {
+        throw new Error(
+          await readSettingsResponseError(res, localizeUi("ui.panels.advancedsettings.failedToCreateBackup")),
+        );
+      }
 
       // Pull the filename from Content-Disposition if provided
       const disposition = res.headers.get("content-disposition") ?? "";
@@ -7515,6 +7625,7 @@ function AdvancedSettings() {
     version: string;
     commit: string | null;
     build: string;
+    serverOs: string;
   }>({
     queryKey: ["health"],
     queryFn: () => api.get("/health"),
@@ -7532,7 +7643,8 @@ function AdvancedSettings() {
         version: health.data?.version ?? APP_VERSION,
         build: health.data?.build ?? APP_VERSION,
         commit: health.data?.commit ?? null,
-        os: resolveClientOs(navigator.userAgent, navigator.platform),
+        serverOs: health.data?.serverOs ?? "Unavailable",
+        clientOs: resolveClientOs(navigator.userAgent, navigator.platform, navigator.maxTouchPoints),
         browser: navigator.userAgent,
         gpu: detectBrowserGpu(),
         connectionName: activeConnection?.name ?? null,
@@ -7799,7 +7911,7 @@ function AdvancedSettings() {
           </div>
 
           {selectedUpdateChannel?.warning && (
-            <div className="flex items-start gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-2 text-[0.6875rem] text-amber-700 ring-1 ring-amber-500/30 dark:text-amber-200">
+            <div className="flex items-start gap-1.5 rounded-lg bg-[var(--primary)]/10 px-2.5 py-2 text-[0.6875rem] text-[var(--primary)] ring-1 ring-[var(--primary)]/30">
               <AlertTriangle size="0.8125rem" className="mt-0.5 shrink-0" />
               <span>{selectedUpdateChannel.warning}</span>
             </div>
@@ -8209,6 +8321,62 @@ function AdvancedSettings() {
             </div>
           )}
         </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title={localizeUi("settings.sections.storageOptimization.title")}
+        description={localizeUi("settings.sections.storageOptimization.componentDescription")}
+        icon={<HardDrive size="0.875rem" />}
+        {...getSettingsSectionAnchorProps("storage-optimization")}
+      >
+        <SearchableSettingTarget controlId="avatar-storage-optimization" className="flex flex-col gap-2">
+          <p className="text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("settings.storageOptimization.description")}
+          </p>
+          <button
+            type="button"
+            onClick={() => scanAvatarStorage.mutate()}
+            disabled={scanAvatarStorage.isPending || cleanAvatarStorage.isPending}
+            className={cn(SETTINGS_BUTTON_CLASS, "w-full justify-center gap-1.5 px-3 py-2 text-xs")}
+          >
+            {scanAvatarStorage.isPending ? (
+              <Loader2 size="0.8125rem" className="animate-spin" />
+            ) : (
+              <Search size="0.8125rem" />
+            )}
+            {scanAvatarStorage.isPending
+              ? localizeUi("settings.storageOptimization.scanning")
+              : localizeUi("settings.storageOptimization.action.check")}
+          </button>
+          {avatarStorageSummary && (
+            <div className="rounded-lg bg-[var(--background)]/55 p-2.5 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+              {avatarStorageSummary.files > 0
+                ? localizeUi("settings.storageOptimization.found", {
+                    count: avatarStorageSummary.files,
+                    minutes: avatarStorageSummary.minimumAgeMinutes,
+                    size: formatStorageBytes(avatarStorageSummary.bytes),
+                  })
+                : localizeUi("settings.storageOptimization.clean")}
+            </div>
+          )}
+          {avatarStorageSummary && avatarStorageSummary.files > 0 && (
+            <button
+              type="button"
+              onClick={() => void handleDeleteAbandonedAvatars()}
+              disabled={cleanAvatarStorage.isPending || scanAvatarStorage.isPending}
+              className={cn(SETTINGS_PRIMARY_BUTTON_CLASS, "w-full justify-center gap-1.5")}
+            >
+              {cleanAvatarStorage.isPending ? (
+                <Loader2 size="0.8125rem" className="animate-spin" />
+              ) : (
+                <Trash2 size="0.8125rem" />
+              )}
+              {cleanAvatarStorage.isPending
+                ? localizeUi("settings.storageOptimization.deleting")
+                : localizeUi("settings.storageOptimization.action.delete")}
+            </button>
+          )}
+        </SearchableSettingTarget>
       </SettingsSection>
 
       <SettingsSection

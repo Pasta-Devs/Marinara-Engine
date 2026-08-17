@@ -45,7 +45,7 @@ export const gameTurnStoryboardKeyframes = fileTable("game_turn_storyboard_keyfr
   continuityNotes: text("continuity_notes").notNull().default(""),
   cameraMotion: text("camera_motion").notNull().default(""),
   transitionHint: text("transition_hint").notNull().default(""),
-  durationSeconds: integer("duration_seconds").notNull().default(6),
+  durationSeconds: integer("duration_seconds").notNull().default(5),
   aspectRatio: text("aspect_ratio").notNull().default("16:9"),
   chatImageId: text("chat_image_id").references(() => chatImages.id, { onDelete: "set null" }),
   sceneVideoId: text("scene_video_id").references(() => gameSceneVideos.id, { onDelete: "set null" }),

@@ -59,7 +59,8 @@ export function parsePromptPresetChoices(value: unknown): Record<string, string 
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const choices = parsed as Record<string, unknown>;
     const isValid = Object.values(choices).every(
-      (choice) => typeof choice === "string" || (Array.isArray(choice) && choice.every((item) => typeof item === "string")),
+      (choice) =>
+        typeof choice === "string" || (Array.isArray(choice) && choice.every((item) => typeof item === "string")),
     );
     return isValid ? (choices as Record<string, string | string[]>) : null;
   } catch {

@@ -36,11 +36,7 @@ import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
 import { api } from "./lib/api-client";
 import { forceRefreshSpa } from "./lib/browser-runtime";
-import {
-  formatRuntimeBuild,
-  getServerRuntimeBuild,
-  isRuntimeBuildCurrent,
-} from "./lib/runtime-build";
+import { formatRuntimeBuild, getServerRuntimeBuild, isRuntimeBuildCurrent } from "./lib/runtime-build";
 import {
   getCssColorFallback,
   getCssGradientColorStops,

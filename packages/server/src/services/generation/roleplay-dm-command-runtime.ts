@@ -86,7 +86,9 @@ async function runRoleplayDmCommand(
     .reverse()
     .find((message) => message.role === "user" && !isMessageHiddenFromAI(message));
   const sourceUserText = sourceUserMessage
-    ? stripConversationPromptTimestamps(String(sourceUserMessage.content ?? "")).trim().slice(0, 4000)
+    ? stripConversationPromptTimestamps(String(sourceUserMessage.content ?? ""))
+        .trim()
+        .slice(0, 4000)
     : "";
 
   const ensureSourceUserMessage = async (targetChatId: string, dedupePerTarget: boolean) => {

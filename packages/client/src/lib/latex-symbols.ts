@@ -134,12 +134,11 @@ export function convertBasicLatexSymbols(text: string): string {
   if (!text.includes("\\")) return text;
 
   const converted = text
-    .replace(INLINE_BRACKET_MATH_RE, (_match, inner: string) =>
-      convertDelimitedLatexSymbols(inner, "\\[", "\\]"),
-    )
+    .replace(INLINE_BRACKET_MATH_RE, (_match, inner: string) => convertDelimitedLatexSymbols(inner, "\\[", "\\]"))
     .replace(INLINE_PAREN_MATH_RE, (_match, inner: string) => convertDelimitedLatexSymbols(inner, "\\(", "\\)"))
-    .replace(INLINE_DOLLAR_MATH_RE, (_match, prefix: string, inner: string) =>
-      `${prefix}${convertDelimitedLatexSymbols(inner, "$", "$")}`,
+    .replace(
+      INLINE_DOLLAR_MATH_RE,
+      (_match, prefix: string, inner: string) => `${prefix}${convertDelimitedLatexSymbols(inner, "$", "$")}`,
     );
 
   return replaceLatexCommands(converted);

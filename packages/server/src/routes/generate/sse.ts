@@ -37,7 +37,3 @@ export function sendSseEvent(reply: FastifyReply, payload: SsePayload): boolean 
     return false;
   }
 }
-
-export function trySendSseEvent(reply: FastifyReply, payload: SsePayload): boolean {
-  return sendSseEvent(reply, payload);
-}

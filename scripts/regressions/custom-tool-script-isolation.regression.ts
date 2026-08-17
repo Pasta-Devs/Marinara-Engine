@@ -38,6 +38,7 @@ assert.equal(timedOut?.success, false);
 assert.match(timedOut?.result ?? "", /timeout/u);
 assert.ok(Date.now() - started < 2_000, "a script loop must be terminated outside the server thread");
 
+process.env.CUSTOM_TOOL_TIMEOUT_MS = "1000";
 const [escapeAttempt] = await executeToolCalls([call], {
   customTools: [
     tool(`

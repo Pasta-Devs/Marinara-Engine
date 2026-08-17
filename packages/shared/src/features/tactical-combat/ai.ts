@@ -71,7 +71,16 @@ function buildAttackOptions(state: TacticalCombatState, unit: TacticalUnit): Att
     }
 
     const score = (isKill ? 1000 : 0) + expValue - counterRisk * 0.75;
-    options.push({ tile, targetId: target.id, skillName: opts.skillName, expValue, isKill, hitChance: fc.hitChance, counterRisk, score });
+    options.push({
+      tile,
+      targetId: target.id,
+      skillName: opts.skillName,
+      expValue,
+      isKill,
+      hitChance: fc.hitChance,
+      counterRisk,
+      score,
+    });
   };
 
   for (const tile of tiles) {
@@ -142,7 +151,13 @@ function decide(state: TacticalCombatState, unit: TacticalUnit, rng: () => numbe
       chosen = options[idx]!;
     }
     if (chosen.skillName) {
-      return { type: "skill", unitId: unit.id, skillName: chosen.skillName, targetId: chosen.targetId, to: chosen.tile };
+      return {
+        type: "skill",
+        unitId: unit.id,
+        skillName: chosen.skillName,
+        targetId: chosen.targetId,
+        to: chosen.tile,
+      };
     }
     return { type: "attack", unitId: unit.id, targetId: chosen.targetId, to: chosen.tile };
   }

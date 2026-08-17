@@ -70,20 +70,20 @@ export function QuestObjectiveRow({
           title={
             lockMode
               ? completedLocked
-                ?localizeUi("ui.trackerPanel.questobjectiverow.unlockObjectiveCompletion")
-                :localizeUi("ui.trackerPanel.questobjectiverow.lockObjectiveCompletion")
+                ? localizeUi("ui.trackerPanel.questobjectiverow.unlockObjectiveCompletion")
+                : localizeUi("ui.trackerPanel.questobjectiverow.lockObjectiveCompletion")
               : objective.completed
-                ?localizeUi("ui.chat.questcardeditable.markIncomplete")
-                :localizeUi("ui.chat.questcardeditable.markComplete")
+                ? localizeUi("ui.chat.questcardeditable.markIncomplete")
+                : localizeUi("ui.chat.questcardeditable.markComplete")
           }
           aria-label={
             lockMode
               ? completedLocked
-                ?localizeUi("ui.trackerPanel.questobjectiverow.unlockObjectiveCompletion")
-                :localizeUi("ui.trackerPanel.questobjectiverow.lockObjectiveCompletion")
+                ? localizeUi("ui.trackerPanel.questobjectiverow.unlockObjectiveCompletion")
+                : localizeUi("ui.trackerPanel.questobjectiverow.lockObjectiveCompletion")
               : objective.completed
-                ?localizeUi("ui.trackerPanel.questobjectiverow.markObjectiveIncomplete")
-                :localizeUi("ui.trackerPanel.questobjectiverow.markObjectiveComplete")
+                ? localizeUi("ui.trackerPanel.questobjectiverow.markObjectiveIncomplete")
+                : localizeUi("ui.trackerPanel.questobjectiverow.markObjectiveComplete")
           }
           aria-pressed={lockMode ? completedLocked : undefined}
         >
@@ -109,7 +109,9 @@ export function QuestObjectiveRow({
           value={objective.text}
           onSave={(text) => onUpdateText(text || "Objective")}
           placeholder={localizeUi("ui.trackerPanel.questobjectiverow.objective")}
-          title={localizeUi("ui.trackerPanel.questobjectiverow.objectiveValue1", { value1: visibleText(objective.text, "Objective") })}
+          title={localizeUi("ui.trackerPanel.questobjectiverow.objectiveValue1", {
+            value1: visibleText(objective.text, "Objective"),
+          })}
           showEditHint={false}
           previewLineCount={previewLineCount}
           className={cn(

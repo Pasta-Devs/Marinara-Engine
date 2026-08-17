@@ -9,9 +9,11 @@ export function localizeAchievementTitle(t: AchievementTranslator, achievement: 
 }
 
 export function localizeAchievementDescription(t: AchievementTranslator, achievement: AchievementDefinition) {
-  return String(t(achievement.descriptionKey, {
-    defaultValue: achievement.description,
-    target: achievement.target,
-    count: achievement.target,
-  }));
+  return String(
+    t(achievement.descriptionKey, {
+      defaultValue: achievement.description,
+      target: achievement.target,
+      count: achievement.target,
+    }),
+  );
 }

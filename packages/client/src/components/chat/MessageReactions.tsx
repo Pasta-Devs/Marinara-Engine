@@ -85,7 +85,10 @@ function ReactionPill({
         }}
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
-        aria-label={localizeUi("ui.chat.reactionpill.value1ReactedWithValue2", { value1: who, value2: name ?localizeUi("ui.chat.conversationinput.value1", { value1: name }) : reaction.emoji })}
+        aria-label={localizeUi("ui.chat.reactionpill.value1ReactedWithValue2", {
+          value1: who,
+          value2: name ? localizeUi("ui.chat.conversationinput.value1", { value1: name }) : reaction.emoji,
+        })}
         aria-pressed={mine}
         className={cn(
           "flex items-center gap-1 rounded-md border px-1.5 py-0.5 leading-none transition-colors",
@@ -123,10 +126,13 @@ function ReactionPill({
             <span className="leading-snug">
               {name ? (
                 <>
-                  <span className="font-semibold text-[var(--foreground)]">:{name}:</span> {localizeUi("ui.chat.reactionpill.reactedBy")} {who}
+                  <span className="font-semibold text-[var(--foreground)]">:{name}:</span>{" "}
+                  {localizeUi("ui.chat.reactionpill.reactedBy")} {who}
                 </>
               ) : (
-                <>{localizeUi("ui.chat.reactionpill.reactedBy")} {who}</>
+                <>
+                  {localizeUi("ui.chat.reactionpill.reactedBy")} {who}
+                </>
               )}
             </span>
           </div>,

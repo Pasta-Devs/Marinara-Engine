@@ -8,7 +8,9 @@ function humanizeKey(key: string) {
     .replace(/[_-]+/g, " ")
     .split(" ")
     .filter(Boolean)
-    .map((part) => (ACRONYMS.has(part.toLowerCase()) ? part.toUpperCase() : `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`))
+    .map((part) =>
+      ACRONYMS.has(part.toLowerCase()) ? part.toUpperCase() : `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`,
+    )
     .join(" ");
 }
 

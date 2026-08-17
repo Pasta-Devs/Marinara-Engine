@@ -5,17 +5,6 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(__dirname, "..");
 
-const README_RELEASE_LINE =
-  "Current stable release: **[v%s](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v%s)**.";
-
-function format(template, ...values) {
-  let next = template;
-  for (const value of values) {
-    next = next.replace("%s", value);
-  }
-  return next;
-}
-
 async function readText(relativePath) {
   return readFile(resolve(REPO_ROOT, relativePath), "utf8");
 }
@@ -95,15 +84,6 @@ function updateAndroidBuildGradle(content, version, androidVersionCode) {
   return next;
 }
 
-function updateReadme(content, version) {
-  return replaceOrThrow(
-    content,
-    /Current stable release: \*\*\[v[^\]]+\]\(https:\/\/github\.com\/Pasta-Devs\/Marinara-Engine\/releases\/tag\/v[^)]+\)\*\*\./,
-    format(README_RELEASE_LINE, version, version),
-    "README latest release line",
-  );
-}
-
 export async function readCanonicalVersion() {
   const packageJson = JSON.parse(await readText("package.json"));
   if (typeof packageJson.version !== "string" || packageJson.version.length === 0) {
@@ -153,10 +133,6 @@ const DERIVED_VERSION_FILES = [
   {
     path: "android/app/build.gradle",
     render: (content, version, androidVersionCode) => updateAndroidBuildGradle(content, version, androidVersionCode),
-  },
-  {
-    path: "README.md",
-    render: (content, version) => updateReadme(content, version),
   },
 ];
 

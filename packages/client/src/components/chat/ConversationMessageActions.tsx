@@ -180,7 +180,9 @@ export function ConversationMessageActions({
         <MsgAction
           icon={<Brain size="0.75rem" />}
           onClick={onShowThinking}
-          title={t(reasoningSummaryUnavailable ? "chat.message.thoughts.unavailable.view" : "chat.message.thoughts.view")}
+          title={t(
+            reasoningSummaryUnavailable ? "chat.message.thoughts.unavailable.view" : "chat.message.thoughts.view",
+          )}
           tabIndex={tabIdx}
           className="mari-message-thinking-action"
           buttonRef={thinkingButtonRef}

@@ -39,8 +39,7 @@ export function resolveStatIconAssignment(
 ): SupportedStatIcon | null | undefined {
   return assignments.find(
     (assignment) =>
-      normalizeTextForMatch(assignment.name) === normalizeTextForMatch(name) &&
-      assignment.occurrence === occurrence,
+      normalizeTextForMatch(assignment.name) === normalizeTextForMatch(name) && assignment.occurrence === occurrence,
   )?.icon;
 }
 
@@ -57,14 +56,10 @@ export function setStatIconAssignment(
   return next;
 }
 
-export function getStatNameOccurrence(
-  stats: readonly { name: string }[],
-  index: number,
-) {
+export function getStatNameOccurrence(stats: readonly { name: string }[], index: number) {
   const normalizedName = normalizeTextForMatch(stats[index]?.name);
-  return stats
-    .slice(0, Math.max(0, index))
-    .filter((stat) => normalizeTextForMatch(stat.name) === normalizedName).length;
+  return stats.slice(0, Math.max(0, index)).filter((stat) => normalizeTextForMatch(stat.name) === normalizedName)
+    .length;
 }
 
 export function remapStatIconAssignments(
@@ -80,10 +75,7 @@ export function remapStatIconAssignments(
     const previousAssignment = assignments.find(
       (assignment) =>
         assignmentKey(assignment.name, assignment.occurrence) ===
-        assignmentKey(
-          previousStats[previousIndex]!.name,
-          getStatNameOccurrence(previousStats, previousIndex),
-        ),
+        assignmentKey(previousStats[previousIndex]!.name, getStatNameOccurrence(previousStats, previousIndex)),
     );
     if (!previousAssignment) return;
     nextAssignments.push({

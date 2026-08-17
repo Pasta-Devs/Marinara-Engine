@@ -23,7 +23,9 @@ import type {
   HapticFeedbackPattern,
   HapticStatus,
 } from "@marinara-engine/shared";
+import { normalizeHapticAction, normalizeHapticPattern } from "@marinara-engine/shared";
 import { getIntifaceUrl } from "../../config/runtime-config.js";
+import { buildHapticPatternSteps, describeHapticDeviceType } from "../generation/haptic-runtime.js";
 
 const POSITION_WITH_DURATION_OUTPUT =
   (OutputType as unknown as Record<string, OutputType | undefined>).HwPositionWithDuration ??
@@ -38,6 +40,9 @@ const CAPABILITY_TYPES: Array<{ type: OutputType; cap: HapticCapability }> = [
   { type: OutputType.Constrict, cap: "constrict" },
   { type: OutputType.Inflate, cap: "inflate" },
   { type: OutputType.Position, cap: "position" },
+  { type: OutputType.Temperature, cap: "temperature" },
+  { type: OutputType.Spray, cap: "spray" },
+  { type: OutputType.Led, cap: "led" },
 ];
 if (POSITION_WITH_DURATION_OUTPUT) CAPABILITY_TYPES.push({ type: POSITION_WITH_DURATION_OUTPUT, cap: "position" });
 
@@ -48,32 +53,10 @@ const ACTION_TO_OUTPUT: Partial<Record<HapticDeviceCommand["action"], OutputType
   oscillate: OutputType.Oscillate,
   constrict: OutputType.Constrict,
   inflate: OutputType.Inflate,
+  temperature: OutputType.Temperature,
+  spray: OutputType.Spray,
+  led: OutputType.Led,
 };
-
-const ACTION_FALLBACKS: Partial<Record<HapticDeviceCommand["action"], HapticDeviceCommand["action"][]>> = {
-  oscillate: ["vibrate"],
-  rotate: ["vibrate"],
-  constrict: ["vibrate"],
-  inflate: ["vibrate"],
-  position: ["vibrate"],
-};
-
-function normalizeAction(action: unknown): HapticDeviceCommand["action"] | null {
-  if (typeof action !== "string") return null;
-  const key = action
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "");
-  if (key === "positionwithduration" || key === "hwpositionwithduration" || key === "linear") return "position";
-  if (key === "vibrate") return "vibrate";
-  if (key === "rotate") return "rotate";
-  if (key === "oscillate") return "oscillate";
-  if (key === "constrict") return "constrict";
-  if (key === "inflate") return "inflate";
-  if (key === "position") return "position";
-  if (key === "stop") return "stop";
-  return null;
-}
 
 function clampUnit(value: unknown, fallback: number): number {
   const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
@@ -83,73 +66,6 @@ function clampUnit(value: unknown, fallback: number): number {
 function durationSeconds(value: unknown): number {
   const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
-}
-
-interface HapticPatternStep {
-  delayMs: number;
-  intensity: number;
-  duration: number;
-}
-
-function normalizePattern(value: unknown): HapticFeedbackPattern | null {
-  if (typeof value !== "string") return null;
-  const key = value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "");
-  if (key === "steady") return "steady";
-  if (key === "tap") return "tap";
-  if (key === "pulse") return "pulse";
-  if (key === "wave") return "wave";
-  if (key === "ramp") return "ramp";
-  if (key === "impact") return "impact";
-  return null;
-}
-
-function buildPatternSteps(pattern: HapticFeedbackPattern, intensity: number, duration: number): HapticPatternStep[] {
-  const total = Math.max(0.2, Math.min(8, duration || 1.5));
-  const base = Math.max(0.01, Math.min(1, intensity));
-  const scaled = (multiplier: number) => Math.max(0.01, Math.min(1, base * multiplier));
-
-  switch (pattern) {
-    case "tap":
-      return [{ delayMs: 0, intensity: scaled(1), duration: Math.min(0.35, total) }];
-    case "impact":
-      return [
-        { delayMs: 0, intensity: scaled(1.2), duration: Math.min(0.22, total) },
-        { delayMs: Math.min(280, total * 500), intensity: scaled(0.35), duration: Math.min(0.3, total) },
-      ];
-    case "pulse": {
-      const count = Math.max(2, Math.min(4, Math.round(total / 0.75)));
-      const interval = (total * 1000) / count;
-      return Array.from({ length: count }, (_, index) => ({
-        delayMs: Math.round(interval * index),
-        intensity: scaled(index % 2 === 0 ? 1 : 0.75),
-        duration: Math.min(0.32, (interval / 1000) * 0.55),
-      }));
-    }
-    case "wave": {
-      const multipliers = [0.4, 0.75, 0.55, 1];
-      const interval = (total * 1000) / multipliers.length;
-      return multipliers.map((multiplier, index) => ({
-        delayMs: Math.round(interval * index),
-        intensity: scaled(multiplier),
-        duration: Math.min(0.9, (interval / 1000) * 0.8),
-      }));
-    }
-    case "ramp": {
-      const multipliers = [0.35, 0.65, 1];
-      const interval = (total * 1000) / multipliers.length;
-      return multipliers.map((multiplier, index) => ({
-        delayMs: Math.round(interval * index),
-        intensity: scaled(multiplier),
-        duration: Math.min(1.1, (interval / 1000) * 0.85),
-      }));
-    }
-    case "steady":
-    default:
-      return [{ delayMs: 0, intensity: base, duration: total }];
-  }
 }
 
 function deviceName(device: ButtplugClientDevice): string {
@@ -171,6 +87,7 @@ function deviceToDTO(device: ButtplugClientDevice): HapticDevice {
   return {
     index: device.index,
     name: device.displayName || device.name,
+    type: describeHapticDeviceType(capabilities),
     capabilities,
   };
 }
@@ -276,7 +193,7 @@ class ButtplugService {
     const targets = this.resolveTargets(cmd.deviceIndex);
     if (targets.length === 0) throw new Error(`No connected haptic devices matched target ${cmd.deviceIndex}`);
 
-    const action = normalizeAction(cmd.action);
+    const action = normalizeHapticAction(cmd.action);
     if (!action) throw new Error(`Unknown action: ${String(cmd.action)}`);
 
     if (options.clearExistingTimers) this.clearTimersForTarget(cmd.deviceIndex);
@@ -290,9 +207,9 @@ class ButtplugService {
       return;
     }
 
-    const pattern = normalizePattern(cmd.pattern);
-    if (pattern && pattern !== "steady" && action !== "position") {
-      await this.executePatternCommand(cmd, pattern);
+    const pattern = normalizeHapticPattern(cmd.pattern);
+    if (pattern && pattern !== "steady") {
+      await this.executePatternCommand({ ...cmd, action }, pattern);
       return;
     }
 
@@ -313,32 +230,13 @@ class ButtplugService {
           } else if (device.hasOutput(OutputType.Position)) {
             await device.runOutput(DeviceOutput.Position.percent(intensity));
             successfulTargets++;
-          } else if (device.hasOutput(OutputType.Vibrate)) {
-            await device.runOutput(DeviceOutput.Vibrate.percent(intensity));
-            successfulTargets++;
-            logger.debug("[haptic] Device %s does not support position; used vibrate fallback", deviceName(device));
           } else {
             unsupportedDevices.push(deviceName(device));
           }
           continue;
         }
 
-        let selectedOutputType = outputType;
-        if (!selectedOutputType || !device.hasOutput(selectedOutputType)) {
-          const fallbackAction = (ACTION_FALLBACKS[action] ?? []).find((candidate) => {
-            const fallbackOutput = ACTION_TO_OUTPUT[candidate];
-            return fallbackOutput ? device.hasOutput(fallbackOutput) : false;
-          });
-          selectedOutputType = fallbackAction ? ACTION_TO_OUTPUT[fallbackAction] : undefined;
-          if (fallbackAction) {
-            logger.debug(
-              "[haptic] Device %s does not support %s; used %s fallback",
-              deviceName(device),
-              action,
-              fallbackAction,
-            );
-          }
-        }
+        const selectedOutputType = outputType;
 
         if (!selectedOutputType || !device.hasOutput(selectedOutputType)) {
           unsupportedDevices.push(deviceName(device));
@@ -384,7 +282,7 @@ class ButtplugService {
   private async executePatternCommand(cmd: HapticDeviceCommand, pattern: HapticFeedbackPattern): Promise<void> {
     const intensity = clampUnit(cmd.intensity, 0.5);
     const duration = durationSeconds(cmd.duration) || 1.5;
-    const steps = buildPatternSteps(pattern, intensity, duration);
+    const steps = buildHapticPatternSteps(cmd.action, pattern, intensity, duration);
     const timerTarget = String(cmd.deviceIndex);
 
     for (const step of steps) {

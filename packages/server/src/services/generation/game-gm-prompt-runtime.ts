@@ -69,8 +69,7 @@ export function resolveGameGmPromptTemplate(
   chatMetadata: Record<string, unknown>,
   setupConfig?: Record<string, unknown> | null,
 ): string | null {
-  const explicitPrompt =
-    typeof chatMetadata.gameSystemPrompt === "string" ? chatMetadata.gameSystemPrompt.trim() : "";
+  const explicitPrompt = typeof chatMetadata.gameSystemPrompt === "string" ? chatMetadata.gameSystemPrompt.trim() : "";
   if (explicitPrompt) return explicitPrompt;
 
   const selectedId =
@@ -320,8 +319,7 @@ export async function injectGameGmPromptRuntime(args: {
     difficulty: (setupConfig?.difficulty as string) || "normal",
     // Effective combat style: runtime drawer override wins, then the wizard
     // choice, then "classic" for legacy games created before this setting.
-    combatStyle:
-      (args.chatMetadata.gameCombatStyle as string) || (setupConfig?.combatStyle as string) || "classic",
+    combatStyle: (args.chatMetadata.gameCombatStyle as string) || (setupConfig?.combatStyle as string) || "classic",
     genre: (setupConfig?.genre as string) || "fantasy",
     setting: (setupConfig?.setting as string) || "original",
     tone: (setupConfig?.tone as string) || "balanced",

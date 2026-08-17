@@ -320,7 +320,11 @@ async function insertCharacterVersionSnapshot(database: DB, existing: CharacterR
   return id;
 }
 
-async function insertPersonaVersionSnapshot(database: DB, existing: PersonaStorageRow, options?: VersionSnapshotOptions) {
+async function insertPersonaVersionSnapshot(
+  database: DB,
+  existing: PersonaStorageRow,
+  options?: VersionSnapshotOptions,
+) {
   const currentData = buildPersonaSnapshot(existing);
   const id = newId();
   await database.insert(personaCardVersions).values({

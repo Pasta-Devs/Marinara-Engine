@@ -185,17 +185,17 @@ const DOC_ORDER: Record<string, string[]> = {
     "prompt-overrides.md",
   ],
   noodle: ["overview.md", "settings.md"],
-  appearance: ["appearance-settings.md", "fonts.md", "chat-backgrounds.md", "custom-css-themes.md", "card-css-theming.md"],
-  data: ["importing-from-sillytavern.md", "backup-and-restore.md", "where-data-is-stored.md", "clearing-data.md"],
-  extending: ["regex-scripts.md", "custom-tools.md"],
-  integrations: ["home-assistant.md", "discord-mirror.md", "message-translation.md", "haptic-feedback.md"],
-  development: [
-    "architecture-map.md",
-    "frontend.md",
-    "file-storage.md",
-    "noodle-internals.md",
-    "ios-pwa-safe-area.md",
+  appearance: [
+    "appearance-settings.md",
+    "fonts.md",
+    "chat-backgrounds.md",
+    "custom-css-themes.md",
+    "card-css-theming.md",
   ],
+  data: ["importing-from-sillytavern.md", "backup-and-restore.md", "where-data-is-stored.md", "clearing-data.md"],
+  extending: ["personal-extensions.md", "writing-personal-extensions.md", "regex-scripts.md", "custom-tools.md"],
+  integrations: ["home-assistant.md", "discord-mirror.md", "message-translation.md", "haptic-feedback.md"],
+  development: ["architecture-map.md", "frontend.md", "file-storage.md", "noodle-internals.md", "ios-pwa-safe-area.md"],
 };
 
 interface DocSummary {
@@ -503,8 +503,7 @@ async function buildLanguageStatus(storage: AppSettingsStorage): Promise<DocsLan
   const activeRootMissing =
     stored.code !== null && stored.code !== DEFAULT_DOCS_LANGUAGE && !isInstalledLanguage(stored.code);
   // Cheap size/existence check only — full hashing is reserved for the fix path.
-  const packIncomplete =
-    active !== DEFAULT_DOCS_LANGUAGE ? !(await checkDocsPackConsistency(active)).complete : false;
+  const packIncomplete = active !== DEFAULT_DOCS_LANGUAGE ? !(await checkDocsPackConsistency(active)).complete : false;
   const leftovers = installedPacks.some((code) => code !== active);
   // Suppress transient flags while an install is legitimately mid-flight so the
   // client never flashes the Fix affordance during a normal switch.
@@ -543,11 +542,7 @@ export async function docsRoutes(app: FastifyInstance) {
         const ka = docSortKey(a);
         const kb = docSortKey(b);
         return (
-          ka[0] - kb[0] ||
-          ka[1] - kb[1] ||
-          ka[2].localeCompare(kb[2]) ||
-          ka[3] - kb[3] ||
-          ka[4].localeCompare(kb[4])
+          ka[0] - kb[0] || ka[1] - kb[1] || ka[2].localeCompare(kb[2]) || ka[3] - kb[3] || ka[4].localeCompare(kb[4])
         );
       });
       // Root reflects where the ACTIVE language's files live (the downloaded
@@ -670,9 +665,7 @@ export async function docsRoutes(app: FastifyInstance) {
     // Downloads are gated to the static supported set — a merely well-formed
     // code must never steer a fetch (attacker-guided path probing on the base host).
     if (!code || !(code in DOCS_LANGUAGE_LABELS)) {
-      return reply
-        .status(400)
-        .send({ error: "Unsupported documentation language", code: "unsupported-language" });
+      return reply.status(400).send({ error: "Unsupported documentation language", code: "unsupported-language" });
     }
     // Refuse early rather than queueing behind a long download for another language.
     const busy = getActiveDocsPackInstall();

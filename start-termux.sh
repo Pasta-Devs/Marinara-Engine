@@ -617,4 +617,28 @@ fi
 
 # Start server
 cd packages/server
-node dist/index.js
+MARINARA_TERMUX_LOG_DIR="$HOME/.marinara-engine/logs"
+mkdir -p "$MARINARA_TERMUX_LOG_DIR"
+find "$MARINARA_TERMUX_LOG_DIR" -type f -name 'server-*.log' -mtime +14 -delete 2>/dev/null || true
+MARINARA_TERMUX_LOG_FILE="$MARINARA_TERMUX_LOG_DIR/server-$(date '+%Y%m%d-%H%M%S')-$$.log"
+echo "  [OK] Persistent server log: $MARINARA_TERMUX_LOG_FILE"
+
+# Preserve Node's real exit status through tee. If Android kills the whole
+# Termux process there may be no application error, but everything flushed up
+# to that point survives the terminal session for the next support report.
+set +e
+node dist/index.js 2>&1 | tee -a "$MARINARA_TERMUX_LOG_FILE"
+MARINARA_PIPE_STATUS=("${PIPESTATUS[@]}")
+MARINARA_SERVER_STATUS=${MARINARA_PIPE_STATUS[0]}
+MARINARA_TEE_STATUS=${MARINARA_PIPE_STATUS[1]}
+set -e
+if [ "$MARINARA_TEE_STATUS" -ne 0 ]; then
+    echo "  [ERROR] Could not write the persistent server log (tee exit $MARINARA_TEE_STATUS)." >&2
+fi
+if [ "$MARINARA_SERVER_STATUS" -ne 0 ]; then
+    exit "$MARINARA_SERVER_STATUS"
+fi
+if [ "$MARINARA_TEE_STATUS" -ne 0 ]; then
+    exit "$MARINARA_TEE_STATUS"
+fi
+exit "$MARINARA_SERVER_STATUS"

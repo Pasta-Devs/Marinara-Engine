@@ -106,7 +106,10 @@ async function withSpotifyRefreshLock<T>(agentId: string, task: () => Promise<T>
   const current = new Promise<void>((resolve) => {
     releaseCurrent = resolve;
   });
-  const slot = previous.then(() => current, () => current);
+  const slot = previous.then(
+    () => current,
+    () => current,
+  );
   spotifyRefreshLocks.set(key, slot);
 
   await previous.catch(() => {

@@ -45,14 +45,24 @@ export function QuestBoard({
         badge={`${completedQuests}/${quests.length}`}
         badgeTitle={`${completedQuests} done, ${activeQuests} active`}
         action={action}
-        addAction={addMode ? <AddRowButton title={localizeUi("ui.trackerPanel.questboard.addQuest")} onClick={onAddQuest} className="rounded-sm" /> : undefined}
+        addAction={
+          addMode ? (
+            <AddRowButton
+              title={localizeUi("ui.trackerPanel.questboard.addQuest")}
+              onClick={onAddQuest}
+              className="rounded-sm"
+            />
+          ) : undefined
+        }
         collapsed={collapsed}
         onToggle={onToggleCollapsed}
       />
 
       {!collapsed &&
         (quests.length === 0 ? (
-          <div className={cn("relative px-1 py-1 text-[var(--foreground)]/35", TRACKER_TEXT_ROW)}>{localizeUi("ui.trackerPanel.questboard.questBoardEmpty")}</div>
+          <div className={cn("relative px-1 py-1 text-[var(--foreground)]/35", TRACKER_TEXT_ROW)}>
+            {localizeUi("ui.trackerPanel.questboard.questBoardEmpty")}
+          </div>
         ) : (
           <div className="relative grid gap-0.5 pt-0.5">
             {quests.map((quest, index) => (

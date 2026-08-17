@@ -4,13 +4,7 @@ type TrackerWindow = Window & typeof globalThis;
 
 const TrackerWindowContext = createContext<TrackerWindow | null>(null);
 
-export function TrackerWindowProvider({
-  children,
-  host,
-}: {
-  children: ReactNode;
-  host: TrackerWindow;
-}) {
+export function TrackerWindowProvider({ children, host }: { children: ReactNode; host: TrackerWindow }) {
   return <TrackerWindowContext.Provider value={host}>{children}</TrackerWindowContext.Provider>;
 }
 

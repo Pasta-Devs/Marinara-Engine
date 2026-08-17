@@ -216,7 +216,11 @@ export function LorebookFolderRow({
               ? "cursor-grab hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:cursor-grabbing"
               : "cursor-not-allowed opacity-40",
           )}
-          title={draggable ?localizeUi("ui.lorebooks.lorebookfolderrow.dragToReorderFolder") :localizeUi("ui.lorebooks.lorebookentryrow.useOrderSortAndClearSearchToReorder")}
+          title={
+            draggable
+              ? localizeUi("ui.lorebooks.lorebookfolderrow.dragToReorderFolder")
+              : localizeUi("ui.lorebooks.lorebookentryrow.useOrderSortAndClearSearchToReorder")
+          }
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => {
             e.stopPropagation();
@@ -244,7 +248,11 @@ export function LorebookFolderRow({
         {/* Collapse chevron */}
         <button
           type="button"
-          aria-label={isCollapsed ?localizeUi("ui.lorebooks.lorebookfolderrow.expandFolder") :localizeUi("ui.lorebooks.lorebookfolderrow.collapseFolder")}
+          aria-label={
+            isCollapsed
+              ? localizeUi("ui.lorebooks.lorebookfolderrow.expandFolder")
+              : localizeUi("ui.lorebooks.lorebookfolderrow.collapseFolder")
+          }
           className="flex h-6 w-4 shrink-0 items-center justify-center rounded p-0 text-[var(--muted-foreground)] transition-transform hover:bg-[var(--accent)] hover:text-[var(--foreground)] sm:h-auto sm:w-auto sm:p-0.5"
           onClick={(e) => {
             e.stopPropagation();
@@ -266,8 +274,8 @@ export function LorebookFolderRow({
             ariaLabel={localEnabled ? "Disable folder" : "Enable folder"}
             title={
               localEnabled
-                ?localizeUi("ui.lorebooks.lorebookfolderrow.folderEnabledEntriesInsideActivateNormally")
-                :localizeUi("ui.lorebooks.lorebookfolderrow.folderDisabledEntriesInsideWillNotActivateRegardlessOf")
+                ? localizeUi("ui.lorebooks.lorebookfolderrow.folderEnabledEntriesInsideActivateNormally")
+                : localizeUi("ui.lorebooks.lorebookfolderrow.folderDisabledEntriesInsideWillNotActivateRegardlessOf")
             }
             checked={localEnabled}
             onChange={handleEnabledChange}

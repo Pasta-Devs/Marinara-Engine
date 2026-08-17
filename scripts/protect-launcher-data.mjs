@@ -2,7 +2,7 @@
 
 import { execFileSync } from "node:child_process";
 import { chmod, cp, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, resolve, sep } from "node:path";
 import { parseEnv } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -462,6 +462,8 @@ export async function snapshotLauncherData({
   const backupName = `update-${timestamp}-${process.pid}`;
   const incompleteDir = resolve(backupRoot, `.incomplete-${backupName}`);
   const backupDir = resolve(backupRoot, backupName);
+  const capabilityRuntimeLink = resolve(dataDir, "capability-packages", "node_modules");
+  const downloadableDataDirs = ["models", "sidecar-runtime"].map((name) => resolve(dataDir, name));
 
   await rm(incompleteDir, { recursive: true, force: true });
   try {
@@ -470,6 +472,15 @@ export async function snapshotLauncherData({
       recursive: true,
       preserveTimestamps: true,
       errorOnExist: true,
+      filter: (source) => {
+        const sourcePath = resolve(source);
+        return (
+          sourcePath !== capabilityRuntimeLink &&
+          downloadableDataDirs.every(
+            (downloadableDir) => sourcePath !== downloadableDir && !sourcePath.startsWith(`${downloadableDir}${sep}`),
+          )
+        );
+      },
     });
     await writeFile(
       resolve(incompleteDir, "manifest.json"),

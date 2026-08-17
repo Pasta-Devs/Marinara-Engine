@@ -30,7 +30,14 @@ export {
   getCurrentStatus,
   getEffectiveCurrentStatus,
 };
-export type { CharacterSchedules, ConversationMessageIntent, CurrentConversationStatus, DaySchedule, ScheduleBlock, WeekSchedule };
+export type {
+  CharacterSchedules,
+  ConversationMessageIntent,
+  CurrentConversationStatus,
+  DaySchedule,
+  ScheduleBlock,
+  WeekSchedule,
+};
 
 // ── Constants ──
 
@@ -92,7 +99,9 @@ function summarizeScheduleExcept(schedule: WeekSchedule, excludedDay: string): s
 }
 
 function summarizeBlocks(blocks: DaySchedule): string[] {
-  return blocks.length > 0 ? blocks.map((block) => `- ${block.time} ${block.status ?? "online"} ${block.activity}`) : ["- unscheduled"];
+  return blocks.length > 0
+    ? blocks.map((block) => `- ${block.time} ${block.status ?? "online"} ${block.activity}`)
+    : ["- unscheduled"];
 }
 
 function getWeekDraftModeInstructions(draftMode: WeekScheduleDraftMode): string[] {
@@ -282,7 +291,10 @@ export async function generateCharacterDaySchedule(
   const result = await provider.chatComplete(
     [
       { role: "system", content: systemPrompt },
-      { role: "user", content: dayGuidance ? `Apply this ${day} guidance: ${dayGuidance}` : `Create a visibly different ${day}.` },
+      {
+        role: "user",
+        content: dayGuidance ? `Apply this ${day} guidance: ${dayGuidance}` : `Create a visibly different ${day}.`,
+      },
     ],
     { model, temperature: 0.9, maxTokens: Math.min(provider.maxTokensOverrideValue ?? 4096, 4096) },
   );
@@ -324,7 +336,10 @@ export async function generateScheduleRoutineSummary(
       reasoningEffort: "low",
     },
   );
-  const summary = (result.content ?? "").replace(/^```(?:text)?/i, "").replace(/```$/i, "").trim();
+  const summary = (result.content ?? "")
+    .replace(/^```(?:text)?/i, "")
+    .replace(/```$/i, "")
+    .trim();
   if (!summary) throw new Error("Routine summary was empty");
   return { summary: summary.slice(0, 360), raw: result.content ?? "" };
 }

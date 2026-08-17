@@ -15,9 +15,7 @@ export function useCustomGenerationParameters() {
   return useQuery<ManagedGenerationParameterDefinition[]>({
     queryKey: customGenerationParameterKeys.all,
     queryFn: async () => {
-      const response = await api.get<AppSettingsResponse>(
-        `/app-settings/${CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY}`,
-      );
+      const response = await api.get<AppSettingsResponse>(`/app-settings/${CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY}`);
       return parseManagedGenerationParameterDefinitions(response.value);
     },
   });

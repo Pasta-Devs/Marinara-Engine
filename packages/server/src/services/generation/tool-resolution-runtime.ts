@@ -874,11 +874,7 @@ async function resolveToolRuntime(
           replaceChatMessageContent: replaceChatMessageContentForAgent,
         };
         const spotifyAgent = agent as SpotifyRuntimeAgent;
-        if (
-          observeSpotifyPlaybackBeforePlay &&
-          agent.type === "spotify" &&
-          call.function.name === "spotify_play"
-        ) {
+        if (observeSpotifyPlaybackBeforePlay && agent.type === "spotify" && call.function.name === "spotify_play") {
           const beforeRaw = await executeToolCallForModel(
             {
               id: `spotify-before-play-${Date.now()}`,

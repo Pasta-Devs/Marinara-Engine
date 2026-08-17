@@ -23,7 +23,9 @@ export function useTrackerFieldLockUpdater({
       if (!chatId) return;
       const latestState = useGameStateStore.getState().current;
       const currentLocks =
-        latestState?.chatId === chatId ? normalizeTrackerFieldLocksForState(latestState.fieldLocks, latestState) : fieldLocks;
+        latestState?.chatId === chatId
+          ? normalizeTrackerFieldLocksForState(latestState.fieldLocks, latestState)
+          : fieldLocks;
       const nextLocks = updater(currentLocks);
       if (trackerFieldLocksAreEqual(currentLocks, nextLocks)) return;
       patchField("fieldLocks", nextLocks);

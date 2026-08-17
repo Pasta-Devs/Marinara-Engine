@@ -10,7 +10,10 @@ type Assert<T extends true> = T;
 type Assignable<A, B> = [A] extends [B] ? true : false;
 
 export function useMutationTypeContract() {
-  const equivalent: [Assert<Assignable<Shared, PersonaUpdateInput>>, Assert<Assignable<PersonaUpdateInput, Shared>>] = [true, true];
+  const equivalent: [Assert<Assignable<Shared, PersonaUpdateInput>>, Assert<Assignable<PersonaUpdateInput, Shared>>] = [
+    true,
+    true,
+  ];
   void equivalent;
 
   const generic = useUpdatePersona();

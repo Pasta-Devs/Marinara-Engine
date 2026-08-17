@@ -2,10 +2,7 @@ import {
   managedGenerationParameterDefinitionSchema,
   MAX_MANAGED_GENERATION_PARAMETER_DEFINITIONS,
 } from "../schemas/app-settings.schema.js";
-import type {
-  ManagedGenerationParameterDefinition,
-  ManagedGenerationParameterValueMap,
-} from "../types/prompt.js";
+import type { ManagedGenerationParameterDefinition, ManagedGenerationParameterValueMap } from "../types/prompt.js";
 
 const RESERVED_REQUEST_KEYS = new Set(
   [
@@ -34,9 +31,7 @@ export function isReservedManagedGenerationParameterKey(requestKey: string): boo
   return RESERVED_REQUEST_KEYS.has(requestKey.trim().toLowerCase());
 }
 
-export function parseManagedGenerationParameterDefinitions(
-  raw: unknown,
-): ManagedGenerationParameterDefinition[] {
+export function parseManagedGenerationParameterDefinitions(raw: unknown): ManagedGenerationParameterDefinition[] {
   let parsed = raw;
   if (typeof parsed === "string") {
     try {

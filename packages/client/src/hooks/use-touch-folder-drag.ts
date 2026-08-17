@@ -184,8 +184,7 @@ export function useTouchFolderDrag({
   onDrop,
   onCancel,
 }: TouchFolderDragOptions) {
-  const resolvedMoveActivateThresholdPx =
-    moveActivateThresholdPx ?? DEFAULT_TOUCH_DRAG_ACTIVATE_THRESHOLD_PX;
+  const resolvedMoveActivateThresholdPx = moveActivateThresholdPx ?? DEFAULT_TOUCH_DRAG_ACTIVATE_THRESHOLD_PX;
   const dragRef = useRef<TouchFolderDragState | null>(null);
   const optionsRef = useRef({
     delayMs,
@@ -388,15 +387,20 @@ export function useTouchFolderDrag({
       window.removeEventListener("blur", handleInterruptedTouchDrag);
       window.removeEventListener("pagehide", handleInterruptedTouchDrag);
     };
-  }, [handleContextMenu, handleInterruptedTouchDrag, handleTouchCancel, handleTouchEnd, handleTouchMove, removeListeners]);
+  }, [
+    handleContextMenu,
+    handleInterruptedTouchDrag,
+    handleTouchCancel,
+    handleTouchEnd,
+    handleTouchMove,
+    removeListeners,
+  ]);
 
   const startTouchDrag = useCallback(
     (event: ReactTouchEvent<HTMLElement>, id: string, options?: StartTouchDragOptions) => {
       if (event.touches.length !== 1) return;
       const interactiveTarget =
-        event.target instanceof Element
-          ? event.target.closest("button,a,input,textarea,select,[role='button']")
-          : null;
+        event.target instanceof Element ? event.target.closest("button,a,input,textarea,select,[role='button']") : null;
       if (!options?.allowInteractiveTarget && interactiveTarget && interactiveTarget !== event.currentTarget) {
         return;
       }

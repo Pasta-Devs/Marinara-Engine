@@ -84,11 +84,7 @@ function prettifyKey(value: string): string {
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
-function normalizeDescriptionEntry(
-  raw: unknown,
-  sourceKey: string,
-  fallbackLabel: string,
-): LegacyDescription | null {
+function normalizeDescriptionEntry(raw: unknown, sourceKey: string, fallbackLabel: string): LegacyDescription | null {
   const parsed = parseJsonIfString(raw);
   if (typeof parsed === "string") {
     const content = parsed.trim();
@@ -131,7 +127,11 @@ function collectDescriptionsFromValue(raw: unknown, sourceKey: string): LegacyDe
     });
   } else if (isRecord(parsed)) {
     Object.entries(parsed).forEach(([key, value], index) => {
-      const normalized = normalizeDescriptionEntry(value, sourceKey, prettifyKey(key) || `Extended Description ${index + 1}`);
+      const normalized = normalizeDescriptionEntry(
+        value,
+        sourceKey,
+        prettifyKey(key) || `Extended Description ${index + 1}`,
+      );
       if (normalized) entries.push(normalized);
     });
   } else {
@@ -288,11 +288,7 @@ async function ensureEntries(
   return created;
 }
 
-async function migrateCharacter(
-  db: DB,
-  character: CharacterRow,
-  stats: MigrationStats,
-): Promise<void> {
+async function migrateCharacter(db: DB, character: CharacterRow, stats: MigrationStats): Promise<void> {
   const data = parseCharacterData(character.data);
   if (!data) return;
   if (hasMigrationMarker(data)) {
@@ -348,11 +344,7 @@ async function migrateCharacter(
   stats.charactersMigrated += 1;
 }
 
-async function migratePersona(
-  db: DB,
-  persona: PersonaRow,
-  stats: MigrationStats,
-): Promise<void> {
+async function migratePersona(db: DB, persona: PersonaRow, stats: MigrationStats): Promise<void> {
   const descriptions = collectPersonaLegacyDescriptions(persona);
   if (descriptions.length === 0) return;
 

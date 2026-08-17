@@ -69,7 +69,9 @@ export async function collectRoleplayEventContext(
       } catch {
         continue;
       }
-      const text = String(event.text ?? "").replace(/\s+/gu, " ").trim();
+      const text = String(event.text ?? "")
+        .replace(/\s+/gu, " ")
+        .trim();
       if (text) lines.push(`- ${text}`);
     }
     if (lines.length === 0) return "";

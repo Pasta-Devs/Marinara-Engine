@@ -363,15 +363,18 @@ export async function promptsRoutes(app: FastifyInstance) {
     return storage.createSection(input);
   });
 
-  app.patch<{ Params: { presetId: string; sectionId: string } }>("/:presetId/sections/:sectionId", async (req, reply) => {
-    const section = await storage.getSection(req.params.sectionId);
-    if (!section || section.presetId !== req.params.presetId) {
-      return reply.status(404).send({ error: "Prompt section not found" });
-    }
-    if (await rejectStockPresetMutation(storage, section.presetId, reply)) return;
-    const input = updatePromptSectionSchema.parse(req.body);
-    return storage.updateSection(section.id, input);
-  });
+  app.patch<{ Params: { presetId: string; sectionId: string } }>(
+    "/:presetId/sections/:sectionId",
+    async (req, reply) => {
+      const section = await storage.getSection(req.params.sectionId);
+      if (!section || section.presetId !== req.params.presetId) {
+        return reply.status(404).send({ error: "Prompt section not found" });
+      }
+      if (await rejectStockPresetMutation(storage, section.presetId, reply)) return;
+      const input = updatePromptSectionSchema.parse(req.body);
+      return storage.updateSection(section.id, input);
+    },
+  );
 
   app.delete<{ Params: { presetId: string; sectionId: string } }>(
     "/:presetId/sections/:sectionId",
@@ -414,15 +417,18 @@ export async function promptsRoutes(app: FastifyInstance) {
     return storage.createChoiceBlock(input);
   });
 
-  app.patch<{ Params: { presetId: string; variableId: string } }>("/:presetId/variables/:variableId", async (req, reply) => {
-    const variable = await storage.getChoiceBlock(req.params.variableId);
-    if (!variable || variable.presetId !== req.params.presetId) {
-      return reply.status(404).send({ error: "Preset variable not found" });
-    }
-    if (await rejectStockPresetMutation(storage, variable.presetId, reply)) return;
-    const input = updateChoiceBlockSchema.parse(req.body);
-    return storage.updateChoiceBlock(variable.id, input);
-  });
+  app.patch<{ Params: { presetId: string; variableId: string } }>(
+    "/:presetId/variables/:variableId",
+    async (req, reply) => {
+      const variable = await storage.getChoiceBlock(req.params.variableId);
+      if (!variable || variable.presetId !== req.params.presetId) {
+        return reply.status(404).send({ error: "Preset variable not found" });
+      }
+      if (await rejectStockPresetMutation(storage, variable.presetId, reply)) return;
+      const input = updateChoiceBlockSchema.parse(req.body);
+      return storage.updateChoiceBlock(variable.id, input);
+    },
+  );
 
   app.delete<{ Params: { presetId: string; variableId: string } }>(
     "/:presetId/variables/:variableId",

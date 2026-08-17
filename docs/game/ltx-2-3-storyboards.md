@@ -10,7 +10,7 @@ The finished path is:
 GM narration
   -> Animation Planner
      -> imagePrompt -> image connection -> first-frame illustration
-     -> narrationBeat -> LTX Director Video -> %prompt%
+     -> narrationBeat -> Narration Passthrough -> %prompt%
   -> first frame + prompt -> ComfyUI LTX 2.3 workflow -> MP4 clip
 ```
 
@@ -34,13 +34,13 @@ See [ComfyUI Workflow Setup](../media/comfyui.md) for the general export and con
 
 Choose the model format for the GPU architecture and the memory available after ComfyUI loads the text encoder, VAEs, and upscaler. Treat these as starting points, not promises that every workflow will fit every card.
 
-| GPU family | Practical starting point | Notes |
-| --- | --- | --- |
-| RTX 30 series (Ampere) | INT8 ConvRot | The low-memory starting point for 3070, 3080, and 3090-class cards. |
-| RTX 40 series with 16-24 GB | FP8 input-scaled | Uses the accelerated FP8 path available on Ada-generation hardware. |
-| RTX 40 series with 8-12 GB | INT8 ConvRot when FP8 offloading is too slow | Compare both on the actual workflow; available VRAM and offloading behavior still matter. |
-| RTX 50 series (Blackwell) | NVFP4 dev workflow | Requires an NVFP4-capable ComfyUI, CUDA, and node stack. |
-| RTX 50 using the existing distilled workflow | FP8 input-scaled | Use this compatibility path until an official distilled NVFP4 checkpoint is available. |
+| GPU family                                   | Practical starting point                     | Notes                                                                                     |
+| -------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| RTX 30 series (Ampere)                       | INT8 ConvRot                                 | The low-memory starting point for 3070, 3080, and 3090-class cards.                       |
+| RTX 40 series with 16-24 GB                  | FP8 input-scaled                             | Uses the accelerated FP8 path available on Ada-generation hardware.                       |
+| RTX 40 series with 8-12 GB                   | INT8 ConvRot when FP8 offloading is too slow | Compare both on the actual workflow; available VRAM and offloading behavior still matter. |
+| RTX 50 series (Blackwell)                    | NVFP4 dev workflow                           | Requires an NVFP4-capable ComfyUI, CUDA, and node stack.                                  |
+| RTX 50 using the existing distilled workflow | FP8 input-scaled                             | Use this compatibility path until an official distilled NVFP4 checkpoint is available.    |
 
 The tested RTX 3080 workflow uses:
 
@@ -95,16 +95,16 @@ The LTX Director node may still handle image conditioning, guide data, audio, an
 
 Replace the corresponding values in the API export with quoted Marinara placeholders:
 
-| Placeholder | Supplied value |
-| --- | --- |
-| `%prompt%` | The complete prompt produced by the selected Storyboard Animation Planner and video template |
-| `%reference_image_name%` | The first-frame image uploaded to ComfyUI |
-| `%duration_seconds%` | The Storyboard clip duration in seconds |
-| `%length%` | The duration converted to Marinara's 16 FPS frame contract |
-| `%fps%` | The frame rate Marinara uses for the clip |
-| `%width%`, `%height%` | Dimensions selected from the video connection's resolution and aspect ratio |
-| `%seed%` | A new random seed for the request |
-| `%model%` | Optional model value from the connection when the workflow does not hard-code its loader model |
+| Placeholder              | Supplied value                                                                                 |
+| ------------------------ | ---------------------------------------------------------------------------------------------- |
+| `%prompt%`               | The complete prompt produced by the selected Storyboard Animation Planner and video template   |
+| `%reference_image_name%` | The first-frame image uploaded to ComfyUI                                                      |
+| `%duration_seconds%`     | The Storyboard clip duration in seconds                                                        |
+| `%length%`               | The duration converted to Marinara's 16 FPS frame contract                                     |
+| `%fps%`                  | The frame rate Marinara uses for the clip                                                      |
+| `%width%`, `%height%`    | Dimensions selected from the video connection's resolution and aspect ratio                    |
+| `%seed%`                 | A new random seed for the request                                                              |
+| `%model%`                | Optional model value from the connection when the workflow does not hard-code its loader model |
 
 The reference image belongs inside the `segments` array of LTX Director's `timeline_data`. In the API workflow, `timeline_data` is a serialized JSON string. `%length%` keeps the clip length dynamic through `normalDurationFrames`; the frame-zero reference-image segment intentionally keeps its own fixed short `"length":16` value:
 
@@ -146,13 +146,13 @@ Open the Game Mode chat, then open **Chat Settings** and select **Agents**. Turn
 
 ### Illustrator
 
-| Setting | Recommended value |
-| --- | --- |
-| **Game Illustrator** | On |
-| **Image Connection** | **Krea 2** |
-| **Image Style** | **Z-Image Turbo Narrative** |
-| **Use Campaign Art Style** | Off |
-| **Attach Card Appearance** | Off |
+| Setting                    | Recommended value            |
+| -------------------------- | ---------------------------- |
+| **Game Illustrator**       | On                           |
+| **Image Connection**       | **Krea 2**                   |
+| **Image Style**            | **Z-Image Turbo Narrative**  |
+| **Use Campaign Art Style** | Off                          |
+| **Attach Card Appearance** | Off                          |
 | **Send Avatar References** | Off for this tested workflow |
 
 The Animation Planner already receives the Storyboard turn's character-appearance context, so this setup leaves **Attach Card Appearance** off to avoid appending the same information again during final image formatting. **Storyboard First Frame** also avoids repeating campaign art direction around the planner's completed T=0 scene.
@@ -163,10 +163,10 @@ The first-frame image has a large effect on animation quality. It should show th
 
 ### Scene Videos
 
-| Setting | Recommended value |
-| --- | --- |
-| **Video Connection** | The LTX 2.3 ComfyUI connection created above |
-| **Game Video Prompt** | **LTX Director Video** |
+| Setting               | Recommended value                            |
+| --------------------- | -------------------------------------------- |
+| **Video Connection**  | The LTX 2.3 ComfyUI connection created above |
+| **Game Video Prompt** | **Narration Passthrough**                    |
 
 The general **Game Video Prompt** controls manual Gallery and Game Assets animations. Storyboard clips can select their own prompt without changing those other animation actions.
 
@@ -174,19 +174,19 @@ The general **Game Video Prompt** controls manual Gallery and Game Assets animat
 
 Use this starting profile:
 
-| Setting | Recommended starting value |
-| --- | --- |
-| **Automatic Storyboard Illustrations** | On |
-| **Automatic Storyboard Animations** | On |
-| **Use NovelAI Character Prompts** | Off |
-| **Keyframes per Turn** | 3 normally; start with 1 for the first 8 GB VRAM test |
-| **Animation Clip Duration** | 6 seconds |
-| **Viewer Display** | Floating while testing |
-| **Illustration Planner** | **Still Keyframes**; retained as the still-only fallback |
-| **Animation Planner** | **LTX Simple Image-to-Video** |
-| **Use Storyboard Template** | On |
-| **Storyboard Illustration Prompt** | **Storyboard First Frame** |
-| **Storyboard Video Prompt** | **LTX Director Video** |
+| Setting                                | Recommended starting value                               |
+| -------------------------------------- | -------------------------------------------------------- |
+| **Automatic Storyboard Illustrations** | On                                                       |
+| **Automatic Storyboard Animations**    | On                                                       |
+| **Use NovelAI Character Prompts**      | Off                                                      |
+| **Keyframes per Turn**                 | 3 normally; start with 1 for the first 8 GB VRAM test    |
+| **Animation Clip Duration**            | 5 seconds                                                |
+| **Viewer Display**                     | Floating while testing                                   |
+| **Illustration Planner**               | **Still Keyframes**; retained as the still-only fallback |
+| **Animation Planner**                  | **LTX Simple Image-to-Video**                            |
+| **Use Storyboard Template**            | On                                                       |
+| **Storyboard Illustration Prompt**     | **Storyboard First Frame**                               |
+| **Storyboard Video Prompt**            | **Narration Passthrough**                                |
 
 **LTX Simple Image-to-Video** is the recommended default. It plans one animation-ready first frame and one direct 4–8 sentence motion prompt. It favors one primary action, one camera behavior, restrained environmental motion, and relevant audio or brief dialogue.
 
@@ -196,7 +196,7 @@ Use this starting profile:
 
 **Storyboard First Frame** passes the Animation Planner's complete natural-language T=0 scene directly to Krea without adding a keyframe title, prompt labels, repeated appearance notes, or campaign art direction. Keep **Use Storyboard Template** on so this formatter is actually applied.
 
-**LTX Director Video** is intentionally small. It passes the Animation Planner's completed `narrationBeat` through the universal video prompt contract without surrounding it with another scene recap.
+**Narration Passthrough** is intentionally small. It passes the Animation Planner's completed `narrationBeat` through the universal video prompt contract without surrounding it with another scene recap.
 
 Each keyframe creates one Krea image job and one local LTX video job. Three keyframes therefore launch three first-frame renders and three video renders. For an 8 GB VRAM GPU, start with one keyframe at 480p. After that succeeds, move toward three keyframes and higher resolutions.
 
@@ -204,7 +204,7 @@ Each keyframe creates one Krea image job and one local LTX video job. Three keyf
 
 Use a completed GM turn containing one obvious visual action, such as opening a door, looking toward a sound, taking a few steps, or saying one short line.
 
-1. For the quickest low-VRAM check, temporarily set **Keyframes per Turn** to 1 while leaving **Animation Clip Duration** at 6 seconds. The normal tested profile uses 3 keyframes.
+1. For the quickest low-VRAM check, temporarily set **Keyframes per Turn** to 1 while leaving **Animation Clip Duration** at 5 seconds. The normal tested profile uses 3 keyframes.
 2. Turn both automatic Storyboard settings on after the current GM turn is already complete.
 3. Open the Gallery and choose **Create storyboard** for that completed GM turn. This manually starts the full illustration-and-animation path without waiting for another turn.
 4. If prompt exposure is enabled, review the first-frame prompt before submitting it.
@@ -221,7 +221,7 @@ For each keyframe, the Animation Planner returns:
 - `imagePrompt`: only the visible first frame at time T=0;
 - `narrationBeat`: the complete LTX image-to-video prompt describing what happens next.
 
-The selected Animation Planner writes both fields. **Storyboard First Frame** formats `imagePrompt` and sends that natural-language T=0 scene to Krea 2. After the image exists, **LTX Director Video** resolves to `narrationBeat`. Marinara places it in the normal video request's `prompt` field, replaces `%prompt%` in the ComfyUI workflow, uploads the first frame, and replaces `%reference_image_name%` with its ComfyUI filename.
+The selected Animation Planner writes both fields. **Storyboard First Frame** formats `imagePrompt` and sends that natural-language T=0 scene to Krea 2. After the image exists, **Narration Passthrough** resolves to `narrationBeat`. Marinara places it in the normal video request's `prompt` field, replaces `%prompt%` in the ComfyUI workflow, uploads the first frame, and replaces `%reference_image_name%` with its ComfyUI filename.
 
 There is no requirement to create two local prompt segments. A single global prompt is the normal path for these Storyboard presets.
 

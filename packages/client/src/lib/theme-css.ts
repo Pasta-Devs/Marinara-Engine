@@ -13,7 +13,11 @@ export function normalizeThemeCss(css: string): string {
   if (css.includes("\n") || css.includes("\r")) return css;
   if (!/[{};]/.test(css)) return css;
 
-  return css.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\r/g, "\n").replace(/\\t/g, "  ");
+  return css
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\n")
+    .replace(/\\t/g, "  ");
 }
 
 export function sanitizeAppCss(css: string): string {

@@ -7,3 +7,4 @@ packages/shared/src/features/**/*.generated.ts text eol=lf
 
 # Windows batch files must keep CRLF line endings
 *.bat text eol=crlf
+packages/server/src/assets/mlx-runtime-requirements.lock text eol=lf

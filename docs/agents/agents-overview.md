@@ -8,7 +8,7 @@ Agents are small AI helpers that run automatically around your main chat reply. 
 
 Agents are turned on per chat, not per character. There is no agent toggle on a character card. Two chats with the same character can run completely different agents. You choose which agents run in each chat's settings.
 
-Fresh Marinara Engine installations start without optional agents. This keeps the base app and Termux installation smaller. The official v2.3.0+ catalog contains 32 one-click packages: 6 Writer Agents, 8 Tracker Agents, and 18 Misc Agents, including Long-Term Memory, Maps, Calls, and all six Conversation games. Their source, manifests, downloadable artifacts, and repository-level catalog are public in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). For the complete per-agent guide, see [Downloadable Agents Reference](built-in-agents.md). To make your own, see [Creating Custom Agents](custom-agents.md).
+Fresh Marinara Engine installations start without optional agents. This keeps the base app and Termux installation smaller. The official v2.3.0+ catalog contains 33 one-click packages: 6 Writer Agents, 9 Tracker Agents, and 18 Misc Agents, including Long-Term Memory, Maps, Calls, Inventory Tracker, and all six Conversation games. Their source, manifests, downloadable artifacts, and repository-level catalog are public in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). For the complete per-agent guide, see [Downloadable Agents Reference](built-in-agents.md). To make your own, see [Creating Custom Agents](custom-agents.md).
 
 ## The three phases
 

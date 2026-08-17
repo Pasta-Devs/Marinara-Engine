@@ -1,17 +1,6 @@
 import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import {
-  Check,
-  Download,
-  FileText,
-  GitBranch,
-  Loader2,
-  MessageSquare,
-  Pencil,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
+import { Check, Download, FileText, GitBranch, Loader2, MessageSquare, Pencil, Trash2, Upload, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -35,13 +24,13 @@ import {
   getChatToolbarButtonClass,
 } from "./ChatToolbarControls";
 import {
-  ROLEPLAY_POPOVER_CLOSE_BUTTON,
-  ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
-  ROLEPLAY_POPOVER_SCROLL_AREA,
-  ROLEPLAY_POPOVER_SHELL,
-  ROLEPLAY_POPOVER_SUBTITLE,
-  ROLEPLAY_POPOVER_TITLE,
-} from "./roleplay-popover-styles";
+  NEUTRAL_PANEL_CLOSE_BUTTON,
+  NEUTRAL_PANEL_CLOSE_ICON_SIZE,
+  NEUTRAL_PANEL_SCROLL_AREA,
+  NEUTRAL_PANEL_SHELL,
+  NEUTRAL_PANEL_SUBTITLE,
+  NEUTRAL_PANEL_TITLE,
+} from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 type BranchRow = {
@@ -163,11 +152,11 @@ export function ChatBranchSelector({
 
   const handleRenameBranch = async (branch: BranchRow) => {
     const nextName = await showPromptDialog({
-      title:localizeUi("ui.chat.chatbranchselector.renameBranch"),
-      message:localizeUi("ui.chat.chatbranchselector.setADisplayNameForThisChatBranch"),
+      title: localizeUi("ui.chat.chatbranchselector.renameBranch"),
+      message: localizeUi("ui.chat.chatbranchselector.setADisplayNameForThisChatBranch"),
       defaultValue: getChatDisplayName(branch),
       placeholder: localizeUi("chat.branches.namePlaceholder"),
-      confirmLabel:localizeUi("ui.chat.chatbranchselector.rename"),
+      confirmLabel: localizeUi("ui.chat.chatbranchselector.rename"),
     });
     if (nextName === null) return;
     const trimmed = nextName.trim();
@@ -178,9 +167,9 @@ export function ChatBranchSelector({
   const handleDeleteBranch = async (branchId: string) => {
     if (
       !(await showConfirmDialog({
-        title:localizeUi("ui.chat.chatbranchselector.deleteBranch"),
-        message:localizeUi("ui.chat.chatbranchselector.deleteThisBranchMessagesWillBeLost"),
-        confirmLabel:localizeUi("lorebook.editor.batch.delete"),
+        title: localizeUi("ui.chat.chatbranchselector.deleteBranch"),
+        message: localizeUi("ui.chat.chatbranchselector.deleteThisBranchMessagesWillBeLost"),
+        confirmLabel: localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",
       }))
     ) {
@@ -309,7 +298,7 @@ export function ChatBranchSelector({
           <div
             ref={popoverRef}
             data-chat-branch-popover
-            className={cn(ROLEPLAY_POPOVER_SHELL, "fixed z-[9999] overflow-hidden")}
+            className={cn(NEUTRAL_PANEL_SHELL, "fixed z-[9999] overflow-hidden")}
             style={{
               top: position.top,
               left: `max(calc(var(--mari-chat-ui-inset-left, 0px) + 0.75rem), min(${position.left}px, calc(100vw - var(--mari-chat-ui-inset-right, 0px) - ${position.width}px - 0.75rem)))`,
@@ -319,17 +308,21 @@ export function ChatBranchSelector({
             <div className="border-b border-[var(--border)] px-3 py-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className={ROLEPLAY_POPOVER_TITLE}>
-                    <GitBranch size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />{localizeUi("ui.chat.chatbranchselector.chatBranches")}</div>
-                  <div className={ROLEPLAY_POPOVER_SUBTITLE}>{localizeUi("ui.chat.chatbranchselector.switchImportExportOrCleanUpThisChatS")}</div>
+                  <div className={NEUTRAL_PANEL_TITLE}>
+                    <GitBranch size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                    {localizeUi("ui.chat.chatbranchselector.chatBranches")}
+                  </div>
+                  <div className={NEUTRAL_PANEL_SUBTITLE}>
+                    {localizeUi("ui.chat.chatbranchselector.switchImportExportOrCleanUpThisChatS")}
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   aria-label={localizeUi("ui.chat.chatbranchselector.closeChatBranches")}
-                  className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
+                  className={NEUTRAL_PANEL_CLOSE_BUTTON}
                 >
-                  <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+                  <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
                 </button>
               </div>
             </div>
@@ -343,14 +336,18 @@ export function ChatBranchSelector({
                   disabled={exportChat.isPending}
                   className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
                 >
-                  <Upload size="0.75rem" />{localizeUi("ui.chat.chatbranchselector.jsonl")}</button>
+                  <Upload size="0.75rem" />
+                  {localizeUi("ui.chat.chatbranchselector.jsonl")}
+                </button>
                 <button
                   type="button"
                   onClick={() => exportChat.mutate({ chatId: activeChatId, format: "text" })}
                   disabled={exportChat.isPending}
                   className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
                 >
-                  <FileText size="0.75rem" />{localizeUi("ui.chat.chatbranchselector.text")}</button>
+                  <FileText size="0.75rem" />
+                  {localizeUi("ui.chat.chatbranchselector.text")}
+                </button>
                 <button
                   type="button"
                   onClick={() => importInputRef.current?.click()}
@@ -358,14 +355,12 @@ export function ChatBranchSelector({
                   className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
                 >
                   <Download size="0.75rem" />
-                  {isImporting ? "..." :localizeUi("ui.chat.chatbranchselector.import")}
+                  {isImporting ? "..." : localizeUi("ui.chat.chatbranchselector.import")}
                 </button>
               </div>
             </div>
 
-            <div
-              className={cn(ROLEPLAY_POPOVER_SCROLL_AREA, "max-h-[min(22rem,calc(100vh-12rem))] overflow-y-auto p-2")}
-            >
+            <div className={cn(NEUTRAL_PANEL_SCROLL_AREA, "max-h-[min(22rem,calc(100vh-12rem))] overflow-y-auto p-2")}>
               {displayBranches.map((branch) => {
                 const isActive = branch.id === activeChatId;
                 const updatedAt = new Date(branch.updatedAt).toLocaleString(undefined, {
@@ -446,11 +441,11 @@ export function ChatBranchSelector({
                   onClick={async () => {
                     if (
                       !(await showConfirmDialog({
-                        title:localizeUi("ui.chat.chatbranchselector.deleteAllBranches"),
+                        title: localizeUi("ui.chat.chatbranchselector.deleteAllBranches"),
                         message: localizeUi("chat.branches.deleteAllConfirmation", {
                           count: displayBranches.length,
                         }),
-                        confirmLabel:localizeUi("ui.characters.spritestab.deleteAll"),
+                        confirmLabel: localizeUi("ui.characters.spritestab.deleteAll"),
                         tone: "destructive",
                       }))
                     ) {
@@ -463,7 +458,9 @@ export function ChatBranchSelector({
                   disabled={deleteChatGroup.isPending}
                   className="mari-chrome-control mari-chrome-control--primary w-full px-3 py-2 text-[0.6875rem] disabled:opacity-50"
                 >
-                  <Trash2 size="0.75rem" />{localizeUi("ui.chat.chatbranchselector.deleteAllBranches")}</button>
+                  <Trash2 size="0.75rem" />
+                  {localizeUi("ui.chat.chatbranchselector.deleteAllBranches")}
+                </button>
               </div>
             )}
           </div>,

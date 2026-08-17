@@ -221,20 +221,12 @@ function filePreview(before: string | null, after: string) {
   const beforeLines = before.split(/\r?\n/u);
   const afterLines = after.split(/\r?\n/u);
   let prefix = 0;
-  while (
-    prefix < beforeLines.length &&
-    prefix < afterLines.length &&
-    beforeLines[prefix] === afterLines[prefix]
-  ) {
+  while (prefix < beforeLines.length && prefix < afterLines.length && beforeLines[prefix] === afterLines[prefix]) {
     prefix += 1;
   }
   let beforeSuffix = beforeLines.length - 1;
   let afterSuffix = afterLines.length - 1;
-  while (
-    beforeSuffix >= prefix &&
-    afterSuffix >= prefix &&
-    beforeLines[beforeSuffix] === afterLines[afterSuffix]
-  ) {
+  while (beforeSuffix >= prefix && afterSuffix >= prefix && beforeLines[beforeSuffix] === afterLines[afterSuffix]) {
     beforeSuffix -= 1;
     afterSuffix -= 1;
   }
@@ -330,15 +322,8 @@ async function runPnpmDependencyInstall(input: {
 }) {
   const sandboxHome = await mkdtemp(join(tmpdir(), "marinara-mari-dependency-"));
   const resolveArgs =
-    input.target === "root"
-      ? ["add", "--workspace-root"]
-      : ["--filter", TARGET_FILTERS[input.target]!, "add"];
-  resolveArgs.push(
-    "--save-exact",
-    "--ignore-scripts",
-    "--lockfile-only",
-    `--registry=${PUBLIC_NPM_REGISTRY}`,
-  );
+    input.target === "root" ? ["add", "--workspace-root"] : ["--filter", TARGET_FILTERS[input.target]!, "add"];
+  resolveArgs.push("--save-exact", "--ignore-scripts", "--lockfile-only", `--registry=${PUBLIC_NPM_REGISTRY}`);
   if (input.dev) resolveArgs.push("--save-dev");
   resolveArgs.push(`${input.packageName}@${input.version}`);
 
@@ -368,11 +353,7 @@ async function runPnpmDependencyInstall(input: {
         output: `${resolved.output}\nResolved lockfile integrity did not match the approved npm registry integrity.`,
       };
     }
-    const fetched = await runPnpmProcess(
-      ["fetch", `--registry=${PUBLIC_NPM_REGISTRY}`],
-      input.workspaceRoot,
-      safeEnv,
-    );
+    const fetched = await runPnpmProcess(["fetch", `--registry=${PUBLIC_NPM_REGISTRY}`], input.workspaceRoot, safeEnv);
     if (!fetched.ok) return { ok: false, output: `${resolved.output}\n${fetched.output}` };
     const installed = await runPnpmProcess(
       ["install", "--offline", "--frozen-lockfile", "--ignore-scripts"],
@@ -472,9 +453,12 @@ export class WorkspaceChangeReviewService {
     const requestedVersion = input.version?.trim() || "latest";
     if (!packageNameIsValid(packageName)) throw new Error("Use a valid public npm package name.");
     if (requestedVersion !== "latest" && !exactVersionIsValid(requestedVersion)) {
-      throw new Error("Dependency versions must be exact semver values or latest so Marinara can resolve an exact version.");
+      throw new Error(
+        "Dependency versions must be exact semver values or latest so Marinara can resolve an exact version.",
+      );
     }
-    if (!(input.target in TARGET_MANIFESTS)) throw new Error("Dependency target must be root, client, server, or shared.");
+    if (!(input.target in TARGET_MANIFESTS))
+      throw new Error("Dependency target must be root, client, server, or shared.");
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -655,7 +639,8 @@ export class WorkspaceChangeReviewService {
         approval,
         completed: true,
         outcome: "state_changed",
-        error: "The dependency manifest or lockfile changed after this request. Ask Professor Mari to resolve it again.",
+        error:
+          "The dependency manifest or lockfile changed after this request. Ask Professor Mari to resolve it again.",
       };
     }
 

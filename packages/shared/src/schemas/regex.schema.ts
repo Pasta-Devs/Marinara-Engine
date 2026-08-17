@@ -29,16 +29,7 @@ function validateDepthRange(data: { minDepth?: number | null; maxDepth?: number 
 const regexScriptShape = z.object({
   name: z.string().min(1).max(200),
   enabled: z.boolean().default(true),
-  findRegex: z
-    .string()
-    .min(1)
-    .refine(
-      // Macros like {{char}}/{{user}} are resolved before the pattern is compiled
-      // at apply-time; strip them here so the static check doesn't read the macro
-      // braces as a malformed `{n,m}` quantifier and reject a legitimate pattern.
-      (pattern) => isPatternSafe(pattern.replace(/\{\{[^}]*\}\}/g, "x")),
-      "Regex pattern is unsafe: it may cause catastrophic backtracking. Avoid nested quantifiers and overly long patterns.",
-    ),
+  findRegex: z.string().min(1),
   replaceString: z.string().default(""),
   trimStrings: z.array(z.string()).default([]),
   placement: z.array(regexPlacementSchema).min(1),
@@ -52,12 +43,61 @@ const regexScriptShape = z.object({
   maxDepth: z.number().int().nullable().default(null),
 });
 
-export const createRegexScriptSchema = regexScriptShape.superRefine(validateDepthRange);
-export const updateRegexScriptSchema = regexScriptShape.partial().superRefine(validateDepthRange);
+function validatePatternSafety(data: { findRegex?: string }, ctx: z.RefinementCtx): void {
+  if (
+    data.findRegex !== undefined &&
+    // Macros like {{char}}/{{user}} are resolved before the pattern is compiled
+    // at apply-time; strip them here so the static check doesn't read the macro
+    // braces as a malformed `{n,m}` quantifier and reject a legitimate pattern.
+    !isPatternSafe(data.findRegex.replace(/\{\{[^}]*\}\}/g, "x"))
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["findRegex"],
+      message:
+        "Regex pattern is unsafe: it may cause catastrophic backtracking. Avoid nested quantifiers and overly long patterns.",
+    });
+  }
+}
+
+function validatePatternSyntax(data: { findRegex?: string; flags?: string }, ctx: z.RefinementCtx): void {
+  if (data.findRegex === undefined) return;
+
+  try {
+    new RegExp(data.findRegex.replace(/\{\{[^}]*\}\}/g, "x"), data.flags ?? "gi");
+  } catch {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["findRegex"],
+      message: "Invalid regex pattern.",
+    });
+  }
+}
+
+function validateImportedRegexScript(
+  data: { findRegex?: string; flags?: string; minDepth?: number | null; maxDepth?: number | null },
+  ctx: z.RefinementCtx,
+): void {
+  validateDepthRange(data, ctx);
+  validatePatternSyntax(data, ctx);
+}
+
+function validateEditableRegexScript(
+  data: { findRegex?: string; minDepth?: number | null; maxDepth?: number | null },
+  ctx: z.RefinementCtx,
+): void {
+  validateDepthRange(data, ctx);
+  validatePatternSafety(data, ctx);
+}
+
+export const createRegexScriptSchema = regexScriptShape.superRefine(validateEditableRegexScript);
+export const importRegexScriptSchema = regexScriptShape.superRefine(validateImportedRegexScript);
+export const updateRegexScriptSchema = regexScriptShape.partial().superRefine(validateEditableRegexScript);
 export const reorderRegexScriptsSchema = z.object({
   scriptIds: z.array(z.string().min(1)),
 });
 
 export type CreateRegexScriptInput = z.infer<typeof createRegexScriptSchema>;
+export type ImportRegexScriptInput = z.infer<typeof importRegexScriptSchema>;
 export type UpdateRegexScriptInput = z.infer<typeof updateRegexScriptSchema>;
 export type ReorderRegexScriptsInput = z.infer<typeof reorderRegexScriptsSchema>;

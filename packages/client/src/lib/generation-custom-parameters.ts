@@ -1,6 +1,4 @@
-export type CustomParametersParseResult =
-  | { ok: true; value: Record<string, unknown> }
-  | { ok: false; error: string };
+export type CustomParametersParseResult = { ok: true; value: Record<string, unknown> } | { ok: false; error: string };
 
 function quoteBareObjectValues(source: string): string {
   const replacements: Array<{ start: number; end: number; value: string }> = [];

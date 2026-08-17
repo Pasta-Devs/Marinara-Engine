@@ -255,11 +255,7 @@ export function CharactersPanel() {
           name: c.parsed.name,
           title: getCharacterTitle({ name: c.parsed.name ?? "", comment: c.comment }),
           meta: formatCardLibraryMeta(c.parsed.creator, c.parsed.character_version),
-          summary: getCardLibrarySummary([
-            c.parsed.creator_notes,
-            c.parsed.description,
-            c.parsed.personality,
-          ]),
+          summary: getCardLibrarySummary([c.parsed.creator_notes, c.parsed.description, c.parsed.personality]),
           tags,
           sections: [
             { content: c.parsed.description },
@@ -1553,10 +1549,7 @@ export function CharactersPanel() {
 
               {/* Info */}
               <div
-                className={cn(
-                  "min-w-0 flex-1",
-                  !selectionMode && "pr-0 max-md:pr-32 [@media(pointer:coarse)]:pr-32",
-                )}
+                className={cn("min-w-0 flex-1", !selectionMode && "pr-0 max-md:pr-32 [@media(pointer:coarse)]:pr-32")}
               >
                 <div
                   data-character-row-name

@@ -22,7 +22,10 @@ export const apiProviderSchema = z.enum([
   "custom",
   "image_generation",
   "video_generation",
+  "audio",
 ]);
+
+export const audioGenerationSourceSchema = z.enum(["openai", "elevenlabs", "pockettts", "xai"]);
 
 export const imageGenerationQualitySchema = z.enum(IMAGE_GENERATION_QUALITIES);
 
@@ -74,9 +77,18 @@ export const createConnectionSchema = z.object({
   imageGenerationQuality: imageGenerationQualitySchema.default("auto"),
   videoGenerationSource: z.string().nullable().default(null),
   videoService: z.string().nullable().default(null),
+  audioSource: audioGenerationSourceSchema.nullable().default(null),
+  audioVoice: z.string().nullable().default(null),
+  audioSoundEffects: z.boolean().default(false),
+  audioMusic: z.boolean().default(false),
   promptPresetId: z.string().nullable().default(null),
   maxTokensOverride: z.number().int().min(1).nullable().default(null),
   maxParallelJobs: z.number().int().min(1).max(16).default(1),
+  /**
+   * Cap on outbound requests per minute to this connection (null = unlimited). Paces bursty
+   * callers — notably Professor Mari's tool-call loop — so a rate-limited proxy is not exceeded.
+   */
+  maxRequestsPerMinute: z.number().int().min(1).max(600).nullable().default(null),
   treatAsLocalEndpoint: z.boolean().default(false),
   claudeFastMode: z.boolean().default(false),
 });

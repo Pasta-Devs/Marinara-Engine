@@ -83,7 +83,12 @@ const CHECK_IN_STYLES = [
   { value: 30, label: "Quiet", chip: "Quiet talkativeness", hint: "Low-pressure check-ins." },
   { value: 50, label: "Balanced", chip: "Balanced talkativeness", hint: "A moderate routine presence." },
   { value: 70, label: "Social", chip: "Social talkativeness", hint: "More frequent check-ins when available." },
-  { value: 90, label: "Very frequent", chip: "Very frequent talkativeness", hint: "Often initiates when the schedule allows." },
+  {
+    value: 90,
+    label: "Very frequent",
+    chip: "Very frequent talkativeness",
+    hint: "Often initiates when the schedule allows.",
+  },
 ] as const;
 
 const CHECK_IN_MOMENTS: Array<{ intent: ConversationMessageIntent; label: string; hint: string }> = [
@@ -134,7 +139,9 @@ function createDraft(schedule?: WeekSchedule): DraftSchedule {
     talkativeness: schedule?.talkativeness ?? 50,
     routineSummary: schedule?.routineSummary ?? "",
     routineSummaryGeneratedAt: schedule?.routineSummaryGeneratedAt ?? "",
-    disabledAutonomousIntents: Array.isArray(schedule?.disabledAutonomousIntents) ? schedule.disabledAutonomousIntents : [],
+    disabledAutonomousIntents: Array.isArray(schedule?.disabledAutonomousIntents)
+      ? schedule.disabledAutonomousIntents
+      : [],
   };
 }
 
@@ -142,7 +149,12 @@ function draftToSchedule(draft: DraftSchedule, schedule?: WeekSchedule): WeekSch
   const next: WeekSchedule = {
     weekStart: draft.weekStart,
     days: draft.days,
-    inactivityThresholdMinutes: parseNumber(draft.inactivityThresholdMinutes, schedule?.inactivityThresholdMinutes ?? 120, 15, 360),
+    inactivityThresholdMinutes: parseNumber(
+      draft.inactivityThresholdMinutes,
+      schedule?.inactivityThresholdMinutes ?? 120,
+      15,
+      360,
+    ),
     talkativeness: Math.max(0, Math.min(100, draft.talkativeness)),
     routineSummary: draft.routineSummary.trim() || null,
     routineSummaryGeneratedAt: draft.routineSummaryGeneratedAt || null,
@@ -220,7 +232,12 @@ function blocksEqual(left: ScheduleBlock[], right: ScheduleBlock[]): boolean {
   if (left.length !== right.length) return false;
   return left.every((block, index) => {
     const other = right[index];
-    return !!other && block.time === other.time && block.activity === other.activity && (block.status ?? "online") === (other.status ?? "online");
+    return (
+      !!other &&
+      block.time === other.time &&
+      block.activity === other.activity &&
+      (block.status ?? "online") === (other.status ?? "online")
+    );
   });
 }
 
@@ -265,12 +282,18 @@ function ScheduleTimeline({ day, blocks }: { day: string; blocks: ScheduleBlock[
                 minWidth: "2px",
                 borderRadius: "3px",
               }}
-              title={localizeUi("ui.chat.scheduletimeline.value1Value2", { value1: block.time, value2: block.activity || STATUS_LABELS[segment.status] })}
+              title={localizeUi("ui.chat.scheduletimeline.value1Value2", {
+                value1: block.time,
+                value2: block.activity || STATUS_LABELS[segment.status],
+              })}
             />
           )),
         )}
         {day === todayName && (
-          <div className="absolute inset-y-0 z-10 w-1 -translate-x-1/2 bg-[var(--primary)]" style={{ left: `${nowLeft}%` }} />
+          <div
+            className="absolute inset-y-0 z-10 w-1 -translate-x-1/2 bg-[var(--primary)]"
+            style={{ left: `${nowLeft}%` }}
+          />
         )}
       </div>
       <div className="relative h-4 text-[0.5625rem] tabular-nums text-[var(--muted-foreground)]/70">
@@ -289,7 +312,11 @@ function ScheduleTimeline({ day, blocks }: { day: string; blocks: ScheduleBlock[
               key={hour}
               className={cn(
                 "absolute top-0 flex flex-col items-center",
-                hour === 0 ? "translate-x-0 items-start" : hour === 24 ? "-translate-x-full items-end" : "-translate-x-1/2",
+                hour === 0
+                  ? "translate-x-0 items-start"
+                  : hour === 24
+                    ? "-translate-x-full items-end"
+                    : "-translate-x-1/2",
               )}
               style={{ left: `${(hour / 24) * 100}%` }}
             >
@@ -436,7 +463,9 @@ export function CharacterScheduleEditorModal({
   };
 
   const currentSchedule = draftToSchedule(draft, schedule);
-  const enabledMomentCount = CHECK_IN_MOMENTS.filter((option) => !draft.disabledAutonomousIntents.includes(option.intent)).length;
+  const enabledMomentCount = CHECK_IN_MOMENTS.filter(
+    (option) => !draft.disabledAutonomousIntents.includes(option.intent),
+  ).length;
   const momentsLabel =
     enabledMomentCount === CHECK_IN_MOMENTS.length
       ? "Natural moments"
@@ -453,13 +482,21 @@ export function CharacterScheduleEditorModal({
         schedule: currentSchedule,
         guidance: generationGuidance,
       });
-      const nextDraft = { ...draftRef.current, routineSummary: result.summary, routineSummaryGeneratedAt: result.generatedAt };
+      const nextDraft = {
+        ...draftRef.current,
+        routineSummary: result.summary,
+        routineSummaryGeneratedAt: result.generatedAt,
+      };
       draftRef.current = nextDraft;
       setDraft(nextDraft);
       onSave(characterId, draftToSchedule(nextDraft, schedule));
       setSummaryStale(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.chat.characterscheduleeditormodal.failedToGenerateRoutineSummary"));
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : localizeUi("ui.chat.characterscheduleeditormodal.failedToGenerateRoutineSummary"),
+      );
     } finally {
       setIsGeneratingSummary(false);
     }
@@ -484,7 +521,11 @@ export function CharacterScheduleEditorModal({
         disabledAutonomousIntents: current.disabledAutonomousIntents,
       }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.chat.characterscheduleeditormodal.failedToRegenerateSchedule"));
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : localizeUi("ui.chat.characterscheduleeditormodal.failedToRegenerateSchedule"),
+      );
     } finally {
       setIsGeneratingWeek(false);
     }
@@ -506,17 +547,31 @@ export function CharacterScheduleEditorModal({
         dayGuidance: specificGuidance,
         timeZone: useUIStore.getState().conversationTimeZone,
       });
-      applyDraftAndMarkSummaryStale((current) => ({ ...current, days: { ...current.days, [result.day]: result.blocks } }));
+      applyDraftAndMarkSummaryStale((current) => ({
+        ...current,
+        days: { ...current.days, [result.day]: result.blocks },
+      }));
       if (blocksEqual(previousBlocks, result.blocks)) {
         setDayGenerationStatus((current) => ({ ...current, [day]: "No visible changes returned" }));
         toast.message("The model returned the same day. Try stronger guidance.");
       } else {
-        setDayGenerationStatus((current) => ({ ...current, [day]: specificGuidance ? `${day} guidance applied` : `${day} regenerated` }));
-        toast.success(specificGuidance ?localizeUi("ui.chat.characterscheduleeditormodal.value1GuidanceApplied", { value1: day }) :localizeUi("ui.chat.characterscheduleeditormodal.value1Regenerated", { value1: day }));
+        setDayGenerationStatus((current) => ({
+          ...current,
+          [day]: specificGuidance ? `${day} guidance applied` : `${day} regenerated`,
+        }));
+        toast.success(
+          specificGuidance
+            ? localizeUi("ui.chat.characterscheduleeditormodal.value1GuidanceApplied", { value1: day })
+            : localizeUi("ui.chat.characterscheduleeditormodal.value1Regenerated", { value1: day }),
+        );
       }
     } catch (error) {
       setDayGenerationStatus((current) => ({ ...current, [day]: `Failed to regenerate ${day}` }));
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.chat.characterscheduleeditormodal.failedToRegenerateValue1", { value1: day }));
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : localizeUi("ui.chat.characterscheduleeditormodal.failedToRegenerateValue1", { value1: day }),
+      );
     } finally {
       setGeneratingDay(null);
     }
@@ -573,7 +628,13 @@ export function CharacterScheduleEditorModal({
   const scheduleTransferDisabled = isGeneratingSummary || isGeneratingWeek || !!generatingDay;
 
   return (
-    <Modal open={open} onClose={onClose} title={localizeUi("ui.chat.characterscheduleeditormodal.editValue1Schedule", { value1: characterName })} width="max-w-5xl" chatFloatingPanel>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={localizeUi("ui.chat.characterscheduleeditormodal.editValue1Schedule", { value1: characterName })}
+      width="max-w-5xl"
+      chatFloatingPanel
+    >
       <div className="space-y-4">
         <div className="rounded-lg bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]">
           <ConversationTimeZoneSelect compact />
@@ -598,7 +659,9 @@ export function CharacterScheduleEditorModal({
             </div>
             <div className="min-w-0 flex-1 space-y-3">
               <div className="min-w-0">
-                <div className="text-[0.625rem] uppercase tracking-[0.18em] text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.routineProfile")}</div>
+                <div className="text-[0.625rem] uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.chat.characterscheduleeditormodal.routineProfile")}
+                </div>
                 <h2 className="mt-1 truncate text-xl font-semibold">{characterName}</h2>
               </div>
               <div className="flex min-h-20 flex-col gap-3">
@@ -606,10 +669,16 @@ export function CharacterScheduleEditorModal({
                   {draft.routineSummary.trim() ? (
                     <div className="space-y-1.5">
                       <p>{draft.routineSummary}</p>
-                      {summaryStale && <div className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.summaryMayBeStale")}</div>}
+                      {summaryStale && (
+                        <div className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                          {localizeUi("ui.chat.characterscheduleeditormodal.summaryMayBeStale")}
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <p className="text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.noRoutineReadoutYetGenerateOneFromTheCurrent")}</p>
+                    <p className="text-[var(--muted-foreground)]">
+                      {localizeUi("ui.chat.characterscheduleeditormodal.noRoutineReadoutYetGenerateOneFromTheCurrent")}
+                    </p>
                   )}
                 </div>
                 <button
@@ -618,8 +687,14 @@ export function CharacterScheduleEditorModal({
                   disabled={isGeneratingSummary || isGeneratingWeek || !!generatingDay}
                   className="inline-flex shrink-0 items-center justify-center gap-1.5 self-end rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isGeneratingSummary ? <Loader2 size="0.75rem" className="animate-spin" /> : <Sparkles size="0.75rem" />}
-                  {draft.routineSummary.trim() ?localizeUi("ui.chat.characterscheduleeditormodal.refreshSummary") :localizeUi("ui.chat.characterscheduleeditormodal.generateSummary")}
+                  {isGeneratingSummary ? (
+                    <Loader2 size="0.75rem" className="animate-spin" />
+                  ) : (
+                    <Sparkles size="0.75rem" />
+                  )}
+                  {draft.routineSummary.trim()
+                    ? localizeUi("ui.chat.characterscheduleeditormodal.refreshSummary")
+                    : localizeUi("ui.chat.characterscheduleeditormodal.generateSummary")}
                 </button>
               </div>
             </div>
@@ -633,7 +708,15 @@ export function CharacterScheduleEditorModal({
         >
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold marker:hidden">
             <span className="inline-flex items-center gap-2">
-              <ChevronRight size="0.875rem" className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", tuningOpen && "rotate-90")} />{localizeUi("ui.chat.characterscheduleeditormodal.tuning")}</span>
+              <ChevronRight
+                size="0.875rem"
+                className={cn(
+                  "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                  tuningOpen && "rotate-90",
+                )}
+              />
+              {localizeUi("ui.chat.characterscheduleeditormodal.tuning")}
+            </span>
             {!tuningOpen && (
               <span className="flex flex-wrap justify-end gap-1.5">
                 <span className="rounded-full bg-[var(--background)] px-2 py-1 text-[0.625rem] font-normal text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
@@ -652,7 +735,9 @@ export function CharacterScheduleEditorModal({
           </summary>
           <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(12rem,0.8fr)]">
             <div className="space-y-1.5 text-xs">
-              <span className="font-medium">{localizeUi("ui.chat.characterscheduleeditormodal.chatTalkativeness")}</span>
+              <span className="font-medium">
+                {localizeUi("ui.chat.characterscheduleeditormodal.chatTalkativeness")}
+              </span>
               <div className="space-y-2">
                 <input
                   type="range"
@@ -660,7 +745,9 @@ export function CharacterScheduleEditorModal({
                   max={CHECK_IN_STYLES.length - 1}
                   step={1}
                   value={getNearestCheckInStyleIndex(draft.talkativeness)}
-                  onChange={(event) => updateTalkativeness(String(CHECK_IN_STYLES[Number(event.target.value)]?.value ?? 50))}
+                  onChange={(event) =>
+                    updateTalkativeness(String(CHECK_IN_STYLES[Number(event.target.value)]?.value ?? 50))
+                  }
                   className="w-full accent-[var(--primary)]"
                   aria-label={localizeUi("ui.chat.characterscheduleeditormodal.chatTalkativeness")}
                 />
@@ -670,10 +757,16 @@ export function CharacterScheduleEditorModal({
                   ))}
                 </div>
               </div>
-              <div className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.overridesThisCharacterSDefaultTalkativenessForThisChat")}</div>
+              <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                {localizeUi(
+                  "ui.chat.characterscheduleeditormodal.overridesThisCharacterSDefaultTalkativenessForThisChat",
+                )}
+              </div>
             </div>
             <label className="block space-y-1.5 text-xs">
-              <span className="font-medium">{localizeUi("ui.chat.characterscheduleeditormodal.waitBeforeCheckingIn")}</span>
+              <span className="font-medium">
+                {localizeUi("ui.chat.characterscheduleeditormodal.waitBeforeCheckingIn")}
+              </span>
               <input
                 type="number"
                 min={15}
@@ -683,12 +776,18 @@ export function CharacterScheduleEditorModal({
                 onChange={(event) => updateSetting("inactivityThresholdMinutes", event.target.value)}
                 className="w-full rounded-md bg-[var(--background)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]/50"
               />
-              <div className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.minimumSilenceBeforeThisCharacterCanStartAnAutonomous")}</div>
+              <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                {localizeUi(
+                  "ui.chat.characterscheduleeditormodal.minimumSilenceBeforeThisCharacterCanStartAnAutonomous",
+                )}
+              </div>
             </label>
             <div className="space-y-2 text-xs md:col-span-2">
               <div>
                 <div className="font-medium">{localizeUi("ui.chat.characterscheduleeditormodal.checkInMoments")}</div>
-                <div className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.letThisCharacterUseTheseRoutineMomentsAsReasons")}</div>
+                <div className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.chat.characterscheduleeditormodal.letThisCharacterUseTheseRoutineMomentsAsReasons")}
+                </div>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {CHECK_IN_MOMENTS.map((option) => {
@@ -715,10 +814,17 @@ export function CharacterScheduleEditorModal({
             </div>
             <details className="group rounded-md bg-[var(--background)] p-3 ring-1 ring-[var(--border)] md:col-span-2">
               <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold marker:hidden">
-                <ChevronRight size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)] transition-transform group-open:rotate-90" />{localizeUi("ui.chat.characterscheduleeditormodal.advancedTiming")}</summary>
+                <ChevronRight
+                  size="0.8125rem"
+                  className="shrink-0 text-[var(--muted-foreground)] transition-transform group-open:rotate-90"
+                />
+                {localizeUi("ui.chat.characterscheduleeditormodal.advancedTiming")}
+              </summary>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 <label className="block space-y-1.5 text-xs">
-                  <span className="font-medium">{localizeUi("ui.chat.characterscheduleeditormodal.dailySafetyLimit")}</span>
+                  <span className="font-medium">
+                    {localizeUi("ui.chat.characterscheduleeditormodal.dailySafetyLimit")}
+                  </span>
                   <select
                     value={draft.autonomousDailyCapOverride}
                     onChange={(event) => updateSetting("autonomousDailyCapOverride", event.target.value)}
@@ -727,13 +833,18 @@ export function CharacterScheduleEditorModal({
                     <option value="">{localizeUi("ui.noodle.noodlehome.default")}</option>
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((cap) => (
                       <option key={cap} value={cap}>
-                        {cap} {localizeUi("ui.chat.characterscheduleeditormodal.day")}</option>
+                        {cap} {localizeUi("ui.chat.characterscheduleeditormodal.day")}
+                      </option>
                     ))}
                   </select>
-                  <div className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.hardMaximumPerDayUsuallyLeaveThisOnDefault")}</div>
+                  <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.chat.characterscheduleeditormodal.hardMaximumPerDayUsuallyLeaveThisOnDefault")}
+                  </div>
                 </label>
                 <label className="block space-y-1.5 text-xs">
-                  <span className="font-medium">{localizeUi("ui.chat.characterscheduleeditormodal.delayWhileYouReAway")}</span>
+                  <span className="font-medium">
+                    {localizeUi("ui.chat.characterscheduleeditormodal.delayWhileYouReAway")}
+                  </span>
                   <input
                     type="number"
                     min={0}
@@ -744,10 +855,14 @@ export function CharacterScheduleEditorModal({
                     onChange={(event) => updateSetting("idleResponseDelayMinutes", event.target.value)}
                     className="w-full rounded-md bg-[var(--secondary)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]/50"
                   />
-                  <div className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.extraMinutesToWaitWhenYourPresenceIsAway")}</div>
+                  <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.chat.characterscheduleeditormodal.extraMinutesToWaitWhenYourPresenceIsAway")}
+                  </div>
                 </label>
                 <label className="block space-y-1.5 text-xs">
-                  <span className="font-medium">{localizeUi("ui.chat.characterscheduleeditormodal.delayWhileYouReBusy")}</span>
+                  <span className="font-medium">
+                    {localizeUi("ui.chat.characterscheduleeditormodal.delayWhileYouReBusy")}
+                  </span>
                   <input
                     type="number"
                     min={0}
@@ -758,7 +873,9 @@ export function CharacterScheduleEditorModal({
                     onChange={(event) => updateSetting("dndResponseDelayMinutes", event.target.value)}
                     className="w-full rounded-md bg-[var(--secondary)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]/50"
                   />
-                  <div className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.extraMinutesToWaitWhenYourPresenceIsBusy")}</div>
+                  <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.chat.characterscheduleeditormodal.extraMinutesToWaitWhenYourPresenceIsBusy")}
+                  </div>
                 </label>
               </div>
             </details>
@@ -772,12 +889,19 @@ export function CharacterScheduleEditorModal({
         >
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold marker:hidden">
             <span className="inline-flex min-w-0 items-center gap-2">
-              <ChevronRight size="0.875rem" className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", weekGuideOpen && "rotate-90")} />
+              <ChevronRight
+                size="0.875rem"
+                className={cn(
+                  "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                  weekGuideOpen && "rotate-90",
+                )}
+              />
               <span>{localizeUi("ui.chat.characterscheduleeditormodal.scheduleAi")}</span>
             </span>
             {!weekGuideOpen && (
               <span className="truncate rounded-full bg-[var(--background)] px-2 py-1 text-[0.625rem] font-normal text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                {WEEK_DRAFT_MODE_LABELS[weekDraftMode]}{generationGuidance.trim() ?localizeUi("ui.chat.characterscheduleeditormodal.guidanceSet") : ""}
+                {WEEK_DRAFT_MODE_LABELS[weekDraftMode]}
+                {generationGuidance.trim() ? localizeUi("ui.chat.characterscheduleeditormodal.guidanceSet") : ""}
               </span>
             )}
           </summary>
@@ -808,11 +932,15 @@ export function CharacterScheduleEditorModal({
             </div>
             <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
               <label className="block text-xs">
-                <span className="mb-1.5 block font-medium">{localizeUi("ui.chat.characterscheduleeditormodal.weekGuidance")}</span>
+                <span className="mb-1.5 block font-medium">
+                  {localizeUi("ui.chat.characterscheduleeditormodal.weekGuidance")}
+                </span>
                 <input
                   value={generationGuidance}
                   onChange={(event) => setGenerationGuidance(event.target.value)}
-                  placeholder={localizeUi("ui.chat.characterscheduleeditormodal.exampleMakeWeekdaysMoreNocturnalKeepWeekendsSocial")}
+                  placeholder={localizeUi(
+                    "ui.chat.characterscheduleeditormodal.exampleMakeWeekdaysMoreNocturnalKeepWeekendsSocial",
+                  )}
                   className="w-full rounded-md bg-[var(--background)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]/50"
                 />
               </label>
@@ -823,9 +951,12 @@ export function CharacterScheduleEditorModal({
                 className="inline-flex items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isGeneratingWeek ? <Loader2 size="0.75rem" className="animate-spin" /> : <RefreshCw size="0.75rem" />}
-                {WEEK_DRAFT_MODE_LABELS[weekDraftMode]} {localizeUi("ui.chat.characterscheduleeditormodal.week")}</button>
+                {WEEK_DRAFT_MODE_LABELS[weekDraftMode]} {localizeUi("ui.chat.characterscheduleeditormodal.week")}
+              </button>
             </div>
-            <div className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.draftOnlySaveScheduleAppliesChanges")}</div>
+            <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
+              {localizeUi("ui.chat.characterscheduleeditormodal.draftOnlySaveScheduleAppliesChanges")}
+            </div>
           </div>
         </details>
 
@@ -843,12 +974,16 @@ export function CharacterScheduleEditorModal({
                   <div className="flex min-w-0 items-center gap-2">
                     <ChevronRight
                       size="0.875rem"
-                      className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", expanded && "rotate-90")}
+                      className={cn(
+                        "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                        expanded && "rotate-90",
+                      )}
                     />
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold">{day}</div>
                       <div className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        {blocks.length} {localizeUi("ui.chat.characterscheduleeditormodal.block")}{blocks.length === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s")}
+                        {blocks.length} {localizeUi("ui.chat.characterscheduleeditormodal.block")}
+                        {blocks.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}
                       </div>
                     </div>
                   </div>
@@ -858,16 +993,27 @@ export function CharacterScheduleEditorModal({
                 {expanded && (
                   <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-xs font-semibold">{day} {localizeUi("ui.chat.characterscheduleeditormodal.blocks")}</div>
-                      {dayGenerationStatus[day] && <div className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{dayGenerationStatus[day]}</div>}
+                      <div className="text-xs font-semibold">
+                        {day} {localizeUi("ui.chat.characterscheduleeditormodal.blocks")}
+                      </div>
+                      {dayGenerationStatus[day] && (
+                        <div className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                          {dayGenerationStatus[day]}
+                        </div>
+                      )}
                     </div>
                     <label className="block text-xs">
-                      <span className="mb-1.5 block font-medium">{localizeUi("ui.noodle.noodlerpostcomposer.guide_bf073fa")} {day}</span>
+                      <span className="mb-1.5 block font-medium">
+                        {localizeUi("ui.noodle.noodlerpostcomposer.guide_bf073fa")} {day}
+                      </span>
                       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                         <input
                           value={dayGuidance[day] ?? ""}
                           onChange={(event) => setDayGuidance((current) => ({ ...current, [day]: event.target.value }))}
-                          placeholder={localizeUi("ui.chat.characterscheduleeditormodal.exampleMakeValue1MoreSocialAfterDinner", { value1: day })}
+                          placeholder={localizeUi(
+                            "ui.chat.characterscheduleeditormodal.exampleMakeValue1MoreSocialAfterDinner",
+                            { value1: day },
+                          )}
                           className="w-full rounded-md bg-[var(--background)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]/50"
                         />
                         <button
@@ -876,94 +1022,117 @@ export function CharacterScheduleEditorModal({
                           disabled={isGeneratingSummary || isGeneratingWeek || !!generatingDay}
                           className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {generatingDay === day ? <Loader2 size="0.75rem" className="animate-spin" /> : <RefreshCw size="0.75rem" />}{localizeUi("ui.agents.secretplotpanel.regenerate")} {day}
+                          {generatingDay === day ? (
+                            <Loader2 size="0.75rem" className="animate-spin" />
+                          ) : (
+                            <RefreshCw size="0.75rem" />
+                          )}
+                          {localizeUi("ui.agents.secretplotpanel.regenerate")} {day}
                         </button>
                       </div>
                     </label>
-                    {blocks.length === 0 && <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.noBlocksScheduledForThisDay")}</p>}
+                    {blocks.length === 0 && (
+                      <p className="text-xs text-[var(--muted-foreground)]">
+                        {localizeUi("ui.chat.characterscheduleeditormodal.noBlocksScheduledForThisDay")}
+                      </p>
+                    )}
                     {blocks.map((block, index) => {
                       const menuKey = `${day}-${index}`;
                       const status = block.status ?? "online";
                       const isStatusMenuOpen = openStatusMenu === menuKey;
                       return (
-                      <div key={index} className="grid gap-2 rounded-md bg-[var(--background)] p-2 ring-1 ring-[var(--border)] md:grid-cols-[minmax(0,1fr)_2.5rem]">
-                        <div className="space-y-1 text-xs">
-                          <div className="font-medium">{localizeUi("ui.chat.characterscheduleeditormodal.statusTimeActivity")}</div>
-                          <div
-                            data-schedule-status-menu
-                            className="relative flex w-full min-w-0 items-stretch overflow-visible rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)] transition-colors hover:ring-[var(--border)]/80 focus-within:ring-[var(--primary)]/50"
-                          >
-                            <button
-                              type="button"
-                              aria-haspopup="menu"
-                              aria-expanded={isStatusMenuOpen}
-                              aria-label={localizeUi("ui.chat.characterscheduleeditormodal.chooseValue1BlockStatusCurrentlyValue2", { value1: day, value2: STATUS_LABELS[status] })}
-                              className={cn(
-                                "inline-flex min-h-[2.125rem] shrink-0 items-center justify-center gap-1 border-r border-[var(--border)] px-2 text-[0.6875rem] font-medium transition-colors hover:bg-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
-                                isStatusMenuOpen && "bg-[var(--accent)]",
-                              )}
-                              onClick={() => setOpenStatusMenu((current) => (current === menuKey ? null : menuKey))}
-                            >
-                              <span className={cn("h-2 w-2 rounded-full", STATUS_COLORS[status])} />
-                              <ChevronDown size="0.625rem" className="shrink-0 opacity-60" />
-                            </button>
-                            <input
-                              value={block.time}
-                              onChange={(event) => updateBlock(day, index, { time: event.target.value })}
-                              placeholder="09:00-11:30"
-                              aria-label={localizeUi("ui.chat.characterscheduleeditormodal.value1BlockTimeRange", { value1: day })}
-                              className="min-h-[2.125rem] w-[7.75rem] shrink-0 border-r border-[var(--border)] bg-transparent px-2 py-1.5 font-mono text-xs text-[var(--foreground)]/88 outline-none placeholder:text-[var(--muted-foreground)]/55 max-sm:w-[6.75rem]"
-                            />
-                            <input
-                              value={block.activity}
-                              onChange={(event) => updateBlock(day, index, { activity: event.target.value })}
-                              placeholder={STATUS_LABELS[status]}
-                              aria-label={localizeUi("ui.chat.characterscheduleeditormodal.value1BlockActivity", { value1: day })}
-                              className="min-h-[2.125rem] w-full min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-xs text-[var(--foreground)]/88 outline-none placeholder:text-[var(--muted-foreground)]/55"
-                            />
-                            {isStatusMenuOpen && (
-                              <div
-                                role="menu"
-                                aria-label={localizeUi("ui.chat.characterscheduleeditormodal.chooseScheduleBlockStatus")}
-                                className="absolute left-0 top-[calc(100%+0.375rem)] z-20 w-44 rounded-lg border border-[var(--border)] bg-[var(--popover)] p-1 text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]"
-                              >
-                                {STATUS_OPTIONS.map((option) => {
-                                  const selected = status === option.value;
-                                  return (
-                                    <button
-                                      key={option.value}
-                                      type="button"
-                                      role="menuitemradio"
-                                      aria-checked={selected}
-                                      onClick={() => {
-                                        if (!selected) updateBlock(day, index, { status: option.value });
-                                        setOpenStatusMenu(null);
-                                      }}
-                                      className={cn(
-                                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[0.6875rem] transition-colors",
-                                        selected
-                                          ? "bg-[var(--accent)] text-[var(--foreground)]"
-                                          : "text-[var(--popover-foreground)] hover:bg-[var(--accent)]",
-                                      )}
-                                    >
-                                      <span className={cn("h-2 w-2 shrink-0 rounded-full", option.className)} />
-                                      <span>{option.label}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeBlock(day, index)}
-                          className="flex h-10 w-10 items-center justify-center self-end rounded-md text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10"
-                          title={localizeUi("ui.chat.characterscheduleeditormodal.removeBlock")}
+                        <div
+                          key={index}
+                          className="grid gap-2 rounded-md bg-[var(--background)] p-2 ring-1 ring-[var(--border)] md:grid-cols-[minmax(0,1fr)_2.5rem]"
                         >
-                          <Trash2 size="0.875rem" />
-                        </button>
-                      </div>
+                          <div className="space-y-1 text-xs">
+                            <div className="font-medium">
+                              {localizeUi("ui.chat.characterscheduleeditormodal.statusTimeActivity")}
+                            </div>
+                            <div
+                              data-schedule-status-menu
+                              className="relative flex w-full min-w-0 items-stretch overflow-visible rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)] transition-colors hover:ring-[var(--border)]/80 focus-within:ring-[var(--primary)]/50"
+                            >
+                              <button
+                                type="button"
+                                aria-haspopup="menu"
+                                aria-expanded={isStatusMenuOpen}
+                                aria-label={localizeUi(
+                                  "ui.chat.characterscheduleeditormodal.chooseValue1BlockStatusCurrentlyValue2",
+                                  { value1: day, value2: STATUS_LABELS[status] },
+                                )}
+                                className={cn(
+                                  "inline-flex min-h-[2.125rem] shrink-0 items-center justify-center gap-1 border-r border-[var(--border)] px-2 text-[0.6875rem] font-medium transition-colors hover:bg-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
+                                  isStatusMenuOpen && "bg-[var(--accent)]",
+                                )}
+                                onClick={() => setOpenStatusMenu((current) => (current === menuKey ? null : menuKey))}
+                              >
+                                <span className={cn("h-2 w-2 rounded-full", STATUS_COLORS[status])} />
+                                <ChevronDown size="0.625rem" className="shrink-0 opacity-60" />
+                              </button>
+                              <input
+                                value={block.time}
+                                onChange={(event) => updateBlock(day, index, { time: event.target.value })}
+                                placeholder="09:00-11:30"
+                                aria-label={localizeUi("ui.chat.characterscheduleeditormodal.value1BlockTimeRange", {
+                                  value1: day,
+                                })}
+                                className="min-h-[2.125rem] w-[7.75rem] shrink-0 border-r border-[var(--border)] bg-transparent px-2 py-1.5 font-mono text-xs text-[var(--foreground)]/88 outline-none placeholder:text-[var(--muted-foreground)]/55 max-sm:w-[6.75rem]"
+                              />
+                              <input
+                                value={block.activity}
+                                onChange={(event) => updateBlock(day, index, { activity: event.target.value })}
+                                placeholder={STATUS_LABELS[status]}
+                                aria-label={localizeUi("ui.chat.characterscheduleeditormodal.value1BlockActivity", {
+                                  value1: day,
+                                })}
+                                className="min-h-[2.125rem] w-full min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-xs text-[var(--foreground)]/88 outline-none placeholder:text-[var(--muted-foreground)]/55"
+                              />
+                              {isStatusMenuOpen && (
+                                <div
+                                  role="menu"
+                                  aria-label={localizeUi(
+                                    "ui.chat.characterscheduleeditormodal.chooseScheduleBlockStatus",
+                                  )}
+                                  className="absolute left-0 top-[calc(100%+0.375rem)] z-20 w-44 rounded-lg border border-[var(--border)] bg-[var(--popover)] p-1 text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]"
+                                >
+                                  {STATUS_OPTIONS.map((option) => {
+                                    const selected = status === option.value;
+                                    return (
+                                      <button
+                                        key={option.value}
+                                        type="button"
+                                        role="menuitemradio"
+                                        aria-checked={selected}
+                                        onClick={() => {
+                                          if (!selected) updateBlock(day, index, { status: option.value });
+                                          setOpenStatusMenu(null);
+                                        }}
+                                        className={cn(
+                                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[0.6875rem] transition-colors",
+                                          selected
+                                            ? "bg-[var(--accent)] text-[var(--foreground)]"
+                                            : "text-[var(--popover-foreground)] hover:bg-[var(--accent)]",
+                                        )}
+                                      >
+                                        <span className={cn("h-2 w-2 shrink-0 rounded-full", option.className)} />
+                                        <span>{option.label}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeBlock(day, index)}
+                            className="flex h-10 w-10 items-center justify-center self-end rounded-md text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10"
+                            title={localizeUi("ui.chat.characterscheduleeditormodal.removeBlock")}
+                          >
+                            <Trash2 size="0.875rem" />
+                          </button>
+                        </div>
                       );
                     })}
                     <div className="flex flex-wrap gap-2">
@@ -972,7 +1141,8 @@ export function CharacterScheduleEditorModal({
                         onClick={() => addBlock(day)}
                         className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
                       >
-                        <Plus size="0.75rem" /> {localizeUi("ui.chat.characterscheduleeditormodal.addBlock")}</button>
+                        <Plus size="0.75rem" /> {localizeUi("ui.chat.characterscheduleeditormodal.addBlock")}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1017,12 +1187,16 @@ export function CharacterScheduleEditorModal({
               type="button"
               onClick={onClose}
               className="rounded-md px-4 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            >{localizeUi("chat.delete.dialog.cancel")}</button>
+            >
+              {localizeUi("chat.delete.dialog.cancel")}
+            </button>
             <button
               type="button"
               onClick={save}
               className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
-            >{localizeUi("ui.chat.characterscheduleeditormodal.saveSchedule")}</button>
+            >
+              {localizeUi("ui.chat.characterscheduleeditormodal.saveSchedule")}
+            </button>
           </div>
         </div>
       </div>

@@ -62,13 +62,22 @@ export function ScenePromptPreferencesModal({
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title={localizeUi("ui.modals.scenepromptpreferencesmodal.scenePromptSetup")} width="max-w-lg">
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={localizeUi("ui.modals.scenepromptpreferencesmodal.scenePromptSetup")}
+      width="max-w-lg"
+    >
       <div className="flex flex-col gap-4 p-4">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-[var(--foreground)]">
-            {sourceLabel ?localizeUi("ui.modals.scenepromptpreferencesmodal.value1WantsToStartAScene", { value1: sourceLabel }) :localizeUi("ui.modals.scenepromptpreferencesmodal.startAScene")}
+            {sourceLabel
+              ? localizeUi("ui.modals.scenepromptpreferencesmodal.value1WantsToStartAScene", { value1: sourceLabel })
+              : localizeUi("ui.modals.scenepromptpreferencesmodal.startAScene")}
           </p>
-          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{localizeUi("ui.modals.scenepromptpreferencesmodal.pickTheWritingShapeBeforeMarinaraPlansTheScene")}</p>
+          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("ui.modals.scenepromptpreferencesmodal.pickTheWritingShapeBeforeMarinaraPlansTheScene")}
+          </p>
         </div>
 
         <OptionGroup label={localizeUi("ui.modals.scenepromptpreferencesmodal.pov")}>
@@ -94,7 +103,9 @@ export function ScenePromptPreferencesModal({
         </OptionGroup>
 
         <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-[var(--foreground)]">{localizeUi("ui.modals.scenepromptpreferencesmodal.extraInstructions")}</span>
+          <span className="text-xs font-semibold text-[var(--foreground)]">
+            {localizeUi("ui.modals.scenepromptpreferencesmodal.extraInstructions")}
+          </span>
           <textarea
             value={extraInstructions}
             onChange={(event) => setExtraInstructions(event.target.value)}
@@ -110,12 +121,16 @@ export function ScenePromptPreferencesModal({
             type="button"
             onClick={handleClose}
             className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-semibold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          >{localizeUi("chat.delete.dialog.cancel")}</button>
+          >
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
           <button
             type="button"
             onClick={handleSubmit}
             className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
-          >{localizeUi("ui.modals.scenepromptpreferencesmodal.planScene")}</button>
+          >
+            {localizeUi("ui.modals.scenepromptpreferencesmodal.planScene")}
+          </button>
         </div>
       </div>
     </Modal>

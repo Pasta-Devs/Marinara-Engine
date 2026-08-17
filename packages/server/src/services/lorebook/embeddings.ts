@@ -25,9 +25,20 @@ export interface SemanticLorebookMatch {
   similarity: number;
 }
 
-export function selectLorebookVectorQueryText(messages: Array<{ content: string }>, depth: number): string {
-  const selectedMessages = depth > 0 ? messages.slice(-depth) : messages;
-  return selectedMessages.map((message) => message.content).join("\n").trim();
+export function selectLorebookVectorQueryText(
+  messages: Array<{ content: string; role?: string }>,
+  depth: number,
+): string {
+  // Opening and assistant prose can dwarf a short, exact user query. Retrieval
+  // should follow what the user is asking about now, while still allowing a
+  // configurable history of earlier user turns.
+  const userMessages = messages.filter((message) => message.role === "user");
+  const queryMessages = userMessages.length > 0 ? userMessages : messages;
+  const selectedMessages = depth > 0 ? queryMessages.slice(-depth) : queryMessages;
+  return selectedMessages
+    .map((message) => message.content)
+    .join("\n")
+    .trim();
 }
 
 function normalizeLorebookVectorQueryDepth(value: unknown): number {
@@ -123,11 +134,31 @@ function getExistingEmbeddingDimension(entries: LorebookEntry[]): number | null 
   return null;
 }
 
-async function embedLorebookTexts(texts: string[], options: LorebookEmbeddingOptions): Promise<number[][]> {
+function getExistingEmbeddingSpaceId(entries: LorebookEntry[]): string | null {
+  for (const entry of entries) {
+    if (entry.excludeFromVectorization || !entry.embedding?.length) continue;
+    if (entry.embeddingSpaceId) return entry.embeddingSpaceId;
+  }
+  return null;
+}
+
+function hasIncompatibleEmbeddingSpace(entries: LorebookEntry[], activeSpaceId: string): boolean {
+  return entries.some(
+    (entry) =>
+      !entry.excludeFromVectorization && Boolean(entry.embedding?.length) && entry.embeddingSpaceId !== activeSpaceId,
+  );
+}
+
+async function embedLorebookTexts(
+  texts: string[],
+  options: LorebookEmbeddingOptions,
+  inputType: "document" | "query",
+): Promise<number[][]> {
   return embedMemoryRecallTexts(texts, {
     localEmbedder: options.localEmbedder ?? localEmbed,
     embeddingSource: options.embeddingSource,
     signal: options.signal,
+    inputType,
   });
 }
 
@@ -138,16 +169,30 @@ export async function warmLorebookEntryEmbeddings(
 ): Promise<LorebookEmbeddingWarmupResult> {
   const batchSize = normalizePositiveInteger(options.batchSize, DEFAULT_WARMUP_BATCH_SIZE);
   const candidates = entries
-    .filter((entry) => entry.enabled && !entry.excludeFromVectorization && (!entry.embedding || entry.embedding.length === 0))
+    .filter(
+      (entry) => entry.enabled && !entry.excludeFromVectorization && (!entry.embedding || entry.embedding.length === 0),
+    )
     .slice(0, batchSize);
   if (candidates.length === 0) return { attempted: 0, embedded: 0 };
 
   const texts = candidates.map(buildLorebookEntryEmbeddingText);
-  const embeddings = await embedLorebookTexts(texts, options);
+  const embeddings = await embedLorebookTexts(texts, options, "document");
   if (embeddings.length === 0) return { attempted: candidates.length, embedded: 0 };
 
   const embeddingDimension = embeddings.find((embedding) => embedding.length > 0)?.length ?? null;
   const existingDimension = getExistingEmbeddingDimension(entries);
+  const existingSpaceId = getExistingEmbeddingSpaceId(entries);
+  const embeddingSpaceId = options.embeddingSource?.spaceId ?? null;
+  if (
+    embeddingSpaceId &&
+    (hasIncompatibleEmbeddingSpace(entries, embeddingSpaceId) ||
+      (existingSpaceId !== null && existingSpaceId !== embeddingSpaceId))
+  ) {
+    logger.warn(
+      "[lorebook-embeddings] Skipping warmup because stored entries use a different embedding source. Refresh lorebook embeddings before switching provider or model.",
+    );
+    return { attempted: candidates.length, embedded: 0 };
+  }
   if (embeddingDimension && existingDimension && embeddingDimension !== existingDimension) {
     logger.warn(
       "[lorebook-embeddings] Skipping warmup because embedding dimension changed from %d to %d. Refresh lorebook embeddings before mixing embedding models.",
@@ -162,8 +207,9 @@ export async function warmLorebookEntryEmbeddings(
   for (let index = 0; index < candidates.length; index++) {
     const vector = embeddings[index];
     if (!vector || vector.length === 0) continue;
-    await storage.updateEntryEmbedding(candidates[index]!.id, vector);
+    await storage.updateEntryEmbedding(candidates[index]!.id, vector, embeddingSpaceId);
     candidates[index]!.embedding = vector;
+    candidates[index]!.embeddingSpaceId = embeddingSpaceId;
     embedded += 1;
   }
 
@@ -182,16 +228,26 @@ export async function semanticShortlistLorebookEntries(
   const queryText = query.trim();
   if (!queryText) return null;
 
-  const queryEmbeddings = await embedLorebookTexts([queryText, ...SEMANTIC_CALIBRATION_TEXTS], options);
+  const queryEmbeddings = await embedLorebookTexts([queryText, ...SEMANTIC_CALIBRATION_TEXTS], options, "query");
   const queryEmbedding = queryEmbeddings[0];
   if (!queryEmbedding || queryEmbedding.length === 0) return null;
   const similarityBaseline = lorebookSimilarityBaseline(queryEmbeddings.slice(1));
 
   let dimensionMismatchLogged = false;
+  let sourceMismatchLogged = false;
   const matches = entries
     .map((entry) => {
       const embedding = entry.embedding;
       if (!embedding || embedding.length === 0) return null;
+      if (options.embeddingSource?.spaceId && entry.embeddingSpaceId !== options.embeddingSource.spaceId) {
+        if (!sourceMismatchLogged) {
+          sourceMismatchLogged = true;
+          logger.warn(
+            "[lorebook-embeddings] Skipping one or more entries vectorized by a different provider or model. Re-vectorize the lorebook with the active embedding source.",
+          );
+        }
+        return null;
+      }
       if (embedding.length !== queryEmbedding.length) {
         if (!dimensionMismatchLogged) {
           dimensionMismatchLogged = true;
@@ -223,13 +279,14 @@ export async function buildLorebookSemanticEmbeddingsById({
 }: {
   lorebooks: Lorebook[];
   entries: LorebookEntry[];
-  scanMessages: Array<{ content: string }>;
+  scanMessages: Array<{ content: string; role?: string }>;
   embeddingSource: MemoryRecallEmbeddingOptions["embeddingSource"];
   signal?: AbortSignal;
 }): Promise<{
   defaultEmbedding: number[] | null;
   embeddingsByLorebookId?: Map<string, number[] | null>;
   similarityBaseline: number;
+  embeddingSpaceId: string | null;
 }> {
   const lorebookIdsWithVectors = new Set(
     entries
@@ -238,12 +295,16 @@ export async function buildLorebookSemanticEmbeddingsById({
       )
       .map((entry) => entry.lorebookId),
   );
-  if (lorebookIdsWithVectors.size === 0) return { defaultEmbedding: null, similarityBaseline: 0 };
+  if (lorebookIdsWithVectors.size === 0) {
+    return { defaultEmbedding: null, similarityBaseline: 0, embeddingSpaceId: embeddingSource?.spaceId ?? null };
+  }
 
   const vectorLorebooks = lorebooks.filter(
     (lorebook) => !lorebook.excludeFromVectorization && lorebookIdsWithVectors.has(lorebook.id),
   );
-  if (vectorLorebooks.length === 0) return { defaultEmbedding: null, similarityBaseline: 0 };
+  if (vectorLorebooks.length === 0) {
+    return { defaultEmbedding: null, similarityBaseline: 0, embeddingSpaceId: embeddingSource?.spaceId ?? null };
+  }
 
   const depths = Array.from(
     new Set(vectorLorebooks.map((lorebook) => normalizeLorebookVectorQueryDepth(lorebook.vectorQueryDepth))),
@@ -255,7 +316,7 @@ export async function buildLorebookSemanticEmbeddingsById({
   const populatedDepths = depths.filter((depth) => queryTextsByDepth.get(depth));
   const queryAndCalibrationEmbeddings = await embedMemoryRecallTexts(
     [...populatedDepths.map((depth) => queryTextsByDepth.get(depth)!), ...SEMANTIC_CALIBRATION_TEXTS],
-    { embeddingSource, signal },
+    { embeddingSource, signal, inputType: "query" },
   );
   for (const depth of depths) {
     const queryIndex = populatedDepths.indexOf(depth);
@@ -278,5 +339,6 @@ export async function buildLorebookSemanticEmbeddingsById({
       null,
     embeddingsByLorebookId,
     similarityBaseline,
+    embeddingSpaceId: embeddingSource?.spaceId ?? null,
   };
 }

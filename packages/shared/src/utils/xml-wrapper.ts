@@ -14,4 +14,3 @@ export function nameToXmlTag(name: string): string {
     .replace(/[\s-]+/g, "_")
     .replace(/_+/g, "_");
 }
-

@@ -32,6 +32,7 @@ import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
+import { normalizeBeholderState } from "../services/agents/beholder-state.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
 import { z } from "zod";
@@ -269,6 +270,16 @@ export async function agentsRoutes(app: FastifyInstance) {
     const parsed = req.query.limit ? Number.parseInt(req.query.limit, 10) : undefined;
     const parsedLimit = Number.isFinite(parsed) ? parsed : undefined;
     return storage.listCustomRunsForChat(req.params.chatId, parsedLimit);
+  });
+
+  /** Get the latest validated Beholder physical-state snapshot for a roleplay chat. */
+  app.get<{ Params: { chatId: string } }>("/beholder-state/:chatId", async (req) => {
+    const run = await storage.getLastSuccessfulRunByType("beholder", req.params.chatId);
+    return {
+      state: normalizeBeholderState(run?.resultData) ?? { characters: [] },
+      messageId: run?.messageId ?? null,
+      createdAt: run?.createdAt ?? null,
+    };
   });
 
   /** Get run interval status for built-in cadence-gated agents. */

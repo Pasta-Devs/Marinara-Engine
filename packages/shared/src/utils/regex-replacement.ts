@@ -40,10 +40,7 @@ function findBalancedMacroEnd(input: string, start: number): number {
   return -1;
 }
 
-function replaceBalancedMacros(
-  input: string,
-  replacer: (original: string) => string | undefined,
-): string {
+function replaceBalancedMacros(input: string, replacer: (original: string) => string | undefined): string {
   let result = "";
   let index = 0;
 

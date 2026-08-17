@@ -313,6 +313,12 @@ Exit status 134 usually means Android ran out of memory during a build step. Upd
 
 If it still stops, close other Android apps, reopen Termux, and run the command again.
 
+### Termux closes or restarts while Marinara is running
+
+The launcher requests an Android wake lock while the server runs and saves each server session under `~/.marinara-engine/logs/`. After an unexpected restart, include the newest `server-*.log` file in the report. If the file ends without a Marinara or Node error, Android or the phone vendor most likely terminated Termux outside the server process.
+
+Allow Termux to run in the background and remove battery optimization for it in Android settings. On devices that support the Termux:API add-on, install that add-on and the `termux-api` package so `termux-wake-lock` is available. These settings cannot prevent every vendor-specific process kill, but they remove the common idle-suspension cause while the persistent log preserves evidence from application-level failures.
+
 ### Android update runs out of storage while installing dependencies
 
 The built Marinara app is not several gigabytes, and Noodle does not download its own AI models. A large temporary footprint during an update usually comes from pnpm's dependency store and virtual store, especially after several releases or an interrupted forced reinstall.

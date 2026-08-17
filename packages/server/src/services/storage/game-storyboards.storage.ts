@@ -180,7 +180,7 @@ export function createGameStoryboardsStorage(db: DB) {
             continuityNotes: frame.continuityNotes ?? "",
             cameraMotion: frame.cameraMotion ?? "",
             transitionHint: frame.transitionHint ?? "",
-            durationSeconds: frame.durationSeconds ?? 6,
+            durationSeconds: frame.durationSeconds ?? 5,
             aspectRatio: frame.aspectRatio ?? "16:9",
             chatImageId: frame.chatImageId ?? null,
             sceneVideoId: frame.sceneVideoId ?? null,

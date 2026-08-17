@@ -47,7 +47,11 @@ export function ConversationTimeZoneSelect({ className, compact = false }: Conve
       } catch (error) {
         if (requestId === requestIdRef.current) {
           setConversationTimeZone(previousTimeZone);
-          toast.error(error instanceof Error ? error.message :localizeUi("ui.chat.conversationtimezoneselect.failedToSaveTheConversationTimezone"));
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : localizeUi("ui.chat.conversationtimezoneselect.failedToSaveTheConversationTimezone"),
+          );
         }
       } finally {
         if (requestId === requestIdRef.current) setIsSaving(false);
@@ -67,18 +71,19 @@ export function ConversationTimeZoneSelect({ className, compact = false }: Conve
     <div className={cn("space-y-1.5", className)}>
       <div className="flex flex-wrap items-center justify-between gap-1.5">
         <label htmlFor={selectId} className="inline-flex items-center gap-1.5 text-xs font-medium">
-          <Clock3 size="0.75rem" className="text-[var(--muted-foreground)]" />{localizeUi("ui.chat.conversationtimezoneselect.scheduleTimezone")}</label>
+          <Clock3 size="0.75rem" className="text-[var(--muted-foreground)]" />
+          {localizeUi("ui.chat.conversationtimezoneselect.scheduleTimezone")}
+        </label>
         <span className="inline-flex items-center gap-1 text-[0.59375rem] text-[var(--muted-foreground)]">
           {isSaving ? <Loader2 size="0.625rem" className="animate-spin" /> : <Check size="0.625rem" />}
-          {isSaving ?localizeUi("ui.noodle.noodlehome.saving") :localizeUi("ui.chat.conversationtimezoneselect.allConversations")}
+          {isSaving
+            ? localizeUi("ui.noodle.noodlehome.saving")
+            : localizeUi("ui.chat.conversationtimezoneselect.allConversations")}
         </span>
       </div>
 
       <div
-        className={cn(
-          "grid gap-2",
-          conversationTimeZone !== detectedTimeZone && "sm:grid-cols-[minmax(0,1fr)_auto]",
-        )}
+        className={cn("grid gap-2", conversationTimeZone !== detectedTimeZone && "sm:grid-cols-[minmax(0,1fr)_auto]")}
       >
         <select
           id={selectId}
@@ -104,11 +109,14 @@ export function ConversationTimeZoneSelect({ className, compact = false }: Conve
             onClick={() => selectTimeZone(detectedTimeZone)}
             className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[0.6875rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-wait disabled:opacity-60"
           >
-            <LocateFixed size="0.75rem" /> {localizeUi("ui.chat.conversationtimezoneselect.useDevice")}</button>
+            <LocateFixed size="0.75rem" /> {localizeUi("ui.chat.conversationtimezoneselect.useDevice")}
+          </button>
         )}
       </div>
 
-      <p className="text-[0.59375rem] leading-4 text-[var(--muted-foreground)]/80">{localizeUi("ui.chat.conversationtimezoneselect.availabilityAndAutonomousMessagesFollowThisTimezoneYourDevice")} {detectedTimeZone}.
+      <p className="text-[0.59375rem] leading-4 text-[var(--muted-foreground)]/80">
+        {localizeUi("ui.chat.conversationtimezoneselect.availabilityAndAutonomousMessagesFollowThisTimezoneYourDevice")}{" "}
+        {detectedTimeZone}.
       </p>
     </div>
   );

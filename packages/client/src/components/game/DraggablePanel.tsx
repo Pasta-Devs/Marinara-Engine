@@ -160,7 +160,9 @@ export function PanelLockButton({ locked, onToggle, onReset, size = 10, classNam
       }}
       onPointerDown={(event) => event.stopPropagation()}
       title={title}
-      aria-label={locked ?localizeUi("ui.game.panellockbutton.unlockPanel") :localizeUi("ui.game.panellockbutton.lockPanel")}
+      aria-label={
+        locked ? localizeUi("ui.game.panellockbutton.unlockPanel") : localizeUi("ui.game.panellockbutton.lockPanel")
+      }
       aria-pressed={!locked}
       className={cn(
         "flex shrink-0 items-center justify-center rounded-md text-[var(--marinara-chat-chrome-panel-muted)]",

@@ -2,7 +2,8 @@ export interface SupportDiagnostics {
   version: string;
   build: string;
   commit: string | null;
-  os: string;
+  serverOs: string;
+  clientOs: string;
   browser: string;
   gpu: string;
   connectionName: string | null;
@@ -10,13 +11,17 @@ export interface SupportDiagnostics {
   model: string | null;
 }
 
-export function resolveClientOs(userAgent: string, platform: string): string {
+export function resolveClientOs(userAgent: string, platform: string, maxTouchPoints = 0): string {
   const windows = userAgent.match(/Windows NT ([\d.]+)/u);
   if (windows) return `Windows ${windows[1]}`;
   const android = userAgent.match(/Android ([\d.]+)/u);
   if (android) return `Android ${android[1]}`;
   const ios = userAgent.match(/(?:iPhone OS|CPU OS) ([\d_]+)/u);
   if (ios) return `iOS ${ios[1]!.replaceAll("_", ".")}`;
+  if (/Macintosh/u.test(userAgent) && maxTouchPoints > 1) {
+    const webkitVersion = userAgent.match(/AppleWebKit\/([\d.]+)/u)?.[1];
+    return webkitVersion ? `iPadOS (WebKit ${webkitVersion})` : "iPadOS";
+  }
   const mac = userAgent.match(/Mac OS X ([\d_]+)/u);
   if (mac) return `macOS ${mac[1]!.replaceAll("_", ".")}`;
   if (/Linux/u.test(userAgent)) return "Linux";
@@ -28,9 +33,7 @@ export function detectBrowserGpu(): string {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
     if (!context) return "Unavailable";
-    const debugInfo = context.getExtension("WEBGL_debug_renderer_info") as
-      | { UNMASKED_RENDERER_WEBGL: number }
-      | null;
+    const debugInfo = context.getExtension("WEBGL_debug_renderer_info") as { UNMASKED_RENDERER_WEBGL: number } | null;
     const renderer = debugInfo
       ? context.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
       : context.getParameter(context.RENDERER);
@@ -50,7 +53,8 @@ export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): strin
     `Version: ${available(diagnostics.version)}`,
     `Build: ${available(diagnostics.build)}`,
     `Commit: ${available(diagnostics.commit)}`,
-    `OS: ${available(diagnostics.os)}`,
+    `Server OS: ${available(diagnostics.serverOs)}`,
+    `Client OS: ${available(diagnostics.clientOs)}`,
     `Browser / app shell: ${available(diagnostics.browser)}`,
     `GPU: ${available(diagnostics.gpu)}`,
     `Active connection: ${available(diagnostics.connectionName)}`,

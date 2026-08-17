@@ -502,8 +502,7 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     id: "conversation-audio-calls",
     category: "Misc",
     question: "How do I set up Conversation audio calls?",
-    answer:
-      "Enable TTS first, then turn on Calls for the chat and pick how your microphone should be transcribed.",
+    answer: "Enable TTS first, then turn on Calls for the chat and pick how your microphone should be transcribed.",
     bullets: [
       "Open Connections > Text to Speech, enable a TTS provider, save it, and confirm the preview plays.",
       "After installing Calls, open Connections > Local Model, expand the card, choose Whisper Tiny (Multilingual) or Whisper Base (Multilingual) under Local Speech Model, then click Download Whisper. Uninstalling Calls removes the downloaded model.",
@@ -628,7 +627,9 @@ export function HomeFaq({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <p className="truncate text-xs font-semibold text-[var(--foreground)]">{localizeUi("ui.chat.homefaq.faq")}</p>
+            <p className="truncate text-xs font-semibold text-[var(--foreground)]">
+              {localizeUi("ui.chat.homefaq.faq")}
+            </p>
             <span className="rounded-full border border-[var(--border)]/60 bg-black/5 px-1.5 py-0.5 text-[0.5rem] uppercase tracking-[0.12em] text-[var(--muted-foreground)]/80 dark:bg-white/6">
               {HOME_FAQ_ITEMS.length}
             </span>
@@ -648,10 +649,7 @@ export function HomeFaq({
           )}
         >
           {mobileModal ? (
-            <div
-              className="flex w-full items-center gap-2 px-3 py-2 text-left"
-              data-component="HomeFaq.DesktopHeader"
-            >
+            <div className="flex w-full items-center gap-2 px-3 py-2 text-left" data-component="HomeFaq.DesktopHeader">
               {compactHeaderContent}
             </div>
           ) : (
@@ -788,7 +786,9 @@ export function HomeFaq({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <p className="truncate text-xs font-semibold text-[var(--foreground)]">{localizeUi("ui.chat.homefaq.faq")}</p>
+                <p className="truncate text-xs font-semibold text-[var(--foreground)]">
+                  {localizeUi("ui.chat.homefaq.faq")}
+                </p>
                 <span className="rounded-full border border-[var(--border)]/60 bg-black/5 px-1.5 py-0.5 text-[0.5rem] uppercase tracking-[0.12em] text-[var(--muted-foreground)]/80 dark:bg-white/6">
                   {HOME_FAQ_ITEMS.length}
                 </span>
@@ -872,11 +872,15 @@ export function HomeFaq({
                     </div>
                     <div className="min-w-0 text-center sm:text-left">
                       <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--muted)]/50 px-2.5 py-1 text-[0.5625rem] uppercase tracking-[0.18em] text-[var(--muted-foreground)]/85 dark:border-white/10 dark:bg-black/20">
-                        <Sparkles size="0.6875rem" />{localizeUi("ui.chat.homefaq.professorMari")}</div>
+                        <Sparkles size="0.6875rem" />
+                        {localizeUi("ui.chat.homefaq.professorMari")}
+                      </div>
                       <p className="mt-2 text-sm font-semibold tracking-tight text-[var(--foreground)]">
                         {localize("Start here before you go hunting through Discord logs.")}
                       </p>
-                      <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]/85">{localizeUi("ui.chat.homefaq.theBiggestRepeatProblemsAreGameModeModelChoice")}</p>
+                      <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]/85">
+                        {localizeUi("ui.chat.homefaq.theBiggestRepeatProblemsAreGameModeModelChoice")}
+                      </p>
                     </div>
                   </div>
                 </div>

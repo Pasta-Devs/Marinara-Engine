@@ -22,14 +22,37 @@ export type LocalSidecarConnectionOption = {
   useForRandom?: "false";
 };
 
+/** Storage returns connection flags as "true"/"false" strings; client payloads use booleans. */
+export function isConnectionFlagTrue(value: unknown): boolean {
+  return value === true || value === "true";
+}
+
 export function isLanguageGenerationConnection(connection: ConnectionProviderLike): boolean {
-  return connection.provider !== "image_generation" && connection.provider !== "video_generation";
+  return (
+    connection.provider !== "image_generation" &&
+    connection.provider !== "video_generation" &&
+    connection.provider !== "audio"
+  );
 }
 
 export function filterLanguageGenerationConnections<T extends ConnectionProviderLike>(
   connections: readonly T[] | null | undefined,
 ): T[] {
   return (connections ?? []).filter(isLanguageGenerationConnection);
+}
+
+/**
+ * Audio connections eligible for selection. Quarantined (review-required)
+ * imports are excluded to mirror the server's resolution, which refuses them.
+ * The loose structural constraint lets both typed rows and raw `/connections`
+ * records flow through without casts.
+ */
+export function filterAudioGenerationConnections<
+  T extends { provider?: unknown; profileImportReviewRequired?: unknown },
+>(connections: readonly T[] | null | undefined): T[] {
+  return (connections ?? []).filter(
+    (connection) => connection.provider === "audio" && !isConnectionFlagTrue(connection.profileImportReviewRequired),
+  );
 }
 
 export function createLocalSidecarConnectionOption(modelDisplayName?: string | null): LocalSidecarConnectionOption {

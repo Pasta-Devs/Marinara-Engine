@@ -8,6 +8,8 @@ import type {
 
 export const IMAGE_DEFAULTS_STORAGE_KEY = "imageGeneration";
 export const IMAGE_GENERATION_DEFAULTS_VERSION = 1 as const;
+export const COMFYUI_LORA_STRENGTH_MIN = -100;
+export const COMFYUI_LORA_STRENGTH_MAX = 100;
 
 export const IMAGE_DEFAULTS_SERVICES: ImageDefaultsService[] = ["automatic1111", "comfyui", "novelai"];
 
@@ -319,7 +321,7 @@ export function normalizeComfyUiLoraSettings(rawLoras: unknown): ComfyUiDefaults
     const raw = isRecord(entry) ? entry : {};
     return {
       model: readString(raw.model, "").trim(),
-      strength: readNumber(raw.strength, 1, -2, 2),
+      strength: readNumber(raw.strength, 1, COMFYUI_LORA_STRENGTH_MIN, COMFYUI_LORA_STRENGTH_MAX),
     };
   });
 }
@@ -357,10 +359,7 @@ function normalizeNovelAiDefaults(rawDefaults: unknown): NovelAiDefaults {
       raw.dynamicResolutionBySubjectCount,
       DEFAULT_NOVELAI_DEFAULTS.dynamicResolutionBySubjectCount,
     ),
-    styleReferenceImage: readNullableString(
-      raw.styleReferenceImage,
-      DEFAULT_NOVELAI_DEFAULTS.styleReferenceImage,
-    ),
+    styleReferenceImage: readNullableString(raw.styleReferenceImage, DEFAULT_NOVELAI_DEFAULTS.styleReferenceImage),
     styleReferenceStrength: readNumber(
       raw.styleReferenceStrength,
       DEFAULT_NOVELAI_DEFAULTS.styleReferenceStrength,

@@ -70,7 +70,11 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
       toast.success(localizeUi("ui.gameAssets.fileeditormodal.fileSaved"));
       onClose();
     } catch (err) {
-      toast.error(localizeUi("ui.gameAssets.fileeditormodal.saveFailedValue1", { value1: err instanceof Error ? err.message :localizeUi("ui.gameAssets.fileeditormodal.unknownError") }));
+      toast.error(
+        localizeUi("ui.gameAssets.fileeditormodal.saveFailedValue1", {
+          value1: err instanceof Error ? err.message : localizeUi("ui.gameAssets.fileeditormodal.unknownError"),
+        }),
+      );
     }
   }, [saveFile, node.path, content, onClose, localizeUi]);
 
@@ -134,7 +138,9 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
                       ? "bg-[var(--accent)] text-[var(--foreground)]/80"
                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                   )}
-                >{localizeUi("settings.notifications.customSound.actions.preview")}</button>
+                >
+                  {localizeUi("settings.notifications.customSound.actions.preview")}
+                </button>
                 <button
                   onClick={() => setMode("edit")}
                   className={cn(
@@ -143,7 +149,9 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
                       ? "bg-[var(--accent)] text-[var(--foreground)]/80"
                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                   )}
-                >{localizeUi("ui.noodle.noodlepostcard.edit")}</button>
+                >
+                  {localizeUi("ui.noodle.noodlepostcard.edit")}
+                </button>
               </div>
             )}
             <button
@@ -158,7 +166,9 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
         {/* Body */}
         <div className="flex-1 overflow-hidden">
           {isLoading ? (
-            <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">{localizeUi("ui.characters.characterlibraryview.loading")}</div>
+            <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
+              {localizeUi("ui.characters.characterlibraryview.loading")}
+            </div>
           ) : mode === "preview" && isMd ? (
             <div className="h-full overflow-y-auto p-6">
               <div className="mari-message-content whitespace-pre-wrap break-words text-sm text-[var(--foreground)]">
@@ -189,18 +199,24 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-[var(--border)]/40 px-4 py-3">
-          <span className="text-xs text-[var(--muted-foreground)]">{content.length.toLocaleString()} {localizeUi("ui.panels.promptoverrideseditorbody.chars")}</span>
+          <span className="text-xs text-[var(--muted-foreground)]">
+            {content.length.toLocaleString()} {localizeUi("ui.panels.promptoverrideseditorbody.chars")}
+          </span>
           <div className="flex items-center gap-2">
             <button
               onClick={handleRequestClose}
               className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-            >{localizeUi("chat.delete.dialog.cancel")}</button>
+            >
+              {localizeUi("chat.delete.dialog.cancel")}
+            </button>
             <button
               onClick={handleSave}
               disabled={saveFile.isPending || !isDirty}
               className="rounded-lg bg-[var(--secondary)] px-4 py-2 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {saveFile.isPending ?localizeUi("ui.noodle.stageprofileform.saving") :localizeUi("ui.noodle.noodlehome.save")}
+              {saveFile.isPending
+                ? localizeUi("ui.noodle.stageprofileform.saving")
+                : localizeUi("ui.noodle.noodlehome.save")}
             </button>
           </div>
         </div>

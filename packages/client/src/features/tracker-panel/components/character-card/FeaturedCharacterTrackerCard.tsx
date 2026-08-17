@@ -40,11 +40,7 @@ import {
   getOppositeTrackerProfileSide,
   getTrackerProfilePortraitSide,
 } from "../../lib/tracker-profile-layout";
-import {
-  getTrackerStatDensity,
-  shouldRenderStatGauges,
-  trackerStatStackHeight,
-} from "../../lib/tracker-stat-layout";
+import { getTrackerStatDensity, shouldRenderStatGauges, trackerStatStackHeight } from "../../lib/tracker-stat-layout";
 import { getCharacterAmbienceStyle, type TrackerProfileColors } from "../../lib/tracker-profile-style";
 import { InlineAddRow, InlineEdit } from "../controls/InlineControls";
 import { StatList } from "../controls/StatList";
@@ -158,11 +154,7 @@ export function FeaturedCharacterTrackerCard({
     trackerPanelSizeProfile === "expanded"
       ? TRACKER_PROFILE_PORTRAIT_ROOMY_MEDIA_STAGE_REM
       : TRACKER_PROFILE_PORTRAIT_MEDIA_STAGE_REM;
-  const characterStatDensity = getTrackerStatDensity(
-    characterStats.length,
-    addMode,
-    featuredStatColumnHeightRem,
-  );
+  const characterStatDensity = getTrackerStatDensity(characterStats.length, addMode, featuredStatColumnHeightRem);
   const characterStatsOverflowPortrait =
     trackerStatStackHeight(characterStats.length, "tight", addMode) > featuredStatColumnHeightRem;
   const thoughtsKey = characterTrackerLockKey(character, characterIndex, "thoughts");
@@ -307,7 +299,9 @@ export function FeaturedCharacterTrackerCard({
             onClick={onRemove}
             className={FEATURED_REMOVE_BUTTON_CLASS}
             title={localizeUi("ui.trackerPanel.charactertrackercard.removeCharacter")}
-            aria-label={localizeUi("ui.trackerPanel.charactertrackercard.removeValue1", { value1: character.name.trim() ||localizeUi("ui.noodle.noodlehome.character") })}
+            aria-label={localizeUi("ui.trackerPanel.charactertrackercard.removeValue1", {
+              value1: character.name.trim() || localizeUi("ui.noodle.noodlehome.character"),
+            })}
           >
             <X size="0.6875rem" />
           </button>
@@ -504,7 +498,11 @@ export function FeaturedCharacterTrackerCard({
             </div>
           ))}
           {addMode && (
-            <InlineAddRow title={localizeUi("ui.trackerPanel.charactertrackercard.addCustomField")} onClick={addCustomField} className="col-span-full" />
+            <InlineAddRow
+              title={localizeUi("ui.trackerPanel.charactertrackercard.addCustomField")}
+              onClick={addCustomField}
+              className="col-span-full"
+            />
           )}
         </div>
       )}

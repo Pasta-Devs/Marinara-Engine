@@ -1,8 +1,5 @@
 import type { CharacterStat } from "@marinara-engine/shared";
-import {
-  PERSONA_ADD_STAT_DENSITY_HEIGHT_REM,
-  PERSONA_STAT_DENSITY_HEIGHT_REM,
-} from "./tracker-panel.constants";
+import { PERSONA_ADD_STAT_DENSITY_HEIGHT_REM, PERSONA_STAT_DENSITY_HEIGHT_REM } from "./tracker-panel.constants";
 import type { TrackerStatDensity } from "../tracker-panel.types";
 import type { TrackerStatDisplayMode } from "../../../stores/ui.store";
 
@@ -22,11 +19,7 @@ export function trackerStatStackHeight(statCount: number, density: TrackerStatDe
   );
 }
 
-export function getTrackerStatDensity(
-  statCount: number,
-  includeAdd: boolean,
-  allowance: number,
-): TrackerStatDensity {
+export function getTrackerStatDensity(statCount: number, includeAdd: boolean, allowance: number): TrackerStatDensity {
   if (trackerStatStackHeight(statCount, "normal", includeAdd) <= allowance) return "normal";
   if (trackerStatStackHeight(statCount, "compact", includeAdd) <= allowance) return "compact";
   return "tight";

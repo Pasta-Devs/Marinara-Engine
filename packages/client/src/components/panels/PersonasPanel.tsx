@@ -1214,10 +1214,7 @@ export function PersonasPanel() {
 
               {/* Info */}
               <div
-                className={cn(
-                  "min-w-0 flex-1",
-                  !selectionMode && "pr-0 max-md:pr-32 [@media(pointer:coarse)]:pr-32",
-                )}
+                className={cn("min-w-0 flex-1", !selectionMode && "pr-0 max-md:pr-32 [@media(pointer:coarse)]:pr-32")}
               >
                 <div className="w-fit max-w-full truncate text-sm font-medium">{persona.name}</div>
                 {persona.comment && (

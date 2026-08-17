@@ -339,11 +339,11 @@ class SidecarRuntimeService {
     }
 
     const preserveCurrentInstall = excludedVariants.size > 0 && current !== null;
-    this.installPromise = this.installLatest(onProgress, excludedVariants, preference, { preserveCurrentInstall }).finally(
-      () => {
-        this.installPromise = null;
-      },
-    );
+    this.installPromise = this.installLatest(onProgress, excludedVariants, preference, {
+      preserveCurrentInstall,
+    }).finally(() => {
+      this.installPromise = null;
+    });
     return this.installPromise;
   }
 
@@ -718,8 +718,8 @@ class SidecarRuntimeService {
 
     if (platform === "win32") {
       const windowsDir = process.env.SystemRoot || process.env.WINDIR || "C:\\Windows";
-      return [join(windowsDir, "System32", "vulkan-1.dll"), join(windowsDir, "SysWOW64", "vulkan-1.dll")].some(
-        (path) => existsSync(path),
+      return [join(windowsDir, "System32", "vulkan-1.dll"), join(windowsDir, "SysWOW64", "vulkan-1.dll")].some((path) =>
+        existsSync(path),
       );
     }
 

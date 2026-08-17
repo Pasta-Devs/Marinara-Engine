@@ -48,8 +48,7 @@ export const useTranslationStore = create<TranslationStore>((set) => ({
       const { [id]: _, ...hiddenRest } = s.hiddenTranslationIds;
       return {
         translations: { ...s.translations, [id]: text },
-        translationSources:
-          source === undefined ? s.translationSources : { ...s.translationSources, [id]: source },
+        translationSources: source === undefined ? s.translationSources : { ...s.translationSources, [id]: source },
         hiddenTranslationIds: hiddenRest,
       };
     }),

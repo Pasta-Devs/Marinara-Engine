@@ -72,7 +72,9 @@ export function SwipeJumpControl({
       >
         <ChevronLeft size={iconSize} />
       </button>
-      <label className="sr-only" htmlFor={inputId}>{localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe")}</label>
+      <label className="sr-only" htmlFor={inputId}>
+        {localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe")}
+      </label>
       <input
         id={inputId}
         type="text"
@@ -110,8 +112,16 @@ export function SwipeJumpControl({
           onCreateNextSwipe?.();
         }}
         disabled={!hasNextSwipe && !canCreateNextSwipe}
-        aria-label={hasNextSwipe ?localizeUi("ui.chat.swipejumpcontrol.nextSwipe") :localizeUi("ui.chat.swipejumpcontrol.generateNextSwipe")}
-        title={hasNextSwipe ?localizeUi("ui.chat.swipejumpcontrol.nextSwipe") :localizeUi("ui.chat.swipejumpcontrol.generateNextSwipe")}
+        aria-label={
+          hasNextSwipe
+            ? localizeUi("ui.chat.swipejumpcontrol.nextSwipe")
+            : localizeUi("ui.chat.swipejumpcontrol.generateNextSwipe")
+        }
+        title={
+          hasNextSwipe
+            ? localizeUi("ui.chat.swipejumpcontrol.nextSwipe")
+            : localizeUi("ui.chat.swipejumpcontrol.generateNextSwipe")
+        }
       >
         <ChevronRight size={iconSize} />
       </button>

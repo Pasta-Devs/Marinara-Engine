@@ -230,7 +230,8 @@ export function TrackerPortraitStage({
         PORTRAIT_FRAME_TONE_CLASS[frameTone],
         stageSizeClassName,
         TRACKER_PROFILE_PORTRAIT_LOWER_OUTSIDE_FRAME_CLASS_BY_SIDE[outsideSide],
-        uploadAction && "hover:border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_72%,var(--foreground)_28%)]",
+        uploadAction &&
+          "hover:border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_72%,var(--foreground)_28%)]",
         canAdjustView ? "cursor-grab active:cursor-grabbing" : "cursor-default",
         className,
       )}
@@ -246,7 +247,9 @@ export function TrackerPortraitStage({
           onPointerMove={handlePointerMove}
           onPointerCancel={endDrag}
           onPointerUp={endDrag}
-          title={canAdjustView ?localizeUi("ui.trackerPanel.trackerportraitstage.dragToRepositionPortrait") : undefined}
+          title={
+            canAdjustView ? localizeUi("ui.trackerPanel.trackerportraitstage.dragToRepositionPortrait") : undefined
+          }
         >
           <div className={PORTRAIT_MEDIA_OFFSET_CLASS} style={mediaOffsetStyle}>
             <img
@@ -311,7 +314,9 @@ export function TrackerPortraitStage({
           >
             <RotateCcw size="0.6875rem" />
           </button>
-          <span className="sr-only">{localizeUi("ui.trackerPanel.trackerportraitstage.portraitZoom")} {zoomPercent}%</span>
+          <span className="sr-only">
+            {localizeUi("ui.trackerPanel.trackerportraitstage.portraitZoom")} {zoomPercent}%
+          </span>
         </div>
       )}
       <div className={cn(PORTRAIT_TOP_GLEAM_BASE_CLASS, PORTRAIT_TOP_GLEAM_CLASS_BY_SIDE[outsideSide])} />

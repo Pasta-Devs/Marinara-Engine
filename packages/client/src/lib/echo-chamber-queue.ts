@@ -1,11 +1,21 @@
-export const ECHO_CHAMBER_MESSAGE_INTERVAL_MIN_MS = 10_000;
-export const ECHO_CHAMBER_MESSAGE_INTERVAL_MAX_MS = 30_000;
+export const DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS = 30;
+export const MIN_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS = 1;
+export const MAX_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS = 300;
 export const ECHO_CHAMBER_MESSAGE_LIMIT = 500;
 
-export function getEchoChamberMessageInterval(randomValue = Math.random()): number {
-  const normalizedRandom = Math.min(1, Math.max(0, randomValue));
-  const intervalRange = ECHO_CHAMBER_MESSAGE_INTERVAL_MAX_MS - ECHO_CHAMBER_MESSAGE_INTERVAL_MIN_MS;
-  return ECHO_CHAMBER_MESSAGE_INTERVAL_MIN_MS + Math.floor(normalizedRandom * intervalRange);
+export function normalizeEchoChamberMessageDelaySeconds(value: unknown): number {
+  if (typeof value !== "number" && typeof value !== "string") return DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS;
+  if (typeof value === "string" && !value.trim()) return DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS;
+  return Math.max(
+    MIN_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,
+    Math.min(MAX_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS, Math.trunc(numeric)),
+  );
+}
+
+export function getEchoChamberMessageInterval(delaySeconds: unknown): number {
+  return normalizeEchoChamberMessageDelaySeconds(delaySeconds) * 1_000;
 }
 
 export type EchoChamberMessage = {
@@ -55,11 +65,6 @@ export function enqueueEchoChamberMessages(
  * immediately. Rows created while that request was in flight belong to the
  * just-finished agent batch and must remain queued for staggered reveal.
  */
-export function resolveEchoChamberPersistedBaseline(
-  messages: EchoChamberMessage[],
-  loadStartedAt: number,
-): number {
-  return messages.filter(
-    (message) => !Number.isFinite(message.timestamp) || message.timestamp < loadStartedAt,
-  ).length;
+export function resolveEchoChamberPersistedBaseline(messages: EchoChamberMessage[], loadStartedAt: number): number {
+  return messages.filter((message) => !Number.isFinite(message.timestamp) || message.timestamp < loadStartedAt).length;
 }

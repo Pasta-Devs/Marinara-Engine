@@ -151,7 +151,8 @@ export function classifyWorldWeather(weather: string | null | undefined): WorldW
   if (text.includes("wind") || text.includes("breez") || text.includes("gust")) return "wind";
   if (text.includes("cherry") || text.includes("blossom") || text.includes("petal")) return "blossom";
   if (text.includes("aurora") || text.includes("northern light")) return "aurora";
-  if (text.includes("cloud") || text.includes("overcast") || text.includes("grey") || text.includes("gray")) return "cloud";
+  if (text.includes("cloud") || text.includes("overcast") || text.includes("grey") || text.includes("gray"))
+    return "cloud";
   if (text.includes("clear") || text.includes("sunny") || text.includes("bright")) return "clear";
   if (text.includes("hot") || text.includes("swelter")) return "heat";
   if (text.includes("cold") || text.includes("freez")) return "cold";

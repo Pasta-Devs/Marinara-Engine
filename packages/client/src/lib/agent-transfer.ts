@@ -56,14 +56,11 @@ export function countSkippedAgentImportFunctions(
   agentEntries: FolderPackageImportEntry[],
   functionEntries: FolderPackageImportEntry[],
 ) {
-  const claimedAgentPaths = new Set(
-    agentEntries.map((entry) => normalizePackagePath(entry.path).toLowerCase()),
-  );
+  const claimedAgentPaths = new Set(agentEntries.map((entry) => normalizePackagePath(entry.path).toLowerCase()));
   return functionEntries.filter((entry) => {
     const path = normalizePackagePath(entry.path).toLowerCase();
     return (
-      !claimedAgentPaths.has(path) &&
-      !AGENT_PACKAGE_ROOT_FILENAMES.has(getPackagePathBasename(path).toLowerCase())
+      !claimedAgentPaths.has(path) && !AGENT_PACKAGE_ROOT_FILENAMES.has(getPackagePathBasename(path).toLowerCase())
     );
   }).length;
 }

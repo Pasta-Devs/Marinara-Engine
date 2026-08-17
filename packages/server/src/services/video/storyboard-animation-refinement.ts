@@ -1,13 +1,10 @@
-import {
-  normalizeAgentPromptTemplateOptions,
-  type StoryboardAnimationSuitability,
-} from "@marinara-engine/shared";
+import { normalizeAgentPromptTemplateOptions, type StoryboardAnimationSuitability } from "@marinara-engine/shared";
 import type { ChatMessage } from "../llm/base-provider.js";
 import { renderTemplate } from "../prompt-overrides/index.js";
 import { compactVideoPromptText } from "./prompt-context.js";
 import type { VideoReferenceImage } from "./video-generation.js";
 
-const MAX_REFINEMENT_CHARS = 6_000;
+export const STORYBOARD_ANIMATION_PROMPT_MAX_CHARS = 6_000;
 const MAX_RENDERED_PROMPT_CHARS = 18_000;
 
 const STORYBOARD_ANIMATION_REFINEMENT_VARIABLES = [
@@ -48,6 +45,10 @@ function segmentCount(value: string): number | null {
   return segments.every(Boolean) ? segments.length : null;
 }
 
+export function compactStoryboardAnimationPrompt(value: unknown): string {
+  return compactVideoPromptText(value, STORYBOARD_ANIMATION_PROMPT_MAX_CHARS);
+}
+
 export function buildStoryboardAnimationRefinementMessages(args: {
   templates: unknown;
   templateId: unknown;
@@ -85,7 +86,6 @@ export function buildStoryboardAnimationRefinementMessages(args: {
 export function resolveStoryboardAnimationRefinement(
   value: unknown,
   motionIntent: string,
-  maxLength: number,
 ): StoryboardAnimationRefinement | null {
   if (typeof value !== "string") return null;
   let parsed: unknown;
@@ -106,10 +106,7 @@ export function resolveStoryboardAnimationRefinement(
     return null;
   }
   const candidate = record.narrationBeat ?? record.animationPrompt ?? record.videoPrompt ?? record.prompt;
-  const narrationBeat =
-    typeof candidate === "string"
-      ? compactVideoPromptText(candidate, Math.min(Math.max(1, maxLength), MAX_REFINEMENT_CHARS))
-      : "";
+  const narrationBeat = compactStoryboardAnimationPrompt(candidate);
   const expectedSegments = segmentCount(motionIntent);
   if (!narrationBeat || expectedSegments === null || segmentCount(narrationBeat) !== expectedSegments) return null;
   return { classification, narrationBeat };

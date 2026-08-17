@@ -45,10 +45,7 @@ export function isRepeatedConversationResponse(
 }
 
 /** Collapse model-produced `Name: Name:` prefixes without touching later dialogue text. */
-export function collapseDuplicateConversationSpeakerPrefixes(
-  content: string,
-  speakerNames: readonly string[],
-): string {
+export function collapseDuplicateConversationSpeakerPrefixes(content: string, speakerNames: readonly string[]): string {
   let cleaned = content;
   const uniqueSpeakerNames = new Set(speakerNames.map((speakerName) => speakerName.trim()).filter(Boolean));
   for (const speakerName of uniqueSpeakerNames) {

@@ -41,6 +41,7 @@ try {
     { userName: "User", characterNames: {} },
     {
       embeddingSource: {
+        spaceId: "test:old-384:plain-v1",
         label: "old-384",
         async embed(texts) {
           notifyOldEmbeddingStarted();
@@ -58,6 +59,7 @@ try {
     { userName: "User", characterNames: {} },
     {
       embeddingSource: {
+        spaceId: "test:new-768:plain-v1",
         label: "new-768",
         async embed(texts) {
           newEmbeddingStarted = true;
@@ -75,6 +77,11 @@ try {
   const stored = await db.select().from(memoryChunks).where(eq(memoryChunks.chatId, "chat-memory"));
   assert.equal(stored.length, 1, "re-vectorization replaces the prior native chunk exactly once");
   assert.equal(JSON.parse(stored[0]!.embedding ?? "[]").length, 768, "only vectors from the new model remain");
+  assert.equal(
+    stored[0]!.embeddingSpaceId,
+    "test:new-768:plain-v1",
+    "rebuilt memory chunks persist the active provider/model/profile identity",
+  );
 
   const connections = createConnectionsStorage(db);
   const connectionDefaults = {

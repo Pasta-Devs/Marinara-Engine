@@ -191,9 +191,7 @@ export function processActivatedEntries(
     parts.push(entry.content);
     outletParts.set(entry.outletName, parts);
   }
-  const outlets = Object.fromEntries(
-    Array.from(outletParts, ([name, parts]) => [name, parts.join("\n")]),
-  );
+  const outlets = Object.fromEntries(Array.from(outletParts, ([name, parts]) => [name, parts.join("\n")]));
 
   // Estimate tokens
   const totalChars = budgeted.reduce((sum, a) => sum + a.entry.content.length, 0);

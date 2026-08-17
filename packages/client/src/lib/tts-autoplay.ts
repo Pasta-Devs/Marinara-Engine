@@ -2,7 +2,15 @@ export type TTSAutoplayMessage = {
   id: string;
   role: string;
   content: string;
+  characterId?: string | null;
   activeSwipeIndex?: number | null;
+};
+
+export const TTS_AUTOPLAY_MESSAGE_READY_EVENT = "marinara:tts-autoplay-message-ready";
+
+export type TTSAutoplayMessageReadyDetail = {
+  chatId: string;
+  message: TTSAutoplayMessage;
 };
 
 export function findLatestTTSAutoplayMessage<T extends TTSAutoplayMessage>(messages: readonly T[]): T | undefined {

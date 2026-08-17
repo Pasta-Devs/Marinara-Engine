@@ -41,6 +41,7 @@ import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { settleAgentJobsWithConcurrencyLimit } from "./agent-concurrency.js";
 import { normalizeCyoaChoiceOutput } from "./cyoa-choice-normalization.js";
 import { getAssetManifest } from "../game/asset-manifest.service.js";
+import { formatBeholderStateForPrompt, normalizeBeholderState } from "./beholder-state.js";
 
 const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
@@ -1645,6 +1646,7 @@ function shouldRunAgentIndividually(config: Pick<AgentExecConfig, "type" | "sett
   // must not be merged into unrelated batched agent requests.
   return (
     config.type === "illustrator" ||
+    config.type === "beholder" ||
     customAgentHasCapability(config.settings, "trigger_image_generation") ||
     config.type === "lorebook-keeper" ||
     resolveAgentResultType(config) === "text_rewrite" ||
@@ -2399,7 +2401,9 @@ function buildAgentMessages(
     typeof context.memory._imagePromptInstructions === "string" ? context.memory._imagePromptInstructions.trim() : "";
   if (options.includeImagePromptInstructions === true && lateImagePromptInstructions) {
     finalParts.push("\n<image_prompting_instructions>");
-    finalParts.push("Apply these image-backend instructions when writing the provider-ready image prompt. Do not copy the instructions as prompt content.");
+    finalParts.push(
+      "Apply these image-backend instructions when writing the provider-ready image prompt. Do not copy the instructions as prompt content.",
+    );
     finalParts.push(lateImagePromptInstructions);
     finalParts.push("</image_prompting_instructions>");
   }
@@ -2592,6 +2596,15 @@ function buildAgentExtras(
         parts.push(`</character>`);
       }
       parts.push(`</about_me_state>`);
+    }
+  }
+
+  if (agentTypes.includes("beholder")) {
+    const state = normalizeBeholderState(context.memory._beholderState);
+    if (state && state.characters.length > 0) {
+      parts.push(`<previous_beholder_state>`);
+      parts.push(escapeXml(formatBeholderStateForPrompt(state)));
+      parts.push(`</previous_beholder_state>`);
     }
   }
 
@@ -2813,10 +2826,17 @@ function buildAgentExtras(
   }
 
   if (context.memory._connectedDevices) {
-    const devices = context.memory._connectedDevices as Array<{ name: string; index: number; capabilities: string[] }>;
+    const devices = context.memory._connectedDevices as Array<{
+      name: string;
+      type?: string;
+      index: number;
+      capabilities: string[];
+    }>;
     parts.push(`<connected_devices>`);
     for (const d of devices) {
-      parts.push(`- ${d.name} (index ${d.index}): ${d.capabilities.join(", ")}`);
+      parts.push(
+        `- model/name: ${d.name}; index: ${d.index}; device type: ${d.type ?? "haptic device"}; supported actions: ${d.capabilities.join(", ")}`,
+      );
     }
     parts.push(`</connected_devices>`);
   }
@@ -2869,12 +2889,14 @@ const AGENT_RESULT_TYPE_MAP: Record<string, AgentResultType> = {
   "character-tracker": "character_tracker_update",
   "persona-stats": "persona_stats_update",
   "custom-tracker": "custom_tracker_update",
+  "inventory-tracker": "inventory_tracker_update",
   html: "text_rewrite",
   spotify: "spotify_control",
   "knowledge-retrieval": "context_injection",
   haptic: "haptic_command",
   cyoa: "cyoa_choices",
   "about-me-keeper": "about_me_update",
+  beholder: "context_injection",
 };
 
 const AGENT_RESULT_TYPES = new Set<AgentResultType>(AGENT_RESULT_TYPE_VALUES);
@@ -2915,11 +2937,13 @@ const JSON_AGENTS = new Set([
   "character-tracker",
   "persona-stats",
   "custom-tracker",
+  "inventory-tracker",
   "about-me-keeper",
   "html",
   "spotify",
   "haptic",
   "cyoa",
+  "beholder",
 ]);
 
 /**

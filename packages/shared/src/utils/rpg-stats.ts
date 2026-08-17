@@ -29,7 +29,9 @@ export function createDefaultRpgStatPools(): RPGStatPool[] {
   return DEFAULT_RPG_STAT_POOLS.map((pool) => ({ ...pool }));
 }
 
-export function normalizeRpgStatPools(rpgStats: Pick<RPGStatsConfig, "hp" | "pools"> | null | undefined): RPGStatPool[] {
+export function normalizeRpgStatPools(
+  rpgStats: Pick<RPGStatsConfig, "hp" | "pools"> | null | undefined,
+): RPGStatPool[] {
   if (Array.isArray(rpgStats?.pools) && rpgStats.pools.length > 0) {
     return rpgStats.pools
       .map((pool, index) => normalizePool(pool, DEFAULT_RPG_STAT_POOLS[index] ?? DEFAULT_RPG_STAT_POOLS[0]!))

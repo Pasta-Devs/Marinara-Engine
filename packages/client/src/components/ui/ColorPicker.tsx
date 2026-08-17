@@ -269,11 +269,7 @@ function MarinaraColorSliders({
   useEffect(() => {
     const previousValue = previousValueRef.current;
     previousValueRef.current = value;
-    if (
-      draftChannels &&
-      value !== previousValue &&
-      hslToHex(...draftChannels).toLowerCase() !== value.toLowerCase()
-    ) {
+    if (draftChannels && value !== previousValue && hslToHex(...draftChannels).toLowerCase() !== value.toLowerCase()) {
       setDraftChannels(null);
     }
   }, [draftChannels, value]);

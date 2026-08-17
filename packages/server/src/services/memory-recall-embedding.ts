@@ -5,7 +5,7 @@ import { logger } from "../lib/logger.js";
 import { isLocalEmbedderAvailable } from "./local-embedder.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "./llm/local-sidecar.js";
 import { createLLMProvider } from "./llm/provider-registry.js";
-import type { MemoryRecallEmbeddingSource } from "./memory-recall.js";
+import type { MemoryRecallEmbeddingInputType, MemoryRecallEmbeddingSource } from "./memory-recall.js";
 import { sidecarModelService } from "./sidecar/sidecar-model.service.js";
 import { createConnectionsStorage } from "./storage/connections.storage.js";
 
@@ -60,9 +60,55 @@ function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function embeddingSpaceId(kind: string, ...parts: Array<string | null | undefined>): string {
+export interface MemoryRecallEmbeddingInputProfile {
+  id: string;
+  queryPrefix: string;
+  documentPrefix: string;
+}
+
+const DEFAULT_EMBEDDING_INPUT_PROFILE: MemoryRecallEmbeddingInputProfile = {
+  id: "plain-v1",
+  queryPrefix: "",
+  documentPrefix: "",
+};
+
+/**
+ * Apply the asymmetric input prefixes required by common retrieval models.
+ * Unknown models remain untouched because adding an unsupported instruction
+ * can be more damaging than omitting one.
+ */
+export function resolveMemoryRecallEmbeddingInputProfile(model: string): MemoryRecallEmbeddingInputProfile {
+  const normalized = model.toLowerCase();
+  if (normalized.includes("snowflake-arctic-embed") && normalized.includes("v2")) {
+    return { id: "snowflake-arctic-v2", queryPrefix: "query: ", documentPrefix: "" };
+  }
+  if (/(^|[/_.-])e5([/_.-]|$)/u.test(normalized)) {
+    return { id: "e5", queryPrefix: "query: ", documentPrefix: "passage: " };
+  }
+  if (normalized.includes("nomic-embed-text")) {
+    return { id: "nomic-embed-text", queryPrefix: "search_query: ", documentPrefix: "search_document: " };
+  }
+  return DEFAULT_EMBEDDING_INPUT_PROFILE;
+}
+
+export function formatMemoryRecallEmbeddingTexts(
+  texts: string[],
+  model: string,
+  inputType: MemoryRecallEmbeddingInputType,
+): string[] {
+  const profile = resolveMemoryRecallEmbeddingInputProfile(model);
+  const prefix = inputType === "query" ? profile.queryPrefix : profile.documentPrefix;
+  return prefix ? texts.map((text) => `${prefix}${text}`) : texts;
+}
+
+export function createMemoryRecallEmbeddingSpaceId(
+  kind: string,
+  model: string,
+  ...parts: Array<string | null | undefined>
+): string {
+  const profile = resolveMemoryRecallEmbeddingInputProfile(model);
   const digest = createHash("sha256")
-    .update(JSON.stringify(parts.map((part) => part?.trim() ?? "")))
+    .update(JSON.stringify([...parts, model, profile.id].map((part) => part?.trim() ?? "")))
     .digest("hex");
   return `${kind}:${digest}`;
 }
@@ -79,7 +125,8 @@ function buildVectorizerCacheKey(options: {
     connectionId: options.connectionId ?? active?.id ?? "default",
     activeBaseUrl: options.activeBaseUrl ?? "",
     provider: active?.provider ?? "",
-    embeddingConnectionId: nonEmptyString(chatMeta.embeddingConnectionId) ?? nonEmptyString(active?.embeddingConnectionId) ?? "",
+    embeddingConnectionId:
+      nonEmptyString(chatMeta.embeddingConnectionId) ?? nonEmptyString(active?.embeddingConnectionId) ?? "",
     embeddingBaseUrl: nonEmptyString(active?.embeddingBaseUrl) ?? "",
     embeddingModel: nonEmptyString(active?.embeddingModel) ?? "",
   });
@@ -146,16 +193,21 @@ export async function resolveMemoryRecallEmbeddingSource(
 
     const provider = getLocalSidecarProvider();
     const label = "Local Model sidecar";
+    const configuredModelRef = sidecarModelService.getConfiguredModelRef() ?? LOCAL_SIDECAR_MODEL;
     return {
-      spaceId: embeddingSpaceId(
+      spaceId: createMemoryRecallEmbeddingSpaceId(
         "sidecar",
+        configuredModelRef,
         sidecarModelService.getResolvedBackend(),
-        sidecarModelService.getConfiguredModelRef(),
       ),
       label,
-      async embed(texts: string[], signal?: AbortSignal) {
+      async embed(texts: string[], signal?: AbortSignal, inputType: MemoryRecallEmbeddingInputType = "document") {
         try {
-          return await provider.embed(texts, LOCAL_SIDECAR_MODEL, signal);
+          return await provider.embed(
+            formatMemoryRecallEmbeddingTexts(texts, configuredModelRef, inputType),
+            LOCAL_SIDECAR_MODEL,
+            signal,
+          );
         } catch (err) {
           logger.warn(err, "[memory-recall] Configured embedding source %s failed", label);
           return null;
@@ -199,11 +251,20 @@ export async function resolveMemoryRecallEmbeddingSource(
   const label = `${embeddingConnection.name || embeddingConnection.provider} (${embeddingModel})`;
 
   return {
-    spaceId: embeddingSpaceId("remote", embeddingConnection.provider, embeddingBaseUrl, embeddingModel),
+    spaceId: createMemoryRecallEmbeddingSpaceId(
+      "remote",
+      embeddingModel,
+      embeddingConnection.provider,
+      embeddingBaseUrl,
+    ),
     label,
-    async embed(texts: string[], signal?: AbortSignal) {
+    async embed(texts: string[], signal?: AbortSignal, inputType: MemoryRecallEmbeddingInputType = "document") {
       try {
-        return await provider.embed(texts, embeddingModel, signal);
+        return await provider.embed(
+          formatMemoryRecallEmbeddingTexts(texts, embeddingModel, inputType),
+          embeddingModel,
+          signal,
+        );
       } catch (err) {
         logger.warn(err, "[memory-recall] Configured embedding source %s failed", label);
         return null;

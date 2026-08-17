@@ -249,7 +249,10 @@ export async function botBrowserDatacatRoutes(app: FastifyInstance) {
     try {
       const image = await fetchAvatarImage(url, controller.signal);
       if (!image) return reply.status(404).send({ error: "Avatar not found" });
-      return reply.header("Content-Type", image.mimeType).header("Cache-Control", "public, max-age=86400").send(image.buf);
+      return reply
+        .header("Content-Type", image.mimeType)
+        .header("Cache-Control", "public, max-age=86400")
+        .send(image.buf);
     } catch (err) {
       if ((err as Error).message.includes("Unsupported avatar image content")) {
         return reply.status(415).send({ error: "Unsupported avatar content type" });

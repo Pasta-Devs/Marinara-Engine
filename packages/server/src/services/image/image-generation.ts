@@ -27,6 +27,7 @@ import {
   type SceneIllustrationCharacterPrompt,
 } from "@marinara-engine/shared";
 import { isImageLocalUrlsEnabled } from "../../config/runtime-config.js";
+import { runMediaGenerationRequest } from "./image-generation-queue.js";
 import { generateRunPodComfyUI } from "./runpod-comfyui.service.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
@@ -239,11 +240,7 @@ export function resolveComfyUiImageGenerationTimeoutMs(
  * URL already is the physical target, and a stale `imageEndpointId` left on an imported or
  * copied connection must not split one ComfyUI/A1111 endpoint into separate slots.
  */
-export function imageAdmissionKey(
-  normalizedBaseUrl: string,
-  resolvedSource: string,
-  imageEndpointId?: string,
-): string {
+export function imageAdmissionKey(normalizedBaseUrl: string, resolvedSource: string, imageEndpointId?: string): string {
   if (resolvedSource === "runpod_comfyui") {
     const endpointId = imageEndpointId?.trim();
     return endpointId ? `${normalizedBaseUrl}#${endpointId}` : normalizedBaseUrl;
@@ -259,8 +256,34 @@ export function imageAdmissionKey(
 /**
  * Generate an image using the configured image generation connection.
  * Returns the base64 data and metadata needed to save it.
+ *
+ * Self-wrapped in the global media-generation concurrency ceiling (#5097), the
+ * way generateVideo already is, so EVERY image path is capped at this single
+ * point — game assets, sprites, avatars, storyboards, Mari images — instead of
+ * relying on per-caller wiring. Callers that additionally wrap in
+ * runImageGenerationRequest for the per-connection FIFO are safe: the nested
+ * acquire re-uses their held permit (AsyncLocalStorage re-entrancy guard), as
+ * does this function's own fallback-connection recursion. Batch/automatic work
+ * (admissionMode "background") never occupies the last permit ahead of
+ * interactive requests.
  */
 export async function generateImage(
+  source: string,
+  baseUrl: string,
+  apiKey: string,
+  serviceHint: string,
+  request: ImageGenRequest,
+): Promise<ImageGenResult> {
+  return runMediaGenerationRequest({
+    connectionKey: `image:${baseUrl || source}`,
+    queue: false,
+    signal: request.signal,
+    priority: request.admissionMode?.kind === "background" ? "background" : "foreground",
+    task: () => generateImageUncapped(source, baseUrl, apiKey, serviceHint, request),
+  });
+}
+
+async function generateImageUncapped(
   source: string,
   baseUrl: string,
   apiKey: string,
@@ -282,66 +305,67 @@ export async function generateImage(
   let outcome: ConnectionAttemptOutcome = "failed";
 
   try {
-    const physicalRequest = () => withImageGenerationDeadline(request, generationTimeoutMs, async (signal) => {
-      const allowLocalUrls =
-        request.allowLocalUrls ?? (await shouldAllowLocalUrlsForImageConnection(normalizedBaseUrl, resolvedSource));
-      const scopedRequest = {
-        ...request,
-        fallback: undefined,
-        signal,
-        allowLocalUrls,
-        privateImageResultOrigin: allowLocalUrls ? imageProviderOrigin(normalizedBaseUrl) : undefined,
-      };
+    const physicalRequest = () =>
+      withImageGenerationDeadline(request, generationTimeoutMs, async (signal) => {
+        const allowLocalUrls =
+          request.allowLocalUrls ?? (await shouldAllowLocalUrlsForImageConnection(normalizedBaseUrl, resolvedSource));
+        const scopedRequest = {
+          ...request,
+          fallback: undefined,
+          signal,
+          allowLocalUrls,
+          privateImageResultOrigin: allowLocalUrls ? imageProviderOrigin(normalizedBaseUrl) : undefined,
+        };
 
-      switch (resolvedSource) {
-        case "openai":
-          return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
-        case "arli":
-          return generateArli(normalizedBaseUrl, apiKey, scopedRequest);
-        case "nanogpt":
-          return generateNanoGPT(normalizedBaseUrl, apiKey, scopedRequest);
-        case "openrouter":
-          return generateOpenRouter(normalizedBaseUrl, apiKey, scopedRequest);
-        case "pollinations":
-          return generatePollinations(scopedRequest);
-        case "stability":
-          return generateStability(normalizedBaseUrl, apiKey, scopedRequest);
-        case "togetherai":
-          return generateTogetherAI(normalizedBaseUrl, apiKey, scopedRequest);
-        case "novelai":
-          return generateNovelAI(normalizedBaseUrl, apiKey, scopedRequest);
-        case "horde":
-          return generateHorde(normalizedBaseUrl, apiKey, scopedRequest);
-        case "xai":
-          return generateXAI(normalizedBaseUrl, apiKey, scopedRequest);
-        case "venice":
-          return generateVenice(normalizedBaseUrl, apiKey, scopedRequest);
-        case "zai":
-          return generateZai(normalizedBaseUrl, apiKey, scopedRequest);
-        case "atlas":
-          return generateAtlasCloudImage(normalizedBaseUrl, apiKey, scopedRequest);
-        case "comfyui":
-          return generateComfyUI(normalizedBaseUrl, scopedRequest);
-        case "swarmui":
-          return generateSwarmUI(normalizedBaseUrl, apiKey, scopedRequest);
-        case "runpod_comfyui": {
-          const endpointId = scopedRequest.imageEndpointId || "";
-          if (!endpointId) {
-            throw new Error(
-              "RunPod ComfyUI requires an endpoint ID. " +
-                "Enter your RunPod endpoint ID in the Endpoint ID field (e.g. 'abc123def456').",
-            );
+        switch (resolvedSource) {
+          case "openai":
+            return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
+          case "arli":
+            return generateArli(normalizedBaseUrl, apiKey, scopedRequest);
+          case "nanogpt":
+            return generateNanoGPT(normalizedBaseUrl, apiKey, scopedRequest);
+          case "openrouter":
+            return generateOpenRouter(normalizedBaseUrl, apiKey, scopedRequest);
+          case "pollinations":
+            return generatePollinations(scopedRequest);
+          case "stability":
+            return generateStability(normalizedBaseUrl, apiKey, scopedRequest);
+          case "togetherai":
+            return generateTogetherAI(normalizedBaseUrl, apiKey, scopedRequest);
+          case "novelai":
+            return generateNovelAI(normalizedBaseUrl, apiKey, scopedRequest);
+          case "horde":
+            return generateHorde(normalizedBaseUrl, apiKey, scopedRequest);
+          case "xai":
+            return generateXAI(normalizedBaseUrl, apiKey, scopedRequest);
+          case "venice":
+            return generateVenice(normalizedBaseUrl, apiKey, scopedRequest);
+          case "zai":
+            return generateZai(normalizedBaseUrl, apiKey, scopedRequest);
+          case "atlas":
+            return generateAtlasCloudImage(normalizedBaseUrl, apiKey, scopedRequest);
+          case "comfyui":
+            return generateComfyUI(normalizedBaseUrl, scopedRequest);
+          case "swarmui":
+            return generateSwarmUI(normalizedBaseUrl, apiKey, scopedRequest);
+          case "runpod_comfyui": {
+            const endpointId = scopedRequest.imageEndpointId || "";
+            if (!endpointId) {
+              throw new Error(
+                "RunPod ComfyUI requires an endpoint ID. " +
+                  "Enter your RunPod endpoint ID in the Endpoint ID field (e.g. 'abc123def456').",
+              );
+            }
+            return generateRunPodComfyUI(normalizedBaseUrl, endpointId, apiKey, scopedRequest);
           }
-          return generateRunPodComfyUI(normalizedBaseUrl, endpointId, apiKey, scopedRequest);
+          case "automatic1111":
+            return generateAutomatic1111(normalizedBaseUrl, scopedRequest, serviceHint);
+          case "gemini_image":
+            return generateViaChatCompletions(normalizedBaseUrl, apiKey, scopedRequest);
+          default:
+            return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
         }
-        case "automatic1111":
-          return generateAutomatic1111(normalizedBaseUrl, scopedRequest, serviceHint);
-        case "gemini_image":
-          return generateViaChatCompletions(normalizedBaseUrl, apiKey, scopedRequest);
-        default:
-          return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
-      }
-    });
+      });
     // Admit on the resolved endpoint rather than a connection id: every caller reaches this
     // function, but only some have a connection row in scope, and foreground work that
     // registers nothing would let background preparation start on top of it.
@@ -428,7 +452,9 @@ export function saveImageToDisk(
   const ownerDir = options.shared ? "shared" : chatId;
   const dir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ownerDir));
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const filename = `${newId()}.${ext}`;
+  const detectedMime = detectImageMimeType(base64);
+  const effectiveExt = (detectedMime ? imageExtensionFromMimeType(detectedMime) : null) ?? ext;
+  const filename = `${newId()}.${effectiveExt}`;
   const filePath = assertInsideDir(GALLERY_DIR, join(dir, filename));
   const tempPath = assertInsideDir(GALLERY_DIR, `${filePath}.${process.pid}.${Date.now()}.tmp`);
   try {
@@ -486,7 +512,9 @@ export function sweepStagedImages(): number {
 
 /** Stage provider output without making it visible in the gallery. */
 export function stageImageToDisk(chatId: string, base64: string, ext: string): StagedGalleryImage {
-  const filename = `${newId()}.${ext}`;
+  const detectedMime = detectImageMimeType(base64);
+  const effectiveExt = (detectedMime ? imageExtensionFromMimeType(detectedMime) : null) ?? ext;
+  const filename = `${newId()}.${effectiveExt}`;
   const relativePath = `${chatId}/${filename}`;
   const finalPath = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, relativePath));
   const stagingDir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ".staging", "noodle"));
@@ -526,6 +554,7 @@ export function stageImageToDisk(chatId: string, base64: string, ext: string): S
 const MAX_IMAGE_RESPONSE_BYTES = 30 * 1024 * 1024;
 const LOCAL_IMAGE_BACKENDS = new Set(["comfyui", "swarmui", "automatic1111"]);
 const NANOGPT_REFERENCE_IMAGE_LIMIT = 3;
+const NANOGPT_MAX_REQUEST_BYTES = 4 * 1024 * 1024;
 
 class ImageGenerationDeadlineError extends Error {
   constructor(timeoutMs: number) {
@@ -664,9 +693,7 @@ function localImageBackendFetch(
 ) {
   return imageFetch(url, init, {
     allowLocal: true,
-    agentOptions: options.timeoutMs
-      ? { bodyTimeout: options.timeoutMs, headersTimeout: options.timeoutMs }
-      : undefined,
+    agentOptions: options.timeoutMs ? { bodyTimeout: options.timeoutMs, headersTimeout: options.timeoutMs } : undefined,
     keepAliveInitialDelayMs: options.keepAliveInitialDelayMs,
   });
 }
@@ -1168,6 +1195,43 @@ function nanoGPTReferenceImages(request: ImageGenRequest): string[] {
   return openAIReferenceImages(request).slice(0, NANOGPT_REFERENCE_IMAGE_LIMIT);
 }
 
+function serializeNanoGPTImageRequest(body: Record<string, unknown>, references: string[]): string {
+  const dataUrls = references.map(imageDataUrlFromReference);
+  const selected: string[] = [];
+  let serialized = JSON.stringify(body);
+
+  for (const dataUrl of dataUrls) {
+    const candidateReferences = [...selected, dataUrl];
+    const candidate = {
+      ...body,
+      ...(candidateReferences.length === 1
+        ? { imageDataUrl: candidateReferences[0] }
+        : { imageDataUrls: candidateReferences }),
+    };
+    const candidateSerialized = JSON.stringify(candidate);
+    if (Buffer.byteLength(candidateSerialized, "utf8") > NANOGPT_MAX_REQUEST_BYTES) continue;
+    selected.push(dataUrl);
+    serialized = candidateSerialized;
+  }
+
+  if (dataUrls.length > 0 && selected.length === 0) {
+    throw new Error(
+      "NanoGPT reference image is too large for its 4 MB request limit. Compress or resize the reference and retry.",
+    );
+  }
+  if (selected.length < dataUrls.length) {
+    logger.warn(
+      "[image-gen/nanogpt] Reduced reference images from %d to %d to stay within the 4 MB request limit",
+      dataUrls.length,
+      selected.length,
+    );
+  }
+  if (Buffer.byteLength(serialized, "utf8") > NANOGPT_MAX_REQUEST_BYTES) {
+    throw new Error("NanoGPT image request exceeds its 4 MB limit. Shorten the prompt or reduce image inputs.");
+  }
+  return serialized;
+}
+
 function xAIImageInput(reference: string): { type: "image_url"; url: string } {
   const decoded = decodeReferenceImage(reference);
   return {
@@ -1328,7 +1392,7 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
     prompt: request.prompt,
     n: 1,
     size,
-    response_format: "b64_json",
+    response_format: "url",
   };
   if (request.model) body.model = request.model;
   if (request.negativePrompt) body.negative_prompt = request.negativePrompt;
@@ -1337,11 +1401,7 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
   if (request.model?.toLowerCase().includes("flux-kontext")) {
     body.kontext_max_mode = true;
   }
-  if (references.length === 1) {
-    body.imageDataUrl = imageDataUrlFromReference(references[0]!);
-  } else if (references.length > 1) {
-    body.imageDataUrls = references.map(imageDataUrlFromReference);
-  }
+  const requestBody = serializeNanoGPTImageRequest(body, references);
 
   const resp = await imageFetch(
     url,
@@ -1351,7 +1411,7 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(body),
+      body: requestBody,
       signal: imageRequestSignal(request),
     },
     { allowLocal: request.allowLocalUrls },
@@ -1362,12 +1422,34 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
     throw new Error(`NanoGPT image generation failed (${resp.status}): ${sanitizeErrorText(errText)}`);
   }
 
-  const data = (await resp.json()) as { data?: Array<{ b64_json?: string; url?: string }> };
+  const responseText = await resp.text();
+  let data: {
+    data?: Array<{ b64_json?: string; image_base64?: string; url?: string; image_url?: string }>;
+  };
+  try {
+    data = JSON.parse(responseText) as typeof data;
+  } catch {
+    throw new Error(`NanoGPT image generation returned invalid JSON (${sanitizeErrorText(responseText)})`);
+  }
   const result = data.data?.[0];
-  if (result?.b64_json) return { base64: result.b64_json, mimeType: "image/png", ext: "png" };
-  if (result?.url) return downloadImageUrl(result.url, request.privateImageResultOrigin, request.signal);
+  const base64Result = result?.b64_json ?? result?.image_base64;
+  if (base64Result) {
+    if (base64Result.trim().startsWith("data:")) return decodeImageDataUrl(base64Result);
+    const base64 = normalizeBase64ImagePayload(base64Result, "NanoGPT image response");
+    const mimeType = detectImageMimeType(base64);
+    if (!mimeType) throw new Error("NanoGPT image response did not contain recognized image bytes");
+    return { base64, mimeType, ext: imageExtensionFromMimeType(mimeType) };
+  }
+  const resultUrl = result?.url ?? result?.image_url;
+  if (resultUrl) return downloadImageUrl(resultUrl, request.privateImageResultOrigin, request.signal);
 
-  throw new Error("No image data in NanoGPT response");
+  const fields = result
+    ? Object.keys(result).join(", ")
+    : data && typeof data === "object"
+      ? Object.keys(data).join(", ")
+      : "none";
+  logDebugOverride(request.debugMode === true, "[debug/image/nanogpt] response fields: %s", fields || "none");
+  throw new Error(`No image data in NanoGPT response (fields: ${fields || "none"})`);
 }
 
 async function generatePollinations(request: ImageGenRequest): Promise<ImageGenResult> {
@@ -2221,9 +2303,7 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
       index < styleReferenceOffset ? defaults.styleReferenceStrength : 1,
     );
     parameters.director_reference_secondary_strength_values = directorReferenceImages.map((_, index) =>
-      index < styleReferenceOffset
-        ? resolveNovelAiStyleReferenceSecondaryStrength(defaults.styleReferenceFidelity)
-        : 0,
+      index < styleReferenceOffset ? resolveNovelAiStyleReferenceSecondaryStrength(defaults.styleReferenceFidelity) : 0,
     );
   }
 
@@ -3275,7 +3355,8 @@ function redactSwarmUiWorkflowImages(workflowText: string, request: ImageGenRequ
     ),
   ];
   return [...new Set(imageValues)].reduce(
-    (redacted, image) => redacted.replaceAll(image, `[redacted image: ${Buffer.from(image, "base64").byteLength} bytes]`),
+    (redacted, image) =>
+      redacted.replaceAll(image, `[redacted image: ${Buffer.from(image, "base64").byteLength} bytes]`),
     workflowText,
   );
 }

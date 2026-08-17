@@ -94,10 +94,7 @@ function readDailyBudgetMeta(value: unknown): DailyBudgetMeta | null {
   return { date: record.date, counts };
 }
 
-export function getAutonomousDailyBudget(
-  chatMeta: Record<string, unknown>,
-  now: Date = new Date(),
-): DailyBudgetMeta {
+export function getAutonomousDailyBudget(chatMeta: Record<string, unknown>, now: Date = new Date()): DailyBudgetMeta {
   const today = toScheduleDateKey(now);
   const budget = readDailyBudgetMeta(chatMeta.autonomousDailyBudget);
   return budget?.date === today ? budget : { date: today, counts: {} };
@@ -483,13 +480,7 @@ export function checkCharacterExchange(
   for (const [charId, schedule] of Object.entries(characterSchedules)) {
     if (charId === lastSpeakerCharId) continue;
 
-    const { status } = getEffectiveCurrentStatus(
-      schedule,
-      statusOverrides[charId],
-      now,
-      "free time",
-      scheduleNow,
-    );
+    const { status } = getEffectiveCurrentStatus(schedule, statusOverrides[charId], now, "free time", scheduleNow);
     if (status === "offline") continue;
     if (status === "dnd") continue; // Busy characters don't join casual exchanges
 

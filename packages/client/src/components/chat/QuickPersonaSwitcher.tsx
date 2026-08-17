@@ -40,9 +40,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
 
-  const personas = (rawPersonas ?? [])
-    .slice()
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const personas = (rawPersonas ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
 
   const activePersonaId = chat?.personaId ?? null;
   const activePersona = personas.find((p) => p.id === activePersonaId) ?? null;
@@ -138,8 +136,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
     const frame = window.requestAnimationFrame(() => {
       const menu = menuRef.current;
       const focusTarget =
-        menu?.querySelector<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') ??
-        menu;
+        menu?.querySelector<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') ?? menu;
       focusTarget?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
@@ -213,8 +210,11 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
         onClick={() => setOpen((v) => !v)}
         title={
           activePersona
-            ?localizeUi("ui.chat.quickpersonaswitcher.value1Value2", { value1: activePersona.name, value2: activePersona.comment ? " — " + activePersona.comment : "" })
-            :localizeUi("ui.chat.quickpersonaswitcher.quickPersonaSwitcher")
+            ? localizeUi("ui.chat.quickpersonaswitcher.value1Value2", {
+                value1: activePersona.name,
+                value2: activePersona.comment ? " — " + activePersona.comment : "",
+              })
+            : localizeUi("ui.chat.quickpersonaswitcher.quickPersonaSwitcher")
         }
         className={cn(
           "relative flex h-8 w-8 items-center justify-center rounded-full overflow-hidden transition-all border-2",
@@ -255,7 +255,9 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
             className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[400px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-2xl"
             style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" as const }}
           >
-            <div className="flex items-center justify-center border-b border-foreground/10 px-3 py-2 text-[0.6875rem] font-semibold">{localizeUi("navigation.topbar.personas")}</div>
+            <div className="flex items-center justify-center border-b border-foreground/10 px-3 py-2 text-[0.6875rem] font-semibold">
+              {localizeUi("navigation.topbar.personas")}
+            </div>
             <div className="overflow-y-auto p-1">
               {/* None option */}
               <button
@@ -272,8 +274,12 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
                   ?
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <span className={cn("text-xs font-semibold", !activePersonaId && "text-foreground")}>{localizeUi("ui.game.gamesurfacecomponent.none")}</span>
-                  <span className="text-[0.625rem] text-foreground/45">{localizeUi("ui.chat.quickpersonaswitcher.noPersonaSelected")}</span>
+                  <span className={cn("text-xs font-semibold", !activePersonaId && "text-foreground")}>
+                    {localizeUi("ui.game.gamesurfacecomponent.none")}
+                  </span>
+                  <span className="text-[0.625rem] text-foreground/45">
+                    {localizeUi("ui.chat.quickpersonaswitcher.noPersonaSelected")}
+                  </span>
                 </div>
                 {!activePersonaId && <span className="ml-auto text-[0.6875rem]">✓</span>}
               </button>
@@ -321,7 +327,8 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
                           {group.name} ({group.members.length})
                         </span>
                         <span className="text-[0.625rem] text-foreground/45">
-                          {group.members.length} {localizeUi("ui.chat.quickpersonaswitcher.persona")}{group.members.length !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : ""}
+                          {group.members.length} {localizeUi("ui.chat.quickpersonaswitcher.persona")}
+                          {group.members.length !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}
                         </span>
                       </div>
                       <span className="ml-auto shrink-0 text-foreground/45">
@@ -339,7 +346,9 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
               })}
 
               {personas.length === 0 && (
-                <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">{localizeUi("ui.chat.quickpersonaswitcher.noPersonasFound")}</div>
+                <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">
+                  {localizeUi("ui.chat.quickpersonaswitcher.noPersonasFound")}
+                </div>
               )}
             </div>
           </div>,

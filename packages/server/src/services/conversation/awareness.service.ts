@@ -56,7 +56,11 @@ function defaultWindow(now = new Date()): { start: Date; end: Date } {
  * Detect temporal keywords in a user message and return
  * all matching time windows (plus the default 1h window).
  */
-function detectTimeWindows(userMessage: string, now = new Date(), timeZone?: string): Array<{ start: Date; end: Date }> {
+function detectTimeWindows(
+  userMessage: string,
+  now = new Date(),
+  timeZone?: string,
+): Array<{ start: Date; end: Date }> {
   const windows: Array<{ start: Date; end: Date }> = [defaultWindow(now)];
   for (const { pattern, getWindow } of TEMPORAL_PATTERNS) {
     if (pattern.test(userMessage)) {

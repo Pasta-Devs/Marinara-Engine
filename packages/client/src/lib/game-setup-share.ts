@@ -32,6 +32,7 @@ export interface GameSetupShareSource {
     scene?: GameInitialSetupConnectionSnapshot | null;
     image?: GameInitialSetupConnectionSnapshot | null;
     video?: GameInitialSetupConnectionSnapshot | null;
+    audio?: GameInitialSetupConnectionSnapshot | null;
   };
   fallbackGmConnectionId?: string | null;
   labels?: GameSetupShareLabels;
@@ -54,6 +55,7 @@ export interface GameSetupImportConnection {
   model?: string | null;
   imageService?: string | null;
   videoService?: string | null;
+  audioSource?: string | null;
 }
 
 export interface GameSetupImportContext {
@@ -96,12 +98,7 @@ function parseGenerationParameters(value: unknown): Partial<GenerationParameters
   return parsed.data;
 }
 
-function requireString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-  maxLength = 50_000,
-): string {
+function requireString(record: Record<string, unknown>, key: string, label: string, maxLength = 50_000): string {
   const value = record[key];
   if (typeof value !== "string" || !value.trim()) {
     throw new Error(`This file is missing a valid ${label}.`);
@@ -148,6 +145,7 @@ function parseShareConnections(value: unknown): GameInitialSetupSnapshot["connec
     scene: parseConnectionSnapshot(value.scene),
     image: parseConnectionSnapshot(value.image),
     video: parseConnectionSnapshot(value.video),
+    audio: parseConnectionSnapshot(value.audio),
   };
 }
 
@@ -175,6 +173,7 @@ function parseShareConfig(value: unknown): GameSetupConfig {
     sceneConnectionId: 1_000,
     imageConnectionId: 1_000,
     videoConnectionId: 1_000,
+    audioConnectionId: 1_000,
     gameGmPromptTemplateId: 200,
     gameStoryboardAnimationPromptTemplateId: 200,
     gameStoryboardImagePromptTemplateId: 200,
@@ -209,6 +208,8 @@ function parseShareConfig(value: unknown): GameSetupConfig {
     "enableCustomWidgets",
     "enableSpotifyDj",
     "enableLorebookKeeper",
+    "enableGameSoundEffects",
+    "enableGameMusic",
   ];
   for (const key of optionalBooleans) {
     if (value[key] !== undefined && typeof value[key] !== "boolean") {
@@ -295,6 +296,7 @@ export function buildGameSetupShareFile(
             scene: source.connections.scene ?? null,
             image: source.connections.image ?? null,
             video: source.connections.video ?? null,
+            audio: source.connections.audio ?? null,
           }
         : undefined,
       labels,
@@ -386,7 +388,7 @@ function resolveConnectionId(
       if (model && normalizeLookupValue(connection.model) === model) score += 3;
       if (
         service &&
-        [connection.imageService, connection.videoService].some(
+        [connection.imageService, connection.videoService, connection.audioSource].some(
           (candidate) => normalizeLookupValue(candidate) === service,
         )
       ) {
@@ -462,6 +464,7 @@ export function resolveGameSetupImport(
   const sceneConnectionId = resolveConnectionId(sourceConfig.sceneConnectionId, snapshots?.scene, context.connections);
   const imageConnectionId = resolveConnectionId(sourceConfig.imageConnectionId, snapshots?.image, context.connections);
   const videoConnectionId = resolveConnectionId(sourceConfig.videoConnectionId, snapshots?.video, context.connections);
+  const audioConnectionId = resolveConnectionId(sourceConfig.audioConnectionId, snapshots?.audio, context.connections);
   if ((sourceConfig.sceneConnectionId || snapshots?.scene) && !sceneConnectionId) {
     warnings.push(`${describeSavedResource(snapshots?.scene?.name, "The saved scene connection")} is unavailable.`);
   }
@@ -470,6 +473,9 @@ export function resolveGameSetupImport(
   }
   if ((sourceConfig.videoConnectionId || snapshots?.video) && !videoConnectionId) {
     warnings.push(`${describeSavedResource(snapshots?.video?.name, "The saved video connection")} is unavailable.`);
+  }
+  if ((sourceConfig.audioConnectionId || snapshots?.audio) && !audioConnectionId) {
+    warnings.push(`${describeSavedResource(snapshots?.audio?.name, "The saved audio connection")} is unavailable.`);
   }
 
   return {
@@ -483,6 +489,7 @@ export function resolveGameSetupImport(
       sceneConnectionId: sceneConnectionId ?? undefined,
       imageConnectionId: imageConnectionId ?? undefined,
       videoConnectionId: videoConnectionId ?? undefined,
+      audioConnectionId: audioConnectionId ?? undefined,
       activeLorebookIds: [...new Set(activeLorebookIds)],
       promptPresetId,
     },
@@ -691,6 +698,10 @@ export function buildGameSetupSummarySections(source: GameSetupShareSource): Gam
         {
           label: "Video connection",
           value: formatConnection(connections?.video, config.videoConnectionId, labels?.connectionNames, "None"),
+        },
+        {
+          label: "Audio connection",
+          value: formatConnection(connections?.audio, config.audioConnectionId, labels?.connectionNames, "Default"),
         },
         {
           label: "Storyboard director",

@@ -79,7 +79,8 @@ export function characterOverrideDb(db: DB, targetId: string, substitute: RawRow
         return (projection?: unknown) => {
           const builder = (target.select as (p?: unknown) => { from: (t: unknown) => unknown })(projection);
           return {
-            from: (table: unknown) => (table === characters ? wrapQuery(builder.from(table) as Record<string, any>) : builder.from(table)),
+            from: (table: unknown) =>
+              table === characters ? wrapQuery(builder.from(table) as Record<string, any>) : builder.from(table),
           };
         };
       }
@@ -103,7 +104,9 @@ async function loadPreset(db: DB, presetId: string): Promise<LoadedPreset | null
 
 async function defaultPresetId(db: DB): Promise<string | null> {
   const presets = createPromptsStorage(db);
-  const chosen = ((await presets.getDefault()) as RawRow | null) ?? ((await presets.getById(BUILTIN_DEFAULT_PRESET_ID)) as RawRow | null);
+  const chosen =
+    ((await presets.getDefault()) as RawRow | null) ??
+    ((await presets.getById(BUILTIN_DEFAULT_PRESET_ID)) as RawRow | null);
   return chosen ? String(chosen.id) : null;
 }
 
@@ -210,9 +213,7 @@ export async function renderMariEditPrompt(db: DB, target: MariEditRenderTarget)
     // A section/group/choice edit belongs to a specific preset; render that preset (not the default),
     // with the edited row spliced in. A prompt_presets edit renders the preset row itself.
     const presetId =
-      target.table === "prompt_presets"
-        ? target.id
-        : String((target.afterRaw ?? target.beforeRaw)?.presetId ?? "");
+      target.table === "prompt_presets" ? target.id : String((target.afterRaw ?? target.beforeRaw)?.presetId ?? "");
     if (!presetId) return null;
     const loaded = await loadPreset(db, presetId);
     if (!loaded) return null;

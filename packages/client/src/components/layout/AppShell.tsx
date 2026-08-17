@@ -388,6 +388,7 @@ export function AppShell() {
   const liveRightPanelWidth = rightPanelDragWidth ?? sidebarDragWidth ?? sharedSidebarWidth;
   const trackerPanelWidth = getTrackerPanelWidthForProfile(trackerPanelSizeProfile);
   const [trackerPanelResolvedWidth, setTrackerPanelResolvedWidth] = useState(trackerPanelWidth);
+  const [trackerPanelWidthMeasured, setTrackerPanelWidthMeasured] = useState(false);
   const [trackerPanelWindowTarget, setTrackerPanelWindowTarget] = useState<TrackerPanelWindowTarget | null>(null);
   const trackerPanelWindowTargetRef = useRef<TrackerPanelWindowTarget | null>(null);
   const trackerPanelDockingPopupRef = useRef<TrackerPanelWindowTarget["popup"] | null>(null);
@@ -785,9 +786,7 @@ export function AppShell() {
           onOpenLorebook: openSpatialLorebook,
           onLorebooksChanged: refreshLorebooks,
           onOpenChatSummarySettings: activeChat?.mode === "roleplay" ? openChatSummarySettings : undefined,
-          onOpenActivePromptPresetEditor: activeChat?.promptPresetId
-            ? openActivePromptPresetEditor
-            : undefined,
+          onOpenActivePromptPresetEditor: activeChat?.promptPresetId ? openActivePromptPresetEditor : undefined,
         }}
       />
     ) : (
@@ -855,16 +854,19 @@ export function AppShell() {
     }
   }, [localizeUi, trackerPanelWidth]);
 
-  const handleTrackerPanelWindowClosed = useCallback((closedTarget: TrackerPanelWindowTarget) => {
-    if (trackerPanelDockingPopupRef.current === closedTarget.popup) {
-      trackerPanelDockingPopupRef.current = null;
-      return;
-    }
-    if (trackerPanelWindowTargetRef.current?.popup !== closedTarget.popup) return;
-    trackerPanelWindowTargetRef.current = null;
-    setTrackerPanelWindowTarget(null);
-    setTrackerPanelOpen(false, activeChatId);
-  }, [activeChatId, setTrackerPanelOpen]);
+  const handleTrackerPanelWindowClosed = useCallback(
+    (closedTarget: TrackerPanelWindowTarget) => {
+      if (trackerPanelDockingPopupRef.current === closedTarget.popup) {
+        trackerPanelDockingPopupRef.current = null;
+        return;
+      }
+      if (trackerPanelWindowTargetRef.current?.popup !== closedTarget.popup) return;
+      trackerPanelWindowTargetRef.current = null;
+      setTrackerPanelWindowTarget(null);
+      setTrackerPanelOpen(false, activeChatId);
+    },
+    [activeChatId, setTrackerPanelOpen],
+  );
 
   const professorMariFloatingActive = hasDetailView && hasProfessorMariFloatingFollowup();
 
@@ -1053,9 +1055,11 @@ export function AppShell() {
   useLayoutEffect(() => {
     if (shellOverlayMode || !trackerPanelSurfaceAvailable || !trackerPanelAnchoredForMotion) {
       setTrackerPanelResolvedWidth(trackerPanelWidth);
+      setTrackerPanelWidthMeasured(false);
       return;
     }
 
+    setTrackerPanelWidthMeasured(false);
     let frame = 0;
     let discoveryObserver: MutationObserver | null = null;
     let observedChatColumn: HTMLElement | null = null;
@@ -1067,7 +1071,7 @@ export function AppShell() {
       const chatColumnRect = chatColumn ? readVisibleElementRect(chatColumn) : null;
 
       if (!mainRect || !chatColumn || !chatColumnRect) {
-        setTrackerPanelResolvedWidth(trackerPanelWidth);
+        setTrackerPanelWidthMeasured(false);
         return false;
       }
 
@@ -1081,6 +1085,7 @@ export function AppShell() {
         gap: TRACKER_PANEL_CHAT_GAP,
       });
       setTrackerPanelResolvedWidth((current) => (current === nextWidth ? current : nextWidth));
+      setTrackerPanelWidthMeasured(true);
 
       if (observedChatColumn !== chatColumn) {
         if (observedChatColumn) observer.unobserve(observedChatColumn);
@@ -1159,7 +1164,7 @@ export function AppShell() {
     );
 
   const trackerPanelDesktop = (side: "left" | "right") =>
-    trackerPanelVisible && trackerPanelSide === side ? (
+    trackerPanelVisible && trackerPanelWidthMeasured && trackerPanelSide === side ? (
       <motion.aside
         key={`tracker-${side}`}
         initial={{
@@ -1244,10 +1249,7 @@ export function AppShell() {
       {/* Overlay sidebar backdrop */}
       {sidebarOpen && shellOverlayMode && (
         <div
-          className={cn(
-            "fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm",
-            MOBILE_SHELL_PANEL_TOP_CLASS,
-          )}
+          className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -1333,8 +1335,7 @@ export function AppShell() {
           <div
             className={cn(
               "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
-              (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) &&
-                "hidden",
+              (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) && "hidden",
             )}
             style={
               {
@@ -1344,9 +1345,7 @@ export function AppShell() {
               } as CSSProperties
             }
           >
-            <Suspense fallback={<MainPaneFallback />}>
-              {(shellOverlayMode || !hasDetailView) && <ChatArea />}
-            </Suspense>
+            <Suspense fallback={<MainPaneFallback />}>{(shellOverlayMode || !hasDetailView) && <ChatArea />}</Suspense>
           </div>
           {/* Keep the detail host at one React tree position across the mobile breakpoint.
               Moving an editor between separate desktop/mobile branches remounts it and
@@ -1398,10 +1397,7 @@ export function AppShell() {
       {/* Overlay tracker panel backdrop */}
       {trackerPanelVisible && shellOverlayMode && (
         <div
-          className={cn(
-            "fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm",
-            MOBILE_SHELL_PANEL_TOP_CLASS,
-          )}
+          className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
           onClick={() => setTrackerPanelOpen(false, activeChatId)}
         />
       )}
@@ -1434,10 +1430,7 @@ export function AppShell() {
       {/* Overlay right panel backdrop */}
       {rightPanelOpen && shellOverlayMode && (
         <div
-          className={cn(
-            "fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm",
-            MOBILE_SHELL_PANEL_TOP_CLASS,
-          )}
+          className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
           onClick={() => closeRightPanel()}
         />
       )}

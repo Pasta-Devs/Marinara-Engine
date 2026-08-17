@@ -447,7 +447,11 @@ export function GameAssetsBrowserView({
         await copyAsset.mutateAsync({ path: node.path, targetFolder });
         toast.success(localizeUi("ui.panels.manualupdatecommand.copied"));
       } catch (err) {
-        toast.error(localizeUi("ui.gameAssets.gameassetsbrowserview.copyFailedValue1", { value1: err instanceof Error ? err.message :localizeUi("ui.gameAssets.fileeditormodal.unknownError") }));
+        toast.error(
+          localizeUi("ui.gameAssets.gameassetsbrowserview.copyFailedValue1", {
+            value1: err instanceof Error ? err.message : localizeUi("ui.gameAssets.fileeditormodal.unknownError"),
+          }),
+        );
       }
     },
     [copyAsset, selectedPath, localizeUi],
@@ -554,10 +558,20 @@ export function GameAssetsBrowserView({
         const succeeded = result.succeeded.length;
         const failed = result.failed.length;
         if (succeeded > 0) {
-          toast.success(localizeUi("ui.gameAssets.gameassetsbrowserview.movedValue1FileValue2", { value1: succeeded, value2: succeeded !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : "" }));
+          toast.success(
+            localizeUi("ui.gameAssets.gameassetsbrowserview.movedValue1FileValue2", {
+              value1: succeeded,
+              value2: succeeded !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : "",
+            }),
+          );
         }
         if (failed > 0) {
-          toast.error(localizeUi("ui.gameAssets.gameassetsbrowserview.value1FileValue2FailedToMove", { value1: failed, value2: failed !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : "" }));
+          toast.error(
+            localizeUi("ui.gameAssets.gameassetsbrowserview.value1FileValue2FailedToMove", {
+              value1: failed,
+              value2: failed !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : "",
+            }),
+          );
         }
         handleClearSelection();
       } else if (modal.type === "bulk-copy") {
@@ -566,10 +580,20 @@ export function GameAssetsBrowserView({
         const succeeded = result.succeeded.length;
         const failed = result.failed.length;
         if (succeeded > 0) {
-          toast.success(localizeUi("ui.gameAssets.gameassetsbrowserview.copiedValue1FileValue2", { value1: succeeded, value2: succeeded !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : "" }));
+          toast.success(
+            localizeUi("ui.gameAssets.gameassetsbrowserview.copiedValue1FileValue2", {
+              value1: succeeded,
+              value2: succeeded !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : "",
+            }),
+          );
         }
         if (failed > 0) {
-          toast.error(localizeUi("ui.gameAssets.gameassetsbrowserview.value1FileValue2FailedToCopy", { value1: failed, value2: failed !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : "" }));
+          toast.error(
+            localizeUi("ui.gameAssets.gameassetsbrowserview.value1FileValue2FailedToCopy", {
+              value1: failed,
+              value2: failed !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : "",
+            }),
+          );
         }
         handleClearSelection();
       } else if (modal.type === "bulk-delete") {
@@ -578,15 +602,29 @@ export function GameAssetsBrowserView({
         const succeeded = result.succeeded.length;
         const failed = result.failed.length;
         if (succeeded > 0) {
-          toast.success(localizeUi("ui.gameAssets.gameassetsbrowserview.deletedValue1FileValue2", { value1: succeeded, value2: succeeded !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : "" }));
+          toast.success(
+            localizeUi("ui.gameAssets.gameassetsbrowserview.deletedValue1FileValue2", {
+              value1: succeeded,
+              value2: succeeded !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : "",
+            }),
+          );
         }
         if (failed > 0) {
-          toast.error(localizeUi("ui.gameAssets.gameassetsbrowserview.value1FileValue2FailedToDelete", { value1: failed, value2: failed !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : "" }));
+          toast.error(
+            localizeUi("ui.gameAssets.gameassetsbrowserview.value1FileValue2FailedToDelete", {
+              value1: failed,
+              value2: failed !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : "",
+            }),
+          );
         }
         handleClearSelection();
       }
     } catch (err) {
-      toast.error(localizeUi("ui.gameAssets.gameassetsbrowserview.actionFailedValue1", { value1: err instanceof Error ? err.message :localizeUi("ui.gameAssets.fileeditormodal.unknownError") }));
+      toast.error(
+        localizeUi("ui.gameAssets.gameassetsbrowserview.actionFailedValue1", {
+          value1: err instanceof Error ? err.message : localizeUi("ui.gameAssets.fileeditormodal.unknownError"),
+        }),
+      );
       return;
     }
     setModal(null);
@@ -607,7 +645,8 @@ export function GameAssetsBrowserView({
     moveBulk,
     copyBulk,
     deleteBulk,
-    handleClearSelection, localizeUi,
+    handleClearSelection,
+    localizeUi,
   ]);
 
   const moveTargetFolders = useMemo(() => {
@@ -653,7 +692,11 @@ export function GameAssetsBrowserView({
       setEditingDescription(false);
       toast.success(localizeUi("ui.gameAssets.gameassetsbrowserview.descriptionSaved"));
     } catch (err) {
-      toast.error(localizeUi("ui.gameAssets.gameassetsbrowserview.failedToSaveDescriptionValue1", { value1: err instanceof Error ? err.message :localizeUi("ui.gameAssets.fileeditormodal.unknownError") }));
+      toast.error(
+        localizeUi("ui.gameAssets.gameassetsbrowserview.failedToSaveDescriptionValue1", {
+          value1: err instanceof Error ? err.message : localizeUi("ui.gameAssets.fileeditormodal.unknownError"),
+        }),
+      );
     }
   }, [updateDescription, selectedPath, descriptionValue, localizeUi]);
 
@@ -700,11 +743,16 @@ export function GameAssetsBrowserView({
 
       {canSelectGameAssets && assetSelectionMode && (
         <div className="flex min-h-[36px] items-center gap-3 border-b border-[var(--border)]/40 bg-[var(--foreground)]/5 px-4 py-1.5">
-          <span className="text-xs font-medium text-[var(--primary)]">{localizeUi("ui.gameAssets.gameassetsbrowserview.gameAssetSelection")}</span>
+          <span className="text-xs font-medium text-[var(--primary)]">
+            {localizeUi("ui.gameAssets.gameassetsbrowserview.gameAssetSelection")}
+          </span>
           <span className="text-xs text-[var(--muted-foreground)]">
             {gameAssetExcludedFolders.length === 0
-              ?localizeUi("ui.gameAssets.gameassetsbrowserview.allFoldersIncluded")
-              :localizeUi("ui.gameAssets.gameassetsbrowserview.value1FolderValue2Excluded", { value1: gameAssetExcludedFolders.length, value2: gameAssetExcludedFolders.length !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : "" })}
+              ? localizeUi("ui.gameAssets.gameassetsbrowserview.allFoldersIncluded")
+              : localizeUi("ui.gameAssets.gameassetsbrowserview.value1FolderValue2Excluded", {
+                  value1: gameAssetExcludedFolders.length,
+                  value2: gameAssetExcludedFolders.length !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : "",
+                })}
           </span>
           {gameAssetExcludedFolders.length > 0 && (
             <button
@@ -712,7 +760,9 @@ export function GameAssetsBrowserView({
               onClick={() => persistGameAssetSelection([])}
               className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
             >
-              <RotateCcw size="0.75rem" />{localizeUi("ui.gameAssets.gameassetsbrowserview.resetToAll")}</button>
+              <RotateCcw size="0.75rem" />
+              {localizeUi("ui.gameAssets.gameassetsbrowserview.resetToAll")}
+            </button>
           )}
         </div>
       )}
@@ -738,11 +788,15 @@ export function GameAssetsBrowserView({
               <button
                 onClick={handleSaveDescription}
                 className="rounded-md bg-[var(--secondary)] px-2 py-1 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
-              >{localizeUi("ui.noodle.noodlehome.save")}</button>
+              >
+                {localizeUi("ui.noodle.noodlehome.save")}
+              </button>
               <button
                 onClick={() => setEditingDescription(false)}
                 className="rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-              >{localizeUi("chat.delete.dialog.cancel")}</button>
+              >
+                {localizeUi("chat.delete.dialog.cancel")}
+              </button>
             </div>
           ) : PROTECTED_PATHS.has(selectedPath) ? (
             <div className="flex w-full items-center gap-1.5 text-left text-xs">
@@ -770,12 +824,17 @@ export function GameAssetsBrowserView({
       {selectedPaths.size > 0 && (
         <div className="flex min-h-[36px] items-center gap-3 border-b border-[var(--border)]/40 bg-[var(--foreground)]/5 px-4 py-1.5">
           <span className="text-xs font-medium text-[var(--foreground)]/80">
-            {selectedPaths.size} {localizeUi("ui.gameAssets.gameassetsbrowserview.file")}{selectedPaths.size !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : ""} {localizeUi("ui.agents.agenteditor.selected")}</span>
+            {selectedPaths.size} {localizeUi("ui.gameAssets.gameassetsbrowserview.file")}
+            {selectedPaths.size !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}{" "}
+            {localizeUi("ui.agents.agenteditor.selected")}
+          </span>
           <div className="ml-auto flex items-center gap-1.5">
             <button
               onClick={handleSelectAll}
               className="rounded-md px-2 py-1 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            >{localizeUi("lorebook.editor.batch.selectAll")}</button>
+            >
+              {localizeUi("lorebook.editor.batch.selectAll")}
+            </button>
             <div className="mx-1 h-3 w-px bg-[var(--border)]" />
             <button
               onClick={() => {
@@ -784,7 +843,9 @@ export function GameAssetsBrowserView({
               }}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
             >
-              <Move size="0.75rem" />{localizeUi("lorebook.editor.batch.move")}</button>
+              <Move size="0.75rem" />
+              {localizeUi("lorebook.editor.batch.move")}
+            </button>
             <button
               onClick={() => {
                 setModal({ type: "bulk-copy" });
@@ -792,12 +853,16 @@ export function GameAssetsBrowserView({
               }}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
             >
-              <Copy size="0.75rem" />{localizeUi("lorebook.editor.batch.copy")}</button>
+              <Copy size="0.75rem" />
+              {localizeUi("lorebook.editor.batch.copy")}
+            </button>
             <button
               onClick={() => setModal({ type: "bulk-delete" })}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/10"
             >
-              <Trash2 size="0.75rem" />{localizeUi("lorebook.editor.batch.delete")}</button>
+              <Trash2 size="0.75rem" />
+              {localizeUi("lorebook.editor.batch.delete")}
+            </button>
             <div className="mx-1 h-3 w-px bg-[var(--border)]" />
             <button
               onClick={handleClearSelection}
@@ -815,7 +880,9 @@ export function GameAssetsBrowserView({
         {/* Sidebar tree */}
         <div className="w-56 overflow-y-auto border-r border-[var(--border)]/40 bg-[var(--card)]/30 p-2 max-md:hidden">
           {isLoading ? (
-            <div className="mari-chrome-text-muted p-4 text-sm">{localizeUi("ui.characters.characterlibraryview.loading")}</div>
+            <div className="mari-chrome-text-muted p-4 text-sm">
+              {localizeUi("ui.characters.characterlibraryview.loading")}
+            </div>
           ) : tree ? (
             <FolderTree
               node={tree}
@@ -842,7 +909,9 @@ export function GameAssetsBrowserView({
           onDragLeave={handleDragLeave}
         >
           {isLoading ? (
-            <div className="mari-chrome-text-muted flex flex-1 items-center justify-center text-sm">{localizeUi("ui.gameAssets.gameassetsbrowserview.loadingAssets")}</div>
+            <div className="mari-chrome-text-muted flex flex-1 items-center justify-center text-sm">
+              {localizeUi("ui.gameAssets.gameassetsbrowserview.loadingAssets")}
+            </div>
           ) : (
             <div className="flex-1 overflow-y-auto">
               <AssetGrid
@@ -868,7 +937,9 @@ export function GameAssetsBrowserView({
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
               <div className="rounded-2xl border-2 border-dashed border-[var(--foreground)]/25 bg-[var(--foreground)]/5 px-8 py-6 text-center">
                 <Upload size="2rem" className="mx-auto mb-2 text-[var(--foreground)]/80" />
-                <p className="text-sm font-medium text-[var(--foreground)]/80">{localizeUi("ui.gameAssets.gameassetsbrowserview.dropFilesToUpload")}</p>
+                <p className="text-sm font-medium text-[var(--foreground)]/80">
+                  {localizeUi("ui.gameAssets.gameassetsbrowserview.dropFilesToUpload")}
+                </p>
               </div>
             </div>
           )}
@@ -883,88 +954,98 @@ export function GameAssetsBrowserView({
             className="fixed z-[10002] w-72 rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl"
             style={{ left: folderSelectionMenu.x, top: folderSelectionMenu.y }}
           >
-          {(() => {
-            const status = getFolderSelectionStatus(folderSelectionMenu.node);
-            const subfolders = folderSelectionMenu.node.children?.filter((child) => child.type === "folder") ?? [];
-            return (
-              <>
-                <div className="border-b border-[var(--border)]/50 px-3 py-2">
-                  <div className="truncate text-xs font-semibold text-[var(--foreground)]">
-                    {folderSelectionMenu.node.name}
+            {(() => {
+              const status = getFolderSelectionStatus(folderSelectionMenu.node);
+              const subfolders = folderSelectionMenu.node.children?.filter((child) => child.type === "folder") ?? [];
+              return (
+                <>
+                  <div className="border-b border-[var(--border)]/50 px-3 py-2">
+                    <div className="truncate text-xs font-semibold text-[var(--foreground)]">
+                      {folderSelectionMenu.node.name}
+                    </div>
+                    <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {status === "included" && "Included in this game"}
+                      {status === "partial" && "Some subfolders excluded"}
+                      {status === "excluded" && "Excluded from this game"}
+                    </div>
                   </div>
-                  <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {status === "included" && "Included in this game"}
-                    {status === "partial" && "Some subfolders excluded"}
-                    {status === "excluded" && "Excluded from this game"}
-                  </div>
-                </div>
-                {subfolders.length > 0 && (
-                  <div className="max-h-56 overflow-y-auto py-1">
-                    <div className="px-3 py-1 text-[0.625rem] font-medium uppercase text-[var(--muted-foreground)]">{localizeUi("ui.gameAssets.gameassetsbrowserview.subfolders")}</div>
-                    {subfolders.map((child) => {
-                      const childStatus = getFolderSelectionStatus(child);
-                      const childIncluded = childStatus !== "excluded";
-                      return (
-                        <button
-                          key={child.path}
-                          type="button"
-                          onClick={() => {
-                            if (childIncluded) handleExcludeFolder(child);
-                            else handleIncludeFolder(child);
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-                        >
-                          <span
-                            className={
-                              "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border " +
-                              (childIncluded
-                                ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--primary)]"
-                                : "border-[var(--border)] text-[var(--muted-foreground)]")
-                            }
-                          >
-                            <AssetSelectionIcon status={childStatus} />
-                          </span>
-                          <span className="min-w-0 flex-1 truncate">{child.name}</span>
-                          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                            {childIncluded ?localizeUi("ui.gameAssets.gameassetsbrowserview.included") :localizeUi("ui.gameAssets.gameassetsbrowserview.excluded")}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                <div className="border-t border-[var(--border)]/50 py-1">
                   {subfolders.length > 0 && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleExcludeSubfolders(subfolders)}
-                        className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/10"
-                      >{localizeUi("ui.gameAssets.gameassetsbrowserview.removeAllSubfoldersFromGame")}</button>
-                      <button
-                        type="button"
-                        onClick={() => handleIncludeSubfolders(subfolders)}
-                        className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-medium text-[var(--foreground)]/80 transition-colors hover:bg-[var(--accent)]"
-                      >{localizeUi("ui.gameAssets.gameassetsbrowserview.includeAllSubfolders")}</button>
-                    </>
+                    <div className="max-h-56 overflow-y-auto py-1">
+                      <div className="px-3 py-1 text-[0.625rem] font-medium uppercase text-[var(--muted-foreground)]">
+                        {localizeUi("ui.gameAssets.gameassetsbrowserview.subfolders")}
+                      </div>
+                      {subfolders.map((child) => {
+                        const childStatus = getFolderSelectionStatus(child);
+                        const childIncluded = childStatus !== "excluded";
+                        return (
+                          <button
+                            key={child.path}
+                            type="button"
+                            onClick={() => {
+                              if (childIncluded) handleExcludeFolder(child);
+                              else handleIncludeFolder(child);
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
+                          >
+                            <span
+                              className={
+                                "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border " +
+                                (childIncluded
+                                  ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--primary)]"
+                                  : "border-[var(--border)] text-[var(--muted-foreground)]")
+                              }
+                            >
+                              <AssetSelectionIcon status={childStatus} />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">{child.name}</span>
+                            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                              {childIncluded
+                                ? localizeUi("ui.gameAssets.gameassetsbrowserview.included")
+                                : localizeUi("ui.gameAssets.gameassetsbrowserview.excluded")}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (status === "excluded") handleIncludeFolder(folderSelectionMenu.node);
-                      else handleExcludeFolder(folderSelectionMenu.node);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-medium transition-colors hover:bg-[var(--accent)]",
-                      status === "excluded" ? "text-[var(--foreground)]/80" : "text-[var(--primary)]",
+                  <div className="border-t border-[var(--border)]/50 py-1">
+                    {subfolders.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleExcludeSubfolders(subfolders)}
+                          className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/10"
+                        >
+                          {localizeUi("ui.gameAssets.gameassetsbrowserview.removeAllSubfoldersFromGame")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleIncludeSubfolders(subfolders)}
+                          className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-medium text-[var(--foreground)]/80 transition-colors hover:bg-[var(--accent)]"
+                        >
+                          {localizeUi("ui.gameAssets.gameassetsbrowserview.includeAllSubfolders")}
+                        </button>
+                      </>
                     )}
-                  >
-                    {status === "excluded" ?localizeUi("ui.gameAssets.gameassetsbrowserview.includeThisFolder") :localizeUi("ui.gameAssets.gameassetsbrowserview.removeThisFolderFromGame")}
-                  </button>
-                </div>
-              </>
-            );
-          })()}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (status === "excluded") handleIncludeFolder(folderSelectionMenu.node);
+                        else handleExcludeFolder(folderSelectionMenu.node);
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-medium transition-colors hover:bg-[var(--accent)]",
+                        status === "excluded" ? "text-[var(--foreground)]/80" : "text-[var(--primary)]",
+                      )}
+                    >
+                      {status === "excluded"
+                        ? localizeUi("ui.gameAssets.gameassetsbrowserview.includeThisFolder")
+                        : localizeUi("ui.gameAssets.gameassetsbrowserview.removeThisFolderFromGame")}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </AssetMenuPortal>
       )}
@@ -1033,7 +1114,8 @@ export function GameAssetsBrowserView({
 
             {modal.type === "delete" ? (
               <div className="mb-4 text-sm text-[var(--muted-foreground)]">
-                <p>{localizeUi("ui.gameAssets.gameassetsbrowserview.areYouSureYouWantToDelete")}{" "}
+                <p>
+                  {localizeUi("ui.gameAssets.gameassetsbrowserview.areYouSureYouWantToDelete")}{" "}
                   <strong className="text-[var(--foreground)]">{modal.node.name}</strong>?
                 </p>
                 {modal.node.type === "folder" && (
@@ -1045,7 +1127,10 @@ export function GameAssetsBrowserView({
                       }
                       return (
                         <>
-                          <p className="text-[var(--primary)]">{localizeUi("ui.gameAssets.gameassetsbrowserview.thisFolderContains")} {itemCount} {localizeUi("ui.gameAssets.gameassetsbrowserview.item")}{itemCount !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : ""}.
+                          <p className="text-[var(--primary)]">
+                            {localizeUi("ui.gameAssets.gameassetsbrowserview.thisFolderContains")} {itemCount}{" "}
+                            {localizeUi("ui.gameAssets.gameassetsbrowserview.item")}
+                            {itemCount !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}.
                           </p>
                           <label className="mt-2 flex items-center gap-2">
                             <input
@@ -1054,10 +1139,14 @@ export function GameAssetsBrowserView({
                               onChange={(e) => setDeleteRecursive(e.target.checked)}
                               className="rounded border-[var(--border)]"
                             />
-                            <span className="text-xs">{localizeUi("ui.gameAssets.gameassetsbrowserview.deleteEverythingInside")}</span>
+                            <span className="text-xs">
+                              {localizeUi("ui.gameAssets.gameassetsbrowserview.deleteEverythingInside")}
+                            </span>
                           </label>
                           {!deleteRecursive && (
-                            <p className="mt-1 text-xs text-[var(--primary)]">{localizeUi("ui.gameAssets.gameassetsbrowserview.youMustCheckTheBoxToDeleteANon")}</p>
+                            <p className="mt-1 text-xs text-[var(--primary)]">
+                              {localizeUi("ui.gameAssets.gameassetsbrowserview.youMustCheckTheBoxToDeleteANon")}
+                            </p>
                           )}
                         </>
                       );
@@ -1085,13 +1174,17 @@ export function GameAssetsBrowserView({
               </div>
             ) : modal.type === "bulk-delete" ? (
               <div className="mb-4 text-sm text-[var(--muted-foreground)]">
-                <p>{localizeUi("ui.gameAssets.gameassetsbrowserview.areYouSureYouWantToDelete")}{" "}
+                <p>
+                  {localizeUi("ui.gameAssets.gameassetsbrowserview.areYouSureYouWantToDelete")}{" "}
                   <strong className="text-[var(--foreground)]">
-                    {selectedPaths.size} {localizeUi("ui.gameAssets.gameassetsbrowserview.file")}{selectedPaths.size !== 1 ?localizeUi("ui.noodle.stageprofileview.s") : ""}
+                    {selectedPaths.size} {localizeUi("ui.gameAssets.gameassetsbrowserview.file")}
+                    {selectedPaths.size !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}
                   </strong>
                   ?
                 </p>
-                <p className="mt-1 text-xs text-[var(--primary)]">{localizeUi("ui.gameAssets.gameassetsbrowserview.thisActionCannotBeUndone")}</p>
+                <p className="mt-1 text-xs text-[var(--primary)]">
+                  {localizeUi("ui.gameAssets.gameassetsbrowserview.thisActionCannotBeUndone")}
+                </p>
               </div>
             ) : (
               <input
@@ -1100,7 +1193,11 @@ export function GameAssetsBrowserView({
                 value={modalValue}
                 onChange={(e) => setModalValue(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && modalValue.trim() && handleModalConfirm()}
-                placeholder={modal.type === "create-folder" ?localizeUi("ui.gameAssets.gameassetsbrowserview.folderName") :localizeUi("ui.gameAssets.gameassetsbrowserview.newName")}
+                placeholder={
+                  modal.type === "create-folder"
+                    ? localizeUi("ui.gameAssets.gameassetsbrowserview.folderName")
+                    : localizeUi("ui.gameAssets.gameassetsbrowserview.newName")
+                }
                 className="mb-4 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--foreground)]/30/50 focus:ring-1 focus:ring-[var(--foreground)]/20/20"
               />
             )}
@@ -1113,7 +1210,9 @@ export function GameAssetsBrowserView({
                   setDeleteRecursive(false);
                 }}
                 className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-              >{localizeUi("chat.delete.dialog.cancel")}</button>
+              >
+                {localizeUi("chat.delete.dialog.cancel")}
+              </button>
               <button
                 onClick={handleModalConfirm}
                 disabled={
@@ -1139,7 +1238,9 @@ export function GameAssetsBrowserView({
                     "cursor-not-allowed opacity-50",
                 )}
               >
-                {modal.type === "delete" || modal.type === "bulk-delete" ?localizeUi("lorebook.editor.batch.delete") :localizeUi("ui.gameAssets.gameassetsbrowserview.confirm")}
+                {modal.type === "delete" || modal.type === "bulk-delete"
+                  ? localizeUi("lorebook.editor.batch.delete")
+                  : localizeUi("ui.gameAssets.gameassetsbrowserview.confirm")}
               </button>
             </div>
           </div>

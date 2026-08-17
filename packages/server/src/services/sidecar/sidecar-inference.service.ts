@@ -649,7 +649,11 @@ const SCENE_ANALYSIS_SCHEMA = {
   required: ["background", "music", "ambient", "weather", "timeOfDay", "reputationChanges", "segmentEffects"] as const,
 };
 
-export async function analyzeScene(systemPrompt: string, userPrompt: string, signal?: AbortSignal): Promise<SceneAnalysis> {
+export async function analyzeScene(
+  systemPrompt: string,
+  userPrompt: string,
+  signal?: AbortSignal,
+): Promise<SceneAnalysis> {
   return withRequestTracking(async () => {
     const raw = await streamChatCompletion({
       messages: [
@@ -672,7 +676,11 @@ export async function analyzeScene(systemPrompt: string, userPrompt: string, sig
   });
 }
 
-export async function runTrackerPrompt(systemPrompt: string, userPrompt: string, signal?: AbortSignal): Promise<string> {
+export async function runTrackerPrompt(
+  systemPrompt: string,
+  userPrompt: string,
+  signal?: AbortSignal,
+): Promise<string> {
   return withRequestTracking(async () => {
     return await streamChatCompletion({
       messages: [

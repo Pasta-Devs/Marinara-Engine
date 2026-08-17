@@ -63,8 +63,7 @@ export function useDeleteCustomEmoji() {
 export function useImportCustomEmojis() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (bundle: unknown) =>
-      api.post<{ imported: number; skipped: number }>("/custom-emojis/import", bundle),
+    mutationFn: (bundle: unknown) => api.post<{ imported: number; skipped: number }>("/custom-emojis/import", bundle),
     onSuccess: () => qc.invalidateQueries({ queryKey: customEmojiKeys.all }),
   });
 }
