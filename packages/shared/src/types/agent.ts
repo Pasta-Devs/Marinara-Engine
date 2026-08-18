@@ -829,6 +829,8 @@ export interface LorebookUpdateResult {
     content: string;
     keys: string[];
     tag?: string;
+    /** Optional lorebook injection priority. Omission preserves the existing/default order. */
+    order?: number;
   };
 }
 

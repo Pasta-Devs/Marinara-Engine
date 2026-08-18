@@ -373,6 +373,12 @@ function readKeeperUpdateTag(update: Record<string, unknown>): string {
   return typeof update.tag === "string" ? update.tag : typeof nestedEntry.tag === "string" ? nestedEntry.tag : "";
 }
 
+export function readLorebookKeeperUpdateOrder(update: Record<string, unknown>): number | undefined {
+  const nestedEntry = readNestedEntry(update);
+  const rawOrder = typeof update.order === "number" ? update.order : nestedEntry.order;
+  return typeof rawOrder === "number" && Number.isSafeInteger(rawOrder) ? rawOrder : undefined;
+}
+
 export async function persistLorebookKeeperUpdates(args: {
   lorebooksStore: LorebooksStore;
   chatId: string;
@@ -429,6 +435,7 @@ export async function persistLorebookKeeperUpdates(args: {
     const content = readKeeperUpdateContent(update);
     const keys = readKeeperUpdateKeys(update);
     const tag = readKeeperUpdateTag(update);
+    const order = readLorebookKeeperUpdateOrder(update);
     const existing = entryByName.get(rawName.toLowerCase());
 
     if (existing && (existing.locked === true || existing.locked === "true")) {
@@ -447,6 +454,7 @@ export async function persistLorebookKeeperUpdates(args: {
         content: mergedContent,
         keys: mergedKeys,
         tag: mergedTag,
+        ...(order !== undefined ? { order } : {}),
       });
       if (revectorizeEntry && updated) {
         try {
@@ -476,6 +484,7 @@ export async function persistLorebookKeeperUpdates(args: {
       keys,
       tag,
       enabled: true,
+      ...(order !== undefined ? { order } : {}),
     });
     if (created && typeof created === "object" && "id" in created) {
       const createdEntry = created as { id: string; name?: string | null; locked?: unknown };

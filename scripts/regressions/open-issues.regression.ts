@@ -207,6 +207,8 @@ import {
   getCustomLorebookReadBehindMessages,
   getLorebookKeeperAutomaticTarget,
   mergeLorebookKeeperUpdateContent,
+  persistLorebookKeeperUpdates,
+  readLorebookKeeperUpdateOrder,
   tryClaimCustomLorebookReadBehindRun,
 } from "../../packages/server/src/routes/generate/lorebook-keeper-utils.js";
 import { runImageGenerationRequest } from "../../packages/server/src/services/image/image-generation-queue.js";
@@ -3890,6 +3892,76 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
     ],
     "An inline delimiter mention must not switch legacy approval text into explicit mode",
   );
+}
+
+// Issue #5225 — optional integer order survives automatic and approval-gated writes.
+{
+  assert.equal(readLorebookKeeperUpdateOrder({ order: 200 }), 200);
+  assert.equal(readLorebookKeeperUpdateOrder({ entry: { order: -10 } }), -10);
+  assert.equal(readLorebookKeeperUpdateOrder({ order: "200" }), undefined);
+  assert.equal(readLorebookKeeperUpdateOrder({ order: 1.5 }), undefined);
+  assert.equal(readLorebookKeeperUpdateOrder({ order: Number.MAX_SAFE_INTEGER + 1 }), undefined);
+
+  const approvalText = formatLorebookWriteApprovalText([
+    {
+      name: "Ordered Memory",
+      keys: ["memory"],
+      tag: "event",
+      order: 200,
+      content: "A durable memory.",
+    },
+  ]);
+  assert.match(approvalText, /\nOrder: 200\n/u);
+  assert.deepEqual(parseLorebookWriteApprovalText(approvalText), [
+    {
+      action: "append",
+      name: "Ordered Memory",
+      keys: ["memory"],
+      tag: "event",
+      order: 200,
+      content: "A durable memory.",
+    },
+  ]);
+
+  const updatedEntries: Array<{ id: string; changes: Record<string, unknown> }> = [];
+  const createdEntries: Array<Record<string, unknown>> = [];
+  const lorebooksStore = {
+    listEntries: async () => [
+      {
+        id: "existing-entry",
+        name: "Existing Memory",
+        content: "Existing fact.",
+        keys: ["existing"],
+        tag: "event",
+        locked: false,
+        order: 100,
+      },
+    ],
+    updateEntry: async (id: string, changes: Record<string, unknown>) => {
+      updatedEntries.push({ id, changes });
+      return { id, name: "Existing Memory", ...changes };
+    },
+    createEntry: async (input: Record<string, unknown>) => {
+      createdEntries.push(input);
+      return { id: `created-${createdEntries.length}`, ...input };
+    },
+  };
+  await persistLorebookKeeperUpdates({
+    lorebooksStore: lorebooksStore as any,
+    chatId: "chat-5225",
+    chatName: "Order proof",
+    preferredTargetLorebookId: "lorebook-5225",
+    writableLorebookIds: ["lorebook-5225"],
+    updates: [
+      { entryName: "Existing Memory", newFacts: ["New fact."], order: 200 },
+      { entryName: "New Memory", content: "Created fact.", order: 300 },
+      { entryName: "Default Memory", content: "Uses storage default.", order: "400" },
+    ],
+  });
+  assert.equal(updatedEntries[0]?.id, "existing-entry");
+  assert.equal(updatedEntries[0]?.changes.order, 200);
+  assert.equal(createdEntries[0]?.order, 300);
+  assert.equal(Object.hasOwn(createdEntries[1] ?? {}, "order"), false);
 }
 
 assert.equal(
