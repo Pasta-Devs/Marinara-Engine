@@ -3916,6 +3916,11 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
   );
   assert.match(
     agentEditorSource,
+    /const customResultExample = CUSTOM_AGENT_RESULT_EXAMPLES\[localResultType\]/u,
+    "The prompt preview must select the response example for the active result type",
+  );
+  assert.match(
+    agentEditorSource,
     /isCustomAgent \|\| isNewCustomAgent[\s\S]{0,160}customPromptPlaceholder/u,
     "The custom-agent prompt placeholder must follow the selected result type's response example",
   );
