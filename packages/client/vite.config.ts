@@ -86,7 +86,16 @@ function bundleBudget(): Plugin {
         );
       }
 
-      const oversizedChunks = chunks.filter((chunk) => chunk.sizeKb > 500);
+      // 520 kB, raised from 500 in #5209. GameSurface had grown to 499.05 kB on its
+      // own — under a kilobyte of headroom — so the cap was going to stop the next
+      // feature to touch it whichever one that turned out to be.
+      //
+      // Splitting was tried first and does not help: giving GameNarration its own
+      // chunk drops GameSurface to 375 kB but produces a 578 kB narration chunk,
+      // because GameNarration.tsx is ~300 kB of source by itself. No chunk boundary
+      // gets that under 500; only decomposing the component would, which is real work
+      // and does not belong in a feature PR. Tracked separately.
+      const oversizedChunks = chunks.filter((chunk) => chunk.sizeKb > 520);
       if (oversizedChunks.length > 0) {
         this.error(
           `Chunk size warning budget exceeded: ${oversizedChunks
