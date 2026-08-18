@@ -106,7 +106,6 @@ import {
   CUSTOM_AGENT_CONTEXT_SOURCE_IDS,
   type AgentPhase,
   type AgentPromptTemplateOption,
-  type AgentResultType,
   type StoryboardAgentSettings,
   type CustomAgentCapability,
   type CustomAgentCapabilityMap,
@@ -119,6 +118,7 @@ import {
   createAgentFolderPackageFiles,
   sanitizeAgentSettingsForTransfer,
 } from "../../lib/agent-transfer";
+import { CUSTOM_AGENT_RESULT_EXAMPLES, type CustomAgentResultType } from "../../lib/custom-agent-result-examples";
 import { downloadZipFile } from "../../lib/download-zip";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
 
@@ -235,29 +235,6 @@ function normalizeAgentMaxTokensInput(value: string): number | "" {
 function clampAgentMaxTokens(value: number): number {
   return Math.max(MIN_AGENT_MAX_TOKENS, Math.trunc(value));
 }
-
-type CustomAgentResultType = Extract<
-  AgentResultType,
-  | "context_injection"
-  | "text_rewrite"
-  | "lorebook_update"
-  | "character_tracker_update"
-  | "persona_stats_update"
-  | "custom_tracker_update"
-  | "inventory_tracker_update"
-  | "game_state_update"
-  | "image_prompt"
-  | "prompt_patch"
-  | "frontend_theme_update"
-  | "background_change"
-  | "sprite_change"
-  | "spotify_control"
-  | "youtube_control"
-  | "local_music_control"
-  | "haptic_command"
-  | "about_me_update"
-  | "cyoa_choices"
->;
 
 const CUSTOM_AGENT_CAPABILITY_META: Array<{
   id: CustomAgentCapability;
@@ -1763,6 +1740,12 @@ export function AgentEditor() {
   );
   const selectedVisibleToolCount = localEnabledTools.filter((toolName) => visibleToolNames.has(toolName)).length;
   const availableVisibleToolCount = visibleToolNames.size;
+  const customResultExample = CUSTOM_AGENT_RESULT_EXAMPLES[localResultType];
+  const customPromptPlaceholder = `${localizeUi(
+    customResultExample.format === "json"
+      ? "ui.agents.agenteditor.writePromptForJsonResultExample"
+      : "ui.agents.agenteditor.writePromptForTextResultExample",
+  )}\n\n${customResultExample.value}`;
 
   // ── Loading / not found ──
   if (!agentDetailId || (!builtIn && !dbConfig && agentDetailId !== "__new__")) {
@@ -3836,7 +3819,11 @@ export function AgentEditor() {
                   }}
                   rows={16}
                   title={localizeUi("ui.agents.agenteditor.promptTemplate")}
-                  placeholder={localizeUi("ui.agents.agenteditor.writeTheSystemPromptForThisAgent")}
+                  placeholder={
+                    isCustomAgent || isNewCustomAgent
+                      ? customPromptPlaceholder
+                      : localizeUi("ui.agents.agenteditor.writeTheSystemPromptForThisAgent")
+                  }
                   className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] max-h-[60vh] overflow-y-auto"
                 />
               )}

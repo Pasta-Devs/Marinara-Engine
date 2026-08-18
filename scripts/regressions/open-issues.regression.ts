@@ -28,6 +28,10 @@ import {
 import { eq } from "../../packages/server/src/db/file-query.js";
 import { parseBuildMeta, resolveBuildBranch } from "../../packages/server/src/config/build-info.js";
 import { createSerializedMutationQueue } from "../../packages/client/src/lib/serialized-mutation-queue.js";
+import {
+  CUSTOM_AGENT_RESULT_EXAMPLES,
+  CUSTOM_AGENT_RESULT_TYPE_IDS,
+} from "../../packages/client/src/lib/custom-agent-result-examples.js";
 import { estimateGameSessionHistoryTokens } from "../../packages/client/src/lib/game-session-history.js";
 import { validateCharacterGalleryReferences } from "../../packages/server/src/routes/characters.routes.js";
 import {
@@ -3896,6 +3900,26 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
 
 // Issue #5225 — optional integer order survives automatic and approval-gated writes.
 {
+  for (const resultType of CUSTOM_AGENT_RESULT_TYPE_IDS) {
+    const example = CUSTOM_AGENT_RESULT_EXAMPLES[resultType];
+    assert.ok(example.value.trim(), `${resultType} must expose a non-empty custom-agent response example`);
+    if (example.format === "json") {
+      const parsed = JSON.parse(example.value);
+      assert.ok(parsed && typeof parsed === "object" && !Array.isArray(parsed));
+    }
+  }
+  const lorebookResultExample = JSON.parse(CUSTOM_AGENT_RESULT_EXAMPLES.lorebook_update.value);
+  assert.equal(lorebookResultExample.updates[0]?.order, 200);
+  const agentEditorSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/agents/AgentEditor.tsx"),
+    "utf8",
+  );
+  assert.match(
+    agentEditorSource,
+    /isCustomAgent \|\| isNewCustomAgent[\s\S]{0,160}customPromptPlaceholder/u,
+    "The custom-agent prompt placeholder must follow the selected result type's response example",
+  );
+
   assert.equal(readLorebookKeeperUpdateOrder({ order: 200 }), 200);
   assert.equal(readLorebookKeeperUpdateOrder({ entry: { order: -10 } }), -10);
   assert.equal(readLorebookKeeperUpdateOrder({ order: "200" }), undefined);

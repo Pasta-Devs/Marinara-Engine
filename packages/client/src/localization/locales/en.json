@@ -1438,6 +1438,8 @@
   "ui.agents.agenteditor.whenKeywordsAreSetThisCustomAgentIsSkipped": "When keywords are set, this custom agent is skipped unless at least one keyword appears in the recent chat messages it scans.",
   "ui.agents.agenteditor.whenNoFixedSourceIsSelectedBelowThisAgent": "When no fixed source is selected below, this agent scans the lorebooks attached to the current chat.",
   "ui.agents.agenteditor.whenThisAgentRunsDuringGenerationPreGenerationRuns": "When this agent runs during generation. Pre-Generation runs before the AI replies, Parallel runs alongside, Post-Processing runs after the reply is complete.",
+  "ui.agents.agenteditor.writePromptForJsonResultExample": "Write the system prompt for this agent. Its response must match this example JSON:",
+  "ui.agents.agenteditor.writePromptForTextResultExample": "Write the system prompt for this agent. This result type returns plain text, for example:",
   "ui.agents.agenteditor.writeTheFullSystemPromptForThisCustomAgent": "Write the full system prompt for this custom agent.",
   "ui.agents.agenteditor.writeTheFullSystemPromptForThisCustomEditor": "Write the full system prompt for this custom editor. It must return JSON with \"editedText\" and \"changes\".",
   "ui.agents.agenteditor.writeThePromptTemplateForThisOption": "Write the prompt template for this option…",

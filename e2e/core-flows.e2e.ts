@@ -9148,6 +9148,31 @@ test("settings search divider stays aligned with editor headers across text scal
   }
 });
 
+test("custom Agent prompts preview the selected result format", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(async () => {
+    const module = await import("/src/stores/ui.store.ts");
+    module.useUIStore.getState().openAgentDetail("__new__");
+  });
+
+  const editor = page.locator(".mari-editor-shell");
+  await expect(editor).toBeVisible();
+  const promptEditor = editor
+    .locator(".mari-editor-panel")
+    .filter({ has: page.getByRole("heading", { name: "Prompt Template", exact: true }) })
+    .locator("textarea")
+    .first();
+  await expect(promptEditor).toHaveAttribute("placeholder", /This result type returns plain text/u);
+  await expect(promptEditor).toHaveAttribute("placeholder", /Plain text to inject into the main prompt/u);
+
+  await editor.getByText("Edit lorebooks", { exact: true }).click();
+  await editor.getByRole("button", { name: /^Lorebook Update/u }).click();
+
+  await expect(promptEditor).toHaveAttribute("placeholder", /Its response must match this example JSON/u);
+  await expect(promptEditor).toHaveAttribute("placeholder", /"updates": \[/u);
+  await expect(promptEditor).toHaveAttribute("placeholder", /"order": 200/u);
+});
+
 test("Storyboard Agent settings stay organized and contained at phone widths", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Responsive Storyboard settings are covered once.");
 
