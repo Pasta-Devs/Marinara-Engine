@@ -197,7 +197,7 @@ export function parseLorebookWriteApprovalText(text: string): Array<Record<strin
       if (orderMatch) {
         sawMetadata = true;
         const rawOrder = orderMatch[1]!.trim();
-        const parsedOrder = /^-?\d+$/u.test(rawOrder) ? Number(rawOrder) : NaN;
+        const parsedOrder = /^[+-]?\d+$/u.test(rawOrder) ? Number(rawOrder) : NaN;
         order = Number.isSafeInteger(parsedOrder) ? parsedOrder : undefined;
         contentStart = lineIndex + 1;
         continue;

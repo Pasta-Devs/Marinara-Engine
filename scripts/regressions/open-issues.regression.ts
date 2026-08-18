@@ -3922,6 +3922,13 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
       content: "A durable memory.",
     },
   ]);
+  assert.equal(
+    parseLorebookWriteApprovalText(
+      ["### Signed Order", "Keys: signed", "Tag:", "Order: +200", "", "Keep the sign."].join("\n"),
+    )[0]?.order,
+    200,
+    "Approval edits must accept an explicit leading plus sign on integer orders",
+  );
 
   const updatedEntries: Array<{ id: string; changes: Record<string, unknown> }> = [];
   const createdEntries: Array<Record<string, unknown>> = [];
