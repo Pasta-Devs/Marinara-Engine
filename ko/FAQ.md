@@ -34,7 +34,7 @@ http://192.168.1.42:7860
 
 5. 브라우저가 Basic Auth 사용자 이름과 비밀번호를 물으면 로그인하세요. 대신 **Access blocked** 페이지가 보이면 호스트에서 2단계를 먼저 마치세요.
 
-일반 데스크톱 설치에서는 같은 컴퓨터(`127.0.0.1`)에서 열 때 비밀번호가 필요 없습니다. APK가 관리하는 Android 설치는 다른 Android 앱이 Marinara로 가장하지 못하도록 localhost에 비공개 로그인을 추가합니다. 다른 기기는 접근 제어(Basic Auth 또는 IP 허용 목록)를 설정하기 전까지 차단됩니다. 각 방식은 [원격 접근](REMOTE_ACCESS.md)에서 설명합니다.
+일반 데스크톱 설치에서는 같은 컴퓨터(`127.0.0.1`)에서 열 때 비밀번호가 필요 없습니다. APK가 관리하는 Android 설치는 다른 Android 앱이 Marinara로 가장하지 못하도록 localhost에 비공개 로그인을 추가하지만 Android 래퍼가 해당 인증 정보를 자동으로 생성하고 사용합니다. 다른 기기는 접근 제어(Basic Auth 또는 IP 허용 목록)를 설정하기 전까지 차단됩니다. 각 방식은 [원격 접근](REMOTE_ACCESS.md)에서 설명합니다.
 
 두 기기가 같은 네트워크에 있지 않다면 Tailscale 같은 도구가 도움이 됩니다. Tailscale은 기기마다 고정된 사설 주소를 부여합니다. 그러면 Marinara를 공개 인터넷에 노출하지 않고도 어디서든 접속할 수 있습니다. 접속이 되지 않으면 [문제 해결](TROUBLESHOOTING.md)을 참고하세요.
 
@@ -42,9 +42,9 @@ http://192.168.1.42:7860
 
 별도의 네이티브 모바일 앱은 없습니다. 휴대폰이나 태블릿에서도 브라우저로 같은 웹 앱을 씁니다. 대부분의 모바일 브라우저는 **Add to Home Screen**(홈 화면에 추가)이나 **Install App**(앱 설치) 기능을 제공하는데, 이렇게 설치하면 브라우저 주소 표시줄 없이 실제 앱처럼 쓸 수 있습니다. 이런 방식을 PWA(Progressive Web App, 앱처럼 설치할 수 있는 웹사이트)라고 부릅니다.
 
-Android에서는 APK, 즉 Android용 설치 파일로 설치할 수도 있습니다. 이 경우 Marinara가 휴대폰에서 직접 실행됩니다. [Android (Termux) 설치 가이드](installation/android-termux.md)를 참고하세요. iPhone과 iPad는 [iOS / iPadOS PWA 가이드](installation/ios-pwa.md)를 참고하세요.
+Android에서는 [최신 APK를 직접 다운로드](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)할 수도 있습니다. Termux를 통해 휴대폰에서 Marinara가 실행됩니다. 설치에 서명 키, 비밀번호, 로컬 접근 비밀 값은 필요하지 않습니다. Android 권한 확인은 [Android (Termux) 설치 가이드](installation/android-termux.md)를 참고하세요. iPhone과 iPad는 [iOS / iPadOS PWA 가이드](installation/ios-pwa.md)를 참고하세요.
 
-Android 래퍼는 APK가 관리하는 Termux 서버를 열 때 자동으로 로그인합니다. 같은 휴대폰의 다른 브라우저에서 쓰려면 `/android-login`을 열고 Termux에서 `cat ~/.marinara-engine/android-secret`을 실행한 다음 표시된 비밀 값을 붙여 넣으세요. 로컬 `mari` CLI도 런처가 관리하는 같은 비밀 값을 자동으로 읽습니다. 수동 Termux 설치에는 localhost와 네트워크 접근의 일반 규칙이 적용됩니다.
+Android 래퍼는 APK가 관리하는 Termux 서버를 열 때 자동으로 로그인합니다. 비공개 인증 정보는 같은 휴대폰의 다른 브라우저에서 서버를 의도적으로 열 때만 표시됩니다. `/android-login`을 열고 Termux에서 `cat ~/.marinara-engine/android-secret`을 실행한 다음 표시된 값을 붙여 넣으세요. 로컬 `mari` CLI도 런처가 관리하는 같은 비밀 값을 자동으로 읽습니다. 수동 Termux 설치에는 localhost와 네트워크 접근의 일반 규칙이 적용됩니다.
 
 ## 채팅 모드 3가지는 무엇인가요?
 

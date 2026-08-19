@@ -1,8 +1,11 @@
 # World Maps: instalação, criação e viagem
 
-> **Compatibilidade atual:** este guia corresponde ao World Maps **1.2.5**
-> no Marinara Engine **2.3.5 ou posterior**. O pacote funciona em chats de
-> Roleplay e Game.
+> **Compatibilidade atual:** este guia corresponde ao World Maps **1.3.1**. O
+> pacote aceita Marinara Engine **2.3.5 a 3.x** e funciona em chats de Roleplay
+> e Game. O Marinara Engine **2.4.1** acrescenta a limpeza coordenada do fluxo de
+> movimento e a atualização imediata de Lorebooks após importações portáteis. O
+> Engine **2.3.5 a 2.4.0** continua compatível, mas exige atualizar Lorebooks
+> manualmente depois da importação e não inclui essa limpeza do fluxo.
 
 World Maps acrescenta um estado do mundo persistente ao Roleplay e ao
 Game. Em vez de manter um único local em texto livre, ele representa o mundo
@@ -32,7 +35,7 @@ atual, o histórico de viagem, as capturas e os vínculos com o Game.
 
 ## Visão geral do recurso
 
-O World Maps 1.2.5 oferece:
+O World Maps 1.3.1 oferece:
 
 - regiões, assentamentos, lugares, edifícios, andares e cômodos aninhados;
 - trilhas de navegação e um local atual oficial da história;
@@ -71,7 +74,7 @@ modelo.
 
 A biblioteca guarda dois recursos reutilizáveis que pertencem à conta, enquanto
 cada chat mantém o próprio local em tempo de execução e o próprio histórico. O
-nome amigável de um recurso não é a identidade dele: o World Maps 1.2.5
+nome amigável de um recurso não é a identidade dele: o World Maps 1.3.1
 acrescenta **(copy)** ou um número quando um recurso recém-salvo ficaria com um
 nome já usado.
 
@@ -639,7 +642,7 @@ pesquise as entradas disponíveis, anexe as que quiser e salve.
 
 Abrir uma entrada de lorebook vinculada faz você sair do editor de mapas. Salve o
 mapa antes, quando quiser preservar outras edições pendentes, ou confirme de
-propósito que elas podem ser descartadas. O World Maps 1.2.5 avisa quando essa
+propósito que elas podem ser descartadas. O World Maps 1.3.1 avisa quando essa
 ação pode descartar alterações não salvas do mapa.
 
 As entradas vinculadas não passam do pai para o filho. O lore anexado a
@@ -677,25 +680,44 @@ obrigatórias e confira as pré-visualizações resolvidas antes de salvar.
 
 ## Importar, exportar e arquivar com segurança
 
+### Exportar um mapa portátil
+
 Use **Export** no editor de um chat, de um modelo ou de um mundo compartilhado
-para baixar a hierarquia de trabalho como um arquivo `.world-map.json`. Deixe
+para baixar a hierarquia de trabalho como um arquivo `.world-map.json`. Antes, escolha quanto lore vinculado deve acompanhar o mapa:
+
+| Opção de lore | Conteúdo do arquivo |
+| --- | --- |
+| **Map only** | A hierarquia e a procedência legível entre locais e lore, sem conteúdo de lorebooks. Entradas ausentes não podem ser recriadas. |
+| **Map + linked entries** | Só as entradas vinculadas pelo mapa e os caminhos de pasta necessários. É a opção portátil recomendada. |
+| **Map + complete lorebooks** | Todas as entradas e pastas de cada lorebook vinculado, inclusive material não relacionado ao mapa. |
+
+Antes de compartilhar, revise os lorebooks listados, a contagem de entradas, o tamanho estimado e o mapeamento expansível entre locais e lore. Lorebooks completos podem conter notas privadas ou sem relação. Deixe
 **Include map artwork** ativado para reunir no mesmo arquivo as imagens de
 referência dos locais e os planos de fundo dos mapas de filhos.
-Desative a opção quando quiser um backup menor, só com a definição. Os arquivos
+Desative a opção quando quiser um backup menor. Os arquivos
 antigos `.hierarchical-map.json` continuam compatíveis com a importação.
 
+### Importar um mapa e restaurar lore portátil
+
 Use **Import** para carregar uma hierarquia na cópia de trabalho de um chat, em
-um modelo independente ou em um mundo compartilhado. A arte incluída é
-restaurada e os vínculos das imagens são remapeados. A arte que pertence ao chat
-volta para a galeria do chat de destino. A arte compartilhada é reaproveitada da
-Global Gallery quando a mesma imagem já existe, ou é adicionada lá uma única vez
-quando um modelo ou uma referência compartilhada precisa dela. Revise o
-resultado e clique em **Save** para torná-lo oficial. A importação não salva na
-hora.
+um modelo independente ou em um mundo compartilhado. Quando o arquivo contém lorebooks, **Restore portable map lore** mostra os grupos **Exact IDs**, **Unique content**, **Need a choice** e **New entries**.
+
+Um id exato só é oficial se pertencer ao lorebook de destino. Um id de outra origem é ambíguo: escolha a linha correta `Lorebook → Entry (ID)` ou **Import a new copy**. Sem id, o World Maps só reaproveita uma entrada quando todo o conteúdo portátil e as configurações têm uma única correspondência; o nome sozinho nunca basta.
+
+Depois de revisar o resultado, escolha uma estratégia:
+
+- **Import separate copies** não reaproveita entradas e cria lorebooks independentes, como `Original Lorebook - Map Name (World Map)`, acrescentando **(copy)** ou **(copy N)** para evitar colisões.
+- **Reuse matches & import the rest** mantém correspondências exatas e únicas, aplica suas escolhas nas linhas ambíguas e cria lorebooks apenas para as entradas restantes.
+
+O Maps lista os lorebooks reaproveitados e criados. As cópias criadas continuam na biblioteca se o mapa for excluído. O Engine **2.4.1** ou mais novo atualiza Lorebooks na hora; no **2.3.5 a 2.4.0**, recarregue o Marinara uma vez depois da restauração.
+
+A arte incluída também é restaurada e remapeada. A arte do chat volta à Gallery de destino; a compartilhada é reaproveitada da Global Gallery ou adicionada uma vez. Revise e clique em **Save**; a importação não salva na hora. **Map only** preserva a procedência e os vínculos exatos de id existentes, mas não recria lorebooks ou entradas excluídos sem o conteúdo.
 
 Depois que o histórico da campanha passa a citar um mapa, as mudanças importadas
 precisam manter os IDs de local existentes. Acrescente ou atualize locais em vez
 de trocar a hierarquia por outra com IDs sem relação.
+
+### Arquivar ou excluir locais permanentemente
 
 O arquivamento preserva as referências antigas. Antes de arquivar um local:
 
@@ -704,7 +726,7 @@ O arquivamento preserva as referências antigas. Antes de arquivar um local:
 - escolha um substituto ativo, caso ele seja o local atual em tempo de execução.
 
 Os locais arquivados podem ser restaurados pelo painel Details. O World Maps
-1.2.5 também oferece **Delete permanently** (excluir em definitivo) para um local
+1.3.1 também oferece **Delete permanently** (excluir em definitivo) para um local
 arquivado ou para um ramo totalmente arquivado, quando é seguro removê-lo. O
 editor desativa essa ação quando o local é o local inicial ou o local atual da
 história já salvo, aparece no histórico de mensagens, tem um vínculo com o mapa
@@ -752,6 +774,10 @@ a configuração do Game. Revise e salve o mapa do Game. Um modelo continua
 inalterado; um Game vinculado mantém as alterações não publicadas enquanto você
 não escolher **Publish**.
 
+### Um chat vinculado ainda mostra um mundo compartilhado antigo
+
+Os editores limpos de chats vinculados armazenados na aba em que você publica são atualizados automaticamente. Um chat com mudanças não salvas ou não publicadas mantém o rascunho e mostra um conflito. Reabra os chats de outras abas ou janelas para buscar a nova revisão oficial.
+
 ### O mapa não pode ser ativado
 
 Crie pelo menos um local ativo e defina um local inicial ativo. Resolva todos os
@@ -764,6 +790,12 @@ funcionando com um modelo de linguagem. Salve ou descarte as alterações aberta
 no editor antes de reabrir o construtor de IA. Para uma expansão, escolha um alvo
 ativo. Para a geração apoiada no lore, selecione pelo menos um lorebook ativado e
 não excluído.
+
+### A geração de mapa com IA informa JSON incompleto ou malformado
+
+Se a resposta terminou antes de produzir um JSON completo, aumente **Max Output Tokens** na conexão ou escolha um mapa menor e gere de novo. O World Maps não gasta outra solicitação tentando reparar uma resposta incompleta.
+
+Se o JSON estiver malformado, uma correção apenas de sintaxe já foi tentada. Gere novamente; se o mesmo modelo falhar repetidamente, use outra conexão ou modelo. Alterar **Max Output Tokens** serve para o caso incompleto.
 
 ### O local atual não acompanhou uma mensagem
 
@@ -853,6 +885,14 @@ insert** para um diagnóstico avançado.
 
 Confirme que a entrada está anexada ao local atual exato. Verifique se a entrada
 e o lorebook estão ativados e se o lorebook não está excluído do chat.
+
+**Outras regras do World Maps 1.3.1:** geração guiada, regeneração e continuação não criam um turno do usuário, então não consomem um destino ou passo de rota na fila. **Impersonate** cria uma mensagem do usuário: um turno bem-sucedido confirma o movimento uma vez, uma falha do provedor não confirma nada e um movimento desatualizado volta para **Needs review**.
+
+No Marinara Engine **2.4.1** ou mais novo, as diretrizes completas de movimento e descoberta do Maps são removidas do texto transmitido e das mensagens salvas sem alterar textos comuns entre colchetes nem seus espaços. Se uma diretriz bruta aparecer, atualize Engine e World Maps, reinicie quando solicitado e gere de novo ou remova a mensagem afetada.
+
+Quando uma imagem da Gallery cumpre os dois papéis, **Remove reference only** a mantém como fundo do mapa filho; **Reject both and create replacement** troca ambos e **Use for both** atribui uma nova imagem aos dois. Um link salvo da Gallery cuja imagem sumiu também conta como ausente. Um resultado concluído durante a edição só preenche os papéis ainda vazios e não substitui uma imagem nova, o botão de referência, a posição do fundo, o estado de arquivo nem outras mudanças do rascunho.
+
+**Open** em uma entrada vinculada sai do mapa e abre o lorebook. Um rascunho limpo fecha imediatamente; com mudanças não salvas, salve antes ou confirme o descarte. Se o lore importado não for ativado, veja o resumo: **Map only** não traz conteúdo restaurável. Use **Map + linked entries** ou **Map + complete lorebooks** e escolha a correspondência exata, o destino ambíguo ou uma cópia separada. O lore ligado ao pai não é herdado pelos locais filhos.
 
 ## Guias relacionados
 

@@ -11,19 +11,20 @@ Escolha o guia que corresponde ao dispositivo onde você quer rodar Marinara.
 | Windows | [Instalação no Windows](installation/windows.md) |
 | macOS ou Linux | [Guia de instalação no macOS / Linux](installation/macos-linux.md) |
 | Docker ou Podman | [Rodar em contêiner (Docker / Podman)](installation/containers.md) |
-| Celular ou tablet Android | [Instalação no Android (Termux)](installation/android-termux.md) |
+| Celular ou tablet Android | [Baixar APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) · [Guia de instalação no Android](installation/android-termux.md) |
 | iPhone ou iPad | [Guia do PWA para iOS / iPadOS](installation/ios-pwa.md) |
 
 Alguns pontos importantes antes da escolha:
 
 - No **iPhone ou iPad**, Marinara não roda o servidor. O servidor fica em um computador, em um servidor doméstico ou em um dispositivo Android. Depois você abre o aplicativo no Safari do iPhone ou do iPad. O guia de iOS explica isso.
-- No **Android**, Marinara roda dentro do **Termux**. Termux é um aplicativo gratuito que dá ao Android um pequeno ambiente Linux. O APK de lançamento serve apenas para ajudar na configuração do Termux.
+- No **Android**, Marinara roda dentro do **Termux**. Termux é um aplicativo gratuito que dá ao Android um pequeno ambiente Linux. Toque no link direto do APK, aceite os avisos obrigatórios de instalação e de permissão do Termux e deixe o aplicativo cuidar automaticamente da credencial privada do localhost. O instalador nunca pede credenciais de assinatura do Android nem esse segredo local.
 
 ## Qual devo escolher
 
 Se você está começando agora e quer a configuração mais simples, escolha uma destas opções:
 
 - No **Windows**, use o **instalador do Windows**. Ele baixa e configura tudo para você, e ainda cria um atalho na área de trabalho.
+- No **Android**, use o link **Baixar APK** acima. Abra o arquivo baixado e toque em **Install / Start Marinara** no aplicativo.
 - No **macOS**, no **Linux** ou em um servidor doméstico, use o **Docker**. Um único comando roda o aplicativo. A imagem já traz o Node.js, todas as dependências e uma cópia compilada do aplicativo. Assim você não precisa instalar o Node.js nem compilar o aplicativo por conta própria.
 
 Se você se dá bem com o terminal e talvez queira editar o código, rode a partir do código-fonte. "Rodar a partir do código-fonte" significa baixar o código e compilar o aplicativo na sua máquina. Os guias de **Windows**, **macOS e Linux** e **Android (Termux)** cobrem esse caminho.

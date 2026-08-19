@@ -41,6 +41,20 @@ Marinara가 받는 파일 형식은 다음과 같습니다.
 
 AI가 이미지를 실제로 "볼" 수 있으려면 연결된 모델이 비전 기능을 지원해야 합니다. 텍스트만 처리하는 모델이라면 **Image Captioning**(이미지 캡셔닝)을 켜세요. 이 설정은 채팅별 **Chat Settings**(채팅 설정)의 **Advanced Parameters**(고급 매개변수) 항목에 있고 기본값은 꺼짐입니다. 켜 두면 Marinara가 지정한 연결을 이용해 첨부 이미지를 글로 설명한 뒤, 이미지 대신 그 설명을 보냅니다.
 
+## 갤러리 이미지를 메시지에 삽입하기
+
+첨부 파일은 AI가 *보는* 용도입니다. 갤러리 참조는 독자가 *보는* 용도로, 메시지 본문 안에 갤러리 이미지를 표시합니다.
+
+메시지는 Markdown 이미지 문법을 지원하며 Marinara는 특별한 `card://` 링크를 갤러리 파일로 해석합니다.
+
+```text
+![a caption](card://characters/<character-id>/gallery/<filename>.png)
+```
+
+Roleplay Mode에서는 채팅 에셋 브라우저가 링크를 삽입할 수 있습니다. 메시지, 인사말, 예시 대화처럼 글을 쓰는 곳에 직접 붙여 넣어도 됩니다.
+
+**캐릭터 자신의 갤러리** 이미지에는 캐릭터를 내보내고 가져온 뒤에도 작동하는 휴대 가능한 `card://self/gallery/<filename>` 형식을 권장합니다. 캐릭터 갤러리의 **Copy image reference** 버튼이 이 형식을 만듭니다. 자세한 내용은 [캐릭터 갤러리 → 갤러리 이미지를 메시지와 인사말에서 다시 사용하기](../characters/galleries.md#reuse-a-gallery-image-in-messages-and-greetings)를 참고하세요.
+
 ## 답변 스트리밍
 
 스트리밍은 답변 전체가 완성되기를 기다리지 않고, 생성되는 대로 단어 단위로 보여 주는 기능입니다. 스트리밍 관련 설정은 **Settings**의 **General** 탭 안 **Responses**(응답) 항목에 있습니다.

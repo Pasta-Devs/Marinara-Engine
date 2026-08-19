@@ -34,7 +34,7 @@ http://192.168.1.42:7860
 
 5. ブラウザーがBasic Authのユーザー名とパスワードを求めたら入力します。代わりに**Access blocked**ページが表示される場合は、先にホスト側で手順2を終わらせてください。
 
-通常のデスクトップインストールでは、同じコンピューター(`127.0.0.1`)からのアクセスにパスワードは要りません。APKが管理するAndroidインストールでは、ほかのAndroidアプリがMarinaraになりすますのを防ぐため、localhostに非公開のログインを追加します。ほかのデバイスは、アクセス制御(Basic AuthかIP許可リスト)を設定するまでブロックされます。それぞれの方法は[リモートアクセス](REMOTE_ACCESS.md)で説明しています。
+通常のデスクトップインストールでは、同じコンピューター(`127.0.0.1`)からのアクセスにパスワードは要りません。APKが管理するAndroidインストールでは、ほかのAndroidアプリがMarinaraになりすますのを防ぐため、localhostに非公開のログインを追加しますが、その認証情報はAndroidラッパーが自動で作成して使います。ほかのデバイスは、アクセス制御(Basic AuthかIP許可リスト)を設定するまでブロックされます。それぞれの方法は[リモートアクセス](REMOTE_ACCESS.md)で説明しています。
 
 2台が同じネットワークにない場合は、Tailscaleのようなツールが役に立ちます。Tailscaleは各デバイスに固定のプライベートアドレスを割り当てます。これでMarinaraをインターネットに公開せずに、どこからでも接続できます。接続できないときは[トラブルシューティング](TROUBLESHOOTING.md)を参照してください。
 
@@ -42,9 +42,9 @@ http://192.168.1.42:7860
 
 専用のネイティブモバイルアプリはありません。スマートフォンやタブレットでも、ブラウザーで同じWebアプリを使います。多くのモバイルブラウザーには**Add to Home Screen**(ホーム画面に追加)や**Install App**(アプリをインストール)の機能があり、これを使うとアドレスバーが消えて本物のアプリのような使い心地になります。この仕組みをPWA(Progressive Web App、アプリのようにインストールできるWebサイト)と呼びます。
 
-Androidでは、Android向けのインストール用ファイルであるAPKをインストールすることもできます。この場合はスマートフォンの中でMarinaraが直接動きます。[Android(Termux)インストールガイド](installation/android-termux.md)を参照してください。iPhoneとiPadについては[iOS / iPadOS PWAガイド](installation/ios-pwa.md)を参照してください。
+Androidでは、[最新のAPKを直接ダウンロード](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)することもできます。Termuxを通じてスマートフォン内でMarinaraが動きます。インストールに署名キー、パスワード、ローカルアクセス用シークレットは必要ありません。Androidの権限確認については[Android(Termux)インストールガイド](installation/android-termux.md)を参照してください。iPhoneとiPadについては[iOS / iPadOS PWAガイド](installation/ios-pwa.md)を参照してください。
 
-Androidラッパーは、APKが管理するTermuxサーバーを開くと自動的にログインします。同じスマートフォンの別のブラウザーで使うには、`/android-login`を開き、Termuxで`cat ~/.marinara-engine/android-secret`を実行して、表示されたシークレットを貼り付けます。ローカルの`mari` CLIも、ランチャーが管理する同じシークレットを自動で読み込みます。手動のTermuxインストールでは、localhostとネットワークアクセスに通常の規則が適用されます。
+Androidラッパーは、APKが管理するTermuxサーバーを開くと自動的にログインします。非公開の認証情報が見えるのは、同じスマートフォンの別のブラウザーで意図的にサーバーを開く場合だけです。`/android-login`を開き、Termuxで`cat ~/.marinara-engine/android-secret`を実行して、表示された値を貼り付けます。ローカルの`mari` CLIも、ランチャーが管理する同じシークレットを自動で読み込みます。手動のTermuxインストールでは、localhostとネットワークアクセスに通常の規則が適用されます。
 
 ## 3つのチャットモードとは?
 

@@ -34,7 +34,7 @@ http://192.168.1.42:7860
 
 5. 浏览器要求输入 Basic Auth 用户名和密码时登录一下。如果看到的是 **Access blocked** 页面，说明主机上的第 2 步还没做完。
 
-普通桌面安装在同一台电脑上（`127.0.0.1`）不需要密码。由 APK 管理的 Android 安装会为 localhost 添加私密登录，防止其他 Android 应用冒充 Marinara。其他设备在配好访问控制（Basic Auth 或 IP 允许列表）之前一律被拦。两种方式都在[远程访问](REMOTE_ACCESS.md)里有详细说明。
+普通桌面安装在同一台电脑上（`127.0.0.1`）不需要密码。由 APK 管理的 Android 安装会为 localhost 添加私密登录，防止其他 Android 应用冒充 Marinara，但 Android 外壳会自动创建并使用这份凭据。其他设备在配好访问控制（Basic Auth 或 IP 允许列表）之前一律被拦。两种方式都在[远程访问](REMOTE_ACCESS.md)里有详细说明。
 
 两台设备不在同一网络时，可以借助 Tailscale 这类工具。Tailscale 会给每台设备分配一个固定的私有地址，这样在哪都能连上，也不用把 Marinara 暴露到公网。连不上的话，看 [Marinara Engine 故障排查](TROUBLESHOOTING.md)。
 
@@ -42,9 +42,9 @@ http://192.168.1.42:7860
 
 没有单独的手机原生应用。在手机或平板上，用浏览器打开的是同一个网页版。大多数手机浏览器都有 **Add to Home Screen**(添加到主屏幕) 或 **Install App**(安装应用) 之类的选项，加上之后没有浏览器地址栏，用起来跟真正的应用差不多。这种形式叫 PWA(Progressive Web App，可以像应用一样装到设备上的网站)。
 
-Android 上还可以安装 APK，也就是 Android 的安装包文件，它会把 Marinara 直接跑在手机本地。见 [Android (Termux) 安装指南](installation/android-termux.md)。iPhone 和 iPad 用户见 [iOS / iPadOS PWA 指南](installation/ios-pwa.md)。
+Android 上还可以[直接下载最新 APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)，通过 Termux 把 Marinara 跑在手机本地。安装不需要签名密钥、密码或本地访问密钥；Android 权限提示见 [Android (Termux) 安装指南](installation/android-termux.md)。iPhone 和 iPad 用户见 [iOS / iPadOS PWA 指南](installation/ios-pwa.md)。
 
-Android 外壳打开由 APK 管理的 Termux 服务器时会自动登录。要在同一部手机的其他浏览器中使用，请打开 `/android-login`，在 Termux 中运行 `cat ~/.marinara-engine/android-secret`，然后粘贴显示的密钥。本地 `mari` CLI 也会自动读取由启动脚本管理的同一密钥。手动安装 Termux 时仍采用普通的 localhost 和网络访问规则。
+Android 外壳打开由 APK 管理的 Termux 服务器时会自动登录。私密凭据只会在用户有意用同一部手机的其他浏览器打开服务器时出现：打开 `/android-login`，在 Termux 中运行 `cat ~/.marinara-engine/android-secret`，然后粘贴显示的值。本地 `mari` CLI 也会自动读取由启动脚本管理的同一密钥。手动安装 Termux 时仍采用普通的 localhost 和网络访问规则。
 
 ## 三种聊天模式分别是什么？
 

@@ -11,19 +11,20 @@ Wybierz przewodnik pasujący do urządzenia, na którym ma działać Marinara En
 | Windows | [Przewodnik instalacji w systemie Windows](installation/windows.md) |
 | macOS lub Linux | [Przewodnik instalacji na macOS i Linux](installation/macos-linux.md) |
 | Docker lub Podman | [Uruchamianie w kontenerze (Docker / Podman)](installation/containers.md) |
-| Telefon lub tablet z systemem Android | [Przewodnik instalacji na Android (Termux)](installation/android-termux.md) |
+| Telefon lub tablet z systemem Android | [Pobierz APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) · [Przewodnik instalacji na Android](installation/android-termux.md) |
 | iPhone lub iPad | [Przewodnik po PWA na iOS / iPadOS](installation/ios-pwa.md) |
 
 Zanim zdecydujesz, warto wiedzieć o dwóch rzeczach:
 
 - Na urządzeniach **iPhone i iPad** Marinara Engine nie uruchamia serwera. Serwer działa na komputerze, na domowym serwerze albo na urządzeniu z systemem Android. Potem otwierasz go w przeglądarce Safari na iPhonie lub iPadzie. Wyjaśnia to przewodnik dla systemu iOS.
-- W systemie **Android** Marinara Engine działa wewnątrz aplikacji **Termux**. Termux to darmowa aplikacja, która daje systemowi Android małe środowisko Linux. Plik APK z wydania służy tylko do wygodnego przygotowania aplikacji Termux.
+- W systemie **Android** Marinara Engine działa wewnątrz aplikacji **Termux**. Termux to darmowa aplikacja, która daje systemowi Android małe środowisko Linux. Dotknij bezpośredniego łącza pobierania APK, zatwierdź wymagane przez Android komunikaty instalacyjne i uprawnienia Termux, a aplikacja automatycznie zajmie się prywatnym poświadczeniem localhost. Instalator nigdy nie prosi o poświadczenia podpisywania Androida ani ten lokalny sekret.
 
 ## Co wybrać
 
 Jeśli zaczynasz i zależy ci na jak najmniejszej liczbie kroków, wybierz jedną z tych dróg:
 
 - W systemie **Windows** użyj instalatora **Windows installer**. Pobiera on i konfiguruje wszystko za ciebie oraz dodaje skrót na pulpicie.
+- W systemie **Android** użyj powyższego łącza **Pobierz APK**. Otwórz pobrany plik, a potem dotknij w aplikacji **Install / Start Marinara**.
 - W systemie **macOS**, **Linux** albo na domowym serwerze użyj obrazu **Docker**. Aplikację uruchamia jedno polecenie. Obraz zawiera już Node.js, wszystkie zależności i gotową, zbudowaną aplikację. Nie musisz więc instalować Node.js ani budować aplikacji samodzielnie.
 
 Jeśli terminal nie jest ci obcy i chcesz mieć możliwość edycji kodu, uruchom aplikację ze źródeł. "Uruchomienie ze źródeł" oznacza, że pobierasz kod i budujesz aplikację na własnym komputerze. Tę drogę opisują przewodniki **Windows**, **macOS i Linux** oraz **Android (Termux)**.

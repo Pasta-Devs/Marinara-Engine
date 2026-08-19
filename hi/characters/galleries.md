@@ -68,6 +68,28 @@ MP4, WebM और MOV वीडियो फ़ॉर्मैट काम क�
 
 गैलरी का कोई नाम ग्लोबल पूल के नाम से मिल जाए, तो उस चैट में गैलरी वाला रूप चलता है। नाम आपस में अलग हैं या नहीं, यह जाँचा नहीं जाता। उलझन से बचने के लिए हर इमेज को अलग नाम दें।
 
+## गैलरी इमेज को संदेशों और greetings में दोबारा इस्तेमाल करना
+
+किसी character की Gallery की कोई भी इमेज chat text में दिखाई जा सकती है: greeting, example message या character का भेजा संदेश। इमेज पर pointer ले जाकर **Copy image reference** (link icon) पर क्लिक करें। इससे Markdown का छोटा हिस्सा copy होता है जिसे character के बोलने की किसी भी जगह paste कर सकते हैं:
+
+```text
+![sunset selfie](card://self/gallery/k3m2xq7.png)
+```
+
+एक नियम है: **`self` का मतलब वह character है जो यह संदेश बोल रहा है।** Render करते समय Marinara `self` को उस character से बदलकर उसकी gallery की इमेज दिखाता है।
+
+यह character card के **First Message**, **Alternate Greetings** और **Example Dialogue**, Roleplay और Conversation में character के हर संदेश, तथा group chats में काम करता है। कई speakers वाले reply में `self` हर speaker के लिए अलग resolve होता है। Speaker की gallery में file न मिले तो Marinara chat के दूसरे characters की galleries में खोजता है।
+
+यह आपके अपने संदेशों में जानबूझकर काम नहीं करता, क्योंकि उनका कोई बोलने वाला character नहीं होता; system messages भी Markdown image नहीं दिखाते। खुद इमेज post करने के लिए chat asset browser इस्तेमाल करें, जो पूरा `card://characters/<id>/...` रूप लिखता है। Persona galleries के लिए `card://personas/<id>/gallery/<file>` इस्तेमाल करें।
+
+दो characters की image का filename समान हो तो बोलने वाले character की image हमेशा पहले आती है। उसके पास file न होने पर chat के character order में पहला match इस्तेमाल होता है। किसी खास version के लिए अलग filenames रखें।
+
+### पूरे link के बजाय `self` क्यों
+
+पूरे link में character की internal id (`card://characters/<id>/gallery/<file>`) होती है, और हर import पर id दोबारा बनती है, इसलिए share करने पर पूरा link टूट जाता है। `self` रूप में id या server address नहीं होता। यह **native JSON export और import** के बाद भी चलता है: gallery images export के साथ जाती हैं और filenames रखती हैं।
+
+एक सीमा है: **PNG card exports में gallery शामिल नहीं होती**। Gallery reference वाले character को native `.json` export से share करें।
+
 ## मिलती-जुलती गाइड
 
 - [कैरेक्टर बनाना और एडिट करना](creating-and-editing-characters.md)

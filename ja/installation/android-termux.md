@@ -6,24 +6,24 @@
 
 Termuxは、スマートフォンに小さなLinuxシステムとコマンドラインを用意する無料のアプリです。MarinaraはネイティブのAndroidアプリではなくLinuxのサーバーなので、Marinara EngineにはTermuxが必要です。
 
-F-Droidは、Android向けの無料でオープンソースのアプリストアです。TermuxはF-Droidからインストールします。
+F-Droidは、Android向けの無料でオープンソースのアプリストアです。Marinaraの自動設定では、Termuxの安定版F-Droidビルドをダウンロードします。Termuxには別の試験的なGoogle Playビルドもあります。すでにインストール済みならMarinaraは公式の署名者を認識しますが、このガイドでは引き続きF-Droidを推奨します。
 
-Termuxは[Termux on F-Droid](https://f-droid.org/en/packages/com.termux/)からインストールします。Play Store版のTermuxは使わないでください。バージョンが古く、Marinaraでは動きません。
+Termuxは[Termux on F-Droid](https://f-droid.org/en/packages/com.termux/)からインストールします。Termuxやそのプラグインアプリを異なる配布元から混在させないでください。署名が一致する必要があります。配布元ごとの詳細は[Termuxの公式インストールノート](https://github.com/termux/termux-app#installation)を参照してください。
 
 ## Androidアプリ(APK)でインストールする
 
-いちばん簡単なのは、Marinara EngineのAndroidアプリを使う方法です。APKとは、Androidアプリのインストール用ファイルです。このアプリは小さな補助ツールで、Termuxの準備を代行し、ローカルサーバーが動き出したらMarinaraを開きます。実際の処理はTermuxが担当するため、Androidからいくつかの確認画面が表示されます。
+いちばん簡単なのは、Marinara EngineのAndroidアプリを使う方法です。APKとは、Androidアプリのインストール用ファイルです。このアプリは小さな補助ツールで、Termuxの準備を代行し、ローカルサーバーが動き出したらMarinaraを開きます。実際の処理はTermuxが担当するため、Androidからいくつかのシステム確認画面が表示されます。ビルド済みAPKのインストールに、署名キー、パスワード、ローカルアクセス用シークレット、`CSRF_TRUSTED_ORIGINS`の変更は必要ありません。アプリが非公開のlocalhost認証情報を自動で生成し、受け渡します。`CSRF_TRUSTED_ORIGINS`に`null`を追加しないでください。意図的に未設定として扱われ、APKのハンドシェイクには不要です。
 
-1. [最新のGitHub Release](https://github.com/Pasta-Devs/Marinara-Engine/releases)からAndroidのAPKをダウンロードします。
+1. [最新のAndroid APKをダウンロード](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)をタップします。
 2. APKをインストールし、アプリを開きます。
 3. **Install / Start Marinara**(Marinaraのインストール/起動)をタップします。
 4. Termuxがまだ入っていない場合は、Androidのインストール確認を許可します。これでアプリがF-DroidからTermuxをダウンロードしてインストールできます。
 5. Androidから求められたら、**Run commands in Termux environment**(Termux環境でコマンドを実行)の権限を許可します。
 6. Termuxが準備を止めてしまう場合は、アプリが`allow-external-apps`のコマンドをコピーしてくれます。そのコマンドをTermuxに1回貼り付けて実行し、もう一度**Install / Start Marinara**をタップします。
 7. Termuxが依存関係をインストールし、Marinaraをビルドするまで待ちます。最初のビルドには数分かかります。
-8. ローカルサーバーの準備ができると、アプリがMarinaraを開きます。
+8. Termuxの処理が終わったらMarinara Engineアプリに戻ります。ローカルサーバーの準備ができると、アプリが自動的に接続してログインします。
 
-普通のアプリと同じようにホーム画面のアイコンからMarinaraを開きたい場合も、このAndroidアプリが対応しています。ただしTermuxのサーバーを包む仕組みなので、先にサーバーの準備が必要です。Androidのインストール確認や権限の確認を省くことはできません。
+普通のアプリと同じようにホーム画面のアイコンからMarinaraを開きたい場合も、このAndroidアプリが対応しています。ただしTermuxのサーバーを包む仕組みなので、先にサーバーの準備が必要です。Androidのインストール確認や権限の確認を省くことはできませんが、Marinaraのインストール用シークレットを設定するよう求められることはありません。
 
 ## Termuxで手動インストールする
 

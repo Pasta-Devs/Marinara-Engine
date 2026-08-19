@@ -42,6 +42,16 @@ Marinara v2.3.0은 Corepack으로 pnpm을 실행하는 데까지는 성공했지
 npm install -g pnpm@10.33.2
 ```
 
+### 런처를 pnpm 10.34.5로 업데이트하기
+
+Marinara v2.4.1은 고정 패키지 관리자를 pnpm 10.34.5로 옮깁니다. 기존 10.33.2 런처는 같은 실행에서 이 일회성 인계를 마칠 수 있으며, 새 런처는 이후 실행부터 10.34.5를 선택합니다. Corepack은 `package.json`에 고정된 SHA-512 다이제스트로 릴리스를 검증하고, npm 대체 경로도 고정되지 않은 latest 대신 정확히 10.34.5를 요청합니다.
+
+이전 v2.4.1 staging 빌드가 이미 `Expected version: >=10.34.5`와 `Got: 10.33.2`에서 중단되었다면 런처를 한 번 더 실행하세요. 그 빌드는 중단되기 전에 새 런처를 내려받았습니다. 런처가 여전히 고정 릴리스를 자동으로 가져오지 못하면 정확한 버전을 설치한 뒤 다시 실행하세요.
+
+```bash
+npm install -g pnpm@10.34.5
+```
+
 ### Linux: 설치 중 ERR_PNPM_ENAMETOOLONG
 
 이전 설치가 긴 폴더 경로를 남겨 둔 상태입니다. Marinara 폴더에서 중간에 끊긴 설치 파일을 지우고 런처를 다시 실행하세요.
@@ -228,6 +238,12 @@ Music DJ 에이전트의 Spotify 모드는 OAuth를 씁니다. OAuth는 Spotify�
 
 ## 저장소와 데이터
 
+### 시작할 때 다른 프로세스가 데이터 디렉터리를 사용 중일 수 있다고 나올 때
+
+Marinara는 실행 중인 서버 하나만 로컬 데이터 디렉터리에 쓰도록 허용합니다. 시작 시 디렉터리에 대해 **Another Marinara Engine process ... may be using**이 표시되면 다른 Marinara 프로세스를 종료하고 다시 시작하세요.
+
+크래시가 났거나 Docker 데이터 볼륨을 옮긴 뒤에는 **The storage writer lease ... is incomplete or invalid**가 표시되거나 이 호스트에 더는 없는 프로세스를 가리킬 수 있습니다. 먼저 해당 데이터 디렉터리를 쓰는 모든 Marinara 프로세스와 컨테이너가 중지되었는지 확인하세요. 그런 다음 오류에 나온 `.writer-lease` 디렉터리만 제거하고 Marinara를 다시 시작하세요. 바깥의 `storage` 디렉터리나 테이블 파일은 제거하지 마세요.
+
 ### 업데이트 후에 데이터가 사라진 것처럼 보일 때
 
 업데이트한 뒤 채팅이나 프리셋이 사라진 것처럼 보이더라도 아직 데이터 폴더를 지우지 마세요. Marinara는 실제로 쓰는 데이터를 데이터 폴더 안의 `storage` 폴더에 보관합니다.
@@ -238,6 +254,27 @@ Music DJ 에이전트의 Spotify 모드는 OAuth를 씁니다. OAuth는 Spotify�
 2. `data/`
 
 서버는 시작할 때 자신이 찾아낸 데이터 폴더와 storage 폴더 경로를 출력합니다.
+
+### 이전 버전으로 전환한 뒤 채팅에 메시지가 보이지 않을 때
+
+새 Marinara 버전은 채팅별 데이터(메시지, swipe, 기억, 이미지와 그 밖의 채팅별 레코드)를 테이블당 하나의 큰 파일이 아니라 채팅별 파일에 저장합니다. 따라서 긴 채팅을 훨씬 빠르게 저장할 수 있습니다. 이전 버전은 이 구조를 이해하지 못합니다. 이전 버전으로 전환하면 채팅이 빈 것처럼 보이지만, 데이터는 디스크에 그대로 있고 이전 버전에서만 볼 수 없는 상태입니다.
+
+Marinara는 명백한 다운그레이드를 스스로 거부합니다. 런처는 호환되지 않는 버전으로 가는 자동 업데이트를 건너뛰고, 앱 내 업데이터는 이 문서를 안내하는 오류와 함께 적용을 차단합니다.
+
+그래도 다운그레이드하려면:
+
+1. Marinara 서버를 중지합니다.
+2. Marinara 폴더에서 다음을 실행합니다.
+
+   ```bash
+   node scripts/protect-launcher-data.mjs unshard
+   ```
+
+3. 이전 버전으로 전환하고 평소처럼 시작합니다.
+
+이 명령은 채팅별 파일에서 예전 단일 파일 구조를 다시 만듭니다. 아무것도 삭제하지 않습니다. 채팅별 파일은 다시 만든 각 파일 옆의 `<table>.post-unshard-<timestamp>` 폴더(예: `messages.post-unshard-…`)에 남고, 마이그레이션 전 원본도 `.pre-shard` 파일로 유지됩니다. 나중에 다시 업그레이드하면 Marinara가 데이터를 자동으로 재변환합니다.
+
+Docker와 Podman은 `marinara-data` 볼륨에 데이터를 보관하므로 일회성 컨테이너에서 명령을 실행하세요. 실행 중인 컨테이너를 중지하고 `docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard`를 실행한 다음 이전 이미지를 시작합니다.
 
 ### 백업이나 내보내기에서 403이 반환될 때
 
@@ -254,11 +291,17 @@ Android 앱은 Termux를 감싼 얇은 껍데기입니다. Termux는 Android용 
 3. Android가 Termux에서 명령을 실행해도 되는지 물으면 허용하세요.
 4. 런처가 끝나고 서버가 시작될 때까지 기다린 다음 앱으로 돌아오세요.
 
+일반적인 APK 절차는 Marinara 비밀 값을 붙여 넣으라고 요구하지 않습니다. 앱이 비공개 localhost 인증 정보를 생성하고 Termux에 전달한 뒤 자동으로 로그인합니다. Android의 앱 설치 및 Termux 권한 대화 상자는 여전히 필수 시스템 확인입니다. `CSRF_TRUSTED_ORIGINS`에 `null`, `http://null`, APK 비밀 값을 추가하지 마세요. 어느 것도 올바르거나 필요한 Android 설정 단계가 아닙니다.
+
 앱과 Termux가 같은 포트를 쓰는지도 확인하세요. 기본값은 `7860`입니다. 다른 포트로 앱을 빌드했다면 Termux의 `.env`에도 같은 `PORT`를 설정하세요.
 
 ### Android localhost에서 로그인 페이지가 열리거나 401/503이 반환될 때
 
-APK가 관리하는 Termux 설치는 설치마다 다른 비공개 비밀 값으로 localhost를 보호합니다. Android 앱은 자동으로 인증합니다. 같은 휴대폰의 다른 브라우저에서는 `/android-login`을 열고 다음 Termux 명령으로 표시된 값을 붙여 넣으세요.
+APK가 관리하는 Termux 설치는 설치마다 다른 비공개 비밀 값으로 localhost를 보호합니다. Android 앱은 자동으로 인증하며 설정 중에 이 로그인 페이지가 표시되면 안 됩니다. Marinara Engine 앱 안에 나타나면 [최신 APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)를 설치하고 **Install / Start Marinara**를 다시 누른 뒤 Termux 작업이 끝나면 앱으로 돌아오세요.
+
+출처 `null`을 언급하는 오류는 오래된 APK와 서버 조합이 비공개 핸드셰이크보다 먼저 Android WebView의 불투명한 출처를 일반 CSRF 검사에 전달했다는 뜻입니다. `.env`를 수정해도 해결되지 않습니다. 리터럴 `null`은 의도적으로 무시되며 불투명한 출처를 전역으로 신뢰하면 안전하지 않은 모든 API 경로가 약해집니다. APK와 Engine을 업데이트하세요. 현재 Android 로그인 경로는 자체 일회용 증명이나 설치별 비밀 값을 검증하고 다른 모든 곳에서는 `null`을 계속 거부합니다.
+
+같은 휴대폰의 별도 브라우저만 수동 로컬 브라우저 인증이 필요합니다. 해당 브라우저에서 `/android-login`을 열고 다음 Termux 명령으로 표시된 값을 붙여 넣으세요.
 
 ```bash
 cat ~/.marinara-engine/android-secret
@@ -349,6 +392,23 @@ Danger Zone의 스위치가 비활성화되어 있다면 호스트 쪽 플래그
 전체 페이지 확장을 비활성화한 뒤에도 툴바 항목, 오버레이, 리스너, 화면 변화가 남아 있다면 Marinara를 새로고침하세요. 페이지 코드는 Marinara가 관리하는 호환성 API 밖에서도 부작용을 만들 수 있어서 정리는 최선을 다하는 수준입니다.
 
 ### Server Extension이 지원되는 샌드박스가 없다고 할 때
+
+Server Extension과 Professor Mari의 원시 셸 명령은 macOS Seatbelt나 Linux Bubblewrap이 있을 때만 실행됩니다. 공식 Docker 이미지에는 Bubblewrap이 있지만 기본 최소 권한 컨테이너는 중첩 네임스페이스와 마운트를 만들 수 없습니다. Marinara는 이 상태를 감지해 실패할 명령을 시도하지 않고 OS 샌드박스 기능을 비활성화합니다.
+
+더 넓은 컨테이너 권한을 받아들이고 Docker에서 이 기능이 필요하다면 다음 내용을 `docker-compose.yml` 옆의 `docker-compose.override.yml`로 저장하세요.
+
+```yaml
+services:
+  marinara:
+    environment:
+      MARINARA_DOCKER_USER: root
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor=unconfined
+```
+
+그 뒤 컨테이너를 다시 만드세요. Marinara 진입점이 보통 `node` 사용자로 전환할 때 추가 기능이 사라지지 않도록 서버를 root로 유지해야 합니다. root와 `SYS_ADMIN`은 광범위한 권한 상승이며 AppArmor 비활성화는 외부 보안 경계를 더 약하게 만듭니다. 경고를 없애기 위한 목적으로만 켜지 마세요. 현재 Docker에서는 포괄적인 `seccomp=unconfined` 설정이 필요하지 않아야 합니다.
 
 Server Extension은 macOS Seatbelt나 Linux Bubblewrap이 있어야만 실행됩니다. Linux 호스트에 `bwrap`을 설치한 다음 Marinara를 다시 시작하세요. Windows, Android를 비롯해 지원되지 않는 호스트에서는 메인 서버 프로세스로 대신 실행하지 않고 일부러 Server Extension 실행을 거부합니다. Browser Extension은 그대로 불투명 출처 Worker 샌드박스를 쓸 수 있습니다.
 

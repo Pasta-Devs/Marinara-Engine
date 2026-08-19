@@ -24,6 +24,10 @@ obiekt `capabilityProps.localization`. Interfejsy należące do pakietu mają w�
 z pakietu; Marinara Engine nie tłumaczy promptów pakietu ani wartości maszynowych zapisanych w pakiecie. Zmiana języka
 nadal korzysta z istniejącego zdarzenia `marinara-capability-props`, więc zainstalowany interfejs odświeża się bez restartu aplikacji.
 
+### Dostarczanie i pamięć podręczna
+
+Zainstalowane pliki pakietu są udostępniane z silnymi walidatorami wyprowadzonymi ze skrótów SHA-256 poszczególnych plików w manifeście. Tych samych wartości Engine używa do ponownego sprawdzenia bajtów przy każdym odczycie. Pakiet klienta (`/api/capability-packages/<id>/client`) i każdy zasób pakietu są zawsze ponownie walidowane (`no-cache` wraz z `ETag`). Niezmieniony plik odpowiada więc kodem `304 Not Modified`, zamiast pobierać się ponownie, a ponownie opublikowany plik jest natychmiast wykrywany. Nic nie jest udostępniane jako `immutable`: zasady instalacji pozwalają ponownie opublikować tę samą wersję z innymi bajtami, dlatego adresy URL pakietów nie są adresowane zawartością.
+
 API możliwości w wersji 1.1 dodaje do serwerowego kontekstu aktywacji ogólną
 fasadę środowiska uruchomieniowego. Pakiety mogą odczytać obowiązujący stan debugowania agentów i pisać
 przez logger Pino aplikacji Marinara Engine, łącznie z jawnym wymuszeniem trybu debugowania, bez importowania
@@ -40,6 +44,57 @@ zasady domeny. To samo API udostępnia znormalizowane rekordy czatów i postaci,
 kwalifikujących się wpisów lorebooka, parsowanie odpowiedzi zbliżonych do formatu JSON oraz rozstrzygnięte wywołania modeli językowych.
 Dane uwierzytelniające połączeń, implementacje dostawców, uchwyty bazy danych i obiekty magazynu
 pozostają prywatne dla silnika.
+
+### Capability API 1.7: gałęzie czatu
+
+Capability API 1.7 dodaje znormalizowane metadane gałęzi do `CapabilityChatRecord`:
+
+```ts
+branch: {
+  title: string | null;
+  parentChatId: string | null;
+  parentMessageId: string | null;
+  childMessageId: string | null;
+} | null;
+```
+
+`title` to zapisana nazwa gałęzi bez zbędnych spacji. Czaty główne zwracają `null`. Znane gałęzie utworzone przez Engine udostępniają bezpośredni czat nadrzędny, wiadomość źródłową rozwidlenia i skopiowaną wiadomość potomną. Puste gałęzie używają kotwic wiadomości null. Starsze gałęzie, błędne metadane i zaimportowane równoległe czaty grupowe bez znanej relacji zwracają pola pochodzenia null; Engine nie odgaduje historycznych relacji. Ogólny eksport i import pomija identyfikatory elementu nadrzędnego i wiadomości, ponieważ zmieniają się między instalacjami. Usunięcie elementu nadrzędnego nie zmienia pochodzenia elementu potomnego.
+
+### Capability API 1.8: Experiences w Game
+
+Capability API 1.8 dodaje Experiences w Game dostarczane przez pakiety, kontekst promptu dla każdej tury Game oraz zapisywanie zasobów.
+
+Pakiet może dostarczyć cały Game Mode zamiast dodatku do trybu wbudowanego. Deklaruje slot `game-surface` i jest wybierany podczas tworzenia gry w bloku Experiences kreatora konfiguracji. Wybór zostaje zapisany w grze na cały czas jej działania, dlatego Experience nigdy nie jest włączane ani wyłączane w połowie rozgrywki. Powierzchnia rysuje własny HUD, menu i walkę nad wspólną narracją oraz deklaruje, które systemy wbudowane zastępuje. Wszystko, czego nie zadeklaruje, pozostaje wbudowane, więc Experience wyłącza tylko to, co naprawdę implementuje. Opcjonalne `contributions.gameSurface.surfaceClass` podaje klasę nakładaną przez Engine na obszar gry, gdy powierzchnia jest zamontowana. Arkusz stylów pakietu może dzięki temu zmienić wspólny interfejs renderowany poza własnym elementem.
+
+Pakiety z uprawnieniem `prompt-context` dodają tekst do promptu systemowego każdej generowanej tury Game. Pakiet posiadający stan na żywo może dzięki temu zachować zgodność modelu z widokiem gracza. Wkład może też zadeklarować zastępowane systemy wbudowane; Engine przestaje wtedy instruować model, aby nimi sterował. Wkłady są zbierane dla każdej tury i nigdy nie są wymagane: pusty wynik jest pomijany, a błąd lub przekroczenie czasu jest rejestrowane i pomijane bez wpływu na generowanie.
+
+Fasada zasobów udostępnia zapis obok odczytu, więc konfiguracja pakietu może znaleźć lub utworzyć Personę gracza i jej lorebook. Pamięć, walidacja i tożsamość pozostają własnością Engine; treść domenowa pozostaje własnością pakietów.
+
+### Capability API 1.10: zasoby pakietu
+
+Capability API 1.10 dodaje ogólne udostępnianie statycznych zasobów pakietu. Manifest może zadeklarować `contributions.assets.paths` - listę dozwolonych maksymalnie 256 obrazów (`png`/`webp`/`gif`/`jpg`/`jpeg`) i plików JSON zawartych w pakiecie. Engine udostępnia je przez `/api/capability-packages/<id>/assets/<path>` przy użyciu tego samego łańcucha kontroli co ikony kart przeglądarki: zamknięcia ścieżki, obecności skrótu w `files[]`, listy dozwolonych pasywnych typów zawartości i ponownej kontroli integralności przy każdym odczycie. Schemat odrzuca aktywne typy dokumentów (SVG, HTML i skrypty); każda zadeklarowana ścieżka musi mieć przypięty skrót w `files[]`; a plik `manifest.json` z wnętrza pakietu nigdy nie może być udostępniony, nawet jeśli został zadeklarowany. `contributions.assets` wymaga manifestu `schemaVersion` 2 z `capabilityApi` 1.10 lub nowszym; manifest v1 w ogóle nie może go deklarować. Zasoby są zawsze ponownie walidowane: podobnie jak pakiet klienta mają silny `ETag` oparty na skrócie manifestu, a niezmienione żądanie dostaje `304 Not Modified` bez treści. Zestaw kafelków pobiera się ponownie tylko po rzeczywistej zmianie bajtów. Odpowiedzi celowo nigdy nie są `immutable`, ponieważ zasady instalacji pozwalają ponownie opublikować tę samą wersję z innymi bajtami, więc adres URL z wersją nie jest adresowany zawartością. W ten sposób Experience `game-surface` może dostarczyć prawdziwą grafikę zamiast osadzać ją w pakiecie klienta.
+
+Manifest naruszający te zasady jest odrzucany przy instalacji jednym z komunikatów: "A declared package asset must be listed in the package file manifest", "contributions.assets requires schemaVersion 2 and capabilityApi 1.10 or newer", błędem rozszerzenia schematu dla ścieżki innej niż obraz lub JSON albo - w przypadku archiwum o nazwach różniących się tylko wielkością liter, które na systemie bez rozróżniania wielkości liter trafiłyby do jednego pliku - "Package contains duplicate file" / "Package manifest declares files that collide on case-insensitive filesystems".
+
+Każdy element możliwości dostaje w tym celu własną tożsamość: `capabilityProps.packageId` i `capabilityProps.packageVersion` przychodzą razem z `localization`. Pakiet buduje adresy zasobów jako `/api/capability-packages/<packageId>/assets/<path>`, opcjonalnie z `?v=<packageVersion>`, aby zmiana wersji ominęła pośrednią pamięć podręczną, bez ponownego pobierania listy instalacji ani analizowania własnego adresu importu.
+
+### Capability API 1.11: interfejs walki dla Experience
+
+Capability API 1.11 dodaje interfejs walki do właściwości możliwości `game-surface`. `combatActive` zgłasza dokładny moment faktycznego zamontowania wbudowanego interfejsu walki. W przeciwieństwie do `chatMeta.gameActiveState`, narracyjnego stanu sceny GM, nie pozostaje w tyle za zmianą i nie wskazuje "combat", gdy nie istnieje jeszcze starcie. `combatStyle` zawiera efektywny styl (`classic` albo `tactical`). `requestCombat()` prosi Engine o wygenerowanie starcia tym samym przebiegiem co ręczny przycisk Start Combat, ale bez potwierdzenia, ponieważ własny interfejs Experience już wyraził zamiar. Przebieg generowania w Engine nadal decyduje, czym będzie starcie. Celowo nie istnieje sposób, by pakiet bezpośrednio dostarczył walczących lub stan walki - walka pozostaje własnością Engine.
+
+`requestCombat()` ma stabilną tożsamość, pozostaje ciche na ścieżce pakietu i zwraca kod, z którego Experience renderuje własny komunikat: `"started"` albo odmowę - `"combat-active"`, `"pending"` (generowanie już trwa), `"no-turn"` (GM nie napisał jeszcze tury) lub `"unavailable"` (zakończona sesja albo powtórka). `combatPending` i `combatError` odzwierciedlają postęp i błąd generowania, aby pakiet nie czekał na `combatActive` po nieudanym generowaniu. Podobnie jak interfejsy 1.7 i 1.8, ale inaczej niż ściśle ograniczone `contributions.assets` z 1.10, te właściwości trafiają do każdego pakietu `game-surface` niezależnie od zadeklarowanego `capabilityApi`. Etykieta 1.11 oznacza czas ich wprowadzenia; pakiet, który ich wymaga, deklaruje 1.11, a starszy Engine odrzuca go w kontrolowany sposób.
+
+### Capability API 1.12: zdarzenia przestrzenne dla właściciela Experience
+
+Capability API 1.12 adresuje zdarzenia możliwości przestrzennych również do pakietu Experience, do którego należy gra. `spatial_transition_committed`, `spatial_transition_rejected` i nietypowana wskazówka `spatial_context_refresh`, wcześniej kierowane wyłącznie do `hierarchical-maps` w zdarzeniu okna `marinara-capability-server-event`, są teraz wysyłane również z `packageId` równym `gameExperienceId` czatu. Ładunki różnią się między zdarzeniami: zatwierdzone zdarzenie zawiera `{ chatId, commandId, currentLocationId, definitionRevision, travel? }`; odrzucone zawiera `{ chatId, commandId, code?, message? }` bez pól lokalizacji, ponieważ ruch nie nastąpił; wskazówka odświeżenia zawiera `data: null`. Experience, które wysłało polecenie podróży przez argument `pendingSpatialTransition` funkcji `sendMessage`, może potwierdzić lub usunąć podróż, gdy tylko host zna wynik, zamiast wnioskować z późniejszego odczytu. Wersja 1.12 zamyka też lukę dotyczącą World Maps: przejścia odrzucone przez jedną z dwóch cichych ścieżek HTTP - zatwierdzenie tury właściciela przed strumieniowaniem w generowaniu albo samodzielne zatwierdzenie REST - nie tworzyły wcześniej żadnego zdarzenia. Obie ścieżki tworzą teraz `spatial_transition_rejected`, wyłącznie przy rozstrzygającym dowodzie, czyli kodzie błędu `spatial_*` innym niż `already_applied`. Nierozstrzygające awarie, jak błąd sieci, który mógł zgubić udane zatwierdzenie, wysyłają zamiast tego nietypowaną wskazówkę `spatial_context_refresh`, aby odbiorcy uzgodnili stan z serwerem, zamiast przyjmować wymyślony werdykt. Zatwierdzone zdarzenie z `travel.mode` równym `"step_by_step"` i `complete: false` oznacza, że podróż trwa dalej; zachowaj stan oczekujący do zdarzenia kończącego. To miękki interfejs jak 1.11: zdarzenia są dostarczane niezależnie od zadeklarowanego `capabilityApi`. Deklaruj 1.12 tylko wtedy, gdy pakiet tego wymaga.
+
+### Capability API 1.13: tymczasowe zwijanie narracji
+
+Capability API 1.13 dodaje `requestsCollapsedNarration` do deklaracji interfejsu, którą pakiet `game-surface` przekazuje do `setExperienceChrome`. Gdy flaga ma wartość true, pole narracji w Game Mode zwija się do wąskiego uchwytu, aby Experience mogło odsłonić ekran na przerywnik filmowy lub pełnoekranową scenę.
+
+To ŻĄDANIE, a nie preferencja. Ustawienie zwinięcia wybrane przez gracza nigdy nie jest zapisywane, a flaga działa tylko wtedy, gdy Experience jest aktywną powierzchnią. Usuń flagę albo przestań być aktywną powierzchnią, a pole wróci do wyboru gracza. To gwarancja, że później zawsze otworzy się ponownie; pakiet celowo nie może utrwalić zwinięcia.
+
+Zasady bezpieczeństwa Engine mają pierwszeństwo. Pole jest przymusowo rozwijane zawsze, gdy widać pole tekstowe gracza, także na samym początku sceny przed powstaniem segmentu, oraz gdy działają kontrolki przejścia do kolejnego segmentu. Są one jedynym sposobem zakończenia tury; pakiet, który mógłby je ukryć, mógłby trwale zablokować gracza. Uchwyt nadal pokazuje wskaźnik uwagi przy oczekującej analizie sceny, generowaniu lub ponownej próbie generowania walki. Jeśli gracz rozwinie pole ręcznie podczas żądania, pozostaje ono otwarte do zakończenia żądania. Podobnie jak interfejsy 1.11 i 1.12 jest to miękki interfejs: pole działa niezależnie od zadeklarowanego `capabilityApi`. Etykieta 1.13 oznacza czas wprowadzenia, więc pakiet, który go wymaga, deklaruje 1.13.
 
 ## Pakiety początkowe
 

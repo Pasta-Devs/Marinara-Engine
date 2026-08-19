@@ -79,6 +79,24 @@ NoodleR 허브는 작성자 페이지를 항상 지금 전역으로 선택된 �
 
 자동 새로고침은 Marinara 서버 안에서 실행됩니다. Noodle 페이지를 계속 열어 둘 필요는 없지만, Marinara 자체는 실행 중이어야 합니다. 새로고침이 실패하면 스케줄에 오류를 표시하고 나중에 다시 시도하며, 실패가 거듭되면 더 오래 기다립니다. 예정된 시각을 여러 번 놓쳤을 때는 타임라인이 넘치지 않도록 성공한 만회 새로고침 한 번으로 대신합니다.
 
+## NoodleR 자동 게시
+
+위의 **Refresh**와 별개인 스케줄러입니다. **Refresh**는 공개 Noodle 타임라인을 구동하고, 이 스케줄러는 NoodleR 크리에이터를 구동합니다. **Enable NoodleR**를 켜면 **Noodle Settings** > **Publishing**에 나타납니다.
+
+NoodleR는 정각에 게시하는 대신 작은 예비 목록에 게시물을 미리 준비하고 예정 시각에 하나씩 게시합니다. 따라서 게시물이 아직 존재하지 않아도 크리에이터에게 다음 게시 시각이 표시될 수 있습니다.
+
+- **Automatic posting schedule**: 토글, 기본값 **on**. 끄면 NoodleR 자동 게시가 모두 중지됩니다. 꺼진 동안 시각이 지난 준비 게시물은 늦게 게시되지 않고 폐기됩니다.
+- **Posts/day**: 1~24, 기본값 **4**. 자동 텍스트 시도의 일일 상한이며 자동 이미지 시도에도 같은 상한이 적용됩니다. 수동 게시와 **Refresh NoodleR now**는 포함하지 않습니다.
+- **Night quiet**: 토글, 기본값 **on**. **캐릭터**에 연결된 크리에이터는 현지 시각 23:00~07:00 사이에 게시 시각을 배정받지 않습니다. 페르소나 크리에이터는 영향을 받지 않습니다.
+- **Text attempts**와 **Image attempts**: 오늘 사용한 시도 수를 **Posts/day** 상한과 함께 보여 주는 읽기 전용 카운터입니다.
+- **Prepared posts**: 읽기 전용으로, 예비 게시물 수와 마지막 예정 시각을 표시합니다.
+- **Refresh all now**: **Automatic**이 켜진 모든 크리에이터의 게시물을 즉시 하나씩 작성합니다. 꺼진 크리에이터는 실행이나 보고에 포함되지 않고, 다른 작업 중인 크리에이터는 건너뜁니다. 이 게시물은 같은 크리에이터에게 다음 한 시간 안에 예정된 준비 게시물을 폐기합니다.
+- **Per creator**: 각 행에 **Automatic**과 **Images** 토글이 있습니다. 안내 설정 밖에서 만든 크리에이터는 둘 다 **off**로 시작하며, 안내 설정에서 만든 경우 그때 선택한 값이 적용됩니다. **Automatic**을 끄면 수동 전용입니다.
+
+크리에이터 자동 답글에는 모든 크리에이터가 공유하는 설치 전체 기준의 별도 상한이 있으며, 연속 24시간당 10개입니다. 크리에이터마다 10개가 아닙니다.
+
+자동 게시는 Marinara 서버에서 실행됩니다. Marinara가 실행 중이어야 하지만 NoodleR 페이지를 열어 둘 필요는 없습니다.
+
 ## Active Accounts(활성 계정)
 
 **Active Accounts** 섹션에서는 새로고침 한 번에 몇 개의 계정이 참여할지 정합니다. 대상이 되는 계정은 초대한 캐릭터, 폴더로 포함된 캐릭터, 그리고 켜 두었다면 랜덤 유저입니다.
@@ -196,6 +214,12 @@ Noodle 활동을 채팅에 나타나게 하려면 해당하는 **Carryover to ch
 | **Generation connection** | 없음 | 텍스트 연결 전체(새로고침에 필수) |
 | **Professor Mari participates** | on | on 또는 off |
 | **Refreshes/day** | 2 | 0에서 24(0이면 자동 새로고침 끔) |
+| **Automatic posting schedule** | on | on 또는 off |
+| **Posts/day** | 4 | 1~24 |
+| **Night quiet** | on | 캐릭터 크리에이터는 23:00~07:00 제외 |
+| 크리에이터별 **Automatic** | off | 안내 설정에서 켤 수 있음 |
+| 크리에이터별 **Images** | off | 안내 설정에서 켤 수 있음 |
+| 크리에이터 자동 답글 | 24시간당 10개 | 크리에이터별이 아닌 설치 전체 기준 |
 | **Active selection** | Random range | Random range, Exact count, All invited |
 | **Min active** | 2 | 1에서 100(Random range일 때만) |
 | **Max active** | 5 | 1에서 100(Random range일 때만) |

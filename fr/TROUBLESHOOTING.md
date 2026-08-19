@@ -42,6 +42,16 @@ Si le dépôt lui-même n'arrive pas à se mettre à jour, lance `git pull` dans
 npm install -g pnpm@10.33.2
 ```
 
+### Mise à jour du lanceur vers pnpm 10.34.5
+
+Marinara v2.4.1 passe son gestionnaire de paquets épinglé à pnpm 10.34.5. Un lanceur existant en 10.33.2 peut effectuer ce transfert unique pendant la même exécution ; le lanceur actualisé sélectionnera ensuite 10.34.5 lors des prochains démarrages. Corepack vérifie la version à l'aide de l'empreinte SHA-512 épinglée dans `package.json`, et la solution de repli npm demande elle aussi exactement 10.34.5 plutôt qu'une version latest non épinglée.
+
+Si une ancienne build staging de v2.4.1 s'est déjà arrêtée avec `Expected version: >=10.34.5` et `Got: 10.33.2`, relancez le lanceur : cette build a téléchargé le lanceur actualisé avant de s'arrêter. S'il ne parvient toujours pas à obtenir automatiquement la version épinglée, installez la version exacte et relancez-le :
+
+```bash
+npm install -g pnpm@10.34.5
+```
+
 ### Linux : ERR_PNPM_ENAMETOOLONG pendant l'installation
 
 Cela signifie qu'une ancienne installation a laissé derrière elle des chemins de dossiers trop longs. Depuis le dossier Marinara, efface l'installation partielle puis relance le lanceur :
@@ -228,6 +238,12 @@ La solution la plus propre sur le long terme consiste à placer le serveur derri
 
 ## Stockage et données
 
+### Le démarrage indique qu'un autre processus utilise peut-être le répertoire de données
+
+Marinara n'autorise qu'un seul serveur en cours d'exécution à écrire dans un répertoire de données local. Si le démarrage signale **Another Marinara Engine process ... may be using** le répertoire, fermez l'autre processus Marinara et recommencez.
+
+Après un plantage ou le déplacement d'un volume de données Docker, le démarrage peut plutôt signaler **The storage writer lease ... is incomplete or invalid** ou désigner un processus qui n'existe plus sur cette machine. Vérifiez d'abord que tous les processus et conteneurs Marinara utilisant ce répertoire sont arrêtés. Supprimez ensuite uniquement le répertoire `.writer-lease` indiqué dans l'erreur, puis redémarrez Marinara. Ne supprimez pas le répertoire `storage` qui l'entoure ni aucun fichier de table.
+
 ### Des données semblent manquer après une mise à jour
 
 Si tes chats ou tes presets semblent avoir disparu après une mise à jour, ne supprime encore aucun dossier de données. Marinara conserve tes données actives dans un dossier `storage`, à l'intérieur de son dossier de données.
@@ -238,6 +254,27 @@ Cherche un dossier `storage` à ces deux emplacements locaux :
 2. `data/`
 
 Le serveur affiche au démarrage les dossiers de données et de stockage qu'il a retenus.
+
+### Les chats n'affichent aucun message après un retour à une ancienne version
+
+Les versions récentes de Marinara stockent les données de chaque chat (messages, swipes, souvenirs, images et autres enregistrements propres au chat) dans des fichiers distincts plutôt que dans un gros fichier par table, ce qui accélère fortement l'enregistrement des longs chats. Les anciennes versions ne comprennent pas cette organisation. Après un retour à une ancienne version, les chats paraissent vides : les données sont toujours sur le disque, mais cette version ne peut pas les lire.
+
+Marinara refuse de lui-même les downgrades évidents : le lanceur ignore une mise à jour automatique qui mènerait à une version incompatible, et le programme de mise à jour intégré la bloque avec une erreur qui renvoie ici.
+
+Pour revenir malgré tout à une ancienne version :
+
+1. Arrêtez le serveur Marinara.
+2. Depuis le dossier Marinara, exécutez :
+
+   ```bash
+   node scripts/protect-launcher-data.mjs unshard
+   ```
+
+3. Passez à l'ancienne version et démarrez-la normalement.
+
+La commande reconstruit l'ancienne organisation à fichier unique à partir des fichiers propres à chaque chat. Rien n'est supprimé : ces fichiers restent à côté de chaque fichier reconstruit dans des dossiers nommés `<table>.post-unshard-<timestamp>` (par exemple `messages.post-unshard-…`), et les originaux antérieurs à la migration restent sous forme de fichiers `.pre-shard`. Lors d'une future mise à niveau, Marinara reconvertira automatiquement les données.
+
+Docker et Podman conservent les données dans le volume `marinara-data`. Exécutez donc la commande dans un conteneur ponctuel : arrêtez le conteneur actif, lancez `docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard`, puis démarrez l'ancienne image.
 
 ### Backup ou Export renvoie une erreur 403
 
@@ -254,11 +291,17 @@ L'application Android est une simple enveloppe autour de Termux. Termux est une 
 3. Si Android demande d'exécuter des commandes dans Termux, accorde l'autorisation.
 4. Attends que le lanceur termine et démarre le serveur, puis reviens à l'application.
 
+Le parcours APK normal ne te demande jamais de coller un secret Marinara. L'application génère son identifiant privé pour localhost, le transmet à Termux et se connecte automatiquement. Les dialogues d'installation d'application et d'autorisation Termux d'Android restent des demandes système obligatoires. N'ajoute ni `null`, ni `http://null`, ni le secret de l'APK à `CSRF_TRUSTED_ORIGINS` ; aucune de ces opérations n'est une étape Android valide ou nécessaire.
+
 Vérifie aussi que l'application et Termux utilisent le même port. Par défaut, c'est `7860`. Si tu as compilé l'application avec un autre port, définis la même valeur de `PORT` dans le fichier `.env` de Termux.
 
 ### Android localhost ouvre la page de connexion ou renvoie 401/503
 
-Les installations Termux gérées par l'APK protègent localhost avec un secret privé propre à chaque installation. L'application Android s'authentifie automatiquement. Dans un autre navigateur du même téléphone, ouvre `/android-login` et colle la valeur affichée par cette commande Termux :
+Les installations Termux gérées par l'APK protègent localhost avec un secret privé propre à chaque installation. L'application Android s'authentifie automatiquement et ne devrait pas afficher cette page de connexion pendant la configuration. Si elle apparaît dans l'application Marinara Engine, installe le [dernier APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk), touche de nouveau **Install / Start Marinara**, puis reviens à l'application une fois Termux terminé.
+
+Une erreur qui nomme l'origine `null` indique qu'une ancienne paire APK/serveur a laissé l'origine opaque de la WebView Android atteindre le contrôle CSRF général avant l'échange privé. Modifier `.env` ne peut pas corriger cela : la valeur littérale `null` est volontairement ignorée, et faire globalement confiance à une origine opaque affaiblirait toutes les routes API non sûres. Mets à jour l'APK et Engine ; les routes de connexion Android actuelles vérifient leur propre preuve à usage unique ou secret par installation, tandis que `null` reste rejeté partout ailleurs.
+
+Seul un navigateur distinct sur le même téléphone nécessite une authentification manuelle du navigateur local. Dans ce navigateur, ouvre `/android-login` et colle la valeur affichée par cette commande Termux :
 
 ```bash
 cat ~/.marinara-engine/android-secret
@@ -349,6 +392,23 @@ Si un ancien paquet a été réexporté avec une liste de capacités expliciteme
 Après avoir désactivé une extension à accès complet, recharge Marinara s'il reste un élément de la barre d'outils, une surcouche, un écouteur ou un changement visuel. Le nettoyage se fait au mieux, car le code de la page peut produire des effets de bord en dehors de l'API de compatibilité suivie par Marinara.
 
 ### Une Server Extension signale qu'aucun bac à sable pris en charge n'est disponible
+
+Les Server Extensions et les commandes shell brutes de Professor Mari ne fonctionnent qu'avec Seatbelt de macOS ou Bubblewrap de Linux. L'image Docker officielle inclut déjà Bubblewrap, mais le conteneur par défaut reste au moindre privilège et ne peut pas créer ses espaces de noms et montages imbriqués. Marinara détecte cet état et désactive les fonctions de bac à sable du système au lieu de lancer des commandes vouées à l'échec.
+
+Si tu acceptes des privilèges plus larges et as besoin de ces fonctions dans Docker, enregistre ceci comme `docker-compose.override.yml` à côté de `docker-compose.yml` :
+
+```yaml
+services:
+  marinara:
+    environment:
+      MARINARA_DOCKER_USER: root
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor=unconfined
+```
+
+Recrée le conteneur. Le serveur doit rester root pour que la capacité ne soit pas perdue quand le point d'entrée de Marinara bascule normalement vers l'utilisateur `node`. root avec `SYS_ADMIN` constitue une importante élévation de privilèges, et désactiver AppArmor affaiblit encore la limite externe. Ne l'active pas uniquement pour faire disparaître le message. Un réglage global `seccomp=unconfined` ne devrait pas être nécessaire avec Docker actuel.
 
 Les Server Extensions ne s'exécutent qu'avec Seatbelt sur macOS ou Bubblewrap sur Linux. Installe `bwrap` sur l'hôte Linux, puis redémarre Marinara. Windows, Android et les autres hôtes non pris en charge refusent délibérément d'exécuter une Server Extension plutôt que de se rabattre sur le processus serveur principal. Les Browser Extensions peuvent toujours utiliser leur bac à sable Worker à origine opaque.
 

@@ -100,7 +100,7 @@ cd Marinara-Engine
 
 Żeby wyłączyć to na stałe, ustaw `AUTO_UPDATE_ENABLED=false` w pliku `.env` projektu. Dotyczy to tylko aktualizacji Engine sterowanych przez launcher; ręczne aktualizacje i wbudowane w aplikację przyciski aktualizacji działają dalej.
 
-Przy korzystaniu z ikony aplikacji na system Android (plik APK) otwórz ją i dotknij przycisku **Install / Start Marinara**. Plik APK to aplikacja instalowana z pominięciem sklepu, czyli spoza oficjalnego sklepu z aplikacjami. Jest nakładką na Termux, więc aktualizuje tę samą kopię Termux, która stoi za nią.
+Przy korzystaniu z ikony aplikacji na system Android (plik APK) [pobierz najnowszy plik APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) i otwórz pobrany plik, aby Android zaktualizował samą nakładkę. Następnie otwórz Marinara Engine i dotknij **Install / Start Marinara**, żeby zaktualizować i uruchomić kopię w środowisku Termux. Aplikacja automatycznie zachowuje i wymienia swoje prywatne poświadczenie localhost; aktualizacja nigdy nie prosi o poświadczenia podpisu ani ten sekret.
 
 ### iPhone i iPad
 
@@ -180,6 +180,12 @@ Przycisk **Refresh App** wyrejestrowuje service workera i czyści pamięć podr�
 Użyj przycisku **Refresh App**, kiedy aplikacja wygląda na nieodświeżoną albo pokazuje pustą stronę po aktualizacji, choć serwer działa już na nowej wersji. Naprawia to zablokowaną stronę. Nie zmienia kodu serwera, więc nie zastąpi prawdziwej aktualizacji.
 
 Na czas pracy przycisk pokazuje **Refreshing…**, a potem aplikacja przeładowuje się.
+
+## Powrót do starszej wersji
+
+Aktualizacje są zawsze bezpieczne, ale bezpośredni powrót nie zawsze jest możliwy. Nowsze wersje Marinara Engine zapisują wiadomości czatu w nowszym formacie na dysku, którego wersja starsza niż format danych nie potrafi odczytać. Aby chronić historię czatów, program uruchamiający pomija automatyczne aktualizacje prowadzące do niezgodnej wersji, a aktualizator w aplikacji odmawia ich zastosowania.
+
+Jeśli mimo to potrzebujesz starszej wersji, jedno polecenie konwertujące najpierw przywróci stary format danych. Instrukcję znajdziesz w sekcji [Po przejściu na starszą wersję czaty nie pokazują wiadomości](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version).
 
 ## Gdy aktualizacja się nie powiedzie
 

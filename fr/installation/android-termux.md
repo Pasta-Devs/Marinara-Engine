@@ -6,24 +6,24 @@ Ce guide explique comment faire tourner Marinara Engine sur un téléphone ou un
 
 Termux est une application gratuite qui apporte à ton téléphone un petit système Linux et une ligne de commande. Marinara Engine en a besoin parce que Marinara est un serveur Linux, pas une application Android native.
 
-F-Droid est une boutique d'applications Android libre et gratuite. C'est de là que tu installes Termux.
+F-Droid est une boutique d'applications Android libre et gratuite. La configuration automatique de Marinara télécharge la version stable de Termux depuis F-Droid. Termux propose aussi une version expérimentale distincte sur Google Play ; si elle est déjà installée, Marinara reconnaît sa signature officielle, mais F-Droid reste la voie recommandée dans ce guide.
 
-Installe Termux depuis F-Droid ici : [Termux sur F-Droid](https://f-droid.org/en/packages/com.termux/). N'utilise pas la version de Termux du Play Store : elle est obsolète et ne fonctionne pas avec Marinara.
+Installe Termux depuis F-Droid ici : [Termux sur F-Droid](https://f-droid.org/en/packages/com.termux/). Ne mélange pas Termux ni ses applications complémentaires provenant de sources différentes, car leurs signatures doivent correspondre. Consulte les [notes d'installation officielles de Termux](https://github.com/termux/termux-app#installation) pour les détails propres à chaque source.
 
 ## Installer avec l'application Android (APK)
 
-Le chemin le plus simple passe par l'application Android de Marinara Engine. Un APK est un fichier d'installation d'application Android. Cette application joue le rôle d'assistant : elle configure Termux à ta place, puis ouvre Marinara une fois le serveur local démarré. Elle a toujours besoin de Termux pour le vrai travail, donc Android t'affiche quelques demandes à approuver.
+Le chemin le plus simple passe par l'application Android de Marinara Engine. Un APK est un fichier d'installation d'application Android. Cette application joue le rôle d'assistant : elle configure Termux à ta place, puis ouvre Marinara une fois le serveur local démarré. Elle a toujours besoin de Termux pour le vrai travail, donc Android t'affiche quelques demandes système à approuver. Installer l'APK précompilé ne demande ni clé de signature, ni mot de passe, ni secret d'accès local, ni modification de `CSRF_TRUSTED_ORIGINS`. L'application génère et échange automatiquement son identifiant privé pour localhost. N'ajoute pas `null` à `CSRF_TRUSTED_ORIGINS` ; il est volontairement traité comme absent et l'échange de l'APK n'en a pas besoin.
 
-1. Télécharge l'APK Android depuis la [dernière version publiée sur GitHub](https://github.com/Pasta-Devs/Marinara-Engine/releases).
+1. Touche [Télécharger le dernier APK Android](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk).
 2. Installe l'APK, puis ouvre l'application.
 3. Appuie sur le bouton **Install / Start Marinara** (installer / démarrer Marinara).
 4. Si Termux n'est pas encore installé, approuve les demandes d'installation d'Android pour que l'application puisse télécharger et installer Termux depuis F-Droid.
 5. Quand Android le demande, accorde la permission **Run commands in Termux environment** (exécuter des commandes dans l'environnement Termux).
 6. Si Termux bloque la configuration, l'application copie pour toi une commande `allow-external-apps`. Colle cette commande une fois dans Termux, puis appuie de nouveau sur **Install / Start Marinara**.
 7. Patiente pendant que Termux installe les dépendances et compile Marinara. La première compilation prend quelques minutes.
-8. L'application ouvre Marinara dès que le serveur local est prêt.
+8. Reviens dans l'application Marinara Engine lorsque Termux a terminé. L'application se connecte et s'authentifie automatiquement dès que le serveur local est prêt.
 
-Si tu préfères une icône sur l'écran d'accueil qui ouvre Marinara comme une application ordinaire, cette même application Android te la fournit. Ce n'est qu'une enveloppe autour du serveur Termux : le serveur doit donc être configuré d'abord. Elle ne peut pas passer outre les demandes d'installation et de permission d'Android.
+Si tu préfères une icône sur l'écran d'accueil qui ouvre Marinara comme une application ordinaire, cette même application Android te la fournit. Ce n'est qu'une enveloppe autour du serveur Termux : le serveur doit donc être configuré d'abord. Elle ne peut pas passer outre les demandes d'installation et de permission d'Android, mais elle ne te demande de configurer aucun secret d'installation Marinara.
 
 ## Installer à la main dans Termux
 

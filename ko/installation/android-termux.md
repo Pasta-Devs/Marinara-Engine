@@ -6,24 +6,24 @@
 
 Termux는 휴대폰에 작은 Linux 시스템과 명령줄을 만들어 주는 무료 앱입니다. Marinara Engine은 Android 네이티브 앱이 아니라 Linux 서버라서 Termux가 필요합니다.
 
-F-Droid는 Android용 무료 오픈 소스 앱 스토어입니다. Termux는 F-Droid에서 설치합니다.
+F-Droid는 Android용 무료 오픈 소스 앱 스토어입니다. Marinara 자동 설정은 안정적인 Termux F-Droid 빌드를 다운로드합니다. Termux에는 별도의 실험적인 Google Play 빌드도 있습니다. 이미 설치되어 있다면 Marinara가 공식 서명자를 인식하지만 이 가이드에서는 여전히 F-Droid를 권장합니다.
 
-Termux는 여기에서 설치하세요: [F-Droid의 Termux](https://f-droid.org/en/packages/com.termux/). Play Store 버전의 Termux는 사용하지 마세요. 버전이 오래되어 Marinara와 함께 동작하지 않습니다.
+Termux는 여기에서 설치하세요: [F-Droid의 Termux](https://f-droid.org/en/packages/com.termux/). 서명이 일치해야 하므로 Termux나 플러그인 앱을 서로 다른 출처에서 섞지 마세요. 출처별 자세한 내용은 [Termux 공식 설치 안내](https://github.com/termux/termux-app#installation)를 참고하세요.
 
 ## Android 앱(APK)으로 설치하기
 
-가장 간단한 방법은 Marinara Engine Android 앱을 쓰는 것입니다. APK는 Android 앱 설치 파일입니다. 이 앱은 작은 도우미 역할을 합니다. Termux를 대신 설정해 주고, 로컬 서버가 켜지면 Marinara를 열어 줍니다. 실제 작업은 여전히 Termux가 하기 때문에 Android가 몇 가지 확인 창을 띄웁니다.
+가장 간단한 방법은 Marinara Engine Android 앱을 쓰는 것입니다. APK는 Android 앱 설치 파일입니다. 이 앱은 작은 도우미 역할을 합니다. Termux를 대신 설정해 주고, 로컬 서버가 켜지면 Marinara를 열어 줍니다. 실제 작업은 여전히 Termux가 하기 때문에 Android가 몇 가지 시스템 확인 창을 띄웁니다. 미리 빌드된 APK 설치에는 서명 키, 비밀번호, 로컬 접근 비밀 값, `CSRF_TRUSTED_ORIGINS` 변경이 필요하지 않습니다. 앱이 비공개 localhost 인증 정보를 자동으로 생성하고 교환합니다. `CSRF_TRUSTED_ORIGINS`에 `null`을 추가하지 마세요. 의도적으로 설정되지 않은 값으로 취급되며 APK 핸드셰이크에 필요하지 않습니다.
 
-1. [최신 GitHub 릴리스](https://github.com/Pasta-Devs/Marinara-Engine/releases)에서 Android APK를 다운로드하세요.
+1. [최신 Android APK 다운로드](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)를 누르세요.
 2. APK를 설치한 다음 앱을 여세요.
 3. **Install / Start Marinara**(Marinara 설치/시작)를 누르세요.
 4. Termux가 아직 설치되어 있지 않다면 Android의 설치 확인 창을 승인하세요. 그래야 앱이 F-Droid에서 Termux를 다운로드해 설치할 수 있습니다.
 5. Android가 물어보면 **Run commands in Termux environment**(Termux 환경에서 명령 실행) 권한을 허용하세요.
 6. Termux가 설정을 막는다면 앱이 `allow-external-apps` 명령을 대신 복사해 줍니다. 그 명령을 Termux에 한 번 붙여넣은 다음 **Install / Start Marinara**를 다시 누르세요.
 7. Termux가 의존성을 설치하고 Marinara를 빌드할 때까지 기다리세요. 첫 빌드는 몇 분 걸립니다.
-8. 로컬 서버가 준비되면 앱이 Marinara를 열어 줍니다.
+8. Termux 작업이 끝나면 Marinara Engine 앱으로 돌아오세요. 로컬 서버가 준비되면 앱이 자동으로 연결하고 로그인합니다.
 
-일반 앱처럼 홈 화면 아이콘으로 Marinara를 열고 싶다면 이 Android 앱이 그 아이콘을 제공합니다. Termux 서버를 감싸는 껍데기이므로 서버를 먼저 설정해야 합니다. Android의 설치 확인 창과 권한 요청을 건너뛰지는 못합니다.
+일반 앱처럼 홈 화면 아이콘으로 Marinara를 열고 싶다면 이 Android 앱이 그 아이콘을 제공합니다. Termux 서버를 감싸는 껍데기이므로 서버를 먼저 설정해야 합니다. Android의 설치 확인 창과 권한 요청을 건너뛰지는 못하지만 Marinara 설치 비밀 값을 설정하라고 요구하지 않습니다.
 
 ## Termux에서 직접 설치하기
 

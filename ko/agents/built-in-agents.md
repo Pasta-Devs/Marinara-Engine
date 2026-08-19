@@ -1,6 +1,6 @@
 # 다운로드 가능한 에이전트 레퍼런스
 
-이 가이드에서는 **Agents → Download Agents**(에이전트 → 에이전트 다운로드)에서 받을 수 있는 공식 패키지 30개를 카테고리별로 소개합니다. 에이전트는 갓 설치한 Marinara Engine에 들어 있지 않습니다. 패키지 소스, 매니페스트, 아티팩트, 기계가 읽을 수 있는 카탈로그는 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)에 공개되어 있습니다. 각 에이전트가 무슨 일을 하고, 언제 실행되거나 어디에 연동되며, 어떤 채팅 모드에서 쓸 수 있고, 주요 설정이 무엇인지 정리했습니다. 설치와 활성화 방법은 [에이전트: 채팅을 도와주는 AI](agents-overview.md)를 먼저 읽어 보세요.
+이 가이드에서는 **Agents → Download Agents**(에이전트 → 에이전트 다운로드)에서 받을 수 있는 공식 패키지 36개를 카테고리별로 소개합니다. 에이전트는 갓 설치한 Marinara Engine에 들어 있지 않습니다. 패키지 소스, 매니페스트, 아티팩트, 기계가 읽을 수 있는 카탈로그는 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)에 공개되어 있습니다. 각 에이전트가 무슨 일을 하고, 언제 실행되거나 어디에 연동되며, 어떤 채팅 모드에서 쓸 수 있고, 주요 설정이 무엇인지 정리했습니다. 설치와 활성화 방법은 [에이전트: 채팅을 도와주는 AI](agents-overview.md)를 먼저 읽어 보세요.
 
 ## 이 문서를 읽는 법
 
@@ -70,7 +70,7 @@ Knowledge Retrieval보다 비용이 적게 드는 대안입니다. 요약하는 
 
 ## Tracker 에이전트
 
-Tracker 에이전트는 장면, 캐릭터, 스탯의 현재 상태를 계속 기록합니다. 최신 기록을 프롬프트에 한 섹션으로 넣으면 모델이 앞뒤 내용을 일관되게 유지합니다. 아래 트래커 중 다섯 개는 **Add as Prompt Section**이 기본으로 켜져 있습니다. World State, Quest Tracker, Character Tracker, Persona Stats, Custom Tracker입니다. Expression Engine과 Background만 예외입니다.
+Tracker 에이전트는 장면, 캐릭터, 스탯의 현재 상태를 계속 기록합니다. 최신 기록을 프롬프트에 한 섹션으로 넣으면 모델이 앞뒤 내용을 일관되게 유지합니다. World State, Quest Tracker, Character Tracker, Persona Stats, Custom Tracker, Inventory Tracker, Beholder는 **Add as Prompt Section**이 기본으로 켜져 있습니다. Expression Engine과 Background만 예외입니다.
 
 ### World State
 
@@ -114,6 +114,16 @@ Tracker 에이전트는 장면, 캐릭터, 스탯의 현재 상태를 계속 기
 - **사용 가능한 곳**: Roleplay.
 - **주요 설정**: **Add as Prompt Section**(기본 켜짐), 그리고 선택 사항인 **Auto-Generate NPC Avatars**(NPC 아바타 자동 생성) 설정(전용 이미지 연결 선택기가 따로 있습니다).
 
+### Beholder
+
+각 캐릭터의 현재 의상을 신체 부위별로 추적하고, 들고 있는 물건, 상처, 없어진 신체 부위, 명시적으로 드러난 부위, 인간이 아닌 종족도 기록합니다. 최근 검증된 스냅샷은 Beholder의 Roleplay Chat Settings 서랍에 표시되며, 다음 Beholder 추적 호출과 다음 Roleplay 기본 응답 모두에 전달됩니다.
+
+- **단계**: Post-Processing.
+- **사용 가능한 곳**: Roleplay 전용.
+- **주요 설정**: **Chat Settings → Agents → Tracker Agents**에서 추가하거나 제거하세요. 같은 위치에서 **Configure Beholder**를 열어 연결, 모델, 프롬프트, 컨텍스트, 출력 제한을 선택할 수 있습니다. **Add as Prompt Section**은 기본으로 켜져 있습니다.
+- **권장 모델**: 전체 상태를 안정적으로 추적하려면 OpenAI GPT-5.5+, Claude Opus 4.8+, Kimi K3+ 같은 SOTA 모델을 사용하세요.
+- **출처**: AGPL-3.0-only 라이선스의 [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME)를 Engine의 네이티브 Agent 런타임에 맞게 적용했습니다. 공식 패키지는 기존 확장 기능의 DOM, 폴링 또는 로컬 저장소 런타임을 불러오지 않습니다.
+
 ### Persona Stats
 
 포만도, 기력, 청결도처럼 내 캐릭터의 상태 바를 기록하며, 직접 추가한 상태 바도 함께 관리합니다. 생존물이나 생활 시뮬레이션 스타일 플레이에 어울립니다.
@@ -129,6 +139,14 @@ Tracker 에이전트는 장면, 캐릭터, 스탯의 현재 상태를 계속 기
 - **단계**: Post-Processing.
 - **사용 가능한 곳**: Roleplay.
 - **주요 설정**: **Add as Prompt Section**(기본 켜짐).
+
+### Inventory Tracker
+
+돈, 장착 장비, 소지품을 세 가지 구조화 목록으로 추적합니다. Persona Stats 인벤토리를 재사용하거나 데이터를 Custom Tracker 문자열로 압축하지 않습니다. 같은 이름은 합치고, 수량이 하나인 항목은 간결하게 표시하며, 잠근 행은 이후 추적 작업에서도 바뀌지 않습니다.
+
+- **단계**: Post-Processing(후처리).
+- **작동 모드**: Roleplay.
+- **주요 설정**: **Add as Prompt Section**은 기본으로 켜져 있습니다. HUD와 Tracker Panel에서 모든 이름과 수량을 편집하고 잠글 수 있습니다.
 
 ### World Maps
 
@@ -150,6 +168,16 @@ Misc 에이전트는 이미지, 음악, 관객 반응, 카드 업데이트 같�
 - **단계**: Parallel.
 - **사용 가능한 곳**: Roleplay.
 - **주요 설정**: **AO3 / Wattpad**, **Twitter / Reddit**, **4chan**, **Constructive**, **Hype Squad**, **Harbingers** 같은 이름 붙은 스타일 중에서 하나를 고릅니다. 위젯 안에는 **Re-run Echo Chamber**(에코 챔버 다시 실행)와 **Clear messages**(메시지 지우기) 조작 버튼이 있습니다.
+
+### Noodle
+
+Noodle 공개 타임라인과 크리에이터 및 팬 역할극 피드인 NoodleR로 이루어진 선택형 로컬 소셜 세상을 추가합니다. 일반 채팅 에이전트 파이프라인에서 실행되지 않고 전용 Home 탭에서 열립니다.
+
+- **통합 방식**: 기능 패키지로, Home 탭과 로컬 경로, 생성 및 미디어 흐름, 백그라운드 스케줄러를 제공합니다.
+- **작동 위치**: Home. 필요하면 Conversation, Roleplay, Game 채팅의 맥락을 가져올 수 있습니다.
+- **주요 설정**: **Agents → Download Agents**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작하세요. Noodle 안에서 초대 계정, 텍스트 및 이미지 연결, 타임라인 새로 고침, NoodleR Creator 프로필, 시뮬레이션 게시물 접근, 독자 활동을 설정할 수 있습니다.
+- **데이터 수명 주기**: 제거하면 Home 탭이 사라지고 다시 시작한 뒤 패키지 경로와 스케줄러가 멈추지만, 기존 Noodle 및 NoodleR 데이터는 나중에 다시 설치할 수 있도록 보존됩니다.
+- **전체 안내서**: [Noodle: 앱 안의 소셜 타임라인](../noodle/overview.md).
 
 ### Long-Term Memory
 
@@ -206,8 +234,8 @@ Misc 에이전트는 이미지, 음악, 관객 반응, 카드 업데이트 같�
 이야기를 읽고 Intiface Central을 통해 연결된 성인용 토이를 실시간으로 제어합니다. 이 에이전트를 켜기 전에 Intiface Central이 실행 중이고 토이가 연결되어 있어야 합니다.
 
 - **단계**: Post-Processing.
-- **사용 가능한 곳**: Roleplay.
-- **주요 설정**: **Touch Sensitivity**(터치 감도) 선택(**Subtle**, **Standard**, **Intense**)과 **Intiface URL** 입력란. 전체 설정 방법은 [Haptic Feedback 설정](../integrations/haptic-feedback.md)에서 설명합니다.
+- **사용 가능한 곳**: Conversation, Roleplay, Game.
+- **주요 설정**: **Touch Sensitivity**(터치 감도) 선택(**Subtle**, **Standard**, **Intense**)과 **Intiface URL** 입력란. 감도는 사용할 수 있는 `0.0-1.0` 강도 범위를 제한하지 않으면서 에이전트의 선택을 안내합니다. 전체 설정 방법은 [Haptic Feedback 설정](../integrations/haptic-feedback.md)에서 설명합니다.
 
 ### CYOA Choices
 

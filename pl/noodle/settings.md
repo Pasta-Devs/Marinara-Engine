@@ -79,6 +79,24 @@ Kiedy **Refreshes/day** ma wartość powyżej 0, Marinara dzieli dobę na równe
 
 Automatyczne odświeżenia działają wewnątrz serwera Marinara. Strona Noodle nie musi być otwarta, ale sama aplikacja Marinara Engine musi działać. Jeśli odświeżenie się nie uda, harmonogram pokazuje błąd i ponawia próbę później, a po kolejnych niepowodzeniach czeka coraz dłużej. Jeśli kilka zaplanowanych godzin przepadnie, jedno udane odświeżenie nadrabiające pokrywa je wszystkie, zamiast zalewać oś czasu.
 
+## Automatyczne publikowanie w NoodleR
+
+To harmonogram oddzielny od sekcji **Refresh** powyżej. **Refresh** obsługuje publiczną oś czasu Noodle, a ten harmonogram — twórców NoodleR. Pojawia się w **Noodle Settings** > **Publishing** po włączeniu **Enable NoodleR**.
+
+Zamiast publikować o pełnej godzinie, NoodleR przygotowuje posty z wyprzedzeniem w małej rezerwie i publikuje każdy w zaplanowanym czasie. Dlatego twórca może pokazywać czas następnego posta, zanim sam post powstanie.
+
+- **Automatic posting schedule**: przełącznik, domyślnie **on**. Wyłączenie zatrzymuje całe automatyczne publikowanie w NoodleR. Przygotowane posty, których termin minie w tym czasie, zostaną wycofane zamiast opublikowane z opóźnieniem.
+- **Posts/day**: liczba od 1 do 24, domyślnie **4**. Dzienny limit automatycznych prób tekstowych; ten sam limit dotyczy prób obrazowych. Ręczne publikowanie i **Refresh NoodleR now** nie są wliczane.
+- **Night quiet**: przełącznik, domyślnie **on**. Twórcy powiązani z **postacią** nie dostają terminów między 23:00 a 07:00 czasu lokalnego. Twórcy powiązani z personą nie podlegają temu ograniczeniu.
+- **Text attempts** oraz **Image attempts**: pola tylko do odczytu pokazujące dzisiejsze użycie limitu **Posts/day**.
+- **Prepared posts**: pole tylko do odczytu pokazujące liczbę postów w rezerwie i najpóźniejszy zaplanowany termin.
+- **Refresh all now**: od razu pisze po jednym poście dla każdego twórcy z włączonym **Automatic**. Twórcy z wyłączoną opcją nie są uwzględniani ani zgłaszani; zajęci są pomijani. Taki post wycofuje przygotowany post tego twórcy przypadający w ciągu następnej godziny.
+- **Per creator**: każdy wiersz ma przełączniki **Automatic** i **Images**. Twórcy utworzeni poza konfiguracją prowadzoną zaczynają z oboma na **off**; konfiguracja prowadzona stosuje wybrane tam wartości. Wyłączenie **Automatic** pozostawia tylko publikowanie ręczne.
+
+Automatyczne odpowiedzi twórców mają osobny limit 10 odpowiedzi w ruchomych 24 godzinach dla całej instalacji, wspólny dla wszystkich twórców, a nie po 10 na twórcę.
+
+Automatyczne publikowanie działa na serwerze Marinara Engine. Aplikacja musi działać, ale strona NoodleR nie musi pozostawać otwarta.
+
 ## Active Accounts
 
 Sekcja **Active Accounts** (aktywne konta) ustala, ile uprawnionych kont bierze udział w jednym odświeżeniu. Uprawnione konta to zaproszone postacie, postacie dołączone przez folder oraz losowi użytkownicy, jeśli zostali włączeni.
@@ -196,6 +214,12 @@ Ta tabela wypisuje każde ustawienie Noodle razem z wartością domyślną i zak
 | **Generation connection** | brak | dowolne połączenie tekstowe (wymagane do odświeżenia) |
 | **Professor Mari participates** | on | on lub off |
 | **Refreshes/day** | 2 | 0 do 24 (0 wyłącza automatyczne odświeżenia) |
+| **Automatic posting schedule** | on | on lub off |
+| **Posts/day** | 4 | 1 do 24 |
+| **Night quiet** | on | twórcy-postacie pomijają 23:00–07:00 |
+| **Automatic** dla twórcy | off | konfiguracja prowadzona może je włączyć |
+| **Images** dla twórcy | off | konfiguracja prowadzona może je włączyć |
+| Automatyczne odpowiedzi twórców | 10 na 24 godziny | dla całej instalacji, nie na twórcę |
 | **Active selection** | Random range | Random range, Exact count, All invited |
 | **Min active** | 2 | 1 do 100 (tylko przy Random range) |
 | **Max active** | 5 | 1 do 100 (tylko przy Random range) |

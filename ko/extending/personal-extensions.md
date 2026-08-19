@@ -8,6 +8,8 @@ Personal Extensions(개인 확장)는 Professor Mari가 만들어 주는 비공�
 
 이 섹션에는 새 초안을 만드는 동작도, 가져오기 컨트롤도 없습니다. 초안을 만들거나 고치는 일은 Professor Mari에게 요청하세요. Professor Mari는 코드를 저장할 수 있을 뿐, 승인하거나 활성화할 수는 없습니다.
 
+직접 패키지를 작성하고 가져오려면 [개인 확장 작성 안내서](writing-personal-extensions.md)를 이용하세요. 직접 만든 패키지는 별도로 권한을 확인하는 External Extensions 흐름을 사용합니다.
+
 ## 검토와 활성화
 
 모든 초안은 비활성화 상태로 시작합니다. Marinara는 실행될 코드 그 자체를 SHA-256으로 지문화합니다. 초안을 열어 코드를 살펴보고, 화면에 표시된 해시를 대조한 다음, 그 버전을 그대로 받아들일 때만 **Review and Run**(검토 및 실행)을 선택하세요. 실행 코드를 조금이라도 수정하거나 이전 개정판을 되살리면 확장이 비활성화되고 승인을 처음부터 다시 받아야 합니다.
@@ -62,7 +64,24 @@ const panel = marinara.ui.registerContribution({
 marinara.onCleanup(() => panel.remove());
 ```
 
-상단 막대나 Extensions 메뉴에 들어가는 간단한 동작에는 `kind: "button"`을, 메뉴에만 넣을 동작에는 `kind: "menu-item"`을 쓰세요. 둘 다 `onActivate`를 호출합니다. `panel`은 열릴 때 `onActivate`를 호출하고, 패널 안의 버튼은 모든 컨트롤의 현재 값을 담아 `onEvent`를 호출합니다. 반환된 핸들로는 `update({ label?, description?, icon?, elements? })`와 `remove()`를 쓸 수 있습니다. ID에는 영문자, 숫자, `.`, `_`, `-`를 넣을 수 있습니다.
+간단한 동작에는 `kind: "button"`을, Extensions 메뉴 동작에는 `kind: "menu-item"`을 쓰세요. 버튼의 기본값은 `surface: "top-bar"`입니다. 대신 `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents`, `settings`를 대상으로 삼고 `position`을 `header`, `before-content`, `after-content`로 설정할 수 있습니다. `icon`에는 Marinara가 지원하는 kebab-case Lucide 아이콘 이름을 쓸 수 있습니다. 두 동작 모두 `onActivate`를 호출합니다. `panel`은 열릴 때 `onActivate`를 호출하며 버튼은 모든 패널 컨트롤의 현재 값과 함께 `onEvent`를 호출합니다. 핸들은 종류별 업데이트를 지원합니다. `button`은 `label`, `description`, `icon`, `surface`, `position`을, `menu-item`은 `label`, `description`, `icon`을, `panel`은 `label`, `description`, `icon`, `elements`를 받습니다. 모든 핸들은 `remove()`를 지원합니다. ID에는 영문자, 숫자, `.`, `_`, `-`를 넣을 수 있습니다.
+
+다음 예시는 Presets 패널 내용 위에 네이티브 동작을 배치합니다.
+
+```js
+marinara.ui.registerContribution({
+  id: "preset-helper",
+  kind: "button",
+  label: "Preset helper",
+  description: "Run the preset helper",
+  icon: "list-sparkles",
+  surface: "presets",
+  position: "before-content",
+  onActivate: () => {
+    // Run extension behavior here.
+  },
+});
+```
 
 복잡한 도구라면 이벤트가 발생한 뒤 패널 요소를 갱신하는 식으로 여러 단계짜리 화면을 만들 수 있습니다. 앱의 상태는 `marinara.storage`에 두세요. 마크업 안에 상태를 심지 마세요.
 
@@ -184,6 +203,7 @@ Windows와 Android에는 지원되는 운영체제 프로세스 샌드박스가 
 
 ## 관련 가이드
 
+- [개인 확장 작성하기](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [서버 설정 참고 문서](../CONFIGURATION.md)
 - [Marinara 백업과 복원](../data/backup-and-restore.md)

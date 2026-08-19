@@ -11,12 +11,24 @@ storage/
 ├── manifest.json
 └── tables/
     ├── chats.json
-    ├── messages.json
     ├── characters.json
+    ├── messages/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── message_swipes/
+    │   └── <encoded-chat-id>.json
     └── ...
 ```
 
 A variável `FILE_STORAGE_DIR` permite trocar a pasta `storage` por outra. Cada arquivo de tabela contém um array JSON. O arquivo `manifest.json` registra a versão do formato de armazenamento, a hora em que os dados foram salvos, o identificador do backend e a contagem de linhas de cada tabela registrada.
+
+### Tabelas fragmentadas
+
+As tabelas vinculadas a chats que recebem gravações a cada turno são armazenadas como **um arquivo por chat**, em vez de um único arquivo grande. Em um arquivo monolítico, cada linha salva serializaria e regravaria todo o histórico de todos os chats. O formato de armazenamento 3 fragmentou `messages` e `message_swipes`; o formato 4 estende o mesmo layout a `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences` e `conversation_notes`. A lista oficial é `SHARDED_TABLES` em `file-backed-store.ts`, espelhada pelo comando offline `unshard` em `scripts/protect-launcher-data.mjs`; um teste de regressão mantém as duas listas em sintonia. Cada tabela resolve seu fragmento pela própria coluna `chatId`, com duas exceções: `message_swipes` passa pela mensagem pai, e influências e notas usam `targetChatId`. `lorebooks` e `game_turn_storyboard_keyframes` permanecem monolíticas de propósito.
+
+O rastreamento de alterações funciona por arquivo de chat, então uma descarga só toca nos chats modificados. Um fragmento cuja contagem de linhas chega a zero é apagado, em vez de ser gravado como uma matriz vazia. Os nomes de arquivo são codificados em porcentagem a partir do id do chat, com alternativas por hash para nomes longos demais ou reservados. Essa codificação é um limite de segurança, pois perfis importados podem conter ids arbitrários. Os arquivos são apenas contêineres; as linhas mantêm suas próprias chaves.
+
+Na primeira inicialização de uma compilação com tabelas recém-fragmentadas, os arquivos monolíticos existentes migram automaticamente: as linhas são agrupadas por chat e gravadas em fragmentos; depois, o arquivo monolítico **e seu `.bak`** são renomeados para `.pre-shard`. Esses arquivos são o backup automático anterior à migração e o Engine nunca os apaga. Um marcador `.migrating` torna a recuperação após falha determinística. Se uma compilação antiga recriar depois um arquivo monolítico ao lado dos fragmentos, os fragmentos prevalecem e o arquivo conflitante é isolado com um sufixo `.post-downgrade-` com data e hora, sem jamais ser mesclado. Linhas filhas órfãs vão para o fragmento `orphaned-rows` em vez de serem descartadas. Um manifesto escrito por um formato de armazenamento mais novo se recusa a carregar.
 
 ## Modelo de execução
 

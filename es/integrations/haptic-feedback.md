@@ -8,7 +8,7 @@ La respuesta háptica permite que un personaje de IA envíe señales de contacto
 
 **Intiface Central** usa un protocolo de dispositivos llamado **Buttplug.io**. Es el mismo estándar abierto que muchos juguetes y otras apps admiten. Instalas **Intiface Central** una vez, emparejas tu dispositivo con ella, y Marinara se conecta a ella a través de una dirección de red local.
 
-La respuesta háptica está construida como uno de los **Agents** (Agentes) del chat, los ayudantes de IA que puedes agregar a un chat. Funciona en Conversation Mode y en Roleplay Mode. No está disponible en Game Mode.
+La respuesta háptica está construida como uno de los **Agents** (Agentes) del chat, los ayudantes de IA que puedes agregar a un chat. Funciona en los modos Conversation, Roleplay y Game.
 
 ## Antes de empezar
 
@@ -29,7 +29,7 @@ Si **Intiface Central** no se está ejecutando con su servidor iniciado, Marinar
 
 Agregas la respuesta háptica de la misma forma en que agregas cualquier otro agente, desde los ajustes del chat.
 
-1. Abre un chat de Conversation o de Roleplay. La respuesta háptica no se ofrece en Game Mode.
+1. Abre un chat de Conversation, Roleplay o Game.
 2. Abre **Chat Settings** (Ajustes del chat) para ese chat.
 3. Ve a la sección **Agents**.
 4. Agrega el agente **Haptic Feedback** al chat.
@@ -51,6 +51,14 @@ Si falla, ves un mensaje que dice que la app no pudo conectarse. Te pide que te 
 
 Una vez conectado, la tarjeta muestra cuántos dispositivos se encuentran. Dice "No devices found" (No se encontraron dispositivos) cuando no hay ninguno conectado, o el número de dispositivos cuando hay algunos. Haz clic en **Scan for devices** (Escanear dispositivos) para buscar de nuevo. El botón dice "Scanning..." (Escaneando...) mientras se ejecuta un escaneo. La tarjeta enumera cada dispositivo con su nombre y las acciones que admite, como vibrar o rotar.
 
+Marinara también entrega al Haptic Agent el nombre exacto de Intiface, un tipo de juguete derivado de sus capacidades y las acciones compatibles. Así puede elegir el dispositivo y la acción correctos en lugar de suponer que todos los juguetes son vibradores.
+
+## Acciones y patrones compatibles
+
+Marinara usa todos los tipos de salida que Intiface declara para un dispositivo conectado: vibración, rotación, oscilación, constricción, inflado, posición lineal, temperatura, rociado e iluminación. La posición lineal controla dispositivos que acarician, empujan o bombean; el inflado controla dispositivos de bombeo por presión de aire.
+
+El agente puede aplicar los patrones **Steady**, **Tap**, **Pulse**, **Wave**, **Ramp** o **Impact** a cualquier acción que no sea detener. Los patrones posicionales alternan objetivos reales de movimiento, de modo que un patrón de bombeo o empuje se ejecuta a lo largo del tiempo en vez de enviar varios movimientos a la vez.
+
 ### El campo Intiface URL
 
 El campo **Intiface URL** contiene la dirección de red de tu servidor de **Intiface Central**. Es una dirección WebSocket, que es solo un enlace local que las dos apps usan para comunicarse. El valor predeterminado se muestra a continuación.
@@ -69,23 +77,23 @@ ws://192.168.1.50:12345
 
 ## Sensibilidad al contacto
 
-En un chat de Roleplay, la tarjeta **Haptic Feedback** muestra un control de **Touch sensitivity** (Sensibilidad al contacto) con tres opciones. Una pequeña nota "Roleplay only" (Solo Roleplay) aparece junto a él. Este control solo afecta a los chats de Roleplay. En otros modos, el ajuste de sensibilidad se ignora, y las señales no están limitadas por estos presets.
+La tarjeta **Haptic Feedback** muestra un control de **Touch sensitivity** (Sensibilidad al contacto) con tres opciones en todos los modos de chat. La sensibilidad orienta la facilidad con la que el agente elige una salida suave o fuerte; no impone un tope rígido. Todas las opciones pueden usar el rango completo de intensidad del dispositivo, `0.0-1.0`, cuando la acción lo requiere.
 
-Las tres opciones establecen qué tan fuerte y qué tan larga puede ser cada señal.
+Las tres opciones orientan el estilo de respuesta del agente.
 
 | Opción | Sensación | Notas |
 |---|---|---|
-| **Subtle** | Menor intensidad y respuesta más corta | La opción más suave |
-| **Standard** | Respuesta equilibrada para la mayoría de las escenas | La predeterminada |
-| **Intense** | Respuesta más fuerte con un tope más alto | La opción más intensa |
+| **Subtle** | Favorece una respuesta más suave | El rango completo sigue disponible |
+| **Standard** | Respuesta equilibrada para la mayoría de las escenas | La predeterminada; rango completo disponible |
+| **Intense** | Elige una respuesta más fuerte con mayor facilidad | Puede usar la salida completa |
 
-**Standard** está seleccionada de forma predeterminada. Elige la que se sienta bien para tu escena. En los chats de Roleplay, Marinara limita cada señal al rango establecido por tu elección. La IA no puede pasarse de ahí.
+**Standard** está seleccionada de forma predeterminada. Elige el estilo de respuesta que se sienta bien para tu escena. Marinara sigue validando todos los comandos contra el rango físico de Intiface, `0.0-1.0`.
 
 ## Contacto incidental
 
-Debajo del control de sensibilidad, los chats de Roleplay también muestran un interruptor **Incidental contact** (Contacto incidental). Dice "Tiny taps for accidental brushes and bumps" (Toques leves para roces y golpes accidentales). Este interruptor está desactivado de forma predeterminada.
+Debajo del control de sensibilidad, todos los modos de chat también muestran un interruptor **Incidental contact** (Contacto incidental). Dice "Tiny taps for accidental brushes and bumps" (Toques leves para roces y golpes accidentales). Este interruptor está desactivado de forma predeterminada.
 
-Cuando está desactivado, la IA ignora los pequeños contactos accidentales en la historia. Solo envía señales para el contacto deliberado o firme. Actívalo si quieres toques leves para los roces y golpes también. Al igual que la sensibilidad al contacto, este control solo aparece en los chats de Roleplay.
+Cuando está desactivado, la IA ignora los pequeños contactos accidentales en la historia. Solo envía señales para el contacto deliberado o firme. Actívalo si quieres toques leves para los roces y golpes también.
 
 ## Usarlo desde otro dispositivo
 

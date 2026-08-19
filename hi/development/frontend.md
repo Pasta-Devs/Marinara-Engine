@@ -587,6 +587,7 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 | `character-tracker`      | post_processing | कैरेक्टर की स्टेट में बदलाव पर नज़र रखता है                          |
 | `persona-stats`          | post_processing | प्लेयर पर्सोना के स्टैट बदलाव पर नज़र रखता है                        |
 | `custom-tracker`         | post_processing | आपकी बनाई संरचित स्टेट पर नज़र रखता है                              |
+| `inventory-tracker`      | post_processing | मुद्राओं, पहने हुए गियर और साथ रखे सामान पर नज़र रखता है              |
 | `illustrator`            | post_processing | सीन के इमेज प्रॉम्प्ट और मीडिया रिक्वेस्ट बनाता है                  |
 | `lorebook-keeper`        | post_processing | लोरबुक एंट्री अपने आप बनाता और अपडेट करता है                        |
 | `card-evolution-auditor` | post_processing | कैरेक्टर कार्ड जाँचकर उनमें बदलाव सुझाता है                          |
@@ -610,7 +611,7 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 
 एजेंट टाइप किए हुए रिज़ल्ट बनाते हैं, जिन्हें फ़्रंटएंड संभालता है। `packages/shared/src/types/agent.ts` के `AgentResultType` यूनियन में ये शामिल हैं:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`, और `about_me_update`।
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`, और `about_me_update`।
 
 ## चैट मोड
 

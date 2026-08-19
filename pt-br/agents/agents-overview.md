@@ -8,7 +8,7 @@ Os agentes são pequenos ajudantes de IA que rodam automaticamente em volta da r
 
 Os agentes são ativados por chat, não por personagem. O card de personagem não tem botão liga/desliga de agentes. Dois chats com o mesmo personagem podem rodar agentes completamente diferentes. Você escolhe quais agentes rodam nas configurações de cada chat.
 
-Uma instalação nova do Marinara Engine começa sem nenhum agente opcional. Isso deixa o aplicativo base e a instalação no Termux menores. O catálogo oficial da versão 2.3.0 em diante tem 30 pacotes de um clique: 6 Writer Agents, 8 Tracker Agents e 16 Misc Agents, incluindo Long-Term Memory, Maps, Calls e os seis jogos de Conversation. O código-fonte, os manifestos, os arquivos para download e o catálogo do repositório são públicos em [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). O guia completo de cada agente está em [Referência dos agentes para download](built-in-agents.md). Para criar o seu, veja [Como criar agentes personalizados](custom-agents.md).
+Uma instalação nova do Marinara Engine começa sem nenhum agente opcional. Isso deixa o aplicativo base e a instalação no Termux menores. O catálogo oficial da versão 2.3.0 em diante tem 33 pacotes de um clique: 6 Writer Agents, 9 Tracker Agents e 18 Misc Agents, incluindo Long-Term Memory, Maps, Calls, Inventory Tracker e os seis jogos de Conversation. O código-fonte, os manifestos, os arquivos para download e o catálogo do repositório são públicos em [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). O guia completo de cada agente está em [Referência dos agentes para download](built-in-agents.md). Para criar o seu, veja [Como criar agentes personalizados](custom-agents.md).
 
 ## As três fases
 

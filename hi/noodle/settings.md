@@ -79,6 +79,24 @@ NoodleR हब क्रिएटर पेज हमेशा उसी पर�
 
 ऑटोमैटिक रिफ़्रेश Marinara सर्वर के अंदर चलते हैं। Noodle पेज खुला रखना ज़रूरी नहीं, पर Marinara खुद चलता रहना चाहिए। कोई रिफ़्रेश फ़ेल हो जाए तो शेड्यूल में गड़बड़ी दिखती है और बाद में दोबारा कोशिश होती है, बार-बार फ़ेल होने पर इंतज़ार लंबा होता जाता है। कई तय समय छूट जाएँ तो टाइमलाइन भरने के बजाय एक कामयाब कैच-अप रिफ़्रेश उन सबकी भरपाई कर देता है।
 
+## NoodleR की automatic publishing
+
+यह ऊपर वाले **Refresh** से अलग scheduler है। **Refresh** public Noodle timeline चलाता है, जबकि यह NoodleR creators चलाता है। **Enable NoodleR** on होने पर यह **Noodle Settings** > **Publishing** में दिखता है।
+
+NoodleR ठीक घंटे पर post करने के बजाय posts को पहले से छोटी reserve में तैयार करता है और हर post को उसके तय समय पर publish करता है। इसलिए post बनने से पहले creator का next post time दिख सकता है।
+
+- **Automatic posting schedule**: toggle, default **on**। Off करने पर automatic NoodleR publishing रुकती है। Off रहने के दौरान जिन prepared posts का समय निकल जाए, वे देर से publish होने के बजाय retire हो जाते हैं।
+- **Posts/day**: 1 से 24, default **4**। Automatic text attempts की daily सीमा; automatic image attempts पर भी यही सीमा लागू है। Manual posting और **Refresh NoodleR now** इसमें नहीं गिने जाते।
+- **Night quiet**: toggle, default **on**। **Character** से जुड़े creators को local time 23:00 से 07:00 के बीच समय नहीं मिलता। Persona से जुड़े creators पर असर नहीं पड़ता।
+- **Text attempts** और **Image attempts**: read-only counter, आज के इस्तेमाल को **Posts/day** सीमा के सामने दिखाते हैं।
+- **Prepared posts**: read-only; reserve में posts की संख्या और आखिरी planned time दिखाता है।
+- **Refresh all now**: **Automatic** on वाले हर creator के लिए तुरंत एक post लिखता है। Off वाले creator run में शामिल या report नहीं होते; दूसरे काम में busy creator skip होता है। इससे अगले एक घंटे में उसी creator का due prepared post retire हो जाता है।
+- **Per creator**: हर creator row में **Automatic** और **Images** toggle हैं। Guided setup के बाहर बना creator दोनों में **off** से शुरू होता है; guided setup में वही value मिलती है जो आपने चुनी। **Automatic** off करने पर creator manual-only रहता है।
+
+Automatic creator replies की अलग installation-wide सीमा rolling 24 hours में 10 replies है। यह सभी creators में साझा है, हर creator के लिए 10 नहीं।
+
+Automatic publishing Marinara server में चलती है। Marinara चलना चाहिए, पर NoodleR page खुला रहना ज़रूरी नहीं।
+
 ## Active Accounts (एक्टिव अकाउंट)
 
 **Active Accounts** सेक्शन से तय होता है कि एक रिफ़्रेश में कितने योग्य अकाउंट हिस्सा लेंगे। योग्य अकाउंट यानी आपके इनवाइट किए कैरेक्टर, फ़ोल्डर से शामिल हुए कैरेक्टर, और रैंडम यूज़र अगर आपने उन्हें चालू किया हो।
@@ -196,6 +214,12 @@ Noodle की एक्टिविटी किसी चैट में द�
 | **Generation connection** | कोई नहीं | कोई भी टेक्स्ट कनेक्शन (रिफ़्रेश के लिए ज़रूरी) |
 | **Professor Mari participates** | on | on या off |
 | **Refreshes/day** | 2 | 0 से 24 (0 पर ऑटोमैटिक रिफ़्रेश बंद) |
+| **Automatic posting schedule** | on | on या off |
+| **Posts/day** | 4 | 1 से 24 |
+| **Night quiet** | on | character creators 23:00–07:00 छोड़ते हैं |
+| हर creator का **Automatic** | off | guided setup इसे on कर सकता है |
+| हर creator का **Images** | off | guided setup इसे on कर सकता है |
+| Automatic creator replies | 10 प्रति 24 घंटे | पूरी installation के लिए, हर creator के लिए नहीं |
 | **Active selection** | Random range | Random range, Exact count, All invited |
 | **Min active** | 2 | 1 से 100 (सिर्फ़ Random range में) |
 | **Max active** | 5 | 1 से 100 (सिर्फ़ Random range में) |

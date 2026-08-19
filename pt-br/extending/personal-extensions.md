@@ -8,6 +8,8 @@ A mensagem padrão é:
 
 Nesta seção não existe a ação New Draft nem controles de importação. Peça à Professor Mari para criar ou revisar um rascunho. Ela consegue salvar o código, mas não consegue aprová-lo nem ativá-lo.
 
+Para escrever e importar seu próprio pacote, use o [guia de criação de extensões pessoais](writing-personal-extensions.md). Pacotes criados por você passam pelo fluxo External Extensions, que tem uma autorização separada.
+
 ## Revisar e ativar
 
 Todo rascunho começa desativado. Marinara gera uma impressão digital SHA-256 do código executável exato. Abra o rascunho, examine o código, compare o hash exibido e só então escolha **Review and Run** (revisar e executar), se você aceitar aquela versão exata. Qualquer alteração no código executável, ou a restauração de uma revisão, desativa a extensão e exige uma nova aprovação.
@@ -62,7 +64,24 @@ const panel = marinara.ui.registerContribution({
 marinara.onCleanup(() => panel.remove());
 ```
 
-Use `kind: "button"` para uma ação compacta na barra superior ou no menu Extensions, e `kind: "menu-item"` para uma ação que só aparece no menu. Os dois chamam `onActivate`. Um `panel` chama `onActivate` ao ser aberto; os botões dele chamam `onEvent` com os valores atuais de todos os controles do painel. O identificador retornado aceita `update({ label?, description?, icon?, elements? })` e `remove()`. Os IDs podem conter letras, números, `.`, `_` e `-`.
+Use `kind: "button"` para uma ação compacta e `kind: "menu-item"` para uma ação no menu Extensions. Os botões usam `surface: "top-bar"` por padrão. Eles também podem apontar para `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` ou `settings`, com `position` definido como `header`, `before-content` ou `after-content`. `icon` aceita qualquer nome Lucide em kebab-case compatível com o Marinara. Os dois tipos de ação chamam `onActivate`. Um `panel` chama `onActivate` ao abrir; seus botões chamam `onEvent` com os valores atuais dos controles. O identificador permite atualizações específicas por tipo: `button` aceita `label`, `description`, `icon`, `surface` e `position`; `menu-item` aceita `label`, `description` e `icon`; `panel` aceita `label`, `description`, `icon` e `elements`. Todos aceitam `remove()`. Os IDs podem conter letras, números, `.`, `_` e `-`.
+
+Por exemplo, isto coloca uma ação nativa acima do conteúdo do painel Presets:
+
+```js
+marinara.ui.registerContribution({
+  id: "preset-helper",
+  kind: "button",
+  label: "Preset helper",
+  description: "Run the preset helper",
+  icon: "list-sparkles",
+  surface: "presets",
+  position: "before-content",
+  onActivate: () => {
+    // Run extension behavior here.
+  },
+});
+```
 
 Ferramentas complexas montam interfaces de várias etapas atualizando os elementos do painel depois de um evento. Mantenha o estado da aplicação em `marinara.storage`; não o codifique na marcação.
 
@@ -184,6 +203,7 @@ Se uma extensão se comportar mal, escolha **Disable** (desativar). Se a interfa
 
 ## Guias relacionados
 
+- [Como escrever extensões pessoais](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [Configuração do servidor](../CONFIGURATION.md)
 - [Fazer backup e restaurar Marinara](../data/backup-and-restore.md)

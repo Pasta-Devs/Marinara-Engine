@@ -8,7 +8,7 @@ Le retour haptique permet à un personnage IA d'envoyer des signaux tactiles à 
 
 **Intiface Central** utilise un protocole d'appareil appelé **Buttplug.io**. C'est le même standard ouvert que prennent en charge de nombreux jouets et d'autres applications. Tu installes **Intiface Central** une seule fois, tu y associes l'appareil, et Marinara s'y connecte via une adresse réseau locale.
 
-Le retour haptique est l'un des **Agents** du chat, ces assistants IA qui viennent s'ajouter à un chat. Il fonctionne en mode Conversation et en mode Roleplay. Il n'est pas disponible en Game Mode.
+Le retour haptique est l'un des **Agents** du chat, ces assistants IA qui viennent s'ajouter à un chat. Il fonctionne dans les modes Conversation, Roleplay et Game.
 
 ## Avant de commencer
 
@@ -29,7 +29,7 @@ Si **Intiface Central** n'est pas lancé avec son serveur démarré, Marinara ne
 
 L'ajout du retour haptique se fait comme pour n'importe quel autre agent, depuis les réglages du chat.
 
-1. Ouvre un chat en mode Conversation ou Roleplay. Le retour haptique n'est pas proposé en Game Mode.
+1. Ouvre un chat en mode Conversation, Roleplay ou Game.
 2. Ouvre **Chat Settings** (réglages du chat) pour ce chat.
 3. Va dans la section **Agents**.
 4. Ajoute l'agent **Haptic Feedback** au chat.
@@ -51,6 +51,14 @@ En cas d'échec, un message signale que l'application n'a pas pu se connecter. I
 
 Une fois la connexion établie, l'encart indique combien d'appareils ont été trouvés. Il affiche "No devices found" quand aucun n'est branché, ou le nombre d'appareils le cas échéant. Clique sur **Scan for devices** (rechercher des appareils) pour relancer la recherche. Pendant la recherche, le bouton affiche "Scanning...". L'encart liste chaque appareil avec son nom et les actions qu'il prend en charge, comme vibrer ou tourner.
 
+Marinara transmet aussi au Haptic Agent le nom Intiface exact, un type de jouet déduit des capacités et les actions compatibles. Il peut ainsi choisir le bon appareil et la bonne action au lieu de supposer que tout jouet est un vibrateur.
+
+## Actions et motifs compatibles
+
+Marinara utilise chaque type de sortie qu'Intiface annonce pour un appareil connecté : vibration, rotation, oscillation, constriction, gonflage, position linéaire, température, pulvérisation et éclairage. La position linéaire pilote les appareils de va-et-vient, de poussée ou de pompage ; le gonflage pilote les appareils à pompe pneumatique.
+
+L'agent peut appliquer les motifs **Steady**, **Tap**, **Pulse**, **Wave**, **Ramp** ou **Impact** à toute action autre que l'arrêt. Les motifs de position alternent de véritables cibles de mouvement, si bien qu'un mouvement de pompage ou de poussée se déroule dans le temps au lieu d'envoyer plusieurs mouvements à la fois.
+
 ### Le champ Intiface URL
 
 Le champ **Intiface URL** contient l'adresse réseau du serveur **Intiface Central**. C'est une adresse WebSocket, c'est-à-dire un simple lien local que les deux applications utilisent pour communiquer. La valeur par défaut est indiquée ci-dessous.
@@ -69,23 +77,23 @@ ws://192.168.1.50:12345
 
 ## Sensibilité tactile
 
-Dans un chat en mode Roleplay, l'encart **Haptic Feedback** propose un réglage **Touch sensitivity** (sensibilité tactile) avec trois choix. Une petite mention "Roleplay only" l'accompagne. Ce réglage n'agit que sur les chats en mode Roleplay. Dans les autres modes, la sensibilité est ignorée et ces presets ne limitent pas les signaux.
+L'encart **Haptic Feedback** propose un réglage **Touch sensitivity** (sensibilité tactile) avec trois choix dans chaque mode de chat. La sensibilité oriente la tendance de l'agent à choisir une sortie douce ou forte ; elle n'impose pas de plafond strict. Chaque choix peut utiliser toute la plage d'intensité `0.0-1.0` de l'appareil quand l'action l'exige.
 
-Les trois choix déterminent l'intensité et la durée maximales de chaque signal.
+Les trois choix orientent le style de réponse de l'agent.
 
 | Choix | Sensation | Notes |
 |---|---|---|
-| **Subtle** | Intensité plus faible et retour plus court | L'option la plus douce |
-| **Standard** | Retour équilibré, adapté à la plupart des scènes | La valeur par défaut |
-| **Intense** | Retour plus fort, avec un plafond plus élevé | L'option la plus forte |
+| **Subtle** | Favorise un retour plus doux | Toute la plage reste disponible |
+| **Standard** | Retour équilibré pour la plupart des scènes | Par défaut ; toute la plage reste disponible |
+| **Intense** | Choisit plus volontiers un retour fort | Peut utiliser la sortie maximale |
 
-**Standard** est sélectionné par défaut. Choisis celui qui convient à la scène. Dans les chats en mode Roleplay, Marinara limite chaque signal à la plage définie par ton choix. L'IA ne peut pas la dépasser.
+**Standard** est sélectionné par défaut. Choisis le style de réponse qui convient à la scène. Marinara valide toujours chaque commande par rapport à la plage physique `0.0-1.0` d'Intiface.
 
 ## Contacts involontaires
 
-Sous le réglage de sensibilité, les chats en mode Roleplay affichent aussi un interrupteur **Incidental contact** (contacts involontaires). Il indique "Tiny taps for accidental brushes and bumps." Cet interrupteur est désactivé par défaut.
+Sous le réglage de sensibilité, chaque mode de chat affiche aussi un interrupteur **Incidental contact** (contacts involontaires). Il indique "Tiny taps for accidental brushes and bumps." Cet interrupteur est désactivé par défaut.
 
-Quand il est désactivé, l'IA ignore les petits contacts accidentels de l'histoire. Elle n'envoie des signaux que pour un contact délibéré ou appuyé. Active-le si tu veux aussi de légères impulsions pour les frôlements et les chocs. Comme la sensibilité tactile, ce réglage n'apparaît que dans les chats en mode Roleplay.
+Quand il est désactivé, l'IA ignore les petits contacts accidentels de l'histoire. Elle n'envoie des signaux que pour un contact délibéré ou appuyé. Active-le si tu veux aussi de légères impulsions pour les frôlements et les chocs.
 
 ## Utiliser le retour haptique depuis un autre appareil
 

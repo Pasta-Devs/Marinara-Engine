@@ -79,6 +79,24 @@ NoodleR 中心里的创作者页面，永远以当前全局选中的那个用户
 
 自动刷新在 Marinara 服务器里执行。Noodle 页面不必一直开着，但 Marinara 本身必须在运行。刷新失败时，日程表里会显示错误并在稍后重试，连续失败会让等待时间越来越长。如果连着错过好几个日程时刻，Marinara 只用一次成功的补跑刷新把它们一起补上，不会把时间线刷屏。
 
+## NoodleR 自动发布
+
+这是与上方 **Refresh** 分开的日程器。**Refresh** 驱动公开的 Noodle 时间线，而这里驱动 NoodleR 创作者。开启 **Enable NoodleR** 后，它会出现在 **Noodle Settings** > **Publishing** 中。
+
+NoodleR 不会在整点才开始写帖，而是提前把帖子准备到一个小型储备中，并在各自的计划时刻发布。因此，创作者可能会在帖子尚未生成时就显示下一次发帖时间。
+
+- **Automatic posting schedule**：开关，默认 **on**。关闭后会停止所有 NoodleR 自动发布。在关闭期间错过计划时刻的准备帖子会被撤销，而不会延迟发布。
+- **Posts/day**：1 到 24，默认 **4**。这是自动文本尝试的每日上限，自动图像尝试也使用相同上限。手动发布和 **Refresh NoodleR now** 不计入其中。
+- **Night quiet**：开关，默认 **on**。与**角色**关联的创作者不会获得当地时间 23:00 到 07:00 之间的计划时刻。与用户角色关联的创作者不受影响。
+- **Text attempts** 和 **Image attempts**：只读计数器，显示今天已使用的尝试次数以及 **Posts/day** 上限。
+- **Prepared posts**：只读，显示储备中的帖子数量及最后一个计划时刻。
+- **Refresh all now**：立即为每个已开启 **Automatic** 的创作者写一篇帖子。关闭的创作者完全不参与也不会被报告；正在执行其他任务的创作者会被跳过。以这种方式写出的帖子会撤销同一创作者在接下来一小时内到期的准备帖子。
+- **Per creator**：每个创作者行都有 **Automatic** 和 **Images** 开关。在引导设置之外创建的创作者默认两者均为 **off**；通过引导设置创建时则采用你当时的选择。关闭 **Automatic** 后，该创作者只保留手动发布。
+
+创作者自动回复使用单独的全安装上限：所有创作者共享每滚动 24 小时 10 条，而不是每位创作者 10 条。
+
+自动发布在 Marinara 服务器内运行。Marinara 必须保持运行，但不需要一直打开 NoodleR 页面。
+
 ## Active Accounts(活跃账号)
 
 **Active Accounts** 这一节决定一次刷新有多少个符合条件的账号参与。符合条件的账号包括受邀角色、因文件夹而纳入的角色，以及开启了随机用户之后的随机用户。
@@ -196,6 +214,12 @@ Noodle 和聊天可以双向共享上下文。这是两个各自独立的功能�
 | **Generation connection** | 无 | 任意文本连接（刷新必需） |
 | **Professor Mari participates** | on | on 或 off |
 | **Refreshes/day** | 2 | 0 到 24(设为 0 关闭自动刷新) |
+| **Automatic posting schedule** | on | on 或 off |
+| **Posts/day** | 4 | 1 到 24 |
+| **Night quiet** | on | 角色创作者跳过 23:00–07:00 |
+| 每位创作者的 **Automatic** | off | 引导设置可以将其开启 |
+| 每位创作者的 **Images** | off | 引导设置可以将其开启 |
+| 创作者自动回复 | 每 24 小时 10 条 | 全安装共享，而非每位创作者 |
 | **Active selection** | Random range | Random range、Exact count、All invited |
 | **Min active** | 2 | 1 到 100(仅 Random range) |
 | **Max active** | 5 | 1 到 100(仅 Random range) |

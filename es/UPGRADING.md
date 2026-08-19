@@ -100,7 +100,7 @@ cd Marinara-Engine
 
 Para desactivarlo de forma persistente, define `AUTO_UPDATE_ENABLED=false` en el `.env` del proyecto. Esto afecta solo a las actualizaciones del Engine gestionadas por el lanzador; las actualizaciones manuales y los controles de actualización dentro de la app siguen disponibles.
 
-Si usas el icono de la app de Android (el APK), ábrelo y toca **Install / Start Marinara**. El APK es una app sideloaded (instalada por fuera de la tienda oficial de apps), lo que significa que la instalaste fuera de la tienda oficial. Es una capa sobre Termux, así que actualiza la misma copia de Termux que hay detrás.
+Si usas el icono de la app de Android (el APK), [descarga el APK más reciente](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) y abre el archivo descargado para que Android actualice la propia envoltura. Después abre Marinara Engine y toca **Install / Start Marinara** para actualizar e iniciar la copia de Termux. La app conserva e intercambia automáticamente su credencial privada de localhost; una actualización nunca pide credenciales de firma ni ese secreto.
 
 ### iPhone y iPad
 
@@ -180,6 +180,12 @@ El botón **Refresh App** (Refrescar app) está en la misma sección **Updates**
 Usa **Refresh App** cuando la app se ve desactualizada o muestra una pantalla en blanco después de una actualización, pero el servidor ya está ejecutando la nueva versión. Arregla una página web atascada. No cambia el código del servidor, así que no sustituye a una actualización real.
 
 El botón muestra **Refreshing…** mientras trabaja, y luego la app se vuelve a cargar.
+
+## Volver a una versión anterior
+
+Actualizar siempre es seguro, pero no siempre es posible volver atrás directamente. Las versiones nuevas de Marinara guardan los mensajes de chat en un formato de disco más reciente, y una versión anterior al formato de tus datos no puede leerlos. Para proteger tu historial, el lanzador omite las actualizaciones automáticas que llevarían a una versión incompatible y el actualizador de la app se niega a aplicarlas.
+
+Si necesitas una versión anterior de todos modos, un comando de conversión devuelve primero tus datos al formato antiguo. Consulta [Los chats no muestran mensajes después de cambiar a una versión anterior](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version) para ver los pasos.
 
 ## Si una actualización falla
 

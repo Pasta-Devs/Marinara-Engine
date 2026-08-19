@@ -11,12 +11,24 @@ storage/
 ├── manifest.json
 └── tables/
     ├── chats.json
-    ├── messages.json
     ├── characters.json
+    ├── messages/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── message_swipes/
+    │   └── <encoded-chat-id>.json
     └── ...
 ```
 
 La variable `FILE_STORAGE_DIR` permet de remplacer le dossier `storage`. Chaque fichier de table contient un tableau JSON. Le fichier `manifest.json` conserve la version du format de stockage, l'heure d'enregistrement, l'identifiant du backend et le nombre de lignes de chaque table enregistrée.
+
+### Tables fragmentées
+
+Les tables liées aux chats qui sont écrites à chaque tour sont stockées sous forme d'**un fichier par chat** plutôt que d'un seul gros fichier. Avec un fichier monolithique, chaque ligne enregistrée devait sérialiser et réécrire tout l'historique de tous les chats. Le format de stockage 3 a fragmenté `messages` et `message_swipes` ; le format 4 étend cette organisation à `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences` et `conversation_notes`. La liste de référence est `SHARDED_TABLES` dans `file-backed-store.ts`, reproduite par la commande hors ligne `unshard` de `scripts/protect-launcher-data.mjs` ; un test de régression maintient leur correspondance. Chaque table choisit son fragment avec sa propre colonne `chatId`, à deux exceptions près : `message_swipes` passe par le message parent, et les influences et notes utilisent `targetChatId`. `lorebooks` et `game_turn_storyboard_keyframes` restent volontairement monolithiques.
+
+Le suivi des modifications fonctionne au niveau du fichier de chat : une écriture ne touche donc que les chats modifiés. Un fragment dont le nombre de lignes tombe à zéro est supprimé au lieu d'être écrit comme tableau vide. Les noms de fichiers sont encodés en pourcentage depuis l'id du chat, avec des solutions de repli par hachage pour les noms trop longs ou réservés. Cet encodage constitue une limite de sécurité, car les profils importés peuvent contenir des ids arbitraires. Les fichiers ne sont que des conteneurs ; les lignes conservent leurs propres clés.
+
+Au premier démarrage avec de nouvelles tables fragmentées, les fichiers monolithiques existants migrent automatiquement : les lignes sont regroupées par chat et écrites en fragments, puis le fichier monolithique **et son `.bak`** sont renommés en `.pre-shard`. Ces fichiers constituent la sauvegarde automatique précédant la migration et le Engine ne les supprime jamais. Un marqueur `.migrating` rend la récupération après incident déterministe. Si une ancienne build recrée ensuite un fichier monolithique à côté des fragments, les fragments prévalent et le fichier conflictuel est isolé avec un suffixe horodaté `.post-downgrade-`, sans fusion. Les lignes enfants orphelines vont dans le fragment `orphaned-rows` au lieu d'être perdues. Un manifeste écrit par un format de stockage plus récent refuse de se charger.
 
 ## Modèle d'exécution
 

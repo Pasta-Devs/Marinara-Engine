@@ -8,7 +8,7 @@
 
 智能体按聊天开启，不按角色开启。角色卡上没有智能体开关。同一个角色的两个聊天，可以运行完全不同的智能体。每个聊天要运行哪些智能体，都在这个聊天自己的设置里选。
 
-全新安装的 Marinara Engine 不带任何可选智能体，这样能让基础应用和 Termux 安装包更小。v2.3.0 以后的官方目录收录了 30 个一键安装包：6 个 Writer Agents、8 个 Tracker Agents、16 个 Misc Agents，其中包括 Long-Term Memory、Maps、Calls 以及全部 6 款 Conversation 游戏。它们的源码、清单文件、可下载产物和仓库级目录都公开在 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)。每个智能体的详细说明见[可下载智能体参考](built-in-agents.md)。想自己做一个，见[创建自定义智能体](custom-agents.md)。
+全新安装的 Marinara Engine 不带任何可选智能体，这样能让基础应用和 Termux 安装包更小。v2.3.0 以后的官方目录收录了 33 个一键安装包：6 个 Writer Agents、9 个 Tracker Agents、18 个 Misc Agents，其中包括 Long-Term Memory、Maps、Calls、Inventory Tracker 以及全部 6 款 Conversation 游戏。它们的源码、清单文件、可下载产物和仓库级目录都公开在 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)。每个智能体的详细说明见[可下载智能体参考](built-in-agents.md)。想自己做一个，见[创建自定义智能体](custom-agents.md)。
 
 ## 三个阶段
 

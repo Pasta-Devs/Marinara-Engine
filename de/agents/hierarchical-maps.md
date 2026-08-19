@@ -1,6 +1,6 @@
 # World Maps: Einrichten, Erstellen und Reisen
 
-> **Aktuelle Kompatibilität:** Diese Anleitung beschreibt World Maps **1.2.5** auf Marinara Engine **2.3.5 oder neuer**. Das Paket unterstützt Roleplay- und Game-Chats.
+> **Aktuelle Kompatibilität:** Diese Anleitung beschreibt World Maps **1.3.1**. Das Paket unterstützt Marinara Engine **2.3.5 bis 3.x** und funktioniert in Roleplay- und Game-Chats. Marinara Engine **2.4.1** ergänzt die passende Bereinigung des Bewegungs-Streams und aktualisiert die Lorebooks-Ansicht nach portablen Importen sofort. Engine **2.3.5 bis 2.4.0** bleibt kompatibel, benötigt nach einem Import jedoch eine manuelle Aktualisierung der Lorebooks und enthält diese Stream-Bereinigung nicht.
 
 World Maps ergänzt Roleplay und Game um einen dauerhaften Weltzustand. Statt eines einzelnen Ortes als Freitext bildet es die Welt als verschachtelte Orte ab:
 
@@ -19,7 +19,7 @@ Karten können pro Chat eigenständig sein oder mit einer gemeinsamen, kontoeige
 
 ## Funktionsübersicht
 
-World Maps 1.2.5 bietet:
+World Maps 1.3.1 bietet:
 
 - verschachtelte Regionen, Siedlungen, Orte, Gebäude, Stockwerke und Räume;
 - Breadcrumbs und einen maßgeblichen aktuellen Story-Ort;
@@ -43,7 +43,7 @@ Die verfügbaren Ziele stehen im Kontext des Modells. Sind CYOA-Auswahlen aktiv 
 
 ## Die richtige Kartenbeziehung wählen
 
-Die Bibliothek enthält zwei wiederverwendbare, kontoeigene Ressourcen. Jeder Chat führt daneben seinen eigenen Laufzeit-Ort und seinen eigenen Verlauf. Der sprechende Name einer Ressource ist nicht ihre Identität: World Maps 1.2.5 hängt **(copy)** oder eine Zahl an, wenn eine neu gespeicherte Ressource sonst denselben Namen hätte.
+Die Bibliothek enthält zwei wiederverwendbare, kontoeigene Ressourcen. Jeder Chat führt daneben seinen eigenen Laufzeit-Ort und seinen eigenen Verlauf. Der sprechende Name einer Ressource ist nicht ihre Identität: World Maps 1.3.1 hängt **(copy)** oder eine Zahl an, wenn eine neu gespeicherte Ressource sonst denselben Namen hätte.
 
 | Ressource oder Zustand | Gehört zu | Wähle das, wenn | Worauf spätere Änderungen wirken |
 | --- | --- | --- | --- |
@@ -378,7 +378,7 @@ World Maps nutzt Lore auf zwei Arten:
 
 Zum Anhängen von Lore zur Laufzeit wählst du den Ort aus, öffnest **Linked lore**, durchsuchst die verfügbaren Einträge, hängst die gewünschten an und speicherst.
 
-Öffnest du einen verknüpften Lorebook-Eintrag, verlässt du den Karteneditor. Speichere die Karte vorher, wenn du andere offene Änderungen behalten willst – oder bestätige bewusst, dass sie verworfen werden dürfen. World Maps 1.2.5 warnt dich, bevor diese Aktion ungespeicherte Kartenänderungen verwerfen kann.
+Öffnest du einen verknüpften Lorebook-Eintrag, verlässt du den Karteneditor. Speichere die Karte vorher, wenn du andere offene Änderungen behalten willst – oder bestätige bewusst, dass sie verworfen werden dürfen. World Maps 1.3.1 warnt dich, bevor diese Aktion ungespeicherte Kartenänderungen verwerfen kann.
 
 Verknüpfte Einträge werden nicht von oben nach unten vererbt. Lore, die an Brinewatch hängt, wird im Tideglass Inn nicht aktiv, solange sie nicht auch dort hängt.
 
@@ -397,11 +397,36 @@ Diese Bedienelemente richten sich an Fortgeschrittene. Erhalte die nötigen Vari
 
 ## Sicher importieren, exportieren und archivieren
 
-Nutze **Export** im Editor eines Chats, einer Vorlage oder einer gemeinsamen Welt, um die Arbeitshierarchie als `.world-map.json`-Datei herunterzuladen. Lass **Include map artwork** aktiv, damit referenzierte Ortsbilder und Unterkarten-Hintergründe in derselben Datei landen. Schalte es aus, wenn du ein kleineres Backup nur mit der Definition willst. Ältere `.hierarchical-map.json`-Dateien lassen sich weiterhin importieren.
+### Eine portable Karte exportieren
 
-Nutze **Import**, um eine Hierarchie in eine Chat-Arbeitskopie, eine unabhängige Vorlage oder eine gemeinsame Welt zu laden. Mitgelieferte Grafiken werden wiederhergestellt und ihre Bildverweise neu zugeordnet. Chat-eigene Grafiken landen in der Galerie des Zielchats. Gemeinsame Grafiken werden aus der Global Gallery wiederverwendet, wenn dasselbe Bild dort schon liegt – oder einmalig dort ergänzt, sobald eine Vorlage oder ein gemeinsamer Verweis sie braucht. Prüf das Ergebnis und klick auf **Save**, damit es maßgeblich wird. Der Import speichert nicht sofort.
+Nutze **Export** im Editor eines Chats, einer Vorlage oder einer gemeinsamen Welt, um die Arbeitshierarchie als `.world-map.json`-Datei herunterzuladen. Wähle vorher, wie viel verknüpfte Lore mitreisen soll:
+
+| Lore-Option | Inhalt der Datei |
+| --- | --- |
+| **Map only** | Hierarchie und lesbare Zuordnung von Orten zu Lore, aber kein Lorebook-Inhalt. Fehlende Einträge lassen sich nicht wiederherstellen. |
+| **Map + linked entries** | Nur von der Karte verknüpfte Einträge sowie die benötigten Ordnerpfade. Dies ist die empfohlene portable Option. |
+| **Map + complete lorebooks** | Alle Einträge und Ordner jedes verknüpften Lorebooks, auch Material ohne Kartenbezug. |
+
+Prüfe vor dem Teilen die aufgelisteten Lorebooks, die Eintragszahl, die geschätzte Größe und die ausklappbare Ortszuordnung. Vollständige Lorebooks können private oder unbeteiligte Notizen enthalten. Lass **Include map artwork** aktiv, damit referenzierte Ortsbilder und Unterkarten-Hintergründe in derselben Datei landen. Schalte es für ein kleineres Backup aus. Ältere `.hierarchical-map.json`-Dateien lassen sich weiterhin importieren.
+
+### Eine Karte importieren und portable Lore wiederherstellen
+
+Nutze **Import**, um eine Hierarchie in eine Chat-Arbeitskopie, eine unabhängige Vorlage oder eine gemeinsame Welt zu laden. Enthält die Datei Lorebook-Inhalte, zeigt **Restore portable map lore** die Gruppen **Exact IDs**, **Unique content**, **Need a choice** und **New entries**.
+
+Eine genaue Eintrags-ID ist nur im Ziel-Lorebook verbindlich. Eine ID aus einer anderen Quelle ist mehrdeutig: Wähle die genaue Zeile `Lorebook → Entry (ID)` oder **Import a new copy**. Ohne ID verwendet World Maps einen Eintrag nur wieder, wenn dessen vollständiger portabler Inhalt und Einstellungen genau einen Treffer ergeben; der Name allein reicht nie.
+
+Wähle nach der Vorschau eine Gesamtstrategie:
+
+- **Import separate copies** verwendet keine Einträge wieder und erzeugt unabhängige Lorebooks wie `Original Lorebook - Map Name (World Map)`, mit **(copy)** oder **(copy N)** gegen Namenskollisionen.
+- **Reuse matches & import the rest** behält genaue und eindeutige Treffer, übernimmt deine Auswahl bei mehrdeutigen Zeilen und erstellt nur für übrige Einträge neue Lorebooks.
+
+Danach nennt Maps die konkret wiederverwendeten und erstellten Lorebooks. Erstellte Kopien bleiben in der Bibliothek, wenn die Karte später gelöscht wird. Engine **2.4.1** oder neuer aktualisiert die Lorebooks-Ansicht sofort; unter **2.3.5 bis 2.4.0** lade Marinara nach der Wiederherstellung einmal neu.
+
+Mitgelieferte Grafiken werden ebenfalls wiederhergestellt und neu zugeordnet. Chat-eigene Grafiken landen in der Galerie des Zielchats; gemeinsame Grafiken werden aus der Global Gallery wiederverwendet oder dort einmal ergänzt. Prüf das Ergebnis und klick auf **Save**, damit es maßgeblich wird. Der Import speichert nicht sofort. Ein **Map only**-Export erhält lesbare Herkunft und vorhandene genaue ID-Verknüpfungen, kann gelöschte Lorebooks oder Einträge ohne deren Inhalt aber nicht wiederherstellen.
 
 Sobald der Kampagnenverlauf auf eine Karte verweist, müssen importierte Änderungen die vorhandenen Orts-IDs beibehalten. Ergänze oder aktualisiere Orte, statt die Hierarchie durch fremde IDs zu ersetzen.
+
+### Orte archivieren oder endgültig löschen
 
 Archivieren erhält alte Verweise. Bevor du einen Ort archivierst:
 
@@ -409,7 +434,7 @@ Archivieren erhält alte Verweise. Bevor du einen Ort archivierst:
 - wähl bei Bedarf einen anderen aktiven Startort; und
 - wähl einen aktiven Ersatz, falls es der aktuelle Laufzeit-Ort ist.
 
-Archivierte Orte lassen sich im Panel Details wiederherstellen. World Maps 1.2.5 bietet zusätzlich **Delete permanently** für einen archivierten Ort oder einen vollständig archivierten Zweig, sofern das gefahrlos möglich ist. Der Editor sperrt diese Aktion, wenn der Ort der gespeicherte Startort oder aktuelle Story-Ort ist, im Nachrichtenverlauf vorkommt, eine Bindung zur Game-Karte hat, an einem vorgemerkten Ziel oder einer Route beteiligt ist oder zu einem Chat gehört, der noch mit einer gemeinsamen Welt verknüpft ist. Die Editoren für gemeinsame Welten und Vorlagen bieten kein endgültiges Löschen von Orten an. Löse also zuerst die genannte Abhängigkeit, koppel bei Bedarf den verknüpften Chat ab oder lass den Ort einfach archiviert.
+Archivierte Orte lassen sich im Panel Details wiederherstellen. World Maps 1.3.1 bietet zusätzlich **Delete permanently** für einen archivierten Ort oder einen vollständig archivierten Zweig, sofern das gefahrlos möglich ist. Der Editor sperrt diese Aktion, wenn der Ort der gespeicherte Startort oder aktuelle Story-Ort ist, im Nachrichtenverlauf vorkommt, eine Bindung zur Game-Karte hat, an einem vorgemerkten Ziel oder einer Route beteiligt ist oder zu einem Chat gehört, der noch mit einer gemeinsamen Welt verknüpft ist. Die Editoren für gemeinsame Welten und Vorlagen bieten kein endgültiges Löschen von Orten an. Löse also zuerst die genannte Abhängigkeit, koppel bei Bedarf den verknüpften Chat ab oder lass den Ort einfach archiviert.
 
 Endgültiges Löschen entfernt den Ort aus dem Arbeitsentwurf und räumt beim Klick auf **Save** seine Hierarchie- und Direktverknüpfungs-Verweise auf. Schließt du ohne zu speichern, verfällt auch die Löschung. Gelöschte Orte tauchen in Exporten nicht mehr auf; geschützte archivierte Orte werden weiterhin exportiert, damit ihre stabilen IDs Verlauf und verknüpfte Daten tragen können. Bearbeite die exportierte JSON-Datei nicht, um diese Schutzmechanismen zu umgehen.
 
@@ -429,6 +454,10 @@ Listet die Bibliothek während der Game-Einrichtung zwar gemeinsame Welten, zeig
 
 Wähl **Use template** und bestätige dann entweder **Use template** für eine unabhängige Kopie oder **Use shared world** für eine kanonische Verknüpfung, bevor du die Game-Einrichtung abschließt. Prüf und speichere die Game-Karte. Eine Vorlage bleibt unverändert; ein verknüpftes Game hält seine Änderungen unveröffentlicht, bis du **Publish** wählst.
 
+### Ein verknüpfter Chat zeigt noch eine ältere gemeinsame Welt
+
+Saubere Editoren verknüpfter Chats, die in demselben Browser-Tab zwischengespeichert sind, in dem du veröffentlichst, aktualisieren sich automatisch. Ein Chat mit ungespeicherten oder unveröffentlichten Änderungen behält seinen Entwurf und zeigt stattdessen einen Konflikt. Öffne Chats in anderen Tabs oder Fenstern erneut, um die neue kanonische Version zu laden.
+
 ### Die Karte lässt sich nicht aktivieren
 
 Leg mindestens einen aktiven Ort an und setz einen aktiven Startort. Behebe jedes Problem, das oben im Editor gemeldet wird, und aktiviere und speichere danach erneut.
@@ -436,6 +465,12 @@ Leg mindestens einen aktiven Ort an und setz einen aktiven Startort. Behebe jede
 ### Die KI-Kartengenerierung ist nicht verfügbar
 
 Achte darauf, dass der Chat oder die **Connection Override** von Maps eine funktionierende Verbindung zu einem Sprachmodell hat. Speichere oder verwirf offene Editor-Änderungen, bevor du den KI-Builder erneut öffnest. Für eine Erweiterung wählst du ein aktives Ziel. Für eine Lore-gestützte Generierung wählst du mindestens ein aktiviertes, nicht ausgeschlossenes Lorebook.
+
+### Die KI-Kartengenerierung meldet unvollständiges oder fehlerhaftes JSON
+
+Endete die Antwort vor einem vollständigen JSON-Dokument, erhöhe **Max Output Tokens** der Verbindung oder wähle eine kleinere Kartengröße und generiere erneut. World Maps verbraucht keine weitere Anfrage zur Reparatur unvollständiger Antworten.
+
+Bei fehlerhaftem JSON wurde bereits eine reine Syntaxreparatur versucht. Generiere erneut; liefert dasselbe Modell wiederholt fehlerhafte Daten, verwende eine andere Verbindung oder ein anderes Modell. **Max Output Tokens** hilft nur beim unvollständigen Fall.
 
 ### Der aktuelle Ort ist einer Nachricht nicht gefolgt
 
@@ -488,6 +523,14 @@ Vergewissere dich, dass World Maps für den Chat aktiv ist, die Hierarchie auf *
 ### Verknüpfte Lore wird nicht aktiv
 
 Vergewissere dich, dass der Eintrag an genau dem aktuellen Ort hängt. Prüf außerdem, ob Eintrag und Lorebook aktiviert sind und das Lorebook nicht vom Chat ausgeschlossen ist.
+
+**Weitere Regeln in World Maps 1.3.1:** Geführte Generierung, Regenerierung und Fortsetzung erzeugen keinen neuen Nutzerzug und verbrauchen daher kein vorgemerktes Ziel oder Routensegment. **Impersonate** erzeugt eine Nutzernachricht: Ein erfolgreicher Zug übernimmt die Bewegung einmal, ein Providerfehler übernimmt nichts, und eine veraltete Bewegung wechselt zu **Needs review**.
+
+Mit Marinara Engine **2.4.1** oder neuer werden vollständige Bewegungs- und Entdeckungsanweisungen von Maps aus gestreamtem Text und gespeicherten Nachrichten entfernt, ohne gewöhnliche Klammertexte oder Abstände zu verändern. Erscheint eine rohe Maps-Anweisung, aktualisiere Engine und World Maps, starte bei Aufforderung neu und regeneriere oder entferne die betroffene Nachricht.
+
+Verwendet ein Galerie-Bild beide Grafikrollen, behält **Remove reference only** es als Unterkarten-Hintergrund; **Reject both and create replacement** ersetzt beide, und **Use for both** weist ein neues Bild beiden Rollen zu. Als fehlend gilt auch ein gespeicherter Galerie-Link, dessen Bild nicht mehr existiert. Ergebnisse einer laufenden Generierung füllen nur weiterhin fehlende Rollen und überschreiben keine inzwischen gewählte Grafik, Referenzoption, Hintergrundposition, Archivierung oder andere Entwurfsänderung.
+
+**Open** bei verknüpfter Lore verlässt den Kartenarbeitsbereich und öffnet das Lorebook. Bei einem sauberen Entwurf schließt er direkt; bei ungespeicherten Änderungen musst du zuerst speichern oder das Verwerfen ausdrücklich bestätigen. Wird importierte Lore nicht aktiviert, prüfe die Importzusammenfassung: **Map only** enthält keine wiederherstellbaren Inhalte. Verwende **Map + linked entries** oder **Map + complete lorebooks** und wähle den vorgesehenen exakten Treffer, das mehrdeutige Ziel oder eine getrennte Kopie. Verknüpfte Lore eines übergeordneten Ortes wird nicht an untergeordnete Orte vererbt.
 
 ## Verwandte Anleitungen
 

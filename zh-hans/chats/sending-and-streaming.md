@@ -41,6 +41,20 @@ Marinara 接受这些文件类型：
 
 只有连接的模型支持视觉能力，AI 才“看得见”图片。如果模型只能处理文本，就开启 **Image Captioning**(图像描述)。这项设置在每场聊天各自的 **Chat Settings**(聊天设置) 里，属于 **Advanced Parameters** 一节，默认关闭。开启后，Marinara 会用你指定的连接把每张附件图片描述成文字，再把这段描述发出去，而不是发原图。
 
+## 在消息中插入图库图片
+
+附件是让 AI *查看*的，图库引用则是让读者*查看*的：它会在消息文本中显示图库里的图片。
+
+消息支持 Markdown 图片语法，Marinara 会把特殊的 `card://` 链接解析到图库文件：
+
+```text
+![a caption](card://characters/<character-id>/gallery/<filename>.png)
+```
+
+在 Roleplay Mode 中，聊天资源浏览器可以插入这类链接。你也可以把它粘贴到任何编写文本的位置，例如消息、问候语和示例对话。
+
+对于**角色自己图库中的图片**，优先使用可移植的 `card://self/gallery/<filename>` 形式；角色经过导出和导入后它仍能正常工作。角色图库的 **Copy image reference** 按钮会生成这种引用。详情请参阅[角色图库 → 在消息和问候语中复用图库图片](../characters/galleries.md#reuse-a-gallery-image-in-messages-and-greetings)。
+
 ## 回复的流式输出
 
 流式输出是指回复一边生成、一边逐词显示，而不是等整段回复写完再一次性出现。相关设置在 **Settings** 的 **General** 选项卡里，属于 **Responses** 一节：

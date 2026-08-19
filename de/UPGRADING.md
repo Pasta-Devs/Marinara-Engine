@@ -100,7 +100,7 @@ cd Marinara-Engine
 
 Für einen dauerhaften Verzicht setz `AUTO_UPDATE_ENABLED=false` in der `.env` des Projekts. Das betrifft nur die vom Launcher verwalteten Engine-Updates; manuelle Updates und die Update-Bedienelemente in der App bleiben verfügbar.
 
-Nutzt du das Android-App-Symbol (die APK), öffne es und tipp auf **Install / Start Marinara**. Die APK ist eine sideloaded App, also außerhalb des offiziellen App-Stores installiert. Sie ist nur eine Hülle um Termux und aktualisiert damit dieselbe Termux-Kopie dahinter.
+Nutzt du das Android-App-Symbol (die APK), [lade die neueste APK herunter](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) und öffne die Datei, damit Android den Wrapper selbst aktualisiert. Öffne danach Marinara Engine und tipp auf **Install / Start Marinara**, um die Termux-Kopie dahinter zu aktualisieren und zu starten. Die App bewahrt und überträgt ihre privaten localhost-Zugangsdaten automatisch; ein Update fragt nie nach Signaturdaten oder diesem Geheimwert.
 
 ### iPhone und iPad
 
@@ -180,6 +180,12 @@ Die Schaltfläche **Refresh App** (App neu laden) sitzt im selben Abschnitt **Up
 Nutz **Refresh App**, wenn die App nach einem Update veraltet wirkt oder eine leere Seite zeigt, der Server aber bereits die neue Version ausführt. Es behebt eine festhängende Webseite. Am Server-Code ändert sich nichts – ein echtes Update ersetzt es also nicht.
 
 Während der Arbeit zeigt die Schaltfläche **Refreshing…**, danach lädt die App neu.
+
+## Downgrade auf eine ältere Version
+
+Upgrades sind immer sicher, doch ein direkter Rückweg ist nicht immer möglich. Neuere Marinara-Versionen speichern Chatnachrichten in einem neueren Format auf der Festplatte, das ältere Versionen nicht lesen können. Zum Schutz deines Chatverlaufs überspringt der Launcher Auto-Updates auf eine inkompatible Version, und der Updater in der App verweigert sie.
+
+Falls du trotzdem eine ältere Version brauchst, bringt ein einzelner Konvertierungsbefehl deine Daten zuerst wieder in das alte Format. Die Schritte stehen unter [Nach dem Wechsel zu einer älteren Version zeigen Chats keine Nachrichten](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version).
 
 ## Wenn ein Update fehlschlägt
 

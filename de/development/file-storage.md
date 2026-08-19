@@ -11,12 +11,24 @@ storage/
 ├── manifest.json
 └── tables/
     ├── chats.json
-    ├── messages.json
     ├── characters.json
+    ├── messages/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── message_swipes/
+    │   └── <encoded-chat-id>.json
     └── ...
 ```
 
 Mit `FILE_STORAGE_DIR` lässt sich das Verzeichnis `storage` überschreiben. Jede Tabellendatei enthält ein JSON-Array. In `manifest.json` stehen die Version des Speicherformats, der Speicherzeitpunkt, die Backend-Kennung und die Anzahl der Datensätze jeder registrierten Tabelle.
+
+### Aufgeteilte Tabellen
+
+Tabellen in häufigen Schreibpfaden, die einem Chat zugeordnet sind, werden als **eine Datei pro Chat** statt als einzelne große Datei gespeichert. Bei einer großen Datei müsste jede gespeicherte Zeile den gesamten Verlauf aller Chats erneut serialisieren und schreiben. Speicherformat 3 teilte `messages` und `message_swipes` auf; Format 4 erweitert das Layout auf `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences` und `conversation_notes`. Die verbindliche Liste ist `SHARDED_TABLES` in `file-backed-store.ts` und wird vom Offline-Befehl `unshard` in `scripts/protect-launcher-data.mjs` gespiegelt; ein Regressionstest hält beide Listen synchron. Jede Tabelle bestimmt ihre Datei über die eigene Spalte `chatId`, mit zwei Ausnahmen: `message_swipes` folgt der übergeordneten Nachricht, und Einflüsse sowie Notizen verwenden `targetChatId`. `lorebooks` und `game_turn_storyboard_keyframes` bleiben bewusst ungeteilt.
+
+Die Änderungsverfolgung arbeitet pro Chatdatei, sodass ein Flush nur geänderte Chats berührt. Erreicht die Zeilenzahl einer Datei null, wird sie gelöscht, statt als leeres Array gespeichert zu werden. Dateinamen werden aus der Chat-ID prozentkodiert; bei zu langen oder reservierten Namen kommen Hash-Fallbacks zum Einsatz. Diese Kodierung ist eine Sicherheitsgrenze, weil importierte Profile beliebige IDs enthalten können. Die Dateien sind nur Behälter; die Zeilen tragen weiterhin ihre eigenen Schlüssel.
+
+Beim ersten Start mit neu aufgeteilten Tabellen werden vorhandene große Dateien automatisch migriert: Die Zeilen werden pro Chat gruppiert und als einzelne Dateien geschrieben, danach werden die große Datei **und ihre `.bak`-Datei** in `.pre-shard` umbenannt. Diese Dateien bilden die automatische Sicherung vor der Migration und werden vom Engine nie gelöscht. Eine `.migrating`-Markierung ermöglicht eine eindeutige Wiederherstellung nach einem Absturz. Erstellt ein älterer Build später neben den Chatdateien erneut eine große Datei, gewinnen die Chatdateien und der Konflikt wird mit einem Zeitstempel-Suffix `.post-downgrade-` isoliert, niemals zusammengeführt. Verwaiste untergeordnete Zeilen landen in der Datei `orphaned-rows`, statt verloren zu gehen. Ein Manifest aus einem neueren Speicherformat wird nicht geladen.
 
 ## Laufzeitmodell
 

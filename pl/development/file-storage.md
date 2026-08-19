@@ -11,12 +11,24 @@ storage/
 ├── manifest.json
 └── tables/
     ├── chats.json
-    ├── messages.json
     ├── characters.json
+    ├── messages/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── message_swipes/
+    │   └── <encoded-chat-id>.json
     └── ...
 ```
 
 Zmienna `FILE_STORAGE_DIR` może wskazać inny folder niż `storage`. Każdy plik tabeli zawiera tablicę JSON. Plik `manifest.json` przechowuje wersję formatu zapisu, czas zapisu, identyfikator backendu oraz liczbę wierszy dla każdej zarejestrowanej tabeli.
+
+### Tabele podzielone na fragmenty
+
+Tabele powiązane z czatami i zapisywane przy każdej turze są przechowywane jako **jeden plik na czat**, a nie jeden duży plik. W układzie monolitycznym zapis każdego wiersza ponownie serializował i zapisywał pełną historię wszystkich czatów. Format zapisu 3 podzielił `messages` oraz `message_swipes`; format 4 rozszerza ten układ na `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences` i `conversation_notes`. Wiążącą listą jest `SHARDED_TABLES` w pliku `file-backed-store.ts`, odzwierciedlona przez polecenie offline `unshard` w `scripts/protect-launcher-data.mjs`; test regresji pilnuje zgodności obu list. Każda tabela wyznacza fragment według własnej kolumny `chatId`, z dwoma wyjątkami: `message_swipes` korzysta z wiadomości nadrzędnej, a wpływy i notatki z `targetChatId`. Tabele `lorebooks` oraz `game_turn_storyboard_keyframes` celowo pozostają monolityczne.
+
+Śledzenie zmian działa na poziomie plików czatu, więc opróżnienie bufora dotyka tylko zmienionych czatów. Fragment, w którym liczba wierszy spadnie do zera, jest usuwany zamiast zapisywania pustej tablicy. Nazwy plików powstają przez kodowanie procentowe identyfikatora czatu, z awaryjnymi skrótami dla nazw zbyt długich lub zastrzeżonych. To kodowanie stanowi granicę bezpieczeństwa, ponieważ importowane profile mogą mieć dowolne identyfikatory. Pliki są jedynie kontenerami; wiersze zachowują własne klucze.
+
+Przy pierwszym uruchomieniu kompilacji z nowo podzielonymi tabelami istniejące pliki monolityczne migrują automatycznie: wiersze są grupowane według czatu i zapisywane jako fragmenty, po czym plik monolityczny **oraz jego `.bak`** otrzymują nazwę `.pre-shard`. To automatyczna kopia sprzed migracji, której Engine nigdy nie usuwa. Znacznik `.migrating` pozwala jednoznacznie odzyskać dane po awarii. Jeśli starsza kompilacja później odtworzy plik monolityczny obok fragmentów, fragmenty mają pierwszeństwo, a plik powodujący konflikt zostaje odizolowany z datowanym sufiksem `.post-downgrade-` — nigdy nie jest scalany. Osierocone wiersze podrzędne trafiają do fragmentu `orphaned-rows`, zamiast zostać utracone. Manifest zapisany przez nowszy format przechowywania odmawia załadowania.
 
 ## Model działania
 

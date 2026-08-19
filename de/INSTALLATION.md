@@ -11,19 +11,20 @@ Nimm die Anleitung, die zu dem Gerät passt, auf dem Marinara laufen soll.
 | Windows | [Installation unter Windows](installation/windows.md) |
 | macOS oder Linux | [Installation unter macOS und Linux](installation/macos-linux.md) |
 | Docker oder Podman | [Installation im Container](installation/containers.md) |
-| Android-Handy oder -Tablet | [Installation unter Android (Termux)](installation/android-termux.md) |
+| Android-Handy oder -Tablet | [APK herunterladen](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) · [Android-Installationsanleitung](installation/android-termux.md) |
 | iPhone oder iPad | [iOS und iPadOS](installation/ios-pwa.md) |
 
 Zwei Dinge solltest du vorher wissen:
 
 - Auf **iPhone oder iPad** betreibt Marinara den Server nicht selbst. Den Server betreibst du auf einem Computer, einem Heimserver oder einem Android-Gerät und öffnest Marinara dann in Safari auf dem iPhone oder iPad. Die iOS-Anleitung erklärt das im Detail.
-- Unter **Android** läuft Marinara in **Termux**. Termux ist eine kostenlose App, die Android eine kleine Linux-Umgebung verpasst. Das Release-APK hilft dir lediglich beim Einrichten von Termux.
+- Unter **Android** läuft Marinara in **Termux**. Termux ist eine kostenlose App, die Android eine kleine Linux-Umgebung verpasst. Tippe auf den direkten APK-Download, bestätige die erforderlichen Installations- und Termux-Berechtigungsabfragen von Android und lass die App ihre privaten localhost-Zugangsdaten automatisch verwalten. Installer fragen nie nach Android-Signaturdaten oder diesem lokalen Geheimwert.
 
 ## Was passt zu mir
 
 Wenn du neu dabei bist und möglichst wenig einrichten willst, nimm eine dieser beiden Varianten:
 
 - Nimm unter **Windows** den **Windows-Installer**. Er lädt alles herunter, richtet alles ein und legt eine Verknüpfung auf dem Desktop an.
+- Nimm unter **Android** den Link **APK herunterladen** oben. Öffne die heruntergeladene Datei und tippe dann in der App auf **Install / Start Marinara**.
 - Nimm unter **macOS**, **Linux** oder auf einem Heimserver **Docker**. Ein einziger Befehl startet die App. Das Image enthält bereits Node.js, sämtliche Abhängigkeiten und eine fertig gebaute Version der App. Node.js installieren und die App selbst bauen musst du damit nicht.
 
 Wer sich im Terminal wohlfühlt und vielleicht am Code schrauben möchte, startet stattdessen aus dem Quellcode. „Aus dem Quellcode starten“ heißt: Du lädst den Code herunter und baust die App auf dem eigenen Rechner. Die Anleitungen für **Windows**, **macOS und Linux** sowie **Android (Termux)** beschreiben alle diesen Weg.

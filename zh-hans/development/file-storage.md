@@ -11,12 +11,24 @@ storage/
 ├── manifest.json
 └── tables/
     ├── chats.json
-    ├── messages.json
     ├── characters.json
+    ├── messages/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── message_swipes/
+    │   └── <encoded-chat-id>.json
     └── ...
 ```
 
 `FILE_STORAGE_DIR` 可以覆盖 `storage` 目录的位置。每个表文件里是一个 JSON 数组。`manifest.json` 记录存储格式版本、保存时间、后端标识，以及每张已注册表的行数。
+
+### 分片表
+
+每轮都会写入的聊天键控表按**每个聊天一个文件**保存，而不是使用单个大文件；因为在单体文件中，每保存一行都要重新序列化并改写所有聊天的完整历史。存储格式 3 对 `messages` 和 `message_swipes` 进行了分片；格式 4 将相同布局扩展到 `memory_chunks`、`chat_images`、`agent_runs`、`agent_memory`、`conversation_call_sessions`、`conversation_call_messages`、`game_state_snapshots`、`game_engine_state`、`game_checkpoints`、`game_turn_storyboards`、`game_scene_videos`、`spatial_context_snapshots`、`ooc_influences` 和 `conversation_notes`。权威列表是 `file-backed-store.ts` 中的 `SHARDED_TABLES`，`scripts/protect-launcher-data.mjs` 中的离线 `unshard` 命令与其保持一致；回归测试会固定两者的配对。每个表通过自己的 `chatId` 列确定分片，但有两个例外：`message_swipes` 通过父消息确定，influence 和 note 则使用 `targetChatId`。`lorebooks` 与 `game_turn_storyboard_keyframes` 有意保持为单体表。
+
+脏数据跟踪在聊天文件粒度上运行，因此刷新只会触碰发生变化的聊天。分片的行数降到零时会被删除，而不是写成空数组。文件名根据聊天 id 进行百分号编码；对于过长或保留名称则使用哈希后备方案。导入的配置可以携带任意 id，因此这种编码是安全边界。文件只是容器；每行仍携带自己的键。
+
+首次启动包含新分片表的构建时，现有单体文件会自动迁移：行按聊天分组并写成分片，然后单体文件**及其 `.bak`**会重命名为 `.pre-shard`。这些文件是迁移前的自动备份，Engine 永远不会删除它们。`.migrating` 哨兵让崩溃恢复的依据保持明确。如果旧构建之后在分片旁重新创建单体文件，分片优先，冲突的单体文件会以带时间戳的 `.post-downgrade-` 后缀隔离，绝不会合并。失去父项的子行会进入 `orphaned-rows` 分片，而不会被丢弃。由更新存储格式写入的清单会拒绝加载。
 
 ## 运行时模型
 

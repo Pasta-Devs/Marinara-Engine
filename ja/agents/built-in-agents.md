@@ -1,6 +1,6 @@
 # ダウンロードできるエージェント一覧
 
-このガイドでは、**Agents → Download Agents**(エージェント → エージェントのダウンロード)から入手できる公式パッケージ30個を、カテゴリー別にすべて紹介します。エージェントはMarinara Engineをインストールした直後の状態には含まれていません。パッケージのソース、マニフェスト、成果物、機械可読のカタログは[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)で公開しています。それぞれについて、何をするエージェントなのか、いつ動くのか(またはどう組み込まれるのか)、どのチャットモードで使えるのか、主な設定は何かを説明します。インストールと有効化の方法は、先に[エージェント: チャットを支えるAIヘルパー](agents-overview.md)を読んでください。
+このガイドでは、**Agents → Download Agents**(エージェント → エージェントのダウンロード)から入手できる公式パッケージ36個を、カテゴリー別にすべて紹介します。エージェントはMarinara Engineをインストールした直後の状態には含まれていません。パッケージのソース、マニフェスト、成果物、機械可読のカタログは[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)で公開しています。それぞれについて、何をするエージェントなのか、いつ動くのか(またはどう組み込まれるのか)、どのチャットモードで使えるのか、主な設定は何かを説明します。インストールと有効化の方法は、先に[エージェント: チャットを支えるAIヘルパー](agents-overview.md)を読んでください。
 
 ## この一覧の読み方
 
@@ -70,7 +70,7 @@ Knowledge Retrievalより費用を抑えられる代替手段です。要約す�
 
 ## トラッカーエージェント
 
-**Tracker Agents**は、シーン、キャラクター、各種の数値を継続的に記録します。最新の出力をプロンプトの一区画として加えられるので、モデルの描写がぶれにくくなります。以下のトラッカーのうち5つは**Add as Prompt Section**がデフォルトでオンです。World State、Quest Tracker、Character Tracker、Persona Stats、Custom Trackerの5つで、Expression EngineとBackgroundだけが例外です。
+**Tracker Agents**は、シーン、キャラクター、各種の数値を継続的に記録します。最新の出力をプロンプトの一区画として加えられるので、モデルの描写がぶれにくくなります。World State、Quest Tracker、Character Tracker、Persona Stats、Custom Tracker、Inventory Tracker、Beholderは**Add as Prompt Section**がデフォルトでオンです。Expression EngineとBackgroundだけが例外です。
 
 ### World State
 
@@ -114,6 +114,16 @@ Knowledge Retrievalより費用を抑えられる代替手段です。要約す�
 - **使える場所**: Roleplay。
 - **主な設定**: **Add as Prompt Section**(デフォルトでオン)と、任意の**Auto-Generate NPC Avatars**設定です。後者には画像生成用の接続を選ぶ欄が付いています。
 
+### Beholder
+
+キャラクターごとに、身体の部位別の現在の服装、手に持った物、負傷、失われた身体部位、明示的に何も着けていない部位、人間以外の種族を記録します。検証済みの最新スナップショットはBeholderのRoleplay Chat Settingsドロワーに表示され、Beholderの次の追跡呼び出しと次のRoleplay主応答の両方に渡されます。
+
+- **フェーズ**: Post-Processing。
+- **使える場所**: Roleplayのみ。
+- **主な設定**: **Chat Settings → Agents → Tracker Agents**で追加または削除します。同じ場所から**Configure Beholder**を開き、接続、モデル、プロンプト、コンテキスト、出力上限を選びます。**Add as Prompt Section**はデフォルトでオンです。
+- **推奨モデル**: 状態全体を確実に追跡するには、OpenAI GPT-5.5+、Claude Opus 4.8+、Kimi K3+などのSOTAモデルを使用してください。
+- **由来**: AGPL-3.0-onlyライセンスの[GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME)をEngineのネイティブAgentランタイム向けに移植しています。公式パッケージは、従来の拡張機能のDOM、ポーリング、ローカルストレージランタイムを読み込みません。
+
 ### Persona Stats
 
 満腹度、体力、清潔さなど、自分のキャラクターのステータスバーを記録します。自分で追加したバーも対象です。サバイバル物や生活シミュレーション風のプレイに向いています。
@@ -129,6 +139,14 @@ Knowledge Retrievalより費用を抑えられる代替手段です。要約す�
 - **フェーズ**: Post-Processing。
 - **使える場所**: Roleplay。
 - **主な設定**: **Add as Prompt Section**(デフォルトでオン)。
+
+### Inventory Tracker
+
+お金、装備中の品、持ち歩いているアイテムを3つの構造化リストとして追跡します。Persona Statsのインベントリを再利用したり、データをCustom Trackerの文字列に詰め込んだりはしません。同じ名前は統合され、数量1は見た目をコンパクトに保ち、ロックした行はその後の追跡でも変更されません。
+
+- **フェーズ**: Post-Processing(後処理)。
+- **利用できるモード**: Roleplay。
+- **主な設定**: **Add as Prompt Section**は初期状態でオンです。HUDとTracker Panelで、すべての名前と数量を編集、ロックできます。
 
 ### World Maps
 
@@ -150,6 +168,16 @@ Knowledge Retrievalより費用を抑えられる代替手段です。要約す�
 - **フェーズ**: Parallel。
 - **使える場所**: Roleplay。
 - **主な設定**: 用意された選択肢から作風を選びます。**AO3 / Wattpad**、**Twitter / Reddit**、**4chan**、**Constructive**、**Hype Squad**、**Harbingers**などです。ウィジェット内の操作には**Re-run Echo Chamber**と**Clear messages**があります。
+
+### Noodle
+
+Noodleの公開タイムラインと、クリエイターとファンのロールプレイ用フィードNoodleRからなる、任意のローカルなソーシャル世界を追加します。通常のチャットエージェントの処理には入らず、Home専用タブで開きます。
+
+- **統合方法**: 機能パッケージ。Homeタブ、ローカルルート、生成とメディアのフロー、バックグラウンドスケジューラーを追加します。
+- **利用できる場所**: Home。必要に応じてConversation、Roleplay、Gameのチャットからコンテキストを引き継げます。
+- **主な設定**: **Agents → Download Agents**からインストールし、指示が表示されたらMarinara Engineを再起動します。Noodle内では、招待アカウント、テキストと画像の接続、タイムラインの更新、NoodleR Creatorプロフィール、シミュレーション投稿へのアクセス、視聴者の活動を設定できます。
+- **データの扱い**: アンインストールするとHomeタブが消え、再起動後にパッケージのルートとスケジューラーが停止します。既存のNoodleとNoodleRのデータは、後で再インストールできるよう保持されます。
+- **詳しいガイド**: [Noodle: アプリ内ソーシャルタイムライン](../noodle/overview.md)。
 
 ### Long-Term Memory
 
@@ -206,8 +234,8 @@ Knowledge Retrievalより費用を抑えられる代替手段です。要約す�
 物語の内容を読み取り、Intiface Central経由で接続した大人向けのおもちゃをリアルタイムに制御します。このエージェントを有効にする前に、Intiface Centralを起動してトイを接続しておく必要があります。
 
 - **フェーズ**: Post-Processing。
-- **使える場所**: Roleplay。
-- **主な設定**: **Touch Sensitivity**の選択(**Subtle**、**Standard**、**Intense**)と**Intiface URL**欄です。詳しい設定方法は[Haptic Feedbackの設定](../integrations/haptic-feedback.md)を参照してください。
+- **使える場所**: Conversation、Roleplay、Game。
+- **主な設定**: **Touch Sensitivity**の選択(**Subtle**、**Standard**、**Intense**)と**Intiface URL**欄です。強さの設定は、利用できる`0.0-1.0`の強度範囲を制限せずにエージェントの選択を導きます。詳しい設定方法は[Haptic Feedbackの設定](../integrations/haptic-feedback.md)を参照してください。
 
 ### CYOA Choices
 

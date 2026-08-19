@@ -13,7 +13,7 @@ Le catalogue officiel, les sources des packages, les artefacts reproductibles, l
 Un package d'agent peut apporter un ou plusieurs agents déclaratifs, ainsi que des capacités exécutables de confiance en option :
 
 - des points d'entrée serveur pour les routes, les hooks de cycle de vie, les fournisseurs de prompts, les gestionnaires de résultats et les migrations de stockage ;
-- des points d'entrée client pour les panneaux, les surfaces de chat, les sections de réglages, les choix de configuration et les affichages d'exécution ;
+- des points d'entrée client pour les panneaux, les surfaces de chat, les sections de réglages, les choix de configuration, les affichages d'exécution et les surfaces complètes de Game Mode ;
 - des schémas JSON partagés et des contrats de communication stables ;
 - des ressources, de la documentation et des fragments de connaissances pour Professor Mari, tous détenus par le package.
 
@@ -23,6 +23,10 @@ Les éléments d'interface de capacité reçoivent la langue d'interface retenue
 l'objet `capabilityProps.localization`. Les interfaces détenues par un package gardent leurs propres fichiers de langue et retombent sur
 l'anglais du package ; le moteur ne traduit ni les prompts du package ni les valeurs machine qu'il définit. Un changement de langue réutilise
 l'événement `marinara-capability-props` existant : une interface installée se réaffiche donc sans redémarrer le moteur.
+
+### Distribution et mise en cache
+
+Les fichiers des packages installés sont servis avec des validateurs forts dérivés des empreintes SHA-256 de chaque fichier du manifeste, les mêmes valeurs que le moteur utilise pour revérifier les octets à chaque lecture. Le bundle client (`/api/capability-packages/<id>/client`) et chaque ressource du package sont toujours revalidés (`no-cache` avec un `ETag`) : un fichier inchangé répond `304 Not Modified` au lieu d'être téléchargé à nouveau, tandis qu'un fichier republié est pris en compte immédiatement. Rien n'est servi avec `immutable` : la politique d'installation autorise la republication d'une même version avec des octets différents, aucune URL de package n'est donc adressée par contenu.
 
 L'API de capacités 1.1 ajoute une façade d'exécution générique au contexte d'activation serveur.
 Les packages peuvent lire l'état effectif du débogage d'agent et écrire dans le logger Pino
@@ -40,6 +44,57 @@ les enregistrements normalisés de chats et de personnages, la sélection des en
 l'analyse des réponses au format JSON ou approchant, et les appels résolus au modèle de langage.
 Les identifiants de connexion, les implémentations de fournisseurs, les connexions à la base de données et les objets de stockage
 restent privés au moteur.
+
+### Capability API 1.7 : branches de chat
+
+Capability API 1.7 ajoute des métadonnées de branche normalisées à `CapabilityChatRecord` :
+
+```ts
+branch: {
+  title: string | null;
+  parentChatId: string | null;
+  parentMessageId: string | null;
+  childMessageId: string | null;
+} | null;
+```
+
+`title` contient le nom de branche enregistré, sans espaces superflus. Les chats racines renvoient `null`. Les branches connues créées par le moteur exposent le chat parent direct, le message source de la bifurcation et le message enfant copié. Les branches vides utilisent des ancres de message null. Les anciennes branches, les métadonnées incorrectes et les chats frères de groupe importés sans relation connue renvoient des champs de filiation null ; le moteur ne déduit pas de relations historiques. L'exportation et l'importation génériques omettent les ID de parent et de message, car les ID changent d'une installation à l'autre. La suppression du parent ne modifie pas la filiation de l'enfant.
+
+### Capability API 1.8 : expériences Game
+
+Capability API 1.8 ajoute les expériences Game fournies par les packages, le contexte de prompt par tour de Game et les écritures de ressources.
+
+Un package peut fournir un Game Mode complet plutôt qu'un ajout au mode intégré. Il déclare l'emplacement `game-surface` et se choisit lors de la création d'une partie, dans le bloc Experiences de l'assistant de configuration. Le choix est enregistré sur la partie et reste fixe pendant toute sa durée : une expérience n'est jamais activée ou désactivée en cours de partie. Sa surface dessine son propre HUD, ses menus et ses combats sur la narration commune, puis déclare les systèmes intégrés qu'elle remplace. Tout élément non déclaré reste intégré ; une expérience ne désactive donc que ce qu'elle met réellement en oeuvre. Le champ facultatif `contributions.gameSurface.surfaceClass` nomme une classe appliquée par le moteur à la zone de jeu pendant le montage de la surface, ce qui permet à la feuille de style du package de modifier l'interface commune rendue hors de son propre élément.
+
+Les packages dotés de l'autorisation `prompt-context` ajoutent du texte au prompt système de chaque tour de Game généré. Un package propriétaire d'un état actif peut ainsi maintenir la cohérence du modèle avec ce que voit le joueur. Une contribution peut aussi déclarer les systèmes intégrés qu'elle remplace ; le moteur cesse alors de demander au modèle de les piloter. Les contributions sont recueillies à chaque tour et ne sont jamais obligatoires : une contribution vide est ignorée ; si elle lève une erreur ou ne se termine pas dans le délai prévu, elle est journalisée puis ignorée sans affecter la génération.
+
+La façade de ressources permet les écritures en plus des lectures. Le flux de configuration d'un package peut donc rechercher ou créer la Persona du joueur et son lorebook. Le stockage, la validation et l'identité restent sous le contrôle du moteur ; le contenu métier reste sous celui des packages.
+
+### Capability API 1.10 : ressources de package
+
+Capability API 1.10 ajoute la distribution générale des ressources statiques détenues par un package. Un manifeste peut déclarer `contributions.assets.paths`, une liste autorisée comportant jusqu'à 256 images (`png`/`webp`/`gif`/`jpg`/`jpeg`) et fichiers JSON fournis dans le package. Le moteur les sert sous `/api/capability-packages/<id>/assets/<path>` avec la même chaîne de vérification que les icônes d'onglet : confinement du chemin, présence de l'empreinte dans `files[]`, liste autorisée de types de contenu passifs et nouvelle vérification de l'intégrité à chaque lecture. Le schéma refuse les types de documents actifs (SVG, HTML et scripts) ; chaque chemin déclaré doit être épinglé par une empreinte dans `files[]` ; et le fichier `manifest.json` interne au package ne peut jamais être servi, même s'il est déclaré. `contributions.assets` exige un manifeste `schemaVersion` 2 avec `capabilityApi` 1.10 ou plus récent ; un manifeste v1 ne peut pas le déclarer. Les ressources sont toujours revalidées : comme le bundle client, elles portent un `ETag` fort fondé sur l'empreinte du manifeste et répondent à une revalidation inchangée par `304 Not Modified`, sans corps. Un tileset n'est donc retéléchargé que lorsque ses octets changent vraiment. Les réponses ne sont volontairement jamais `immutable`, car la politique d'installation autorise la republication d'une même version avec d'autres octets et une URL portant un numéro de version n'est donc pas adressée par contenu. Une expérience `game-surface` peut ainsi fournir de véritables illustrations au lieu de les intégrer à son bundle client.
+
+Un manifeste qui enfreint ces règles est refusé à l'installation avec l'un des messages suivants : "A declared package asset must be listed in the package file manifest", "contributions.assets requires schemaVersion 2 and capabilityApi 1.10 or newer", l'erreur d'extension du schéma pour un chemin qui n'est ni une image ni du JSON, ou, pour les archives dont les noms ne diffèrent que par la casse et qui seraient confondus sur un système de fichiers insensible à la casse, "Package contains duplicate file" / "Package manifest declares files that collide on case-insensitive filesystems".
+
+Chaque élément de capacité reçoit sa propre identité à cet effet : `capabilityProps.packageId` et `capabilityProps.packageVersion` arrivent avec `localization`. Un bundle construit donc ses URL de ressources sous la forme `/api/capability-packages/<packageId>/assets/<path>`, éventuellement avec `?v=<packageVersion>` pour qu'un changement de version invalide tout cache intermédiaire, sans récupérer à nouveau la liste des packages installés ni analyser sa propre URL d'importation.
+
+### Capability API 1.11 : interface de combat des expériences
+
+Capability API 1.11 ajoute une interface de combat aux propriétés de capacité `game-surface`. `combatActive` indique l'instant où l'interface de combat intégrée est réellement montée, contrairement à `chatMeta.gameActiveState`, l'état narratif de la scène du GM, qui réagit plus tard et peut indiquer "combat" sans rencontre existante. `combatStyle` contient le style effectif (`classic` ou `tactical`). `requestCombat()` demande au moteur de générer une rencontre par le même processus que le bouton manuel Start Combat, sans boîte de confirmation puisque l'interface de l'expérience a déjà exprimé l'intention. Le processus de génération du moteur décide toujours du contenu de la rencontre. Un package ne peut volontairement pas fournir directement les combattants ou l'état du combat : le combat reste géré par le moteur.
+
+`requestCombat()` garde une identité stable, reste silencieux sur le chemin du package et renvoie un code dont l'expérience tire son propre retour : `"started"`, ou un refus, `"combat-active"`, `"pending"` (une génération est déjà en cours), `"no-turn"` (le GM n'a encore écrit aucun tour) ou `"unavailable"` (session terminée ou rediffusion). `combatPending` et `combatError` reflètent l'avancement et l'échec de la génération pour qu'un package n'attende pas indéfiniment `combatActive` après un échec. Comme les interfaces 1.7 et 1.8, mais à la différence de `contributions.assets` de 1.10, strictement contrôlé, ces propriétés sont remises à tous les packages `game-surface`, quel que soit le `capabilityApi` déclaré. L'étiquette 1.11 indique leur date d'apparition ; un package qui en dépend déclare 1.11 et les anciens moteurs le refusent proprement.
+
+### Capability API 1.12 : événements spatiaux pour l'expérience propriétaire
+
+Capability API 1.12 adresse aussi les événements de capacité spatiale au package de l'expérience propriétaire de la partie. `spatial_transition_committed`, `spatial_transition_rejected` et le signal non typé `spatial_context_refresh`, auparavant adressés uniquement à `hierarchical-maps` dans l'événement de fenêtre `marinara-capability-server-event`, sont désormais aussi distribués avec `packageId` défini sur le `gameExperienceId` du chat. Les charges diffèrent : un événement validé transporte `{ chatId, commandId, currentLocationId, definitionRevision, travel? }` ; un événement rejeté transporte `{ chatId, commandId, code?, message? }`, sans champ d'emplacement puisque le déplacement n'a pas eu lieu ; le signal d'actualisation transporte `data: null`. Une expérience qui a envoyé une commande de voyage avec l'argument `pendingSpatialTransition` de `sendMessage` peut donc confirmer ou effacer son trajet dès que l'hôte connaît le résultat, au lieu de le déduire de lectures ultérieures. La version 1.12 ferme aussi une lacune qui touchait World Maps : les transitions rejetées sur l'un des deux chemins HTTP silencieux, la validation avant diffusion du tour propriétaire pendant une génération ou la validation REST autonome, ne produisaient auparavant aucun événement. Les deux synthétisent désormais `spatial_transition_rejected`, uniquement sur une preuve définitive, soit un code d'erreur `spatial_*` autre que `already_applied`. Les échecs non concluants, comme une erreur réseau qui a peut-être perdu une validation réussie, émettent plutôt le signal non typé `spatial_context_refresh`, pour que les abonnés se resynchronisent avec le serveur au lieu d'accepter un verdict inventé. Un événement validé dont `travel.mode` vaut `"step_by_step"` et `complete: false` signifie que le trajet continue ; conserve l'état en attente jusqu'à l'événement final. Il s'agit d'une interface souple comme la 1.11 : les événements sont distribués quel que soit le `capabilityApi` déclaré. Ne déclare 1.12 que si le package en dépend.
+
+### Capability API 1.13 : repli temporaire de la narration
+
+Capability API 1.13 ajoute `requestsCollapsedNarration` à la déclaration d'interface qu'un package `game-surface` transmet à `setExperienceChrome`. Tant que le drapeau est true, le panneau de narration du Game Mode se replie sur sa poignée fine, afin qu'une expérience libère l'écran pour une cinématique ou une séquence en plein écran.
+
+C'est une DEMANDE, pas une préférence. Le réglage de repli du joueur n'est jamais modifié et le drapeau n'est respecté que tant que l'expérience constitue la surface active. Retire le drapeau ou cesse d'être la surface active, et le panneau reprend le choix du joueur. C'est la garantie qu'il se rouvre toujours ensuite ; un package ne peut volontairement pas rendre le repli permanent.
+
+Les règles de sécurité du moteur ont priorité. Le panneau s'ouvre de force lorsque la saisie de texte du joueur est affichée, y compris au tout début d'une scène avant tout segment, et lorsque les contrôles d'avancement du segment sont actifs. Ces contrôles sont le seul moyen de finir un tour ; un package capable de les masquer pourrait bloquer définitivement le joueur. La poignée continue aussi d'afficher son indicateur d'attention lorsqu'une nouvelle tentative d'analyse de scène, de génération ou de génération de combat est en attente. Si le joueur ouvre manuellement le panneau pendant une demande, il reste ouvert jusqu'à la fin de celle-ci. Comme les interfaces 1.11 et 1.12, il s'agit d'une interface souple : le champ est respecté quel que soit le `capabilityApi` déclaré. L'étiquette 1.13 indique son apparition ; un package qui en dépend déclare donc 1.13.
 
 ## Packages initiaux
 

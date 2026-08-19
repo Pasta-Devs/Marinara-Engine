@@ -28,10 +28,8 @@ Von einem Handy, Tablet oder einem anderen Gerät aus brauchen Backup und Wieder
 3. Suche den Abschnitt **Backup & Export**.
 4. Klick auf **Download Backup**.
 5. Während der Arbeit zeigt die Schaltfläche **Creating backup…**.
-6. In Chrome oder Edge am Desktop öffnet sich ein **Save As**-Dialogfenster, in dem du den Speicherort auswählst. Wähle einen Ordner und speichere.
-7. Am Ende erscheint **Backup saved!** oder **Backup downloaded!**.
-
-In manchen Browsern gibt es das **Save As**-Dialogfenster nicht. Dann landet die Datei stattdessen im normalen Downloads-Ordner.
+6. Sobald das Archiv fertig ist, streamt Marinara es direkt an deinen Browser, ohne die ganze Datei im Seitenspeicher zu halten.
+7. Je nach Download-Einstellungen öffnet dein Browser sein normales **Save As**-Dialogfenster oder legt die Datei im Downloads-Ordner ab.
 
 Besonders wichtig ist dieser Schritt auf Android und iOS. Auf diesen Geräten kommst du an den eigenen Datenordner der App meist gar nicht heran. Damit ist **Download Backup** der einzige einfache Weg, eine Kopie vom Gerät zu holen. Bewahre sie an einem sicheren, privaten Ort auf, etwa im eigenen Cloud-Speicher.
 

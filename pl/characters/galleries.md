@@ -68,6 +68,28 @@ Emoji lub naklejka oznaczona w galerii należy tylko do tej jednej postaci lub p
 
 Jeśli nazwa z galerii pokrywa się z nazwą ze zbioru globalnego, dla tego czatu wygrywa wersja z galerii. Marinara nie sprawdza, czy nazwy się nie powtarzają. Nadawaj każdemu obrazowi inną nazwę, żeby uniknąć niespodzianek.
 
+## Ponowne używanie obrazu z galerii w wiadomościach i powitaniach
+
+Każdy obraz z galerii postaci można wyświetlić w treści czatu: powitaniu, przykładowej wiadomości lub wiadomości wysyłanej przez postać. Najedź na obraz i kliknij **Copy image reference** (ikonę łącza). Skopiuje to krótki fragment Markdown, który można wkleić wszędzie tam, gdzie mówi postać:
+
+```text
+![sunset selfie](card://self/gallery/k3m2xq7.png)
+```
+
+Obowiązuje jedna zasada: **`self` oznacza postać wypowiadającą daną wiadomość.** Podczas wyświetlania Marinara Engine zastępuje `self` tą postacią i pokazuje obraz z jej galerii.
+
+Działa to w polach **First Message**, **Alternate Greetings** i **Example Dialogue** na karcie postaci, w każdej wiadomości wysyłanej przez postać w trybie Roleplay i Conversation oraz na czatach grupowych. W odpowiedzi wielu rozmówców `self` jest rozwiązywane osobno dla każdego z nich. Jeśli galeria rozmówcy nie ma pliku, Marinara Engine przeszukuje galerie pozostałych postaci z czatu.
+
+Z założenia nie działa to we własnych wiadomościach, które nie mają mówiącej postaci, ani w wiadomościach systemowych, które nie wyświetlają obrazów Markdown. Aby samodzielnie wysłać obraz postaci, użyj przeglądarki zasobów czatu zapisującej pełną postać `card://characters/<id>/...`. Galerie persony używają formatu `card://personas/<id>/gallery/<file>`.
+
+Jeśli dwie postacie mają obrazy o tej samej nazwie pliku, zawsze wygrywa obraz mówiącej postaci. Jeśli go nie ma, używane jest pierwsze dopasowanie według kolejności postaci na czacie. Gdy potrzebujesz konkretnej wersji, nadawaj plikom różne nazwy.
+
+### Dlaczego `self`, a nie pełne łącze
+
+Pełne łącze zawiera wewnętrzny identyfikator postaci (`card://characters/<id>/gallery/<file>`), który powstaje od nowa przy każdym imporcie, dlatego takie łącza psują się po udostępnieniu postaci. Format `self` nie zawiera identyfikatora ani adresu serwera. Przetrwa **natywny eksport i import JSON**: obrazy galerii podróżują w eksporcie i zachowują nazwy plików.
+
+Jest jedno ograniczenie: **eksport karty PNG nie zawiera galerii**. Jeśli postać używa odwołań do galerii, udostępniaj natywny plik `.json`.
+
 ## Powiązane przewodniki
 
 - [Tworzenie i edycja postaci](creating-and-editing-characters.md)

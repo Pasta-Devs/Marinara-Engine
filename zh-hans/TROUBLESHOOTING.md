@@ -42,6 +42,16 @@ Marinara v2.3.0 能通过 Corepack 正常启动 pnpm，却会在构建 shared �
 npm install -g pnpm@10.33.2
 ```
 
+### 将启动器更新至 pnpm 10.34.5
+
+Marinara v2.4.1 将固定的包管理器升级到 pnpm 10.34.5。现有的 10.33.2 启动器可以在同一次运行中完成这次性交接；刷新后的启动器会在后续启动时选择 10.34.5。Corepack 会根据 `package.json` 中固定的 SHA-512 摘要验证版本，npm 后备路径也会明确请求 10.34.5，而不是未固定的 latest 版本。
+
+如果早期的 v2.4.1 staging 构建已经因 `Expected version: >=10.34.5` 和 `Got: 10.33.2` 而停止，请再运行一次启动器；该构建在停止前已经下载了刷新后的启动器。如果启动器仍无法自动获取固定版本，请安装准确版本后重新运行：
+
+```bash
+npm install -g pnpm@10.34.5
+```
+
 ### Linux：安装过程中出现 ERR_PNPM_ENAMETOOLONG
 
 这说明上一次旧的安装留下了过长的文件夹路径。在 Marinara 文件夹里清掉没装完的内容，再重新运行启动脚本：
@@ -228,6 +238,12 @@ Music DJ 智能体的 Spotify 模式走的是 OAuth。OAuth 是一种登录交�
 
 ## 存储和数据
 
+### 启动时提示其他进程可能正在使用数据目录
+
+Marinara 只允许一个正在运行的服务器写入本地数据目录。如果启动时针对该目录显示 **Another Marinara Engine process ... may be using**，请关闭另一个 Marinara 进程后重新启动。
+
+发生崩溃或移动 Docker 数据卷后，启动时可能改为显示 **The storage writer lease ... is incomplete or invalid**，或者指向此主机上已不存在的进程。请先确认使用该数据目录的所有 Marinara 进程和容器均已停止。然后只删除错误中指定的 `.writer-lease` 目录，再重启 Marinara。不要删除其外层的 `storage` 目录或任何表文件。
+
 ### 更新之后数据像是丢了
 
 如果更新后聊天或预设看着不见了，先别急着删任何数据文件夹。Marinara 把正在用的数据放在数据目录下的 `storage` 文件夹里。
@@ -238,6 +254,27 @@ Music DJ 智能体的 Spotify 模式走的是 OAuth。OAuth 是一种登录交�
 2. `data/`
 
 服务器启动时会打印它解析出的数据目录和存储目录。
+
+### 切换到旧版本后聊天不显示消息
+
+新版 Marinara 会把每个聊天的数据（消息、swipe、记忆、图片及其他聊天记录）保存为每个聊天各自的文件，而不是每张表一个大文件，因此保存长聊天会快得多。旧版本无法识别这种布局。切换到旧版本后，聊天看起来是空的——数据仍在磁盘上，只是旧版本看不到。
+
+Marinara 会自行拒绝明显的降级：启动器会跳过会落到不兼容版本的自动更新，应用内更新器也会阻止它并显示指向此处的错误。
+
+如果仍要降级：
+
+1. 停止 Marinara 服务器。
+2. 在 Marinara 文件夹中运行：
+
+   ```bash
+   node scripts/protect-launcher-data.mjs unshard
+   ```
+
+3. 切换到旧版本并正常启动。
+
+该命令会根据每个聊天的文件重建旧的单文件布局。不会删除任何内容：聊天文件会保留在每个重建文件旁、名为 `<table>.post-unshard-<timestamp>` 的文件夹中（例如 `messages.post-unshard-…`），迁移前的原文件也会作为 `.pre-shard` 文件保留。以后再次升级时，Marinara 会自动把数据转换回去。
+
+Docker 和 Podman 将数据保存在 `marinara-data` 卷中，因此请在一次性容器里运行命令：停止正在运行的容器，执行 `docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard`，然后启动旧镜像。
 
 ### 备份或导出返回 403
 
@@ -254,11 +291,17 @@ Android 应用只是套在 Termux 外面的一层轻壳。Termux 是 Android 上
 3. 如果 Android 要求在 Termux 里执行命令，授予权限。
 4. 等启动脚本跑完并把服务器拉起来，再回到应用。
 
+正常的 APK 流程绝不会要求你粘贴 Marinara 密钥。应用会生成私密 localhost 凭据，把它传给 Termux 并自动登录。Android 的应用安装和 Termux 权限对话框仍然是必需的系统提示。不要把 `null`、`http://null` 或 APK 密钥添加到 `CSRF_TRUSTED_ORIGINS`；这些都不是正确或必要的 Android 设置步骤。
+
 另外确认应用和 Termux 用的是同一个端口。默认是 `7860`。如果打包应用时改了端口，Termux 的 `.env` 里也要设置成一样的 `PORT`。
 
 ### Android localhost 打开登录页面或返回 401/503
 
-由 APK 管理的 Termux 安装会用每次安装独有的私密密钥保护 localhost。Android 应用会自动认证。在同一部手机的其他浏览器中打开 `/android-login`，然后粘贴以下 Termux 命令显示的值：
+由 APK 管理的 Termux 安装会用每次安装独有的私密密钥保护 localhost。Android 应用会自动认证，设置过程中不应显示这个登录页面。如果它出现在 Marinara Engine 应用内，请安装[最新 APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)，再次点击 **Install / Start Marinara**，Termux 完成后返回应用。
+
+提到来源 `null` 的错误表示，旧版 APK 和服务器组合让 Android WebView 的不透明来源在私密握手前进入了通用 CSRF 检查。编辑 `.env` 无法修复：字面值 `null` 会被有意忽略，而全局信任不透明来源会削弱所有不安全的 API 路由。请更新 APK 和 Engine；当前 Android 登录路由会验证自己的单次证明或每次安装的密钥，其他地方仍会拒绝 `null`。
+
+只有同一部手机上的单独浏览器需要手动本地浏览器认证。在那个浏览器中打开 `/android-login`，然后粘贴以下 Termux 命令显示的值：
 
 ```bash
 cat ~/.marinara-engine/android-secret
@@ -349,6 +392,23 @@ Conversation 的日程要在 Conversation 的 Chat Settings 或角色日程编�
 禁用整页访问扩展之后，如果工具栏项、浮层、监听器或某处视觉改动还留着，重新加载 Marinara。清理只能尽力而为，因为页面代码可能在 Marinara 可追踪的兼容 API 之外留下副作用。
 
 ### 服务器扩展提示没有可用的沙箱
+
+服务器扩展和 Professor Mari 的原始 shell 命令只能在 macOS Seatbelt 或 Linux Bubblewrap 下运行。官方 Docker 镜像已经包含 Bubblewrap，但默认的最小权限容器无法创建它所需的嵌套命名空间和挂载。Marinara 会检测这种状态并禁用操作系统沙箱功能，而不是尝试必然失败的命令。
+
+如果你接受更宽泛的容器权限并确实需要在 Docker 中使用这些功能，请将以下内容保存为 `docker-compose.yml` 旁边的 `docker-compose.override.yml`：
+
+```yaml
+services:
+  marinara:
+    environment:
+      MARINARA_DOCKER_USER: root
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor=unconfined
+```
+
+添加后重新创建容器。服务器进程必须保持为 root，以免 Marinara 入口点通常切换到 `node` 用户时丢弃新增能力。以 root 配合 `SYS_ADMIN` 运行属于大范围提权，禁用 AppArmor 还会进一步削弱外层安全边界。不要只为了消除提示而启用它。当前 Docker 版本通常不需要笼统设置 `seccomp=unconfined`。
 
 服务器扩展只能在 macOS Seatbelt 或 Linux Bubblewrap 下运行。在 Linux 宿主机上安装 `bwrap`，然后重启 Marinara。Windows、Android 和其他不受支持的宿主环境会直接拒绝执行服务器扩展，而不是退回到主服务器进程里跑。浏览器扩展仍然可以使用它们的不透明来源 Worker 沙箱。
 

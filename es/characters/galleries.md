@@ -68,6 +68,28 @@ Un emoji o sticker etiquetado en la galería tiene alcance limitado a ese único
 
 Si un nombre de la galería coincide con un nombre del conjunto global, la versión de la galería gana para ese chat. Los nombres no se comprueban para verificar que sean únicos. Elige un nombre distinto para cada imagen para evitar sorpresas.
 
+## Reutilizar una imagen de la galería en mensajes y saludos
+
+Cualquier imagen de la galería de un personaje se puede mostrar dentro del texto del chat: en un saludo, un mensaje de ejemplo o un mensaje que envíe el personaje. Pasa el puntero por la imagen y haz clic en **Copy image reference** (el icono de enlace). Esto copia un pequeño fragmento de Markdown que puedes pegar donde hable el personaje:
+
+```text
+![sunset selfie](card://self/gallery/k3m2xq7.png)
+```
+
+La única regla es que **`self` significa el personaje que está pronunciando ese mensaje.** Cuando se renderiza, Marinara sustituye `self` por ese personaje y muestra la imagen de su galería.
+
+Funciona en **First Message**, **Alternate Greetings** y **Example Dialogue** de la tarjeta; en cualquier mensaje de personaje tanto en Roleplay como en Conversation; y en chats grupales. En una respuesta con varios hablantes, `self` se resuelve por hablante. Si su galería no contiene el archivo, Marinara lo busca en las galerías de los demás personajes del chat.
+
+Por diseño, no funciona en tus propios mensajes, porque no tienen personaje hablante, ni en mensajes del sistema, que no renderizan imágenes Markdown. Para publicar tú una imagen, usa el navegador de recursos del chat, que escribe la forma completa `card://characters/<id>/...`. Las galerías de persona usan `card://personas/<id>/gallery/<file>`.
+
+Si dos personajes tienen imágenes con el mismo nombre de archivo, siempre gana la del hablante. Si el hablante no la tiene, se usa la primera coincidencia según el orden de personajes del chat. Usa nombres distintos si necesitas una versión concreta.
+
+### Por qué usar `self` en vez del enlace completo
+
+Un enlace completo contiene el id interno del personaje (`card://characters/<id>/gallery/<file>`), y ese id se vuelve a generar al importar el personaje; por eso el enlace se rompe al compartirlo. La forma `self` no contiene id ni dirección de servidor. Sobrevive a una **exportación e importación JSON nativa**: las imágenes viajan en la exportación y conservan sus nombres.
+
+Una limitación: **las exportaciones de tarjetas PNG no incluyen la galería**. Comparte la exportación `.json` nativa cuando el personaje use referencias de galería.
+
 ## Guías relacionadas
 
 - [Crear y editar personajes](creating-and-editing-characters.md)

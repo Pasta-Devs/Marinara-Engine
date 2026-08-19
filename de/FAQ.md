@@ -34,7 +34,7 @@ Ersetze `192.168.1.42` durch die eigene Host-IP-Adresse.
 
 5. Melde dich an, falls der Browser nach Benutzername und Passwort für Basic Auth fragt. Erscheint stattdessen die Seite **Access blocked**, fehlt noch Schritt 2 auf dem Host.
 
-Bei gewöhnlichen Desktop-Installationen brauchst du auf demselben Computer (`127.0.0.1`) kein Passwort. Von der APK verwaltete Android-Installationen fügen eine private Anmeldung für localhost hinzu, damit sich keine andere Android-App als Marinara ausgeben kann. Andere Geräte bleiben blockiert, bis du die Zugriffskontrolle einrichtest (Basic Auth oder eine IP-Allowlist). Beide Wege erklärt [Fernzugriff](REMOTE_ACCESS.md).
+Bei gewöhnlichen Desktop-Installationen brauchst du auf demselben Computer (`127.0.0.1`) kein Passwort. Von der APK verwaltete Android-Installationen fügen eine private Anmeldung für localhost hinzu, damit sich keine andere Android-App als Marinara ausgeben kann; der Android-Wrapper erzeugt und verwendet diese Zugangsdaten jedoch automatisch. Andere Geräte bleiben blockiert, bis du die Zugriffskontrolle einrichtest (Basic Auth oder eine IP-Allowlist). Beide Wege erklärt [Fernzugriff](REMOTE_ACCESS.md).
 
 Liegen die beiden Geräte nicht im selben Netzwerk, hilft ein Werkzeug wie Tailscale. Tailscale gibt jedem Gerät eine feste private Adresse. Damit verbindest du dich von überall, ohne Marinara im öffentlichen Internet freizugeben. Klappt die Verbindung nicht, hilft [Fehlerbehebung](TROUBLESHOOTING.md) weiter.
 
@@ -42,9 +42,9 @@ Liegen die beiden Geräte nicht im selben Netzwerk, hilft ein Werkzeug wie Tails
 
 Eine eigene native Handy-App gibt es nicht. Auf Handy und Tablet nutzt du dieselbe Web-App im Browser. Die meisten mobilen Browser bieten **Add to Home Screen** (Zum Startbildschirm hinzufügen) oder **Install App** (App installieren) an – damit fühlt sich Marinara wie eine echte App an, ganz ohne Browserleiste. Das nennt sich PWA (Progressive Web App, eine Website, die sich wie eine App installieren lässt).
 
-Unter Android lässt sich außerdem eine APK installieren, also die Installationsdatei für Android. Marinara läuft dann lokal auf dem Handy. Siehe [Android-Installation](installation/android-termux.md). Für iPhone und iPad gibt es die [iOS-PWA-Anleitung](installation/ios-pwa.md).
+Unter Android kannst du außerdem [die neueste APK direkt herunterladen](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk). Marinara läuft damit über Termux lokal auf dem Handy. Für die Installation brauchst du weder Signaturschlüssel noch Passwort oder Geheimwert für den lokalen Zugriff; die nötigen Android-Berechtigungsabfragen erklärt die [Android-Installation](installation/android-termux.md). Für iPhone und iPad gibt es die [iOS-PWA-Anleitung](installation/ios-pwa.md).
 
-Der Android-Wrapper meldet sich automatisch bei seinem von der APK verwalteten Termux-Server an. Öffne für einen anderen Browser auf demselben Handy `/android-login`, führ in Termux `cat ~/.marinara-engine/android-secret` aus und füge den angezeigten Geheimwert ein. Die lokale `mari`-CLI liest denselben vom Launcher verwalteten Geheimwert automatisch. Manuelle Termux-Installationen behalten die normalen Regeln für localhost und Netzwerkzugriff.
+Der Android-Wrapper meldet sich automatisch bei seinem von der APK verwalteten Termux-Server an. Die privaten Zugangsdaten werden nur sichtbar, wenn du den Server absichtlich in einem anderen Browser auf demselben Handy öffnest: Öffne `/android-login`, führ in Termux `cat ~/.marinara-engine/android-secret` aus und füge den angezeigten Wert ein. Die lokale `mari`-CLI liest denselben vom Launcher verwalteten Geheimwert automatisch. Manuelle Termux-Installationen behalten die normalen Regeln für localhost und Netzwerkzugriff.
 
 ## Was sind die drei Chat-Modi?
 

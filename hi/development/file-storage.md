@@ -11,12 +11,24 @@ storage/
 ├── manifest.json
 └── tables/
     ├── chats.json
-    ├── messages.json
     ├── characters.json
+    ├── messages/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── message_swipes/
+    │   └── <encoded-chat-id>.json
     └── ...
 ```
 
 `FILE_STORAGE_DIR` से `storage` फ़ोल्डर को बदला जा सकता है। हर टेबल फ़ाइल में एक JSON ऐरे होता है। `manifest.json` में स्टोरेज फ़ॉर्मैट का वर्ज़न, सेव होने का समय, बैकएंड की पहचान और हर रजिस्टर की हुई टेबल की पंक्ति-गिनती दर्ज रहती है।
+
+### शार्ड की गई टेबल
+
+हर turn में लिखी जाने वाली chat-keyed टेबल एक बड़ी फ़ाइल के बजाय **हर चैट के लिए एक फ़ाइल** में सेव होती हैं। एक ही बड़ी फ़ाइल में हर सेव किया गया row सभी चैट की पूरी history को फिर serialize और write करता। Storage format 3 ने `messages` और `message_swipes` को shard किया; format 4 यही layout `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences` और `conversation_notes` पर लागू करता है। आधिकारिक सूची `file-backed-store.ts` में `SHARDED_TABLES` है, जिसे `scripts/protect-launcher-data.mjs` का offline `unshard` कमांड भी रखता है; regression test दोनों को साथ रखता है। हर टेबल अपने `chatId` column से shard चुनती है, दो अपवादों के साथ: `message_swipes` parent message से चुनता है, और influences तथा notes `targetChatId` इस्तेमाल करते हैं। `lorebooks` और `game_turn_storyboard_keyframes` जानबूझकर एक ही फ़ाइल में रहते हैं।
+
+Dirty tracking हर chat file के स्तर पर चलती है, इसलिए flush केवल बदली हुई चैट को छूता है। किसी shard में rows शून्य होने पर उसे खाली array के रूप में लिखने के बजाय हटा दिया जाता है। फ़ाइल नाम chat id से percent-encode होते हैं और बहुत लंबे या reserved नामों के लिए hash fallback मिलता है। यह encoding सुरक्षा सीमा है, क्योंकि imported profile में मनमानी ids हो सकती हैं। फ़ाइलें केवल container हैं; rows अपनी keys खुद रखती हैं।
+
+नई sharded टेबल वाली build के पहले boot पर मौजूदा बड़ी फ़ाइलें अपने आप migrate होती हैं: rows को chat के हिसाब से समूह बनाकर shards में लिखा जाता है, फिर बड़ी फ़ाइल **और उसकी `.bak`** का नाम `.pre-shard` कर दिया जाता है। ये migration से पहले की automatic backup हैं और Engine इन्हें कभी नहीं हटाता। `.migrating` sentinel crash recovery को स्पष्ट बनाता है। अगर पुरानी build बाद में shards के पास फिर बड़ी फ़ाइल बना दे, तो shards की जीत होती है और conflicting फ़ाइल को timestamp वाले `.post-downgrade-` suffix से अलग रख दिया जाता है, कभी merge नहीं किया जाता। Orphan child rows मिटने के बजाय `orphaned-rows` shard में जाती हैं। नए storage format का manifest load नहीं किया जाता।
 
 ## रनटाइम मॉडल
 

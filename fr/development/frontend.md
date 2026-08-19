@@ -587,6 +587,7 @@ Le moteur, volontairement léger, est livré avec un registre d'agents vide à l
 | `character-tracker`      | post_processing | Suit les changements d'état des personnages |
 | `persona-stats`          | post_processing | Suit l'évolution des caractéristiques du persona du joueur |
 | `custom-tracker`         | post_processing | Suit un état structuré défini par l'utilisateur |
+| `inventory-tracker`      | post_processing | Suit les monnaies, l'équipement porté et l'inventaire |
 | `illustrator`            | post_processing | Génère les prompts d'image de scène et les demandes de médias |
 | `lorebook-keeper`        | post_processing | Crée et met à jour automatiquement les entrées de lorebook |
 | `card-evolution-auditor` | post_processing | Audite les fiches de personnage et suggère des évolutions |
@@ -610,7 +611,7 @@ Le moteur, volontairement léger, est livré avec un registre d'agents vide à l
 
 Les agents produisent des résultats typés que le frontend sait traiter. L'union `AgentResultType`, dans `packages/shared/src/types/agent.ts`, comprend :
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` et `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` et `about_me_update`.
 
 ## Modes de chat
 

@@ -1,6 +1,6 @@
 # Referência dos agentes para download
 
-Este guia lista os 30 pacotes oficiais da equipe do projeto disponíveis em **Agents → Download Agents** (agentes → baixar agentes), organizados por categoria. Os agentes não vêm junto com uma instalação nova do Marinara Engine. O código-fonte dos pacotes, os manifestos, os artefatos e o catálogo legível por máquina ficam publicados em [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Para cada agente, este guia explica o que ele faz, quando ele roda ou como se integra ao aplicativo, em quais modos de chat ele pode ser usado e quais são as principais configurações. Antes de instalar e ativar qualquer um, leia o guia [Agentes: ajudantes de IA para os seus chats](agents-overview.md).
+Este guia lista os 36 pacotes oficiais da equipe do projeto disponíveis em **Agents → Download Agents** (agentes → baixar agentes), organizados por categoria. Os agentes não vêm junto com uma instalação nova do Marinara Engine. O código-fonte dos pacotes, os manifestos, os artefatos e o catálogo legível por máquina ficam publicados em [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Para cada agente, este guia explica o que ele faz, quando ele roda ou como se integra ao aplicativo, em quais modos de chat ele pode ser usado e quais são as principais configurações. Antes de instalar e ativar qualquer um, leia o guia [Agentes: ajudantes de IA para os seus chats](agents-overview.md).
 
 ## Como usar esta referência
 
@@ -70,7 +70,7 @@ Uma alternativa mais barata ao Knowledge Retrieval. Em vez de resumir, ele lê a
 
 ## Tracker agents
 
-Os trackers (agentes de acompanhamento) mantêm um registro contínuo da cena, dos personagens e dos seus atributos. O resultado mais recente deles pode ser acrescentado ao prompt como uma seção, o que ajuda o modelo a manter a coerência. Cinco dos trackers abaixo já vêm com **Add as Prompt Section** ativado: World State, Quest Tracker, Character Tracker, Persona Stats e Custom Tracker. Expression Engine e Background são as exceções.
+Os trackers (agentes de acompanhamento) mantêm um registro contínuo da cena, dos personagens e dos seus atributos. O resultado mais recente deles pode ser acrescentado ao prompt como uma seção, o que ajuda o modelo a manter a coerência. World State, Quest Tracker, Character Tracker, Persona Stats, Custom Tracker, Inventory Tracker e Beholder já vêm com **Add as Prompt Section** ativado. Expression Engine e Background são as exceções.
 
 ### World State
 
@@ -114,6 +114,16 @@ Quando um personagem recorrente volta depois de sair de cena, o Character Tracke
 - **Onde funciona**: Roleplay.
 - **Configurações principais**: **Add as Prompt Section** (ativado por padrão) e a configuração opcional **Auto-Generate NPC Avatars**, com seletor próprio de conexão de imagem.
 
+### Beholder
+
+Acompanha a roupa atual de cada personagem por parte do corpo, os itens que ele segura, ferimentos, partes do corpo ausentes, partes explicitamente descobertas e espécies não humanas. O instantâneo validado mais recente aparece na gaveta de Roleplay Chat Settings do Beholder e é enviado tanto para a próxima chamada de acompanhamento do Beholder quanto para a próxima resposta principal de Roleplay.
+
+- **Fase**: Post-Processing.
+- **Onde funciona**: somente em Roleplay.
+- **Configurações principais**: adicione ou remova em **Chat Settings → Agents → Tracker Agents**; abra **Configure Beholder** no mesmo lugar para escolher conexão, modelo, prompt, contexto e limites de saída. **Add as Prompt Section** fica ativado por padrão.
+- **Modelo recomendado**: use um modelo SOTA, como OpenAI GPT-5.5+, Claude Opus 4.8+ ou Kimi K3+, para acompanhar o estado completo com confiança.
+- **Origem**: adaptado para o ambiente Agent nativo do Engine com base em [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), sob a licença AGPL-3.0-only. O pacote oficial não carrega o DOM, a sondagem nem o ambiente de armazenamento local da extensão legada.
+
 ### Persona Stats
 
 Acompanha as barras de status da persona (o personagem que você interpreta), como Satiety, Energy e Hygiene, além das barras personalizadas que você criar. Use em partidas estilo sobrevivência ou simulação de vida.
@@ -129,6 +139,14 @@ Acompanha campos definidos por você, como moedas, contadores ou marcadores. Use
 - **Fase**: Post-Processing.
 - **Onde funciona**: Roleplay.
 - **Configurações principais**: **Add as Prompt Section** (ativado por padrão).
+
+### Inventory Tracker
+
+Acompanha dinheiro, equipamentos em uso e itens carregados em três listas estruturadas, sem reaproveitar o inventário de Persona Stats nem comprimir os dados em textos do Custom Tracker. Nomes duplicados são mesclados, quantidades de um ficam visualmente compactas e linhas bloqueadas sobrevivem inalteradas às próximas execuções do tracker.
+
+- **Fase**: Post-Processing (pós-processamento).
+- **Onde funciona**: Roleplay.
+- **Configurações principais**: **Add as Prompt Section** (ativado por padrão). O HUD e o Tracker Panel permitem editar e bloquear cada nome e quantidade.
 
 ### World Maps
 
@@ -150,6 +168,16 @@ Simula uma plateia ao vivo reagindo à sua cena, mostrada como um widget flutuan
 - **Fase**: Parallel.
 - **Onde funciona**: Roleplay.
 - **Configurações principais**: você escolhe um estilo entre as opções com nome, como **AO3 / Wattpad**, **Twitter / Reddit**, **4chan**, **Constructive**, **Hype Squad** e **Harbingers**. Entre os controles do widget estão **Re-run Echo Chamber** e **Clear messages**.
+
+### Noodle
+
+Acrescenta um mundo social local opcional com a linha do tempo pública do Noodle e o feed de roleplay entre criadores e fãs do NoodleR. Ele abre em uma aba própria da Home, em vez de rodar no fluxo normal de agentes do chat.
+
+- **Integração**: pacote de recursos; oferece a aba Home, rotas locais, fluxos de geração e mídia e agendadores em segundo plano.
+- **Onde funciona**: Home, com contexto opcional trazido de chats de Conversation, Roleplay e Game.
+- **Configurações principais**: instale em **Agents → Download Agents** e reinicie o Marinara Engine quando solicitado. Dentro do Noodle, você pode configurar contas convidadas, conexões de texto e imagem, atualizações da linha do tempo, perfis NoodleR Creator, acesso a posts simulados e atividade do público.
+- **Ciclo de vida dos dados**: desinstalar remove a aba Home e interrompe as rotas e os agendadores do pacote depois da reinicialização, preservando os dados existentes do Noodle e NoodleR para uma reinstalação futura.
+- **Guia completo**: [Noodle: a linha do tempo social do aplicativo](../noodle/overview.md).
 
 ### Long-Term Memory
 
@@ -206,8 +234,8 @@ Lê o clima da cena e toca a música que combina. Ele pode usar Spotify, YouTube
 Lê a narrativa e controla em tempo real os brinquedos íntimos conectados, via Intiface Central. O Intiface Central já precisa estar rodando, com um brinquedo conectado, antes de você ativar este agente.
 
 - **Fase**: Post-Processing.
-- **Onde funciona**: Roleplay.
-- **Configurações principais**: a opção **Touch Sensitivity** (**Subtle**, **Standard** ou **Intense**) e o campo **Intiface URL**. Para configurar tudo, veja [Configuração do Haptic Feedback](../integrations/haptic-feedback.md).
+- **Onde funciona**: Conversation, Roleplay e Game.
+- **Configurações principais**: a opção **Touch Sensitivity** (**Subtle**, **Standard** ou **Intense**) e o campo **Intiface URL**. A sensibilidade orienta as escolhas do agente sem limitar a faixa de intensidade disponível de `0.0-1.0`. Para configurar tudo, veja [Configuração do Haptic Feedback](../integrations/haptic-feedback.md).
 
 ### CYOA Choices
 

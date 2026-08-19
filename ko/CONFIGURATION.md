@@ -135,7 +135,7 @@ Marinara는 실행 중에도 `.env` 파일을 지켜봅니다. 변경 사항을 
 | `TRUSTED_HOSTS` | 비어 있음 | Marinara가 응답해도 되는 공개 호스트명이나 리버스 프록시 호스트명을 추가합니다. 직접 IP, localhost, `.local`, `.home.arpa`, 점이 없는 LAN 이름은 자동으로 동작합니다. |
 | `SSL_CERT` | 비어 있음 | TLS 인증서 파일 경로. `SSL_KEY`와 함께 설정하면 HTTPS를 직접 제공합니다. |
 | `SSL_KEY` | 비어 있음 | TLS 개인 키 파일 경로. |
-| `CSRF_TRUSTED_ORIGINS` | 비어 있음 | 변경 사항 저장을 허용할 브라우저 출처를 추가합니다. 공개 도메인이나 특이한 포트를 쓸 때 사용합니다. |
+| `CSRF_TRUSTED_ORIGINS` | 비어 있음 | 변경 사항 저장을 허용할 브라우저 출처를 추가합니다. 공개 도메인이나 특이한 포트를 쓸 때 사용합니다. 리터럴 `null`은 무시되며 Android APK에 사용하면 안 됩니다. 자체 인증 로그인 경로는 불투명한 출처를 전역으로 신뢰하지 않아도 작동합니다. |
 
 Basic Auth는 HTTP Basic Authentication의 줄임말로, 사용자 이름과 비밀번호를 묻는 간단한 방식입니다. 이때 자격 증명은 암호화되지 않고 인코딩만 되므로, 서버를 공개 인터넷에 노출한다면 반드시 HTTPS와 함께 쓰세요. HTTPS는 HTTP를 암호화한 안전한 버전입니다. 직접 켜려면 `SSL_CERT`와 `SSL_KEY`를 모두 설정하거나, Marinara 앞에 리버스 프록시를 두세요.
 
@@ -269,9 +269,9 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | --- | --- | --- |
 | `PORT` | `7860` | 서버가 대기하는 포트입니다. Android, Docker, Termux에서 같은 값을 쓰세요. |
 | `HOST` | `127.0.0.1`(셸 런처에서는 `0.0.0.0`) | 바인딩할 네트워크 인터페이스입니다. LAN에서 접근하려면 `0.0.0.0`을 쓰세요. |
-| `MARINARA_ANDROID_SECRET` | 비어 있음 | APK가 관리하는 Termux 설치의 내부 로컬 인증 비밀 값입니다. Android 래퍼가 만들고 Termux 런처가 내보냅니다. 일반 데스크톱 설치나 수동 Termux 설치에서는 설정하지 마세요. 설정할 때는 정확히 64자의 16진수여야 합니다. 비어 있지 않은 잘못된 값은 인증을 약화하는 대신 기기 내부 요청을 HTTP 503으로 실패시킵니다. |
-| `MARINARA_ANDROID_SECRET_FILE` | `~/.marinara-engine/android-secret` | Termux 런처와 로컬 `mari` CLI가 쓰는 비공개 비밀 파일 경로입니다. APK와 런처가 이 파일을 자동으로 관리합니다. |
-| `AUTO_OPEN_BROWSER` | `true` | 셸 런처가 앱 URL을 대신 열지 여부입니다. 열지 않으려면 `false`로 설정하세요. |
+| `MARINARA_ANDROID_SECRET` | 비어 있음 | APK가 관리하는 Termux 설치의 내부 로컬 인증 비밀 값입니다. 설치 프로그램에 입력하는 값이 아닙니다. Android 래퍼가 생성하고 전달하며 Termux 런처가 자동으로 내보냅니다. APK 사용자에게 입력을 요청하거나 일반 데스크톱 설치 또는 수동 Termux 설치에서 설정하지 마세요. 설정할 때는 정확히 64자의 16진수여야 합니다. 비어 있지 않은 잘못된 값은 인증을 약화하는 대신 기기 내부 요청을 HTTP 503으로 실패시킵니다. |
+| `MARINARA_ANDROID_SECRET_FILE` | `~/.marinara-engine/android-secret` | Termux 런처와 로컬 `mari` CLI가 쓰는 비공개 비밀 파일 경로입니다. APK와 런처가 이 파일을 자동으로 관리하며 일반 APK 사용자는 읽거나 복사할 필요가 없습니다. |
+| `AUTO_OPEN_BROWSER` | `true` | 셸 런처가 앱 URL을 대신 열지 여부입니다. 열지 않으려면 `false`로 설정하세요. APK가 관리하는 설정은 이미 인증된 Android 앱이 연결되도록 해당 실행에서 브라우저 자동 열기를 끕니다. |
 | `AUTO_UPDATE_ENABLED` | `true` | Git 기반 Windows, macOS/Linux, Termux 런처가 시작 전에 Engine 업데이트를 받아 적용할지 여부입니다. 계속 받지 않으려면 `false`로 설정하세요. 다음 실행부터 적용됩니다. 이렇게 해도 런처는 새로 공개된 릴리스가 있는지 읽기 전용으로 확인해 다운로드 안내를 출력하며, 수동 확인, 앱 내 적용, 패키지 업데이트, 모델 업데이트는 그대로 쓸 수 있습니다. 이번 한 번만 두 가지 런처 확인을 모두 건너뛰려면 `--skip-update`를 쓰세요. |
 | `MARINARA_ENV_FILE` | 프로젝트 최상위의 `.env` | `.env` 파일 경로를 다른 곳으로 지정하는 선택 설정입니다. 서버를 시작하기 전에 설정하세요. |
 | `TZ` | 시스템 기본값 | 서버 측 작업에 쓰는 호스트 대체 시간대입니다. Conversation 스케줄은 스케줄 컨트롤에서 전역 시간대를 저장해 두었다면 그 값을 씁니다. 호스트 시간대를 그대로 쓰려면 `TZ`를 설정하지 마세요. `TZ=`처럼 비워 둔 경우도 설정하지 않은 것으로 봅니다. |

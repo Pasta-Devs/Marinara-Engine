@@ -8,7 +8,7 @@
 
 エージェントはキャラクター単位ではなく、チャット単位でオンにします。キャラクターカードにエージェントのトグルはありません。同じキャラクターとの2つのチャットで、まったく違うエージェントを動かせます。どのエージェントを動かすかは、チャットごとの設定で選びます。
 
-Marinara Engineをインストールした直後は、追加のエージェントは1つも入っていません。こうすることで、本体アプリとTermuxのインストールを小さく保てます。v2.3.0以降の公式カタログには、ワンクリックで導入できるパッケージが30個あります。内訳は6個のWriter Agents、8個のTracker Agents、16個のMisc Agentsで、Long-Term Memory、Maps、Calls、Conversationの6種類のゲームがすべて含まれます。ソースコード、マニフェスト、ダウンロードできる成果物、リポジトリー側のカタログは、[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)で公開しています。エージェントごとの詳しい解説は[ダウンロードできるエージェント一覧](built-in-agents.md)を、自作する方法は[カスタムエージェントの作成](custom-agents.md)を参照してください。
+Marinara Engineをインストールした直後は、追加のエージェントは1つも入っていません。こうすることで、本体アプリとTermuxのインストールを小さく保てます。v2.3.0以降の公式カタログには、ワンクリックで導入できるパッケージが33個あります。内訳は6個のWriter Agents、9個のTracker Agents、18個のMisc Agentsで、Long-Term Memory、Maps、Calls、Inventory Tracker、Conversationの6種類のゲームがすべて含まれます。ソースコード、マニフェスト、ダウンロードできる成果物、リポジトリー側のカタログは、[Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)で公開しています。エージェントごとの詳しい解説は[ダウンロードできるエージェント一覧](built-in-agents.md)を、自作する方法は[カスタムエージェントの作成](custom-agents.md)を参照してください。
 
 ## 3つのフェーズ
 

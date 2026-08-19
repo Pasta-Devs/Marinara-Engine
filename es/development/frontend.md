@@ -587,6 +587,7 @@ El Engine ligero se envía con un registro de agentes en tiempo de ejecución va
 | `character-tracker`      | post_processing | Sigue los cambios de estado de los personajes                     |
 | `persona-stats`          | post_processing | Sigue los cambios de estadísticas de la persona del jugador       |
 | `custom-tracker`         | post_processing | Sigue el estado estructurado definido por el usuario              |
+| `inventory-tracker`      | post_processing | Sigue monedas, equipo puesto e inventario                         |
 | `illustrator`            | post_processing | Genera prompts de imagen de escena y solicitudes de medios        |
 | `lorebook-keeper`        | post_processing | Crea y actualiza automáticamente entradas de lorebook             |
 | `card-evolution-auditor` | post_processing | Audita las tarjetas de personaje en busca de evolución sugerida   |
@@ -610,7 +611,7 @@ El Engine ligero se envía con un registro de agentes en tiempo de ejecución va
 
 Los agentes producen resultados tipados que el frontend maneja. La unión `AgentResultType` en `packages/shared/src/types/agent.ts` incluye:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` y `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` y `about_me_update`.
 
 ## Modos de chat
 

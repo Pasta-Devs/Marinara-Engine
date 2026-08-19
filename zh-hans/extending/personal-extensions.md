@@ -8,6 +8,8 @@
 
 这个区块里既没有新建草稿的入口，也没有导入控件。要新建或修改草稿，直接找 Professor Mari。她可以保存代码，但不能批准或启用。
 
+要自己编写并导入软件包，请使用[个人扩展编写指南](writing-personal-extensions.md)。自行编写的软件包走单独授权的 External Extensions 流程。
+
 ## 审查并启用
 
 每份草稿一开始都是禁用状态。Marinara 会用 SHA-256 给可执行代码算出精确指纹。打开草稿，逐行看代码，核对界面上显示的哈希值，只有认可这个确切版本时才选 **Review and Run**(审查并运行)。可执行部分只要有任何改动，或者恢复了某个历史修订版本，扩展就会自动禁用，需要重新批准。
@@ -62,7 +64,24 @@ const panel = marinara.ui.registerContribution({
 marinara.onCleanup(() => panel.remove());
 ```
 
-紧凑的顶栏操作和 Extensions 菜单操作用 `kind: "button"`，只出现在菜单里的操作用 `kind: "menu-item"`。两者都会触发 `onActivate`。`panel` 在打开时触发 `onActivate`；面板上的按钮触发 `onEvent`，并带上面板里每个控件的当前值。返回的句柄支持 `update({ label?, description?, icon?, elements? })` 和 `remove()`。ID 可以包含字母、数字以及 `.`、`_` 和 `-`。
+紧凑操作使用 `kind: "button"`，Extensions 菜单操作使用 `kind: "menu-item"`。按钮默认使用 `surface: "top-bar"`，也可以指向 `chats`、`bots`、`characters`、`personas`、`lorebooks`、`presets`、`connections`、`agents` 或 `settings`，并将 `position` 设为 `header`、`before-content` 或 `after-content`。`icon` 可接受 Marinara 支持的任意 kebab-case Lucide 图标名称。两种操作都会触发 `onActivate`。`panel` 在打开时触发 `onActivate`；其按钮会带着所有面板控件的当前值触发 `onEvent`。句柄支持按种类更新：`button` 接受 `label`、`description`、`icon`、`surface` 和 `position`；`menu-item` 接受 `label`、`description` 和 `icon`；`panel` 接受 `label`、`description`、`icon` 和 `elements`。所有句柄都支持 `remove()`。ID 可以包含字母、数字以及 `.`、`_` 和 `-`。
+
+例如，下面会在 Presets 面板内容上方放置一个原生操作：
+
+```js
+marinara.ui.registerContribution({
+  id: "preset-helper",
+  kind: "button",
+  label: "Preset helper",
+  description: "Run the preset helper",
+  icon: "list-sparkles",
+  surface: "presets",
+  position: "before-content",
+  onActivate: () => {
+    // Run extension behavior here.
+  },
+});
+```
 
 复杂工具可以在事件发生后更新面板元素，做出多步骤界面。应用状态放在 `marinara.storage` 里，不要编码进标记结构。
 
@@ -184,6 +203,7 @@ Windows 和 Android 上没有受支持的操作系统进程沙箱，所以服务
 
 ## 相关指南
 
+- [编写个人扩展](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [服务器配置](../CONFIGURATION.md)
 - [备份与恢复](../data/backup-and-restore.md)

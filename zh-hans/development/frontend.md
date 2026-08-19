@@ -587,6 +587,7 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | `character-tracker` | post_processing | 追踪角色的状态变化 |
 | `persona-stats` | post_processing | 追踪玩家用户角色的属性变化 |
 | `custom-tracker` | post_processing | 追踪自定义的结构化状态 |
+| `inventory-tracker` | post_processing | 追踪货币、已装备物品和随身库存 |
 | `illustrator` | post_processing | 生成场景图像提示词和媒体请求 |
 | `lorebook-keeper` | post_processing | 自动创建和更新世界书条目 |
 | `card-evolution-auditor` | post_processing | 审查角色卡，给出演进建议 |

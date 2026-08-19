@@ -68,6 +68,28 @@ Un emoji ou un sticker marqué dans la galerie reste rattaché à ce seul person
 
 Si un nom de la galerie correspond à un nom de la collection globale, c'est la version de la galerie qui l'emporte dans ce chat. L'unicité des noms n'est pas vérifiée. Choisis un nom distinct pour chaque image afin d'éviter les mauvaises surprises.
 
+## Réutiliser une image de galerie dans les messages et les salutations
+
+Toute image de la galerie d'un personnage peut s'afficher dans le texte du chat : une salutation, un message d'exemple ou un message envoyé par le personnage. Survolez l'image et cliquez sur **Copy image reference** (l'icône de lien). Un court fragment Markdown est copié et peut être collé partout où le personnage parle :
+
+```text
+![sunset selfie](card://self/gallery/k3m2xq7.png)
+```
+
+Une seule règle : **`self` désigne le personnage qui prononce ce message.** Au rendu, Marinara remplace `self` par ce personnage et affiche l'image de sa galerie.
+
+Cela fonctionne dans **First Message**, **Alternate Greetings** et **Example Dialogue** sur la fiche, dans tout message envoyé par un personnage en Roleplay comme en Conversation, et dans les chats de groupe. Pour une réponse à plusieurs intervenants, `self` est résolu séparément pour chacun. Si sa galerie ne contient pas le fichier, Marinara le cherche dans celles des autres personnages du chat.
+
+Par conception, cela ne fonctionne pas dans vos propres messages, qui n'ont pas de personnage locuteur, ni dans les messages système, qui n'affichent pas les images Markdown. Pour publier vous-même une image, utilisez le navigateur de ressources du chat, qui écrit la forme complète `card://characters/<id>/...`. Les galeries de persona utilisent `card://personas/<id>/gallery/<file>`.
+
+Si deux personnages ont une image portant le même nom de fichier, celle du locuteur l'emporte toujours. S'il ne la possède pas, la première correspondance selon l'ordre des personnages du chat est utilisée. Choisissez des noms distincts si vous voulez une version précise.
+
+### Pourquoi `self` plutôt que le lien complet
+
+Un lien complet contient l'id interne du personnage (`card://characters/<id>/gallery/<file>`), et cet id est régénéré à chaque import ; le lien se brise donc au partage. La forme `self` ne contient ni id ni adresse de serveur. Elle résiste à un **export et import JSON natif** : les images de galerie voyagent avec l'export et conservent leur nom.
+
+Une limite demeure : **les exports de fiche PNG n'incluent pas la galerie**. Partagez l'export `.json` natif lorsqu'un personnage utilise des références de galerie.
+
 ## Guides associés
 
 - [Créer et modifier des personnages](creating-and-editing-characters.md)

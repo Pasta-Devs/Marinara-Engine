@@ -11,12 +11,24 @@ storage/
 ├── manifest.json
 └── tables/
     ├── chats.json
-    ├── messages.json
     ├── characters.json
+    ├── messages/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── message_swipes/
+    │   └── <encoded-chat-id>.json
     └── ...
 ```
 
 `FILE_STORAGE_DIR`로 `storage` 폴더 위치를 바꿀 수 있습니다. 테이블 파일 하나에는 JSON 배열 하나가 들어갑니다. `manifest.json`에는 저장 형식 버전, 저장 시각, 백엔드 식별자, 그리고 등록된 모든 테이블의 행 수가 기록됩니다.
+
+### 샤딩된 테이블
+
+턴마다 기록되는 채팅별 테이블은 하나의 큰 파일이 아니라 **채팅마다 한 파일**로 저장됩니다. 단일 파일 방식에서는 행 하나를 저장할 때마다 모든 채팅의 전체 기록을 다시 직렬화하고 써야 하기 때문입니다. 저장 형식 3은 `messages`와 `message_swipes`를 샤딩했고, 형식 4는 같은 구조를 `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences`, `conversation_notes`까지 확장합니다. 기준 목록은 `file-backed-store.ts`의 `SHARDED_TABLES`이며 `scripts/protect-launcher-data.mjs`의 오프라인 `unshard` 명령에도 반영되고, 회귀 테스트가 두 목록의 일치를 고정합니다. 각 테이블은 자체 `chatId` 열로 샤드를 정하지만, `message_swipes`는 상위 메시지를 거치고 influence와 note는 `targetChatId`를 사용합니다. `lorebooks`와 `game_turn_storyboard_keyframes`는 의도적으로 단일 파일을 유지합니다.
+
+변경 추적은 채팅 파일 단위로 작동하므로 플러시는 변경된 채팅만 건드립니다. 샤드의 행 수가 0이 되면 빈 배열로 쓰지 않고 삭제합니다. 파일 이름은 채팅 ID를 퍼센트 인코딩하며 너무 길거나 예약된 이름에는 해시 대체 경로를 사용합니다. 가져온 프로필은 임의의 ID를 가질 수 있으므로 이 인코딩은 보안 경계입니다. 파일은 컨테이너일 뿐이며 행은 자체 키를 유지합니다.
+
+새로 샤딩된 테이블이 있는 빌드를 처음 시작하면 기존 단일 파일은 자동으로 마이그레이션됩니다. 행을 채팅별로 묶어 샤드에 쓴 뒤 단일 파일**과 그 `.bak`**을 `.pre-shard`로 이름을 바꿉니다. 이 파일들은 마이그레이션 전 자동 백업이며 Engine은 절대 삭제하지 않습니다. `.migrating` 센티널은 크래시 복구의 기준을 분명히 합니다. 이전 빌드가 나중에 샤드 옆에 단일 파일을 다시 만들면 샤드가 우선하고 충돌 파일은 타임스탬프가 붙은 `.post-downgrade-` 접미사로 격리되며 합쳐지지 않습니다. 고아 하위 행은 버리지 않고 `orphaned-rows` 샤드에 둡니다. 더 새로운 저장 형식으로 작성된 매니페스트는 로드를 거부합니다.
 
 ## 실행 중 동작 방식
 

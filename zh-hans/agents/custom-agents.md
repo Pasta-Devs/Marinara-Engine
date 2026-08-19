@@ -106,6 +106,13 @@ Post-Processing 的自定义智能体还会多出一个 **Turn Data Access**(回
 
 结果类型是灰的，说明对应的能力还没开启。在 **Custom Agent Abilities** 下开启对应开关，这个结果类型就能点了。
 
+### 图像智能体的单聊天控制
+
+拥有 **Image generation** 能力的智能体会在 **Chat Settings → Agents → Custom Agents** 卡片中多出两个控制项，它们位于每个自定义智能体都有的提示词模板选择器旁边：
+
+- **Image Connection** — 仅为当前聊天覆盖该智能体使用的图像连接。保留 **Agent default** 可继续使用智能体自身设置中的连接。聊天级的 **Image Style** 也会应用于自定义智能体图像，因此无需复制智能体就能让它在不同聊天中采用不同的渲染方式。
+- **Camera button** — 不等待激活关键词，立即用该智能体生成图像。提示词仍由智能体自己编写；如果模板决定不生成提示词，则会显示错误通知而不是图像。
+
 ## Activation Keywords
 
 自定义智能体默认按固定节奏运行。**Activation Keywords**(激活关键词) 可以让它在场景无关时直接跳过，省下 Token 和费用。Token 是 AI 用来计数的一小段文本。

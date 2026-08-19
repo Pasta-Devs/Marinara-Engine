@@ -106,6 +106,13 @@ Le type **Context Injection** est le point de départ le plus accueillant. Il ne
 
 Si un type de résultat est grisé, c'est que sa capacité n'est pas encore activée. Active l'interrupteur correspondant sous **Custom Agent Abilities** et le type de résultat devient cliquable.
 
+### Contrôles par chat pour les agents d'image
+
+Un agent doté de la capacité **Image generation** reçoit deux contrôles supplémentaires sur sa carte dans **Chat Settings → Agents → Custom Agents**, à côté du sélecteur de modèle de prompt dont dispose chaque agent personnalisé :
+
+- **Image Connection** — remplace uniquement pour ce chat la connexion d'image utilisée par l'agent. Laissez **Agent default** pour conserver la connexion de ses propres réglages. Le choix **Image Style** du chat s'applique aussi aux images des agents personnalisés, ce qui permet à un même agent d'obtenir un rendu différent selon le chat sans le dupliquer.
+- **Camera button** — génère immédiatement une image avec cet agent, sans attendre ses mots-clés d'activation. L'agent rédige toujours le prompt lui-même ; si son modèle choisit de ne pas en produire, un message d'erreur apparaît à la place de l'image.
+
 ## Activation Keywords
 
 Par défaut, un agent personnalisé tourne à sa cadence normale. La section **Activation Keywords** (mots-clés d'activation) permet de le sauter tant que la scène ne s'y prête pas. Tu économises ainsi des tokens et de l'argent. Un token est un petit morceau de texte que l'IA compte.

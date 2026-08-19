@@ -41,6 +41,20 @@ Każdy plik może mieć najwyżej 20 MB. Większy plik Marinara odrzuca z inform
 
 AI "zobaczy" obraz tylko wtedy, gdy podłączony model obsługuje analizę obrazu. Jeśli model pracuje wyłącznie na tekście, włącz opcję **Image Captioning** (opisywanie obrazów). To ustawienie znajduje się w panelu **Chat Settings** (ustawienia czatu) danego czatu, w sekcji **Advanced Parameters**, i domyślnie jest wyłączone. Po włączeniu Marinara opisuje słowami każdy załączony obraz, korzystając z wybranego połączenia, i wysyła ten opis zamiast samego obrazu.
 
+## Wstawianie obrazu z galerii do wiadomości
+
+Załączniki są przeznaczone do *oglądania przez AI*. Odwołania do galerii są przeznaczone do *oglądania przez czytelnika*: pokazują obraz z galerii bezpośrednio w treści wiadomości.
+
+Wiadomości obsługują składnię obrazów Markdown, a Marinara Engine rozwiązuje specjalne łącza `card://` do plików galerii:
+
+```text
+![a caption](card://characters/<character-id>/gallery/<filename>.png)
+```
+
+W trybie Roleplay przeglądarka zasobów czatu może wstawić takie łącze. Można je też wkleić wszędzie tam, gdzie pisze się tekst: w wiadomościach, powitaniach i przykładowych dialogach.
+
+Dla obrazu z **własnej galerii postaci** wybieraj przenośny format `card://self/gallery/<filename>`, który działa nadal po eksporcie i imporcie postaci. Przycisk **Copy image reference** w galerii postaci tworzy takie odwołanie. Szczegóły opisuje sekcja [Galerie postaci → Ponowne używanie obrazu z galerii w wiadomościach i powitaniach](../characters/galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
+
 ## Streaming odpowiedzi
 
 Streaming pokazuje odpowiedź słowo po słowie, w trakcie generowania, zamiast czekać na całość naraz. Ustawienia streamingu znajdują się w sekcji **Responses**, w zakładce **General** panelu **Settings**:

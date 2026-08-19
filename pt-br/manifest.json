@@ -1,21 +1,21 @@
 {
   "language": "pt-br",
-  "sourceCommit": "014be8ddfb61c07e47ff23cd178ff4a95a204e84",
+  "sourceCommit": "f195f57b1f07fb2eec95ee10b20de0ed4d4dce7a",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "4664ac091bf16ef3ed3e56f763c0a8e3c8cefda9efc4f23722474bc4c45b6bce",
-      "bytes": 33319
+      "sha256": "fe360573a2eb985c14dcefff65af12dba3f227a4d6165ab07b3112cbf17793e5",
+      "bytes": 33809
     },
     {
       "path": "FAQ.md",
-      "sha256": "db6521ee8cc34579cfec6415562168d13c9f761c280b8396d438c95ab52180fe",
-      "bytes": 22375
+      "sha256": "fdf29487481333764993b4896e9bcabaadc4a34606f910aaa9865a525ccf93c3",
+      "bytes": 22743
     },
     {
       "path": "INSTALLATION.md",
-      "sha256": "61ebb6b6da41f1fdaef2670249cd885a6cbd369804a5dd4a9c43e5e50aa96097",
-      "bytes": 3909
+      "sha256": "d917de664c90a19b13142234d7e28ec832387ee65a85eeffdf3eb09ff74a5b65",
+      "bytes": 4345
     },
     {
       "path": "REMOTE_ACCESS.md",
@@ -24,18 +24,18 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "a6c7a699e81b88e7f8422ab0b48193ba00ae70c801271a93350215e25601c45b",
-      "bytes": 34536
+      "sha256": "72adc0e3db4263b9a68242aa937fc2dc1c69578172ce0ecd8c727dc482177343",
+      "bytes": 40587
     },
     {
       "path": "UPGRADING.md",
-      "sha256": "875ce121129b1c366fbcb6956fd8588a434d14e5685972556a3c8a3e8c0f79ea",
-      "bytes": 13477
+      "sha256": "f7c906e70986408ddf9b87d7e59c2257b8d2c66bd8a4016fb3e05773693e70e4",
+      "bytes": 14495
     },
     {
       "path": "agents/agents-overview.md",
-      "sha256": "100928699b424f8a212b49577515df45da692dd8c174b6d9f0326e0699ae37e6",
-      "bytes": 9952
+      "sha256": "eb6dfd14a5450fd9c89d24dd8ba11a81e49f20732e8525cc9c95d622c301f47f",
+      "bytes": 9971
     },
     {
       "path": "agents/approvals-and-agent-suite.md",
@@ -44,18 +44,18 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "d203d749dfdfeb4bf56de88bd1919dddc7a1dd405e815129b492881c95d5e1e4",
-      "bytes": 22113
+      "sha256": "5c0a0e4e2378650a0fe68e2ca19191a99b0284b5dc7cf508610a92ca0d9e0dac",
+      "bytes": 25163
     },
     {
       "path": "agents/custom-agents.md",
-      "sha256": "6b5642eecd761ae33303868279497f5b0ebb7547f923c4bf7d8019946a8686e3",
-      "bytes": 15748
+      "sha256": "2df54f724e0ece4bbf54ad5d340486c63121c0bafd5a8f8d15d1a846fdf6572c",
+      "bytes": 16633
     },
     {
       "path": "agents/hierarchical-maps.md",
-      "sha256": "75b5559c802018cb4a2f89444f9ea5c2dd88b4e1faba076bb65252bb6cba662f",
-      "bytes": 46290
+      "sha256": "097c8552cf391bb2a8b151b3e4a4a99b726f4083370006ddfb76676cdb9afcc8",
+      "bytes": 51181
     },
     {
       "path": "agents/knowledge-sources.md",
@@ -114,8 +114,8 @@
     },
     {
       "path": "characters/galleries.md",
-      "sha256": "a1a9685144f91c37cb0191f8d25a2fb61d1aed8633e0152a4e29f61f367eb7e3",
-      "bytes": 5500
+      "sha256": "34191307f061768b67f7bf2d7d766399bce2000c89b02d666c1e6e7ca369fb11",
+      "bytes": 7783
     },
     {
       "path": "characters/import-export.md",
@@ -184,8 +184,8 @@
     },
     {
       "path": "chats/sending-and-streaming.md",
-      "sha256": "27f25e147ebd59705afc0f35bc1fa0f3b9a9cc8bc793e81cfe544deb37b844f4",
-      "bytes": 9539
+      "sha256": "8d4d4a5f84153a04a41a2bd512673c26798085c7343b2b8d07a6c3c569b9e9c6",
+      "bytes": 10542
     },
     {
       "path": "chats/settings-profiles.md",
@@ -264,8 +264,8 @@
     },
     {
       "path": "data/backup-and-restore.md",
-      "sha256": "8ca553eb56156902c3a7aa3bd6dd95d55ca8262a3b0bcf2dcced9ceba15f5977",
-      "bytes": 10324
+      "sha256": "b6521b8f60b1d953bb263bad9ddc3e37ffaaf6d86e934864040e5357019cfe40",
+      "bytes": 10275
     },
     {
       "path": "data/clearing-data.md",
@@ -299,13 +299,13 @@
     },
     {
       "path": "development/file-storage.md",
-      "sha256": "6818cd13643664b6be46fe3e04289094e72ac846b1aac44b01bcce582822e217",
-      "bytes": 4417
+      "sha256": "e49907523970ed88e150363df70c4800769d867d5d39b0c1f326ebd4c1884491",
+      "bytes": 7101
     },
     {
       "path": "development/frontend.md",
-      "sha256": "ddca78fc0aec13d27e65eb22b5b82ae23ae54341903908d80bfa46d8443af1b0",
-      "bytes": 49960
+      "sha256": "8b4a5a8ad4fa3da0e188acdf2345ed5d22ec1abd1805682f0470a3739c49527b",
+      "bytes": 50121
     },
     {
       "path": "development/hierarchical-locations-prd-v3.md",
@@ -334,8 +334,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "1806ca75b694f0f6d9ad166809cb83930c3591581ae36097d6130f17ce692160",
-      "bytes": 9879
+      "sha256": "4c39fd4c4754786a8063279c4201f23ffec1e9a864f7c875ff11543760ece4bb",
+      "bytes": 21596
     },
     {
       "path": "development/personal-extensions.md",
@@ -349,13 +349,18 @@
     },
     {
       "path": "extending/personal-extensions.md",
-      "sha256": "ad1e86e0bc84f96ff9597e01708548b2ab898057a06629f9eed4de172c9dda21",
-      "bytes": 16073
+      "sha256": "5c27fb7602a628bf5330a84d79f61c454375f9be0ff75e3912f16e1aac1340cb",
+      "bytes": 17209
     },
     {
       "path": "extending/regex-scripts.md",
       "sha256": "5f15e0915f427f0ccda40efab4160e3aec45521bac4a96a0c4007251259b64da",
       "bytes": 13523
+    },
+    {
+      "path": "extending/writing-personal-extensions.md",
+      "sha256": "6c474f46c809f26dfa43131f43467497daa8cc430233a45c76771f0d2792bce6",
+      "bytes": 13230
     },
     {
       "path": "game/combat.md",
@@ -414,7 +419,7 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "414aa3803399f4ff1fe844e206825309d575490632bb197aecfc58cd9738ef7c",
+      "sha256": "ab4fe4a51f602476b4d7cc50fca58b8cd9a10a0bd1b4d93b370aeccc7c9ad436",
       "bytes": 17569
     },
     {
@@ -429,8 +434,8 @@
     },
     {
       "path": "installation/android-termux.md",
-      "sha256": "72b2769cf52d42195afa1f3218742c693457d27c443caec368ee3493fba629e0",
-      "bytes": 6309
+      "sha256": "b6dbe43f86d3b5f4795ec4955f614abbafc2f8ddd14381c6e81f5a8941d00eb1",
+      "bytes": 7242
     },
     {
       "path": "installation/containers.md",
@@ -459,8 +464,8 @@
     },
     {
       "path": "integrations/haptic-feedback.md",
-      "sha256": "2104fe09d8aaee560fb13c6d166ea6a59965f3fba09566cfcc349e0100b88025",
-      "bytes": 8275
+      "sha256": "84b7c1bd22db20a9fc2c61912cfee720c946e0dc40b652aa30c20ad7da13238c",
+      "bytes": 9113
     },
     {
       "path": "integrations/home-assistant.md",
@@ -554,8 +559,8 @@
     },
     {
       "path": "noodle/settings.md",
-      "sha256": "d69ec7d726c0618f1224e4ca5c3224dcffa3f0328af630935661f32666c273d5",
-      "bytes": 25268
+      "sha256": "c2a317aa88fff3616f0dc6fb251062605763b22dc171225eaf2d5d4a5f522297",
+      "bytes": 27905
     },
     {
       "path": "prompts/conditional-prompts.md",

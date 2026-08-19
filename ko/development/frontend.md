@@ -587,6 +587,7 @@ Narrative Director의 Secret Plot 패널처럼 에이전트의 기억을 다루�
 | `character-tracker` | post_processing | 캐릭터 상태 변화를 추적합니다 |
 | `persona-stats` | post_processing | 플레이어 페르소나의 능력치 변화를 추적합니다 |
 | `custom-tracker` | post_processing | 사용자가 정의한 구조화 상태를 추적합니다 |
+| `inventory-tracker` | post_processing | 화폐, 장착 장비, 소지품을 추적합니다 |
 | `illustrator` | post_processing | 장면 이미지 프롬프트와 미디어 요청을 만듭니다 |
 | `lorebook-keeper` | post_processing | 로어북 항목을 자동으로 만들고 갱신합니다 |
 | `card-evolution-auditor` | post_processing | 캐릭터 카드를 살펴 변화를 제안합니다 |
@@ -610,7 +611,7 @@ Narrative Director의 Secret Plot 패널처럼 에이전트의 기억을 다루�
 
 에이전트는 프런트엔드가 처리하는 타입이 정해진 결과를 내놓습니다. `packages/shared/src/types/agent.ts`의 `AgentResultType` 유니언에는 다음이 들어 있습니다.
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`, `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`, `about_me_update`.
 
 ## 채팅 모드
 

@@ -41,6 +41,20 @@ Marinara इन फ़ाइल टाइप को स्वीकार कर
 
 AI किसी इमेज को तभी "देख" पाता है जब जुड़ा हुआ मॉडल विज़न सपोर्ट करता हो। अगर आपका मॉडल सिर्फ़ टेक्स्ट वाला है तो **Image Captioning** (इमेज कैप्शनिंग) चालू करें। यह सेटिंग हर चैट की अपनी **Chat Settings** (चैट सेटिंग्स) में, **Advanced Parameters** (एडवांस्ड पैरामीटर) सेक्शन में मिलती है और डिफ़ॉल्ट रूप से बंद रहती है। चालू होने पर Marinara आपके चुने हुए कनेक्शन से हर अटैच की गई इमेज का विवरण टेक्स्ट में बनाता है, और असली इमेज की जगह वही विवरण भेजता है।
 
+## संदेश में गैलरी इमेज डालना
+
+Attachment AI के *देखने* के लिए हैं। Gallery reference पाठक के *देखने* के लिए हैं: वे message text में gallery की इमेज दिखाते हैं।
+
+संदेश Markdown image syntax सपोर्ट करते हैं और Marinara खास `card://` links को gallery files में resolve करता है:
+
+```text
+![a caption](card://characters/<character-id>/gallery/<filename>.png)
+```
+
+Roleplay Mode में chat asset browser यह link डाल सकता है। इसे messages, greetings और example dialogue जैसी text लिखने वाली जगहों पर paste भी कर सकते हैं।
+
+**Character की अपनी gallery** की image के लिए portable रूप `card://self/gallery/<filename>` बेहतर है; character को export और import करने के बाद भी यह चलता है। Character gallery का **Copy image reference** बटन इसे बनाता है। विवरण के लिए [Character galleries → गैलरी इमेज को संदेशों और greetings में दोबारा इस्तेमाल करना](../characters/galleries.md#reuse-a-gallery-image-in-messages-and-greetings) देखें।
+
 ## जवाब की स्ट्रीमिंग
 
 स्ट्रीमिंग में पूरा जवाब एक साथ आने का इंतज़ार करने के बजाय जवाब शब्द-दर-शब्द बनते हुए दिखता है। स्ट्रीमिंग के कंट्रोल **Settings** में, **General** टैब के अंदर, **Responses** (रिस्पॉन्स) सेक्शन में हैं:

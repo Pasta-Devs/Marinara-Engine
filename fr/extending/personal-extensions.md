@@ -8,6 +8,8 @@ Le message par défaut est le suivant :
 
 Cette section ne propose ni action New Draft, ni contrôle d'import. Demande à Professor Mari de créer ou de retoucher un brouillon. Elle peut enregistrer du code, mais elle ne peut ni l'approuver ni l'activer.
 
+Pour écrire et importer ton propre paquet, consulte le [guide de création des extensions personnelles](writing-personal-extensions.md). Les paquets que tu écris passent par le flux Extensions externes, protégé séparément.
+
 ## Relire et activer
 
 Tout brouillon arrive désactivé. Marinara calcule une empreinte SHA-256 du code exécutable exact. Ouvre le brouillon, examine le code, compare l'empreinte affichée, puis choisis **Review and Run** (relire et exécuter) seulement si tu acceptes cette version précise. La moindre modification du code exécutable, ou la restauration d'une révision, désactive l'extension et impose une nouvelle approbation.
@@ -62,7 +64,24 @@ const panel = marinara.ui.registerContribution({
 marinara.onCleanup(() => panel.remove());
 ```
 
-Utilise `kind: "button"` pour une action compacte dans la barre supérieure ou le menu Extensions, et `kind: "menu-item"` pour une action réservée au menu. Les deux appellent `onActivate`. Un `panel` appelle `onActivate` à son ouverture ; ses boutons appellent `onEvent` avec les valeurs courantes de tous ses contrôles. La référence renvoyée expose `update({ label?, description?, icon?, elements? })` et `remove()`. Les identifiants acceptent lettres, chiffres, `.`, `_` et `-`.
+Utilise `kind: "button"` pour une action compacte et `kind: "menu-item"` pour une action du menu Extensions. Par défaut, les boutons ciblent `surface: "top-bar"`. Ils peuvent aussi viser `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` ou `settings`, avec `position` réglé sur `header`, `before-content` ou `after-content`. `icon` accepte tout nom Lucide en kebab-case pris en charge par Marinara. Les deux types d'action appellent `onActivate`. Un `panel` appelle `onActivate` à son ouverture ; ses boutons appellent `onEvent` avec les valeurs courantes de tous ses contrôles. La référence permet des mises à jour propres au type : `button` accepte `label`, `description`, `icon`, `surface` et `position` ; `menu-item` accepte `label`, `description` et `icon` ; `panel` accepte `label`, `description`, `icon` et `elements`. Toutes les références prennent en charge `remove()`. Les identifiants acceptent lettres, chiffres, `.`, `_` et `-`.
+
+Par exemple, ceci place une action native au-dessus du contenu du panneau Presets :
+
+```js
+marinara.ui.registerContribution({
+  id: "preset-helper",
+  kind: "button",
+  label: "Preset helper",
+  description: "Run the preset helper",
+  icon: "list-sparkles",
+  surface: "presets",
+  position: "before-content",
+  onActivate: () => {
+    // Run extension behavior here.
+  },
+});
+```
 
 Un outil complexe peut construire une interface en plusieurs étapes en mettant à jour les éléments du panneau après un événement. Garde l'état de l'application dans `marinara.storage` ; ne l'encode pas dans le balisage.
 
@@ -184,6 +203,7 @@ Si une extension se comporte mal, choisis **Disable** (désactiver). Si l'interf
 
 ## Guides associés
 
+- [Écrire des extensions personnelles](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [Configuration du serveur](../CONFIGURATION.md)
 - [Sauvegarde et restauration](../data/backup-and-restore.md)

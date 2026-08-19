@@ -100,7 +100,7 @@ cd Marinara-Engine
 
 想长期关闭，在项目的 `.env` 里设置 `AUTO_UPDATE_ENABLED=false`。这只影响由启动脚本管理的 Engine 更新，手动更新和应用内的更新控件仍然可用。
 
-如果用的是 Android 应用图标（APK），打开后点击 **Install / Start Marinara**。这个 APK 是旁加载安装的应用，也就是说它不是从官方应用商店装的。它只是 Termux 外面的一层壳，更新的还是背后那份 Termux 副本。
+如果用的是 Android 应用图标（APK），请[下载最新 APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)并打开下载的文件，让 Android 更新外壳本身。然后打开 Marinara Engine，点击 **Install / Start Marinara** 来更新并启动背后的 Termux 副本。应用会自动保留并交换私密 localhost 凭据；更新不会要求签名凭据或这个密钥。
 
 ### iPhone 和 iPad
 
@@ -180,6 +180,12 @@ Marinara 可以在应用内向 GitHub 检查有没有新版本。部分安装方
 服务器已经跑在新版本上，应用界面却还是旧的、或者一片空白，这时候用 **Refresh App**。它解决的是网页卡住的问题，不会改动服务器代码，所以代替不了真正的升级。
 
 运行期间按钮显示 **Refreshing…**，随后应用重新加载。
+
+## 降级到旧版本
+
+升级始终是安全的，但不一定能直接回退。新版 Marinara 会使用更新的磁盘格式保存聊天消息，早于数据格式的版本无法读取它。为了保护聊天记录，启动器会跳过会落到不兼容版本的自动更新，应用内更新器也会拒绝应用它。
+
+如果仍然需要旧版本，可以先用一条转换命令把数据恢复为旧格式。步骤请参阅[切换到旧版本后聊天不显示消息](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version)。
 
 ## 升级失败怎么办
 

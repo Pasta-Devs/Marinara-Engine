@@ -11,19 +11,20 @@
 | Windows | [Windows इंस्टॉलेशन](installation/windows.md) |
 | macOS या Linux | [macOS / Linux इंस्टॉलेशन गाइड](installation/macos-linux.md) |
 | Docker या Podman | [कंटेनर से चलाना (Docker / Podman)](installation/containers.md) |
-| Android फ़ोन या टैबलेट | [Android (Termux) इंस्टॉलेशन](installation/android-termux.md) |
+| Android फ़ोन या टैबलेट | [APK डाउनलोड करें](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) · [Android इंस्टॉलेशन गाइड](installation/android-termux.md) |
 | iPhone या iPad | [iOS / iPadOS PWA गाइड](installation/ios-pwa.md) |
 
 चुनने से पहले कुछ बातें जान लें:
 
 - **iPhone या iPad** पर Marinara खुद सर्वर नहीं चलाता। सर्वर किसी कंप्यूटर, होम सर्वर या Android डिवाइस पर चलता है। उसके बाद उसे iPhone या iPad के Safari में खोलते हैं। iOS गाइड में यह पूरा तरीका बताया गया है।
-- **Android** पर Marinara **Termux** के अंदर चलता है। Termux एक मुफ़्त ऐप है, जो Android में छोटा सा Linux माहौल देता है। रिलीज़ APK सिर्फ़ Termux को सेट करने में मदद करता है।
+- **Android** पर Marinara **Termux** के अंदर चलता है। Termux एक मुफ़्त ऐप है, जो Android में छोटा सा Linux माहौल देता है। APK का सीधा डाउनलोड टैप करें, Android के ज़रूरी इंस्टॉल और Termux अनुमति प्रॉम्प्ट मंज़ूर करें, और ऐप को अपना निजी localhost क्रेडेंशियल अपने-आप संभालने दें। इंस्टॉलर कभी Android साइनिंग क्रेडेंशियल या वह लोकल सीक्रेट नहीं माँगता।
 
 ## कौन सा तरीका चुनें
 
 अगर यह सब नया है और सेटअप कम से कम रखना है, तो इनमें से कोई एक चुनें:
 
 - **Windows** पर **Windows installer** (Windows इंस्टॉलर) इस्तेमाल करें। यह सब कुछ खुद डाउनलोड करके सेट कर देता है और डेस्कटॉप पर शॉर्टकट भी बना देता है।
+- **Android** पर ऊपर दिया **APK डाउनलोड करें** लिंक इस्तेमाल करें। डाउनलोड की गई फ़ाइल खोलें, फिर ऐप में **Install / Start Marinara** पर टैप करें।
 - **macOS**, **Linux** या किसी होम सर्वर पर **Docker** इस्तेमाल करें। एक ही कमांड से ऐप चल पड़ता है। इमेज में Node.js, हर डिपेंडेंसी और ऐप की बनी-बनाई कॉपी पहले से मौजूद है। इससे Node.js इंस्टॉल करने और ऐप खुद बिल्ड करने की ज़रूरत नहीं पड़ती।
 
 अगर टर्मिनल की आदत है और आगे चलकर कोड में बदलाव करने का मन है, तो सोर्स से चलाएँ। "सोर्स से चलाना" यानी कोड डाउनलोड करके ऐप को अपनी मशीन पर बिल्ड करना। **Windows**, **macOS और Linux** तथा **Android (Termux)** तीनों गाइड में यह रास्ता भी बताया गया है।

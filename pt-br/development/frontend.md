@@ -587,6 +587,7 @@ A Engine, na versão leve, vem com o registro de agentes em tempo de execução 
 | `character-tracker`      | post_processing | Acompanha as mudanças de estado dos personagens                                    |
 | `persona-stats`          | post_processing | Acompanha as mudanças de atributos da persona do jogador                                |
 | `custom-tracker`         | post_processing | Acompanha o estado estruturado definido pelo usuário                                |
+| `inventory-tracker`      | post_processing | Acompanha moedas, equipamentos em uso e itens carregados                            |
 | `illustrator`            | post_processing | Gera prompts de imagem de cena e pedidos de mídia                  |
 | `lorebook-keeper`        | post_processing | Cria e atualiza entradas de lorebook automaticamente                    |
 | `card-evolution-auditor` | post_processing | Audita os cards de personagem e sugere evoluções                    |
@@ -610,7 +611,7 @@ A Engine, na versão leve, vem com o registro de agentes em tempo de execução 
 
 Os agentes produzem resultados tipados que o frontend sabe tratar. A união `AgentResultType`, em `packages/shared/src/types/agent.ts`, inclui:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` e `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` e `about_me_update`.
 
 ## Modos de chat
 

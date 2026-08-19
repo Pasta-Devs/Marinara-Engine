@@ -11,19 +11,20 @@ Elige la guía que corresponda al dispositivo en el que quieres ejecutar Marinar
 | Windows | [Instalación en Windows](installation/windows.md) |
 | macOS o Linux | [Instalación en macOS y Linux](installation/macos-linux.md) |
 | Docker o Podman | [Instalación en contenedor](installation/containers.md) |
-| Teléfono o tableta Android | [Instalación en Android (Termux)](installation/android-termux.md) |
+| Teléfono o tableta Android | [Descargar APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) · [Guía de instalación en Android](installation/android-termux.md) |
 | iPhone o iPad | [iOS e iPadOS](installation/ios-pwa.md) |
 
 Algunas cosas que conviene saber antes de elegir:
 
 - En **iPhone o iPad**, Marinara no ejecuta el servidor por sí mismo. El servidor lo ejecutas en una computadora, en un servidor doméstico o en un dispositivo Android. Después lo abres en Safari en tu iPhone o iPad. La guía de iOS explica esto.
-- En **Android**, Marinara se ejecuta dentro de **Termux**. Termux es una app gratuita que da a Android un pequeño entorno de Linux. El APK de lanzamiento solo te ayuda a configurar Termux.
+- En **Android**, Marinara se ejecuta dentro de **Termux**. Termux es una app gratuita que da a Android un pequeño entorno de Linux. Toca la descarga directa del APK, aprueba los avisos obligatorios de instalación y permisos de Termux de Android y deja que la app gestione automáticamente su credencial privada de localhost. Los instaladores nunca proporcionan credenciales de firma de Android ni ese secreto local.
 
 ## Cuál debería elegir
 
 Si esto es nuevo para ti y quieres la menor configuración posible, elige una de estas opciones:
 
 - En **Windows**, usa el **Windows installer** (instalador de Windows). Descarga y configura todo por ti, y añade un acceso directo en el escritorio.
+- En **Android**, usa el enlace **Descargar APK** de arriba. Abre el archivo descargado y toca **Install / Start Marinara** en la app.
 - En **macOS**, **Linux** o un servidor doméstico, usa **Docker**. Un solo comando ejecuta la app. La imagen ya contiene Node.js, todas las dependencias y una copia compilada de la app. Te ahorras instalar Node.js y compilar la app tú mismo.
 
 Si te sientes cómodo con una terminal y quizás quieras editar el código, ejecuta desde el código fuente. "Ejecutar desde el código fuente" significa que descargas el código y compilas la app en tu máquina. Las guías de **Windows**, **macOS y Linux** y **Android (Termux)** cubren todas este camino.

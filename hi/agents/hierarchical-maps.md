@@ -1,8 +1,11 @@
 # World Maps: सेटअप, मैप बनाना और यात्रा
 
-> **अभी की कंपैटिबिलिटी:** यह गाइड World Maps **1.2.5** और Marinara Engine
-> **2.3.5 या उसके बाद** पर लागू होती है। यह पैकेज Roleplay और Game चैट में
-> काम करता है।
+> **अभी की कंपैटिबिलिटी:** यह गाइड World Maps **1.3.1** पर लागू होती है। पैकेज
+> Marinara Engine **2.3.5 से 3.x** को support करता है और Roleplay तथा Game चैट
+> में काम करता है। Marinara Engine **2.4.1** movement stream की paired cleanup
+> और portable import के बाद Lorebooks का तुरंत refresh जोड़ता है। Engine
+> **2.3.5 से 2.4.0** compatible है, पर import के बाद Lorebooks manually refresh
+> करना पड़ता है और उसमें यह stream cleanup नहीं है।
 
 World Maps, Roleplay और Game में टिकाऊ वर्ल्ड स्टेट जोड़ता है। एक ही फ़्री-टेक्स्ट
 लोकेशन रखने के बजाय यह दुनिया को एक-दूसरे के अंदर बसी जगहों के रूप में दिखाता है:
@@ -29,7 +32,7 @@ Marinara इस हायरार्की में मौजूदा लो�
 
 ## फ़ीचर का खाका
 
-World Maps 1.2.5 में यह सब मिलता है:
+World Maps 1.3.1 में यह सब मिलता है:
 
 - एक-दूसरे के अंदर बसे रीजन, सेटलमेंट, जगहें, इमारतें, मंज़िलें और कमरे;
 - ब्रेडक्रंब और कहानी की अधिकृत मौजूदा लोकेशन;
@@ -57,7 +60,7 @@ World Maps 1.2.5 में यह सब मिलता है:
 
 लाइब्रेरी में दो दोबारा इस्तेमाल होने वाले संसाधन होते हैं, जो अकाउंट के होते हैं,
 जबकि हर चैट अपनी मौजूदा लोकेशन और इतिहास खुद रखती है। संसाधन का नाम उसकी पहचान नहीं
-है; अगर नए सेव किए गए संसाधन का नाम पहले से मौजूद हो, तो World Maps 1.2.5 उसमें
+है; अगर नए सेव किए गए संसाधन का नाम पहले से मौजूद हो, तो World Maps 1.3.1 उसमें
 **(copy)** या कोई नंबर जोड़ देता है।
 
 | संसाधन या स्थिति | किसका है | कब चुनें | बाद के बदलाव किस पर असर डालते हैं |
@@ -571,7 +574,7 @@ World Maps लोर को दो तरह से इस्तेमाल क
 मनचाही एंट्री जोड़ें और सेव करें।
 
 जुड़ी हुई लोरबुक एंट्री खोलते ही मैप एडिटर बंद हो जाता है। बाकी अधूरे बदलाव बचाने हों तो
-पहले मैप सेव करें, वरना सोच-समझकर तय करें कि वे छूट सकते हैं। World Maps 1.2.5 ऐसा करने
+पहले मैप सेव करें, वरना सोच-समझकर तय करें कि वे छूट सकते हैं। World Maps 1.3.1 ऐसा करने
 से पहले चेतावनी देता है कि बिना सेव किए मैप के बदलाव छूट सकते हैं।
 
 जुड़ी हुई एंट्री पैरेंट से चाइल्ड तक नहीं जातीं। Brinewatch से जुड़ी लोर, Tideglass Inn
@@ -602,21 +605,42 @@ World Maps लोर को दो तरह से इस्तेमाल क
 
 ## संभलकर इंपोर्ट, एक्सपोर्ट और आर्काइव करें
 
+### Portable map export करें
+
 वर्किंग हायरार्की को `.world-map.json` फ़ाइल के रूप में डाउनलोड करने के लिए चैट, टेम्पलेट
-या शेयर्ड वर्ल्ड एडिटर से **Export** इस्तेमाल करें।
+या शेयर्ड वर्ल्ड एडिटर से **Export** इस्तेमाल करें। डाउनलोड से पहले चुनें कि कितनी linked lore साथ जाए:
+
+| Lore विकल्प | फ़ाइल में क्या होता है |
+| --- | --- |
+| **Map only** | Hierarchy और location-to-lore provenance, पर lorebook content नहीं। गायब entries दोबारा नहीं बन सकतीं। |
+| **Map + linked entries** | केवल map से linked entries और उन्हें व्यवस्थित करने वाले folder paths। यही सुझाया portable विकल्प है। |
+| **Map + complete lorebooks** | हर linked lorebook की सभी entries और folders, map से असंबंधित सामग्री समेत। |
+
+Share करने से पहले listed lorebooks, entry count, estimated size और खुलने वाली location-to-lore mapping जाँचें। Complete lorebooks में private या unrelated notes हो सकते हैं।
 इसी फ़ाइल में लोकेशन की इमेज और चाइल्ड मैप बैकग्राउंड भी बाँधने हों, तो **Include map
-artwork** चालू रहने दें। छोटा, सिर्फ़ परिभाषा वाला बैकअप चाहिए तो इसे बंद कर दें। पुरानी
+artwork** चालू रहने दें। छोटा बैकअप चाहिए तो इसे बंद कर दें। पुरानी
 `.hierarchical-map.json` फ़ाइलें भी इंपोर्ट हो जाती हैं।
 
+### Map import करके portable lore वापस लाएँ
+
 चैट की वर्किंग कॉपी, अलग टेम्पलेट या शेयर्ड वर्ल्ड में हायरार्की लाने के लिए **Import**
-इस्तेमाल करें। साथ आया आर्टवर्क वापस बहाल होता है और उसके इमेज लिंक नए सिरे से जोड़े जाते
-हैं। चैट का अपना आर्टवर्क उसी चैट की Gallery में लौटता है। शेयर्ड आर्टवर्क वही इमेज पहले
-से मौजूद होने पर Global Gallery से दोबारा इस्तेमाल होता है, और टेम्पलेट या शेयर्ड रेफ़रेंस
-को ज़रूरत हो तो वहाँ एक बार जुड़ जाता है। नतीजा देख लें और उसे अधिकृत बनाने के लिए **Save**
-पर क्लिक करें। इंपोर्ट अपने आप सेव नहीं होता।
+इस्तेमाल करें। File में lorebook content हो तो **Restore portable map lore** चार group दिखाता है: **Exact IDs**, **Unique content**, **Need a choice** और **New entries**।
+
+Exact entry ID तभी authoritative है जब वह destination lorebook की हो। दूसरी source की ID ambiguous है: सही `Lorebook → Entry (ID)` row या **Import a new copy** चुनें। ID न हो तो World Maps entry तभी reuse करता है जब उसके पूरे portable content और settings का एक ही match हो; केवल नाम काफी नहीं है।
+
+Preview के बाद strategy चुनें:
+
+- **Import separate copies** कोई entry reuse नहीं करता और `Original Lorebook - Map Name (World Map)` जैसी independent lorebooks बनाता है; name collision पर **(copy)** या **(copy N)** जोड़ता है।
+- **Reuse matches & import the rest** exact और unique matches रखता है, ambiguous rows पर आपकी choice लगाता है और केवल बाकी entries के लिए lorebooks बनाता है।
+
+Maps reused और created lorebooks की सूची दिखाता है। Map मिटने पर भी बनाई गई copies library में रहती हैं। Engine **2.4.1** या नया Lorebooks view तुरंत refresh करता है; **2.3.5 से 2.4.0** पर restore के बाद Marinara एक बार refresh करें।
+
+साथ आया artwork भी restore और remap होता है। Chat artwork destination Gallery में लौटता है; shared artwork Global Gallery से reuse या एक बार add होता है। नतीजा देखकर **Save** करें; import तुरंत save नहीं करता। **Map only** readable provenance और मौजूदा exact-ID links रखता है, पर content के बिना deleted lorebooks या entries नहीं बना सकता।
 
 कैंपेन का इतिहास एक बार किसी मैप से जुड़ जाए, तो इंपोर्ट किए गए बदलावों में मौजूदा लोकेशन
 ID बनी रहनी चाहिए। पूरी हायरार्की को अनजान ID से बदलने के बजाय लोकेशन जोड़ें या बदलें।
+
+### Locations archive करें या हमेशा के लिए मिटाएँ
 
 आर्काइव करने से पुराने रेफ़रेंस बचे रहते हैं। कोई लोकेशन आर्काइव करने से पहले:
 
@@ -624,7 +648,7 @@ ID बनी रहनी चाहिए। पूरी हायरार्�
 - ज़रूरत हो तो कोई दूसरी एक्टिव शुरुआती लोकेशन चुनें; और
 - अगर यही अभी की मौजूदा लोकेशन है, तो उसकी जगह कोई एक्टिव लोकेशन चुनें।
 
-आर्काइव की गई लोकेशन **Details** पैनल से वापस लाई जा सकती हैं। World Maps 1.2.5 में
+आर्काइव की गई लोकेशन **Details** पैनल से वापस लाई जा सकती हैं। World Maps 1.3.1 में
 आर्काइव की गई लोकेशन या पूरी तरह आर्काइव की गई शाखा के लिए **Delete permanently** भी
 मिलता है, बशर्ते उसे हटाना सुरक्षित हो। एडिटर यह विकल्प तब बंद रखता है जब वह लोकेशन सेव
 की हुई शुरुआती या कहानी की मौजूदा लोकेशन हो, संदेशों के इतिहास में आती हो, उस पर Game मैप
@@ -665,6 +689,10 @@ Game सेटअप में लाइब्रेरी शेयर्ड �
 या कैनोनिकल लिंक के लिए **Use shared world** पक्का करें। Game मैप देखकर सेव करें। टेम्पलेट
 जस का तस रहता है; जुड़े हुए Game के बदलाव **Publish** चुनने तक बिना पब्लिश हुए रहते हैं।
 
+### Linked chat अब भी shared world का पुराना version दिखाती है
+
+जिस browser tab से publish किया है उसमें cached साफ़ linked-chat editors अपने आप refresh होते हैं। Unsaved या unpublished changes वाली chat अपना draft रखती है और conflict दिखाती है। दूसरे tabs या windows की chats को नया canonical revision लेने के लिए दोबारा खोलें।
+
 ### मैप चालू नहीं हो रहा
 
 कम से कम एक एक्टिव लोकेशन बनाएँ और एक एक्टिव शुरुआती लोकेशन तय करें। एडिटर के ऊपर दिख रही
@@ -676,6 +704,12 @@ Game सेटअप में लाइब्रेरी शेयर्ड �
 AI बिल्डर दोबारा खोलने से पहले एडिटर के मौजूदा बदलाव सेव या डिस्कार्ड करें। विस्तार के लिए
 कोई एक्टिव लक्ष्य चुनें। लोर पर आधारित जेनरेशन के लिए कम से कम एक चालू और चैट में शामिल
 लोरबुक चुनें।
+
+### AI map generation incomplete या malformed JSON बताती है
+
+अगर पूरा JSON आने से पहले response खत्म हो गया, तो connection का **Max Output Tokens** बढ़ाएँ या छोटा map size चुनकर फिर generate करें। World Maps अधूरा response repair करने में दूसरी request खर्च नहीं करता।
+
+Malformed JSON पर एक syntax-only repair पहले ही हो चुकी होती है। फिर generate करें; वही model बार-बार खराब output दे तो दूसरी connection या model लें। **Max Output Tokens** बदलना incomplete output के लिए है।
 
 ### संदेश के बाद मौजूदा लोकेशन नहीं बदली
 
@@ -757,6 +791,14 @@ Roleplay illustrations and Game storyboards** चालू है। चाइ�
 
 देख लें कि एंट्री ठीक उसी मौजूदा लोकेशन से जुड़ी है। यह भी जाँचें कि एंट्री और लोरबुक चालू
 हैं और लोरबुक उस चैट से हटाई नहीं गई है।
+
+**World Maps 1.3.1 के दूसरे नियम:** guided generation, regeneration और continuation नया user turn नहीं बनाते, इसलिए queued destination या route step खर्च नहीं होता। **Impersonate** user message बनाता है: successful turn movement एक बार commit करता है, provider failure कुछ commit नहीं करता और stale movement **Needs review** में जाता है।
+
+Marinara Engine **2.4.1** या नए में पूरी Maps movement और discovery directives streaming text और saved messages से हटती हैं, जबकि सामान्य bracketed text और spacing नहीं बदलती। Raw Maps directive दिखे तो Engine और World Maps दोनों update करें, prompt आने पर restart करें और message regenerate या remove करें।
+
+एक Gallery image दोनों artwork roles में हो तो **Remove reference only** उसे child-map background में रखता है; **Reject both and create replacement** दोनों बदलता है और **Use for both** नई image दोनों को देता है। Saved Gallery link की image गायब हो तो वह भी missing है। Edit के दौरान खत्म हुई generation केवल अब भी missing roles भरती है और नई replacement, reference toggle, background position, archive state या दूसरे draft changes overwrite नहीं करती।
+
+Linked lore entry पर **Open** map workspace छोड़कर lorebook खोलता है। साफ़ draft सीधे बंद होता है; unsaved changes पर पहले save या discard की पुष्टि करें। Imported lore activate न हो तो summary जाँचें: **Map only** में restore करने वाला content नहीं होता। **Map + linked entries** या **Map + complete lorebooks** import करके exact match, ambiguous destination या separate copy चुनें। Parent-linked lore child locations को inherit नहीं होती।
 
 ## मिलती-जुलती गाइड
 

@@ -8,7 +8,7 @@ Beim haptischen Feedback schickt ein KI-Charakter während des Chats Berührungs
 
 **Intiface Central** beherrscht ein Geräteprotokoll namens **Buttplug.io** – denselben offenen Standard, den viele Spielzeuge und andere Apps unterstützen. Du installierst **Intiface Central** einmal, koppelst das Gerät damit, und Marinara verbindet sich über eine lokale Netzwerkadresse.
 
-Haptisches Feedback steckt in einem der Chat-**Agents** (Agenten), also den KI-Helfern, die sich einem Chat hinzufügen lassen. Es funktioniert im Conversation Mode und im Roleplay Mode. Im Game Mode gibt es das nicht.
+Haptisches Feedback steckt in einem der Chat-**Agents** (Agenten), also den KI-Helfern, die sich einem Chat hinzufügen lassen. Es funktioniert im Conversation-, Roleplay- und Game-Modus.
 
 ## Bevor du loslegst
 
@@ -29,7 +29,7 @@ Läuft **Intiface Central** nicht mit gestartetem Server, kann Marinara keine Be
 
 Haptisches Feedback fügst du wie jeden anderen Agenten hinzu – über die Einstellungen des Chats.
 
-1. Öffne einen Conversation- oder Roleplay-Chat. Im Game Mode wird haptisches Feedback nicht angeboten.
+1. Öffne einen Conversation-, Roleplay- oder Game-Chat.
 2. Öffne **Chat Settings** (Chat-Einstellungen) für diesen Chat.
 3. Wechsle zum Abschnitt **Agents**.
 4. Füge dem Chat den Agenten **Haptic Feedback** hinzu.
@@ -51,6 +51,14 @@ Schlägt es fehl, erscheint eine Meldung, dass die App keine Verbindung herstell
 
 Steht die Verbindung, zeigt die Karte die Zahl der gefundenen Geräte. Ohne angeschlossenes Gerät steht dort „No devices found“, sonst die Anzahl. Klick auf **Scan for devices** (nach Geräten suchen), um erneut zu suchen. Während der Suche steht auf der Schaltfläche „Scanning...“. Die Karte listet jedes Gerät mit Namen und unterstützten Aktionen auf, etwa Vibrieren oder Rotieren.
 
+Marinara gibt dem Haptic Agent außerdem den exakten Intiface-Namen, einen aus den Fähigkeiten abgeleiteten Spielzeugtyp und die unterstützten Aktionen. So kann er das richtige Gerät und die richtige Aktion auswählen, statt jedes Spielzeug für einen Vibrator zu halten.
+
+## Unterstützte Aktionen und Muster
+
+Marinara nutzt jede Ausgabeart, die Intiface für ein verbundenes Gerät meldet: Vibration, Rotation, Oszillation, Verengung, Aufblasen, lineare Position, Temperatur, Sprühen und Beleuchtung. Die lineare Position steuert streichende, stoßende oder pumpende Geräte; das Aufblasen steuert Geräte mit Luftdruckpumpe.
+
+Der Agent kann die Muster **Steady**, **Tap**, **Pulse**, **Wave**, **Ramp** oder **Impact** auf jede Aktion anwenden, die kein Stopp-Befehl ist. Positionsmuster wechseln echte Bewegungsziele ab, sodass ein Pump- oder Stoßmuster über die Zeit ausgeführt wird, statt mehrere Bewegungen auf einmal zu senden.
+
 ### Das Feld Intiface URL
 
 Im Feld **Intiface URL** steht die Netzwerkadresse deines **Intiface Central**-Servers. Es ist eine WebSocket-Adresse – schlicht eine lokale Verbindung, über die sich beide Apps unterhalten. Der Standard steht unten.
@@ -69,23 +77,23 @@ ws://192.168.1.50:12345
 
 ## Berührungsempfindlichkeit
 
-In einem Roleplay-Chat zeigt die Karte **Haptic Feedback** das Bedienelement **Touch sensitivity** (Berührungsempfindlichkeit) mit drei Stufen. Daneben steht der kleine Hinweis „Roleplay only“. Diese Einstellung wirkt ausschließlich in Roleplay-Chats. In anderen Modi wird sie ignoriert, und die Presets begrenzen die Impulse nicht.
+Die Karte **Haptic Feedback** zeigt in jedem Chat-Modus das Bedienelement **Touch sensitivity** (Berührungsempfindlichkeit) mit drei Stufen. Die Empfindlichkeit lenkt, wie bereitwillig der Agent sanfte oder starke Ausgaben auswählt; sie setzt keine harte Obergrenze. Jede Stufe kann den vollständigen Intensitätsbereich des Geräts von `0.0-1.0` nutzen, wenn die aktuelle Aktion es verlangt.
 
-Die drei Stufen legen fest, wie stark und wie lang ein einzelner Impuls sein darf.
+Die drei Stufen lenken den Reaktionsstil des Agenten.
 
 | Stufe | Wirkung | Hinweise |
 |---|---|---|
-| **Subtle** | Geringere Intensität, kürzeres Feedback | Sanfteste Stufe |
-| **Standard** | Ausgewogenes Feedback für die meisten Szenen | Der Standard |
-| **Intense** | Stärkeres Feedback mit höherer Obergrenze | Kräftigste Stufe |
+| **Subtle** | Bevorzugt sanfteres Feedback | Der vollständige Bereich bleibt verfügbar |
+| **Standard** | Ausgewogenes Feedback für die meisten Szenen | Standard; vollständiger Bereich verfügbar |
+| **Intense** | Wählt eher stärkeres Feedback | Kann die volle Ausgabe nutzen |
 
-Standardmäßig ist **Standard** ausgewählt. Wähl, was zur Szene passt. In Roleplay-Chats begrenzt Marinara jeden Impuls auf den Bereich deiner Wahl. Darüber hinaus kommt die KI nicht.
+Standardmäßig ist **Standard** ausgewählt. Wähl den Reaktionsstil, der zur Szene passt. Marinara prüft jeden Befehl weiterhin gegen den physischen Bereich von Intiface von `0.0-1.0`.
 
 ## Beiläufige Berührungen
 
-Unterhalb der Empfindlichkeit zeigen Roleplay-Chats zusätzlich den Schalter **Incidental contact** (beiläufige Berührung). Dort steht „Tiny taps for accidental brushes and bumps.“ Standardmäßig ist der Schalter aus.
+Unterhalb der Empfindlichkeit zeigt jeder Chat-Modus zusätzlich den Schalter **Incidental contact** (beiläufige Berührung). Dort steht „Tiny taps for accidental brushes and bumps.“ Standardmäßig ist der Schalter aus.
 
-Ist er aus, ignoriert die KI kleine, zufällige Berührungen in der Geschichte. Impulse gibt es dann nur bei bewusstem oder festem Kontakt. Schalte ihn an, wenn auch Streifen und Anstoßen kleine Impulse auslösen sollen. Wie die Berührungsempfindlichkeit erscheint auch dieses Bedienelement nur in Roleplay-Chats.
+Ist er aus, ignoriert die KI kleine, zufällige Berührungen in der Geschichte. Impulse gibt es dann nur bei bewusstem oder festem Kontakt. Schalte ihn an, wenn auch Streifen und Anstoßen kleine Impulse auslösen sollen.
 
 ## Nutzung von einem anderen Gerät aus
 

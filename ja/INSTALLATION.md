@@ -11,19 +11,20 @@ Marinaraを動かしたいデバイスに合ったガイドを選んでくださ
 | Windows | [Windowsインストールガイド](installation/windows.md) |
 | macOSまたはLinux | [macOS / Linuxインストールガイド](installation/macos-linux.md) |
 | DockerまたはPodman | [コンテナーでの実行(Docker / Podman)](installation/containers.md) |
-| Androidのスマートフォンやタブレット | [Android(Termux)インストールガイド](installation/android-termux.md) |
+| Androidのスマートフォンやタブレット | [APKをダウンロード](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) · [Androidインストールガイド](installation/android-termux.md) |
 | iPhoneやiPad | [iOS / iPadOS](installation/ios-pwa.md) |
 
 選ぶ前に知っておきたい点がいくつかあります。
 
 - **iPhoneやiPad**では、Marinara自体はサーバーを動かしません。サーバーはコンピューター、家庭内のサーバー、Androidデバイスのいずれかで動かし、iPhoneやiPadのSafariから開きます。詳しい手順はiOSのガイドにあります。
-- **Android**では、Marinaraは**Termux**の中で動きます。Termuxは、Androidに小さなLinux環境を用意してくれる無料のアプリです。リリースされているAPKは、そのTermuxの準備を助けるだけのものです。
+- **Android**では、Marinaraは**Termux**の中で動きます。Termuxは、Androidに小さなLinux環境を用意してくれる無料のアプリです。APKの直接ダウンロードをタップし、Androidに必要なインストール確認とTermuxの権限確認を承認してください。非公開のlocalhost認証情報はアプリが自動で処理します。インストーラーがAndroidの署名情報やこのローカルシークレットを求めることはありません。
 
 ## どれを選べばよいか
 
 はじめてで、できるだけ準備の手間を減らしたい場合は、次のどちらかを選んでください。
 
 - **Windows**なら、**Windows installer**(Windowsインストーラー)を使います。必要なものをダウンロードして自動で設定し、デスクトップにショートカットも作ります。
+- **Android**なら、上の**APKをダウンロード**リンクを使います。ダウンロードしたファイルを開き、アプリで**Install / Start Marinara**をタップします。
 - **macOS**、**Linux**、または家庭内のサーバーなら、**Docker**を使います。コマンド1つでアプリが起動します。イメージにはNode.js、依存関係一式、ビルド済みのアプリが最初から入っているので、Node.jsのインストールもアプリのビルドも自分で行う必要はありません。
 
 ターミナルの操作に慣れていて、コードに手を入れたいかもしれない場合は、ソースから実行してください。「ソースから実行する」とは、コードをダウンロードして手元のコンピューターでアプリをビルドすることです。**Windows**、**macOS / Linux**、**Android (Termux)**の各ガイドは、いずれもこの方法も扱っています。

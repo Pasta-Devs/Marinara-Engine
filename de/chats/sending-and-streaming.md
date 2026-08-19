@@ -41,6 +41,20 @@ Jede Datei darf höchstens 20 MB groß sein. Größere Dateien lehnt Marinara mi
 
 Ein Bild „sieht“ die KI nur, wenn das verbundene Modell Bilder verarbeiten kann. Bei einem reinen Textmodell aktivierst du **Image Captioning** (Bildbeschreibung). Diese Einstellung sitzt in den **Chat Settings** (Chat-Einstellungen) des jeweiligen Chats, im Abschnitt **Advanced Parameters** (Erweiterte Parameter), und ist standardmäßig aus. Ist sie an, beschreibt Marinara jedes angehängte Bild über eine Verbindung deiner Wahl in Textform und schickt diese Beschreibung statt des Bildes.
 
+## Ein Galerie-Bild in eine Nachricht einfügen
+
+Anhänge sind für die KI zum *Sehen*. Galerie-Verweise sind für Leserinnen und Leser zum *Sehen*: Sie zeigen ein Bild aus einer Galerie direkt im Nachrichtentext.
+
+Nachrichten unterstützen Markdown-Bildsyntax. Marinara löst spezielle `card://`-Links zu Galerie-Dateien auf:
+
+```text
+![a caption](card://characters/<character-id>/gallery/<filename>.png)
+```
+
+Im Roleplay Mode kann der Asset-Browser des Chats einen solchen Link einfügen. Du kannst ihn auch überall einfügen, wo Text geschrieben wird: in Nachrichten, Begrüßungen und Beispieldialogen.
+
+Für Bilder aus der **eigenen Galerie einer Figur** ist die portable Form `card://self/gallery/<filename>` besser; sie funktioniert auch nach Export und Import der Figur. Die Figurengalerie bietet dafür **Copy image reference**. Einzelheiten stehen unter [Figurengalerien → Ein Galerie-Bild in Nachrichten und Begrüßungen wiederverwenden](../characters/galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
+
 ## Die Antwort streamen
 
 Beim Streaming erscheint die Antwort Wort für Wort, statt erst am Stück nach dem Ende der Generierung. Die zugehörigen Einstellungen liegen unter **Settings** im Tab **General**, im Abschnitt **Responses** (Antworten):

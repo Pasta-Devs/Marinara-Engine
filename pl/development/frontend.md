@@ -587,6 +587,7 @@ Lekka wersja Engine startuje z pustym rejestrem agentów. Pakiety zainstalowane 
 | `character-tracker`      | post_processing | Śledzi zmiany stanu postaci                                       |
 | `persona-stats`          | post_processing | Śledzi zmiany statystyk persony gracza                            |
 | `custom-tracker`         | post_processing | Śledzi ustrukturyzowany stan zdefiniowany przez użytkownika       |
+| `inventory-tracker`      | post_processing | Śledzi waluty, założone wyposażenie i noszone przedmioty          |
 | `illustrator`            | post_processing | Tworzy prompty obrazów scen i żądania multimediów                 |
 | `lorebook-keeper`        | post_processing | Sam tworzy i aktualizuje wpisy lorebooków                         |
 | `card-evolution-auditor` | post_processing | Sprawdza karty postaci pod kątem sugerowanych zmian               |
@@ -610,7 +611,7 @@ Lekka wersja Engine startuje z pustym rejestrem agentów. Pakiety zainstalowane 
 
 Agenci zwracają wyniki o określonych typach, które obsługuje frontend. Unia `AgentResultType` w `packages/shared/src/types/agent.ts` obejmuje:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` oraz `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` oraz `about_me_update`.
 
 ## Tryby czatu
 

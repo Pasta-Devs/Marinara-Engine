@@ -24,6 +24,10 @@ Marinara Engineの基本配布物には、任意のエージェントと機能�
 英語にフォールバックします。Engineはパッケージのプロンプトや、パッケージが定義した機械向けの値を翻訳しません。ロケールが変わったときは既存の
 `marinara-capability-props`イベントをそのまま使うので、Engineを再起動しなくてもインストール済みの画面を描画し直せます。
 
+### 配信とキャッシュ
+
+インストール済みパッケージのファイルは、マニフェストに記載されたファイルごとのSHA-256ハッシュから生成した強いバリデーターとともに配信されます。Engineは、読み取るたびに同じ値でバイト列を再検証します。クライアントバンドル(`/api/capability-packages/<id>/client`)とすべてのパッケージアセットは常に再検証されます(`no-cache`と`ETag`)。変更のないファイルは再ダウンロードされず`304 Not Modified`を返し、再公開されたファイルはすぐに取得されます。`immutable`として配信されるものはありません。インストールポリシーでは同じバージョンを異なるバイト列で再公開できるため、パッケージURLはコンテンツアドレスではありません。
+
 Capability API 1.1では、サーバーの有効化コンテキストに汎用のランタイムファサードが追加されます。
 パッケージは、プライベートなロガーモジュールや実行時設定のモジュールをインポートしなくても、
 実際に適用されているエージェントのデバッグ状態を読み取り、EngineのPinoロガー経由でログを書き出せます。
@@ -61,6 +65,42 @@ branch: {
 Engineは過去の関係を推測しません。
 汎用のエクスポートとインポートでは、インストール先ごとにIDが変わるため、親とメッセージのIDを含めません。
 親を削除しても、子の系統はそのまま残ります。
+
+### Capability API 1.8のGame Experience
+
+Capability API 1.8では、パッケージが提供するGame Experience、Gameの各ターン用プロンプトコンテキスト、リソースへの書き込みが追加されます。
+
+パッケージは、組み込みGame Modeへの追加機能ではなく、Game Mode全体を提供できます。`game-surface`スロットを宣言し、ゲーム作成時にセットアップウィザードのExperiencesブロックから選択します。選択内容はゲームに記録され、そのゲームが続く限り固定されるため、プレイの途中でExperienceが切り替わることはありません。サーフェスは共通のナレーションの上に独自のHUD、メニュー、戦闘を描画し、置き換える組み込みシステムを宣言します。宣言しなかった機能は組み込みのままなので、Experienceは実際に実装する機能だけを無効にします。任意の`contributions.gameSurface.surfaceClass`では、サーフェスのマウント中にEngineがゲーム領域へ付けるクラスを指定できます。これにより、パッケージのスタイルシートから、独自要素の外側に描画される共通UIも装飾できます。
+
+`prompt-context`権限を持つパッケージは、生成されるGameの各ターンのシステムプロンプトへテキストを追加できます。ライブ状態を所有するパッケージは、プレイヤーが見ている内容とモデルの認識を一致させられます。コントリビューションは置き換える組み込みゲームシステムも宣言でき、その場合Engineはモデルにそのシステムを操作する指示を出さなくなります。コントリビューションはターンごとに収集され、必須ではありません。何も返さないものはスキップされ、例外が発生したものや期限内に完了しないものはログに記録してスキップされます。生成には影響しません。
+
+リソースファサードでは読み取りに加えて書き込みもできるため、パッケージのセットアップフローからプレイヤーのPersonaとそのロアブックを検索または作成できます。ストレージ、検証、識別情報はEngineが保持し、ドメイン内容はパッケージが保持します。
+
+### Capability API 1.10のパッケージアセット
+
+Capability API 1.10では、パッケージ所有の静的アセットを一般的に配信できるようになります。マニフェストは`contributions.assets.paths`を宣言できます。これは、パッケージに含まれる最大256個の画像(`png`/`webp`/`gif`/`jpg`/`jpeg`)とJSONファイルの許可リストです。Engineは、ブラウザータブのアイコンと同じ検証チェーンを通して`/api/capability-packages/<id>/assets/<path>`から配信します。検証内容は、パスの閉じ込め、`files[]`内のハッシュとの一致、受動的なコンテンツタイプの許可リスト、読み取りごとの整合性再検証です。スキーマは能動的な文書タイプ(SVG、HTML、スクリプト)を拒否します。宣言したすべてのパスは`files[]`でハッシュ固定されている必要があり、パッケージ内の`manifest.json`は宣言しても配信できません。`contributions.assets`を宣言するには、`schemaVersion` 2かつ`capabilityApi` 1.10以降のマニフェストが必要です。v1マニフェストでは宣言できません。アセットは常に再検証されます。クライアントバンドルと同じく、マニフェストハッシュに基づく強い`ETag`を持ち、変更のない再検証には本文なしの`304 Not Modified`で応答します。タイルセットが再ダウンロードされるのは、バイト列が実際に変わったときだけです。レスポンスは意図的に`immutable`になりません。同じバージョンを異なるバイト列で再公開できるため、バージョン付きURLもコンテンツアドレスではありません。これにより、`game-surface` Experienceはアートをクライアントバンドルへ埋め込まず、実ファイルとして同梱できます。
+
+違反したマニフェストは、インストール時に次のいずれかで拒否されます。"A declared package asset must be listed in the package file manifest"、"contributions.assets requires schemaVersion 2 and capabilityApi 1.10 or newer"、画像でもJSONでもないパスに対するスキーマの拡張子エラー、または大文字と小文字だけが異なり、大文字と小文字を区別しないファイルシステムでは同じファイルになるアーカイブに対する"Package contains duplicate file" / "Package manifest declares files that collide on case-insensitive filesystems"です。
+
+この用途のため、各Capability要素には固有の識別情報が渡されます。`capabilityProps.packageId`と`capabilityProps.packageVersion`が`localization`とともに届くため、バンドルはアセットURLを`/api/capability-packages/<packageId>/assets/<path>`として構築できます。任意で`?v=<packageVersion>`を付ければ、バージョン更新時に中間キャッシュを無効化できます。インストール済み一覧の再取得や、自身のインポートURLの解析は不要です。
+
+### Capability API 1.11のExperience戦闘インターフェース
+
+Capability API 1.11では、`game-surface`のCapability Propsに戦闘インターフェースが追加されます。`combatActive`は、組み込み戦闘UIが実際にマウントされた瞬間を通知します。GMの物語上のシーン状態である`chatMeta.gameActiveState`は切り替えより遅れ、エンカウンターがないのに"combat"を示す場合がありますが、`combatActive`にはその問題がありません。`combatStyle`は有効なスタイル(`classic`または`tactical`)を示します。`requestCombat()`は、手動のStart Combatボタンと同じ処理でEngineへエンカウンター生成を要求します。ExperienceのUIですでに意図を表しているため、確認ダイアログだけは省かれます。エンカウンターの内容は、引き続きEngineの生成処理が決定します。パッケージが戦闘参加者や戦闘状態を直接渡す方法は意図的にありません。戦闘はEngineが所有します。
+
+`requestCombat()`は同一性が安定し、パッケージ側では通知を表示せず、Experienceが独自のフィードバックを描画するためのコードを返します。成功時は`"started"`、拒否時は`"combat-active"`、`"pending"`(すでに生成中)、`"no-turn"`(GMがまだターンを書いていない)、`"unavailable"`(終了済みセッションまたはリプレイ)です。`combatPending`と`combatError`は生成の進行と失敗を反映するため、生成失敗後にパッケージが`combatActive`を待ち続けることはありません。1.7と1.8のインターフェースと同様に、厳格なゲートがある1.10の`contributions.assets`とは異なり、これらのPropsは宣言した`capabilityApi`に関係なくすべての`game-surface`パッケージへ渡されます。1.11というラベルは導入時期を示します。必要とするパッケージは1.11を宣言し、古いEngineでは明確に拒否されます。
+
+### Capability API 1.12: 所有するExperience向けの空間イベント
+
+Capability API 1.12では、ゲームを所有するExperienceパッケージにも空間Capabilityイベントが送られます。以前は`marinara-capability-server-event`ウィンドウイベントで`hierarchical-maps`だけに送られていた`spatial_transition_committed`、`spatial_transition_rejected`、型なしの`spatial_context_refresh`通知が、チャットの`gameExperienceId`を`packageId`に設定して二重配信されます。ペイロードはイベントごとに異なります。確定イベントは`{ chatId, commandId, currentLocationId, definitionRevision, travel? }`、拒否イベントは移動が起きていないため位置フィールドを含まない`{ chatId, commandId, code?, message? }`、更新通知は`data: null`です。`sendMessage`の`pendingSpatialTransition`引数で移動コマンドを送ったExperienceは、後の状態読み取りから推測せず、ホストが結果を把握した時点で移動を確定または解除できます。1.12ではWorld Mapsにも影響していた欠落を解消しています。生成内でストリーミング前に行う所有者ターンの確定と、単独のREST確定という2つの無通知HTTP経路で拒否された遷移は、以前はイベントを一切生成しませんでした。現在は、`already_applied`以外の`spatial_*`エラーコードという確実な根拠がある場合に限り、どちらも`spatial_transition_rejected`を生成します。成功した確定の応答が失われた可能性があるネットワークエラーなど、結論を出せない失敗では、型なしの`spatial_context_refresh`を送ります。リスナーは推測した結果を採用せず、サーバー状態と同期できます。確定イベントで`travel.mode`が`"step_by_step"`、`complete: false`の場合、移動は継続中です。完了イベントまで保留状態を維持してください。これは1.11と同じソフトなインターフェースで、宣言した`capabilityApi`に関係なくイベントが配信されます。パッケージが必要とする場合だけ1.12を宣言します。
+
+### Capability API 1.13: 一時的なナレーション折りたたみ
+
+Capability API 1.13では、`game-surface`パッケージが`setExperienceChrome`へ渡すChrome宣言に`requestsCollapsedNarration`が追加されます。このフラグがtrueの間、Game Modeのナレーションボックスは細いハンドルまで折りたたまれ、Experienceはカットシーンや全画面の演出に画面を広く使えます。
+
+これは要求であり、設定ではありません。プレイヤー自身の折りたたみ設定は書き換えられず、Experienceが現在のサーフェスである間だけフラグが有効です。フラグを外すか現在のサーフェスでなくなると、ボックスはプレイヤーが選んだ状態へ戻ります。これが「終了後に必ず再び開く」という保証であり、パッケージから折りたたみを永続化する方法は意図的にありません。
+
+Engineの安全規則は要求より優先されます。プレイヤーのテキスト入力が画面に表示されている間は、まだセグメントがないシーン開始直後も含め、ボックスが強制的に開きます。セグメント進行コントロールが有効な間も同様です。このコントロールだけがターンを終える手段であり、パッケージが隠せるとプレイヤーを永久に進行不能にできてしまいます。保留中のシーン分析、生成、戦闘生成の再試行がある場合、ハンドルは注意インジケーターを表示し続けます。要求中にプレイヤーが手動でボックスを開いた場合、要求が解除されるまで開いたままです。1.11と1.12と同様に、これはソフトなインターフェースです。宣言した`capabilityApi`に関係なくフィールドが適用されます。1.13というラベルは導入時期を示すため、必要とするパッケージは1.13を宣言します。
 
 ## 最初のパッケージ
 

@@ -587,6 +587,7 @@ Personal Extensions – это изолированный код, который
 | `character-tracker`      | post_processing | Отслеживает изменения состояния персонажей                                |
 | `persona-stats`          | post_processing | Отслеживает изменения характеристик персоны игрока                                |
 | `custom-tracker`         | post_processing | Отслеживает состояние по вашим собственным правилам                                |
+| `inventory-tracker`      | post_processing | Отслеживает валюту, надетое снаряжение и переносимые предметы                       |
 | `illustrator`            | post_processing | Создает промпты для изображений сцены и запросы к медиа                  |
 | `lorebook-keeper`        | post_processing | Сам создает и обновляет записи лорбуков                                |
 | `card-evolution-auditor` | post_processing | Проверяет карточки персонажей и предлагает их развитие                    |
@@ -610,7 +611,7 @@ Personal Extensions – это изолированный код, который
 
 Агенты выдают типизированные результаты, которые обрабатывает клиент. Объединение `AgentResultType` в `packages/shared/src/types/agent.ts` включает:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` и `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` и `about_me_update`.
 
 ## Режимы чата
 

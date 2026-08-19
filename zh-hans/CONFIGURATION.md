@@ -135,7 +135,7 @@ Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设
 | `TRUSTED_HOSTS` | 空 | Marinara 额外允许响应的公网或反向代理主机名。直连 IP、localhost、`.local`、`.home.arpa` 和单段局域网名称自动生效。 |
 | `SSL_CERT` | 空 | TLS 证书文件的路径。与 `SSL_KEY` 一起设置即可直接提供 HTTPS 服务。 |
 | `SSL_KEY` | 空 | TLS 私钥文件的路径。 |
-| `CSRF_TRUSTED_ORIGINS` | 空 | 额外允许保存修改的浏览器源。用于公网域名或非常规端口。 |
+| `CSRF_TRUSTED_ORIGINS` | 空 | 额外允许保存修改的浏览器源。用于公网域名或非常规端口。字面值 `null` 会被忽略，不得用于 Android APK；APK 自行认证的登录路由无需全局信任不透明源即可工作。 |
 
 Basic Auth 是 HTTP Basic Authentication 的简称，就是一个简单的用户名密码提示框。它的凭据只做编码、不做加密，所以服务器面向公网时一定要配合 HTTPS 使用。HTTPS 是 HTTP 的安全加密版本。要直接启用，把 `SSL_CERT` 和 `SSL_KEY` 都设上，或者在 Marinara 前面放一个反向代理。
 
@@ -269,9 +269,9 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | --- | --- | --- |
 | `PORT` | `7860` | 服务器监听的端口。Android、Docker 和 Termux 上保持同一个值。 |
 | `HOST` | `127.0.0.1`(shell 启动脚本里是 `0.0.0.0`) | 要绑定的网络接口。局域网访问用 `0.0.0.0`。 |
-| `MARINARA_ANDROID_SECRET` | 空 | APK 管理的 Termux 安装使用的内部本地认证密钥。Android 外壳负责生成，Termux 启动脚本负责导出；普通桌面安装或手动 Termux 安装不要设置。设置后必须正好是 64 个十六进制字符。非空值无效时，设备本地请求会收到 HTTP 503，而不会通过削弱认证来继续运行。 |
-| `MARINARA_ANDROID_SECRET_FILE` | `~/.marinara-engine/android-secret` | Termux 启动脚本和本地 `mari` CLI 使用的私密密钥文件路径。APK 和启动脚本会自动管理这个文件。 |
-| `AUTO_OPEN_BROWSER` | `true` | shell 启动脚本是否替你打开应用地址。设为 `false` 即可关闭。 |
+| `MARINARA_ANDROID_SECRET` | 空 | APK 管理的 Termux 安装使用的内部本地认证密钥。这不是安装程序的输入项：Android 外壳会生成并传递它，Termux 启动脚本会自动导出。不要要求 APK 用户提供，也不要在普通桌面安装或手动 Termux 安装中设置。设置后必须正好是 64 个十六进制字符。非空值无效时，设备本地请求会收到 HTTP 503，而不会通过削弱认证来继续运行。 |
+| `MARINARA_ANDROID_SECRET_FILE` | `~/.marinara-engine/android-secret` | Termux 启动脚本和本地 `mari` CLI 使用的私密密钥文件路径。APK 和启动脚本会自动管理这个文件；普通 APK 用户无需读取或复制。 |
+| `AUTO_OPEN_BROWSER` | `true` | shell 启动脚本是否替你打开应用地址。设为 `false` 即可关闭。APK 管理的设置会在这次启动中关闭浏览器自动打开，让已经认证的 Android 应用连接。 |
 | `AUTO_UPDATE_ENABLED` | `true` | 基于 Git 的 Windows、macOS/Linux 和 Termux 启动脚本是否在启动前拉取并应用 Engine 更新。设为 `false` 可长期关闭，下次启动生效。启动脚本仍会只读地检查有没有更新的正式发布版，有的话打印一条下载提醒；手动检查、应用内应用更新、包更新和模型更新都照常可用。加 `--skip-update` 可让本次启动跳过这两项检查。 |
 | `MARINARA_ENV_FILE` | 项目根目录的 `.env` | 可选，覆盖 `.env` 文件的路径。要在启动前设置。 |
 | `TZ` | 系统默认 | 服务端任务使用的宿主机后备时区。Conversation 日程如果已经在日程控件里保存过全局时区，就用那个时区。不设 `TZ` 即沿用宿主机时区；写成空的 `TZ=` 也等同于未设置。 |

@@ -106,6 +106,13 @@ Der **Result Type** sagt Marinara, wie die Ausgabe des Agenten zu lesen ist. Die
 
 Ist ein Ergebnistyp ausgegraut, fehlt noch die passende Fähigkeit. Schalte den entsprechenden Schalter unter **Custom Agent Abilities** ein, dann lässt sich der Ergebnistyp anklicken.
 
+### Steuerelemente pro Chat für Bildagenten
+
+Ein Agent mit der Fähigkeit **Image generation** erhält auf seiner Karte unter **Chat Settings → Agents → Custom Agents** zwei zusätzliche Steuerelemente neben der Prompt-Vorlagenauswahl, die jeder eigene Agent besitzt:
+
+- **Image Connection** — überschreibt nur für diesen Chat, welche Bildverbindung der Agent verwendet. Mit **Agent default** bleibt die Verbindung aus den Agenteneinstellungen erhalten. Die Auswahl **Image Style** des Chats gilt ebenfalls für Bilder eigener Agenten, sodass derselbe Agent pro Chat anders rendern kann, ohne ihn zu duplizieren.
+- **Camera button** — erzeugt sofort ein Bild mit diesem Agenten, ohne auf seine Aktivierungswörter zu warten. Der Agent schreibt den Prompt weiterhin selbst; liefert seine Vorlage keinen, erscheint statt eines Bildes eine Fehlermeldung.
+
 ## Activation Keywords
 
 Standardmäßig läuft ein eigener Agent in seinem normalen Takt. Mit **Activation Keywords** (Aktivierungs-Schlüsselwörter) überspringst du ihn, solange die Szene nicht dazu passt. Das spart Tokens und Kosten. Ein Token ist ein kleines Textstück, das die KI mitzählt.

@@ -11,12 +11,24 @@ storage/
 ├── manifest.json
 └── tables/
     ├── chats.json
-    ├── messages.json
     ├── characters.json
+    ├── messages/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── message_swipes/
+    │   └── <encoded-chat-id>.json
     └── ...
 ```
 
 `FILE_STORAGE_DIR`を指定すると`storage`ディレクトリーを上書きできます。各テーブルのファイルはJSON配列を1つ収めた形です。`manifest.json`には、ストレージ形式のバージョン、保存時刻、バックエンドの識別子、そして登録済みテーブルごとの行数が記録されます。
+
+### シャード化されたテーブル
+
+ターンごとの書き込み経路にあるチャット単位のテーブルは、1つの巨大なファイルではなく**チャットごとに1ファイル**として保存されます。巨大なファイルでは、1行を保存するたびに全チャットの履歴全体を再シリアライズして書き直すためです。ストレージ形式3では`messages`と`message_swipes`をシャード化し、形式4では同じ配置を`memory_chunks`、`chat_images`、`agent_runs`、`agent_memory`、`conversation_call_sessions`、`conversation_call_messages`、`game_state_snapshots`、`game_engine_state`、`game_checkpoints`、`game_turn_storyboards`、`game_scene_videos`、`spatial_context_snapshots`、`ooc_influences`、`conversation_notes`へ拡張します。正式な一覧は`file-backed-store.ts`の`SHARDED_TABLES`で、`scripts/protect-launcher-data.mjs`のオフライン`unshard`コマンドにも反映され、回帰テストが両者の一致を固定しています。各テーブルは自身の`chatId`列からシャードを求めますが、`message_swipes`は親メッセージ経由、influenceとnoteは`targetChatId`を使います。`lorebooks`と`game_turn_storyboard_keyframes`は意図的に単一ファイルのままです。
+
+変更追跡はチャットファイル単位で行われるため、フラッシュが触れるのは変更されたチャットだけです。行数がゼロになったシャードは空の配列として書かれず削除されます。ファイル名はチャットIDをパーセントエンコードし、長すぎる名前や予約名にはハッシュの代替を使います。インポートしたプロファイルは任意のIDを持てるため、このエンコードはセキュリティ境界です。ファイルは容器にすぎず、行は自身のキーを保持します。
+
+新しくシャード化されたテーブルを持つビルドの初回起動時、既存の単一ファイルは自動移行されます。行をチャット別にまとめてシャードへ書き、その後、単一ファイル**とその`.bak`**を`.pre-shard`へ改名します。これらは移行前の自動バックアップで、Engineが削除することはありません。`.migrating`センチネルにより、クラッシュ後の復旧元が明確になります。古いビルドが後からシャードの隣に単一ファイルを再作成した場合はシャードが優先され、競合ファイルはタイムスタンプ付きの`.post-downgrade-`接尾辞で隔離され、結合はされません。孤立した子行は捨てられず`orphaned-rows`シャードへ入ります。新しいストレージ形式で書かれたマニフェストは読み込みを拒否します。
 
 ## 実行時のモデル
 

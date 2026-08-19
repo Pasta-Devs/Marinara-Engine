@@ -8,7 +8,7 @@ Dzięki haptycznej informacji zwrotnej postać AI wysyła w trakcie czatu sygna�
 
 Aplikacja **Intiface Central** posługuje się protokołem urządzeń **Buttplug.io**. To ten sam otwarty standard, który obsługuje wiele zabawek i innych aplikacji. Aplikację **Intiface Central** instaluje się raz, potem paruje się z nią urządzenie, a Marinara łączy się z nią przez lokalny adres sieciowy.
 
-Haptyczna informacja zwrotna działa jako jeden z agentów czatu, czyli pomocników AI dodawanych do rozmowy w sekcji **Agents**. Sprawdza się w trybie Conversation i w trybie Roleplay. Nie jest dostępna w trybie Game Mode.
+Haptyczna informacja zwrotna działa jako jeden z agentów czatu, czyli pomocników AI dodawanych do rozmowy w sekcji **Agents**. Sprawdza się w trybach Conversation, Roleplay i Game.
 
 ## Zanim zaczniesz
 
@@ -29,7 +29,7 @@ Jeśli aplikacja **Intiface Central** nie działa z uruchomionym serwerem, Marin
 
 Haptyczną informację zwrotną dodaje się tak samo jak każdego innego agenta, z poziomu ustawień czatu.
 
-1. Otwórz czat w trybie Conversation lub Roleplay. W trybie Game Mode haptyczna informacja zwrotna nie jest dostępna.
+1. Otwórz czat w trybie Conversation, Roleplay lub Game.
 2. Otwórz panel **Chat Settings** (ustawienia czatu) dla tego czatu.
 3. Przejdź do sekcji **Agents**.
 4. Dodaj do czatu agenta **Haptic Feedback**.
@@ -51,6 +51,14 @@ Jeśli się nie uda, zobaczysz komunikat o nieudanym połączeniu. Prosi on o sp
 
 Po nawiązaniu połączenia karta pokazuje liczbę wykrytych urządzeń. Widnieje tam "No devices found", gdy nie ma żadnego, albo liczba urządzeń, gdy jakieś są. Kliknij przycisk **Scan for devices** (skanowanie w poszukiwaniu urządzeń), aby wyszukać ponownie. W trakcie skanowania przycisk pokazuje "Scanning...". Karta wymienia każde urządzenie z nazwą i obsługiwanymi akcjami, na przykład wibracją lub obrotem.
 
+Marinara przekazuje agentowi Haptic Agent także dokładną nazwę z Intiface, rodzaj zabawki określony na podstawie możliwości oraz obsługiwane działania. Dzięki temu agent wybiera właściwe urządzenie i działanie, zamiast zakładać, że każda zabawka jest wibratorem.
+
+## Obsługiwane działania i wzorce
+
+Marinara korzysta z każdego rodzaju wyjścia zgłaszanego przez Intiface dla podłączonego urządzenia: wibracji, obracania, ruchu oscylacyjnego, zaciskania, pompowania, pozycji liniowej, temperatury, natrysku i oświetlenia. Pozycja liniowa steruje urządzeniami wykonującymi ruch posuwisty, pchający lub pompujący; pompowanie steruje urządzeniami wykorzystującymi ciśnienie powietrza.
+
+Agent może zastosować wzorzec **Steady**, **Tap**, **Pulse**, **Wave**, **Ramp** albo **Impact** do każdego działania poza zatrzymaniem. Wzorce pozycyjne naprzemiennie wyznaczają prawdziwe cele ruchu, dzięki czemu ruch pompujący lub posuwisty wykonuje się w czasie zamiast wysyłać kilka ruchów naraz.
+
 ### Pole Intiface URL
 
 W polu **Intiface URL** znajduje się adres sieciowy serwera aplikacji **Intiface Central**. To adres WebSocket, czyli lokalny link, przez który obie aplikacje się porozumiewają. Wartość domyślna jest podana niżej.
@@ -69,23 +77,23 @@ ws://192.168.1.50:12345
 
 ## Czułość dotyku
 
-W czacie w trybie Roleplay karta **Haptic Feedback** pokazuje kontrolkę **Touch sensitivity** (czułość dotyku) z trzema opcjami. Obok stoi mała adnotacja "Roleplay only". Ta kontrolka działa wyłącznie w czatach Roleplay. W pozostałych trybach ustawienie czułości jest pomijane, a sygnały nie są ograniczane tymi wartościami.
+W każdym trybie czatu karta **Haptic Feedback** pokazuje kontrolkę **Touch sensitivity** (czułość dotyku) z trzema opcjami. Czułość podpowiada agentowi, jak chętnie wybierać łagodny albo mocny sygnał, ale nie nakłada sztywnego limitu. Każda opcja może wykorzystać pełny zakres intensywności urządzenia `0.0-1.0`, gdy wymaga tego bieżące działanie.
 
-Te trzy opcje decydują o tym, jak mocny i jak długi może być każdy sygnał.
+Trzy opcje wyznaczają styl reakcji agenta.
 
 | Opcja | Odczucie | Uwagi |
 |---|---|---|
-| **Subtle** | Niższa intensywność i krótsza reakcja | Najłagodniejsza opcja |
-| **Standard** | Wyważona reakcja, dobra do większości scen | Ustawienie domyślne |
-| **Intense** | Mocniejsza reakcja z wyższym limitem | Najmocniejsza opcja |
+| **Subtle** | Preferuje łagodniejsze sygnały | Pełny zakres pozostaje dostępny |
+| **Standard** | Wyważona reakcja, dobra do większości scen | Ustawienie domyślne; pełny zakres jest dostępny |
+| **Intense** | Chętniej wybiera mocne sygnały | Może wykorzystać pełną moc |
 
-Domyślnie zaznaczona jest opcja **Standard**. Wybierz tę, która pasuje do sceny. W czatach Roleplay Marinara ogranicza każdy sygnał do zakresu wyznaczonego przez ten wybór. AI nie może go przekroczyć.
+Domyślnie zaznaczona jest opcja **Standard**. Wybierz styl reakcji pasujący do sceny. Marinara nadal sprawdza każdą komendę względem fizycznego zakresu Intiface `0.0-1.0`.
 
 ## Przypadkowy kontakt
 
-Pod kontrolką czułości czaty Roleplay pokazują też przełącznik **Incidental contact** (przypadkowy kontakt). Widnieje przy nim opis "Tiny taps for accidental brushes and bumps." Domyślnie przełącznik jest wyłączony.
+Pod kontrolką czułości każdy tryb czatu pokazuje też przełącznik **Incidental contact** (przypadkowy kontakt). Widnieje przy nim opis "Tiny taps for accidental brushes and bumps." Domyślnie przełącznik jest wyłączony.
 
-Kiedy jest wyłączony, AI pomija w historii drobne przypadkowe dotknięcia. Wysyła sygnały tylko przy kontakcie celowym lub zdecydowanym. Włącz go, jeśli chcesz odczuwać delikatne stuknięcia także przy muśnięciach i potrąceniach. Podobnie jak czułość dotyku, ta kontrolka pojawia się wyłącznie w czatach Roleplay.
+Kiedy jest wyłączony, AI pomija w historii drobne przypadkowe dotknięcia. Wysyła sygnały tylko przy kontakcie celowym lub zdecydowanym. Włącz go, jeśli chcesz odczuwać delikatne stuknięcia także przy muśnięciach i potrąceniach.
 
 ## Korzystanie z innego urządzenia
 

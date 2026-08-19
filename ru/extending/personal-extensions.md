@@ -8,6 +8,8 @@
 
 Кнопки создания черновика здесь нет, средств импорта тоже. Попросите Professor Mari написать или переделать черновик. Ассистент сохраняет код, но не может его одобрить или включить.
 
+Чтобы написать и импортировать собственный пакет, воспользуйтесь [руководством по созданию личных расширений](writing-personal-extensions.md). Самостоятельно созданные пакеты проходят отдельно защищенный процесс External Extensions.
+
 ## Проверка и включение
 
 Каждый черновик изначально выключен. Marinara снимает отпечаток исполняемого кода алгоритмом SHA-256. Откройте черновик, изучите код, сверьте показанный хеш и только потом нажмите кнопку **Review and Run** (проверить и запустить) – если вы принимаете именно эту версию. Любая правка исполняемого кода и любая восстановленная версия выключают расширение и требуют нового одобрения.
@@ -62,7 +64,24 @@ const panel = marinara.ui.registerContribution({
 marinara.onCleanup(() => panel.remove());
 ```
 
-Значение `kind: "button"` дает компактное действие на верхней панели и в меню **Extensions**, а `kind: "menu-item"` – действие только в меню. И то, и другое вызывает `onActivate`. Панель (`panel`) вызывает `onActivate` при открытии, а ее кнопки вызывают `onEvent` с текущими значениями всех элементов панели. Возвращенный обработчик поддерживает `update({ label?, description?, icon?, elements? })` и `remove()`. В идентификаторах допустимы буквы, цифры, `.`, `_` и `-`.
+Значение `kind: "button"` создает компактное действие, а `kind: "menu-item"` — действие в меню Extensions. По умолчанию кнопки используют `surface: "top-bar"`. Они также могут выбирать `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` или `settings`, задав `position` как `header`, `before-content` или `after-content`. Поле `icon` принимает любое поддерживаемое Marinara имя значка Lucide в kebab-case. Оба вида действий вызывают `onActivate`. Панель (`panel`) вызывает `onActivate` при открытии, а ее кнопки вызывают `onEvent` с текущими значениями элементов. Обработчик поддерживает обновления по виду: `button` принимает `label`, `description`, `icon`, `surface` и `position`; `menu-item` — `label`, `description` и `icon`; `panel` — `label`, `description`, `icon` и `elements`. Все обработчики поддерживают `remove()`. В идентификаторах допустимы буквы, цифры, `.`, `_` и `-`.
+
+Этот пример помещает нативное действие над содержимым панели Presets:
+
+```js
+marinara.ui.registerContribution({
+  id: "preset-helper",
+  kind: "button",
+  label: "Preset helper",
+  description: "Run the preset helper",
+  icon: "list-sparkles",
+  surface: "presets",
+  position: "before-content",
+  onActivate: () => {
+    // Run extension behavior here.
+  },
+});
+```
 
 Сложные инструменты могут строить пошаговый интерфейс, обновляя элементы панели после события. Состояние держите в `marinara.storage` и не кодируйте его в разметке.
 
@@ -184,6 +203,7 @@ Marinara никогда не передает сообщения, заметки
 
 ## Смежные руководства
 
+- [Создание личных расширений](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [Настройки сервера: справочник](../CONFIGURATION.md)
 - [Резервное копирование и восстановление Marinara](../data/backup-and-restore.md)

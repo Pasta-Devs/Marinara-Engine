@@ -587,6 +587,7 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 | `character-tracker`      | post_processing | キャラクターの状態の変化を追跡する                                |
 | `persona-stats`          | post_processing | プレイヤーのペルソナの能力値の変化を追跡する                                |
 | `custom-tracker`         | post_processing | 自分で定義した構造化データの状態を追跡する                              |
+| `inventory-tracker`      | post_processing | 通貨、装備中の品、持ち物を追跡する                                      |
 | `illustrator`            | post_processing | シーンの画像プロンプトとメディアのリクエストを生成する                  |
 | `lorebook-keeper`        | post_processing | ロアブックのエントリーを自動で作成、更新する                            |
 | `card-evolution-auditor` | post_processing | キャラクターカードを点検し、成長の案を出す                    |

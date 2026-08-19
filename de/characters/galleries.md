@@ -68,6 +68,28 @@ Ein in der Galerie markiertes Emoji oder Sticker gilt nur für genau diesen Char
 
 Trägt ein Galerie-Bild denselben Namen wie ein Eintrag aus der globalen Sammlung, gewinnt in diesem Chat die Galerie-Version. Namen werden nicht auf Eindeutigkeit geprüft. Vergib deshalb pro Bild einen eigenen Namen, dann gibt es keine Überraschungen.
 
+## Ein Galerie-Bild in Nachrichten und Begrüßungen wiederverwenden
+
+Jedes Bild in der Galerie einer Figur lässt sich direkt im Chattext anzeigen: in einer Begrüßung, einer Beispielnachricht oder einer Nachricht der Figur. Fahre über das Galerie-Bild und klicke auf **Copy image reference** (das Link-Symbol). Dadurch wird ein kurzes Markdown-Stück kopiert, das du überall einfügen kannst, wo die Figur spricht:
+
+```text
+![sunset selfie](card://self/gallery/k3m2xq7.png)
+```
+
+Die eine Regel lautet: **`self` bezeichnet die Figur, die diese Nachricht spricht.** Beim Rendern ersetzt Marinara `self` durch diese Figur und zeigt das Bild aus ihrer Galerie.
+
+Es funktioniert in **First Message**, **Alternate Greetings** und **Example Dialogue** auf der Figurenkarte, in jeder von einer Figur gesendeten Nachricht in Roleplay und Conversation sowie in Gruppenchats. Bei Antworten mit mehreren Sprechern wird `self` für jeden Sprecher einzeln aufgelöst. Fehlt die Datei in dessen Galerie, durchsucht Marinara die Galerien der anderen Chatfiguren.
+
+Bewusst nicht unterstützt werden eigene Nachrichten, da sie keine sprechende Figur haben, sowie Systemnachrichten, die keine Markdown-Bilder rendern. Verwende für eigene Nachrichten den Asset-Browser des Chats mit der vollständigen Form `card://characters/<id>/...`. Bilder aus Persona-Galerien benötigen stattdessen `card://personas/<id>/gallery/<file>`.
+
+Haben zwei Figuren dieselben Dateinamen, gewinnt immer das Bild der sprechenden Figur. Fehlt es dort, wird der erste Treffer in der Figurenreihenfolge des Chats verwendet. Vergib eindeutige Namen, wenn eine bestimmte Version erscheinen soll.
+
+### Warum `self` statt des vollständigen Links
+
+Ein vollständiger Link enthält die interne Figuren-ID (`card://characters/<id>/gallery/<file>`). Diese wird bei jedem Import neu erzeugt, sodass vollständige Links beim Teilen brechen. Die Form mit `self` enthält weder ID noch Serveradresse und überlebt einen **nativen JSON-Export und -Import**: Galerie-Bilder reisen mit und behalten ihre Dateinamen.
+
+Eine Einschränkung: **PNG-Kartenexporte enthalten die Galerie nicht**. Teile den nativen `.json`-Export, wenn eine Figur Galerie-Verweise verwendet.
+
 ## Verwandte Anleitungen
 
 - [Charaktere erstellen und bearbeiten](creating-and-editing-characters.md)

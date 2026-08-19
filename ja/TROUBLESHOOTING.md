@@ -42,6 +42,16 @@ Marinara v2.3.0では、Corepack経由でpnpmを起動するところまでは�
 npm install -g pnpm@10.33.2
 ```
 
+### ランチャーをpnpm 10.34.5へ更新する
+
+Marinara v2.4.1では、固定パッケージマネージャーがpnpm 10.34.5へ移行します。既存の10.33.2ランチャーは、同じ実行中に一度だけ必要な引き継ぎを完了できます。その後、更新されたランチャーは以降の起動で10.34.5を選びます。Corepackは`package.json`に固定されたSHA-512ダイジェストでリリースを検証し、npmフォールバックも固定されていないlatestではなく、正確に10.34.5を要求します。
+
+以前のv2.4.1 stagingビルドが`Expected version: >=10.34.5`と`Got: 10.33.2`で停止していた場合は、ランチャーをもう一度実行してください。そのビルドは停止前に更新済みランチャーをダウンロードしています。それでも固定バージョンを自動取得できない場合は、正確なバージョンをインストールしてから再実行します。
+
+```bash
+npm install -g pnpm@10.34.5
+```
+
 ### Linux: インストール中にERR_PNPM_ENAMETOOLONGが出る
 
 以前のインストールで長いフォルダーパスが残っているという意味です。Marinaraのフォルダーで、途中まで進んだインストールを削除してから、もう一度ランチャーを実行します。
@@ -228,6 +238,12 @@ Music DJエージェントのSpotifyモードはOAuthを使います。OAuthは�
 
 ## ストレージとデータ
 
+### 起動時に別のプロセスがデータディレクトリを使用中かもしれないと表示される
+
+Marinaraでは、ローカルのデータディレクトリへ書き込める実行中サーバーは1つだけです。起動時にそのディレクトリについて**Another Marinara Engine process ... may be using**と表示されたら、もう一方のMarinaraプロセスを終了して再起動してください。
+
+クラッシュ後やDockerデータボリュームの移動後には、代わりに**The storage writer lease ... is incomplete or invalid**と表示されたり、このホストにはもう存在しないプロセスが示されたりすることがあります。まず、そのデータディレクトリを使うMarinaraの全プロセスとコンテナーが停止していることを確認します。次に、エラーで示された`.writer-lease`ディレクトリだけを削除し、Marinaraを再起動します。周囲の`storage`ディレクトリやテーブルファイルは削除しないでください。
+
 ### アップデート後にデータがなくなったように見える
 
 アップデート後にチャットやプリセットが見当たらなくても、まだデータのフォルダーを削除しないでください。Marinaraは実際のデータを、データフォルダーの中の`storage`フォルダーに保存しています。
@@ -238,6 +254,27 @@ Music DJエージェントのSpotifyモードはOAuthを使います。OAuthは�
 2. `data/`
 
 サーバーは起動時に、解決したデータフォルダーとストレージフォルダーを表示します。
+
+### 古いバージョンへ切り替えたらチャットのメッセージが表示されない
+
+新しいMarinaraは、各チャットのデータ（メッセージ、swipe、記憶、画像などのチャット単位の記録）を、テーブルごとの大きな1ファイルではなくチャット別のファイルに保存します。これにより、長いチャットの保存が大幅に速くなります。古いバージョンはこの配置を理解できません。古いバージョンへ切り替えるとチャットが空に見えますが、データはディスクに残っており、古いバージョンから見えないだけです。
+
+Marinaraは明らかなダウングレードを自動で拒否します。ランチャーは互換性のないバージョンへ移る自動更新をスキップし、アプリ内アップデーターはここを案内するエラーを表示してブロックします。
+
+それでもダウングレードする場合は、次の手順を使います。
+
+1. Marinaraサーバーを停止します。
+2. Marinaraフォルダーで次を実行します。
+
+   ```bash
+   node scripts/protect-launcher-data.mjs unshard
+   ```
+
+3. 古いバージョンへ切り替え、通常どおり起動します。
+
+このコマンドは、チャット別ファイルから以前の単一ファイル形式を再構築します。何も削除されません。チャット別ファイルは、再構築した各ファイルの隣に`<table>.post-unshard-<timestamp>`というフォルダー（例: `messages.post-unshard-…`）として残り、移行前の原本も`.pre-shard`ファイルとして残ります。後で再びアップグレードすると、Marinaraが自動的にデータを再変換します。
+
+DockerとPodmanは`marinara-data`ボリュームにデータを保存するため、1回限りのコンテナーでコマンドを実行します。実行中のコンテナーを停止し、`docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard`を実行してから、古いイメージを起動してください。
 
 ### バックアップやエクスポートが403を返す
 
@@ -254,11 +291,17 @@ AndroidアプリはTermuxを起動するための小さな入れ物にすぎま�
 3. AndroidがTermuxでのコマンド実行を求めたら、許可します。
 4. ランチャーの処理が終わってサーバーが起動するまで待ってから、アプリに戻ります。
 
+通常のAPKの手順では、Marinaraのシークレットを貼り付けるよう求められることはありません。アプリがlocalhost用の非公開認証情報を生成し、Termuxに渡して自動的にログインします。AndroidのアプリインストールとTermux権限のダイアログは、引き続き必要なシステム確認です。`CSRF_TRUSTED_ORIGINS`に`null`、`http://null`、APKのシークレットを追加しないでください。どれもAndroidの設定に必要な正しい手順ではありません。
+
 アプリとTermuxが同じポートを使っているかも確認してください。デフォルトは`7860`です。別のポートでアプリをビルドした場合は、Termuxの`.env`にも同じ`PORT`を設定します。
 
 ### Androidのlocalhostでログインページが開く、または401/503になる
 
-APKが管理するTermuxインストールでは、インストールごとに異なる非公開シークレットでlocalhostを保護します。Androidアプリは自動的に認証されます。同じスマートフォンの別のブラウザーでは、`/android-login`を開き、次のTermuxコマンドで表示される値を貼り付けます。
+APKが管理するTermuxインストールでは、インストールごとに異なる非公開シークレットでlocalhostを保護します。Androidアプリは自動的に認証され、設定中にこのログインページが表示されることはありません。Marinara Engineアプリ内に表示される場合は、[最新のAPK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)をインストールし、もう一度**Install / Start Marinara**をタップして、Termuxの処理が終わったらアプリに戻ります。
+
+オリジン`null`を示すエラーは、古いAPKとサーバーの組み合わせが、非公開のハンドシェイクより先にAndroid WebViewの不透明なオリジンを一般のCSRF検査へ渡したことを意味します。`.env`を編集しても直りません。リテラルの`null`は意図的に無視され、不透明なオリジンを全体で信頼すると、状態を変更するすべてのAPIルートが弱くなるためです。APKとEngineを更新してください。現在のAndroidログインルートは独自の1回限りの証明またはインストール単位のシークレットを検証し、それ以外では`null`を拒否します。
+
+同じスマートフォンの別のブラウザーだけが、手動のローカルブラウザー認証を必要とします。そのブラウザーで`/android-login`を開き、次のTermuxコマンドで表示される値を貼り付けます。
 
 ```bash
 cat ~/.marinara-engine/android-secret
@@ -349,6 +392,23 @@ Danger Zoneのスイッチが無効のままなら、ホスト側のフラグが
 ページ全体にアクセスする拡張機能を無効にしたあとも、ツールバーの項目、オーバーレイ、リスナー、見た目の変化が残っている場合は、Marinaraを再読み込みしてください。ページ側のコードはMarinaraが管理する互換APIの外にも影響を残せるため、後片付けは万全ではありません。
 
 ### Server Extensionが利用できるサンドボックスはないと表示される
+
+Server ExtensionとProfessor Mariの生のシェルコマンドは、macOSのSeatbeltまたはLinuxのBubblewrapがある環境でのみ動きます。公式DockerイメージにはBubblewrapが含まれますが、既定の最小権限コンテナーは入れ子の名前空間とマウントを作成できません。Marinaraはこの状態を検出し、壊れたコマンドを試す代わりにOSサンドボックス機能を無効のままにします。
+
+広いコンテナー権限を受け入れ、Dockerでこれらの機能が必要な場合は、次を`docker-compose.yml`の隣に`docker-compose.override.yml`として保存します。
+
+```yaml
+services:
+  marinara:
+    environment:
+      MARINARA_DOCKER_USER: root
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor=unconfined
+```
+
+追加後にコンテナーを再作成します。Marinaraのエントリーポイントが`node`ユーザーへ切り替える際に能力が破棄されないよう、サーバーをrootのままにする必要があります。rootと`SYS_ADMIN`は大幅な権限昇格で、AppArmorの無効化は外側の安全境界をさらに弱めます。警告を消す目的だけで有効にしないでください。現在のDockerでは包括的な`seccomp=unconfined`設定は不要なはずです。
 
 Server Extensionは、macOSのSeatbeltかLinuxのBubblewrapがある環境でしか動きません。Linuxのホストに`bwrap`をインストールしてから、Marinaraを再起動してください。Windows、Android、その他の非対応のホストでは、メインのサーバープロセスで代わりに実行することはせず、Server Extensionの実行を意図的に拒否します。Browser Extensionは、不透明なオリジンのWorkerサンドボックスで引き続き利用できます。
 

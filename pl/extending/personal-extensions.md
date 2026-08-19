@@ -8,6 +8,8 @@ Domyślnie widać komunikat:
 
 W tej sekcji nie ma akcji tworzenia nowego szkicu ani żadnych kontrolek importu. O utworzenie lub poprawienie szkicu poproś Professor Mari. Asystentka zapisze kod, ale nie zatwierdzi go ani nie włączy.
 
+Jeśli chcesz napisać i zaimportować własny pakiet, skorzystaj z [przewodnika tworzenia rozszerzeń osobistych](writing-personal-extensions.md). Pakiety napisane samodzielnie przechodzą przez osobno chroniony proces External Extensions.
+
 ## Przegląd kodu i włączenie
 
 Każdy szkic zaczyna jako wyłączony. Marinara wylicza odcisk dokładnie tego kodu, który ma się wykonać, algorytmem SHA-256. Otwórz szkic, przejrzyj kod, porównaj wyświetlony odcisk i dopiero wtedy wybierz **Review and Run** (przegląd i uruchomienie) – tylko jeśli akceptujesz dokładnie tę wersję. Każda zmiana w wykonywanym kodzie i każda przywrócona wersja wyłączają rozszerzenie i wymagają ponownego zatwierdzenia.
@@ -62,7 +64,24 @@ const panel = marinara.ui.registerContribution({
 marinara.onCleanup(() => panel.remove());
 ```
 
-Wartość `kind: "button"` daje zwięzłą akcję na górnym pasku lub w menu Extensions, a `kind: "menu-item"` – akcję dostępną tylko z menu. Obie wywołują `onActivate`. Rodzaj `panel` wywołuje `onActivate` przy otwarciu, a jego przyciski wywołują `onEvent` z bieżącymi wartościami wszystkich kontrolek panelu. Zwrócony uchwyt obsługuje `update({ label?, description?, icon?, elements? })` oraz `remove()`. Identyfikatory mogą zawierać litery, cyfry oraz znaki `.`, `_` i `-`.
+Wartość `kind: "button"` daje zwięzłą akcję, a `kind: "menu-item"` — akcję w menu Extensions. Przyciski domyślnie używają `surface: "top-bar"`. Mogą też wskazywać `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` lub `settings`, z pozycją `header`, `before-content` albo `after-content`. Pole `icon` przyjmuje każdą obsługiwaną przez Marinara Engine nazwę ikony Lucide w formacie kebab-case. Oba typy akcji wywołują `onActivate`. Rodzaj `panel` wywołuje `onActivate` przy otwarciu, a jego przyciski wywołują `onEvent` z bieżącymi wartościami kontrolek. Uchwyt obsługuje aktualizacje zależne od typu: `button` przyjmuje `label`, `description`, `icon`, `surface` i `position`; `menu-item` — `label`, `description` i `icon`; `panel` — `label`, `description`, `icon` i `elements`. Wszystkie uchwyty obsługują `remove()`. Identyfikatory mogą zawierać litery, cyfry oraz `.`, `_` i `-`.
+
+Ten przykład umieszcza natywną akcję nad zawartością panelu Presets:
+
+```js
+marinara.ui.registerContribution({
+  id: "preset-helper",
+  kind: "button",
+  label: "Preset helper",
+  description: "Run the preset helper",
+  icon: "list-sparkles",
+  surface: "presets",
+  position: "before-content",
+  onActivate: () => {
+    // Run extension behavior here.
+  },
+});
+```
 
 Rozbudowane narzędzia mogą budować interfejsy wieloetapowe, aktualizując elementy panelu po zdarzeniu. Stan aplikacji trzymaj w `marinara.storage`, nigdy nie zapisuj go w samych znacznikach.
 
@@ -184,6 +203,7 @@ Jeśli rozszerzenie zachowuje się źle, wybierz **Disable** (wyłączenie). Je�
 
 ## Powiązane przewodniki
 
+- [Tworzenie rozszerzeń osobistych](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [Konfiguracja serwera](../CONFIGURATION.md)
 - [Kopia zapasowa i przywracanie](../data/backup-and-restore.md)

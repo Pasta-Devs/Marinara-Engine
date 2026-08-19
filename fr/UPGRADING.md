@@ -100,7 +100,7 @@ cd Marinara-Engine
 
 Pour une désactivation durable, mets `AUTO_UPDATE_ENABLED=false` dans le fichier `.env` du projet. Cela ne concerne que les mises à jour du moteur pilotées par le lanceur ; les mises à jour manuelles et les contrôles intégrés à l'application restent disponibles.
 
-Si tu utilises l'icône de l'application Android (l'APK), ouvre-la et touche **Install / Start Marinara**. L'APK est une application sideloadée, c'est-à-dire installée en dehors de la boutique officielle. Ce n'est qu'une coque autour de Termux : elle met donc à jour la même copie Termux qui tourne derrière.
+Si tu utilises l'icône de l'application Android (l'APK), [télécharge le dernier APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) et ouvre le fichier téléchargé pour qu'Android mette à jour l'enveloppe elle-même. Ouvre ensuite Marinara Engine et touche **Install / Start Marinara** pour mettre à jour et démarrer la copie Termux. L'application conserve et échange automatiquement son identifiant privé pour localhost ; une mise à jour ne demande jamais d'identifiants de signature ni ce secret.
 
 ### iPhone et iPad
 
@@ -180,6 +180,12 @@ Le bouton **Refresh App** (rafraîchir l'application) se trouve dans la même se
 Utilise **Refresh App** quand l'application semble figée sur une ancienne version ou affiche un écran blanc après une mise à jour, alors que le serveur tourne déjà sur la nouvelle version. Cela répare une page web bloquée. Le code du serveur n'est pas touché : ce n'est donc pas un substitut à une vraie mise à jour.
 
 Le bouton affiche **Refreshing…** pendant le traitement, puis l'application se recharge.
+
+## Revenir à une ancienne version
+
+Les mises à niveau sont toujours sûres, mais revenir directement en arrière n'est pas toujours possible. Les versions récentes de Marinara stockent les messages dans un format sur disque plus récent qu'une ancienne version ne peut pas lire. Pour protéger votre historique, le lanceur ignore les mises à jour automatiques vers une version incompatible et le programme de mise à jour intégré refuse de les appliquer.
+
+Si vous avez tout de même besoin d'une ancienne version, une commande de conversion remet d'abord vos données dans l'ancien format. Consultez [Les chats n'affichent aucun message après un retour à une ancienne version](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version) pour suivre les étapes.
 
 ## Si une mise à jour échoue
 

@@ -106,6 +106,13 @@ O **Result Type** diz a Marinara como interpretar a saída do agente. A maioria 
 
 Um tipo de resultado acinzentado indica que o poder dele ainda não foi ativado. Ligue o botão correspondente em **Custom Agent Abilities** e o tipo de resultado fica clicável.
 
+### Controles por chat para agentes de imagem
+
+Um agente com a capacidade **Image generation** recebe dois controles adicionais em seu cartão em **Chat Settings → Agents → Custom Agents**, junto ao seletor de modelo de prompt que todo agente personalizado possui:
+
+- **Image Connection** — substitui apenas neste chat a conexão de imagem usada pelo agente. Deixe em **Agent default** para manter a conexão das configurações do próprio agente. A seleção **Image Style** do chat também vale para imagens de agentes personalizados, permitindo que o mesmo agente renderize de forma diferente em cada chat sem ser duplicado.
+- **Camera button** — gera uma imagem com o agente imediatamente, sem esperar pelas palavras de ativação. O agente ainda escreve o próprio prompt; se o modelo dele decidir não produzir um, uma notificação de erro aparece no lugar da imagem.
+
 ## Activation Keywords
 
 Por padrão, um agente personalizado roda no ritmo normal dele. A seção **Activation Keywords** permite pular o agente quando a cena não é relevante. Isso economiza tokens e dinheiro. Um token é um pedacinho de texto que a IA conta.

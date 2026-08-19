@@ -8,6 +8,8 @@ Standardmäßig steht dort:
 
 Einen Befehl für einen neuen Entwurf gibt es in diesem Bereich nicht, und Import-Bedienelemente ebenso wenig. Bitte Professor Mari darum, einen Entwurf anzulegen oder zu überarbeiten. Sie darf Code speichern – freigeben oder aktivieren darf sie ihn nicht.
 
+Wenn du dein eigenes Paket schreiben und importieren möchtest, nutze die [Anleitung zum Erstellen persönlicher Erweiterungen](writing-personal-extensions.md). Selbst erstellte Pakete verwenden den separat geschützten Ablauf für externe Erweiterungen.
+
 ## Prüfen und aktivieren
 
 Jeder Entwurf ist zunächst deaktiviert. Marinara berechnet aus dem ausführbaren Code einen SHA-256-Fingerabdruck. Öffne den Entwurf, sieh dir den Code an, vergleiche den angezeigten Hash und wähle **Review and Run** (prüfen und ausführen) nur dann, wenn du genau dieser Version vertraust. Jede Änderung am ausführbaren Code und jede wiederhergestellte Fassung deaktiviert die Erweiterung wieder und verlangt eine neue Freigabe.
@@ -62,7 +64,24 @@ const panel = marinara.ui.registerContribution({
 marinara.onCleanup(() => panel.remove());
 ```
 
-`kind: "button"` eignet sich für eine kompakte Aktion in der oberen Leiste oder im Extensions-Menü, `kind: "menu-item"` für eine reine Menü-Aktion. Beide rufen `onActivate` auf. Ein `panel` ruft `onActivate` beim Öffnen auf; seine Schaltflächen rufen `onEvent` mit den aktuellen Werten aller Panel-Bedienelemente auf. Der zurückgegebene Handle unterstützt `update({ label?, description?, icon?, elements? })` und `remove()`. IDs dürfen Buchstaben, Zahlen sowie `.`, `_` und `-` enthalten.
+`kind: "button"` eignet sich für eine kompakte Aktion, `kind: "menu-item"` für eine Aktion im Extensions-Menü. Schaltflächen verwenden standardmäßig `surface: "top-bar"`. Alternativ können sie mit `position` auf `header`, `before-content` oder `after-content` die Flächen `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` oder `settings` ansteuern. `icon` akzeptiert von Marinara unterstützte Lucide-Namen in kebab-case. Beide Aktionsarten rufen `onActivate` auf. Ein `panel` ruft `onActivate` beim Öffnen auf; seine Schaltflächen rufen `onEvent` mit den aktuellen Werten aller Panel-Bedienelemente auf. Der Handle bietet je nach Art unterschiedliche Updates: `button` akzeptiert `label`, `description`, `icon`, `surface` und `position`; `menu-item` akzeptiert `label`, `description` und `icon`; `panel` akzeptiert `label`, `description`, `icon` und `elements`. Alle Handles unterstützen `remove()`. IDs dürfen Buchstaben, Zahlen sowie `.`, `_` und `-` enthalten.
+
+Dieses Beispiel platziert eine native Aktion oberhalb des Inhalts im Presets-Bereich:
+
+```js
+marinara.ui.registerContribution({
+  id: "preset-helper",
+  kind: "button",
+  label: "Preset helper",
+  description: "Run the preset helper",
+  icon: "list-sparkles",
+  surface: "presets",
+  position: "before-content",
+  onActivate: () => {
+    // Run extension behavior here.
+  },
+});
+```
 
 Aufwendigere Werkzeuge bauen mehrstufige Oberflächen, indem sie die Panel-Elemente nach einem Ereignis austauschen. Halte den Anwendungszustand in `marinara.storage` – nicht im Markup.
 
@@ -184,6 +203,7 @@ Verhält sich eine Erweiterung daneben, wähle **Disable** (deaktivieren). Ist d
 
 ## Verwandte Anleitungen
 
+- [Persönliche Erweiterungen schreiben](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [Server-Konfiguration](../CONFIGURATION.md)
 - [Backup und Wiederherstellung](../data/backup-and-restore.md)

@@ -28,10 +28,8 @@ Desde un teléfono, una tableta o cualquier otro dispositivo, la copia de seguri
 3. Busca la sección **Backup & Export**.
 4. Haz clic en **Download Backup**.
 5. El botón muestra **Creating backup…** mientras trabaja.
-6. En Chrome o Edge de escritorio, se abre una ventana **Save As** para que elijas dónde va el archivo. Elige una carpeta y guarda.
-7. Cuando termine, deberías ver **Backup saved!** o **Backup downloaded!**.
-
-En algunos navegadores la ventana **Save As** no está disponible. En ese caso el archivo va a tu carpeta de descargas habitual.
+6. Cuando el archivo comprimido está listo, Marinara lo transmite directamente al navegador sin conservar el archivo completo en la memoria de la página.
+7. Según los ajustes de descarga, el navegador abre su ventana **Save As** habitual o guarda el archivo en la carpeta de descargas.
 
 Este paso importa sobre todo en Android e iOS. En esos dispositivos, la propia carpeta de datos de la app normalmente no es accesible. Eso hace que **Download Backup** sea la única forma fácil de sacar una copia del dispositivo. Guárdala en un lugar seguro y privado, como tu propio almacenamiento en la nube.
 

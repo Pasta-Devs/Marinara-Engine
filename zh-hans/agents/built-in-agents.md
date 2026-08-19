@@ -1,6 +1,6 @@
 # 可下载智能体参考
 
-本指南按分类列出通过 **Agents → Download Agents**(智能体 → 下载智能体) 可以获取的全部 30 个官方第一方包。全新安装的 Marinara Engine 并不自带智能体。这些包的源码、清单、构建产物和机器可读目录都发布在 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)。下面每个条目都会说明这个智能体做什么、什么时候运行或以什么方式集成、哪些聊天模式可以用它，以及主要设置。安装和启用的步骤请先看[智能体](agents-overview.md)。
+本指南按分类列出通过 **Agents → Download Agents**(智能体 → 下载智能体) 可以获取的全部 36 个官方第一方包。全新安装的 Marinara Engine 并不自带智能体。这些包的源码、清单、构建产物和机器可读目录都发布在 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)。下面每个条目都会说明这个智能体做什么、什么时候运行或以什么方式集成、哪些聊天模式可以用它，以及主要设置。安装和启用的步骤请先看[智能体](agents-overview.md)。
 
 ## 如何阅读本参考
 
@@ -70,7 +70,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 
 ## 追踪类智能体
 
-追踪类智能体会持续记录场景、角色和各项数值。它们的最新输出可以作为一个段落加进提示词，让模型保持前后一致。下面的追踪器里有五个默认开启 **Add as Prompt Section**(作为提示词段落加入)：World State、Quest Tracker、Character Tracker、Persona Stats 和 Custom Tracker。Expression Engine 和 Background 是例外。
+追踪类智能体会持续记录场景、角色和各项数值。它们的最新输出可以作为一个段落加进提示词，让模型保持前后一致。World State、Quest Tracker、Character Tracker、Persona Stats、Custom Tracker、Inventory Tracker 和 Beholder 默认开启 **Add as Prompt Section**(作为提示词段落加入)。Expression Engine 和 Background 是例外。
 
 ### World State
 
@@ -114,6 +114,16 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 - **适用范围**：Roleplay。
 - **主要设置**：**Add as Prompt Section**(默认开启)，以及可选的 **Auto-Generate NPC Avatars**(自动生成 NPC 头像) 设置，它有自己的图像连接选择器。
 
+### Beholder
+
+按身体部位追踪每个角色当前的服装，以及手持物品、伤口、缺失的身体部位、明确裸露的部位和非人类物种。最近一次通过验证的快照会显示在 Beholder 的 Roleplay Chat Settings 抽屉中，并同时传给 Beholder 的下一次追踪调用和下一条 Roleplay 主回复。
+
+- **阶段**：Post-Processing。
+- **适用范围**：仅 Roleplay。
+- **主要设置**：在 **Chat Settings → Agents → Tracker Agents** 中添加或移除；在同一位置打开 **Configure Beholder**，选择连接、模型、提示词、上下文和输出限制。**Add as Prompt Section** 默认开启。
+- **模型建议**：使用 OpenAI GPT-5.5+、Claude Opus 4.8+ 或 Kimi K3+ 等 SOTA 模型，以可靠追踪完整状态。
+- **来源**：根据采用 AGPL-3.0-only 许可证的 [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME) 改编到 Engine 的原生 Agent 运行时。官方包不会加载旧扩展的 DOM、轮询或本地存储运行时。
+
 ### Persona Stats
 
 追踪自己角色的状态条，比如饱食度、精力和清洁度，也包括自己添加的自定义状态条。适合生存或者生活模拟类玩法。
@@ -129,6 +139,14 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 - **阶段**：Post-Processing。
 - **适用范围**：Roleplay。
 - **主要设置**：**Add as Prompt Section**(默认开启)。
+
+### Inventory Tracker
+
+用三份结构化列表分别追踪金钱、已装备物品和随身物品，不复用 Persona Stats 的库存，也不把数据挤进 Custom Tracker 的字符串里。重名条目会合并，数量为一时保持简洁显示，锁定的行在后续追踪中也不会改变。
+
+- **阶段**：Post-Processing(后处理)。
+- **适用模式**：Roleplay。
+- **主要设置**：**Add as Prompt Section** 默认开启。你可以在 HUD 和 Tracker Panel 里编辑并锁定每个名称和数量。
 
 ### World Maps
 
@@ -150,6 +168,16 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 - **阶段**：Parallel。
 - **适用范围**：Roleplay。
 - **主要设置**：从预置选项里挑一种风格，比如 **AO3 / Wattpad**、**Twitter / Reddit**、**4chan**、**Constructive**、**Hype Squad** 和 **Harbingers**。小组件里的操作包括 **Re-run Echo Chamber**(重新运行 Echo Chamber) 和 **Clear messages**(清空消息)。
+
+### Noodle
+
+添加一个可选的本地社交世界，其中包括 Noodle 公共时间线和面向创作者与粉丝角色扮演的 NoodleR 动态流。它在专门的 Home 标签页中打开，不走常规聊天智能体管线。
+
+- **集成方式**：功能包；提供 Home 标签页、本地路由、生成与媒体流程以及后台调度器。
+- **适用位置**：Home，可选择带入 Conversation、Roleplay 和 Game 聊天中的上下文。
+- **主要设置**：从 **Agents → Download Agents** 安装，并在提示时重启 Marinara Engine。在 Noodle 内可以配置受邀账号、文本和图像连接、时间线刷新、NoodleR Creator 资料、模拟帖文访问权限和受众活动。
+- **数据生命周期**：卸载会移除 Home 标签页，并在重启后停止软件包的路由和调度器，但会保留现有 Noodle 与 NoodleR 数据，以便日后重新安装。
+- **完整指南**：[Noodle：应用内社交时间线](../noodle/overview.md)。
 
 ### Long-Term Memory
 
@@ -206,8 +234,8 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 读取叙事内容，通过 Intiface Central 实时控制已连接的情趣玩具。启用这个智能体之前，Intiface Central 必须已经在运行，并且已经连上玩具。
 
 - **阶段**：Post-Processing。
-- **适用范围**：Roleplay。
-- **主要设置**：**Touch Sensitivity**(触感强度) 选项（**Subtle**、**Standard** 或 **Intense**），以及 **Intiface URL** 输入框。完整设置步骤见 [Haptic Feedback 触感反馈设置](../integrations/haptic-feedback.md)。
+- **适用范围**：Conversation、Roleplay 和 Game。
+- **主要设置**：**Touch Sensitivity**(触感强度)选项（**Subtle**、**Standard** 或 **Intense**），以及 **Intiface URL** 输入框。强度设置会引导智能体选择，但不会限制可用的 `0.0-1.0` 强度范围。完整设置步骤见 [Haptic Feedback 触感反馈设置](../integrations/haptic-feedback.md)。
 
 ### CYOA Choices
 

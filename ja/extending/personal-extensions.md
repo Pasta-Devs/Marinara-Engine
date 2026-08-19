@@ -8,6 +8,8 @@
 
 このセクションには新しい草案を作る操作も、インポートの操作もありません。草案の作成や修正はProfessor Mariに頼みます。Professor Mariはコードを保存できますが、承認したり有効にしたりはできません。
 
+自分でパッケージを作成してインポートする場合は、[個人用拡張機能の作成ガイド](writing-personal-extensions.md)を参照してください。自作パッケージは、個別に許可を求めるExternal Extensionsのフローを使用します。
+
 ## コードの確認と有効化
 
 草案は必ず無効の状態から始まります。Marinaraは実行されるコードそのものをSHA-256でフィンガープリント化します。草案を開いてコードを読み、表示されているハッシュを照合したうえで、そのバージョンを受け入れられる場合にだけ**Review and Run**(確認して実行)を選びます。実行されるコードを編集したり、以前のリビジョンを復元したりすると、拡張機能は無効に戻り、あらためて承認が必要になります。
@@ -62,7 +64,24 @@ const panel = marinara.ui.registerContribution({
 marinara.onCleanup(() => panel.remove());
 ```
 
-上部バーや**Extensions**メニューに置く簡潔な操作には`kind: "button"`を、メニューだけに出す操作には`kind: "menu-item"`を使います。どちらも`onActivate`を呼び出します。`panel`は開かれたときに`onActivate`を呼び出し、パネル内のボタンは、すべてのコントロールの現在値を添えて`onEvent`を呼び出します。戻り値のハンドルは`update({ label?, description?, icon?, elements? })`と`remove()`に対応します。IDには英字、数字、`.`、`_`、`-`を使えます。
+簡潔な操作には`kind: "button"`を、Extensionsメニューの操作には`kind: "menu-item"`を使います。ボタンの既定値は`surface: "top-bar"`です。代わりに`chats`、`bots`、`characters`、`personas`、`lorebooks`、`presets`、`connections`、`agents`、`settings`を対象とし、`position`を`header`、`before-content`、`after-content`に設定できます。`icon`にはMarinaraが対応するkebab-caseのLucideアイコン名を指定できます。どちらの操作も`onActivate`を呼び出します。`panel`は開かれたときに`onActivate`を呼び出し、そのボタンは全コントロールの現在値を添えて`onEvent`を呼び出します。ハンドルは種類別の更新に対応し、`button`は`label`、`description`、`icon`、`surface`、`position`、`menu-item`は`label`、`description`、`icon`、`panel`は`label`、`description`、`icon`、`elements`を受け取ります。すべて`remove()`に対応します。IDには英字、数字、`.`、`_`、`-`を使えます。
+
+次の例では、Presetsパネルの内容より上にネイティブ操作を配置します。
+
+```js
+marinara.ui.registerContribution({
+  id: "preset-helper",
+  kind: "button",
+  label: "Preset helper",
+  description: "Run the preset helper",
+  icon: "list-sparkles",
+  surface: "presets",
+  position: "before-content",
+  onActivate: () => {
+    // Run extension behavior here.
+  },
+});
+```
 
 複雑なツールでは、イベントのあとにパネルの要素を更新して、複数ステップの画面を組み立てられます。アプリの状態は`marinara.storage`に持たせ、マークアップに埋め込まないでください。
 
@@ -184,6 +203,7 @@ WindowsとAndroidには対応するOSのプロセスサンドボックスがな�
 
 ## 関連ガイド
 
+- [個人用拡張機能を作成する](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [サーバー設定リファレンス](../CONFIGURATION.md)
 - [バックアップと復元](../data/backup-and-restore.md)

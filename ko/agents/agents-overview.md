@@ -8,7 +8,7 @@
 
 에이전트는 캐릭터가 아니라 채팅 단위로 켭니다. 캐릭터 카드에는 에이전트 스위치가 없습니다. 같은 캐릭터로 만든 채팅 두 개가 서로 완전히 다른 에이전트를 실행할 수도 있습니다. 어떤 에이전트를 실행할지는 각 채팅의 설정에서 고릅니다.
 
-Marinara Engine을 새로 설치하면 선택형 에이전트는 하나도 들어 있지 않습니다. 기본 앱과 Termux 설치 용량을 줄이기 위해서입니다. v2.3.0 이상의 공식 카탈로그에는 클릭 한 번으로 설치하는 패키지 30개가 있습니다. Writer Agents 6개, Tracker Agents 8개, Misc Agents 16개이며 Long-Term Memory, Maps, Calls와 Conversation 게임 6종이 모두 포함됩니다. 소스와 매니페스트, 다운로드할 수 있는 아티팩트, 저장소 단위 카탈로그는 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)에 공개돼 있습니다. 에이전트별 자세한 안내는 [다운로드 가능한 에이전트 레퍼런스](built-in-agents.md)를 참고하세요. 직접 만들려면 [사용자 지정 에이전트 만들기](custom-agents.md)를 참고하세요.
+Marinara Engine을 새로 설치하면 선택형 에이전트는 하나도 들어 있지 않습니다. 기본 앱과 Termux 설치 용량을 줄이기 위해서입니다. v2.3.0 이상의 공식 카탈로그에는 클릭 한 번으로 설치하는 패키지 33개가 있습니다. Writer Agents 6개, Tracker Agents 9개, Misc Agents 18개이며 Long-Term Memory, Maps, Calls, Inventory Tracker와 Conversation 게임 6종이 모두 포함됩니다. 소스와 매니페스트, 다운로드할 수 있는 아티팩트, 저장소 단위 카탈로그는 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)에 공개돼 있습니다. 에이전트별 자세한 안내는 [다운로드 가능한 에이전트 레퍼런스](built-in-agents.md)를 참고하세요. 직접 만들려면 [사용자 지정 에이전트 만들기](custom-agents.md)를 참고하세요.
 
 ## 실행 시점 3가지
 

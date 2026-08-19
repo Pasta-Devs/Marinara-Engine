@@ -28,10 +28,8 @@ Le bouton **Download Backup** crée un seul fichier **.zip** avec la base de don
 3. Repère la section **Backup & Export**.
 4. Clique sur **Download Backup**.
 5. Pendant le traitement, le bouton affiche **Creating backup…**.
-6. Sur Chrome ou Edge en version bureau, une fenêtre **Save As** s'ouvre pour choisir la destination du fichier. Choisis un dossier et enregistre.
-7. À la fin, le message **Backup saved!** ou **Backup downloaded!** doit apparaître.
-
-Certains navigateurs ne proposent pas la fenêtre **Save As**. Le fichier part alors dans le dossier de téléchargements habituel.
+6. Quand l'archive est prête, Marinara la transmet directement au navigateur sans conserver le fichier entier dans la mémoire de la page.
+7. Selon tes réglages de téléchargement, le navigateur ouvre sa fenêtre **Save As** habituelle ou place le fichier dans le dossier de téléchargements.
 
 Cette étape compte surtout sur Android et iOS. Sur ces appareils, le dossier de données de l'application est rarement accessible. **Download Backup** devient donc le seul moyen simple de sortir une copie de l'appareil. Range-la dans un endroit sûr et privé, ton propre stockage cloud par exemple.
 

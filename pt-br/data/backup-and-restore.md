@@ -28,10 +28,8 @@ O botão **Download Backup** cria um único arquivo **.zip** com o banco de dado
 3. Localize a seção **Backup & Export**.
 4. Clique em **Download Backup**.
 5. Enquanto o backup é criado, o botão mostra **Creating backup…**.
-6. No Chrome ou no Edge de computador, abre-se a janela **Save As** para você escolher onde salvar o arquivo. Escolha uma pasta e salve.
-7. No fim, aparece **Backup saved!** ou **Backup downloaded!**.
-
-Em alguns navegadores, a janela **Save As** não existe. Nesse caso, o arquivo vai direto para a pasta de downloads padrão.
+6. Quando o arquivo compactado fica pronto, o Marinara o transmite direto para o navegador sem manter o arquivo inteiro na memória da página.
+7. Dependendo das configurações de download, o navegador abre a janela **Save As** normal ou coloca o arquivo na pasta de downloads.
 
 Esse passo é ainda mais importante no Android e no iOS. Nesses dispositivos, a pasta de dados do aplicativo costuma ficar fora de alcance. Por isso, **Download Backup** é o único jeito simples de tirar uma cópia do dispositivo. Salve o arquivo em um lugar seguro e privado, como o seu armazenamento em nuvem.
 

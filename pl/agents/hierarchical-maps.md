@@ -1,8 +1,11 @@
 # World Maps: konfiguracja, tworzenie map i podróże
 
-> **Aktualna zgodność:** Ten przewodnik opisuje pakiet World Maps w wersji
-> **1.2.5** na aplikacji Marinara Engine **2.3.5 lub nowszej**. Pakiet obsługuje
-> czaty Roleplay i Game.
+> **Aktualna zgodność:** Ten przewodnik opisuje pakiet World Maps **1.3.1**.
+> Pakiet obsługuje Marinara Engine **2.3.5–3.x** i działa na czatach Roleplay
+> oraz Game. Marinara Engine **2.4.1** dodaje skoordynowane usuwanie dyrektyw ruchu
+> ze strumienia oraz natychmiastowe odświeżenie Lorebooks po przenośnym imporcie.
+> Engine **2.3.5–2.4.0** pozostaje zgodny, ale wymaga ręcznego odświeżenia Lorebooks
+> po imporcie i nie zawiera tego oczyszczania strumienia.
 
 World Maps dodaje trwały stan świata do trybów Roleplay i Game. Zamiast
 jednego pola tekstowego z miejscem akcji świat opisują zagnieżdżone lokalizacje:
@@ -31,7 +34,7 @@ historię podróży, migawki i powiązania z mapami Game.
 
 ## Przegląd możliwości
 
-World Maps 1.2.5 daje:
+World Maps 1.3.1 daje:
 
 - zagnieżdżone regiony, osady, miejsca, budynki, piętra i pomieszczenia;
 - ścieżki nawigacji oraz jedną wiążącą lokalizację bieżącą fabuły;
@@ -59,7 +62,7 @@ miejsca jako kolejne opcje. Same treści wyborów nadal tworzy model.
 
 Biblioteka zawiera dwa zasoby wielokrotnego użytku zapisane na koncie, a każdy
 czat trzyma własną lokalizację bieżącą i własną historię. Nazwa zasobu nie jest
-jego tożsamością: World Maps 1.2.5 dopisuje **(copy)** albo numer, gdy nowo
+jego tożsamością: World Maps 1.3.1 dopisuje **(copy)** albo numer, gdy nowo
 zapisany zasób miałby taką samą nazwę jak istniejący.
 
 | Zasób albo stan                    | Właściciel                              | Kiedy wybrać                                                                        | Na co wpływają późniejsze zmiany                     |
@@ -618,7 +621,7 @@ i zapisz zmiany.
 
 Otwarcie powiązanego wpisu lorebooka wyprowadza z edytora map. Jeśli inne
 oczekujące zmiany mają przetrwać, najpierw zapisz mapę albo świadomie potwierdź,
-że da się je odrzucić. World Maps 1.2.5 ostrzega, zanim to działanie odrzuci
+że da się je odrzucić. World Maps 1.3.1 ostrzega, zanim to działanie odrzuci
 niezapisane zmiany mapy.
 
 Dołączone wpisy nie przechodzą z lokalizacji nadrzędnej na podrzędną. Wiedza
@@ -655,25 +658,44 @@ i przed zapisem korzystaj z rozwiniętych podglądów.
 
 ## Bezpieczny import, eksport i archiwizowanie
 
+### Eksport przenośnej mapy
+
 Przyciskiem **Export** w edytorze czatu, szablonu albo wspólnego świata pobierzesz
-roboczą hierarchię jako plik `.world-map.json`.
+roboczą hierarchię jako plik `.world-map.json`. Najpierw wybierz, ile powiązanej wiedzy ma podróżować z mapą:
+
+| Wariant wiedzy | Zawartość pliku |
+| --- | --- |
+| **Map only** | Hierarchia i czytelne pochodzenie powiązań lokalizacji z wiedzą, bez zawartości lorebooków. Brakujących wpisów nie da się odtworzyć. |
+| **Map + linked entries** | Tylko wpisy powiązane z mapą i ścieżki folderów potrzebne do ich uporządkowania. To zalecany wariant przenośny. |
+| **Map + complete lorebooks** | Wszystkie wpisy i foldery każdego powiązanego lorebooka, także niezwiązane z mapą. |
+
+Przed udostępnieniem sprawdź listę lorebooków, liczbę wpisów, szacowany rozmiar oraz rozwijaną mapę powiązań. Kompletne lorebooki mogą zawierać prywatne lub niepowiązane notatki.
 Pozostaw opcję **Include map artwork** włączoną, aby w tym
 samym pliku umieścić powiązane grafiki lokalizacji i tła map lokalizacji
-podrzędnych. Wyłącz ją, jeśli potrzebujesz mniejszej kopii zawierającej tylko
-definicję. Starsze pliki `.hierarchical-map.json` nadal można importować.
+podrzędnych. Wyłącz ją, jeśli potrzebujesz mniejszej kopii. Starsze pliki `.hierarchical-map.json` nadal można importować.
+
+### Import mapy i przywracanie przenośnej wiedzy
 
 Przyciskiem **Import** wczytasz hierarchię do kopii roboczej czatu, niezależnego
-szablonu albo wspólnego świata. Dołączone grafiki zostają
-odtworzone, a ich odwołania przypisane ponownie. Grafiki należące do czatu wracają
-do galerii czatu docelowego. Wspólne grafiki są używane ponownie z Global Gallery,
-jeśli ten sam obraz już tam jest, albo trafiają tam raz, gdy potrzebuje ich
-szablon lub wspólne odwołanie. Sprawdź wynik i kliknij przycisk **Save**, żeby
-stał się wiążący. Import nie zapisuje mapy od razu.
+szablonu albo wspólnego świata. Jeśli plik zawiera lorebooki, **Restore portable map lore** pokazuje grupy **Exact IDs**, **Unique content**, **Need a choice** i **New entries**.
+
+Dokładny identyfikator wpisu jest wiążący wyłącznie w docelowym lorebooku. Identyfikator z innego źródła jest niejednoznaczny: wybierz właściwy wiersz `Lorebook → Entry (ID)` albo **Import a new copy**. Bez identyfikatora World Maps używa wpisu ponownie tylko wtedy, gdy cała jego przenośna treść i ustawienia mają jedno dopasowanie; sama nazwa nie wystarcza.
+
+Po podglądzie wybierz strategię:
+
+- **Import separate copies** nie używa istniejących wpisów i tworzy niezależne lorebooki, na przykład `Original Lorebook - Map Name (World Map)`, dodając **(copy)** lub **(copy N)** przy kolizji nazw.
+- **Reuse matches & import the rest** zachowuje dokładne i jednoznaczne dopasowania, stosuje wybory dla niejednoznacznych wierszy i tworzy lorebooki tylko dla pozostałych wpisów.
+
+Maps wymienia wykorzystane i utworzone lorebooki. Nowe kopie pozostają w bibliotece po usunięciu mapy. Engine **2.4.1** lub nowszy odświeża Lorebooks natychmiast; na **2.3.5–2.4.0** odśwież Marinara Engine raz po przywróceniu.
+
+Dołączone grafiki również zostają odtworzone i przypisane ponownie. Grafiki czatu wracają do galerii docelowej, a wspólne są używane z Global Gallery lub dodawane tam raz. Sprawdź wynik i kliknij **Save**; sam import nie zapisuje mapy. **Map only** zachowuje czytelne pochodzenie i istniejące dokładne łącza ID, lecz bez treści nie odtworzy usuniętych lorebooków ani wpisów.
 
 Kiedy historia kampanii odwołuje się już do mapy, importowane zmiany muszą
 zachować dotychczasowe identyfikatory lokalizacji. Dodawaj i aktualizuj
 lokalizacje, zamiast zastępować hierarchię inną, z niepowiązanymi
 identyfikatorami.
+
+### Archiwizowanie albo trwałe usuwanie lokalizacji
 
 Archiwizowanie chroni stare odwołania. Zanim zarchiwizujesz lokalizację:
 
@@ -681,7 +703,7 @@ Archiwizowanie chroni stare odwołania. Zanim zarchiwizujesz lokalizację:
 - w razie potrzeby wybierz inną aktywną lokalizację startową;
 - wybierz aktywne zastępstwo, jeśli jest to bieżąca lokalizacja fabuły.
 
-Zarchiwizowane lokalizacje da się przywrócić z panelu Details. World Maps 1.2.5
+Zarchiwizowane lokalizacje da się przywrócić z panelu Details. World Maps 1.3.1
 udostępnia też opcję **Delete permanently** dla zarchiwizowanej lokalizacji albo
 w pełni zarchiwizowanej gałęzi, o ile jej usunięcie jest bezpieczne. Edytor
 wyłącza to działanie, gdy lokalizacja jest zapisaną lokalizacją startową albo
@@ -731,6 +753,10 @@ dla podpięcia do wiążącego świata. Sprawdź i zapisz mapę gry. Szablon poz
 bez zmian, a podpięta gra trzyma zmiany jako nieopublikowane, dopóki nie
 klikniesz przycisku **Publish**.
 
+### Podpięty czat nadal pokazuje starszy wspólny świat
+
+Czyste edytory podpiętych czatów zapisane w karcie przeglądarki, w której publikujesz, odświeżają się automatycznie. Czat z niezapisanymi lub nieopublikowanymi zmianami zachowuje szkic i pokazuje konflikt. Otwórz ponownie czaty w innych kartach lub oknach, aby pobrały nową wiążącą wersję.
+
 ### Nie da się włączyć mapy
 
 Utwórz co najmniej jedną aktywną lokalizację i ustaw aktywną lokalizację
@@ -744,6 +770,12 @@ działające połączenie z modelem językowym. Przed ponownym otwarciem generat
 zapisz albo odrzuć zmiany w edytorze. Przy rozbudowie wskaż aktywny cel. Przy
 generowaniu opartym na wiedzy o świecie wybierz co najmniej jeden włączony
 i niewykluczony lorebook.
+
+### Generowanie mapy przez AI zgłasza niepełny albo niepoprawny JSON
+
+Jeśli odpowiedź skończyła się przed uzyskaniem pełnego JSON, zwiększ **Max Output Tokens** połączenia albo wybierz mniejszy rozmiar mapy i wygeneruj ponownie. World Maps nie zużywa kolejnego żądania na naprawę niepełnej odpowiedzi.
+
+Przy niepoprawnym JSON została już podjęta jedna próba naprawy samej składni. Wygeneruj ponownie; jeśli model stale zawodzi, użyj innego połączenia lub modelu. Zmiana **Max Output Tokens** służy przypadkowi niepełnego wyjścia.
 
 ### Bieżąca lokalizacja nie zmieniła się po wiadomości
 
@@ -836,6 +868,14 @@ diagnozy użyj rozwiniętego podglądu w sekcji **Turn prompt insert**.
 
 Sprawdź, czy wpis jest dołączony do dokładnej bieżącej lokalizacji. Upewnij się
 też, że wpis i lorebook są włączone, a lorebook nie jest wykluczony z czatu.
+
+**Pozostałe zasady World Maps 1.3.1:** generowanie prowadzone, ponowne generowanie i kontynuacja nie tworzą tury użytkownika, więc nie zużywają zakolejkowanego celu ani kroku trasy. **Impersonate** tworzy wiadomość użytkownika: udana tura zatwierdza ruch raz, błąd dostawcy nie zatwierdza niczego, a nieaktualny ruch przechodzi do **Needs review**.
+
+Marinara Engine **2.4.1** lub nowszy usuwa kompletne dyrektywy ruchu i odkryć Maps ze strumienia i zapisanych wiadomości, nie zmieniając zwykłego tekstu w nawiasach ani odstępów. Jeśli pojawi się surowa dyrektywa Maps, zaktualizuj Engine i World Maps, uruchom ponownie, gdy pojawi się prośba, i wygeneruj albo usuń wadliwą wiadomość.
+
+Gdy jeden obraz Gallery pełni obie role, **Remove reference only** pozostawia go jako tło mapy podrzędnej, **Reject both and create replacement** wymienia oba zastosowania, a **Use for both** przypisuje nowy obraz do obu. Za brak uznawane jest też zapisane łącze Gallery, którego obraz już nie istnieje. Wynik generowania zakończonego podczas edycji uzupełnia tylko nadal puste role i nie nadpisuje nowego obrazu, przełącznika referencji, położenia tła, stanu archiwum ani innych zmian szkicu.
+
+Przycisk **Open** przy powiązanej wiedzy opuszcza obszar mapy i otwiera lorebook. Czysty szkic zamyka się od razu; przy niezapisanych zmianach najpierw zapisz albo jawnie potwierdź odrzucenie. Jeśli importowana wiedza się nie aktywuje, sprawdź podsumowanie: **Map only** nie zawiera treści do odtworzenia. Użyj **Map + linked entries** albo **Map + complete lorebooks** i wybierz dokładne dopasowanie, niejednoznaczny cel lub osobną kopię. Wiedza powiązana z lokalizacją nadrzędną nie jest dziedziczona przez podrzędne.
 
 ## Powiązane przewodniki
 

@@ -24,6 +24,10 @@ Marinara Engine의 기본 배포본은 선택 설치 에이전트와 기능 구�
 대체합니다. 엔진은 패키지의 프롬프트나 패키지가 정한 기계용 값을 번역하지 않습니다. 언어를 바꿀 때는 기존
 `marinara-capability-props` 이벤트를 그대로 재사용하므로, 설치된 인터페이스는 엔진을 다시 시작하지 않아도 다시 그려집니다.
 
+### 전달 및 캐싱
+
+설치된 패키지 파일은 매니페스트의 파일별 SHA-256 해시에서 파생된 강력한 검증자와 함께 제공됩니다. Engine은 읽을 때마다 같은 값으로 바이트를 다시 검증합니다. 클라이언트 번들(`/api/capability-packages/<id>/client`)과 모든 패키지 자산은 항상 재검증됩니다(`no-cache`와 `ETag`). 변경되지 않은 파일은 다시 다운로드하지 않고 `304 Not Modified`로 응답하며, 다시 게시된 파일은 즉시 반영됩니다. 어떤 항목도 `immutable`로 제공되지 않습니다. 설치 정책상 같은 버전을 다른 바이트로 다시 게시할 수 있으므로 패키지 URL은 콘텐츠 주소가 아닙니다.
+
 Capability API 1.1에서는 서버 활성화 컨텍스트에 범용 런타임 파사드가
 추가되었습니다. 패키지는 비공개 로거나 런타임 설정 모듈을 가져오지
 않고도 에이전트 디버그 상태를 읽고 엔진의 Pino 로거로 기록할 수
@@ -61,6 +65,42 @@ branch: {
 채팅은 계보 필드가 모두 null입니다. 엔진은 과거의 관계를 추론하지 않습니다. 범용
 내보내기/가져오기에서는 부모 ID와 메시지 ID를 제외합니다. ID는 설치 환경마다 달라지기
 때문입니다. 부모를 삭제해도 자식의 계보 정보는 그대로 남습니다.
+
+### Capability API 1.8의 Game Experience
+
+Capability API 1.8에서는 패키지가 제공하는 Game Experience, Game 턴별 프롬프트 컨텍스트, 리소스 쓰기가 추가됩니다.
+
+패키지는 내장 Game Mode의 부가 기능이 아니라 Game Mode 전체를 제공할 수 있습니다. `game-surface` 슬롯을 선언하고 게임을 만들 때 설정 마법사의 Experiences 블록에서 선택합니다. 선택은 게임에 기록되어 전체 수명 동안 고정되므로 플레이 도중 Experience가 켜지거나 꺼지지 않습니다. 표면은 공용 내레이션 위에 자체 HUD, 메뉴, 전투를 그리고 어떤 내장 시스템을 대체하는지 선언합니다. 선언하지 않은 항목은 내장 상태를 유지하므로 Experience는 실제로 구현하는 항목만 제외합니다. 선택적 `contributions.gameSurface.surfaceClass`는 표면이 마운트된 동안 Engine이 게임 영역에 적용할 클래스를 지정합니다. 패키지 스타일시트는 이를 통해 자체 요소 밖에서 렌더링되는 공용 인터페이스도 꾸밀 수 있습니다.
+
+`prompt-context` 권한이 있는 패키지는 생성된 각 Game 턴의 시스템 프롬프트에 텍스트를 추가합니다. 활성 상태를 소유한 패키지는 모델의 이해를 플레이어가 보는 내용과 일치시킬 수 있습니다. 기여 요소는 대체하는 내장 게임 시스템도 선언할 수 있으며, Engine은 모델에게 해당 시스템을 조작하라고 지시하지 않습니다. 기여 요소는 턴마다 수집되며 필수가 아닙니다. 아무것도 반환하지 않으면 건너뛰고, 오류가 발생하거나 기한 안에 끝나지 않으면 기록 후 건너뛰며 생성에는 영향을 주지 않습니다.
+
+리소스 파사드는 읽기와 함께 쓰기를 제공하므로 패키지 설정 흐름에서 플레이어 Persona와 연결된 로어북을 찾거나 만들 수 있습니다. 저장소, 검증, ID는 Engine이 유지하고 도메인 콘텐츠는 패키지가 유지합니다.
+
+### Capability API 1.10의 패키지 자산
+
+Capability API 1.10에서는 패키지 소유 정적 자산의 일반 전달 기능이 추가됩니다. 매니페스트는 패키지에 포함된 이미지(`png`/`webp`/`gif`/`jpg`/`jpeg`)와 JSON 파일을 최대 256개까지 허용하는 `contributions.assets.paths`를 선언할 수 있습니다. Engine은 브라우저 탭 아이콘과 같은 검증 체인을 사용해 `/api/capability-packages/<id>/assets/<path>`에서 자산을 제공합니다. 경로 제한, `files[]` 해시 포함 여부, 수동적 콘텐츠 유형 허용 목록, 읽기마다 무결성 재검증을 거칩니다. 스키마는 능동 문서 유형(SVG, HTML, 스크립트)을 거부합니다. 선언한 모든 경로는 `files[]`에서 해시로 고정되어야 하며, 패키지 내부 `manifest.json`은 선언해도 제공할 수 없습니다. `contributions.assets`를 선언하려면 `schemaVersion` 2와 `capabilityApi` 1.10 이상인 매니페스트가 필요합니다. v1 매니페스트에서는 선언할 수 없습니다. 자산은 항상 재검증됩니다. 클라이언트 번들처럼 매니페스트 해시 기반의 강력한 `ETag`를 가지며, 변경되지 않은 재검증에는 본문 없이 `304 Not Modified`로 응답합니다. 타일셋은 실제 바이트가 바뀔 때만 다시 다운로드됩니다. 응답은 의도적으로 `immutable`이 아닙니다. 같은 버전을 다른 바이트로 다시 게시할 수 있으므로 버전이 있는 URL도 콘텐츠 주소가 아닙니다. 덕분에 `game-surface` Experience는 그림을 클라이언트 번들에 인라인하지 않고 실제 파일로 포함할 수 있습니다.
+
+이 규칙을 어긴 매니페스트는 설치 중 다음 메시지 중 하나와 함께 거부됩니다. "A declared package asset must be listed in the package file manifest", "contributions.assets requires schemaVersion 2 and capabilityApi 1.10 or newer", 이미지나 JSON이 아닌 경로에 대한 스키마 확장자 오류, 또는 대소문자만 달라 대소문자를 구분하지 않는 파일 시스템에서 하나로 충돌하는 파일명의 아카이브에 대한 "Package contains duplicate file" / "Package manifest declares files that collide on case-insensitive filesystems"입니다.
+
+각 기능 요소에는 이 목적을 위한 자체 ID가 제공됩니다. `capabilityProps.packageId`와 `capabilityProps.packageVersion`이 `localization`과 함께 전달되므로 번들은 자산 URL을 `/api/capability-packages/<packageId>/assets/<path>`로 만들 수 있습니다. 선택적으로 `?v=<packageVersion>`을 사용하면 버전 변경 시 중간 캐시를 무효화할 수 있습니다. 설치 목록을 다시 가져오거나 자체 가져오기 URL을 분석할 필요가 없습니다.
+
+### Capability API 1.11의 Experience 전투 인터페이스
+
+Capability API 1.11에서는 `game-surface` 기능 속성에 전투 인터페이스가 추가됩니다. `combatActive`는 내장 전투 UI가 실제로 마운트되는 순간을 알립니다. GM의 서사 장면 상태인 `chatMeta.gameActiveState`는 전환보다 늦을 수 있고 조우가 없어도 "combat"을 나타낼 수 있지만 `combatActive`에는 그런 문제가 없습니다. `combatStyle`은 적용된 스타일(`classic` 또는 `tactical`)을 전달합니다. `requestCombat()`은 수동 Start Combat 버튼과 같은 과정으로 Engine에 조우 생성을 요청하지만, Experience 자체 인터페이스가 이미 의도를 표현했으므로 확인 대화 상자는 생략합니다. 조우 내용은 여전히 Engine 생성 과정에서 결정합니다. 패키지가 전투원이나 전투 상태를 직접 제공하는 방법은 의도적으로 없습니다. 전투는 Engine이 소유합니다.
+
+`requestCombat()`은 ID가 안정적이고 패키지 경로에서 알림을 표시하지 않으며 Experience가 자체 피드백을 렌더링할 코드를 반환합니다. 성공은 `"started"`, 거부는 `"combat-active"`, `"pending"`(이미 생성 중), `"no-turn"`(GM이 아직 턴을 작성하지 않음), `"unavailable"`(종료된 세션 또는 리플레이)입니다. `combatPending`과 `combatError`는 생성 진행과 실패를 반영하므로 생성 실패 후 패키지가 `combatActive`를 계속 기다리지 않습니다. 1.7/1.8 인터페이스와 마찬가지로, 엄격한 게이트가 있는 1.10의 `contributions.assets`와 달리 이 속성은 선언한 `capabilityApi`와 관계없이 모든 `game-surface` 패키지에 전달됩니다. 1.11이라는 이름은 도입 시점을 나타냅니다. 필요한 패키지는 1.11을 선언하고 이전 Engine은 해당 패키지를 명확히 거부합니다.
+
+### Capability API 1.12: 소유 Experience를 위한 공간 이벤트
+
+Capability API 1.12에서는 게임을 소유한 Experience 패키지에도 공간 기능 이벤트가 전달됩니다. 이전에는 `marinara-capability-server-event` 창 이벤트에서 `hierarchical-maps`에만 전달되던 `spatial_transition_committed`, `spatial_transition_rejected`, 형식 없는 `spatial_context_refresh` 알림이 이제 채팅의 `gameExperienceId`를 `packageId`로 설정해 함께 전달됩니다. 이벤트별 페이로드는 다릅니다. 커밋 이벤트에는 `{ chatId, commandId, currentLocationId, definitionRevision, travel? }`, 거부 이벤트에는 이동이 일어나지 않았으므로 위치 필드가 없는 `{ chatId, commandId, code?, message? }`, 새로 고침 알림에는 `data: null`이 들어갑니다. `sendMessage`의 `pendingSpatialTransition` 인수로 이동 명령을 보낸 Experience는 이후 상태 읽기에서 결과를 추측하지 않고 호스트가 결과를 아는 즉시 이동을 확인하거나 지울 수 있습니다. 1.12는 World Maps에도 영향을 주던 공백을 해소합니다. 생성 중 스트리밍 전 소유자 턴 커밋과 독립 REST 커밋이라는 두 무음 HTTP 경로에서 거부된 전환은 이전에 이벤트를 전혀 만들지 않았습니다. 이제 두 경로 모두 확정적 근거, 즉 `already_applied` 이외의 `spatial_*` 오류 코드가 있을 때만 `spatial_transition_rejected`를 생성합니다. 성공한 커밋의 응답이 유실되었을 수 있는 네트워크 오류처럼 결론을 낼 수 없는 실패에서는 형식 없는 `spatial_context_refresh` 알림을 보냅니다. 수신자는 추측한 결과 대신 서버 상태와 다시 동기화할 수 있습니다. 커밋 이벤트의 `travel.mode`가 `"step_by_step"`이고 `complete: false`이면 이동이 계속되는 중입니다. 완료 이벤트까지 보류 상태를 유지하세요. 이는 1.11과 같은 소프트 인터페이스입니다. 선언한 `capabilityApi`와 관계없이 이벤트가 전달됩니다. 패키지에 필요할 때만 1.12를 선언하세요.
+
+### Capability API 1.13: 일시적 내레이션 접기
+
+Capability API 1.13에서는 `game-surface` 패키지가 `setExperienceChrome`에 전달하는 chrome 선언에 `requestsCollapsedNarration`이 추가됩니다. 플래그가 true인 동안 Game Mode 내레이션 상자는 얇은 핸들까지 접히므로 Experience가 컷신이나 전체 화면 연출에 화면을 넓게 쓸 수 있습니다.
+
+이는 요청이지 환경 설정이 아닙니다. 플레이어가 선택한 접기 설정은 기록되지 않으며 Experience가 현재 표면인 동안에만 플래그가 적용됩니다. 플래그를 제거하거나 현재 표면이 아니게 되면 상자는 플레이어가 선택한 상태로 돌아갑니다. 이것이 나중에 항상 다시 열린다는 보장입니다. 패키지가 접힌 상태를 영구 저장하는 방법은 의도적으로 없습니다.
+
+Engine 안전 규칙이 요청보다 우선합니다. 플레이어의 텍스트 입력이 화면에 보이면, 세그먼트가 생기기 전 장면 시작 시점까지 포함해 상자가 강제로 펼쳐집니다. 세그먼트 진행 컨트롤이 활성화된 동안에도 마찬가지입니다. 이 컨트롤은 턴을 끝내는 유일한 방법이므로 패키지가 숨길 수 있다면 플레이어를 영구적으로 막을 수 있습니다. 대기 중인 장면 분석, 생성 또는 전투 생성 재시도가 있으면 핸들도 주의 표시를 계속 올립니다. 요청 중 플레이어가 상자를 직접 펼치면 요청이 사라질 때까지 열린 상태를 유지합니다. 1.11/1.12와 마찬가지로 소프트 인터페이스이며 선언한 `capabilityApi`와 관계없이 필드가 적용됩니다. 1.13이라는 이름은 도입 시점을 나타내므로 필요한 패키지는 1.13을 선언합니다.
 
 ## 최초 제공 패키지
 

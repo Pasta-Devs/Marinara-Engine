@@ -106,6 +106,13 @@ Najłatwiej zacząć od typu **Context Injection**. Nie wymaga żadnego uprawnie
 
 Jeśli typ wyniku jest wyszarzony, brakuje włączonego uprawnienia. Włącz pasujący przełącznik w sekcji **Custom Agent Abilities**, a typ wyniku stanie się klikalny.
 
+### Ustawienia agentów obrazowych dla poszczególnych czatów
+
+Agent z uprawnieniem **Image generation** otrzymuje na swojej karcie w sekcji **Chat Settings → Agents → Custom Agents** dwa dodatkowe elementy sterujące, obok wyboru szablonu promptu dostępnego dla każdego własnego agenta:
+
+- **Image Connection** — zastępuje połączenie obrazowe używane przez tego agenta wyłącznie na tym czacie. Ustawienie **Agent default** zachowuje połączenie z ustawień samego agenta. Wybór **Image Style** na poziomie czatu także dotyczy obrazów własnego agenta, dzięki czemu może on generować w inny sposób na każdym czacie bez tworzenia duplikatów.
+- **Camera button** — od razu generuje obraz tym agentem, bez czekania na jego słowa aktywujące. Agent nadal sam pisze prompt; jeśli jego szablon nie wygeneruje promptu, zamiast obrazu pojawi się powiadomienie o błędzie.
+
 ## Activation Keywords
 
 Domyślnie własny agent działa w swoim zwykłym rytmie. Sekcja **Activation Keywords** (słowa wyzwalające) pozwala go pomijać, dopóki scena nie jest istotna. Oszczędza to tokeny i pieniądze. Token to mały kawałek tekstu, który AI zlicza.

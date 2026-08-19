@@ -8,6 +8,8 @@
 
 इस सेक्शन में **New Draft** जैसी कोई कार्रवाई नहीं है और इंपोर्ट के कंट्रोल भी नहीं हैं। ड्राफ़्ट बनवाने या बदलवाने के लिए Professor Mari से कहें। वह कोड सेव कर सकती है, पर उसे न मंज़ूरी दे सकती है और न चालू कर सकती है।
 
+अपना पैकेज लिखने और इंपोर्ट करने के लिए [पर्सनल एक्सटेंशन लिखने की गाइड](writing-personal-extensions.md) देखें। अपने लिखे पैकेज अलग से अनुमति माँगने वाले External Extensions फ़्लो का इस्तेमाल करते हैं।
+
 ## जाँचें और चालू करें
 
 हर ड्राफ़्ट शुरुआत में बंद रहता है। Marinara चलने वाले कोड का ठीक-ठीक फ़िंगरप्रिंट SHA-256 से बनाता है। ड्राफ़्ट खोलें, कोड पढ़ें, दिख रहे हैश से मिलाएँ, और उसी वर्ज़न पर भरोसा हो तभी **Review and Run** चुनें। कोड में कोई भी बदलाव या कोई पुराना रिविज़न वापस लाने पर एक्सटेंशन बंद हो जाता है और नई मंज़ूरी माँगता है।
@@ -62,7 +64,24 @@ const panel = marinara.ui.registerContribution({
 marinara.onCleanup(() => panel.remove());
 ```
 
-टॉप बार या **Extensions** मेन्यू में छोटी कार्रवाई के लिए `kind: "button"` इस्तेमाल करें, और सिर्फ़ मेन्यू में दिखने वाली कार्रवाई के लिए `kind: "menu-item"`। दोनों `onActivate` चलाते हैं। `panel` खुलते ही `onActivate` चलाता है, और उसके बटन `onEvent` को पैनल के हर कंट्रोल की मौजूदा वैल्यू के साथ चलाते हैं। लौटा हुआ हैंडल `update({ label?, description?, icon?, elements? })` और `remove()` को सपोर्ट करता है। ID में अक्षर, अंक, `.`, `_` और `-` आ सकते हैं।
+छोटी कार्रवाई के लिए `kind: "button"` और Extensions-menu action के लिए `kind: "menu-item"` इस्तेमाल करें। Button की default जगह `surface: "top-bar"` है। वे `position` को `header`, `before-content` या `after-content` रखकर `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents` या `settings` को भी target कर सकते हैं। `icon` में Marinara से supported कोई kebab-case Lucide icon name दिया जा सकता है। दोनों action kind `onActivate` चलाते हैं। `panel` खुलते ही `onActivate` चलाता है और उसके button सभी panel control की मौजूदा value के साथ `onEvent` चलाते हैं। Handle में kind के हिसाब से update मिलता है: `button` में `label`, `description`, `icon`, `surface` और `position`; `menu-item` में `label`, `description` और `icon`; `panel` में `label`, `description`, `icon` और `elements`। सभी handle `remove()` support करते हैं। ID में अक्षर, अंक, `.`, `_` और `-` आ सकते हैं।
+
+यह उदाहरण Presets panel content के ऊपर native action रखता है:
+
+```js
+marinara.ui.registerContribution({
+  id: "preset-helper",
+  kind: "button",
+  label: "Preset helper",
+  description: "Run the preset helper",
+  icon: "list-sparkles",
+  surface: "presets",
+  position: "before-content",
+  onActivate: () => {
+    // Run extension behavior here.
+  },
+});
+```
 
 जटिल टूल किसी इवेंट के बाद पैनल के एलिमेंट अपडेट करके कई स्टेप वाला इंटरफ़ेस बना सकते हैं। ऐप का स्टेट `marinara.storage` में रखें, मार्कअप में मत भरें।
 
@@ -184,6 +203,7 @@ Windows और Android पर OS का कोई सपोर्टेड प�
 
 ## मिलती-जुलती गाइड
 
+- [पर्सनल एक्सटेंशन लिखना](writing-personal-extensions.md)
 - [Professor Mari](../home/professor-mari.md)
 - [सर्वर कॉन्फ़िगरेशन रेफ़रेंस](../CONFIGURATION.md)
 - [बैकअप और रिस्टोर](../data/backup-and-restore.md)

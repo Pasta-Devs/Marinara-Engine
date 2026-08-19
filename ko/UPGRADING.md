@@ -100,7 +100,7 @@ cd Marinara-Engine
 
 계속 끄고 싶다면 프로젝트의 `.env`에 `AUTO_UPDATE_ENABLED=false`를 설정하세요. 이 설정은 런처가 관리하는 Engine 업데이트에만 영향을 줍니다. 수동 업데이트와 앱 안의 업데이트 기능은 그대로 쓸 수 있습니다.
 
-Android 앱 아이콘(APK)을 쓴다면 앱을 열고 **Install / Start Marinara**(Marinara 설치/시작)를 누르세요. 이 APK는 사이드로드 앱, 즉 공식 앱 스토어를 거치지 않고 설치한 앱입니다. Termux를 감싼 껍데기라서 그 뒤에 있는 같은 Termux 사본을 업데이트합니다.
+Android 앱 아이콘(APK)을 쓴다면 [최신 APK를 다운로드](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)하고 다운로드한 파일을 열어 Android 래퍼 자체를 업데이트하세요. 그런 다음 Marinara Engine을 열고 **Install / Start Marinara**를 눌러 Termux 사본을 업데이트하고 시작하세요. 앱은 비공개 localhost 인증 정보를 자동으로 보존하고 교환하며 업데이트 중에 서명 정보나 이 비밀 값을 요구하지 않습니다.
 
 ### iPhone과 iPad
 
@@ -180,6 +180,12 @@ Marinara는 앱 안에서 GitHub에 새 버전이 있는지 확인할 수 있습
 서버는 이미 새 버전으로 돌아가고 있는데 업데이트 뒤 앱이 예전 상태로 보이거나 화면이 비어 있을 때 **Refresh App**을 쓰세요. 멈춰 버린 웹 페이지를 고치는 기능입니다. 서버 코드는 바꾸지 않으므로 실제 업데이트를 대신하지는 못합니다.
 
 실행하는 동안 버튼에 **Refreshing…**이 표시되고, 이어서 앱이 다시 열립니다.
+
+## 이전 버전으로 다운그레이드하기
+
+업그레이드는 항상 안전하지만 곧바로 이전으로 돌아갈 수 있는 것은 아닙니다. 새 Marinara 버전은 채팅 메시지를 더 새로운 디스크 형식으로 저장하며, 데이터 형식보다 오래된 버전은 이를 읽을 수 없습니다. 채팅 기록을 보호하기 위해 런처는 호환되지 않는 버전으로 가는 자동 업데이트를 건너뛰고 앱 내 업데이터는 적용을 거부합니다.
+
+그래도 이전 버전이 필요하다면 명령 하나로 먼저 데이터를 예전 형식으로 되돌릴 수 있습니다. 단계는 [이전 버전으로 전환한 뒤 채팅에 메시지가 보이지 않을 때](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version)를 참고하세요.
 
 ## 업데이트가 실패했을 때
 

@@ -8,7 +8,7 @@ Com o feedback tátil, um personagem de IA envia estímulos de toque para um dis
 
 **Intiface Central** usa um protocolo de dispositivos chamado **Buttplug.io**. É o mesmo padrão aberto com suporte em muitos brinquedos e em outros aplicativos. Você instala **Intiface Central** uma vez, pareia o dispositivo com ele, e Marinara se conecta por um endereço de rede local.
 
-O feedback tátil faz parte dos **Agents** (agentes) do chat, os ajudantes de IA que você adiciona a uma conversa. Ele funciona no Conversation Mode e no Roleplay Mode. Não está disponível no Game Mode.
+O feedback tátil faz parte dos **Agents** (agentes) do chat, os ajudantes de IA que você adiciona a uma conversa. Ele funciona nos modos Conversation, Roleplay e Game.
 
 ## Antes de começar
 
@@ -29,7 +29,7 @@ Se **Intiface Central** não estiver aberto com o servidor iniciado, Marinara n�
 
 O feedback tátil se adiciona do mesmo jeito que qualquer outro agente, pelas configurações do chat.
 
-1. Abra um chat de Conversation ou de Roleplay. O feedback tátil não aparece no Game Mode.
+1. Abra um chat de Conversation, Roleplay ou Game.
 2. Abra **Chat Settings** (configurações do chat) para esse chat.
 3. Vá até a seção **Agents**.
 4. Adicione o agente **Haptic Feedback** ao chat.
@@ -51,6 +51,14 @@ Se falhar, aparece uma mensagem avisando que o aplicativo não conseguiu se cone
 
 Uma vez conectado, o card mostra quantos dispositivos foram encontrados. Ele diz "No devices found" quando nenhum está ligado, ou o número de dispositivos quando há algum. Clique em **Scan for devices** (procurar dispositivos) para buscar de novo. Durante a busca, o botão diz "Scanning...". O card lista cada dispositivo com o nome e as ações compatíveis, como vibrar ou girar.
 
+Marinara também fornece ao Haptic Agent o nome exato do Intiface, um tipo de brinquedo deduzido das capacidades e as ações compatíveis. Assim ele escolhe o dispositivo e a ação corretos, em vez de presumir que todo brinquedo é um vibrador.
+
+## Ações e padrões compatíveis
+
+Marinara usa todos os tipos de saída informados pelo Intiface para um dispositivo conectado: vibração, rotação, oscilação, constrição, inflação, posição linear, temperatura, spray e iluminação. A posição linear controla dispositivos de carícias, impulsos ou bombeamento; a inflação controla dispositivos com bombeamento por pressão de ar.
+
+O agente pode aplicar os padrões **Steady**, **Tap**, **Pulse**, **Wave**, **Ramp** ou **Impact** a qualquer ação que não seja parar. Padrões posicionais alternam alvos reais de movimento, então um padrão de bombeamento ou impulso acontece ao longo do tempo, em vez de enviar vários movimentos de uma vez.
+
 ### O campo Intiface URL
 
 O campo **Intiface URL** guarda o endereço de rede do servidor **Intiface Central**. É um endereço WebSocket, ou seja, um link local que os dois aplicativos usam para conversar. O padrão aparece abaixo.
@@ -69,23 +77,23 @@ ws://192.168.1.50:12345
 
 ## Sensibilidade ao toque
 
-Em um chat de Roleplay, o card **Haptic Feedback** mostra o controle **Touch sensitivity** (sensibilidade ao toque) com três opções. Ao lado dele fica um pequeno aviso "Roleplay only". Esse controle só afeta os chats de Roleplay. Nos outros modos, a configuração de sensibilidade é ignorada, e os estímulos não ficam limitados por esses presets.
+O card **Haptic Feedback** mostra o controle **Touch sensitivity** (sensibilidade ao toque) com três opções em todos os modos de chat. A sensibilidade orienta a facilidade com que o agente escolhe uma saída suave ou forte; ela não impõe um limite rígido. Todas as opções podem usar a faixa completa de intensidade do dispositivo, `0.0-1.0`, quando a ação exigir.
 
-As três opções definem a força e a duração máxima de cada estímulo.
+As três opções orientam o estilo de resposta do agente.
 
 | Opção | Sensação | Observações |
 |---|---|---|
-| **Subtle** | Intensidade menor e feedback mais curto | A opção mais suave |
-| **Standard** | Feedback equilibrado para a maioria das cenas | O padrão |
-| **Intense** | Feedback mais forte, com limite mais alto | A opção mais forte |
+| **Subtle** | Favorece um feedback mais suave | A faixa completa continua disponível |
+| **Standard** | Feedback equilibrado para a maioria das cenas | O padrão; faixa completa disponível |
+| **Intense** | Escolhe feedback mais forte com mais facilidade | Pode usar a saída completa |
 
-A opção **Standard** vem selecionada por padrão. Escolha a que combina com a cena. Nos chats de Roleplay, Marinara limita cada estímulo à faixa definida pela sua escolha. A IA não passa desse limite.
+A opção **Standard** vem selecionada por padrão. Escolha o estilo de resposta que combina com a cena. Marinara continua validando todo comando contra a faixa física de `0.0-1.0` do Intiface.
 
 ## Contato incidental
 
-Abaixo do controle de sensibilidade, os chats de Roleplay também mostram o botão liga/desliga **Incidental contact** (contato incidental). Ele diz "Tiny taps for accidental brushes and bumps." Por padrão, esse botão vem desativado.
+Abaixo do controle de sensibilidade, todos os modos de chat também mostram o botão liga/desliga **Incidental contact** (contato incidental). Ele diz "Tiny taps for accidental brushes and bumps." Por padrão, esse botão vem desativado.
 
-Desativado, a IA ignora pequenos toques acidentais da história. Ela só envia estímulos para contatos deliberados ou firmes. Ative-o se você também quiser toques leves para roçadas e esbarrões. Assim como a sensibilidade ao toque, esse controle só aparece nos chats de Roleplay.
+Desativado, a IA ignora pequenos toques acidentais da história. Ela só envia estímulos para contatos deliberados ou firmes. Ative-o se você também quiser toques leves para roçadas e esbarrões.
 
 ## Usar de outro dispositivo
 

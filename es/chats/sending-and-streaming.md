@@ -41,6 +41,20 @@ Cada archivo debe pesar 20 MB o menos. Un archivo más grande se rechaza con un 
 
 La IA solo puede "ver" una imagen si el modelo conectado admite visión. Si tu modelo es solo de texto, activa **Image Captioning** (subtítulos de imagen). Este ajuste está en las **Chat Settings** (Ajustes del chat) de cada chat, en la sección **Advanced Parameters**, y está desactivado de forma predeterminada. Cuando está activado, Marinara describe cada imagen adjunta en texto usando una conexión que tú eliges, y luego envía esa descripción en lugar de la imagen sin procesar.
 
+## Insertar una imagen de la galería en un mensaje
+
+Los adjuntos sirven para que la IA los *vea*. Las referencias de galería sirven para que el lector las *vea*: muestran una imagen de la galería dentro del texto del mensaje.
+
+Los mensajes admiten imágenes en Markdown y Marinara resuelve enlaces `card://` especiales a archivos de la galería:
+
+```text
+![a caption](card://characters/<character-id>/gallery/<filename>.png)
+```
+
+En Roleplay Mode, el navegador de recursos del chat puede insertar uno de estos enlaces. También puedes pegarlo donde se escriba texto: mensajes, saludos y diálogos de ejemplo.
+
+Para una imagen de la **propia galería del personaje**, usa preferentemente la forma portátil `card://self/gallery/<filename>`, que sigue funcionando después de exportar e importar el personaje. El botón **Copy image reference** de la galería la genera. Consulta [Galerías de personajes → Reutilizar una imagen de la galería en mensajes y saludos](../characters/galleries.md#reuse-a-gallery-image-in-messages-and-greetings) para conocer los detalles.
+
 ## Streaming de la respuesta
 
 El streaming muestra la respuesta apareciendo palabra por palabra a medida que se genera, en lugar de esperar la respuesta completa de una vez. Los controles de streaming están en **Settings**, en la pestaña **General**, en la sección **Responses**:
