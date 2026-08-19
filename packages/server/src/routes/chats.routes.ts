@@ -3878,6 +3878,19 @@ export async function chatsRoutes(app: FastifyInstance) {
     });
     const forkSourceMessage = copiedSourceMessages.at(-1);
 
+    if (sourceChat.mode === "game" && settingsToKeep.gameJournal) {
+      const journal = settingsToKeep.gameJournal as Journal;
+      settingsToKeep.gameJournal = {
+        ...journal,
+        entries: journal.entries.map((entry) => ({
+          ...entry,
+          ...(entry.sourceMessageId && sourceToBranchedMessageId.has(entry.sourceMessageId)
+            ? { sourceMessageId: sourceToBranchedMessageId.get(entry.sourceMessageId) }
+            : {}),
+        })),
+      };
+    }
+
     const inheritedEntries = inheritedSourceEntries.map((entry) => ({
       ...entry,
       messageIds: entry.messageIds!.map((id) => sourceToBranchedMessageId.get(id)!).filter(Boolean),

@@ -86,6 +86,7 @@ const SERVER_OS = resolveServerOs();
 export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   const hadUserStateBeforeStartup = existsSync(join(getFileStorageDir(), "manifest.json"));
   const app = Fastify({
+    forceCloseConnections: true,
     logger: {
       level: getLogLevel(),
       transport: getNodeEnv() !== "production" ? { target: "pino-pretty", options: { colorize: true } } : undefined,

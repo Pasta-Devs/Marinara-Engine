@@ -166,6 +166,26 @@ try {
     ["Discovered: Old Hall"],
   );
   assert.deepEqual(gameBranch.metadata.gameWidgetState[0].config.items, ["First clue"]);
+  const gameBranchMessagesResponse = await app.inject({
+    method: "GET",
+    url: `/api/chats/${gameBranch.id}/messages`,
+  });
+  assert.equal(gameBranchMessagesResponse.statusCode, 200);
+  const gameBranchMessages = gameBranchMessagesResponse.json();
+  assert.equal(gameBranch.metadata.gameJournal.entries[0].sourceMessageId, gameBranchMessages[0].id);
+  await addMessage(gameBranch.id, "future branch path", "assistant");
+  const nestedGameBranchResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${gameBranch.id}/branch`,
+    payload: { upToMessageId: gameBranchMessages[0].id },
+  });
+  assert.equal(nestedGameBranchResponse.statusCode, 200);
+  const nestedGameBranch = nestedGameBranchResponse.json();
+  assert.deepEqual(
+    nestedGameBranch.metadata.gameJournal.entries.map((entry: { title: string }) => entry.title),
+    ["Discovered: Old Hall"],
+    "Journal entries must survive branching from a branch",
+  );
 
   const persistence = createCapabilityPersistenceHost(db);
   const listed = await persistence.listChats();
