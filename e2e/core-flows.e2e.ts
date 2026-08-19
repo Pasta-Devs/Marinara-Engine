@@ -13000,19 +13000,6 @@ test("Professor Mari follows an open conversation across chats and mobile naviga
     const professorWindow = page.locator('[data-component="HomeProfessorMariChat.Window"]');
     await expect(professorWindow).toBeVisible();
 
-    if (!testInfo.project.name.includes("mobile")) {
-      const closeProfessorMari = professorWindow.getByRole("button", { name: "Close Professor Mari chat" });
-      await expect(closeProfessorMari).toHaveClass(/mari-editor-action/u);
-      const [buttonBox, iconBox] = await Promise.all([
-        closeProfessorMari.boundingBox(),
-        closeProfessorMari.locator("svg").boundingBox(),
-      ]);
-      expect(buttonBox?.width).toBeGreaterThanOrEqual(36);
-      expect(buttonBox?.height).toBeGreaterThanOrEqual(36);
-      expect(iconBox?.width).toBeGreaterThanOrEqual(18);
-      expect(iconBox?.height).toBeGreaterThanOrEqual(18);
-    }
-
     if (testInfo.project.name.includes("mobile")) {
       await page.locator('[data-tour="sidebar-toggle"]').click();
       const reopenProfessorMari = page.getByRole("button", { name: "Open Professor Mari chat" });
@@ -13032,7 +13019,17 @@ test("Professor Mari follows an open conversation across chats and mobile naviga
       await page.getByRole("button", { name: "Close Professor Mari chat" }).last().click();
       await expect(page.getByRole("button", { name: "Open Professor Mari chat" })).toBeVisible();
     } else {
-      await expect(page.getByRole("button", { name: "Dismiss Professor Mari floating chat" })).toBeVisible();
+      const dismissProfessorMari = page.getByRole("button", { name: "Dismiss Professor Mari floating chat" });
+      await expect(dismissProfessorMari).toBeVisible();
+      await expect(dismissProfessorMari).toHaveClass(/mari-editor-action/u);
+      const [buttonBox, iconBox] = await Promise.all([
+        dismissProfessorMari.boundingBox(),
+        dismissProfessorMari.locator("svg").boundingBox(),
+      ]);
+      expect(buttonBox?.width).toBeGreaterThanOrEqual(36);
+      expect(buttonBox?.height).toBeGreaterThanOrEqual(36);
+      expect(iconBox?.width).toBeGreaterThanOrEqual(18);
+      expect(iconBox?.height).toBeGreaterThanOrEqual(18);
       await expect(page.getByPlaceholder("Ask Professor Mari")).toBeVisible();
     }
 
@@ -13171,10 +13168,7 @@ test("Professor Mari shows the latest context budget when token usage is enabled
       useUIStore.getState().setChatChromeTextColor("#14b8a6");
       useUIStore.getState().setShowTokenUsage(true);
     });
-    await page
-      .locator('[data-component="HomeProfessorMariChat.MariPanel"]')
-      .getByRole("button", { name: "Ask Professor Mari" })
-      .click();
+    await page.getByRole("tab", { name: "Professor", exact: true }).click();
 
     const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
     const budget = window.locator('[data-component="HomeProfessorMariChat.ContextBudget"]');
