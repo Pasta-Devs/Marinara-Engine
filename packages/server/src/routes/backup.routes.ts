@@ -10,7 +10,7 @@ import type { FileHandle } from "fs/promises";
 import { tmpdir } from "os";
 import { pipeline } from "stream/promises";
 import { StringDecoder } from "string_decoder";
-import { createHash, randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { inflateRawSync } from "zlib";
 import AdmZip from "adm-zip";
 import { FILE_BACKED_TABLES } from "../db/file-backed-store.js";
@@ -35,7 +35,7 @@ import { normalizeTimestampOverrides } from "../services/import/import-timestamp
 import { flushDB, type DB } from "../db/connection.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { BACKUP_RATE_LIMIT } from "../middleware/rate-limit.js";
-import { assertInsideDir } from "../utils/security.js";
+import { assertInsideDir, safeCompareString } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { crc32Buffer, finishCrc32, updateCrc32State } from "../utils/crc32.js";
 import { ENCRYPTED_WEBHOOK_PREFIX, encryptCustomToolWebhookUrl } from "../utils/custom-tool-webhook.js";
@@ -165,6 +165,14 @@ type AutomaticBackupSettings = {
   lastError: string | null;
   lastOmittedEntries: string[];
 };
+
+export function buildPreparedBackupDownloadUrl(jobId: string, token: string): string {
+  return `/api/backup/download/file/${encodeURIComponent(jobId)}?token=${encodeURIComponent(token)}`;
+}
+
+export function isPreparedBackupDownloadTokenValid(expected: string, provided: unknown): boolean {
+  return typeof provided === "string" && provided.length > 0 && safeCompareString(provided, expected);
+}
 
 export function limitAutomaticBackupOmissionHistory(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -3208,6 +3216,7 @@ export async function backupRoutes(app: FastifyInstance) {
     size?: number;
     omittedCount?: number;
     error?: string;
+    downloadToken: string;
   };
   const backupDownloadJobs = new Map<string, BackupDownloadJob>();
   let activeBackupDownloadJobId: string | null = null;
@@ -3452,6 +3461,7 @@ export async function backupRoutes(app: FastifyInstance) {
       tempDir,
       archivePath,
       createdAt: Date.now(),
+      downloadToken: randomBytes(32).toString("base64url"),
     };
     backupDownloadJobs.set(jobId, job);
 
@@ -3488,19 +3498,28 @@ export async function backupRoutes(app: FastifyInstance) {
       return reply.send({
         status: job.status,
         filename: `${job.backupName}.zip`,
-        ...(job.status === "ready" ? { size: job.size, omittedCount: job.omittedCount ?? 0 } : {}),
+        ...(job.status === "ready"
+          ? {
+              size: job.size,
+              omittedCount: job.omittedCount ?? 0,
+              downloadUrl: buildPreparedBackupDownloadUrl(req.params.jobId, job.downloadToken),
+            }
+          : {}),
         ...(job.status === "failed" ? { error: job.error ?? "Backup download failed" } : {}),
       });
     },
   );
 
-  app.get<{ Params: { jobId: string } }>(
+  app.get<{ Params: { jobId: string }; Querystring: { token?: string } }>(
     "/download/file/:jobId",
     { config: { rateLimit: BACKUP_RATE_LIMIT } },
     async (req, reply) => {
-      if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
       const jobId = req.params.jobId;
       const job = backupDownloadJobs.get(jobId);
+      const oneTimeCapabilityAuthorized = job
+        ? isPreparedBackupDownloadTokenValid(job.downloadToken, req.query.token)
+        : false;
+      if (!requirePrivilegedAccess(req, reply, { feature: "Backup download", oneTimeCapabilityAuthorized })) return;
       if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
       if (job.status === "failed") return reply.status(500).send({ error: job.error ?? "Backup download failed" });
       if (job.status !== "ready" || job.size === undefined) {

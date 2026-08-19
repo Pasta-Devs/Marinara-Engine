@@ -28,10 +28,8 @@ From a phone, tablet, or any other device, backup and restore need the **Admin A
 3. Find the **Backup & Export** section.
 4. Click **Download Backup**.
 5. The button shows **Creating backup…** while it works.
-6. On desktop Chrome or Edge, a **Save As** dialog opens so you pick where the file goes. Choose a folder and save.
-7. You should see **Backup saved!** or **Backup downloaded!** when it finishes.
-
-On some browsers the **Save As** dialog is not available. In that case the file goes to your normal Downloads folder instead.
+6. When the archive is ready, Marinara streams it straight to your browser without holding the whole file in page memory.
+7. Your browser either opens its normal **Save As** dialog or puts the file in your Downloads folder, depending on your download settings.
 
 This step matters most on Android and iOS. On those devices the app's own data folder is usually not reachable. That makes **Download Backup** the only easy way to get a copy off the device. Save it somewhere safe and private, like your own cloud storage.
 

@@ -7482,20 +7482,20 @@ function AdvancedSettings() {
   const [creatingBackup, setCreatingBackup] = useState(false);
 
   /**
-   * Download a full backup to a user-chosen location.
-   *
-   * Uses the File System Access API (`showSaveFilePicker`) when available so
-   * the browser opens a native "Save As" dialog — this is important on Android
-   * and iOS, where the server-side `data/backups/` folder isn't reachable
-   * without root. Falls back to an anchor-triggered download (which routes
-   * through the browser's default Downloads handling).
+   * Prepare a full backup, then hand its finished stream directly to the browser.
+   * Keeping the archive out of a page-held Blob lets Safari and memory-limited
+   * mobile browsers save large backups through their normal download handling.
    */
   const handleCreateBackup = async () => {
     setCreatingBackup(true);
     try {
       const started = await api.post<{ jobId: string; status: "preparing" }>("/backup/download/start");
       const deadline = Date.now() + 60 * 60 * 1_000;
-      let status: { status: "preparing" | "ready" | "failed"; error?: string } = { status: started.status };
+      let status: {
+        status: "preparing" | "ready" | "failed";
+        error?: string;
+        downloadUrl?: string;
+      } = { status: started.status };
       while (status.status === "preparing") {
         if (Date.now() >= deadline) {
           throw new Error(localizeUi("ui.panels.advancedsettings.backupPreparationTimedOut"));
@@ -7506,65 +7506,12 @@ function AdvancedSettings() {
       if (status.status === "failed") {
         throw new Error(status.error || localizeUi("ui.panels.advancedsettings.failedToCreateBackup"));
       }
-
-      const res = await api.raw(`/backup/download/file/${encodeURIComponent(started.jobId)}`);
-      if (!res.ok) {
-        throw new Error(
-          await readSettingsResponseError(res, localizeUi("ui.panels.advancedsettings.failedToCreateBackup")),
-        );
+      if (!status.downloadUrl) {
+        throw new Error(localizeUi("ui.panels.advancedsettings.failedToCreateBackup"));
       }
 
-      // Pull the filename from Content-Disposition if provided
-      const disposition = res.headers.get("content-disposition") ?? "";
-      const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").replace("T", "_").slice(0, 19);
-      const suggestedName = filenameMatch?.[1] ?? `marinara-backup-${timestamp}.zip`;
-
-      const blob = await res.blob();
-
-      // Preferred path: native "Save As" dialog (Chromium desktop, some Android)
-      const w = window as typeof window & {
-        showSaveFilePicker?: (options: {
-          suggestedName?: string;
-          types?: Array<{ description?: string; accept: Record<string, string[]> }>;
-        }) => Promise<{
-          createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }>;
-        }>;
-      };
-      if (typeof w.showSaveFilePicker === "function") {
-        try {
-          const handle = await w.showSaveFilePicker({
-            suggestedName,
-            types: [
-              {
-                description: "Marinara backup archive",
-                accept: { "application/zip": [".zip"] },
-              },
-            ],
-          });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-          toast.success(localizeUi("ui.panels.advancedsettings.backupSaved"));
-          qc.invalidateQueries({ queryKey: ["backups"] });
-          return;
-        } catch (err) {
-          // User cancelled the native picker — treat as a silent no-op
-          if (err instanceof DOMException && err.name === "AbortError") return;
-          // Any other failure falls through to the anchor fallback
-        }
-      }
-
-      // Fallback: anchor download. On Android Chrome this routes through the
-      // system Downloads handler (which typically prompts the user or drops
-      // the file in the Downloads folder, both of which are user-accessible).
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = suggestedName;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(localizeUi("ui.panels.advancedsettings.backupDownloaded"));
+      window.location.assign(status.downloadUrl);
+      toast.success(localizeUi("ui.panels.advancedsettings.backupDownloadStarted"));
       qc.invalidateQueries({ queryKey: ["backups"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : localizeUi("ui.panels.advancedsettings.failedToCreateBackup"));

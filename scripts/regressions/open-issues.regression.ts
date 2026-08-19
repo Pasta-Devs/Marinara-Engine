@@ -9276,13 +9276,17 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(backupRoutesSource, /app\.post\("\/download\/start"/u);
   assert.match(backupRoutesSource, /app\.get<\{ Params: \{ jobId: string \} \}>\(\s*"\/download\/status\/:jobId"/u);
-  assert.match(backupRoutesSource, /app\.get<\{ Params: \{ jobId: string \} \}>\(\s*"\/download\/file\/:jobId"/u);
+  assert.match(
+    backupRoutesSource,
+    /app\.get<\{ Params: \{ jobId: string \}; Querystring: \{ token\?: string \} \}>\(\s*"\/download\/file\/:jobId"/u,
+  );
   assert.match(
     backupRoutesSource,
     /if \(job\?\.status === "preparing"\) return;/u,
     "backup cleanup cannot remove a temporary directory while its archive is still being written",
   );
   assert.match(settingsPanelSource, /\/backup\/download\/status\/\$\{encodeURIComponent\(started\.jobId\)\}/u);
+  assert.match(settingsPanelSource, /window\.location\.assign\(status\.downloadUrl\)/u);
 
   const retryAgentsRouteSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/server/src/routes/generate/retry-agents-route.ts"),

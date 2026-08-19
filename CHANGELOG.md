@@ -11,6 +11,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Safari backup downloads now stream the prepared ZIP directly through the browser instead of buffering the entire archive in page memory; a short-lived one-time download capability preserves remote and Docker admin protection without exposing the reusable admin secret (#5259).
 - Embedding connections now accept either an OpenAI-compatible API base URL or the provider's full `/embeddings` endpoint, so documented NanoGPT and OpenRouter URLs no longer become a nonexistent doubled path (#5252).
 - Windows, macOS, and Linux launchers now recognize an already-running healthy Marinara server before updating or rebuilding, then reopen that instance instead of attempting a second storage writer; genuinely conflicting or unresponsive processes remain blocked to protect user data (#5256).
 - Locally hosted OpenAI-compatible models now honor Reasoning Effort set to Off, and JSON-returning Agent calls—including tool-assisted and batched runs—avoid exhausting their output budget on discarded thinking.

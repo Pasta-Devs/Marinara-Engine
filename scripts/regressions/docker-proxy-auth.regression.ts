@@ -18,11 +18,15 @@ const ENV_KEYS = [
   "BASIC_AUTH_USER",
   "BYPASS_AUTH_DOCKER",
   "BYPASS_AUTH_TAILSCALE",
+  "CORS_ORIGINS",
+  "CSRF_TRUSTED_ORIGINS",
+  "HOST",
   "IP_ALLOWLIST",
   "IP_ALLOWLIST_ENABLED",
   "MARINARA_DOCKER",
   "MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK",
   "REQUIRE_AUTH_FOR_DOCKER_PROXY",
+  "TRUSTED_HOSTS",
 ] as const;
 
 const originalEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
@@ -288,6 +292,50 @@ try {
     "the privileged gate must require normal auth before accepting the admin secret",
   );
   assert.equal(privilegedRejectedReply.statusCode(), 403);
+
+  const capabilityWithoutBasicAuthReply = replyRecorder();
+  assert.equal(
+    requirePrivilegedAccess(
+      request({
+        "x-forwarded-for": "198.51.100.10",
+      }),
+      capabilityWithoutBasicAuthReply.reply,
+      { oneTimeCapabilityAuthorized: true, feature: "Security regression" },
+    ),
+    false,
+    "a one-time capability must not bypass normal Basic Auth",
+  );
+  assert.equal(capabilityWithoutBasicAuthReply.statusCode(), 403);
+
+  const capabilityWithUntrustedHostReply = replyRecorder();
+  assert.equal(
+    requirePrivilegedAccess(
+      request({
+        authorization: basicHeader(),
+        host: "attacker.example",
+        "x-forwarded-for": "198.51.100.10",
+      }),
+      capabilityWithUntrustedHostReply.reply,
+      { oneTimeCapabilityAuthorized: true, feature: "Security regression" },
+    ),
+    false,
+    "a one-time capability must not bypass trusted-host validation",
+  );
+  assert.equal(capabilityWithUntrustedHostReply.statusCode(), 421);
+
+  const capabilityAllowedReply = replyRecorder();
+  assert.equal(
+    requirePrivilegedAccess(
+      request({
+        authorization: basicHeader(),
+        "x-forwarded-for": "198.51.100.10",
+      }),
+      capabilityAllowedReply.reply,
+      { oneTimeCapabilityAuthorized: true, feature: "Security regression" },
+    ),
+    true,
+    "a verified one-time capability may replace the reusable admin secret after normal auth",
+  );
 
   const privilegedAllowedReply = replyRecorder();
   assert.equal(

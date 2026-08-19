@@ -16,7 +16,12 @@ export function isAdminAuthorized(request: FastifyRequest): boolean {
 export function requirePrivilegedAccess(
   request: FastifyRequest,
   reply: FastifyReply,
-  options: { loopbackOnly?: boolean; trustedNetwork?: boolean; feature?: string } = {},
+  options: {
+    loopbackOnly?: boolean;
+    trustedNetwork?: boolean;
+    feature?: string;
+    oneTimeCapabilityAuthorized?: boolean;
+  } = {},
 ): boolean {
   if (!isRequestHostTrusted(request)) {
     reply.status(421).send({
@@ -49,6 +54,10 @@ export function requirePrivilegedAccess(
   if (options.trustedNetwork && (isInIpAllowlist(request.ip) || isTrustedInterfaceRequest(request))) {
     return true;
   }
+
+  // A route-scoped, single-use capability may replace the reusable admin secret,
+  // but never the trusted-host or normal-authentication checks above.
+  if (options.oneTimeCapabilityAuthorized) return true;
 
   if (!getAdminSecret()) {
     reply.status(403).send({
