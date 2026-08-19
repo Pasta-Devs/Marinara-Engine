@@ -1222,6 +1222,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Select",
   },
   {
+    id: "restart-server",
+    sectionId: "admin-access",
+    label: "Restart Server",
+    description: "Gracefully restart the Marinara server from this browser.",
+    aliases: ["server", "restart", "maintenance", "remote"],
+    kind: "Button group",
+  },
+  {
     id: "copy-support-diagnostics",
     sectionId: "support-diagnostics",
     label: "Copy Diagnostics",
@@ -7288,6 +7296,13 @@ function AdvancedSettings() {
   const [exportProfileDialogOpen, setExportProfileDialogOpen] = useState(false);
   const [refreshingSpa, setRefreshingSpa] = useState(false);
   const [adminSecret, setAdminSecret] = useState(() => localStorage.getItem(ADMIN_SECRET_STORAGE_KEY) ?? "");
+  const restartServer = useMutation({
+    mutationFn: () => api.post<{ status: "restarting" }>("/admin/restart", { confirm: true }),
+    onSuccess: () => toast.success(localizeUi("settings.serverRestart.success")),
+    onError: (error) => {
+      toast.error(getPrivilegedActionErrorMessage(error, localizeUi("settings.serverRestart.error")));
+    },
+  });
   const { data: extensionPolicy, isLoading: extensionPolicyLoading } = usePersonalExtensionPolicy();
   const setExternalExtensionsEnabled = useSetExternalExtensionsEnabled();
   const { data: agentImportPolicy, isLoading: agentImportPolicyLoading } = useAgentImportPolicy();
@@ -7615,6 +7630,16 @@ function AdvancedSettings() {
     }
   }, [adminSecret, localizeUi]);
 
+  const handleRestartServer = useCallback(async () => {
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("settings.serverRestart.confirm.title"),
+      message: localizeUi("settings.serverRestart.confirm.message"),
+      confirmLabel: localizeUi("settings.serverRestart.action"),
+      cancelLabel: localizeUi("chat.delete.dialog.cancel"),
+    });
+    if (confirmed) restartServer.mutate();
+  }, [localizeUi, restartServer]);
+
   type UpdateChannelId = "stable" | "staging";
   const [updateChannel, setUpdateChannel] = useState<UpdateChannelId | null>(null);
   const updateCheck = useQuery<{
@@ -7789,6 +7814,26 @@ function AdvancedSettings() {
               {localizeUi("ui.noodle.noodlehome.save")}
             </span>
           </button>
+          <SearchableSettingTarget controlId="restart-server" className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={() => void handleRestartServer()}
+              disabled={restartServer.isPending}
+              className={cn(SETTINGS_BUTTON_CLASS, "w-full justify-center gap-1.5 px-3 py-2 text-xs")}
+            >
+              {restartServer.isPending ? (
+                <Loader2 size="0.8125rem" className="animate-spin" />
+              ) : (
+                <Power size="0.8125rem" />
+              )}
+              {restartServer.isPending
+                ? localizeUi("settings.serverRestart.restarting")
+                : localizeUi("settings.serverRestart.action")}
+            </button>
+            <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+              {localizeUi("settings.serverRestart.description")}
+            </p>
+          </SearchableSettingTarget>
         </div>
       </SettingsSection>
 

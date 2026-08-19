@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { eq, ne } from "../db/file-query.js";
+import { spawn } from "node:child_process";
 import { existsSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
 import { PROFESSOR_MARI_ID, TTS_SETTINGS_KEY } from "@marinara-engine/shared";
@@ -11,6 +12,7 @@ import * as schema from "../db/schema/index.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { AVATAR_STORAGE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { logger } from "../lib/logger.js";
+import { isDockerRuntime } from "../config/runtime-config.js";
 import {
   ABANDONED_AVATAR_MIN_AGE_MS,
   collectCharacterAvatarPaths,
@@ -62,6 +64,44 @@ function isValidScope(scope: unknown): scope is ExpungeScope {
 }
 
 export async function adminRoutes(app: FastifyInstance) {
+  let restartScheduled = false;
+
+  app.post<{ Body: { confirm?: boolean } }>("/restart", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Server restart" })) return;
+    if (req.body?.confirm !== true) {
+      return reply.status(400).send({ error: "Must send { confirm: true } to restart the server" });
+    }
+    if (restartScheduled) {
+      return reply.status(409).send({ error: "Server restart is already scheduled" });
+    }
+
+    restartScheduled = true;
+    setTimeout(() => {
+      void (async () => {
+        try {
+          await app.close();
+          if (!isDockerRuntime()) {
+            const child = spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
+              cwd: process.cwd(),
+              detached: true,
+              env: process.env,
+              stdio: "inherit",
+              windowsHide: true,
+            });
+            child.unref();
+          }
+          logger.info("Server restart requested from Advanced Settings");
+          process.exit(0);
+        } catch (error) {
+          logger.error(error, "Graceful server restart failed");
+          process.exit(1);
+        }
+      })();
+    }, 750);
+
+    return reply.status(202).send({ status: "restarting" });
+  });
+
   app.get("/avatar-storage/abandoned", { config: { rateLimit: AVATAR_STORAGE_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Avatar storage scan" })) return;
     const result = await scanAbandonedAvatarFiles({ db: app.db });
