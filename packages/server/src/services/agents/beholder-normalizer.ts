@@ -48,15 +48,23 @@ function titleCase(value: string): string {
     .replace(/\b[a-z]/gu, (character) => character.toUpperCase());
 }
 
+const HTML_ENTITIES: Record<string, string> = {
+  "&amp;": "&",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&apos;": "'",
+  "&nbsp;": " ",
+  "&lt;": "<",
+  "&gt;": ">",
+};
+
+/**
+ * Decode entities in a single pass. Chained replacements would decode the output
+ * of an earlier replacement — `&amp;lt;` becoming `&lt;` and then `<` — so each
+ * entity is matched once against the original text instead.
+ */
 function decodeEntities(value: string): string {
-  return value
-    .replace(/&amp;/gu, "&")
-    .replace(/&quot;/gu, '"')
-    .replace(/&#39;/gu, "'")
-    .replace(/&apos;/gu, "'")
-    .replace(/&nbsp;/gu, " ")
-    .replace(/&lt;/gu, "<")
-    .replace(/&gt;/gu, ">");
+  return value.replace(/&(?:amp|quot|apos|nbsp|lt|gt|#39);/gu, (entity) => HTML_ENTITIES[entity] ?? entity);
 }
 
 /**
@@ -103,10 +111,14 @@ export function normalizeBeholderProse(message: string): string {
   text = text.replace(/\[\/?[a-z][a-z0-9=#:_,\- ]*\]/giu, "");
 
   // 6. Strip HTML and decode entities
-  text = text
-    .replace(/<br\s*\/?>/giu, "\n")
-    .replace(/<\/p>/giu, "\n\n")
-    .replace(/<[^>]+>/gu, "");
+  text = text.replace(/<br\s*\/?>/giu, "\n").replace(/<\/p>/giu, "\n\n");
+  // Strip to a fixed point: one pass over `<scr<script>ipt>` removes the inner tag
+  // and leaves a working one behind. Each pass strictly shortens the text, so this
+  // terminates.
+  for (let previous = ""; previous !== text; ) {
+    previous = text;
+    text = text.replace(/<[^>]+>/gu, "");
+  }
   text = decodeEntities(text);
 
   // 7. Strip markdown emphasis and leading block markup

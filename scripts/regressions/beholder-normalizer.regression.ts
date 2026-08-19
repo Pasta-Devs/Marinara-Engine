@@ -26,6 +26,16 @@ assert.equal(normalizeBeholderProse("<i>He nods.</i>"), "He nods.");
 assert.equal(normalizeBeholderProse("Tea &amp; toast &quot;now&quot;"), 'Tea & toast "now"');
 assert.equal(normalizeBeholderProse("He stands.<br>She sits."), "He stands. She sits.");
 
+// Entities decode exactly once. Chained replacements would turn "&amp;lt;" into
+// "&lt;" and then "<", conjuring markup the author never wrote.
+assert.equal(normalizeBeholderProse("&amp;lt;"), "&lt;", "an escaped entity is not decoded twice");
+assert.equal(normalizeBeholderProse("&amp;amp;"), "&amp;");
+
+// Tag stripping runs to a fixed point: one pass over a nested tag leaves a working
+// one behind.
+assert.ok(!normalizeBeholderProse("<scr<script>ipt>alert(1)").includes("<"), "nested tags do not survive");
+assert.ok(!normalizeBeholderProse("<<div>>text").includes("<"));
+
 // OOC notes are removed entirely.
 assert.equal(normalizeBeholderProse("(OOC: brb) He waits."), "He waits.");
 assert.equal(normalizeBeholderProse("[OOC: skip ahead] She nods."), "She nods.");
