@@ -1554,7 +1554,7 @@ function WorkspaceTimelineList({
 const MARI_MESSAGE_ACTIONS_CLASS =
   "mt-1 flex gap-1.5 opacity-100 transition-opacity [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100";
 const MARI_MESSAGE_ACTION_BUTTON_CLASS =
-  "rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] focus-visible:text-[var(--primary)]";
+  "rounded p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] focus-visible:text-[var(--primary)]";
 
 const CompactMariMessage = memo(function CompactMariMessage({
   message,
@@ -1584,7 +1584,7 @@ const CompactMariMessage = memo(function CompactMariMessage({
       <TranscriptRow
         className="group border-y border-[var(--border)]/60 py-2.5"
         marker={
-          <span className="pt-0.5 text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
+          <span className="pt-0.5 text-[0.6875rem] font-semibold text-[var(--marinara-chat-chrome-panel-muted)]">
             {localizeUi("ui.chat.compactmarimessage.you")}
           </span>
         }
@@ -1761,11 +1761,11 @@ function ProfessorMariContextBudgetIndicator({ budget }: { budget: ProfessorMari
   return (
     <div
       data-component="HomeProfessorMariChat.ContextBudget"
-      className="mb-2 space-y-1 px-0.5 text-[0.6875rem] text-[var(--muted-foreground)]"
+      className="mb-2 space-y-1 px-0.5 text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]"
     >
       <div className="flex items-center justify-between gap-3">
         <span>{localizeUi("ui.chat.homeprofessormarichat.contextBudget")}</span>
-        <span className="tabular-nums text-[var(--foreground)]/70">
+        <span className="tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">
           {localizeUi("ui.chat.homeprofessormarichat.contextBudgetValue", { used, maximum })}
         </span>
       </div>
@@ -5172,7 +5172,7 @@ export function HomeProfessorMariChat({
           onRemove={(index) => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}
         />
         {chipRowHint && (
-          <p className="mb-1 flex items-center gap-1.5 px-0.5 text-xs text-[var(--muted-foreground)]">
+          <p className="mb-1 flex items-center gap-1.5 px-0.5 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
             <Sparkles size="0.75rem" className="shrink-0 text-[var(--primary)]" />
             <span>{chipRowHint}</span>
           </p>
@@ -5394,11 +5394,11 @@ export function HomeProfessorMariChat({
             data-professor-mari-floating-action
             type="button"
             onClick={onFloatingDismiss}
-            className="mari-chrome-control mari-chrome-control--small mari-accent-animated inline-flex h-7 w-7 items-center justify-center rounded-md p-0"
+            className="mari-editor-action mari-accent-animated inline-flex shrink-0"
             aria-label={t("home.professorMari.dismiss")}
             title={t("home.professorMari.dismiss")}
           >
-            <X size="0.85rem" />
+            <X size="1.125rem" />
           </button>
         </div>
         {renderFloatingChatBody()}
@@ -5848,11 +5848,11 @@ export function HomeProfessorMariChat({
                               <button
                                 type="button"
                                 onClick={closeChatWindow}
-                                className="mari-chrome-control mari-chrome-control--small mari-accent-animated inline-flex h-8 w-8 items-center justify-center rounded-md p-0"
+                                className="mari-editor-action mari-accent-animated inline-flex shrink-0"
                                 aria-label={t("home.professorMari.close")}
                                 title={t("home.professorMari.close")}
                               >
-                                <X size="0.9rem" />
+                                <X size="1.125rem" />
                               </button>
                             )}
                           </div>
@@ -5929,7 +5929,7 @@ export function HomeProfessorMariChat({
                             }
                           />
                           {chipRowHint && (
-                            <p className="mb-1 flex items-center gap-1.5 px-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                            <p className="mb-1 flex items-center gap-1.5 px-0.5 text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">
                               <Sparkles size="0.6875rem" className="shrink-0 text-[var(--primary)]" />
                               <span>{chipRowHint}</span>
                             </p>

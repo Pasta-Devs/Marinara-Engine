@@ -69,6 +69,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Professor Mari's mobile message labels, action icons, context details, and suggestion guidance now follow the configured Chat Chrome Text Color, while her desktop close controls use the same full-size treatment as editor exits (#5273).
 - APK-managed Android setup no longer opens a separate localhost browser that asks the user to paste Marinara's private local-access secret, and its self-authenticating WebView/session routes no longer fail CSRF when Android reports an opaque `Origin: null`; `null` remains rejected for every other unsafe API route. The generated credential stays automatic inside the app, and releases now publish a stable one-click APK download asset alongside the versioned file (#5222; docs follow-up: #5223).
 - Game Mode no longer replaces a matching Character-library portrait when recovering a missing scene background or retrying a failed portrait load (#4746).
 - Character-created Conversation reactions can now be removed directly by clicking their chip on desktop or long-pressing it on mobile, without discarding the user's own matching reaction (#5216).

@@ -12997,7 +12997,21 @@ test("Professor Mari follows an open conversation across chats and mobile naviga
   try {
     await page.goto("/");
     await page.getByRole("button", { name: "Ask Professor Mari", exact: true }).click();
-    await expect(page.locator('[data-component="HomeProfessorMariChat.Window"]')).toBeVisible();
+    const professorWindow = page.locator('[data-component="HomeProfessorMariChat.Window"]');
+    await expect(professorWindow).toBeVisible();
+
+    if (!testInfo.project.name.includes("mobile")) {
+      const closeProfessorMari = professorWindow.getByRole("button", { name: "Close Professor Mari chat" });
+      await expect(closeProfessorMari).toHaveClass(/mari-editor-action/u);
+      const [buttonBox, iconBox] = await Promise.all([
+        closeProfessorMari.boundingBox(),
+        closeProfessorMari.locator("svg").boundingBox(),
+      ]);
+      expect(buttonBox?.width).toBeGreaterThanOrEqual(36);
+      expect(buttonBox?.height).toBeGreaterThanOrEqual(36);
+      expect(iconBox?.width).toBeGreaterThanOrEqual(18);
+      expect(iconBox?.height).toBeGreaterThanOrEqual(18);
+    }
 
     if (testInfo.project.name.includes("mobile")) {
       await page.locator('[data-tour="sidebar-toggle"]').click();
@@ -13034,6 +13048,14 @@ test("Professor Mari suggestions stay visible after chat history loads", async (
   const chatResponse = await page.request.get("/api/chats/internal/professor-mari");
   expect(chatResponse.ok()).toBeTruthy();
   const chat = (await chatResponse.json()) as { id: string };
+  const userMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+    data: {
+      role: "user",
+      content: `Professor Mari chrome color request ${Date.now()}`,
+    },
+  });
+  expect(userMessageResponse.ok()).toBeTruthy();
+  const userMessage = (await userMessageResponse.json()) as { id: string };
   const messageContent = `Professor Mari suggestion stability ${Date.now()}`;
   const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
     data: {
@@ -13055,6 +13077,7 @@ test("Professor Mari suggestions stay visible after chat history loads", async (
       useAgentStore.getState().clearMariChips();
       useAgentStore.getState().clearMariPlan();
       useUIStore.getState().setProfessorMariSuggestionsEnabled(true);
+      useUIStore.getState().setChatChromeTextColor("#14b8a6");
     });
 
     await page.getByRole("tab", { name: "Professor", exact: true }).click();
@@ -13064,8 +13087,17 @@ test("Professor Mari suggestions stay visible after chat history loads", async (
     const suggestions = window.getByRole("group", { name: "Suggested replies" });
     await expect(suggestions).toBeVisible();
     await expect(suggestions.getByRole("button", { name: "Create a character" })).toBeVisible();
+    const chromeMutedColor = await readCssVariableColor(page, "--marinara-chat-chrome-panel-muted");
+    await expect(window.getByText("You", { exact: true }).last()).toHaveCSS("color", chromeMutedColor);
+    await expect(window.getByRole("button", { name: "Edit Message" }).last()).toHaveCSS("color", chromeMutedColor);
+    await expect(window.getByText("Suggestions only. Pick one, or type your own.", { exact: true })).toHaveCSS(
+      "color",
+      chromeMutedColor,
+    );
   } finally {
-    await bestEffortDelete(page.request, `/api/chats/${chat.id}/messages/${message.id}`);
+    await Promise.all(
+      [userMessage.id, message.id].map((id) => bestEffortDelete(page.request, `/api/chats/${chat.id}/messages/${id}`)),
+    );
   }
 });
 
@@ -13129,8 +13161,14 @@ test("Professor Mari shows the latest context budget when token usage is enabled
     await page.goto("/");
     await page.evaluate(async () => {
       const { useUIStore } = (await import("/src/stores/ui.store.ts")) as {
-        useUIStore: { getState: () => { setShowTokenUsage: (value: boolean) => void } };
+        useUIStore: {
+          getState: () => {
+            setChatChromeTextColor: (value: string) => void;
+            setShowTokenUsage: (value: boolean) => void;
+          };
+        };
       };
+      useUIStore.getState().setChatChromeTextColor("#14b8a6");
       useUIStore.getState().setShowTokenUsage(true);
     });
     await page
@@ -13140,8 +13178,12 @@ test("Professor Mari shows the latest context budget when token usage is enabled
 
     const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
     const budget = window.locator('[data-component="HomeProfessorMariChat.ContextBudget"]');
+    const chromeMutedColor = await readCssVariableColor(page, "--marinara-chat-chrome-panel-muted");
+    const chromeTextColor = await readCssVariableColor(page, "--marinara-chat-chrome-panel-text");
     await expect(budget).toContainText("Context");
     await expect(budget).toContainText("12.3k / 128k tokens");
+    await expect(budget.getByText("Context", { exact: true })).toHaveCSS("color", chromeMutedColor);
+    await expect(budget.getByText("12.3k / 128k tokens", { exact: true })).toHaveCSS("color", chromeTextColor);
     await expect(budget.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "12345");
     await expect(budget.getByRole("progressbar")).toHaveAttribute("aria-valuemax", "128000");
   } finally {
