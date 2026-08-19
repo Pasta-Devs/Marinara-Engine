@@ -8456,7 +8456,7 @@
   "ui.ui.macrosreferencemodal.conditionalBlock": "条件块",
   "ui.ui.macrosreferencemodal.macroReference": "宏参考",
   "ui.ui.macrosreferencemodal.macrosAreReplacedWithLiveChatCharacterAndPreset": "生成时，宏会替换为当前聊天、角色和预设的值。",
-  "ui.ui.macrosreferencemodal.macroUsageGuidance": "可在提示词字段的任意位置使用 <macro>{{example}}</macro>。条件块可用 <or>||</or>（或）和 <and>&&</and>（且）组合检查。",
+  "ui.ui.macrosreferencemodal.macroUsageGuidance": "可在提示词字段的任意位置使用 <macroCode>{{macroExample}}</macroCode>。条件块可用 <or>||</or>（或）和 <and>&&</and>（且）组合检查。",
   "ui.ui.macrosreferencemodal.orAnd": "（或）以及",
   "ui.ui.macrotextarea.editMarkdownSource": "编辑 Markdown 源码",
   "ui.ui.macrotextarea.expandEditor": "展开编辑器",

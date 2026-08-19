@@ -7255,7 +7255,7 @@
   "ui.ui.macrosreferencemodal.conditionalBlock": "조건부 블록",
   "ui.ui.macrosreferencemodal.macroReference": "매크로 참조",
   "ui.ui.macrosreferencemodal.macrosAreReplacedWithLiveChatCharacterAndPreset": "매크로는 생성 중에 실시간 채팅, 캐릭터 및 프리셋 값으로 대체됩니다.",
-  "ui.ui.macrosreferencemodal.macroUsageGuidance": "프롬프트 필드 어디에서나 <macro>{{example}}</macro>을(를) 사용하세요. 조건 블록은 <or>||</or>(OR) 및 <and>&&</and>(AND)로 검사를 조합할 수 있습니다.",
+  "ui.ui.macrosreferencemodal.macroUsageGuidance": "프롬프트 필드 어디에서나 <macroCode>{{macroExample}}</macroCode>을(를) 사용하세요. 조건 블록은 <or>||</or>(OR) 및 <and>&&</and>(AND)로 검사를 조합할 수 있습니다.",
   "ui.ui.macrosreferencemodal.orAnd": "(OR) 및",
   "ui.ui.macrotextarea.editMarkdownSource": "Markdown 소스 편집",
   "ui.ui.macrotextarea.expandEditor": "편집기 펼치기",

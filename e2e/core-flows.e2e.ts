@@ -1122,8 +1122,6 @@ test("settings profiles enforce chat modes and preserve branch identity", async 
 });
 
 test("Author's Notes keeps its expand and full macro guide inside the field", async ({ page, request }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("desktop"), "Author's Notes field chrome is covered on desktop.");
-
   const chatResponse = await request.post("/api/chats", {
     data: {
       name: "Author Notes Macro Field Smoke",
@@ -1137,10 +1135,15 @@ test("Author's Notes keeps its expand and full macro guide inside the field", as
 
   try {
     await page.goto("/");
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByRole("button", { name: "More options", exact: true }).click();
+    }
     await page.getByRole("button", { name: "Author's Notes", exact: true }).filter({ visible: true }).click();
 
     const heading = page.locator("h3").filter({ hasText: "Author's Notes" });
     await expect(heading).toBeVisible();
+    const floatingPanel = heading.locator("xpath=ancestor::div[contains(@class, 'fixed')][1]");
+    const floatingPanelZIndex = await floatingPanel.evaluate((element) => Number(getComputedStyle(element).zIndex));
     const panel = heading.locator("..");
     const field = panel.locator(".mari-author-notes-field");
     await expect(field.getByRole("textbox", { name: "Author's Notes", exact: true })).toBeVisible();
@@ -1151,6 +1154,10 @@ test("Author's Notes keeps its expand and full macro guide inside the field", as
     await field.getByRole("button", { name: "Macro reference", exact: true }).click();
     const macroReference = page.locator('[data-component="MacroReference"]');
     await expect(macroReference).toBeVisible();
+    await expect(macroReference.locator("section").first()).toContainText("Use {{macro}} anywhere in prompt fields.");
+    expect(await macroReference.evaluate((element) => Number(getComputedStyle(element).zIndex))).toBeGreaterThan(
+      floatingPanelZIndex,
+    );
     await expect(macroReference.getByText("{{charPostHistory}}", { exact: true })).toBeVisible();
     await expect(macroReference.getByText("{{agent::TYPE}}", { exact: true })).toBeVisible();
     await expect(macroReference.getByText(/Conditional block with/)).toBeVisible();
@@ -1160,6 +1167,9 @@ test("Author's Notes keeps its expand and full macro guide inside the field", as
     await field.getByRole("button", { name: "Expand editor", exact: true }).click();
     const expandedEditor = page.locator('[data-component="ExpandedMacroEditor"]');
     await expect(expandedEditor).toBeVisible();
+    expect(await expandedEditor.evaluate((element) => Number(getComputedStyle(element).zIndex))).toBeGreaterThan(
+      floatingPanelZIndex,
+    );
     const savedNotes = '{{#if char == "Albedo"}}Keep {{user}} curious.{{else}}Keep the scene curious.{{/if}}';
     await expandedEditor.locator("textarea").fill(savedNotes);
     await expandedEditor.getByRole("button", { name: "Close expanded editor", exact: true }).click();
@@ -1175,6 +1185,66 @@ test("Author's Notes keeps its expand and full macro guide inside the field", as
         return metadata.authorNotes;
       })
       .toBe(savedNotes);
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
+test("summary macro editor stays above its floating panel", async ({ page, request }, testInfo) => {
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "Summary Macro Modal Layering Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const timestamp = new Date().toISOString();
+  const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
+    data: {
+      summaryEntries: [
+        {
+          id: "summary-macro-layering-entry",
+          kind: "rolling",
+          origin: "manual",
+          title: "Layered summary",
+          content: "A summary that should remain editable.",
+          enabled: true,
+          sourceMode: "last",
+          tokenEstimate: 7,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      ],
+    },
+  });
+  expect(metadataResponse.ok()).toBeTruthy();
+  await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+
+  try {
+    await page.goto("/");
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByRole("button", { name: "More options", exact: true }).click();
+    }
+    await page
+      .getByRole("button", { name: "Chat Summary (1 active summary)", exact: true })
+      .filter({ visible: true })
+      .click();
+
+    const summaryPanel = page.locator("[data-chat-floating-panel]").filter({ hasText: "Chat Summary" });
+    await expect(summaryPanel).toBeVisible();
+    await summaryPanel.getByRole("button", { name: "Edit summary entry", exact: true }).click();
+    const summaryField = summaryPanel.getByRole("textbox", {
+      name: "Write or paste a summary of this chat...",
+      exact: true,
+    });
+    await expect(summaryField).toBeVisible();
+    await summaryField.locator("..").getByRole("button", { name: "Expand editor", exact: true }).click();
+
+    const expandedEditor = page.locator('[data-component="ExpandedMacroEditor"]');
+    await expect(expandedEditor).toBeVisible();
+    expect(await expandedEditor.evaluate((element) => Number(getComputedStyle(element).zIndex))).toBeGreaterThan(
+      await summaryPanel.evaluate((element) => Number(getComputedStyle(element).zIndex)),
+    );
+    await expandedEditor.getByRole("button", { name: "Close expanded editor", exact: true }).click();
+    await expect(summaryPanel).toBeVisible();
   } finally {
     await request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
   }

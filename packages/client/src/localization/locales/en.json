@@ -8670,7 +8670,7 @@
   "ui.ui.macrosreferencemodal.conditionalBlock": "Conditional block",
   "ui.ui.macrosreferencemodal.macroReference": "Macro reference",
   "ui.ui.macrosreferencemodal.macrosAreReplacedWithLiveChatCharacterAndPreset": "Macros are replaced with live chat, character, and preset values during generation.",
-  "ui.ui.macrosreferencemodal.macroUsageGuidance": "Use <macro>{{example}}</macro> anywhere in prompt fields. Conditional blocks can combine checks with <or>||</or> (OR) and <and>&&</and> (AND).",
+  "ui.ui.macrosreferencemodal.macroUsageGuidance": "Use <macroCode>{{macroExample}}</macroCode> anywhere in prompt fields. Conditional blocks can combine checks with <or>||</or> (OR) and <and>&&</and> (AND).",
   "ui.ui.macrosreferencemodal.orAnd": "(OR) and",
   "ui.ui.macrotextarea.editMarkdownSource": "Edit Markdown source",
   "ui.ui.macrotextarea.expandEditor": "Expand editor",

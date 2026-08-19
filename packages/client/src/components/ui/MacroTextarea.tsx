@@ -130,7 +130,7 @@ function ExpandedMacroEditor({
         data-component="ExpandedMacroEditor"
         data-macro-modal="true"
         className={cn(
-          "fixed inset-0 z-[140] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
+          "fixed inset-0 z-[10050] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
           EDITOR_MODAL_SURFACE_VARIABLES,
         )}
       >
@@ -204,7 +204,7 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
         data-component="MacroReference"
         data-macro-modal="true"
         className={cn(
-          "fixed inset-0 z-[145] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
+          "fixed inset-0 z-[10050] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
           EDITOR_MODAL_SURFACE_VARIABLES,
         )}
       >
@@ -233,9 +233,9 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
               <p>
                 <Trans
                   i18nKey="ui.ui.macrosreferencemodal.macroUsageGuidance"
-                  values={{ example: "{{macro}}" }}
+                  values={{ macroExample: "{{macro}}" }}
                   components={{
-                    macro: <code className="text-[var(--foreground)]" />,
+                    macroCode: <code className="text-[var(--foreground)]" />,
                     or: <code className="text-[var(--foreground)]" />,
                     and: <code className="text-[var(--foreground)]" />,
                   }}
