@@ -29,6 +29,11 @@ export const AVATAR_STORAGE_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+export const ADMIN_RESTART_RATE_LIMIT = {
+  max: 5,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 export const BACKUP_RATE_LIMIT = {
   max: 60,
   timeWindow: 60_000,
@@ -53,6 +58,10 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
       limit: AVATAR_STORAGE_RATE_LIMIT.max,
       windowMs: AVATAR_STORAGE_RATE_LIMIT.timeWindow,
     },
+  },
+  {
+    pattern: /^\/api\/admin\/restart(?:\?|$)/,
+    rule: { key: "admin-restart", limit: ADMIN_RESTART_RATE_LIMIT.max, windowMs: ADMIN_RESTART_RATE_LIMIT.timeWindow },
   },
   { pattern: /^\/api\/updates\/apply(?:\?|$)/, rule: { key: "updates-apply", limit: 5, windowMs: 60_000 } },
   {

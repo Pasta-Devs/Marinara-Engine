@@ -8,6 +8,7 @@ const settingsPanel = readFileSync(
 );
 
 assert.match(adminRoutes, /requirePrivilegedAccess\(req, reply, \{ feature: "Server restart" \}\)/u);
+assert.match(adminRoutes, /rateLimit: ADMIN_RESTART_RATE_LIMIT/u);
 assert.match(adminRoutes, /req\.body\?\.confirm !== true/u);
 assert.match(adminRoutes, /await app\.close\(\)/u);
 assert.match(adminRoutes, /spawn\(process\.execPath, \[\.\.\.process\.execArgv, \.\.\.process\.argv\.slice\(1\)\]/u);
