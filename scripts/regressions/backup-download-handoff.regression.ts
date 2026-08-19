@@ -20,6 +20,12 @@ const settingsPanelSource = readFileSync(
   join(repositoryRoot, "packages/client/src/components/panels/SettingsPanel.tsx"),
   "utf8",
 );
+const backupRoutesSource = readFileSync(join(repositoryRoot, "packages/server/src/routes/backup.routes.ts"), "utf8");
+assert.match(
+  backupRoutesSource,
+  /"\/download\/file\/:jobId",\s*\{ exposeHeadRoute: false,/u,
+  "HEAD requests must not consume the one-time prepared backup job",
+);
 const handlerStart = settingsPanelSource.indexOf("const handleCreateBackup = async () =>");
 const handlerEnd = settingsPanelSource.indexOf("const { data: backups }", handlerStart);
 assert.ok(handlerStart >= 0 && handlerEnd > handlerStart);

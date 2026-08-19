@@ -3512,7 +3512,7 @@ export async function backupRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { jobId: string }; Querystring: { token?: string } }>(
     "/download/file/:jobId",
-    { config: { rateLimit: BACKUP_RATE_LIMIT } },
+    { exposeHeadRoute: false, config: { rateLimit: BACKUP_RATE_LIMIT } },
     async (req, reply) => {
       const jobId = req.params.jobId;
       const job = backupDownloadJobs.get(jobId);
