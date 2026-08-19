@@ -121,7 +121,11 @@ Tracks each character's current clothing by body slot, held items, wounds, missi
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay only.
 - **Key settings**: add or remove it under **Chat Settings → Agents → Tracker Agents**; open **Configure Beholder** there to choose its connection, model, prompt, context, and output limits. **Add as Prompt Section** is on by default.
-- **Model recommendation**: use a SOTA model such as OpenAI GPT-5.5+, Claude Opus 4.8+, or Kimi K3+ for reliable full-state tracking.
+- **Model recommendation**: pick the prompt template that matches the model behind Beholder's connection. The two shipped templates are not interchangeable — each is written for a different kind of model.
+  - **SOTA model — one prompt** (default): one call covering every tracked field. Use a strong general model such as OpenAI GPT-5.5+, Claude Opus 4.8+, or Kimi K3+.
+  - **Beholder local model — five passes**: five narrow calls, one per tracked lane, for the purpose-trained [Beholder](https://huggingface.co/GetBeholder/Beholder-GGUF) extractor served locally (for example `Beholder-Q8_0.gguf` behind koboldcpp or llama.cpp). That model is trained to answer one lane at a time, so the single-prompt template is off-distribution for it and returns partial state. Engine unions the five per-lane results into one update. Runs fully offline at no cost.
+
+  Beholder cannot detect which model sits behind a connection, so this stays a manual choice. A mismatch is not fatal but degrades extraction: a SOTA model handles either template, while the local model needs the five-pass one.
 - **Origin**: adapted into Engine's native Agent runtime from [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), licensed AGPL-3.0-only. The official package does not load the legacy extension's DOM, polling, or local-storage runtime.
 
 ### Persona Stats
