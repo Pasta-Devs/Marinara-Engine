@@ -30,38 +30,44 @@ try {
   const { buildApp } = await import("../../packages/server/src/app.js");
   const app = await buildApp();
   let releaseRequest = () => {};
-  let requestStarted = () => {};
-  const started = new Promise<void>((resolve) => {
-    requestStarted = resolve;
-  });
-  const holdRequest = new Promise<void>((resolve) => {
-    releaseRequest = resolve;
-  });
+  let closing: Promise<void> | undefined;
+  try {
+    let requestStarted = () => {};
+    const started = new Promise<void>((resolve) => {
+      requestStarted = resolve;
+    });
+    const holdRequest = new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
 
-  app.get("/__restart-regression/long-lived", async () => {
-    requestStarted();
-    await holdRequest;
-    return { status: "complete" };
-  });
-  await app.listen({ host: "127.0.0.1", port: 0 });
+    app.get("/__restart-regression/long-lived", async () => {
+      requestStarted();
+      await holdRequest;
+      return { status: "complete" };
+    });
+    await app.listen({ host: "127.0.0.1", port: 0 });
 
-  const address = app.server.address();
-  assert(address && typeof address !== "string");
-  const response = fetch(`http://127.0.0.1:${address.port}/__restart-regression/long-lived`, {
-    headers: { connection: "close" },
-  });
-  await started;
-  const closing = app.close();
-  const closedEarly = await Promise.race([
-    closing.then(() => true),
-    new Promise<false>((resolve) => setTimeout(() => resolve(false), 50)),
-  ]);
-  assert.equal(closedEarly, false, "Graceful shutdown must preserve an active request");
-  releaseRequest();
-  const completedResponse = await response;
-  assert.equal(completedResponse.status, 200);
-  await completedResponse.json();
-  await closing;
+    const address = app.server.address();
+    assert(address && typeof address !== "string");
+    const response = fetch(`http://127.0.0.1:${address.port}/__restart-regression/long-lived`, {
+      headers: { connection: "close" },
+    });
+    await started;
+    closing = app.close();
+    const closedEarly = await Promise.race([
+      closing.then(() => true),
+      new Promise<false>((resolve) => setTimeout(() => resolve(false), 50)),
+    ]);
+    assert.equal(closedEarly, false, "Graceful shutdown must preserve an active request");
+    releaseRequest();
+    const completedResponse = await response;
+    assert.equal(completedResponse.status, 200);
+    await completedResponse.json();
+    await closing;
+  } finally {
+    releaseRequest();
+    await (closing ?? app.close());
+  }
 } finally {
   rmSync(dataDir, { recursive: true, force: true });
 }
