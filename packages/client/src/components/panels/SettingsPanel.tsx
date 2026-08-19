@@ -1593,23 +1593,6 @@ const EXPUNGE_SCOPE_OPTIONS: Array<{ id: ExpungeScope; label: string; descriptio
   },
 ];
 
-async function readSettingsResponseError(res: Response, fallback: string) {
-  const contentType = res.headers.get("content-type") ?? "";
-
-  try {
-    if (contentType.includes("application/json")) {
-      const payload = (await res.json()) as { error?: unknown; message?: unknown };
-      const message = typeof payload.message === "string" ? payload.message : payload.error;
-      return typeof message === "string" && message.trim() ? message : fallback;
-    }
-
-    const text = (await res.text()).trim();
-    return text ? text.slice(0, 500) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function formatStorageBytes(bytes: number): string {
   const safeBytes = Math.max(0, Number.isFinite(bytes) ? bytes : 0);
   if (safeBytes < 1_000) {
