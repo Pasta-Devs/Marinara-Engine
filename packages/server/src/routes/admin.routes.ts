@@ -32,6 +32,8 @@ type ExpungeScope =
   | "automation"
   | "media";
 
+const GRACEFUL_RESTART_TIMEOUT_MS = 30_000;
+
 const ALL_EXPUNGE_SCOPES: ExpungeScope[] = [
   "chats",
   "characters",
@@ -81,6 +83,11 @@ export async function adminRoutes(app: FastifyInstance) {
       restartScheduled = true;
       setTimeout(() => {
         void (async () => {
+          const forceCloseTimer = setTimeout(() => {
+            logger.warn("Forcing server restart after %dms", GRACEFUL_RESTART_TIMEOUT_MS);
+            app.server.closeAllConnections();
+          }, GRACEFUL_RESTART_TIMEOUT_MS);
+          forceCloseTimer.unref();
           try {
             await app.close();
             if (!isDockerRuntime()) {
@@ -98,6 +105,8 @@ export async function adminRoutes(app: FastifyInstance) {
           } catch (error) {
             logger.error(error, "Graceful server restart failed");
             process.exit(1);
+          } finally {
+            clearTimeout(forceCloseTimer);
           }
         })();
       }, 750);
