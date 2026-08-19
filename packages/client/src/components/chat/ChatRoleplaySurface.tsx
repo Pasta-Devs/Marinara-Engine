@@ -430,6 +430,8 @@ function RegeneratingMessageContent({
         <RoleplayLiveStreamText chatId={msg.chatId} emptyLabel={t("chat.message.thinking")} renderText={renderText} />
       )}
       {...rest}
+      storyboard={null}
+      storyboardGenerating={false}
     />
   );
 }
