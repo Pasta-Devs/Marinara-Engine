@@ -68,6 +68,47 @@ case "$AUTO_UPDATE_ENABLED_NORMALIZED" in
   *) AUTO_UPDATE_DISABLED=0 ;;
 esac
 
+# Resolve the browser URL before update/install work so repeat launcher runs
+# can reopen a healthy server immediately.
+export NODE_ENV=production
+export PORT=${PORT:-7860}
+export HOST=${HOST:-0.0.0.0}
+
+if [ -n "$SSL_CERT" ] && [ -n "$SSL_KEY" ]; then
+  PROTOCOL=https
+else
+  PROTOCOL=http
+fi
+
+BROWSER_HOST="$HOST"
+case "$BROWSER_HOST" in
+  ""|"0.0.0.0"|"::") BROWSER_HOST="127.0.0.1" ;;
+esac
+
+AUTO_OPEN_BROWSER_VALUE="${AUTO_OPEN_BROWSER:-true}"
+AUTO_OPEN_BROWSER_NORMALIZED=$(printf '%s' "$AUTO_OPEN_BROWSER_VALUE" | tr '[:upper:]' '[:lower:]')
+case "$AUTO_OPEN_BROWSER_NORMALIZED" in
+  0|false|no|off) AUTO_OPEN_BROWSER_ENABLED=0 ;;
+  *) AUTO_OPEN_BROWSER_ENABLED=1 ;;
+esac
+
+check_launch_port() {
+  local port_check_status=0
+  node scripts/check-port-available.mjs || port_check_status=$?
+  if [ "$port_check_status" = "2" ]; then
+    if [ "$AUTO_OPEN_BROWSER_ENABLED" = "1" ]; then
+      echo "  [OK] Reopening the running Marinara Engine instance..."
+      (open "${PROTOCOL}://${BROWSER_HOST}:$PORT" 2>/dev/null || xdg-open "${PROTOCOL}://${BROWSER_HOST}:$PORT" 2>/dev/null) &
+    else
+      echo "  [OK] Marinara Engine is already running. Auto-open is disabled (AUTO_OPEN_BROWSER=${AUTO_OPEN_BROWSER_VALUE})"
+    fi
+    exit 0
+  fi
+  return "$port_check_status"
+}
+
+check_launch_port || exit 1
+
 # ── Check pnpm ──
 PNPM_VERSION=""
 PNPM_DESCRIPTOR=""
@@ -380,31 +421,7 @@ fi
 
 # ── Start ──
 
-export NODE_ENV=production
-export PORT=${PORT:-7860}
-export HOST=${HOST:-0.0.0.0}
-
-if [ -n "$SSL_CERT" ] && [ -n "$SSL_KEY" ]; then
-  PROTOCOL=https
-else
-  PROTOCOL=http
-fi
-
-BROWSER_HOST="$HOST"
-case "$BROWSER_HOST" in
-  ""|"0.0.0.0"|"::") BROWSER_HOST="127.0.0.1" ;;
-esac
-
-AUTO_OPEN_BROWSER_VALUE="${AUTO_OPEN_BROWSER:-true}"
-AUTO_OPEN_BROWSER_NORMALIZED=$(printf '%s' "$AUTO_OPEN_BROWSER_VALUE" | tr '[:upper:]' '[:lower:]')
-case "$AUTO_OPEN_BROWSER_NORMALIZED" in
-  0|false|no|off) AUTO_OPEN_BROWSER_ENABLED=0 ;;
-  *) AUTO_OPEN_BROWSER_ENABLED=1 ;;
-esac
-
-if ! node scripts/check-port-available.mjs; then
-  exit 1
-fi
+check_launch_port || exit 1
 
 echo ""
 echo "  ══════════════════════════════════════════"

@@ -4393,7 +4393,7 @@
   "ui.connections.connectioneditor.openaiOrAnyCompatibleAudioSpeechEndpoint": "OpenAI or any compatible /v1/audio/speech endpoint.",
   "ui.connections.connectioneditor.openrouterAiModels": "openrouter.ai/models",
   "ui.connections.connectioneditor.optional": "Optional",
-  "ui.connections.connectioneditor.optionalASeparateBaseUrlForYourEmbeddingBackend": "Optional. A separate base URL for your embedding backend. Useful when running two instances of llama.cpp on different ports — one for chat, one for embeddings. Leave empty to use the connection's main URL.",
+  "ui.connections.connectioneditor.optionalASeparateBaseUrlForYourEmbeddingBackend": "Optional. Enter either the embedding API base URL, such as https://host/v1, or its full /embeddings endpoint. Leave empty to use this connection's main URL.",
   "ui.connections.connectioneditor.optionalConfigureTheEmbeddingSourceUsedForLorebookSemantic": "Optional. Configure the embedding source used for lorebook semantic search and memory recall.",
   "ui.connections.connectioneditor.optionalTypeAGrokCliModelIdOrLeave": "Optional: type a Grok CLI model ID, or leave blank for CLI default",
   "ui.connections.connectioneditor.optionalWhenRoleplayChatsUseThisConnectionMarinaraAssembles": "Optional. When roleplay chats use this connection, Marinara assembles this prompt preset instead of the chat's selected prompt preset. Conversation and game mode keep their built-in prompt flows.",

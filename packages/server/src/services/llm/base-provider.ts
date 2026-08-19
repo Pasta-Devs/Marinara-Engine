@@ -102,6 +102,14 @@ export function llmHttpErrorFromResponse(message: string, response: Response): L
   });
 }
 
+/** Accept either an OpenAI-compatible API base URL or its full embeddings endpoint. */
+export function resolveEmbeddingEndpointUrl(baseUrl: string): string {
+  const endpoint = new URL(baseUrl.trim());
+  const pathname = endpoint.pathname.replace(/\/+$/u, "");
+  endpoint.pathname = /\/embeddings$/iu.test(pathname) ? pathname : `${pathname}/embeddings`;
+  return endpoint.toString();
+}
+
 /**
  * True when an error is a provider rate-limit / transient-overload the caller should pause and
  * retry rather than surface: HTTP 429 (rate limited) or 529 (Anthropic "overloaded").
@@ -802,7 +810,7 @@ export abstract class BaseLLMProvider {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.apiKey}`,
     };
-    const res = await llmFetch(`${this.baseUrl}/embeddings`, {
+    const res = await llmFetch(resolveEmbeddingEndpointUrl(this.baseUrl), {
       method: "POST",
       headers,
       body: JSON.stringify({ input: texts, model }),

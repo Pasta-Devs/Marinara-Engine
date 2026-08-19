@@ -3629,7 +3629,7 @@
   "ui.connections.connectioneditor.onlyUseUrlsFromProvidersYouTrustAMalicious": "신뢰하는 제공자의 URL만 사용하세요. 악성 엔드포인트가 메시지와 API 키를 가로챌 수 있습니다.",
   "ui.connections.connectioneditor.onOpenrouterThisCurrentlyTargetsClaudeModelsByAdding": "현재 OpenRouter에서는 최상위 cache_control을 추가하여 Claude 모델에 적용합니다. 캐시 읽기는 일반 프롬프트 토큰보다 훨씬 저렴하지만 첫 캐시 쓰기는 비용이 더 듭니다.",
   "ui.connections.connectioneditor.optional": "선택 사항",
-  "ui.connections.connectioneditor.optionalASeparateBaseUrlForYourEmbeddingBackend": "선택 사항입니다. 임베딩 백엔드에 사용할 별도의 기본 URL입니다. llama.cpp 인스턴스 두 개를 서로 다른 포트에서 실행하여 하나는 채팅, 하나는 임베딩에 사용할 때 유용합니다. 이 연결의 기본 URL을 사용하려면 비워 두세요.",
+  "ui.connections.connectioneditor.optionalASeparateBaseUrlForYourEmbeddingBackend": "선택 사항입니다. 임베딩 API 기본 URL(예: https://host/v1) 또는 전체 /embeddings 엔드포인트를 입력하세요. 비워 두면 이 연결의 기본 URL을 사용합니다.",
   "ui.connections.connectioneditor.optionalConfigureTheEmbeddingSourceUsedForLorebookSemantic": "선택 사항입니다. 로어북 시맨틱 검색과 기억 회상에 사용할 임베딩 소스를 구성하세요.",
   "ui.connections.connectioneditor.optionalTypeAGrokCliModelIdOrLeave": "선택 사항: Grok CLI 모델 ID를 입력하거나 CLI 기본값을 사용하려면 비워 두세요",
   "ui.connections.connectioneditor.optionalWhenRoleplayChatsUseThisConnectionMarinaraAssembles": "선택 사항입니다. 롤플레이 채팅에서 이 연결을 사용하면 Marinara는 채팅에서 선택한 프롬프트 프리셋 대신 이 프롬프트 프리셋을 구성합니다. 대화(콘보)와 게임 모드는 내장 프롬프트 흐름을 그대로 유지합니다.",

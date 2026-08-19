@@ -40,7 +40,7 @@
     "regression:professor-mari-shell-sandbox": "pnpm build:shared && node ./scripts/run-regressions.mjs --filter scripts/regressions/professor-mari/shell-sandbox.regression.ts",
     "regression:runtime-integrity": "pnpm build:shared && node ./scripts/run-regressions.mjs --filter scripts/regressions/runtime-integrity.regression.ts",
     "regression:static-cache": "node ./scripts/run-regressions.mjs --filter scripts/regressions/static-cache-headers.regression.ts",
-    "regression:launcher-update": "node ./scripts/regressions/pnpm-runner.regression.mjs && node ./scripts/regressions/launcher/env.regression.mjs && node ./scripts/regressions/launcher/update.regression.mjs && node ./scripts/regressions/dev-launcher-process.regression.mjs && node ./scripts/regressions/launcher/format-guard.regression.mjs && node ./scripts/check-windows-installer-layout.mjs",
+    "regression:launcher-update": "node ./scripts/regressions/pnpm-runner.regression.mjs && node ./scripts/regressions/launcher/env.regression.mjs && node ./scripts/regressions/launcher/existing-server.regression.mjs && node ./scripts/regressions/launcher/update.regression.mjs && node ./scripts/regressions/dev-launcher-process.regression.mjs && node ./scripts/regressions/launcher/format-guard.regression.mjs && node ./scripts/check-windows-installer-layout.mjs",
     "regression:android-local-auth:run": "pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/android-local-auth.regression.ts",
     "regression:android-local-auth": "pnpm build:shared && pnpm regression:android-local-auth:run",
     "smoke:ui": "pnpm regression:ui",

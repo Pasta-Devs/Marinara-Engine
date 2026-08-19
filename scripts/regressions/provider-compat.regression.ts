@@ -44,6 +44,7 @@ import {
 } from "../../packages/server/src/services/llm/connection-fallback-provider.js";
 import {
   BaseLLMProvider,
+  resolveEmbeddingEndpointUrl,
   type ChatMessage,
   type ChatOptions,
   type LLMUsage,
@@ -149,6 +150,15 @@ const gatewaySseBody = [
 assert.equal(resolveNovelAiStyleReferenceSecondaryStrength(1), 0);
 assert.equal(resolveNovelAiStyleReferenceSecondaryStrength(0.75), 0.25);
 assert.equal(resolveNovelAiStyleReferenceSecondaryStrength(0), 1);
+assert.equal(resolveEmbeddingEndpointUrl("https://openrouter.ai/api/v1"), "https://openrouter.ai/api/v1/embeddings");
+assert.equal(
+  resolveEmbeddingEndpointUrl("https://nano-gpt.com/api/v1/embeddings"),
+  "https://nano-gpt.com/api/v1/embeddings",
+);
+assert.equal(
+  resolveEmbeddingEndpointUrl("https://example.com/v1/embeddings/?source=memory"),
+  "https://example.com/v1/embeddings?source=memory",
+);
 const gatewayServer = createServer((_request, response) => {
   response.writeHead(200, { "content-type": "text/event-stream" });
   response.end(gatewaySseBody);

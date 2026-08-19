@@ -4258,7 +4258,7 @@
   "ui.connections.connectioneditor.onOpenrouterThisCurrentlyTargetsClaudeModelsByAdding": "在 OpenRouter 上，目前会通过添加顶层 cache_control 作用于 Claude 模型。读取缓存远比普通提示词 token 便宜，但首次写入缓存费用更高。",
   "ui.connections.connectioneditor.openrouterAiModels": "openrouter.ai/models",
   "ui.connections.connectioneditor.optional": "可选",
-  "ui.connections.connectioneditor.optionalASeparateBaseUrlForYourEmbeddingBackend": "可选。嵌入后端的独立基础 URL。适合在不同端口运行两个 llama.cpp 实例：一个用于聊天，一个用于嵌入。留空则使用此连接的主 URL。",
+  "ui.connections.connectioneditor.optionalASeparateBaseUrlForYourEmbeddingBackend": "可选。输入嵌入 API 基础 URL（例如 https://host/v1）或完整的 /embeddings 端点。留空则使用此连接的主 URL。",
   "ui.connections.connectioneditor.optionalConfigureTheEmbeddingSourceUsedForLorebookSemantic": "可选。配置世界书语义搜索和记忆检索所用的嵌入来源。",
   "ui.connections.connectioneditor.optionalTypeAGrokCliModelIdOrLeave": "可选：输入 Grok CLI 模型 ID，或留空使用 CLI 默认值",
   "ui.connections.connectioneditor.optionalWhenRoleplayChatsUseThisConnectionMarinaraAssembles": "可选。当角色扮演聊天使用此连接时，Marinara 会组装此提示词预设，而不是聊天所选的提示词预设。对话和游戏模式仍使用各自内置的提示词流程。",
