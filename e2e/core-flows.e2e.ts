@@ -1223,10 +1223,10 @@ test("summary macro editor stays above its floating panel", async ({ page, reque
     if (testInfo.project.name.includes("mobile")) {
       await page.getByRole("button", { name: "More options", exact: true }).click();
     }
-    await page
+    const summaryButton = page
       .getByRole("button", { name: "Chat Summary (1 active summary)", exact: true })
-      .filter({ visible: true })
-      .click();
+      .filter({ visible: true });
+    await summaryButton.click();
 
     const summaryPanel = page.locator("[data-chat-floating-panel]").filter({ hasText: "Chat Summary" });
     await expect(summaryPanel).toBeVisible();
@@ -1243,6 +1243,9 @@ test("summary macro editor stays above its floating panel", async ({ page, reque
     expect(await expandedEditor.evaluate((element) => Number(getComputedStyle(element).zIndex))).toBeGreaterThan(
       await summaryPanel.evaluate((element) => Number(getComputedStyle(element).zIndex)),
     );
+    await summaryButton.evaluate((button: HTMLButtonElement) => button.click());
+    await expect(expandedEditor).toBeVisible();
+    await expandedEditor.locator("textarea").fill("The expanded summary remains usable.");
     await expandedEditor.getByRole("button", { name: "Close expanded editor", exact: true }).click();
     await expect(summaryPanel).toBeVisible();
   } finally {

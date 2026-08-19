@@ -427,6 +427,7 @@ export function SummaryPopover({
     if (!panel) return false;
     const path = typeof event.composedPath === "function" ? event.composedPath() : [];
     if (path.includes(panel)) return true;
+    if (event.target instanceof Element && event.target.closest("[data-macro-modal]")) return true;
     return event.target instanceof Node && panel.contains(event.target);
   }, []);
 
@@ -1110,6 +1111,7 @@ export function SummaryPopover({
   }, [commitCombinePromptDraft]);
 
   const handleClose = useCallback(async () => {
+    if (document.querySelector("[data-macro-modal]")) return;
     if (await commitCombinePromptDraft()) onClose();
   }, [commitCombinePromptDraft, onClose]);
 

@@ -568,7 +568,10 @@ function ActiveContextLinksButton({
 
   useEffect(() => {
     if (!open) return;
-    const handleDismiss = () => setOpen(false);
+    const handleDismiss = () => {
+      if (document.querySelector("[data-macro-modal]")) return;
+      setOpen(false);
+    };
     window.addEventListener(CHAT_FLOATING_UI_DISMISS_EVENT, handleDismiss);
     return () => window.removeEventListener(CHAT_FLOATING_UI_DISMISS_EVENT, handleDismiss);
   }, [open]);
@@ -877,6 +880,7 @@ function SummaryButton({
         ref={buttonRef}
         data-chat-toolbar-panel-action="summary"
         onClick={() => {
+          if (open && document.querySelector("[data-macro-modal]")) return;
           setAnchor(readSummaryAnchor());
           setOpen(!open);
         }}
