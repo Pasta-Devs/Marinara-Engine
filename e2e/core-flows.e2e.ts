@@ -10503,7 +10503,7 @@ test("agent catalog reports API failures without diagnosing an internet outage",
   await expect(catalogView.getByText(/Check the server internet connection/)).toHaveCount(0);
 });
 
-test("Music Player links to Music DJ while its package is unavailable", async ({ page }) => {
+test("Music Player stays unavailable until Music DJ is installed", async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
   let musicDjInstalled = false;
   const musicDjManifest = {
@@ -10557,6 +10557,29 @@ test("Music Player links to Music DJ while its package is unavailable", async ({
       }),
     });
   });
+  await page.route("**/api/capability-packages/spotify/install", async (route) => {
+    musicDjInstalled = true;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "spotify",
+        version: "1.0.0",
+        manifest: musicDjManifest,
+        installedAt: "2026-07-15T00:00:00.000Z",
+        status: "active",
+        error: null,
+        legacy: false,
+      }),
+    });
+  });
+  await page.route("**/api/spotify/status", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: false, expired: false, hasStreamingScope: false }),
+    });
+  });
 
   const openMusicPlayerSetting = async () => {
     const row = page.locator("#settings-control-music-player");
@@ -10566,43 +10589,41 @@ test("Music Player links to Music DJ while its package is unavailable", async ({
     await expect(row).toBeVisible();
     return row;
   };
-  const expandUnavailablePlayer = async () => {
-    const openPrompt = page.getByRole("button", { name: "Open Music DJ download prompt" });
-    if (await openPrompt.isVisible()) await openPrompt.click();
-  };
-
   await page.goto("/");
-  let unavailablePlayer = page.locator('[data-component="MusicDjUnavailablePlayer"]');
-  await expect(unavailablePlayer).toBeVisible();
-  await expandUnavailablePlayer();
-  await expect(unavailablePlayer.getByText("Download Music DJ Agent to configure", { exact: true })).toBeVisible();
+  await page.evaluate(async () => {
+    const { useUIStore } = await import("/src/stores/ui.store.ts");
+    useUIStore.getState().setMusicPlayerSource("spotify");
+  });
+  const musicPlayer = page.locator('[data-component^="SpotifyMiniPlayer."]');
+  await expect(musicPlayer).toHaveCount(0);
   let musicPlayerRow = await openMusicPlayerSetting();
   const musicPlayerToggle = musicPlayerRow.locator('input[type="checkbox"]');
   await expect(musicPlayerToggle).toHaveCount(1);
-  await expect(musicPlayerToggle).toBeChecked();
-  await musicPlayerRow.getByText("Music Player", { exact: true }).click();
+  await expect(musicPlayerToggle).toBeDisabled();
   await expect(musicPlayerToggle).not.toBeChecked();
-  await expect(page.locator('[data-component="MusicDjUnavailablePlayer"]')).toHaveCount(0);
-  await musicPlayerRow.getByText("Music Player", { exact: true }).click();
-  await expect(musicPlayerToggle).toBeChecked();
-  unavailablePlayer = page.locator('[data-component="MusicDjUnavailablePlayer"]');
-  await expect(unavailablePlayer).toBeVisible();
-  await expandUnavailablePlayer();
+  await musicPlayerRow.getByRole("button", { name: "Show help" }).click();
+  await expect(page.getByText("Download the Music DJ agent to use the Music Player.")).toBeVisible();
 
-  musicDjInstalled = true;
-  await page.reload();
-  await expect(page.locator('[data-component="MusicDjUnavailablePlayer"]')).toHaveCount(0);
+  await page.locator('[data-tour="panel-agents"]').click();
+  await page.getByLabel("Agents").getByRole("button", { name: "Download Agents", exact: true }).click();
+  const catalogView = page.locator('[data-component="AgentCatalogView"]');
+  await expect(catalogView).toBeVisible();
+  if (testInfo.project.name.includes("mobile")) {
+    await catalogView.getByRole("button", { name: /Music DJ Matches scene mood/u }).click();
+  }
+  await catalogView.getByRole("button", { name: "Install", exact: true }).click();
+  await expect(musicPlayer).toBeVisible();
+
   musicPlayerRow = await openMusicPlayerSetting();
-  await expect(musicPlayerRow.locator('input[type="checkbox"]')).toHaveCount(1);
-
-  musicDjInstalled = false;
-  await page.reload();
-  unavailablePlayer = page.locator('[data-component="MusicDjUnavailablePlayer"]');
-  await expect(unavailablePlayer).toBeVisible();
-  await expandUnavailablePlayer();
-  await unavailablePlayer.getByRole("button", { name: "Download Agents" }).click();
-  await expect(page.locator('[data-component="AgentCatalogView"]')).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Download Agents" })).toBeVisible();
+  const installedMusicPlayerToggle = musicPlayerRow.locator('input[type="checkbox"]');
+  await expect(installedMusicPlayerToggle).toBeEnabled();
+  await expect(installedMusicPlayerToggle).toBeChecked();
+  await musicPlayerRow.getByText("Music Player", { exact: true }).click();
+  await expect(installedMusicPlayerToggle).not.toBeChecked();
+  await expect(musicPlayer).toHaveCount(0);
+  await musicPlayerRow.getByText("Music Player", { exact: true }).click();
+  await expect(installedMusicPlayerToggle).toBeChecked();
+  await expect(musicPlayer).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -12960,6 +12981,53 @@ test("Professor Mari chat fills the mobile home viewport and keeps its composer 
       );
     })
     .toBe(true);
+});
+
+test("Professor Mari follows an open conversation across chats and mobile navigation", async ({ page }, testInfo) => {
+  const chatResponse = await page.request.post("/api/chats", {
+    data: {
+      name: "Professor Mari floating handoff",
+      mode: "conversation",
+      characterIds: [],
+    },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Ask Professor Mari", exact: true }).click();
+    await expect(page.locator('[data-component="HomeProfessorMariChat.Window"]')).toBeVisible();
+
+    if (testInfo.project.name.includes("mobile")) {
+      await page.locator('[data-tour="sidebar-toggle"]').click();
+      const reopenProfessorMari = page.getByRole("button", { name: "Open Professor Mari chat" });
+      await expect(reopenProfessorMari).toBeVisible();
+      await expect(page.getByRole("button", { name: "Dismiss Professor Mari floating chat" })).toBeVisible();
+      await reopenProfessorMari.dispatchEvent("click");
+      await expect(reopenProfessorMari).toHaveCount(0);
+      await expect(page.getByPlaceholder("Ask Professor Mari").last()).toBeVisible();
+    }
+
+    await page.evaluate(async (chatId) => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts");
+      useChatStore.getState().setActiveChatId(chatId);
+    }, chat.id);
+
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByRole("button", { name: "Close Professor Mari chat" }).last().click();
+      await expect(page.getByRole("button", { name: "Open Professor Mari chat" })).toBeVisible();
+    } else {
+      await expect(page.getByRole("button", { name: "Dismiss Professor Mari floating chat" })).toBeVisible();
+      await expect(page.getByPlaceholder("Ask Professor Mari")).toBeVisible();
+    }
+
+    await page.locator('[data-component="TopBar"]').getByTitle("Home").click();
+    await expect(page.getByRole("button", { name: "Dismiss Professor Mari floating chat" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open Professor Mari chat" })).toHaveCount(0);
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
 });
 
 test("Professor Mari suggestions stay visible after chat history loads", async ({ page }) => {
@@ -16264,10 +16332,51 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   test.skip(!testInfo.project.name.includes("mobile"), "Mobile shell smoke only runs in the mobile project.");
 
   const errors = collectUnexpectedErrors(page);
+  const musicDjManifest = {
+    schemaVersion: 1,
+    id: "spotify",
+    name: "Music DJ",
+    version: "1.0.0",
+    description: "Matches scene mood with Spotify, YouTube, or local music.",
+    engine: { min: "2.3.0", maxExclusive: "3.0.0" },
+    kind: ["agent"],
+    entrypoints: { agents: "agents.json" },
+    files: [],
+    permissions: ["agent-runtime", "chat-read", "prompt-context", "ui"],
+    restartRequired: false,
+  };
   await page.route("**/api/capability-packages/installed", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "spotify",
+          version: "1.0.0",
+          manifest: musicDjManifest,
+          installedAt: "2026-08-19T00:00:00.000Z",
+          status: "active",
+          error: null,
+          legacy: false,
+        },
+      ]),
+    }),
+  );
+  await page.route("**/api/spotify/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: false, expired: false, hasStreamingScope: false }),
+    }),
   );
   await page.goto("/");
+  await page.evaluate(async () => {
+    const { DEFAULT_MOBILE_MUSIC_WIDGET_POSITION, useUIStore } = await import("/src/stores/ui.store.ts");
+    const state = useUIStore.getState();
+    state.setMusicPlayerSource("spotify");
+    state.setSpotifyMobileWidgetCollapsed(true);
+    state.setSpotifyMobileWidgetPosition(DEFAULT_MOBILE_MUSIC_WIDGET_POSITION);
+  });
 
   const topbar = page.locator('[data-component="TopBar"]');
   const homeButton = topbar.getByTitle("Home");
@@ -16307,10 +16416,10 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   expect(chatsIconBounds).not.toBeNull();
   expect(homeIconBounds!.width).toBeGreaterThan(chatsIconBounds!.width);
 
-  const musicDjButton = page.getByRole("button", { name: "Open Music DJ download prompt" });
-  await expect(musicDjButton).toBeVisible();
+  const musicDjWidget = page.locator('[data-component="SpotifyMiniPlayer.Mobile"]');
+  await expect(musicDjWidget).toBeVisible();
   const bookmarksBounds = await page.getByRole("navigation", { name: "Home bookmarks" }).boundingBox();
-  const initialMusicDjBounds = await musicDjButton.boundingBox();
+  const initialMusicDjBounds = await musicDjWidget.boundingBox();
   expect(bookmarksBounds).not.toBeNull();
   expect(initialMusicDjBounds).not.toBeNull();
   const musicDjOverlapsBookmarks =
@@ -16323,19 +16432,19 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
     const { useUIStore } = await import("/src/stores/ui.store.ts");
     return useUIStore.getState().spotifyMobileWidgetPosition;
   });
-  await musicDjButton.dispatchEvent("pointerdown", {
+  await musicDjWidget.dispatchEvent("pointerdown", {
     pointerId: 1,
     pointerType: "touch",
     clientX: initialMusicDjBounds!.x + 24,
     clientY: initialMusicDjBounds!.y + 24,
   });
-  await musicDjButton.dispatchEvent("pointermove", {
+  await musicDjWidget.dispatchEvent("pointermove", {
     pointerId: 1,
     pointerType: "touch",
     clientX: initialMusicDjBounds!.x + 88,
     clientY: initialMusicDjBounds!.y + 88,
   });
-  await musicDjButton.dispatchEvent("pointerup", {
+  await musicDjWidget.dispatchEvent("pointerup", {
     pointerId: 1,
     pointerType: "touch",
     clientX: initialMusicDjBounds!.x + 88,
@@ -16355,6 +16464,30 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   await expect(page.locator('[data-component="ChatSidebar"]')).toBeVisible();
   await expect(homeButton).toHaveAttribute("aria-pressed", "false");
   await expect(chatsButton).toHaveAttribute("aria-pressed", "true");
+  await expect
+    .poll(() =>
+      chatsButton.evaluate((button) => {
+        const icon = button.querySelector("svg");
+        if (!icon) return false;
+        const styles = getComputedStyle(icon);
+        return (
+          styles.stroke === styles.color &&
+          !button.classList.contains("mari-topbar-chat-gradient-icon") &&
+          !button.classList.contains("mari-topbar-chat-gradient-hover")
+        );
+      }),
+    )
+    .toBe(true);
+  await chatsButton.dblclick();
+  await expect(chatsButton).toHaveAttribute("aria-pressed", "true");
+  await expect
+    .poll(() =>
+      chatsButton.evaluate((button) => {
+        const icon = button.querySelector("svg");
+        return icon ? getComputedStyle(icon).stroke === getComputedStyle(icon).color : false;
+      }),
+    )
+    .toBe(true);
   const mobileChatSidebar = page.locator('[data-component="ChatSidebarPanel"]');
   await expect.poll(async () => (await mobileChatSidebar.boundingBox())?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(1);
   await mobileChatSidebar.evaluate((element) => element.setAttribute("data-e2e-mobile-shell", "preserved"));

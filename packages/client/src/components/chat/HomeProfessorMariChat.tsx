@@ -3394,6 +3394,12 @@ export function HomeProfessorMariChat({
     };
   }, [floatingMode]);
 
+  useLayoutEffect(() => {
+    if (floatingMode || controlledChatWindowOpen === undefined) return;
+    floatingFollowupEligibleRef.current = controlledChatWindowOpen;
+    rememberProfessorMariFloatingEnabled(controlledChatWindowOpen);
+  }, [controlledChatWindowOpen, floatingMode]);
+
   const loadMessages = useCallback(
     async (id: string, options: { clearSuggestions?: boolean; shouldApply?: () => boolean } = {}) => {
       messageLoadAbortRef.current?.abort();

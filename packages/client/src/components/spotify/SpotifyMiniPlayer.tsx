@@ -1173,6 +1173,7 @@ export function SpotifyMiniPlayer({
   if (floating) {
     return (
       <div
+        data-component={mobile ? "SpotifyMiniPlayer.Mobile" : "SpotifyMiniPlayer.Floating"}
         className={cn("fixed z-[45] touch-none select-none", mobile && "md:hidden")}
         style={mobileWidgetStyle}
         onPointerDown={startDrag}
@@ -1231,6 +1232,7 @@ export function SpotifyMiniPlayer({
 
   return (
     <div
+      data-component="SpotifyMiniPlayer.Desktop"
       className={cn(
         "relative hidden h-10 min-w-0 max-w-[31rem] flex-1 items-center gap-2 overflow-hidden rounded-full border px-2.5 md:flex",
         MUSIC_PLAYER_SHELL_BORDER_CLASS,
