@@ -68,6 +68,8 @@ import {
   resolveOwnerSpatialProjection,
 } from "../services/spatial-context/projection.js";
 import { createSpatialContextStorage } from "../services/storage/spatial-context.storage.js";
+import { restoreBranchHudLists, trimJournalForBranch } from "../services/game/branch-state.js";
+import type { Journal } from "../services/game/journal.service.js";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
 import { processLorebooks } from "../services/lorebook/index.js";
 import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
@@ -3783,6 +3785,17 @@ export async function chatsRoutes(app: FastifyInstance) {
     const sourceCutoffIndex = upToMessageId ? msgs.findIndex((msg) => msg.id === upToMessageId) : msgs.length - 1;
     const sourceMessagesToCopy = msgs.slice(0, sourceCutoffIndex + 1);
     const copiedSourceMessageIds = new Set(sourceMessagesToCopy.map((msg) => msg.id));
+    const firstOmittedMessage = msgs[sourceCutoffIndex + 1];
+    if (sourceChat.mode === "game" && firstOmittedMessage) {
+      if (settingsToKeep.gameJournal) {
+        settingsToKeep.gameJournal = trimJournalForBranch(
+          settingsToKeep.gameJournal as Journal,
+          copiedSourceMessageIds,
+          firstOmittedMessage.createdAt as string,
+        );
+      }
+      settingsToKeep.gameWidgetState = restoreBranchHudLists(sourceMeta, sourceMessagesToCopy);
+    }
     const inheritedSourceEntries = sourceSummaryEntries.filter((entry) => {
       if (!entry.messageIds?.length || !entry.messageIds.every((id) => copiedSourceMessageIds.has(id))) return false;
       if (entry.rangeEndIndex && entry.rangeEndIndex > sourceMessagesToCopy.length) return false;

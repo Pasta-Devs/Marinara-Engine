@@ -14,20 +14,18 @@ let app: { close(): Promise<void>; inject(options: Record<string, unknown>): Pro
 
 try {
   const { buildApp } = await import("../../packages/server/src/app.js");
-  const { createCapabilityPersistenceHost } = await import(
-    "../../packages/server/src/services/capability-packages/capability-persistence.service.js"
-  );
+  const { createCapabilityPersistenceHost } =
+    await import("../../packages/server/src/services/capability-packages/capability-persistence.service.js");
   const { getDB } = await import("../../packages/server/src/db/connection.js");
-  const { createGameEngineStateStorage } = await import(
-    "../../packages/server/src/services/storage/game-engine-state.storage.js"
-  );
+  const { createGameEngineStateStorage } =
+    await import("../../packages/server/src/services/storage/game-engine-state.storage.js");
 
   app = await buildApp();
   await app.ready();
   const db = await getDB();
   const engineStore = createGameEngineStateStorage(db);
 
-  const create = async (name: string, mode: "conversation" | "roleplay" = "roleplay") => {
+  const create = async (name: string, mode: "conversation" | "roleplay" | "game" = "roleplay") => {
     const response = await app!.inject({
       method: "POST",
       url: "/api/chats",
@@ -36,11 +34,11 @@ try {
     assert.equal(response.statusCode, 200);
     return response.json();
   };
-  const addMessage = async (chatId: string, content: string) => {
+  const addMessage = async (chatId: string, content: string, role: "user" | "assistant" = "user") => {
     const response = await app!.inject({
       method: "POST",
       url: `/api/chats/${chatId}/messages`,
-      payload: { role: "user", content },
+      payload: { role, content },
     });
     assert.equal(response.statusCode, 200);
     return response.json();
@@ -104,6 +102,70 @@ try {
   assert.equal(emptyBranch.metadata.branchParentChatId, empty.id);
   assert.equal(emptyBranch.metadata.branchParentMessageId, null);
   assert.equal(emptyBranch.metadata.branchMessageId, null);
+
+  const chatStorage = (await import("../../packages/server/src/services/storage/chats.storage.js")).createChatsStorage(
+    db,
+  );
+  const game = await create("Branch-scoped GM state", "game");
+  const keptGameMessage = await addMessage(game.id, '[widget: clues, add: "First clue"]', "assistant");
+  const omittedGameMessage = await addMessage(game.id, '[widget: clues, add: "Future clue"]', "assistant");
+  await chatStorage.updateMetadata(game.id, {
+    gameBlueprint: {
+      hudWidgets: [
+        {
+          id: "clues",
+          type: "list",
+          label: "Clues",
+          position: "hud_left",
+          config: { items: [] },
+        },
+      ],
+    },
+    gameWidgetState: [
+      {
+        id: "clues",
+        type: "list",
+        label: "Clues",
+        position: "hud_left",
+        config: { items: ["First clue", "Future clue"] },
+      },
+    ],
+    gameJournal: {
+      entries: [
+        {
+          timestamp: keptGameMessage.createdAt,
+          type: "location",
+          title: "Discovered: Old Hall",
+          content: "The first path.",
+          sourceMessageId: keptGameMessage.id,
+        },
+        {
+          timestamp: omittedGameMessage.createdAt,
+          type: "location",
+          title: "Discovered: Future Vault",
+          content: "The abandoned path.",
+          sourceMessageId: omittedGameMessage.id,
+        },
+      ],
+      quests: [],
+      locations: ["Old Hall", "Future Vault"],
+      npcLog: [],
+      inventoryLog: [],
+    },
+  });
+  const gameBranchResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${game.id}/branch`,
+    payload: { upToMessageId: keptGameMessage.id },
+  });
+  assert.equal(gameBranchResponse.statusCode, 200);
+  const gameBranch = gameBranchResponse.json();
+  assert.deepEqual(gameBranch.metadata.gameJournal.locations, ["Old Hall"]);
+  assert.deepEqual(
+    gameBranch.metadata.gameJournal.entries.map((entry: { title: string }) => entry.title),
+    ["Discovered: Old Hall"],
+  );
+  assert.deepEqual(gameBranch.metadata.gameWidgetState[0].config.items, ["First clue"]);
 
   const persistence = createCapabilityPersistenceHost(db);
   const listed = await persistence.listChats();
