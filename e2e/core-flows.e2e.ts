@@ -13045,26 +13045,33 @@ test("Professor Mari suggestions stay visible after chat history loads", async (
   const chatResponse = await page.request.get("/api/chats/internal/professor-mari");
   expect(chatResponse.ok()).toBeTruthy();
   const chat = (await chatResponse.json()) as { id: string };
-  const userMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
-    data: {
-      role: "user",
-      content: `Professor Mari chrome color request ${Date.now()}`,
-    },
-  });
-  expect(userMessageResponse.ok()).toBeTruthy();
-  const userMessage = (await userMessageResponse.json()) as { id: string };
   const messageContent = `Professor Mari suggestion stability ${Date.now()}`;
-  const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
-    data: {
-      role: "assistant",
-      characterId: "__professor_mari__",
-      content: messageContent,
-    },
-  });
-  expect(messageResponse.ok()).toBeTruthy();
-  const message = (await messageResponse.json()) as { id: string };
+  const createdMessageIds: string[] = [];
 
   try {
+    const userMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: {
+        role: "user",
+        content: `Professor Mari chrome color request ${Date.now()}`,
+      },
+    });
+    const userMessage = (await userMessageResponse.json().catch(() => null)) as { id?: unknown } | null;
+    if (typeof userMessage?.id === "string") createdMessageIds.push(userMessage.id);
+    expect(userMessageResponse.ok()).toBeTruthy();
+    expect(userMessage?.id).toEqual(expect.any(String));
+
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: {
+        role: "assistant",
+        characterId: "__professor_mari__",
+        content: messageContent,
+      },
+    });
+    const message = (await messageResponse.json().catch(() => null)) as { id?: unknown } | null;
+    if (typeof message?.id === "string") createdMessageIds.push(message.id);
+    expect(messageResponse.ok()).toBeTruthy();
+    expect(message?.id).toEqual(expect.any(String));
+
     await page.goto("/");
     await page.evaluate(async () => {
       const [{ useAgentStore }, { useUIStore }] = await Promise.all([
@@ -13084,7 +13091,11 @@ test("Professor Mari suggestions stay visible after chat history loads", async (
     const suggestions = window.getByRole("group", { name: "Suggested replies" });
     await expect(suggestions).toBeVisible();
     await expect(suggestions.getByRole("button", { name: "Create a character" })).toBeVisible();
+    const configuredChromeTextColor = await page.evaluate(() =>
+      document.documentElement.style.getPropertyValue("--marinara-chat-chrome-text").trim(),
+    );
     const chromeMutedColor = await readCssVariableColor(page, "--marinara-chat-chrome-panel-muted");
+    expect(configuredChromeTextColor).toBe("#14b8a6");
     await expect(window.getByText("You", { exact: true }).last()).toHaveCSS("color", chromeMutedColor);
     await expect(window.getByRole("button", { name: "Edit Message" }).last()).toHaveCSS("color", chromeMutedColor);
     await expect(window.getByText("Suggestions only. Pick one, or type your own.", { exact: true })).toHaveCSS(
@@ -13093,7 +13104,7 @@ test("Professor Mari suggestions stay visible after chat history loads", async (
     );
   } finally {
     await Promise.all(
-      [userMessage.id, message.id].map((id) => bestEffortDelete(page.request, `/api/chats/${chat.id}/messages/${id}`)),
+      createdMessageIds.map((id) => bestEffortDelete(page.request, `/api/chats/${chat.id}/messages/${id}`)),
     );
   }
 });
@@ -13172,8 +13183,12 @@ test("Professor Mari shows the latest context budget when token usage is enabled
 
     const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
     const budget = window.locator('[data-component="HomeProfessorMariChat.ContextBudget"]');
+    const configuredChromeTextColor = await page.evaluate(() =>
+      document.documentElement.style.getPropertyValue("--marinara-chat-chrome-text").trim(),
+    );
     const chromeMutedColor = await readCssVariableColor(page, "--marinara-chat-chrome-panel-muted");
     const chromeTextColor = await readCssVariableColor(page, "--marinara-chat-chrome-panel-text");
+    expect(configuredChromeTextColor).toBe("#14b8a6");
     await expect(budget).toContainText("Context");
     await expect(budget).toContainText("12.3k / 128k tokens");
     await expect(budget.getByText("Context", { exact: true })).toHaveCSS("color", chromeMutedColor);
