@@ -84,12 +84,12 @@ export function normalizeBeholderProse(message: string): string {
   text = text.replace(/[([]+\s*OOC:[^)\]]*[)\]]+/giu, "");
 
   // 2. Labeled dialogue blocks (quoted): Name (Tone): "speech"
-  text = text.replace(/^([A-Z][A-Za-z'\- ]+?)\s*\(([^)]+)\):\s*"([^"]+)"\s*$/gmu, (_match, name, tone, speech) =>
+  text = text.replace(/^([A-Z][A-Za-z'\- ]+?)\(([^)]+)\):[ \t]*"([^"]+)"[ \t]*$/gmu, (_match, name, tone, speech) =>
     attributeDialogue(speech, String(name).trim(), toneToAdverb(String(tone))),
   );
 
   // 3. Script-style ALLCAPS dialogue (unquoted): NAME (Tone): speech
-  text = text.replace(/^([A-Z][A-Z'\- ]+?)\s*\(([^)]+)\):\s*(.+?)\s*$/gmu, (_match, name, tone, speech) =>
+  text = text.replace(/^([A-Z][A-Z'\- ]+?)\(([^)]+)\):[ \t]*(.+?)[ \t]*$/gmu, (_match, name, tone, speech) =>
     attributeDialogue(speech, titleCase(String(name)), toneToAdverb(String(tone))),
   );
 

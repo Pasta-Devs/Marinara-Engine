@@ -492,6 +492,46 @@ export function normalizeBeholderState(value: unknown): BeholderState | null {
   return { characters };
 }
 
+/**
+ * Build the user message for one extraction, in the exact layout the extractor was
+ * trained and evaluated on:
+ *
+ *     Persona: <name>
+ *     Current state:
+ *     {"self":{...}}
+ *
+ *     Narration:
+ *     <canonical prose>
+ *
+ * The details are load-bearing, not stylistic. The persona line is omitted when there
+ * is no persona, the state block is omitted entirely when nothing is tracked yet
+ * (rather than sent as an empty object), and the state is serialized compactly. A
+ * purpose-trained extractor reads this as one fixed shape; drifting from it moves the
+ * input away from the distribution the model's accuracy was measured on.
+ */
+export function buildBeholderUserMessage(
+  state: unknown,
+  personaName: string | null | undefined,
+  narration: string,
+): string {
+  const prior = normalizedPriorState(state);
+  const resolvedPersonaName = cleanText(personaName, 160);
+  const keyedState: Record<string, Omit<BeholderCharacterState, "name">> = {};
+  for (const character of prior.characters) {
+    const key = resolvedPersonaName && sameCharacterName(character.name, resolvedPersonaName) ? "self" : character.name;
+    keyedState[key] = {
+      ...(character.species ? { species: character.species } : {}),
+      body: character.body,
+    };
+  }
+
+  const parts: string[] = [];
+  if (resolvedPersonaName) parts.push(`Persona: ${resolvedPersonaName}`);
+  if (Object.keys(keyedState).length > 0) parts.push(`Current state:\n${JSON.stringify(keyedState)}\n`);
+  parts.push(`Narration:\n${narration}`);
+  return parts.join("\n");
+}
+
 /** Serialize state for the delta prompt while giving the active Persona the stable `self` key. */
 export function formatBeholderRequestContext(state: unknown, personaName: string | null | undefined): string {
   const prior = normalizedPriorState(state);

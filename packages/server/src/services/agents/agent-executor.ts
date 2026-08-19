@@ -44,6 +44,7 @@ import { getAssetManifest } from "../game/asset-manifest.service.js";
 import { normalizeBeholderProse } from "./beholder-normalizer.js";
 import {
   BEHOLDER_PASS_LANES,
+  buildBeholderUserMessage,
   formatBeholderRequestContext,
   isBeholderLaneResponse,
   mergeBeholderLaneDeltas,
@@ -746,7 +747,9 @@ export async function executeAgent(
           ? buildKnowledgeRetrievalAgentMessages(config, template, context)
           : config.type === "spotify"
             ? buildSpotifyAgentMessages(config, template, context)
-            : buildStandardAgentMessages(config, template, context);
+            : config.type === "beholder"
+              ? buildBeholderMessages(config, template, context)
+              : buildStandardAgentMessages(config, template, context);
 
     const temperature = resolveAgentTemperature(config);
     const maxTokens = applyAgentMaxTokensCaps(
@@ -969,7 +972,7 @@ async function executeBeholderLanePasses(args: {
     [...BEHOLDER_PASS_LANES],
     AGENT_BATCH_FALLBACK_MAX_CONCURRENT,
     async (lane) => {
-      const messages = buildStandardAgentMessages(config, lanePrompts[lane], context);
+      const messages = buildBeholderMessages(config, lanePrompts[lane], context);
       logger.debug(`[agent] ═══ ${config.type} [${lane}] PROMPT ═══`);
       for (const msg of messages) {
         logger.debug(`[agent] [${msg.role}] ${msg.content}`);
@@ -1991,6 +1994,35 @@ function buildCustomAgentCapabilityBlock(config: AgentExecConfig, context: Agent
   return parts.join("\n");
 }
 
+/**
+ * Build the two messages one Beholder extraction runs on, matching the reference
+ * extractor exactly: the prompt as the raw system message, and a single user message
+ * holding the persona, the tracked state, and the new narration.
+ *
+ * Beholder deliberately does not use the shared agent scaffolding. The standard
+ * builder wraps the prompt in <role>/<lore>/<agents>, appends an output-format block
+ * and other context, and passes chat history as separate turns. A general model reads
+ * past that; a small purpose-trained extractor was fitted to one exact input shape and
+ * treats the surrounding text as part of the task, which costs accuracy.
+ *
+ * The narration is normalized to canonical prose and is not truncated: for other agents
+ * history is background, but here the message IS the thing being extracted from, so
+ * cutting it silently hides whatever state the rest of it described.
+ */
+function buildBeholderMessages(config: AgentExecConfig, template: string, context: AgentContext): ChatMessage[] {
+  const contextSize = normalizeAgentContextSize(config.settings.contextSize);
+  const recent = contextSize > 0 ? context.recentMessages.slice(-contextSize) : [];
+  const narration = recent
+    .map((message) => normalizeBeholderProse(message.content))
+    .filter((text) => text.length > 0)
+    .join("\n");
+  const user = buildBeholderUserMessage(context.memory._beholderState, context.persona?.name ?? null, narration);
+  return [
+    { role: "system", content: template },
+    { role: "user", content: user },
+  ];
+}
+
 function buildStandardAgentMessages(config: AgentExecConfig, template: string, context: AgentContext): ChatMessage[] {
   // Build the agent's system prompt with <role> + <lore> + <agents> + extras
   const systemParts: string[] = [];
@@ -2030,11 +2062,6 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
   const agentContextSize = contextSources.chatHistory ? normalizeAgentContextSize(config.settings.contextSize) : 0;
   const resultType = resolveAgentResultType(config);
   const renderedTemplates = new Map([[config.type, template]]);
-  // Beholder reads prose, not markup. Its extractor was trained and measured on a
-  // canonical surface form — no asterisk actions, markdown, BBCode, or HTML — so it
-  // gets the normalizer instead of the plain tag strip, and no per-message cap:
-  // truncating a turn hides whatever state the rest of it described.
-  const isBeholder = config.type === "beholder";
   return buildAgentMessages(systemParts.join("\n"), context, config.type, agentContextSize, [config.type], {
     includeMessageIds: normalizeCustomAgentCapabilities(config.settings).edit_messages === true,
     includeTrackerData: contextSources.trackerData,
@@ -2042,7 +2069,6 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
     outputFormatBlock: buildAgentOutputFormatBlock([config], context, renderedTemplates),
     includeImagePromptInstructions:
       config.type === "illustrator" || customAgentHasCapability(config.settings, "trigger_image_generation"),
-    ...(isBeholder ? { contentTransform: normalizeBeholderProse, contentMaxChars: 0 } : {}),
   });
 }
 
@@ -2513,10 +2539,6 @@ function buildAgentMessages(
     preserveAssistantResponseMarkup?: boolean;
     outputFormatBlock?: string;
     includeImagePromptInstructions?: boolean;
-    /** Replaces the default HTML strip when an agent needs its own surface form. */
-    contentTransform?: (raw: string) => string;
-    /** Per-message character cap; 0 disables truncation. Defaults to HISTORY_MESSAGE_MAX_CHARS. */
-    contentMaxChars?: number;
   } = {},
 ): ChatMessage[] {
   // ── 1. System message — already contains <role>, <lore>, <agents>, and extras ──
@@ -2538,10 +2560,7 @@ function buildAgentMessages(
     for (let msgIdx = 0; msgIdx < recent.length; msgIdx++) {
       const msg = recent[msgIdx]!;
       const role: "user" | "assistant" = msg.role === "assistant" ? "assistant" : "user";
-      const transformContent = options.contentTransform ?? stripHtmlTags;
-      const maxChars = options.contentMaxChars ?? HISTORY_MESSAGE_MAX_CHARS;
-      const transformed = transformContent(msg.content);
-      let content = maxChars > 0 ? transformed.slice(0, maxChars) : transformed;
+      let content = stripHtmlTags(msg.content).slice(0, HISTORY_MESSAGE_MAX_CHARS);
       if (options.includeMessageIds && msg.id) {
         content = `<message_id>${msg.id}</message_id>\n${content}`;
       }
