@@ -810,6 +810,7 @@
   "settings.controls.miniMari.label": "Mini Mari surprise visits",
   "settings.controls.musicPlayer.help": "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings.",
   "settings.controls.musicPlayer.label": "Music Player",
+  "settings.controls.musicPlayer.requiresMusicDj": "Download the Music DJ agent to use the Music Player.",
   "settings.controls.narratorCyclingAvatars.help": "Cycle Narrator avatars through active characters. Turn this off to show active character avatars together.",
   "settings.controls.narratorCyclingAvatars.label": "Narrator's Cycling Avatars",
   "settings.controls.noodleGeneration.help": "Used for generated images in public Noodle and private NoodleR timelines.",

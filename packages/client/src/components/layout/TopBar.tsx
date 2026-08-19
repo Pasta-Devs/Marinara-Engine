@@ -20,7 +20,6 @@ import { cn } from "../../lib/utils";
 import { SpotifyMiniPlayer } from "../spotify/SpotifyMiniPlayer";
 import { YouTubePlayer } from "../chat/YouTubePlayer";
 import { LocalMusicPlayer } from "../chat/LocalMusicPlayer";
-import { MusicDjUnavailablePlayer } from "../music/MusicDjUnavailablePlayer";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
@@ -110,7 +109,6 @@ export function TopBar() {
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
   const gameAssetsBrowserOpen = useUIStore((s) => s.gameAssetsBrowserOpen);
-  const musicPlayerEnabled = useUIStore((s) => s.musicPlayerEnabled);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -120,13 +118,10 @@ export function TopBar() {
   const [spotifyUseFloatingFallback, setSpotifyUseFloatingFallback] = useState(false);
   const [hoveredTopbarKey, setHoveredTopbarKey] = useState<string | null>(null);
   const [mobileTopbarNavigation, setMobileTopbarNavigation] = useState(isMobileTopbarNavigation);
-  const { data: installedCapabilities = [], isLoading: installedCapabilitiesLoading } =
-    useInstalledCapabilityPackages();
+  const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
   const musicDjInstalled = installedCapabilities.some(
     (capability) => capability.id === "spotify" && capability.status === "active",
   );
-  const showMusicDjUnavailablePlayer =
-    spotifyDesktopViewport && musicPlayerEnabled && !installedCapabilitiesLoading && !musicDjInstalled;
 
   const isCharactersPanelActive =
     (rightPanelOpen && rightPanel === "characters") ||
@@ -282,10 +277,13 @@ export function TopBar() {
       className={cn(
         TOPBAR_BUTTON_CLASS,
         sidebarOpen
-          ? cn(TOPBAR_ACTIVE_BUTTON_CLASS, "mari-topbar-chat-gradient-icon")
+          ? cn(TOPBAR_ACTIVE_BUTTON_CLASS, !mobileTopbarNavigation && "mari-topbar-chat-gradient-icon")
           : cn(
-              "mari-topbar-chat-gradient-hover text-[var(--muted-foreground)]",
-              isTopbarHovered("chats") && cn(TOPBAR_FORCE_HOVER_CLASS, "mari-topbar-chat-gradient-icon"),
+              "text-[var(--muted-foreground)]",
+              !mobileTopbarNavigation && "mari-topbar-chat-gradient-hover",
+              !mobileTopbarNavigation &&
+                isTopbarHovered("chats") &&
+                cn(TOPBAR_FORCE_HOVER_CLASS, "mari-topbar-chat-gradient-icon"),
             ),
       )}
       title={localize("Chats")}
@@ -349,9 +347,7 @@ export function TopBar() {
         >
           {mobileTopbarNavigation ? [homeButton, chatsButton] : [chatsButton, homeButton]}
         </div>
-        {showMusicDjUnavailablePlayer ? (
-          <MusicDjUnavailablePlayer floating={spotifyUseFloatingFallback} />
-        ) : musicDjInstalled ? (
+        {musicDjInstalled ? (
           <>
             {spotifyDesktopViewport && <SpotifyMiniPlayer forceFloating={spotifyUseFloatingFallback} />}
             <YouTubePlayer />

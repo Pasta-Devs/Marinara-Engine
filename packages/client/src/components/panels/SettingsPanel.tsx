@@ -3318,6 +3318,10 @@ function GeneralSettings() {
   const { t: localizeUi } = useUiTranslation();
   const { t, i18n: localization } = useTranslation();
   const localize = useLocalizedUiText();
+  const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
+  const musicDjInstalled = installedCapabilities.some(
+    (capability) => capability.id === "spotify" && capability.status === "active",
+  );
   const language = useUIStore((s) => s.language);
   const setLanguage = useUIStore((s) => s.setLanguage);
   const enableStreaming = useUIStore((s) => s.enableStreaming);
@@ -3427,9 +3431,12 @@ function GeneralSettings() {
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("music-player")}
             label={localizeUi("settings.controls.musicPlayer.label")}
-            checked={musicPlayerEnabled}
+            checked={musicDjInstalled && musicPlayerEnabled}
             onChange={setMusicPlayerEnabled}
-            help={localizeUi("settings.controls.musicPlayer.help")}
+            help={localizeUi(
+              musicDjInstalled ? "settings.controls.musicPlayer.help" : "settings.controls.musicPlayer.requiresMusicDj",
+            )}
+            disabled={!musicDjInstalled}
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("mini-mari")}
