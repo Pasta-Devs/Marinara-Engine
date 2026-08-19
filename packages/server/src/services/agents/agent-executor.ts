@@ -41,6 +41,7 @@ import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { settleAgentJobsWithConcurrencyLimit } from "./agent-concurrency.js";
 import { normalizeCyoaChoiceOutput } from "./cyoa-choice-normalization.js";
 import { getAssetManifest } from "../game/asset-manifest.service.js";
+import { normalizeBeholderProse } from "./beholder-normalizer.js";
 import {
   BEHOLDER_PASS_LANES,
   formatBeholderRequestContext,
@@ -62,6 +63,10 @@ const ILLUSTRATOR_AGENT_CALL_TIMEOUT_MS = 30 * 60_000;
 const AGENT_BATCH_FALLBACK_MAX_CONCURRENT = 4;
 
 /** Strip HTML/XML-style tags (e.g. <div style="..."> <br> <speaker>) from text to save tokens. */
+/** Per-message history cap for agent context. Beholder opts out: a truncated
+ *  turn silently hides whatever state the rest of the message described. */
+const HISTORY_MESSAGE_MAX_CHARS = 2000;
+
 function stripHtmlTags(text: string): string {
   return text
     .replace(/<\/?[a-zA-Z][^>]*>/g, "")
@@ -2025,6 +2030,11 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
   const agentContextSize = contextSources.chatHistory ? normalizeAgentContextSize(config.settings.contextSize) : 0;
   const resultType = resolveAgentResultType(config);
   const renderedTemplates = new Map([[config.type, template]]);
+  // Beholder reads prose, not markup. Its extractor was trained and measured on a
+  // canonical surface form — no asterisk actions, markdown, BBCode, or HTML — so it
+  // gets the normalizer instead of the plain tag strip, and no per-message cap:
+  // truncating a turn hides whatever state the rest of it described.
+  const isBeholder = config.type === "beholder";
   return buildAgentMessages(systemParts.join("\n"), context, config.type, agentContextSize, [config.type], {
     includeMessageIds: normalizeCustomAgentCapabilities(config.settings).edit_messages === true,
     includeTrackerData: contextSources.trackerData,
@@ -2032,6 +2042,7 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
     outputFormatBlock: buildAgentOutputFormatBlock([config], context, renderedTemplates),
     includeImagePromptInstructions:
       config.type === "illustrator" || customAgentHasCapability(config.settings, "trigger_image_generation"),
+    ...(isBeholder ? { contentTransform: normalizeBeholderProse, contentMaxChars: 0 } : {}),
   });
 }
 
@@ -2502,6 +2513,10 @@ function buildAgentMessages(
     preserveAssistantResponseMarkup?: boolean;
     outputFormatBlock?: string;
     includeImagePromptInstructions?: boolean;
+    /** Replaces the default HTML strip when an agent needs its own surface form. */
+    contentTransform?: (raw: string) => string;
+    /** Per-message character cap; 0 disables truncation. Defaults to HISTORY_MESSAGE_MAX_CHARS. */
+    contentMaxChars?: number;
   } = {},
 ): ChatMessage[] {
   // ── 1. System message — already contains <role>, <lore>, <agents>, and extras ──
@@ -2523,7 +2538,10 @@ function buildAgentMessages(
     for (let msgIdx = 0; msgIdx < recent.length; msgIdx++) {
       const msg = recent[msgIdx]!;
       const role: "user" | "assistant" = msg.role === "assistant" ? "assistant" : "user";
-      let content = stripHtmlTags(msg.content).slice(0, 2000);
+      const transformContent = options.contentTransform ?? stripHtmlTags;
+      const maxChars = options.contentMaxChars ?? HISTORY_MESSAGE_MAX_CHARS;
+      const transformed = transformContent(msg.content);
+      let content = maxChars > 0 ? transformed.slice(0, maxChars) : transformed;
       if (options.includeMessageIds && msg.id) {
         content = `<message_id>${msg.id}</message_id>\n${content}`;
       }
