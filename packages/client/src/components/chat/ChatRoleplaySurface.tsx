@@ -759,6 +759,7 @@ function SummaryButton({
   summaryConnectionId,
   summaryMaxTokens,
   automaticSummaryEnabled,
+  semanticSummaryRetrievalEnabled,
   activeAgentIds,
   summaryRunInterval,
   hideSummarisedMessages,
@@ -777,6 +778,7 @@ function SummaryButton({
   summaryConnectionId?: string | null;
   summaryMaxTokens?: number;
   automaticSummaryEnabled: boolean;
+  semanticSummaryRetrievalEnabled: boolean;
   activeAgentIds: string[];
   summaryRunInterval?: number;
   hideSummarisedMessages?: boolean;
@@ -906,6 +908,7 @@ function SummaryButton({
             summaryConnectionId={summaryConnectionId}
             summaryMaxTokens={summaryMaxTokens}
             automaticSummaryEnabled={automaticSummaryEnabled}
+            semanticSummaryRetrievalEnabled={semanticSummaryRetrievalEnabled}
             activeAgentIds={activeAgentIds}
             summaryRunInterval={summaryRunInterval}
             hideSummarisedMessages={hideSummarisedMessages}
@@ -1636,6 +1639,7 @@ export function ChatRoleplaySurface({
   const automaticSummaryEnabled =
     chatMeta.automaticSummaryEnabled === true ||
     (chatMeta.enableAgents === true && summaryActiveAgentIds.includes("chat-summary"));
+  const semanticSummaryRetrievalEnabled = chatMeta.semanticSummaryRetrievalEnabled === true;
   const summaryRunInterval =
     typeof chatMeta.summaryRunInterval === "number" && Number.isFinite(chatMeta.summaryRunInterval)
       ? chatMeta.summaryRunInterval
@@ -1867,6 +1871,7 @@ export function ChatRoleplaySurface({
                       }
                       summaryMaxTokens={summaryMaxTokens}
                       automaticSummaryEnabled={automaticSummaryEnabled}
+                      semanticSummaryRetrievalEnabled={semanticSummaryRetrievalEnabled}
                       activeAgentIds={summaryActiveAgentIds}
                       summaryRunInterval={summaryRunInterval}
                       hideSummarisedMessages={hideSummarisedMessages}
@@ -1995,6 +2000,7 @@ export function ChatRoleplaySurface({
                           }
                           summaryMaxTokens={summaryMaxTokens}
                           automaticSummaryEnabled={automaticSummaryEnabled}
+                          semanticSummaryRetrievalEnabled={semanticSummaryRetrievalEnabled}
                           activeAgentIds={summaryActiveAgentIds}
                           summaryRunInterval={summaryRunInterval}
                           hideSummarisedMessages={hideSummarisedMessages}
@@ -2078,6 +2084,7 @@ export function ChatRoleplaySurface({
                         }
                         summaryMaxTokens={summaryMaxTokens}
                         automaticSummaryEnabled={automaticSummaryEnabled}
+                        semanticSummaryRetrievalEnabled={semanticSummaryRetrievalEnabled}
                         activeAgentIds={summaryActiveAgentIds}
                         summaryRunInterval={summaryRunInterval}
                         hideSummarisedMessages={hideSummarisedMessages}

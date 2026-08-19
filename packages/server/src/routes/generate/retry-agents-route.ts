@@ -82,7 +82,10 @@ import {
   applyTrackerLorebookContextPolicy,
   getTrackerAgentTypes,
 } from "../../services/generation/tracker-agent-context.js";
-import { resolveMemoryRecallEmbeddingSource } from "../../services/memory-recall-embedding.js";
+import {
+  isMemoryRecallVectorizerAvailable,
+  resolveMemoryRecallEmbeddingSource,
+} from "../../services/memory-recall-embedding.js";
 import {
   loadImageGenerationUserSettings,
   resolveIllustratorImageSize,
@@ -131,7 +134,7 @@ import {
   preserveTrackerCharacterUiFields,
   resolveActiveCharacterIds,
   resolveBaseUrl,
-  resolveRoleplayChatSummary,
+  resolveRoleplayChatSummaryForPrompt,
   resolveVisibleGameStateAnchor,
 } from "./generate-route-utils.js";
 import {
@@ -877,12 +880,29 @@ async function buildRetryAgentContext(args: {
     ];
   });
   let recalledAgentVectorMemories: string[] = [];
+  let embeddingSource: Awaited<ReturnType<typeof resolveMemoryRecallEmbeddingSource>> | null = null;
+  let summaryVectorizerAvailable = false;
+  if (customAgentVectorAccessEnabled || chatMeta.semanticSummaryRetrievalEnabled === true) {
+    try {
+      const connectionId = typeof chat.connectionId === "string" ? chat.connectionId : null;
+      embeddingSource = await resolveMemoryRecallEmbeddingSource(db, {
+        chatMetadata: chatMeta,
+        connectionId,
+      });
+      if (chatMeta.semanticSummaryRetrievalEnabled === true) {
+        summaryVectorizerAvailable =
+          embeddingSource !== null ||
+          (await isMemoryRecallVectorizerAvailable(db, {
+            chatMetadata: chatMeta,
+            connectionId,
+          }));
+      }
+    } catch (err) {
+      logger.warn(err, "[retry-agents] Failed to resolve vector context");
+    }
+  }
   if (customAgentVectorAccessEnabled) {
     try {
-      const embeddingSource = await resolveMemoryRecallEmbeddingSource(db, {
-        chatMetadata: chatMeta,
-        connectionId: typeof chat.connectionId === "string" ? chat.connectionId : null,
-      });
       const latestUserMessage = [...resolvedAgentSlice]
         .reverse()
         .find((message: any) => message.role === "user" && message.content?.trim());
@@ -901,6 +921,13 @@ async function buildRetryAgentContext(args: {
       logger.warn(err, "[retry-agents] Failed to resolve custom-agent vector context");
     }
   }
+  const activeChatSummary = await resolveRoleplayChatSummaryForPrompt({
+    chatMode,
+    chatMetadata: chatMeta,
+    messages: resolvedAgentSlice,
+    vectorizerAvailable: summaryVectorizerAvailable,
+    embeddingOptions: { embeddingSource },
+  });
   const agentContext: AgentContext = {
     chatId,
     chatMode,
@@ -950,7 +977,7 @@ async function buildRetryAgentContext(args: {
           }
         : null,
     writableLorebookIds: null,
-    chatSummary: resolveRoleplayChatSummary(chatMode, chatMeta),
+    chatSummary: activeChatSummary,
     authorNotes:
       typeof chatMeta.authorNotes === "string" && chatMeta.authorNotes.trim()
         ? resolveMacros(chatMeta.authorNotes, promptMacroContext, { trimResult: false }).trim()

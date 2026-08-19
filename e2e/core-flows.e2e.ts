@@ -11646,6 +11646,77 @@ test("Conversation Chat Settings can attach and retain custom agents", async ({ 
   }
 });
 
+test("Roleplay Chat Summaries persists semantic retrieval without overflowing its mobile panel", async ({
+  page,
+  request,
+}, testInfo) => {
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "Roleplay Semantic Summary Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
+    data: { automaticSummaryEnabled: true },
+  });
+  expect(metadataResponse.ok()).toBeTruthy();
+
+  const readSemanticSetting = async () => {
+    const response = await request.get(`/api/chats/${chat.id}`);
+    const current = (await response.json()) as { metadata?: unknown };
+    const metadata =
+      typeof current.metadata === "string"
+        ? (JSON.parse(current.metadata) as Record<string, unknown>)
+        : ((current.metadata ?? {}) as Record<string, unknown>);
+    return metadata.semanticSummaryRetrievalEnabled;
+  };
+  const openSummary = async () => {
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByRole("button", { name: "More options", exact: true }).click();
+    }
+    const summaryButton = page.getByRole("button", { name: "Chat Summary", exact: true }).filter({ visible: true });
+    await expect(summaryButton).toHaveCount(1);
+    await summaryButton.click();
+    const panel = page.locator("[data-chat-floating-panel]").filter({ hasText: "Automatic Summaries" });
+    await expect(panel).toBeVisible();
+    return panel;
+  };
+
+  try {
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+
+    let panel = await openSummary();
+    const semanticSwitch = panel.getByRole("checkbox", { name: "Semantic retrieval", exact: true });
+    await expect(semanticSwitch).not.toBeChecked();
+    await semanticSwitch.click();
+    await expect.poll(readSemanticSetting).toBe(true);
+    await expect(semanticSwitch).toBeChecked();
+
+    const [panelBounds, panelOverflow] = await Promise.all([
+      panel.boundingBox(),
+      panel.evaluate((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth })),
+    ]);
+    const viewport = page.viewportSize();
+    expect(panelBounds).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(panelBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(panelBounds!.x + panelBounds!.width).toBeLessThanOrEqual(viewport!.width + 1);
+    expect(panelOverflow.scrollWidth).toBeLessThanOrEqual(panelOverflow.clientWidth + 1);
+
+    await page.reload();
+    panel = await openSummary();
+    await expect(panel.getByRole("checkbox", { name: "Semantic retrieval", exact: true })).toBeChecked();
+    await page.evaluate(async () => {
+      const module = await import("/src/stores/ui.store.ts");
+      module.useUIStore.getState().setTheme("light");
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect(panel.getByRole("checkbox", { name: "Semantic retrieval", exact: true })).toBeVisible();
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("Chat Settings exposes the chat ID and persists semantic summary retrieval", async ({
   context,
   page,

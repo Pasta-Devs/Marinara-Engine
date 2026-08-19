@@ -96,6 +96,7 @@ interface SummaryPopoverProps {
   summaryConnectionId?: string | null;
   summaryMaxTokens?: number;
   automaticSummaryEnabled?: boolean;
+  semanticSummaryRetrievalEnabled?: boolean;
   activeAgentIds?: string[];
   summaryRunInterval?: number;
   /** Per-chat persisted "Hide summarised messages" preference (metadata-backed). Undefined/false means off (opt-in default). */
@@ -334,6 +335,7 @@ export function SummaryPopover({
   summaryConnectionId = null,
   summaryMaxTokens,
   automaticSummaryEnabled = false,
+  semanticSummaryRetrievalEnabled = false,
   activeAgentIds = [],
   summaryRunInterval,
   hideSummarisedMessages,
@@ -1482,6 +1484,21 @@ export function SummaryPopover({
                       <span>{localizeUi("ui.chat.summarypopover.userMessages")}</span>
                     </span>
                   </label>
+
+                  {import.meta.env.VITE_MARINARA_LITE !== "true" && (
+                    <div className="border-t border-[var(--border)]/70 pt-1">
+                      <SummarySettingsToggle
+                        label={localizeUi("ui.chat.summarypopover.semanticRetrieval")}
+                        checked={semanticSummaryRetrievalEnabled}
+                        onChange={(checked) =>
+                          updateMeta.mutate({ id: chatId, semanticSummaryRetrievalEnabled: checked })
+                        }
+                      />
+                      <p className="px-1.5 pb-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                        {localizeUi("ui.chat.summarypopover.semanticRetrievalDescription")}
+                      </p>
+                    </div>
+                  )}
 
                   {backfillState.status === "running" && backfillState.chatId === chatId && (
                     <div className="space-y-1.5">

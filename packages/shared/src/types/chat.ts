@@ -264,6 +264,8 @@ export interface ChatMetadata {
   summaryRunInterval?: number;
   /** Whether the Chat Summary popover should automatically generate rolling Roleplay summaries. */
   automaticSummaryEnabled?: boolean;
+  /** Keep recent automatic summaries in context while retrieving relevant older Conversation weeks or Roleplay entries. */
+  semanticSummaryRetrievalEnabled?: boolean;
   /** Last assistant message ID processed by the automatic Roleplay summary updater. */
   lastAutomaticSummaryMessageId?: string | null;
   /** Chat-scoped manual summary prompt templates. Missing or empty uses the built-in default. */
@@ -674,8 +676,6 @@ export interface ChatMetadata {
   daySummaries?: Record<string, DaySummaryEntry>;
   /** Per-week consolidated conversation summaries (key: Monday "DD.MM.YYYY"). */
   weekSummaries?: Record<string, WeekSummaryEntry>;
-  /** Keep recent conversation summaries in-context and retrieve only relevant older weeks with embeddings. */
-  semanticSummaryRetrievalEnabled?: boolean;
   /**
    * Hour of day (0-11, local time) at which a conversation "day" rolls over for
    * summarization. Messages sent before this hour are filed under the previous

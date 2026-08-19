@@ -279,7 +279,7 @@ import {
   resolvePromptCharacterIdsForTarget,
   resolveRegenerationGameStateFallbackMessageIds,
   resolveRegenerationGameStateAnchor,
-  resolveRoleplayChatSummary,
+  resolveRoleplayChatSummaryForPrompt,
   resolveUserRegenerationPersistentAttachments,
   resolveVisibleGameStateAnchor,
   resolveKnowledgeSourceLorebookIds,
@@ -1818,8 +1818,16 @@ export async function generateRoutes(app: FastifyInstance) {
         const agentPromptTemplateSelections = normalizeAgentPromptTemplateSelectionMap(chatMeta.agentPromptTemplateIds);
         const hasPerChatAgentList = chatActiveAgentIds.length > 0;
         const perChatAgentSet = new Set(chatActiveAgentIds);
-        const activeChatSummary = resolveRoleplayChatSummary(chatMode, chatMeta, {
+        const activeChatSummary = await resolveRoleplayChatSummaryForPrompt({
+          chatMode,
+          chatMetadata: chatMeta,
+          messages: currentInputMessages(),
           excludeMessageIds: input.regenerateMessageId ? [input.regenerateMessageId] : undefined,
+          vectorizerAvailable: memoryRecallVectorizerAvailable,
+          embeddingOptions: {
+            embeddingSource: memoryRecallEmbeddingSource,
+            signal: abortController.signal,
+          },
         });
         const runtimeSectionEligibleAgentTypes = buildRuntimeAgentSectionEligibleTypes({
           enableAgents: chatEnableAgents,

@@ -3,10 +3,8 @@ import {
   GENERATION_PARAMETER_SEND_KEYS,
   SUMMARY_TAIL_MESSAGES,
   applyTrackerFieldLocksToGameStatePatch,
-  compileChatSummaryEntries,
   generationParametersSchema,
   normalizeInventoryTrackerRows,
-  normalizeChatSummaryEntries,
   normalizeTextForMatch,
   normalizeSummaryTailMessages,
   normalizeWorldCustomFields,
@@ -41,6 +39,10 @@ export {
   createLocalSidecarGenerationConnection,
   type LocalSidecarGenerationConnection,
 } from "../../services/generation/local-sidecar-generation-connection.js";
+export {
+  resolveRoleplayChatSummary,
+  resolveRoleplayChatSummaryForPrompt,
+} from "../../services/generation/roleplay-summary-retrieval.js";
 export {
   appendReadableAttachmentsToContent,
   buildReadableAttachmentBlocks,
@@ -787,27 +789,6 @@ export function selectRollingSummaryMessages<T extends { id: string; extra?: unk
     .slice(lastBoundaryIndex + 1)
     .filter((message) => !isMessageHiddenFromAI(message)).length;
   return visible.slice(-Math.max(size, sinceBoundary));
-}
-
-export function resolveRoleplayChatSummary(
-  chatMode: string,
-  chatMetadata: Record<string, unknown>,
-  options: { excludeMessageIds?: readonly string[] } = {},
-): string | null {
-  if (!isRoleplaySummaryMode(chatMode)) return null;
-  const summary = ((chatMetadata.summary as string) ?? "").trim() || null;
-  const excludedMessageIds = new Set((options.excludeMessageIds ?? []).filter(Boolean));
-  if (excludedMessageIds.size === 0) return summary;
-
-  const entries = normalizeChatSummaryEntries(chatMetadata.summaryEntries);
-  // Legacy summaries have no per-message provenance, so they cannot be
-  // safely retained while regenerating a historical message.
-  if (entries.length === 0) return null;
-  const retainedEntries = entries.filter((entry) => {
-    const coveredMessageIds = [...(entry.messageIds ?? []), ...(entry.hiddenMessageIds ?? [])];
-    return !coveredMessageIds.some((messageId) => excludedMessageIds.has(messageId));
-  });
-  return retainedEntries.length === entries.length ? summary : compileChatSummaryEntries(retainedEntries);
 }
 
 function escapeRegex(value: string): string {

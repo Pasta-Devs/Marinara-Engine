@@ -4003,6 +4003,8 @@
   "ui.chat.summarypopover.promptInstructionsForSummaryGeneration": "Prompt instructions for summary generation...",
   "ui.chat.summarypopover.range": "Range",
   "ui.chat.summarypopover.recentMessageTail": "Recent message tail",
+  "ui.chat.summarypopover.semanticRetrieval": "Semantic retrieval",
+  "ui.chat.summarypopover.semanticRetrievalDescription": "Keeps manual and recent summaries in context, then recalls relevant older automatic summaries when needed.",
   "ui.chat.summarypopover.showInactive": "Show Inactive",
   "ui.chat.summarypopover.stop": "Stop",
   "ui.chat.summarypopover.summaryConnection": "Summary Connection",
