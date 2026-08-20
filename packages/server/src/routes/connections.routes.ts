@@ -614,6 +614,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
           model: conn.model,
           maxTokens: 32,
           stream: false,
+          debugMode: requestDebug,
         })) {
           responseText += chunk;
         }
