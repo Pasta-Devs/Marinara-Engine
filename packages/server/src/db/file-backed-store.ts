@@ -236,115 +236,11 @@ type InsertValuesBuilder = Executable<void> & {
 // Exported so regressions can pin behavior against the CURRENT version
 // without chasing literals on every bump. Must equal root storage-format.json
 // (the launcher-format-guard regression pins the pairing).
-export const STORAGE_VERSION = 4;
+export const STORAGE_VERSION = 5;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
 const SAVE_DEBOUNCE_MS = 750;
 const SAFETY_SAVE_MS = 10_000;
-
-// #4708: tables persisted as one file PER CHAT (storage/tables/<table>/<key>.json)
-// instead of one monolith. On the per-message write path the monolith meant
-// every saved message re-serialized and rewrote the FULL history of every
-// chat — the dominant active-use cost on phone-hosted installs. These tables
-// stay in FILE_BACKED_TABLES (the master registry for schema/backup/query
-// machinery); only load/save/dirty plumbing consults this marker.
-// Order matters only for the first pair: messages must load/migrate before
-// message_swipes so the messageId -> chatId index exists when swipes resolve
-// their shard. Every other table shards by one of its own columns (see
-// SHARD_KEY_COLUMNS). Deliberately NOT sharded: `lorebooks` (nullable chatId
-// — a chat-linked library entity, not per-chat data) and
-// `game_turn_storyboard_keyframes` (no chat column; resolves only through
-// its parent storyboard — sharding it needs either a second parent index or
-// a denormalized chatId column, tracked as a follow-up on #4708).
-export const SHARDED_TABLES = [
-  "messages",
-  "message_swipes",
-  "memory_chunks",
-  "chat_images",
-  "agent_runs",
-  "agent_memory",
-  "conversation_call_sessions",
-  "conversation_call_messages",
-  "game_state_snapshots",
-  "game_engine_state",
-  "game_checkpoints",
-  "game_turn_storyboards",
-  "game_scene_videos",
-  "spatial_context_snapshots",
-  "ooc_influences",
-  "conversation_notes",
-] as const;
-
-/**
- * Tables whose per-chat shard key is not their `chatId` column. Influences
- * and notes are written by a conversation chat but READ (and injected) per
- * roleplay turn of the TARGET chat, so that is the access-pattern key.
- */
-const SHARD_KEY_COLUMNS: Record<string, string> = {
-  ooc_influences: "targetChatId",
-  conversation_notes: "targetChatId",
-};
-const SHARDED_TABLE_SET: ReadonlySet<string> = new Set(SHARDED_TABLES);
-
-/**
- * Shard for child rows whose parent is unknown (orphans in corrupt installs).
- * Chosen to encode to itself for a readable filename; a real chat id equal to
- * this string would merely share the file — rows carry their own keys, so
- * grouping and loading stay unambiguous.
- */
-const UNASSIGNED_SHARD_KEY = "orphaned-rows";
-
-/** Sentinel file marking an in-progress monolith->shard migration (#4708). */
-const SHARD_MIGRATION_SENTINEL = ".migrating";
-
-const WINDOWS_RESERVED_BASENAMES = new Set([
-  "CON",
-  "PRN",
-  "AUX",
-  "NUL",
-  "COM1",
-  "COM2",
-  "COM3",
-  "COM4",
-  "COM5",
-  "COM6",
-  "COM7",
-  "COM8",
-  "COM9",
-  "LPT1",
-  "LPT2",
-  "LPT3",
-  "LPT4",
-  "LPT5",
-  "LPT6",
-  "LPT7",
-  "LPT8",
-  "LPT9",
-]);
-
-/**
- * Encodes a shard key (a chat id) into a safe filename component. This is a
- * SECURITY boundary, not cosmetics: profile import accepts arbitrary ids, so
- * a crafted id must never become a path escape. Every byte outside
- * [a-z0-9-] is percent-encoded — UPPERCASE INCLUDED, because NTFS and APFS
- * are case-insensitive and two ids differing only in case must never share a
- * file; overlong or Windows-reserved results fall back to a hash form.
- * Filenames are containers only — rows carry their own keys — so the encoding
- * never needs decoding.
- */
-export function encodeShardKey(rawKey: string): string {
-  if (!rawKey) return UNASSIGNED_SHARD_KEY;
-  let encoded = "";
-  for (const byte of Buffer.from(rawKey, "utf8")) {
-    const char = String.fromCharCode(byte);
-    encoded += /[a-z0-9-]/.test(char) ? char : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
-  }
-  const upper = encoded.toUpperCase();
-  if (encoded.length > 120 || WINDOWS_RESERVED_BASENAMES.has(upper) || encoded.endsWith(".") || encoded.endsWith(" ")) {
-    return `%h${createHash("sha256").update(rawKey, "utf8").digest("hex").slice(0, 32)}`;
-  }
-  return encoded;
-}
 
 export const FILE_BACKED_TABLES = [
   "chats",
@@ -432,9 +328,138 @@ export const FILE_BACKED_TABLES = [
 
 type FileBackedTable = (typeof FILE_BACKED_TABLES)[number];
 
+// #5302: every file-backed table uses the existing crash-safe shard pipeline.
+// Order remains significant for messages/swipes because swipe ownership is
+// resolved through the parent-message index.
+export const SHARDED_TABLES = FILE_BACKED_TABLES;
+
+/**
+ * Child tables group by their stable owner. Every unlisted table uses its
+ * declared primary key, which is the explicit one-record-per-key strategy.
+ */
+const SHARD_KEY_COLUMNS: Record<string, string> = {
+  messages: "chatId",
+  conversation_call_sessions: "chatId",
+  conversation_call_messages: "chatId",
+  character_card_versions: "characterId",
+  persona_card_versions: "personaId",
+  noodle_posts: "authorAccountId",
+  noodle_account_subscriptions: "creatorAccountId",
+  noodle_post_unlocks: "postId",
+  noodle_interactions: "postId",
+  noodler_creator_reply_claims: "postId",
+  noodler_prepared_posts: "creatorAccountId",
+  slurp_posts: "authorAccountId",
+  slurp_account_subscriptions: "creatorAccountId",
+  slurp_post_unlocks: "postId",
+  slurp_interactions: "postId",
+  slurp_creator_reply_claims: "postId",
+  slurp_prepared_posts: "creatorAccountId",
+  lorebook_character_links: "lorebookId",
+  lorebook_persona_links: "lorebookId",
+  lorebook_folders: "lorebookId",
+  lorebook_entries: "lorebookId",
+  prompt_groups: "presetId",
+  prompt_sections: "presetId",
+  choice_blocks: "presetId",
+  agent_runs: "chatId",
+  agent_memory: "chatId",
+  game_state_snapshots: "chatId",
+  spatial_context_snapshots: "chatId",
+  game_engine_state: "chatId",
+  game_checkpoints: "chatId",
+  game_scene_videos: "chatId",
+  game_turn_storyboards: "chatId",
+  game_turn_storyboard_keyframes: "storyboardId",
+  chat_images: "chatId",
+  character_images: "characterId",
+  persona_images: "personaId",
+  ooc_influences: "targetChatId",
+  conversation_notes: "targetChatId",
+  memory_chunks: "chatId",
+  mari_workspace_context: "chatId",
+};
+const SHARDED_TABLE_SET: ReadonlySet<string> = new Set(SHARDED_TABLES);
+
+/**
+ * Shard for child rows whose parent is unknown (orphans in corrupt installs).
+ * Chosen to encode to itself for a readable filename; a real owner key equal
+ * to this string would merely share the file — rows carry their own keys, so
+ * grouping and loading stay unambiguous.
+ */
+const UNASSIGNED_SHARD_KEY = "orphaned-rows";
+
+/** Sentinel file marking an in-progress monolith->shard migration (#4708). */
+const SHARD_MIGRATION_SENTINEL = ".migrating";
+
+const WINDOWS_RESERVED_BASENAMES = new Set([
+  "CON",
+  "PRN",
+  "AUX",
+  "NUL",
+  "COM1",
+  "COM2",
+  "COM3",
+  "COM4",
+  "COM5",
+  "COM6",
+  "COM7",
+  "COM8",
+  "COM9",
+  "LPT1",
+  "LPT2",
+  "LPT3",
+  "LPT4",
+  "LPT5",
+  "LPT6",
+  "LPT7",
+  "LPT8",
+  "LPT9",
+]);
+
+/**
+ * Encodes an ownership key into a safe filename component. This is a
+ * SECURITY boundary, not cosmetics: profile import accepts arbitrary ids, so
+ * a crafted id must never become a path escape. Every byte outside
+ * [a-z0-9-] is percent-encoded — UPPERCASE INCLUDED, because NTFS and APFS
+ * are case-insensitive and two ids differing only in case must never share a
+ * file; overlong or Windows-reserved results fall back to a hash form.
+ * Filenames are containers only — rows carry their own keys — so the encoding
+ * never needs decoding.
+ */
+export function encodeShardKey(rawKey: string): string {
+  if (!rawKey) return UNASSIGNED_SHARD_KEY;
+  let encoded = "";
+  for (const byte of Buffer.from(rawKey, "utf8")) {
+    const char = String.fromCharCode(byte);
+    encoded += /[a-z0-9-]/.test(char) ? char : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+  }
+  const upper = encoded.toUpperCase();
+  if (encoded.length > 120 || WINDOWS_RESERVED_BASENAMES.has(upper) || encoded.endsWith(".") || encoded.endsWith(" ")) {
+    return `%h${createHash("sha256").update(rawKey, "utf8").digest("hex").slice(0, 32)}`;
+  }
+  return encoded;
+}
+
 const FILE_BACKED_TABLE_SET = new Set<string>(FILE_BACKED_TABLES);
 const isWindows = process.platform === "win32";
 const warnedFlushFailures = new Set<string>();
+
+function migrateFileBackedRow(table: string, row: Row): Row {
+  if (table === "noodle_accounts") return migrateLegacyNoodleAccountRow(row);
+  if (table === "noodle_posts") return migrateLegacyNoodlePostAccessRow(row);
+  if ((RETIRED_CHAT_MODE_TABLES as readonly string[]).includes(table)) return migrateRetiredChatModeRow(row);
+  return row;
+}
+
+function fileBackedRowNeedsMigration(table: string, row: Row): boolean {
+  if (row.mode === "visual_novel" && (RETIRED_CHAT_MODE_TABLES as readonly string[]).includes(table)) return true;
+  if (table === "noodle_accounts") return row.platform === undefined;
+  if (table === "noodle_posts") {
+    return (row.access !== "public" && row.access !== "locked") || "ppvPrice" in row || "ppv_price" in row;
+  }
+  return false;
+}
 
 // Parent→child delete graph. Exported as the single source of truth: the Mari
 // DB CLI (services/mari-db) consumes it for cascade deletes and its
@@ -1279,6 +1304,38 @@ function getMeta(table: Table | string) {
   return meta;
 }
 
+export type FileTableShardStrategy =
+  | { kind: "parent"; column: string }
+  | { kind: "primary-key"; column: string }
+  | { kind: "message-parent"; column: "messageId" };
+
+const fileTableShardStrategies = new Map<FileBackedTable, FileTableShardStrategy>();
+
+export function getFileTableShardStrategy(table: FileBackedTable): FileTableShardStrategy {
+  const cached = fileTableShardStrategies.get(table);
+  if (cached) return cached;
+
+  let strategy: FileTableShardStrategy;
+  if (table === "message_swipes") {
+    strategy = { kind: "message-parent", column: "messageId" };
+  } else {
+    const configuredColumn = SHARD_KEY_COLUMNS[table];
+    const meta = getMeta(table);
+    if (configuredColumn) {
+      if (!meta.byKey.has(configuredColumn)) {
+        throw new Error(`[file-storage] ${table} has no shard-key column named ${configuredColumn}`);
+      }
+      strategy = { kind: "parent", column: configuredColumn };
+    } else {
+      const primaryKey = meta.primaryKey;
+      if (!primaryKey) throw new Error(`[file-storage] ${table} has no stable shard key`);
+      strategy = { kind: "primary-key", column: primaryKey };
+    }
+  }
+  fileTableShardStrategies.set(table, strategy);
+  return strategy;
+}
+
 function getColumnMeta(column: unknown): ColumnMeta | null {
   if (!isFileColumn(column)) return null;
   const direct = columnMetasByObject.get(column);
@@ -1868,7 +1925,7 @@ class FileTableStore {
         table,
       );
     }
-    const normalized = source.map((row) => normalizeRow(meta, row));
+    const normalized = source.map((row) => normalizeRow(meta, migrateFileBackedRow(table, row)));
 
     const rowsByShard = new Map<string, Row[]>();
     for (const row of normalized) {
@@ -1879,7 +1936,7 @@ class FileTableStore {
       if (table === "message_swipes") {
         key = migrationIndex.get(row.messageId) ?? UNASSIGNED_SHARD_KEY;
       } else {
-        const value = row[SHARD_KEY_COLUMNS[table] ?? "chatId"];
+        const value = row[getFileTableShardStrategy(table as FileBackedTable).column];
         key = typeof value === "string" && value ? value : UNASSIGNED_SHARD_KEY;
         if (table === "messages" && typeof row.id === "string" && typeof row.chatId === "string") {
           // Canonical key, never "": swipes must resolve to the same raw key
@@ -1922,7 +1979,7 @@ class FileTableStore {
     this.dirty = true;
     this.migratedTables.push(table);
     logger.info(
-      "[file-storage] Sharded %s: %d rows into %d per-chat files (originals preserved as .pre-shard)",
+      "[file-storage] Sharded %s: %d rows into %d ownership files (originals preserved as .pre-shard)",
       table,
       normalized.length,
       rowsByShard.size,
@@ -2345,10 +2402,9 @@ class FileTableStore {
   }
 
   /**
-   * Raw shard key for one row — the single source of truth for how a sharded
-   * table's rows map to per-chat files. Every table shards by one of its own
-   * columns (chatId unless SHARD_KEY_COLUMNS overrides it) except
-   * message_swipes, which resolves through the parent message.
+   * Raw shard key for one row — the single source of truth for how a table's
+   * rows map to ownership files. Child tables use SHARD_KEY_COLUMNS; standalone
+   * tables use their primary key; message swipes resolve through their parent.
    */
   private shardKeyForRow(table: string, row: Row): string {
     if (table === "message_swipes") {
@@ -2363,7 +2419,7 @@ class FileTableStore {
       }
       return chatId ?? UNASSIGNED_SHARD_KEY;
     }
-    const value = row[SHARD_KEY_COLUMNS[table] ?? "chatId"];
+    const value = row[getFileTableShardStrategy(table as FileBackedTable).column];
     return typeof value === "string" && value ? value : UNASSIGNED_SHARD_KEY;
   }
 
@@ -2533,14 +2589,17 @@ class FileTableStore {
     };
     const value = JSON.stringify(notice);
     const updatedAt = new Date().toISOString();
+    let noticeRow: Row;
     if (existing) {
-      existing.value = value;
-      existing.updatedAt = updatedAt;
+      noticeRow = existing;
+      noticeRow.value = value;
+      noticeRow.updatedAt = updatedAt;
     } else {
-      rows.push({ key: STORAGE_MIGRATION_NOTICE_SETTINGS_KEY, value, updatedAt });
+      noticeRow = { key: STORAGE_MIGRATION_NOTICE_SETTINGS_KEY, value, updatedAt };
+      rows.push(noticeRow);
       this.tables.set("app_settings", rows);
     }
-    this.markDirty("app_settings");
+    this.markDirty("app_settings", this.shardKeysForRows("app_settings", [noticeRow]));
   }
 
   /**
@@ -2645,15 +2704,7 @@ class FileTableStore {
         this.dirtyTables.add(table);
         this.dirty = true;
       }
-      const migrate =
-        table === "noodle_accounts"
-          ? migrateLegacyNoodleAccountRow
-          : table === "noodle_posts"
-            ? migrateLegacyNoodlePostAccessRow
-            : (RETIRED_CHAT_MODE_TABLES as readonly string[]).includes(table)
-              ? migrateRetiredChatModeRow
-              : null;
-      const normalized = source.map((row) => normalizeRow(meta, migrate ? migrate(row) : row));
+      const normalized = source.map((row) => normalizeRow(meta, migrateFileBackedRow(table, row)));
       this.tables.set(table, normalized);
       counts[table] = normalized.length;
       if (source.some((row) => row.mode === "visual_novel")) {
@@ -2661,16 +2712,8 @@ class FileTableStore {
         this.dirtyTables.add(table);
         this.dirty = true;
       }
-      const needsMigration =
-        table === "noodle_accounts"
-          ? source.some((row) => row.platform === undefined)
-          : table === "noodle_posts"
-            ? source.some(
-                (row) =>
-                  (row.access !== "public" && row.access !== "locked") || "ppvPrice" in row || "ppv_price" in row,
-              )
-            : false;
-      if (migrate && needsMigration) {
+      const needsMigration = source.some((row) => fileBackedRowNeedsMigration(table, row));
+      if (needsMigration) {
         // Persist the renamed keys on the next flush, alongside the `visibility` /
         // `publicAccountId` rollback mirrors the migration deliberately retains.
         this.dirtyTables.add(table);
@@ -2757,7 +2800,8 @@ class FileTableStore {
           );
           this.backupRecoveredPaths.add(path);
         }
-        const normalized = source.map((row) => normalizeRow(meta, row));
+        const needsRowMigration = source.some((row) => fileBackedRowNeedsMigration(table, row));
+        const normalized = source.map((row) => normalizeRow(meta, migrateFileBackedRow(table, row)));
         combined.push(...normalized);
         for (const row of normalized) rowSource.set(row, encoded);
         let quarantinedAway = false;
@@ -2777,7 +2821,8 @@ class FileTableStore {
         // and counting it would report a phantom shard in the manifest.
         if (!quarantinedAway && existsSync(path)) known.add(encoded);
         if (normalized.length > 0) {
-          const needsRepair = recoveredFromBackup || recoveredFromFallback || malformedRowCount > 0;
+          const needsRepair =
+            recoveredFromBackup || recoveredFromFallback || malformedRowCount > 0 || needsRowMigration;
           const rowKeys = this.shardKeysForRows(table, normalized);
           // A file holding any row whose key does not encode back to the
           // file's own name (hand-edits, stray re-home copies) can never be
@@ -2828,7 +2873,9 @@ class FileTableStore {
       combined.sort(
         (a, b) =>
           String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? "")) ||
-          String(a.id ?? "").localeCompare(String(b.id ?? "")),
+          String(meta.primaryKey ? a[meta.primaryKey] : "").localeCompare(
+            String(meta.primaryKey ? b[meta.primaryKey] : ""),
+          ),
       );
       // Duplicate primary keys across shards (a stale copy left by an
       // interrupted re-home, or hand-edited files) must not survive into
@@ -2846,7 +2893,7 @@ class FileTableStore {
       const duplicateShardKeys = new Set<string>();
       let duplicateCount = 0;
       for (const row of combined) {
-        const id = typeof row.id === "string" ? row.id : null;
+        const id = meta.primaryKey && typeof row[meta.primaryKey] === "string" ? row[meta.primaryKey] : null;
         if (id && keptIndexById.has(id)) {
           duplicateCount++;
           const keptIndex = keptIndexById.get(id)!;
@@ -2911,9 +2958,8 @@ class FileTableStore {
     this.knownShardFiles.set(table, known);
     const stale = this.staleShardFiles.get(table);
     // Nothing dirty and nothing to repair: skip the O(rows) regroup — this
-    // runs for BOTH sharded tables on every flush, so an unrelated
-    // flat-table write must not scan every message and swipe on the 750ms
-    // flush cadence.
+    // runs for every sharded table on each flush, so an unrelated write must
+    // not scan every stored row on the 750ms flush cadence.
     if (dirtyKeys.size === 0 && (!stale || stale.size === 0)) {
       return known.size;
     }

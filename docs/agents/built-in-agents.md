@@ -207,7 +207,7 @@ Creates and updates lorebook entries from important facts in your chat, so your 
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay. In Game Mode, a session-end variant called **Game Session Keeper** does the same job at the end of a session.
-- **Key settings**: it runs once every 8 user and assistant messages by default. A **Target Lorebook** picker chooses where entries go, with an auto-select option.
+- **Key settings**: it runs once every 8 user and assistant messages by default. A **Target Lorebook** picker chooses where entries go, with an auto-select option. Advanced prompt configurations can return an exact writable lorebook name or a configured alias such as `world`, `npc`, `scene`, or `player`; missing alias destinations are created and linked to the current chat automatically. Omitting a destination keeps the existing single-lorebook behavior.
 
 ### Combat
 

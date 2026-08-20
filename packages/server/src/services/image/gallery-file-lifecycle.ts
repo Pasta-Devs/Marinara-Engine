@@ -119,11 +119,37 @@ export async function withGalleryFileLifecycleLock<T>(
   filePath: string,
   operation: () => Promise<T> | T,
   galleryRoot?: string,
+  signal?: AbortSignal,
 ): Promise<T> {
-  return withGalleryLifecycleLock(`file\0${galleryFileLifecycleKey(filePath, galleryRoot)}`, operation);
+  return withGalleryLifecycleLock(`file\0${galleryFileLifecycleKey(filePath, galleryRoot)}`, operation, signal);
 }
 
-async function withGalleryLifecycleLock<T>(key: string, operation: () => Promise<T> | T): Promise<T> {
+async function waitForGalleryLifecycleTurn(previous: Promise<void>, signal?: AbortSignal): Promise<void> {
+  if (!signal) {
+    await previous.catch(() => undefined);
+    return;
+  }
+
+  signal.throwIfAborted();
+  let rejectAbort!: () => void;
+  const aborted = new Promise<never>((_, reject) => {
+    rejectAbort = () => reject(signal.reason ?? new DOMException("This operation was aborted", "AbortError"));
+    signal.addEventListener("abort", rejectAbort, { once: true });
+  });
+  try {
+    if (signal.aborted) rejectAbort();
+    await Promise.race([previous.catch(() => undefined), aborted]);
+    signal.throwIfAborted();
+  } finally {
+    signal.removeEventListener("abort", rejectAbort);
+  }
+}
+
+async function withGalleryLifecycleLock<T>(
+  key: string,
+  operation: () => Promise<T> | T,
+  signal?: AbortSignal,
+): Promise<T> {
   const previous = galleryLifecycleQueues.get(key) ?? Promise.resolve();
   let releaseCurrent!: () => void;
   const current = new Promise<void>((resolveCurrent) => {
@@ -131,15 +157,15 @@ async function withGalleryLifecycleLock<T>(key: string, operation: () => Promise
   });
   const tail = previous.catch(() => undefined).then(() => current);
   galleryLifecycleQueues.set(key, tail);
+  void tail.then(() => {
+    if (galleryLifecycleQueues.get(key) === tail) galleryLifecycleQueues.delete(key);
+  });
 
-  await previous.catch(() => undefined);
   try {
+    await waitForGalleryLifecycleTurn(previous, signal);
     return await operation();
   } finally {
     releaseCurrent();
-    if (galleryLifecycleQueues.get(key) === tail) {
-      galleryLifecycleQueues.delete(key);
-    }
   }
 }
 

@@ -361,6 +361,8 @@ export interface AgentContext {
   characters: Array<{
     id: string;
     name: string;
+    /** Persisted character-card world name, when configured. */
+    world?: string;
     description: string;
     personality?: string;
     scenario?: string;

@@ -632,8 +632,7 @@ export function App() {
       const paused = !(
         document.visibilityState === "visible" &&
         document.hasFocus() &&
-        !pauseChromeEffectsForAppearance &&
-        !reduceAmbientEffects
+        !pauseChromeEffectsForAppearance
       );
       if (!paused) {
         delete root.dataset.marinaraEffectsPaused;
@@ -658,7 +657,7 @@ export function App() {
       window.removeEventListener("pagehide", syncEffectsPausedState);
       delete root.dataset.marinaraEffectsPaused;
     };
-  }, [pauseChromeEffectsForAppearance, reduceAmbientEffects]);
+  }, [pauseChromeEffectsForAppearance]);
 
   useEffect(() => {
     const root = document.documentElement;

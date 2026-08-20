@@ -43,7 +43,7 @@ const packageSlurpCreatorReplyClaims = fileTable("slurp_creator_reply_claims", {
 
 const storageDir = mkdtempSync(join(tmpdir(), "marinara-slurp-storage-"));
 process.env.FILE_STORAGE_DIR = storageDir;
-const { createFileNativeDB } = await import("../../packages/server/src/db/file-backed-store.js");
+const { createFileNativeDB, encodeShardKey } = await import("../../packages/server/src/db/file-backed-store.js");
 const now = new Date().toISOString();
 
 let fileDb = await createFileNativeDB();
@@ -108,8 +108,8 @@ try {
   await fileDb._fileStore.close();
 }
 
-assert.equal(existsSync(join(storageDir, "tables", "slurp_accounts.json")), true);
-assert.equal(existsSync(join(storageDir, "tables", "slurp_posts.json")), true);
+assert.equal(existsSync(join(storageDir, "tables", "slurp_accounts", `${encodeShardKey("slurp-creator")}.json`)), true);
+assert.equal(existsSync(join(storageDir, "tables", "slurp_posts", `${encodeShardKey("slurp-creator")}.json`)), true);
 
 fileDb = await createFileNativeDB();
 try {

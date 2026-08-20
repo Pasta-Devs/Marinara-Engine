@@ -163,12 +163,12 @@ for (const pinnedFragment of [":storage-format.json", "targetFormat >= onDiskFor
 // The unshard command keeps private copies of the store's shard constants (it
 // must run offline and cannot import server code). Pin them against the store
 // source so a rename or a new sharded table cannot silently desynchronize them.
-const parseTableList = (source, label) => {
+const parseTableList = (source, constantName, label) => {
   // Tolerant of whitespace, newlines, and trailing annotations (`as const`):
   // lazy-match through the array's own closing bracket only — table names
   // cannot contain `]`, so the first `]` always ends the literal.
-  const raw = /const SHARDED_TABLES[\s\S]*?=\s*\[([\s\S]*?)\]/.exec(source)?.[1];
-  assert.ok(raw, `could not find SHARDED_TABLES in ${label}`);
+  const raw = new RegExp(`const ${constantName}[\\s\\S]*?=\\s*\\[([\\s\\S]*?)\\]`).exec(source)?.[1];
+  assert.ok(raw, `could not find ${constantName} in ${label}`);
   return raw
     .split(",")
     .map((entry) =>
@@ -179,11 +179,43 @@ const parseTableList = (source, label) => {
     )
     .filter(Boolean);
 };
+const launcherShardedTables = parseTableList(launcherGuardSource, "SHARDED_TABLES", "protect-launcher-data.mjs");
 assert.deepEqual(
-  parseTableList(launcherGuardSource, "protect-launcher-data.mjs"),
-  parseTableList(storeSource, "file-backed-store.ts"),
+  launcherShardedTables,
+  parseTableList(storeSource, "FILE_BACKED_TABLES", "file-backed-store.ts"),
   "unshard's SHARDED_TABLES copy must match the store's — a new sharded table the script does not fold back " +
     "into a monolith would silently vanish for the downgraded build",
+);
+const parseStringMap = (source, constantName) => {
+  const raw = new RegExp(`const ${constantName}\\s*=\\s*\\{([^}]*)\\}`).exec(source)?.[1];
+  assert.ok(raw, `could not find ${constantName}`);
+  return Object.fromEntries(
+    [...raw.matchAll(/([A-Za-z0-9_]+)\s*:\s*["']([^"']+)["']/gu)].map((match) => [match[1], match[2]]),
+  );
+};
+const schemaPrimaryKeys = {};
+const schemaDir = join(repositoryRoot, "packages/server/src/db/schema");
+for (const filename of readdirSync(schemaDir).filter((name) => name.endsWith(".ts"))) {
+  const source = readFileSync(join(schemaDir, filename), "utf8");
+  const tables = [...source.matchAll(/fileTable\(\s*["']([^"']+)["']\s*,/gu)];
+  for (const [index, tableMatch] of tables.entries()) {
+    const block = source.slice(tableMatch.index, tables[index + 1]?.index ?? source.length);
+    const primaryKey = /^\s*([A-Za-z0-9_]+)\s*:[^\n]*\.primaryKey\(\)/mu.exec(block)?.[1];
+    assert.ok(primaryKey, `${tableMatch[1]} must declare a primary key in ${filename}`);
+    schemaPrimaryKeys[tableMatch[1]] = primaryKey;
+  }
+}
+const nonIdPrimaryKeys = Object.fromEntries(
+  launcherShardedTables.flatMap((table) => {
+    const primaryKey = schemaPrimaryKeys[table];
+    assert.ok(primaryKey, `could not resolve ${table}'s primary key from the file-table schema`);
+    return primaryKey === "id" ? [] : [[table, primaryKey]];
+  }),
+);
+assert.deepEqual(
+  parseStringMap(launcherGuardSource, "PRIMARY_KEY_COLUMNS"),
+  nonIdPrimaryKeys,
+  "unshard's PRIMARY_KEY_COLUMNS must list every sharded table whose schema primary key is not id",
 );
 assert.ok(
   storeSource.includes('SHARD_MIGRATION_SENTINEL = ".migrating"') && launcherGuardSource.includes('".migrating"'),

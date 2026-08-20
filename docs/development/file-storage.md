@@ -10,8 +10,12 @@ Marinara stores application rows as JSON snapshots under `DATA_DIR/storage`:
 storage/
 ├── manifest.json
 └── tables/
-    ├── chats.json
-    ├── characters.json
+    ├── chats/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── characters/
+    │   ├── <encoded-character-id>.json
+    │   └── ...
     ├── messages/
     │   ├── <encoded-chat-id>.json
     │   └── ...
@@ -24,11 +28,11 @@ storage/
 
 ### Sharded tables
 
-Chat-keyed tables on per-turn write paths persist as **one file per chat** instead of a single monolith, because with a monolith every saved row re-serialized and rewrote the full history of every chat. Storage format 3 sharded `messages` and `message_swipes`; format 4 extends the same layout to `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences`, and `conversation_notes`. The authoritative list is `SHARDED_TABLES` in `file-backed-store.ts` (mirrored by the offline `unshard` command in `scripts/protect-launcher-data.mjs`; a regression pins the pairing). Each sharded table resolves its shard by its own `chatId` column, with two exceptions: `message_swipes` resolves through the parent message, and influences/notes shard by `targetChatId` (the chat whose turns read them). Two chat-adjacent tables deliberately stay monoliths: `lorebooks` (nullable `chatId` — a chat-linked library entity, not per-chat data) and `game_turn_storyboard_keyframes` (no chat column; sharding it needs a denormalized `chatId`, tracked as a follow-up on #4708).
+Storage format 5 persists **every file-backed table as ownership-keyed shard files** instead of rewriting a table-wide JSON monolith. Child rows group under the entity that owns their lifecycle and access pattern: messages, memory, Agent runs, and game state by chat; card history and galleries by character or persona; lorebook entries, folders, and links by lorebook; prompt children by preset; and social rows by their account or post. Standalone records use one file per primary key. `message_swipes` is the sole indirect case and resolves ownership through its parent message. `FILE_BACKED_TABLES` and `getFileTableShardStrategy()` in `file-backed-store.ts` are authoritative; the offline `unshard` command in `scripts/protect-launcher-data.mjs` mirrors the complete table list for safe downgrades, with a regression pinning the pair.
 
-Dirty tracking runs at shard granularity, so a flush touches only the chats that changed; a shard whose row count reaches zero is deleted rather than written as an empty array. Shard filenames are percent-encoded from the chat id (with hash fallbacks for overlong or reserved names) — the encoding is a security boundary, since imported profiles can carry arbitrary ids. Filenames are containers only; rows carry their own keys.
+Dirty tracking runs at shard granularity, so a flush touches only the owners that changed; a shard whose row count reaches zero is deleted rather than written as an empty array. Shard filenames are percent-encoded from the ownership key (with hash fallbacks for overlong or reserved names) — the encoding is a security boundary, since imported profiles can carry arbitrary ids. Filenames are containers only; rows carry their own keys.
 
-On first boot of a build with newly sharded tables, existing monoliths migrate automatically: rows are grouped per chat and written as shards, then the monolith **and its `.bak`** are renamed to `.pre-shard` — those renamed files are the automatic pre-migration backup and are never deleted by the Engine. A `.migrating` sentinel makes crash recovery decidable (monolith authoritative until the sentinel clears). If an older build later recreates a monolith beside the shards (a downgrade session), the shards win and the conflicting monolith is quarantined with a timestamped `.post-downgrade-` suffix — never merged. Orphaned child rows (a swipe whose message no longer exists, or a row with no usable chat id) land in the `orphaned-rows` shard instead of being dropped. A manifest written by a newer storage format refuses to load.
+On first boot of a build with newly sharded tables, existing monoliths migrate automatically: rows are grouped by owner and written as shards, then the monolith **and its `.bak`** are renamed to `.pre-shard` — those renamed files are the automatic pre-migration backup and are never deleted by the Engine. A `.migrating` sentinel makes crash recovery decidable (monolith authoritative until the sentinel clears). If an older build later recreates a monolith beside the shards (a downgrade session), the shards win and the conflicting monolith is quarantined with a timestamped `.post-downgrade-` suffix — never merged. Orphaned child rows land in the `orphaned-rows` shard instead of being dropped. A manifest written by a newer storage format refuses to load.
 
 ## Runtime model
 
@@ -57,7 +61,7 @@ When adding persistent data:
 1. Define the table in `packages/server/src/db/schema/` with `fileTable` and the file-native column builders.
 2. Export it from `db/schema/index.ts`.
 3. Declare any natural keys with the `uniqueBy` table option.
-4. Register its name in `FILE_BACKED_TABLES`.
+4. Register its name in `FILE_BACKED_TABLES`; add its stable parent column to `SHARD_KEY_COLUMNS` when it should group with an owner instead of using its primary key.
 5. Define cascade or set-null relationships in `file-backed-store.ts` when required.
 6. Include JSON-column metadata in `services/mari-db/mari-db.service.ts` when a text field contains structured JSON.
 7. Confirm profile backup and restore behavior.

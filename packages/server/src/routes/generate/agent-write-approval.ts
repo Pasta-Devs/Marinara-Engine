@@ -129,6 +129,8 @@ export function formatLorebookWriteApprovalText(
       const name = readUpdateName(update) || `Entry ${index + 1}`;
       const keys = readUpdateKeys(update);
       const tag = readUpdateTag(update);
+      const targetLorebook =
+        typeof update.targetLorebook === "string" && update.targetLorebook.trim() ? update.targetLorebook.trim() : null;
       const order = readLorebookKeeperUpdateOrder(update);
       const content = mergeLorebookKeeperUpdateContent({
         existingContent: existingContentByName.get(normalizeEntryName(name)) ?? "",
@@ -140,6 +142,7 @@ export function formatLorebookWriteApprovalText(
         `### ${name}`,
         `Keys: ${keys.join(", ")}`,
         `Tag: ${tag}`,
+        ...(targetLorebook ? [`Lorebook: ${targetLorebook}`] : []),
         ...(order !== undefined ? [`Order: ${order}`] : []),
         "",
         content || "Add the lorebook text here.",
@@ -169,6 +172,7 @@ export function parseLorebookWriteApprovalText(text: string): Array<Record<strin
     const keys: string[] = [];
     let tag = "";
     let order: number | undefined;
+    let targetLorebook: string | undefined;
     let contentStart = 0;
     let sawMetadata = false;
 
@@ -177,6 +181,7 @@ export function parseLorebookWriteApprovalText(text: string): Array<Record<strin
       const keyMatch = line.match(/^Keys:\s*(.*)$/i);
       const tagMatch = line.match(/^Tag:\s*(.*)$/i);
       const orderMatch = line.match(/^Order:\s*(.*)$/i);
+      const lorebookMatch = line.match(/^Lorebook:\s*(.*)$/i);
       if (keyMatch) {
         sawMetadata = true;
         keys.push(
@@ -202,6 +207,12 @@ export function parseLorebookWriteApprovalText(text: string): Array<Record<strin
         contentStart = lineIndex + 1;
         continue;
       }
+      if (lorebookMatch) {
+        sawMetadata = true;
+        targetLorebook = lorebookMatch[1]!.trim() || undefined;
+        contentStart = lineIndex + 1;
+        continue;
+      }
       if (!line.trim()) {
         contentStart = lineIndex + 1;
         if (sawMetadata) break;
@@ -218,6 +229,7 @@ export function parseLorebookWriteApprovalText(text: string): Array<Record<strin
       content,
       keys: Array.from(new Set(keys)),
       tag,
+      ...(targetLorebook ? { targetLorebook } : {}),
       ...(order !== undefined ? { order } : {}),
     });
   }
@@ -232,6 +244,9 @@ export function buildLorebookWriteApprovalProposal(args: {
   updates: Array<Record<string, unknown>>;
   preferredTargetLorebookId: string | null;
   writableLorebookIds: string[] | null;
+  writableLorebooks?: Array<{ id: string; name: string }>;
+  lorebookNamingScheme?: Record<string, string>;
+  worldName?: string | null;
   existingEntries?: Array<{ name?: string | null; content?: string | null }>;
 }): AgentWriteApprovalProposal {
   return {
@@ -244,6 +259,9 @@ export function buildLorebookWriteApprovalProposal(args: {
     payload: {
       preferredTargetLorebookId: args.preferredTargetLorebookId,
       writableLorebookIds: args.writableLorebookIds,
+      writableLorebooks: args.writableLorebooks,
+      lorebookNamingScheme: args.lorebookNamingScheme,
+      worldName: args.worldName,
       updates: args.updates,
     },
     canRegenerate: !!args.agentType,

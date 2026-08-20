@@ -348,6 +348,7 @@ import {
   customAgentUsesLorebookReadBehind,
   customLorebookReadBehindRunKey,
   getCustomLorebookReadBehindMessages,
+  getLorebookNamingScheme,
   getLorebookKeeperAutomaticTarget,
   getLorebookKeeperSettings,
   loadLorebookKeeperExistingEntries,
@@ -357,7 +358,7 @@ import {
 } from "./generate/lorebook-keeper-utils.js";
 import { registerDryRunRoute } from "./generate/dry-run-route.js";
 import { registerRawRoute } from "./generate/raw-route.js";
-import { registerRetryAgentsRoute } from "./generate/retry-agents-route.js";
+import { registerRetryAgentsRoute, type ActiveAgentRun } from "./generate/retry-agents-route.js";
 import { fingerprintChatSummary } from "../services/prompt/chat-summary-fingerprint.js";
 import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } from "./generate/sse.js";
 import {
@@ -782,7 +783,7 @@ export async function generateRoutes(app: FastifyInstance) {
    * These are replayed on the next turn so the model can continue its reasoning chain.
    */
   const encryptedReasoningCache = new Map<string, unknown[]>();
-  type ActiveGeneration = { abortController: AbortController; backendUrl: string | null };
+  type ActiveGeneration = ActiveAgentRun;
   const activeGenerations = new Map<string, ActiveGeneration>();
   const activeAgentRuns = new Map<string, Set<ActiveGeneration>>();
   const activeCustomLorebookReadBehindRuns = new Set<string>();
@@ -3904,15 +3905,17 @@ export async function generateRoutes(app: FastifyInstance) {
 
         // Populate writable lorebook IDs for the lorebook-keeper agent
         if (resolvedAgents.some((a) => a.type === "lorebook-keeper")) {
-          const { writableLorebookIds, targetLorebookId, targetLorebookName } = await resolveLorebookKeeperTarget({
-            lorebooksStore,
-            chatId: input.chatId,
-            characterIds,
-            personaId,
-            activeLorebookIds: chatActiveLorebookIds,
-            preferredTargetLorebookId: lorebookKeeperSettings.targetLorebookId,
-          });
+          const { writableLorebookIds, writableLorebooks, targetLorebookId, targetLorebookName } =
+            await resolveLorebookKeeperTarget({
+              lorebooksStore,
+              chatId: input.chatId,
+              characterIds,
+              personaId,
+              activeLorebookIds: chatActiveLorebookIds,
+              preferredTargetLorebookId: lorebookKeeperSettings.targetLorebookId,
+            });
           agentContext.writableLorebookIds = writableLorebookIds;
+          agentContext.memory._writableLorebooks = writableLorebooks;
           if (targetLorebookId) {
             agentContext.memory._lorebookKeeperTargetLorebookId = targetLorebookId;
           }
@@ -4388,6 +4391,11 @@ export async function generateRoutes(app: FastifyInstance) {
                 updates,
                 preferredTargetLorebookId,
                 writableLorebookIds,
+                writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
+                  ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
+                  : undefined,
+                lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
+                worldName: agentContext.characters[0]?.world ?? chat.name,
                 existingEntries,
               }),
             },
@@ -8994,6 +9002,11 @@ export async function generateRoutes(app: FastifyInstance) {
                     chatName: chat.name,
                     preferredTargetLorebookId,
                     writableLorebookIds,
+                    writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
+                      ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
+                      : undefined,
+                    lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
+                    worldName: agentContext.characters[0]?.world ?? chat.name,
                     updates,
                     revectorizeEntry: memoryRecallVectorizerAvailable
                       ? async (entry) => {
@@ -10287,5 +10300,5 @@ export async function generateRoutes(app: FastifyInstance) {
 
   await registerDryRunRoute(app);
   await registerRawRoute(app);
-  await registerRetryAgentsRoute(app, activeCustomLorebookReadBehindRuns);
+  await registerRetryAgentsRoute(app, activeCustomLorebookReadBehindRuns, activeAgentRuns);
 }

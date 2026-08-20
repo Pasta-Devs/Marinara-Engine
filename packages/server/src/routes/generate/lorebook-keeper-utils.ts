@@ -1,4 +1,9 @@
-import { customAgentHasCapability, type AgentContext, type LorebookEntry } from "@marinara-engine/shared";
+import {
+  customAgentHasCapability,
+  normalizeLorebookCategory,
+  type AgentContext,
+  type LorebookEntry,
+} from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { createLorebooksStorage } from "../../services/storage/lorebooks.storage.js";
 
@@ -14,6 +19,13 @@ export interface ExistingLorebookEntrySummary {
   keys: string[];
   locked: boolean;
 }
+
+export interface WritableLorebookSummary {
+  id: string;
+  name: string;
+}
+
+export type LorebookNamingScheme = Record<string, string>;
 
 type LorebooksStore = ReturnType<typeof createLorebooksStorage>;
 
@@ -99,6 +111,18 @@ export function getLorebookKeeperSettings(chatMeta: Record<string, unknown>): Lo
   };
 }
 
+export function getLorebookNamingScheme(settings: Record<string, unknown> | null | undefined): LorebookNamingScheme {
+  const raw = settings?.lorebookNamingScheme;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const scheme: LorebookNamingScheme = {};
+  for (const [key, value] of Object.entries(raw).slice(0, 32)) {
+    const alias = key.trim().toLowerCase();
+    const template = typeof value === "string" ? value.trim() : "";
+    if (alias && template) scheme[alias] = template;
+  }
+  return scheme;
+}
+
 export async function resolveLorebookKeeperTarget(args: {
   lorebooksStore: LorebooksStore;
   chatId: string;
@@ -108,6 +132,7 @@ export async function resolveLorebookKeeperTarget(args: {
   preferredTargetLorebookId: string | null;
 }): Promise<{
   writableLorebookIds: string[];
+  writableLorebooks: WritableLorebookSummary[];
   targetLorebookId: string | null;
   targetLorebookName: string | null;
 }> {
@@ -147,13 +172,14 @@ export async function resolveLorebookKeeperTarget(args: {
   });
 
   const writableLorebookIds = uniqueBooks.map((book) => book.id);
+  const writableLorebooks = uniqueBooks.map((book) => ({ id: book.id, name: book.name?.trim() || book.id }));
   const targetLorebookId =
     preferredTargetLorebookId && writableLorebookIds.includes(preferredTargetLorebookId)
       ? preferredTargetLorebookId
       : (writableLorebookIds[0] ?? null);
   const targetLorebookName = uniqueBooks.find((book) => book.id === targetLorebookId)?.name?.trim() ?? null;
 
-  return { writableLorebookIds, targetLorebookId, targetLorebookName };
+  return { writableLorebookIds, writableLorebooks, targetLorebookId, targetLorebookName };
 }
 
 export async function loadLorebookKeeperExistingEntries(
@@ -385,8 +411,12 @@ export async function persistLorebookKeeperUpdates(args: {
   chatName: string | null | undefined;
   preferredTargetLorebookId: string | null;
   writableLorebookIds: string[] | null;
+  writableLorebooks?: WritableLorebookSummary[];
+  lorebookNamingScheme?: LorebookNamingScheme;
+  worldName?: string | null;
   updates: Array<Record<string, unknown>>;
   revectorizeEntry?: (entry: LorebookEntry) => Promise<void>;
+  signal?: AbortSignal;
 }): Promise<string | null> {
   const {
     lorebooksStore,
@@ -394,12 +424,97 @@ export async function persistLorebookKeeperUpdates(args: {
     chatName,
     preferredTargetLorebookId,
     writableLorebookIds,
+    writableLorebooks,
+    lorebookNamingScheme = {},
+    worldName,
     updates,
     revectorizeEntry,
+    signal,
   } = args;
+  signal?.throwIfAborted();
+
+  const routedUpdates = updates.filter(
+    (update) => typeof update.targetLorebook === "string" && update.targetLorebook.trim().length > 0,
+  );
+  if (routedUpdates.length > 0) {
+    const writableIds = new Set(writableLorebookIds ?? []);
+    if (preferredTargetLorebookId) writableIds.add(preferredTargetLorebookId);
+    const allBooks = (await lorebooksStore.list()) as unknown as WritableLorebookSummary[];
+    signal?.throwIfAborted();
+    const books = new Map(
+      allBooks.filter((book) => writableIds.has(book.id)).map((book) => [book.id, { id: book.id, name: book.name }]),
+    );
+    for (const book of writableLorebooks ?? []) {
+      if (writableIds.has(book.id)) books.set(book.id, book);
+    }
+
+    const resolveTarget = async (rawTarget: string): Promise<string | null> => {
+      signal?.throwIfAborted();
+      const target = rawTarget.trim();
+      const exact = [...books.values()].find((book) => book.name === target);
+      if (exact) return exact.id;
+
+      const alias = target.toLowerCase();
+      const template = lorebookNamingScheme[alias];
+      if (!template) return null;
+      const resolvedName = template.replaceAll("[WorldName]", worldName?.trim() || chatName?.trim() || chatId);
+      const existing = [...books.values()].find((book) => book.name === resolvedName);
+      if (existing) return existing.id;
+      signal?.throwIfAborted();
+      const created = await lorebooksStore.create({
+        name: resolvedName,
+        description: `Automatically created for Lorebook Keeper's ${alias} entries`,
+        category: normalizeLorebookCategory(alias),
+        chatId,
+        enabled: true,
+        generatedBy: "agent",
+        sourceAgentId: "lorebook-keeper",
+      });
+      signal?.throwIfAborted();
+      const id = (created as { id?: string } | null)?.id ?? null;
+      if (id) {
+        writableIds.add(id);
+        books.set(id, { id, name: resolvedName });
+      }
+      return id;
+    };
+
+    const grouped = new Map<string | null, Array<Record<string, unknown>>>();
+    for (const update of updates) {
+      signal?.throwIfAborted();
+      const rawTarget = typeof update.targetLorebook === "string" ? update.targetLorebook.trim() : "";
+      const targetId = rawTarget ? await resolveTarget(rawTarget) : null;
+      signal?.throwIfAborted();
+      const { targetLorebook: _targetLorebook, ...plainUpdate } = update;
+      const bucket = grouped.get(targetId) ?? [];
+      bucket.push(plainUpdate);
+      grouped.set(targetId, bucket);
+    }
+
+    let firstResolvedTarget: string | null = null;
+    let fallbackTarget: string | null = null;
+    for (const [targetId, targetUpdates] of grouped) {
+      signal?.throwIfAborted();
+      const resolved = await persistLorebookKeeperUpdates({
+        lorebooksStore,
+        chatId,
+        chatName,
+        preferredTargetLorebookId: targetId ?? preferredTargetLorebookId,
+        writableLorebookIds: targetId ? [targetId] : [...writableIds],
+        updates: targetUpdates,
+        revectorizeEntry,
+        signal,
+      });
+      signal?.throwIfAborted();
+      firstResolvedTarget ??= resolved;
+      if (targetId === null) fallbackTarget = resolved;
+    }
+    return preferredTargetLorebookId ?? fallbackTarget ?? firstResolvedTarget;
+  }
 
   let targetLorebookId = preferredTargetLorebookId ?? writableLorebookIds?.[0] ?? null;
   if (!targetLorebookId) {
+    signal?.throwIfAborted();
     const created = await lorebooksStore.create({
       name: `Auto-generated (${chatName || chatId})`,
       description: "Automatically created by the Lorebook Keeper agent",
@@ -409,11 +524,13 @@ export async function persistLorebookKeeperUpdates(args: {
       generatedBy: "agent",
       sourceAgentId: "lorebook-keeper",
     });
+    signal?.throwIfAborted();
     targetLorebookId = (created as { id?: string } | null)?.id ?? null;
   }
 
   if (!targetLorebookId) return null;
 
+  signal?.throwIfAborted();
   const existingEntries = (await lorebooksStore.listEntries(targetLorebookId)) as unknown as Array<{
     id: string;
     name?: string | null;
@@ -422,6 +539,7 @@ export async function persistLorebookKeeperUpdates(args: {
     tag?: string | null;
     locked?: unknown;
   }>;
+  signal?.throwIfAborted();
   const entryByName = new Map<string, (typeof existingEntries)[number]>();
   for (const entry of existingEntries) {
     const name = typeof entry.name === "string" ? entry.name.trim().toLowerCase() : "";
@@ -429,6 +547,7 @@ export async function persistLorebookKeeperUpdates(args: {
   }
 
   for (const update of updates) {
+    signal?.throwIfAborted();
     const rawName = readKeeperUpdateName(update);
     if (!rawName) continue;
 
@@ -450,16 +569,21 @@ export async function persistLorebookKeeperUpdates(args: {
       });
       const mergedKeys = mergeLorebookKeys(existing.keys, keys);
       const mergedTag = tag || existing.tag || "";
+      signal?.throwIfAborted();
       const updated = await lorebooksStore.updateEntry(existing.id, {
         content: mergedContent,
         keys: mergedKeys,
         tag: mergedTag,
         ...(order !== undefined ? { order } : {}),
       });
+      signal?.throwIfAborted();
       if (revectorizeEntry && updated) {
         try {
+          signal?.throwIfAborted();
           await revectorizeEntry(updated as LorebookEntry);
+          signal?.throwIfAborted();
         } catch (err) {
+          signal?.throwIfAborted();
           logger.warn(err, "[lorebook-keeper] Failed to refresh embedding for updated entry %s", existing.id);
         }
       }
@@ -477,6 +601,7 @@ export async function persistLorebookKeeperUpdates(args: {
       replacementContent: content,
       newFacts: update.newFacts,
     });
+    signal?.throwIfAborted();
     const created = await lorebooksStore.createEntry({
       lorebookId: targetLorebookId,
       name: rawName,
@@ -486,6 +611,7 @@ export async function persistLorebookKeeperUpdates(args: {
       enabled: true,
       ...(order !== undefined ? { order } : {}),
     });
+    signal?.throwIfAborted();
     if (created && typeof created === "object" && "id" in created) {
       const createdEntry = created as { id: string; name?: string | null; locked?: unknown };
       entryByName.set(rawName.toLowerCase(), {
