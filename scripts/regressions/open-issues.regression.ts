@@ -9294,14 +9294,16 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     "A cancelled retry must not emit its completion event",
   );
   assert.equal(
-    retryAgentsRouteSource.match(/worldName: (?:retryContext|agentContext)\.characters\[0\]\?\.world/gu)?.length,
+    retryAgentsRouteSource.match(
+      /worldName: (?:retryContext|agentContext)\.characters\[0\]\?\.world \?\? (?:chatName|\(chat as any\)\.name)/gu,
+    )?.length,
     3,
-    "Retry approval and persistence must expand [WorldName] from the persisted character world",
+    "Retry approval and persistence must expand [WorldName] from the persisted character world, then the chat name",
   );
   assert.equal(
-    generateRouteSource.match(/worldName: agentContext\.characters\[0\]\?\.world/gu)?.length,
+    generateRouteSource.match(/worldName: agentContext\.characters\[0\]\?\.world \?\? chat\.name/gu)?.length,
     2,
-    "Normal approval and persistence must expand [WorldName] from the persisted character world",
+    "Normal approval and persistence must expand [WorldName] from the persisted character world, then the chat name",
   );
   const characterPromptContextSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/server/src/services/generation/character-prompt-context.ts"),

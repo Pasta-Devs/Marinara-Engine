@@ -293,10 +293,11 @@ function markInvalidJsonAgentResult(result: AgentResult): AgentResult {
 function markRetryLorebookResultForApproval(args: {
   result: AgentResult;
   chatId: string;
+  chatName: string | null | undefined;
   agentContext: AgentContext;
   resolvedAgents: ResolvedRetryAgent[];
 }): AgentResult {
-  const { result, chatId, agentContext, resolvedAgents } = args;
+  const { result, chatId, chatName, agentContext, resolvedAgents } = args;
   if (
     !result.success ||
     result.type !== "lorebook_update" ||
@@ -339,7 +340,7 @@ function markRetryLorebookResultForApproval(args: {
           ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
           : undefined,
         lorebookNamingScheme: getLorebookNamingScheme(entry?.resolved.settings),
-        worldName: agentContext.characters[0]?.world,
+        worldName: agentContext.characters[0]?.world ?? chatName,
         existingEntries,
       }),
     },
@@ -2353,6 +2354,7 @@ async function executeLorebookKeeperRetries(args: {
         ? markRetryLorebookResultForApproval({
             result: rawResult,
             chatId,
+            chatName,
             agentContext: retryContext,
             resolvedAgents: [lorebookKeeperAgent],
           })
@@ -4151,13 +4153,17 @@ export async function registerRetryAgentsRoute(
                 )
               : [];
       if (abortController.signal.aborted) return;
-      const results = rawResults
-        .map(markInvalidJsonAgentResult)
-        .map((result) =>
-          requireAgentWriteApproval
-            ? markRetryLorebookResultForApproval({ result, chatId, agentContext, resolvedAgents: nonLorebookAgents })
-            : result,
-        );
+      const results = rawResults.map(markInvalidJsonAgentResult).map((result) =>
+        requireAgentWriteApproval
+          ? markRetryLorebookResultForApproval({
+              result,
+              chatId,
+              chatName: (chat as any).name,
+              agentContext,
+              resolvedAgents: nonLorebookAgents,
+            })
+          : result,
+      );
       let rawLorebookKeeperRunEntries: Array<{ messageId: string; swipeIndex: number; result: AgentResult }> = [];
       if (lorebookKeeperAgent) {
         try {
