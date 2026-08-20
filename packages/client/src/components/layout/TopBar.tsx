@@ -20,7 +20,7 @@ import { useCharacters } from "../../hooks/use-characters";
 import { ChatSidebar } from "./ChatSidebar";
 import { CharactersPanel } from "../panels/CharactersPanel";
 
-import "./TopBar.css";
+
 
 const TOPBAR_PANEL_BUTTON_CLASS =
   "mari-topbar-action relative flex h-8 w-8 items-center justify-center rounded-lg p-0 transition-all duration-200 max-sm:h-7 max-sm:w-7";
