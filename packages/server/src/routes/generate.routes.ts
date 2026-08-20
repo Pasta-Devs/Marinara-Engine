@@ -348,6 +348,7 @@ import {
   customAgentUsesLorebookReadBehind,
   customLorebookReadBehindRunKey,
   getCustomLorebookReadBehindMessages,
+  getLorebookNamingScheme,
   getLorebookKeeperAutomaticTarget,
   getLorebookKeeperSettings,
   loadLorebookKeeperExistingEntries,
@@ -3904,15 +3905,17 @@ export async function generateRoutes(app: FastifyInstance) {
 
         // Populate writable lorebook IDs for the lorebook-keeper agent
         if (resolvedAgents.some((a) => a.type === "lorebook-keeper")) {
-          const { writableLorebookIds, targetLorebookId, targetLorebookName } = await resolveLorebookKeeperTarget({
-            lorebooksStore,
-            chatId: input.chatId,
-            characterIds,
-            personaId,
-            activeLorebookIds: chatActiveLorebookIds,
-            preferredTargetLorebookId: lorebookKeeperSettings.targetLorebookId,
-          });
+          const { writableLorebookIds, writableLorebooks, targetLorebookId, targetLorebookName } =
+            await resolveLorebookKeeperTarget({
+              lorebooksStore,
+              chatId: input.chatId,
+              characterIds,
+              personaId,
+              activeLorebookIds: chatActiveLorebookIds,
+              preferredTargetLorebookId: lorebookKeeperSettings.targetLorebookId,
+            });
           agentContext.writableLorebookIds = writableLorebookIds;
+          agentContext.memory._writableLorebooks = writableLorebooks;
           if (targetLorebookId) {
             agentContext.memory._lorebookKeeperTargetLorebookId = targetLorebookId;
           }
@@ -4388,6 +4391,11 @@ export async function generateRoutes(app: FastifyInstance) {
                 updates,
                 preferredTargetLorebookId,
                 writableLorebookIds,
+                writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
+                  ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
+                  : undefined,
+                lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
+                worldName: agentContext.characters[0]?.name ?? chat.name,
                 existingEntries,
               }),
             },
@@ -8994,6 +9002,11 @@ export async function generateRoutes(app: FastifyInstance) {
                     chatName: chat.name,
                     preferredTargetLorebookId,
                     writableLorebookIds,
+                    writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
+                      ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
+                      : undefined,
+                    lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
+                    worldName: agentContext.characters[0]?.name ?? chat.name,
                     updates,
                     revectorizeEntry: memoryRecallVectorizerAvailable
                       ? async (entry) => {

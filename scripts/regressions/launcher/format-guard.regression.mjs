@@ -163,12 +163,12 @@ for (const pinnedFragment of [":storage-format.json", "targetFormat >= onDiskFor
 // The unshard command keeps private copies of the store's shard constants (it
 // must run offline and cannot import server code). Pin them against the store
 // source so a rename or a new sharded table cannot silently desynchronize them.
-const parseTableList = (source, label) => {
+const parseTableList = (source, constantName, label) => {
   // Tolerant of whitespace, newlines, and trailing annotations (`as const`):
   // lazy-match through the array's own closing bracket only — table names
   // cannot contain `]`, so the first `]` always ends the literal.
-  const raw = /const SHARDED_TABLES[\s\S]*?=\s*\[([\s\S]*?)\]/.exec(source)?.[1];
-  assert.ok(raw, `could not find SHARDED_TABLES in ${label}`);
+  const raw = new RegExp(`const ${constantName}[\\s\\S]*?=\\s*\\[([\\s\\S]*?)\\]`).exec(source)?.[1];
+  assert.ok(raw, `could not find ${constantName} in ${label}`);
   return raw
     .split(",")
     .map((entry) =>
@@ -180,8 +180,8 @@ const parseTableList = (source, label) => {
     .filter(Boolean);
 };
 assert.deepEqual(
-  parseTableList(launcherGuardSource, "protect-launcher-data.mjs"),
-  parseTableList(storeSource, "file-backed-store.ts"),
+  parseTableList(launcherGuardSource, "SHARDED_TABLES", "protect-launcher-data.mjs"),
+  parseTableList(storeSource, "FILE_BACKED_TABLES", "file-backed-store.ts"),
   "unshard's SHARDED_TABLES copy must match the store's — a new sharded table the script does not fold back " +
     "into a monolith would silently vanish for the downgraded build",
 );

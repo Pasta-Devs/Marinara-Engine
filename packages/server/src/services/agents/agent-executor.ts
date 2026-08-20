@@ -3000,6 +3000,17 @@ function buildAgentExtras(
     }
   }
 
+  if (agentTypes.includes("lorebook-keeper") && Array.isArray(context.memory._writableLorebooks)) {
+    const books = (context.memory._writableLorebooks as Array<{ id?: unknown; name?: unknown }>)
+      .filter((book) => typeof book.id === "string" && typeof book.name === "string")
+      .map((book, index) => `[${index}] "${escapeXml(String(book.name))}" (id: ${escapeXml(String(book.id))})`);
+    if (books.length > 0) {
+      parts.push(`<writable_lorebooks>`);
+      parts.push(books.join("\n"));
+      parts.push(`</writable_lorebooks>`);
+    }
+  }
+
   if (sources.activatedLorebookEntries && context.activatedLorebookEntries?.length) {
     parts.push(`<activated_lorebook_context>`);
     parts.push(`Lorebook entries activated for the main generation on this turn:`);

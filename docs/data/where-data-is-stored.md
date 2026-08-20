@@ -18,7 +18,7 @@ You can move the data folder to another location by setting `DATA_DIR` yourself.
 
 Inside the data folder, your data is split into a `storage` folder and several asset folders.
 
-The `storage` folder holds your text data: characters, chats, messages, lorebooks, presets, and connections. Marinara saves these as files here, so this is the folder that holds most of your work.
+The `storage` folder holds your text data: characters, chats, messages, lorebooks, presets, and connections. Marinara saves each table as smaller ownership-grouped files—for example, one chat's messages or one lorebook's entries—so changing one item does not rewrite an ever-growing global JSON file. During the one-time upgrade from older storage, Marinara preserves the original table files beside the new folders with a `.pre-shard` suffix.
 
 Your images, audio, and other media files live in their own folders, each named for what it holds. The main asset folders are:
 

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DB } from "../../../packages/server/src/db/connection.js";
 import { eq } from "../../../packages/server/src/db/file-query.js";
-import { createFileNativeDB } from "../../../packages/server/src/db/file-backed-store.js";
+import { createFileNativeDB, encodeShardKey } from "../../../packages/server/src/db/file-backed-store.js";
 import { noodleAccounts } from "../../../packages/server/src/db/schema/noodle.js";
 import { createAppSettingsStorage } from "../../../packages/server/src/services/storage/app-settings.storage.js";
 import {
@@ -406,7 +406,12 @@ try {
   assert.ok(await firstNoodle.getAccountById(creatorSource.id));
   await firstDb._fileStore.close();
 
-  const refreshRunsPath = join(storageDir, "tables", "noodle_refresh_runs.json");
+  const refreshRunsPath = join(
+    storageDir,
+    "tables",
+    "noodle_refresh_runs",
+    `${encodeShardKey(legacyRefreshRun.id)}.json`,
+  );
   const persistedRefreshRuns = JSON.parse(readFileSync(refreshRunsPath, "utf8")) as Array<Record<string, unknown>>;
   const legacyPersistedRun = persistedRefreshRuns.find((entry) => entry.id === legacyRefreshRun.id);
   assert.ok(legacyPersistedRun);

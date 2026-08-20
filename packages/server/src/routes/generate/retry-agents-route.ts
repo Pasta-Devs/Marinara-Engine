@@ -143,6 +143,7 @@ import {
   customLorebookReadBehindRunKey,
   getCustomLorebookReadBehindMessages,
   getLorebookKeeperBackfillTargets,
+  getLorebookNamingScheme,
   getLorebookKeeperSettings,
   loadLorebookKeeperExistingEntries,
   persistLorebookKeeperUpdates,
@@ -334,6 +335,11 @@ function markRetryLorebookResultForApproval(args: {
         updates,
         preferredTargetLorebookId,
         writableLorebookIds,
+        writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
+          ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
+          : undefined,
+        lorebookNamingScheme: getLorebookNamingScheme(entry?.resolved.settings),
+        worldName: agentContext.characters[0]?.name,
         existingEntries,
       }),
     },
@@ -1016,15 +1022,17 @@ async function buildRetryAgentContext(args: {
 
   if (resolvedAgentTypes.has("lorebook-keeper")) {
     const lorebookKeeperSettings = getLorebookKeeperSettings(chatMeta);
-    const { writableLorebookIds, targetLorebookId, targetLorebookName } = await resolveLorebookKeeperTarget({
-      lorebooksStore,
-      chatId,
-      characterIds,
-      personaId: personaContext.personaId,
-      activeLorebookIds,
-      preferredTargetLorebookId: lorebookKeeperSettings.targetLorebookId,
-    });
+    const { writableLorebookIds, writableLorebooks, targetLorebookId, targetLorebookName } =
+      await resolveLorebookKeeperTarget({
+        lorebooksStore,
+        chatId,
+        characterIds,
+        personaId: personaContext.personaId,
+        activeLorebookIds,
+        preferredTargetLorebookId: lorebookKeeperSettings.targetLorebookId,
+      });
     agentContext.writableLorebookIds = writableLorebookIds;
+    agentContext.memory._writableLorebooks = writableLorebooks;
     if (targetLorebookId) {
       agentContext.memory._lorebookKeeperTargetLorebookId = targetLorebookId;
     }
@@ -2362,6 +2370,11 @@ async function executeLorebookKeeperRetries(args: {
             chatName,
             preferredTargetLorebookId,
             writableLorebookIds: retryContext.writableLorebookIds,
+            writableLorebooks: Array.isArray(retryContext.memory._writableLorebooks)
+              ? (retryContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
+              : undefined,
+            lorebookNamingScheme: getLorebookNamingScheme(lorebookKeeperAgent.resolved.settings),
+            worldName: retryContext.characters[0]?.name ?? chatName,
             updates,
           });
         }
@@ -2833,6 +2846,11 @@ async function applyRetryResultEffects(args: {
             chatName: (chat as any).name,
             preferredTargetLorebookId,
             writableLorebookIds,
+            writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
+              ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
+              : undefined,
+            lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
+            worldName: agentContext.characters[0]?.name ?? (chat as any).name,
             updates: retryUpdates,
           });
         }

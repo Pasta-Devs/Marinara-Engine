@@ -6980,6 +6980,9 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       const context = makeRegressionAgentContext({
         wrapFormat: "xml",
         persona: { name: "Mari <override>", description: "The active user persona." },
+        memory: {
+          _writableLorebooks: [{ id: "book-1", name: "World <Lore>" }],
+        },
       });
 
       const result = await executeAgent(config as any, context, provider as any, "regression-model");
@@ -6991,6 +6994,8 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(system, /<existing_entries>/u);
       assert.match(terminal, /<chat_summary>/u);
       assert.match(terminal, /<existing_entries>/u);
+      assert.match(system, /<writable_lorebooks>/u);
+      assert.match(system, /World &lt;Lore&gt;/u);
       assert.doesNotMatch(terminal, /&lt;chat_summary>/u);
       assert.match(terminal, /Mari &lt;override&gt;/u);
     },

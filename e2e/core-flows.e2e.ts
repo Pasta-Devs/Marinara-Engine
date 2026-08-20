@@ -9206,6 +9206,18 @@ test("Professor Mari opens a named character directly in its editor", async ({ p
     });
     const assistant = page.locator('aside[aria-label="Professor Mari assistant"]');
     await expect(assistant).toBeVisible({ timeout: 6_000 });
+    await page.evaluate(async () => {
+      const module = await import("/src/stores/ui.store.ts");
+      module.useUIStore.getState().setReduceAmbientEffects(true);
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          paused: document.documentElement.dataset.marinaraEffectsPaused,
+          reduced: document.documentElement.dataset.marinaraReducedEffects,
+        })),
+      )
+      .toEqual({ paused: undefined, reduced: "true" });
     await assistant.getByRole("button", { name: "Help Me Navigate", exact: true }).click();
     const navigationInput = assistant.getByPlaceholder("What are you looking for?");
     await navigationInput.fill(resourceName);

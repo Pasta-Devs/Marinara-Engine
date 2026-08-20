@@ -125,7 +125,7 @@ import { npcAvatarSlug, sanitizeGameNpcAvatarUrls } from "../services/game/npc-a
 import { buildCommittedTrackerContextBlock } from "../services/generation/committed-tracker-context.js";
 import { normalizeBeholderState } from "../services/agents/beholder-state.js";
 import { parseLorebookWriteApprovalText } from "./generate/agent-write-approval.js";
-import { persistLorebookKeeperUpdates } from "./generate/lorebook-keeper-utils.js";
+import { getLorebookNamingScheme, persistLorebookKeeperUpdates } from "./generate/lorebook-keeper-utils.js";
 import {
   clampRoleplaySummaryMaxTokens,
   formatRoleplaySummaryChatLog,
@@ -1483,6 +1483,12 @@ export async function chatsRoutes(app: FastifyInstance) {
       const writableLorebookIds = Array.isArray(payload.writableLorebookIds)
         ? payload.writableLorebookIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
         : null;
+      const writableLorebooks = Array.isArray(payload.writableLorebooks)
+        ? payload.writableLorebooks.flatMap((book) => {
+            if (!isRecord(book) || typeof book.id !== "string" || typeof book.name !== "string") return [];
+            return [{ id: book.id, name: book.name }];
+          })
+        : undefined;
       const lorebooksStore = createLorebooksStorage(app.db);
       const targetLorebookId = await persistLorebookKeeperUpdates({
         lorebooksStore,
@@ -1490,6 +1496,12 @@ export async function chatsRoutes(app: FastifyInstance) {
         chatName: (chat as { name?: string | null }).name,
         preferredTargetLorebookId,
         writableLorebookIds,
+        writableLorebooks,
+        lorebookNamingScheme: getLorebookNamingScheme({ lorebookNamingScheme: payload.lorebookNamingScheme }),
+        worldName:
+          typeof payload.worldName === "string" && payload.worldName.trim()
+            ? payload.worldName.trim()
+            : (chat as { name?: string | null }).name,
         updates,
       });
       return { ok: true, targetLorebookId };

@@ -3954,17 +3954,20 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
       name: "Ordered Memory",
       keys: ["memory"],
       tag: "event",
+      targetLorebook: "world",
       order: 200,
       content: "A durable memory.",
     },
   ]);
   assert.match(approvalText, /\nOrder: 200\n/u);
+  assert.match(approvalText, /\nLorebook: world\n/u);
   assert.deepEqual(parseLorebookWriteApprovalText(approvalText), [
     {
       action: "append",
       name: "Ordered Memory",
       keys: ["memory"],
       tag: "event",
+      targetLorebook: "world",
       order: 200,
       content: "A durable memory.",
     },
@@ -4016,6 +4019,44 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
   assert.equal(updatedEntries[0]?.changes.order, 200);
   assert.equal(createdEntries[0]?.order, 300);
   assert.equal(Object.hasOwn(createdEntries[1] ?? {}, "order"), false);
+
+  const routedEntries: Array<Record<string, unknown>> = [];
+  const createdBooks: Array<Record<string, unknown>> = [];
+  const routedStore = {
+    list: async () => [{ id: "book-world", name: "My World — World Lore" }],
+    create: async (input: Record<string, unknown>) => {
+      createdBooks.push(input);
+      return { id: "book-scene", ...input };
+    },
+    listEntries: async () => [],
+    createEntry: async (input: Record<string, unknown>) => {
+      routedEntries.push(input);
+      return { id: `routed-${routedEntries.length}`, ...input };
+    },
+    updateEntry: async () => null,
+  };
+  await persistLorebookKeeperUpdates({
+    lorebooksStore: routedStore as any,
+    chatId: "chat-439",
+    chatName: "Campaign",
+    preferredTargetLorebookId: "book-world",
+    writableLorebookIds: ["book-world"],
+    writableLorebooks: [{ id: "book-world", name: "My World — World Lore" }],
+    lorebookNamingScheme: { scene: "[WorldName] — Scene Log" },
+    worldName: "Campaign",
+    updates: [
+      { targetLorebook: "My World — World Lore", entryName: "Magic", content: "World fact." },
+      { targetLorebook: "scene", entryName: "Tavern", content: "Scene fact." },
+      { entryName: "Fallback", content: "Default-book fact." },
+    ],
+  });
+  assert.deepEqual(
+    routedEntries.map((entry) => entry.lorebookId),
+    ["book-world", "book-scene", "book-world"],
+    "exact names and aliases route independently while omitted targets retain the default book",
+  );
+  assert.equal(createdBooks[0]?.name, "Campaign — Scene Log", "a missing configured alias creates its named book");
+  assert.equal(createdBooks[0]?.chatId, "chat-439", "auto-created routing books link to the active chat");
 }
 
 assert.equal(
