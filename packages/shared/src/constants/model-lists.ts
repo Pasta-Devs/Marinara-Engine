@@ -257,19 +257,13 @@ export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
 // catalog when authenticated. This curated fallback keeps the selector useful
 // before the user has run `codex login`.
 export const OPENAI_CHATGPT_MODELS: KnownModel[] = [
-  { id: "gpt-5.5", name: "GPT-5.5", context: 1050000, maxOutput: 128000 },
-  { id: "gpt-5.4", name: "GPT-5.4", context: 1050000, maxOutput: 128000 },
-  { id: "gpt-5.4-mini", name: "GPT-5.4 Mini", context: 400000, maxOutput: 128000 },
-  { id: "gpt-5.3-codex-spark", name: "GPT-5.3 Codex Spark", context: 400000, maxOutput: 128000 },
-  { id: "gpt-5.3-codex", name: "GPT-5.3 Codex", context: 400000, maxOutput: 128000 },
-  { id: "gpt-5-codex", name: "GPT-5 Codex", context: 400000, maxOutput: 128000 },
-  { id: "gpt-5.2", name: "GPT-5.2 (deprecated in Codex ChatGPT sign-in)", context: 400000, maxOutput: 128000 },
-  { id: "gpt-5.2-codex", name: "GPT-5.2 Codex", context: 400000, maxOutput: 128000 },
-  { id: "gpt-5.1", name: "GPT-5.1", context: 400000, maxOutput: 128000 },
-  { id: "gpt-5.1-codex", name: "GPT-5.1 Codex", context: 400000, maxOutput: 128000 },
-  { id: "gpt-5", name: "GPT-5", context: 400000, maxOutput: 128000 },
-  { id: "gpt-4o", name: "GPT-4o", context: 128000, maxOutput: 16384 },
-  { id: "chatgpt-4o-latest", name: "ChatGPT 4o Latest", context: 128000, maxOutput: 16384 },
+  { id: "gpt-5.6-sol", name: "GPT-5.6-Sol", context: 272000, maxOutput: 128000 },
+  { id: "gpt-5.6-terra", name: "GPT-5.6-Terra", context: 272000, maxOutput: 128000 },
+  { id: "gpt-5.6-luna", name: "GPT-5.6-Luna", context: 272000, maxOutput: 128000 },
+  { id: "gpt-5.5", name: "GPT-5.5", context: 272000, maxOutput: 128000 },
+  { id: "gpt-5.4", name: "GPT-5.4", context: 272000, maxOutput: 128000 },
+  { id: "gpt-5.4-mini", name: "GPT-5.4-Mini", context: 272000, maxOutput: 128000 },
+  { id: "gpt-5.3-codex-spark", name: "GPT-5.3-Codex-Spark", context: 128000, maxOutput: 128000 },
 ];
 
 // ── Google AI Studio (from #model_google_select) ──

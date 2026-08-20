@@ -15,6 +15,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Conversation and Roleplay automatic summaries can now keep recent summaries in context while semantically retrieving relevant older summaries for long-running chats (#5240).
 - Text Rules now has an opt-in "Color Character Names in Text" toggle that colors character names inline in message text using each character's assigned name color, with support for gradient colors, name aliases, and a "Force Solid Colors for Inline Names" sub-toggle for users who prefer simpler inline readability. Names inside dialogue quotes are skipped, and only characters added to the chat are eligible (inspired by the AI Dungeon "Dungeon Extension v2" extension) (#5321).
 
+### Changed
+
+- Updated the ChatGPT-authenticated Codex fallback catalog to the current visible CLI models, including GPT-5.6 Sol, Terra, and Luna, while removing models no longer offered by the catalog.
+
 ### Fixed
 
 - ElevenLabs audio connections now test the documented `/v1/models` endpoint, so the default base URL no longer returns a misleading 404 (#5339).
