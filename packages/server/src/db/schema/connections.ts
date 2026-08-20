@@ -12,6 +12,7 @@ export const apiConnections = fileTable("api_connections", {
       "openai_chatgpt",
       "anthropic",
       "claude_subscription",
+      "opencode",
       "grok_subscription",
       "google",
       "google_vertex",

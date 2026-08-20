@@ -8,6 +8,7 @@ export type APIProvider =
   | "openai_chatgpt"
   | "anthropic"
   | "claude_subscription"
+  | "opencode"
   | "grok_subscription"
   | "google"
   | "google_vertex"

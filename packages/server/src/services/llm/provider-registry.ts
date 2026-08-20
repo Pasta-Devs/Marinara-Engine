@@ -5,6 +5,7 @@ import { OpenAIProvider } from "./providers/openai.provider.js";
 import { OpenAIChatGPTProvider } from "./providers/openai-chatgpt.provider.js";
 import { AnthropicProvider } from "./providers/anthropic.provider.js";
 import { ClaudeSubscriptionProvider } from "./providers/claude-subscription.provider.js";
+import { OpenCodeProvider } from "./providers/opencode.provider.js";
 import { GrokSubscriptionProvider } from "./providers/grok-subscription.provider.js";
 import { GoogleProvider } from "./providers/google.provider.js";
 import type { BaseLLMProvider } from "./base-provider.js";
@@ -127,6 +128,15 @@ export function createLLMProvider(
         openrouterProvider,
         normalizedMaxTokensOverride,
         claudeFastMode ?? false,
+      );
+      break;
+    case "opencode":
+      resolved = new OpenCodeProvider(
+        baseUrl,
+        apiKey,
+        normalizedMaxContext,
+        openrouterProvider,
+        normalizedMaxTokensOverride,
       );
       break;
     case "grok_subscription":

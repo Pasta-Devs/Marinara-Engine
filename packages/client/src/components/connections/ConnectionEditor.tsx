@@ -1320,12 +1320,21 @@ export function ConnectionEditor() {
   const isMediaGenerationProvider = isImageGenerationProvider || isVideoGenerationProvider || isAudioProvider;
   const isClaudeSubscriptionProvider = localProvider === "claude_subscription";
   const isOpenAIChatGPTProvider = localProvider === "openai_chatgpt";
+  const isOpenCodeProvider = localProvider === "opencode";
   const isGrokSubscriptionProvider = localProvider === "grok_subscription";
   const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
   const supportsDirectEmbeddingConfig = providerSupportsDirectEmbeddingConfig(localProvider);
   const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
-  const modelFetchSourceLabel = isGrokSubscriptionProvider ? "Grok CLI" : "API";
-  const modelFetchButtonLabel = isGrokSubscriptionProvider ? "Fetch Models from Grok CLI" : "Fetch Models from API";
+  const modelFetchSourceLabel = isOpenCodeProvider
+    ? localizeUi("ui.connections.connectioneditor.openCode")
+    : isGrokSubscriptionProvider
+      ? "Grok CLI"
+      : "API";
+  const modelFetchButtonLabel = isOpenCodeProvider
+    ? localizeUi("ui.connections.connectioneditor.fetchModelsFromOpenCode")
+    : isGrokSubscriptionProvider
+      ? "Fetch Models from Grok CLI"
+      : "Fetch Models from API";
   const emptyModelLabel = isGrokSubscriptionProvider ? "Use Grok CLI default model" : "Select a model…";
   const canSendTestMessage = isGrokSubscriptionProvider || Boolean(localModel.trim());
 
@@ -1594,6 +1603,30 @@ export function ConnectionEditor() {
               </ol>
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.connections.connectioneditor.marinaraReadsTheLocalCodexAuthFileAndRefreshes")}
+              </p>
+            </div>
+          )}
+
+          {/* ── OpenCode — prerequisites notice ── */}
+          {isOpenCodeProvider && (
+            <div className="rounded-xl bg-sky-400/5 px-3 py-2.5 ring-1 ring-sky-400/30">
+              <p className="flex items-start gap-1.5 text-[0.6875rem] text-sky-300">
+                <AlertCircle size="0.75rem" className="mt-px shrink-0" />
+                <span>{localizeUi("ui.connections.connectioneditor.openCodeProviderDescription")}</span>
+              </p>
+              <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                <li>
+                  {localizeUi("ui.connections.connectioneditor.installOpenCode")}{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">{"npm install -g opencode-ai"}</code>
+                </li>
+                <li>
+                  {localizeUi("ui.connections.connectioneditor.connectOpenCodeProvider")}{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">{"/connect"}</code>
+                </li>
+                <li>{localizeUi("ui.connections.connectioneditor.apiKeyAndBaseUrlAreNotRequiredFor")}</li>
+              </ol>
+              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.connections.connectioneditor.openCodeRuntimeDetails")}
               </p>
             </div>
           )}

@@ -15,7 +15,7 @@ export interface ProviderDefinition {
   apiKeyHeader: string | null;
 }
 
-export const LOCAL_AUTH_PROVIDERS = ["openai_chatgpt", "claude_subscription", "grok_subscription"] as const;
+export const LOCAL_AUTH_PROVIDERS = ["openai_chatgpt", "claude_subscription", "opencode", "grok_subscription"] as const;
 
 export function isLocalAuthProvider(provider: string | null | undefined): boolean {
   return LOCAL_AUTH_PROVIDERS.includes(provider as (typeof LOCAL_AUTH_PROVIDERS)[number]);
@@ -27,6 +27,8 @@ export function localAuthProviderBaseUrl(provider: string | null | undefined): s
       return "claude-agent-sdk://local";
     case "openai_chatgpt":
       return "openai-chatgpt://codex-auth";
+    case "opencode":
+      return "opencode://local";
     case "grok_subscription":
       return "grok-cli://local";
     default:
@@ -73,6 +75,17 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     defaultBaseUrl: "",
     modelsEndpoint: "",
     supportsStreaming: true,
+    usesAuthHeader: false,
+    apiKeyHeader: null,
+  },
+  opencode: {
+    id: "opencode",
+    name: "OpenCode",
+    // Marinara starts a loopback OpenCode server and inherits the providers,
+    // credentials, and model catalog configured by the local OpenCode install.
+    defaultBaseUrl: "",
+    modelsEndpoint: "",
+    supportsStreaming: false,
     usesAuthHeader: false,
     apiKeyHeader: null,
   },

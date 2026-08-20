@@ -470,6 +470,11 @@ export const XAI_MODELS: KnownModel[] = [
 // aliases such as `grok-build-latest` that some Grok CLI installs reject.
 export const GROK_SUBSCRIPTION_MODELS: KnownModel[] = [];
 
+// OpenCode models are the connected provider/model pairs reported by the
+// user's local OpenCode configuration. Static guesses would include models
+// that the current login cannot use.
+export const OPENCODE_MODELS: KnownModel[] = [];
+
 // ── Additional providers with static lists in SillyTavern ──
 
 // Groq (from #model_groq_select)
@@ -1018,6 +1023,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   openai_chatgpt: OPENAI_CHATGPT_MODELS,
   anthropic: ANTHROPIC_MODELS,
   claude_subscription: CLAUDE_SUBSCRIPTION_MODELS,
+  opencode: OPENCODE_MODELS,
   grok_subscription: GROK_SUBSCRIPTION_MODELS,
   google: GOOGLE_MODELS,
   google_vertex: GOOGLE_MODELS,

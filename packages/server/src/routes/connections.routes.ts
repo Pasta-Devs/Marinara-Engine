@@ -27,6 +27,7 @@ import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embe
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { fetchOpenAIChatGPTModels, getOpenAIChatGPTAuth } from "../services/llm/openai-chatgpt-auth.js";
 import { fetchGrokCliModels } from "../services/llm/providers/grok-subscription.provider.js";
+import { fetchOpenCodeModels } from "../services/llm/providers/opencode.provider.js";
 import {
   buildGoogleVertexModelUrl,
   googleAuthHeadersForVertex,
@@ -147,6 +148,7 @@ function usesResponsesEndpointForTestMessage(provider: string, model: string): b
 function describeTestMessageTarget(provider: string, baseUrl: string, model: string): string {
   if (provider === "claude_subscription") return "Claude Agent SDK";
   if (provider === "openai_chatgpt") return "local ChatGPT session";
+  if (provider === "opencode") return "local OpenCode session";
   if (provider === "grok_subscription") return "local Grok CLI session";
   if (!baseUrl) return "(no base URL)";
   if (provider === "google_vertex") return buildGoogleVertexModelUrl(baseUrl, model, "generateContent");
@@ -584,6 +586,35 @@ export async function connectionsRoutes(app: FastifyInstance) {
         };
       }
 
+      if (conn.provider === "opencode") {
+        const provider = createLLMProvider(
+          conn.provider,
+          "",
+          "",
+          conn.maxContext,
+          conn.openrouterProvider,
+          conn.maxTokensOverride,
+          false,
+          false,
+          conn.defaultParameters,
+          conn.id,
+        );
+        let responseText = "";
+        for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
+          model: conn.model ?? "",
+          maxTokens: 32,
+          stream: false,
+        })) {
+          responseText += chunk;
+        }
+        return {
+          success: true,
+          message: `OpenCode completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
+          latencyMs: Date.now() - start,
+          modelName: conn.model,
+        };
+      }
+
       if (conn.provider === "grok_subscription") {
         const provider = createLLMProvider(
           conn.provider,
@@ -777,6 +808,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
           // before the host has run `codex login`.
         }
         return { models: MODEL_LISTS.openai_chatgpt.map((m) => ({ id: m.id, name: m.name })) };
+      }
+
+      if (conn.provider === "opencode") {
+        return { models: await fetchOpenCodeModels() };
       }
 
       if (conn.provider === "grok_subscription") {
