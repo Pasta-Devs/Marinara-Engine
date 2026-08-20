@@ -18,7 +18,7 @@ A pasta de dados pode ficar em outro lugar: basta você mesmo definir a variáve
 
 Dentro da pasta de dados, os seus dados ficam divididos entre uma pasta `storage` e várias pastas de mídia.
 
-A pasta `storage` contém os dados em texto: personagens, chats, mensagens, lorebooks (conjuntos de fatos do seu mundo), presets (modelos de prompt salvos) e conexões. Marinara salva tudo isso como arquivos aqui, então essa é a pasta que concentra a maior parte do seu trabalho.
+A pasta `storage` contém os dados em texto: personagens, chats, mensagens, lorebooks, presets e conexões. Marinara salva cada tabela em arquivos menores agrupados por proprietário — por exemplo, as mensagens de um chat ou as entradas de um lorebook — para que a alteração de um item não regrave um arquivo JSON global cada vez maior. Durante a atualização única de um armazenamento antigo, Marinara preserva os arquivos de tabela originais ao lado das novas pastas com o sufixo `.pre-shard`.
 
 As imagens, os áudios e os outros arquivos de mídia ficam em pastas próprias, cada uma com o nome do que contém. As principais pastas de mídia são:
 

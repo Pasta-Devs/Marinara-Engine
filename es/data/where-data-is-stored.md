@@ -18,7 +18,7 @@ Puedes mover la carpeta de datos a otra ubicación definiendo tú mismo `DATA_DI
 
 Dentro de la carpeta de datos, tus datos se reparten entre una carpeta `storage` y varias carpetas de recursos.
 
-La carpeta `storage` contiene tus datos de texto: personajes, chats, mensajes, lorebooks, presets y conexiones. Marinara los guarda como archivos aquí, así que esta es la carpeta que contiene la mayor parte de tu trabajo.
+La carpeta `storage` contiene tus datos de texto: personajes, chats, mensajes, lorebooks, presets y conexiones. Marinara guarda cada tabla en archivos más pequeños agrupados por propietario —por ejemplo, los mensajes de un chat o las entradas de un lorebook— para que cambiar un elemento no vuelva a escribir un archivo JSON global cada vez mayor. Durante la actualización única desde un almacenamiento anterior, Marinara conserva los archivos de tabla originales junto a las carpetas nuevas con el sufijo `.pre-shard`.
 
 Tus imágenes, audio y otros archivos multimedia viven en sus propias carpetas, cada una nombrada según lo que contiene. Las carpetas de recursos principales son:
 

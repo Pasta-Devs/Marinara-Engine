@@ -203,7 +203,7 @@ Crée et met à jour des entrées de lorebook à partir des faits importants de 
 
 - **Phase** : **Post-Processing**.
 - **Où ça marche** : Roleplay. En Game Mode, une variante de fin de session, **Game Session Keeper**, fait le même travail à la fin d'une session.
-- **Réglages clés** : par défaut, il s'exécute une fois tous les 8 messages, les tiens et ceux de l'IA. Le sélecteur **Target Lorebook** détermine la destination des entrées, avec une option de sélection automatique.
+- **Réglages clés** : par défaut, il s'exécute une fois tous les 8 messages, les tiens et ceux de l'IA. Le sélecteur **Target Lorebook** détermine la destination des entrées, avec une option de sélection automatique. Les configurations de prompt avancées peuvent renvoyer le nom exact d'un lorebook modifiable ou un alias configuré comme `world`, `npc`, `scene` ou `player` ; si la destination d'un alias n'existe pas, elle est créée et associée automatiquement au chat actuel. Sans destination, le comportement existant avec un seul lorebook est conservé.
 
 ### Combat
 

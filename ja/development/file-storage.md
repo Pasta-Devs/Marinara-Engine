@@ -10,8 +10,12 @@ Marinaraはアプリケーションの行データを、`DATA_DIR/storage`の下
 storage/
 ├── manifest.json
 └── tables/
-    ├── chats.json
-    ├── characters.json
+    ├── chats/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── characters/
+    │   ├── <encoded-character-id>.json
+    │   └── ...
     ├── messages/
     │   ├── <encoded-chat-id>.json
     │   └── ...
@@ -24,11 +28,11 @@ storage/
 
 ### シャード化されたテーブル
 
-ターンごとの書き込み経路にあるチャット単位のテーブルは、1つの巨大なファイルではなく**チャットごとに1ファイル**として保存されます。巨大なファイルでは、1行を保存するたびに全チャットの履歴全体を再シリアライズして書き直すためです。ストレージ形式3では`messages`と`message_swipes`をシャード化し、形式4では同じ配置を`memory_chunks`、`chat_images`、`agent_runs`、`agent_memory`、`conversation_call_sessions`、`conversation_call_messages`、`game_state_snapshots`、`game_engine_state`、`game_checkpoints`、`game_turn_storyboards`、`game_scene_videos`、`spatial_context_snapshots`、`ooc_influences`、`conversation_notes`へ拡張します。正式な一覧は`file-backed-store.ts`の`SHARDED_TABLES`で、`scripts/protect-launcher-data.mjs`のオフライン`unshard`コマンドにも反映され、回帰テストが両者の一致を固定しています。各テーブルは自身の`chatId`列からシャードを求めますが、`message_swipes`は親メッセージ経由、influenceとnoteは`targetChatId`を使います。`lorebooks`と`game_turn_storyboard_keyframes`は意図的に単一ファイルのままです。
+ストレージ形式5では、テーブル全体のJSONファイルを書き直す代わりに、**すべてのファイルベーステーブルを所有キーごとのシャードファイル**として保存します。子行はライフサイクルとアクセス方法を所有するエンティティの下にまとめます。メッセージ、メモリー、Agentの実行、ゲーム状態はチャット別、カード履歴とギャラリーはキャラクターまたはペルソナ別、ロアブックのエントリー、フォルダー、リンクはロアブック別、プロンプトの子要素はプリセット別、ソーシャルデータはアカウントまたは投稿別です。独立したレコードは主キーごとに1ファイルを使います。間接的に所有者を解決するのは`message_swipes`だけで、親メッセージを参照します。正式な定義は`file-backed-store.ts`の`FILE_BACKED_TABLES`と`getFileTableShardStrategy()`です。安全にダウングレードできるよう、`scripts/protect-launcher-data.mjs`のオフライン`unshard`コマンドも完全な一覧を持ち、回帰テストが両者の一致を固定しています。
 
-変更追跡はチャットファイル単位で行われるため、フラッシュが触れるのは変更されたチャットだけです。行数がゼロになったシャードは空の配列として書かれず削除されます。ファイル名はチャットIDをパーセントエンコードし、長すぎる名前や予約名にはハッシュの代替を使います。インポートしたプロファイルは任意のIDを持てるため、このエンコードはセキュリティ境界です。ファイルは容器にすぎず、行は自身のキーを保持します。
+変更追跡はシャード単位で行われるため、フラッシュが触れるのは変更された所有者だけです。行数がゼロになったシャードは空の配列として書かれず削除されます。ファイル名は所有キーをパーセントエンコードし、長すぎる名前や予約名にはハッシュの代替を使います。インポートしたプロファイルは任意のIDを持てるため、このエンコードはセキュリティ境界です。ファイルは容器にすぎず、行は自身のキーを保持します。
 
-新しくシャード化されたテーブルを持つビルドの初回起動時、既存の単一ファイルは自動移行されます。行をチャット別にまとめてシャードへ書き、その後、単一ファイル**とその`.bak`**を`.pre-shard`へ改名します。これらは移行前の自動バックアップで、Engineが削除することはありません。`.migrating`センチネルにより、クラッシュ後の復旧元が明確になります。古いビルドが後からシャードの隣に単一ファイルを再作成した場合はシャードが優先され、競合ファイルはタイムスタンプ付きの`.post-downgrade-`接尾辞で隔離され、結合はされません。孤立した子行は捨てられず`orphaned-rows`シャードへ入ります。新しいストレージ形式で書かれたマニフェストは読み込みを拒否します。
+新しくシャード化されたテーブルを持つビルドの初回起動時、既存の単一ファイルは自動移行されます。行を所有者別にまとめてシャードへ書き、その後、単一ファイル**とその`.bak`**を`.pre-shard`へ改名します。これらは移行前の自動バックアップで、Engineが削除することはありません。`.migrating`センチネルにより、クラッシュ後の復旧元が明確になります。古いビルドが後からシャードの隣に単一ファイルを再作成した場合はシャードが優先され、競合ファイルはタイムスタンプ付きの`.post-downgrade-`接尾辞で隔離され、結合はされません。孤立した子行は捨てられず`orphaned-rows`シャードへ入ります。新しいストレージ形式で書かれたマニフェストは読み込みを拒否します。
 
 ## 実行時のモデル
 
@@ -57,7 +61,7 @@ storage/
 1. `packages/server/src/db/schema/`に、`fileTable`とファイルネイティブなカラムビルダーでテーブルを定義します。
 2. `db/schema/index.ts`からエクスポートします。
 3. 自然キーがある場合は、テーブルオプションの`uniqueBy`で宣言します。
-4. テーブル名を`FILE_BACKED_TABLES`に登録します。
+4. テーブル名を`FILE_BACKED_TABLES`に登録します。主キーではなく所有者の下にまとめる場合は、安定した親カラムを`SHARD_KEY_COLUMNS`に追加します。
 5. 必要に応じて、カスケードやset-nullの関係を`file-backed-store.ts`に定義します。
 6. テキストの項目に構造化されたJSONが入る場合は、`services/mari-db/mari-db.service.ts`にJSONカラムのメタデータを含めます。
 7. プロファイルのバックアップと復元の動作を確認します。

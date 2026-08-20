@@ -18,7 +18,7 @@ Falls du den Datenordner nicht findest, hilft das Start-Log des Servers. Beim St
 
 Im Datenordner sind die Daten auf einen Ordner `storage` und mehrere Asset-Ordner verteilt.
 
-Der Ordner `storage` enthält die Textdaten: Charaktere, Chats, Nachrichten, Lorebooks (Sammlungen von Weltwissen), Presets (gespeicherte Prompt-Vorlagen) und Verbindungen. Marinara legt sie hier als Dateien ab – in diesem Ordner steckt also der Großteil deiner Arbeit.
+Der Ordner `storage` enthält die Textdaten: Charaktere, Chats, Nachrichten, Lorebooks, Presets und Verbindungen. Marinara speichert jede Tabelle in kleineren, nach Besitzer gruppierten Dateien – zum Beispiel die Nachrichten eines Chats oder die Einträge eines Lorebooks. So wird beim Ändern eines Elements nicht immer eine wachsende globale JSON-Datei neu geschrieben. Beim einmaligen Upgrade von einem älteren Speicherformat bleiben die ursprünglichen Tabellendateien mit der Endung `.pre-shard` neben den neuen Ordnern erhalten.
 
 Bilder, Audio und andere Mediendateien liegen in eigenen Ordnern, jeweils benannt nach ihrem Inhalt. Die wichtigsten Asset-Ordner sind:
 

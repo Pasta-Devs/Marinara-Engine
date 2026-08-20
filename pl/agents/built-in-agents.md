@@ -203,7 +203,7 @@ Tworzy i aktualizuje wpisy w lorebookach na podstawie ważnych faktów z czatu, 
 
 - **Faza**: Post-Processing.
 - **Gdzie działa**: Roleplay. W trybie Game Mode tę samą pracę na koniec sesji wykonuje wariant **Game Session Keeper**.
-- **Najważniejsze ustawienia**: domyślnie działa raz na 8 wiadomości użytkownika i asystenta. Lista wyboru **Target Lorebook** decyduje, gdzie trafiają wpisy, i ma opcję automatycznego wyboru.
+- **Najważniejsze ustawienia**: domyślnie działa raz na 8 wiadomości użytkownika i asystenta. Lista wyboru **Target Lorebook** decyduje, gdzie trafiają wpisy, i ma opcję automatycznego wyboru. Zaawansowana konfiguracja promptu może zwrócić dokładną nazwę lorebooka z prawem zapisu albo skonfigurowany alias, taki jak `world`, `npc`, `scene` czy `player`; brakujący cel aliasu zostanie automatycznie utworzony i powiązany z bieżącym czatem. Pominięcie celu zachowuje dotychczasowe działanie z jednym lorebookiem.
 
 ### Combat
 

@@ -10,8 +10,12 @@ Marinara legt die Datensätze der Anwendung als JSON-Abbilder unter `DATA_DIR/st
 storage/
 ├── manifest.json
 └── tables/
-    ├── chats.json
-    ├── characters.json
+    ├── chats/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── characters/
+    │   ├── <encoded-character-id>.json
+    │   └── ...
     ├── messages/
     │   ├── <encoded-chat-id>.json
     │   └── ...
@@ -24,11 +28,11 @@ Mit `FILE_STORAGE_DIR` lässt sich das Verzeichnis `storage` überschreiben. Jed
 
 ### Aufgeteilte Tabellen
 
-Tabellen in häufigen Schreibpfaden, die einem Chat zugeordnet sind, werden als **eine Datei pro Chat** statt als einzelne große Datei gespeichert. Bei einer großen Datei müsste jede gespeicherte Zeile den gesamten Verlauf aller Chats erneut serialisieren und schreiben. Speicherformat 3 teilte `messages` und `message_swipes` auf; Format 4 erweitert das Layout auf `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences` und `conversation_notes`. Die verbindliche Liste ist `SHARDED_TABLES` in `file-backed-store.ts` und wird vom Offline-Befehl `unshard` in `scripts/protect-launcher-data.mjs` gespiegelt; ein Regressionstest hält beide Listen synchron. Jede Tabelle bestimmt ihre Datei über die eigene Spalte `chatId`, mit zwei Ausnahmen: `message_swipes` folgt der übergeordneten Nachricht, und Einflüsse sowie Notizen verwenden `targetChatId`. `lorebooks` und `game_turn_storyboard_keyframes` bleiben bewusst ungeteilt.
+Speicherformat 5 speichert **jede dateibasierte Tabelle als nach Besitzschlüssel aufgeteilte Dateien**, statt eine tabellenweite JSON-Datei neu zu schreiben. Untergeordnete Zeilen werden nach der Entität gruppiert, die ihren Lebenszyklus und Zugriff bestimmt: Nachrichten, Speicher, Agent-Läufe und Spielzustand nach Chat; Kartenverlauf und Galerien nach Charakter oder Persona; Lorebook-Einträge, Ordner und Verknüpfungen nach Lorebook; Prompt-Kinder nach Preset; soziale Zeilen nach Konto oder Beitrag. Eigenständige Datensätze verwenden eine Datei pro Primärschlüssel. Nur `message_swipes` wird indirekt über die übergeordnete Nachricht zugeordnet. `FILE_BACKED_TABLES` und `getFileTableShardStrategy()` in `file-backed-store.ts` sind verbindlich; für sichere Downgrades spiegelt der Offline-Befehl `unshard` in `scripts/protect-launcher-data.mjs` die vollständige Tabellenliste, und ein Regressionstest hält beide Listen synchron.
 
-Die Änderungsverfolgung arbeitet pro Chatdatei, sodass ein Flush nur geänderte Chats berührt. Erreicht die Zeilenzahl einer Datei null, wird sie gelöscht, statt als leeres Array gespeichert zu werden. Dateinamen werden aus der Chat-ID prozentkodiert; bei zu langen oder reservierten Namen kommen Hash-Fallbacks zum Einsatz. Diese Kodierung ist eine Sicherheitsgrenze, weil importierte Profile beliebige IDs enthalten können. Die Dateien sind nur Behälter; die Zeilen tragen weiterhin ihre eigenen Schlüssel.
+Die Änderungsverfolgung arbeitet pro aufgeteilter Datei, sodass ein Flush nur geänderte Besitzer berührt. Erreicht die Zeilenzahl einer Datei null, wird sie gelöscht, statt als leeres Array gespeichert zu werden. Dateinamen werden aus dem Besitzschlüssel prozentkodiert; bei zu langen oder reservierten Namen kommen Hash-Fallbacks zum Einsatz. Diese Kodierung ist eine Sicherheitsgrenze, weil importierte Profile beliebige IDs enthalten können. Die Dateien sind nur Behälter; die Zeilen tragen weiterhin ihre eigenen Schlüssel.
 
-Beim ersten Start mit neu aufgeteilten Tabellen werden vorhandene große Dateien automatisch migriert: Die Zeilen werden pro Chat gruppiert und als einzelne Dateien geschrieben, danach werden die große Datei **und ihre `.bak`-Datei** in `.pre-shard` umbenannt. Diese Dateien bilden die automatische Sicherung vor der Migration und werden vom Engine nie gelöscht. Eine `.migrating`-Markierung ermöglicht eine eindeutige Wiederherstellung nach einem Absturz. Erstellt ein älterer Build später neben den Chatdateien erneut eine große Datei, gewinnen die Chatdateien und der Konflikt wird mit einem Zeitstempel-Suffix `.post-downgrade-` isoliert, niemals zusammengeführt. Verwaiste untergeordnete Zeilen landen in der Datei `orphaned-rows`, statt verloren zu gehen. Ein Manifest aus einem neueren Speicherformat wird nicht geladen.
+Beim ersten Start mit neu aufgeteilten Tabellen werden vorhandene große Dateien automatisch migriert: Die Zeilen werden nach Besitzer gruppiert und als einzelne Dateien geschrieben, danach werden die große Datei **und ihre `.bak`-Datei** in `.pre-shard` umbenannt. Diese Dateien bilden die automatische Sicherung vor der Migration und werden vom Engine nie gelöscht. Eine `.migrating`-Markierung ermöglicht eine eindeutige Wiederherstellung nach einem Absturz. Erstellt ein älterer Build später neben den aufgeteilten Dateien erneut eine große Datei, gewinnen die aufgeteilten Dateien und der Konflikt wird mit einem Zeitstempel-Suffix `.post-downgrade-` isoliert, niemals zusammengeführt. Verwaiste untergeordnete Zeilen landen in der Datei `orphaned-rows`, statt verloren zu gehen. Ein Manifest aus einem neueren Speicherformat wird nicht geladen.
 
 ## Laufzeitmodell
 
@@ -57,7 +61,7 @@ So gehst du vor, wenn neue Daten dauerhaft gespeichert werden sollen:
 1. Definiere die Tabelle in `packages/server/src/db/schema/` mit `fileTable` und den dateibasierten Spalten-Buildern.
 2. Exportiere sie aus `db/schema/index.ts`.
 3. Deklariere natürliche Schlüssel über die Tabellenoption `uniqueBy`.
-4. Trage den Namen in `FILE_BACKED_TABLES` ein.
+4. Trage den Namen in `FILE_BACKED_TABLES` ein; füge die stabile übergeordnete Spalte zu `SHARD_KEY_COLUMNS` hinzu, wenn die Zeilen nach einem Besitzer statt nach ihrem Primärschlüssel gruppiert werden sollen.
 5. Lege bei Bedarf Cascade- oder Set-null-Beziehungen in `file-backed-store.ts` fest.
 6. Ergänze Metadaten zu JSON-Spalten in `services/mari-db/mari-db.service.ts`, sobald ein Textfeld strukturiertes JSON enthält.
 7. Prüfe, ob Backup und Wiederherstellung des Profils weiterhin funktionieren.

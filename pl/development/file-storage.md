@@ -10,8 +10,12 @@ Marinara zapisuje wiersze aplikacji jako migawki JSON w folderze `DATA_DIR/stora
 storage/
 ├── manifest.json
 └── tables/
-    ├── chats.json
-    ├── characters.json
+    ├── chats/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── characters/
+    │   ├── <encoded-character-id>.json
+    │   └── ...
     ├── messages/
     │   ├── <encoded-chat-id>.json
     │   └── ...
@@ -24,11 +28,11 @@ Zmienna `FILE_STORAGE_DIR` może wskazać inny folder niż `storage`. Każdy pli
 
 ### Tabele podzielone na fragmenty
 
-Tabele powiązane z czatami i zapisywane przy każdej turze są przechowywane jako **jeden plik na czat**, a nie jeden duży plik. W układzie monolitycznym zapis każdego wiersza ponownie serializował i zapisywał pełną historię wszystkich czatów. Format zapisu 3 podzielił `messages` oraz `message_swipes`; format 4 rozszerza ten układ na `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences` i `conversation_notes`. Wiążącą listą jest `SHARDED_TABLES` w pliku `file-backed-store.ts`, odzwierciedlona przez polecenie offline `unshard` w `scripts/protect-launcher-data.mjs`; test regresji pilnuje zgodności obu list. Każda tabela wyznacza fragment według własnej kolumny `chatId`, z dwoma wyjątkami: `message_swipes` korzysta z wiadomości nadrzędnej, a wpływy i notatki z `targetChatId`. Tabele `lorebooks` oraz `game_turn_storyboard_keyframes` celowo pozostają monolityczne.
+Format zapisu 5 przechowuje **każdą tabelę plikową w fragmentach indeksowanych kluczem właściciela**, zamiast przepisywać jeden globalny plik JSON całej tabeli. Wiersze podrzędne są grupowane pod encją, do której należy ich cykl życia i sposób dostępu: wiadomości, pamięć, uruchomienia Agentów i stan gry według czatu; historia kart i galerie według postaci lub persony; wpisy, foldery i powiązania lorebooków według lorebooka; elementy promptu według presetu; dane społecznościowe według konta lub posta. Samodzielne rekordy używają jednego pliku na klucz główny. Jedynym przypadkiem pośrednim jest `message_swipes`, który ustala właściciela przez wiadomość nadrzędną. Wiążącą definicją są `FILE_BACKED_TABLES` i `getFileTableShardStrategy()` w `file-backed-store.ts`; aby bezpiecznie wracać do starszej wersji, polecenie offline `unshard` w `scripts/protect-launcher-data.mjs` odzwierciedla pełną listę tabel, a test regresji pilnuje zgodności obu list.
 
-Śledzenie zmian działa na poziomie plików czatu, więc opróżnienie bufora dotyka tylko zmienionych czatów. Fragment, w którym liczba wierszy spadnie do zera, jest usuwany zamiast zapisywania pustej tablicy. Nazwy plików powstają przez kodowanie procentowe identyfikatora czatu, z awaryjnymi skrótami dla nazw zbyt długich lub zastrzeżonych. To kodowanie stanowi granicę bezpieczeństwa, ponieważ importowane profile mogą mieć dowolne identyfikatory. Pliki są jedynie kontenerami; wiersze zachowują własne klucze.
+Śledzenie zmian działa na poziomie fragmentu, więc opróżnienie bufora dotyka tylko zmienionych właścicieli. Fragment, w którym liczba wierszy spadnie do zera, jest usuwany zamiast zapisywania pustej tablicy. Nazwy plików powstają przez kodowanie procentowe klucza właściciela, z awaryjnymi skrótami dla nazw zbyt długich lub zastrzeżonych. To kodowanie stanowi granicę bezpieczeństwa, ponieważ importowane profile mogą mieć dowolne identyfikatory. Pliki są jedynie kontenerami; wiersze zachowują własne klucze.
 
-Przy pierwszym uruchomieniu kompilacji z nowo podzielonymi tabelami istniejące pliki monolityczne migrują automatycznie: wiersze są grupowane według czatu i zapisywane jako fragmenty, po czym plik monolityczny **oraz jego `.bak`** otrzymują nazwę `.pre-shard`. To automatyczna kopia sprzed migracji, której Engine nigdy nie usuwa. Znacznik `.migrating` pozwala jednoznacznie odzyskać dane po awarii. Jeśli starsza kompilacja później odtworzy plik monolityczny obok fragmentów, fragmenty mają pierwszeństwo, a plik powodujący konflikt zostaje odizolowany z datowanym sufiksem `.post-downgrade-` — nigdy nie jest scalany. Osierocone wiersze podrzędne trafiają do fragmentu `orphaned-rows`, zamiast zostać utracone. Manifest zapisany przez nowszy format przechowywania odmawia załadowania.
+Przy pierwszym uruchomieniu kompilacji z nowo podzielonymi tabelami istniejące pliki monolityczne migrują automatycznie: wiersze są grupowane według właściciela i zapisywane jako fragmenty, po czym plik monolityczny **oraz jego `.bak`** otrzymują nazwę `.pre-shard`. To automatyczna kopia sprzed migracji, której Engine nigdy nie usuwa. Znacznik `.migrating` pozwala jednoznacznie odzyskać dane po awarii. Jeśli starsza kompilacja później odtworzy plik monolityczny obok fragmentów, fragmenty mają pierwszeństwo, a plik powodujący konflikt zostaje odizolowany z datowanym sufiksem `.post-downgrade-` — nigdy nie jest scalany. Osierocone wiersze podrzędne trafiają do fragmentu `orphaned-rows`, zamiast zostać utracone. Manifest zapisany przez nowszy format przechowywania odmawia załadowania.
 
 ## Model działania
 
@@ -57,7 +61,7 @@ Przy dodawaniu trwałych danych wykonaj kolejno te kroki:
 1. Zdefiniuj tabelę w `packages/server/src/db/schema/`, używając `fileTable` i plikowych konstruktorów kolumn.
 2. Wyeksportuj ją z `db/schema/index.ts`.
 3. Zadeklaruj klucze naturalne opcją tabeli `uniqueBy`.
-4. Zarejestruj jej nazwę w `FILE_BACKED_TABLES`.
+4. Zarejestruj jej nazwę w `FILE_BACKED_TABLES`; jeśli wiersze mają być grupowane pod właścicielem zamiast według klucza głównego, dodaj stabilną kolumnę nadrzędną do `SHARD_KEY_COLUMNS`.
 5. Zdefiniuj w `file-backed-store.ts` relacje kaskadowe lub ustawiające wartość null, jeśli są potrzebne.
 6. Dodaj metadane kolumn JSON w `services/mari-db/mari-db.service.ts`, gdy pole tekstowe zawiera ustrukturyzowany JSON.
 7. Sprawdź, czy kopia zapasowa profilu i jej przywracanie działają poprawnie.

@@ -10,8 +10,12 @@ Marinara는 앱의 데이터 행을 JSON 스냅샷 형태로 `DATA_DIR/storage` 
 storage/
 ├── manifest.json
 └── tables/
-    ├── chats.json
-    ├── characters.json
+    ├── chats/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── characters/
+    │   ├── <encoded-character-id>.json
+    │   └── ...
     ├── messages/
     │   ├── <encoded-chat-id>.json
     │   └── ...
@@ -24,11 +28,11 @@ storage/
 
 ### 샤딩된 테이블
 
-턴마다 기록되는 채팅별 테이블은 하나의 큰 파일이 아니라 **채팅마다 한 파일**로 저장됩니다. 단일 파일 방식에서는 행 하나를 저장할 때마다 모든 채팅의 전체 기록을 다시 직렬화하고 써야 하기 때문입니다. 저장 형식 3은 `messages`와 `message_swipes`를 샤딩했고, 형식 4는 같은 구조를 `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences`, `conversation_notes`까지 확장합니다. 기준 목록은 `file-backed-store.ts`의 `SHARDED_TABLES`이며 `scripts/protect-launcher-data.mjs`의 오프라인 `unshard` 명령에도 반영되고, 회귀 테스트가 두 목록의 일치를 고정합니다. 각 테이블은 자체 `chatId` 열로 샤드를 정하지만, `message_swipes`는 상위 메시지를 거치고 influence와 note는 `targetChatId`를 사용합니다. `lorebooks`와 `game_turn_storyboard_keyframes`는 의도적으로 단일 파일을 유지합니다.
+저장 형식 5는 테이블 전체 JSON 단일 파일을 다시 쓰는 대신 **모든 파일 기반 테이블을 소유권 키별 샤드 파일**로 저장합니다. 하위 행은 수명 주기와 접근 패턴을 소유한 엔터티 아래에 묶습니다. 메시지, 메모리, Agent 실행, 게임 상태는 채팅별로, 카드 기록과 갤러리는 캐릭터 또는 페르소나별로, 로어북 항목·폴더·연결은 로어북별로, 프롬프트 하위 항목은 프리셋별로, 소셜 행은 계정 또는 게시물별로 묶습니다. 독립 레코드는 기본 키마다 파일 하나를 사용합니다. `message_swipes`만 상위 메시지를 통해 소유권을 간접적으로 찾습니다. 기준은 `file-backed-store.ts`의 `FILE_BACKED_TABLES`와 `getFileTableShardStrategy()`입니다. 안전한 다운그레이드를 위해 `scripts/protect-launcher-data.mjs`의 오프라인 `unshard` 명령이 전체 테이블 목록을 반영하며, 회귀 테스트가 두 목록의 일치를 고정합니다.
 
-변경 추적은 채팅 파일 단위로 작동하므로 플러시는 변경된 채팅만 건드립니다. 샤드의 행 수가 0이 되면 빈 배열로 쓰지 않고 삭제합니다. 파일 이름은 채팅 ID를 퍼센트 인코딩하며 너무 길거나 예약된 이름에는 해시 대체 경로를 사용합니다. 가져온 프로필은 임의의 ID를 가질 수 있으므로 이 인코딩은 보안 경계입니다. 파일은 컨테이너일 뿐이며 행은 자체 키를 유지합니다.
+변경 추적은 샤드 단위로 작동하므로 플러시는 변경된 소유자만 건드립니다. 샤드의 행 수가 0이 되면 빈 배열로 쓰지 않고 삭제합니다. 파일 이름은 소유권 키를 퍼센트 인코딩하며 너무 길거나 예약된 이름에는 해시 대체 경로를 사용합니다. 가져온 프로필은 임의의 ID를 가질 수 있으므로 이 인코딩은 보안 경계입니다. 파일은 컨테이너일 뿐이며 행은 자체 키를 유지합니다.
 
-새로 샤딩된 테이블이 있는 빌드를 처음 시작하면 기존 단일 파일은 자동으로 마이그레이션됩니다. 행을 채팅별로 묶어 샤드에 쓴 뒤 단일 파일**과 그 `.bak`**을 `.pre-shard`로 이름을 바꿉니다. 이 파일들은 마이그레이션 전 자동 백업이며 Engine은 절대 삭제하지 않습니다. `.migrating` 센티널은 크래시 복구의 기준을 분명히 합니다. 이전 빌드가 나중에 샤드 옆에 단일 파일을 다시 만들면 샤드가 우선하고 충돌 파일은 타임스탬프가 붙은 `.post-downgrade-` 접미사로 격리되며 합쳐지지 않습니다. 고아 하위 행은 버리지 않고 `orphaned-rows` 샤드에 둡니다. 더 새로운 저장 형식으로 작성된 매니페스트는 로드를 거부합니다.
+새로 샤딩된 테이블이 있는 빌드를 처음 시작하면 기존 단일 파일은 자동으로 마이그레이션됩니다. 행을 소유자별로 묶어 샤드에 쓴 뒤 단일 파일**과 그 `.bak`**을 `.pre-shard`로 이름을 바꿉니다. 이 파일들은 마이그레이션 전 자동 백업이며 Engine은 절대 삭제하지 않습니다. `.migrating` 센티널은 크래시 복구의 기준을 분명히 합니다. 이전 빌드가 나중에 샤드 옆에 단일 파일을 다시 만들면 샤드가 우선하고 충돌 파일은 타임스탬프가 붙은 `.post-downgrade-` 접미사로 격리되며 합쳐지지 않습니다. 고아 하위 행은 버리지 않고 `orphaned-rows` 샤드에 둡니다. 더 새로운 저장 형식으로 작성된 매니페스트는 로드를 거부합니다.
 
 ## 실행 중 동작 방식
 
@@ -57,7 +61,7 @@ storage/
 1. `packages/server/src/db/schema/`에 `fileTable`과 파일 네이티브 열 빌더로 테이블을 정의하세요.
 2. `db/schema/index.ts`에서 내보내세요.
 3. 자연 키가 있으면 `uniqueBy` 테이블 옵션으로 선언하세요.
-4. 테이블 이름을 `FILE_BACKED_TABLES`에 등록하세요.
+4. 테이블 이름을 `FILE_BACKED_TABLES`에 등록하세요. 기본 키 대신 소유자 아래에 묶어야 한다면 안정적인 상위 열을 `SHARD_KEY_COLUMNS`에 추가하세요.
 5. 필요하다면 `file-backed-store.ts`에 연쇄 삭제나 널 설정 관계를 정의하세요.
 6. 텍스트 필드에 구조화된 JSON이 들어간다면 `services/mari-db/mari-db.service.ts`에 JSON 열 메타데이터를 추가하세요.
 7. 프로필 백업과 복원이 제대로 동작하는지 확인하세요.

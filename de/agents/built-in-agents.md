@@ -203,7 +203,7 @@ Legt Lorebook-Einträge aus wichtigen Fakten des Chats an und aktualisiert sie, 
 
 - **Phase**: Post-Processing.
 - **Wo er funktioniert**: Roleplay. Im Game Mode erledigt die Variante **Game Session Keeper** dieselbe Aufgabe am Ende einer Sitzung.
-- **Wichtige Einstellungen**: Standardmäßig läuft er alle 8 Nutzer- und Assistenten-Nachrichten. Die Auswahl **Target Lorebook** bestimmt, wo die Einträge landen – wahlweise automatisch.
+- **Wichtige Einstellungen**: Standardmäßig läuft er alle 8 Nutzer- und Assistenten-Nachrichten. Die Auswahl **Target Lorebook** bestimmt, wo die Einträge landen – wahlweise automatisch. Erweiterte Prompt-Konfigurationen können den exakten Namen eines beschreibbaren Lorebooks oder einen konfigurierten Alias wie `world`, `npc`, `scene` oder `player` zurückgeben; fehlende Alias-Ziele werden automatisch erstellt und mit dem aktuellen Chat verknüpft. Ohne Ziel bleibt das bisherige Verhalten mit einem einzigen Lorebook erhalten.
 
 ### Combat
 

@@ -10,8 +10,12 @@ Marinara ऐप की पंक्तियों को JSON स्नैप�
 storage/
 ├── manifest.json
 └── tables/
-    ├── chats.json
-    ├── characters.json
+    ├── chats/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── characters/
+    │   ├── <encoded-character-id>.json
+    │   └── ...
     ├── messages/
     │   ├── <encoded-chat-id>.json
     │   └── ...
@@ -24,11 +28,11 @@ storage/
 
 ### शार्ड की गई टेबल
 
-हर turn में लिखी जाने वाली chat-keyed टेबल एक बड़ी फ़ाइल के बजाय **हर चैट के लिए एक फ़ाइल** में सेव होती हैं। एक ही बड़ी फ़ाइल में हर सेव किया गया row सभी चैट की पूरी history को फिर serialize और write करता। Storage format 3 ने `messages` और `message_swipes` को shard किया; format 4 यही layout `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences` और `conversation_notes` पर लागू करता है। आधिकारिक सूची `file-backed-store.ts` में `SHARDED_TABLES` है, जिसे `scripts/protect-launcher-data.mjs` का offline `unshard` कमांड भी रखता है; regression test दोनों को साथ रखता है। हर टेबल अपने `chatId` column से shard चुनती है, दो अपवादों के साथ: `message_swipes` parent message से चुनता है, और influences तथा notes `targetChatId` इस्तेमाल करते हैं। `lorebooks` और `game_turn_storyboard_keyframes` जानबूझकर एक ही फ़ाइल में रहते हैं।
+Storage format 5 **हर file-backed टेबल को ownership key के अनुसार shard फ़ाइलों में** सेव करता है, टेबल की एक पूरी JSON फ़ाइल को दोबारा लिखने के बजाय। Child rows उस entity के तहत समूहबद्ध होती हैं जो उनके lifecycle और access pattern की मालिक है: messages, memory, Agent runs और game state चैट के अनुसार; card history और galleries character या persona के अनुसार; lorebook entries, folders और links lorebook के अनुसार; prompt children preset के अनुसार; और social rows account या post के अनुसार। स्वतंत्र records primary key के अनुसार एक-एक फ़ाइल इस्तेमाल करते हैं। केवल `message_swipes` अप्रत्यक्ष है और parent message से ownership तय करता है। `file-backed-store.ts` में `FILE_BACKED_TABLES` और `getFileTableShardStrategy()` आधिकारिक हैं; सुरक्षित downgrade के लिए `scripts/protect-launcher-data.mjs` का offline `unshard` कमांड पूरी सूची को दोहराता है और regression test दोनों को साथ रखता है।
 
-Dirty tracking हर chat file के स्तर पर चलती है, इसलिए flush केवल बदली हुई चैट को छूता है। किसी shard में rows शून्य होने पर उसे खाली array के रूप में लिखने के बजाय हटा दिया जाता है। फ़ाइल नाम chat id से percent-encode होते हैं और बहुत लंबे या reserved नामों के लिए hash fallback मिलता है। यह encoding सुरक्षा सीमा है, क्योंकि imported profile में मनमानी ids हो सकती हैं। फ़ाइलें केवल container हैं; rows अपनी keys खुद रखती हैं।
+Dirty tracking shard के स्तर पर चलती है, इसलिए flush केवल बदले हुए owners को छूता है। किसी shard में rows शून्य होने पर उसे खाली array के रूप में लिखने के बजाय हटा दिया जाता है। फ़ाइल नाम ownership key से percent-encode होते हैं और बहुत लंबे या reserved नामों के लिए hash fallback मिलता है। यह encoding सुरक्षा सीमा है, क्योंकि imported profile में मनमानी ids हो सकती हैं। फ़ाइलें केवल container हैं; rows अपनी keys खुद रखती हैं।
 
-नई sharded टेबल वाली build के पहले boot पर मौजूदा बड़ी फ़ाइलें अपने आप migrate होती हैं: rows को chat के हिसाब से समूह बनाकर shards में लिखा जाता है, फिर बड़ी फ़ाइल **और उसकी `.bak`** का नाम `.pre-shard` कर दिया जाता है। ये migration से पहले की automatic backup हैं और Engine इन्हें कभी नहीं हटाता। `.migrating` sentinel crash recovery को स्पष्ट बनाता है। अगर पुरानी build बाद में shards के पास फिर बड़ी फ़ाइल बना दे, तो shards की जीत होती है और conflicting फ़ाइल को timestamp वाले `.post-downgrade-` suffix से अलग रख दिया जाता है, कभी merge नहीं किया जाता। Orphan child rows मिटने के बजाय `orphaned-rows` shard में जाती हैं। नए storage format का manifest load नहीं किया जाता।
+नई sharded टेबल वाली build के पहले boot पर मौजूदा बड़ी फ़ाइलें अपने आप migrate होती हैं: rows को owner के हिसाब से समूह बनाकर shards में लिखा जाता है, फिर बड़ी फ़ाइल **और उसकी `.bak`** का नाम `.pre-shard` कर दिया जाता है। ये migration से पहले की automatic backup हैं और Engine इन्हें कभी नहीं हटाता। `.migrating` sentinel crash recovery को स्पष्ट बनाता है। अगर पुरानी build बाद में shards के पास फिर बड़ी फ़ाइल बना दे, तो shards की जीत होती है और conflicting फ़ाइल को timestamp वाले `.post-downgrade-` suffix से अलग रख दिया जाता है, कभी merge नहीं किया जाता। Orphan child rows मिटने के बजाय `orphaned-rows` shard में जाती हैं। नए storage format का manifest load नहीं किया जाता।
 
 ## रनटाइम मॉडल
 
@@ -57,7 +61,7 @@ Dirty tracking हर chat file के स्तर पर चलती है, 
 1. टेबल को `packages/server/src/db/schema/` में `fileTable` और फ़ाइल-नेटिव कॉलम बिल्डर के साथ परिभाषित करें।
 2. उसे `db/schema/index.ts` से एक्सपोर्ट करें।
 3. नैचुरल कुंजियाँ हों तो उन्हें `uniqueBy` टेबल विकल्प से घोषित करें।
-4. उसका नाम `FILE_BACKED_TABLES` में रजिस्टर करें।
+4. उसका नाम `FILE_BACKED_TABLES` में रजिस्टर करें; अगर rows को primary key के बजाय किसी owner के साथ समूहबद्ध करना हो, तो उसकी स्थिर parent column को `SHARD_KEY_COLUMNS` में जोड़ें।
 5. ज़रूरत हो तो `file-backed-store.ts` में कैस्केड या सेट-नल रिलेशनशिप परिभाषित करें।
 6. अगर किसी टेक्स्ट फ़ील्ड में स्ट्रक्चर्ड JSON रहता है, तो `services/mari-db/mari-db.service.ts` में JSON-कॉलम मेटाडेटा भी जोड़ें।
 7. प्रोफ़ाइल बैकअप और रिस्टोर का व्यवहार जाँच लें।

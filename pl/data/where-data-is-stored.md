@@ -18,7 +18,7 @@ Folder danych da się przenieść w inne miejsce – wystarczy samodzielnie usta
 
 Wewnątrz folderu danych dane dzielą się na folder `storage` i kilka folderów zasobów.
 
-W folderze `storage` leżą dane tekstowe: postacie, czaty, wiadomości, lorebooki, presety i połączenia. Marinara zapisuje je tutaj jako pliki, więc to właśnie ten folder mieści większość twojej pracy.
+W folderze `storage` leżą dane tekstowe: postacie, czaty, wiadomości, lorebooki, presety i połączenia. Marinara zapisuje każdą tabelę w mniejszych plikach pogrupowanych według właściciela — na przykład wiadomości jednego czatu albo wpisy jednego lorebooka — dzięki czemu zmiana pojedynczego elementu nie przepisuje całego, stale rosnącego globalnego pliku JSON. Podczas jednorazowej aktualizacji starszego formatu pamięci Marinara zachowuje pierwotne pliki tabel obok nowych folderów z przyrostkiem `.pre-shard`.
 
 Obrazy, dźwięki i inne pliki multimedialne mają własne foldery, a nazwa każdego z nich mówi, co się w nim znajduje. Najważniejsze foldery zasobów to:
 

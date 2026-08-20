@@ -10,8 +10,12 @@ Marinara 把应用数据行以 JSON 快照的形式保存在 `DATA_DIR/storage` 
 storage/
 ├── manifest.json
 └── tables/
-    ├── chats.json
-    ├── characters.json
+    ├── chats/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── characters/
+    │   ├── <encoded-character-id>.json
+    │   └── ...
     ├── messages/
     │   ├── <encoded-chat-id>.json
     │   └── ...
@@ -24,11 +28,11 @@ storage/
 
 ### 分片表
 
-每轮都会写入的聊天键控表按**每个聊天一个文件**保存，而不是使用单个大文件；因为在单体文件中，每保存一行都要重新序列化并改写所有聊天的完整历史。存储格式 3 对 `messages` 和 `message_swipes` 进行了分片；格式 4 将相同布局扩展到 `memory_chunks`、`chat_images`、`agent_runs`、`agent_memory`、`conversation_call_sessions`、`conversation_call_messages`、`game_state_snapshots`、`game_engine_state`、`game_checkpoints`、`game_turn_storyboards`、`game_scene_videos`、`spatial_context_snapshots`、`ooc_influences` 和 `conversation_notes`。权威列表是 `file-backed-store.ts` 中的 `SHARDED_TABLES`，`scripts/protect-launcher-data.mjs` 中的离线 `unshard` 命令与其保持一致；回归测试会固定两者的配对。每个表通过自己的 `chatId` 列确定分片，但有两个例外：`message_swipes` 通过父消息确定，influence 和 note 则使用 `targetChatId`。`lorebooks` 与 `game_turn_storyboard_keyframes` 有意保持为单体表。
+存储格式 5 会把**每张文件后端表保存为按所有权键划分的分片文件**，不再重写整张表的单体 JSON 文件。子行会归入拥有其生命周期和访问方式的实体：消息、记忆、Agent 运行和游戏状态按聊天分组；卡片历史和图库按角色或 Persona 分组；世界书条目、文件夹和关联按世界书分组；提示词子项按预设分组；社交数据按账号或帖子分组。独立记录则按主键一条一个文件。`message_swipes` 是唯一的间接情况，它通过父消息确定所有者。`file-backed-store.ts` 中的 `FILE_BACKED_TABLES` 和 `getFileTableShardStrategy()` 是权威定义；为保证安全降级，`scripts/protect-launcher-data.mjs` 中的离线 `unshard` 命令会同步完整表列表，并由回归测试固定两者的一致性。
 
-脏数据跟踪在聊天文件粒度上运行，因此刷新只会触碰发生变化的聊天。分片的行数降到零时会被删除，而不是写成空数组。文件名根据聊天 id 进行百分号编码；对于过长或保留名称则使用哈希后备方案。导入的配置可以携带任意 id，因此这种编码是安全边界。文件只是容器；每行仍携带自己的键。
+脏数据跟踪在分片粒度上运行，因此刷新只会触碰发生变化的所有者。分片的行数降到零时会被删除，而不是写成空数组。文件名根据所有权键进行百分号编码；对于过长或保留名称则使用哈希后备方案。导入的配置可以携带任意 id，因此这种编码是安全边界。文件只是容器；每行仍携带自己的键。
 
-首次启动包含新分片表的构建时，现有单体文件会自动迁移：行按聊天分组并写成分片，然后单体文件**及其 `.bak`**会重命名为 `.pre-shard`。这些文件是迁移前的自动备份，Engine 永远不会删除它们。`.migrating` 哨兵让崩溃恢复的依据保持明确。如果旧构建之后在分片旁重新创建单体文件，分片优先，冲突的单体文件会以带时间戳的 `.post-downgrade-` 后缀隔离，绝不会合并。失去父项的子行会进入 `orphaned-rows` 分片，而不会被丢弃。由更新存储格式写入的清单会拒绝加载。
+首次启动包含新分片表的构建时，现有单体文件会自动迁移：行按所有者分组并写成分片，然后单体文件**及其 `.bak`**会重命名为 `.pre-shard`。这些文件是迁移前的自动备份，Engine 永远不会删除它们。`.migrating` 哨兵让崩溃恢复的依据保持明确。如果旧构建之后在分片旁重新创建单体文件，分片优先，冲突的单体文件会以带时间戳的 `.post-downgrade-` 后缀隔离，绝不会合并。失去父项的子行会进入 `orphaned-rows` 分片，而不会被丢弃。由更新存储格式写入的清单会拒绝加载。
 
 ## 运行时模型
 
@@ -57,7 +61,7 @@ storage/
 1. 在 `packages/server/src/db/schema/` 里用 `fileTable` 和文件原生的列构造器定义这张表。
 2. 从 `db/schema/index.ts` 导出它。
 3. 用 `uniqueBy` 表选项声明自然键。
-4. 把表名注册到 `FILE_BACKED_TABLES`。
+4. 把表名注册到 `FILE_BACKED_TABLES`；如果需要按所有者而非主键分组，请将稳定的父列添加到 `SHARD_KEY_COLUMNS`。
 5. 需要时在 `file-backed-store.ts` 里定义级联或置空的关联关系。
 6. 如果某个文本字段存的是结构化 JSON，在 `services/mari-db/mari-db.service.ts` 里补上 JSON 列的元数据。
 7. 确认档案的备份和恢复行为正常。

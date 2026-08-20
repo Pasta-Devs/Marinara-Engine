@@ -10,8 +10,12 @@ Marinara guarda las filas de la aplicación como instantáneas JSON dentro de `D
 storage/
 ├── manifest.json
 └── tables/
-    ├── chats.json
-    ├── characters.json
+    ├── chats/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── characters/
+    │   ├── <encoded-character-id>.json
+    │   └── ...
     ├── messages/
     │   ├── <encoded-chat-id>.json
     │   └── ...
@@ -24,11 +28,11 @@ storage/
 
 ### Tablas divididas
 
-Las tablas asociadas a chats que se escriben en cada turno se guardan como **un archivo por chat** en vez de como un único archivo grande, porque con un archivo monolítico cada fila guardada volvería a serializar y escribir el historial completo de todos los chats. El formato de almacenamiento 3 dividió `messages` y `message_swipes`; el formato 4 amplía el diseño a `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences` y `conversation_notes`. La lista definitiva es `SHARDED_TABLES` en `file-backed-store.ts`, reflejada por el comando sin conexión `unshard` de `scripts/protect-launcher-data.mjs`; una prueba de regresión mantiene ambas listas sincronizadas. Cada tabla obtiene su fragmento de su propia columna `chatId`, salvo dos excepciones: `message_swipes` lo obtiene del mensaje padre, y las influencias y notas usan `targetChatId`. `lorebooks` y `game_turn_storyboard_keyframes` permanecen monolíticas a propósito.
+El formato de almacenamiento 5 guarda **todas las tablas basadas en archivos como fragmentos identificados por su propietario**, en vez de reescribir un archivo JSON monolítico por tabla. Las filas hijas se agrupan bajo la entidad propietaria de su ciclo de vida y patrón de acceso: mensajes, memoria, ejecuciones de Agents y estado de juego por chat; historial de fichas y galerías por personaje o persona; entradas, carpetas y vínculos de lorebook por lorebook; elementos de prompt por preset; y filas sociales por cuenta o publicación. Los registros independientes usan un archivo por clave primaria. `message_swipes` es el único caso indirecto y resuelve el propietario mediante el mensaje padre. `FILE_BACKED_TABLES` y `getFileTableShardStrategy()` en `file-backed-store.ts` son la referencia; para permitir degradaciones seguras, el comando sin conexión `unshard` de `scripts/protect-launcher-data.mjs` refleja la lista completa y una prueba de regresión mantiene ambas listas sincronizadas.
 
-El seguimiento de cambios funciona por archivo de chat, así que una descarga solo toca los chats modificados. Cuando un fragmento llega a cero filas, se elimina en vez de guardarse como una matriz vacía. Los nombres de archivo se codifican en porcentaje a partir del id del chat, con alternativas basadas en hash para nombres demasiado largos o reservados. Esta codificación es una frontera de seguridad porque los perfiles importados pueden contener ids arbitrarios. Los archivos son solo contenedores; las filas conservan sus propias claves.
+El seguimiento de cambios funciona por fragmento, así que una descarga solo toca los propietarios modificados. Cuando un fragmento llega a cero filas, se elimina en vez de guardarse como una matriz vacía. Los nombres de archivo se codifican en porcentaje a partir de la clave de propiedad, con alternativas basadas en hash para nombres demasiado largos o reservados. Esta codificación es una frontera de seguridad porque los perfiles importados pueden contener ids arbitrarios. Los archivos son solo contenedores; las filas conservan sus propias claves.
 
-En el primer arranque con tablas recién divididas, los archivos monolíticos existentes se migran automáticamente: las filas se agrupan por chat y se escriben como fragmentos; después, el archivo monolítico **y su `.bak`** se renombran a `.pre-shard`. Esos archivos son la copia automática anterior a la migración y el Engine nunca los borra. Un marcador `.migrating` permite decidir la recuperación tras un fallo. Si una compilación antigua vuelve a crear un archivo monolítico junto a los fragmentos, los fragmentos prevalecen y el archivo en conflicto se aísla con un sufijo `.post-downgrade-` y marca temporal; nunca se combinan. Las filas hijas huérfanas se guardan en el fragmento `orphaned-rows` en vez de descartarse. Un manifiesto escrito por un formato de almacenamiento más reciente se niega a cargar.
+En el primer arranque con tablas recién divididas, los archivos monolíticos existentes se migran automáticamente: las filas se agrupan por propietario y se escriben como fragmentos; después, el archivo monolítico **y su `.bak`** se renombran a `.pre-shard`. Esos archivos son la copia automática anterior a la migración y el Engine nunca los borra. Un marcador `.migrating` permite decidir la recuperación tras un fallo. Si una compilación antigua vuelve a crear un archivo monolítico junto a los fragmentos, los fragmentos prevalecen y el archivo en conflicto se aísla con un sufijo `.post-downgrade-` y marca temporal; nunca se combinan. Las filas hijas huérfanas se guardan en el fragmento `orphaned-rows` en vez de descartarse. Un manifiesto escrito por un formato de almacenamiento más reciente se niega a cargar.
 
 ## Modelo en tiempo de ejecución
 
@@ -57,7 +61,7 @@ Al agregar datos persistentes:
 1. Define la tabla en `packages/server/src/db/schema/` con `fileTable` y los constructores de columnas nativos de archivo.
 2. Expórtala desde `db/schema/index.ts`.
 3. Declara las claves naturales con la opción de tabla `uniqueBy`.
-4. Registra su nombre en `FILE_BACKED_TABLES`.
+4. Registra su nombre en `FILE_BACKED_TABLES`; añade su columna padre estable a `SHARD_KEY_COLUMNS` cuando deba agruparse con un propietario en lugar de usar su clave primaria.
 5. Define las relaciones en cascada o de establecer-nulo en `file-backed-store.ts` cuando sea necesario.
 6. Incluye los metadatos de columna JSON en `services/mari-db/mari-db.service.ts` cuando un campo de texto contenga JSON estructurado.
 7. Confirma el comportamiento de copia de seguridad y restauración del perfil.

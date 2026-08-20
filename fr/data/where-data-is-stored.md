@@ -18,7 +18,7 @@ Tu peux déplacer le dossier de données ailleurs en définissant toi-même `DAT
 
 À l'intérieur du dossier de données, tes données sont réparties entre un dossier `storage` et plusieurs dossiers de ressources.
 
-Le dossier `storage` contient tes données textuelles : personnages, chats, messages, lorebooks, presets et connexions. Marinara les enregistre ici sous forme de fichiers, c'est donc le dossier qui rassemble l'essentiel de ton travail.
+Le dossier `storage` contient tes données textuelles : personnages, chats, messages, lorebooks, presets et connexions. Marinara enregistre chaque table dans de petits fichiers regroupés par propriétaire — par exemple, les messages d'un chat ou les entrées d'un lorebook — afin que la modification d'un élément ne réécrive pas un fichier JSON global toujours plus volumineux. Lors de la mise à niveau unique depuis un ancien stockage, Marinara conserve les fichiers de table d'origine à côté des nouveaux dossiers avec le suffixe `.pre-shard`.
 
 Les images, les fichiers audio et les autres médias occupent leurs propres dossiers, chacun nommé d'après ce qu'il contient. Voici les principaux dossiers de ressources :
 

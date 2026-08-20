@@ -10,8 +10,12 @@ Marinara salva as linhas do aplicativo como snapshots JSON dentro da pasta `DATA
 storage/
 ├── manifest.json
 └── tables/
-    ├── chats.json
-    ├── characters.json
+    ├── chats/
+    │   ├── <encoded-chat-id>.json
+    │   └── ...
+    ├── characters/
+    │   ├── <encoded-character-id>.json
+    │   └── ...
     ├── messages/
     │   ├── <encoded-chat-id>.json
     │   └── ...
@@ -24,11 +28,11 @@ A variável `FILE_STORAGE_DIR` permite trocar a pasta `storage` por outra. Cada 
 
 ### Tabelas fragmentadas
 
-As tabelas vinculadas a chats que recebem gravações a cada turno são armazenadas como **um arquivo por chat**, em vez de um único arquivo grande. Em um arquivo monolítico, cada linha salva serializaria e regravaria todo o histórico de todos os chats. O formato de armazenamento 3 fragmentou `messages` e `message_swipes`; o formato 4 estende o mesmo layout a `memory_chunks`, `chat_images`, `agent_runs`, `agent_memory`, `conversation_call_sessions`, `conversation_call_messages`, `game_state_snapshots`, `game_engine_state`, `game_checkpoints`, `game_turn_storyboards`, `game_scene_videos`, `spatial_context_snapshots`, `ooc_influences` e `conversation_notes`. A lista oficial é `SHARDED_TABLES` em `file-backed-store.ts`, espelhada pelo comando offline `unshard` em `scripts/protect-launcher-data.mjs`; um teste de regressão mantém as duas listas em sintonia. Cada tabela resolve seu fragmento pela própria coluna `chatId`, com duas exceções: `message_swipes` passa pela mensagem pai, e influências e notas usam `targetChatId`. `lorebooks` e `game_turn_storyboard_keyframes` permanecem monolíticas de propósito.
+O formato de armazenamento 5 salva **todas as tabelas baseadas em arquivos como fragmentos identificados pela chave de propriedade**, em vez de regravar um arquivo JSON monolítico de toda a tabela. As linhas filhas são agrupadas sob a entidade proprietária do seu ciclo de vida e padrão de acesso: mensagens, memória, execuções de Agents e estado do jogo por chat; histórico de cards e galerias por personagem ou persona; entradas, pastas e vínculos de lorebook por lorebook; filhos de prompt por preset; e linhas sociais por conta ou publicação. Registros independentes usam um arquivo por chave primária. `message_swipes` é o único caso indireto e resolve a propriedade pela mensagem pai. `FILE_BACKED_TABLES` e `getFileTableShardStrategy()` em `file-backed-store.ts` são a referência; para downgrades seguros, o comando offline `unshard` em `scripts/protect-launcher-data.mjs` espelha a lista completa de tabelas, e um teste de regressão mantém as duas listas em sintonia.
 
-O rastreamento de alterações funciona por arquivo de chat, então uma descarga só toca nos chats modificados. Um fragmento cuja contagem de linhas chega a zero é apagado, em vez de ser gravado como uma matriz vazia. Os nomes de arquivo são codificados em porcentagem a partir do id do chat, com alternativas por hash para nomes longos demais ou reservados. Essa codificação é um limite de segurança, pois perfis importados podem conter ids arbitrários. Os arquivos são apenas contêineres; as linhas mantêm suas próprias chaves.
+O rastreamento de alterações funciona por fragmento, então uma descarga só toca nos proprietários modificados. Um fragmento cuja contagem de linhas chega a zero é apagado, em vez de ser gravado como uma matriz vazia. Os nomes de arquivo são codificados em porcentagem a partir da chave de propriedade, com alternativas por hash para nomes longos demais ou reservados. Essa codificação é um limite de segurança, pois perfis importados podem conter ids arbitrários. Os arquivos são apenas contêineres; as linhas mantêm suas próprias chaves.
 
-Na primeira inicialização de uma compilação com tabelas recém-fragmentadas, os arquivos monolíticos existentes migram automaticamente: as linhas são agrupadas por chat e gravadas em fragmentos; depois, o arquivo monolítico **e seu `.bak`** são renomeados para `.pre-shard`. Esses arquivos são o backup automático anterior à migração e o Engine nunca os apaga. Um marcador `.migrating` torna a recuperação após falha determinística. Se uma compilação antiga recriar depois um arquivo monolítico ao lado dos fragmentos, os fragmentos prevalecem e o arquivo conflitante é isolado com um sufixo `.post-downgrade-` com data e hora, sem jamais ser mesclado. Linhas filhas órfãs vão para o fragmento `orphaned-rows` em vez de serem descartadas. Um manifesto escrito por um formato de armazenamento mais novo se recusa a carregar.
+Na primeira inicialização de uma compilação com tabelas recém-fragmentadas, os arquivos monolíticos existentes migram automaticamente: as linhas são agrupadas por proprietário e gravadas em fragmentos; depois, o arquivo monolítico **e seu `.bak`** são renomeados para `.pre-shard`. Esses arquivos são o backup automático anterior à migração e o Engine nunca os apaga. Um marcador `.migrating` torna a recuperação após falha determinística. Se uma compilação antiga recriar depois um arquivo monolítico ao lado dos fragmentos, os fragmentos prevalecem e o arquivo conflitante é isolado com um sufixo `.post-downgrade-` com data e hora, sem jamais ser mesclado. Linhas filhas órfãs vão para o fragmento `orphaned-rows` em vez de serem descartadas. Um manifesto escrito por um formato de armazenamento mais novo se recusa a carregar.
 
 ## Modelo de execução
 
@@ -57,7 +61,7 @@ Ao adicionar dados persistentes:
 1. Defina a tabela em `packages/server/src/db/schema/` com `fileTable` e os construtores de coluna nativos de arquivo.
 2. Exporte a tabela no arquivo `db/schema/index.ts`.
 3. Declare as chaves naturais com a opção de tabela `uniqueBy`.
-4. Registre o nome da tabela em `FILE_BACKED_TABLES`.
+4. Registre o nome da tabela em `FILE_BACKED_TABLES`; adicione a coluna pai estável a `SHARD_KEY_COLUMNS` quando as linhas precisarem ser agrupadas com um proprietário em vez de usar a chave primária.
 5. Defina as relações em cascata ou de set-null no arquivo `file-backed-store.ts` quando for necessário.
 6. Inclua os metadados de coluna JSON no arquivo `services/mari-db/mari-db.service.ts` quando um campo de texto contiver JSON estruturado.
 7. Confirme o comportamento de backup e de restauração do perfil.
