@@ -1,0 +1,155 @@
+/* TopBar Layout Overrides */
+
+.mari-new-top-bar {
+  /* You can add specific top bar overrides here if needed */
+}
+
+/* Backdrop for popups */
+.mari-new-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 998; /* Just below the top bar elements */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.mari-new-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Top bar interactive buttons */
+.mari-new-top-bar-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem 0.25rem 0.25rem;
+  border-radius: 9999px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  z-index: 999; /* Above the backdrop */
+}
+
+.mari-new-top-bar-btn.chat-btn {
+  padding-left: 0.75rem; /* No avatar on the left, so even padding */
+}
+
+.mari-new-top-bar-btn:hover {
+  background: var(--accent);
+}
+
+.mari-new-top-bar-btn.active {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+/* Avatar inside the button */
+.mari-new-character-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.mari-new-character-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mari-new-character-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+/* Text container inside the button */
+.mari-new-btn-text-container {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--foreground);
+  max-width: 12rem; /* Keep it from taking over the whole top bar */
+}
+
+.mari-new-truncated-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mari-new-chat-mode-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mari-new-chat-separator {
+  color: var(--border);
+}
+
+/* The actual popup container */
+.mari-new-popup {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  width: 320px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* For the chat button, align popup to the left as well, but limit to screen width if needed */
+.mari-new-top-bar-btn.chat-btn .mari-new-popup,
+.mari-new-top-bar-btn.character-btn .mari-new-popup {
+  left: 0;
+}
+
+.mari-new-popup.active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .mari-new-btn-text-container {
+    max-width: 6rem;
+  }
+  
+  .mari-new-popup {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 3.5rem);
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100vh - env(safe-area-inset-top) - 4rem);
+  }
+}
