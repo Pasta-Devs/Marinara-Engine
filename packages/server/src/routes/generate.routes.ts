@@ -4395,7 +4395,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
                   : undefined,
                 lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
-                worldName: agentContext.characters[0]?.name ?? chat.name,
+                worldName: agentContext.characters[0]?.world ?? chat.name,
                 existingEntries,
               }),
             },
@@ -9006,7 +9006,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
                       : undefined,
                     lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
-                    worldName: agentContext.characters[0]?.name ?? chat.name,
+                    worldName: agentContext.characters[0]?.world ?? chat.name,
                     updates,
                     revectorizeEntry: memoryRecallVectorizerAvailable
                       ? async (entry) => {

@@ -9145,6 +9145,10 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     join(REPOSITORY_ROOT, "packages/server/src/routes/generate.routes.ts"),
     "utf8",
   );
+  const retryAgentsRouteSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/server/src/routes/generate/retry-agents-route.ts"),
+    "utf8",
+  );
   const turnGameBotRunnerSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/server/src/services/turn-games/turn-game-bot-runner.service.ts"),
     "utf8",
@@ -9242,6 +9246,10 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     join(REPOSITORY_ROOT, "packages/server/src/routes/generate.routes.ts"),
     "utf8",
   );
+  const retryAgentsRouteSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/server/src/routes/generate/retry-agents-route.ts"),
+    "utf8",
+  );
   assert.match(
     generateRouteSource,
     /chatMode === "roleplay" && assistantMessageReadySent\) moveToActiveAgentRuns\(\)/u,
@@ -9268,6 +9276,39 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     "Stopping an old agent tail must not send a backend-wide abort that can kill a newer reply",
   );
   assert.doesNotMatch(generateRouteSource, /targets\.map\(\(target\) => target\.backendUrl\)/u);
+  assert.match(
+    retryAgentsRouteSource,
+    /for \(const result of results\) \{\s*if \(abortController\.signal\.aborted\) return;[\s\S]{0,500}sendSseEvent\(reply, \{\s*type: "agent_result"/u,
+    "Forced retries must stop emitting results as soon as their shared abort signal fires",
+  );
+  for (const phase of ["persistRetryResults", "applyRetryResultEffects"]) {
+    assert.match(
+      retryAgentsRouteSource,
+      new RegExp(`if \\(abortController\\.signal\\.aborted\\) return;\\s*await ${phase}\\(`, "u"),
+      `Forced retries must check cancellation immediately before ${phase}`,
+    );
+  }
+  assert.match(
+    retryAgentsRouteSource,
+    /if \(abortController\.signal\.aborted\) return;\s*sendSseEvent\(reply, \{ type: "done"/u,
+    "A cancelled retry must not emit its completion event",
+  );
+  assert.equal(
+    retryAgentsRouteSource.match(/worldName: (?:retryContext|agentContext)\.characters\[0\]\?\.world/gu)?.length,
+    3,
+    "Retry approval and persistence must expand [WorldName] from the persisted character world",
+  );
+  assert.equal(
+    generateRouteSource.match(/worldName: agentContext\.characters\[0\]\?\.world/gu)?.length,
+    2,
+    "Normal approval and persistence must expand [WorldName] from the persisted character world",
+  );
+  const characterPromptContextSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/server/src/services/generation/character-prompt-context.ts"),
+    "utf8",
+  );
+  assert.match(characterPromptContextSource, /world: cardPromptText\(charData\.extensions\?\.world\) \|\| undefined/u);
+  assert.match(retryAgentsRouteSource, /world: cardPromptText\(extensions\.world\) \|\| undefined/u);
   const roleplayActionsSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/client/src/components/chat/RoleplayHUDActionsMenu.tsx"),
     "utf8",
@@ -9345,10 +9386,6 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.match(settingsPanelSource, /\/backup\/download\/status\/\$\{encodeURIComponent\(started\.jobId\)\}/u);
   assert.match(settingsPanelSource, /window\.location\.assign\(status\.downloadUrl\)/u);
 
-  const retryAgentsRouteSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/server/src/routes/generate/retry-agents-route.ts"),
-    "utf8",
-  );
   assert.match(
     retryAgentsRouteSource,
     /persistRetryMacroVariables\([\s\S]{0,240}agentContextResult\.macroVariables/u,

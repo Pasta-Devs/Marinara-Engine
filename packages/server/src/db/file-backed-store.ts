@@ -1309,19 +1309,31 @@ export type FileTableShardStrategy =
   | { kind: "primary-key"; column: string }
   | { kind: "message-parent"; column: "messageId" };
 
+const fileTableShardStrategies = new Map<FileBackedTable, FileTableShardStrategy>();
+
 export function getFileTableShardStrategy(table: FileBackedTable): FileTableShardStrategy {
-  if (table === "message_swipes") return { kind: "message-parent", column: "messageId" };
-  const configuredColumn = SHARD_KEY_COLUMNS[table];
-  const meta = getMeta(table);
-  if (configuredColumn) {
-    if (!meta.byKey.has(configuredColumn)) {
-      throw new Error(`[file-storage] ${table} has no shard-key column named ${configuredColumn}`);
+  const cached = fileTableShardStrategies.get(table);
+  if (cached) return cached;
+
+  let strategy: FileTableShardStrategy;
+  if (table === "message_swipes") {
+    strategy = { kind: "message-parent", column: "messageId" };
+  } else {
+    const configuredColumn = SHARD_KEY_COLUMNS[table];
+    const meta = getMeta(table);
+    if (configuredColumn) {
+      if (!meta.byKey.has(configuredColumn)) {
+        throw new Error(`[file-storage] ${table} has no shard-key column named ${configuredColumn}`);
+      }
+      strategy = { kind: "parent", column: configuredColumn };
+    } else {
+      const primaryKey = meta.primaryKey;
+      if (!primaryKey) throw new Error(`[file-storage] ${table} has no stable shard key`);
+      strategy = { kind: "primary-key", column: primaryKey };
     }
-    return { kind: "parent", column: configuredColumn };
   }
-  const primaryKey = meta.primaryKey;
-  if (!primaryKey) throw new Error(`[file-storage] ${table} has no stable shard key`);
-  return { kind: "primary-key", column: primaryKey };
+  fileTableShardStrategies.set(table, strategy);
+  return strategy;
 }
 
 function getColumnMeta(column: unknown): ColumnMeta | null {

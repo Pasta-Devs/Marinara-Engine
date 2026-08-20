@@ -65,6 +65,11 @@ assert.deepEqual(SHARDED_TABLES, FILE_BACKED_TABLES, "every file-backed table mu
 for (const table of FILE_BACKED_TABLES) {
   const strategy = getFileTableShardStrategy(table);
   assert.ok(strategy.column, `${table} declares a stable shard-key strategy`);
+  assert.equal(
+    getFileTableShardStrategy(table),
+    strategy,
+    `${table} reuses its validated shard strategy instead of recomputing it per row`,
+  );
 }
 
 // Representative non-chat owners prove that the generic strategy writes and

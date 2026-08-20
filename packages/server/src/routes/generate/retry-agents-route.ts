@@ -339,7 +339,7 @@ function markRetryLorebookResultForApproval(args: {
           ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
           : undefined,
         lorebookNamingScheme: getLorebookNamingScheme(entry?.resolved.settings),
-        worldName: agentContext.characters[0]?.name,
+        worldName: agentContext.characters[0]?.world,
         existingEntries,
       }),
     },
@@ -747,6 +747,7 @@ async function buildRetryAgentContext(args: {
     charInfo.push({
       id: cid,
       name: (charData.name as string | undefined) ?? "Unknown",
+      world: cardPromptText(extensions.world) || undefined,
       description: cardPromptText(charData.description),
       personality: cardPromptText(charData.personality) || undefined,
       scenario: cardPromptText(charData.scenario) || undefined,
@@ -2274,8 +2275,10 @@ async function persistRetryResults(
   messageId: string,
   results: AgentResult[],
   messageIdsByAgentId: ReadonlyMap<string, string> = new Map(),
+  signal?: AbortSignal,
 ) {
   for (const result of results) {
+    if (signal?.aborted) return;
     if (result.agentType === "illustrator" || result.type === "image_prompt") continue;
     try {
       await agentsStore.saveRun({
@@ -2326,6 +2329,7 @@ async function executeLorebookKeeperRetries(args: {
 
   const results: Array<{ messageId: string; swipeIndex: number; result: AgentResult }> = [];
   for (const target of targets) {
+    if (baseContext.signal?.aborted) return results;
     const startedAt = Date.now();
     try {
       const retryContext = buildHistoricalLorebookKeeperContext(baseContext, messages, target.id);
@@ -2374,7 +2378,7 @@ async function executeLorebookKeeperRetries(args: {
               ? (retryContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
               : undefined,
             lorebookNamingScheme: getLorebookNamingScheme(lorebookKeeperAgent.resolved.settings),
-            worldName: retryContext.characters[0]?.name ?? chatName,
+            worldName: retryContext.characters[0]?.world ?? chatName,
             updates,
           });
         }
@@ -2382,6 +2386,7 @@ async function executeLorebookKeeperRetries(args: {
 
       results.push({ ...resolveLorebookKeeperRetryAnchor(target), result });
     } catch (err) {
+      if (baseContext.signal?.aborted) return results;
       logger.error(err, "[retry-agents] Lorebook Keeper retry failed for target message %s", target.id);
       results.push({
         ...resolveLorebookKeeperRetryAnchor(target),
@@ -2427,6 +2432,7 @@ async function applyRetryResultEffects(args: {
   forceImageGeneration: boolean;
   debugMode: boolean;
   secretPlotRerollMode?: "full" | "turn_only";
+  signal: AbortSignal;
 }) {
   const {
     app,
@@ -2451,6 +2457,7 @@ async function applyRetryResultEffects(args: {
     forceImageGeneration,
     debugMode,
     secretPlotRerollMode,
+    signal,
   } = args;
   const sortedResults = [...results].sort(
     (a, b) => (a.type === "game_state_update" ? 0 : 1) - (b.type === "game_state_update" ? 0 : 1),
@@ -2550,6 +2557,7 @@ async function applyRetryResultEffects(args: {
   };
 
   for (const result of sortedResults) {
+    if (signal.aborted) return;
     if (result.success && result.type === "text_rewrite" && result.data && typeof result.data === "object") {
       try {
         const rewriteData = result.data as Record<string, unknown>;
@@ -2850,7 +2858,7 @@ async function applyRetryResultEffects(args: {
               ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
               : undefined,
             lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
-            worldName: agentContext.characters[0]?.name ?? (chat as any).name,
+            worldName: agentContext.characters[0]?.world ?? (chat as any).name,
             updates: retryUpdates,
           });
         }
@@ -4142,6 +4150,7 @@ export async function registerRetryAgentsRoute(
                   new Map([...customLorebookReadBehindTargets].map(([agentId, target]) => [agentId, target.context])),
                 )
               : [];
+      if (abortController.signal.aborted) return;
       const results = rawResults
         .map(markInvalidJsonAgentResult)
         .map((result) =>
@@ -4166,6 +4175,7 @@ export async function registerRetryAgentsRoute(
             requireApproval: requireAgentWriteApproval,
           });
         } catch (err) {
+          if (abortController.signal.aborted) return;
           logger.error(err, "[retry-agents] Lorebook Keeper retry failed; applying other agent results");
           sendSseEvent(reply, {
             type: "agent_error",
@@ -4181,6 +4191,7 @@ export async function registerRetryAgentsRoute(
         ...entry,
         result: markInvalidJsonAgentResult(entry.result),
       }));
+      if (abortController.signal.aborted) return;
 
       // ── Pre-validate expression results before sending SSE events ──
       // Validation must happen before the SSE send, otherwise the client receives
@@ -4245,6 +4256,7 @@ export async function registerRetryAgentsRoute(
       }
 
       for (const result of results) {
+        if (abortController.signal.aborted) return;
         if (!customAgentCanEmitRetryResult(result, resolvedAgents)) continue;
         const cfg = resolvedAgents.find((entry) => entry.resolved.type === result.agentType)?.cfg;
         const historicalTarget = customLorebookReadBehindTargets.get(result.agentId);
@@ -4275,6 +4287,7 @@ export async function registerRetryAgentsRoute(
       }
 
       for (const entry of lorebookKeeperRunEntries) {
+        if (abortController.signal.aborted) return;
         if (!customAgentCanEmitRetryResult(entry.result, resolvedAgents)) continue;
         const cfg = lorebookKeeperAgent?.cfg;
         sendSseEvent(reply, {
@@ -4297,14 +4310,17 @@ export async function registerRetryAgentsRoute(
       }
 
       const permittedResults = results.filter((result) => customAgentCanEmitRetryResult(result, resolvedAgents));
+      if (abortController.signal.aborted) return;
       await persistRetryResults(
         agentsStore,
         chatId,
         retryMessageId,
         permittedResults,
         new Map([...customLorebookReadBehindTargets].map(([agentId, target]) => [agentId, target.messageId])),
+        abortController.signal,
       );
       for (const entry of lorebookKeeperRunEntries) {
+        if (abortController.signal.aborted) return;
         try {
           await agentsStore.saveRun({
             agentConfigId: entry.result.agentId,
@@ -4316,6 +4332,7 @@ export async function registerRetryAgentsRoute(
           // Non-critical write; keep processing remaining results.
         }
       }
+      if (abortController.signal.aborted) return;
       await applyRetryResultEffects({
         app,
         reply,
@@ -4339,8 +4356,10 @@ export async function registerRetryAgentsRoute(
         forceImageGeneration: forceImageGeneration === true,
         debugMode,
         secretPlotRerollMode,
+        signal: abortController.signal,
       });
 
+      if (abortController.signal.aborted) return;
       sendSseEvent(reply, { type: "done", data: "" });
     } catch (err) {
       if (abortController.signal.aborted) return;
