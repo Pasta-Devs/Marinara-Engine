@@ -15,12 +15,14 @@
     "lint": "tsc -b ../shared && tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.141",
-    "@fastify/cors": "^11.2.0",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.235",
+    "@anthropic-ai/sdk": "^0.93.0",
+    "@fastify/cors": "^11.3.0",
     "@fastify/multipart": "^9.4.0",
     "@fastify/static": "^10.1.2",
     "@huggingface/transformers": "^3.8.1",
     "@marinara-engine/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "adm-zip": "^0.6.0",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
@@ -39,7 +41,7 @@
   "optionalDependencies": {
     "@img/sharp-wasm32": "0.35.3",
     "onnxruntime-node": "^1.24.3",
-    "onnxruntime-web": "^1.24.3",
+    "onnxruntime-web": "^1.27.0",
     "sharp": "^0.35.3"
   },
   "devDependencies": {
