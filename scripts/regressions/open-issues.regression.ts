@@ -179,6 +179,7 @@ import {
 } from "../../packages/client/src/lib/emoji-shortcodes.js";
 import { persistGeneratedImageToEntityGalleries } from "../../packages/server/src/services/image/generated-image-entity-gallery.js";
 import { withGalleryFileLifecycleLock } from "../../packages/server/src/services/image/gallery-file-lifecycle.js";
+import { runRetrySetupPhase } from "../../packages/server/src/routes/generate/retry-agents-route.js";
 import {
   parseImageGenerationUserSettings,
   resolveIllustratorImageSize,
@@ -7315,6 +7316,38 @@ try {
   rmSync(entityGalleryRoot, { recursive: true, force: true });
 }
 
+const preAbortedRetrySetup = new AbortController();
+preAbortedRetrySetup.abort();
+let preAbortedRetrySetupRan = false;
+await assert.rejects(
+  runRetrySetupPhase(preAbortedRetrySetup.signal, async () => {
+    preAbortedRetrySetupRan = true;
+  }),
+  /aborted/iu,
+);
+assert.equal(preAbortedRetrySetupRan, false, "A cancelled retry must not start another setup phase");
+
+let releaseRetrySetupPhase: () => void = () => undefined;
+let markRetrySetupPhaseStarted: () => void = () => undefined;
+const retrySetupPhaseStarted = new Promise<void>((resolve) => {
+  markRetrySetupPhaseStarted = resolve;
+});
+const inFlightRetrySetupAbort = new AbortController();
+const inFlightRetrySetup = runRetrySetupPhase(inFlightRetrySetupAbort.signal, async () => {
+  markRetrySetupPhaseStarted();
+  await new Promise<void>((resolve) => {
+    releaseRetrySetupPhase = resolve;
+  });
+});
+await retrySetupPhaseStarted;
+inFlightRetrySetupAbort.abort();
+releaseRetrySetupPhase();
+await assert.rejects(
+  inFlightRetrySetup,
+  /aborted/iu,
+  "A retry cancelled during setup must stop before the next write or event",
+);
+
 const nextEventLoopTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
 const queuedImageEvents: string[] = [];
 let releaseFirstQueuedImage: () => void = () => undefined;
@@ -9415,6 +9448,16 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     retryAgentsRouteSource,
     /if \(abortController\.signal\.aborted\) return;\s*sendSseEvent\(reply, \{ type: "done"/u,
     "A cancelled retry must not emit its completion event",
+  );
+  assert.match(
+    retryAgentsRouteSource,
+    /assertRetrySetupActive\(\);\s*sendSseEvent\(reply, \{ type: "agent_start"/u,
+    "A cancelled retry must not emit agent_start after asynchronous setup",
+  );
+  assert.match(
+    retryAgentsRouteSource,
+    /signal\.throwIfAborted\(\);\s*return \{[\s\S]{0,220}macroVariables/u,
+    "Retry macro persistence must re-check cancellation when its queued write begins",
   );
   assert.match(
     retryAgentsRouteSource,

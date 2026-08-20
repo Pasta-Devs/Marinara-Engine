@@ -1315,7 +1315,9 @@ async function persistRetryMacroVariables(
   chatId: string,
   initialVariables: Record<string, string>,
   macroVariables: Record<string, string>,
+  signal: AbortSignal,
 ): Promise<void> {
+  signal.throwIfAborted();
   const normalizedVariables = normalizeChatMacroVariables(macroVariables);
   const requestChanges = Object.fromEntries(
     Object.entries(normalizedVariables).filter(([name, value]) => initialVariables[name] !== value),
@@ -1323,15 +1325,19 @@ async function persistRetryMacroVariables(
   if (Object.keys(requestChanges).length === 0) return;
   await chats.patchMetadata(
     chatId,
-    (current) => ({
-      ...current,
-      macroVariables: normalizeChatMacroVariables({
-        ...normalizeChatMacroVariables(current.macroVariables),
-        ...requestChanges,
-      }),
-    }),
+    (current) => {
+      signal.throwIfAborted();
+      return {
+        ...current,
+        macroVariables: normalizeChatMacroVariables({
+          ...normalizeChatMacroVariables(current.macroVariables),
+          ...requestChanges,
+        }),
+      };
+    },
     { touchUpdatedAt: false },
   );
+  signal.throwIfAborted();
 }
 
 function readTrimmedRetryString(value: unknown): string | null {
@@ -3836,6 +3842,13 @@ async function applyRetryResultEffects(args: {
 
 export type ActiveAgentRun = { abortController: AbortController; backendUrl: string | null };
 
+export async function runRetrySetupPhase<T>(signal: AbortSignal, operation: () => Promise<T>): Promise<T> {
+  signal.throwIfAborted();
+  const result = await operation();
+  signal.throwIfAborted();
+  return result;
+}
+
 export async function registerRetryAgentsRoute(
   app: FastifyInstance,
   activeCustomLorebookReadBehindRuns: Set<string>,
@@ -3920,12 +3933,16 @@ export async function registerRetryAgentsRoute(
     const isManualIllustratorImageRequest = isExclusiveIllustratorRetryTarget(illustratorRetryTargets, "illustration");
 
     startSseReply(reply, { "X-Accel-Buffering": "no" });
-    const onFallback = createReplyFallbackNotifier(reply);
 
     // Abort in-flight agent LLM calls when the client disconnects, and stop
     // writing to a closed socket. Mirrors the main /generate handler so a dropped
     // retry tab does not leak upstream provider requests to completion.
     const abortController = new AbortController();
+    const assertRetrySetupActive = () => abortController.signal.throwIfAborted();
+    const notifyFallback = createReplyFallbackNotifier(reply);
+    const onFallback: typeof notifyFallback = (notice) => {
+      if (!abortController.signal.aborted) notifyFallback(notice);
+    };
     const activeAgentRun: ActiveAgentRun = { abortController, backendUrl: null };
     const runs = activeAgentRuns.get(chatId) ?? new Set<ActiveAgentRun>();
     runs.add(activeAgentRun);
@@ -3941,7 +3958,7 @@ export async function registerRetryAgentsRoute(
     reply.raw.on("close", onClientClose);
 
     try {
-      const chat = await chats.getById(chatId);
+      const chat = await runRetrySetupPhase(abortController.signal, () => chats.getById(chatId));
       if (!chat) {
         throw new Error("Chat not found");
       }
@@ -3954,7 +3971,7 @@ export async function registerRetryAgentsRoute(
           ? currentBackgroundSource.trim()
           : null;
       const requireAgentWriteApproval = agentWriteApprovalRequired(chatMeta);
-      const allMessages = await chats.listMessages(chatId);
+      const allMessages = await runRetrySetupPhase(abortController.signal, () => chats.listMessages(chatId));
       let startIdx = 0;
       for (let index = allMessages.length - 1; index >= 0; index--) {
         const extra = parseExtra(allMessages[index]!.extra);
@@ -4017,23 +4034,30 @@ export async function registerRetryAgentsRoute(
           : musicPlayerSource === "youtube" || musicPlayerSource === "custom"
             ? musicPlayerSource
             : "spotify";
-      const { conn, enabledConfigs, resolvedAgents, warnings } = await resolveRetryAgents({
-        agentTypes,
-        chat,
-        conns,
-        agentsStore,
-        agentPromptTemplateIds,
-        activeMusicPlayerSource,
-        allowExternalAgentImports: (await getCustomAgentImportPolicy(app.db)).enabled,
-        onFallback,
-      });
+      const customAgentImportPolicy = await runRetrySetupPhase(abortController.signal, () =>
+        getCustomAgentImportPolicy(app.db),
+      );
+      const { conn, enabledConfigs, resolvedAgents, warnings } = await runRetrySetupPhase(abortController.signal, () =>
+        resolveRetryAgents({
+          agentTypes,
+          chat,
+          conns,
+          agentsStore,
+          agentPromptTemplateIds,
+          activeMusicPlayerSource,
+          allowExternalAgentImports: customAgentImportPolicy.enabled,
+          onFallback,
+        }),
+      );
       const chatMode = ((chat as { mode?: ChatMode }).mode ?? "conversation") as ChatMode;
-      const retryWrapFormat = await resolveRetryAgentWrapFormat({
-        chat,
-        chatMode,
-        conn,
-        presets,
-      });
+      const retryWrapFormat = await runRetrySetupPhase(abortController.signal, () =>
+        resolveRetryAgentWrapFormat({
+          chat,
+          chatMode,
+          conn,
+          presets,
+        }),
+      );
       const secretPlotDirectorRetry =
         secretPlotRerollMode && resolvedAgents.find((entry) => entry.resolved.type === "director");
       if (secretPlotDirectorRetry) {
@@ -4047,66 +4071,77 @@ export async function registerRetryAgentsRoute(
         };
       }
       const cyoaAgentWillRun = resolvedAgents.some((e) => e.resolved.type === "cyoa");
-      const agentContextResult = await buildRetryAgentContext({
-        cyoaAgentWillRun,
-        chatId,
-        db: app.db,
-        chat,
-        chatMeta,
-        currentBackground,
-        recentMessages,
-        resolvedAgents: resolvedAgents.map((entry) => entry.resolved),
-        lastAssistant,
-        chars,
-        gameStateStore,
-        lorebooksStore,
-        streaming,
-        wrapFormat: retryWrapFormat,
-        forceIllustratorBackgroundGeneration: isManualIllustratorBackgroundRequest,
-        forceIllustratorImageGeneration: isManualIllustratorImageRequest,
-        forceCustomImageGeneration: forceImageGeneration === true,
-        historicalGameStateAnchor,
-      });
+      const agentContextResult = await runRetrySetupPhase(abortController.signal, () =>
+        buildRetryAgentContext({
+          cyoaAgentWillRun,
+          chatId,
+          db: app.db,
+          chat,
+          chatMeta,
+          currentBackground,
+          recentMessages,
+          resolvedAgents: resolvedAgents.map((entry) => entry.resolved),
+          lastAssistant,
+          chars,
+          gameStateStore,
+          lorebooksStore,
+          streaming,
+          wrapFormat: retryWrapFormat,
+          forceIllustratorBackgroundGeneration: isManualIllustratorBackgroundRequest,
+          forceIllustratorImageGeneration: isManualIllustratorImageRequest,
+          forceCustomImageGeneration: forceImageGeneration === true,
+          historicalGameStateAnchor,
+        }),
+      );
       const agentContext = agentContextResult.agentContext;
       agentContext.signal = abortController.signal;
       const hasPreGenerationRetries = resolvedAgents.some((entry) => entry.resolved.phase === "pre_generation");
       const preGenerationAgentContextResult =
         hasPreGenerationRetries && preGenerationRecentMessages
-          ? await buildRetryAgentContext({
-              cyoaAgentWillRun: false,
-              chatId,
-              db: app.db,
-              chat,
-              chatMeta,
-              currentBackground,
-              recentMessages: preGenerationRecentMessages,
-              resolvedAgents: resolvedAgents.map((entry) => entry.resolved),
-              lastAssistant: null,
-              chars,
-              gameStateStore,
-              lorebooksStore,
-              streaming,
-              wrapFormat: retryWrapFormat,
-              forceIllustratorBackgroundGeneration: isManualIllustratorBackgroundRequest,
-              forceIllustratorImageGeneration: isManualIllustratorImageRequest,
-              forceCustomImageGeneration: forceImageGeneration === true,
-              historicalGameStateAnchor: preGenerationGameStateAnchor,
-              useLatestGameStateFallback: false,
-            })
+          ? await runRetrySetupPhase(abortController.signal, () =>
+              buildRetryAgentContext({
+                cyoaAgentWillRun: false,
+                chatId,
+                db: app.db,
+                chat,
+                chatMeta,
+                currentBackground,
+                recentMessages: preGenerationRecentMessages,
+                resolvedAgents: resolvedAgents.map((entry) => entry.resolved),
+                lastAssistant: null,
+                chars,
+                gameStateStore,
+                lorebooksStore,
+                streaming,
+                wrapFormat: retryWrapFormat,
+                forceIllustratorBackgroundGeneration: isManualIllustratorBackgroundRequest,
+                forceIllustratorImageGeneration: isManualIllustratorImageRequest,
+                forceCustomImageGeneration: forceImageGeneration === true,
+                historicalGameStateAnchor: preGenerationGameStateAnchor,
+                useLatestGameStateFallback: false,
+              }),
+            )
           : null;
       const preGenerationAgentContext = preGenerationAgentContextResult?.agentContext ?? null;
-      await persistRetryMacroVariables(
-        chats,
-        chatId,
-        agentContextResult.initialMacroVariables,
-        agentContextResult.macroVariables,
-      );
-      if (preGenerationAgentContextResult) {
-        await persistRetryMacroVariables(
+      if (preGenerationAgentContext) preGenerationAgentContext.signal = abortController.signal;
+      await runRetrySetupPhase(abortController.signal, () =>
+        persistRetryMacroVariables(
           chats,
           chatId,
-          preGenerationAgentContextResult.initialMacroVariables,
-          preGenerationAgentContextResult.macroVariables,
+          agentContextResult.initialMacroVariables,
+          agentContextResult.macroVariables,
+          abortController.signal,
+        ),
+      );
+      if (preGenerationAgentContextResult) {
+        await runRetrySetupPhase(abortController.signal, () =>
+          persistRetryMacroVariables(
+            chats,
+            chatId,
+            preGenerationAgentContextResult.initialMacroVariables,
+            preGenerationAgentContextResult.macroVariables,
+            abortController.signal,
+          ),
         );
       }
 
@@ -4123,6 +4158,7 @@ export async function registerRetryAgentsRoute(
         selectedTargetMessage: lastAssistant,
       });
       const attachAgentTools = async (entries: ResolvedRetryAgent[], toolInputs: RetryAgentPhaseToolInputs) => {
+        assertRetrySetupActive();
         if (entries.length === 0) return;
         const context = toolInputs.agentContext;
         const toolAgents = entries.map((entry) => entry.resolved);
@@ -4159,42 +4195,53 @@ export async function registerRetryAgentsRoute(
           gameState: context.gameState,
           gameSpotifyMusicEnabled: activeMusicPlayerSource !== null,
           agentContext: context,
-          emitMetadataPatch: (patch) => sendSseEvent(reply, { type: "metadata_patch", data: patch }),
+          emitMetadataPatch: (patch) => {
+            assertRetrySetupActive();
+            sendSseEvent(reply, { type: "metadata_patch", data: patch });
+          },
           observeSpotifyPlaybackBeforePlay: true,
         });
+        assertRetrySetupActive();
       };
       const preGenerationToolAgents = preGenerationAgentContext
         ? resolvedAgents.filter((entry) => entry.resolved.phase === "pre_generation")
         : [];
       if (phaseToolInputs.preGeneration) {
-        await attachAgentTools(preGenerationToolAgents, phaseToolInputs.preGeneration);
+        await runRetrySetupPhase(abortController.signal, () =>
+          attachAgentTools(preGenerationToolAgents, phaseToolInputs.preGeneration!),
+        );
       }
-      await attachAgentTools(
-        resolvedAgents.filter((entry) => !preGenerationToolAgents.includes(entry)),
-        phaseToolInputs.default,
+      await runRetrySetupPhase(abortController.signal, () =>
+        attachAgentTools(
+          resolvedAgents.filter((entry) => !preGenerationToolAgents.includes(entry)),
+          phaseToolInputs.default,
+        ),
       );
 
       const retryIllustratorPromptAgent = resolvedAgents.find((entry) => entry.resolved.type === "illustrator");
       if (retryIllustratorPromptAgent) {
         try {
-          const { styleInstruction } = await resolveIllustratorPromptStyle({
-            db: app.db,
-            connections: conns,
-            illustratorAgent: retryIllustratorPromptAgent.resolved,
-            chatMode,
-            chatMetadata: chatMeta,
-          });
+          const { styleInstruction } = await runRetrySetupPhase(abortController.signal, () =>
+            resolveIllustratorPromptStyle({
+              db: app.db,
+              connections: conns,
+              illustratorAgent: retryIllustratorPromptAgent.resolved,
+              chatMode,
+              chatMetadata: chatMeta,
+            }),
+          );
           agentContext.memory._illustratorImageStyleInstruction = styleInstruction;
           if (preGenerationAgentContext) {
             preGenerationAgentContext.memory._illustratorImageStyleInstruction = styleInstruction;
           }
         } catch (error) {
+          if (abortController.signal.aborted) throw error;
           logger.warn(error, "[retry-agents] Failed to resolve image style instruction for the prompt writer");
         }
       }
-      if (preGenerationAgentContext) preGenerationAgentContext.signal = abortController.signal;
       if (debugMode) {
         const emitRetryAgentDebug = (event: AgentCallDebugEvent) => {
+          if (abortController.signal.aborted) return;
           sendSseEvent(reply, { type: "agent_debug", data: event });
         };
         agentContext.agentDebug = emitRetryAgentDebug;
@@ -4202,19 +4249,24 @@ export async function registerRetryAgentsRoute(
       }
       if (secretPlotDirectorRetry && secretPlotRerollMode === "turn_only") {
         try {
-          const memory = await agentsStore.getMemory(secretPlotDirectorRetry.resolved.id, chatId);
+          const memory = await runRetrySetupPhase(abortController.signal, () =>
+            agentsStore.getMemory(secretPlotDirectorRetry.resolved.id, chatId),
+          );
           const state = buildSecretPlotStateFromMemory(memory);
           if (Object.keys(state).length > 0) {
             agentContext.memory._secretPlotState = state;
             if (preGenerationAgentContext) preGenerationAgentContext.memory._secretPlotState = state;
           }
         } catch (err) {
+          if (abortController.signal.aborted) throw err;
           logger.warn(err, "[retry-agents] Failed to load Narrative Director secret plot memory");
         }
       }
 
+      assertRetrySetupActive();
       sendSseEvent(reply, { type: "agent_start", data: { phase: "retry" } });
       for (const warning of warnings) {
+        assertRetrySetupActive();
         sendSseEvent(reply, { type: "agent_warning", data: warning });
       }
       if (resolvedAgents.length === 0) {
