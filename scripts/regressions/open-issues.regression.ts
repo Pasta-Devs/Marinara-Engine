@@ -4020,6 +4020,31 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
   assert.equal(createdEntries[0]?.order, 300);
   assert.equal(Object.hasOwn(createdEntries[1] ?? {}, "order"), false);
 
+  const cancelledPersistence = new AbortController();
+  let cancelledEntryWrites = 0;
+  await assert.rejects(
+    persistLorebookKeeperUpdates({
+      lorebooksStore: {
+        listEntries: async () => {
+          cancelledPersistence.abort();
+          return [];
+        },
+        createEntry: async () => {
+          cancelledEntryWrites += 1;
+          return null;
+        },
+      } as any,
+      chatId: "chat-cancelled",
+      chatName: "Cancelled proof",
+      preferredTargetLorebookId: "book-cancelled",
+      writableLorebookIds: ["book-cancelled"],
+      updates: [{ entryName: "Must not persist", content: "Cancelled fact." }],
+      signal: cancelledPersistence.signal,
+    }),
+    /aborted/iu,
+  );
+  assert.equal(cancelledEntryWrites, 0, "Cancellation after an awaited read must stop the following lorebook write");
+
   const routedEntries: Array<Record<string, unknown>> = [];
   const createdBooks: Array<Record<string, unknown>> = [];
   const routedStore = {
@@ -7192,6 +7217,40 @@ try {
   assert.equal(readFileSync(characterFile, "utf8"), "generated-image");
   assert.equal(readFileSync(personaFile, "utf8"), "generated-image");
   assert.equal(existsSync(join(sourceDir, "generated.png")), true);
+
+  const cancelledGalleryPersistence = new AbortController();
+  let cancelledCharacterWrites = 0;
+  let cancelledPersonaWrites = 0;
+  await assert.rejects(
+    persistGeneratedImageToEntityGalleries({
+      sourceFilePath: "chat-id/generated.png",
+      characterIds: ["character-cancelled"],
+      personaIds: ["persona-cancelled"],
+      characterGallery: {
+        create: async () => {
+          cancelledCharacterWrites += 1;
+          cancelledGalleryPersistence.abort();
+          return {};
+        },
+      },
+      personaGallery: {
+        create: async () => {
+          cancelledPersonaWrites += 1;
+          return {};
+        },
+      },
+      prompt: "Cancelled gallery propagation.",
+      provider: "image_generation",
+      model: "regression-image-model",
+      width: 1024,
+      height: 1024,
+      signal: cancelledGalleryPersistence.signal,
+      galleryRoot: entityGalleryRoot,
+    }),
+    /aborted/iu,
+  );
+  assert.equal(cancelledCharacterWrites, 1);
+  assert.equal(cancelledPersonaWrites, 0, "Cancellation must stop later generated-image gallery writes");
 } finally {
   rmSync(entityGalleryRoot, { recursive: true, force: true });
 }
@@ -9250,6 +9309,10 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     join(REPOSITORY_ROOT, "packages/server/src/routes/generate/retry-agents-route.ts"),
     "utf8",
   );
+  const lorebookKeeperUtilsSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/server/src/routes/generate/lorebook-keeper-utils.ts"),
+    "utf8",
+  );
   assert.match(
     generateRouteSource,
     /chatMode === "roleplay" && assistantMessageReadySent\) moveToActiveAgentRuns\(\)/u,
@@ -9292,6 +9355,32 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     retryAgentsRouteSource,
     /if \(abortController\.signal\.aborted\) return;\s*sendSseEvent\(reply, \{ type: "done"/u,
     "A cancelled retry must not emit its completion event",
+  );
+  assert.match(
+    retryAgentsRouteSource,
+    /const assertRetryActive = \(\) => signal\.throwIfAborted\(\);[\s\S]{0,300}const sortedResults/u,
+    "Retry side effects must use the native abort guard across awaited writes and events",
+  );
+  assert.match(
+    retryAgentsRouteSource,
+    /const rawResult = await executeAgent\([\s\S]{0,350}if \(baseContext\.signal\?\.aborted\) return results;/u,
+    "Lorebook retries must stop after provider completion",
+  );
+  assert.match(
+    retryAgentsRouteSource,
+    /preferredTargetLorebookId = await persistLorebookKeeperUpdates\([\s\S]{0,700}signal: baseContext\.signal/u,
+    "Lorebook retry persistence must receive the shared cancellation signal",
+  );
+  assert.match(lorebookKeeperUtilsSource, /signal\?: AbortSignal/u);
+  assert.match(
+    lorebookKeeperUtilsSource,
+    /signal\?\.throwIfAborted\(\);\s*const (?:created|updated) = await lorebooksStore\.(?:create|updateEntry|createEntry)/u,
+    "Lorebook persistence must honor retry cancellation before database writes",
+  );
+  assert.match(
+    retryAgentsRouteSource,
+    /const customWritableLorebookIds =\s*!isBuiltInLorebookAgent && resultAgent[\s\S]{0,220}resolveCustomWritableLorebookIds\(resultAgent\.settings\)[\s\S]{0,900}writableLorebooks/u,
+    "Custom-agent retry approvals must carry that agent's writable lorebook routing metadata",
   );
   assert.equal(
     retryAgentsRouteSource.match(
