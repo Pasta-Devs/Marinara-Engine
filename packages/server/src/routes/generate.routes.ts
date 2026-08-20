@@ -357,7 +357,7 @@ import {
 } from "./generate/lorebook-keeper-utils.js";
 import { registerDryRunRoute } from "./generate/dry-run-route.js";
 import { registerRawRoute } from "./generate/raw-route.js";
-import { registerRetryAgentsRoute } from "./generate/retry-agents-route.js";
+import { registerRetryAgentsRoute, type ActiveAgentRun } from "./generate/retry-agents-route.js";
 import { fingerprintChatSummary } from "../services/prompt/chat-summary-fingerprint.js";
 import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } from "./generate/sse.js";
 import {
@@ -782,7 +782,7 @@ export async function generateRoutes(app: FastifyInstance) {
    * These are replayed on the next turn so the model can continue its reasoning chain.
    */
   const encryptedReasoningCache = new Map<string, unknown[]>();
-  type ActiveGeneration = { abortController: AbortController; backendUrl: string | null };
+  type ActiveGeneration = ActiveAgentRun;
   const activeGenerations = new Map<string, ActiveGeneration>();
   const activeAgentRuns = new Map<string, Set<ActiveGeneration>>();
   const activeCustomLorebookReadBehindRuns = new Set<string>();
@@ -10287,5 +10287,5 @@ export async function generateRoutes(app: FastifyInstance) {
 
   await registerDryRunRoute(app);
   await registerRawRoute(app);
-  await registerRetryAgentsRoute(app, activeCustomLorebookReadBehindRuns);
+  await registerRetryAgentsRoute(app, activeCustomLorebookReadBehindRuns, activeAgentRuns);
 }

@@ -9209,6 +9209,11 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.match(generateRouteSource, /const activeAgentRuns = new Map<string, Set<ActiveGeneration>>\(\)/u);
   assert.match(
     generateRouteSource,
+    /registerRetryAgentsRoute\(app, activeCustomLorebookReadBehindRuns, activeAgentRuns\)/u,
+    "Forced Agent retries must join the same cancellable registry as automatic Agent tails",
+  );
+  assert.match(
+    generateRouteSource,
     /active: activeGenerations\.has\(req\.params\.chatId\) \|\| \(activeAgentRuns\.get\(req\.params\.chatId\)\?\.size \?\? 0\) > 0/u,
     "Generation status must preserve detached Agent activity across reconnects",
   );
@@ -9228,6 +9233,17 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(roleplayActionsSource, /showStopAgentsAction = isAgentProcessing && !!onStopAgents/u);
   assert.match(roleplayActionsSource, /ui\.chat\.roleplayhudactionsmenu\.stopAgents/u);
+  assert.doesNotMatch(
+    roleplayActionsSource,
+    /stopAgents[\s\S]{0,700}text-\[var\(--destructive\)\]/u,
+    "Stop Agents should use the same neutral action styling as its neighboring controls",
+  );
+  const appSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/App.tsx"), "utf8");
+  assert.doesNotMatch(
+    appSource,
+    /const paused = !\([\s\S]{0,220}!reduceAmbientEffects/u,
+    "Reduced ambient motion must not pause Desktop Mari's functional navigation callbacks",
+  );
   assert.match(
     generateRouteSource,
     /const targetSwipeIndex =[\s\S]{0,300}lastSavedMsg[\s\S]{0,300}activeSwipeIndex/u,

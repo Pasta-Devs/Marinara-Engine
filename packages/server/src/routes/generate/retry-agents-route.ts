@@ -3629,7 +3629,13 @@ async function applyRetryResultEffects(args: {
   }
 }
 
-export async function registerRetryAgentsRoute(app: FastifyInstance, activeCustomLorebookReadBehindRuns: Set<string>) {
+export type ActiveAgentRun = { abortController: AbortController; backendUrl: string | null };
+
+export async function registerRetryAgentsRoute(
+  app: FastifyInstance,
+  activeCustomLorebookReadBehindRuns: Set<string>,
+  activeAgentRuns: Map<string, Set<ActiveAgentRun>>,
+) {
   const chats = createChatsStorage(app.db);
   const conns = createConnectionsStorage(app.db);
   const chars = createCharactersStorage(app.db);
@@ -3715,6 +3721,10 @@ export async function registerRetryAgentsRoute(app: FastifyInstance, activeCusto
     // writing to a closed socket. Mirrors the main /generate handler so a dropped
     // retry tab does not leak upstream provider requests to completion.
     const abortController = new AbortController();
+    const activeAgentRun: ActiveAgentRun = { abortController, backendUrl: null };
+    const runs = activeAgentRuns.get(chatId) ?? new Set<ActiveAgentRun>();
+    runs.add(activeAgentRun);
+    activeAgentRuns.set(chatId, runs);
     const generationId = randomUUID();
     const customLorebookReadBehindRunKeys = new Set<string>();
     let clientDisconnected = false;
@@ -4315,6 +4325,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance, activeCusto
 
       sendSseEvent(reply, { type: "done", data: "" });
     } catch (err) {
+      if (abortController.signal.aborted) return;
       const message =
         err instanceof Error
           ? (err as { cause?: unknown }).cause instanceof Error
@@ -4323,6 +4334,9 @@ export async function registerRetryAgentsRoute(app: FastifyInstance, activeCusto
           : "Agent retry failed";
       sendSseEvent(reply, { type: "error", data: message });
     } finally {
+      const activeRunsForChat = activeAgentRuns.get(chatId);
+      activeRunsForChat?.delete(activeAgentRun);
+      if (activeRunsForChat?.size === 0) activeAgentRuns.delete(chatId);
       for (const runKey of customLorebookReadBehindRunKeys) {
         activeCustomLorebookReadBehindRuns.delete(runKey);
       }
