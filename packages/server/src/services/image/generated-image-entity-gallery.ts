@@ -107,5 +107,6 @@ export async function persistGeneratedImageToEntityGalleries(
       return { characterCount, personaCount };
     },
     galleryRoot,
+    input.signal,
   );
 }

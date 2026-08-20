@@ -178,6 +178,7 @@ import {
   searchStandardEmojiShortcodes,
 } from "../../packages/client/src/lib/emoji-shortcodes.js";
 import { persistGeneratedImageToEntityGalleries } from "../../packages/server/src/services/image/generated-image-entity-gallery.js";
+import { withGalleryFileLifecycleLock } from "../../packages/server/src/services/image/gallery-file-lifecycle.js";
 import {
   parseImageGenerationUserSettings,
   resolveIllustratorImageSize,
@@ -7251,6 +7252,65 @@ try {
   );
   assert.equal(cancelledCharacterWrites, 1);
   assert.equal(cancelledPersonaWrites, 0, "Cancellation must stop later generated-image gallery writes");
+
+  let releaseHeldGalleryLock: () => void = () => undefined;
+  let markGalleryLockEntered: () => void = () => undefined;
+  const galleryLockEntered = new Promise<void>((resolve) => {
+    markGalleryLockEntered = resolve;
+  });
+  const heldGalleryLock = withGalleryFileLifecycleLock(
+    "chat-id/generated.png",
+    async () => {
+      markGalleryLockEntered();
+      await new Promise<void>((resolve) => {
+        releaseHeldGalleryLock = resolve;
+      });
+    },
+    entityGalleryRoot,
+  );
+  await galleryLockEntered;
+
+  const waitingGalleryLockAbort = new AbortController();
+  let waitingGalleryOperationRan = false;
+  const waitingGalleryLock = withGalleryFileLifecycleLock(
+    "chat-id/generated.png",
+    () => {
+      waitingGalleryOperationRan = true;
+    },
+    entityGalleryRoot,
+    waitingGalleryLockAbort.signal,
+  );
+  waitingGalleryLockAbort.abort();
+  let galleryLockTimeout: ReturnType<typeof setTimeout> | undefined;
+  let followingGalleryOperationRan = false;
+  let followingGalleryLock: Promise<void> | undefined;
+  try {
+    await assert.rejects(
+      Promise.race([
+        waitingGalleryLock,
+        new Promise<never>((_, reject) => {
+          galleryLockTimeout = setTimeout(() => reject(new Error("Gallery lock abort timed out")), 500);
+        }),
+      ]),
+      /aborted/iu,
+    );
+    followingGalleryLock = withGalleryFileLifecycleLock(
+      "chat-id/generated.png",
+      () => {
+        followingGalleryOperationRan = true;
+      },
+      entityGalleryRoot,
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(followingGalleryOperationRan, false, "An aborted waiter must preserve the preceding gallery lock");
+  } finally {
+    if (galleryLockTimeout) clearTimeout(galleryLockTimeout);
+    releaseHeldGalleryLock();
+    await heldGalleryLock;
+    await followingGalleryLock;
+  }
+  assert.equal(waitingGalleryOperationRan, false, "An aborted gallery lock waiter must never run its operation");
+  assert.equal(followingGalleryOperationRan, true);
 } finally {
   rmSync(entityGalleryRoot, { recursive: true, force: true });
 }
@@ -9371,7 +9431,11 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     /preferredTargetLorebookId = await persistLorebookKeeperUpdates\([\s\S]{0,700}signal: baseContext\.signal/u,
     "Lorebook retry persistence must receive the shared cancellation signal",
   );
-  assert.match(lorebookKeeperUtilsSource, /signal\?: AbortSignal/u);
+  assert.match(
+    lorebookKeeperUtilsSource,
+    /signal\?: AbortSignal/u,
+    "Lorebook Keeper persistence must accept a cancellation signal",
+  );
   assert.match(
     lorebookKeeperUtilsSource,
     /signal\?\.throwIfAborted\(\);\s*const (?:created|updated) = await lorebooksStore\.(?:create|updateEntry|createEntry)/u,

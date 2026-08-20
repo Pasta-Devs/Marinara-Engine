@@ -1073,7 +1073,7 @@ async function buildRetryAgentContext(args: {
   const customWritableLorebookIds = new Set(
     resolvedAgents
       .filter((agent) => agent.isCustomAgent === true && customAgentHasCapability(agent.settings, "edit_lorebooks"))
-      .flatMap((agent) => resolveCustomWritableLorebookIds(agent.settings)),
+      .flatMap((agent) => resolveCustomWritableLorebookIds(agent.settings) ?? []),
   );
   if (customWritableLorebookIds.size > 0) {
     const allLorebooks = (await lorebooksStore.list()) as unknown as Array<{ id: string; name?: string | null }>;
