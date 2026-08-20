@@ -16,7 +16,7 @@ import {
   type TextPartInput,
 } from "@opencode-ai/sdk/v2";
 import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } from "../base-provider.js";
-import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
+import { getChatGenerationTimeoutMs, isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../../lib/logger.js";
 
 const OPENCODE_BINARY = "opencode";
@@ -24,6 +24,8 @@ const OPENCODE_SERVER_READY_PREFIX = "opencode server listening";
 const OPENCODE_SERVER_START_TIMEOUT_MS = 30_000;
 const OPENCODE_SERVER_IDLE_MS = 30_000;
 const OPENCODE_ERROR_PREVIEW_CHARS = 2_000;
+const OPENCODE_READY_LINE_MAX_CHARS = 8_000;
+const OPENCODE_CLEANUP_TIMEOUT_MS = 10_000;
 const OPENCODE_TOKENS_PER_CHAR = 4;
 const OPENCODE_DEFAULT_CONTEXT_TOKENS = 128_000;
 const OPENCODE_SCRATCH_PREFIX = join(tmpdir(), "marinara-opencode-");
@@ -77,8 +79,30 @@ let sharedServerState: OpenCodeServerState | null = null;
 let sharedServerStartPromise: Promise<OpenCodeServerState> | null = null;
 
 function getOpenCodeScratchDir(): Promise<string> {
-  openCodeScratchDirPromise ??= mkdtemp(OPENCODE_SCRATCH_PREFIX);
+  openCodeScratchDirPromise ??= mkdtemp(OPENCODE_SCRATCH_PREFIX).catch((error: unknown) => {
+    openCodeScratchDirPromise = null;
+    throw error;
+  });
   return openCodeScratchDirPromise;
+}
+
+function openCodeReadyUrl(line: string): string | null {
+  if (!line.startsWith(OPENCODE_SERVER_READY_PREFIX)) return null;
+  return line.match(/on\s+(https?:\/\/[^\s]+)/)?.[1] ?? null;
+}
+
+export function createOpenCodeReadyScanner(): (chunk: Buffer | string) => string | null {
+  let partialLine = "";
+  return (chunk) => {
+    const lines = `${partialLine}${chunk.toString()}`.split(/\r?\n/);
+    partialLine = lines.pop() ?? "";
+    for (const line of lines) {
+      const url = openCodeReadyUrl(line);
+      if (url) return url;
+    }
+    partialLine = partialLine.slice(-OPENCODE_READY_LINE_MAX_CHARS);
+    return null;
+  };
 }
 
 export function parseOpenCodeModelSlug(value: string | null | undefined): ParsedOpenCodeModelSlug | null {
@@ -279,6 +303,7 @@ async function startOpenCodeServer(): Promise<OpenCodeServerState> {
   return await new Promise<OpenCodeServerState>((resolve, reject) => {
     let output = "";
     let settled = false;
+    const scanReadyOutput = createOpenCodeReadyScanner();
     const timeout = setTimeout(() => {
       if (settled) return;
       settled = true;
@@ -294,31 +319,27 @@ async function startOpenCodeServer(): Promise<OpenCodeServerState> {
     child.stdout.on("data", (chunk: Buffer) => {
       appendOutput(chunk);
       if (settled) return;
-      for (const line of output.split(/\r?\n/)) {
-        if (!line.startsWith(OPENCODE_SERVER_READY_PREFIX)) continue;
-        const match = line.match(/on\s+(https?:\/\/[^\s]+)/);
-        if (!match?.[1]) continue;
-        settled = true;
-        clearTimeout(timeout);
-        const state: OpenCodeServerState = {
-          child,
-          url: match[1],
-          activeRequests: 0,
-          idleTimer: null,
-          closed: false,
-        };
-        child.once("exit", (code, signal) => {
-          const wasClosed = state.closed;
-          state.closed = true;
-          if (state.idleTimer) clearTimeout(state.idleTimer);
-          if (sharedServerState === state) sharedServerState = null;
-          if (!wasClosed && code !== 0 && signal !== "SIGTERM") {
-            logger.warn("OpenCode server exited code=%s signal=%s", String(code), signal ?? "none");
-          }
-        });
-        resolve(state);
-        return;
-      }
+      const url = scanReadyOutput(chunk);
+      if (!url) return;
+      settled = true;
+      clearTimeout(timeout);
+      const state: OpenCodeServerState = {
+        child,
+        url,
+        activeRequests: 0,
+        idleTimer: null,
+        closed: false,
+      };
+      child.once("exit", (code, signal) => {
+        const wasClosed = state.closed;
+        state.closed = true;
+        if (state.idleTimer) clearTimeout(state.idleTimer);
+        if (sharedServerState === state) sharedServerState = null;
+        if (!wasClosed && code !== 0 && signal !== "SIGTERM") {
+          logger.warn("OpenCode server exited code=%s signal=%s", String(code), signal ?? "none");
+        }
+      });
+      resolve(state);
     });
     child.once("error", (error) => {
       if (settled) return;
@@ -378,17 +399,20 @@ function releaseOpenCodeServer(state: OpenCodeServerState): void {
 }
 
 async function withOpenCodeClient<T>(
-  operation: (client: ReturnType<typeof createOpencodeClient>) => Promise<T>,
+  operation: (client: ReturnType<typeof createOpencodeClient>, signal: AbortSignal) => Promise<T>,
+  callerSignal?: AbortSignal,
 ): Promise<T> {
   const state = await acquireOpenCodeServer();
-  const scratchDir = await getOpenCodeScratchDir();
-  const client = createOpencodeClient({
-    baseUrl: state.url,
-    directory: scratchDir,
-    throwOnError: true,
-  });
   try {
-    return await operation(client);
+    const scratchDir = await getOpenCodeScratchDir();
+    const client = createOpencodeClient({
+      baseUrl: state.url,
+      directory: scratchDir,
+      throwOnError: true,
+    });
+    const timeoutSignal = AbortSignal.timeout(getChatGenerationTimeoutMs());
+    const signal = callerSignal ? AbortSignal.any([callerSignal, timeoutSignal]) : timeoutSignal;
+    return await operation(client, signal);
   } finally {
     releaseOpenCodeServer(state);
   }
@@ -396,8 +420,8 @@ async function withOpenCodeClient<T>(
 
 export const defaultOpenCodeRuntime: OpenCodeProviderRuntime = {
   async listModels() {
-    return await withOpenCodeClient(async (client) => {
-      const result = await client.provider.list();
+    return await withOpenCodeClient(async (client, signal) => {
+      const result = await client.provider.list(undefined, { signal });
       if (!result.data) throw new Error("OpenCode did not return a provider catalog.");
       const models = flattenOpenCodeModels(result.data);
       if (!models.length) {
@@ -412,23 +436,31 @@ export const defaultOpenCodeRuntime: OpenCodeProviderRuntime = {
     if (!parsedModel)
       throw new Error("OpenCode models must use the provider/model format. Fetch models and select one.");
 
-    return await withOpenCodeClient(async (client) => {
-      const sessionResult = await client.session.create({
-        title: "Marinara Engine completion",
-        permission: [{ permission: "*", pattern: "*", action: "deny" }],
-      });
+    return await withOpenCodeClient(async (client, signal) => {
+      const sessionResult = await client.session.create(
+        {
+          title: "Marinara Engine completion",
+          permission: [{ permission: "*", pattern: "*", action: "deny" }],
+        },
+        { signal },
+      );
       const session = sessionResult.data;
       if (!session) throw new Error("OpenCode session creation returned no session.");
 
-      const abortSession = async () => {
-        await client.session.abort({ sessionID: session.id }).catch(() => {});
+      let abortSessionPromise: Promise<void> | null = null;
+      const abortSession = () => {
+        abortSessionPromise ??= client.session
+          .abort({ sessionID: session.id }, { signal: AbortSignal.timeout(OPENCODE_CLEANUP_TIMEOUT_MS) })
+          .then(() => {})
+          .catch(() => {});
+        return abortSessionPromise;
       };
       const onAbort = () => void abortSession();
-      input.signal?.addEventListener("abort", onAbort, { once: true });
+      signal.addEventListener("abort", onAbort, { once: true });
       try {
-        if (input.signal?.aborted) {
+        if (signal.aborted) {
           await abortSession();
-          throw input.signal.reason instanceof Error ? input.signal.reason : new Error("OpenCode request was aborted.");
+          throw signal.reason instanceof Error ? signal.reason : new Error("OpenCode request was aborted.");
         }
         const result = await client.session.prompt(
           {
@@ -437,7 +469,7 @@ export const defaultOpenCodeRuntime: OpenCodeProviderRuntime = {
             system: OPENCODE_SYSTEM_PROMPT,
             parts: input.parts,
           },
-          input.signal ? { signal: input.signal } : undefined,
+          { signal },
         );
         const response = result.data;
         if (!response) throw new Error("OpenCode returned no response payload.");
@@ -460,15 +492,17 @@ export const defaultOpenCodeRuntime: OpenCodeProviderRuntime = {
           finishReason: response.info.finish || "stop",
         };
       } catch (error) {
-        if (input.signal?.aborted) await abortSession();
+        if (signal.aborted) await abortSession();
         throw error;
       } finally {
-        input.signal?.removeEventListener("abort", onAbort);
-        await client.session.delete({ sessionID: session.id }).catch((error) => {
-          logger.debug(error, "Failed to delete completed OpenCode session %s", session.id);
-        });
+        signal.removeEventListener("abort", onAbort);
+        await client.session
+          .delete({ sessionID: session.id }, { signal: AbortSignal.timeout(OPENCODE_CLEANUP_TIMEOUT_MS) })
+          .catch((error) => {
+            logger.debug(error, "Failed to delete completed OpenCode session %s", session.id);
+          });
       }
-    });
+    }, input.signal);
   },
 };
 

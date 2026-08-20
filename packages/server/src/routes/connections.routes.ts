@@ -587,8 +587,18 @@ export async function connectionsRoutes(app: FastifyInstance) {
       }
 
       if (conn.provider === "opencode") {
+        if (!conn.model) {
+          return {
+            success: false,
+            message: "No model configured. Fetch OpenCode models and select one first.",
+            latencyMs: Date.now() - start,
+            modelName: null,
+          };
+        }
         const provider = createLLMProvider(
           conn.provider,
+          // OpenCode auth is local-only. The SDK talks to a loopback server
+          // that reads the user's existing configuration, so these are unused.
           "",
           "",
           conn.maxContext,
@@ -601,7 +611,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         );
         let responseText = "";
         for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
-          model: conn.model ?? "",
+          model: conn.model,
           maxTokens: 32,
           stream: false,
         })) {
