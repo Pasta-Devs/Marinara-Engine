@@ -1152,7 +1152,7 @@ export function SummaryPopover({
 
   const handleClose = useCallback(async () => {
     if (document.querySelector("[data-macro-modal]")) return;
-    if (useDialogStore.getState().dialog) return;  // a confirm/alert/prompt/choice dialog is open
+    if (useDialogStore.getState().dialog) return; // a confirm/alert/prompt/choice dialog is open
     if (await commitCombinePromptDraft()) onClose();
   }, [commitCombinePromptDraft, onClose]);
 
