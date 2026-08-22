@@ -13197,6 +13197,105 @@ test("Roleplay setup points empty agent libraries to the Agents tab", async ({ p
   }
 });
 
+test("Roleplay setup agent category headers never cover agent rows while scrolling", async ({ page, request }) => {
+  const beforeResponse = await request.get("/api/chats");
+  const beforeChats = (await beforeResponse.json()) as Array<{ id: string }>;
+  const existingChatIds = new Set(beforeChats.map((chat) => chat.id));
+  const connectionResponse = await request.post("/api/connections", {
+    data: { name: `Roleplay Agent Scroll Smoke ${Date.now()}`, provider: "custom" },
+  });
+  expect(connectionResponse.ok()).toBeTruthy();
+  const connection = (await connectionResponse.json()) as { id: string };
+  const agentManifests = [
+    ["writer-one", "Writer One", "writer"],
+    ["writer-two", "Writer Two", "writer"],
+    ["tracker-one", "Tracker One", "tracker"],
+    ["tracker-two", "Tracker Two", "tracker"],
+    ["misc-one", "Misc One", "misc"],
+    ["misc-two", "Misc Two", "misc"],
+  ].map(([id, name, category]) => ({
+    id,
+    name,
+    category,
+    description: `${name} has enough setup guidance to make this agent row wrap across multiple lines on narrow screens.`,
+    author: "Pasta Devs",
+    phase: "post_processing",
+    enabledByDefault: false,
+    modeAllowlist: ["roleplay"],
+    defaultPromptTemplate: "Test prompt.",
+  }));
+
+  await page.route("**/api/capability-packages/agents", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(agentManifests) });
+  });
+  await page.route("**/api/capability-packages/installed", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/agents", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/backgrounds/file/Black.jpg**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "image/gif",
+      body: Buffer.from(TRANSPARENT_GIF_BASE64, "base64"),
+    });
+  });
+
+  try {
+    await page.goto("/");
+    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await page.locator('[data-tour="chat-mode-roleplay"]').click();
+    await page.getByLabel("New Roleplay", { exact: true }).click();
+    const connectionGate = page.getByRole("heading", { name: "Set Up Roleplay", exact: true });
+    const wizardHeading = page.getByRole("heading", { name: "New Roleplay", exact: true });
+    await expect(connectionGate.or(wizardHeading)).toBeVisible();
+    if (await connectionGate.isVisible()) {
+      await page.getByRole("button", { name: "Create Chat", exact: true }).click();
+    }
+    await expect(wizardHeading).toBeVisible();
+    const nextButton = page.getByRole("button", { name: "Next", exact: true });
+    await nextButton.click();
+    await expect(page.getByRole("heading", { name: "Pick a Preset", exact: true })).toBeVisible();
+    await nextButton.click();
+    const participantsHeading = page.getByRole("heading", { name: "Persona & Characters", exact: true });
+    const choiceDialog = page.getByRole("dialog", { name: "Configure Preset Variables" });
+    await expect(choiceDialog.or(participantsHeading).first()).toBeVisible();
+    if (await choiceDialog.isVisible()) {
+      await choiceDialog.getByRole("button", { name: "Skip", exact: true }).click();
+    }
+    await expect(participantsHeading).toBeVisible();
+    await nextButton.click();
+    await expect(page.getByRole("heading", { name: "Attach Lorebooks", exact: true })).toBeVisible();
+    await nextButton.click();
+    await expect(page.getByRole("heading", { name: "Enable Agents", exact: true })).toBeVisible();
+
+    const searchInput = page.getByPlaceholder("Search agents", { exact: true });
+    const agentList = searchInput.locator("xpath=../following-sibling::div[1]");
+    const writerHeader = agentList.getByText("Writer Agents", { exact: true }).locator("..");
+    const firstWriterRow = agentList.getByRole("button", { name: /^Writer One\b/u });
+    await expect(firstWriterRow).toBeVisible();
+    await agentList.evaluate(
+      (element, scrollTop) => {
+        element.scrollTop = scrollTop;
+      },
+      ((await writerHeader.boundingBox())?.height ?? 0) / 2,
+    );
+
+    const [headerBox, rowBox] = await Promise.all([writerHeader.boundingBox(), firstWriterRow.boundingBox()]);
+    expect(headerBox).not.toBeNull();
+    expect(rowBox).not.toBeNull();
+    expect(headerBox!.y + headerBox!.height).toBeLessThanOrEqual(rowBox!.y + 0.5);
+  } finally {
+    const afterResponse = await request.get("/api/chats");
+    const afterChats = (await afterResponse.json()) as Array<{ id: string }>;
+    await Promise.all(
+      afterChats.filter((chat) => !existingChatIds.has(chat.id)).map((chat) => request.delete(`/api/chats/${chat.id}`)),
+    );
+    await request.delete(`/api/connections/${connection.id}`, { timeout: 10_000 });
+  }
+});
+
 test("desktop resource editors open beside their source sidebars", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop side-by-side editor behavior.");
   await page.setViewportSize({ width: 1360, height: 900 });

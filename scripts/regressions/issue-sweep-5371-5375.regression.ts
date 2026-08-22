@@ -6,14 +6,14 @@ const chatSetupWizardSource = readFileSync(
   "utf8",
 );
 const agentHeaderStart = chatSetupWizardSource.indexOf(
-  'className="sticky top-0 z-10 flex items-center justify-between',
+  'className="flex items-center justify-between bg-[var(--secondary)] px-3 py-1.5"',
 );
-assert.ok(agentHeaderStart >= 0, "The agent category header must remain sticky");
+assert.ok(agentHeaderStart >= 0, "The setup wizard must render an agent category header");
 const agentHeaderSource = chatSetupWizardSource.slice(agentHeaderStart, agentHeaderStart + 220);
-assert.match(
+assert.doesNotMatch(
   agentHeaderSource,
-  /bg-\[var\(--secondary\)\](?:\s|")/u,
-  "Sticky agent category headers must be opaque so list text cannot show through them",
+  /\bsticky\b|\btop-0\b/u,
+  "Agent category headers must scroll with their rows instead of covering agent text",
 );
 assert.doesNotMatch(agentHeaderSource, /backdrop-blur/u);
 
