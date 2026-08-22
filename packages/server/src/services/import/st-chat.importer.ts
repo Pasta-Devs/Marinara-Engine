@@ -4,7 +4,7 @@
 import type { DB } from "../../db/connection.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createSpatialContextStorage } from "../storage/spatial-context.storage.js";
-import { SPATIAL_CONTEXT_LIMITS, type ChatMode } from "@marinara-engine/shared";
+import { normalizeTextForMatch, SPATIAL_CONTEXT_LIMITS, type ChatMode } from "@marinara-engine/shared";
 import {
   latestTrustedTimestamp,
   normalizeTimestampOverrides,
@@ -28,6 +28,7 @@ interface STChatMessageExtra extends Record<string, unknown> {
 
 interface STChatMessage {
   name?: string;
+  original_avatar?: unknown;
   is_user?: boolean;
   is_system?: boolean;
   role?: unknown;
@@ -156,6 +157,10 @@ function normalizeImportedMode(value: unknown): ChatMode | null {
     default:
       return null;
   }
+}
+
+function normalizeSpeakerKey(value: unknown): string {
+  return typeof value === "string" ? normalizeTextForMatch(value.replace(/\.(png|json)$/i, "")) : "";
 }
 
 const INTERNAL_EXTRA_KEYS = new Set([
@@ -315,6 +320,11 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
 
   const messageTimestamps: string[] = [];
   const parsedMsgInputs: ParsedSTChatMessageInput[] = [];
+  const normalizedSpeakerMap = new Map<string, string>();
+  for (const [speaker, characterId] of Object.entries(opts?.speakerMap ?? {})) {
+    const key = normalizeSpeakerKey(speaker);
+    if (key && !normalizedSpeakerMap.has(key)) normalizedSpeakerMap.set(key, characterId);
+  }
 
   for (let i = 1; i < lines.length; i++) {
     try {
@@ -366,9 +376,13 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
             : typeof stMsg.extra?.marinara_character_id === "string"
               ? stMsg.extra.marinara_character_id
               : null;
-        if (opts?.speakerMap && stMsg.name) {
+        if (opts?.speakerMap) {
           // Group chat: look up speaker
-          messageCharacterId = exportedCharacterId ?? opts.speakerMap[stMsg.name] ?? opts?.characterId ?? null;
+          const importedSpeakerId =
+            normalizedSpeakerMap.get(normalizeSpeakerKey(stMsg.original_avatar)) ??
+            normalizedSpeakerMap.get(normalizeSpeakerKey(stMsg.name)) ??
+            null;
+          messageCharacterId = exportedCharacterId ?? importedSpeakerId ?? opts?.characterId ?? null;
         } else {
           messageCharacterId = exportedCharacterId ?? opts?.characterId ?? null;
         }
