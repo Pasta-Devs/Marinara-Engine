@@ -258,13 +258,13 @@ export function LorebookFolderRow({
             type="button"
             aria-label={
               allSelected
-                ? localizeUi("ui.lorebooks.lorebookfolderrow.deselectAllInFolder")
-                : localizeUi("ui.lorebooks.lorebookfolderrow.selectAllInFolder")
+                ? localizeUi("lorebook.editor.batch.deselectAllInFolder")
+                : localizeUi("lorebook.editor.batch.selectAllInFolder")
             }
             title={
               allSelected
-                ? localizeUi("ui.lorebooks.lorebookfolderrow.deselectAllInFolder")
-                : localizeUi("ui.lorebooks.lorebookfolderrow.selectAllInFolder")
+                ? localizeUi("lorebook.editor.batch.deselectAllInFolder")
+                : localizeUi("lorebook.editor.batch.selectAllInFolder")
             }
             onClick={(e) => {
               e.stopPropagation();
