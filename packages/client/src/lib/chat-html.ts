@@ -113,8 +113,6 @@ const CHAT_HTML_ALLOWED_ATTR = [
   "title",
 ] as const;
 
-const CHAT_STYLE_BLOCK_RE = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
-
 export function sanitizeChatHtml(html: string, options: { allowStyle?: boolean; allowLinks?: boolean } = {}): string {
   const allowedAttr = CHAT_HTML_ALLOWED_ATTR.filter(
     (attr) =>
@@ -144,10 +142,17 @@ export function sanitizeChatHtml(html: string, options: { allowStyle?: boolean; 
 }
 
 export function extractChatStyleBlocks(html: string): { html: string; css: string } {
-  const cssBlocks: string[] = [];
-  const withoutStyles = html.replace(CHAT_STYLE_BLOCK_RE, (_match, css: string) => {
-    cssBlocks.push(css);
-    return "";
-  });
-  return { html: withoutStyles, css: cssBlocks.join("\n") };
+  const stylesOnly = DOMPurify.sanitize(`<div>${html}</div>`, {
+    ALLOWED_TAGS: ["div", "style"],
+    ALLOWED_ATTR: [],
+    FORBID_CONTENTS: [],
+    RETURN_DOM_FRAGMENT: true,
+  }) as DocumentFragment;
+  const cssBlocks = [...stylesOnly.querySelectorAll("style")].map((style) => style.textContent ?? "");
+  return {
+    // The normal sanitizer removes the original style elements after their
+    // sanitized, browser-parsed contents have been collected above.
+    html,
+    css: cssBlocks.join("\n"),
+  };
 }
