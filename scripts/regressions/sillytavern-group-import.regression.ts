@@ -27,7 +27,7 @@ try {
   writeFileSync(join(dataDir, "characters", "Doctor_Dottore.json"), JSON.stringify(characterCard("Il Dottore")));
   writeFileSync(join(dataDir, "characters", "Professor_Mari.json"), JSON.stringify(characterCard("Professor Mari")));
   writeFileSync(
-    join(dataDir, "groups", "lab-group.json"),
+    join(dataDir, "groups", "lab-group.JSON"),
     JSON.stringify({
       id: "lab-group",
       name: "The Laboratory",
@@ -37,7 +37,7 @@ try {
     }),
   );
   writeFileSync(
-    join(dataDir, "group chats", "current-chat.jsonl"),
+    join(dataDir, "group chats", "current-chat.JSONL"),
     [
       { user_name: "unused", character_name: "unused", chat_metadata: {} },
       { name: "Mari", is_user: true, mes: "Begin the experiment." },

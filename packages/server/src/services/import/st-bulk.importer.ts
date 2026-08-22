@@ -399,7 +399,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
     for (const f of groupFiles) {
       try {
         const raw = JSON.parse(await readFile(f, "utf-8"));
-        const gId = raw.id ?? basename(f, ".json");
+        const gId = raw.id ?? basename(f, extname(f));
         const gName = raw.name ?? "Unnamed Group";
         // Members can be an array of filenames (e.g. "char.png") or character names
         const members = Array.isArray(raw.members)
@@ -424,7 +424,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
       const gcEntries = await readdir(groupChatsDir, { withFileTypes: true });
       for (const e of gcEntries) {
         if (e.isFile() && extname(e.name).toLowerCase() === ".jsonl") {
-          const meta = groupMetaMap.get(basename(e.name, ".jsonl"));
+          const meta = groupMetaMap.get(basename(e.name, extname(e.name)));
           if (!meta) continue;
           const f = join(groupChatsDir, e.name);
           groupChats.push({
