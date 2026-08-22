@@ -423,6 +423,20 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
     if (existsSync(groupChatsDir)) {
       const gcEntries = await readdir(groupChatsDir, { withFileTypes: true });
       for (const e of gcEntries) {
+        if (e.isFile() && extname(e.name).toLowerCase() === ".jsonl") {
+          const meta = groupMetaMap.get(basename(e.name, ".jsonl"));
+          if (!meta) continue;
+          const f = join(groupChatsDir, e.name);
+          groupChats.push({
+            id: makeScanItemId("groupChats", dataDir, f),
+            path: f,
+            name: meta.name,
+            groupName: meta.name,
+            members: meta.members,
+            modifiedAt: null,
+          });
+          continue;
+        }
         if (!e.isDirectory()) continue;
         const groupId = e.name;
         const meta = groupMetaMap.get(groupId);
@@ -440,28 +454,6 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
             members: meta.members,
             modifiedAt: parseTrustedTimestamp(fileInfo.mtime),
           });
-        }
-      }
-    }
-
-    // Current SillyTavern profiles store group chats directly in this folder.
-    if (existsSync(groupChatsDir)) {
-      const flatJsonl = await listFiles(groupChatsDir, ".jsonl");
-      for (const f of flatJsonl) {
-        try {
-          const meta = groupMetaMap.get(basename(f, ".jsonl"));
-          if (!meta) continue;
-          const fileInfo = await stat(f);
-          groupChats.push({
-            id: makeScanItemId("groupChats", dataDir, f),
-            path: f,
-            name: meta.name,
-            groupName: meta.name,
-            members: meta.members,
-            modifiedAt: parseTrustedTimestamp(fileInfo.mtime),
-          });
-        } catch {
-          // skip
         }
       }
     }
