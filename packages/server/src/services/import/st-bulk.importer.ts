@@ -449,24 +449,17 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
       const flatJsonl = await listFiles(groupChatsDir, ".jsonl");
       for (const f of flatJsonl) {
         try {
-          const content = await readFile(f, "utf-8");
-          const firstLine = content.split("\n")[0];
-          if (firstLine) {
-            const header = JSON.parse(firstLine);
-            const chatId = basename(f, ".jsonl");
-            const headerChatId = header.chat_id ?? header.group_id;
-            const meta = groupMetaMap.get(chatId) ?? (headerChatId ? groupMetaMap.get(String(headerChatId)) : null);
-            if (!meta) continue;
-            const fileInfo = await stat(f);
-            groupChats.push({
-              id: makeScanItemId("groupChats", dataDir, f),
-              path: f,
-              name: meta.name,
-              groupName: meta.name,
-              members: meta.members,
-              modifiedAt: parseTrustedTimestamp(fileInfo.mtime),
-            });
-          }
+          const meta = groupMetaMap.get(basename(f, ".jsonl"));
+          if (!meta) continue;
+          const fileInfo = await stat(f);
+          groupChats.push({
+            id: makeScanItemId("groupChats", dataDir, f),
+            path: f,
+            name: meta.name,
+            groupName: meta.name,
+            members: meta.members,
+            modifiedAt: parseTrustedTimestamp(fileInfo.mtime),
+          });
         } catch {
           // skip
         }
