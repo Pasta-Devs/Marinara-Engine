@@ -7250,6 +7250,10 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
 
       if (mobile) {
         const messageTarget = chat.mode === "game" ? "dialogue" : "messages";
+        const keyboardTarget = overlay.locator('[data-chat-help-highlight="branches"]');
+        await keyboardTarget.focus();
+        await page.keyboard.press("Enter");
+        await expect(overlay.locator('[data-chat-help-mobile-detail="branches"]')).toBeVisible();
         await overlay.locator(`[data-chat-help-highlight="${messageTarget}"]`).click();
         const detail = overlay.locator(`[data-chat-help-mobile-detail="${messageTarget}"]`);
         await expect(detail).toBeVisible();
@@ -7285,6 +7289,8 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
           expect(columnBox).not.toBeNull();
           expect(messagesBox).not.toBeNull();
           expect(messagesBox!.width).toBeLessThan(rootBox!.width);
+          expect(messagesBox!.x).toBeGreaterThanOrEqual(columnBox!.x - 1);
+          expect(messagesBox!.x + messagesBox!.width).toBeLessThanOrEqual(columnBox!.x + columnBox!.width + 1);
           expect(
             Math.abs(messagesBox!.x + messagesBox!.width / 2 - (columnBox!.x + columnBox!.width / 2)),
           ).toBeLessThan(4);

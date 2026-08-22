@@ -375,10 +375,11 @@ function findTargetRect(definition: HelpTargetDefinition, root: HTMLElement, mod
 
     const roleplayColumn = mode === "roleplay" ? root.querySelector<HTMLElement>("[data-roleplay-chat-column]") : null;
     const roleplayColumnRect = roleplayColumn ? readVisibleRect(roleplayColumn) : null;
-    const left = Math.max(scrollRect.left + 8, roleplayColumnRect?.left ?? -Infinity);
+    const columnInset = roleplayColumnRect ? TARGET_PADDING : 0;
+    const left = Math.max(scrollRect.left + 8, (roleplayColumnRect?.left ?? -Infinity) + columnInset);
     const right = Math.min(
       scrollRect.left + scrollRect.width - 8,
-      roleplayColumnRect?.left != null ? roleplayColumnRect.left + roleplayColumnRect.width : Infinity,
+      roleplayColumnRect?.left != null ? roleplayColumnRect.left + roleplayColumnRect.width - columnInset : Infinity,
     );
     return right > left ? { top, left, width: right - left, height: bottom - top } : null;
   }
@@ -731,9 +732,10 @@ export function ChatHelpOverlay({
             height: target.rect.height,
           }}
           onPointerDown={(event) => {
-            if (!mobile) return;
-            event.stopPropagation();
-            setSelectedTargetId(target.id);
+            if (mobile) event.stopPropagation();
+          }}
+          onClick={() => {
+            if (mobile) setSelectedTargetId(target.id);
           }}
           onPointerEnter={(event) => {
             if (mobile) return;
