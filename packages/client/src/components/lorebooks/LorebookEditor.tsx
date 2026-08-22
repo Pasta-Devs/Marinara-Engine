@@ -1688,6 +1688,25 @@ export function LorebookEditor() {
             resetFolderDragState();
             resetEntryDragState();
           }}
+          selectionMode={entrySelectionMode}
+          allSelected={
+            entrySelectionMode &&
+            (entriesByContainer.get(folder.id) ?? []).length > 0 &&
+            (entriesByContainer.get(folder.id) ?? []).every((entry) => selectedEntryIds.has(entry.id))
+          }
+          onToggleSelectAll={() => {
+            const folderEntries = entriesByContainer.get(folder.id) ?? [];
+            const allSelected =
+              folderEntries.length > 0 && folderEntries.every((entry) => selectedEntryIds.has(entry.id));
+            setSelectedEntryIds((current) => {
+              const next = new Set(current);
+              for (const entry of folderEntries) {
+                if (allSelected) next.delete(entry.id);
+                else next.add(entry.id);
+              }
+              return next;
+            });
+          }}
         />
         {!isCollapsed && (
           <div
