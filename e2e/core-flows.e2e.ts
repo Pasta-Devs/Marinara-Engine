@@ -10240,6 +10240,26 @@ test("Downloaded cards use Marinara destination and lorebook choices", async ({ 
     scriptMarker: "",
     leakedProperty: "",
   });
+  const normalizedLink = await page.evaluate(async () => {
+    const { sanitizeChatHtml } = (await import("/src/lib/chat-html.ts")) as {
+      sanitizeChatHtml: (html: string) => string;
+    };
+    const host = document.createElement("div");
+    host.innerHTML = sanitizeChatHtml(
+      '<a href="https://example.com" target="_blank" rel="opener">external link</a>',
+    );
+    const link = host.querySelector("a");
+    return {
+      href: link?.getAttribute("href"),
+      target: link?.getAttribute("target"),
+      rel: link?.getAttribute("rel"),
+    };
+  });
+  expect(normalizedLink).toEqual({
+    href: "https://example.com",
+    target: "_blank",
+    rel: "noopener noreferrer",
+  });
 
   await library.getByRole("button", { name: "Import", exact: true }).click();
 

@@ -126,19 +126,24 @@ export function sanitizeChatHtml(html: string, options: { allowStyle?: boolean; 
     ALLOW_UNKNOWN_PROTOCOLS: false,
     FORBID_TAGS: ["animate", "embed", "foreignObject", "iframe", "math", "object", "script", "svg", "style"],
     FORBID_ATTR: ["onerror", "onload", "onclick", "srcdoc"],
-  });
-  if (!options.allowStyle || typeof document === "undefined") return clean;
-  const template = document.createElement("template");
-  template.innerHTML = clean;
-  for (const element of template.content.querySelectorAll<HTMLElement>("[style]")) {
-    const style = sanitizeChatMessageCss(element.getAttribute("style") ?? "");
-    if (style) element.setAttribute("style", style);
-    else element.removeAttribute("style");
+    RETURN_DOM_FRAGMENT: true,
+  }) as DocumentFragment;
+  for (const anchor of clean.querySelectorAll<HTMLAnchorElement>("a[href]")) {
+    anchor.setAttribute("rel", "noopener noreferrer");
   }
-  for (const media of template.content.querySelectorAll("img, audio, video")) {
-    media.setAttribute("referrerpolicy", "no-referrer");
+  if (options.allowStyle) {
+    for (const element of clean.querySelectorAll<HTMLElement>("[style]")) {
+      const style = sanitizeChatMessageCss(element.getAttribute("style") ?? "");
+      if (style) element.setAttribute("style", style);
+      else element.removeAttribute("style");
+    }
+    for (const media of clean.querySelectorAll("img, audio, video")) {
+      media.setAttribute("referrerpolicy", "no-referrer");
+    }
   }
-  return template.innerHTML;
+  const container = clean.ownerDocument.createElement("div");
+  container.append(clean);
+  return container.innerHTML;
 }
 
 export function extractChatStyleBlocks(html: string): { html: string; css: string } {
