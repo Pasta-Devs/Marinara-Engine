@@ -24,7 +24,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Added `nai-diffusion-5-full` and `nai-diffusion-5-curated` to `IMAGE_GEN_MODELS` in `model-lists.ts` with display names "NAI Diffusion 5 Full" and "NAI Diffusion 5 Curated" (#5343).
 
 ### Fixed
-
+- Chat Summaries PopOver now doesn't close when clicking anywhere on the Summary Deletion Confirmation Pop Up, including Cancel, Delete, or just the popup itself (#5401).
 - Settings and Chat Settings switches now share one track and thumb design, keeping every toggle the same size, shape, travel distance, and vertical alignment on desktop and mobile.
 - Game widget edit icons and Game log deletion actions now follow Chat Chrome Text Color instead of the app accent.
 - The Conversation Start Call button now matches the adjacent participant control height on desktop and mobile.
