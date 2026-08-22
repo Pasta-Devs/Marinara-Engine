@@ -5794,6 +5794,21 @@ const cases: RegressionCase[] = [
       assert.match(compiledAutoBackground.prompt, /hastily cleaned floorboards/u);
       assert.doesNotMatch(compiledAutoBackground.prompt, /Infer a consistent visual style from/u);
 
+      const reviewedBackground = await buildBackgroundProviderPrompt({
+        chatId: "manual-gallery-background-reviewed",
+        locationSlug: "fontaine-quarantine-berth",
+        sceneDescription: quarantinePrompt,
+        imgModel: "gpt-image-2",
+        imgBaseUrl: "https://example.invalid",
+        imgApiKey: "",
+        promptOverride: "Reviewer-approved background prompt",
+        negativePromptOverride: "Reviewer-approved negative prompt",
+      });
+      assert.deepEqual(reviewedBackground, {
+        prompt: "Reviewer-approved background prompt",
+        negativePrompt: "Reviewer-approved negative prompt",
+      });
+
       const cinematicProfile = styleProfilesForHandoff.profiles.find((profile) => profile.id === "cinematic")!;
       styleProfilesForHandoff.profiles.push({
         ...cinematicProfile,
@@ -5904,6 +5919,14 @@ const cases: RegressionCase[] = [
       assert.match(retryAgentsRouteSource, /writeManualIllustratorPromptPlan/u);
       assert.match(retryAgentsRouteSource, /_styleProfileInstructionApplied:\s*true/u);
       assert.match(retryAgentsRouteSource, /force:\s*isManualIllustratorBackgroundRequest/u);
+      assert.match(retryAgentsRouteSource, /await previewIllustratorSceneBackground\(backgroundArgs\)/u);
+      assert.match(retryAgentsRouteSource, /kind:\s*"background"/u);
+      assert.match(retryAgentsRouteSource, /backgroundPlan:\s*preview\.plan/u);
+      assert.match(retryAgentsRouteSource, /promptOverride:\s*illustratorPromptReviewOverride\?\.prompt/u);
+      assert.match(
+        chatAreaSource,
+        /illustratorPromptReview\.item\.kind === "background" \? "background" : "illustration"/u,
+      );
       assert.match(retryAgentsRouteSource, /await executeRetryBatches\(\s*agentContext/u);
       assert.ok(
         generationRoutesSource.indexOf("const illustratorPromptAgent") >

@@ -3,7 +3,7 @@
 // Multi-provider: ChubAI, JannyAI, CharacterTavern, Pygmalion, Wyvern, DataCat
 // With login modals for Pygmalion & CharacterTavern NSFW, PNG download for all providers
 // ──────────────────────────────────────────────
-import { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useId, useLayoutEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   Search,
@@ -39,6 +39,13 @@ import { parsePngCharacterCard } from "../../lib/png-parser";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
+import { scopeChatMessageCss } from "../../lib/chat-message-css";
+import {
+  containsChatHtml,
+  decodeEncodedChatHtmlTags,
+  extractChatStyleBlocks,
+  sanitizeChatHtml,
+} from "../../lib/chat-html";
 import {
   countLorebookEntries,
   hasLorebookEntries,
@@ -3570,6 +3577,7 @@ function DetailView({
                   <DefSection
                     title={localizeUi("ui.botBrowser.detailview.creatorSNotes")}
                     content={displayDetail.creatorNotes}
+                    allowHtml
                   />
                 )}
                 {displayDetail.description && (
@@ -3777,13 +3785,35 @@ crc32.table = null as Uint32Array | null;
 // Definition Section
 // ════════════════════════════════════════════════
 
-function DefSection({ title, content }: { title: string; content: string }) {
+function DefSection({ title, content, allowHtml = false }: { title: string; content: string; allowHtml?: boolean }) {
+  const sectionId = useId();
+  const htmlScopeClass = `mari-bot-notes-${sectionId.replace(/[^a-zA-Z0-9_-]/g, "") || "content"}`;
+  const renderedHtml = useMemo(() => {
+    if (!allowHtml || !containsChatHtml(content)) return null;
+    const decoded = decodeEncodedChatHtmlTags(content);
+    const { html, css } = extractChatStyleBlocks(decoded);
+    const clean = sanitizeChatHtml(html, { allowStyle: true, allowLinks: false });
+    const scopedCss = scopeChatMessageCss(css, `.${htmlScopeClass}`);
+    return scopedCss ? `<style>${scopedCss}</style>${clean}` : clean;
+  }, [allowHtml, content, htmlScopeClass]);
+
   return (
     <div>
       <h4 className="mb-1 text-xs font-semibold text-[var(--foreground)]">{title}</h4>
-      <div className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-[var(--secondary)] p-2.5 text-xs leading-relaxed text-[var(--muted-foreground)]">
-        {content}
-      </div>
+      {renderedHtml !== null ? (
+        <div
+          data-bot-browser-rich-text
+          className={cn(
+            "relative max-h-40 !overflow-x-hidden overflow-y-auto whitespace-pre-wrap !contain-paint rounded-lg bg-[var(--secondary)] p-2.5 text-xs leading-relaxed text-[var(--muted-foreground)]",
+            htmlScopeClass,
+          )}
+          dangerouslySetInnerHTML={{ __html: renderedHtml }}
+        />
+      ) : (
+        <div className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-[var(--secondary)] p-2.5 text-xs leading-relaxed text-[var(--muted-foreground)]">
+          {content}
+        </div>
+      )}
     </div>
   );
 }

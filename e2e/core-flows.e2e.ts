@@ -10172,6 +10172,16 @@ test("Downloaded cards use Marinara destination and lorebook choices", async ({ 
         personality: "Curious and precise.",
         scenario: "Inside the Marinara test kitchen.",
         creator: "Marinara Tester",
+        creator_notes: [
+          "<style>",
+          "body { --unsafe-note-leak: yes; }",
+          ".formatted-note { color: rgb(12, 200, 140); position: fixed; inset: 0; }",
+          "</style>",
+          '<div class="formatted-note" onclick="document.body.dataset.noteScript = \'clicked\'">',
+          'Readable <strong>author note</strong> <a href="https://example.com" target="_blank">external link</a>',
+          "<script>document.body.dataset.noteScript = 'executed'</script>",
+          "</div>",
+        ].join(""),
         character_book: {
           name: `${cardName} Lore`,
           entries: [
@@ -10206,6 +10216,31 @@ test("Downloaded cards use Marinara destination and lorebook choices", async ({ 
   await library.getByRole("button", { name: /ChubAI/u }).click();
   await page.getByRole("button", { name: /Wyvern/u }).click();
   await library.getByRole("button", { name: new RegExp(cardName, "u") }).click();
+
+  const authorNotes = library.locator("[data-bot-browser-rich-text]");
+  await expect(authorNotes.getByText(/Readable author note external link/u)).toBeVisible();
+  await expect(authorNotes.locator("strong")).toHaveText("author note");
+  await expect(authorNotes.locator("script")).toHaveCount(0);
+  await expect(authorNotes.locator(".formatted-note")).not.toHaveAttribute("onclick");
+  const inertExternalLink = authorNotes.locator("a", { hasText: "external link" });
+  await expect(inertExternalLink).not.toHaveAttribute("href");
+  await expect(inertExternalLink).not.toHaveAttribute("target");
+  const noteSecurity = await page.evaluate(() => {
+    const note = document.querySelector<HTMLElement>("[data-bot-browser-rich-text] .formatted-note");
+    return {
+      color: note ? getComputedStyle(note).color : "",
+      position: note ? getComputedStyle(note).position : "",
+      scriptMarker: document.body.dataset.noteScript ?? "",
+      leakedProperty: getComputedStyle(document.body).getPropertyValue("--unsafe-note-leak").trim(),
+    };
+  });
+  expect(noteSecurity).toEqual({
+    color: "rgb(12, 200, 140)",
+    position: "absolute",
+    scriptMarker: "",
+    leakedProperty: "",
+  });
+
   await library.getByRole("button", { name: "Import", exact: true }).click();
 
   const importDialog = page.locator('[data-component="BotBrowserImportDialog"]');
@@ -17877,7 +17912,7 @@ test("persona editor preserves unsaved fields across responsive layout changes",
   }
 });
 
-test("image prompt review preserves edits through rerenders and submits the edited prompt", async ({
+test("background prompt review preserves edits through rerenders and resumes the background target", async ({
   page,
   request,
 }) => {
@@ -17890,16 +17925,21 @@ test("image prompt review preserves edits through rerenders and submits the edit
   });
   expect(chatResponse.ok()).toBeTruthy();
   const chat = (await chatResponse.json()) as { id: string };
-  const originalPrompt = "Original illustration prompt";
-  const editedPrompt = "Edited illustration prompt with deliberate composition";
+  const originalPrompt = "Original background prompt";
+  const editedPrompt = "Edited background prompt with deliberate composition";
   const releaseRetry = createDeferred();
   let submittedPrompt = "";
+  let submittedTargets: unknown = null;
+  let submittedResultData: unknown = null;
 
   await page.route("**/api/generate/retry-agents", async (route) => {
     const body = route.request().postDataJSON() as {
-      illustratorPromptReviewOverride?: { prompt?: string };
+      illustratorPromptReviewOverride?: { prompt?: string; resultData?: unknown };
+      illustratorRetryTargets?: unknown;
     };
     submittedPrompt = body.illustratorPromptReviewOverride?.prompt ?? "";
+    submittedTargets = body.illustratorRetryTargets;
+    submittedResultData = body.illustratorPromptReviewOverride?.resultData;
     await releaseRetry.promise;
     await route.fulfill({
       status: 200,
@@ -17919,12 +17959,20 @@ test("image prompt review preserves edits through rerenders and submits the edit
             detail: {
               chatId,
               item: {
-                id: "illustration",
-                kind: "illustration",
-                title: "Scene illustration",
+                id: "roleplay-scene-background",
+                kind: "background",
+                title: "Scene background",
                 prompt,
               },
-              resultData: { shouldGenerate: true },
+              resultData: {
+                generateBackground: true,
+                backgroundPlan: {
+                  locationName: "Marinara test kitchen",
+                  prompt,
+                  tags: ["kitchen"],
+                  reason: "Manual Gallery background request",
+                },
+              },
             },
           }),
         );
@@ -17951,6 +17999,11 @@ test("image prompt review preserves edits through rerenders and submits the edit
 
     await dialog.getByRole("button", { name: "Generate", exact: true }).click();
     await expect.poll(() => submittedPrompt).toBe(editedPrompt);
+    expect(submittedTargets).toEqual(["background"]);
+    expect(submittedResultData).toMatchObject({
+      generateBackground: true,
+      backgroundPlan: { locationName: "Marinara test kitchen" },
+    });
     await expect(promptEditor).toHaveValue(editedPrompt);
     await expect(dialog.getByRole("button", { name: "Generate", exact: true })).toBeDisabled();
 

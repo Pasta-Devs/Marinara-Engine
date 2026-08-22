@@ -74,9 +74,15 @@ import { buildTTSVoiceRequests, normalizeTTSCharacterName, withTTSVoiceRequestCa
 import { DIALOGUE_QUOTE_PATTERN_SOURCE, HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE } from "../../lib/dialogue-quotes";
 import { resolveMessageRewriteVersions } from "../../lib/message-rewrite-versions";
 import { convertChatHtmlNewlines } from "../../lib/chat-html-newlines";
-import { sanitizeChatMessageCss, scopeChatMessageCss } from "../../lib/chat-message-css";
+import { scopeChatMessageCss } from "../../lib/chat-message-css";
+import {
+  HTML_TAG_RE,
+  containsChatHtml,
+  decodeEncodedChatHtmlTags,
+  extractChatStyleBlocks,
+  sanitizeChatHtml,
+} from "../../lib/chat-html";
 import { resolveMessageReasoningDisplay } from "../../lib/message-reasoning";
-import DOMPurify from "dompurify";
 import type { CharacterMap, ExpressionAvatarResolver, MessageSelectionToggle, PersonaInfo } from "./chat-area.types";
 import {
   MESSAGE_SELECTION_CHECKBOX_CLASS,
@@ -1061,159 +1067,12 @@ function highlightDialogue(text: string, dialogueColor?: string, boldDialogue = 
   return result;
 }
 
-const HTML_TAG_NAME_SOURCE =
-  "div|span|style|table|p|br|img|a|ul|ol|li|h[1-6]|em|strong|b|i|pre|code|section|article|header|footer|nav|button|input|form|label|select|option|textarea|canvas|svg|video|audio|source|iframe|hr|blockquote|details|summary|figure|figcaption|main|aside|mark|small|sub|sup|del|ins|abbr|time|progress|meter|output|dialog|template|slot|ruby|rt|rp|bdi|bdo|wbr|area|map|track|embed|object|param|picture|portal|datalist|fieldset|legend|optgroup|caption|col|colgroup|thead|tbody|tfoot|th|td|dl|dt|dd|kbd|samp|var|cite|dfn|q|s|u|font|center";
-
-/** Check whether text contains meaningful HTML tags. */
-const HTML_TAG_RE = new RegExp(`<(?:${HTML_TAG_NAME_SOURCE})\\b[^>]*>`, "i");
-const ENCODED_HTML_TAG_RE = new RegExp(
-  `&(?:lt|#0*60|#x0*3c);(\\/?\\s*(?:${HTML_TAG_NAME_SOURCE})\\b[^<>]*?)&(?:gt|#0*62|#x0*3e);`,
-  "gi",
-);
-
-function decodeHtmlTagAttributeEntities(value: string): string {
-  return value.replace(/&quot;|&#0*34;|&#x0*22;/gi, '"').replace(/&apos;|&#0*39;|&#x0*27;/gi, "'");
-}
-
-function decodeEncodedChatHtmlTags(value: string): string {
-  return value.replace(
-    ENCODED_HTML_TAG_RE,
-    (_match, tagBody: string) => `<${decodeHtmlTagAttributeEntities(tagBody)}>`,
-  );
-}
-
-function containsChatHtml(value: string): boolean {
-  return HTML_TAG_RE.test(decodeEncodedChatHtmlTags(value));
-}
-
-const CHAT_HTML_ALLOWED_TAGS = [
-  "a",
-  "abbr",
-  "aside",
-  "b",
-  "bdi",
-  "bdo",
-  "blockquote",
-  "br",
-  "caption",
-  "center",
-  "cite",
-  "code",
-  "col",
-  "colgroup",
-  "dd",
-  "del",
-  "details",
-  "dfn",
-  "div",
-  "dl",
-  "dt",
-  "em",
-  "figcaption",
-  "figure",
-  "font",
-  "footer",
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
-  "header",
-  "hr",
-  "i",
-  "img",
-  "ins",
-  "kbd",
-  "li",
-  "main",
-  "mark",
-  "nav",
-  "ol",
-  "p",
-  "pre",
-  "q",
-  "s",
-  "samp",
-  "section",
-  "small",
-  "span",
-  "strong",
-  "sub",
-  "summary",
-  "sup",
-  "table",
-  "tbody",
-  "td",
-  "tfoot",
-  "th",
-  "thead",
-  "time",
-  "tr",
-  "u",
-  "ul",
-  "var",
-] as const;
-
-const CHAT_HTML_ALLOWED_ATTR = [
-  "alt",
-  "class",
-  "color",
-  "colspan",
-  "data-spk",
-  "decoding",
-  "href",
-  "id",
-  "loading",
-  "rel",
-  "rowspan",
-  "src",
-  "style",
-  "target",
-  "title",
-] as const;
-
-const CHAT_STYLE_BLOCK_RE = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
 const MD_IMAGE_HTML_RE = /!\[([^\]]*)\]\(((?:https?:\/\/[^)\s]+|card:\/\/[^)\s]+|\/api\/[^)\s]+))\)/g;
 
 function escapeHtmlAttr(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function sanitizeChatHtml(html: string, options: { allowStyle?: boolean } = {}) {
-  const allowedAttr = options.allowStyle
-    ? [...CHAT_HTML_ALLOWED_ATTR]
-    : CHAT_HTML_ALLOWED_ATTR.filter((attr) => attr !== "style");
-  const clean = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [...CHAT_HTML_ALLOWED_TAGS],
-    ALLOWED_ATTR: allowedAttr,
-    ALLOW_DATA_ATTR: false,
-    ALLOW_UNKNOWN_PROTOCOLS: false,
-    FORBID_TAGS: ["animate", "embed", "foreignObject", "iframe", "math", "object", "script", "svg", "style"],
-    FORBID_ATTR: ["onerror", "onload", "onclick", "srcdoc"],
-  });
-  if (!options.allowStyle || typeof document === "undefined") return clean;
-  const template = document.createElement("template");
-  template.innerHTML = clean;
-  for (const element of template.content.querySelectorAll<HTMLElement>("[style]")) {
-    const style = sanitizeChatMessageCss(element.getAttribute("style") ?? "");
-    if (style) element.setAttribute("style", style);
-    else element.removeAttribute("style");
-  }
-  for (const media of template.content.querySelectorAll("img, audio, video")) {
-    media.setAttribute("referrerpolicy", "no-referrer");
-  }
-  return template.innerHTML;
-}
-
-function extractChatStyleBlocks(html: string): { html: string; css: string } {
-  const cssBlocks: string[] = [];
-  const withoutStyles = html.replace(CHAT_STYLE_BLOCK_RE, (_match, css: string) => {
-    cssBlocks.push(css);
-    return "";
-  });
-  return { html: withoutStyles, css: cssBlocks.join("\n") };
-}
 /**
  * Extract the brightest solid color from a gradient string.
  * Handles formats like: gradient(linear-gradient(90deg, #ff6b6b, #4ecdc4))

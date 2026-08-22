@@ -758,6 +758,7 @@ export const ChatArea = memo(function ChatArea() {
           prompt: override.prompt,
           ...(override.negativePrompt ? { negativePrompt: override.negativePrompt } : {}),
         },
+        illustratorRetryTargets: [illustratorPromptReview.item.kind === "background" ? "background" : "illustration"],
       });
       setIllustratorPromptReviewSubmitting(false);
       if (success) setIllustratorPromptReview(null);
