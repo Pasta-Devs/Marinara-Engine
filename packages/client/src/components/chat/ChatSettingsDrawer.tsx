@@ -598,6 +598,8 @@ const CHAT_RESOURCE_REMOVE_BUTTON_CLASS =
   "mari-accent-animated flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-accent)] focus-visible:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] focus-visible:text-[var(--marinara-chat-chrome-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
 
 const CHAT_PRESET_UNAPPLIED_SELECT_VALUE = "__chat_preset_unapplied__";
+const DEFAULT_CUSTOM_LOREBOOK_BACKFILL_CHUNK_SIZE = 25;
+const MAX_CUSTOM_LOREBOOK_BACKFILL_CHUNK_SIZE = 100;
 
 type AvailableAgent = {
   id: string;
@@ -759,6 +761,26 @@ function normalizeSpriteDisplayValue(value: unknown, fallback: number, min: numb
 function normalizeNonNegativeInteger(value: unknown, fallback: number, max: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.max(0, Math.min(max, Math.trunc(value)));
+}
+
+function customAgentCanBackfillLorebooks(agent: AvailableAgent, settings: Record<string, unknown>): boolean {
+  if (agent.phase !== "post_processing") return false;
+  const canEdit = customAgentHasCapability(settings, "edit_lorebooks");
+  const canCreate = customAgentHasCapability(settings, "create_lorebooks");
+  const enabledTools = Array.isArray(settings.enabledTools) ? settings.enabledTools : [];
+  return (
+    (canEdit && (settings.lorebookWriteEnabled === true || enabledTools.includes("save_lorebook_entry"))) ||
+    (settings.resultType === "lorebook_update" && (canEdit || canCreate))
+  );
+}
+
+function customLorebookBackfillChunkSize(settings: Record<string, unknown>): number {
+  const value = settings.lorebookBackfillChunkSize;
+  return normalizePositiveInteger(
+    typeof value === "string" ? Number(value) : value,
+    DEFAULT_CUSTOM_LOREBOOK_BACKFILL_CHUNK_SIZE,
+    MAX_CUSTOM_LOREBOOK_BACKFILL_CHUNK_SIZE,
+  );
 }
 
 function getChatActiveAgentIds(chat: Chat): string[] {
@@ -2932,6 +2954,31 @@ export function ChatSettingsDrawer({
     [chat.id, retryAgents],
   );
 
+  const handleBackfillCustomAgent = useCallback(
+    async (agentId: string) => {
+      await retryAgents(chat.id, [agentId], { customLorebookBackfill: true });
+    },
+    [chat.id, retryAgents],
+  );
+
+  const updateCustomAgentBackfillSettings = useCallback(
+    async (agentId: string, patch: Record<string, unknown>) => {
+      const config = agentConfigsByType.get(agentId);
+      if (!config) return;
+      try {
+        await updateAgentConfig.mutateAsync({
+          id: config.id,
+          settings: { ...parseAgentSettingsRecord(config.settings), ...patch },
+        });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : localizeUi("ui.chat.customAgentBackfill.couldNotSaveSettings"),
+        );
+      }
+    },
+    [agentConfigsByType, localizeUi, updateAgentConfig],
+  );
+
   const customAgentImageSelections = useMemo(() => {
     const raw = metadata.customAgentImageSettings;
     const persisted =
@@ -4074,6 +4121,11 @@ export function ChatSettingsDrawer({
       >
         <div className="space-y-1.5">
           {activeCustomAgents.map((agent) => {
+            const agentConfig = agentConfigsByType.get(agent.id);
+            const agentSettings = parseAgentSettingsRecord(agentConfig?.settings);
+            const backfillAvailable = customAgentCanBackfillLorebooks(agent, agentSettings);
+            const backfillEnabled = backfillAvailable && agentSettings.lorebookBackfillEnabled === true;
+            const backfillChunkSize = customLorebookBackfillChunkSize(agentSettings);
             const tokenEst = agentLoadCost.tokensByType.get(agent.id);
             const promptOptions = getPromptOptionsForAgent(agent.id);
             const imageCapable = isImageCapableCustomAgent(agent.id);
@@ -4160,6 +4212,55 @@ export function ChatSettingsDrawer({
                   overridden={typeof agentPromptTemplateSelections[agent.id] === "string"}
                   onChange={(promptTemplateId) => updateAgentPromptTemplateSelection(agent.id, promptTemplateId)}
                 />
+                {backfillAvailable && agentConfig && (
+                  <div className="mt-2 space-y-2">
+                    <AgentSettingsToggle
+                      label={localizeUi("ui.agents.agenteditor.enableChunkedBackfill")}
+                      description={localizeUi("ui.agents.agenteditor.enableChunkedBackfillDescription")}
+                      enabled={backfillEnabled}
+                      onToggle={() =>
+                        void updateCustomAgentBackfillSettings(agent.id, {
+                          lorebookBackfillEnabled: !backfillEnabled,
+                          lorebookBackfillChunkSize: backfillChunkSize,
+                        })
+                      }
+                    />
+                    {backfillEnabled && (
+                      <div className="flex flex-col gap-2 rounded-lg bg-[var(--background)]/45 px-2.5 py-2 ring-1 ring-[var(--border)] sm:flex-row sm:items-end">
+                        <label className="min-w-0 flex-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                          <span className="mb-1 block font-medium text-[var(--foreground)]">
+                            {localizeUi("ui.agents.agenteditor.backfillChunkSize")}
+                          </span>
+                          <DraftNumberInput
+                            value={backfillChunkSize}
+                            min={1}
+                            max={MAX_CUSTOM_LOREBOOK_BACKFILL_CHUNK_SIZE}
+                            disabled={updateAgentConfig.isPending}
+                            onCommit={(lorebookBackfillChunkSize) =>
+                              void updateCustomAgentBackfillSettings(agent.id, { lorebookBackfillChunkSize })
+                            }
+                            ariaLabel={localizeUi("ui.agents.agenteditor.backfillChunkSize")}
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs tabular-nums text-[var(--foreground)] outline-none transition-colors focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)]"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void handleBackfillCustomAgent(agent.id)}
+                          disabled={agentProcessing}
+                          className={cn(
+                            "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[0.6875rem] font-medium transition-colors",
+                            agentProcessing
+                              ? "cursor-not-allowed bg-[var(--muted)] text-[var(--muted-foreground)]"
+                              : "bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)]/15",
+                          )}
+                        >
+                          <RefreshCw size="0.75rem" className={cn(agentProcessing && "animate-spin")} />
+                          {localizeUi("ui.chat.customAgentBackfill.nextChunk")}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {imageCapable && (
                   <div className="mt-1.5 flex flex-col gap-1">
                     <span className="text-[0.625rem] font-medium text-[var(--foreground)]">

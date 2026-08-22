@@ -37,6 +37,7 @@ import {
   type TTSAutoplayMessageReadyDetail,
 } from "../lib/tts-autoplay";
 import { startSceneWithPromptPreferences } from "../lib/scene-generation";
+import { translate } from "../localization/i18n";
 import { waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
 import { agentKeys } from "./use-agents";
 import { discardPendingGameStatePatch } from "./use-game-state-patcher";
@@ -70,6 +71,7 @@ import {
 
 type RetryAgentsOptions = {
   lorebookKeeperBackfill?: boolean;
+  customLorebookBackfill?: boolean;
   forMessageId?: string;
   secretPlotRerollMode?: "full" | "turn_only";
   agentPromptTemplateIds?: Record<string, string>;
@@ -3363,6 +3365,7 @@ export function useGenerate() {
       if (isActiveChat()) clearThoughtBubbles();
       let hasError = false;
       let imagePromptReviewRequested = false;
+      let customLorebookBackfillEmpty = false;
 
       try {
         const flushPatch = useGameStateStore.getState().flushPatch;
@@ -3403,6 +3406,7 @@ export function useGenerate() {
             musicPlayerEnabled: useUIStore.getState().musicPlayerEnabled,
             musicPlayerSource: useUIStore.getState().musicPlayerSource,
             lorebookKeeperBackfill: options?.lorebookKeeperBackfill === true,
+            customLorebookBackfill: options?.customLorebookBackfill === true,
             ...(options?.forMessageId ? { forMessageId: options.forMessageId } : {}),
             ...(options?.secretPlotRerollMode ? { secretPlotRerollMode: options.secretPlotRerollMode } : {}),
           },
@@ -3411,6 +3415,11 @@ export function useGenerate() {
           switch (event.type) {
             case "agent_warning": {
               showAgentWarning(event.data, chatId);
+              break;
+            }
+            case "custom_lorebook_backfill_empty": {
+              customLorebookBackfillEmpty = true;
+              toast.info(translate("ui.chat.customAgentBackfill.noMessagesRemain"));
               break;
             }
 
@@ -3698,8 +3707,12 @@ export function useGenerate() {
           }
         }
         if (!hasError && !imagePromptReviewRequested) {
-          if (options?.lorebookKeeperBackfill) {
+          if (customLorebookBackfillEmpty) {
+            // The status event already explained that there was no work to do.
+          } else if (options?.lorebookKeeperBackfill) {
             toast.success("Lorebook Keeper backfill completed");
+          } else if (options?.customLorebookBackfill) {
+            toast.success(translate("ui.chat.customAgentBackfill.completed"));
           } else if (agentResultCount === 0) {
             toast.warning("No agents ran. Add tracker agents to this chat or check their connection settings.");
           } else if (isTrackerRetry && trackerPatchCount === 0) {

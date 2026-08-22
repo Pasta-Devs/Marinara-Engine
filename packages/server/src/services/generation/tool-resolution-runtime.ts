@@ -521,7 +521,19 @@ function createLorebookEntryWriter(
     ) as any;
     const keys = Array.from(new Set(entry.keys.map((key) => key.trim()).filter(Boolean)));
 
-    if (!existing || entry.mode === "create") {
+    if (existing && entry.mode === "create") {
+      return {
+        applied: false,
+        action: "exists",
+        lorebookId: writableLorebookId,
+        lorebookName: (targetLorebook as any).name,
+        entryId: existing.id,
+        name: entry.name,
+        sourceAgentId: agent.id,
+      };
+    }
+
+    if (!existing) {
       const created = await lorebooksStore.createEntry({
         lorebookId: writableLorebookId,
         name: entry.name,

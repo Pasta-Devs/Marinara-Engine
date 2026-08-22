@@ -548,24 +548,29 @@ export function SummaryPopover({
       }),
     [summary, summaryEntries],
   );
+  const enabledEntryCount = displayEntries.filter((entry) => entry.enabled).length;
+  const inactiveEntryCount = displayEntries.length - enabledEntryCount;
+  const visiblePersistedEntries = useMemo(
+    () => (showInactiveSummaries ? displayEntries : displayEntries.filter((entry) => entry.enabled)),
+    [displayEntries, showInactiveSummaries],
+  );
   const selectedEntries = useMemo(
-    () => displayEntries.filter((entry) => selectedEntryIds.has(entry.id)),
-    [displayEntries, selectedEntryIds],
+    () => visiblePersistedEntries.filter((entry) => selectedEntryIds.has(entry.id)),
+    [selectedEntryIds, visiblePersistedEntries],
   );
   useEffect(() => {
     setSelectedEntryIds((current) => {
-      const existingIds = new Set(displayEntries.map((entry) => entry.id));
-      const next = new Set([...current].filter((id) => existingIds.has(id)));
+      const visibleIds = new Set(visiblePersistedEntries.map((entry) => entry.id));
+      const next = new Set([...current].filter((id) => visibleIds.has(id)));
       return next.size === current.size ? current : next;
     });
-  }, [displayEntries]);
-  const enabledEntryCount = displayEntries.filter((entry) => entry.enabled).length;
-  const inactiveEntryCount = displayEntries.length - enabledEntryCount;
+  }, [visiblePersistedEntries]);
   const visibleEntries = useMemo(() => {
-    const filteredEntries = showInactiveSummaries ? displayEntries : displayEntries.filter((entry) => entry.enabled);
-    if (!draftEntry || filteredEntries.some((entry) => entry.id === draftEntry.id)) return filteredEntries;
-    return [...filteredEntries, draftEntry];
-  }, [displayEntries, draftEntry, showInactiveSummaries]);
+    if (!draftEntry || visiblePersistedEntries.some((entry) => entry.id === draftEntry.id)) {
+      return visiblePersistedEntries;
+    }
+    return [...visiblePersistedEntries, draftEntry];
+  }, [draftEntry, visiblePersistedEntries]);
   const enabledTokenEstimate = displayEntries.reduce(
     (total, entry) => (entry.enabled ? total + entry.tokenEstimate : total),
     0,
@@ -795,6 +800,14 @@ export function SummaryPopover({
       return next;
     });
   }, []);
+
+  const handleToggleSelectAllEntries = useCallback(() => {
+    setSelectedEntryIds((current) =>
+      visiblePersistedEntries.every((entry) => current.has(entry.id))
+        ? new Set()
+        : new Set(visiblePersistedEntries.map((entry) => entry.id)),
+    );
+  }, [visiblePersistedEntries]);
 
   const commitSummaryEntryReorder = useCallback(
     async (sourceIndex: number, targetGapIndex: number) => {
@@ -1040,6 +1053,31 @@ export function SummaryPopover({
     },
     [chatId, deleteSummaryEntry, editingEntryId, handleCancelEditEntry, localizeUi],
   );
+
+  const handleDeleteSelectedEntries = useCallback(async () => {
+    if (selectedEntries.length === 0) return;
+    const entryIds = selectedEntries.map((entry) => entry.id);
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.chat.summarypopover.deleteSelectedSummariesQuestion"),
+      message: localizeUi("chat.summary.deleteEntriesConfirmation", { count: entryIds.length }),
+      confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+      cancelLabel: localizeUi("chat.delete.dialog.cancel"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+
+    try {
+      await deleteSummaryEntry.mutateAsync({ chatId, entryIds });
+    } catch {
+      toast.error(localizeUi("ui.chat.summarypopover.couldNotDeleteSummaryEntries"));
+      return;
+    }
+
+    const deletedIds = new Set(entryIds);
+    setSelectedEntryIds((current) => new Set([...current].filter((id) => !deletedIds.has(id))));
+    setExpandedEntryIds((current) => new Set([...current].filter((id) => !deletedIds.has(id))));
+    if (editingEntryId && deletedIds.has(editingEntryId)) handleCancelEditEntry();
+  }, [chatId, deleteSummaryEntry, editingEntryId, handleCancelEditEntry, localizeUi, selectedEntries]);
 
   const persistPromptTemplates = useCallback(
     async (
@@ -1886,7 +1924,7 @@ export function SummaryPopover({
             <div className="space-y-2">
               {hasPersistedEntries && (
                 <div className="flex items-center justify-between gap-1.5 px-0.5">
-                  <div>
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {selectedEntries.length >= 2 && (
                       <button
                         type="button"
@@ -1906,8 +1944,31 @@ export function SummaryPopover({
                             })}
                       </button>
                     )}
+                    {selectedEntries.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteSelectedEntries()}
+                        disabled={entryMutationPending}
+                        className="inline-flex items-center gap-1 rounded-md bg-[var(--destructive)]/10 px-2 py-1 text-[0.625rem] font-semibold text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/15 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2 size="0.6875rem" />
+                        {localizeUi("ui.chat.summarypopover.deleteSelectedSummaries", {
+                          count: selectedEntries.length,
+                        })}
+                      </button>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleToggleSelectAllEntries}
+                      disabled={entryMutationPending || visiblePersistedEntries.length === 0}
+                      className="rounded-md px-1 py-0.5 text-[0.625rem] font-semibold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {visiblePersistedEntries.length > 0 && selectedEntries.length === visiblePersistedEntries.length
+                        ? localizeUi("ui.chat.summarypopover.clearSelection")
+                        : localizeUi("ui.chat.summarypopover.selectAll")}
+                    </button>
                     {inactiveEntryCount > 0 && (
                       <button
                         type="button"
@@ -2024,7 +2085,11 @@ export function SummaryPopover({
                           onStartEdit={() => handleStartEditEntry(entry)}
                           onCancelEdit={handleCancelEditEntry}
                           onSaveEdit={handleSaveEntry}
-                          onDelete={() => void handleDeleteEntry(entry)}
+                          onDelete={() =>
+                            void (selectedEntryIds.has(entry.id) && selectedEntries.length > 1
+                              ? handleDeleteSelectedEntries()
+                              : handleDeleteEntry(entry))
+                          }
                           dockedToFooter={entry.id === visibleEntries[visibleEntries.length - 1]?.id}
                         />
                         {showDropAfter && (

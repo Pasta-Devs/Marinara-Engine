@@ -287,8 +287,77 @@ async function updatePersona(command: UpdatePersonaCommand, args: Parameters<typ
   }
 }
 
+function normalizeLorebookFolderPath(value: string): string {
+  return value
+    .split("/")
+    .map((part) => part.trim())
+    .filter((part) => part && part !== "." && part !== "..")
+    .slice(0, 12)
+    .join("/");
+}
+
+export const MAX_LOREBOOK_FOLDER_PATH_REQUESTS = 200;
+
+function assertLorebookFolderPathLimit(requestedPaths: string[]): void {
+  if (requestedPaths.length > MAX_LOREBOOK_FOLDER_PATH_REQUESTS) {
+    throw new Error(`Lorebook commands support at most ${MAX_LOREBOOK_FOLDER_PATH_REQUESTS} folder paths`);
+  }
+}
+
+export async function ensureLorebookFolderPaths(
+  lorebooksStore: ProfessorMariCommandStores["lorebooksStore"],
+  lorebookId: string,
+  requestedPaths: string[],
+): Promise<{ folderIds: Map<string, string>; createdCount: number }> {
+  assertLorebookFolderPathLimit(requestedPaths);
+  const folders = (await lorebooksStore.listFolders(lorebookId)) as Array<{
+    id: string;
+    name: string;
+    parentFolderId: string | null;
+  }>;
+  const byParentAndName = new Map(
+    folders.map((folder) => [`${folder.parentFolderId ?? ""}\0${folder.name.trim().toLowerCase()}`, folder.id]),
+  );
+  const folderIds = new Map<string, string>();
+  let createdCount = 0;
+
+  for (const rawPath of requestedPaths) {
+    const path = normalizeLorebookFolderPath(rawPath);
+    if (!path) continue;
+    let parentFolderId: string | null = null;
+    const parts: string[] = [];
+    for (const name of path.split("/")) {
+      parts.push(name);
+      const key = `${parentFolderId ?? ""}\0${name.toLowerCase()}`;
+      let folderId = byParentAndName.get(key);
+      if (!folderId) {
+        const created = (await lorebooksStore.createFolder(lorebookId, {
+          name,
+          parentFolderId,
+          enabled: true,
+        })) as { id?: string } | null;
+        folderId = created?.id;
+        if (!folderId) break;
+        byParentAndName.set(key, folderId);
+        createdCount += 1;
+      }
+      parentFolderId = folderId;
+      folderIds.set(parts.join("/").toLowerCase(), folderId);
+    }
+  }
+
+  return { folderIds, createdCount };
+}
+
+function resolveLorebookEntryFolderId(folderIds: Map<string, string>, path: string | undefined): string | undefined {
+  if (!path) return undefined;
+  return folderIds.get(normalizeLorebookFolderPath(path).toLowerCase());
+}
+
 async function createLorebook(command: CreateLorebookCommand, args: Parameters<typeof handleProfessorMariCommand>[0]) {
   try {
+    const folderPaths = [...(command.folders ?? []), ...(command.entries ?? []).flatMap((entry) => entry.path ?? [])];
+    assertLorebookFolderPathLimit(folderPaths);
     const category = ["character", "world", "npc", "spellbook"].includes(command.category ?? "")
       ? command.category
       : "uncategorized";
@@ -303,6 +372,12 @@ async function createLorebook(command: CreateLorebookCommand, args: Parameters<t
     });
     if (!created) return;
 
+    const { folderIds, createdCount: folderCount } = await ensureLorebookFolderPaths(
+      args.stores.lorebooksStore,
+      created.id,
+      folderPaths,
+    );
+
     let entryCount = 0;
     for (const entry of command.entries ?? []) {
       await args.stores.lorebooksStore.createEntry({
@@ -316,11 +391,18 @@ async function createLorebook(command: CreateLorebookCommand, args: Parameters<t
         constant: entry.constant ?? false,
         selective: entry.selective ?? false,
         enabled: true,
+        folderId: resolveLorebookEntryFolderId(folderIds, entry.path) ?? null,
       });
       entryCount += 1;
     }
 
-    args.sendAssistantAction({ action: "lorebook_created", id: created.id, name: command.name, entryCount });
+    args.sendAssistantAction({
+      action: "lorebook_created",
+      id: created.id,
+      name: command.name,
+      entryCount,
+      folderCount,
+    });
     logger.info(
       '[commands] Assistant created lorebook: "%s" (%s) with %d entries',
       command.name,
@@ -345,6 +427,9 @@ async function updateLorebook(command: UpdateLorebookCommand, args: Parameters<t
       return;
     }
 
+    const folderPaths = [...(command.folders ?? []), ...(command.entries ?? []).flatMap((entry) => entry.path ?? [])];
+    assertLorebookFolderPathLimit(folderPaths);
+
     const category = ["character", "world", "npc", "spellbook", "uncategorized"].includes(command.category ?? "")
       ? command.category
       : undefined;
@@ -358,6 +443,11 @@ async function updateLorebook(command: UpdateLorebookCommand, args: Parameters<t
     }
 
     const existingEntries = (await args.stores.lorebooksStore.listEntries(targetLorebook.id)) as any[];
+    const { folderIds, createdCount: folderCount } = await ensureLorebookFolderPaths(
+      args.stores.lorebooksStore,
+      targetLorebook.id,
+      folderPaths,
+    );
     const existingByName = new Map(
       existingEntries.map((entry: any) => [
         String(entry.name ?? "")
@@ -384,6 +474,8 @@ async function updateLorebook(command: UpdateLorebookCommand, args: Parameters<t
         if (entry.tag !== undefined) entryUpdates.tag = entry.tag;
         if (entry.constant !== undefined) entryUpdates.constant = entry.constant;
         if (entry.selective !== undefined) entryUpdates.selective = entry.selective;
+        const folderId = resolveLorebookEntryFolderId(folderIds, entry.path);
+        if (folderId) entryUpdates.folderId = folderId;
         if (Object.keys(entryUpdates).length > 0) {
           const updatedEntry = await args.stores.lorebooksStore.updateEntry(existingEntry.id, entryUpdates);
           if (updatedEntry) {
@@ -404,6 +496,7 @@ async function updateLorebook(command: UpdateLorebookCommand, args: Parameters<t
           constant: entry.constant ?? false,
           selective: entry.selective ?? false,
           enabled: true,
+          folderId: resolveLorebookEntryFolderId(folderIds, entry.path) ?? null,
         });
         if (createdEntry) {
           createdEntryCount += 1;
@@ -419,6 +512,7 @@ async function updateLorebook(command: UpdateLorebookCommand, args: Parameters<t
       name: finalName,
       updatedEntryCount,
       createdEntryCount,
+      folderCount,
     });
     logger.info(
       '[commands] Assistant updated lorebook: "%s" (%s), entries updated=%d created=%d',

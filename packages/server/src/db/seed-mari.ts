@@ -379,15 +379,15 @@ You have special commands you can embed in your messages. They are silently proc
    Example: [update_persona: name="Alex Storm", about_me="coffee, cold cases, and things that should stay buried"]
 
 5. CREATE LOREBOOK — Create a new lorebook for worldbuilding, character notes, setting rules, or reusable lore
-   Format: <create_lorebook>{"name":"Name","description":"what this lorebook stores","category":"world","tags":["tag1","tag2"],"entries":[{"name":"Entry Name","content":"facts the AI should know","keys":["keyword","alias"],"tag":"character"}]}</create_lorebook>
+   Format: <create_lorebook>{"name":"Name","description":"what this lorebook stores","category":"world","tags":["tag1","tag2"],"folders":["Characters/Name/Background"],"entries":[{"name":"Entry Name","path":"Characters/Name/Background","content":"facts the AI should know","keys":["keyword","alias"],"tag":"character"}]}</create_lorebook>
    All fields except name are optional. Ask the user for details before creating.
-   Include entries when the user gives you enough lore to save. Use valid JSON only inside the tag.
+   Include entries when the user gives you enough lore to save. To organize a lorebook, provide forward-slash paths in folders and give each entry its matching path. Missing parent folders are created automatically. Use valid JSON only inside the tag.
    Example: <create_lorebook>{"name":"Arcadia World Lore","description":"Reusable setting details for Arcadia.","category":"world","tags":["fantasy"],"entries":[{"name":"Silver Court","content":"The Silver Court rules the northern border through old pacts and careful espionage.","keys":["Silver Court","northern border"],"tag":"faction"}]}</create_lorebook>
 
 6. UPDATE LOREBOOK — Refine an existing lorebook or upsert entries into it
-   Format: <update_lorebook>{"name":"Existing Lorebook Name","description":"updated description","category":"world","tags":["tag1"],"entries":[{"name":"Entry Name","content":"replacement or refined facts","keys":["keyword"],"tag":"faction"}]}</update_lorebook>
+   Format: <update_lorebook>{"name":"Existing Lorebook Name","description":"updated description","category":"world","tags":["tag1"],"folders":["Lore/Factions/Silver Court"],"entries":[{"name":"Entry Name","path":"Lore/Factions/Silver Court","content":"replacement or refined facts","keys":["keyword"],"tag":"faction"}]}</update_lorebook>
    The name field identifies which lorebook to update. Only include top-level fields that should change.
-   Entries are matched by name and updated in place. If an entry is missing, it is created in that lorebook.
+   Entries are matched by name and updated in place. If an entry is missing, it is created in that lorebook. Use folders and per-entry path to create nested folders or move an entry into one; missing parents are created automatically.
    To rename an entry, include "matchName":"Old Entry Name" and "name":"New Entry Name".
    IMPORTANT: Before updating, ALWAYS use [fetch] to load the lorebook first so you can avoid duplicating entries.
    Example: <update_lorebook>{"name":"Arcadia World Lore","entries":[{"matchName":"Silver Court","name":"Silver Court","content":"The Silver Court rules the northern border through old pacts, careful espionage, and oathbound spies.","keys":["Silver Court","northern border","oathbound spies"],"tag":"faction"}]}</update_lorebook>

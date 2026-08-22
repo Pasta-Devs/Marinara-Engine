@@ -65,7 +65,7 @@ import type {
   ResolvedSpatialTravel,
   ThinkingTagPair,
 } from "@marinara-engine/shared";
-import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { createChatsStorage, withChatMetadataPatchQueue } from "../services/storage/chats.storage.js";
 import {
   commitSpatialOwnerTurn,
   findAppliedSpatialOwnerTurn,
@@ -8045,66 +8045,86 @@ export async function generateRoutes(app: FastifyInstance) {
           const autoRange = computeSummaryMessageRange(freshMessages, selectedMessages);
           const autoRangeStartIndex = autoRange?.startIndex;
           const autoRangeEndIndex = autoRange?.endIndex;
-          // Compute the hide subset up front so it can be persisted on the entry
-          // (deletion restores exactly this set) and reused for the actual hide.
-          const [latestChatBeforeSummaryHide, latestMessagesBeforeSummaryHide] = await Promise.all([
-            chats.getById(input.chatId),
-            chats.listMessages(input.chatId),
-          ]);
-          const latestMetaBeforeSummaryHide = latestChatBeforeSummaryHide
-            ? (parseExtra(latestChatBeforeSummaryHide.metadata) as Record<string, unknown>)
-            : chatMeta;
-          // Do not claim messages that arrived during generation were summarized.
-          // The live list is used only to protect the real current visible tail.
-          const autoHideIds =
-            newText && !shouldReviewSummary && latestMetaBeforeSummaryHide.hideSummarisedMessages === true
-              ? computeSummaryHideIds({
-                  messages: latestMessagesBeforeSummaryHide,
-                  entryMessageIds: autoEntryMessageIds,
-                  tail: resolveRoleplaySummaryTail(latestMetaBeforeSummaryHide.summaryTailMessages),
-                })
-              : [];
-          const updatedChat = await chats.patchMetadata(
-            input.chatId,
-            (currentMeta) => {
-              const activeAgentIds = withoutRetiredChatSummaryAgentIds(currentMeta);
-              const basePatch: Record<string, unknown> = {
-                automaticSummaryEnabled: true,
-                lastAutomaticSummaryMessageId: latestAssistantMessageId,
-                ...(activeAgentIds ? { activeAgentIds } : {}),
-              };
-              if (!newText || shouldReviewSummary) return basePatch;
+          let hiddenMessageIds: string[] = [];
+          const updatedChat = await withChatMetadataPatchQueue(input.chatId, async () => {
+            const [latestChatBeforeSummaryHide, latestMessagesBeforeSummaryHide] = await Promise.all([
+              chats.getById(input.chatId),
+              chats.listMessages(input.chatId),
+            ]);
+            if (!latestChatBeforeSummaryHide) return null;
+            const latestMetaBeforeSummaryHide = parseExtra(latestChatBeforeSummaryHide.metadata) as Record<
+              string,
+              unknown
+            >;
+            const autoHideIds =
+              newText && !shouldReviewSummary && latestMetaBeforeSummaryHide.hideSummarisedMessages === true
+                ? computeSummaryHideIds({
+                    messages: latestMessagesBeforeSummaryHide,
+                    entryMessageIds: autoEntryMessageIds,
+                    tail: resolveRoleplaySummaryTail(latestMetaBeforeSummaryHide.summaryTailMessages),
+                  })
+                : [];
+            if (autoHideIds.length > 0) {
+              try {
+                hiddenMessageIds = await chats.bulkSetHiddenFromAI(input.chatId, autoHideIds, true);
+              } catch (err) {
+                logger.error(err, "[chat-summary] Failed to auto-hide summarized roleplay messages");
+              }
+            }
 
-              const now = new Date().toISOString();
-              const appended = appendChatSummaryEntryToMetadata(
-                currentMeta,
-                {
-                  kind: "rolling",
-                  origin: "automated",
-                  sourceMode: "agent",
-                  ...(parsedSummary.title ? { title: parsedSummary.title } : {}),
-                  content: newText,
-                  enabled: true,
-                  messageCount: selectedMessages.length,
-                  rangeStartIndex: autoRangeStartIndex,
-                  rangeEndIndex: autoRangeEndIndex,
-                  messageIds: autoEntryMessageIds,
-                  ...(autoHideIds.length > 0 ? { hiddenMessageIds: autoHideIds } : {}),
-                  promptTemplateId:
-                    typeof chatMeta.activeSummaryPromptTemplateId === "string"
-                      ? chatMeta.activeSummaryPromptTemplateId
-                      : null,
-                  createdAt: now,
-                  updatedAt: now,
+            try {
+              const updated = await chats.patchMetadata(
+                input.chatId,
+                (currentMeta) => {
+                  const activeAgentIds = withoutRetiredChatSummaryAgentIds(currentMeta);
+                  const basePatch: Record<string, unknown> = {
+                    automaticSummaryEnabled: true,
+                    lastAutomaticSummaryMessageId: latestAssistantMessageId,
+                    ...(activeAgentIds ? { activeAgentIds } : {}),
+                  };
+                  if (!newText || shouldReviewSummary) return basePatch;
+
+                  const now = new Date().toISOString();
+                  const appended = appendChatSummaryEntryToMetadata(
+                    currentMeta,
+                    {
+                      kind: "rolling",
+                      origin: "automated",
+                      sourceMode: "agent",
+                      ...(parsedSummary.title ? { title: parsedSummary.title } : {}),
+                      content: newText,
+                      enabled: true,
+                      messageCount: selectedMessages.length,
+                      rangeStartIndex: autoRangeStartIndex,
+                      rangeEndIndex: autoRangeEndIndex,
+                      messageIds: autoEntryMessageIds,
+                      ...(hiddenMessageIds.length > 0 ? { hiddenMessageIds } : {}),
+                      promptTemplateId:
+                        typeof chatMeta.activeSummaryPromptTemplateId === "string"
+                          ? chatMeta.activeSummaryPromptTemplateId
+                          : null,
+                      createdAt: now,
+                      updatedAt: now,
+                    },
+                    { createId: newId, now },
+                  );
+                  createdEntry = appended.entry;
+                  summaryEntries = appended.entries;
+                  return { ...basePatch, summary: appended.summary, summaryEntries: appended.entries };
                 },
-                { createId: newId, now },
+                { touchUpdatedAt: false, metadataQueueHeld: true },
               );
-              createdEntry = appended.entry;
-              summaryEntries = appended.entries;
-              return { ...basePatch, summary: appended.summary, summaryEntries: appended.entries };
-            },
-            { touchUpdatedAt: false },
-          );
+              if (!updated && hiddenMessageIds.length > 0) {
+                await chats.bulkSetHiddenFromAI(input.chatId, hiddenMessageIds, false);
+              }
+              return updated;
+            } catch (err) {
+              if (hiddenMessageIds.length > 0) {
+                await chats.bulkSetHiddenFromAI(input.chatId, hiddenMessageIds, false);
+              }
+              throw err;
+            }
+          });
 
           if (updatedChat) {
             chatMeta = parseExtra(updatedChat.metadata) as Record<string, unknown>;
@@ -8133,19 +8153,6 @@ export async function generateRoutes(app: FastifyInstance) {
               });
             } else {
               const combined = typeof chatMeta.summary === "string" ? chatMeta.summary : newText;
-              // Opt-in token compression: hide the messages this summary covered
-              // (except the protected recent tail, already excluded in autoHideIds)
-              // so the summary is a net token reduction. Best-effort; never aborts
-              // the stream. The same set is persisted on the entry above.
-              let hiddenMessageIds: string[] = [];
-              if (autoHideIds.length > 0) {
-                try {
-                  await chats.bulkSetHiddenFromAI(input.chatId, autoHideIds, true);
-                  hiddenMessageIds = autoHideIds;
-                } catch (err) {
-                  logger.error(err, "[chat-summary] Failed to auto-hide summarized roleplay messages");
-                }
-              }
               sendSseEvent(reply, {
                 type: "chat_summary",
                 data: { summary: combined, entry: createdEntry, entries: summaryEntries, hiddenMessageIds },
