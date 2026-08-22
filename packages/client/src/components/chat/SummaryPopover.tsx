@@ -53,6 +53,7 @@ import {
 import { toast } from "sonner";
 import { cn, generateClientId } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
+import { useDialogStore } from "../../stores/dialog.store";
 import { useConnections } from "../../hooks/use-connections";
 import {
   NEUTRAL_PANEL_CLOSE_BUTTON,
@@ -428,6 +429,7 @@ export function SummaryPopover({
     const path = typeof event.composedPath === "function" ? event.composedPath() : [];
     if (path.includes(panel)) return true;
     if (event.target instanceof Element && event.target.closest("[data-macro-modal]")) return true;
+    if (event.target instanceof Element && event.target.closest("[data-chat-floating-panel]")) return true;
     return event.target instanceof Node && panel.contains(event.target);
   }, []);
 
@@ -1150,6 +1152,7 @@ export function SummaryPopover({
 
   const handleClose = useCallback(async () => {
     if (document.querySelector("[data-macro-modal]")) return;
+    if (useDialogStore.getState().dialog) return;  // a confirm/alert/prompt/choice dialog is open
     if (await commitCombinePromptDraft()) onClose();
   }, [commitCombinePromptDraft, onClose]);
 
