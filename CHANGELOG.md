@@ -25,6 +25,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- SillyTavern profile imports now restore each group chat's character roster and assign historical replies to their matching characters (#5399).
 - Settings and Chat Settings switches now share one track and thumb design, keeping every toggle the same size, shape, travel distance, and vertical alignment on desktop and mobile.
 - Game widget edit icons and Game log deletion actions now follow Chat Chrome Text Color instead of the app accent.
 - The Conversation Start Call button now matches the adjacent participant control height on desktop and mobile.

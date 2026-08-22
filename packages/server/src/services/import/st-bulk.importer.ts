@@ -392,7 +392,8 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   const groupsDir = join(dataDir, "groups");
   const groupChatsDir = join(dataDir, "group chats");
   if (existsSync(groupsDir)) {
-    // Build map: groupId → group metadata
+    // SillyTavern stores group chats as flat `<chatId>.jsonl` files and
+    // associates them through each group's `chats` array.
     const groupMetaMap = new Map<string, { name: string; members: string[] }>();
     const groupFiles = await listFiles(groupsDir, ".json");
     for (const f of groupFiles) {
@@ -401,11 +402,18 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
         const gId = raw.id ?? basename(f, ".json");
         const gName = raw.name ?? "Unnamed Group";
         // Members can be an array of filenames (e.g. "char.png") or character names
-        const members: string[] = (raw.members ?? []).map((m: string) => {
-          // Strip file extensions to get character name
-          return m.replace(/\.(png|json)$/i, "");
-        });
-        groupMetaMap.set(String(gId), { name: String(gName), members });
+        const members = Array.isArray(raw.members)
+          ? raw.members
+              .filter((member: unknown): member is string => typeof member === "string")
+              .map((member: string) => member.replace(/\.(png|json)$/i, ""))
+          : [];
+        const metadata = { name: String(gName), members };
+        const chatIds = new Set<unknown>([gId, raw.chat_id, ...(Array.isArray(raw.chats) ? raw.chats : [])]);
+        for (const chatId of chatIds) {
+          if ((typeof chatId === "string" || typeof chatId === "number") && String(chatId).trim()) {
+            groupMetaMap.set(String(chatId), metadata);
+          }
+        }
       } catch {
         // skip
       }
@@ -436,8 +444,8 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
       }
     }
 
-    // Also check for group chats stored directly as JSONL in a flat structure
-    if (existsSync(groupChatsDir) && groupChats.length === 0) {
+    // Current SillyTavern profiles store group chats directly in this folder.
+    if (existsSync(groupChatsDir)) {
       const flatJsonl = await listFiles(groupChatsDir, ".jsonl");
       for (const f of flatJsonl) {
         try {
@@ -445,17 +453,17 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
           const firstLine = content.split("\n")[0];
           if (firstLine) {
             const header = JSON.parse(firstLine);
-            const chatId = header.chat_id ?? header.group_id;
-            const meta = chatId ? groupMetaMap.get(String(chatId)) : null;
-            const gName = meta?.name ?? "Group Chat";
-            const members = meta?.members ?? [];
+            const chatId = basename(f, ".jsonl");
+            const headerChatId = header.chat_id ?? header.group_id;
+            const meta = groupMetaMap.get(chatId) ?? (headerChatId ? groupMetaMap.get(String(headerChatId)) : null);
+            if (!meta) continue;
             const fileInfo = await stat(f);
             groupChats.push({
               id: makeScanItemId("groupChats", dataDir, f),
               path: f,
-              name: gName,
-              groupName: gName,
-              members,
+              name: meta.name,
+              groupName: meta.name,
+              members: meta.members,
               modifiedAt: parseTrustedTimestamp(fileInfo.mtime),
             });
           }
@@ -727,9 +735,13 @@ export async function runSTBulkImport(
         const fileInfo = await stat(gc.path);
         // Build speaker→characterId map from member names
         const speakerMap: Record<string, string> = {};
+        const memberCharacterIds = new Set<string>();
         for (const memberName of gc.members) {
           const cid = charNameToId.get(normalizeTextForMatch(memberName));
-          if (cid) speakerMap[memberName] = cid;
+          if (cid) memberCharacterIds.add(cid);
+        }
+        for (const [alias, characterId] of charNameToId) {
+          if (memberCharacterIds.has(characterId)) speakerMap[alias] = characterId;
         }
         const groupKey = normalizeTextForMatch(gc.groupName);
         if (!gcGroupIds.has(groupKey)) {
