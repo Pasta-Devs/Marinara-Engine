@@ -7200,7 +7200,20 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
 
       const overlay = page.locator(`[data-chat-help-overlay="${chat.mode}"]`);
       await expect(overlay).toBeVisible();
-      await expect(overlay.getByText("Click or tap anywhere to exit the help overlay.", { exact: true })).toBeVisible();
+      if (mobile) {
+        await expect(
+          overlay.getByRole("button", {
+            name: "Tap a section you want to learn more about or this button to exit the help overlay.",
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(overlay.locator("[data-chat-help-legend]")).toHaveCount(0);
+        await expect(overlay.locator("[data-chat-help-mobile-detail]")).toHaveCount(0);
+      } else {
+        await expect(
+          overlay.getByText("Click or tap anywhere to exit the help overlay.", { exact: true }),
+        ).toBeVisible();
+      }
       await expect(overlay.locator('[data-chat-help-highlight="branches"]')).toBeVisible();
       await expect(overlay.locator('[data-chat-help-highlight="settings"]')).toBeVisible();
       await expect(overlay.locator('[data-chat-help-highlight="help"]')).toBeVisible();
@@ -7219,16 +7232,66 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
         await expect(overlay.locator('[data-chat-help-highlight="dialogue"]')).toBeVisible();
       }
 
-      const legend = overlay.locator("[data-chat-help-legend]");
-      const legendBox = await legend.boundingBox();
-      expect(legendBox).not.toBeNull();
-      expect(legendBox!.x).toBeGreaterThanOrEqual(0);
-      expect(legendBox!.y).toBeGreaterThanOrEqual(0);
-      expect(legendBox!.x + legendBox!.width).toBeLessThanOrEqual(testInfo.project.use.viewport!.width);
-      expect(legendBox!.y + legendBox!.height).toBeLessThanOrEqual(testInfo.project.use.viewport!.height);
-      expect(await overlay.locator("[data-chat-help-entry]").count()).toBeGreaterThanOrEqual(7);
+      const highlightBoxes = await overlay.locator("[data-chat-help-highlight]").evaluateAll((elements) =>
+        elements.map((element) => {
+          const rect = element.getBoundingClientRect();
+          return { id: element.getAttribute("data-chat-help-highlight"), ...rect.toJSON() };
+        }),
+      );
+      for (let firstIndex = 0; firstIndex < highlightBoxes.length; firstIndex += 1) {
+        for (let secondIndex = firstIndex + 1; secondIndex < highlightBoxes.length; secondIndex += 1) {
+          const first = highlightBoxes[firstIndex]!;
+          const second = highlightBoxes[secondIndex]!;
+          const overlapX = Math.min(first.right, second.right) - Math.max(first.left, second.left);
+          const overlapY = Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top);
+          expect(overlapX <= 0 || overlapY <= 0, `Help highlights ${first.id} and ${second.id} overlap`).toBe(true);
+        }
+      }
 
-      await overlay.dispatchEvent("pointerdown");
+      if (mobile) {
+        const messageTarget = chat.mode === "game" ? "dialogue" : "messages";
+        await overlay.locator(`[data-chat-help-highlight="${messageTarget}"]`).click();
+        const detail = overlay.locator(`[data-chat-help-mobile-detail="${messageTarget}"]`);
+        await expect(detail).toBeVisible();
+        await expect(detail.locator(`[data-chat-help-action-legend="${chat.mode}"]`)).toBeVisible();
+        await overlay
+          .getByRole("button", {
+            name: "Tap a section you want to learn more about or this button to exit the help overlay.",
+            exact: true,
+          })
+          .click();
+      } else {
+        const legend = overlay.locator("[data-chat-help-legend]");
+        const legendBox = await legend.boundingBox();
+        expect(legendBox).not.toBeNull();
+        expect(legendBox!.x).toBeGreaterThanOrEqual(0);
+        expect(legendBox!.y).toBeGreaterThanOrEqual(0);
+        expect(legendBox!.x + legendBox!.width).toBeLessThanOrEqual(testInfo.project.use.viewport!.width);
+        expect(legendBox!.y + legendBox!.height).toBeLessThanOrEqual(testInfo.project.use.viewport!.height);
+        expect(await overlay.locator("[data-chat-help-entry]").count()).toBeGreaterThanOrEqual(7);
+        await expect(legend.locator(`[data-chat-help-action-legend="${chat.mode}"]`)).toBeVisible();
+
+        const branchesHighlight = overlay.locator('[data-chat-help-highlight="branches"]');
+        await branchesHighlight.hover();
+        await expect(overlay.locator('[data-chat-help-hover-card="branches"]')).toContainText(
+          "Create and switch branches.",
+        );
+
+        if (chat.mode === "roleplay") {
+          const rootBox = await page.locator('[data-chat-mode="roleplay"]').boundingBox();
+          const columnBox = await page.locator("[data-roleplay-chat-column]").boundingBox();
+          const messagesBox = await overlay.locator('[data-chat-help-highlight="messages"]').boundingBox();
+          expect(rootBox).not.toBeNull();
+          expect(columnBox).not.toBeNull();
+          expect(messagesBox).not.toBeNull();
+          expect(messagesBox!.width).toBeLessThan(rootBox!.width);
+          expect(
+            Math.abs(messagesBox!.x + messagesBox!.width / 2 - (columnBox!.x + columnBox!.width / 2)),
+          ).toBeLessThan(4);
+        }
+
+        await overlay.dispatchEvent("pointerdown");
+      }
       await expect(overlay).toHaveCount(0);
     }
   } finally {
@@ -7281,7 +7344,16 @@ test("the first conversation opens Help once after setup", async ({ page, reques
       await expect(page.locator("[data-chat-toolbar-overflow-menu]")).toBeVisible();
     }
 
-    await overlay.dispatchEvent("pointerdown");
+    if (testInfo.project.name.includes("mobile")) {
+      await overlay
+        .getByRole("button", {
+          name: "Tap a section you want to learn more about or this button to exit the help overlay.",
+          exact: true,
+        })
+        .click();
+    } else {
+      await overlay.dispatchEvent("pointerdown");
+    }
     await expect(overlay).toHaveCount(0);
     await expect
       .poll(() =>

@@ -26,6 +26,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ### Fixed
 
 - Chat Summaries PopOver now doesn't close when clicking anywhere on the Summary Deletion Confirmation Pop Up, including Cancel, Delete, or just the popup itself (#5401).
+- Chat Help now keeps highlight boxes separate, limits Roleplay guidance to the centered message column, explains message and Game log action icons, and uses hover details on desktop with unobtrusive tap-driven details on mobile (#5403).
 - SillyTavern profile imports now restore each group chat's character roster and assign historical replies to their matching characters (#5399).
 - Settings and Chat Settings switches now share one track and thumb design, keeping every toggle the same size, shape, travel distance, and vertical alignment on desktop and mobile.
 - Game widget edit icons and Game log deletion actions now follow Chat Chrome Text Color instead of the app accent.
