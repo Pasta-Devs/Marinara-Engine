@@ -10116,16 +10116,51 @@ export async function gameRoutes(app: FastifyInstance) {
       return { exists: false, state: null, schemaVersion: null, anchor: null, committed: false, createdAt: null };
 
     let state: unknown = null;
-    try {
-      state = JSON.parse(row.state);
-    } catch {
-      // The PUT below always stores JSON.stringify output, so this indicates
-      // on-disk corruption; surface an empty save rather than a 500.
-      logger.warn("Unparseable experience state for chat %s (%s)", req.params.chatId, gameType);
+    // Set ONLY when the stored value is unreadable — `stateUnparseable: true` is the
+    // corruption signal (always truthy, unlike `rawState`, which can legitimately be
+    // an empty string). It keeps a corrupt row distinguishable from a legitimately
+    // stored null: the PUT always stores JSON.stringify output, so a stored null is
+    // the four-character string "null", never a missing or non-string column.
+    let corrupt: { stateUnparseable: true; rawState: string; rawStateTruncated: boolean } | null = null;
+    // The catch below exists because the stored value may not be what its type says —
+    // so nothing in this block may re-assume it is a string. A missing key reads back
+    // as null through the store's default path, and a hand-repaired shard can hold a
+    // real object; both are corruption, and both must yield a 200 with a STRING
+    // rawState rather than a 500 or a shape surprise.
+    const storedIsString = typeof row.state === "string";
+    const quarantineFrom = (
+      value: unknown,
+    ): { stateUnparseable: true; rawState: string; rawStateTruncated: boolean } => {
+      const raw = typeof value === "string" ? value : (JSON.stringify(value) ?? "undefined");
+      // Bounded at the same character ceiling the PUT enforces. (JSON escaping can
+      // still expand these characters on the wire; the bound is on the source text.)
+      const rawStateTruncated = raw.length > MAX_EXPERIENCE_STATE_CHARS;
+      return {
+        stateUnparseable: true,
+        rawState: rawStateTruncated ? raw.slice(0, MAX_EXPERIENCE_STATE_CHARS) : raw,
+        rawStateTruncated,
+      };
+    };
+    if (!storedIsString) {
+      logger.error("Non-string experience state on disk for chat %s (%s)", req.params.chatId, gameType);
+      corrupt = quarantineFrom(row.state);
+    } else {
+      try {
+        state = JSON.parse(row.state);
+      } catch (err) {
+        // On-disk corruption; surface an empty save rather than a 500. Hand the
+        // unparseable text back (#5407): the package's own repair is a replacing PUT,
+        // so without this the damaged bytes are destroyed unseen; with it a package
+        // can preserve a bounded excerpt (a few KB in metadata, or a bug-report copy)
+        // before repairing — the full blob does not belong in hot chat metadata.
+        logger.error(err, "Unparseable experience state for chat %s (%s)", req.params.chatId, gameType);
+        corrupt = quarantineFrom(row.state);
+      }
     }
     return {
       exists: true,
       state,
+      ...(corrupt ?? {}),
       schemaVersion: row.schemaVersion,
       anchor: { messageId: row.messageId, swipeIndex: row.swipeIndex },
       // False when the returned row is a fallback rather than the visible anchor's own
