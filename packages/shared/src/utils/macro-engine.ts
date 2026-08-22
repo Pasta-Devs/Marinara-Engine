@@ -494,6 +494,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     syntax: '{{#if char == "Name" || "Other"}}...{{else}}...{{/if}}',
     description: "Conditional block with ||, &&, parentheses, else branches, and straight or typographic quotes",
   },
+  {
+    category: "Formatting",
+    syntax: '{{#if character != "Maukie"}}...{{/if}}',
+    description: 'Negated comparison; "is not", "not contains", and "not includes" are also supported',
+  },
   { category: "Formatting", syntax: "{{noop}}", description: "No-op placeholder removed from output" },
   { category: "Formatting", syntax: "{{// comment}}", description: "Inline author comment removed from output" },
   {
