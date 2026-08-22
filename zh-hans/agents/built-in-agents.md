@@ -148,6 +148,18 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 - **适用模式**：Roleplay。
 - **主要设置**：**Add as Prompt Section** 默认开启。你可以在 HUD 和 Tracker Panel 里编辑并锁定每个名称和数量。
 
+### Memory Nag
+
+为每个 Roleplay 聊天维护一个简短且可编辑的记忆库。它按带检查点的批次扫描聊天记录，依照当前和过去参与的角色整理记忆，并将明确已经解决的记忆移入可以恢复的 Resolved 列表。如果原话很重要，一条记忆可以逐字保留简短的对话。
+
+每次回复后，确定性的词语匹配只会向追踪器提供与相关角色最匹配的活跃记忆。追踪器随后判断当前情况是否确实需要提醒，并且只能从这些记忆中选择；它不能在回忆时创造新记忆。
+
+- **阶段**：Post-Processing。
+- **适用范围**：仅 Roleplay。
+- **主要设置**：单独的 **Vault scan connection**（默认使用 Agent 连接）、**Messages per batch**（20）、**Maximum memories created per character**（10）、**Maximum memories considered per character**（5）和 **Maximum memories injected**（3）。使用 **Scan chat** 完成首次回填，使用 **Open vault** 搜索、筛选、添加、编辑、解决、恢复或删除记忆。
+- **提示词位置**：没有 preset marker 时，选中的记忆会以 `<context><memory_nags>…</memory_nags></context>` 的形式进入下一次回复。添加 Memory Nag Agent section 可以明确指定其位置。
+- **数据生命周期**：记忆库只属于一个聊天；停用或卸载该包后数据仍会保存，因此重新安装后可以从上一个检查点继续。删除记忆是永久操作，并且始终需要确认。
+
 ### World Maps
 
 为故事加入可长期保存的嵌套地点和空间关系。可以编写大区、区域、房间和通路，在地点之间移动，并让当前位置为生成提供空间上下文。Game Mode(游戏模式) 也会获得这个包的世界地图视图。

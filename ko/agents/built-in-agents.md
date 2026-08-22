@@ -148,6 +148,18 @@ Tracker 에이전트는 장면, 캐릭터, 스탯의 현재 상태를 계속 기
 - **작동 모드**: Roleplay.
 - **주요 설정**: **Add as Prompt Section**은 기본으로 켜져 있습니다. HUD와 Tracker Panel에서 모든 이름과 수량을 편집하고 잠글 수 있습니다.
 
+### Memory Nag
+
+Roleplay 채팅마다 짧고 편집 가능한 기억 보관함을 유지합니다. 대화를 체크포인트가 있는 묶음으로 읽고, 현재 및 과거 참여 캐릭터별로 기억을 정리하며, 명확히 해결된 기억은 복원 가능한 Resolved 목록으로 옮깁니다. 정확한 표현이 중요할 때는 짧은 대사를 그대로 보존할 수 있습니다.
+
+각 응답이 끝나면 정해진 단어 일치 방식으로 관련 캐릭터에게 가장 알맞은 활성 기억만 트래커에 전달합니다. 트래커는 현재 상황에 정말 기억이 필요한지 판단하고 제공된 기억 중에서만 선택할 수 있으며, 회상 중 새 기억을 만들 수 없습니다.
+
+- **단계**: Post-Processing.
+- **사용 가능한 곳**: Roleplay 전용.
+- **주요 설정**: 별도의 **Vault scan connection**(기본값: Agent 연결), **Messages per batch**(20), **Maximum memories created per character**(10), **Maximum memories considered per character**(5), **Maximum memories injected**(3). 첫 기록 스캔에는 **Scan chat**을 사용하고 기억 검색, 필터링, 추가, 편집, 해결, 복원, 삭제에는 **Open vault**를 사용합니다.
+- **프롬프트 배치**: preset marker가 없으면 선택된 기억은 다음 응답의 `<context><memory_nags>…</memory_nags></context>` 안에 들어갑니다. 명시적인 위치에 넣으려면 Memory Nag Agent section을 추가하세요.
+- **데이터 수명 주기**: 보관함은 하나의 채팅에 속하며 패키지를 비활성화하거나 제거해도 저장됩니다. 다시 설치하면 마지막 체크포인트부터 이어갈 수 있습니다. 기억 삭제는 영구적이며 항상 확인을 요청합니다.
+
 ### World Maps
 
 여러 겹으로 중첩된 장소와 그 공간 관계를 이야기에 더하고 계속 유지합니다. 지역, 구역, 방, 연결 통로를 직접 만들고, 장소 사이를 이동하고, 현재 위치를 생성의 공간 정보로 활용할 수 있습니다. Game Mode에서도 이 패키지의 세계 지도 화면을 쓸 수 있습니다.

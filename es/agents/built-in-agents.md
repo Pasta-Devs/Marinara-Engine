@@ -148,6 +148,18 @@ Sigue el dinero, el equipo puesto y los objetos que llevas en tres listas estruc
 - **Dónde funciona**: Roleplay.
 - **Ajustes principales**: **Add as Prompt Section** (activado de forma predeterminada). El HUD y el Tracker Panel permiten editar y bloquear cada nombre y cantidad.
 
+### Memory Nag
+
+Mantiene un almacén breve y editable de recuerdos para cada chat de Roleplay. Escanea la conversación en lotes con puntos de control, organiza los recuerdos por personajes actuales y anteriores, y mueve los recuerdos claramente resueltos a una lista Resolved que se puede restaurar. Un recuerdo puede conservar literalmente una línea breve de diálogo cuando sus palabras exactas importan.
+
+Después de cada respuesta, una coincidencia determinista de palabras entrega al tracker solo los recuerdos activos más relevantes para los personajes implicados. El tracker decide entonces si la situación actual realmente requiere un recordatorio y solo puede elegir entre los recuerdos proporcionados; no puede inventar uno durante la recuperación.
+
+- **Fase**: Post-Processing.
+- **Dónde funciona**: solo Roleplay.
+- **Ajustes clave**: una **Vault scan connection** separada (de forma predeterminada, la conexión del Agent), **Messages per batch** (20), **Maximum memories created per character** (10), **Maximum memories considered per character** (5) y **Maximum memories injected** (3). Usa **Scan chat** para el escaneo inicial y **Open vault** para buscar, filtrar, añadir, editar, resolver, restaurar o eliminar recuerdos.
+- **Colocación en el prompt**: sin un marcador del preset, los recuerdos seleccionados entran en la siguiente respuesta dentro de `<context><memory_nags>…</memory_nags></context>`. Añade una sección del Agent Memory Nag para colocarlos explícitamente.
+- **Ciclo de vida de los datos**: el almacén pertenece a un solo chat y permanece guardado si el paquete se desactiva o desinstala, por lo que una reinstalación puede continuar desde el último punto de control. Eliminar un recuerdo es permanente y siempre pide confirmación.
+
 ### World Maps
 
 Añade a una historia ubicaciones anidadas persistentes y relaciones espaciales. Puedes crear regiones, áreas, salas y conexiones, moverte entre ubicaciones y dejar que la posición actual aporte contexto espacial a la generación. Game Mode también obtiene la vista de mapamundi del paquete.

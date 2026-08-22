@@ -1,6 +1,6 @@
 {
   "language": "zh-hans",
-  "sourceCommit": "f195f57b1f07fb2eec95ee10b20de0ed4d4dce7a",
+  "sourceCommit": "3bf9781975a7a172e19784f6be2596fb8a86d4c1",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -44,8 +44,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "9065aba577a5d078b9eedc0e500ac1d020862ed467c2c7981427f447d2809199",
-      "bytes": 21794
+      "sha256": "e9b4bf70994b280688f5d03a8eb37aa69e20687b923422d34476c5450777409f",
+      "bytes": 23561
     },
     {
       "path": "agents/custom-agents.md",
@@ -279,8 +279,8 @@
     },
     {
       "path": "data/where-data-is-stored.md",
-      "sha256": "d472ca80eb43ace30544ef861a1bb6aec472ff362f241ce1d73972d21dcca38e",
-      "bytes": 4459
+      "sha256": "abc464df6a9a069f7d4308c7b717d82bde0e624e084fbe1f180b2dd03c8a338f",
+      "bytes": 4671
     },
     {
       "path": "development/architecture-map.md",
@@ -299,8 +299,8 @@
     },
     {
       "path": "development/file-storage.md",
-      "sha256": "cb4941fbe390c71c3384790e3c7f064f4df0957840387cd86e63d6d121a7df4b",
-      "bytes": 5677
+      "sha256": "4b7b24411f09e2c18af532e47ce7690b5350aa9b0c280e3c6609a3b6bc8cd546",
+      "bytes": 5684
     },
     {
       "path": "development/frontend.md",

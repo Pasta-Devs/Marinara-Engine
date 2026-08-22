@@ -148,6 +148,18 @@ Acompanha dinheiro, equipamentos em uso e itens carregados em três listas estru
 - **Onde funciona**: Roleplay.
 - **Configurações principais**: **Add as Prompt Section** (ativado por padrão). O HUD e o Tracker Panel permitem editar e bloquear cada nome e quantidade.
 
+### Memory Nag
+
+Mantém um cofre curto e editável de memórias para cada chat de Roleplay. Ele examina a conversa em lotes com pontos de controle, organiza as memórias por personagens atuais e anteriores e move memórias claramente resolvidas para uma lista Resolved que pode ser restaurada. Uma memória pode preservar uma fala curta palavra por palavra quando a formulação exata importa.
+
+Depois de cada resposta, uma correspondência determinística de palavras fornece ao tracker apenas as memórias ativas mais relevantes para os personagens envolvidos. O tracker decide então se a situação atual realmente pede uma lembrança e só pode escolher entre as memórias fornecidas; ele não pode criar uma nova memória durante a recordação.
+
+- **Fase**: Post-Processing.
+- **Onde funciona**: somente Roleplay.
+- **Configurações principais**: uma **Vault scan connection** separada (por padrão, a conexão do Agent), **Messages per batch** (20), **Maximum memories created per character** (10), **Maximum memories considered per character** (5) e **Maximum memories injected** (3). Use **Scan chat** para a varredura inicial e **Open vault** para pesquisar, filtrar, adicionar, editar, resolver, restaurar ou excluir memórias.
+- **Posição no prompt**: sem um marcador do preset, as memórias selecionadas entram na próxima resposta dentro de `<context><memory_nags>…</memory_nags></context>`. Adicione uma seção do Agent Memory Nag para posicioná-las explicitamente.
+- **Ciclo de vida dos dados**: o cofre pertence a um único chat e permanece salvo se o pacote for desativado ou desinstalado, portanto uma reinstalação pode continuar do último ponto de controle. Excluir uma memória é permanente e sempre pede confirmação.
+
 ### World Maps
 
 Acrescenta à história locais aninhados permanentes e relações espaciais. Você pode criar regiões, áreas, salas e ligações, mover-se entre os locais e deixar que a posição atual contribua com contexto espacial para a geração. O Game Mode ganha também a visão de mapa-múndi do pacote.

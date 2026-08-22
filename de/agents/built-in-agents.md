@@ -148,6 +148,18 @@ Verfolgt Geld, ausgerüstete Gegenstände und mitgeführte Dinge in drei struktu
 - **Verfügbar in**: Roleplay.
 - **Wichtige Einstellungen**: **Add as Prompt Section** (standardmäßig aktiviert). Im HUD und Tracker Panel kannst du jeden Namen und jede Menge bearbeiten und sperren.
 
+### Memory Nag
+
+Führt für jeden Roleplay-Chat einen kurzen, bearbeitbaren Erinnerungstresor. Er scannt den Verlauf in Abschnitten mit Prüfpunkten, ordnet Erinnerungen nach aktuellen und früheren Charakteren und verschiebt eindeutig erledigte Erinnerungen in eine wiederherstellbare Liste „Resolved“. Wenn der genaue Wortlaut wichtig ist, kann eine Erinnerung eine kurze Dialogzeile wortgetreu bewahren.
+
+Nach jeder Antwort ermittelt ein deterministischer Wortabgleich nur die relevantesten aktiven Erinnerungen für die beteiligten Charaktere. Der Tracker entscheidet dann, ob die aktuelle Situation wirklich eine Erinnerung verlangt, und darf nur aus diesen bereitgestellten Erinnerungen wählen; beim Abruf kann er keine neue Erinnerung erfinden.
+
+- **Phase**: Post-Processing.
+- **Wo er funktioniert**: nur Roleplay.
+- **Wichtige Einstellungen**: eine separate **Vault scan connection** (standardmäßig die Agent-Verbindung), **Messages per batch** (20), **Maximum memories created per character** (10), **Maximum memories considered per character** (5) und **Maximum memories injected** (3). Nutze **Scan chat** für die erste Rückfüllung und **Open vault**, um Erinnerungen zu suchen, zu filtern, hinzuzufügen, zu bearbeiten, als erledigt zu markieren, wiederherzustellen oder zu löschen.
+- **Prompt-Platzierung**: Ohne Preset-Marker gelangen ausgewählte Erinnerungen in der nächsten Antwort in `<context><memory_nags>…</memory_nags></context>`. Füge einen Memory-Nag-Agent-Abschnitt hinzu, um sie ausdrücklich zu platzieren.
+- **Datenlebenszyklus**: Der Tresor gehört zu genau einem Chat und bleibt gespeichert, wenn das Paket deaktiviert oder deinstalliert wird. Nach einer Neuinstallation kann der Scan daher am letzten Prüfpunkt fortgesetzt werden. Das Löschen einer Erinnerung ist dauerhaft und verlangt immer eine Bestätigung.
+
 ### World Maps
 
 Ergänzt die Geschichte um dauerhafte, verschachtelte Orte und räumliche Beziehungen. Du kannst Regionen, Gebiete, Räume und Verbindungen anlegen, dich zwischen Orten bewegen und die aktuelle Position als räumlichen Kontext in die Generierung einfließen lassen. Im Game Mode kommt zusätzlich die Weltkarten-Ansicht des Pakets dazu.

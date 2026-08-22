@@ -148,6 +148,18 @@ Suit l'argent, l'équipement porté et les objets transportés dans trois listes
 - **Modes compatibles** : Roleplay.
 - **Réglages principaux** : **Add as Prompt Section** (activé par défaut). Le HUD et le Tracker Panel permettent de modifier et de verrouiller chaque nom et chaque quantité.
 
+### Memory Nag
+
+Conserve un petit coffre de souvenirs modifiable pour chaque chat Roleplay. Il analyse la conversation par lots avec points de reprise, classe les souvenirs selon les personnages actuels et passés, puis déplace les souvenirs clairement réglés vers une liste Resolved restaurable. Un souvenir peut conserver mot pour mot une courte réplique lorsque sa formulation exacte compte.
+
+Après chaque réponse, une correspondance déterministe des mots ne fournit au tracker que les souvenirs actifs les plus pertinents pour les personnages concernés. Le tracker décide alors si la situation justifie vraiment un rappel et ne peut choisir que parmi ces souvenirs ; il ne peut pas en inventer un pendant le rappel.
+
+- **Phase** : Post-Processing.
+- **Où ça marche** : Roleplay uniquement.
+- **Réglages clés** : une **Vault scan connection** distincte (par défaut, la connexion de l’Agent), **Messages per batch** (20), **Maximum memories created per character** (10), **Maximum memories considered per character** (5) et **Maximum memories injected** (3). Utilise **Scan chat** pour l’analyse initiale et **Open vault** pour rechercher, filtrer, ajouter, modifier, résoudre, restaurer ou supprimer des souvenirs.
+- **Placement dans le prompt** : sans marqueur de preset, les souvenirs choisis entrent dans la réponse suivante au sein de `<context><memory_nags>…</memory_nags></context>`. Ajoute une section Agent Memory Nag pour les placer explicitement.
+- **Cycle de vie des données** : le coffre appartient à un seul chat et reste enregistré si le package est désactivé ou désinstallé ; une réinstallation peut donc reprendre au dernier point de contrôle. La suppression d’un souvenir est définitive et demande toujours confirmation.
+
 ### World Maps
 
 Ajoute à une histoire des lieux imbriqués persistants et des relations spatiales. Tu peux créer des régions, des zones, des salles et des connexions, te déplacer d'un lieu à l'autre, et laisser la position actuelle enrichir la génération d'un contexte spatial. Game Mode gagne en plus la vue carte du monde fournie par le package.

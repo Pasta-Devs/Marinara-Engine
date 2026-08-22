@@ -148,6 +148,18 @@ Kiedy stała postać wraca po zniknięciu ze sceny, Character Tracker sięga po 
 - **Gdzie działa**: Roleplay.
 - **Najważniejsze ustawienia**: **Add as Prompt Section** (domyślnie włączone). W pasku HUD i panelu Tracker Panel można zmieniać i blokować każdą nazwę oraz liczbę sztuk.
 
+### Memory Nag
+
+Utrzymuje krótki, edytowalny skarbiec wspomnień dla każdego czatu Roleplay. Skanuje rozmowę partiami z punktami kontrolnymi, porządkuje wspomnienia według obecnych i dawnych uczestników oraz przenosi wyraźnie rozwiązane wspomnienia do możliwej do przywrócenia listy Resolved. Gdy dokładne brzmienie ma znaczenie, wspomnienie może zachować krótką kwestię dialogową słowo w słowo.
+
+Po każdej odpowiedzi deterministyczne dopasowanie słów przekazuje trackerowi tylko najtrafniejsze aktywne wspomnienia dotyczące zaangażowanych postaci. Tracker ocenia następnie, czy bieżąca sytuacja rzeczywiście wymaga przypomnienia, i może wybrać wyłącznie spośród przekazanych wspomnień; podczas przywoływania nie może utworzyć nowego.
+
+- **Faza**: Post-Processing.
+- **Gdzie działa**: wyłącznie Roleplay.
+- **Najważniejsze ustawienia**: osobne **Vault scan connection** (domyślnie połączenie Agenta), **Messages per batch** (20), **Maximum memories created per character** (10), **Maximum memories considered per character** (5) oraz **Maximum memories injected** (3). Użyj **Scan chat** do początkowego przeskanowania historii, a **Open vault**, aby wyszukiwać, filtrować, dodawać, edytować, rozwiązywać, przywracać lub usuwać wspomnienia.
+- **Umiejscowienie w prompcie**: bez markera presetu wybrane wspomnienia trafiają do następnej odpowiedzi wewnątrz `<context><memory_nags>…</memory_nags></context>`. Dodaj sekcję Agenta Memory Nag, aby umieścić je jawnie.
+- **Cykl życia danych**: skarbiec należy do jednego czatu i pozostaje zapisany po wyłączeniu lub odinstalowaniu pakietu, więc ponowna instalacja może wznowić pracę od ostatniego punktu kontrolnego. Usunięcie wspomnienia jest trwałe i zawsze wymaga potwierdzenia.
+
 ### World Maps
 
 Dodaje do fabuły trwałe, zagnieżdżone miejsca i zależności przestrzenne. Można tworzyć regiony, obszary, pomieszczenia i przejścia, przemieszczać się między miejscami, a bieżące położenie dokłada kontekst przestrzenny do generowania. Tryb Game Mode zyskuje dodatkowo widok mapy świata z tego pakietu.
