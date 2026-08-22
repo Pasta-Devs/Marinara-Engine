@@ -1,7 +1,26 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { ChatMode } from "@marinara-engine/shared";
-import { CircleHelp, EyeOff } from "lucide-react";
+import {
+  Brain,
+  ChevronsLeftRight,
+  CircleHelp,
+  Copy,
+  EyeOff,
+  Flag,
+  GitBranch,
+  Languages,
+  Pencil,
+  Play,
+  RefreshCw,
+  ScrollText,
+  Search,
+  Shield,
+  SmilePlus,
+  Trash2,
+  Volume2,
+  type LucideIcon,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import {
@@ -58,6 +77,11 @@ interface Rect {
 
 interface MeasuredTarget extends HelpTargetDefinition {
   rect: Rect;
+}
+
+interface HelpActionDefinition {
+  icon: LucideIcon;
+  labelKey: string;
 }
 
 const HELP_TARGET: HelpTargetDefinition = {
@@ -248,6 +272,50 @@ const TARGETS_BY_MODE: Record<ChatMode, HelpTargetDefinition[]> = {
 };
 
 const TARGET_PADDING = 5;
+const HIGHLIGHT_GAP = 5;
+
+const ACTIONS_BY_MODE: Record<ChatMode, HelpActionDefinition[]> = {
+  conversation: [
+    { icon: Copy, labelKey: "chat.help.actions.copy" },
+    { icon: SmilePlus, labelKey: "chat.help.actions.react" },
+    { icon: Languages, labelKey: "chat.help.actions.translate" },
+    { icon: Pencil, labelKey: "chat.help.actions.edit" },
+    { icon: RefreshCw, labelKey: "chat.help.actions.regenerate" },
+    { icon: ChevronsLeftRight, labelKey: "chat.help.actions.swipes" },
+    { icon: EyeOff, labelKey: "chat.help.actions.aiVisibility" },
+    { icon: Search, labelKey: "chat.help.actions.prompt" },
+    { icon: GitBranch, labelKey: "chat.help.actions.branch" },
+    { icon: ScrollText, labelKey: "chat.help.actions.guidance" },
+    { icon: Brain, labelKey: "chat.help.actions.thinking" },
+    { icon: Trash2, labelKey: "chat.help.actions.delete" },
+  ],
+  roleplay: [
+    { icon: Copy, labelKey: "chat.help.actions.copy" },
+    { icon: Languages, labelKey: "chat.help.actions.translate" },
+    { icon: Pencil, labelKey: "chat.help.actions.edit" },
+    { icon: Shield, labelKey: "chat.help.actions.rewrite" },
+    { icon: RefreshCw, labelKey: "chat.help.actions.regenerateOrRestart" },
+    { icon: ChevronsLeftRight, labelKey: "chat.help.actions.swipes" },
+    { icon: Flag, labelKey: "chat.help.actions.conversationStart" },
+    { icon: EyeOff, labelKey: "chat.help.actions.aiVisibility" },
+    { icon: Search, labelKey: "chat.help.actions.prompt" },
+    { icon: ScrollText, labelKey: "chat.help.actions.guidance" },
+    { icon: Brain, labelKey: "chat.help.actions.thinking" },
+    { icon: GitBranch, labelKey: "chat.help.actions.branchOrClone" },
+    { icon: Trash2, labelKey: "chat.help.actions.delete" },
+    { icon: Volume2, labelKey: "chat.help.actions.voice" },
+    { icon: Play, labelKey: "chat.help.actions.voicePlayback" },
+  ],
+  game: [
+    { icon: Copy, labelKey: "chat.help.actions.copyLog" },
+    { icon: Pencil, labelKey: "chat.help.actions.editLog" },
+    { icon: Languages, labelKey: "chat.help.actions.translateLog" },
+    { icon: Search, labelKey: "chat.help.actions.prompt" },
+    { icon: GitBranch, labelKey: "chat.help.actions.branchLog" },
+    { icon: Trash2, labelKey: "chat.help.actions.deleteLog" },
+    { icon: Volume2, labelKey: "chat.help.actions.voice" },
+  ],
+};
 
 function rectFromDomRect(rect: DOMRect): Rect {
   return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
@@ -280,7 +348,7 @@ function clipRect(rect: Rect, viewportWidth: number, viewportHeight: number): Re
   return { top, left, width: right - left, height: bottom - top };
 }
 
-function findTargetRect(definition: HelpTargetDefinition, root: HTMLElement): Rect | null {
+function findTargetRect(definition: HelpTargetDefinition, root: HTMLElement, mode: ChatMode): Rect | null {
   if (definition.virtual === "composer") {
     const composer = root.querySelector<HTMLElement>("[data-chat-composer]");
     const shell = composer?.closest<HTMLElement>("[data-chat-resource-drop-exclude]") ?? composer;
@@ -303,9 +371,17 @@ function findTargetRect(definition: HelpTargetDefinition, root: HTMLElement): Re
       .filter((rect): rect is Rect => rect !== null);
     const top = Math.max(scrollRect.top + 8, ...topControls.map((rect) => rect.top + rect.height + 8));
     const bottom = Math.min(scrollRect.top + scrollRect.height - 8, (composerRect?.top ?? Infinity) - 8);
-    return bottom > top
-      ? { top, left: scrollRect.left + 8, width: Math.max(1, scrollRect.width - 16), height: bottom - top }
-      : null;
+    if (bottom <= top) return null;
+
+    const roleplayColumn = mode === "roleplay" ? root.querySelector<HTMLElement>("[data-roleplay-chat-column]") : null;
+    const roleplayColumnRect = roleplayColumn ? readVisibleRect(roleplayColumn) : null;
+    const columnInset = roleplayColumnRect ? TARGET_PADDING : 0;
+    const left = Math.max(scrollRect.left + 8, (roleplayColumnRect?.left ?? -Infinity) + columnInset);
+    const right = Math.min(
+      scrollRect.left + scrollRect.width - 8,
+      roleplayColumnRect?.left != null ? roleplayColumnRect.left + roleplayColumnRect.width - columnInset : Infinity,
+    );
+    return right > left ? { top, left, width: right - left, height: bottom - top } : null;
   }
 
   if (!definition.selector) return null;
@@ -313,6 +389,68 @@ function findTargetRect(definition: HelpTargetDefinition, root: HTMLElement): Re
     .map(readVisibleRect)
     .filter((rect): rect is Rect => rect !== null);
   return definition.mergeMatches ? unionRects(rects) : (rects[0] ?? null);
+}
+
+function expandRectWithin(rect: Rect, bounds: Rect): Rect {
+  const left = Math.max(bounds.left, rect.left - TARGET_PADDING);
+  const top = Math.max(bounds.top, rect.top - TARGET_PADDING);
+  const right = Math.min(bounds.left + bounds.width, rect.left + rect.width + TARGET_PADDING);
+  const bottom = Math.min(bounds.top + bounds.height, rect.top + rect.height + TARGET_PADDING);
+  return { top, left, width: right - left, height: bottom - top };
+}
+
+function separateHighlightRects(targets: MeasuredTarget[], bounds: Rect): MeasuredTarget[] {
+  const separated = targets.map((target) => ({ ...target, rect: expandRectWithin(target.rect, bounds) }));
+  for (let firstIndex = 0; firstIndex < separated.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < separated.length; secondIndex += 1) {
+      const first = separated[firstIndex]!;
+      const second = separated[secondIndex]!;
+      const firstRight = first.rect.left + first.rect.width;
+      const secondRight = second.rect.left + second.rect.width;
+      const firstBottom = first.rect.top + first.rect.height;
+      const secondBottom = second.rect.top + second.rect.height;
+      const overlapX = Math.min(firstRight, secondRight) - Math.max(first.rect.left, second.rect.left);
+      const overlapY = Math.min(firstBottom, secondBottom) - Math.max(first.rect.top, second.rect.top);
+      if (overlapX <= 0 || overlapY <= 0) continue;
+
+      const firstCenterX = first.rect.left + first.rect.width / 2;
+      const secondCenterX = second.rect.left + second.rect.width / 2;
+      const firstCenterY = first.rect.top + first.rect.height / 2;
+      const secondCenterY = second.rect.top + second.rect.height / 2;
+      const separateHorizontally = overlapX <= overlapY;
+
+      if (separateHorizontally) {
+        const [leftTarget, rightTarget] = firstCenterX <= secondCenterX ? [first, second] : [second, first];
+        const overlapLeft = Math.max(leftTarget.rect.left, rightTarget.rect.left);
+        const overlapRight = Math.min(
+          leftTarget.rect.left + leftTarget.rect.width,
+          rightTarget.rect.left + rightTarget.rect.width,
+        );
+        const split = (overlapLeft + overlapRight) / 2;
+        const leftEdge = Math.max(leftTarget.rect.left + 1, split - HIGHLIGHT_GAP / 2);
+        const rightEdge = Math.min(rightTarget.rect.left + rightTarget.rect.width - 1, split + HIGHLIGHT_GAP / 2);
+        leftTarget.rect.width = Math.max(1, leftEdge - leftTarget.rect.left);
+        const rightBoundary = rightTarget.rect.left + rightTarget.rect.width;
+        rightTarget.rect.left = rightEdge;
+        rightTarget.rect.width = Math.max(1, rightBoundary - rightEdge);
+      } else {
+        const [topTarget, bottomTarget] = firstCenterY <= secondCenterY ? [first, second] : [second, first];
+        const overlapTop = Math.max(topTarget.rect.top, bottomTarget.rect.top);
+        const overlapBottom = Math.min(
+          topTarget.rect.top + topTarget.rect.height,
+          bottomTarget.rect.top + bottomTarget.rect.height,
+        );
+        const split = (overlapTop + overlapBottom) / 2;
+        const topEdge = Math.max(topTarget.rect.top + 1, split - HIGHLIGHT_GAP / 2);
+        const bottomEdge = Math.min(bottomTarget.rect.top + bottomTarget.rect.height - 1, split + HIGHLIGHT_GAP / 2);
+        topTarget.rect.height = Math.max(1, topEdge - topTarget.rect.top);
+        const bottomBoundary = bottomTarget.rect.top + bottomTarget.rect.height;
+        bottomTarget.rect.top = bottomEdge;
+        bottomTarget.rect.height = Math.max(1, bottomBoundary - bottomEdge);
+      }
+    }
+  }
+  return separated;
 }
 
 function measureTargets(mode: ChatMode) {
@@ -326,29 +464,70 @@ function measureTargets(mode: ChatMode) {
   const viewportHeight = window.innerHeight;
   const rootRect = clipRect(rectFromDomRect(root.getBoundingClientRect()), viewportWidth, viewportHeight);
   const targets = TARGETS_BY_MODE[mode].flatMap((definition) => {
-    const measured = findTargetRect(definition, root);
+    const measured = findTargetRect(definition, root, mode);
     const rect = measured ? clipRect(measured, viewportWidth, viewportHeight) : null;
     return rect ? [{ ...definition, rect }] : [];
   });
-  return { rootRect, targets };
+  return { rootRect, targets: rootRect ? separateHighlightRects(targets, rootRect) : targets };
 }
 
 function getLegendStyle(rootRect: Rect): CSSProperties {
-  const mobile = window.innerWidth < 768;
-  if (mobile) {
-    return {
-      left: Math.max(12, rootRect.left + 12),
-      right: Math.max(12, window.innerWidth - rootRect.left - rootRect.width + 12),
-      bottom: Math.max(12, window.innerHeight - rootRect.top - rootRect.height + 12),
-      maxHeight: "min(42dvh, 22rem)",
-    };
-  }
   return {
     left: rootRect.left + 16,
     bottom: Math.max(16, window.innerHeight - rootRect.top - rootRect.height + 16),
     width: Math.min(390, Math.max(280, rootRect.width * 0.38)),
     maxHeight: `min(58dvh, ${Math.max(240, rootRect.height - 96)}px)`,
   };
+}
+
+function getMobileDetailStyle(rootRect: Rect): CSSProperties {
+  return {
+    left: Math.max(12, rootRect.left + 12),
+    right: Math.max(12, window.innerWidth - rootRect.left - rootRect.width + 12),
+    bottom: Math.max(12, window.innerHeight - rootRect.top - rootRect.height + 12),
+    maxHeight: "min(44dvh, 22rem)",
+  };
+}
+
+function getHoverCardStyle(point: { x: number; y: number }): CSSProperties {
+  const showToRight = point.x + 304 <= window.innerWidth;
+  const showBelow = point.y + 128 <= window.innerHeight;
+  return {
+    ...(showToRight ? { left: point.x + 14 } : { right: window.innerWidth - point.x + 14 }),
+    ...(showBelow ? { top: point.y + 14 } : { bottom: window.innerHeight - point.y + 14 }),
+    width: "min(18rem, calc(100vw - 1.5rem))",
+  };
+}
+
+function targetIncludesActionLegend(mode: ChatMode, id: HelpTargetId): boolean {
+  return id === "messages" || (mode === "game" && id === "dialogue");
+}
+
+function MessageActionLegend({ mode }: { mode: ChatMode }) {
+  const { t } = useTranslation();
+  return (
+    <section
+      data-chat-help-action-legend={mode}
+      className="border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2.5"
+    >
+      <h3 className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--marinara-chat-chrome-panel-title)]">
+        {t(mode === "game" ? "chat.help.actions.logTitle" : "chat.help.actions.messageTitle")}
+      </h3>
+      <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+        {ACTIONS_BY_MODE[mode].map(({ icon: Icon, labelKey }) => (
+          <li
+            key={labelKey}
+            className="flex min-w-0 items-start gap-1.5 text-[0.6875rem] leading-4 text-[var(--marinara-chat-chrome-panel-muted)]"
+          >
+            <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)]">
+              <Icon size="0.6875rem" />
+            </span>
+            <span>{t(labelKey)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 function measurementsSignature(rootRect: Rect | null, targets: MeasuredTarget[]) {
@@ -383,6 +562,9 @@ export function ChatHelpOverlay({
   const [open, setOpen] = useState(false);
   const [rootRect, setRootRect] = useState<Rect | null>(null);
   const [targets, setTargets] = useState<MeasuredTarget[]>([]);
+  const [selectedTargetId, setSelectedTargetId] = useState<HelpTargetId | null>(null);
+  const [hoveredTargetId, setHoveredTargetId] = useState<HelpTargetId | null>(null);
+  const [hoverPoint, setHoverPoint] = useState<{ x: number; y: number } | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const measurementSignatureRef = useRef("");
@@ -463,9 +645,29 @@ export function ChatHelpOverlay({
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     overlayRef.current?.focus({ preventScroll: true });
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      markChatHelpSeen(mode);
-      closeChatHelp(mode);
+      if (event.key === "Escape") {
+        markChatHelpSeen(mode);
+        closeChatHelp(mode);
+        return;
+      }
+      if (event.key !== "Tab" || !overlayRef.current) return;
+
+      const focusable = Array.from(
+        overlayRef.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === overlayRef.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => {
@@ -484,6 +686,17 @@ export function ChatHelpOverlay({
   }, [mode, setChatHelpButtonHidden]);
 
   const legendStyle = useMemo(() => (rootRect ? getLegendStyle(rootRect) : undefined), [rootRect]);
+  const mobileDetailStyle = useMemo(() => (rootRect ? getMobileDetailStyle(rootRect) : undefined), [rootRect]);
+  const mobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const selectedTarget = targets.find((target) => target.id === selectedTargetId) ?? null;
+  const hoveredTarget = targets.find((target) => target.id === hoveredTargetId) ?? null;
+
+  useEffect(() => {
+    if (open) return;
+    setSelectedTargetId(null);
+    setHoveredTargetId(null);
+    setHoverPoint(null);
+  }, [open]);
 
   if (!open || !rootRect || typeof document === "undefined") return null;
 
@@ -495,23 +708,18 @@ export function ChatHelpOverlay({
       aria-modal="true"
       aria-label={t("chat.help.overlayLabel")}
       tabIndex={-1}
-      className="mari-chrome-token-scope fixed inset-0 z-[10050] cursor-pointer outline-none"
-      onPointerDown={dismiss}
+      className={cn(
+        "mari-chrome-token-scope fixed inset-0 z-[10050] outline-none",
+        mobile ? "cursor-default" : "cursor-pointer",
+      )}
+      onPointerDown={mobile ? undefined : dismiss}
     >
       <svg className="pointer-events-none fixed inset-0 h-full w-full" aria-hidden="true">
         <defs>
           <mask id={maskId} maskUnits="userSpaceOnUse">
             <rect x={rootRect.left} y={rootRect.top} width={rootRect.width} height={rootRect.height} fill="white" />
             {targets.map(({ id, rect }) => (
-              <rect
-                key={id}
-                x={rect.left - TARGET_PADDING}
-                y={rect.top - TARGET_PADDING}
-                width={rect.width + TARGET_PADDING * 2}
-                height={rect.height + TARGET_PADDING * 2}
-                rx="10"
-                fill="black"
-              />
+              <rect key={id} x={rect.left} y={rect.top} width={rect.width} height={rect.height} rx="10" fill="black" />
             ))}
           </mask>
         </defs>
@@ -525,23 +733,77 @@ export function ChatHelpOverlay({
         />
       </svg>
 
-      {targets.map(({ id, rect }, index) => (
-        <div
-          key={id}
-          data-chat-help-highlight={id}
-          className="pointer-events-none fixed rounded-[0.625rem] ring-2 ring-[var(--marinara-chat-chrome-focus-ring)] shadow-[0_0_18px_color-mix(in_srgb,var(--marinara-chat-chrome-focus-ring)_45%,transparent)]"
+      {targets.map((target, index) => (
+        <button
+          type="button"
+          aria-label={[t(target.titleKey), t(target.bodyKey)].join(": ")}
+          key={target.id}
+          data-chat-help-highlight={target.id}
+          className={cn(
+            "fixed rounded-[0.625rem] bg-transparent ring-2 ring-[var(--marinara-chat-chrome-focus-ring)] shadow-[0_0_18px_color-mix(in_srgb,var(--marinara-chat-chrome-focus-ring)_45%,transparent)] outline-none transition-[box-shadow,background-color] duration-150 focus-visible:bg-[color-mix(in_srgb,var(--marinara-chat-chrome-focus-ring)_9%,transparent)] focus-visible:shadow-[0_0_30px_color-mix(in_srgb,var(--marinara-chat-chrome-focus-ring)_72%,transparent)]",
+            mobile
+              ? "cursor-pointer"
+              : "cursor-help hover:bg-[color-mix(in_srgb,var(--marinara-chat-chrome-focus-ring)_9%,transparent)] hover:shadow-[0_0_30px_color-mix(in_srgb,var(--marinara-chat-chrome-focus-ring)_72%,transparent)]",
+          )}
           style={{
-            top: rect.top - TARGET_PADDING,
-            left: rect.left - TARGET_PADDING,
-            width: rect.width + TARGET_PADDING * 2,
-            height: rect.height + TARGET_PADDING * 2,
+            top: target.rect.top,
+            left: target.rect.left,
+            width: target.rect.width,
+            height: target.rect.height,
+          }}
+          onPointerDown={(event) => {
+            if (mobile) event.stopPropagation();
+          }}
+          onClick={() => {
+            if (mobile) setSelectedTargetId(target.id);
+          }}
+          onPointerEnter={(event) => {
+            if (mobile) return;
+            setHoveredTargetId(target.id);
+            setHoverPoint({ x: event.clientX, y: event.clientY });
+          }}
+          onPointerMove={(event) => {
+            if (mobile) return;
+            setHoverPoint({ x: event.clientX, y: event.clientY });
+          }}
+          onPointerLeave={() => {
+            setHoveredTargetId(null);
+            setHoverPoint(null);
+          }}
+          onFocus={() => {
+            if (mobile) return;
+            setHoveredTargetId(target.id);
+            setHoverPoint({
+              x: target.rect.left + target.rect.width / 2,
+              y: target.rect.top + target.rect.height / 2,
+            });
+          }}
+          onBlur={() => {
+            setHoveredTargetId(null);
+            setHoverPoint(null);
           }}
         >
-          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--marinara-chat-chrome-button-bg-active)] px-1 text-[0.5625rem] font-bold leading-none text-[var(--marinara-chat-chrome-button-text-active)] ring-1 ring-[var(--marinara-chat-chrome-focus-ring)]">
+          <span className="pointer-events-none absolute left-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--marinara-chat-chrome-button-bg-active)] px-1 text-[0.5625rem] font-bold leading-none text-[var(--marinara-chat-chrome-button-text-active)] ring-1 ring-[var(--marinara-chat-chrome-focus-ring)]">
             {index + 1}
           </span>
-        </div>
+        </button>
       ))}
+
+      {!mobile && hoveredTarget && hoverPoint && (
+        <div
+          data-chat-help-hover-card={hoveredTarget.id}
+          className={cn(
+            NEUTRAL_PANEL_SHELL,
+            "pointer-events-none fixed border-[var(--marinara-chat-chrome-button-border-active)] px-3 py-2 text-xs leading-4 shadow-xl",
+          )}
+          style={getHoverCardStyle(hoverPoint)}
+        >
+          <strong className="font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
+            {t(hoveredTarget.titleKey)}
+          </strong>
+          <p className="mt-0.5 text-[var(--marinara-chat-chrome-panel-muted)]">{t(hoveredTarget.bodyKey)}</p>
+        </div>
+      )}
 
       <div
         className="pointer-events-none fixed flex max-w-[calc(100vw-1.5rem)] flex-col items-center gap-1.5"
@@ -551,10 +813,22 @@ export function ChatHelpOverlay({
           transform: "translateX(-50%)",
         }}
       >
-        <div className="flex items-center gap-2 rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--card)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] shadow-lg">
-          <CircleHelp size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
-          <span>{t("chat.help.exitInstruction")}</span>
-        </div>
+        {mobile ? (
+          <button
+            type="button"
+            className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--card)] px-3 py-2 text-left text-xs font-semibold leading-4 text-[var(--foreground)] shadow-lg"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={dismiss}
+          >
+            <CircleHelp size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
+            <span>{t("chat.help.mobileInstruction")}</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--card)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] shadow-lg">
+            <CircleHelp size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
+            <span>{t("chat.help.exitInstruction")}</span>
+          </div>
+        )}
         <button
           type="button"
           className="mari-chrome-control pointer-events-auto min-h-7 px-2.5 text-[0.625rem] shadow-lg"
@@ -566,36 +840,64 @@ export function ChatHelpOverlay({
         </button>
       </div>
 
-      <div
-        data-chat-help-legend
-        className={cn(
-          NEUTRAL_PANEL_SHELL,
-          "pointer-events-none fixed min-h-0 overflow-hidden border-[var(--marinara-chat-chrome-button-border-active)] shadow-xl",
-        )}
-        style={legendStyle}
-      >
-        <div className="flex items-center gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2.5">
-          <CircleHelp size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
-          <h2 className="text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
-            {t(`chat.help.mode.${mode}`)}
-          </h2>
+      {!mobile && (
+        <div
+          data-chat-help-legend
+          className={cn(
+            NEUTRAL_PANEL_SHELL,
+            "pointer-events-auto fixed flex min-h-0 flex-col overflow-hidden border-[var(--marinara-chat-chrome-button-border-active)] shadow-xl",
+          )}
+          style={legendStyle}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-center gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2.5">
+            <CircleHelp size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
+            <h2 className="text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
+              {t(`chat.help.mode.${mode}`)}
+            </h2>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <ol className="space-y-2 px-3 py-2.5">
+              {targets.map((target, index) => (
+                <li key={target.id} data-chat-help-entry={target.id} className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-[var(--marinara-chat-chrome-button-bg-active)] px-1 text-[0.5625rem] font-bold text-[var(--marinara-chat-chrome-button-text-active)]">
+                    {index + 1}
+                  </span>
+                  <span className="min-w-0 text-xs leading-4 text-[var(--marinara-chat-chrome-panel-muted)]">
+                    <strong className="font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
+                      {t(target.titleKey)}:
+                    </strong>{" "}
+                    {t(target.bodyKey)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <MessageActionLegend mode={mode} />
+          </div>
         </div>
-        <ol className="max-h-[inherit] space-y-2 overflow-y-auto overscroll-contain px-3 py-2.5">
-          {targets.map((target, index) => (
-            <li key={target.id} data-chat-help-entry={target.id} className="flex gap-2.5">
-              <span className="mt-0.5 flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-[var(--marinara-chat-chrome-button-bg-active)] px-1 text-[0.5625rem] font-bold text-[var(--marinara-chat-chrome-button-text-active)]">
-                {index + 1}
-              </span>
-              <span className="min-w-0 text-xs leading-4 text-[var(--marinara-chat-chrome-panel-muted)]">
-                <strong className="font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
-                  {t(target.titleKey)}:
-                </strong>{" "}
-                {t(target.bodyKey)}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </div>
+      )}
+
+      {mobile && selectedTarget && (
+        <div
+          data-chat-help-mobile-detail={selectedTarget.id}
+          aria-live="polite"
+          className={cn(
+            NEUTRAL_PANEL_SHELL,
+            "pointer-events-auto fixed min-h-0 overflow-y-auto overscroll-contain border-[var(--marinara-chat-chrome-button-border-active)] shadow-xl",
+          )}
+          style={mobileDetailStyle}
+        >
+          <div className="px-3 py-2.5">
+            <h2 className="text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
+              {t(selectedTarget.titleKey)}
+            </h2>
+            <p className="mt-1 text-xs leading-4 text-[var(--marinara-chat-chrome-panel-muted)]">
+              {t(selectedTarget.bodyKey)}
+            </p>
+          </div>
+          {targetIncludesActionLegend(mode, selectedTarget.id) && <MessageActionLegend mode={mode} />}
+        </div>
+      )}
     </div>,
     document.body,
   );

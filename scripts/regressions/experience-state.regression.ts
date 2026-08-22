@@ -26,6 +26,9 @@
 //  11. Turn-game resign wipes turn-game rows but never experience rows.
 //  12. Checkpoint restore recovers the capture-time world even after the same anchor is
 //      rewritten post-checkpoint (the ordering that invalidated the createdAt re-lookup).
+//  13. A row whose stored value is unreadable (unparseable text, or a non-string column)
+//      returns exists:true / state:null / stateUnparseable:true PLUS the raw text (capped,
+//      flagged when truncated); healthy rows carry none of the three keys.
 import assert from "node:assert/strict";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 // Shared must come from the built dist so the echo engine registers into the SAME module
@@ -38,7 +41,10 @@ import { createCheckpointService } from "../../packages/server/src/services/game
 import { createChatsStorage } from "../../packages/server/src/services/storage/chats.storage.js";
 import { createGameEngineStateStorage } from "../../packages/server/src/services/storage/game-engine-state.storage.js";
 import { createGameStateStorage } from "../../packages/server/src/services/storage/game-state.storage.js";
-import { getTurnGameView, resignTurnGame } from "../../packages/server/src/services/turn-games/turn-game-runner.service.js";
+import {
+  getTurnGameView,
+  resignTurnGame,
+} from "../../packages/server/src/services/turn-games/turn-game-runner.service.js";
 
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const db = await getDB();
@@ -366,6 +372,132 @@ try {
       { world: "W1-at-checkpoint" },
       "restore recovers the checkpoint-time world even after a same-anchor rewrite",
     );
+  }
+
+  // ── 13. A row whose stored text will not parse hands the raw bytes back (#5407) ──
+  // The client's repair for a corrupt row is a replacing PUT, which destroys the evidence,
+  // and `state: null` on its own is indistinguishable from a legitimately stored null — so
+  // the unparseable text rides along on the failure path only, letting a package quarantine
+  // it first. Corruption is written straight through the storage layer here because the PUT
+  // can only ever store JSON.stringify output.
+  {
+    const chat = await createExperienceChat("experience corrupt row");
+    const m1 = await addAssistantMessage(chat.id, "turn 1");
+    const CORRUPT = '{"zone":"village","x":5';
+    await engineStore.create({
+      chatId: chat.id,
+      messageId: m1.id,
+      swipeIndex: 0,
+      gameType: GAME_TYPE,
+      schemaVersion: 1,
+      state: CORRUPT,
+      committed: true,
+    });
+
+    const get = await getState(chat.id);
+    assert.equal(get.statusCode, 200, "a corrupt row is still a 200, not a 500");
+    const body = get.json();
+    assert.equal(body.exists, true, "a corrupt row still reports exists:true");
+    assert.equal(body.state, null, "unparseable state still reads as null");
+    assert.equal(body.stateUnparseable, true, "the corruption signal is an always-truthy boolean");
+    assert.equal(body.rawState, CORRUPT, "a corrupt row hands back its raw stored text verbatim");
+    assert.equal(body.rawStateTruncated, false, "stored text within the ceiling is returned whole");
+
+    // Healthy rows must not carry the keys at all — their presence IS the corruption signal.
+    const healthy = await createExperienceChat("experience healthy row");
+    await addAssistantMessage(healthy.id, "turn 1");
+    await putState(healthy.id, { state: { fine: true } });
+    const healthyBody = (await getState(healthy.id)).json();
+    assert.deepEqual(healthyBody.state, { fine: true });
+    assert.ok(!("rawState" in healthyBody), "a healthy row carries no rawState key");
+    assert.ok(!("rawStateTruncated" in healthyBody), "a healthy row carries no rawStateTruncated key");
+    assert.ok(!("stateUnparseable" in healthyBody), "a healthy row carries no stateUnparseable key");
+
+    // The catch must never re-assume the type it exists to distrust: a NON-STRING state
+    // column (a hand-repaired shard holding a real object, or a missing key reading back
+    // as null through the store's default path) is corruption too — a 200 with a STRING
+    // rawState, never a 500 and never a silent state:null that masquerades as legitimate.
+    const objectRow = await createExperienceChat("experience object-state row");
+    const m3 = await addAssistantMessage(objectRow.id, "turn 1");
+    await engineStore.create({
+      chatId: objectRow.id,
+      messageId: m3.id,
+      swipeIndex: 0,
+      gameType: GAME_TYPE,
+      schemaVersion: 1,
+      state: { zone: "village", x: 5 } as unknown as string,
+      committed: true,
+    });
+    const objectGet = await getState(objectRow.id);
+    assert.equal(objectGet.statusCode, 200, "a non-string state column is a 200, not a 500");
+    const objectBody = objectGet.json();
+    assert.equal(objectBody.stateUnparseable, true, "a non-string state column reports corruption");
+    assert.equal(typeof objectBody.rawState, "string", "rawState is a string under every on-disk shape");
+    assert.deepEqual(
+      JSON.parse(objectBody.rawState),
+      { zone: "village", x: 5 },
+      "the object round-trips as its JSON text",
+    );
+
+    const nullRow = await createExperienceChat("experience null-state row");
+    const m4 = await addAssistantMessage(nullRow.id, "turn 1");
+    await engineStore.create({
+      chatId: nullRow.id,
+      messageId: m4.id,
+      swipeIndex: 0,
+      gameType: GAME_TYPE,
+      schemaVersion: 1,
+      state: null as unknown as string,
+      committed: true,
+    });
+    const nullColBody = (await getState(nullRow.id)).json();
+    assert.equal(nullColBody.stateUnparseable, true, "a null state COLUMN is corruption, not a stored null");
+    assert.equal(nullColBody.rawState, "null", "and its rawState is the stringified column");
+
+    // An empty-string stored state is unparseable and its rawState is falsy — which is
+    // exactly why the discriminator is stateUnparseable, not truthiness of rawState.
+    const emptyRow = await createExperienceChat("experience empty-state row");
+    const m5 = await addAssistantMessage(emptyRow.id, "turn 1");
+    await engineStore.create({
+      chatId: emptyRow.id,
+      messageId: m5.id,
+      swipeIndex: 0,
+      gameType: GAME_TYPE,
+      schemaVersion: 1,
+      state: "",
+      committed: true,
+    });
+    const emptyBody = (await getState(emptyRow.id)).json();
+    assert.equal(emptyBody.stateUnparseable, true, "an empty-string row reports corruption");
+    assert.equal(emptyBody.rawState, "", "with its (falsy) raw text intact");
+
+    // ...which is what makes a legitimately stored null distinguishable from corruption.
+    const storedNull = await createExperienceChat("experience stored null");
+    await addAssistantMessage(storedNull.id, "turn 1");
+    await putState(storedNull.id, { state: null });
+    const storedNullBody = (await getState(storedNull.id)).json();
+    assert.equal(storedNullBody.state, null);
+    assert.ok(!("rawState" in storedNullBody), "a legitimately stored null is not reported as corrupt");
+
+    // On-disk damage is not bounded by the PUT's ceiling, so the response is: the raw text
+    // is capped at MAX_EXPERIENCE_STATE_CHARS (262_144) and flagged rather than inflating it.
+    const oversize = await createExperienceChat("experience corrupt oversize");
+    const m2 = await addAssistantMessage(oversize.id, "turn 1");
+    const HUGE = `{"blob":"${"x".repeat(300_000)}`; // unterminated → unparseable
+    await engineStore.create({
+      chatId: oversize.id,
+      messageId: m2.id,
+      swipeIndex: 0,
+      gameType: GAME_TYPE,
+      schemaVersion: 1,
+      state: HUGE,
+      committed: true,
+    });
+    const oversizeBody = (await getState(oversize.id)).json();
+    assert.equal(oversizeBody.state, null);
+    assert.equal(oversizeBody.rawStateTruncated, true, "an oversize corrupt row is flagged as truncated");
+    assert.equal(oversizeBody.rawState.length, 262_144, "the raw text is capped at MAX_EXPERIENCE_STATE_CHARS");
+    assert.ok(HUGE.startsWith(oversizeBody.rawState), "the truncated text is a prefix of the stored text");
   }
 
   console.log("experience-state regression passed");
