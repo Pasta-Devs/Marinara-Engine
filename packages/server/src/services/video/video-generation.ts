@@ -737,9 +737,11 @@ async function generateComfyUiVideo(baseUrl: string, request: VideoGenerationReq
 
   while (true) {
     await delayWithSignal(1000, request.signal);
-    const historyResponse = await comfyUiVideoFetch(`${base}/history/${encodeURIComponent(promptId)}`, {
-      signal: request.signal,
-    });
+    const historyResponse = await comfyUiVideoFetch(
+      `${base}/history/${encodeURIComponent(promptId)}`,
+      { signal: request.signal },
+      MAX_VIDEO_JSON_RESPONSE_BYTES,
+    );
     if (!historyResponse.ok) continue;
     const history = (await historyResponse.json()) as Record<string, ComfyUiHistoryEntry>;
     const entry = history[promptId];

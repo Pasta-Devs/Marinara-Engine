@@ -351,6 +351,7 @@ const BATCH_EDITABLE_ENTRY_FIELDS = [
   "generationTriggerFilters",
   "additionalMatchingSources",
   "position",
+  "outletName",
   "depth",
   "order",
   "role",

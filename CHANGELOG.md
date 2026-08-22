@@ -30,6 +30,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Local ComfyUI video generation can now read large bounded history responses instead of failing at the generic 2 MiB API-response limit (#5415).
+- Lorebook batch editing now includes Outlet Name among the fields that can be applied to selected entries (#5410).
 - Restoring a checkpoint that has no captured world state (pre-capture checkpoints, or a corrupt capture) now timestamps the restored save the same way every other save-writer does, so a recent bulk import can no longer shadow the freshly restored world in latest-save reads, save pruning, and the next checkpoint's capture (#5418).
 - Chat Summaries PopOver now doesn't close when clicking anywhere on the Summary Deletion Confirmation Pop Up, including Cancel, Delete, or just the popup itself (#5401).
 - Chat Help now keeps highlight boxes separate, limits Roleplay guidance to the centered message column, explains message and Game log action icons, and uses hover details on desktop with unobtrusive tap-driven details on mobile (#5403).
