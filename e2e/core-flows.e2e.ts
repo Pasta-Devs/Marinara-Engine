@@ -1236,6 +1236,21 @@ test("Author's Notes keeps its expand and full macro guide inside the field", as
     await expect(macroReference.getByText("{{charPostHistory}}", { exact: true })).toBeVisible();
     await expect(macroReference.getByText("{{agent::TYPE}}", { exact: true })).toBeVisible();
     await expect(macroReference.getByText(/Conditional block with/)).toBeVisible();
+    const negationSyntax = '{{#if character != "Maukie"}}...{{/if}}';
+    await expect(macroReference.getByText(negationSyntax, { exact: true })).toBeVisible();
+    await expect(macroReference.getByText(/"is not", "not contains", and "not includes"/u)).toBeVisible();
+    const macroHelp = await page.evaluate(async () => {
+      const { matchSlashCommand } = (await import("/src/lib/slash-commands.ts")) as {
+        matchSlashCommand: (input: string) => {
+          command: { execute: (args: string, context: never) => Promise<{ feedback?: string }> };
+        } | null;
+      };
+      const match = matchSlashCommand("/macro");
+      if (!match) throw new Error("Expected /macro to match the macros command");
+      return (await match.command.execute("", undefined as never)).feedback ?? "";
+    });
+    expect(macroHelp).toContain(negationSyntax);
+    expect(macroHelp).toContain('"is not", "not contains", and "not includes"');
     await macroReference.getByRole("button", { name: "Close macro reference", exact: true }).click();
     await expect(panel).toBeVisible();
 
