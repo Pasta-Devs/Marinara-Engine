@@ -7248,6 +7248,15 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
         }
       }
 
+      const dialogButtons = overlay.getByRole("button");
+      const firstDialogButton = dialogButtons.first();
+      const lastDialogButton = dialogButtons.last();
+      await firstDialogButton.focus();
+      await page.keyboard.press("Shift+Tab");
+      await expect(lastDialogButton).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(firstDialogButton).toBeFocused();
+
       if (mobile) {
         const messageTarget = chat.mode === "game" ? "dialogue" : "messages";
         const keyboardTarget = overlay.locator('[data-chat-help-highlight="branches"]');
@@ -7274,6 +7283,8 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
         expect(legendBox!.y + legendBox!.height).toBeLessThanOrEqual(testInfo.project.use.viewport!.height);
         expect(await overlay.locator("[data-chat-help-entry]").count()).toBeGreaterThanOrEqual(7);
         await expect(legend.locator(`[data-chat-help-action-legend="${chat.mode}"]`)).toBeVisible();
+        await legend.click({ position: { x: 8, y: 8 } });
+        await expect(overlay).toBeVisible();
 
         const branchesHighlight = overlay.locator('[data-chat-help-highlight="branches"]');
         await branchesHighlight.hover();

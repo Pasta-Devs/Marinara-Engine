@@ -645,9 +645,29 @@ export function ChatHelpOverlay({
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     overlayRef.current?.focus({ preventScroll: true });
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      markChatHelpSeen(mode);
-      closeChatHelp(mode);
+      if (event.key === "Escape") {
+        markChatHelpSeen(mode);
+        closeChatHelp(mode);
+        return;
+      }
+      if (event.key !== "Tab" || !overlayRef.current) return;
+
+      const focusable = Array.from(
+        overlayRef.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === overlayRef.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => {
@@ -825,9 +845,10 @@ export function ChatHelpOverlay({
           data-chat-help-legend
           className={cn(
             NEUTRAL_PANEL_SHELL,
-            "pointer-events-none fixed flex min-h-0 flex-col overflow-hidden border-[var(--marinara-chat-chrome-button-border-active)] shadow-xl",
+            "pointer-events-auto fixed flex min-h-0 flex-col overflow-hidden border-[var(--marinara-chat-chrome-button-border-active)] shadow-xl",
           )}
           style={legendStyle}
+          onPointerDown={(event) => event.stopPropagation()}
         >
           <div className="flex items-center gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2.5">
             <CircleHelp size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
