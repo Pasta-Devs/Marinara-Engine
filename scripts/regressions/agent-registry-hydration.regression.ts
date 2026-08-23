@@ -5,7 +5,10 @@ import {
   type BuiltInAgentManifest,
   type InstalledCapabilityPackage,
 } from "../../packages/shared/dist/index.js";
-import { buildRoleplayAgentSettingsOrder } from "../../packages/client/src/lib/agent-settings-order.js";
+import {
+  buildRoleplayAgentSettingsOrder,
+  hasStandaloneRoleplayAgentSettings,
+} from "../../packages/client/src/lib/agent-settings-order.js";
 import {
   isCapabilityPackageAvailableUntilRestart,
   selectHomeBrowserPackages,
@@ -120,6 +123,8 @@ const activeSettingsOrder = ["writer", "tracker", "misc"].flatMap((category) =>
     .map((agent) => agent.id),
 );
 assert.deepEqual(activeSettingsOrder, menuOrder, "Roleplay quick links and active settings must share one order");
+assert.equal(hasStandaloneRoleplayAgentSettings("memory-nag"), true);
+assert.equal(hasStandaloneRoleplayAgentSettings("late-tracker"), false);
 
 // Connections can mount before this query resolves. It must use the React Query
 // result, rather than reading the mutable shared registry that is already hydrated.

@@ -6,6 +6,12 @@ const AGENT_CATEGORY_ORDER: Record<string, number> = {
   misc: 2,
 };
 
+const STANDALONE_ROLEPLAY_AGENT_SETTINGS = new Set(["memory-nag"]);
+
+export function hasStandaloneRoleplayAgentSettings(agentId: string): boolean {
+  return STANDALONE_ROLEPLAY_AGENT_SETTINGS.has(agentId);
+}
+
 export function buildRoleplayAgentSettingsOrder(agents: readonly BuiltInAgentManifest[]): Map<string, number> {
   const order = new Map<string, number>(
     agents

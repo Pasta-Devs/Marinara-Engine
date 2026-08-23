@@ -164,7 +164,7 @@ import {
   stepCadenceValue,
 } from "../../lib/agent-cadence";
 import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
-import { buildRoleplayAgentSettingsOrder } from "../../lib/agent-settings-order";
+import { buildRoleplayAgentSettingsOrder, hasStandaloneRoleplayAgentSettings } from "../../lib/agent-settings-order";
 import { extractCreatorNotesCss } from "../../lib/creator-notes-css";
 import { isLorebookScopeActiveForChat } from "../../lib/lorebook-scope";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
@@ -441,6 +441,8 @@ function renderRoleplayAgentMenuIcon(agentId: string, variant: "card" | "chip" =
     case "haptic":
       return <Vibrate size={size} className={className} />;
     case "long-term-memory":
+      return <Brain size={size} className={className} />;
+    case "memory-nag":
       return <Brain size={size} className={className} />;
     case "hierarchical-maps":
       return <MapIcon size={size} className={className} />;
@@ -1280,7 +1282,10 @@ export function ChatSettingsDrawer({
     }
     return packages;
   }, [installedCapabilities]);
-  const renderDownloadedAgentChatSettings = (agent: { id: string; name: string; description: string }) => {
+  const renderDownloadedAgentChatSettings = (
+    agent: { id: string; name: string; description: string },
+    className = "mt-2 block overflow-hidden rounded-lg",
+  ) => {
     if (agent.id === "hierarchical-maps" || agent.id === "long-term-memory") return null;
     const capabilityPackage = chatSettingsPackageByAgentId.get(agent.id);
     if (!capabilityPackage) return null;
@@ -1297,7 +1302,7 @@ export function ChatSettingsDrawer({
           onDirtyChange: setEditorDirty,
           confirmAction: showConfirmDialog,
         }}
-        className="mt-2 block overflow-hidden rounded-lg"
+        className={className}
       />
     );
   };
@@ -2101,6 +2106,14 @@ export function ChatSettingsDrawer({
   const ltmAgent = availableAgents.find((agent) => agent.id === ltmPackage?.id);
   const storyboardAgent = availableAgents.find((agent) => agent.id === STORYBOARD_AGENT_ID);
   const beholderAgent = availableAgents.find((agent) => agent.id === "beholder");
+  const memoryNagAgent = availableAgents.find((agent) => agent.id === "memory-nag");
+  const memoryNagStandaloneActive = Boolean(
+    metadata.enableAgents === true &&
+    isRoleplayMode &&
+    memoryNagAgent &&
+    activeAgentIds.includes(memoryNagAgent.id) &&
+    chatSettingsPackageByAgentId.has(memoryNagAgent.id),
+  );
   const [pendingAgentMenuTargetId, setPendingAgentMenuTargetId] = useState<string | null>(null);
   const roleplayAgentMenuLinks = useMemo(() => {
     if (!metadata.enableAgents || !isRoleplayMode || isGame) return [];
@@ -7730,6 +7743,19 @@ export function ChatSettingsDrawer({
                         />
                       )}
 
+                      {memoryNagStandaloneActive && memoryNagAgent && (
+                        <AgentSettingsCard
+                          id={getAgentSettingsMenuId(chat.id, memoryNagAgent.id)}
+                          icon={renderRoleplayAgentMenuIcon(memoryNagAgent.id)}
+                          title={memoryNagAgent.name}
+                          description={memoryNagAgent.description}
+                          order={getRoleplayAgentSettingsOrder(memoryNagAgent.id)}
+                          onRemove={getRoleplayAgentMenuRemoveHandler(memoryNagAgent.id, memoryNagAgent.name)}
+                        >
+                          {renderDownloadedAgentChatSettings(memoryNagAgent, "block overflow-hidden rounded-lg")}
+                        </AgentSettingsCard>
+                      )}
+
                       {metadata.enableAgents && !isGame && expressionActive && (
                         <AgentSettingsCard
                           id={getAgentSettingsMenuId(chat.id, "expression")}
@@ -8721,7 +8747,11 @@ export function ChatSettingsDrawer({
                           ).map((cat) => {
                             const catAgents = availableAgents.filter((a) => a.category === cat.key);
                             const activeInCat = catAgents
-                              .filter((a) => activeAgentIds.includes(a.id))
+                              .filter(
+                                (a) =>
+                                  activeAgentIds.includes(a.id) &&
+                                  !(hasStandaloneRoleplayAgentSettings(a.id) && memoryNagStandaloneActive),
+                              )
                               .sort(
                                 (a, b) => getRoleplayAgentSettingsOrder(a.id) - getRoleplayAgentSettingsOrder(b.id),
                               );
@@ -8735,7 +8765,9 @@ export function ChatSettingsDrawer({
                                 description={cat.description}
                                 count={activeInCat.length}
                                 openRequest={catAgents.some(
-                                  (agent) => getAgentSettingsMenuId(chat.id, agent.id) === pendingAgentMenuTargetId,
+                                  (agent) =>
+                                    !(hasStandaloneRoleplayAgentSettings(agent.id) && memoryNagStandaloneActive) &&
+                                    getAgentSettingsMenuId(chat.id, agent.id) === pendingAgentMenuTargetId,
                                 )}
                               >
                                 {/* Active agents in this category */}
