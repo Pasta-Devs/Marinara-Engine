@@ -53,11 +53,13 @@ type ChatCompletionsUsagePayload = {
 
 export function extractOpenAICompatibleContentBlocks(
   content: unknown,
-): { text: string; thinking: string; toolCalls: LLMToolCall[] } | null {
+  createAnonymousToolCallId?: () => string,
+): { text: string; thinking: string; toolCalls: LLMToolCall[]; anonymousToolCallIds: string[] } | null {
   if (!Array.isArray(content)) return null;
   let text = "";
   let thinking = "";
   const toolCalls: LLMToolCall[] = [];
+  const anonymousToolCallIds: string[] = [];
   for (const block of content) {
     if (typeof block !== "object" || block === null) continue;
     const value = block as Record<string, unknown>;
@@ -66,17 +68,22 @@ export function extractOpenAICompatibleContentBlocks(
     } else if (value.type === "text" && typeof value.text === "string") {
       text += value.text;
     } else if (value.type === "tool_use" && typeof value.name === "string") {
+      const name = value.name.trim();
+      if (!name) continue;
+      const providerId = typeof value.id === "string" && value.id ? value.id : null;
+      const id = providerId ?? createAnonymousToolCallId?.() ?? `tool_${toolCalls.length + 1}`;
+      if (!providerId) anonymousToolCallIds.push(id);
       toolCalls.push({
-        id: typeof value.id === "string" && value.id ? value.id : `tool_${toolCalls.length + 1}`,
+        id,
         type: "function",
         function: {
-          name: value.name,
+          name,
           arguments: typeof value.input === "string" ? value.input : JSON.stringify(value.input ?? {}),
         },
       });
     }
   }
-  return { text, thinking, toolCalls };
+  return { text, thinking, toolCalls, anonymousToolCallIds };
 }
 
 type ResponsesUsagePayload = {
@@ -1619,12 +1626,14 @@ export class OpenAIProvider extends BaseLLMProvider {
     let finishReason = "stop";
     let streamUsage: LLMUsage | undefined;
     const reasoningMetadata: Record<string, unknown> = {};
+    let anonymousContentBlockToolCallCount = 0;
 
     // Accumulate tool calls from deltas
     const toolCallsMap = new Map<
       number,
       { id: string; type: "function"; function: { name: string; arguments: string } }
     >();
+    const providerContentBlockToolCallIndexes = new Map<string, number>();
 
     try {
       while (true) {
@@ -1698,7 +1707,10 @@ export class OpenAIProvider extends BaseLLMProvider {
             (typeof delta?.refusal === "string" && delta.refusal) ||
             (typeof message?.refusal === "string" && message.refusal) ||
             "";
-          const blocks = OpenAIProvider.extractContentBlocks(textContent);
+          const blocks = OpenAIProvider.extractContentBlocks(
+            textContent,
+            () => `content_block_tool_${++anonymousContentBlockToolCallCount}`,
+          );
           if (blocks) {
             if (!reasoning && blocks.thinking && options.onThinking) options.onThinking(blocks.thinking);
             if (blocks.text) {
@@ -1706,8 +1718,12 @@ export class OpenAIProvider extends BaseLLMProvider {
               await options.onToken?.(blocks.text);
             }
             for (const toolCall of blocks.toolCalls) {
-              const existingIndex = [...toolCallsMap.entries()].find(([, value]) => value.id === toolCall.id)?.[0];
-              toolCallsMap.set(existingIndex ?? toolCallsMap.size, toolCall);
+              const isAnonymous = blocks.anonymousToolCallIds.includes(toolCall.id);
+              const index = isAnonymous
+                ? toolCallsMap.size
+                : (providerContentBlockToolCallIndexes.get(toolCall.id) ?? toolCallsMap.size);
+              toolCallsMap.set(index, toolCall);
+              if (!isAnonymous) providerContentBlockToolCallIndexes.set(toolCall.id, index);
             }
           } else if (typeof textContent === "string" && textContent) {
             content += textContent;

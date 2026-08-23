@@ -9469,7 +9469,7 @@ function GameSurfaceComponent({
   // pipeline are finished. Query refreshes may expose the durable assistant row
   // before those later stages settle, which otherwise previews the next segment.
   const narrationUpdatesBlocked =
-    gameInputGenerationBlocked || scenePreparing || sceneAnalysis.isPending || !!pendingAssetGeneration;
+    gameInputGenerationBlocked || scenePreparing || sceneAnalysis.isPending || assetGenerationBlocksScene;
   const [settledNarrationSource, setSettledNarrationSource] = useState({ chatId: activeChatId, messages });
   useEffect(() => {
     if (narrationUpdatesBlocked) return;

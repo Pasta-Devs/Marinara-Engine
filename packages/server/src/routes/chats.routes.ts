@@ -3214,8 +3214,8 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.delete<{ Params: { chatId: string; messageId: string; index: string } }>(
     "/:chatId/messages/:messageId/swipes/others/:index",
     async (req, reply) => {
-      const keepIndex = Number.parseInt(req.params.index, 10);
-      if (!Number.isInteger(keepIndex) || keepIndex < 0) {
+      const keepIndex = Number(req.params.index);
+      if (!/^\d+$/u.test(req.params.index) || !Number.isSafeInteger(keepIndex)) {
         return reply.status(400).send({ error: "Valid swipe index is required" });
       }
 

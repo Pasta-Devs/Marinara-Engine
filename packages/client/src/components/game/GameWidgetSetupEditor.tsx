@@ -197,7 +197,7 @@ function normalizeConfig(
       ...source,
       max,
       value,
-      startingValue: parseNumber(source.startingValue ?? value, value, 0),
+      startingValue: Math.min(max, parseNumber(source.startingValue ?? value, value, 0)),
     };
   }
 

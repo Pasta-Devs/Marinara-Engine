@@ -2368,6 +2368,7 @@ assert.deepEqual(
   {
     text: "I will use the card tool.",
     thinking: "Checking the card.",
+    anonymousToolCallIds: [],
     toolCalls: [
       {
         id: "call-card",
@@ -2378,5 +2379,92 @@ assert.deepEqual(
   },
   "OpenAI-compatible Anthropic content blocks must preserve tool_use calls",
 );
+
+let anonymousContentBlockToolCallIndex = 0;
+const nextAnonymousContentBlockToolCallId = () => `content_block_tool_${++anonymousContentBlockToolCallIndex}`;
+const firstAnonymousBlocks = extractOpenAICompatibleContentBlocks(
+  [{ type: "tool_use", name: "read_character", input: { id: "char-1" } }],
+  nextAnonymousContentBlockToolCallId,
+);
+const secondAnonymousBlocks = extractOpenAICompatibleContentBlocks(
+  [
+    { type: "tool_use", name: "read_persona", input: { id: "persona-1" } },
+    { type: "tool_use", name: "   ", input: {} },
+  ],
+  nextAnonymousContentBlockToolCallId,
+);
+assert.deepEqual(
+  [...(firstAnonymousBlocks?.toolCalls ?? []), ...(secondAnonymousBlocks?.toolCalls ?? [])].map((call) => call.id),
+  ["content_block_tool_1", "content_block_tool_2"],
+  "anonymous content-block tool calls must retain unique IDs across streamed chunks",
+);
+
+const contentBlockToolSse = [
+  `data: ${JSON.stringify({
+    choices: [{ delta: { content: [{ type: "tool_use", name: "read_character", input: { id: "char-1" } }] } }],
+  })}`,
+  "",
+  `data: ${JSON.stringify({
+    choices: [
+      {
+        delta: {
+          content: [
+            { type: "tool_use", name: "read_persona", input: { id: "persona-1" } },
+            { type: "tool_use", name: "   ", input: {} },
+          ],
+        },
+        finish_reason: "tool_calls",
+      },
+    ],
+  })}`,
+  "",
+  "data: [DONE]",
+  "",
+].join("\n");
+const contentBlockToolServer = createServer((_request, response) => {
+  response.writeHead(200, { "content-type": "text/event-stream" });
+  response.end(contentBlockToolSse);
+});
+await new Promise<void>((resolve) => contentBlockToolServer.listen(0, "127.0.0.1", resolve));
+try {
+  const address = contentBlockToolServer.address();
+  assert.ok(address && typeof address === "object");
+  const provider = new OpenAIProvider(
+    `http://127.0.0.1:${address.port}/v1`,
+    "test",
+    undefined,
+    undefined,
+    undefined,
+    "custom",
+    undefined,
+    true,
+  );
+  const result = await provider.chatComplete([{ role: "user", content: "read both cards" }], {
+    model: "custom-model",
+    stream: true,
+    tools: [
+      {
+        type: "function",
+        function: { name: "read_character", description: "Read a character", parameters: { type: "object" } },
+      },
+      {
+        type: "function",
+        function: { name: "read_persona", description: "Read a persona", parameters: { type: "object" } },
+      },
+    ],
+  });
+  assert.deepEqual(
+    result.toolCalls.map((call) => [call.id, call.function.name]),
+    [
+      ["content_block_tool_1", "read_character"],
+      ["content_block_tool_2", "read_persona"],
+    ],
+    "separate anonymous content-block stream chunks must preserve both tool calls in order",
+  );
+} finally {
+  await new Promise<void>((resolve, reject) =>
+    contentBlockToolServer.close((error) => (error ? reject(error) : resolve())),
+  );
+}
 
 process.stdout.write("Provider compatibility regression passed.\n");

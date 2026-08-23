@@ -786,6 +786,7 @@ import {
   professorMariWorkspaceResponseFormat,
   resolveWorkspaceMutationVerification,
   workspaceMutationAuthorizationIssue,
+  workspaceMutationSignature,
   workspaceActionNeedsVerification,
   workspaceTextClaimsMutationCompletion,
   type WorkspaceCommandResult,
@@ -11335,11 +11336,16 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         null,
       );
 
+      const explicitCommandSignature = workspaceMutationSignature(explicitCommand);
       for (const directUserText of ["Да, согласен.", "Tak, zgadzam się.", "はい、同意します。", "نعم، أوافق."]) {
         assert.equal(
           workspaceMutationAuthorizationIssue(
             { ...explicitCommand, authorization: directUserText },
-            { directUserText, pendingMutationCategories: ["update"] },
+            {
+              directUserText,
+              pendingMutationCategories: ["update"],
+              pendingMutationSignatures: [explicitCommandSignature],
+            },
           ),
           null,
           `an exact localized reply should authorize the pending update: ${directUserText}`,
@@ -11355,8 +11361,28 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       assert.match(
         workspaceMutationAuthorizationIssue(
+          { ...explicitCommand, authorization: "No." },
+          { directUserText: "No.", pendingMutationCategories: ["update"] },
+        ) ?? "",
+        /explicitly requests no workspace changes/iu,
+        "an English short denial must never activate the pending mutation",
+      );
+      assert.match(
+        workspaceMutationAuthorizationIssue(
+          { ...explicitCommand, authorization: "pasta" },
+          { directUserText: "Can we talk about pasta?", pendingMutationCategories: ["update"] },
+        ) ?? "",
+        /update operation|active user message/iu,
+        "a model-quoted substring must not authorize a pending mutation",
+      );
+      assert.match(
+        workspaceMutationAuthorizationIssue(
           { ...explicitCommand, authorization: "Да, согласен." },
-          { directUserText: "Да, согласен.", pendingMutationCategories: ["delete"] },
+          {
+            directUserText: "Да, согласен.",
+            pendingMutationCategories: ["delete"],
+            pendingMutationSignatures: [explicitCommandSignature],
+          },
         ) ?? "",
         /update operation|immediately preceding visible proposal/iu,
         "a localized reply must stay scoped to the mutation category shown for approval",

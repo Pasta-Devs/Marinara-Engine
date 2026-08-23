@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Professor Mari native command workspace runtime
 // ──────────────────────────────────────────────
+import { createHash } from "node:crypto";
 import { constants, existsSync, realpathSync } from "node:fs";
 import { copyFile, link, mkdir, readdir, readFile, rmdir, stat, unlink, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
@@ -1648,6 +1649,24 @@ export function isMutatingWorkspaceCommand(command: WorkspaceCommandCall): boole
 
 type WorkspaceMutationCategory = "create" | "update" | "delete" | "move" | "copy" | "install";
 
+function stableMutationValue(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableMutationValue).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+      .map((key) => `${JSON.stringify(key)}:${stableMutationValue((value as Record<string, unknown>)[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+export function workspaceMutationSignature(command: Pick<WorkspaceCommandCall, "name" | "arguments">): string {
+  return createHash("sha256")
+    .update(stableMutationValue({ name: command.name, arguments: command.arguments }))
+    .digest("hex");
+}
+
 const MUTATION_INTENT_PATTERNS: Record<WorkspaceMutationCategory, RegExp> = {
   create: /\b(?:add|build|create|generate|import|make|remember|save|write)\b/iu,
   update:
@@ -1665,7 +1684,7 @@ const DIRECT_MUTATION_AFTER_INFORMATION =
 const MUTATION_DENIAL =
   /\b(?:do\s+not|don't|never|no\s+changes?|read[- ]only|without\s+(?:changing|editing|saving|writing))\b/iu;
 const LOCALIZED_SHORT_MUTATION_DENIAL =
-  /^(?:нет|не\s+соглас(?:ен|на)|отмена|nie|nie\s+zgadzam\s+się|anuluj|nein|abbrechen|non|annuler|não|cancelar|いいえ|しない|キャンセル|아니요|취소|لا|إلغاء|नहीं|रद्द|不要|取消)[,.!؟。\s]*$/iu;
+  /^(?:no|nope|нет|не\s+соглас(?:ен|на)|отмена|nie|nie\s+zgadzam\s+się|anuluj|nein|abbrechen|non|annuler|não|cancelar|いいえ|しない|キャンセル|아니요|취소|لا|إلغاء|नहीं|रद्द|不要|取消)[,.!؟。\s]*$/iu;
 const SHORT_MUTATION_CONFIRMATION =
   /^(?:yes|yeah|yep|sure|ok(?:ay)?|go\s+ahead|do\s+it|please\s+do|proceed|apply\s+it|make\s+that\s+change|i\s+(?:authori[sz]e|approve)(?:\s+(?:it|this|that|this\s+change|that\s+change|the\s+changes?|these\s+changes))?)[,.!\s]*$/iu;
 const VAGUE_MUTATION_CONFIRMATION =
@@ -1776,6 +1795,7 @@ export function workspaceMutationAuthorizationIssue(
     directUserText: string;
     previousAssistantText?: string | null;
     pendingMutationCategories?: string[] | null;
+    pendingMutationSignatures?: string[] | null;
   },
 ): string | null {
   if (!isMutatingWorkspaceCommand(command)) return null;
@@ -1790,9 +1810,13 @@ export function workspaceMutationAuthorizationIssue(
   const commandEntity = appDataMutationEntity(command);
   const vagueMutationConfirmation =
     VAGUE_MUTATION_CONFIRMATION.test(directUserText) && explicitlyNamedMutationEntities(directUserText).size === 0;
-  const exactQuotedReply =
-    authorization.length > 0 && directUserText.includes(authorization) && directUserText.length <= 240;
-  if (exactQuotedReply && context.pendingMutationCategories?.includes(category)) return null;
+  const exactQuotedReply = authorization.length > 0 && directUserText === authorization && directUserText.length <= 240;
+  if (
+    exactQuotedReply &&
+    context.pendingMutationCategories?.includes(category) &&
+    context.pendingMutationSignatures?.includes(workspaceMutationSignature(command))
+  )
+    return null;
   if (SHORT_MUTATION_CONFIRMATION.test(directUserText) || vagueMutationConfirmation) {
     const previousAssistantText = normalizeAuthorizationText(context.previousAssistantText ?? "");
     const previousCategories = explicitlyRequestedMutationCategories(previousAssistantText);
@@ -2163,10 +2187,16 @@ export class ProfessorMariWorkspaceService {
           (value): value is string => typeof value === "string",
         )
       : [];
+    const pendingMutationSignatures = Array.isArray(previousAssistantExtra.mariPendingMutationSignatures)
+      ? previousAssistantExtra.mariPendingMutationSignatures.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [];
     const mutationAuthorizationContext = {
       directUserText: promptText,
       previousAssistantText: previousAssistant?.content ?? null,
       pendingMutationCategories,
+      pendingMutationSignatures,
     };
     if (attachments.length > 0) {
       const extra = { attachments };
@@ -2188,6 +2218,7 @@ export class ProfessorMariWorkspaceService {
     const commandResultsForContinuity: WorkspaceCommandResult[] = [];
     let assistantMessagePersisted = false;
     let pendingApprovalCategories: WorkspaceMutationCategory[] = [];
+    let pendingApprovalSignatures: string[] = [];
 
     const persistAssistantMessage = async () => {
       const persistedText = assistantText.trim();
@@ -2208,6 +2239,7 @@ export class ProfessorMariWorkspaceService {
       if (storedTrace.length > 0) extraUpdate.mariWorkspaceTimeline = storedTrace;
       if (pendingApprovalCategories.length > 0) {
         extraUpdate.mariPendingMutationCategories = pendingApprovalCategories;
+        extraUpdate.mariPendingMutationSignatures = pendingApprovalSignatures;
       }
       const continuity = buildWorkspaceContinuitySnapshot({
         userText: promptText,
@@ -2303,6 +2335,9 @@ export class ProfessorMariWorkspaceService {
         if (shouldDeferMutations) {
           pendingApprovalCategories = Array.from(
             new Set(parsedAction.commands.filter(isMutatingWorkspaceCommand).map(workspaceMutationCategory)),
+          );
+          pendingApprovalSignatures = Array.from(
+            new Set(parsedAction.commands.filter(isMutatingWorkspaceCommand).map(workspaceMutationSignature)),
           );
           action.suggestions = [
             {
@@ -2413,13 +2448,10 @@ export class ProfessorMariWorkspaceService {
 
         if (isLengthFinishReason(result.finishReason)) {
           pendingApprovalCategories = Array.from(
-            new Set([
-              ...action.commands.filter(isMutatingWorkspaceCommand).map(workspaceMutationCategory),
-              ...commandResultsForContinuity
-                .map(commandCallForResult)
-                .filter(isMutatingWorkspaceCommand)
-                .map(workspaceMutationCategory),
-            ]),
+            new Set(action.commands.filter(isMutatingWorkspaceCommand).map(workspaceMutationCategory)),
+          );
+          pendingApprovalSignatures = Array.from(
+            new Set(action.commands.filter(isMutatingWorkspaceCommand).map(workspaceMutationSignature)),
           );
           if (pendingApprovalCategories.length > 0) {
             args.onEvent({
@@ -2707,6 +2739,9 @@ ${sections.join("\n\n")}
     const defaultParameters = parseJsonObject(connection.defaultParameters);
     const customParameters = isRecord(defaultParameters?.customParameters) ? defaultParameters.customParameters : {};
     const enabledParameters = normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters);
+    const disableHiddenReasoning =
+      enabledParameters?.reasoningEffort !== false &&
+      (isLocalSidecarConnection(connection) || connection.provider.toLowerCase() !== "custom");
     const verbosity = normalizeMariVerbosity(defaultParameters?.verbosity);
     return {
       model: connection.model,
@@ -2720,13 +2755,12 @@ ${sections.join("\n\n")}
       openrouterProvider: connection.openrouterProvider,
       responseFormat: professorMariWorkspaceResponseFormat(connection.provider),
       customParameters: mergeCustomParameters(customParameters, null),
-      enabledParameters:
-        enabledParameters?.reasoningEffort === false
-          ? enabledParameters
-          : { ...(enabledParameters ?? {}), reasoningEffort: true },
+      enabledParameters: !disableHiddenReasoning
+        ? enabledParameters
+        : { ...(enabledParameters ?? {}), reasoningEffort: true },
       // Mari's command protocol is JSON. Hidden reasoning can consume the whole
       // response before local OpenAI-compatible servers emit the JSON frame.
-      reasoningEffort: enabledParameters?.reasoningEffort === false ? undefined : "none",
+      reasoningEffort: disableHiddenReasoning ? "none" : undefined,
       verbosity,
       signal,
       onThinking,
@@ -2770,6 +2804,7 @@ ${sections.join("\n\n")}
       directUserText: string;
       previousAssistantText?: string | null;
       pendingMutationCategories?: string[] | null;
+      pendingMutationSignatures?: string[] | null;
     },
   ): Promise<WorkspaceCommandResult[]> {
     const results: WorkspaceCommandResult[] = [];
@@ -2807,6 +2842,7 @@ ${sections.join("\n\n")}
       directUserText: string;
       previousAssistantText?: string | null;
       pendingMutationCategories?: string[] | null;
+      pendingMutationSignatures?: string[] | null;
     },
   ): Promise<WorkspaceCommandResult> {
     const input = command.arguments;

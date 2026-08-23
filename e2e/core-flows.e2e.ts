@@ -1572,6 +1572,10 @@ test("message deletion uses unified chroma controls and selection states", async
       { data: { content: "Alternate assistant swipe." } },
     );
     expect(assistantSwipeResponse.ok()).toBeTruthy();
+    const malformedKeepIndexResponse = await page.request.delete(
+      `/api/chats/${chat.id}/messages/${assistantMessage.id}/swipes/others/1junk`,
+    );
+    expect(malformedKeepIndexResponse.status()).toBe(400);
 
     await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
     await page.goto("/");
