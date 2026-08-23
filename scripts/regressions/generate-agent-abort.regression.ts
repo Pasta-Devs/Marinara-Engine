@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 import { generateRoutes } from "../../packages/server/src/routes/generate.routes.js";
+import type { ActiveAgentRun } from "../../packages/server/src/routes/generate/retry-agents-route.js";
 
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const db = await getDB();
@@ -12,16 +13,7 @@ const primaryController = new AbortController();
 const agentController = new AbortController();
 const activeGenerations = (
   app as unknown as {
-    activeGenerations: Map<
-      string,
-      {
-        abortController: AbortController;
-        agentAbortController?: AbortController;
-        backendUrl: string | null;
-        messageId: string | null;
-        swipeIndex: number | null;
-      }
-    >;
+    activeGenerations: Map<string, ActiveAgentRun>;
   }
 ).activeGenerations;
 activeGenerations.set("attached-agent-abort", {
