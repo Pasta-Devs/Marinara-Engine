@@ -327,7 +327,12 @@ export function RoleplayHUD({
             key={`${item.id}-roleplay-tracker`}
             packageId={item.id}
             view="toolbar"
-            capabilityProps={{ chatId, chatMode: "roleplay", mobileCompact: mobileCompact === true }}
+            capabilityProps={{
+              chatId,
+              chatMode: "roleplay",
+              mobileCompact: mobileCompact === true,
+              toolbarButtonClass: getChatToolbarButtonClass({ compact: mobileCompact === true }),
+            }}
             className="contents"
           />
         ))}
@@ -1006,22 +1011,7 @@ function CharactersWidget({
         className={WIDGET}
         title={localizeUi("ui.chat.characterswidget.presentCharacters")}
       >
-        {characters.length > 0 ? (
-          <div className="flex items-center -space-x-0.5">
-            {characters.slice(0, 3).map((c, i) => (
-              <span key={i} className="text-xs max-md:text-[0.5625rem] leading-none">
-                {c.emoji || "👤"}
-              </span>
-            ))}
-            {characters.length > 3 && (
-              <span className="text-[0.4375rem] text-[var(--muted-foreground)]/60 ml-0.5">
-                +{characters.length - 3}
-              </span>
-            )}
-          </div>
-        ) : (
-          <Users size="0.875rem" className="transition-colors max-md:h-3.5 max-md:w-3.5" />
-        )}
+        <Users size="0.875rem" className="transition-colors max-md:h-3.5 max-md:w-3.5" />
       </button>
 
       <WidgetPopover
