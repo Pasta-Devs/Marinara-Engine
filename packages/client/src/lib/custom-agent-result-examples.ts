@@ -2,6 +2,7 @@ import type { AgentResultType } from "@marinara-engine/shared";
 
 export const CUSTOM_AGENT_RESULT_TYPE_IDS = [
   "context_injection",
+  "character_card_create",
   "text_rewrite",
   "lorebook_update",
   "character_tracker_update",
@@ -39,6 +40,29 @@ export const CUSTOM_AGENT_RESULT_EXAMPLES: Record<CustomAgentResultType, CustomA
     format: "text",
     value: "Plain text to inject into the main prompt or save as this agent's informational result.",
   },
+  character_card_create: jsonExample({
+    data: {
+      name: "Character name",
+      description: "Identity and role",
+      personality: "Traits, voice, and mannerisms",
+      scenario: "Default scenario",
+      first_mes: "Opening message",
+      mes_example: "Example dialogue",
+      creator_notes: "Notes for the user",
+      system_prompt: "",
+      post_history_instructions: "",
+      tags: ["npc"],
+      creator: "",
+      character_version: "1.0",
+      alternate_greetings: [],
+      extensions: {
+        backstory: "Established history",
+        appearance: "Physical appearance",
+      },
+      character_book: null,
+    },
+    reason: "Why this recurring character deserves a card",
+  }),
   text_rewrite: jsonExample({
     editNeeded: true,
     editedText: "Complete replacement assistant message",

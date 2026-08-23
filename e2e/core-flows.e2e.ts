@@ -10447,12 +10447,88 @@ test("custom Agent prompts preview the selected result format", async ({ page })
   await expect(promptEditor).toHaveAttribute("placeholder", /This result type returns plain text/u);
   await expect(promptEditor).toHaveAttribute("placeholder", /Plain text to inject into the main prompt/u);
 
+  const characterCardResult = editor.getByRole("button", { name: /^Character Card Creation/u });
+  await expect(characterCardResult).toBeDisabled();
+  await editor.getByText("Create character cards", { exact: true }).click();
+  await expect(characterCardResult).toBeEnabled();
+  await characterCardResult.click();
+  await expect(promptEditor).toHaveAttribute("placeholder", /"name": "Character name"/u);
+  await expect(promptEditor).toHaveAttribute(
+    "placeholder",
+    /"reason": "Why this recurring character deserves a card"/u,
+  );
+
   await editor.getByText("Edit lorebooks", { exact: true }).click();
   await editor.getByRole("button", { name: /^Lorebook Update/u }).click();
 
   await expect(promptEditor).toHaveAttribute("placeholder", /Its response must match this example JSON/u);
   await expect(promptEditor).toHaveAttribute("placeholder", /"updates": \[/u);
   await expect(promptEditor).toHaveAttribute("placeholder", /"order": 200/u);
+});
+
+test("custom Agent character cards are created only after approval", async ({ page }) => {
+  const name = `Approved Agent Character ${Date.now().toString(36)}`;
+  let createdId: string | null = null;
+
+  try {
+    await page.goto("/");
+    await page.evaluate(async (characterName) => {
+      const [{ useAgentStore }, { useUIStore }] = await Promise.all([
+        import("/src/stores/agent.store.ts"),
+        import("/src/stores/ui.store.ts"),
+      ]);
+      useAgentStore.getState().enqueuePendingAgentWriteApproval({
+        id: `card-create-${Date.now()}`,
+        kind: "character_card_create",
+        chatId: "approval-proof-chat",
+        agentType: "custom-card-maker",
+        agentName: "Card Maker",
+        title: `Card Maker: ${characterName}`,
+        text: JSON.stringify(
+          {
+            data: {
+              name: characterName,
+              description: "A recurring NPC proposed by a custom Agent.",
+            },
+            reason: "This character recurs in the roleplay.",
+          },
+          null,
+          2,
+        ),
+        canRegenerate: true,
+        timestamp: Date.now(),
+      });
+      useUIStore.getState().openModal("agent-write-approval");
+    }, name);
+
+    const beforeResponse = await page.request.get("/api/characters");
+    expect(beforeResponse.ok()).toBeTruthy();
+    const before = (await beforeResponse.json()) as Array<{ data?: unknown }>;
+    expect(
+      before.some((row) => {
+        const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
+        return (data as { name?: unknown } | null)?.name === name;
+      }),
+    ).toBe(false);
+
+    const modal = page.getByRole("dialog");
+    await expect(modal.getByText("Review Character Card", { exact: true })).toBeVisible();
+    expect(await modal.locator("textarea").inputValue()).toContain(name);
+    await modal.getByRole("button", { name: "Accept", exact: true }).click();
+    await expect(modal).toBeHidden();
+
+    const afterResponse = await page.request.get("/api/characters");
+    expect(afterResponse.ok()).toBeTruthy();
+    const after = (await afterResponse.json()) as Array<{ id: string; data?: unknown }>;
+    const created = after.find((row) => {
+      const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
+      return (data as { name?: unknown } | null)?.name === name;
+    });
+    expect(created).toBeTruthy();
+    createdId = created?.id ?? null;
+  } finally {
+    if (createdId) await page.request.delete(`/api/characters/${createdId}`).catch(() => undefined);
+  }
 });
 
 test("Storyboard Agent settings stay organized and contained at phone widths", async ({ page }, testInfo) => {

@@ -1961,6 +1961,12 @@ function buildCustomAgentCapabilityBlock(config: AgentExecConfig, context: Agent
     );
   }
 
+  if (capabilities.create_characters) {
+    parts.push(
+      `Character card creation is enabled. For Character Card Creation output, propose one card as {"data":{"name":"...","description":"...","personality":"...","scenario":"...","first_mes":"..."},"reason":"..."}. The user must review it before it is saved.`,
+    );
+  }
+
   if (capabilities.edit_trackers) {
     parts.push(
       `Tracker editing is enabled. Return a tracker result type only when you intend to update the matching tracker state.`,

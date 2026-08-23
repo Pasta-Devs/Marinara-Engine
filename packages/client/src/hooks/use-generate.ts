@@ -2,7 +2,7 @@
 // React Query: Generation (streaming + agent pipeline)
 // ──────────────────────────────────────────────
 import { useCallback, useRef } from "react";
-import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
+import { characterDataSchema, normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { toast, type ExternalToast } from "sonner";
 import { api, ApiError } from "../lib/api-client";
@@ -531,7 +531,28 @@ async function buildPendingCardUpdates(
 function readAgentWriteApprovalProposal(
   raw: unknown,
   fallback?: { chatId?: string; agentType?: string | null; agentName?: string },
+  resultType?: string,
 ): AgentWriteApprovalProposal | null {
+  if (resultType === "character_card_create") {
+    const chatId = typeof fallback?.chatId === "string" ? fallback.chatId : "";
+    if (!chatId || !raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const agentType = fallback?.agentType ?? null;
+    const agentName = fallback?.agentName ?? agentType ?? "Agent";
+    const rawData = (raw as Record<string, unknown>).data;
+    const character = characterDataSchema.safeParse(rawData);
+    if (!character.success) return null;
+    const characterName = character.data.name;
+    return {
+      kind: "character_card_create",
+      chatId,
+      agentType,
+      agentName,
+      title: characterName ? `${agentName}: ${characterName}` : agentName,
+      text: JSON.stringify(raw, null, 2),
+      canRegenerate: !!agentType,
+    };
+  }
+
   const envelope = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
   const source =
     envelope?.requiresApproval === true && envelope.approval && typeof envelope.approval === "object"
@@ -1875,15 +1896,19 @@ export function useGenerate() {
               }
 
               const writeApproval = result.success
-                ? readAgentWriteApprovalProposal(result.data, {
-                    chatId: params.chatId,
-                    agentType: result.agentType,
-                    agentName: result.agentName,
-                  })
+                ? readAgentWriteApprovalProposal(
+                    result.data,
+                    {
+                      chatId: params.chatId,
+                      agentType: result.agentType,
+                      agentName: result.agentName,
+                    },
+                    result.resultType,
+                  )
                 : null;
-              if (writeApproval) {
+              if (writeApproval && isActiveChat() && ownsVisibleSwipe) {
                 enqueuePendingAgentWriteApproval(createPendingAgentWriteApproval(writeApproval));
-                if (isActiveChat() && ownsVisibleSwipe) useUIStore.getState().openModal("agent-write-approval");
+                useUIStore.getState().openModal("agent-write-approval");
               }
 
               // Only update agent/game/UI stores for the active chat so a
@@ -3472,15 +3497,19 @@ export function useGenerate() {
                 });
               }
               const writeApproval = result.success
-                ? readAgentWriteApprovalProposal(result.data, {
-                    chatId,
-                    agentType: result.agentType,
-                    agentName: result.agentName,
-                  })
+                ? readAgentWriteApprovalProposal(
+                    result.data,
+                    {
+                      chatId,
+                      agentType: result.agentType,
+                      agentName: result.agentName,
+                    },
+                    result.resultType,
+                  )
                 : null;
-              if (writeApproval) {
+              if (writeApproval && shouldApplyVisibleResult) {
                 enqueuePendingAgentWriteApproval(createPendingAgentWriteApproval(writeApproval));
-                if (shouldApplyVisibleResult) useUIStore.getState().openModal("agent-write-approval");
+                useUIStore.getState().openModal("agent-write-approval");
               }
               if (result.success && result.resultType === "character_card_update") {
                 buildPendingCardUpdates(qc, chatId, result.agentType, result.agentName, result.data)
