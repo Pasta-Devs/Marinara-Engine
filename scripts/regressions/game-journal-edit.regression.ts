@@ -24,6 +24,13 @@ try {
           content: "Old content",
           sourceMessageId: "message-1",
         },
+        {
+          timestamp: "2026-08-20T01:00:00.000Z",
+          type: "event",
+          title: "Later title",
+          content: "Later content",
+          sourceMessageId: "message-2",
+        },
       ],
       quests: [],
       locations: [],
@@ -45,7 +52,7 @@ try {
 
   const missing = await app.inject({
     method: "PUT",
-    url: `/api/game/${chat.id}/journal/entries/1`,
+    url: `/api/game/${chat.id}/journal/entries/2`,
     payload: { title: "Missing", content: "Missing" },
   });
   assert.equal(missing.statusCode, 404);
@@ -55,7 +62,20 @@ try {
     url: `/api/game/${chat.id}/journal/entries/0`,
   });
   assert.equal(deleted.statusCode, 200, deleted.body);
-  assert.equal(deleted.json().journal.entries.length, 0);
+  assert.deepEqual(
+    deleted.json().journal.entries.map((remaining: { title: string; sourceMessageId?: string }) => ({
+      title: remaining.title,
+      sourceMessageId: remaining.sourceMessageId,
+    })),
+    [{ title: "Later title", sourceMessageId: "message-2" }],
+  );
+
+  const deletedLast = await app.inject({
+    method: "DELETE",
+    url: `/api/game/${chat.id}/journal/entries/0`,
+  });
+  assert.equal(deletedLast.statusCode, 200, deletedLast.body);
+  assert.equal(deletedLast.json().journal.entries.length, 0);
 
   const missingDelete = await app.inject({
     method: "DELETE",

@@ -524,7 +524,7 @@ export function ConversationView({
               view="toolbar"
               capabilityProps={callCapabilityProps}
               // ponytail: This direct-child size bridge supports Calls <=1.0.11; remove it once 1.0.12 is the minimum.
-              className="contents [&>button]:!h-8 [&>button]:!w-8 max-md:[&>button]:!h-9 max-md:[&>button]:!w-9"
+              className="contents [&>button]:h-8! [&>button]:w-8! max-md:[&>button]:h-9! max-md:[&>button]:w-9!"
             />
           </span>
         )}
