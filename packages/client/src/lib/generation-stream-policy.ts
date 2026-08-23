@@ -50,9 +50,12 @@ const TYPEWRITER_MAX_CATCH_UP_FRAMES = 2;
 const IOS_TYPEWRITER_TARGET_FRAME_MS = 1000 / 20;
 
 /** iOS browsers all use WebKit, where repainting growing Markdown at 60 FPS can freeze long streams. */
+export function isIosWebKitBrowser(userAgent: string, platform: string, maxTouchPoints: number): boolean {
+  return /iP(?:ad|hone|od)/iu.test(userAgent) || (platform === "MacIntel" && maxTouchPoints > 1);
+}
+
 export function getTypewriterPaintIntervalMs(userAgent: string, platform: string, maxTouchPoints: number): number {
-  const isIosWebKit = /iP(?:ad|hone|od)/iu.test(userAgent) || (platform === "MacIntel" && maxTouchPoints > 1);
-  return isIosWebKit ? IOS_TYPEWRITER_TARGET_FRAME_MS : 0;
+  return isIosWebKitBrowser(userAgent, platform, maxTouchPoints) ? IOS_TYPEWRITER_TARGET_FRAME_MS : 0;
 }
 
 /** Keep send actions guarded while leaving the draft field itself editable. */

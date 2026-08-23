@@ -80,6 +80,10 @@ export function MariSuggestionChips({ chips, onSelect, disabled = false, compact
           {chips.map((chip) => {
             const entity = inferChipEntity(chip);
             const Icon = (chip.icon && CHIP_ICONS[chip.icon]) || (entity && ENTITY_DEFAULT_ICON[entity]) || undefined;
+            const label =
+              chip.id === "authorization-accept"
+                ? localizeUi("ui.chat.marisuggestionchips.acceptAuthorization")
+                : chip.label;
             return (
               <button
                 key={chip.id}
@@ -94,11 +98,11 @@ export function MariSuggestionChips({ chips, onSelect, disabled = false, compact
                   chip.tone === "caution" && "mari-suggestion-chip--caution",
                   chip.tone === "success" && "mari-suggestion-chip--success",
                 )}
-                aria-label={chip.label}
+                aria-label={label}
                 title={chip.prompt}
               >
                 {Icon ? <Icon size={compact ? "0.6875rem" : "0.8125rem"} className="shrink-0" /> : null}
-                <span className="min-w-0 truncate">{chip.label}</span>
+                <span className="min-w-0 truncate">{label}</span>
               </button>
             );
           })}

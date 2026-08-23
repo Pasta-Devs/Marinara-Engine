@@ -3338,11 +3338,13 @@ export function HomeProfessorMariChat({
   }, [isBusy]);
   const canSubmitMessage = (draft.trim().length > 0 || attachments.length > 0) && !isReadingAttachments;
   const visibleSuggestionChips =
-    professorMariSuggestionsEnabled && mariChipsChatId === chatId && mariChips.length > 0
-      ? mariChips
-      : professorMariSuggestionsEnabled && chatId !== null && loadedMessagesChatId === chatId && !isBusy
-        ? MARI_STARTER_CHIPS
-        : [];
+    mariChipsChatId === chatId && mariChips.some((chip) => chip.id === "authorization-accept")
+      ? mariChips.filter((chip) => professorMariSuggestionsEnabled || chip.id === "authorization-accept")
+      : professorMariSuggestionsEnabled && mariChipsChatId === chatId && mariChips.length > 0
+        ? mariChips
+        : professorMariSuggestionsEnabled && chatId !== null && loadedMessagesChatId === chatId && !isBusy
+          ? MARI_STARTER_CHIPS
+          : [];
   const selectedSkill = useMemo(
     () => skills.find((skill) => skill.id === selectedSkillId) ?? null,
     [selectedSkillId, skills],
@@ -4019,26 +4021,27 @@ export function HomeProfessorMariChat({
     chipRowChips.length === 0 &&
     workspaceActivity?.toLocaleLowerCase().includes("suggestion") === true;
 
-  const handleSuggestionSelect = useCallback(
-    (chip: MariSuggestionChip) => {
-      if (guidedPlanStep) {
-        const result = recordMariPlanAnswer(guidedPlanStep.fieldKey, chip.prompt);
-        if (result === "complete") {
-          const answers = useAgentStore.getState().mariPlanAnswers;
-          const summary = Object.entries(answers)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join("; ");
-          clearMariPlan();
-          setDraft(`Create it - ${summary}`);
-          focusComposer();
-        }
-        return;
+  function handleSuggestionSelect(chip: MariSuggestionChip) {
+    if (chip.id === "authorization-accept") {
+      void handleSubmit(chip.prompt);
+      return;
+    }
+    if (guidedPlanStep) {
+      const result = recordMariPlanAnswer(guidedPlanStep.fieldKey, chip.prompt);
+      if (result === "complete") {
+        const answers = useAgentStore.getState().mariPlanAnswers;
+        const summary = Object.entries(answers)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join("; ");
+        clearMariPlan();
+        setDraft(`Create it - ${summary}`);
+        focusComposer();
       }
-      setDraft((current) => (current.trim() ? `${current.trimEnd()} ${chip.prompt}` : chip.prompt));
-      focusComposer();
-    },
-    [clearMariPlan, focusComposer, guidedPlanStep, recordMariPlanAnswer, setDraft],
-  );
+      return;
+    }
+    setDraft((current) => (current.trim() ? `${current.trimEnd()} ${chip.prompt}` : chip.prompt));
+    focusComposer();
+  }
 
   const runRestart = useCallback(async () => {
     if (isBusy) return;
@@ -4819,8 +4822,12 @@ export function HomeProfessorMariChat({
             setWorkspaceTimeline((current) => upsertToolTimeline(current, toolCall));
             setWorkspaceActivity(isError ? "Tool needs attention" : "Thinking...");
           } else if (event.type === "suggestions") {
-            if (useUIStore.getState().professorMariSuggestionsEnabled) {
-              setMariChips(chat.id, Array.isArray(event.data) ? (event.data as MariSuggestionChip[]) : []);
+            const chips = Array.isArray(event.data) ? (event.data as MariSuggestionChip[]) : [];
+            if (
+              useUIStore.getState().professorMariSuggestionsEnabled ||
+              chips.some((chip) => chip.id === "authorization-accept")
+            ) {
+              setMariChips(chat.id, chips);
             }
           } else if (event.type === "plan") {
             if (useUIStore.getState().professorMariSuggestionsEnabled) {
@@ -5028,7 +5035,7 @@ export function HomeProfessorMariChat({
     [chatId, isBusy, loadMessages, localizeUi],
   );
 
-  const handleSubmit = async (overrideText?: string) => {
+  async function handleSubmit(overrideText?: string) {
     const text = (overrideText ?? draft).trim();
     const submittedAttachments = attachments;
     const messageText = text || (submittedAttachments.length > 0 ? "Please inspect the attached file." : "");
@@ -5077,7 +5084,7 @@ export function HomeProfessorMariChat({
     } finally {
       setSending(false);
     }
-  };
+  }
 
   const renderDisplayMessage = (message: Message) => {
     const canManageMessage = message.id !== PROFESSOR_MARI_WELCOME_MESSAGE_ID;

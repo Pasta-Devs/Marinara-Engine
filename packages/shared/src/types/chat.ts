@@ -792,6 +792,8 @@ export interface MessageExtra {
   conversationCommandContent?: string | null;
   /** Professor Mari workspace trace shown on the home assistant transcript. */
   mariWorkspaceTimeline?: MariWorkspaceTraceItem[] | null;
+  /** Mutation kinds Professor Mari has explicitly asked the user to approve. */
+  mariPendingMutationCategories?: string[] | null;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
   /** Per-swipe CYOA choices from the CYOA Choices agent */

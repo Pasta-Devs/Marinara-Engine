@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Game setup's Review Starting Widgets step can now add, rename, re-icon, retype, duplicate, and fully edit proposed widgets before the first turn (#5426).
 - Roleplay and Conversation message deletion can now keep the selected swipe and delete every alternate in one action (#5380).
 - The chat Help overlay and its App Behavior visibility setting are now localized in Arabic, German, Spanish, French, Hindi, Japanese, Korean, Polish, Brazilian Portuguese, Russian, and Simplified Chinese (#5420).
 - Game-surface Experience packages that keep a save in both the engine's per-message experience-state row and a chat-metadata boot cache can now tell which copy is newer: one server-assigned per-chat write ordinal is shared by both stores, returned as `writeOrdinal` on `PUT`/`GET /api/game/:chatId/experience-state` and mirrored per metadata key as `metadata.metadataWriteOrdinals`, so a session that degraded to metadata-only writes is recovered at the next boot instead of being discarded (#5406).
@@ -32,6 +33,11 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Professor Mari now shows a one-click Accept action for proposed writes, accepts exact confirmations in any language within the pending operation's scope, resumes authorized work after output limits without exact phrasing, goes directly to supplied character or Persona IDs, and prevents hidden reasoning from consuming local JSON responses (#5431, #5434).
+- Character and Persona card macros now resolve in request-scoped text and appearance context before generation and image agents consume them, without changing the saved card (#5432).
+- OpenAI-compatible custom connections now preserve Anthropic-style `tool_use` content blocks, restoring visible LinkAPI Opus tool calls (#5430).
+- Game narration now holds the last settled transcript throughout generation, Agent work, and scene preparation so the next line cannot appear early and then repeat (#5433).
+- TTS on iPhone and iPad now avoids persistent IndexedDB Blob writes that can stall WebKit, while retaining the bounded in-memory audio cache (#5429).
 - The floating Professor Mari chat now keeps action, reasoning, and status visuals within Chat Chrome colors and uses the compact sidebar-style desktop close control (#5422).
 - Professor Mari can now list and create both folders inside a lorebook and folders in the main Lorebooks panel through safe, reviewable app-data actions (#5421).
 - Agent requests now keep authored text inside conditional macros while omitting their control syntax and encoded quote entities from the provider prompt (#5423).

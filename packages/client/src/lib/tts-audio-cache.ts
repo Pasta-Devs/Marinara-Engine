@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Persistent TTS audio cache
 // ──────────────────────────────────────────────
+import { isIosWebKitBrowser } from "./generation-stream-policy";
 
 const DB_NAME = "marinara-tts-audio-cache";
 const DB_VERSION = 2;
@@ -30,6 +31,10 @@ const inFlight = new Map<string, Promise<Blob>>();
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 let lastPersistentPruneAt = 0;
 
+export function shouldUsePersistentTTSAudioCache(userAgent: string, platform: string, maxTouchPoints: number): boolean {
+  return !isIosWebKitBrowser(userAgent, platform, maxTouchPoints);
+}
+
 function rememberInMemory(key: string, blob: Blob) {
   memoryCache.delete(key);
   memoryCache.set(key, blob);
@@ -57,6 +62,12 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
 
 function openDb(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === "undefined") return Promise.resolve(null);
+  if (
+    typeof navigator !== "undefined" &&
+    !shouldUsePersistentTTSAudioCache(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)
+  ) {
+    return Promise.resolve(null);
+  }
   if (dbPromise) return dbPromise;
 
   dbPromise = new Promise((resolve) => {

@@ -2223,6 +2223,14 @@ export async function generateRoutes(app: FastifyInstance) {
           messages: T[],
         ): T[] => resolvePromptMessageMacros(messages, promptMacroContext, historyMacroProfilesById);
         const resolvePromptMacros = (value: string) => resolveMacros(value, promptMacroContext);
+        personaDescription = resolvePromptMacros(personaDescription);
+        personaFields = {
+          ...personaFields,
+          personality: resolvePromptMacros(personaFields.personality ?? ""),
+          scenario: resolvePromptMacros(personaFields.scenario ?? ""),
+          backstory: resolvePromptMacros(personaFields.backstory ?? ""),
+          appearance: resolvePromptMacros(personaFields.appearance ?? ""),
+        };
         const resolvePromptMacrosWithoutVariableWrites = (value: string) =>
           resolveMacrosForPreview(value, promptMacroContext, { trimResult: false });
         const resolvePromptMacrosForLorebook = (value: string) =>

@@ -1674,17 +1674,21 @@ test("message deletion uses unified chroma controls and selection states", async
     await expect(dialog).toBeVisible();
 
     const assistantDialogActions = dialog.locator('[data-component="MessageDeleteActions"] > button');
-    await expect(assistantDialogActions).toHaveCount(4);
+    await expect(assistantDialogActions).toHaveCount(5);
     const deleteSwipe = dialog.getByRole("button", { name: "Delete only this swipe (2/2)" });
+    const deleteOtherSwipes = dialog.getByRole("button", { name: "Delete all other swipes" });
     await expect(deleteSwipe).toBeVisible();
+    await expect(deleteOtherSwipes).toBeVisible();
     const swipeStyles = await readChromeStyles(deleteSwipe);
+    const otherSwipeStyles = await readChromeStyles(deleteOtherSwipes);
     const deleteMessageStyles = await readChromeStyles(dialog.getByRole("button", { name: "Delete this message" }));
     expect(swipeStyles).toHaveLength(1);
     expect(swipeStyles[0]).toEqual(deleteMessageStyles[0]);
+    expect(otherSwipeStyles).toEqual(deleteMessageStyles);
     expect(swipeStyles[0]?.color).not.toBe(tealStyles[0]?.color);
     expect(swipeStyles[0]?.className).not.toMatch(/destructive|pink|red|rose/iu);
 
-    await deleteSwipe.click();
+    await deleteOtherSwipes.click();
     await expect(dialog).toBeHidden();
     await expect
       .poll(async () => {
@@ -1693,7 +1697,7 @@ test("message deletion uses unified chroma controls and selection states", async
         return ((await response.json()) as unknown[]).length;
       })
       .toBe(1);
-    await expect(assistantRow).toContainText("First assistant swipe.");
+    await expect(assistantRow).toContainText("Alternate assistant swipe.");
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
   }
@@ -14412,15 +14416,15 @@ test("Professor Mari follows an open conversation across chats and mobile naviga
     } else {
       const dismissProfessorMari = page.getByRole("button", { name: "Dismiss Professor Mari floating chat" });
       await expect(dismissProfessorMari).toBeVisible();
-      await expect(dismissProfessorMari).toHaveClass(/mari-editor-action/u);
+      await expect(dismissProfessorMari).toHaveClass(/mari-chrome-control--small/u);
       const [buttonBox, iconBox] = await Promise.all([
         dismissProfessorMari.boundingBox(),
         dismissProfessorMari.locator("svg").boundingBox(),
       ]);
-      expect(buttonBox?.width).toBeGreaterThanOrEqual(36);
-      expect(buttonBox?.height).toBeGreaterThanOrEqual(36);
-      expect(iconBox?.width).toBeGreaterThanOrEqual(18);
-      expect(iconBox?.height).toBeGreaterThanOrEqual(18);
+      expect(buttonBox?.width).toBeLessThanOrEqual(32);
+      expect(buttonBox?.height).toBeLessThanOrEqual(32);
+      expect(iconBox?.width).toBeLessThanOrEqual(18);
+      expect(iconBox?.height).toBeLessThanOrEqual(18);
       await expect(page.getByPlaceholder("Ask Professor Mari")).toBeVisible();
     }
 

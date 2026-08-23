@@ -18,6 +18,7 @@ import { useGameModeStore } from "../../stores/game-mode.store";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { Modal } from "../ui/Modal";
 import { PanelLockButton, useDraggablePanel } from "./DraggablePanel";
+import { GameWidgetSetupEditor } from "./GameWidgetSetupEditor";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 // ── Public API ──
@@ -901,7 +902,11 @@ export function GameWidgetSessionPrepModal({
         <div className="space-y-4">
           <p className="text-sm text-[var(--muted-foreground)]">{copy.description}</p>
 
-          {draftWidgets.length === 0 ? (
+          {mode === "initial" ? (
+            <div className="max-h-[52vh] overflow-y-auto pr-1">
+              <GameWidgetSetupEditor widgets={draftWidgets} onChange={setDraftWidgets} disabled={interactionsLocked} />
+            </div>
+          ) : draftWidgets.length === 0 ? (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--accent)]/30 px-4 py-3 text-sm text-[var(--muted-foreground)]">
               {copy.empty}
             </div>

@@ -21,6 +21,7 @@ import {
   getTTSAutoplayRevision,
   shouldAutoplayGeneratedTTS,
 } from "../../packages/client/src/lib/tts-autoplay.js";
+import { shouldUsePersistentTTSAudioCache } from "../../packages/client/src/lib/tts-audio-cache.js";
 import { getAgentBatchLane, type ResolvedAgent } from "../../packages/server/src/services/agents/agent-pipeline.js";
 import { mergePairedBuiltInRewriteAgents } from "../../packages/server/src/services/generation/prose-guardian-settings.js";
 import { estimateAgentLoadCost } from "../../packages/shared/src/utils/agent-cost.js";
@@ -1322,6 +1323,20 @@ assert.equal(
   getTypewriterPaintIntervalMs("Mozilla/5.0 (Linux; Android 16)", "Linux armv8l", 5),
   0,
   "non-iOS browsers should retain the native animation cadence",
+);
+assert.equal(
+  shouldUsePersistentTTSAudioCache(
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 26_6 like Mac OS X) AppleWebKit/605.1.15 CriOS/151 Mobile/15E148",
+    "iPhone",
+    5,
+  ),
+  false,
+  "iOS TTS must avoid persistent IndexedDB Blob writes that can stall WebKit",
+);
+assert.equal(
+  shouldUsePersistentTTSAudioCache("Mozilla/5.0 (Linux; Android 16)", "Linux armv8l", 5),
+  true,
+  "non-iOS TTS should retain the persistent cache",
 );
 let simulatedIosRemainder = 0;
 let simulatedIosCharacters = 0;

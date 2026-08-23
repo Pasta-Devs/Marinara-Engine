@@ -9465,14 +9465,28 @@ function GameSurfaceComponent({
     [activeChatId, chatMeta.gameCharacterCards, updateChatMetadata, localizeUi],
   );
 
+  // Keep the last settled transcript visible until generation and its scene/agent
+  // pipeline are finished. Query refreshes may expose the durable assistant row
+  // before those later stages settle, which otherwise previews the next segment.
+  const narrationUpdatesBlocked =
+    gameInputGenerationBlocked || scenePreparing || sceneAnalysis.isPending || !!pendingAssetGeneration;
+  const [settledNarrationSource, setSettledNarrationSource] = useState({ chatId: activeChatId, messages });
+  useEffect(() => {
+    if (narrationUpdatesBlocked) return;
+    const timer = window.setTimeout(() => setSettledNarrationSource({ chatId: activeChatId, messages }), 0);
+    return () => window.clearTimeout(timer);
+  }, [activeChatId, messages, narrationUpdatesBlocked]);
+  const visibleNarrationMessages =
+    settledNarrationSource.chatId === activeChatId ? settledNarrationSource.messages : messages;
+
   // Map narration messages with character names
   const narrationMessages = useMemo(
     () =>
-      messages.map((m) => ({
+      visibleNarrationMessages.map((m) => ({
         ...m,
         characterName: m.characterId ? characterMap.get(m.characterId)?.name : undefined,
       })),
-    [messages, characterMap],
+    [visibleNarrationMessages, characterMap],
   );
 
   const sessionStatus = (chatMeta.gameSessionStatus as string) || "active";

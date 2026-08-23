@@ -25,6 +25,7 @@ import {
   resolveGoogleFunctionCallingMode,
 } from "../../packages/server/src/services/llm/providers/google.provider.js";
 import {
+  extractOpenAICompatibleContentBlocks,
   normalizeOpenAIChatCompletionsResponseFormat,
   OpenAIProvider,
 } from "../../packages/server/src/services/llm/providers/openai.provider.js";
@@ -1009,10 +1010,7 @@ assert.equal(
     assert.deepEqual(subscriptionOptions.settings, { fastMode: false });
     assert.equal(subscriptionOptions.cwd, undefined);
     assert.equal(subscriptionOptions.systemPrompt, "Keep the caller-owned system prompt.");
-    assert.equal(
-      (subscriptionOptions.env as Record<string, unknown>).ENABLE_CLAUDEAI_MCP_SERVERS,
-      "false",
-    );
+    assert.equal((subscriptionOptions.env as Record<string, unknown>).ENABLE_CLAUDEAI_MCP_SERVERS, "false");
     assert.equal("UNTRUSTED_VALUE" in (subscriptionOptions.env as Record<string, unknown>), false);
   } finally {
     __setSdkForTesting(null);
@@ -2360,5 +2358,25 @@ assert.equal(abortedFallback.calls, 0, "user cancellation must not trigger a fal
     await new Promise<void>((resolve, reject) => captionServer.close((error) => (error ? reject(error) : resolve())));
   }
 }
+
+assert.deepEqual(
+  extractOpenAICompatibleContentBlocks([
+    { type: "thinking", thinking: "Checking the card." },
+    { type: "text", text: "I will use the card tool." },
+    { type: "tool_use", id: "call-card", name: "read_character", input: { id: "char-1" } },
+  ]),
+  {
+    text: "I will use the card tool.",
+    thinking: "Checking the card.",
+    toolCalls: [
+      {
+        id: "call-card",
+        type: "function",
+        function: { name: "read_character", arguments: '{"id":"char-1"}' },
+      },
+    ],
+  },
+  "OpenAI-compatible Anthropic content blocks must preserve tool_use calls",
+);
 
 process.stdout.write("Provider compatibility regression passed.\n");

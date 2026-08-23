@@ -11052,6 +11052,10 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       assert.equal(workspaceTextClaimsMutationCompletion(completedSupportReply.visibleText), false);
       assert.equal(workspaceActionNeedsVerification(completedSupportReply, []), null);
+      const approvalRequest = parseAssistantWorkspaceAction(
+        '{"say":"Should I save this character update?","awaitingAuthorization":true,"commands":[{"name":"app_data","arguments":{"action":"character.update","characterId":"char-1","patch":{"appearance":"Blue coat"},"apply":true}}],"stop":false}',
+      );
+      assert.equal(approvalRequest.awaitingAuthorization, true);
 
       const mutationResult: WorkspaceCommandResult = {
         id: "create-lorebook",
@@ -11329,6 +11333,33 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
           },
         ),
         null,
+      );
+
+      for (const directUserText of ["Да, согласен.", "Tak, zgadzam się.", "はい、同意します。", "نعم، أوافق."]) {
+        assert.equal(
+          workspaceMutationAuthorizationIssue(
+            { ...explicitCommand, authorization: directUserText },
+            { directUserText, pendingMutationCategories: ["update"] },
+          ),
+          null,
+          `an exact localized reply should authorize the pending update: ${directUserText}`,
+        );
+      }
+      assert.match(
+        workspaceMutationAuthorizationIssue(
+          { ...explicitCommand, authorization: "Нет." },
+          { directUserText: "Нет.", pendingMutationCategories: ["update"] },
+        ) ?? "",
+        /explicitly requests no workspace changes/iu,
+        "a localized denial must never activate the pending mutation",
+      );
+      assert.match(
+        workspaceMutationAuthorizationIssue(
+          { ...explicitCommand, authorization: "Да, согласен." },
+          { directUserText: "Да, согласен.", pendingMutationCategories: ["delete"] },
+        ) ?? "",
+        /update operation|immediately preceding visible proposal/iu,
+        "a localized reply must stay scoped to the mutation category shown for approval",
       );
 
       const splitAuthorization = "I authorize you to split and modify the lorebook entries.";

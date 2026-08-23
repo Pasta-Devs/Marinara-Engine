@@ -2,7 +2,7 @@
 // Game: HUD Widget Setup Editor
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, Plus, Trash2, Upload } from "lucide-react";
+import { Copy, Download, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   normalizeTextForMatch,
@@ -460,6 +460,20 @@ export function GameWidgetSetupEditor({ widgets, onChange, disabled, className }
     onChange([...normalizedWidgets, createDefaultGameHudWidget(newWidgetType, normalizedWidgets)]);
   };
 
+  const duplicateWidget = (widget: HudWidget) => {
+    if (!canAddWidget || disabled) return;
+    const label = widget.label.trim() || formatWidgetTypeLabel(widget.type);
+    onChange([
+      ...normalizedWidgets,
+      {
+        ...widget,
+        id: nextWidgetId(`${label} copy`, normalizedWidgets),
+        label: `${label} copy`,
+        config: structuredClone(widget.config),
+      },
+    ]);
+  };
+
   return (
     <div className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -540,17 +554,30 @@ export function GameWidgetSetupEditor({ widgets, onChange, disabled, className }
                     ))}
                   </select>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => onChange(normalizedWidgets.filter((entry) => entry.id !== widget.id))}
-                  disabled={disabled}
-                  className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--destructive)]/25 px-3 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:opacity-50"
-                  aria-label={localizeUi("ui.game.gamewidgetsetupeditor.removeValue1", {
-                    value1: widget.label.trim() || formatWidgetTypeLabel(widget.type),
-                  })}
-                >
-                  <Trash2 size="0.875rem" />
-                </button>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => duplicateWidget(widget)}
+                    disabled={disabled || !canAddWidget}
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--border)] px-3 text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+                    aria-label={localizeUi("ui.game.gamewidgetsetupeditor.duplicateValue1", {
+                      value1: widget.label.trim() || formatWidgetTypeLabel(widget.type),
+                    })}
+                  >
+                    <Copy size="0.875rem" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onChange(normalizedWidgets.filter((entry) => entry.id !== widget.id))}
+                    disabled={disabled}
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--destructive)]/25 px-3 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:opacity-50"
+                    aria-label={localizeUi("ui.game.gamewidgetsetupeditor.removeValue1", {
+                      value1: widget.label.trim() || formatWidgetTypeLabel(widget.type),
+                    })}
+                  >
+                    <Trash2 size="0.875rem" />
+                  </button>
+                </div>
               </div>
 
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
