@@ -917,10 +917,13 @@ export async function generateRoutes(app: FastifyInstance) {
     // awaits DB/connection work, so delaying this left a small double-submit
     // window where two requests for the same chat could both pass the guard.
     const abortController = new AbortController();
+    const agentAbortController = new AbortController();
+    const agentSignal = AbortSignal.any([abortController.signal, agentAbortController.signal]);
     const generationId = randomUUID();
     const customLorebookReadBehindRunKeys = new Set<string>();
     const activeGenerationRecord: ActiveGeneration = {
       abortController,
+      agentAbortController,
       backendUrl: null,
       messageId: null,
       swipeIndex: null,
@@ -1899,7 +1902,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   },
                 }
               : {}),
-            signal: abortController.signal,
+            signal: agentSignal,
           };
           const latestUserMessage = [...allChatMessages].reverse().find((message: any) => message.role === "user");
           const routingEvents = createAgentEventDispatcher({
@@ -4108,7 +4111,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 },
               }
             : {}),
-          signal: abortController.signal,
+          signal: agentSignal,
         };
 
         const latestBeholderState = await loadPriorBeholderState({
@@ -5465,7 +5468,7 @@ export async function generateRoutes(app: FastifyInstance) {
             chatMode,
             characterIds: promptCharacterIds,
             messages: finalMessages.map(({ role, content }) => ({ role, content })),
-            signal: abortController.signal,
+            signal: agentSignal,
             debugMode: requestDebug || isDebug,
           });
           if (recall) {
@@ -9360,7 +9363,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       ? async (entry) => {
                           await warmLorebookEntryEmbeddings(app.db, [entry], {
                             embeddingSource: memoryRecallEmbeddingSource,
-                            signal: abortController.signal,
+                            signal: agentSignal,
                           });
                         }
                       : undefined,
@@ -9605,7 +9608,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       decisionReason: backgroundDecisionReason,
                       gameState: latestGameState,
                       recentMessages: agentContext.recentMessages,
-                      signal: abortController.signal,
+                      signal: agentSignal,
                       debugLog,
                     });
 
@@ -10624,12 +10627,23 @@ export async function generateRoutes(app: FastifyInstance) {
 
     const agentRuns = [...(activeAgentRuns.get(chatId) ?? [])];
     const activeGeneration = activeGenerations.get(chatId);
-    const targets =
-      body.agentsOnly === true ? agentRuns : [...(activeGeneration ? [activeGeneration] : []), ...agentRuns];
-    if (targets.length === 0) return reply.send({ aborted: false, reason: "No active generation for this chat" });
+    const targets = [...(activeGeneration ? [activeGeneration] : []), ...agentRuns];
+    const abortControllers = Array.from(
+      new Set(
+        body.agentsOnly === true
+          ? [
+              ...(activeGeneration?.agentAbortController ? [activeGeneration.agentAbortController] : []),
+              ...agentRuns.map((run) => run.agentAbortController ?? run.abortController),
+            ]
+          : targets.map((target) => target.abortController),
+      ),
+    );
+    if (abortControllers.length === 0) {
+      return reply.send({ aborted: false, reason: "No active generation for this chat" });
+    }
 
-    logger.info("[abort] Explicit abort requested for %d run(s) in chat: %s", targets.length, chatId);
-    for (const target of targets) target.abortController.abort();
+    logger.info("[abort] Explicit abort requested for %d run(s) in chat: %s", abortControllers.length, chatId);
+    for (const controller of abortControllers) controller.abort();
 
     // An agent tail may overlap a newer reply on the same backend. Its scoped
     // AbortSignal is safe; a backend-wide abort endpoint is not.
@@ -10648,7 +10662,7 @@ export async function generateRoutes(app: FastifyInstance) {
     // Keep the entry registered until the generation route reaches its
     // identity-checked finally block. Deleting here opens a same-chat race where
     // a replacement request can register before the aborted request has unwound.
-    return reply.send({ aborted: true, count: targets.length });
+    return reply.send({ aborted: true, count: abortControllers.length });
   });
 
   await registerDryRunRoute(app);

@@ -124,6 +124,10 @@ export function RoleplayHUDActionsMenu({
     }
   }, [showInjectionsTab, tab]);
 
+  useEffect(() => {
+    if (!isAgentProcessing) setStoppingAgents(false);
+  }, [isAgentProcessing]);
+
   return (
     <>
       {tabs.length > 1 && (
@@ -259,9 +263,8 @@ export function RoleplayHUDActionsMenu({
                 try {
                   await onStopAgents();
                 } catch {
-                  toast.error(localizeUi("ui.chat.roleplayhudactionsmenu.couldNotStopAgents"));
-                } finally {
                   setStoppingAgents(false);
+                  toast.error(localizeUi("ui.chat.roleplayhudactionsmenu.couldNotStopAgents"));
                 }
               }}
               disabled={stoppingAgents}

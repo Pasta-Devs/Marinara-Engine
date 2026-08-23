@@ -141,8 +141,18 @@ assert.equal(
 );
 assert.match(
   generateRouteSource,
-  /const targets =\s*body\.agentsOnly === true\s*\? agentRuns\s*:/u,
-  "Stop Agents must not abort the primary generation before an agent tail detaches",
+  /const agentAbortController = new AbortController\(\);\s*const agentSignal = AbortSignal\.any\(\[abortController\.signal, agentAbortController\.signal\]\)/u,
+  "normal generations must keep an agent-only cancellation signal alongside the primary response signal",
+);
+assert.match(
+  generateRouteSource,
+  /activeGeneration\?\.agentAbortController[\s\S]{0,300}agentRuns\.map\(\(run\) => run\.agentAbortController \?\? run\.abortController\)/u,
+  "Stop Agents must cancel both attached and detached agent work without aborting the primary generation",
+);
+assert.match(
+  generateRouteSource,
+  /const agentContext: AgentContext = \{[\s\S]{0,8000}signal: agentSignal,/u,
+  "automatic agents must receive the agent-only cancellation signal",
 );
 assert.match(
   generateRouteSource,
