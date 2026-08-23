@@ -10513,7 +10513,7 @@ test("custom Agent character cards are created only after approval", async ({ pa
 
     const modal = page.getByRole("dialog");
     await expect(modal.getByText("Review Character Card", { exact: true })).toBeVisible();
-    await expect(modal.locator("textarea")).toHaveValue(new RegExp(name));
+    expect(await modal.locator("textarea").inputValue()).toContain(name);
     await modal.getByRole("button", { name: "Accept", exact: true }).click();
     await expect(modal).toBeHidden();
 
