@@ -24,6 +24,7 @@ import { createCharactersStorage, type PersonaStorageRow } from "../storage/char
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { wrapContent } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
+import { logger } from "../../lib/logger.js";
 
 type PersonaFields = NonNullable<MacroContext["personaFields"]>;
 
@@ -659,7 +660,8 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
   let lorebookEntryCounts: Record<string, number> = {};
   try {
     lorebookEntryCounts = await lorebooks.countAllEntriesByLorebook();
-  } catch {
+  } catch (err) {
+    logger.warn(err, "Failed to load lorebook entry counts; using empty counts");
     // If the count fails, continue with empty counts — {{lorebooksize::ID}} resolves to 0.
   }
 
