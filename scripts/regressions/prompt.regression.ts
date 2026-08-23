@@ -8883,6 +8883,37 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
+    name: "agent prompts flatten conditional macros without dropping authored content",
+    async run() {
+      const capture = makeCapturingProvider("Context checked.");
+      await executeAgent(
+        makeRegressionAgentConfig({
+          id: "custom:conditional-context",
+          type: "conditional-context",
+          name: "Conditional Context",
+          isCustomAgent: true,
+          promptTemplate: "Read the supplied context.",
+          settings: { resultType: "context_injection" },
+        }) as any,
+        makeRegressionAgentContext({
+          recentMessages: [
+            {
+              role: "user",
+              content:
+                'Before {{#if char == “Powers That Be” || &quot;Maukie&quot;}}***Arc Two*** {{#if character == "Dottore"}}nested note{{/if}}{{else}}alternate note{{/if}} after.',
+            },
+          ],
+        }),
+        capture.provider as any,
+        "regression-model",
+      );
+
+      const providerPrompt = capture.calls[0]!.map((message) => message.content).join("\n");
+      assert.match(providerPrompt, /Before \*\*\*Arc Two\*\*\* nested notealternate note after\./u);
+      assert.doesNotMatch(providerPrompt, /&quot;|\{\{#if|\{\{else|\{\{\/if/u);
+    },
+  },
+  {
     name: "roleplay tracker lorebook context is opt-in and keeps author notes",
     run() {
       const context = makeRegressionAgentContext({

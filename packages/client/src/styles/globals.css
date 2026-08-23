@@ -1359,6 +1359,11 @@
   --sidebar-foreground: var(--marinara-chat-chrome-panel-text);
 }
 
+.mari-chrome-token-scope {
+  --primary: var(--marinara-chat-chrome-accent);
+  --primary-foreground: var(--marinara-chat-chrome-highlight-text);
+}
+
 .mari-chrome-text-accent-scope {
   --marinara-chat-chrome-accent: var(--marinara-chat-chrome-text);
 }

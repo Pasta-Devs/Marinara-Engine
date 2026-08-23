@@ -29,6 +29,7 @@ import {
   normalizeCustomAgentCapabilities,
   normalizeCustomAgentContextSources,
   getDefaultAgentPrompt,
+  flattenAgentConditionalMacros,
   normalizeRpgStatPools,
   resolveMacros,
   type CustomAgentContextSources,
@@ -640,6 +641,13 @@ function debugMessages(messages: ChatMessage[]): AgentCallDebugEvent["messages"]
   });
 }
 
+function prepareAgentProviderMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((message) => ({
+    ...message,
+    content: flattenAgentConditionalMacros(message.content),
+  }));
+}
+
 function debugToolNames(tools?: LLMToolDefinition[]): string[] | undefined {
   if (!tools?.length) return undefined;
   return tools.map((tool) => tool.function.name);
@@ -740,7 +748,7 @@ export async function executeAgent(
       return makeError(config, "No prompt template configured", startTime);
     }
 
-    const messages =
+    const messages = prepareAgentProviderMessages(
       config.type === "expression"
         ? buildExpressionAgentMessages(config, template, context)
         : config.type === "knowledge-retrieval"
@@ -749,7 +757,8 @@ export async function executeAgent(
             ? buildSpotifyAgentMessages(config, template, context)
             : config.type === "beholder"
               ? buildBeholderMessages(config, template, context)
-              : buildStandardAgentMessages(config, template, context);
+              : buildStandardAgentMessages(config, template, context),
+    );
 
     const temperature = resolveAgentTemperature(config);
     const maxTokens = applyAgentMaxTokensCaps(
@@ -972,7 +981,7 @@ async function executeBeholderLanePasses(args: {
     [...BEHOLDER_PASS_LANES],
     AGENT_BATCH_FALLBACK_MAX_CONCURRENT,
     async (lane) => {
-      const messages = buildBeholderMessages(config, lanePrompts[lane], context);
+      const messages = prepareAgentProviderMessages(buildBeholderMessages(config, lanePrompts[lane], context));
       logger.debug(`[agent] ═══ ${config.type} [${lane}] PROMPT ═══`);
       for (const msg of messages) {
         logger.debug(`[agent] [${msg.role}] ${msg.content}`);
@@ -1372,16 +1381,18 @@ export async function executeAgentBatch(
       ),
     );
     const batchContextSources = getBatchContextSources(configs);
-    const messages = buildAgentMessages(
-      systemPrompt,
-      context,
-      "__batch__",
-      batchContextSize,
-      configs.map((config) => config.type),
-      {
-        includeTrackerData: batchContextSources.trackerData,
-        outputFormatBlock: buildAgentOutputFormatBlock(configs, context, renderedTemplates),
-      },
+    const messages = prepareAgentProviderMessages(
+      buildAgentMessages(
+        systemPrompt,
+        context,
+        "__batch__",
+        batchContextSize,
+        configs.map((config) => config.type),
+        {
+          includeTrackerData: batchContextSources.trackerData,
+          outputFormatBlock: buildAgentOutputFormatBlock(configs, context, renderedTemplates),
+        },
+      ),
     );
 
     // Each agent reserves its own configured output budget. The context fitter

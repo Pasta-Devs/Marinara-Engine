@@ -364,6 +364,7 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   message_swipes: ["extra"],
   memory_chunks: ["embedding"],
   lorebooks: ["scope", "tags"],
+  library_folders: ["itemIds"],
   lorebook_entries: [
     "keys",
     "secondaryKeys",
@@ -3380,6 +3381,97 @@ export class MariDbService {
           .slice(0, limit)
           .map(summarizeLorebookRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
+      }
+      case "folder.list": {
+        const lorebookId = requiredString(args, ["lorebookId", "id"], "lorebook id");
+        if (!(await this.getRawById(getMeta("lorebooks"), lorebookId))) {
+          throw new Error(`Lorebook ${lorebookId} not found`);
+        }
+        const rows = (await this.rawRows("lorebook_folders"))
+          .filter((row) => row.lorebookId === lorebookId)
+          .sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0))
+          .map((row) => parseRow("lorebook_folders", row));
+        return { ok: true, mode: "read", command: context.command, output: rows };
+      }
+      case "folder.create": {
+        const lorebookId = requiredString(args, ["lorebookId"], "lorebook id");
+        if (!(await this.getRawById(getMeta("lorebooks"), lorebookId))) {
+          throw new Error(`Lorebook ${lorebookId} not found`);
+        }
+        const data = actionDataWithTopLevel(args, ["data", "folder"], ["name", "parentFolderId"]);
+        const name = requiredString(data, ["name"], "folder name");
+        const parentFolderId = firstString(data, ["parentFolderId"]);
+        if (parentFolderId) {
+          const parent = await this.getRawById(getMeta("lorebook_folders"), parentFolderId);
+          if (!parent || parent.lorebookId !== lorebookId) {
+            throw new Error(`Parent folder ${parentFolderId} not found in lorebook ${lorebookId}`);
+          }
+        }
+        const existing = (await this.rawRows("lorebook_folders")).filter((row) => row.lorebookId === lorebookId);
+        const timestamp = now();
+        const id = firstString(args, ["folderId", "id"]) ?? newId();
+        const row: Row = {
+          id,
+          lorebookId,
+          name,
+          enabled: "true",
+          parentFolderId: parentFolderId ?? null,
+          order: existing.reduce((maximum, folder) => Math.max(maximum, Number(folder.order ?? 0)), 0) + 10,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        return this.executeMutation(
+          {
+            kind: "insert",
+            table: "lorebook_folders",
+            id,
+            row,
+            apply: appDataCreateApply(args),
+            cascade: false,
+            reason: firstString(args, ["reason"]) ?? null,
+            cwd: context.cwd,
+          },
+          context.command,
+          context.sessionId,
+        );
+      }
+      case "libraryfolder.list": {
+        const rows = (await this.rawRows("library_folders"))
+          .filter((row) => row.scope === "lorebooks")
+          .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0))
+          .map((row) => parseRow("library_folders", row));
+        return { ok: true, mode: "read", command: context.command, output: rows };
+      }
+      case "libraryfolder.create": {
+        const data = actionDataWithTopLevel(args, ["data", "folder"], ["name"]);
+        const name = requiredString(data, ["name"], "folder name");
+        const existing = (await this.rawRows("library_folders")).filter((row) => row.scope === "lorebooks");
+        const timestamp = now();
+        const id = firstString(args, ["folderId", "id"]) ?? newId();
+        const row: Row = {
+          id,
+          scope: "lorebooks",
+          name,
+          collapsed: "false",
+          sortOrder: existing.reduce((maximum, folder) => Math.max(maximum, Number(folder.sortOrder ?? -1)), -1) + 1,
+          itemIds: [],
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        return this.executeMutation(
+          {
+            kind: "insert",
+            table: "library_folders",
+            id,
+            row,
+            apply: appDataCreateApply(args),
+            cascade: false,
+            reason: firstString(args, ["reason"]) ?? null,
+            cwd: context.cwd,
+          },
+          context.command,
+          context.sessionId,
+        );
       }
       case "create": {
         const data = actionDataWithTopLevel(

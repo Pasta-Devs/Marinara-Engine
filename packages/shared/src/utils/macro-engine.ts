@@ -1832,6 +1832,51 @@ function resolveConditionalBlocks(input: string, ctx: MacroContext, options: Res
   return result;
 }
 
+const AGENT_CONDITIONAL_ENTITY_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/&quot;|&#34;|&#x22;/gi, '"'],
+  [/&apos;|&#39;|&#x27;/gi, "'"],
+  [/&lt;|&#60;|&#x3c;/gi, "<"],
+  [/&gt;|&#62;|&#x3e;/gi, ">"],
+  [/&amp;|&#38;|&#x26;/gi, "&"],
+];
+
+function decodeAgentConditionalEntities(input: string): string {
+  return replaceBalancedMacros(input, (body) => {
+    if (parseIfCondition(body) === null && parseElseIfCondition(body) === null) return undefined;
+    const decoded = AGENT_CONDITIONAL_ENTITY_REPLACEMENTS.reduce(
+      (value, [pattern, replacement]) => value.replace(pattern, replacement),
+      body,
+    );
+    return `{{${decoded}}}`;
+  });
+}
+
+/**
+ * Remove conditional control syntax from agent-bound text while keeping every
+ * authored branch. Agent calls need the prose as context, not the main prompt's
+ * character-specific control flow.
+ */
+export function flattenAgentConditionalMacros(input: string): string {
+  const normalized = decodeAgentConditionalEntities(input);
+  let result = "";
+  let index = 0;
+
+  while (index < normalized.length) {
+    const start = findConditionalStart(normalized, index);
+    if (!start) return result + normalized.slice(index);
+    const block = findConditionalBranches(normalized, start.end, start.condition);
+    if (!block) return result + normalized.slice(index);
+
+    result += normalized.slice(index, start.start);
+    result += block.branches
+      .map((branch) => flattenAgentConditionalMacros(normalized.slice(branch.contentStart, branch.contentEnd)))
+      .join("");
+    index = block.endEnd;
+  }
+
+  return result;
+}
+
 function splitTopLevelDoubleColon(input: string): string[] {
   const parts: string[] = [];
   let current = "";
