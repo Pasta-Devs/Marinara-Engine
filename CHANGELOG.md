@@ -34,6 +34,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Memory Nag now shows its Roleplay badge in Download Agents, while capability-package regression coverage tracks the API version required by its runtime (#5438).
 - Professor Mari now shows a one-click Accept action for proposed writes, accepts exact confirmations in any language within the pending operation's scope, resumes authorized work after output limits without exact phrasing, goes directly to supplied character or Persona IDs, and prevents hidden reasoning from consuming local JSON responses (#5431, #5434).
 - Character and Persona card macros now resolve in request-scoped text and appearance context before generation and image agents consume them, without changing the saved card (#5432).
 - OpenAI-compatible custom connections now preserve Anthropic-style `tool_use` content blocks, restoring visible LinkAPI Opus tool calls (#5430).
