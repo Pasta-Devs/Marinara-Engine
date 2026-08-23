@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Eye, Loader2, Settings2 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client";
+import { AgentSettingsActionButton } from "./AgentSettingsControls";
 
 type Damage = "pristine" | "damaged" | "cracked" | "broken";
 type WoundSeverity = "minor" | "serious" | "critical";
@@ -65,10 +66,9 @@ export default function BeholderChatSettingsPanel({
         </p>
       </div>
 
-      <button
-        type="button"
+      <AgentSettingsActionButton
         onClick={onOpenAgentSettings}
-        className="flex w-full items-center gap-2 rounded-lg bg-[var(--secondary)]/70 px-2.5 py-2 text-left transition-colors hover:bg-[var(--accent)]"
+        className="h-auto w-full justify-start px-2.5 py-2 text-left"
       >
         <Settings2 size="0.75rem" className="shrink-0 text-[var(--primary)]" />
         <span className="min-w-0 flex-1">
@@ -79,7 +79,7 @@ export default function BeholderChatSettingsPanel({
             {localizeUi("ui.chat.beholder.configureAgentDescription")}
           </span>
         </span>
-      </button>
+      </AgentSettingsActionButton>
 
       <section className="rounded-lg bg-[var(--background)]/65 p-2.5 ring-1 ring-[var(--border)]">
         <div className="mb-2 flex items-center gap-1.5">

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Settings2, Trash2 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { AgentPromptTemplateOption } from "@marinara-engine/shared";
@@ -7,6 +7,31 @@ import { useUIStore } from "../../stores/ui.store";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 
 export const AGENT_SETTINGS_SURFACE_CLASS = "border border-[var(--border)] bg-[var(--secondary)]/70";
+
+export function AgentSettingsActionButton({
+  variant = "default",
+  iconOnly = false,
+  className,
+  type = "button",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "default" | "primary" | "danger";
+  iconOnly?: boolean;
+}) {
+  return (
+    <button
+      {...props}
+      type={type}
+      className={cn(
+        "mari-agent-settings-action",
+        variant === "primary" && "mari-agent-settings-action--primary",
+        variant === "danger" && "mari-agent-settings-action--danger",
+        iconOnly && "mari-agent-settings-action--icon",
+        className,
+      )}
+    />
+  );
+}
 
 export function AgentCategorySection({
   label,

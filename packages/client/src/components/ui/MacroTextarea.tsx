@@ -66,6 +66,7 @@ interface ExpandedMacroEditorProps {
   onChange: (value: string) => void;
   onClose: () => void;
   placeholder?: string;
+  readOnly?: boolean;
   formatOnChange?: (textarea: HTMLTextAreaElement, inputEvent: InputEvent) => string;
 }
 
@@ -76,6 +77,7 @@ function ExpandedMacroEditor({
   onChange,
   onClose,
   placeholder,
+  readOnly = false,
   formatOnChange,
 }: ExpandedMacroEditorProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -101,14 +103,14 @@ function ExpandedMacroEditor({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onChange(localValue);
+        if (!readOnly) onChange(localValue);
         onClose();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [localValue, onChange, onClose, open]);
+  }, [localValue, onChange, onClose, open, readOnly]);
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -147,7 +149,7 @@ function ExpandedMacroEditor({
             <button
               type="button"
               onClick={() => {
-                onChange(localValue);
+                if (!readOnly) onChange(localValue);
                 onClose();
               }}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] transition hover:border-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
@@ -163,6 +165,7 @@ function ExpandedMacroEditor({
             onChange={handleChange}
             onKeyDown={handleTextareaTab}
             placeholder={placeholder}
+            readOnly={readOnly}
             className="min-h-0 flex-1 resize-none bg-[var(--secondary)] p-4 font-mono text-sm leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
             spellCheck={false}
           />
@@ -313,6 +316,7 @@ export interface MacroTextareaProps {
   /** Character the edited field belongs to — resolves card://self refs in the preview only. */
   selfCharacterId?: string | null;
   spellCheck?: boolean;
+  readOnly?: boolean;
   /** Optional ref to the underlying textarea (e.g. to insert emoji at the caret). */
   textareaRef?: Ref<HTMLTextAreaElement>;
 }
@@ -340,6 +344,7 @@ export function MacroTextarea({
   showMarkdownPreview = false,
   selfCharacterId,
   spellCheck = true,
+  readOnly = false,
   textareaRef,
 }: MacroTextareaProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -412,6 +417,7 @@ export function MacroTextarea({
             aria-label={ariaLabel}
             placeholder={placeholder}
             spellCheck={spellCheck}
+            readOnly={readOnly}
             className={cn(
               "w-full resize-y rounded-lg bg-[var(--secondary)] p-2.5 text-sm leading-6 text-[var(--foreground)] ring-1 ring-[var(--border)] transition placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
               className,
@@ -470,6 +476,7 @@ export function MacroTextarea({
         onChange={onChange}
         onClose={handleExpandedClose}
         placeholder={placeholder}
+        readOnly={readOnly}
         formatOnChange={formatOnChange}
       />
       <MacrosReferenceModal open={showMacroRef} onClose={() => setShowMacroRef(false)} />

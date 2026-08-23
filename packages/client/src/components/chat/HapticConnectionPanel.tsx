@@ -8,7 +8,7 @@ import {
   useHapticStartScan,
   useHapticStatus,
 } from "../../hooks/use-haptic";
-import { cn } from "../../lib/utils";
+import { AgentSettingsActionButton } from "./AgentSettingsControls";
 
 interface HapticConnectionPanelProps {
   intifaceUrl?: string;
@@ -77,7 +77,7 @@ export function HapticConnectionPanel({
           onChange={(event) => setIntifaceUrl(event.target.value)}
           onBlur={saveIntifaceUrl}
           placeholder={defaultServerUrl}
-          className="rounded-md bg-[var(--background)] px-2.5 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/55 focus:ring-[var(--primary)]/60"
+          className="mari-chrome-field rounded-md px-2.5 py-1.5 text-[0.6875rem] placeholder:text-[var(--muted-foreground)]/55"
         />
         <span className="text-[0.5625rem] leading-relaxed text-[var(--muted-foreground)]">
           {localizeUi("ui.chat.hapticconnectionpanel.blankUsesTheServerDefaultDockerOrRemoteBrowser")}
@@ -86,8 +86,8 @@ export function HapticConnectionPanel({
 
       <div className="flex items-center justify-between rounded-lg bg-[var(--secondary)] px-3 py-2">
         <div className="min-w-0 flex items-center gap-1.5">
-          <div className={cn("h-1.5 w-1.5 rounded-full", connected ? "bg-green-400" : "bg-red-400")} />
-          <span className="min-w-0 truncate text-[0.625rem] text-[var(--muted-foreground)]">
+          <div className="h-1.5 w-1.5 rounded-full bg-[var(--primary)]" />
+          <span className="min-w-0 truncate text-[0.625rem] text-[var(--primary)]">
             {connect.isPending
               ? localizeUi("ui.chat.hapticconnectionpanel.connectingToValue1", {
                   value1: intifaceUrl.trim() || defaultServerUrl,
@@ -97,8 +97,7 @@ export function HapticConnectionPanel({
                 : localizeUi("ui.chat.hapticconnectionpanel.notConnected")}
           </span>
         </div>
-        <button
-          type="button"
+        <AgentSettingsActionButton
           onClick={() => {
             if (connected) {
               disconnect.mutate();
@@ -107,16 +106,16 @@ export function HapticConnectionPanel({
             }
           }}
           disabled={connect.isPending || disconnect.isPending}
-          className="text-[0.625rem] font-medium text-[var(--primary)] hover:underline disabled:opacity-50"
+          variant="primary"
         >
           {connected
             ? localizeUi("ui.agents.agenteditor.disconnect")
             : localizeUi("ui.chat.hapticconnectionpanel.connect")}
-        </button>
+        </AgentSettingsActionButton>
       </div>
 
       {connect.isError && !connected && (
-        <p className="text-[0.625rem] text-red-400 px-1">
+        <p className="px-1 text-[0.625rem] text-[var(--primary)]">
           {localizeUi("ui.chat.hapticconnectionpanel.couldNotConnectMakeSure")}{" "}
           <a href="https://intiface.com/central/" target="_blank" rel="noopener noreferrer" className="underline">
             {localizeUi("ui.chat.hapticconnectionpanel.intifaceCentral")}
@@ -136,16 +135,15 @@ export function HapticConnectionPanel({
                     value2: devices.length !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : "",
                   })}
             </span>
-            <button
-              type="button"
+            <AgentSettingsActionButton
               onClick={() => startScan.mutate()}
               disabled={scanning || startScan.isPending}
-              className="text-[0.625rem] font-medium text-[var(--primary)] hover:underline disabled:opacity-50"
+              variant="primary"
             >
               {scanning
                 ? localizeUi("ui.chat.hapticconnectionpanel.scanning")
                 : localizeUi("ui.chat.hapticconnectionpanel.scanForDevices")}
-            </button>
+            </AgentSettingsActionButton>
           </div>
           {devices.map((device) => (
             <div

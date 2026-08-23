@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   GripVertical,
   MessageCircle,
+  MessageSquareQuote,
   Bot,
   CalendarClock,
   Camera,
@@ -95,7 +96,9 @@ import {
   AGENT_SETTINGS_SURFACE_CLASS,
   AgentCategorySection,
   AgentDefaultStatus,
+  AgentSettingsActionButton,
   AgentSettingsCard,
+  AgentSettingsSegmentedControl,
   AgentSettingsSubsection,
   AgentSettingsTextarea,
   AgentSettingsToggle,
@@ -443,7 +446,7 @@ function renderRoleplayAgentMenuIcon(agentId: string, variant: "card" | "chip" =
     case "long-term-memory":
       return <Brain size={size} className={className} />;
     case "memory-nag":
-      return <Brain size={size} className={className} />;
+      return <MessageSquareQuote size={size} className={className} />;
     case "hierarchical-maps":
       return <MapIcon size={size} className={className} />;
     case "custom-agents":
@@ -1319,6 +1322,20 @@ export function ChatSettingsDrawer({
     const ids = latestChat ? getChatActiveAgentIds(latestChat) : [...activeAgentIds];
     return ids.filter((id) => !deletedBuiltInAgentTypes.has(id));
   }, [activeAgentIds, chat.id, deletedBuiltInAgentTypes, qc]);
+  const setMapsEnabledForChat = useCallback(
+    async (enabled: boolean) => {
+      if (!mapsPackage) return;
+      const current = readLatestActiveAgentIds();
+      await updateMeta.mutateAsync({
+        id: chat.id,
+        ...(enabled ? { enableAgents: true } : {}),
+        activeAgentIds: enabled
+          ? Array.from(new Set([...current, mapsPackage.id]))
+          : current.filter((id) => id !== mapsPackage.id),
+      });
+    },
+    [chat.id, mapsPackage, readLatestActiveAgentIds, updateMeta],
+  );
   const setLtmEnabledForChat = useCallback(
     async (enabled: boolean) => {
       if (!ltmPackageId) return;
@@ -2106,13 +2123,30 @@ export function ChatSettingsDrawer({
   const ltmAgent = availableAgents.find((agent) => agent.id === ltmPackage?.id);
   const storyboardAgent = availableAgents.find((agent) => agent.id === STORYBOARD_AGENT_ID);
   const beholderAgent = availableAgents.find((agent) => agent.id === "beholder");
-  const memoryNagAgent = availableAgents.find((agent) => agent.id === "memory-nag");
-  const memoryNagStandaloneActive = Boolean(
-    metadata.enableAgents === true &&
-    isRoleplayMode &&
-    memoryNagAgent &&
-    activeAgentIds.includes(memoryNagAgent.id) &&
-    chatSettingsPackageByAgentId.has(memoryNagAgent.id),
+  const standaloneRoleplayAgents = useMemo(
+    () =>
+      metadata.enableAgents === true && isRoleplayMode
+        ? availableAgents.filter((agent) => {
+            if (!activeAgentIds.includes(agent.id) || !hasStandaloneRoleplayAgentSettings(agent.id)) return false;
+            if (agent.id === "hierarchical-maps") return Boolean(mapsPackage);
+            if (agent.id === "long-term-memory") return Boolean(ltmPackage);
+            if (agent.id === STORYBOARD_AGENT_ID || agent.id === "beholder") return true;
+            return chatSettingsPackageByAgentId.has(agent.id);
+          })
+        : [],
+    [
+      activeAgentIds,
+      availableAgents,
+      chatSettingsPackageByAgentId,
+      isRoleplayMode,
+      ltmPackage,
+      mapsPackage,
+      metadata.enableAgents,
+    ],
+  );
+  const standaloneRoleplayAgentIds = useMemo(
+    () => new Set(standaloneRoleplayAgents.map((agent) => agent.id)),
+    [standaloneRoleplayAgents],
   );
   const [pendingAgentMenuTargetId, setPendingAgentMenuTargetId] = useState<string | null>(null);
   const roleplayAgentMenuLinks = useMemo(() => {
@@ -2990,6 +3024,100 @@ export function ChatSettingsDrawer({
     };
   };
 
+  const renderStandaloneRoleplayAgentSettingsCard = (agent: (typeof availableAgents)[number]) => {
+    let settings: React.ReactNode = null;
+
+    if (agent.id === "hierarchical-maps" && mapsPackage) {
+      settings = (
+        <CapabilityElement
+          packageId={mapsPackage.id}
+          view="settings"
+          capabilityProps={{
+            chatId: chat.id,
+            chatName: chat.name,
+            chatMode,
+            debugMode,
+            enabledForChat: mapsPackageEnabledForChat,
+            onEnabledForChatChange: setMapsEnabledForChat,
+            confirmAction: showConfirmDialog,
+            onDirtyChange: setEditorDirty,
+            onOpenLorebook: openLorebookFromSettings,
+            onLorebooksChanged: refreshLorebooks,
+          }}
+          className="block overflow-hidden"
+        />
+      );
+    } else if (agent.id === "long-term-memory" && ltmPackage) {
+      settings = (
+        <CapabilityElement
+          packageId={ltmPackage.id}
+          view="settings"
+          capabilityProps={{
+            chatId: chat.id,
+            enabledForChat: metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id),
+            chatSettings: {
+              longTermMemoryRecallStyle: metadata.longTermMemoryRecallStyle,
+              longTermMemoryBudgetTokens: metadata.longTermMemoryBudgetTokens,
+              longTermMemoryMaxChunks: metadata.longTermMemoryMaxChunks,
+            },
+            onEnabledForChatChange: setLtmEnabledForChat,
+            onChatSettingsChange: async (patch: Record<string, unknown>) => {
+              await updateMeta.mutateAsync({ id: chat.id, ...patch });
+            },
+            onOpenAgentSettings: () => {
+              void requestClose().then((closed) => {
+                if (closed) useUIStore.getState().openAgentDetail("long-term-memory");
+              });
+            },
+            onDirtyChange: setEditorDirty,
+          }}
+          className="block overflow-hidden"
+        />
+      );
+    } else if (agent.id === STORYBOARD_AGENT_ID) {
+      settings = (
+        <Suspense fallback={null}>
+          <StoryboardChatSettingsPanel
+            chatId={chat.id}
+            metadata={metadata as Record<string, unknown>}
+            onClose={onClose}
+            ownerMode="roleplay"
+          />
+        </Suspense>
+      );
+    } else if (agent.id === "beholder") {
+      settings = (
+        <Suspense fallback={null}>
+          <BeholderChatSettingsPanel
+            chatId={chat.id}
+            onOpenAgentSettings={() => {
+              void requestClose().then((closed) => {
+                if (closed) useUIStore.getState().openAgentDetail("beholder");
+              });
+            }}
+          />
+        </Suspense>
+      );
+    } else {
+      settings = renderDownloadedAgentChatSettings(agent, "block overflow-hidden");
+    }
+
+    if (!settings) return null;
+    return (
+      <AgentSettingsCard
+        key={agent.id}
+        id={getAgentSettingsMenuId(chat.id, agent.id)}
+        icon={renderRoleplayAgentMenuIcon(agent.id)}
+        title={agent.name}
+        description={agent.id === "hierarchical-maps" ? worldMapsSettingsDescription : agent.description}
+        order={getRoleplayAgentSettingsOrder(agent.id)}
+        onRemove={getRoleplayAgentMenuRemoveHandler(agent.id, agent.name)}
+      >
+        {settings}
+      </AgentSettingsCard>
+    );
+  };
+
   const updateAgentPromptTemplateSelection = useCallback(
     (agentId: string, promptTemplateId: string) => {
       const next = { ...readLatestAgentPromptTemplateSelections() };
@@ -3427,7 +3555,6 @@ export function ChatSettingsDrawer({
           agent.id !== "spotify" &&
           agent.id !== "youtube" &&
           agent.id !== "lorebook-keeper" &&
-          agent.id !== "storyboard" &&
           agent.category !== "custom",
       ),
     [availableAgents],
@@ -4413,52 +4540,27 @@ export function ChatSettingsDrawer({
                 <span className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
                   {localizeUi("ui.chat.chatsettingsdrawer.touchSensitivity")}
                 </span>
-                <div className="grid grid-cols-3 gap-1 rounded-lg bg-[var(--background)]/35 p-1">
-                  {HAPTIC_SENSITIVITY_OPTIONS.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => updateMeta.mutate({ id: chat.id, hapticSensitivity: option.id })}
-                      className={cn(
-                        "rounded-md px-2 py-1.5 text-[0.625rem] font-semibold transition-colors",
-                        hapticSensitivity === option.id
-                          ? "bg-[var(--accent)] text-[var(--foreground)] ring-1 ring-[var(--border)]"
-                          : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                      )}
-                      title={localizeUi(option.descriptionKey)}
-                    >
-                      {localizeUi(option.labelKey)}
-                    </button>
-                  ))}
-                </div>
+                <AgentSettingsSegmentedControl<HapticFeedbackSensitivity>
+                  value={hapticSensitivity}
+                  columns={3}
+                  options={HAPTIC_SENSITIVITY_OPTIONS.map((option) => ({
+                    id: option.id,
+                    label: localizeUi(option.labelKey),
+                  }))}
+                  onChange={(hapticSensitivity) => updateMeta.mutate({ id: chat.id, hapticSensitivity })}
+                />
               </div>
-              <button
-                type="button"
-                onClick={() =>
+              <AgentSettingsToggle
+                label={localizeUi("ui.chat.chatsettingsdrawer.incidentalContact")}
+                description={localizeUi("ui.chat.hapticsetupfields.tinyTapsForAccidentalBrushesAndBumps")}
+                enabled={metadata.hapticIncidentalContact === true}
+                onToggle={() =>
                   updateMeta.mutate({
                     id: chat.id,
                     hapticIncidentalContact: metadata.hapticIncidentalContact !== true,
                   })
                 }
-                className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                aria-pressed={metadata.hapticIncidentalContact === true}
-              >
-                <span className="min-w-0">
-                  <span className="block font-medium text-[var(--foreground)]">
-                    {localizeUi("ui.chat.chatsettingsdrawer.incidentalContact")}
-                  </span>
-                  <span className="block text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
-                    {localizeUi("ui.chat.hapticsetupfields.tinyTapsForAccidentalBrushesAndBumps")}
-                  </span>
-                </span>
-                <SettingsSwitchTrack
-                  checked={metadata.hapticIncidentalContact === true}
-                  className={cn(
-                    "mari-chat-option-switch",
-                    metadata.hapticIncidentalContact === true && "mari-chat-option-switch--active",
-                  )}
-                />
-              </button>
+              />
             </div>
             <HapticConnectionPanel
               intifaceUrl={typeof metadata.hapticIntifaceUrl === "string" ? metadata.hapticIntifaceUrl : undefined}
@@ -7243,27 +7345,15 @@ export function ChatSettingsDrawer({
                         onToggle={() => void toggleGameMusicDj()}
                       />
 
-                      <div className="grid grid-cols-3 gap-1 rounded-xl border border-[var(--border)] bg-[var(--background)]/65 p-1">
-                        {(["spotify", "youtube", "custom"] as const).map((provider) => {
-                          const active = musicPlayerSource === provider;
-                          return (
-                            <button
-                              key={provider}
-                              type="button"
-                              onClick={() => void changeMusicDjProvider(provider)}
-                              aria-pressed={active}
-                              className={cn(
-                                "rounded-md px-2 py-1.5 text-[0.625rem] font-semibold transition-colors",
-                                active
-                                  ? "bg-[var(--primary)]/18 text-[var(--foreground)] shadow-sm"
-                                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                              )}
-                            >
-                              {getMusicProviderLabel(provider)}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <AgentSettingsSegmentedControl<MusicProvider>
+                        value={musicPlayerSource}
+                        columns={3}
+                        options={(["spotify", "youtube", "custom"] as const).map((provider) => ({
+                          id: provider,
+                          label: getMusicProviderLabel(provider),
+                        }))}
+                        onChange={(provider) => void changeMusicDjProvider(provider)}
+                      />
 
                       {gameMusicDjEnabled && musicPlayerSource === "spotify" && (
                         <div className="space-y-2">
@@ -7405,30 +7495,25 @@ export function ChatSettingsDrawer({
                               )}
                             </p>
                             <div className="flex w-full min-w-0 flex-col items-stretch gap-1.5 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
-                              <button
-                                type="button"
+                              <AgentSettingsActionButton
                                 onClick={() => {
                                   onClose();
                                   useUIStore.getState().openAgentDetail("lorebook-keeper");
                                 }}
-                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--background)]/80 px-3 py-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] sm:w-auto"
+                                className="w-full sm:w-auto"
                               >
                                 <Settings2 size="0.75rem" />
                                 <span>{localizeUi("ui.chat.chatsettingsdrawer.openSetup")}</span>
-                              </button>
-                              <button
+                              </AgentSettingsActionButton>
+                              <AgentSettingsActionButton
                                 onClick={handleLorebookKeeperBackfill}
                                 disabled={agentProcessing}
-                                className={cn(
-                                  "inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[0.6875rem] font-medium transition-colors sm:w-auto",
-                                  agentProcessing
-                                    ? "cursor-not-allowed bg-[var(--muted)] text-[var(--muted-foreground)]"
-                                    : "bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)]/15",
-                                )}
+                                className="w-full sm:w-auto"
+                                variant="primary"
                               >
                                 <RefreshCw size="0.75rem" className={cn(agentProcessing && "animate-spin")} />
                                 <span>{localizeUi("ui.chat.chatsettingsdrawer.backfillUnprocessed")}</span>
-                              </button>
+                              </AgentSettingsActionButton>
                             </div>
                           </div>
                           <div className="grid gap-2 sm:grid-cols-2">
@@ -7503,17 +7588,16 @@ export function ChatSettingsDrawer({
                             <p className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
                               {localizeUi("ui.chat.chatsettingsdrawer.thisAgentNeverEditsCardsDirectlyItProposesExact")}
                             </p>
-                            <button
-                              type="button"
+                            <AgentSettingsActionButton
                               onClick={() => {
                                 onClose();
                                 useUIStore.getState().openAgentDetail("card-evolution-auditor");
                               }}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)]/10 px-3 py-1.5 text-[0.6875rem] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/15"
+                              variant="primary"
                             >
                               <Settings2 size="0.75rem" />
                               <span>{localizeUi("ui.chat.chatsettingsdrawer.openAuditorSetup")}</span>
-                            </button>
+                            </AgentSettingsActionButton>
                           </div>
                         </AgentSettingsCard>
                       )}
@@ -7743,18 +7827,7 @@ export function ChatSettingsDrawer({
                         />
                       )}
 
-                      {memoryNagStandaloneActive && memoryNagAgent && (
-                        <AgentSettingsCard
-                          id={getAgentSettingsMenuId(chat.id, memoryNagAgent.id)}
-                          icon={renderRoleplayAgentMenuIcon(memoryNagAgent.id)}
-                          title={memoryNagAgent.name}
-                          description={memoryNagAgent.description}
-                          order={getRoleplayAgentSettingsOrder(memoryNagAgent.id)}
-                          onRemove={getRoleplayAgentMenuRemoveHandler(memoryNagAgent.id, memoryNagAgent.name)}
-                        >
-                          {renderDownloadedAgentChatSettings(memoryNagAgent, "block overflow-hidden rounded-lg")}
-                        </AgentSettingsCard>
-                      )}
+                      {standaloneRoleplayAgents.map(renderStandaloneRoleplayAgentSettingsCard)}
 
                       {metadata.enableAgents && !isGame && expressionActive && (
                         <AgentSettingsCard
@@ -7861,17 +7934,16 @@ export function ChatSettingsDrawer({
                                 "ui.chat.chatsettingsdrawer.promptModeControlsTheFictionalAudienceStyleUsedFor",
                               )}
                             </p>
-                            <button
-                              type="button"
+                            <AgentSettingsActionButton
                               onClick={() => {
                                 onClose();
                                 useUIStore.getState().openAgentDetail("echo-chamber");
                               }}
-                              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--background)]/80 px-3 py-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                              className="shrink-0"
                             >
                               <Settings2 size="0.75rem" />
                               <span>{localizeUi("ui.chat.chatsettingsdrawer.openSetup")}</span>
-                            </button>
+                            </AgentSettingsActionButton>
                           </div>
                         </AgentSettingsCard>
                       )}
@@ -7942,17 +8014,16 @@ export function ChatSettingsDrawer({
                                 "ui.chat.chatsettingsdrawer.promptModeControlsHowIllustratorWritesImagePromptsFor",
                               )}
                             </p>
-                            <button
-                              type="button"
+                            <AgentSettingsActionButton
                               onClick={() => {
                                 onClose();
                                 useUIStore.getState().openAgentDetail("illustrator");
                               }}
-                              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--background)]/80 px-3 py-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                              className="shrink-0"
                             >
                               <Settings2 size="0.75rem" />
                               <span>{localizeUi("ui.chat.chatsettingsdrawer.openSetup")}</span>
-                            </button>
+                            </AgentSettingsActionButton>
                           </div>
                           {illustratorInstalled && (
                             <AgentSettingsSubsection
@@ -8019,27 +8090,15 @@ export function ChatSettingsDrawer({
                             {getMusicProviderLabel(musicPlayerSource)}.
                           </p>
 
-                          <div className="grid grid-cols-3 gap-1 rounded-xl border border-[var(--border)] bg-[var(--background)]/65 p-1">
-                            {(["spotify", "youtube", "custom"] as const).map((provider) => {
-                              const active = musicPlayerSource === provider;
-                              return (
-                                <button
-                                  key={provider}
-                                  type="button"
-                                  onClick={() => void changeMusicDjProvider(provider)}
-                                  aria-pressed={active}
-                                  className={cn(
-                                    "rounded-md px-2 py-1.5 text-[0.625rem] font-semibold transition-colors",
-                                    active
-                                      ? "bg-[var(--primary)]/18 text-[var(--foreground)] shadow-sm"
-                                      : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                                  )}
-                                >
-                                  {getMusicProviderLabel(provider)}
-                                </button>
-                              );
-                            })}
-                          </div>
+                          <AgentSettingsSegmentedControl<MusicProvider>
+                            value={musicPlayerSource}
+                            columns={3}
+                            options={(["spotify", "youtube", "custom"] as const).map((provider) => ({
+                              id: provider,
+                              label: getMusicProviderLabel(provider),
+                            }))}
+                            onChange={(provider) => void changeMusicDjProvider(provider)}
+                          />
 
                           {musicPlayerSource === "spotify" && (
                             <>
@@ -8466,14 +8525,6 @@ export function ChatSettingsDrawer({
                           </p>
                         </AgentSettingsSubsection>
                       )}
-                      <Suspense fallback={null}>
-                        <StoryboardChatSettingsPanel
-                          chatId={chat.id}
-                          metadata={metadata as Record<string, unknown>}
-                          onClose={onClose}
-                          ownerMode="game"
-                        />
-                      </Suspense>
                     </AgentSettingsCard>
                   )}
 
@@ -8487,7 +8538,7 @@ export function ChatSettingsDrawer({
                               {gameAgentPool.map((agent) => {
                                 const active = activeAgentIds.includes(agent.id);
                                 const knowledgeAgentType = isKnowledgeAgentType(agent.id) ? agent.id : null;
-                                if (agent.id === "hierarchical-maps" && mapsPackage) {
+                                if (active && agent.id === "hierarchical-maps" && mapsPackage) {
                                   return (
                                     <div key={agent.id} data-chat-agent-entry={agent.id} className="space-y-1.5">
                                       <AgentSettingsCard
@@ -8504,17 +8555,7 @@ export function ChatSettingsDrawer({
                                             chatMode,
                                             debugMode,
                                             enabledForChat: mapsPackageEnabledForChat,
-                                            onEnabledForChatChange: async (enabled: boolean) => {
-                                              const current = readLatestActiveAgentIds();
-                                              const nextActiveAgentIds = enabled
-                                                ? Array.from(new Set([...current, mapsPackage.id]))
-                                                : current.filter((id) => id !== mapsPackage.id);
-                                              await updateMeta.mutateAsync({
-                                                id: chat.id,
-                                                ...(enabled ? { enableAgents: true } : {}),
-                                                activeAgentIds: nextActiveAgentIds,
-                                              });
-                                            },
+                                            onEnabledForChatChange: setMapsEnabledForChat,
                                             confirmAction: showConfirmDialog,
                                             onDirtyChange: setEditorDirty,
                                             onOpenLorebook: openLorebookFromSettings,
@@ -8526,7 +8567,7 @@ export function ChatSettingsDrawer({
                                     </div>
                                   );
                                 }
-                                if (agent.id === "long-term-memory" && ltmPackage) {
+                                if (active && agent.id === "long-term-memory" && ltmPackage) {
                                   return (
                                     <div key={agent.id} data-chat-agent-entry={agent.id} className="space-y-1.5">
                                       <AgentSettingsCard
@@ -8561,6 +8602,26 @@ export function ChatSettingsDrawer({
                                           }}
                                           className="block overflow-hidden rounded-lg"
                                         />
+                                      </AgentSettingsCard>
+                                    </div>
+                                  );
+                                }
+                                if (active && agent.id === STORYBOARD_AGENT_ID) {
+                                  return (
+                                    <div key={agent.id} data-chat-agent-entry={agent.id} className="space-y-1.5">
+                                      <AgentSettingsCard
+                                        icon={renderRoleplayAgentMenuIcon(agent.id)}
+                                        title={agent.name}
+                                        description={agent.description}
+                                      >
+                                        <Suspense fallback={null}>
+                                          <StoryboardChatSettingsPanel
+                                            chatId={chat.id}
+                                            metadata={metadata as Record<string, unknown>}
+                                            onClose={onClose}
+                                            ownerMode="game"
+                                          />
+                                        </Suspense>
                                       </AgentSettingsCard>
                                     </div>
                                   );
@@ -8689,8 +8750,8 @@ export function ChatSettingsDrawer({
                             className={cn(
                               "flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[0.6875rem] ring-1",
                               agentLoadCost.cost.level === "high"
-                                ? "bg-amber-400/10 text-amber-400/90 ring-amber-400/30"
-                                : "bg-[var(--secondary)]/60 text-[var(--muted-foreground)] ring-[var(--border)]",
+                                ? "bg-[var(--primary)]/10 text-[var(--primary)] ring-[var(--primary)]/30"
+                                : "bg-[var(--secondary)]/60 text-[var(--primary)] ring-[var(--border)]",
                             )}
                             title={localizeUi(
                               "ui.chat.chatsettingsdrawer.approximateEachCallAlsoCarriesChatContextRecentMessages",
@@ -8748,9 +8809,8 @@ export function ChatSettingsDrawer({
                             const catAgents = availableAgents.filter((a) => a.category === cat.key);
                             const activeInCat = catAgents
                               .filter(
-                                (a) =>
-                                  activeAgentIds.includes(a.id) &&
-                                  !(hasStandaloneRoleplayAgentSettings(a.id) && memoryNagStandaloneActive),
+                                (agent) =>
+                                  activeAgentIds.includes(agent.id) && !standaloneRoleplayAgentIds.has(agent.id),
                               )
                               .sort(
                                 (a, b) => getRoleplayAgentSettingsOrder(a.id) - getRoleplayAgentSettingsOrder(b.id),
@@ -8766,7 +8826,7 @@ export function ChatSettingsDrawer({
                                 count={activeInCat.length}
                                 openRequest={catAgents.some(
                                   (agent) =>
-                                    !(hasStandaloneRoleplayAgentSettings(agent.id) && memoryNagStandaloneActive) &&
+                                    !standaloneRoleplayAgentIds.has(agent.id) &&
                                     getAgentSettingsMenuId(chat.id, agent.id) === pendingAgentMenuTargetId,
                                 )}
                               >
@@ -8775,12 +8835,7 @@ export function ChatSettingsDrawer({
                                   <div className="flex flex-col gap-1 mb-1.5">
                                     {activeInCat.map((agent) => {
                                       const tokenEst = agentLoadCost.tokensByType.get(agent.id);
-                                      const hasSettingsTarget =
-                                        agent.id === "hierarchical-maps" ||
-                                        agent.id === "long-term-memory" ||
-                                        agent.id === "beholder" ||
-                                        agent.id === STORYBOARD_AGENT_ID ||
-                                        chatSettingsPackageByAgentId.has(agent.id);
+                                      const hasSettingsTarget = chatSettingsPackageByAgentId.has(agent.id);
                                       return (
                                         <div
                                           key={agent.id}
@@ -8838,87 +8893,7 @@ export function ChatSettingsDrawer({
                                               }
                                             />
                                           )}
-                                          {agent.id === "hierarchical-maps" && mapsPackage && (
-                                            <CapabilityElement
-                                              packageId={mapsPackage.id}
-                                              view="settings"
-                                              capabilityProps={{
-                                                chatId: chat.id,
-                                                chatName: chat.name,
-                                                chatMode,
-                                                debugMode,
-                                                enabledForChat: mapsPackageEnabledForChat,
-                                                onEnabledForChatChange: async (enabled: boolean) => {
-                                                  const current = readLatestActiveAgentIds();
-                                                  const nextActiveAgentIds = enabled
-                                                    ? Array.from(new Set([...current, mapsPackage.id]))
-                                                    : current.filter((id) => id !== mapsPackage.id);
-                                                  await updateMeta.mutateAsync({
-                                                    id: chat.id,
-                                                    ...(enabled ? { enableAgents: true } : {}),
-                                                    activeAgentIds: nextActiveAgentIds,
-                                                  });
-                                                },
-                                                confirmAction: showConfirmDialog,
-                                                onDirtyChange: setEditorDirty,
-                                                onOpenLorebook: openLorebookFromSettings,
-                                                onLorebooksChanged: refreshLorebooks,
-                                              }}
-                                              className="mt-2 block overflow-hidden rounded-lg"
-                                            />
-                                          )}
-                                          {agent.id === "long-term-memory" && ltmPackage && (
-                                            <CapabilityElement
-                                              packageId={ltmPackage.id}
-                                              view="settings"
-                                              capabilityProps={{
-                                                chatId: chat.id,
-                                                enabledForChat:
-                                                  metadata.enableAgents === true &&
-                                                  activeAgentIds.includes(ltmPackage.id),
-                                                chatSettings: {
-                                                  longTermMemoryRecallStyle: metadata.longTermMemoryRecallStyle,
-                                                  longTermMemoryBudgetTokens: metadata.longTermMemoryBudgetTokens,
-                                                  longTermMemoryMaxChunks: metadata.longTermMemoryMaxChunks,
-                                                },
-                                                onEnabledForChatChange: setLtmEnabledForChat,
-                                                onChatSettingsChange: async (patch: Record<string, unknown>) => {
-                                                  await updateMeta.mutateAsync({ id: chat.id, ...patch });
-                                                },
-                                                onOpenAgentSettings: () => {
-                                                  void requestClose().then((closed) => {
-                                                    if (closed)
-                                                      useUIStore.getState().openAgentDetail("long-term-memory");
-                                                  });
-                                                },
-                                                onDirtyChange: setEditorDirty,
-                                              }}
-                                              className="mt-2 block overflow-hidden rounded-lg"
-                                            />
-                                          )}
                                           {renderDownloadedAgentChatSettings(agent)}
-                                          {agent.id === STORYBOARD_AGENT_ID && (
-                                            <Suspense fallback={null}>
-                                              <StoryboardChatSettingsPanel
-                                                chatId={chat.id}
-                                                metadata={metadata as Record<string, unknown>}
-                                                onClose={onClose}
-                                                ownerMode="roleplay"
-                                              />
-                                            </Suspense>
-                                          )}
-                                          {agent.id === "beholder" && (
-                                            <Suspense fallback={null}>
-                                              <BeholderChatSettingsPanel
-                                                chatId={chat.id}
-                                                onOpenAgentSettings={() => {
-                                                  void requestClose().then((closed) => {
-                                                    if (closed) useUIStore.getState().openAgentDetail("beholder");
-                                                  });
-                                                }}
-                                              />
-                                            </Suspense>
-                                          )}
                                         </div>
                                       );
                                     })}

@@ -772,6 +772,73 @@
   color: var(--destructive);
 }
 
+/* Compact actions inside Chat Settings and downloadable Agent settings. */
+.mari-agent-settings-action {
+  display: inline-flex;
+  min-height: 1.75rem;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border: 1px solid var(--marinara-chat-chrome-button-border, var(--border));
+  border-radius: 0.5rem;
+  background: var(--marinara-chat-chrome-button-bg, var(--secondary));
+  padding: 0.375rem 0.625rem;
+  color: var(--marinara-chat-chrome-panel-text, var(--foreground));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 120ms ease;
+}
+
+.mari-agent-settings-action:hover {
+  border-color: var(--marinara-chat-chrome-button-border-hover, var(--border));
+  background: var(--marinara-chat-chrome-button-bg-hover, var(--accent));
+  color: var(--marinara-chat-chrome-button-text-hover, var(--foreground));
+}
+
+.mari-agent-settings-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 0.125rem var(--marinara-chat-chrome-focus-ring, var(--ring));
+}
+
+.mari-agent-settings-action:active {
+  transform: scale(0.98);
+}
+
+.mari-agent-settings-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.mari-agent-settings-action--primary {
+  border-color: var(--marinara-chat-chrome-button-border-active, color-mix(in srgb, var(--primary) 30%, transparent));
+  background: var(--marinara-chat-chrome-button-bg-active, color-mix(in srgb, var(--primary) 12%, transparent));
+  color: var(--marinara-chat-chrome-button-text-active, var(--primary));
+}
+
+.mari-agent-settings-action--danger {
+  border-color: color-mix(in srgb, var(--destructive) 30%, transparent);
+  background: color-mix(in srgb, var(--destructive) 10%, transparent);
+  color: var(--destructive);
+}
+
+.mari-agent-settings-action--danger:hover {
+  border-color: color-mix(in srgb, var(--destructive) 42%, transparent);
+  background: color-mix(in srgb, var(--destructive) 16%, transparent);
+  color: var(--destructive);
+}
+
+.mari-agent-settings-action--icon {
+  width: 1.75rem;
+  padding: 0;
+}
+
 .mari-chat-logo-mode--conversation {
   --mari-chat-logo-mode-color: var(--mari-logo-cyan);
   --mari-chat-logo-mode-color-deep: var(--mari-logo-cyan-deep);

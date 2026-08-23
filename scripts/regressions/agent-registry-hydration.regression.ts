@@ -124,6 +124,10 @@ const activeSettingsOrder = ["writer", "tracker", "misc"].flatMap((category) =>
 );
 assert.deepEqual(activeSettingsOrder, menuOrder, "Roleplay quick links and active settings must share one order");
 assert.equal(hasStandaloneRoleplayAgentSettings("memory-nag"), true);
+assert.equal(hasStandaloneRoleplayAgentSettings("hierarchical-maps"), true);
+assert.equal(hasStandaloneRoleplayAgentSettings("beholder"), true);
+assert.equal(hasStandaloneRoleplayAgentSettings("storyboard"), true);
+assert.equal(hasStandaloneRoleplayAgentSettings("long-term-memory"), true);
 assert.equal(hasStandaloneRoleplayAgentSettings("late-tracker"), false);
 
 // Connections can mount before this query resolves. It must use the React Query

@@ -2,7 +2,12 @@ import { Image } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { SpriteRangeSlider } from "./AgentSettingsControls";
+import {
+  AgentSettingsActionButton,
+  AgentSettingsSegmentedControl,
+  AgentSettingsToggle,
+  SpriteRangeSlider,
+} from "./AgentSettingsControls";
 import {
   SPRITE_DISPLAY_OPACITY_PERCENT_MAX,
   SPRITE_DISPLAY_OPACITY_PERCENT_MIN,
@@ -102,38 +107,12 @@ export function ExpressionSpriteSettings({
     <>
       <SpriteDisplayModeToggle modes={displayModes} onToggle={onToggleDisplayMode} />
 
-      <button
-        type="button"
-        onClick={onToggleExpressionAvatars}
-        className={cn(
-          "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
-          expressionAvatarsEnabled
-            ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-            : "bg-[var(--background)]/75 ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
-        )}
-      >
-        <div className="min-w-0 flex-1">
-          <span className="text-[0.6875rem] font-medium">
-            {localizeUi("ui.chat.expressionsetupfields.expressionAvatars")}
-          </span>
-          <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.chat.expressionsetupfields.replaceMessageAvatarsWithTheSelectedExpressionSprite")}
-          </p>
-        </div>
-        <div
-          className={cn(
-            "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-            expressionAvatarsEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-          )}
-        >
-          <div
-            className={cn(
-              "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-              expressionAvatarsEnabled && "translate-x-3.5",
-            )}
-          />
-        </div>
-      </button>
+      <AgentSettingsToggle
+        label={localizeUi("ui.chat.expressionsetupfields.expressionAvatars")}
+        description={localizeUi("ui.chat.expressionsetupfields.replaceMessageAvatarsWithTheSelectedExpressionSprite")}
+        enabled={expressionAvatarsEnabled}
+        onToggle={onToggleExpressionAvatars}
+      />
 
       {ownerCount === 0 ? (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">
@@ -222,35 +201,18 @@ export function ExpressionSpriteSettings({
             <span className="flex-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               {localizeUi("ui.chat.expressionsetupfields.spriteLayout")}
             </span>
-            <button
-              type="button"
+            <AgentSettingsActionButton
               onClick={onToggleSpriteArrange}
               disabled={!onToggleSpriteArrange}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-[0.625rem] font-medium transition-colors ring-1 ring-[var(--border)]",
-                spriteArrangeMode
-                  ? "bg-[var(--primary)] text-white"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                !onToggleSpriteArrange && "cursor-not-allowed opacity-40",
-              )}
+              variant={spriteArrangeMode ? "primary" : "default"}
             >
               {spriteArrangeMode
                 ? localizeUi("lorebook.editor.batch.done")
                 : localizeUi("ui.chat.chatsettingsdrawer.arrange")}
-            </button>
-            <button
-              type="button"
-              onClick={onResetSpritePlacements}
-              disabled={!hasCustomSpritePlacements}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-[0.625rem] font-medium transition-colors ring-1 ring-[var(--border)]",
-                hasCustomSpritePlacements
-                  ? "text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-                  : "cursor-not-allowed opacity-40 text-[var(--muted-foreground)]",
-              )}
-            >
+            </AgentSettingsActionButton>
+            <AgentSettingsActionButton onClick={onResetSpritePlacements} disabled={!hasCustomSpritePlacements}>
               {localizeUi("ui.characters.charactercliptrimmodal.reset")}
-            </button>
+            </AgentSettingsActionButton>
           </div>
 
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -274,14 +236,12 @@ export function ExpressionSpriteSettings({
               ))}
             </select>
             {selectedLayoutSubjectId && (
-              <button
-                type="button"
+              <AgentSettingsActionButton
                 onClick={onResetSelectedLayoutSubject}
                 disabled={!selectedLayoutSubjectHasOverride}
-                className="rounded-md px-2.5 py-1.5 text-[0.625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {localizeUi("ui.chat.chatsettingsdrawer.useAllSpriteLayoutSettings")}
-              </button>
+              </AgentSettingsActionButton>
             )}
           </div>
 
@@ -291,31 +251,15 @@ export function ExpressionSpriteSettings({
                 ? localizeUi("ui.chat.chatsettingsdrawer.characterSide")
                 : localizeUi("ui.chat.chatsettingsdrawer.defaultSide")}
             </span>
-            <div className="flex rounded-md ring-1 ring-[var(--border)]">
-              <button
-                type="button"
-                onClick={() => onSpritePositionChange("left")}
-                className={cn(
-                  "rounded-l-md px-2.5 py-1 text-[0.625rem] font-medium transition-colors",
-                  spritePosition === "left"
-                    ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                )}
-              >
-                {localizeUi("ui.chat.chatsettingsdrawer.left")}
-              </button>
-              <button
-                type="button"
-                onClick={() => onSpritePositionChange("right")}
-                className={cn(
-                  "rounded-r-md px-2.5 py-1 text-[0.625rem] font-medium transition-colors",
-                  spritePosition === "right"
-                    ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                )}
-              >
-                {localizeUi("ui.chat.chatsettingsdrawer.right")}
-              </button>
+            <div className="min-w-32 flex-1">
+              <AgentSettingsSegmentedControl
+                value={spritePosition}
+                options={[
+                  { id: "left", label: localizeUi("ui.chat.chatsettingsdrawer.left") },
+                  { id: "right", label: localizeUi("ui.chat.chatsettingsdrawer.right") },
+                ]}
+                onChange={onSpritePositionChange}
+              />
             </div>
           </div>
 
