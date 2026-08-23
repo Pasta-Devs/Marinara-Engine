@@ -50,6 +50,8 @@ export const personas = fileTable("personas", {
   creator: text("creator").notNull().default(""),
   /** Human-visible persona card version string */
   personaVersion: text("persona_version").notNull().default("1.0"),
+  /** Whether edits retain snapshots and automatically advance the card version. */
+  versioningEnabled: text("versioning_enabled").notNull().default("true"),
   /** Private notes about intended use, quirks, or recommended settings */
   creatorNotes: text("creator_notes").notNull().default(""),
   /** Pronunciation override used when sending this persona name to TTS */

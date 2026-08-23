@@ -6,11 +6,7 @@ import {
   getActivityState,
   getRecentAutonomousClientPresence,
 } from "./autonomous.service.js";
-import {
-  isIntentOnCooldown,
-  resolveIntent,
-  type MessageIntent,
-} from "./intent.service.js";
+import { isIntentOnCooldown, resolveIntent, type MessageIntent } from "./intent.service.js";
 import { getBusyDelay, getEffectiveCurrentStatus, type WeekSchedule } from "./schedule.service.js";
 import { parseConversationStatusOverrides } from "../generation/conversation-context-utils.js";
 import { resolveConversationTimeZone, toZonedWallClockDate } from "./timezone.js";
@@ -174,7 +170,10 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
     const hardFailure = isHardGenerationFailure(error, statusCode);
     const delayMs = hardFailure
       ? Math.min(AUTONOMOUS_FAILURE_MAX_BACKOFF_MS, AUTONOMOUS_HARD_FAILURE_BACKOFF_MS * attempts)
-      : Math.min(AUTONOMOUS_FAILURE_MAX_BACKOFF_MS, AUTONOMOUS_FAILURE_BASE_BACKOFF_MS * 2 ** Math.max(0, attempts - 1));
+      : Math.min(
+          AUTONOMOUS_FAILURE_MAX_BACKOFF_MS,
+          AUTONOMOUS_FAILURE_BASE_BACKOFF_MS * 2 ** Math.max(0, attempts - 1),
+        );
     failureBackoffByChat.set(chatId, {
       attempts,
       nextAllowedAt: Date.now() + delayMs,
@@ -199,13 +198,7 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
   ): Promise<boolean> => {
     const promptTimeZone = resolveConversationTimeZone(chatMeta);
     const promptNow = toZonedWallClockDate(new Date(), promptTimeZone);
-    const { intent, onCooldown, disabled } = resolveAvailableIntent(
-      chatId,
-      characterId,
-      schedule,
-      chatMeta,
-      promptNow,
-    );
+    const { intent, onCooldown, disabled } = resolveAvailableIntent(chatId, characterId, schedule, chatMeta, promptNow);
     if (onCooldown || disabled) {
       clearGenerationInProgress(chatId, claimedAt);
       return false;

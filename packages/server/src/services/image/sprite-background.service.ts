@@ -330,8 +330,7 @@ export async function removeUniformSpriteBackgroundPng(
     const channels = [color.red, color.green, color.blue];
     const high = Math.min(...matteHighChannels.map((index) => channels[index] ?? 0));
     const low =
-      matteLowChannels.reduce((sum, index) => sum + (channels[index] ?? 0), 0) /
-      Math.max(1, matteLowChannels.length);
+      matteLowChannels.reduce((sum, index) => sum + (channels[index] ?? 0), 0) / Math.max(1, matteLowChannels.length);
     return high - low;
   };
   const matteChromaDominance = chromaDominance(analysis.color);
@@ -528,8 +527,7 @@ export async function removeUniformSpriteBackgroundPng(
           continue;
         }
         const foregroundCoverage = clampUnit(
-          (matteChromaDominance - observedDominance) /
-            Math.max(1, matteChromaDominance - foregroundDominance),
+          (matteChromaDominance - observedDominance) / Math.max(1, matteChromaDominance - foregroundDominance),
         );
         const matteContact = clampUnit(matteNeighbors / 40);
 
@@ -540,15 +538,9 @@ export async function removeUniformSpriteBackgroundPng(
             rgba[offset + 3] = 0;
           } else {
             const matteWeight = 1 - foregroundCoverage;
-            rgba[offset] = clampByte(
-              (observed.red - analysis.color.red * matteWeight) / foregroundCoverage,
-            );
-            rgba[offset + 1] = clampByte(
-              (observed.green - analysis.color.green * matteWeight) / foregroundCoverage,
-            );
-            rgba[offset + 2] = clampByte(
-              (observed.blue - analysis.color.blue * matteWeight) / foregroundCoverage,
-            );
+            rgba[offset] = clampByte((observed.red - analysis.color.red * matteWeight) / foregroundCoverage);
+            rgba[offset + 1] = clampByte((observed.green - analysis.color.green * matteWeight) / foregroundCoverage);
+            rgba[offset + 2] = clampByte((observed.blue - analysis.color.blue * matteWeight) / foregroundCoverage);
             rgba[offset + 3] = clampByte(originalAlpha * foregroundCoverage);
           }
         } else {
@@ -624,9 +616,7 @@ export async function removeUniformSpriteBackgroundPng(
       rgba[offset + 1] = channels[1] ?? 0;
       rgba[offset + 2] = channels[2] ?? 0;
 
-      const matteFraction = clampUnit(
-        spillAmount / Math.max(1, matteChromaDominance - residualDominanceFloor),
-      );
+      const matteFraction = clampUnit(spillAmount / Math.max(1, matteChromaDominance - residualDominanceFloor));
       rgba[offset + 3] = clampByte(originalAlpha * (1 - matteFraction));
     }
   }

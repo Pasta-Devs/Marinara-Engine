@@ -1,5 +1,5 @@
 import type { AgentWriteApprovalEnvelope, AgentWriteApprovalProposal } from "@marinara-engine/shared";
-import { mergeLorebookKeeperUpdateContent } from "./lorebook-keeper-utils.js";
+import { mergeLorebookKeeperUpdateContent, readLorebookKeeperUpdateOrder } from "./lorebook-keeper-utils.js";
 
 const LOREBOOK_APPROVAL_ENTRY_DELIMITER = "<!-- marinara:lorebook-entry:v1 -->";
 
@@ -129,6 +129,7 @@ export function formatLorebookWriteApprovalText(
       const name = readUpdateName(update) || `Entry ${index + 1}`;
       const keys = readUpdateKeys(update);
       const tag = readUpdateTag(update);
+      const order = readLorebookKeeperUpdateOrder(update);
       const content = mergeLorebookKeeperUpdateContent({
         existingContent: existingContentByName.get(normalizeEntryName(name)) ?? "",
         replacementContent: readUpdateReplacementContent(update),
@@ -139,6 +140,7 @@ export function formatLorebookWriteApprovalText(
         `### ${name}`,
         `Keys: ${keys.join(", ")}`,
         `Tag: ${tag}`,
+        ...(order !== undefined ? [`Order: ${order}`] : []),
         "",
         content || "Add the lorebook text here.",
       ].join("\n");
@@ -166,6 +168,7 @@ export function parseLorebookWriteApprovalText(text: string): Array<Record<strin
     const lines = block.split(/\r?\n/);
     const keys: string[] = [];
     let tag = "";
+    let order: number | undefined;
     let contentStart = 0;
     let sawMetadata = false;
 
@@ -173,6 +176,7 @@ export function parseLorebookWriteApprovalText(text: string): Array<Record<strin
       const line = lines[lineIndex]!;
       const keyMatch = line.match(/^Keys:\s*(.*)$/i);
       const tagMatch = line.match(/^Tag:\s*(.*)$/i);
+      const orderMatch = line.match(/^Order:\s*(.*)$/i);
       if (keyMatch) {
         sawMetadata = true;
         keys.push(
@@ -187,6 +191,14 @@ export function parseLorebookWriteApprovalText(text: string): Array<Record<strin
       if (tagMatch) {
         sawMetadata = true;
         tag = tagMatch[1]!.trim();
+        contentStart = lineIndex + 1;
+        continue;
+      }
+      if (orderMatch) {
+        sawMetadata = true;
+        const rawOrder = orderMatch[1]!.trim();
+        const parsedOrder = /^[+-]?\d+$/u.test(rawOrder) ? Number(rawOrder) : NaN;
+        order = Number.isSafeInteger(parsedOrder) ? parsedOrder : undefined;
         contentStart = lineIndex + 1;
         continue;
       }
@@ -206,6 +218,7 @@ export function parseLorebookWriteApprovalText(text: string): Array<Record<strin
       content,
       keys: Array.from(new Set(keys)),
       tag,
+      ...(order !== undefined ? { order } : {}),
     });
   }
 

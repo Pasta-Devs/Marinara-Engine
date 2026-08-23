@@ -14,11 +14,7 @@ import {
 } from "lucide-react";
 import { TrackerPanelIcon } from "../../../components/ui/TrackerPanelIcon";
 import { TrackerSizeTierIcon } from "../../../components/ui/TrackerSizeTierIcon";
-import type {
-  TrackerPanelSide,
-  TrackerPanelSizeProfile,
-  TrackerStatDisplayMode,
-} from "../../../stores/ui.store";
+import type { TrackerPanelSide, TrackerPanelSizeProfile, TrackerStatDisplayMode } from "../../../stores/ui.store";
 import { cn } from "../../../lib/utils";
 import type { TrackerEditMode } from "../tracker-panel.types";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -161,8 +157,16 @@ export function TrackerSidebarHeader({
         if (settingsOpen) closeSettings();
         else setSettingsOpen(true);
       }}
-      title={settingsOpen ?localizeUi("ui.trackerPanel.trackersidebarheader.closeTrackerSettings") :localizeUi("ui.trackerPanel.trackersidebarheader.openTrackerSettings")}
-      aria-label={settingsOpen ?localizeUi("ui.trackerPanel.trackersidebarheader.closeTrackerSettings") :localizeUi("ui.trackerPanel.trackersidebarheader.openTrackerSettings")}
+      title={
+        settingsOpen
+          ? localizeUi("ui.trackerPanel.trackersidebarheader.closeTrackerSettings")
+          : localizeUi("ui.trackerPanel.trackersidebarheader.openTrackerSettings")
+      }
+      aria-label={
+        settingsOpen
+          ? localizeUi("ui.trackerPanel.trackersidebarheader.closeTrackerSettings")
+          : localizeUi("ui.trackerPanel.trackersidebarheader.openTrackerSettings")
+      }
       aria-expanded={settingsOpen}
       aria-controls="tracker-panel-settings-controls"
       className={cn(
@@ -213,27 +217,21 @@ export function TrackerSidebarHeader({
           {...getToolbarItemProps("side")}
           type="button"
           onClick={() => onSetSide(trackerPanelSide === "left" ? "right" : "left")}
-          title={localizeUi(
-            "ui.trackerPanel.trackersidebarheader.panelAnchoredValue1ClickToAnchorValue2",
-            {
-              value1: trackerPanelSide,
-              value2:
-                trackerPanelSide === "left"
-                  ? localizeUi("ui.trackerPanel.trackersidebarheader.right")
-                  : localizeUi("ui.trackerPanel.trackersidebarheader.left"),
-            },
-          )}
-          aria-label={localizeUi(
-            "ui.trackerPanel.trackersidebarheader.trackerPanelAnchoredValue1ClickToAnchorValue2",
-            {
-              value1: trackerPanelSide,
-              value2:
-                trackerPanelSide === "left"
-                  ? localizeUi("ui.trackerPanel.trackersidebarheader.right")
-                  : localizeUi("ui.trackerPanel.trackersidebarheader.left"),
-            },
-          )}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-[var(--foreground)]/12 text-[var(--foreground)] ring-1 ring-[var(--foreground)]/20 transition-all hover:bg-[var(--accent)] hover:ring-[var(--border)] focus-visible:outline-none focus-visible:ring-[var(--primary)] active:scale-90"
+          title={localizeUi("ui.trackerPanel.trackersidebarheader.panelAnchoredValue1ClickToAnchorValue2", {
+            value1: trackerPanelSide,
+            value2:
+              trackerPanelSide === "left"
+                ? localizeUi("ui.trackerPanel.trackersidebarheader.right")
+                : localizeUi("ui.trackerPanel.trackersidebarheader.left"),
+          })}
+          aria-label={localizeUi("ui.trackerPanel.trackersidebarheader.trackerPanelAnchoredValue1ClickToAnchorValue2", {
+            value1: trackerPanelSide,
+            value2:
+              trackerPanelSide === "left"
+                ? localizeUi("ui.trackerPanel.trackersidebarheader.right")
+                : localizeUi("ui.trackerPanel.trackersidebarheader.left"),
+          })}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-transparent text-[var(--muted-foreground)]/62 ring-1 ring-transparent transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] hover:ring-[var(--border)] focus-visible:outline-none focus-visible:ring-[var(--primary)] active:scale-90"
         >
           {trackerPanelSide === "left" ? <PanelLeft size="0.8rem" /> : <PanelRight size="0.8rem" />}
         </button>
@@ -265,10 +263,7 @@ export function TrackerSidebarHeader({
             size="0.7rem"
             className={cn("relative z-10 mx-auto", !gaugesSelected && "text-[var(--foreground)]")}
           />
-          <Gauge
-            size="0.75rem"
-            className={cn("relative z-10 mx-auto", gaugesSelected && "text-[var(--foreground)]")}
-          />
+          <Gauge size="0.75rem" className={cn("relative z-10 mx-auto", gaugesSelected && "text-[var(--foreground)]")} />
         </button>
       </div>
       <div
@@ -280,8 +275,16 @@ export function TrackerSidebarHeader({
           {...getToolbarItemProps("hide")}
           type="button"
           onClick={() => onSetEditMode(hideMode ? null : "hide")}
-          title={hideMode ?localizeUi("ui.trackerPanel.trackersidebarheader.exitHideMode") :localizeUi("ui.trackerPanel.trackersidebarheader.enterHideMode")}
-          aria-label={hideMode ?localizeUi("ui.trackerPanel.trackersidebarheader.exitTrackerHideMode") :localizeUi("ui.trackerPanel.trackersidebarheader.enterTrackerHideMode")}
+          title={
+            hideMode
+              ? localizeUi("ui.trackerPanel.trackersidebarheader.exitHideMode")
+              : localizeUi("ui.trackerPanel.trackersidebarheader.enterHideMode")
+          }
+          aria-label={
+            hideMode
+              ? localizeUi("ui.trackerPanel.trackersidebarheader.exitTrackerHideMode")
+              : localizeUi("ui.trackerPanel.trackersidebarheader.enterTrackerHideMode")
+          }
           aria-pressed={hideMode}
           className={cn(
             "flex h-6 w-6 items-center justify-center rounded-sm transition-all ring-1 active:scale-90",
@@ -296,8 +299,16 @@ export function TrackerSidebarHeader({
           {...getToolbarItemProps("lock")}
           type="button"
           onClick={() => onSetEditMode(lockMode ? null : "lock")}
-          title={lockMode ?localizeUi("ui.trackerPanel.trackersidebarheader.exitLockMode") :localizeUi("ui.trackerPanel.trackersidebarheader.enterLockMode")}
-          aria-label={lockMode ?localizeUi("ui.trackerPanel.trackersidebarheader.exitTrackerLockMode") :localizeUi("ui.trackerPanel.trackersidebarheader.enterTrackerLockMode")}
+          title={
+            lockMode
+              ? localizeUi("ui.trackerPanel.trackersidebarheader.exitLockMode")
+              : localizeUi("ui.trackerPanel.trackersidebarheader.enterLockMode")
+          }
+          aria-label={
+            lockMode
+              ? localizeUi("ui.trackerPanel.trackersidebarheader.exitTrackerLockMode")
+              : localizeUi("ui.trackerPanel.trackersidebarheader.enterTrackerLockMode")
+          }
           aria-pressed={lockMode}
           className={cn(
             "flex h-6 w-6 items-center justify-center rounded-sm transition-all ring-1 active:scale-90",
@@ -312,8 +323,16 @@ export function TrackerSidebarHeader({
           {...getToolbarItemProps("add")}
           type="button"
           onClick={() => onSetEditMode(addMode ? null : "add")}
-          title={addMode ?localizeUi("ui.trackerPanel.trackersidebarheader.exitAddMode") :localizeUi("ui.trackerPanel.trackersidebarheader.enterAddMode")}
-          aria-label={addMode ?localizeUi("ui.trackerPanel.trackersidebarheader.exitTrackerAddMode") :localizeUi("ui.trackerPanel.trackersidebarheader.enterTrackerAddMode")}
+          title={
+            addMode
+              ? localizeUi("ui.trackerPanel.trackersidebarheader.exitAddMode")
+              : localizeUi("ui.trackerPanel.trackersidebarheader.enterAddMode")
+          }
+          aria-label={
+            addMode
+              ? localizeUi("ui.trackerPanel.trackersidebarheader.exitTrackerAddMode")
+              : localizeUi("ui.trackerPanel.trackersidebarheader.enterTrackerAddMode")
+          }
           aria-pressed={addMode}
           className={cn(
             "flex h-6 w-6 items-center justify-center rounded-sm transition-all ring-1 active:scale-90",
@@ -328,8 +347,16 @@ export function TrackerSidebarHeader({
           {...getToolbarItemProps("delete")}
           type="button"
           onClick={() => onSetEditMode(deleteMode ? null : "delete")}
-          title={deleteMode ?localizeUi("ui.trackerPanel.trackersidebarheader.exitDeleteMode") :localizeUi("ui.trackerPanel.trackersidebarheader.enterDeleteMode")}
-          aria-label={deleteMode ?localizeUi("ui.trackerPanel.trackersidebarheader.exitTrackerDeleteMode") :localizeUi("ui.trackerPanel.trackersidebarheader.enterTrackerDeleteMode")}
+          title={
+            deleteMode
+              ? localizeUi("ui.trackerPanel.trackersidebarheader.exitDeleteMode")
+              : localizeUi("ui.trackerPanel.trackersidebarheader.enterDeleteMode")
+          }
+          aria-label={
+            deleteMode
+              ? localizeUi("ui.trackerPanel.trackersidebarheader.exitTrackerDeleteMode")
+              : localizeUi("ui.trackerPanel.trackersidebarheader.enterTrackerDeleteMode")
+          }
           aria-pressed={deleteMode}
           className={cn(
             "flex h-6 w-6 items-center justify-center rounded-sm transition-all ring-1 active:scale-90",

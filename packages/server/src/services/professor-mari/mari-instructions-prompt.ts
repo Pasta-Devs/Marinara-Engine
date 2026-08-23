@@ -35,7 +35,10 @@ function flattenLine(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-export function renderMariMemoryPrompt(rows: MariInstructionRow[], options: RenderMariMemoryOptions = {}): string | null {
+export function renderMariMemoryPrompt(
+  rows: MariInstructionRow[],
+  options: RenderMariMemoryOptions = {},
+): string | null {
   const maxIndexEntries = options.maxIndexEntries ?? DEFAULT_MAX_INDEX_ENTRIES;
   const maxIndexChars = options.maxIndexChars ?? DEFAULT_MAX_INDEX_CHARS;
   const maxPersistentBodyChars = options.maxPersistentBodyChars ?? DEFAULT_MAX_PERSISTENT_BODY_CHARS;
@@ -88,13 +91,18 @@ export function renderMariMemoryPrompt(rows: MariInstructionRow[], options: Rend
     ...indexLines,
   ];
   if (trimmedIndex > 0) {
-    parts.push(`- (+${trimmedIndex} more memories not shown here. Call instruction.list to page through them all: it returns {items, total, nextOffset}; re-call with offset: nextOffset until nextOffset is null.)`);
+    parts.push(
+      `- (+${trimmedIndex} more memories not shown here. Call instruction.list to page through them all: it returns {items, total, nextOffset}; re-call with offset: nextOffset until nextOffset is null.)`,
+    );
   }
   if (persistentSections.length > 0) {
     parts.push("", "Persistent memories (full text, always active):", ...persistentSections);
   }
   if (trimmedPersistent > 0) {
-    parts.push("", `(${trimmedPersistent} persistent memory/memories were too long to inline. They are in the index above; fetch them with instruction.get.)`);
+    parts.push(
+      "",
+      `(${trimmedPersistent} persistent memory/memories were too long to inline. They are in the index above; fetch them with instruction.get.)`,
+    );
   }
   parts.push(`</${MEMORY_BLOCK_TAG}>`);
   return parts.join("\n");

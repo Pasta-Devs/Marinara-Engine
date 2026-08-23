@@ -55,7 +55,9 @@ export function CustomEmojiSelectionSettings() {
 
   return (
     <div className="mb-2 rounded-md bg-foreground/5 p-2 ring-1 ring-foreground/10">
-      <p className="mb-1.5 text-[0.6875rem] text-foreground/55">{localizeUi("ui.chat.customemojiselectionsettings.whenACharacterHasMoreCustomEmojisOrStickers")}</p>
+      <p className="mb-1.5 text-[0.6875rem] text-foreground/55">
+        {localizeUi("ui.chat.customemojiselectionsettings.whenACharacterHasMoreCustomEmojisOrStickers")}
+      </p>
       <div className="mb-1.5 flex items-center gap-1">
         {(["semantic", "random", "tool-call"] as const).map((mode) => (
           <button
@@ -75,10 +77,10 @@ export function CustomEmojiSelectionSettings() {
       </div>
       <p className="mb-2 text-[0.625rem] text-foreground/40">
         {draftPrefs.mode === "semantic"
-          ?localizeUi("ui.chat.customemojiselectionsettings.offersTheEmojisAndStickersMostRelevantToThe")
+          ? localizeUi("ui.chat.customemojiselectionsettings.offersTheEmojisAndStickersMostRelevantToThe")
           : draftPrefs.mode === "random"
-            ?localizeUi("ui.chat.customemojiselectionsettings.offersARandomSetForEachReply")
-            :localizeUi("ui.chat.customemojiselectionsettings.aModelCallPicksTheFittingOnesEachReply")}
+            ? localizeUi("ui.chat.customemojiselectionsettings.offersARandomSetForEachReply")
+            : localizeUi("ui.chat.customemojiselectionsettings.aModelCallPicksTheFittingOnesEachReply")}
       </p>
       {draftPrefs.mode === "tool-call" && (
         <div className="mb-2">
@@ -95,7 +97,9 @@ export function CustomEmojiSelectionSettings() {
             ))}
           </select>
           {!draftPrefs.toolConnectionId && (
-            <p className="mt-1 text-[0.625rem] text-amber-400/80">{localizeUi("ui.chat.customemojiselectionsettings.noConnectionSetThisFallsBackToSemanticSelection")}</p>
+            <p className="mt-1 text-[0.625rem] text-amber-400/80">
+              {localizeUi("ui.chat.customemojiselectionsettings.noConnectionSetThisFallsBackToSemanticSelection")}
+            </p>
           )}
         </div>
       )}

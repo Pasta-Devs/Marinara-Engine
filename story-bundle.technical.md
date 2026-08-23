@@ -529,6 +529,14 @@ Execution notes:
   This is expected behavior (also in the VS Code Playwright extension). For a
   visible window append `--headed`:
   `pnpm exec playwright test -c playwright.config.ts tests/story-bundle/tests/ --headed`
+- For watching the flows by eye, use the dedicated manual-validation script,
+  which opens a visible Chrome window, runs one test at a time, and adds a
+  1.5s slow-motion delay per action:
+  `pnpm run manual-validation:story-bundle`
+- The Playwright `slowMo` delay is configurable via the `PLAYWRIGHT_SLOW_MO`
+  environment variable (default 100ms). The manual-validation script sets it
+  to 1500ms; the regular `regression:story-bundle` and `smoke:ui` runs use the
+  default.
 - The tests intentionally write nothing to stdout; a "The test case did not
   report any output" in the extension is therefore normal. The result is in the
   Test Explorer or the summary (`2 passed`).

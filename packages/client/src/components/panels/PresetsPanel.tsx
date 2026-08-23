@@ -23,7 +23,7 @@ import { useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import {
   useRegexScripts,
   useDeleteRegexScript,
-  useCreateRegexScript,
+  useImportRegexScript,
   useUpdateRegexScript,
   useReorderRegexScripts,
   type RegexScriptRow,
@@ -71,7 +71,7 @@ import { cn } from "../../lib/utils";
 import { sortBasicPanelItems } from "../../lib/panel-sort";
 import { downloadJsonFile } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
-import { getFolderImportEntries, isStockMarinaraUniversalPreset } from "@marinara-engine/shared";
+import { getFolderImportEntries, isPatternSafe, isStockMarinaraUniversalPreset } from "@marinara-engine/shared";
 import {
   createCustomToolFolderPackageFiles,
   importCustomToolEntries,
@@ -288,7 +288,7 @@ export function PresetsPanel() {
   const setDefaultPreset = useSetDefaultPreset();
   const uploadPresetImage = useUploadPresetImage();
   const deleteRegex = useDeleteRegexScript();
-  const createRegexScript = useCreateRegexScript();
+  const importRegexScript = useImportRegexScript();
   const updateRegex = useUpdateRegexScript();
   const reorderRegexScripts = useReorderRegexScripts();
   const createCustomTool = useCreateCustomTool();
@@ -580,8 +580,16 @@ export function PresetsPanel() {
             continue;
           }
           try {
-            await createRegexScript.mutateAsync(normalized);
+            await importRegexScript.mutateAsync(normalized);
             imported++;
+            if (!isPatternSafe(normalized.findRegex.replace(/\{\{[^}]*\}\}/g, "x"))) {
+              warnings.push(
+                localizeUi("ui.regex.importUnsafePatternWarning", {
+                  value1: index + 1,
+                  value2: normalized.name,
+                }),
+              );
+            }
             if (unsupportedPlacements.length > 0) {
               warnings.push(
                 localizeUi("ui.panels.presetspanel.ignoredUnsupportedRegexPlacements", {
@@ -602,7 +610,7 @@ export function PresetsPanel() {
           setRegexImportError(`Skipped ${failed.length} regex script${failed.length === 1 ? "" : "s"}. ${failed[0]}`);
         }
         if (warnings.length > 0) {
-          setRegexImportWarning(warnings[0]!);
+          setRegexImportWarning(warnings.join(" "));
         }
         if (imported === 0 && failed.length === 0) {
           setRegexImportError("No valid regex scripts found in file.");
@@ -613,7 +621,7 @@ export function PresetsPanel() {
 
       event.target.value = "";
     },
-    [createRegexScript, localizeUi, regexScripts],
+    [importRegexScript, localizeUi, regexScripts],
   );
 
   const handleExportFunctions = useCallback(async () => {

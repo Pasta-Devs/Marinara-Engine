@@ -119,8 +119,12 @@ export function GameQteOverlay({ actions, timerSeconds, onSelect, onTimeout, onD
               isUrgent ? "text-red-400 animate-pulse" : "text-amber-300",
             )}
           >
-            {timeLeft.toFixed(1)}{localizeUi("ui.noodle.stageprofileview.s")}</span>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-white/60">{localizeUi("ui.game.gameqteoverlay.reactQuickly")}</p>
+            {timeLeft.toFixed(1)}
+            {localizeUi("ui.noodle.stageprofileview.s")}
+          </span>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-white/60">
+            {localizeUi("ui.game.gameqteoverlay.reactQuickly")}
+          </p>
         </div>
 
         {/* Action buttons */}
@@ -152,7 +156,10 @@ export function GameQteOverlay({ actions, timerSeconds, onSelect, onTimeout, onD
         {/* Bonus indicator */}
         {selected !== null && timeLeft > 0 && (
           <div className="mt-3 text-center">
-            <span className="text-xs font-semibold text-emerald-400">{localizeUi("ui.game.gameqteoverlay.quickReflexes")}{Math.ceil(timeLeft)} {localizeUi("ui.game.gameqteoverlay.bonus")}</span>
+            <span className="text-xs font-semibold text-emerald-400">
+              {localizeUi("ui.game.gameqteoverlay.quickReflexes")}
+              {Math.ceil(timeLeft)} {localizeUi("ui.game.gameqteoverlay.bonus")}
+            </span>
           </div>
         )}
       </div>

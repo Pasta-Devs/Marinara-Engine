@@ -104,11 +104,17 @@ function getScheduledDayCount(schedule?: WeekSchedule): number {
 
 type ScheduleSummary = { text: string; kind: "day-count" | "message" };
 
-function getSummaryText(schedulesEnabled: boolean, hasGeneratedSchedules: boolean, schedule?: WeekSchedule): ScheduleSummary {
+function getSummaryText(
+  schedulesEnabled: boolean,
+  hasGeneratedSchedules: boolean,
+  schedule?: WeekSchedule,
+): ScheduleSummary {
   const dayCount = getScheduledDayCount(schedule);
-  if (!schedulesEnabled && !hasGeneratedSchedules) return { text: "Autonomous scheduling is off and no schedule has been generated yet.", kind: "message" };
+  if (!schedulesEnabled && !hasGeneratedSchedules)
+    return { text: "Autonomous scheduling is off and no schedule has been generated yet.", kind: "message" };
   if (!schedulesEnabled) return { text: "Autonomous scheduling is off.", kind: "message" };
-  if (!hasGeneratedSchedules || !schedule) return { text: "Autonomous scheduling is on, but no schedule has been generated yet.", kind: "message" };
+  if (!hasGeneratedSchedules || !schedule)
+    return { text: "Autonomous scheduling is on, but no schedule has been generated yet.", kind: "message" };
   if (dayCount > 0) return { text: `${dayCount} day${dayCount === 1 ? "" : "s"} scheduled`, kind: "day-count" };
   return { text: "Schedule exists, but nothing is upcoming yet.", kind: "message" };
 }
@@ -172,7 +178,8 @@ export function ConversationPresenceScheduleSection({
             onClick={() => openEditor()}
             className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--foreground)]/8 px-2 py-1 text-[0.625rem] font-medium text-[var(--foreground)]/78 ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--foreground)]/12 hover:text-[var(--foreground)]"
           >
-            <Pencil size="0.6875rem" /> {localizeUi("ui.noodle.noodlepostcard.edit")}</button>
+            <Pencil size="0.6875rem" /> {localizeUi("ui.noodle.noodlepostcard.edit")}
+          </button>
         )}
       </div>
 
@@ -182,7 +189,9 @@ export function ConversationPresenceScheduleSection({
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-[0.625rem] text-[var(--muted-foreground)]/86">
               <div className="flex min-w-0 items-center gap-1.5">
                 <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_COLORS[nextBlock.status])} />
-                <span className="shrink-0 font-medium text-[var(--muted-foreground)]">{localizeUi("onboarding.actions.next")}</span>
+                <span className="shrink-0 font-medium text-[var(--muted-foreground)]">
+                  {localizeUi("onboarding.actions.next")}
+                </span>
                 <span className="shrink-0 text-[var(--muted-foreground)]/55">·</span>
                 <span className="shrink-0 font-medium text-[var(--muted-foreground)]">{dayLabel(nextBlock)}</span>
                 <span className="shrink-0 text-[var(--muted-foreground)]/55">·</span>
@@ -195,7 +204,11 @@ export function ConversationPresenceScheduleSection({
                   onClick={() => setExpanded((value) => !value)}
                   className="rounded px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--foreground)]/70 transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                 >
-                  {expanded ?localizeUi("ui.noodle.stageprofileview.hide") :localizeUi("ui.chat.conversationpresenceschedulesection.value1More", { value1: extraBlocks.length })}
+                  {expanded
+                    ? localizeUi("ui.noodle.stageprofileview.hide")
+                    : localizeUi("ui.chat.conversationpresenceschedulesection.value1More", {
+                        value1: extraBlocks.length,
+                      })}
                 </button>
               )}
             </div>
@@ -228,7 +241,9 @@ export function ConversationPresenceScheduleSection({
           )}
         </div>
       ) : schedule && schedulesEnabled ? (
-        <div className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]/82">{localizeUi("ui.chat.conversationpresenceschedulesection.noUpcomingBlocks")}</div>
+        <div className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]/82">
+          {localizeUi("ui.chat.conversationpresenceschedulesection.noUpcomingBlocks")}
+        </div>
       ) : null}
     </div>
   );

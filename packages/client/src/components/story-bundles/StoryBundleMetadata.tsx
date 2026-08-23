@@ -193,7 +193,10 @@ export function StoryBundleMetadata({
       )}
 
       {/* Bundle ID (read-only) */}
-      <div data-testid="story-bundle-editor-metadata-bundle-id" className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 px-3 py-2">
+      <div
+        data-testid="story-bundle-editor-metadata-bundle-id"
+        className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 px-3 py-2"
+      >
         <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
           {t("storyBundles.metadata.bundleId", "Bundle ID")}
         </span>
@@ -276,7 +279,11 @@ export function StoryBundleMetadata({
         </div>
         <div data-testid="story-bundle-editor-metadata-tags-list" className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
-            <span key={tag} data-testid={`story-bundle-editor-metadata-tag-${tag}`} className="mari-chrome-control mari-chrome-control--compact group/tag">
+            <span
+              key={tag}
+              data-testid={`story-bundle-editor-metadata-tag-${tag}`}
+              className="mari-chrome-control mari-chrome-control--compact group/tag"
+            >
               <Tag size="0.625rem" />
               {tag}
               <button

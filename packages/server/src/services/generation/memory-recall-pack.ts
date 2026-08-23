@@ -16,12 +16,18 @@ function sliceAtCodePointBoundaries(content: string, start: number, end: number)
   let safeStart = Math.max(0, start);
   let safeEnd = Math.min(content.length, end);
 
-  const startsWithLowSurrogate = safeStart > 0 && safeStart < content.length
-    && content.charCodeAt(safeStart) >= 0xdc00 && content.charCodeAt(safeStart) <= 0xdfff;
+  const startsWithLowSurrogate =
+    safeStart > 0 &&
+    safeStart < content.length &&
+    content.charCodeAt(safeStart) >= 0xdc00 &&
+    content.charCodeAt(safeStart) <= 0xdfff;
   if (startsWithLowSurrogate) safeStart += 1;
 
-  const endsWithHighSurrogate = safeEnd > 0 && safeEnd < content.length
-    && content.charCodeAt(safeEnd - 1) >= 0xd800 && content.charCodeAt(safeEnd - 1) <= 0xdbff;
+  const endsWithHighSurrogate =
+    safeEnd > 0 &&
+    safeEnd < content.length &&
+    content.charCodeAt(safeEnd - 1) >= 0xd800 &&
+    content.charCodeAt(safeEnd - 1) <= 0xdbff;
   if (endsWithHighSurrogate) safeEnd -= 1;
 
   return content.slice(safeStart, safeEnd);

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { chmod, cp, lstat, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { chmod, cp, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, resolve, sep } from "node:path";
 import { parseEnv } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -18,16 +18,6 @@ async function directoryHasEntries(directory) {
     if (error?.code === "ENOENT") return false;
     throw error;
   }
-}
-
-// The data directory can contain symbolic links, e.g. the capability-packages
-// node_modules junction that the server recreates on every startup. fs.cp
-// would try to recreate them via fs.symlink, which fails on Windows without
-// elevated privileges (EPERM) and aborted the whole update snapshot;
-// dereferencing them instead would bloat every backup with node_modules.
-// Links point at runtime artifacts, not user data, so snapshots skip them.
-async function skipSymbolicLinks(sourcePath) {
-  return !(await lstat(sourcePath)).isSymbolicLink();
 }
 
 function normalizeEnvValue(value) {
@@ -472,6 +462,8 @@ export async function snapshotLauncherData({
   const backupName = `update-${timestamp}-${process.pid}`;
   const incompleteDir = resolve(backupRoot, `.incomplete-${backupName}`);
   const backupDir = resolve(backupRoot, backupName);
+  const capabilityRuntimeLink = resolve(dataDir, "capability-packages", "node_modules");
+  const downloadableDataDirs = ["models", "sidecar-runtime"].map((name) => resolve(dataDir, name));
 
   await rm(incompleteDir, { recursive: true, force: true });
   try {
@@ -480,7 +472,15 @@ export async function snapshotLauncherData({
       recursive: true,
       preserveTimestamps: true,
       errorOnExist: true,
-      filter: skipSymbolicLinks,
+      filter: (source) => {
+        const sourcePath = resolve(source);
+        return (
+          sourcePath !== capabilityRuntimeLink &&
+          downloadableDataDirs.every(
+            (downloadableDir) => sourcePath !== downloadableDir && !sourcePath.startsWith(`${downloadableDir}${sep}`),
+          )
+        );
+      },
     });
     await writeFile(
       resolve(incompleteDir, "manifest.json"),
@@ -521,12 +521,7 @@ export async function restoreLauncherDataIfMissing({
 
     await rm(dataDir, { recursive: true, force: true });
     await mkdir(dirname(dataDir), { recursive: true });
-    await cp(backupDataDir, dataDir, {
-      recursive: true,
-      preserveTimestamps: true,
-      errorOnExist: true,
-      filter: skipSymbolicLinks,
-    });
+    await cp(backupDataDir, dataDir, { recursive: true, preserveTimestamps: true, errorOnExist: true });
     return { restored: true, dataDir, backupDir };
   }
 

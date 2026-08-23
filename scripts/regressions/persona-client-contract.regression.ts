@@ -375,7 +375,7 @@ assert.match(
 assert.match(deleteFailureScope, /console\.error\("\[PersonaEditor\] Delete failed:", error\);/u);
 assert.match(
   deleteFailureScope,
-  /toast\.error\(\s*formatFirstApiValidationIssue\(error, localizeUi\("ui\.personas\.personaeditor\.failedToDeletePersona"\)\),\s*\);/u,
+  /toast\.error\(\s*formatFirstApiValidationIssue\(error, localizeUi\("ui\.personas\.personaeditor\.failedToDeletePersona"\)\),?\s*\);/u,
 );
 assert.doesNotMatch(deleteFailureScope, /closeDetail\(\)/u);
 

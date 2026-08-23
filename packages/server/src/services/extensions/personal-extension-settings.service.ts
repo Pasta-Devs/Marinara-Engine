@@ -1,7 +1,4 @@
-import {
-  personalExtensionStoragePatchSchema,
-  type PersonalExtensionStoragePatchInput,
-} from "@marinara-engine/shared";
+import { personalExtensionStoragePatchSchema, type PersonalExtensionStoragePatchInput } from "@marinara-engine/shared";
 import type { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 
 const STORAGE_KEY_PREFIX = "extension-storage:";

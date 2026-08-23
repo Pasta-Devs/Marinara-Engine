@@ -29,29 +29,23 @@ export function TranscriptWindowControls({
   return (
     <div className={cn("flex flex-wrap items-center justify-center gap-2 px-3 py-2", className)}>
       {onShowOlder && hiddenBeforeCount > 0 && (
-        <button
-          type="button"
-          onClick={onShowOlder}
-          className={cn(TRANSCRIPT_WINDOW_BUTTON_CLASS, buttonClassName)}
-        >
-          <ChevronUp size="0.75rem" />{localizeUi("ui.chat.transcriptwindowcontrols.showOlder")}{hiddenBeforeCount})
+        <button type="button" onClick={onShowOlder} className={cn(TRANSCRIPT_WINDOW_BUTTON_CLASS, buttonClassName)}>
+          <ChevronUp size="0.75rem" />
+          {localizeUi("ui.chat.transcriptwindowcontrols.showOlder")}
+          {hiddenBeforeCount})
         </button>
       )}
       {onShowNewer && hiddenAfterCount > 0 && (
-        <button
-          type="button"
-          onClick={onShowNewer}
-          className={cn(TRANSCRIPT_WINDOW_BUTTON_CLASS, buttonClassName)}
-        >
-          <ChevronDown size="0.75rem" />{localizeUi("ui.chat.transcriptwindowcontrols.showNewer")}{hiddenAfterCount})
+        <button type="button" onClick={onShowNewer} className={cn(TRANSCRIPT_WINDOW_BUTTON_CLASS, buttonClassName)}>
+          <ChevronDown size="0.75rem" />
+          {localizeUi("ui.chat.transcriptwindowcontrols.showNewer")}
+          {hiddenAfterCount})
         </button>
       )}
       {onJumpToLatest && hiddenAfterCount > 0 && (
-        <button
-          type="button"
-          onClick={onJumpToLatest}
-          className={cn(TRANSCRIPT_WINDOW_BUTTON_CLASS, buttonClassName)}
-        >{localizeUi("ui.chat.transcriptwindowcontrols.latest")}</button>
+        <button type="button" onClick={onJumpToLatest} className={cn(TRANSCRIPT_WINDOW_BUTTON_CLASS, buttonClassName)}>
+          {localizeUi("ui.chat.transcriptwindowcontrols.latest")}
+        </button>
       )}
     </div>
   );

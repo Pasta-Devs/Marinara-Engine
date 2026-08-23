@@ -118,8 +118,11 @@ export function CsrfOriginWarningBanner() {
         }}
       >
         <div style={{ flex: "1 1 320px", minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: "0.95rem", marginBottom: "0.25rem" }}>{localizeUi("ui.diagnostics.csrforiginwarningbanner.savesWillSilentlyFailThisOriginIsNotTrusted")}</div>
-          <div style={{ fontSize: "0.85rem", opacity: 0.95, lineHeight: 1.4 }}>{localizeUi("ui.diagnostics.csrforiginwarningbanner.marinaraSCsrfProtectionRejectsUnsafeApiRequestsFrom")}{" "}
+          <div style={{ fontWeight: 700, fontSize: "0.95rem", marginBottom: "0.25rem" }}>
+            {localizeUi("ui.diagnostics.csrforiginwarningbanner.savesWillSilentlyFailThisOriginIsNotTrusted")}
+          </div>
+          <div style={{ fontSize: "0.85rem", opacity: 0.95, lineHeight: 1.4 }}>
+            {localizeUi("ui.diagnostics.csrforiginwarningbanner.marinaraSCsrfProtectionRejectsUnsafeApiRequestsFrom")}{" "}
             <code
               style={{
                 background: "rgba(0,0,0,0.25)",
@@ -130,7 +133,10 @@ export function CsrfOriginWarningBanner() {
               }}
             >
               {offender}
-            </code>{localizeUi("ui.diagnostics.csrforiginwarningbanner.addThisLineToYour")} <code>.env</code> {localizeUi("ui.diagnostics.csrforiginwarningbanner.noRestartNeededTakesEffectWithin2s")}</div>
+            </code>
+            {localizeUi("ui.diagnostics.csrforiginwarningbanner.addThisLineToYour")} <code>.env</code>{" "}
+            {localizeUi("ui.diagnostics.csrforiginwarningbanner.noRestartNeededTakesEffectWithin2s")}
+          </div>
           {envLine ? (
             <div
               style={{
@@ -170,11 +176,23 @@ export function CsrfOriginWarningBanner() {
                   fontWeight: 600,
                 }}
               >
-                {copied ?localizeUi("ui.diagnostics.csrforiginwarningbanner.copied") :localizeUi("lorebook.editor.batch.copy")}
+                {copied
+                  ? localizeUi("ui.diagnostics.csrforiginwarningbanner.copied")
+                  : localizeUi("lorebook.editor.batch.copy")}
               </button>
             </div>
           ) : null}
-          <div style={{ fontSize: "0.75rem", opacity: 0.85, marginTop: "0.5rem", lineHeight: 1.35 }}>{localizeUi("ui.diagnostics.csrforiginwarningbanner.autoTrustedWithoutAddingHereLoopback")}<code>127.0.0.1</code>, <code>localhost</code>{localizeUi("ui.diagnostics.csrforiginwarningbanner.lanIps")}<code>192.168.x.x</code>, <code>10.x.x.x</code>{localizeUi("ui.diagnostics.csrforiginwarningbanner.tailscaleCgnat")}<code>100.64.0.0/10</code>{localizeUi("ui.diagnostics.csrforiginwarningbanner.dockerBridge")}<code>172.16.0.0/12</code>{localizeUi("ui.diagnostics.csrforiginwarningbanner.publicIpsAndDnsNamesNeedToBeListed")}</div>
+          <div style={{ fontSize: "0.75rem", opacity: 0.85, marginTop: "0.5rem", lineHeight: 1.35 }}>
+            {localizeUi("ui.diagnostics.csrforiginwarningbanner.autoTrustedWithoutAddingHereLoopback")}
+            <code>127.0.0.1</code>, <code>localhost</code>
+            {localizeUi("ui.diagnostics.csrforiginwarningbanner.lanIps")}
+            <code>192.168.x.x</code>, <code>10.x.x.x</code>
+            {localizeUi("ui.diagnostics.csrforiginwarningbanner.tailscaleCgnat")}
+            <code>100.64.0.0/10</code>
+            {localizeUi("ui.diagnostics.csrforiginwarningbanner.dockerBridge")}
+            <code>172.16.0.0/12</code>
+            {localizeUi("ui.diagnostics.csrforiginwarningbanner.publicIpsAndDnsNamesNeedToBeListed")}
+          </div>
         </div>
         <button
           type="button"

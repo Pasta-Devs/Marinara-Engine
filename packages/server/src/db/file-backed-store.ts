@@ -12,6 +12,7 @@ import {
   closeSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   readSync,
   renameSync,
   rmSync,
@@ -19,10 +20,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { chmod, copyFile, open, rename, unlink, writeFile } from "node:fs/promises";
-import { createHash, randomUUID } from "node:crypto";
-import { dirname, join } from "node:path";
-import { hostname, networkInterfaces } from "node:os";
 import { execFileSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
+import { dirname, join, resolve, sep } from "node:path";
+import { hostname, networkInterfaces } from "node:os";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { STORAGE_MIGRATION_NOTICE_SETTINGS_KEY, type StorageMigrationNotice } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
@@ -92,7 +93,7 @@ type TableSnapshotManifest = {
 };
 
 type StorageWriterLeaseRecord = {
-  version: 1;
+  version: 1 | 2;
   pid: number;
   hostId: string | null;
   hostname: string;
@@ -370,6 +371,18 @@ export const FILE_BACKED_TABLES = [
   "noodler_fan_activity_state",
   "noodle_activity_digests",
   "noodle_refresh_runs",
+  "slurp_accounts",
+  "slurp_posts",
+  "slurp_account_subscriptions",
+  "slurp_post_unlocks",
+  "slurp_interactions",
+  "slurp_creator_reply_claims",
+  "slurp_prepared_posts",
+  "slurp_automatic_attempts",
+  "slurp_reserve_state",
+  "slurp_fan_activity_state",
+  "slurp_activity_digests",
+  "slurp_refresh_runs",
   "lorebooks",
   "lorebook_character_links",
   "lorebook_persona_links",
@@ -415,6 +428,7 @@ export const FILE_BACKED_TABLES = [
   "library_folders",
   "story_bundles",
   "mari_instructions",
+  "mari_workspace_context",
 ] as const;
 
 type FileBackedTable = (typeof FILE_BACKED_TABLES)[number];
@@ -437,6 +451,11 @@ const DURABLE_ON_COMMIT_TABLES = new Set<string>([
   "noodler_reserve_state",
   "noodler_prepared_posts",
   "noodler_fan_activity_state",
+  "slurp_automatic_attempts",
+  "slurp_creator_reply_claims",
+  "slurp_reserve_state",
+  "slurp_prepared_posts",
+  "slurp_fan_activity_state",
 ]);
 
 export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; parentKey: string; childKey: string }> =
@@ -466,6 +485,49 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
       childKey: "creatorAccountId",
     },
     { parent: "noodle_accounts", child: "noodler_prepared_posts", parentKey: "id", childKey: "creatorAccountId" },
+    {
+      parent: "slurp_accounts",
+      child: "slurp_account_subscriptions",
+      parentKey: "id",
+      childKey: "viewerAccountId",
+    },
+    {
+      parent: "slurp_accounts",
+      child: "slurp_account_subscriptions",
+      parentKey: "id",
+      childKey: "creatorAccountId",
+    },
+    { parent: "slurp_accounts", child: "slurp_post_unlocks", parentKey: "id", childKey: "viewerAccountId" },
+    { parent: "slurp_accounts", child: "slurp_accounts", parentKey: "id", childKey: "slurpSourceAccountId" },
+    { parent: "slurp_accounts", child: "slurp_posts", parentKey: "id", childKey: "authorAccountId" },
+    { parent: "slurp_posts", child: "slurp_post_unlocks", parentKey: "id", childKey: "postId" },
+    { parent: "slurp_posts", child: "slurp_interactions", parentKey: "id", childKey: "postId" },
+    { parent: "slurp_posts", child: "slurp_creator_reply_claims", parentKey: "id", childKey: "postId" },
+    {
+      parent: "slurp_interactions",
+      child: "slurp_interactions",
+      parentKey: "id",
+      childKey: "parentInteractionId",
+    },
+    {
+      parent: "slurp_interactions",
+      child: "slurp_creator_reply_claims",
+      parentKey: "id",
+      childKey: "parentInteractionId",
+    },
+    {
+      parent: "slurp_interactions",
+      child: "slurp_creator_reply_claims",
+      parentKey: "id",
+      childKey: "replyInteractionId",
+    },
+    {
+      parent: "slurp_accounts",
+      child: "slurp_creator_reply_claims",
+      parentKey: "id",
+      childKey: "creatorAccountId",
+    },
+    { parent: "slurp_accounts", child: "slurp_prepared_posts", parentKey: "id", childKey: "creatorAccountId" },
     { parent: "chats", child: "messages", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "conversation_call_sessions", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "conversation_call_messages", parentKey: "id", childKey: "chatId" },
@@ -473,6 +535,9 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
     { parent: "chats", child: "agent_memory", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "chat_images", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "memory_chunks", parentKey: "id", childKey: "chatId" },
+    // #5073: a Mari workspace chat's attached context is scoped to it and must
+    // not outlive it (a leaked shard + stale injection into a reused chat id).
+    { parent: "chats", child: "mari_workspace_context", parentKey: "id", childKey: "chatId" },
     // The influences/notes schemas declare onDelete: cascade on BOTH chat
     // FKs, but the graph never carried them — the rows outlived their chats
     // (invisible inside the old monolith; a permanent leaked shard file once
@@ -979,15 +1044,33 @@ function writerLeaseOwnerPath(path: string) {
 }
 
 const CURRENT_HOSTNAME = hostname();
+const CURRENT_LEGACY_HOST_ID = (() => {
+  const machineId = ["/etc/machine-id", "/var/lib/dbus/machine-id"].flatMap((path) => {
+    try {
+      return [readFileSync(path, "utf8").trim()];
+    } catch {
+      return [];
+    }
+  })[0];
+  const macs = Object.values(networkInterfaces())
+    .flatMap((entries) => entries ?? [])
+    .map((entry) => entry.mac.toLowerCase())
+    .filter((mac) => mac !== "00:00:00:00:00:00")
+    .sort();
+  if (!machineId && macs.length === 0) return null;
+  return createHash("sha256")
+    .update([CURRENT_HOSTNAME, machineId ?? "", ...macs].join("\n"))
+    .digest("hex");
+})();
 
 function readWindowsMachineGuid(): string | undefined {
   if (process.platform !== "win32") return undefined;
   try {
-    const output = execFileSync(
-      "reg",
-      ["query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid"],
-      { encoding: "utf8", timeout: 2000, windowsHide: true },
-    );
+    const output = execFileSync("reg", ["query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid"], {
+      encoding: "utf8",
+      timeout: 2000,
+      windowsHide: true,
+    });
     const match = output.match(/MachineGuid\s+REG_SZ\s+([0-9a-fA-F-]+)/);
     const guid = match?.[1]?.trim();
     return guid ? guid : undefined;
@@ -996,7 +1079,13 @@ function readWindowsMachineGuid(): string | undefined {
   }
 }
 
-const CURRENT_HOST_ID = (() => {
+/**
+ * Host id used by story-bundle-dev builds before the upstream v2 lease
+ * rewrite: machine-id or the Windows registry MachineGuid preferred, MAC
+ * addresses only as a fallback. Kept alongside the stock legacy id so stale
+ * v1 leases written by those builds are still reclaimed after this merge.
+ */
+const CURRENT_STORY_BUNDLE_LEGACY_HOST_ID = (() => {
   const machineId = ["/etc/machine-id", "/var/lib/dbus/machine-id"].flatMap((path) => {
     try {
       return [readFileSync(path, "utf8").trim()];
@@ -1004,15 +1093,7 @@ const CURRENT_HOST_ID = (() => {
       return [];
     }
   })[0];
-  // Windows has no /etc/machine-id; the registry MachineGuid is the stable
-  // machine identity there. MAC addresses alone are volatile (Hyper-V, VPN,
-  // and Wi-Fi adapters appear and disappear), which made the host id drift
-  // between runs and blocked stale-lease reclamation on the same machine.
-  const windowsMachineId = readWindowsMachineGuid();
-  const stableId = machineId ?? windowsMachineId;
-  // Prefer a stable machine identity. Only fall back to MAC addresses when no
-  // stable id exists; mixing volatile MACs into the hash whenever they exist
-  // would still let the host id drift as adapters appear and disappear.
+  const stableId = machineId ?? readWindowsMachineGuid();
   if (stableId) {
     return createHash("sha256").update([CURRENT_HOSTNAME, stableId].join("\n")).digest("hex");
   }
@@ -1022,8 +1103,77 @@ const CURRENT_HOST_ID = (() => {
     .filter((mac) => mac !== "00:00:00:00:00:00")
     .sort();
   if (macs.length === 0) return null;
-  return createHash("sha256").update([CURRENT_HOSTNAME, ...macs].join("\n")).digest("hex");
+  return createHash("sha256")
+    .update([CURRENT_HOSTNAME, ...macs].join("\n"))
+    .digest("hex");
 })();
+
+function readStableMachineId() {
+  if (process.platform === "darwin") {
+    try {
+      const output = execFileSync("/usr/sbin/ioreg", ["-rd1", "-c", "IOPlatformExpertDevice"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        timeout: 1_000,
+        maxBuffer: 64 * 1024,
+      });
+      return output.match(/"IOPlatformUUID"\s*=\s*"([^"]+)"/)?.[1] ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (process.platform === "win32") {
+    try {
+      const executable = process.env.SystemRoot ? join(process.env.SystemRoot, "System32", "reg.exe") : "reg.exe";
+      const output = execFileSync(
+        executable,
+        ["query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid"],
+        {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+          timeout: 1_000,
+          maxBuffer: 64 * 1024,
+        },
+      );
+      return output.match(/MachineGuid\s+REG_SZ\s+([^\r\n]+)/i)?.[1]?.trim() ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  return (
+    ["/etc/machine-id", "/var/lib/dbus/machine-id"].flatMap((path) => {
+      try {
+        return [readFileSync(path, "utf8").trim()];
+      } catch {
+        return [];
+      }
+    })[0] ?? null
+  );
+}
+
+const CURRENT_HOST_ID = (() => {
+  const machineId = readStableMachineId();
+  if (!machineId) return null;
+  return createHash("sha256")
+    .update(`marinara-writer-lease-v2\n${process.platform}\n${machineId.toLowerCase()}`)
+    .digest("hex");
+})();
+
+function writerLeaseBelongsToCurrentHost(record: StorageWriterLeaseRecord) {
+  if (record.version === 2) {
+    return Boolean(CURRENT_HOST_ID && record.hostId === CURRENT_HOST_ID);
+  }
+  if (CURRENT_LEGACY_HOST_ID && record.hostId === CURRENT_LEGACY_HOST_ID) return true;
+  if (CURRENT_STORY_BUNDLE_LEGACY_HOST_ID && record.hostId === CURRENT_STORY_BUNDLE_LEGACY_HOST_ID) return true;
+
+  // Version 1 used every visible MAC address in its fingerprint. On macOS,
+  // VPN and virtual interfaces can change that list between launches. The
+  // hostname fallback is intentionally limited to legacy macOS leases; v2
+  // leases always require the stable platform UUID above.
+  return process.platform === "darwin" && record.hostname === CURRENT_HOSTNAME;
+}
 
 class WriterLeasePendingError extends Error {}
 
@@ -1049,7 +1199,7 @@ function parseWriterLease(path: string): { raw: string; record: StorageWriterLea
   try {
     const record = JSON.parse(raw) as StorageWriterLeaseRecord;
     if (
-      record.version !== 1 ||
+      (record.version !== 1 && record.version !== 2) ||
       !Number.isSafeInteger(record.pid) ||
       record.pid <= 0 ||
       (record.hostId !== null && typeof record.hostId !== "string") ||
@@ -1071,6 +1221,17 @@ function pidDefinitelyExited(pid: number) {
     return false;
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === "ESRCH";
+  }
+}
+
+function isTermuxPrivateHomeStorage(rootDir: string) {
+  if (process.platform !== "android" || !process.env.HOME) return false;
+  try {
+    const home = realpathSync(resolve(process.env.HOME));
+    const storage = realpathSync(resolve(rootDir));
+    return storage === home || storage.startsWith(`${home}${sep}`);
+  } catch {
+    return false;
   }
 }
 
@@ -1201,10 +1362,16 @@ function compareValues(left: unknown, right: unknown) {
 }
 
 function matchesLike(value: unknown, pattern: unknown) {
+  // SQL-LIKE semantics: % and _ match across newlines too ([\s\S], not dot) — `.`
+  // without the s flag silently failed on multi-line values, which broke substring
+  // searches over comment fields and, worse, let a crafted multi-line value escape
+  // a notLike() namespace boundary (a non-match inverts to true).
   const escaped = String(pattern ?? "")
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/%/g, ".*")
-    .replace(/_/g, ".");
+    // Escape every regex metacharacter, including * and ? — in SQL LIKE only % and _ are wildcards,
+    // so * and ? are literals; leaving them unescaped made "*" throw and "a*b"/"a?b" match non-literally.
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/%/g, "[\\s\\S]*")
+    .replace(/_/g, "[\\s\\S]");
   return new RegExp(`^${escaped}$`, "i").test(String(value ?? ""));
 }
 
@@ -1238,7 +1405,8 @@ function evaluateCondition(condition: Condition, ctx: RowContext): boolean {
     return condition.operator === "in" ? values.includes(value) : !values.includes(value);
   }
   if (condition.kind === "file-pattern") {
-    return matchesLike(resolveValue(condition.value, ctx), resolveValue(condition.pattern, ctx));
+    const matched = matchesLike(resolveValue(condition.value, ctx), resolveValue(condition.pattern, ctx));
+    return condition.negate ? !matched : matched;
   }
   if (condition.kind === "file-string-nonblank") {
     const value = resolveValue(condition.value, ctx);
@@ -1378,7 +1546,7 @@ class FileTableStore {
         mkdirSync(path, { mode: PRIVATE_DIRECTORY_MODE });
         created = true;
         const record: StorageWriterLeaseRecord = {
-          version: 1,
+          version: 2,
           pid: process.pid,
           hostId: CURRENT_HOST_ID,
           hostname: CURRENT_HOSTNAME,
@@ -1414,7 +1582,7 @@ class FileTableStore {
         }
         throw err;
       }
-      const sameHost = Boolean(CURRENT_HOST_ID && existing.record.hostId === CURRENT_HOST_ID);
+      const sameHost = writerLeaseBelongsToCurrentHost(existing.record) || isTermuxPrivateHomeStorage(this.rootDir);
       if (!sameHost || !pidDefinitelyExited(existing.record.pid)) {
         throw new StorageWriterLeaseError(
           `Another Marinara Engine process (PID ${existing.record.pid}, host ${existing.record.hostname}) may be using ${this.rootDir}. ` +

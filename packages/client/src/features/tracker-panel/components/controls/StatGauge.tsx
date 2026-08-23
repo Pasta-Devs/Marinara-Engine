@@ -27,15 +27,13 @@ const GAUGE_SEGMENT_CLASS =
   "flex min-w-[4.25rem] flex-1 snap-start flex-col items-center justify-center px-1 py-1 @min-[380px]:min-w-[4.75rem] @min-[380px]:py-1.5";
 
 const GAUGE_SIZE_CLASS = {
-  large:
-    "h-[4.5rem] w-[4.5rem] @min-[380px]:h-[5.75rem] @min-[380px]:w-[5.75rem] @min-[520px]:h-28 @min-[520px]:w-28",
+  large: "h-[4.5rem] w-[4.5rem] @min-[380px]:h-[5.75rem] @min-[380px]:w-[5.75rem] @min-[520px]:h-28 @min-[520px]:w-28",
   medium: "h-16 w-16 @min-[380px]:h-[4.5rem] @min-[380px]:w-[4.5rem]",
   compact: "h-14 w-14 @min-[380px]:h-16 @min-[380px]:w-16",
 } satisfies Record<StatGaugeSize, string>;
 
 const GAUGE_ICON_CLASS = {
-  large:
-    "text-[0.875rem] @min-[380px]:text-[1.0625rem] @min-[520px]:text-xl",
+  large: "text-[0.875rem] @min-[380px]:text-[1.0625rem] @min-[520px]:text-xl",
   medium: "text-[0.6875rem] @min-[380px]:text-[0.8125rem]",
   compact: "text-[0.625rem] @min-[380px]:text-[0.6875rem]",
 } satisfies Record<StatGaugeSize, string>;

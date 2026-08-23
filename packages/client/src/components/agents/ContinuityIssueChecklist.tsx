@@ -80,7 +80,9 @@ export function ContinuityIssueChecklist({ content, compact = false }: Continuit
       })}
       <div className="flex items-center justify-between gap-2 pt-1">
         <span className={cn("text-[var(--muted-foreground)]", compact ? "text-[0.5625rem]" : "text-[0.625rem]")}>
-          {selectedCount} {localizeUi("ui.noodle.noodlehome.of")} {issues.length} {localizeUi("ui.agents.agenteditor.selected")}</span>
+          {selectedCount} {localizeUi("ui.noodle.noodlehome.of")} {issues.length}{" "}
+          {localizeUi("ui.agents.agenteditor.selected")}
+        </span>
         <div className="flex items-center gap-1">
           {acceptedOnly && (
             <button
@@ -88,14 +90,18 @@ export function ContinuityIssueChecklist({ content, compact = false }: Continuit
               onClick={resetReview}
               className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.5625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
             >
-              <RotateCcw size="0.625rem" />{localizeUi("ui.agents.continuityissuechecklist.reviewAll")}</button>
+              <RotateCcw size="0.625rem" />
+              {localizeUi("ui.agents.continuityissuechecklist.reviewAll")}
+            </button>
           )}
           <button
             type="button"
             disabled={selectedCount === 0 || acceptedOnly}
             onClick={() => setAcceptedOnly(true)}
             className="rounded-md bg-[var(--primary)] px-2 py-1 text-[0.5625rem] font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-45"
-          >{localizeUi("ui.agents.continuityissuechecklist.acceptSelected")}</button>
+          >
+            {localizeUi("ui.agents.continuityissuechecklist.acceptSelected")}
+          </button>
         </div>
       </div>
     </div>

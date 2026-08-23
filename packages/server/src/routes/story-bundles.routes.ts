@@ -57,10 +57,10 @@ function parseJsonArray(value: unknown): string[] {
   if (typeof value !== "string") return [];
   try {
     const parsed = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.filter((entry): entry is string => typeof entry === "string")
-      : [];
-  } catch { return []; }
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Parse a JSON text column into a typed intro array. */
@@ -89,7 +89,9 @@ function parseJsonObject(value: unknown): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(value);
     return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 /** Parse the JSON columns into typed arrays for the API response. */
@@ -375,7 +377,10 @@ export async function storyBundlesRoutes(app: FastifyInstance) {
     };
     return reply
       .header("Content-Type", "application/json")
-      .header("Content-Disposition", `attachment; filename="${serialized.name.replace(/[^a-zA-Z0-9_\- ]/g, "_")}.marinara.json"`)
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${serialized.name.replace(/[^a-zA-Z0-9_\- ]/g, "_")}.marinara.json"`,
+      )
       .send(envelope);
   });
 }

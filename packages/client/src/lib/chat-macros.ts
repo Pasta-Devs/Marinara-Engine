@@ -199,7 +199,7 @@ export function resolveMessageMacros(
  * Variable-op macros make resolution order-dependent (writes mutate the shared
  * context; reads observe them), so templates containing them are never cached.
  */
-const VARIABLE_OP_MACRO_RE = /\{\{\s*(?:setvar|addvar|incvar|decvar|getvar)\b/i;
+const VARIABLE_OP_MACRO_RE = /\{\{\s*(?:setvar|addvar|addnumvar|incvar|decvar|getvar)\b/i;
 /** Only short templates (regex replacements, trims, patterns) are worth caching. */
 const RESOLVER_CACHE_MAX_TEMPLATE_LENGTH = 2048;
 

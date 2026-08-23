@@ -44,6 +44,7 @@ import { parseChatMetadata } from "../../lib/chat-display";
 import { resolveMessageReasoningDisplay } from "../../lib/message-reasoning";
 import {
   findRetargetableUserReaction,
+  removeCharacterReaction,
   reactionTargetOf,
   splitReactionsBySegment,
   toggleReaction,
@@ -218,8 +219,11 @@ export const ConversationMessage = memo(function ConversationMessage({
       : null;
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
   const canRegenerate = !isUser || generationReplay !== null;
-  const { summary: thinking, summaryUnavailable: reasoningSummaryUnavailable, hasReasoning } =
-    resolveMessageReasoningDisplay(extra);
+  const {
+    summary: thinking,
+    summaryUnavailable: reasoningSummaryUnavailable,
+    hasReasoning,
+  } = resolveMessageReasoningDisplay(extra);
 
   useEffect(() => {
     if (!hasReasoning) setShowThinking(false);
@@ -443,7 +447,9 @@ export const ConversationMessage = memo(function ConversationMessage({
         await api.patch(`/chats/${message.chatId}/messages/${message.id}/extra`, { attachments: updated });
       } catch (err) {
         qc.setQueryData(msgKey, previous);
-        toast.error(err instanceof Error ? err.message :localizeUi("ui.chat.conversationmessage.failedToRemoveAttachment"));
+        toast.error(
+          err instanceof Error ? err.message : localizeUi("ui.chat.conversationmessage.failedToRemoveAttachment"),
+        );
       } finally {
         await qc.invalidateQueries({ queryKey: msgKey });
       }
@@ -475,7 +481,9 @@ export const ConversationMessage = memo(function ConversationMessage({
         await api.patch(`/chats/${message.chatId}/messages/${message.id}/extra`, { reactions: next });
       } catch (err) {
         qc.setQueryData(msgKey, previous);
-        toast.error(err instanceof Error ? err.message :localizeUi("ui.chat.conversationmessage.failedToUpdateReaction"));
+        toast.error(
+          err instanceof Error ? err.message : localizeUi("ui.chat.conversationmessage.failedToUpdateReaction"),
+        );
       } finally {
         await qc.invalidateQueries({ queryKey: msgKey });
       }
@@ -504,6 +512,11 @@ export const ConversationMessage = memo(function ConversationMessage({
     (reaction: MessageReaction) =>
       handleToggleReaction(reaction.emoji, reaction.imageUrl ?? null, reactionTargetOf(reaction)),
     [handleToggleReaction],
+  );
+
+  const handleRemoveCharacterReaction = useCallback(
+    (reaction: MessageReaction) => applyReactions(removeCharacterReaction(reactions, reaction)),
+    [applyReactions, reactions],
   );
 
   // ── Speaker-segment parsing (for grouped / group-in-bubble) ──
@@ -893,6 +906,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     resolveReactorName,
     onPickSegmentReaction: handlePickSegmentReaction,
     onToggleReactionEntry: handleToggleReactionEntry,
+    onRemoveCharacterReaction: handleRemoveCharacterReaction,
     messageTextStyle,
     isBubbleStyle,
     bubbleGroupPosition,
@@ -918,6 +932,7 @@ export const ConversationMessage = memo(function ConversationMessage({
           reactions={messageReactions}
           resolveReactorName={resolveReactorName}
           onToggle={handleToggleReactionEntry}
+          onRemoveCharacter={handleRemoveCharacterReaction}
         />
       </div>
     ) : null;

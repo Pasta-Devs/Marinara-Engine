@@ -11,7 +11,7 @@ import { MoreHorizontal } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { CHAT_SUMMARY_OPEN_REQUEST_EVENT, requestChatSummaryOpen } from "../../lib/chat-floating-ui-events";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
-import { ROLEPLAY_POPOVER_SHELL } from "./roleplay-popover-styles";
+import { NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 type ChatToolbarButtonClassInput = {
@@ -30,7 +30,7 @@ export const CHAT_TOOLBAR_IDENTITY_PILL_SIZE_CLASS = "h-8 w-auto max-md:h-9";
 export const CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS = "max-md:h-9";
 export const CHAT_TOOLBAR_OVERFLOW_BUTTON_SIZE_CLASS = "h-8 w-8 max-md:h-9 max-md:w-9";
 export const CHAT_TOOLBAR_OVERFLOW_MENU_CLASS = cn(
-  ROLEPLAY_POPOVER_SHELL,
+  NEUTRAL_PANEL_SHELL,
   "marinara-chat-toolbar-overflow-menu flex w-9 flex-col items-center p-1",
   CHAT_TOOLBAR_ICON_GAP_CLASS,
 );
@@ -58,9 +58,9 @@ export function getChatFloatingPanelDesktopRight(anchor: ChatToolbarFloatingPane
 
 function readChatToolbarPanelAction(target: EventTarget | null): ChatToolbarPanelAction | null {
   if (!(target instanceof Element)) return null;
-  const value = target.closest(`[${CHAT_TOOLBAR_PANEL_ACTION_ATTRIBUTE}]`)?.getAttribute(
-    CHAT_TOOLBAR_PANEL_ACTION_ATTRIBUTE,
-  );
+  const value = target
+    .closest(`[${CHAT_TOOLBAR_PANEL_ACTION_ATTRIBUTE}]`)
+    ?.getAttribute(CHAT_TOOLBAR_PANEL_ACTION_ATTRIBUTE);
   return value === "gallery" || value === "search" || value === "settings" || value === "summary" ? value : null;
 }
 
@@ -88,7 +88,10 @@ export function readChatToolbarFloatingPanelAnchor(trigger: HTMLElement | null):
     if (!overflowMenu) return null;
     const menuRect = overflowMenu.getBoundingClientRect();
     const minimumPanelWidth = Math.min(160, Math.max(96, window.innerWidth - CHAT_FLOATING_PANEL_PADDING * 2));
-    const rightEdge = Math.max(CHAT_FLOATING_PANEL_PADDING + minimumPanelWidth, menuRect.left - CHAT_FLOATING_PANEL_PADDING);
+    const rightEdge = Math.max(
+      CHAT_FLOATING_PANEL_PADDING + minimumPanelWidth,
+      menuRect.left - CHAT_FLOATING_PANEL_PADDING,
+    );
     return {
       right: Math.max(CHAT_FLOATING_PANEL_PADDING, window.innerWidth - rightEdge),
       rightInset: 0,

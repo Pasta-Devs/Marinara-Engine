@@ -14,6 +14,11 @@ export const gameCheckpoints = fileTable("game_checkpoints", {
   snapshotData: text("snapshot_data"),
   /** Immutable JSON copy of the captured Spatial Context snapshot, when enabled. */
   spatialSnapshotData: text("spatial_snapshot_data"),
+  /** Immutable JSON array of the chat's newest game_engine_state blob per gameType at capture
+   *  time ([{gameType, schemaVersion, state}], #5102) — restore clones these instead of the
+   *  legacy createdAt re-lookup, which same-anchor rewrites (experience saves, silent turn
+   *  games) invalidate. Null on checkpoints from before this field or with no engine state. */
+  engineStateData: text("engine_state_data"),
   /** FK to messages.id — the message this checkpoint was taken at */
   messageId: text("message_id").notNull(),
 

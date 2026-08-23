@@ -6,24 +6,24 @@ This guide shows you how to run Marinara Engine on an Android phone or tablet. M
 
 Termux is a free app that gives your phone a small Linux system and a command line. Marinara Engine needs it because Marinara is a Linux server, not a native Android app.
 
-F-Droid is a free, open-source app store for Android. You install Termux from F-Droid.
+F-Droid is a free, open-source app store for Android. Marinara's automatic setup downloads the stable F-Droid build of Termux. Termux also has a separate experimental Google Play build; if it is already installed, Marinara recognizes its official signer, but F-Droid remains the recommended path for this guide.
 
-Install Termux from F-Droid here: [Termux on F-Droid](https://f-droid.org/en/packages/com.termux/). Do not use the Play Store version of Termux. It is outdated and does not work with Marinara.
+Install Termux from F-Droid here: [Termux on F-Droid](https://f-droid.org/en/packages/com.termux/). Do not mix Termux or its plugin apps from different sources because their signatures must match. See [Termux's official installation notes](https://github.com/termux/termux-app#installation) for the source-specific details.
 
 ## Install with the Android app (APK)
 
-The easiest path uses the Marinara Engine Android app. An APK is an Android app install file. This app is a small helper: it sets up Termux for you, then opens Marinara once the local server is running. It still needs Termux to do the real work, so Android will ask you to approve a few prompts.
+The easiest path uses the Marinara Engine Android app. An APK is an Android app install file. This app is a small helper: it sets up Termux for you, then opens Marinara once the local server is running. It still needs Termux to do the real work, so Android will ask you to approve a few system prompts. Installing the pre-built APK does not require a signing key, password, local-access secret, or `CSRF_TRUSTED_ORIGINS` change. The app generates and exchanges its private localhost credential automatically. Do not add `null` to `CSRF_TRUSTED_ORIGINS`; it is intentionally treated as unset and is not needed by the APK handshake.
 
-1. Download the Android APK from the [latest GitHub Release](https://github.com/Pasta-Devs/Marinara-Engine/releases).
+1. Tap [Download the latest Android APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk).
 2. Install the APK, then open the app.
 3. Tap **Install / Start Marinara**.
 4. If Termux is not installed yet, approve Android's install prompts so the app can download and install Termux from F-Droid.
 5. When Android asks, grant the **Run commands in Termux environment** permission.
 6. If Termux blocks the setup, the app copies an `allow-external-apps` command for you. Paste that command into Termux once, then tap **Install / Start Marinara** again.
 7. Wait while Termux installs the dependencies and builds Marinara. The first build takes a few minutes.
-8. The app opens Marinara for you once the local server is ready.
+8. Return to the Marinara Engine app when Termux finishes. The app connects and signs in automatically once the local server is ready.
 
-If you prefer a home-screen icon that opens Marinara like a normal app, this same Android app provides it. It is a wrapper around the Termux server, so the server must be set up first. It cannot skip Android's install and permission prompts.
+If you prefer a home-screen icon that opens Marinara like a normal app, this same Android app provides it. It is a wrapper around the Termux server, so the server must be set up first. It cannot skip Android's install and permission prompts, but it does not ask you to configure any Marinara installation secret.
 
 ## Install manually in Termux
 

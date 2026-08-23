@@ -145,11 +145,15 @@ export function NewGameExperienceChooser({
         <div className="flex min-w-0 flex-1 items-start gap-2.5">
           <Sparkles size={16} className="mt-0.5 shrink-0 text-[var(--primary)]" />
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-[var(--foreground)]">{localizeUi("ui.game.newgameexperiencechooser.experiences")}</p>
+            <p className="text-xs font-semibold text-[var(--foreground)]">
+              {localizeUi("ui.game.newgameexperiencechooser.experiences")}
+            </p>
             <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
               {activeExperience
-                ?localizeUi("ui.game.newgameexperiencechooser.value1WillRunThisGameTurnItOffTo", { value1: activeExperience.manifest.name })
-                :localizeUi("ui.game.newgameexperiencechooser.runThisGameWithADownloadedExperienceInsteadOf")}
+                ? localizeUi("ui.game.newgameexperiencechooser.value1WillRunThisGameTurnItOffTo", {
+                    value1: activeExperience.manifest.name,
+                  })
+                : localizeUi("ui.game.newgameexperiencechooser.runThisGameWithADownloadedExperienceInsteadOf")}
             </p>
           </div>
         </div>
@@ -161,7 +165,7 @@ export function NewGameExperienceChooser({
           className={SECONDARY_BUTTON}
         >
           <Sparkles size={13} />
-          {open ?localizeUi("ui.noodle.stageprofileview.hide") :localizeUi("ui.chat.hiddenfromaimessagesummary.show")}
+          {open ? localizeUi("ui.noodle.stageprofileview.hide") : localizeUi("ui.chat.hiddenfromaimessagesummary.show")}
         </button>
       </div>
 
@@ -205,14 +209,13 @@ export function NewGameExperienceChooser({
             })
           ) : (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <p className="min-w-0 flex-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">{localizeUi("ui.game.newgameexperiencechooser.noExperiencesDownloadedYet")}</p>
-              <button
-                type="button"
-                onClick={openAgentCatalog}
-                disabled={launching}
-                className={SECONDARY_BUTTON}
-              >
-                <Gamepad2 size={13} />{localizeUi("ui.agents.agentcatalogview.downloadAgents")}</button>
+              <p className="min-w-0 flex-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                {localizeUi("ui.game.newgameexperiencechooser.noExperiencesDownloadedYet")}
+              </p>
+              <button type="button" onClick={openAgentCatalog} disabled={launching} className={SECONDARY_BUTTON}>
+                <Gamepad2 size={13} />
+                {localizeUi("ui.agents.agentcatalogview.downloadAgents")}
+              </button>
             </div>
           )}
         </div>

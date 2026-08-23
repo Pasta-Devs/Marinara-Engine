@@ -114,13 +114,17 @@ export function SpeechToTextButton({ disabled, onTranscript, className, iconSize
       )}
       title={
         listening
-          ?localizeUi("ui.ui.speechtotextbutton.stopDictation")
+          ? localizeUi("ui.ui.speechtotextbutton.stopDictation")
           : supported
-            ?localizeUi("ui.ui.speechtotextbutton.dictateMessage")
-            :localizeUi("ui.ui.speechtotextbutton.speechRecognitionIsNotSupportedInThisBrowser_d6f5969")
+            ? localizeUi("ui.ui.speechtotextbutton.dictateMessage")
+            : localizeUi("ui.ui.speechtotextbutton.speechRecognitionIsNotSupportedInThisBrowser_d6f5969")
       }
       aria-pressed={listening}
-      aria-label={listening ?localizeUi("ui.ui.speechtotextbutton.stopDictation") :localizeUi("ui.ui.speechtotextbutton.dictateMessage")}
+      aria-label={
+        listening
+          ? localizeUi("ui.ui.speechtotextbutton.stopDictation")
+          : localizeUi("ui.ui.speechtotextbutton.dictateMessage")
+      }
     >
       {supported ? <Mic size={iconSize} /> : <MicOff size={iconSize} />}
     </button>

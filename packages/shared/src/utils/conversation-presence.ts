@@ -157,10 +157,7 @@ function parseScheduleBlockMinutes(block: ScheduleBlock): { start: number; end: 
  * crosses midnight belongs to the named day on which it starts, so Monday
  * 02:00 can resolve Sunday's 23:00-07:00 block but not Monday's night block.
  */
-export function getAdjacentScheduleBlocks(
-  schedule: WeekSchedule,
-  now: Date = new Date(),
-): AdjacentScheduleBlocks {
+export function getAdjacentScheduleBlocks(schedule: WeekSchedule, now: Date = new Date()): AdjacentScheduleBlocks {
   const todayIndex = (now.getDay() + 6) % 7;
   const todayName = CONVERSATION_SCHEDULE_DAYS[todayIndex]!;
   const yesterdayName = CONVERSATION_SCHEDULE_DAYS[(todayIndex + 6) % 7]!;

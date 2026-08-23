@@ -48,10 +48,7 @@ export function StoryBundleLorebooks({
     });
   }, [lorebooks, selectedIds, validLorebookIds, search]);
 
-  const visibleAvailable = useMemo(
-    () => available.slice(0, lorebookPickerLimit),
-    [available, lorebookPickerLimit],
-  );
+  const visibleAvailable = useMemo(() => available.slice(0, lorebookPickerLimit), [available, lorebookPickerLimit]);
 
   const selectedLorebooks = useMemo(
     () => lorebooks.filter((lb) => selectedIds.has(lb.id) && validLorebookIds.has(lb.id)),
@@ -86,7 +83,10 @@ export function StoryBundleLorebooks({
 
         <div className="mb-3 flex items-center gap-2">
           <div className="relative flex-1">
-            <Search size="0.875rem" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
+            <Search
+              size="0.875rem"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+            />
             <input
               data-testid="story-bundle-editor-lorebooks-search"
               type="text"
@@ -136,7 +136,8 @@ export function StoryBundleLorebooks({
                 onClick={() => setLorebookPickerLimit((limit) => limit + LOREBOOK_PICKER_PAGE_SIZE)}
                 className="w-full rounded-md px-2 py-1.5 text-center text-xs text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
               >
-                {t("storyBundles.loadMore", "Load more")} ({visibleAvailable.length} {t("storyBundles.of", "of")} {available.length})
+                {t("storyBundles.loadMore", "Load more")} ({visibleAvailable.length} {t("storyBundles.of", "of")}{" "}
+                {available.length})
               </button>
             )}
           </div>
@@ -163,10 +164,7 @@ export function StoryBundleLorebooks({
             {selectedLorebooks.map((lb) => {
               const category = getLorebookCategoryLabel(lb);
               return (
-                <div
-                  key={lb.id}
-                  className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
-                >
+                <div key={lb.id} className="flex items-center gap-2.5 rounded-md px-2 py-1.5">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-foreground)]">
                     <BookOpen size="0.75rem" />
                   </div>

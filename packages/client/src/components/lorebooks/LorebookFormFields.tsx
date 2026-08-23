@@ -37,7 +37,15 @@ export function FieldGroup({
   );
 }
 
-export function KeysEditor({ keys, onChange }: { keys: string[]; onChange: (keys: string[]) => void }) {
+export function KeysEditor({
+  keys,
+  onChange,
+  testIdPrefix,
+}: {
+  keys: string[];
+  onChange: (keys: string[]) => void;
+  testIdPrefix?: string;
+}) {
   const { t: localizeUi } = useUiTranslation();
   const [input, setInput] = useState("");
 
@@ -56,6 +64,7 @@ export function KeysEditor({ keys, onChange }: { keys: string[]; onChange: (keys
             <button
               onClick={() => onChange(keys.filter((_, j) => j !== i))}
               className="ml-0.5 rounded-sm text-[var(--marinara-editor-muted)] hover:text-[var(--destructive)]"
+              data-testid={testIdPrefix ? `${testIdPrefix}-key-${i}-remove-button` : undefined}
             >
               ×
             </button>
@@ -70,11 +79,13 @@ export function KeysEditor({ keys, onChange }: { keys: string[]; onChange: (keys
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addKey())}
           className="mari-editor-field flex-1 px-2 py-1.5 text-xs"
           placeholder={localizeUi("ui.lorebooks.keyseditor.typeKeywordsSeparatedByCommasThenPressEnter")}
+          data-testid={testIdPrefix ? `${testIdPrefix}-input` : undefined}
         />
         <button
           type="button"
           onClick={addKey}
           className="mari-editor-action mari-editor-action--compact px-2 py-1.5 text-[0.6875rem]"
+          data-testid={testIdPrefix ? `${testIdPrefix}-add-button` : undefined}
         >
           {localizeUi("ui.lorebooks.keyseditor.add")}
         </button>
@@ -88,11 +99,13 @@ export function ToggleButton({
   value,
   onChange,
   tooltip,
+  testId,
 }: {
   label: string;
   value: boolean;
   onChange: (v: boolean) => void;
   tooltip?: string;
+  testId?: string;
 }) {
   return (
     <SettingsSwitch
@@ -108,6 +121,7 @@ export function ToggleButton({
       )}
       labelClassName="text-xs"
       labelPosition="start"
+      testId={testId}
     />
   );
 }
@@ -118,12 +132,14 @@ export function NumberField({
   onChange,
   min,
   max,
+  testId,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   min?: number;
   max?: number;
+  testId?: string;
 }) {
   return (
     <div>
@@ -135,6 +151,7 @@ export function NumberField({
         max={max}
         selectOnFocus
         className="mari-editor-field w-full px-2 py-1.5 text-xs"
+        testId={testId}
       />
     </div>
   );
@@ -150,6 +167,7 @@ export function ExpandableTextarea({
   placeholder,
   title,
   showMacroReference = false,
+  testId,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -159,6 +177,7 @@ export function ExpandableTextarea({
   placeholder?: string;
   title?: string;
   showMacroReference?: boolean;
+  testId?: string;
 }) {
   return (
     <MacroTextarea
@@ -172,6 +191,7 @@ export function ExpandableTextarea({
       showMacroReference={showMacroReference}
       showMarkdownPreview
       className="mari-editor-field w-full resize-y p-2.5 text-sm"
+      testId={testId}
     />
   );
 }

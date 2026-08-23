@@ -3,11 +3,7 @@ import { WorldThermometerIcon } from "../../../../components/ui/WorldStateInstru
 import type { TrackerPanelSizeProfile } from "../../../../stores/ui.store";
 import type { WorldStatePresentation } from "../../lib/world-state-display";
 import { useTrackerFieldLock } from "../TrackerLockContext";
-import {
-  WORLD_INSTRUMENT_TEXT_STYLE,
-  WorldRenderedEdit,
-  WorldValueText,
-} from "./WorldEditableTile";
+import { WORLD_INSTRUMENT_TEXT_STYLE, WorldRenderedEdit, WorldValueText } from "./WorldEditableTile";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 const WORLD_FORECAST_PROFILE_STYLES: Record<
@@ -79,18 +75,11 @@ export function WorldForecastTile({
           inputClassName={cn("text-right", WORLD_INSTRUMENT_TEXT_STYLE, style.primary)}
           {...temperatureLock}
         >
-          <span
-            className="flex w-full min-w-0 items-center justify-end gap-1"
-            style={{ color: thermometerColor }}
-          >
+          <span className="flex w-full min-w-0 items-center justify-end gap-1" style={{ color: thermometerColor }}>
             <WorldValueText
               value={temperatureDisplay.label}
               maxLines={2}
-              className={cn(
-                "min-w-0 text-right",
-                WORLD_INSTRUMENT_TEXT_STYLE,
-                style.primary,
-              )}
+              className={cn("min-w-0 text-right", WORLD_INSTRUMENT_TEXT_STYLE, style.primary)}
             />
             <WorldThermometerIcon
               display={temperatureDisplay}

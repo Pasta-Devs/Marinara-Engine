@@ -65,9 +65,7 @@ export function estimateChatSummaryTokens(content: string): number {
 }
 
 /** Generate a concise default title from an entry's origin and source metadata. */
-export function generateChatSummaryEntryTitle(
-  entry: Pick<ChatSummaryEntry, "origin">,
-): string {
+export function generateChatSummaryEntryTitle(entry: Pick<ChatSummaryEntry, "origin">): string {
   if (entry.origin === "legacy") return "Legacy summary";
   if (entry.origin === "automated") return "Automated summary";
   return "Manual summary";
@@ -176,9 +174,7 @@ function pruneAutomatedChatSummaryEntries(entries: ChatSummaryEntry[]): ChatSumm
   const prunable = entries
     .filter(
       (entry) =>
-        entry.origin === "automated" &&
-        entry.enabled &&
-        !(entry.hiddenMessageIds && entry.hiddenMessageIds.length > 0),
+        entry.origin === "automated" && entry.enabled && !(entry.hiddenMessageIds && entry.hiddenMessageIds.length > 0),
     )
     .sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
   const removeCount = prunable.length - MAX_AUTOMATED_CHAT_SUMMARY_ENTRIES;

@@ -92,7 +92,9 @@ export function GameJsonRepairModal({ request, onClose, onApplied }: GameJsonRep
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)] text-[var(--foreground)]/75">
             <Braces size="1rem" />
           </div>
-          <div className="min-w-0 text-sm text-[var(--muted-foreground)]">{localizeUi("ui.game.gamejsonrepairmodal.theModelReturnedJsonThatMarinaraCouldNotApply")}</div>
+          <div className="min-w-0 text-sm text-[var(--muted-foreground)]">
+            {localizeUi("ui.game.gamejsonrepairmodal.theModelReturnedJsonThatMarinaraCouldNotApply")}
+          </div>
         </div>
 
         <div
@@ -104,7 +106,7 @@ export function GameJsonRepairModal({ request, onClose, onApplied }: GameJsonRep
           )}
         >
           {validation.valid ? <CheckCircle2 size="0.95rem" /> : <AlertTriangle size="0.95rem" />}
-          <span>{validation.valid ?localizeUi("ui.game.gamejsonrepairmodal.jsonIsValid") : validation.error}</span>
+          <span>{validation.valid ? localizeUi("ui.game.gamejsonrepairmodal.jsonIsValid") : validation.error}</span>
         </div>
 
         {serverError && (
@@ -143,21 +145,27 @@ export function GameJsonRepairModal({ request, onClose, onApplied }: GameJsonRep
             onClick={onClose}
             disabled={isApplying}
             className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-          >{localizeUi("chat.delete.dialog.cancel")}</button>
+          >
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
           <button
             type="button"
             onClick={handleFormat}
             disabled={!validation.valid || isApplying}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Wand2 size="0.95rem" />{localizeUi("ui.game.gamejsonrepairmodal.format")}</button>
+            <Wand2 size="0.95rem" />
+            {localizeUi("ui.game.gamejsonrepairmodal.format")}
+          </button>
           <button
             type="button"
             onClick={handleApply}
             disabled={!validation.valid || isApplying}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isApplying ? <Loader2 size="0.95rem" className="animate-spin" /> : <CheckCircle2 size="0.95rem" />}{localizeUi("ui.game.gamejsonrepairmodal.applyRepairedJson")}</button>
+            {isApplying ? <Loader2 size="0.95rem" className="animate-spin" /> : <CheckCircle2 size="0.95rem" />}
+            {localizeUi("ui.game.gamejsonrepairmodal.applyRepairedJson")}
+          </button>
         </div>
       </div>
     </Modal>

@@ -88,6 +88,7 @@ function seedWhisperModels() {
 try {
   const {
     capabilityCatalogSchema,
+    parseCapabilityCatalogWithCompat,
     capabilityPackageManifestSchema,
     compareCapabilityPackageVersions,
     getCapabilityApiCompatibilityIssue,
@@ -103,7 +104,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 9 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 13 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -122,6 +123,44 @@ try {
   });
   assert.equal(getCapabilityApiCompatibilityIssue(currentManifestV2), null);
   assert.deepEqual(currentManifestV2.contributions?.agentDetail?.agentIds, ["feature-agent"]);
+
+  // A game-surface package may declare package-owned static assets (tiles, sprites, atlases).
+  // The catalog must accept the `contributions.assets` shape so a single unrecognized key does
+  // not fail the entire catalog (which previously returned 400 and blocked every agent install).
+  const gameSurfaceManifest = capabilityPackageManifestSchema.parse({
+    ...manifestV2,
+    id: "pixelforge",
+    name: "Pixelforge",
+    version: "0.5.0",
+    capabilityApi: { major: 1, minor: 10 },
+    contributions: {
+      slots: ["game-surface"],
+      gameSurface: { surfaceClass: "pixelforge-surface" },
+      assets: {
+        paths: ["tiles.png", "atlas.json", "sprites/player.png"],
+      },
+    },
+    files: [
+      ...manifestV2.files,
+      { path: "tiles.png", sha256: "3".repeat(64), bytes: 1 },
+      { path: "atlas.json", sha256: "4".repeat(64), bytes: 1 },
+      { path: "sprites/player.png", sha256: "5".repeat(64), bytes: 1 },
+    ],
+  });
+  assert.deepEqual(
+    gameSurfaceManifest.contributions?.assets?.paths,
+    ["tiles.png", "atlas.json", "sprites/player.png"],
+    "A game-surface package's declared asset paths must survive manifest parsing",
+  );
+  assert.throws(
+    () =>
+      capabilityPackageManifestSchema.parse({
+        ...manifestV2,
+        contributions: { assets: { paths: [] } },
+      }),
+    /assets/,
+    "An assets contribution with an empty paths array must be rejected",
+  );
   assert.throws(
     () =>
       capabilityPackageManifestSchema.parse({
@@ -139,20 +178,20 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.9/,
+    /requires capability API 2\.0; this Engine supports 1\.13/,
   );
   const currentMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 9 },
+    capabilityApi: { major: 1, minor: 13 },
   });
   assert.equal(getCapabilityApiCompatibilityIssue(currentMinorManifest), null);
   const unsupportedMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 10 },
+    capabilityApi: { major: 1, minor: 14 },
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMinorManifest) ?? "",
-    /requires capability API 1\.10; this Engine supports 1\.9/,
+    /requires capability API 1\.14; this Engine supports 1\.13/,
   );
 
   const forwardCompatibleCatalog = capabilityCatalogSchema.parse({
@@ -192,6 +231,35 @@ try {
     "Capability API 1.3 agent-detail metadata must remain compatible with the 1.3 host",
   );
 
+  // A catalog entry built for a NEWER Engine (unknown manifest key under this
+  // Engine's strict schemas) must be dropped per-entry, never fail the whole
+  // document — all-or-nothing parsing bricked browsing/install/updates for
+  // every package at once (#5091 review finding).
+  const mixedGenerationCatalog = parseCapabilityCatalogWithCompat({
+    schemaVersion: 1,
+    generatedAt: "2026-08-15T00:00:00.000Z",
+    packages: [
+      forwardCompatibleCatalog.packages[0],
+      {
+        manifest: {
+          ...manifestV2,
+          id: "from-the-future",
+          contributions: { slots: ["chat-settings"], holograms: { enabled: true } },
+        },
+        category: "misc",
+        artifact: { url: "https://example.com/from-the-future.zip", sha256: "2".repeat(64), bytes: 1 },
+      },
+    ],
+  });
+  assert.equal(mixedGenerationCatalog.droppedEntries, 1, "the unparseable entry must be dropped, not fatal");
+  assert.deepEqual(
+    mixedGenerationCatalog.droppedIds,
+    ["from-the-future"],
+    "dropped entries must be identified by manifest id so operators can name what vanished",
+  );
+  assert.equal(mixedGenerationCatalog.catalog.packages.length, 1);
+  assert.equal(mixedGenerationCatalog.catalog.packages[0]?.manifest.id, "hierarchical-maps");
+
   writeRegistry([installedPackage("conversation-calls", ["agent", "conversation-calls"])]);
   seedWhisperModels();
 
@@ -215,6 +283,24 @@ try {
     () => validatePackageArchiveEntries(directoryFloodArchive),
     /Package contains too many files/u,
     "directory-only ZIP entries count toward the archive entry limit",
+  );
+  // Case-insensitive duplicate guard (#5091): NTFS/APFS extract `Tiles.PNG`
+  // onto `tiles.png`, leaving one on-disk file behind two declared hashes, so
+  // an artifact carrying both casings is rejected before extraction. (The
+  // manifest-level case-folded guard sits BEHIND this one in the live install
+  // flow — a zip cannot reach it with a case collision the entry guard missed.)
+  const { createRequire } = await import("node:module");
+  const serverRequire = createRequire(new URL("../../packages/server/src/app.ts", import.meta.url));
+  const AdmZipCtor = serverRequire("adm-zip") as new () => {
+    addFile: (name: string, data: Buffer) => void;
+  };
+  const collisionZip = new AdmZipCtor();
+  collisionZip.addFile("art/tiles.png", Buffer.from("first casing"));
+  collisionZip.addFile("art/Tiles.PNG", Buffer.from("second casing"));
+  assert.throws(
+    () => validatePackageArchiveEntries(collisionZip as never),
+    /duplicate file/u,
+    "case-only filename collisions must be rejected at archive validation",
   );
   assert.equal(
     resolveCapabilityCatalogUrl("2.3.1", "", "main"),
@@ -999,14 +1085,24 @@ try {
   });
   syncBuiltinESMExports();
   try {
-    const browserTabAsset = await capabilityPackageManager.browserTabAsset(agentSuite.id, "suite-tab.png");
+    const browserTabAsset = await capabilityPackageManager.packageAsset(agentSuite.id, "suite-tab.png");
     assert.equal(browserTabAsset?.contentType, "image/png");
     assert.equal(
       browserTabAsset?.file,
       join(packagesRoot, "versions", agentSuite.id, agentSuite.version, "suite-tab.png"),
     );
-    assert.deepEqual(await capabilityPackageManager.browserTabAsset(agentSuite.id, "suite-tab.png"), browserTabAsset);
-    assert.equal(assetHashCount, 1, "An unchanged browser-tab asset must reuse its successful verification");
+    assert.equal(
+      browserTabAsset?.data?.toString("utf8"),
+      "x",
+      "Every serve must hand back the exact bytes it hashed",
+    );
+    const repeatAsset = await capabilityPackageManager.packageAsset(agentSuite.id, "suite-tab.png");
+    assert.deepEqual(repeatAsset, browserTabAsset, "Repeated resolution must be deterministic");
+    assert.equal(
+      assetHashCount,
+      2,
+      "EVERY served body is hash-verified — a stat-only fast path could send bytes written after verification",
+    );
 
     const changedRegistry = JSON.parse(readFileSync(registryPath, "utf8")) as {
       packages: Array<ReturnType<typeof installedPackage>>;
@@ -1019,22 +1115,22 @@ try {
     changedAssetDeclaration.sha256 = "0".repeat(64);
     writeFileSync(registryPath, JSON.stringify(changedRegistry, null, 2));
     await assert.rejects(
-      capabilityPackageManager.browserTabAsset(agentSuite.id, "suite-tab.png"),
+      capabilityPackageManager.packageAsset(agentSuite.id, "suite-tab.png"),
       /integrity verification/u,
       "Changed manifest integrity metadata must not reuse an older successful verification",
     );
-    assert.equal(assetHashCount, 2, "Changed manifest integrity metadata must force a fresh integrity check");
+    assert.equal(assetHashCount, 3, "Changed manifest integrity metadata must force a fresh integrity check");
 
     changedAssetDeclaration.sha256 = originalAssetSha256;
     writeFileSync(registryPath, JSON.stringify(changedRegistry, null, 2));
-    assert.ok(await capabilityPackageManager.browserTabAsset(agentSuite.id, "suite-tab.png"));
+    assert.ok(await capabilityPackageManager.packageAsset(agentSuite.id, "suite-tab.png"));
     writeFileSync(join(packagesRoot, "versions", agentSuite.id, agentSuite.version, "suite-tab.png"), "y");
     await assert.rejects(
-      capabilityPackageManager.browserTabAsset(agentSuite.id, "suite-tab.png"),
+      capabilityPackageManager.packageAsset(agentSuite.id, "suite-tab.png"),
       /integrity verification/u,
       "Capability assets changed outside the reviewed package must not be served",
     );
-    assert.equal(assetHashCount, 4, "Changed asset metadata must force a fresh integrity check");
+    assert.equal(assetHashCount, 5, "Changed asset metadata must force a fresh integrity check");
   } finally {
     Object.defineProperty(crypto, "createHash", { configurable: true, value: originalCreateHash });
     syncBuiltinESMExports();
@@ -1042,12 +1138,12 @@ try {
   writeFileSync(join(packagesRoot, "versions", agentSuite.id, agentSuite.version, "suite-tab.png"), "x");
   refreshRegistryFileIntegrity();
   assert.equal(
-    await capabilityPackageManager.browserTabAsset(agentSuite.id, "server.mjs"),
+    await capabilityPackageManager.packageAsset(agentSuite.id, "server.mjs"),
     null,
     "Package payloads not declared as tab artwork must not be exposed as public assets",
   );
   assert.equal(
-    await capabilityPackageManager.browserTabAsset(agentSuite.id, "../installed.json"),
+    await capabilityPackageManager.packageAsset(agentSuite.id, "../installed.json"),
     null,
     "Home tab asset requests must retain package traversal protection",
   );

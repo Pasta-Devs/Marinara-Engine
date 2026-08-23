@@ -27,6 +27,8 @@ export interface ExportEnvelope<T = unknown> {
 export interface ChatMemoryRecallExportChunk {
   content: string;
   embedding: number[] | null;
+  /** Stable provider/model/profile identity for the exported vector. */
+  embeddingSpaceId?: string | null;
   messageCount: number;
   firstMessageAt: string;
   lastMessageAt: string;

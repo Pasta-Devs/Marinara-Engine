@@ -45,7 +45,9 @@ export function ImageInfoPopover({ node, onClose }: { node: TreeNode; onClose: (
       className="fixed z-[60] rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 shadow-xl max-sm:inset-x-0 max-sm:bottom-0 max-sm:rounded-b-none max-sm:border-b-0 sm:right-4 sm:top-20 sm:w-64"
     >
       <div className="mb-3 flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-[var(--foreground)]">{localizeUi("ui.gameAssets.imageinfopopover.fileInfo")}</h4>
+        <h4 className="text-sm font-semibold text-[var(--foreground)]">
+          {localizeUi("ui.gameAssets.imageinfopopover.fileInfo")}
+        </h4>
         <button
           type="button"
           aria-label={localizeUi("capabilities.actions.close")}
@@ -67,7 +69,9 @@ export function ImageInfoPopover({ node, onClose }: { node: TreeNode; onClose: (
           </div>
           {info.width != null && info.height != null && (
             <div className="flex justify-between">
-              <span className="text-[var(--muted-foreground)]">{localizeUi("ui.gameAssets.imageinfopopover.dimensions")}</span>
+              <span className="text-[var(--muted-foreground)]">
+                {localizeUi("ui.gameAssets.imageinfopopover.dimensions")}
+              </span>
               <span className="text-[var(--foreground)]">
                 {info.width} × {info.height}
               </span>
@@ -75,7 +79,9 @@ export function ImageInfoPopover({ node, onClose }: { node: TreeNode; onClose: (
           )}
           {info.format && (
             <div className="flex justify-between">
-              <span className="text-[var(--muted-foreground)]">{localizeUi("ui.gameAssets.imageinfopopover.format")}</span>
+              <span className="text-[var(--muted-foreground)]">
+                {localizeUi("ui.gameAssets.imageinfopopover.format")}
+              </span>
               <span className="uppercase text-[var(--foreground)]">{info.format}</span>
             </div>
           )}

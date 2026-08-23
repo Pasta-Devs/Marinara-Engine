@@ -1,4 +1,9 @@
 import type { GameState, PlayerStats } from "@marinara-engine/shared";
+import {
+  excludeInventoryTrackerCarriedDuplicates,
+  findInvalidInventoryTrackerRow,
+  normalizeInventoryTrackerRows,
+} from "@marinara-engine/shared";
 
 export type AgentSuiteTrackerSlice = {
   label: string;
@@ -98,6 +103,47 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
             },
           }
         : { error: "Custom tracker fields must be a JSON array" },
+  },
+  "inventory-tracker": {
+    label: "Inventory Tracker",
+    description: "Currencies, equipped items, and carried inventory maintained by the Inventory Tracker agent.",
+    getValue: (gameState) => ({
+      currencies: gameState.playerStats?.inventoryTrackerCurrencies ?? [],
+      equipped: gameState.playerStats?.inventoryTrackerEquipped ?? [],
+      inventory: gameState.playerStats?.inventoryTrackerInventory ?? [],
+    }),
+    buildPatch: (gameState, parsed) => {
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return { error: "Inventory Tracker data must be a JSON object" };
+      }
+      const record = parsed as Record<string, unknown>;
+      if (!Array.isArray(record.currencies) || !Array.isArray(record.equipped) || !Array.isArray(record.inventory)) {
+        return { error: "Inventory Tracker data must include currencies, equipped, and inventory arrays" };
+      }
+      // Report malformed rows instead of normalizing them away. The shared normalizer
+      // drops rows it cannot read, so `[{ "foo": 1 }]` would silently become `[]` and
+      // look to the author like the editor had eaten a group they just typed.
+      for (const [group, rows] of [
+        ["currencies", record.currencies],
+        ["equipped", record.equipped],
+        ["inventory", record.inventory],
+      ] as const) {
+        const problem = findInvalidInventoryTrackerRow(rows);
+        if (problem) return { error: `Inventory Tracker "${group}": ${problem}` };
+      }
+
+      const currencies = normalizeInventoryTrackerRows(record.currencies);
+      const equipped = normalizeInventoryTrackerRows(record.equipped);
+      const carried = normalizeInventoryTrackerRows(record.inventory);
+      return {
+        playerStats: {
+          ...(gameState.playerStats ?? createEmptyPlayerStats()),
+          inventoryTrackerCurrencies: currencies,
+          inventoryTrackerEquipped: equipped,
+          inventoryTrackerInventory: excludeInventoryTrackerCarriedDuplicates(carried, currencies, equipped),
+        },
+      };
+    },
   },
   quest: {
     label: "Active Quests",

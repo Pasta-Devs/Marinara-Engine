@@ -16,7 +16,6 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import DOMPurify from "dompurify";
 import {
   AlertTriangle,
   MessageCircle,
@@ -39,25 +38,17 @@ import {
   RotateCcw,
   GitBranch,
   Languages,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import type { AvatarCrop } from "@marinara-engine/shared";
-import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
+import { cn, copyToClipboard } from "../../lib/utils";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { findNamedMapValue } from "../../lib/game-character-name-match";
 import type { GameSegmentEdit } from "../../lib/game-segment-edits";
-import {
-  escapeStandaloneGameNarrationAngleLines,
-  hasVisibleGameNarrationText,
-  parseGmTags,
-  stripGmTagsKeepReadables,
-} from "../../lib/game-tag-parser";
+import { hasVisibleGameNarrationText, parseGmTags, stripGmTagsKeepReadables } from "../../lib/game-tag-parser";
 import { audioManager } from "../../lib/game-audio";
 import { normalizeSpriteExpressionKey, resolveSpriteExpression } from "../../lib/sprite-expression-match";
-import {
-  DIALOGUE_QUOTE_CAPTURE_GROUP_PATTERN_SOURCE,
-  HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE,
-  stripSurroundingDialogueQuotes,
-} from "../../lib/dialogue-quotes";
+import { DIALOGUE_QUOTE_CAPTURE_GROUP_PATTERN_SOURCE, stripSurroundingDialogueQuotes } from "../../lib/dialogue-quotes";
 import type { SpriteInfo } from "../../hooks/use-characters";
 import { useTranslate } from "../../hooks/use-translate";
 import { useTTSConfig } from "../../hooks/use-tts";
@@ -93,26 +84,16 @@ import {
 import type { CharacterMap, PersonaInfo } from "../chat/chat-area.types";
 import { MESSAGE_SELECTION_SURFACE_CLASS } from "../chat/message-selection-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { formatNarration } from "./game-narration-format";
+import {
+  CroppedAvatar,
+  ExpressionReaction,
+  PartyOverlayBox,
+  nameColorStyle,
+  type SpeakerAvatarInfo,
+} from "./GameNarrationVisuals";
 
 const GamePeekPromptButton = lazy(() => import("./GamePeekPromptButton"));
-
-/** Build inline style for a color that may be a plain color or a CSS gradient. */
-function nameColorStyle(color?: string): CSSProperties | undefined {
-  if (!color) return undefined;
-  if (color.includes("gradient(")) {
-    return {
-      backgroundImage: color,
-      backgroundRepeat: "no-repeat",
-      backgroundSize: "100% 100%",
-      WebkitBackgroundClip: "text",
-      WebkitTextFillColor: "transparent",
-      backgroundClip: "text",
-      color: "transparent",
-      display: "inline-block",
-    };
-  }
-  return { color };
-}
 
 const GAME_TTS_EMOTIONS = [
   "neutral",
@@ -215,7 +196,6 @@ type NarrationMessage = Pick<Message, "id" | "chatId" | "role" | "content" | "ch
   characterName?: string;
 };
 
-
 function formatTokenEstimate(tokens: number): string {
   if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(tokens >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}m`;
   if (tokens >= 10_000) return `${Math.round(tokens / 1_000)}k`;
@@ -250,13 +230,6 @@ function narrationSegmentAnchorKey(segment: NarrationSegment): string {
   if (segment.sourceMessageId) return `${segment.sourceMessageId}:${segment.id}`;
   return segment.id;
 }
-
-type SpeakerAvatarInfo = {
-  url: string;
-  crop?: AvatarCrop | null;
-  nameColor?: string;
-  dialogueColor?: string;
-};
 
 type GameSegmentVoiceEntry =
   | { status: "loading"; speaker?: string; tone?: string; voice?: string; chunks: string[] }
@@ -506,6 +479,13 @@ interface GameNarrationProps {
    * entries available to step into. When 0, wheel-up has no past to walk into.
    */
   onMaxNavOffsetChange?: (max: number) => void;
+  /**
+   * A running Experience is asking for the narration box to be collapsed right now — a
+   * TRANSIENT REQUEST (a cutscene, a full-screen menu beat), never a stored preference.
+   * The player's own `gameNarrationCollapsed` setting is untouched and returns the moment
+   * the request drops, and every engine safety rule below still wins over the request.
+   */
+  requestsCollapsedNarration?: boolean;
 }
 
 /** Regex matching explicit {effect:text} tags used by AnimatedText. */
@@ -565,7 +545,11 @@ function slicePreservingEffects(content: string, maxVisible: number): string {
   return result;
 }
 
-function getGameTranslationHtml(message: NarrationMessage, translatedText: string, textEffectsEnabled: boolean): string {
+function getGameTranslationHtml(
+  message: NarrationMessage,
+  translatedText: string,
+  textEffectsEnabled: boolean,
+): string {
   return animateTextHtml(
     formatNarration(getGameTranslationSource({ ...message, content: translatedText }), false),
     textEffectsEnabled,
@@ -598,9 +582,7 @@ function getGameTranslatedSegmentText(
   const translatedSegments = parseNarrationSegments({ ...message, content: translatedText }, speakerColors);
   const translatedSegment = translatedSegments[sourceSegmentIndex];
   if (!translatedSegment) {
-    return sourceSegmentIndex === 0
-      ? getGameTranslationSource({ ...message, content: translatedText })
-      : undefined;
+    return sourceSegmentIndex === 0 ? getGameTranslationSource({ ...message, content: translatedText }) : undefined;
   }
   return (
     translatedSegment.type === "readable"
@@ -1007,6 +989,7 @@ export function GameNarration({
   onSetReviewOffset,
   nextActionToken,
   onMaxNavOffsetChange,
+  requestsCollapsedNarration = false,
 }: GameNarrationProps) {
   const { t: localizeUi } = useUiTranslation();
   useRenderTimer("game-narration"); // [#3104 diagnostic]
@@ -1023,6 +1006,8 @@ export function GameNarration({
   const [logsOpen, setLogsOpen] = useState(false);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const gameDialogueDisplayMode = useUIStore((s) => s.gameDialogueDisplayMode);
+  const gameNarrationCollapsed = useUIStore((s) => s.gameNarrationCollapsed);
+  const setGameNarrationCollapsed = useUIStore((s) => s.setGameNarrationCollapsed);
   const gameTextEffectsEnabled = useUIStore((s) => s.gameTextEffectsEnabled);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const defaultDialogueColor = useUIStore((s) => s.defaultDialogueColor);
@@ -3317,7 +3302,9 @@ export function GameNarration({
       if (!message || (!translatedText && !isTranslating)) return null;
       return (
         <div className={cn("rounded-xl border border-sky-400/15 bg-sky-500/8 px-3 py-2.5", className)}>
-          <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-sky-200/70">{localizeUi("ui.game.gamenarration.translation")}</div>
+          <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-sky-200/70">
+            {localizeUi("ui.game.gamenarration.translation")}
+          </div>
           {translatedText ? (
             <div
               className="game-narration-prose text-sm leading-relaxed text-sky-50/85"
@@ -3526,6 +3513,37 @@ export function GameNarration({
     return findNamedMapValue(speakerAvatarInfos, active.speaker) ?? null;
   }, [active, resolveExpressionAvatar, speakerAvatarInfos]);
 
+  // ── Collapsible narration box (#5209) ──────────────────────────────────────
+  // Three inputs decide whether the box is folded down to its handle:
+  //   1. `gameNarrationCollapsed` — the player's stored preference (ui.store).
+  //   2. `requestsCollapsedNarration` — a running Experience asking for it RIGHT NOW
+  //      (a cutscene beat). Transient: it is read off `activeExperienceChrome`, so it
+  //      clears itself the moment the experience stops being the active surface.
+  //   3. `manualExpandDuringRequest` — the player overruling (2) by hand. It resets when
+  //      the request drops, so the stored preference takes back over afterwards.
+  // The force-expand rules in §`effectiveCollapsed` below then win over all three, and
+  // the force-expand is NEVER written back to the store — the preference must survive.
+  const [manualExpandDuringRequest, setManualExpandDuringRequest] = useState(false);
+  const collapsedHandleRef = useRef<HTMLButtonElement | null>(null);
+  const collapseToggleRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!requestsCollapsedNarration) setManualExpandDuringRequest(false);
+  }, [requestsCollapsedNarration]);
+  const collapsePreferred = requestsCollapsedNarration ? !manualExpandDuringRequest : gameNarrationCollapsed;
+  // Whichever side of the toggle just unmounted took the focused element with it,
+  // leaving focus on <body>. Only adopt it in that case — never steal focus the
+  // player has since put somewhere else, and never on the first render.
+  const collapseRenderedRef = useRef<boolean | null>(null);
+  const handleToggleNarrationCollapsed = useCallback(() => {
+    if (requestsCollapsedNarration) {
+      // Under an experience request the player's click is scoped to the request, so it
+      // flips the local override instead of rewriting their standing preference.
+      setManualExpandDuringRequest((v) => !v);
+      return;
+    }
+    setGameNarrationCollapsed(!gameNarrationCollapsed);
+  }, [gameNarrationCollapsed, requestsCollapsedNarration, setGameNarrationCollapsed]);
+
   const NARRATION_ACTION_BTN =
     "flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/30 px-3 py-1.5 text-xs text-[var(--foreground)]/70 transition-colors hover:bg-[var(--muted)]/50 hover:text-[var(--foreground)] dark:bg-white/10 dark:text-white/70 dark:hover:bg-white/20 dark:hover:text-white";
   const NARRATION_META_BTN =
@@ -3549,10 +3567,18 @@ export function GameNarration({
           : "border-amber-300/20 bg-amber-500/10 text-amber-100/90 hover:bg-amber-500/20",
         combatStarting && "cursor-wait opacity-80",
       )}
-      title={combatGenerationFailed ?localizeUi("ui.game.gamenarration.retryCombatGeneration") :localizeUi("ui.game.gamenarration.startCombat")}
+      title={
+        combatGenerationFailed
+          ? localizeUi("ui.game.gamenarration.retryCombatGeneration")
+          : localizeUi("ui.game.gamenarration.startCombat")
+      }
     >
       {combatStarting ? <Loader2 size={12} className="animate-spin" /> : <Sword size={12} />}
-      <span className="hidden sm:inline">{combatGenerationFailed ?localizeUi("ui.game.gamenarration.retryCombat") :localizeUi("ui.game.gamenarration.combat")}</span>
+      <span className="hidden sm:inline">
+        {combatGenerationFailed
+          ? localizeUi("ui.game.gamenarration.retryCombat")
+          : localizeUi("ui.game.gamenarration.combat")}
+      </span>
     </button>
   ) : null;
   const combatStatusNotice =
@@ -3567,14 +3593,20 @@ export function GameNarration({
       >
         <span className="flex min-w-0 items-center gap-2">
           {combatStarting ? <Loader2 size={13} className="shrink-0 animate-spin" /> : <AlertTriangle size={13} />}
-          <span>{combatStarting ?localizeUi("ui.game.gamenarration.combatStartingPleaseWait") :localizeUi("ui.game.gamenarration.combatGenerationFailed")}</span>
+          <span>
+            {combatStarting
+              ? localizeUi("ui.game.gamenarration.combatStartingPleaseWait")
+              : localizeUi("ui.game.gamenarration.combatGenerationFailed")}
+          </span>
         </span>
         {combatGenerationFailed && onRetryCombatGeneration && (
           <button
             type="button"
             onClick={onRetryCombatGeneration}
             className="shrink-0 rounded-md bg-white/10 px-2 py-1 font-semibold text-white/85 transition-colors hover:bg-white/15 hover:text-white"
-          >{localizeUi("ui.game.gamesurfacecomponent.retry")}</button>
+          >
+            {localizeUi("ui.game.gamesurfacecomponent.retry")}
+          </button>
         )}
       </div>
     ) : null;
@@ -3688,6 +3720,13 @@ export function GameNarration({
     !isStreaming &&
     !partyTurnPending &&
     !!inputSlot;
+  // The input has TWO render sites and `playerInputAvailable` only covers the first. At the
+  // start of a scene there are no segments at all, so `narrationComplete` is false and
+  // `playerInputAvailable` is false — yet the fallback below the panel still puts the input
+  // on screen. Collapsing on that state would hide the only way to begin the game, so this
+  // mirrors the fallback's own render condition exactly.
+  const emptySceneInputVisible = !scenePreparing && !active && !isStreaming && !sceneAnalysisFailed && !!inputSlot;
+  const narrationInputVisible = playerInputAvailable || emptySceneInputVisible;
   const activeSourceRole = activeSourceMessage?.role ?? active?.sourceRole ?? null;
   const activeCanBranchAtInput = !!(
     playerInputAvailable &&
@@ -3698,6 +3737,66 @@ export function GameNarration({
   );
   const showInterruptControls = !reviewingPast && !narrationComplete && !partyTurnPending && !!onInterruptRequest;
   const showNav = reviewingPast || (!narrationComplete && !isStreaming && !interruptPending);
+  // The handle's attention dot — what the collapsed box is holding that the player
+  // may want. The three failure clauses each mirror the render condition of the banner
+  // they stand for, so the dot can never claim something is waiting when the expanded
+  // box would show nothing. `showNav` is the softer fourth case: not an error, just
+  // narration still to read. It is load-bearing rather than decorative — collapsing is
+  // allowed over the advance controls, so this is the only thing telling the player the
+  // turn is not finished.
+  const narrationNeedsAttention =
+    (!!sceneAnalysisFailed && !active) ||
+    (!!generationFailed && !isStreaming && !scenePreparing && !sceneAnalysisFailed && !!onRetryGeneration) ||
+    !!combatGenerationFailed ||
+    showNav;
+  // The box NEVER collapses over the player's input — that is the one thing that
+  // would leave them with no way to take their turn, and it is why the input has
+  // two render sites checked above rather than one.
+  //
+  // It MAY collapse over the segment-advance controls, because the handle is always
+  // on screen and raises its indicator while there is more to read (`showNav` feeds
+  // `narrationNeedsAttention`), so nothing is ever lost — one click brings it back.
+  // An earlier revision force-expanded on `showNav` too, which was strictly safer but
+  // made the feature inert: the advance controls are live for most of a turn, so both
+  // the toggle and an experience's request silently did nothing.
+  const effectiveCollapsed = collapsePreferred && !narrationInputVisible;
+  useEffect(() => {
+    const previous = collapseRenderedRef.current;
+    collapseRenderedRef.current = effectiveCollapsed;
+    if (previous === null || previous === effectiveCollapsed) return;
+    const doc = collapsedHandleRef.current?.ownerDocument ?? collapseToggleRef.current?.ownerDocument ?? null;
+    if (!doc) return;
+    const active = doc.activeElement;
+    // Focus only moved to <body> if the element holding it was just unmounted.
+    if (active && active !== doc.body) return;
+    const target = effectiveCollapsed ? collapsedHandleRef.current : collapseToggleRef.current;
+    target?.focus();
+  }, [effectiveCollapsed]);
+  // Icon-only toggle, repeated in every meta row. The CLICK writes the player's
+  // preference; `aria-expanded` reports the region that is actually rendered, which
+  // differ whenever the input forces the box open. Declared after `effectiveCollapsed`
+  // because it reads it.
+  const collapseMetaButton = (
+    <button
+      type="button"
+      ref={collapseToggleRef}
+      onClick={handleToggleNarrationCollapsed}
+      className={NARRATION_META_BTN}
+      aria-expanded={!effectiveCollapsed}
+      title={
+        collapsePreferred
+          ? localizeUi("ui.game.gamenarration.expandNarration")
+          : localizeUi("ui.game.gamenarration.collapseNarration")
+      }
+      aria-label={
+        collapsePreferred
+          ? localizeUi("ui.game.gamenarration.expandNarration")
+          : localizeUi("ui.game.gamenarration.collapseNarration")
+      }
+    >
+      {collapsePreferred ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+    </button>
+  );
   const navControls =
     !showInterruptControls && !showNav ? null : (
       <div className="flex h-8 items-stretch gap-1">
@@ -3733,7 +3832,11 @@ export function GameNarration({
                     ? "border-[var(--primary)]/40 bg-[var(--primary)]/20 text-[var(--primary)]"
                     : "border-[var(--border)] bg-[var(--muted)]/20 text-[var(--foreground)]/70 hover:bg-[var(--muted)]/40 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10",
                 )}
-                title={autoPlay ?localizeUi("ui.game.gamenarration.pauseAutoPlay") :localizeUi("ui.game.gamenarration.autoPlaySegments")}
+                title={
+                  autoPlay
+                    ? localizeUi("ui.game.gamenarration.pauseAutoPlay")
+                    : localizeUi("ui.game.gamenarration.autoPlaySegments")
+                }
               >
                 {autoPlay ? <Pause size={12} /> : <Play size={12} />}
               </button>
@@ -3753,12 +3856,45 @@ export function GameNarration({
               onClick={nextSegment}
               className="flex items-center justify-center self-stretch rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 text-xs font-semibold text-[var(--foreground)]/75 transition-colors hover:bg-[var(--muted)]/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
             >
-              {!doneTyping ?localizeUi("ui.game.gamenarration.reveal") :localizeUi("onboarding.actions.next")}
+              {!doneTyping ? localizeUi("ui.game.gamenarration.reveal") : localizeUi("onboarding.actions.next")}
             </button>
           </>
         )}
       </div>
     );
+
+  // Slim stand-in rendered where the panel was. `data-game-skip-bg-nav` is load-bearing:
+  // without it GameSurface's background-nav handler reads a click on the handle as a click
+  // on the bare scene and advances the narration behind it.
+  const collapsedNarrationHandle = (
+    <button
+      ref={collapsedHandleRef}
+      type="button"
+      onClick={handleToggleNarrationCollapsed}
+      data-game-skip-bg-nav="true"
+      data-component="GameNarration.CollapsedHandle"
+      aria-expanded={false}
+      className="flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 px-3 py-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--foreground)]/70 shadow-[0_10px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-colors hover:bg-[var(--card)]/90 hover:text-[var(--foreground)] dark:border-white/15 dark:bg-black/40 dark:text-white/70 dark:hover:bg-black/60 dark:hover:text-white"
+      title={localizeUi("ui.game.gamenarration.expandNarration")}
+      aria-label={
+        narrationNeedsAttention
+          ? localizeUi("ui.game.gamenarration.expandNarrationNeedsYourAttention")
+          : localizeUi("ui.game.gamenarration.expandNarration")
+      }
+    >
+      <ChevronUp size={12} />
+      <span>{localizeUi("ui.game.gamenarration.narration")}</span>
+      {narrationNeedsAttention && (
+        <span
+          className="flex items-center gap-1 rounded-full bg-[var(--destructive)]/15 px-1.5 py-0.5 text-[var(--destructive)]"
+          title={localizeUi("ui.game.gamenarration.narrationNeedsYourAttention")}
+        >
+          <AlertTriangle size={12} />
+          <span className="sr-only">{localizeUi("ui.game.gamenarration.narrationNeedsYourAttention")}</span>
+        </span>
+      )}
+    </button>
+  );
 
   const handleBranchActiveBeat = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -3938,9 +4074,7 @@ export function GameNarration({
         <GitBranch size={11} />
       </button>
     ) : null;
-    const peekPromptButton = canPeekPrompt
-      ? renderPeekPromptButton(sourceMessageId, stackedActionButtonClass)
-      : null;
+    const peekPromptButton = canPeekPrompt ? renderPeekPromptButton(sourceMessageId, stackedActionButtonClass) : null;
     const translateButton =
       showMessageActions && sourceMessage && sourceRole !== "system" ? (
         <button
@@ -3986,7 +4120,11 @@ export function GameNarration({
           stackedActionButtonClass,
           "hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
         )}
-        title={canDeleteThisSegment ?localizeUi("ui.game.gamenarration.deleteSegment") :localizeUi("chat.delete.dialog.title")}
+        title={
+          canDeleteThisSegment
+            ? localizeUi("ui.game.gamenarration.deleteSegment")
+            : localizeUi("chat.delete.dialog.title")
+        }
       >
         <Trash2 size={11} />
       </button>
@@ -4144,12 +4282,12 @@ export function GameNarration({
             )}
             title={
               voiceEntry.status === "loading"
-                ?localizeUi("ui.game.gamenarration.generatingVoiceOver")
+                ? localizeUi("ui.game.gamenarration.generatingVoiceOver")
                 : voiceActive
                   ? voicePaused
-                    ?localizeUi("ui.game.gamenarration.resumeVoiceOver")
-                    :localizeUi("ui.game.gamenarration.pauseVoiceOver")
-                  :localizeUi("ui.game.gamenarration.playVoiceOver")
+                    ? localizeUi("ui.game.gamenarration.resumeVoiceOver")
+                    : localizeUi("ui.game.gamenarration.pauseVoiceOver")
+                  : localizeUi("ui.game.gamenarration.playVoiceOver")
             }
           >
             {voiceEntry.status === "loading" ? (
@@ -4301,12 +4439,7 @@ export function GameNarration({
               />
             )}
             {!showTranslationOnly &&
-              renderTranslationPanel(
-                sourceMessage,
-                translatedSegmentText,
-                showMessageActions && isTranslating,
-                "mt-1",
-              )}
+              renderTranslationPanel(sourceMessage, translatedSegmentText, showMessageActions && isTranslating, "mt-1")}
           </div>
         </div>
       );
@@ -4319,7 +4452,9 @@ export function GameNarration({
           className="group/logseg relative rounded-lg border border-cyan-400/15 bg-cyan-950/15 px-2.5 py-2 pr-20 text-cyan-50/80"
         >
           {actionButtons}
-          <div className="mb-1 text-[0.6rem] font-semibold uppercase tracking-wide text-cyan-200/80">{localizeUi("ui.characters.advancedtab.system")}</div>
+          <div className="mb-1 text-[0.6rem] font-semibold uppercase tracking-wide text-cyan-200/80">
+            {localizeUi("ui.characters.advancedtab.system")}
+          </div>
           {isEditingThis ? (
             editTextarea
           ) : (
@@ -4343,7 +4478,9 @@ export function GameNarration({
         >
           {actionButtons}
           <div className="mb-1 text-[0.6rem] font-semibold uppercase tracking-wide text-amber-300/80">
-            {seg.readableType === "book" ?localizeUi("ui.game.libraryview.book") :localizeUi("ui.game.libraryview.note")}
+            {seg.readableType === "book"
+              ? localizeUi("ui.game.libraryview.book")
+              : localizeUi("ui.game.libraryview.note")}
           </div>
           {isEditingThis ? (
             editTextarea
@@ -4352,20 +4489,12 @@ export function GameNarration({
               className="text-xs italic leading-relaxed text-amber-200/70"
               style={narrationFontStyle}
               dangerouslySetInnerHTML={{
-                __html: animateTextHtml(
-                  formatNarration(segmentDisplayContent, false),
-                  gameTextEffectsEnabled,
-                ),
+                __html: animateTextHtml(formatNarration(segmentDisplayContent, false), gameTextEffectsEnabled),
               }}
             />
           )}
           {!showTranslationOnly &&
-            renderTranslationPanel(
-              sourceMessage,
-              translatedSegmentText,
-              showMessageActions && isTranslating,
-              "mt-1",
-            )}
+            renderTranslationPanel(sourceMessage, translatedSegmentText, showMessageActions && isTranslating, "mt-1")}
         </div>
       );
     }
@@ -4377,7 +4506,9 @@ export function GameNarration({
       >
         {actionButtons}
         <div className="mb-1 flex items-center">
-          <span className="text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--foreground)]/75 dark:text-white/80">{localizeUi("ui.game.gamenarration.narration")}</span>
+          <span className="text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--foreground)]/75 dark:text-white/80">
+            {localizeUi("ui.game.gamenarration.narration")}
+          </span>
           {voiceButton}
         </div>
         {isEditingThis ? (
@@ -4392,48 +4523,54 @@ export function GameNarration({
           />
         )}
         {!showTranslationOnly &&
-          renderTranslationPanel(
-            sourceMessage,
-            translatedSegmentText,
-            showMessageActions && isTranslating,
-            "mt-1",
-          )}
+          renderTranslationPanel(sourceMessage, translatedSegmentText, showMessageActions && isTranslating, "mt-1")}
       </div>
     );
   };
 
   return (
     <div className="relative flex min-h-0 flex-1 items-end px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-20 md:pt-24 sm:px-6 md:pb-4">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
+      {/* Readability scrim. It darkens the whole scene, not just the panel, so it has to fade
+          out with the panel — otherwise collapsing hides the text but keeps the art dimmed. */}
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-black/15 to-transparent transition-opacity duration-300",
+          effectiveCollapsed && "opacity-0",
+        )}
+      />
 
       <div
         data-tour="game-dialogue"
         className="relative z-10 mx-auto flex h-full max-h-[calc(100svh-7rem)] min-h-0 w-full max-w-4xl flex-col justify-end md:max-h-[calc(100svh-8rem)]"
       >
         <div className="min-h-0 flex flex-1 flex-col justify-end overflow-hidden">
-          {useStackedLogDisplay && (stackedLogEntries.length > 0 || stackedLogHeldHeight !== null) && (
-            <div
-              ref={stackedLogShellRef}
-              className="mb-2 rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 p-2 shadow-[0_16px_38px_rgba(0,0,0,0.35)] backdrop-blur-md [overflow-anchor:none] dark:border-white/10 dark:bg-black/40"
-              style={stackedLogHeldHeight !== null ? { minHeight: `${stackedLogHeldHeight}px` } : undefined}
-              data-game-skip-bg-nav="true"
-            >
+          {/* Stacked mode parks a second log card above the panel, so it collapses with it —
+              otherwise "collapse" leaves stacked users looking at most of the same wall of text. */}
+          {!effectiveCollapsed &&
+            useStackedLogDisplay &&
+            (stackedLogEntries.length > 0 || stackedLogHeldHeight !== null) && (
               <div
-                ref={stackedLogRef}
-                className="flex max-h-[22svh] min-h-0 flex-col gap-1.5 overflow-y-auto pr-1 [overflow-anchor:none] sm:max-h-[26svh] md:max-h-[32svh]"
-                onScroll={(e) => {
-                  const el = e.currentTarget;
-                  setStackedLogPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 32);
-                }}
+                ref={stackedLogShellRef}
+                className="mb-2 rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 p-2 shadow-[0_16px_38px_rgba(0,0,0,0.35)] backdrop-blur-md [overflow-anchor:none] dark:border-white/10 dark:bg-black/40"
+                style={stackedLogHeldHeight !== null ? { minHeight: `${stackedLogHeldHeight}px` } : undefined}
+                data-game-skip-bg-nav="true"
               >
-                {stackedLogEntries.map((entry) => (
-                  <div key={entry.messageId} className="space-y-1.5">
-                    {entry.segments.map((seg, index) => renderStackedLogSegment(seg, entry.messageId, index === 0))}
-                  </div>
-                ))}
+                <div
+                  ref={stackedLogRef}
+                  className="flex max-h-[22svh] min-h-0 flex-col gap-1.5 overflow-y-auto pr-1 [overflow-anchor:none] sm:max-h-[26svh] md:max-h-[32svh]"
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    setStackedLogPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 32);
+                  }}
+                >
+                  {stackedLogEntries.map((entry) => (
+                    <div key={entry.messageId} className="space-y-1.5">
+                      {entry.segments.map((seg, index) => renderStackedLogSegment(seg, entry.messageId, index === 0))}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Side remarks — small floating box shown with the dialogue they follow */}
           {activeSideLines.length > 0 && doneTyping && (
@@ -4461,12 +4598,7 @@ export function GameNarration({
                 const isTranslating = sourceMessageId ? !!translating[sourceMessageId] : false;
                 const translatedSegmentText =
                   sourceMessage && sourceSegmentIndex != null
-                    ? getGameTranslatedSegmentText(
-                        sourceMessage,
-                        translatedText,
-                        speakerColors,
-                        sourceSegmentIndex,
-                      )
+                    ? getGameTranslatedSegmentText(sourceMessage, translatedText, speakerColors, sourceSegmentIndex)
                     : undefined;
                 const showTranslationOnly =
                   translationDisplayOnly &&
@@ -4474,17 +4606,10 @@ export function GameNarration({
                   !!translatedSegmentText &&
                   !isTranslating &&
                   gameTranslationMatchesMessage(sourceMessage, translationSource);
-                const displayedLine = showTranslationOnly
-                  ? { ...line, content: translatedSegmentText! }
-                  : line;
+                const displayedLine = showTranslationOnly ? { ...line, content: translatedSegmentText! } : line;
                 const translationPanel =
                   !showTranslationOnly && sourceMessage
-                    ? renderTranslationPanel(
-                        sourceMessage,
-                        translatedSegmentText,
-                        isTranslating,
-                        "mt-1.5",
-                      )
+                    ? renderTranslationPanel(sourceMessage, translatedSegmentText, isTranslating, "mt-1.5")
                     : null;
                 const voiceControl =
                   sideVoiceKey && voiceEntry && voiceEntry.status !== "error" ? (
@@ -4504,21 +4629,21 @@ export function GameNarration({
                         )}
                         title={
                           voiceEntry.status === "loading"
-                            ?localizeUi("ui.game.gamenarration.generatingVoiceOver")
+                            ? localizeUi("ui.game.gamenarration.generatingVoiceOver")
                             : voiceActive
                               ? voicePaused
-                                ?localizeUi("ui.game.gamenarration.resumeVoiceOver")
-                                :localizeUi("ui.game.gamenarration.pauseVoiceOver")
-                              :localizeUi("ui.game.gamenarration.playVoiceOver")
+                                ? localizeUi("ui.game.gamenarration.resumeVoiceOver")
+                                : localizeUi("ui.game.gamenarration.pauseVoiceOver")
+                              : localizeUi("ui.game.gamenarration.playVoiceOver")
                         }
                         aria-label={
                           voiceEntry.status === "loading"
-                            ?localizeUi("ui.game.gamenarration.generatingVoiceOver")
+                            ? localizeUi("ui.game.gamenarration.generatingVoiceOver")
                             : voiceActive
                               ? voicePaused
-                                ?localizeUi("ui.game.gamenarration.resumeVoiceOver")
-                                :localizeUi("ui.game.gamenarration.pauseVoiceOver")
-                              :localizeUi("ui.game.gamenarration.playVoiceOver")
+                                ? localizeUi("ui.game.gamenarration.resumeVoiceOver")
+                                : localizeUi("ui.game.gamenarration.pauseVoiceOver")
+                              : localizeUi("ui.game.gamenarration.playVoiceOver")
                         }
                       >
                         {voiceEntry.status === "loading" ? (
@@ -4559,7 +4684,9 @@ export function GameNarration({
           {partyTurnPending && !scenePreparing && !active?.id?.startsWith("party-chat-input-") && (
             <div className="mb-2 flex shrink-0 items-center gap-1.5 rounded-xl border border-sky-500/15 bg-sky-500/5 px-3 py-1.5 backdrop-blur-md">
               <MessageCircle size={12} className="animate-pulse text-sky-300/70" />
-              <span className="text-[0.6875rem] text-sky-200/60">{localizeUi("ui.game.gamenarration.thePartyIsReacting")}</span>
+              <span className="text-[0.6875rem] text-sky-200/60">
+                {localizeUi("ui.game.gamenarration.thePartyIsReacting")}
+              </span>
             </div>
           )}
 
@@ -4576,466 +4703,480 @@ export function GameNarration({
           {diceResultSlot}
         </div>
 
-        <div
-          ref={activePanelRef}
-          data-game-skip-bg-nav="true"
-          data-component="GameNarration.ActivePanel"
-          className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 p-3 shadow-[0_16px_38px_rgba(0,0,0,0.45)] backdrop-blur-md dark:border-white/15 dark:bg-black/50"
-        >
-          {/* Scene preparation gate: wait for effects before showing narration */}
-          {scenePreparing && (
-            <div className="flex items-center gap-2 py-3">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--muted)]/40 border-t-[var(--foreground)]/70 dark:border-white/30 dark:border-t-white" />
-              <span className="text-sm text-[var(--muted-foreground)] dark:text-white/70">
-                {assetsGenerating ?localizeUi("ui.game.gamenarration.generatingSprites") :localizeUi("ui.game.gamenarration.preparingScene")}
-              </span>
-            </div>
-          )}
-
-          {/* Scene analysis failed: show retry / skip inline only when no narration content available */}
-          {sceneAnalysisFailed && !active && (
-            <div className="flex flex-col items-center gap-2 py-3">
-              <span className="text-sm text-red-300/80">{localizeUi("ui.game.gamesurfacecomponent.sceneAnalysisFailed")}</span>
-              <div className="flex gap-2">
-                {onRetryScene && (
-                  <button onClick={onRetryScene} className={NARRATION_ACTION_BTN}>
-                    <RefreshCw size={12} />{localizeUi("ui.game.gamesurfacecomponent.retry")}</button>
-                )}
-                {onSkipScene && (
-                  <button onClick={onSkipScene} className={NARRATION_ACTION_BTN}>{localizeUi("onboarding.actions.skip")}</button>
-                )}
+        {/* Collapsed: the panel unmounts and the handle takes its place. The
+            `data-tour="game-dialogue"` wrapper around both must NEVER unmount or render
+            nothing — GameSurface measures its bounding rect and ResizeObserves it to decide
+            the HUD widget layout, and a null rect flips that layout to compact. */}
+        {effectiveCollapsed ? (
+          collapsedNarrationHandle
+        ) : (
+          <div
+            ref={activePanelRef}
+            data-game-skip-bg-nav="true"
+            data-component="GameNarration.ActivePanel"
+            className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 p-3 shadow-[0_16px_38px_rgba(0,0,0,0.45)] backdrop-blur-md dark:border-white/15 dark:bg-black/50"
+          >
+            {/* Scene preparation gate: wait for effects before showing narration */}
+            {scenePreparing && (
+              <div className="flex items-center gap-2 py-3">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--muted)]/40 border-t-[var(--foreground)]/70 dark:border-white/30 dark:border-t-white" />
+                <span className="text-sm text-[var(--muted-foreground)] dark:text-white/70">
+                  {assetsGenerating
+                    ? localizeUi("ui.game.gamenarration.generatingSprites")
+                    : localizeUi("ui.game.gamenarration.preparingScene")}
+                </span>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* GM generation failed — show inline retry */}
-          {generationFailed && !isStreaming && !scenePreparing && !sceneAnalysisFailed && onRetryGeneration && (
-            <div className="flex items-center gap-2 py-3">
-              <span className="text-sm text-red-300/80">{localizeUi("ui.game.gamenarration.generationFailed")}</span>
-              <button
-                onClick={onRetryGeneration}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/30 px-3 py-1.5 text-xs text-[var(--foreground)]/70 transition-colors hover:bg-[var(--muted)]/50 hover:text-[var(--foreground)] dark:bg-white/10 dark:text-white/70 dark:hover:bg-white/20 dark:hover:text-white"
-              >
-                <RefreshCw size={12} />{localizeUi("ui.game.gamesurfacecomponent.retry")}</button>
-            </div>
-          )}
+            {/* Scene analysis failed: show retry / skip inline only when no narration content available */}
+            {sceneAnalysisFailed && !active && (
+              <div className="flex flex-col items-center gap-2 py-3">
+                <span className="text-sm text-red-300/80">
+                  {localizeUi("ui.game.gamesurfacecomponent.sceneAnalysisFailed")}
+                </span>
+                <div className="flex gap-2">
+                  {onRetryScene && (
+                    <button onClick={onRetryScene} className={NARRATION_ACTION_BTN}>
+                      <RefreshCw size={12} />
+                      {localizeUi("ui.game.gamesurfacecomponent.retry")}
+                    </button>
+                  )}
+                  {onSkipScene && (
+                    <button onClick={onSkipScene} className={NARRATION_ACTION_BTN}>
+                      {localizeUi("onboarding.actions.skip")}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
-          {!scenePreparing && !active && !isStreaming && !sceneAnalysisFailed && (
-            <p className="text-sm text-[var(--muted-foreground)]">{localizeUi("ui.game.gamenarration.sendAnActionToBeginTheScene")}</p>
-          )}
+            {/* GM generation failed — show inline retry */}
+            {generationFailed && !isStreaming && !scenePreparing && !sceneAnalysisFailed && onRetryGeneration && (
+              <div className="flex items-center gap-2 py-3">
+                <span className="text-sm text-red-300/80">{localizeUi("ui.game.gamenarration.generationFailed")}</span>
+                <button
+                  onClick={onRetryGeneration}
+                  className="flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/30 px-3 py-1.5 text-xs text-[var(--foreground)]/70 transition-colors hover:bg-[var(--muted)]/50 hover:text-[var(--foreground)] dark:bg-white/10 dark:text-white/70 dark:hover:bg-white/20 dark:hover:text-white"
+                >
+                  <RefreshCw size={12} />
+                  {localizeUi("ui.game.gamesurfacecomponent.retry")}
+                </button>
+              </div>
+            )}
 
-          {!scenePreparing && active && active.type === "dialogue" && (
-            <>
-              {/* VN-style dialogue: avatar left, text right, name top-left */}
-              {(() => {
-                const activeCanUploadPortrait = canUploadNpcPortrait(active.speaker);
-                const activeCanGeneratePortrait = canGenerateNpcPortrait(active.speaker);
-                const activePortraitGenerating = isNpcPortraitGenerating(active.speaker);
-                return (
-                  <div className="flex min-w-0 gap-3 max-[420px]:gap-2" style={gameAvatarScaleStyle}>
-                    {/* Left: Speaker avatar with reaction indicator */}
-                    {/* Inert theming hook — see experience-dialogue-wrap below. */}
-                    <div className="experience-dialogue-avatar relative flex shrink-0 flex-col items-center gap-1">
-                      {activeCanUploadPortrait ? (
-                        <div className="group/avatar relative">
-                          <button
-                            type="button"
-                            onClick={(event) => handleNpcPortraitAvatarClick(event, active.speaker)}
-                            className="rounded-xl transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-white/30"
-                            title={localizeUi("ui.game.npcsview.uploadOrReplaceNpcPortrait")}
-                          >
-                            {activeAvatar ? (
-                              <CroppedAvatar
-                                src={activeAvatar.url}
-                                alt={active.speaker || ""}
-                                crop={activeAvatar.crop}
-                                className={cn(GAME_DIALOGUE_AVATAR_CLASS, "transition-colors hover:border-white/30")}
-                                onLoadError={
-                                  activeCanGeneratePortrait && active.speaker
-                                    ? () => onNpcPortraitLoadError?.(active.speaker as string)
-                                    : undefined
-                                }
-                              />
-                            ) : (
-                              <img
-                                src="/npc-silhouette.svg"
-                                alt={active.speaker || "?"}
-                                className={cn(
-                                  GAME_DIALOGUE_AVATAR_CLASS,
-                                  "object-cover transition-colors hover:border-white/30",
-                                )}
-                              />
-                            )}
-                          </button>
-                          {activeCanGeneratePortrait && (
+            {!scenePreparing && !active && !isStreaming && !sceneAnalysisFailed && (
+              <p className="text-sm text-[var(--muted-foreground)]">
+                {localizeUi("ui.game.gamenarration.sendAnActionToBeginTheScene")}
+              </p>
+            )}
+
+            {!scenePreparing && active && active.type === "dialogue" && (
+              <>
+                {/* VN-style dialogue: avatar left, text right, name top-left */}
+                {(() => {
+                  const activeCanUploadPortrait = canUploadNpcPortrait(active.speaker);
+                  const activeCanGeneratePortrait = canGenerateNpcPortrait(active.speaker);
+                  const activePortraitGenerating = isNpcPortraitGenerating(active.speaker);
+                  return (
+                    <div className="flex min-w-0 gap-3 max-[420px]:gap-2" style={gameAvatarScaleStyle}>
+                      {/* Left: Speaker avatar with reaction indicator */}
+                      {/* Inert theming hook — see experience-dialogue-wrap below. */}
+                      <div className="experience-dialogue-avatar relative flex shrink-0 flex-col items-center gap-1">
+                        {activeCanUploadPortrait ? (
+                          <div className="group/avatar relative">
                             <button
                               type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                triggerNpcPortraitGenerate(active.speaker);
-                              }}
-                              disabled={activePortraitGenerating}
-                              className={cn(
-                                "absolute right-0.5 top-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-[var(--primary)] opacity-0 shadow-lg ring-1 ring-white/15 transition-opacity hover:bg-black/85 disabled:cursor-wait md:group-hover/avatar:opacity-100",
-                                (activePortraitGenerating || isMobilePortraitActionsVisible(active.speaker)) &&
-                                  "max-md:opacity-100",
-                              )}
-                              title={localizeUi("ui.game.npcsview.generateNpcPortrait")}
+                              onClick={(event) => handleNpcPortraitAvatarClick(event, active.speaker)}
+                              className="rounded-xl transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-white/30"
+                              title={localizeUi("ui.game.npcsview.uploadOrReplaceNpcPortrait")}
                             >
-                              {activePortraitGenerating ? (
-                                <Loader2 size="0.75rem" className="animate-spin" />
+                              {activeAvatar ? (
+                                <CroppedAvatar
+                                  src={activeAvatar.url}
+                                  alt={active.speaker || ""}
+                                  crop={activeAvatar.crop}
+                                  className={cn(GAME_DIALOGUE_AVATAR_CLASS, "transition-colors hover:border-white/30")}
+                                  onLoadError={
+                                    activeCanGeneratePortrait && active.speaker
+                                      ? () => onNpcPortraitLoadError?.(active.speaker as string)
+                                      : undefined
+                                  }
+                                />
                               ) : (
-                                <Wand2 size="0.75rem" />
+                                <img
+                                  src="/npc-silhouette.svg"
+                                  alt={active.speaker || "?"}
+                                  className={cn(
+                                    GAME_DIALOGUE_AVATAR_CLASS,
+                                    "object-cover transition-colors hover:border-white/30",
+                                  )}
+                                />
                               )}
                             </button>
-                          )}
-                        </div>
-                      ) : activeAvatar ? (
-                        <CroppedAvatar
-                          src={activeAvatar.url}
-                          alt={active.speaker || ""}
-                          crop={activeAvatar.crop}
-                          className={GAME_DIALOGUE_AVATAR_CLASS}
-                          onLoadError={
-                            activeCanGeneratePortrait && active.speaker
-                              ? () => onNpcPortraitLoadError?.(active.speaker as string)
-                              : undefined
-                          }
-                        />
-                      ) : (
-                        <img
-                          src="/npc-silhouette.svg"
-                          alt={active.speaker || "?"}
-                          className={cn(GAME_DIALOGUE_AVATAR_CLASS, "object-cover")}
-                        />
-                      )}
-                      <ExpressionReaction expression={active.sprite} />
-                    </div>
-
-                    {/* Right: Name + Dialogue text */}
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <div className="mb-1.5 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          {/* Inert theming hook. The inner span lets a skewed name plate counter-skew its
-                              text; unstyled it collapses to plain inline text. */}
-                          <span
-                            className="experience-dialogue-speaker text-sm font-bold"
-                            style={
-                              nameColorStyle(
-                                findNamedMapValue(speakerNameColors, active.speaker ?? "") ?? active.color,
-                              ) ?? { color: "rgb(186 230 253)" }
+                            {activeCanGeneratePortrait && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  triggerNpcPortraitGenerate(active.speaker);
+                                }}
+                                disabled={activePortraitGenerating}
+                                className={cn(
+                                  "absolute right-0.5 top-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-[var(--primary)] opacity-0 shadow-lg ring-1 ring-white/15 transition-opacity hover:bg-black/85 disabled:cursor-wait md:group-hover/avatar:opacity-100",
+                                  (activePortraitGenerating || isMobilePortraitActionsVisible(active.speaker)) &&
+                                    "max-md:opacity-100",
+                                )}
+                                title={localizeUi("ui.game.npcsview.generateNpcPortrait")}
+                              >
+                                {activePortraitGenerating ? (
+                                  <Loader2 size="0.75rem" className="animate-spin" />
+                                ) : (
+                                  <Wand2 size="0.75rem" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        ) : activeAvatar ? (
+                          <CroppedAvatar
+                            src={activeAvatar.url}
+                            alt={active.speaker || ""}
+                            crop={activeAvatar.crop}
+                            className={GAME_DIALOGUE_AVATAR_CLASS}
+                            onLoadError={
+                              activeCanGeneratePortrait && active.speaker
+                                ? () => onNpcPortraitLoadError?.(active.speaker as string)
+                                : undefined
                             }
-                          >
-                            <span>{active.speaker || "Dialogue"}</span>
-                          </span>
-                          {active.partyType && active.partyType !== "main" && (
-                            <span
-                              className={cn(
-                                "rounded-full px-1.5 py-0.5 text-[0.5rem] font-semibold uppercase tracking-wide",
-                                active.partyType === "thought" && "bg-purple-500/15 text-purple-200/70",
-                                active.partyType === "whisper" &&
-                                  "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)]",
-                              )}
-                            >
-                              {PARTY_TYPE_ICONS[active.partyType] ?? ""} {active.partyType}
-                              {active.partyType === "whisper" && active.whisperTarget && ` → ${active.whisperTarget}`}
-                            </span>
-                          )}
-                        </div>
+                          />
+                        ) : (
+                          <img
+                            src="/npc-silhouette.svg"
+                            alt={active.speaker || "?"}
+                            className={cn(GAME_DIALOGUE_AVATAR_CLASS, "object-cover")}
+                          />
+                        )}
+                        <ExpressionReaction expression={active.sprite} />
                       </div>
 
-                      <div
-                        className={cn(
-                          "relative",
-                          // Inert theming hook: an experience reshapes the dialogue box from under its
-                          // surface class. Nothing in the base engine styles it, so Classic is unchanged.
-                          (!active.partyType || active.partyType === "main") && "experience-dialogue-wrap",
-                        )}
-                      >
+                      {/* Right: Name + Dialogue text */}
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <div className="mb-1.5 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            {/* Inert theming hook. The inner span lets a skewed name plate counter-skew its
+                              text; unstyled it collapses to plain inline text. */}
+                            <span
+                              className="experience-dialogue-speaker text-sm font-bold"
+                              style={
+                                nameColorStyle(
+                                  findNamedMapValue(speakerNameColors, active.speaker ?? "") ?? active.color,
+                                ) ?? { color: "rgb(186 230 253)" }
+                              }
+                            >
+                              <span>{active.speaker || "Dialogue"}</span>
+                            </span>
+                            {active.partyType && active.partyType !== "main" && (
+                              <span
+                                className={cn(
+                                  "rounded-full px-1.5 py-0.5 text-[0.5rem] font-semibold uppercase tracking-wide",
+                                  active.partyType === "thought" && "bg-purple-500/15 text-purple-200/70",
+                                  active.partyType === "whisper" &&
+                                    "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)]",
+                                )}
+                              >
+                                {PARTY_TYPE_ICONS[active.partyType] ?? ""} {active.partyType}
+                                {active.partyType === "whisper" && active.whisperTarget && ` → ${active.whisperTarget}`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
                         <div
-                          ref={activeSegmentScrollRef}
-                          onPointerDown={(event) => handleMobileSegmentPointerDown(event, active)}
-                          onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
                           className={cn(
-                            "game-narration-prose max-h-40 overflow-y-auto rounded-xl border px-3 py-2.5 sm:max-h-48",
-                            active.partyType === "thought"
-                              ? "border-purple-400/10 bg-purple-950/20"
-                              : active.partyType === "whisper"
-                                ? "border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)]"
-                                : "experience-dialogue-bubble border-[var(--border)] bg-[var(--muted)]/20 dark:border-white/10 dark:bg-black/35",
-                            activeSegmentActionButtons && "pr-16",
+                            "relative",
+                            // Inert theming hook: an experience reshapes the dialogue box from under its
+                            // surface class. Nothing in the base engine styles it, so Classic is unchanged.
+                            (!active.partyType || active.partyType === "main") && "experience-dialogue-wrap",
                           )}
                         >
-                          {editingContent !== null ? (
-                            <textarea
-                              ref={editTextareaRef}
-                              value={editingContent}
-                              onChange={(e) => setEditingContent(e.target.value)}
-                              className="w-full resize-none bg-transparent text-sm leading-relaxed text-[var(--foreground)] outline-none"
-                              style={narrationFontStyle}
-                              rows={3}
-                              autoFocus
-                            />
-                          ) : (
-                            <div
-                              className={cn(
-                                "text-sm leading-relaxed",
-                                active.partyType === "thought" ? "italic opacity-80" : "font-semibold",
-                                doneTyping
-                                  ? ""
-                                  : "after:ml-0.5 after:inline-block after:h-4 after:w-[1px] after:animate-pulse after:bg-[var(--foreground)]/60 after:align-middle dark:after:bg-white/60",
-                              )}
-                              style={
-                                active.color
-                                  ? ({
-                                      ...narrationFontStyle,
-                                      color: active.color,
-                                      "--speaker-color": active.color,
-                                    } as CSSProperties)
-                                  : narrationStyle
-                              }
-                              dangerouslySetInnerHTML={{
-                                __html: animateTextHtml(
-                                  formatNarration(activeVisibleContent, false),
-                                  gameTextEffectsEnabled,
-                                ),
-                              }}
-                            />
-                          )}
+                          <div
+                            ref={activeSegmentScrollRef}
+                            onPointerDown={(event) => handleMobileSegmentPointerDown(event, active)}
+                            onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
+                            className={cn(
+                              "game-narration-prose max-h-40 overflow-y-auto rounded-xl border px-3 py-2.5 sm:max-h-48",
+                              active.partyType === "thought"
+                                ? "border-purple-400/10 bg-purple-950/20"
+                                : active.partyType === "whisper"
+                                  ? "border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)]"
+                                  : "experience-dialogue-bubble border-[var(--border)] bg-[var(--muted)]/20 dark:border-white/10 dark:bg-black/35",
+                              activeSegmentActionButtons && "pr-16",
+                            )}
+                          >
+                            {editingContent !== null ? (
+                              <textarea
+                                ref={editTextareaRef}
+                                value={editingContent}
+                                onChange={(e) => setEditingContent(e.target.value)}
+                                className="w-full resize-none bg-transparent text-sm leading-relaxed text-[var(--foreground)] outline-none"
+                                style={narrationFontStyle}
+                                rows={3}
+                                autoFocus
+                              />
+                            ) : (
+                              <div
+                                className={cn(
+                                  "text-sm leading-relaxed",
+                                  active.partyType === "thought" ? "italic opacity-80" : "font-semibold",
+                                  doneTyping
+                                    ? ""
+                                    : "after:ml-0.5 after:inline-block after:h-4 after:w-[1px] after:animate-pulse after:bg-[var(--foreground)]/60 after:align-middle dark:after:bg-white/60",
+                                )}
+                                style={
+                                  active.color
+                                    ? ({
+                                        ...narrationFontStyle,
+                                        color: active.color,
+                                        "--speaker-color": active.color,
+                                      } as CSSProperties)
+                                    : narrationStyle
+                                }
+                                dangerouslySetInnerHTML={{
+                                  __html: animateTextHtml(
+                                    formatNarration(activeVisibleContent, false),
+                                    gameTextEffectsEnabled,
+                                  ),
+                                }}
+                              />
+                            )}
+                          </div>
+                          {activeSegmentActionButtons}
                         </div>
-                        {activeSegmentActionButtons}
                       </div>
                     </div>
+                  );
+                })()}
+
+                {/* Inline party loading indicator — shown beneath the player's input dialogue */}
+                {partyTurnPending && active.id?.startsWith("party-chat-input-") && (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <MessageCircle size={12} className="animate-pulse text-sky-300/70" />
+                    <span className="text-xs text-sky-200/60">
+                      {localizeUi("ui.game.gamenarration.thePartyIsReacting")}
+                    </span>
                   </div>
-                );
-              })()}
-
-              {/* Inline party loading indicator — shown beneath the player's input dialogue */}
-              {partyTurnPending && active.id?.startsWith("party-chat-input-") && (
-                <div className="mt-1.5 flex items-center gap-1.5">
-                  <MessageCircle size={12} className="animate-pulse text-sky-300/70" />
-                  <span className="text-xs text-sky-200/60">{localizeUi("ui.game.gamenarration.thePartyIsReacting")}</span>
-                </div>
-              )}
-
-              {doneTyping &&
-                !showActiveTranslationOnly &&
-                renderTranslationPanel(
-                  activeSourceMessage,
-                  activeTranslatedSegmentText,
-                  activeIsTranslating,
-                  "mt-2",
                 )}
 
-              <div className="mt-2 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  {showLogsButton && (
-                    <button
-                      onClick={() => setLogsOpen(true)}
-                      disabled={logEntries.length === 0}
-                      className={cn(NARRATION_META_BTN, "disabled:opacity-40")}
-                    >
-                      <ScrollText size={12} />
-                      <span className="hidden sm:inline">{localizeUi("ui.game.gamesurfacecomponent.logs")}</span>
-                    </button>
-                  )}
-                  {onOpenInventory && (
-                    <button onClick={onOpenInventory} className={cn("relative", NARRATION_META_BTN)}>
-                      <Package size={12} />
-                      <span className="hidden sm:inline">{localizeUi("ui.game.gamecharactersheet.inventory")}</span>
-                      {(inventoryCount ?? 0) > 0 && <span className={NARRATION_COUNT_BADGE}>{inventoryCount}</span>}
-                    </button>
-                  )}
-                  {combatMetaButton}
+                {doneTyping &&
+                  !showActiveTranslationOnly &&
+                  renderTranslationPanel(activeSourceMessage, activeTranslatedSegmentText, activeIsTranslating, "mt-2")}
+
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    {showLogsButton && (
+                      <button
+                        onClick={() => setLogsOpen(true)}
+                        disabled={logEntries.length === 0}
+                        className={cn(NARRATION_META_BTN, "disabled:opacity-40")}
+                      >
+                        <ScrollText size={12} />
+                        <span className="hidden sm:inline">{localizeUi("ui.game.gamesurfacecomponent.logs")}</span>
+                      </button>
+                    )}
+                    {onOpenInventory && (
+                      <button onClick={onOpenInventory} className={cn("relative", NARRATION_META_BTN)}>
+                        <Package size={12} />
+                        <span className="hidden sm:inline">{localizeUi("ui.game.gamecharactersheet.inventory")}</span>
+                        {(inventoryCount ?? 0) > 0 && <span className={NARRATION_COUNT_BADGE}>{inventoryCount}</span>}
+                      </button>
+                    )}
+                    {combatMetaButton}
+                    {collapseMetaButton}
+                  </div>
+                  {navControls}
                 </div>
-                {navControls}
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {!scenePreparing && active && active.type === "narration" && (
-            <>
-              {/* Narration: centered, no avatar */}
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="rounded-full bg-[var(--muted)]/30 px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--foreground)]/90 dark:bg-white/10 dark:text-white/90">{localizeUi("ui.game.gamenarration.narration")}</span>
-              </div>
+            {!scenePreparing && active && active.type === "narration" && (
+              <>
+                {/* Narration: centered, no avatar */}
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="rounded-full bg-[var(--muted)]/30 px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--foreground)]/90 dark:bg-white/10 dark:text-white/90">
+                    {localizeUi("ui.game.gamenarration.narration")}
+                  </span>
+                </div>
 
-              <div
-                ref={activeSegmentScrollRef}
-                onPointerDown={(event) => handleMobileSegmentPointerDown(event, active)}
-                onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
-                className={cn(
-                  "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2.5 sm:max-h-48 dark:border-white/10 dark:bg-black/35",
-                  activeSegmentActionButtons && "pr-16",
-                )}
-              >
-                {editingContent !== null ? (
-                  <textarea
-                    ref={editTextareaRef}
-                    value={editingContent}
-                    onChange={(e) => setEditingContent(e.target.value)}
-                    className="w-full resize-none bg-transparent text-sm leading-relaxed text-[var(--foreground)] outline-none"
-                    style={narrationFontStyle}
-                    rows={3}
-                    autoFocus
-                  />
-                ) : (
+                <div
+                  ref={activeSegmentScrollRef}
+                  onPointerDown={(event) => handleMobileSegmentPointerDown(event, active)}
+                  onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
+                  className={cn(
+                    "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2.5 sm:max-h-48 dark:border-white/10 dark:bg-black/35",
+                    activeSegmentActionButtons && "pr-16",
+                  )}
+                >
+                  {editingContent !== null ? (
+                    <textarea
+                      ref={editTextareaRef}
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      className="w-full resize-none bg-transparent text-sm leading-relaxed text-[var(--foreground)] outline-none"
+                      style={narrationFontStyle}
+                      rows={3}
+                      autoFocus
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        "text-sm leading-relaxed",
+                        doneTyping
+                          ? ""
+                          : "after:ml-0.5 after:inline-block after:h-4 after:w-[1px] after:animate-pulse after:bg-[var(--foreground)]/60 after:align-middle dark:after:bg-white/60",
+                      )}
+                      style={narrationStyle}
+                      dangerouslySetInnerHTML={{
+                        __html: animateTextHtml(formatNarration(activeVisibleContent, false), gameTextEffectsEnabled),
+                      }}
+                    />
+                  )}
+                  {activeSegmentActionButtons}
+                </div>
+
+                {doneTyping &&
+                  !showActiveTranslationOnly &&
+                  renderTranslationPanel(activeSourceMessage, activeTranslatedSegmentText, activeIsTranslating, "mt-2")}
+
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    {showLogsButton && (
+                      <button
+                        onClick={() => setLogsOpen(true)}
+                        disabled={logEntries.length === 0}
+                        className={cn(NARRATION_META_BTN, "disabled:opacity-40")}
+                      >
+                        <ScrollText size={12} />
+                        <span className="hidden sm:inline">{localizeUi("ui.game.gamesurfacecomponent.logs")}</span>
+                      </button>
+                    )}
+                    {onOpenInventory && (
+                      <button onClick={onOpenInventory} className={cn("relative", NARRATION_META_BTN)}>
+                        <Package size={12} />
+                        <span className="hidden sm:inline">{localizeUi("ui.game.gamecharactersheet.inventory")}</span>
+                        {(inventoryCount ?? 0) > 0 && <span className={NARRATION_COUNT_BADGE}>{inventoryCount}</span>}
+                      </button>
+                    )}
+                    {combatMetaButton}
+                    {collapseMetaButton}
+                  </div>
+                  {navControls}
+                </div>
+              </>
+            )}
+
+            {/* Readable segment: note or book found in the narrative */}
+            {!scenePreparing && active && active.type === "readable" && (
+              <>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="rounded-full bg-[var(--muted)]/30 px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--foreground)]/70 dark:bg-white/10 dark:text-white/70">
+                    {active.readableType === "book"
+                      ? localizeUi("ui.game.libraryview.book")
+                      : localizeUi("ui.game.libraryview.note")}
+                  </span>
+                </div>
+
+                <div
+                  ref={activeSegmentScrollRef}
+                  className={cn(
+                    "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-amber-400/20 bg-amber-950/20 px-3 py-2.5 sm:max-h-48",
+                    activeCopyKey && "pr-9",
+                  )}
+                >
                   <div
                     className={cn(
-                      "text-sm leading-relaxed",
+                      "text-sm italic leading-relaxed text-amber-200/80",
                       doneTyping
                         ? ""
-                        : "after:ml-0.5 after:inline-block after:h-4 after:w-[1px] after:animate-pulse after:bg-[var(--foreground)]/60 after:align-middle dark:after:bg-white/60",
+                        : "after:ml-0.5 after:inline-block after:h-4 after:w-[1px] after:animate-pulse after:bg-amber-200/60 after:align-middle",
                     )}
-                    style={narrationStyle}
+                    style={narrationFontStyle}
                     dangerouslySetInnerHTML={{
                       __html: animateTextHtml(formatNarration(activeVisibleContent, false), gameTextEffectsEnabled),
                     }}
                   />
-                )}
-                {activeSegmentActionButtons}
-              </div>
-
-              {doneTyping &&
-                !showActiveTranslationOnly &&
-                renderTranslationPanel(
-                  activeSourceMessage,
-                  activeTranslatedSegmentText,
-                  activeIsTranslating,
-                  "mt-2",
-                )}
-
-              <div className="mt-2 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  {showLogsButton && (
+                  {activeCopyKey && (
                     <button
-                      onClick={() => setLogsOpen(true)}
-                      disabled={logEntries.length === 0}
-                      className={cn(NARRATION_META_BTN, "disabled:opacity-40")}
+                      type="button"
+                      onClick={() => {
+                        void handleCopyMessage(activeCopyKey, activeCopyText);
+                      }}
+                      className="absolute right-1.5 top-1.5 rounded p-1 text-amber-200/45 transition-colors hover:bg-amber-100/10 hover:text-amber-100/70"
+                      title={localizeUi("lorebook.editor.batch.copy")}
+                      aria-label={localizeUi("lorebook.editor.batch.copy")}
                     >
-                      <ScrollText size={12} />
-                      <span className="hidden sm:inline">{localizeUi("ui.game.gamesurfacecomponent.logs")}</span>
-                    </button>
-                  )}
-                  {onOpenInventory && (
-                    <button onClick={onOpenInventory} className={cn("relative", NARRATION_META_BTN)}>
-                      <Package size={12} />
-                      <span className="hidden sm:inline">{localizeUi("ui.game.gamecharactersheet.inventory")}</span>
-                      {(inventoryCount ?? 0) > 0 && <span className={NARRATION_COUNT_BADGE}>{inventoryCount}</span>}
-                    </button>
-                  )}
-                  {combatMetaButton}
-                </div>
-                {navControls}
-              </div>
-            </>
-          )}
-
-          {/* Readable segment: note or book found in the narrative */}
-          {!scenePreparing && active && active.type === "readable" && (
-            <>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="rounded-full bg-[var(--muted)]/30 px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--foreground)]/70 dark:bg-white/10 dark:text-white/70">
-                  {active.readableType === "book" ?localizeUi("ui.game.libraryview.book") :localizeUi("ui.game.libraryview.note")}
-                </span>
-              </div>
-
-              <div
-                ref={activeSegmentScrollRef}
-                className={cn(
-                  "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-amber-400/20 bg-amber-950/20 px-3 py-2.5 sm:max-h-48",
-                  activeCopyKey && "pr-9",
-                )}
-              >
-                <div
-                  className={cn(
-                    "text-sm italic leading-relaxed text-amber-200/80",
-                    doneTyping
-                      ? ""
-                      : "after:ml-0.5 after:inline-block after:h-4 after:w-[1px] after:animate-pulse after:bg-amber-200/60 after:align-middle",
-                  )}
-                  style={narrationFontStyle}
-                  dangerouslySetInnerHTML={{
-                    __html: animateTextHtml(formatNarration(activeVisibleContent, false), gameTextEffectsEnabled),
-                  }}
-                />
-                {activeCopyKey && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void handleCopyMessage(activeCopyKey, activeCopyText);
-                    }}
-                    className="absolute right-1.5 top-1.5 rounded p-1 text-amber-200/45 transition-colors hover:bg-amber-100/10 hover:text-amber-100/70"
-                    title={localizeUi("lorebook.editor.batch.copy")}
-                    aria-label={localizeUi("lorebook.editor.batch.copy")}
-                  >
-                    {copiedMessageKey === activeCopyKey ? <Check size={11} /> : <Copy size={11} />}
-                  </button>
-                )}
-              </div>
-
-              {doneTyping &&
-                !showActiveTranslationOnly &&
-                renderTranslationPanel(
-                  activeSourceMessage,
-                  activeTranslatedSegmentText,
-                  activeIsTranslating,
-                  "mt-2",
-                )}
-
-              <div className="mt-2 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  {showLogsButton && (
-                    <button
-                      onClick={() => setLogsOpen(true)}
-                      disabled={logEntries.length === 0}
-                      className={cn(NARRATION_META_BTN, "disabled:opacity-40")}
-                    >
-                      <ScrollText size={12} />
-                      <span className="hidden sm:inline">{localizeUi("ui.game.gamesurfacecomponent.logs")}</span>
+                      {copiedMessageKey === activeCopyKey ? <Check size={11} /> : <Copy size={11} />}
                     </button>
                   )}
                 </div>
-                {navControls}
-              </div>
-            </>
-          )}
 
-          {!scenePreparing && combatStatusNotice}
+                {doneTyping &&
+                  !showActiveTranslationOnly &&
+                  renderTranslationPanel(activeSourceMessage, activeTranslatedSegmentText, activeIsTranslating, "mt-2")}
 
-          {/* Inline input — appears inside the narration box once all segments are read,
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    {showLogsButton && (
+                      <button
+                        onClick={() => setLogsOpen(true)}
+                        disabled={logEntries.length === 0}
+                        className={cn(NARRATION_META_BTN, "disabled:opacity-40")}
+                      >
+                        <ScrollText size={12} />
+                        <span className="hidden sm:inline">{localizeUi("ui.game.gamesurfacecomponent.logs")}</span>
+                      </button>
+                    )}
+                    {collapseMetaButton}
+                  </div>
+                  {navControls}
+                </div>
+              </>
+            )}
+
+            {!scenePreparing && combatStatusNotice}
+
+            {/* Inline input — appears inside the narration box once all segments are read,
               or after the player has CONFIRMED an interrupt (not just opened the modal).
               Gating on `interruptCommitted` (not `interruptPending`) keeps the input bar
               from showing in the background while the confirmation modal is still open.
               While reviewing the past via wheel-nav, the input is hidden — the player is
               looking at history, not typing. */}
-          {playerInputAvailable && <div className="mt-2">{inputSlot}</div>}
+            {playerInputAvailable && <div className="mt-2">{inputSlot}</div>}
 
-          {/* Also show input when no narration at all (start of scene) */}
-          {!scenePreparing && !active && !isStreaming && !sceneAnalysisFailed && inputSlot && (
-            <div className="mt-2">
-              {showLogsButton && logEntries.length > 0 && (
-                <div className="mb-2">
-                  <button
-                    onClick={() => setLogsOpen(true)}
-                    className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/75 transition-colors hover:bg-white/10"
-                  >
-                    <ScrollText size={12} />
-                    <span className="hidden sm:inline">{localizeUi("ui.game.gamesurfacecomponent.logs")}</span>
-                  </button>
-                </div>
-              )}
-              {inputSlot}
-            </div>
-          )}
+            {/* Also show input when no narration at all (start of scene) */}
+            {!scenePreparing && !active && !isStreaming && !sceneAnalysisFailed && inputSlot && (
+              <div className="mt-2">
+                {showLogsButton && logEntries.length > 0 && (
+                  <div className="mb-2">
+                    <button
+                      onClick={() => setLogsOpen(true)}
+                      className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/75 transition-colors hover:bg-white/10"
+                    >
+                      <ScrollText size={12} />
+                      <span className="hidden sm:inline">{localizeUi("ui.game.gamesurfacecomponent.logs")}</span>
+                    </button>
+                  </div>
+                )}
+                {inputSlot}
+              </div>
+            )}
 
-          {isStreaming && (
-            <div className="mt-2 flex items-center gap-1 text-xs text-[var(--foreground)]/50">
-              <span className="animate-pulse">●</span>
-              <span>{localizeUi("ui.game.gamenarration.theGameMasterIsWritingTheNextSegment")}</span>
-            </div>
-          )}
-        </div>
+            {isStreaming && (
+              <div className="mt-2 flex items-center gap-1 text-xs text-[var(--foreground)]/50">
+                <span className="animate-pulse">●</span>
+                <span>{localizeUi("ui.game.gamenarration.theGameMasterIsWritingTheNextSegment")}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Logs modal */}
@@ -5055,11 +5196,14 @@ export function GameNarration({
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-white">{localizeUi("ui.game.gamenarration.sessionLogs")}</h3>
                 {logEntries.length > 0 && (
-                  <p className="text-[0.65rem] text-white/45">{localizeUi("ui.game.gamenarration.showing")} {visibleLogEntries.length} {localizeUi("ui.noodle.noodlehome.of")} {logEntries.length}
+                  <p className="text-[0.65rem] text-white/45">
+                    {localizeUi("ui.game.gamenarration.showing")} {visibleLogEntries.length}{" "}
+                    {localizeUi("ui.noodle.noodlehome.of")} {logEntries.length}
                     {sessionHistoryTokens > 0 && (
                       <span title={localizeUi("ui.game.gamenarration.approximateTokensInTheCurrentSessionSLoadedChat")}>
                         {" | ~"}
-                        {formatTokenEstimate(sessionHistoryTokens)} {localizeUi("ui.agents.agenteditor.tokens")}</span>
+                        {formatTokenEstimate(sessionHistoryTokens)} {localizeUi("ui.agents.agenteditor.tokens")}
+                      </span>
                     )}
                   </p>
                 )}
@@ -5072,14 +5216,18 @@ export function GameNarration({
                       onClick={loadOlderLogs}
                       className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.65rem] font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"
                       title={localizeUi("ui.game.gamenarration.loadOlderLogs")}
-                    >{localizeUi("ui.game.gamenarration.older")}{hiddenLogCount})
+                    >
+                      {localizeUi("ui.game.gamenarration.older")}
+                      {hiddenLogCount})
                     </button>
                     <button
                       type="button"
                       onClick={showAllLogs}
                       className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.65rem] font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"
                       title={localizeUi("ui.game.gamenarration.loadTheEntireSessionLog")}
-                    >{localizeUi("ui.noodle.stageprofilesourcepicker.all")}</button>
+                    >
+                      {localizeUi("ui.noodle.stageprofilesourcepicker.all")}
+                    </button>
                   </>
                 )}
                 <button
@@ -5112,7 +5260,9 @@ export function GameNarration({
               }}
             >
               {logEntries.length === 0 && (
-                <p className="text-sm text-[var(--muted-foreground)]">{localizeUi("ui.game.gamenarration.noPreviousLogsYet")}</p>
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  {localizeUi("ui.game.gamenarration.noPreviousLogsYet")}
+                </p>
               )}
               {hiddenLogCount > 0 && (
                 <div className="flex justify-center pb-2">
@@ -5123,7 +5273,9 @@ export function GameNarration({
                       loadOlderLogs();
                     }}
                     className="rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-xs font-medium text-white/70 shadow-lg transition-colors hover:bg-white/10 hover:text-white"
-                  >{localizeUi("ui.game.gamesurfacecomponent.showMoreOlderLogs")}{hiddenLogCount})
+                  >
+                    {localizeUi("ui.game.gamesurfacecomponent.showMoreOlderLogs")}
+                    {hiddenLogCount})
                   </button>
                 </div>
               )}
@@ -5303,11 +5455,7 @@ export function GameNarration({
                                 : localizeUi("ui.chat.chatmessage.translate")
                             }
                           >
-                            {isTranslating ? (
-                              <Loader2 size={11} className="animate-spin" />
-                            ) : (
-                              <Languages size={11} />
-                            )}
+                            {isTranslating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={11} />}
                           </button>
                         ) : null;
                       const deleteButton = showDeleteButton ? (
@@ -5326,7 +5474,11 @@ export function GameNarration({
                             }
                           }}
                           className="rounded p-1 text-[var(--marinara-chat-chrome-button-text)] opacity-100 transition-all hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] md:opacity-0 md:group-hover/logseg:opacity-100"
-                          title={canDeleteThisSegment ?localizeUi("ui.game.gamenarration.deleteSegment") :localizeUi("chat.delete.dialog.title")}
+                          title={
+                            canDeleteThisSegment
+                              ? localizeUi("ui.game.gamenarration.deleteSegment")
+                              : localizeUi("chat.delete.dialog.title")
+                          }
                         >
                           <Trash2 size={11} />
                         </button>
@@ -5371,12 +5523,12 @@ export function GameNarration({
                               )}
                               title={
                                 voiceEntry.status === "loading"
-                                  ?localizeUi("ui.game.gamenarration.generatingVoiceOver")
+                                  ? localizeUi("ui.game.gamenarration.generatingVoiceOver")
                                   : voiceActive
                                     ? voicePaused
-                                      ?localizeUi("ui.game.gamenarration.resumeVoiceOver")
-                                      :localizeUi("ui.game.gamenarration.pauseVoiceOver")
-                                    :localizeUi("ui.game.gamenarration.playVoiceOver")
+                                      ? localizeUi("ui.game.gamenarration.resumeVoiceOver")
+                                      : localizeUi("ui.game.gamenarration.pauseVoiceOver")
+                                    : localizeUi("ui.game.gamenarration.playVoiceOver")
                               }
                             >
                               {voiceEntry.status === "loading" ? (
@@ -5476,7 +5628,12 @@ export function GameNarration({
                       );
 
                       const actionButtons =
-                        deleteButton || branchButton || peekPromptButton || translateButton || copyButton || editButtons ? (
+                        deleteButton ||
+                        branchButton ||
+                        peekPromptButton ||
+                        translateButton ||
+                        copyButton ||
+                        editButtons ? (
                           <div
                             onPointerDown={stopLogActionPointerDown}
                             onClick={(event) => event.stopPropagation()}
@@ -5690,7 +5847,9 @@ export function GameNarration({
                           >
                             {actionButtons}
                             <div className="mb-1 flex items-center">
-                              <span className="text-[0.6rem] font-semibold uppercase tracking-wide text-cyan-200/80">{localizeUi("ui.characters.advancedtab.system")}</span>
+                              <span className="text-[0.6rem] font-semibold uppercase tracking-wide text-cyan-200/80">
+                                {localizeUi("ui.characters.advancedtab.system")}
+                              </span>
                             </div>
                             <div
                               className="whitespace-pre-wrap break-words pr-6 text-xs leading-relaxed text-cyan-50/80"
@@ -5721,7 +5880,9 @@ export function GameNarration({
                             {actionButtons}
                             <div className="mb-1 flex items-center">
                               <span className="text-[0.6rem] font-semibold uppercase tracking-wide text-amber-300/80">
-                                {seg.readableType === "book" ?localizeUi("ui.game.libraryview.book") :localizeUi("ui.game.libraryview.note")}
+                                {seg.readableType === "book"
+                                  ? localizeUi("ui.game.libraryview.book")
+                                  : localizeUi("ui.game.libraryview.note")}
                               </span>
                             </div>
                             {isEditingThis ? (
@@ -5762,7 +5923,9 @@ export function GameNarration({
                         >
                           {actionButtons}
                           <div className="mb-1 flex items-center">
-                            <span className="text-[0.6rem] font-semibold uppercase tracking-wide text-white/80">{localizeUi("ui.game.gamenarration.narration")}</span>
+                            <span className="text-[0.6rem] font-semibold uppercase tracking-wide text-white/80">
+                              {localizeUi("ui.game.gamenarration.narration")}
+                            </span>
                             {voiceButton}
                           </div>
                           {isEditingThis ? (
@@ -5797,208 +5960,6 @@ export function GameNarration({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function CroppedAvatar({
-  src,
-  alt,
-  crop,
-  className,
-  onLoadError,
-}: {
-  src: string;
-  alt: string;
-  crop?: AvatarCrop | null;
-  className?: string;
-  onLoadError?: () => void;
-}) {
-  return (
-    <div className={cn("relative overflow-hidden", className)}>
-      <img
-        src={src}
-        alt={alt}
-        className="h-full w-full object-cover"
-        style={getAvatarCropStyle(crop)}
-        onError={onLoadError}
-      />
-    </div>
-  );
-}
-
-function PartyOverlayBox({
-  line,
-  avatar,
-  color,
-  nameColor,
-  voiceControl,
-  translation,
-}: {
-  line: PartyDialogueLine;
-  avatar: SpeakerAvatarInfo | null;
-  color?: string;
-  nameColor?: string;
-  voiceControl?: ReactNode;
-  translation?: ReactNode;
-}) {
-  const styleByType: Record<string, { border: string; bg: string; icon: string; labelColor: string }> = {
-    side: { border: "border-white/15", bg: "bg-black/75", icon: "💬", labelColor: "text-white/85" },
-    extra: { border: "border-white/15", bg: "bg-black/75", icon: "💬", labelColor: "text-white/85" },
-    thought: { border: "border-purple-400/20", bg: "bg-purple-950/70", icon: "💭", labelColor: "text-purple-200/80" },
-    whisper: {
-      border: "border-[var(--marinara-chat-chrome-button-border)]",
-      bg: "bg-[var(--marinara-chat-chrome-panel-bg)]",
-      icon: "🤫",
-      labelColor: "text-[var(--marinara-chat-chrome-panel-text)]",
-    },
-  };
-  const style = styleByType[line.type] ?? styleByType.side!;
-
-  return (
-    <div
-      className={cn(
-        // Inert theming hook for the aside box. `data-line-type` exposes the variant so a theme can tint
-        // thought and whisper differently without depending on the utility classes below.
-        "experience-side-line isolate flex w-fit min-w-0 max-w-full transform-gpu items-start gap-2 rounded-xl border bg-clip-padding px-3 py-2 sm:max-w-[75%]",
-        (line.type === "side" || line.type === "extra") && "shadow-[0_16px_38px_rgba(0,0,0,0.45)]",
-        style.border,
-        style.bg,
-      )}
-      data-line-type={line.type}
-    >
-      {avatar ? (
-        <CroppedAvatar
-          src={avatar.url}
-          alt={line.character}
-          crop={avatar.crop}
-          className="mt-0.5 h-7 w-7 shrink-0 rounded-full border border-white/15"
-        />
-      ) : (
-        <img
-          src="/npc-silhouette.svg"
-          alt={line.character}
-          className="mt-0.5 h-7 w-7 shrink-0 rounded-full border border-white/15 object-cover"
-        />
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="text-[0.5625rem]">{style.icon}</span>
-          <span
-            className={cn("min-w-0 truncate text-[0.6875rem] font-semibold", style.labelColor)}
-            style={nameColorStyle(nameColor ?? color)}
-          >
-            {line.character}
-          </span>
-          {line.type === "whisper" && line.target && (
-            <span className="min-w-0 truncate text-[0.5625rem] text-white/40">→ {line.target}</span>
-          )}
-          {voiceControl}
-        </div>
-        <div className="mt-0.5 min-w-0">
-          <p
-            className={cn(
-              "text-xs leading-relaxed text-white/75 whitespace-normal break-words [overflow-wrap:anywhere]",
-              line.type === "thought" && "italic opacity-80",
-              line.type === "whisper" && "italic",
-            )}
-            style={(line.type === "side" || line.type === "extra") && color ? { color } : undefined}
-            dangerouslySetInnerHTML={{
-              __html: formatNarration(line.content, false),
-            }}
-          />
-          {translation}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Anime-style expression reaction indicators ──
-
-type ExpressionReactionEffect =
-  | "pop"
-  | "anger"
-  | "sparkle"
-  | "heart"
-  | "tear"
-  | "stress"
-  | "thought"
-  | "focus"
-  | "sleep";
-
-const EXPRESSION_REACTIONS: Record<string, { symbol: string; color: string; effect: ExpressionReactionEffect }> = {
-  // Anger / frustration
-  angry: { symbol: "❗", color: "text-red-400", effect: "anger" },
-  furious: { symbol: "‼️", color: "text-red-500", effect: "anger" },
-  annoyed: { symbol: "💢", color: "text-red-400", effect: "anger" },
-  irritated: { symbol: "💢", color: "text-orange-400", effect: "anger" },
-
-  // Confusion / surprise
-  confused: { symbol: "❓", color: "text-yellow-300", effect: "pop" },
-  surprised: { symbol: "❗", color: "text-yellow-300", effect: "pop" },
-  shocked: { symbol: "‼️", color: "text-yellow-400", effect: "pop" },
-
-  // Joy / amusement
-  happy: { symbol: "✨", color: "text-amber-300", effect: "sparkle" },
-  amused: { symbol: "✨", color: "text-amber-300", effect: "sparkle" },
-  delighted: { symbol: "✨", color: "text-yellow-300", effect: "sparkle" },
-  mischievous: { symbol: "😈", color: "text-purple-300", effect: "pop" },
-
-  // Affection
-  flirty: { symbol: "💗", color: "text-[var(--marinara-chat-chrome-panel-text)]", effect: "heart" },
-  tender: { symbol: "💕", color: "text-[var(--marinara-chat-chrome-panel-text)]", effect: "heart" },
-  loving: { symbol: "💕", color: "text-[var(--marinara-chat-chrome-panel-text)]", effect: "heart" },
-
-  // Sadness
-  sad: { symbol: "💧", color: "text-blue-300", effect: "tear" },
-  crying: { symbol: "💧", color: "text-blue-400", effect: "tear" },
-
-  // Fear / worry
-  scared: { symbol: "💦", color: "text-sky-300", effect: "stress" },
-  worried: { symbol: "💦", color: "text-sky-300", effect: "stress" },
-  nervous: { symbol: "💦", color: "text-sky-300", effect: "stress" },
-
-  // Thinking
-  thinking: { symbol: "💭", color: "text-white/70", effect: "thought" },
-
-  // Smug / confident
-  smirk: { symbol: "✧", color: "text-amber-300", effect: "sparkle" },
-  smug: { symbol: "✧", color: "text-amber-400", effect: "sparkle" },
-  determined: { symbol: "🔥", color: "text-orange-400", effect: "focus" },
-  battle_stance: { symbol: "⚔️", color: "text-orange-300", effect: "focus" },
-
-  // Cold / dismissive
-  cold: { symbol: "❄️", color: "text-sky-300", effect: "sparkle" },
-  disgusted: { symbol: "💢", color: "text-green-400", effect: "anger" },
-  deadpan: { symbol: "…", color: "text-white/40", effect: "pop" },
-  eye_roll: { symbol: "…", color: "text-white/40", effect: "pop" },
-  bored: { symbol: "💤", color: "text-white/40", effect: "sleep" },
-};
-
-function ExpressionReaction({ expression }: { expression?: string }) {
-  if (!expression) return null;
-  const key = expression.toLowerCase().replace(/[_\s-]/g, "_");
-  const reaction = EXPRESSION_REACTIONS[key];
-  if (!reaction) return null;
-
-  return (
-    <div
-      className={cn(
-        "game-expression-reaction absolute -right-1 -top-1 sm:-right-2 sm:-top-2",
-        `game-expression-reaction--${reaction.effect}`,
-        reaction.color,
-      )}
-    >
-      <span className="game-expression-reaction__halo" />
-      <span className="game-expression-reaction__symbol">{reaction.symbol}</span>
-      {reaction.effect === "thought" && (
-        <>
-          <span className="game-expression-reaction__bubble game-expression-reaction__bubble--one" />
-          <span className="game-expression-reaction__bubble game-expression-reaction__bubble--two" />
-        </>
-      )}
-      {reaction.effect === "tear" && <span className="game-expression-reaction__drop" />}
     </div>
   );
 }
@@ -6483,175 +6444,4 @@ function splitInlineDialogue(
   }
 
   return result;
-}
-
-function commandBadge(className: string, label: string, detail?: string): string {
-  return `<span class="inline-flex max-w-full flex-wrap items-center gap-1 rounded px-1.5 py-0.5 text-xs ${className}">${label}${
-    detail ? ` <span class="opacity-75">${detail}</span>` : ""
-  }</span>`;
-}
-
-function parseCommandAttributes(source: string): Record<string, string> {
-  const attrs: Record<string, string> = {};
-  const attrRe = /(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^,\s]+))/g;
-  let match: RegExpExecArray | null;
-  while ((match = attrRe.exec(source)) !== null) {
-    attrs[match[1]!] = match[2] ?? match[3] ?? match[4] ?? "";
-  }
-  return attrs;
-}
-
-function formatSignedNumber(value: string): string {
-  const numeric = Number(value.trim());
-  if (!Number.isFinite(numeric)) return value.trim();
-  return numeric > 0 ? `+${numeric}` : String(numeric);
-}
-
-export function formatNarration(content: string, boldDialogue = true): string {
-  let html = escapeStandaloneGameNarrationAngleLines(content)
-    .replace(/\[combat_result]\s*([\s\S]*?)\s*\[\/combat_result]/gi, (_match, recap: string) => {
-      const cleaned = recap.trim();
-      return `${commandBadge("bg-red-500/15 text-red-200 ring-1 ring-red-400/20", "⚔ Combat Result")}${
-        cleaned ? `\n${cleaned}` : ""
-      }`;
-    })
-    .replace(
-      /\[dice:\s*((?:\d+)?d\d+(?:[+-]\d+)?)\s*=\s*(-?\d+)(?:\s*\([^\]]+\))?\]/gi,
-      (_match, notation: string, total: string) =>
-        commandBadge("bg-white/10 text-white/60 font-mono", "🎲", `${notation} → ${total}`),
-    )
-    .replace(/\[qte_bonus:\s*(-?\d+)\]/gi, (_match, bonus: string) =>
-      commandBadge("bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20", "⏱ QTE Bonus", formatSignedNumber(bonus)),
-    )
-    .replace(/\[qte_result:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      const status = attrs.status === "fail" ? "Fail" : attrs.status === "success" ? "Success" : "Result";
-      const modifier = attrs.modifier ? formatSignedNumber(attrs.modifier) : "";
-      return commandBadge("bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20", `⏱ QTE ${status}`, modifier);
-    })
-    .replace(/\[skill_check:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      const skill = attrs.skill || "Skill";
-      const dc = attrs.dc ? `DC ${attrs.dc}` : "";
-      const total = attrs.total ? `total ${attrs.total}` : "";
-      const result = attrs.result ? attrs.result.replace(/_/g, " ") : "";
-      return commandBadge(
-        "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20",
-        "🎯 Skill Check",
-        [skill, dc, total, result].filter(Boolean).join(" · "),
-      );
-    })
-    .replace(/\[combat:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      return commandBadge(
-        "bg-red-500/15 text-red-200 ring-1 ring-red-400/20",
-        "⚔ Combat",
-        attrs.enemies || rawAttrs.trim(),
-      );
-    })
-    .replace(/\[status:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      const modifier = attrs.modifier ? `${attrs.stat || "modifier"} ${formatSignedNumber(attrs.modifier)}` : "";
-      const turns = attrs.turns || attrs.duration ? `${attrs.turns || attrs.duration} turns` : "";
-      return commandBadge(
-        "bg-[var(--destructive)]/15 text-[var(--destructive)] ring-1 ring-[var(--destructive)]/20",
-        "✦ Status",
-        [attrs.effect || attrs.name || "Effect", attrs.target ? `on ${attrs.target}` : "", turns, modifier]
-          .filter(Boolean)
-          .join(" · "),
-      );
-    })
-    .replace(/\[element_attack:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      return commandBadge(
-        "bg-orange-500/15 text-orange-200 ring-1 ring-orange-400/20",
-        "✦ Element",
-        [attrs.element, attrs.target ? `on ${attrs.target}` : ""].filter(Boolean).join(" · ") || rawAttrs.trim(),
-      );
-    })
-    .replace(/\[qte:\s*([^\]]+)\]/gi, (_match, body: string) =>
-      commandBadge("bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20", "⏱ QTE", body.trim()),
-    )
-    .replace(/\[choices:\s*([^\]]+)\]/gi, (_match, body: string) =>
-      commandBadge("bg-indigo-500/15 text-indigo-200 ring-1 ring-indigo-400/20", "☑ Choices", body.trim()),
-    )
-    .replace(/\[inventory:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      return commandBadge(
-        "bg-lime-500/15 text-lime-200 ring-1 ring-lime-400/20",
-        "🎒 Inventory",
-        [attrs.action, attrs.item].filter(Boolean).join(": "),
-      );
-    })
-    .replace(/\[map_update:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      return commandBadge(
-        "bg-sky-500/15 text-sky-200 ring-1 ring-sky-400/20",
-        "🗺 Map",
-        attrs.new_location || rawAttrs.trim(),
-      );
-    })
-    .replace(/\[reputation:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      return commandBadge(
-        "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)] ring-1 ring-[var(--marinara-chat-chrome-button-border)]",
-        "◆ Reputation",
-        [attrs.npc, attrs.action].filter(Boolean).join(": "),
-      );
-    })
-    .replace(/\[party_change:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      return commandBadge(
-        "bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-400/20",
-        "👥 Party",
-        [attrs.change, attrs.character].filter(Boolean).join(": "),
-      );
-    })
-    .replace(/\[party_add:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      return commandBadge(
-        "bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-400/20",
-        "👥 Party",
-        attrs.character || rawAttrs.trim(),
-      );
-    })
-    .replace(/\[session_end:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      return commandBadge("bg-violet-500/15 text-violet-200 ring-1 ring-violet-400/20", "🏁 Session End", attrs.reason);
-    })
-    .replace(/\[(music|sfx|bg|ambient):\s*([^\]]+)\]/gi, (_match, kind: string, body: string) =>
-      commandBadge("bg-slate-500/15 text-slate-200 ring-1 ring-slate-400/20", kind.toUpperCase(), body.trim()),
-    )
-    .replace(/\[direction:\s*([^\]]+)\]/gi, (_match, body: string) =>
-      commandBadge("bg-zinc-500/15 text-zinc-200 ring-1 ring-zinc-400/20", "Direction", body.trim()),
-    )
-    .replace(/\[widget:\s*([^\]]+)\]/gi, (_match, body: string) =>
-      commandBadge("bg-teal-500/15 text-teal-200 ring-1 ring-teal-400/20", "Widget", body.trim()),
-    )
-    .replace(/\[dialogue:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
-      const attrs = parseCommandAttributes(rawAttrs);
-      return commandBadge(
-        "bg-blue-500/15 text-blue-200 ring-1 ring-blue-400/20",
-        "Dialogue",
-        attrs.npc || rawAttrs.trim(),
-      );
-    })
-    .replace(/\[state:\s*(\w+)\]/gi, (_match, state: string) =>
-      commandBadge("bg-sky-500/20 text-sky-300", "⚡ State", state),
-    )
-    .replace(/(^|\n)[ \t]*-#(?:[ \t]+([^\n]*))?(?=\n|$)/g, '$1<small class="mari-md-subtext">$2</small>')
-    .replace(/\*\*(.+?)\*\*/gs, "<strong>$1</strong>")
-    .replace(/__(.+?)__/gs, '<u class="mari-md-underline">$1</u>')
-    .replace(/\*(.+?)\*/gs, "<em>$1</em>")
-    .replace(/\n/g, "<br />");
-
-  if (boldDialogue) {
-    const narrationQuoteRe = new RegExp(`(?<![=\\w])(?:${HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE})`, "g");
-    html = html.replace(narrationQuoteRe, (match) => `<strong>${match}</strong>`);
-  }
-
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ["strong", "em", "u", "small", "br", "span"],
-    ALLOWED_ATTR: ["class"],
-  });
 }

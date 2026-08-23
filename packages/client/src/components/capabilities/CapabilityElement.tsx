@@ -91,7 +91,10 @@ function CapabilityLoadingState({
   if (view === "browser") {
     return (
       <div
-        className={cn(className === "contents" ? undefined : className, "flex min-h-64 items-center justify-center px-5")}
+        className={cn(
+          className === "contents" ? undefined : className,
+          "flex min-h-64 items-center justify-center px-5",
+        )}
         style={style}
         data-capability-client-state="loading"
         data-capability-package-id={packageId}
@@ -272,7 +275,11 @@ function CapabilityFailureState({
     );
   }
   if (view === "browser") {
-    return <div className="flex min-h-64 items-center px-5"><div className="mx-auto w-full max-w-lg">{failure}</div></div>;
+    return (
+      <div className="flex min-h-64 items-center px-5">
+        <div className="mx-auto w-full max-w-lg">{failure}</div>
+      </div>
+    );
   }
   if (view !== "workspace" && view !== "setup") return failure;
   return (
@@ -367,7 +374,11 @@ function CapabilityRefreshState({
     );
   }
   if (view === "browser") {
-    return <div className="flex min-h-64 items-center px-5"><div className="mx-auto w-full max-w-lg">{notice}</div></div>;
+    return (
+      <div className="flex min-h-64 items-center px-5">
+        <div className="mx-auto w-full max-w-lg">{notice}</div>
+      </div>
+    );
   }
   if (view !== "workspace" && view !== "setup") return notice;
   return (
@@ -400,12 +411,17 @@ export function CapabilityElement({
   const localizedCapabilityProps = useMemo(
     () => ({
       ...(capabilityProps ?? {}),
+      // Package identity, so a bundle can build version-pinned asset URLs
+      // (`/api/capability-packages/<id>/assets/<path>?v=<version>` → immutable
+      // caching) without re-fetching /installed or scraping import.meta.url.
+      packageId,
+      packageVersion: clientModule.version ?? null,
       localization: {
         locale,
         direction,
       } satisfies CapabilityLocalizationContext,
     }),
-    [capabilityProps, direction, locale],
+    [capabilityProps, clientModule.version, direction, locale, packageId],
   );
 
   useEffect(() => {

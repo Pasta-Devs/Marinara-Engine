@@ -4,7 +4,8 @@ export const RAINBOW_GRADIENT_PRESET =
 const CSS_GRADIENT_RE = /\b(?:linear|radial|conic|repeating-linear|repeating-radial|repeating-conic)-gradient\(/i;
 const HEX_COLOR_RE = /#[0-9a-f]{3,8}\b/i;
 const COLOR_FUNCTION_RE = /^(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color|color-mix|var)\(/i;
-const CSS_DIRECTION_RE = /^(?:to\b|at\b|circle\b|ellipse\b|closest-side\b|closest-corner\b|farthest-side\b|farthest-corner\b)/i;
+const CSS_DIRECTION_RE =
+  /^(?:to\b|at\b|circle\b|ellipse\b|closest-side\b|closest-corner\b|farthest-side\b|farthest-corner\b)/i;
 const CSS_ANGLE_RE = /^[-+]?(?:\d+|\d*\.\d+)(?:deg|grad|rad|turn)\b/i;
 
 export function isCssGradient(value: string | null | undefined): value is string {

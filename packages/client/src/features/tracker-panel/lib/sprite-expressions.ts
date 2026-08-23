@@ -3,12 +3,7 @@ import type { SpriteInfo } from "../../../hooks/use-characters";
 
 export function isSpriteLookupCharacterId(characterId: string | null | undefined) {
   const id = characterId?.trim();
-  return (
-    !!id &&
-    !id.startsWith("manual-") &&
-    !id.startsWith("party-npc:") &&
-    !id.startsWith("npc:")
-  );
+  return !!id && !id.startsWith("manual-") && !id.startsWith("party-npc:") && !id.startsWith("npc:");
 }
 
 export function getSpriteExpressionForCharacter(

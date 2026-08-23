@@ -24,6 +24,16 @@ Client capability elements receive the Engine's selected UI locale through their
 English; the Engine does not translate package prompts or package-authored machine values. Locale changes reuse the
 existing `marinara-capability-props` event so an installed interface can rerender without an Engine restart.
 
+### Delivery and caching
+
+Installed package files are served with strong validators derived from the manifest's per-file
+SHA-256 hashes — the same values the Engine re-verifies the bytes against on every read. The
+client bundle (`/api/capability-packages/<id>/client`) and every package asset always revalidate
+(`no-cache` plus an `ETag`), so an unchanged file answers `304 Not Modified` instead of
+re-downloading, while a republished file is picked up immediately. Nothing is served `immutable`:
+install policy permits republishing the same version with different bytes, so no package URL is
+content-addressed.
+
 Capability API 1.1 adds a generic runtime facade to the server activation context.
 Packages can read the effective agent-debug state and write through the Engine's
 Pino logger, including explicit debug-mode overrides, without importing the
@@ -71,6 +81,106 @@ A package may provide an entire Game mode rather than an addition to the built-i
 Packages holding the `prompt-context` permission contribute text to the system prompt of each generated Game turn, so a package that owns live state can keep the model consistent with what the player is looking at. A contribution may also declare which built-in game systems it replaces, and Engine then stops instructing the model to drive them. Contributions are collected per turn and are never required: a contributor that returns nothing is skipped, and one that throws, or that does not settle within its deadline, is logged and skipped without affecting generation.
 
 The resource facade exposes writes beside its reads, so a package's setup flow can find-or-create the player persona and its lorebook. Engine retains storage, validation, and identity; packages retain domain content.
+
+### Capability API 1.10 package assets
+
+Capability API 1.10 adds general package-owned static asset delivery. A manifest may declare
+`contributions.assets.paths` — an allowlist of up to 256 image (`png`/`webp`/`gif`/`jpg`/`jpeg`)
+and JSON files shipped inside the package — and the Engine serves them over
+`/api/capability-packages/<id>/assets/<path>` through the exact verification chain browser-tab
+icons already use: path containment, `files[]` hash membership, a passive content-type allowlist,
+and integrity re-verification on every read. Active document types (SVG, HTML, scripts) are
+rejected by the schema; every declared path must be hash-pinned in `files[]`; and the in-package
+`manifest.json` is never servable, even if declared. Declaring `contributions.assets` requires a
+`schemaVersion` 2 manifest with `capabilityApi` 1.10 or newer — a v1 manifest cannot declare it
+at all. Assets always revalidate — like the client bundle they carry a strong manifest-hash
+`ETag` and answer an unchanged revalidation with `304 Not Modified` and no body, so a shipped
+tileset re-downloads only when its bytes actually change. (Responses are deliberately never
+`immutable`: install policy permits republishing the same version with different bytes, so a
+version-tagged URL is not content-addressed.) This is what lets a `game-surface` Experience ship
+real art instead of inlining it into its client bundle.
+
+A manifest that violates these rules is rejected at install with one of: "A declared package
+asset must be listed in the package file manifest", "contributions.assets requires schemaVersion
+2 and capabilityApi 1.10 or newer", the schema's extension error for a non-image/JSON path, or —
+for archives whose filenames differ only by case, which case-insensitive filesystems would
+collapse onto one file — "Package contains duplicate file" / "Package manifest declares files
+that collide on case-insensitive filesystems".
+
+Every capability element receives its own identity for this purpose: `capabilityProps.packageId`
+and `capabilityProps.packageVersion` arrive alongside `localization`, so a bundle builds its
+asset URLs as `/api/capability-packages/<packageId>/assets/<path>` (optionally keyed with
+`?v=<packageVersion>` so a version bump busts any intermediary cache) without re-fetching the
+installed list or scraping its own import URL.
+
+### Capability API 1.11 Experience combat seam
+
+Capability API 1.11 adds a combat seam to the `game-surface` capability props. `combatActive`
+reports the instant the built-in combat UI actually mounts — unlike `chatMeta.gameActiveState`,
+the GM's narrative scene state, which lags the flip and can say "combat" without any encounter
+existing — and `combatStyle` carries the effective style (`classic` or `tactical`).
+`requestCombat()` asks the Engine to generate an encounter through the exact pass the manual
+Start Combat button uses, minus the confirm dialog, since the Experience's own interface already
+expressed the intent; the Engine's generation pass still decides what the encounter is.
+Deliberately absent: any way for a package to supply combatants or combat state directly —
+combat stays Engine-owned.
+
+`requestCombat()` is identity-stable, silent on the package path, and returns a code the
+Experience renders its own feedback from: `"started"`, or a refusal — `"combat-active"`,
+`"pending"` (a generation is already in flight), `"no-turn"` (the GM has not written a turn
+yet), or `"unavailable"` (concluded session or replay). `combatPending` and `combatError`
+mirror the generation's progress and failure so a package is never left waiting on
+`combatActive` after a failed generation. Like the 1.7/1.8 seams (and unlike the hard-gated
+1.10 `contributions.assets`), these props are delivered to every `game-surface` package
+regardless of the `capabilityApi` it declares — the 1.11 label marks when they appeared, so a
+package that *requires* them declares 1.11 and older Engines refuse it cleanly.
+
+### Capability API 1.12: spatial events for the owning Experience
+
+Capability API 1.12 addresses the spatial capability events to the game-owning Experience
+package as well. `spatial_transition_committed`, `spatial_transition_rejected`, and the
+untyped `spatial_context_refresh` nudge — previously addressed only to `hierarchical-maps` on
+the `marinara-capability-server-event` window event — are now dual-dispatched with
+`packageId` set to the chat's `gameExperienceId`. Payloads differ per event: a committed
+event carries `{ chatId, commandId, currentLocationId, definitionRevision, travel? }`; a
+rejected event carries `{ chatId, commandId, code?, message? }` (no location fields — the
+move did not happen); the refresh nudge carries `data: null`. An Experience that sent a
+travel command via `sendMessage`'s `pendingSpatialTransition` argument can therefore confirm
+or clear its journey the moment the host knows, instead of inferring the outcome from later
+state reads. 1.12 also closes a gap that affected World Maps itself: transitions rejected on
+either silent HTTP path — the pre-stream owner-turn commit inside a generation, or the
+standalone REST commit — previously produced no event at all; both now synthesize
+`spatial_transition_rejected`, and only on definitive evidence (a `spatial_*` error code
+other than `already_applied`). Inconclusive failures — a network error that may have lost a
+successful commit — deliver the untyped `spatial_context_refresh` nudge instead, so listeners
+reconcile from server state rather than a fabricated verdict. Note that a committed event
+whose `travel.mode` is `"step_by_step"` with `complete: false` means the journey continues —
+keep your pending state until the completing event. This is a soft seam like 1.11: events are
+delivered regardless of the declared `capabilityApi`; declare 1.12 only if your package
+requires them.
+
+### Capability API 1.13: transient narration collapse
+
+Capability API 1.13 adds `requestsCollapsedNarration` to the chrome declaration a
+`game-surface` package passes to `setExperienceChrome`. While the flag is true the Game Mode
+narration box folds down to its slim handle, so an Experience can clear the screen for a
+cutscene or a full-screen beat.
+
+It is a REQUEST, not a preference. The player's own collapse setting is never written, and
+the flag is honored only while your Experience is the live surface — drop the flag, or stop
+being the active surface, and the box returns to whatever the player chose. That is the
+"always reopens afterwards" guarantee; there is deliberately no way to persist a collapse
+from a package.
+
+The Engine's safety rules outrank the request. The box force-expands whenever the player's
+text input is on screen (including at the very start of a scene, before any segment exists)
+and whenever the segment-advance controls are live, because those controls are the only way
+to finish a turn — a package that could hide them could strand the player permanently. The
+handle also keeps raising its attention indicator for a pending scene-analysis, generation,
+or combat-generation retry. A player who expands the box by hand during a request keeps it
+open until the request drops. Like the 1.11/1.12 seams, this is a soft seam: the field is
+honored regardless of the declared `capabilityApi`, and the 1.13 label marks when it
+appeared, so a package that *requires* it declares 1.13.
 
 ## Initial packages
 

@@ -407,7 +407,10 @@ function errorMessage(error: unknown): string {
 }
 
 function storedSummaryFailureError(error: string): string {
-  const sanitized = error.replace(/[\u0000-\u001f\u007f]+/gu, " ").replace(/\s+/gu, " ").trim();
+  const sanitized = error
+    .replace(/[\u0000-\u001f\u007f]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
   if (!sanitized) return "Summary generation failed";
   return sanitized.length > MAX_STORED_SUMMARY_FAILURE_ERROR_CHARS
     ? `${sanitized.slice(0, MAX_STORED_SUMMARY_FAILURE_ERROR_CHARS - 1)}…`
@@ -472,8 +475,7 @@ export async function generateMissingConversationSummaries(
   const pastBuckets = buckets.filter((bucket) => bucket.date !== todayDateKey);
   const missingBuckets = pastBuckets.filter(
     (bucket) =>
-      !daySummaries[bucket.date] &&
-      !shouldSkipFailedSummary(summaryFailures.days[bucket.date], options.model, now),
+      !daySummaries[bucket.date] && !shouldSkipFailedSummary(summaryFailures.days[bucket.date], options.model, now),
   );
   const maxMissingDays =
     typeof options.maxMissingDays === "number" && Number.isFinite(options.maxMissingDays)

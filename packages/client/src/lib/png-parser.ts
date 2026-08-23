@@ -33,10 +33,7 @@ function parseCharaChunkText(text: string): Record<string, unknown> {
 
 /** Inflate a zlib (RFC 1950) stream — the encoding zTXt chunks use. */
 async function inflateZlib(data: Uint8Array): Promise<Uint8Array> {
-  const reader = new Blob([data as BlobPart])
-    .stream()
-    .pipeThrough(new DecompressionStream("deflate"))
-    .getReader();
+  const reader = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
   const chunks: Uint8Array[] = [];
   let totalLength = 0;
 

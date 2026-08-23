@@ -75,13 +75,16 @@ export function usePersonaPortraitSaveCoordinator() {
     pendingSaveByPersonaIdRef.current.set(snapshot.id, { attempt: 1, snapshot, version });
   }, []);
 
-  const flushPersonaPortraitSave = useCallback((personaId: string) => {
-    const pendingSave = pendingSaveByPersonaIdRef.current.get(personaId);
-    if (!pendingSave) return;
-    pendingSaveByPersonaIdRef.current.delete(personaId);
-    flushQueueRef.current.push(pendingSave);
-    void drainPersonaPortraitSaves();
-  }, [drainPersonaPortraitSaves]);
+  const flushPersonaPortraitSave = useCallback(
+    (personaId: string) => {
+      const pendingSave = pendingSaveByPersonaIdRef.current.get(personaId);
+      if (!pendingSave) return;
+      pendingSaveByPersonaIdRef.current.delete(personaId);
+      flushQueueRef.current.push(pendingSave);
+      void drainPersonaPortraitSaves();
+    },
+    [drainPersonaPortraitSaves],
+  );
 
   return { queuePersonaPortraitSave, flushPersonaPortraitSave };
 }

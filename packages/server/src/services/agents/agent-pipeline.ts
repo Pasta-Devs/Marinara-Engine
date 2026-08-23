@@ -21,6 +21,7 @@ import {
 } from "./agent-executor.js";
 import { logger } from "../../lib/logger.js";
 import { createAgentConcurrencyLimiter, settleAgentJobsWithConcurrencyLimit } from "./agent-concurrency.js";
+import { getCustomLorebookReadBehindMessages } from "../../routes/generate/lorebook-keeper-utils.js";
 export { settleAgentJobsWithConcurrencyLimit } from "./agent-concurrency.js";
 
 /** A fully resolved agent ready for execution. */
@@ -31,6 +32,8 @@ export interface ResolvedAgent extends AgentExecConfig {
   maxParallelJobs?: number;
   /** Optional tool context for agents that need function calling (e.g., Spotify). */
   toolContext?: AgentToolContext;
+  /** Request-local context identity used to keep incompatible agent batches separate. */
+  batchContextKey?: string;
 }
 
 export interface AgentInjection {
@@ -68,16 +71,14 @@ export function normalizeAgentMaxParallelJobs(value: unknown): number {
 }
 
 /**
- * Group agents by shared provider+model so they can be batched.
- * We use the provider reference + model string as the key.
+ * Group agents by shared provider, model, and compatible request context so they can be batched.
  */
 function groupByProviderModel(agents: ResolvedAgent[]): AgentGroup[] {
   const groups = new Map<string, AgentGroup>();
 
   for (const agent of agents) {
-    // Use a composite key: object reference hash + model
-    // Two agents share a group if they have the same provider instance and model
-    const key = `${providerKey(agent.provider)}::${agent.model}::${postProcessingDataKey(agent)}`;
+    // Two agents share a group only when their provider, model, and resolved context are compatible.
+    const key = `${providerKey(agent.provider)}::${agent.model}::${agentBatchDataKey(agent)}`;
     let group = groups.get(key);
     if (!group) {
       group = {
@@ -127,12 +128,16 @@ function providerKey(provider: BaseLLMProvider): number {
   return id;
 }
 
-function postProcessingDataKey(agent: ResolvedAgent): string {
-  if (agent.phase !== "post_processing") return "default";
+function agentBatchDataKey(agent: ResolvedAgent): string {
+  const batchContextKey = agent.batchContextKey ?? "default-context";
+  if (agent.phase !== "post_processing") return batchContextKey;
+  const readBehind = getCustomLorebookReadBehindMessages(agent.settings);
   return [
     getAgentBatchLane(agent),
     agent.settings.includePreGenInjections === true ? "pre-gen" : "no-pre-gen",
     agent.settings.includeParallelResults === true ? "parallel" : "no-parallel",
+    `read-behind-${readBehind}`,
+    batchContextKey,
   ].join(":");
 }
 

@@ -365,7 +365,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
     if (!repoInput.trim()) return;
     markPrompted();
     if (await startCustomDownload(repoInput.trim(), isAppleSilicon ? undefined : selectedCustomPath)) {
-      toast.success(localizeUi("ui.modals.modeldownloadmodal.localModelDownloadedCompletelyRestartMarinaraEngineBeforeUsing"));
+      toast.success(
+        localizeUi("ui.modals.modeldownloadmodal.localModelDownloadedCompletelyRestartMarinaraEngineBeforeUsing"),
+      );
     }
   };
 
@@ -504,7 +506,13 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={localizeUi("ui.modals.modeldownloadmodal.localAiModel")} width="max-w-2xl" contentRef={modalScrollRef}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={localizeUi("ui.modals.modeldownloadmodal.localAiModel")}
+      width="max-w-2xl"
+      contentRef={modalScrollRef}
+    >
       <div className="flex flex-col gap-5">
         <div className="flex items-start gap-3">
           <div className="mari-chrome-accent-soft-tile mari-accent-animated flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
@@ -514,16 +522,20 @@ export function ModelDownloadModal({ open, onClose }: Props) {
             <p>{localizeUi("ui.modals.modeldownloadmodal.marinaraEngineCanRunALocalSidecarForTrackers")}</p>
             <p className="mt-1.5 text-xs text-[var(--muted-foreground)]/70">
               {isAppleSilicon
-                ?localizeUi("ui.modals.modeldownloadmodal.setUpTheMlxRuntimeFirstIfYouWant")
-                :localizeUi("ui.modals.modeldownloadmodal.setUpTheRuntimeFirstThenChooseEitherA")}
+                ? localizeUi("ui.modals.modeldownloadmodal.setUpTheMlxRuntimeFirstIfYouWant")
+                : localizeUi("ui.modals.modeldownloadmodal.setUpTheRuntimeFirstThenChooseEitherA")}
             </p>
           </div>
         </div>
 
         <div className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--warning)]">
-            <AlertTriangle size="0.95rem" className="shrink-0" />{localizeUi("ui.modals.modeldownloadmodal.localModelIsForHelpersNotMainRoleplay")}</div>
-          <p className="mt-1.5 text-xs leading-relaxed text-[var(--muted-foreground)]">{localizeUi("ui.modals.modeldownloadmodal.theBundledModelIsDeliberatelySmallSoItCan")}</p>
+            <AlertTriangle size="0.95rem" className="shrink-0" />
+            {localizeUi("ui.modals.modeldownloadmodal.localModelIsForHelpersNotMainRoleplay")}
+          </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("ui.modals.modeldownloadmodal.theBundledModelIsDeliberatelySmallSoItCan")}
+          </p>
         </div>
 
         {hasModel && (
@@ -537,9 +549,19 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                 <div className="text-xs text-[var(--muted-foreground)]/70">
                   {config.customModelRepo
                     ? config.backend === "mlx"
-                      ?localizeUi("ui.modals.modeldownloadmodal.customMlxRepoValue1", { value1: config.customModelRepo })
-                      :localizeUi("ui.modals.modeldownloadmodal.customGgufFromValue1", { value1: config.customModelRepo })
-                    :localizeUi("ui.modals.modeldownloadmodal.value1Gemma4Value2Preset", { value1: formatQuantizationLabel(config.quantization, config.backend), value2: config.backend === "mlx" ?localizeUi("ui.modals.modeldownloadmodal.mlx") :localizeUi("ui.modals.modeldownloadmodal.gguf") })}
+                      ? localizeUi("ui.modals.modeldownloadmodal.customMlxRepoValue1", {
+                          value1: config.customModelRepo,
+                        })
+                      : localizeUi("ui.modals.modeldownloadmodal.customGgufFromValue1", {
+                          value1: config.customModelRepo,
+                        })
+                    : localizeUi("ui.modals.modeldownloadmodal.value1Gemma4Value2Preset", {
+                        value1: formatQuantizationLabel(config.quantization, config.backend),
+                        value2:
+                          config.backend === "mlx"
+                            ? localizeUi("ui.modals.modeldownloadmodal.mlx")
+                            : localizeUi("ui.modals.modeldownloadmodal.gguf"),
+                      })}
                 </div>
               </div>
             </div>
@@ -550,32 +572,46 @@ export function ModelDownloadModal({ open, onClose }: Props) {
           <div className="flex items-start justify-between gap-3 max-sm:flex-col">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Server size="0.95rem" className="mari-chrome-accent-icon mari-accent-animated" />{localizeUi("ui.panels.extensionsettings.runtime")}</div>
+                <Server size="0.95rem" className="mari-chrome-accent-icon mari-accent-animated" />
+                {localizeUi("ui.panels.extensionsettings.runtime")}
+              </div>
               <div className="mt-1 text-xs text-[var(--muted-foreground)]">
-                <span>{localizeUi("ui.modals.modeldownloadmodal.status")} {runtimeStatusLabel}</span>
+                <span>
+                  {localizeUi("ui.modals.modeldownloadmodal.status")} {runtimeStatusLabel}
+                </span>
                 <span> • </span>
                 <span>{quickRuntimeSummary}</span>
               </div>
               <div className="mt-1 text-xs text-[var(--muted-foreground)]/75">
                 {runtime.installed
                   ? isSystemRuntime
-                    ?localizeUi("ui.modals.modeldownloadmodal.usingSystemLlamaServerValue1", { value1: runtime.systemPath ?localizeUi("ui.modals.modeldownloadmodal.value1", { value1: runtime.systemPath }) : "" })
+                    ? localizeUi("ui.modals.modeldownloadmodal.usingSystemLlamaServerValue1", {
+                        value1: runtime.systemPath
+                          ? localizeUi("ui.modals.modeldownloadmodal.value1", { value1: runtime.systemPath })
+                          : "",
+                      })
                     : runtime.variant
-                      ?localizeUi("ui.modals.modeldownloadmodal.installedRuntimeValue1", { value1: formatRuntimeVariantLabel(runtime.variant) })
-                      :localizeUi("ui.modals.modeldownloadmodal.runtimeInstalledAndReadyToUse")
+                      ? localizeUi("ui.modals.modeldownloadmodal.installedRuntimeValue1", {
+                          value1: formatRuntimeVariantLabel(runtime.variant),
+                        })
+                      : localizeUi("ui.modals.modeldownloadmodal.runtimeInstalledAndReadyToUse")
                   : hasModel
-                    ?localizeUi("ui.modals.modeldownloadmodal.yourModelIsReadyButTheRuntimeHasNot")
-                    :localizeUi("ui.modals.modeldownloadmodal.installAndConfigureTheRuntimeHereThenChooseA")}
+                    ? localizeUi("ui.modals.modeldownloadmodal.yourModelIsReadyButTheRuntimeHasNot")
+                    : localizeUi("ui.modals.modeldownloadmodal.installAndConfigureTheRuntimeHereThenChooseA")}
               </div>
               {status === "server_error" && (
-                <div className="mt-2 text-xs text-amber-200">{localizeUi("ui.modals.modeldownloadmodal.runtimeStartupFailedOpenRuntimeSettingsForDetails")}</div>
+                <div className="mt-2 text-xs text-amber-200">
+                  {localizeUi("ui.modals.modeldownloadmodal.runtimeStartupFailedOpenRuntimeSettingsForDetails")}
+                </div>
               )}
             </div>
             <button
               onClick={() => setShowRuntimeSettings((current) => !current)}
               className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)]"
             >
-              <Settings2 size="0.875rem" />{localizeUi("ui.modals.modeldownloadmodal.runtimeSettings")}{showRuntimeSettings ? <ChevronUp size="0.875rem" /> : <ChevronDown size="0.875rem" />}
+              <Settings2 size="0.875rem" />
+              {localizeUi("ui.modals.modeldownloadmodal.runtimeSettings")}
+              {showRuntimeSettings ? <ChevronUp size="0.875rem" /> : <ChevronDown size="0.875rem" />}
             </button>
           </div>
 
@@ -587,7 +623,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                   className="mari-chrome-accent-surface mari-accent-animated flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
                 >
                   <Download size="0.875rem" />
-                  {activeBackend === "mlx" ?localizeUi("ui.modals.modeldownloadmodal.installMlxRuntime") :localizeUi("ui.modals.modeldownloadmodal.installRuntime")}
+                  {activeBackend === "mlx"
+                    ? localizeUi("ui.modals.modeldownloadmodal.installMlxRuntime")
+                    : localizeUi("ui.modals.modeldownloadmodal.installRuntime")}
                 </button>
               ) : (
                 <>
@@ -598,10 +636,10 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                     >
                       <Loader2 size="0.875rem" />
                       {status === "server_error"
-                        ?localizeUi("ui.modals.modeldownloadmodal.retryStartup")
+                        ? localizeUi("ui.modals.modeldownloadmodal.retryStartup")
                         : inferenceReady
-                          ?localizeUi("ui.modals.modeldownloadmodal.restartRuntime")
-                          :localizeUi("ui.modals.modeldownloadmodal.startRuntime")}
+                          ? localizeUi("ui.modals.modeldownloadmodal.restartRuntime")
+                          : localizeUi("ui.modals.modeldownloadmodal.startRuntime")}
                     </button>
                   )}
                   {canReinstallRuntime && (
@@ -609,7 +647,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                       onClick={() => void reinstallRuntime()}
                       className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)]"
                     >
-                      <Download size="0.875rem" />{localizeUi("ui.modals.modeldownloadmodal.reinstallRuntime")}</button>
+                      <Download size="0.875rem" />
+                      {localizeUi("ui.modals.modeldownloadmodal.reinstallRuntime")}
+                    </button>
                   )}
                 </>
               )}
@@ -625,7 +665,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                   <Loader2 size="0.875rem" className="animate-spin" />
                 ) : (
                   <MessageSquare size="0.875rem" />
-                )}{localizeUi("ui.connections.connectioneditor.sendTestMessage")}</button>
+                )}
+                {localizeUi("ui.connections.connectioneditor.sendTestMessage")}
+              </button>
             </div>
           )}
 
@@ -633,9 +675,13 @@ export function ModelDownloadModal({ open, onClose }: Props) {
             <div className="mt-4 flex flex-col gap-4 rounded-xl border border-[var(--border)]/80 bg-[var(--secondary)]/40 p-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.runtimeTarget")}</div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                    {localizeUi("ui.modals.modeldownloadmodal.runtimeTarget")}
+                  </div>
                   {activeBackend === "mlx" ? (
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-sm text-[var(--muted-foreground)]/75">{localizeUi("ui.modals.modeldownloadmodal.mlxChoosesTheAppleSiliconAcceleratorPathAutomatically")}</div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-sm text-[var(--muted-foreground)]/75">
+                      {localizeUi("ui.modals.modeldownloadmodal.mlxChoosesTheAppleSiliconAcceleratorPathAutomatically")}
+                    </div>
                   ) : (
                     <>
                       <div className="relative">
@@ -657,18 +703,26 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                           className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]/70"
                         />
                       </div>
-                      <div className="text-xs text-[var(--muted-foreground)]/70">{localizeUi("ui.modals.modeldownloadmodal.pickTheGpuFamilyYouActuallyWantMarinaraTo")}</div>
+                      <div className="text-xs text-[var(--muted-foreground)]/70">
+                        {localizeUi("ui.modals.modeldownloadmodal.pickTheGpuFamilyYouActuallyWantMarinaraTo")}
+                      </div>
                       {platform === "linux" && config.runtimePreference === "nvidia" && (
-                        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100">{localizeUi("ui.modals.modeldownloadmodal.linuxCudaBinariesAreNotCurrentlyPublishedByLlama")}</div>
+                        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100">
+                          {localizeUi("ui.modals.modeldownloadmodal.linuxCudaBinariesAreNotCurrentlyPublishedByLlama")}
+                        </div>
                       )}
                     </>
                   )}
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.gpuOffload")}</div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                    {localizeUi("ui.modals.modeldownloadmodal.gpuOffload")}
+                  </div>
                   {activeBackend === "mlx" ? (
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-sm text-[var(--muted-foreground)]/75">{localizeUi("ui.modals.modeldownloadmodal.mlxManagesGpuOffloadAutomatically")}</div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-sm text-[var(--muted-foreground)]/75">
+                      {localizeUi("ui.modals.modeldownloadmodal.mlxManagesGpuOffloadAutomatically")}
+                    </div>
                   ) : (
                     <>
                       <div className="relative">
@@ -705,10 +759,14 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                           <button
                             onClick={handleApplyCustomGpuLayers}
                             className="flex shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--card)]"
-                          >{localizeUi("ui.modals.modeldownloadmodal.apply")}</button>
+                          >
+                            {localizeUi("ui.modals.modeldownloadmodal.apply")}
+                          </button>
                         </div>
                       )}
-                      <div className="text-xs text-[var(--muted-foreground)]/70">{localizeUi("ui.modals.modeldownloadmodal.autoTriesMaxOffloadFirstCpuOnlyDisablesGpu")}</div>
+                      <div className="text-xs text-[var(--muted-foreground)]/70">
+                        {localizeUi("ui.modals.modeldownloadmodal.autoTriesMaxOffloadFirstCpuOnlyDisablesGpu")}
+                      </div>
                     </>
                   )}
                 </div>
@@ -717,15 +775,19 @@ export function ModelDownloadModal({ open, onClose }: Props) {
               <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-4">
                 <div className="flex items-start justify-between gap-3 max-sm:flex-col">
                   <div>
-                    <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.nativeToolCalls")}</div>
+                    <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                      {localizeUi("ui.modals.modeldownloadmodal.nativeToolCalls")}
+                    </div>
                     <div className="mt-1 text-xs leading-relaxed text-[var(--muted-foreground)]/75">
                       {activeBackend === "mlx"
-                        ?localizeUi("ui.modals.modeldownloadmodal.thisLlamaCppJinjaOptionDoesNotApplyTo")
-                        :localizeUi("ui.modals.modeldownloadmodal.startsLlamaServerWithJinjaSoOpenaiCompatibleTool")}
+                        ? localizeUi("ui.modals.modeldownloadmodal.thisLlamaCppJinjaOptionDoesNotApplyTo")
+                        : localizeUi("ui.modals.modeldownloadmodal.startsLlamaServerWithJinjaSoOpenaiCompatibleTool")}
                     </div>
                   </div>
                   {activeBackend === "mlx" ? (
-                    <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted-foreground)]">{localizeUi("ui.modals.modeldownloadmodal.llamaCppOnly")}</span>
+                    <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted-foreground)]">
+                      {localizeUi("ui.modals.modeldownloadmodal.llamaCppOnly")}
+                    </span>
                   ) : (
                     <button
                       type="button"
@@ -743,21 +805,29 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                           }`}
                         />
                       </span>
-                      {config.enableNativeToolCalls ?localizeUi("ui.noodle.noodlehome.enabled") :localizeUi("ui.agents.agenteditor.disabled")}
+                      {config.enableNativeToolCalls
+                        ? localizeUi("ui.noodle.noodlehome.enabled")
+                        : localizeUi("ui.agents.agenteditor.disabled")}
                     </button>
                   )}
                 </div>
                 {!config.enableNativeToolCalls && activeBackend !== "mlx" && (
-                  <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100">{localizeUi("ui.modals.modeldownloadmodal.professorMariAndCustomAgentsNeedThisEnabledBefore")}</div>
+                  <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100">
+                    {localizeUi("ui.modals.modeldownloadmodal.professorMariAndCustomAgentsNeedThisEnabledBefore")}
+                  </div>
                 )}
               </div>
 
               {activeBackend !== "mlx" && (
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-4">
-                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.embeddingEndpoint")}</div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                    {localizeUi("ui.modals.modeldownloadmodal.embeddingEndpoint")}
+                  </div>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <label className="flex flex-col gap-1.5">
-                      <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.poolingType")}</span>
+                      <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                        {localizeUi("ui.modals.modeldownloadmodal.poolingType")}
+                      </span>
                       <div className="relative">
                         <select
                           value={config.embeddingPooling}
@@ -780,7 +850,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                     </label>
 
                     <label className="flex flex-col gap-1.5">
-                      <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.physicalBatchSize")}</span>
+                      <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                        {localizeUi("ui.modals.modeldownloadmodal.physicalBatchSize")}
+                      </span>
                       <div className="flex items-center gap-2">
                         <input
                           value={embeddingBatchSizeInput}
@@ -798,19 +870,29 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                           onClick={handleApplyEmbeddingBatchSize}
                           disabled={!embeddingBatchSizeValid || !embeddingBatchSizeDirty}
                           className="flex shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--card)] disabled:cursor-not-allowed disabled:opacity-50"
-                        >{localizeUi("ui.modals.modeldownloadmodal.apply")}</button>
+                        >
+                          {localizeUi("ui.modals.modeldownloadmodal.apply")}
+                        </button>
                       </div>
                     </label>
                   </div>
-                  <div className="mt-3 text-xs leading-relaxed text-[var(--muted-foreground)]/70">{localizeUi("ui.modals.modeldownloadmodal.useMeanPoolingForOpenaiCompatibleLorebookEmbeddingsRaise")}</div>
+                  <div className="mt-3 text-xs leading-relaxed text-[var(--muted-foreground)]/70">
+                    {localizeUi(
+                      "ui.modals.modeldownloadmodal.useMeanPoolingForOpenaiCompatibleLorebookEmbeddingsRaise",
+                    )}
+                  </div>
                 </div>
               )}
 
               <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-4">
-                <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.inferenceSettings")}</div>
+                <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                  {localizeUi("ui.modals.modeldownloadmodal.inferenceSettings")}
+                </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.contextWindow")}</span>
+                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                      {localizeUi("ui.modals.modeldownloadmodal.contextWindow")}
+                    </span>
                     <input
                       value={contextSizeInput}
                       onChange={(event) => setContextSizeInput(event.target.value.replace(/[^\d]/g, ""))}
@@ -821,7 +903,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.maxResponseTokens")}</span>
+                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                      {localizeUi("ui.modals.modeldownloadmodal.maxResponseTokens")}
+                    </span>
                     <input
                       value={maxTokensInput}
                       onChange={(event) => setMaxTokensInput(event.target.value.replace(/[^\d]/g, ""))}
@@ -832,7 +916,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.temperature")}</span>
+                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                      {localizeUi("ui.modals.modeldownloadmodal.temperature")}
+                    </span>
                     <input
                       value={temperatureInput}
                       onChange={(event) => setTemperatureInput(event.target.value.replace(/[^0-9.]/g, ""))}
@@ -843,7 +929,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.topP")}</span>
+                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                      {localizeUi("ui.modals.modeldownloadmodal.topP")}
+                    </span>
                     <input
                       value={topPInput}
                       onChange={(event) => setTopPInput(event.target.value.replace(/[^0-9.]/g, ""))}
@@ -854,7 +942,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                   </label>
 
                   <label className="flex flex-col gap-1.5 md:max-w-[12rem]">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.topK")}</span>
+                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                      {localizeUi("ui.modals.modeldownloadmodal.topK")}
+                    </span>
                     <input
                       value={topKInput}
                       onChange={(event) => setTopKInput(event.target.value.replace(/[^\d]/g, ""))}
@@ -865,7 +955,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                   </label>
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}</span>
+                    <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                      {localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}
+                    </span>
                     <input
                       value={maxParallelJobsInput}
                       onChange={(event) => setMaxParallelJobsInput(event.target.value.replace(/[^\d]/g, ""))}
@@ -878,54 +970,85 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                   </label>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
-                  <div className="text-xs text-[var(--muted-foreground)]/70">{localizeUi("ui.modals.modeldownloadmodal.maxResponseTokensCapsHowMuchTheLocalRuntime")}</div>
+                  <div className="text-xs text-[var(--muted-foreground)]/70">
+                    {localizeUi("ui.modals.modeldownloadmodal.maxResponseTokensCapsHowMuchTheLocalRuntime")}
+                  </div>
                   <button
                     onClick={handleApplyGenerationSettings}
                     disabled={!generationSettingsValid || !generationSettingsDirty}
                     className="flex shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--card)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >{localizeUi("ui.modals.modeldownloadmodal.applySettings")}</button>
+                  >
+                    {localizeUi("ui.modals.modeldownloadmodal.applySettings")}
+                  </button>
                 </div>
               </div>
 
               {runtime.installed && (
                 <div className="flex flex-col gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3 text-xs text-[var(--muted-foreground)]/75">
-                  <span>{localizeUi("ui.modals.modeldownloadmodal.status")} {runtimeStatusLabel}</span>
+                  <span>
+                    {localizeUi("ui.modals.modeldownloadmodal.status")} {runtimeStatusLabel}
+                  </span>
                   {runtime.build && runtime.variant && (
-                    <span>{localizeUi("ui.modals.modeldownloadmodal.runtimeBuild")} {runtime.build} • {runtime.variant}
+                    <span>
+                      {localizeUi("ui.modals.modeldownloadmodal.runtimeBuild")} {runtime.build} • {runtime.variant}
                     </span>
                   )}
                   {isSystemRuntime && runtime.systemPath && (
-                    <span>{localizeUi("ui.modals.modeldownloadmodal.usingSystemLlamaServer")} {runtime.systemPath}</span>
+                    <span>
+                      {localizeUi("ui.modals.modeldownloadmodal.usingSystemLlamaServer")} {runtime.systemPath}
+                    </span>
                   )}
                 </div>
               )}
 
               {status === "server_error" && (
                 <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
-                  <div className="text-sm font-medium text-amber-200">{localizeUi("ui.modals.modeldownloadmodal.localRuntimeFailedToStart")}</div>
-                  <div className="mt-1 text-xs text-[var(--muted-foreground)]/85">{localizeUi("ui.modals.modeldownloadmodal.marinaraWillKeepWorkingWithoutTheLocalModelUntil")}</div>
+                  <div className="text-sm font-medium text-amber-200">
+                    {localizeUi("ui.modals.modeldownloadmodal.localRuntimeFailedToStart")}
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--muted-foreground)]/85">
+                    {localizeUi("ui.modals.modeldownloadmodal.marinaraWillKeepWorkingWithoutTheLocalModelUntil")}
+                  </div>
                   <div className="mt-3 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/75">
-                    {failedRuntimeVariant && <span>{localizeUi("ui.panels.sidecarcard.runtime")} {formatRuntimeVariantLabel(failedRuntimeVariant)}</span>}
-                    {startupError && <span>{localizeUi("ui.modals.modeldownloadmodal.error")} {startupError}</span>}
-                    {logPath && <span>{localizeUi("ui.modals.modeldownloadmodal.log")} {logPath}</span>}
+                    {failedRuntimeVariant && (
+                      <span>
+                        {localizeUi("ui.panels.sidecarcard.runtime")} {formatRuntimeVariantLabel(failedRuntimeVariant)}
+                      </span>
+                    )}
+                    {startupError && (
+                      <span>
+                        {localizeUi("ui.modals.modeldownloadmodal.error")} {startupError}
+                      </span>
+                    )}
+                    {logPath && (
+                      <span>
+                        {localizeUi("ui.modals.modeldownloadmodal.log")} {logPath}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-3 flex gap-2 max-sm:flex-col">
                     <button
                       onClick={() => void restartRuntime()}
                       className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 px-4 py-2.5 text-sm font-medium text-amber-200 transition-colors hover:bg-amber-500/25"
                     >
-                      <Loader2 size="0.875rem" />{localizeUi("ui.modals.modeldownloadmodal.retryStartup")}</button>
+                      <Loader2 size="0.875rem" />
+                      {localizeUi("ui.modals.modeldownloadmodal.retryStartup")}
+                    </button>
                     {canReinstallRuntime && (
                       <button
                         onClick={() => void reinstallRuntime()}
                         className="flex items-center justify-center gap-2 rounded-xl border border-amber-500/20 px-4 py-2.5 text-sm text-amber-100 transition-colors hover:bg-amber-500/10"
                       >
-                        <Download size="0.875rem" />{localizeUi("ui.modals.modeldownloadmodal.reinstallRuntime")}</button>
+                        <Download size="0.875rem" />
+                        {localizeUi("ui.modals.modeldownloadmodal.reinstallRuntime")}
+                      </button>
                     )}
                     <button
                       onClick={() => void updateConfig({ useForTrackers: false, useForGameScene: false })}
                       className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)]"
-                    >{localizeUi("ui.modals.modeldownloadmodal.continueWithoutLocalAi")}</button>
+                    >
+                      {localizeUi("ui.modals.modeldownloadmodal.continueWithoutLocalAi")}
+                    </button>
                   </div>
                 </div>
               )}
@@ -940,47 +1063,78 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                 >
                   <div
                     className={`text-sm font-medium ${testMessageResult.success ? "text-emerald-300" : "text-red-300"}`}
-                  >{localizeUi("ui.modals.modeldownloadmodal.localTestMessage")} {testMessageResult.success ?localizeUi("ui.modals.modeldownloadmodal.succeeded") :localizeUi("ui.connections.testresultcard.failed")}
+                  >
+                    {localizeUi("ui.modals.modeldownloadmodal.localTestMessage")}{" "}
+                    {testMessageResult.success
+                      ? localizeUi("ui.modals.modeldownloadmodal.succeeded")
+                      : localizeUi("ui.connections.testresultcard.failed")}
                   </div>
-                  <div className="mt-1 text-xs text-[var(--muted-foreground)]/75">{testMessageResult.latencyMs}{localizeUi("ui.connections.testresultcard.ms")}</div>
+                  <div className="mt-1 text-xs text-[var(--muted-foreground)]/75">
+                    {testMessageResult.latencyMs}
+                    {localizeUi("ui.connections.testresultcard.ms")}
+                  </div>
                   {testMessageResult.success ? (
                     <div className="mt-3 flex flex-col gap-3">
                       {testMessageResult.nonce && (
-                        <div className="text-xs text-[var(--muted-foreground)]/75">{localizeUi("ui.modals.modeldownloadmodal.verificationToken")}{" "}
+                        <div className="text-xs text-[var(--muted-foreground)]/75">
+                          {localizeUi("ui.modals.modeldownloadmodal.verificationToken")}{" "}
                           <span className="font-mono text-[var(--foreground)]">{testMessageResult.nonce}</span>
-                          {testMessageResult.nonceVerified ?localizeUi("ui.modals.modeldownloadmodal.echoedByModel") :localizeUi("ui.modals.modeldownloadmodal.notEchoed")}
+                          {testMessageResult.nonceVerified
+                            ? localizeUi("ui.modals.modeldownloadmodal.echoedByModel")
+                            : localizeUi("ui.modals.modeldownloadmodal.notEchoed")}
                         </div>
                       )}
                       {(testMessageResult.usage || testMessageResult.timings) && (
                         <div className="text-xs text-[var(--muted-foreground)]/75">
                           {testMessageResult.usage && (
-                            <span>{localizeUi("ui.modals.modeldownloadmodal.usagePrompt")} {testMessageResult.usage.promptTokens ?? "?"}{localizeUi("ui.modals.modeldownloadmodal.completion")}{" "}
-                              {testMessageResult.usage.completionTokens ?? "?"}{localizeUi("ui.modals.modeldownloadmodal.total")}{" "}
+                            <span>
+                              {localizeUi("ui.modals.modeldownloadmodal.usagePrompt")}{" "}
+                              {testMessageResult.usage.promptTokens ?? "?"}
+                              {localizeUi("ui.modals.modeldownloadmodal.completion")}{" "}
+                              {testMessageResult.usage.completionTokens ?? "?"}
+                              {localizeUi("ui.modals.modeldownloadmodal.total")}{" "}
                               {testMessageResult.usage.totalTokens ?? "?"}
                             </span>
                           )}
                           {testMessageResult.usage && testMessageResult.timings && <span> • </span>}
                           {testMessageResult.timings && (
-                            <span>{localizeUi("ui.modals.modeldownloadmodal.timingsPrompt")} {testMessageResult.timings.promptMs ?? "?"}{localizeUi("ui.modals.modeldownloadmodal.msGen")}{" "}
-                              {testMessageResult.timings.predictedMs ?? "?"}{localizeUi("ui.connections.testresultcard.ms")}</span>
+                            <span>
+                              {localizeUi("ui.modals.modeldownloadmodal.timingsPrompt")}{" "}
+                              {testMessageResult.timings.promptMs ?? "?"}
+                              {localizeUi("ui.modals.modeldownloadmodal.msGen")}{" "}
+                              {testMessageResult.timings.predictedMs ?? "?"}
+                              {localizeUi("ui.connections.testresultcard.ms")}
+                            </span>
                           )}
                         </div>
                       )}
                       {!!testMessageResult.messageContent && (
-                        <ResponseBlock label={localizeUi("ui.modals.modeldownloadmodal.messageContent")} value={testMessageResult.messageContent} />
+                        <ResponseBlock
+                          label={localizeUi("ui.modals.modeldownloadmodal.messageContent")}
+                          value={testMessageResult.messageContent}
+                        />
                       )}
                       {!!testMessageResult.reasoningContent && (
-                        <ResponseBlock label={localizeUi("ui.modals.modeldownloadmodal.reasoningContent")} value={testMessageResult.reasoningContent} />
+                        <ResponseBlock
+                          label={localizeUi("ui.modals.modeldownloadmodal.reasoningContent")}
+                          value={testMessageResult.reasoningContent}
+                        />
                       )}
                       {!testMessageResult.messageContent && !testMessageResult.reasoningContent && (
-                        <ResponseBlock label={localizeUi("ui.modals.modeldownloadmodal.response")} value={testMessageResult.response} />
+                        <ResponseBlock
+                          label={localizeUi("ui.modals.modeldownloadmodal.response")}
+                          value={testMessageResult.response}
+                        />
                       )}
                     </div>
                   ) : (
                     <div className="mt-3 flex flex-col gap-1 text-xs text-red-200/90">
                       <span>{testMessageResult.error || "No response received from the local runtime."}</span>
                       {testMessageResult.failedRuntimeVariant && (
-                        <span>{localizeUi("ui.panels.sidecarcard.runtime")} {formatRuntimeVariantLabel(testMessageResult.failedRuntimeVariant)}</span>
+                        <span>
+                          {localizeUi("ui.panels.sidecarcard.runtime")}{" "}
+                          {formatRuntimeVariantLabel(testMessageResult.failedRuntimeVariant)}
+                        </span>
                       )}
                     </div>
                   )}
@@ -989,29 +1143,42 @@ export function ModelDownloadModal({ open, onClose }: Props) {
 
               {runtimeDiagnostics && (
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
-                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.diagnostics")}</div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                    {localizeUi("ui.modals.modeldownloadmodal.diagnostics")}
+                  </div>
                   <div className="mt-2 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/75">
                     {runtimeDiagnostics.gpuVendors.length > 0 && (
-                      <span>{localizeUi("ui.modals.modeldownloadmodal.detectedGpuVendors")} {runtimeDiagnostics.gpuVendors.join(", ")}</span>
+                      <span>
+                        {localizeUi("ui.modals.modeldownloadmodal.detectedGpuVendors")}{" "}
+                        {runtimeDiagnostics.gpuVendors.join(", ")}
+                      </span>
                     )}
-                    <span>{localizeUi("ui.modals.modeldownloadmodal.backendHints")}{runtimeDiagnostics.preferCuda ?localizeUi("ui.modals.modeldownloadmodal.cuda") : ""}
-                      {runtimeDiagnostics.preferHip ?localizeUi("ui.modals.modeldownloadmodal.hip") : ""}
-                      {runtimeDiagnostics.preferRocm ?localizeUi("ui.modals.modeldownloadmodal.rocm") : ""}
-                      {runtimeDiagnostics.preferSycl ?localizeUi("ui.modals.modeldownloadmodal.sycl") : ""}
-                      {runtimeDiagnostics.preferVulkan ?localizeUi("ui.modals.modeldownloadmodal.vulkan") : ""}
+                    <span>
+                      {localizeUi("ui.modals.modeldownloadmodal.backendHints")}
+                      {runtimeDiagnostics.preferCuda ? localizeUi("ui.modals.modeldownloadmodal.cuda") : ""}
+                      {runtimeDiagnostics.preferHip ? localizeUi("ui.modals.modeldownloadmodal.hip") : ""}
+                      {runtimeDiagnostics.preferRocm ? localizeUi("ui.modals.modeldownloadmodal.rocm") : ""}
+                      {runtimeDiagnostics.preferSycl ? localizeUi("ui.modals.modeldownloadmodal.sycl") : ""}
+                      {runtimeDiagnostics.preferVulkan ? localizeUi("ui.modals.modeldownloadmodal.vulkan") : ""}
                       {!runtimeDiagnostics.preferCuda &&
                       !runtimeDiagnostics.preferHip &&
                       !runtimeDiagnostics.preferRocm &&
                       !runtimeDiagnostics.preferSycl &&
                       !runtimeDiagnostics.preferVulkan
-                        ?localizeUi("ui.modals.modeldownloadmodal.none")
+                        ? localizeUi("ui.modals.modeldownloadmodal.none")
                         : ""}
                     </span>
                     {runtimeDiagnostics.systemLlamaPath && (
-                      <span>{localizeUi("ui.modals.modeldownloadmodal.systemLlamaServer")} {runtimeDiagnostics.systemLlamaPath}</span>
+                      <span>
+                        {localizeUi("ui.modals.modeldownloadmodal.systemLlamaServer")}{" "}
+                        {runtimeDiagnostics.systemLlamaPath}
+                      </span>
                     )}
                     {runtimeDiagnostics.launchCommand && (
-                      <span>{localizeUi("ui.modals.modeldownloadmodal.lastLaunchCommand")} {runtimeDiagnostics.launchCommand}</span>
+                      <span>
+                        {localizeUi("ui.modals.modeldownloadmodal.lastLaunchCommand")}{" "}
+                        {runtimeDiagnostics.launchCommand}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -1064,7 +1231,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
           <>
             <div className="flex flex-col gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                {isAppleSilicon ?localizeUi("ui.modals.modeldownloadmodal.curatedGemma4PresetsForAppleSilicon") :localizeUi("ui.modals.modeldownloadmodal.curatedGemma4Presets")}
+                {isAppleSilicon
+                  ? localizeUi("ui.modals.modeldownloadmodal.curatedGemma4PresetsForAppleSilicon")
+                  : localizeUi("ui.modals.modeldownloadmodal.curatedGemma4Presets")}
               </span>
               {curatedModels.map((model) => (
                 <label
@@ -1104,11 +1273,15 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                         {formatBytes(model.sizeBytes)}
                       </span>
                       <span className="flex items-center gap-1">
-                        <HardDrive size="0.75rem" />~{formatBytes(model.ramBytes)} {localizeUi("ui.modals.modeldownloadmodal.ram")}</span>
+                        <HardDrive size="0.75rem" />~{formatBytes(model.ramBytes)}{" "}
+                        {localizeUi("ui.modals.modeldownloadmodal.ram")}
+                      </span>
                     </div>
                   </div>
                   {model.quantization === "q8_0" && (
-                    <span className="mari-chrome-accent-surface mari-accent-animated rounded-full px-2 py-0.5 text-[0.625rem] font-medium">{localizeUi("ui.modals.modeldownloadmodal.recommended")}</span>
+                    <span className="mari-chrome-accent-surface mari-accent-animated rounded-full px-2 py-0.5 text-[0.625rem] font-medium">
+                      {localizeUi("ui.modals.modeldownloadmodal.recommended")}
+                    </span>
                   )}
                 </label>
               ))}
@@ -1118,18 +1291,22 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                 className="mari-chrome-accent-surface mari-accent-animated mt-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
               >
                 <Zap size="0.875rem" />
-                {hasModel ?localizeUi("ui.modals.modeldownloadmodal.switchToCuratedPreset") :localizeUi("ui.modals.modeldownloadmodal.useCuratedPreset")}
+                {hasModel
+                  ? localizeUi("ui.modals.modeldownloadmodal.switchToCuratedPreset")
+                  : localizeUi("ui.modals.modeldownloadmodal.useCuratedPreset")}
               </button>
             </div>
 
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
               <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
-                {isAppleSilicon ?localizeUi("ui.modals.modeldownloadmodal.useYourOwnMlxModelFromHuggingface") :localizeUi("ui.modals.modeldownloadmodal.useYourOwnModelFromHuggingface")}
+                {isAppleSilicon
+                  ? localizeUi("ui.modals.modeldownloadmodal.useYourOwnMlxModelFromHuggingface")
+                  : localizeUi("ui.modals.modeldownloadmodal.useYourOwnModelFromHuggingface")}
               </div>
               <div className="mt-2 text-xs text-[var(--muted-foreground)]/70">
                 {isAppleSilicon
-                  ?localizeUi("ui.modals.modeldownloadmodal.enterAnMlxNativeHuggingfaceRepoMarinaraWillValidate")
-                  :localizeUi("ui.modals.modeldownloadmodal.enterAGgufRepoOnHuggingfaceListTheAvailable")}
+                  ? localizeUi("ui.modals.modeldownloadmodal.enterAnMlxNativeHuggingfaceRepoMarinaraWillValidate")
+                  : localizeUi("ui.modals.modeldownloadmodal.enterAGgufRepoOnHuggingfaceListTheAvailable")}
               </div>
               <div className="mt-3 flex flex-col gap-2">
                 <div className="flex gap-2 max-sm:flex-col">
@@ -1155,7 +1332,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                     ) : (
                       <Search size="0.875rem" />
                     )}
-                    {isAppleSilicon ?localizeUi("ui.modals.modeldownloadmodal.validateRepo") :localizeUi("ui.modals.modeldownloadmodal.listModels")}
+                    {isAppleSilicon
+                      ? localizeUi("ui.modals.modeldownloadmodal.validateRepo")
+                      : localizeUi("ui.modals.modeldownloadmodal.listModels")}
                   </button>
                 </div>
 
@@ -1186,8 +1365,16 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                       {customModels.map((entry) => (
                         <option key={entry.path} value={entry.path}>
                           {entry.filename}
-                          {entry.quantizationLabel ?localizeUi("ui.modals.modeldownloadmodal.value1_8a04cf4", { value1: entry.quantizationLabel }) : ""}
-                          {entry.sizeBytes ?localizeUi("ui.modals.modeldownloadmodal.value1_8a04cf4", { value1: formatBytes(entry.sizeBytes) }) : ""}
+                          {entry.quantizationLabel
+                            ? localizeUi("ui.modals.modeldownloadmodal.value1_8a04cf4", {
+                                value1: entry.quantizationLabel,
+                              })
+                            : ""}
+                          {entry.sizeBytes
+                            ? localizeUi("ui.modals.modeldownloadmodal.value1_8a04cf4", {
+                                value1: formatBytes(entry.sizeBytes),
+                              })
+                            : ""}
                         </option>
                       ))}
                     </select>
@@ -1197,7 +1384,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                       className="flex items-center justify-center gap-2 rounded-xl bg-sky-500/15 px-4 py-2.5 text-sm font-medium text-sky-300 transition-colors hover:bg-sky-500/25 disabled:opacity-50"
                     >
                       <Download size="0.875rem" />
-                      {hasModel ?localizeUi("ui.modals.modeldownloadmodal.switchToSelectedGguf") :localizeUi("ui.modals.modeldownloadmodal.downloadSelectedGguf")}
+                      {hasModel
+                        ? localizeUi("ui.modals.modeldownloadmodal.switchToSelectedGguf")
+                        : localizeUi("ui.modals.modeldownloadmodal.downloadSelectedGguf")}
                     </button>
                   </>
                 )}
@@ -1209,7 +1398,9 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                     className="flex items-center justify-center gap-2 rounded-xl bg-sky-500/15 px-4 py-2.5 text-sm font-medium text-sky-300 transition-colors hover:bg-sky-500/25 disabled:opacity-50"
                   >
                     <Download size="0.875rem" />
-                    {hasModel ?localizeUi("ui.modals.modeldownloadmodal.switchToValidatedMlxRepo") :localizeUi("ui.modals.modeldownloadmodal.useValidatedMlxRepo")}
+                    {hasModel
+                      ? localizeUi("ui.modals.modeldownloadmodal.switchToValidatedMlxRepo")
+                      : localizeUi("ui.modals.modeldownloadmodal.useValidatedMlxRepo")}
                   </button>
                 )}
               </div>
@@ -1229,27 +1420,35 @@ export function ModelDownloadModal({ open, onClose }: Props) {
               onClick={handleCancelSetup}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)]"
             >
-              <X size="0.875rem" />{localizeUi("ui.modals.modeldownloadmodal.cancelSetup")}</button>
+              <X size="0.875rem" />
+              {localizeUi("ui.modals.modeldownloadmodal.cancelSetup")}
+            </button>
           ) : (
             <>
               <button
                 onClick={handleSkip}
                 className="flex-1 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)]"
               >
-                {hasModel ?localizeUi("capabilities.actions.close") :localizeUi("ui.modals.modeldownloadmodal.skipForNow")}
+                {hasModel
+                  ? localizeUi("capabilities.actions.close")
+                  : localizeUi("ui.modals.modeldownloadmodal.skipForNow")}
               </button>
               <button
                 onClick={handleDone}
                 disabled={!canFinish}
                 className="mari-chrome-accent-surface mari-accent-animated flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              >{localizeUi("lorebook.editor.batch.done")}</button>
+              >
+                {localizeUi("lorebook.editor.batch.done")}
+              </button>
             </>
           )}
         </div>
 
         {!hasModel && !showSetupProgress && (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
-            <span className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">{localizeUi("ui.modals.modeldownloadmodal.whatTheLocalModelHandles")}</span>
+            <span className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+              {localizeUi("ui.modals.modeldownloadmodal.whatTheLocalModelHandles")}
+            </span>
             <ul className="mt-2 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/80">
               <li>{localizeUi("ui.modals.modeldownloadmodal.trackerAgentsInRoleplayMode")}</li>
               <li>{localizeUi("ui.modals.modeldownloadmodal.sceneEffectsInGameModeBackgroundsMusicSfxAmbient")}</li>

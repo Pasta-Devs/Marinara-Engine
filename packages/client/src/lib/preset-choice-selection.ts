@@ -23,8 +23,6 @@ export function arePresetChoiceSelectionsComplete(
     if (variable.multiSelect) return Array.isArray(selection);
     if (variable.options.length === 1) return typeof selection === "string";
 
-    return (
-      typeof selection === "string" && variable.options.some((option) => option.value === selection)
-    );
+    return typeof selection === "string" && variable.options.some((option) => option.value === selection);
   });
 }

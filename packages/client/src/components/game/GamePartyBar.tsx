@@ -149,8 +149,16 @@ export function GamePartyBar({
             }}
             className="group relative block rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
             aria-expanded={mobileMenuOpen}
-            aria-label={mobileMenuOpen ?localizeUi("ui.game.gamepartybar.closePartyMembers") :localizeUi("ui.game.gamepartybar.openPartyMembers")}
-            title={memberVisuals.length === 1 ?localizeUi("ui.game.gamepartybar.openCharacterSheet") :localizeUi("ui.game.gamepartybar.openPartyMembers")}
+            aria-label={
+              mobileMenuOpen
+                ? localizeUi("ui.game.gamepartybar.closePartyMembers")
+                : localizeUi("ui.game.gamepartybar.openPartyMembers")
+            }
+            title={
+              memberVisuals.length === 1
+                ? localizeUi("ui.game.gamepartybar.openCharacterSheet")
+                : localizeUi("ui.game.gamepartybar.openPartyMembers")
+            }
           >
             <PartyAvatar visual={memberVisuals[previewIndex]} className="h-9 w-9" />
             {memberVisuals.length > 1 && (
@@ -178,7 +186,9 @@ export function GamePartyBar({
                       setMobileMenuOpen(false);
                     }}
                     className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                    title={localizeUi("ui.game.gamepartybar.value1ClickToOpenCharacterSheet", { value1: visual.member.name })}
+                    title={localizeUi("ui.game.gamepartybar.value1ClickToOpenCharacterSheet", {
+                      value1: visual.member.name,
+                    })}
                   >
                     <PartyAvatar visual={visual} className="h-9 w-9" />
                   </button>
@@ -191,7 +201,9 @@ export function GamePartyBar({
                       }}
                       disabled={removingPartyMemberId === visual.member.id}
                       className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text-hover)] shadow-md transition-colors hover:bg-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-60"
-                      aria-label={localizeUi("ui.game.gamepartybar.removeValue1FromParty", { value1: visual.member.name })}
+                      aria-label={localizeUi("ui.game.gamepartybar.removeValue1FromParty", {
+                        value1: visual.member.name,
+                      })}
                       title={localizeUi("ui.game.gamepartybar.removeValue1FromParty", { value1: visual.member.name })}
                     >
                       <X className="h-2.5 w-2.5" aria-hidden="true" />

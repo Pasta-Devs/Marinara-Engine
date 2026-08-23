@@ -19,9 +19,10 @@ import {
   resolveProviderTopK,
 } from "../../routes/generate/generate-route-utils.js";
 import { mergeModelContextLimit, resolveStoredModelContextLimit } from "./model-access-policy.js";
-import { normalizeChatTopP } from "./generation-parameters.js";
+import { normalizeChatTopP, supportsAssistantReasoningPrefill } from "./generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "./output-token-limits.js";
 import {
+  isFallbackConnectionUsable,
   withConnectionFallbackProvider,
   type FallbackConnection,
   type GenerationProviderOrigin,
@@ -66,6 +67,7 @@ type GenerationProviderRuntimeArgs = {
     verbosity: "low" | "medium" | "high" | null;
     serviceTier: "flex" | "priority" | null;
     assistantPrefill: string;
+    assistantReasoningPrefill: string;
     customThinkingTags: ThinkingTagPair[];
     customParameters: Record<string, unknown>;
     enabledParameters: GenerationParameterSendMap | undefined;
@@ -82,6 +84,7 @@ export type GenerationProviderRuntime = GenerationProviderRuntimeArgs["initial"]
   enableThinking: boolean;
   isClaudeNoSampling: boolean;
   providerTopK: number | undefined;
+  supportsAssistantReasoningPrefill: boolean;
   primaryProvider: BaseLLMProvider;
   provider: BaseLLMProvider;
 };
@@ -105,6 +108,9 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
     if (params.verbosity !== undefined) runtime.verbosity = params.verbosity;
     if (params.serviceTier !== undefined) runtime.serviceTier = normalizeServiceTier(params.serviceTier);
     if (typeof params.assistantPrefill === "string") runtime.assistantPrefill = params.assistantPrefill;
+    if (typeof params.assistantReasoningPrefill === "string") {
+      runtime.assistantReasoningPrefill = params.assistantReasoningPrefill;
+    }
     if (params.customThinkingTags !== undefined) {
       runtime.customThinkingTags = normalizeThinkingTagPairs(params.customThinkingTags);
     }
@@ -217,6 +223,15 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
           args.connection.treatAsLocalEndpoint === "true",
           args.connection.defaultParameters,
         );
+  const primarySupportsAssistantReasoningPrefill = supportsAssistantReasoningPrefill(args.connection.provider);
+  const hasUsableFallback = isFallbackConnectionUsable(
+    args.fallbackConnection,
+    args.connectionId,
+    args.fallbackBaseUrl ?? "",
+  );
+  const fallbackSupportsAssistantReasoningPrefill = Boolean(
+    hasUsableFallback && args.fallbackConnection && supportsAssistantReasoningPrefill(args.fallbackConnection.provider),
+  );
   const provider = withConnectionFallbackProvider({
     primary: primaryProvider,
     primaryConnectionId: args.connectionId,
@@ -225,6 +240,8 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
     category: "main",
     onFallback: args.onFallback,
     onProviderUsed: args.onProviderUsed,
+    primarySupportsAssistantReasoningPrefill,
+    fallbackSupportsAssistantReasoningPrefill,
   });
 
   return {
@@ -236,6 +253,8 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
     enableThinking,
     isClaudeNoSampling,
     providerTopK,
+    supportsAssistantReasoningPrefill:
+      primarySupportsAssistantReasoningPrefill || fallbackSupportsAssistantReasoningPrefill,
     primaryProvider,
     provider,
   };

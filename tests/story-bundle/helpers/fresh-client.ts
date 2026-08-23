@@ -12,7 +12,7 @@ const APP_VERSION = (
 // minimal state they were never designed for.
 const UI_STORE_VERSION = Number(
   readFileSync(new URL('../../../packages/client/src/stores/ui.store.ts', import.meta.url), 'utf8').match(
-    /name:\s*"marinara-engine-ui",\s*version:\s*(\d+)/u,
+    /name:\s*"marinara-engine-ui",[\s\S]*?version:\s*(\d+)/u,
   )?.[1],
 );
 if (!Number.isInteger(UI_STORE_VERSION)) {
@@ -38,6 +38,10 @@ export async function prepareFreshClient(page: Page) {
           hasCompletedOnboarding: true,
           rightPanelOpen: false,
           sidebarOpen: false,
+          // The Music DJ "download to configure" banner floats over the top
+          // bar and intercepts clicks on editor action buttons; e2e runs do
+          // not exercise the music player, so keep it off.
+          musicPlayerEnabled: false,
         },
         version: uiStoreVersion,
       }),

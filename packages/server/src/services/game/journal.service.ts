@@ -379,4 +379,3 @@ export function buildStructuredRecap(journal: Journal, sessionNumber: number): s
 
   return sections.join("\n");
 }
-

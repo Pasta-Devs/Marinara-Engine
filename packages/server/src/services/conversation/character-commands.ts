@@ -40,7 +40,14 @@
 // - [navigate: panel="...", tab="..."]
 // - [fetch: type="character|persona|lorebook|chat|preset", name="..."]
 
-import { normalizeTextForMatch, stripLeadingMessageTimestamps } from "@marinara-engine/shared";
+import {
+  normalizeHapticAction,
+  normalizeHapticPattern,
+  normalizeTextForMatch,
+  stripLeadingMessageTimestamps,
+  type HapticDeviceAction,
+  type HapticFeedbackPattern,
+} from "@marinara-engine/shared";
 
 import { stripConversationPromptTimestamps } from "./transcript-sanitize.js";
 import {
@@ -157,11 +164,13 @@ export interface DirectMessageCommand {
 export interface HapticCommand {
   type: "haptic";
   /** Device action */
-  action: "vibrate" | "oscillate" | "rotate" | "position" | "stop";
+  action: HapticDeviceAction;
   /** Intensity / speed (0.0-1.0) */
   intensity?: number;
   /** Duration in seconds */
   duration?: number;
+  /** Named output pattern. */
+  pattern?: HapticFeedbackPattern;
 }
 
 export interface SpotifyCommand {
@@ -1012,8 +1021,7 @@ function parseCreatePresetBlock(raw: string): CreatePresetCommand | null {
             data.displayMode === "auto" || data.displayMode === "buttons" || data.displayMode === "listbox"
               ? data.displayMode
               : undefined,
-          optionSort:
-            data.optionSort === "manual" || data.optionSort === "alphabetical" ? data.optionSort : undefined,
+          optionSort: data.optionSort === "manual" || data.optionSort === "alphabetical" ? data.optionSort : undefined,
         };
       })
       .filter((choiceBlock): choiceBlock is CreatePresetChoiceBlockCommand => choiceBlock !== null);
@@ -1205,14 +1213,10 @@ export function parseCharacterCommands(content: string): {
   // Parse haptic commands
   for (const match of content.matchAll(HAPTIC_RE)) {
     const params = match[1]!;
-    const cmd: HapticCommand = { type: "haptic", action: "vibrate" };
     const actionMatch = params.match(/action="([^"]+)"/);
-    if (actionMatch) {
-      const a = actionMatch[1]!.toLowerCase();
-      if (["vibrate", "oscillate", "rotate", "position", "stop"].includes(a)) {
-        cmd.action = a as HapticCommand["action"];
-      }
-    }
+    const action = normalizeHapticAction(actionMatch?.[1] ?? "vibrate");
+    if (!action) continue;
+    const cmd: HapticCommand = { type: "haptic", action };
     const intensityMatch = params.match(/intensity=([0-9.]+)/);
     if (intensityMatch) {
       const v = parseFloat(intensityMatch[1]!);
@@ -1223,6 +1227,8 @@ export function parseCharacterCommands(content: string): {
       const v = parseFloat(durationMatch[1]!);
       if (Number.isFinite(v)) cmd.duration = Math.max(0, v);
     }
+    const pattern = normalizeHapticPattern(params.match(/pattern="([^"]+)"/)?.[1]);
+    if (pattern) cmd.pattern = pattern;
     commands.push(cmd);
   }
 
@@ -1430,8 +1436,12 @@ export function parseCharacterCommands(content: string): {
     .replace(FETCH_RE, "")
     .replace(/\n{3,}/g, "\n\n") // collapse excessive newlines left by removals
     .trim();
-  cleanContent = stripBracketJsonCommandBlocks(cleanContent, "suggestions").replace(/\n{3,}/g, "\n\n").trim();
-  cleanContent = stripBracketJsonCommandBlocks(cleanContent, "plan").replace(/\n{3,}/g, "\n\n").trim();
+  cleanContent = stripBracketJsonCommandBlocks(cleanContent, "suggestions")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  cleanContent = stripBracketJsonCommandBlocks(cleanContent, "plan")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
   return { cleanContent, commands };
 }

@@ -101,10 +101,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
 
   /** Apply a profile's settings to an existing chat (replaces profile-controlled settings). */
   app.post<{ Params: { id: string; chatId: string } }>("/:id/apply/:chatId", async (req, reply) => {
-    const [preset, chat] = await Promise.all([
-      storage.getById(req.params.id),
-      chatsStorage.getById(req.params.chatId),
-    ]);
+    const [preset, chat] = await Promise.all([storage.getById(req.params.id), chatsStorage.getById(req.params.chatId)]);
     if (!preset || !chat) return reply.status(404).send({ error: "Settings profile or chat not found" });
     if (preset.mode !== chat.mode) {
       return reply.status(409).send({ error: "Settings profile mode does not match chat mode" });

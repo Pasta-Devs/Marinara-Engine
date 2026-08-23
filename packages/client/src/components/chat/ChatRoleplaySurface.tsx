@@ -84,12 +84,12 @@ import { EndSceneBar } from "./SceneBanner";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
 import { PinnedImageOverlay } from "./PinnedImageOverlay";
 import {
-  ROLEPLAY_POPOVER_CLOSE_BUTTON,
-  ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
-  ROLEPLAY_POPOVER_SCROLL_AREA,
-  ROLEPLAY_POPOVER_SHELL,
-  ROLEPLAY_POPOVER_TITLE,
-} from "./roleplay-popover-styles";
+  NEUTRAL_PANEL_CLOSE_BUTTON,
+  NEUTRAL_PANEL_CLOSE_ICON_SIZE,
+  NEUTRAL_PANEL_SCROLL_AREA,
+  NEUTRAL_PANEL_SHELL,
+  NEUTRAL_PANEL_TITLE,
+} from "../ui/neutral-surface-styles";
 import type { SpriteDisplayMode } from "./sprite-display-modes";
 import type {
   CharacterMap,
@@ -625,17 +625,17 @@ function ActiveContextLinksButton({
   const activeContextContent = (
     <>
       <div className="flex items-center gap-2 px-2 pb-1">
-        <div className={cn(ROLEPLAY_POPOVER_TITLE, "min-w-0 flex-1")}>
+        <div className={cn(NEUTRAL_PANEL_TITLE, "min-w-0 flex-1")}>
           <BookOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
           <span className="truncate">{t("chat.toolbar.activeContext")}</span>
         </div>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className={cn(ROLEPLAY_POPOVER_CLOSE_BUTTON, "-my-1 shrink-0")}
+          className={cn(NEUTRAL_PANEL_CLOSE_BUTTON, "-my-1 shrink-0")}
           aria-label={t("chat.toolbar.closeActiveContext")}
         >
-          <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+          <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
         </button>
       </div>
       <div className="space-y-1">
@@ -711,11 +711,7 @@ function ActiveContextLinksButton({
                 role="menu"
                 data-chat-floating-panel
                 data-component="RoleplayActiveContextPanel"
-                className={cn(
-                  ROLEPLAY_POPOVER_SHELL,
-                  ROLEPLAY_POPOVER_SCROLL_AREA,
-                  "fixed z-[9999] overflow-y-auto p-2",
-                )}
+                className={cn(NEUTRAL_PANEL_SHELL, NEUTRAL_PANEL_SCROLL_AREA, "fixed z-[9999] overflow-y-auto p-2")}
                 style={{
                   top: mobileFrame.top,
                   left: mobileFrame.left,
@@ -735,8 +731,8 @@ function ActiveContextLinksButton({
                 data-chat-floating-panel
                 data-component="RoleplayActiveContextPanel"
                 className={cn(
-                  ROLEPLAY_POPOVER_SHELL,
-                  ROLEPLAY_POPOVER_SCROLL_AREA,
+                  NEUTRAL_PANEL_SHELL,
+                  NEUTRAL_PANEL_SCROLL_AREA,
                   "fixed z-[9999] max-h-[min(32rem,calc(100vh-6rem))] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto p-2",
                 )}
                 style={{
@@ -1052,11 +1048,7 @@ function AuthorNotesButton({
             createPortal(
               <div
                 ref={panelRef}
-                className={cn(
-                  ROLEPLAY_POPOVER_SHELL,
-                  ROLEPLAY_POPOVER_SCROLL_AREA,
-                  "fixed z-[9999] overflow-y-auto p-3",
-                )}
+                className={cn(NEUTRAL_PANEL_SHELL, NEUTRAL_PANEL_SCROLL_AREA, "fixed z-[9999] overflow-y-auto p-3")}
                 style={{
                   top: mobileFrame.top,
                   left: mobileFrame.left,
@@ -1090,7 +1082,7 @@ function AuthorNotesButton({
               <div
                 ref={panelRef}
                 data-chat-floating-panel
-                className={cn(ROLEPLAY_POPOVER_SHELL, "fixed z-[70] w-72 p-3")}
+                className={cn(NEUTRAL_PANEL_SHELL, "fixed z-[70] w-72 p-3")}
                 style={{
                   right: `${desktopAnchor.right}px`,
                   top: `${desktopAnchor.top}px`,
@@ -1360,13 +1352,13 @@ export function ChatRoleplaySurface({
   const activeAgentIds = chatMeta.activeAgentIds;
   const enabledConversationCapabilities =
     chatMeta.enableAgents === true
-    ? installedCapabilities.filter((item) => {
-        if (item.status !== "active" || !item.manifest.entrypoints.client) return false;
-        if (item.manifest.kind.includes("conversation-calls")) return false;
-        const contributedAgentIds = item.manifest.contributions?.agentDetail?.agentIds ?? [];
-        return activeAgentIds.includes(item.id) || contributedAgentIds.some((id) => activeAgentIds.includes(id));
-      })
-    : [];
+      ? installedCapabilities.filter((item) => {
+          if (item.status !== "active" || !item.manifest.entrypoints.client) return false;
+          if (item.manifest.kind.includes("conversation-calls")) return false;
+          const contributedAgentIds = item.manifest.contributions?.agentDetail?.agentIds ?? [];
+          return activeAgentIds.includes(item.id) || contributedAgentIds.some((id) => activeAgentIds.includes(id));
+        })
+      : [];
   const conversationToolbarPackages = enabledConversationCapabilities.filter((item) =>
     item.manifest.contributions?.slots?.includes("conversation-toolbar"),
   );
@@ -1382,10 +1374,9 @@ export function ChatRoleplaySurface({
   };
   useRenderTimer("rp-surface"); // [#3104 diagnostic]
   const isMobileToolbarViewport = useIsMobileToolbarViewport();
-  const isStreamCommitted = useChatStore((s) => s.committedStreamChatIds.has(activeChatId));
   const streamedMessageId = useChatStore((s) => s.streamedMessageIds.get(activeChatId) ?? null);
   const hasMobileDraftInput = useChatStore((s) => isMobileToolbarViewport && s.hasCurrentInput);
-  const hasLiveStream = isStreaming && !isStreamCommitted;
+  const hasLiveStream = isStreaming;
   const linkedChatName = chat?.connectedChatId
     ? getConnectedChatDisplayName(allChats?.find((c) => c.id === chat.connectedChatId))
     : undefined;

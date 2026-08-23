@@ -81,8 +81,10 @@ assert.equal(
 const storageDir = mkdtempSync(join(tmpdir(), "marinara-regeneration-context-"));
 process.env.FILE_STORAGE_DIR = storageDir;
 const db = await createFileNativeDB();
+const embeddingSpaceId = "regeneration-regression-space";
 const embeddingSource: MemoryRecallEmbeddingSource = {
   label: "regeneration regression",
+  spaceId: embeddingSpaceId,
   embed: async (texts) => texts.map(() => [1, 0]),
 };
 
@@ -93,6 +95,7 @@ try {
       chatId: "regen-chat",
       content: "Settled memory.",
       embedding: JSON.stringify([1, 0]),
+      embeddingSpaceId,
       messageCount: 5,
       sourceChatId: null,
       firstMessageAt: "2026-07-29T08:00:00.000Z",
@@ -104,6 +107,7 @@ try {
       chatId: "regen-chat",
       content: "Latest user prompt and discarded assistant response.",
       embedding: JSON.stringify([1, 0]),
+      embeddingSpaceId,
       messageCount: 5,
       sourceChatId: null,
       firstMessageAt: "2026-07-29T09:30:00.000Z",
@@ -115,6 +119,7 @@ try {
       chatId: "regen-chat",
       content: "Anything newer than the regenerated response.",
       embedding: JSON.stringify([1, 0]),
+      embeddingSpaceId,
       messageCount: 5,
       sourceChatId: null,
       firstMessageAt: "2026-07-29T10:01:00.000Z",
@@ -229,6 +234,7 @@ try {
       .map((message) => message.content)
       .join("\n\n"),
     embedding: JSON.stringify([1, 0]),
+    embeddingSpaceId,
     messageCount: 5,
     sourceChatId: null,
     firstMessageAt: "2026-07-30T10:00:00.000Z",
@@ -243,6 +249,7 @@ try {
       .map((message) => message.content)
       .join("\n\n"),
     embedding: JSON.stringify([1, 0]),
+    embeddingSpaceId,
     messageCount: 5,
     sourceChatId: null,
     firstMessageAt: "2026-07-30T10:05:00.000Z",

@@ -50,7 +50,9 @@ export function reservePackageFolderSegment(value: string, fallback: string, use
 export async function readTextFilesFromFileList(fileList: FileList | null): Promise<PackageTextFile[]> {
   const result: PackageTextFile[] = [];
   for (const file of Array.from(fileList ?? [])) {
-    const relativePath = normalizePackagePath((file as File & { webkitRelativePath?: string }).webkitRelativePath ?? "");
+    const relativePath = normalizePackagePath(
+      (file as File & { webkitRelativePath?: string }).webkitRelativePath ?? "",
+    );
     const path = relativePath || normalizePackagePath(file.name);
     if (!path || !PACKAGE_TEXT_FILE_RE.test(path)) continue;
     result.push({ path, text: await file.text() });
@@ -99,9 +101,7 @@ export function collectFolderPackageEntries(
 
 export function resolvePackageTextPaths(resolveTextFile: (path: unknown) => string | null, value: unknown) {
   const paths = Array.isArray(value) ? value : [value];
-  const parts = paths
-    .map((path) => resolveTextFile(path))
-    .filter((text): text is string => typeof text === "string");
+  const parts = paths.map((path) => resolveTextFile(path)).filter((text): text is string => typeof text === "string");
   return parts.length > 0 ? parts.join("\n\n") : null;
 }
 

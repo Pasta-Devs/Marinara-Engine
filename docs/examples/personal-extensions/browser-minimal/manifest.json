@@ -1,0 +1,13 @@
+{
+  "kind": "marinara.personal-extension",
+  "version": 1,
+  "config": {
+    "name": "Hello Panel",
+    "version": "1.0.0",
+    "description": "A minimal sandboxed Browser Extension.",
+    "runtime": "client",
+    "capabilities": [],
+    "jsPath": "extension.js",
+    "cssPath": "extension.css"
+  }
+}

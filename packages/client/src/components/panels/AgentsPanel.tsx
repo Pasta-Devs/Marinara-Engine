@@ -242,9 +242,9 @@ export function AgentsPanel() {
   const [agentImportError, setAgentImportError] = useState<string | null>(null);
   const [agentImportSuccess, setAgentImportSuccess] = useState<string | null>(null);
   const [pendingAgentImport, setPendingAgentImport] = useState<PendingAgentImport | null>(null);
-  const [approvedImportCapabilities, setApprovedImportCapabilities] = useState<
-    Record<string, CustomAgentCapability[]>
-  >({});
+  const [approvedImportCapabilities, setApprovedImportCapabilities] = useState<Record<string, CustomAgentCapability[]>>(
+    {},
+  );
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
@@ -301,18 +301,14 @@ export function AgentsPanel() {
   const packageIdByAgentType = useMemo(
     () =>
       new Map(
-        (capabilityAgents ?? []).flatMap((agent) =>
-          agent.packageId ? ([[agent.id, agent.packageId]] as const) : [],
-        ),
+        (capabilityAgents ?? []).flatMap((agent) => (agent.packageId ? ([[agent.id, agent.packageId]] as const) : [])),
       ),
     [capabilityAgents],
   );
   const capabilityAgentRegistryReady = !capabilityAgentsLoading && capabilityAgents !== undefined;
   const catalogArtworkByAgentId = useMemo(
     () =>
-      new Map(
-        (capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, entry.iconUrl ?? null] as const),
-      ),
+      new Map((capabilityCatalog?.packages ?? []).map((entry) => [entry.manifest.id, entry.iconUrl ?? null] as const)),
     [capabilityCatalog],
   );
   const visibleAgentConfigs = useMemo(
@@ -612,9 +608,14 @@ export function AgentsPanel() {
           ? createAgentFolderPackageFilename(getAgentLibraryDisplayName(firstAgent), "agent")
           : "marinara-agents.zip";
       downloadZipFile(files, filename);
-      toast.success(localizeUi("ui.panels.agentspanel.exportedValue1AgentValue2", { value1: selectedAgents.length, value2: selectedAgents.length === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s") }));
+      toast.success(
+        localizeUi("ui.panels.agentspanel.exportedValue1AgentValue2", {
+          value1: selectedAgents.length,
+          value2: selectedAgents.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+        }),
+      );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.panels.agentspanel.failedToExportAgents"));
+      toast.error(error instanceof Error ? error.message : localizeUi("ui.panels.agentspanel.failedToExportAgents"));
     } finally {
       setExportingSelected(false);
     }
@@ -628,7 +629,7 @@ export function AgentsPanel() {
         toast.success(localizeUi("ui.panels.agentspanel.copiedValue1", { value1: getAgentLibraryDisplayName(agent) }));
         if (createdId) openAgentDetail(createdId);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.panels.agentspanel.failedToCopyAgent"));
+        toast.error(error instanceof Error ? error.message : localizeUi("ui.panels.agentspanel.failedToCopyAgent"));
       }
     },
     [createAgent, openAgentDetail, localizeUi],
@@ -766,17 +767,14 @@ export function AgentsPanel() {
     }
   }, [approvedImportCapabilities, importAgent, localizeUi, pendingAgentImport]);
 
-  const toggleApprovedImportCapability = useCallback(
-    (agentType: string, capability: CustomAgentCapability) => {
-      setApprovedImportCapabilities((current) => {
-        const selected = new Set(current[agentType] ?? []);
-        if (selected.has(capability)) selected.delete(capability);
-        else selected.add(capability);
-        return { ...current, [agentType]: Array.from(selected) };
-      });
-    },
-    [],
-  );
+  const toggleApprovedImportCapability = useCallback((agentType: string, capability: CustomAgentCapability) => {
+    setApprovedImportCapabilities((current) => {
+      const selected = new Set(current[agentType] ?? []);
+      if (selected.has(capability)) selected.delete(capability);
+      else selected.add(capability);
+      return { ...current, [agentType]: Array.from(selected) };
+    });
+  }, []);
 
   const handleImportAgents = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -948,7 +946,8 @@ export function AgentsPanel() {
       selectedAgentIds,
       selectionMode,
       touchSafeAgentDragMode,
-      toggleAgentSelection, localizeUi,
+      toggleAgentSelection,
+      localizeUi,
     ],
   );
 
@@ -976,7 +975,9 @@ export function AgentsPanel() {
           await uploadAgentImage.mutateAsync({ id: agentId, image });
           toast.success(localizeUi("ui.panels.agentspanel.agentPictureUpdated"));
         } catch (error) {
-          toast.error(error instanceof Error ? error.message :localizeUi("ui.panels.agentspanel.failedToUploadAgentPicture"));
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.panels.agentspanel.failedToUploadAgentPicture"),
+          );
         } finally {
           imageTargetAgentIdRef.current = null;
         }
@@ -1020,11 +1021,18 @@ export function AgentsPanel() {
         type="button"
         onClick={openAgentCatalog}
         className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
+        data-testid="agent-download-button"
       >
-        <Sparkles size="0.875rem" />{localizeUi("ui.agents.agentcatalogview.downloadAgents")}</button>
+        <Sparkles size="0.875rem" />
+        {localizeUi("ui.agents.agentcatalogview.downloadAgents")}
+      </button>
 
       <div className="flex gap-2">
-        <button onClick={handleCreateAgent} className={cn("flex-1 text-xs", AGENT_GRADIENT_BUTTON)} title={localizeUi("ui.lorebooks.lorebookassignmentsection.new")}>
+        <button
+          onClick={handleCreateAgent}
+          className={cn("flex-1 text-xs", AGENT_GRADIENT_BUTTON)}
+          title={localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
+        >
           <Plus size="0.8125rem" />
         </button>
         <button
@@ -1056,10 +1064,14 @@ export function AgentsPanel() {
       </div>
 
       {agentImportError && (
-        <div role="alert" className="rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-500">{agentImportError}</div>
+        <div role="alert" className="rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-500">
+          {agentImportError}
+        </div>
       )}
       {agentImportSuccess && (
-        <div role="status" className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-xs text-emerald-500">{agentImportSuccess}</div>
+        <div role="status" className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-xs text-emerald-500">
+          {agentImportSuccess}
+        </div>
       )}
 
       {!isLoading && !hasInstalledAgents && (
@@ -1067,306 +1079,334 @@ export function AgentsPanel() {
           <span className="mari-panel-gradient-surface mari-panel-gradient--agents flex h-12 w-12 items-center justify-center rounded-2xl">
             <Sparkles size="1.25rem" />
           </span>
-          <p className="max-w-[16rem] text-sm font-medium text-[var(--muted-foreground)]">{localizeUi("ui.panels.agentspanel.noAgentsInstalledYetClickDownloadAgentsToAdd")}</p>
+          <p className="max-w-[16rem] text-sm font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.panels.agentspanel.noAgentsInstalledYetClickDownloadAgentsToAdd")}
+          </p>
         </div>
       )}
 
-      {hasInstalledAgents && <div className="flex gap-1.5">
-        <div className="relative flex-1">
-          <Search
-            size="0.8125rem"
-            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-          />
-          <input
-            value={agentSearch}
-            onChange={(event) => setAgentSearch(event.target.value)}
-            placeholder={localize("Search agents")}
-            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-          />
+      {hasInstalledAgents && (
+        <div className="flex gap-1.5">
+          <div className="relative flex-1">
+            <Search
+              size="0.8125rem"
+              className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+            />
+            <input
+              value={agentSearch}
+              onChange={(event) => setAgentSearch(event.target.value)}
+              placeholder={localize("Search agents")}
+              className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
+            />
+          </div>
+          <div className="relative">
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value as ResourcePanelSort)}
+              className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+              title={localizeUi("ui.panels.agentspanel.sortOrder")}
+              aria-label={localizeUi("ui.panels.agentspanel.sortAgents")}
+            >
+              <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
+              <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
+              <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
+              <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
+            </select>
+            <ArrowUpDown
+              size="0.625rem"
+              className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+            />
+          </div>
         </div>
-        <div className="relative">
-          <select
-            value={sort}
-            onChange={(event) => setSort(event.target.value as ResourcePanelSort)}
-            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-            title={localizeUi("ui.panels.agentspanel.sortOrder")}
-            aria-label={localizeUi("ui.panels.agentspanel.sortAgents")}
-          >
-            <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-            <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-            <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-            <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-          </select>
-          <ArrowUpDown
-            size="0.625rem"
-            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-          />
-        </div>
-      </div>}
+      )}
 
-      {isLoading && <div className="mari-chrome-text-muted py-4 text-center text-xs">{localizeUi("ui.characters.characterlibraryview.loading")}</div>}
+      {isLoading && (
+        <div className="mari-chrome-text-muted py-4 text-center text-xs">
+          {localizeUi("ui.characters.characterlibraryview.loading")}
+        </div>
+      )}
 
       {hasInstalledAgents && !hasVisibleAgents && (
-        <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">{localizeUi("ui.panels.agentspanel.noAgentsMatchYourSearch")}</p>
+        <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
+          {localizeUi("ui.panels.agentspanel.noAgentsMatchYourSearch")}
+        </p>
       )}
 
-      {hasInstalledAgents && <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleCreateFolder}
-            className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
-          >
-            <FolderPlus size="0.75rem" />{localizeUi("ui.panels.backgroundpicker.newFolder")}</button>
-        </div>
-        {agentFolders.length > 0 && <p className="mari-folder-helper">{localizeUi("ui.panels.agentspanel.dragAndDropAgentsToFoldersDoubleClickOr")}</p>}
-        {draggedAgentId && (
-          <div
-            data-agent-folder-root
-            onDragOver={(event) => {
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "move";
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              const payload = event.dataTransfer.getData("application/x-marinara-agent-ids");
-              handleAgentDrop(null, payload ? (JSON.parse(payload) as string[]) : undefined);
-            }}
-            className="rounded-xl border border-dashed border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-3 py-2 text-[0.625rem] text-[var(--marinara-chat-chrome-button-text-active)]"
-          >{localizeUi("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}</div>
-        )}
-        {agentFolders.map((folder) => {
-          const isEditing = editingFolderId === folder.id;
-          const folderAgents = sortBasicPanelItems(
-            folder.itemIds
-              .map((id) => selectableAgentById.get(id))
-              .filter((agent): agent is AgentConfigRow => Boolean(agent))
-              .filter((agent) => matchesAgentSearch(getAgentSearchData(agent))),
-            sort,
-            (agent) => agent.name,
-            (agent) => agent.createdAt || agent.updatedAt,
-          );
-          if (agentSearchActive && folderAgents.length === 0) return null;
-          const isExpanded = (agentSearchActive && folderAgents.length > 0) || expandedFolderId === folder.id;
-          return (
+      {hasInstalledAgents && (
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleCreateFolder}
+              className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
+            >
+              <FolderPlus size="0.75rem" />
+              {localizeUi("ui.panels.backgroundpicker.newFolder")}
+            </button>
+          </div>
+          {agentFolders.length > 0 && (
+            <p className="mari-folder-helper">
+              {localizeUi("ui.panels.agentspanel.dragAndDropAgentsToFoldersDoubleClickOr")}
+            </p>
+          )}
+          {draggedAgentId && (
             <div
-              key={folder.id}
-              data-agent-folder-id={folder.id}
+              data-agent-folder-root
               onDragOver={(event) => {
-                if (draggedAgentId) {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                }
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
               }}
               onDrop={(event) => {
                 event.preventDefault();
-                event.stopPropagation();
                 const payload = event.dataTransfer.getData("application/x-marinara-agent-ids");
-                handleAgentDrop(folder.id, payload ? (JSON.parse(payload) as string[]) : undefined);
+                handleAgentDrop(null, payload ? (JSON.parse(payload) as string[]) : undefined);
               }}
-              className="flex flex-col rounded-lg transition-colors"
+              className="rounded-xl border border-dashed border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-3 py-2 text-[0.625rem] text-[var(--marinara-chat-chrome-button-text-active)]"
             >
+              {localizeUi("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}
+            </div>
+          )}
+          {agentFolders.map((folder) => {
+            const isEditing = editingFolderId === folder.id;
+            const folderAgents = sortBasicPanelItems(
+              folder.itemIds
+                .map((id) => selectableAgentById.get(id))
+                .filter((agent): agent is AgentConfigRow => Boolean(agent))
+                .filter((agent) => matchesAgentSearch(getAgentSearchData(agent))),
+              sort,
+              (agent) => agent.name,
+              (agent) => agent.createdAt || agent.updatedAt,
+            );
+            if (agentSearchActive && folderAgents.length === 0) return null;
+            const isExpanded = (agentSearchActive && folderAgents.length > 0) || expandedFolderId === folder.id;
+            return (
               <div
-                role="button"
-                tabIndex={0}
-                aria-expanded={isExpanded}
-                aria-label={localizeUi("ui.panels.agentspanel.value1FolderValue2DoubleTapOrPressF2To", { value1: isExpanded ?localizeUi("ui.panels.ttsconfigcard.collapse") :localizeUi("ui.panels.ttsconfigcard.expand"), value2: folder.name })}
-                title={localizeUi("ui.panels.backgroundpicker.doubleClickDoubleTapOrPressF2ToRename")}
-                className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40 max-md:pr-12 [@media(pointer:coarse)]:pr-12"
-                onClick={(event) =>
-                  handleFolderRenameGesture(folder.id, event, {
-                    onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
-                    onRename: () => {
-                      setEditingFolderId(folder.id);
-                      setEditFolderName(folder.name);
-                    },
-                  })
-                }
-                onKeyDown={(event) => {
-                  if (event.target !== event.currentTarget) return;
-                  handleFolderRenameKeyDown(event, {
-                    onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
-                    onRename: () => {
-                      setEditingFolderId(folder.id);
-                      setEditFolderName(folder.name);
-                    },
-                  });
+                key={folder.id}
+                data-agent-folder-id={folder.id}
+                onDragOver={(event) => {
+                  if (draggedAgentId) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }
                 }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const payload = event.dataTransfer.getData("application/x-marinara-agent-ids");
+                  handleAgentDrop(folder.id, payload ? (JSON.parse(payload) as string[]) : undefined);
+                }}
+                className="flex flex-col rounded-lg transition-colors"
               >
-                <ChevronRight
-                  size="0.75rem"
-                  className={cn(
-                    "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
-                    isExpanded && "rotate-90",
-                  )}
-                />
-                <div className="min-w-0 flex-1">
-                  {isEditing ? (
-                    <input
-                      autoFocus
-                      value={editFolderName}
-                      onChange={(event) => setEditFolderName(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") event.currentTarget.blur();
-                        if (event.key === "Escape") {
-                          setEditingFolderId(null);
-                          setEditFolderName("");
-                        }
-                      }}
-                      onClick={(event) => event.stopPropagation()}
-                      onBlur={() => handleRenameFolder(folder.id)}
-                      className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-[var(--border)]"
-                    />
-                  ) : (
-                    <div className="truncate text-xs font-medium text-[var(--muted-foreground)]">{folder.name}</div>
-                  )}
-                </div>
-                {(agentSearchActive ? folderAgents.length : folder.itemIds.length) > 0 && (
-                  <span
-                    data-folder-item-count="inline"
-                    className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)] max-md:hidden [@media(pointer:coarse)]:hidden"
-                  >
-                    {agentSearchActive ? folderAgents.length : folder.itemIds.length}
-                  </span>
-                )}
                 <div
-                  data-folder-actions
-                  className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  aria-label={localizeUi("ui.panels.agentspanel.value1FolderValue2DoubleTapOrPressF2To", {
+                    value1: isExpanded
+                      ? localizeUi("ui.panels.ttsconfigcard.collapse")
+                      : localizeUi("ui.panels.ttsconfigcard.expand"),
+                    value2: folder.name,
+                  })}
+                  title={localizeUi("ui.panels.backgroundpicker.doubleClickDoubleTapOrPressF2ToRename")}
+                  className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40 max-md:pr-12 [@media(pointer:coarse)]:pr-12"
+                  onClick={(event) =>
+                    handleFolderRenameGesture(folder.id, event, {
+                      onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                      onRename: () => {
+                        setEditingFolderId(folder.id);
+                        setEditFolderName(folder.name);
+                      },
+                    })
+                  }
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    handleFolderRenameKeyDown(event, {
+                      onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                      onRename: () => {
+                        setEditingFolderId(folder.id);
+                        setEditFolderName(folder.name);
+                      },
+                    });
+                  }}
                 >
+                  <ChevronRight
+                    size="0.75rem"
+                    className={cn(
+                      "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
+                      isExpanded && "rotate-90",
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    {isEditing ? (
+                      <input
+                        autoFocus
+                        value={editFolderName}
+                        onChange={(event) => setEditFolderName(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") event.currentTarget.blur();
+                          if (event.key === "Escape") {
+                            setEditingFolderId(null);
+                            setEditFolderName("");
+                          }
+                        }}
+                        onClick={(event) => event.stopPropagation()}
+                        onBlur={() => handleRenameFolder(folder.id)}
+                        className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-[var(--border)]"
+                      />
+                    ) : (
+                      <div className="truncate text-xs font-medium text-[var(--muted-foreground)]">{folder.name}</div>
+                    )}
+                  </div>
                   {(agentSearchActive ? folderAgents.length : folder.itemIds.length) > 0 && (
                     <span
-                      data-folder-item-count="actions"
-                      className="hidden px-1 text-[0.5625rem] text-[var(--muted-foreground)] max-md:inline [@media(pointer:coarse)]:inline"
+                      data-folder-item-count="inline"
+                      className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)] max-md:hidden [@media(pointer:coarse)]:hidden"
                     >
                       {agentSearchActive ? folderAgents.length : folder.itemIds.length}
                     </span>
                   )}
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void confirmNonEmptyFolderDelete(folder.itemIds.length, {
-                        title: "Delete Folder",
-                        message: `Delete "${folder.name}"? Its ${folder.itemIds.length} agent${
-                          folder.itemIds.length === 1 ? "" : "s"
-                        } will move out of the folder.`,
-                        confirmLabel: "Delete",
-                        tone: "destructive",
-                      }).then((ok) => {
-                        if (!ok) return;
-                        deleteAgentFolder.mutate(folder.id);
-                        if (expandedFolderId === folder.id) setExpandedFolderId(null);
-                      });
-                    }}
-                    className="mari-chrome-control mari-chrome-control--small p-1"
-                    title={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
+                  <div
+                    data-folder-actions
+                    className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto"
                   >
-                    <Trash2 size="0.6875rem" />
-                  </button>
+                    {(agentSearchActive ? folderAgents.length : folder.itemIds.length) > 0 && (
+                      <span
+                        data-folder-item-count="actions"
+                        className="hidden px-1 text-[0.5625rem] text-[var(--muted-foreground)] max-md:inline [@media(pointer:coarse)]:inline"
+                      >
+                        {agentSearchActive ? folderAgents.length : folder.itemIds.length}
+                      </span>
+                    )}
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void confirmNonEmptyFolderDelete(folder.itemIds.length, {
+                          title: "Delete Folder",
+                          message: `Delete "${folder.name}"? Its ${folder.itemIds.length} agent${
+                            folder.itemIds.length === 1 ? "" : "s"
+                          } will move out of the folder.`,
+                          confirmLabel: "Delete",
+                          tone: "destructive",
+                        }).then((ok) => {
+                          if (!ok) return;
+                          deleteAgentFolder.mutate(folder.id);
+                          if (expandedFolderId === folder.id) setExpandedFolderId(null);
+                        });
+                      }}
+                      className="mari-chrome-control mari-chrome-control--small p-1"
+                      title={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
+                    >
+                      <Trash2 size="0.6875rem" />
+                    </button>
+                  </div>
                 </div>
+                <SmoothFolderContent
+                  open={isExpanded}
+                  className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
+                  innerClassName="flex flex-col gap-0.5"
+                >
+                  {folderAgents.length === 0 ? (
+                    <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">
+                      {localizeUi("ui.panels.agentspanel.dropAgentsHere")}
+                    </p>
+                  ) : (
+                    folderAgents.map((agent) => renderFolderAgentCard(agent))
+                  )}
+                </SmoothFolderContent>
               </div>
-              <SmoothFolderContent
-                open={isExpanded}
-                className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
-                innerClassName="flex flex-col gap-0.5"
-              >
-                {folderAgents.length === 0 ? (
-                  <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">{localizeUi("ui.panels.agentspanel.dropAgentsHere")}</p>
-                ) : (
-                  folderAgents.map((agent) => renderFolderAgentCard(agent))
-                )}
-              </SmoothFolderContent>
-            </div>
-          );
-        })}
-      </div>}
+            );
+          })}
+        </div>
+      )}
 
-      {hasInstalledAgents && agentCategorySections.map((section) => {
-        const visibleAgents = sortBasicPanelItems(
-          visibleBuiltInDisplayAgents.filter(
-            (agent) =>
-              !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
-          ),
-          sort,
-          (agent) => agent.name,
-          (agent) => agent.createdAt || agent.updatedAt,
-        );
-        if (visibleAgents.length === 0 && agentSearchQuery) return null;
-        return (
-          <PanelSection key={section.category} title={section.title} icon={section.icon}>
-            {visibleAgents.length === 0 ? (
-              <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">{section.emptyMessage}</p>
-            ) : (
-              visibleAgents.map((agent) => {
-                const sourceAgent = createBuiltInAgentConfigRow(agent, configByType.get(agent.id));
-                return renderAgentCard({
-                  localizeUi,
-                  id: agent.id,
-                  type: agent.id,
-                  name: agent.name,
-                  description: agent.description,
-                  category: agent.category,
-                  imagePath: sourceAgent.imagePath || catalogArtworkByAgentId.get(agent.id) || null,
-                  custom: false,
-                  openAgentDetail,
-                  onDuplicate: () => void handleDuplicateAgent(sourceAgent),
-                  onImagePick: () => handlePickAgentImage(agent.id),
-                  selectionMode,
-                  selected: selectedAgentIds.has(agent.id),
-                  onToggleSelected: () => toggleAgentSelection(agent.id),
-                  isDragging: draggedAgentId === agent.id,
-                  onDragStart: (event) => {
-                    const ids = getDraggedAgentIds(agent.id);
-                    const agentTypes = getDraggedAgentTypes(agent.id);
-                    setDraggedAgentId(agent.id);
-                    event.dataTransfer.effectAllowed = "copyMove";
-                    event.dataTransfer.setData("application/x-marinara-agent-ids", JSON.stringify(ids));
-                    event.dataTransfer.setData("text/plain", agent.id);
-                    writeChatResourceDragPayload(event.dataTransfer, {
-                      version: 1,
-                      kind: "agent",
-                      ids: agentTypes,
-                      label:
-                        ids.length === 1
-                          ? agent.name
-                          : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", { count: ids.length }),
-                    });
-                  },
-                  onDragEnd: () => {
-                    setDraggedAgentId(null);
-                    clearActiveChatResourceDrag();
-                  },
-                  onTouchStart: (event) =>
-                    startAgentTouchDrag(event, agent.id, {
-                      allowInteractiveTarget: true,
-                      sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="agent"]'),
-                      chatResourcePayload: {
+      {hasInstalledAgents &&
+        agentCategorySections.map((section) => {
+          const visibleAgents = sortBasicPanelItems(
+            visibleBuiltInDisplayAgents.filter(
+              (agent) =>
+                !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
+            ),
+            sort,
+            (agent) => agent.name,
+            (agent) => agent.createdAt || agent.updatedAt,
+          );
+          if (visibleAgents.length === 0 && agentSearchQuery) return null;
+          return (
+            <PanelSection key={section.category} title={section.title} icon={section.icon}>
+              {visibleAgents.length === 0 ? (
+                <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">{section.emptyMessage}</p>
+              ) : (
+                visibleAgents.map((agent) => {
+                  const sourceAgent = createBuiltInAgentConfigRow(agent, configByType.get(agent.id));
+                  return renderAgentCard({
+                    localizeUi,
+                    id: agent.id,
+                    type: agent.id,
+                    name: agent.name,
+                    description: agent.description,
+                    category: agent.category,
+                    imagePath: sourceAgent.imagePath || catalogArtworkByAgentId.get(agent.id) || null,
+                    custom: false,
+                    openAgentDetail,
+                    onDuplicate: () => void handleDuplicateAgent(sourceAgent),
+                    onImagePick: () => handlePickAgentImage(agent.id),
+                    selectionMode,
+                    selected: selectedAgentIds.has(agent.id),
+                    onToggleSelected: () => toggleAgentSelection(agent.id),
+                    isDragging: draggedAgentId === agent.id,
+                    onDragStart: (event) => {
+                      const ids = getDraggedAgentIds(agent.id);
+                      const agentTypes = getDraggedAgentTypes(agent.id);
+                      setDraggedAgentId(agent.id);
+                      event.dataTransfer.effectAllowed = "copyMove";
+                      event.dataTransfer.setData("application/x-marinara-agent-ids", JSON.stringify(ids));
+                      event.dataTransfer.setData("text/plain", agent.id);
+                      writeChatResourceDragPayload(event.dataTransfer, {
                         version: 1,
                         kind: "agent",
-                        ids: getDraggedAgentTypes(agent.id),
+                        ids: agentTypes,
                         label:
-                          getDraggedAgentIds(agent.id).length === 1
+                          ids.length === 1
                             ? agent.name
-                            : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", {
-                                count: getDraggedAgentIds(agent.id).length,
-                              }),
-                      },
-                    }),
-                  nativeDragEnabled: nativeAgentDragEnabled,
-                  touchSafeDragMode: touchSafeAgentDragMode,
-                  suppressClickRef: suppressAgentClickRef,
-                  onDelete: capabilityAgentRegistryReady
-                    ? () => void confirmAndRemoveAgent(sourceAgent)
-                    : undefined,
-                });
-              })
-            )}
-          </PanelSection>
-        );
-      })}
+                            : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", { count: ids.length }),
+                      });
+                    },
+                    onDragEnd: () => {
+                      setDraggedAgentId(null);
+                      clearActiveChatResourceDrag();
+                    },
+                    onTouchStart: (event) =>
+                      startAgentTouchDrag(event, agent.id, {
+                        allowInteractiveTarget: true,
+                        sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="agent"]'),
+                        chatResourcePayload: {
+                          version: 1,
+                          kind: "agent",
+                          ids: getDraggedAgentTypes(agent.id),
+                          label:
+                            getDraggedAgentIds(agent.id).length === 1
+                              ? agent.name
+                              : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", {
+                                  count: getDraggedAgentIds(agent.id).length,
+                                }),
+                        },
+                      }),
+                    nativeDragEnabled: nativeAgentDragEnabled,
+                    touchSafeDragMode: touchSafeAgentDragMode,
+                    suppressClickRef: suppressAgentClickRef,
+                    onDelete: capabilityAgentRegistryReady ? () => void confirmAndRemoveAgent(sourceAgent) : undefined,
+                  });
+                })
+              )}
+            </PanelSection>
+          );
+        })}
 
       {hasInstalledAgents && (visibleCustomAgents.length > 0 || !agentSearchQuery) && (
         <PanelSection title={localizeUi("ui.panels.agentspanel.customAgents")} icon={<Sparkles size="0.8125rem" />}>
           {visibleCustomAgents.length === 0 ? (
-            <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">{localizeUi("ui.panels.agentspanel.noCustomAgentsYet")}</p>
+            <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
+              {localizeUi("ui.panels.agentspanel.noCustomAgentsYet")}
+            </p>
           ) : (
             visibleCustomAgents.map((agent) =>
               renderAgentCard({
@@ -1460,9 +1500,7 @@ export function AgentsPanel() {
                 className="mt-0.5 shrink-0 text-[var(--marinara-chat-chrome-highlight-text)]"
                 size="1rem"
               />
-              <p className="text-[var(--muted-foreground)]">
-                {localizeUi("settings.agentImports.review.description")}
-              </p>
+              <p className="text-[var(--muted-foreground)]">{localizeUi("settings.agentImports.review.description")}</p>
             </div>
 
             {pendingAgentImport.skippedFunctionCount > 0 && (
@@ -1495,9 +1533,7 @@ export function AgentsPanel() {
                     </div>
 
                     <div className="mt-3">
-                      <p className="text-xs font-semibold">
-                        {localizeUi("settings.agentImports.review.permissions")}
-                      </p>
+                      <p className="text-xs font-semibold">{localizeUi("settings.agentImports.review.permissions")}</p>
                       {requestedCapabilities.length === 0 ? (
                         <p className="mt-1 text-xs text-[var(--muted-foreground)]">
                           {localizeUi("settings.agentImports.review.noPermissions")}

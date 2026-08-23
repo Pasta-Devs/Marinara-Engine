@@ -12,13 +12,13 @@ The Android app is a Termux bootstrap + WebView shell for Marinara Engine. It is
 - After Termux is installed, **Install / Start Marinara** uses Termux's `RUN_COMMAND` integration to run the Marinara Termux installer command. This requires the Android **Run commands in Termux environment** permission to be granted to Marinara Engine, and `allow-external-apps=true` to be enabled in Termux.
 - Before sending its private setup command, the APK accepts Termux builds signed by F-Droid, Google Play, or the Termux developers. Other signing certificates require an explicit, one-session confirmation.
 - If Termux blocks external commands, the APK copies the required `allow-external-apps` command to the clipboard and opens Termux so the user can paste it once.
-- The first APK bootstrap starts the exact embedded source commit with update checks skipped. Later launches, manual updates, and `AUTO_OPEN_BROWSER` behavior are still owned by the Termux launcher.
-- APK-managed installs use a private per-install secret to authenticate the WebView to the Termux server. This prevents another Android app from impersonating Marinara on the localhost port or inheriting loopback API access. Manual Termux-only installs retain their existing behavior.
+- The first APK bootstrap starts the exact embedded source commit with update checks skipped and leaves browser auto-open disabled so the authenticated Android app can connect. Later manual launches and updates are still owned by the Termux launcher.
+- APK-managed installs generate and provision a private per-install secret automatically to authenticate the WebView to the Termux server. Users do not create, copy, or enter it during the normal APK flow. This prevents another Android app from impersonating Marinara on the localhost port or inheriting loopback API access. Manual Termux-only installs retain their existing behavior.
 - The bootstrap fetches and checks out the exact source commit embedded in the APK. It does not fall back to a mutable branch when that commit cannot be fetched.
 - Release and versioning policy follows the main repo docs in [../CONTRIBUTING.md](../CONTRIBUTING.md): root `package.json` is canonical, Android `versionName` should match the app version, and `versionCode` must increase for every shipped APK.
 - If you build the APK with a non-default port, Termux must use the same `PORT` value in `.env`.
 
-**Fast path:** install the APK, open it, tap **Install / Start Marinara**, approve Android/Termux prompts, wait for the Termux launcher to finish, then return to the Marinara Engine app.
+**Fast path:** [download the latest APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk), open it, tap **Install / Start Marinara**, approve Android/Termux prompts, wait for the Termux launcher to finish, then return to the Marinara Engine app. No signing key, password, local-access secret, or `CSRF_TRUSTED_ORIGINS` change is required from the user. In particular, never add `null`; the APK's self-authenticating handshake handles Android's opaque WebView origin without trusting it for the rest of the API.
 
 **Manual fallback:** install Termux from F-Droid, paste the fresh-Termux command below so it creates/updates the Marinara folder, then open the Marinara Engine Android app. When prompted, confirm **Open manual server**. Clipboard fallback commands never contain the APK's private local-access secret.
 
@@ -62,6 +62,8 @@ Build outputs:
 
 - Debug: `app/build/outputs/apk/debug/app-debug.apk`
 - Release: `app/build/outputs/apk/release/app-release.apk` (requires your `ANDROID_SIGNING_*` release keystore; release builds fail rather than silently using the debug key)
+
+These signing credentials are maintainer-only build inputs. People installing the pre-built APK never provide them.
 
 The embedded source commit is resolved from the current Git checkout. It must be reachable from the official repository for the on-device bootstrap to fetch it. Source archives can pass the exact commit with `-PmarinaraReleaseCommit=<40-hex-commit>`.
 
@@ -118,7 +120,7 @@ cd "$HOME/Marinara-Engine"
 ./start-termux.sh
 ```
 
-APK-managed installs also protect ordinary localhost browser sessions. The Termux launcher opens `/android-login`; paste the secret displayed by this Termux command when prompted:
+APK-managed setup returns to the Android app, which authenticates automatically. Only if you intentionally open the same server in a separate browser on the phone, visit `/android-login` and paste the secret displayed by this Termux command:
 
 ```bash
 cat ~/.marinara-engine/android-secret
@@ -139,6 +141,6 @@ On Android 13 and newer, enabling **Mobile app** under **Background Notification
 
 ## Pre-built APKs
 
-When maintainers attach them to a tagged release, pre-built APKs are available on the main [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page.
+When maintainers attach them to a tagged release, the current pre-built APK has a stable [direct download link](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) and is also listed on the main [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page.
 
 Release APKs include the bootstrap controls above. They still rely on Termux for the local Linux/Node runtime, and Android still requires the user-visible permission handoff before the APK can ask Termux to install or start Marinara Engine.

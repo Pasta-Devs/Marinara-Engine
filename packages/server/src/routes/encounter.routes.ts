@@ -393,7 +393,7 @@ function buildInitPrompt(
   inst += `  "dialogueCues": [\n`;
   inst += `    {"speaker":"Named ally or named enemy","type":"main|side|extra|thought|whisper","expression":"angry","content":"A short battle line.","trigger":"intro|round|attack|hit|charge|phase_75|phase_50|phase_25|low_hp|victory|defeat","round":2,"everyNRounds":5}\n`;
   inst += `  ],\n`;
-  inst += `  "visuals": {"isBossFight": false, "enemyImagePrompts": [{"name":"Enemy Name","prompt":"portrait prompt"}], "backgroundPrompt": "optional boss arena background prompt", "illustrationPrompt": "optional boss fight splash illustration prompt", "slug": "optional-short-slug"}\n`;
+  inst += `  "visuals": {"isBossFight": false, "encounterTier": "common|miniboss|boss|special", "enemyImagePrompts": [{"name":"Enemy Name","prompt":"portrait prompt"}], "backgroundPrompt": "optional boss arena background prompt", "illustrationPrompt": "optional boss fight splash illustration prompt", "slug": "optional-short-slug"}\n`;
   inst += `}\n\n`;
   inst += `IMPORTANT NOTES:\n`;
   inst += `- attacks: each has "name" and "type" (single-target, AoE, or both). Add cooldown/status/element only when useful.\n`;
@@ -403,6 +403,7 @@ function buildInitPrompt(
   inst += `- mechanics: use sparingly. Boss charge attacks should include interval, counterplay, effectType, and a matching dialogueCue with trigger "charge".\n`;
   inst += `- dialogueCues: optional, short, and only for named allies, named enemies, bosses, or important NPCs. Generic unnamed enemies should not get voiced lines.\n`;
   inst += `- visuals: set isBossFight true only for bosses/story-significant enemies. backgroundPrompt/illustrationPrompt are optional and only for important fights.\n`;
+  inst += `- visuals.encounterTier: classify the whole encounter — "common" for ordinary fights, "miniboss" for elites or named mid-tier threats, "boss" for true bosses, "special" for unique story encounters (rivals, scripted duels, otherworldly events). When unsure, use "common".\n`;
   if (tactical) {
     inst += `- battlefield.formation: pick the arrangement matching how the scene led into combat — ambushed → ambush, encircled → surrounded, holding/defending a position → defense, sudden chance encounter → skirmish, otherwise line.\n`;
     inst += `- class: pick each combatant's tactical role from how they fight — ranged bow/gun users → archer, spellcasters → mage, dedicated healers → healer, fast skirmishers/assassins → rogue, armored defenders → knight, otherwise fighter.\n`;

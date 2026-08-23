@@ -62,12 +62,18 @@ export function CreateLorebookModal({
             <BookOpen size="1.375rem" className="text-white" />
           </div>
           <div className="flex-1">
-            <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("ui.modals.createlorebookmodal.lorebooksInjectContextualWorldBuildingInformationIntoPromptsBased")}</p>
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {localizeUi(
+                "ui.modals.createlorebookmodal.lorebooksInjectContextualWorldBuildingInformationIntoPromptsBased",
+              )}
+            </p>
           </div>
         </div>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-[var(--muted-foreground)]">{localizeUi("ui.modals.createcharactermodal.name")}</span>
+          <span className="text-xs font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.modals.createcharactermodal.name")}
+          </span>
           <input
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -78,7 +84,9 @@ export function CreateLorebookModal({
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-[var(--muted-foreground)]">{localizeUi("chat.settings.inlineEditor.fields.description")}</span>
+          <span className="text-xs font-medium text-[var(--muted-foreground)]">
+            {localizeUi("chat.settings.inlineEditor.fields.description")}
+          </span>
           <textarea
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
@@ -89,7 +97,9 @@ export function CreateLorebookModal({
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-[var(--muted-foreground)]">{localizeUi("ui.lorebooks.lorebookeditor.category")}</span>
+          <span className="text-xs font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.lorebooks.lorebookeditor.category")}
+          </span>
           <select
             value={form.category}
             onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as LorebookCategory }))}
@@ -106,7 +116,9 @@ export function CreateLorebookModal({
         {createLorebook.isError && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--destructive)]/10 p-2.5 text-xs text-[var(--destructive)]">
             <AlertCircle size="0.75rem" className="shrink-0" />
-            {createLorebook.error instanceof Error ? createLorebook.error.message :localizeUi("ui.modals.createlorebookmodal.failedToCreateLorebook")}
+            {createLorebook.error instanceof Error
+              ? createLorebook.error.message
+              : localizeUi("ui.modals.createlorebookmodal.failedToCreateLorebook")}
           </div>
         )}
 
@@ -115,7 +127,9 @@ export function CreateLorebookModal({
             type="button"
             onClick={onClose}
             className="rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >{localizeUi("chat.delete.dialog.cancel")}</button>
+          >
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
           <button
             type="button"
             onClick={() => createLorebook.mutate(form)}
@@ -126,7 +140,9 @@ export function CreateLorebookModal({
               <Loader2 size="0.75rem" className="animate-spin" />
             ) : (
               <BookOpen size="0.75rem" />
-            )}{localizeUi("ui.modals.createlorebookmodal.createLorebook")}</button>
+            )}
+            {localizeUi("ui.modals.createlorebookmodal.createLorebook")}
+          </button>
         </div>
       </div>
     </Modal>

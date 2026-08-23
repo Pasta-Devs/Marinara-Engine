@@ -216,7 +216,12 @@ function parseTags(raw: string | undefined): string[] {
     ...new Set(
       raw
         .split(",")
-        .map((tag) => tag.trim().toLowerCase().replace(/[^a-z0-9 _-]/g, ""))
+        .map((tag) =>
+          tag
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9 _-]/g, ""),
+        )
         .filter(Boolean),
     ),
   ];
@@ -278,8 +283,12 @@ function capabilityForConnection(conn: ImageConnection): ImageCapability {
     case "openai":
       canEdit = isOpenAIGptImageModel(conn.model);
       editMode = canEdit ? "image-to-image" : "none";
-      if (canEdit) notes.push("OpenAI GPT Image mask/inpaint exists at the provider level, but mari images currently exposes whole-image/reference editing only.");
-      if (!canEdit) notes.push("Current Marinara OpenAI edit path requires a GPT Image model such as gpt-image-1 or gpt-image-2.");
+      if (canEdit)
+        notes.push(
+          "OpenAI GPT Image mask/inpaint exists at the provider level, but mari images currently exposes whole-image/reference editing only.",
+        );
+      if (!canEdit)
+        notes.push("Current Marinara OpenAI edit path requires a GPT Image model such as gpt-image-1 or gpt-image-2.");
       break;
     case "gemini_image":
       canEdit = true;
@@ -289,17 +298,26 @@ function capabilityForConnection(conn: ImageConnection): ImageCapability {
     case "openrouter":
       canEdit = /(?:gemini.*image|image.*gemini|nano.?banana|kontext)/i.test(model);
       editMode = canEdit ? "model-dependent" : "none";
-      if (!canEdit) notes.push("OpenRouter image editing is model-dependent; use a Gemini image/Nano Banana/Flux Kontext style model.");
+      if (!canEdit)
+        notes.push(
+          "OpenRouter image editing is model-dependent; use a Gemini image/Nano Banana/Flux Kontext style model.",
+        );
       break;
     case "nanogpt":
       canEdit = /(?:kontext|gpt-image|gemini|nano.?banana)/i.test(model);
       editMode = canEdit ? "model-dependent" : "none";
-      if (!canEdit) notes.push("NanoGPT references are model-dependent; choose an edit/reference-capable model such as Flux Kontext or GPT Image.");
+      if (!canEdit)
+        notes.push(
+          "NanoGPT references are model-dependent; choose an edit/reference-capable model such as Flux Kontext or GPT Image.",
+        );
       break;
     case "stability":
       canEdit = !isStabilityV1Base(conn.baseUrl || "");
       editMode = canEdit ? "image-to-image" : "none";
-      if (!canEdit) notes.push("Stability legacy v1 path in Marinara is generation-only; use the v2beta Stable Image API for image-to-image.");
+      if (!canEdit)
+        notes.push(
+          "Stability legacy v1 path in Marinara is generation-only; use the v2beta Stable Image API for image-to-image.",
+        );
       break;
     case "automatic1111":
       canEdit = true;
@@ -310,7 +328,10 @@ function capabilityForConnection(conn: ImageConnection): ImageCapability {
     case "runpod_comfyui":
       canEdit = comfyWorkflowHasReferenceInput(conn.comfyuiWorkflow);
       editMode = canEdit ? "workflow" : "none";
-      if (!canEdit) notes.push("ComfyUI editing requires a workflow containing %reference_image% or %reference_image_name% placeholders.");
+      if (!canEdit)
+        notes.push(
+          "ComfyUI editing requires a workflow containing %reference_image% or %reference_image_name% placeholders.",
+        );
       break;
     case "novelai":
       canEdit = /^nai-diffusion-4-5(?:-(?:curated|full))?$/i.test(model.trim());
@@ -359,7 +380,9 @@ function parseManifest(value: string): MariImageAsset[] {
   try {
     const parsed = JSON.parse(value) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is MariImageAsset => !!item && typeof item === "object" && typeof (item as Json).id === "string");
+    return parsed.filter(
+      (item): item is MariImageAsset => !!item && typeof item === "object" && typeof (item as Json).id === "string",
+    );
   } catch {
     return [];
   }
@@ -521,17 +544,29 @@ function appImagePathFromUrl(value: string): { path: string; label: string; url:
   if (parts[1] === "avatars" && parts[2] === "file" && parts[3]) {
     const filename = decodeSafePathSegment(parts[3]);
     if (!filename) return null;
-    return { path: assertInsideDir(AVATAR_DIR, join(AVATAR_DIR, filename)), label: `avatar:${filename}`, url: pathname };
+    return {
+      path: assertInsideDir(AVATAR_DIR, join(AVATAR_DIR, filename)),
+      label: `avatar:${filename}`,
+      url: pathname,
+    };
   }
   if (parts[1] === "lorebooks" && parts[2] === "images" && parts[3] === "file" && parts[4]) {
     const filename = decodeSafePathSegment(parts[4]);
     if (!filename) return null;
-    return { path: assertInsideDir(LOREBOOK_IMAGE_DIR, join(LOREBOOK_IMAGE_DIR, filename)), label: `lorebook-image:${filename}`, url: pathname };
+    return {
+      path: assertInsideDir(LOREBOOK_IMAGE_DIR, join(LOREBOOK_IMAGE_DIR, filename)),
+      label: `lorebook-image:${filename}`,
+      url: pathname,
+    };
   }
   if (parts[1] === "backgrounds" && parts[2] === "file" && parts[3]) {
     const filename = decodeSafePathSegment(parts[3]);
     if (!filename) return null;
-    return { path: assertInsideDir(BACKGROUND_DIR, join(BACKGROUND_DIR, filename)), label: `background:${filename}`, url: pathname };
+    return {
+      path: assertInsideDir(BACKGROUND_DIR, join(BACKGROUND_DIR, filename)),
+      label: `background:${filename}`,
+      url: pathname,
+    };
   }
   if (parts[1] === "sprites" && parts[2] && parts[3] === "file" && parts[4]) {
     const ownerId = decodeSafePathSegment(parts[2]);
@@ -577,7 +612,12 @@ export class MariImagesService {
       case "get":
         return this.get(context, parsed.flags, parsed.positionals);
       default:
-        return { ok: false, mode: "read", command: context.command, error: `Unknown mari images command: ${sub}\n${this.helpText()}` };
+        return {
+          ok: false,
+          mode: "read",
+          command: context.command,
+          error: `Unknown mari images command: ${sub}\n${this.helpText()}`,
+        };
     }
   }
 
@@ -588,12 +628,17 @@ export class MariImagesService {
 
   private async getConnection(selector: string | undefined, requireEdit: boolean): Promise<ImageConnection> {
     const connections = await this.imageConnections();
-    if (connections.length === 0) throw new Error("No image_generation connections are configured. Add an image model in Settings → Connections first.");
+    if (connections.length === 0)
+      throw new Error(
+        "No image_generation connections are configured. Add an image model in Settings → Connections first.",
+      );
 
     const normalized = selector?.trim();
     const candidates = requireEdit ? connections.filter((conn) => capabilityForConnection(conn).canEdit) : connections;
     if (normalized && normalized !== "default") {
-      const selected = connections.find((conn) => conn.id === normalized || conn.name.toLowerCase() === normalized.toLowerCase());
+      const selected = connections.find(
+        (conn) => conn.id === normalized || conn.name.toLowerCase() === normalized.toLowerCase(),
+      );
       if (!selected) throw new Error(`Image generation connection not found: ${normalized}`);
       const capability = capabilityForConnection(selected);
       if (requireEdit && !capability.canEdit) {
@@ -609,14 +654,19 @@ export class MariImagesService {
     const defaultCandidate = candidates.find((conn) => asBoolean(conn.defaultForAgents)) ?? candidates[0];
     if (!defaultCandidate) {
       const available = connections.map((conn) => publicConnection(conn));
-      throw new Error(`No edit-capable image_generation connection is configured. Available connections: ${JSON.stringify(available)}`);
+      throw new Error(
+        `No edit-capable image_generation connection is configured. Available connections: ${JSON.stringify(available)}`,
+      );
     }
     const withKey = (await createConnectionsStorage(this.db).getWithKey(defaultCandidate.id)) as ImageConnection | null;
     if (!withKey) throw new Error(`Could not decrypt image generation connection: ${defaultCandidate.name}`);
     return withKey;
   }
 
-  private async connections(context: ImageCommandContext, flags: Map<string, string | boolean>): Promise<MariDbCommandResult> {
+  private async connections(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+  ): Promise<MariDbCommandResult> {
     const onlyEdit = hasFlag(flags, "edit");
     const selector = flagString(flags, "connection", "connection-id");
     const rows = await this.imageConnections();
@@ -633,12 +683,17 @@ export class MariImagesService {
       output: {
         count: connections.length,
         editCapableCount: connections.filter((conn) => (conn.capabilities as ImageCapability).canEdit).length,
-        connections: onlyEdit ? connections.filter((conn) => (conn.capabilities as ImageCapability).canEdit) : connections,
+        connections: onlyEdit
+          ? connections.filter((conn) => (conn.capabilities as ImageCapability).canEdit)
+          : connections,
       },
     };
   }
 
-  private async preview(context: ImageCommandContext, flags: Map<string, string | boolean>): Promise<MariDbCommandResult> {
+  private async preview(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+  ): Promise<MariDbCommandResult> {
     const operation = this.resolveOperation(flags);
     const target = this.parseTarget(flags, false);
     const connection = await this.getConnection(flagString(flags, "connection", "connection-id"), operation === "edit");
@@ -667,10 +722,13 @@ export class MariImagesService {
       output: {
         previewOnly: true,
         saved: false,
-        message: "Preview only: no image was generated, edited, assigned, or deleted. If this looks right, run mari images generate/edit next.",
+        message:
+          "Preview only: no image was generated, edited, assigned, or deleted. If this looks right, run mari images generate/edit next.",
         operation,
         target,
-        sourceImage: source ? { label: source.label, mimeType: source.mimeType, bytes: source.buffer.length, url: source.url ?? null } : null,
+        sourceImage: source
+          ? { label: source.label, mimeType: source.mimeType, bytes: source.buffer.length, url: source.url ?? null }
+          : null,
         connection: publicConnection(connection),
         capability,
         kind,
@@ -750,7 +808,8 @@ export class MariImagesService {
       output: {
         saved: true,
         assigned: false,
-        message: "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
+        message:
+          "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
         asset,
         targetSuggestion: target,
       },
@@ -764,7 +823,11 @@ export class MariImagesService {
     return "generate";
   }
 
-  private resolveSize(flags: Map<string, string | boolean>, kind: ImagePromptKind, settings: Awaited<ReturnType<typeof loadImageGenerationUserSettings>>) {
+  private resolveSize(
+    flags: Map<string, string | boolean>,
+    kind: ImagePromptKind,
+    settings: Awaited<ReturnType<typeof loadImageGenerationUserSettings>>,
+  ) {
     const fallback =
       kind === "background"
         ? settings.background
@@ -784,7 +847,10 @@ export class MariImagesService {
   private parseTarget(flags: Map<string, string | boolean>, required = false): ImageTarget | null {
     const target = flagString(flags, "target", "to")?.trim().toLowerCase() ?? "";
     if (!target) {
-      if (required) throw new Error("Missing --target <character-avatar|persona-avatar|lorebook-image|sprite|background|chat-gallery|character-gallery|asset>");
+      if (required)
+        throw new Error(
+          "Missing --target <character-avatar|persona-avatar|lorebook-image|sprite|background|chat-gallery|character-gallery|asset>",
+        );
       return null;
     }
     switch (target) {
@@ -811,7 +877,9 @@ export class MariImagesService {
       }
       case "sprite":
       case "sprites": {
-        const ownerId = normalizeId(flagString(flags, "character", "character-id", "persona", "persona-id", "owner", "owner-id", "id"));
+        const ownerId = normalizeId(
+          flagString(flags, "character", "character-id", "persona", "persona-id", "owner", "owner-id", "id"),
+        );
         const expression = normalizeSpriteExpression(flagString(flags, "expression", "expr") ?? "");
         if (!ownerId) throw new Error("sprite target requires --character <id>, --persona <id>, or --owner <id>");
         if (!expression) throw new Error("sprite target requires --expression <label>");
@@ -863,7 +931,10 @@ export class MariImagesService {
     if (explicit) return this.resolveImageReference(explicit, cwd);
     const targetImage = target ? await this.currentImageReferenceForTarget(target) : null;
     if (targetImage) return this.resolveImageReference(targetImage, cwd);
-    if (required) throw new Error("Image editing requires --source <asset-id|app-url|file|data-url>, or a target that already has an image.");
+    if (required)
+      throw new Error(
+        "Image editing requires --source <asset-id|app-url|file|data-url>, or a target that already has an image.",
+      );
     return null;
   }
 
@@ -889,7 +960,11 @@ export class MariImagesService {
         const dir = join(SPRITES_DIR, target.ownerId);
         if (!existsSync(dir)) return null;
         const entries = await readdir(dir);
-        const match = entries.find((entry) => entry.slice(0, -extname(entry).length) === target.expression && IMAGE_EXTS.has(extname(entry).toLowerCase()));
+        const match = entries.find(
+          (entry) =>
+            entry.slice(0, -extname(entry).length) === target.expression &&
+            IMAGE_EXTS.has(extname(entry).toLowerCase()),
+        );
         return match ? `/api/sprites/${encodeURIComponent(target.ownerId)}/file/${encodeURIComponent(match)}` : null;
       }
       case "background":
@@ -925,9 +1000,18 @@ export class MariImagesService {
     if (data) return data;
 
     const assets = await readManifest();
-    const asset = assets.find((candidate) => candidate.id === value || candidate.filename === value || candidate.url === value || candidate.filePath === value);
+    const asset = assets.find(
+      (candidate) =>
+        candidate.id === value ||
+        candidate.filename === value ||
+        candidate.url === value ||
+        candidate.filePath === value,
+    );
     if (asset) {
-      const image = await imageFromFile(assertInsideDir(PREVIEW_DIR, join(PREVIEW_DIR, asset.filename)), `asset:${asset.id}`);
+      const image = await imageFromFile(
+        assertInsideDir(PREVIEW_DIR, join(PREVIEW_DIR, asset.filename)),
+        `asset:${asset.id}`,
+      );
       return { ...image, url: asset.url, asset };
     }
 
@@ -941,16 +1025,23 @@ export class MariImagesService {
     if (/^[A-Za-z0-9+/=]+$/.test(base64ish) && base64ish.length > 128) {
       const buffer = Buffer.from(base64ish, "base64");
       const imageInfo = isAllowedImageBuffer(buffer);
-      if (imageInfo) return { label: "base64", buffer, base64: base64ish, mimeType: imageInfo.mimeType, ext: imageInfo.ext };
+      if (imageInfo)
+        return { label: "base64", buffer, base64: base64ish, mimeType: imageInfo.mimeType, ext: imageInfo.ext };
     }
 
     const filePath = resolve(cwd?.trim() ? cwd : process.cwd(), value);
     return imageFromFile(filePath, value);
   }
 
-  private async assign(context: ImageCommandContext, flags: Map<string, string | boolean>): Promise<MariDbCommandResult> {
+  private async assign(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+  ): Promise<MariDbCommandResult> {
     const target = this.parseTarget(flags, true);
-    if (target.type === "asset") throw new Error("Assign target cannot be asset; use mari images delete --target asset --asset <id> to manage preview assets.");
+    if (target.type === "asset")
+      throw new Error(
+        "Assign target cannot be asset; use mari images delete --target asset --asset <id> to manage preview assets.",
+      );
     const source = await this.resolveSourceImage(flags, null, context.cwd, true);
 
     if (!hasFlag(flags, "apply")) {
@@ -971,7 +1062,12 @@ export class MariImagesService {
 
     const result = await this.assignImage(source, target);
     await flushDB();
-    return { ok: true, mode: "apply", command: context.command, output: { saved: true, source: source.label, target, result } };
+    return {
+      ok: true,
+      mode: "apply",
+      command: context.command,
+      output: { saved: true, source: source.label, target, result },
+    };
   }
 
   private async assignImage(source: ResolvedImage, target: Exclude<ImageTarget, { type: "asset" }>) {
@@ -1055,7 +1151,11 @@ export class MariImagesService {
     const filename = `${expression}.${source.ext}`;
     const path = assertInsideDir(dir, join(dir, filename));
     await writeFile(path, source.buffer);
-    return { expression, filename, url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}?v=${Date.now()}` };
+    return {
+      expression,
+      filename,
+      url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}?v=${Date.now()}`,
+    };
   }
 
   private async assignBackground(source: ResolvedImage, target: Extract<ImageTarget, { type: "background" }>) {
@@ -1063,7 +1163,10 @@ export class MariImagesService {
     const desired = target.filename
       ? sanitizeFilenamePart(target.filename, `background.${source.ext}`)
       : `${sanitizeFilenamePart(target.name ?? "generated-background", "generated-background")}.${source.ext}`;
-    const filename = uniqueFilename(BACKGROUND_DIR, desired.endsWith(`.${source.ext}`) ? desired : `${desired}.${source.ext}`);
+    const filename = uniqueFilename(
+      BACKGROUND_DIR,
+      desired.endsWith(`.${source.ext}`) ? desired : `${desired}.${source.ext}`,
+    );
     const path = assertInsideDir(BACKGROUND_DIR, join(BACKGROUND_DIR, filename));
     await writeFile(path, source.buffer);
     const meta = await readBackgroundMeta();
@@ -1112,14 +1215,23 @@ export class MariImagesService {
       width: source.asset?.width ?? undefined,
       height: source.asset?.height ?? undefined,
     });
-    return { image, url: `/api/characters/${encodeURIComponent(characterId)}/gallery/file/${encodeURIComponent(filename)}` };
+    return {
+      image,
+      url: `/api/characters/${encodeURIComponent(characterId)}/gallery/file/${encodeURIComponent(filename)}`,
+    };
   }
 
-  private async delete(context: ImageCommandContext, flags: Map<string, string | boolean>, positionals: string[]): Promise<MariDbCommandResult> {
+  private async delete(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+    positionals: string[],
+  ): Promise<MariDbCommandResult> {
     const patchedFlags = new Map(flags);
     if (!patchedFlags.has("target") && positionals[0]) patchedFlags.set("target", positionals[0]);
-    if (!patchedFlags.has("asset") && positionals[0] === "asset" && positionals[1]) patchedFlags.set("asset", positionals[1]);
-    if (!patchedFlags.has("filename") && positionals[0] === "background" && positionals[1]) patchedFlags.set("filename", positionals[1]);
+    if (!patchedFlags.has("asset") && positionals[0] === "asset" && positionals[1])
+      patchedFlags.set("asset", positionals[1]);
+    if (!patchedFlags.has("filename") && positionals[0] === "background" && positionals[1])
+      patchedFlags.set("filename", positionals[1]);
     const target = this.parseTarget(patchedFlags, true);
     if (!hasFlag(patchedFlags, "apply")) {
       return {
@@ -1216,7 +1328,9 @@ export class MariImagesService {
   private async deleteSprite(ownerId: string, expression: string) {
     const dir = join(SPRITES_DIR, ownerId);
     if (!existsSync(dir)) return { deleted: 0, files: [] };
-    const files = (await readdir(dir)).filter((entry) => entry.slice(0, -extname(entry).length) === expression && IMAGE_EXTS.has(extname(entry).toLowerCase()));
+    const files = (await readdir(dir)).filter(
+      (entry) => entry.slice(0, -extname(entry).length) === expression && IMAGE_EXTS.has(extname(entry).toLowerCase()),
+    );
     for (const file of files) await unlink(assertInsideDir(dir, join(dir, file)));
     return { deleted: files.length, files };
   }
@@ -1251,7 +1365,11 @@ export class MariImagesService {
     return { deleted: image };
   }
 
-  private async list(context: ImageCommandContext, flags: Map<string, string | boolean>, positionals: string[]): Promise<MariDbCommandResult> {
+  private async list(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+    positionals: string[],
+  ): Promise<MariDbCommandResult> {
     const subject = positionals[0] ?? flagString(flags, "target") ?? "assets";
     const limit = flagNumber(flags, "limit", 50) ?? 50;
     switch (subject) {
@@ -1269,15 +1387,23 @@ export class MariImagesService {
           ok: true,
           mode: "read",
           command: context.command,
-          output: files.slice(0, limit).map((filename) => ({ filename, url: `/api/backgrounds/file/${encodeURIComponent(filename)}`, tags: meta[filename]?.tags ?? [] })),
+          output: files.slice(0, limit).map((filename) => ({
+            filename,
+            url: `/api/backgrounds/file/${encodeURIComponent(filename)}`,
+            tags: meta[filename]?.tags ?? [],
+          })),
         };
       }
       case "sprites":
       case "sprite": {
-        const ownerId = normalizeId(flagString(flags, "character", "character-id", "persona", "persona-id", "owner", "owner-id", "id"));
+        const ownerId = normalizeId(
+          flagString(flags, "character", "character-id", "persona", "persona-id", "owner", "owner-id", "id"),
+        );
         if (!ownerId) throw new Error("sprite list requires --character <id>, --persona <id>, or --owner <id>");
         const dir = join(SPRITES_DIR, ownerId);
-        const files = existsSync(dir) ? (await readdir(dir)).filter((entry) => IMAGE_EXTS.has(extname(entry).toLowerCase())) : [];
+        const files = existsSync(dir)
+          ? (await readdir(dir)).filter((entry) => IMAGE_EXTS.has(extname(entry).toLowerCase()))
+          : [];
         return {
           ok: true,
           mode: "read",
@@ -1307,7 +1433,11 @@ export class MariImagesService {
     }
   }
 
-  private async get(context: ImageCommandContext, flags: Map<string, string | boolean>, positionals: string[]): Promise<MariDbCommandResult> {
+  private async get(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+    positionals: string[],
+  ): Promise<MariDbCommandResult> {
     const id = normalizeId(flagString(flags, "asset", "id") ?? positionals[0]);
     if (!id) throw new Error("Usage: mari images get <asset-id>");
     const asset = (await readManifest()).find((candidate) => candidate.id === id || candidate.filename === id);

@@ -41,10 +41,7 @@ function writeBytes(target: number[], bytes: Uint8Array) {
 
 function getDosTimestamp(date = new Date()) {
   const year = Math.max(1980, date.getFullYear());
-  const time =
-    (date.getSeconds() >> 1) |
-    (date.getMinutes() << 5) |
-    (date.getHours() << 11);
+  const time = (date.getSeconds() >> 1) | (date.getMinutes() << 5) | (date.getHours() << 11);
   const day = date.getDate();
   const month = date.getMonth() + 1;
   const dosDate = day | (month << 5) | ((year - 1980) << 9);

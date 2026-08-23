@@ -16,13 +16,20 @@ export async function handleHapticCommand(args: {
         action: command.action,
         intensity: command.intensity,
         duration: command.duration,
+        pattern: command.pattern,
       });
-      args.sendEvent({ action: command.action, intensity: command.intensity, duration: command.duration });
+      args.sendEvent({
+        action: command.action,
+        intensity: command.intensity,
+        duration: command.duration,
+        pattern: command.pattern,
+      });
       logger.info(
-        "[commands] Haptic: %s intensity=%s duration=%s",
+        "[commands] Haptic: %s intensity=%s duration=%s pattern=%s",
         command.action,
         command.intensity ?? "default",
         command.duration ?? "indefinite",
+        command.pattern ?? "steady",
       );
     } else if (!hapticService.connected) {
       logger.warn("[commands] Haptic command [%s] skipped - Intiface Central not connected", command.action);

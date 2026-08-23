@@ -12,10 +12,17 @@ import { logger } from "../../lib/logger.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import {
+  EXPERIENCE_GAME_TYPE_PREFIX,
   createGameEngineStateStorage,
   type GameEngineStateRow,
   type GameEngineVisibleAnchor,
 } from "../storage/game-engine-state.storage.js";
+
+// Every turn-game read and wipe excludes the host-owned experience-state namespace (#5102):
+// without this, a newer "experience:<id>" row shadows an active turn-game (unknown gameType →
+// loadGame null → views/bot loop/commands all see "no game"), and start/resign would silently
+// destroy an Experience's entire save history.
+const TURN_GAME_SCOPE = { excludePrefix: EXPERIENCE_GAME_TYPE_PREFIX } as const;
 
 export interface TurnGameStartOptions {
   gameType: string;
@@ -68,7 +75,8 @@ async function resolveCharacterName(
     if (row?.data) {
       try {
         const data = JSON.parse(row.data) as Record<string, unknown>;
-        const name = readTrimmedString(data.name) ?? readTrimmedString(data.character_name) ?? readTrimmedString(data.displayName);
+        const name =
+          readTrimmedString(data.name) ?? readTrimmedString(data.character_name) ?? readTrimmedString(data.displayName);
         if (name) return name;
       } catch {
         // fall through to comment/fallback below
@@ -147,21 +155,43 @@ async function resolveSeats(
   return seats;
 }
 
+// Local, dependency-free copy of the message `extra` parser (kept local for the same reason as
+// resolveTurnGameAnchor: avoid a service -> route-utils dependency). `extra` may be a JSON string or
+// an already-parsed object depending on the storage read path.
+function parseMessageExtra(extra: unknown): Record<string, unknown> {
+  if (!extra) return {};
+  try {
+    const parsed: unknown = typeof extra === "string" ? JSON.parse(extra) : extra;
+    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * The (messageId, swipeIndex) of the latest visible assistant message, so editing,
  * branching, or regenerating a message rewinds the game to that point. Mirrors
  * resolveVisibleGameStateAnchor used by game mode (kept local to avoid a
- * service -> route-utils dependency).
+ * service -> route-utils dependency), including its checkpoint-restore rule: a
+ * checkpoint load inserts a `system` message marked `gameStateAnchor: "checkpoint_restore"`
+ * onto which restore clones the checkpoint-time engine snapshot, so that message must be
+ * an eligible anchor too or the restored game would stay invisible behind the last
+ * real assistant message (#5077).
  */
 async function resolveTurnGameAnchor(db: DB, chatId: string): Promise<GameEngineVisibleAnchor | null> {
   const messages = (await createChatsStorage(db).listMessages(chatId)) as Array<{
     role?: unknown;
     id?: unknown;
     activeSwipeIndex?: unknown;
+    extra?: unknown;
   }>;
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
-    if (m.role !== "assistant" || typeof m.id !== "string" || !m.id) continue;
+    const markedRestoreAnchor =
+      m.role === "system" && parseMessageExtra(m.extra).gameStateAnchor === "checkpoint_restore";
+    if ((m.role !== "assistant" && !markedRestoreAnchor) || typeof m.id !== "string" || !m.id) continue;
     const swipeIndex =
       typeof m.activeSwipeIndex === "number" && Number.isInteger(m.activeSwipeIndex) && m.activeSwipeIndex >= 0
         ? m.activeSwipeIndex
@@ -179,17 +209,15 @@ async function resolveTurnGameAnchor(db: DB, chatId: string): Promise<GameEngine
  * snapshot and skip the message scan (used where rewind is irrelevant, e.g. the
  * "is a game active" check and the live bot loop).
  */
-async function loadGame(
-  db: DB,
-  chatId: string,
-  anchor?: GameEngineVisibleAnchor | null,
-): Promise<LoadedGame | null> {
+async function loadGame(db: DB, chatId: string, anchor?: GameEngineVisibleAnchor | null): Promise<LoadedGame | null> {
   const storage = createGameEngineStateStorage(db);
   // Fast path: a chat with no game pays nothing extra (no message scan).
-  const latest = await storage.getLatest(chatId);
+  const latest = await storage.getLatest(chatId, TURN_GAME_SCOPE);
   if (!latest) return null;
   const resolved = anchor === undefined ? await resolveTurnGameAnchor(db, chatId) : anchor;
-  const row = resolved ? (await storage.getForGeneration(chatId, { visibleAnchor: resolved })) ?? latest : latest;
+  const row = resolved
+    ? ((await storage.getForGeneration(chatId, { visibleAnchor: resolved, gameType: TURN_GAME_SCOPE })) ?? latest)
+    : latest;
   const engine = getTurnGameEngine(row.gameType);
   if (!engine) {
     logger.warn("Active game in chat %s has unknown gameType %s", chatId, row.gameType);
@@ -245,7 +273,7 @@ export async function startTurnGame(db: DB, chatId: string, opts: TurnGameStartO
   }
 
   const storage = createGameEngineStateStorage(db);
-  await storage.deleteForChat(chatId);
+  await storage.deleteForChat(chatId, TURN_GAME_SCOPE);
   await storage.create({
     chatId,
     messageId: "",
@@ -444,7 +472,7 @@ export async function getTurnGameContextText(db: DB, chatId: string, seatId?: st
   return build ? build(seatId) : null;
 }
 
-/** End and remove the game for a chat. */
+/** End and remove the game for a chat. Experience-state rows are not the runner's to destroy. */
 export async function resignTurnGame(db: DB, chatId: string): Promise<void> {
-  await createGameEngineStateStorage(db).deleteForChat(chatId);
+  await createGameEngineStateStorage(db).deleteForChat(chatId, TURN_GAME_SCOPE);
 }

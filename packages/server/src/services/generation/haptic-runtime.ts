@@ -1,20 +1,21 @@
-import type { HapticDeviceCommand, HapticFeedbackPattern, HapticFeedbackSensitivity } from "@marinara-engine/shared";
+import {
+  normalizeHapticAction,
+  normalizeHapticPattern,
+  type HapticCapability,
+  type HapticDeviceCommand,
+  type HapticFeedbackPattern,
+  type HapticFeedbackSensitivity,
+} from "@marinara-engine/shared";
 
 export interface HapticRuntimeSettings {
   sensitivity: HapticFeedbackSensitivity;
   incidentalContact: boolean;
-  intensityMultiplier: number;
-  maxIntensity: number;
-  maxDurationSeconds: number;
 }
 
-const HAPTIC_SENSITIVITY_SETTINGS: Record<
-  HapticFeedbackSensitivity,
-  Pick<HapticRuntimeSettings, "intensityMultiplier" | "maxIntensity" | "maxDurationSeconds">
-> = {
-  subtle: { intensityMultiplier: 0.65, maxIntensity: 0.55, maxDurationSeconds: 4 },
-  standard: { intensityMultiplier: 1, maxIntensity: 0.8, maxDurationSeconds: 6 },
-  intense: { intensityMultiplier: 1.2, maxIntensity: 0.9, maxDurationSeconds: 8 },
+const HAPTIC_SENSITIVITY_GUIDANCE: Record<HapticFeedbackSensitivity, string> = {
+  subtle: "favor gentler output for ordinary contact, but the full 0.0-1.0 range remains available",
+  standard: "match intensity proportionally to the scene using the full 0.0-1.0 range",
+  intense: "use stronger output more readily, including 1.0 when the scene clearly calls for full strength",
 };
 
 export const MAX_AGENT_HAPTIC_COMMANDS = 5;
@@ -31,11 +32,9 @@ export function normalizeHapticSensitivity(value: unknown): HapticFeedbackSensit
 
 export function getChatHapticSettings(meta: Record<string, unknown>): HapticRuntimeSettings {
   const sensitivity = normalizeHapticSensitivity(meta.hapticSensitivity);
-  const preset = HAPTIC_SENSITIVITY_SETTINGS[sensitivity];
   return {
     sensitivity,
     incidentalContact: meta.hapticIncidentalContact === true,
-    ...preset,
   };
 }
 
@@ -43,8 +42,8 @@ export function formatHapticSettingsForPrompt(settings: HapticRuntimeSettings): 
   return [
     `sensitivity: ${settings.sensitivity}`,
     `incidentalContact: ${settings.incidentalContact ? "enabled" : "disabled"}`,
-    `maxIntensity: ${settings.maxIntensity}`,
-    `maxDurationSeconds: ${settings.maxDurationSeconds}`,
+    `intensityRange: 0.0-1.0 (the selected sensitivity is guidance, not a hard cap)`,
+    HAPTIC_SENSITIVITY_GUIDANCE[settings.sensitivity],
     settings.incidentalContact
       ? "brief accidental brushes may use very small tap/impact feedback"
       : "ignore incidental/accidental brushes unless the contact is deliberate or forceful",
@@ -52,35 +51,7 @@ export function formatHapticSettingsForPrompt(settings: HapticRuntimeSettings): 
 }
 
 export function normalizeHapticAgentAction(action: unknown): HapticDeviceCommand["action"] | null {
-  if (typeof action !== "string") return null;
-  const key = action
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "");
-  if (key === "positionwithduration" || key === "hwpositionwithduration" || key === "linear") return "position";
-  if (key === "vibrate") return "vibrate";
-  if (key === "rotate") return "rotate";
-  if (key === "oscillate") return "oscillate";
-  if (key === "constrict") return "constrict";
-  if (key === "inflate") return "inflate";
-  if (key === "position") return "position";
-  if (key === "stop") return "stop";
-  return null;
-}
-
-function normalizeHapticAgentPattern(value: unknown): HapticFeedbackPattern | undefined {
-  if (typeof value !== "string") return undefined;
-  const key = value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, "");
-  if (key === "steady") return "steady";
-  if (key === "tap") return "tap";
-  if (key === "pulse") return "pulse";
-  if (key === "wave") return "wave";
-  if (key === "ramp") return "ramp";
-  if (key === "impact") return "impact";
-  return undefined;
+  return normalizeHapticAction(action);
 }
 
 function normalizeHapticAgentNumber(value: unknown): number | undefined {
@@ -101,19 +72,15 @@ function normalizeHapticAgentDeviceIndex(value: unknown): HapticDeviceCommand["d
 
 export function normalizeHapticAgentCommand(
   command: Record<string, unknown>,
-  settings?: HapticRuntimeSettings,
+  _settings?: HapticRuntimeSettings,
 ): HapticDeviceCommand | null {
   const action = normalizeHapticAgentAction(command.action);
   if (!action) return null;
   const rawIntensity = normalizeHapticAgentNumber(command.intensity);
   const rawDuration = normalizeHapticAgentNumber(command.duration);
-  const maxIntensity = settings?.maxIntensity ?? 1;
-  const intensityMultiplier = settings?.intensityMultiplier ?? 1;
-  const maxDurationSeconds = settings?.maxDurationSeconds ?? 30;
-  const intensity =
-    action === "stop" ? undefined : clampNumber((rawIntensity ?? 0.5) * intensityMultiplier, 0, maxIntensity);
-  const duration = action === "stop" ? undefined : clampNumber(rawDuration ?? 1.5, 0.15, maxDurationSeconds);
-  const pattern = action === "stop" || action === "position" ? undefined : normalizeHapticAgentPattern(command.pattern);
+  const intensity = action === "stop" ? undefined : clampNumber(rawIntensity ?? 0.5, 0, 1);
+  const duration = action === "stop" ? undefined : clampNumber(rawDuration ?? 1.5, 0.15, 30);
+  const pattern = action === "stop" ? undefined : normalizeHapticPattern(command.pattern);
 
   return {
     deviceIndex: normalizeHapticAgentDeviceIndex(command.deviceIndex),
@@ -122,6 +89,117 @@ export function normalizeHapticAgentCommand(
     duration,
     ...(pattern ? { pattern } : {}),
   };
+}
+
+const HAPTIC_DEVICE_TYPE_LABELS: Record<HapticCapability, string> = {
+  vibrate: "vibrating",
+  rotate: "rotating",
+  oscillate: "oscillating",
+  constrict: "constricting or squeezing",
+  inflate: "inflatable or air-pump",
+  position: "linear stroker, thruster, or pump",
+  temperature: "temperature-controlled",
+  spray: "spray or dispensing",
+  led: "lighting",
+};
+
+export function describeHapticDeviceType(capabilities: readonly HapticCapability[]): string {
+  const labels = [...new Set(capabilities.map((capability) => HAPTIC_DEVICE_TYPE_LABELS[capability]))];
+  if (labels.length === 0) return "connected haptic device";
+  if (labels.length === 1) return `${labels[0]} device`;
+  return `multi-function device (${labels.join(", ")})`;
+}
+
+export interface HapticPatternStep {
+  delayMs: number;
+  intensity: number;
+  duration: number;
+}
+
+function buildPositionPatternSteps(
+  pattern: HapticFeedbackPattern,
+  intensity: number,
+  duration: number,
+): HapticPatternStep[] {
+  const total = Math.max(0.2, duration || 1.5);
+  const target = Math.max(0.01, Math.min(1, intensity));
+  const steps = (positions: number[]) => {
+    const interval = total / positions.length;
+    return positions.map((position, index) => ({
+      delayMs: Math.round(interval * 1000 * index),
+      intensity: Math.max(0, Math.min(1, target * position)),
+      duration: Math.max(0.1, interval * 0.9),
+    }));
+  };
+
+  switch (pattern) {
+    case "tap":
+      return steps([1, 0]);
+    case "impact":
+      return steps([1, 0.15]);
+    case "pulse":
+      return steps([1, 0, 1, 0]);
+    case "wave":
+      return steps([0.15, 0.55, 1, 0.55, 0.15]);
+    case "ramp":
+      return steps([0.25, 0.5, 0.75, 1]);
+    case "steady":
+    default:
+      return [{ delayMs: 0, intensity: target, duration: total }];
+  }
+}
+
+export function buildHapticPatternSteps(
+  action: HapticDeviceCommand["action"],
+  pattern: HapticFeedbackPattern,
+  intensity: number,
+  duration: number,
+): HapticPatternStep[] {
+  if (action === "position") return buildPositionPatternSteps(pattern, intensity, duration);
+
+  const total = Math.max(0.2, duration || 1.5);
+  const base = Math.max(0.01, Math.min(1, intensity));
+  const scaled = (multiplier: number) => Math.max(0.01, Math.min(1, base * multiplier));
+
+  switch (pattern) {
+    case "tap":
+      return [{ delayMs: 0, intensity: scaled(1), duration: Math.min(0.35, total) }];
+    case "impact":
+      return [
+        { delayMs: 0, intensity: scaled(1.2), duration: Math.min(0.22, total) },
+        { delayMs: Math.min(280, total * 500), intensity: scaled(0.35), duration: Math.min(0.3, total) },
+      ];
+    case "pulse": {
+      const count = Math.max(2, Math.min(4, Math.round(total / 0.75)));
+      const interval = (total * 1000) / count;
+      return Array.from({ length: count }, (_, index) => ({
+        delayMs: Math.round(interval * index),
+        intensity: scaled(index % 2 === 0 ? 1 : 0.75),
+        duration: Math.min(0.32, (interval / 1000) * 0.55),
+      }));
+    }
+    case "wave": {
+      const multipliers = [0.4, 0.75, 0.55, 1];
+      const interval = (total * 1000) / multipliers.length;
+      return multipliers.map((multiplier, index) => ({
+        delayMs: Math.round(interval * index),
+        intensity: scaled(multiplier),
+        duration: Math.min(0.9, (interval / 1000) * 0.8),
+      }));
+    }
+    case "ramp": {
+      const multipliers = [0.35, 0.65, 1];
+      const interval = (total * 1000) / multipliers.length;
+      return multipliers.map((multiplier, index) => ({
+        delayMs: Math.round(interval * index),
+        intensity: scaled(multiplier),
+        duration: Math.min(1.1, (interval / 1000) * 0.85),
+      }));
+    }
+    case "steady":
+    default:
+      return [{ delayMs: 0, intensity: base, duration: total }];
+  }
 }
 
 export function normalizeHapticAgentCommands(data: Record<string, unknown>): Array<Record<string, unknown>> {

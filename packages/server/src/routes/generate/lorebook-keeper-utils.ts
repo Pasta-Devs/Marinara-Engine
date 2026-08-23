@@ -1,4 +1,4 @@
-import type { AgentContext, LorebookEntry } from "@marinara-engine/shared";
+import { customAgentHasCapability, type AgentContext, type LorebookEntry } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { createLorebooksStorage } from "../../services/storage/lorebooks.storage.js";
 
@@ -24,11 +24,50 @@ type LorebookKeeperMessage = {
   characterId?: string | null;
 };
 
-const MAX_READ_BEHIND_MESSAGES = 100;
+export const MAX_READ_BEHIND_MESSAGES = 100;
 
 function normalizeNonNegativeInteger(value: unknown, fallback: number, max: number): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.max(0, Math.min(max, Math.trunc(value)));
+  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(0, Math.min(max, Math.trunc(numeric)));
+}
+
+export function getCustomLorebookReadBehindMessages(settings: Record<string, unknown>): number {
+  return normalizeNonNegativeInteger(settings.lorebookReadBehindMessages, 0, MAX_READ_BEHIND_MESSAGES);
+}
+
+export function customAgentUsesLorebookReadBehind(agent: {
+  phase: string;
+  isCustomAgent?: boolean;
+  settings: Record<string, unknown>;
+}): boolean {
+  if (
+    agent.phase !== "post_processing" ||
+    agent.isCustomAgent !== true ||
+    getCustomLorebookReadBehindMessages(agent.settings) <= 0
+  ) {
+    return false;
+  }
+
+  const canEditLorebooks = customAgentHasCapability(agent.settings, "edit_lorebooks");
+  const canCreateLorebooks = customAgentHasCapability(agent.settings, "create_lorebooks");
+  const enabledTools = Array.isArray(agent.settings.enabledTools) ? agent.settings.enabledTools : [];
+  const writesLorebookEntries =
+    canEditLorebooks && (agent.settings.lorebookWriteEnabled === true || enabledTools.includes("save_lorebook_entry"));
+  const emitsLorebookUpdates =
+    agent.settings.resultType === "lorebook_update" && (canEditLorebooks || canCreateLorebooks);
+
+  return writesLorebookEntries || emitsLorebookUpdates;
+}
+
+export function customLorebookReadBehindRunKey(chatId: string, agentId: string, messageId: string): string {
+  return `${chatId}:${agentId}:${messageId}`;
+}
+
+export function tryClaimCustomLorebookReadBehindRun(activeRuns: Set<string>, runKey: string): boolean {
+  if (activeRuns.has(runKey)) return false;
+  activeRuns.add(runKey);
+  return true;
 }
 
 function isEnabledLorebook(value: unknown): boolean {
@@ -334,6 +373,12 @@ function readKeeperUpdateTag(update: Record<string, unknown>): string {
   return typeof update.tag === "string" ? update.tag : typeof nestedEntry.tag === "string" ? nestedEntry.tag : "";
 }
 
+export function readLorebookKeeperUpdateOrder(update: Record<string, unknown>): number | undefined {
+  const nestedEntry = readNestedEntry(update);
+  const rawOrder = typeof update.order === "number" ? update.order : nestedEntry.order;
+  return typeof rawOrder === "number" && Number.isSafeInteger(rawOrder) ? rawOrder : undefined;
+}
+
 export async function persistLorebookKeeperUpdates(args: {
   lorebooksStore: LorebooksStore;
   chatId: string;
@@ -343,8 +388,15 @@ export async function persistLorebookKeeperUpdates(args: {
   updates: Array<Record<string, unknown>>;
   revectorizeEntry?: (entry: LorebookEntry) => Promise<void>;
 }): Promise<string | null> {
-  const { lorebooksStore, chatId, chatName, preferredTargetLorebookId, writableLorebookIds, updates, revectorizeEntry } =
-    args;
+  const {
+    lorebooksStore,
+    chatId,
+    chatName,
+    preferredTargetLorebookId,
+    writableLorebookIds,
+    updates,
+    revectorizeEntry,
+  } = args;
 
   let targetLorebookId = preferredTargetLorebookId ?? writableLorebookIds?.[0] ?? null;
   if (!targetLorebookId) {
@@ -383,6 +435,7 @@ export async function persistLorebookKeeperUpdates(args: {
     const content = readKeeperUpdateContent(update);
     const keys = readKeeperUpdateKeys(update);
     const tag = readKeeperUpdateTag(update);
+    const order = readLorebookKeeperUpdateOrder(update);
     const existing = entryByName.get(rawName.toLowerCase());
 
     if (existing && (existing.locked === true || existing.locked === "true")) {
@@ -401,6 +454,7 @@ export async function persistLorebookKeeperUpdates(args: {
         content: mergedContent,
         keys: mergedKeys,
         tag: mergedTag,
+        ...(order !== undefined ? { order } : {}),
       });
       if (revectorizeEntry && updated) {
         try {
@@ -430,6 +484,7 @@ export async function persistLorebookKeeperUpdates(args: {
       keys,
       tag,
       enabled: true,
+      ...(order !== undefined ? { order } : {}),
     });
     if (created && typeof created === "object" && "id" in created) {
       const createdEntry = created as { id: string; name?: string | null; locked?: unknown };

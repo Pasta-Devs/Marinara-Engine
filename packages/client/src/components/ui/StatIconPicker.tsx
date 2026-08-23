@@ -59,9 +59,7 @@ export function StatIconPicker({
 
   const query = search.trim().toLocaleLowerCase();
   const filteredIcons = query
-    ? SUPPORTED_STAT_ICONS.filter(
-        (icon) => icon.includes(query) || displayIconName(icon).toLowerCase().includes(query),
-      )
+    ? SUPPORTED_STAT_ICONS.filter((icon) => icon.includes(query) || displayIconName(icon).toLowerCase().includes(query))
     : SUPPORTED_STAT_ICONS;
 
   const updatePosition = useCallback(() => {

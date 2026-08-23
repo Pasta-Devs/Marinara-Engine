@@ -2,7 +2,12 @@
 // Routes: Regex Scripts
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
-import { createRegexScriptSchema, reorderRegexScriptsSchema, updateRegexScriptSchema } from "@marinara-engine/shared";
+import {
+  createRegexScriptSchema,
+  importRegexScriptSchema,
+  reorderRegexScriptsSchema,
+  updateRegexScriptSchema,
+} from "@marinara-engine/shared";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
 
 export async function regexScriptsRoutes(app: FastifyInstance) {
@@ -15,6 +20,14 @@ export async function regexScriptsRoutes(app: FastifyInstance) {
   app.put("/reorder", async (req) => {
     const input = reorderRegexScriptsSchema.parse(req.body);
     return storage.reorder(input.scriptIds);
+  });
+
+  // Imports keep patterns flagged by the conservative safety heuristic so the
+  // user can inspect and repair them instead of losing entries from a bundle.
+  // Runtime application still skips unsafe patterns.
+  app.post("/import", async (req) => {
+    const input = importRegexScriptSchema.parse(req.body);
+    return storage.create(input);
   });
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {

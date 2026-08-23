@@ -39,6 +39,12 @@ type RightPanelButtonConfig = {
   underlineClass?: string;
 };
 
+/** Stable Playwright test ids for the editor-opening header tabs. */
+const RIGHT_PANEL_TAB_TEST_IDS: Partial<Record<RightPanelButtonPanel, string>> = {
+  personas: "personas-tab",
+  lorebooks: "lorebooks-tab",
+};
+
 const RIGHT_PANEL_BUTTONS: readonly RightPanelButtonConfig[] = [
   {
     panel: "personas" as const,
@@ -359,6 +365,7 @@ export function TopBar() {
         <button
           onClick={() => handleRightPanelClick("characters")}
           data-tour="panel-characters"
+          data-testid="characters-tab"
           data-topbar-hover-key="characters"
           className={cn(
             TOPBAR_PANEL_BUTTON_CLASS,
@@ -386,7 +393,7 @@ export function TopBar() {
               key={panel}
               onClick={() => handleRightPanelClick(panel)}
               data-tour={`panel-${panel}`}
-              data-testid={`topbar-panel-button-${panel}`}
+              data-testid={RIGHT_PANEL_TAB_TEST_IDS[panel] ?? `topbar-panel-button-${panel}`}
               data-topbar-hover-key={panel}
               className={cn(
                 TOPBAR_PANEL_BUTTON_CLASS,

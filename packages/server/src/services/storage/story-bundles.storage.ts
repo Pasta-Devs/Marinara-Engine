@@ -50,7 +50,9 @@ export function createStoryBundlesStorage(db: DB) {
           ...(data.name !== undefined && { name: data.name }),
           ...(data.description !== undefined && { description: data.description }),
           ...(data.imagePath !== undefined && { imagePath: data.imagePath }),
-          ...(data.avatarCrop !== undefined && { avatarCrop: data.avatarCrop != null ? JSON.stringify(data.avatarCrop) : null }),
+          ...(data.avatarCrop !== undefined && {
+            avatarCrop: data.avatarCrop != null ? JSON.stringify(data.avatarCrop) : null,
+          }),
           ...(data.comment !== undefined && { comment: data.comment }),
           ...(data.creator !== undefined && { creator: data.creator }),
           ...(data.version !== undefined && { version: data.version }),

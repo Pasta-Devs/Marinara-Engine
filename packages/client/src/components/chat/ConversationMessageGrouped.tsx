@@ -93,6 +93,7 @@ export function ConversationMessageGrouped({
     resolveReactorName,
     onPickSegmentReaction,
     onToggleReactionEntry,
+    onRemoveCharacterReaction,
     onToggleSelect,
     isBubbleStyle,
   } = ctx;
@@ -146,7 +147,11 @@ export function ConversationMessageGrouped({
             type="button"
             role="checkbox"
             aria-checked={isSelected}
-            aria-label={isSelected ?localizeUi("ui.chat.chatmessage.deselectMessage") :localizeUi("ui.chat.chatmessage.selectMessage")}
+            aria-label={
+              isSelected
+                ? localizeUi("ui.chat.chatmessage.deselectMessage")
+                : localizeUi("ui.chat.chatmessage.selectMessage")
+            }
             onClick={(e) => {
               e.stopPropagation();
               onToggleSelect?.();
@@ -157,9 +162,7 @@ export function ConversationMessageGrouped({
               isSelected && MESSAGE_SELECTION_CHECKBOX_SELECTED_CLASS,
             )}
           >
-            {isSelected && (
-              <span className="text-xs font-bold text-[var(--marinara-chat-chrome-panel-bg)]">✓</span>
-            )}
+            {isSelected && <span className="text-xs font-bold text-[var(--marinara-chat-chrome-panel-bg)]">✓</span>}
           </button>
         </div>
       )}
@@ -199,7 +202,9 @@ export function ConversationMessageGrouped({
           const segAddButton =
             !hideActions && onPickSegmentReaction && grp.speaker && segHasText ? (
               <ReactionAddButton
-                onPick={(emoji, imageUrl) => onPickSegmentReaction({ segment: i, speaker: grp.speaker }, emoji, imageUrl)}
+                onPick={(emoji, imageUrl) =>
+                  onPickSegmentReaction({ segment: i, speaker: grp.speaker }, emoji, imageUrl)
+                }
                 className={segAddButtonClass}
               />
             ) : null;
@@ -209,6 +214,7 @@ export function ConversationMessageGrouped({
                 reactions={segReactions}
                 resolveReactorName={resolveReactorName}
                 onToggle={onToggleReactionEntry}
+                onRemoveCharacter={onRemoveCharacterReaction}
               />
             ) : null;
 
@@ -231,7 +237,7 @@ export function ConversationMessageGrouped({
                   stickerMap={stickerMap}
                   onImageOpen={(url) => onImageOpen(url)}
                   selfCharacterId={selfCharacterId}
-                galleryIndex={galleryIndex}
+                  galleryIndex={galleryIndex}
                 />
               </div>
             );
@@ -245,49 +251,49 @@ export function ConversationMessageGrouped({
                   {...cardCssProps}
                   className={["animate-[fadeSlideIn_0.4s_ease-out]", i > 0 && "mt-2"].filter(Boolean).join(" ")}
                 >
-                <div className="flex items-end gap-2">
-                  <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[var(--accent)]">
-                    {segAvatar ? (
-                      <img
-                        src={segAvatar}
-                        alt={segName}
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                        style={segAvatarCropStyle}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[var(--muted-foreground)]">
-                        {segName[0]?.toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 max-w-[min(32rem,calc(100%-2.5rem))]">
-                    <div className="mb-0.5 flex items-baseline gap-2">
-                      <span className="truncate text-[0.75rem] font-semibold" style={nameColorStyle(segColor)}>
-                        {segName}
-                      </span>
-                      {isFirst && !hideTimestamp && (
-                        <span className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)]/60">
-                          {formatTimestamp(message.createdAt)}
-                        </span>
+                  <div className="flex items-end gap-2">
+                    <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[var(--accent)]">
+                      {segAvatar ? (
+                        <img
+                          src={segAvatar}
+                          alt={segName}
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                          style={segAvatarCropStyle}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[var(--muted-foreground)]">
+                          {segName[0]?.toUpperCase()}
+                        </div>
                       )}
-                      {segAddButton}
                     </div>
-                    <div
-                      className="mari-message-bubble texting-bubble texting-bubble-other rounded-2xl px-3.5 py-2 text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap shadow-sm"
-                      style={messageTextStyle}
-                    >
-                      <MessageContent
-                        content={combinedText}
-                        mentionNames={mentionNames}
-                        emojiMap={emojiMap}
-                        stickerMap={stickerMap}
-                        onImageOpen={(url) => onImageOpen(url)}
-                        selfCharacterId={segSelfId}
-                      galleryIndex={galleryIndex}
-                      />
+                    <div className="min-w-0 max-w-[min(32rem,calc(100%-2.5rem))]">
+                      <div className="mb-0.5 flex items-baseline gap-2">
+                        <span className="truncate text-[0.75rem] font-semibold" style={nameColorStyle(segColor)}>
+                          {segName}
+                        </span>
+                        {isFirst && !hideTimestamp && (
+                          <span className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)]/60">
+                            {formatTimestamp(message.createdAt)}
+                          </span>
+                        )}
+                        {segAddButton}
+                      </div>
+                      <div
+                        className="mari-message-bubble texting-bubble texting-bubble-other rounded-2xl px-3.5 py-2 text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap shadow-sm"
+                        style={messageTextStyle}
+                      >
+                        <MessageContent
+                          content={combinedText}
+                          mentionNames={mentionNames}
+                          emojiMap={emojiMap}
+                          stickerMap={stickerMap}
+                          onImageOpen={(url) => onImageOpen(url)}
+                          selfCharacterId={segSelfId}
+                          galleryIndex={galleryIndex}
+                        />
+                      </div>
                     </div>
-                  </div>
                   </div>
                 </div>
                 {segReactionRow && (
@@ -313,77 +319,77 @@ export function ConversationMessageGrouped({
                 {...cardCssProps}
                 className={["animate-[fadeSlideIn_0.4s_ease-out]", i > 0 && "mt-3"].filter(Boolean).join(" ")}
               >
-                    <div className="flex gap-4">
-                      <div className="w-10 flex-shrink-0">
-                        <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[var(--accent)]">
-                          {segAvatar ? (
-                            <img
-                              src={segAvatar}
-                              alt={segName}
-                              loading="lazy"
-                              className="h-full w-full object-cover"
-                              style={segAvatarCropStyle}
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]">
-                              {segName[0]?.toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                        {isFirst && (showActions || forceShowActions || showMessageNumbers) && messageIndex != null && (
-                          <span className="mt-0.5 block text-center text-[0.5rem] font-medium text-[var(--muted-foreground)] select-none">
-                            #{messageIndex}
-                          </span>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-2 mb-0.5">
-                          <span
-                            className="text-[0.9375rem] font-semibold leading-tight hover:underline cursor-default"
-                            style={nameColorStyle(segColor)}
-                          >
-                            {segName}
-                          </span>
-                          {isFirst && !hideTimestamp && (
-                            <span className="text-[0.6875rem] text-[var(--muted-foreground)]/60">
-                              {formatTimestamp(message.createdAt)}
-                            </span>
-                          )}
-                          {segAddButton}
-                        </div>
-                        <div
-                          className="text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap"
-                          style={messageTextStyle}
-                        >
-                          <MessageContent
-                            content={paragraphs[0]!}
-                            mentionNames={mentionNames}
-                            emojiMap={emojiMap}
-                            stickerMap={stickerMap}
-                            onImageOpen={(url) => onImageOpen(url)}
-                            selfCharacterId={segSelfId}
-                          galleryIndex={galleryIndex}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    {paragraphs.slice(1).map((para, pi) => (
-                      <div
-                        key={pi}
-                        className="pl-14 mt-0.5 text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap"
-                        style={messageTextStyle}
-                      >
-                        <MessageContent
-                          content={para}
-                          mentionNames={mentionNames}
-                          emojiMap={emojiMap}
-                          stickerMap={stickerMap}
-                          onImageOpen={(url) => onImageOpen(url)}
-                          selfCharacterId={segSelfId}
-                        galleryIndex={galleryIndex}
+                <div className="flex gap-4">
+                  <div className="w-10 flex-shrink-0">
+                    <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[var(--accent)]">
+                      {segAvatar ? (
+                        <img
+                          src={segAvatar}
+                          alt={segName}
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                          style={segAvatarCropStyle}
                         />
-                      </div>
-                    ))}
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]">
+                          {segName[0]?.toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    {isFirst && (showActions || forceShowActions || showMessageNumbers) && messageIndex != null && (
+                      <span className="mt-0.5 block text-center text-[0.5rem] font-medium text-[var(--muted-foreground)] select-none">
+                        #{messageIndex}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2 mb-0.5">
+                      <span
+                        className="text-[0.9375rem] font-semibold leading-tight hover:underline cursor-default"
+                        style={nameColorStyle(segColor)}
+                      >
+                        {segName}
+                      </span>
+                      {isFirst && !hideTimestamp && (
+                        <span className="text-[0.6875rem] text-[var(--muted-foreground)]/60">
+                          {formatTimestamp(message.createdAt)}
+                        </span>
+                      )}
+                      {segAddButton}
+                    </div>
+                    <div
+                      className="text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap"
+                      style={messageTextStyle}
+                    >
+                      <MessageContent
+                        content={paragraphs[0]!}
+                        mentionNames={mentionNames}
+                        emojiMap={emojiMap}
+                        stickerMap={stickerMap}
+                        onImageOpen={(url) => onImageOpen(url)}
+                        selfCharacterId={segSelfId}
+                        galleryIndex={galleryIndex}
+                      />
+                    </div>
+                  </div>
+                </div>
+                {paragraphs.slice(1).map((para, pi) => (
+                  <div
+                    key={pi}
+                    className="pl-14 mt-0.5 text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap"
+                    style={messageTextStyle}
+                  >
+                    <MessageContent
+                      content={para}
+                      mentionNames={mentionNames}
+                      emojiMap={emojiMap}
+                      stickerMap={stickerMap}
+                      onImageOpen={(url) => onImageOpen(url)}
+                      selfCharacterId={segSelfId}
+                      galleryIndex={galleryIndex}
+                    />
+                  </div>
+                ))}
               </div>
               {segReactionRow && <div className="mari-message-reactions-row pl-14 mt-1">{segReactionRow}</div>}
             </Fragment>

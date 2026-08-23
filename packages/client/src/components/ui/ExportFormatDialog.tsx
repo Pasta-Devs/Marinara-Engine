@@ -79,7 +79,9 @@ export function ExportFormatDialog({
             onClick={onClose}
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           >
-            <X size="0.875rem" />{localizeUi("chat.delete.dialog.cancel")}</button>
+            <X size="0.875rem" />
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
         </div>
       </div>
     </Modal>

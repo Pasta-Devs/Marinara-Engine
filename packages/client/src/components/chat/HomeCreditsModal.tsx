@@ -6,7 +6,7 @@ const FONT_AWESOME_D20_SOURCE_URL = "https://github.com/FortAwesome/Font-Awesome
 const CC_BY_4_0_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/";
 
 const CONTRIBUTORS = [
-  { login: "SpicyMarinara", url: "https://github.com/SpicyMarinara", contributions: 2635 },
+  { login: "SpicyMarinara", url: "https://github.com/SpicyMarinara", contributions: 2650 },
   { login: "kolacheee", url: "https://github.com/kolacheee", contributions: 485 },
   { login: "Gunterlie", url: "https://github.com/Gunterlie", contributions: 363 },
   { login: "thetopham", url: "https://github.com/thetopham", contributions: 336 },
@@ -122,9 +122,7 @@ export function HomeCreditsModal({ open, onClose }: { open: boolean; onClose: ()
             <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
               {t("home.credits.contributors")}
             </h3>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {t("home.credits.contributorsDescription")}
-            </p>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">{t("home.credits.contributorsDescription")}</p>
           </div>
           <div className="grid max-h-[18rem] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
             {CONTRIBUTORS.map((contributor) => (

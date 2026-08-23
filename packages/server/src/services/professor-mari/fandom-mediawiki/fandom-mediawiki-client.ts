@@ -224,7 +224,11 @@ export class FandomMediaWikiClient {
     this.maxConcurrentPerHost = options.maxConcurrentPerHost ?? DEFAULT_MAX_CONCURRENT_PER_HOST;
   }
 
-  async findWikis(args: { query: string; lang?: string; limit?: number }): Promise<ProfessorMariWikiPayload<{ results: FandomWikiRef[]; total?: number }>> {
+  async findWikis(args: {
+    query: string;
+    lang?: string;
+    limit?: number;
+  }): Promise<ProfessorMariWikiPayload<{ results: FandomWikiRef[]; total?: number }>> {
     return this.wrap(undefined, async () => {
       const limit = normalizeLimit(args.limit, 10, 50);
       const url = serviceUrl("/unified-search/community-search", {
@@ -234,7 +238,10 @@ export class FandomMediaWikiClient {
       });
       const json = await this.getJson(url, this.searchCacheTtlMs);
       const results = Array.isArray(json.results)
-        ? json.results.filter(isRecord).map(wikiRefFromCommunityResult).filter((entry): entry is FandomWikiRef => !!entry)
+        ? json.results
+            .filter(isRecord)
+            .map(wikiRefFromCommunityResult)
+            .filter((entry): entry is FandomWikiRef => !!entry)
         : [];
       for (const wiki of results) this.cacheWiki(wiki);
       return ok(undefined, { results, total: numberValue(json.totalResultsFound) });
@@ -257,7 +264,10 @@ export class FandomMediaWikiClient {
       });
       const json = await this.getJson(url, this.searchCacheTtlMs);
       const results = Array.isArray(json.results)
-        ? json.results.filter(isRecord).map(resultFromServicePage).filter((entry): entry is WikiSearchResult => !!entry)
+        ? json.results
+            .filter(isRecord)
+            .map(resultFromServicePage)
+            .filter((entry): entry is WikiSearchResult => !!entry)
         : [];
       return ok(undefined, {
         results,
@@ -383,7 +393,11 @@ export class FandomMediaWikiClient {
           followRedirects: args.followRedirects ?? true,
         });
         const source = sourcePage.source ?? "";
-        const truncated = truncateUtf8(source, this.contentMaxBytes, "call mari wiki sections first, then fetch a specific section");
+        const truncated = truncateUtf8(
+          source,
+          this.contentMaxBytes,
+          "call mari wiki sections first, then fetch a specific section",
+        );
         truncation = truncated.truncation;
         pageData = {
           title: sourcePage.title,
@@ -402,9 +416,19 @@ export class FandomMediaWikiClient {
         });
         const html = stringValue(parsed.parse?.text) ?? "";
         const text = stripHtml(html);
-        const truncated = truncateUtf8(text, this.contentMaxBytes, "call mari wiki sections first, then fetch a specific section");
+        const truncated = truncateUtf8(
+          text,
+          this.contentMaxBytes,
+          "call mari wiki sections first, then fetch a specific section",
+        );
         truncation = truncated.truncation;
-        pageData = this.pageDataFromParse(wiki, parsed, content, truncated.text, content === "html" ? "htmlText" : "content");
+        pageData = this.pageDataFromParse(
+          wiki,
+          parsed,
+          content,
+          truncated.text,
+          content === "html" ? "htmlText" : "content",
+        );
       } else {
         const sourcePage = await this.fetchSourcePage(wiki, {
           title,
@@ -433,7 +457,10 @@ export class FandomMediaWikiClient {
   }): Promise<ProfessorMariWikiPayload<{ pages: WikiPageData[]; missing: string[] }>> {
     const wiki = await this.resolveWiki(args.wiki);
     return this.wrap(wiki, async () => {
-      const titles = args.titles.map((title) => title.trim()).filter(Boolean).slice(0, 50);
+      const titles = args.titles
+        .map((title) => title.trim())
+        .filter(Boolean)
+        .slice(0, 50);
       if (titles.length === 0) throw new WikiClientError("invalid_input", "Provide at least one page title.");
       const pages: WikiPageData[] = [];
       const missing: string[] = [];
@@ -458,7 +485,9 @@ export class FandomMediaWikiClient {
     pageUrl?: string;
     section?: string;
     content?: "none" | "source" | "html";
-  }): Promise<ProfessorMariWikiPayload<{ title: string; url: string; sections: WikiSection[]; sectionContent?: WikiPageData }>> {
+  }): Promise<
+    ProfessorMariWikiPayload<{ title: string; url: string; sections: WikiSection[]; sectionContent?: WikiPageData }>
+  > {
     const pageRef = args.pageUrl ? pageRefFromUrl(args.pageUrl) : null;
     const wiki = await this.resolveWiki(args.wiki ?? pageRef?.wiki);
     return this.wrap(wiki, async () => {
@@ -525,7 +554,9 @@ export class FandomMediaWikiClient {
     regex?: boolean;
     caseSensitive?: boolean;
     contextLines?: number;
-  }): Promise<ProfessorMariWikiPayload<{ title: string; query: string; matches: WikiPageSearchMatch[]; matchCount: number }>> {
+  }): Promise<
+    ProfessorMariWikiPayload<{ title: string; query: string; matches: WikiPageSearchMatch[]; matchCount: number }>
+  > {
     const pageRef = args.pageUrl ? pageRefFromUrl(args.pageUrl) : null;
     const wiki = await this.resolveWiki(args.wiki ?? pageRef?.wiki);
     return this.wrap(wiki, async () => {
@@ -590,7 +621,9 @@ export class FandomMediaWikiClient {
         const json = await this.mediaWiki(wiki, {
           action: "query",
           meta: "siteinfo",
-          siprop: includeStatistics ? "general|namespaces|namespacealiases|statistics" : "general|namespaces|namespacealiases",
+          siprop: includeStatistics
+            ? "general|namespaces|namespacealiases|statistics"
+            : "general|namespaces|namespacealiases",
           format: "json",
           formatversion: 2,
         });
@@ -639,7 +672,10 @@ export class FandomMediaWikiClient {
     const query = isRecord(json.query) ? json.query : {};
     const page = Array.isArray(query.pages) ? query.pages.find(isRecord) : undefined;
     if (!page || page.missing === true) {
-      throw new WikiClientError("not_found", "Page not found.", { wiki, page: { title: args.title, pageId: args.pageId } });
+      throw new WikiClientError("not_found", "Page not found.", {
+        wiki,
+        page: { title: args.title, pageId: args.pageId },
+      });
     }
     const revision = extractRevisionContent(page);
     const title = stringValue(page.title) ?? args.title ?? String(args.pageId ?? "");
@@ -674,7 +710,10 @@ export class FandomMediaWikiClient {
       formatversion: 2,
     });
     if (!isRecord(json.parse)) {
-      throw new WikiClientError("not_found", "Page not found.", { wiki, page: { title: args.title, pageId: args.pageId } });
+      throw new WikiClientError("not_found", "Page not found.", {
+        wiki,
+        page: { title: args.title, pageId: args.pageId },
+      });
     }
     return { parse: json.parse };
   }
@@ -716,11 +755,17 @@ export class FandomMediaWikiClient {
       key,
       async () => {
         const json = await this.fetchJson(url);
-        if (!isRecord(json)) throw new WikiClientError("upstream_failure", "Fandom returned a non-object JSON response.");
+        if (!isRecord(json))
+          throw new WikiClientError("upstream_failure", "Fandom returned a non-object JSON response.");
         if (isRecord(json.error)) {
           const code = stringValue(json.error.code);
           const info = stringValue(json.error.info) ?? "MediaWiki API error.";
-          const category = code === "missingtitle" ? "not_found" : code === "permissiondenied" ? "permission_denied" : "upstream_failure";
+          const category =
+            code === "missingtitle"
+              ? "not_found"
+              : code === "permissiondenied"
+                ? "permission_denied"
+                : "upstream_failure";
           throw new WikiClientError(category, info);
         }
         return json;
@@ -760,7 +805,8 @@ export class FandomMediaWikiClient {
 
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get("location");
-        if (!location) throw new WikiClientError("upstream_failure", "Fandom API redirected without a Location header.");
+        if (!location)
+          throw new WikiClientError("upstream_failure", "Fandom API redirected without a Location header.");
         const next = new URL(location, url);
         assertSafeRedirect(url, next);
         return this.fetchJson(next, redirects + 1);

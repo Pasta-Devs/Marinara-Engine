@@ -1,10 +1,6 @@
 import { createInstance, type TOptions } from "i18next";
 import { initReactI18next } from "react-i18next";
-import {
-  APP_LANGUAGE_OPTIONS,
-  loadLocaleResource,
-  resolveSupportedLocale,
-} from "./locale-loader";
+import { APP_LANGUAGE_OPTIONS, loadLocaleResource, resolveSupportedLocale } from "./locale-loader";
 import { DEFAULT_APP_LANGUAGE, type AppLanguage, type LocaleMetadata } from "./locale-types";
 
 const loadedMetadata = new Map<string, LocaleMetadata>();
@@ -107,8 +103,5 @@ export function findEnglishMessageKey(message: string, locale?: string): string 
   if (!keys?.length) return undefined;
   if (!locale || locale === DEFAULT_APP_LANGUAGE) return keys[0];
 
-  return (
-    keys.find((key) => typeof i18n.getResource(locale, "translation", key) === "string") ??
-    keys[0]
-  );
+  return keys.find((key) => typeof i18n.getResource(locale, "translation", key) === "string") ?? keys[0];
 }

@@ -84,7 +84,7 @@ export function CustomEmojiTagButton({
 
   async function rename() {
     const input = await showPromptDialog({
-      title:localizeUi("ui.chat.chatbranchselector.rename"),
+      title: localizeUi("ui.chat.chatbranchselector.rename"),
       message: NAME_PROMPT_MESSAGE,
       defaultValue: image.customName ?? "",
       placeholder: "e.g. kekw",
@@ -137,7 +137,14 @@ export function CustomEmojiTagButton({
           const rect = e.currentTarget.getBoundingClientRect();
           setMenu({ x: rect.left, y: rect.bottom + 4 });
         }}
-        title={tagged ?localizeUi("ui.ui.customemojitagbutton.value1Value2", { value1: image.customKind, value2: image.customName }) :localizeUi("ui.ui.customemojitagbutton.tagAsEmojiOrSticker")}
+        title={
+          tagged
+            ? localizeUi("ui.ui.customemojitagbutton.value1Value2", {
+                value1: image.customKind,
+                value2: image.customName,
+              })
+            : localizeUi("ui.ui.customemojitagbutton.tagAsEmojiOrSticker")
+        }
         className={cn(
           "absolute left-1 top-1 z-10 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded-lg px-1.5 py-1 text-white transition-opacity",
           tagged

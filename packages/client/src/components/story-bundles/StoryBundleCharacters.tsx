@@ -72,12 +72,7 @@ function CroppedAvatarImage({
 
   return (
     <div className={cn("relative shrink-0 overflow-hidden rounded-full", className)}>
-      <img
-        src={avatarPath}
-        alt={alt}
-        className="h-full w-full object-cover"
-        style={cropStyle}
-      />
+      <img src={avatarPath} alt={alt} className="h-full w-full object-cover" style={cropStyle} />
     </div>
   );
 }
@@ -112,10 +107,7 @@ export function StoryBundleCharacters({
     });
   }, [characters, selectedIds, validCharacterIds, search]);
 
-  const visibleAvailable = useMemo(
-    () => available.slice(0, characterPickerLimit),
-    [available, characterPickerLimit],
-  );
+  const visibleAvailable = useMemo(() => available.slice(0, characterPickerLimit), [available, characterPickerLimit]);
 
   const selectedCharacters = useMemo(
     () => characters.filter((c) => selectedIds.has(c.id) && validCharacterIds.has(c.id)),
@@ -144,9 +136,7 @@ export function StoryBundleCharacters({
     if (!selectedGroupId) return;
     const folder = characterFolders.find((f) => f.id === selectedGroupId);
     if (!folder) return;
-    const newIds = folder.characterIds.filter(
-      (id) => !selectedIds.has(id) && validCharacterIds.has(id),
-    );
+    const newIds = folder.characterIds.filter((id) => !selectedIds.has(id) && validCharacterIds.has(id));
     if (newIds.length === 0) return;
     const next = new Set(selectedIds);
     for (const id of newIds) next.add(id);
@@ -167,7 +157,10 @@ export function StoryBundleCharacters({
 
         <div className="mb-3 flex items-center gap-2">
           <div className="relative flex-1">
-            <Search size="0.875rem" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
+            <Search
+              size="0.875rem"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+            />
             <input
               data-testid="story-bundle-editor-characters-search"
               type="text"
@@ -201,16 +194,10 @@ export function StoryBundleCharacters({
                   onClick={() => handleToggle(char.id)}
                   className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-all hover:bg-[var(--accent)]"
                 >
-                  <CroppedAvatarImage
-                    avatarPath={char.avatarPath}
-                    alt={name}
-                    className="h-7 w-7"
-                  />
+                  <CroppedAvatarImage avatarPath={char.avatarPath} alt={name} className="h-7 w-7" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-[var(--foreground)]">{name}</div>
-                    {title && (
-                      <div className="truncate text-xs text-[var(--muted-foreground)]">{title}</div>
-                    )}
+                    {title && <div className="truncate text-xs text-[var(--muted-foreground)]">{title}</div>}
                   </div>
                   <Plus size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
                 </button>
@@ -222,7 +209,8 @@ export function StoryBundleCharacters({
                 onClick={() => setCharacterPickerLimit((limit) => limit + CHARACTER_PICKER_PAGE_SIZE)}
                 className="w-full rounded-md px-2 py-1.5 text-center text-xs text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
               >
-                {t("storyBundles.loadMore", "Load more")} ({visibleAvailable.length} {t("storyBundles.of", "of")} {available.length})
+                {t("storyBundles.loadMore", "Load more")} ({visibleAvailable.length} {t("storyBundles.of", "of")}{" "}
+                {available.length})
               </button>
             )}
           </div>
@@ -241,9 +229,7 @@ export function StoryBundleCharacters({
       {/* Groups */}
       {characterFolders.length > 0 && (
         <section>
-          <h3 className="mari-chrome-text-strong mb-3 text-sm font-semibold">
-            {t("storyBundles.groups", "Groups")}
-          </h3>
+          <h3 className="mari-chrome-text-strong mb-3 text-sm font-semibold">{t("storyBundles.groups", "Groups")}</h3>
           <div className="flex items-center gap-2">
             <select
               data-testid="story-bundle-editor-characters-group-select"
@@ -286,20 +272,11 @@ export function StoryBundleCharacters({
               const name = getCharacterName(char);
               const title = getCharacterTitle(char);
               return (
-                <div
-                  key={char.id}
-                  className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
-                >
-                  <CroppedAvatarImage
-                    avatarPath={char.avatarPath}
-                    alt={name}
-                    className="h-7 w-7"
-                  />
+                <div key={char.id} className="flex items-center gap-2.5 rounded-md px-2 py-1.5">
+                  <CroppedAvatarImage avatarPath={char.avatarPath} alt={name} className="h-7 w-7" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-[var(--foreground)]">{name}</div>
-                    {title && (
-                      <div className="truncate text-xs text-[var(--muted-foreground)]">{title}</div>
-                    )}
+                    {title && <div className="truncate text-xs text-[var(--muted-foreground)]">{title}</div>}
                   </div>
                   <button
                     data-testid={`story-bundle-editor-characters-remove-${char.id}`}

@@ -7,7 +7,12 @@ import {
   type CapabilityLanguageModelMessage,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
-import { fitMessagesToContext, type BaseLLMProvider, type ChatMessage, type ChatOptions } from "../llm/base-provider.js";
+import {
+  fitMessagesToContext,
+  type BaseLLMProvider,
+  type ChatMessage,
+  type ChatOptions,
+} from "../llm/base-provider.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { unwrapConnectionAdmissionProvider } from "../generation/connection-admission.js";
@@ -87,7 +92,7 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
   };
   const defaultConnection = async (model?: string, preferAgentDefault = false) => {
     const connection = preferAgentDefault
-      ? (await connections.getDefaultForAgents()) ?? (await connections.getDefault())
+      ? ((await connections.getDefaultForAgents()) ?? (await connections.getDefault()))
       : await connections.getDefault();
     if (!connection) throw new Error("Choose a language model connection before generating content.");
     const resolved = await fromConnection(connection.id, model);
@@ -104,7 +109,8 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
       return resolved;
     },
     async resolveForRequest(request) {
-      let connectionId = request.connectionId ?? (await connections.getDefaultForAgents())?.id ?? request.chatConnectionId;
+      let connectionId =
+        request.connectionId ?? (await connections.getDefaultForAgents())?.id ?? request.chatConnectionId;
       if (connectionId === "random") connectionId = await resolveRandomConnectionId();
       if (connectionId) {
         const resolved = await fromConnection(connectionId, request.model);

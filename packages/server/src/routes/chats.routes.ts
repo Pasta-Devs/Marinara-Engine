@@ -25,6 +25,7 @@ import {
   coerceGameStateTextValue,
   normalizeWorldCustomFields,
   normalizeTrackerFieldLocks,
+  normalizeInventoryTrackerPlayerStats,
   normalizeTrackerHiddenFields,
   HOME_FEED_SPRITE_EXPRESSION_MAX_LENGTH,
   parseTrackerFieldLocks,
@@ -57,6 +58,7 @@ import {
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import { createGameStateStorage, type GameStateVisibleAnchor } from "../services/storage/game-state.storage.js";
 import {
@@ -119,6 +121,7 @@ import {
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
 import { npcAvatarSlug, sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
 import { buildCommittedTrackerContextBlock } from "../services/generation/committed-tracker-context.js";
+import { normalizeBeholderState } from "../services/agents/beholder-state.js";
 import { parseLorebookWriteApprovalText } from "./generate/agent-write-approval.js";
 import { persistLorebookKeeperUpdates } from "./generate/lorebook-keeper-utils.js";
 import {
@@ -270,6 +273,10 @@ function normalizeMemoryRecallImportChunk(value: unknown, importedAt: string): C
   return {
     content: value.content,
     embedding: normalizeMemoryEmbedding(value.embedding),
+    embeddingSpaceId:
+      typeof value.embeddingSpaceId === "string" && value.embeddingSpaceId.trim()
+        ? value.embeddingSpaceId.trim()
+        : null,
     messageCount,
     firstMessageAt,
     lastMessageAt,
@@ -347,7 +354,8 @@ async function loadLatestChatGameSnapshot(
 
 function formatPeekTrackerContextBlock(args: {
   wrapFormat: TrackerWrapFormat;
-  snap: typeof gameStateSnapshots.$inferSelect;
+  snap: typeof gameStateSnapshots.$inferSelect | null;
+  beholderState?: unknown;
   chatMeta: Record<string, unknown>;
   chatEnableAgents: boolean;
   activeAgentIds: string[];
@@ -356,6 +364,7 @@ function formatPeekTrackerContextBlock(args: {
     chatEnableAgents: args.chatEnableAgents,
     activeAgentIds: args.activeAgentIds,
     latestGameState: args.snap,
+    beholderState: args.beholderState,
     chatMetadata: args.chatMeta,
     wrapFormat: args.wrapFormat,
   });
@@ -1783,6 +1792,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       .select({
         content: memoryChunks.content,
         embedding: memoryChunks.embedding,
+        embeddingSpaceId: memoryChunks.embeddingSpaceId,
         messageCount: memoryChunks.messageCount,
         firstMessageAt: memoryChunks.firstMessageAt,
         lastMessageAt: memoryChunks.lastMessageAt,
@@ -1802,6 +1812,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       chunks: chunks.map((chunk) => ({
         content: chunk.content,
         embedding: parseMemoryEmbedding(chunk.embedding),
+        embeddingSpaceId: chunk.embeddingSpaceId,
         messageCount: chunk.messageCount,
         firstMessageAt: chunk.firstMessageAt,
         lastMessageAt: chunk.lastMessageAt,
@@ -1877,6 +1888,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           chatId: req.params.id,
           content: chunk.content,
           embedding: chunk.embedding ? JSON.stringify(chunk.embedding) : null,
+          embeddingSpaceId: chunk.embedding ? (chunk.embeddingSpaceId ?? null) : null,
           messageCount: chunk.messageCount,
           sourceChatId: importedSourceChatId,
           firstMessageAt: chunk.firstMessageAt,
@@ -2329,7 +2341,20 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (body.worldCustomFields !== undefined)
       fields.worldCustomFields = normalizeWorldCustomFields(body.worldCustomFields);
     if (body.presentCharacters !== undefined) fields.presentCharacters = body.presentCharacters as any[];
-    if (body.playerStats !== undefined) fields.playerStats = body.playerStats;
+    // Repair the Inventory Tracker arrays on the way in. Without this the agent
+    // apply path is the only writer that enforces row shape, quantity bounds, and
+    // the equipped/carried split — an older client, a direct API call, or the
+    // Agent Suite editor could persist rows the agent itself could never produce.
+    //
+    // The normalizer only repairs the three tracker arrays and hands anything that is
+    // not an object straight back, so the shape of `playerStats` itself is checked here.
+    // `null` stays allowed: that is how a caller clears the stats.
+    if (body.playerStats !== undefined) {
+      if (body.playerStats !== null && !isRecord(body.playerStats)) {
+        return reply.status(400).send({ error: "playerStats must be an object or null" });
+      }
+      fields.playerStats = normalizeInventoryTrackerPlayerStats(body.playerStats);
+    }
     if (body.personaStats !== undefined) fields.personaStats = body.personaStats as any[];
     if (body.fieldLocks !== undefined) fields.fieldLocks = normalizeTrackerFieldLocks(body.fieldLocks);
     if (body.hiddenTrackerFields !== undefined)
@@ -3067,13 +3092,21 @@ export async function chatsRoutes(app: FastifyInstance) {
             impersonateBlockAgents: false,
           });
           if (chatEnableAgents && activeAgentIds.length > 0) {
-            const snap = projectGameSnapshotLocation(
-              await loadLatestChatGameSnapshot(app, req.params.id, visibleGameStateAnchor),
-              ownerSpatialProjection,
-            );
-            const contextBlock = snap
-              ? formatPeekTrackerContextBlock({ wrapFormat, snap, chatMeta, chatEnableAgents, activeAgentIds })
-              : null;
+            const [gameSnapshot, beholderRun] = await Promise.all([
+              loadLatestChatGameSnapshot(app, req.params.id, visibleGameStateAnchor),
+              activeAgentIds.includes("beholder")
+                ? createAgentsStorage(app.db).getLastSuccessfulRunByType("beholder", req.params.id)
+                : Promise.resolve(null),
+            ]);
+            const snap = projectGameSnapshotLocation(gameSnapshot, ownerSpatialProjection);
+            const contextBlock = formatPeekTrackerContextBlock({
+              wrapFormat,
+              snap,
+              beholderState: normalizeBeholderState(beholderRun?.resultData),
+              chatMeta,
+              chatEnableAgents,
+              activeAgentIds,
+            });
 
             if (contextBlock) {
               assembled.messages.splice(findTrackerContextInsertIndex(assembled.messages), 0, {
@@ -3873,24 +3906,24 @@ export async function chatsRoutes(app: FastifyInstance) {
     // them to the new branch's message IDs. Copying all snapshots (not just the latest)
     // ensures that branching a branch at an earlier point finds the correct tracker state
     // for that specific message, not just the latest snapshot in the source chat.
-    const spatialStore = createSpatialContextStorage();
-    const spatialBootstrap = await spatialStore.getBootstrap(req.params.id);
-    if (spatialBootstrap) {
-      await spatialStore.replaceBootstrap({
-        chatId: newChat.id,
-        currentLocationId: spatialBootstrap.currentLocationId,
-        definitionRevision: spatialBootstrap.definitionRevision,
-        source: "branch_copy",
-        transitionCommandId: null,
-        transitionPayloadHash: null,
-      });
-    }
+    try {
+      const spatialStore = createSpatialContextStorage();
+      const spatialBootstrap = await spatialStore.getBootstrap(req.params.id);
+      if (spatialBootstrap) {
+        await spatialStore.replaceBootstrap({
+          chatId: newChat.id,
+          currentLocationId: spatialBootstrap.currentLocationId,
+          definitionRevision: spatialBootstrap.definitionRevision,
+          source: "branch_copy",
+          transitionCommandId: null,
+          transitionPayloadHash: null,
+        });
+      }
 
-    if (sourceToBranchedMessageId.size > 0) {
       const { createGameStateStorage } = await import("../services/storage/game-state.storage.js");
       const gameStateStore = createGameStateStorage(app.db);
       const gameEngineStore =
-        sourceChat.mode === "game"
+        sourceChat.mode === "game" || sourceChat.mode === "conversation"
           ? (await import("../services/storage/game-engine-state.storage.js")).createGameEngineStateStorage(app.db)
           : null;
 
@@ -3937,8 +3970,8 @@ export async function chatsRoutes(app: FastifyInstance) {
             overrides,
           );
         } catch (err) {
-          logger.warn(err, "Failed to copy tracker snapshot while branching chat");
-          // Ignore individual snapshot copy failures; branching should still succeed.
+          logger.error(err, "Failed to copy tracker snapshot while branching chat");
+          throw err;
         }
       };
       const copyEngineSnapshot = async (
@@ -3947,65 +3980,84 @@ export async function chatsRoutes(app: FastifyInstance) {
         targetSwipeIndex: number,
       ) => {
         if (!gameEngineStore) return;
-        try {
-          await gameEngineStore.create({
-            chatId: newChat.id,
-            messageId: targetMessageId,
-            swipeIndex: targetSwipeIndex,
-            gameType: snapshot.gameType,
-            schemaVersion: snapshot.schemaVersion,
-            state: snapshot.state,
-            committed: (snapshot.committed as any) === 1,
-          });
-        } catch (err) {
-          logger.warn(err, "Failed to copy turn-game engine snapshot while branching chat");
-        }
+        await gameEngineStore.create({
+          chatId: newChat.id,
+          messageId: targetMessageId,
+          swipeIndex: targetSwipeIndex,
+          gameType: snapshot.gameType,
+          schemaVersion: snapshot.schemaVersion,
+          state: snapshot.state,
+          committed: (snapshot.committed as any) === 1,
+        });
       };
 
-      for (const srcMsg of copiedSourceMessages) {
-        const branchedMsgId = sourceToBranchedMessageId.get(srcMsg.id);
-        if (!branchedMsgId) continue;
-        const swipeIndexes = sourceToCopiedSwipeIndexes.get(srcMsg.id) ?? [srcMsg.activeSwipeIndex ?? 0];
-        for (const swipeIndex of swipeIndexes) {
-          const spatialSnapshot = await spatialStore.getByAnchor(req.params.id, srcMsg.id, swipeIndex);
-          if (spatialSnapshot) {
-            await spatialStore.create({
-              chatId: newChat.id,
-              messageId: branchedMsgId,
-              swipeIndex,
-              currentLocationId: spatialSnapshot.currentLocationId,
-              definitionRevision: spatialSnapshot.definitionRevision,
-              source: "branch_copy",
-              transitionCommandId: null,
-              transitionPayloadHash: null,
-            });
-          }
-          const snapshot = await gameStateStore.getByMessage(srcMsg.id, swipeIndex);
-          if (snapshot) {
-            await copySnapshot(snapshot, branchedMsgId, swipeIndex);
-          }
-          if (gameEngineStore) {
-            const engineSnapshot = await gameEngineStore.getByChatAndMessage(req.params.id, srcMsg.id, swipeIndex);
-            if (engineSnapshot) {
-              await copyEngineSnapshot(engineSnapshot, branchedMsgId, swipeIndex);
+      if (sourceToBranchedMessageId.size > 0) {
+        for (const srcMsg of copiedSourceMessages) {
+          const branchedMsgId = sourceToBranchedMessageId.get(srcMsg.id);
+          if (!branchedMsgId) continue;
+          const swipeIndexes = sourceToCopiedSwipeIndexes.get(srcMsg.id) ?? [srcMsg.activeSwipeIndex ?? 0];
+          for (const swipeIndex of swipeIndexes) {
+            const spatialSnapshot = await spatialStore.getByAnchor(req.params.id, srcMsg.id, swipeIndex);
+            if (spatialSnapshot) {
+              await spatialStore.create({
+                chatId: newChat.id,
+                messageId: branchedMsgId,
+                swipeIndex,
+                currentLocationId: spatialSnapshot.currentLocationId,
+                definitionRevision: spatialSnapshot.definitionRevision,
+                source: "branch_copy",
+                transitionCommandId: null,
+                transitionPayloadHash: null,
+              });
+            }
+            const snapshot = await gameStateStore.getByMessage(srcMsg.id, swipeIndex);
+            if (snapshot) {
+              await copySnapshot(snapshot, branchedMsgId, swipeIndex);
+            }
+            if (gameEngineStore) {
+              // One anchor can hold a row per gameType writer (a turn-game AND an
+              // Experience, #5102) — branching must copy every one, not limit(1).
+              const engineSnapshots = await gameEngineStore.listByChatAndMessage(req.params.id, srcMsg.id, swipeIndex);
+              // Reads are newest-first; replay oldest-first so the source-effective row wins dedupe.
+              for (const engineSnapshot of engineSnapshots.reverse()) {
+                await copyEngineSnapshot(engineSnapshot, branchedMsgId, swipeIndex);
+              }
             }
           }
         }
       }
 
       // Also copy the bootstrap snapshot (messageId: "") if one exists.
-      // This is created when tracker state is set manually before any generation,
-      // and is not tied to any specific message.
+      // This is created when state is set manually before any generation and
+      // must be handled even when the source chat contains no messages.
       const bootstrap = await gameStateStore.getByChatAndMessage(req.params.id, "", 0);
       if (bootstrap) {
         await copySnapshot(bootstrap, "", 0);
       }
       if (gameEngineStore) {
-        const engineBootstrap = await gameEngineStore.getByChatAndMessage(req.params.id, "", 0);
-        if (engineBootstrap) {
+        const engineBootstraps = await gameEngineStore.listByChatAndMessage(req.params.id, "", 0);
+        // Preserve the same effective row when a legacy anchor contains history.
+        for (const engineBootstrap of engineBootstraps.reverse()) {
           await copyEngineSnapshot(engineBootstrap, "", 0);
         }
       }
+    } catch (err) {
+      try {
+        await storage.remove(newChat.id);
+      } catch (cleanupErr) {
+        logger.error(cleanupErr, "Failed to remove incomplete chat branch after state copy failed");
+      }
+      if (!sourceChat.groupId) {
+        try {
+          const remainingGroupChats = await storage.listByGroup(groupId);
+          if (remainingGroupChats.every((chat) => chat.id === sourceChat.id)) {
+            await storage.update(sourceChat.id, { groupId: null });
+          }
+        } catch (restoreErr) {
+          logger.error(restoreErr, "Failed to restore source chat grouping after branch copy failed");
+        }
+      }
+      throw err;
     }
 
     // Return the fully-updated chat (including copied metadata)

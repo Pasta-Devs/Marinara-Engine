@@ -149,14 +149,20 @@ export function ImportPersonaModal({ open, onClose }: Props) {
             className={`transition-colors ${dragOver ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}`}
           />
           <div className="text-center">
-            <p className="text-sm font-medium">{localizeUi("ui.modals.importcharactermodal.dropOneOrMoreFilesHereOrClickTo")}</p>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">{localizeUi("ui.modals.importpersonamodal.supportsJsonAndMarinaraPersonaExports")}</p>
+            <p className="text-sm font-medium">
+              {localizeUi("ui.modals.importcharactermodal.dropOneOrMoreFilesHereOrClickTo")}
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              {localizeUi("ui.modals.importpersonamodal.supportsJsonAndMarinaraPersonaExports")}
+            </p>
           </div>
           <div className="flex gap-2">
             <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-              <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.json")}</span>
+              <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.json")}
+            </span>
             <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-              <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.marinara")}</span>
+              <FileJson size="0.75rem" /> {localizeUi("ui.modals.importcharactermodal.marinara")}
+            </span>
           </div>
         </div>
 
@@ -175,7 +181,9 @@ export function ImportPersonaModal({ open, onClose }: Props) {
         {/* Status */}
         {status === "loading" && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] p-3 text-xs">
-            <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />{localizeUi("ui.modals.importconnectionmodal.importing")}</div>
+            <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />
+            {localizeUi("ui.modals.importconnectionmodal.importing")}
+          </div>
         )}
         {status === "done" && results.length > 0 && (
           <div className="flex flex-col gap-2">
@@ -187,8 +195,10 @@ export function ImportPersonaModal({ open, onClose }: Props) {
               }`}
             >
               {results.some((result) => result.success) ? <CheckCircle size="0.875rem" /> : <XCircle size="0.875rem" />}
-              {results.filter((result) => result.success).length} {localizeUi("ui.modals.importcharactermodal.succeeded")}{" "}
-              {results.filter((result) => !result.success).length} {localizeUi("ui.modals.importcharactermodal.failed")}</div>
+              {results.filter((result) => result.success).length}{" "}
+              {localizeUi("ui.modals.importcharactermodal.succeeded")}{" "}
+              {results.filter((result) => !result.success).length} {localizeUi("ui.modals.importcharactermodal.failed")}
+            </div>
             <div className="max-h-52 overflow-y-auto rounded-lg border border-[var(--border)]">
               {results.map((result) => (
                 <div
@@ -219,7 +229,9 @@ export function ImportPersonaModal({ open, onClose }: Props) {
               onClose();
             }}
             className="rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >{localizeUi("capabilities.actions.close")}</button>
+          >
+            {localizeUi("capabilities.actions.close")}
+          </button>
         </div>
       </div>
     </Modal>

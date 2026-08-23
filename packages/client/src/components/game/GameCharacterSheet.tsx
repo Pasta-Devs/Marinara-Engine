@@ -503,11 +503,23 @@ export function GameCharacterSheet({
                   onClick={() => void handleSave()}
                   disabled={isSaving || isRegenerating}
                   className="inline-flex h-8 min-w-8 items-center justify-center gap-1.5 rounded-lg bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 text-xs font-semibold text-[var(--foreground)] ring-1 ring-[var(--marinara-chat-chrome-panel-border)] transition-colors hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] disabled:opacity-60 sm:h-auto sm:min-w-0 sm:px-3 sm:py-1.5"
-                  title={isSaving ?localizeUi("ui.noodle.stageprofileform.saving") :localizeUi("ui.game.gamecharactersheet.saveSheet")}
-                  aria-label={isSaving ?localizeUi("ui.game.gamecharactersheet.savingSheet") :localizeUi("ui.game.gamecharactersheet.saveSheet_69c9b5b")}
+                  title={
+                    isSaving
+                      ? localizeUi("ui.noodle.stageprofileform.saving")
+                      : localizeUi("ui.game.gamecharactersheet.saveSheet")
+                  }
+                  aria-label={
+                    isSaving
+                      ? localizeUi("ui.game.gamecharactersheet.savingSheet")
+                      : localizeUi("ui.game.gamecharactersheet.saveSheet_69c9b5b")
+                  }
                 >
                   <Save size={13} />
-                  <span className="hidden sm:inline">{isSaving ?localizeUi("ui.noodle.stageprofileform.saving") :localizeUi("ui.game.gamecharactersheet.saveSheet")}</span>
+                  <span className="hidden sm:inline">
+                    {isSaving
+                      ? localizeUi("ui.noodle.stageprofileform.saving")
+                      : localizeUi("ui.game.gamecharactersheet.saveSheet")}
+                  </span>
                 </button>
               </>
             ) : (
@@ -602,7 +614,9 @@ export function GameCharacterSheet({
             </div>
             {card.level != null && (
               <div className="mr-16 flex items-center gap-1 rounded border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-input-bg)] px-1.5 py-0.5 sm:mr-0">
-                <span className="text-[0.4375rem] uppercase tracking-wider text-[var(--muted-foreground)]">{localizeUi("ui.game.gamecharactersheet.lvl")}</span>
+                <span className="text-[0.4375rem] uppercase tracking-wider text-[var(--muted-foreground)]">
+                  {localizeUi("ui.game.gamecharactersheet.lvl")}
+                </span>
                 <span className="text-xs font-bold leading-none text-[var(--foreground)]">{card.level}</span>
               </div>
             )}
@@ -635,7 +649,9 @@ export function GameCharacterSheet({
                     />
                   </label>
                   <label className="block space-y-1.5">
-                    <span className={FIELD_LABEL_CLASS}>{localizeUi("ui.game.gamecharactersheet.shortDescription")}</span>
+                    <span className={FIELD_LABEL_CLASS}>
+                      {localizeUi("ui.game.gamecharactersheet.shortDescription")}
+                    </span>
                     <textarea
                       value={draft.shortDescription}
                       onChange={(e) => setDraft((prev) => ({ ...prev, shortDescription: e.target.value }))}
@@ -660,7 +676,9 @@ export function GameCharacterSheet({
                       checked={draft.rpgStatsEnabled}
                       onChange={(e) => setDraft((prev) => ({ ...prev, rpgStatsEnabled: e.target.checked }))}
                       className="h-4 w-4 rounded accent-[var(--foreground)]"
-                    />{localizeUi("ui.presets.sectionstab.enable")}</label>
+                    />
+                    {localizeUi("ui.presets.sectionstab.enable")}
+                  </label>
                 </div>
                 {draft.rpgStatsEnabled ? (
                   <div className="space-y-3">
@@ -671,7 +689,9 @@ export function GameCharacterSheet({
                           onClick={addPool}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--marinara-chat-chrome-panel-border)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]"
                         >
-                          <Plus size={13} />{localizeUi("ui.game.gamecharactersheet.addPool")}</button>
+                          <Plus size={13} />
+                          {localizeUi("ui.game.gamecharactersheet.addPool")}
+                        </button>
                       </div>
                       {draft.pools.map((pool, index) => (
                         <div
@@ -683,7 +703,9 @@ export function GameCharacterSheet({
                             value={pool.color}
                             onChange={(e) => updatePool(index, { color: e.target.value })}
                             className="h-9 w-8 rounded border border-[var(--marinara-chat-chrome-panel-border)] bg-transparent p-0.5 max-sm:w-full"
-                            aria-label={localizeUi("ui.game.gamecharactersheet.value1Color", { value1: pool.name ||localizeUi("ui.game.gamecharactersheet.pool") })}
+                            aria-label={localizeUi("ui.game.gamecharactersheet.value1Color", {
+                              value1: pool.name || localizeUi("ui.game.gamecharactersheet.pool"),
+                            })}
                           />
                           <input
                             type="text"
@@ -747,11 +769,15 @@ export function GameCharacterSheet({
                         onClick={addAttribute}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--marinara-chat-chrome-panel-border)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]"
                       >
-                        <Plus size={13} />{localizeUi("ui.game.gamecharactersheet.addAttribute")}</button>
+                        <Plus size={13} />
+                        {localizeUi("ui.game.gamecharactersheet.addAttribute")}
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-[var(--muted-foreground)]">{localizeUi("ui.game.gamecharactersheet.useThisWhenTheSheetShouldTrackHpAnd")}</p>
+                  <p className="text-sm text-[var(--muted-foreground)]">
+                    {localizeUi("ui.game.gamecharactersheet.useThisWhenTheSheetShouldTrackHpAnd")}
+                  </p>
                 )}
               </div>
 
@@ -766,7 +792,9 @@ export function GameCharacterSheet({
                     onClick={() => addListItem("abilities")}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--marinara-chat-chrome-panel-border)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]"
                   >
-                    <Plus size={13} />{localizeUi("ui.characters.metadatatab.add")}</button>
+                    <Plus size={13} />
+                    {localizeUi("ui.characters.metadatatab.add")}
+                  </button>
                 </div>
                 <div className="space-y-2">
                   {draft.abilities.map((ability, index) => (
@@ -803,7 +831,9 @@ export function GameCharacterSheet({
                         onClick={() => addListItem("strengths")}
                         className="inline-flex items-center gap-1 rounded-lg border border-dashed border-[var(--marinara-chat-chrome-panel-border)] px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]"
                       >
-                        <Plus size={12} />{localizeUi("ui.characters.metadatatab.add")}</button>
+                        <Plus size={12} />
+                        {localizeUi("ui.characters.metadatatab.add")}
+                      </button>
                     </div>
                     <div className="space-y-2">
                       {draft.strengths.map((strength, index) => (
@@ -837,7 +867,9 @@ export function GameCharacterSheet({
                         onClick={() => addListItem("weaknesses")}
                         className="inline-flex items-center gap-1 rounded-lg border border-dashed border-[var(--marinara-chat-chrome-panel-border)] px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]"
                       >
-                        <Plus size={12} />{localizeUi("ui.characters.metadatatab.add")}</button>
+                        <Plus size={12} />
+                        {localizeUi("ui.characters.metadatatab.add")}
+                      </button>
                     </div>
                     <div className="space-y-2">
                       {draft.weaknesses.map((weakness, index) => (
@@ -874,9 +906,13 @@ export function GameCharacterSheet({
                     onClick={addExtraEntry}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--marinara-chat-chrome-panel-border)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]"
                   >
-                    <Plus size={13} />{localizeUi("ui.game.gamecharactersheet.addDetail")}</button>
+                    <Plus size={13} />
+                    {localizeUi("ui.game.gamecharactersheet.addDetail")}
+                  </button>
                 </div>
-                <p className="mb-3 text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.game.gamecharactersheet.addCustomDetailsLikeSkillsWeaponElementSpecialtyOr")}</p>
+                <p className="mb-3 text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.game.gamecharactersheet.addCustomDetailsLikeSkillsWeaponElementSpecialtyOr")}
+                </p>
                 <div className="space-y-2">
                   {draft.extraEntries.map((entry, index) => (
                     <div
@@ -968,7 +1004,11 @@ export function GameCharacterSheet({
 
           {card.stats && card.stats.length > 0 && (
             <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
-              <SectionHeader icon={<Shield size={12} />} title={localizeUi("editor.tabs.stats")} className="text-[var(--muted-foreground)]" />
+              <SectionHeader
+                icon={<Shield size={12} />}
+                title={localizeUi("editor.tabs.stats")}
+                className="text-[var(--muted-foreground)]"
+              />
               <div className="space-y-2">
                 {card.stats.map((stat) => {
                   const max = Math.max(1, stat.max ?? 100);
@@ -1000,7 +1040,11 @@ export function GameCharacterSheet({
 
           {!isEditing && previewGameCard && previewGameCard.abilities.length > 0 && (
             <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
-              <SectionHeader icon={<Zap size={12} />} title={localizeUi("ui.game.gamecharactersheet.abilities")} className="text-[var(--muted-foreground)]" />
+              <SectionHeader
+                icon={<Zap size={12} />}
+                title={localizeUi("ui.game.gamecharactersheet.abilities")}
+                className="text-[var(--muted-foreground)]"
+              />
               <div className="space-y-1">
                 {previewGameCard.abilities.map((ability, index) => (
                   <div
@@ -1021,7 +1065,11 @@ export function GameCharacterSheet({
                 <div className="grid grid-cols-2 gap-3">
                   {previewGameCard.strengths.length > 0 && (
                     <div>
-                      <SectionHeader icon={<Target size={11} />} title={localizeUi("ui.game.gamecharactersheet.strengths")} className="text-emerald-500/80" />
+                      <SectionHeader
+                        icon={<Target size={11} />}
+                        title={localizeUi("ui.game.gamecharactersheet.strengths")}
+                        className="text-emerald-500/80"
+                      />
                       <div className="space-y-0.5">
                         {previewGameCard.strengths.map((strength, index) => (
                           <div key={`${strength}-${index}`} className="text-[0.6875rem] text-[var(--foreground)]/70">
@@ -1053,13 +1101,15 @@ export function GameCharacterSheet({
 
           {!isEditing && previewGameCard && Object.keys(previewGameCard.extra).length > 0 && (
             <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
-              <SectionHeader icon={<Info size={12} />} title={localizeUi("ui.game.gamecharactersheet.details")} className="text-[var(--muted-foreground)]" />
+              <SectionHeader
+                icon={<Info size={12} />}
+                title={localizeUi("ui.game.gamecharactersheet.details")}
+                className="text-[var(--muted-foreground)]"
+              />
               <div className="space-y-1.5 text-xs">
                 {Object.entries(previewGameCard.extra).map(([key, value]) => (
                   <div key={key} className="flex items-start justify-between gap-3">
-                    <span className="shrink-0 capitalize text-[var(--muted-foreground)]">
-                      {key.replace(/_/g, " ")}
-                    </span>
+                    <span className="shrink-0 capitalize text-[var(--muted-foreground)]">{key.replace(/_/g, " ")}</span>
                     <span className="text-right text-[var(--foreground)]/80">{value}</span>
                   </div>
                 ))}
@@ -1069,7 +1119,11 @@ export function GameCharacterSheet({
 
           {card.inventory && card.inventory.length > 0 && (
             <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
-              <SectionHeader icon={<Swords size={12} />} title={localizeUi("ui.game.gamecharactersheet.inventory")} className="text-[var(--muted-foreground)]" />
+              <SectionHeader
+                icon={<Swords size={12} />}
+                title={localizeUi("ui.game.gamecharactersheet.inventory")}
+                className="text-[var(--muted-foreground)]"
+              />
               <div className="space-y-1">
                 {card.inventory.map((item) => (
                   <div
@@ -1087,7 +1141,10 @@ export function GameCharacterSheet({
                       )}
                     </div>
                     {item.quantity != null && item.quantity > 1 && (
-                      <span className="font-mono text-[var(--muted-foreground)]">{localizeUi("ui.panels.imagedimensionrow.x")}{item.quantity}</span>
+                      <span className="font-mono text-[var(--muted-foreground)]">
+                        {localizeUi("ui.panels.imagedimensionrow.x")}
+                        {item.quantity}
+                      </span>
                     )}
                   </div>
                 ))}
@@ -1097,7 +1154,11 @@ export function GameCharacterSheet({
 
           {card.customFields && Object.keys(card.customFields).length > 0 && (
             <div className="border-b border-[var(--marinara-chat-chrome-panel-border)] px-5 py-4">
-              <SectionHeader icon={<Sparkles size={12} />} title={localizeUi("ui.game.gamecharactersheet.traits")} className="text-[var(--muted-foreground)]" />
+              <SectionHeader
+                icon={<Sparkles size={12} />}
+                title={localizeUi("ui.game.gamecharactersheet.traits")}
+                className="text-[var(--muted-foreground)]"
+              />
               <div className="space-y-1.5 text-xs">
                 {Object.entries(card.customFields).map(([key, value]) => (
                   <div key={key} className="flex items-start justify-between gap-3">
@@ -1111,7 +1172,9 @@ export function GameCharacterSheet({
 
           {!isEditing && !hasAnyData && (
             <div className="px-5 py-8 text-center">
-              <p className="text-sm text-[var(--muted-foreground)]">{localizeUi("ui.game.gamecharactersheet.characterDataWillPopulateAsTheStoryProgresses")}</p>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                {localizeUi("ui.game.gamecharactersheet.characterDataWillPopulateAsTheStoryProgresses")}
+              </p>
             </div>
           )}
         </div>

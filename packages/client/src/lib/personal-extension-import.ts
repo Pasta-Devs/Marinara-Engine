@@ -110,10 +110,7 @@ export function normalizePersonalExtensionImportEntry(
   // packages were authored for the host page and otherwise import successfully
   // only to fail at runtime. An explicit capabilities field always wins so a
   // modern package can deliberately opt into the safe sandbox.
-  if (
-    kind === "marinara.extension" &&
-    !Object.prototype.hasOwnProperty.call(record, "capabilities")
-  ) {
+  if (kind === "marinara.extension" && !Object.prototype.hasOwnProperty.call(record, "capabilities")) {
     capabilities.push(PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY);
   }
   return {

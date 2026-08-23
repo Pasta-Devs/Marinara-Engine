@@ -87,7 +87,16 @@ export function StoryBundlesPanel() {
       setPlayingId(id);
       try {
         // Fetch the full bundle to get character/persona/preset/intro IDs
-        const bundle = await api.get<{ id: string; name: string; characterIds: string[]; personaIds: string[]; lorebookIds: string[]; presetIds: string[]; agentIds: string[]; intros?: Array<{ id: string; name: string; text: string }> }>(`/story-bundles/${id}`);
+        const bundle = await api.get<{
+          id: string;
+          name: string;
+          characterIds: string[];
+          personaIds: string[];
+          lorebookIds: string[];
+          presetIds: string[];
+          agentIds: string[];
+          intros?: Array<{ id: string; name: string; text: string }>;
+        }>(`/story-bundles/${id}`);
 
         // If the bundle has intros, let the user pick one first.
         let selectedIntroText: string | null = null;
@@ -173,7 +182,9 @@ export function StoryBundlesPanel() {
               let hasPresetVariables = false;
               if (presetId) {
                 try {
-                  const presetFull = await api.get<{ choiceBlocks?: Array<{ id: string }> }>(`/prompts/${presetId}/full`);
+                  const presetFull = await api.get<{ choiceBlocks?: Array<{ id: string }> }>(
+                    `/prompts/${presetId}/full`,
+                  );
                   hasPresetVariables = (presetFull?.choiceBlocks?.length ?? 0) > 0;
                 } catch {
                   // If we can't fetch the preset, fall through to settings.
@@ -292,9 +303,7 @@ export function StoryBundlesPanel() {
                   <div className="min-w-0 flex-1">
                     <div className="mari-chrome-text-strong truncate text-sm font-medium">{bundle.name}</div>
                     <div className="mari-chrome-text-muted truncate text-xs">
-                      {bundle.comment
-                        ? bundle.comment
-                        : new Date(bundle.createdAt).toLocaleDateString()}
+                      {bundle.comment ? bundle.comment : new Date(bundle.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                   {/* Row action pill (visible on hover / always on mobile) */}

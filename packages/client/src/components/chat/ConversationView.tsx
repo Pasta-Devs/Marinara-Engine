@@ -334,8 +334,7 @@ export function ConversationView({
   const turnGamePackages = installedCapabilities.filter(
     (item) => item.status === "active" && item.manifest.kind.includes("turn-game") && item.manifest.entrypoints.client,
   );
-  const isStreamCommitted = useChatStore((s) => s.committedStreamChatIds.has(chatId));
-  const hasLiveStream = isStreaming && !isStreamCommitted;
+  const hasLiveStream = isStreaming;
   const streamBuffer = useThrottledStreamBuffer();
   const thinkingBuffer = useChatStore((s) => s.thinkingBuffer);
   const regenerateMessageId = useChatStore((s) => s.regenerateMessageId);
@@ -437,14 +436,15 @@ export function ConversationView({
   );
   const callCapabilityProps = { chatId, metadata: chatMeta, characterMap, chatCharIds, personaInfo };
   const activeAgentIds = chatMeta.activeAgentIds;
-  const enabledConversationCapabilities = chatMeta.enableAgents === true
-    ? installedCapabilities.filter((item) => {
-        if (item.status !== "active" || !item.manifest.entrypoints.client) return false;
-        if (item.manifest.kind.includes("conversation-calls")) return false;
-        const contributedAgentIds = item.manifest.contributions?.agentDetail?.agentIds ?? [];
-        return activeAgentIds.includes(item.id) || contributedAgentIds.some((id) => activeAgentIds.includes(id));
-      })
-    : [];
+  const enabledConversationCapabilities =
+    chatMeta.enableAgents === true
+      ? installedCapabilities.filter((item) => {
+          if (item.status !== "active" || !item.manifest.entrypoints.client) return false;
+          if (item.manifest.kind.includes("conversation-calls")) return false;
+          const contributedAgentIds = item.manifest.contributions?.agentDetail?.agentIds ?? [];
+          return activeAgentIds.includes(item.id) || contributedAgentIds.some((id) => activeAgentIds.includes(id));
+        })
+      : [];
   const conversationToolbarPackages = enabledConversationCapabilities.filter((item) =>
     item.manifest.contributions?.slots?.includes("conversation-toolbar"),
   );

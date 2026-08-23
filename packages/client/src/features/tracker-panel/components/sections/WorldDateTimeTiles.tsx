@@ -4,11 +4,7 @@ import { WorldClockIcon } from "../../../../components/ui/WorldStateInstruments"
 import type { TrackerPanelSizeProfile } from "../../../../stores/ui.store";
 import type { WorldStatePresentation } from "../../lib/world-state-display";
 import { useTrackerFieldLock } from "../TrackerLockContext";
-import {
-  WORLD_INSTRUMENT_TEXT_STYLE,
-  WorldRenderedEdit,
-  WorldValueText,
-} from "./WorldEditableTile";
+import { WORLD_INSTRUMENT_TEXT_STYLE, WorldRenderedEdit, WorldValueText } from "./WorldEditableTile";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 const WORLD_DATE_TIME_PROFILE_STYLES: Record<

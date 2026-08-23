@@ -8,7 +8,7 @@ Haptic feedback lets an AI character send touch cues to a connected haptic devic
 
 **Intiface Central** speaks a device protocol called **Buttplug.io**. This is the same open standard that many toys and other apps support. You install **Intiface Central** once, pair your device with it, and Marinara connects to it over a local network address.
 
-Haptic feedback is built as one of the chat **Agents**, the AI helpers you can add to a chat. It works in Conversation mode and Roleplay mode. It is not available in Game Mode.
+Haptic feedback is built as one of the chat **Agents**, the AI helpers you can add to a chat. It works in Conversation, Roleplay, and Game modes.
 
 ## Before you start
 
@@ -29,7 +29,7 @@ If **Intiface Central** is not running with its server started, Marinara cannot 
 
 You add haptic feedback the same way you add any other agent, from the chat's settings.
 
-1. Open a Conversation or Roleplay chat. Haptic feedback is not offered in Game Mode.
+1. Open a Conversation, Roleplay, or Game chat.
 2. Open **Chat Settings** for that chat.
 3. Go to the **Agents** section.
 4. Add the **Haptic Feedback** agent to the chat.
@@ -49,7 +49,13 @@ To connect by hand, click **Connect**. If it works, the row shows "Connected" wi
 
 If it fails, you see a message that says the app could not connect. It asks you to make sure **Intiface Central** is running and the server is started. The message includes a link to the **Intiface Central** website.
 
-Once connected, the card shows how many devices are found. It reads "No devices found" when none are attached, or the number of devices when some are. Click **Scan for devices** to search again. The button reads "Scanning..." while a scan runs. The card lists each device with its name and the actions it supports, such as vibrate or rotate.
+Once connected, the card shows how many devices are found. It reads "No devices found" when none are attached, or the number of devices when some are. Click **Scan for devices** to search again. The button reads "Scanning..." while a scan runs. The card lists each device with its exact Intiface name and the actions it supports. Marinara also gives that name, a capability-derived toy type, and the supported actions to the Haptic Agent so it can select the correct device and action instead of assuming every toy is a vibrator.
+
+## Supported actions and patterns
+
+Marinara uses every output type Intiface reports for a connected device: vibration, rotation, oscillation, constriction, inflation, linear position, temperature, spray, and lighting. Linear position controls stroking, thrusting, or pumping devices; inflation controls air-pressure pumping devices.
+
+The Agent can apply **Steady**, **Tap**, **Pulse**, **Wave**, **Ramp**, or **Impact** patterns to any non-stop action. Positional patterns alternate real movement targets, so a pumping or stroking pattern is executed over time instead of sending several movements at once.
 
 ### The Intiface URL field
 
@@ -69,23 +75,23 @@ ws://192.168.1.50:12345
 
 ## Touch sensitivity
 
-In a Roleplay chat, the **Haptic Feedback** card shows a **Touch sensitivity** control with three choices. A small "Roleplay only" note sits next to it. This control only affects Roleplay chats. In other modes, the sensitivity setting is ignored, and cues are not limited by these presets.
+The **Haptic Feedback** card shows a **Touch sensitivity** control with three choices in every chat mode. Sensitivity guides how readily the Agent selects gentle or strong output; it does not impose a hard ceiling. Every choice can use the full `0.0-1.0` device intensity range when the current action calls for it.
 
-The three choices set how strong and how long each cue can be.
+The three choices guide the Agent's response style.
 
 | Choice | Feel | Notes |
 |---|---|---|
-| **Subtle** | Lower intensity and shorter feedback | Gentlest option |
-| **Standard** | Balanced feedback for most scenes | The default |
-| **Intense** | Stronger feedback with a higher cap | Strongest option |
+| **Subtle** | Favors gentler feedback | Full range remains available |
+| **Standard** | Balanced feedback for most scenes | The default; full range available |
+| **Intense** | Chooses stronger feedback more readily | Can use full output |
 
-**Standard** is selected by default. Pick the one that feels right for your scene. In Roleplay chats, Marinara limits every cue to the range set by your choice. The AI cannot go past it.
+**Standard** is selected by default. Pick the response style that feels right for your scene. Marinara still validates every command against Intiface's physical `0.0-1.0` range.
 
 ## Incidental contact
 
-Below the sensitivity control, Roleplay chats also show an **Incidental contact** toggle. It reads "Tiny taps for accidental brushes and bumps." This toggle is off by default.
+Below the sensitivity control, every chat mode also shows an **Incidental contact** toggle. It reads "Tiny taps for accidental brushes and bumps." This toggle is off by default.
 
-When it is off, the AI ignores small accidental touches in the story. It only sends cues for deliberate or firm contact. Turn it on if you want small taps for brushes and bumps too. Like touch sensitivity, this control only appears in Roleplay chats.
+When it is off, the AI ignores small accidental touches in the story. It only sends cues for deliberate or firm contact. Turn it on if you want small taps for brushes and bumps too.
 
 ## Using it from another device
 

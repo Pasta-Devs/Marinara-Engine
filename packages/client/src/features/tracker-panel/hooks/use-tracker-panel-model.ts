@@ -10,11 +10,7 @@ import {
 import { useChat, useChatMessagePeek } from "../../../hooks/use-chats";
 import type { TrackerDataPanelSection } from "../../../stores/ui.store";
 import { TRACKER_FEATURED_CHARACTER_META_KEY, TRACKER_SECTION_AGENT_TYPES } from "../lib/tracker-panel.constants";
-import {
-  normalizeMaybeJsonStringArray,
-  normalizeStringArray,
-  parseRecord,
-} from "../lib/tracker-metadata";
+import { normalizeMaybeJsonStringArray, normalizeStringArray, parseRecord } from "../lib/tracker-metadata";
 import { resolveSpriteExpressionState } from "../../../lib/sprite-expression-state";
 import { useTrackerSpriteLookup } from "./use-tracker-sprite-lookup";
 

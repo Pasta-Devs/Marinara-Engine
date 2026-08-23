@@ -438,6 +438,28 @@ export function patchPlayerStatsField(chatId: string, field: keyof PlayerStats, 
   patchGameStateField(chatId, "playerStats", { ...current, [field]: value });
 }
 
+/**
+ * Write several `playerStats` fields as one patch.
+ *
+ * Needed wherever editing one field implies changing another: equipping a carried
+ * Inventory Tracker item both adds it to `inventoryTrackerEquipped` and removes it
+ * from `inventoryTrackerInventory`. Two `patchPlayerStatsField` calls would queue two
+ * patches built from the same stale snapshot, and the second would drop the first.
+ */
+export function patchPlayerStatsFields(
+  chatId: string,
+  patch: Partial<PlayerStats> | ((current: PlayerStats) => Partial<PlayerStats>),
+) {
+  const current = getCurrentGameStateForChat(chatId)?.playerStats ?? createEmptyPlayerStats();
+  // Callers whose patch is *derived* from other fields must pass a function, so the
+  // derivation reads the snapshot being written to rather than the one captured when
+  // the component last rendered. Otherwise an agent write landing between render and
+  // click would be overwritten by stale derived values.
+  const resolved = typeof patch === "function" ? patch(current) : patch;
+  if (Object.keys(resolved).length === 0) return;
+  patchGameStateField(chatId, "playerStats", { ...current, ...resolved });
+}
+
 export function useGameStatePatcher(chatId: string | null, registrationId?: string) {
   const registerFlushPatch = useGameStateStore((s) => s.registerFlushPatch);
 
@@ -453,6 +475,14 @@ export function useGameStatePatcher(chatId: string | null, registrationId?: stri
     (field: keyof PlayerStats, value: unknown) => {
       if (!chatId) return;
       patchPlayerStatsField(chatId, field, value);
+    },
+    [chatId],
+  );
+
+  const patchPlayerStatsMany = useCallback(
+    (patch: Partial<PlayerStats> | ((current: PlayerStats) => Partial<PlayerStats>)) => {
+      if (!chatId) return;
+      patchPlayerStatsFields(chatId, patch);
     },
     [chatId],
   );
@@ -475,5 +505,5 @@ export function useGameStatePatcher(chatId: string | null, registrationId?: stri
     };
   }, [flushPatch, registerFlushPatch, registrationId]);
 
-  return { patchField, patchPlayerStats, flushPatch };
+  return { patchField, patchPlayerStats, patchPlayerStatsMany, flushPatch };
 }

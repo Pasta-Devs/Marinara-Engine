@@ -254,10 +254,7 @@ function extractHour(t: string): number {
   return -1;
 }
 
-export function resolveWeatherRenderConfig(
-  weather?: string | null,
-  timeOfDay?: string | null,
-): WeatherRenderConfig {
+export function resolveWeatherRenderConfig(weather?: string | null, timeOfDay?: string | null): WeatherRenderConfig {
   const weatherConfig = parseWeather(weather);
   const timeConfig = parseTime(timeOfDay, weatherConfig.type);
   const isClearSky =
@@ -647,13 +644,7 @@ export function drawWeatherSun(
   ctx.restore();
 }
 
-export function drawWeatherMoon(
-  ctx: WeatherCanvasContext,
-  x: number,
-  y: number,
-  radius: number,
-  _frameCount: number,
-) {
+export function drawWeatherMoon(ctx: WeatherCanvasContext, x: number, y: number, radius: number, _frameCount: number) {
   ctx.save();
 
   // Soft moonlight glow

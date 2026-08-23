@@ -218,9 +218,7 @@ export function createChatPresetsStorage(db: DB) {
           const fallbackRows = (await tx
             .select()
             .from(chatPresets)
-            .where(
-              and(eq(chatPresets.mode, existing.mode), eq(chatPresets.isDefault, "true")),
-            )) as ChatPresetRow[];
+            .where(and(eq(chatPresets.mode, existing.mode), eq(chatPresets.isDefault, "true")))) as ChatPresetRow[];
           const fallback = fallbackRows[0];
           if (fallback) {
             const ts = now();
@@ -250,10 +248,7 @@ export function createChatPresetsStorage(db: DB) {
           .set({ isActive: "false", updatedAt: ts })
           .where(and(eq(chatPresets.mode, target.mode), ne(chatPresets.id, id)));
         await tx.update(chatPresets).set({ isActive: "true", updatedAt: ts }).where(eq(chatPresets.id, id));
-        const updatedRows = (await tx
-          .select()
-          .from(chatPresets)
-          .where(eq(chatPresets.id, id))) as ChatPresetRow[];
+        const updatedRows = (await tx.select().from(chatPresets).where(eq(chatPresets.id, id))) as ChatPresetRow[];
         return updatedRows[0] ? rowToPreset(updatedRows[0]) : null;
       });
     },
@@ -354,9 +349,7 @@ export function createChatPresetsStorage(db: DB) {
           const defaultRows = (await tx
             .select()
             .from(chatPresets)
-            .where(
-              and(eq(chatPresets.mode, mode), eq(chatPresets.isDefault, "true")),
-            )) as ChatPresetRow[];
+            .where(and(eq(chatPresets.mode, mode), eq(chatPresets.isDefault, "true")))) as ChatPresetRow[];
           const canonicalDefault = [...defaultRows].sort(
             (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
           )[0];
@@ -412,20 +405,12 @@ export function createChatPresetsStorage(db: DB) {
           const activeId =
             activeRows.length === 0
               ? defaultId
-              : [...activeRows].sort(
-                  (left, right) => right.updatedAt.localeCompare(left.updatedAt),
-                )[0]!.id;
+              : [...activeRows].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]!.id;
           if (!activeId) return;
 
           const ts = now();
-          await tx
-            .update(chatPresets)
-            .set({ isActive: "false", updatedAt: ts })
-            .where(eq(chatPresets.mode, mode));
-          await tx
-            .update(chatPresets)
-            .set({ isActive: "true", updatedAt: ts })
-            .where(eq(chatPresets.id, activeId));
+          await tx.update(chatPresets).set({ isActive: "false", updatedAt: ts }).where(eq(chatPresets.mode, mode));
+          await tx.update(chatPresets).set({ isActive: "true", updatedAt: ts }).where(eq(chatPresets.id, activeId));
         });
       }
     },

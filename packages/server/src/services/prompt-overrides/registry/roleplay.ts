@@ -23,8 +23,7 @@ export interface RoleplayGalleryVideoDirectorCtx extends Record<string, string |
 export const ROLEPLAY_GALLERY_VIDEO_DIRECTOR: PromptOverrideKeyDef<RoleplayGalleryVideoDirectorCtx> = {
   key: "roleplay.galleryVideoDirector",
   label: "Roleplay Gallery Animation Director",
-  description:
-    "Instructions sent to the selected Prompt Model when planning motion for a Roleplay Gallery animation.",
+  description: "Instructions sent to the selected Prompt Model when planning motion for a Roleplay Gallery animation.",
   variables: [
     {
       name: "durationSeconds",
@@ -33,11 +32,7 @@ export const ROLEPLAY_GALLERY_VIDEO_DIRECTOR: PromptOverrideKeyDef<RoleplayGalle
     },
   ],
   defaultBuilder: (ctx) =>
-    renderTemplate(
-      ROLEPLAY_GALLERY_VIDEO_DIRECTOR_PROMPT_TEMPLATE,
-      ctx,
-      ROLEPLAY_GALLERY_VIDEO_DIRECTOR_VARIABLES,
-    ),
+    renderTemplate(ROLEPLAY_GALLERY_VIDEO_DIRECTOR_PROMPT_TEMPLATE, ctx, ROLEPLAY_GALLERY_VIDEO_DIRECTOR_VARIABLES),
   exampleContext: {
     durationSeconds: 10,
   },

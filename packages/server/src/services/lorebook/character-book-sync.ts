@@ -46,7 +46,12 @@ function asBoolean(value: unknown, fallback = false): boolean {
 }
 
 function asStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
+  return Array.isArray(value)
+    ? value
+        .map(String)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
 }
 
 /**
@@ -59,7 +64,8 @@ function asStringArray(value: unknown): string[] {
 function toCharacterBookEntry(entry: LoreEntryRow, index: number): CharacterBookEntry {
   const order = asNumber(entry.order, 100);
   const positionValue = asNumber(entry.position, 0);
-  const position = positionValue === 7 ? 7 : positionValue === 2 ? 4 : positionValue === 1 ? "after_char" : "before_char";
+  const position =
+    positionValue === 7 ? 7 : positionValue === 2 ? 4 : positionValue === 1 ? "after_char" : "before_char";
   const role = entry.role === "user" ? 1 : entry.role === "assistant" ? 2 : 0;
   return {
     keys: asStringArray(entry.keys),
@@ -164,8 +170,7 @@ export async function resolveEmbeddedCharacterId(
 ): Promise<string | null> {
   const charactersStorage = createCharactersStorage(db);
 
-  const lorebook =
-    lorebookHint ?? ((await createLorebooksStorage(db).getById(lorebookId)) as LorebookRow | null);
+  const lorebook = lorebookHint ?? ((await createLorebooksStorage(db).getById(lorebookId)) as LorebookRow | null);
   const derived = typeof lorebook?.characterId === "string" ? lorebook.characterId : null;
   if (derived) {
     const character = await charactersStorage.getById(derived);
@@ -182,7 +187,10 @@ export async function resolveEmbeddedCharacterId(
   const linkCount = Array.isArray(lorebook?.characterIds) ? (lorebook.characterIds as unknown[]).length : 0;
   if (linkCount <= 1) return null;
 
-  const rows = await db.select().from(characters).where(like(characters.data, `%"${lorebookId}"%`));
+  const rows = await db
+    .select()
+    .from(characters)
+    .where(like(characters.data, `%"${lorebookId}"%`));
   for (const row of rows) {
     if (getEmbeddedLorebookId(parseCharacterData(row.data)) === lorebookId) return row.id;
   }
@@ -361,11 +369,9 @@ export async function clearEmbeddedLorebookFromCharacter(db: DB, characterId: st
     extensions.importMetadata = importMetadata;
   }
 
-  await charactersStorage.update(
-    characterId,
-    { character_book: null, extensions: extensions as never },
-    undefined,
-    { skipVersionSnapshot: true, mergeExtensions: false },
-  );
+  await charactersStorage.update(characterId, { character_book: null, extensions: extensions as never }, undefined, {
+    skipVersionSnapshot: true,
+    mergeExtensions: false,
+  });
   return true;
 }

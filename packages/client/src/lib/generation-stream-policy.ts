@@ -38,7 +38,6 @@ interface GenerationSendBlockInput {
 }
 
 interface GenerationStartBlockInput {
-  setupLocked: boolean;
   activeController: boolean;
   backgroundIllustration: boolean;
 }
@@ -56,7 +55,7 @@ export function isGenerationSendBlocked(input: GenerationSendBlockInput): boolea
 
 /** An Illustrator-only SSE tail may coexist with the chat's next text generation. */
 export function isGenerationStartBlocked(input: GenerationStartBlockInput): boolean {
-  return input.setupLocked || (input.activeController && !input.backgroundIllustration);
+  return input.activeController && !input.backgroundIllustration;
 }
 
 /**

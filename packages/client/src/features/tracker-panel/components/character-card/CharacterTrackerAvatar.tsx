@@ -37,11 +37,11 @@ export function CharacterTrackerAvatar({
         type="button"
         onClick={onUploadAvatar}
         disabled={!onUploadAvatar}
-        title={avatarMedia ?localizeUi("ui.panels.personaspanel.changeAvatar") :localizeUi("editor.avatar.upload")}
+        title={avatarMedia ? localizeUi("ui.panels.personaspanel.changeAvatar") : localizeUi("editor.avatar.upload")}
         aria-label={
           avatarMedia
-            ?localizeUi("ui.trackerPanel.charactertrackeravatar.changeValue1Avatar", { value1: characterName })
-            :localizeUi("ui.trackerPanel.charactertrackeravatar.uploadValue1Avatar", { value1: characterName })
+            ? localizeUi("ui.trackerPanel.charactertrackeravatar.changeValue1Avatar", { value1: characterName })
+            : localizeUi("ui.trackerPanel.charactertrackeravatar.uploadValue1Avatar", { value1: characterName })
         }
         className={cn(
           "group/avatar relative z-[1] flex aspect-square w-full shrink-0 items-center justify-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--tracker-profile-nameplate-rule)_34%,transparent)] bg-[var(--muted)] text-xs text-[var(--foreground)] shadow-[0_4px_10px_rgba(0,0,0,0.24)] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border)]",

@@ -53,6 +53,7 @@ export function ChatSettingsSection({
         role="button"
         tabIndex={0}
         aria-expanded={open}
+        data-testid={id ? `chat-settings-section-${id}` : undefined}
         onClick={toggleOpen}
         onKeyDown={handleHeaderKeyDown}
         className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-[var(--accent)]/50"

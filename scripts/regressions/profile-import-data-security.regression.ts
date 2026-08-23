@@ -59,6 +59,7 @@ try {
 
   try {
     const timestamp = new Date(0).toISOString();
+    const sourceOverOneMiB = `/*${"x".repeat(1024 * 1024)}*/`;
     const connectionFixture = (id: string, overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
       id,
       name: id,
@@ -169,7 +170,7 @@ try {
       runtime: "client",
       capabilities: "[]",
       css: null,
-      js: "globalThis.profileExtensionRan = true;",
+      js: sourceOverOneMiB,
       serverJs: null,
       enabled: "true",
       contentHash: "foreign-hash",
@@ -179,6 +180,14 @@ try {
       installedAt: timestamp,
       createdAt: timestamp,
       updatedAt: timestamp,
+    };
+    const importedServerExtension = {
+      ...importedExtension,
+      id: "profile-server-extension",
+      name: "Profile Server Extension",
+      runtime: "server",
+      js: null,
+      serverJs: sourceOverOneMiB,
     };
     const modernPayload = {
       type: "marinara_profile",
@@ -192,7 +201,7 @@ try {
             mari_instructions: [importedInstruction],
             custom_themes: [importedTheme],
             custom_tools: [importedTool],
-            installed_extensions: [importedExtension],
+            installed_extensions: [importedExtension, importedServerExtension],
           },
           files: [],
         },
@@ -209,7 +218,7 @@ try {
     assert.equal(preview.imported.connections, 6);
     assert.equal(preview.imported.customTools, 1);
     assert.equal(preview.imported.mariInstructions, 1);
-    assert.equal(preview.imported.personalExtensions, 1);
+    assert.equal(preview.imported.personalExtensions, 2);
     const previewWarnings = new Map(
       (preview.warnings as Array<{ type: string; message: string }>).map((warning) => [warning.type, warning.message]),
     );
@@ -311,9 +320,18 @@ try {
     const [tool] = await db.select().from(schema.customTools);
     assert.equal(tool?.enabled, "false");
     assert.equal(tool?.includeHiddenContext, "false");
-    const [extension] = await db.select().from(schema.installedExtensions);
-    assert.equal(extension?.enabled, "false");
-    assert.equal(extension?.approvedHash, null);
+    const extensions = await db.select().from(schema.installedExtensions);
+    assert.equal(extensions.length, 2);
+    const browserExtension = extensions.find((candidate) => candidate.id === importedExtension.id);
+    const serverExtension = extensions.find((candidate) => candidate.id === importedServerExtension.id);
+    assert.equal(browserExtension?.runtime, "client");
+    assert.equal(serverExtension?.runtime, "server");
+    assert.equal(browserExtension?.js, sourceOverOneMiB);
+    assert.equal(serverExtension?.serverJs, sourceOverOneMiB);
+    for (const extension of extensions) {
+      assert.equal(extension.enabled, "false");
+      assert.equal(extension.approvedHash, null);
+    }
 
     const themes = themesModule.createThemesStorage(db);
     const localTheme = await themes.create({ name: "Local active theme", css: ":root { --background: blue; }" });

@@ -11,10 +11,7 @@ export interface StoryBundleIntrosProps {
   onIntrosChange: (intros: StoryBundleIntro[]) => void;
 }
 
-export function StoryBundleIntros({
-  intros,
-  onIntrosChange,
-}: StoryBundleIntrosProps) {
+export function StoryBundleIntros({ intros, onIntrosChange }: StoryBundleIntrosProps) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,18 +45,9 @@ export function StoryBundleIntros({
     if (!trimmedName || !trimmedText) return;
 
     if (editingId) {
-      onIntrosChange(
-        intros.map((i) =>
-          i.id === editingId
-            ? { ...i, name: trimmedName, text: trimmedText }
-            : i,
-        ),
-      );
+      onIntrosChange(intros.map((i) => (i.id === editingId ? { ...i, name: trimmedName, text: trimmedText } : i)));
     } else {
-      onIntrosChange([
-        ...intros,
-        { id: crypto.randomUUID(), name: trimmedName, text: trimmedText },
-      ]);
+      onIntrosChange([...intros, { id: crypto.randomUUID(), name: trimmedName, text: trimmedText }]);
     }
     handleCancel();
   };
@@ -114,9 +102,7 @@ export function StoryBundleIntros({
                 disabled={!draftName.trim() || !draftText.trim()}
                 className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {editingId
-                  ? t("storyBundles.introSaveEdit", "Save")
-                  : t("storyBundles.introSave", "Add")}
+                {editingId ? t("storyBundles.introSaveEdit", "Save") : t("storyBundles.introSave", "Add")}
               </button>
               <button
                 data-testid="story-bundle-editor-intros-cancel-button"
@@ -139,10 +125,7 @@ export function StoryBundleIntros({
         {intros.length > 0 ? (
           <div className="space-y-1 rounded-lg border border-[var(--border)] bg-[var(--card)] p-1.5">
             {intros.map((intro) => (
-              <div
-                key={intro.id}
-                className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
-              >
+              <div key={intro.id} className="flex items-center gap-2.5 rounded-md px-2 py-1.5">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-foreground)]">
                   <MessageSquare size="0.75rem" />
                 </div>

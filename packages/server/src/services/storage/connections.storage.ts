@@ -8,13 +8,27 @@ import { newId, now } from "../../utils/id-generator.js";
 import { encryptApiKey, decryptApiKey } from "../../utils/crypto.js";
 import type { CreateConnectionInput } from "@marinara-engine/shared";
 import { sweepDanglingConnectionReferences } from "./connection-reference-cleanup.js";
+import { clearConnectionRateLimit, setConnectionRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { logger } from "../../lib/logger.js";
 
-type ConnectionDefaultCategory = "image_generation" | "video_generation" | "language";
+type ConnectionDefaultCategory = "image_generation" | "video_generation" | "audio" | "language";
+
+/**
+ * Decrypt a stored connection for internal use and keep the per-connection outbound throttle
+ * registry in sync. Every provider-building read goes through here, so the registry is refreshed
+ * exactly when a connection is about to be used.
+ */
+function withDecryptedKey<T extends { id: string; apiKeyEncrypted: string; maxRequestsPerMinute?: number | null }>(
+  row: T,
+): T & { apiKey: string } {
+  setConnectionRateLimit(row.id, row.maxRequestsPerMinute ?? null);
+  return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
+}
 
 function defaultCategoryForProvider(provider: string): ConnectionDefaultCategory {
   if (provider === "image_generation") return "image_generation";
   if (provider === "video_generation") return "video_generation";
+  if (provider === "audio") return "audio";
   return "language";
 }
 
@@ -35,7 +49,7 @@ export function createConnectionsStorage(db: DB) {
     async getWithKey(id: string) {
       const conn = await this.getById(id);
       if (!conn || conn.profileImportReviewRequired === "true") return null;
-      return { ...conn, apiKey: decryptApiKey(conn.apiKeyEncrypted) };
+      return withDecryptedKey(conn);
     },
 
     async getDefault() {
@@ -54,7 +68,7 @@ export function createConnectionsStorage(db: DB) {
         .where(and(eq(apiConnections.fallbackForMain, "true"), ne(apiConnections.profileImportReviewRequired, "true")));
       const row = rows.find((candidate) => defaultCategoryForProvider(candidate.provider) === "language");
       if (!row) return null;
-      return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
+      return withDecryptedKey(row);
     },
 
     /** Get the connection marked as default for agents (with decrypted key). */
@@ -67,7 +81,7 @@ export function createConnectionsStorage(db: DB) {
         );
       const row = rows.find((candidate) => defaultCategoryForProvider(candidate.provider) === "language");
       if (!row) return null;
-      return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
+      return withDecryptedKey(row);
     },
 
     /** Get the language connection used after an agent generation failure. */
@@ -80,7 +94,7 @@ export function createConnectionsStorage(db: DB) {
         );
       const row = rows.find((candidate) => defaultCategoryForProvider(candidate.provider) === "language");
       if (!row) return null;
-      return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
+      return withDecryptedKey(row);
     },
 
     /** Get the image-generation connection selected under Defaults → Images (with decrypted key). */
@@ -97,7 +111,7 @@ export function createConnectionsStorage(db: DB) {
         );
       const row = rows[0] ?? null;
       if (!row) return null;
-      return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
+      return withDecryptedKey(row);
     },
 
     /** Get the image-generation connection used after an image generation failure. */
@@ -114,7 +128,7 @@ export function createConnectionsStorage(db: DB) {
         );
       const row = rows[0] ?? null;
       if (!row) return null;
-      return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
+      return withDecryptedKey(row);
     },
 
     /** Get the video-generation connection marked as default for scene videos (with decrypted key). */
@@ -131,7 +145,7 @@ export function createConnectionsStorage(db: DB) {
         );
       const row = rows[0] ?? null;
       if (!row) return null;
-      return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
+      return withDecryptedKey(row);
     },
 
     /** Get the video-generation connection used after a video generation failure. */
@@ -148,7 +162,41 @@ export function createConnectionsStorage(db: DB) {
         );
       const row = rows[0] ?? null;
       if (!row) return null;
-      return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
+      return withDecryptedKey(row);
+    },
+
+    /** Get the audio connection marked as default (with decrypted key). */
+    async getDefaultForAudio() {
+      const rows = await db
+        .select()
+        .from(apiConnections)
+        .where(
+          and(
+            eq(apiConnections.defaultForAgents, "true"),
+            eq(apiConnections.provider, "audio"),
+            ne(apiConnections.profileImportReviewRequired, "true"),
+          ),
+        );
+      const row = rows[0] ?? null;
+      if (!row) return null;
+      return withDecryptedKey(row);
+    },
+
+    /** Get the audio connection used when the preferred one fails or is gone. */
+    async getFallbackForAudio() {
+      const rows = await db
+        .select()
+        .from(apiConnections)
+        .where(
+          and(
+            eq(apiConnections.fallbackForAgents, "true"),
+            eq(apiConnections.provider, "audio"),
+            ne(apiConnections.profileImportReviewRequired, "true"),
+          ),
+        );
+      const row = rows[0] ?? null;
+      if (!row) return null;
+      return withDecryptedKey(row);
     },
 
     async create(input: CreateConnectionInput) {
@@ -174,6 +222,7 @@ export function createConnectionsStorage(db: DB) {
         anthropicExtendedCacheTtl: String(input.anthropicExtendedCacheTtl ?? false),
         cachingAtDepth: input.cachingAtDepth ?? 5,
         maxParallelJobs: input.maxParallelJobs ?? 1,
+        maxRequestsPerMinute: input.maxRequestsPerMinute ?? null,
         embeddingModel: input.embeddingModel ?? "",
         embeddingBaseUrl: input.embeddingBaseUrl ?? "",
         embeddingConnectionId: input.embeddingConnectionId ?? null,
@@ -186,6 +235,10 @@ export function createConnectionsStorage(db: DB) {
         imageGenerationQuality: input.imageGenerationQuality ?? "auto",
         videoGenerationSource: input.videoGenerationSource ?? null,
         videoService: input.videoService ?? null,
+        audioSource: input.audioSource ?? null,
+        audioVoice: input.audioVoice ?? null,
+        audioSoundEffects: String(input.audioSoundEffects ?? false),
+        audioMusic: String(input.audioMusic ?? false),
         promptPresetId: input.promptPresetId ?? null,
         maxTokensOverride: input.maxTokensOverride ?? null,
         claudeFastMode: String(input.claudeFastMode ?? false),
@@ -207,7 +260,7 @@ export function createConnectionsStorage(db: DB) {
         if (input.defaultForAgents) {
           values.fallbackForAgents = "false";
           const category = defaultCategoryForProvider(input.provider);
-          if (category === "image_generation" || category === "video_generation") {
+          if (category === "image_generation" || category === "video_generation" || category === "audio") {
             await tx
               .update(apiConnections)
               .set({ defaultForAgents: "false" })
@@ -227,7 +280,7 @@ export function createConnectionsStorage(db: DB) {
         if (input.fallbackForAgents) {
           values.defaultForAgents = "false";
           const category = defaultCategoryForProvider(input.provider);
-          if (category === "image_generation" || category === "video_generation") {
+          if (category === "image_generation" || category === "video_generation" || category === "audio") {
             await tx
               .update(apiConnections)
               .set({ fallbackForAgents: "false" })
@@ -249,6 +302,7 @@ export function createConnectionsStorage(db: DB) {
         }
         await tx.insert(apiConnections).values(values);
       });
+      setConnectionRateLimit(id, input.maxRequestsPerMinute ?? null);
       return this.getById(id);
     },
 
@@ -349,6 +403,18 @@ export function createConnectionsStorage(db: DB) {
       if (data.videoService !== undefined) {
         updateFields.videoService = data.videoService;
       }
+      if (data.audioSource !== undefined) {
+        updateFields.audioSource = data.audioSource;
+      }
+      if (data.audioVoice !== undefined) {
+        updateFields.audioVoice = data.audioVoice;
+      }
+      if (data.audioSoundEffects !== undefined) {
+        updateFields.audioSoundEffects = String(data.audioSoundEffects);
+      }
+      if (data.audioMusic !== undefined) {
+        updateFields.audioMusic = String(data.audioMusic);
+      }
       if (data.promptPresetId !== undefined) {
         updateFields.promptPresetId = data.promptPresetId;
       }
@@ -357,6 +423,9 @@ export function createConnectionsStorage(db: DB) {
       }
       if (data.maxParallelJobs !== undefined) {
         updateFields.maxParallelJobs = data.maxParallelJobs;
+      }
+      if (data.maxRequestsPerMinute !== undefined) {
+        updateFields.maxRequestsPerMinute = data.maxRequestsPerMinute;
       }
       if (data.claudeFastMode !== undefined) {
         updateFields.claudeFastMode = String(data.claudeFastMode);
@@ -376,7 +445,7 @@ export function createConnectionsStorage(db: DB) {
         if (shouldClearAgentDefaults) {
           updateFields.fallbackForAgents = "false";
           const category = defaultCategoryForProvider(effectiveProvider);
-          if (category === "image_generation" || category === "video_generation") {
+          if (category === "image_generation" || category === "video_generation" || category === "audio") {
             await tx
               .update(apiConnections)
               .set({ defaultForAgents: "false" })
@@ -407,7 +476,7 @@ export function createConnectionsStorage(db: DB) {
         if (shouldClearAgentFallbacks) {
           updateFields.defaultForAgents = "false";
           const category = defaultCategoryForProvider(effectiveProvider);
-          if (category === "image_generation" || category === "video_generation") {
+          if (category === "image_generation" || category === "video_generation" || category === "audio") {
             await tx
               .update(apiConnections)
               .set({ fallbackForAgents: "false" })
@@ -440,6 +509,11 @@ export function createConnectionsStorage(db: DB) {
         }
         await tx.update(apiConnections).set(updateFields).where(eq(apiConnections.id, id));
       });
+      // Sync the throttle registry only after the write commits, so a failed update never installs
+      // an unpersisted cap.
+      if (data.maxRequestsPerMinute !== undefined) {
+        setConnectionRateLimit(id, data.maxRequestsPerMinute ?? null);
+      }
       return this.getById(id);
     },
 
@@ -480,14 +554,20 @@ export function createConnectionsStorage(db: DB) {
         imageGenerationQuality: source.imageGenerationQuality,
         videoGenerationSource: source.videoGenerationSource,
         videoService: source.videoService,
+        audioSource: source.audioSource,
+        audioVoice: source.audioVoice,
+        audioSoundEffects: source.audioSoundEffects,
+        audioMusic: source.audioMusic,
         promptPresetId: source.promptPresetId,
         maxTokensOverride: source.maxTokensOverride,
         maxParallelJobs: source.maxParallelJobs,
+        maxRequestsPerMinute: source.maxRequestsPerMinute,
         claudeFastMode: source.claudeFastMode,
         treatAsLocalEndpoint: source.treatAsLocalEndpoint,
         createdAt: timestamp,
         updatedAt: timestamp,
       });
+      setConnectionRateLimit(newConnId, source.maxRequestsPerMinute ?? null);
       return this.getById(newConnId);
     },
 
@@ -497,7 +577,14 @@ export function createConnectionsStorage(db: DB) {
         .select()
         .from(apiConnections)
         .where(and(eq(apiConnections.useForRandom, "true"), ne(apiConnections.profileImportReviewRequired, "true")));
-      return rows.map((r: any) => ({ ...r, apiKey: decryptApiKey(r.apiKeyEncrypted) }));
+      // The pool is drawn as the live chat LLM — media connections can never
+      // serve a chat turn, so they are excluded even if a row was flagged
+      // before its provider changed.
+      return rows
+        .filter(
+          (r: any) => r.provider !== "audio" && r.provider !== "image_generation" && r.provider !== "video_generation",
+        )
+        .map((r: any) => withDecryptedKey(r));
     },
 
     async remove(id: string) {
@@ -505,6 +592,8 @@ export function createConnectionsStorage(db: DB) {
         await tx.delete(apiConnections).where(eq(apiConnections.id, id));
         return sweepDanglingConnectionReferences(tx, id);
       });
+      // Clear the throttle registry only after the delete commits.
+      clearConnectionRateLimit(id);
       const totalCleaned = cleanup.chatsUpdated + cleanup.agentsUpdated + cleanup.connectionsUpdated;
       if (totalCleaned > 0) {
         logger.info(

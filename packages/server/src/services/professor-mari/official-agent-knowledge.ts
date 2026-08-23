@@ -106,6 +106,13 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
     summary: "tracks user-defined currencies, counters, flags, and other structured fields",
   },
   {
+    id: "inventory-tracker",
+    name: "Inventory Tracker",
+    category: "tracker",
+    modes: "Roleplay",
+    summary: "tracks currencies, equipped items, and carried inventory in separate structured lists",
+  },
+  {
     id: "hierarchical-maps",
     name: "World Maps",
     category: "tracker",
@@ -174,8 +181,8 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
     id: "haptic",
     name: "Haptic Feedback",
     category: "misc",
-    modes: "Conversation and Roleplay",
-    summary: "converts direct narrative contact into safe Intiface Central device commands",
+    modes: "Conversation, Roleplay, and Game",
+    summary: "matches direct narrative contact to each Intiface device's supported actions and patterns",
   },
   {
     id: "cyoa",

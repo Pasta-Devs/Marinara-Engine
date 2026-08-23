@@ -87,11 +87,22 @@ export function ImagePromptReviewModal({
     <Modal
       open={open}
       onClose={isSubmitting ? () => {} : onCancel}
-      title={items.length === 1 ?localizeUi("ui.ui.imagepromptreviewmodal.reviewValue1Prompt", { value1: mediaTitle }) :localizeUi("ui.ui.imagepromptreviewmodal.reviewValue1Prompts", { value1: mediaTitle })}
+      title={
+        items.length === 1
+          ? localizeUi("ui.ui.imagepromptreviewmodal.reviewValue1Prompt", { value1: mediaTitle })
+          : localizeUi("ui.ui.imagepromptreviewmodal.reviewValue1Prompts", { value1: mediaTitle })
+      }
       width="max-w-4xl"
     >
       <div className="flex max-h-[72vh] flex-col gap-4">
-        <div className="text-xs leading-relaxed text-[var(--muted-foreground)]">{localizeUi("ui.ui.imagepromptreviewmodal.editThePrompt")}{items.length === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s")} {localizeUi("ui.ui.imagepromptreviewmodal.belowBeforeMarinaraSendsThe")} {mediaLabel} {localizeUi("ui.ui.imagepromptreviewmodal.request")}{items.length === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s")} {localizeUi("ui.ui.imagepromptreviewmodal.toYourProvider")}</div>
+        <div className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+          {localizeUi("ui.ui.imagepromptreviewmodal.editThePrompt")}
+          {items.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}{" "}
+          {localizeUi("ui.ui.imagepromptreviewmodal.belowBeforeMarinaraSendsThe")} {mediaLabel}{" "}
+          {localizeUi("ui.ui.imagepromptreviewmodal.request")}
+          {items.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}{" "}
+          {localizeUi("ui.ui.imagepromptreviewmodal.toYourProvider")}
+        </div>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           {items.map((item) => {
@@ -110,12 +121,16 @@ export function ImagePromptReviewModal({
                     <div className="truncate text-xs font-semibold text-[var(--foreground)]">{item.title}</div>
                     <div className="mt-0.5 text-[0.625rem] capitalize text-[var(--muted-foreground)]">
                       {item.kind}
-                      {itemDetails ?localizeUi("ui.ui.imagepromptreviewmodal.value1", { value1: itemDetails }) : ""}
+                      {itemDetails ? localizeUi("ui.ui.imagepromptreviewmodal.value1", { value1: itemDetails }) : ""}
                     </div>
                   </div>
                   <span className="rounded-md bg-[var(--background)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
                     {value.trim().length}
-                    {item.maxLength ?localizeUi("ui.ui.imagepromptreviewmodal.value1_1d0dfc9", { value1: item.maxLength }) : ""} {localizeUi("ui.panels.promptoverrideseditorbody.chars")}</span>
+                    {item.maxLength
+                      ? localizeUi("ui.ui.imagepromptreviewmodal.value1_1d0dfc9", { value1: item.maxLength })
+                      : ""}{" "}
+                    {localizeUi("ui.panels.promptoverrideseditorbody.chars")}
+                  </span>
                 </div>
                 <textarea
                   value={value}
@@ -127,7 +142,9 @@ export function ImagePromptReviewModal({
                 />
                 {(item.negativePrompt !== undefined || negativeValue) && (
                   <div className="flex flex-col gap-1">
-                    <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">{localizeUi("ui.agents.agenteditor.negativePrompt")}</span>
+                    <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                      {localizeUi("ui.agents.agenteditor.negativePrompt")}
+                    </span>
                     <textarea
                       value={negativeValue}
                       onChange={(event) =>
@@ -146,10 +163,16 @@ export function ImagePromptReviewModal({
 
         <div className="flex flex-col gap-2 border-t border-[var(--border)]/50 pt-3 sm:flex-row sm:items-center sm:justify-between">
           {hasEmptyPrompt ? (
-            <span className="text-[0.625rem] text-[var(--destructive)]">{localizeUi("ui.chat.summarypopover.every")} {mediaLabel} {localizeUi("ui.ui.imagepromptreviewmodal.requestNeedsAPrompt")}</span>
+            <span className="text-[0.625rem] text-[var(--destructive)]">
+              {localizeUi("ui.chat.summarypopover.every")} {mediaLabel}{" "}
+              {localizeUi("ui.ui.imagepromptreviewmodal.requestNeedsAPrompt")}
+            </span>
           ) : (
             <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {items.length} {localizeUi("ui.ui.imagepromptreviewmodal.request")}{items.length === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s")} {localizeUi("ui.ui.imagepromptreviewmodal.ready")}</span>
+              {items.length} {localizeUi("ui.ui.imagepromptreviewmodal.request")}
+              {items.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}{" "}
+              {localizeUi("ui.ui.imagepromptreviewmodal.ready")}
+            </span>
           )}
           <div className="flex items-center justify-end gap-2">
             <button
@@ -157,7 +180,9 @@ export function ImagePromptReviewModal({
               disabled={isSubmitting}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <X size="0.875rem" />{localizeUi("chat.delete.dialog.cancel")}</button>
+              <X size="0.875rem" />
+              {localizeUi("chat.delete.dialog.cancel")}
+            </button>
             <button
               onClick={handleConfirm}
               disabled={isSubmitting || hasEmptyPrompt}
@@ -168,7 +193,9 @@ export function ImagePromptReviewModal({
                   : "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/30 hover:bg-[var(--primary)]/20",
               )}
             >
-              {isSubmitting ? <Loader2 size="0.875rem" className="animate-spin" /> : <Send size="0.875rem" />}{localizeUi("ui.characters.characterclipcard.generate")}</button>
+              {isSubmitting ? <Loader2 size="0.875rem" className="animate-spin" /> : <Send size="0.875rem" />}
+              {localizeUi("ui.characters.characterclipcard.generate")}
+            </button>
           </div>
         </div>
       </div>

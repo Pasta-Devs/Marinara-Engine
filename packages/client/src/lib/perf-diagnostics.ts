@@ -123,12 +123,13 @@ export function installLongTaskWarner(): void {
   if (installed || !ENABLED) return;
   installed = true;
 
+  if (typeof PerformanceObserver === "undefined" || !PerformanceObserver.supportedEntryTypes?.includes("longtask")) {
+    return;
+  }
   console.warn(
     `[mari-perf] render diagnostics ON — logging every render + long task ` +
       `(${SLOW_MS}ms+ tagged SLOW). Run \`localStorage.mariPerfVerbose = "0"\` (or remove the key) and reload to disable.`,
   );
-
-  if (typeof PerformanceObserver === "undefined") return;
   try {
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {

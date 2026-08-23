@@ -90,7 +90,11 @@ import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import { cn, generateClientId } from "../../lib/utils";
-import { filterLanguageGenerationConnections } from "../../lib/connection-filters";
+import {
+  filterAudioGenerationConnections,
+  filterLanguageGenerationConnections,
+  isConnectionFlagTrue,
+} from "../../lib/connection-filters";
 import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 import { audioManager } from "../../lib/game-audio";
 import {
@@ -157,9 +161,14 @@ import {
   mergeGameSetupConfigPreservingDynamicPrompt,
   resolveGameSetupArtStylePrompt,
   scoreMusic,
+  musicAreaSlug,
+  normalizeMusicEnemyTier,
+  isContextMusicTag,
+  type MusicEnemyTier,
   scoreAmbient,
 } from "@marinara-engine/shared";
-import { GameNarration, formatNarration } from "./GameNarration";
+import { GameNarration } from "./GameNarration";
+import { formatNarration } from "./game-narration-format";
 import { GameInput } from "./GameInput";
 import { GameMapPanel, MobileMapButton } from "./GameMap";
 import { GamePartyBar } from "./GamePartyBar";
@@ -219,14 +228,14 @@ import {
   type ChatToolbarFloatingPanelAnchor,
 } from "../chat/ChatToolbarControls";
 import {
-  ROLEPLAY_POPOVER_CLOSE_BUTTON,
-  ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
-  ROLEPLAY_POPOVER_HEADER,
-  ROLEPLAY_POPOVER_SCROLL_AREA,
-  ROLEPLAY_POPOVER_SHELL,
-  ROLEPLAY_POPOVER_SUBTITLE,
-  ROLEPLAY_POPOVER_TITLE,
-} from "../chat/roleplay-popover-styles";
+  NEUTRAL_PANEL_CLOSE_BUTTON,
+  NEUTRAL_PANEL_CLOSE_ICON_SIZE,
+  NEUTRAL_PANEL_HEADER,
+  NEUTRAL_PANEL_SCROLL_AREA,
+  NEUTRAL_PANEL_SHELL,
+  NEUTRAL_PANEL_SUBTITLE,
+  NEUTRAL_PANEL_TITLE,
+} from "../ui/neutral-surface-styles";
 import type { ReadableTag } from "../../lib/game-tag-parser";
 import type { DirectionCommand, GameNpc, GameStoryboardViewerDisplayMode } from "@marinara-engine/shared";
 
@@ -310,10 +319,10 @@ const GAME_MOBILE_ROOT_BUTTON = getChatToolbarButtonClass({
   sizeClassName: CHAT_TOOLBAR_OVERFLOW_BUTTON_SIZE_CLASS,
 });
 const GAME_MOBILE_ICON_BUTTON = getChatToolbarButtonClass({ compact: true });
-const GAME_ACTION_MENU = cn(ROLEPLAY_POPOVER_SHELL, "flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 p-1.5");
+const GAME_ACTION_MENU = cn(NEUTRAL_PANEL_SHELL, "flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 p-1.5");
 const GAME_MOBILE_ACTIONS_MENU = cn(CHAT_TOOLBAR_OVERFLOW_MENU_CLASS, "absolute right-0 top-9");
 const GAME_MOBILE_CHOICE_STAGE_HEIGHT = "max-h-[clamp(8rem,30svh,14rem)] sm:max-h-[clamp(9rem,36svh,20rem)]";
-const GAME_MOBILE_ACTION_MENU = cn(ROLEPLAY_POPOVER_SHELL, "flex w-72 max-w-[calc(100vw-4rem)] flex-col gap-1 p-1.5");
+const GAME_MOBILE_ACTION_MENU = cn(NEUTRAL_PANEL_SHELL, "flex w-72 max-w-[calc(100vw-4rem)] flex-col gap-1 p-1.5");
 const GAME_MOBILE_FLOATING_PANEL =
   "fixed z-[9999] h-[min(42rem,calc(100dvh-4.75rem))] w-[min(42rem,calc(100vw-4.75rem))]";
 const GAME_MOBILE_FLOATING_MENU = "fixed z-[9999] max-h-[min(32rem,calc(100dvh-4.75rem))] overflow-y-auto";
@@ -328,6 +337,18 @@ type ExperienceChromeDeclaration = {
   /** The experience offers the turn's choices itself, so Classic choice cards stay out of its way and the
    *  in-flow anchor it portals into stays mounted even on a turn the narration emitted choices for. */
   providesChoices?: boolean;
+  /**
+   * Asks the narration box to fold down to its handle for as long as the request stands —
+   * a cutscene, a full-screen beat. This is a TRANSIENT REQUEST, not a preference: it never
+   * touches the player's stored `gameNarrationCollapsed` setting, and because it is read off
+   * `activeExperienceChrome` it clears the moment the experience stops being the live surface,
+   * which is what guarantees the box always comes back.
+   *
+   * The engine's own safety rules still win: the box force-expands whenever the player's input
+   * is on screen or the segment-advance controls are live, and the handle still raises its
+   * attention indicator. A package cannot lock the player out of their own turn with this.
+   */
+  requestsCollapsedNarration?: boolean;
 };
 const GAME_ACTION_MENU_ITEM =
   "marinara-chat-popover__item flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent";
@@ -369,6 +390,11 @@ type GameAssetGenerationOptions = {
   /** Keep narration / queued interactions waiting for this asset job. */
   blocksScene?: boolean;
   showSuccessToast?: boolean;
+  /** #5094: called after generation resolves; if it returns false the caller's request was superseded
+   *  (chat switch, turn retry, or a newer combat request), so the result is discarded instead of being
+   *  applied. Keeps a stale combat visual job from overwriting the current chat's background/avatars or
+   *  clobbering the current asset-generation state. */
+  isCurrent?: () => boolean;
 };
 
 type ApplyGeneratedAssetsOptions = {
@@ -444,6 +470,40 @@ const GAME_ASSET_GENERATION_TIMEOUT_MS = 240_000;
 const GAME_ASSET_PREVIEW_TIMEOUT_MS = 180_000;
 const GAME_ASSET_PROMPT_REVIEW_TIMEOUT_MS = 180_000;
 const GAME_AUDIO_GENERATION_TIMEOUT_MS = 190_000;
+// Context tracks are longer compositions (server allows up to 300s of render time).
+const CONTEXT_MUSIC_GENERATION_TIMEOUT_MS = 310_000;
+
+function buildAreaMusicPrompt(
+  location: string,
+  opts: { genre?: string | null; setting?: string | null; timeOfDay?: string | null },
+): string {
+  return [
+    `Looping instrumental background theme for ${location}.`,
+    opts.genre ? `Genre: ${opts.genre}.` : "",
+    opts.setting ? `Setting: ${opts.setting}.` : "",
+    opts.timeOfDay ? `Time of day: ${opts.timeOfDay}.` : "",
+    "Seamless loop, no vocals, a consistent mood that can play for minutes without wearing out.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+const TIER_MUSIC_MOODS: Record<MusicEnemyTier, string> = {
+  common: "Driving but steady battle theme for an ordinary encounter — energetic, loopable, not overwhelming.",
+  miniboss: "Elevated-stakes battle theme for a dangerous named foe — urgent percussion, rising tension.",
+  boss: "Epic boss battle theme — full intensity, dramatic motifs, triumphant and threatening in equal measure.",
+  special: "Unusual, otherworldly encounter theme — unsettling or wondrous, memorable and distinct from normal combat.",
+};
+
+function buildTierMusicPrompt(tier: MusicEnemyTier, genre: string | null): string {
+  return [
+    `Looping instrumental combat music. ${TIER_MUSIC_MOODS[tier]}`,
+    genre ? `Genre: ${genre}.` : "",
+    "Seamless loop, no vocals.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 const SCENE_VIDEO_GENERATION_TIMEOUT_MS = 1_800_000;
 const IMAGE_PROMPT_REVIEW_TIMED_OUT = Symbol("IMAGE_PROMPT_REVIEW_TIMED_OUT");
 
@@ -2086,7 +2146,10 @@ function normalizeRecentMusicHistory(value: unknown): string[] {
 }
 
 function appendRecentMusic(history: string[], tag: string | null | undefined): string[] {
-  if (!tag) return history.slice(0, RECENT_MUSIC_HISTORY_LIMIT);
+  // Context tracks (#5161) are deliberately KEPT for long stretches; letting
+  // them into the anti-repeat window would fill it with one repeated tag and
+  // disable the legacy pool's rotation memory.
+  if (!tag || isContextMusicTag(tag)) return history.slice(0, RECENT_MUSIC_HISTORY_LIMIT);
   return [tag, ...history.filter((entry) => entry !== tag)].slice(0, RECENT_MUSIC_HISTORY_LIMIT);
 }
 
@@ -2346,12 +2409,40 @@ function GameSurfaceComponent({
   const useJsonMusicDjGameMusic = useYoutubeGameMusic || useCustomGameMusic;
   const useMusicDjPlayerMusic = useSpotifyGameMusic || useJsonMusicDjGameMusic;
   const { data: ttsConfig } = useTTSConfig();
-  const generateGameSoundEffects = ttsConfig?.source === "elevenlabs" && ttsConfig.elevenLabsGameSoundEffects === true;
-  const generateGameMusic =
-    ttsConfig?.source === "elevenlabs" && ttsConfig.elevenLabsGameMusic === true && !useMusicDjPlayerMusic;
   const activeGameMetaId = typeof chatMeta.gameId === "string" ? chatMeta.gameId : "";
   const sceneRuntimeScopeKey = `${activeChatId}:${activeGameMetaId}`;
   const { data: connectionsList } = useConnections();
+  // Game audio capability: the game's audio connection (explicit pick, else the
+  // category default, else the fallback) wins; the legacy TTS settings blob
+  // still gates setups that predate audio connections. Mirrors the server's
+  // resolveAudioConfig order.
+  const gameAudioConnection = useMemo(() => {
+    // Quarantined (review-required) imports are refused by the server's
+    // resolution (getWithKey/getDefaultForAudio return null for them), so
+    // they must not drive capability gating here either.
+    const rows = filterAudioGenerationConnections((connectionsList ?? []) as Record<string, unknown>[]);
+    const explicitId = typeof chatMeta.gameAudioConnectionId === "string" ? chatMeta.gameAudioConnectionId : "";
+    return (
+      (explicitId ? rows.find((connection) => connection.id === explicitId) : undefined) ??
+      rows.find((connection) => isConnectionFlagTrue(connection.defaultForAgents)) ??
+      rows.find((connection) => isConnectionFlagTrue(connection.fallbackForAgents)) ??
+      null
+    );
+  }, [connectionsList, chatMeta.gameAudioConnectionId]);
+  const gameAudioConnectionIsElevenLabs =
+    gameAudioConnection != null &&
+    ((gameAudioConnection.audioSource as string | null) ?? "elevenlabs") === "elevenlabs";
+  const generateGameSoundEffects =
+    (gameAudioConnection
+      ? gameAudioConnectionIsElevenLabs && isConnectionFlagTrue(gameAudioConnection.audioSoundEffects)
+      : ttsConfig?.source === "elevenlabs" && ttsConfig.elevenLabsGameSoundEffects === true) &&
+    chatMeta.gameAudioSoundEffectsEnabled !== false;
+  const generateGameMusic =
+    (gameAudioConnection
+      ? gameAudioConnectionIsElevenLabs && isConnectionFlagTrue(gameAudioConnection.audioMusic)
+      : ttsConfig?.source === "elevenlabs" && ttsConfig.elevenLabsGameMusic === true) &&
+    chatMeta.gameAudioMusicEnabled !== false &&
+    !useMusicDjPlayerMusic;
   const sceneVideosQuery = useQuery({
     queryKey: ["game", "scene-videos", activeChatId],
     queryFn: () => api.get<{ videos: GeneratedSceneVideo[] }>(`/game/scene-videos/${activeChatId}`),
@@ -2508,15 +2599,35 @@ function GameSurfaceComponent({
   );
   const { data: assetManifest, refetch: fetchManifest } = useGameAssetManifest();
   const generatedAudioAssetsRef = useRef<Record<string, GameAssetEntry>>({});
+  // Session dedup for context-track generation requests (#5161), keyed `${axis}\0${key}`.
+  const contextMusicRequestRef = useRef<Set<string>>(new Set());
+  // Render-fresh mirrors for async music callbacks (#5161): a tier-track
+  // generation resolves minutes after the closure captured state.
+  const combatMusicTierRef = useRef<MusicEnemyTier | null>(null);
+  const musicDjSuppressedRef = useRef(false);
+  musicDjSuppressedRef.current = useMusicDjPlayerMusic;
+  // Unmount latch: audioManager and the asset store are module singletons, so
+  // a generation resolving after the surface unmounted must never play into
+  // whatever view the user is in now (review-found).
+  const gameSurfaceMountedRef = useRef(true);
+  useEffect(() => {
+    gameSurfaceMountedRef.current = true;
+    return () => {
+      gameSurfaceMountedRef.current = false;
+    };
+  }, []);
   const currentBackground = useGameAssetStore((s) => s.currentBackground);
   const gameAssetExcludedFolders = useMemo(
     () => parseGameAssetExcludedFolders(chatMeta.gameAssetSelection),
     [chatMeta.gameAssetSelection],
   );
+  // Session-generated entries obey the same per-chat folder exclusions as the
+  // manifest — merging them unfiltered re-injected excluded context tracks
+  // ahead of the blacklist (review-found).
   const scopedAssetMap = useMemo(
     () => ({
       ...(filterGameAssetMap(assetManifest?.assets ?? null, gameAssetExcludedFolders) ?? {}),
-      ...generatedAudioAssetsRef.current,
+      ...(filterGameAssetMap(generatedAudioAssetsRef.current, gameAssetExcludedFolders) ?? {}),
     }),
     [assetManifest?.assets, gameAssetExcludedFolders],
   );
@@ -2524,34 +2635,57 @@ function GameSurfaceComponent({
     const manifest = queryClient.getQueryData<GameAssetManifest>(gameAssetKeys.manifest());
     return {
       ...(filterGameAssetMap(manifest?.assets ?? null, gameAssetExcludedFolders) ?? {}),
-      ...generatedAudioAssetsRef.current,
+      ...(filterGameAssetMap(generatedAudioAssetsRef.current, gameAssetExcludedFolders) ?? {}),
     };
   }, [gameAssetExcludedFolders, queryClient]);
-  const generateGameAudioAsset = useCallback(async (kind: "sfx" | "music", prompt: string): Promise<string | null> => {
-    const category = kind === "sfx" ? "sfx" : "music";
-    if (prompt.startsWith(`${category}:generated:`)) return prompt;
-    try {
-      const generated = await withTimeout(
-        (signal) => api.post<{ tag: string; path: string }>("/tts/game-audio", { kind, prompt }, { signal }),
-        GAME_AUDIO_GENERATION_TIMEOUT_MS,
-      );
-      generatedAudioAssetsRef.current[generated.tag] = {
-        tag: generated.tag,
-        category,
-        subcategory: "generated",
-        name: generated.tag.split(":").at(-1) ?? generated.tag,
-        path: generated.path,
-        ext: ".mp3",
-      };
-      return generated.tag;
-    } catch (error) {
-      console.warn(`[game-audio] Failed to generate ${kind}:`, error);
-      return null;
+  // Once the served manifest carries a session-generated tag, the manifest is
+  // authoritative — dropping our shadow copy lets later renames/deletes in
+  // the Game Assets panel take effect instead of a dead tag staying
+  // selectable all session (review-found).
+  useEffect(() => {
+    const manifestAssets = assetManifest?.assets;
+    if (!manifestAssets) return;
+    for (const tag of Object.keys(generatedAudioAssetsRef.current)) {
+      if (manifestAssets[tag]) delete generatedAudioAssetsRef.current[tag];
     }
-  }, []);
+  }, [assetManifest?.assets]);
+  const gameAudioConnectionId = gameAudioConnection ? (gameAudioConnection.id as string) : undefined;
+  const generateGameAudioAsset = useCallback(
+    async (kind: "sfx" | "music", prompt: string): Promise<string | null> => {
+      const category = kind === "sfx" ? "sfx" : "music";
+      if (prompt.startsWith(`${category}:generated:`)) return prompt;
+      try {
+        const generated = await withTimeout(
+          (signal) =>
+            api.post<{ tag: string; path: string }>(
+              "/tts/game-audio",
+              { kind, prompt, ...(gameAudioConnectionId ? { audioConnectionId: gameAudioConnectionId } : {}) },
+              { signal },
+            ),
+          GAME_AUDIO_GENERATION_TIMEOUT_MS,
+        );
+        generatedAudioAssetsRef.current[generated.tag] = {
+          tag: generated.tag,
+          category,
+          subcategory: "generated",
+          name: generated.tag.split(":").at(-1) ?? generated.tag,
+          path: generated.path,
+          ext: ".mp3",
+        };
+        return generated.tag;
+      } catch (error) {
+        console.warn(`[game-audio] Failed to generate ${kind}:`, error);
+        return null;
+      }
+    },
+    [gameAudioConnectionId],
+  );
+  // SFX only since #5161: music is never a per-turn generation prompt anymore —
+  // scoring picks from the library (context tracks included), and the library
+  // fills lazily via ensureContextMusicTrack.
   const materializeGeneratedGameAudio = useCallback(
     async (input: SceneAnalysis): Promise<SceneAnalysis> => {
-      if (!generateGameSoundEffects && !generateGameMusic) return input;
+      if (!generateGameSoundEffects) return input;
       const result: SceneAnalysis = {
         ...input,
         segmentEffects: input.segmentEffects?.map((effect) => ({
@@ -2559,17 +2693,11 @@ function GameSurfaceComponent({
           sfx: effect.sfx ? [...effect.sfx] : undefined,
         })),
       };
-      if (generateGameMusic && result.music) {
-        result.music = await generateGameAudioAsset("music", result.music);
-      }
       if (result.segmentEffects?.length) {
         result.segmentEffects = await Promise.all(
           result.segmentEffects.map(async (effect) => {
             const next = { ...effect };
-            if (generateGameMusic && next.music) {
-              next.music = (await generateGameAudioAsset("music", next.music)) ?? undefined;
-            }
-            if (generateGameSoundEffects && next.sfx?.length) {
+            if (next.sfx?.length) {
               const generated = await Promise.all(next.sfx.map((prompt) => generateGameAudioAsset("sfx", prompt)));
               next.sfx = generated.filter((tag): tag is string => !!tag);
             }
@@ -2579,7 +2707,94 @@ function GameSurfaceComponent({
       }
       return result;
     },
-    [generateGameAudioAsset, generateGameMusic, generateGameSoundEffects],
+    [generateGameAudioAsset, generateGameSoundEffects],
+  );
+
+  /** Direct scoring+play for combat (#5161): no scene-analysis pass runs
+   *  while the combat overlay is up, so tier music must be applied the moment
+   *  the tier becomes known or its track lands — otherwise tier tracks are
+   *  generated but never audible (review-found). Falls back to the legacy
+   *  combat pool while the tier track is still rendering. */
+  const playContextCombatMusic = useCallback(
+    (tier: MusicEnemyTier) => {
+      if (musicDjSuppressedRef.current) return;
+      const assetMap = getScopedAssetMap();
+      const scored = scoreMusic({
+        state: "combat",
+        musicIntensity: "intense",
+        enemyTier: tier,
+        currentMusic: useGameAssetStore.getState().currentMusic,
+        recentMusic: recentMusicHistoryRef.current,
+        availableMusic: Object.keys(assetMap ?? {}).filter((tag) => tag.startsWith("music:")),
+      });
+      if (scored) {
+        audioManager.playMusic(scored, assetMap);
+        useGameAssetStore.getState().setCurrentMusic(scored);
+      }
+    },
+    [getScopedAssetMap],
+  );
+
+  /** Lazily fill the context-music library (#5161): one composition per area
+   *  slug / encounter tier, generated once server-side into the scoreable
+   *  library. A library fill first — playback stays with the deterministic
+   *  scoring pass for areas (picked up on the next transition, so music never
+   *  lurches mid-narration); tier tracks additionally crossfade in on arrival
+   *  because combat has no further scoring passes. Failures clear the dedup
+   *  key and retry on a later turn. */
+  const ensureContextMusicTrack = useCallback(
+    (axis: "area" | "tier", key: string, prompt: string) => {
+      if (!generateGameMusic || !key || !prompt) return;
+      const prefix = `music:${axis}:${key}:`;
+      if (Object.keys(getScopedAssetMap()).some((tag) => tag.startsWith(prefix))) return;
+      const requestKey = `${axis}\0${key}`;
+      if (contextMusicRequestRef.current.has(requestKey)) return;
+      contextMusicRequestRef.current.add(requestKey);
+      // Scope the continuation like generateCombatStateForMessage does: the
+      // request belongs to THIS chat on THIS mounted surface.
+      const requestChatId = activeChatIdRef.current;
+      void (async () => {
+        try {
+          const generated = await withTimeout(
+            (signal) =>
+              api.post<{ tag: string; path: string }>(
+                "/tts/game-audio",
+                {
+                  kind: "music",
+                  prompt,
+                  context: { axis, key },
+                  ...(gameAudioConnectionId ? { audioConnectionId: gameAudioConnectionId } : {}),
+                },
+                { signal },
+              ),
+            CONTEXT_MUSIC_GENERATION_TIMEOUT_MS,
+          );
+          if (!gameSurfaceMountedRef.current || activeChatIdRef.current !== requestChatId) {
+            // The file exists server-side either way; the new scope's own
+            // manifest pass will surface it. Just never PLAY into it.
+            contextMusicRequestRef.current.delete(requestKey);
+            return;
+          }
+          generatedAudioAssetsRef.current[generated.tag] = {
+            tag: generated.tag,
+            category: "music",
+            subcategory: axis,
+            name: generated.tag.split(":").at(-1) ?? generated.tag,
+            path: generated.path,
+            ext: ".mp3",
+          };
+          // Combat has no later scoring pass to adopt the track; crossfade in
+          // now if the fight this was generated for is still running.
+          if (axis === "tier" && combatMusicTierRef.current === key) {
+            playContextCombatMusic(key as MusicEnemyTier);
+          }
+        } catch (error) {
+          contextMusicRequestRef.current.delete(requestKey);
+          console.warn(`[game-audio] Failed to generate ${axis} music for "${key}":`, error);
+        }
+      })();
+    },
+    [generateGameMusic, getScopedAssetMap, gameAudioConnectionId, playContextCombatMusic],
   );
   const audioMuted = useGameAssetStore((s) => s.audioMuted);
 
@@ -2678,10 +2893,19 @@ function GameSurfaceComponent({
   const [queuedEncounter, setQueuedEncounter] = useState<{ encounter: CombatEncounterTag; messageId: string } | null>(
     null,
   );
-  const [queuedCombatGeneration, setQueuedCombatGeneration] = useState<{ messageId: string } | null>(null);
+  const [queuedCombatGeneration, setQueuedCombatGeneration] = useState<{ messageId: string; notify: boolean } | null>(
+    null,
+  );
   const [preparedCombatState, setPreparedCombatState] = useState<PreparedCombatState | null>(null);
   const [combatGenerationPending, setCombatGenerationPending] = useState(false);
   const [combatGenerationError, setCombatGenerationError] = useState<string | null>(null);
+  /** Synchronous in-flight flag beside the async combatGenerationPending state: same-frame double
+   *  requests all read the stale state, the ref does not. Declared early so the turn-retry handler,
+   *  which must abandon an in-flight generation, can reach it. #5094. */
+  const combatGenerationInFlightRef = useRef(false);
+  /** Monotonic id for the CURRENT combat request; a stale completion whose id no longer matches bails.
+   *  Bumped on every new request, on chat switch, and when a turn retry abandons a generation. #5094. */
+  const combatGenerationRequestIdRef = useRef(0);
   const [combatItemEffects, setCombatItemEffects] = useState<CombatItemEffect[]>([]);
   const [combatMechanics, setCombatMechanics] = useState<CombatMechanic[]>([]);
   const [combatDialogueCues, setCombatDialogueCues] = useState<CombatDialogueCue[]>([]);
@@ -2694,6 +2918,11 @@ function GameSurfaceComponent({
     formation: string | null;
     styleNotes: CombatStyleNotes | null;
   } | null>(null);
+  // Encounter tier for context-bound combat music (#5161): set from the
+  // /encounter/init blueprint (falling back from isBossFight), cleared with
+  // the rest of the combat state. Drives music:tier:<tier> selection.
+  const [combatMusicTier, setCombatMusicTier] = useState<MusicEnemyTier | null>(null);
+  combatMusicTierRef.current = combatMusicTier;
   // Guards the fire-once-per-battle auto background generation for tactical combat,
   // keyed by combatStartMessageId so a subsequent battle fires again.
   const tacticalAutoBackgroundFiredRef = useRef<string | null>(null);
@@ -3065,6 +3294,11 @@ function GameSurfaceComponent({
     setQueuedQte(null);
     setQueuedEncounter(null);
     setQueuedCombatGeneration(null);
+    // #5094: abandon any in-flight combat generation here — clear the lock so a fresh request isn't
+    // blocked by it, and bump the request id so the old generation's stale completion can't re-queue
+    // combat, apply state, or set an error against the reset combat state.
+    combatGenerationInFlightRef.current = false;
+    combatGenerationRequestIdRef.current += 1;
     setCombatGenerationPending(false);
     setCombatItemEffects([]);
     setCombatMechanics([]);
@@ -3073,6 +3307,8 @@ function GameSurfaceComponent({
     setCombatParty(null);
     setCombatEnemies(null);
     setCombatSceneMeta(null);
+    setCombatMusicTier(null);
+    contextMusicRequestRef.current.clear();
     setCombatSpriteSuggestion(null);
     setNarrationDoneMsgId(null);
     lastProcessedMsgRef.current = null;
@@ -3521,7 +3757,11 @@ function GameSurfaceComponent({
         previous?.providesInventory === next?.providesInventory &&
         previous?.providesCombat === next?.providesCombat &&
         previous?.providesPlayerInput === next?.providesPlayerInput &&
-        previous?.providesChoices === next?.providesChoices
+        previous?.providesChoices === next?.providesChoices &&
+        // Every declared field belongs in this comparison. A package that toggles ONLY the
+        // narration-collapse request would otherwise be handed back the previous object and
+        // its cutscene would never fold the box away.
+        previous?.requestsCollapsedNarration === next?.requestsCollapsedNarration
       ) {
         return previous;
       }
@@ -4272,7 +4512,7 @@ function GameSurfaceComponent({
         if (tags.combatEncounter && !hasCombatResultAfterMessage(latestAssistantMsg.id)) {
           setQueuedEncounter({ encounter: tags.combatEncounter, messageId: latestAssistantMsg.id });
         } else if (tags.stateChange === "combat" && !hasCombatResultAfterMessage(latestAssistantMsg.id)) {
-          setQueuedCombatGeneration({ messageId: latestAssistantMsg.id });
+          setQueuedCombatGeneration({ messageId: latestAssistantMsg.id, notify: true });
         }
       }
       lastProcessedMsgRef.current = latestAssistantMsg.id;
@@ -4401,8 +4641,21 @@ function GameSurfaceComponent({
     setCombatMechanics(Array.isArray(snapshot.mechanics) ? snapshot.mechanics : []);
     setCombatDialogueCues(Array.isArray(snapshot.dialogueCues) ? snapshot.dialogueCues : []);
     if (snapshot.startMessageId) setCombatStartMessageId(snapshot.startMessageId);
+    // #5161: restore the encounter tier so a mid-fight refresh doesn't swap
+    // the boss theme for generic combat music. Older snapshots (no field)
+    // fall back to the tier baked into the persisted current track, else
+    // "common" — the tier branch must stay engaged during a live fight.
+    setCombatMusicTier(
+      normalizeMusicEnemyTier(snapshot.musicTier ?? null) ??
+        normalizeMusicEnemyTier(
+          typeof chatMeta.gameSceneMusic === "string"
+            ? /^music:tier:([a-z]+):/.exec(chatMeta.gameSceneMusic)?.[1]
+            : null,
+        ) ??
+        "common",
+    );
     useGameModeStore.getState().setGameState("combat");
-  }, [activeChatId, chatMeta.gameCombatState, chatMeta.gameActiveState, isMessagesLoading]);
+  }, [activeChatId, chatMeta.gameCombatState, chatMeta.gameActiveState, chatMeta.gameSceneMusic, isMessagesLoading]);
 
   // ── Persist live combat snapshot to chat metadata (debounced) ──
   // Mirrors the scene-asset persistence above but only fires while combat is active.
@@ -4436,6 +4689,7 @@ function GameSurfaceComponent({
       mechanics: combatMechanics,
       dialogueCues: combatDialogueCues,
       startMessageId: combatStartMessageId,
+      musicTier: combatMusicTier,
     };
     combatPendingSnapshotRef.current = { chatId: activeChatId, snapshot };
     combatPersistTimer.current = setTimeout(() => {
@@ -4469,6 +4723,7 @@ function GameSurfaceComponent({
     };
   }, [
     activeChatId,
+    combatMusicTier,
     combatParty,
     combatEnemies,
     combatItemEffects,
@@ -4650,6 +4905,10 @@ function GameSurfaceComponent({
   // Uses a Zustand subscription to detect isStreaming going false, which is
   // immune to React effect timing / dependency issues.
   const processSceneRef = useRef<(() => void) | null>(null);
+  // Render-fresh handle for the skip button (#5161 review-found: the memoized
+  // skipSceneAnalysis captured a first-render applyInlineTags, so context
+  // music scoring ran with null location/tier forever).
+  const applyInlineTagsRef = useRef<typeof applyInlineTags | null>(null);
 
   // Keep the processing function fresh on every render so it captures current closure values
   processSceneRef.current = () => {
@@ -4733,7 +4992,7 @@ function GameSurfaceComponent({
       if (tags.combatEncounter) {
         setQueuedEncounter({ encounter: tags.combatEncounter, messageId: msg.id });
       } else if (tags.stateChange === "combat") {
-        setQueuedCombatGeneration({ messageId: msg.id });
+        setQueuedCombatGeneration({ messageId: msg.id, notify: true });
       }
     }
 
@@ -4898,6 +5157,7 @@ function GameSurfaceComponent({
       recentSpotifyTracks: recentSpotifyTrackHistoryRef.current,
       currentAmbient: useGameAssetStore.getState().currentAmbient,
       currentLocation: gameSnapshot?.location ?? null,
+      enemyTier: combatMusicTier,
       currentWeather: gameSnapshot?.weather ?? null,
       currentTimeOfDay: gameSnapshot?.time ?? metaTime ?? null,
       genre: ((chatMeta.gameSetupConfig as Record<string, unknown> | undefined)?.genre as string | undefined) ?? null,
@@ -5020,6 +5280,28 @@ function GameSurfaceComponent({
       });
     }
 
+    // #5161: make sure this area has its persistent theme in the library.
+    // This sits on the path COMMON to every scene route — sidecar, scene
+    // connection, inline-only, and the error/timeout fallbacks — so lazy
+    // area generation is path-independent (review-found: it originally lived
+    // only on the inline fallback, leaving the feature inert for the default
+    // agent-enabled configuration). The next scoring pass picks the track up.
+    if (!useMusicDjPlayerMusic && gameSnapshot?.location) {
+      const areaSlug = musicAreaSlug(gameSnapshot.location);
+      if (areaSlug) {
+        const setup = chatMeta.gameSetupConfig as Record<string, unknown> | undefined;
+        ensureContextMusicTrack(
+          "area",
+          areaSlug,
+          buildAreaMusicPrompt(gameSnapshot.location, {
+            genre: (setup?.genre as string | undefined) ?? null,
+            setting: (setup?.setting as string | undefined) ?? null,
+            timeOfDay: gameSnapshot?.time ?? metaTime ?? null,
+          }),
+        );
+      }
+    }
+
     runSceneAnalysis(sceneContext);
   };
 
@@ -5044,6 +5326,8 @@ function GameSurfaceComponent({
       timeOfDay: gameSnapshot?.time ?? metaTime ?? null,
       musicIntensity:
         sceneAnalysisState === "combat" ? "intense" : sceneAnalysisState === "travel_rest" ? "calm" : null,
+      locationSlug: musicAreaSlug(gameSnapshot?.location ?? null),
+      enemyTier: sceneAnalysisState === "combat" ? combatMusicTier : null,
       currentMusic: useGameAssetStore.getState().currentMusic,
       recentMusic: recentMusicHistoryRef.current,
       availableMusic: musicTags,
@@ -5552,6 +5836,7 @@ function GameSurfaceComponent({
 
   // Keep ref up-to-date so retry button can call it
   applySceneResultRef.current = (r) => applySceneResult(r, latestAssistantMsg!);
+  applyInlineTagsRef.current = applyInlineTags;
 
   /** Retry scene analysis: re-run the full processing pipeline for the current message. */
   const retrySceneAnalysis = useCallback(() => {
@@ -5568,8 +5853,8 @@ function GameSurfaceComponent({
     if (!msg?.content) return;
     const tags = parseGmTags(msg.content);
     setSceneAnalysisFailed(false);
-    applyInlineTags(tags, getScopedAssetMap(), msg);
-  }, [getScopedAssetMap]); // eslint-disable-line react-hooks/exhaustive-deps
+    applyInlineTagsRef.current?.(tags, getScopedAssetMap(), msg);
+  }, [getScopedAssetMap]);
 
   /** Retry failed image/NPC avatar generation. */
   const requestAssetGeneration = useCallback(
@@ -5588,6 +5873,13 @@ function GameSurfaceComponent({
       try {
         const res = await runGameAssetGeneration(assetPayload, { allowPromptReview: options?.allowPromptReview });
 
+        // #5094: the caller's request may have been superseded (chat switch, turn retry, or a newer combat
+        // request) while generation was in flight. Bail before touching asset state or applying assets so a
+        // stale job can't overwrite the current chat's background/avatars or clear the live request's state.
+        if (options?.isCurrent && !options.isCurrent()) {
+          return null;
+        }
+
         setPendingAssetGeneration(null);
         setAssetGenerationBlocksScene(false);
         if (!res) return null;
@@ -5601,6 +5893,10 @@ function GameSurfaceComponent({
 
         return res;
       } catch {
+        // #5094: don't surface a superseded request's failure on the current chat's asset state.
+        if (options?.isCurrent && !options.isCurrent()) {
+          return null;
+        }
         setAssetGenerationFailed(true);
         setAssetGenerationBlocksScene(false);
         return null;
@@ -6341,6 +6637,11 @@ function GameSurfaceComponent({
     setPendingEncounter(null);
     setQueuedEncounter(null);
     setQueuedCombatGeneration(null);
+    // #5094: abandon any in-flight combat generation here — clear the lock so a fresh request isn't
+    // blocked by it, and bump the request id so the old generation's stale completion can't re-queue
+    // combat, apply state, or set an error against the reset combat state.
+    combatGenerationInFlightRef.current = false;
+    combatGenerationRequestIdRef.current += 1;
     setCombatGenerationPending(false);
     setCombatItemEffects([]);
     setCombatMechanics([]);
@@ -6445,6 +6746,7 @@ function GameSurfaceComponent({
       recentSpotifyTracks: recentSpotifyTrackHistoryRef.current,
       currentAmbient: useGameAssetStore.getState().currentAmbient,
       currentLocation: gameSnapshot?.location ?? null,
+      enemyTier: combatMusicTier,
       currentWeather: gameSnapshot?.weather ?? null,
       currentTimeOfDay: gameSnapshot?.time ?? metaTime ?? null,
       genre: (setupConfig?.genre as string | undefined) ?? null,
@@ -6502,6 +6804,7 @@ function GameSurfaceComponent({
   }, [
     activeChatId,
     assistantTurnCount,
+    combatMusicTier,
     chatMeta.gameImagePromptInstructions,
     chatMeta.gameSceneConnectionId,
     chatMeta.gameSetupConfig,
@@ -6582,63 +6885,8 @@ function GameSurfaceComponent({
     [clearPendingInteractiveCommands, sendMessage],
   );
 
-  // Engine state handed to the slot, recomputed per turn so the surface tracks streaming and new
-  // messages. Builds nothing unless the surface is mounted, so a Classic game never pays for it.
-  const experienceSurfaceProps = useMemo(
-    () =>
-      !experienceSurfaceActive
-        ? undefined
-        : {
-            chatId: activeChatId,
-            chatMeta,
-            messages,
-            latestAssistant: latestAssistantMsg,
-            isStreaming,
-            scopedAssetMap,
-            sendMessage: sendExperienceMessage,
-            setExperienceBackgroundTag: pushExperienceBackground,
-            setExperienceSpeakerAvatars,
-            setExperienceChrome,
-            // Who is speaking RIGHT NOW, as the narration plays. Deriving it from the turn text instead yields
-            // only the LAST speaker of the turn, which leaves a VN sprite stuck on whoever spoke last.
-            activeSpeaker: activeSpeaker
-              ? { name: activeSpeaker.name, expression: activeSpeaker.expression ?? null }
-              : null,
-            experienceChoiceSlotEl,
-            // Per-turn state, so the surface can hold its menu until the narration finishes.
-            narrationDone,
-            latestNarrationText,
-            scenePreparing,
-            directionsPlaying,
-            assetGenerationBlocksScene,
-            replayActive,
-            sessionInteractive: (chatMeta.gameSessionStatus as string) !== "concluded",
-            // The host's sprite-size setting, so the player's slider keeps working in this mode.
-            spriteScale: gameFullBodySpriteScale,
-          },
-    [
-      experienceSurfaceActive,
-      activeChatId,
-      chatMeta,
-      messages,
-      latestAssistantMsg,
-      isStreaming,
-      scopedAssetMap,
-      sendExperienceMessage,
-      pushExperienceBackground,
-      setExperienceSpeakerAvatars,
-      setExperienceChrome,
-      activeSpeaker,
-      experienceChoiceSlotEl,
-      narrationDone,
-      latestNarrationText,
-      scenePreparing,
-      directionsPlaying,
-      assetGenerationBlocksScene,
-      replayActive,
-      gameFullBodySpriteScale,
-    ],
-  );
+  // experienceSurfaceProps (the engine state handed to the surface slot) is declared further down,
+  // after the combat seam it now carries — see the memo next to classicCombatStarter.
 
   // Game mutations
   const createGame = useCreateGame();
@@ -8060,6 +8308,27 @@ function GameSurfaceComponent({
     (chatMeta.gameCombatStyle as GameCombatStyle | undefined) ??
     (combatSetupConfig?.combatStyle as GameCombatStyle | undefined) ??
     "classic";
+  // Live snapshot for the identity-stable combat seam (#5094): a package may
+  // cache requestCombat at mount, so the callback must read CURRENT values, not
+  // its creation render's closure. messageId rides latestAssistantMsgRef.
+  const combatSeamRef = useRef({ combatUiActive: false, concluded: false, replayActive: false });
+  useEffect(() => {
+    combatSeamRef.current.combatUiActive = combatUiActive;
+    combatSeamRef.current.concluded = (chatMeta.gameSessionStatus as string) === "concluded";
+    combatSeamRef.current.replayActive = replayActive;
+  });
+  // #5094: on chat switch, clear the in-flight lock AND the error (the [activeChatId] reset above only
+  // clears the pending state) and invalidate any in-flight request (bump the request id), so a
+  // generation left in flight by the previous chat can't keep the new chat stuck as "pending", leak its
+  // error, or have a stale completion touch the new chat. (Both refs are declared with the combat state
+  // above so the turn-retry handler can reach them too.) The requestId check is why a same-chat retry
+  // is also covered; the requestChatId check is a synchronous belt (activeChatIdRef updates during
+  // render, ahead of this effect's bump), so a chat switch is caught even before the bump lands.
+  useEffect(() => {
+    combatGenerationInFlightRef.current = false;
+    combatGenerationRequestIdRef.current += 1;
+    setCombatGenerationError(null);
+  }, [activeChatId]);
   const tacticalCombatActive = combatUiActive && effectiveCombatStyle === "tactical";
   const topOverlayOffsetClass = "top-3";
   const queuedCombatMatchesLatest =
@@ -8173,14 +8442,25 @@ function GameSurfaceComponent({
   ]);
 
   const generateCombatStateForMessage = useCallback(
-    (messageId: string) => {
-      if (combatGenerationPending) return;
+    (messageId: string, notify: boolean) => {
+      // Both guards: the state flag drives rendering, but it is stale within a
+      // frame — same-frame double calls (a package spamming requestCombat, #5094)
+      // all read false. The ref flips synchronously and clears with the request.
+      if (combatGenerationPending || combatGenerationInFlightRef.current) return;
       const debugMode = useUIStore.getState().debugMode;
       if (debugMode) {
         console.warn("[game-combat] Starting combat state generation", { chatId: activeChatId, messageId });
       }
+      combatGenerationInFlightRef.current = true;
       setCombatGenerationError(null);
       setCombatGenerationPending(true);
+      // #5094: scope the async completion to THIS request. requestId is bumped by any newer request, a
+      // chat switch, or a turn retry that abandons this one; requestChatId is the synchronous belt for a
+      // chat switch (activeChatIdRef updates during render, ahead of the effect that bumps requestId).
+      // Every handler below bails unless BOTH still match, so a stale completion can't apply combat
+      // state, set an error, or clear the lock for a different request, turn, or chat.
+      const requestChatId = activeChatId;
+      const requestId = ++combatGenerationRequestIdRef.current;
       api
         .post<EncounterInitResponse>("/encounter/init", {
           chatId: activeChatId,
@@ -8190,12 +8470,34 @@ function GameSurfaceComponent({
           debugMode,
         })
         .then(async (response) => {
+          if (combatGenerationRequestIdRef.current !== requestId || activeChatIdRef.current !== requestChatId) return; // superseded
           const combatants = hydrateGeneratedCombatState(response.combatState);
           if (!combatants) {
             throw new Error("Combat generator returned an empty party or enemy list.");
           }
 
           const visuals = response.combatState.visuals;
+          // #5161: classify the encounter for context-bound combat music and
+          // make sure the tier's persistent track exists in the library.
+          const encounterTier =
+            normalizeMusicEnemyTier(visuals?.encounterTier ?? null) ?? (visuals?.isBossFight ? "boss" : "common");
+          setCombatMusicTier(encounterTier);
+          // Sync the mirror NOW: the generation below may resolve before the
+          // state commit re-renders, and its still-in-this-fight check reads
+          // the ref.
+          combatMusicTierRef.current = encounterTier;
+          ensureContextMusicTrack(
+            "tier",
+            encounterTier,
+            buildTierMusicPrompt(
+              encounterTier,
+              ((chatMeta.gameSetupConfig as Record<string, unknown> | undefined)?.genre as string | undefined) ?? null,
+            ),
+          );
+          // Apply combat music immediately: no scene-analysis pass runs while
+          // the overlay is up. Plays the tier track when it already exists,
+          // else the legacy combat pool until the composition lands.
+          playContextCombatMusic(encounterTier);
           const enemyAvatarRequests = (
             Array.isArray(visuals?.enemyImagePrompts) && visuals.enemyImagePrompts.length > 0
               ? visuals.enemyImagePrompts
@@ -8246,8 +8548,16 @@ function GameSurfaceComponent({
               npcsNeedingAvatars: shouldGenerateEnemyAvatars ? enemyAvatarRequests : undefined,
               debugMode: useUIStore.getState().debugMode,
             };
-            void requestAssetGeneration(assetPayload, { allowPromptReview: false })
+            void requestAssetGeneration(assetPayload, {
+              allowPromptReview: false,
+              // #5094: gate the internal asset apply (background + avatars + asset state) on this combat
+              // request still being current, since requestAssetGeneration applies before the .then below runs.
+              isCurrent: () =>
+                combatGenerationRequestIdRef.current === requestId && activeChatIdRef.current === requestChatId,
+            })
               .then((assetResult) => {
+                if (combatGenerationRequestIdRef.current !== requestId || activeChatIdRef.current !== requestChatId)
+                  return; // superseded; don't apply avatars to a different request/turn/chat
                 if (!assetResult?.generatedNpcAvatars?.length) return;
                 const avatarByName = new Map(
                   assetResult.generatedNpcAvatars.map(
@@ -8298,12 +8608,24 @@ function GameSurfaceComponent({
           });
         })
         .catch((err) => {
+          if (combatGenerationRequestIdRef.current !== requestId || activeChatIdRef.current !== requestChatId) return; // superseded; don't set stale error
           const message = err instanceof Error ? err.message : "Combat generation failed.";
           console.warn("[game-combat] Failed to generate combat state", err);
           setCombatGenerationError(message);
-          toast.error(localizeUi("ui.game.gamesurfacecomponent.value1UseTheCombatButtonToRetry", { value1: message }));
+          // Only the Engine paths (manual button, retry, auto-queue) toast. An Experience/package
+          // request passes notify=false and renders its own feedback from combatError, so a failed
+          // package request must not surface an Engine toast over the package's UI. #5094.
+          if (notify) {
+            toast.error(
+              localizeUi("ui.game.gamesurfacecomponent.value1UseTheCombatButtonToRetry", { value1: message }),
+            );
+          }
         })
-        .finally(() => setCombatGenerationPending(false));
+        .finally(() => {
+          if (combatGenerationRequestIdRef.current !== requestId || activeChatIdRef.current !== requestChatId) return; // superseded; don't clear another request's lock
+          combatGenerationInFlightRef.current = false;
+          setCombatGenerationPending(false);
+        });
     },
     [
       activeChatId,
@@ -8312,6 +8634,9 @@ function GameSurfaceComponent({
       gameImageAutoGenerationEnabled,
       hydrateGeneratedCombatState,
       requestAssetGeneration,
+      ensureContextMusicTrack,
+      playContextCombatMusic,
+      chatMeta.gameSetupConfig,
       localizeUi,
     ],
   );
@@ -8333,7 +8658,7 @@ function GameSurfaceComponent({
     if (preparedCombatState?.messageId === queuedCombatGeneration.messageId) return;
     if (isStreaming || scenePreparing || assetGenerationBlocksScene) return;
 
-    generateCombatStateForMessage(queuedCombatGeneration.messageId);
+    generateCombatStateForMessage(queuedCombatGeneration.messageId, queuedCombatGeneration.notify);
   }, [
     activeChatId,
     combatGenerationPending,
@@ -8484,13 +8809,55 @@ function GameSurfaceComponent({
       toast.error(localizeUi("ui.game.gamesurfacecomponent.noCurrentTurnIsAvailableForCombatGeneration"));
       return;
     }
-    setQueuedCombatGeneration({ messageId });
+    setQueuedCombatGeneration({ messageId, notify: true });
     setPreparedCombatState(null);
     setCombatGenerationError(null);
-    generateCombatStateForMessage(messageId);
+    generateCombatStateForMessage(messageId, true);
   }, [generateCombatStateForMessage, latestAssistantMsg?.id, queuedCombatGeneration?.messageId, localizeUi]);
 
+  /** Keeps the identity-stable combat seam pointing at the CURRENT generator
+   *  (whose own identity tracks its render-state deps). */
+  const generateCombatRef = useRef(generateCombatStateForMessage);
+  useEffect(() => {
+    generateCombatRef.current = generateCombatStateForMessage;
+  });
+
+  /** Shared combat-start core (#5094): the manual button (after its confirm dialog) and an
+   *  Experience's requestCombat both funnel through here — ONE path into the vanilla
+   *  generation pass, so a package can never trigger side effects the button would not.
+   *  The vanilla LLM pass still decides what the encounter is. Reads everything through
+   *  refs so the identity-stable package callback can never act on a stale closure;
+   *  `notify` keeps Engine toasts off the package path (the Experience renders its own
+   *  feedback from the returned refusal code). */
+  const startCombatGeneration = useCallback(
+    (notify: boolean): "started" | "combat-active" | "pending" | "no-turn" | "unavailable" => {
+      const seam = combatSeamRef.current;
+      if (seam.concluded || seam.replayActive) return "unavailable";
+      if (seam.combatUiActive) {
+        if (notify) toast("Combat is already active.");
+        return "combat-active";
+      }
+      if (combatGenerationInFlightRef.current) {
+        if (notify) toast("Combat is already being prepared.");
+        return "pending";
+      }
+      const messageId = latestAssistantMsgRef.current?.id;
+      if (!messageId) {
+        if (notify) toast.error(localizeUi("ui.game.gamesurfacecomponent.theGmNeedsToWriteAtLeastOneTurn"));
+        return "no-turn";
+      }
+      setQueuedCombatGeneration({ messageId, notify });
+      setPreparedCombatState(null);
+      setCombatGenerationError(null);
+      generateCombatRef.current(messageId, notify);
+      return "started";
+    },
+    [localizeUi],
+  );
+
   const handleRequestManualCombatStart = useCallback(async () => {
+    // Pre-dialog guards so the player is never asked to confirm a request that
+    // must fail — the core re-checks all of them (fresh, via refs) afterwards.
     if (combatUiActive) {
       toast("Combat is already active.");
       return;
@@ -8499,8 +8866,7 @@ function GameSurfaceComponent({
       toast("Combat is already being prepared.");
       return;
     }
-    const messageId = latestAssistantMsg?.id;
-    if (!messageId) {
+    if (!latestAssistantMsg?.id) {
       toast.error(localizeUi("ui.game.gamesurfacecomponent.theGmNeedsToWriteAtLeastOneTurn"));
       return;
     }
@@ -8511,16 +8877,95 @@ function GameSurfaceComponent({
       cancelLabel: "No",
     });
     if (!confirmed) return;
-    setQueuedCombatGeneration({ messageId });
-    setPreparedCombatState(null);
-    setCombatGenerationError(null);
-    generateCombatStateForMessage(messageId);
-  }, [combatGenerationPending, combatUiActive, generateCombatStateForMessage, latestAssistantMsg?.id, localizeUi]);
+    startCombatGeneration(true);
+  }, [combatGenerationPending, combatUiActive, latestAssistantMsg?.id, startCombatGeneration, localizeUi]);
+
+  /** Handed to Experience surfaces as requestCombat (#5094). Identity-stable (matching
+   *  every other function in the surface props), silent (returns the refusal code
+   *  instead of Engine toasts over the package's UI), and confirm-free — the
+   *  Experience's own interface already expressed the intent. Deliberately takes no
+   *  combatant data: startCombat(party, enemies) would let a package construct combat
+   *  outside the vanilla generation path, and combat stays vanilla. */
+  const requestExperienceCombat = useCallback(() => startCombatGeneration(false), [startCombatGeneration]);
 
   // The narration renders these buttons only when the props are supplied, so withholding them beats
   // hiding: no dead button, and no way to reach the Classic flow underneath the surface.
   const classicInventoryOpener = activeExperienceChrome?.providesInventory ? undefined : () => setInventoryOpen(true);
   const classicCombatStarter = activeExperienceChrome?.providesCombat ? undefined : handleRequestManualCombatStart;
+
+  // Engine state handed to the surface slot, recomputed per turn so the surface tracks streaming and
+  // new messages. Builds nothing unless the surface is mounted, so a Classic game never pays for it.
+  // Declared here (not with the other seams) because it carries the combat seam computed above.
+  const experienceSurfaceProps = useMemo(
+    () =>
+      !experienceSurfaceActive
+        ? undefined
+        : {
+            chatId: activeChatId,
+            chatMeta,
+            messages,
+            latestAssistant: latestAssistantMsg,
+            isStreaming,
+            scopedAssetMap,
+            sendMessage: sendExperienceMessage,
+            setExperienceBackgroundTag: pushExperienceBackground,
+            setExperienceSpeakerAvatars,
+            setExperienceChrome,
+            // Who is speaking RIGHT NOW, as the narration plays. Deriving it from the turn text instead yields
+            // only the LAST speaker of the turn, which leaves a VN sprite stuck on whoever spoke last.
+            activeSpeaker: activeSpeaker
+              ? { name: activeSpeaker.name, expression: activeSpeaker.expression ?? null }
+              : null,
+            experienceChoiceSlotEl,
+            // Per-turn state, so the surface can hold its menu until the narration finishes.
+            narrationDone,
+            latestNarrationText,
+            scenePreparing,
+            directionsPlaying,
+            assetGenerationBlocksScene,
+            replayActive,
+            sessionInteractive: (chatMeta.gameSessionStatus as string) !== "concluded",
+            // The host's sprite-size setting, so the player's slider keeps working in this mode.
+            spriteScale: gameFullBodySpriteScale,
+            // Combat seam (#5094): the instant the combat UI actually mounts — unlike
+            // chatMeta.gameActiveState, the GM's narrative scene state, which lags the
+            // flip and can say "combat" without any combat UI existing.
+            combatActive: combatUiActive,
+            combatStyle: effectiveCombatStyle,
+            requestCombat: requestExperienceCombat,
+            // Generation progress/outcome mirrors, so a package that requested combat can
+            // show its own feedback instead of waiting on combatActive forever.
+            combatPending: combatGenerationPending,
+            combatError: combatGenerationError,
+          },
+    [
+      experienceSurfaceActive,
+      activeChatId,
+      chatMeta,
+      messages,
+      latestAssistantMsg,
+      isStreaming,
+      scopedAssetMap,
+      sendExperienceMessage,
+      pushExperienceBackground,
+      setExperienceSpeakerAvatars,
+      setExperienceChrome,
+      activeSpeaker,
+      experienceChoiceSlotEl,
+      narrationDone,
+      latestNarrationText,
+      scenePreparing,
+      directionsPlaying,
+      assetGenerationBlocksScene,
+      replayActive,
+      gameFullBodySpriteScale,
+      combatUiActive,
+      effectiveCombatStyle,
+      requestExperienceCombat,
+      combatGenerationPending,
+      combatGenerationError,
+    ],
+  );
 
   useEffect(() => {
     if (!queuedQte || !latestAssistantMsg?.id) return;
@@ -9490,6 +9935,11 @@ function GameSurfaceComponent({
     setViewedMapId(null);
     setCombatStartMessageId(null);
     setQueuedCombatGeneration(null);
+    // #5094: abandon any in-flight combat generation here — clear the lock so a fresh request isn't
+    // blocked by it, and bump the request id so the old generation's stale completion can't re-queue
+    // combat, apply state, or set an error against the reset combat state.
+    combatGenerationInFlightRef.current = false;
+    combatGenerationRequestIdRef.current += 1;
     setCombatGenerationPending(false);
     setCombatItemEffects([]);
     setCombatMechanics([]);
@@ -9615,9 +10065,15 @@ function GameSurfaceComponent({
     setCombatParty(null);
     setCombatEnemies(null);
     setCombatSceneMeta(null);
+    setCombatMusicTier(null);
     setPendingEncounter(null);
     setQueuedEncounter(null);
     setQueuedCombatGeneration(null);
+    // #5094: abandon any in-flight combat generation here — clear the lock so a fresh request isn't
+    // blocked by it, and bump the request id so the old generation's stale completion can't re-queue
+    // combat, apply state, or set an error against the reset combat state.
+    combatGenerationInFlightRef.current = false;
+    combatGenerationRequestIdRef.current += 1;
     setCombatGenerationPending(false);
     setCombatItemEffects([]);
     setCombatMechanics([]);
@@ -9645,6 +10101,7 @@ function GameSurfaceComponent({
       setCombatParty(null);
       setCombatEnemies(null);
       setCombatSceneMeta(null);
+      setCombatMusicTier(null);
       setQueuedCombatGeneration(null);
       setCombatGenerationPending(false);
       setCombatItemEffects([]);
@@ -9945,6 +10402,7 @@ function GameSurfaceComponent({
       recentMusic: recentMusicHistoryRef.current,
       currentAmbient: useGameAssetStore.getState().currentAmbient,
       currentLocation: gameSnapshot?.location ?? null,
+      enemyTier: combatMusicTier,
       currentWeather: gameSnapshot?.weather ?? null,
       currentTimeOfDay: gameSnapshot?.time ?? metaTime ?? null,
       genre: (setupConfig?.genre as string | undefined) ?? null,
@@ -9982,6 +10440,7 @@ function GameSurfaceComponent({
     }
   }, [
     assistantTurnCount,
+    combatMusicTier,
     latestAssistantMsg,
     scopedAssetMap,
     gameState,
@@ -10664,7 +11123,7 @@ function GameSurfaceComponent({
       <div
         data-chat-floating-panel
         className={cn(
-          ROLEPLAY_POPOVER_SHELL,
+          NEUTRAL_PANEL_SHELL,
           "flex min-h-0 flex-col overflow-hidden",
           mobile
             ? GAME_MOBILE_FLOATING_PANEL
@@ -10672,13 +11131,13 @@ function GameSurfaceComponent({
         )}
         style={mobile ? getGameMobileFloatingPanelStyle(mobileSessionPanelAnchor) : undefined}
       >
-        <div className={cn(ROLEPLAY_POPOVER_HEADER, "flex items-start gap-3")}>
+        <div className={cn(NEUTRAL_PANEL_HEADER, "flex items-start gap-3")}>
           <div className="min-w-0 flex-1">
-            <div className={ROLEPLAY_POPOVER_TITLE}>
+            <div className={NEUTRAL_PANEL_TITLE}>
               <Feather size="0.8rem" className="shrink-0 text-[var(--muted-foreground)]" />
               {localizeUi("game.toolbar.session")}
             </div>
-            <div className={ROLEPLAY_POPOVER_SUBTITLE}>
+            <div className={NEUTRAL_PANEL_SUBTITLE}>
               {localizeUi("game.toolbar.session")} {displaySessionNumber} · {sessionStatus}
             </div>
           </div>
@@ -10698,10 +11157,10 @@ function GameSurfaceComponent({
             <button
               type="button"
               onClick={() => setSessionPanelOpen(false)}
-              className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
+              className={NEUTRAL_PANEL_CLOSE_BUTTON}
               aria-label={localizeUi("ui.game.gamesurfacecomponent.closeSession")}
             >
-              <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+              <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
             </button>
           </div>
         </div>
@@ -10730,7 +11189,7 @@ function GameSurfaceComponent({
         {sessionPanelTab === "history" ? (
           <div
             className={cn(
-              ROLEPLAY_POPOVER_SCROLL_AREA,
+              NEUTRAL_PANEL_SCROLL_AREA,
               "min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain p-2 [-webkit-overflow-scrolling:touch]",
             )}
           >
@@ -10907,7 +11366,7 @@ function GameSurfaceComponent({
       <div
         data-chat-floating-panel
         className={cn(
-          ROLEPLAY_POPOVER_SHELL,
+          NEUTRAL_PANEL_SHELL,
           "flex min-h-0 flex-col overflow-hidden",
           mobile
             ? GAME_MOBILE_FLOATING_PANEL
@@ -11149,17 +11608,17 @@ function GameSurfaceComponent({
                     {retryMenuOpen && (
                       <div className={cn(GAME_ACTION_MENU, "absolute right-0 top-9 z-50")}>
                         <div className="mb-1 flex items-center justify-between gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-2 pb-1.5 pt-0.5">
-                          <div className={ROLEPLAY_POPOVER_TITLE}>
+                          <div className={NEUTRAL_PANEL_TITLE}>
                             <RotateCcw size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
                             <span>{t("game.toolbar.retry")}</span>
                           </div>
                           <button
                             type="button"
                             onClick={() => setRetryMenuOpen(false)}
-                            className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
+                            className={NEUTRAL_PANEL_CLOSE_BUTTON}
                             aria-label={t("game.toolbar.closeRetry")}
                           >
-                            <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+                            <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
                           </button>
                         </div>
                         <button
@@ -11401,17 +11860,17 @@ function GameSurfaceComponent({
                                 style={getGameMobileFloatingPanelStyle(mobileRetryMenuAnchor)}
                               >
                                 <div className="mb-1 flex items-center justify-between gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-2 pb-1.5 pt-0.5">
-                                  <div className={ROLEPLAY_POPOVER_TITLE}>
+                                  <div className={NEUTRAL_PANEL_TITLE}>
                                     <RotateCcw size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
                                     <span>{t("game.toolbar.retry")}</span>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => setMobileRetryMenuOpen(false)}
-                                    className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
+                                    className={NEUTRAL_PANEL_CLOSE_BUTTON}
                                     aria-label={t("game.toolbar.closeRetry")}
                                   >
-                                    <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+                                    <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
                                   </button>
                                 </div>
                                 <button
@@ -12099,6 +12558,9 @@ function GameSurfaceComponent({
                           onSetReviewOffset={setMessageOffset}
                           nextActionToken={nextActionToken}
                           onMaxNavOffsetChange={handleMaxNavOffsetChange}
+                          // Read off activeExperienceChrome, never raw experienceChrome: the request
+                          // has to evaporate when the experience is no longer the live surface.
+                          requestsCollapsedNarration={activeExperienceChrome?.requestsCollapsedNarration}
                           inputSlot={
                             activeExperienceChrome?.providesPlayerInput ? undefined : (
                               <GameInput
@@ -12188,6 +12650,9 @@ function GameSurfaceComponent({
                       onSetReviewOffset={setMessageOffset}
                       nextActionToken={nextActionToken}
                       onMaxNavOffsetChange={handleMaxNavOffsetChange}
+                      // Read off activeExperienceChrome, never raw experienceChrome: the request
+                      // has to evaporate when the experience is no longer the live surface.
+                      requestsCollapsedNarration={activeExperienceChrome?.requestsCollapsedNarration}
                       // Withheld while the experience drives the turn through its own menus. The
                       // declaration is dynamic, so the input returns when it has no action to offer.
                       inputSlot={

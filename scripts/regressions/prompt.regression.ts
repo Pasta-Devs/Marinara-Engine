@@ -9,6 +9,7 @@ import {
   LTX_DIRECTOR_GAME_VIDEO_PROMPT_TEMPLATE,
   LTX_DIRECTOR_GAME_VIDEO_PROMPT_TEMPLATE_ID,
   applyTrackerFieldLocksToGameStatePatch,
+  roleplayInventoryTrackerLockKey,
   characterTrackerLockKey,
   applyRegexReplacement,
   buildNarratorInstructionMessage,
@@ -18,6 +19,7 @@ import {
   createDefaultImageStyleProfileSettings,
   characterTrackerCustomFieldDefaultsToRecord,
   getDefaultBuiltInAgentSettings,
+  mergeBuiltInAgentSettings,
   generateChatSummaryEntryTitle,
   isAgentAvailableInChatMode,
   isPatternSafe,
@@ -43,6 +45,7 @@ import {
   testSecondaryKeys,
   type AgentContext,
   type ChatMLMessage,
+  type MacroContext,
   DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
   DEFAULT_CONVERSATION_PROMPT,
   getDefaultAgentPrompt,
@@ -57,10 +60,16 @@ import {
   normalizeGameStoryboardKeyframeCount,
   parseDeferredConditionalPayload,
   resolveDeferredCharacterMacros,
+  resolveCharacterScopedMacros,
   selectConditionalPayloadBranch,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
+  normalizeInventoryTrackerRows,
+  normalizeInventoryTrackerPlayerStats,
+  findInvalidInventoryTrackerRow,
 } from "../../packages/shared/src/index.js";
 import { replaceBuiltInAgentDefinitions as replaceBuiltInAgentDefinitionsDist } from "../../packages/shared/dist/index.js";
+import { buildInventoryTrackerEditPatch } from "../../packages/client/src/features/tracker-panel/lib/inventory-tracker-edit.js";
+
 import {
   formatNoodleTimelineForPrompt,
   NOODLE_PERSONA_IDENTITY_INSTRUCTION,
@@ -258,7 +267,14 @@ import {
   executeAgentBatch,
   formatAgentMainResponseForPrompt,
   renderAgentPromptTemplate,
+  resolveAgentResultType,
 } from "../../packages/server/src/services/agents/agent-executor.js";
+import {
+  formatBeholderRequestContext,
+  loadPriorBeholderState,
+  normalizeBeholderState,
+  resolveBeholderStateResponse,
+} from "../../packages/server/src/services/agents/beholder-state.js";
 import {
   CLEAN_HTML_FIND_REGEX,
   CLEAN_HTML_ID,
@@ -276,7 +292,11 @@ import {
   mergeAdjacentMessages,
   squashLeadingSystemMessages,
 } from "../../packages/server/src/services/prompt/merger.js";
-import type { ResolvedAgent } from "../../packages/server/src/services/agents/agent-pipeline.js";
+import {
+  runParallelAgents,
+  runPreGenerationAgents,
+  type ResolvedAgent,
+} from "../../packages/server/src/services/agents/agent-pipeline.js";
 import { loadGameVideoPrompt } from "../../packages/server/src/services/video/game-video-prompt.js";
 import {
   resolveComfyUiVideoWorkflowPlaceholders,
@@ -284,6 +304,7 @@ import {
 } from "../../packages/server/src/services/video/video-generation.js";
 import { loadGameStoryboardImagePrompt } from "../../packages/server/src/services/image/game-storyboard-image-prompt.js";
 import { formatAgentFailuresToast, toAgentFailure } from "../../packages/client/src/lib/agent-failures.js";
+import { createMessageMacroResolver } from "../../packages/client/src/lib/chat-macros.js";
 import { formatGenerationParameterError } from "../../packages/client/src/lib/generation-parameter-errors.js";
 import { normalizeCustomMusicSource } from "../../packages/client/src/components/chat/AgentAddSetupFields.js";
 import {
@@ -609,6 +630,7 @@ import {
 } from "../../packages/server/src/services/video/roleplay-video-direction.js";
 import {
   buildStoryboardAnimationRefinementMessages,
+  compactStoryboardAnimationPrompt,
   executeStoryboardImageAwareAnimation,
   redactStoryboardAnimationRefinementMessages,
   resolveStoryboardAnimationRefinement,
@@ -715,6 +737,7 @@ import {
   applyTrackerCharacterCardIdentity,
   canonicalizeGamePartySpeakerLabels,
   buildGenerationGuideInstruction,
+  buildLockedInventoryTrackerPatch,
   appendSeparateAgentInjectionMessage,
   collectLatestTrackerCharacterHistory,
   computeSummaryHideIds,
@@ -744,9 +767,12 @@ import { isChatToolEnabledByDefault } from "../../packages/server/src/services/g
 import { scopeIndividualGroupMessagesForTarget } from "../../packages/server/src/services/generation/prompt-message-scope.js";
 import { resolveGenerationPromptPresetChoices } from "../../packages/server/src/routes/generate/prompt-preset-selection.js";
 import {
+  buildLorebookSemanticEmbeddingsById,
   calibrateLorebookSimilarity,
   lorebookSimilarityBaseline,
+  selectLorebookVectorQueryText,
 } from "../../packages/server/src/services/lorebook/embeddings.js";
+import { formatMemoryRecallEmbeddingTexts } from "../../packages/server/src/services/memory-recall-embedding.js";
 import {
   filterRelevantLorebooks,
   resolveAndBudgetActivatedLorebookEntries,
@@ -757,6 +783,7 @@ import { processActivatedEntries } from "../../packages/server/src/services/lore
 import {
   parseAssistantWorkspaceAction,
   resolveWorkspaceMutationVerification,
+  workspaceMutationAuthorizationIssue,
   workspaceActionNeedsVerification,
   workspaceTextClaimsMutationCompletion,
   type WorkspaceCommandResult,
@@ -764,11 +791,16 @@ import {
 import { fitMessagesForModelAccess } from "../../packages/server/src/services/generation/model-access-policy.js";
 import {
   assemblePrompt,
+  appendFallbackChatSummaryToSystemPrompt,
   resolveChoiceVariableValue,
   resolvePromptMessageMacros,
   scopePromptMacroContextToCharacter,
   type AssemblerInput,
 } from "../../packages/server/src/services/prompt/index.js";
+import {
+  appendTrackerLorebookBatchContextKey,
+  applyTrackerLorebookContextPolicy,
+} from "../../packages/server/src/services/generation/tracker-agent-context.js";
 import {
   createCustomToolArgumentsValidator,
   executeToolCalls,
@@ -827,12 +859,15 @@ type RegressionPromptSection = AssemblerInput["sections"][number];
 
 function makeCapturingProvider(response: string) {
   const calls: any[][] = [];
+  const callOptions: any[] = [];
   return {
     calls,
+    callOptions,
     provider: {
       maxTokensOverrideValue: null,
-      async chatComplete(messages: any[]) {
+      async chatComplete(messages: any[], options: any) {
         calls.push(messages);
+        callOptions.push(options);
         return {
           content: response,
           usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
@@ -914,6 +949,76 @@ const keywordOptions = {
 };
 
 const cases: RegressionCase[] = [
+  {
+    name: "Storyboard package updates merge new built-in prompts without replacing saved choices",
+    run() {
+      const collectionKeys = [
+        "illustrationTemplates",
+        "videoTemplates",
+        "animationRefinementTemplates",
+        "roleplayEpisodeTemplates",
+        "roleplayStyleTemplates",
+        "roleplayAnimationTemplates",
+        "roleplayOutputTemplates",
+      ] as const;
+      const storyboardDefinition = {
+        id: "storyboard",
+        name: "Storyboard",
+        description: "Storyboard regression fixture.",
+        phase: "post_processing" as const,
+        enabledByDefault: false,
+        category: "misc" as const,
+        defaultTools: [],
+        defaultPromptTemplate: "Plan a storyboard.",
+        defaultSettings: Object.fromEntries(
+          collectionKeys.map((key) => [
+            key,
+            [
+              { id: `${key.toLowerCase()}-existing`, name: "Existing built-in", promptTemplate: `DEFAULT ${key}` },
+              { id: `${key.toLowerCase()}-new`, name: "New built-in", promptTemplate: `NEW ${key}` },
+            ],
+          ]),
+        ),
+      };
+      replaceBuiltInAgentDefinitions([...regressionAgentDefinitions, storyboardDefinition]);
+
+      try {
+        const savedSettings = Object.fromEntries(
+          collectionKeys.map((key) => [
+            key,
+            [
+              { id: `${key.toLowerCase()}-existing`, name: "Saved override", promptTemplate: `SAVED ${key}` },
+              { id: `${key.toLowerCase()}-custom`, name: "Custom prompt", promptTemplate: `CUSTOM ${key}` },
+            ],
+          ]),
+        );
+        const merged = mergeBuiltInAgentSettings("storyboard", {
+          ...savedSettings,
+          roleplayAnimationTemplateId: "roleplayanimationtemplates-custom",
+        });
+
+        for (const key of collectionKeys) {
+          const templates = merged[key] as Array<{ id: string; promptTemplate: string }>;
+          assert.deepEqual(
+            templates.map((template) => [template.id, template.promptTemplate]),
+            [
+              [`${key.toLowerCase()}-existing`, `SAVED ${key}`],
+              [`${key.toLowerCase()}-new`, `NEW ${key}`],
+              [`${key.toLowerCase()}-custom`, `CUSTOM ${key}`],
+            ],
+            `${key} must add new built-ins while preserving saved overrides and custom prompts`,
+          );
+        }
+        assert.equal(
+          merged.roleplayAnimationTemplateId,
+          "roleplayanimationtemplates-custom",
+          "merging package defaults must preserve the selected prompt id",
+        );
+      } finally {
+        replaceBuiltInAgentDefinitions(regressionAgentDefinitions);
+      }
+    },
+  },
   {
     name: "explicitly selected persona lorebooks remain usable outside their owner persona",
     run() {
@@ -1444,10 +1549,7 @@ const cases: RegressionCase[] = [
     run() {
       const publicReference = readFileSync(new URL("../../docs/agents/built-in-agents.md", import.meta.url), "utf8");
       const publicReferenceLines = new Set(publicReference.split(/\r?\n/u));
-      const frontendArchitecture = readFileSync(
-        new URL("../../docs/development/frontend.md", import.meta.url),
-        "utf8",
-      );
+      const frontendArchitecture = readFileSync(new URL("../../docs/development/frontend.md", import.meta.url), "utf8");
       const frontendAgentCatalog = frontendArchitecture.match(
         /### First-party downloadable agents([\s\S]*?)### Agent result types/u,
       );
@@ -1461,16 +1563,19 @@ const cases: RegressionCase[] = [
         "utf8",
       );
 
-      assert.equal(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length, 32);
-      assert.equal(new Set(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.map((entry) => entry.id)).size, 32);
-      assert.deepEqual(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.find((entry) => entry.id === "noodle"), {
-        id: "noodle",
-        name: "Noodle",
-        category: "misc",
-        modes: "Home",
-        summary:
-          "adds the optional local Noodle timeline and NoodleR creator-and-fan roleplay feed in a dedicated Home tab",
-      });
+      assert.equal(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length, 33);
+      assert.equal(new Set(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.map((entry) => entry.id)).size, 33);
+      assert.deepEqual(
+        OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.find((entry) => entry.id === "noodle"),
+        {
+          id: "noodle",
+          name: "Noodle",
+          category: "misc",
+          modes: "Home",
+          summary:
+            "adds the optional local Noodle timeline and NoodleR creator-and-fan roleplay feed in a dedicated Home tab",
+        },
+      );
       assert.ok(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.some((entry) => entry.id === "long-term-memory"));
       assert.ok(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.some((entry) => entry.id === "storyboard"));
       assert.deepEqual(
@@ -1480,7 +1585,7 @@ const cases: RegressionCase[] = [
             OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.filter((entry) => entry.category === category).length,
           ]),
         ),
-        { writer: 6, tracker: 8, misc: 18 },
+        { writer: 6, tracker: 9, misc: 18 },
       );
       assert.ok(frontendAgentCatalog, "Frontend architecture is missing the first-party agent catalog");
       assert.deepEqual(
@@ -2090,6 +2195,53 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "Spotify search pages requests above the provider's ten-result limit",
+    async run() {
+      const originalFetch = globalThis.fetch;
+      const requestedPages: Array<{ limit: number; offset: number }> = [];
+      globalThis.fetch = (async (input: string | URL | Request) => {
+        const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+        const limit = Number(url.searchParams.get("limit"));
+        const offset = Number(url.searchParams.get("offset"));
+        requestedPages.push({ limit, offset });
+        return new Response(
+          JSON.stringify({
+            tracks: {
+              items: Array.from({ length: limit }, (_, index) => ({
+                uri: `spotify:track:search${offset + index}`,
+                name: `Search result ${offset + index}`,
+                artists: [{ name: "Regression Artist" }],
+                album: { name: "Regression Album" },
+              })),
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }) as typeof fetch;
+
+      try {
+        const [result] = await executeToolCalls(
+          [
+            {
+              id: "call_spotify_search_twenty",
+              type: "function",
+              function: { name: "spotify_search", arguments: JSON.stringify({ query: "laboratory", limit: 20 }) },
+            },
+          ],
+          { spotify: { accessToken: "regression-token" } },
+        );
+        assert.equal(result?.success, true);
+        assert.deepEqual(requestedPages, [
+          { limit: 10, offset: 0 },
+          { limit: 10, offset: 10 },
+        ]);
+        assert.equal((JSON.parse(result!.result) as { count?: number }).count, 20);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  },
+  {
     name: "Spotify playlist candidates suppress the extended recent-track window",
     async run() {
       const originalFetch = globalThis.fetch;
@@ -2316,17 +2468,20 @@ const cases: RegressionCase[] = [
       const selectedUris = ["spotify:track:EEEEEEEEEEEEEEEEEEEEEE", "spotify:track:FFFFFFFFFFFFFFFFFFFFFF"];
       let activeUri = "spotify:track:ZZZZZZZZZZZZZZZZZZZZZZ";
       let repeatRequests = 0;
+      let playbackReads = 0;
+      const repeatDeviceIds: Array<string | null> = [];
 
       globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
         const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
         const method = init?.method ?? "GET";
         if (url.pathname === "/v1/me/player" && method === "GET") {
+          const deviceId = playbackReads++ === 0 ? "target-device" : "other-active-device";
           return new Response(
             JSON.stringify({
               is_playing: true,
               repeat_state: "off",
               item: { uri: activeUri },
-              device: { id: "regression-device", name: "Regression device", type: "computer" },
+              device: { id: deviceId, name: "Regression device", type: "computer" },
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           );
@@ -2338,6 +2493,7 @@ const cases: RegressionCase[] = [
         }
         if (url.pathname === "/v1/me/player/repeat" && method === "PUT") {
           repeatRequests++;
+          repeatDeviceIds.push(url.searchParams.get("device_id"));
           return new Response(null, { status: 204 });
         }
         throw new Error(`Unexpected Spotify regression request: ${method} ${url.pathname}`);
@@ -2370,6 +2526,11 @@ const cases: RegressionCase[] = [
           repeatState?: string;
         };
         assert.equal(repeatRequests, 3, "Spotify repeat should be retried while playback reports it as off");
+        assert.deepEqual(
+          repeatDeviceIds,
+          ["target-device", "target-device", "target-device"],
+          "delayed verification must not redirect repeat retries to a different active device",
+        );
         assert.match(payload.error ?? "", /failed to apply context repeat mode/u);
         assert.equal(payload.applied, undefined);
         assert.equal(payload.playbackPending, undefined);
@@ -2488,14 +2649,23 @@ const cases: RegressionCase[] = [
     },
   },
   {
-    name: "ElevenLabs TTS input does not prepend sprite tone tags",
+    name: "ElevenLabs TTS input prepends sanitized emotion cues",
     run() {
       assert.equal(
         buildElevenLabsTextInput("Reserved. Tomorrow afternoon.", "neutral"),
-        "Reserved. Tomorrow afternoon.",
+        "[neutral] Reserved. Tomorrow afternoon.",
       );
-      assert.equal(buildElevenLabsTextInput("Your ribs require rest.", "thinking"), "Your ribs require rest.");
-      assert.equal(buildElevenLabsTextInput("A bold strategy.", "smirk"), "A bold strategy.");
+      assert.equal(
+        buildElevenLabsTextInput("Your ribs require rest.", "thinking"),
+        "[thinking] Your ribs require rest.",
+      );
+      assert.equal(buildElevenLabsTextInput("A bold strategy.", "smirk"), "[smirk] A bold strategy.");
+      assert.equal(buildElevenLabsTextInput("Stay close.", "[soft]\n"), "[soft] Stay close.");
+      assert.equal(buildElevenLabsTextInput("No cue needed.", " \n[] "), "No cue needed.");
+      assert.equal(
+        buildElevenLabsTextInput("  [neutral] Already prepared.", "neutral"),
+        "  [neutral] Already prepared.",
+      );
     },
   },
   {
@@ -2560,6 +2730,36 @@ const cases: RegressionCase[] = [
         resolveMacros(`I went with {{${unknownId}}}.`, context),
         `I went with {{${unknownId}}}.`,
         "Unknown IDs must remain visible instead of resolving through a colliding variable",
+      );
+    },
+  },
+  {
+    name: "persona ID macros resolve exact card references without matching unknown IDs",
+    run() {
+      const referencedId = "P1StGXR8_Z5jdHi6B-myT";
+      const unknownId = "Q1StGXR8_Z5jdHi6B-myT";
+      const context = {
+        user: "Mari",
+        char: "Dottore",
+        characters: ["Dottore"],
+        variables: {},
+        personaReferences: { [referencedId]: "Professor Mari" },
+      };
+
+      assert.equal(resolveMacros(`I consulted {{persona-${referencedId}}}.`, context), "I consulted Professor Mari.");
+      assert.equal(
+        resolveMacros(`I consulted {{persona-${unknownId}}}.`, context),
+        `I consulted {{persona-${unknownId}}}.`,
+        "Unknown Persona IDs must remain visible",
+      );
+      assert.equal(
+        resolveCharacterScopedMacros(
+          `{{#if {{persona-${referencedId}}} == "Professor Mari"}}known{{else}}unknown{{/if}}`,
+          { name: "Dottore" },
+          0,
+          context,
+        ),
+        "known",
       );
     },
   },
@@ -2688,6 +2888,99 @@ const cases: RegressionCase[] = [
         "untouched",
       );
       assert.equal(context.variables.personaTouched, undefined);
+    },
+  },
+  {
+    name: "local variable macros match SillyTavern numeric and return-value semantics",
+    run() {
+      const resolve = (template: string) =>
+        resolveMacros(template, {
+          user: "Mari",
+          char: "Dottore",
+          characters: ["Dottore"],
+          variables: {},
+        });
+
+      assert.equal(
+        resolve("{{setvar::modifier::2}}{{setvar::score::20}}{{addnumvar::score::{{modifier}}}}{{getvar::score}}"),
+        "22",
+      );
+      assert.equal(resolve("{{setvar::score::20}}{{addnumvar::score::-2}}{{getvar::score}}"), "18");
+      assert.equal(resolve("{{setvar::score::1.5}}{{addnumvar::score::2.25}}{{getvar::score}}"), "3.75");
+      assert.equal(resolve("{{addnumvar::score::4}}{{getvar::score}}"), "4");
+      assert.equal(resolve("{{setvar::score::invalid}}{{addnumvar::score::5}}{{getvar::score}}"), "5");
+      assert.equal(resolve("{{setvar::score::7}}{{addnumvar::score::invalid}}{{getvar::score}}"), "7");
+      assert.equal(resolve("{{setvar::score::1e308}}{{addnumvar::score::1e308}}{{getvar::score}}"), "1e+308");
+      assert.equal(
+        resolve("{{setvar::score::1e308}}{{addnumvar::score::1e308}}{{addnumvar::score::-1e308}}{{getvar::score}}"),
+        "0",
+      );
+      assert.equal(resolve("{{setvar::score::20}}{{addvar::score::-2}}{{getvar::score}}"), "18");
+      assert.equal(resolve("{{setvar::label::Lab}}{{addvar::label:: Thirteen}}{{getvar::label}}"), "Lab Thirteen");
+      assert.equal(resolve("{{setvar::score::2}}{{incvar::score}}/{{decvar::score}}/{{getvar::score}}"), "3/2/2");
+
+      const prototypeNamedVariables: Record<string, string> = {};
+      const resolvePrototypeName = (template: string) =>
+        resolveMacros(template, {
+          user: "Mari",
+          char: "Dottore",
+          characters: ["Dottore"],
+          variables: {},
+          localVariables: prototypeNamedVariables,
+        });
+      assert.equal(resolvePrototypeName("{{getvar::constructor}}"), "");
+      assert.equal(resolvePrototypeName("{{setvar::constructor::safe}}{{getvar::constructor}}"), "safe");
+      assert.equal(resolvePrototypeName("{{addvar::toString::value}}{{getvar::toString}}"), "value");
+      assert.equal(resolvePrototypeName("{{setvar::__proto__::owned}}{{incvar::__proto__}}"), "1");
+      assert.equal(Object.getPrototypeOf(prototypeNamedVariables), Object.prototype);
+      assert.equal(Object.prototype.hasOwnProperty.call(prototypeNamedVariables, "__proto__"), true);
+
+      const firstChatVariables: Record<string, string> = {};
+      resolveMacros("{{setvar::remembered::across turns}}", {
+        user: "Mari",
+        char: "Dottore",
+        characters: ["Dottore"],
+        variables: {},
+        localVariables: firstChatVariables,
+      });
+      const reloadedFirstChatVariables = { ...firstChatVariables };
+      assert.equal(
+        resolveMacros("{{getvar::remembered}}", {
+          user: "Mari",
+          char: "Dottore",
+          characters: ["Dottore"],
+          variables: {},
+          localVariables: reloadedFirstChatVariables,
+        }),
+        "across turns",
+        "a fresh prompt context must read the chat-persisted variable map",
+      );
+      assert.equal(
+        resolveMacros("{{getvar::remembered}}", {
+          user: "Mari",
+          char: "Dottore",
+          characters: ["Dottore"],
+          variables: {},
+          localVariables: {},
+        }),
+        "",
+        "another chat must not inherit local variables",
+      );
+
+      const conditionalVariables = { score: "10" };
+      resolveMacros("{{#if addnumvar::score::5}}unchanged{{/if}}", {
+        user: "Mari",
+        char: "Dottore",
+        characters: ["Dottore"],
+        variables: conditionalVariables,
+      });
+      assert.equal(conditionalVariables.score, "10", "conditional operands must not execute numeric writes");
+
+      const variables = { score: "0" };
+      const resolveMessage = createMessageMacroResolver({ variables });
+      resolveMessage("{{addnumvar::score::1}}");
+      resolveMessage("{{addnumvar::score::1}}");
+      assert.equal(variables.score, "2", "repeated numeric writes must not be served from the display macro cache");
     },
   },
   {
@@ -3514,6 +3807,45 @@ const cases: RegressionCase[] = [
       assert.match(storyboardChatSettingsSource, /gameStoryboardAnimationPromptTemplateId/u);
       assert.match(storyboardChatSettingsSource, /gameStoryboardImagePromptTemplateId/u);
       assert.match(storyboardChatSettingsSource, /gameStoryboardVideoPromptTemplateId/u);
+      assert.match(storyboardChatSettingsSource, /storyboardAgentImageAwareShotPlanningEnabled/u);
+      assert.match(storyboardChatSettingsSource, /storyboardAgentAnimationRefinementTemplateId/u);
+      assert.match(storyboardChatSettingsSource, /settings\.animationRefinementTemplates/u);
+      assert.equal(
+        storyboardChatSettingsSource.match(/<StoryboardImageAwarePlannerOverride/gu)?.length,
+        2,
+        "Game and Roleplay chat settings should both expose image-aware Step 3 overrides",
+      );
+      const gameChatSettingsStart = storyboardChatSettingsSource.indexOf("export function StoryboardChatSettingsPanel");
+      const roleplayChatSettingsStart = storyboardChatSettingsSource.indexOf(
+        "function RoleplayStoryboardChatSettingsPanel",
+      );
+      const gameChatSettingsSource = storyboardChatSettingsSource.slice(
+        gameChatSettingsStart,
+        roleplayChatSettingsStart,
+      );
+      const roleplayChatSettingsSource = storyboardChatSettingsSource.slice(roleplayChatSettingsStart);
+      for (const [mode, source] of [
+        ["Game", gameChatSettingsSource],
+        ["Roleplay", roleplayChatSettingsSource],
+      ] as const) {
+        const stage2Index = source.indexOf("number={2}");
+        const stage3Index = source.indexOf("<StoryboardImageAwarePlannerOverride");
+        const stage4Index = source.indexOf("number={4}");
+        assert.ok(
+          stage2Index >= 0 && stage2Index < stage3Index && stage3Index < stage4Index,
+          `${mode} chat settings should show production stages 2, 3, and 4 in runtime order`,
+        );
+      }
+      assert.match(
+        gameChatSettingsSource,
+        /autoAnimationsEnabled \? \([\s\S]*<StoryboardImageAwarePlannerOverride[\s\S]*number=\{4\}/u,
+        "Game chat settings should hide animation-only stages unless animations are enabled",
+      );
+      assert.match(
+        roleplayChatSettingsSource,
+        /autoGenerateMode === "animation" \? \([\s\S]*<StoryboardImageAwarePlannerOverride[\s\S]*number=\{4\}/u,
+        "Roleplay chat settings should hide animation-only stages unless animations are enabled",
+      );
       assert.match(storyboardChatSettingsSource, /automaticStoryboardIllustrations/u);
       assert.match(storyboardChatSettingsSource, /automaticStoryboardAnimations/u);
       assert.match(storyboardChatSettingsSource, /type="number"/u);
@@ -3539,39 +3871,119 @@ const cases: RegressionCase[] = [
         editorSource,
         /\.\.\.\(localMaxTokens !== "" \? \{ maxTokens: clampAgentMaxTokens\(localMaxTokens\) \} : \{\}\)/u,
       );
-      const sharedScopeIndex = storyboardEditorSource.indexOf('id="shared"');
-      const roleplayScopeIndex = storyboardEditorSource.indexOf('id="roleplay"');
-      const gameScopeIndex = storyboardEditorSource.indexOf('id="game"');
-      const roleplayLibraryIndex = storyboardEditorSource.indexOf("ui.agents.storyboard.roleplayPromptLibrary");
-      const sharedProductionIndex = storyboardEditorSource.indexOf("ui.agents.storyboard.sharedProductionPrompts");
-      const defaultImagePromptIndex = storyboardEditorSource.indexOf("ui.agents.storyboard.defaultImagePrompt");
-      assert.ok(defaultImagePromptIndex >= 0, "Storyboard editor should expose a default image prompt selector");
-      assert.ok(roleplayLibraryIndex >= 0, "Storyboard editor should expose a separate Roleplay prompt library");
-      assert.ok(sharedProductionIndex >= 0, "Storyboard editor should identify shared production prompt stages");
-      assert.ok(
-        sharedScopeIndex >= 0 && sharedScopeIndex < roleplayScopeIndex && roleplayScopeIndex < gameScopeIndex,
-        "Storyboard editor should present Shared, Roleplay, and Game Mode scopes in that order",
+      const activeEditorStart = storyboardEditorSource.indexOf("export function StoryboardAgentSettingsPanel");
+      assert.ok(activeEditorStart >= 0, "Storyboard active-flow editor should exist");
+      const setupComponentStart = storyboardEditorSource.indexOf("function StoryboardSetupSection");
+      const setupComponentEnd = storyboardEditorSource.indexOf("function SelectedTemplateControl", setupComponentStart);
+      const setupComponentSource = storyboardEditorSource.slice(setupComponentStart, setupComponentEnd);
+      assert.notEqual(setupComponentStart, -1, "Shared Storyboard setup should exist");
+      assert.notEqual(setupComponentEnd, -1, "Shared Storyboard setup source should be bounded");
+      assert.doesNotMatch(setupComponentSource, /useState|aria-expanded|aria-controls/u);
+      assert.match(setupComponentSource, /\{children\}/u, "Shared Storyboard setup should always render its controls");
+      const activeEditorSource = storyboardEditorSource.slice(activeEditorStart);
+      const stageLibraryStart = storyboardEditorSource.indexOf("function StagePromptLibrary");
+      const stageLibraryEnd = storyboardEditorSource.indexOf("function StoryboardSetupSection", stageLibraryStart);
+      const stageLibrarySource = storyboardEditorSource.slice(stageLibraryStart, stageLibraryEnd);
+      assert.notEqual(stageLibraryStart, -1, "Storyboard stage prompt library disclosure should exist");
+      assert.match(stageLibrarySource, /useState\(false\)/u);
+      assert.match(stageLibrarySource, /aria-expanded=\{expanded\}/u);
+      assert.match(stageLibrarySource, /expanded \? \(/u);
+      assert.match(stageLibrarySource, /data-storyboard-stage-prompt-library=\{stage\}/u);
+      assert.equal(
+        activeEditorSource.match(/<StagePromptLibrary stage=\{/gu)?.length,
+        5,
+        "Roleplay and Game should each have a Stage 1 library, followed by shared Stage 2, 3, and 4 libraries",
       );
-      const sharedScopeSource = storyboardEditorSource.slice(sharedScopeIndex, roleplayScopeIndex);
-      const roleplayScopeSource = storyboardEditorSource.slice(roleplayScopeIndex, gameScopeIndex);
-      const gameScopeSource = storyboardEditorSource.slice(gameScopeIndex);
-      assert.match(sharedScopeSource, /settings\.imageConnectionId/u);
-      assert.match(sharedScopeSource, /settings\.autoGenerateMode/u);
-      assert.match(sharedScopeSource, /settings\.illustrationTemplateId/u);
-      assert.match(sharedScopeSource, /ui\.agents\.storyboard\.sharedProductionPrompts/u);
-      assert.match(sharedScopeSource, /ui\.agents\.storyboard\.defaultImagePrompt/u);
-      assert.match(roleplayScopeSource, /settings\.runInterval/u);
-      assert.match(roleplayScopeSource, /settings\.roleplayEpisodeTemplateId/u);
-      assert.match(gameScopeSource, /settings\.illustrationPlannerTemplateId/u);
-      assert.match(gameScopeSource, /settings\.viewerDisplayMode/u);
-      assert.ok(
-        sharedProductionIndex > sharedScopeIndex &&
-          sharedProductionIndex < roleplayScopeIndex &&
-          defaultImagePromptIndex > sharedScopeIndex &&
-          defaultImagePromptIndex < roleplayScopeIndex &&
-          sharedProductionIndex < roleplayLibraryIndex,
-        "Shared production prompts should stay inside Shared before Roleplay prompts",
+      assert.equal(
+        activeEditorSource.match(/<TemplateCollectionEditor/gu)?.length,
+        8,
+        "All prompt collections should be editable inside their numbered stage libraries",
       );
+      assert.equal(
+        activeEditorSource.match(/<StagePromptLibrary stage=\{1\}/gu)?.length,
+        2,
+        "Roleplay and Game should keep separate Stage 1 prompt libraries",
+      );
+      for (const collection of [
+        "roleplayEpisodeTemplates",
+        "roleplayStyleTemplates",
+        "roleplayAnimationTemplates",
+        "roleplayOutputTemplates",
+        "illustrationTemplates",
+        "animationRefinementTemplates",
+        "videoTemplates",
+      ]) {
+        assert.match(
+          activeEditorSource,
+          new RegExp(`settings\\.${collection}`, "u"),
+          `${collection} should remain editable in its numbered stage library`,
+        );
+      }
+      assert.match(activeEditorSource, /templates=\{plannerTemplates\}/u);
+      assert.match(activeEditorSource, /onPlannerTemplatesChange\(templates\)/u);
+      assert.match(activeEditorSource, /renderTemplateMeta=/u);
+      assert.match(activeEditorSource, /ui\.agents\.agenteditor\.copyDefaultToEdit/u);
+      assert.match(
+        activeEditorSource,
+        /plannerPrompt\.trim\(\) \? \([\s\S]*<MacroTextarea[\s\S]*\) : \(\s*<pre/u,
+        "The built-in fallback planner prompt should stay read-only until explicitly copied",
+      );
+
+      const setupIndex = activeEditorSource.indexOf("<StoryboardSetupSection");
+      const workflowTabsIndex = activeEditorSource.indexOf('role="tablist"');
+      const roleplayWorkflowStart = activeEditorSource.indexOf("data-storyboard-active-roleplay");
+      const gameWorkflowStart = activeEditorSource.indexOf("data-storyboard-active-game");
+      assert.ok(
+        setupIndex >= 0 && setupIndex < workflowTabsIndex,
+        "Compact Storyboard setup should appear before the mode-specific active flow",
+      );
+      assert.ok(
+        workflowTabsIndex < roleplayWorkflowStart && roleplayWorkflowStart < gameWorkflowStart,
+        "Roleplay and Game Mode should be distinct navigable workflows",
+      );
+      assert.match(activeEditorSource, /role="tabpanel"/u);
+      assert.match(activeEditorSource, /aria-controls="storyboard-active-flow"/u);
+      const roleplayWorkflowSource = activeEditorSource.slice(roleplayWorkflowStart, gameWorkflowStart);
+      const gameWorkflowSource = activeEditorSource.slice(gameWorkflowStart);
+      assert.ok(
+        roleplayWorkflowSource.indexOf("number={1}") < roleplayWorkflowSource.indexOf("{sharedWorkflowStages}"),
+        "Roleplay planning must render before the shared production stages",
+      );
+      assert.ok(
+        gameWorkflowSource.indexOf("number={1}") < gameWorkflowSource.indexOf("{sharedWorkflowStages}"),
+        "Game planning must render before the shared production stages",
+      );
+      assert.match(roleplayWorkflowSource, /settings\.roleplayEpisodeTemplateId/u);
+      assert.match(roleplayWorkflowSource, /settings\.roleplayStyleTemplateId/u);
+      assert.match(roleplayWorkflowSource, /settings\.roleplayAnimationTemplateId/u);
+      assert.match(roleplayWorkflowSource, /settings\.roleplayOutputTemplateId/u);
+      assert.match(gameWorkflowSource, /settings\.illustrationPlannerTemplateId/u);
+      assert.match(gameWorkflowSource, /settings\.animationPlannerTemplateId/u);
+      assert.match(gameWorkflowSource, /settings\.viewerDisplayMode/u);
+
+      const sharedStagesStart = activeEditorSource.indexOf("const sharedWorkflowStages");
+      const sharedStagesEnd = activeEditorSource.indexOf("\n\n  return (", sharedStagesStart);
+      const sharedStagesSource = activeEditorSource.slice(sharedStagesStart, sharedStagesEnd);
+      const stage2Index = sharedStagesSource.indexOf("number={2}");
+      const stage3Index = sharedStagesSource.indexOf("number={3}");
+      const stage4Index = sharedStagesSource.indexOf("number={4}");
+      assert.ok(
+        stage2Index >= 0 && stage2Index < stage3Index && stage3Index < stage4Index,
+        "Shared production stages should render in image, image-aware, then video order",
+      );
+      assert.match(activeEditorSource, /const showAnimationStages = settings\.autoGenerateMode !== "illustration"/u);
+      assert.match(sharedStagesSource, /showAnimationStages \? \(/u);
+      assert.match(sharedStagesSource, /data-storyboard-still-flow-note/u);
+      assert.match(sharedStagesSource, /settings\.usePromptTemplate \? \(/u);
+      assert.match(sharedStagesSource, /settings\.imageAwareShotPlanningEnabled \? \(/u);
+      assert.doesNotMatch(editorSource, /StoryboardAdvancedPromptLibrary|storyboardPromptLibraryOpen/u);
+      assert.match(
+        editorSource,
+        /\{!isStoryboardAgent \? \(\s*<FieldGroup\s*label=\{localizeUi\("ui\.agents\.agenteditor\.promptTemplate"\)\}/u,
+        "Storyboard should not render a second global prompt library below its numbered stages",
+      );
+      assert.match(editorSource, /onPlannerPromptChange=\{setLocalPrompt\}/u);
+      assert.match(editorSource, /onPlannerTemplatesChange=\{setLocalPromptTemplates\}/u);
       assert.match(editorSource, /includeCharacterAppearance:\s*settings\.includeCharacterAppearance/u);
       assert.match(editorSource, /useAvatarReferences:\s*settings\.useAvatarReferences/u);
       assert.match(serviceSource, /ensureBuiltinConfig\(STORYBOARD_AGENT_ID\)/u);
@@ -3620,7 +4032,22 @@ const cases: RegressionCase[] = [
           animationDurationSeconds: normalizeStoryboardAgentSettings({ animationDurationSeconds: "" })
             .animationDurationSeconds,
         },
-        { keyframeCount: 3, animationDurationSeconds: 6 },
+        { keyframeCount: 3, animationDurationSeconds: 5 },
+      );
+      const relabeledVideoTemplate = normalizeStoryboardAgentSettings({
+        videoTemplates: [
+          {
+            id: LTX_DIRECTOR_GAME_VIDEO_PROMPT_TEMPLATE_ID,
+            name: "LTX Director Video",
+            description: "Legacy built-in label",
+            promptTemplate: LTX_DIRECTOR_GAME_VIDEO_PROMPT_TEMPLATE,
+          },
+        ],
+      }).videoTemplates[0];
+      assert.deepEqual(
+        { id: relabeledVideoTemplate?.id, name: relabeledVideoTemplate?.name },
+        { id: LTX_DIRECTOR_GAME_VIDEO_PROMPT_TEMPLATE_ID, name: "Narration Passthrough" },
+        "Existing Storyboard configs should receive the clearer Stage 4 built-in label without changing its id",
       );
 
       const ctx = {
@@ -3739,7 +4166,7 @@ const cases: RegressionCase[] = [
         "utf8",
       );
 
-      assert.equal(videoPreset?.name, "LTX Director Video");
+      assert.equal(videoPreset?.name, "Narration Passthrough");
       assert.equal(videoPreset?.promptTemplate, LTX_DIRECTOR_GAME_VIDEO_PROMPT_TEMPLATE);
       assert.equal(LTX_DIRECTOR_GAME_VIDEO_PROMPT_TEMPLATE, "${narrationSummary}");
       assert.doesNotMatch(gameRouteSource, /buildLtxDirectorStoryboardPrompt|sanitizeLtxDirectorStoryboardSegments/);
@@ -4098,6 +4525,44 @@ const cases: RegressionCase[] = [
       );
       assert.doesNotMatch(compiled.prompt, /readable expression|clear silhouette|face-and-shoulders/iu);
       assert.match(compiled.negativePrompt, /collage layouts/iu);
+    },
+  },
+  {
+    name: "avatar portrait and sprite prompts honor a profile's natural-language grammar",
+    run() {
+      const styleProfiles = createDefaultImageStyleProfileSettings();
+      const animeProfile = styleProfiles.profiles.find((candidate) => candidate.id === "danbooru");
+      assert.ok(animeProfile);
+      const naturalAnimeProfile = {
+        ...animeProfile,
+        id: "natural-anime",
+        name: "Natural anime",
+        promptMode: "natural" as const,
+        positiveTags: "",
+        negativeTags: "",
+        styleText: "",
+        subjectTags: {},
+      };
+      const naturalStyleProfiles = {
+        ...styleProfiles,
+        defaultProfileId: naturalAnimeProfile.id,
+        profiles: [...styleProfiles.profiles, naturalAnimeProfile],
+      };
+      const prompt =
+        "Create a portrait of Mira. She has long brown hair and amber eyes. She wears a dark travel coat beneath cold moonlight.";
+
+      for (const kind of ["avatar", "portrait", "sprite"] as const) {
+        const compiled = compileImagePrompt({
+          kind,
+          prompt,
+          styleProfiles: naturalStyleProfiles,
+          styleProfileId: naturalAnimeProfile.id,
+        });
+
+        assert.match(compiled.prompt, /She has long brown hair and amber eyes/u);
+        assert.match(compiled.prompt, /She wears a dark travel coat beneath cold moonlight/u);
+        assert.doesNotMatch(compiled.prompt, /long brown hair, amber eyes, dark travel coat/u);
+      }
     },
   },
   {
@@ -4701,7 +5166,6 @@ const cases: RegressionCase[] = [
         resolveStoryboardAnimationRefinement(
           '```json\n{"classification":"simplify","narrationBeat":"Starting from the lowered sword, Mira raises it slightly | She holds as the camera eases closer"}\n```',
           motionIntent,
-          650,
         ),
         {
           classification: "simplify",
@@ -4713,22 +5177,50 @@ const cases: RegressionCase[] = [
         resolveStoryboardAnimationRefinement(
           '{"classification":"subtle","narrationBeat":"Mira only turns her head."}',
           motionIntent,
-          650,
         ),
         null,
       );
       assert.equal(
-        resolveStoryboardAnimationRefinement(
-          '{"classification":"unknown","narrationBeat":"One | Two"}',
-          motionIntent,
-          650,
-        ),
+        resolveStoryboardAnimationRefinement('{"classification":"unknown","narrationBeat":"One | Two"}', motionIntent),
         null,
       );
       assert.equal(
-        resolveStoryboardAnimationRefinement('{"classification":"subtle","narrationBeat":"One |"}', "Original |", 650),
+        resolveStoryboardAnimationRefinement('{"classification":"subtle","narrationBeat":"One |"}', "Original |"),
         null,
       );
+
+      const completeStructuredPrompt = [
+        `Visual motion: ${"falling petals drift around Mira as her coat settles ".repeat(18)}`,
+        `Camera and audio: ${"the camera eases closer while cloth rustles and distant bells ring ".repeat(16)}AUDIO_END`,
+      ].join(" | ");
+      const normalizedCompleteStructuredPrompt = completeStructuredPrompt.replace(/\s+/gu, " ").trim();
+      assert.ok(completeStructuredPrompt.length > 1_200);
+      assert.equal(compactStoryboardAnimationPrompt(completeStructuredPrompt), normalizedCompleteStructuredPrompt);
+      const completeRefinement = resolveStoryboardAnimationRefinement(
+        JSON.stringify({ classification: "suitable", narrationBeat: completeStructuredPrompt }),
+        "visual intent | audio intent",
+      );
+      assert.equal(completeRefinement?.narrationBeat, normalizedCompleteStructuredPrompt);
+      assert.match(completeRefinement?.narrationBeat ?? "", /AUDIO_END$/u);
+      assert.doesNotMatch(completeRefinement?.narrationBeat ?? "", /\.\.\.$/u);
+
+      let completePersistedPrompt = "";
+      const completeExecution = await executeStoryboardImageAwareAnimation({
+        referenceImage,
+        motionIntent: "visual intent | audio intent",
+        refine: async () => completeRefinement!,
+        formatPrompt: async (narrationBeat) => narrationBeat,
+        persistPrompt: async ({ prompt }) => {
+          completePersistedPrompt = prompt;
+        },
+        generateVideo: async ({ prompt }) => {
+          assert.equal(prompt, normalizedCompleteStructuredPrompt);
+          return { id: "complete-structured-video" };
+        },
+      });
+      assert.equal(completePersistedPrompt, normalizedCompleteStructuredPrompt);
+      assert.equal(completeExecution.prompt, completePersistedPrompt);
+      assert.match(completePersistedPrompt, /AUDIO_END$/u);
 
       const persisted: Array<{ prompt: string; classification: string }> = [];
       const videoCalls: Array<{ prompt: string; referenceImage: typeof referenceImage }> = [];
@@ -4739,7 +5231,7 @@ const cases: RegressionCase[] = [
           assert.strictEqual(actualImage, referenceImage);
           const response =
             '{"classification":"simplify","narrationBeat":"Mira raises the lowered sword carefully | She holds while the camera eases closer"}';
-          const refinement = resolveStoryboardAnimationRefinement(response, motionIntent, 650);
+          const refinement = resolveStoryboardAnimationRefinement(response, motionIntent);
           assert.ok(refinement);
           return refinement;
         },
@@ -7809,27 +8301,23 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         ]),
         ["description", "personality", "backstory", "appearance", "scenario", "mes_example", "system_prompt", "stats"],
       );
-      assert.deepEqual(resolveCharacterMarkerFields(undefined, false), [
+      assert.deepEqual(resolveCharacterMarkerFields(undefined), [
         "description",
         "personality",
         "backstory",
         "appearance",
         "scenario",
-        "mes_example",
         "system_prompt",
       ]);
-      assert.deepEqual(resolveCharacterMarkerFields(undefined, true), [
+      assert.deepEqual(resolveCharacterMarkerFields(["scenario", "mes_example", "description"]), [
         "description",
-        "personality",
-        "backstory",
-        "appearance",
         "scenario",
-        "system_prompt",
+        "mes_example",
       ]);
     },
   },
   {
-    name: "character markers append Example Dialogue only when no enabled dialogue marker owns it",
+    name: "character markers own Example Dialogue only when no dedicated marker exists",
     async run() {
       const characterRow = {
         id: "char-example-fallback",
@@ -7864,13 +8352,17 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         }),
       } as unknown as DB;
 
-      const assemble = (wrapFormat: "xml" | "markdown" | "none", withDialogueMarker: boolean) =>
+      const assemble = (
+        wrapFormat: "xml" | "markdown" | "none",
+        dialogueMarker: "absent" | "enabled" | "disabled",
+        characterFields?: string[],
+      ) =>
         assemblePrompt({
           db,
           preset: {
             id: `preset-example-fallback-${wrapFormat}`,
             name: "Example Dialogue Fallback Fixture",
-            sectionOrder: JSON.stringify(withDialogueMarker ? ["character", "examples"] : ["character"]),
+            sectionOrder: JSON.stringify(dialogueMarker === "absent" ? ["character"] : ["character", "examples"]),
             groupOrder: JSON.stringify([]),
             wrapFormat,
             parameters: JSON.stringify({}),
@@ -7883,9 +8375,9 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
               identifier: "characterInfo",
               name: "Character Info",
               isMarker: "true",
-              markerConfig: JSON.stringify({ type: "character" }),
+              markerConfig: JSON.stringify({ type: "character", ...(characterFields ? { characterFields } : {}) }),
             }),
-            ...(withDialogueMarker
+            ...(dialogueMarker !== "absent"
               ? [
                   promptSection({
                     id: "examples",
@@ -7894,6 +8386,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
                     isMarker: "true",
                     markerConfig: JSON.stringify({ type: "dialogue_examples" }),
                     injectionOrder: 1,
+                    enabled: dialogueMarker === "disabled" ? "false" : "true",
                   }),
                 ]
               : []),
@@ -7909,17 +8402,29 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         });
 
       for (const wrapFormat of ["xml", "markdown", "none"] as const) {
-        const result = await assemble(wrapFormat, false);
-        const promptText = result.messages.map((message) => message.content).join("\n");
-        assert.equal(promptText.match(/CHARACTER_EXAMPLE_DIALOGUE/g)?.length, 1);
-        assert.ok(promptText.indexOf("CHARACTER_SCENARIO") < promptText.indexOf("CHARACTER_EXAMPLE_DIALOGUE"));
-        assert.ok(promptText.indexOf("CHARACTER_EXAMPLE_DIALOGUE") < promptText.indexOf("CHARACTER_SYSTEM_PROMPT"));
-        if (wrapFormat === "xml") assert.match(promptText, /<mes_example>/);
-        if (wrapFormat === "markdown") assert.match(promptText, /#### mes_example/);
-        if (wrapFormat === "none") assert.equal(promptText.includes("mes_example"), false);
+        const absentMarkerResult = await assemble(wrapFormat, "absent");
+        const absentMarkerPromptText = absentMarkerResult.messages.map((message) => message.content).join("\n");
+        assert.equal(absentMarkerPromptText.match(/CHARACTER_EXAMPLE_DIALOGUE/g)?.length, 1);
+        assert.ok(
+          absentMarkerPromptText.indexOf("CHARACTER_EXAMPLE_DIALOGUE") <
+            absentMarkerPromptText.indexOf("CHARACTER_SYSTEM_PROMPT"),
+          "fallback Example Dialogue should retain canonical character field order",
+        );
+        if (wrapFormat === "xml") assert.match(absentMarkerPromptText, /<mes_example>/);
+
+        const disabledMarkerResult = await assemble(wrapFormat, "disabled");
+        const disabledMarkerPromptText = disabledMarkerResult.messages.map((message) => message.content).join("\n");
+        assert.equal(disabledMarkerPromptText.includes("CHARACTER_EXAMPLE_DIALOGUE"), false);
+        assert.equal(disabledMarkerPromptText.includes("mes_example"), false);
+        assert.equal(disabledMarkerPromptText.includes("dialogue_examples"), false);
       }
 
-      const explicitMarker = await assemble("xml", true);
+      const explicitCharacterField = await assemble("xml", "absent", ["mes_example"]);
+      const explicitCharacterFieldText = explicitCharacterField.messages.map((message) => message.content).join("\n");
+      assert.equal(explicitCharacterFieldText.match(/CHARACTER_EXAMPLE_DIALOGUE/g)?.length, 1);
+      assert.match(explicitCharacterFieldText, /<mes_example>/);
+
+      const explicitMarker = await assemble("xml", "enabled");
       const explicitPromptText = explicitMarker.messages.map((message) => message.content).join("\n");
       assert.equal(explicitPromptText.match(/CHARACTER_EXAMPLE_DIALOGUE/g)?.length, 1);
       assert.match(explicitPromptText, /<dialogue_examples>/);
@@ -8207,6 +8712,163 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
+    name: "preset-less roleplay summary creates a leading system block before history",
+    run() {
+      const history: ChatMLMessage[] = [
+        { role: "user", content: "Where are we?", contextKind: "history" },
+        { role: "assistant", content: "At the harbor.", contextKind: "history" },
+      ];
+      const result = appendFallbackChatSummaryToSystemPrompt(
+        history,
+        "Mari and Dottore reached the harbor.",
+        "xml",
+        {} as MacroContext,
+      );
+
+      assert.equal(result[0]?.role, "system");
+      assert.equal(result[0]?.contextKind, "prompt");
+      assert.match(result[0]?.content ?? "", /<chat_summary>/u);
+      assert.match(result[0]?.content ?? "", /Mari and Dottore reached the harbor\./u);
+      assert.deepEqual(result.slice(1), history);
+
+      const generateRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      const fallbackBranchStart = generateRouteSource.indexOf('if (chatMode === "roleplay" && !resolvedPreset) {');
+      const fallbackBranchEnd = generateRouteSource.indexOf("\n        }", fallbackBranchStart);
+      assert.notEqual(fallbackBranchStart, -1);
+      assert.notEqual(fallbackBranchEnd, -1);
+      assert.match(
+        generateRouteSource.slice(fallbackBranchStart, fallbackBranchEnd),
+        /appendFallbackChatSummaryToSystemPrompt\(/u,
+      );
+    },
+  },
+  {
+    name: "automatic agent phases keep distinct request contexts in separate batches",
+    async run() {
+      for (const phase of ["pre_generation", "parallel"] as const) {
+        const capture = makeCapturingProvider("Context checked.");
+        const agents = ["tracker-lorebooks-off", "tracker-lorebooks-on"].map(
+          (batchContextKey, index) =>
+            ({
+              ...makeRegressionAgentConfig({
+                id: `custom:${phase}-${index}`,
+                type: `context-reader-${index}`,
+                name: `Context Reader ${index}`,
+                isCustomAgent: true,
+                phase,
+                promptTemplate: "Check the supplied context.",
+                settings: { resultType: "context_injection" },
+              }),
+              provider: capture.provider,
+              model: "regression-model",
+              batchContextKey,
+            }) as ResolvedAgent,
+        );
+
+        if (phase === "pre_generation") {
+          await runPreGenerationAgents(agents, makeRegressionAgentContext());
+        } else {
+          await runParallelAgents(agents, makeRegressionAgentContext());
+        }
+
+        assert.equal(capture.calls.length, 2, `${phase} agents with different contexts must not share a batch`);
+      }
+    },
+  },
+  {
+    name: "roleplay tracker lorebook context is opt-in and keeps author notes",
+    run() {
+      const context = makeRegressionAgentContext({
+        authorNotes: "AUTHOR_NOTES_STAY_ATTACHED",
+        activatedLorebookEntries: [{ id: "lore-entry", content: "MAIN_GENERATION_LOREBOOK_MATCH" }],
+        vectorContext: {
+          recalledMemories: ["RECALLED_MEMORY_STAYS_ATTACHED"],
+          semanticLorebookEntries: [{ id: "semantic-lore-entry", content: "SEMANTIC_MAIN_GENERATION_LOREBOOK_MATCH" }],
+        },
+      });
+
+      const disabled = applyTrackerLorebookContextPolicy({
+        context,
+        chatMode: "roleplay",
+        isTracker: true,
+        attachLorebooksToTrackers: false,
+      });
+      assert.deepEqual(disabled.activatedLorebookEntries, []);
+      assert.deepEqual(disabled.vectorContext?.semanticLorebookEntries, []);
+      assert.deepEqual(disabled.vectorContext?.recalledMemories, ["RECALLED_MEMORY_STAYS_ATTACHED"]);
+      assert.equal(disabled.authorNotes, "AUTHOR_NOTES_STAY_ATTACHED");
+
+      const legacyContext = makeRegressionAgentContext({
+        vectorContext: { recalledMemories: ["LEGACY_RECALLED_MEMORY"] } as AgentContext["vectorContext"],
+      });
+      assert.equal(
+        applyTrackerLorebookContextPolicy({
+          context: legacyContext,
+          chatMode: "roleplay",
+          isTracker: true,
+          attachLorebooksToTrackers: false,
+        }),
+        legacyContext,
+      );
+
+      const enabled = applyTrackerLorebookContextPolicy({
+        context,
+        chatMode: "roleplay",
+        isTracker: true,
+        attachLorebooksToTrackers: true,
+      });
+      assert.equal(enabled, context);
+      assert.deepEqual(enabled.activatedLorebookEntries, context.activatedLorebookEntries);
+
+      const nonTracker = applyTrackerLorebookContextPolicy({
+        context,
+        chatMode: "roleplay",
+        isTracker: false,
+        attachLorebooksToTrackers: false,
+      });
+      assert.equal(nonTracker, context);
+      assert.equal(appendTrackerLorebookBatchContextKey(undefined, false), "tracker-lorebooks-off");
+      assert.equal(
+        appendTrackerLorebookBatchContextKey("message:previous", true),
+        "message:previous|tracker-lorebooks-on",
+      );
+
+      const retryRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
+        "utf8",
+      );
+      assert.match(retryRouteSource, /applyTrackerLorebookContextPolicy\(/u);
+      assert.match(retryRouteSource, /chatMeta\?\.attachLorebooksToTrackers === true/u);
+      assert.match(retryRouteSource, /getTrackerAgentTypes\(\)/u);
+
+      const chatSettingsSource = readFileSync(
+        new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+        "utf8",
+      );
+      const trackerControlsComment = chatSettingsSource.indexOf(
+        "{/* Manual trackers run only in roleplay-style chats. */}",
+      );
+      const trackerControlsStart = chatSettingsSource.indexOf(
+        "{metadata.enableAgents && isRoleplayMode && activeTrackerAgents.length > 0 && (",
+        trackerControlsComment,
+      );
+      const trackerControlsEnd = chatSettingsSource.indexOf(
+        "{metadata.enableAgents && isRoleplayMode && activeTrackerAgents.length > 0 && (",
+        trackerControlsStart + 1,
+      );
+      assert.notEqual(trackerControlsComment, -1);
+      assert.notEqual(trackerControlsStart, -1);
+      assert.notEqual(trackerControlsEnd, -1);
+      assert.match(
+        chatSettingsSource.slice(trackerControlsStart, trackerControlsEnd),
+        /ui\.chat\.chatsettingsdrawer\.attachLorebooksToTrackers/u,
+      );
+    },
+  },
+  {
     name: "chat summary marker keeps explicit preset placement",
     async run() {
       const result = await assemblePrompt({
@@ -8472,7 +9134,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
-    name: "unused runtime agent sections preserve surrounding prompt text",
+    name: "unused runtime agent sections omit surrounding prompt text",
     run() {
       const tokens = makeRuntimeAgentSectionTokens("knowledge-router", "regression");
       const messages = [
@@ -8483,11 +9145,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
 
       clearUnusedRuntimeAgentSectionsForTest(messages, [["knowledge-router", tokens]]);
 
-      assert.equal(messages.length, 1);
-      assert.match(messages[0]?.content ?? "", /This is where additional lore will be:/);
-      assert.equal(messages[0]?.content.includes(tokens.placeholder), false);
-      assert.equal(messages[0]?.content.includes(tokens.start), false);
-      assert.equal(messages[0]?.content.includes(tokens.end), false);
+      assert.equal(messages.length, 0);
     },
   },
   {
@@ -8531,6 +9189,59 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         formatSeparateAgentInjection("long-term-memory", "MEMORY", "xml"),
         "<long_term_memory>\nMEMORY\n</long_term_memory>",
       );
+
+      const freshContextInjections = [
+        { agentType: "long-term-memory", text: "MEMORY" },
+        { agentType: "prose-guardian", text: "GUIDANCE" },
+      ];
+      const freshFallback = splitRuntimeHandledAgentInjectionsForTest(
+        [{ content: "preset" }],
+        new Map([["long-term-memory", tokens]]),
+        freshContextInjections,
+      );
+      assert.deepEqual(freshFallback.fallbackInjections, freshContextInjections);
+      assert.deepEqual(freshFallback.omittedInjections, []);
+
+      const fallbackForUnmatchedMarker = splitRuntimeHandledAgentInjectionsForTest(
+        [{ content: "preset" }],
+        new Map([["long-term-memory", tokens]]),
+        freshContextInjections,
+        { omitUnmatched: true },
+      );
+      const cachedFallbackInjections = [
+        ...fallbackForUnmatchedMarker.fallbackInjections,
+        ...fallbackForUnmatchedMarker.omittedInjections.filter(
+          (injection) => injection.agentType === "long-term-memory",
+        ),
+      ];
+      assert.deepEqual(fallbackForUnmatchedMarker.omittedInjections, freshContextInjections);
+      const regeneratedContextInjections = freshContextInjections.filter(
+        (injection) =>
+          injection.agentType === "long-term-memory" ||
+          !fallbackForUnmatchedMarker.omittedInjections.includes(injection),
+      );
+      const longTermMemoryOnly = [freshContextInjections[0]];
+      assert.deepEqual(regeneratedContextInjections, longTermMemoryOnly);
+      assert.deepEqual(cachedFallbackInjections, longTermMemoryOnly);
+      const generateRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      const ltmFallbackStart = generateRouteSource.indexOf("if (!handledByPresetSection) {");
+      const ltmFallbackEnd = generateRouteSource.indexOf("longTermMemoryRecallReceipt = recall.receipt;", ltmFallbackStart);
+      const ltmFallbackSource = generateRouteSource.slice(
+        ltmFallbackStart,
+        ltmFallbackEnd + "longTermMemoryRecallReceipt = recall.receipt;".length,
+      );
+      assert.match(ltmFallbackSource, /appendSeparateAgentInjection/u);
+      assert.match(ltmFallbackSource, /longTermMemoryRecallReceipt = recall\.receipt/u);
+      assert.doesNotMatch(generateRouteSource, /handledByPresetSection \|\| !presetOwnsAgentPlacement/u);
+
+      const cachedReplayStart = generateRouteSource.indexOf("const runtimeHandledCached");
+      const cachedReplayEnd = generateRouteSource.indexOf("const cachedPipelineInjections", cachedReplayStart);
+      const cachedReplaySource = generateRouteSource.slice(cachedReplayStart, cachedReplayEnd);
+      assert.match(cachedReplaySource, /unmatchedCachedLongTermMemory/u);
+      assert.match(cachedReplaySource, /fallbackInjections\.push/u);
 
       const fallback = splitRuntimeHandledAgentInjectionsForTest([{ content: "conversation" }], new Map(), [
         { agentType: "long-term-memory", text: "MEMORY" },
@@ -9244,6 +9955,284 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         { name: "Tension", value: "High", icon: "flame" },
       ]);
 
+      const inventorySnapshot = {
+        playerStats: JSON.stringify({
+          stats: [],
+          attributes: null,
+          skills: {},
+          inventory: [],
+          activeQuests: [],
+          status: "",
+          inventoryTrackerCurrencies: [{ name: "Silver coin", qty: 6 }],
+          inventoryTrackerEquipped: [{ name: "Family heirloom longsword" }],
+          inventoryTrackerInventory: [{ name: "Billhook" }],
+        }),
+      };
+      const inventoryLockState = {
+        ...currentState,
+        playerStats: JSON.parse(inventorySnapshot.playerStats),
+        fieldLocks: {
+          [roleplayInventoryTrackerLockKey("currencies", { name: "Silver coin" }, "qty", 0)]: true,
+        },
+      };
+      const inventoryTrackerPatch = buildLockedInventoryTrackerPatch({
+        data: {
+          currencies: [
+            { name: "Silver coin", qty: 2 },
+            { name: " silver  coin ", qty: 3 },
+          ],
+          equipped: [{ name: "Family heirloom longsword", qty: 1 }],
+          inventory: [{ name: "Family heirloom longsword" }, { name: "Scavenged axe", qty: 2 }],
+        },
+        snapshot: inventorySnapshot,
+        lockState: inventoryLockState,
+      });
+      assert.deepEqual(inventoryTrackerPatch.values, {
+        inventoryTrackerCurrencies: [{ name: "Silver coin", qty: 6 }],
+        inventoryTrackerEquipped: [{ name: "Family heirloom longsword" }],
+        inventoryTrackerInventory: [{ name: "Scavenged axe", qty: 2 }],
+      });
+
+      // A group the agent did not mention must survive the turn. Treating an
+      // absent key as an empty array silently wipes tracked state (#2370, #2724).
+      const partialInventoryPatch = buildLockedInventoryTrackerPatch({
+        data: { inventory: [{ name: "Billhook" }, { name: "Rope coil" }] },
+        snapshot: inventorySnapshot,
+        lockState: { ...inventoryLockState, fieldLocks: {} },
+      });
+      assert.deepEqual(
+        partialInventoryPatch.playerStats.inventoryTrackerCurrencies,
+        [{ name: "Silver coin", qty: 6 }],
+        "an omitted currencies group must be left unchanged, not cleared",
+      );
+      assert.deepEqual(
+        partialInventoryPatch.playerStats.inventoryTrackerEquipped,
+        [{ name: "Family heirloom longsword" }],
+        "an omitted equipped group must be left unchanged, not cleared",
+      );
+      assert.equal(
+        "inventoryTrackerCurrencies" in partialInventoryPatch.values,
+        false,
+        "an untouched group must stay out of the streamed patch",
+      );
+      assert.equal(
+        buildLockedInventoryTrackerPatch({ data: {}, snapshot: inventorySnapshot, lockState: null }).changed,
+        false,
+        "a result carrying no inventory groups must not rewrite the snapshot",
+      );
+
+      const normalizedEquipMovePatch = buildLockedInventoryTrackerPatch({
+        data: { equipped: [{ name: "Sword" }] },
+        snapshot: {
+          playerStats: JSON.stringify({
+            inventoryTrackerCurrencies: [],
+            inventoryTrackerEquipped: [],
+            inventoryTrackerInventory: [{ name: " Sword " }],
+          }),
+        },
+        lockState: null,
+      });
+      assert.deepEqual(
+        normalizedEquipMovePatch.values.inventoryTrackerInventory,
+        [],
+        "equipping an item must remove a whitespace variant from omitted carried state without lock data",
+      );
+
+      // Locks re-append a row the agent dropped, so equipping a locked carried
+      // item must not leave a copy behind in the carried list.
+      const equipMoveSnapshot = {
+        playerStats: JSON.stringify({
+          stats: [],
+          attributes: null,
+          skills: {},
+          inventory: [],
+          activeQuests: [],
+          status: "",
+          inventoryTrackerCurrencies: [],
+          inventoryTrackerEquipped: [],
+          inventoryTrackerInventory: [{ name: "Sword" }],
+        }),
+      };
+      const equipMovePatch = buildLockedInventoryTrackerPatch({
+        data: { currencies: [], equipped: [{ name: "Sword" }], inventory: [] },
+        snapshot: equipMoveSnapshot,
+        lockState: {
+          ...currentState,
+          playerStats: JSON.parse(equipMoveSnapshot.playerStats),
+          fieldLocks: { [roleplayInventoryTrackerLockKey("inventory", { name: "Sword" }, "qty", 0)]: true },
+        },
+      });
+      assert.deepEqual(
+        equipMovePatch.values.inventoryTrackerEquipped,
+        [{ name: "Sword" }],
+        "the equipped row should land",
+      );
+      assert.deepEqual(
+        equipMovePatch.values.inventoryTrackerInventory,
+        [],
+        "a locked carried row must move when equipped instead of appearing in both lists",
+      );
+
+      // Quantities must stay finite: Infinity serializes to null and the row's
+      // quantity can no longer be read back as a number.
+      const hugeQuantityPatch = buildLockedInventoryTrackerPatch({
+        data: {
+          inventory: [
+            { name: "Coin", qty: Number.MAX_VALUE },
+            { name: "Coin", qty: Number.MAX_VALUE },
+          ],
+        },
+        snapshot: { playerStats: JSON.stringify({}) },
+        lockState: null,
+      });
+      const hugeQuantityRow = hugeQuantityPatch.values.inventoryTrackerInventory?.[0];
+      assert.equal(hugeQuantityRow?.qty, Number.MAX_SAFE_INTEGER, "quantities must clamp to a safe integer");
+      assert.equal(
+        JSON.stringify(hugeQuantityPatch.values.inventoryTrackerInventory).includes('"qty":null'),
+        false,
+        "a persisted quantity must never serialize to null",
+      );
+
+      // The normalizer moved to @marinara-engine/shared so hand edits get the same
+      // treatment as agent output. Pin the rules it must keep.
+      assert.deepEqual(
+        normalizeInventoryTrackerRows([
+          { name: "  Silver   coin " },
+          { name: "silver coin", qty: 5 },
+          { name: "" },
+          { name: "Rope", qty: -3 },
+          "not a row",
+        ]),
+        [{ name: "Silver coin", qty: 6 }, { name: "Rope" }],
+        "shared normalizer must trim, merge by name, drop junk, and floor quantities to 1",
+      );
+      assert.deepEqual(
+        normalizeInventoryTrackerRows([{ name: "New item" }, { name: "New item" }], { merge: false }),
+        [{ name: "New item" }, { name: "New item" }],
+        "opting out of merging must keep two same-named rows distinct so add-mode can create a second row",
+      );
+
+      // findInvalidInventoryTrackerRow is what lets the Agent Suite editor refuse bad
+      // input instead of silently normalizing a hand-written group down to [].
+      assert.equal(findInvalidInventoryTrackerRow([{ name: "Rope" }]), null, "well-formed rows must validate");
+      assert.match(
+        String(findInvalidInventoryTrackerRow([{ foo: 1 }])),
+        /row 0/u,
+        "a row without a name must be reported, not silently dropped",
+      );
+      assert.deepEqual(
+        normalizeInventoryTrackerRows([{ foo: 1 }]),
+        [],
+        "normalization stays lossy — which is exactly why the editor validates first",
+      );
+
+      // Exclusivity on a payload the agent never produced (a hand edit or direct API call).
+      const manualExclusivity = normalizeInventoryTrackerPlayerStats({
+        inventoryTrackerEquipped: [{ name: "Short axe" }],
+        inventoryTrackerInventory: [{ name: "short  axe" }, { name: "Waterskin" }],
+      }) as Record<string, unknown>;
+      assert.deepEqual(
+        manualExclusivity.inventoryTrackerInventory,
+        [{ name: "Waterskin" }],
+        "an equipped item must not also sit in carried inventory after a manual write",
+      );
+
+      // Absent must never read as empty — the failure mode #5117 fixed on the agent path.
+      const untouchedGroups = normalizeInventoryTrackerPlayerStats({
+        inventoryTrackerCurrencies: [{ name: "Silver coin", qty: 6 }],
+      }) as Record<string, unknown>;
+      assert.equal(
+        "inventoryTrackerEquipped" in untouchedGroups,
+        false,
+        "normalizing one group must not materialize the groups the caller never sent",
+      );
+
+      // The normalizer repairs the three tracker arrays but hands back anything that is
+      // not an object untouched, so the game-state route must reject a non-object
+      // `playerStats` itself rather than persist a value that breaks the type contract.
+      // `null` stays allowed because that is how a caller clears the stats.
+      {
+        const gameStateRouteSource = readFileSync(
+          new URL("../../packages/server/src/routes/chats.routes.ts", import.meta.url),
+          "utf8",
+        );
+        assert.match(
+          gameStateRouteSource,
+          /if \(body\.playerStats !== null && !isRecord\(body\.playerStats\)\)/u,
+          "the game-state route must reject a non-object, non-null playerStats payload",
+        );
+        assert.equal(
+          normalizeInventoryTrackerPlayerStats("nope"),
+          "nope",
+          "the normalizer deliberately passes non-objects through, which is why the route guards the shape",
+        );
+      }
+
+      // A key sent with a non-array value is a malformed write to repair, not an absent
+      // key. Treating the two alike threw on `.filter` and 500'd the game-state route.
+      const malformedField = normalizeInventoryTrackerPlayerStats({
+        inventoryTrackerEquipped: [{ name: "Rope" }],
+        inventoryTrackerInventory: {},
+      }) as Record<string, unknown>;
+      assert.deepEqual(
+        malformedField.inventoryTrackerInventory,
+        [],
+        "a malformed group must be repaired to an empty list rather than crash or persist as-is",
+      );
+      assert.deepEqual(
+        (normalizeInventoryTrackerPlayerStats({ inventoryTrackerCurrencies: "nope" }) as Record<string, unknown>)
+          .inventoryTrackerCurrencies,
+        [],
+        "a malformed group must be repaired even when it is the only inventory key present",
+      );
+      assert.equal(
+        normalizeInventoryTrackerPlayerStats({ status: "fine" } as Record<string, unknown>) &&
+          (normalizeInventoryTrackerPlayerStats({ status: "fine" }) as Record<string, unknown>).status,
+        "fine",
+        "player-stats fields outside the three inventory groups must pass through untouched",
+      );
+
+      // The panel and HUD share this builder; editing one group may rewrite two, and
+      // dropping the second field would silently leave the item in both lists.
+      const equipMove = buildInventoryTrackerEditPatch(
+        {
+          stats: [],
+          attributes: null,
+          skills: {},
+          inventory: [],
+          activeQuests: [],
+          status: "",
+          inventoryTrackerEquipped: [],
+          inventoryTrackerInventory: [{ name: "Short axe" }, { name: "Waterskin" }],
+        },
+        "equipped",
+        [{ name: "Short axe" }],
+      );
+      assert.deepEqual(equipMove.inventoryTrackerEquipped, [{ name: "Short axe" }], "the edited group must be written");
+      assert.deepEqual(
+        equipMove.inventoryTrackerInventory,
+        [{ name: "Waterskin" }],
+        "equipping a carried item must also rewrite carried inventory in the same patch",
+      );
+      assert.equal(
+        "inventoryTrackerInventory" in
+          buildInventoryTrackerEditPatch(
+            {
+              stats: [],
+              attributes: null,
+              skills: {},
+              inventory: [],
+              activeQuests: [],
+              status: "",
+              inventoryTrackerInventory: [{ name: "Waterskin" }],
+            },
+            "currencies",
+            [{ name: "Silver coin", qty: 6 }],
+          ),
+        false,
+        "an edit that changes nothing else must not rewrite the other groups",
+      );
+
       const nextCharacters: Array<Record<string, unknown>> = [
         {
           characterId: "mira",
@@ -9386,6 +10375,233 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.doesNotMatch(promptBlock ?? "", /Duplicate mood/);
       assert.match(promptBlock ?? "", /Field 62: 62/);
       assert.doesNotMatch(promptBlock ?? "", /Field 63: 63/);
+
+      const inventoryPromptBlock = buildCommittedTrackerContextBlock({
+        chatEnableAgents: true,
+        activeAgentIds: ["inventory-tracker"],
+        latestGameState: { playerStats: inventoryTrackerPatch.playerStats },
+        chatMetadata: {},
+        wrapFormat: "markdown",
+      });
+      assert.match(inventoryPromptBlock ?? "", /Currencies:\n- Silver coin x6/);
+      assert.match(inventoryPromptBlock ?? "", /Equipped:\n- Family heirloom longsword/);
+      assert.match(inventoryPromptBlock ?? "", /Inventory:\n- Scavenged axe x2/);
+
+      const beholderState = normalizeBeholderState({
+        characters: [
+          {
+            name: "Mira<script>",
+            species: "human",
+            body: {
+              left_hand: {
+                holding: { item: "silver key", damage: "pristine" },
+                wounds: [{ text: "shallow cut", severity: "minor", bleeding: true }],
+              },
+              invented_slot: { bare: true },
+            },
+          },
+        ],
+      });
+      assert.ok(beholderState);
+      assert.equal(beholderState.characters[0]?.name, "Mirascript");
+      assert.equal("invented_slot" in (beholderState.characters[0]?.body ?? {}), false);
+
+      const beholderPromptBlock = buildCommittedTrackerContextBlock({
+        chatEnableAgents: true,
+        activeAgentIds: ["beholder"],
+        latestGameState: null,
+        beholderState,
+        chatMetadata: {},
+        wrapFormat: "markdown",
+      });
+      assert.match(beholderPromptBlock ?? "", /## Physical State/u);
+      assert.match(beholderPromptBlock ?? "", /left hand: holding: silver key/u);
+      assert.match(beholderPromptBlock ?? "", /shallow cut \(minor, bleeding\)/u);
+      assert.equal(resolveAgentResultType({ type: "beholder", settings: {} }), "context_injection");
+    },
+  },
+  {
+    name: "Beholder sends keyed state and safely resolves delta and legacy responses",
+    async run() {
+      let stateReads = 0;
+      const priorState = await loadPriorBeholderState({
+        agentsStore: {
+          async getLastSuccessfulRunByType() {
+            stateReads += 1;
+            return { resultData: `{"characters":[{"name":"Mira","body":{}}]}` };
+          },
+        },
+        chatId: "roleplay-chat",
+        chatMode: "roleplay",
+        activeAgentIds: ["beholder"],
+        chatEnableAgents: true,
+      });
+      assert.equal(priorState?.characters[0]?.name, "Mira");
+      assert.equal(stateReads, 1);
+      assert.equal(
+        await loadPriorBeholderState({
+          agentsStore: {
+            async getLastSuccessfulRunByType() {
+              stateReads += 1;
+              return null;
+            },
+          },
+          chatId: "conversation-chat",
+          chatMode: "conversation",
+          activeAgentIds: ["beholder"],
+          chatEnableAgents: true,
+        }),
+        null,
+      );
+      assert.equal(stateReads, 1);
+      assert.equal(
+        await loadPriorBeholderState({
+          agentsStore: {
+            async getLastSuccessfulRunByType() {
+              stateReads += 1;
+              return null;
+            },
+          },
+          chatId: "roleplay-chat-no-prior-run",
+          chatMode: "roleplay",
+          activeAgentIds: ["beholder"],
+          chatEnableAgents: true,
+        }),
+        null,
+      );
+      assert.equal(stateReads, 2);
+
+      const previousState = normalizeBeholderState({
+        characters: [
+          {
+            name: "Mari",
+            species: "human",
+            body: {
+              chest: {
+                worn: [
+                  { item: "dress", color: "blue", damage: "pristine" },
+                  { item: "coat", color: "black", damage: "pristine" },
+                ],
+              },
+              face: { worn: [{ item: "veil", damage: "pristine" }] },
+              left_hand: { holding: { item: "silver key", damage: "pristine" } },
+              right_arm: { wounds: [{ text: "shallow cut", severity: "minor", bleeding: true }] },
+            },
+          },
+          { name: "Dottore", body: { head: { bare: true } } },
+        ],
+      });
+      assert.ok(previousState);
+      const requestContext = formatBeholderRequestContext(previousState, "Mari");
+      assert.match(requestContext, /^Persona: Mari\nCurrent state:/u);
+      assert.match(requestContext, /"self": \{/u);
+      assert.match(requestContext, /"Dottore": \{/u);
+
+      const unchanged = resolveBeholderStateResponse({ changed: false }, previousState, "Mari");
+      assert.equal(unchanged.valid, true);
+      assert.deepEqual(unchanged.state, previousState);
+
+      const merged = resolveBeholderStateResponse(
+        {
+          changed: true,
+          delta: {
+            self: {
+              body: {
+                chest: { worn: [{ item: "dress", color: "red", damage: "damaged" }] },
+                face: { worn: [] },
+                left_hand: { holding: {} },
+                right_arm: {
+                  missing: true,
+                  worn: [{ item: "bracelet", damage: "pristine" }],
+                  wounds: [{ text: "ignored wound", severity: "critical", bleeding: true }],
+                  bare: true,
+                },
+              },
+            },
+            Dottore: { species: "human", body: { left_eye: { bare: true } } },
+            Columbina: { species: "seer", body: { neck: { bare: true } } },
+          },
+        },
+        previousState,
+        "Mari",
+      );
+      assert.equal(merged.valid, true);
+      const mergedMari = merged.state.characters.find((character) => character.name === "Mari");
+      assert.deepEqual(mergedMari?.body.chest?.worn, [
+        { item: "dress", color: "red", damage: "damaged" },
+        { item: "coat", color: "black", damage: "pristine" },
+      ]);
+      assert.equal(mergedMari?.body.face?.worn, undefined);
+      assert.equal(mergedMari?.body.left_hand?.holding, undefined);
+      assert.deepEqual(mergedMari?.body.right_arm, { missing: true });
+      assert.equal(merged.state.characters.find((character) => character.name === "Dottore")?.species, "human");
+      assert.equal(
+        merged.state.characters.some((character) => character.name === "Columbina"),
+        true,
+      );
+
+      const invalid = resolveBeholderStateResponse(
+        { changed: true, delta: { self: { body: { invented_slot: { bare: true } } } } },
+        previousState,
+        "Mari",
+      );
+      assert.equal(invalid.valid, false);
+      assert.deepEqual(invalid.state, previousState);
+
+      const legacy = resolveBeholderStateResponse(
+        { characters: [{ name: "Mira", body: { left_hand: { holding: { item: "key" } } } }] },
+        previousState,
+        "Mari",
+      );
+      assert.equal(legacy.valid, true);
+      assert.deepEqual(legacy.state.characters, [
+        { name: "Mira", body: { left_hand: { holding: { item: "key", damage: "pristine" } } } },
+      ]);
+
+      const { calls, callOptions, provider } = makeCapturingProvider(`{"changed":false}`);
+      const config = makeRegressionAgentConfig({
+        id: "builtin:beholder",
+        type: "beholder",
+        name: "Beholder",
+        promptTemplate: "Return a physical-state delta as JSON.",
+        temperature: 1.7,
+        settings: { resultType: "context_injection" },
+      });
+      const context = makeRegressionAgentContext({
+        mainResponse: "Mari keeps hold of the silver key.",
+        memory: { _beholderState: previousState },
+      });
+      const result = await executeAgent(config as any, context, provider as any, "regression-model");
+      const system = calls[0]?.[0]?.content ?? "";
+      assert.match(system, /Persona: Mari\nCurrent state:/u);
+      assert.match(system, /"self": \{/u);
+      assert.equal(callOptions[0]?.temperature, 0);
+      assert.equal(result.success, true);
+      assert.deepEqual(result.data, previousState);
+
+      const suppressed = makeCapturingProvider(`{"changed":false}`);
+      await executeAgent(
+        { ...config, suppressModelParameters: true } as any,
+        context,
+        suppressed.provider as any,
+        "regression-model",
+      );
+      assert.equal(suppressed.callOptions[0]?.temperature, undefined);
+
+      const firstRun = makeCapturingProvider(`{"changed":false}`);
+      const firstRunResult = await executeAgent(
+        config as any,
+        makeRegressionAgentContext({ memory: {} }),
+        firstRun.provider as any,
+        "regression-model",
+      );
+      assert.match(firstRun.calls[0]?.[0]?.content ?? "", /Current state:\n\{\}/u);
+      assert.deepEqual(firstRunResult.data, { characters: [] });
+
+      const invalidRun = makeCapturingProvider(`{"changed":true,"delta":{"self":{"body":{"fake":{}}}}}`);
+      const invalidResult = await executeAgent(config as any, context, invalidRun.provider as any, "regression-model");
+      assert.equal(invalidResult.success, false);
+      assert.deepEqual(invalidResult.data, previousState);
     },
   },
   {
@@ -9596,6 +10812,208 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         '{"say":"I could not create it because the name is missing.","commands":[],"stop":true}',
       );
       assert.equal(workspaceActionNeedsVerification(honestBlocker, []), null);
+    },
+  },
+  {
+    name: "lorebook vectors use retrieval intent and the latest user context",
+    async run() {
+      const scanMessages = [
+        { role: "assistant", content: "A long opening message about an unrelated ocean voyage." },
+        { role: "user", content: "Rocks stones mountain ore" },
+      ];
+      assert.equal(selectLorebookVectorQueryText(scanMessages, 10), "Rocks stones mountain ore");
+      assert.deepEqual(
+        formatMemoryRecallEmbeddingTexts(
+          ["Rocks stones mountain ore"],
+          "Casual-Autopsy/snowflake-arctic-embed-l-v2.0-gguf:Q8_0",
+          "query",
+        ),
+        ["query: Rocks stones mountain ore"],
+      );
+      assert.deepEqual(
+        formatMemoryRecallEmbeddingTexts(
+          ["Rocks stones mountain ore"],
+          "Casual-Autopsy/snowflake-arctic-embed-l-v2.0-gguf:Q8_0",
+          "document",
+        ),
+        ["Rocks stones mountain ore"],
+      );
+
+      const embeddingSource = {
+        spaceId: "test-space",
+        label: "asymmetric test embedder",
+        async embed(texts: string[], _signal?: AbortSignal, inputType?: "document" | "query") {
+          assert.equal(inputType, "query");
+          assert.equal(texts[0], "Rocks stones mountain ore");
+          return texts.map((_, index) =>
+            index === 0 ? [1, 0] : index === 1 ? [0, 1] : index === 2 ? [0, -1] : [-1, 0],
+          );
+        },
+      };
+      const entry = {
+        id: "entry-vector-exact",
+        lorebookId: "book-vector-exact",
+        name: "Mountain materials",
+        content: "Rocks stones mountain ore",
+        enabled: true,
+        constant: false,
+        selective: false,
+        keys: [],
+        secondaryKeys: [],
+        selectiveLogic: "and",
+        useRegex: false,
+        matchWholeWords: false,
+        caseSensitive: false,
+        locked: false,
+        preventRecursion: false,
+        excludeRecursion: false,
+        delayUntilRecursion: false,
+        excludeFromVectorization: false,
+        embedding: [1, 0],
+        embeddingSpaceId: "test-space",
+        order: 0,
+        group: null,
+        groupWeight: 100,
+        probability: 100,
+        sticky: null,
+        cooldown: null,
+        delay: null,
+        activationConditions: [],
+        schedule: null,
+        characterFilterMode: "any",
+        characterFilterIds: [],
+        characterTagFilterMode: "any",
+        characterTagFilters: [],
+        generationTriggerFilterMode: "any",
+        generationTriggerFilters: [],
+        additionalMatchingSources: [],
+        scanDepth: null,
+      };
+      const semantic = await buildLorebookSemanticEmbeddingsById({
+        lorebooks: [
+          {
+            id: "book-vector-exact",
+            excludeFromVectorization: false,
+            vectorQueryDepth: 10,
+          } as any,
+        ],
+        entries: [entry as any],
+        scanMessages,
+        embeddingSource,
+      });
+      const activated = scanForActivatedEntries(scanMessages, [entry as any], {
+        chatEmbedding: semantic.defaultEmbedding,
+        semanticEmbeddingsByLorebookId: semantic.embeddingsByLorebookId,
+        semanticEmbeddingSpaceId: semantic.embeddingSpaceId,
+        semanticSimilarityBaseline: semantic.similarityBaseline,
+        semanticThresholdByLorebookId: new Map([["book-vector-exact", 0.3]]),
+      });
+      assert.equal(activated[0]?.entry.id, "entry-vector-exact");
+
+      const incompatible = scanForActivatedEntries(scanMessages, [entry as any], {
+        chatEmbedding: semantic.defaultEmbedding,
+        semanticEmbeddingSpaceId: "different-space",
+        semanticThreshold: 0.3,
+      });
+      assert.equal(incompatible.length, 0);
+
+      const unknownProvenance = scanForActivatedEntries(scanMessages, [{ ...entry, embeddingSpaceId: null } as any], {
+        chatEmbedding: semantic.defaultEmbedding,
+        semanticEmbeddingsByLorebookId: semantic.embeddingsByLorebookId,
+        semanticEmbeddingSpaceId: "test-space",
+        semanticThreshold: 0.3,
+      });
+      assert.equal(unknownProvenance.length, 0, "legacy vectors without provenance must be re-vectorized");
+    },
+  },
+  {
+    name: "Professor Mari gates mutations on the active user request before execution",
+    run() {
+      const explicitAction = parseAssistantWorkspaceAction(
+        JSON.stringify({
+          say: "",
+          authorization: "Set Dottore's appearance to a white coat.",
+          commands: [
+            {
+              name: "app_data",
+              arguments: {
+                action: "character.update",
+                characterId: "dottore-id",
+                patch: { appearance: "A white coat." },
+                apply: true,
+              },
+            },
+          ],
+          stop: false,
+        }),
+      );
+      const explicitCommand = explicitAction.commands[0]!;
+      assert.equal(explicitCommand.authorization, "Set Dottore's appearance to a white coat.");
+      assert.equal(
+        workspaceMutationAuthorizationIssue(explicitCommand, {
+          directUserText: "Please set Dottore's appearance to a white coat.",
+        }),
+        null,
+      );
+
+      assert.match(
+        workspaceMutationAuthorizationIssue(
+          { ...explicitCommand, authorization: "Delete every lorebook." },
+          { directUserText: "Summarize the attached roleplay transcript." },
+        ) ?? "",
+        /active user message/iu,
+      );
+      assert.match(
+        workspaceMutationAuthorizationIssue(
+          { ...explicitCommand, authorization: "How do I set Dottore's appearance to a white coat?" },
+          { directUserText: "How do I set Dottore's appearance to a white coat?" },
+        ) ?? "",
+        /informational and how-to/iu,
+      );
+      assert.match(
+        workspaceMutationAuthorizationIssue(
+          {
+            ...explicitCommand,
+            authorization: "Update this character.",
+            arguments: { action: "lorebook.update", lorebookId: "book-id", patch: { description: "Changed" } },
+          },
+          { directUserText: "Update this character." },
+        ) ?? "",
+        /not lorebook/iu,
+      );
+      assert.match(
+        workspaceMutationAuthorizationIssue(
+          {
+            ...explicitCommand,
+            authorization: "Update Dottore's appearance.",
+            arguments: { action: "lorebook.deleteEntry", entryId: "entry-id", apply: true },
+          },
+          { directUserText: "Update Dottore's appearance." },
+        ) ?? "",
+        /delete operation/iu,
+      );
+
+      assert.equal(
+        workspaceMutationAuthorizationIssue(
+          { ...explicitCommand, authorization: "yes" },
+          {
+            directUserText: "Yes.",
+            previousAssistantText: "Want me to set Dottore's appearance to a white coat?",
+          },
+        ),
+        null,
+      );
+      assert.equal(
+        workspaceMutationAuthorizationIssue(
+          {
+            id: "read-only",
+            name: "app_data",
+            arguments: { action: "character.get", characterId: "dottore-id" },
+          },
+          { directUserText: "Summarize the attached roleplay transcript." },
+        ),
+        null,
+      );
     },
   },
   {

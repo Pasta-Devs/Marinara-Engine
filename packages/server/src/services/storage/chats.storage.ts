@@ -92,10 +92,7 @@ export async function withChatMetadataPatchQueue<T>(chatId: string, operation: (
   return withPatchQueue(metadataPatchQueues, chatId, operation);
 }
 
-export async function withMessageExtraPatchQueue<T>(
-  messageId: string,
-  operation: () => Promise<T>,
-): Promise<T> {
+export async function withMessageExtraPatchQueue<T>(messageId: string, operation: () => Promise<T>): Promise<T> {
   return withPatchQueue(messageExtraPatchQueues, messageId, operation);
 }
 

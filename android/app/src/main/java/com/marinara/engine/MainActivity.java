@@ -1015,6 +1015,9 @@ public class MainActivity extends Activity {
                     + "printf '%s\\n' " + androidSecret + " > \"$HOME/.marinara-engine/android-secret\"\n"
                     + "chmod 600 \"$HOME/.marinara-engine/android-secret\"\n";
         }
+        String launcherCommand = provisionAndroidSecret
+                ? "AUTO_OPEN_BROWSER=false ./start-termux.sh --skip-update\n"
+                : "./start-termux.sh --skip-update\n";
         return "set -e\n"
                 + "umask 077\n"
                 + "pkg update -y\n"
@@ -1042,7 +1045,7 @@ public class MainActivity extends Activity {
                 + "test \"$(git rev-parse HEAD)\" = " + releaseCommit + "\n"
                 + secretProvisioning
                 + "chmod +x start-termux.sh\n"
-                + "./start-termux.sh --skip-update\n";
+                + launcherCommand;
     }
 
     private String shellQuote(String value) {

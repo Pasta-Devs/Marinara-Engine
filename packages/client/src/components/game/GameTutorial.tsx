@@ -235,10 +235,16 @@ function TutorialCard({
             <CircleHelp size="0.8rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
             <span className="truncate">{localizeUi("ui.game.tutorialcard.gameTutorial")}</span>
           </div>
-          <div className={NEUTRAL_PANEL_SUBTITLE}>{localizeUi("ui.game.tutorialcard.step")} {step + 1} {localizeUi("ui.noodle.noodlehome.of")} {STEPS.length}
+          <div className={NEUTRAL_PANEL_SUBTITLE}>
+            {localizeUi("ui.game.tutorialcard.step")} {step + 1} {localizeUi("ui.noodle.noodlehome.of")} {STEPS.length}
           </div>
         </div>
-        <button type="button" onClick={onSkip} className={TUTORIAL_ICON_BUTTON} title={localizeUi("ui.game.tutorialcard.closeTutorial")}>
+        <button
+          type="button"
+          onClick={onSkip}
+          className={TUTORIAL_ICON_BUTTON}
+          title={localizeUi("ui.game.tutorialcard.closeTutorial")}
+        >
           <X size={14} />
         </button>
       </div>
@@ -298,9 +304,11 @@ function TutorialCard({
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2.5">
-        <button type="button" onClick={onSkip} className={TUTORIAL_SECONDARY_BUTTON}>{localizeUi("onboarding.actions.skip")}</button>
+        <button type="button" onClick={onSkip} className={TUTORIAL_SECONDARY_BUTTON}>
+          {localizeUi("onboarding.actions.skip")}
+        </button>
         <button type="button" onClick={onNext} className={TUTORIAL_PRIMARY_BUTTON}>
-          {isLast ?localizeUi("ui.game.tutorialcard.gotIt") :localizeUi("onboarding.actions.next")}
+          {isLast ? localizeUi("ui.game.tutorialcard.gotIt") : localizeUi("onboarding.actions.next")}
           {!isLast && <ChevronRight size="0.75rem" />}
         </button>
       </div>

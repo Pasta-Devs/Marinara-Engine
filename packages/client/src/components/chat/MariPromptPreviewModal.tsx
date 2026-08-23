@@ -144,7 +144,10 @@ export function MariPromptPreviewModal({
                   );
                 }
                 return (
-                  <span key={index} className="rounded bg-[var(--destructive)]/25 text-[var(--foreground)] line-through">
+                  <span
+                    key={index}
+                    className="rounded bg-[var(--destructive)]/25 text-[var(--foreground)] line-through"
+                  >
                     {segment.value}
                   </span>
                 );

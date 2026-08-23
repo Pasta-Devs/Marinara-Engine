@@ -34,6 +34,16 @@ export function normalizeSceneAssetNameForGeneration(value: string): string {
   return value.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
 }
 
+function isChatOwnedNpcAvatar(avatarUrl: string | undefined, chatId: string): boolean {
+  if (!avatarUrl) return false;
+  try {
+    const pathname = new URL(avatarUrl, "http://marinara.local").pathname;
+    return pathname.startsWith(`/api/avatars/npc/${encodeURIComponent(chatId)}/`);
+  } catch {
+    return false;
+  }
+}
+
 export function getMissingBackgroundTag(
   backgroundTag: string | undefined | null,
   manifest: AssetManifestMap,
@@ -78,7 +88,8 @@ export function buildMissingSceneAssetGenerationPayload({
   const forceNpcAvatarNameSet = new Set<string>();
   if (savedGeneratedBackgroundMissing) {
     for (const npc of npcAssetCandidates) {
-      if (npcAvatarLookup.has(normalizeSceneAssetNameForGeneration(npc.name))) {
+      const avatarUrl = npcAvatarLookup.get(normalizeSceneAssetNameForGeneration(npc.name));
+      if (isChatOwnedNpcAvatar(avatarUrl, activeChatId)) {
         forceNpcAvatarNameSet.add(npc.name);
       }
     }
@@ -87,7 +98,9 @@ export function buildMissingSceneAssetGenerationPayload({
     [...(failedNpcAvatarNames ?? [])].map(normalizeSceneAssetNameForGeneration).filter(Boolean),
   );
   for (const npc of npcAssetCandidates) {
-    if (failedNpcAvatarNameSet.has(normalizeSceneAssetNameForGeneration(npc.name))) {
+    const normalizedName = normalizeSceneAssetNameForGeneration(npc.name);
+    const avatarUrl = npcAvatarLookup.get(normalizedName);
+    if (failedNpcAvatarNameSet.has(normalizedName) && isChatOwnedNpcAvatar(avatarUrl, activeChatId)) {
       forceNpcAvatarNameSet.add(npc.name);
     }
   }

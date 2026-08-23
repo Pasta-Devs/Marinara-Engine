@@ -2,7 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildPnpmSpawnArgs, resolvePnpmInvocation } from "../../scripts/pnpm-invocation.mjs";
+import { resolvePlaywrightProjectStdio, resolvePnpmRunner } from "../../scripts/pnpm-runner.mjs";
 import { resetPlaywrightData } from "./global-setup.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -22,16 +22,14 @@ const desktopServerPort = parsePort("PLAYWRIGHT_SERVER_PORT", 7971);
 const mobileClientPort = parsePort("PLAYWRIGHT_MOBILE_CLIENT_PORT", 5179);
 const mobileServerPort = parsePort("PLAYWRIGHT_MOBILE_SERVER_PORT", 7972);
 
-const pnpmInvocation = resolvePnpmInvocation();
+const pnpmRunner = resolvePnpmRunner();
+const playwrightProjectStdio = resolvePlaywrightProjectStdio();
 
-function spawnChild(command, args, env = process.env) {
+function spawnChild(command, args, env = process.env, stdio = "inherit") {
   const child = spawn(command, args, {
     cwd: repoRoot,
     env,
-    // Playwright's webServer launcher hands us an open stdin pipe; forwarding
-    // it to pnpm/Vite/tsx hangs the second concurrent spawn on Windows.
-    // Interactive TTY sessions keep inherited stdin.
-    stdio: [process.stdin.isTTY ? "inherit" : "ignore", "inherit", "inherit"],
+    stdio,
     windowsHide: true,
   });
   children.add(child);
@@ -41,7 +39,7 @@ function spawnChild(command, args, env = process.env) {
 
 function runPnpm(args) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawnChild(pnpmInvocation.command, buildPnpmSpawnArgs(pnpmInvocation, args));
+    const child = spawnChild(pnpmRunner.command, [...pnpmRunner.args, ...args]);
     child.once("error", reject);
     child.once("exit", (code, signal) => {
       if (code === 0) {
@@ -69,14 +67,19 @@ function stopChildren(signal = "SIGTERM") {
 function startProject(name, clientPort, serverPort) {
   const dataDir = resolve(dataRoot, name);
   mkdirSync(dataDir, { recursive: true });
-  const child = spawnChild(process.execPath, [resolve(repoRoot, "scripts/dev.mjs")], {
-    ...process.env,
-    DATA_DIR: dataDir,
-    DEV_SKIP_SHARED_BUILD: "true",
-    MARINARA_ENV_FILE: resolve(dataDir, ".env"),
-    PORT: String(serverPort),
-    VITE_PORT: String(clientPort),
-  });
+  const child = spawnChild(
+    process.execPath,
+    [resolve(repoRoot, "scripts/dev.mjs")],
+    {
+      ...process.env,
+      DATA_DIR: dataDir,
+      DEV_SKIP_SHARED_BUILD: "true",
+      MARINARA_ENV_FILE: resolve(dataDir, ".env"),
+      PORT: String(serverPort),
+      VITE_PORT: String(clientPort),
+    },
+    playwrightProjectStdio,
+  );
   child.once("exit", (code, signal) => {
     if (shuttingDown) return;
     stopChildren();

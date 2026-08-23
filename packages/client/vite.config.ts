@@ -40,6 +40,9 @@ function resolveBuildCommit() {
 const BUILD_COMMIT = resolveBuildCommit();
 
 function manualChunks(id: string) {
+  if (id.endsWith("/components/game/game-narration-format.ts")) return "game-narration-format";
+  if (id.endsWith("/components/game/GameNarrationVisuals.tsx")) return "game-narration-visuals";
+  if (id.endsWith("/lib/game-tag-parser.ts")) return "game-tag-parser";
   if (!id.includes("node_modules")) return undefined;
 
   // Keep dynamically selected Lucide glyphs in small alphabetical chunks
@@ -86,6 +89,8 @@ function bundleBudget(): Plugin {
         );
       }
 
+      // Keep lazy feature chunks below the 500 KiB bundle limit. Game narration's
+      // reusable HTML formatter has its own boundary so GameSurface does not absorb it.
       const oversizedChunks = chunks.filter((chunk) => chunk.sizeKb > 500);
       if (oversizedChunks.length > 0) {
         this.error(
@@ -170,6 +175,8 @@ export default defineConfig({
     outDir: "dist",
     target: "es2020",
     cssTarget: "safari14",
+    // Vite reports decimal kB; 512 kB matches the bundle plugin's enforced 500 KiB ceiling.
+    chunkSizeWarningLimit: 512,
     sourcemap: ENABLE_SOURCE_MAPS,
     rollupOptions: {
       output: {

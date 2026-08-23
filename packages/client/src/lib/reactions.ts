@@ -29,9 +29,7 @@ export interface ReactionSegmentTarget {
 
 /** The segment target stored on a reaction entry, or undefined for whole-message entries. */
 export function reactionTargetOf(reaction: MessageReaction): ReactionSegmentTarget | undefined {
-  return reaction.segment != null
-    ? { segment: reaction.segment, speaker: reaction.segmentSpeaker ?? null }
-    : undefined;
+  return reaction.segment != null ? { segment: reaction.segment, speaker: reaction.segmentSpeaker ?? null } : undefined;
 }
 
 /** Case/format-insensitive speaker comparison (both null = match, e.g. narration). */
@@ -47,7 +45,9 @@ function matchesIdentity(reaction: MessageReaction, emoji: string, target?: Reac
   if ((reaction.segment ?? null) !== segment) return false;
   // Within the same index, an entry left over from a different segmentation (other
   // speaker) is a distinct reaction — don't merge into it.
-  return segment === null || reaction.segmentSpeaker === undefined || sameSpeaker(reaction.segmentSpeaker, target?.speaker);
+  return (
+    segment === null || reaction.segmentSpeaker === undefined || sameSpeaker(reaction.segmentSpeaker, target?.speaker)
+  );
 }
 
 /**
@@ -88,6 +88,25 @@ export function toggleReaction(
   // Backfill a missing imageUrl if this toggle supplies one (unicode entries never
   // have one; a custom one keeps its first snapshot).
   next[index] = { ...entry, by: nextBy, ...(imageUrl && !entry.imageUrl ? { imageUrl } : {}) };
+  return next;
+}
+
+/** Remove every character from one reaction entry while preserving the user's reaction, if present. */
+export function removeCharacterReaction(
+  reactions: MessageReaction[] | null | undefined,
+  reaction: MessageReaction,
+): MessageReaction[] {
+  const current = reactions ?? [];
+  const index = current.findIndex((entry) => matchesIdentity(entry, reaction.emoji, reactionTargetOf(reaction)));
+  if (index === -1) return current;
+
+  const entry = current[index]!;
+  const nextBy = entry.by.filter((reactor) => reactor === USER_REACTOR);
+  if (nextBy.length === entry.by.length) return current;
+  if (nextBy.length === 0) return current.filter((_, entryIndex) => entryIndex !== index);
+
+  const next = [...current];
+  next[index] = { ...entry, by: nextBy };
   return next;
 }
 

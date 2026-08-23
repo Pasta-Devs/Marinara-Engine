@@ -14,6 +14,7 @@ export type ConnectionTransferRow = {
   maxContext?: unknown;
   maxTokensOverride?: unknown;
   maxParallelJobs?: unknown;
+  maxRequestsPerMinute?: unknown;
   promptPresetId?: unknown;
   defaultParameters?: unknown;
   enableCaching?: unknown;
@@ -32,6 +33,10 @@ export type ConnectionTransferRow = {
   imageService?: unknown;
   videoGenerationSource?: unknown;
   videoService?: unknown;
+  audioSource?: unknown;
+  audioVoice?: unknown;
+  audioSoundEffects?: unknown;
+  audioMusic?: unknown;
   service?: unknown;
   imageEndpointId?: unknown;
   imagePromptInstructions?: unknown;
@@ -49,6 +54,7 @@ export type SafeConnectionExport = {
   maxContext: number;
   maxTokensOverride: number | null;
   maxParallelJobs: number;
+  maxRequestsPerMinute: number | null;
   promptPresetId: string | null;
   defaultParameters: Record<string, unknown> | null;
   enableCaching: boolean;
@@ -67,6 +73,10 @@ export type SafeConnectionExport = {
   imageService: string | null;
   videoGenerationSource: string | null;
   videoService: string | null;
+  audioSource: string | null;
+  audioVoice: string | null;
+  audioSoundEffects: boolean;
+  audioMusic: boolean;
   imageEndpointId: string | null;
   imagePromptInstructions: string | null;
   imageGenerationQuality: ImageGenerationQuality;
@@ -144,9 +154,14 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
       imageGenerationQuality: asImageGenerationQuality(value.imageGenerationQuality),
       videoGenerationSource: provider === "video_generation" ? asNullableString(value.videoGenerationSource) : null,
       videoService,
+      audioSource: provider === "audio" ? asAudioGenerationSource(value.audioSource ?? value.service) : null,
+      audioVoice: provider === "audio" ? asNullableString(value.audioVoice) : null,
+      audioSoundEffects: provider === "audio" && asBoolean(value.audioSoundEffects),
+      audioMusic: provider === "audio" && asBoolean(value.audioMusic),
       promptPresetId: null,
       maxTokensOverride: asNullablePositiveInteger(value.maxTokensOverride),
       maxParallelJobs: asBoundedPositiveInteger(value.maxParallelJobs, 1, MAX_PARALLEL_JOBS),
+      maxRequestsPerMinute: asNullableBoundedPositiveInteger(value.maxRequestsPerMinute, 600),
       treatAsLocalEndpoint: asBoolean(value.treatAsLocalEndpoint),
       claudeFastMode: asBoolean(value.claudeFastMode),
     },
@@ -158,6 +173,7 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
 function serializeConnectionForExport(connection: ConnectionTransferRow): SafeConnectionExport {
   const provider = asProvider(connection.provider) ?? "custom";
   const isVideoProvider = provider === "video_generation";
+  const isAudioProvider = provider === "audio";
   return {
     name: asString(connection.name) || "Unnamed Connection",
     provider,
@@ -166,6 +182,7 @@ function serializeConnectionForExport(connection: ConnectionTransferRow): SafeCo
     maxContext: asPositiveInteger(connection.maxContext, 128000),
     maxTokensOverride: asNullablePositiveInteger(connection.maxTokensOverride),
     maxParallelJobs: asPositiveInteger(connection.maxParallelJobs, 1),
+    maxRequestsPerMinute: asNullablePositiveInteger(connection.maxRequestsPerMinute),
     promptPresetId: asNullableString(connection.promptPresetId),
     defaultParameters: parseDefaultParameters(connection.defaultParameters),
     enableCaching: asBoolean(connection.enableCaching),
@@ -184,6 +201,10 @@ function serializeConnectionForExport(connection: ConnectionTransferRow): SafeCo
     imageService: asNullableString(connection.imageService ?? connection.service),
     videoGenerationSource: isVideoProvider ? asNullableString(connection.videoGenerationSource) : null,
     videoService: isVideoProvider ? asNullableString(connection.videoService ?? connection.service) : null,
+    audioSource: isAudioProvider ? asNullableString(connection.audioSource ?? connection.service) : null,
+    audioVoice: isAudioProvider ? asNullableString(connection.audioVoice) : null,
+    audioSoundEffects: isAudioProvider && asBoolean(connection.audioSoundEffects),
+    audioMusic: isAudioProvider && asBoolean(connection.audioMusic),
     imageEndpointId: asNullableString(connection.imageEndpointId),
     imagePromptInstructions: normalizeImagePromptInstructions(connection.imagePromptInstructions),
     imageGenerationQuality: asImageGenerationQuality(connection.imageGenerationQuality),
@@ -195,6 +216,12 @@ function serializeConnectionForExport(connection: ConnectionTransferRow): SafeCo
 
 function asImageGenerationQuality(value: unknown): ImageGenerationQuality {
   return value === "low" || value === "medium" || value === "high" ? value : "auto";
+}
+
+/** Unknown sources degrade to null (resolved as ElevenLabs) instead of failing the whole connection import. */
+function asAudioGenerationSource(value: unknown): string | null {
+  const text = asNullableString(value);
+  return text === "openai" || text === "elevenlabs" || text === "pockettts" || text === "xai" ? text : null;
 }
 
 function parseDefaultParameters(value: unknown): Record<string, unknown> | null {
@@ -283,4 +310,9 @@ function asNullablePositiveInteger(value: unknown) {
   const numberValue = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   if (!Number.isFinite(numberValue)) return null;
   return Math.max(1, Math.round(numberValue));
+}
+
+function asNullableBoundedPositiveInteger(value: unknown, max: number) {
+  const parsed = asNullablePositiveInteger(value);
+  return parsed === null ? null : Math.min(max, parsed);
 }

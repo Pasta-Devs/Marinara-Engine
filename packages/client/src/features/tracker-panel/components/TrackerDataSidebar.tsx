@@ -30,10 +30,7 @@ const TRACKER_PANEL_NEUTRAL_VARS =
   "[--accent:rgb(39_39_42)] [--accent-foreground:rgb(244_244_245)] [--background:rgb(18_18_21)] [--border:rgb(63_63_70)] [--card:rgb(24_24_27)] [--foreground:rgb(244_244_245)] [--input:rgb(63_63_70)] [--muted:rgb(39_39_42)] [--muted-foreground:rgb(161_161_170)] [--popover:rgb(24_24_27)] [--popover-foreground:rgb(244_244_245)] [--primary:rgb(212_212_216)] [--primary-foreground:rgb(18_18_21)] [--ring:rgb(161_161_170)] [--secondary:rgb(39_39_42)] [--tracker-panel-card-background:color-mix(in_srgb,var(--background)_22%,transparent)] [--tracker-panel-section-background:color-mix(in_srgb,var(--card)_6%,transparent)]";
 type TrackerPanelSurfaceStyle = CSSProperties & Record<`--${string}`, string>;
 
-class TrackerPanelErrorBoundary extends Component<
-  { children: ReactNode; resetKey: string },
-  { hasError: boolean }
-> {
+class TrackerPanelErrorBoundary extends Component<{ children: ReactNode; resetKey: string }, { hasError: boolean }> {
   state = { hasError: false };
 
   static getDerivedStateFromError() {
@@ -78,7 +75,10 @@ export function TrackerDataSidebar({
   const { t: localizeUi } = useUiTranslation();
   useRenderTimer("tracker-panel"); // [#3104 diagnostic]
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const { patchField, patchPlayerStats, flushPatch } = useGameStatePatcher(activeChatId, "tracker-data-sidebar");
+  const { patchField, patchPlayerStats, patchPlayerStatsMany, flushPatch } = useGameStatePatcher(
+    activeChatId,
+    "tracker-data-sidebar",
+  );
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   const trackerPanelCollapsedSections = useUIStore((s) => s.trackerPanelCollapsedSections);
   const trackerPanelSectionOrder = useUIStore((s) => s.trackerPanelSectionOrder);
@@ -94,12 +94,8 @@ export function TrackerDataSidebar({
   const setTrackerPanelSide = useUIStore((s) => s.setTrackerPanelSide);
   const setTrackerPanelSizeProfile = useUIStore((s) => s.setTrackerPanelSizeProfile);
   const setTrackerStatDisplayMode = useUIStore((s) => s.setTrackerStatDisplayMode);
-  const {
-    currentGameState,
-    gameStateLoadStatus,
-    gameStateRefreshing,
-    retryGameState,
-  } = useTrackerGameState(activeChatId);
+  const { currentGameState, gameStateLoadStatus, gameStateRefreshing, retryGameState } =
+    useTrackerGameState(activeChatId);
   const presentCharacters: PresentCharacter[] = Array.isArray(currentGameState?.presentCharacters)
     ? currentGameState.presentCharacters
     : [];
@@ -137,7 +133,9 @@ export function TrackerDataSidebar({
   const fieldLocks = currentGameState
     ? normalizeTrackerFieldLocksForState(currentGameState.fieldLocks, currentGameState)
     : null;
-  const hiddenTrackerFields = currentGameState ? normalizeTrackerHiddenFields(currentGameState.hiddenTrackerFields) : null;
+  const hiddenTrackerFields = currentGameState
+    ? normalizeTrackerHiddenFields(currentGameState.hiddenTrackerFields)
+    : null;
   const updateFieldLocks = useTrackerFieldLockUpdater({ chatId: activeChatId, fieldLocks, patchField });
   const updateHiddenTrackerFields = useCallback(
     (updater: (hiddenFields: TrackerHiddenFields | null | undefined) => TrackerHiddenFields) => {
@@ -150,9 +148,12 @@ export function TrackerDataSidebar({
     },
     [activeChatId, hiddenTrackerFields, patchField],
   );
-  const toggleFieldLock = useCallback((key: string) => {
-    updateFieldLocks((locks) => toggleTrackerFieldLock(locks, key));
-  }, [updateFieldLocks]);
+  const toggleFieldLock = useCallback(
+    (key: string) => {
+      updateFieldLocks((locks) => toggleTrackerFieldLock(locks, key));
+    },
+    [updateFieldLocks],
+  );
   const hasFixedTrackerPanel = orderedTrackerSections.length > 0;
   const displayedGameState =
     currentGameState ?? (activeChatId && gameStateLoadStatus === "loaded" ? createEmptyGameState(activeChatId) : null);
@@ -236,6 +237,7 @@ export function TrackerDataSidebar({
                 orderedTrackerSections={orderedTrackerSections}
                 patchField={patchField}
                 patchPlayerStats={patchPlayerStats}
+                patchPlayerStatsMany={patchPlayerStatsMany}
                 resolveSpriteCharacterId={resolveSpriteCharacterId}
                 spriteExpressions={spriteExpressions}
                 trackerPanelCollapsedSections={trackerPanelCollapsedSections}

@@ -96,10 +96,7 @@ export function HomeClockCalendar() {
             <span className="text-[clamp(2rem,3.3vw,3.3rem)] font-black leading-none tracking-[-0.07em] text-[var(--foreground)]">
               {hour}:{minute}
             </span>
-            <span
-              className="ml-1 text-[0.68rem] font-bold text-[oklch(0.79_0.16_205)]"
-              data-clock-seconds
-            >
+            <span className="ml-1 text-[0.68rem] font-bold text-[oklch(0.79_0.16_205)]" data-clock-seconds>
               :{second}
             </span>
             {dayPeriod ? (

@@ -1,5 +1,4 @@
 import type { FastifyInstance } from "fastify";
-import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { BUILT_IN_AGENT_MANIFESTS } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
@@ -18,6 +17,20 @@ const packageParams = z.object({
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .max(80),
 });
+
+/** Strong ETag from the manifest-recorded sha256 — the same value the serve
+ *  path re-verifies the bytes against, so the validator can never drift. */
+function packageFileEtag(sha256Hex: string): string {
+  return `"${sha256Hex}"`;
+}
+
+function ifNoneMatchSatisfied(headerValue: string | undefined, etag: string): boolean {
+  if (!headerValue) return false;
+  if (headerValue.trim() === "*") return true;
+  // Weak comparison is fine for 304s: a W/-prefixed candidate with the same
+  // hash still identifies the same bytes here.
+  return headerValue.split(",").some((candidate) => candidate.trim().replace(/^W\//, "") === etag);
+}
 const packageAssetParams = packageParams.extend({ "*": z.string().min(1).max(240) });
 const packageVersion = z
   .string()
@@ -75,19 +88,42 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
     const { id } = packageParams.parse(request.params);
     const entrypoint = await capabilityPackageManager.clientEntrypoint(id);
     if (!entrypoint) return reply.status(404).send({ error: "Active client package not found" });
-    reply.header("Content-Type", "text/javascript; charset=utf-8");
+    // Deliberately NOT immutable, even though the URL carries ?v=: a package
+    // author (or the catalog) can republish the same version string with
+    // different bytes during development, and an immutable client bundle would
+    // pin the stale copy with no way to evict it short of a hard reload.
+    // no-cache + a strong ETag keeps "always revalidate" semantics while
+    // letting the revalidation answer 304 instead of re-sending the body.
+    const etag = packageFileEtag(entrypoint.sha256);
     reply.header("Cache-Control", "no-cache, must-revalidate");
+    reply.header("ETag", etag);
     reply.header("X-Content-Type-Options", "nosniff");
-    return reply.send(await readFile(entrypoint.file));
+    if (ifNoneMatchSatisfied(request.headers["if-none-match"], etag)) {
+      return reply.status(304).send();
+    }
+    reply.header("Content-Type", "text/javascript; charset=utf-8");
+    // The verification step already read and hashed these exact bytes.
+    return reply.send(entrypoint.data);
   });
   app.get<{ Params: { id: string; "*": string } }>("/:id/assets/*", async (request, reply) => {
     const { id, "*": assetPath } = packageAssetParams.parse(request.params);
-    const asset = await capabilityPackageManager.browserTabAsset(id, assetPath);
+    const asset = await capabilityPackageManager.packageAsset(id, assetPath);
     if (!asset) return reply.status(404).send({ error: "Active package asset not found" });
-    reply.header("Content-Type", asset.contentType);
+    const etag = packageFileEtag(asset.sha256);
+    // Never `immutable`: install policy permits republishing the SAME version
+    // with different bytes (assertNotDowngrade refuses only lower versions),
+    // and the URL carries no content digest — an immutable response could pin
+    // stale art for a year. no-cache + the hash ETag keeps revalidation cheap:
+    // an unchanged asset answers 304 with no body.
     reply.header("Cache-Control", "private, no-cache, must-revalidate");
+    reply.header("ETag", etag);
     reply.header("X-Content-Type-Options", "nosniff");
-    return reply.send(await readFile(asset.file));
+    if (ifNoneMatchSatisfied(request.headers["if-none-match"], etag)) {
+      return reply.status(304).send();
+    }
+    reply.header("Content-Type", asset.contentType);
+    // The verification step read and hashed these exact bytes.
+    return reply.send(asset.data);
   });
   app.post<{ Params: { id: string }; Body: { expectedVersion: string; expectedArtifactSha256: string } }>(
     "/:id/install",

@@ -5,6 +5,7 @@ import {
   applyTrackerFieldLocksToGameStatePatch,
   compileChatSummaryEntries,
   generationParametersSchema,
+  normalizeInventoryTrackerRows,
   normalizeChatSummaryEntries,
   normalizeTextForMatch,
   normalizeSummaryTailMessages,
@@ -21,6 +22,7 @@ import {
   type GenerationParameterSendMap,
   type GenerationParameters,
   type InventoryItem,
+  type InventoryTrackerRow,
   type MacroContext,
   type PlayerStats,
   type WrapFormat,
@@ -56,6 +58,7 @@ export type SimpleMessage = {
   images?: string[];
   files?: Array<{ type: string; data: string; filename?: string }>;
   contextKind?: "prompt" | "history" | "injection";
+  providerMetadata?: Record<string, unknown>;
 };
 export type SpeakerPrefixMessage = SimpleMessage & {
   characterId?: string | null;
@@ -64,6 +67,24 @@ export type SpeakerPrefixMessage = SimpleMessage & {
   providerMetadata?: Record<string, unknown>;
 };
 export type StoredGenerationParameters = Partial<GenerationParameters>;
+
+export function hasProviderMessagePayload(message: {
+  content: string;
+  images?: unknown[];
+  files?: unknown[];
+  providerMetadata?: Record<string, unknown>;
+  tool_calls?: unknown[];
+  tool_call_id?: string;
+}): boolean {
+  return (
+    !!message.content.trim() ||
+    !!message.images?.length ||
+    !!message.files?.length ||
+    Object.keys(message.providerMetadata ?? {}).length > 0 ||
+    !!message.tool_calls?.length ||
+    !!message.tool_call_id
+  );
+}
 
 /**
  * Preserve the route-layer export while sharing the same Persona policy with
@@ -102,6 +123,7 @@ export function buildGenerationGuideInstruction(
     {
       ...promptMacroContext,
       variables: { ...promptMacroContext.variables },
+      localVariables: { ...promptMacroContext.localVariables },
     },
     { trimResult: false },
   ).trim();
@@ -165,6 +187,88 @@ export function buildLockedPlayerStatsArrayPatch<T>({
     playerStats: { [field]: lockedValues },
   } as { playerStats: Partial<Record<PlayerStatsArrayField, T[]>> };
   return { changed, patch, playerStats, values: lockedValues };
+}
+
+const INVENTORY_TRACKER_PLAYER_STATS_FIELDS = [
+  "inventoryTrackerCurrencies",
+  "inventoryTrackerEquipped",
+  "inventoryTrackerInventory",
+] as const;
+
+type InventoryTrackerPlayerStatsField = (typeof INVENTORY_TRACKER_PLAYER_STATS_FIELDS)[number];
+
+// `clampInventoryTrackerQty` and `normalizeInventoryTrackerRows` now live in
+// `@marinara-engine/shared` so the hand-edit paths (tracker panel, HUD popover,
+// Agent Suite editor, chat game-state route) apply the same rules this route
+// already applied to agent output.
+
+export function buildLockedInventoryTrackerPatch({
+  data,
+  snapshot,
+  lockState,
+}: {
+  data: Record<string, unknown>;
+  snapshot: { playerStats?: unknown } | null | undefined;
+  lockState: GameState | null | undefined;
+}) {
+  const existingPlayerStats = parseSnapshotPlayerStats(snapshot);
+  const existingRows = (field: InventoryTrackerPlayerStatsField): InventoryTrackerRow[] => {
+    const rows = existingPlayerStats[field];
+    return Array.isArray(rows) ? (rows as InventoryTrackerRow[]) : [];
+  };
+
+  // Only a group the agent actually emitted may rewrite that group. Treating an
+  // absent key as an empty array wipes state the model simply did not mention
+  // this turn — the destructive absent-vs-empty failure mode from #2370/#2724.
+  const emittedCurrencies = Array.isArray(data.currencies);
+  const emittedEquipped = Array.isArray(data.equipped);
+  const emittedInventory = Array.isArray(data.inventory);
+
+  const currencies = emittedCurrencies
+    ? normalizeInventoryTrackerRows(data.currencies)
+    : existingRows("inventoryTrackerCurrencies");
+  const equipped = emittedEquipped
+    ? normalizeInventoryTrackerRows(data.equipped)
+    : existingRows("inventoryTrackerEquipped");
+  const carried = emittedInventory
+    ? normalizeInventoryTrackerRows(data.inventory)
+    : existingRows("inventoryTrackerInventory");
+
+  const excludedNames = new Set([...currencies, ...equipped].map((row) => normalizeTextForMatch(row.name)));
+  const inventory = carried.filter((row) => !excludedNames.has(normalizeTextForMatch(row.name)));
+
+  const rawPlayerStatsPatch: Partial<Record<InventoryTrackerPlayerStatsField, InventoryTrackerRow[]>> = {};
+  if (emittedCurrencies) rawPlayerStatsPatch.inventoryTrackerCurrencies = currencies;
+  if (emittedEquipped) rawPlayerStatsPatch.inventoryTrackerEquipped = equipped;
+  // Equipping an item has to drop it from a carried list the agent did not
+  // resend, so write the carried group when exclusivity actually changed it too.
+  if (emittedInventory || !isDeepStrictEqual(inventory, carried)) {
+    rawPlayerStatsPatch.inventoryTrackerInventory = inventory;
+  }
+
+  if (Object.keys(rawPlayerStatsPatch).length === 0) {
+    return { changed: false, patch: { playerStats: {} }, playerStats: existingPlayerStats, values: {} };
+  }
+
+  const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ playerStats: rawPlayerStatsPatch }, lockState);
+  const lockedPlayerStatsPatch = extractPlayerStatsPatch(lockedPatch);
+  const values: Partial<Record<InventoryTrackerPlayerStatsField, InventoryTrackerRow[]>> = {};
+  for (const field of INVENTORY_TRACKER_PLAYER_STATS_FIELDS) {
+    const locked = lockedPlayerStatsPatch[field];
+    if (Array.isArray(locked)) values[field] = locked as InventoryTrackerRow[];
+    else if (rawPlayerStatsPatch[field]) values[field] = rawPlayerStatsPatch[field];
+  }
+
+  const changed = Object.entries(values).some(([field, rows]) => {
+    const existing = existingPlayerStats[field as keyof PlayerStats];
+    return !isDeepStrictEqual(rows, Array.isArray(existing) ? existing : []);
+  });
+  return {
+    changed,
+    patch: { playerStats: values },
+    playerStats: { ...existingPlayerStats, ...values },
+    values,
+  };
 }
 
 function parseSnapshotPersonaStats(snapshot: { personaStats?: unknown } | null | undefined): CharacterStat[] {
@@ -871,6 +975,8 @@ export function appendGenerationTailMessages(
   messages: SimpleMessage[],
   options: {
     assistantPrefill: string;
+    assistantReasoningPrefill: string;
+    supportsAssistantReasoningPrefill: boolean;
     followUpIteration: number;
     impersonate: boolean;
     isGoogleProvider: boolean;
@@ -885,13 +991,29 @@ export function appendGenerationTailMessages(
     !options.impersonate && options.isGoogleProvider && !!options.regenerateUserMessage;
   const assistantPrefill = options.assistantPrefill.trim();
   const shouldAppendAssistantPrefill = !options.impersonate && !!assistantPrefill;
+  const assistantReasoningPrefill = options.assistantReasoningPrefill.trim();
+  const shouldAppendReasoningPrefill =
+    !options.impersonate && options.supportsAssistantReasoningPrefill && !!assistantReasoningPrefill;
+  const shouldAppendAssistantMessage =
+    !options.impersonate && (shouldAppendAssistantPrefill || shouldAppendReasoningPrefill);
 
-  if (shouldAppendAssistantPrefill) {
+  if (shouldAppendAssistantMessage) {
     // Strip the trailing edge: Anthropic's Messages API rejects a final assistant
     // message ending in whitespace (HTTP 400), which surfaces to users as a refusal.
     // A prefill ending in "\n" or a space is common. The user-facing prefill is
     // rendered separately, so only what is sent to the API is trimmed.
-    messages.push({ role: "assistant", content: options.assistantPrefill.trimEnd() });
+    messages.push({
+      role: "assistant",
+      content: shouldAppendAssistantPrefill ? options.assistantPrefill.trimEnd() : "",
+      ...(shouldAppendReasoningPrefill
+        ? {
+            providerMetadata: {
+              reasoning_content: options.assistantReasoningPrefill.trimEnd(),
+              partial: true,
+            },
+          }
+        : {}),
+    });
   }
 
   if (shouldAppendGoogleUserRegeneration) {
@@ -1137,6 +1259,9 @@ export function parseStoredGenerationParameters(raw: unknown): StoredGenerationP
     out.serviceTier = source.serviceTier as StoredGenerationParameters["serviceTier"];
   }
   if (typeof source.assistantPrefill === "string") out.assistantPrefill = source.assistantPrefill;
+  if (typeof source.assistantReasoningPrefill === "string") {
+    out.assistantReasoningPrefill = source.assistantReasoningPrefill;
+  }
   if (Array.isArray(source.customThinkingTags)) {
     out.customThinkingTags = normalizeThinkingTagPairs(source.customThinkingTags);
   }

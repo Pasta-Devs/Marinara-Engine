@@ -79,8 +79,12 @@ export function FolderTree({
             type="button"
             aria-label={
               isExpanded
-                ?localizeUi("ui.gameAssets.foldertree.collapseValue1", { value1: isRoot ?localizeUi("game.toolbar.assets") : node.name })
-                :localizeUi("ui.gameAssets.foldertree.expandValue1", { value1: isRoot ?localizeUi("game.toolbar.assets") : node.name })
+                ? localizeUi("ui.gameAssets.foldertree.collapseValue1", {
+                    value1: isRoot ? localizeUi("game.toolbar.assets") : node.name,
+                  })
+                : localizeUi("ui.gameAssets.foldertree.expandValue1", {
+                    value1: isRoot ? localizeUi("game.toolbar.assets") : node.name,
+                  })
             }
             aria-expanded={isExpanded}
             onClick={() => onToggle(node.path)}
@@ -97,7 +101,7 @@ export function FolderTree({
           className="flex flex-1 items-center gap-1.5 overflow-hidden"
         >
           <CategoryIcon size="0.875rem" className="shrink-0" />
-          <span className="truncate">{isRoot ?localizeUi("game.toolbar.assets") : node.name}</span>
+          <span className="truncate">{isRoot ? localizeUi("game.toolbar.assets") : node.name}</span>
         </button>
         {selectionStatus && (
           <button

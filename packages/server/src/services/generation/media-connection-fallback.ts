@@ -27,8 +27,7 @@ function resolveConnectionVideoComfyDefaults(connection: { defaultParameters?: u
     }
   }
   if (!root || typeof root !== "object" || Array.isArray(root)) return null;
-  return normalizeVideoGenerationProfile((root as Record<string, unknown>)[VIDEO_DEFAULTS_STORAGE_KEY]).profile
-    .comfyui;
+  return normalizeVideoGenerationProfile((root as Record<string, unknown>)[VIDEO_DEFAULTS_STORAGE_KEY]).profile.comfyui;
 }
 
 export async function resolveImageConnectionFallback(
@@ -81,9 +80,7 @@ export async function resolveVideoConnectionFallback(
     baseUrl,
     apiKey: connection.apiKey || "",
     serviceHint:
-      source === "swarmui"
-        ? "swarmui"
-        : String(connection.videoService ?? connection.videoGenerationSource ?? source),
+      source === "swarmui" ? "swarmui" : String(connection.videoService ?? connection.videoGenerationSource ?? source),
     model,
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: comfyDefaults?.loras ?? [],

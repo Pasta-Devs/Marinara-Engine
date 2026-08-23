@@ -1,0 +1,12 @@
+{
+  "type": "marinara_story_bundle",
+  "version": 1,
+  "exportedAt": "2026-01-01T00:00:00.000Z",
+  "data": {
+    "name": "Full Test Bundle",
+    "description": "<h1>The Grand Campaign</h1><p>All elements assembled.</p><ul><li>Heroes</li><li>Villains</li><li>Lore</li></ul>",
+    "characterIds": ["char-001", "char-002"],
+    "personaIds": ["persona-001"],
+    "lorebookIds": ["lore-001", "lore-002", "lore-003"]
+  }
+}

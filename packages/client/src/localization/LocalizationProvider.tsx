@@ -9,11 +9,7 @@ export function LocalizationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
     void activateLocale(language).then((resolvedLanguage) => {
-      if (
-        active &&
-        resolvedLanguage !== language &&
-        useUIStore.getState().language === language
-      ) {
+      if (active && resolvedLanguage !== language && useUIStore.getState().language === language) {
         setLanguage(resolvedLanguage);
       }
     });

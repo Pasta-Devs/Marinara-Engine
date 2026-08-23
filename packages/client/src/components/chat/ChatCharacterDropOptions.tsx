@@ -47,7 +47,8 @@ export function ChatCharacterDropOptions({
   });
 
   const { greetings, dialogueColor } = useMemo(
-    () => (askGreeting ? readCharacterGreetings((character as { data?: unknown } | undefined)?.data) : { greetings: [] }),
+    () =>
+      askGreeting ? readCharacterGreetings((character as { data?: unknown } | undefined)?.data) : { greetings: [] },
     [askGreeting, character],
   );
   const [addGreeting, setAddGreeting] = useState(true);
@@ -91,9 +92,7 @@ export function ChatCharacterDropOptions({
       }
       onClose();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : t("ui.chat.chatsettingsdrawer.failedToAddSelectedGreeting"),
-      );
+      toast.error(error instanceof Error ? error.message : t("ui.chat.chatsettingsdrawer.failedToAddSelectedGreeting"));
     } finally {
       setSaving(false);
     }
@@ -186,9 +185,7 @@ export function ChatCharacterDropOptions({
                   checked={!excludedIds.includes(lorebook.id)}
                   onChange={(event) =>
                     setExcludedIds((current) =>
-                      event.target.checked
-                        ? current.filter((id) => id !== lorebook.id)
-                        : [...current, lorebook.id],
+                      event.target.checked ? current.filter((id) => id !== lorebook.id) : [...current, lorebook.id],
                     )
                   }
                   className="h-4 w-4 accent-[var(--primary)]"

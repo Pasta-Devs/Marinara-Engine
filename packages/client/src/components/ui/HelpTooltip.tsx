@@ -159,7 +159,14 @@ export function HelpTooltip({
     >
       <button
         type="button"
-        aria-label={localizedLabel ?localizeUi("ui.ui.customemojitagbutton.value1Value2", { value1: localize("Show help"), value2: localizedLabel }) : localize("Show help")}
+        aria-label={
+          localizedLabel
+            ? localizeUi("ui.ui.customemojitagbutton.value1Value2", {
+                value1: localize("Show help"),
+                value2: localizedLabel,
+              })
+            : localize("Show help")
+        }
         aria-expanded={show}
         className={cn(
           "mari-chrome-accent-text-muted mari-accent-animated inline-flex cursor-help items-center gap-1 rounded-full opacity-70 transition-opacity hover:text-[var(--marinara-chat-chrome-button-text-hover)] hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",

@@ -15,12 +15,7 @@ export interface StoryBundlePresetsProps {
   validPresetIds: Set<string>;
 }
 
-export function StoryBundlePresets({
-  presetIds,
-  onPresetIdsChange,
-  presets,
-  validPresetIds,
-}: StoryBundlePresetsProps) {
+export function StoryBundlePresets({ presetIds, onPresetIdsChange, presets, validPresetIds }: StoryBundlePresetsProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [presetPickerLimit, setPresetPickerLimit] = useState(PRESET_PICKER_PAGE_SIZE);
@@ -43,10 +38,7 @@ export function StoryBundlePresets({
     });
   }, [presets, selectedIds, validPresetIds, search]);
 
-  const visibleAvailable = useMemo(
-    () => available.slice(0, presetPickerLimit),
-    [available, presetPickerLimit],
-  );
+  const visibleAvailable = useMemo(() => available.slice(0, presetPickerLimit), [available, presetPickerLimit]);
 
   const selectedPresets = useMemo(
     () => presets.filter((p) => selectedIds.has(p.id) && validPresetIds.has(p.id)),
@@ -92,7 +84,10 @@ export function StoryBundlePresets({
 
         <div className="mb-3 flex items-center gap-2">
           <div className="relative flex-1">
-            <Search size="0.875rem" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
+            <Search
+              size="0.875rem"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+            />
             <input
               data-testid="story-bundle-editor-presets-search"
               type="text"
@@ -139,7 +134,8 @@ export function StoryBundlePresets({
                 onClick={() => setPresetPickerLimit((limit) => limit + PRESET_PICKER_PAGE_SIZE)}
                 className="w-full rounded-md px-2 py-1.5 text-center text-xs text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
               >
-                {t("storyBundles.loadMore", "Load more")} ({visibleAvailable.length} {t("storyBundles.of", "of")} {available.length})
+                {t("storyBundles.loadMore", "Load more")} ({visibleAvailable.length} {t("storyBundles.of", "of")}{" "}
+                {available.length})
               </button>
             )}
           </div>
@@ -166,10 +162,7 @@ export function StoryBundlePresets({
         {selectedPresets.length > 0 ? (
           <div className="space-y-1 rounded-lg border border-[var(--border)] bg-[var(--card)] p-1.5">
             {selectedPresets.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
-              >
+              <div key={p.id} className="flex items-center gap-2.5 rounded-md px-2 py-1.5">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-foreground)]">
                   <SlidersHorizontal size="0.75rem" />
                 </div>

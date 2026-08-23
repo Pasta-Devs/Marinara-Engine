@@ -42,7 +42,9 @@ export function ProfessorMariWorkingWindow({ visible, onDismiss, className }: Pr
           onError={() => setImageFailed(true)}
         />
       )}
-      <p className={cn("min-w-0 text-xs font-medium leading-relaxed text-[var(--foreground)]", onDismiss && "pr-6")}>{localizeUi("ui.ui.professormariworkingwindow.profMariIsWorking")}</p>
+      <p className={cn("min-w-0 text-xs font-medium leading-relaxed text-[var(--foreground)]", onDismiss && "pr-6")}>
+        {localizeUi("ui.ui.professormariworkingwindow.profMariIsWorking")}
+      </p>
       {onDismiss && (
         <button
           type="button"

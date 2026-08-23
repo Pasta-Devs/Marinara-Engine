@@ -19,6 +19,7 @@ import { createGalleryStorage } from "../services/storage/gallery.storage.js";
 import { createGameSceneVideosStorage } from "../services/storage/game-scene-videos.storage.js";
 import { createGameStoryboardsStorage } from "../services/storage/game-storyboards.storage.js";
 import { createGameStateStorage } from "../services/storage/game-state.storage.js";
+import { createGameEngineStateStorage } from "../services/storage/game-engine-state.storage.js";
 import { createSpatialContextStorage } from "../services/storage/spatial-context.storage.js";
 import { formatOwnerSpatialBreadcrumb, resolveOwnerSpatialProjection } from "../services/spatial-context/projection.js";
 import {
@@ -102,7 +103,11 @@ import {
   npcAvatarSlug,
   sanitizeGameNpcAvatarUrls,
 } from "../services/game/npc-avatar-utils.js";
-import { createCheckpointService, type CheckpointTrigger } from "../services/game/checkpoint.service.js";
+import {
+  createCheckpointService,
+  type CapturedEngineState,
+  type CheckpointTrigger,
+} from "../services/game/checkpoint.service.js";
 import {
   resolveSkillCheck,
   attributeModifier,
@@ -149,6 +154,7 @@ import {
   sceneAnalysisRequestSchema,
   resolveProviderReasoningEffort,
   scoreMusic,
+  musicAreaSlug,
   scoreAmbient,
   serializeResolvedSkillCheckTag,
   applyTrackerFieldLocksToGameStatePatch,
@@ -170,7 +176,12 @@ import {
   extractLeadingThinkingBlocks,
   type RPGStatsConfig,
 } from "@marinara-engine/shared";
-import { mergeCustomParameters, parseGameStateRow, resolveBaseUrl } from "./generate/generate-route-utils.js";
+import {
+  mergeCustomParameters,
+  parseGameStateRow,
+  resolveBaseUrl,
+  resolveVisibleGameStateAnchor,
+} from "./generate/generate-route-utils.js";
 import {
   fitMessagesToModelAccessContext,
   mergeModelContextLimit,
@@ -239,6 +250,7 @@ import {
 import { resolveGameVideoRuntime, type GameVideoRuntime } from "../services/video/game-video-runtime.js";
 import {
   buildStoryboardAnimationRefinementMessages,
+  compactStoryboardAnimationPrompt,
   executeStoryboardImageAwareAnimation,
   redactStoryboardAnimationRefinementMessages,
   resolveStoryboardAnimationRefinement,
@@ -1630,7 +1642,7 @@ async function buildStoryboardGalleryAnimatePrompt(args: {
     args.ownerMode === "roleplay"
       ? args.meta.roleplayStoryboardVideoPromptTemplateId
       : args.meta.gameStoryboardVideoPromptTemplateId;
-  const narrationSummary = compactVideoPromptText(args.plannedFrame.narrationBeat, args.promptLimits.narrationSummary);
+  const narrationSummary = compactStoryboardAnimationPrompt(args.plannedFrame.narrationBeat);
   if (!narrationSummary) {
     throw new Error("Storyboard keyframe is missing its planned animation prompt.");
   }
@@ -1691,7 +1703,19 @@ const MAX_GAME_HUD_WIDGETS = 4;
 /** Cap for the opaque `experienceConfig`, so it can't grow into a payload every later write of the
  *  setup config has to carry. Generous next to what a setup wizard actually collects. */
 const MAX_EXPERIENCE_CONFIG_CHARS = 32_000;
+/** Ceiling for a game-surface Experience's per-anchor world-state blob (#5102), counted in
+ *  UTF-16 code units of the serialized JSON. Generous for a serialized tile-world save. */
+const MAX_EXPERIENCE_STATE_CHARS = 262_144;
+/** Newest per-anchor experience saves kept per chat (#5102): swipe-back rewind only targets
+ *  recent anchors and checkpoint restore reads the blob captured in the checkpoint row, so
+ *  older rows are unreachable — pruning them bounds the chat's game_engine_state shard. */
+const EXPERIENCE_STATE_KEEP_ANCHORS = 100;
 const GAME_REPUTATION_ACTION_MAX_LENGTH = 500;
+/** Shape and length ceiling for a game-surface Experience's package id (#5102). The setup schema
+ *  and the experience-state route's resolver must validate a stamp identically — a looser rule here
+ *  would mint ids the route then rejects with 409, a tighter one would strand already-stored stamps. */
+const GAME_EXPERIENCE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const GAME_EXPERIENCE_ID_MAX_CHARS = 80;
 const trimmedWidgetString = (max: number) => z.string().trim().min(1).max(max);
 
 const hudWidgetSchema = z.object({
@@ -1729,11 +1753,7 @@ const gameSetupConfigSchema = z.object({
   personaId: z.string().nullable().optional(),
   /** Installed package that provides this game's experience. Same shape the manifest allows for an id,
    *  since this is matched against one to mount the surface. */
-  gameExperienceId: z
-    .string()
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    .max(80)
-    .optional(),
+  gameExperienceId: z.string().regex(GAME_EXPERIENCE_ID_PATTERN).max(GAME_EXPERIENCE_ID_MAX_CHARS).optional(),
   /** Opaque config owned by that experience — persisted verbatim, never read by the host. */
   experienceConfig: z
     .record(z.string().max(120), z.unknown())
@@ -1747,6 +1767,9 @@ const gameSetupConfigSchema = z.object({
   gameImageDynamicPromptEnabled: z.boolean().optional(),
   imageConnectionId: z.string().optional(),
   videoConnectionId: z.string().optional(),
+  audioConnectionId: z.string().optional(),
+  enableGameSoundEffects: z.boolean().optional(),
+  enableGameMusic: z.boolean().optional(),
   gameStoryboardAutoIllustrationsEnabled: z.boolean().optional(),
   gameStoryboardAutoGenerationEnabled: z.boolean().optional(),
   gameStoryboardsEnabled: z.boolean().optional(),
@@ -2964,6 +2987,7 @@ type InitialSetupConnectionRow = {
   imageService?: unknown;
   videoGenerationSource?: unknown;
   videoService?: unknown;
+  audioSource?: unknown;
 };
 
 function snapshotInitialSetupConnection(
@@ -2979,6 +3003,7 @@ function snapshotInitialSetupConnection(
     service: firstString(
       connection.imageService,
       connection.videoService,
+      connection.audioSource,
       connection.imageGenerationSource,
       connection.videoGenerationSource,
     ),
@@ -5481,7 +5506,9 @@ function sanitizeStoryboardPlan(
     .map((rawFrame, index): PlannedStoryboardKeyframe | null => {
       const frame = asStoryboardRecord(rawFrame);
       const fallbackFrame = fallback.keyframes[index] ?? fallback.keyframes[0] ?? null;
-      const narrationBeat = compactStoryboardText(frame.narrationBeat, args.narrationBeatMaxChars ?? 1200);
+      const narrationBeat = args.narrationBeatMaxChars
+        ? compactStoryboardText(frame.narrationBeat, args.narrationBeatMaxChars)
+        : compactStoryboardAnimationPrompt(frame.narrationBeat);
       const mangaPanelPrompt = compactStoryboardText(frame.mangaPanelPrompt, 5000);
       const imagePrompt = compactStoryboardText(frame.imagePrompt, 6500) || mangaPanelPrompt || narrationBeat;
       if (!narrationBeat && !imagePrompt) return null;
@@ -6385,11 +6412,12 @@ export async function gameRoutes(app: FastifyInstance) {
       if (id === "local") return { name: "Local scene helper", provider: "local" };
       return snapshotInitialSetupConnection(await connectionStorage.getById(id));
     };
-    const [gmConnection, sceneConnection, imageConnection, videoConnection] = await Promise.all([
+    const [gmConnection, sceneConnection, imageConnection, videoConnection, audioConnection] = await Promise.all([
       snapshotConnection(resolvedGmConnectionId),
       snapshotConnection(setupConfig.sceneConnectionId),
       snapshotConnection(setupConfig.imageConnectionId),
       snapshotConnection(setupConfig.videoConnectionId),
+      snapshotConnection(setupConfig.audioConnectionId),
     ]);
     await chats.updateMetadata(sessionChat.id, {
       ...sessionMeta,
@@ -6426,6 +6454,7 @@ export async function gameRoutes(app: FastifyInstance) {
           scene: sceneConnection,
           image: imageConnection,
           video: videoConnection,
+          audio: audioConnection,
         },
         labels: shareLabels,
         createdAt: new Date().toISOString(),
@@ -6442,6 +6471,9 @@ export async function gameRoutes(app: FastifyInstance) {
       gameImageDynamicPromptEnabled: resolveGameImageDynamicPromptEnabled(setupConfig),
       gameImageConnectionId: setupConfig.imageConnectionId || null,
       gameVideoConnectionId: setupConfig.videoConnectionId || null,
+      gameAudioConnectionId: setupConfig.audioConnectionId || null,
+      gameAudioSoundEffectsEnabled: setupConfig.enableGameSoundEffects !== false,
+      gameAudioMusicEnabled: setupConfig.enableGameMusic !== false,
       gameSceneVideosEnabled: false,
       gameStoryboardAutoIllustrationsEnabled: setupConfig.gameStoryboardAutoIllustrationsEnabled !== false,
       gameStoryboardAutoGenerationEnabled: setupConfig.gameStoryboardAutoGenerationEnabled === true,
@@ -9752,16 +9784,18 @@ export async function gameRoutes(app: FastifyInstance) {
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
 
-    const meta = parseMeta(chat.metadata);
-    const currentTime = (meta.gameTime as GameTime) ?? createInitialTime();
-    let newTime: GameTime;
-    if (isTimeOfDayLabel(action)) {
-      newTime = setTimeOfDay(currentTime, action);
-    } else {
-      newTime = advanceTime(currentTime, action);
-    }
-
-    await chats.updateMetadata(chatId, { ...meta, gameTime: newTime });
+    // #5076: recompute the new time against the queue-fresh metadata and write ONLY the gameTime key
+    // through the queued patch path. The old whole-blob updateMetadata (spreading a request-time
+    // `meta`) silently reverted any concurrent metadata write that landed in between — most damagingly
+    // a World Maps definition revision bump, which then permanently fails movement validation as
+    // spatial_transition_stale_definition. patchMetadata re-reads and merges under the per-chat queue.
+    let newTime: GameTime | undefined;
+    const updated = await chats.patchMetadata(chatId, (freshMeta) => {
+      const currentTime = (freshMeta.gameTime as GameTime) ?? createInitialTime();
+      newTime = isTimeOfDayLabel(action) ? setTimeOfDay(currentTime, action) : advanceTime(currentTime, action);
+      return { gameTime: newTime };
+    });
+    if (!updated || !newTime) throw new Error("Chat not found");
 
     // Also update the game state snapshot so WeatherEffects picks it up
     const gameStateStore = createGameStateStorage(app.db);
@@ -9796,7 +9830,8 @@ export async function gameRoutes(app: FastifyInstance) {
       weather.type = type as any;
       weather.description = `The weather is ${type}.`;
 
-      await chats.updateMetadata(chatId, { ...meta, gameWeather: weather });
+      // #5076: narrow queued patch so a concurrent metadata write is merged, not clobbered.
+      await chats.patchMetadata(chatId, { gameWeather: weather });
       const gameStateStore = createGameStateStorage(app.db);
       await updateLatestGameStateWithTrackerLocks(gameStateStore, chatId, {
         weather: weather.type,
@@ -9812,7 +9847,8 @@ export async function gameRoutes(app: FastifyInstance) {
     const biome = inferBiome(location);
     const weather = generateWeather(biome, season);
 
-    await chats.updateMetadata(chatId, { ...meta, gameWeather: weather });
+    // #5076: narrow queued patch so a concurrent metadata write is merged, not clobbered.
+    await chats.patchMetadata(chatId, { gameWeather: weather });
 
     // Also update the game state snapshot so WeatherEffects picks it up
     const gameStateStore = createGameStateStorage(app.db);
@@ -9959,6 +9995,436 @@ export async function gameRoutes(app: FastifyInstance) {
 
     return { ok: true };
   });
+
+  // ── Experience state (#5102) ──
+  // Host-owned access to game_engine_state for the chat's stamped game-surface
+  // Experience. Packages cannot reach this table any other way (their sanctioned
+  // route registrar is privileged-only, unusable off loopback), so their world
+  // state used to live in chat metadata — a whole-blob store no engine seam
+  // rewinds. Rows here ride every lifecycle seam for free: swipe delete and
+  // re-index, message/chat prunes, branch re-anchoring, and checkpoint restore
+  // (the #5077 clone copies gameType verbatim, and resolveVisibleGameStateAnchor
+  // honors the checkpoint_restore anchor, so a restored Experience world becomes
+  // visible exactly like a restored turn-game).
+  //
+  // Scoping: rows use gameType "experience:<gameExperienceId>" and every read is
+  // filtered to that namespace, so an Experience can only ever observe its own
+  // chat's experience rows — never turn-game rows, never another Experience's.
+  // (The reverse direction lives in the turn-game runner, whose reads and wipes
+  // exclude the experience namespace.) The stamp is only honored on game-mode
+  // chats: gameExperienceId is set once by game creation, and refusing other
+  // modes keeps a metadata-patched stamp on a Conversation chat from ever
+  // colliding with turn-game flows.
+  // The stamp is re-validated on every read with the same shape rule the game-setup
+  // schema enforces at stamping: the metadata PATCH route merges arbitrary keys, and a
+  // malformed id (e.g. one containing a newline) must never reach the gameType
+  // namespace, where it could slip past the turn-game runner's excludePrefix scope.
+  const resolveExperienceStateGameType = (chat: { mode?: string | null; metadata?: unknown }): string | null => {
+    if (chat.mode !== "game") return null;
+    const id = parseMeta(chat.metadata).gameExperienceId;
+    if (typeof id !== "string" || id.length > GAME_EXPERIENCE_ID_MAX_CHARS || !GAME_EXPERIENCE_ID_PATTERN.test(id)) {
+      return null;
+    }
+    return `experience:${id}`;
+  };
+
+  // Saves within one chat are serialized through a promise tail: create() is a
+  // delete-then-insert across an await, so two overlapping PUTs could otherwise
+  // leave two rows at one anchor (and the store's stable createdAt tiebreak
+  // would let the OLDER one win reads).
+  const experienceStateWriteTails = new Map<string, Promise<unknown>>();
+  const withExperienceStateWriteLock = async <T>(chatId: string, task: () => Promise<T>): Promise<T> => {
+    const previous = experienceStateWriteTails.get(chatId) ?? Promise.resolve();
+    const run = previous.then(task, task);
+    const tail = run.catch(() => undefined);
+    experienceStateWriteTails.set(chatId, tail);
+    void tail.finally(() => {
+      if (experienceStateWriteTails.get(chatId) === tail) experienceStateWriteTails.delete(chatId);
+    });
+    return run;
+  };
+
+  // ── GET /game/:chatId/experience-state ──
+  app.get<{ Params: { chatId: string } }>("/:chatId/experience-state", async (req, reply) => {
+    const chats = createChatsStorage(app.db);
+    const chat = await chats.getById(req.params.chatId);
+    if (!chat) return reply.code(404).send({ error: "Chat not found" });
+    const gameType = resolveExperienceStateGameType(chat);
+    if (!gameType) {
+      return reply.code(409).send({
+        error: "This chat has no game-surface Experience, so it has no experience state",
+      });
+    }
+
+    const storage = createGameEngineStateStorage(app.db);
+    const messages = await chats.listMessages(req.params.chatId);
+    const anchor = resolveVisibleGameStateAnchor(messages);
+    // Anchor-first so swiping BACK to an anchored message (or a checkpoint
+    // restore) rewinds the world the reader sees, mirroring turn-game
+    // resolution. A brand-new swipe/anchor with no row of its own falls back to
+    // the latest committed save — the world continues rather than resetting.
+    const row = await storage.getForGeneration(req.params.chatId, { visibleAnchor: anchor, gameType });
+    if (!row)
+      return { exists: false, state: null, schemaVersion: null, anchor: null, committed: false, createdAt: null };
+
+    let state: unknown = null;
+    try {
+      state = JSON.parse(row.state);
+    } catch {
+      // The PUT below always stores JSON.stringify output, so this indicates
+      // on-disk corruption; surface an empty save rather than a 500.
+      logger.warn("Unparseable experience state for chat %s (%s)", req.params.chatId, gameType);
+    }
+    return {
+      exists: true,
+      state,
+      schemaVersion: row.schemaVersion,
+      anchor: { messageId: row.messageId, swipeIndex: row.swipeIndex },
+      // False when the returned row is a fallback rather than the visible anchor's own
+      // save (a brand-new swipe, or an anchor whose row was pruned): the world shown is
+      // the latest save, not one written at what the reader is looking at. A package
+      // that would rather refuse than continue a mismatched world can check this.
+      anchorMatched: !!anchor && row.messageId === anchor.messageId && row.swipeIndex === anchor.swipeIndex,
+      committed: row.committed === 1,
+      createdAt: row.createdAt,
+    };
+  });
+
+  // ── PUT /game/:chatId/experience-state ──
+  // Route-level bodyLimit so an oversize save dies at the socket with 413 instead of
+  // being buffered and parsed under the app-wide 256 MiB ceiling: the raw JSON body
+  // can spend up to 6 bytes per stored UTF-16 unit (\uXXXX escapes), plus envelope.
+  app.put<{ Params: { chatId: string } }>(
+    "/:chatId/experience-state",
+    { bodyLimit: MAX_EXPERIENCE_STATE_CHARS * 6 + 16_384 },
+    async (req, reply) => {
+      const body = z
+        .object({
+          state: z.unknown(),
+          schemaVersion: z.number().int().min(1).max(1_000_000).default(1),
+          // Experience saves are player-confirmed world state, not mid-turn
+          // provisional snapshots, so they default to committed (regen fallback
+          // eligible) unlike turn-game rows.
+          committed: z.boolean().default(true),
+        })
+        .parse(req.body ?? {});
+      const serialized = JSON.stringify(body.state);
+      if (serialized === undefined) {
+        return reply.code(422).send({ error: "state must be a JSON-serializable value" });
+      }
+      if (serialized.length > MAX_EXPERIENCE_STATE_CHARS) {
+        return reply.code(422).send({
+          error: `state must serialize to at most ${MAX_EXPERIENCE_STATE_CHARS} characters`,
+        });
+      }
+
+      const chats = createChatsStorage(app.db);
+      const chat = await chats.getById(req.params.chatId);
+      if (!chat) return reply.code(404).send({ error: "Chat not found" });
+      const gameType = resolveExperienceStateGameType(chat);
+      if (!gameType) {
+        return reply.code(409).send({
+          error: "This chat has no game-surface Experience, so it cannot store experience state",
+        });
+      }
+
+      // Anchor to the currently-visible message ("" live anchor before the first
+      // one exists, like a turn-game's opening deal). storage.create replaces any
+      // prior row of this gameType for the SAME anchor and inserts a fresh row
+      // otherwise, so each narration turn keeps its own snapshot — the history
+      // swipe-back rewind recovers. Checkpoint restore does NOT depend on these
+      // rows: checkpoints capture the state blob by value at create time. Older
+      // anchors beyond the newest EXPERIENCE_STATE_KEEP_ANCHORS are pruned so a
+      // long campaign cannot balloon the chat's sharded table (every save
+      // re-serializes the chat's whole game_engine_state shard).
+      return withExperienceStateWriteLock(req.params.chatId, async () => {
+        const messages = await chats.listMessages(req.params.chatId);
+        const anchor = resolveVisibleGameStateAnchor(messages) ?? { messageId: "", swipeIndex: 0 };
+        const storage = createGameEngineStateStorage(app.db);
+        const id = await storage.create({
+          chatId: req.params.chatId,
+          messageId: anchor.messageId,
+          swipeIndex: anchor.swipeIndex,
+          gameType,
+          schemaVersion: body.schemaVersion,
+          state: serialized,
+          committed: body.committed,
+        });
+        await storage.pruneToNewestAnchors(req.params.chatId, gameType, EXPERIENCE_STATE_KEEP_ANCHORS);
+        return { ok: true, id, anchor };
+      });
+    },
+  );
+
+  // ── POST /game/:chatId/experience-generation (#5135) ──
+  // One host-run, bounded, non-streaming structured-output call for the chat's
+  // stamped game-surface Experience — e.g. turning wizard preferences into a
+  // compact world brief its deterministic generator compiles into a tile world.
+  // Packages are client-only, so this is the sanctioned way for one to spend a
+  // single LLM call; the gate is the same stamp the experience-state routes
+  // enforce, the connection is the chat's own GM connection, and both a
+  // dedicated rate-limit class and the per-chat asset-generation lock bound the
+  // spend. Modeled on /game/scene-wrap, with the illustrator's repair
+  // round-trip instead of a blind retry.
+  const experienceGenerationSchema = z.object({
+    /** The package's guidance: what to produce, the schema description, vocabularies. */
+    instructions: z.string().min(1).max(16_000),
+    /** The request payload (e.g. the player's preferences), appended as the user turn. */
+    userContent: z.string().max(8_000).default(""),
+    /** Optional JSON schema forwarded as provider-native structured output where
+     *  supported (OpenAI-compatible, Google). Advisory elsewhere: Anthropic and
+     *  the local sidecar ignore it, so the tolerant parser is the real contract. */
+    schema: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .refine(
+        (value) => {
+          if (value === undefined) return true;
+          // stringify can throw on pathological nesting depth; that is a
+          // validation failure (→ 400), not a server error.
+          try {
+            return JSON.stringify(value).length <= 8_000;
+          } catch {
+            return false;
+          }
+        },
+        { message: "schema must serialize to at most 8000 characters" },
+      ),
+    schemaName: z
+      .string()
+      .regex(/^[a-zA-Z0-9_-]{1,64}$/)
+      .default("experience_generation"),
+    /** OpenAI strict structured outputs reject most hand-written schemas
+     *  (additionalProperties, required-completeness rules), so strict is
+     *  opt-in for packages that author their schema to that dialect. */
+    strictSchema: z.boolean().default(false),
+    debugMode: z.boolean().default(false),
+    connectionId: z.string().optional(),
+    /** Optional tightening of the stored max-output-token parameter; never a raise. */
+    maxTokens: z.number().int().min(256).max(8_192).optional(),
+  });
+
+  app.post<{ Params: { chatId: string } }>(
+    "/:chatId/experience-generation",
+    { bodyLimit: 64 * 1024 },
+    async (req, reply) => {
+      const input = experienceGenerationSchema.parse(req.body ?? {});
+      const chats = createChatsStorage(app.db);
+      const connections = createConnectionsStorage(app.db);
+      const chat = await chats.getById(req.params.chatId);
+      if (!chat) return reply.code(404).send({ error: "Chat not found" });
+      const gameType = resolveExperienceStateGameType(chat);
+      if (!gameType) {
+        return reply.code(409).send({
+          error: "This chat has no game-surface Experience, so it cannot run experience generation",
+        });
+      }
+
+      const meta = parseMeta(chat.metadata);
+      const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
+        connections,
+        input.connectionId,
+        chat.connectionId,
+      );
+      const gameGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
+      const provider = await createGameMainProvider(connections, conn, baseUrl);
+
+      const baseMessages: ChatMessage[] = [
+        { role: "system", content: input.instructions },
+        {
+          role: "user",
+          content:
+            `${input.userContent}\n\nREMEMBER: Output ONLY the requested JSON object — no prose, no markdown fences.`.trim(),
+        },
+      ];
+
+      // Fast-fail when the chat's generation lock is held (a storyboard or
+      // asset run can hold it for many minutes): parking here would consume a
+      // five-minute socket per request and then surface as an opaque 500. The
+      // has() check races the acquire by a tick at worst; the park it leaves
+      // behind is then bounded by the other caller's own watchdog.
+      if (gameAssetGenerationLocks.has(req.params.chatId)) {
+        reply.header("Retry-After", "15");
+        return reply.code(409).send({
+          error: "This chat already has a generation in flight. Try again shortly.",
+          code: "chat_busy",
+        });
+      }
+      const signal = createResponseAbortSignal(reply, GAME_GENERATION_TIMEOUT_MS, "Experience generation");
+      const release = await acquireGameAssetGenerationLock(req.params.chatId, signal);
+      try {
+        // 2048 lifts the STORED parameter so a brief-sized reply has headroom
+        // (mirroring GAME_SETUP_MIN_OUTPUT_TOKENS); the known-model cap still
+        // applies, and an explicit package maxTokens may tighten below the
+        // floor — a caller asking for less gets less.
+        // The override slot is a ceiling; both the connection's own configured
+        // cap and the package's requested tightening must survive, so pass the
+        // tighter of the two.
+        const maxTokens = clampGameMaxOutputTokens({
+          provider: conn.provider,
+          model: conn.model ?? "",
+          maxTokens: Math.max(2_048, gameGenerationParameters?.maxTokens ?? 0),
+          maxTokensOverride:
+            input.maxTokens != null && conn.maxTokensOverride != null
+              ? Math.min(input.maxTokens, conn.maxTokensOverride)
+              : (input.maxTokens ?? conn.maxTokensOverride ?? null),
+        });
+        const options = gameGenOptions(
+          conn.model ?? "",
+          { stream: false, maxTokens, signal },
+          gameGenerationParameters,
+          conn.provider,
+        );
+        // Set AFTER gameGenOptions (its suppressModelParameters branch drops
+        // unknown overrides). Providers under that policy may STILL drop
+        // response_format at their own layer — for them the prompt + tolerant
+        // parser are the contract, which is also true of Anthropic and the
+        // local sidecar by design. The FLAT json_schema form is the universal
+        // donor shape: the OpenAI chat-completions normalizer re-nests it, the
+        // Responses path consumes it as-is, and Google reads `.schema` first.
+        options.responseFormat = input.schema
+          ? { type: "json_schema", name: input.schemaName, schema: input.schema, strict: input.strictSchema }
+          : { type: "json_object" };
+
+        const debugLogsEnabled = input.debugMode || isDebugAgentsEnabled() || logger.isLevelEnabled("debug");
+        const debugLog = (message: string, ...args: unknown[]) => {
+          logDebugOverride(input.debugMode || isDebugAgentsEnabled(), message, ...args);
+        };
+        if (debugLogsEnabled) {
+          debugLog(
+            "[debug/game/experience-generation] chatId=%s model=%s gameType=%s maxTokens=%d strict=%s responseFormat=%s",
+            req.params.chatId,
+            conn.model ?? "",
+            gameType,
+            maxTokens,
+            input.strictSchema,
+            JSON.stringify(options.responseFormat),
+          );
+        }
+
+        // Worst case THREE upstream calls per request: attempt 1 buffered, an
+        // empty-buffered streamed rescue (attempt 1 only), and one repair
+        // round-trip. The rate-limit class is sized with that fan-out in mind.
+        const runAttempt = async (attemptMessages: ChatMessage[], allowStreamedRescue: boolean) => {
+          if (debugLogsEnabled) {
+            for (const message of attemptMessages) {
+              debugLog("[debug/game/experience-generation] %s message:\n%s", message.role, message.content);
+            }
+          }
+          const result = await runGameChatComplete(provider, attemptMessages, options, "Experience generation");
+          let extraction = extractLeadingThinkingBlocks(
+            result.content || "",
+            gameGenerationParameters?.customThinkingTags,
+          );
+          let raw = extraction.content;
+          let finishReason: string | null = result.finishReason ?? null;
+          if (!raw.trim() && allowStreamedRescue) {
+            // Some provider/model combos return empty content on the buffered
+            // path (scene-wrap precedent). The streamed collection has no
+            // reliable finish reason — the discarded buffered one must not be
+            // allowed to condemn a complete streamed reply as truncated.
+            logger.warn("[game/experience-generation] Empty buffered response, retrying with streamed collection");
+            const streamed = await runGameChatStream(
+              provider,
+              attemptMessages,
+              options,
+              "Experience generation streamed retry",
+            );
+            extraction = extractLeadingThinkingBlocks(streamed, gameGenerationParameters?.customThinkingTags);
+            raw = extraction.content;
+            finishReason = null;
+          }
+          if (debugLogsEnabled) {
+            debugLog(
+              "[debug/game/experience-generation] raw response (%d chars, finishReason=%s):\n%s",
+              raw.length,
+              finishReason ?? "null",
+              raw,
+            );
+          }
+          return { raw, finishReason };
+        };
+
+        let attemptMessages = baseMessages;
+        let lastRaw = "";
+        let lastFinishReason: string | null = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          let raw: string;
+          let finishReason: string | null;
+          try {
+            ({ raw, finishReason } = await runAttempt(attemptMessages, attempt === 1));
+          } catch (error) {
+            // A provider rejection (strict-schema refusal, 4xx, network) is a
+            // degradation case for the package, not a server fault — but a
+            // client abort/timeout stays a plain error.
+            if (signal.aborted) throw error;
+            const message = error instanceof Error ? error.message : String(error);
+            logger.warn(error, "[game/experience-generation] Provider call failed: %s", message);
+            return reply.code(422).send({
+              error: `The model provider rejected the request: ${message}`,
+              code: "provider_error",
+              truncated: false,
+            });
+          }
+          lastRaw = raw;
+          lastFinishReason = finishReason;
+          // The authoritative cut signal is checked BEFORE the parse: the
+          // tolerant parser happily repairs a cut-off reply by closing its
+          // containers, which would hand the package a silently amputated
+          // document as ok:true — and there is no host-side semantic validator
+          // behind this route to catch that. The heuristic container scan is
+          // only consulted when the parse fails, so its rare false positives
+          // on unusual-but-complete output cannot 422 a parseable reply.
+          if (finishReason === "length") {
+            return reply.code(422).send({
+              error:
+                "The model's JSON was cut off before it finished. Increase the connection's max output tokens and try again.",
+              truncated: true,
+              raw: raw.slice(0, 20_000),
+              finishReason,
+            });
+          }
+          try {
+            const data = parseJSON(raw);
+            return { ok: true, data };
+          } catch {
+            if (isLikelyTruncatedJsonResponse(raw, finishReason ?? undefined)) {
+              return reply.code(422).send({
+                error:
+                  "The model's JSON was cut off before it finished. Increase the connection's max output tokens and try again.",
+                truncated: true,
+                raw: raw.slice(0, 20_000),
+                finishReason,
+              });
+            }
+            if (attempt === 1) {
+              // Repair round-trip: showing the model its own bad output plus a
+              // correction converges far better than a blind re-run.
+              attemptMessages = [
+                ...baseMessages,
+                { role: "assistant", content: raw.slice(0, 4_000) },
+                {
+                  role: "user",
+                  content:
+                    "That response was not the requested JSON. Reply again with ONLY the corrected JSON object — no prose, no fences.",
+                },
+              ];
+            }
+          }
+        }
+        // The package degrades to its own defaults; hand it the raw text so it
+        // can log or salvage, never a hand-repair dialog (this is not a wizard).
+        return reply.code(422).send({
+          error: "The model did not return parseable JSON",
+          truncated: false,
+          raw: lastRaw.slice(0, 20_000),
+          finishReason: lastFinishReason,
+        });
+      } finally {
+        release();
+      }
+    },
+  );
 
   // ── PUT /game/:chatId/widgets ──
   app.put<{ Params: { chatId: string } }>("/:chatId/widgets", async (req) => {
@@ -10539,13 +11005,18 @@ export async function gameRoutes(app: FastifyInstance) {
 
       if (input.context.useSpotifyMusic) {
         parsed.music = null;
-      } else if (!input.context.generateMusic) {
+      } else {
+        // Scoring runs even with music generation enabled (#5161): generated
+        // context tracks are ordinary scoreable library entries now, and the
+        // analyzer no longer writes free-text music prompts.
         const scoredMusic = scoreMusic({
           state: (input.context.currentState as GameActiveState) ?? "exploration",
           weather: parsed.weather ?? input.context.currentWeather,
           timeOfDay: parsed.timeOfDay ?? input.context.currentTimeOfDay,
           musicGenre: parsed.musicGenre,
           musicIntensity: parsed.musicIntensity,
+          locationSlug: musicAreaSlug(input.context.currentLocation),
+          enemyTier: input.context.enemyTier,
           currentMusic: input.context.currentMusic,
           recentMusic: input.context.recentMusic,
           availableMusic: serverMusicTags,
@@ -11657,7 +12128,6 @@ export async function gameRoutes(app: FastifyInstance) {
                   const refinement = resolveStoryboardAnimationRefinement(
                     extraction.content,
                     plannedFrame.narrationBeat,
-                    videoRuntime.promptLimits.narrationSummary,
                   );
                   if (!refinement) {
                     throw new Error("Animation Planner returned no usable image-aware motion beat");
@@ -13257,6 +13727,66 @@ export async function gameRoutes(app: FastifyInstance) {
       },
       manualOverrides,
     );
+
+    // #5077/#5102: engine-state snapshots (turn-games and game-surface Experiences) are anchored
+    // per (message, swipe) INDEPENDENTLY of the game/spatial snapshots the checkpoint captures, so
+    // checkpoints never carried them and a load left an active game on its post-checkpoint state.
+    // Restore clones the blobs the checkpoint captured BY VALUE at create time (engineStateData —
+    // one per gameType) onto the restore anchor, so getTurnGameView / the experience-state GET —
+    // via the shared resolver's checkpoint_restore rule — rewind too. The pre-#5102 createdAt
+    // re-lookup remains only for checkpoints created before engineStateData existed; it is invalid
+    // for any writer that delete-recreates one anchor (experience saves, silent turn games),
+    // whose row timestamps move PAST the checkpoint.
+    const engineStore = createGameEngineStateStorage(app.db);
+    const capturedEngineStates: CapturedEngineState[] = (() => {
+      if (!cp.engineStateData) return [];
+      try {
+        const parsed = JSON.parse(cp.engineStateData);
+        return Array.isArray(parsed)
+          ? parsed.filter(
+              (entry): entry is CapturedEngineState =>
+                !!entry && typeof entry.gameType === "string" && typeof entry.state === "string",
+            )
+          : [];
+      } catch (err) {
+        // Corrupt capture: fall through to the legacy re-lookup below rather than
+        // silently leaving the game on its post-checkpoint state.
+        logger.error(
+          err,
+          "Unparseable checkpoint engineStateData for chat %s; using the legacy restore lookup",
+          input.chatId,
+        );
+        return [];
+      }
+    })();
+    if (capturedEngineStates.length > 0) {
+      for (const captured of capturedEngineStates) {
+        await engineStore.create({
+          chatId: input.chatId,
+          messageId: restoreMsg.id,
+          swipeIndex: 0,
+          gameType: captured.gameType,
+          schemaVersion: typeof captured.schemaVersion === "number" ? captured.schemaVersion : 1,
+          state: captured.state,
+          committed: true,
+        });
+      }
+    } else {
+      // No usable capture (pre-#5102 checkpoint, empty chat at capture time, or a
+      // corrupt blob): the createdAt re-lookup is strictly better than nothing.
+      const cpEngineRow = await engineStore.getLatestAtOrBefore(input.chatId, cp.createdAt);
+      if (cpEngineRow) {
+        await engineStore.create({
+          chatId: input.chatId,
+          messageId: restoreMsg.id,
+          swipeIndex: 0,
+          gameType: cpEngineRow.gameType,
+          schemaVersion: cpEngineRow.schemaVersion,
+          state: cpEngineRow.state,
+          committed: true,
+        });
+      }
+    }
 
     // Restore chat metadata fields from checkpoint
     if (cp.gameState) {

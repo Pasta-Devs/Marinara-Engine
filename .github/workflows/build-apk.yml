@@ -23,6 +23,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref }}
+          persist-credentials: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
@@ -51,15 +52,20 @@ jobs:
       - name: Resolve release tag
         id: release_tag
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag || '' }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || '' }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          event="${{ github.event_name }}"
-          input_tag="${{ github.event.inputs.tag || '' }}"
-          release_tag="${{ github.event.release.tag_name || '' }}"
-          ref_name="${{ github.ref_name }}"
-          if [ "$event" = "workflow_dispatch" ] && [ -z "$input_tag" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -z "$INPUT_TAG" ]; then
             tag=""
           else
-            tag="${release_tag:-${input_tag:-$ref_name}}"
+            tag="${RELEASE_TAG:-${INPUT_TAG:-$REF_NAME}}"
+          fi
+          if [ -n "$tag" ] && [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "Release tag must use vX.Y.Z semantic-version format: $tag" >&2
+            exit 1
           fi
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
@@ -85,6 +91,8 @@ jobs:
       - name: Locate APK
         id: locate
         working-directory: android
+        env:
+          RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
         run: |
           APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n1)
           if [ -z "$APK_PATH" ]; then
@@ -92,17 +100,30 @@ jobs:
             exit 1
           fi
           VERSION=$(node -p "require('../package.json').version")
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "package.json version must use X.Y.Z semantic-version format: $VERSION" >&2
+            exit 1
+          fi
+          if [ -n "$RELEASE_TAG" ] && [ "${RELEASE_TAG#v}" != "$VERSION" ]; then
+            echo "Release tag $RELEASE_TAG must match package.json version $VERSION" >&2
+            exit 1
+          fi
           OUT_NAME="marinara-engine-${VERSION}-android-termux-bootstrap.apk"
+          DOWNLOAD_NAME="marinara-engine-android.apk"
           cp "$APK_PATH" "$OUT_NAME"
+          cp "$APK_PATH" "$DOWNLOAD_NAME"
           echo "apk=android/${OUT_NAME}" >> "$GITHUB_OUTPUT"
+          echo "download_apk=android/${DOWNLOAD_NAME}" >> "$GITHUB_OUTPUT"
           echo "name=${OUT_NAME}" >> "$GITHUB_OUTPUT"
-          ls -la "$OUT_NAME"
+          ls -la "$OUT_NAME" "$DOWNLOAD_NAME"
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.locate.outputs.name }}
-          path: ${{ steps.locate.outputs.apk }}
+          path: |
+            ${{ steps.locate.outputs.apk }}
+            ${{ steps.locate.outputs.download_apk }}
 
       - name: Ensure release APK notice
         if: steps.release_tag.outputs.tag != ''
@@ -131,6 +152,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release_tag.outputs.tag }}
+          VERSIONED_APK: ${{ steps.locate.outputs.apk }}
+          STABLE_APK: ${{ steps.locate.outputs.download_apk }}
         run: |
           for i in {1..60}; do
             if gh release view "$TAG" >/dev/null 2>&1; then
@@ -138,4 +161,7 @@ jobs:
             fi
             sleep 10
           done
-          gh release upload "$TAG" "${{ steps.locate.outputs.apk }}" --clobber
+          gh release upload "$TAG" \
+            "$VERSIONED_APK" \
+            "$STABLE_APK" \
+            --clobber

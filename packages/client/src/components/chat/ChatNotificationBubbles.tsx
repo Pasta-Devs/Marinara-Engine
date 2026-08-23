@@ -73,7 +73,9 @@ export function ChatNotificationBubbles() {
       navigateToChat(notif.chatId);
       setMobileExpanded(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.chat.chatnotificationbubbles.couldNotAnswerTheCall"));
+      toast.error(
+        error instanceof Error ? error.message : localizeUi("ui.chat.chatnotificationbubbles.couldNotAnswerTheCall"),
+      );
     } finally {
       setPendingCallAction(null);
     }
@@ -88,7 +90,9 @@ export function ChatNotificationBubbles() {
       refreshCallState(notif.chatId);
       setMobileExpanded(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.chat.chatnotificationbubbles.couldNotDeclineTheCall"));
+      toast.error(
+        error instanceof Error ? error.message : localizeUi("ui.chat.chatnotificationbubbles.couldNotDeclineTheCall"),
+      );
     } finally {
       setPendingCallAction(null);
     }
@@ -151,7 +155,9 @@ export function ChatNotificationBubbles() {
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
               className="pointer-events-auto relative h-12 w-12"
               onClick={() => setMobileExpanded(true)}
-              title={localizeUi("ui.chat.chatnotificationbubbles.value1Conversations", { value1: notifications.length })}
+              title={localizeUi("ui.chat.chatnotificationbubbles.value1Conversations", {
+                value1: notifications.length,
+              })}
             >
               {/* Stacked circles (max 3 visible) */}
               {notifications.slice(0, 3).map((notif, i) => (
@@ -256,7 +262,11 @@ function NotificationBubble({
             : "bg-[var(--accent)]/20 shadow-lg ring-2 ring-[var(--accent)]/40",
           "transition-transform hover:scale-110 active:scale-95",
         )}
-        title={isCall ?localizeUi("ui.chat.notificationbubble.value1IsCalling", { value1: notif.characterName }) :localizeUi("ui.chat.notificationbubble.value1SentAMessage", { value1: notif.characterName })}
+        title={
+          isCall
+            ? localizeUi("ui.chat.notificationbubble.value1IsCalling", { value1: notif.characterName })
+            : localizeUi("ui.chat.notificationbubble.value1SentAMessage", { value1: notif.characterName })
+        }
       >
         {notif.avatarUrl ? (
           <img

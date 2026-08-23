@@ -37,8 +37,14 @@ export function PersonalExtensionTopbarButtons() {
       type="button"
       onClick={() => activatePersonalExtensionContribution(contribution.key)}
       className={TOPBAR_CONTRIBUTION_CLASS}
-      title={localizeUi("ui.layout.personalextensiontopbarbuttons.value1Value2", { value1: contribution.label, value2: contribution.extensionName })}
-      aria-label={localizeUi("ui.layout.personalextensiontopbarbuttons.value1Value2", { value1: contribution.label, value2: contribution.extensionName })}
+      title={localizeUi("ui.layout.personalextensiontopbarbuttons.value1Value2", {
+        value1: contribution.label,
+        value2: contribution.extensionName,
+      })}
+      aria-label={localizeUi("ui.layout.personalextensiontopbarbuttons.value1Value2", {
+        value1: contribution.label,
+        value2: contribution.extensionName,
+      })}
     >
       <PersonalExtensionContributionIcon icon={contribution.icon} size={15} />
     </button>

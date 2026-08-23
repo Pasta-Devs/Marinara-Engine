@@ -51,7 +51,11 @@ function isTrackerLookupCharacterRow(value: unknown): value is TrackerLookupChar
   );
 }
 
-export function useTrackerSpriteLookup({ enabled, chatCharacterIds, presentCharacters }: UseTrackerSpriteLookupOptions) {
+export function useTrackerSpriteLookup({
+  enabled,
+  chatCharacterIds,
+  presentCharacters,
+}: UseTrackerSpriteLookupOptions) {
   const lookupCharacterIds = useMemo(
     () =>
       normalizeLookupCharacterIds([
@@ -71,9 +75,7 @@ export function useTrackerSpriteLookup({ enabled, chatCharacterIds, presentChara
     })),
   });
   const characterSpriteLookup = useMemo<TrackerSpriteLookup>(() => {
-    const rows = characterQueries
-      .map((query) => query.data)
-      .filter(isTrackerLookupCharacterRow);
+    const rows = characterQueries.map((query) => query.data).filter(isTrackerLookupCharacterRow);
     const knownIds = new Set(rows.map((character) => character.id));
     const pictureById: Record<string, string> = {};
     const profileColorsById: TrackerSpriteLookup["profileColorsById"] = {};

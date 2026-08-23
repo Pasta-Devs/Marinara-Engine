@@ -1,8 +1,5 @@
 import { Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
-import {
-  CHAT_TOOLBAR_ICON_GAP_CLASS,
-  getChatToolbarButtonClass,
-} from "../chat/ChatToolbarControls";
+import { CHAT_TOOLBAR_ICON_GAP_CLASS, getChatToolbarButtonClass } from "../chat/ChatToolbarControls";
 import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -50,8 +47,16 @@ export function StoryboardBackgroundControls({
         type="button"
         onClick={onTogglePlayback}
         className={controlClassName}
-        title={playing ?localizeUi("ui.game.storyboardbackgroundcontrols.pauseBackgroundAnimation") :localizeUi("ui.game.storyboardbackgroundcontrols.playBackgroundAnimation")}
-        aria-label={playing ?localizeUi("ui.game.storyboardbackgroundcontrols.pauseBackgroundAnimation") :localizeUi("ui.game.storyboardbackgroundcontrols.playBackgroundAnimation")}
+        title={
+          playing
+            ? localizeUi("ui.game.storyboardbackgroundcontrols.pauseBackgroundAnimation")
+            : localizeUi("ui.game.storyboardbackgroundcontrols.playBackgroundAnimation")
+        }
+        aria-label={
+          playing
+            ? localizeUi("ui.game.storyboardbackgroundcontrols.pauseBackgroundAnimation")
+            : localizeUi("ui.game.storyboardbackgroundcontrols.playBackgroundAnimation")
+        }
       >
         {playing ? <Pause size={14} /> : <Play size={14} />}
       </button>
@@ -59,8 +64,16 @@ export function StoryboardBackgroundControls({
         type="button"
         onClick={onToggleMute}
         className={controlClassName}
-        title={muted ?localizeUi("ui.game.storyboardbackgroundcontrols.unmuteBackgroundAnimation") :localizeUi("ui.game.storyboardbackgroundcontrols.muteBackgroundAnimation")}
-        aria-label={muted ?localizeUi("ui.game.storyboardbackgroundcontrols.unmuteBackgroundAnimation") :localizeUi("ui.game.storyboardbackgroundcontrols.muteBackgroundAnimation")}
+        title={
+          muted
+            ? localizeUi("ui.game.storyboardbackgroundcontrols.unmuteBackgroundAnimation")
+            : localizeUi("ui.game.storyboardbackgroundcontrols.muteBackgroundAnimation")
+        }
+        aria-label={
+          muted
+            ? localizeUi("ui.game.storyboardbackgroundcontrols.unmuteBackgroundAnimation")
+            : localizeUi("ui.game.storyboardbackgroundcontrols.muteBackgroundAnimation")
+        }
       >
         {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
       </button>

@@ -68,8 +68,10 @@ export function registerCapabilityConversationCommand(
 }
 
 export function listCapabilityConversationCommandInstructions(): string[] {
-  return Array.from(descriptionsByCommandType, ([commandType, details]) =>
-    `- [${commandType}:<JSON payload>] — ${details.description} Example: [${commandType}:${details.payloadExample}]`,
+  return Array.from(
+    descriptionsByCommandType,
+    ([commandType, details]) =>
+      `- [${commandType}:<JSON payload>] — ${details.description} Example: [${commandType}:${details.payloadExample}]`,
   );
 }
 

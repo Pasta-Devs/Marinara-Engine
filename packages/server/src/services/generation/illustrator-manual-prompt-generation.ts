@@ -83,14 +83,12 @@ export function normalizeManualIllustratorPromptModeInstruction(promptTemplate: 
     /<(?:output_format|output_schema|response_format|json_schema)\b[^>]*>[\s\S]*?<\/(?:output_format|output_schema|response_format|json_schema)>/giu,
     "",
   );
-  const withoutOutputSchemaFences = withoutTaggedOutputSchemas.replace(
-    /```(?:json)?\s*[\s\S]*?```/giu,
-    (block) =>
-      /\b(?:shouldGenerate|generateBackground)\b|["'](?:prompt|negativePrompt|style|characters|aspectRatio|reason)["']\s*:/iu.test(
-        block,
-      )
-        ? ""
-        : block,
+  const withoutOutputSchemaFences = withoutTaggedOutputSchemas.replace(/```(?:json)?\s*[\s\S]*?```/giu, (block) =>
+    /\b(?:shouldGenerate|generateBackground)\b|["'](?:prompt|negativePrompt|style|characters|aspectRatio|reason)["']\s*:/iu.test(
+      block,
+    )
+      ? ""
+      : block,
   );
   const lines = withoutOutputSchemaFences.split("\n");
   const outputSchemaStart = lines.findIndex((line) => {
@@ -125,9 +123,7 @@ export function normalizeManualIllustratorPromptModeInstruction(promptTemplate: 
         /\b(?:generate|illustrate|create|draw)\b[^\n]{0,100}\bonly\b[^\n]{0,100}\b(?:if|when|for)\b/iu.test(
           normalized,
         ) ||
-        /\bonly\b[^\n]{0,100}\b(?:generate|illustrate|create|draw)\b[^\n]{0,100}\b(?:if|when|for)\b/iu.test(
-          normalized,
-        )
+        /\bonly\b[^\n]{0,100}\b(?:generate|illustrate|create|draw)\b[^\n]{0,100}\b(?:if|when|for)\b/iu.test(normalized)
       ) {
         return false;
       }
@@ -142,9 +138,7 @@ export function normalizeManualIllustratorPromptModeInstruction(promptTemplate: 
         return false;
       }
       if (
-        /\b(?:generation|illustration)\s+(?:decision|cadence|interval|frequency|cooldown)\b/iu.test(
-          normalized,
-        ) ||
+        /\b(?:generation|illustration)\s+(?:decision|cadence|interval|frequency|cooldown)\b/iu.test(normalized) ||
         /\b(?:run|trigger|generate|illustrate)\b[^\n]{0,100}\bevery\s+\d+\b[^\n]{0,60}\b(?:turn|message|response)s?\b/iu.test(
           normalized,
         )

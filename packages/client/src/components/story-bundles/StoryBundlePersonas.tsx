@@ -60,12 +60,7 @@ function CroppedAvatarImage({
 
   return (
     <div className={cn("relative shrink-0 overflow-hidden rounded-full", className)}>
-      <img
-        src={avatarPath}
-        alt={alt}
-        className="h-full w-full object-cover"
-        style={cropStyle}
-      />
+      <img src={avatarPath} alt={alt} className="h-full w-full object-cover" style={cropStyle} />
     </div>
   );
 }
@@ -93,15 +88,12 @@ export function StoryBundlePersonas({
       if (!validPersonaIds.has(p.id)) return false;
       if (!query) return true;
       const name = p.name.toLowerCase();
-      const title = (p.comment?.trim().toLowerCase() ?? "");
+      const title = p.comment?.trim().toLowerCase() ?? "";
       return name.includes(query) || title.includes(query);
     });
   }, [personas, selectedIds, validPersonaIds, search]);
 
-  const visibleAvailable = useMemo(
-    () => available.slice(0, personaPickerLimit),
-    [available, personaPickerLimit],
-  );
+  const visibleAvailable = useMemo(() => available.slice(0, personaPickerLimit), [available, personaPickerLimit]);
 
   const selectedPersonas = useMemo(
     () => personas.filter((p) => selectedIds.has(p.id) && validPersonaIds.has(p.id)),
@@ -116,7 +108,7 @@ export function StoryBundlePersonas({
     if (!query) return false;
     return selectedPersonas.some((p) => {
       const name = p.name.toLowerCase();
-      const title = (p.comment?.trim().toLowerCase() ?? "");
+      const title = p.comment?.trim().toLowerCase() ?? "";
       return name.includes(query) || title.includes(query);
     });
   }, [search, selectedPersonas]);
@@ -147,7 +139,10 @@ export function StoryBundlePersonas({
 
         <div className="mb-3 flex items-center gap-2">
           <div className="relative flex-1">
-            <Search size="0.875rem" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
+            <Search
+              size="0.875rem"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+            />
             <input
               data-testid="story-bundle-editor-personas-search"
               type="text"
@@ -188,9 +183,7 @@ export function StoryBundlePersonas({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-[var(--foreground)]">{persona.name}</div>
-                    {title && (
-                      <div className="truncate text-xs text-[var(--muted-foreground)]">{title}</div>
-                    )}
+                    {title && <div className="truncate text-xs text-[var(--muted-foreground)]">{title}</div>}
                   </div>
                   <Plus size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
                 </button>
@@ -202,7 +195,8 @@ export function StoryBundlePersonas({
                 onClick={() => setPersonaPickerLimit((limit) => limit + PERSONA_PICKER_PAGE_SIZE)}
                 className="w-full rounded-md px-2 py-1.5 text-center text-xs text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
               >
-                {t("storyBundles.loadMore", "Load more")} ({visibleAvailable.length} {t("storyBundles.of", "of")} {available.length})
+                {t("storyBundles.loadMore", "Load more")} ({visibleAvailable.length} {t("storyBundles.of", "of")}{" "}
+                {available.length})
               </button>
             )}
           </div>
@@ -231,10 +225,7 @@ export function StoryBundlePersonas({
             {selectedPersonas.map((persona) => {
               const title = getPersonaTitle(persona);
               return (
-                <div
-                  key={persona.id}
-                  className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
-                >
+                <div key={persona.id} className="flex items-center gap-2.5 rounded-md px-2 py-1.5">
                   <CroppedAvatarImage
                     avatarPath={persona.avatarPath}
                     avatarCrop={persona.avatarCrop}
@@ -243,9 +234,7 @@ export function StoryBundlePersonas({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-[var(--foreground)]">{persona.name}</div>
-                    {title && (
-                      <div className="truncate text-xs text-[var(--muted-foreground)]">{title}</div>
-                    )}
+                    {title && <div className="truncate text-xs text-[var(--muted-foreground)]">{title}</div>}
                   </div>
                   <button
                     data-testid={`story-bundle-editor-personas-remove-${persona.id}`}

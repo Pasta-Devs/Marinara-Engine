@@ -26,10 +26,7 @@ const TOOLBAR_MENU_WIDTH = 176;
 
 function clampToolbarMenuX(left: number) {
   if (typeof window === "undefined") return left;
-  return Math.max(
-    TOOLBAR_MENU_MARGIN,
-    Math.min(left, window.innerWidth - TOOLBAR_MENU_WIDTH - TOOLBAR_MENU_MARGIN),
-  );
+  return Math.max(TOOLBAR_MENU_MARGIN, Math.min(left, window.innerWidth - TOOLBAR_MENU_WIDTH - TOOLBAR_MENU_MARGIN));
 }
 
 /**
@@ -262,14 +259,18 @@ export function Toolbar({
                     checked={listColumns.size}
                     onChange={() => onToggleColumn("size")}
                     className="rounded border-[var(--border)]"
-                  />{localizeUi("ui.gameAssets.assetgrid.size")}</label>
+                  />
+                  {localizeUi("ui.gameAssets.assetgrid.size")}
+                </label>
                 <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent)]">
                   <input
                     type="checkbox"
                     checked={listColumns.modified}
                     onChange={() => onToggleColumn("modified")}
                     className="rounded border-[var(--border)]"
-                  />{localizeUi("ui.gameAssets.assetgrid.modified")}</label>
+                  />
+                  {localizeUi("ui.gameAssets.assetgrid.modified")}
+                </label>
               </>,
               colsDropdownRef,
             )}
@@ -291,7 +292,11 @@ export function Toolbar({
             aria-pressed={assetSelection.active}
           >
             <FolderCheck size="0.875rem" />
-            <span className="max-md:hidden">{assetSelection.active ?localizeUi("ui.gameAssets.toolbar.selecting") :localizeUi("ui.gameAssets.toolbar.gameAssets")}</span>
+            <span className="max-md:hidden">
+              {assetSelection.active
+                ? localizeUi("ui.gameAssets.toolbar.selecting")
+                : localizeUi("ui.gameAssets.toolbar.gameAssets")}
+            </span>
             {assetSelection.excludedCount > 0 && (
               <span className="rounded-full bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.625rem] leading-none text-[var(--primary)]">
                 {assetSelection.excludedCount}
@@ -330,7 +335,9 @@ export function Toolbar({
               }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
             >
-              <Folder size="0.875rem" />{localizeUi("ui.gameAssets.toolbar.newFolder")}</button>
+              <Folder size="0.875rem" />
+              {localizeUi("ui.gameAssets.toolbar.newFolder")}
+            </button>
             <button
               onClick={() => {
                 onNewTextFile();
@@ -338,7 +345,9 @@ export function Toolbar({
               }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
             >
-              <FileText size="0.875rem" />{localizeUi("ui.gameAssets.toolbar.newTextFile")}</button>
+              <FileText size="0.875rem" />
+              {localizeUi("ui.gameAssets.toolbar.newTextFile")}
+            </button>
             <button
               onClick={() => {
                 onNewMarkdownFile();
@@ -346,7 +355,9 @@ export function Toolbar({
               }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
             >
-              <FilePlus size="0.875rem" />{localizeUi("ui.gameAssets.toolbar.newMarkdownFile")}</button>
+              <FilePlus size="0.875rem" />
+              {localizeUi("ui.gameAssets.toolbar.newMarkdownFile")}
+            </button>
           </>,
           newDropdownRef,
         )}

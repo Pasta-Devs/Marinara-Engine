@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { lstat, mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import AdmZip from "adm-zip";
 import {
   APP_VERSION,
-  capabilityCatalogSchema,
+  parseCapabilityCatalogWithCompat,
   capabilityPackageManifestSchema,
   compareCapabilityPackageVersions,
   getCapabilityApiCompatibilityIssue,
@@ -132,24 +132,16 @@ const MAX_ARTIFACT_BYTES = 100 * 1024 * 1024;
 const MAX_EXPANDED_BYTES = 250 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 8_192;
 const MAX_MANIFEST_BYTES = 1024 * 1024;
-const BROWSER_TAB_ASSET_CONTENT_TYPES = new Map([
+const PACKAGE_ASSET_CONTENT_TYPES = new Map([
   [".gif", "image/gif"],
   [".jpeg", "image/jpeg"],
   [".jpg", "image/jpeg"],
   [".png", "image/png"],
   [".webp", "image/webp"],
+  // Tilemap/atlas metadata for contributions.assets. Passive data only — anything
+  // active (svg, html, js) stays out of this map: it would execute same-origin.
+  [".json", "application/json; charset=utf-8"],
 ]);
-interface VerifiedBrowserTabAsset {
-  packageId: string;
-  expectedBytes: number;
-  expectedSha256: string;
-  dev: bigint;
-  ino: bigint;
-  size: bigint;
-  mtimeNs: bigint;
-  ctimeNs: bigint;
-}
-const verifiedBrowserTabAssets = new Map<string, VerifiedBrowserTabAsset>();
 const KNOWN_INCOMPATIBLE_RUNTIMES = new Map<string, string>([
   ...["1.0.0", "1.0.3", "1.0.6"].map(
     (version) =>
@@ -185,9 +177,13 @@ export function validatePackageArchiveEntries(zip: AdmZip, maximumExpandedBytes 
   let expandedBytes = 0;
   for (const item of entries) {
     const name = normalizeArchivePath(item.entryName);
-    if (names.has(name)) throw new Error(`Package contains duplicate file ${name}`);
+    // Case-insensitive: NTFS/APFS collapse case, so `Tiles.PNG` and `tiles.png`
+    // would extract onto one on-disk file and one of the two declared hashes
+    // could never verify again.
+    const nameKey = name.toLowerCase();
+    if (names.has(nameKey)) throw new Error(`Package contains duplicate file ${name}`);
     if (isSymlink(item)) throw new Error("Package links are not allowed");
-    names.add(name);
+    names.add(nameKey);
     expandedBytes += item.header.size;
     if (expandedBytes > maximumExpandedBytes) throw new Error("Expanded package is too large");
   }
@@ -479,59 +475,6 @@ async function verifyInstalledPackageFile(
   return (await readVerifiedInstalledPackageFile(installed, relativePath)).file;
 }
 
-function invalidateBrowserTabAssetVerifications(packageId: string) {
-  for (const [key, cached] of verifiedBrowserTabAssets) {
-    if (cached.packageId === packageId) verifiedBrowserTabAssets.delete(key);
-  }
-}
-
-async function verifyBrowserTabAsset(installed: InstalledCapabilityPackage, relativePath: string): Promise<string> {
-  const normalized = normalizeArchivePath(relativePath);
-  const declaration = installed.manifest.files.find((item) => normalizeArchivePath(item.path) === normalized);
-  if (!declaration) throw new Error(`Package ${installed.id} requested undeclared file ${normalized}`);
-  const file = inside(VERSIONS, join(VERSIONS, installed.id, installed.version, normalized));
-  const key = `${installed.id}\0${installed.version}\0${normalized}`;
-  const before = await stat(file, { bigint: true });
-  const cached = verifiedBrowserTabAssets.get(key);
-  if (
-    cached &&
-    cached.expectedBytes === declaration.bytes &&
-    cached.expectedSha256 === declaration.sha256 &&
-    cached.dev === before.dev &&
-    cached.ino === before.ino &&
-    cached.size === before.size &&
-    cached.mtimeNs === before.mtimeNs &&
-    cached.ctimeNs === before.ctimeNs
-  ) {
-    return file;
-  }
-  const data = await readFile(file);
-  const after = await stat(file, { bigint: true });
-  if (
-    before.dev !== after.dev ||
-    before.ino !== after.ino ||
-    before.size !== after.size ||
-    before.mtimeNs !== after.mtimeNs ||
-    before.ctimeNs !== after.ctimeNs ||
-    data.byteLength !== declaration.bytes ||
-    createHash("sha256").update(data).digest("hex") !== declaration.sha256
-  ) {
-    verifiedBrowserTabAssets.delete(key);
-    throw new Error(`Installed package ${installed.id} failed integrity verification for ${normalized}`);
-  }
-  verifiedBrowserTabAssets.set(key, {
-    packageId: installed.id,
-    expectedBytes: declaration.bytes,
-    expectedSha256: declaration.sha256,
-    dev: after.dev,
-    ino: after.ino,
-    size: after.size,
-    mtimeNs: after.mtimeNs,
-    ctimeNs: after.ctimeNs,
-  });
-  return file;
-}
-
 async function verifyInstalledPackageFiles(
   installed: InstalledCapabilityPackage,
 ): Promise<Map<string, VerifiedInstalledPackageFile>> {
@@ -618,6 +561,12 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
   const declaredFiles = new Map(installedManifest.files.map((file) => [normalizeArchivePath(file.path), file]));
   if (declaredFiles.size !== installedManifest.files.length)
     throw new Error("Package manifest declares duplicate files");
+  // Case-folded too: on the case-insensitive filesystems this app ships to,
+  // case-only "distinct" declarations extract onto a single file and the
+  // losing declaration's hash can never verify (review finding on #5091).
+  const caseFoldedPaths = new Set(installedManifest.files.map((file) => normalizeArchivePath(file.path).toLowerCase()));
+  if (caseFoldedPaths.size !== installedManifest.files.length)
+    throw new Error("Package manifest declares files that collide on case-insensitive filesystems");
   const payloadEntries = entries.filter((item) => item.entryName !== "manifest.json");
   if (payloadEntries.length !== declaredFiles.size) throw new Error("Package contains undeclared or missing files");
   const verifiedFiles = new Map<string, Buffer>();
@@ -669,7 +618,6 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
     await mkdir(dirname(destination), { recursive: true });
     await rm(destination, { recursive: true, force: true });
     await rename(temporary, destination);
-    invalidateBrowserTabAssetVerifications(manifest.id);
     const registry = await readRegistry();
     const previous = registry.packages.find((item) => item.id === manifest.id);
     assertNotDowngrade(previous, manifest.version);
@@ -715,7 +663,19 @@ export const capabilityPackageManager = {
       agentOptions: { bodyTimeout: 15_000, headersTimeout: 15_000 },
     });
     if (!response.ok) throw new Error(`Catalog request failed with HTTP ${response.status}`);
-    const catalog = capabilityCatalogSchema.parse(await response.json());
+    // Per-entry tolerant: a catalog entry built for a NEWER Engine (unknown
+    // manifest keys under this Engine's strict schemas) is dropped with a log
+    // instead of failing the whole document — all-or-nothing parsing would
+    // brick browsing, install, and updates for every package at once.
+    const { catalog, droppedEntries, droppedIds } = parseCapabilityCatalogWithCompat(await response.json());
+    if (droppedEntries > 0) {
+      logger.warn(
+        "Skipped %d Agent catalog entr%s this Engine version cannot parse (likely built for a newer Engine): %s",
+        droppedEntries,
+        droppedEntries === 1 ? "y" : "ies",
+        droppedIds.join(", "),
+      );
+    }
     for (const entry of catalog.packages) {
       const sourceIssue = getCapabilityPackageArtifactSourceIssue(entry, CATALOG_URL);
       if (sourceIssue) throw new Error(sourceIssue);
@@ -742,7 +702,6 @@ export const capabilityPackageManager = {
     if (removed.length === 0) return [];
     await writeRegistry(registry.packages.filter((item) => !NON_DOWNLOADABLE_CORE_PACKAGE_IDS.has(item.id)));
     await Promise.all(removed.map((item) => rm(join(VERSIONS, item.id), { recursive: true, force: true })));
-    for (const item of removed) invalidateBrowserTabAssetVerifications(item.id);
     return removed.map((item) => item.id);
   },
 
@@ -818,30 +777,71 @@ export const capabilityPackageManager = {
     if (!installed || !isInstalledCapabilityReady(installed)) return null;
     const entrypoint = installed.manifest.entrypoints.client;
     if (!entrypoint) return null;
+    // The manifest-recorded hash doubles as a strong HTTP validator (ETag): it
+    // is the same value the read below re-verifies the bytes against.
+    const declaration = installed.manifest.files.find(
+      (item) => normalizeArchivePath(item.path) === normalizeArchivePath(entrypoint),
+    );
+    if (!declaration) return null;
+    // The client path verifies by reading on EVERY request — return the
+    // verified bytes so the route serves exactly what was hashed instead of
+    // re-reading the file a second time.
+    const verified = await readVerifiedInstalledPackageFile(installed, entrypoint);
     return {
       installed,
-      file: await verifyInstalledPackageFile(installed, entrypoint),
+      sha256: declaration.sha256,
+      file: verified.file,
+      data: verified.data,
     };
   },
 
-  async browserTabAsset(packageId: string, assetPath: string) {
+  /** Resolve a servable package asset: a path declared either as a Home
+   *  browser-tab icon or in the general `contributions.assets.paths` allowlist.
+   *  The union is the ONLY thing this generalization changes — containment,
+   *  files[] membership, the passive content-type allowlist, and the hash +
+   *  TOCTOU re-verification below it are identical for both sources. */
+  async packageAsset(packageId: string, assetPath: string) {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
     if (!installed || !isInstalledCapabilityReady(installed)) return null;
-    let normalizedPath: string;
-    try {
-      normalizedPath = normalizeArchivePath(assetPath);
-    } catch {
-      return null;
-    }
+    // Every normalization below treats an unsafe path — requested OR declared —
+    // as simply "not servable" (404). Declared paths are manifest-controlled,
+    // and a single throwing declaration must not 500 the whole asset surface.
+    const tryNormalize = (path: string): string | null => {
+      try {
+        return normalizeArchivePath(path);
+      } catch {
+        return null;
+      }
+    };
+    const normalizedPath = tryNormalize(assetPath);
+    if (!normalizedPath) return null;
+    // The in-package manifest is metadata about the artifact, never an asset —
+    // it cannot be hash-pinned by itself, so refuse it outright.
+    if (normalizedPath === "manifest.json") return null;
     const iconPaths = installed.manifest.contributions?.homeBrowserTab?.iconPaths ?? [];
-    if (!iconPaths.some((path) => normalizeArchivePath(path) === normalizedPath)) return null;
-    if (!installed.manifest.files.some((item) => normalizeArchivePath(item.path) === normalizedPath)) return null;
-    const contentType = BROWSER_TAB_ASSET_CONTENT_TYPES.get(extname(normalizedPath).toLowerCase());
+    const declaredAssetPaths = installed.manifest.contributions?.assets?.paths ?? [];
+    const allowed = [...iconPaths, ...declaredAssetPaths].some((path) => tryNormalize(path) === normalizedPath);
+    if (!allowed) return null;
+    const declaration = installed.manifest.files.find((item) => tryNormalize(item.path) === normalizedPath);
+    if (!declaration) return null;
+    const contentType = PACKAGE_ASSET_CONTENT_TYPES.get(extname(normalizedPath).toLowerCase());
     if (!contentType) return null;
+    // Every serve reads, hashes, and returns the verified bytes through the
+    // same realpath + lstat chain the client entrypoint uses — a stat-only
+    // fast path let a write between verification and the route's own read send
+    // bytes that were never hashed (review finding on #5092). 304 revalidation
+    // means bodies are rarely sent, so per-request hashing costs little.
+    // NOTE: an on-disk integrity failure below still THROWS (lifecycle
+    // regression pins it) — tampering must be loud, not a quiet 404. Only
+    // manifest-shape problems above degrade to "not servable".
+    const verified = await readVerifiedInstalledPackageFile(installed, normalizedPath);
     return {
       installed,
       contentType,
-      file: await verifyBrowserTabAsset(installed, normalizedPath),
+      sha256: declaration.sha256,
+      file: verified.file,
+      /** The exact bytes that were hash-verified; always present. */
+      data: verified.data,
     };
   },
 
@@ -890,7 +890,6 @@ export const capabilityPackageManager = {
     if (runtimeBlockReason(restored)) return null;
     registry.packages[index] = restored;
     await writeRegistry(registry.packages);
-    invalidateBrowserTabAssetVerifications(packageId);
     const server = manifest.entrypoints.server;
     return server
       ? {
@@ -1013,7 +1012,6 @@ export const capabilityPackageManager = {
     }
     await writeRegistry(registry.packages.filter((item) => item.id !== packageId));
     await rm(join(VERSIONS, packageId), { recursive: true, force: true });
-    invalidateBrowserTabAssetVerifications(packageId);
     try {
       await clearDeclinedUpdate(packageId);
     } catch (error) {

@@ -67,6 +67,8 @@ export interface CharacterExtensions {
   convoBehavior?: ConvoBehaviorConfig;
   /** Marinara Engine: character-specific direction for Conversation selfie image prompts. */
   conversationImageInstructions?: string;
+  /** Retain prior card revisions and automatically advance character_version on edits. */
+  versioningEnabled?: boolean;
   /** Marinara Engine: also apply conversationImageInstructions to this character's Noodle images. */
   applyConversationImageInstructionsToNoodle?: boolean;
   /** Marinara Engine: gallery image selected as this character's optional visual reference sheet. */
@@ -209,6 +211,7 @@ export interface PersonaCardSnapshot {
   name: string;
   creator: string;
   personaVersion: string;
+  versioningEnabled: string;
   creatorNotes: string;
   phoneticName?: string;
   description: string;

@@ -604,6 +604,7 @@ async function importPersona(data: unknown, db: DB) {
     ...(d.tags === undefined ? {} : { tags: d.tags }),
     ...(d.savedStatusOptions === undefined ? {} : { savedStatusOptions: d.savedStatusOptions }),
     ...(d.convoBehavior === undefined ? {} : { convoBehavior: d.convoBehavior }),
+    ...(typeof d.versioningEnabled === "boolean" ? { versioningEnabled: d.versioningEnabled } : {}),
   };
   for (const field of [
     "comment",
@@ -630,7 +631,8 @@ async function importPersona(data: unknown, db: DB) {
 
   const parsed = parseNativePersonaInput(personaInput);
   const { name, description, extra } = encodePersonaCreate(parsed);
-  const useCharacterSheetAsReference = d.useCharacterSheetAsReference === true || d.useCharacterSheetAsReference === "true";
+  const useCharacterSheetAsReference =
+    d.useCharacterSheetAsReference === true || d.useCharacterSheetAsReference === "true";
   const result = await storage.createPersona(
     name,
     description,
@@ -1015,28 +1017,33 @@ async function importStoryBundle(data: unknown, db: DB) {
       const parsed = JSON.parse((char as Record<string, unknown>).data as string);
       const charName = typeof parsed.name === "string" ? parsed.name.trim().toLowerCase() : "";
       if (charName) existingCharNameMap.set(charName, (char as Record<string, unknown>).id as string);
-    } catch { /* skip unparseable */ }
+    } catch {
+      /* skip unparseable */
+    }
   }
   const existingPersonaNameMap = new Map<string, string>();
   for (const persona of existingPersonas) {
-    const pName = typeof (persona as Record<string, unknown>).name === "string"
-      ? ((persona as Record<string, unknown>).name as string).trim().toLowerCase()
-      : "";
+    const pName =
+      typeof (persona as Record<string, unknown>).name === "string"
+        ? ((persona as Record<string, unknown>).name as string).trim().toLowerCase()
+        : "";
     if (pName) existingPersonaNameMap.set(pName, (persona as Record<string, unknown>).id as string);
   }
   const existingLorebookNameMap = new Map<string, string>();
   for (const lb of existingLorebooks) {
-    const lbName = typeof (lb as Record<string, unknown>).name === "string"
-      ? ((lb as Record<string, unknown>).name as string).trim().toLowerCase()
-      : "";
+    const lbName =
+      typeof (lb as Record<string, unknown>).name === "string"
+        ? ((lb as Record<string, unknown>).name as string).trim().toLowerCase()
+        : "";
     if (lbName) existingLorebookNameMap.set(lbName, (lb as Record<string, unknown>).id as string);
   }
   const existingPresets = await promptsStorage.list();
   const existingPresetNameMap = new Map<string, string>();
   for (const preset of existingPresets) {
-    const pName = typeof (preset as Record<string, unknown>).name === "string"
-      ? ((preset as Record<string, unknown>).name as string).trim().toLowerCase()
-      : "";
+    const pName =
+      typeof (preset as Record<string, unknown>).name === "string"
+        ? ((preset as Record<string, unknown>).name as string).trim().toLowerCase()
+        : "";
     if (pName) existingPresetNameMap.set(pName, (preset as Record<string, unknown>).id as string);
   }
 
@@ -1059,9 +1066,10 @@ async function importStoryBundle(data: unknown, db: DB) {
       if (!charData || typeof charData !== "object") continue;
 
       // Dedup: check if a character with the same name already exists
-      const charName = typeof (charData as Record<string, unknown>).name === "string"
-        ? ((charData as Record<string, unknown>).name as string).trim().toLowerCase()
-        : "";
+      const charName =
+        typeof (charData as Record<string, unknown>).name === "string"
+          ? ((charData as Record<string, unknown>).name as string).trim().toLowerCase()
+          : "";
       if (charName && existingCharNameMap.has(charName)) {
         const existingId = existingCharNameMap.get(charName)!;
         characterIdMap.set(oldId, existingId);
@@ -1100,9 +1108,7 @@ async function importStoryBundle(data: unknown, db: DB) {
       const oldId = typeof ep.id === "string" ? ep.id : "";
 
       // Dedup: check if a persona with the same name already exists
-      const personaName = typeof ep.name === "string"
-        ? (ep.name as string).trim().toLowerCase()
-        : "";
+      const personaName = typeof ep.name === "string" ? (ep.name as string).trim().toLowerCase() : "";
       if (personaName && existingPersonaNameMap.has(personaName)) {
         const existingId = existingPersonaNameMap.get(personaName)!;
         personaIdMap.set(oldId, existingId);
@@ -1133,9 +1139,10 @@ async function importStoryBundle(data: unknown, db: DB) {
       const oldId = typeof el.id === "string" ? el.id : "";
 
       // Dedup: check if a lorebook with the same name already exists
-      const lbName = typeof (el.lorebook as Record<string, unknown> | null)?.name === "string"
-        ? ((el.lorebook as Record<string, unknown>).name as string).trim().toLowerCase()
-        : "";
+      const lbName =
+        typeof (el.lorebook as Record<string, unknown> | null)?.name === "string"
+          ? ((el.lorebook as Record<string, unknown>).name as string).trim().toLowerCase()
+          : "";
       if (lbName && existingLorebookNameMap.has(lbName)) {
         const existingId = existingLorebookNameMap.get(lbName)!;
         lorebookIdMap.set(oldId, existingId);
@@ -1164,9 +1171,10 @@ async function importStoryBundle(data: unknown, db: DB) {
       const oldId = typeof ep.id === "string" ? ep.id : "";
 
       // Dedup: check if a preset with the same name already exists
-      const presetName = typeof (ep.preset as Record<string, unknown> | null)?.name === "string"
-        ? ((ep.preset as Record<string, unknown>).name as string).trim().toLowerCase()
-        : "";
+      const presetName =
+        typeof (ep.preset as Record<string, unknown> | null)?.name === "string"
+          ? ((ep.preset as Record<string, unknown>).name as string).trim().toLowerCase()
+          : "";
       if (presetName && existingPresetNameMap.has(presetName)) {
         const existingId = existingPresetNameMap.get(presetName)!;
         presetIdMap.set(oldId, existingId);
@@ -1189,8 +1197,7 @@ async function importStoryBundle(data: unknown, db: DB) {
 
   // Remap IDs: use new IDs for entities that were imported, keep old IDs for
   // entities that already exist in this database.
-  const remapIds = (ids: string[], map: Map<string, string>): string[] =>
-    ids.map((id) => map.get(id) ?? id);
+  const remapIds = (ids: string[], map: Map<string, string>): string[] => ids.map((id) => map.get(id) ?? id);
 
   const finalCharacterIds = remapIds(stringArray(d.characterIds), characterIdMap);
   const finalPersonaIds = remapIds(stringArray(d.personaIds), personaIdMap);
@@ -1228,10 +1235,7 @@ async function importStoryBundle(data: unknown, db: DB) {
   // Intros are inline data — parse and validate, generating new IDs for each.
   const finalIntros = Array.isArray(d.intros)
     ? d.intros
-        .filter(
-          (entry): entry is Record<string, unknown> =>
-            typeof entry === "object" && entry !== null,
-        )
+        .filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null)
         .map((entry) => ({
           id: typeof entry.id === "string" && entry.id.length > 0 ? entry.id : newId(),
           name: typeof entry.name === "string" ? entry.name : "",

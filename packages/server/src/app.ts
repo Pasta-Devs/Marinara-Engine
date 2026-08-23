@@ -22,6 +22,7 @@ import { seedDefaultRegexScripts } from "./db/seed-regex.js";
 import { buildAssetManifest, ensureAssetDirs } from "./services/game/asset-manifest.service.js";
 import { recoverGalleryImages } from "./services/storage/gallery-recovery.js";
 import { migrateCharacterExtendedDescriptionsToLorebooks } from "./services/lorebook/extended-descriptions-migration.js";
+import { migrateTtsSettingsToAudioConnection } from "./services/connections/tts-audio-connection-migration.js";
 import { migrateLegacyDefaultAgentPrompts } from "./services/agents/default-prompt-migration.js";
 import { APP_VERSION, resetTurnGameRegistry } from "@marinara-engine/shared";
 import { existsSync } from "fs";
@@ -50,9 +51,37 @@ import { migrateLegacyCapabilities } from "./services/capability-packages/legacy
 import { createClientStaticOptions } from "./config/client-static-config.js";
 import { hostValidationHook } from "./middleware/host-validation.js";
 import { androidLocalAuthHook, androidLocalLoginRoute } from "./middleware/android-local-auth.js";
+import { arch, platform, release } from "node:os";
+import { execFileSync } from "node:child_process";
 
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 const MAX_UPLOAD_BYTES = 256 * 1024 * 1024;
+
+function resolveServerOs(): string {
+  const hostPlatform = platform();
+  const hostRelease = release();
+  const hostArch = arch();
+  if (hostPlatform === "darwin") {
+    try {
+      const version = execFileSync("sw_vers", ["-productVersion"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        timeout: 2_000,
+      }).trim();
+      return `macOS ${version || hostRelease} (${hostArch})`;
+    } catch {
+      return `macOS ${hostRelease} (${hostArch})`;
+    }
+  }
+  if (hostPlatform === "win32") return `Windows ${hostRelease} (${hostArch})`;
+  if (hostPlatform === "android" || process.env.PREFIX?.includes("com.termux")) {
+    return `Android / Termux ${hostRelease} (${hostArch})`;
+  }
+  if (hostPlatform === "linux") return `Linux ${hostRelease} (${hostArch})`;
+  return `${hostPlatform} ${hostRelease} (${hostArch})`;
+}
+
+const SERVER_OS = resolveServerOs();
 
 export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   const hadUserStateBeforeStartup = existsSync(join(getFileStorageDir(), "manifest.json"));
@@ -138,6 +167,11 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   await seedDefaultRegexScripts(db);
   await migrateLegacyDefaultAgentPrompts(db);
   await migrateCharacterExtendedDescriptionsToLorebooks(db);
+  try {
+    await migrateTtsSettingsToAudioConnection(db);
+  } catch (error) {
+    app.log.warn(error, "TTS audio-connection migration did not complete; it will retry next startup");
+  }
   await seedDefaultBackgrounds();
   await seedDefaultGameAssets();
 
@@ -281,6 +315,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       version: APP_VERSION,
       commit,
       build: getBuildLabel(),
+      serverOs: SERVER_OS,
       timestamp: new Date().toISOString(),
       capabilityPackages: {
         status: capabilityPackages

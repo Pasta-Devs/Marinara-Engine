@@ -198,9 +198,7 @@ function firstMarkdownHeading(content: string) {
  * characters that belong to the heading text (e.g. "C#"). Shared by heading
  * listing and lookup so the two always agree on what counts as a heading.
  */
-function* iterateMarkdownHeadings(
-  lines: string[],
-): Generator<{ index: number; level: number; heading: string }> {
+function* iterateMarkdownHeadings(lines: string[]): Generator<{ index: number; level: number; heading: string }> {
   let fence: { char: string; length: number } | null = null;
   for (const [index, line] of lines.entries()) {
     const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*(.*)$/u);
@@ -419,7 +417,8 @@ export async function readCanonicalDocumentation(
     const available = listMarkdownHeadings(content);
     let hint: string;
     if (available.length === 0) {
-      hint = " This document has no headings; omit `heading` to read the document (the result may be truncated by maxChars).";
+      hint =
+        " This document has no headings; omit `heading` to read the document (the result may be truncated by maxChars).";
     } else {
       const shown = available.slice(0, MAX_HEADINGS_IN_MISS);
       const more = available.length > shown.length ? `, …(+${available.length - shown.length} more)` : "";

@@ -8,13 +8,7 @@ export type EditorSectionJump = {
   label: string;
 };
 
-export function EditorSectionJumps({
-  items,
-  className,
-}: {
-  items: readonly EditorSectionJump[];
-  className?: string;
-}) {
+export function EditorSectionJumps({ items, className }: { items: readonly EditorSectionJump[]; className?: string }) {
   const localize = useLocalizedUiText();
 
   const scrollToSection = (id: string) => {

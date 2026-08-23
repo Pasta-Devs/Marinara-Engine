@@ -101,7 +101,7 @@ Treat these as high-signal Marinara review concerns:
 - Client code calling the server with raw `fetch()` instead of the `@/lib/api-client` wrapper, putting async logic in Zustand stores, or adding barrel/index files.
 - Server code using `console.*` instead of the shared Pino logger, logging errors without the error object first, or putting domain logic in route handlers instead of services.
 - Chat, roleplay, and game mode behavior crossing ownership boundaries, or shared generation/prompt changes silently altering an unrelated mode.
-- SSE/streaming changes that break the token or event contract between `api.stream`/`streamEvents` and the server generate route.
+- SSE/streaming changes that break the token or event contract between `api.streamEvents` and the server generate route.
 - Fake success states, silent catches, broad fallbacks, or UI-only guards over broken contracts.
 - Changes without tests or focused manual proof when the touched behavior has realistic regression risk.
 

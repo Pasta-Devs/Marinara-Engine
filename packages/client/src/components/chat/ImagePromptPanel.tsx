@@ -39,7 +39,9 @@ export function ImagePromptPanel({ prompt, meta, className }: ImagePromptPanelPr
       {promptText && (
         <>
           <div className="mb-1 flex items-center justify-between gap-2">
-            <div className="text-[0.6875rem] font-semibold text-white/55">{localizeUi("ui.agents.customagentrepositoriesmodal.prompt")}</div>
+            <div className="text-[0.6875rem] font-semibold text-white/55">
+              {localizeUi("ui.agents.customagentrepositoriesmodal.prompt")}
+            </div>
             <button
               type="button"
               onPointerDown={(event) => event.stopPropagation()}
@@ -51,7 +53,9 @@ export function ImagePromptPanel({ prompt, meta, className }: ImagePromptPanelPr
               className="flex shrink-0 items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-[0.6875rem] font-medium text-white/75 transition-colors hover:bg-white/20 hover:text-white"
             >
               {copied ? <Check size="0.75rem" /> : <Copy size="0.75rem" />}
-              {copied ?localizeUi("ui.panels.manualupdatecommand.copied") :localizeUi("ui.chat.chatgallery.copyPrompt")}
+              {copied
+                ? localizeUi("ui.panels.manualupdatecommand.copied")
+                : localizeUi("ui.chat.chatgallery.copyPrompt")}
             </button>
           </div>
           <p className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-[0.75rem] leading-relaxed text-white/85">

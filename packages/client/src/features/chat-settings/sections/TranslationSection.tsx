@@ -43,7 +43,9 @@ export function TranslationSection({ metadata, textConnections, onMetadataChange
     >
       <div className="space-y-3">
         <div>
-          <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{localizeUi("ui.connections.connectioneditor.provider")}</label>
+          <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.connections.connectioneditor.provider")}
+          </label>
           <select
             value={provider}
             onChange={(e) => onMetadataChange({ translationProvider: e.target.value })}
@@ -58,7 +60,9 @@ export function TranslationSection({ metadata, textConnections, onMetadataChange
 
         <TranslationLanguageField
           label={localizeUi("ui.chatSettings.translationsection.modelLanguage")}
-          description={localizeUi("ui.chatSettings.translationsection.yourOutgoingMessagesAreTranslatedIntoThisLanguage")}
+          description={localizeUi(
+            "ui.chatSettings.translationsection.yourOutgoingMessagesAreTranslatedIntoThisLanguage",
+          )}
           provider={provider}
           value={inputTargetLanguage}
           onChange={(value) => onMetadataChange({ translationInputTargetLang: value })}
@@ -66,7 +70,9 @@ export function TranslationSection({ metadata, textConnections, onMetadataChange
 
         <TranslationLanguageField
           label={localizeUi("ui.chatSettings.translationsection.myLanguage")}
-          description={localizeUi("ui.chatSettings.translationsection.incomingModelResponsesAreTranslatedIntoThisLanguage")}
+          description={localizeUi(
+            "ui.chatSettings.translationsection.incomingModelResponsesAreTranslatedIntoThisLanguage",
+          )}
           provider={provider}
           value={outputTargetLanguage}
           onChange={(value) => onMetadataChange({ translationOutputTargetLang: value })}
@@ -75,7 +81,12 @@ export function TranslationSection({ metadata, textConnections, onMetadataChange
         {provider === "ai" && (
           <>
             <div>
-              <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{localizeUi("ui.chatSettings.connectionsection.connection")}<HelpTooltip text={localizeUi("ui.chatSettings.translationsection.whichAiConnectionToUseForTranslation")} size="0.625rem" />
+              <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                {localizeUi("ui.chatSettings.connectionsection.connection")}
+                <HelpTooltip
+                  text={localizeUi("ui.chatSettings.translationsection.whichAiConnectionToUseForTranslation")}
+                  size="0.625rem"
+                />
               </label>
               <select
                 value={(metadata.translationConnectionId as string | undefined) ?? ""}
@@ -108,7 +119,9 @@ export function TranslationSection({ metadata, textConnections, onMetadataChange
 
         {provider === "deepl" && (
           <div>
-            <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{localizeUi("ui.chatSettings.translationsection.deeplApiKey")}</label>
+            <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.chatSettings.translationsection.deeplApiKey")}
+            </label>
             <input
               type="password"
               value={(metadata.translationDeeplApiKey as string | undefined) ?? ""}
@@ -121,7 +134,9 @@ export function TranslationSection({ metadata, textConnections, onMetadataChange
 
         {provider === "deeplx" && (
           <div>
-            <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{localizeUi("ui.chatSettings.translationsection.deeplxUrl")}<HelpTooltip
+            <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.chatSettings.translationsection.deeplxUrl")}
+              <HelpTooltip
                 text={localizeUi("ui.chatSettings.translationsection.urlOfYourSelfHostedDeeplxInstanceEG")}
                 size="0.625rem"
               />
@@ -139,13 +154,17 @@ export function TranslationSection({ metadata, textConnections, onMetadataChange
         <TranslationToggle
           enabled={metadata.autoTranslate === true}
           title={localizeUi("ui.chatSettings.translationsection.autoTranslateResponses")}
-          description={localizeUi("ui.chatSettings.translationsection.automaticallyTranslateAiResponsesAfterGeneration")}
+          description={localizeUi(
+            "ui.chatSettings.translationsection.automaticallyTranslateAiResponsesAfterGeneration",
+          )}
           onToggle={() => onMetadataChange({ autoTranslate: !metadata.autoTranslate })}
         />
         <TranslationToggle
           enabled={metadata.translateInput === true}
           title={localizeUi("ui.chatSettings.translationsection.translateMyMessages")}
-          description={localizeUi("ui.chatSettings.translationsection.translateYourMessagesToTheTargetLanguageBeforeSending")}
+          description={localizeUi(
+            "ui.chatSettings.translationsection.translateYourMessagesToTheTargetLanguageBeforeSending",
+          )}
           onToggle={() => onMetadataChange({ translateInput: !metadata.translateInput })}
         />
         <TranslationToggle
@@ -186,8 +205,12 @@ function TranslationLanguageField({
         <HelpTooltip
           text={
             provider === "ai"
-              ?localizeUi("ui.chatSettings.translationlanguagefield.value1UseALanguageNameSuchAsEnglishJapanese", { value1: description })
-              :localizeUi("ui.chatSettings.translationlanguagefield.value1UseALanguageCodeSuchAsEnJa", { value1: description })
+              ? localizeUi("ui.chatSettings.translationlanguagefield.value1UseALanguageNameSuchAsEnglishJapanese", {
+                  value1: description,
+                })
+              : localizeUi("ui.chatSettings.translationlanguagefield.value1UseALanguageCodeSuchAsEnJa", {
+                  value1: description,
+                })
           }
           size="0.625rem"
         />
@@ -196,7 +219,11 @@ function TranslationLanguageField({
         type="text"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={provider === "ai" ?localizeUi("ui.chatSettings.translationlanguagefield.english") :localizeUi("ui.chatSettings.translationlanguagefield.en")}
+        placeholder={
+          provider === "ai"
+            ? localizeUi("ui.chatSettings.translationlanguagefield.english")
+            : localizeUi("ui.chatSettings.translationlanguagefield.en")
+        }
         className="mt-0.5 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
       />
     </div>
@@ -221,7 +248,9 @@ function TranslationPromptField({
         <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
           {label}
           <HelpTooltip
-            text={localizeUi("ui.chatSettings.translationpromptfield.systemPromptUsedByAiTranslationTargetlanguageResolvesTo")}
+            text={localizeUi(
+              "ui.chatSettings.translationpromptfield.systemPromptUsedByAiTranslationTargetlanguageResolvesTo",
+            )}
             size="0.625rem"
           />
         </label>
@@ -232,7 +261,9 @@ function TranslationPromptField({
             className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             title={localizeUi("ui.agents.agenteditor.restoreDefaultPrompt")}
           >
-            <RotateCcw size="0.625rem" />{localizeUi("ui.chatSettings.translationpromptfield.restore")}</button>
+            <RotateCcw size="0.625rem" />
+            {localizeUi("ui.chatSettings.translationpromptfield.restore")}
+          </button>
         )}
       </div>
       <textarea

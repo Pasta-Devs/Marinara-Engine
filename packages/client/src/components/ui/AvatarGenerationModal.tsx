@@ -214,9 +214,13 @@ export function AvatarGenerationModal({
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_13rem]">
             <div className="space-y-4">
               <label className="space-y-1.5">
-                <span className="block text-xs font-medium text-[var(--foreground)]">{localizeUi("ui.agents.agenteditor.imageGenerationConnection")}</span>
+                <span className="block text-xs font-medium text-[var(--foreground)]">
+                  {localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
+                </span>
                 {imageConnections.length === 0 ? (
-                  <p className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--destructive)]">{localizeUi("ui.ui.avatargenerationmodal.noImageGenerationConnectionsFound")}</p>
+                  <p className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--destructive)]">
+                    {localizeUi("ui.ui.avatargenerationmodal.noImageGenerationConnectionsFound")}
+                  </p>
                 ) : (
                   <select
                     value={effectiveConnectionId ?? ""}
@@ -226,8 +230,10 @@ export function AvatarGenerationModal({
                     {imageConnections.map((connection) => (
                       <option key={connection.id} value={connection.id}>
                         {connection.name}
-                        {connection.model ?localizeUi("ui.ui.avatargenerationmodal.value1", { value1: connection.model }) : ""}
-                        {isDefaultImageConnection(connection) ?localizeUi("ui.ui.avatargenerationmodal.default") : ""}
+                        {connection.model
+                          ? localizeUi("ui.ui.avatargenerationmodal.value1", { value1: connection.model })
+                          : ""}
+                        {isDefaultImageConnection(connection) ? localizeUi("ui.ui.avatargenerationmodal.default") : ""}
                       </option>
                     ))}
                   </select>
@@ -297,7 +303,11 @@ export function AvatarGenerationModal({
                     className={cn("h-full w-full", isCharacterSheet ? "object-contain" : "object-cover")}
                   />
                 ) : defaultAvatarUrl ? (
-                  <img src={defaultAvatarUrl} alt={localizeUi("ui.ui.avatargenerationmodal.currentAvatar")} className="h-full w-full object-cover opacity-80" />
+                  <img
+                    src={defaultAvatarUrl}
+                    alt={localizeUi("ui.ui.avatargenerationmodal.currentAvatar")}
+                    className="h-full w-full object-cover opacity-80"
+                  />
                 ) : (
                   <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--muted-foreground)]">
                     <ImagePlus size="1.75rem" />
@@ -315,7 +325,9 @@ export function AvatarGenerationModal({
 
           <div className="flex flex-col gap-2 border-t border-[var(--border)]/50 pt-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {canvasWidth}{localizeUi("ui.panels.imagedimensionrow.x")}{canvasHeight}{" "}
+              {canvasWidth}
+              {localizeUi("ui.panels.imagedimensionrow.x")}
+              {canvasHeight}{" "}
               {localizeUi(
                 isCharacterSheet
                   ? "ui.ui.avatargenerationmodal.characterSheetCanvas"
@@ -329,7 +341,9 @@ export function AvatarGenerationModal({
                 disabled={generating || saving}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <X size="0.875rem" />{localizeUi("chat.delete.dialog.cancel")}</button>
+                <X size="0.875rem" />
+                {localizeUi("chat.delete.dialog.cancel")}
+              </button>
               <button
                 type="button"
                 onClick={handleGenerate}
@@ -342,7 +356,9 @@ export function AvatarGenerationModal({
                 )}
               >
                 {generating ? <Loader2 size="0.875rem" className="animate-spin" /> : <Wand2 size="0.875rem" />}
-                {generatedAvatar ?localizeUi("ui.agents.secretplotpanel.regenerate") :localizeUi("ui.characters.characterclipcard.generate")}
+                {generatedAvatar
+                  ? localizeUi("ui.agents.secretplotpanel.regenerate")
+                  : localizeUi("ui.characters.characterclipcard.generate")}
               </button>
               <button
                 type="button"

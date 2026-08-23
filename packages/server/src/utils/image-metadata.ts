@@ -129,7 +129,9 @@ function readWebpDimensions(buffer: Buffer): ImageDimensions | null {
 }
 
 export function readImageDimensionsFromBuffer(buffer: Buffer): ImageDimensions | null {
-  return readPngDimensions(buffer) ?? readGifDimensions(buffer) ?? readJpegDimensions(buffer) ?? readWebpDimensions(buffer);
+  return (
+    readPngDimensions(buffer) ?? readGifDimensions(buffer) ?? readJpegDimensions(buffer) ?? readWebpDimensions(buffer)
+  );
 }
 
 export async function readImageDimensionsFromFile(filePath: string): Promise<ImageDimensions> {

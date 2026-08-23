@@ -29,7 +29,10 @@ import { createCharactersStorage } from "../services/storage/characters.storage.
 import { createGameStateStorage } from "../services/storage/game-state.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { filterRelevantLorebooks, processLorebooks } from "../services/lorebook/index.js";
-import { buildLorebookSemanticEmbeddingsById } from "../services/lorebook/embeddings.js";
+import {
+  buildLorebookEntryEmbeddingText,
+  buildLorebookSemanticEmbeddingsById,
+} from "../services/lorebook/embeddings.js";
 import { resolveOwnerSpatialProjection } from "../services/spatial-context/projection.js";
 import { resolveLorebookScopeExclusions } from "../services/lorebook/game-lorebook-scope.js";
 import {
@@ -46,7 +49,12 @@ import {
 } from "../services/lorebook/character-book-sync.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../services/llm/local-sidecar.js";
-import { resolveMemoryRecallEmbeddingSource } from "../services/memory-recall-embedding.js";
+import {
+  createMemoryRecallEmbeddingSpaceId,
+  formatMemoryRecallEmbeddingTexts,
+  resolveMemoryRecallEmbeddingSource,
+} from "../services/memory-recall-embedding.js";
+import { sidecarModelService } from "../services/sidecar/sidecar-model.service.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
@@ -1056,6 +1064,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     let chatEmbedding: number[] | null = null;
     let semanticEmbeddingsByLorebookId: Map<string, number[] | null> | undefined;
     let semanticSimilarityBaseline = 0;
+    let semanticEmbeddingSpaceId: string | null = null;
     try {
       const activeEntries = (await storage.listActiveEntries(lorebookScopeFilters)) as unknown as LorebookEntry[];
       if (activeEntries.some((entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0)) {
@@ -1074,6 +1083,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
         chatEmbedding = semanticEmbeddings.defaultEmbedding;
         semanticEmbeddingsByLorebookId = semanticEmbeddings.embeddingsByLorebookId;
         semanticSimilarityBaseline = semanticEmbeddings.similarityBaseline;
+        semanticEmbeddingSpaceId = semanticEmbeddings.embeddingSpaceId;
       }
     } catch (err) {
       logger.debug(err, "[lorebooks] Semantic scan preview failed; falling back to keyword-only preview");
@@ -1090,6 +1100,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
       chatEmbedding,
       semanticEmbeddingsByLorebookId,
+      semanticEmbeddingSpaceId,
       semanticSimilarityBaseline,
       forcedEntryIds: chat?.mode === "conversation" ? [] : (ownerSpatialProjection?.lorebookEntryIds ?? []),
       tokenBudget: typeof chatMeta.lorebookTokenBudget === "number" ? chatMeta.lorebookTokenBudget : undefined,
@@ -1178,17 +1189,18 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       : vectorizableEntries;
     if (!entries.length) return { vectorized: 0, total: allEntries.length, skipped: allEntries.length };
 
+    const embeddingBaseUrl = useLocalSidecar
+      ? ""
+      : conn!.embeddingBaseUrl
+        ? (conn!.embeddingBaseUrl as string).replace(/\/+$/, "")
+        : (conn!.baseUrl as string);
     const provider = useLocalSidecar
       ? getLocalSidecarProvider()
       : (() => {
           const resolvedConn = conn!;
-          // Use dedicated embedding base URL if configured, otherwise the connection's base URL
-          const embedBaseUrl = resolvedConn.embeddingBaseUrl
-            ? (resolvedConn.embeddingBaseUrl as string).replace(/\/+$/, "")
-            : (resolvedConn.baseUrl as string);
           return createLLMProvider(
             resolvedConn.provider as string,
-            embedBaseUrl,
+            embeddingBaseUrl,
             resolvedConn.apiKey as string,
             resolvedConn.maxContext,
             resolvedConn.openrouterProvider,
@@ -1200,21 +1212,38 @@ export async function lorebooksRoutes(app: FastifyInstance) {
           );
         })();
     const embeddingModel = useLocalSidecar ? LOCAL_SIDECAR_MODEL : body.model;
+    const embeddingProfileModel = useLocalSidecar
+      ? (sidecarModelService.getConfiguredModelRef() ?? LOCAL_SIDECAR_MODEL)
+      : embeddingModel;
+    const embeddingSpaceId = useLocalSidecar
+      ? createMemoryRecallEmbeddingSpaceId("sidecar", embeddingProfileModel, sidecarModelService.getResolvedBackend())
+      : createMemoryRecallEmbeddingSpaceId("remote", embeddingModel, conn!.provider as string, embeddingBaseUrl);
 
-    // Build text for each entry: combine name, keys, and content
-    const texts = (entries as Array<Record<string, unknown>>).map((e) => {
-      const keys = [
-        ...(Array.isArray(e.keys) ? (e.keys as string[]) : []),
-        ...(Array.isArray(e.secondaryKeys) ? (e.secondaryKeys as string[]) : []),
-      ].join(", ");
-      return `${e.name ?? ""}${keys ? ` [${keys}]` : ""}\n${e.content ?? ""}`.trim();
-    });
-    const existingEmbeddingDimension = body.onlyMissing
-      ? ((allEntries as Array<Record<string, unknown>>)
-          .map((entry) => entry.embedding)
-          .find((embedding): embedding is unknown[] => Array.isArray(embedding) && embedding.length > 0)?.length ??
-        null)
+    const texts = formatMemoryRecallEmbeddingTexts(
+      (entries as LorebookEntry[]).map(buildLorebookEntryEmbeddingText),
+      embeddingProfileModel,
+      "document",
+    );
+    const existingVectorEntries = body.onlyMissing
+      ? (vectorizableEntries as Array<Record<string, unknown>>).filter(
+          (entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0,
+        )
+      : [];
+    const existingEmbeddingDimension = Array.isArray(existingVectorEntries[0]?.embedding)
+      ? existingVectorEntries[0].embedding.length
       : null;
+    const hasUnknownEmbeddingSpace = existingVectorEntries.some(
+      (entry) => typeof entry.embeddingSpaceId !== "string" || !entry.embeddingSpaceId.trim(),
+    );
+    const hasDifferentEmbeddingSpace = existingVectorEntries.some(
+      (entry) => entry.embeddingSpaceId !== embeddingSpaceId,
+    );
+    if (hasUnknownEmbeddingSpace || hasDifferentEmbeddingSpace) {
+      return reply.status(409).send({
+        error:
+          "The existing vectors use an unknown or different embedding provider, model, or input profile. Use Re-vectorize all entries before switching embedding sources.",
+      });
+    }
 
     // Batch embed (most APIs support multiple texts per call)
     const BATCH_SIZE = 50;
@@ -1253,7 +1282,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       for (let j = 0; j < batchEntries.length; j++) {
         const entry = batchEntries[j] as Record<string, unknown>;
         if (embeddings[j]) {
-          await storage.updateEntryEmbedding(entry.id as string, embeddings[j]!);
+          await storage.updateEntryEmbedding(entry.id as string, embeddings[j]!, embeddingSpaceId);
           vectorized++;
         }
       }

@@ -10,19 +10,24 @@ import {
   androidLocalAuthTesting,
   androidLocalLoginRoute,
 } from "../../packages/server/src/middleware/android-local-auth.js";
+import { csrfProtectionHook } from "../../packages/server/src/middleware/csrf-protection.js";
 
 const originalSecret = process.env.MARINARA_ANDROID_SECRET;
+const originalCsrfTrustedOrigins = process.env.CSRF_TRUSTED_ORIGINS;
 const secret = "11".repeat(32);
 process.env.MARINARA_ANDROID_SECRET = secret;
+process.env.CSRF_TRUSTED_ORIGINS = "null";
 androidLocalAuthTesting.clear();
 
 const app = Fastify();
+app.addHook("onRequest", csrfProtectionHook);
 app.addHook("onRequest", androidLocalAuthHook);
 await app.register(androidLocalAuthRoutes, { prefix: "/api/android-auth" });
 await androidLocalLoginRoute(app);
 app.get("/", async () => ({ ok: true }));
 app.get("/api/health", async () => ({ status: "ok" }));
 app.get("/api/private", async () => ({ private: true }));
+app.post("/api/private-mutation", async () => ({ mutated: true }));
 app.get("/api/spotify/callback", async () => ({ callback: true }));
 
 try {
@@ -68,10 +73,18 @@ try {
   const sessionResponse = await app.inject({
     method: "POST",
     url: "/api/android-auth/session",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      origin: "null",
+      "sec-fetch-site": "none",
+    },
     payload: new URLSearchParams({ clientNonce, serverNonce: challenge.serverNonce, proof: clientProof }).toString(),
   });
-  assert.equal(sessionResponse.statusCode, 303);
+  assert.equal(
+    sessionResponse.statusCode,
+    303,
+    "the self-authenticating WebView handshake must not require Origin null to be trusted",
+  );
   assert.equal(sessionResponse.headers.location, "/");
   const setCookieHeader = sessionResponse.headers["set-cookie"];
   const firstSetCookieHeader = Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader;
@@ -139,10 +152,33 @@ try {
   const browserSession = await app.inject({
     method: "POST",
     url: "/api/android-auth/browser-session",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: { "content-type": "application/x-www-form-urlencoded", origin: "null" },
     payload: new URLSearchParams({ secret }).toString(),
   });
-  assert.equal(browserSession.statusCode, 303, "a local browser can opt into the authenticated session");
+  assert.equal(
+    browserSession.statusCode,
+    303,
+    "a local browser can authenticate with the secret without globally trusting its opaque origin",
+  );
+  const rejectedBrowserSession = await app.inject({
+    method: "POST",
+    url: "/api/android-auth/browser-session",
+    headers: { "content-type": "application/x-www-form-urlencoded", origin: "null" },
+    payload: new URLSearchParams({ secret: "00".repeat(32) }).toString(),
+  });
+  assert.equal(rejectedBrowserSession.statusCode, 401, "the CSRF exemption must not bypass secret verification");
+
+  const rejectedNullOrigin = await app.inject({
+    method: "POST",
+    url: "/api/private-mutation",
+    headers: { origin: "null", "x-marinara-csrf": "1" },
+  });
+  assert.equal(rejectedNullOrigin.statusCode, 403, "Origin null must remain rejected outside Android login routes");
+  assert.doesNotMatch(
+    rejectedNullOrigin.json<{ hint: string }>().hint,
+    /add ['"]?null/iu,
+    "an opaque origin rejection must not send users to an impossible CSRF_TRUSTED_ORIGINS workaround",
+  );
 
   const ownInterface = Object.values(networkInterfaces())
     .flatMap((entries) => entries ?? [])
@@ -206,7 +242,11 @@ try {
   assert.match(activitySource, /AndroidSessionAttempt\.manualServer\(\)/u);
   assert.match(activitySource, /confirmManualServerAccess/u);
   assert.match(activitySource, /buildTermuxSetupCommand\(false\)/u);
-  assert.match(activitySource, /\.\/start-termux\.sh --skip-update/u);
+  assert.match(
+    activitySource,
+    /provisionAndroidSecret[\s\S]*AUTO_OPEN_BROWSER=false \.\/start-termux\.sh --skip-update[\s\S]*: "\.\/start-termux\.sh --skip-update/u,
+    "APK-managed setup must return to the authenticated app instead of opening a browser that asks for the private secret",
+  );
   assert.doesNotMatch(
     activitySource,
     /setPrimaryClip\([^;]+buildTermuxSetupCommand\(true\)/su,
@@ -253,6 +293,49 @@ try {
     "the signing guard must cover release artifacts without blocking unrelated Gradle tasks",
   );
 
+  const apkWorkflowSource = readFileSync(resolve(repositoryRoot, ".github/workflows/build-apk.yml"), "utf8");
+  const getWorkflowStep = (name: string): string => {
+    const marker = `      - name: ${name}\n`;
+    const start = apkWorkflowSource.indexOf(marker);
+    assert.notEqual(start, -1, `APK workflow must contain the ${name} step`);
+    const next = apkWorkflowSource.indexOf("\n      - name:", start + marker.length);
+    return apkWorkflowSource.slice(start, next === -1 ? undefined : next);
+  };
+  const checkoutStepSource = getWorkflowStep("Checkout");
+  const locateStepSource = getWorkflowStep("Locate APK");
+  const releaseUploadStepSource = getWorkflowStep("Attach APK to release");
+
+  assert.match(
+    locateStepSource,
+    /DOWNLOAD_NAME="marinara-engine-android\.apk"[\s\S]*download_apk=android\/\$\{DOWNLOAD_NAME\}/u,
+    "tagged releases must expose a stable filename for the one-click latest APK link",
+  );
+  assert.match(
+    releaseUploadStepSource,
+    /VERSIONED_APK: \$\{\{ steps\.locate\.outputs\.apk \}\}[\s\S]*STABLE_APK: \$\{\{ steps\.locate\.outputs\.download_apk \}\}[\s\S]*gh release upload "\$TAG"[\s\S]*"\$VERSIONED_APK"[\s\S]*"\$STABLE_APK"/u,
+    "release artifact paths must reach the shell through quoted environment variables",
+  );
+  assert.match(
+    checkoutStepSource,
+    /uses: actions\/checkout@[\s\S]*with:[\s\S]*persist-credentials: false/u,
+    "the write-capable workflow token must not persist into the checked-out repository",
+  );
+
+  const versionGuardMatch = locateStepSource.match(/if \[\[ ! "\$VERSION" =~ (\^[^\n]+) \]\]; then/u);
+  assert.ok(versionGuardMatch, "the Locate APK step must validate package.json.version before using it");
+  const versionPattern = new RegExp(versionGuardMatch[1]!);
+  for (const validVersion of ["2.4.3", "2.4.3-rc.1", "2.4.3+android.1"]) {
+    assert.match(validVersion, versionPattern, `the release guard must accept ${validVersion}`);
+  }
+  for (const invalidVersion of ["2.4", "2.4.3.apk", '2.4.3"; touch injected; #']) {
+    assert.doesNotMatch(invalidVersion, versionPattern, `the release guard must reject ${invalidVersion}`);
+  }
+  assert.match(
+    locateStepSource,
+    /RELEASE_TAG: \$\{\{ steps\.release_tag\.outputs\.tag \}\}[\s\S]*\[ -n "\$RELEASE_TAG" \] && \[ "\$\{RELEASE_TAG#v\}" != "\$VERSION" \][\s\S]*exit 1[\s\S]*OUT_NAME=/u,
+    "a release tag must match package.json.version before the APK is named or uploaded",
+  );
+
   const wrapperProperties = readFileSync(
     resolve(repositoryRoot, "android/gradle/wrapper/gradle-wrapper.properties"),
     "utf8",
@@ -267,5 +350,7 @@ try {
   androidLocalAuthTesting.clear();
   if (originalSecret === undefined) delete process.env.MARINARA_ANDROID_SECRET;
   else process.env.MARINARA_ANDROID_SECRET = originalSecret;
+  if (originalCsrfTrustedOrigins === undefined) delete process.env.CSRF_TRUSTED_ORIGINS;
+  else process.env.CSRF_TRUSTED_ORIGINS = originalCsrfTrustedOrigins;
   await app.close();
 }

@@ -9,10 +9,8 @@ type CompactCharacterFieldTone = "mood" | "appearance" | "outfit";
 
 const COMPACT_CHARACTER_FIELD_TONE_CLASSES: Record<CompactCharacterFieldTone, string> = {
   mood: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_70%,var(--tracker-profile-text)_30%)] opacity-80",
-  appearance:
-    "text-[color-mix(in_srgb,var(--tracker-profile-icon)_58%,var(--tracker-profile-text)_42%)] opacity-80",
-  outfit:
-    "text-[color-mix(in_srgb,var(--tracker-profile-icon)_50%,var(--tracker-profile-text)_50%)] opacity-80",
+  appearance: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_58%,var(--tracker-profile-text)_42%)] opacity-80",
+  outfit: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_50%,var(--tracker-profile-text)_50%)] opacity-80",
 };
 
 export const COMPACT_CHARACTER_MOOD_EDIT_CLASS =
@@ -74,8 +72,24 @@ export function CompactCharacterField({
         <button
           type="button"
           onClick={onToggleHidden}
-          title={hidden ?localizeUi("ui.trackerPanel.compactcharacterfield.showValue1", { value1: accessibleLabel.toLowerCase() }) :localizeUi("ui.trackerPanel.compactcharacterfield.hideValue1", { value1: accessibleLabel.toLowerCase() })}
-          aria-label={hidden ?localizeUi("ui.trackerPanel.compactcharacterfield.showValue1", { value1: accessibleLabel.toLowerCase() }) :localizeUi("ui.trackerPanel.compactcharacterfield.hideValue1", { value1: accessibleLabel.toLowerCase() })}
+          title={
+            hidden
+              ? localizeUi("ui.trackerPanel.compactcharacterfield.showValue1", {
+                  value1: accessibleLabel.toLowerCase(),
+                })
+              : localizeUi("ui.trackerPanel.compactcharacterfield.hideValue1", {
+                  value1: accessibleLabel.toLowerCase(),
+                })
+          }
+          aria-label={
+            hidden
+              ? localizeUi("ui.trackerPanel.compactcharacterfield.showValue1", {
+                  value1: accessibleLabel.toLowerCase(),
+                })
+              : localizeUi("ui.trackerPanel.compactcharacterfield.hideValue1", {
+                  value1: accessibleLabel.toLowerCase(),
+                })
+          }
           aria-pressed={hidden}
           className={cn(
             "relative z-[1] flex min-w-0 rounded px-0 py-0 text-left text-[0.5625rem] leading-[0.875rem] transition-colors hover:bg-[var(--accent)]/20 @min-[176px]:text-[0.625rem]",
@@ -87,7 +101,7 @@ export function CompactCharacterField({
           )}
         >
           <span className={cn("min-w-0", readable ? "line-clamp-2 whitespace-normal break-words" : "truncate")}>
-            {hidden ?localizeUi("ui.trackerPanel.thoughtbubble.hidden") : visibleText(value, placeholder)}
+            {hidden ? localizeUi("ui.trackerPanel.thoughtbubble.hidden") : visibleText(value, placeholder)}
           </span>
         </button>
       ) : (

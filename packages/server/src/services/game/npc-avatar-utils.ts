@@ -45,13 +45,9 @@ export function nameLookupWithoutLeadingPrefix(normalizedName: string): string {
 function primaryAvatarLookupAliases(value: string): string[] {
   const normalized = normalizeAvatarLookupName(value);
   const withoutLeadingPrefix = nameLookupWithoutLeadingPrefix(normalized);
-  return Array.from(
-    new Set([
-      value.normalize("NFKC").trim().toLowerCase(),
-      normalized,
-      withoutLeadingPrefix,
-    ]),
-  ).filter(Boolean);
+  return Array.from(new Set([value.normalize("NFKC").trim().toLowerCase(), normalized, withoutLeadingPrefix])).filter(
+    Boolean,
+  );
 }
 
 function avatarLookupAliases(value: string): string[] {

@@ -6,8 +6,7 @@ import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 
-export const AGENT_SETTINGS_SURFACE_CLASS =
-  "border border-[var(--border)] bg-[var(--secondary)]/70";
+export const AGENT_SETTINGS_SURFACE_CLASS = "border border-[var(--border)] bg-[var(--secondary)]/70";
 
 export function AgentCategorySection({
   label,
@@ -15,6 +14,7 @@ export function AgentCategorySection({
   description,
   count,
   openRequest = false,
+  testId,
   children,
 }: {
   label: string;
@@ -22,6 +22,7 @@ export function AgentCategorySection({
   description: string;
   count?: number;
   openRequest?: boolean;
+  testId?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -34,6 +35,7 @@ export function AgentCategorySection({
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
+        data-testid={testId}
         className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]/50"
       >
         <span className="text-[var(--muted-foreground)]">{icon}</span>

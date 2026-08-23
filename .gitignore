@@ -53,9 +53,12 @@ pr-evidence/
 # Temporary tests
 *.test.ts
 *.spec.ts
-# Permanent Playwright e2e tests under tests/ are tracked despite the patterns above
+*.e2e.ts
+
+# Permanent tests under tests/ are tracked
 !tests/**/*.test.ts
 !tests/**/*.spec.ts
+!tests/**/*.e2e.ts
 
 # Test Data
 tests/data/
@@ -77,3 +80,6 @@ win/installer/*.exe
 # Local docker compose overrides (per-machine dev config)
 docker-compose.override.yml
 docker-compose.override.yaml
+
+# Test Data for Story Bundle
+!tests/story-bundle/*

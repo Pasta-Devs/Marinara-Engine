@@ -112,6 +112,7 @@ pnpm check                # baseline validation: TS + ESLint + localization + bu
 pnpm localization:check   # localization only
 pnpm version:check        # only for version/release metadata
 pnpm regression:story-bundle  # all story-bundle Playwright tests (desktop + mobile)
+pnpm run manual-validation:story-bundle  # visible Chrome, one test at a time, 1.5s slow-mo per action
 ```
 
 PowerShell: chain commands with `;`, never with `&&`.

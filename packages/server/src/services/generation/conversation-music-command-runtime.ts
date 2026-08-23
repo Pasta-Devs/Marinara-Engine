@@ -1,11 +1,7 @@
 import type { ChatMode } from "@marinara-engine/shared";
 
 import { logger } from "../../lib/logger.js";
-import type {
-  CharacterCommand,
-  SpotifyCommand,
-  YouTubeCommand,
-} from "../conversation/character-commands.js";
+import type { CharacterCommand, SpotifyCommand, YouTubeCommand } from "../conversation/character-commands.js";
 import {
   ConversationSpotifyCommandError,
   isSilentConversationSpotifyCommandError,

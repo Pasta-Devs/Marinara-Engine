@@ -94,7 +94,9 @@ export function ExpandedTextarea({
           >
             <h2 className={isChatSurface ? NEUTRAL_PANEL_TITLE : "text-sm font-semibold"}>{title}</h2>
             <div className="flex items-center gap-2">
-              <span className="text-[0.625rem] text-[var(--muted-foreground)]">{value.length} {localizeUi("ui.noodle.noodlehome.characters")}</span>
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {value.length} {localizeUi("ui.noodle.noodlehome.characters")}
+              </span>
               <button
                 onClick={onClose}
                 aria-label={closeLabel}

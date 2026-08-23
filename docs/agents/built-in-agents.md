@@ -1,6 +1,6 @@
 # Downloadable Agents Reference
 
-This guide lists all 32 official first-party packages available through **Agents → Download Agents**, grouped by category. Agents do not ship inside a fresh Marinara Engine installation. Their package sources, manifests, artifacts, and machine-readable catalog are published in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). For each one, this guide explains what the agent does, when it runs or integrates, which chat modes allow it, and the main settings. For installation and activation, read the [Agents overview](agents-overview.md) first.
+This guide lists all 36 official first-party packages available through **Agents → Download Agents**, grouped by category. Agents do not ship inside a fresh Marinara Engine installation. Their package sources, manifests, artifacts, and machine-readable catalog are published in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). For each one, this guide explains what the agent does, when it runs or integrates, which chat modes allow it, and the main settings. For installation and activation, read the [Agents overview](agents-overview.md) first.
 
 ## How to read this reference
 
@@ -70,7 +70,7 @@ A cheaper alternative to Knowledge Retrieval. Instead of summarizing, it reads s
 
 ## Tracker agents
 
-Tracker agents keep a running record of the scene, the characters, and your stats. You can add their latest output to the prompt as a section, so the model stays consistent. Five of the trackers below default to **Add as Prompt Section** on: World State, Quest Tracker, Character Tracker, Persona Stats, and Custom Tracker. Expression Engine and Background are the exceptions.
+Tracker agents keep a running record of the scene, the characters, and your stats. You can add their latest output to the prompt as a section, so the model stays consistent. World State, Quest Tracker, Character Tracker, Persona Stats, Custom Tracker, Inventory Tracker, and Beholder default to **Add as Prompt Section** on. Expression Engine and Background are the exceptions.
 
 ### World State
 
@@ -114,6 +114,16 @@ When a recurring character returns after leaving the scene, Character Tracker re
 - **Where it works**: Roleplay.
 - **Key settings**: **Add as Prompt Section** (on by default) and an optional **Auto-Generate NPC Avatars** setting with its own image connection picker.
 
+### Beholder
+
+Tracks each character's current clothing by body slot, held items, wounds, missing body parts, explicitly bare slots, and non-human species. Its latest validated snapshot appears inside Beholder's Roleplay Chat Settings drawer and is passed to both Beholder's next tracking call and the next main roleplay response.
+
+- **Phase**: Post-Processing.
+- **Where it works**: Roleplay only.
+- **Key settings**: add or remove it under **Chat Settings → Agents → Tracker Agents**; open **Configure Beholder** there to choose its connection, model, prompt, context, and output limits. **Add as Prompt Section** is on by default.
+- **Model recommendation**: use a SOTA model such as OpenAI GPT-5.5+, Claude Opus 4.8+, or Kimi K3+ for reliable full-state tracking.
+- **Origin**: adapted into Engine's native Agent runtime from [GetBeholder/Beholder-ME](https://github.com/GetBeholder/Beholder-ME), licensed AGPL-3.0-only. The official package does not load the legacy extension's DOM, polling, or local-storage runtime.
+
 ### Persona Stats
 
 Tracks status bars for your own character, such as Satiety, Energy, and Hygiene, plus any custom bars you add. Use it for survival or life-sim style play.
@@ -129,6 +139,14 @@ Tracks fields you define yourself, such as currencies, counters, or flags. Use i
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
 - **Key settings**: **Add as Prompt Section** (on by default).
+
+### Inventory Tracker
+
+Tracks money, equipped gear, and carried items as three structured lists without reusing Persona Stats inventory or compressing the data into Custom Tracker strings. Duplicate names are merged, quantities of one stay visually compact, and locked rows survive later tracker runs unchanged.
+
+- **Phase**: Post-Processing.
+- **Where it works**: Roleplay.
+- **Key settings**: **Add as Prompt Section** (on by default). The HUD and Tracker Panel let you edit and lock every name and quantity.
 
 ### World Maps
 
@@ -216,8 +234,8 @@ Reads the mood of the scene and plays matching music. It can use Spotify, YouTub
 Reads the narrative and controls connected intimate toys in real time through Intiface Central. Intiface Central must already be running with a toy connected before you enable this agent.
 
 - **Phase**: Post-Processing.
-- **Where it works**: Roleplay.
-- **Key settings**: a **Touch Sensitivity** choice (**Subtle**, **Standard**, or **Intense**) and an **Intiface URL** field. For the full setup, see [Haptic Feedback setup](../integrations/haptic-feedback.md).
+- **Where it works**: Conversation, Roleplay, and Game.
+- **Key settings**: a **Touch Sensitivity** choice (**Subtle**, **Standard**, or **Intense**) and an **Intiface URL** field. Sensitivity guides the Agent's choices without capping the available `0.0-1.0` intensity range. For the full setup, see [Haptic Feedback setup](../integrations/haptic-feedback.md).
 
 ### CYOA Choices
 

@@ -2,7 +2,10 @@ import {
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
   type ConversationCallCharacterVideoClipKind,
 } from "../types/conversation-call.js";
-import type { ConversationCallVideoClipDurations, VideoGenerationUserSettings } from "../types/video-generation-settings.js";
+import type {
+  ConversationCallVideoClipDurations,
+  VideoGenerationUserSettings,
+} from "../types/video-generation-settings.js";
 
 export const VIDEO_GENERATION_SETTINGS_KEY = "video-generation";
 export const VIDEO_SCENE_DURATION_MIN = 1;

@@ -99,7 +99,10 @@ export function useAutonomousMessaging(
     async (userStatus: UserStatus) => {
       if (!chatId) return;
       try {
-        await api.post("/conversation/activity/presence", { chatId, userStatus: toAutonomousPresenceStatus(userStatus) });
+        await api.post("/conversation/activity/presence", {
+          chatId,
+          userStatus: toAutonomousPresenceStatus(userStatus),
+        });
       } catch {
         // non-critical
       }

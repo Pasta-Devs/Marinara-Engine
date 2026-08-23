@@ -9,10 +9,15 @@ import { PROFESSOR_MARI_ID, TTS_SETTINGS_KEY } from "@marinara-engine/shared";
 import { DATA_DIR } from "../utils/data-dir.js";
 import * as schema from "../db/schema/index.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { AVATAR_STORAGE_RATE_LIMIT } from "../middleware/rate-limit.js";
+import { logger } from "../lib/logger.js";
 import {
+  ABANDONED_AVATAR_MIN_AGE_MS,
   collectCharacterAvatarPaths,
   collectPersonaAvatarPaths,
+  deleteAbandonedAvatarFiles,
   mutateAvatarReferencesAndCleanup,
+  scanAbandonedAvatarFiles,
 } from "../services/image/avatar-file-lifecycle.js";
 
 type ExpungeScope =
@@ -57,6 +62,26 @@ function isValidScope(scope: unknown): scope is ExpungeScope {
 }
 
 export async function adminRoutes(app: FastifyInstance) {
+  app.get("/avatar-storage/abandoned", { config: { rateLimit: AVATAR_STORAGE_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Avatar storage scan" })) return;
+    const result = await scanAbandonedAvatarFiles({ db: app.db });
+    return { ...result, minimumAgeMinutes: ABANDONED_AVATAR_MIN_AGE_MS / 60_000 };
+  });
+
+  app.post<{ Body: { confirm: boolean } }>(
+    "/avatar-storage/cleanup",
+    { config: { rateLimit: AVATAR_STORAGE_RATE_LIMIT } },
+    async (req, reply) => {
+      if (!requirePrivilegedAccess(req, reply, { feature: "Avatar storage cleanup" })) return;
+      if (req.body?.confirm !== true) {
+        return reply.status(400).send({ error: "Must send { confirm: true } to proceed" });
+      }
+      const result = await deleteAbandonedAvatarFiles({ db: app.db });
+      logger.info("Removed %d abandoned avatar files (%d bytes)", result.files, result.bytes);
+      return { ...result, minimumAgeMinutes: ABANDONED_AVATAR_MIN_AGE_MS / 60_000 };
+    },
+  );
+
   const runExpunge = async (requestedScopes: ExpungeScope[], reply: FastifyReply) => {
     if (requestedScopes.length === 0) {
       return reply.status(400).send({ error: "At least one valid scope is required" });
@@ -106,10 +131,7 @@ export async function adminRoutes(app: FastifyInstance) {
             db,
             deletedCharacters.map((row) => row.id),
           );
-          return [
-            ...characterAvatarPaths,
-            ...deletedGroups.flatMap((row) => (row.avatarPath ? [row.avatarPath] : [])),
-          ];
+          return [...characterAvatarPaths, ...deletedGroups.flatMap((row) => (row.avatarPath ? [row.avatarPath] : []))];
         },
         mutateReferences: async () => {
           await runDelete("character_groups", () => db.delete(schema.characterGroups).run());

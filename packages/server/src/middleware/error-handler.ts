@@ -18,8 +18,10 @@ export function errorHandler(error: FastifyError, _request: FastifyRequest, repl
 
   // Known HTTP errors
   if (error.statusCode === 413) {
+    // Routes carry their own bodyLimit (64 KB on experience-generation, 256 MB
+    // app-wide for profile imports), so the message must not name one number.
     return reply.status(413).send({
-      error: "Imported file is too large. Profile imports support files up to 256 MB.",
+      error: "The request body is larger than this endpoint accepts.",
     });
   }
 

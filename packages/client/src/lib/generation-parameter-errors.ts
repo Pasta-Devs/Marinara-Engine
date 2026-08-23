@@ -48,7 +48,9 @@ function extractParameter(message: string, patterns: RegExp[]) {
 }
 
 function isPrivilegedAccessError(message: string): boolean {
-  return /\b(?:ADMIN_SECRET|X-Admin-Secret|Basic Auth|privileged APIs?|privileged API|authenticated access)\b/i.test(message);
+  return /\b(?:ADMIN_SECRET|X-Admin-Secret|Basic Auth|privileged APIs?|privileged API|authenticated access)\b/i.test(
+    message,
+  );
 }
 
 export function formatGenerationParameterError(message: string): string {
@@ -67,7 +69,11 @@ export function formatGenerationParameterError(message: string): string {
   if (unsupported) {
     return `The model does not accept the ${unsupported} parameter. Go to Chat Settings > Advanced Parameters and turn off Send for ${unsupported}.`;
   }
-  if (/\bunsupported parameters?\b|\bunknown parameters?\b|\bunrecognized (?:request )?(?:argument|parameter)/i.test(message)) {
+  if (
+    /\bunsupported parameters?\b|\bunknown parameters?\b|\bunrecognized (?:request )?(?:argument|parameter)/i.test(
+      message,
+    )
+  ) {
     return "The model does not accept one of the enabled advanced parameters. Go to Chat Settings > Advanced Parameters and turn off Send for unsupported fields, then try again.";
   }
 

@@ -1015,17 +1015,16 @@ type PersonaUpdateMutationInput = { id: string } & PersonaUpdateInput & PersonaS
 type PersonaTrackerCardMutationInput = {
   id: string;
   keepalive?: boolean;
-} &
-  (
-    | {
-        trackerCardPaint: TrackerCardPaintConfig;
-        trackerCardPortrait?: never;
-      }
-    | {
-        trackerCardPaint?: never;
-        trackerCardPortrait: PersonaTrackerPortrait;
-      }
-  );
+} & (
+  | {
+      trackerCardPaint: TrackerCardPaintConfig;
+      trackerCardPortrait?: never;
+    }
+  | {
+      trackerCardPaint?: never;
+      trackerCardPortrait: PersonaTrackerPortrait;
+    }
+);
 
 function invalidatePersonaPages(qc: QueryClient) {
   return qc.invalidateQueries({ queryKey: characterKeys.personaPages() });

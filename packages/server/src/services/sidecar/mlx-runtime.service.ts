@@ -1,25 +1,13 @@
 import { execFileSync, spawn, type ChildProcess } from "child_process";
 import { createHash } from "crypto";
-import {
-  chmodSync,
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { fileURLToPath } from "url";
 import type { SidecarDownloadProgress, SidecarRuntimeInfo } from "@marinara-engine/shared";
 import { getDataDir } from "../../utils/data-dir.js";
 import { assertInsideDir } from "../../utils/security.js";
 import { downloadFileWithProgress, isAbortError, retry } from "./sidecar-download.js";
-import {
-  MLX_RUNTIME_MANIFEST,
-  serializeMlxRuntimeManifestStamp,
-} from "./runtime-integrity-manifest.js";
+import { MLX_RUNTIME_MANIFEST, serializeMlxRuntimeManifestStamp } from "./runtime-integrity-manifest.js";
 
 const MLX_RUNTIME_DIR = join(getDataDir(), "sidecar-runtime", "mlx");
 const MLX_UV_DIR = join(MLX_RUNTIME_DIR, "uv");
@@ -127,9 +115,7 @@ function writeInstalledPackageSpec(): void {
 }
 
 function verifyRequirementsLock(): void {
-  const actualSha256 = createHash("sha256")
-    .update(readFileSync(MLX_REQUIREMENTS_LOCK_PATH))
-    .digest("hex");
+  const actualSha256 = createHash("sha256").update(readFileSync(MLX_REQUIREMENTS_LOCK_PATH)).digest("hex");
   if (actualSha256 !== MLX_RUNTIME_MANIFEST.mlxLm.requirementsLockSha256) {
     throw new Error(
       "The bundled MLX dependency lock failed integrity verification. Update or reinstall Marinara Engine before retrying; do not bypass the runtime integrity check.",
@@ -341,12 +327,7 @@ class MlxRuntimeService {
 
     try {
       verifyRequirementsLock();
-      await this.downloadVerifiedAsset(
-        MLX_RUNTIME_MANIFEST.mlxLm.archive,
-        mlxArchivePath,
-        "mlx-lm source",
-        onProgress,
-      );
+      await this.downloadVerifiedAsset(MLX_RUNTIME_MANIFEST.mlxLm.archive, mlxArchivePath, "mlx-lm source", onProgress);
       this.emitProgress(onProgress, "downloading", `Python ${PYTHON_VERSION} runtime`);
       await this.runCommand(UV_BIN, ["venv", MLX_VENV_DIR, "--python", PYTHON_VERSION], {
         cwd: MLX_RUNTIME_DIR,
@@ -458,7 +439,9 @@ class MlxRuntimeService {
     }
 
     if (!isBundledUvCurrent()) {
-      throw new Error("The approved uv runtime was installed, but its version or manifest stamp could not be verified.");
+      throw new Error(
+        "The approved uv runtime was installed, but its version or manifest stamp could not be verified.",
+      );
     }
   }
 

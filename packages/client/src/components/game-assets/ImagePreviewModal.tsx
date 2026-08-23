@@ -51,7 +51,11 @@ export function ImagePreviewModal({ node, onClose }: { node: TreeNode; onClose: 
           />
           <button
             type="button"
-            aria-label={showInfo ?localizeUi("ui.gameAssets.imagepreviewmodal.hideFileInfo") :localizeUi("ui.gameAssets.imagepreviewmodal.showFileInfo")}
+            aria-label={
+              showInfo
+                ? localizeUi("ui.gameAssets.imagepreviewmodal.hideFileInfo")
+                : localizeUi("ui.gameAssets.imagepreviewmodal.showFileInfo")
+            }
             onClick={(e) => {
               e.stopPropagation();
               setShowInfo(!showInfo);
@@ -68,7 +72,9 @@ export function ImagePreviewModal({ node, onClose }: { node: TreeNode; onClose: 
             className="ml-4 w-64 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h4 className="mb-3 text-sm font-semibold text-[var(--foreground)]">{localizeUi("ui.gameAssets.imageinfopopover.fileInfo")}</h4>
+            <h4 className="mb-3 text-sm font-semibold text-[var(--foreground)]">
+              {localizeUi("ui.gameAssets.imageinfopopover.fileInfo")}
+            </h4>
             <div className="space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-[var(--muted-foreground)]">{localizeUi("ui.characters.metadatatab.name")}</span>
@@ -80,7 +86,9 @@ export function ImagePreviewModal({ node, onClose }: { node: TreeNode; onClose: 
               </div>
               {info.width != null && info.height != null && (
                 <div className="flex justify-between">
-                  <span className="text-[var(--muted-foreground)]">{localizeUi("ui.gameAssets.imageinfopopover.dimensions")}</span>
+                  <span className="text-[var(--muted-foreground)]">
+                    {localizeUi("ui.gameAssets.imageinfopopover.dimensions")}
+                  </span>
                   <span className="text-[var(--foreground)]">
                     {info.width} × {info.height}
                   </span>
@@ -88,7 +96,9 @@ export function ImagePreviewModal({ node, onClose }: { node: TreeNode; onClose: 
               )}
               {info.format && (
                 <div className="flex justify-between">
-                  <span className="text-[var(--muted-foreground)]">{localizeUi("ui.gameAssets.imageinfopopover.format")}</span>
+                  <span className="text-[var(--muted-foreground)]">
+                    {localizeUi("ui.gameAssets.imageinfopopover.format")}
+                  </span>
                   <span className="uppercase text-[var(--foreground)]">{info.format}</span>
                 </div>
               )}

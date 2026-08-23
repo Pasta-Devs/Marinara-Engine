@@ -7,6 +7,8 @@
 // that gets injected back into the chat.
 // ──────────────────────────────────────────────
 
+import type { MusicEnemyTier } from "../utils/music-score.js";
+
 /** Attack definition for party members and enemies. */
 export interface CombatAttack {
   name: string;
@@ -81,6 +83,11 @@ export interface CombatMechanic {
 /** Optional image generation request for special encounters. */
 export interface CombatVisualRequest {
   isBossFight?: boolean;
+  /** Encounter classification for context-bound music (#5161): common fights,
+   *  minibosses (elites/named threats), true bosses, and special story
+   *  encounters each get their own persistent track. Falls back from
+   *  isBossFight when absent. */
+  encounterTier?: MusicEnemyTier;
   enemyImagePrompts?: Array<{ name: string; prompt: string }>;
   backgroundPrompt?: string;
   illustrationPrompt?: string;

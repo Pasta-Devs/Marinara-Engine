@@ -12,16 +12,13 @@ export function resolveConversationSelfieConnectionId(input: {
   selfieCommandEnabled: boolean;
   connections: readonly ConversationSelfieConnectionOption[];
 }): string | null {
-  const currentConnectionId =
-    typeof input.currentConnectionId === "string" ? input.currentConnectionId.trim() : "";
+  const currentConnectionId = typeof input.currentConnectionId === "string" ? input.currentConnectionId.trim() : "";
   if (currentConnectionId) return currentConnectionId;
   if (!input.selfieCommandEnabled) return null;
 
   return (
     input.connections.find(
-      (connection) =>
-        connection.provider === "image_generation" &&
-        String(connection.defaultForAgents) === "true",
+      (connection) => connection.provider === "image_generation" && String(connection.defaultForAgents) === "true",
     )?.id ?? null
   );
 }

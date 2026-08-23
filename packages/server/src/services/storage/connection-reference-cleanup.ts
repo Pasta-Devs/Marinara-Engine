@@ -41,10 +41,7 @@ type ConnectionReferenceCleanupResult = {
  * Returns rewritten serialized JSON only when an object contains a matching
  * `*ConnectionId` reference. Malformed and non-object roots are left alone.
  */
-function serializeNullifiedConnectionIdReferences(
-  raw: unknown,
-  deletedConnectionId: string,
-): string | undefined {
+function serializeNullifiedConnectionIdReferences(raw: unknown, deletedConnectionId: string): string | undefined {
   if (typeof raw !== "string" && (!raw || typeof raw !== "object" || Array.isArray(raw))) {
     return undefined;
   }
@@ -96,12 +93,7 @@ export async function sweepDanglingConnectionReferences(
   }
 
   for (let offset = 0; ; offset += CLEANUP_BATCH_SIZE) {
-    const chatRows = await db
-      .select()
-      .from(chats)
-      .orderBy(chats.id)
-      .limit(CLEANUP_BATCH_SIZE)
-      .offset(offset);
+    const chatRows = await db.select().from(chats).orderBy(chats.id).limit(CLEANUP_BATCH_SIZE).offset(offset);
     for (const chat of chatRows) {
       const metadata = serializeNullifiedConnectionIdReferences(chat.metadata, deletedConnectionId);
       const directMatch = chat.connectionId === deletedConnectionId;

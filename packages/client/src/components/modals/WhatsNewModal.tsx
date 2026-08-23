@@ -49,6 +49,37 @@ function localizedCopy(key: string): ReleaseCopy {
 // Add each release here before its version ships. Versions without a tailored
 // entry still get a one-time update notice and a link to their full release.
 const RELEASE_ANNOUNCEMENTS: Record<string, ReleaseAnnouncement> = {
+  "2.4.3": {
+    headline: localizedCopy("ui.modals.whatsnewmodal.release243.headline"),
+    intro: localizedCopy("ui.modals.whatsnewmodal.release243.intro"),
+    highlights: [],
+    story: [
+      {
+        id: "inventory-tracker",
+        copyKey: "ui.modals.whatsnewmodal.release243.paragraphs.inventoryTracker",
+        media: [
+          {
+            url: "https://i.imgur.com/EhkASR2.png",
+            altKey: "ui.modals.whatsnewmodal.release243.media.inventoryTrackerCatalog",
+          },
+          {
+            url: "https://i.imgur.com/AmhEOED.png",
+            altKey: "ui.modals.whatsnewmodal.release243.media.inventoryTrackerPanel",
+          },
+        ],
+      },
+      {
+        id: "full-changelog",
+        copyKey: "ui.modals.whatsnewmodal.release243.paragraphs.fullChangelog",
+      },
+      {
+        id: "release-link",
+        copyKey: "ui.modals.whatsnewmodal.release243.paragraphs.releaseLink",
+        linkUrl: "https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.4.3",
+      },
+    ],
+    outro: localizedCopy("ui.modals.whatsnewmodal.release243.outro"),
+  },
   "2.4.2": {
     headline: localizedCopy("ui.modals.whatsnewmodal.release242.headline"),
     intro: localizedCopy("ui.modals.whatsnewmodal.release242.intro"),

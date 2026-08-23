@@ -1,7 +1,4 @@
-import {
-  LOCAL_SIDECAR_CONNECTION_ID,
-  parseConnectionImageCaptioningDefaults,
-} from "@marinara-engine/shared";
+import { LOCAL_SIDECAR_CONNECTION_ID, parseConnectionImageCaptioningDefaults } from "@marinara-engine/shared";
 
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
@@ -63,7 +60,8 @@ export function redactImageCaptionMessagesForLog(messages: readonly ChatMessage[
           images: message.images.map((image) => {
             const separator = image.indexOf(",");
             return {
-              mediaType: image.startsWith("data:") && separator > 5 ? image.slice(5, separator).split(";")[0] : "unknown",
+              mediaType:
+                image.startsWith("data:") && separator > 5 ? image.slice(5, separator).split(";")[0] : "unknown",
               encodedCharacters: image.length,
             };
           }),
@@ -98,10 +96,7 @@ export async function resolveImageCaptioningRuntime(args: {
   const { chatMeta, connections } = args;
   try {
     const hasChatEnabledOverride = typeof chatMeta.imageCaptioningEnabled === "boolean";
-    const hasChatConnectionOverride = Object.prototype.hasOwnProperty.call(
-      chatMeta,
-      "imageCaptioningConnectionId",
-    );
+    const hasChatConnectionOverride = Object.prototype.hasOwnProperty.call(chatMeta, "imageCaptioningConnectionId");
     let activeConnection: ImageCaptionConnection | null = null;
     if (
       (!hasChatEnabledOverride || !hasChatConnectionOverride) &&
@@ -121,12 +116,11 @@ export async function resolveImageCaptioningRuntime(args: {
       typeof connectionDefaults.imageCaptioningConnectionId === "string"
         ? connectionDefaults.imageCaptioningConnectionId
         : null;
-    const configuredConnectionId =
-      hasChatConnectionOverride
-        ? typeof chatMeta.imageCaptioningConnectionId === "string" && chatMeta.imageCaptioningConnectionId.trim()
-          ? chatMeta.imageCaptioningConnectionId.trim()
-          : null
-        : inheritedConnectionId;
+    const configuredConnectionId = hasChatConnectionOverride
+      ? typeof chatMeta.imageCaptioningConnectionId === "string" && chatMeta.imageCaptioningConnectionId.trim()
+        ? chatMeta.imageCaptioningConnectionId.trim()
+        : null
+      : inheritedConnectionId;
     const fallbackCaptionConnectionId = configuredConnectionId ?? args.fallbackConnectionId;
     if (!fallbackCaptionConnectionId) return DISABLED_IMAGE_CAPTIONING;
     let captionConnectionId = fallbackCaptionConnectionId;

@@ -13,12 +13,7 @@ import { useChat } from "./use-chats";
 import { getChatCharacterIds } from "../lib/chat-macros";
 import { parseCharacterDisplayData } from "../lib/character-display";
 import { useCustomEmojis } from "./use-custom-emojis";
-import {
-  usePersona,
-  usePersonaGalleryImages,
-  characterKeys,
-  type CharacterGalleryImage,
-} from "./use-characters";
+import { usePersona, usePersonaGalleryImages, characterKeys, type CharacterGalleryImage } from "./use-characters";
 
 export interface ConversationCustomEmoji {
   name: string;

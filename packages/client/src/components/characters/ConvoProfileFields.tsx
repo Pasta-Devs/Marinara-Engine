@@ -62,6 +62,8 @@ export function ConvoProfileFields({
   const aboutMeRef = useRef<HTMLTextAreaElement>(null);
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  /** Stable Playwright prefix derived from the owning editor kind. */
+  const testIdPrefix = `${kind}-editor`;
 
   // Snapshot the about-me right before the first manual edit so the user can
   // undo changes they do not like. Cleared once reverted.
@@ -113,6 +115,7 @@ export function ConvoProfileFields({
           value={displayName}
           onChange={(e) => onDisplayNameChange(e.target.value)}
           placeholder={baseName || "Display name"}
+          data-testid={`${testIdPrefix}-convo-display-name-input`}
           className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
         />
         {kind === "character" && onDisplayNameInCardChange && (
@@ -121,6 +124,7 @@ export function ConvoProfileFields({
               type="checkbox"
               checked={!!displayNameInCard}
               onChange={(e) => onDisplayNameInCardChange(e.target.checked)}
+              data-testid={`${testIdPrefix}-convo-display-name-in-card-checkbox`}
               className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--primary)]"
             />
             <span className="inline-flex items-center gap-1">
@@ -149,6 +153,7 @@ export function ConvoProfileFields({
           placeholder={localizeUi("ui.characters.convoprofilefields.aLineOrTwoAnEmojiAJokeOr")}
           rows={5}
           title={localizeUi("ui.characters.convoprofilefields.aboutMe")}
+          testId={`${testIdPrefix}-convo-about-me-textarea`}
           className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           toolbarExtra={
             <button
@@ -157,6 +162,7 @@ export function ConvoProfileFields({
               onClick={() => setEmojiOpen((v) => !v)}
               aria-label={localizeUi("ui.characters.convoprofilefields.insertEmoji")}
               title={localizeUi("ui.characters.convoprofilefields.insertEmoji")}
+              data-testid={`${testIdPrefix}-convo-about-me-emoji-button`}
               className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             >
               <Smile className="h-3 w-3" />
@@ -177,6 +183,7 @@ export function ConvoProfileFields({
               setRevertTo(null);
             }}
             title={localizeUi("ui.characters.convoprofilefields.undoTheChangesToThisAboutMe")}
+            data-testid={`${testIdPrefix}-convo-about-me-revert-button`}
             className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           >
             <RotateCcw size="0.8125rem" />
@@ -200,6 +207,7 @@ export function ConvoProfileFields({
             placeholder={localizeUi("ui.characters.convoprofilefields.eGKeepRepliesShortAndLowercaseTextsLike")}
             rows={4}
             title={localizeUi("ui.characters.convoprofilefields.convoBehavior")}
+            testId={`${testIdPrefix}-convo-behavior-textarea`}
             className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           />
           <label className="flex flex-wrap items-center gap-2 text-xs">
@@ -214,6 +222,7 @@ export function ConvoProfileFields({
                   insertionStrategy: e.target.value as ConvoBehaviorInsertionStrategy,
                 })
               }
+              data-testid={`${testIdPrefix}-convo-behavior-insertion-select`}
               className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs outline-none"
             >
               {STRATEGY_OPTIONS.map((opt) => (
@@ -237,6 +246,7 @@ export function ConvoProfileFields({
             onChange={(event) => onImageInstructionsChange(event.target.value)}
             placeholder={localizeUi("ui.characters.convoprofilefields.imageGenerationInstructionsPlaceholder")}
             rows={5}
+            data-testid={`${testIdPrefix}-convo-image-instructions-textarea`}
             className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           />
           <label className="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
@@ -244,6 +254,7 @@ export function ConvoProfileFields({
               type="checkbox"
               checked={!!applyImageInstructionsToNoodle}
               onChange={(event) => onApplyImageInstructionsToNoodleChange(event.target.checked)}
+              data-testid={`${testIdPrefix}-convo-image-instructions-noodle-checkbox`}
               className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--primary)]"
             />
             <span>{localizeUi("ui.characters.convoprofilefields.applyImageInstructionsToNoodle")}</span>

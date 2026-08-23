@@ -23,9 +23,7 @@ const NON_REVIEWABLE_WRITER_AGENT_TYPES = new Set(["director", "knowledge-retrie
 export function isReviewableWriterAgentType(agentType: string): boolean {
   const agent = BUILT_IN_AGENTS.find((entry) => entry.id === agentType);
   return (
-    agent?.category === "writer" &&
-    agent.phase === "pre_generation" &&
-    !NON_REVIEWABLE_WRITER_AGENT_TYPES.has(agent.id)
+    agent?.category === "writer" && agent.phase === "pre_generation" && !NON_REVIEWABLE_WRITER_AGENT_TYPES.has(agent.id)
   );
 }
 
@@ -197,7 +195,7 @@ export function clearUnusedRuntimeAgentSections(
       const message = messages[i]!;
       if (!message.content.includes(tokens.start) && !message.content.includes(tokens.placeholder)) continue;
       const content = message.content
-        .replace(sectionPattern, (_match, sectionContent: string) => sectionContent.split(tokens.placeholder).join(""))
+        .replace(sectionPattern, "")
         .split(tokens.start)
         .join("")
         .split(tokens.end)

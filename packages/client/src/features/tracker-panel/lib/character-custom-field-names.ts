@@ -2,9 +2,7 @@ export function normalizeCharacterCustomFieldName(value: string) {
   return value.normalize("NFKC").trim().toLocaleLowerCase("en-US").replace(/\s+/gu, " ");
 }
 
-export function makeUniqueCharacterCustomFieldName(
-  customFields: Record<string, string> | null | undefined,
-) {
+export function makeUniqueCharacterCustomFieldName(customFields: Record<string, string> | null | undefined) {
   const existing = new Set(Object.keys(customFields ?? {}).map(normalizeCharacterCustomFieldName));
   let index = 1;
   let name = "New Field";

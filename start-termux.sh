@@ -4,6 +4,30 @@
 # ──────────────────────────────────────────────
 set -e
 
+MARINARA_TERMUX_LOG_DIR="$HOME/.marinara-engine/logs"
+MARINARA_TERMUX_LOG_FILE=""
+MARINARA_TERMUX_LOG_TEE_PID=""
+if mkdir -p "$MARINARA_TERMUX_LOG_DIR"; then
+    if chmod 700 "$MARINARA_TERMUX_LOG_DIR" 2>/dev/null; then
+        find "$MARINARA_TERMUX_LOG_DIR" -type f -name 'server-*.log' -mtime +14 -delete 2>/dev/null || true
+        MARINARA_TERMUX_LOG_FILE="$MARINARA_TERMUX_LOG_DIR/server-$(date '+%Y%m%d-%H%M%S')-$$.log"
+        if command -v tee >/dev/null 2>&1 && touch "$MARINARA_TERMUX_LOG_FILE" && chmod 600 "$MARINARA_TERMUX_LOG_FILE" 2>/dev/null; then
+            exec 3>&1 4>&2
+            exec > >(tee -a "$MARINARA_TERMUX_LOG_FILE") 2>&1
+            MARINARA_TERMUX_LOG_TEE_PID=$!
+            echo "  [OK] Persistent launcher/server log: $MARINARA_TERMUX_LOG_FILE"
+        else
+            echo "  [WARN] Could not create a restrictively permissioned Termux session log." >&2
+            rm -f "$MARINARA_TERMUX_LOG_FILE"
+            MARINARA_TERMUX_LOG_FILE=""
+        fi
+    else
+        echo "  [WARN] Could not restrict permissions on $MARINARA_TERMUX_LOG_DIR; this session will not have a persistent log." >&2
+    fi
+else
+    echo "  [WARN] Could not create $MARINARA_TERMUX_LOG_DIR; this session will not have a persistent log." >&2
+fi
+
 echo ""
 echo "  ╔══════════════════════════════════════════╗"
 echo "  ║   Marinara Engine  —  Termux Launcher    ║"
@@ -617,4 +641,24 @@ fi
 
 # Start server
 cd packages/server
+# Preserve Node's real exit status. The launcher's session-wide tee has already
+# made update, build, and server output durable for the next support report.
+set +e
 node dist/index.js
+MARINARA_SERVER_STATUS=$?
+set -e
+if [ "$MARINARA_SERVER_STATUS" -ne 0 ]; then
+    echo "  [ERROR] Marinara Engine server exited with status $MARINARA_SERVER_STATUS." >&2
+fi
+if [ -n "$MARINARA_TERMUX_LOG_TEE_PID" ]; then
+    # Close the pipe before waiting so tee sees EOF and flushes the final lines.
+    exec 1>&3 2>&4 3>&- 4>&-
+    set +e
+    wait "$MARINARA_TERMUX_LOG_TEE_PID"
+    MARINARA_TERMUX_LOG_TEE_STATUS=$?
+    set -e
+    if [ "$MARINARA_TERMUX_LOG_TEE_STATUS" -ne 0 ]; then
+        echo "  [WARN] Persistent Termux logging failed with status $MARINARA_TERMUX_LOG_TEE_STATUS." >&2
+    fi
+fi
+exit "$MARINARA_SERVER_STATUS"

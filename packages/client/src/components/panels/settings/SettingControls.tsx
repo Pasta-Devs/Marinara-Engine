@@ -187,12 +187,16 @@ export function ConversationSoundSetting() {
       setPreference(false);
       toast.error(
         permission === "insecure"
-          ?localizeUi("ui.panels.conversationsoundsetting.browserNotificationsRequireHttpsOrLocalhostOpenMarinaraThrough")
+          ? localizeUi(
+              "ui.panels.conversationsoundsetting.browserNotificationsRequireHttpsOrLocalhostOpenMarinaraThrough",
+            )
           : permission === "unsupported"
-            ?localizeUi("ui.panels.conversationsoundsetting.browserNotificationsAreNotAvailableInThisEnvironment")
+            ? localizeUi("ui.panels.conversationsoundsetting.browserNotificationsAreNotAvailableInThisEnvironment")
             : permission === "denied"
-              ?localizeUi("ui.panels.conversationsoundsetting.browserNotificationsAreBlockedResetThisSiteSNotification")
-              :localizeUi("ui.panels.conversationsoundsetting.browserNotificationPermissionWasNotGranted"),
+              ? localizeUi(
+                  "ui.panels.conversationsoundsetting.browserNotificationsAreBlockedResetThisSiteSNotification",
+                )
+              : localizeUi("ui.panels.conversationsoundsetting.browserNotificationPermissionWasNotGranted"),
       );
     });
   };
@@ -217,8 +221,8 @@ export function ConversationSoundSetting() {
         setPreference(false);
         toast.error(
           permission === "unsupported"
-            ?localizeUi("ui.panels.conversationsoundsetting.mobileNotificationsRequireTheMarinaraAndroidApp")
-            :localizeUi("ui.panels.conversationsoundsetting.androidNotificationPermissionWasNotGranted"),
+            ? localizeUi("ui.panels.conversationsoundsetting.mobileNotificationsRequireTheMarinaraAndroidApp")
+            : localizeUi("ui.panels.conversationsoundsetting.androidNotificationPermissionWasNotGranted"),
         );
       })
       .catch(() => {
@@ -306,8 +310,8 @@ export function ConversationSoundSetting() {
         disabled={!nativeNotificationsAvailable}
         help={
           nativeNotificationsAvailable
-            ?localizeUi("ui.panels.conversationsoundsetting.usesNativeAndroidNotificationsFromTheInstalledMarinaraApp")
-            :localizeUi("ui.panels.conversationsoundsetting.availableInTheUpdatedMarinaraAndroidApkBrowserAnd")
+            ? localizeUi("ui.panels.conversationsoundsetting.usesNativeAndroidNotificationsFromTheInstalledMarinaraApp")
+            : localizeUi("ui.panels.conversationsoundsetting.availableInTheUpdatedMarinaraAndroidApkBrowserAnd")
         }
       />
       <div className="mt-1 flex items-center gap-1.5">
@@ -346,8 +350,8 @@ export function ConversationSoundSetting() {
         disabled={!nativeNotificationsAvailable}
         help={
           nativeNotificationsAvailable
-            ?localizeUi("ui.panels.conversationsoundsetting.usesNativeAndroidNotificationsFromTheInstalledMarinaraApp")
-            :localizeUi("ui.panels.conversationsoundsetting.availableInTheUpdatedMarinaraAndroidApkBrowserAnd")
+            ? localizeUi("ui.panels.conversationsoundsetting.usesNativeAndroidNotificationsFromTheInstalledMarinaraApp")
+            : localizeUi("ui.panels.conversationsoundsetting.availableInTheUpdatedMarinaraAndroidApkBrowserAnd")
         }
       />
     </div>
@@ -616,6 +620,8 @@ type SettingsSwitchProps = SettingsSwitchAccessibleLabel & {
   labelClassName?: string;
   /** Appended last so callers can intentionally override checked-track visuals. */
   switchClassName?: string;
+  /** Optional data-testid applied to the underlying checkbox for Playwright selectors. */
+  testId?: string;
 };
 
 export function SettingsSwitch({
@@ -634,6 +640,7 @@ export function SettingsSwitch({
   className,
   labelClassName,
   switchClassName,
+  testId,
 }: SettingsSwitchProps) {
   const inputId = useId();
   const localize = useLocalizedUiText();
@@ -649,6 +656,7 @@ export function SettingsSwitch({
         disabled={disabled}
         aria-label={!label && ariaLabel ? localize(ariaLabel) : undefined}
         onChange={(e) => onChange(e.target.checked)}
+        data-testid={testId}
         className="peer sr-only"
       />
       <label

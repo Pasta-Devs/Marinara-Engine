@@ -56,8 +56,7 @@ function useInvalidatePersonalExtensions() {
 export function useCreatePersonalExtension() {
   const invalidate = useInvalidatePersonalExtensions();
   return useMutation({
-    mutationFn: (input: CreatePersonalExtensionInput) =>
-      api.post<PersonalExtension>("/personal-extensions", input),
+    mutationFn: (input: CreatePersonalExtensionInput) => api.post<PersonalExtension>("/personal-extensions", input),
     onSuccess: invalidate,
   });
 }

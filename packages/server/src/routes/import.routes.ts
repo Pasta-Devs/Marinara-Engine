@@ -370,11 +370,7 @@ function readMultipartFieldValue(file: { fields?: Record<string, any> } | null |
 function readChatMode(value: unknown): ChatMode | undefined {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim().toLowerCase();
-  if (
-    normalized === "conversation" ||
-    normalized === "roleplay" ||
-    normalized === "game"
-  ) {
+  if (normalized === "conversation" || normalized === "roleplay" || normalized === "game") {
     return normalized;
   }
   return undefined;

@@ -620,6 +620,13 @@ export const VIDEO_GENERATION_SOURCES: VideoGenSource[] = [
     requiresApiKey: true,
   },
   {
+    id: "nanogpt",
+    name: "NanoGPT",
+    description: "Video generation models discovered from NanoGPT's asynchronous Video API.",
+    defaultBaseUrl: "https://nano-gpt.com/api",
+    requiresApiKey: true,
+  },
+  {
     id: "atlas",
     name: "Atlas Cloud",
     description: "Atlas Cloud image and video models through its asynchronous media API.",
@@ -899,13 +906,39 @@ const VIDEO_GEN_MODELS: KnownModel[] = [
   ...ATLAS_CLOUD_VIDEO_MODELS,
 ];
 
+// Seed catalog only — each source's real model/voice lists are fetched at
+// runtime through the TTS discovery endpoints (/api/tts/models, /api/tts/voices).
+const AUDIO_GEN_MODELS: KnownModel[] = [
+  // ElevenLabs
+  { id: "eleven_multilingual_v2", name: "Eleven Multilingual v2", context: 0, maxOutput: 0 },
+  { id: "eleven_turbo_v2_5", name: "Eleven Turbo v2.5", context: 0, maxOutput: 0 },
+  { id: "eleven_flash_v2_5", name: "Eleven Flash v2.5", context: 0, maxOutput: 0 },
+  // OpenAI
+  { id: "gpt-4o-mini-tts", name: "GPT-4o Mini TTS", context: 0, maxOutput: 0 },
+  { id: "tts-1", name: "TTS-1", context: 0, maxOutput: 0 },
+  { id: "tts-1-hd", name: "TTS-1 HD", context: 0, maxOutput: 0 },
+  // PocketTTS (local)
+  { id: "pocket-tts", name: "PocketTTS", context: 0, maxOutput: 0 },
+  // xAI
+  { id: "grok-tts", name: "Grok TTS", context: 0, maxOutput: 0 },
+];
+
 export function inferVideoSource(model: string, baseUrl: string): string {
   const m = model.toLowerCase();
   const u = baseUrl.toLowerCase();
+  let hostname = "";
+  try {
+    hostname = new URL(baseUrl).hostname.toLowerCase().replace(/\.$/, "");
+  } catch {
+    // Keep inference best-effort for incomplete custom URLs while they are edited.
+  }
   if (m === "swarmui" || u.includes(":7801") || u.includes("swarmui")) return "swarmui";
   if (m === "comfyui" || u.includes(":8188") || u.includes("comfyui")) return "comfyui";
   if (m === "atlas" || u.includes("atlascloud.ai")) return "atlas";
   if (m === "seedance" || m.startsWith("seedance-") || u.includes("seedance2.ai")) return "seedance";
+  if (m === "nanogpt" || hostname === "nano-gpt.com" || hostname.endsWith(".nano-gpt.com")) {
+    return "nanogpt";
+  }
   if (m === "openrouter" || u.includes("openrouter.ai")) return "openrouter";
   if (m.includes("/") && (m.includes("veo") || m.includes("wan"))) return "openrouter";
   if (m === "google_veo" || m === "veo" || /^veo-[\d.]+/.test(m)) return "google_veo";
@@ -921,6 +954,12 @@ export function inferVideoSource(model: string, baseUrl: string): string {
 export function inferImageSource(model: string, baseUrl: string): string {
   const m = model.toLowerCase();
   const u = baseUrl.toLowerCase();
+  let hostname = "";
+  try {
+    hostname = new URL(baseUrl).hostname.toLowerCase().replace(/\.$/, "");
+  } catch {
+    // Keep inference best-effort for incomplete custom URLs while they are edited.
+  }
   if (
     m === "openai" ||
     m === "stability" ||
@@ -944,7 +983,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
     return m;
   }
   if (m === "drawthings") return "automatic1111";
-  if (u.includes("nano-gpt.com")) return "nanogpt";
+  if (hostname === "nano-gpt.com" || hostname.endsWith(".nano-gpt.com")) return "nanogpt";
   if (u.includes("openrouter.ai")) return "openrouter";
   if (u.includes("api.x.ai") || u.includes("x.ai")) return "xai";
   if (u.includes("venice.ai")) return "venice";
@@ -992,6 +1031,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   custom: [...OPENAI_MODELS, ...ZAI_MODELS],
   image_generation: IMAGE_GEN_MODELS,
   video_generation: VIDEO_GEN_MODELS,
+  audio: AUDIO_GEN_MODELS,
 };
 
 const OPENAI_COMPATIBLE_AGGREGATOR_MODELS: KnownModel[] = [

@@ -51,6 +51,7 @@ export function PromptPresetSection({
       <div className="flex items-center gap-1.5">
         <div className="relative min-w-0 flex-1">
           <select
+            data-testid={`chat-settings-preset${promptPresetId ? `-${promptPresetId}` : ""}`}
             value={promptPresetId ?? ""}
             onChange={(event) => onPromptPresetChange(event.target.value || null)}
             className="mari-preset-native-select w-full appearance-none truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
@@ -84,7 +85,9 @@ export function PromptPresetSection({
       {showLorebookMarkerWarning && (
         <div className="mt-2 flex items-start gap-2 rounded-lg bg-amber-400/10 px-3 py-2 text-[0.6875rem] text-amber-200 ring-1 ring-amber-400/25">
           <AlertTriangle size="0.75rem" className="mt-[0.125rem] shrink-0" />
-          <span>{localizeUi("ui.chatSettings.promptpresetsection.thisPresetHasActiveLorebooksAvailableButNoLorebook")}</span>
+          <span>
+            {localizeUi("ui.chatSettings.promptpresetsection.thisPresetHasActiveLorebooksAvailableButNoLorebook")}
+          </span>
         </div>
       )}
       {promptPresetId && (

@@ -4,7 +4,22 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ArrowLeft, BookMarked, BookOpen, FileText, Info, Loader2, MessageSquare, Play, Save, SlidersHorizontal, Sparkles, Trash2, UserRound, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  BookMarked,
+  BookOpen,
+  FileText,
+  Info,
+  Loader2,
+  MessageSquare,
+  Play,
+  Save,
+  SlidersHorizontal,
+  Sparkles,
+  Trash2,
+  UserRound,
+  Users,
+} from "lucide-react";
 import DOMPurify from "dompurify";
 import { useStoryBundle, useUpdateStoryBundle, useDeleteStoryBundle } from "../../hooks/use-story-bundles";
 import { useCharacters, useCharacterGroups, usePersonas } from "../../hooks/use-characters";
@@ -30,18 +45,69 @@ import { StoryBundleIntros } from "./StoryBundleIntros";
 
 /** Allowed HTML tags for the description preview. */
 const ALLOWED_DESCRIPTION_TAGS = [
-  "a", "abbr", "b", "blockquote", "br", "code", "dd", "del", "div", "dl",
-  "dt", "em", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img",
-  "ins", "li", "mark", "ol", "p", "pre", "s", "small", "span", "strong",
-  "sub", "sup", "table", "tbody", "td", "th", "thead", "tr", "u", "ul",
+  "a",
+  "abbr",
+  "b",
+  "blockquote",
+  "br",
+  "code",
+  "dd",
+  "del",
+  "div",
+  "dl",
+  "dt",
+  "em",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "hr",
+  "i",
+  "img",
+  "ins",
+  "li",
+  "mark",
+  "ol",
+  "p",
+  "pre",
+  "s",
+  "small",
+  "span",
+  "strong",
+  "sub",
+  "sup",
+  "table",
+  "tbody",
+  "td",
+  "th",
+  "thead",
+  "tr",
+  "u",
+  "ul",
 ];
 
 /** Sanitize HTML for safe rendering in the description preview. */
 function sanitizeDescription(html: string): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ALLOWED_DESCRIPTION_TAGS,
-    ALLOWED_ATTR: ["href", "target", "rel", "src", "alt", "width", "height",
-      "class", "id", "style", "colspan", "rowspan", "start", "type"],
+    ALLOWED_ATTR: [
+      "href",
+      "target",
+      "rel",
+      "src",
+      "alt",
+      "width",
+      "height",
+      "class",
+      "id",
+      "style",
+      "colspan",
+      "rowspan",
+      "start",
+      "type",
+    ],
   });
 }
 
@@ -104,41 +170,30 @@ export function StoryBundleEditor() {
     [allCharacterGroups],
   );
 
-  const validCharacterIds = useMemo(
-    () => new Set((characters ?? []).map((c) => c.id)),
-    [characters],
-  );
+  const validCharacterIds = useMemo(() => new Set((characters ?? []).map((c) => c.id)), [characters]);
 
   const personas = useMemo(
     () =>
-      (allPersonas ?? []) as Array<{ id: string; name: string; avatarPath?: string | null; avatarCrop?: string; comment?: string | null; description?: string | null }>,
+      (allPersonas ?? []) as Array<{
+        id: string;
+        name: string;
+        avatarPath?: string | null;
+        avatarCrop?: string;
+        comment?: string | null;
+        description?: string | null;
+      }>,
     [allPersonas],
   );
 
-  const validPersonaIds = useMemo(
-    () => new Set((personas ?? []).map((p) => p.id)),
-    [personas],
-  );
+  const validPersonaIds = useMemo(() => new Set((personas ?? []).map((p) => p.id)), [personas]);
 
-  const lorebooks = useMemo(
-    () => (allLorebooks ?? []) as Lorebook[],
-    [allLorebooks],
-  );
+  const lorebooks = useMemo(() => (allLorebooks ?? []) as Lorebook[], [allLorebooks]);
 
-  const validLorebookIds = useMemo(
-    () => new Set((lorebooks ?? []).map((lb) => lb.id)),
-    [lorebooks],
-  );
+  const validLorebookIds = useMemo(() => new Set((lorebooks ?? []).map((lb) => lb.id)), [lorebooks]);
 
-  const presets = useMemo(
-    () => (allPresets ?? []) as PromptPreset[],
-    [allPresets],
-  );
+  const presets = useMemo(() => (allPresets ?? []) as PromptPreset[], [allPresets]);
 
-  const validPresetIds = useMemo(
-    () => new Set((presets ?? []).map((p) => p.id)),
-    [presets],
-  );
+  const validPresetIds = useMemo(() => new Set((presets ?? []).map((p) => p.id)), [presets]);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -210,24 +265,44 @@ export function StoryBundleEditor() {
   const agentIdsDirty = bundle
     ? JSON.stringify([...(agentIds ?? [])].sort()) !== JSON.stringify([...(bundle.agentIds ?? [])].sort())
     : false;
-  const introsDirty = bundle
-    ? JSON.stringify(intros) !== JSON.stringify(bundle.intros ?? [])
-    : false;
-  const avatarCropDirty = bundle
-    ? JSON.stringify(avatarCrop) !== JSON.stringify(bundle.avatarCrop ?? null)
-    : false;
-  const isDirty = nameDirty || descriptionDirty || commentDirty || creatorDirty || versionDirty || tagsDirty || characterIdsDirty || personaIdsDirty || lorebookIdsDirty || presetIdsDirty || agentIdsDirty || introsDirty || avatarCropDirty;
+  const introsDirty = bundle ? JSON.stringify(intros) !== JSON.stringify(bundle.intros ?? []) : false;
+  const avatarCropDirty = bundle ? JSON.stringify(avatarCrop) !== JSON.stringify(bundle.avatarCrop ?? null) : false;
+  const isDirty =
+    nameDirty ||
+    descriptionDirty ||
+    commentDirty ||
+    creatorDirty ||
+    versionDirty ||
+    tagsDirty ||
+    characterIdsDirty ||
+    personaIdsDirty ||
+    lorebookIdsDirty ||
+    presetIdsDirty ||
+    agentIdsDirty ||
+    introsDirty ||
+    avatarCropDirty;
 
-  const sanitizedDescription = useMemo(
-    () => (description ? sanitizeDescription(description) : ""),
-    [description],
-  );
+  const sanitizedDescription = useMemo(() => (description ? sanitizeDescription(description) : ""), [description]);
 
   const handleSave = useCallback(async () => {
     if (!storyBundleDetailId || !isDirty || saving) return;
     setSaving(true);
     try {
-      const payload: { name?: string; description?: string | null; avatarCrop?: Record<string, unknown> | null; comment?: string; creator?: string; version?: string; tags?: string[]; characterIds?: string[]; personaIds?: string[]; lorebookIds?: string[]; presetIds?: string[]; agentIds?: string[]; intros?: StoryBundleIntro[] } = {};
+      const payload: {
+        name?: string;
+        description?: string | null;
+        avatarCrop?: Record<string, unknown> | null;
+        comment?: string;
+        creator?: string;
+        version?: string;
+        tags?: string[];
+        characterIds?: string[];
+        personaIds?: string[];
+        lorebookIds?: string[];
+        presetIds?: string[];
+        agentIds?: string[];
+        intros?: StoryBundleIntro[];
+      } = {};
       if (nameDirty) payload.name = name.trim();
       if (descriptionDirty) payload.description = description || null;
       if (avatarCropDirty) payload.avatarCrop = avatarCrop;
@@ -248,7 +323,39 @@ export function StoryBundleEditor() {
     } finally {
       setSaving(false);
     }
-  }, [storyBundleDetailId, isDirty, saving, nameDirty, descriptionDirty, avatarCropDirty, commentDirty, creatorDirty, versionDirty, tagsDirty, characterIdsDirty, personaIdsDirty, lorebookIdsDirty, presetIdsDirty, agentIdsDirty, introsDirty, updateMutation, name, description, avatarCrop, comment, creator, version, tags, characterIds, personaIds, lorebookIds, presetIds, agentIds, intros, t]);
+  }, [
+    storyBundleDetailId,
+    isDirty,
+    saving,
+    nameDirty,
+    descriptionDirty,
+    avatarCropDirty,
+    commentDirty,
+    creatorDirty,
+    versionDirty,
+    tagsDirty,
+    characterIdsDirty,
+    personaIdsDirty,
+    lorebookIdsDirty,
+    presetIdsDirty,
+    agentIdsDirty,
+    introsDirty,
+    updateMutation,
+    name,
+    description,
+    avatarCrop,
+    comment,
+    creator,
+    version,
+    tags,
+    characterIds,
+    personaIds,
+    lorebookIds,
+    presetIds,
+    agentIds,
+    intros,
+    t,
+  ]);
 
   const handlePlay = useCallback(async () => {
     if (!bundle || playing) return;
@@ -368,7 +475,22 @@ export function StoryBundleEditor() {
         },
       },
     );
-  }, [bundle, playing, connections, createChat, updateChatMetadata, closeStoryBundleDetail, t, name, characterIds, personaIds, lorebookIds, presetIds, agentIds, intros]);
+  }, [
+    bundle,
+    playing,
+    connections,
+    createChat,
+    updateChatMetadata,
+    closeStoryBundleDetail,
+    t,
+    name,
+    characterIds,
+    personaIds,
+    lorebookIds,
+    presetIds,
+    agentIds,
+    intros,
+  ]);
 
   const handleDelete = useCallback(async () => {
     if (!storyBundleDetailId || !bundle) return;
@@ -532,19 +654,9 @@ export function StoryBundleEditor() {
               />
             )}
 
-            {activeTab === "agents" && (
-              <StoryBundleAgents
-                agentIds={agentIds}
-                onAgentIdsChange={setAgentIds}
-              />
-            )}
+            {activeTab === "agents" && <StoryBundleAgents agentIds={agentIds} onAgentIdsChange={setAgentIds} />}
 
-            {activeTab === "intros" && (
-              <StoryBundleIntros
-                intros={intros}
-                onIntrosChange={setIntros}
-              />
-            )}
+            {activeTab === "intros" && <StoryBundleIntros intros={intros} onIntrosChange={setIntros} />}
           </div>
         </div>
       </div>

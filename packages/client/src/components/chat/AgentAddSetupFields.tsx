@@ -31,6 +31,7 @@ import {
   normalizeSpriteDisplayModes,
   type SpriteDisplayMode,
 } from "./sprite-display-modes";
+import { HAPTIC_SENSITIVITY_OPTIONS } from "./haptic-sensitivity-options";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 export type KnowledgeAgentType = "knowledge-retrieval" | "knowledge-router";
@@ -84,16 +85,6 @@ export type AgentAddSpriteSubject = {
 export const DEFAULT_PROSE_GUARDIAN_BANNED_WORDS = "ozone";
 export const DEFAULT_PROSE_GUARDIAN_AVOID =
   "no repetition of any phrases or sentence structure from the last messages, if the last output started with dialogue line, this one needs to start with narration, no purple prose";
-
-const HAPTIC_SENSITIVITY_OPTIONS: Array<{
-  id: HapticFeedbackSensitivity;
-  label: string;
-  description: string;
-}> = [
-  { id: "subtle", label: "Subtle", description: "Lower intensity and shorter feedback." },
-  { id: "standard", label: "Standard", description: "Balanced feedback for most scenes." },
-  { id: "intense", label: "Intense", description: "Stronger feedback with a higher cap." },
-];
 
 const SPOTIFY_SOURCE_OPTIONS: Array<{ id: SpotifySourceType; label: string; description: string }> = [
   { id: "liked", label: "Liked Songs", description: "Pick from the user's saved tracks first." },
@@ -475,11 +466,7 @@ export function buildAgentAddMetadataPatch(
       setup.includeCharacterAppearance,
       defaults?.includeCharacterAppearance,
     );
-    applyIllustratorDefault(
-      "illustratorUseAvatarReferences",
-      setup.useAvatarReferences,
-      defaults?.useAvatarReferences,
-    );
+    applyIllustratorDefault("illustratorUseAvatarReferences", setup.useAvatarReferences, defaults?.useAvatarReferences);
   }
   if (agentId === "haptic") {
     patch.enableHapticFeedback = setup.hapticFeedbackEnabled;
@@ -639,8 +626,8 @@ function KnowledgeSourceFields({
         label={localizeUi("ui.chat.knowledgesourcefields.useChatActiveLorebooks")}
         description={
           sourceLorebookIds.length > 0
-            ?localizeUi("ui.chat.knowledgesourcefields.fixedSourceLorebooksAreSelectedBelowSoTheyOverride")
-            :localizeUi("ui.chat.knowledgesourcefields.useTheLorebooksCurrentlyActiveForThisChatWhen")
+            ? localizeUi("ui.chat.knowledgesourcefields.fixedSourceLorebooksAreSelectedBelowSoTheyOverride")
+            : localizeUi("ui.chat.knowledgesourcefields.useTheLorebooksCurrentlyActiveForThisChatWhen")
         }
         enabled={settings.useChatActiveLorebooks !== false}
         disabled={disabled}
@@ -696,7 +683,9 @@ function KnowledgeSourceFields({
             })}
           </div>
         ) : (
-          <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">{localizeUi("ui.agents.agenteditor.noLorebooksAvailable")}</p>
+          <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            {localizeUi("ui.agents.agenteditor.noLorebooksAvailable")}
+          </p>
         )}
       </div>
 
@@ -740,14 +729,17 @@ function KnowledgeSourceFields({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{source.originalName}</span>
                       <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
-                        {(source.size / 1024).toFixed(1)} {localizeUi("ui.agents.agenteditor.kb")}</span>
+                        {(source.size / 1024).toFixed(1)} {localizeUi("ui.agents.agenteditor.kb")}
+                      </span>
                     </span>
                   </button>
                 );
               })}
             </div>
           ) : (
-            <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">{localizeUi("ui.chat.knowledgesourcefields.noUploadedKnowledgeFilesYet")}</p>
+            <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+              {localizeUi("ui.chat.knowledgesourcefields.noUploadedKnowledgeFilesYet")}
+            </p>
           )}
           <input
             ref={fileInputRef}
@@ -783,10 +775,14 @@ function KnowledgeSourceFields({
           >
             {uploadSource.isPending ? (
               <>
-                <Loader2 size="0.8125rem" className="animate-spin" />{localizeUi("ui.noodle.noodleprofilesurface.uploading")}</>
+                <Loader2 size="0.8125rem" className="animate-spin" />
+                {localizeUi("ui.noodle.noodleprofilesurface.uploading")}
+              </>
             ) : (
               <>
-                <Upload size="0.8125rem" />{localizeUi("ui.chat.knowledgesourcefields.uploadFile")}</>
+                <Upload size="0.8125rem" />
+                {localizeUi("ui.chat.knowledgesourcefields.uploadFile")}
+              </>
             )}
           </button>
         </div>
@@ -813,8 +809,12 @@ function SpriteDisplayModeToggle({
   return (
     <div className="space-y-1.5 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">{localizeUi("ui.chat.spritedisplaymodetoggle.spriteSource")}</span>
-        <span className="text-[0.5625rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.spritedisplaymodetoggle.chooseOneOrBoth")}</span>
+        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+          {localizeUi("ui.chat.spritedisplaymodetoggle.spriteSource")}
+        </span>
+        <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+          {localizeUi("ui.chat.spritedisplaymodetoggle.chooseOneOrBoth")}
+        </span>
       </div>
       <div className="grid grid-cols-2 overflow-hidden rounded-md ring-1 ring-[var(--border)]">
         {options.map((option, index) => {
@@ -979,22 +979,28 @@ function ExpressionSetupFields({
                     ) : null}
                   </span>
                   <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                    {active ?localizeUi("ui.noodle.noodlehome.enabled") :localizeUi("ui.presets.sectionstab.enable")}
+                    {active ? localizeUi("ui.noodle.noodlehome.enabled") : localizeUi("ui.presets.sectionstab.enable")}
                   </span>
                 </button>
               );
             })}
           </div>
         ) : loading ? (
-          <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">{localizeUi("ui.chat.expressionsetupfields.checkingAddedCharactersForUploadedSprites")}</p>
+          <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            {localizeUi("ui.chat.expressionsetupfields.checkingAddedCharactersForUploadedSprites")}
+          </p>
         ) : (
-          <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">{localizeUi("ui.chat.expressionsetupfields.noAddedCharacterOrPersonaHasUploadedSpritesYet")}</p>
+          <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            {localizeUi("ui.chat.expressionsetupfields.noAddedCharacterOrPersonaHasUploadedSpritesYet")}
+          </p>
         )}
       </div>
 
       <div className="rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
         <div className="flex items-center gap-2">
-          <span className="flex-1 text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.expressionsetupfields.spriteLayout")}</span>
+          <span className="flex-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.expressionsetupfields.spriteLayout")}
+          </span>
           <div className="flex rounded-md ring-1 ring-[var(--border)]">
             {(["left", "right"] as const).map((side) => (
               <button
@@ -1110,8 +1116,14 @@ function MusicDjSetupFields({
 
   return (
     <div className="space-y-2.5 rounded-lg bg-[var(--background)]/65 px-3 py-2.5 ring-1 ring-[var(--border)]">
-      <p className="text-[0.625rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.musicdjsetupfields.activePlayer")}{" "}
-        {value.musicProvider === "spotify" ?localizeUi("ui.agents.agenteditor.spotify") : value.musicProvider === "youtube" ?localizeUi("ui.chat.youtubeplayer.youtube") :localizeUi("settings.notifications.customSound.status.custom")}.
+      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+        {localizeUi("ui.chat.musicdjsetupfields.activePlayer")}{" "}
+        {value.musicProvider === "spotify"
+          ? localizeUi("ui.agents.agenteditor.spotify")
+          : value.musicProvider === "youtube"
+            ? localizeUi("ui.chat.youtubeplayer.youtube")
+            : localizeUi("settings.notifications.customSound.status.custom")}
+        .
       </p>
       {value.musicProvider === "spotify" ? (
         <>
@@ -1181,12 +1193,18 @@ function MusicDjSetupFields({
                   value={value.spotifyPlaylistId}
                   disabled={disabled}
                   onChange={(event) => onChange({ spotifyPlaylistId: event.target.value, spotifyPlaylistName: null })}
-                  placeholder={spotifyPlaylistsQuery.isFetching ?localizeUi("ui.chat.musicdjsetupfields.loadingPlaylists") :localizeUi("ui.chat.musicdjsetupfields.pastePlaylistId")}
+                  placeholder={
+                    spotifyPlaylistsQuery.isFetching
+                      ? localizeUi("ui.chat.musicdjsetupfields.loadingPlaylists")
+                      : localizeUi("ui.chat.musicdjsetupfields.pastePlaylistId")
+                  }
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               )}
               {spotifyPlaylistsQuery.isError && (
-                <span className="text-[0.5625rem] text-[var(--primary)]">{localizeUi("ui.chat.musicdjsetupfields.connectSpotifyInTheMusicDjAgentToLoad")}</span>
+                <span className="text-[0.5625rem] text-[var(--primary)]">
+                  {localizeUi("ui.chat.musicdjsetupfields.connectSpotifyInTheMusicDjAgentToLoad")}
+                </span>
               )}
             </label>
           )}
@@ -1205,7 +1223,9 @@ function MusicDjSetupFields({
           )}
         </>
       ) : value.musicProvider === "youtube" ? (
-        <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">{localizeUi("ui.chat.musicdjsetupfields.youtubeModeUsesTheMusicDjAgentSSaved")}</p>
+        <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+          {localizeUi("ui.chat.musicdjsetupfields.youtubeModeUsesTheMusicDjAgentSSaved")}
+        </p>
       ) : (
         <div className="space-y-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
           <label className="flex flex-col gap-1">
@@ -1243,9 +1263,13 @@ function MusicDjSetupFields({
                   onClick={() => void selectCustomMusicFolder()}
                   className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <FolderOpen size="0.75rem" />{localizeUi("ui.chat.musicdjsetupfields.chooseFolder")}</button>
+                  <FolderOpen size="0.75rem" />
+                  {localizeUi("ui.chat.musicdjsetupfields.chooseFolder")}
+                </button>
               </div>
-              <span className="text-[0.5625rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.musicdjsetupfields.musicDjWillChooseFromAudioFilesInThis")}</span>
+              <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.chat.musicdjsetupfields.musicDjWillChooseFromAudioFilesInThis")}
+              </span>
             </div>
           ) : (
             <label className="flex flex-col gap-1">
@@ -1258,7 +1282,9 @@ function MusicDjSetupFields({
                 placeholder={localizeUi("ui.agents.agenteditor.music")}
                 className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50 disabled:cursor-not-allowed disabled:opacity-60"
               />
-              <span className="text-[0.5625rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.musicdjsetupfields.readsLocalAudioFromGameAssetsForExample")} <code>music</code> {localizeUi("ui.noodle.noodlehome.or")} <code>music/combat</code>.
+              <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.chat.musicdjsetupfields.readsLocalAudioFromGameAssetsForExample")} <code>music</code>{" "}
+                {localizeUi("ui.noodle.noodlehome.or")} <code>music/combat</code>.
               </span>
             </label>
           )}
@@ -1284,8 +1310,8 @@ function HapticSetupFields({
         label={localizeUi("ui.chat.hapticsetupfields.hapticFeedback")}
         description={
           value.hapticFeedbackEnabled
-            ?localizeUi("ui.chat.hapticsetupfields.touchCuesAreEnabledForThisChat")
-            :localizeUi("ui.chat.hapticsetupfields.allowThisAgentToSendTouchCuesDuringThe")
+            ? localizeUi("ui.chat.hapticsetupfields.touchCuesAreEnabledForThisChat")
+            : localizeUi("ui.chat.hapticsetupfields.allowThisAgentToSendTouchCuesDuringThe")
         }
         enabled={value.hapticFeedbackEnabled}
         disabled={disabled}
@@ -1294,10 +1320,7 @@ function HapticSetupFields({
       {value.hapticFeedbackEnabled && (
         <>
           <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <SetupLabel>{localizeUi("ui.chat.hapticsetupfields.touchSensitivity")}</SetupLabel>
-              <span className="text-[0.5625rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.hapticsetupfields.roleplayOnly")}</span>
-            </div>
+            <SetupLabel>{localizeUi("ui.chat.hapticsetupfields.touchSensitivity")}</SetupLabel>
             <div className="grid grid-cols-3 gap-1 rounded-lg bg-[var(--background)]/35 p-1">
               {HAPTIC_SENSITIVITY_OPTIONS.map((option) => (
                 <button
@@ -1311,9 +1334,9 @@ function HapticSetupFields({
                       ? "bg-[var(--accent)] text-[var(--foreground)] ring-1 ring-[var(--border)]"
                       : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                   )}
-                  title={option.description}
+                  title={localizeUi(option.descriptionKey)}
                 >
-                  {option.label}
+                  {localizeUi(option.labelKey)}
                 </button>
               ))}
             </div>
@@ -1391,7 +1414,9 @@ export function AgentAddSetupFields({
         <div className="space-y-2">
           <SetupToggle
             label={localizeUi("ui.chat.agentaddsetupfields.attachCardAppearance")}
-            description={localizeUi("ui.chat.agentaddsetupfields.appendMatchedCharacterAppearanceLinesToImagePromptsUsing")}
+            description={localizeUi(
+              "ui.chat.agentaddsetupfields.appendMatchedCharacterAppearanceLinesToImagePromptsUsing",
+            )}
             enabled={value.includeCharacterAppearance}
             disabled={disabled}
             onToggle={() => onChange({ includeCharacterAppearance: !value.includeCharacterAppearance })}
@@ -1408,7 +1433,9 @@ export function AgentAddSetupFields({
 
       {agentId === "director" && (
         <div className="space-y-2">
-          <p className="rounded-lg bg-[var(--background)]/65 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">{localizeUi("ui.chat.agentaddsetupfields.chooseBetweenANaturalOrRandomPushEachTime")}</p>
+          <p className="rounded-lg bg-[var(--background)]/65 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            {localizeUi("ui.chat.agentaddsetupfields.chooseBetweenANaturalOrRandomPushEachTime")}
+          </p>
           {allowSecretPlotControls && (
             <SetupToggle
               label={localizeUi("ui.agents.agenteditor.secretPlot")}
@@ -1439,7 +1466,9 @@ export function AgentAddSetupFields({
                   }
                   className="w-24 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs tabular-nums text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
-                <span className="text-[0.625rem] text-[var(--muted-foreground)]">{localizeUi("ui.agents.agenteditor.assistantMessages")}</span>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.agents.agenteditor.assistantMessages")}
+                </span>
               </div>
             </label>
           )}
@@ -1482,8 +1511,8 @@ export function AgentAddSetupFields({
           label={localizeUi("ui.chat.agentaddsetupfields.holdMessageUntilRewrite")}
           description={
             value.holdForRewrite
-              ?localizeUi("ui.chat.agentaddsetupfields.showTheRewriteWorkingIndicatorThenRevealTheEdited")
-              :localizeUi("ui.chat.agentaddsetupfields.streamTheOriginalMessageNormallyThenReplaceItIf")
+              ? localizeUi("ui.chat.agentaddsetupfields.showTheRewriteWorkingIndicatorThenRevealTheEdited")
+              : localizeUi("ui.chat.agentaddsetupfields.streamTheOriginalMessageNormallyThenReplaceItIf")
           }
           enabled={value.holdForRewrite}
           disabled={disabled}

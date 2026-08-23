@@ -58,10 +58,7 @@ export function getCharacterLookupAliases(character: CharacterDisplayInfo | null
   return aliases;
 }
 
-export function characterMatchesSearch(
-  character: CharacterDisplayInfo | null | undefined,
-  search: string,
-): boolean {
+export function characterMatchesSearch(character: CharacterDisplayInfo | null | undefined, search: string): boolean {
   const query = search.trim().toLowerCase();
   if (!query) return true;
   return [

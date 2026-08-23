@@ -47,6 +47,11 @@ import {
   safeFetch,
 } from "../utils/security.js";
 import { DATA_DIR } from "../utils/data-dir.js";
+import {
+  buildNanoGptVideoUrl,
+  fetchNanoGptVideoModels,
+  normalizeVideoService,
+} from "../services/video/video-generation.js";
 
 const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
@@ -61,6 +66,7 @@ const DEFAULT_XAI_VIDEO_MODEL = "grok-imagine-video-1.5";
 const DEFAULT_XAI_VIDEO_BASE_URL = "https://api.x.ai/v1";
 const DEFAULT_OPENROUTER_VIDEO_MODEL = "google/veo-3.1";
 const DEFAULT_OPENROUTER_VIDEO_BASE_URL = "https://openrouter.ai/api/v1";
+const DEFAULT_NANOGPT_VIDEO_BASE_URL = "https://nano-gpt.com/api";
 const DEFAULT_ATLAS_CLOUD_VIDEO_MODEL = "google/veo3.1/text-to-video";
 const DEFAULT_ATLAS_CLOUD_VIDEO_BASE_URL = "https://api.atlascloud.ai/api/v1";
 const DEFAULT_SEEDANCE_VIDEO_MODEL = "seedance-2-0";
@@ -165,6 +171,19 @@ function resolveVideoGenerationSource(conn: Record<string, unknown>, baseUrl: st
   const serviceHint = typeof conn.videoService === "string" ? conn.videoService : "";
   const model = typeof conn.model === "string" ? conn.model : "";
   return inferVideoSource(explicitSource || serviceHint || model, baseUrl);
+}
+
+function nanoGptVideoConnectionError(conn: Record<string, unknown>): string | null {
+  if (conn.provider !== "video_generation") return null;
+  const baseUrl =
+    typeof conn.baseUrl === "string" && conn.baseUrl.trim() ? conn.baseUrl : DEFAULT_NANOGPT_VIDEO_BASE_URL;
+  if (resolveVideoGenerationSource(conn, baseUrl) !== "nanogpt") return null;
+  try {
+    buildNanoGptVideoUrl(baseUrl, "generate-video");
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Invalid NanoGPT video endpoint";
+  }
 }
 
 // Returns the model-name options a ComfyUI loader node exposes through
@@ -393,15 +412,21 @@ export async function connectionsRoutes(app: FastifyInstance) {
     return maskConnection(conn);
   });
 
-  app.post("/", async (req) => {
+  app.post("/", async (req, reply) => {
     const input = createConnectionSchema.parse(req.body);
+    const validationError = nanoGptVideoConnectionError(input);
+    if (validationError) return reply.status(400).send({ error: validationError });
     const created = await storage.create(input);
     resetMemoryRecallVectorizerCache();
     return maskConnection(created);
   });
 
-  app.patch<{ Params: { id: string } }>("/:id", async (req) => {
+  app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const data = createConnectionSchema.partial().parse(req.body);
+    const current = await storage.getById(req.params.id);
+    if (!current) return reply.status(404).send({ error: "Connection not found" });
+    const validationError = nanoGptVideoConnectionError({ ...current, ...data });
+    if (validationError) return reply.status(400).send({ error: validationError });
     const updated = await storage.update(req.params.id, data);
     resetMemoryRecallVectorizerCache();
     return maskConnection(updated);
@@ -746,6 +771,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
       if (conn.provider === "video_generation") {
         if (videoSource === "atlas") {
           return { models: ATLAS_CLOUD_VIDEO_MODELS.map((model) => ({ id: model.id, name: model.name })) };
+        }
+        if (videoSource === "nanogpt") {
+          const models = await fetchNanoGptVideoModels(
+            conn.baseUrl || DEFAULT_NANOGPT_VIDEO_BASE_URL,
+            conn.apiKey || "",
+          );
+          return { models };
         }
         if (videoSource !== "comfyui" && videoSource !== "swarmui") {
           const models = MODEL_LISTS.video_generation.map((m) => ({ id: m.id, name: m.name }));
@@ -1213,9 +1245,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
       : createDefaultVideoGenerationProfile();
     const inferredVideoSource = resolveVideoGenerationSource(conn as any, conn.baseUrl || "");
     const explicitVideoSource = conn.videoGenerationSource || conn.videoService || "";
-    const videoSource =
-      explicitVideoSource || (inferredVideoSource !== "gemini_omni" ? inferredVideoSource : defaults.service);
-    const rawVideoServiceHint = conn.videoService || videoSource;
+    const videoSource = normalizeVideoService(
+      explicitVideoSource || (inferredVideoSource !== "gemini_omni" ? inferredVideoSource : defaults.service),
+    );
+    const rawVideoServiceHint = normalizeVideoService(conn.videoService || videoSource);
     const videoServiceHint =
       videoSource === "swarmui"
         ? "swarmui"
@@ -1224,7 +1257,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
           : rawVideoServiceHint;
     const isXaiVideo = videoSource === "xai" || videoServiceHint === "xai";
     const isGoogleVeoVideo = videoSource === "google_veo" || videoServiceHint === "google_veo";
-    const isOpenRouterVideo = videoSource === "openrouter" || videoServiceHint === "openrouter";
+    const isNanoGptVideo = videoSource === "nanogpt";
+    const isOpenRouterVideo = !isNanoGptVideo && (videoSource === "openrouter" || videoServiceHint === "openrouter");
     const isAtlasVideo = videoSource === "atlas" || videoServiceHint === "atlas";
     const isSeedanceVideo = videoSource === "seedance" || videoServiceHint === "seedance";
     const isSwarmUiVideo = videoSource === "swarmui" || videoServiceHint === "swarmui";
@@ -1237,15 +1271,17 @@ export async function connectionsRoutes(app: FastifyInstance) {
           ? DEFAULT_GOOGLE_VEO_VIDEO_BASE_URL
           : isOpenRouterVideo
             ? DEFAULT_OPENROUTER_VIDEO_BASE_URL
-            : isAtlasVideo
-              ? DEFAULT_ATLAS_CLOUD_VIDEO_BASE_URL
-              : isSeedanceVideo
-                ? DEFAULT_SEEDANCE_VIDEO_BASE_URL
-                : isSwarmUiVideo
-                  ? DEFAULT_SWARMUI_VIDEO_BASE_URL
-                  : isComfyUiVideo
-                    ? DEFAULT_COMFYUI_VIDEO_BASE_URL
-                    : providerDef?.defaultBaseUrl || DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL)
+            : isNanoGptVideo
+              ? DEFAULT_NANOGPT_VIDEO_BASE_URL
+              : isAtlasVideo
+                ? DEFAULT_ATLAS_CLOUD_VIDEO_BASE_URL
+                : isSeedanceVideo
+                  ? DEFAULT_SEEDANCE_VIDEO_BASE_URL
+                  : isSwarmUiVideo
+                    ? DEFAULT_SWARMUI_VIDEO_BASE_URL
+                    : isComfyUiVideo
+                      ? DEFAULT_COMFYUI_VIDEO_BASE_URL
+                      : providerDef?.defaultBaseUrl || DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL)
     ).replace(/\/+$/, "");
     const videoModel =
       conn.model ||
@@ -1255,26 +1291,30 @@ export async function connectionsRoutes(app: FastifyInstance) {
           ? DEFAULT_GOOGLE_VEO_VIDEO_MODEL
           : isOpenRouterVideo
             ? DEFAULT_OPENROUTER_VIDEO_MODEL
-            : isAtlasVideo
-              ? DEFAULT_ATLAS_CLOUD_VIDEO_MODEL
-              : isSeedanceVideo
-                ? DEFAULT_SEEDANCE_VIDEO_MODEL
-                : isComfyUiVideo
-                  ? ""
-                  : DEFAULT_GEMINI_OMNI_VIDEO_MODEL);
+            : isNanoGptVideo
+              ? ""
+              : isAtlasVideo
+                ? DEFAULT_ATLAS_CLOUD_VIDEO_MODEL
+                : isSeedanceVideo
+                  ? DEFAULT_SEEDANCE_VIDEO_MODEL
+                  : isComfyUiVideo
+                    ? ""
+                    : DEFAULT_GEMINI_OMNI_VIDEO_MODEL);
     const activeDefaults = isXaiVideo
       ? defaults.xai
       : isGoogleVeoVideo
         ? defaults.googleVeo
         : isOpenRouterVideo
           ? defaults.openrouter
-          : isAtlasVideo
-            ? defaults.atlas
-            : isSeedanceVideo
-              ? defaults.seedance
-              : isComfyUiVideo
-                ? defaults.comfyui
-                : defaults.geminiOmni;
+          : isNanoGptVideo
+            ? defaults.openrouter
+            : isAtlasVideo
+              ? defaults.atlas
+              : isSeedanceVideo
+                ? defaults.seedance
+                : isComfyUiVideo
+                  ? defaults.comfyui
+                  : defaults.geminiOmni;
 
     const prompt =
       "Create a concise cinematic 16:9 game scene video: a plate of spaghetti with marinara sauce on a table, gentle steam rising, warm kitchen light, slow push-in camera, no text or logos.";
@@ -1294,13 +1334,15 @@ export async function connectionsRoutes(app: FastifyInstance) {
             ? defaults.googleVeo.resolution
             : isOpenRouterVideo
               ? defaults.openrouter.resolution
-              : isAtlasVideo
-                ? defaults.atlas.resolution
-                : isSeedanceVideo
-                  ? defaults.seedance.resolution
-                  : isComfyUiVideo
-                    ? defaults.comfyui.resolution
-                    : undefined,
+              : isNanoGptVideo
+                ? defaults.openrouter.resolution
+                : isAtlasVideo
+                  ? defaults.atlas.resolution
+                  : isSeedanceVideo
+                    ? defaults.seedance.resolution
+                    : isComfyUiVideo
+                      ? defaults.comfyui.resolution
+                      : undefined,
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
         comfyLoras: isComfyUiVideo ? defaults.comfyui.loras : [],
         fps: isComfyUiVideo ? defaults.comfyui.fps : undefined,

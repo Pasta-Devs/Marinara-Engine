@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { closeDB, getDB } from "../../packages/server/src/db/connection.js";
@@ -14,7 +14,7 @@ import { appSettings, lorebookEntries, lorebooks } from "../../packages/server/s
 import { getMariDbService } from "../../packages/server/src/services/mari-db/mari-db.service.js";
 
 type LeaseRecord = {
-  version: 1;
+  version: 1 | 2;
   pid: number;
   hostId: string | null;
   hostname: string;
@@ -61,6 +61,7 @@ try {
     const dir = useTempStorage("writer-lock");
     const db = await createFileNativeDB();
     const leaseTemplate = readJson<LeaseRecord>(ownerPath(dir));
+    assert.equal(leaseTemplate.version, 2, "new leases use the stable host-identity format");
     await assert.rejects(
       createFileNativeDB(),
       (error: unknown) =>
@@ -108,6 +109,116 @@ try {
       assert.notEqual(readJson<LeaseRecord>(ownerPath(dir)).token, "stale-owner-token");
       await afterCrash._fileStore.close();
     }
+
+    if (process.platform !== "win32") {
+      // Legacy macOS leases fingerprinted every visible network interface.
+      // A changed VPN/virtual-interface set must not strand a dead same-host
+      // lease, while v2 leases still require the stable machine identity.
+      const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform")!;
+      try {
+        Object.defineProperty(process, "platform", { ...platformDescriptor, value: "darwin" });
+        mkdirSync(leasePath(dir));
+        writeFileSync(
+          ownerPath(dir),
+          JSON.stringify({
+            ...leaseTemplate,
+            version: 1,
+            pid: process.pid,
+            hostId: "legacy-fingerprint-before-network-change",
+            token: "legacy-macos-live-token",
+          }),
+        );
+        await assert.rejects(createFileNativeDB(), StorageWriterLeaseError);
+        rmSync(leasePath(dir), { recursive: true });
+
+        mkdirSync(leasePath(dir));
+        writeFileSync(
+          ownerPath(dir),
+          JSON.stringify({
+            ...leaseTemplate,
+            version: 1,
+            pid: await exitedPid(),
+            hostId: "legacy-fingerprint-before-network-change",
+            token: "legacy-macos-stale-token",
+          }),
+        );
+        const afterNetworkChange = await createFileNativeDB();
+        assert.notEqual(readJson<LeaseRecord>(ownerPath(dir)).token, "legacy-macos-stale-token");
+        await afterNetworkChange._fileStore.close();
+
+        mkdirSync(leasePath(dir));
+        writeFileSync(
+          ownerPath(dir),
+          JSON.stringify({
+            ...leaseTemplate,
+            pid: await exitedPid(),
+            hostId: "stable-id-from-another-machine",
+            token: "foreign-v2-token",
+          }),
+        );
+        await assert.rejects(createFileNativeDB(), StorageWriterLeaseError);
+        rmSync(leasePath(dir), { recursive: true });
+      } finally {
+        Object.defineProperty(process, "platform", platformDescriptor);
+      }
+    }
+
+    // Windows cannot faithfully simulate Android's POSIX permission semantics;
+    // retain this Termux-specific proof on real POSIX-capable hosts.
+    if (process.platform !== "win32") {
+      // Termux has no stable machine ID on some Android devices. Its HOME is
+      // app-private, so an exited lease there is safe to reclaim after reboot;
+      // the same fallback must not apply to storage outside that HOME.
+      const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform")!;
+      const previousHome = process.env.HOME;
+      const termuxHome = mkdtempSync(join(tmpdir(), "marinara-termux-home-"));
+      tempDirs.push(termuxHome);
+      const termuxStorage = join(termuxHome, "Marinara-Engine", "packages", "server", "data", "storage");
+      process.env.FILE_STORAGE_DIR = termuxStorage;
+      mkdirSync(leasePath(termuxStorage), { recursive: true });
+      writeFileSync(
+        ownerPath(termuxStorage),
+        JSON.stringify({
+          ...leaseTemplate,
+          pid: await exitedPid(),
+          hostId: null,
+          token: "stale-termux-token",
+        }),
+      );
+      let termuxDb: Awaited<ReturnType<typeof createFileNativeDB>> | undefined;
+      try {
+        Object.defineProperty(process, "platform", { ...platformDescriptor, value: "android" });
+        process.env.HOME = termuxHome;
+        termuxDb = await createFileNativeDB();
+        assert.notEqual(readJson<LeaseRecord>(ownerPath(termuxStorage)).token, "stale-termux-token");
+        await termuxDb._fileStore.close();
+        termuxDb = undefined;
+
+        const outsideHome = useTempStorage("termux-outside-home");
+        mkdirSync(leasePath(outsideHome));
+        writeFileSync(
+          ownerPath(outsideHome),
+          JSON.stringify({
+            ...leaseTemplate,
+            pid: await exitedPid(),
+            hostId: null,
+            token: "outside-termux-home-token",
+          }),
+        );
+        const linkedOutsideHome = join(termuxHome, "shared-storage");
+        symlinkSync(outsideHome, linkedOutsideHome, "dir");
+        process.env.FILE_STORAGE_DIR = linkedOutsideHome;
+        await assert.rejects(createFileNativeDB(), StorageWriterLeaseError);
+      } finally {
+        if (termuxDb) await termuxDb._fileStore.close();
+        Object.defineProperty(process, "platform", platformDescriptor);
+        if (previousHome === undefined) delete process.env.HOME;
+        else process.env.HOME = previousHome;
+      }
+    } else {
+      process.stdout.write("Skipping Termux-specific writer-lock proof on Windows.\n");
+    }
+    process.env.FILE_STORAGE_DIR = dir;
 
     // Counts are diagnostics only: a stale value cannot hide a valid row and
     // startup heals it from the rows actually loaded from disk.

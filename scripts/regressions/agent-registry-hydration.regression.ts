@@ -184,7 +184,7 @@ assert.match(
 );
 assert.match(
   sidecarCardSource,
-  /const trackerAgents = useMemo\(\s*\(\) => selectVisibleTrackerCapabilityAgents\(capabilityAgents\),\s*\[capabilityAgents\],\s*\);/u,
+  /const trackerAgents = useMemo\(\s*\(\) => selectVisibleTrackerCapabilityAgents\(capabilityAgents\),\s*\[capabilityAgents\],?\s*\);/u,
   "Connections must recompute visible trackers when capability-agent query data changes",
 );
 assert.match(

@@ -232,6 +232,8 @@ export interface LorebookEntry {
   excludeFromVectorization: boolean;
   /** Pre-computed embedding vector for semantic matching (null if not vectorized) */
   embedding: number[] | null;
+  /** Stable provider/model/profile identity used to reject incompatible query vectors. */
+  embeddingSpaceId?: string | null;
 
   createdAt: string;
   updatedAt: string;

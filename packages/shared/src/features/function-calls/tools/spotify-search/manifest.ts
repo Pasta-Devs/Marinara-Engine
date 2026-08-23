@@ -12,7 +12,12 @@ export const spotifySearchToolManifest = {
         description:
           "Search query — mood keywords, genre, artist, or track name (e.g. 'dark ambient orchestral', 'battle music epic')",
       },
-      limit: { type: "number", description: "Number of results to return (default: 5)" },
+      limit: {
+        type: "number",
+        minimum: 1,
+        maximum: 20,
+        description: "Number of results to return (default: 5, maximum: 20)",
+      },
     },
     required: ["query"],
   },

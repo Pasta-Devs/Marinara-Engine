@@ -139,8 +139,7 @@ export async function resolveChatSummaryConnection(args: {
       continue;
     }
     const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
-    const temperature =
-      storedOptions.enabledParameters?.temperature === false ? undefined : storedOptions.temperature;
+    const temperature = storedOptions.enabledParameters?.temperature === false ? undefined : storedOptions.temperature;
 
     return {
       ok: true,

@@ -265,6 +265,7 @@ const personaFields = {
   comment: z.string().optional(),
   creator: z.string().optional(),
   personaVersion: z.string().optional(),
+  versioningEnabled: z.boolean().optional(),
   creatorNotes: z.string().optional(),
   phoneticName: z.string().optional(),
   description: z.string().optional(),

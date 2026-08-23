@@ -24,7 +24,10 @@ const LEGACY_V1_DEFAULT_AGENT_PROMPT_HASHES: Record<string, readonly string[]> =
   director: ["644db63004a6cf58e747b2ca762084100789e8d5c0b29a3f1bdb1fec40ca4419"],
   "echo-chamber": ["ffaedffd762de790445333550a22319daee5be6176c03dfee772dda37636191e"],
   expression: ["a0dae5ce04e79b55bcb95e375e65d1bbbbdcf36df4c2882635053a4a25e37d2e"],
-  haptic: ["b859e11b47cfaf71addf1098d89f220e463eae709e74c7a11351a4647034a26f"],
+  haptic: [
+    "b859e11b47cfaf71addf1098d89f220e463eae709e74c7a11351a4647034a26f",
+    "cd4c7a5c21c310b7c8a3798a8d1bcc9d6eb62fb1753a409de8f3d732e623c85e",
+  ],
   html: [
     "2a0e9739c529c39dd5b9e879b3eed9f05f8dec0f0f46319b6fd159515079dec0",
     "4675d053812349b7500998044af68f319dc6a947ba047614a07e83fab4a87bf6",

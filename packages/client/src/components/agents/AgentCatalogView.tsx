@@ -52,6 +52,7 @@ const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> =
   background: ["roleplay"],
   "character-tracker": ["roleplay"],
   "custom-tracker": ["roleplay"],
+  "inventory-tracker": ["roleplay"],
   expression: ["roleplay"],
   "hierarchical-maps": ["roleplay", "game"],
   "persona-stats": ["roleplay"],
@@ -337,6 +338,7 @@ export function AgentCatalogView() {
   return (
     <div
       data-component="AgentCatalogView"
+      data-testid="agent-library"
       className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-hidden bg-[var(--background)]"
     >
       <header className="relative z-10 flex shrink-0 items-center gap-3 border-b border-[var(--border)]/50 bg-[var(--card)]/90 px-3 py-2 backdrop-blur-md md:px-6 md:py-3">
@@ -554,6 +556,7 @@ export function AgentCatalogView() {
                                     <button
                                       key={entry.manifest.id}
                                       type="button"
+                                      data-testid={`agent-catalog-item-${entry.manifest.id}`}
                                       onClick={() => {
                                         setSelectedId(entry.manifest.id);
                                         setMobileDetail(true);
@@ -728,6 +731,7 @@ export function AgentCatalogView() {
                         className={DETAIL_ACTION_CLASS}
                         disabled={packageActionPending}
                         onClick={() => void handleUninstall(selected)}
+                        data-testid="agent-catalog-agent-uninstall-button"
                       >
                         {uninstall.isPending ? (
                           <Loader2 size="0.9rem" className="animate-spin" />
@@ -753,6 +757,7 @@ export function AgentCatalogView() {
                       className={DETAIL_ACTION_CLASS}
                       disabled={packageActionPending}
                       onClick={() => void handleInstall(selected)}
+                      data-testid="agent-catalog-agent-install-button"
                     >
                       {install.isPending ? (
                         <Loader2 size="0.9rem" className="animate-spin" />

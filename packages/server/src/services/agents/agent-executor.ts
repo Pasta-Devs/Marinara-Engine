@@ -41,6 +41,7 @@ import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { settleAgentJobsWithConcurrencyLimit } from "./agent-concurrency.js";
 import { normalizeCyoaChoiceOutput } from "./cyoa-choice-normalization.js";
 import { getAssetManifest } from "../game/asset-manifest.service.js";
+import { formatBeholderRequestContext, resolveBeholderStateResponse } from "./beholder-state.js";
 
 const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
@@ -541,6 +542,7 @@ function normalizeAgentTemperature(value: unknown, fallback = DEFAULT_AGENT_TEMP
 
 function resolveAgentTemperature(config: AgentExecConfig): number | undefined {
   if (config.suppressModelParameters || config.enabledParameters?.temperature === false) return undefined;
+  if (config.type === "beholder") return 0;
   return normalizeAgentTemperature(config.temperature);
 }
 
@@ -850,15 +852,18 @@ export async function executeAgent(
       invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
     }
 
+    const structured = invalidJson
+      ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
+      : resolveStructuredAgentResult(config, context, parsed.data);
     return {
       agentId: config.id,
       agentType: config.type,
       type: parsed.type,
-      data: parsed.data,
+      data: structured.data,
       tokensUsed: totalTokens,
       durationMs: Date.now() - startTime,
-      success: !invalidJson,
-      error: invalidJson ? invalidJsonAgentError(parsed.type) : null,
+      success: structured.valid,
+      error: structured.error ?? null,
     };
   } catch (err) {
     emitAgentDebug(context, {
@@ -947,15 +952,18 @@ async function executeAgentWithTools(
       const responseText = result.content?.trim() ?? "";
       const parsed = parseAgentResponse(config, responseText);
       const invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
+      const structured = invalidJson
+        ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
+        : resolveStructuredAgentResult(config, context, parsed.data);
       return {
         agentId: config.id,
         agentType: config.type,
         type: parsed.type,
-        data: parsed.data,
+        data: structured.data,
         tokensUsed: totalTokens,
         durationMs: Date.now() - startTime,
-        success: !invalidJson,
-        error: invalidJson ? invalidJsonAgentError(parsed.type) : null,
+        success: structured.valid,
+        error: structured.error ?? null,
       };
     }
 
@@ -1029,15 +1037,18 @@ async function executeAgentWithTools(
   });
   const parsed = parseAgentResponse(config, responseText);
   const invalidJson = shouldFailInvalidJsonResult(config, parsed.data);
+  const structured = invalidJson
+    ? { data: parsed.data, valid: false, error: invalidJsonAgentError(parsed.type) }
+    : resolveStructuredAgentResult(config, context, parsed.data);
   return {
     agentId: config.id,
     agentType: config.type,
     type: parsed.type,
-    data: parsed.data,
+    data: structured.data,
     tokensUsed: totalTokens,
     durationMs: Date.now() - startTime,
-    success: !invalidJson,
-    error: invalidJson ? invalidJsonAgentError(parsed.type) : null,
+    success: structured.valid,
+    error: structured.error ?? null,
   };
 }
 
@@ -1616,6 +1627,16 @@ function invalidJsonAgentError(resultType: AgentResultType): string {
   return `Agent returned invalid JSON instead of the requested ${resultType} format. Check this agent's model/connection settings and try again.`;
 }
 
+function resolveStructuredAgentResult(
+  config: Pick<AgentExecConfig, "type">,
+  context: AgentContext,
+  data: unknown,
+): { data: unknown; valid: boolean; error?: string } {
+  if (config.type !== "beholder") return { data, valid: true };
+  const resolution = resolveBeholderStateResponse(data, context.memory._beholderState, context.persona?.name ?? "User");
+  return { data: resolution.state, valid: resolution.valid, error: resolution.error };
+}
+
 function shouldRetryInvalidJsonAgent(config: Pick<AgentExecConfig, "type" | "settings">): boolean {
   return (config.type !== "spotify" || musicDjUsesJsonOnlyProvider(config)) && agentResponseIsJson(config);
 }
@@ -1645,6 +1666,7 @@ function shouldRunAgentIndividually(config: Pick<AgentExecConfig, "type" | "sett
   // must not be merged into unrelated batched agent requests.
   return (
     config.type === "illustrator" ||
+    config.type === "beholder" ||
     customAgentHasCapability(config.settings, "trigger_image_generation") ||
     config.type === "lorebook-keeper" ||
     resolveAgentResultType(config) === "text_rewrite" ||
@@ -2399,7 +2421,9 @@ function buildAgentMessages(
     typeof context.memory._imagePromptInstructions === "string" ? context.memory._imagePromptInstructions.trim() : "";
   if (options.includeImagePromptInstructions === true && lateImagePromptInstructions) {
     finalParts.push("\n<image_prompting_instructions>");
-    finalParts.push("Apply these image-backend instructions when writing the provider-ready image prompt. Do not copy the instructions as prompt content.");
+    finalParts.push(
+      "Apply these image-backend instructions when writing the provider-ready image prompt. Do not copy the instructions as prompt content.",
+    );
     finalParts.push(lateImagePromptInstructions);
     finalParts.push("</image_prompting_instructions>");
   }
@@ -2593,6 +2617,10 @@ function buildAgentExtras(
       }
       parts.push(`</about_me_state>`);
     }
+  }
+
+  if (agentTypes.includes("beholder")) {
+    parts.push(formatBeholderRequestContext(context.memory._beholderState, context.persona?.name ?? "User"));
   }
 
   if (sources.trackerData && context.gameState) {
@@ -2813,10 +2841,17 @@ function buildAgentExtras(
   }
 
   if (context.memory._connectedDevices) {
-    const devices = context.memory._connectedDevices as Array<{ name: string; index: number; capabilities: string[] }>;
+    const devices = context.memory._connectedDevices as Array<{
+      name: string;
+      type?: string;
+      index: number;
+      capabilities: string[];
+    }>;
     parts.push(`<connected_devices>`);
     for (const d of devices) {
-      parts.push(`- ${d.name} (index ${d.index}): ${d.capabilities.join(", ")}`);
+      parts.push(
+        `- model/name: ${d.name}; index: ${d.index}; device type: ${d.type ?? "haptic device"}; supported actions: ${d.capabilities.join(", ")}`,
+      );
     }
     parts.push(`</connected_devices>`);
   }
@@ -2869,12 +2904,14 @@ const AGENT_RESULT_TYPE_MAP: Record<string, AgentResultType> = {
   "character-tracker": "character_tracker_update",
   "persona-stats": "persona_stats_update",
   "custom-tracker": "custom_tracker_update",
+  "inventory-tracker": "inventory_tracker_update",
   html: "text_rewrite",
   spotify: "spotify_control",
   "knowledge-retrieval": "context_injection",
   haptic: "haptic_command",
   cyoa: "cyoa_choices",
   "about-me-keeper": "about_me_update",
+  beholder: "context_injection",
 };
 
 const AGENT_RESULT_TYPES = new Set<AgentResultType>(AGENT_RESULT_TYPE_VALUES);
@@ -2915,11 +2952,13 @@ const JSON_AGENTS = new Set([
   "character-tracker",
   "persona-stats",
   "custom-tracker",
+  "inventory-tracker",
   "about-me-keeper",
   "html",
   "spotify",
   "haptic",
   "cyoa",
+  "beholder",
 ]);
 
 /**

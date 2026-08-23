@@ -2812,7 +2812,8 @@ export function createNoodleStorage(db: DB) {
       ]);
       if (
         deletedRows.some(
-          (row) => !knownAccountIds.has(row.actorAccountId) && !row.actorAccountId.startsWith(NOODLER_FAN_IDENTITY_PREFIX),
+          (row) =>
+            !knownAccountIds.has(row.actorAccountId) && !row.actorAccountId.startsWith(NOODLER_FAN_IDENTITY_PREFIX),
         )
       ) {
         return [];

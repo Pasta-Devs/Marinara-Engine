@@ -169,9 +169,14 @@ export function SectionHeader({
   );
 }
 
-export function EmptySection({ children }: { children: ReactNode }) {
+export function EmptySection({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className="rounded-sm border border-dashed border-[color-mix(in_srgb,var(--tracker-inline-rule,var(--border))_38%,transparent)] px-1 py-1 text-center text-[0.6875rem] text-[color-mix(in_srgb,var(--tracker-inline-muted,var(--muted-foreground))_66%,transparent)]">
+    <div
+      className={cn(
+        "rounded-sm border border-dashed border-[color-mix(in_srgb,var(--tracker-inline-rule,var(--border))_38%,transparent)] px-1 py-1 text-center text-[0.6875rem] text-[color-mix(in_srgb,var(--tracker-inline-muted,var(--muted-foreground))_66%,transparent)]",
+        className,
+      )}
+    >
       {children}
     </div>
   );

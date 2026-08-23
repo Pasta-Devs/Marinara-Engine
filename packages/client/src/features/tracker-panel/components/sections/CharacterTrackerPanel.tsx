@@ -183,7 +183,13 @@ export function CharacterTrackerPanel({
         title={localizeUi("ui.trackerPanel.charactertrackerpanel.presentCharacters")}
         action={action}
         addAction={
-          addMode ? <AddRowButton title={localizeUi("ui.trackerPanel.charactertrackerpanel.addCharacter")} onClick={onAddCharacter} className="rounded-sm" /> : undefined
+          addMode ? (
+            <AddRowButton
+              title={localizeUi("ui.trackerPanel.charactertrackerpanel.addCharacter")}
+              onClick={onAddCharacter}
+              className="rounded-sm"
+            />
+          ) : undefined
         }
         collapsed={collapsed}
         onToggle={onToggleCollapsed}

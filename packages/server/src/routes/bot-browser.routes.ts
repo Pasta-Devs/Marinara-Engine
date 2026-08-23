@@ -2,10 +2,7 @@
 // Routes: Browser (proxy to character sources)
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyPluginOptions } from "fastify";
-import {
-  fetchBotBrowserJson,
-  type BotBrowserJsonFetchOptions,
-} from "../services/bot-browser/fetch-json.js";
+import { fetchBotBrowserJson, type BotBrowserJsonFetchOptions } from "../services/bot-browser/fetch-json.js";
 import { resolveValidatedImage, safeFetch } from "../utils/security.js";
 
 const CHUB_API_BASE = "https://api.chub.ai";
@@ -186,12 +183,18 @@ export async function botBrowserRoutes(app: FastifyInstance, options: BotBrowser
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
     try {
-      const primary = await fetchAvatarImage(`${CHUB_AVATARS}/avatars/${encodeURI(fullPath)}/avatar.webp`, controller.signal);
+      const primary = await fetchAvatarImage(
+        `${CHUB_AVATARS}/avatars/${encodeURI(fullPath)}/avatar.webp`,
+        controller.signal,
+      );
       const image =
         primary ??
         (await fetchAvatarImage(`${CHUB_AVATARS}/avatars/${encodeURI(fullPath)}/chara_card_v2.png`, controller.signal));
       if (!image) return reply.status(404).send({ error: "Avatar not found" });
-      return reply.header("Content-Type", image.mimeType).header("Cache-Control", "public, max-age=86400").send(image.buf);
+      return reply
+        .header("Content-Type", image.mimeType)
+        .header("Cache-Control", "public, max-age=86400")
+        .send(image.buf);
     } catch (err) {
       if ((err as Error).message.includes("Unsupported avatar image content")) {
         return reply.status(415).send({ error: "Unsupported avatar content type" });

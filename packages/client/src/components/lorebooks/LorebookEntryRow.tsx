@@ -15,6 +15,7 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import {
   Ban,
   ChevronDown,
@@ -35,7 +36,7 @@ import {
   Square,
   Trash2,
 } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { cn, copyToClipboard } from "../../lib/utils";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useUpdateLorebookEntry, useDeleteLorebookEntry, useDuplicateLorebookEntry } from "../../hooks/use-lorebooks";
 import { useUIStore } from "../../stores/ui.store";
@@ -509,6 +510,7 @@ export function LorebookEntryRow({
       )}
       ref={rowRef}
       data-lorebook-entry-row-id={entry.id}
+      data-testid={`lorebook-editor-entry-row-${entry.id}`}
       draggable={draggable && isDragReady}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
@@ -560,6 +562,7 @@ export function LorebookEntryRow({
             e.stopPropagation();
             if (draggable) onDragHandleTouchStart?.(e, rowRef.current);
           }}
+          data-testid="lorebook-editor-entry-drag-handle"
         >
           <GripVertical size="0.875rem" />
         </button>
@@ -587,6 +590,7 @@ export function LorebookEntryRow({
                 ? "mari-chrome-accent-surface mari-accent-animated ring-1"
                 : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
             )}
+            data-testid="lorebook-editor-entry-select-checkbox"
           >
             {isSelected ? <CheckSquare2 size="0.875rem" /> : <Square size="0.875rem" />}
           </button>
@@ -605,6 +609,7 @@ export function LorebookEntryRow({
             e.stopPropagation();
             onToggleExpand();
           }}
+          data-testid="lorebook-editor-entry-expand-button"
         >
           <ChevronDown size="0.875rem" className={cn("transition-transform", isExpanded ? "rotate-0" : "-rotate-90")} />
         </button>
@@ -624,6 +629,7 @@ export function LorebookEntryRow({
             checked={localEnabled}
             onChange={handleEnabledChange}
             className="p-0 hover:bg-transparent"
+            testId="lorebook-editor-entry-enabled-switch"
           />
         </div>
 
@@ -647,6 +653,7 @@ export function LorebookEntryRow({
               ? "bg-orange-400/15 text-orange-300 ring-1 ring-orange-400/25"
               : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
           )}
+          data-testid="lorebook-editor-entry-regex-toggle"
         >
           <Regex size="0.875rem" />
         </button>
@@ -665,6 +672,7 @@ export function LorebookEntryRow({
           })}
           aria-haspopup="menu"
           aria-expanded={showStatusMenu}
+          data-testid="lorebook-editor-entry-status-button"
         >
           <span className={cn("h-2.5 w-2.5 rounded-full", STATUS_DOT_COLOR[localStatus])} />
         </button>
@@ -748,6 +756,7 @@ export function LorebookEntryRow({
           onClick={(e) => e.stopPropagation()}
           placeholder={localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}
           className="min-w-0 flex-1 truncate rounded bg-transparent px-1 text-sm font-medium outline-none transition-colors hover:bg-[var(--accent)]/40 focus:bg-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--ring)] sm:min-w-[7rem]"
+          data-testid="lorebook-editor-entry-name-input"
         />
 
         {mapBacklinks.length > 0 && (
@@ -930,6 +939,7 @@ export function LorebookEntryRow({
               { value: "7", label: localizeUi("ui.lorebooks.lorebookentryrow.outlet") },
             ]}
             className="w-[4.75rem]"
+            testId="lorebook-editor-entry-position-select"
           />
           {showDepthInput && (
             <CompactNumber
@@ -943,6 +953,7 @@ export function LorebookEntryRow({
               prefix="d"
               min={0}
               max={9999}
+              testId="lorebook-editor-entry-depth-input"
             />
           )}
           <CompactNumber
@@ -954,6 +965,7 @@ export function LorebookEntryRow({
             title={localizeUi("ui.lorebooks.lorebookentryrow.insertionOrderWhenMultipleEntriesActivateLowerEarlierIn")}
             ariaLabel="Order"
             prefix="ord"
+            testId="lorebook-editor-entry-order-input"
           />
           <CompactNumber
             value={localProbability}
@@ -970,6 +982,7 @@ export function LorebookEntryRow({
             suffix="%"
             min={0}
             max={100}
+            testId="lorebook-editor-entry-probability-input"
           />
           {folders.length > 0 && (
             <CompactSelect
@@ -978,6 +991,7 @@ export function LorebookEntryRow({
               title={localizeUi("ui.lorebooks.lorebookentryrow.moveThisEntryToADifferentFolderNoneRoot")}
               options={[{ value: "", label: "(none)" }, ...folders.map((f) => ({ value: f.id, label: f.name }))]}
               className="w-[5.5rem] sm:w-[6.25rem]"
+              testId="lorebook-editor-entry-folder-select"
             />
           )}
         </div>
@@ -1006,6 +1020,7 @@ export function LorebookEntryRow({
           disabled={duplicateDisabled}
           onClick={handleDuplicate}
           className="shrink-0 rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 disabled:cursor-not-allowed max-md:opacity-100 sm:p-1"
+          data-testid="lorebook-editor-entry-duplicate-button"
         >
           <Copy size="0.75rem" />
         </button>
@@ -1016,6 +1031,7 @@ export function LorebookEntryRow({
           aria-label={localizeUi("ui.lorebooks.lorebookentryrow.deleteEntry")}
           onClick={handleDelete}
           className="shrink-0 rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 max-md:opacity-100 sm:p-1"
+          data-testid="lorebook-editor-entry-delete-button"
         >
           <Trash2 size="0.75rem" />
         </button>
@@ -1048,12 +1064,14 @@ function CompactSelect({
   options,
   title,
   className,
+  testId,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: Array<{ value: string; label: string }>;
   title?: string;
   className?: string;
+  testId?: string;
 }) {
   return (
     <select
@@ -1061,6 +1079,7 @@ function CompactSelect({
       title={title}
       onChange={(e) => onChange(e.target.value)}
       className={cn("mari-editor-field h-6 min-w-0 truncate px-1 text-[0.625rem]", className)}
+      data-testid={testId}
     >
       {options.map((opt) => (
         <option key={opt.value} value={opt.value}>
@@ -1080,6 +1099,7 @@ function CompactNumber({
   suffix,
   min,
   max,
+  testId,
 }: {
   value: number;
   onCommit: (v: number) => void;
@@ -1089,6 +1109,7 @@ function CompactNumber({
   suffix?: string;
   min?: number;
   max?: number;
+  testId?: string;
 }) {
   const [draft, setDraft] = useState(String(value));
   // Keep draft synced when external value changes
@@ -1130,6 +1151,7 @@ function CompactNumber({
         }}
         min={min}
         max={max}
+        data-testid={testId}
         className="w-8 bg-transparent text-right tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       {suffix && <span className="text-[var(--muted-foreground)]">{suffix}</span>}
@@ -1517,6 +1539,30 @@ function ExpandedDrawer({
         flushAutosave();
       }}
     >
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 px-3 py-2">
+        <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+          {localizeUi("ui.lorebooks.lorebookentryrow.entryId")}
+        </span>
+        <code className="min-w-0 flex-1 break-all rounded-lg bg-[var(--background)] px-2 py-1 text-[0.6875rem] text-[var(--foreground)]">
+          {entry.id}
+        </code>
+        <button
+          type="button"
+          onClick={async () => {
+            const copied = await copyToClipboard(entry.id);
+            if (copied) toast.success(localizeUi("ui.lorebooks.lorebookentryrow.entryIdCopied"));
+            else toast.error(localizeUi("ui.lorebooks.lorebookentryrow.couldNotCopyEntryId"));
+          }}
+          className="mari-editor-action inline-flex h-8 px-2 text-[0.6875rem]"
+          aria-label={localizeUi("ui.lorebooks.lorebookentryrow.copyEntryId")}
+          title={localizeUi("ui.lorebooks.lorebookentryrow.copyEntryId")}
+          data-testid="lorebook-editor-entry-copy-id-button"
+        >
+          <Copy size="0.75rem" />
+          {localizeUi("lorebook.editor.batch.copy")}
+        </button>
+      </div>
+
       <div
         className={cn(
           "grid items-start gap-3",
@@ -1538,6 +1584,7 @@ function ExpandedDrawer({
             placeholder={localizeUi("ui.lorebooks.expandeddrawer.briefSummaryForRouting")}
             title={localizeUi("ui.lorebooks.expandeddrawer.editDescription")}
             showMarkdownPreview
+            testId="lorebook-editor-entry-description-textarea"
           />
         </FieldGroup>
 
@@ -1547,7 +1594,11 @@ function ExpandedDrawer({
           icon={Key}
           help={localizeUi("ui.lorebooks.expandeddrawer.keywordsThatTriggerThisEntryWhenAnyOfThese")}
         >
-          <KeysEditor keys={form.keys ?? []} onChange={(keys) => update({ keys })} />
+          <KeysEditor
+            keys={form.keys ?? []}
+            onChange={(keys) => update({ keys })}
+            testIdPrefix="lorebook-editor-entry-keys"
+          />
         </FieldGroup>
 
         {/* Secondary Keys + Logic */}
@@ -1556,7 +1607,11 @@ function ExpandedDrawer({
           icon={Key}
           help={localizeUi("ui.lorebooks.expandeddrawer.additionalKeywordsUsedWithSillytavernStyleSelectiveLogicAny")}
         >
-          <KeysEditor keys={form.secondaryKeys ?? []} onChange={(keys) => update({ secondaryKeys: keys })} />
+          <KeysEditor
+            keys={form.secondaryKeys ?? []}
+            onChange={(keys) => update({ secondaryKeys: keys })}
+            testIdPrefix="lorebook-editor-entry-secondary-keys"
+          />
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <label className="text-[0.6875rem] text-[var(--muted-foreground)]">
               {localizeUi("ui.lorebooks.expandeddrawer.logic")}
@@ -1571,6 +1626,7 @@ function ExpandedDrawer({
                     ? "mari-chrome-accent-surface mari-accent-animated"
                     : "text-[var(--muted-foreground)] hover:bg-[var(--marinara-editor-control-bg-hover)]",
                 )}
+                data-testid={`lorebook-editor-entry-logic-${option.value}-button`}
               >
                 {option.label}
               </button>
@@ -1675,6 +1731,7 @@ function ExpandedDrawer({
             className="mari-editor-field w-full px-2.5 py-2 text-xs"
             placeholder={localizeUi("ui.lorebooks.expandeddrawer.outletNamePlaceholder")}
             aria-label={localizeUi("ui.lorebooks.expandeddrawer.outletName")}
+            data-testid="lorebook-editor-entry-outlet-name-input"
           />
         </FieldGroup>
       )}
@@ -1694,6 +1751,7 @@ function ExpandedDrawer({
           placeholder={localizeUi("ui.lorebooks.expandeddrawer.theContentThatWillBeInjectedIntoThePrompt")}
           title={localizeUi("ui.lorebooks.expandeddrawer.editContent")}
           showMacroReference
+          testId="lorebook-editor-entry-content-textarea"
         />
         <p className="mt-1 flex items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
           <Hash size="0.5625rem" />~{estimateTokens(form.content ?? "").toLocaleString()}{" "}
@@ -1708,29 +1766,34 @@ function ExpandedDrawer({
           label={localizeUi("ui.lorebooks.expandeddrawer.wholeWords")}
           value={form.matchWholeWords ?? false}
           onChange={(v) => update({ matchWholeWords: v })}
+          testId="lorebook-editor-entry-whole-words-toggle"
         />
         <ToggleButton
           label={localizeUi("ui.lorebooks.expandeddrawer.caseSensitive")}
           value={form.caseSensitive ?? false}
           onChange={(v) => update({ caseSensitive: v })}
+          testId="lorebook-editor-entry-case-sensitive-toggle"
         />
         <ToggleButton
           label={localizeUi("ui.lorebooks.expandeddrawer.locked")}
           value={form.locked ?? false}
           onChange={(v) => update({ locked: v })}
           tooltip="Prevents the Lorebook Keeper agent from modifying this entry."
+          testId="lorebook-editor-entry-locked-toggle"
         />
         <ToggleButton
           label={localizeUi("ui.lorebooks.expandeddrawer.recursion")}
           value={!(form.preventRecursion ?? true)}
           onChange={(v) => update({ preventRecursion: !v })}
           tooltip="When enabled, this entry's content can trigger additional entries during recursive scanning. Keep this off unless this entry should chain lore."
+          testId="lorebook-editor-entry-recursion-toggle"
         />
         <ToggleButton
           label={localizeUi("ui.lorebooks.expandeddrawer.noVector")}
           value={form.excludeFromVectorization ?? false}
           onChange={(v) => update({ excludeFromVectorization: v })}
           tooltip="When enabled, bulk vectorization skips this entry and removes any stored embedding."
+          testId="lorebook-editor-entry-no-vector-toggle"
         />
       </div>
 
@@ -1750,6 +1813,7 @@ function ExpandedDrawer({
             value={form.role ?? "system"}
             onChange={(e) => update({ role: e.target.value as "system" | "user" | "assistant" })}
             className="mari-editor-field w-full px-2 py-1.5 text-xs"
+            data-testid="lorebook-editor-entry-role-select"
           >
             <option value="system">{localizeUi("ui.lorebooks.expandeddrawer.system")}</option>
             <option value="user">{localizeUi("ui.lorebooks.expandeddrawer.user")}</option>
@@ -1769,24 +1833,28 @@ function ExpandedDrawer({
               value={form.sticky ?? 0}
               onChange={(v) => update({ sticky: v || null })}
               min={0}
+              testId="lorebook-editor-entry-sticky-input"
             />
             <NumberField
               label={localizeUi("ui.lorebooks.expandeddrawer.cooldown")}
               value={form.cooldown ?? 0}
               onChange={(v) => update({ cooldown: v || null })}
               min={0}
+              testId="lorebook-editor-entry-cooldown-input"
             />
             <NumberField
               label={localizeUi("ui.lorebooks.expandeddrawer.delay")}
               value={form.delay ?? 0}
               onChange={(v) => update({ delay: v || null })}
               min={0}
+              testId="lorebook-editor-entry-delay-input"
             />
             <NumberField
               label={localizeUi("ui.lorebooks.expandeddrawer.ephemeral")}
               value={form.ephemeral ?? 0}
               onChange={(v) => update({ ephemeral: v || null })}
               min={0}
+              testId="lorebook-editor-entry-ephemeral-input"
             />
           </div>
         </FieldGroup>
@@ -1808,6 +1876,7 @@ function ExpandedDrawer({
                 onBlur={flushAutosave}
                 className="mari-editor-field w-full px-2 py-1.5 text-xs"
                 placeholder={localizeUi("ui.lorebooks.expandeddrawer.groupName")}
+                data-testid="lorebook-editor-entry-group-input"
               />
             </div>
             <div>
@@ -1820,6 +1889,7 @@ function ExpandedDrawer({
                 onBlur={flushAutosave}
                 className="mari-editor-field w-full px-2 py-1.5 text-xs"
                 placeholder={localizeUi("ui.lorebooks.expandeddrawer.eGLocationItemLore")}
+                data-testid="lorebook-editor-entry-tag-input"
               />
             </div>
           </div>

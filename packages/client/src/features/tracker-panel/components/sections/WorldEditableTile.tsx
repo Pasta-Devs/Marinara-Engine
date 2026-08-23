@@ -108,9 +108,22 @@ export function WorldRenderedEdit({
         }
         setEditing(true);
       }}
-      title={lockToggleActive ? (locked ?localizeUi("ui.trackerPanel.worldrenderededit.unlockValue1", { value1: label.toLowerCase() }) :localizeUi("ui.trackerPanel.worldrenderededit.lockValue1", { value1: label.toLowerCase() })) : title}
+      title={
+        lockToggleActive
+          ? locked
+            ? localizeUi("ui.trackerPanel.worldrenderededit.unlockValue1", { value1: label.toLowerCase() })
+            : localizeUi("ui.trackerPanel.worldrenderededit.lockValue1", { value1: label.toLowerCase() })
+          : title
+      }
       aria-label={
-        lockToggleActive ?localizeUi("ui.trackerPanel.inlineedit.value1Value2", { value1: locked ?localizeUi("ui.noodle.lockednoodlerpostcard.unlock") :localizeUi("ui.trackerPanel.inlineedit.lock"), value2: label.toLowerCase() }) :localizeUi("ui.trackerPanel.worldrenderededit.value1ClickToEdit", { value1: title })
+        lockToggleActive
+          ? localizeUi("ui.trackerPanel.inlineedit.value1Value2", {
+              value1: locked
+                ? localizeUi("ui.noodle.lockednoodlerpostcard.unlock")
+                : localizeUi("ui.trackerPanel.inlineedit.lock"),
+              value2: label.toLowerCase(),
+            })
+          : localizeUi("ui.trackerPanel.worldrenderededit.value1ClickToEdit", { value1: title })
       }
       aria-pressed={lockToggleActive ? locked : undefined}
       className={cn(
@@ -239,7 +252,10 @@ export function WorldValueText({
   return (
     <span
       ref={containerRef}
-      className={cn("relative block min-w-0 overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-5", className)}
+      className={cn(
+        "relative block min-w-0 overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-5",
+        className,
+      )}
       dir="auto"
     >
       <span

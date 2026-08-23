@@ -19,12 +19,12 @@ import {
   type ChatToolbarFloatingPanelAnchor,
 } from "./ChatToolbarControls";
 import {
-  ROLEPLAY_POPOVER_CLOSE_BUTTON,
-  ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
-  ROLEPLAY_POPOVER_HEADER,
-  ROLEPLAY_POPOVER_SHELL,
-  ROLEPLAY_POPOVER_TITLE,
-} from "./roleplay-popover-styles";
+  NEUTRAL_PANEL_CLOSE_BUTTON,
+  NEUTRAL_PANEL_CLOSE_ICON_SIZE,
+  NEUTRAL_PANEL_HEADER,
+  NEUTRAL_PANEL_SHELL,
+  NEUTRAL_PANEL_TITLE,
+} from "../ui/neutral-surface-styles";
 
 type SearchResult = {
   message: Message;
@@ -164,21 +164,21 @@ export function ChatMessageSearch({ chatId }: { chatId: string }) {
             data-chat-toolbar-panel-action="search"
             role="dialog"
             aria-labelledby={titleId}
-            className={cn(ROLEPLAY_POPOVER_SHELL, "fixed z-[9999] flex min-h-0 flex-col overflow-hidden")}
+            className={cn(NEUTRAL_PANEL_SHELL, "fixed z-[9999] flex min-h-0 flex-col overflow-hidden")}
             style={getPanelStyle(anchor)}
           >
-            <div className={cn(ROLEPLAY_POPOVER_HEADER, "flex shrink-0 items-center justify-between")}>
-              <h3 id={titleId} className={ROLEPLAY_POPOVER_TITLE}>
+            <div className={cn(NEUTRAL_PANEL_HEADER, "flex shrink-0 items-center justify-between")}>
+              <h3 id={titleId} className={NEUTRAL_PANEL_TITLE}>
                 <Search size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
                 {title}
               </h3>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
+                className={NEUTRAL_PANEL_CLOSE_BUTTON}
                 aria-label={localizeUi("ui.chat.chatmessagesearch.close")}
               >
-                <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+                <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
               </button>
             </div>
 

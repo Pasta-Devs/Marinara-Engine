@@ -51,9 +51,11 @@ export function createCapabilityResourceHost(db: DB): CapabilityResourceHost {
 
     async listLorebooks(lorebookIds): Promise<CapabilityLorebookRecord[]> {
       const requestedIds = lorebookIds ? uniqueStrings(lorebookIds) : null;
-      const records = (requestedIds
-        ? await Promise.all(requestedIds.map((lorebookId) => lorebooks.getById(lorebookId)))
-        : await lorebooks.list()) as Array<({ id: string } & Record<string, unknown>) | null>;
+      const records = (
+        requestedIds
+          ? await Promise.all(requestedIds.map((lorebookId) => lorebooks.getById(lorebookId)))
+          : await lorebooks.list()
+      ) as Array<({ id: string } & Record<string, unknown>) | null>;
       return Promise.all(
         records
           .flatMap((record) =>
@@ -116,9 +118,7 @@ export function createCapabilityResourceHost(db: DB): CapabilityResourceHost {
     },
 
     async createLorebook(input: CapabilityLorebookCreateInput): Promise<CapabilityLorebookRecord> {
-      const record = (await lorebooks.create(
-        input,
-      )) as ({ id: string } & Record<string, unknown>) | null;
+      const record = (await lorebooks.create(input)) as ({ id: string } & Record<string, unknown>) | null;
       if (!record) throw new Error("[capability] createLorebook failed");
       return { id: record.id, data: record, entries: [] };
     },

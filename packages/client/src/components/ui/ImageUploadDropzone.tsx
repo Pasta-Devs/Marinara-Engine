@@ -57,13 +57,19 @@ export function ImageUploadDropzone({
     const supportedFiles = getSupportedFiles(files, fileKind);
     if (supportedFiles.length === 0) {
       if (files && files.length > 0) {
-        toast.error(fileKind === "image" ?localizeUi("ui.ui.imageuploaddropzone.dropImageFilesToUpload") :localizeUi("ui.ui.imageuploaddropzone.dropVideoFilesToUpload"));
+        toast.error(
+          fileKind === "image"
+            ? localizeUi("ui.ui.imageuploaddropzone.dropImageFilesToUpload")
+            : localizeUi("ui.ui.imageuploaddropzone.dropVideoFilesToUpload"),
+        );
       }
       return;
     }
     if (files && supportedFiles.length < files.length) {
       toast.warning(
-        fileKind === "image" ?localizeUi("ui.ui.imageuploaddropzone.onlyImageFilesCanBeUploadedHere") :localizeUi("ui.ui.imageuploaddropzone.onlyVideoFilesCanBeUploadedHere"),
+        fileKind === "image"
+          ? localizeUi("ui.ui.imageuploaddropzone.onlyImageFilesCanBeUploadedHere")
+          : localizeUi("ui.ui.imageuploaddropzone.onlyVideoFilesCanBeUploadedHere"),
       );
     }
     onFilesSelected(supportedFiles);

@@ -74,7 +74,15 @@ export function useImportChatPreset() {
 export function useApplyChatPreset() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ presetId, chatId, connectionId }: { presetId: string; chatId: string; connectionId?: string | null }) =>
+    mutationFn: ({
+      presetId,
+      chatId,
+      connectionId,
+    }: {
+      presetId: string;
+      chatId: string;
+      connectionId?: string | null;
+    }) =>
       api.post<Chat>(
         `/chat-presets/${presetId}/apply/${chatId}`,
         connectionId !== undefined ? { connectionId } : undefined,

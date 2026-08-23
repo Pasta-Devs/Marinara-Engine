@@ -65,14 +65,13 @@ const CHARACTER_CARD_STRING_FIELDS = [
   "character_version",
 ] as const;
 
-const LEGACY_CHARACTER_CARD_FIELDS: Partial<
-  Record<(typeof CHARACTER_CARD_STRING_FIELDS)[number], readonly string[]>
-> = {
-  description: ["char_persona"],
-  scenario: ["world_scenario"],
-  first_mes: ["char_greeting"],
-  mes_example: ["example_dialogue"],
-} as const;
+const LEGACY_CHARACTER_CARD_FIELDS: Partial<Record<(typeof CHARACTER_CARD_STRING_FIELDS)[number], readonly string[]>> =
+  {
+    description: ["char_persona"],
+    scenario: ["world_scenario"],
+    first_mes: ["char_greeting"],
+    mes_example: ["example_dialogue"],
+  } as const;
 
 function firstPresentValue(source: Record<string, unknown>, keys: readonly string[]): unknown {
   for (const key of keys) {

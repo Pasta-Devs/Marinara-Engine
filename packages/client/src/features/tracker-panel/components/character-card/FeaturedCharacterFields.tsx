@@ -15,8 +15,7 @@ import { TRACKER_PROFILE_FIELD_TILE_CLASS } from "../controls/TrackerProfileChro
 import { useTrackerFieldLock, useTrackerLockContext } from "../TrackerLockContext";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
-const FEATURED_FIELD_LIST_CLASS =
-  "relative z-[1] grid h-full min-h-0 grid-cols-1 gap-0.5 overflow-hidden px-1 py-0.5";
+const FEATURED_FIELD_LIST_CLASS = "relative z-[1] grid h-full min-h-0 grid-cols-1 gap-0.5 overflow-hidden px-1 py-0.5";
 const FEATURED_FIELD_ICON_CLASS =
   "relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[color-mix(in_srgb,var(--tracker-profile-icon)_58%,var(--tracker-profile-text)_42%)] opacity-[0.82] ring-1 ring-inset ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_18%,transparent)] transition-colors before:absolute before:inset-[3px] before:rounded-full before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_3%,transparent)] before:content-[''] group-hover/field:text-[color-mix(in_srgb,var(--tracker-profile-icon)_78%,var(--tracker-profile-text)_22%)] group-hover/field:ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_34%,transparent)] group-hover/field:before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_6%,transparent)] [&>svg]:relative [&>svg]:z-[1] [&>svg]:stroke-[1.85]";
 type FeaturedCharacterFieldKey = "mood" | "appearance" | "outfit";
@@ -93,22 +92,37 @@ function FeaturedFieldTile({
         <button
           type="button"
           onClick={onToggleHidden}
-          title={hidden ?localizeUi("ui.trackerPanel.compactcharacterfield.showValue1", { value1: accessibleLabel.toLowerCase() }) :localizeUi("ui.trackerPanel.compactcharacterfield.hideValue1", { value1: accessibleLabel.toLowerCase() })}
-          aria-label={hidden ?localizeUi("ui.trackerPanel.compactcharacterfield.showValue1", { value1: accessibleLabel.toLowerCase() }) :localizeUi("ui.trackerPanel.compactcharacterfield.hideValue1", { value1: accessibleLabel.toLowerCase() })}
+          title={
+            hidden
+              ? localizeUi("ui.trackerPanel.compactcharacterfield.showValue1", {
+                  value1: accessibleLabel.toLowerCase(),
+                })
+              : localizeUi("ui.trackerPanel.compactcharacterfield.hideValue1", {
+                  value1: accessibleLabel.toLowerCase(),
+                })
+          }
+          aria-label={
+            hidden
+              ? localizeUi("ui.trackerPanel.compactcharacterfield.showValue1", {
+                  value1: accessibleLabel.toLowerCase(),
+                })
+              : localizeUi("ui.trackerPanel.compactcharacterfield.hideValue1", {
+                  value1: accessibleLabel.toLowerCase(),
+                })
+          }
           aria-pressed={hidden}
           className={cn(
             "w-full min-w-0 self-center rounded px-0 py-0 text-left transition-colors hover:bg-[var(--accent)]/25",
             textClass,
-            hidden ? "italic text-[color-mix(in_srgb,var(--tracker-profile-muted-text)_62%,transparent)]" : "text-[color:var(--tracker-profile-text)]",
+            hidden
+              ? "italic text-[color-mix(in_srgb,var(--tracker-profile-muted-text)_62%,transparent)]"
+              : "text-[color:var(--tracker-profile-text)]",
           )}
         >
           <span
-            className={cn(
-              "break-words [align-content:start]",
-              previewLines === 2 ? "line-clamp-2" : "line-clamp-3",
-            )}
+            className={cn("break-words [align-content:start]", previewLines === 2 ? "line-clamp-2" : "line-clamp-3")}
           >
-            {hidden ?localizeUi("ui.trackerPanel.thoughtbubble.hidden") : displayValue}
+            {hidden ? localizeUi("ui.trackerPanel.thoughtbubble.hidden") : displayValue}
           </span>
         </button>
       ) : (

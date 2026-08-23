@@ -63,8 +63,7 @@ export function useDeleteCustomSticker() {
 export function useImportCustomStickers() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (bundle: unknown) =>
-      api.post<{ imported: number; skipped: number }>("/custom-stickers/import", bundle),
+    mutationFn: (bundle: unknown) => api.post<{ imported: number; skipped: number }>("/custom-stickers/import", bundle),
     onSuccess: () => qc.invalidateQueries({ queryKey: customStickerKeys.all }),
   });
 }

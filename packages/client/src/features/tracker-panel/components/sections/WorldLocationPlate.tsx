@@ -24,10 +24,7 @@ export function WorldLocationPlate({
       value={value}
       onSave={onSave}
       placeholder={localizeUi("ui.trackerPanel.worldlocationplate.setLocation")}
-      className={cn(
-        "flex min-w-0 items-center gap-1.5 rounded-sm px-1 pb-0.5 pt-0 text-left",
-        compact && "px-0.5",
-      )}
+      className={cn("flex min-w-0 items-center gap-1.5 rounded-sm px-1 pb-0.5 pt-0 text-left", compact && "px-0.5")}
       inputClassName={cn("text-left text-sm", compact && "text-[0.8125rem]")}
       {...lock}
     >

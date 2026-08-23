@@ -107,14 +107,7 @@ type NoodleTimelineFeatureSettings = Pick<
 type RandomSource = () => number;
 type NoodlePromptPost = Pick<
   NoodlePost,
-  | "id"
-  | "authorAccountId"
-  | "authorSnapshot"
-  | "content"
-  | "imageUrl"
-  | "imagePrompt"
-  | "metadata"
-  | "createdAt"
+  "id" | "authorAccountId" | "authorSnapshot" | "content" | "imageUrl" | "imagePrompt" | "metadata" | "createdAt"
 >;
 type NoodlePromptInteraction = Pick<
   NoodleInteraction,
@@ -355,10 +348,7 @@ export function sampleNoodlePastMemoriesWeighted<T>(
  */
 export function noodleLorebookTokenBudget(activeCharacterCount: number): number {
   const scaled = Math.max(activeCharacterCount, 0) * LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_PER_ACCOUNT;
-  return Math.min(
-    LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_MAX,
-    Math.max(LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_FLOOR, scaled),
-  );
+  return Math.min(LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_MAX, Math.max(LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_FLOOR, scaled));
 }
 
 export function noodleTimelineFeatureInstructions(settings: NoodleTimelineFeatureSettings): string[] {

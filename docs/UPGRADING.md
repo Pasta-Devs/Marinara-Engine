@@ -100,7 +100,7 @@ cd Marinara-Engine
 
 For a persistent opt-out, set `AUTO_UPDATE_ENABLED=false` in the project `.env`. This affects only launcher-managed Engine updates; manual updates and the in-app update controls remain available.
 
-If you use the Android app icon (the APK), open it and tap **Install / Start Marinara**. The APK is a sideloaded app, which means you installed it outside the official app store. It is a shell over Termux, so it updates the same Termux copy behind it.
+If you use the Android app icon (the APK), [download the latest APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) and open the downloaded file so Android updates the wrapper itself. Then open Marinara Engine and tap **Install / Start Marinara** to update and start the Termux copy behind it. The app preserves and exchanges its private localhost credential automatically; an update never asks you for signing credentials or that secret.
 
 ### iPhone and iPad
 

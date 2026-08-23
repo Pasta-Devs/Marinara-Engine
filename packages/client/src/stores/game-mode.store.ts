@@ -2,11 +2,7 @@
 // Store: Game Mode
 // ──────────────────────────────────────────────
 import { create } from "zustand";
-import {
-  isSameNpcAvatarResource,
-  normalizeNpcAvatarName,
-  withFreshNpcAvatarRevision,
-} from "../lib/game-npc-avatar";
+import { isSameNpcAvatarResource, normalizeNpcAvatarName, withFreshNpcAvatarRevision } from "../lib/game-npc-avatar";
 import { api } from "../lib/api-client";
 import type {
   GameActiveState,

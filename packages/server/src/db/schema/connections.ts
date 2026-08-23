@@ -24,6 +24,7 @@ export const apiConnections = fileTable("api_connections", {
       "custom",
       "image_generation",
       "video_generation",
+      "audio",
     ],
   }).notNull(),
   baseUrl: text("base_url").notNull().default(""),
@@ -73,6 +74,14 @@ export const apiConnections = fileTable("api_connections", {
   videoGenerationSource: text("video_generation_source"),
   /** Video generation: explicitly selected service ID. */
   videoService: text("video_service"),
+  /** Audio backend for audio connections (openai | elevenlabs | pockettts | xai). */
+  audioSource: text("audio_source"),
+  /** Default voice id/name for speech synthesis on this audio connection. */
+  audioVoice: text("audio_voice"),
+  /** Whether this audio connection may generate game sound effects ("true"/"false"). */
+  audioSoundEffects: text("audio_sound_effects").notNull().default("false"),
+  /** Whether this audio connection may generate game music ("true"/"false"). */
+  audioMusic: text("audio_music").notNull().default("false"),
   /** Default generation parameters (stored as JSON) for new chats using this connection */
   defaultParameters: text("default_parameters"),
   /** Optional prompt preset override for Roleplay chats using this connection */
@@ -81,6 +90,8 @@ export const apiConnections = fileTable("api_connections", {
   maxTokensOverride: integer("max_tokens_override"),
   /** Maximum number of agent LLM jobs Marinara may run at once for this connection. */
   maxParallelJobs: integer("max_parallel_jobs").notNull().default(1),
+  /** Optional cap on outbound requests per minute to this connection (null = unlimited). */
+  maxRequestsPerMinute: integer("max_requests_per_minute"),
   /** Treat as a local/custom endpoint for Professor Mari JSON tool fallback behavior. */
   treatAsLocalEndpoint: text("treat_as_local_endpoint").notNull().default("false"),
   /**

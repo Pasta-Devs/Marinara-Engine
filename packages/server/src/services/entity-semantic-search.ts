@@ -83,7 +83,11 @@ const SEMANTIC_CALIBRATION_TEXTS = [
   "A city council reviews municipal zoning regulations.",
 ] as const;
 
-async function embedTexts(texts: string[], options: EntityResolveOptions): Promise<number[][]> {
+async function embedTexts(
+  texts: string[],
+  options: EntityResolveOptions,
+  inputType: "document" | "query",
+): Promise<number[][]> {
   // A throwing embedder must degrade exactly like an unavailable one — every
   // in-tree source catches internally, but a future/custom one might not.
   try {
@@ -91,6 +95,7 @@ async function embedTexts(texts: string[], options: EntityResolveOptions): Promi
       embeddingSource: options.embeddingSource,
       localEmbedder: options.localEmbedder ?? localEmbed,
       signal: options.signal,
+      inputType,
     });
   } catch (err) {
     logger.warn(err, "[entity-search] embedding call failed; degrading to substring");
@@ -123,6 +128,7 @@ export async function warmEntityEmbeddings(
   const embeddings = await embedTexts(
     missing.map((c) => c.embedText),
     options,
+    "document",
   );
   if (embeddings.length === 0) return { attempted: missing.length, embedded: 0 };
 
@@ -148,7 +154,8 @@ export async function warmEntityEmbeddings(
       embedded += 1;
     }
   }
-  if (embedded > 0) logger.debug("[entity-search] Persisted %d/%d %s embedding(s)", embedded, missing.length, descriptor.type);
+  if (embedded > 0)
+    logger.debug("[entity-search] Persisted %d/%d %s embedding(s)", embedded, missing.length, descriptor.type);
   return { attempted: missing.length, embedded };
 }
 
@@ -170,7 +177,7 @@ export async function shortlistEntities(
   // this call; it warms over subsequent fetches.
   await warmEntityEmbeddings(descriptor, pool, options);
 
-  const queryEmbeddings = await embedTexts([query, ...SEMANTIC_CALIBRATION_TEXTS], options);
+  const queryEmbeddings = await embedTexts([query, ...SEMANTIC_CALIBRATION_TEXTS], options, "query");
   const queryEmbedding = queryEmbeddings[0];
   if (!queryEmbedding || queryEmbedding.length === 0) return null; // embedder unavailable
 

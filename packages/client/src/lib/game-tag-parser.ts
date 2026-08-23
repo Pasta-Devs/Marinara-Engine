@@ -326,7 +326,8 @@ function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const total = Number.parseInt(values.get("total") ?? "", 10);
   const resultValue = values.get("result")?.trim().toLowerCase();
   const modeValue = values.get("mode")?.trim().toLowerCase();
-  const resolution: SkillCheckResult["resolution"] = values.get("resolution")?.trim().toLowerCase() === "successes" ? "successes" : "sum";
+  const resolution: SkillCheckResult["resolution"] =
+    values.get("resolution")?.trim().toLowerCase() === "successes" ? "successes" : "sum";
 
   if (!rollsValue || Number.isNaN(modifier) || Number.isNaN(total) || !resultValue) {
     // Sparse tag — server resolver will roll + apply modifier. If the GM echoed

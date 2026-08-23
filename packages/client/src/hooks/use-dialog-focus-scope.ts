@@ -9,10 +9,7 @@ const FOCUSABLE_SELECTOR = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
-function restoreDialogFocus(
-  restoreFocusRef: RefObject<HTMLElement | null> | undefined,
-  fallback: HTMLElement | null,
-) {
+function restoreDialogFocus(restoreFocusRef: RefObject<HTMLElement | null> | undefined, fallback: HTMLElement | null) {
   window.requestAnimationFrame(() => (restoreFocusRef?.current ?? fallback)?.focus());
 }
 

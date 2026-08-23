@@ -101,7 +101,6 @@ export function useDocsSearch(query: string) {
     // Carry the previous results across TERM changes only — queryKey[2] is the
     // language dimension, and results from another language must never bleed
     // into a freshly switched one.
-    placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[2] === lang ? previous : undefined,
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[2] === lang ? previous : undefined),
   });
 }

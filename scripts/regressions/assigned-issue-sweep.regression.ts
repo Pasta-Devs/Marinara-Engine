@@ -17,6 +17,9 @@ import {
   shouldRunAndroidHostHeartbeat,
 } from "../../packages/client/src/lib/keep-alive.js";
 import { useAgentStore } from "../../packages/client/src/stores/agent.store.js";
+import { agentResultMatchesVisibleSwipe } from "../../packages/client/src/lib/agent-result-ownership.js";
+import { createAgentEventDispatcher } from "../../packages/server/src/services/generation/agent-event-dispatcher.js";
+import { resolveMacrosForPreview } from "../../packages/server/src/services/prompt/macro-context.js";
 import {
   isStockMarinaraUniversalPreset,
   MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
@@ -27,6 +30,68 @@ import {
 } from "../../packages/shared/src/types/game.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
+
+const dispatchedAgentEvents: Array<Record<string, unknown>> = [];
+const immutableAgentOwnership = {
+  chatId: "roleplay-chat",
+  messageId: "assistant-message",
+  swipeIndex: 1,
+  generationId: "generation-one",
+};
+let ownershipResultAgentId: string | null = null;
+createAgentEventDispatcher({
+  resolvedAgents: [],
+  sendEvent: (payload) => dispatchedAgentEvents.push(payload),
+  getOwnership: (result) => {
+    ownershipResultAgentId = result.agentId;
+    return immutableAgentOwnership;
+  },
+}).sendAgentResultEvent({
+  agentId: "quest",
+  agentType: "quest",
+  type: "quest_update",
+  data: {},
+  tokensUsed: 0,
+  durationMs: 1,
+  success: true,
+  error: null,
+});
+assert.equal(ownershipResultAgentId, "quest", "agent event ownership may be resolved from the individual result");
+assert.deepEqual(
+  (dispatchedAgentEvents[0]?.data as Record<string, unknown> | undefined) ?? {},
+  {
+    agentType: "quest",
+    agentName: "quest",
+    resultType: "quest_update",
+    data: {},
+    success: true,
+    error: null,
+    durationMs: 1,
+    ...immutableAgentOwnership,
+  },
+  "agent result events must carry the immutable message, swipe, and generation owner",
+);
+const ownershipMessages = [{ id: "assistant-message", activeSwipeIndex: 1 }] as never;
+assert.equal(agentResultMatchesVisibleSwipe(ownershipMessages, immutableAgentOwnership), true);
+assert.equal(
+  agentResultMatchesVisibleSwipe(ownershipMessages, { ...immutableAgentOwnership, swipeIndex: 2 }),
+  false,
+  "an old agent result must not update UI stores after the user changes swipes",
+);
+
+useAgentStore.getState().reset();
+useAgentStore.getState().setProcessingRun("older-swipe", true, "roleplay-chat");
+useAgentStore.getState().setProcessingRun("newer-swipe", true, "roleplay-chat");
+useAgentStore.getState().setProcessingRun("older-swipe", false, "roleplay-chat");
+assert.equal(
+  useAgentStore.getState().isProcessing,
+  true,
+  "finishing an older swipe pipeline must not clear a newer pipeline's processing state",
+);
+assert.deepEqual(useAgentStore.getState().processingChatIds, ["roleplay-chat"]);
+useAgentStore.getState().setProcessingRun("newer-swipe", false, "roleplay-chat");
+assert.equal(useAgentStore.getState().isProcessing, false);
+useAgentStore.getState().reset();
 
 assert.equal(
   resolveGameImageDynamicPromptEnabled({}),
@@ -214,12 +279,12 @@ assert.match(
   "the React Markdown path renders Discord-style subtext as a semantic small block",
 );
 
-const gameNarrationSource = readFileSync(
-  join(repositoryRoot, "packages/client/src/components/game/GameNarration.tsx"),
+const gameNarrationFormatSource = readFileSync(
+  join(repositoryRoot, "packages/client/src/components/game/game-narration-format.ts"),
   "utf8",
 );
-assert.match(gameNarrationSource, /mari-md-underline/u, "Game chat narration retains underline markup");
-assert.match(gameNarrationSource, /mari-md-subtext/u, "Game chat narration retains Discord-style subtext markup");
+assert.match(gameNarrationFormatSource, /mari-md-underline/u, "Game chat narration retains underline markup");
+assert.match(gameNarrationFormatSource, /mari-md-subtext/u, "Game chat narration retains Discord-style subtext markup");
 
 const mergedSettings = mergeUndatedSyncedSettings({ accentColor: "local", homeGreetingEnabled: true } as never, {
   accentColor: "server",
@@ -273,6 +338,11 @@ assert.doesNotMatch(
 const presetEditorSource = readFileSync(
   join(repositoryRoot, "packages/client/src/components/presets/PresetEditor.tsx"),
   "utf8",
+);
+assert.match(
+  presetEditorSource,
+  /useLayoutEffect\(\(\) => \{\s*currentPresetIdRef\.current = presetId;\s*\}, \[presetId\]\)/u,
+  "quick preset copy ownership updates only after the selected preset commits",
 );
 assert.equal(
   presetEditorSource.match(/showMarkdownPreview/gu)?.length,
@@ -353,7 +423,7 @@ assert.doesNotMatch(
   "unsupported SillyTavern placements must not discard the entire preset regex entry",
 );
 const regexBeforeSuccessfulImport =
-  /const unsupportedPlacements = getUnsupportedStRegexPlacements\(entry\);[\s\S]*?await createRegexScript\.mutateAsync\(normalized\);/u.exec(
+  /const unsupportedPlacements = getUnsupportedStRegexPlacements\(entry\);[\s\S]*?await importRegexScript\.mutateAsync\(normalized\);/u.exec(
     presetsPanelSource,
   )?.[0];
 assert.ok(regexBeforeSuccessfulImport, "the preset regex pre-import path remains discoverable");
@@ -363,19 +433,66 @@ assert.doesNotMatch(
   "unsupported placement warnings must not be emitted before the regex imports successfully",
 );
 const successfulRegexImportWarning =
-  /await createRegexScript\.mutateAsync\(normalized\);[\s\S]*?warnings\.push\([\s\S]*?ignoredUnsupportedRegexPlacements"/u.exec(
+  /await importRegexScript\.mutateAsync\(normalized\);[\s\S]*?warnings\.push\([\s\S]*?ignoredUnsupportedRegexPlacements"/u.exec(
     presetsPanelSource,
   )?.[0];
 assert.ok(successfulRegexImportWarning, "the successful preset regex import warning remains discoverable");
 assert.match(
   successfulRegexImportWarning,
-  /await createRegexScript\.mutateAsync\(normalized\);[\s\S]*?warnings\.push/u,
+  /await importRegexScript\.mutateAsync\(normalized\);[\s\S]*?warnings\.push/u,
   "ignored SillyTavern placements produce a warning only after the regex imports successfully",
 );
 assert.match(
   successfulRegexImportWarning,
   /localizeUi\("ui\.panels\.presetspanel\.ignoredUnsupportedRegexPlacements"/u,
   "unsupported placement warnings must use the localized message",
+);
+
+const characterRegexSectionSource = readFileSync(
+  join(repositoryRoot, "packages/client/src/components/characters/CharacterRegexSection.tsx"),
+  "utf8",
+);
+const scopedUnsupportedRegexPlacementGate =
+  /const unsupportedPlacements = getUnsupportedStRegexPlacements\(entry\);[\s\S]*?const normalized =/u.exec(
+    characterRegexSectionSource,
+  )?.[0];
+assert.ok(scopedUnsupportedRegexPlacementGate, "the character-scoped regex placement branch remains discoverable");
+assert.doesNotMatch(
+  scopedUnsupportedRegexPlacementGate,
+  /continue;/u,
+  "unsupported SillyTavern placements must not discard an entire character-scoped regex entry",
+);
+const scopedRegexBeforeSuccessfulImport =
+  /const unsupportedPlacements = getUnsupportedStRegexPlacements\(entry\);[\s\S]*?await importRegex\.mutateAsync\(\{ \.\.\.normalized, targetCharacterIds: \[characterId\] \}\);/u.exec(
+    characterRegexSectionSource,
+  )?.[0];
+assert.ok(scopedRegexBeforeSuccessfulImport, "the character-scoped regex pre-import path remains discoverable");
+assert.doesNotMatch(
+  scopedRegexBeforeSuccessfulImport,
+  /warnings\.push/u,
+  "character-scoped placement warnings must not be emitted before the regex imports successfully",
+);
+const scopedSupportedImportPath = scopedRegexBeforeSuccessfulImport.replace(
+  /if \(!normalized\) \{[\s\S]*?continue;\s*\}/u,
+  "",
+);
+assert.doesNotMatch(
+  scopedSupportedImportPath,
+  /continue;/u,
+  "supported character-scoped regex entries must reach the import even when some placements are unsupported",
+);
+const successfulScopedRegexImportWarning =
+  /await importRegex\.mutateAsync\(\{ \.\.\.normalized, targetCharacterIds: \[characterId\] \}\);[\s\S]*?warnings\.push\([\s\S]*?ignoredUnsupportedRegexPlacements"/u.exec(
+    characterRegexSectionSource,
+  )?.[0];
+assert.ok(
+  successfulScopedRegexImportWarning,
+  "the successful character-scoped regex import warning remains discoverable",
+);
+assert.match(
+  successfulScopedRegexImportWarning,
+  /localizeUi\("ui\.panels\.presetspanel\.ignoredUnsupportedRegexPlacements"/u,
+  "character-scoped imports use the localized unsupported-placement warning",
 );
 
 const gameSetupWizardSource = readFileSync(
@@ -427,6 +544,24 @@ assert.equal(
   canonicalEnglish["ui.chat.edittextarea.saveCmdEnter"],
   "Save (Cmd/Ctrl+Enter)",
   "the message editor shortcut hint covers both macOS and Windows modifiers",
+);
+
+const liveMacroContext = {
+  user: "Mari",
+  char: "Dottore",
+  characters: ["Dottore"],
+  variables: {},
+  localVariables: { existing: "kept" },
+};
+const previewMacroResult = resolveMacrosForPreview(
+  "{{setvar::previewOnly::yes}}{{getvar::previewOnly}}",
+  liveMacroContext,
+);
+assert.equal(previewMacroResult, "yes", "the production preview resolver evaluates against its isolated clone");
+assert.deepEqual(
+  liveMacroContext.localVariables,
+  { existing: "kept" },
+  "preview macro resolution cannot mutate the live chat-local variables",
 );
 
 console.info("Assigned issue-sweep regressions passed.");

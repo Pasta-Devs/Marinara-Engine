@@ -8,7 +8,12 @@
 import type { ReactNode } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
-import { computeFieldChanges, resolveLorebookVectorStatus, type FieldChange, type LorebookVectorStatus } from "../../lib/mari-edit-diff";
+import {
+  computeFieldChanges,
+  resolveLorebookVectorStatus,
+  type FieldChange,
+  type LorebookVectorStatus,
+} from "../../lib/mari-edit-diff";
 import { diffWords } from "../../lib/word-diff";
 import type { MariDbPendingApproval, MariDbRowChange } from "@marinara-engine/shared";
 import { ChevronDown, ChevronRight, Eye, FileText, Pencil, Sparkles, Trash2, Undo2 } from "lucide-react";
@@ -34,7 +39,11 @@ function truthy(value: unknown): boolean {
 
 function csvToList(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((v) => String(v)).filter(Boolean);
-  if (typeof value === "string" && value.trim()) return value.split(",").map((v) => v.trim()).filter(Boolean);
+  if (typeof value === "string" && value.trim())
+    return value
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
   return [];
 }
 
@@ -324,7 +333,9 @@ function LorebookEntryDiff({ change, collapsed }: { change: MariDbRowChange; col
           <span
             className={cn(
               "rounded-md px-1.5 py-0.5 text-[0.625rem] font-semibold",
-              isDisabled ? "bg-[var(--destructive)]/30 text-[var(--foreground)]" : "bg-emerald-500/25 text-[var(--foreground)]",
+              isDisabled
+                ? "bg-[var(--destructive)]/30 text-[var(--foreground)]"
+                : "bg-emerald-500/25 text-[var(--foreground)]",
             )}
           >
             {isDisabled
@@ -339,69 +350,74 @@ function LorebookEntryDiff({ change, collapsed }: { change: MariDbRowChange; col
       {/* Collapsing keeps the name + status summary above and folds away the bulky details. */}
       {!collapsed && (
         <>
-      <div>
-        <div className="mb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-          {localizeUi("ui.chat.mariediteasyviewer.primaryKeys")}
-        </div>
-        <KeyChips before={csvToList(before?.keys)} after={csvToList(after?.keys)} />
-      </div>
-
-      {(csvToList(before?.secondaryKeys).length > 0 || csvToList(after?.secondaryKeys).length > 0) && (
-        <div>
-          <div className="mb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            {localizeUi("ui.chat.mariediteasyviewer.secondaryKeys")}
+          <div>
+            <div className="mb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+              {localizeUi("ui.chat.mariediteasyviewer.primaryKeys")}
+            </div>
+            <KeyChips before={csvToList(before?.keys)} after={csvToList(after?.keys)} />
           </div>
-          <KeyChips before={csvToList(before?.secondaryKeys)} after={csvToList(after?.secondaryKeys)} />
-        </div>
-      )}
 
-      {contentBefore !== contentAfter && (
-        <div>
-          <div className="mb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            {localizeUi("ui.chat.mariediteasyviewer.content")}
-          </div>
-          <p className="max-h-40 overflow-auto rounded-md bg-[var(--background)]/70 p-1.5 text-[0.6875rem] leading-relaxed text-[var(--foreground)]">
-            <InlineTextDiff before={contentBefore} after={contentAfter} />
-          </p>
-        </div>
-      )}
+          {(csvToList(before?.secondaryKeys).length > 0 || csvToList(after?.secondaryKeys).length > 0) && (
+            <div>
+              <div className="mb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                {localizeUi("ui.chat.mariediteasyviewer.secondaryKeys")}
+              </div>
+              <KeyChips before={csvToList(before?.secondaryKeys)} after={csvToList(after?.secondaryKeys)} />
+            </div>
+          )}
 
-      {descBefore !== descAfter && (
-        <div>
-          <div className="mb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            {localizeUi("ui.chat.mariediteasyviewer.description")}
-          </div>
-          <p className="max-h-40 overflow-auto rounded-md bg-[var(--background)]/70 p-1.5 text-[0.6875rem] leading-relaxed text-[var(--foreground)]">
-            <InlineTextDiff before={descBefore} after={descAfter} />
-          </p>
-        </div>
-      )}
+          {contentBefore !== contentAfter && (
+            <div>
+              <div className="mb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                {localizeUi("ui.chat.mariediteasyviewer.content")}
+              </div>
+              <p className="max-h-40 overflow-auto rounded-md bg-[var(--background)]/70 p-1.5 text-[0.6875rem] leading-relaxed text-[var(--foreground)]">
+                <InlineTextDiff before={contentBefore} after={contentAfter} />
+              </p>
+            </div>
+          )}
 
-      {changedToggles.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {changedToggles.map((toggle) => (
-            <span
-              key={toggle.label}
-              className={cn(
-                "rounded-md px-1.5 py-0.5 text-[0.625rem]",
-                toggle.on ? "bg-emerald-500/25 text-[var(--foreground)]" : "bg-[var(--destructive)]/25 text-[var(--foreground)]",
-              )}
-            >
-              {toggle.label}: {toggle.on ? localizeUi("ui.chat.mariediteasyviewer.on") : localizeUi("ui.chat.mariediteasyviewer.off")}
-            </span>
-          ))}
-        </div>
-      )}
+          {descBefore !== descAfter && (
+            <div>
+              <div className="mb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                {localizeUi("ui.chat.mariediteasyviewer.description")}
+              </div>
+              <p className="max-h-40 overflow-auto rounded-md bg-[var(--background)]/70 p-1.5 text-[0.6875rem] leading-relaxed text-[var(--foreground)]">
+                <InlineTextDiff before={descBefore} after={descAfter} />
+              </p>
+            </div>
+          )}
 
-      {remainingFields.length > 0 && (
-        <div className="space-y-1.5">
-          {remainingFields.map((field) => (
-            <FieldChangeView key={field.path} change={field} />
-          ))}
-        </div>
-      )}
+          {changedToggles.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {changedToggles.map((toggle) => (
+                <span
+                  key={toggle.label}
+                  className={cn(
+                    "rounded-md px-1.5 py-0.5 text-[0.625rem]",
+                    toggle.on
+                      ? "bg-emerald-500/25 text-[var(--foreground)]"
+                      : "bg-[var(--destructive)]/25 text-[var(--foreground)]",
+                  )}
+                >
+                  {toggle.label}:{" "}
+                  {toggle.on
+                    ? localizeUi("ui.chat.mariediteasyviewer.on")
+                    : localizeUi("ui.chat.mariediteasyviewer.off")}
+                </span>
+              ))}
+            </div>
+          )}
 
-      {!source && <EmptyValue />}
+          {remainingFields.length > 0 && (
+            <div className="space-y-1.5">
+              {remainingFields.map((field) => (
+                <FieldChangeView key={field.path} change={field} />
+              ))}
+            </div>
+          )}
+
+          {!source && <EmptyValue />}
         </>
       )}
     </div>
@@ -415,7 +431,11 @@ function GenericRowDiff({ change, collapsed }: { change: MariDbRowChange; collap
   if (collapsed) return null;
   const fields = computeFieldChanges(change);
   if (fields.length === 0) {
-    return <p className="text-[0.6875rem] italic text-[var(--muted-foreground)]">{localizeUi("ui.chat.mariediteasyviewer.noFieldChanges")}</p>;
+    return (
+      <p className="text-[0.6875rem] italic text-[var(--muted-foreground)]">
+        {localizeUi("ui.chat.mariediteasyviewer.noFieldChanges")}
+      </p>
+    );
   }
   return (
     <div className="space-y-1.5">
@@ -447,9 +467,17 @@ function actionMeta(action: MariDbRowChange["action"], localizeUi: (key: string)
     return { label: localizeUi("ui.chat.mariediteasyviewer.actionNew"), icon: Sparkles, tone: "text-[var(--primary)]" };
   }
   if (action === "delete") {
-    return { label: localizeUi("ui.chat.mariediteasyviewer.actionRemoved"), icon: Trash2, tone: "text-[var(--destructive)]" };
+    return {
+      label: localizeUi("ui.chat.mariediteasyviewer.actionRemoved"),
+      icon: Trash2,
+      tone: "text-[var(--destructive)]",
+    };
   }
-  return { label: localizeUi("ui.chat.mariediteasyviewer.actionEdited"), icon: Pencil, tone: "text-[var(--muted-foreground)]" };
+  return {
+    label: localizeUi("ui.chat.mariediteasyviewer.actionEdited"),
+    icon: Pencil,
+    tone: "text-[var(--muted-foreground)]",
+  };
 }
 
 // A character or preset edit can be previewed as an assembled prompt. Deletes are NOT offered: the
@@ -497,7 +525,9 @@ function RowCard({
     <div
       className={cn(
         "rounded-lg border p-2",
-        isDelete ? "border-[var(--destructive)]/60 bg-[var(--destructive)]/10" : "border-[var(--border)] bg-[var(--background)]/40",
+        isDelete
+          ? "border-[var(--destructive)]/60 bg-[var(--destructive)]/10"
+          : "border-[var(--border)] bg-[var(--background)]/40",
       )}
     >
       <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
@@ -506,9 +536,12 @@ function RowCard({
           type="button"
           onClick={onToggleCollapse}
           aria-expanded={!collapsed}
-          aria-label={localizeUi(collapsed ? "ui.chat.mariediteasyviewer.expand" : "ui.chat.mariediteasyviewer.collapse", {
-            name: accessibleName,
-          })}
+          aria-label={localizeUi(
+            collapsed ? "ui.chat.mariediteasyviewer.expand" : "ui.chat.mariediteasyviewer.collapse",
+            {
+              name: accessibleName,
+            },
+          )}
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
         >
           {collapsed ? (
