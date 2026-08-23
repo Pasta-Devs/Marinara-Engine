@@ -250,6 +250,11 @@ const CUSTOM_AGENT_CAPABILITY_META: Array<{
   description: string;
 }> = [
   {
+    id: "create_characters",
+    label: "settings.agentImports.capabilities.create_characters.label",
+    description: "settings.agentImports.capabilities.create_characters.description",
+  },
+  {
     id: "create_lorebooks",
     label: "Create lorebooks",
     description: "Allow this agent to create a new agent-made lorebook when its lore output has no target.",
@@ -390,6 +395,12 @@ const CUSTOM_AGENT_RESULT_TYPE_OPTIONS: Array<{
     id: "context_injection",
     label: "Context Injection",
     description: "Adds text context before generation, or records informational text after generation.",
+  },
+  {
+    id: "character_card_create",
+    label: "settings.agentImports.results.character_card_create.label",
+    description: "settings.agentImports.results.character_card_create.description",
+    requiredCapability: "create_characters",
   },
   {
     id: "text_rewrite",

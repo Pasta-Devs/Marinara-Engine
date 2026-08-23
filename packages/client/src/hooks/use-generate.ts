@@ -531,7 +531,29 @@ async function buildPendingCardUpdates(
 function readAgentWriteApprovalProposal(
   raw: unknown,
   fallback?: { chatId?: string; agentType?: string | null; agentName?: string },
+  resultType?: string,
 ): AgentWriteApprovalProposal | null {
+  if (resultType === "character_card_create") {
+    const chatId = typeof fallback?.chatId === "string" ? fallback.chatId : "";
+    if (!chatId || !raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const agentType = fallback?.agentType ?? null;
+    const agentName = fallback?.agentName ?? agentType ?? "Agent";
+    const rawData = (raw as Record<string, unknown>).data;
+    const characterName =
+      rawData && typeof rawData === "object" && !Array.isArray(rawData)
+        ? String((rawData as Record<string, unknown>).name ?? "").trim()
+        : "";
+    return {
+      kind: "character_card_create",
+      chatId,
+      agentType,
+      agentName,
+      title: characterName ? `${agentName}: ${characterName}` : agentName,
+      text: JSON.stringify(raw, null, 2),
+      canRegenerate: !!agentType,
+    };
+  }
+
   const envelope = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
   const source =
     envelope?.requiresApproval === true && envelope.approval && typeof envelope.approval === "object"
@@ -1875,11 +1897,15 @@ export function useGenerate() {
               }
 
               const writeApproval = result.success
-                ? readAgentWriteApprovalProposal(result.data, {
-                    chatId: params.chatId,
-                    agentType: result.agentType,
-                    agentName: result.agentName,
-                  })
+                ? readAgentWriteApprovalProposal(
+                    result.data,
+                    {
+                      chatId: params.chatId,
+                      agentType: result.agentType,
+                      agentName: result.agentName,
+                    },
+                    result.resultType,
+                  )
                 : null;
               if (writeApproval) {
                 enqueuePendingAgentWriteApproval(createPendingAgentWriteApproval(writeApproval));
@@ -3472,11 +3498,15 @@ export function useGenerate() {
                 });
               }
               const writeApproval = result.success
-                ? readAgentWriteApprovalProposal(result.data, {
-                    chatId,
-                    agentType: result.agentType,
-                    agentName: result.agentName,
-                  })
+                ? readAgentWriteApprovalProposal(
+                    result.data,
+                    {
+                      chatId,
+                      agentType: result.agentType,
+                      agentName: result.agentName,
+                    },
+                    result.resultType,
+                  )
                 : null;
               if (writeApproval) {
                 enqueuePendingAgentWriteApproval(createPendingAgentWriteApproval(writeApproval));
