@@ -1865,7 +1865,7 @@ test("Conversation message actions follow their messages on desktop and mobile",
   }
 });
 
-test("Conversation Calls matches the participant control height", async ({ page, request }) => {
+test("Conversation Calls matches the participant control and sits beside it", async ({ page, request }) => {
   const characterResponse = await request.post("/api/characters", {
     data: { data: { name: "Call Toolbar Height" } },
   });
@@ -1941,8 +1941,11 @@ test("Conversation Calls matches the participant control height", async ({ page,
     const presenceButton = page.locator('button[title^="Call Toolbar Height:"]');
     const callHost = page.locator("marinara-capability-conversation-calls[view=toolbar]");
     const callButton = callHost.locator('button[title="Start call"]');
+    const headerIdentity = page.locator("[data-conversation-header-identity]");
     await expect(presenceButton).toBeVisible();
     await expect(callButton).toBeVisible();
+    await expect(headerIdentity.locator('button[title^="Call Toolbar Height:"]')).toHaveCount(1);
+    await expect(headerIdentity.locator("marinara-capability-conversation-calls[view=toolbar]")).toHaveCount(1);
     await expect
       .poll(() =>
         callHost.evaluate((element) =>
@@ -1957,6 +1960,8 @@ test("Conversation Calls matches the participant control height", async ({ page,
     expect(presenceBox).not.toBeNull();
     expect(callBox).not.toBeNull();
     expect(callBox!.height).toBeCloseTo(presenceBox!.height, 1);
+    expect(callBox!.x).toBeGreaterThanOrEqual(presenceBox!.x + presenceBox!.width);
+    expect(callBox!.x - (presenceBox!.x + presenceBox!.width)).toBeLessThanOrEqual(8);
   } finally {
     await Promise.all([
       request.delete(`/api/chats/${chat.id}`).catch(() => undefined),
@@ -3292,9 +3297,8 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
 });
 
 test("Character and Persona avatar actions stay separated and visually balanced", async ({ page }) => {
-  if ((page.viewportSize()?.width ?? 768) >= 768) {
-    await page.setViewportSize({ width: 1800, height: 900 });
-  }
+  const mobileProject = (page.viewportSize()?.width ?? 768) < 768;
+  if (!mobileProject) await page.setViewportSize({ width: 2560, height: 900 });
   const suffix = Date.now().toString(36);
   const connectionResponse = await page.request.post("/api/connections", {
     data: {
@@ -3374,8 +3378,10 @@ test("Character and Persona avatar actions stay separated and visually balanced"
     const actions = header.locator(".mari-editor-actions");
     const compactMenuButton = navigation.getByRole("button", { name: "Editor sections" });
     const desktopTabs = navigation.getByRole("navigation", { name: "Editor sections" });
-    if ((page.viewportSize()?.width ?? 768) < 768) {
+    const verifyCompactNavigation = async () => {
       await expect(compactMenuButton).toBeVisible();
+      await expect(desktopTabs).toBeHidden();
+      await expect(compactMenuButton).toHaveClass(/mari-editor-action/u);
       const [menuButtonBox, firstActionBox] = await Promise.all([
         compactMenuButton.boundingBox(),
         actions.locator(".mari-editor-action").first().boundingBox(),
@@ -3384,6 +3390,7 @@ test("Character and Persona avatar actions stay separated and visually balanced"
       expect(firstActionBox).not.toBeNull();
       if (menuButtonBox && firstActionBox) {
         expect(menuButtonBox.width).toBeLessThanOrEqual(137);
+        expect(Math.abs(menuButtonBox.height - firstActionBox.height)).toBeLessThanOrEqual(1);
         expect(
           Math.abs(menuButtonBox.y + menuButtonBox.height / 2 - (firstActionBox.y + firstActionBox.height / 2)),
         ).toBeLessThanOrEqual(1);
@@ -3404,8 +3411,40 @@ test("Character and Persona avatar actions stay separated and visually balanced"
       await expect(compactMenu).toHaveCount(0);
       await expect(compactMenuButton).toBeFocused();
       await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
+    };
+
+    if (mobileProject) {
+      await verifyCompactNavigation();
     } else {
+      await page.setViewportSize({ width: 1800, height: 900 });
+      await verifyCompactNavigation();
+
+      let compactTabsWidth: number | null = null;
+      for (const width of [1900, 2000, 2100, 2200, 2300, 2400]) {
+        await page.setViewportSize({ width, height: 900 });
+        if ((await desktopTabs.isVisible()) && (await desktopTabs.locator(".mari-editor-tab svg").first().isHidden())) {
+          compactTabsWidth = width;
+          break;
+        }
+      }
+      expect(compactTabsWidth).not.toBeNull();
       await expect(desktopTabs).toBeVisible();
+      await expect(compactMenuButton).toBeHidden();
+      const compactTabBoxes = await desktopTabs.locator(".mari-editor-tab").evaluateAll((tabs) =>
+        tabs.map((tab) => {
+          const box = tab.getBoundingClientRect();
+          return { left: box.left, right: box.right };
+        }),
+      );
+      for (let index = 1; index < compactTabBoxes.length; index += 1) {
+        expect(compactTabBoxes[index].left - compactTabBoxes[index - 1].right).toBeGreaterThanOrEqual(-0.5);
+      }
+      await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
+
+      await page.setViewportSize({ width: 2560, height: 900 });
+      await expect(desktopTabs).toBeVisible();
+      await expect(compactMenuButton).toBeHidden();
+      await expect(desktopTabs.locator(".mari-editor-tab svg").first()).toBeVisible();
       const [headerBox, navigationBox, firstActionBox, tabBoxes] = await Promise.all([
         header.boundingBox(),
         navigation.boundingBox(),
@@ -3423,11 +3462,13 @@ test("Character and Persona avatar actions stay separated and visually balanced"
         expect(navigationBox.width).toBeLessThan(headerBox.width * 0.65);
       }
       for (let index = 1; index < tabBoxes.length; index += 1) {
+        expect(tabBoxes[index].left - tabBoxes[index - 1].right).toBeGreaterThanOrEqual(-0.5);
         expect(tabBoxes[index].left - tabBoxes[index - 1].right).toBeLessThanOrEqual(5);
       }
       if (firstActionBox) {
         for (const tabBox of tabBoxes) expect(Math.abs(tabBox.height - firstActionBox.height)).toBeLessThanOrEqual(1);
       }
+      await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
     }
 
     const [titleLineBox, titleInputBox, bylineBox] = await Promise.all([

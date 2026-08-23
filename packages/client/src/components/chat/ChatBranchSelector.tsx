@@ -286,7 +286,7 @@ export function ChatBranchSelector({
         <GitBranch size="0.8125rem" className="shrink-0" />
         <span
           className={cn(
-            "absolute -right-1 -top-1 flex min-w-4 justify-center rounded-md px-1 text-[0.5625rem] font-semibold leading-4",
+            "absolute -right-1 -top-1 flex min-w-4 justify-center rounded-[0.25rem] px-1 text-[0.5625rem] font-semibold leading-4",
             badgeClassName,
           )}
         >

@@ -57,7 +57,7 @@ export function EditorTabNavigation<T extends string>({
 
   return (
     <div className={cn("mari-editor-navigation min-w-0", className)}>
-      <nav aria-label={navigationLabel} className="flex min-w-0 items-center gap-1 @max-7xl:gap-0.5 @max-5xl:hidden">
+      <nav aria-label={navigationLabel} className="mari-editor-navigation-tabs flex min-w-0 items-center gap-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = activeId === tab.id;
@@ -70,9 +70,9 @@ export function EditorTabNavigation<T extends string>({
               data-active={active ? "true" : undefined}
               key={tab.id}
               onClick={() => onChange(tab.id)}
-              className="mari-editor-action mari-editor-tab flex min-w-0 shrink items-center justify-center whitespace-nowrap px-2.5 text-center @max-7xl:gap-1 @max-7xl:px-2 @max-7xl:text-[0.6875rem]"
+              className="mari-editor-action mari-editor-tab flex min-w-0 shrink items-center justify-center whitespace-nowrap px-2.5 text-center"
             >
-              <Icon size="1rem" className="shrink-0 @max-7xl:hidden" />
+              <Icon size="1rem" className="shrink-0" />
               <span className="min-w-0 truncate">{localize(tab.label)}</span>
               {badge != null && <span className="mari-editor-tab-badge ml-0.5">{badge}</span>}
             </button>
@@ -80,7 +80,7 @@ export function EditorTabNavigation<T extends string>({
         })}
       </nav>
 
-      <div ref={compactMenuRef} className="relative hidden @max-5xl:block">
+      <div ref={compactMenuRef} className="mari-editor-navigation-compact relative">
         <button
           ref={compactMenuButtonRef}
           type="button"
@@ -89,7 +89,7 @@ export function EditorTabNavigation<T extends string>({
           aria-expanded={compactMenuOpen}
           aria-controls={compactMenuId}
           onClick={() => setCompactMenuOpen((open) => !open)}
-          className="mari-editor-navigation-select flex h-8 w-full items-center gap-1 rounded-[0.625rem] border px-2 py-1 text-xs font-medium outline-none transition-colors focus-visible:ring-2"
+          className="mari-editor-action mari-editor-navigation-select flex w-full min-w-0 items-center gap-1 px-2 text-xs font-medium"
         >
           <span className="min-w-0 flex-1 truncate text-left">{activeTab ? localize(activeTab.label) : ""}</span>
           <ChevronDown

@@ -2108,6 +2108,10 @@
   color: var(--marinara-editor-text);
 }
 
+.mari-editor-navigation-compact {
+  display: none;
+}
+
 .mari-editor-navigation-select:hover {
   border-color: var(--marinara-editor-border-strong);
   background: var(--marinara-editor-control-bg-hover);
@@ -2493,7 +2497,7 @@
   }
 }
 
-@container (min-width: 64.001rem) and (max-width: 96rem) {
+@container (min-width: 96.001rem) and (max-width: 108rem) {
   .mari-editor-tab {
     gap: 0.125rem;
     padding-inline: 0.25rem;
@@ -2533,7 +2537,15 @@
   }
 }
 
-@container (max-width: 64rem) {
+@container (max-width: 96rem) {
+  .mari-editor-navigation-tabs {
+    display: none;
+  }
+
+  .mari-editor-navigation-compact {
+    display: block;
+  }
+
   .mari-editor-header--with-nav {
     height: auto;
     min-height: 3.8125rem;

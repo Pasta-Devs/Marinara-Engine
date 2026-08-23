@@ -10,8 +10,14 @@ const inventoryTracker = readSource(
   "packages/client/src/features/tracker-panel/components/sections/InventoryTrackerPanel.tsx",
 );
 const roleplayHud = readSource("packages/client/src/components/chat/RoleplayHUD.tsx");
+const appShell = readSource("packages/client/src/components/layout/AppShell.tsx");
+const trackerHeader = readSource("packages/client/src/features/tracker-panel/components/TrackerSidebarHeader.tsx");
+const uiStore = readSource("packages/client/src/stores/ui.store.ts");
 const chatGallery = readSource("packages/client/src/components/chat/ChatGallery.tsx");
 const chatSettingsDrawer = readSource("packages/client/src/components/chat/ChatSettingsDrawer.tsx");
+const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
+const chatBranchSelector = readSource("packages/client/src/components/chat/ChatBranchSelector.tsx");
+const conversationView = readSource("packages/client/src/components/chat/ConversationView.tsx");
 const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
 const translationSection = readSource("packages/client/src/features/chat-settings/sections/TranslationSection.tsx");
 
@@ -24,6 +30,31 @@ assert.match(
   trackerSidebar,
   /className="block"/u,
   "downloadable Tracker Panel sections must retain block display styling",
+);
+assert.match(
+  trackerSidebar,
+  /\[\.\.\.otherCapabilityTrackerPackages, \.\.\.beholderTrackerPackages\]/u,
+  "Beholder must remain the final downloadable section in Tracker Panel",
+);
+assert.match(
+  uiStore,
+  /if \(inventoryIndex >= 0 && customIndex >= 0 && inventoryIndex > customIndex\)[\s\S]*order\.splice\(customIndex, 0, "inventory"\)/u,
+  "persisted Tracker Panel orders must keep Inventory above Custom",
+);
+assert.match(
+  appShell,
+  /mari-tracker-panel[^"\n]*ring-\[var\(--marinara-app-accent-static\)\]/u,
+  "Tracker Panel frames must use the configured app accent",
+);
+assert.match(
+  roleplayHud,
+  /TrackerPanelIcon[^\n]*text-\[var\(--marinara-app-accent-static\)\]/u,
+  "the roleplay Tracker Panel launcher must use the configured app accent",
+);
+assert.match(
+  trackerHeader,
+  /text-\[var\(--marinara-app-accent-static\)\]/u,
+  "the Tracker Panel header dice must use the configured app accent",
 );
 assert.doesNotMatch(
   inventoryTracker,
@@ -76,6 +107,31 @@ assert.match(
   translationSection,
   /className="mari-chrome-field mt-0\.5 w-full !rounded-md px-3 py-2 text-xs"/u,
   "the shared Translation language field must use the canonical Chat Settings input style",
+);
+assert.match(
+  chatSettingsDrawer,
+  /<SettingsSwitch\s+label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.addTurnToPrompt"\)\}/u,
+  "Add Turn To Prompt must use the shared Settings toggle",
+);
+assert.doesNotMatch(
+  chatSettingsDrawer,
+  /mari-chat-option-switch[^\n]*groupTurnPromptEnabled/u,
+  "Add Turn To Prompt must not restore the legacy custom toggle styling",
+);
+assert.match(
+  chatSidebar,
+  /mari-chrome-muted-badge flex shrink-0 items-center gap-0\.5 !rounded-\[0\.25rem\]/u,
+  "chat-list branch counts must use compact rounded-corner tags instead of capsules",
+);
+assert.match(
+  chatBranchSelector,
+  /absolute -right-1 -top-1[^"\n]*rounded-\[0\.25rem\]/u,
+  "the active-chat branch count must use the same compact rounded-corner tag",
+);
+assert.match(
+  conversationView,
+  /data-conversation-header-identity[\s\S]*?<ConversationPresenceCard[\s\S]*?data-chat-help="call"[\s\S]*?<div className="ml-2 flex/u,
+  "the Conversation call launcher must sit beside the character or group identity instead of the right action cluster",
 );
 
 process.stdout.write("Tracker and Gallery UI regression passed\n");

@@ -431,6 +431,13 @@ export function normalizeTrackerPanelSectionOrder(value: unknown): TrackerPanelS
     return [...TRACKER_DATA_PANEL_SECTIONS];
   }
 
+  const inventoryIndex = order.indexOf("inventory");
+  const customIndex = order.indexOf("custom");
+  if (inventoryIndex >= 0 && customIndex >= 0 && inventoryIndex > customIndex) {
+    order.splice(inventoryIndex, 1);
+    order.splice(customIndex, 0, "inventory");
+  }
+
   return order;
 }
 

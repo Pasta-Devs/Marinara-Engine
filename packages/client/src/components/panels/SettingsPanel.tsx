@@ -2321,7 +2321,7 @@ function TrackerPanelCardOrderSetting() {
                   <button
                     type="button"
                     onClick={() => moveCard(section, -1)}
-                    disabled={index === 0}
+                    disabled={index === 0 || (section === "custom" && orderedSections[index - 1] === "inventory")}
                     title={localizeUi("ui.panels.trackerpanelcardordersetting.moveValue1Up", {
                       value1: localizeUi(option.label),
                     })}
@@ -2335,7 +2335,10 @@ function TrackerPanelCardOrderSetting() {
                   <button
                     type="button"
                     onClick={() => moveCard(section, 1)}
-                    disabled={index === orderedSections.length - 1}
+                    disabled={
+                      index === orderedSections.length - 1 ||
+                      (section === "inventory" && orderedSections[index + 1] === "custom")
+                    }
                     title={localizeUi("ui.panels.trackerpanelcardordersetting.moveValue1Down", {
                       value1: localizeUi(option.label),
                     })}

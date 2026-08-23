@@ -507,15 +507,28 @@ export function ConversationView({
   );
   const renderHeader = () => (
     <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-2">
-      <ConversationPresenceCard
-        chatId={chatId}
-        chatMeta={chatMeta}
-        chatCharIds={chatCharIds}
-        characterMap={characterMap}
-        messages={messages}
-        onOpenSettings={onOpenSettings}
-        onOpenScheduleEditor={onOpenScheduleEditor}
-      />
+      <div data-conversation-header-identity className="flex min-w-0 items-center gap-1.5">
+        <ConversationPresenceCard
+          chatId={chatId}
+          chatMeta={chatMeta}
+          chatCharIds={chatCharIds}
+          characterMap={characterMap}
+          messages={messages}
+          onOpenSettings={onOpenSettings}
+          onOpenScheduleEditor={onOpenScheduleEditor}
+        />
+        {callsPackage && (
+          <span data-chat-help="call" className="contents">
+            <CapabilityElement
+              packageId={callsPackage.id}
+              view="toolbar"
+              capabilityProps={callCapabilityProps}
+              // ponytail: This direct-child size bridge supports Calls <=1.0.11; remove it once 1.0.12 is the minimum.
+              className="contents [&>button]:!h-8 [&>button]:!w-8 max-md:[&>button]:!h-9 max-md:[&>button]:!w-9"
+            />
+          </span>
+        )}
+      </div>
 
       <div className="ml-2 flex min-w-0 flex-1 items-center justify-end gap-2">
         <ChatToolbarMenu
@@ -536,17 +549,6 @@ export function ConversationView({
             />
           </span>
         ))}
-        {callsPackage && (
-          <span data-chat-help="call" className="contents">
-            <CapabilityElement
-              packageId={callsPackage.id}
-              view="toolbar"
-              capabilityProps={callCapabilityProps}
-              // ponytail: This direct-child size bridge supports Calls <=1.0.11; remove it once 1.0.12 is the minimum.
-              className="contents [&>button]:!h-8 [&>button]:!w-8 max-md:[&>button]:!h-9 max-md:[&>button]:!w-9"
-            />
-          </span>
-        )}
       </div>
     </div>
   );

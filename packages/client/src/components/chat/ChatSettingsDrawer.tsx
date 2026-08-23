@@ -5957,39 +5957,31 @@ export function ChatSettingsDrawer({
                           ? localizeUi("ui.chat.chatsettingsdrawer.availableCharactersRespondOneByOneInTheirListed")
                           : localizeUi("ui.chat.chatsettingsdrawer.charactersRespondOneByOneInTheirListedOrder")}
                   </p>
-                  <button
-                    onClick={() =>
+                  <SettingsSwitch
+                    label={localizeUi("ui.chat.chatsettingsdrawer.addTurnToPrompt")}
+                    description={
+                      metadata.groupTurnPromptEnabled !== false
+                        ? localizeUi(
+                            "ui.chat.chatsettingsdrawer.eachIndividualTurnIncludesAShortRespondingCharacterInstruction",
+                          )
+                        : localizeUi("ui.chat.chatsettingsdrawer.individualTurnsRelyOnContextWithoutAddingATurn")
+                    }
+                    checked={metadata.groupTurnPromptEnabled !== false}
+                    onChange={(checked) =>
                       updateMeta.mutate({
                         id: chat.id,
-                        groupTurnPromptEnabled: metadata.groupTurnPromptEnabled === false,
+                        groupTurnPromptEnabled: checked,
                       })
                     }
-                    aria-pressed={metadata.groupTurnPromptEnabled !== false}
+                    labelPosition="start"
                     className={cn(
-                      "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.groupTurnPromptEnabled !== false && "mari-chat-option-field--active",
+                      "justify-between rounded-md px-3 py-2.5 text-left",
+                      metadata.groupTurnPromptEnabled !== false
+                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                     )}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[0.6875rem] font-medium">
-                        {localizeUi("ui.chat.chatsettingsdrawer.addTurnToPrompt")}
-                      </span>
-                      <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                        {metadata.groupTurnPromptEnabled !== false
-                          ? localizeUi(
-                              "ui.chat.chatsettingsdrawer.eachIndividualTurnIncludesAShortRespondingCharacterInstruction",
-                            )
-                          : localizeUi("ui.chat.chatsettingsdrawer.individualTurnsRelyOnContextWithoutAddingATurn")}
-                      </p>
-                    </div>
-                    <SettingsSwitchTrack
-                      checked={metadata.groupTurnPromptEnabled !== false}
-                      className={cn(
-                        "mari-chat-option-switch ml-3",
-                        metadata.groupTurnPromptEnabled !== false && "mari-chat-option-switch--active",
-                      )}
-                    />
-                  </button>
+                    labelClassName="text-[0.6875rem] font-medium"
+                  />
                   {!isConversation && (
                     <SettingsSwitch
                       label={localizeUi("ui.chat.chatsettingsdrawer.namePrefixHistory")}

@@ -601,7 +601,7 @@ function TrackerPanelToggleButton({ onToggle }: { onToggle: () => void }) {
       title={localizeUi("ui.chat.trackerpaneltogglebutton.showTrackerPanel")}
       aria-label={localizeUi("ui.chat.trackerpaneltogglebutton.showTrackerPanel")}
     >
-      <TrackerPanelIcon size="1.05rem" className="shrink-0" />
+      <TrackerPanelIcon size="1.05rem" className="shrink-0 text-[var(--marinara-app-accent-static)]" />
       <span className="sr-only">{localizeUi("ui.panels.trackerpanelappearancedrawer.trackerPanel")}</span>
     </button>
   );
