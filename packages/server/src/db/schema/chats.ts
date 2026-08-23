@@ -37,6 +37,19 @@ export const chats = fileTable("chats", {
   lastMessageAt: text("last_message_at"),
   /** Pre-computed semantic embedding of the chat's name/tags/summary (JSON float[]), null until vectorized (#4768) */
   embedding: text("embedding"),
+  /**
+   * High-water mark of the chat's monotonic write ordinal (#5406). Every ordinal handed to a
+   * game_engine_state row (`write_ordinal`) or to the metadata mirror
+   * (`metadata.metadataWriteOrdinals`) is allocated by bumping this one counter, so a client
+   * holding a value from either store can totally order the two. Null until the chat's first
+   * allocation.
+   *
+   * Not the sole floor: a metadata blob can be moved into a chat whose counter never handed its
+   * stamps out (branching, a game session carry, a restore), so allocation takes the max of this
+   * counter and the chat's own mirror. See `writeOrdinalFloor` / `allocateWriteOrdinal` in
+   * chats.storage.ts for the monotonicity argument.
+   */
+  writeOrdinalCounter: integer("write_ordinal_counter"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

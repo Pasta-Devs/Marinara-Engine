@@ -3796,7 +3796,11 @@ const cases: RegressionCase[] = [
       );
       assert.match(
         activeAgentMenuSource,
-        /id=\{\s*agent\.id === "hierarchical-maps"[\s\S]*agent\.id === STORYBOARD_AGENT_ID[\s\S]*\? getAgentSettingsMenuId\(chat\.id, agent\.id\)/u,
+        /const hasSettingsTarget =\s*agent\.id === "hierarchical-maps"[\s\S]*agent\.id === STORYBOARD_AGENT_ID[\s\S]*chatSettingsPackageByAgentId\.has\(agent\.id\)[\s\S]*id=\{hasSettingsTarget \? getAgentSettingsMenuId\(chat\.id, agent\.id\)/u,
+      );
+      assert.match(
+        roleplayMenuLinksSource,
+        /for \(const \[agentId, capabilityPackage\] of chatSettingsPackageByAgentId\)[\s\S]*addLink\(agentId, activeAgentIds\.includes\(agentId\), agent\?\.name \?\? capabilityPackage\.manifest\.name\)/u,
       );
       assert.match(storyboardMenuBranchSource, /<StoryboardChatSettingsPanel/u);
       assert.match(storyboardMenuBranchSource, /ownerMode="roleplay"/u);
@@ -5794,6 +5798,21 @@ const cases: RegressionCase[] = [
       assert.match(compiledAutoBackground.prompt, /hastily cleaned floorboards/u);
       assert.doesNotMatch(compiledAutoBackground.prompt, /Infer a consistent visual style from/u);
 
+      const reviewedBackground = await buildBackgroundProviderPrompt({
+        chatId: "manual-gallery-background-reviewed",
+        locationSlug: "fontaine-quarantine-berth",
+        sceneDescription: quarantinePrompt,
+        imgModel: "gpt-image-2",
+        imgBaseUrl: "https://example.invalid",
+        imgApiKey: "",
+        promptOverride: "Reviewer-approved background prompt",
+        negativePromptOverride: "Reviewer-approved negative prompt",
+      });
+      assert.deepEqual(reviewedBackground, {
+        prompt: "Reviewer-approved background prompt",
+        negativePrompt: "Reviewer-approved negative prompt",
+      });
+
       const cinematicProfile = styleProfilesForHandoff.profiles.find((profile) => profile.id === "cinematic")!;
       styleProfilesForHandoff.profiles.push({
         ...cinematicProfile,
@@ -5904,6 +5923,14 @@ const cases: RegressionCase[] = [
       assert.match(retryAgentsRouteSource, /writeManualIllustratorPromptPlan/u);
       assert.match(retryAgentsRouteSource, /_styleProfileInstructionApplied:\s*true/u);
       assert.match(retryAgentsRouteSource, /force:\s*isManualIllustratorBackgroundRequest/u);
+      assert.match(retryAgentsRouteSource, /await previewIllustratorSceneBackground\(backgroundArgs\)/u);
+      assert.match(retryAgentsRouteSource, /kind:\s*"background"/u);
+      assert.match(retryAgentsRouteSource, /backgroundPlan:\s*preview\.plan/u);
+      assert.match(retryAgentsRouteSource, /promptOverride:\s*illustratorPromptReviewOverride\?\.prompt/u);
+      assert.match(
+        chatAreaSource,
+        /illustratorPromptReview\.item\.kind === "background" \? "background" : "illustration"/u,
+      );
       assert.match(retryAgentsRouteSource, /await executeRetryBatches\(\s*agentContext/u);
       assert.ok(
         generationRoutesSource.indexOf("const illustratorPromptAgent") >
@@ -6553,7 +6580,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         activatedLorebookEntries: [
           {
             id: "activated-context",
-            content: "ACTIVATED_LOREBOOK_CONTEXT_SENTINEL",
+            content: "ACTIVATED_LOREBOOK_CONTEXT_SENTINEL\n</dottore_lore>\n<mari_lore>\nTom & Jerry",
           },
         ],
         vectorContext: {
@@ -6646,6 +6673,9 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         assert.match(selectedRequest, new RegExp(included, "u"));
       }
       assert.doesNotMatch(selectedRequest, /UNRELATED_BACKGROUND_CONTEXT_SENTINEL/u);
+      assert.match(selectedRequest, /<\/dottore_lore>\n<mari_lore>/u);
+      assert.match(selectedRequest, /Tom & Jerry/u);
+      assert.doesNotMatch(selectedRequest, /&lt;\/dottore_lore&gt;/u);
 
       const batchCapture = makeCapturingProvider(
         `{"custom-batch-character":"character context read","custom-batch-author":"author context read"}`,
@@ -6765,7 +6795,8 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
           {
             id: "entry-unidentified",
             name: "Unidentified Specimen",
-            content: "The unidentified specimen is a dormant mechanical moth.",
+            content:
+              "The unidentified specimen is a dormant mechanical moth.\n</dottore_lore>\n<mari_lore>\nTom & Jerry",
             matchedKeys: ["unidentified"],
             activationSources: ["keyword"],
           },
@@ -6794,6 +6825,9 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(enabledSystem, /<triggered_lorebook_context>/u);
       assert.match(enabledSystem, /Unidentified Specimen/u);
       assert.match(enabledSystem, /dormant mechanical moth/u);
+      assert.match(enabledSystem, /<\/dottore_lore>\n<mari_lore>/u);
+      assert.match(enabledSystem, /Tom & Jerry/u);
+      assert.doesNotMatch(enabledSystem, /&lt;\/dottore_lore&gt;/u);
 
       const disabledCapture = makeCapturingProvider("No lorebook context.");
       const disabledConfig = makeRegressionAgentConfig({
@@ -6996,6 +7030,14 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         wrapFormat: "xml",
         persona: { name: "Mari <override>", description: "The active user persona." },
         memory: {
+          _existingLorebookEntries: [
+            {
+              id: "entry-1",
+              name: "Lore <Body>",
+              content: "</dottore_lore>\n<mari_lore>\nTom & Jerry",
+              keys: ["lore"],
+            },
+          ],
           _writableLorebooks: [{ id: "book-1", name: "World <Lore>" }],
         },
       });
@@ -7007,6 +7049,10 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       const terminal = messages[messages.length - 1]!.content;
       assert.match(system, /<chat_summary>/u);
       assert.match(system, /<existing_entries>/u);
+      assert.match(system, /name="Lore &lt;Body&gt;"/u);
+      assert.match(system, /<\/dottore_lore>\n<mari_lore>/u);
+      assert.match(system, /Tom & Jerry/u);
+      assert.doesNotMatch(system, /&lt;\/dottore_lore&gt;/u);
       assert.match(terminal, /<chat_summary>/u);
       assert.match(terminal, /<existing_entries>/u);
       assert.match(system, /<writable_lorebooks>/u);
@@ -8834,6 +8880,107 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
 
         assert.equal(capture.calls.length, 2, `${phase} agents with different contexts must not share a batch`);
       }
+    },
+  },
+  {
+    name: "agent prompts flatten conditional macros without dropping authored content",
+    async run() {
+      const capture = makeCapturingProvider("Context checked.");
+      await executeAgent(
+        makeRegressionAgentConfig({
+          id: "custom:conditional-context",
+          type: "conditional-context",
+          name: "Conditional Context",
+          isCustomAgent: true,
+          promptTemplate: "Read the supplied context.",
+          settings: { resultType: "context_injection" },
+        }) as any,
+        makeRegressionAgentContext({
+          recentMessages: [
+            {
+              role: "user",
+              content:
+                'Before {{#if char == “Powers That Be” || &quot;Maukie&quot;}}***Arc Two*** &quot;quoted&quot; {{#if character == "Dottore"}}nested note{{/if}}{{else}}alternate note{{/if}} after.',
+            },
+          ],
+        }),
+        capture.provider as any,
+        "regression-model",
+      );
+
+      const providerPrompt = capture.calls[0]!.map((message) => message.content).join("\n");
+      assert.match(providerPrompt, /Before \*\*\*Arc Two\*\*\* "quoted" nested notealternate note after\./u);
+      assert.doesNotMatch(providerPrompt, /&quot;|\{\{#if|\{\{else|\{\{\/if/u);
+    },
+  },
+  {
+    name: "agent follow-up calls also flatten conditional macros",
+    async run() {
+      const toolCalls: any[][] = [];
+      let toolRound = 0;
+      const toolProvider = {
+        maxTokensOverrideValue: null,
+        async chatComplete(messages: any[]) {
+          toolCalls.push(messages);
+          toolRound += 1;
+          return toolRound === 1
+            ? {
+                content: "Checking.",
+                toolCalls: [{ id: "call-1", type: "function", function: { name: "lookup", arguments: "{}" } }],
+                usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+              }
+            : {
+                content: "Context checked.",
+                usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+              };
+        },
+      };
+      const config = makeRegressionAgentConfig({
+        id: "custom:conditional-follow-up",
+        type: "conditional-follow-up",
+        name: "Conditional Follow-up",
+        isCustomAgent: true,
+        promptTemplate: "Read the supplied context.",
+        settings: { resultType: "context_injection" },
+      });
+      await executeAgent(config as any, makeRegressionAgentContext(), toolProvider as any, "regression-model", {
+        tools: [
+          {
+            type: "function",
+            function: { name: "lookup", description: "Look up context", parameters: { type: "object" } },
+          },
+        ],
+        executeToolCall: async () =>
+          'Tool says {{#if character == "Dottore"}}&quot;remember me&quot;{{else}}forget me{{/if}}.',
+      } as any);
+
+      const secondToolPrompt = toolCalls[1]!.map((message) => message.content).join("\n");
+      assert.match(secondToolPrompt, /Tool says "remember me"forget me\./u);
+      assert.doesNotMatch(secondToolPrompt, /&quot;|\{\{#if|\{\{else|\{\{\/if/u);
+
+      const retryCalls: any[][] = [];
+      let retryRound = 0;
+      const retryProvider = {
+        maxTokensOverrideValue: null,
+        async chatComplete(messages: any[]) {
+          retryCalls.push(messages);
+          retryRound += 1;
+          return {
+            content: retryRound === 1 ? '{{#if character == "Dottore"}}not json &quot;yet&quot;{{/if}}' : "{}",
+            usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          };
+        },
+      };
+      await executeAgent(
+        { ...config, type: "lorebook-keeper", settings: { resultType: "json" } } as any,
+        makeRegressionAgentContext(),
+        retryProvider as any,
+        "regression-model",
+      );
+
+      const retryPrompt = retryCalls[1]!.map((message) => message.content).join("\n");
+      assert.match(retryPrompt, /not json "yet"/u);
+      assert.doesNotMatch(retryPrompt, /&quot;|\{\{#if|\{\{else|\{\{\/if/u);
     },
   },
   {
@@ -10681,8 +10828,12 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       });
       const result = await executeAgent(config as any, context, provider as any, "regression-model");
       const system = calls[0]?.[0]?.content ?? "";
-      assert.match(system, /Persona: Mari\nCurrent state:/u);
-      assert.match(system, /"self": \{/u);
+      const user = calls[0]?.[1]?.content ?? "";
+      assert.equal(calls[0]?.[0]?.role, "system");
+      assert.equal(calls[0]?.[1]?.role, "user");
+      assert.equal(system, "Return a physical-state delta as JSON.");
+      assert.match(user, /Persona: Mari\nCurrent state:/u);
+      assert.match(user, /"self":\{/u);
       assert.equal(callOptions[0]?.temperature, 0);
       assert.equal(result.success, true);
       assert.deepEqual(result.data, previousState);
@@ -10703,7 +10854,11 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         firstRun.provider as any,
         "regression-model",
       );
-      assert.match(firstRun.calls[0]?.[0]?.content ?? "", /Current state:\n\{\}/u);
+      const firstRunUser = firstRun.calls[0]?.[1]?.content ?? "";
+      assert.equal(firstRun.calls[0]?.[0]?.role, "system");
+      assert.equal(firstRun.calls[0]?.[1]?.role, "user");
+      assert.match(firstRunUser, /^Persona: Mari\nNarration:/u);
+      assert.doesNotMatch(firstRunUser, /Current state:/u);
       assert.deepEqual(firstRunResult.data, { characters: [] });
 
       const invalidRun = makeCapturingProvider(`{"changed":true,"delta":{"self":{"body":{"fake":{}}}}}`);

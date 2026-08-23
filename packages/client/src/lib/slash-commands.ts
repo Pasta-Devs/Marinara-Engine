@@ -61,6 +61,8 @@ export interface SlashCommandContext {
   }) => void | Promise<void>;
   /** Invalidate chat queries to refresh the UI */
   invalidate: () => void;
+  /** Invalidate the character detail cache after character-owned changes. */
+  invalidateCharacter?: (characterId: string) => void;
   /** Character names in the current chat */
   characterNames: string[];
   /** Characters available in the current roleplay scene */
@@ -984,9 +986,12 @@ const COMMANDS: SlashCommand[] = [
         }
 
         try {
-          await api.patch(`/chats/${ctx.chatId}/metadata`, {
-            conversationStatusOverrides: { [target.id]: null },
+          // The override belongs to the character, so it applies in every chat.
+          await api.patch(`/characters/${target.id}`, {
+            data: { extensions: { conversationStatusOverride: null } },
+            skipVersionSnapshot: true,
           });
+          ctx.invalidateCharacter?.(target.id);
           ctx.invalidate();
           return { handled: true, feedback: `Cleared ${target.name}'s status override.` };
         } catch (error) {
@@ -1013,16 +1018,20 @@ const COMMANDS: SlashCommand[] = [
       }
 
       try {
-        await api.patch(`/chats/${ctx.chatId}/metadata`, {
-          conversationStatusOverrides: {
-            [target.id]: {
-              status: action,
-              activity: null,
-              createdAt: new Date().toISOString(),
-              expiresAt: null,
+        await api.patch(`/characters/${target.id}`, {
+          data: {
+            extensions: {
+              conversationStatusOverride: {
+                status: action,
+                activity: null,
+                createdAt: new Date().toISOString(),
+                expiresAt: null,
+              },
             },
           },
+          skipVersionSnapshot: true,
         });
+        ctx.invalidateCharacter?.(target.id);
         ctx.invalidate();
         return { handled: true, feedback: `Set ${target.name} to ${action}.` };
       } catch (error) {

@@ -139,8 +139,12 @@ import {
 } from "./generate-route-utils.js";
 import {
   buildHistoricalLorebookKeeperContext,
+  CUSTOM_LOREBOOK_BACKFILL_CURSOR_KEY,
+  customAgentUsesLorebookBackfill,
   customAgentUsesLorebookReadBehind,
   customLorebookReadBehindRunKey,
+  getCustomLorebookBackfillChunk,
+  getCustomLorebookBackfillSettings,
   getCustomLorebookReadBehindMessages,
   getLorebookKeeperBackfillTargets,
   getLorebookNamingScheme,
@@ -199,6 +203,8 @@ import {
   illustratorBackgroundGenerationEnabled,
   illustratorRequestedBackground,
   illustratorTrackerLocationChanged,
+  parseIllustratorBackgroundPlan,
+  previewIllustratorSceneBackground,
   resolveIllustratorImageConnectionId,
   resolveIllustratorPromptStyle,
 } from "../../services/generation/illustrator-background-generation.js";
@@ -240,6 +246,8 @@ type ResolvedRetryAgent = {
   agentProvider: any;
   agentModel: string;
 };
+
+type RetryLorebookEffectStatus = "applied" | "pending_approval" | "failed";
 
 const isBuiltInAgentType = (agentType: string) => BUILT_IN_AGENTS.some((agent) => agent.id === agentType);
 
@@ -2491,6 +2499,7 @@ async function applyRetryResultEffects(args: {
   debugMode: boolean;
   secretPlotRerollMode?: "full" | "turn_only";
   signal: AbortSignal;
+  onLorebookEffectStatus?: (agentId: string, status: RetryLorebookEffectStatus) => void;
 }) {
   const {
     app,
@@ -2516,6 +2525,7 @@ async function applyRetryResultEffects(args: {
     debugMode,
     secretPlotRerollMode,
     signal,
+    onLorebookEffectStatus,
   } = args;
   const assertRetryActive = () => signal.throwIfAborted();
   assertRetryActive();
@@ -2935,7 +2945,10 @@ async function applyRetryResultEffects(args: {
 
     if (result.success && result.type === "lorebook_update" && result.data && typeof result.data === "object") {
       try {
-        if (isAgentWriteApprovalEnvelope(result.data)) continue;
+        if (isAgentWriteApprovalEnvelope(result.data)) {
+          onLorebookEffectStatus?.(result.agentId, "pending_approval");
+          continue;
+        }
         const resultAgent = findRetryResultAgent(result, resolvedAgents);
         const isBuiltInLorebookAgent = isBuiltInAgentType(result.agentType);
         const customCanEditLorebooks =
@@ -2944,7 +2957,10 @@ async function applyRetryResultEffects(args: {
         const customCanCreateLorebooks =
           isBuiltInLorebookAgent ||
           (resultAgent ? customAgentHasCapability(resultAgent.settings, "create_lorebooks") : false);
-        if (!customCanEditLorebooks && !customCanCreateLorebooks) continue;
+        if (!customCanEditLorebooks && !customCanCreateLorebooks) {
+          onLorebookEffectStatus?.(result.agentId, "failed");
+          continue;
+        }
 
         const lkData = result.data as Record<string, unknown>;
         const retryUpdates = (lkData.updates as any[]) ?? [];
@@ -2961,6 +2977,7 @@ async function applyRetryResultEffects(args: {
                 ? (agentContext.memory._lorebookKeeperTargetLorebookId as string)
                 : null;
           if (!customCanCreateLorebooks && !preferredTargetLorebookId && !writableLorebookIds?.length) {
+            onLorebookEffectStatus?.(result.agentId, "failed");
             continue;
           }
           assertRetryActive();
@@ -2980,8 +2997,10 @@ async function applyRetryResultEffects(args: {
           });
           assertRetryActive();
         }
+        onLorebookEffectStatus?.(result.agentId, "applied");
       } catch (err) {
         assertRetryActive();
+        onLorebookEffectStatus?.(result.agentId, "failed");
         logger.error(err, "[retry-agents] Failed to apply lorebook update");
       }
     }
@@ -3710,7 +3729,6 @@ async function applyRetryResultEffects(args: {
   if (
     illustratorResult &&
     illustratorEntry &&
-    !illustratorPromptReviewOverride &&
     shouldRetryIllustratorTarget(illustratorRetryTargets, "background") &&
     (isManualIllustratorBackgroundRequest ||
       illustratorBackgroundGenerationEnabled((chat as { mode?: unknown }).mode, chatMeta))
@@ -3757,11 +3775,11 @@ async function applyRetryResultEffects(args: {
           latestGameState?.location,
         );
       }
-      const generated = await generateIllustratorSceneBackground({
+      const backgroundArgs = {
         db: app.db,
         chatId,
         chatName: chat.name,
-        chatMode: (chat as { mode?: unknown }).mode === "game" ? "game" : "roleplay",
+        chatMode: ((chat as { mode?: unknown }).mode === "game" ? "game" : "roleplay") as "game" | "roleplay",
         chatMetadata: freshMeta,
         currentBackground:
           backgroundBeforeGeneration ??
@@ -3773,7 +3791,38 @@ async function applyRetryResultEffects(args: {
         recentMessages: agentContext.recentMessages,
         force: isManualIllustratorBackgroundRequest,
         signal: agentContext.signal,
-        debugLog: (message, ...values) => logDebugOverride(debugMode || isDebugAgentsEnabled(), message, ...values),
+        debugLog: (message: string, ...values: unknown[]) =>
+          logDebugOverride(debugMode || isDebugAgentsEnabled(), message, ...values),
+      };
+      if (isManualIllustratorBackgroundRequest && reviewImagePromptsBeforeSend && !illustratorPromptReviewOverride) {
+        const preview = await previewIllustratorSceneBackground(backgroundArgs);
+        assertRetryActive();
+        sendSseEvent(reply, {
+          type: "image_prompt_review",
+          data: {
+            chatId,
+            item: {
+              id: "roleplay-scene-background",
+              kind: "background",
+              title: "Scene background",
+              prompt: preview.prompt,
+              ...(preview.negativePrompt ? { negativePrompt: preview.negativePrompt } : {}),
+              width: preview.width,
+              height: preview.height,
+            },
+            resultData: { ...illData, generateBackground: true, backgroundPlan: preview.plan },
+          },
+        });
+        return;
+      }
+
+      const generated = await generateIllustratorSceneBackground({
+        ...backgroundArgs,
+        planOverride: illustratorPromptReviewOverride
+          ? (parseIllustratorBackgroundPlan(illData.backgroundPlan) ?? undefined)
+          : undefined,
+        promptOverride: illustratorPromptReviewOverride?.prompt,
+        negativePromptOverride: illustratorPromptReviewOverride?.negativePrompt,
       });
       assertRetryActive();
 
@@ -3889,6 +3938,7 @@ export async function registerRetryAgentsRoute(
       /** Force image generation for retried custom image agents' results (snapshot button, #4682). */
       forceImageGeneration?: boolean;
       lorebookKeeperBackfill?: boolean;
+      customLorebookBackfill?: boolean;
       /** When set, scope history and game state to this assistant message (as at original generation), not the latest turn. */
       forMessageId?: string;
       musicPlayerSource?: "spotify" | "youtube" | "custom";
@@ -3910,6 +3960,7 @@ export async function registerRetryAgentsRoute(
       illustratorRetryTargets: rawIllustratorRetryTargets,
       forceImageGeneration = false,
       lorebookKeeperBackfill = false,
+      customLorebookBackfill = false,
       forMessageId,
       musicPlayerSource = "spotify",
       musicPlayerEnabled = true,
@@ -3930,6 +3981,9 @@ export async function registerRetryAgentsRoute(
     }
     if (illustratorRetryTargets && !agentTypes.includes("illustrator")) {
       return reply.status(400).send({ error: "Illustrator retry targets require an Illustrator retry" });
+    }
+    if (customLorebookBackfill && (agentTypes.length !== 1 || lorebookKeeperBackfill || forMessageId)) {
+      return reply.status(400).send({ error: "Custom lorebook backfill requires exactly one custom agent" });
     }
     const isManualIllustratorBackgroundRequest = isExclusiveIllustratorRetryTarget(
       illustratorRetryTargets,
@@ -4014,6 +4068,8 @@ export async function registerRetryAgentsRoute(
         };
       }
 
+      const unfilteredRecentMessages = recentMessages;
+
       const supportsHiddenFromAI = chat.mode === "conversation" || chat.mode === "roleplay";
       if (supportsHiddenFromAI) {
         recentMessages = recentMessages.filter((message: any) => !isMessageHiddenFromAI(message));
@@ -4035,8 +4091,8 @@ export async function registerRetryAgentsRoute(
           swipeIndex: preGenerationLastAssistant.activeSwipeIndex ?? 0,
         };
       }
-      const retryMessageId = lastAssistant?.id ?? "";
-      const retrySwipeIndex = lastAssistant?.activeSwipeIndex ?? 0;
+      let retryMessageId = lastAssistant?.id ?? "";
+      let retrySwipeIndex = lastAssistant?.activeSwipeIndex ?? 0;
       activeAgentRun.messageId = retryMessageId || null;
       activeAgentRun.swipeIndex = retryMessageId ? retrySwipeIndex : null;
 
@@ -4061,6 +4117,56 @@ export async function registerRetryAgentsRoute(
           onFallback,
         }),
       );
+      let customLorebookBackfillTarget: { agentConfigId: string; messageId: string; swipeIndex: number } | null = null;
+      if (customLorebookBackfill) {
+        const entry = resolvedAgents[0];
+        if (!entry || resolvedAgents.length !== 1 || !customAgentUsesLorebookBackfill(entry.resolved)) {
+          throw new Error("This custom agent is not configured for lorebook history backfill");
+        }
+        const settings = getCustomLorebookBackfillSettings(entry.resolved.settings);
+        const memory = await runRetrySetupPhase(abortController.signal, () =>
+          agentsStore.getMemory(entry.resolved.id, chatId),
+        );
+        const cursor =
+          typeof memory[CUSTOM_LOREBOOK_BACKFILL_CURSOR_KEY] === "string"
+            ? (memory[CUSTOM_LOREBOOK_BACKFILL_CURSOR_KEY] as string)
+            : null;
+        const chunk = getCustomLorebookBackfillChunk(
+          recentMessages,
+          getCustomLorebookReadBehindMessages(entry.resolved.settings),
+          cursor,
+          settings.chunkSize,
+          unfilteredRecentMessages,
+        );
+        if (!chunk) {
+          sendSseEvent(reply, {
+            type: "custom_lorebook_backfill_empty",
+            data: { agentType: entry.resolved.type },
+          });
+          sendSseEvent(reply, { type: "done", data: "" });
+          return;
+        }
+        const runKey = customLorebookReadBehindRunKey(chatId, entry.resolved.id, chunk.target.id);
+        if (!tryClaimCustomLorebookReadBehindRun(activeCustomLorebookReadBehindRuns, runKey)) {
+          throw new Error("This custom agent backfill chunk is already running");
+        }
+        customLorebookReadBehindRunKeys.add(runKey);
+        recentMessages = chunk.messages;
+        lastAssistant = chunk.target;
+        retryMessageId = chunk.target.id;
+        retrySwipeIndex = chunk.target.activeSwipeIndex ?? 0;
+        activeAgentRun.messageId = retryMessageId;
+        activeAgentRun.swipeIndex = retrySwipeIndex;
+        historicalGameStateAnchor = resolveLorebookKeeperRetryAnchor(chunk.target);
+        entry.resolved.settings = {
+          ...entry.resolved.settings,
+          contextSize: Math.max(1, chunk.messages.length),
+        };
+        customLorebookBackfillTarget = {
+          agentConfigId: entry.resolved.id,
+          ...resolveLorebookKeeperRetryAnchor(chunk.target),
+        };
+      }
       const chatMode = ((chat as { mode?: ChatMode }).mode ?? "conversation") as ChatMode;
       const retryWrapFormat = await runRetrySetupPhase(abortController.signal, () =>
         resolveRetryAgentWrapFormat({
@@ -4174,6 +4280,15 @@ export async function registerRetryAgentsRoute(
         if (entries.length === 0) return;
         const context = toolInputs.agentContext;
         const toolAgents = entries.map((entry) => entry.resolved);
+        if (customLorebookBackfill) {
+          for (const agent of toolAgents) {
+            const enabledTools = Array.isArray(agent.settings.enabledTools) ? agent.settings.enabledTools : [];
+            agent.settings = {
+              ...agent.settings,
+              enabledTools: enabledTools.filter((toolName) => toolName === "save_lorebook_entry"),
+            };
+          }
+        }
         if (activeMusicPlayerSource === null) {
           const spotifyToolNames = new Set(DEFAULT_AGENT_TOOLS.spotify ?? []);
           for (const agent of toolAgents) {
@@ -4314,6 +4429,20 @@ export async function registerRetryAgentsRoute(
       >();
       const nonLorebookAgents = resolvedAgents.filter((entry) => {
         if (entry.resolved.type === "lorebook-keeper") return false;
+        if (customLorebookBackfillTarget) {
+          const context = buildHistoricalLorebookKeeperContext(
+            agentContext,
+            recentMessages,
+            customLorebookBackfillTarget.messageId,
+          );
+          if (!context || entry.resolved.id !== customLorebookBackfillTarget.agentConfigId) return false;
+          customLorebookReadBehindTargets.set(entry.resolved.id, {
+            context,
+            messageId: customLorebookBackfillTarget.messageId,
+            swipeIndex: customLorebookBackfillTarget.swipeIndex,
+          });
+          return true;
+        }
         const readBehindMessages = getCustomLorebookReadBehindMessages(entry.resolved.settings);
         const usesCustomLorebookReadBehind = customAgentUsesLorebookReadBehind(entry.resolved);
         if (!usesCustomLorebookReadBehind) return true;
@@ -4580,6 +4709,7 @@ export async function registerRetryAgentsRoute(
         }
       }
       if (abortController.signal.aborted) return;
+      let customLorebookBackfillEffectStatus: RetryLorebookEffectStatus | null = null;
       await applyRetryResultEffects({
         app,
         reply,
@@ -4588,7 +4718,9 @@ export async function registerRetryAgentsRoute(
         retryMessageId,
         retrySwipeIndex,
         generationId,
-        results: permittedResults,
+        results: customLorebookBackfillTarget
+          ? permittedResults.filter((result) => result.type === "lorebook_update")
+          : permittedResults,
         agentContext,
         mainResponseRaw: (lastAssistant?.content as string) ?? "",
         lorebooksStore,
@@ -4604,7 +4736,25 @@ export async function registerRetryAgentsRoute(
         debugMode,
         secretPlotRerollMode,
         signal: abortController.signal,
+        onLorebookEffectStatus: customLorebookBackfillTarget
+          ? (agentId, status) => {
+              if (agentId === customLorebookBackfillTarget.agentConfigId) {
+                customLorebookBackfillEffectStatus = status;
+              }
+            }
+          : undefined,
       });
+
+      if (customLorebookBackfillTarget && customLorebookBackfillEffectStatus === "applied") {
+        // Backfill exposes only idempotent lorebook writes, so a cursor write
+        // failure can safely retry this chunk without duplicating effects.
+        await agentsStore.setMemory(
+          customLorebookBackfillTarget.agentConfigId,
+          chatId,
+          CUSTOM_LOREBOOK_BACKFILL_CURSOR_KEY,
+          customLorebookBackfillTarget.messageId,
+        );
+      }
 
       if (abortController.signal.aborted) return;
       sendSseEvent(reply, { type: "done", data: "" });

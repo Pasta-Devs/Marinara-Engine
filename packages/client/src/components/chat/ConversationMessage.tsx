@@ -1088,17 +1088,16 @@ export const ConversationMessage = memo(function ConversationMessage({
           "mari-message relative w-full min-w-0 max-w-full px-4 transition-colors",
           !noHoverGroup && "group",
           isBubbleStyle
-            ? cn("py-1", isUser ? "mari-message-user" : "mari-message-assistant", !isGrouped && "mt-2.5")
+            ? cn("py-1", isUser ? "mari-message-user" : "mari-message-assistant", !isGrouped && "mt-0.5")
             : cn(
-                "flex gap-4 py-0.5 hover:bg-[var(--secondary)]/30",
+                "py-0.5 hover:bg-[var(--secondary)]/30",
                 isUser ? "mari-message-user" : "mari-message-assistant",
-                isGrouped ? "mt-0" : "mt-4",
+                isGrouped ? "mt-0" : "mt-0.5",
                 isStreaming && "bg-[var(--secondary)]/20",
               ),
           isConversationStart && cn("rounded-lg ring-1", CONVERSATION_MESSAGE_CHROME_RING_CLASS),
           isHiddenFromAI && cn("rounded-lg ring-1 saturate-75", CONVERSATION_MESSAGE_CHROME_RING_CLASS),
           multiSelectMode && isSelected && MESSAGE_SELECTION_SURFACE_CLASS,
-          hideActions && hasReasoning && !isUser && "max-sm:pb-8",
         )}
         data-message-id={message.id}
         data-message-role={message.role}
@@ -1106,11 +1105,15 @@ export const ConversationMessage = memo(function ConversationMessage({
         data-grouped={isGrouped || undefined}
         onClick={handleMobileTap}
       >
-        {isBubbleStyle ? <ConversationMessageBubble ctx={ctx} /> : <ConversationMessageLine ctx={ctx} />}
+        <div
+          className={cn("min-w-0 max-w-full", !isBubbleStyle && "flex gap-4")}
+          data-component="ConversationMessage.Content"
+        >
+          {isBubbleStyle ? <ConversationMessageBubble ctx={ctx} /> : <ConversationMessageLine ctx={ctx} />}
+        </div>
 
         {(!hideActions || (hasReasoning && !isUser)) && (
           <ConversationMessageActions
-            isBubbleStyle={isBubbleStyle}
             isUser={isUser}
             showActions={showActions}
             forceShowActions={hideActions && hasReasoning ? true : forceShowActions}

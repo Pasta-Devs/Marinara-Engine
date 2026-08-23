@@ -66,6 +66,7 @@ export const AGENT_RESULT_TYPE_VALUES = [
   "character_activity_update",
   "frontend_theme_update",
   "about_me_update",
+  "memory_nag",
 ] as const;
 
 /** The result type an agent can produce. */

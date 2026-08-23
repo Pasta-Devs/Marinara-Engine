@@ -176,6 +176,12 @@ export function loadLocalSpriteVisualSettings(chatId: string | null | undefined)
   return readAllLocalSpriteVisualSettings()[chatId] ?? {};
 }
 
+export function copyLocalSpriteVisualSettings(sourceChatId: string, targetChatId: string): void {
+  const source = loadLocalSpriteVisualSettings(sourceChatId);
+  if (Object.keys(source).length === 0) return;
+  saveLocalSpriteVisualSettings(targetChatId, source);
+}
+
 export function saveLocalSpriteVisualSettings(
   chatId: string,
   patch: Partial<LocalSpriteVisualSettings>,

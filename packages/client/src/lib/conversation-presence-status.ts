@@ -32,6 +32,12 @@ type ConversationPresenceMeta = {
  * them whenever `conversationSchedulesEnabled !== false`. Matching that exactly
  * keeps these surfaces consistent with the presence pill (a stricter client-only
  * rule would diverge from the pill for legacy/imported schedule-backed chats).
+ *
+ * When the chat has schedules switched off this returns "online" rather than
+ * `null`, matching the server, which resolves no schedules for that chat and so
+ * reports the no-schedule default. Falling through to the snapshot instead would
+ * leak the character's global, schedule-derived status into a chat that opted
+ * out — the schedule belongs to the character, but the opt-out is per chat.
  * Overrides are validated by `getActiveStatusOverride` (status enum + expiry),
  * so a malformed or expired override falls through to the snapshot.
  */
@@ -44,11 +50,16 @@ export function resolveLiveConversationStatus(
   const override = (meta.conversationStatusOverrides as Record<string, ConversationStatusOverride> | undefined)?.[
     characterId
   ];
-  const schedule =
-    meta.conversationSchedulesEnabled !== false
-      ? (meta.characterSchedules as Record<string, WeekSchedule> | undefined)?.[characterId]
-      : undefined;
-  if (!getActiveStatusOverride(override, now) && !schedule) return null;
+  const schedulesOff = meta.conversationSchedulesEnabled === false;
+  const schedule = schedulesOff
+    ? undefined
+    : (meta.characterSchedules as Record<string, WeekSchedule> | undefined)?.[characterId];
+  const activeOverride = getActiveStatusOverride(override, now);
+  // A chat with schedules switched off is always-available in this chat only.
+  // Answer explicitly instead of falling through to the stored snapshot, which
+  // would surface the character's global schedule-derived status here.
+  if (schedulesOff && !activeOverride) return { status: "online", activity: "" };
+  if (!activeOverride && !schedule) return null;
   const timeZone =
     typeof meta.conversationTimeZone === "string"
       ? meta.conversationTimeZone

@@ -152,6 +152,18 @@ Tracks money, equipped gear, and carried items as three structured lists without
 - **Where it works**: Roleplay.
 - **Key settings**: **Add as Prompt Section** (on by default). The HUD and Tracker Panel let you edit and lock every name and quantity.
 
+### Memory Nag
+
+Keeps a short editable memory vault for each Roleplay chat. It scans the transcript in checkpointed batches, sorts memories by current and past character participants, and moves clearly settled memories to a restorable Resolved list. A memory may preserve a short dialogue line word for word when its exact wording matters.
+
+After each reply, deterministic word matching gives the tracker only the most relevant active memories for the involved characters. The tracker then decides whether the current situation actually calls for a nag and may choose only from those supplied memories; it cannot create a new memory during recall.
+
+- **Phase**: Post-Processing.
+- **Where it works**: Roleplay only.
+- **Key settings**: a separate **Vault scan connection** (default: the Agent connection), **Messages per batch** (20), **Maximum memories created per character** (10), **Maximum memories considered per character** (5), and **Maximum memories injected** (3). Use **Scan chat** for the initial backfill and **Open vault** to search, filter, add, edit, resolve, restore, or delete memories.
+- **Prompt placement**: without a preset marker, selected nags enter the next reply inside `<context><memory_nags>…</memory_nags></context>`. Add a Memory Nag Agent section to place them explicitly.
+- **Data lifecycle**: the vault belongs to one chat and remains stored if the package is disabled or uninstalled, so reinstalling can resume from the last checkpoint. Deleting a memory is permanent and always asks for confirmation.
+
 ### World Maps
 
 Adds persistent nested locations and spatial relationships to a story. You can author regions, areas, rooms, and connections, move between locations, and let the current position contribute spatial context to generation. Game Mode also gains the package's world-map view.

@@ -852,7 +852,7 @@ export function StoryboardAgentSettingsPanel({
                 aria-selected={selected}
                 aria-controls="storyboard-active-flow"
                 onClick={() => setActiveWorkflow(workflow)}
-                className={`min-h-11 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                className={`min-h-11 rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
                   selected
                     ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm ring-1 ring-[var(--border)]"
                     : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"

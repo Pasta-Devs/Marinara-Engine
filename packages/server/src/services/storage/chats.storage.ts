@@ -17,6 +17,7 @@ import {
 } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import {
+  characters,
   chats,
   messages,
   messageSwipes,
@@ -48,6 +49,7 @@ import {
   type TimestampOverrides,
 } from "../import/import-timestamps.js";
 import { scheduleNeedsRefresh, type CharacterSchedules, type WeekSchedule } from "../conversation/schedule.service.js";
+import type { ConversationStatusOverride } from "@marinara-engine/shared";
 import { resolveConversationTimeZone, toZonedWallClockDate } from "../conversation/timezone.js";
 import { logger } from "../../lib/logger.js";
 import { galleryFileHasReferences, unlinkGalleryFileIfUnreferenced } from "../image/gallery-file-lifecycle.js";
@@ -138,6 +140,209 @@ function mergeMetadataPatch(current: MetadataPatch, patch: MetadataPatch): Metad
   return merged;
 }
 
+// ── Per-chat write ordering (#5406) ──────────────────────────────────────────
+// A game-surface Experience keeps its save in two stores: the per-anchor
+// game_engine_state row (the authority, rewinds with the story) and a top-level chat-metadata
+// key it maintains as a boot cache (chat-global, never rewinds). Nothing let a client tell
+// "metadata is ahead because the last session degraded to metadata-only writes" from "the row
+// is behind because the player swiped back", so a degraded session's play was simply lost.
+//
+// The fix is one counter both paths draw from: `chats.writeOrdinalCounter`. Every allocation
+// is a read-and-bump of that column performed INSIDE the per-chat metadata patch queue
+// (`withChatMetadataPatchQueue`), which is what makes the sequence monotonic even though the
+// two writers hold different locks — the experience-state route holds its own per-chat write
+// lock and then calls `allocateWriteOrdinal`, which takes the metadata queue on top. The lock
+// order is always experience-lock -> metadata-queue and never the reverse, so there is no
+// deadlock, and because every allocation funnels through the one queue no two writes can read
+// the same counter value. Crashing between an allocation and the write it stamps burns an
+// ordinal; the contract is strict ordering, not density, so gaps are fine.
+//
+// The counter is not trusted on its own, because a metadata blob (mirror included) can be MOVED
+// into a chat that never allocated those ordinals — branching, a game "Next Session" carry, a
+// restored backup. Every allocation therefore floors the counter by the ordinals the chat's own
+// mirror already carries (`writeOrdinalFloor`), and the branch seam additionally raises the
+// counter above every engine-row ordinal it copied.
+
+/** Engine-owned metadata key holding `{ "<top-level metadata key>": <write ordinal> }` (#5406). */
+export const METADATA_WRITE_ORDINALS_KEY = "metadataWriteOrdinals";
+
+/** Read a stored mirror defensively — it can predate #5406 or have been clobbered by a
+ *  whole-blob `updateMetadata`, and only positive safe integers are usable ordinals. */
+function readOrdinalMirror(value: unknown): Map<string, number> {
+  const entries = new Map<string, number>();
+  if (!isPlainRecord(value)) return entries;
+  for (const [key, ordinal] of Object.entries(value)) {
+    if (key === METADATA_WRITE_ORDINALS_KEY) continue;
+    if (typeof ordinal === "number" && Number.isSafeInteger(ordinal) && ordinal > 0) entries.set(key, ordinal);
+  }
+  return entries;
+}
+
+/**
+ * The value this chat's next ordinal must beat: its counter, floored by every ordinal its
+ * metadata mirror already carries.
+ *
+ * The mirror can legitimately sit ABOVE the counter, because a metadata blob can be *moved* into
+ * a chat whose counter never handed those values out — a chat branch copying the source blob, a
+ * game "Next Session" carrying the previous session's metadata, an imported or restored backup.
+ * Allocating below a live stamp would make a brand-new write compare as older than a stale one
+ * for the rest of that key's life, so BOTH allocators floor here rather than trusting the counter
+ * alone.
+ */
+function writeOrdinalFloor(counter: unknown, metadata: MetadataPatch | null | undefined): number {
+  let floor = typeof counter === "number" && Number.isSafeInteger(counter) && counter > 0 ? counter : 0;
+  for (const ordinal of readOrdinalMirror(metadata?.[METADATA_WRITE_ORDINALS_KEY]).values()) {
+    if (ordinal > floor) floor = ordinal;
+  }
+  return floor;
+}
+
+/** The chat's next write ordinal: one past {@link writeOrdinalFloor}. */
+function nextWriteOrdinal(counter: unknown, metadata?: MetadataPatch | null): number {
+  return writeOrdinalFloor(counter, metadata) + 1;
+}
+
+/**
+ * Cap on how much of one metadata value is serialized for change detection. Past it the
+ * comparison degrades to reference identity: a multi-megabyte `gameMap` would otherwise be
+ * stringified twice on every patch (once for the pre-updater snapshot, once for the merged
+ * value) purely to decide whether to move an ordinal.
+ *
+ * The trade that buys: an oversize value re-sent as a fresh but equal object is counted as a
+ * write (harmless over-stamping), and an oversize value mutated in place is NOT seen (the same
+ * blind spot the pre-fingerprint code had for every value). Ordering by metadata is a boot cache
+ * for packages that keep their save small; a package that wants a multi-megabyte value ordered
+ * should split the ordered part out.
+ */
+const ORDINAL_DIFF_MAX_CHARS = 32_768;
+
+/** Bail-out token thrown from the bounded serializer's replacer. */
+const ORDINAL_DIFF_TOO_LARGE = Symbol("ordinal-diff-too-large");
+
+/** Fingerprint standing for "this key is absent", distinct from every JSON serialization. */
+const ORDINAL_DIFF_ABSENT = "\u0000absent";
+
+/**
+ * Fingerprint one metadata value for change detection, or null when it cannot be compared by
+ * value — too large (see {@link ORDINAL_DIFF_MAX_CHARS}) or unserializable (cyclic). The replacer
+ * charges every visited node against the budget and bails out, so an oversize value costs a
+ * partial walk rather than a full stringify.
+ */
+function fingerprintMetadataValue(value: unknown): string | null {
+  if (value === undefined) return ORDINAL_DIFF_ABSENT;
+  let budget = ORDINAL_DIFF_MAX_CHARS;
+  try {
+    return (
+      JSON.stringify(value, (_key, nested: unknown) => {
+        budget -= typeof nested === "string" ? nested.length + 2 : 8;
+        if (budget < 0) throw ORDINAL_DIFF_TOO_LARGE;
+        return nested;
+      }) ?? ORDINAL_DIFF_ABSENT
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fingerprint the top-level metadata values an updater could mutate IN PLACE, for the "before"
+ * side of {@link metadataValueChanged}. Only object-valued keys need it: a primitive cannot be
+ * mutated through the shallow copy the updater receives, so `current[key]` still holds its
+ * pre-updater value afterwards and can be fingerprinted lazily.
+ */
+function fingerprintMetadata(current: MetadataPatch): Map<string, string | null> {
+  const fingerprints = new Map<string, string | null>();
+  for (const key of Object.keys(current)) {
+    const value = current[key];
+    if (value !== null && typeof value === "object") fingerprints.set(key, fingerprintMetadataValue(value));
+  }
+  return fingerprints;
+}
+
+/**
+ * Did this patch actually write a new value for the key? Stamping a key whose value did not move
+ * would falsely advance the ordinal of a package's untouched key — precisely the bogus "metadata
+ * is newer" reading that clobbers a good save — so the `{ ...current, changedKey }` updater shape
+ * used throughout this file must leave every other key alone.
+ *
+ * `beforeFingerprint` is captured BEFORE a function updater runs. Comparing against the live
+ * `current[key]` afterwards is blind to an updater that mutates a nested value IN PLACE (the tool
+ * runtime hands a shallow copy of the live metadata to package-supplied code, so `current[key]`
+ * and `merged[key]` are then the same, already-mutated object and every value comparison agrees
+ * they match).
+ *
+ * When either side is un-fingerprintable (oversize, or cyclic) the test degrades to reference
+ * identity — the same answer the old `Object.is` fast path gave for those values, in-place blind
+ * spot included. See {@link ORDINAL_DIFF_MAX_CHARS} for why that is the right trade.
+ */
+function metadataValueChanged(beforeFingerprint: string | null, beforeValue: unknown, after: unknown): boolean {
+  const afterFingerprint = fingerprintMetadataValue(after);
+  if (beforeFingerprint !== null && afterFingerprint !== null) return beforeFingerprint !== afterFingerprint;
+  return !Object.is(beforeValue, after);
+}
+
+/**
+ * Strip the engine-owned mirror out of an incoming patch, so a caller on the metadata PATCH path
+ * cannot forge or freeze the ordering: on that path ordinals are only ever server-assigned, and
+ * function updaters that spread `current` would otherwise write the mirror back verbatim.
+ *
+ * This is a property of the queued patch path only. Whole-blob writers (`updateMetadata`, the
+ * capability persistence host) rewrite the mirror as part of the blob they carry — see the
+ * `updateMetadata` doc comment for why that is in scope.
+ */
+function stripOrdinalMirrorKey(patch: MetadataPatch): MetadataPatch {
+  if (!Object.prototype.hasOwnProperty.call(patch, METADATA_WRITE_ORDINALS_KEY)) return patch;
+  const { [METADATA_WRITE_ORDINALS_KEY]: _discarded, ...rest } = patch;
+  return rest;
+}
+
+type OrdinalStamp = { ordinal: number; mirror: Record<string, number> };
+
+/**
+ * Allocate one ordinal for this patch and stamp it onto every top-level key the patch actually
+ * changed. All keys in one patch share the ordinal because they were written in the same atomic
+ * row update — there is no meaningful order among them. Returns null when nothing changed, so a
+ * no-op patch neither burns an ordinal nor rewrites the mirror.
+ *
+ * `before` is the fingerprint snapshot taken before a function updater ran, or null for a literal
+ * patch object (which cannot have mutated `current`, so its live values are still trustworthy).
+ */
+function stampMetadataWriteOrdinals(
+  counter: unknown,
+  current: MetadataPatch,
+  merged: MetadataPatch,
+  patch: MetadataPatch,
+  before: Map<string, string | null> | null,
+): OrdinalStamp | null {
+  const fingerprintBefore = (key: string): string | null =>
+    // Not in the snapshot means either "no updater ran" or "a primitive an updater cannot have
+    // mutated in place" — in both cases the live value is still the pre-updater one.
+    before?.has(key) ? (before.get(key) as string | null) : fingerprintMetadataValue(current[key]);
+  const changed = Object.keys(patch).filter(
+    (key) =>
+      key !== METADATA_WRITE_ORDINALS_KEY && metadataValueChanged(fingerprintBefore(key), current[key], merged[key]),
+  );
+  if (changed.length === 0) return null;
+
+  const ordinal = nextWriteOrdinal(counter, current);
+  const mirror = readOrdinalMirror(current[METADATA_WRITE_ORDINALS_KEY]);
+  for (const key of changed) mirror.set(key, ordinal);
+  // Drop ordinals for keys the merged metadata no longer carries (a patch value of `undefined`
+  // is how callers delete): there is nothing left to order, and this keeps the mirror bounded
+  // by the live key set instead of growing with every key the chat has ever held.
+  for (const key of [...mirror.keys()]) if (merged[key] === undefined) mirror.delete(key);
+  // fromEntries, not literal assignment: a metadata key of "__proto__" must land as an own
+  // data property rather than reaching the prototype setter.
+  return { ordinal, mirror: Object.fromEntries(mirror) };
+}
+
+/** Apply a stamp to the merged metadata in place. */
+function applyOrdinalStamp(merged: MetadataPatch, stamp: OrdinalStamp | null): void {
+  if (!stamp) return;
+  if (Object.keys(stamp.mirror).length > 0) merged[METADATA_WRITE_ORDINALS_KEY] = stamp.mirror;
+  else delete merged[METADATA_WRITE_ORDINALS_KEY];
+}
+
 function readUnreadCount(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }
@@ -150,9 +355,119 @@ function hasConversationSchedules(value: unknown): value is CharacterSchedules {
   return !!value && typeof value === "object" && Object.keys(value as Record<string, unknown>).length > 0;
 }
 
+/**
+ * A chat opts into schedules explicitly, or implicitly by already having a
+ * cached schedule from an earlier opt-in. An unset flag on a chat that has never
+ * used schedules means off, so a character gaining a schedule does not silently
+ * switch it on in every old chat.
+ */
 function areConversationSchedulesEnabled(meta: MetadataPatch): boolean {
   if (typeof meta.conversationSchedulesEnabled === "boolean") return meta.conversationSchedulesEnabled;
   return hasConversationSchedules(meta.characterSchedules);
+}
+
+/** Resolved presence state for one chat, read from the character cards it uses. */
+export type ConversationPresenceState = {
+  schedules: CharacterSchedules;
+  statusOverrides: Record<string, ConversationStatusOverride>;
+};
+
+/** Cheap structural compare, so a resolve that changes nothing skips the metadata write. */
+function sameOverrides(current: unknown, next: Record<string, ConversationStatusOverride>): boolean {
+  const currentMap = isPlainRecord(current) ? current : {};
+  const keys = Object.keys(next);
+  if (keys.length !== Object.keys(currentMap).length) return false;
+  return keys.every((key) => JSON.stringify(currentMap[key]) === JSON.stringify(next[key]));
+}
+
+function sameSchedules(a: CharacterSchedules, b: CharacterSchedules): boolean {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every((key) => b[key] !== undefined && JSON.stringify(a[key]) === JSON.stringify(b[key]));
+}
+
+/** Read one `extensions` field off a serialized character card. */
+function readCardExtension(rawData: unknown, key: string): unknown {
+  if (typeof rawData !== "string") return undefined;
+  try {
+    const parsed = JSON.parse(rawData) as { extensions?: Record<string, unknown> };
+    return parsed?.extensions?.[key];
+  } catch {
+    return undefined;
+  }
+}
+
+/** Serialize a character card with one `extensions` field replaced. */
+function writeCardExtension(rawData: unknown, key: string, value: unknown): string | null {
+  if (typeof rawData !== "string") return null;
+  try {
+    const parsed: unknown = JSON.parse(rawData);
+    if (!isPlainRecord(parsed)) return null;
+    const rawExtensions = parsed.extensions;
+    if (rawExtensions !== undefined && rawExtensions !== null && !isPlainRecord(rawExtensions)) return null;
+    const extensions = isPlainRecord(rawExtensions) ? rawExtensions : {};
+    return JSON.stringify({ ...parsed, extensions: { ...extensions, [key]: value } });
+  } catch {
+    return null;
+  }
+}
+
+function readCharacterSchedule(rawData: unknown): WeekSchedule | null {
+  const schedule = readCardExtension(rawData, "conversationSchedule");
+  return isValidLegacySchedule(schedule) ? schedule : null;
+}
+
+/**
+ * A manual presence override belongs to the character, so it applies in every
+ * Conversation chat. `null` on the card means the user cleared it.
+ */
+function readCharacterStatusOverride(rawData: unknown): ConversationStatusOverride | null {
+  const override = readCardExtension(rawData, "conversationStatusOverride");
+  if (!override || typeof override !== "object" || Array.isArray(override)) return null;
+  const typed = override as Record<string, unknown>;
+  const validStatus =
+    typed.status === "online" || typed.status === "idle" || typed.status === "dnd" || typed.status === "offline";
+  if (!validStatus || typeof typed.createdAt !== "string" || typed.createdAt.length === 0) return null;
+  return override as ConversationStatusOverride;
+}
+
+function isValidLegacyStatusOverride(value: unknown): value is ConversationStatusOverride {
+  if (!isPlainRecord(value)) return false;
+  const status = value.status;
+  return (
+    (status === "online" || status === "idle" || status === "dnd" || status === "offline") &&
+    typeof value.createdAt === "string" &&
+    value.createdAt.length > 0
+  );
+}
+
+function isValidLegacySchedule(value: unknown): value is WeekSchedule {
+  if (!isPlainRecord(value) || typeof value.weekStart !== "string" || !isPlainRecord(value.days)) return false;
+  if (
+    typeof value.inactivityThresholdMinutes !== "number" ||
+    !Number.isFinite(value.inactivityThresholdMinutes) ||
+    value.inactivityThresholdMinutes < 0 ||
+    typeof value.talkativeness !== "number" ||
+    !Number.isFinite(value.talkativeness) ||
+    value.talkativeness < 0 ||
+    value.talkativeness > 100
+  ) {
+    return false;
+  }
+  return Object.values(value.days).every(
+    (day) =>
+      Array.isArray(day) &&
+      day.every(
+        (block) =>
+          (isPlainRecord(block) &&
+            typeof block.time === "string" &&
+            typeof block.activity === "string" &&
+            block.status === "online") ||
+          block.status === "idle" ||
+          block.status === "dnd" ||
+          block.status === "offline",
+      ),
+  );
 }
 
 function parseCharacterIds(raw: unknown): string[] {
@@ -440,31 +755,103 @@ export function createChatsStorage(db: DB) {
     await chatLastMessageAtBackfillPromise;
   }
 
+  /**
+   * Read the character-owned schedules for `characterIds`, skipping any that are
+   * stale for `scheduleNow`. The character card is the single source of truth;
+   * chats only cache a resolved copy in `metadata.characterSchedules`.
+   */
   async function collectFreshConversationSchedules(
     characterIds: string[],
-    excludeChatId?: string,
+    scheduleNow: Date,
   ): Promise<CharacterSchedules> {
-    const wanted = new Set(characterIds);
-    const sharedSchedules: CharacterSchedules = {};
-    if (wanted.size === 0) return sharedSchedules;
+    const wanted = Array.from(new Set(characterIds));
+    const freshSchedules: CharacterSchedules = {};
+    if (wanted.length === 0) return freshSchedules;
 
-    const allChats = await db.select().from(chats).orderBy(desc(chats.updatedAt));
-    for (const chat of allChats) {
-      if (chat.id === excludeChatId || chat.mode !== "conversation") continue;
-      const meta = parseMetadata(chat.metadata);
-      if (!areConversationSchedulesEnabled(meta) || !hasConversationSchedules(meta.characterSchedules)) continue;
-      const scheduleNow = toZonedWallClockDate(new Date(), resolveConversationTimeZone(meta));
-
-      for (const [characterId, schedule] of Object.entries(meta.characterSchedules)) {
-        if (!wanted.has(characterId) || sharedSchedules[characterId] || scheduleNeedsRefresh(schedule, scheduleNow))
-          continue;
-        sharedSchedules[characterId] = schedule;
-      }
-
-      if (Object.keys(sharedSchedules).length === wanted.size) break;
+    const rows = await db.select().from(characters).where(inArray(characters.id, wanted));
+    for (const row of rows) {
+      const schedule = readCharacterSchedule(row.data);
+      if (!schedule || scheduleNeedsRefresh(schedule, scheduleNow)) continue;
+      freshSchedules[row.id] = schedule;
     }
 
-    return sharedSchedules;
+    return freshSchedules;
+  }
+
+  /**
+   * Legacy hoist: chats used to own `characterSchedules`. Copy any chat-cached
+   * schedule up to a character that has none yet, so pre-existing routines
+   * survive the move to character-owned storage. One-way and idempotent.
+   */
+  async function hoistLegacyChatSchedules(
+    cachedSchedules: CharacterSchedules,
+    activeCharacterIds: readonly string[],
+  ): Promise<boolean> {
+    const activeIds = new Set(activeCharacterIds);
+    const characterIds = Object.keys(cachedSchedules).filter((characterId) => activeIds.has(characterId));
+    if (characterIds.length === 0) return false;
+
+    let hoisted = false;
+    for (const characterId of characterIds) {
+      const schedule = cachedSchedules[characterId];
+      if (!isValidLegacySchedule(schedule)) continue;
+      const didHoist = await db.transaction(async (tx) => {
+        const rows = await tx.select().from(characters).where(eq(characters.id, characterId));
+        const row = rows[0];
+        if (!row || readCardExtension(row.data, "conversationSchedule") !== undefined) return false;
+        const nextData = writeCardExtension(row.data, "conversationSchedule", schedule);
+        if (!nextData) return false;
+        await tx.update(characters).set({ data: nextData }).where(eq(characters.id, characterId));
+        return true;
+      });
+      hoisted ||= didHoist;
+    }
+    return hoisted;
+  }
+
+  /**
+   * Legacy hoist for manual presence overrides, which used to be chat-scoped.
+   * Only fills a card that has never carried an override, so a cleared override
+   * (`null` on the card) is not resurrected by a stale chat cache.
+   */
+  async function hoistLegacyChatOverrides(
+    cachedOverrides: unknown,
+    activeCharacterIds: readonly string[],
+  ): Promise<void> {
+    if (!isPlainRecord(cachedOverrides)) return;
+    const activeIds = new Set(activeCharacterIds);
+    const characterIds = Object.keys(cachedOverrides).filter((characterId) => activeIds.has(characterId));
+    if (characterIds.length === 0) return;
+
+    for (const characterId of characterIds) {
+      const override = cachedOverrides[characterId];
+      if (!isValidLegacyStatusOverride(override)) continue;
+      await db.transaction(async (tx) => {
+        const rows = await tx.select().from(characters).where(eq(characters.id, characterId));
+        const row = rows[0];
+        if (!row || readCardExtension(row.data, "conversationStatusOverride") !== undefined) return;
+        const nextData = writeCardExtension(row.data, "conversationStatusOverride", override);
+        if (!nextData) return;
+        await tx.update(characters).set({ data: nextData }).where(eq(characters.id, characterId));
+      });
+    }
+  }
+
+  async function collectConversationPresence(
+    characterIds: string[],
+    scheduleNow: Date,
+  ): Promise<{ schedules: CharacterSchedules; overrides: Record<string, ConversationStatusOverride | null> }> {
+    const wanted = Array.from(new Set(characterIds));
+    const schedules: CharacterSchedules = {};
+    const overrides: Record<string, ConversationStatusOverride | null> = {};
+    if (wanted.length === 0) return { schedules, overrides };
+    const rows = await db.select().from(characters).where(inArray(characters.id, wanted));
+    for (const row of rows) {
+      const schedule = readCharacterSchedule(row.data);
+      if (schedule && !scheduleNeedsRefresh(schedule, scheduleNow)) schedules[row.id] = schedule;
+      overrides[row.id] = readCharacterStatusOverride(row.data);
+    }
+    return { schedules, overrides };
   }
 
   async function cleanupChatGallery(chatId: string): Promise<void> {
@@ -580,8 +967,27 @@ export function createChatsStorage(db: DB) {
     async create(input: CreateChatInput, timestampOverrides?: TimestampOverrides | null) {
       const id = newId();
       const timestamp = resolveTimestamps(timestampOverrides);
+      const recentConversation =
+        input.mode === "conversation"
+          ? (
+              await db
+                .select({ metadata: chats.metadata })
+                .from(chats)
+                .where(eq(chats.mode, "conversation"))
+                .orderBy(desc(chats.updatedAt))
+                .limit(1)
+            )[0]
+          : undefined;
+      const conversationTimeZone = recentConversation
+        ? resolveConversationTimeZone(parseMetadata(recentConversation.metadata))
+        : undefined;
       const inheritedSchedules =
-        input.mode === "conversation" ? await collectFreshConversationSchedules(input.characterIds) : {};
+        input.mode === "conversation"
+          ? await collectFreshConversationSchedules(
+              input.characterIds,
+              toZonedWallClockDate(new Date(), conversationTimeZone),
+            )
+          : {};
       const metadata: MetadataPatch = {
         summary: null,
         tags: [],
@@ -596,6 +1002,7 @@ export function createChatsStorage(db: DB) {
         const scheduleWeekStart = firstScheduleWeekStart(inheritedSchedules);
         if (scheduleWeekStart) metadata.scheduleWeekStart = scheduleWeekStart;
       }
+      if (conversationTimeZone) metadata.conversationTimeZone = conversationTimeZone;
       await db.insert(chats).values({
         id,
         name: input.name,
@@ -613,31 +1020,89 @@ export function createChatsStorage(db: DB) {
       return this.getById(id);
     },
 
-    async inheritFreshConversationSchedules(id: string) {
+    /**
+     * Resolve this chat's presence state from the character cards, which own
+     * both the schedule and the manual status override, and refresh the chat's
+     * cached copies. Overrides resolve even when this chat has schedules
+     * switched off — the opt-out is about routines, not manual availability.
+     */
+    async resolveConversationPresenceState(id: string): Promise<ConversationPresenceState> {
+      const chat = await this.getById(id);
+      if (!chat || chat.mode !== "conversation") return { schedules: {}, statusOverrides: {} };
+
+      const meta = parseMetadata(chat.metadata);
+      const characterIds = parseCharacterIds(chat.characterIds);
+
+      // Hoist before the opt-in gate, so a chat that is switched off does not
+      // strand the only copy of a pre-existing schedule in its metadata.
+      if (hasConversationSchedules(meta.characterSchedules)) {
+        await hoistLegacyChatSchedules(meta.characterSchedules, characterIds);
+      }
+      if (isPlainRecord(meta.conversationStatusOverrides) && Object.keys(meta.conversationStatusOverrides).length > 0) {
+        await hoistLegacyChatOverrides(meta.conversationStatusOverrides, characterIds);
+      }
+
+      const presence = await collectConversationPresence(
+        characterIds,
+        toZonedWallClockDate(new Date(), resolveConversationTimeZone(meta)),
+      );
+      const cardOverrides = presence.overrides;
+      const statusOverrides: Record<string, ConversationStatusOverride> = {};
+      for (const [characterId, override] of Object.entries(cardOverrides)) {
+        if (override) statusOverrides[characterId] = override;
+      }
+      const cachedOverrides = isPlainRecord(meta.conversationStatusOverrides)
+        ? Object.fromEntries(Object.entries(meta.conversationStatusOverrides).filter(([, value]) => value != null))
+        : {};
+      if (!sameOverrides(cachedOverrides, statusOverrides)) {
+        const staleKeys = isPlainRecord(meta.conversationStatusOverrides)
+          ? Object.keys(meta.conversationStatusOverrides).filter((key) => !(key in cardOverrides))
+          : [];
+        await this.patchMetadata(
+          id,
+          {
+            conversationStatusOverrides: {
+              ...cardOverrides,
+              ...Object.fromEntries(staleKeys.map((key) => [key, null])),
+            },
+          },
+          { touchUpdatedAt: false },
+        );
+      }
+
+      const schedules = await this.resolveConversationSchedules(id);
+      return { schedules, statusOverrides };
+    },
+
+    /** Schedule half of {@link resolveConversationPresenceState}. */
+    async resolveConversationSchedules(id: string): Promise<CharacterSchedules> {
       const chat = await this.getById(id);
       if (!chat || chat.mode !== "conversation") return {};
 
       const meta = parseMetadata(chat.metadata);
-      if (meta.conversationSchedulesEnabled === false) return {};
+      if (!areConversationSchedulesEnabled(meta)) return {};
 
       const characterIds = parseCharacterIds(chat.characterIds);
       const currentSchedules = hasConversationSchedules(meta.characterSchedules) ? meta.characterSchedules : {};
       const scheduleNow = toZonedWallClockDate(new Date(), resolveConversationTimeZone(meta));
-      const missingOrStaleIds = characterIds.filter((characterId) => {
-        const existing = currentSchedules[characterId];
-        return !existing || scheduleNeedsRefresh(existing, scheduleNow);
-      });
-      if (missingOrStaleIds.length === 0) return currentSchedules;
 
-      const sharedSchedules = await collectFreshConversationSchedules(missingOrStaleIds, id);
-      if (!hasConversationSchedules(sharedSchedules)) return currentSchedules;
-
-      const nextSchedules: CharacterSchedules = { ...currentSchedules, ...sharedSchedules };
+      // The character card is the source of truth; the chat map is a cache that
+      // can be stale or hold a schedule the character has since replaced.
+      const freshSchedules = await collectFreshConversationSchedules(characterIds, scheduleNow);
+      const nextSchedules: CharacterSchedules = {};
+      for (const characterId of characterIds) {
+        const schedule = freshSchedules[characterId];
+        if (schedule) nextSchedules[characterId] = schedule;
+      }
+      if (sameSchedules(currentSchedules, nextSchedules)) return currentSchedules;
+      if (!hasConversationSchedules(nextSchedules)) {
+        await this.patchMetadata(id, { characterSchedules: {}, scheduleWeekStart: null }, { touchUpdatedAt: false });
+        return {};
+      }
       const scheduleWeekStart = firstScheduleWeekStart(nextSchedules);
       await this.patchMetadata(
         id,
         {
-          conversationSchedulesEnabled: true,
           characterSchedules: nextSchedules,
           ...(scheduleWeekStart ? { scheduleWeekStart } : {}),
         },
@@ -738,6 +1203,23 @@ export function createChatsStorage(db: DB) {
       );
     },
 
+    /**
+     * Whole-blob metadata replace, outside the patch queue and NOT write-ordinal stamped (#5406).
+     *
+     * What makes that safe is scope, not innocence: most live callers pass
+     * `{ ...freshMeta, changedKey }` and genuinely do change a key, so "a verbatim rewrite is not
+     * a new value" is simply false here. A key written through this path keeps whatever ordinal
+     * it already had and therefore reads as OLDER than it is. That is tolerable only because
+     * every key a capability package can order against is reachable solely through the chat
+     * metadata PATCH route, which goes through `patchMetadata`.
+     *
+     * The rule that follows: a key that becomes package-ordered must never be written here. Move
+     * the write to `patchMetadata` rather than adding a caller on this path.
+     *
+     * The capability persistence host (`updateChatMetadata` / `updateChatActivity` in
+     * capability-persistence.service.ts) writes whole metadata blobs the same unstamped way and
+     * is in the same category — it carries the mirror through untouched rather than restamping.
+     */
     async updateMetadata(id: string, metadata: Record<string, unknown>) {
       await db
         .update(chats)
@@ -746,28 +1228,103 @@ export function createChatsStorage(db: DB) {
       return this.getById(id);
     },
 
+    /**
+     * Allocate the chat's next write ordinal (#5406) — the shared sequence behind both
+     * `game_engine_state.writeOrdinal` and `metadata.metadataWriteOrdinals`. Returns null only
+     * when the chat no longer exists.
+     *
+     * The read-and-bump runs inside the per-chat metadata patch queue so it serializes against
+     * every other allocation, including the ones `patchMetadata` performs inline. Callers that
+     * already hold that queue MUST pass `metadataQueueHeld` — the queue is not reentrant.
+     * Callers holding a different per-chat lock (the experience-state write lock) may call this
+     * directly: the lock order is always their-lock -> metadata-queue, never the reverse.
+     *
+     * The counter alone is not the floor: the metadata mirror can carry ordinals the counter
+     * never handed out (a blob moved in by a branch, a session carry, a restore), so this reads
+     * both and allocates above whichever is higher — see {@link writeOrdinalFloor}.
+     */
+    async allocateWriteOrdinal(id: string, opts: { metadataQueueHeld?: boolean } = {}): Promise<number | null> {
+      const allocate = async () => {
+        const [row] = await db
+          .select({ writeOrdinalCounter: chats.writeOrdinalCounter, metadata: chats.metadata })
+          .from(chats)
+          .where(eq(chats.id, id));
+        if (!row) return null;
+        const ordinal = nextWriteOrdinal(row.writeOrdinalCounter, parseMetadata(row.metadata));
+        // Counter only — allocating an ordinal is not a user-visible chat edit, so it must not
+        // reorder the chat list the way a touched updatedAt would.
+        await db.update(chats).set({ writeOrdinalCounter: ordinal }).where(eq(chats.id, id));
+        return ordinal;
+      };
+      return opts.metadataQueueHeld ? allocate() : withChatMetadataPatchQueue(id, allocate);
+    },
+
+    /**
+     * Raise a chat's write-ordinal counter to at least `floor`, never lowering it (#5406).
+     * Chat branching copies the source chat's metadata verbatim — mirror included — and its
+     * engine rows with their ordinals, so the branch must also inherit a counter above all of
+     * them, or its first allocation would sit below the values it just copied and invert the
+     * ordering for the branch's whole life. Idempotent.
+     *
+     * Like its siblings this runs inside the per-chat metadata patch queue, so a caller that
+     * already holds the queue MUST pass `metadataQueueHeld` — the queue is not reentrant and
+     * would otherwise deadlock silently.
+     */
+    async raiseWriteOrdinalFloor(
+      id: string,
+      floor: number | null | undefined,
+      opts: { metadataQueueHeld?: boolean } = {},
+    ): Promise<void> {
+      if (typeof floor !== "number" || !Number.isSafeInteger(floor) || floor <= 0) return;
+      const raise = async () => {
+        const [row] = await db
+          .select({ writeOrdinalCounter: chats.writeOrdinalCounter })
+          .from(chats)
+          .where(eq(chats.id, id));
+        if (!row) return;
+        const current = row.writeOrdinalCounter;
+        if (typeof current === "number" && current >= floor) return;
+        await db.update(chats).set({ writeOrdinalCounter: floor }).where(eq(chats.id, id));
+      };
+      if (opts.metadataQueueHeld) await raise();
+      else await withChatMetadataPatchQueue(id, raise);
+    },
+
     async patchMetadata(
       id: string,
       patchOrUpdater: MetadataPatch | MetadataUpdater,
-      opts: { touchUpdatedAt?: boolean } = {},
+      opts: { touchUpdatedAt?: boolean; metadataQueueHeld?: boolean } = {},
     ) {
-      return withChatMetadataPatchQueue(id, async () => {
+      const applyPatch = async () => {
         const existing = await this.getById(id);
         if (!existing) return null;
 
         const current = parseMetadata(existing.metadata);
-        const patch = typeof patchOrUpdater === "function" ? await patchOrUpdater({ ...current }) : patchOrUpdater;
+        // #5406: fingerprint BEFORE the updater runs. `{ ...current }` is a shallow copy, so an
+        // updater that mutates a nested value in place mutates `current`'s value too and the
+        // post-hoc comparison would see two identical objects and skip the stamp.
+        const before = typeof patchOrUpdater === "function" ? fingerprintMetadata(current) : null;
+        const raw = typeof patchOrUpdater === "function" ? await patchOrUpdater({ ...current }) : patchOrUpdater;
+        const patch = stripOrdinalMirrorKey(raw);
         const merged = mergeMetadataPatch(current, patch);
+        // #5406: allocate inline rather than through allocateWriteOrdinal — the queue is
+        // already held here, and folding the counter into the same row update makes the stamp
+        // and the counter bump one atomic write, so a crash can never leave a mirror entry
+        // whose ordinal the counter never advanced past.
+        const stamp = stampMetadataWriteOrdinals(existing.writeOrdinalCounter, current, merged, patch, before);
+        applyOrdinalStamp(merged, stamp);
 
         await db
           .update(chats)
           .set({
             metadata: JSON.stringify(merged),
+            ...(stamp && { writeOrdinalCounter: stamp.ordinal }),
             ...(opts.touchUpdatedAt !== false && { updatedAt: now() }),
           })
           .where(eq(chats.id, id));
         return this.getById(id);
-      });
+      };
+      return opts.metadataQueueHeld ? applyPatch() : withChatMetadataPatchQueue(id, applyPatch);
     },
 
     /**
@@ -792,14 +1349,19 @@ export function createChatsStorage(db: DB) {
         if (!existing) return null;
 
         const current = parseMetadata(existing.metadata);
-        const { metadata: patch, characterIds } = await updater({ ...current });
+        const before = fingerprintMetadata(current);
+        const { metadata: raw, characterIds } = await updater({ ...current });
+        const patch = stripOrdinalMirrorKey(raw);
         const merged = mergeMetadataPatch(current, patch);
+        const stamp = stampMetadataWriteOrdinals(existing.writeOrdinalCounter, current, merged, patch, before);
+        applyOrdinalStamp(merged, stamp);
 
         await db
           .update(chats)
           .set({
             metadata: JSON.stringify(merged),
             characterIds: JSON.stringify(characterIds),
+            ...(stamp && { writeOrdinalCounter: stamp.ordinal }),
             ...(opts.touchUpdatedAt !== false && { updatedAt: now() }),
           })
           .where(eq(chats.id, id));

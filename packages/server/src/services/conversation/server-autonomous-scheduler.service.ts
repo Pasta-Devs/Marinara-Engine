@@ -8,7 +8,6 @@ import {
 } from "./autonomous.service.js";
 import { isIntentOnCooldown, resolveIntent, type MessageIntent } from "./intent.service.js";
 import { getBusyDelay, getEffectiveCurrentStatus, type WeekSchedule } from "./schedule.service.js";
-import { parseConversationStatusOverrides } from "../generation/conversation-context-utils.js";
 import { resolveConversationTimeZone, toZonedWallClockDate } from "./timezone.js";
 
 const SERVER_AUTONOMOUS_INITIAL_DELAY_MS = 20_000;
@@ -335,15 +334,15 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
       const characterId = result.shouldTrigger ? result.characterIds?.[0] : null;
       if (!characterId) return;
 
-      await chats.inheritFreshConversationSchedules(chat.id);
+      const presence = await chats.resolveConversationPresenceState(chat.id);
       const freshChat = await chats.getById(chat.id);
       if (!freshChat) return;
       const freshMeta = parseMetadata(freshChat.metadata);
       const promptTimeZone = resolveConversationTimeZone(freshMeta);
       const nowInstant = new Date();
       const promptNow = toZonedWallClockDate(nowInstant, promptTimeZone);
-      const freshSchedules = (freshMeta.characterSchedules ?? {}) as Record<string, WeekSchedule>;
-      const statusOverrides = parseConversationStatusOverrides(freshMeta.conversationStatusOverrides);
+      const freshSchedules = presence.schedules;
+      const statusOverrides = presence.statusOverrides;
       const schedule = freshSchedules[characterId] ?? null;
 
       if (schedule) {

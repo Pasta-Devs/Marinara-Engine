@@ -349,9 +349,11 @@ export function GameJournal({
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
+                aria-pressed={activeTab === tab.id}
                 className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[0.625rem] font-medium transition-colors",
+                  "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[0.625rem] font-medium transition-colors",
                   activeTab === tab.id
                     ? "bg-white/10 text-white/85"
                     : "text-white/50 hover:bg-white/5 hover:text-white/70",

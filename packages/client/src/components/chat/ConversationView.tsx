@@ -22,7 +22,13 @@ import { SceneBanner, EndSceneBar } from "./SceneBanner";
 import { ChatBranchSelector } from "./ChatBranchSelector";
 import { ChatMessageSearch } from "./ChatMessageSearch";
 import { ActiveLorebookEntriesButton } from "./ActiveLorebookEntriesButton";
-import { ChatToolbarButton, ChatToolbarMenu, getChatToolbarButtonClass } from "./ChatToolbarControls";
+import {
+  CHAT_TOOLBAR_OVERFLOW_BUTTON_SIZE_CLASS,
+  ChatToolbarButton,
+  ChatToolbarMenu,
+  getChatToolbarButtonClass,
+} from "./ChatToolbarControls";
+import { ChatHelpButton } from "./ChatHelpButton";
 import { ConversationPresenceCard } from "./ConversationPresenceCard";
 import { PendingTypingDots } from "./PendingTypingDots";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
@@ -31,6 +37,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useConversationGamesStore } from "../../stores/conversation-games.store";
 import { useUIStore } from "../../stores/ui.store";
 import { playConfiguredNotificationPing } from "../../lib/notification-sound";
+import { rememberBoundedSetValue } from "../../lib/bounded-set";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { messageHasPendingPostProcessing } from "../../lib/chat-message-extra";
 import { getTranscriptRenderWindow, TRANSCRIPT_RENDER_WINDOW_STEP } from "../../lib/transcript-render-window";
@@ -267,6 +274,7 @@ function splitAssistantContentLines(content: string, charName?: string | null): 
 // component remounts. This prevents stagger animations and notification sounds
 // from replaying when the user navigates away from a chat and comes back.
 const globalSeenKeys = new Set<string>();
+const MAX_GLOBAL_SEEN_KEYS = 5_000;
 
 export function ConversationView({
   chatId,
@@ -434,7 +442,14 @@ export function ConversationView({
     (item) =>
       item.status === "active" && item.manifest.kind.includes("conversation-calls") && item.manifest.entrypoints.client,
   );
-  const callCapabilityProps = { chatId, metadata: chatMeta, characterMap, chatCharIds, personaInfo };
+  const callCapabilityProps = {
+    chatId,
+    metadata: chatMeta,
+    characterMap,
+    chatCharIds,
+    personaInfo,
+    toolbarButtonClass: getChatToolbarButtonClass({ sizeClassName: CHAT_TOOLBAR_OVERFLOW_BUTTON_SIZE_CLASS }),
+  };
   const activeAgentIds = chatMeta.activeAgentIds;
   const enabledConversationCapabilities =
     chatMeta.enableAgents === true
@@ -454,6 +469,7 @@ export function ConversationView({
   const conversationCapabilityProps = { chatId, metadata: chatMeta, characterMap, chatCharIds, personaInfo };
   const renderToolbarActions = (compact = false) => (
     <>
+      <ChatHelpButton mode="conversation" compact={compact} />
       <ChatBranchSelector
         activeChatId={chatId}
         activeChatName={chatName}
@@ -471,6 +487,7 @@ export function ConversationView({
       {onSwitchChat && (
         <ChatToolbarButton
           icon={<ArrowRightLeft size="0.875rem" />}
+          helpTarget="connected-chat"
           title={
             connectedChatName
               ? t("chat.toolbar.switchTo", { name: connectedChatName })
@@ -501,31 +518,35 @@ export function ConversationView({
       />
 
       <div className="ml-2 flex min-w-0 flex-1 items-center justify-end gap-2">
-        {conversationToolbarPackages.map((item) => (
-          <CapabilityElement
-            key={`${item.id}-toolbar`}
-            packageId={item.id}
-            view="toolbar"
-            capabilityProps={{
-              ...conversationCapabilityProps,
-              toolbarButtonClass: getChatToolbarButtonClass(),
-            }}
-            className="contents"
-          />
-        ))}
-        {callsPackage && (
-          <CapabilityElement
-            packageId={callsPackage.id}
-            view="toolbar"
-            capabilityProps={callCapabilityProps}
-            className="contents"
-          />
-        )}
         <ChatToolbarMenu
           className="flex-1"
           desktopChildren={renderToolbarActions()}
           mobileChildren={renderToolbarActions(true)}
         />
+        {conversationToolbarPackages.map((item) => (
+          <span key={`${item.id}-toolbar`} data-chat-help="agent-controls" className="contents">
+            <CapabilityElement
+              packageId={item.id}
+              view="toolbar"
+              capabilityProps={{
+                ...conversationCapabilityProps,
+                toolbarButtonClass: getChatToolbarButtonClass(),
+              }}
+              className="contents"
+            />
+          </span>
+        ))}
+        {callsPackage && (
+          <span data-chat-help="call" className="contents">
+            <CapabilityElement
+              packageId={callsPackage.id}
+              view="toolbar"
+              capabilityProps={callCapabilityProps}
+              // ponytail: This direct-child size bridge supports Calls <=1.0.11; remove it once 1.0.12 is the minimum.
+              className="contents [&>button]:!h-8 [&>button]:!w-8 max-md:[&>button]:!h-9 max-md:[&>button]:!w-9"
+            />
+          </span>
+        )}
       </div>
     </div>
   );
@@ -581,7 +602,7 @@ export function ConversationView({
     },
     [scrollToMessagesBottom],
   );
-  useKeepLatestChatMessageVisible(scrollRef, scheduleScrollToMessagesBottom);
+  useKeepLatestChatMessageVisible(scrollRef, scrollToMessagesBottom);
 
   useEffect(() => {
     if (shouldKeepMobileComposerOpen) setMobileHistoryComposerCollapsed(false);
@@ -1034,7 +1055,9 @@ export function ConversationView({
         prevRenderedKeysRef.current = currentKeys;
         // Mark all current keys as globally seen so remount won't replay them
         for (const item of messageItems) {
-          if (!pendingPostProcessingKeys.has(item.key)) globalSeenKeysRef.current.add(item.key);
+          if (!pendingPostProcessingKeys.has(item.key)) {
+            rememberBoundedSetValue(globalSeenKeysRef.current, item.key, MAX_GLOBAL_SEEN_KEYS);
+          }
         }
         pendingPostProcessingKeysRef.current = pendingPostProcessingKeys;
         initialLoadSettledRef.current = true;
@@ -1090,7 +1113,9 @@ export function ConversationView({
 
     // Mark all current keys as globally seen
     for (const item of messageItems) {
-      if (!pendingPostProcessingKeys.has(item.key)) seenGlobal.add(item.key);
+      if (!pendingPostProcessingKeys.has(item.key)) {
+        rememberBoundedSetValue(seenGlobal, item.key, MAX_GLOBAL_SEEN_KEYS);
+      }
     }
     prevRenderedKeysRef.current = currentKeys;
     pendingPostProcessingKeysRef.current = pendingPostProcessingKeys;
@@ -1257,7 +1282,7 @@ export function ConversationView({
             return (
               <div key={item.key} className="relative my-4 flex items-center px-4">
                 <div className="flex-1 border-t border-[var(--border)]/40" />
-                <span className="mx-4 text-[0.6875rem] font-semibold text-[var(--marinara-chat-chrome-panel-muted)]">
+                <span className="mari-conversation-transcript-chrome-text mx-4 text-[0.6875rem] font-semibold">
                   {item.label}
                 </span>
                 <div className="flex-1 border-t border-[var(--border)]/40" />

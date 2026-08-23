@@ -408,8 +408,9 @@ export function GenerationParametersFields({
                   key={tier ?? "default"}
                   type="button"
                   onClick={() => set("serviceTier", tier)}
+                  aria-pressed={value.serviceTier === tier}
                   className={cn(
-                    "rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
+                    "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
                     value.serviceTier === tier ? PARAM_CHOICE_ACTIVE_CLASS : PARAM_CHOICE_IDLE_CLASS,
                   )}
                 >
@@ -430,9 +431,11 @@ export function GenerationParametersFields({
             {REASONING_LEVELS.map((level) => (
               <button
                 key={level ?? "none"}
+                type="button"
                 onClick={() => set("reasoningEffort", level)}
+                aria-pressed={value.reasoningEffort === level}
                 className={cn(
-                  "rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
+                  "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
                   value.reasoningEffort === level ? PARAM_CHOICE_ACTIVE_CLASS : PARAM_CHOICE_IDLE_CLASS,
                 )}
               >
@@ -454,9 +457,11 @@ export function GenerationParametersFields({
             {VERBOSITY_LEVELS.map((level) => (
               <button
                 key={level ?? "none"}
+                type="button"
                 onClick={() => set("verbosity", level)}
+                aria-pressed={value.verbosity === level}
                 className={cn(
-                  "rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
+                  "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
                   value.verbosity === level ? PARAM_CHOICE_ACTIVE_CLASS : PARAM_CHOICE_IDLE_CLASS,
                 )}
               >

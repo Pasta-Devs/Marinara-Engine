@@ -47,6 +47,13 @@ const ROLEPLAY_SLOWDOWN_RESPONSE_MS = 120;
 const ROLEPLAY_SPEEDUP_RESPONSE_MS = 480;
 const TYPEWRITER_TARGET_FRAME_MS = 1000 / 60;
 const TYPEWRITER_MAX_CATCH_UP_FRAMES = 2;
+const IOS_TYPEWRITER_TARGET_FRAME_MS = 1000 / 20;
+
+/** iOS browsers all use WebKit, where repainting growing Markdown at 60 FPS can freeze long streams. */
+export function getTypewriterPaintIntervalMs(userAgent: string, platform: string, maxTouchPoints: number): number {
+  const isIosWebKit = /iP(?:ad|hone|od)/iu.test(userAgent) || (platform === "MacIntel" && maxTouchPoints > 1);
+  return isIosWebKit ? IOS_TYPEWRITER_TARGET_FRAME_MS : 0;
+}
 
 /** Keep send actions guarded while leaving the draft field itself editable. */
 export function isGenerationSendBlocked(input: GenerationSendBlockInput): boolean {
@@ -96,13 +103,17 @@ export function getTypewriterFrameBudget(
   charsPerSecond: number,
   elapsedMs: number,
   carriedRemainder: number,
+  paintIntervalMs = TYPEWRITER_TARGET_FRAME_MS,
 ): TypewriterFrameBudget {
   const newlyAccruedCharacters = (charsPerSecond * Math.max(0, elapsedMs)) / 1000;
   return {
     accruedCharacters: carriedRemainder + newlyAccruedCharacters,
     maxCharacters: Math.max(
       1,
-      Math.ceil((charsPerSecond * TYPEWRITER_TARGET_FRAME_MS * TYPEWRITER_MAX_CATCH_UP_FRAMES) / 1000),
+      Math.ceil(
+        (charsPerSecond * Math.max(TYPEWRITER_TARGET_FRAME_MS, paintIntervalMs) * TYPEWRITER_MAX_CATCH_UP_FRAMES) /
+          1000,
+      ),
     ),
   };
 }

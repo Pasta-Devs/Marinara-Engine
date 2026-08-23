@@ -47,6 +47,11 @@ export type AgentContextResolver = (
   context: AgentContext,
 ) => AgentContext | Promise<AgentContext>;
 
+export type AgentPhaseContextPreparer = (
+  agents: AgentExecConfig[],
+  context: AgentContext,
+) => AgentContext | Promise<AgentContext>;
+
 /** Callback fired whenever an agent produces a result. */
 export type AgentResultCallback = (result: AgentResult) => void;
 
@@ -458,6 +463,7 @@ export function createAgentPipeline(
   baseContext: AgentContext,
   onResult?: AgentResultCallback,
   resolveAgentContext?: AgentContextResolver,
+  preparePostContext?: AgentPhaseContextPreparer,
 ) {
   const allResults: AgentResult[] = [];
   const preGenerationInjections: AgentInjection[] = [];
@@ -511,7 +517,13 @@ export function createAgentPipeline(
         parallelResults: options.parallelResults ?? parallelPhaseResults,
       };
 
-      return runPostProcessingAgents(agents, fullContext, wrappedOnResult, resolveAgentContext);
+      const preparedContext = preparePostContext
+        ? await preparePostContext(
+            agents.filter((agent) => agent.phase === "post_processing"),
+            fullContext,
+          )
+        : fullContext;
+      return runPostProcessingAgents(agents, preparedContext, wrappedOnResult, resolveAgentContext);
     },
 
     /** All results collected so far. */

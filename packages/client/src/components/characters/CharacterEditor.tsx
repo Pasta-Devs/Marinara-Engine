@@ -55,6 +55,7 @@ import {
   type SpriteInfo,
 } from "../../hooks/use-characters";
 import { ConvoProfileFields } from "./ConvoProfileFields";
+import { CharacterScheduleEditorModal } from "../chat/CharacterScheduleEditorModal";
 import { useUIStore } from "../../stores/ui.store";
 import { lorebookKeys, useLorebook, useUpdateLorebook } from "../../hooks/use-lorebooks";
 import { useConnections } from "../../hooks/use-connections";
@@ -114,7 +115,7 @@ import {
   Check,
 } from "lucide-react";
 import { cn, copyToClipboard, generateClientId, getAvatarCropStyle } from "../../lib/utils";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { normalizeAvatarCrop, type WeekSchedule } from "@marinara-engine/shared";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { buildCardAssetMarkdown } from "../../lib/card-asset-links";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -128,7 +129,7 @@ import { Modal } from "../ui/Modal";
 import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
 import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
-import { EditorTabRail } from "../ui/EditorTabRail";
+import { EditorTabNavigation } from "../ui/EditorTabNavigation";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -905,7 +906,13 @@ export function CharacterEditor() {
 
   const headerActionButtonClass = "mari-editor-action inline-flex";
   const saveDisabled = !dirty || saving || avatarUploading || lorebookEmbedding;
-  const saveLabel = avatarUploading ? "Uploading…" : lorebookEmbedding ? "Embedding…" : saving ? "Saving…" : "Save";
+  const saveLabel = avatarUploading
+    ? localizeUi("editor.save.uploading")
+    : lorebookEmbedding
+      ? localizeUi("editor.save.embedding")
+      : saving
+        ? localizeUi("editor.save.saving")
+        : localizeUi("editor.save.action");
   const saveButtonClass = cn(
     "mari-editor-action mari-editor-action--primary mari-editor-action--save inline-flex",
     saveDisabled && "cursor-not-allowed opacity-50",
@@ -1033,8 +1040,8 @@ export function CharacterEditor() {
       />
 
       {/* ── Header ── */}
-      <div className="mari-editor-header">
-        <div className="mari-editor-header-main max-md:min-w-full">
+      <div className="mari-editor-header mari-editor-header--with-nav">
+        <div className="mari-editor-header-main mari-editor-header-main--identity">
           <button
             type="button"
             onClick={handleClose}
@@ -1114,10 +1121,19 @@ export function CharacterEditor() {
           </div>
         </div>
 
+        <EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
+
         <div className="mari-editor-actions flex">
-          <button type="button" onClick={handleSave} disabled={saveDisabled} className={saveButtonClass}>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saveDisabled}
+            className={saveButtonClass}
+            aria-label={saveLabel}
+            title={saveLabel}
+          >
             <Save size="0.9375rem" />
-            <span>{saveLabel}</span>
+            <span className="mari-editor-save-label">{saveLabel}</span>
           </button>
           {headerActions}
         </div>
@@ -1160,10 +1176,8 @@ export function CharacterEditor() {
         </div>
       )}
 
-      {/* ── Body: Tabs + Content ── */}
-      <div className="mari-editor-body @max-5xl:flex-col">
-        <EditorTabRail tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
-
+      {/* ── Body ── */}
+      <div className="mari-editor-body">
         {/* Tab Content */}
         <div className="mari-editor-content @max-5xl:p-4">
           <div className="mari-editor-content-inner">
@@ -1444,29 +1458,82 @@ function ConvoTab({
   characterId?: string;
 }) {
   const ext = formData.extensions;
+  const { t: localizeUi } = useUiTranslation();
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  // The schedule is runtime state, not card content, so it saves on its own
+  // rather than through the editor form. Routing it through `updateExtension`
+  // would mark the card dirty and raise a discard prompt for a routine that is
+  // regenerated every week.
+  const updateCharacter = useUpdateCharacter();
+  const savedCharacter = useCharacter(characterId ?? null);
+  const savedData = (() => {
+    const rawData = (savedCharacter.data as { data?: unknown } | undefined)?.data;
+    if (!rawData) return undefined;
+    try {
+      return (typeof rawData === "string" ? JSON.parse(rawData) : rawData) as CharacterData;
+    } catch {
+      return undefined;
+    }
+  })();
+  const savedExtensions = savedData?.extensions;
+  // Read the saved card, not the form: the schedule saves on its own, so the
+  // in-progress form copy goes stale as soon as the editor writes one.
+  const schedule =
+    (savedExtensions?.conversationSchedule as WeekSchedule | undefined) ??
+    (ext.conversationSchedule as WeekSchedule | undefined);
   return (
     // Key by the edited character so transient edit state resets on switch. The
     // editor reuses this component instance while moving between characters.
-    <ConvoProfileFields
-      key={characterId ?? "new-character"}
-      kind={kind}
-      entityKey={characterId ?? "new-character"}
-      baseName={formData.name}
-      displayName={(ext.convoDisplayName as string) ?? ""}
-      onDisplayNameChange={(v) => updateExtension("convoDisplayName", v)}
-      displayNameInCard={ext.convoDisplayNameInCard === true}
-      onDisplayNameInCardChange={(v) => updateExtension("convoDisplayNameInCard", v)}
-      aboutMe={(ext.aboutMe as string) ?? ""}
-      onAboutMeChange={(v) => updateExtension("aboutMe", v)}
-      behavior={ext.convoBehavior as ConvoBehaviorConfig | undefined}
-      onBehaviorChange={(b) => updateExtension("convoBehavior", b)}
-      imageInstructions={(ext.conversationImageInstructions as string) ?? ""}
-      onImageInstructionsChange={(value) => updateExtension("conversationImageInstructions", value)}
-      applyImageInstructionsToNoodle={ext.applyConversationImageInstructionsToNoodle === true}
-      onApplyImageInstructionsToNoodleChange={(value) =>
-        updateExtension("applyConversationImageInstructionsToNoodle", value)
-      }
-    />
+    <>
+      <ConvoProfileFields
+        key={characterId ?? "new-character"}
+        kind={kind}
+        entityKey={characterId ?? "new-character"}
+        baseName={formData.name}
+        displayName={(ext.convoDisplayName as string) ?? ""}
+        onDisplayNameChange={(v) => updateExtension("convoDisplayName", v)}
+        displayNameInCard={ext.convoDisplayNameInCard === true}
+        onDisplayNameInCardChange={(v) => updateExtension("convoDisplayNameInCard", v)}
+        aboutMe={(ext.aboutMe as string) ?? ""}
+        onAboutMeChange={(v) => updateExtension("aboutMe", v)}
+        behavior={ext.convoBehavior as ConvoBehaviorConfig | undefined}
+        onBehaviorChange={(b) => updateExtension("convoBehavior", b)}
+        imageInstructions={(ext.conversationImageInstructions as string) ?? ""}
+        onImageInstructionsChange={(value) => updateExtension("conversationImageInstructions", value)}
+        applyImageInstructionsToNoodle={ext.applyConversationImageInstructionsToNoodle === true}
+        onApplyImageInstructionsToNoodleChange={(value) =>
+          updateExtension("applyConversationImageInstructionsToNoodle", value)
+        }
+        schedule={schedule}
+        onEditSchedule={kind === "character" && characterId ? () => setScheduleOpen(true) : undefined}
+      />
+      {/* No chatId: the schedule belongs to the character, so the editor works
+        without a chat open. The draft routes fall back to the default connection. */}
+      <CharacterScheduleEditorModal
+        open={scheduleOpen && !!characterId}
+        characterId={characterId ?? ""}
+        characterName={formData.name}
+        schedule={schedule}
+        onClose={() => setScheduleOpen(false)}
+        onSave={(savedCharacterId, updated) =>
+          updateCharacter.mutate(
+            {
+              id: savedCharacterId,
+              data: { extensions: { conversationSchedule: updated } },
+              skipVersionSnapshot: true,
+            },
+            {
+              onError: (error) =>
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : localizeUi("ui.chat.characterscheduleeditormodal.failedToSaveSchedule"),
+                ),
+            },
+          )
+        }
+      />
+    </>
   );
 }
 
@@ -2856,8 +2923,9 @@ function CharacterGalleryTab({
               key={tab.id}
               type="button"
               onClick={() => setMediaTab(tab.id)}
+              aria-pressed={active}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
                 active
                   ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm"
                   : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
@@ -4049,8 +4117,9 @@ function SpritesTab({
           key={tab.id}
           type="button"
           onClick={() => setCategory(tab.id)}
+          aria-pressed={category === tab.id}
           className={cn(
-            "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+            "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
             category === tab.id
               ? "bg-[var(--primary)]/15 text-[var(--primary)]"
               : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",

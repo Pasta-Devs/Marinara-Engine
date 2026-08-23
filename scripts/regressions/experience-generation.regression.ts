@@ -29,6 +29,7 @@ const chats = createChatsStorage(db);
 const connections = createConnectionsStorage(db);
 const createdChatIds: string[] = [];
 let createdConnectionId: string | null = null;
+let previousMainFallbackId: string | null = null;
 
 // ── Mock OpenAI-compatible provider ──────────────────────────────────────────
 type Scenario = "happy" | "repair" | "truncated" | "garbage" | "empty-then-stream" | "slow-happy";
@@ -55,7 +56,8 @@ const mockProvider = createServer(async (request, response) => {
     );
   };
   if (scenario === "happy") return respond(VALID_BRIEF);
-  if (scenario === "repair") return attempt === 1 ? respond("Sure! Here is your world, in prose.") : respond(VALID_BRIEF);
+  if (scenario === "repair")
+    return attempt === 1 ? respond("Sure! Here is your world, in prose.") : respond(VALID_BRIEF);
   if (scenario === "truncated") return respond('{"version":1,"theme":"sci-fi', "length");
   if (scenario === "empty-then-stream") {
     // Buffered path: empty content stamped finish_reason "length" — the exact
@@ -101,13 +103,19 @@ async function createExperienceChat(name: string, mode = "game", stamp = true) {
   return chat;
 }
 
+let scenarioFailed = false;
+let scenarioError: unknown;
 try {
+  previousMainFallbackId = (await connections.getFallbackForMain())?.id ?? null;
   const conn = await connections.create({
     name: "experience-generation mock",
     provider: "custom",
     baseUrl: mockBaseUrl,
     apiKey: "test",
     model: "mock-model",
+    // Keep the route's fallback wrapper from escaping this fixture into a
+    // developer's configured fallback when the empty-response case runs.
+    fallbackForMain: true,
   } as Parameters<typeof connections.create>[0]);
   createdConnectionId = conn.id;
 
@@ -259,12 +267,45 @@ try {
       await limited.close();
     }
   }
-
-  console.log("experience-generation regression passed");
-} finally {
-  for (const chatId of createdChatIds) await chats.remove(chatId).catch(() => undefined);
-  if (createdConnectionId) await connections.remove(createdConnectionId).catch(() => undefined);
-  await app.close();
-  await new Promise<void>((resolve) => mockProvider.close(() => resolve()));
-  await closeDB();
+} catch (error) {
+  scenarioFailed = true;
+  scenarioError = error;
 }
+
+let cleanupFailed = false;
+let firstCleanupError: unknown;
+const runCleanup = async (cleanup: () => Promise<unknown>) => {
+  try {
+    await cleanup();
+  } catch (error) {
+    if (!cleanupFailed) firstCleanupError = error;
+    cleanupFailed = true;
+  }
+};
+
+for (const chatId of createdChatIds) await runCleanup(() => chats.remove(chatId));
+if (createdConnectionId) await runCleanup(() => connections.remove(createdConnectionId));
+if (previousMainFallbackId) {
+  await runCleanup(() => connections.update(previousMainFallbackId, { fallbackForMain: true }));
+}
+await runCleanup(() => app.close());
+await runCleanup(
+  () =>
+    new Promise<void>((resolve, reject) => {
+      mockProvider.close((error) => (error ? reject(error) : resolve()));
+    }),
+);
+await runCleanup(closeDB);
+
+if (scenarioFailed) {
+  if (cleanupFailed) {
+    throw new AggregateError(
+      [scenarioError, firstCleanupError],
+      "Experience-generation regression and cleanup both failed",
+      { cause: scenarioError },
+    );
+  }
+  throw scenarioError;
+}
+if (cleanupFailed) throw firstCleanupError;
+console.log("experience-generation regression passed");

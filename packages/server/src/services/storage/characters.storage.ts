@@ -49,7 +49,17 @@ function characterDataChanged(current: CharacterData, next: CharacterData) {
 
 function characterVersionedContent(data: CharacterData) {
   const { character_version: _version, extensions, ...content } = data;
-  const { versioningEnabled: _versioningEnabled, ...versionedExtensions } = extensions ?? {};
+  const {
+    versioningEnabled: _versioningEnabled,
+    // Conversation runtime state, not card content. A schedule is regenerated
+    // every week and presence changes by the minute, so counting these would
+    // bump the card version and snapshot a revision for nothing.
+    conversationSchedule: _schedule,
+    conversationStatusOverride: _override,
+    conversationStatus: _status,
+    conversationActivity: _activity,
+    ...versionedExtensions
+  } = extensions ?? {};
   return { ...content, extensions: versionedExtensions };
 }
 

@@ -1499,6 +1499,7 @@ export function ConnectionEditor() {
               {(Object.entries(PROVIDERS) as [APIProvider, typeof providerDef][]).map(([key, info]) => (
                 <button
                   key={key}
+                  type="button"
                   onClick={() => {
                     if (key === localProvider) return;
                     const defaultModel = MODEL_LISTS[key]?.[0];
@@ -1536,8 +1537,9 @@ export function ConnectionEditor() {
                     setClearStoredApiKeyOnSave(true);
                     markDirty();
                   }}
+                  aria-pressed={localProvider === key}
                   className={cn(
-                    "truncate rounded-xl px-3 py-2.5 text-xs font-medium transition-all",
+                    "truncate rounded-md px-3 py-2.5 text-xs font-medium transition-all",
                     localProvider === key
                       ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
                       : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",

@@ -18,6 +18,7 @@ import { renderInlineWithCustomEmojis } from "../../lib/custom-emoji-render";
 import { renderWithStickerBlocks } from "../../lib/sticker-render";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { ImagePromptPanel } from "./ImagePromptPanel";
+import { MessageActionButton } from "./MessageActionButton";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { AnimatedDiceRoll, isDiceRollResult, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
 import type { CharacterMap } from "./chat-area.types";
@@ -466,21 +467,15 @@ export function MsgAction({
   buttonRef?: RefObject<HTMLButtonElement | null>;
 }) {
   return (
-    <button
-      ref={buttonRef}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
+    <MessageActionButton
+      buttonRef={buttonRef}
+      icon={icon}
+      onClick={onClick}
       title={title}
+      className={className}
       tabIndex={tabIndex}
-      className={cn(
-        "rounded p-1 text-foreground/70 transition-colors hover:bg-foreground/20 hover:text-foreground",
-        className,
-      )}
-    >
-      {icon}
-    </button>
+      stopPropagation
+    />
   );
 }
 

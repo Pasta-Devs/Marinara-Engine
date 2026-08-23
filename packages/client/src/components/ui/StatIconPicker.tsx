@@ -259,7 +259,7 @@ export function StatIconPicker({
                   tabIndex={activeOptionIndex === 0 ? 0 : -1}
                   title={localizeUi("ui.ui.staticonpicker.none")}
                   className={cn(
-                    "flex aspect-square items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors",
+                    "flex aspect-square items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors",
                     "hover:bg-[var(--muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/50",
                     isNoIcon && "bg-[var(--primary)]/15 text-[var(--primary)]",
                   )}
@@ -283,7 +283,7 @@ export function StatIconPicker({
                       tabIndex={activeOptionIndex === index + 1 ? 0 : -1}
                       title={label}
                       className={cn(
-                        "flex aspect-square items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors",
+                        "flex aspect-square items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors",
                         "hover:bg-[var(--muted)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/50",
                         !isInheriting && selectedIcon === icon && "bg-[var(--primary)]/15 text-[var(--primary)]",
                       )}

@@ -17,6 +17,7 @@ import {
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { and, desc, eq, inArray, ne, or } from "../../db/file-query.js";
+import { IMPORTED_GAME_ENGINE_ANCHOR_PREFIX } from "../../db/file-backed-store.js";
 import { FileUniqueConstraintError } from "../../db/file-schema.js";
 import { engineEventOwner } from "./capability-roleplay-events.service.js";
 import { ensureTimestampAfter } from "../import/import-timestamps.js";
@@ -443,6 +444,20 @@ function createPersistenceSession(db: DB): CapabilityPersistenceSession {
       return requestedIds.filter((entryId) => existingIds.has(entryId));
     },
     async createMessageWithSwipe(input: CapabilityCreateMessageWithSwipeInput) {
+      // `imported:` is RESERVED for synthetic experience-state anchors (#5405), and this is the
+      // only message writer that takes a caller-supplied id — every other path builds one with
+      // newId() (nanoid, whose alphabet has no colon). The reservation is load-bearing: the
+      // messages -> game_engine_state cascade matches messageId ALONE and is never scoped by
+      // chatId, so a real message minted at "imported:X" would let ITS deletion destroy an
+      // imported campaign in a DIFFERENT chat — the exact cross-chat damage the synthetic anchor
+      // exists to prevent — and would also fall under the validate() dangling-ref exemption that
+      // assumes no such message can exist. Refuse before the transaction so nothing is written.
+      if (input.id.startsWith(IMPORTED_GAME_ENGINE_ANCHOR_PREFIX)) {
+        throw new Error(
+          `Message id ${JSON.stringify(input.id)} uses the reserved ` +
+            `"${IMPORTED_GAME_ENGINE_ANCHOR_PREFIX}" prefix, which belongs to imported experience-state anchors`,
+        );
+      }
       return db.transaction(async (tx) => {
         const chatRows = await tx
           .select({ lastMessageAt: chats.lastMessageAt })
@@ -478,6 +493,10 @@ function createPersistenceSession(db: DB): CapabilityPersistenceSession {
         .set({ committed: 1 })
         .where(and(eq(gameStateSnapshots.id, snapshotId), eq(gameStateSnapshots.chatId, chatId)));
     },
+    // Both metadata writers below replace the WHOLE blob and are not write-ordinal stamped
+    // (#5406) — same category as `chats.updateMetadata`: the mirror rides through untouched, so
+    // a key written here keeps a stale ordinal. Safe only while the keys packages order against
+    // are reachable solely through the chat metadata PATCH path.
     async updateChatActivity(input: CapabilityChatActivityUpdate) {
       await db.transaction(async (transaction) => {
         const rows = input.metadata

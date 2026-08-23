@@ -605,6 +605,28 @@ export function SettingsCheckbox({
 
 type SettingsSwitchAccessibleLabel = { label: ReactNode; ariaLabel?: never } | { label?: undefined; ariaLabel: string };
 
+export function SettingsSwitchTrack({ checked, className }: { checked: boolean; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-settings-switch-track
+      className={cn(
+        "inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors",
+        checked ? "bg-[var(--primary)]/70 mari-accent-animated" : "bg-[var(--border)]",
+        className,
+      )}
+    >
+      <span
+        data-settings-switch-thumb
+        className={cn(
+          "pointer-events-none block h-4 w-4 shrink-0 rounded-full bg-[var(--background)] shadow-sm ring-1 ring-[var(--border)] transition-transform",
+          checked && "translate-x-4",
+        )}
+      />
+    </span>
+  );
+}
+
 type SettingsSwitchProps = SettingsSwitchAccessibleLabel & {
   checked: boolean;
   onChange: (v: boolean) => void;
@@ -645,7 +667,11 @@ export function SettingsSwitch({
   const localizedDescription = localizeStringNode(description, localize);
   const localizedTitle = title ? localize(title) : undefined;
   const switchControl = (
-    <span className="relative inline-flex h-5 w-9 shrink-0">
+    <label
+      htmlFor={inputId}
+      title={localizedTitle}
+      className={cn("relative inline-flex h-5 w-9 shrink-0", disabled ? "cursor-not-allowed" : "cursor-pointer")}
+    >
       <input
         id={inputId}
         type="checkbox"
@@ -655,25 +681,11 @@ export function SettingsSwitch({
         onChange={(e) => onChange(e.target.checked)}
         className="peer sr-only"
       />
-      <label
-        htmlFor={inputId}
-        title={localizedTitle}
-        className={cn(
-          "relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ring)]",
-          checked ? "bg-[var(--primary)]/70" : "bg-[var(--border)]",
-          checked && "mari-accent-animated",
-          disabled ? "cursor-not-allowed" : "cursor-pointer",
-          switchClassName,
-        )}
-      >
-        <span
-          className={cn(
-            "pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--background)] shadow-sm ring-1 ring-[var(--border)] transition-transform",
-            checked && "translate-x-4",
-          )}
-        />
-      </label>
-    </span>
+      <SettingsSwitchTrack
+        checked={checked}
+        className={cn("peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ring)]", switchClassName)}
+      />
+    </label>
   );
   const switchCluster = (
     <span className="inline-flex shrink-0 items-center gap-1.5">

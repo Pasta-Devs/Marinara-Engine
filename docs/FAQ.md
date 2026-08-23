@@ -60,6 +60,16 @@ Each mode has its own getting-started guide. Start with the mode you want, then 
 
 Open a Conversation and choose **Schedule timezone** in Chat Settings, or choose it while creating schedules in the Conversation setup flow. Marinara starts with the timezone reported by your device, but you can select any supported IANA timezone or choose **Use device** to reset it. This is one global preference for all Conversation chats, including server-side autonomous messages, and it syncs to other devices connected to the same Marinara server.
 
+## Does each Conversation chat have its own schedule?
+
+No. A schedule belongs to the character, and every Conversation chat with that character uses the same one. Edit it in **Character Editor -> Convo -> Weekly schedule**, or from the schedule controls in Chat Settings; either way the change applies everywhere.
+
+To get instant replies in one chat, open its Chat Settings and turn **Conversation schedules** off. That switch is per chat. The character stays available in that chat, keeps its schedule, and your other chats do not change. An active manual status override still takes precedence and applies in that chat, including an override such as **dnd**.
+
+Existing chats that never used schedules stay off until you turn them on. New chats you start with a character that has a schedule use it from the start.
+
+A manual status override also belongs to the character. If you set a character to **online** in one chat, the character is online in every chat. Use **clear** to remove the override.
+
 ## Do I need an API key to use Marinara?
 
 Almost always, yes. A **connection** is a saved link that tells Marinara how to reach one AI service: which provider, which model, and your login for it. An **API key** is a secret code, a bit like a password. You get it from an AI provider so Marinara can talk to that provider for you.

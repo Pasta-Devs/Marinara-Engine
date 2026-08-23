@@ -159,7 +159,7 @@ export function AdvancedParametersSection({
   };
 
   return (
-    <div className="border-b border-[var(--border)]">
+    <div data-chat-settings-section="advanced-parameters" className="border-b border-[var(--border)]">
       <div
         role="button"
         tabIndex={0}

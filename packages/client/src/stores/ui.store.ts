@@ -812,6 +812,10 @@ interface UIState {
   chatFontOpacity: number;
   /** When true, flatten expensive Roleplay paint effects for smoother navigation. */
   roleplayReducedPaintEffects: boolean;
+  /** When true, show saved and streaming model reasoning inside Roleplay message bubbles. */
+  showRoleplayThinkingInMessages: boolean;
+  /** When true, inline Roleplay reasoning stays expanded until the user collapses it. */
+  keepRoleplayThinkingExpanded: boolean;
   /** Whether Game mode applies animated emphasis to narration and dialogue text. */
   gameTextEffectsEnabled: boolean;
   /** Layout style for roleplay message avatars */
@@ -885,8 +889,10 @@ interface UIState {
 
   // ── Onboarding ──
   hasCompletedOnboarding: boolean;
-  /** True once the user has permanently disabled the in-game tutorial (? icon still re-opens). */
-  gameTutorialDisabled: boolean;
+  /** Chat modes whose first-chat help overlay has already been dismissed. */
+  chatHelpSeenModes: ChatModeShortcut[];
+  /** Removes the chat Help button and suppresses automatic help overlays. */
+  chatHelpButtonHidden: boolean;
 
   // ── Dismissals ──
   linkApiBannerDismissed: boolean;
@@ -1105,6 +1111,8 @@ interface UIState {
   setChatChromeTextColor: (v: string) => void;
   setChatFontOpacity: (v: number) => void;
   setRoleplayReducedPaintEffects: (v: boolean) => void;
+  setShowRoleplayThinkingInMessages: (v: boolean) => void;
+  setKeepRoleplayThinkingExpanded: (v: boolean) => void;
   setGameTextEffectsEnabled: (v: boolean) => void;
   setRoleplayAvatarStyle: (v: RoleplayAvatarStyle) => void;
   setRoleplayAvatarScale: (v: number) => void;
@@ -1154,7 +1162,8 @@ interface UIState {
   setHasMigratedCustomThemesToServer: (v: boolean) => void;
   clearLegacyCustomThemes: () => void;
   setHasCompletedOnboarding: (v: boolean) => void;
-  setGameTutorialDisabled: (v: boolean) => void;
+  markChatHelpSeen: (mode: ChatModeShortcut) => void;
+  setChatHelpButtonHidden: (v: boolean) => void;
   dismissLinkApiBanner: () => void;
   toggleEchoChamber: () => void;
   setEchoChamberSide: (side: EchoChamberSide) => void;
@@ -1319,6 +1328,8 @@ export function pickSyncedSettings(state: UIState) {
     defaultDialogueColor: state.defaultDialogueColor,
     chatChromeTextColor: state.chatChromeTextColor,
     chatFontOpacity: state.chatFontOpacity,
+    showRoleplayThinkingInMessages: state.showRoleplayThinkingInMessages,
+    keepRoleplayThinkingExpanded: state.keepRoleplayThinkingExpanded,
     gameTextEffectsEnabled: state.gameTextEffectsEnabled,
     roleplayAvatarStyle: state.roleplayAvatarStyle,
     roleplayAvatarScale: state.roleplayAvatarScale,
@@ -1337,7 +1348,8 @@ export function pickSyncedSettings(state: UIState) {
     enterToSendProfessorMari: state.enterToSendProfessorMari,
     weatherEffects: state.weatherEffects,
     hasCompletedOnboarding: state.hasCompletedOnboarding,
-    gameTutorialDisabled: state.gameTutorialDisabled,
+    chatHelpSeenModes: state.chatHelpSeenModes,
+    chatHelpButtonHidden: state.chatHelpButtonHidden,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
     echoChamberOpen: state.echoChamberOpen,
     echoChamberSide: state.echoChamberSide,
@@ -1528,6 +1540,8 @@ export const useUIStore = create<UIState>()(
       chatChromeTextColor: "",
       chatFontOpacity: 90,
       roleplayReducedPaintEffects: false,
+      showRoleplayThinkingInMessages: false,
+      keepRoleplayThinkingExpanded: false,
       gameTextEffectsEnabled: true,
       roleplayAvatarStyle: "circles" as RoleplayAvatarStyle,
       roleplayAvatarScale: 1,
@@ -1565,7 +1579,8 @@ export const useUIStore = create<UIState>()(
       customThemes: [],
       hasMigratedCustomThemesToServer: false,
       hasCompletedOnboarding: false,
-      gameTutorialDisabled: false,
+      chatHelpSeenModes: [],
+      chatHelpButtonHidden: false,
       linkApiBannerDismissed: false,
       echoChamberOpen: true,
       echoChamberSide: "bottom-right" as EchoChamberSide,
@@ -2343,6 +2358,13 @@ export const useUIStore = create<UIState>()(
       setChatChromeTextColor: (v) => set({ chatChromeTextColor: normalizeChatChromeTextColor(v) }),
       setChatFontOpacity: (v) => set({ chatFontOpacity: Math.max(0, Math.min(100, v)) }),
       setRoleplayReducedPaintEffects: (v) => set({ roleplayReducedPaintEffects: v }),
+      setShowRoleplayThinkingInMessages: (v) =>
+        set({
+          showRoleplayThinkingInMessages: v,
+          ...(!v ? { keepRoleplayThinkingExpanded: false } : {}),
+        }),
+      setKeepRoleplayThinkingExpanded: (v) =>
+        set((state) => ({ keepRoleplayThinkingExpanded: state.showRoleplayThinkingInMessages && v })),
       setGameTextEffectsEnabled: (v) => set({ gameTextEffectsEnabled: v }),
       setRoleplayAvatarStyle: (v) => set({ roleplayAvatarStyle: v }),
       setRoleplayAvatarScale: (v) =>
@@ -2401,6 +2423,8 @@ export const useUIStore = create<UIState>()(
           chatChromeTextColor: "",
           chatFontOpacity: 90,
           roleplayReducedPaintEffects: false,
+          showRoleplayThinkingInMessages: false,
+          keepRoleplayThinkingExpanded: false,
           gameTextEffectsEnabled: true,
           roleplayAvatarStyle: "circles" as RoleplayAvatarStyle,
           roleplayAvatarScale: 1,
@@ -2488,7 +2512,16 @@ export const useUIStore = create<UIState>()(
       setHasMigratedCustomThemesToServer: (v) => set({ hasMigratedCustomThemesToServer: v }),
       clearLegacyCustomThemes: () => set({ customThemes: [], activeCustomTheme: null }),
       setHasCompletedOnboarding: (v) => set({ hasCompletedOnboarding: v }),
-      setGameTutorialDisabled: (v) => set({ gameTutorialDisabled: v }),
+      markChatHelpSeen: (mode) =>
+        set((state) => {
+          const seenModes = state.chatHelpSeenModes ?? [];
+          return seenModes.includes(mode) ? state : { chatHelpSeenModes: [...seenModes, mode] };
+        }),
+      setChatHelpButtonHidden: (v) =>
+        set((state) => ({
+          chatHelpButtonHidden: v,
+          chatHelpSeenModes: v ? ["conversation", "roleplay", "game"] : state.chatHelpSeenModes,
+        })),
       dismissLinkApiBanner: () => set({ linkApiBannerDismissed: true }),
       toggleEchoChamber: () => set((s) => ({ echoChamberOpen: !s.echoChamberOpen })),
       setEchoChamberSide: (side) => set({ echoChamberSide: side }),
@@ -2531,9 +2564,8 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      // v94 -> v95: move only the untouched mobile music-player default below Home bookmarks.
-      // The version bump ensures existing stores run the exact-coordinate migration below.
-      version: 95,
+      // v95 -> v96: add inline Roleplay reasoning preferences and per-mode chat help history.
+      version: 96,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2578,6 +2610,10 @@ export const useUIStore = create<UIState>()(
         };
       }),
       migrate: (persisted: any, version: number) => {
+        if (version <= 95 && !Array.isArray(persisted.chatHelpSeenModes)) {
+          persisted.chatHelpSeenModes = persisted.gameTutorialDisabled === true ? ["game"] : [];
+        }
+        delete persisted.gameTutorialDisabled;
         if (version <= 91 && persisted.rightPanel === "bot-browser") {
           persisted.rightPanel = "characters";
           persisted.rightPanelOpen = false;
@@ -3107,6 +3143,10 @@ export const useUIStore = create<UIState>()(
         ) {
           persisted.spotifyMobileWidgetPosition = { ...DEFAULT_MOBILE_MUSIC_WIDGET_POSITION };
         }
+        if (version <= 95) {
+          persisted.showRoleplayThinkingInMessages = false;
+          persisted.keepRoleplayThinkingExpanded = false;
+        }
         // v84 -> v85: keep the historical blank-line behavior for /continue by default.
         if (version <= 84 && persisted.continueAddsNewline === undefined) {
           persisted.continueAddsNewline = true;
@@ -3118,6 +3158,9 @@ export const useUIStore = create<UIState>()(
         persisted.professorMariNavigationEnabled = persisted.professorMariNavigationEnabled !== false;
         persisted.includeReasoningInExports = persisted.includeReasoningInExports === true;
         persisted.roleplayReducedPaintEffects = persisted.roleplayReducedPaintEffects === true;
+        persisted.showRoleplayThinkingInMessages = persisted.showRoleplayThinkingInMessages === true;
+        persisted.keepRoleplayThinkingExpanded =
+          persisted.showRoleplayThinkingInMessages && persisted.keepRoleplayThinkingExpanded === true;
         persisted.roleplayNarratorAvatarCycling = persisted.roleplayNarratorAvatarCycling !== false;
         persisted.gameTextEffectsEnabled = persisted.gameTextEffectsEnabled !== false;
         persisted.defaultDialogueColor =
@@ -3270,6 +3313,8 @@ export const useUIStore = create<UIState>()(
         chatChromeTextColor: state.chatChromeTextColor,
         chatFontOpacity: state.chatFontOpacity,
         roleplayReducedPaintEffects: state.roleplayReducedPaintEffects,
+        showRoleplayThinkingInMessages: state.showRoleplayThinkingInMessages,
+        keepRoleplayThinkingExpanded: state.keepRoleplayThinkingExpanded,
         gameTextEffectsEnabled: state.gameTextEffectsEnabled,
         roleplayAvatarStyle: state.roleplayAvatarStyle,
         roleplayAvatarScale: state.roleplayAvatarScale,
@@ -3291,7 +3336,8 @@ export const useUIStore = create<UIState>()(
         activeCustomTheme: state.activeCustomTheme,
         customThemes: state.customThemes,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
-        gameTutorialDisabled: state.gameTutorialDisabled,
+        chatHelpSeenModes: state.chatHelpSeenModes,
+        chatHelpButtonHidden: state.chatHelpButtonHidden,
         linkApiBannerDismissed: state.linkApiBannerDismissed,
         echoChamberOpen: state.echoChamberOpen,
         echoChamberSide: state.echoChamberSide,

@@ -86,7 +86,7 @@ import {
 } from "@marinara-engine/shared";
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
-import { EditorTabRail } from "../ui/EditorTabRail";
+import { EditorTabNavigation } from "../ui/EditorTabNavigation";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
 import { handleTextareaTab } from "../../lib/textarea-editing";
@@ -537,34 +537,42 @@ export function PresetEditor() {
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="mari-editor-header">
-        <button onClick={handleClose} className="mari-editor-action inline-flex">
-          <ArrowLeft size="1.125rem" />
-        </button>
-        <div className="mari-editor-icon-tile mari-panel-gradient-surface mari-panel-gradient--presets overflow-hidden">
-          {presetArtwork ? (
-            <img src={presetArtwork} alt="" className="h-full w-full object-cover" draggable={false} />
-          ) : (
-            <FileText size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
-          )}
+      <div className="mari-editor-header mari-editor-header--with-nav">
+        <div className="mari-editor-header-main">
+          <button onClick={handleClose} className="mari-editor-action inline-flex">
+            <ArrowLeft size="1.125rem" />
+          </button>
+          <div className="mari-editor-icon-tile mari-panel-gradient-surface mari-panel-gradient--presets overflow-hidden">
+            {presetArtwork ? (
+              <img src={presetArtwork} alt="" className="h-full w-full object-cover" draggable={false} />
+            ) : (
+              <FileText size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
+            )}
+          </div>
+          <input
+            value={localName}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => {
+              setLocalName(e.target.value);
+              markDirty();
+            }}
+            className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
+            placeholder={localizeUi("ui.presets.preseteditor.presetName")}
+          />
         </div>
-        <input
-          value={localName}
-          onFocus={(e) => e.target.select()}
-          onChange={(e) => {
-            setLocalName(e.target.value);
-            markDirty();
-          }}
-          className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
-          placeholder={localizeUi("ui.presets.preseteditor.presetName")}
-        />
+
+        <EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
+
         <div className="mari-editor-actions flex">
           <button
             onClick={handleSave}
             disabled={updatePreset.isPending}
             className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
+            aria-label={localizeUi("ui.noodle.noodlehome.save")}
+            title={localizeUi("ui.noodle.noodlehome.save")}
           >
-            <Save size="0.8125rem" /> {localizeUi("ui.noodle.noodlehome.save")}
+            <Save size="0.8125rem" />
+            <span className="mari-editor-save-label">{localizeUi("ui.noodle.noodlehome.save")}</span>
           </button>
           <button
             onClick={handleExportPreset}
@@ -639,10 +647,8 @@ export function PresetEditor() {
         </div>
       )}
 
-      {/* ── Body: Tab rail + Content ── */}
-      <div className="mari-editor-body @max-5xl:flex-col">
-        <EditorTabRail tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
-
+      {/* ── Body ── */}
+      <div className="mari-editor-body">
         {/* Content area */}
         <div className="mari-editor-content @max-5xl:p-4">
           <div className="mari-editor-content-inner space-y-6">
@@ -941,9 +947,11 @@ function OverviewTab({
           {(["xml", "markdown", "none"] as const).map((fmt) => (
             <button
               key={fmt}
+              type="button"
               onClick={() => onWrapFormatChange(fmt)}
+              aria-pressed={wrapFormat === fmt}
               className={cn(
-                "flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all",
+                "flex items-center gap-2 rounded-md px-4 py-2.5 text-xs font-medium transition-all",
                 wrapFormat === fmt
                   ? "mari-chrome-accent-surface mari-accent-animated"
                   : "mari-editor-action text-[var(--marinara-editor-muted)]",
@@ -1501,8 +1509,9 @@ function SectionsTab({
         </div>
         <button
           onClick={() => setShowGroupsPanel(!showGroupsPanel)}
+          aria-expanded={showGroupsPanel}
           className={cn(
-            "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium ring-1 transition-all active:scale-[0.98]",
+            "flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium ring-1 transition-all active:scale-[0.98]",
             showGroupsPanel
               ? "mari-chrome-accent-surface mari-accent-animated"
               : "mari-editor-action text-[var(--marinara-editor-muted)]",

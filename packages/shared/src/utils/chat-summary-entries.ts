@@ -220,6 +220,24 @@ export function compileChatSummaryEntries(entries: ChatSummaryEntry[]): string |
   return compiled;
 }
 
+/** Message IDs that are no longer covered by an enabled summary after deleting entries. */
+export function getChatSummaryMessageIdsToUnhideAfterDelete(
+  entries: ChatSummaryEntry[],
+  deletedEntryIds: ReadonlySet<string>,
+): string[] {
+  const deletedCoverage = new Set<string>();
+  const retainedCoverage = new Set<string>();
+
+  for (const entry of entries) {
+    const coverage = entry.hiddenMessageIds ?? entry.messageIds ?? [];
+    const target = deletedEntryIds.has(entry.id) ? deletedCoverage : entry.enabled ? retainedCoverage : null;
+    if (!target) continue;
+    for (const messageId of coverage) target.add(messageId);
+  }
+
+  return [...deletedCoverage].filter((messageId) => !retainedCoverage.has(messageId));
+}
+
 export function combineChatSummaryEntryHistory(
   entries: ChatSummaryEntry[],
   sourceEntryIds: ReadonlySet<string>,

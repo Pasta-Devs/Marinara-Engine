@@ -24,6 +24,7 @@ import {
   type CapabilityConversationCommandRegistration,
 } from "./capability-command-registry.service.js";
 import { registerCapabilityService } from "./capability-service-registry.service.js";
+import { assertCapabilityAgentRuntimeServiceRegistration } from "./capability-agent-runtime.service.js";
 import { createCapabilityLanguageModelHost } from "./capability-language-model.service.js";
 import {
   createCapabilityEmbeddingHost,
@@ -212,7 +213,10 @@ class CapabilityModuleRuntime {
             }
             return trackCleanup(registerCapabilityConversationCommand(registration));
           },
-          registerService: (key, service) => trackCleanup(registerCapabilityService(key, service)),
+          registerService: (key, service) => {
+            assertCapabilityAgentRuntimeServiceRegistration(installed.id, installed.manifest.permissions ?? [], key);
+            return trackCleanup(registerCapabilityService(key, service));
+          },
           // Gated on the permission the manifest already declares, so a package can't reach the prompt
           // without asking for it up front. Contract in capability-prompt-context.service.ts.
           registerPromptContext: (contributor) => {

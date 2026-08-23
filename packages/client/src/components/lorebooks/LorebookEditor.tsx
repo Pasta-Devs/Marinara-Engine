@@ -100,7 +100,7 @@ import { LorebookEntryRow } from "./LorebookEntryRow";
 import { LorebookFolderRow } from "./LorebookFolderRow";
 import { ExpandableTextarea, estimateTokens } from "./LorebookFormFields";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
-import { EditorTabRail } from "../ui/EditorTabRail";
+import { EditorTabNavigation } from "../ui/EditorTabNavigation";
 import { Modal } from "../ui/Modal";
 
 // ──────────────────────────────────────────────
@@ -351,6 +351,7 @@ const BATCH_EDITABLE_ENTRY_FIELDS = [
   "generationTriggerFilters",
   "additionalMatchingSources",
   "position",
+  "outletName",
   "depth",
   "order",
   "role",
@@ -1688,6 +1689,25 @@ export function LorebookEditor() {
             resetFolderDragState();
             resetEntryDragState();
           }}
+          selectionMode={entrySelectionMode}
+          allSelected={
+            entrySelectionMode &&
+            (entriesByContainer.get(folder.id) ?? []).length > 0 &&
+            (entriesByContainer.get(folder.id) ?? []).every((entry) => selectedEntryIds.has(entry.id))
+          }
+          onToggleSelectAll={() => {
+            const folderEntries = entriesByContainer.get(folder.id) ?? [];
+            const allSelected =
+              folderEntries.length > 0 && folderEntries.every((entry) => selectedEntryIds.has(entry.id));
+            setSelectedEntryIds((current) => {
+              const next = new Set(current);
+              for (const entry of folderEntries) {
+                if (allSelected) next.delete(entry.id);
+                else next.add(entry.id);
+              }
+              return next;
+            });
+          }}
         />
         {!isCollapsed && (
           <div
@@ -1915,27 +1935,47 @@ export function LorebookEditor() {
       )}
 
       {/* Header */}
-      <div className="mari-editor-header">
-        <button onClick={handleClose} disabled={saving} className="mari-editor-action inline-flex disabled:opacity-50">
-          <ArrowLeft size="1rem" />
-        </button>
-        <div className="mari-editor-icon-tile">
-          <BookOpen size="1.125rem" />
+      <div className="mari-editor-header mari-editor-header--with-nav">
+        <div className="mari-editor-header-main">
+          <button
+            onClick={handleClose}
+            disabled={saving}
+            className="mari-editor-action inline-flex disabled:opacity-50"
+          >
+            <ArrowLeft size="1rem" />
+          </button>
+          <div className="mari-editor-icon-tile">
+            <BookOpen size="1.125rem" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="mari-editor-title truncate">{lorebook.name}</h2>
+            <p className="mari-editor-meta">
+              {entries.length} {localizeUi("ui.lorebooks.lorebookeditor.entries")} {lorebook.category}
+            </p>
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="mari-editor-title truncate">{lorebook.name}</h2>
-          <p className="mari-editor-meta">
-            {entries.length} {localizeUi("ui.lorebooks.lorebookeditor.entries")} {lorebook.category}
-          </p>
-        </div>
+
+        <EditorTabNavigation
+          tabs={TABS}
+          activeId={activeTab}
+          onChange={setActiveTab}
+          getBadge={(tabId) => (tabId === "entries" ? entries.length : null)}
+        />
+
         <div className="mari-editor-actions flex">
           <button
             onClick={handleSaveLorebook}
             disabled={!lorebookDirty || saving}
             className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
+            aria-label={
+              saving ? localizeUi("chat.settings.inlineEditor.saving") : localizeUi("ui.noodle.noodlehome.save")
+            }
+            title={saving ? localizeUi("chat.settings.inlineEditor.saving") : localizeUi("ui.noodle.noodlehome.save")}
           >
             <Save size="0.8125rem" />
-            {saving ? localizeUi("chat.settings.inlineEditor.saving") : localizeUi("ui.noodle.noodlehome.save")}
+            <span className="mari-editor-save-label">
+              {saving ? localizeUi("chat.settings.inlineEditor.saving") : localizeUi("ui.noodle.noodlehome.save")}
+            </span>
           </button>
           <button
             onClick={() => setExportDialogOpen(true)}
@@ -1963,15 +2003,8 @@ export function LorebookEditor() {
         </div>
       </div>
 
-      {/* Body: Side-tabs + Content */}
-      <div className="mari-editor-body @max-5xl:flex-col">
-        <EditorTabRail
-          tabs={TABS}
-          activeId={activeTab}
-          onChange={setActiveTab}
-          getBadge={(tabId) => (tabId === "entries" ? entries.length : null)}
-        />
-
+      {/* Body */}
+      <div className="mari-editor-body">
         {/* Tab Content */}
         <div className="mari-editor-content @max-5xl:p-4">
           <div className="mari-editor-content-inner mari-editor-content-inner--wide">
@@ -2104,12 +2137,14 @@ export function LorebookEditor() {
                       return (
                         <button
                           key={opt.value}
+                          type="button"
                           onClick={() => {
                             setFormCategory(opt.value);
                             markLorebookDirty();
                           }}
+                          aria-pressed={formCategory === opt.value}
                           className={cn(
-                            "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-all",
+                            "flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-all",
                             formCategory === opt.value
                               ? "mari-chrome-accent-surface mari-accent-animated"
                               : "mari-editor-action text-[var(--marinara-editor-muted)]",

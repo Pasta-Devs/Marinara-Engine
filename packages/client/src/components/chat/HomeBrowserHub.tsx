@@ -255,7 +255,7 @@ function BrowserPackageTabIcon({
   version: string;
   iconPaths: readonly string[] | undefined;
 }) {
-  if (!iconPaths?.length) return <Bot size="0.8rem" className="text-[oklch(0.73_0.21_345)]" />;
+  if (!iconPaths?.length) return <Bot size="0.8rem" className="mari-chrome-accent-icon mari-accent-animated" />;
   if (iconPaths.length === 1) {
     return (
       <img
@@ -1287,7 +1287,7 @@ function FloatingProfessorMari({
         }}
         aria-label={t("home.assistant.navigate")}
         title={t("home.assistant.navigate")}
-        className="mari-home-professor-recall absolute bottom-[max(0.65rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-[30] flex h-14 w-14 items-end justify-center overflow-hidden rounded-full border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_54%,var(--border))] bg-[color-mix(in_srgb,oklch(0.73_0.21_345)_12%,var(--card))] p-0.5 shadow-[0_16px_36px_-18px_oklch(0.73_0.21_345/0.72)] transition-[transform,box-shadow,background-color] hover:-translate-y-0.5 hover:bg-[color-mix(in_srgb,oklch(0.73_0.21_345)_18%,var(--card))] hover:shadow-[0_20px_42px_-16px_oklch(0.73_0.21_345/0.78)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.73_0.21_345)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] active:scale-95 motion-reduce:transition-none sm:bottom-4 sm:right-4"
+        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-recall absolute bottom-[max(0.65rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-[30] flex h-14 w-14 items-end justify-center overflow-hidden rounded-full border p-0.5 transition-[transform,box-shadow,background-color] hover:-translate-y-0.5 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] active:scale-95 motion-reduce:transition-none sm:bottom-4 sm:right-4"
       >
         <img
           src={MARI_ASSISTANT_IDLE}
@@ -1433,7 +1433,7 @@ function FloatingProfessorMari({
       <div
         ref={bubbleRef}
         className={cn(
-          "mari-home-professor-popup__bubble pointer-events-auto z-[3] rounded-2xl border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_48%,var(--border))] bg-[var(--card)] px-4 py-3.5 pr-10 shadow-[0_18px_48px_-18px_oklch(0.73_0.21_345/0.7)]",
+          "mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-popup__bubble pointer-events-auto z-[3] rounded-2xl border px-4 py-3.5 pr-10",
           desktopDragEnabled
             ? "absolute w-[min(22rem,calc(100%_-_2rem))]"
             : "relative mb-[5.5rem] -ml-2 w-[min(22rem,calc(100%_-_6.5rem))] sm:mb-[6.5rem] sm:-ml-3",
@@ -1453,7 +1453,7 @@ function FloatingProfessorMari({
         <button
           type="button"
           onClick={minimize}
-          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.73_0.21_345)]"
+          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
           aria-label={t("home.assistant.dismiss")}
         >
           <X size="0.72rem" />
@@ -1471,7 +1471,7 @@ function FloatingProfessorMari({
           <button
             type="button"
             onClick={openInput}
-            className="mt-2 inline-flex min-h-8 items-center justify-center rounded-lg bg-[oklch(0.73_0.21_345)] px-3 text-[0.6875rem] font-extrabold text-[oklch(0.98_0.01_345)] shadow-[0_10px_22px_-14px_oklch(0.73_0.21_345)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.79_0.16_205)] motion-reduce:transform-none"
+            className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected mari-accent-animated mt-2 h-8 px-3 text-[0.6875rem] font-extrabold"
           >
             {t("home.assistant.navigate")}
           </button>
@@ -1520,7 +1520,7 @@ function FloatingProfessorMari({
             <button
               type="button"
               onClick={onOpenProfessor}
-              className="inline-flex min-h-8 items-center justify-center rounded-lg bg-[oklch(0.73_0.21_345)] px-2.5 text-[0.6875rem] font-extrabold text-[oklch(0.98_0.01_345)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.79_0.16_205)]"
+              className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected mari-accent-animated h-8 px-2.5 text-[0.6875rem] font-extrabold"
             >
               {t("home.assistant.askProfessor")}
             </button>
@@ -2182,7 +2182,7 @@ export function HomeBrowserHub({
                 src="/logo-splash.gif"
                 alt=""
                 data-component="HomeBrowserHub.AnimatedLogo"
-                className="h-8 w-8 shrink-0 object-contain drop-shadow-[0_0_10px_oklch(0.73_0.21_345/0.28)]"
+                className="h-8 w-8 shrink-0 object-contain drop-shadow-[0_0_10px_color-mix(in_srgb,var(--marinara-app-accent-solid)_28%,transparent)]"
               />
               <div className="hidden min-w-0 sm:block">
                 <MarinaraWordmark className="block text-xs leading-none" />
@@ -2222,7 +2222,7 @@ export function HomeBrowserHub({
                 aria-selected={activeTab === "professor"}
                 onClick={openProfessor}
                 className={cn(
-                  "flex min-h-9 min-w-0 flex-[1.1] items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.73_0.21_345)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                  "flex min-h-9 min-w-0 flex-[1.1] items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
                   activeTab === "professor"
                     ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                     : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
@@ -2247,7 +2247,7 @@ export function HomeBrowserHub({
                     aria-selected={activeTab === item.id}
                     onClick={() => selectTab(item.id)}
                     className={cn(
-                      "relative flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.73_0.21_345)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                      "relative flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
                       activeTab === item.id
                         ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                         : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
@@ -2260,7 +2260,7 @@ export function HomeBrowserHub({
                         id={activityDescriptionId}
                         aria-label={t("home.browser.newTimelineRefresh")}
                         data-component="HomeBrowserHub.NoodleRefreshBadge"
-                        className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF7EC1] px-1 text-[0.58rem] font-black leading-none text-[#1a1025] ring-1 ring-[#7EA7FF]"
+                        className="mari-chrome-accent-tile mari-accent-animated absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[0.58rem] font-black leading-none ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]"
                       >
                         <span aria-hidden="true">1</span>
                       </span>
@@ -2649,14 +2649,14 @@ export function HomeBrowserHub({
                   >
                     <HomeWidgetFrame {...widgetFrameProps("professor")}>
                       <section
-                        className="mari-home-professor-widget relative grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_minmax(5.5rem,40%)] overflow-hidden rounded-2xl border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_40%,var(--border))] bg-[color-mix(in_srgb,oklch(0.73_0.21_345)_8%,var(--card))] p-3 shadow-[0_18px_42px_-32px_oklch(0.73_0.21_345/0.7)] sm:p-[clamp(0.85rem,1vw,1.2rem)]"
+                        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-widget relative grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_minmax(5.5rem,40%)] overflow-hidden rounded-2xl border p-3 sm:p-[clamp(0.85rem,1vw,1.2rem)]"
                         data-component="HomeBrowserHub.ProfessorWidget"
                       >
                         <div
                           className="relative z-[2] flex min-h-0 min-w-0 flex-col items-start justify-center"
                           data-home-professor-content
                         >
-                          <p className="text-[0.625rem] font-extrabold uppercase tracking-[0.16em] text-[oklch(0.73_0.21_345)]">
+                          <p className="mari-chrome-accent-icon mari-accent-animated text-[0.625rem] font-extrabold uppercase tracking-[0.16em]">
                             {t("home.professorMari.eyebrow")}
                           </p>
                           <h2 className="mt-0.5 text-sm font-bold text-[var(--foreground)] sm:text-base">
@@ -2671,7 +2671,7 @@ export function HomeBrowserHub({
                           <button
                             type="button"
                             onClick={openProfessor}
-                            className="mt-2 inline-flex min-h-8 max-w-full shrink-0 items-center justify-center gap-1 rounded-lg bg-[oklch(0.73_0.21_345)] px-2 text-center text-[clamp(0.56rem,2.2cqw,0.75rem)] font-bold leading-tight text-[oklch(0.98_0.01_345)] shadow-[0_10px_24px_-14px_oklch(0.73_0.21_345)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.79_0.16_205)] motion-reduce:transform-none sm:gap-1.5 sm:px-2.5"
+                            className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected mari-accent-animated mt-2 h-8 max-w-full px-2 text-center text-[clamp(0.56rem,2.2cqw,0.75rem)] font-bold leading-tight sm:gap-1.5 sm:px-2.5"
                             data-home-professor-action
                           >
                             <MessageCircle size="0.8rem" className="mari-rgb-static-icon text-current" />{" "}

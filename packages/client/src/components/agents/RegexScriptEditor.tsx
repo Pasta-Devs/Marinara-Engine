@@ -763,7 +763,7 @@ export function RegexScriptEditor() {
                       markDirty();
                     }}
                     className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-lg font-mono text-sm font-bold ring-1 transition-all",
+                      "flex h-8 w-8 items-center justify-center rounded-md font-mono text-sm font-bold ring-1 transition-all",
                       active
                         ? REGEX_ACTIVE_OPTION_CLASS
                         : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",

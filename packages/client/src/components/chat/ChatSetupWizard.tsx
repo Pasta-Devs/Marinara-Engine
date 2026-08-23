@@ -3027,7 +3027,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                   const activeCount = section.agents.filter((agent) => activeAgentIds.includes(agent.id)).length;
                   return (
                     <div key={section.category} className="border-b border-[var(--border)]/70 last:border-b-0">
-                      <div className="sticky top-0 z-10 flex items-center justify-between bg-[var(--secondary)]/95 px-3 py-1.5 backdrop-blur-sm">
+                      <div className="flex items-center justify-between bg-[var(--secondary)] px-3 py-1.5">
                         <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                           {section.title}
                         </span>

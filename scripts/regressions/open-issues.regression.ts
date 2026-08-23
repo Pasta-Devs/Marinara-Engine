@@ -33,7 +33,16 @@ import {
   CUSTOM_AGENT_RESULT_TYPE_IDS,
 } from "../../packages/client/src/lib/custom-agent-result-examples.js";
 import { estimateGameSessionHistoryTokens } from "../../packages/client/src/lib/game-session-history.js";
-import { validateCharacterGalleryReferences } from "../../packages/server/src/routes/characters.routes.js";
+import { MAX_FILE_SIZES } from "../../packages/shared/src/constants/defaults.js";
+import {
+  buildCompatibleCharacterExport,
+  validateCharacterGalleryReferences,
+} from "../../packages/server/src/routes/characters.routes.js";
+import {
+  embeddedSpriteSizesAreWithinLimits,
+  MAX_EMBEDDED_SPRITE_COUNT,
+} from "../../packages/server/src/services/import/marinara.importer.js";
+import { takeEmbeddedMarinaraSprites } from "../../packages/server/src/services/import/st-character.importer.js";
 import {
   orderConversationRespondersByDelay,
   remainingConversationPresenceDelay,
@@ -219,8 +228,13 @@ import {
   mergeLorebookKeeperUpdateContent,
   persistLorebookKeeperUpdates,
   readLorebookKeeperUpdateOrder,
+  resolveLorebookKeeperTarget,
   tryClaimCustomLorebookReadBehindRun,
 } from "../../packages/server/src/routes/generate/lorebook-keeper-utils.js";
+import {
+  SPRITE_DISPLAY_OPACITY_MIN,
+  SPRITE_DISPLAY_OPACITY_PERCENT_MIN,
+} from "../../packages/client/src/components/chat/sprite-display-modes.js";
 import { runImageGenerationRequest } from "../../packages/server/src/services/image/image-generation-queue.js";
 import {
   buildSwarmUiGenerationBody,
@@ -262,6 +276,7 @@ import {
 } from "../../packages/server/src/services/storage/characters.storage.js";
 import { characterOverrideDb } from "../../packages/server/src/services/professor-mari/workspace-edit-render.js";
 import { createLorebooksStorage } from "../../packages/server/src/services/storage/lorebooks.storage.js";
+import { createLibraryFoldersStorage } from "../../packages/server/src/services/storage/library-folders.storage.js";
 import { createNoodleStorage } from "../../packages/server/src/services/storage/noodle.storage.js";
 import { createChatPresetsStorage } from "../../packages/server/src/services/storage/chat-presets.storage.js";
 import {
@@ -481,6 +496,72 @@ const characterRoutesSource = readFileSync(
   join(REPOSITORY_ROOT, "packages/server/src/routes/characters.routes.ts"),
   "utf8",
 );
+const stCharacterImporterSource = readFileSync(
+  join(REPOSITORY_ROOT, "packages/server/src/services/import/st-character.importer.ts"),
+  "utf8",
+);
+const portableSprites = [
+  { filename: "happy.png", data: "data:image/png;base64,iVBORw0KGgo=" },
+  { filename: "full_idle.webp", data: "data:image/webp;base64,UklGRg==" },
+];
+const compatibleSpriteSource = {
+  name: "Portable Sprite Card",
+  extensions: {
+    characterSheetImageId: "local-gallery-id",
+    useCharacterSheetAsReference: true,
+    marinara: { retained: true },
+  },
+};
+const compatibleSpriteCard = buildCompatibleCharacterExport(compatibleSpriteSource, portableSprites);
+assert.equal(
+  compatibleSpriteSource.extensions.characterSheetImageId,
+  "local-gallery-id",
+  "compatible export must not mutate local-only source extensions",
+);
+assert.equal(compatibleSpriteSource.extensions.useCharacterSheetAsReference, true);
+assert.deepEqual(
+  (compatibleSpriteCard.data.extensions.marinara as Record<string, unknown>).sprites,
+  portableSprites,
+  "compatible PNG metadata must carry the character sprite set",
+);
+const importedSpriteCard = structuredClone(compatibleSpriteCard) as unknown as Record<string, unknown>;
+assert.deepEqual(
+  takeEmbeddedMarinaraSprites(importedSpriteCard),
+  portableSprites,
+  "Marinara must recover its embedded sprite set from a compatible PNG card",
+);
+const importedSpriteExtensions = (importedSpriteCard.data as Record<string, unknown>).extensions as Record<
+  string,
+  unknown
+>;
+assert.equal(
+  Object.hasOwn(importedSpriteExtensions.marinara as Record<string, unknown>, "sprites"),
+  false,
+  "embedded sprite binaries must be removed before character metadata is stored",
+);
+assert.match(
+  characterRoutesSource,
+  /const sprites = await readSpritesForId\(char\.id, true\);[\s\S]*if \(!sprites\)[\s\S]*status\(413\)[\s\S]*buildCompatibleCharacterExport\(charData, sprites\)/u,
+  "PNG export must reject sprite collections that cannot round-trip before building the card envelope",
+);
+assert.match(
+  characterRoutesSource,
+  /if \(enforcePortableLimits\)[\s\S]*await stat[\s\S]*embeddedSpriteSizesAreWithinLimits[\s\S]*return null;[\s\S]*readImageAsDataUrl/u,
+  "compatible PNG export must stop reading sprites as soon as a portable size limit is exceeded",
+);
+assert.match(
+  stCharacterImporterSource,
+  /await restoreSprites\(embeddedMarinaraSprites, charId\)/u,
+  "PNG import must restore embedded sprites under the newly imported character ID",
+);
+assert.equal(embeddedSpriteSizesAreWithinLimits([MAX_FILE_SIZES.SPRITE]), true);
+assert.equal(embeddedSpriteSizesAreWithinLimits([MAX_FILE_SIZES.SPRITE + 1]), false);
+assert.equal(
+  embeddedSpriteSizesAreWithinLimits(Array(4).fill(MAX_FILE_SIZES.SPRITE)),
+  false,
+  "aggregate sprite bytes must be limited independently of the per-sprite ceiling",
+);
+assert.equal(embeddedSpriteSizesAreWithinLimits(Array(MAX_EMBEDDED_SPRITE_COUNT + 1).fill(0)), false);
 const ownedGalleryUpdate = {
   extensions: { characterSheetImageId: "owned-image", useCharacterSheetAsReference: true },
 };
@@ -1266,6 +1347,7 @@ try {
   const db = await getDB();
   const characterStorage = createCharactersStorage(db);
   const lorebookStorage = createLorebooksStorage(db);
+  const libraryFolderStorage = createLibraryFoldersStorage(db);
   const noodleStorage = createNoodleStorage(db);
   const chatPresetStorage = createChatPresetsStorage(db);
   await chatPresetStorage.ensureDefaults();
@@ -2105,6 +2187,116 @@ try {
     professorMariFullEntryContent,
     "Professor Mari's full-entry reader must preserve the complete lorebook body",
   );
+  assert.ok(PROFESSOR_MARI_APP_DATA_ACTIONS.includes("lorebook.folder.create"));
+  assert.ok(PROFESSOR_MARI_APP_DATA_ACTIONS.includes("lorebook.libraryFolder.create"));
+  const professorMariRootFolderId = "professor-mari-entry-folder-root";
+  const professorMariChildFolderId = "professor-mari-entry-folder-child";
+  assert.equal(
+    (
+      await mariDb.executeAction({
+        action: "lorebook.folder.create",
+        lorebookId: professorMariLorebookId,
+        folderId: professorMariRootFolderId,
+        name: "People",
+        apply: true,
+      })
+    ).ok,
+    true,
+  );
+  assert.equal(
+    (
+      await mariDb.executeAction({
+        action: "lorebook.folder.create",
+        lorebookId: professorMariLorebookId,
+        folderId: professorMariChildFolderId,
+        data: { name: "Researchers", parentFolderId: professorMariRootFolderId },
+        apply: true,
+      })
+    ).ok,
+    true,
+  );
+  const concurrentEntryFolderIds = ["professor-mari-entry-folder-a", "professor-mari-entry-folder-b"];
+  const concurrentEntryFolderResults = await Promise.all(
+    concurrentEntryFolderIds.map((folderId, index) =>
+      mariDb.executeAction({
+        action: "lorebook.folder.create",
+        lorebookId: professorMariLorebookId,
+        folderId,
+        name: `Concurrent folder ${index + 1}`,
+        apply: true,
+      }),
+    ),
+  );
+  assert.equal(concurrentEntryFolderResults.every((result) => result.ok), true);
+  const professorMariFolderList = await mariDb.executeAction({
+    action: "lorebook.folder.list",
+    lorebookId: professorMariLorebookId,
+  });
+  const professorMariFolders = professorMariFolderList.output as Array<{
+    id: string;
+    parentFolderId: string | null;
+    order: number;
+  }>;
+  assert.deepEqual(
+    professorMariFolders.slice(0, 2).map((folder) => ({
+      id: folder.id,
+      parentFolderId: folder.parentFolderId,
+    })),
+    [
+      { id: professorMariRootFolderId, parentFolderId: null },
+      { id: professorMariChildFolderId, parentFolderId: professorMariRootFolderId },
+    ],
+  );
+  assert.equal(new Set(professorMariFolders.map((folder) => folder.order)).size, professorMariFolders.length);
+  const professorMariLibraryFolderId = "professor-mari-library-folder";
+  assert.equal(
+    (
+      await mariDb.executeAction({
+        action: "lorebook.libraryFolder.create",
+        folderId: professorMariLibraryFolderId,
+        name: "Test folder",
+        apply: true,
+      })
+    ).ok,
+    true,
+  );
+  const concurrentLibraryFolderIds = ["professor-mari-library-folder-a", "professor-mari-library-folder-b"];
+  const concurrentLibraryFolderResults = await Promise.all(
+    concurrentLibraryFolderIds.map((folderId, index) =>
+      mariDb.executeAction({
+        action: "lorebook.libraryFolder.create",
+        folderId,
+        name: `Concurrent library folder ${index + 1}`,
+        apply: true,
+      }),
+    ),
+  );
+  assert.equal(concurrentLibraryFolderResults.every((result) => result.ok), true);
+  const professorMariLibraryFolders = await mariDb.executeAction({ action: "lorebook.libraryFolder.list" });
+  const professorMariLibraryFolderRows = professorMariLibraryFolders.output as Array<{
+    id: string;
+    scope: string;
+    name: string;
+    collapsed: string;
+    sortOrder: number;
+    itemIds: string[];
+  }>;
+  const professorMariLibraryFolder = professorMariLibraryFolderRows.find(
+    (folder) => folder.id === professorMariLibraryFolderId,
+  );
+  assert.equal(professorMariLibraryFolder?.scope, "lorebooks");
+  assert.equal(professorMariLibraryFolder?.name, "Test folder");
+  assert.deepEqual(professorMariLibraryFolder?.itemIds, []);
+  const createdLibraryFolderRows = professorMariLibraryFolderRows.filter((folder) =>
+    [professorMariLibraryFolderId, ...concurrentLibraryFolderIds].includes(folder.id),
+  );
+  assert.equal(
+    new Set(createdLibraryFolderRows.map((folder) => folder.sortOrder)).size,
+    createdLibraryFolderRows.length,
+  );
+  for (const folderId of [professorMariLibraryFolderId, ...concurrentLibraryFolderIds]) {
+    await libraryFolderStorage.remove("lorebooks", folderId);
+  }
   await lorebookStorage.remove(professorMariLorebookId);
   assert.equal(await lorebookStorage.getById(professorMariLorebookId), null);
   assert.equal((await lorebookStorage.listEntries(professorMariLorebookId)).length, 0);
@@ -4067,11 +4259,14 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
 
   const routedEntries: Array<Record<string, unknown>> = [];
   const createdBooks: Array<Record<string, unknown>> = [];
+  const routedBooks: Array<Record<string, unknown>> = [{ id: "book-world", name: "My World — World Lore" }];
   const routedStore = {
-    list: async () => [{ id: "book-world", name: "My World — World Lore" }],
+    list: async () => routedBooks,
     create: async (input: Record<string, unknown>) => {
       createdBooks.push(input);
-      return { id: "book-scene", ...input };
+      const created = { id: "book-scene", ...input };
+      routedBooks.push(created);
+      return created;
     },
     listEntries: async () => [],
     createEntry: async (input: Record<string, unknown>) => {
@@ -4102,6 +4297,17 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
   );
   assert.equal(createdBooks[0]?.name, "Campaign — Scene Log", "a missing configured alias creates its named book");
   assert.equal(createdBooks[0]?.chatId, "chat-439", "auto-created routing books link to the active chat");
+  const nextRunTarget = await resolveLorebookKeeperTarget({
+    lorebooksStore: routedStore as any,
+    chatId: "chat-439",
+    characterIds: [],
+    activeLorebookIds: [],
+    preferredTargetLorebookId: "book-world",
+  });
+  assert.ok(
+    nextRunTarget.writableLorebookIds.includes("book-scene"),
+    "a routing book created for one run must remain writable on the next run instead of being duplicated",
+  );
 }
 
 assert.equal(
@@ -5132,6 +5338,18 @@ const roleplayHudSource = readFileSync(
   new URL("../../packages/client/src/components/chat/RoleplayHUD.tsx", import.meta.url),
   "utf8",
 );
+const cyoaChoicesSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/CyoaChoices.tsx", import.meta.url),
+  "utf8",
+);
+const spriteOverlaySource = readFileSync(
+  new URL("../../packages/client/src/components/chat/SpriteOverlay.tsx", import.meta.url),
+  "utf8",
+);
+const spritesRoutesSource = readFileSync(
+  new URL("../../packages/server/src/routes/sprites.routes.ts", import.meta.url),
+  "utf8",
+);
 const narratorUiStoreSource = readFileSync(
   new URL("../../packages/client/src/stores/ui.store.ts", import.meta.url),
   "utf8",
@@ -5219,6 +5437,33 @@ assert.equal(
   roleplayHudSource.match(/!reduceAmbientEffects && "animate-\[inventory-cycle_0\.4s_ease-out\]"/gu)?.length,
   2,
   "Roleplay tracker and inventory widgets must suppress mount animations with reduced ambient effects",
+);
+assert.match(
+  roleplayHudSource,
+  /latestAssistantMessage[\s\S]{0,240}extra: \{ cyoaChoices: \[\] \}/u,
+  "clearing Roleplay tracker state must also clear the persisted active CYOA prompt",
+);
+assert.match(
+  cyoaChoicesSource,
+  /extra: \{ cyoaChoices: \[\] \}[\s\S]{0,900}if \(impersonated\)[\s\S]{0,160}connectionId: null/u,
+  "selecting a CYOA prompt must consume it permanently and follow impersonation with a character reply",
+);
+assert.match(
+  spriteOverlaySource,
+  /const stageZIndexClass = editing \? "z-\[35\]" : "z-\[5\]"/u,
+  "non-editing sprites must remain below the Roleplay transcript and its CYOA controls",
+);
+assert.equal(SPRITE_DISPLAY_OPACITY_MIN, 0, "sprite opacity must support a fully transparent endpoint");
+assert.equal(SPRITE_DISPLAY_OPACITY_PERCENT_MIN, 0, "sprite opacity controls must expose zero percent");
+assert.match(
+  assignedSweepChatAreaSource,
+  /savedUrl \?\? \(chat\.mode === "roleplay" \? useUIStore\.getState\(\)\.defaultRoleplayBackground : null\)/u,
+  "new Roleplay chats must inherit the explicitly selected default background",
+);
+assert.match(
+  spritesRoutesSource,
+  /const backupDir = join\(dir, "\.cleanup-backups", backupId\)[\s\S]{0,1800}copyFile\(inputPath, join\(backupDir, filename\)\)[\s\S]{0,500}writeFile\(outputPath, output\.buffer\)/u,
+  "sprite cleanup must keep the original outside the active sprite set while the cleaned file becomes active",
 );
 assert.match(
   chatMessageSource,
@@ -8588,7 +8833,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(
     connectionEditorSource,
-    /setRemoteModels\(\[\]\);\s*setRemoteLoras\(\[\]\);\s*setFetchError\(null\);/u,
+    /setRemoteModels\(\[\]\);[\s\S]{0,120}setRemoteLoras\(\[\]\);[\s\S]{0,120}setFetchError\(null\);/u,
     "Changing media providers must clear stale remote LoRA choices",
   );
   assert.match(
@@ -8844,6 +9089,15 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     }).profile.comfyui.fps,
     24,
     "ComfyUI video profiles must preserve a configured FPS",
+  );
+  const videoGenerationSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/server/src/services/video/video-generation.ts"),
+    "utf8",
+  );
+  assert.match(
+    videoGenerationSource,
+    /comfyUiVideoFetch\(\s*`\$\{base\}\/history\/\$\{encodeURIComponent\(promptId\)\}`,[\s\S]{0,120}MAX_VIDEO_JSON_RESPONSE_BYTES/u,
+    "Local ComfyUI video history must use the bounded large JSON response cap",
   );
 
   const connectionsRouteSource = readFileSync(

@@ -862,6 +862,8 @@ export interface GenerationInfo {
   tokensCachedPrompt?: number | null;
   tokensCacheWritePrompt?: number | null;
   durationMs: number | null;
+  /** Time from generation start until reasoning yielded to visible output. */
+  reasoningDurationMs?: number | null;
   finishReason: string | null;
 }
 

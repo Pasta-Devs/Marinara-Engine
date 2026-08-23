@@ -21,6 +21,7 @@ import { clearBrowserRuntimeCaches } from "../lib/browser-runtime";
 import { shouldRefetchMessagesOnReconnect } from "../lib/message-page-cache";
 import { normalizeHydratedMessage } from "../lib/message-hydration";
 import { isMessageHidden } from "../lib/message-visibility";
+import { copyLocalSpriteVisualSettings } from "../components/chat/local-sprite-visual-settings";
 import { lorebookKeys } from "./use-lorebooks";
 import { achievementKeys, trackAchievementEvent } from "./use-achievements";
 import type {
@@ -842,7 +843,7 @@ export function useUpdateChatSummaries() {
 
 export type SummaryEntryOperation =
   | { operation: "replace"; entry: Partial<ChatSummaryEntry> & { id: string; content: string } }
-  | { operation: "delete"; entryId: string }
+  | { operation: "delete"; entryId?: string; entryIds?: string[] }
   | { operation: "toggle"; entryId: string; enabled: boolean }
   | { operation: "reorder"; entryIds: string[] };
 
@@ -883,8 +884,9 @@ export function useDeleteSummaryEntry() {
   const mutation = useSummaryEntryMutation();
   return {
     ...mutation,
-    mutate: (input: { chatId: string; entryId: string }) => mutation.mutate({ ...input, operation: "delete" }),
-    mutateAsync: (input: { chatId: string; entryId: string }) =>
+    mutate: (input: { chatId: string; entryId?: string; entryIds?: string[] }) =>
+      mutation.mutate({ ...input, operation: "delete" }),
+    mutateAsync: (input: { chatId: string; entryId?: string; entryIds?: string[] }) =>
       mutation.mutateAsync({ ...input, operation: "delete" }),
   };
 }
@@ -1385,6 +1387,7 @@ export function useBranchChat() {
       api.post<Chat>(`/chats/${chatId}/branch`, { upToMessageId }),
     onSuccess: (newChat, { chatId }) => {
       if (newChat) {
+        copyLocalSpriteVisualSettings(chatId, newChat.id);
         qc.setQueryData(chatKeys.detail(newChat.id), newChat);
         qc.setQueryData<Chat[]>(chatKeys.list(), (existing) => syncCachedBranch(existing, chatId, newChat));
 

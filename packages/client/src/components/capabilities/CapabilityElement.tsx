@@ -22,7 +22,8 @@ interface CapabilityElementProps {
     | "workspace"
     | "runtime"
     | "world-map"
-    | "browser";
+    | "browser"
+    | "tracker";
   capabilityProps?: Record<string, unknown>;
   className?: string;
   onHostError?: (message: string) => void;

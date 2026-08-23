@@ -51,6 +51,7 @@ export default defineConfig({
           url: baseURL,
           reuseExistingServer: false,
           timeout: 180_000,
+          gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
           env: {
             AUTO_CREATE_DEFAULT_CONNECTION: "false",
             AUTO_OPEN_BROWSER: "false",

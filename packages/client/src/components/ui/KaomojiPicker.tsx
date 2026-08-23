@@ -164,8 +164,9 @@ export function KaomojiPicker({ open, onClose, onSelect, anchorRef, containerRef
               key={category.id}
               type="button"
               onClick={() => setActiveCategory(index)}
+              aria-pressed={index === activeCategory}
               className={cn(
-                "whitespace-nowrap rounded-lg px-2 py-1 text-[0.6875rem] font-medium transition-colors",
+                "whitespace-nowrap rounded-md px-2 py-1 text-[0.6875rem] font-medium transition-colors",
                 index === activeCategory
                   ? "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]"
                   : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)]/50 hover:text-[var(--foreground)]",

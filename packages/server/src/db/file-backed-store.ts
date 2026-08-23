@@ -22,6 +22,7 @@ import {
 import { chmod, copyFile, open, rename, unlink, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
+import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { dirname, join, resolve, sep } from "node:path";
 import { hostname, networkInterfaces } from "node:os";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -93,15 +94,17 @@ type TableSnapshotManifest = {
 };
 
 type StorageWriterLeaseRecord = {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   pid: number;
   hostId: string | null;
+  scopeId?: string;
   hostname: string;
   token: string;
   acquiredAt: string;
 };
 
-type ActiveStorageWriterLease = { path: string; token: string };
+type WriterLeaseLiveness = { server: Server; sockets: Set<Socket>; scopeId: string };
+type ActiveStorageWriterLease = { path: string; token: string; liveness: WriterLeaseLiveness | null };
 
 type FileTransactionContext = {
   snapshots: Map<string, Row[]>;
@@ -144,8 +147,9 @@ function hardenPrivateStorageTree(rootDir: string) {
     for (const entry of entries) {
       const path = join(current, entry.name);
       if (entry.isDirectory()) pending.push(path);
-      else if (entry.isFile()) applyPrivateMode(path, PRIVATE_FILE_MODE);
-      else failures.push(new Error(`Storage contains an unsupported filesystem entry: ${path}`));
+      else if (entry.isFile() || (entry.isSocket() && path === writerLeaseLivenessPath(writerLeasePath(rootDir)))) {
+        applyPrivateMode(path, PRIVATE_FILE_MODE);
+      } else failures.push(new Error(`Storage contains an unsupported filesystem entry: ${path}`));
     }
   }
   if (failures.length > 0) {
@@ -190,6 +194,7 @@ export type FileNativeDB = {
 
 export type FileNativeStoreTestHooks = {
   beforeTableWrite?: (table: string, serializedRows: string) => Promise<void> | void;
+  writerLeaseScopeId?: string;
 };
 
 type SelectFromBuilder<TProjection extends Projection | undefined> = {
@@ -239,6 +244,7 @@ type InsertValuesBuilder = Executable<void> & {
 export const STORAGE_VERSION = 5;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
+export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";
 const SAVE_DEBOUNCE_MS = 750;
 const SAFETY_SAVE_MS = 10_000;
 
@@ -482,6 +488,35 @@ const DURABLE_ON_COMMIT_TABLES = new Set<string>([
   "slurp_fan_activity_state",
 ]);
 
+/**
+ * Anchor prefix an experience-state import stamps on a row whose exported anchor is not a
+ * message of the DESTINATION chat (#5405) — a campaign replayed into a different chat, or one
+ * whose anchor message was deleted before the re-import.
+ *
+ * Two properties make it load-bearing rather than cosmetic:
+ *   - The `messages -> game_engine_state` cascade below matches on `messageId` ALONE, never
+ *     scoped by chatId. Storing the caller-supplied id verbatim would let the SOURCE chat's
+ *     message deletions silently destroy the imported campaign in the destination chat.
+ *     A prefixed id can never equal a real `messages.id`, so no cascade can ever match it.
+ *   - The row is still perfectly usable: the experience-state GET falls back to the latest
+ *     committed/latest row when the visible anchor has no save of its own, which is exactly
+ *     how an imported campaign becomes playable.
+ * These anchors are therefore DANGLING BY DESIGN, which is why the
+ * `game_engine_state.messageId` cascade is listed in CASCADE_DANGLING_EXEMPT_PREFIXES below —
+ * otherwise `mari db validate` would report every imported row as an integrity error.
+ */
+export const IMPORTED_GAME_ENGINE_ANCHOR_PREFIX = "imported:";
+
+/**
+ * Child references that are DANGLING BY DESIGN and must not be reported as integrity errors.
+ * Keyed by `<child table>.<child key>` of the CASCADES entry they exempt; a ref starting with
+ * the mapped prefix is skipped by the dangling-reference walks in `MariDbService.validate` and
+ * `validateTouchedRows`. Keep this list tiny — the default must stay "a dangling ref is a bug".
+ */
+export const CASCADE_DANGLING_EXEMPT_PREFIXES: Readonly<Record<string, string>> = {
+  "game_engine_state.messageId": IMPORTED_GAME_ENGINE_ANCHOR_PREFIX,
+};
+
 export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; parentKey: string; childKey: string }> =
   [
     {
@@ -590,6 +625,9 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
     { parent: "messages", child: "game_state_snapshots", parentKey: "id", childKey: "messageId" },
     { parent: "messages", child: "spatial_context_snapshots", parentKey: "id", childKey: "messageId" },
     { parent: "messages", child: "game_checkpoints", parentKey: "id", childKey: "messageId" },
+    // Matched on messageId ALONE — never scoped by chatId. See
+    // IMPORTED_GAME_ENGINE_ANCHOR_PREFIX above for why the experience-state import must not
+    // store a foreign chat's message ids verbatim, and for its validate() exemption.
     { parent: "messages", child: "game_engine_state", parentKey: "id", childKey: "messageId" },
     { parent: "game_state_snapshots", child: "game_checkpoints", parentKey: "id", childKey: "snapshotId" },
     { parent: "conversation_call_sessions", child: "conversation_call_messages", parentKey: "id", childKey: "callId" },
@@ -1067,6 +1105,10 @@ function writerLeaseOwnerPath(path: string) {
   return join(path, STORAGE_WRITER_OWNER_FILENAME);
 }
 
+function writerLeaseLivenessPath(path: string) {
+  return join(path, STORAGE_WRITER_LIVENESS_FILENAME);
+}
+
 const CURRENT_HOSTNAME = hostname();
 const CURRENT_LEGACY_HOST_ID = (() => {
   const machineId = ["/etc/machine-id", "/var/lib/dbus/machine-id"].flatMap((path) => {
@@ -1140,6 +1182,19 @@ const CURRENT_HOST_ID = (() => {
     .digest("hex");
 })();
 
+const CURRENT_CONTAINER_WRITER_SCOPE_ID = (() => {
+  if (process.platform !== "linux" || process.env.MARINARA_DOCKER !== "true") return null;
+  try {
+    const bootId = readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
+    if (bootId) {
+      return createHash("sha256").update(`marinara-writer-lease-boot\n${bootId}`).digest("hex");
+    }
+  } catch {
+    return null;
+  }
+  return null;
+})();
+
 function writerLeaseBelongsToCurrentHost(record: StorageWriterLeaseRecord) {
   if (record.version === 2) {
     return Boolean(CURRENT_HOST_ID && record.hostId === CURRENT_HOST_ID);
@@ -1151,6 +1206,94 @@ function writerLeaseBelongsToCurrentHost(record: StorageWriterLeaseRecord) {
   // hostname fallback is intentionally limited to legacy macOS leases; v2
   // leases always require the stable platform UUID above.
   return process.platform === "darwin" && record.hostname === CURRENT_HOSTNAME;
+}
+
+async function startWriterLeaseLiveness(
+  path: string,
+  token: string,
+  scopeId: string | null,
+): Promise<WriterLeaseLiveness | null> {
+  if (process.platform === "win32" || !scopeId) return null;
+
+  const socketPath = writerLeaseLivenessPath(path);
+  // sockaddr_un is shortest on macOS (103 usable bytes). Stay below every
+  // supported POSIX limit instead of letting a platform silently truncate it.
+  if (Buffer.byteLength(socketPath) > 100) return null;
+
+  // Container PID namespaces can reuse the same internal PID after a recreation.
+  // A socket on the shared data mount remains reachable while its writer lives,
+  // and the kernel drops the listener even when that container is force-killed.
+  const sockets = new Set<Socket>();
+  const server = createServer((socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+    socket.end(token);
+  });
+  try {
+    await new Promise<void>((resolveListen, rejectListen) => {
+      const onError = (error: Error) => rejectListen(error);
+      server.once("error", onError);
+      server.listen(socketPath, () => {
+        server.off("error", onError);
+        resolveListen();
+      });
+    });
+  } catch (error) {
+    rmSync(socketPath, { force: true });
+    logger.debug(
+      { err: error, path: socketPath },
+      "[file-storage] Writer lease socket is unavailable; a stale container lease may require manual recovery.",
+    );
+    return null;
+  }
+
+  server.on("error", (error) => {
+    logger.error(error, "[file-storage] Writer lease socket failed");
+  });
+  server.unref();
+  return { server, sockets, scopeId };
+}
+
+async function stopWriterLeaseLiveness(liveness: WriterLeaseLiveness | null) {
+  if (!liveness) return;
+  for (const socket of liveness.sockets) socket.destroy();
+  await new Promise<void>((resolveClose, rejectClose) => {
+    liveness.server.close((error) => {
+      if (error && (error as NodeJS.ErrnoException).code !== "ERR_SERVER_NOT_RUNNING") rejectClose(error);
+      else resolveClose();
+    });
+  });
+}
+
+async function probeWriterLeaseLiveness(path: string, token: string): Promise<"active" | "stale" | "uncertain"> {
+  if (process.platform === "win32") return "uncertain";
+
+  return new Promise((resolveProbe) => {
+    let response = "";
+    let settled = false;
+    let timeout: NodeJS.Timeout | null = null;
+    const socket = createConnection(writerLeaseLivenessPath(path));
+    const finish = (result: "active" | "stale" | "uncertain") => {
+      if (settled) return;
+      settled = true;
+      if (timeout) clearTimeout(timeout);
+      socket.destroy();
+      resolveProbe(result);
+    };
+    timeout = setTimeout(() => finish("uncertain"), 1_000);
+    timeout.unref();
+
+    socket.setEncoding("utf8");
+    socket.on("data", (chunk) => {
+      response += chunk;
+      if (response.length > 128) finish("uncertain");
+    });
+    socket.on("end", () => finish(response === token ? "active" : "uncertain"));
+    socket.on("error", (error) => {
+      const code = (error as NodeJS.ErrnoException).code;
+      finish(code === "ECONNREFUSED" ? "stale" : "uncertain");
+    });
+  });
 }
 
 class WriterLeasePendingError extends Error {}
@@ -1177,10 +1320,11 @@ function parseWriterLease(path: string): { raw: string; record: StorageWriterLea
   try {
     const record = JSON.parse(raw) as StorageWriterLeaseRecord;
     if (
-      (record.version !== 1 && record.version !== 2) ||
+      (record.version !== 1 && record.version !== 2 && record.version !== 3) ||
       !Number.isSafeInteger(record.pid) ||
       record.pid <= 0 ||
       (record.hostId !== null && typeof record.hostId !== "string") ||
+      (record.version === 3 && (typeof record.scopeId !== "string" || record.scopeId.length === 0)) ||
       typeof record.hostname !== "string" ||
       typeof record.token !== "string" ||
       typeof record.acquiredAt !== "string"
@@ -1549,30 +1693,46 @@ class FileTableStore {
 
   private async acquireWriterLease() {
     const path = writerLeasePath(this.rootDir);
+    const writerScopeId = this.testHooks?.writerLeaseScopeId ?? CURRENT_CONTAINER_WRITER_SCOPE_ID;
     for (let attempt = 0; attempt < 10; attempt++) {
       const token = randomUUID();
       let created = false;
       try {
         mkdirSync(path, { mode: PRIVATE_DIRECTORY_MODE });
         created = true;
-        const record: StorageWriterLeaseRecord = {
-          version: 2,
-          pid: process.pid,
-          hostId: CURRENT_HOST_ID,
-          hostname: CURRENT_HOSTNAME,
-          token,
-          acquiredAt: new Date().toISOString(),
-        };
-        writeFileSync(writerLeaseOwnerPath(path), JSON.stringify(record, null, 2), {
-          encoding: "utf8",
-          flag: "wx",
-          mode: PRIVATE_FILE_MODE,
-        });
-        this.writerLease = { path, token };
-        return;
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
-          if (created) rmSync(path, { recursive: true, force: true });
+          throw new StorageWriterLeaseError(`Could not acquire the storage writer lease at ${path}.`, {
+            cause: err,
+          });
+        }
+      }
+
+      if (created) {
+        const liveness = await startWriterLeaseLiveness(path, token, writerScopeId);
+        try {
+          const record: StorageWriterLeaseRecord = {
+            version: liveness ? 3 : 2,
+            pid: process.pid,
+            hostId: CURRENT_HOST_ID,
+            ...(liveness ? { scopeId: liveness.scopeId } : {}),
+            hostname: CURRENT_HOSTNAME,
+            token,
+            acquiredAt: new Date().toISOString(),
+          };
+          writeFileSync(writerLeaseOwnerPath(path), JSON.stringify(record, null, 2), {
+            encoding: "utf8",
+            flag: "wx",
+            mode: PRIVATE_FILE_MODE,
+          });
+          this.writerLease = { path, token, liveness };
+          return;
+        } catch (err) {
+          try {
+            await stopWriterLeaseLiveness(liveness).catch(() => undefined);
+          } finally {
+            rmSync(path, { recursive: true, force: true });
+          }
           throw new StorageWriterLeaseError(`Could not acquire the storage writer lease at ${path}.`, {
             cause: err,
           });
@@ -1592,8 +1752,23 @@ class FileTableStore {
         }
         throw err;
       }
-      const sameHost = writerLeaseBelongsToCurrentHost(existing.record) || isTermuxPrivateHomeStorage(this.rootDir);
-      if (!sameHost || !pidDefinitelyExited(existing.record.pid)) {
+
+      let staleReason: "liveness" | "pid" | null = null;
+      if (existing.record.version === 3) {
+        // A socket refusal is proof only within the same host kernel. Shared
+        // network storage may expose the socket path to a different machine.
+        if (
+          writerScopeId &&
+          existing.record.scopeId === writerScopeId &&
+          (await probeWriterLeaseLiveness(path, existing.record.token)) === "stale"
+        ) {
+          staleReason = "liveness";
+        }
+      } else {
+        const sameHost = writerLeaseBelongsToCurrentHost(existing.record) || isTermuxPrivateHomeStorage(this.rootDir);
+        if (sameHost && pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
+      }
+      if (!staleReason) {
         throw new StorageWriterLeaseError(
           `Another Marinara Engine process (PID ${existing.record.pid}, host ${existing.record.hostname}) may be using ${this.rootDir}. ` +
             `Close it before retrying. If it no longer exists, verify every process is stopped and remove only ${path}.`,
@@ -1622,16 +1797,19 @@ class FileTableStore {
       }
       rmSync(stalePath, { recursive: true });
       logger.warn(
-        { previousPid: existing.record.pid, path },
-        "[file-storage] Reclaimed the writer lease after confirming its same-host PID exited.",
+        { previousPid: existing.record.pid, path, staleReason },
+        staleReason === "liveness"
+          ? "[file-storage] Reclaimed the writer lease after confirming the previous owner was no longer listening."
+          : "[file-storage] Reclaimed the writer lease after confirming its same-host PID exited.",
       );
     }
     throw new StorageWriterLeaseError(`The storage writer lease at ${path} changed repeatedly; retry startup.`);
   }
 
-  private releaseWriterLease() {
+  private async releaseWriterLease() {
     const active = this.writerLease;
     if (!active) return;
+    await stopWriterLeaseLiveness(active.liveness);
     if (!existsSync(active.path)) {
       logger.warn({ path: active.path }, "[file-storage] The writer lease was already removed.");
       this.writerLease = null;
@@ -1701,7 +1879,7 @@ class FileTableStore {
       logger.info(`[file-storage] Using file-native storage at ${this.rootDir}`);
     } catch (err) {
       try {
-        this.releaseWriterLease();
+        await this.releaseWriterLease();
       } catch (releaseError) {
         throw new AggregateError([err, releaseError], "Storage initialization and writer-lease cleanup failed");
       }
@@ -2336,13 +2514,13 @@ class FileTableStore {
       }
     } catch (err) {
       try {
-        this.releaseWriterLease();
+        await this.releaseWriterLease();
       } catch (releaseError) {
         throw new AggregateError([err, releaseError], "Storage shutdown and writer-lease release both failed");
       }
       throw err;
     }
-    this.releaseWriterLease();
+    await this.releaseWriterLease();
   }
 
   getQuarantinedTables() {

@@ -24,6 +24,7 @@ import {
   getRoleplayTypewriterRevealCharsPerSecond,
   getStreamingCharsPerSecond,
   getTypewriterFrameBudget,
+  getTypewriterPaintIntervalMs,
   isGenerationStartBlocked,
   reconcileTypewriterReplacement,
   shouldKeepStreamLiveThroughPostProcessing,
@@ -36,6 +37,7 @@ import {
   type TTSAutoplayMessageReadyDetail,
 } from "../lib/tts-autoplay";
 import { startSceneWithPromptPreferences } from "../lib/scene-generation";
+import { translate } from "../localization/i18n";
 import { waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
 import { agentKeys } from "./use-agents";
 import { discardPendingGameStatePatch } from "./use-game-state-patcher";
@@ -69,6 +71,7 @@ import {
 
 type RetryAgentsOptions = {
   lorebookKeeperBackfill?: boolean;
+  customLorebookBackfill?: boolean;
   forMessageId?: string;
   secretPlotRerollMode?: "full" | "turn_only";
   agentPromptTemplateIds?: Record<string, string>;
@@ -1479,6 +1482,11 @@ export function useGenerate() {
       // Values 1–99 are literal visible characters per second; 100 is instant.
       const reducedMotionMedia =
         typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+      const typewriterPaintIntervalMs = getTypewriterPaintIntervalMs(
+        navigator.userAgent,
+        navigator.platform,
+        navigator.maxTouchPoints,
+      );
       const getCharsPerSecond = () => {
         const speed = useUIStore.getState().streamingSpeed;
         return getStreamingCharsPerSecond(
@@ -1562,6 +1570,14 @@ export function useGenerate() {
             return;
           }
           typewriterStarted = true;
+          if (
+            lastTypewriterPaintAt > 0 &&
+            typewriterPaintIntervalMs > 0 &&
+            now - lastTypewriterPaintAt < typewriterPaintIntervalMs
+          ) {
+            rafId = requestAnimationFrame(tick);
+            return;
+          }
           if (!lastTypewriterPaintAt) lastTypewriterPaintAt = now;
           const elapsedMs = Math.min(TYPEWRITER_MAX_FRAME_MS, Math.max(0, now - lastTypewriterPaintAt));
           lastTypewriterPaintAt = now;
@@ -1584,7 +1600,12 @@ export function useGenerate() {
             return;
           }
 
-          const frameBudget = getTypewriterFrameBudget(charsPerSecond, elapsedMs, typewriterRemainder);
+          const frameBudget = getTypewriterFrameBudget(
+            charsPerSecond,
+            elapsedMs,
+            typewriterRemainder,
+            typewriterPaintIntervalMs,
+          );
           typewriterRemainder = frameBudget.accruedCharacters;
           const n = Math.min(Math.floor(typewriterRemainder), frameBudget.maxCharacters, pendingText.length);
           if (n < 1) {
@@ -2345,7 +2366,7 @@ export function useGenerate() {
                 heldTextRewriteMessage = heldMessage;
                 receivedContent = true;
                 persistedMessages.set(heldMessage.id, heldMessage);
-                if (!streamingEnabled || !shouldDisplayRawStream) {
+                if (!isGameGeneration && (!streamingEnabled || !shouldDisplayRawStream)) {
                   upsertPersistedMessages(qc, params.chatId, [heldMessage]);
                 }
                 break;
@@ -2357,7 +2378,10 @@ export function useGenerate() {
               if (!keepStreamLiveThroughPostProcessing) {
                 rememberContinuedMessageContent(savedMessage);
               }
-              upsertPersistedMessages(qc, params.chatId, [savedMessage]);
+              // Game Narration reveals the saved row segment by segment after
+              // the whole GM pipeline settles. Publishing it now jumps ahead
+              // of that reveal; the final authoritative refresh below owns it.
+              if (!isGameGeneration) upsertPersistedMessages(qc, params.chatId, [savedMessage]);
               break;
             }
 
@@ -2428,7 +2452,7 @@ export function useGenerate() {
               // would insert it into the cache alongside the StreamingIndicator,
               // causing a duplicate flash. The finally block's authoritative
               // refresh will pick up the selfie attachment from DB.
-              if (!streamingEnabled) {
+              if (!streamingEnabled && !isGameGeneration) {
                 await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
               }
               break;
@@ -2543,7 +2567,7 @@ export function useGenerate() {
               // would insert it into the cache alongside the StreamingIndicator,
               // causing a duplicate flash. The finally block's authoritative
               // refresh will pick up the illustration attachment from DB.
-              if (!streamingEnabled) {
+              if (!streamingEnabled && !isGameGeneration) {
                 await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
               }
               void qc.invalidateQueries({ queryKey: ["gallery", params.chatId] });
@@ -3341,6 +3365,7 @@ export function useGenerate() {
       if (isActiveChat()) clearThoughtBubbles();
       let hasError = false;
       let imagePromptReviewRequested = false;
+      let customLorebookBackfillEmpty = false;
 
       try {
         const flushPatch = useGameStateStore.getState().flushPatch;
@@ -3381,6 +3406,7 @@ export function useGenerate() {
             musicPlayerEnabled: useUIStore.getState().musicPlayerEnabled,
             musicPlayerSource: useUIStore.getState().musicPlayerSource,
             lorebookKeeperBackfill: options?.lorebookKeeperBackfill === true,
+            customLorebookBackfill: options?.customLorebookBackfill === true,
             ...(options?.forMessageId ? { forMessageId: options.forMessageId } : {}),
             ...(options?.secretPlotRerollMode ? { secretPlotRerollMode: options.secretPlotRerollMode } : {}),
           },
@@ -3389,6 +3415,11 @@ export function useGenerate() {
           switch (event.type) {
             case "agent_warning": {
               showAgentWarning(event.data, chatId);
+              break;
+            }
+            case "custom_lorebook_backfill_empty": {
+              customLorebookBackfillEmpty = true;
+              toast.info(translate("ui.chat.customAgentBackfill.noMessagesRemain"));
               break;
             }
 
@@ -3676,8 +3707,12 @@ export function useGenerate() {
           }
         }
         if (!hasError && !imagePromptReviewRequested) {
-          if (options?.lorebookKeeperBackfill) {
+          if (customLorebookBackfillEmpty) {
+            // The status event already explained that there was no work to do.
+          } else if (options?.lorebookKeeperBackfill) {
             toast.success("Lorebook Keeper backfill completed");
+          } else if (options?.customLorebookBackfill) {
+            toast.success(translate("ui.chat.customAgentBackfill.completed"));
           } else if (agentResultCount === 0) {
             toast.warning("No agents ran. Add tracker agents to this chat or check their connection settings.");
           } else if (isTrackerRetry && trackerPatchCount === 0) {

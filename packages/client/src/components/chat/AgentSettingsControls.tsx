@@ -158,6 +158,7 @@ export function AgentSettingsCard({
   icon,
   title,
   description,
+  initialOpen = true,
   badge,
   order,
   onRemove,
@@ -167,6 +168,7 @@ export function AgentSettingsCard({
   icon: ReactNode;
   title: string;
   description: string;
+  initialOpen?: boolean;
   badge?: ReactNode;
   order?: number;
   onRemove?: () => void;
@@ -175,8 +177,8 @@ export function AgentSettingsCard({
   const { t: localizeUi } = useUiTranslation();
   const rememberedOpen = useUIStore((state) => (id ? state.chatSettingsExpandedSections[id] : undefined));
   const setSectionExpanded = useUIStore((state) => state.setChatSettingsSectionExpanded);
-  const [localOpen, setLocalOpen] = useState(true);
-  const open = id ? (rememberedOpen ?? true) : localOpen;
+  const [localOpen, setLocalOpen] = useState(initialOpen);
+  const open = id ? (rememberedOpen ?? initialOpen) : localOpen;
   const contentId = useId();
   const toggleLabel = localizeUi(
     open ? "ui.chat.agentsettingscard.collapseValue1" : "ui.chat.agentsettingscard.expandValue1",
@@ -300,7 +302,7 @@ export function AgentSettingsToggle({
         onChange={() => onToggle()}
         labelPosition="start"
         className={cn(
-          "justify-between rounded-lg px-3 py-2.5 text-left",
+          "justify-between rounded-md px-3 py-2.5 text-left",
           enabled
             ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
             : surface === "secondary"

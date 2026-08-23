@@ -63,7 +63,7 @@ import {
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { Modal } from "../ui/Modal";
 import { Reorder, useDragControls } from "framer-motion";
-import { getChatDisplayName, parseChatMetadata } from "../../lib/chat-display";
+import { parseChatMetadata } from "../../lib/chat-display";
 import {
   compareChatsByActivityDesc,
   compareChatsByCreatedAtAsc,
@@ -395,7 +395,7 @@ export function ChatSidebar() {
         .filter(Boolean);
 
       return (
-        includesTextForMatch(toSearchText(getChatDisplayName(chat)), query) ||
+        includesTextForMatch(toSearchText(chat.name), query) ||
         tags.some((tag) => includesTextForMatch(tag, query)) ||
         characterNames.some((name) => includesTextForMatch(name, query))
       );
@@ -421,9 +421,9 @@ export function ChatSidebar() {
         case "oldest":
           return compareChatsByCreatedAtAsc(a, b);
         case "name-asc":
-          return toSearchText(getChatDisplayName(a)).localeCompare(toSearchText(getChatDisplayName(b)));
+          return toSearchText(a.name).localeCompare(toSearchText(b.name));
         case "name-desc":
-          return toSearchText(getChatDisplayName(b)).localeCompare(toSearchText(getChatDisplayName(a)));
+          return toSearchText(b.name).localeCompare(toSearchText(a.name));
         case "newest":
           return compareChatsByCreatedAtDesc(a, b);
         case "recent":
@@ -896,7 +896,7 @@ export function ChatSidebar() {
   // ── Chat row renderer (shared between unfiled + folder sections) ──
   const renderChatRow = ({ chat, branchCount }: (typeof displayChats)[number]) => {
     const cfg = MODE_CONFIG[chat.mode] ?? MODE_CONFIG.conversation;
-    const displayName = getChatDisplayName(chat);
+    const displayName = chat.name;
     const isActive = activeChatId === chat.id || (chat.groupId != null && chat.groupId === activeGroupId);
     const isSelected = selectedChatIds.has(chat.id);
     const charIds = normalizeChatCharacterIds((chat as { characterIds?: unknown }).characterIds);

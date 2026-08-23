@@ -317,7 +317,7 @@ export function SpriteOverlay({
 
   if (visibleSpriteEntries.length === 0) return null;
 
-  const stageZIndexClass = editing ? "z-[35]" : fullBodyOnly ? "z-[5]" : "z-[5] md:z-[15]";
+  const stageZIndexClass = editing ? "z-[35]" : "z-[5]";
   return (
     <div ref={stageRef} className={`pointer-events-none absolute inset-0 overflow-hidden ${stageZIndexClass}`}>
       {visibleSpriteEntries.map((entry) => (

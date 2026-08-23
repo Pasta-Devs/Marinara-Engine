@@ -25,7 +25,8 @@ import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download
 
 type CharacterScheduleEditorModalProps = {
   open: boolean;
-  chatId: string;
+  /** Omitted when editing from the Character Editor, where no chat is open. */
+  chatId?: string;
   characterId: string;
   characterName: string;
   characterAvatarUrl?: string | null;
@@ -798,8 +799,9 @@ export function CharacterScheduleEditorModal({
                       type="button"
                       title={option.hint}
                       onClick={() => toggleCheckInMoment(option.intent)}
+                      aria-pressed={enabled}
                       className={cn(
-                        "rounded-full px-2.5 py-1.5 text-[0.6875rem] font-semibold ring-1 ring-[var(--border)] transition-colors",
+                        "rounded-md px-2.5 py-1.5 text-[0.6875rem] font-semibold ring-1 ring-[var(--border)] transition-colors",
                         enabled
                           ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
                           : "bg-[var(--background)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",

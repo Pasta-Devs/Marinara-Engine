@@ -1235,7 +1235,7 @@ export function SpriteWandCleanupEditor({
               />
               {reticleStyle && !loading && (
                 <span
-                  className="pointer-events-none absolute rounded-full border border-[var(--primary)] shadow-[0_0_0_1px_rgba(0,0,0,0.65),0_0_14px_rgba(255,179,217,0.35)]"
+                  className="mari-chrome-accent-reticle mari-accent-animated pointer-events-none absolute rounded-full border"
                   style={reticleStyle}
                 />
               )}

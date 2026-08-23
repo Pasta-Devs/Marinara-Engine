@@ -8,6 +8,7 @@ const professorMariUrl = new URL(
   import.meta.url,
 );
 const settingsUrl = new URL("../../packages/client/src/components/panels/SettingsPanel.tsx", import.meta.url);
+const globalsUrl = new URL("../../packages/client/src/styles/globals.css", import.meta.url);
 const unavailablePlayerUrl = new URL(
   "../../packages/client/src/components/music/MusicDjUnavailablePlayer.tsx",
   import.meta.url,
@@ -17,6 +18,7 @@ const topBarSource = readFileSync(topBarUrl, "utf8");
 const appShellSource = readFileSync(appShellUrl, "utf8");
 const professorMariSource = readFileSync(professorMariUrl, "utf8");
 const settingsSource = readFileSync(settingsUrl, "utf8");
+const globalsSource = readFileSync(globalsUrl, "utf8");
 
 assert.equal(existsSync(unavailablePlayerUrl), false, "Music DJ must not leave an absent-package player placeholder");
 assert.doesNotMatch(topBarSource, /MusicDjUnavailablePlayer/u);
@@ -36,6 +38,26 @@ assert.match(
   professorMariSource,
   /controlledChatWindowOpen === undefined[\s\S]{0,180}floatingFollowupEligibleRef\.current = controlledChatWindowOpen[\s\S]{0,180}rememberProfessorMariFloatingEnabled\(controlledChatWindowOpen\)/u,
   "The embedded Professor tab must mark its controlled chat window as eligible to follow",
+);
+assert.match(
+  professorMariSource,
+  /mari-chrome-token-scope fixed z-\[95\] flex h-\[min\(32rem/u,
+  "Professor Mari's desktop floating window must use chat-chroma tokens",
+);
+assert.match(
+  professorMariSource,
+  /mari-chrome-control mari-chrome-control--small mari-accent-animated h-7 w-7 shrink-0 p-0/u,
+  "Professor Mari's desktop floating window must use the compact close control",
+);
+assert.match(
+  professorMariSource,
+  /mari-chrome-token-scope fixed inset-x-0 top-\[calc\(3rem_/u,
+  "Professor Mari's mobile floating window must use chat-chroma tokens",
+);
+assert.doesNotMatch(
+  globalsSource,
+  /\.mari-chrome-token-scope\s*\{[^}]*--primary:/u,
+  "The shared chat-chroma scope must not replace the configured app accent",
 );
 
 assert.match(

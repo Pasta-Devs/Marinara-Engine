@@ -494,6 +494,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     syntax: '{{#if char == "Name" || "Other"}}...{{else}}...{{/if}}',
     description: "Conditional block with ||, &&, parentheses, else branches, and straight or typographic quotes",
   },
+  {
+    category: "Formatting",
+    syntax: '{{#if character != "Maukie"}}...{{/if}}',
+    description: 'Negated comparison; "is not", "not contains", and "not includes" are also supported',
+  },
   { category: "Formatting", syntax: "{{noop}}", description: "No-op placeholder removed from output" },
   { category: "Formatting", syntax: "{{// comment}}", description: "Inline author comment removed from output" },
   {
@@ -1822,6 +1827,62 @@ function resolveConditionalBlocks(input: string, ctx: MacroContext, options: Res
       result += emittedPre + emittedBlock;
       index = nextIndex;
     }
+  }
+
+  return result;
+}
+
+const AGENT_CONDITIONAL_ENTITY_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/&quot;|&#34;|&#x22;/gi, '"'],
+  [/&apos;|&#39;|&#x27;/gi, "'"],
+  [/&lt;|&#60;|&#x3c;/gi, "<"],
+  [/&gt;|&#62;|&#x3e;/gi, ">"],
+  [/&amp;|&#38;|&#x26;/gi, "&"],
+];
+
+function decodeAgentConditionalTextEntities(input: string): string {
+  return AGENT_CONDITIONAL_ENTITY_REPLACEMENTS.reduce(
+    (value, [pattern, replacement]) => value.replace(pattern, replacement),
+    input,
+  );
+}
+
+function decodeAgentConditionalEntities(input: string): string {
+  return replaceBalancedMacros(input, (body) => {
+    if (parseIfCondition(body) === null && parseElseIfCondition(body) === null) return undefined;
+    return `{{${decodeAgentConditionalTextEntities(body)}}}`;
+  });
+}
+
+/**
+ * Remove conditional control syntax from agent-bound text while keeping every
+ * authored branch. Agent calls need the prose as context, not the main prompt's
+ * character-specific control flow.
+ */
+export function flattenAgentConditionalMacros(input: string): string {
+  return flattenAgentConditionalMacrosInner(input, false);
+}
+
+function flattenAgentConditionalMacrosInner(input: string, decodeTextEntities: boolean): string {
+  const normalized = decodeAgentConditionalEntities(
+    decodeTextEntities ? decodeAgentConditionalTextEntities(input) : input,
+  );
+  let result = "";
+  let index = 0;
+
+  while (index < normalized.length) {
+    const start = findConditionalStart(normalized, index);
+    if (!start) return result + normalized.slice(index);
+    const block = findConditionalBranches(normalized, start.end, start.condition);
+    if (!block) return result + normalized.slice(index);
+
+    result += normalized.slice(index, start.start);
+    result += block.branches
+      .map((branch) =>
+        flattenAgentConditionalMacrosInner(normalized.slice(branch.contentStart, branch.contentEnd), true),
+      )
+      .join("");
+    index = block.endEnd;
   }
 
   return result;

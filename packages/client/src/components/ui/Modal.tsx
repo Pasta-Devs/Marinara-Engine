@@ -14,6 +14,7 @@ import {
 } from "./neutral-surface-styles";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -72,6 +73,12 @@ export function Modal({
   const enterRafRef = useRef<number | null>(null);
   const backdropDismiss = useBackdropDismiss(onClose, closeDisabled);
   useDialogFocusScope(open && mounted, panelRef, initialFocusRef, restoreFocusRef, focusScopePortalSelector);
+  // Hardware / gesture back closes the topmost modal. While closing is disabled
+  // the press is absorbed rather than ignored, matching Escape: an in-flight
+  // operation must not be interrupted by backgrounding the app.
+  useBackDismiss(open, () => {
+    if (!closeDisabled) onClose();
+  });
 
   useEffect(() => {
     if (enterRafRef.current !== null) {

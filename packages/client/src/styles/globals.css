@@ -206,7 +206,7 @@
   --sidebar-accent: #d4acfb1a;
   --sidebar-accent-foreground: #d4acfb;
   --glow-primary: color-mix(in srgb, var(--primary) 15%, transparent);
-  --glow-accent: rgba(212, 173, 252, 0.12);
+  --glow-accent: color-mix(in srgb, var(--primary) 12%, transparent);
 
   /* Theme hooks for shared chat, roleplay, and game chrome. */
   --marinara-topbar-surface: color-mix(in srgb, var(--card) 80%, transparent);
@@ -301,6 +301,9 @@
   --marinara-chat-chrome-panel-title: color-mix(in srgb, var(--marinara-chat-chrome-text) 96%, transparent);
   --marinara-chat-chrome-panel-muted: color-mix(in srgb, var(--marinara-chat-chrome-text) 58%, transparent);
   --marinara-chat-chrome-panel-scrollbar: color-mix(in srgb, var(--marinara-chat-chrome-accent) 22%, transparent);
+  --marinara-chat-message-action-text: color-mix(in srgb, var(--marinara-chat-chrome-text) 40%, transparent);
+  --marinara-chat-message-action-text-hover: color-mix(in srgb, var(--marinara-chat-chrome-text) 70%, transparent);
+  --marinara-chat-message-action-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-text) 10%, transparent);
   --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--marinara-chat-chrome-accent) 9%, transparent);
   --marinara-chat-chrome-highlight-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent);
   --marinara-chat-chrome-highlight-text: color-mix(
@@ -383,24 +386,24 @@
   --glass-bg: linear-gradient(
     135deg,
     color-mix(in srgb, var(--primary) 6%, transparent) 0%,
-    rgba(212, 173, 252, 0.06) 50%,
+    color-mix(in srgb, var(--primary) 6%, transparent) 50%,
     rgba(168, 216, 255, 0.06) 100%
   );
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-strong-bg: linear-gradient(
     135deg,
     color-mix(in srgb, var(--primary) 10%, transparent) 0%,
-    rgba(212, 173, 252, 0.1) 50%,
+    color-mix(in srgb, var(--primary) 10%, transparent) 50%,
     rgba(168, 216, 255, 0.1) 100%
   );
   --glass-strong-border: rgba(255, 255, 255, 0.12);
   --glass-strong-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.1);
 
   --glow-color-1: color-mix(in srgb, var(--primary) 30%, transparent);
-  --glow-color-2: rgba(212, 173, 252, 0.2);
+  --glow-color-2: color-mix(in srgb, var(--primary) 20%, transparent);
   --glow-color-3: rgba(168, 216, 255, 0.1);
   --glow-sm-1: color-mix(in srgb, var(--primary) 20%, transparent);
-  --glow-sm-2: rgba(212, 173, 252, 0.1);
+  --glow-sm-2: color-mix(in srgb, var(--primary) 10%, transparent);
 
   --scrollbar-track: #1a1a2e40;
   --scrollbar-border: #0a0a0a66;
@@ -476,7 +479,7 @@
   --sidebar-accent: #d4acfb18;
   --sidebar-accent-foreground: #d4acfb;
   --glow-primary: color-mix(in srgb, var(--primary) 12%, transparent);
-  --glow-accent: rgba(212, 173, 252, 0.08);
+  --glow-accent: color-mix(in srgb, var(--primary) 8%, transparent);
   --marinara-music-player-shell-bg: color-mix(in srgb, var(--card) 94%, var(--secondary) 6%);
   --marinara-music-player-shell-border: color-mix(in srgb, var(--foreground) 14%, transparent);
   --marinara-music-player-text: color-mix(in srgb, var(--foreground) 96%, var(--primary) 4%);
@@ -518,12 +521,12 @@
   --glass-strong-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), inset 0 1px rgba(255, 255, 255, 0.5);
 
   --glow-color-1: color-mix(in srgb, var(--primary) 20%, transparent);
-  --glow-color-2: rgba(212, 173, 252, 0.15);
+  --glow-color-2: color-mix(in srgb, var(--primary) 15%, transparent);
   --glow-color-3: rgba(168, 216, 255, 0.08);
   --glow-sm-1: color-mix(in srgb, var(--primary) 15%, transparent);
-  --glow-sm-2: rgba(212, 173, 252, 0.08);
+  --glow-sm-2: color-mix(in srgb, var(--primary) 8%, transparent);
 
-  --scrollbar-track: rgba(212, 173, 252, 0.1);
+  --scrollbar-track: color-mix(in srgb, var(--primary) 10%, transparent);
   --scrollbar-border: rgba(0, 0, 0, 0.1);
 
   --y2k-pink: var(--primary);
@@ -581,7 +584,7 @@
 }
 
 [data-theme="light"] ::-webkit-scrollbar-track {
-  background: rgba(212, 173, 252, 0.1);
+  background: var(--scrollbar-track);
 }
 [data-theme="light"] ::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, var(--y2k-pink) 0%, var(--y2k-purple) 100%);
@@ -695,6 +698,11 @@
   border-color: var(--marinara-chat-chrome-button-border-hover);
   background: var(--marinara-chat-chrome-button-bg-hover);
   color: var(--marinara-chat-chrome-button-text-hover);
+}
+
+.mari-chrome-control:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 0.125rem var(--marinara-chat-chrome-focus-ring);
 }
 
 .mari-chrome-control:active {
@@ -1351,6 +1359,10 @@
   --sidebar-foreground: var(--marinara-chat-chrome-panel-text);
 }
 
+.mari-chrome-text-accent-scope {
+  --marinara-chat-chrome-accent: var(--marinara-chat-chrome-text);
+}
+
 .mari-settings-tab-label {
   display: block;
   overflow: visible;
@@ -1371,6 +1383,10 @@
   color: var(--marinara-chat-chrome-panel-muted);
 }
 
+.mari-conversation-transcript-chrome-text {
+  color: var(--marinara-chat-chrome-text);
+}
+
 .mari-chrome-accent-surface {
   border-color: var(--marinara-chat-chrome-button-border-active);
   background: var(--marinara-chat-chrome-highlight-bg);
@@ -1383,6 +1399,15 @@
   color: var(--marinara-chat-chrome-button-text-hover);
 }
 
+.mari-chrome-accent-frame {
+  border-color: color-mix(in srgb, var(--marinara-chat-chrome-accent) 36%, var(--border));
+  box-shadow: 0 1.125rem 2.75rem -2.125rem color-mix(in srgb, var(--marinara-chat-chrome-accent) 70%, transparent);
+}
+
+.mari-chrome-accent-panel {
+  background: color-mix(in srgb, var(--marinara-chat-chrome-accent) 8%, var(--card));
+}
+
 .mari-chrome-accent-tile {
   background: var(--marinara-app-accent-gradient);
   color: var(--primary-foreground);
@@ -1390,9 +1415,17 @@
 }
 
 .mari-chrome-accent-soft-tile {
+  border-color: var(--marinara-chat-chrome-button-border-active);
   background: color-mix(in srgb, var(--marinara-chat-chrome-accent) 14%, transparent);
   color: var(--marinara-chat-chrome-button-text-active);
   box-shadow: inset 0 0 0 1px var(--marinara-chat-chrome-button-border);
+}
+
+.mari-chrome-accent-reticle {
+  border-color: var(--marinara-chat-chrome-accent);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.65),
+    0 0 0.875rem color-mix(in srgb, var(--marinara-chat-chrome-accent) 35%, transparent);
 }
 
 .mari-chrome-accent-dot,
@@ -1598,6 +1631,22 @@
   gap: 0.75rem;
 }
 
+.mari-editor-header--with-nav {
+  flex-wrap: nowrap;
+}
+
+.mari-editor-header--with-nav .mari-editor-header-main {
+  flex: 0 1 18rem;
+}
+
+.mari-editor-header--with-nav .mari-editor-navigation {
+  flex: 0 1 auto;
+}
+
+.mari-editor-header--with-nav .mari-editor-actions {
+  margin-left: auto;
+}
+
 .mari-settings-search-header {
   height: auto;
   min-height: 3.8125rem;
@@ -1730,6 +1779,7 @@
 
 .mari-editor-title-line .mari-editor-title-input {
   width: auto;
+  min-width: 4rem;
   max-width: 100%;
   flex: 0 1 auto;
   overflow: hidden;
@@ -1958,12 +2008,9 @@
   max-width: 48rem;
 }
 
-.mari-editor-tab-rail {
-  border-color: var(--marinara-editor-divider);
-  background: color-mix(in srgb, var(--marinara-editor-surface-bg) 58%, transparent);
-}
-
 .mari-editor-tab {
+  height: 2.25rem;
+  min-height: 2.25rem;
   color: var(--marinara-editor-muted);
 }
 
@@ -1986,6 +2033,38 @@
   color: var(--marinara-editor-text);
   font-size: 0.625rem;
   line-height: 1;
+}
+
+.mari-editor-navigation-select {
+  border-color: var(--marinara-editor-border);
+  background: var(--marinara-editor-control-bg);
+  color: var(--marinara-editor-text);
+}
+
+.mari-editor-navigation-select:hover {
+  border-color: var(--marinara-editor-border-strong);
+  background: var(--marinara-editor-control-bg-hover);
+}
+
+.mari-editor-navigation-select:focus-visible {
+  border-color: var(--marinara-editor-border-strong);
+  --tw-ring-color: var(--marinara-editor-focus-ring);
+}
+
+.mari-editor-navigation-menu {
+  border-color: var(--marinara-editor-border);
+  background: var(--marinara-editor-surface-bg);
+  color: var(--marinara-editor-text);
+}
+
+.mari-editor-navigation-menu-item {
+  color: var(--marinara-editor-muted);
+}
+
+.mari-editor-navigation-menu-item:hover,
+.mari-editor-navigation-menu-item[aria-checked="true"] {
+  background: var(--marinara-editor-control-bg-hover);
+  color: var(--marinara-editor-text);
 }
 
 .mari-editor-section-jumps {
@@ -2345,29 +2424,85 @@
     overscroll-behavior-y: contain;
     touch-action: pan-y;
   }
+}
 
-  .mari-editor-tab-rail {
-    width: 100%;
-    max-width: 100%;
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-right: 0;
-    border-bottom: 1px solid var(--marinara-editor-divider);
-    padding: 0.375rem;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
-    touch-action: pan-x;
-  }
-
+@container (min-width: 64.001rem) and (max-width: 96rem) {
   .mari-editor-tab {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    padding: 0.375rem 0.625rem;
+    gap: 0.125rem;
+    padding-inline: 0.25rem;
+    font-size: 0.625rem;
   }
 
-  .mari-editor-tab-badge {
-    margin-left: 0.25rem;
+  .mari-editor-tab > svg {
+    display: none;
+  }
+}
+
+@container (min-width: 64.001rem) {
+  .mari-editor-header--with-nav .mari-editor-action {
+    height: 2.25rem;
+    min-height: 2.25rem;
+    line-height: 1;
+  }
+
+  .mari-editor-header--with-nav .mari-editor-header-main--identity {
+    max-width: 42rem;
+    flex-basis: auto;
+  }
+
+  .mari-editor-header-main--identity .mari-editor-byline {
+    max-width: 24rem;
+    flex: 0 1 24rem;
+  }
+}
+
+@container (min-width: 90rem) {
+  .mari-editor-header--with-nav .mari-editor-header-main--identity {
+    flex-shrink: 0;
+  }
+
+  .mari-editor-header-main--identity .mari-editor-byline {
+    flex-shrink: 0;
+  }
+}
+
+@container (max-width: 64rem) {
+  .mari-editor-header--with-nav {
+    height: auto;
+    min-height: 3.8125rem;
+    flex-basis: auto;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+
+  .mari-editor-header--with-nav .mari-editor-header-main {
+    width: 100%;
+    min-width: 100%;
+    flex: 1 0 100%;
+  }
+
+  .mari-editor-header--with-nav .mari-editor-navigation {
+    width: min(8rem, 100%);
+    flex: 1 1 6rem;
+    max-width: 8rem;
+  }
+
+  .mari-editor-header--with-nav .mari-editor-actions {
+    width: auto;
+    margin-left: 0;
+    justify-content: flex-end;
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .mari-editor-header--with-nav .mari-editor-action--primary {
+    margin-right: 0;
+    padding-inline: 0.5rem;
+  }
+
+  .mari-editor-header--with-nav .mari-editor-save-label {
+    display: none;
   }
 }
 
@@ -3044,7 +3179,7 @@ html.mari-home-widget-drag-active * {
 
 .mari-home-professor-popup__bubble-tail::before {
   inset: 0;
-  background: color-mix(in srgb, oklch(0.73 0.21 345) 48%, var(--border));
+  background: color-mix(in srgb, var(--marinara-chat-chrome-accent) 48%, var(--border));
 }
 
 .mari-home-professor-popup__bubble-tail::after {
@@ -3052,7 +3187,7 @@ html.mari-home-widget-drag-active * {
   bottom: 0.09rem;
   width: 0.72rem;
   height: 1.05rem;
-  background: var(--card);
+  background: color-mix(in srgb, var(--marinara-chat-chrome-accent) 8%, var(--card));
 }
 
 .mari-home-professor-popup__bubble[data-tail-side="right"] .mari-home-professor-popup__bubble-tail {
@@ -4184,8 +4319,8 @@ strong {
   height: 0.1875rem;
   background: var(--y2k-purple);
   box-shadow:
-    0 0 10px 4px rgba(212, 173, 252, 0.6),
-    0 0 20px 8px rgba(212, 173, 252, 0.3);
+    0 0 10px 4px color-mix(in srgb, var(--y2k-purple) 60%, transparent),
+    0 0 20px 8px color-mix(in srgb, var(--y2k-purple) 30%, transparent);
   animation-duration: 5s;
 }
 
@@ -4203,12 +4338,12 @@ strong {
   0%,
   100% {
     box-shadow:
-      0 0 8px rgba(212, 173, 252, 0.15),
+      0 0 8px color-mix(in srgb, var(--primary) 15%, transparent),
       0 0 16px color-mix(in srgb, var(--primary) 10%, transparent);
   }
   50% {
     box-shadow:
-      0 0 12px rgba(212, 173, 252, 0.25),
+      0 0 12px color-mix(in srgb, var(--primary) 25%, transparent),
       0 0 24px color-mix(in srgb, var(--primary) 20%, transparent);
   }
 }
@@ -4237,7 +4372,7 @@ strong {
   color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 0.45rem rgba(236, 72, 153, 0.16));
+  filter: drop-shadow(0 0 0.45rem color-mix(in srgb, var(--mari-logo-title-pink) 16%, transparent));
 }
 
 .mari-logo-gradient-text--active {
@@ -4325,13 +4460,13 @@ strong {
   0%,
   100% {
     box-shadow:
-      0 0 8px rgba(236, 72, 153, 0.3),
-      0 0 16px rgba(168, 85, 247, 0.2);
+      0 0 8px color-mix(in srgb, var(--marinara-app-accent-solid) 30%, transparent),
+      0 0 16px color-mix(in srgb, var(--marinara-app-accent-solid) 20%, transparent);
   }
   50% {
     box-shadow:
-      0 0 12px rgba(236, 72, 153, 0.4),
-      0 0 24px rgba(168, 85, 247, 0.3);
+      0 0 12px color-mix(in srgb, var(--marinara-app-accent-solid) 40%, transparent),
+      0 0 24px color-mix(in srgb, var(--marinara-app-accent-solid) 30%, transparent);
   }
 }
 
@@ -5128,7 +5263,7 @@ strong {
   padding: 0.125rem;
   background: linear-gradient(135deg, var(--y2k-pink), var(--y2k-lavender), var(--y2k-purple));
   box-shadow:
-    0 0 12px rgba(var(--y2k-pink-rgb, 255, 143, 171), 0.25),
+    0 0 12px color-mix(in srgb, var(--y2k-pink) 25%, transparent),
     0 4px 12px rgba(0, 0, 0, 0.15);
   transition:
     box-shadow 0.3s,
@@ -5137,7 +5272,7 @@ strong {
 
 .glimmer-avatar-ring:hover {
   box-shadow:
-    0 0 20px rgba(var(--y2k-pink-rgb, 255, 143, 171), 0.4),
+    0 0 20px color-mix(in srgb, var(--y2k-pink) 40%, transparent),
     0 4px 16px rgba(0, 0, 0, 0.2);
   transform: scale(1.05);
 }
@@ -5169,7 +5304,7 @@ strong {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s;
-  box-shadow: 0 0 20px rgba(var(--y2k-pink-rgb, 255, 143, 171), 0.15);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--y2k-pink) 15%, transparent);
 }
 
 .group:hover .glimmer-bubble::before {
@@ -5193,7 +5328,7 @@ strong {
   background: linear-gradient(135deg, color-mix(in srgb, var(--y2k-pink) 85%, var(--y2k-purple)), var(--y2k-purple));
   color: #fff;
   box-shadow:
-    0 2px 8px rgba(var(--y2k-pink-rgb, 255, 143, 171), 0.2),
+    0 2px 8px color-mix(in srgb, var(--y2k-pink) 20%, transparent),
     0 4px 16px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
@@ -5201,7 +5336,7 @@ strong {
 .glimmer-streaming {
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--y2k-pink) 35%, transparent),
-    0 2px 8px rgba(var(--y2k-pink-rgb, 255, 143, 171), 0.2);
+    0 2px 8px color-mix(in srgb, var(--y2k-pink) 20%, transparent);
   animation: glimmer-pulse 2s ease-in-out infinite;
 }
 
@@ -5210,12 +5345,12 @@ strong {
   100% {
     box-shadow:
       0 0 0 2px color-mix(in srgb, var(--y2k-pink) 35%, transparent),
-      0 2px 8px rgba(var(--y2k-pink-rgb, 255, 143, 171), 0.2);
+      0 2px 8px color-mix(in srgb, var(--y2k-pink) 20%, transparent);
   }
   50% {
     box-shadow:
       0 0 0 3px color-mix(in srgb, var(--y2k-pink) 50%, transparent),
-      0 2px 16px rgba(var(--y2k-pink-rgb, 255, 143, 171), 0.35);
+      0 2px 16px color-mix(in srgb, var(--y2k-pink) 35%, transparent);
   }
 }
 
@@ -5504,7 +5639,11 @@ strong {
   position: absolute;
   inset: -0.1875rem;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.3));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--marinara-app-accent-solid) 30%, transparent),
+    color-mix(in srgb, var(--marinara-app-accent-solid) 18%, transparent)
+  );
   z-index: -1;
   filter: blur(6px);
   opacity: 0.6;
@@ -5516,7 +5655,12 @@ strong {
   position: absolute;
   inset: -0.125rem;
   border-radius: 0;
-  background: linear-gradient(180deg, rgba(168, 85, 247, 0.2), rgba(236, 72, 153, 0.16), rgba(251, 146, 60, 0.08));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--marinara-app-accent-solid) 20%, transparent),
+    color-mix(in srgb, var(--marinara-app-accent-solid) 16%, transparent),
+    rgba(251, 146, 60, 0.08)
+  );
   z-index: -1;
   filter: blur(8px);
   opacity: 0.45;

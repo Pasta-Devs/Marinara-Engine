@@ -142,6 +142,7 @@ export function ChatMessageSearch({ chatId }: { chatId: string }) {
       <button
         ref={buttonRef}
         type="button"
+        data-chat-help="search"
         data-chat-toolbar-panel-action="search"
         className={getChatToolbarButtonClass({ open })}
         title={title}

@@ -3559,6 +3559,8 @@ export function GameNarration({
     "inline-flex items-center justify-center rounded p-1 text-[var(--muted-foreground)]/40 transition-colors hover:bg-[var(--muted)]/30 hover:text-[var(--muted-foreground)] dark:text-white/20 dark:hover:bg-white/10 dark:hover:text-white/60";
   const LOG_SEGMENT_ACTION_BTN =
     "rounded p-1 text-white/45 opacity-100 transition-all hover:bg-white/10 hover:text-white/60 md:text-white/20 md:opacity-0 md:group-hover/logseg:opacity-100";
+  const LOG_DELETE_ACTION_BTN =
+    "text-[var(--marinara-chat-message-action-text)] hover:bg-[var(--marinara-chat-message-action-bg-hover)] hover:text-[var(--marinara-chat-message-action-text-hover)] dark:text-[var(--marinara-chat-message-action-text)] dark:hover:bg-[var(--marinara-chat-message-action-bg-hover)] dark:hover:text-[var(--marinara-chat-message-action-text-hover)]";
   const combatMetaButton = onRequestCombatStart ? (
     <button
       type="button"
@@ -4121,10 +4123,7 @@ export function GameNarration({
             onDeleteSegment?.(sourceMessageId, sourceSegmentIndex);
           }
         }}
-        className={cn(
-          stackedActionButtonClass,
-          "hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
-        )}
+        className={cn(stackedActionButtonClass, LOG_DELETE_ACTION_BTN)}
         title={
           canDeleteThisSegment
             ? localizeUi("ui.game.gamenarration.deleteSegment")
@@ -5219,7 +5218,7 @@ export function GameNarration({
                     <button
                       type="button"
                       onClick={loadOlderLogs}
-                      className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.65rem] font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"
+                      className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-[0.65rem] font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"
                       title={localizeUi("ui.game.gamenarration.loadOlderLogs")}
                     >
                       {localizeUi("ui.game.gamenarration.older")}
@@ -5228,7 +5227,7 @@ export function GameNarration({
                     <button
                       type="button"
                       onClick={showAllLogs}
-                      className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.65rem] font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"
+                      className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-[0.65rem] font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"
                       title={localizeUi("ui.game.gamenarration.loadTheEntireSessionLog")}
                     >
                       {localizeUi("ui.noodle.stageprofilesourcepicker.all")}
@@ -5277,7 +5276,7 @@ export function GameNarration({
                       logScrolledRef.current = true;
                       loadOlderLogs();
                     }}
-                    className="rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-xs font-medium text-white/70 shadow-lg transition-colors hover:bg-white/10 hover:text-white"
+                    className="rounded-md border border-white/10 bg-black/55 px-3 py-1.5 text-xs font-medium text-white/70 shadow-lg transition-colors hover:bg-white/10 hover:text-white"
                   >
                     {localizeUi("ui.game.gamesurfacecomponent.showMoreOlderLogs")}
                     {hiddenLogCount})
@@ -5478,7 +5477,7 @@ export function GameNarration({
                               onDeleteSegment?.(sourceMessageId, sourceSegmentIndex);
                             }
                           }}
-                          className="rounded p-1 text-[var(--marinara-chat-chrome-button-text)] opacity-100 transition-all hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] md:opacity-0 md:group-hover/logseg:opacity-100"
+                          className={cn(LOG_SEGMENT_ACTION_BTN, LOG_DELETE_ACTION_BTN)}
                           title={
                             canDeleteThisSegment
                               ? localizeUi("ui.game.gamenarration.deleteSegment")

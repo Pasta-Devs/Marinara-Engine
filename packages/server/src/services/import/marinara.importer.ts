@@ -16,6 +16,7 @@ import {
   normalizeTrackerCardColorConfig,
   personaCreateInputSchema,
   lorebookFilterModeSchema,
+  MAX_FILE_SIZES,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -97,6 +98,20 @@ interface SavedAvatar {
   filePath: string;
 }
 
+export const MAX_EMBEDDED_SPRITE_COUNT = 256;
+const MAX_EMBEDDED_SPRITE_DATA_CHARS = Math.ceil(MAX_FILE_SIZES.SPRITE / 3) * 4 + 128;
+
+export function embeddedSpriteSizesAreWithinLimits(byteLengths: readonly number[]): boolean {
+  if (byteLengths.length > MAX_EMBEDDED_SPRITE_COUNT) return false;
+  let totalBytes = 0;
+  for (const byteLength of byteLengths) {
+    if (!Number.isSafeInteger(byteLength) || byteLength < 0 || byteLength > MAX_FILE_SIZES.SPRITE) return false;
+    totalBytes += byteLength;
+    if (totalBytes > MAX_FILE_SIZES.CHARACTER_CARD) return false;
+  }
+  return true;
+}
+
 // Decode an `avatar` data URL carried in a native export, validate it as a
 // real image, and write it under data/avatars/. The filesystem path lets a
 // caller remove the file if attaching it to the imported row fails.
@@ -134,31 +149,57 @@ function readLorebookScope(value: unknown): { mode: "all" | "disabled" | "specif
 // by writing each one under data/sprites/<id>/. Filenames are sanitized to
 // just an expression stem + an extension matching the actual image bytes, so
 // a malicious export can't traverse out of the sprites dir.
-async function restoreSprites(sprites: unknown, id: string): Promise<void> {
+export async function restoreSprites(sprites: unknown, id: string): Promise<void> {
   if (sprites === undefined || sprites === null) return;
   if (!Array.isArray(sprites)) {
     logger.warn("Skipped invalid sprite collection for %s", id);
     return;
   }
   if (sprites.length === 0) return;
-  const dir = join(DATA_DIR, "sprites", id);
-  await mkdir(dir, { recursive: true });
-  // Track names we've already written this batch so two exported sprites
-  // whose stems sanitize to the same string (e.g. "happy!" and "happy?" both
-  // collapsing to "happy_") don't silently overwrite each other.
-  const usedNames = new Set<string>();
+  if (sprites.length > MAX_EMBEDDED_SPRITE_COUNT) {
+    logger.warn("Skipped %d embedded sprites for %s; limit is %d", sprites.length, id, MAX_EMBEDDED_SPRITE_COUNT);
+    return;
+  }
+  const prepared: Array<{
+    index: number;
+    rawName: string;
+    decoded: NonNullable<ReturnType<typeof decodeImageDataUrl>>;
+  }> = [];
+  const preparedByteLengths: number[] = [];
   for (const [index, sprite] of sprites.entries()) {
     if (!sprite || typeof sprite !== "object") {
       logger.warn("Skipped invalid sprite entry %d for %s", index, id);
       continue;
     }
     const entry = sprite as Record<string, unknown>;
+    if (typeof entry.data === "string" && entry.data.length > MAX_EMBEDDED_SPRITE_DATA_CHARS) {
+      logger.warn("Skipped oversized embedded sprite collection for %s", id);
+      return;
+    }
     const decoded = decodeImageDataUrl(entry.data);
     if (!decoded) {
       logger.warn("Skipped sprite %d with invalid image data for %s", index, id);
       continue;
     }
-    const rawName = typeof entry.filename === "string" ? entry.filename : "";
+    preparedByteLengths.push(decoded.buffer.length);
+    if (!embeddedSpriteSizesAreWithinLimits(preparedByteLengths)) {
+      logger.warn("Skipped embedded sprites exceeding import byte limits for %s", id);
+      return;
+    }
+    prepared.push({
+      index,
+      rawName: typeof entry.filename === "string" ? entry.filename : "",
+      decoded,
+    });
+  }
+  if (prepared.length === 0) return;
+  const dir = join(DATA_DIR, "sprites", id);
+  await mkdir(dir, { recursive: true });
+  // Track names we've already written this batch so two exported sprites
+  // whose stems sanitize to the same string (e.g. "happy!" and "happy?" both
+  // collapsing to "happy_") don't silently overwrite each other.
+  const usedNames = new Set<string>();
+  for (const { decoded, index, rawName } of prepared) {
     const stem =
       rawName
         .replace(/\\/g, "/")

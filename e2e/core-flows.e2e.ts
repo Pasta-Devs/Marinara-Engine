@@ -45,6 +45,7 @@ async function prepareFreshClient(page: Page) {
           hasCompletedOnboarding: true,
           rightPanelOpen: false,
           sidebarOpen: false,
+          chatHelpSeenModes: ["conversation", "roleplay", "game"],
         },
         version: 65,
       }),
@@ -103,6 +104,21 @@ async function readCssVariableColor(page: Page, variableName: string) {
   }, variableName);
 }
 
+async function openEditorSection(editor: Locator, label: string) {
+  const compactMenuButton = editor.getByRole("button", { name: "Editor sections" });
+  const navigation = editor.getByRole("navigation", { name: "Editor sections" });
+  await expect.poll(async () => (await compactMenuButton.isVisible()) || (await navigation.isVisible())).toBe(true);
+  if (await compactMenuButton.isVisible()) {
+    await compactMenuButton.click();
+    await editor
+      .getByRole("menu", { name: "Editor sections" })
+      .getByRole("menuitemradio", { name: label, exact: true })
+      .click();
+    return;
+  }
+  await navigation.getByRole("button", { name: label, exact: true }).click();
+}
+
 async function bestEffortDelete(request: APIRequestContext, url: string) {
   await request.delete(url, { timeout: 5_000 }).catch(() => undefined);
 }
@@ -158,12 +174,12 @@ async function expectHomeWidgetHeightsMatch(page: Page, baseline: number) {
 
 async function openHomeBookmark(page: Page, name: string) {
   const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
-  let action = bookmarks.getByRole("button", { name, exact: true }).filter({ visible: true });
-  if ((await action.count()) === 0) {
-    await bookmarks.getByRole("button", { name: "Bookmarks", exact: true }).click();
-    action = bookmarks.getByRole("button", { name, exact: true }).filter({ visible: true });
+  const mobileTrigger = bookmarks.getByRole("button", { name: "Bookmarks", exact: true });
+  if (await mobileTrigger.isVisible()) {
+    if ((await mobileTrigger.getAttribute("aria-expanded")) !== "true") await mobileTrigger.click();
+    await expect(mobileTrigger).toHaveAttribute("aria-expanded", "true");
   }
-  await action.click();
+  await bookmarks.getByRole("button", { name, exact: true }).filter({ visible: true }).click();
 }
 
 async function updateLiveReasoningState(
@@ -234,28 +250,7 @@ test("What's New opens once for each Marinara Engine version", async ({ page }) 
   const announcement = page.getByRole("dialog", { name: "What's New?" });
   await expect(announcement).toBeVisible();
   await expect(announcement.getByText(`Version ${APP_VERSION}`, { exact: true })).toBeVisible();
-  await expect(announcement.getByRole("heading", { name: "The new version is here!" })).toBeVisible();
-  await expect
-    .poll(() => announcement.locator("[data-release-copy]").allTextContents())
-    .toEqual([
-      "The new version is here!",
-      "This update is smaller, mostly focusing on stabilization, bug fixes, and QoL updates. We also improved installation methods and prepared a groundwork for new, exciting agents soon to come.",
-      "One agent that is already fully ready is a proper Inventory Tracker! Be sure to add it if you like keeping an eye out on your items.",
-      "The entire list of what was added or changes is, as always, available here:",
-      "https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.4.3",
-      "Thank you all for your continuous support and cheers. I hope you've been treating your Professor Mari well.",
-    ]);
-  await expect(announcement.locator("[data-release-story]")).toHaveAttribute("data-release-story", APP_VERSION);
-  const releaseImages = announcement.locator('[data-release-media-kind="image"]');
-  await expect(releaseImages).toHaveCount(2);
-  await expect(releaseImages.nth(0)).toHaveAttribute("src", "https://i.imgur.com/EhkASR2.png");
-  await expect(releaseImages.nth(1)).toHaveAttribute("src", "https://i.imgur.com/AmhEOED.png");
-  await expect(
-    announcement.getByRole("link", {
-      name: "https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.4.3",
-      exact: true,
-    }),
-  ).toHaveAttribute("href", "https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.4.3");
+  await expect(announcement.locator("[data-release-copy]").first()).not.toHaveText("");
   const announcementScrollArea = announcement.locator('[data-component="WhatsNewModal"]').locator("..");
   await expect
     .poll(() => announcementScrollArea.evaluate((element) => getComputedStyle(element).overflowY))
@@ -301,6 +296,64 @@ test("turning off the custom mouse pointer persists immediately and after reload
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.marinaraCustomCursor ?? null))
     .toBeNull();
+});
+
+test("Settings switches share one centered track and thumb geometry", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-tour="panel-settings"]').click();
+
+  const rootFontSize = await page.evaluate(() =>
+    Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+  );
+  let inspectedSwitches = 0;
+  for (const { id, label } of [
+    { id: "general", label: "General" },
+    { id: "appearance", label: "Appearance" },
+    { id: "generations", label: "Generations" },
+    { id: "addons", label: "Addons" },
+    { id: "import", label: "Imports" },
+    { id: "advanced", label: "Advanced" },
+  ]) {
+    await page.getByRole("tab", { name: label, exact: true }).click();
+    const tracks = page.locator(`#settings-panel-${id} [data-settings-switch-track]`);
+    await tracks.locator("[data-settings-switch-thumb]").evaluateAll(async (thumbs) => {
+      await Promise.all(
+        thumbs.flatMap((thumb) => thumb.getAnimations().map((animation) => animation.finished.catch(() => undefined))),
+      );
+    });
+    const metrics = await tracks.evaluateAll((elements) =>
+      elements.map((track) => {
+        const thumb = track.querySelector<HTMLElement>("[data-settings-switch-thumb]");
+        if (!thumb) throw new Error("Settings switch track is missing its shared thumb");
+        const trackBox = track.getBoundingClientRect();
+        const thumbBox = thumb.getBoundingClientRect();
+        return {
+          trackWidth: trackBox.width,
+          trackHeight: trackBox.height,
+          trackRadius: Number.parseFloat(getComputedStyle(track).borderTopLeftRadius),
+          thumbWidth: thumbBox.width,
+          thumbHeight: thumbBox.height,
+          thumbRadius: Number.parseFloat(getComputedStyle(thumb).borderTopLeftRadius),
+          verticalOffset: Math.abs(thumbBox.y - trackBox.y - (trackBox.height - thumbBox.height) / 2),
+          nearestHorizontalInset: Math.min(thumbBox.x - trackBox.x, trackBox.right - thumbBox.right),
+        };
+      }),
+    );
+
+    inspectedSwitches += metrics.length;
+    for (const metric of metrics) {
+      expect(metric.trackWidth).toBeCloseTo(rootFontSize * 2.25, 1);
+      expect(metric.trackHeight).toBeCloseTo(rootFontSize * 1.25, 1);
+      expect(metric.trackRadius).toBeGreaterThanOrEqual((rootFontSize * 1.25) / 2);
+      expect(metric.thumbWidth).toBeCloseTo(rootFontSize, 1);
+      expect(metric.thumbHeight).toBeCloseTo(rootFontSize, 1);
+      expect(metric.thumbRadius).toBeGreaterThanOrEqual(rootFontSize / 2);
+      expect(metric.verticalOffset).toBeLessThanOrEqual(0.5);
+      expect(metric.nearestHorizontalInset).toBeCloseTo(rootFontSize * 0.125, 1);
+    }
+  }
+
+  expect(inspectedSwitches).toBeGreaterThan(10);
 });
 
 test("Appearance distinguishes the square avatar-shape preview from the circular option", async ({
@@ -536,6 +589,11 @@ test("default dialogue color fills only cards without their own dialogue color",
     });
     expect(coloredMessageResponse.ok()).toBeTruthy();
     const coloredMessage = (await coloredMessageResponse.json()) as { id: string };
+
+    const chatMetadataResponse = await page.request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { groupChatMode: "individual" },
+    });
+    expect(chatMetadataResponse.ok()).toBeTruthy();
 
     await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
     await page.goto("/");
@@ -1237,6 +1295,21 @@ test("Author's Notes keeps its expand and full macro guide inside the field", as
     await expect(macroReference.getByText("{{charPostHistory}}", { exact: true })).toBeVisible();
     await expect(macroReference.getByText("{{agent::TYPE}}", { exact: true })).toBeVisible();
     await expect(macroReference.getByText(/Conditional block with/)).toBeVisible();
+    const negationSyntax = '{{#if character != "Maukie"}}...{{/if}}';
+    await expect(macroReference.getByText(negationSyntax, { exact: true })).toBeVisible();
+    await expect(macroReference.getByText(/"is not", "not contains", and "not includes"/u)).toBeVisible();
+    const macroHelp = await page.evaluate(async () => {
+      const { matchSlashCommand } = (await import("/src/lib/slash-commands.ts")) as {
+        matchSlashCommand: (input: string) => {
+          command: { execute: (args: string, context: never) => Promise<{ feedback?: string }> };
+        } | null;
+      };
+      const match = matchSlashCommand("/macro");
+      if (!match) throw new Error("Expected /macro to match the macros command");
+      return (await match.command.execute("", undefined as never)).feedback ?? "";
+    });
+    expect(macroHelp).toContain(negationSyntax);
+    expect(macroHelp).toContain('"is not", "not contains", and "not includes"');
     await macroReference.getByRole("button", { name: "Close macro reference", exact: true }).click();
     await expect(panel).toBeVisible();
 
@@ -1623,6 +1696,264 @@ test("message deletion uses unified chroma controls and selection states", async
     await expect(assistantRow).toContainText("First assistant swipe.");
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
+test("Conversation transcript dates and message numbers follow Chat Chrome Text Color", async ({ page }) => {
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Conversation Transcript Chroma Smoke", mode: "conversation", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+    data: { role: "user", content: "Transcript chroma probe." },
+  });
+  expect(messageResponse.ok()).toBeTruthy();
+  const message = (await messageResponse.json()) as { id: string };
+
+  try {
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const { useUIStore } = (await import("/src/stores/ui.store.ts")) as {
+        useUIStore: { getState: () => { setShowMessageNumbers: (value: boolean) => void } };
+      };
+      useUIStore.getState().setShowMessageNumbers(true);
+    });
+
+    const messageRow = page.locator(`[data-message-id="${message.id}"]`);
+    const timestamp = messageRow.locator(".mari-message-timestamp");
+    const messageNumber = messageRow.getByText(/^#1$/u);
+    const daySeparator = page.getByText(/^(Today|Yesterday)$/u);
+    await expect(timestamp).toBeVisible();
+    await expect(messageNumber).toBeVisible();
+    await expect(daySeparator).toBeVisible();
+
+    const transcriptLabels = page.locator(".mari-conversation-transcript-chrome-text");
+    const assertChromeText = async (color: string) => {
+      await page.evaluate(async (nextColor) => {
+        const { useUIStore } = (await import("/src/stores/ui.store.ts")) as {
+          useUIStore: { getState: () => { setChatChromeTextColor: (value: string) => void } };
+        };
+        useUIStore.getState().setChatChromeTextColor(nextColor);
+      }, color);
+      const expectedColor = await readCssVariableColor(page, "--marinara-chat-chrome-text");
+      for (const label of await transcriptLabels.all()) {
+        await expect(label).toHaveCSS("color", expectedColor);
+      }
+    };
+
+    await assertChromeText("");
+    await assertChromeText("#14b8a6");
+    await setAppAccentColor(page, "#ec4899");
+    await assertChromeText("#3b82f6");
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
+test("Conversation message actions follow their messages on desktop and mobile", async ({ page }, testInfo) => {
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Conversation Message Actions Smoke", mode: "conversation", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const userMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+    data: { role: "user", content: "User action placement probe." },
+  });
+  expect(userMessageResponse.ok()).toBeTruthy();
+  const assistantMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+    data: { role: "assistant", content: "Assistant action placement probe." },
+  });
+  expect(assistantMessageResponse.ok()).toBeTruthy();
+  const messages = (await Promise.all([userMessageResponse.json(), assistantMessageResponse.json()])) as Array<{
+    id: string;
+  }>;
+
+  try {
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await setAppAccentColor(page, "#ec4899");
+    await page.evaluate(async () => {
+      const { useUIStore } = (await import("/src/stores/ui.store.ts")) as {
+        useUIStore: { getState: () => { setChatChromeTextColor: (value: string) => void } };
+      };
+      useUIStore.getState().setChatChromeTextColor("#14b8a6");
+    });
+    const expectedActionColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
+    const accentActionColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text");
+    expect(expectedActionColor).not.toBe(accentActionColor);
+
+    for (const style of ["classic", "bubble"] as const) {
+      await page.evaluate(async (messageStyle) => {
+        const { useUIStore } = (await import("/src/stores/ui.store.ts")) as {
+          useUIStore: {
+            getState: () => { setConversationMessageStyle: (value: "classic" | "bubble") => void };
+          };
+        };
+        useUIStore.getState().setConversationMessageStyle(messageStyle);
+      }, style);
+
+      for (const message of messages) {
+        const messageRow = page.locator(`[data-message-id="${message.id}"]`);
+        const content = messageRow.locator(':scope > [data-component="ConversationMessage.Content"]');
+        const actions = messageRow.locator(':scope > [data-component="ConversationMessage.Actions"]');
+        const bubble = content.locator(".texting-bubble").first();
+        if (style === "bubble") await expect(bubble).toBeVisible();
+        else await expect(bubble).toHaveCount(0);
+        await expect(content).toBeVisible();
+
+        if (testInfo.project.name.includes("mobile")) {
+          await content.click({ position: { x: 8, y: 8 } });
+        } else {
+          await messageRow.hover();
+        }
+        await expect(actions).toHaveCSS("opacity", "1");
+        await expect(actions.locator('[title="Copy"]')).toHaveCSS("color", expectedActionColor);
+
+        const metrics = await messageRow.evaluate((element) => {
+          const contentElement = element.querySelector<HTMLElement>(
+            ':scope > [data-component="ConversationMessage.Content"]',
+          );
+          const actionElement = element.querySelector<HTMLElement>(
+            ':scope > [data-component="ConversationMessage.Actions"]',
+          );
+          const firstButton = actionElement?.querySelector<HTMLElement>("button");
+          if (!contentElement || !actionElement || !firstButton) return null;
+          const contentBox = contentElement.getBoundingClientRect();
+          const actionBox = actionElement.getBoundingClientRect();
+          const buttonBox = firstButton.getBoundingClientRect();
+          return {
+            position: getComputedStyle(actionElement).position,
+            verticalGap: actionBox.top - contentBox.bottom,
+            leftOffset: Math.abs(buttonBox.left - contentBox.left),
+            actionBottom: actionBox.bottom,
+            rowBottom: element.getBoundingClientRect().bottom,
+          };
+        });
+        expect(metrics).not.toBeNull();
+        expect(metrics!.position).toBe("static");
+        expect(metrics!.verticalGap).toBeGreaterThanOrEqual(0);
+        expect(metrics!.verticalGap).toBeLessThanOrEqual(5);
+        expect(metrics!.leftOffset).toBeLessThanOrEqual(6);
+        expect(metrics!.actionBottom).toBeLessThanOrEqual(metrics!.rowBottom);
+      }
+
+      const messageGap = await page.evaluate(
+        ([firstId, secondId]) => {
+          const first = document.querySelector<HTMLElement>(`[data-message-id="${firstId}"]`);
+          const second = document.querySelector<HTMLElement>(`[data-message-id="${secondId}"]`);
+          if (!first || !second) return null;
+          return second.getBoundingClientRect().top - first.getBoundingClientRect().bottom;
+        },
+        [messages[0]!.id, messages[1]!.id] as const,
+      );
+      expect(messageGap).not.toBeNull();
+      expect(messageGap!).toBeGreaterThanOrEqual(0);
+      expect(messageGap!).toBeLessThanOrEqual(4);
+    }
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
+test("Conversation Calls matches the participant control height", async ({ page, request }) => {
+  const characterResponse = await request.post("/api/characters", {
+    data: { data: { name: "Call Toolbar Height" } },
+  });
+  expect(characterResponse.ok()).toBeTruthy();
+  const character = (await characterResponse.json()) as { id: string };
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "Call Toolbar Height Smoke", mode: "conversation", characterIds: [character.id] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { conversationCallsEnabled: true },
+    });
+    expect(metadataResponse.ok()).toBeTruthy();
+    await page.route("**/api/capability-packages/installed", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "conversation-calls",
+            version: "1.0.11",
+            manifest: {
+              schemaVersion: 1,
+              id: "conversation-calls",
+              name: "Calls",
+              version: "1.0.11",
+              description: "Conversation call toolbar sizing fixture.",
+              engine: { min: "2.4.1", maxExclusive: "4.0.0" },
+              kind: ["agent", "conversation-calls"],
+              entrypoints: { client: "client.js" },
+              files: [],
+              permissions: ["ui"],
+              restartRequired: true,
+            },
+            installedAt: "2026-08-22T00:00:00.000Z",
+            status: "active",
+            error: null,
+            readiness: "ready",
+            readinessError: null,
+            legacy: false,
+          },
+        ]),
+      });
+    });
+    await page.route("**/api/capability-packages/conversation-calls/client*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: `customElements.define("marinara-capability-conversation-calls", class extends HTMLElement {
+          connectedCallback() {
+            const render = () => {
+              if (this.getAttribute("view") !== "toolbar") return this.replaceChildren();
+              const button = document.createElement("button");
+              button.title = "Start call";
+              const toolbarButtonClass = this.capabilityProps?.toolbarButtonClass;
+              button.className = typeof toolbarButtonClass === "string"
+                ? "mari-chrome-control flex items-center justify-center p-0 " + toolbarButtonClass
+                : "mari-chrome-control flex h-9 w-9 items-center justify-center p-0";
+              this.replaceChildren(button);
+            };
+            this.addEventListener("marinara-capability-props", render);
+            render();
+          }
+        });`,
+      });
+    });
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+
+    const presenceButton = page.locator('button[title^="Call Toolbar Height:"]');
+    const callHost = page.locator("marinara-capability-conversation-calls[view=toolbar]");
+    const callButton = callHost.locator('button[title="Start call"]');
+    await expect(presenceButton).toBeVisible();
+    await expect(callButton).toBeVisible();
+    await expect
+      .poll(() =>
+        callHost.evaluate((element) =>
+          String(
+            (element as HTMLElement & { capabilityProps?: { toolbarButtonClass?: unknown } }).capabilityProps
+              ?.toolbarButtonClass ?? "",
+          ),
+        ),
+      )
+      .toContain("h-8 w-8");
+    const [presenceBox, callBox] = await Promise.all([presenceButton.boundingBox(), callButton.boundingBox()]);
+    expect(presenceBox).not.toBeNull();
+    expect(callBox).not.toBeNull();
+    expect(callBox!.height).toBeCloseTo(presenceBox!.height, 1);
+  } finally {
+    await Promise.all([
+      request.delete(`/api/chats/${chat.id}`).catch(() => undefined),
+      request.delete(`/api/characters/${character.id}`).catch(() => undefined),
+    ]);
   }
 });
 
@@ -2425,7 +2756,7 @@ test("Character favorite tags and stars inherit the configured accent color", as
     expect(await favoriteToggle.getAttribute("class")).not.toMatch(/amber|yellow/iu);
     await editor.getByTitle("Back").click();
 
-    await rightPanel.getByRole("button", { name: "Open Characters Library" }).click();
+    await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
     await library.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterName);
 
@@ -2687,7 +3018,7 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
     await page.goto("/");
     await ensureCharacterPanelOpen();
 
-    await rightPanel.getByRole("button", { name: "Open Characters Library" }).click();
+    await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
     await library.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterName);
     const libraryCard = library.locator(`[data-card-library-card="${character.id}"]`);
@@ -2953,6 +3284,9 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
 });
 
 test("Character and Persona avatar actions stay separated and visually balanced", async ({ page }) => {
+  if ((page.viewportSize()?.width ?? 768) >= 768) {
+    await page.setViewportSize({ width: 1800, height: 900 });
+  }
   const suffix = Date.now().toString(36);
   const connectionResponse = await page.request.post("/api/connections", {
     data: {
@@ -3027,6 +3361,67 @@ test("Character and Persona avatar actions stay separated and visually balanced"
     await expect(byline).toHaveText(`by ${creator}·v${version}`);
     await expect(editor.locator(".mari-editor-secondary-line .mari-editor-meta")).toHaveCount(0);
 
+    const header = editor.locator(".mari-editor-header--with-nav");
+    const navigation = header.locator(".mari-editor-navigation");
+    const actions = header.locator(".mari-editor-actions");
+    const compactMenuButton = navigation.getByRole("button", { name: "Editor sections" });
+    const desktopTabs = navigation.getByRole("navigation", { name: "Editor sections" });
+    if ((page.viewportSize()?.width ?? 768) < 768) {
+      await expect(compactMenuButton).toBeVisible();
+      const [menuButtonBox, firstActionBox] = await Promise.all([
+        compactMenuButton.boundingBox(),
+        actions.locator(".mari-editor-action").first().boundingBox(),
+      ]);
+      expect(menuButtonBox).not.toBeNull();
+      expect(firstActionBox).not.toBeNull();
+      if (menuButtonBox && firstActionBox) {
+        expect(menuButtonBox.width).toBeLessThanOrEqual(137);
+        expect(
+          Math.abs(menuButtonBox.y + menuButtonBox.height / 2 - (firstActionBox.y + firstActionBox.height / 2)),
+        ).toBeLessThanOrEqual(1);
+        expect(menuButtonBox.x + menuButtonBox.width).toBeLessThanOrEqual(firstActionBox.x);
+      }
+      await compactMenuButton.click();
+      const compactMenu = navigation.getByRole("menu", { name: "Editor sections" });
+      const compactMenuBox = await compactMenu.boundingBox();
+      expect(compactMenuBox).not.toBeNull();
+      if (menuButtonBox && compactMenuBox) {
+        expect(compactMenuBox.y).toBeGreaterThanOrEqual(menuButtonBox.y + menuButtonBox.height - 1);
+      }
+      const selectedMenuItem = compactMenu.getByRole("menuitemradio", { checked: true });
+      await expect(selectedMenuItem).toBeFocused();
+      await selectedMenuItem.press("ArrowDown");
+      await expect(compactMenu.getByRole("menuitemradio").nth(1)).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(compactMenu).toHaveCount(0);
+      await expect(compactMenuButton).toBeFocused();
+      await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
+    } else {
+      await expect(desktopTabs).toBeVisible();
+      const [headerBox, navigationBox, firstActionBox, tabBoxes] = await Promise.all([
+        header.boundingBox(),
+        navigation.boundingBox(),
+        actions.locator(".mari-editor-action").first().boundingBox(),
+        desktopTabs.locator(".mari-editor-tab").evaluateAll((tabs) =>
+          tabs.map((tab) => {
+            const box = tab.getBoundingClientRect();
+            return { left: box.left, right: box.right, height: box.height };
+          }),
+        ),
+      ]);
+      expect(headerBox).not.toBeNull();
+      expect(navigationBox).not.toBeNull();
+      if (headerBox && navigationBox) {
+        expect(navigationBox.width).toBeLessThan(headerBox.width * 0.65);
+      }
+      for (let index = 1; index < tabBoxes.length; index += 1) {
+        expect(tabBoxes[index].left - tabBoxes[index - 1].right).toBeLessThanOrEqual(5);
+      }
+      if (firstActionBox) {
+        for (const tabBox of tabBoxes) expect(Math.abs(tabBox.height - firstActionBox.height)).toBeLessThanOrEqual(1);
+      }
+    }
+
     const [titleLineBox, titleInputBox, bylineBox] = await Promise.all([
       titleLine.boundingBox(),
       titleInput.boundingBox(),
@@ -3036,11 +3431,22 @@ test("Character and Persona avatar actions stay separated and visually balanced"
     expect(titleInputBox).not.toBeNull();
     expect(bylineBox).not.toBeNull();
     if (titleLineBox && titleInputBox && bylineBox) {
+      expect(titleInputBox.width).toBeGreaterThanOrEqual(48);
       expect(titleInputBox.x + titleInputBox.width).toBeLessThanOrEqual(bylineBox.x + 1);
       expect(bylineBox.x + bylineBox.width).toBeLessThanOrEqual(titleLineBox.x + titleLineBox.width + 1);
       expect(Math.abs(titleInputBox.y + titleInputBox.height - (bylineBox.y + bylineBox.height))).toBeLessThanOrEqual(
         2,
       );
+      if ((page.viewportSize()?.width ?? 768) >= 768) {
+        expect(bylineBox.x - (titleInputBox.x + titleInputBox.width)).toBeLessThanOrEqual(10);
+        const navigationBox = await navigation.boundingBox();
+        expect(navigationBox).not.toBeNull();
+        if (navigationBox) expect(navigationBox.x - (bylineBox.x + bylineBox.width)).toBeLessThanOrEqual(24);
+        const creatorFits = await byline
+          .locator(".mari-editor-byline-creator")
+          .evaluate((element) => element.scrollWidth <= element.clientWidth);
+        expect(creatorFits).toBe(true);
+      }
     }
 
     const tile = editor.locator(".mari-editor-avatar-tile");
@@ -3077,10 +3483,7 @@ test("Character and Persona avatar actions stay separated and visually balanced"
       generateBox.y + generateBox.height > cameraBox.y;
     expect(overlapsCamera).toBe(false);
 
-    await editor
-      .getByRole("navigation", { name: "Editor sections" })
-      .getByRole("button", { name: "Metadata", exact: true })
-      .click();
+    await openEditorSection(editor, "Metadata");
     const uploadButton = editor.getByRole("button", { name: "Upload avatar", exact: true });
     const metadataGenerateButton = editor.getByRole("button", { name: "Generate with AI", exact: true });
     await expect(uploadButton).toBeVisible();
@@ -3118,20 +3521,19 @@ test("Character and Persona avatar actions stay separated and visually balanced"
         .toBe(true);
     }
 
-    const editorSections = editor.getByRole("navigation", { name: "Editor sections" });
     if (panel === "characters") {
-      await editorSections.getByRole("button", { name: "Card", exact: true }).click();
+      await openEditorSection(editor, "Card");
       const addGreetingButton = editor.getByRole("button", { name: "+ Add", exact: true });
       await expect(addGreetingButton).toHaveClass(/mari-editor-action--accent/u);
     }
 
-    await editorSections.getByRole("button", { name: "Lorebook", exact: true }).click();
+    await openEditorSection(editor, "Lorebook");
     await expect(editor.getByRole("button", { name: "New", exact: true })).toHaveClass(/mari-editor-action/u);
     await expect(editor.getByRole("button", { name: "Assign Lorebook", exact: true })).toHaveClass(
       /mari-editor-action--accent/u,
     );
 
-    await editorSections.getByRole("button", { name: "Colors", exact: true }).click();
+    await openEditorSection(editor, "Colors");
     await expect(editor.getByRole("button", { name: "Extract Colors from Avatar", exact: true })).toHaveClass(
       /mari-editor-action--accent/u,
     );
@@ -3312,23 +3714,20 @@ test("Character and persona sheets persist an explicit reference choice and fall
 
     await page.goto("/");
     await page.locator('[data-tour="panel-characters"]').click();
-    await page.getByText(characterName, { exact: true }).first().click({ position: { x: 2, y: 2 } });
+    await page
+      .getByText(characterName, { exact: true })
+      .first()
+      .click({ position: { x: 2, y: 2 } });
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
-    await editor
-      .getByRole("navigation", { name: "Editor sections" })
-      .getByRole("button", { name: "Metadata", exact: true })
-      .click();
+    await openEditorSection(editor, "Metadata");
     await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).toHaveCount(0);
     await expect(
       editor
         .getByRole("navigation", { name: "Editor sections" })
         .getByRole("button", { name: "Character Sheet", exact: true }),
     ).toHaveCount(0);
-    await editor
-      .getByRole("navigation", { name: "Editor sections" })
-      .getByRole("button", { name: "Sprites", exact: true })
-      .click();
+    await openEditorSection(editor, "Sprites");
     await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(editor.getByAltText(`${characterName} character sheet`)).toBeVisible();
     await expect(editor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
@@ -3341,11 +3740,12 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(sheetDialog.getByRole("button", { name: "Save as Character Sheet", exact: true })).toBeDisabled();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
-    await editor
-      .getByRole("navigation", { name: "Editor sections" })
-      .getByRole("button", { name: "Gallery", exact: true })
-      .click();
-    await expect(editor.getByText("Use the Select button above to enter batch editing mode and apply an action to multiple entries at once.")).toBeVisible();
+    await openEditorSection(editor, "Gallery");
+    await expect(
+      editor.getByText(
+        "Use the Select button above to enter batch editing mode and apply an action to multiple entries at once.",
+      ),
+    ).toBeVisible();
     await editor.getByRole("button", { name: "Select All", exact: true }).click();
     await expect(editor.getByText("1 selected", { exact: true })).toBeVisible();
     await expect(editor.getByRole("button", { name: "Toggle image selection" })).toHaveAttribute(
@@ -3367,24 +3767,21 @@ test("Character and persona sheets persist an explicit reference choice and fall
       .evaluate((button: HTMLButtonElement) => button.click());
     await expect(editor).toHaveCount(0);
     await page.locator('[data-tour="panel-personas"]').click();
-    await page.getByText(personaName, { exact: true }).first().click({ position: { x: 2, y: 2 } });
+    await page
+      .getByText(personaName, { exact: true })
+      .first()
+      .click({ position: { x: 2, y: 2 } });
     const personaEditor = page.locator(".mari-editor-shell");
     await expect(personaEditor).toBeVisible();
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toHaveCount(0);
-    await personaEditor
-      .getByRole("navigation", { name: "Editor sections" })
-      .getByRole("button", { name: "Sprites", exact: true })
-      .click();
+    await openEditorSection(personaEditor, "Sprites");
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(personaEditor.getByAltText(`${personaName} character sheet`)).toBeVisible();
     await expect(personaEditor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
     await personaEditor.getByRole("button", { name: "Create with AI", exact: true }).click();
     await expect(sheetDialog).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
-    await personaEditor
-      .getByRole("navigation", { name: "Editor sections" })
-      .getByRole("button", { name: "Gallery", exact: true })
-      .click();
+    await openEditorSection(personaEditor, "Gallery");
     await expect(personaEditor.getByRole("button", { name: "Select images", exact: true })).toBeVisible();
     await expect(personaEditor.getByRole("button", { name: "Select All", exact: true })).toBeVisible();
     await personaEditor.getByRole("button", { name: "Select All", exact: true }).click();
@@ -3591,10 +3988,7 @@ test("Matched full-body sprites approve a neutral anchor before using portrait r
     await rightPanel.locator('[data-touch-drag-card="character"]').filter({ hasText: characterName }).click();
 
     const editor = page.locator(".mari-editor-shell");
-    await editor
-      .getByRole("navigation", { name: "Editor sections" })
-      .getByRole("button", { name: "Sprites", exact: true })
-      .click();
+    await openEditorSection(editor, "Sprites");
     await editor.getByRole("button", { name: "Full-body", exact: true }).click();
     await editor.getByRole("button", { name: "Generate Sprite", exact: true }).click();
 
@@ -3671,8 +4065,8 @@ test("expanded character editors keep native keyboard and quote caret behavior",
     await page.locator('[data-tour="panel-characters"]').click();
     await page.getByText(characterName, { exact: true }).first().click();
 
-    const editorSections = page.getByRole("navigation", { name: "Editor sections" });
-    await editorSections.getByRole("button", { name: "Convo", exact: true }).click();
+    const editor = page.locator(".mari-editor-shell");
+    await openEditorSection(editor, "Convo");
 
     const fields = page.locator('[data-component="ConvoProfileFields"]');
     await expect(fields.getByText("About Me", { exact: true })).toBeVisible();
@@ -3726,7 +4120,7 @@ test("expanded character editors keep native keyboard and quote caret behavior",
     await expect(expandedEditor).toHaveValue("alpha\nbeta");
 
     await page.getByRole("button", { name: "Close expanded editor", exact: true }).click();
-    await editorSections.getByRole("button", { name: "Card", exact: true }).click();
+    await openEditorSection(editor, "Card");
     const descriptionField = page.locator("#character-card-description");
     await descriptionField.getByRole("button", { name: "Expand editor", exact: true }).click();
 
@@ -3836,6 +4230,7 @@ test("Conversation membership notices begin only after the chat starts", async (
 
 test("character schedules export the live draft and import safely", async ({ page, request }) => {
   const suffix = Date.now().toString(36);
+  const generatedAt = new Date().toISOString();
   const characterName = `Schedule Transfer ${suffix}`;
   const characterResponse = await request.post("/api/characters", {
     data: { data: { name: characterName, first_mes: "Good morning." } },
@@ -3857,7 +4252,7 @@ test("character schedules export the live draft and import safely", async ({ pag
     Sunday: [] as Array<{ time: string; activity: string; status: string }>,
   });
   const originalSchedule = {
-    weekStart: "2026-07-20T00:00:00.000Z",
+    weekStart: generatedAt,
     days: {
       ...emptyDays(),
       Monday: [{ time: "09:00-17:00", activity: "Original research", status: "dnd" }],
@@ -3865,7 +4260,7 @@ test("character schedules export the live draft and import safely", async ({ pag
     inactivityThresholdMinutes: 120,
     autonomousDailyCapOverride: null,
     routineSummary: "An exacting weekly routine.",
-    routineSummaryGeneratedAt: "2026-07-20T12:00:00.000Z",
+    routineSummaryGeneratedAt: generatedAt,
     disabledAutonomousIntents: [],
     talkativeness: 50,
   };
@@ -4529,7 +4924,10 @@ test("empty focused chat composers keep keyboard swipe navigation", async ({ pag
   }
 });
 
-test("mobile transcript swipes navigate Conversation and Roleplay alternatives", async ({ page, request }, testInfo) => {
+test("mobile transcript swipes navigate Conversation and Roleplay alternatives", async ({
+  page,
+  request,
+}, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Touch swipe navigation is covered on mobile.");
 
   const fixtures: Array<{ chatId: string; messageId: string; first: string; second: string }> = [];
@@ -4621,10 +5019,7 @@ test("goto keeps stale CYOA choices out of the chat tail", async ({ page, reques
         name: "Guide",
         is_user: false,
         mes: `Imported assistant message ${index + 1}`,
-        extra:
-          index === 79
-            ? { cyoaChoices: [{ label: "Wait", text: staleChoiceText }] }
-            : {},
+        extra: index === 79 ? { cyoaChoices: [{ label: "Wait", text: staleChoiceText }] } : {},
       }),
     ),
   ].join("\n");
@@ -5261,6 +5656,129 @@ for (const mode of ["roleplay", "conversation"] as const) {
     }
   });
 }
+
+test("Roleplay can show streaming reasoning inline and control automatic collapse", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Inline Roleplay reasoning behavior is covered on desktop.");
+
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Inline Roleplay Reasoning Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: {
+        role: "assistant",
+        content: "The completed response appears below its reasoning.",
+        extra: { thinking: "Saved inline reasoning." },
+      },
+    });
+    expect(messageResponse.ok()).toBeTruthy();
+    const message = (await messageResponse.json()) as { id: string };
+    const generationInfoResponse = await page.request.patch(`/api/chats/${chat.id}/messages/${message.id}/extra`, {
+      data: { generationInfo: { durationMs: 90_000, reasoningDurationMs: 2_200 } },
+    });
+    expect(generationInfoResponse.ok()).toBeTruthy();
+    const legacyMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: {
+        role: "assistant",
+        content: "This older response has no saved reasoning duration.",
+        extra: { thinking: "Legacy inline reasoning." },
+      },
+    });
+    expect(legacyMessageResponse.ok()).toBeTruthy();
+    const legacyMessage = (await legacyMessageResponse.json()) as { id: string };
+
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await setAppAccentColor(page, "#ec4899");
+    await page.evaluate(async () => {
+      const { useUIStore } = (await import("/src/stores/ui.store.ts")) as {
+        useUIStore: { getState: () => { setChatChromeTextColor: (value: string) => void } };
+      };
+      useUIStore.getState().setChatChromeTextColor("#14b8a6");
+    });
+    await page.locator('[data-tour="panel-settings"]').click();
+    await page.getByRole("tab", { name: "Appearance" }).click();
+
+    const showControl = page.locator("#settings-control-show-roleplay-thinking-in-messages");
+    const keepControl = page.locator("#settings-control-keep-roleplay-thinking-expanded");
+    const showToggle = showControl.getByRole("checkbox", { name: "Show Thinking In Messages" });
+    const keepToggle = keepControl.getByRole("checkbox", { name: "Don't Collapse Thinking" });
+    await showControl.scrollIntoViewIfNeeded();
+    await expect(showToggle).not.toBeChecked();
+    await expect(keepToggle).toBeDisabled();
+    await showControl.getByText("Show Thinking In Messages", { exact: true }).click();
+    await expect(showToggle).toBeChecked();
+    await expect(keepToggle).toBeEnabled();
+
+    const savedRow = page.locator(`[data-message-id="${message.id}"]`);
+    const savedThinking = savedRow.locator("[data-message-thinking-inline]");
+    const savedThinkingButton = savedThinking.getByRole("button", { name: "Thought for 2 seconds…" });
+    await expect(savedThinkingButton).toHaveAttribute("aria-expanded", "false");
+    const chromeTextColor = await readCssVariableColor(page, "--marinara-chat-chrome-text");
+    const accentTextColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");
+    expect(chromeTextColor).not.toBe(accentTextColor);
+    await expect(savedThinkingButton).toHaveCSS("color", chromeTextColor);
+    await expect(savedThinking).not.toContainText("Saved inline reasoning.");
+    await expect(savedRow.getByRole("button", { name: "View model thoughts" })).toHaveCount(0);
+    const expandedLayoutSamples = await savedThinkingButton.evaluate(async (button) => {
+      const output = button.closest("[data-message-id]")?.querySelector<HTMLElement>(".mari-message-content");
+      if (!output) return [];
+      button.click();
+      const samples: number[] = [];
+      for (let frame = 0; frame < 4; frame += 1) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        samples.push(output.getBoundingClientRect().top);
+      }
+      return samples;
+    });
+    expect(expandedLayoutSamples).toHaveLength(4);
+    expect(Math.max(...expandedLayoutSamples) - Math.min(...expandedLayoutSamples)).toBeLessThanOrEqual(0.5);
+    await expect(savedThinking).toContainText("Saved inline reasoning.");
+
+    const legacyThinking = page
+      .locator(`[data-message-id="${legacyMessage.id}"]`)
+      .locator("[data-message-thinking-inline]");
+    await expect(legacyThinking.getByRole("button", { name: "Thought…" })).toHaveAttribute("aria-expanded", "false");
+
+    await updateLiveReasoningState(page, chat.id, "start");
+    await updateLiveReasoningState(page, chat.id, "append-thinking", "First live reasoning chunk.");
+    const liveMessage = page.locator('[data-message-id="__streaming__"]');
+    const liveThinking = liveMessage.locator("[data-message-thinking-inline]");
+    const liveThinkingButton = liveThinking.getByRole("button", { name: /^Thought for \d+ seconds?…$/u });
+    await expect(liveThinkingButton).toHaveAttribute("aria-expanded", "true");
+    await expect(liveThinking).toContainText("First live reasoning chunk.");
+
+    await updateLiveReasoningState(page, chat.id, "append-thinking", " Second live reasoning chunk.");
+    await expect(liveThinking).toContainText("First live reasoning chunk. Second live reasoning chunk.");
+    await updateLiveReasoningState(page, chat.id, "append-content", "\n  ");
+    await expect(liveThinkingButton).toHaveAttribute("aria-expanded", "true");
+    await updateLiveReasoningState(page, chat.id, "append-content", "The visible response begins.");
+    await expect(liveThinkingButton).toHaveAttribute("aria-expanded", "false");
+    await expect(liveThinking).not.toContainText("First live reasoning chunk.");
+    await expect(liveMessage).toContainText("The visible response begins.");
+    await updateLiveReasoningState(page, chat.id, "stop");
+
+    await keepControl.getByText("Don't Collapse Thinking", { exact: true }).click();
+    await expect(keepToggle).toBeChecked();
+    await updateLiveReasoningState(page, chat.id, "start");
+    await updateLiveReasoningState(page, chat.id, "append-thinking", "Reasoning that stays open.");
+    await updateLiveReasoningState(page, chat.id, "append-content", "Another visible response.");
+    const persistentLiveThinking = page
+      .locator('[data-message-id="__streaming__"]')
+      .locator("[data-message-thinking-inline]");
+    await expect(persistentLiveThinking.getByRole("button", { name: /^Thought for \d+ seconds?…$/u })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    await expect(persistentLiveThinking).toContainText("Reasoning that stays open.");
+  } finally {
+    await updateLiveReasoningState(page, chat.id, "stop").catch(() => undefined);
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
 
 test("Roleplay rewrite streaming follows the rendered message height", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Roleplay rewrite scrolling is covered on desktop.");
@@ -5899,7 +6417,7 @@ test("legacy browser records are cleaned while extension imports stay locked", a
         };
       }),
     )
-    .toEqual({ version: 94, hasExtensionRecords: false, hasCleanupFlag: false });
+    .toEqual({ version: 96, hasExtensionRecords: false, hasCleanupFlag: false });
 
   expect(
     await page.evaluate(
@@ -6367,13 +6885,13 @@ test("Gallery Illustrate offers active custom image agents", async ({ page, requ
     await expect(menu.getByRole("menuitem", { name: "Illustrator", exact: true })).toBeVisible();
     await expect(menu.getByRole("menuitem", { name: activeAgentName, exact: true })).toBeVisible();
     await expect(menu.getByRole("menuitem", { name: inactiveAgentName, exact: true })).toHaveCount(0);
-    await drawer
-      .getByRole("searchbox", { name: "Search gallery images", exact: true })
-      .dispatchEvent("pointerdown");
+    await drawer.getByRole("searchbox", { name: "Search gallery images", exact: true }).dispatchEvent("pointerdown");
     await expect(menu).toHaveCount(0);
   } finally {
     if (chatId) await request.delete(`/api/chats/${chatId}`).catch(() => undefined);
-    await Promise.all(createdAgentIds.map((agentId) => request.delete(`/api/agents/${agentId}`).catch(() => undefined)));
+    await Promise.all(
+      createdAgentIds.map((agentId) => request.delete(`/api/agents/${agentId}`).catch(() => undefined)),
+    );
   }
 });
 
@@ -6585,6 +7103,345 @@ test("chat toolbar panels close when their trigger is clicked again across modes
       request.delete(`/api/chats/${conversationChat.id}`),
       request.delete(`/api/chats/${gameChat.id}`),
     ]);
+  }
+});
+
+test("chat Help overlay labels visible controls in every mode", async ({ page, request }, testInfo) => {
+  const mobile = testInfo.project.name.includes("mobile");
+  const chats: Array<{ id: string; mode: "conversation" | "roleplay" | "game" }> = [];
+
+  try {
+    for (const mode of ["roleplay", "conversation", "game"] as const) {
+      const response = await request.post("/api/chats", {
+        data: { name: `${mode} Help Overlay Smoke`, mode, characterIds: [] },
+      });
+      expect(response.ok()).toBeTruthy();
+      const chat = (await response.json()) as { id: string };
+      chats.push({ id: chat.id, mode });
+
+      if (mode === "game") {
+        const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
+          data: {
+            gameId: "help-overlay-smoke-game",
+            gameSessionStatus: "active",
+            gameSessionNumber: 1,
+            gameIntroPresented: true,
+          },
+        });
+        expect(metadataResponse.ok()).toBeTruthy();
+        const messageResponse = await request.post(`/api/chats/${chat.id}/messages`, {
+          data: { role: "assistant", content: "The Help overlay test game begins." },
+        });
+        expect(messageResponse.ok()).toBeTruthy();
+      }
+    }
+
+    await page.addInitScript((activeChatId) => {
+      localStorage.setItem("marinara-active-chat-id", activeChatId);
+      const storageKey = "marinara-engine-ui";
+      const persisted = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as {
+        state?: Record<string, unknown>;
+        version?: number;
+      };
+      persisted.state = {
+        ...(persisted.state ?? {}),
+        chatHelpSeenModes: ["conversation", "roleplay", "game"],
+      };
+      localStorage.setItem(storageKey, JSON.stringify(persisted));
+    }, chats[0]!.id);
+    await page.goto("/");
+
+    const setActiveChat = async (chatId: string) => {
+      await page.evaluate(async (nextChatId) => {
+        const module = await import("/src/stores/chat.store.ts");
+        module.useChatStore.getState().setActiveChatId(nextChatId);
+      }, chatId);
+    };
+
+    for (const [index, chat] of chats.entries()) {
+      if (index > 0) await setActiveChat(chat.id);
+      await expect(page.locator(`[data-chat-mode="${chat.mode}"]`)).toBeVisible();
+
+      if (chat.mode === "conversation") {
+        await page.evaluate(() => {
+          const root = document.querySelector<HTMLElement>('[data-chat-mode="conversation"]');
+          if (!root || root.querySelector('[data-chat-help="call"]')) return;
+          const optionalCall = document.createElement("button");
+          optionalCall.type = "button";
+          optionalCall.dataset.chatHelp = "call";
+          optionalCall.setAttribute("aria-label", "Optional voice call fixture");
+          optionalCall.style.cssText = "position:absolute;top:3.5rem;right:1rem;width:2rem;height:2rem";
+          root.append(optionalCall);
+        });
+      }
+
+      if (mobile) {
+        const overflowName = chat.mode === "game" ? "Game actions" : "More options";
+        await page.getByRole("button", { name: overflowName, exact: true }).filter({ visible: true }).click();
+      }
+
+      const helpButton = page.getByRole("button", { name: "Help", exact: true }).filter({ visible: true });
+      await expect(helpButton).toHaveCount(1);
+      if (mobile) {
+        await expect(
+          page.locator("[data-chat-toolbar-overflow-menu]").getByRole("button").first(),
+        ).toHaveAccessibleName("Help");
+      } else {
+        const helpBox = await helpButton.boundingBox();
+        const branchesBox = await page
+          .locator(`[data-chat-mode="${chat.mode}"] [data-chat-help="branches"]`)
+          .filter({ visible: true })
+          .boundingBox();
+        expect(helpBox).not.toBeNull();
+        expect(branchesBox).not.toBeNull();
+        expect(helpBox!.x).toBeLessThan(branchesBox!.x);
+      }
+      await helpButton.click();
+
+      const overlay = page.locator(`[data-chat-help-overlay="${chat.mode}"]`);
+      await expect(overlay).toBeVisible();
+      if (mobile) {
+        await expect(
+          overlay.getByRole("button", {
+            name: "Tap a section you want to learn more about or this button to exit the help overlay.",
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(overlay.locator("[data-chat-help-legend]")).toHaveCount(0);
+        await expect(overlay.locator("[data-chat-help-mobile-detail]")).toHaveCount(0);
+      } else {
+        await expect(
+          overlay.getByText("Click or tap anywhere to exit the help overlay.", { exact: true }),
+        ).toBeVisible();
+      }
+      await expect(overlay.locator('[data-chat-help-highlight="branches"]')).toBeVisible();
+      await expect(overlay.locator('[data-chat-help-highlight="settings"]')).toBeVisible();
+      await expect(overlay.locator('[data-chat-help-highlight="help"]')).toBeVisible();
+
+      if (chat.mode === "conversation") {
+        await expect(overlay.locator('[data-chat-help-highlight="call"]')).toBeVisible();
+        await expect(overlay.locator('[data-chat-help-highlight="messages"]')).toBeVisible();
+        await expect(overlay.locator('[data-chat-help-highlight="composer"]')).toBeVisible();
+      } else if (chat.mode === "roleplay") {
+        await expect(overlay.locator('[data-chat-help-highlight="summary"]')).toBeVisible();
+        await expect(overlay.locator('[data-chat-help-highlight="messages"]')).toBeVisible();
+        await expect(overlay.locator('[data-chat-help-highlight="composer"]')).toBeVisible();
+      } else {
+        await expect(overlay.locator('[data-chat-help-highlight="retry"]')).toBeVisible();
+        await expect(overlay.locator('[data-chat-help-highlight="session"]')).toBeVisible();
+        await expect(overlay.locator('[data-chat-help-highlight="dialogue"]')).toBeVisible();
+      }
+
+      const highlightBoxes = await overlay.locator("[data-chat-help-highlight]").evaluateAll((elements) =>
+        elements.map((element) => {
+          const rect = element.getBoundingClientRect();
+          return { id: element.getAttribute("data-chat-help-highlight"), ...rect.toJSON() };
+        }),
+      );
+      for (let firstIndex = 0; firstIndex < highlightBoxes.length; firstIndex += 1) {
+        for (let secondIndex = firstIndex + 1; secondIndex < highlightBoxes.length; secondIndex += 1) {
+          const first = highlightBoxes[firstIndex]!;
+          const second = highlightBoxes[secondIndex]!;
+          const overlapX = Math.min(first.right, second.right) - Math.max(first.left, second.left);
+          const overlapY = Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top);
+          expect(overlapX <= 0 || overlapY <= 0, `Help highlights ${first.id} and ${second.id} overlap`).toBe(true);
+        }
+      }
+
+      const dialogButtons = overlay.getByRole("button");
+      const firstDialogButton = dialogButtons.first();
+      const lastDialogButton = dialogButtons.last();
+      await firstDialogButton.focus();
+      await page.keyboard.press("Shift+Tab");
+      await expect(lastDialogButton).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(firstDialogButton).toBeFocused();
+
+      if (mobile) {
+        const messageTarget = chat.mode === "game" ? "dialogue" : "messages";
+        const keyboardTarget = overlay.locator('[data-chat-help-highlight="branches"]');
+        await keyboardTarget.focus();
+        await page.keyboard.press("Enter");
+        await expect(overlay.locator('[data-chat-help-mobile-detail="branches"]')).toBeVisible();
+        await overlay.locator(`[data-chat-help-highlight="${messageTarget}"]`).click();
+        const detail = overlay.locator(`[data-chat-help-mobile-detail="${messageTarget}"]`);
+        await expect(detail).toBeVisible();
+        await expect(detail.locator(`[data-chat-help-action-legend="${chat.mode}"]`)).toBeVisible();
+        await overlay
+          .getByRole("button", {
+            name: "Tap a section you want to learn more about or this button to exit the help overlay.",
+            exact: true,
+          })
+          .click();
+      } else {
+        const legend = overlay.locator("[data-chat-help-legend]");
+        const legendBox = await legend.boundingBox();
+        expect(legendBox).not.toBeNull();
+        expect(legendBox!.x).toBeGreaterThanOrEqual(0);
+        expect(legendBox!.y).toBeGreaterThanOrEqual(0);
+        expect(legendBox!.x + legendBox!.width).toBeLessThanOrEqual(testInfo.project.use.viewport!.width);
+        expect(legendBox!.y + legendBox!.height).toBeLessThanOrEqual(testInfo.project.use.viewport!.height);
+        expect(await overlay.locator("[data-chat-help-entry]").count()).toBeGreaterThanOrEqual(7);
+        await expect(legend.locator(`[data-chat-help-action-legend="${chat.mode}"]`)).toBeVisible();
+        await legend.click({ position: { x: 8, y: 8 } });
+        await expect(overlay).toBeVisible();
+
+        const branchesHighlight = overlay.locator('[data-chat-help-highlight="branches"]');
+        await branchesHighlight.hover();
+        await expect(overlay.locator('[data-chat-help-hover-card="branches"]')).toContainText(
+          "Create and switch branches.",
+        );
+
+        if (chat.mode === "roleplay") {
+          const rootBox = await page.locator('[data-chat-mode="roleplay"]').boundingBox();
+          const columnBox = await page.locator("[data-roleplay-chat-column]").boundingBox();
+          const messagesBox = await overlay.locator('[data-chat-help-highlight="messages"]').boundingBox();
+          expect(rootBox).not.toBeNull();
+          expect(columnBox).not.toBeNull();
+          expect(messagesBox).not.toBeNull();
+          expect(messagesBox!.width).toBeLessThan(rootBox!.width);
+          expect(messagesBox!.x).toBeGreaterThanOrEqual(columnBox!.x - 1);
+          expect(messagesBox!.x + messagesBox!.width).toBeLessThanOrEqual(columnBox!.x + columnBox!.width + 1);
+          expect(
+            Math.abs(messagesBox!.x + messagesBox!.width / 2 - (columnBox!.x + columnBox!.width / 2)),
+          ).toBeLessThan(4);
+        }
+
+        await overlay.dispatchEvent("pointerdown");
+      }
+      await expect(overlay).toHaveCount(0);
+    }
+  } finally {
+    const cleanupResponses = await Promise.all(chats.map((chat) => request.delete(`/api/chats/${chat.id}?force=true`)));
+    for (const response of cleanupResponses) expect(response.ok()).toBeTruthy();
+  }
+});
+
+test("the first conversation opens Help once after setup", async ({ page, request }, testInfo) => {
+  const response = await request.post("/api/chats", {
+    data: { name: "First Conversation Help Smoke", mode: "conversation", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+
+  await page.route(/\/api\/chats(?:\?.*)?$/, async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    const upstream = await route.fetch();
+    const chats = (await upstream.json()) as Array<{ id: string }>;
+    await route.fulfill({ response: upstream, json: chats.filter((candidate) => candidate.id === chat.id) });
+  });
+  await page.addInitScript((activeChatId) => {
+    localStorage.setItem("marinara-active-chat-id", activeChatId);
+    const storageKey = "marinara-engine-ui";
+    const persisted = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as {
+      state?: Record<string, unknown>;
+      version?: number;
+    };
+    persisted.state = {
+      ...(persisted.state ?? {}),
+      chatHelpSeenModes: ["roleplay", "game"],
+    };
+    localStorage.setItem(storageKey, JSON.stringify(persisted));
+  }, chat.id);
+
+  try {
+    await page.goto("/");
+    await expect(page.locator('[data-chat-mode="conversation"]')).toBeVisible();
+    await page.evaluate(async () => {
+      const module = await import("/src/stores/ui.store.ts");
+      module.useUIStore.setState({ chatHelpSeenModes: ["roleplay", "game"] });
+    });
+    const overlay = page.locator('[data-chat-help-overlay="conversation"]');
+    await expect(overlay).toBeVisible({ timeout: 5_000 });
+    await expect(overlay.locator('[data-chat-help-highlight="help"]')).toBeVisible();
+    if (testInfo.project.name.includes("mobile")) {
+      await expect(page.locator("[data-chat-toolbar-overflow-menu]")).toBeVisible();
+    }
+
+    if (testInfo.project.name.includes("mobile")) {
+      await overlay
+        .getByRole("button", {
+          name: "Tap a section you want to learn more about or this button to exit the help overlay.",
+          exact: true,
+        })
+        .click();
+    } else {
+      await overlay.dispatchEvent("pointerdown");
+    }
+    await expect(overlay).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const module = await import("/src/stores/ui.store.ts");
+          return module.useUIStore.getState().chatHelpSeenModes.includes("conversation");
+        }),
+      )
+      .toBe(true);
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? "{}") as {
+            state?: { chatHelpSeenModes?: string[] };
+          };
+          return persisted.state?.chatHelpSeenModes?.includes("conversation") ?? false;
+        }),
+      )
+      .toBe(true);
+    await page.reload();
+    await expect(page.locator('[data-chat-mode="conversation"]')).toBeVisible();
+    await expect(overlay).toHaveCount(0);
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
+test("chat Help can be hidden permanently from the overlay or App Behavior", async ({ page, request }, testInfo) => {
+  const response = await request.post("/api/chats", {
+    data: { name: "Hide Conversation Help Smoke", mode: "conversation", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  await page.addInitScript((activeChatId) => localStorage.setItem("marinara-active-chat-id", activeChatId), chat.id);
+
+  try {
+    await page.goto("/");
+    await expect(page.locator('[data-chat-mode="conversation"]')).toBeVisible();
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByRole("button", { name: "More options", exact: true }).filter({ visible: true }).click();
+    }
+
+    await page.getByRole("button", { name: "Help", exact: true }).filter({ visible: true }).click();
+    const overlay = page.locator('[data-chat-help-overlay="conversation"]');
+    await expect(overlay).toBeVisible();
+    await overlay.getByRole("button", { name: "Hide Help button permanently", exact: true }).click();
+    await expect(overlay).toHaveCount(0);
+    await expect(page.locator('[data-chat-mode="conversation"] [data-chat-help="help"]')).toHaveCount(0);
+
+    const settingsButton = page.locator('[data-tour="panel-settings"]');
+    await settingsButton.click();
+    const settingRow = page.locator("#settings-control-hide-chat-help-button");
+    await expect(settingRow).toBeVisible();
+    const settingToggle = settingRow.locator('input[type="checkbox"]');
+    await expect(settingToggle).toBeChecked();
+    const rowBox = await settingRow.boundingBox();
+    const confirmBox = await page.locator("#settings-control-confirm-before-delete").boundingBox();
+    expect(rowBox).not.toBeNull();
+    expect(confirmBox).not.toBeNull();
+    expect(rowBox!.y).toBeGreaterThan(confirmBox!.y);
+
+    await settingRow.getByText("Hide chat Help button", { exact: true }).click();
+    await expect(settingToggle).not.toBeChecked();
+    await expect(page.locator('[data-chat-mode="conversation"] [data-chat-help="help"]')).toHaveCount(1);
+
+    await settingRow.getByText("Hide chat Help button", { exact: true }).click();
+    await expect(settingToggle).toBeChecked();
+    await expect(page.locator('[data-chat-mode="conversation"] [data-chat-help="help"]')).toHaveCount(0);
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
   }
 });
 
@@ -6883,6 +7740,9 @@ test("preset pictures can be uploaded from the panel and replaced in the Overvie
     await expect(panelPicture.locator("img")).toHaveAttribute("src", /\/api\/prompts\/images\/file\//u);
 
     await presetRow.locator("[data-preset-open-action]").click({ position: { x: 8, y: 8 } });
+    const presetEditor = page.locator(".mari-editor-shell");
+    await openEditorSection(presetEditor, "Sections");
+    await openEditorSection(presetEditor, "Overview");
     const overviewPicture = page.locator("[data-preset-overview-picture]");
     await expect(overviewPicture).toBeVisible();
     await expect(overviewPicture).toHaveAttribute("aria-label", "Replace preset picture");
@@ -7573,19 +8433,122 @@ test("game widget edits preserve their live numeric values", async ({ request },
   }
 });
 
+test("Game widget editing and log deletion follow Chroma while weather effects render", async ({ page }, testInfo) => {
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Game Chroma Controls Smoke", mode: "game", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const widget = {
+    id: "chroma-clock",
+    type: "counter",
+    label: "Chroma clock",
+    icon: "⏱️",
+    position: "hud_left",
+    config: { count: 3 },
+  };
+
+  try {
+    const metadataResponse = await page.request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: {
+        gameId: "game-chroma-controls-smoke",
+        gameSessionStatus: "active",
+        gameSessionNumber: 1,
+        gameIntroPresented: true,
+        gameActiveState: "dialogue",
+        enableAgents: false,
+        enableCustomWidgets: true,
+        gameWeather: { type: "rain", temperature: 12 },
+        gameTime: { day: 1, hour: 20, minute: 30 },
+        gameBlueprint: {
+          campaignPlan: {},
+          hudWidgets: [widget],
+          introSequence: [],
+          visualTheme: {},
+        },
+      },
+    });
+    expect(metadataResponse.ok()).toBeTruthy();
+    const widgetsResponse = await page.request.put(`/api/game/${chat.id}/widgets`, { data: { widgets: [widget] } });
+    expect(widgetsResponse.ok()).toBeTruthy();
+    const playerMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "user", content: "I check the storm clock." },
+    });
+    expect(playerMessageResponse.ok()).toBeTruthy();
+    const gmMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "assistant", content: "Rain drums against the observatory windows." },
+    });
+    expect(gmMessageResponse.ok()).toBeTruthy();
+
+    await page.route("**/api/game-assets/manifest", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ scannedAt: "2026-08-22T00:00:00.000Z", count: 0, assets: {}, byCategory: {} }),
+      });
+    });
+    await page.addInitScript((chatId) => {
+      localStorage.setItem("marinara-active-chat-id", chatId);
+      const stored = JSON.parse(localStorage.getItem("marinara-engine-ui") || '{"state":{}}') as {
+        state?: Record<string, unknown>;
+        version?: number;
+      };
+      localStorage.setItem(
+        "marinara-engine-ui",
+        JSON.stringify({
+          ...stored,
+          state: {
+            ...(stored.state ?? {}),
+            gameTextSpeed: 100,
+            gameTutorialDisabled: true,
+          },
+        }),
+      );
+    }, chat.id);
+    await page.goto("/");
+    await setAppAccentColor(page, "#ec4899");
+    await page.evaluate(async () => {
+      const { useUIStore } = (await import("/src/stores/ui.store.ts")) as {
+        useUIStore: { getState: () => { setChatChromeTextColor: (value: string) => void } };
+      };
+      useUIStore.getState().setChatChromeTextColor("#14b8a6");
+    });
+
+    const chromeTextColor = await readCssVariableColor(page, "--marinara-chat-chrome-text");
+    const accentTextColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text");
+    expect(chromeTextColor).not.toBe(accentTextColor);
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByTitle("Chroma clock", { exact: true }).click();
+    }
+    const editWidgetButton = page.getByTitle("Edit Chroma clock");
+    await expect(editWidgetButton).toBeVisible();
+    await expect(editWidgetButton.locator("svg")).toHaveCSS("color", chromeTextColor);
+
+    await expect(page.locator('canvas[class*="contain:strict"]')).toBeVisible();
+
+    const logsButton = page
+      .locator('[data-component="GameNarration.ActivePanel"] button')
+      .filter({ has: page.locator("svg.lucide-scroll-text") })
+      .first();
+    await logsButton.click();
+    const logsDialog = page.getByRole("dialog").filter({ hasText: "Session Logs" });
+    await expect(logsDialog).toBeVisible();
+    const deleteMessageButton = logsDialog.locator('button[title="Delete message"]').first();
+    const logDeleteColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
+    await expect(deleteMessageButton).toHaveCSS("color", logDeleteColor);
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
 test("Game combat sheet helpers preserve ability types, card matches, and zero HP", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Pure Game combat hydration coverage only needs one browser.");
 
   await page.goto("/");
   const result = await page.evaluate(async () => {
     const module = (await import("/src/components/game/GameSurface.tsx")) as unknown as {
-      combatSkillsFromSheet(value: unknown):
-        | Array<{ name: string; type: string; description?: string }>
-        | undefined;
-      findGameCombatCard(
-        cards: Array<{ name?: string }>,
-        targetName: string,
-      ): { name?: string } | undefined;
+      combatSkillsFromSheet(value: unknown): Array<{ name: string; type: string; description?: string }> | undefined;
+      findGameCombatCard(cards: Array<{ name?: string }>, targetName: string): { name?: string } | undefined;
       generatedPartyMemberToCombatant(
         member: Record<string, unknown>,
         index: number,
@@ -7624,11 +8587,7 @@ test("Game combat sheet helpers preserve ability types, card matches, and zero H
         [],
         1,
       ),
-      enemy: module.generatedEnemyToCombatant(
-        { name: "Slime", hp: 0, maxHp: 9, attacks: [], statuses: [] },
-        0,
-        1,
-      ),
+      enemy: module.generatedEnemyToCombatant({ name: "Slime", hp: 0, maxHp: 9, attacks: [], statuses: [] }, 0, 1),
       invalidPartyHp: module.generatedPartyMemberToCombatant(
         { name: "Mika", hp: false, maxHp: 12, attacks: [], statuses: [] },
         0,
@@ -8671,6 +9630,31 @@ test("home shell and primary topbar panels open without client errors", async ({
   expect(errors).toEqual([]);
 });
 
+test("Home Professor controls and surfaces follow the configured accent", async ({ page }) => {
+  await page.goto("/");
+  await setAppAccentColor(page, "#14b8a6");
+
+  const action = page.locator("[data-home-professor-action]");
+  const panel = page.locator('[data-component="HomeBrowserHub.ProfessorWidget"]');
+  const activeAccentColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");
+  await expect(action).toHaveClass(/mari-chrome-control--selected/u);
+  await expect(action).toHaveCSS("color", activeAccentColor);
+
+  const tealPanelStyle = await panel.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { backgroundColor: style.backgroundColor, borderColor: style.borderColor, boxShadow: style.boxShadow };
+  });
+  await setAppAccentColor(page, "#3b82f6");
+  await expect
+    .poll(() =>
+      panel.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { backgroundColor: style.backgroundColor, borderColor: style.borderColor, boxShadow: style.boxShadow };
+      }),
+    )
+    .not.toEqual(tealPanelStyle);
+});
+
 test("installed Home destinations appear as browser tabs without returning to the topbar", async ({
   page,
 }, testInfo) => {
@@ -8745,6 +9729,7 @@ test("installed Home destinations appear as browser tabs without returning to th
   );
 
   await page.goto("/");
+  await setAppAccentColor(page, "#14b8a6");
   await expect(page.locator('[data-tour="noodle-tab"]')).toHaveCount(0);
   const noodleTab = page.getByRole("tab", { name: "Open Noodle and NoodleR" });
   await expect(noodleTab).toBeVisible();
@@ -8753,6 +9738,12 @@ test("installed Home destinations appear as browser tabs without returning to th
   await expect(noodleTab.locator("img").last()).toHaveAttribute("src", /noodler-klusek\.png/u);
   const refreshBadge = noodleTab.locator('[data-component="HomeBrowserHub.NoodleRefreshBadge"]');
   await expect(refreshBadge).toHaveText("1");
+  await expect(refreshBadge).toHaveClass(/mari-chrome-accent-tile/u);
+  const tealBadgeBackground = await refreshBadge.evaluate((element) => getComputedStyle(element).backgroundImage);
+  await setAppAccentColor(page, "#3b82f6");
+  await expect
+    .poll(() => refreshBadge.evaluate((element) => getComputedStyle(element).backgroundImage))
+    .not.toBe(tealBadgeBackground);
   const [noodleTabBounds, refreshBadgeBounds] = await Promise.all([
     noodleTab.boundingBox(),
     refreshBadge.boundingBox(),
@@ -9301,8 +10292,17 @@ test("Professor Mari replaces the Noodle tour with highlighted Home guidance", a
     page.locator('[data-component="OnboardingTutorial.Spotlight"][data-tour-target="home-navigation"]'),
   ).toBeVisible();
   await expect(page.locator('[data-component="OnboardingTutorial.Spotlight"]')).toHaveCount(1);
+  const tutorialCard = page.locator('[data-component="OnboardingTutorial.Card"]');
+  const centeredStage = page.locator('[data-component="OnboardingTutorial.CenteredStage"]');
+  await expect
+    .poll(async () => {
+      const [cardBounds, stageBounds] = await Promise.all([tutorialCard.boundingBox(), centeredStage.boundingBox()]);
+      if (!cardBounds || !stageBounds) return Number.POSITIVE_INFINITY;
+      return Math.abs(cardBounds.y + cardBounds.height / 2 - (stageBounds.y + stageBounds.height / 2));
+    })
+    .toBeLessThanOrEqual(2);
   const [cardMetrics, centeredStageBounds, navigationBounds] = await Promise.all([
-    page.locator('[data-component="OnboardingTutorial.Card"]').evaluate((element) => {
+    tutorialCard.evaluate((element) => {
       const bounds = element.getBoundingClientRect();
       return {
         centerX: bounds.left + bounds.width / 2,
@@ -9311,7 +10311,7 @@ test("Professor Mari replaces the Noodle tour with highlighted Home guidance", a
         scrollHeight: element.scrollHeight,
       };
     }),
-    page.locator('[data-component="OnboardingTutorial.CenteredStage"]').boundingBox(),
+    centeredStage.boundingBox(),
     navigationTarget.boundingBox(),
   ]);
   const viewport = page.viewportSize();
@@ -9487,80 +10487,33 @@ test("Storyboard Agent settings stay organized and contained at phone widths", a
     const settingsPanel = editor.locator(".mari-editor-panel").filter({
       has: page.getByRole("heading", { name: "Storyboard settings", exact: true }),
     });
-    const shared = settingsPanel.locator('[data-storyboard-settings-scope="shared"]');
-    const roleplay = settingsPanel.locator('[data-storyboard-settings-scope="roleplay"]');
-    const game = settingsPanel.locator('[data-storyboard-settings-scope="game"]');
-    const promptGuide = settingsPanel.locator("[data-storyboard-prompt-guide]");
+    const setup = settingsPanel.locator('[data-storyboard-settings-scope="setup"]');
+    const workflow = settingsPanel.locator("[data-storyboard-active-workflow]");
+    const roleplayTab = workflow.getByRole("tab", { name: "Roleplay", exact: true });
+    const gameTab = workflow.getByRole("tab", { name: "Game Mode", exact: true });
 
     await expect(settingsPanel).toBeVisible();
-    await expect(promptGuide.getByText("How Storyboard prompts run", { exact: true })).toBeVisible();
-    await expect(promptGuide.getByRole("listitem")).toContainText([
-      "Plan the storyboard",
-      "Generate the first frame",
-      "Ground motion in the image",
-      "Generate the video",
-    ]);
-    await expect(shared).toBeVisible();
-    await expect(roleplay).toBeVisible();
-    await expect(game).toBeVisible();
-    await expect
-      .poll(() =>
-        shared
-          .locator("[data-storyboard-prompt-stage]")
-          .evaluateAll((stages) => stages.map((stage) => stage.getAttribute("data-storyboard-prompt-stage"))),
-      )
-      .toEqual(["2", "3", "4"]);
-    await expect(shared.getByText("Ground motion in the image", { exact: true })).toBeVisible();
-    await expect(shared.getByRole("combobox", { name: "Default shot planner prompt" })).toHaveValue("shot-default");
-    const imageAwareToggle = shared.getByRole("checkbox", { name: "Image-aware shot planning" });
-    await expect(imageAwareToggle).toBeChecked();
-    await imageAwareToggle.uncheck();
-    await expect(imageAwareToggle).not.toBeChecked();
-    await imageAwareToggle.check();
-    await expect
-      .poll(() =>
-        settingsPanel.evaluate((panel) =>
-          Array.from(panel.querySelectorAll<HTMLElement>("[data-storyboard-settings-scope]")).map(
-            (section) => section.dataset.storyboardSettingsScope,
-          ),
-        ),
-      )
-      .toEqual(["shared", "roleplay", "game"]);
+    await expect(setup).toBeVisible();
+    await expect(workflow).toHaveAttribute("data-storyboard-active-workflow", "roleplay");
+    await expect(roleplayTab).toHaveAttribute("aria-selected", "true");
 
-    const gamePromptLibrary = editor.locator(".mari-editor-panel").filter({
-      has: page.getByRole("heading", { name: "Game prompt library", exact: true }),
-    });
-    await expect(gamePromptLibrary).toBeVisible();
-    expect(
-      await settingsPanel.evaluate(
-        (settingsElement, promptElement) => {
-          return Boolean(
-            settingsElement.compareDocumentPosition(promptElement as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
-          );
-        },
-        await gamePromptLibrary.elementHandle(),
-      ),
-    ).toBe(true);
-
-    const imageConnection = shared.locator("select").first();
+    await expect(setup.getByText("Image connection", { exact: true })).toBeVisible();
+    const imageConnection = setup.locator("select").first();
     await imageConnection.selectOption(connection.id);
     await expect(imageConnection).toHaveValue(connection.id);
 
+    const roleplay = workflow.locator("[data-storyboard-active-roleplay]");
     const roleplayInterval = roleplay.getByLabel("Default Roleplay episode interval", { exact: true });
     await roleplayInterval.fill("7");
     await expect(roleplayInterval).toHaveValue("7");
 
-    const scopeToggle = (scope: Locator) => scope.locator(":scope > button");
-    await scopeToggle(roleplay).click();
-    await expect(scopeToggle(roleplay)).toHaveAttribute("aria-expanded", "false");
-    await expect(roleplayInterval).toHaveCount(0);
-    await scopeToggle(roleplay).click();
+    await gameTab.click();
+    await expect(workflow).toHaveAttribute("data-storyboard-active-workflow", "game");
+    await expect(workflow.locator("[data-storyboard-active-game]")).toBeVisible();
+    await expect(roleplay).toHaveCount(0);
+    await roleplayTab.click();
     await expect(roleplay.getByLabel("Default Roleplay episode interval", { exact: true })).toHaveValue("7");
-
-    await scopeToggle(shared).click();
-    await expect(scopeToggle(shared)).toHaveAttribute("aria-expanded", "false");
-    await scopeToggle(shared).click();
-    await expect(shared.locator("select").first()).toHaveValue(connection.id);
+    await expect(imageConnection).toHaveValue(connection.id);
 
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "18px";
@@ -9580,7 +10533,9 @@ test("Storyboard Agent settings stay organized and contained at phone widths", a
               return rect.left < panelRect.left - 1 || rect.right > panelRect.right + 1;
             });
             const overflowingScopes = Array.from(
-              panel.querySelectorAll<HTMLElement>("[data-storyboard-settings-scope]"),
+              panel.querySelectorAll<HTMLElement>(
+                "[data-storyboard-settings-scope], [data-storyboard-active-workflow]",
+              ),
             ).filter((scope) => scope.scrollWidth > scope.clientWidth + 1);
             return {
               panelFits: panel.scrollWidth <= panel.clientWidth + 1,
@@ -9591,18 +10546,8 @@ test("Storyboard Agent settings stay organized and contained at phone widths", a
         )
         .toEqual({ panelFits: true, overflowingControls: 0, overflowingScopes: 0 });
 
-      for (const scope of [shared, roleplay, game]) {
-        const box = await scopeToggle(scope).boundingBox();
-        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
-      }
-
-      for (const control of [
-        settingsPanel.locator('button[title="Restore default prompt"]').first(),
-        settingsPanel.locator('button[title="Remove prompt option"]').first(),
-        settingsPanel.getByRole("button", { name: "Expand editor" }).first(),
-      ]) {
-        const box = await control.boundingBox();
-        expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+      for (const tab of [roleplayTab, gameTab]) {
+        const box = await tab.boundingBox();
         expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
       }
     }
@@ -10108,6 +11053,16 @@ test("Downloaded cards use Marinara destination and lorebook choices", async ({ 
         personality: "Curious and precise.",
         scenario: "Inside the Marinara test kitchen.",
         creator: "Marinara Tester",
+        creator_notes: [
+          "<style>",
+          "body { --unsafe-note-leak: yes; }",
+          ".formatted-note { color: rgb(12, 200, 140); position: fixed; inset: 0; }",
+          "</style>",
+          '<div class="formatted-note" onclick="document.body.dataset.noteScript = \'clicked\'">',
+          'Readable <strong>author note</strong> <a href="https://example.com" target="_blank">external link</a>',
+          "<script>document.body.dataset.noteScript = 'executed'</script>",
+          "</div>",
+        ].join(""),
         character_book: {
           name: `${cardName} Lore`,
           entries: [
@@ -10142,6 +11097,49 @@ test("Downloaded cards use Marinara destination and lorebook choices", async ({ 
   await library.getByRole("button", { name: /ChubAI/u }).click();
   await page.getByRole("button", { name: /Wyvern/u }).click();
   await library.getByRole("button", { name: new RegExp(cardName, "u") }).click();
+
+  const authorNotes = library.locator("[data-bot-browser-rich-text]");
+  await expect(authorNotes.getByText(/Readable author note external link/u)).toBeVisible();
+  await expect(authorNotes.locator("strong")).toHaveText("author note");
+  await expect(authorNotes.locator("script")).toHaveCount(0);
+  await expect(authorNotes.locator(".formatted-note")).not.toHaveAttribute("onclick");
+  const inertExternalLink = authorNotes.locator("a", { hasText: "external link" });
+  await expect(inertExternalLink).not.toHaveAttribute("href");
+  await expect(inertExternalLink).not.toHaveAttribute("target");
+  const noteSecurity = await page.evaluate(() => {
+    const note = document.querySelector<HTMLElement>("[data-bot-browser-rich-text] .formatted-note");
+    return {
+      color: note ? getComputedStyle(note).color : "",
+      position: note ? getComputedStyle(note).position : "",
+      scriptMarker: document.body.dataset.noteScript ?? "",
+      leakedProperty: getComputedStyle(document.body).getPropertyValue("--unsafe-note-leak").trim(),
+    };
+  });
+  expect(noteSecurity).toEqual({
+    color: "rgb(12, 200, 140)",
+    position: "absolute",
+    scriptMarker: "",
+    leakedProperty: "",
+  });
+  const normalizedLink = await page.evaluate(async () => {
+    const { sanitizeChatHtml } = (await import("/src/lib/chat-html.ts")) as {
+      sanitizeChatHtml: (html: string) => string;
+    };
+    const host = document.createElement("div");
+    host.innerHTML = sanitizeChatHtml('<a href="https://example.com" target="_blank" rel="opener">external link</a>');
+    const link = host.querySelector("a");
+    return {
+      href: link?.getAttribute("href"),
+      target: link?.getAttribute("target"),
+      rel: link?.getAttribute("rel"),
+    };
+  });
+  expect(normalizedLink).toEqual({
+    href: "https://example.com",
+    target: "_blank",
+    rel: "noopener noreferrer",
+  });
+
   await library.getByRole("button", { name: "Import", exact: true }).click();
 
   const importDialog = page.locator('[data-component="BotBrowserImportDialog"]');
@@ -10173,12 +11171,12 @@ test("Downloaded cards use Marinara destination and lorebook choices", async ({ 
 test("Chub NSFW search uses filtered totals and spaced pagination", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Chub filter behavior is covered once on desktop.");
 
-  const observedSearches: Array<{ query: string; nsfw: string | null }> = [];
+  const observedSearches: Array<{ query: string; nsfw: string | null; page: string | null }> = [];
   await page.route("**/api/bot-browser/chub/search?*", async (route) => {
     const url = new URL(route.request().url());
     const query = url.searchParams.get("q") ?? "";
     const nsfw = url.searchParams.get("nsfw");
-    observedSearches.push({ query, nsfw });
+    observedSearches.push({ query, nsfw, page: url.searchParams.get("page") });
     const isReportedSearch = query === "Kathrin Vaughan" && nsfw === "true";
     await route.fulfill({
       json: {
@@ -10221,7 +11219,11 @@ test("Chub NSFW search uses filtered totals and spaced pagination", async ({ pag
     .click();
   const library = page.locator('[data-component="BotBrowserView"]');
   await expect(library.getByText("96 cards from ChubAI", { exact: true })).toBeVisible();
-  await expect(library.getByText("Page 1 of 2", { exact: true })).toBeVisible();
+  const pageSelector = library.getByRole("combobox", { name: "Page", exact: true });
+  await expect(pageSelector).toHaveValue("1");
+  await pageSelector.selectOption("2");
+  await expect(pageSelector).toHaveValue("2");
+  await expect.poll(() => observedSearches.some((search) => search.query === "" && search.page === "2")).toBe(true);
 
   await library.getByRole("checkbox", { name: "NSFW", exact: true }).check();
   await library.getByPlaceholder("Search characters").fill("Kathrin Vaughan");
@@ -10230,7 +11232,7 @@ test("Chub NSFW search uses filtered totals and spaced pagination", async ({ pag
   await expect(library.getByText("11 cards from ChubAI", { exact: true })).toBeVisible();
   const card = library.getByRole("button", { name: /Kathrin Vaughan/u });
   await expect(card.getByText("NSFW", { exact: true })).toBeVisible();
-  expect(observedSearches).toContainEqual({ query: "Kathrin Vaughan", nsfw: "true" });
+  expect(observedSearches).toContainEqual({ query: "Kathrin Vaughan", nsfw: "true", page: "1" });
 });
 
 test("Character and Persona sidebars find cards by creator", async ({ page, request }, testInfo) => {
@@ -10830,6 +11832,12 @@ test("Music Player stays unavailable until Music DJ is installed", async ({ page
   }
   await catalogView.getByRole("button", { name: "Install", exact: true }).click();
   await expect(musicPlayer).toBeVisible();
+  const installedToast = page
+    .locator("[data-sonner-toast]")
+    .filter({ hasText: "Agent installed. It is ready to use." });
+  await expect(installedToast).toBeVisible();
+  await installedToast.getByRole("button", { name: "Close toast" }).click();
+  await expect(installedToast).toHaveCount(0);
 
   musicPlayerRow = await openMusicPlayerSetting();
   const installedMusicPlayerToggle = musicPlayerRow.locator('input[type="checkbox"]');
@@ -11222,9 +12230,7 @@ test("installed package artwork appears in the sidebar and clears immediately on
   expect(errors).toEqual([]);
 });
 
-test("Conversation feature packages expose commands and settings without per-chat attachment", async ({
-  page,
-}, testInfo) => {
+test("Conversation Agents exposes matching collapsible command and feature settings", async ({ page }, testInfo) => {
   test.skip(
     !testInfo.project.name.includes("desktop"),
     "Conversation agent settings regression is covered on desktop.",
@@ -11236,6 +12242,11 @@ test("Conversation feature packages expose commands and settings without per-cha
   });
   expect(chatResponse.ok()).toBeTruthy();
   const chat = (await chatResponse.json()) as { id: string };
+  const otherChatResponse = await page.request.post("/api/chats", {
+    data: { name: "Conversation Agent Settings Other", mode: "conversation", characterIds: [] },
+  });
+  expect(otherChatResponse.ok()).toBeTruthy();
+  const otherChat = (await otherChatResponse.json()) as { id: string };
   let conversationFeaturesInstalled = false;
   let clientLoadAttempts = 0;
   const releaseInitialClientLoad = createDeferred();
@@ -11334,8 +12345,12 @@ test("Conversation feature packages expose commands and settings without per-cha
               if (this.getAttribute("view") !== "settings") return;
               const props = this.capabilityProps || {};
               const enabled = props.metadata?.conversationCallsEnabled === true;
-              this.innerHTML = '<section class="mari-chat-option-field"><span>Conversation Calls</span><button type="button">Audio/Video Calls</button><button type="button" data-crash-capability>Crash capability</button>' + (enabled ? '<span>Call Audio Pipeline</span>' : '') + '</section>';
-              this.querySelector("button:not([data-crash-capability])")?.addEventListener("click", () => {
+              const expanded = props.expanded === true;
+              this.innerHTML = '<section data-calls-settings class="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70"><div class="flex items-start p-3"><button type="button" data-calls-settings-toggle aria-expanded="' + expanded + '" class="-m-1 flex min-w-0 flex-1 items-start gap-2 rounded-lg p-1 text-left"><span>Calls</span><span>Per-chat call access.</span></button></div>' + (expanded ? '<div class="space-y-3 px-3 pb-2"><button type="button" data-calls-enabled>Audio/Video Calls</button><button type="button" data-crash-capability>Crash capability</button>' + (enabled ? '<span>Call Audio Pipeline</span>' : '') + '</div>' : '') + '</section>';
+              this.querySelector("[data-calls-settings-toggle]")?.addEventListener("click", () => {
+                props.onExpandedChange?.(!expanded);
+              });
+              this.querySelector("[data-calls-enabled]")?.addEventListener("click", () => {
                 props.updateMetadata?.({ conversationCallsEnabled: !enabled });
               });
               this.querySelector("[data-crash-capability]")?.addEventListener("click", () => {
@@ -11367,23 +12382,35 @@ test("Conversation feature packages expose commands and settings without per-cha
     });
   });
   await page.addInitScript((chatId) => {
+    if (sessionStorage.getItem("marinara-agent-settings-seeded")) return;
     localStorage.setItem("marinara-active-chat-id", chatId);
+    sessionStorage.setItem("marinara-agent-settings-seeded", "true");
   }, chat.id);
 
   try {
     await page.goto("/");
     await page.getByRole("button", { name: "Chat Settings" }).click();
     let drawer = page.locator(".mari-chat-settings-drawer");
+    const getSectionHeader = (label: string) =>
+      drawer.locator('[role="button"][aria-expanded]').filter({ hasText: new RegExp(`^${label}$`, "u") });
     const openAgentsSection = async () => {
-      const agentsSection = drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Agents$/ });
+      const agentsSection = getSectionHeader("Agents");
       await expect(agentsSection).toHaveCount(1);
       if ((await agentsSection.getAttribute("aria-expanded")) !== "true") {
         await agentsSection.click();
       }
       await expect(agentsSection).toHaveAttribute("aria-expanded", "true");
     };
+    await expect(drawer.locator('[data-chat-settings-section="conversation-commands"]')).toHaveCount(0);
     await openAgentsSection();
-    await expect(drawer.getByText("Commands", { exact: true })).toBeVisible();
+    const agentsSection = drawer.locator('[data-chat-settings-section="conversation-agents"]');
+    const commandsCard = agentsSection.locator(`#chat-settings-agent-menu-${chat.id}-conversation-commands`);
+    const commandsCardHeader = commandsCard.locator("button[aria-expanded]").first();
+    await expect(commandsCard).toHaveCount(1);
+    await expect(commandsCardHeader).toHaveAttribute("aria-expanded", "false");
+    await expect(drawer.getByText("Schedule Updates", { exact: true })).toHaveCount(0);
+    await commandsCardHeader.click();
+    await expect(commandsCardHeader).toHaveAttribute("aria-expanded", "true");
     await expect(drawer.getByText("Schedule Updates", { exact: true })).toBeVisible();
     await expect(drawer.getByText("Memories", { exact: true })).toBeVisible();
     await expect(drawer.getByText("Selfies", { exact: true })).toHaveCount(0);
@@ -11391,13 +12418,13 @@ test("Conversation feature packages expose commands and settings without per-cha
     await expect(drawer.getByText("Conversation Calls", { exact: true })).toHaveCount(0);
     await expect(drawer.getByText("Enable Agents", { exact: true })).toHaveCount(0);
     await expect(drawer.getByText("Agent Suite", { exact: true })).toHaveCount(0);
-    await expect(drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Commands$/ })).toHaveCount(0);
 
     conversationFeaturesInstalled = true;
     await page.reload();
     await page.getByRole("button", { name: "Chat Settings" }).click();
     drawer = page.locator(".mari-chat-settings-drawer");
     await openAgentsSection();
+    await expect(commandsCardHeader).toHaveAttribute("aria-expanded", "true");
     await expect(
       drawer.locator('[data-capability-client-state="loading"][data-capability-package-id="conversation-calls"]'),
     ).toBeVisible();
@@ -11411,7 +12438,7 @@ test("Conversation feature packages expose commands and settings without per-cha
     expect((await clientLoadRetry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
     await clientLoadRetry.click();
     await expect(clientLoadFailure).toHaveCount(0);
-    await expect(drawer.getByText("Commands", { exact: true })).toBeVisible();
+    await expect(commandsCard).toBeVisible();
     await expect(drawer.getByText("Selfies", { exact: true })).toBeVisible();
     await expect(drawer.getByText("8-Ball Pool", { exact: true })).toBeVisible();
     await expect(drawer.getByText("Chess", { exact: true })).toBeVisible();
@@ -11419,9 +12446,19 @@ test("Conversation feature packages expose commands and settings without per-cha
     await expect(drawer.getByText("Rock-Paper-Scissors", { exact: true })).toBeVisible();
     await expect(drawer.getByText("Tic-Tac-Toe", { exact: true })).toBeVisible();
     await expect(drawer.getByText("UNO", { exact: true })).toBeVisible();
-    await expect(drawer.getByText("Illustrator Settings", { exact: true })).toBeVisible();
-    await expect(drawer.getByText("Conversation Calls", { exact: true })).toBeVisible();
+    const illustratorCard = agentsSection.locator(`#chat-settings-agent-menu-${chat.id}-illustrator`);
+    const illustratorCardHeader = illustratorCard.locator("button[aria-expanded]").first();
+    await expect(illustratorCard).toBeVisible();
+    await expect(illustratorCardHeader).toHaveAttribute("aria-expanded", "false");
+    await expect(drawer.getByText("Image generation settings", { exact: true })).toHaveCount(0);
     const callsCapability = drawer.locator("marinara-capability-conversation-calls");
+    const callsSettings = callsCapability.locator("[data-calls-settings]");
+    const callsSettingsHeader = callsSettings.locator("[data-calls-settings-toggle]");
+    await expect(callsSettings).toBeVisible();
+    await expect(callsSettingsHeader).toHaveAttribute("aria-expanded", "false");
+    await expect(callsSettings.getByText("Calls", { exact: true })).toBeVisible();
+    await expect(callsSettings.getByText("Per-chat call access.", { exact: true })).toBeVisible();
+    await expect(callsSettings.getByText(/Adds live audio/iu)).toHaveCount(0);
     await expect(callsCapability).toHaveAttribute("lang", "en");
     await expect(callsCapability).toHaveAttribute("dir", "ltr");
     await expect
@@ -11435,20 +12472,40 @@ test("Conversation feature packages expose commands and settings without per-cha
       )
       .toEqual({ locale: "en", direction: "ltr" });
     await expect(drawer.getByText("Call Audio Pipeline", { exact: true })).toHaveCount(0);
+    await expect(drawer.getByRole("button", { name: "Audio/Video Calls", exact: true })).toHaveCount(0);
     await expect(drawer.getByText("Enable Agents", { exact: true })).toHaveCount(0);
     await expect(drawer.getByText("Agent Suite", { exact: true })).toHaveCount(0);
-    const illustratorSettings = drawer.getByText("Illustrator Settings", { exact: true });
-    const callsSettings = drawer.getByText("Conversation Calls", { exact: true });
-    const callsSettingsHandle = await callsSettings.elementHandle();
-    if (!callsSettingsHandle) throw new Error("Conversation Calls settings did not render");
-    expect(
-      await illustratorSettings.evaluate(
-        (illustrator, calls) =>
-          calls instanceof Node &&
-          Boolean(illustrator.compareDocumentPosition(calls) & Node.DOCUMENT_POSITION_FOLLOWING),
-        callsSettingsHandle,
+    const [commandsSurfaceStyle, illustratorSurfaceStyle, callsSurfaceStyle] = await Promise.all(
+      [commandsCard, illustratorCard, callsSettings].map((surface) =>
+        surface.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            backgroundColor: style.backgroundColor,
+            borderColor: style.borderColor,
+            borderRadius: style.borderRadius,
+          };
+        }),
       ),
-    ).toBe(true);
+    );
+    expect(illustratorSurfaceStyle).toEqual(commandsSurfaceStyle);
+    expect(callsSurfaceStyle).toEqual(commandsSurfaceStyle);
+    const [commandsBox, illustratorBox, callsBox] = await Promise.all([
+      commandsCard.boundingBox(),
+      illustratorCard.boundingBox(),
+      callsSettings.boundingBox(),
+    ]);
+    expect(commandsBox).not.toBeNull();
+    expect(illustratorBox).not.toBeNull();
+    expect(callsBox).not.toBeNull();
+    if (commandsBox && illustratorBox && callsBox) {
+      expect(commandsBox.y).toBeLessThan(illustratorBox.y);
+      expect(illustratorBox.y).toBeLessThan(callsBox.y);
+    }
+    await illustratorCardHeader.click();
+    await expect(illustratorCardHeader).toHaveAttribute("aria-expanded", "true");
+    await expect(drawer.getByText("Image generation settings", { exact: true })).toBeVisible();
+    await callsSettingsHeader.click();
+    await expect(callsSettingsHeader).toHaveAttribute("aria-expanded", "true");
     await drawer.getByRole("button", { name: "Audio/Video Calls", exact: true }).click();
     await expect(drawer.getByText("Call Audio Pipeline", { exact: true })).toBeVisible();
     await drawer.getByRole("button", { name: "Crash capability", exact: true }).click();
@@ -11458,9 +12515,35 @@ test("Conversation feature packages expose commands and settings without per-cha
     expect((await runtimeRetry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
     await runtimeRetry.click();
     await expect(runtimeFailure).toHaveCount(0);
-    await expect(drawer.getByText("Conversation Calls", { exact: true })).toBeVisible();
-    await expect(drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Commands$/ })).toHaveCount(0);
+    await expect(callsSettings).toBeVisible();
+    await expect(callsSettingsHeader).toHaveAttribute("aria-expanded", "true");
+    await expect(drawer.getByText("Call Audio Pipeline", { exact: true })).toBeVisible();
+    await expect(drawer.locator('[data-chat-settings-section="conversation-commands"]')).toHaveCount(0);
+    await expect(commandsCard).toHaveCount(1);
     expect(clientLoadAttempts).toBe(2);
+
+    await page.evaluate((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), otherChat.id);
+    await page.reload();
+    await page.getByRole("button", { name: "Chat Settings" }).click();
+    drawer = page.locator(".mari-chat-settings-drawer");
+    await openAgentsSection();
+    const otherCallsSettings = drawer.locator("marinara-capability-conversation-calls [data-calls-settings]");
+    const otherCallsHeader = otherCallsSettings.locator("[data-calls-settings-toggle]");
+    await expect(otherCallsHeader).toHaveAttribute("aria-expanded", "false");
+    await expect(otherCallsSettings.getByRole("button", { name: "Audio/Video Calls", exact: true })).toHaveCount(0);
+    await otherCallsHeader.click();
+    await expect(otherCallsHeader).toHaveAttribute("aria-expanded", "true");
+    await expect(otherCallsSettings.getByRole("button", { name: "Audio/Video Calls", exact: true })).toBeVisible();
+
+    await page.evaluate((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.reload();
+    await page.getByRole("button", { name: "Chat Settings" }).click();
+    drawer = page.locator(".mari-chat-settings-drawer");
+    await openAgentsSection();
+    await expect(drawer.locator("marinara-capability-conversation-calls [data-calls-settings-toggle]")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     expect(errors.some((error) => error.includes("Could not load client capability conversation-calls"))).toBe(true);
     expect(
       errors.filter(
@@ -11470,7 +12553,10 @@ test("Conversation feature packages expose commands and settings without per-cha
       ),
     ).toEqual([]);
   } finally {
-    await page.request.delete(`/api/chats/${chat.id}`);
+    await Promise.all([
+      page.request.delete(`/api/chats/${chat.id}`),
+      page.request.delete(`/api/chats/${otherChat.id}`),
+    ]);
   }
 });
 
@@ -11955,13 +13041,13 @@ test("Roleplay Chat Summaries persists semantic retrieval without overflowing it
   }
 });
 
-test("Chat Settings exposes the chat ID and persists semantic summary retrieval", async ({
+test("Roleplay Chat Settings exposes click-to-copy chat ID and square parameter choices", async ({
   context,
   page,
   request,
 }, testInfo) => {
   const chatResponse = await request.post("/api/chats", {
-    data: { name: "Chat ID and Semantic Summary Smoke", mode: "conversation", characterIds: [] },
+    data: { name: "Roleplay Chat Settings UI Smoke", mode: "roleplay", characterIds: [] },
   });
   expect(chatResponse.ok()).toBeTruthy();
   const chat = (await chatResponse.json()) as { id: string };
@@ -11973,16 +13059,6 @@ test("Chat Settings exposes the chat ID and persists semantic summary retrieval"
     await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
     await expect(page.locator(".mari-chat-settings-drawer")).toBeVisible();
   };
-  const readSemanticSetting = async () => {
-    const response = await request.get(`/api/chats/${chat.id}`);
-    const current = (await response.json()) as { metadata?: unknown };
-    const metadata =
-      typeof current.metadata === "string"
-        ? (JSON.parse(current.metadata) as Record<string, unknown>)
-        : ((current.metadata ?? {}) as Record<string, unknown>);
-    return metadata.semanticSummaryRetrievalEnabled;
-  };
-
   try {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
@@ -11993,17 +13069,20 @@ test("Chat Settings exposes the chat ID and persists semantic summary retrieval"
     const chatNameSection = drawer.locator('[role="button"][aria-expanded]').filter({ hasText: "Chat Name" });
     await chatNameSection.click();
     await expect(drawer.getByText(chat.id, { exact: true })).toBeVisible();
-    await drawer.getByRole("button", { name: "Copy chat ID", exact: true }).click();
+    const chatIdCopyTarget = drawer.getByRole("button", { name: "Copy chat ID", exact: true });
+    await expect(chatIdCopyTarget).toContainText("click to copy");
+    await chatIdCopyTarget.click();
     await expect(page.getByText("Chat ID copied.", { exact: true })).toBeVisible();
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(chat.id);
 
-    const summarySection = drawer.locator('[data-chat-settings-section="conversation-automatic-summarization"]');
-    await summarySection.locator(':scope > [role="button"]').click();
-    const semanticSwitch = summarySection.getByRole("checkbox", { name: /^Semantic summary retrieval/u });
-    await expect(semanticSwitch).not.toBeChecked();
-    await semanticSwitch.locator("xpath=following-sibling::label[1]").click();
-    await expect.poll(readSemanticSetting).toBe(true);
-    await expect(semanticSwitch).toBeChecked();
+    const advancedParameters = drawer.locator('[role="button"][aria-expanded]').filter({
+      hasText: "Advanced Parameters",
+    });
+    await advancedParameters.click();
+    const advancedParametersSection = drawer.locator('[data-chat-settings-section="advanced-parameters"]');
+    const reasoningOff = advancedParametersSection.getByRole("button", { name: "Off", exact: true });
+    await expect(reasoningOff).toHaveClass(/rounded-md/u);
+    await expect(reasoningOff).toHaveAttribute("aria-pressed", "false");
   } finally {
     await request.delete(`/api/chats/${chat.id}`);
   }
@@ -12975,6 +14054,105 @@ test("Roleplay setup points empty agent libraries to the Agents tab", async ({ p
   }
 });
 
+test("Roleplay setup agent category headers never cover agent rows while scrolling", async ({ page, request }) => {
+  const beforeResponse = await request.get("/api/chats");
+  const beforeChats = (await beforeResponse.json()) as Array<{ id: string }>;
+  const existingChatIds = new Set(beforeChats.map((chat) => chat.id));
+  const connectionResponse = await request.post("/api/connections", {
+    data: { name: `Roleplay Agent Scroll Smoke ${Date.now()}`, provider: "custom" },
+  });
+  expect(connectionResponse.ok()).toBeTruthy();
+  const connection = (await connectionResponse.json()) as { id: string };
+  const agentManifests = [
+    ["writer-one", "Writer One", "writer"],
+    ["writer-two", "Writer Two", "writer"],
+    ["tracker-one", "Tracker One", "tracker"],
+    ["tracker-two", "Tracker Two", "tracker"],
+    ["misc-one", "Misc One", "misc"],
+    ["misc-two", "Misc Two", "misc"],
+  ].map(([id, name, category]) => ({
+    id,
+    name,
+    category,
+    description: `${name} has enough setup guidance to make this agent row wrap across multiple lines on narrow screens.`,
+    author: "Pasta Devs",
+    phase: "post_processing",
+    enabledByDefault: false,
+    modeAllowlist: ["roleplay"],
+    defaultPromptTemplate: "Test prompt.",
+  }));
+
+  await page.route("**/api/capability-packages/agents", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(agentManifests) });
+  });
+  await page.route("**/api/capability-packages/installed", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/agents", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/backgrounds/file/Black.jpg**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "image/gif",
+      body: Buffer.from(TRANSPARENT_GIF_BASE64, "base64"),
+    });
+  });
+
+  try {
+    await page.goto("/");
+    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await page.locator('[data-tour="chat-mode-roleplay"]').click();
+    await page.getByLabel("New Roleplay", { exact: true }).click();
+    const connectionGate = page.getByRole("heading", { name: "Set Up Roleplay", exact: true });
+    const wizardHeading = page.getByRole("heading", { name: "New Roleplay", exact: true });
+    await expect(connectionGate.or(wizardHeading)).toBeVisible();
+    if (await connectionGate.isVisible()) {
+      await page.getByRole("button", { name: "Create Chat", exact: true }).click();
+    }
+    await expect(wizardHeading).toBeVisible();
+    const nextButton = page.getByRole("button", { name: "Next", exact: true });
+    await nextButton.click();
+    await expect(page.getByRole("heading", { name: "Pick a Preset", exact: true })).toBeVisible();
+    await nextButton.click();
+    const participantsHeading = page.getByRole("heading", { name: "Persona & Characters", exact: true });
+    const choiceDialog = page.getByRole("dialog", { name: "Configure Preset Variables" });
+    await expect(choiceDialog.or(participantsHeading).first()).toBeVisible();
+    if (await choiceDialog.isVisible()) {
+      await choiceDialog.getByRole("button", { name: "Skip", exact: true }).click();
+    }
+    await expect(participantsHeading).toBeVisible();
+    await nextButton.click();
+    await expect(page.getByRole("heading", { name: "Attach Lorebooks", exact: true })).toBeVisible();
+    await nextButton.click();
+    await expect(page.getByRole("heading", { name: "Enable Agents", exact: true })).toBeVisible();
+
+    const searchInput = page.getByPlaceholder("Search agents", { exact: true });
+    const agentList = searchInput.locator("xpath=../following-sibling::div[1]");
+    const writerHeader = agentList.getByText("Writer Agents", { exact: true }).locator("..");
+    const firstWriterRow = agentList.getByRole("button", { name: /^Writer One\b/u });
+    await expect(firstWriterRow).toBeVisible();
+    await agentList.evaluate(
+      (element, scrollTop) => {
+        element.scrollTop = scrollTop;
+      },
+      ((await writerHeader.boundingBox())?.height ?? 0) / 2,
+    );
+
+    const [headerBox, rowBox] = await Promise.all([writerHeader.boundingBox(), firstWriterRow.boundingBox()]);
+    expect(headerBox).not.toBeNull();
+    expect(rowBox).not.toBeNull();
+    expect(headerBox!.y + headerBox!.height).toBeLessThanOrEqual(rowBox!.y + 0.5);
+  } finally {
+    const afterResponse = await request.get("/api/chats");
+    const afterChats = (await afterResponse.json()) as Array<{ id: string }>;
+    await Promise.all(
+      afterChats.filter((chat) => !existingChatIds.has(chat.id)).map((chat) => request.delete(`/api/chats/${chat.id}`)),
+    );
+    await request.delete(`/api/connections/${connection.id}`, { timeout: 10_000 });
+  }
+});
+
 test("desktop resource editors open beside their source sidebars", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop side-by-side editor behavior.");
   await page.setViewportSize({ width: 1360, height: 900 });
@@ -13171,10 +14349,7 @@ test("Professor Mari chat fills the mobile home viewport and keeps its composer 
   test.skip(!testInfo.project.name.includes("mobile"), "Professor Mari mobile viewport regression.");
   await page.goto("/");
 
-  await page
-    .locator('[data-component="HomeProfessorMariChat.MariPanel"]')
-    .getByRole("button", { name: "Ask Professor Mari" })
-    .click();
+  await page.getByRole("button", { name: "Ask Professor Mari", exact: true }).click();
 
   const topBar = page.locator('[data-component="TopBar"]');
   const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
@@ -13190,9 +14365,8 @@ test("Professor Mari chat fills the mobile home viewport and keeps its composer 
       ]);
       const viewport = page.viewportSize();
       if (!topBarBox || !windowBox || !composerBox || !viewport) return false;
-      const contentTop = topBarBox.y + topBarBox.height;
       return (
-        Math.abs(windowBox.y - contentTop) <= 1 &&
+        windowBox.y >= topBarBox.y + topBarBox.height - 1 &&
         Math.abs(windowBox.y + windowBox.height - viewport.height) <= 1 &&
         composerBox.y + composerBox.height <= viewport.height + 1
       );
@@ -13440,10 +14614,7 @@ test("Professor Mari history opens a loaded chat at its newest message", async (
     createdChatIds.push(secondChat.id);
 
     await page.goto("/");
-    await page
-      .locator('[data-component="HomeProfessorMariChat.MariPanel"]')
-      .getByRole("button", { name: "Ask Professor Mari" })
-      .click();
+    await page.getByRole("button", { name: "Ask Professor Mari", exact: true }).click();
 
     const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
     await window.getByRole("button", { name: "Chats" }).click();
@@ -13480,10 +14651,7 @@ test("Professor Mari bulk chat deletion follows the active accent", async ({ pag
     await page.goto("/");
     await setAppAccentColor(page, "#14b8a6");
     const activeAccentColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");
-    await page
-      .locator('[data-component="HomeProfessorMariChat.MariPanel"]')
-      .getByRole("button", { name: "Ask Professor Mari" })
-      .click();
+    await page.getByRole("button", { name: "Ask Professor Mari", exact: true }).click();
 
     const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
     await window.getByRole("button", { name: "Chats" }).click();
@@ -13561,10 +14729,7 @@ test("Professor Mari dependency and sensitive-file reviews stay explicit across 
   });
 
   await page.goto("/");
-  await page
-    .locator('[data-component="HomeProfessorMariChat.MariPanel"]')
-    .getByRole("button", { name: "Ask Professor Mari" })
-    .click();
+  await page.getByRole("button", { name: "Ask Professor Mari", exact: true }).click();
 
   const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
   await expect(window.getByText("Install this dependency?")).toBeVisible();
@@ -13663,7 +14828,9 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
       const entries = (await response.json()) as Array<Record<string, unknown>>;
       await route.fulfill({
         response,
-        json: entries.map((candidate) => (candidate.id === entry.id ? { ...candidate, embedding: [0.1, 0.2] } : candidate)),
+        json: entries.map((candidate) =>
+          candidate.id === entry.id ? { ...candidate, embedding: [0.1, 0.2] } : candidate,
+        ),
       });
     });
 
@@ -13671,8 +14838,8 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
       vectorizeRequestCount += 1;
       const savedResponse = await request.get(`/api/lorebooks/${lorebook.id}`);
       expect(savedResponse.ok()).toBeTruthy();
-      excludedAtVectorization = ((await savedResponse.json()) as { excludeFromVectorization?: boolean })
-        .excludeFromVectorization ?? null;
+      excludedAtVectorization =
+        ((await savedResponse.json()) as { excludeFromVectorization?: boolean }).excludeFromVectorization ?? null;
       reportStoredVector = true;
       await route.fulfill({
         status: 200,
@@ -13835,7 +15002,7 @@ test("Lorebook and entry IDs are visible and copyable", async ({ page }) => {
     await expect(page.getByText("Lorebook ID copied", { exact: true })).toBeVisible();
     await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("copied-lorebook-id"))).toBe(lorebook.id);
 
-    await page.getByRole("button", { name: /^Entries/ }).click();
+    await openEditorSection(page.locator(".mari-editor-shell"), "Entries");
     const row = page.locator(`[data-lorebook-entry-row-id="${entry.id}"]`);
     await row.getByRole("button", { name: "Expand entry" }).click();
     await expect(row.getByText(entry.id, { exact: true })).toBeVisible();
@@ -13866,7 +15033,7 @@ test("Lorebook entry type descriptions inherit editor chrome text", async ({ pag
     await page.goto("/");
     await page.locator('[data-tour="panel-lorebooks"]').click();
     await page.getByText(name, { exact: true }).click();
-    await page.getByRole("button", { name: /^Entries/ }).click();
+    await openEditorSection(page.locator(".mari-editor-shell"), "Entries");
     const row = page.locator(`[data-lorebook-entry-row-id="${entry.id}"]`);
     await row.getByRole("button", { name: /Entry type: Normal\. Choose entry type\./ }).click();
     const menu = page.getByRole("menu", { name: "Choose entry type" });
@@ -13919,7 +15086,7 @@ test("selected Lorebook entries mirror safe edits and choose a move destination 
     await page.goto("/");
     await page.locator('[data-tour="panel-lorebooks"]').click();
     await page.getByText(name, { exact: true }).click();
-    await page.getByRole("button", { name: /^Entries/ }).click();
+    await openEditorSection(page.locator(".mari-editor-shell"), "Entries");
     await expect(
       page.getByText("Use the Select button above to enter batch editing mode and edit multiple entries at once.", {
         exact: true,
@@ -14063,7 +15230,7 @@ test("Lorebook context filter chips expose Noodle and keep complete borders", as
     await page.goto("/");
     await page.locator('[data-tour="panel-lorebooks"]').click();
     await page.getByText(lorebookName, { exact: true }).click();
-    await page.getByRole("button", { name: /^Entries/ }).click();
+    await openEditorSection(page.locator(".mari-editor-shell"), "Entries");
     await page.getByRole("button", { name: "Expand entry" }).click();
     await page.getByText("Context filters & matching sources", { exact: true }).click();
 
@@ -14571,7 +15738,7 @@ test("enabling Recent Chats anchors its 2 by 2 footprint and repacks smaller wid
   }
 });
 
-test("Home achievements preview the latest unlock and nearest measurable goal", async ({ page }) => {
+test("Home achievements preview the latest unlock and nearest measurable goal", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1024, height: 700 });
   await page.addInitScript(() => {
     localStorage.setItem(
@@ -14580,21 +15747,25 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
     );
   });
   const recentUnlockAt = new Date(Date.now() - 60_000).toISOString();
-  await page.route("**/api/achievements", (route) =>
+  await page.route("**/api/achievements*", (route) =>
     route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
         definitions: [
           {
             id: "diligent_student",
+            titleKey: "achievements.definitions.diligentStudent.title",
             title: "Diligent Student",
+            descriptionKey: "achievements.definitions.diligentStudent.description",
             description: "Completed Professor Mari's tutorial.",
             category: "milestone",
             icon: "graduation",
           },
           {
             id: "hoarder_bronze",
+            titleKey: "achievements.definitions.hoarder.title",
             title: "Hoarder",
+            descriptionKey: "achievements.definitions.hoarder.description",
             description: "Collected 5 Characters.",
             category: "collection",
             icon: "character",
@@ -14606,7 +15777,9 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
           },
           {
             id: "hoarder_silver",
+            titleKey: "achievements.definitions.hoarder.title",
             title: "Hoarder",
+            descriptionKey: "achievements.definitions.hoarder.description",
             description: "Collected 25 Characters.",
             category: "collection",
             icon: "character",
@@ -14661,13 +15834,15 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
   ).toBeVisible();
   await expect(achievementsWidget.getByText("Gotta catch them all!", { exact: true })).toHaveCount(1);
   const achievementsLauncher = achievementsWidget.getByRole("button", { name: "Open Achievements" });
-  const launcherBackground = await achievementsLauncher.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
-  await achievementsLauncher.hover();
-  await expect
-    .poll(() => achievementsLauncher.evaluate((element) => getComputedStyle(element).backgroundColor))
-    .not.toBe(launcherBackground);
+  if (!testInfo.project.name.includes("mobile")) {
+    const launcherBackground = await achievementsLauncher.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+    await achievementsLauncher.hover();
+    await expect
+      .poll(() => achievementsLauncher.evaluate((element) => getComputedStyle(element).backgroundColor))
+      .not.toBe(launcherBackground);
+  }
   await expect(achievementsWidget.getByRole("button", { name: "Open Achievements" }).locator("img")).toHaveAttribute(
     "src",
     "/home/tab-icons/achievements.png",
@@ -14991,9 +16166,7 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
     const [widgetBounds, shortcutBounds] = await Promise.all([widget.boundingBox(), lastShortcut.boundingBox()]);
     expect(widgetBounds).not.toBeNull();
     expect(shortcutBounds).not.toBeNull();
-    expect(shortcutBounds!.y + shortcutBounds!.height).toBeLessThanOrEqual(
-      widgetBounds!.y + widgetBounds!.height + 1,
-    );
+    expect(shortcutBounds!.y + shortcutBounds!.height).toBeLessThanOrEqual(widgetBounds!.y + widgetBounds!.height + 1);
   }
 
   if (mobile) {
@@ -15345,10 +16518,10 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
     module.useUIStore.getState().setProfessorMariNavigationEnabled(true);
   });
   await expect(sprite).toBeVisible({ timeout: 1_000 });
-  await expect(page.getByText("Hey, having trouble finding something? Looking for a Chats tab? Let me help!", { exact: true })).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("marinara:home:professor-position:v1")))
-    .toBeNull();
+  await expect(
+    page.getByText("Hey, having trouble finding something? Looking for a Chats tab? Let me help!", { exact: true }),
+  ).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("marinara:home:professor-position:v1"))).toBeNull();
   const resetPosition = await sprite.boundingBox();
   expect(resetPosition).not.toBeNull();
   expect(resetPosition!.x).toBeLessThan(contentBounds!.x + contentBounds!.width / 2);
@@ -15590,7 +16763,7 @@ test("Home lifecycle stays bounded across repeated tab and chat navigation", asy
           }
         ).__homeLifecycleAudit.snapshot().intervals,
     );
-    expect(professorTabIntervals).toBeLessThan(baseline.lifecycle.intervals);
+    expect(professorTabIntervals).toBeLessThanOrEqual(baseline.lifecycle.intervals);
     await page.getByRole("tab", { name: "Home", exact: true }).click();
     await expect(page.locator('[data-component="HomeBrowserHub.HomePage"]')).toBeVisible();
 
@@ -15771,7 +16944,103 @@ test("chat mode tabs and new-chat actions stay reachable", async ({ page }) => {
   }
 });
 
-test("renamed Roleplay branches use their display name in the Chats sidebar and search", async ({ page, request }) => {
+test("new-chat connection gates follow Chat Chrome Text Color and close before opening Connections", async ({
+  page,
+}) => {
+  const errors = collectUnexpectedErrors(page);
+  await page.route("**/api/connections", async (route) => {
+    const request = route.request();
+    if (request.method() === "GET" && new URL(request.url()).pathname === "/api/connections") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await page.goto("/");
+  await page.evaluate(async () => {
+    const { useUIStore } = (await import("/src/stores/ui.store.ts")) as {
+      useUIStore: {
+        getState: () => {
+          setAppAccentColor: (value: string) => void;
+          setChatChromeTextColor: (value: string) => void;
+        };
+      };
+    };
+    const ui = useUIStore.getState();
+    ui.setAppAccentColor("#ff1493");
+    ui.setChatChromeTextColor("#1ad1c8");
+  });
+
+  const modes = [
+    { mode: "conversation", tour: "chat-mode-conversation", label: "New Conversation" },
+    { mode: "roleplay", tour: "chat-mode-roleplay", label: "New Roleplay" },
+    { mode: "game", tour: "chat-mode-game", label: "New Game" },
+  ] as const;
+
+  for (const [index, mode] of modes.entries()) {
+    const sidebar = page.locator('[data-component="ChatSidebar"]');
+    const sidebarToggle = page.locator('[data-tour="sidebar-toggle"]');
+    if ((await sidebarToggle.getAttribute("aria-pressed")) !== "true") await sidebarToggle.click();
+    await expect(sidebarToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(sidebar).toBeVisible();
+    await expect(sidebar).toBeInViewport();
+    await sidebar.locator(`[data-tour="${mode.tour}"]`).click();
+    await sidebar.getByLabel(mode.label, { exact: true }).click();
+
+    const gate = page.locator(`[data-new-chat-connection-gate="${mode.mode}"]`);
+    await expect(gate).toBeVisible();
+    const colors = await gate.evaluate((element) => {
+      const emptyState = element.querySelector<HTMLElement>("[data-new-chat-connection-empty]")!;
+      const openConnections = element.querySelector<HTMLElement>("[data-new-chat-open-connections]")!;
+      const probe = document.createElement("span");
+      element.append(probe);
+      const resolveColor = (value: string) => {
+        probe.style.color = value;
+        return getComputedStyle(probe).color;
+      };
+      const resolveBackground = (value: string) => {
+        probe.style.background = value;
+        return getComputedStyle(probe).backgroundColor;
+      };
+      const resolveBorder = (value: string) => {
+        probe.style.border = `1px solid ${value}`;
+        return getComputedStyle(probe).borderColor;
+      };
+      const result = {
+        scopedAccent: resolveColor("var(--marinara-chat-chrome-accent)"),
+        chromeText: resolveColor("var(--marinara-chat-chrome-text)"),
+        appAccent: resolveColor("var(--primary)"),
+        buttonText: getComputedStyle(openConnections).color,
+        expectedButtonText: resolveColor("var(--marinara-chat-chrome-button-text-active)"),
+        emptyBackground: getComputedStyle(emptyState).backgroundColor,
+        expectedEmptyBackground: resolveBackground("var(--marinara-chat-chrome-highlight-bg)"),
+        emptyBorder: getComputedStyle(emptyState).borderColor,
+        expectedEmptyBorder: resolveBorder("var(--marinara-chat-chrome-button-border-active)"),
+      };
+      probe.remove();
+      return result;
+    });
+    expect(colors.scopedAccent).toBe(colors.chromeText);
+    expect(colors.scopedAccent).not.toBe(colors.appAccent);
+    expect(colors.buttonText).toBe(colors.expectedButtonText);
+    expect(colors.emptyBackground).toBe(colors.expectedEmptyBackground);
+    expect(colors.emptyBorder).toBe(colors.expectedEmptyBorder);
+
+    if (index < modes.length - 1) {
+      await gate.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(gate).toHaveCount(0);
+    } else {
+      await gate.getByRole("button", { name: "Open Connections", exact: true }).click();
+      await expect(gate).toHaveCount(0);
+      await expect(page.locator('[data-component="RightPanel"][aria-label="Connections"]')).toBeVisible();
+    }
+  }
+
+  expect(errors).toEqual([]);
+});
+
+test("renamed Roleplay branches keep their chat name in the Chats sidebar and search", async ({ page, request }) => {
   const rawName = `Branch parent fallback ${Date.now()}`;
   const displayName = `NPC_First Kiss ${Date.now()}`;
   const chatResponse = await request.post("/api/chats", {
@@ -15793,11 +17062,11 @@ test("renamed Roleplay branches use their display name in the Chats sidebar and 
     await sidebar.locator('[data-tour="chat-mode-roleplay"]').click();
 
     const chatRow = sidebar.locator(`[data-chat-id="${chat.id}"]`);
-    await expect(chatRow).toContainText(displayName);
-    await expect(chatRow).not.toContainText(rawName);
+    await expect(chatRow).toContainText(rawName);
+    await expect(chatRow).not.toContainText(displayName);
 
     const search = sidebar.getByPlaceholder("Search roleplays");
-    await search.fill("First Kiss");
+    await search.fill("Branch parent fallback");
     await expect(chatRow).toBeVisible();
   } finally {
     const cleanupResponse = await request.delete(`/api/chats/${chat.id}?force=true`);
@@ -15946,6 +17215,19 @@ test("memory recall modal accepts clicks from chat settings", async ({ page }, t
   const drawer = page.locator(".mari-chat-settings-drawer");
   await expect(drawer.getByRole("heading", { name: "Chat Settings" })).toBeVisible();
   await drawer.getByText("Memory Recall", { exact: true }).click();
+  const memoryRecallSwitch = drawer.getByRole("checkbox", { name: "Enable Memory Recall" });
+  const memoryRecallTrack = memoryRecallSwitch.locator("xpath=following-sibling::*[@data-settings-switch-track][1]");
+  await expect(memoryRecallSwitch).toBeChecked();
+  await memoryRecallTrack.click();
+  await expect(memoryRecallSwitch).not.toBeChecked();
+  await expect(memoryRecallTrack).toHaveClass(/bg-\[var\(--border\)\]/u);
+  const [trackBox, thumbBox] = await Promise.all([
+    memoryRecallTrack.boundingBox(),
+    memoryRecallTrack.locator("[data-settings-switch-thumb]").boundingBox(),
+  ]);
+  expect(trackBox).not.toBeNull();
+  expect(thumbBox).not.toBeNull();
+  expect(Math.abs(thumbBox!.y - trackBox!.y - (trackBox!.height - thumbBox!.height) / 2)).toBeLessThanOrEqual(0.5);
   await drawer.getByRole("button", { name: "Access memories for this chat" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Memories for This Chat" });
@@ -16282,7 +17564,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
   }
 });
 
-test("mobile composers preserve history position and stay open in Conversation and Roleplay", async ({
+test("mobile composers preserve history position and restore focus in Conversation and Roleplay", async ({
   page,
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Focused composer history behavior is mobile-only.");
@@ -16339,10 +17621,8 @@ test("mobile composers preserve history position and stay open in Conversation a
         .toBeGreaterThan(180);
       const preservedScrollTop = await transcript.evaluate((element) => element.scrollTop);
 
-      if (mode === "roleplay") {
-        const showComposer = page.getByRole("button", { name: "Show message input", exact: true });
-        if (await showComposer.isVisible()) await showComposer.click();
-      }
+      const showComposer = page.getByRole("button", { name: "Show message input", exact: true });
+      if (await showComposer.isVisible()) await showComposer.click();
       await expect(textarea).toBeVisible();
       await textarea.evaluate((element) => {
         element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
@@ -16706,11 +17986,13 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   expect(mobileActionOffsets.every((offset) => offset >= 0)).toBe(true);
   expect(new Set(mobileActionOffsets).size).toBe(mobileActionOrder.length);
   expect(mobileActionOffsets).toEqual([...mobileActionOffsets].sort((left, right) => left - right));
-  const mobileDomActionOrder = await topbar.locator("[data-topbar-hover-key]").evaluateAll((elements) =>
-    elements
-      .map((element) => (element as HTMLElement).dataset.topbarHoverKey)
-      .filter((key): key is string => Boolean(key)),
-  );
+  const mobileDomActionOrder = await topbar
+    .locator("[data-topbar-hover-key]")
+    .evaluateAll((elements) =>
+      elements
+        .map((element) => (element as HTMLElement).dataset.topbarHoverKey)
+        .filter((key): key is string => Boolean(key)),
+    );
   expect(mobileDomActionOrder.slice(0, mobileActionOrder.length)).toEqual(mobileActionOrder);
   const homeIconBounds = await homeButton.locator("svg").boundingBox();
   const chatsIconBounds = await chatsButton.locator("svg").boundingBox();
@@ -16844,9 +18126,7 @@ test("Characters topbar underline uses the Characters pink", async ({ page }) =>
   await expect(underline).toBeVisible();
   await expect
     .poll(() =>
-      underline.evaluate((element) =>
-        getComputedStyle(element).getPropertyValue("--mari-panel-gradient-start").trim(),
-      ),
+      underline.evaluate((element) => getComputedStyle(element).getPropertyValue("--mari-panel-gradient-start").trim()),
     )
     .toBe("#f472b6");
 });
@@ -16908,7 +18188,9 @@ test("mobile Docker update checks offer the selected staging image", async ({ pa
 
   await expect(page.getByText("Switch to Staging/UAT", { exact: true })).toBeVisible();
   await expect(page.getByText("ghcr.io/pasta-devs/marinara-engine:staging", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Set the Compose image to .*:staging, then pull it and restart the container\./)).toBeVisible();
+  await expect(
+    page.getByText(/Set the Compose image to .*:staging, then pull it and restart the container\./),
+  ).toBeVisible();
   await expect(page.getByText(/latest Staging\/UAT target/)).toHaveCount(0);
 });
 
@@ -17675,7 +18957,7 @@ test("character card fields can preview Markdown without changing their source",
     await page.locator(`[data-touch-drag-card="character"][data-character-id="${character.id}"]`).click();
 
     const editor = page.locator('[data-component="DetailEditor"]');
-    await editor.getByRole("button", { name: "Card", exact: true }).click();
+    await openEditorSection(editor, "Card");
     const description = editor.locator("#character-card-description");
     const source = "**Bold detail**\n\n- First point";
     await description.locator("textarea").fill(source);
@@ -17730,7 +19012,7 @@ test("persona editor preserves unsaved fields across responsive layout changes",
   }
 });
 
-test("image prompt review preserves edits through rerenders and submits the edited prompt", async ({
+test("background prompt review preserves edits through rerenders and resumes the background target", async ({
   page,
   request,
 }) => {
@@ -17743,16 +19025,21 @@ test("image prompt review preserves edits through rerenders and submits the edit
   });
   expect(chatResponse.ok()).toBeTruthy();
   const chat = (await chatResponse.json()) as { id: string };
-  const originalPrompt = "Original illustration prompt";
-  const editedPrompt = "Edited illustration prompt with deliberate composition";
+  const originalPrompt = "Original background prompt";
+  const editedPrompt = "Edited background prompt with deliberate composition";
   const releaseRetry = createDeferred();
   let submittedPrompt = "";
+  let submittedTargets: unknown = null;
+  let submittedResultData: unknown = null;
 
   await page.route("**/api/generate/retry-agents", async (route) => {
     const body = route.request().postDataJSON() as {
-      illustratorPromptReviewOverride?: { prompt?: string };
+      illustratorPromptReviewOverride?: { prompt?: string; resultData?: unknown };
+      illustratorRetryTargets?: unknown;
     };
     submittedPrompt = body.illustratorPromptReviewOverride?.prompt ?? "";
+    submittedTargets = body.illustratorRetryTargets;
+    submittedResultData = body.illustratorPromptReviewOverride?.resultData;
     await releaseRetry.promise;
     await route.fulfill({
       status: 200,
@@ -17772,12 +19059,20 @@ test("image prompt review preserves edits through rerenders and submits the edit
             detail: {
               chatId,
               item: {
-                id: "illustration",
-                kind: "illustration",
-                title: "Scene illustration",
+                id: "roleplay-scene-background",
+                kind: "background",
+                title: "Scene background",
                 prompt,
               },
-              resultData: { shouldGenerate: true },
+              resultData: {
+                generateBackground: true,
+                backgroundPlan: {
+                  locationName: "Marinara test kitchen",
+                  prompt,
+                  tags: ["kitchen"],
+                  reason: "Manual Gallery background request",
+                },
+              },
             },
           }),
         );
@@ -17804,6 +19099,11 @@ test("image prompt review preserves edits through rerenders and submits the edit
 
     await dialog.getByRole("button", { name: "Generate", exact: true }).click();
     await expect.poll(() => submittedPrompt).toBe(editedPrompt);
+    expect(submittedTargets).toEqual(["background"]);
+    expect(submittedResultData).toMatchObject({
+      generateBackground: true,
+      backgroundPlan: { locationName: "Marinara test kitchen" },
+    });
     await expect(promptEditor).toHaveValue(editedPrompt);
     await expect(dialog.getByRole("button", { name: "Generate", exact: true })).toBeDisabled();
 

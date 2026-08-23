@@ -542,6 +542,14 @@ const SETTINGS_SECTION_BY_ID = new Map(SETTINGS_SECTIONS.map((section) => [secti
 
 const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
   {
+    id: "hide-chat-help-button",
+    sectionId: "application",
+    label: "Hide chat Help button",
+    description: "Remove the Help button from Conversation, Roleplay, and Game chats.",
+    aliases: ["help", "guide", "tutorial", "overlay", "question mark"],
+    kind: "Toggle",
+  },
+  {
     id: "language",
     sectionId: "application",
     label: "Language",
@@ -1139,6 +1147,22 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     label: "Reduced paint effects",
     description: "Flatten costly Roleplay transparency, shadows, and scene overlays.",
     aliases: ["roleplay", "performance", "firefox", "slow", "paint", "effects"],
+    kind: "Toggle",
+  },
+  {
+    id: "show-roleplay-thinking-in-messages",
+    sectionId: "roleplay-messages",
+    label: "Show Thinking In Messages",
+    description: "Show model reasoning above the response inside Roleplay message bubbles.",
+    aliases: ["roleplay", "reasoning", "thinking", "thoughts", "messages"],
+    kind: "Toggle",
+  },
+  {
+    id: "keep-roleplay-thinking-expanded",
+    sectionId: "roleplay-messages",
+    label: "Don't Collapse Thinking",
+    description: "Keep inline model reasoning expanded when the response starts.",
+    aliases: ["roleplay", "reasoning", "thinking", "collapse", "expanded"],
     kind: "Toggle",
   },
   {
@@ -2802,7 +2826,7 @@ export function SettingsPanel() {
                 tabIndex={settingsTab === tab.id ? 0 : -1}
                 onClick={() => setSettingsTab(tab.id)}
                 className={cn(
-                  "group relative isolate flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-lg border px-1 py-0.5 text-center text-[0.625rem] font-semibold leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
+                  "group relative isolate flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border px-1 py-0.5 text-center text-[0.625rem] font-semibold leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
                   active
                     ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_11%,transparent)]"
                     : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border)]/80 hover:bg-[var(--secondary)]/60 hover:text-[var(--foreground)]",
@@ -3370,6 +3394,8 @@ function GeneralSettings() {
   const setEnterToSendProfessorMari = useUIStore((s) => s.setEnterToSendProfessorMari);
   const confirmBeforeDelete = useUIStore((s) => s.confirmBeforeDelete);
   const setConfirmBeforeDelete = useUIStore((s) => s.setConfirmBeforeDelete);
+  const chatHelpButtonHidden = useUIStore((s) => s.chatHelpButtonHidden ?? false);
+  const setChatHelpButtonHidden = useUIStore((s) => s.setChatHelpButtonHidden);
   const achievementsEnabled = useUIStore((s) => s.achievementsEnabled);
   const setAchievementsEnabled = useUIStore((s) => s.setAchievementsEnabled);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
@@ -3447,6 +3473,13 @@ function GeneralSettings() {
             checked={confirmBeforeDelete}
             onChange={setConfirmBeforeDelete}
             help={localizeUi("settings.controls.confirmBeforeDelete.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("hide-chat-help-button")}
+            label={localizeUi("settings.controls.hideChatHelpButton.label")}
+            checked={chatHelpButtonHidden}
+            onChange={setChatHelpButtonHidden}
+            help={localizeUi("settings.controls.hideChatHelpButton.help")}
           />
           <AndroidStatusBarSetting />
           <ToggleSetting
@@ -4635,6 +4668,10 @@ function AppearanceSettings() {
   const setChatFontOpacity = useUIStore((s) => s.setChatFontOpacity);
   const roleplayReducedPaintEffects = useUIStore((s) => s.roleplayReducedPaintEffects);
   const setRoleplayReducedPaintEffects = useUIStore((s) => s.setRoleplayReducedPaintEffects);
+  const showRoleplayThinkingInMessages = useUIStore((s) => s.showRoleplayThinkingInMessages);
+  const setShowRoleplayThinkingInMessages = useUIStore((s) => s.setShowRoleplayThinkingInMessages);
+  const keepRoleplayThinkingExpanded = useUIStore((s) => s.keepRoleplayThinkingExpanded);
+  const setKeepRoleplayThinkingExpanded = useUIStore((s) => s.setKeepRoleplayThinkingExpanded);
   const roleplayAvatarStyle = useUIStore((s) => s.roleplayAvatarStyle);
   const setRoleplayAvatarStyle = useUIStore((s) => s.setRoleplayAvatarStyle);
   const roleplayAvatarScale = useUIStore((s) => s.roleplayAvatarScale);
@@ -5283,6 +5320,22 @@ function AppearanceSettings() {
             checked={roleplayReducedPaintEffects}
             onChange={setRoleplayReducedPaintEffects}
             help={localizeUi("settings.controls.reducedPaintEffects.help")}
+          />
+
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-roleplay-thinking-in-messages")}
+            label={localizeUi("settings.controls.showRoleplayThinkingInMessages.label")}
+            checked={showRoleplayThinkingInMessages}
+            onChange={setShowRoleplayThinkingInMessages}
+            help={localizeUi("settings.controls.showRoleplayThinkingInMessages.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("keep-roleplay-thinking-expanded")}
+            label={localizeUi("settings.controls.keepRoleplayThinkingExpanded.label")}
+            checked={keepRoleplayThinkingExpanded}
+            onChange={setKeepRoleplayThinkingExpanded}
+            disabled={!showRoleplayThinkingInMessages}
+            help={localizeUi("settings.controls.keepRoleplayThinkingExpanded.help")}
           />
 
           <div className="flex flex-col gap-2">
@@ -6251,7 +6304,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                 })
               }
               className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-all",
+                "flex items-center gap-2 rounded-md px-3 py-2 text-xs transition-all",
                 activeCustomTheme === null
                   ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
                   : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",

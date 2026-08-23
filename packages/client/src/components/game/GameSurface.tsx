@@ -189,7 +189,8 @@ import {
   type GameImagePromptOverride,
   type GameImagePromptReviewItem,
 } from "./GameImagePromptReviewModal";
-import { GameTutorial } from "./GameTutorial";
+import { ChatHelpButton } from "../chat/ChatHelpButton";
+import { CHAT_HELP_CLOSE_EVENT, CHAT_HELP_OPEN_REQUEST_EVENT, readChatHelpEventMode } from "../../lib/chat-help-events";
 import { GameStoryboardBackgroundVisual, GameStoryboardInlineViewer } from "./GameStoryboardViewer";
 import { GameVolumeMixer } from "./GameVolumeMixer";
 import {
@@ -2077,7 +2078,6 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   BookOpen,
-  CircleHelp,
   Feather,
   Folder,
   Film,
@@ -2385,8 +2385,6 @@ function GameSurfaceComponent({
   const applyWidgetUpdate = useGameModeStore((s) => s.applyWidgetUpdate);
   const setDiceRollResult = useGameModeStore((s) => s.setDiceRollResult);
   const weatherEffectsEnabled = useUIStore((s) => s.weatherEffects);
-  const gameTutorialDisabled = useUIStore((s) => s.gameTutorialDisabled);
-  const setGameTutorialDisabled = useUIStore((s) => s.setGameTutorialDisabled);
   const gameFullBodySpriteScale = useUIStore((s) => s.gameFullBodySpriteScale);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   const gameMiddleMouseNav = useUIStore((s) => s.gameMiddleMouseNav);
@@ -2853,6 +2851,25 @@ function GameSurfaceComponent({
     closeLocalFloatingWindows();
     onCloseSettings();
   }, [closeLocalFloatingWindows, onCloseSettings]);
+  useEffect(() => {
+    const handleHelpOpen = (event: Event) => {
+      if (readChatHelpEventMode(event) !== "game") return;
+      dismissOtherFloatingWindows();
+      setChatHelpOpen(true);
+      if (window.innerWidth < 768) setMobileActionsOpen(true);
+    };
+    const handleHelpClose = (event: Event) => {
+      if (readChatHelpEventMode(event) !== "game") return;
+      setChatHelpOpen(false);
+      setMobileActionsOpen(false);
+    };
+    window.addEventListener(CHAT_HELP_OPEN_REQUEST_EVENT, handleHelpOpen);
+    window.addEventListener(CHAT_HELP_CLOSE_EVENT, handleHelpClose);
+    return () => {
+      window.removeEventListener(CHAT_HELP_OPEN_REQUEST_EVENT, handleHelpOpen);
+      window.removeEventListener(CHAT_HELP_CLOSE_EVENT, handleHelpClose);
+    };
+  }, [dismissOtherFloatingWindows]);
   const handleOpenGalleryPanel = useCallback(
     (event?: ReactMouseEvent<HTMLElement>) => {
       const nextOpen = !resolvedGalleryOpen;
@@ -3147,11 +3164,14 @@ function GameSurfaceComponent({
   const [ttsVolume, setTtsVolume] = useState(persistedGameAudioSettings.ttsVolume);
   const [ambientVolume, setAmbientVolume] = useState(persistedGameAudioSettings.ambientVolume);
   const [audioSettingsHydrated, setAudioSettingsHydrated] = useState(false);
-  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [chatHelpOpen, setChatHelpOpen] = useState(false);
+  useEffect(() => {
+    setChatHelpOpen(false);
+    setMobileActionsOpen(false);
+  }, [activeChatId]);
   const [compactHudWidgets, setCompactHudWidgets] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 768 : false,
   );
-  const tutorialAutoTriggeredRef = useRef(false);
   const volumePopoverRef = useRef<HTMLDivElement>(null);
   const mobileVolumePopoverRef = useRef<HTMLDivElement>(null);
   const retryMenuRef = useRef<HTMLDivElement>(null);
@@ -3218,7 +3238,7 @@ function GameSurfaceComponent({
     resolvedGalleryOpen ||
     combatLogsOpen ||
     inventoryOpen ||
-    tutorialOpen ||
+    chatHelpOpen ||
     confirmEndSessionOpen ||
     mobileActionsOpen;
   const narrationVoicePlaybackBlocked =
@@ -3228,7 +3248,7 @@ function GameSurfaceComponent({
     resolvedGalleryOpen ||
     combatLogsOpen ||
     inventoryOpen ||
-    tutorialOpen ||
+    chatHelpOpen ||
     confirmEndSessionOpen ||
     mobileActionsOpen;
   const effectiveGameVoiceVolume = audioMuted || masterVolume === 0 ? 0 : getEffectiveVolume(masterVolume, ttsVolume);
@@ -3325,8 +3345,6 @@ function GameSurfaceComponent({
     setStartSessionRequested(false);
     setPrepareInitialWidgetsOpen(false);
     setPrepareSessionWidgetsOpen(false);
-    // Allow the auto-tutorial to re-evaluate for the new chat (guard still gates on disabled flag)
-    tutorialAutoTriggeredRef.current = false;
   }, [sceneRuntimeScopeKey, chatMeta.gameInventory, chatMeta.gameRecentMusic, chatMeta.gameRecentSpotifyTracks]);
 
   const clearPendingInteractiveCommands = useCallback(() => {
@@ -8253,30 +8271,6 @@ function GameSurfaceComponent({
     if (hydratedParty !== combatParty) setCombatParty(hydratedParty);
   }, [combatAvatarCandidates, combatParty]);
 
-  // Auto-open the in-game tutorial on the user's first game.
-  // Guard: only when setup is complete, party is loaded, and the user
-  // hasn't permanently disabled it. Fires once per chat mount.
-  useEffect(() => {
-    if (tutorialAutoTriggeredRef.current) return;
-    if (gameTutorialDisabled) return;
-    if (isSetupActive) return;
-    if (partyMembers.length === 0) return;
-    // This tour spotlights built-in chrome an experience replaces. Suppressed, NOT consumed:
-    // `gameTutorialDisabled` is untouched, so a later Classic game still gets the tour on its first turn.
-    if (experienceOwnsGame) return;
-    tutorialAutoTriggeredRef.current = true;
-    // Small delay so the UI has time to mount/layout before the tooltip measures rects
-    const t = window.setTimeout(() => setTutorialOpen(true), 600);
-    return () => window.clearTimeout(t);
-  }, [gameTutorialDisabled, isSetupActive, partyMembers.length, experienceOwnsGame]);
-
-  const handleCloseTutorial = useCallback(() => {
-    setTutorialOpen(false);
-    // Mark as dismissed so it doesn't auto-open for future games.
-    // The (?) help button will still re-open it on demand.
-    setGameTutorialDisabled(true);
-  }, [setGameTutorialDisabled]);
-
   const handleRemovePartyMemberFromBar = useCallback(
     async (member: { id: string; name: string; canRemove?: boolean }) => {
       if (!activeChatId || !member.canRemove) return;
@@ -11143,18 +11137,6 @@ function GameSurfaceComponent({
             </div>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1 pt-0.5">
-            {/* Hidden for an experience game: it opens a tour of chrome that isn't on screen. */}
-            {!experienceOwnsGame ? (
-              <button
-                type="button"
-                onClick={() => setTutorialOpen(true)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
-                title={localizeUi("ui.game.gamesurfacecomponent.gameTutorial")}
-                aria-label={localizeUi("ui.game.gamesurfacecomponent.gameTutorial")}
-              >
-                <CircleHelp size={14} />
-              </button>
-            ) : null}
             <button
               type="button"
               onClick={() => setSessionPanelOpen(false)}
@@ -11173,7 +11155,7 @@ function GameSurfaceComponent({
               type="button"
               onClick={() => setSessionPanelTab(tab)}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[0.6875rem] font-medium transition-colors",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[0.6875rem] font-medium transition-colors",
                 sessionPanelTab === tab
                   ? "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-highlight-text)]"
                   : "text-[var(--marinara-chat-chrome-panel-muted)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]",
@@ -11331,16 +11313,18 @@ function GameSurfaceComponent({
     if (gameStoryboardViewerDisplayMode !== "background" || !activeStoryboardKeyframe?.video) return null;
 
     return (
-      <Suspense fallback={null}>
-        <StoryboardBackgroundControls
-          mobile={mobile}
-          playing={storyboardViewerPlaying}
-          muted={storyboardViewerMuted}
-          onReplay={handleStoryboardViewerReplay}
-          onTogglePlayback={handleStoryboardViewerPlaybackToggle}
-          onToggleMute={() => setStoryboardViewerMuted((muted) => !muted)}
-        />
-      </Suspense>
+      <span data-chat-help="scene-media" className="contents">
+        <Suspense fallback={null}>
+          <StoryboardBackgroundControls
+            mobile={mobile}
+            playing={storyboardViewerPlaying}
+            muted={storyboardViewerMuted}
+            onReplay={handleStoryboardViewerReplay}
+            onTogglePlayback={handleStoryboardViewerPlaybackToggle}
+            onToggleMute={() => setStoryboardViewerMuted((muted) => !muted)}
+          />
+        </Suspense>
+      </span>
     );
   };
 
@@ -11582,6 +11566,7 @@ function GameSurfaceComponent({
               >
                 {/* Desktop controls */}
                 <div className={cn("pointer-events-auto hidden items-center md:flex", CHAT_TOOLBAR_ICON_GAP_CLASS)}>
+                  <ChatHelpButton mode="game" />
                   {renderStoryboardBackgroundControls()}
                   <ChatBranchSelector
                     activeChatId={activeChatId}
@@ -11592,6 +11577,7 @@ function GameSurfaceComponent({
                   />
                   <div className="relative" ref={retryMenuRef}>
                     <button
+                      data-chat-help="retry"
                       onClick={() => {
                         const nextOpen = !retryMenuOpen;
                         if (nextOpen) dismissOtherFloatingWindows();
@@ -11680,6 +11666,7 @@ function GameSurfaceComponent({
                   </div>
                   <div className="relative" ref={sessionPanelRef}>
                     <button
+                      data-chat-help="session"
                       onClick={(event) => handleOpenSessionPanel("history", event)}
                       className={getChatToolbarButtonClass({
                         open: sessionPanelOpen,
@@ -11693,6 +11680,7 @@ function GameSurfaceComponent({
                   </div>
                   <div className="relative" ref={volumePopoverRef}>
                     <button
+                      data-chat-help="volume"
                       onClick={() => {
                         const nextOpen = !volumePopoverOpen;
                         if (nextOpen) dismissOtherFloatingWindows();
@@ -11736,6 +11724,7 @@ function GameSurfaceComponent({
                   </div>
                   <div className="relative" ref={gameAssetsPanelRef}>
                     <button
+                      data-chat-help="assets"
                       onClick={(event) => handleOpenGameAssetsPanel(event)}
                       className={getChatToolbarButtonClass({
                         open: gameAssetsPanelOpen,
@@ -11754,6 +11743,7 @@ function GameSurfaceComponent({
                     onOpen={dismissOtherFloatingWindows}
                   />
                   <button
+                    data-chat-help="gallery"
                     data-chat-toolbar-panel-action="gallery"
                     onClick={handleOpenGalleryPanel}
                     className={GAME_TOP_ICON_BUTTON}
@@ -11764,6 +11754,7 @@ function GameSurfaceComponent({
                   </button>
                   {onSwitchChat ? (
                     <button
+                      data-chat-help="connected-chat"
                       onClick={handleSwitchConnectedChat}
                       className={GAME_TOP_ICON_BUTTON}
                       title={
@@ -11781,6 +11772,7 @@ function GameSurfaceComponent({
                     </button>
                   ) : null}
                   <button
+                    data-chat-help="settings"
                     data-chat-toolbar-panel-action="settings"
                     onClick={handleOpenSettingsPanel}
                     className={GAME_TOP_ICON_BUTTON}
@@ -11821,6 +11813,7 @@ function GameSurfaceComponent({
 
                     {mobileActionsOpen && (
                       <div data-chat-toolbar-overflow-menu className={GAME_MOBILE_ACTIONS_MENU}>
+                        <ChatHelpButton mode="game" compact />
                         {renderStoryboardBackgroundControls(true)}
                         <ChatBranchSelector
                           activeChatId={activeChatId}
@@ -11832,6 +11825,7 @@ function GameSurfaceComponent({
                         />
                         <div>
                           <button
+                            data-chat-help="retry"
                             onClick={(event) => {
                               const nextOpen = !mobileRetryMenuOpen;
                               if (nextOpen) dismissOtherFloatingWindows();
@@ -11943,6 +11937,7 @@ function GameSurfaceComponent({
                         </div>
                         <div ref={mobileSessionPanelRef}>
                           <button
+                            data-chat-help="session"
                             onClick={(event) => {
                               handleOpenSessionPanel("history", event);
                               setMobileRetryMenuOpen(false);
@@ -11961,6 +11956,7 @@ function GameSurfaceComponent({
                         </div>
                         <div ref={mobileVolumePopoverRef}>
                           <button
+                            data-chat-help="volume"
                             onClick={(event) => {
                               const nextOpen = !volumePopoverOpen;
                               if (nextOpen) dismissOtherFloatingWindows();
@@ -12011,6 +12007,7 @@ function GameSurfaceComponent({
                         </div>
                         <div ref={mobileGameAssetsPanelRef}>
                           <button
+                            data-chat-help="assets"
                             onClick={(event) => {
                               handleOpenGameAssetsPanel(event);
                               setMobileRetryMenuOpen(false);
@@ -12040,6 +12037,7 @@ function GameSurfaceComponent({
                           onOpen={dismissOtherFloatingWindows}
                         />
                         <button
+                          data-chat-help="gallery"
                           data-chat-toolbar-panel-action="gallery"
                           onClick={(event) => {
                             handleOpenGalleryPanel(event);
@@ -12052,6 +12050,7 @@ function GameSurfaceComponent({
                         </button>
                         {onSwitchChat ? (
                           <button
+                            data-chat-help="connected-chat"
                             onClick={() => {
                               setMobileActionsOpen(false);
                               handleSwitchConnectedChat();
@@ -12072,6 +12071,7 @@ function GameSurfaceComponent({
                           </button>
                         ) : null}
                         <button
+                          data-chat-help="settings"
                           data-chat-toolbar-panel-action="settings"
                           onClick={(event) => {
                             handleOpenSettingsPanel(event);
@@ -12747,7 +12747,7 @@ function GameSurfaceComponent({
                                       Math.min(combatLogEntries.length, current + combatLogPageSize),
                                     );
                                   }}
-                                  className="rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-xs font-medium text-white/70 shadow-lg transition-colors hover:bg-white/10 hover:text-white"
+                                  className="rounded-md border border-white/10 bg-black/55 px-3 py-1.5 text-xs font-medium text-white/70 shadow-lg transition-colors hover:bg-white/10 hover:text-white"
                                 >
                                   {localizeUi("ui.game.gamesurfacecomponent.showMoreOlderLogs")}
                                   {hiddenCombatLogCount})
@@ -12847,11 +12847,6 @@ function GameSurfaceComponent({
                   }}
                 />
               )}
-
-              {/* First-game spotlight tutorial (auto-opens once; (?) button re-opens). The experience
-                  check is repeated here because the effect guard only stops it from being SCHEDULED,
-                  and could never close one that had already opened. */}
-              <GameTutorial open={tutorialOpen && !experienceOwnsGame} onClose={handleCloseTutorial} />
 
               {/* Inventory notifications */}
               {inventoryNotifications.length > 0 && (

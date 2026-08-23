@@ -113,7 +113,7 @@ import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
 import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { Modal } from "../ui/Modal";
-import { EditorTabRail } from "../ui/EditorTabRail";
+import { EditorTabNavigation } from "../ui/EditorTabNavigation";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -547,8 +547,9 @@ function PersonaGalleryTab({
               key={tab.id}
               type="button"
               onClick={() => setMediaTab(tab.id)}
+              aria-pressed={active}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
                 active
                   ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm"
                   : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
@@ -1861,7 +1862,7 @@ export function PersonaEditor() {
 
   const headerActionButtonClass = "mari-editor-action inline-flex";
   const saveDisabled = !dirty || mutationBusy;
-  const saveLabel = saving ? "Saving…" : "Save";
+  const saveLabel = localizeUi(saving ? "editor.save.saving" : "editor.save.action");
   const saveButtonClass = cn(
     "mari-editor-action mari-editor-action--primary mari-editor-action--save inline-flex",
     saveDisabled && "cursor-not-allowed opacity-50",
@@ -1966,8 +1967,8 @@ export function PersonaEditor() {
       />
 
       {/* ── Header ── */}
-      <div className="mari-editor-header">
-        <div className="mari-editor-header-main max-md:min-w-full">
+      <div className="mari-editor-header mari-editor-header--with-nav">
+        <div className="mari-editor-header-main mari-editor-header-main--identity">
           <button
             type="button"
             onClick={handleClose}
@@ -2049,10 +2050,19 @@ export function PersonaEditor() {
           </div>
         </div>
 
+        <EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
+
         <div className="mari-editor-actions flex">
-          <button type="button" onClick={handleSave} disabled={saveDisabled} className={saveButtonClass}>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saveDisabled}
+            className={saveButtonClass}
+            aria-label={saveLabel}
+            title={saveLabel}
+          >
             <Save size="0.9375rem" />
-            <span>{saveLabel}</span>
+            <span className="mari-editor-save-label">{saveLabel}</span>
           </button>
           {headerActions}
         </div>
@@ -2093,10 +2103,8 @@ export function PersonaEditor() {
         </div>
       )}
 
-      {/* ── Body: Tabs + Content ── */}
-      <div className="mari-editor-body @max-5xl:flex-col">
-        <EditorTabRail tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
-
+      {/* ── Body ── */}
+      <div className="mari-editor-body">
         {/* Tab Content */}
         <div className="mari-editor-content @max-5xl:p-4">
           <div className="mari-editor-content-inner">
@@ -2272,8 +2280,9 @@ function PersonaSpritesTab({
           key={tab.id}
           type="button"
           onClick={() => setCategory(tab.id)}
+          aria-pressed={category === tab.id}
           className={cn(
-            "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+            "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
             category === tab.id
               ? "bg-[var(--primary)]/15 text-[var(--primary)]"
               : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",

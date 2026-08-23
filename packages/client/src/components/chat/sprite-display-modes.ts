@@ -7,9 +7,9 @@ export const SPRITE_DISPLAY_SCALE_MIN = 0.05;
 export const SPRITE_DISPLAY_SCALE_MAX = 2;
 export const SPRITE_DISPLAY_SCALE_PERCENT_MIN = 5;
 export const SPRITE_DISPLAY_SCALE_PERCENT_MAX = 200;
-export const SPRITE_DISPLAY_OPACITY_MIN = 0.15;
+export const SPRITE_DISPLAY_OPACITY_MIN = 0;
 export const SPRITE_DISPLAY_OPACITY_MAX = 1;
-export const SPRITE_DISPLAY_OPACITY_PERCENT_MIN = 15;
+export const SPRITE_DISPLAY_OPACITY_PERCENT_MIN = 0;
 export const SPRITE_DISPLAY_OPACITY_PERCENT_MAX = 100;
 
 export function normalizeSpriteDisplayModes(value: unknown): SpriteDisplayMode[] {

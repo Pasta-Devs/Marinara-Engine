@@ -5,8 +5,8 @@ import { CalendarClock, ChevronDown, RefreshCw, Settings2, Trash2 } from "lucide
 import { toast } from "sonner";
 import type { ConversationPresenceStatus, ConversationStatusOverride, WeekSchedule } from "@marinara-engine/shared";
 import type { Message } from "@marinara-engine/shared";
-import { useUpdateChatMetadata } from "../../hooks/use-chats";
-import { characterKeys } from "../../hooks/use-characters";
+import { chatKeys, useUpdateChatMetadata } from "../../hooks/use-chats";
+import { characterKeys, useUpdateCharacter } from "../../hooks/use-characters";
 import { useGenerate } from "../../hooks/use-generate";
 import { api } from "../../lib/api-client";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -109,17 +109,6 @@ function parseSchedules(raw: unknown): Record<string, WeekSchedule> {
   return schedules;
 }
 
-function buildOverrides(
-  existing: Record<string, ConversationStatusOverride>,
-  characterId: string,
-  override: ConversationStatusOverride | null,
-): Record<string, ConversationStatusOverride | null> {
-  const next: Record<string, ConversationStatusOverride | null> = { ...existing };
-  // Null signals deletion to the server merge; the server strips these tombstones.
-  next[characterId] = override;
-  return next;
-}
-
 function resizeActivityField(field: HTMLTextAreaElement | null) {
   if (!field) return;
   field.style.height = "0px";
@@ -158,7 +147,9 @@ export function ConversationPresenceCard({
     width: 320,
   });
   const queryClient = useQueryClient();
+  const qc = queryClient;
   const updateMeta = useUpdateChatMetadata();
+  const updateCharacter = useUpdateCharacter();
   const { generate } = useGenerate();
   const activeAbortController = useChatStore((s) => s.abortControllers.get(chatId) ?? null);
   const delayedInfo = useChatStore((s) => s.perChatDelayed.get(chatId) ?? null);
@@ -385,15 +376,23 @@ export function ConversationPresenceCard({
   ): Promise<boolean> => {
     setPendingStatuses((current) => ({ ...current, [characterId]: status }));
     try {
-      await updateMeta.mutateAsync({
-        id: chatId,
-        conversationStatusOverrides: buildOverrides(overrides, characterId, {
-          status,
-          activity: typeof activity === "string" ? activity : null,
-          createdAt: new Date().toISOString(),
-          expiresAt: null,
-        }),
+      // The override belongs to the character, so it applies in every chat. The
+      // chat's cached copy is refreshed when the chat is re-read.
+      await updateCharacter.mutateAsync({
+        id: characterId,
+        data: {
+          extensions: {
+            conversationStatusOverride: {
+              status,
+              activity: typeof activity === "string" ? activity : null,
+              createdAt: new Date().toISOString(),
+              expiresAt: null,
+            },
+          },
+        },
+        skipVersionSnapshot: true,
       });
+      await qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
       await statusesQuery.refetch();
       setPendingStatuses((current) => {
         const next = { ...current };
@@ -423,10 +422,12 @@ export function ConversationPresenceCard({
       return next;
     });
     try {
-      await updateMeta.mutateAsync({
-        id: chatId,
-        conversationStatusOverrides: buildOverrides(overrides, characterId, null),
+      await updateCharacter.mutateAsync({
+        id: characterId,
+        data: { extensions: { conversationStatusOverride: null } },
+        skipVersionSnapshot: true,
       });
+      await qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
       void statusesQuery.refetch();
     } catch (error) {
       toast.error(
@@ -516,6 +517,7 @@ export function ConversationPresenceCard({
       <button
         ref={buttonRef}
         type="button"
+        data-chat-help="identity"
         className={identityPillClass}
         title={title}
         onClick={() => {

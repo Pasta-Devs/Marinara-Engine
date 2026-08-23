@@ -117,9 +117,12 @@ export function buildRuntimeAgentSectionEligibleTypes(input: {
   for (const agent of input.configuredAgents ?? []) {
     if (!activeAgentIds.has(agent.type)) continue;
     if (input.chatMode && !isAgentAvailableInChatMode(input.chatMode, agent.type)) continue;
-    if (agent.phase !== "pre_generation") continue;
     const settings = parseRuntimeAgentSettings(agent.settings);
-    if (resolveAgentResultType({ type: agent.type, settings }) !== "context_injection") continue;
+    const resultType = resolveAgentResultType({ type: agent.type, settings });
+    const isRuntimeInjection = agent.phase === "pre_generation" && resultType === "context_injection";
+    const isPersistentAgentSection =
+      agent.phase === "post_processing" && resultType === "memory_nag" && settings.injectAsSection === true;
+    if (!isRuntimeInjection && !isPersistentAgentSection) continue;
     eligible.add(agent.type);
   }
 

@@ -20,7 +20,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type TouchEvent as ReactTouchEvent,
 } from "react";
-import { ChevronDown, Copy, GripVertical, Trash2 } from "lucide-react";
+import { ChevronDown, CheckSquare2, Copy, GripVertical, Square, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { confirmNonEmptyFolderDelete } from "../../lib/app-dialogs";
 import { useUpdateLorebookFolder, useDeleteLorebookFolder, useCloneLorebookFolder } from "../../hooks/use-lorebooks";
@@ -52,6 +52,12 @@ interface Props {
   onDrop: (e: ReactDragEvent<HTMLDivElement>) => void;
   onDragEnd: () => void;
   onDragHandleTouchStart?: (e: ReactTouchEvent<HTMLButtonElement>, sourceElement: HTMLDivElement | null) => void;
+  /** Batch-select mode: show a select-all checkbox on this folder row. */
+  selectionMode?: boolean;
+  /** True when every entry directly inside this folder is already selected. */
+  allSelected?: boolean;
+  /** Toggle select of all entries directly inside this folder. */
+  onToggleSelectAll?: () => void;
 }
 
 export function LorebookFolderRow({
@@ -72,6 +78,9 @@ export function LorebookFolderRow({
   onDrop,
   onDragEnd,
   onDragHandleTouchStart,
+  selectionMode = false,
+  allSelected = false,
+  onToggleSelectAll,
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const updateFolder = useUpdateLorebookFolder();
@@ -244,7 +253,33 @@ export function LorebookFolderRow({
         >
           <GripVertical size="0.875rem" />
         </button>
-
+        {selectionMode && (
+          <button
+            type="button"
+            aria-label={
+              allSelected
+                ? localizeUi("lorebook.editor.batch.deselectAllInFolder")
+                : localizeUi("lorebook.editor.batch.selectAllInFolder")
+            }
+            title={
+              allSelected
+                ? localizeUi("lorebook.editor.batch.deselectAllInFolder")
+                : localizeUi("lorebook.editor.batch.selectAllInFolder")
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelectAll?.();
+            }}
+            className={cn(
+              "flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--ring)] sm:h-7 sm:w-7",
+              allSelected
+                ? "mari-chrome-accent-surface mari-accent-animated ring-1"
+                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+            )}
+          >
+            {allSelected ? <CheckSquare2 size="0.875rem" /> : <Square size="0.875rem" />}
+          </button>
+        )}
         {/* Collapse chevron */}
         <button
           type="button"

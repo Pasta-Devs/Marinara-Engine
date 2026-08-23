@@ -1,4 +1,4 @@
-import { Check, Copy, LetterText } from "lucide-react";
+import { Check, LetterText } from "lucide-react";
 import { toast } from "sonner";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { copyToClipboard } from "../../../lib/utils";
@@ -59,28 +59,27 @@ export function ChatNameSection({
             {chatName}
           </button>
         )}
-        <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 px-3 py-2">
+        <button
+          type="button"
+          onClick={async () => {
+            const copied = await copyToClipboard(chatId);
+            if (copied) toast.success(localizeUi("ui.chatSettings.chatnamesection.chatIdCopied"));
+            else toast.error(localizeUi("ui.chatSettings.chatnamesection.couldNotCopyChatId"));
+          }}
+          className="group flex w-full min-w-0 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--secondary)]/50 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          title={localizeUi("ui.chatSettings.chatnamesection.copyChatId")}
+          aria-label={localizeUi("ui.chatSettings.chatnamesection.copyChatId")}
+        >
           <span className="shrink-0 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
             {localizeUi("ui.chatSettings.chatnamesection.chatId")}
           </span>
           <code className="min-w-0 flex-1 truncate text-[0.6875rem] text-[var(--foreground)]" title={chatId}>
             {chatId}
           </code>
-          <button
-            type="button"
-            onClick={async () => {
-              const copied = await copyToClipboard(chatId);
-              if (copied) toast.success(localizeUi("ui.chatSettings.chatnamesection.chatIdCopied"));
-              else toast.error(localizeUi("ui.chatSettings.chatnamesection.couldNotCopyChatId"));
-            }}
-            className="mari-editor-action inline-flex h-8 shrink-0 gap-1.5 px-2 text-[0.6875rem]"
-            title={localizeUi("ui.chatSettings.chatnamesection.copyChatId")}
-            aria-label={localizeUi("ui.chatSettings.chatnamesection.copyChatId")}
-          >
-            <Copy size="0.75rem" />
-            {localizeUi("lorebook.editor.batch.copy")}
-          </button>
-        </div>
+          <span className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)] transition-colors group-hover:text-[var(--foreground)]">
+            {localizeUi("ui.chatSettings.chatnamesection.clickToCopy")}
+          </span>
+        </button>
       </div>
     </ChatSettingsSection>
   );

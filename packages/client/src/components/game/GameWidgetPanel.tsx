@@ -352,7 +352,7 @@ export function MobileWidgetPanel({ widgets, position, chatId }: MobileWidgetPan
                     className={GAME_WIDGET_ICON_BUTTON_CLASS}
                     title={localizeUi("ui.game.mobilewidgetpanel.editValue1", { value1: w.label })}
                   >
-                    <Pencil size={10} />
+                    <Pencil size={10} className="text-[var(--marinara-chat-chrome-text)]" />
                   </button>
                   <button
                     type="button"
@@ -449,7 +449,7 @@ function WidgetCard({
           className={GAME_WIDGET_ICON_BUTTON_CLASS}
           title={localizeUi("ui.game.mobilewidgetpanel.editValue1", { value1: widget.label })}
         >
-          <Pencil size={10} />
+          <Pencil size={10} className="text-[var(--marinara-chat-chrome-text)]" />
         </button>
         <PanelLockButton locked={locked} onToggle={toggleLocked} onReset={resetPosition} size={10} />
         <span className={cn("text-[0.5rem]", GAME_WIDGET_MUTED_CLASS)}>{collapsed ? "+" : "-"}</span>
@@ -930,7 +930,7 @@ export function GameWidgetSessionPrepModal({
                       disabled={interactionsLocked}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
                     >
-                      <Pencil size={12} />
+                      <Pencil size={12} className="text-[var(--marinara-chat-chrome-text)]" />
                       <span>{localizeUi("ui.noodle.noodlepostcard.edit")}</span>
                     </button>
                     <button

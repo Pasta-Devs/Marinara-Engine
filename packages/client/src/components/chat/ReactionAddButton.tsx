@@ -6,11 +6,11 @@
 // ──────────────────────────────────────────────
 import { useRef, useState, type RefObject } from "react";
 import { SmilePlus } from "lucide-react";
-import { cn } from "../../lib/utils";
 import { filterCustomEmojisByName } from "../../lib/custom-emoji";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { useCustomEmojis } from "../../hooks/use-custom-emojis";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { MESSAGE_ACTION_ICON_SIZE, MessageActionButton } from "./MessageActionButton";
 
 interface ReactionAddButtonProps {
   /** Called with the chosen emoji token (unicode or `:name:`) + its image url (custom only). */
@@ -27,23 +27,15 @@ export function ReactionAddButton({ onPick, className, tabIndex }: ReactionAddBu
 
   return (
     <>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen((value) => !value);
-        }}
+      <MessageActionButton
+        buttonRef={buttonRef}
+        icon={<SmilePlus size={MESSAGE_ACTION_ICON_SIZE} />}
+        onClick={() => setOpen((value) => !value)}
         title={localizeUi("ui.chat.reactionaddbutton.addReaction")}
-        aria-label={localizeUi("ui.chat.reactionaddbutton.addReaction")}
         tabIndex={tabIndex}
-        className={cn(
-          "flex items-center justify-center rounded p-1 text-foreground/70 transition-colors hover:bg-foreground/20 hover:text-foreground",
-          className,
-        )}
-      >
-        <SmilePlus size="0.75rem" />
-      </button>
+        className={className}
+        stopPropagation
+      />
       {/* Mounted only while open: this button renders once per speaker segment
           across the whole transcript, so a closed instance must cost nothing —
           no picker subtree and no custom-emoji query subscription. */}

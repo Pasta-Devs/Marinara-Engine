@@ -153,7 +153,7 @@ function OptionButton({ active, label, onClick }: { active: boolean; label: stri
       onClick={onClick}
       aria-pressed={active}
       className={[
-        "min-h-10 rounded-lg border px-2 text-xs font-semibold transition-colors",
+        "min-h-10 rounded-md border px-2 text-xs font-semibold transition-colors",
         active
           ? "border-[var(--primary)] bg-[var(--primary)]/20 text-[var(--foreground)]"
           : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",

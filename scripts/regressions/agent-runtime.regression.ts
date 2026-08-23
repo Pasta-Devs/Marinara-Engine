@@ -119,6 +119,7 @@ const EXPECTED_AGENT_RESULT_TYPE_VALUES = [
   "game_map_update",
   "game_state_transition",
   "prompt_patch",
+  "character_activity_update",
   "frontend_theme_update",
   "about_me_update",
 ] as const;

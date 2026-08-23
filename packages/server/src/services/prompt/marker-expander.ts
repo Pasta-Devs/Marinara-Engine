@@ -605,6 +605,14 @@ function formatAgentResult(data: unknown): string {
   if (typeof data === "string") return data;
   if (data == null) return "";
   if (typeof data === "object") {
+    const memoryNag = data as { nags_needed?: unknown; nags?: unknown };
+    if (memoryNag.nags_needed === false) return "";
+    if (Array.isArray(memoryNag.nags)) {
+      return memoryNag.nags
+        .filter((nag): nag is string => typeof nag === "string" && nag.trim().length > 0)
+        .map((nag) => `- ${nag.trim()}`)
+        .join("\n");
+    }
     // For objects, produce a readable key-value format
     const entries = Object.entries(data as Record<string, unknown>);
     return entries

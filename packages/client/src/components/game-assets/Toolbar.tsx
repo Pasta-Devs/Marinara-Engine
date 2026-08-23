@@ -282,7 +282,7 @@ export function Toolbar({
             type="button"
             onClick={assetSelection.onToggle}
             className={cn(
-              "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
               assetSelection.active
                 ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--primary)]"
                 : "border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] hover:bg-[var(--accent)]",

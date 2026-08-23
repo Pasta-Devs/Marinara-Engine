@@ -118,7 +118,7 @@ assert.match(retryToolWiringSource, /!spotifyToolNames\.has\(toolName\)/);
 assert.match(retryToolWiringSource, /gameSpotifyMusicEnabled:\s*activeMusicPlayerSource !== null/);
 assert.match(
   retryToolWiringSource,
-  /emitMetadataPatch:\s*\(patch\)\s*=>\s*sendSseEvent\(reply,\s*\{\s*type:\s*"metadata_patch",\s*data:\s*patch\s*\}\)/,
+  /emitMetadataPatch:\s*\(patch\)\s*=>\s*\{[\s\S]{0,120}assertRetrySetupActive\(\);[\s\S]{0,120}sendSseEvent\(reply,\s*\{\s*type:\s*"metadata_patch",\s*data:\s*patch\s*\}\);[\s\S]{0,40}\}/,
 );
 assert.match(retryToolWiringSource, /observeSpotifyPlaybackBeforePlay:\s*true/);
 
@@ -469,6 +469,74 @@ const callTool = async (agent: ResolvedAgent, name: string, args: Record<string,
     }),
   ) as Record<string, unknown>;
 };
+
+const idempotentWriter = makeAgent("idempotent-writer", "custom-idempotent-writer", {
+  enabledTools: ["save_lorebook_entry"],
+  writableLorebookId: "book-write",
+});
+let storedWriterEntry: Record<string, unknown> | null = null;
+let writerCreateCount = 0;
+let writerPersistenceCount = 0;
+await resolveAgentGenerationTools({
+  requestBody: {},
+  chatId: "retry-chat",
+  chatMetadata: { ...metadata, agentWriteApprovalRequired: false },
+  chats: {
+    getMessage: async () => null,
+    updateMessageContent: async () => ({}),
+    patchMetadata: async (_chatId, patcher) => ({ metadata: await patcher(metadata) }),
+  },
+  agentsStore: createSpotifyAgentsStore([]),
+  customToolsStore: { listEnabled: async () => [] },
+  lorebooksStore: {
+    listActiveEntries: async () => [],
+    getById: async () => ({ id: "book-write", name: "Writable" }),
+    listEntries: async () => (storedWriterEntry ? [storedWriterEntry] : []),
+    createEntry: async (entry) => {
+      writerPersistenceCount += 1;
+      writerCreateCount += 1;
+      storedWriterEntry = { ...entry, id: "entry-1" };
+      return storedWriterEntry;
+    },
+    updateEntry: async () => {
+      writerPersistenceCount += 1;
+      return storedWriterEntry;
+    },
+  },
+  resolvedAgents: [idempotentWriter],
+  enabledConfigs: [],
+  promptCharacterIds: [],
+  personaId: null,
+  activeLorebookIds: [],
+  excludedLorebookIds: [],
+  excludedSourceAgentIds: [],
+  gameState: null,
+  gameSpotifyMusicEnabled: false,
+  agentContext: historicalContext,
+  emitMetadataPatch: () => {},
+});
+const createWriterEntry = { name: "Timeline", content: "Turn seven", keys: ["timeline"], mode: "create" };
+assert.equal((await callTool(idempotentWriter, "save_lorebook_entry", createWriterEntry)).action, "created");
+assert.equal((await callTool(idempotentWriter, "save_lorebook_entry", createWriterEntry)).action, "exists");
+assert.equal(writerCreateCount, 1, "Retrying a create-mode lorebook write must not duplicate the entry");
+assert.equal(writerPersistenceCount, 1, "Retrying a create-mode lorebook write must persist only once");
+
+assert.match(
+  retryRouteSource,
+  /isAgentWriteApprovalEnvelope\(result\.data\)[\s\S]*onLorebookEffectStatus\?\.\(result\.agentId, "pending_approval"\)/u,
+  "Approval-required lorebook backfill must remain pending without advancing its cursor",
+);
+assert.match(
+  retryRouteSource,
+  /catch \(err\) \{[\s\S]*onLorebookEffectStatus\?\.\(result\.agentId, "failed"\)[\s\S]*Failed to apply lorebook update/u,
+  "Failed lorebook persistence must report failure without advancing its cursor",
+);
+assert.match(
+  retryRouteSource,
+  /customLorebookBackfillEffectStatus === "applied"[\s\S]*CUSTOM_LOREBOOK_BACKFILL_CURSOR_KEY/u,
+  "Custom lorebook backfill cursor advances only after durable application",
+);
+
 const rollResult = await callTool(composedAgent, "roll_dice", { notation: "1d2" });
 assert.equal(rollResult.notation, "1d2", "built-in collision handling must preserve the built-in implementation");
 assert.equal(typeof rollResult.total, "number");

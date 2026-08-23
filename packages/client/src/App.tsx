@@ -30,6 +30,7 @@ import {
   getDefaultAppAccentColor,
   getDefaultAppBackgroundColor,
   getDefaultChatChromeTextColor,
+  MOBILE_SHELL_MEDIA_QUERY,
   useUIStore,
 } from "./stores/ui.store";
 import { useSidecarStore } from "./stores/sidecar.store";
@@ -50,6 +51,8 @@ import { useStorageMigrationNotice } from "./hooks/use-storage-migration-notice"
 import { useCustomNotificationSoundStatus } from "./hooks/use-custom-notification-sound";
 import { useReducedAmbientEffects } from "./hooks/use-reduced-ambient-effects";
 import { installLongTaskWarner } from "./lib/perf-diagnostics";
+import { getStoreBackLayers } from "./lib/back-layers";
+import { initBackNavigation, syncBackNavigation } from "./lib/back-navigation";
 import { setCustomNotificationSoundUrl } from "./lib/notification-sound";
 
 const VERSION_RECOVERY_KEY = "marinara:pwa-version-recovery";
@@ -525,6 +528,23 @@ export function App() {
   // [#3104 diagnostic] warn on long main-thread tasks (see lib/perf-diagnostics.ts)
   useEffect(() => {
     installLongTaskWarner();
+  }, []);
+
+  // Hardware / gesture back dismisses the topmost overlay instead of exiting.
+  useEffect(() => {
+    initBackNavigation(getStoreBackLayers);
+    // Overlay state is persisted, so the app can boot with panels already open.
+    syncBackNavigation();
+    const unsubscribeUI = useUIStore.subscribe(syncBackNavigation);
+    const unsubscribeDialog = useDialogStore.subscribe(syncBackNavigation);
+    // Whether a shell panel counts as an overlay depends on the viewport.
+    const shellQuery = window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
+    shellQuery.addEventListener("change", syncBackNavigation);
+    return () => {
+      unsubscribeUI();
+      unsubscribeDialog();
+      shellQuery.removeEventListener("change", syncBackNavigation);
+    };
   }, []);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { normalizeTextForMatch } from "@marinara-engine/shared";
+import type { ConversationStatusOverride } from "@marinara-engine/shared";
 
 import type { DB } from "../../db/connection.js";
 import { dailyCapForCharacter, getAutonomousDailyBudget } from "../../services/conversation/autonomous.service.js";
@@ -9,10 +10,6 @@ import {
   getTodaySchedule,
   type WeekSchedule,
 } from "../../services/conversation/schedule.service.js";
-import {
-  getEnabledConversationSchedules,
-  parseConversationStatusOverrides,
-} from "../../services/generation/conversation-context-utils.js";
 import type { GenerationPromptMessage } from "../../services/generation/prompt-message-scope.js";
 import { getActiveTurnGame } from "../../services/turn-games/turn-game-runner.service.js";
 import { isMessageHiddenFromAI, parseExtra } from "./generate-route-utils.js";
@@ -56,6 +53,10 @@ type ConversationPresenceChatsStore = {
     options?: { touchUpdatedAt?: boolean },
   ): Promise<unknown>;
   listMessages(chatId: string): Promise<any[]>;
+  resolveConversationPresenceState(chatId: string): Promise<{
+    schedules: Record<string, WeekSchedule>;
+    statusOverrides: Record<string, ConversationStatusOverride>;
+  }>;
 };
 
 type ConversationPresenceCharactersStore = {
@@ -100,8 +101,12 @@ export async function resolveConversationPresenceRuntime(args: {
   chatMessages: any[];
   finalMessages: GenerationPromptMessage[];
 }> {
-  const schedules = getEnabledConversationSchedules(args.chatMeta) as Record<string, WeekSchedule>;
-  const statusOverrides = parseConversationStatusOverrides(args.chatMeta.conversationStatusOverrides);
+  // Resolve from the character cards rather than trusting `args.chatMeta`, whose
+  // cached copies can predate a schedule or presence override set from another
+  // chat or from the Character Editor moments ago.
+  const presence = await args.chats.resolveConversationPresenceState(args.chatId);
+  const schedules = presence.schedules;
+  const statusOverrides = presence.statusOverrides;
   const convoCharInfo = await resolveConversationPromptCharacters({
     characterIds: args.characterIds,
     chars: args.chars,
@@ -279,7 +284,7 @@ async function resolveConversationPromptCharacters(args: {
   characterIds: string[];
   chars: ConversationPresenceCharactersStore;
   schedules: Record<string, WeekSchedule>;
-  statusOverrides: ReturnType<typeof parseConversationStatusOverrides>;
+  statusOverrides: Record<string, ConversationStatusOverride>;
   actualNow: Date;
   promptNow: Date;
 }): Promise<ConversationPromptCharacterInfo[]> {

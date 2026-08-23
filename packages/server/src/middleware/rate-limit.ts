@@ -82,6 +82,16 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
     pattern: /^\/api\/game\/[^/]+\/experience-generation(?:\?|$)/,
     rule: { key: "game-experience-generation", limit: 20, windowMs: 60_000 },
   },
+  // Same class for the experience-save transfer verbs (#5405): export serializes the
+  // chat's whole experience namespace (up to ~100 x 256K) and import rewrites it row by
+  // row, so both are heavy compared with the ordinary GET/PUT save. A package loop must
+  // hit a dedicated wall rather than the 600/min default. The GET/PUT save pair and the
+  // namespace DELETE share a path this pattern cannot separate by method, so they stay
+  // in the default class — they are the cheap, per-turn verbs.
+  {
+    pattern: /^\/api\/game\/[^/]+\/experience-state\/(?:export|import)(?:\?|$)/,
+    rule: { key: "game-experience-save-transfer", limit: 20, windowMs: 60_000 },
+  },
   // Cap on extension routes so an XSS-driven mass install / spam can't
   // exploit the persistent storage path. 60/min covers React Query
   // refetches + legacy migrations of small extension lists comfortably.

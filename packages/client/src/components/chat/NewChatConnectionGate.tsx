@@ -97,10 +97,18 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
 
   const showEmptyState = !isLoading && connectionRows.length === 0;
 
+  const handleOpenConnections = () => {
+    onClose();
+    openRightPanel("connections");
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[3px]" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
+      <div
+        data-new-chat-connection-gate={mode}
+        className="mari-chrome-token-scope mari-chrome-text-accent-scope fixed inset-0 z-50 flex items-center justify-center p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4"
+      >
         <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl sm:max-h-[min(90dvh,38rem)]">
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
@@ -121,17 +129,21 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
             {showEmptyState ? (
-              <div className="rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/8 p-4">
+              <div
+                data-new-chat-connection-empty
+                className="rounded-xl border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-4"
+              >
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
-                  <Plug size="0.875rem" className="text-[var(--primary)]" />
+                  <Plug size="0.875rem" className="mari-chrome-accent-icon" />
                   {localizeUi("ui.chat.newchatconnectiongate.noConnectionsFound")}
                 </div>
                 <p className="text-xs text-[var(--muted-foreground)]">
                   {localizeUi("ui.chat.newchatconnectiongate.createAConnectionFirstThenComeBackHereAnd")}
                 </p>
                 <button
-                  onClick={() => openRightPanel("connections")}
-                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/20"
+                  data-new-chat-open-connections
+                  onClick={handleOpenConnections}
+                  className="mari-chrome-control mari-chrome-control--primary mt-3 w-full text-xs"
                 >
                   <Plug size="0.75rem" />
                   {localizeUi("ui.chat.newchatconnectiongate.openConnections")}
@@ -146,7 +158,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
                   value={connectionId}
                   onChange={(e) => setConnectionId(e.target.value)}
                   disabled={createChat.isPending}
-                  className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2.5 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+                  className="mari-chrome-field w-full px-3 py-2.5 text-xs"
                 >
                   <option value="">{localizeUi("ui.chat.customemojiselectionsettings.selectAConnection")}</option>
                   {connectionRows.map((connection) => (
@@ -173,7 +185,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
                 "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-medium shadow-sm transition-all active:scale-95",
                 showEmptyState || !connectionId || createChat.isPending
                   ? "cursor-not-allowed bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-60"
-                  : "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90",
+                  : "mari-chrome-accent-surface border",
               )}
             >
               {createChat.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : MODE_META[mode].icon}

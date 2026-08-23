@@ -4,7 +4,7 @@
 // Game-agnostic persistence for the turn-game framework (UNO and beyond).
 // Mirrors game-state.storage.ts (per-message snapshots + committed flag +
 // regen-exclusion) but stores an opaque engine JSON blob instead of RPG fields.
-import { and, desc, eq, gt, inArray, lte, ne, notLike, type FileCondition } from "../../db/file-query.js";
+import { and, asc, desc, eq, gt, inArray, lte, ne, notLike, type FileCondition } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { gameEngineState } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -30,6 +30,34 @@ export interface CreateGameEngineStateInput {
   /** Already JSON-stringified engine state. */
   state: string;
   committed?: boolean;
+  /**
+   * Per-chat write ordinal from `chats.writeOrdinalCounter` (#5406). Omit (null) for writers
+   * with a single store — turn-games have nothing to order this row against.
+   *
+   * A value passed here is only ever valid inside ONE chat's counter space. Checkpoint restore
+   * therefore ALLOCATES a fresh ordinal for its experience rows rather than replaying the
+   * captured one (which would hand the same value out twice, and would also under-state a
+   * restore that is genuinely the newest write); its turn-game rows stay null. Chat branching is
+   * the one case that copies an ordinal verbatim, and only because it raises the branch's counter
+   * above every ordinal it copied via `chats.raiseWriteOrdinalFloor` — same counter space, so the
+   * copies keep their order and the branch's next allocation still beats all of them.
+   */
+  writeOrdinal?: number | null;
+  /**
+   * Override the row's creation timestamp (#5405). Only the experience-state writers use this
+   * (the PUT save and the bulk import): `createdAt` is the sole recency key every read orders
+   * by, and a `desc(createdAt).limit(1)` read of a TIED group does not return the newest write
+   * under either regime the store can be in —
+   *   - in-process, `Array.prototype.sort` is stable, so the tied group keeps insertion order
+   *     and the FIRST-inserted row wins;
+   *   - after a shard reload the loader pre-sorts rows by `createdAt` then primary key, so the
+   *     LOWEST row id wins instead.
+   * Two saves inside the same millisecond (a tight save loop) or a bulk import landing inside
+   * one millisecond would therefore hand fallback reads an arbitrary — often the OLDEST — save,
+   * and which one it is can change across a restart. Both writers pass a strictly increasing
+   * stamp instead, so a tie never forms. Every other caller omits this and gets `now()`.
+   */
+  createdAt?: string;
 }
 
 export function createGameEngineStateStorage(db: DB) {
@@ -126,6 +154,19 @@ export function createGameEngineStateStorage(db: DB) {
         .orderBy(desc(gameEngineState.createdAt));
     },
 
+    /**
+     * Every row of one scope in a chat, oldest write first (#5405). Backs the experience-state
+     * bulk export and the row count the namespace delete reports; ordering is `asc(createdAt)`
+     * so a re-import replaying the array in order reproduces the original recency.
+     */
+    async listForChat(chatId: string, gameType?: GameEngineStateScope) {
+      return db
+        .select()
+        .from(gameEngineState)
+        .where(scoped(eq(gameEngineState.chatId, chatId), gameType))
+        .orderBy(asc(gameEngineState.createdAt));
+    },
+
     async getLatestExcludingMessage(chatId: string, excludeMessageId: string, gameType?: GameEngineStateScope) {
       const rows = await db
         .select()
@@ -213,7 +254,8 @@ export function createGameEngineStateStorage(db: DB) {
         schemaVersion: input.schemaVersion,
         state: input.state,
         committed: input.committed ? 1 : 0,
-        createdAt: now(),
+        writeOrdinal: input.writeOrdinal ?? null,
+        createdAt: input.createdAt ?? now(),
       });
       return id;
     },
@@ -256,9 +298,13 @@ export function createGameEngineStateStorage(db: DB) {
       const latest = new Map<string, GameEngineStateRow>();
       for (const row of rows) {
         const current = latest.get(row.gameType);
-        // Strictly-greater keeps the FIRST-inserted row on a createdAt tie — the same row
-        // a desc(createdAt) read returns, because the store's sort is stable over
-        // insertion order. The captured blob must be the one the running game shows.
+        // Strictly-greater keeps the FIRST row of a createdAt tie in array order — the same
+        // row a desc(createdAt) read returns, so the captured blob is the one the running
+        // game shows. Which row that is depends on the store's state, and neither answer is
+        // "the newest write": in-process Array.prototype.sort is stable, so it is the
+        // first-INSERTED row; after a shard reload the loader has pre-sorted ties by primary
+        // key, so it is the LOWEST row id. Writers that care (the experience-state save and
+        // import, #5405) re-stamp createdAt strictly upward so no tie ever forms here.
         if (!current || row.createdAt > current.createdAt) latest.set(row.gameType, row);
       }
       return [...latest.values()];

@@ -65,7 +65,7 @@ import type {
   ResolvedSpatialTravel,
   ThinkingTagPair,
 } from "@marinara-engine/shared";
-import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { createChatsStorage, withChatMetadataPatchQueue } from "../services/storage/chats.storage.js";
 import {
   commitSpatialOwnerTurn,
   findAppliedSpatialOwnerTurn,
@@ -231,6 +231,10 @@ import {
   recordLongTermMemoryPromptAccepted,
   type LongTermMemoryRecallReceipt,
 } from "../services/generation/long-term-memory-runtime.js";
+import {
+  finalizeCapabilityAgentResults,
+  prepareCapabilityAgentContexts,
+} from "../services/capability-packages/capability-agent-runtime.service.js";
 import { newId } from "../utils/id-generator.js";
 import {
   appendGenerationTailMessages,
@@ -781,12 +785,6 @@ export async function generateRoutes(app: FastifyInstance) {
   const personaGallery = createPersonaGalleryStorage(app.db);
   const appSettings = createAppSettingsStorage(app.db);
 
-  /**
-   * In-memory cache for OpenAI Responses API encrypted reasoning items.
-   * Keyed by chatId → opaque reasoning items from the last response.
-   * These are replayed on the next turn so the model can continue its reasoning chain.
-   */
-  const encryptedReasoningCache = new Map<string, unknown[]>();
   type ActiveGeneration = ActiveAgentRun;
   const activeGenerations = new Map<string, ActiveGeneration>();
   const activeAgentRuns = new Map<string, Set<ActiveGeneration>>();
@@ -1196,6 +1194,7 @@ export async function generateRoutes(app: FastifyInstance) {
         : null;
     const promptNow = toZonedWallClockDate(new Date(), promptTimeZone);
     const excludePastReasoning = chatMeta.excludePastReasoning !== false;
+    let encryptedReasoningItems: unknown[] | undefined;
     const imageCaptioningRuntime: ImageCaptioningRuntime = await resolveImageCaptioningRuntime({
       chatMeta,
       fallbackConnectionId: connId,
@@ -1397,6 +1396,26 @@ export async function generateRoutes(app: FastifyInstance) {
         chatMessages = chatMessages.filter((m: any) => m.id !== input.regenerateMessageId);
         lorebookKeeperMessages = lorebookKeeperMessages.filter((m: any) => m.id !== input.regenerateMessageId);
       }
+
+      // OpenAI Responses API uses encrypted reasoning items for multi-turn continuity.
+      // Recover them before choosing the tool or streaming provider path. Hidden command
+      // anchors remain eligible, while a regenerated response cannot seed its replacement.
+      if (!excludePastReasoning) {
+        const reasoningMessages = input.regenerateMessageId
+          ? scopedMessages.filter((message: any) => message.id !== input.regenerateMessageId)
+          : scopedMessages;
+        for (let i = reasoningMessages.length - 1; i >= 0; i--) {
+          const message = reasoningMessages[i]!;
+          if (message.role === "assistant") {
+            const extra = parseExtra(message.extra);
+            if (Array.isArray(extra.encryptedReasoning) && extra.encryptedReasoning.length > 0) {
+              encryptedReasoningItems = extra.encryptedReasoning;
+            }
+            break;
+          }
+        }
+      }
+
       const regenerateContextCutoff =
         input.regenerateMessageId && typeof regenMsg?.createdAt === "string" ? regenMsg.createdAt : null;
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
@@ -3476,8 +3495,18 @@ export async function generateRoutes(app: FastifyInstance) {
             mode,
             targetCharacterIds,
             personaId: selectedPersonaId,
+            placedAgentTypes: [...runtimeAgentSectionTypes],
           });
-          const blocks = [...promptContext.blocks];
+          const placedPackageIds = new Set<string>();
+          for (const block of promptContext.packageBlocks) {
+            const tokens = runtimeAgentSectionTokens.get(block.packageId);
+            if (tokens && replaceRuntimeAgentSection(messages, tokens, block.text)) {
+              placedPackageIds.add(block.packageId);
+            }
+          }
+          const blocks = promptContext.packageBlocks
+            .filter((block) => !placedPackageIds.has(block.packageId))
+            .map((block) => block.text);
           const eventBlock = await collectRoleplayEventContext(db, input.chatId, targetCharacterIds);
           if (eventBlock) blocks.push(eventBlock);
           if (blocks.length > 0) {
@@ -4895,11 +4924,16 @@ export async function generateRoutes(app: FastifyInstance) {
           if (imagePromptInstructions) memory._imagePromptInstructions = imagePromptInstructions;
           return { ...trackerContext, memory };
         };
+        let preparedCapabilityPostContext: AgentContext | null = null;
         const pipeline = createAgentPipeline(
           pipelineAgents,
           agentContext,
           sendAgentEventAfterMainStream,
           resolveAgentContext,
+          async (agents, context) => {
+            preparedCapabilityPostContext = await prepareCapabilityAgentContexts(agents, context);
+            return preparedCapabilityPostContext;
+          },
         );
         let directorSecretPlotResults: AgentResult[] = [];
         let directorSecretPlotArcForPrompt: unknown = directorSecretPlotMemory.overarchingArc;
@@ -5500,6 +5534,9 @@ export async function generateRoutes(app: FastifyInstance) {
         let fullResponse = "";
         let fullThinking = "";
         let providerThinking = "";
+        let generationStartedAt: number | null = null;
+        let reasoningDurationMs: number | null = null;
+        let receivedThinking = false;
         let allResponses: string[] = [];
         const allResponseSegments: NonNullable<AgentContext["mainResponseSegments"]> = [];
         let continuedMessageRewriteSource: string | null = null;
@@ -5517,6 +5554,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const onThinking = (chunk: string) => {
           providerThinking += chunk;
           if (showThoughts) {
+            receivedThinking = true;
             fullThinking += chunk;
             sendSseEvent(reply, { type: "thinking", data: chunk });
           }
@@ -5544,13 +5582,25 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
         };
+        const recordReasoningDuration = (text: string) => {
+          if (text.trim() && receivedThinking && generationStartedAt !== null && reasoningDurationMs === null) {
+            reasoningDurationMs = Math.max(1, Date.now() - generationStartedAt);
+          }
+        };
         const sendTokenTextChunked = async (text: string) => {
           const visibleText = spatialDirectiveStreamFilter?.push(text) ?? text;
-          if (visibleText) await emitTokenTextChunked(visibleText);
+          if (visibleText) {
+            recordReasoningDuration(visibleText);
+            await emitTokenTextChunked(visibleText);
+          }
         };
         const writeContentChunked = async (text: string) => {
           fullResponse += text;
-          if (!holdForTextRewrite) await sendTokenTextChunked(text);
+          if (holdForTextRewrite) {
+            recordReasoningDuration(text);
+          } else {
+            await sendTokenTextChunked(text);
+          }
         };
 
         const resolveMessageSpeakerName = (message: any): string => {
@@ -6228,6 +6278,9 @@ export async function generateRoutes(app: FastifyInstance) {
           fullResponse = "";
           fullThinking = "";
           providerThinking = "";
+          generationStartedAt = null;
+          reasoningDurationMs = null;
+          receivedThinking = false;
           if (
             tailMessages.assistantPrefillInjected &&
             !tailMessages.googleUserRegenerationInjected &&
@@ -6243,6 +6296,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
           // Track timing and usage
           const genStartTime = Date.now();
+          generationStartedAt = genStartTime;
           let usage: LLMUsage | undefined;
           let finishReason: string | undefined;
 
@@ -6316,31 +6370,6 @@ export async function generateRoutes(app: FastifyInstance) {
           if (enableChatTools && provider.chatComplete) {
             const maxToolRounds = getMaxToolRounds();
             let loopMessages: ChatMessage[] = initialProviderMessages;
-            // ── Seed encrypted reasoning cache from DB ──
-            // OpenAI Responses API uses encrypted reasoning items for multi-turn continuity.
-            // These must be replayed on each request. If the in-memory cache was lost (e.g. server
-            // restart), recover from the last assistant message's persisted extra.
-            // On regens/swipes: clear the cache so we re-derive from the filtered chatMessages
-            // (which excludes the message being regenerated). Otherwise we'd replay the reasoning
-            // from the discarded response instead of the turn before it.
-            if (input.regenerateMessageId) {
-              encryptedReasoningCache.delete(input.chatId);
-            }
-            if (excludePastReasoning) {
-              encryptedReasoningCache.delete(input.chatId);
-            } else if (!encryptedReasoningCache.has(input.chatId)) {
-              for (let i = chatMessages.length - 1; i >= 0; i--) {
-                const msg = chatMessages[i]!;
-                if (msg.role === "assistant") {
-                  const ex = parseExtra(msg.extra);
-                  if (Array.isArray(ex.encryptedReasoning) && ex.encryptedReasoning.length > 0) {
-                    encryptedReasoningCache.set(input.chatId, ex.encryptedReasoning);
-                  }
-                  break;
-                }
-              }
-            }
-
             // Stream tokens in real-time via onToken callback.
             // Some providers (e.g. Gemini with thinking) return the entire response
             // in one chunk. Break large chunks into small pieces so the client sees
@@ -6352,6 +6381,7 @@ export async function generateRoutes(app: FastifyInstance) {
               }
               fullResponse += chunk;
               if (holdForTextRewrite) {
+                recordReasoningDuration(chunk);
                 return;
               }
               await sendTokenTextChunked(chunk);
@@ -6401,12 +6431,12 @@ export async function generateRoutes(app: FastifyInstance) {
                     onToken: input.streaming ? onToken : undefined,
                     openrouterProvider: conn.openrouterProvider ?? undefined,
                     signal: abortController.signal,
-                    encryptedReasoningItems: excludePastReasoning
-                      ? undefined
-                      : encryptedReasoningCache.get(input.chatId),
+                    encryptedReasoningItems: excludePastReasoning ? undefined : encryptedReasoningItems,
                     onEncryptedReasoning: excludePastReasoning
                       ? undefined
-                      : (items) => encryptedReasoningCache.set(input.chatId, items),
+                      : (items) => {
+                          encryptedReasoningItems = items;
+                        },
                     onChatCompletionsReasoning: rememberChatCompletionsReasoning,
                   }),
                 );
@@ -6621,12 +6651,12 @@ export async function generateRoutes(app: FastifyInstance) {
                     onToken: input.streaming ? onToken : undefined,
                     openrouterProvider: conn.openrouterProvider ?? undefined,
                     signal: abortController.signal,
-                    encryptedReasoningItems: excludePastReasoning
-                      ? undefined
-                      : encryptedReasoningCache.get(input.chatId),
+                    encryptedReasoningItems: excludePastReasoning ? undefined : encryptedReasoningItems,
                     onEncryptedReasoning: excludePastReasoning
                       ? undefined
-                      : (items) => encryptedReasoningCache.set(input.chatId, items),
+                      : (items) => {
+                          encryptedReasoningItems = items;
+                        },
                     onChatCompletionsReasoning: rememberChatCompletionsReasoning,
                   }),
                 );
@@ -6684,10 +6714,12 @@ export async function generateRoutes(app: FastifyInstance) {
                 geminiResponseParts = parts;
               },
               signal: abortController.signal,
-              encryptedReasoningItems: excludePastReasoning ? undefined : encryptedReasoningCache.get(input.chatId),
+              encryptedReasoningItems: excludePastReasoning ? undefined : encryptedReasoningItems,
               onEncryptedReasoning: excludePastReasoning
                 ? undefined
-                : (items) => encryptedReasoningCache.set(input.chatId, items),
+                : (items) => {
+                    encryptedReasoningItems = items;
+                  },
               onChatCompletionsReasoning: rememberChatCompletionsReasoning,
             });
             try {
@@ -6702,6 +6734,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 // so the client sees progressive streaming.
                 const val = result.value;
                 if (holdForTextRewrite) {
+                  recordReasoningDuration(val);
                   result = await withLlmRequestTimeout(chatGenerationTimeoutMs, () => gen.next());
                   continue;
                 }
@@ -6734,7 +6767,10 @@ export async function generateRoutes(app: FastifyInstance) {
 
           if (!holdForTextRewrite) {
             const pendingSpatialText = spatialDirectiveStreamFilter?.flush() ?? "";
-            if (pendingSpatialText) await emitTokenTextChunked(pendingSpatialText);
+            if (pendingSpatialText) {
+              recordReasoningDuration(pendingSpatialText);
+              await emitTokenTextChunked(pendingSpatialText);
+            }
           }
 
           const durationMs = Date.now() - genStartTime;
@@ -7175,6 +7211,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     commandOnly: true,
                     conversationCommandContent: conversationCommandContent ?? null,
                     isGenerated: true,
+                    encryptedReasoning: encryptedReasoningItems?.length ? encryptedReasoningItems : null,
                   })
                 : savedMsg;
               if (
@@ -7300,7 +7337,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   if (!recoveredMessage) throw error;
                   recoveredAlreadyAppliedSpatialTurn = true;
                   recoveredAlreadyAppliedOwnerTurn = true;
-                  encryptedReasoningCache.delete(input.chatId);
+                  encryptedReasoningItems = undefined;
                   savedMsg = recoveredMessage;
                   savedSwipeIndex = recovered.swipeIndex;
                   fullResponse = recoveredMessage.content;
@@ -7410,6 +7447,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 tokensCachedPrompt: usage?.cachedPromptTokens ?? null,
                 tokensCacheWritePrompt: usage?.cacheWritePromptTokens ?? null,
                 durationMs,
+                reasoningDurationMs,
                 finishReason: finishReason ?? null,
               },
             };
@@ -7422,8 +7460,7 @@ export async function generateRoutes(app: FastifyInstance) {
             if (chatCompletionsReasoning) extraUpdate.chatCompletionsReasoning = chatCompletionsReasoning;
             else extraUpdate.chatCompletionsReasoning = null;
             // Store OpenAI Responses API encrypted reasoning items for multi-turn continuity
-            const cachedReasoning = encryptedReasoningCache.get(input.chatId);
-            if (cachedReasoning?.length) extraUpdate.encryptedReasoning = cachedReasoning;
+            if (encryptedReasoningItems?.length) extraUpdate.encryptedReasoning = encryptedReasoningItems;
             else extraUpdate.encryptedReasoning = null;
             // Cache the exact prompt injections used for this swipe so future
             // regenerations and swipe switches replay the same guidance.
@@ -8027,66 +8064,86 @@ export async function generateRoutes(app: FastifyInstance) {
           const autoRange = computeSummaryMessageRange(freshMessages, selectedMessages);
           const autoRangeStartIndex = autoRange?.startIndex;
           const autoRangeEndIndex = autoRange?.endIndex;
-          // Compute the hide subset up front so it can be persisted on the entry
-          // (deletion restores exactly this set) and reused for the actual hide.
-          const [latestChatBeforeSummaryHide, latestMessagesBeforeSummaryHide] = await Promise.all([
-            chats.getById(input.chatId),
-            chats.listMessages(input.chatId),
-          ]);
-          const latestMetaBeforeSummaryHide = latestChatBeforeSummaryHide
-            ? (parseExtra(latestChatBeforeSummaryHide.metadata) as Record<string, unknown>)
-            : chatMeta;
-          // Do not claim messages that arrived during generation were summarized.
-          // The live list is used only to protect the real current visible tail.
-          const autoHideIds =
-            newText && !shouldReviewSummary && latestMetaBeforeSummaryHide.hideSummarisedMessages === true
-              ? computeSummaryHideIds({
-                  messages: latestMessagesBeforeSummaryHide,
-                  entryMessageIds: autoEntryMessageIds,
-                  tail: resolveRoleplaySummaryTail(latestMetaBeforeSummaryHide.summaryTailMessages),
-                })
-              : [];
-          const updatedChat = await chats.patchMetadata(
-            input.chatId,
-            (currentMeta) => {
-              const activeAgentIds = withoutRetiredChatSummaryAgentIds(currentMeta);
-              const basePatch: Record<string, unknown> = {
-                automaticSummaryEnabled: true,
-                lastAutomaticSummaryMessageId: latestAssistantMessageId,
-                ...(activeAgentIds ? { activeAgentIds } : {}),
-              };
-              if (!newText || shouldReviewSummary) return basePatch;
+          let hiddenMessageIds: string[] = [];
+          const updatedChat = await withChatMetadataPatchQueue(input.chatId, async () => {
+            const [latestChatBeforeSummaryHide, latestMessagesBeforeSummaryHide] = await Promise.all([
+              chats.getById(input.chatId),
+              chats.listMessages(input.chatId),
+            ]);
+            if (!latestChatBeforeSummaryHide) return null;
+            const latestMetaBeforeSummaryHide = parseExtra(latestChatBeforeSummaryHide.metadata) as Record<
+              string,
+              unknown
+            >;
+            const autoHideIds =
+              newText && !shouldReviewSummary && latestMetaBeforeSummaryHide.hideSummarisedMessages === true
+                ? computeSummaryHideIds({
+                    messages: latestMessagesBeforeSummaryHide,
+                    entryMessageIds: autoEntryMessageIds,
+                    tail: resolveRoleplaySummaryTail(latestMetaBeforeSummaryHide.summaryTailMessages),
+                  })
+                : [];
+            if (autoHideIds.length > 0) {
+              try {
+                hiddenMessageIds = await chats.bulkSetHiddenFromAI(input.chatId, autoHideIds, true);
+              } catch (err) {
+                logger.error(err, "[chat-summary] Failed to auto-hide summarized roleplay messages");
+              }
+            }
 
-              const now = new Date().toISOString();
-              const appended = appendChatSummaryEntryToMetadata(
-                currentMeta,
-                {
-                  kind: "rolling",
-                  origin: "automated",
-                  sourceMode: "agent",
-                  ...(parsedSummary.title ? { title: parsedSummary.title } : {}),
-                  content: newText,
-                  enabled: true,
-                  messageCount: selectedMessages.length,
-                  rangeStartIndex: autoRangeStartIndex,
-                  rangeEndIndex: autoRangeEndIndex,
-                  messageIds: autoEntryMessageIds,
-                  ...(autoHideIds.length > 0 ? { hiddenMessageIds: autoHideIds } : {}),
-                  promptTemplateId:
-                    typeof chatMeta.activeSummaryPromptTemplateId === "string"
-                      ? chatMeta.activeSummaryPromptTemplateId
-                      : null,
-                  createdAt: now,
-                  updatedAt: now,
+            try {
+              const updated = await chats.patchMetadata(
+                input.chatId,
+                (currentMeta) => {
+                  const activeAgentIds = withoutRetiredChatSummaryAgentIds(currentMeta);
+                  const basePatch: Record<string, unknown> = {
+                    automaticSummaryEnabled: true,
+                    lastAutomaticSummaryMessageId: latestAssistantMessageId,
+                    ...(activeAgentIds ? { activeAgentIds } : {}),
+                  };
+                  if (!newText || shouldReviewSummary) return basePatch;
+
+                  const now = new Date().toISOString();
+                  const appended = appendChatSummaryEntryToMetadata(
+                    currentMeta,
+                    {
+                      kind: "rolling",
+                      origin: "automated",
+                      sourceMode: "agent",
+                      ...(parsedSummary.title ? { title: parsedSummary.title } : {}),
+                      content: newText,
+                      enabled: true,
+                      messageCount: selectedMessages.length,
+                      rangeStartIndex: autoRangeStartIndex,
+                      rangeEndIndex: autoRangeEndIndex,
+                      messageIds: autoEntryMessageIds,
+                      ...(hiddenMessageIds.length > 0 ? { hiddenMessageIds } : {}),
+                      promptTemplateId:
+                        typeof chatMeta.activeSummaryPromptTemplateId === "string"
+                          ? chatMeta.activeSummaryPromptTemplateId
+                          : null,
+                      createdAt: now,
+                      updatedAt: now,
+                    },
+                    { createId: newId, now },
+                  );
+                  createdEntry = appended.entry;
+                  summaryEntries = appended.entries;
+                  return { ...basePatch, summary: appended.summary, summaryEntries: appended.entries };
                 },
-                { createId: newId, now },
+                { touchUpdatedAt: false, metadataQueueHeld: true },
               );
-              createdEntry = appended.entry;
-              summaryEntries = appended.entries;
-              return { ...basePatch, summary: appended.summary, summaryEntries: appended.entries };
-            },
-            { touchUpdatedAt: false },
-          );
+              if (!updated && hiddenMessageIds.length > 0) {
+                await chats.bulkSetHiddenFromAI(input.chatId, hiddenMessageIds, false);
+              }
+              return updated;
+            } catch (err) {
+              if (hiddenMessageIds.length > 0) {
+                await chats.bulkSetHiddenFromAI(input.chatId, hiddenMessageIds, false);
+              }
+              throw err;
+            }
+          });
 
           if (updatedChat) {
             chatMeta = parseExtra(updatedChat.metadata) as Record<string, unknown>;
@@ -8115,19 +8172,6 @@ export async function generateRoutes(app: FastifyInstance) {
               });
             } else {
               const combined = typeof chatMeta.summary === "string" ? chatMeta.summary : newText;
-              // Opt-in token compression: hide the messages this summary covered
-              // (except the protected recent tail, already excluded in autoHideIds)
-              // so the summary is a net token reduction. Best-effort; never aborts
-              // the stream. The same set is persisted on the entry above.
-              let hiddenMessageIds: string[] = [];
-              if (autoHideIds.length > 0) {
-                try {
-                  await chats.bulkSetHiddenFromAI(input.chatId, autoHideIds, true);
-                  hiddenMessageIds = autoHideIds;
-                } catch (err) {
-                  logger.error(err, "[chat-summary] Failed to auto-hide summarized roleplay messages");
-                }
-              }
               sendSseEvent(reply, {
                 type: "chat_summary",
                 data: { summary: combined, entry: createdEntry, entries: summaryEntries, hiddenMessageIds },
@@ -8303,7 +8347,10 @@ export async function generateRoutes(app: FastifyInstance) {
                     : null;
                 const phaseRetryContext: AgentContext =
                   agentCfg.phase === "post_processing"
-                    ? { ...agentContext, mainResponse: completedResponse }
+                    ? {
+                        ...(preparedCapabilityPostContext ?? postAgentContext),
+                        mainResponse: completedResponse,
+                      }
                     : agentContext;
                 const retryCtx: AgentContext = historicalLorebookTarget
                   ? (buildHistoricalLorebookKeeperContext(
@@ -8355,6 +8402,12 @@ export async function generateRoutes(app: FastifyInstance) {
           }
 
           postResults = postResults.map(markLorebookResultForApproval);
+
+          postResults = await finalizeCapabilityAgentResults(
+            postResults,
+            resolvedAgents,
+            preparedCapabilityPostContext ?? postAgentContext,
+          );
 
           // Finalize expression results before streaming/persisting them so
           // required persona/character entries are visible immediately.

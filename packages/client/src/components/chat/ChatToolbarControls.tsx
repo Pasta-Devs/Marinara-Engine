@@ -10,6 +10,7 @@ import {
 import { MoreHorizontal } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { CHAT_SUMMARY_OPEN_REQUEST_EVENT, requestChatSummaryOpen } from "../../lib/chat-floating-ui-events";
+import { CHAT_HELP_CLOSE_EVENT, CHAT_HELP_OPEN_REQUEST_EVENT, readChatHelpEventMode } from "../../lib/chat-help-events";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -135,6 +136,7 @@ export function ChatToolbarButton({
   icon,
   title,
   onClick,
+  helpTarget,
   panelAction,
   size,
 }: {
@@ -142,6 +144,7 @@ export function ChatToolbarButton({
   icon: ReactNode;
   title: string;
   onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+  helpTarget?: string;
   panelAction?: ChatToolbarPanelAction;
   size?: "sm";
 }) {
@@ -155,6 +158,7 @@ export function ChatToolbarButton({
         announceChatToolbarAction(panelAction ?? null);
         onClick(event);
       }}
+      data-chat-help={helpTarget ?? panelAction}
       data-chat-toolbar-panel-action={panelAction}
       className={getChatToolbarButtonClass({ className, compact: size === "sm" })}
       title={localizedTitle}
@@ -263,6 +267,26 @@ export function ChatToolbarMenu({
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
+
+  useEffect(() => {
+    const handleHelpOpen = (event: Event) => {
+      const root = rootRef.current;
+      if (!root || root.getBoundingClientRect().width <= 1) return;
+      const mode = root.closest<HTMLElement>("[data-chat-mode]")?.dataset.chatMode;
+      if (readChatHelpEventMode(event) !== mode) return;
+      if (window.innerWidth < 768 || overflowCollapsed) setOpen(true);
+    };
+    const handleHelpClose = (event: Event) => {
+      const mode = rootRef.current?.closest<HTMLElement>("[data-chat-mode]")?.dataset.chatMode;
+      if (readChatHelpEventMode(event) === mode) setOpen(false);
+    };
+    window.addEventListener(CHAT_HELP_OPEN_REQUEST_EVENT, handleHelpOpen);
+    window.addEventListener(CHAT_HELP_CLOSE_EVENT, handleHelpClose);
+    return () => {
+      window.removeEventListener(CHAT_HELP_OPEN_REQUEST_EVENT, handleHelpOpen);
+      window.removeEventListener(CHAT_HELP_CLOSE_EVENT, handleHelpClose);
+    };
+  }, [overflowCollapsed]);
 
   useEffect(() => {
     const handleSummaryOpenRequest = (event: Event) => {

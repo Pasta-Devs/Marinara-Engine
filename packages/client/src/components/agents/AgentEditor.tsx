@@ -152,6 +152,8 @@ function createCustomAgentType(name: string): string {
 const LOREBOOK_WRITE_TOOL_NAME = "save_lorebook_entry";
 const MESSAGE_EDIT_TOOL_NAME = "edit_chat_message";
 const MAX_LOREBOOK_READ_BEHIND_MESSAGES = 100;
+const DEFAULT_LOREBOOK_BACKFILL_CHUNK_SIZE = 25;
+const MAX_LOREBOOK_BACKFILL_CHUNK_SIZE = 100;
 const DEFAULT_PROSE_GUARDIAN_BANNED_WORDS = "ozone";
 type MusicProvider = "spotify" | "youtube" | "custom";
 type CustomMusicSource = "game-assets" | "folder";
@@ -184,6 +186,12 @@ function normalizeLorebookReadBehindMessages(value: unknown): number {
   const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   if (!Number.isFinite(numeric)) return 0;
   return Math.max(0, Math.min(MAX_LOREBOOK_READ_BEHIND_MESSAGES, Math.trunc(numeric)));
+}
+
+function normalizeLorebookBackfillChunkSize(value: unknown): number {
+  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(numeric)) return DEFAULT_LOREBOOK_BACKFILL_CHUNK_SIZE;
+  return Math.max(1, Math.min(MAX_LOREBOOK_BACKFILL_CHUNK_SIZE, Math.trunc(numeric)));
 }
 
 function normalizeExternalMusicFolderInput(value: unknown): string {
@@ -744,6 +752,10 @@ export function AgentEditor() {
   const [localLorebookWriteEnabled, setLocalLorebookWriteEnabled] = useState(false);
   const [localWritableLorebookId, setLocalWritableLorebookId] = useState("");
   const [localLorebookReadBehindMessages, setLocalLorebookReadBehindMessages] = useState(0);
+  const [localLorebookBackfillEnabled, setLocalLorebookBackfillEnabled] = useState(false);
+  const [localLorebookBackfillChunkSize, setLocalLorebookBackfillChunkSize] = useState(
+    DEFAULT_LOREBOOK_BACKFILL_CHUNK_SIZE,
+  );
   const [localMusicProvider, setLocalMusicProvider] = useState<MusicProvider>("spotify");
   const [localCustomMusicSource, setLocalCustomMusicSource] = useState<CustomMusicSource>("game-assets");
   const [localCustomMusicFolder, setLocalCustomMusicFolder] = useState("music");
@@ -849,6 +861,8 @@ export function AgentEditor() {
       );
       setLocalWritableLorebookId(writableLorebookId);
       setLocalLorebookReadBehindMessages(normalizeLorebookReadBehindMessages(settings.lorebookReadBehindMessages));
+      setLocalLorebookBackfillEnabled(settings.lorebookBackfillEnabled === true);
+      setLocalLorebookBackfillChunkSize(normalizeLorebookBackfillChunkSize(settings.lorebookBackfillChunkSize));
       setLocalMusicProvider(normalizeMusicProvider(settings));
       setLocalCustomMusicSource(normalizeCustomMusicSource(settings));
       setLocalCustomMusicFolder(
@@ -961,6 +975,8 @@ export function AgentEditor() {
       setLocalLorebookWriteEnabled(false);
       setLocalWritableLorebookId("");
       setLocalLorebookReadBehindMessages(0);
+      setLocalLorebookBackfillEnabled(false);
+      setLocalLorebookBackfillChunkSize(DEFAULT_LOREBOOK_BACKFILL_CHUNK_SIZE);
       setLocalMusicProvider(normalizeMusicProvider(defaultSettings));
       setLocalCustomMusicSource(normalizeCustomMusicSource(defaultSettings));
       setLocalCustomMusicFolder(
@@ -1016,6 +1032,8 @@ export function AgentEditor() {
       setLocalLorebookWriteEnabled(false);
       setLocalWritableLorebookId("");
       setLocalLorebookReadBehindMessages(0);
+      setLocalLorebookBackfillEnabled(false);
+      setLocalLorebookBackfillChunkSize(DEFAULT_LOREBOOK_BACKFILL_CHUNK_SIZE);
       setLocalMusicProvider("spotify");
       setLocalCustomMusicSource("game-assets");
       setLocalCustomMusicFolder("music");
@@ -1230,6 +1248,9 @@ export function AgentEditor() {
     const lorebookReadBehindEnabled =
       isEditingCustomAgent &&
       customLorebookReadBehindEnabled(savedPhase, lorebookWriterEnabled, localResultType, customCapabilities);
+    const lorebookTargetEnabled =
+      (lorebookWriterEnabled || (lorebookReadBehindEnabled && customCapabilities.edit_lorebooks === true)) &&
+      writableLorebookId.length > 0;
     if (lorebookWriterEnabled && !writableLorebookId) {
       setSaveError("Select a target lorebook before enabling lorebook writing for this agent.");
       return;
@@ -1308,14 +1329,20 @@ export function AgentEditor() {
             }
           : {}),
         enabledTools: isMusicAgent && localMusicProvider !== "spotify" ? [] : effectiveEnabledTools,
-        ...(lorebookWriterEnabled
+        ...(lorebookTargetEnabled
           ? {
-              lorebookWriteEnabled: true,
+              ...(lorebookWriterEnabled ? { lorebookWriteEnabled: true } : {}),
               writableLorebookId,
               writableLorebookIds: [writableLorebookId],
             }
           : {}),
         ...(lorebookReadBehindEnabled ? { lorebookReadBehindMessages: localLorebookReadBehindMessages } : {}),
+        ...(lorebookReadBehindEnabled
+          ? {
+              lorebookBackfillEnabled: localLorebookBackfillEnabled,
+              lorebookBackfillChunkSize: localLorebookBackfillChunkSize,
+            }
+          : {}),
         ...(localSpotifyClientId ? { spotifyClientId: localSpotifyClientId } : {}),
         ...(isKnowledgeRetrievalAgent ||
         isKnowledgeRouterAgent ||
@@ -1410,6 +1437,8 @@ export function AgentEditor() {
     localLorebookWriteEnabled,
     localWritableLorebookId,
     localLorebookReadBehindMessages,
+    localLorebookBackfillEnabled,
+    localLorebookBackfillChunkSize,
     localMusicProvider,
     localCustomMusicSource,
     localCustomMusicFolder,
@@ -1478,6 +1507,9 @@ export function AgentEditor() {
     const lorebookReadBehindEnabled =
       isEditingCustomAgent &&
       customLorebookReadBehindEnabled(savedPhase, lorebookWriterEnabled, localResultType, customCapabilities);
+    const lorebookTargetEnabled =
+      (lorebookWriterEnabled || (lorebookReadBehindEnabled && customCapabilities.edit_lorebooks === true)) &&
+      writableLorebookId.length > 0;
     const effectiveEnabledTools = Array.from(
       new Set(
         lorebookWriterEnabled
@@ -1516,14 +1548,20 @@ export function AgentEditor() {
           }
         : {}),
       enabledTools: exportingMusicAgent && localMusicProvider !== "spotify" ? [] : effectiveEnabledTools,
-      ...(lorebookWriterEnabled
+      ...(lorebookTargetEnabled
         ? {
-            lorebookWriteEnabled: true,
+            ...(lorebookWriterEnabled ? { lorebookWriteEnabled: true } : {}),
             writableLorebookId,
             writableLorebookIds: [writableLorebookId],
           }
         : {}),
       ...(lorebookReadBehindEnabled ? { lorebookReadBehindMessages: localLorebookReadBehindMessages } : {}),
+      ...(lorebookReadBehindEnabled
+        ? {
+            lorebookBackfillEnabled: localLorebookBackfillEnabled,
+            lorebookBackfillChunkSize: localLorebookBackfillChunkSize,
+          }
+        : {}),
       ...(localSpotifyClientId ? { spotifyClientId: localSpotifyClientId } : {}),
       ...(isKnowledgeRetrievalAgent ||
       isKnowledgeRouterAgent ||
@@ -1741,6 +1779,8 @@ export function AgentEditor() {
     localResultType,
     localCustomCapabilities,
   );
+  const canConfigureLorebookTarget =
+    localCustomCapabilities.edit_lorebooks === true && (localLorebookWriteEnabled || canConfigureLorebookReadBehind);
   const visibleBuiltInTools = useMemo(
     () =>
       BUILT_IN_TOOLS.filter(
@@ -2182,7 +2222,7 @@ export function AgentEditor() {
                   {allLorebooks && allLorebooks.length > 0 ? (
                     <select
                       value={localWritableLorebookId}
-                      disabled={!localLorebookWriteEnabled || localCustomCapabilities.edit_lorebooks !== true}
+                      disabled={!canConfigureLorebookTarget}
                       onChange={(event) => {
                         setLocalWritableLorebookId(event.target.value);
                         markDirty();
@@ -2222,6 +2262,40 @@ export function AgentEditor() {
                   />
                   <span className="text-[0.625rem] leading-relaxed">
                     {localizeUi("ui.agents.agenteditor.customLorebookReadBehindDescription")}
+                  </span>
+                </label>
+
+                <EditorSwitchRow
+                  label={localizeUi("ui.agents.agenteditor.enableChunkedBackfill")}
+                  checked={localLorebookBackfillEnabled}
+                  disabled={!canConfigureLorebookReadBehind}
+                  onChange={() => {
+                    if (!canConfigureLorebookReadBehind) return;
+                    setLocalLorebookBackfillEnabled((value) => !value);
+                    markDirty();
+                  }}
+                  description={localizeUi("ui.agents.agenteditor.enableChunkedBackfillDescription")}
+                />
+
+                <label className="flex min-w-0 flex-col gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                  <span className="font-medium text-[var(--foreground)]">
+                    {localizeUi("ui.agents.agenteditor.backfillChunkSize")}
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={MAX_LOREBOOK_BACKFILL_CHUNK_SIZE}
+                    step={1}
+                    value={localLorebookBackfillChunkSize}
+                    disabled={!canConfigureLorebookReadBehind || !localLorebookBackfillEnabled}
+                    onChange={(event) => {
+                      setLocalLorebookBackfillChunkSize(normalizeLorebookBackfillChunkSize(event.target.value));
+                      markDirty();
+                    }}
+                    className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                  <span className="text-[0.625rem] leading-relaxed">
+                    {localizeUi("ui.agents.agenteditor.backfillChunkSizeDescription")}
                   </span>
                 </label>
               </div>
@@ -2922,8 +2996,9 @@ export function AgentEditor() {
                         key={provider}
                         type="button"
                         onClick={() => handleMusicProviderChange(provider)}
+                        aria-pressed={active}
                         className={cn(
-                          "rounded-lg px-3 py-2 text-xs font-medium transition-all",
+                          "rounded-md px-3 py-2 text-xs font-medium transition-all",
                           active
                             ? "bg-white/12 text-white shadow-sm"
                             : "text-white/45 hover:bg-white/8 hover:text-white/75",

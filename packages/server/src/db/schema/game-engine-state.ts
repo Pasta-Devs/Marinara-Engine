@@ -25,5 +25,16 @@ export const gameEngineState = fileTable("game_engine_state", {
   /** Whether this snapshot has been "committed" (the turn was accepted). */
   committed: integer("committed").notNull().default(0),
 
+  /**
+   * Per-chat monotonic write ordinal drawn from `chats.write_ordinal_counter` (#5406). Set by
+   * the host-owned experience-state PUT (and by checkpoint restore, which re-allocates) so a
+   * game-surface Experience can order this row against the chat-metadata copy it also keeps.
+   * Null on rows written before #5406 and on turn-game rows — a turn-game has a single store, so
+   * it has nothing to order against, and neither the PUT nor the restore stamps one. A
+   * chat-branch clone copies its source row's ordinal verbatim, so it is null exactly when the
+   * source row's was. Never compare ordinals across chats.
+   */
+  writeOrdinal: integer("write_ordinal"),
+
   createdAt: text("created_at").notNull(),
 });

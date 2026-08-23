@@ -9,7 +9,7 @@ import { basename, join, resolve } from "node:path";
 import { eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
-import { CASCADES, FILE_BACKED_TABLES } from "../../db/file-backed-store.js";
+import { CASCADE_DANGLING_EXEMPT_PREFIXES, CASCADES, FILE_BACKED_TABLES } from "../../db/file-backed-store.js";
 import { getFileTableConfig, isFileTable, type AnyFileColumn, type AnyFileTable } from "../../db/file-schema.js";
 import * as schema from "../../db/schema/index.js";
 import { getFileStorageDir, getMonorepoRoot, isCustomToolScriptEnabled } from "../../config/runtime-config.js";
@@ -364,6 +364,7 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   message_swipes: ["extra"],
   memory_chunks: ["embedding"],
   lorebooks: ["scope", "tags"],
+  library_folders: ["itemIds"],
   lorebook_entries: [
     "keys",
     "secondaryKeys",
@@ -2424,6 +2425,7 @@ export class MariDbService {
   private history: MariDbHistoryEntry[] = [];
   private writeQueue: Promise<unknown> = Promise.resolve();
   private characterFolderMutationQueue: Promise<void> = Promise.resolve();
+  private lorebookFolderMutationQueue: Promise<void> = Promise.resolve();
   // Per-review serialization queue. keepAppliedReview / restoreAppliedReview / rejectRows each do a
   // read-modify-write over pending.get(id) + the durable sidecar across await points; two concurrent
   // requests for the SAME review id would both read the same record and clobber each other on write.
@@ -3380,6 +3382,101 @@ export class MariDbService {
           .slice(0, limit)
           .map(summarizeLorebookRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
+      }
+      case "folder.list": {
+        const lorebookId = requiredString(args, ["lorebookId", "id"], "lorebook id");
+        if (!(await this.getRawById(getMeta("lorebooks"), lorebookId))) {
+          throw new Error(`Lorebook ${lorebookId} not found`);
+        }
+        const rows = (await this.rawRows("lorebook_folders"))
+          .filter((row) => row.lorebookId === lorebookId)
+          .sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0))
+          .map((row) => parseRow("lorebook_folders", row));
+        return { ok: true, mode: "read", command: context.command, output: rows };
+      }
+      case "folder.create": {
+        const lorebookId = requiredString(args, ["lorebookId"], "lorebook id");
+        const data = actionDataWithTopLevel(args, ["data", "folder"], ["name", "parentFolderId"]);
+        const name = requiredString(data, ["name"], "folder name");
+        const parentFolderId = firstString(data, ["parentFolderId"]);
+        return this.withLorebookFolderMutationLock(async () => {
+          if (!(await this.getRawById(getMeta("lorebooks"), lorebookId))) {
+            throw new Error(`Lorebook ${lorebookId} not found`);
+          }
+          if (parentFolderId) {
+            const parent = await this.getRawById(getMeta("lorebook_folders"), parentFolderId);
+            if (!parent || parent.lorebookId !== lorebookId) {
+              throw new Error(`Parent folder ${parentFolderId} not found in lorebook ${lorebookId}`);
+            }
+          }
+          const existing = (await this.rawRows("lorebook_folders")).filter((row) => row.lorebookId === lorebookId);
+          const timestamp = now();
+          const id = firstString(args, ["folderId", "id"]) ?? newId();
+          const row: Row = {
+            id,
+            lorebookId,
+            name,
+            enabled: "true",
+            parentFolderId: parentFolderId ?? null,
+            order: existing.reduce((maximum, folder) => Math.max(maximum, Number(folder.order ?? 0)), 0) + 10,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+          return this.executeMutation(
+            {
+              kind: "insert",
+              table: "lorebook_folders",
+              id,
+              row,
+              apply: appDataCreateApply(args),
+              cascade: false,
+              reason: firstString(args, ["reason"]) ?? null,
+              cwd: context.cwd,
+            },
+            context.command,
+            context.sessionId,
+          );
+        });
+      }
+      case "libraryfolder.list": {
+        const rows = (await this.rawRows("library_folders"))
+          .filter((row) => row.scope === "lorebooks")
+          .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0))
+          .map((row) => parseRow("library_folders", row));
+        return { ok: true, mode: "read", command: context.command, output: rows };
+      }
+      case "libraryfolder.create": {
+        const data = actionDataWithTopLevel(args, ["data", "folder"], ["name"]);
+        const name = requiredString(data, ["name"], "folder name");
+        return this.withLorebookFolderMutationLock(async () => {
+          const existing = (await this.rawRows("library_folders")).filter((row) => row.scope === "lorebooks");
+          const timestamp = now();
+          const id = firstString(args, ["folderId", "id"]) ?? newId();
+          const row: Row = {
+            id,
+            scope: "lorebooks",
+            name,
+            collapsed: "false",
+            sortOrder: existing.reduce((maximum, folder) => Math.max(maximum, Number(folder.sortOrder ?? -1)), -1) + 1,
+            itemIds: [],
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+          return this.executeMutation(
+            {
+              kind: "insert",
+              table: "library_folders",
+              id,
+              row,
+              apply: appDataCreateApply(args),
+              cascade: false,
+              reason: firstString(args, ["reason"]) ?? null,
+              cwd: context.cwd,
+            },
+            context.command,
+            context.sessionId,
+          );
+        });
       }
       case "create": {
         const data = actionDataWithTopLevel(
@@ -5195,11 +5292,15 @@ export class MariDbService {
 
     for (const cascade of CASCADES) {
       if (table && table !== cascade.child && table !== cascade.parent) continue;
+      // Refs this cascade declares dangling BY DESIGN (#5405: experience-state rows imported
+      // at an anchor the destination chat never had). See CASCADE_DANGLING_EXEMPT_PREFIXES.
+      const exemptPrefix = CASCADE_DANGLING_EXEMPT_PREFIXES[`${cascade.child}.${cascade.childKey}`];
       const parents = new Set(
         (await getRows(cascade.parent)).map((row) => row[cascade.parentKey]).filter((id) => typeof id === "string"),
       );
       for (const child of await getRows(cascade.child)) {
         const ref = child[cascade.childKey];
+        if (typeof ref === "string" && exemptPrefix && ref.startsWith(exemptPrefix)) continue;
         if (typeof ref === "string" && ref && !parents.has(ref)) {
           issues.push({
             level: "error",
@@ -7420,6 +7521,15 @@ export class MariDbService {
     return run;
   }
 
+  private withLorebookFolderMutationLock<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.lorebookFolderMutationQueue.then(operation);
+    this.lorebookFolderMutationQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
   // Serialize an operation against all others touching the SAME review id (see reviewLocks). The
   // stored tail never rejects, so a failed operation cannot wedge the id's queue; the next waiter
   // still runs. The tail self-evicts from the map once it is the last holder, so ids do not
@@ -7820,6 +7930,9 @@ export class MariDbService {
       for (const cascade of CASCADES.filter((entry) => entry.child === change.table)) {
         const ref = change.afterRaw?.[cascade.childKey];
         if (typeof ref !== "string" || !ref) continue;
+        // Same by-design exemption the full validate() walk applies (#5405).
+        const exemptPrefix = CASCADE_DANGLING_EXEMPT_PREFIXES[`${cascade.child}.${cascade.childKey}`];
+        if (exemptPrefix && ref.startsWith(exemptPrefix)) continue;
         const parentInsertedOrUpdated = changes.some(
           (entry) =>
             entry.table === cascade.parent && entry.action !== "delete" && entry.afterRaw?.[cascade.parentKey] === ref,

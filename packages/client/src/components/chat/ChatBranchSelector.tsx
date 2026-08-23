@@ -262,6 +262,7 @@ export function ChatBranchSelector({
       <button
         ref={buttonRef}
         type="button"
+        data-chat-help="branches"
         onClick={(event) => {
           announceChatToolbarAction();
           if (compact) event.stopPropagation();

@@ -779,6 +779,7 @@ export const ChatInput = memo(function ChatInput({
         requestChatScrollToBottom({ chatId: activeChatId, behavior: "auto" });
       },
       invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
+      invalidateCharacter: (characterId) => qc.invalidateQueries({ queryKey: characterKeys.detail(characterId) }),
       characterNames: activeCharacterNames,
       characters: activeChatCharacters,
       requiresManualGuideTarget,

@@ -122,6 +122,11 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "gameWidgetState",
   "gameMorale",
   "lastMapPosition",
+  // Engine-owned per-chat write ordinals (#5406). They index one chat's counter space, so saving
+  // them into a reusable profile would stamp every chat the profile is applied to with another
+  // chat's numbering; being excluded also means an apply PRESERVES the target chat's own mirror
+  // instead of wiping the ordering its packages depend on.
+  "metadataWriteOrdinals",
 ] as const;
 
 /** Top-level chat keys that CAN be saved into a profile. */

@@ -8,9 +8,14 @@ import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import { normalizeAgentContextSize } from "../agents/agent-executor.js";
-import { generateChatBackground } from "../game/game-asset-generation.js";
+import {
+  buildBackgroundProviderPrompt,
+  generateChatBackground,
+  type ChatBackgroundGenRequest,
+} from "../game/game-asset-generation.js";
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
+import { resolveImagePromptReviewSize } from "../image/image-prompt-review.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createPromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
 import { resolveImageConnectionFallback } from "./media-connection-fallback.js";
@@ -40,6 +45,22 @@ export type IllustratorBackgroundPlan = {
 export type GeneratedIllustratorBackground = IllustratorBackgroundPlan & {
   filename: string;
   url: string;
+};
+
+type IllustratorSceneBackgroundArgs = {
+  db: DB;
+  chatId: string;
+  chatName?: string | null;
+  chatMode: "roleplay" | "game";
+  chatMetadata: Record<string, unknown>;
+  currentBackground: string | null;
+  illustratorAgent: ResolvedAgent;
+  assistantResponse: string;
+  decisionReason?: string;
+  gameState: GameState | null;
+  recentMessages: Array<{ role: string; content: string; gameState?: GameState | null }>;
+  signal?: AbortSignal;
+  debugLog?: (message: string, ...args: unknown[]) => void;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -322,23 +343,10 @@ async function resolveIllustratorImageConnection(
   return connection;
 }
 
-export async function generateIllustratorSceneBackground(args: {
-  db: DB;
-  chatId: string;
-  chatName?: string | null;
-  chatMode: "roleplay" | "game";
-  chatMetadata: Record<string, unknown>;
-  currentBackground: string | null;
-  illustratorAgent: ResolvedAgent;
-  assistantResponse: string;
-  decisionReason?: string;
-  gameState: GameState | null;
-  recentMessages: Array<{ role: string; content: string; gameState?: GameState | null }>;
-  /** Manual Gallery requests always render again, even when this location slug already exists. */
-  force?: boolean;
-  signal?: AbortSignal;
-  debugLog?: (message: string, ...args: unknown[]) => void;
-}): Promise<GeneratedIllustratorBackground> {
+async function prepareIllustratorSceneBackground(
+  args: IllustratorSceneBackgroundArgs,
+  planOverride?: IllustratorBackgroundPlan,
+) {
   const connections = createConnectionsStorage(args.db);
   const imageConnection = await resolveIllustratorImageConnection(
     connections,
@@ -349,7 +357,6 @@ export async function generateIllustratorSceneBackground(args: {
   const imageSettings = await loadImageGenerationUserSettings(args.db);
   const imageFallback = await resolveImageConnectionFallback(connections, imageConnection.id);
   const imageDefaults = resolveConnectionImageDefaults(imageConnection);
-  const imageQuality = resolveConnectionImageQuality(imageConnection);
   const setupConfig = isRecord(args.chatMetadata.gameSetupConfig) ? args.chatMetadata.gameSetupConfig : {};
   const { styleProfileId, styleInstruction } = resolveIllustratorStyleProfile(
     setupConfig,
@@ -357,8 +364,8 @@ export async function generateIllustratorSceneBackground(args: {
     imageDefaults?.styleProfileId,
     imageSettings.styleProfiles,
   );
-  const plan = await writeIllustratorBackgroundPlan({ ...args, styleInstruction });
-  const filename = await generateChatBackground({
+  const plan = planOverride ?? (await writeIllustratorBackgroundPlan({ ...args, styleInstruction }));
+  const request: ChatBackgroundGenRequest = {
     chatId: args.chatId,
     locationSlug: plan.locationName,
     sceneDescription: plan.prompt,
@@ -380,7 +387,7 @@ export async function generateIllustratorSceneBackground(args: {
     imgEndpointId: imageConnection.imageEndpointId || undefined,
     imgComfyWorkflow: imageConnection.comfyuiWorkflow || undefined,
     imgDefaults: imageDefaults,
-    imgQuality: imageQuality,
+    imgQuality: resolveConnectionImageQuality(imageConnection),
     imgFallback: imageFallback,
     styleProfiles: imageSettings.styleProfiles,
     styleProfileId,
@@ -391,8 +398,39 @@ export async function generateIllustratorSceneBackground(args: {
     omitProfileStyleText: true,
     omitProfileSubjectTags: true,
     debugLog: args.debugLog,
-    force: args.force === true,
     signal: args.signal,
+  };
+  return { imageConnection, imageDefaults, imageSettings, plan, request };
+}
+
+export async function previewIllustratorSceneBackground(args: IllustratorSceneBackgroundArgs) {
+  const prepared = await prepareIllustratorSceneBackground(args);
+  const compiled = await buildBackgroundProviderPrompt(prepared.request);
+  const size = resolveImagePromptReviewSize({
+    connection: prepared.imageConnection,
+    prompt: compiled.prompt,
+    width: prepared.imageSettings.background.width,
+    height: prepared.imageSettings.background.height,
+    imageDefaults: prepared.imageDefaults,
+  });
+  return { plan: prepared.plan, ...compiled, ...size };
+}
+
+export async function generateIllustratorSceneBackground(
+  args: IllustratorSceneBackgroundArgs & {
+    /** Manual Gallery requests always render again, even when this location slug already exists. */
+    force?: boolean;
+    planOverride?: IllustratorBackgroundPlan;
+    promptOverride?: string;
+    negativePromptOverride?: string;
+  },
+): Promise<GeneratedIllustratorBackground> {
+  const { plan, request } = await prepareIllustratorSceneBackground(args, args.planOverride);
+  const filename = await generateChatBackground({
+    ...request,
+    promptOverride: args.promptOverride,
+    negativePromptOverride: args.negativePromptOverride,
+    force: args.force === true,
   });
   if (!filename) throw new Error("Background image generation failed. Check the Illustrator image connection.");
   return {

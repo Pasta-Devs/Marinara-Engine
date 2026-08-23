@@ -4,6 +4,7 @@ import {
   getRoleplayTypewriterRevealCharsPerSecond,
   getStreamingCharsPerSecond,
   getTypewriterFrameBudget,
+  getTypewriterPaintIntervalMs,
   isGenerationSendBlocked,
   isGenerationStartBlocked,
   isMessageShadowedByLiveStream,
@@ -96,6 +97,36 @@ const generateRouteSource = readSourceText(
 const useGenerateSource = readSourceText(
   new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url),
   "utf8",
+);
+assert.match(
+  generateRouteSource,
+  /const recordReasoningDuration = \(text: string\) => \{[\s\S]{0,300}text\.trim\(\)[\s\S]{0,300}reasoningDurationMs = Math\.max\(1, Date\.now\(\) - generationStartedAt\);[\s\S]{0,80}\};/u,
+  "The server must capture reasoning duration only when visible output begins",
+);
+assert.match(
+  generateRouteSource,
+  /const writeContentChunked = async \(text: string\) => \{\s*fullResponse \+= text;\s*if \(holdForTextRewrite\) \{\s*recordReasoningDuration\(text\);/u,
+  "Buffered text-rewrite responses must still capture reasoning duration",
+);
+assert.match(
+  generateRouteSource,
+  /fullResponse \+= chunk;\s*if \(holdForTextRewrite\) \{\s*recordReasoningDuration\(chunk\);\s*return;/u,
+  "Tool-streamed text-rewrite responses must still capture reasoning duration",
+);
+assert.match(
+  generateRouteSource,
+  /const val = result\.value;\s*if \(holdForTextRewrite\) \{\s*recordReasoningDuration\(val\);/u,
+  "Generator-streamed text-rewrite responses must still capture reasoning duration",
+);
+const generationInfoPersistenceSource =
+  /const extraUpdate: Record<string, unknown> = \{\s*generationInfo: \{[\s\S]*?\n\s*\},\s*\};/u.exec(
+    generateRouteSource,
+  )?.[0];
+assert.ok(generationInfoPersistenceSource, "The committed generation metadata block must remain available");
+assert.match(
+  generationInfoPersistenceSource,
+  /durationMs,\s*reasoningDurationMs,\s*finishReason: finishReason \?\? null,/u,
+  "Committed generation metadata must retain the reasoning-only duration",
 );
 assert.match(
   generateRouteSource,
@@ -424,7 +455,7 @@ assert.match(
   "active Roleplay tracker agents should expose their saved prompt templates",
 );
 assert.match(reducedAmbientEffectsHookSource, /manualPreference \|\| systemPreference/u);
-assert.match(uiStoreSource, /version: 95/u);
+assert.match(uiStoreSource, /version: 96/u);
 assert.match(globalStylesSource, /data-marinara-reduced-effects/u);
 const accentTransitionStyles =
   globalStylesSource.match(
@@ -448,6 +479,16 @@ assert.match(
   roleplayLiveStreamSource,
   /function RoleplayLiveStreamText[\s\S]*?setText\(next\)[\s\S]*?requestAnimationFrame\(apply\)/u,
   "Roleplay live formatting should update at animation-frame cadence",
+);
+assert.match(
+  chatRoleplaySurfaceSource,
+  /const hasVisibleStreamText = \(text: string\) => \/\\S\/u\.test\(text\);[\s\S]*?hasVisibleStreamText\(s\.streamBuffers\.get\(activeChatId\)/u,
+  "Whitespace-only stream chunks must not collapse inline reasoning",
+);
+assert.match(
+  chatRoleplaySurfaceSource,
+  /\{!centerCompact && \(\s*<div\s*data-tracker-panel-anchor="roleplay-hud"/u,
+  "The expanded Roleplay toolbar must not render alongside its compact replacement",
 );
 assert.doesNotMatch(
   roleplayLiveStreamSource,
@@ -1263,6 +1304,34 @@ assert.ok(
   delayedFrameBudget.maxCharacters <= 3,
   "a delayed frame must not dump its entire reveal debt as one chunky typewriter burst",
 );
+assert.equal(
+  getTypewriterPaintIntervalMs(
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15",
+    "iPhone",
+    5,
+  ),
+  50,
+  "iPhone WebKit should batch stream paints to 20 FPS",
+);
+assert.equal(
+  getTypewriterPaintIntervalMs("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)", "MacIntel", 5),
+  50,
+  "desktop-mode iPadOS should receive the same stream paint protection",
+);
+assert.equal(
+  getTypewriterPaintIntervalMs("Mozilla/5.0 (Linux; Android 16)", "Linux armv8l", 5),
+  0,
+  "non-iOS browsers should retain the native animation cadence",
+);
+let simulatedIosRemainder = 0;
+let simulatedIosCharacters = 0;
+for (let frame = 0; frame < 20; frame += 1) {
+  const budget = getTypewriterFrameBudget(90, 50, simulatedIosRemainder, 50);
+  const revealedCharacters = Math.min(Math.floor(budget.accruedCharacters), budget.maxCharacters);
+  simulatedIosRemainder = budget.accruedCharacters - revealedCharacters;
+  simulatedIosCharacters += revealedCharacters;
+}
+assert.equal(simulatedIosCharacters, 90, "batched iOS paints must preserve the selected reveal speed");
 assert.match(
   echoChamberPanelSource,
   /behavior: streamingChatId === activeChatId \? "auto" : "smooth"/u,
@@ -1354,11 +1423,44 @@ assert.equal(
   "regeneration owns the existing row in place and must not hide it",
 );
 const messageSavedHandlerSource =
-  useGenerateSource.match(/case "message_saved": \{[\s\S]*?case "schedule_updated":/u)?.[0] ?? "";
+  useGenerateSource.match(/case "message_saved": \{[\s\S]*?case "assistant_message_ready":/u)?.[0] ?? "";
 assert.match(
   messageSavedHandlerSource,
-  /if \(!keepStreamLiveThroughPostProcessing\) \{[\s\S]*?rememberContinuedMessageContent\(savedMessage\);[\s\S]*?\}[\s\S]*?upsertPersistedMessages\(qc, params\.chatId, \[savedMessage\]\);/u,
-  "a saved Roleplay reply must remain cached while its live presentation is shadowing it",
+  /if \(!keepStreamLiveThroughPostProcessing\) \{[\s\S]*?rememberContinuedMessageContent\(savedMessage\);[\s\S]*?\}/u,
+  "saved Roleplay replies should retain their continuation handoff",
+);
+const messageSavedCacheUpdateCount = (messageSavedHandlerSource.match(/upsertPersistedMessages\(/gu) ?? []).length;
+assert.equal(
+  messageSavedCacheUpdateCount,
+  2,
+  "saved Roleplay replies should enter the cache while Game replies wait for the final scene handoff",
+);
+assert.equal(
+  (
+    messageSavedHandlerSource.match(
+      /if \(!isGameGeneration(?: && \(!streamingEnabled \|\| !shouldDisplayRawStream\))?\) (?:\{\s*)?upsertPersistedMessages\(qc, params\.chatId, \[(?:heldMessage|savedMessage)\]\);/gu,
+    ) ?? []
+  ).length,
+  messageSavedCacheUpdateCount,
+  "every message_saved cache update should remain behind a Game-mode guard",
+);
+const selfieHandlerSource = useGenerateSource.match(/case "selfie": \{[\s\S]*?case "selfie_error":/u)?.[0] ?? "";
+assert.match(
+  selfieHandlerSource,
+  /if \(!streamingEnabled && !isGameGeneration\) \{[\s\S]*?refreshMessagesAuthoritatively/u,
+  "selfies should not refresh the visible cache during Game generation",
+);
+const illustrationHandlerSource =
+  useGenerateSource.match(/case "illustration": \{[\s\S]*?case "illustration_queued":/u)?.[0] ?? "";
+assert.match(
+  illustrationHandlerSource,
+  /if \(!streamingEnabled && !isGameGeneration\) \{[\s\S]*?refreshMessagesAuthoritatively/u,
+  "illustrations should not refresh the visible cache during Game generation",
+);
+assert.match(
+  useGenerateSource,
+  /if \(isGameGeneration\) \{[\s\S]*?await refreshMessagesAuthoritatively\(qc, params\.chatId, persistedForRefresh\);[\s\S]*?setStreaming\(false\);/u,
+  "Game generation should publish the authoritative scene before releasing its presentation stream",
 );
 const updateMessageHookSource =
   useChatsSource.match(/export function useUpdateMessage[\s\S]*?export function useUpdateMessageExtra/u)?.[0] ?? "";
