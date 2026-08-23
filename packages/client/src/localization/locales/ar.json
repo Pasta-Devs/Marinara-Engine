@@ -48,7 +48,7 @@
   "chat.help.mode.game": "مساعدة وضع اللعبة",
   "chat.help.mode.roleplay": "مساعدة وضع تقمّص الأدوار",
   "chat.help.overlayLabel": "طبقة مساعدة الدردشة",
-  "chat.help.targets.agentControls.body": "استخدم عناصر التحكم الإضافية التي تضيفها الوكلاء المفعّلة.",
+  "chat.help.targets.agentControls.body": "استخدم عناصر التحكم الإضافية التي يضيفها الوكلاء المفعّلون.",
   "chat.help.targets.agentControls.title": "عناصر تحكم الوكلاء",
   "chat.help.targets.agents.body": "اعرض حالة الوكلاء وتحديثات المتتبعات.",
   "chat.help.targets.agents.title": "الوكلاء",

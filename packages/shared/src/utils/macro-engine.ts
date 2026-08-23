@@ -1840,14 +1840,17 @@ const AGENT_CONDITIONAL_ENTITY_REPLACEMENTS: ReadonlyArray<readonly [RegExp, str
   [/&amp;|&#38;|&#x26;/gi, "&"],
 ];
 
+function decodeAgentConditionalTextEntities(input: string): string {
+  return AGENT_CONDITIONAL_ENTITY_REPLACEMENTS.reduce(
+    (value, [pattern, replacement]) => value.replace(pattern, replacement),
+    input,
+  );
+}
+
 function decodeAgentConditionalEntities(input: string): string {
   return replaceBalancedMacros(input, (body) => {
     if (parseIfCondition(body) === null && parseElseIfCondition(body) === null) return undefined;
-    const decoded = AGENT_CONDITIONAL_ENTITY_REPLACEMENTS.reduce(
-      (value, [pattern, replacement]) => value.replace(pattern, replacement),
-      body,
-    );
-    return `{{${decoded}}}`;
+    return `{{${decodeAgentConditionalTextEntities(body)}}}`;
   });
 }
 
@@ -1857,7 +1860,13 @@ function decodeAgentConditionalEntities(input: string): string {
  * character-specific control flow.
  */
 export function flattenAgentConditionalMacros(input: string): string {
-  const normalized = decodeAgentConditionalEntities(input);
+  return flattenAgentConditionalMacrosInner(input, false);
+}
+
+function flattenAgentConditionalMacrosInner(input: string, decodeTextEntities: boolean): string {
+  const normalized = decodeAgentConditionalEntities(
+    decodeTextEntities ? decodeAgentConditionalTextEntities(input) : input,
+  );
   let result = "";
   let index = 0;
 
@@ -1869,7 +1878,9 @@ export function flattenAgentConditionalMacros(input: string): string {
 
     result += normalized.slice(index, start.start);
     result += block.branches
-      .map((branch) => flattenAgentConditionalMacros(normalized.slice(branch.contentStart, branch.contentEnd)))
+      .map((branch) =>
+        flattenAgentConditionalMacrosInner(normalized.slice(branch.contentStart, branch.contentEnd), true),
+      )
       .join("");
     index = block.endEnd;
   }

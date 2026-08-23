@@ -865,7 +865,9 @@ export async function executeAgent(
 
     if (invalidJson && shouldRetryInvalidJsonAgent(config) && !context.signal?.aborted) {
       logger.warn("[agent] %s returned invalid JSON; retrying once with strict JSON reminder", config.type);
-      const retryMessages = buildInvalidJsonRetryMessages(messages, parsed.type, responseText);
+      const retryMessages = prepareAgentProviderMessages(
+        buildInvalidJsonRetryMessages(messages, parsed.type, responseText),
+      );
       emitAgentDebug(context, {
         stage: "retry_request",
         ...agentDebugBase(config, model, temperature, maxTokens),
@@ -1101,15 +1103,16 @@ async function executeAgentWithTools(
 
   for (let round = 0; round < maxToolRounds; round++) {
     const roundStartedAt = Date.now();
+    const providerMessages = prepareAgentProviderMessages(loopMessages);
     emitAgentDebug(context, {
       stage: "request",
       ...agentDebugBase(config, model, temperature, maxTokens),
-      messageCount: loopMessages.length,
-      messages: debugMessages(loopMessages),
+      messageCount: providerMessages.length,
+      messages: debugMessages(providerMessages),
       tools: debugToolNames(toolContext.tools),
       round: round + 1,
     });
-    const result = await provider.chatComplete(loopMessages, {
+    const result = await provider.chatComplete(providerMessages, {
       model,
       temperature,
       maxTokens,
@@ -1193,15 +1196,16 @@ async function executeAgentWithTools(
   }
 
   // Exhausted tool rounds — make one final call without tools to get JSON response
+  const finalProviderMessages = prepareAgentProviderMessages(loopMessages);
   emitAgentDebug(context, {
     stage: "request",
     ...agentDebugBase(config, model, temperature, maxTokens),
-    messageCount: loopMessages.length,
-    messages: debugMessages(loopMessages),
+    messageCount: finalProviderMessages.length,
+    messages: debugMessages(finalProviderMessages),
     round: maxToolRounds + 1,
   });
   const finalRoundStartedAt = Date.now();
-  const finalResult = await provider.chatComplete(loopMessages, {
+  const finalResult = await provider.chatComplete(finalProviderMessages, {
     model,
     temperature,
     maxTokens,

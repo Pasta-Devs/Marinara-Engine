@@ -2425,6 +2425,7 @@ export class MariDbService {
   private history: MariDbHistoryEntry[] = [];
   private writeQueue: Promise<unknown> = Promise.resolve();
   private characterFolderMutationQueue: Promise<void> = Promise.resolve();
+  private lorebookFolderMutationQueue: Promise<void> = Promise.resolve();
   // Per-review serialization queue. keepAppliedReview / restoreAppliedReview / rejectRows each do a
   // read-modify-write over pending.get(id) + the durable sidecar across await points; two concurrent
   // requests for the SAME review id would both read the same record and clobber each other on write.
@@ -3395,45 +3396,47 @@ export class MariDbService {
       }
       case "folder.create": {
         const lorebookId = requiredString(args, ["lorebookId"], "lorebook id");
-        if (!(await this.getRawById(getMeta("lorebooks"), lorebookId))) {
-          throw new Error(`Lorebook ${lorebookId} not found`);
-        }
         const data = actionDataWithTopLevel(args, ["data", "folder"], ["name", "parentFolderId"]);
         const name = requiredString(data, ["name"], "folder name");
         const parentFolderId = firstString(data, ["parentFolderId"]);
-        if (parentFolderId) {
-          const parent = await this.getRawById(getMeta("lorebook_folders"), parentFolderId);
-          if (!parent || parent.lorebookId !== lorebookId) {
-            throw new Error(`Parent folder ${parentFolderId} not found in lorebook ${lorebookId}`);
+        return this.withLorebookFolderMutationLock(async () => {
+          if (!(await this.getRawById(getMeta("lorebooks"), lorebookId))) {
+            throw new Error(`Lorebook ${lorebookId} not found`);
           }
-        }
-        const existing = (await this.rawRows("lorebook_folders")).filter((row) => row.lorebookId === lorebookId);
-        const timestamp = now();
-        const id = firstString(args, ["folderId", "id"]) ?? newId();
-        const row: Row = {
-          id,
-          lorebookId,
-          name,
-          enabled: "true",
-          parentFolderId: parentFolderId ?? null,
-          order: existing.reduce((maximum, folder) => Math.max(maximum, Number(folder.order ?? 0)), 0) + 10,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        };
-        return this.executeMutation(
-          {
-            kind: "insert",
-            table: "lorebook_folders",
+          if (parentFolderId) {
+            const parent = await this.getRawById(getMeta("lorebook_folders"), parentFolderId);
+            if (!parent || parent.lorebookId !== lorebookId) {
+              throw new Error(`Parent folder ${parentFolderId} not found in lorebook ${lorebookId}`);
+            }
+          }
+          const existing = (await this.rawRows("lorebook_folders")).filter((row) => row.lorebookId === lorebookId);
+          const timestamp = now();
+          const id = firstString(args, ["folderId", "id"]) ?? newId();
+          const row: Row = {
             id,
-            row,
-            apply: appDataCreateApply(args),
-            cascade: false,
-            reason: firstString(args, ["reason"]) ?? null,
-            cwd: context.cwd,
-          },
-          context.command,
-          context.sessionId,
-        );
+            lorebookId,
+            name,
+            enabled: "true",
+            parentFolderId: parentFolderId ?? null,
+            order: existing.reduce((maximum, folder) => Math.max(maximum, Number(folder.order ?? 0)), 0) + 10,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+          return this.executeMutation(
+            {
+              kind: "insert",
+              table: "lorebook_folders",
+              id,
+              row,
+              apply: appDataCreateApply(args),
+              cascade: false,
+              reason: firstString(args, ["reason"]) ?? null,
+              cwd: context.cwd,
+            },
+            context.command,
+            context.sessionId,
+          );
+        });
       }
       case "libraryfolder.list": {
         const rows = (await this.rawRows("library_folders"))
@@ -3445,33 +3448,35 @@ export class MariDbService {
       case "libraryfolder.create": {
         const data = actionDataWithTopLevel(args, ["data", "folder"], ["name"]);
         const name = requiredString(data, ["name"], "folder name");
-        const existing = (await this.rawRows("library_folders")).filter((row) => row.scope === "lorebooks");
-        const timestamp = now();
-        const id = firstString(args, ["folderId", "id"]) ?? newId();
-        const row: Row = {
-          id,
-          scope: "lorebooks",
-          name,
-          collapsed: "false",
-          sortOrder: existing.reduce((maximum, folder) => Math.max(maximum, Number(folder.sortOrder ?? -1)), -1) + 1,
-          itemIds: [],
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        };
-        return this.executeMutation(
-          {
-            kind: "insert",
-            table: "library_folders",
+        return this.withLorebookFolderMutationLock(async () => {
+          const existing = (await this.rawRows("library_folders")).filter((row) => row.scope === "lorebooks");
+          const timestamp = now();
+          const id = firstString(args, ["folderId", "id"]) ?? newId();
+          const row: Row = {
             id,
-            row,
-            apply: appDataCreateApply(args),
-            cascade: false,
-            reason: firstString(args, ["reason"]) ?? null,
-            cwd: context.cwd,
-          },
-          context.command,
-          context.sessionId,
-        );
+            scope: "lorebooks",
+            name,
+            collapsed: "false",
+            sortOrder: existing.reduce((maximum, folder) => Math.max(maximum, Number(folder.sortOrder ?? -1)), -1) + 1,
+            itemIds: [],
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+          return this.executeMutation(
+            {
+              kind: "insert",
+              table: "library_folders",
+              id,
+              row,
+              apply: appDataCreateApply(args),
+              cascade: false,
+              reason: firstString(args, ["reason"]) ?? null,
+              cwd: context.cwd,
+            },
+            context.command,
+            context.sessionId,
+          );
+        });
       }
       case "create": {
         const data = actionDataWithTopLevel(
@@ -7510,6 +7515,15 @@ export class MariDbService {
   private withCharacterFolderMutationLock<T>(operation: () => Promise<T>): Promise<T> {
     const run = this.characterFolderMutationQueue.then(operation);
     this.characterFolderMutationQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private withLorebookFolderMutationLock<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.lorebookFolderMutationQueue.then(operation);
+    this.lorebookFolderMutationQueue = run.then(
       () => undefined,
       () => undefined,
     );

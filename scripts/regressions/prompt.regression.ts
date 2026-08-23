@@ -8900,7 +8900,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
             {
               role: "user",
               content:
-                'Before {{#if char == “Powers That Be” || &quot;Maukie&quot;}}***Arc Two*** {{#if character == "Dottore"}}nested note{{/if}}{{else}}alternate note{{/if}} after.',
+                'Before {{#if char == “Powers That Be” || &quot;Maukie&quot;}}***Arc Two*** &quot;quoted&quot; {{#if character == "Dottore"}}nested note{{/if}}{{else}}alternate note{{/if}} after.',
             },
           ],
         }),
@@ -8909,8 +8909,78 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
 
       const providerPrompt = capture.calls[0]!.map((message) => message.content).join("\n");
-      assert.match(providerPrompt, /Before \*\*\*Arc Two\*\*\* nested notealternate note after\./u);
+      assert.match(providerPrompt, /Before \*\*\*Arc Two\*\*\* "quoted" nested notealternate note after\./u);
       assert.doesNotMatch(providerPrompt, /&quot;|\{\{#if|\{\{else|\{\{\/if/u);
+    },
+  },
+  {
+    name: "agent follow-up calls also flatten conditional macros",
+    async run() {
+      const toolCalls: any[][] = [];
+      let toolRound = 0;
+      const toolProvider = {
+        maxTokensOverrideValue: null,
+        async chatComplete(messages: any[]) {
+          toolCalls.push(messages);
+          toolRound += 1;
+          return toolRound === 1
+            ? {
+                content: "Checking.",
+                toolCalls: [{ id: "call-1", type: "function", function: { name: "lookup", arguments: "{}" } }],
+                usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+              }
+            : {
+                content: "Context checked.",
+                usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+              };
+        },
+      };
+      const config = makeRegressionAgentConfig({
+        id: "custom:conditional-follow-up",
+        type: "conditional-follow-up",
+        name: "Conditional Follow-up",
+        isCustomAgent: true,
+        promptTemplate: "Read the supplied context.",
+        settings: { resultType: "context_injection" },
+      });
+      await executeAgent(config as any, makeRegressionAgentContext(), toolProvider as any, "regression-model", {
+        tools: [
+          {
+            type: "function",
+            function: { name: "lookup", description: "Look up context", parameters: { type: "object" } },
+          },
+        ],
+        executeToolCall: async () =>
+          'Tool says {{#if character == "Dottore"}}&quot;remember me&quot;{{else}}forget me{{/if}}.',
+      } as any);
+
+      const secondToolPrompt = toolCalls[1]!.map((message) => message.content).join("\n");
+      assert.match(secondToolPrompt, /Tool says "remember me"forget me\./u);
+      assert.doesNotMatch(secondToolPrompt, /&quot;|\{\{#if|\{\{else|\{\{\/if/u);
+
+      const retryCalls: any[][] = [];
+      let retryRound = 0;
+      const retryProvider = {
+        maxTokensOverrideValue: null,
+        async chatComplete(messages: any[]) {
+          retryCalls.push(messages);
+          retryRound += 1;
+          return {
+            content: retryRound === 1 ? '{{#if character == "Dottore"}}not json &quot;yet&quot;{{/if}}' : "{}",
+            usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          };
+        },
+      };
+      await executeAgent(
+        { ...config, type: "lorebook-keeper", settings: { resultType: "json" } } as any,
+        makeRegressionAgentContext(),
+        retryProvider as any,
+        "regression-model",
+      );
+
+      const retryPrompt = retryCalls[1]!.map((message) => message.content).join("\n");
+      assert.match(retryPrompt, /not json "yet"/u);
+      assert.doesNotMatch(retryPrompt, /&quot;|\{\{#if|\{\{else|\{\{\/if/u);
     },
   },
   {

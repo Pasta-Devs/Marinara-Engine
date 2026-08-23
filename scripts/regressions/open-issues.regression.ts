@@ -2215,12 +2215,30 @@ try {
     ).ok,
     true,
   );
+  const concurrentEntryFolderIds = ["professor-mari-entry-folder-a", "professor-mari-entry-folder-b"];
+  const concurrentEntryFolderResults = await Promise.all(
+    concurrentEntryFolderIds.map((folderId, index) =>
+      mariDb.executeAction({
+        action: "lorebook.folder.create",
+        lorebookId: professorMariLorebookId,
+        folderId,
+        name: `Concurrent folder ${index + 1}`,
+        apply: true,
+      }),
+    ),
+  );
+  assert.equal(concurrentEntryFolderResults.every((result) => result.ok), true);
   const professorMariFolderList = await mariDb.executeAction({
     action: "lorebook.folder.list",
     lorebookId: professorMariLorebookId,
   });
+  const professorMariFolders = professorMariFolderList.output as Array<{
+    id: string;
+    parentFolderId: string | null;
+    order: number;
+  }>;
   assert.deepEqual(
-    (professorMariFolderList.output as Array<{ id: string; parentFolderId: string | null }>).map((folder) => ({
+    professorMariFolders.slice(0, 2).map((folder) => ({
       id: folder.id,
       parentFolderId: folder.parentFolderId,
     })),
@@ -2229,6 +2247,7 @@ try {
       { id: professorMariChildFolderId, parentFolderId: professorMariRootFolderId },
     ],
   );
+  assert.equal(new Set(professorMariFolders.map((folder) => folder.order)).size, professorMariFolders.length);
   const professorMariLibraryFolderId = "professor-mari-library-folder";
   assert.equal(
     (
@@ -2241,21 +2260,43 @@ try {
     ).ok,
     true,
   );
+  const concurrentLibraryFolderIds = ["professor-mari-library-folder-a", "professor-mari-library-folder-b"];
+  const concurrentLibraryFolderResults = await Promise.all(
+    concurrentLibraryFolderIds.map((folderId, index) =>
+      mariDb.executeAction({
+        action: "lorebook.libraryFolder.create",
+        folderId,
+        name: `Concurrent library folder ${index + 1}`,
+        apply: true,
+      }),
+    ),
+  );
+  assert.equal(concurrentLibraryFolderResults.every((result) => result.ok), true);
   const professorMariLibraryFolders = await mariDb.executeAction({ action: "lorebook.libraryFolder.list" });
-  const professorMariLibraryFolder = (
-    professorMariLibraryFolders.output as Array<{
-      id: string;
-      scope: string;
-      name: string;
-      collapsed: string;
-      sortOrder: number;
-      itemIds: string[];
-    }>
-  ).find((folder) => folder.id === professorMariLibraryFolderId);
+  const professorMariLibraryFolderRows = professorMariLibraryFolders.output as Array<{
+    id: string;
+    scope: string;
+    name: string;
+    collapsed: string;
+    sortOrder: number;
+    itemIds: string[];
+  }>;
+  const professorMariLibraryFolder = professorMariLibraryFolderRows.find(
+    (folder) => folder.id === professorMariLibraryFolderId,
+  );
   assert.equal(professorMariLibraryFolder?.scope, "lorebooks");
   assert.equal(professorMariLibraryFolder?.name, "Test folder");
   assert.deepEqual(professorMariLibraryFolder?.itemIds, []);
-  await libraryFolderStorage.remove("lorebooks", professorMariLibraryFolderId);
+  const createdLibraryFolderRows = professorMariLibraryFolderRows.filter((folder) =>
+    [professorMariLibraryFolderId, ...concurrentLibraryFolderIds].includes(folder.id),
+  );
+  assert.equal(
+    new Set(createdLibraryFolderRows.map((folder) => folder.sortOrder)).size,
+    createdLibraryFolderRows.length,
+  );
+  for (const folderId of [professorMariLibraryFolderId, ...concurrentLibraryFolderIds]) {
+    await libraryFolderStorage.remove("lorebooks", folderId);
+  }
   await lorebookStorage.remove(professorMariLorebookId);
   assert.equal(await lorebookStorage.getById(professorMariLorebookId), null);
   assert.equal((await lorebookStorage.listEntries(professorMariLorebookId)).length, 0);
