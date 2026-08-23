@@ -13,6 +13,7 @@ import {
 import { cn } from "../../lib/utils";
 import { translate } from "../../localization/i18n";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { AgentSettingsActionButton } from "../chat/AgentSettingsControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 export const MAX_GAME_SETUP_WIDGETS = 4;
@@ -493,15 +494,15 @@ export function GameWidgetSetupEditor({ widgets, onChange, disabled, className }
               </option>
             ))}
           </select>
-          <button
+          <AgentSettingsActionButton
             type="button"
+            variant="primary"
             onClick={addWidget}
             disabled={disabled || !canAddWidget}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size="0.75rem" />
             <span>{localizeUi("ui.characters.metadatatab.add")}</span>
-          </button>
+          </AgentSettingsActionButton>
         </div>
       </div>
 
@@ -570,7 +571,7 @@ export function GameWidgetSetupEditor({ widgets, onChange, disabled, className }
                     type="button"
                     onClick={() => onChange(normalizedWidgets.filter((entry) => entry.id !== widget.id))}
                     disabled={disabled}
-                    className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--destructive)]/25 px-3 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:opacity-50"
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-[var(--marinara-chat-chrome-accent)]/25 px-3 text-[var(--marinara-chat-chrome-accent)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] disabled:opacity-50"
                     aria-label={localizeUi("ui.game.gamewidgetsetupeditor.removeValue1", {
                       value1: widget.label.trim() || formatWidgetTypeLabel(widget.type),
                     })}
@@ -724,7 +725,7 @@ function WidgetConfigFields({
               type="button"
               onClick={() => onConfigChange({ stats: stats.filter((_, entryIndex) => entryIndex !== index) })}
               disabled={disabled}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--destructive)]/25 px-3 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:opacity-50"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-[var(--marinara-chat-chrome-accent)]/25 px-3 text-[var(--marinara-chat-chrome-accent)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] disabled:opacity-50"
               aria-label={localizeUi("ui.game.widgetconfigfields.removeStat")}
             >
               <Trash2 size="0.75rem" />

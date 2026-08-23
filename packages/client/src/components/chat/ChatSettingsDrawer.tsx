@@ -111,7 +111,7 @@ import { AgentPromptTemplateSelect } from "./AgentPromptTemplateSelect";
 import { HapticConnectionPanel } from "./HapticConnectionPanel";
 import { HAPTIC_SENSITIVITY_OPTIONS } from "./haptic-sensitivity-options";
 import { ChatModeIcon } from "./ChatModeIcon";
-import { SettingsSwitch, SettingsSwitchTrack } from "../panels/settings/SettingControls";
+import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { SecretPlotPanel } from "../agents/SecretPlotPanel";
 import { SummariesEditorModal } from "./SummariesEditorModal";
@@ -3622,6 +3622,28 @@ export function ChatSettingsDrawer({
     setCampaignArtStyleDraft(campaignArtStyle);
   }, [campaignArtStyle, chat.id]);
 
+  const commitCampaignArtStyle = () => {
+    const nextArtStyle = campaignArtStyleDraft.trim();
+    if (nextArtStyle === campaignArtStyle) return;
+    updateMeta.mutate({
+      id: chat.id,
+      gameSetupConfig: {
+        ...gameSetupConfig,
+        artStylePrompt: nextArtStyle,
+        generatedArtStylePrompt: generatedCampaignArtStyle || campaignArtStyle,
+      },
+    });
+  };
+
+  const commitGameImagePromptInstructions = () => {
+    const stored = (metadata.gameImagePromptInstructions as string) ?? "";
+    if (gameImagePromptInstructionsDraft === stored) return;
+    updateMeta.mutate({
+      id: chat.id,
+      gameImagePromptInstructions: gameImagePromptInstructionsDraft.trim() || null,
+    });
+  };
+
   useEffect(() => {
     modePromptDefaultAppliedRef.current = null;
   }, [chat.id]);
@@ -6047,35 +6069,23 @@ export function ChatSettingsDrawer({
             >
               <div className="space-y-2">
                 {/* Enable autonomous messages toggle */}
-                <div
-                  className={cn(
-                    "mari-chat-option-field rounded-lg transition-all",
-                    metadata.autonomousMessages && "mari-chat-option-field--active",
-                  )}
-                >
-                  <button
-                    onClick={() => {
-                      updateMeta.mutate({ id: chat.id, autonomousMessages: !metadata.autonomousMessages });
-                    }}
-                    aria-pressed={Boolean(metadata.autonomousMessages)}
-                    className="flex w-full items-center justify-between px-3 py-2.5 text-left"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium">
-                        {localizeUi("ui.chat.chatsettingsdrawer.autonomousMessages")}
-                      </span>
-                      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.chatsettingsdrawer.charactersMessageYouWhenYouReInactiveEvenWithout")}
-                      </p>
-                    </div>
-                    <SettingsSwitchTrack
-                      checked={Boolean(metadata.autonomousMessages)}
-                      className={cn(
-                        "mari-chat-option-switch",
-                        metadata.autonomousMessages && "mari-chat-option-switch--active",
-                      )}
-                    />
-                  </button>
+                <div className="overflow-hidden rounded-md">
+                  <SettingsSwitch
+                    label={localizeUi("ui.chat.chatsettingsdrawer.autonomousMessages")}
+                    description={localizeUi(
+                      "ui.chat.chatsettingsdrawer.charactersMessageYouWhenYouReInactiveEvenWithout",
+                    )}
+                    checked={Boolean(metadata.autonomousMessages)}
+                    onChange={(autonomousMessages) => updateMeta.mutate({ id: chat.id, autonomousMessages })}
+                    labelPosition="start"
+                    className={cn(
+                      "justify-between rounded-md px-3 py-2.5 text-left",
+                      metadata.autonomousMessages
+                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    )}
+                    labelClassName="text-xs font-medium"
+                  />
 
                   {metadata.autonomousMessages && (
                     <div className="border-t border-[var(--border)]/50 px-3 pb-2.5 pt-2">
@@ -6093,7 +6103,7 @@ export function ChatSettingsDrawer({
                                 e.target.value === "numeric" ? (autonomousDailyCapOverride ?? 8) : null,
                             })
                           }
-                          className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                          className="mari-chrome-field w-full !rounded-md px-3 py-2 text-xs"
                         >
                           <option value="default">
                             {localizeUi("ui.chat.chatsettingsdrawer.defaultChatCeilingTalkativenessBased")}
@@ -6115,7 +6125,7 @@ export function ChatSettingsDrawer({
                                 })
                               }
                               ariaLabel="Numeric chat check-in ceiling"
-                              className="w-24 rounded-md bg-[var(--secondary)] px-2 py-1.5 text-right text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                              className="mari-chrome-field w-24 !rounded-md px-2 py-1.5 text-right text-xs"
                             />
                           </label>
                         )}
@@ -6129,38 +6139,30 @@ export function ChatSettingsDrawer({
 
                 {/* Character exchanges toggle (group chats only) */}
                 {chatCharIds.length > 1 && (
-                  <button
-                    onClick={() => {
-                      updateMeta.mutate({ id: chat.id, characterExchanges: !metadata.characterExchanges });
-                    }}
-                    aria-pressed={Boolean(metadata.characterExchanges)}
+                  <SettingsSwitch
+                    label={localizeUi("ui.chat.chatsettingsdrawer.characterExchanges")}
+                    description={localizeUi("ui.chat.chatsettingsdrawer.charactersChatWithEachOtherInGroupChats")}
+                    checked={Boolean(metadata.characterExchanges)}
+                    onChange={(characterExchanges) => updateMeta.mutate({ id: chat.id, characterExchanges })}
+                    labelPosition="start"
                     className={cn(
-                      "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.characterExchanges && "mari-chat-option-field--active",
+                      "justify-between rounded-md px-3 py-2.5 text-left",
+                      metadata.characterExchanges
+                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                     )}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium">
-                        {localizeUi("ui.chat.chatsettingsdrawer.characterExchanges")}
-                      </span>
-                      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.chatsettingsdrawer.charactersChatWithEachOtherInGroupChats")}
-                      </p>
-                    </div>
-                    <SettingsSwitchTrack
-                      checked={Boolean(metadata.characterExchanges)}
-                      className={cn(
-                        "mari-chat-option-switch",
-                        metadata.characterExchanges && "mari-chat-option-switch--active",
-                      )}
-                    />
-                  </button>
+                    labelClassName="text-xs font-medium"
+                  />
                 )}
 
                 {/* Conversation schedules toggle */}
-                <button
-                  onClick={() => {
-                    const nextEnabled = !conversationSchedulesEnabled;
+                <SettingsSwitch
+                  label={localizeUi("ui.chat.chatsettingsdrawer.schedules")}
+                  description={localizeUi(
+                    "ui.chat.chatsettingsdrawer.optionalCharacterRoutinesForAvailabilityAndDelays",
+                  )}
+                  checked={conversationSchedulesEnabled}
+                  onChange={(nextEnabled) => {
                     if (nextEnabled && !hasGeneratedConversationSchedules) {
                       if (chatCharIds.length === 0) {
                         updateMeta.mutate({ id: chat.id, conversationSchedulesEnabled: nextEnabled });
@@ -6171,26 +6173,15 @@ export function ChatSettingsDrawer({
                     }
                     updateMeta.mutate({ id: chat.id, conversationSchedulesEnabled: nextEnabled });
                   }}
-                  aria-pressed={conversationSchedulesEnabled}
+                  labelPosition="start"
                   className={cn(
-                    "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                    conversationSchedulesEnabled && "mari-chat-option-field--active",
+                    "justify-between rounded-md px-3 py-2.5 text-left",
+                    conversationSchedulesEnabled
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                   )}
-                >
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-medium">{localizeUi("ui.chat.chatsettingsdrawer.schedules")}</span>
-                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                      {localizeUi("ui.chat.chatsettingsdrawer.optionalCharacterRoutinesForAvailabilityAndDelays")}
-                    </p>
-                  </div>
-                  <SettingsSwitchTrack
-                    checked={conversationSchedulesEnabled}
-                    className={cn(
-                      "mari-chat-option-switch",
-                      conversationSchedulesEnabled && "mari-chat-option-switch--active",
-                    )}
-                  />
-                </button>
+                  labelClassName="text-xs font-medium"
+                />
 
                 <div ref={scheduleControlsRef} className="scroll-mt-2 space-y-2">
                   {/* Schedule status */}
@@ -6629,37 +6620,20 @@ export function ChatSettingsDrawer({
               help={localizeUi("ui.chat.chatsettingsdrawer.controlAwarenessOfSiblingChatsOrLinkThisConversation")}
             >
               <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    updateMeta.mutate({
-                      id: chat.id,
-                      crossChatAwareness: metadata.crossChatAwareness === false ? true : false,
-                    });
-                  }}
-                  aria-pressed={metadata.crossChatAwareness !== false}
+                <SettingsSwitch
+                  label={localizeUi("ui.chat.chatsettingsdrawer.crossChatAwareness")}
+                  description={localizeUi("ui.chat.chatsettingsdrawer.charactersKnowWhatHappensInTheirOtherChats")}
+                  checked={metadata.crossChatAwareness !== false}
+                  onChange={(crossChatAwareness) => updateMeta.mutate({ id: chat.id, crossChatAwareness })}
+                  labelPosition="start"
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                    "justify-between rounded-md px-3 py-2.5 text-left",
                     metadata.crossChatAwareness !== false
                       ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                       : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                   )}
-                >
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-medium">
-                      {localizeUi("ui.chat.chatsettingsdrawer.crossChatAwareness")}
-                    </span>
-                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                      {localizeUi("ui.chat.chatsettingsdrawer.charactersKnowWhatHappensInTheirOtherChats")}
-                    </p>
-                  </div>
-                  <SettingsSwitchTrack
-                    checked={metadata.crossChatAwareness !== false}
-                    className={cn(
-                      "mari-chat-option-switch",
-                      metadata.crossChatAwareness !== false && "mari-chat-option-switch--active",
-                    )}
-                  />
-                </button>
+                  labelClassName="text-xs font-medium"
+                />
                 {chat.connectedChatId ? (
                   (() => {
                     const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
@@ -8304,27 +8278,19 @@ export function ChatSettingsDrawer({
                                     </button>
                                   )}
                               </span>
-                              <textarea
+                              <MacroTextarea
                                 value={campaignArtStyleDraft}
-                                onChange={(event) => setCampaignArtStyleDraft(event.target.value)}
-                                onBlur={() => {
-                                  const nextArtStyle = campaignArtStyleDraft.trim();
-                                  if (nextArtStyle === campaignArtStyle) return;
-                                  updateMeta.mutate({
-                                    id: chat.id,
-                                    gameSetupConfig: {
-                                      ...gameSetupConfig,
-                                      artStylePrompt: nextArtStyle,
-                                      generatedArtStylePrompt: generatedCampaignArtStyle || campaignArtStyle,
-                                    },
-                                  });
-                                }}
+                                onChange={setCampaignArtStyleDraft}
+                                onBlur={commitCampaignArtStyle}
+                                onExpandedClose={commitCampaignArtStyle}
+                                title={localizeUi("ui.chat.chatsettingsdrawer.campaignArtStyle")}
+                                ariaLabel={localizeUi("ui.chat.chatsettingsdrawer.campaignArtStyle")}
                                 placeholder={localizeUi(
                                   "ui.chat.chatsettingsdrawer.leaveBlankToUseOnlyTheSelectedImageStyle",
                                 )}
                                 rows={3}
                                 maxLength={500}
-                                className="min-h-[4.75rem] w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/50"
+                                className="mari-chrome-field min-h-[4.75rem] w-full !rounded-md px-2.5 py-2 pr-8 text-xs leading-relaxed"
                               />
                               <span className="text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
                                 {localizeUi("ui.chat.chatsettingsdrawer.generatedDuringGameSetupEditOrClearItHere")}
@@ -8335,24 +8301,19 @@ export function ChatSettingsDrawer({
                             <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                               {localizeUi("ui.chat.chatsettingsdrawer.sceneImageInstructions")}
                             </span>
-                            <textarea
+                            <MacroTextarea
                               value={gameImagePromptInstructionsDraft}
-                              onChange={(e) => setGameImagePromptInstructionsDraft(e.target.value)}
-                              onBlur={() => {
-                                const stored = (metadata.gameImagePromptInstructions as string) ?? "";
-                                if (gameImagePromptInstructionsDraft !== stored) {
-                                  updateMeta.mutate({
-                                    id: chat.id,
-                                    gameImagePromptInstructions: gameImagePromptInstructionsDraft.trim() || null,
-                                  });
-                                }
-                              }}
+                              onChange={setGameImagePromptInstructionsDraft}
+                              onBlur={commitGameImagePromptInstructions}
+                              onExpandedClose={commitGameImagePromptInstructions}
+                              title={localizeUi("ui.chat.chatsettingsdrawer.sceneImageInstructions")}
+                              ariaLabel={localizeUi("ui.chat.chatsettingsdrawer.sceneImageInstructions")}
                               placeholder={localizeUi(
                                 "ui.chat.chatsettingsdrawer.eGDottoreSMaskCompletelyCoversHisEyes",
                               )}
                               rows={3}
                               maxLength={1200}
-                              className="min-h-[4.75rem] w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/50"
+                              className="mari-chrome-field min-h-[4.75rem] w-full !rounded-md px-2.5 py-2 pr-8 text-xs leading-relaxed"
                             />
                           </label>
                           <AgentSettingsToggle
@@ -8564,10 +8525,13 @@ export function ChatSettingsDrawer({
                                 }
                                 return (
                                   <div key={agent.id} data-chat-agent-entry={agent.id} className="space-y-1.5">
-                                    <button
-                                      onClick={() => {
+                                    <SettingsSwitch
+                                      label={agent.name}
+                                      description={getActiveAgentMenuDescription(agent.description) || undefined}
+                                      checked={active}
+                                      onChange={(nextActive) => {
                                         const latestActiveAgentIds = readLatestActiveAgentIds();
-                                        if (active) {
+                                        if (!nextActive) {
                                           updateMeta.mutate({
                                             id: chat.id,
                                             activeAgentIds: latestActiveAgentIds.filter((id) => id !== agent.id),
@@ -8580,30 +8544,15 @@ export function ChatSettingsDrawer({
                                           });
                                         }
                                       }}
-                                      aria-pressed={active}
+                                      labelPosition="start"
                                       className={cn(
-                                        "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                                        "justify-between rounded-md px-3 py-2.5 text-left",
                                         active
                                           ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                                           : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                                       )}
-                                    >
-                                      <div className="min-w-0 flex-1">
-                                        <span className="block truncate text-xs font-medium">{agent.name}</span>
-                                        {agent.description ? (
-                                          <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                                            {agent.description}
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                      <SettingsSwitchTrack
-                                        checked={active}
-                                        className={cn(
-                                          "mari-chat-option-switch",
-                                          active && "mari-chat-option-switch--active",
-                                        )}
-                                      />
-                                    </button>
+                                      labelClassName="min-w-0 text-xs font-medium [&>span>label]:block [&>span>label]:truncate"
+                                    />
                                     {active && knowledgeAgentType && (
                                       <KnowledgeAgentSettingsCard
                                         agentType={knowledgeAgentType}
@@ -8891,19 +8840,18 @@ export function ChatSettingsDrawer({
                   disabled={updateGameWidgets.isPending}
                 />
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <button
+                  <AgentSettingsActionButton
                     type="button"
                     onClick={() => setGameWidgetDrafts(gameWidgetSource)}
                     disabled={!gameWidgetsChanged || updateGameWidgets.isPending}
-                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {localizeUi("ui.characters.charactercliptrimmodal.reset")}
-                  </button>
-                  <button
+                  </AgentSettingsActionButton>
+                  <AgentSettingsActionButton
                     type="button"
+                    variant="primary"
                     onClick={() => void saveGameWidgets()}
                     disabled={!gameWidgetsChanged || updateGameWidgets.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {updateGameWidgets.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
                     <span>
@@ -8911,7 +8859,7 @@ export function ChatSettingsDrawer({
                         ? localizeUi("ui.noodle.stageprofileform.saving")
                         : localizeUi("ui.chat.chatsettingsdrawer.saveWidgets")}
                     </span>
-                  </button>
+                  </AgentSettingsActionButton>
                 </div>
                 <GameWidgetFileControls
                   widgets={gameWidgetDrafts}
@@ -8997,7 +8945,7 @@ export function ChatSettingsDrawer({
                           summaryConnectionId: event.target.value || null,
                         })
                       }
-                      className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                      className="mari-chrome-field w-full !rounded-md px-3 py-2 text-xs"
                       aria-label={localizeUi("ui.chat.summarypopover.summaryConnection_febe5c4")}
                     >
                       <option value="">{localizeUi("chat.summary.connection.agentDefaultFallback")}</option>
@@ -9038,7 +8986,7 @@ export function ChatSettingsDrawer({
                         })
                       }
                       ariaLabel={localizeUi("ui.chat.summarypopover.summaryMaximumOutputSize")}
-                      className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                      className="mari-chrome-field w-full !rounded-md px-3 py-2 text-xs"
                     />
                   </div>
                 </div>
@@ -9054,7 +9002,7 @@ export function ChatSettingsDrawer({
                       setRolloverTouchedThisSession(true);
                       updateMeta.mutate({ id: chat.id, dayRolloverHour: Number(e.target.value) });
                     }}
-                    className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                    className="mari-chrome-field w-full !rounded-md px-3 py-2 text-xs"
                   >
                     {Array.from({ length: 12 }, (_, h) => {
                       const label = h === 0 ? "12 AM (midnight)" : `${h} AM`;
@@ -9099,7 +9047,7 @@ export function ChatSettingsDrawer({
                       })
                     }
                     ariaLabel="Recent message tail"
-                    className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                    className="mari-chrome-field w-full !rounded-md px-3 py-2 text-xs"
                   />
                   <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                     {localizeUi("ui.chat.chatsettingsdrawer.howManyRecentMessagesToKeepWordForWord")}{" "}

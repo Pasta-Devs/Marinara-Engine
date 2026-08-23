@@ -156,20 +156,23 @@ export function GameExtraPromptSection({
           />
         </div>
 
-        <label className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.chatSettings.gameextrapromptsection.extraInstructions")}
           </span>
-          <textarea
+          <MacroTextarea
             value={specialInstructionsValue}
-            onChange={(event) => onSpecialInstructionsChange(event.target.value)}
+            onChange={onSpecialInstructionsChange}
             onBlur={() => onSpecialInstructionsCommit(specialInstructionsValue.trim() || null)}
+            onExpandedClose={() => onSpecialInstructionsCommit(specialInstructionsValue.trim() || null)}
+            title={localizeUi("ui.chatSettings.gameextrapromptsection.extraInstructions")}
+            ariaLabel={localizeUi("ui.chatSettings.gameextrapromptsection.extraInstructions")}
             placeholder={localizeUi("ui.chatSettings.gameextrapromptsection.writeInTheStyleOfTerryPratchett")}
             rows={3}
             maxLength={2000}
-            className="min-h-[5rem] w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--foreground)]/40"
+            className="mari-chrome-field min-h-[5rem] w-full !rounded-md px-3 py-2 pr-8 text-xs leading-relaxed"
           />
-        </label>
+        </div>
       </div>
     </ChatSettingsSection>
   );

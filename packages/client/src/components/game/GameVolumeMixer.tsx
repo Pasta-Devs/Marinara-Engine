@@ -81,7 +81,7 @@ export function GameVolumeMixer({
             className={cn(
               "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
               audioMuted
-                ? "bg-red-500/30 text-red-300 hover:bg-red-500/50"
+                ? "bg-[var(--marinara-chat-chrome-button-bg-active)] text-[var(--marinara-chat-chrome-button-text-active)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)]"
                 : "bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] ring-1 ring-[var(--marinara-chat-chrome-button-border)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
             )}
             title={

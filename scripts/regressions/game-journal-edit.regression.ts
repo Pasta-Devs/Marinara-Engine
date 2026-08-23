@@ -50,7 +50,20 @@ try {
   });
   assert.equal(missing.statusCode, 404);
 
-  console.info("Game journal edit regression passed.");
+  const deleted = await app.inject({
+    method: "DELETE",
+    url: `/api/game/${chat.id}/journal/entries/0`,
+  });
+  assert.equal(deleted.statusCode, 200, deleted.body);
+  assert.equal(deleted.json().journal.entries.length, 0);
+
+  const missingDelete = await app.inject({
+    method: "DELETE",
+    url: `/api/game/${chat.id}/journal/entries/0`,
+  });
+  assert.equal(missingDelete.statusCode, 404);
+
+  console.info("Game journal edit/delete regression passed.");
 } finally {
   await chats.remove(chat.id).catch(() => {});
   await app.close();

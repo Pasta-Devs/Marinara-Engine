@@ -35,6 +35,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Conversation autonomy and Game agent controls now use the shared toggle design; automatic-summary, Discord Mirror, Illustrator, Prompt Preset, and widget controls reuse canonical fields and actions; muted Game audio follows the configured accent; and journal entries can be deleted after confirmation (#5463).
 - Tracker Panel now keeps Inventory above Custom and uses the configured app accent for its frame and dice controls; Group Chat's Add Turn To Prompt setting now uses the shared toggle and muted off-state; branch counts use the compact rounded-corner tag shape instead of capsules; and Conversation places Start Call beside the character or group name (#5462).
 - Character and Persona editors now switch to their compact section menu before constrained Windows layouts can crush toolbar buttons together, and the menu trigger matches neighboring action heights on desktop and mobile (#5460).
 - Roleplay now places Beholder directly beside Tracker Panel before Agents, groups Inventory and Memory Nag into the combined mobile tracker control, and preserves full mobile touch-target bounds in the chat Help overlay (#5457, Pasta-Devs/Marinara-Agents#533).

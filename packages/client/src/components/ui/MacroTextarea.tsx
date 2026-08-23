@@ -67,6 +67,7 @@ interface ExpandedMacroEditorProps {
   onClose: () => void;
   placeholder?: string;
   readOnly?: boolean;
+  maxLength?: number;
   formatOnChange?: (textarea: HTMLTextAreaElement, inputEvent: InputEvent) => string;
 }
 
@@ -78,6 +79,7 @@ function ExpandedMacroEditor({
   onClose,
   placeholder,
   readOnly = false,
+  maxLength,
   formatOnChange,
 }: ExpandedMacroEditorProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -166,6 +168,7 @@ function ExpandedMacroEditor({
             onKeyDown={handleTextareaTab}
             placeholder={placeholder}
             readOnly={readOnly}
+            maxLength={maxLength}
             className="min-h-0 flex-1 resize-none bg-[var(--secondary)] p-4 font-mono text-sm leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
             spellCheck={false}
           />
@@ -318,6 +321,7 @@ export interface MacroTextareaProps {
   selfCharacterId?: string | null;
   spellCheck?: boolean;
   readOnly?: boolean;
+  maxLength?: number;
   /** Optional ref to the underlying textarea (e.g. to insert emoji at the caret). */
   textareaRef?: Ref<HTMLTextAreaElement>;
 }
@@ -347,6 +351,7 @@ export function MacroTextarea({
   selfCharacterId,
   spellCheck = true,
   readOnly = false,
+  maxLength,
   textareaRef,
 }: MacroTextareaProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -421,6 +426,7 @@ export function MacroTextarea({
             placeholder={placeholder}
             spellCheck={spellCheck}
             readOnly={readOnly}
+            maxLength={maxLength}
             className={cn(
               "w-full resize-y rounded-lg bg-[var(--secondary)] p-2.5 text-sm leading-6 text-[var(--foreground)] ring-1 ring-[var(--border)] transition placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
               className,
@@ -480,6 +486,7 @@ export function MacroTextarea({
         onClose={handleExpandedClose}
         placeholder={placeholder}
         readOnly={readOnly}
+        maxLength={maxLength}
         formatOnChange={formatOnChange}
       />
       <MacrosReferenceModal open={showMacroRef} onClose={() => setShowMacroRef(false)} />

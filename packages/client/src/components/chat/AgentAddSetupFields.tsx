@@ -32,6 +32,7 @@ import {
   type SpriteDisplayMode,
 } from "./sprite-display-modes";
 import { HAPTIC_SENSITIVITY_OPTIONS } from "./haptic-sensitivity-options";
+import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 export type KnowledgeAgentType = "knowledge-retrieval" | "knowledge-router";
@@ -526,36 +527,21 @@ function SetupToggle({
   onToggle: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
+    <SettingsSwitch
+      label={label}
+      description={description}
+      checked={enabled}
+      onChange={onToggle}
       disabled={disabled}
-      aria-pressed={enabled}
+      labelPosition="start"
       className={cn(
-        "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60",
+        "w-full justify-between rounded-md px-3 py-2.5 text-left",
         enabled
           ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
           : "bg-[var(--background)]/75 ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
       )}
-    >
-      <span className="min-w-0 flex-1">
-        <span className="block text-[0.6875rem] font-medium">{label}</span>
-        <span className="mt-0.5 block text-[0.625rem] text-[var(--muted-foreground)]">{description}</span>
-      </span>
-      <span
-        className={cn(
-          "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-          enabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-        )}
-      >
-        <span
-          className={cn(
-            "block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-            enabled && "translate-x-3.5",
-          )}
-        />
-      </span>
-    </button>
+      labelClassName="text-[0.6875rem] font-medium"
+    />
   );
 }
 

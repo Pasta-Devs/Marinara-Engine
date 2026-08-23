@@ -20,6 +20,14 @@ const chatBranchSelector = readSource("packages/client/src/components/chat/ChatB
 const conversationView = readSource("packages/client/src/components/chat/ConversationView.tsx");
 const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
 const translationSection = readSource("packages/client/src/features/chat-settings/sections/TranslationSection.tsx");
+const discordMirrorSection = readSource(
+  "packages/client/src/features/chat-settings/sections/DiscordMirrorSection.tsx",
+);
+const gameExtraPromptSection = readSource(
+  "packages/client/src/features/chat-settings/sections/GameExtraPromptSection.tsx",
+);
+const gameWidgetEditor = readSource("packages/client/src/components/game/GameWidgetSetupEditor.tsx");
+const gameVolumeMixer = readSource("packages/client/src/components/game/GameVolumeMixer.tsx");
 
 assert.doesNotMatch(
   trackerSidebar,
@@ -132,6 +140,36 @@ assert.match(
   conversationView,
   /data-conversation-header-identity[\s\S]*?<ConversationPresenceCard[\s\S]*?data-chat-help="call"[\s\S]*?<div className="ml-2 flex/u,
   "the Conversation call launcher must sit beside the character or group identity instead of the right action cluster",
+);
+assert.doesNotMatch(
+  chatSettingsDrawer,
+  /SettingsSwitchTrack/u,
+  "Chat Settings must use the shared SettingsSwitch instead of rebuilding toggle tracks",
+);
+assert.match(
+  discordMirrorSection,
+  /discordMirror[\s\S]*mari-chrome-field/u,
+  "Discord Mirror must label and reuse the canonical shared input field",
+);
+assert.match(
+  gameExtraPromptSection,
+  /extraInstructions[\s\S]*<MacroTextarea/u,
+  "Game Extra Instructions must use the shared expandable macro field",
+);
+assert.match(
+  chatSettingsDrawer,
+  /campaignArtStyle[\s\S]*<MacroTextarea[\s\S]*sceneImageInstructions[\s\S]*<MacroTextarea/u,
+  "Game Illustrator prompt fields must use shared expandable macro fields",
+);
+assert.match(
+  gameWidgetEditor,
+  /<AgentSettingsActionButton[\s\S]*addWidget/u,
+  "Game widget creation must use the shared agent action button",
+);
+assert.doesNotMatch(
+  gameVolumeMixer,
+  /(?:red|destructive)/u,
+  "the muted Game volume control must not use a hard-coded warning color",
 );
 
 process.stdout.write("Tracker and Gallery UI regression passed\n");

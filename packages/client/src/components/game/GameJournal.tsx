@@ -22,8 +22,10 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
+import { toast } from "sonner";
 import { cleanNpcAvatarDisplayName, normalizeNpcAvatarName } from "../../lib/game-npc-avatar";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import { AnimatedText } from "./AnimatedText";
 
 import type { GameNpc } from "@marinara-engine/shared";
@@ -199,6 +201,7 @@ export function GameJournal({
     content: string;
   } | null>(null);
   const [entrySaving, setEntrySaving] = useState(false);
+  const [deletingEntryIndex, setDeletingEntryIndex] = useState<number | null>(null);
   const [entrySaveFailed, setEntrySaveFailed] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestNotesRef = useRef("");
@@ -287,6 +290,32 @@ export function GameJournal({
     }
   }, [chatId, editingEntry, entrySaving]);
 
+  const deleteJournalEntry = useCallback(
+    async (entry: JournalEntry) => {
+      const index = journal?.entries.indexOf(entry) ?? -1;
+      if (index < 0 || deletingEntryIndex !== null) return;
+      const confirmed = await showConfirmDialog({
+        title: localizeUi("ui.game.gamejournal.deleteJournalEntry"),
+        message: localizeUi("ui.game.gamejournal.deleteJournalEntryConfirmation", { title: entry.title }),
+        confirmLabel: localizeUi("ui.game.gamejournal.deleteEntry"),
+        tone: "destructive",
+      });
+      if (!confirmed) return;
+
+      setDeletingEntryIndex(index);
+      try {
+        const result = await api.delete<{ journal: Journal }>(`/game/${chatId}/journal/entries/${index}`);
+        setJournal(result.journal);
+        toast.success(localizeUi("ui.game.gamejournal.entryDeleted"));
+      } catch {
+        toast.error(localizeUi("ui.game.gamejournal.entryDeleteFailed"));
+      } finally {
+        setDeletingEntryIndex(null);
+      }
+    },
+    [chatId, deletingEntryIndex, journal, localizeUi],
+  );
+
   const journalNpcs = useMemo(() => (npcs ?? []).filter(shouldShowJournalNpc), [npcs]);
 
   const trackedNpcNames = useMemo(() => {
@@ -372,7 +401,15 @@ export function GameJournal({
         data-game-journal-scroll
         className="relative min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain p-4 [-webkit-overflow-scrolling:touch]"
       >
-        {activeTab === "all" && <TimelineView entries={visibleEntries} onEdit={beginEditingEntry} />}
+        {activeTab === "all" && (
+          <TimelineView
+            entries={visibleEntries}
+            onEdit={beginEditingEntry}
+            onDelete={deleteJournalEntry}
+            deletingEntryIndex={deletingEntryIndex}
+            allEntries={journal.entries}
+          />
+        )}
         {activeTab === "npcs" && (
           <NpcsView
             npcLog={journal.npcLog}
@@ -388,7 +425,13 @@ export function GameJournal({
         {activeTab === "locations" && <LocationsView locations={journal.locations} />}
         {activeTab === "inventory" && <InventoryView items={journal.inventoryLog} />}
         {activeTab === "library" && (
-          <LibraryView entries={visibleEntries.filter((e) => e.type === "note")} onEdit={beginEditingEntry} />
+          <LibraryView
+            entries={visibleEntries.filter((e) => e.type === "note")}
+            onEdit={beginEditingEntry}
+            onDelete={deleteJournalEntry}
+            deletingEntryIndex={deletingEntryIndex}
+            allEntries={journal.entries}
+          />
         )}
         {activeTab === "notes" && <NotesView notes={playerNotes} onChange={handleNotesChange} saved={notesSaved} />}
       </div>
@@ -463,7 +506,19 @@ export function GameJournal({
   );
 }
 
-function TimelineView({ entries, onEdit }: { entries: JournalEntry[]; onEdit: (entry: JournalEntry) => void }) {
+function TimelineView({
+  entries,
+  onEdit,
+  onDelete,
+  deletingEntryIndex,
+  allEntries,
+}: {
+  entries: JournalEntry[];
+  onEdit: (entry: JournalEntry) => void;
+  onDelete: (entry: JournalEntry) => void;
+  deletingEntryIndex: number | null;
+  allEntries: JournalEntry[];
+}) {
   const { t: localizeUi } = useUiTranslation();
   if (entries.length === 0) {
     return (
@@ -481,18 +536,34 @@ function TimelineView({ entries, onEdit }: { entries: JournalEntry[]; onEdit: (e
               <Icon size={12} className="text-white/60" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="pr-7 text-xs font-medium text-white/80">{entry.title}</div>
+              <div className="pr-14 text-xs font-medium text-white/80">{entry.title}</div>
               <AnimatedText html={entry.content} className="mt-0.5 text-[0.625rem] text-white/50" />
             </div>
-            <button
-              type="button"
-              onClick={() => onEdit(entry)}
-              title={localizeUi("ui.game.gamejournal.editEntry")}
-              aria-label={localizeUi("ui.game.gamejournal.editEntry")}
-              className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-md text-white/45 transition-colors hover:bg-white/10 hover:text-white md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
-            >
-              <PenLine size={12} />
-            </button>
+            <div className="absolute right-2 top-2 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+              <button
+                type="button"
+                onClick={() => onEdit(entry)}
+                title={localizeUi("ui.game.gamejournal.editEntry")}
+                aria-label={localizeUi("ui.game.gamejournal.editEntry")}
+                className="flex h-6 w-6 items-center justify-center rounded-md text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <PenLine size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(entry)}
+                disabled={deletingEntryIndex === allEntries.indexOf(entry)}
+                title={localizeUi("ui.game.gamejournal.deleteEntry")}
+                aria-label={localizeUi("ui.game.gamejournal.deleteEntry")}
+                className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--destructive)]/70 transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] disabled:opacity-40"
+              >
+                {deletingEntryIndex === allEntries.indexOf(entry) ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Trash2 size={12} />
+                )}
+              </button>
+            </div>
           </div>
         );
       })}
@@ -738,7 +809,19 @@ function InventoryView({
   );
 }
 
-function LibraryView({ entries, onEdit }: { entries: JournalEntry[]; onEdit: (entry: JournalEntry) => void }) {
+function LibraryView({
+  entries,
+  onEdit,
+  onDelete,
+  deletingEntryIndex,
+  allEntries,
+}: {
+  entries: JournalEntry[];
+  onEdit: (entry: JournalEntry) => void;
+  onDelete: (entry: JournalEntry) => void;
+  deletingEntryIndex: number | null;
+  allEntries: JournalEntry[];
+}) {
   const { t: localizeUi } = useUiTranslation();
   if (entries.length === 0) {
     return (
@@ -765,18 +848,34 @@ function LibraryView({ entries, onEdit }: { entries: JournalEntry[]; onEdit: (en
               >
                 {isBook ? localizeUi("ui.game.libraryview.book") : localizeUi("ui.game.libraryview.note")}
               </span>
-              <span className="ml-auto pr-7 text-[0.5625rem] text-white/30">{entry.timestamp}</span>
+              <span className="ml-auto pr-14 text-[0.5625rem] text-white/30">{entry.timestamp}</span>
             </div>
             <JournalMarkdown text={text} className="mt-1.5 text-xs leading-relaxed text-white/70" />
-            <button
-              type="button"
-              onClick={() => onEdit(entry)}
-              title={localizeUi("ui.game.gamejournal.editEntry")}
-              aria-label={localizeUi("ui.game.gamejournal.editEntry")}
-              className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-md text-white/45 transition-colors hover:bg-white/10 hover:text-white md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
-            >
-              <PenLine size={12} />
-            </button>
+            <div className="absolute right-2 top-2 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+              <button
+                type="button"
+                onClick={() => onEdit(entry)}
+                title={localizeUi("ui.game.gamejournal.editEntry")}
+                aria-label={localizeUi("ui.game.gamejournal.editEntry")}
+                className="flex h-6 w-6 items-center justify-center rounded-md text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <PenLine size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(entry)}
+                disabled={deletingEntryIndex === allEntries.indexOf(entry)}
+                title={localizeUi("ui.game.gamejournal.deleteEntry")}
+                aria-label={localizeUi("ui.game.gamejournal.deleteEntry")}
+                className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--destructive)]/70 transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] disabled:opacity-40"
+              >
+                {deletingEntryIndex === allEntries.indexOf(entry) ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Trash2 size={12} />
+                )}
+              </button>
+            </div>
           </div>
         );
       })}

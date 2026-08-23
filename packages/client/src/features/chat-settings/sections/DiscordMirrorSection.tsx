@@ -22,6 +22,9 @@ export function DiscordMirrorControls({
 
   return (
     <div className={className}>
+      <label htmlFor={webhookInputId} className="block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+        {localizeUi("ui.chatSettings.discordmirrorcontrols.discordMirror")}
+      </label>
       <input
         id={webhookInputId}
         type="url"
@@ -30,7 +33,7 @@ export function DiscordMirrorControls({
         onChange={(e) => onWebhookUrlChange(e.target.value.trim())}
         aria-invalid={hasInvalidWebhook}
         aria-describedby={hasInvalidWebhook ? webhookErrorId : undefined}
-        className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2.5 text-[0.6875rem] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50 ring-1 ring-transparent focus:ring-[var(--primary)]/40 focus:outline-none transition-all"
+        className="mari-chrome-field w-full !rounded-md px-3 py-2.5 text-[0.6875rem]"
       />
       {hasInvalidWebhook && (
         <p id={webhookErrorId} className="text-[0.625rem] text-red-400">

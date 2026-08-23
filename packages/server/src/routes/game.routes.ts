@@ -10048,6 +10048,30 @@ export async function gameRoutes(app: FastifyInstance) {
     },
   );
 
+  // ── DELETE /game/:chatId/journal/entries/:entryIndex ──
+  app.delete<{ Params: { chatId: string; entryIndex: string } }>(
+    "/:chatId/journal/entries/:entryIndex",
+    async (req, reply) => {
+      const entryIndex = z.coerce.number().int().nonnegative().parse(req.params.entryIndex);
+      const chats = createChatsStorage(app.db);
+      let nextJournal: Journal | null = null;
+      const updated = await chats.patchMetadata(req.params.chatId, (current) => {
+        const journal = (current.gameJournal as Journal) ?? createJournal();
+        if (!journal.entries[entryIndex]) {
+          throw Object.assign(new Error("Journal entry not found"), { statusCode: 404 });
+        }
+        nextJournal = {
+          ...journal,
+          entries: journal.entries.filter((_, index) => index !== entryIndex),
+        };
+        return { gameJournal: nextJournal };
+      });
+      if (!updated || !nextJournal) return reply.status(404).send({ error: "Chat not found" });
+
+      return { journal: nextJournal };
+    },
+  );
+
   // ── PUT /game/:chatId/notes ──
   app.put<{ Params: { chatId: string } }>("/:chatId/notes", async (req) => {
     const { notes } = z.object({ notes: z.string().max(10000) }).parse(req.body);
