@@ -2076,11 +2076,11 @@ export function ConnectionEditor() {
             help={localizeUi("ui.connections.connectioneditor.theSpecificAiModelToUseYouCanPick")}
           >
             {/* Standard model dropdown + manual input (used for all providers including image_generation) */}
-            <div ref={modelDropdownRef} className={cn("relative", showModelDropdown && "z-50")}>
+            <div ref={modelDropdownRef} className={cn("relative min-w-0", showModelDropdown && "z-50")}>
               <div
                 onClick={() => setShowModelDropdown(!showModelDropdown)}
                 className={cn(
-                  "relative flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)] transition-all hover:ring-[var(--ring)]",
+                  "relative flex min-w-0 cursor-pointer items-center gap-2 rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)] transition-all hover:ring-[var(--ring)]",
                   showModelDropdown && "z-50 ring-sky-400/50",
                 )}
               >
@@ -2090,13 +2090,15 @@ export function ConnectionEditor() {
                     ref={modelSearchInputRef}
                     value={modelSearch}
                     onChange={(e) => setModelSearch(e.target.value)}
-                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--muted-foreground)]"
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--muted-foreground)]"
                     placeholder={localizeUi("ui.connections.connectioneditor.searchModels")}
                     autoFocus
                     onClick={(e) => e.stopPropagation()}
                   />
                 ) : (
-                  <span className={cn("flex-1 text-sm", !localModel && "text-[var(--muted-foreground)]")}>
+                  <span
+                    className={cn("min-w-0 flex-1 truncate text-sm", !localModel && "text-[var(--muted-foreground)]")}
+                  >
                     {localModel
                       ? selectedModelInfo
                         ? localizeUi("ui.connections.connectioneditor.value1Value2", {
@@ -2254,13 +2256,13 @@ export function ConnectionEditor() {
 
             {/* Manual model ID input below dropdown */}
             {localProvider !== "custom" && (
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex min-w-0 items-center gap-2">
                 <input
                   value={localModel}
                   onChange={(e) => {
                     handleManualModelChange(e.target.value);
                   }}
-                  className="flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-[var(--ring)]"
+                  className="min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-[var(--ring)]"
                   placeholder={
                     isGrokSubscriptionProvider
                       ? localizeUi("ui.connections.connectioneditor.optionalTypeAGrokCliModelIdOrLeave")

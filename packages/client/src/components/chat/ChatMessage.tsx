@@ -845,8 +845,8 @@ const EditTextarea = memo(function EditTextarea({
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSave();
           if (e.key === "Escape") onCancel();
         }}
-        className="relative z-0 w-full resize-none overflow-y-auto overscroll-contain rounded-lg bg-black/30 px-3 py-2 text-white outline-none ring-1 ring-white/20 focus:ring-blue-400/50"
-        style={{ fontSize, lineHeight: 1.5, maxHeight: "min(60dvh, 32rem)" }}
+        className="relative z-0 w-full resize-none overflow-y-auto overscroll-contain rounded-lg bg-black/30 px-3 py-2 text-white outline-none ring-1 ring-white/20 focus:ring-blue-400/50 max-md:max-h-[min(60dvh,32rem)]"
+        style={{ fontSize, lineHeight: 1.5 }}
       />
       <div className="pointer-events-auto relative z-30 flex items-center justify-end gap-1.5">
         <button

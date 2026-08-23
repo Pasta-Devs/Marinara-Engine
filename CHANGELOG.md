@@ -35,6 +35,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Image Connection model controls now stay inside narrow Android viewports, and long message editors expand to their content on desktop while retaining the mobile height cap (#5447, #5448).
 - Downloadable Roleplay trackers now receive the shared left-side toolbar control styling in full and compact layouts, while Present Characters consistently uses a silhouette icon instead of character emoji (#5445, Pasta-Devs/Marinara-Agents#523).
 - Chat Settings now reuses one compact action, toggle, and segmented-control design across agent menus; World Maps, Beholder, Storyboards, Long-Term Memory, and Memory Nag have standalone active-agent cards, while Impersonate prompts use the standard expandable macro field (#5443, Pasta-Devs/Marinara-Agents#521).
 - Memory Nag now shows its Roleplay badge in Download Agents, while capability-package regression coverage tracks the API version required by its runtime (#5438).
