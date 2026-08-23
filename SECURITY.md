@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes are developed on `staging` and released from `main`. Please report issues found in the current stable release or the current `staging` branch. Older releases may already contain fixed vulnerabilities, so reproduce against a supported version when practical.
+Security fixes are developed on `staging` and released from `main`. Please report issues found in the current stable release or the current `staging` branch. Older releases may lack security fixes or contain known vulnerabilities, so reproduce against a supported version when practical.
 
 ## Reporting a vulnerability
 
