@@ -1032,6 +1032,7 @@ async function buildRetryAgentContext(args: {
       : {}),
     streaming,
     memory: {},
+    lorebookEntryCounts: promptMacroContext.lorebookEntryCounts,
   };
 
   const previousBeholderState = await loadPriorBeholderState({

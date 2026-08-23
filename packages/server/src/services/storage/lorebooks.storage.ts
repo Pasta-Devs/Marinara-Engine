@@ -620,6 +620,17 @@ export function createLorebooksStorage(db: DB) {
       return rows.map((r) => parseEntryRow(r as Record<string, unknown>));
     },
 
+    /** Count all entries grouped by lorebook ID (for {{lorebooksize::ID}} macro). */
+    async countAllEntriesByLorebook(): Promise<Record<string, number>> {
+      const rows = await db.select({ lorebookId: lorebookEntries.lorebookId }).from(lorebookEntries);
+      const counts: Record<string, number> = {};
+      for (const row of rows) {
+        const id = row.lorebookId as string;
+        counts[id] = (counts[id] ?? 0) + 1;
+      }
+      return counts;
+    },
+
     /** Get all entries across multiple lorebooks (for prompt injection). */
     async listEntriesByLorebooks(lorebookIds: string[]) {
       if (lorebookIds.length === 0) return [];

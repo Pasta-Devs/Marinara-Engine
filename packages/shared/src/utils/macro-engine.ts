@@ -48,6 +48,8 @@ export interface MacroContext {
   personaReferences?: Record<string, string>;
   /** Activated lorebook Outlet content keyed by its exact, case-sensitive name */
   outlets?: Record<string, string>;
+  /** Per-lorebook total entry counts, keyed by lorebook ID (for {{lorebooksize::ID}}) */
+  lorebookEntryCounts?: Record<string, number>;
   /** Current character card fields used by macros like {{description}} */
   characterFields?: {
     phoneticName?: string;
@@ -442,6 +444,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     category: "Lorebooks",
     syntax: "{{outlet::name}}",
     description: "Activated lorebook entries assigned to the exact, case-sensitive Outlet name",
+  },
+  {
+    category: "Lorebooks",
+    syntax: "{{lorebooksize::ID}}",
+    description: "Total number of entries in the lorebook with the given ID",
   },
   {
     category: "Game",
@@ -2079,6 +2086,7 @@ function formatMacroDateTime(now: Date, requestedTimeZone?: string): MacroDateTi
  *  - {{lastGenerationType}} — current generation type label
  *  - {{idle_duration}} — time since the last chat activity
  *  - {{outlet::name}} — activated lorebook entries assigned to a named Outlet
+ *  - {{lorebooksize::ID}} — total number of entries in the lorebook with the given ID
  *  - {{gameStoryboardKeyframeCount}} — current Game Mode Keyframes per Turn target
  *  - {{// comment}} — removed (author comments)
  *  - {{trim}} — remove surrounding whitespace
@@ -2341,6 +2349,13 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
     if (!match) return undefined;
     const name = (match[1] ?? "").trim();
     return name && ctx.outlets && Object.prototype.hasOwnProperty.call(ctx.outlets, name) ? ctx.outlets[name]! : "";
+  });
+
+  // ── Lorebook entry count ──
+  // Resolves {{lorebooksize::ID}} to the total number of entries in the
+  // referenced lorebook. Unknown IDs resolve to 0.
+  result = result.replace(/\{\{lorebooksize::([\w-]+)\}\}/gi, (_, id) => {
+    return String(ctx.lorebookEntryCounts?.[id] ?? 0);
   });
 
   if (options.trimResult !== false) {

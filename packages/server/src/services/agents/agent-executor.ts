@@ -281,6 +281,7 @@ export function buildAgentPromptMacroContext(
           scenario: value(context.persona.scenario),
         }
       : undefined,
+    lorebookEntryCounts: context.lorebookEntryCounts,
   };
 }
 

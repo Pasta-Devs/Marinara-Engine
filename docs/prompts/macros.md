@@ -129,6 +129,14 @@ Outlet entries still use normal lorebook activation. Keywords, Constant mode, pr
 
 Use Outlet macros in prompt sections in Conversation, Roleplay, or Game mode. The macro works even when it appears before the preset's lorebook marker, and a preset does not need a lorebook marker when it uses only Outlet entries. An unknown or inactive Outlet resolves to nothing. An Outlet entry cannot expand another Outlet macro, so nested Outlets do not recurse.
 
+## Lorebook size macro
+
+`{{lorebooksize::ID}}` resolves to the total number of entries in the lorebook with the given ID. Replace `ID` with the lorebook's actual ID — copy it from the Lorebooks panel. For example, if a lorebook has the ID `V1StGXR8_Z5jdHi6B-myT` and contains 151 entries, `{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}` resolves to `151`.
+
+Unknown lorebook IDs resolve to `0`. The count includes all entries regardless of whether they are enabled, disabled, or in folders.
+
+Use this macro in prompt sections, character card fields, lorebook entry content, or anywhere else macros are resolved.
+
 ## Time macros
 
 All time macros read one shared moment per resolution, so they always agree with each other. The timezone comes from your browser.
