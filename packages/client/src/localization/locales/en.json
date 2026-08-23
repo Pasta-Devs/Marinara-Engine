@@ -98,6 +98,7 @@
   "chat.delete.dialog.description": "Choose what you want to remove from this message.",
   "chat.delete.dialog.message": "Delete this message",
   "chat.delete.dialog.more": "Delete more",
+  "chat.delete.dialog.otherSwipes": "Delete all other swipes",
   "chat.delete.dialog.swipe": "Delete only this swipe ({{current}}/{{total}})",
   "chat.delete.dialog.title": "Delete message",
   "chat.delete.selection.above": "Select all messages above",

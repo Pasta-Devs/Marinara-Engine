@@ -21,6 +21,7 @@ import {
   useDeleteMessage,
   useDeleteMessages,
   useDeleteSwipe,
+  useDeleteOtherSwipes,
   useUpdateMessage,
   useUpdateMessageExtra,
   usePeekPrompt,
@@ -672,6 +673,7 @@ export const ChatArea = memo(function ChatArea() {
   const deleteMessage = useDeleteMessage(activeChatId);
   const deleteMessages = useDeleteMessages(activeChatId);
   const deleteSwipe = useDeleteSwipe(activeChatId);
+  const deleteOtherSwipes = useDeleteOtherSwipes(activeChatId);
   const { mutate: updateMessage, mutateAsync: updateMessageAsync } = useUpdateMessage(activeChatId);
   const { mutate: updateMessageExtra } = useUpdateMessageExtra(activeChatId);
   const peekPrompt = usePeekPrompt();
@@ -1755,6 +1757,7 @@ export const ChatArea = memo(function ChatArea() {
     [deleteDialogMessageId, messages],
   );
   const deleteDialogCanDeleteSwipe = (deleteDialogMessage?.swipeCount ?? 0) > 1;
+  const deleteDialogCanDeleteOtherSwipes = deleteDialogCanDeleteSwipe && !isGameChat;
   const deleteDialogActiveSwipeIndex = deleteDialogMessage?.activeSwipeIndex ?? 0;
   const deleteDialogSwipeCount = deleteDialogMessage?.swipeCount ?? 0;
 
@@ -1808,6 +1811,22 @@ export const ChatArea = memo(function ChatArea() {
     deleteSwipe,
     refreshVisibleGameState,
     shouldRefreshGameStateOnSwipe,
+    localizeUi,
+  ]);
+
+  const handleDeleteOtherSwipes = useCallback(() => {
+    const messageId = deleteDialogMessageId;
+    const index = deleteDialogActiveSwipeIndex;
+    setDeleteDialogMessageId(null);
+    if (!messageId || !deleteDialogCanDeleteOtherSwipes) return;
+    void deleteOtherSwipes.mutateAsync({ messageId, index }).catch(() => {
+      toast.error(localizeUi("ui.chat.chatarea.couldNotDeleteTheSwipe"));
+    });
+  }, [
+    deleteDialogActiveSwipeIndex,
+    deleteDialogCanDeleteOtherSwipes,
+    deleteDialogMessageId,
+    deleteOtherSwipes,
     localizeUi,
   ]);
 
@@ -2994,6 +3013,7 @@ export const ChatArea = memo(function ChatArea() {
             peekPromptData={peekPromptData}
             deleteDialogMessageId={deleteDialogMessageId}
             deleteDialogCanDeleteSwipe={deleteDialogCanDeleteSwipe}
+            deleteDialogCanDeleteOtherSwipes={deleteDialogCanDeleteOtherSwipes}
             deleteDialogActiveSwipeIndex={deleteDialogActiveSwipeIndex}
             deleteDialogSwipeCount={deleteDialogSwipeCount}
             multiSelectMode={multiSelectMode}
@@ -3016,6 +3036,7 @@ export const ChatArea = memo(function ChatArea() {
             onClosePeekPrompt={() => setPeekPromptData(null)}
             onDeleteConfirm={handleDeleteConfirm}
             onDeleteSwipe={handleDeleteSwipe}
+            onDeleteOtherSwipes={handleDeleteOtherSwipes}
             onDeleteMore={handleDeleteMore}
             onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
             onBulkDelete={handleBulkDelete}
@@ -3066,6 +3087,7 @@ export const ChatArea = memo(function ChatArea() {
             peekPromptData={peekPromptData}
             deleteDialogMessageId={deleteDialogMessageId}
             deleteDialogCanDeleteSwipe={deleteDialogCanDeleteSwipe}
+            deleteDialogCanDeleteOtherSwipes={deleteDialogCanDeleteOtherSwipes}
             deleteDialogActiveSwipeIndex={deleteDialogActiveSwipeIndex}
             deleteDialogSwipeCount={deleteDialogSwipeCount}
             multiSelectMode={multiSelectMode}
@@ -3106,6 +3128,7 @@ export const ChatArea = memo(function ChatArea() {
             onToggleSpriteArrange={() => setSpriteArrangeMode((prev) => !prev)}
             onDeleteConfirm={handleDeleteConfirm}
             onDeleteSwipe={handleDeleteSwipe}
+            onDeleteOtherSwipes={handleDeleteOtherSwipes}
             onDeleteMore={handleDeleteMore}
             onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
             onBulkDelete={handleBulkDelete}
@@ -3200,6 +3223,7 @@ export const ChatArea = memo(function ChatArea() {
           peekPromptData={peekPromptData}
           deleteDialogMessageId={deleteDialogMessageId}
           deleteDialogCanDeleteSwipe={deleteDialogCanDeleteSwipe}
+          deleteDialogCanDeleteOtherSwipes={deleteDialogCanDeleteOtherSwipes}
           deleteDialogActiveSwipeIndex={deleteDialogActiveSwipeIndex}
           deleteDialogSwipeCount={deleteDialogSwipeCount}
           multiSelectMode={multiSelectMode}
@@ -3259,6 +3283,7 @@ export const ChatArea = memo(function ChatArea() {
           onFinishSpritePlacement={() => setSpriteArrangeMode(false)}
           onDeleteConfirm={handleDeleteConfirm}
           onDeleteSwipe={handleDeleteSwipe}
+          onDeleteOtherSwipes={handleDeleteOtherSwipes}
           onDeleteMore={handleDeleteMore}
           onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
           onBulkDelete={handleBulkDelete}

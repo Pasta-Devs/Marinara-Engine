@@ -1551,6 +1551,21 @@ export function useDeleteSwipe(chatId: string | null) {
   });
 }
 
+/** Keep the selected swipe and delete every alternate from the parent message. */
+export function useDeleteOtherSwipes(chatId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ messageId, index }: { messageId: string; index: number }) =>
+      api.delete<Message>(`/chats/${chatId}/messages/${messageId}/swipes/others/${index}`),
+    onSuccess: (_data, { messageId }) => {
+      if (!chatId) return;
+      qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+      qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+      qc.invalidateQueries({ queryKey: [...chatKeys.all, "swipes", messageId] });
+    },
+  });
+}
+
 /** Connect two chats bidirectionally (conversation ↔ roleplay) */
 export function useConnectChat() {
   const qc = useQueryClient();

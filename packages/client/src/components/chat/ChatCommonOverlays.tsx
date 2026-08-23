@@ -56,10 +56,12 @@ type SharedSceneSettingsProps = {
 type DeleteDialogProps = {
   messageId: string | null;
   canDeleteSwipe: boolean;
+  canDeleteOtherSwipes: boolean;
   activeSwipeIndex: number;
   swipeCount: number;
   onConfirm: () => void;
   onDeleteSwipe: () => void;
+  onDeleteOtherSwipes: () => void;
   onDeleteMore: () => void;
   onClose: () => void;
 };
@@ -69,10 +71,12 @@ const DELETE_DIALOG_ACTION_CLASS = "mari-chrome-control min-h-10 w-full justify-
 function DeleteConfirmationDialog({
   messageId,
   canDeleteSwipe,
+  canDeleteOtherSwipes,
   activeSwipeIndex,
   swipeCount,
   onConfirm,
   onDeleteSwipe,
+  onDeleteOtherSwipes,
   onDeleteMore,
   onClose,
 }: DeleteDialogProps) {
@@ -99,6 +103,12 @@ function DeleteConfirmationDialog({
                 total: swipeCount,
               })}
             </span>
+          </button>
+        )}
+        {canDeleteOtherSwipes && (
+          <button type="button" onClick={onDeleteOtherSwipes} className={DELETE_DIALOG_ACTION_CLASS}>
+            <Layers size="0.8rem" />
+            <span>{t("chat.delete.dialog.otherSwipes")}</span>
           </button>
         )}
         <button type="button" onClick={onConfirm} className={DELETE_DIALOG_ACTION_CLASS}>
@@ -243,6 +253,7 @@ type ChatCommonOverlaysProps = {
   peekPromptData: PeekPromptData | null;
   deleteDialogMessageId: string | null;
   deleteDialogCanDeleteSwipe: boolean;
+  deleteDialogCanDeleteOtherSwipes: boolean;
   deleteDialogActiveSwipeIndex: number;
   deleteDialogSwipeCount: number;
   multiSelectMode: boolean;
@@ -271,6 +282,7 @@ type ChatCommonOverlaysProps = {
   onClosePeekPrompt: () => void;
   onDeleteConfirm: () => void;
   onDeleteSwipe: () => void;
+  onDeleteOtherSwipes: () => void;
   onDeleteMore: () => void;
   onCloseDeleteDialog: () => void;
   onBulkDelete: () => void;
@@ -291,6 +303,7 @@ export function ChatCommonOverlays({
   peekPromptData,
   deleteDialogMessageId,
   deleteDialogCanDeleteSwipe,
+  deleteDialogCanDeleteOtherSwipes,
   deleteDialogActiveSwipeIndex,
   deleteDialogSwipeCount,
   multiSelectMode,
@@ -312,6 +325,7 @@ export function ChatCommonOverlays({
   onClosePeekPrompt,
   onDeleteConfirm,
   onDeleteSwipe,
+  onDeleteOtherSwipes,
   onDeleteMore,
   onCloseDeleteDialog,
   onBulkDelete,
@@ -371,10 +385,12 @@ export function ChatCommonOverlays({
       <DeleteConfirmationDialog
         messageId={deleteDialogMessageId}
         canDeleteSwipe={deleteDialogCanDeleteSwipe}
+        canDeleteOtherSwipes={deleteDialogCanDeleteOtherSwipes}
         activeSwipeIndex={deleteDialogActiveSwipeIndex}
         swipeCount={deleteDialogSwipeCount}
         onConfirm={onDeleteConfirm}
         onDeleteSwipe={onDeleteSwipe}
+        onDeleteOtherSwipes={onDeleteOtherSwipes}
         onDeleteMore={onDeleteMore}
         onClose={onCloseDeleteDialog}
       />
