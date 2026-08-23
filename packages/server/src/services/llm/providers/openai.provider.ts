@@ -70,7 +70,7 @@ export function extractOpenAICompatibleContentBlocks(
     } else if (value.type === "tool_use" && typeof value.name === "string") {
       const name = value.name.trim();
       if (!name) continue;
-      const providerId = typeof value.id === "string" && value.id ? value.id : null;
+      const providerId = typeof value.id === "string" && value.id.trim() ? value.id : null;
       const id = providerId ?? createAnonymousToolCallId?.() ?? `tool_${toolCalls.length + 1}`;
       if (!providerId) anonymousToolCallIds.push(id);
       toolCalls.push({
@@ -1633,6 +1633,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       number,
       { id: string; type: "function"; function: { name: string; arguments: string } }
     >();
+    const contentBlockToolCallsMap = new Map<number, LLMToolCall>();
     const providerContentBlockToolCallIndexes = new Map<string, number>();
 
     try {
@@ -1720,9 +1721,9 @@ export class OpenAIProvider extends BaseLLMProvider {
             for (const toolCall of blocks.toolCalls) {
               const isAnonymous = blocks.anonymousToolCallIds.includes(toolCall.id);
               const index = isAnonymous
-                ? toolCallsMap.size
-                : (providerContentBlockToolCallIndexes.get(toolCall.id) ?? toolCallsMap.size);
-              toolCallsMap.set(index, toolCall);
+                ? contentBlockToolCallsMap.size
+                : (providerContentBlockToolCallIndexes.get(toolCall.id) ?? contentBlockToolCallsMap.size);
+              contentBlockToolCallsMap.set(index, toolCall);
               if (!isAnonymous) providerContentBlockToolCallIndexes.set(toolCall.id, index);
             }
           } else if (typeof textContent === "string" && textContent) {
@@ -1786,9 +1787,10 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     // Collect tool calls in order
     let toolCalls: LLMToolCall[] = [];
-    const sortedKeys = [...toolCallsMap.keys()].sort((a, b) => a - b);
+    const selectedToolCallsMap = toolCallsMap.size > 0 ? toolCallsMap : contentBlockToolCallsMap;
+    const sortedKeys = [...selectedToolCallsMap.keys()].sort((a, b) => a - b);
     for (const key of sortedKeys) {
-      const normalized = OpenAIProvider.normalizeToolCall(toolCallsMap.get(key), key);
+      const normalized = OpenAIProvider.normalizeToolCall(selectedToolCallsMap.get(key), key);
       if (normalized) toolCalls.push(normalized);
     }
     if (toolCalls.length === 0 && content && options.tools?.length) {

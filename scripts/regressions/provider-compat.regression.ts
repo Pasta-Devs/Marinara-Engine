@@ -2388,7 +2388,7 @@ const firstAnonymousBlocks = extractOpenAICompatibleContentBlocks(
 );
 const secondAnonymousBlocks = extractOpenAICompatibleContentBlocks(
   [
-    { type: "tool_use", name: "read_persona", input: { id: "persona-1" } },
+    { type: "tool_use", id: "   ", name: "read_persona", input: { id: "persona-1" } },
     { type: "tool_use", name: "   ", input: {} },
   ],
   nextAnonymousContentBlockToolCallId,
@@ -2421,9 +2421,39 @@ const contentBlockToolSse = [
   "data: [DONE]",
   "",
 ].join("\n");
+const mixedToolSse = [
+  `data: ${JSON.stringify({
+    choices: [
+      {
+        delta: {
+          tool_calls: [
+            {
+              index: 0,
+              id: "call-native",
+              function: { name: "read_character", arguments: '{"id":"char-1"}' },
+            },
+          ],
+        },
+      },
+    ],
+  })}`,
+  "",
+  `data: ${JSON.stringify({
+    choices: [
+      {
+        delta: { content: [{ type: "tool_use", name: "read_persona", input: { id: "persona-1" } }] },
+        finish_reason: "tool_calls",
+      },
+    ],
+  })}`,
+  "",
+  "data: [DONE]",
+  "",
+].join("\n");
+let streamedToolResponse = contentBlockToolSse;
 const contentBlockToolServer = createServer((_request, response) => {
   response.writeHead(200, { "content-type": "text/event-stream" });
-  response.end(contentBlockToolSse);
+  response.end(streamedToolResponse);
 });
 await new Promise<void>((resolve) => contentBlockToolServer.listen(0, "127.0.0.1", resolve));
 try {
@@ -2460,6 +2490,22 @@ try {
       ["content_block_tool_2", "read_persona"],
     ],
     "separate anonymous content-block stream chunks must preserve both tool calls in order",
+  );
+  streamedToolResponse = mixedToolSse;
+  const mixedResult = await provider.chatComplete([{ role: "user", content: "read the character" }], {
+    model: "custom-model",
+    stream: true,
+    tools: [
+      {
+        type: "function",
+        function: { name: "read_character", description: "Read a character", parameters: { type: "object" } },
+      },
+    ],
+  });
+  assert.deepEqual(
+    mixedResult.toolCalls.map((call) => [call.id, call.function.name]),
+    [["call-native", "read_character"]],
+    "native streamed tool calls must take precedence over content-block fallbacks regardless of chunk order",
   );
 } finally {
   await new Promise<void>((resolve, reject) =>
