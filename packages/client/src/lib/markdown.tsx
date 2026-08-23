@@ -533,7 +533,7 @@ export function renderMarkdownBlocks(
     // ── Horizontal rule ──
     if (HR_LINE_RE.test(line.trim())) {
       flushAll();
-      segments.push(<hr key={`${keyBase}hr${key++}`} className="my-3 border-t border-[var(--border)]" />);
+      segments.push(<hr key={`${keyBase}hr${key++}`} className="mari-md-rule" />);
       continue;
     }
 

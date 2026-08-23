@@ -1644,7 +1644,7 @@ function renderContent(
   // Convert *** and --- horizontal rules to <hr> tags in HTML path
   const withHr = withDialogue.replace(
     /(?:^|(?<=<br[^>]*>))\s*(?:\*{3,}|-{3,})\s*(?:$|(?=<br[^>]*>))/g,
-    '<hr style="margin:0.75em 0;border:0;border-top:1px solid var(--border)">',
+    '<hr class="mari-md-rule">',
   );
 
   // Apply markdown-style bold/italic in HTML path

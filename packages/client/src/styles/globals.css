@@ -3665,6 +3665,13 @@ strong {
   color: var(--foreground);
 }
 
+.mari-md-rule {
+  margin: 0.75em 0;
+  border: 0;
+  border-top: 1px solid currentcolor;
+  opacity: 0.3;
+}
+
 /* Hide <style> text inside inline SVGs (browser renders CSS text as visible SVG content) */
 .mari-message-content svg style {
   display: none;
