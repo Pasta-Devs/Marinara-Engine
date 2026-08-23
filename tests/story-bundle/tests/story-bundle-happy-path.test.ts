@@ -4,9 +4,15 @@ import { prepareFreshClient } from "../helpers/fresh-client.js";
 // E2E Test Happy Path  ### Full Flow from fresh start
 
 test("Story Bundle Happy Path", async ({ page }) => {
+  // The flow touches two external services (card index, agent catalog) and
+  // retries their flaky first requests; under full-suite parallel load the
+  // upstream card search can stall several times, so keep headroom.
+  test.setTimeout(180_000);
+
   // Ids of everything created/used in this run. Filled as soon as an id is
-  // available and reused for adding to the story bundle.
-  const characters: string[] = [];
+  // available and reused for adding to the story bundle. Names travel along
+  // so the bundle editor's paginated picker can be narrowed deterministically.
+  const characters: Array<{ id: string; name: string }> = [];
   let persona: string | undefined;
   const lorebook: string[] = [];
   let preset: string | undefined;
@@ -14,7 +20,10 @@ test("Story Bundle Happy Path", async ({ page }) => {
 
   await test.step("Open App", async () => {
     await prepareFreshClient(page);
-    await page.goto("http://127.0.0.1:5178");
+    // Navigate through the project's baseURL (desktop and mobile projects
+    // run against separate servers). A hardcoded port would point the UI at
+    // one server while page.request.* resolves against the other.
+    await page.goto("/");
   });
 
   // CHARACTERS
@@ -79,10 +88,17 @@ test("Story Bundle Happy Path", async ({ page }) => {
         return parsed?.name === "Lyra Evermist";
       });
       expect(created, "created character should be listed by the API").toBeDefined();
-      characters.push(created!.id);
+      characters.push({ id: created!.id, name: "Lyra Evermist" });
     });
 
     await test.step("Download and Import Online Character", async () => {
+      await test.step("Back to character list", async () => {
+        // On mobile the editor is a full-screen view that hides the list's
+        // Download button; go back to the list first (no-op on desktop
+        // layouts where both stay visible).
+        await page.getByTestId("character-editor-back-button").click();
+      });
+
       await test.step("Click on Download", async () => {
         await page.getByRole("button", { name: "Download", exact: true }).click();
       });
@@ -92,7 +108,27 @@ test("Story Bundle Happy Path", async ({ page }) => {
         // cards fail to download (the import dialog then stays open and an
         // error toast appears), so retry with the next card in that case.
         const cards = page.locator('[data-component="BotBrowserView"] .grid > button');
-        await cards.first().waitFor({ state: "visible" });
+        // The upstream card index intermittently fails its first request and
+        // renders a "Search failed" state with a Retry button; under full
+        // suite load the request can also simply hang while the view keeps
+        // spinning, in which case the toolbar Refresh button re-issues the
+        // search.
+        const retrySearch = page.getByRole("button", { name: "Retry", exact: true });
+        const refreshSearch = page.getByRole("button", { name: "Refresh", exact: true });
+        for (let searchAttempt = 0; ; searchAttempt++) {
+          const loaded = await cards
+            .first()
+            .waitFor({ state: "visible", timeout: 20_000 })
+            .then(() => true)
+            .catch(() => false);
+          if (loaded) break;
+          expect(searchAttempt, "card search should recover after a retry").toBeLessThan(3);
+          if (await retrySearch.isVisible().catch(() => false)) {
+            await retrySearch.click();
+          } else {
+            await refreshSearch.click();
+          }
+        }
         const poolSize = Math.min(await cards.count(), 20);
         expect(poolSize).toBeGreaterThan(0);
 
@@ -111,12 +147,34 @@ test("Story Bundle Happy Path", async ({ page }) => {
         for (let attempt = 0; attempt < maxAttempts && !imported; attempt++) {
           await cards.nth((startIndex + attempt) % poolSize).click();
 
+          // Capture the card's name from the detail view. Other mobile tests
+          // create characters concurrently on the shared mobile server, so a
+          // plain id diff can pick up a foreign character; the name pins the
+          // diff to this test's card.
+          const cardName = (
+            (await page
+              .getByRole("heading", { level: 3 })
+              .first()
+              .textContent()
+              .catch(() => null)) ?? ""
+          ).trim();
+
           // The detail view's green Import button opens the Import Card dialog.
           const importButton = page.getByText("Import", { exact: true });
           await importButton.waitFor({ state: "visible" });
           await importButton.click();
           await importDialog.waitFor({ state: "visible" });
           await page.getByRole("button", { name: "Import as Character Add this" }).click();
+
+          // Cards with an embedded lorebook show a second stage asking
+          // whether to import it as a standalone lorebook. Decline so the
+          // flow stays character-only, then let the import finish.
+          const noImportButton = page.getByRole("button", { name: "No Import", exact: true });
+          const sawLorebookPrompt = await noImportButton
+            .waitFor({ state: "visible", timeout: 5_000 })
+            .then(() => true)
+            .catch(() => false);
+          if (sawLorebookPrompt) await noImportButton.click();
 
           const outcome = await Promise.race([
             importDialog.waitFor({ state: "detached", timeout: 20_000 }).then(() => "imported"),
@@ -129,13 +187,32 @@ test("Story Bundle Happy Path", async ({ page }) => {
           if (outcome === "imported") {
             imported = true;
 
-            // Capture the imported card's id (the one new character).
+            // Capture the imported card's id. Prefer matching the card name
+            // captured above (names live inside the JSON `data` column): a
+            // plain id diff can pick up a foreign character created in
+            // parallel by another test on the shared server, and such a
+            // character still exists in the picker's data but was never
+            // meant for this run.
             const afterResponse = await page.request.get("/api/characters");
             expect(afterResponse.ok()).toBe(true);
-            const afterList = (await afterResponse.json()) as Array<{ id: string }>;
-            const importedCharacter = afterList.find((char) => !beforeIds.has(char.id));
+            const afterList = (await afterResponse.json()) as Array<{
+              id: string;
+              data: string | { name?: string } | null;
+            }>;
+            const nameOf = (char: { data: string | { name?: string } | null }) => {
+              try {
+                const parsed =
+                  typeof char.data === "string" ? (JSON.parse(char.data) as { name?: string } | null) : char.data;
+                return typeof parsed?.name === "string" ? parsed.name.trim() : "";
+              } catch {
+                return "";
+              }
+            };
+            const importedCharacter =
+              afterList.find((char) => cardName !== "" && nameOf(char) === cardName && !beforeIds.has(char.id)) ??
+              afterList.find((char) => !beforeIds.has(char.id));
             expect(importedCharacter, "imported character should appear in the API").toBeDefined();
-            characters.push(importedCharacter!.id);
+            characters.push({ id: importedCharacter!.id, name: cardName });
           } else {
             // On failure the dialog stays open and the error toast
             // intercepts pointer events. Escape dismisses the dialog
@@ -290,7 +367,27 @@ test("Story Bundle Happy Path", async ({ page }) => {
     // Installs are idempotent: when a previous run already installed an
     // agent, its detail view shows Uninstall instead of Install.
     const ensureAgentInstalled = async (itemId: string) => {
-      await page.getByTestId(`agent-catalog-item-${itemId}`).click();
+      const catalog = page.getByTestId("agent-library");
+      if (!(await catalog.isVisible().catch(() => false))) {
+        // The catalog may already be opening (lazy chunk load, drawer exit
+        // animation), which unmounts the panel button mid-click; tolerate
+        // that and simply wait for the catalog to appear.
+        await page
+          .getByTestId("agent-download-button")
+          .click({ timeout: 3_000 })
+          .catch(() => {});
+        await expect(catalog).toBeVisible({ timeout: 15_000 });
+      }
+      const item = page.getByTestId(`agent-catalog-item-${itemId}`);
+      // On mobile the catalog swaps to a full-screen detail view that hides
+      // the item list; the "All agents" back button returns to the list.
+      // (The header's "Back to Agents" button would close the catalog.)
+      const backToList = page.getByRole("button", { name: "All agents", exact: true });
+      if (await backToList.isVisible().catch(() => false)) {
+        await backToList.click();
+      }
+      await expect(item).toBeVisible();
+      await item.click();
       const installButton = page.getByTestId("agent-catalog-agent-install-button");
       const uninstallButton = page.getByTestId("agent-catalog-agent-uninstall-button");
       const state = await Promise.race([
@@ -397,10 +494,18 @@ test("Story Bundle Happy Path", async ({ page }) => {
   await test.step("Add created characters", async () => {
     await page.getByTestId("story-bundle-editor-tab-characters").click();
 
-    // Use the ids captured during creation/import of this run.
+    // Use the ids captured during creation/import of this run. The picker
+    // paginates (20 rows per page), so on a busy shared storage our entries
+    // could sit past the first page and their add button would never
+    // render; narrow the list with this run's unique names first.
     expect(characters.length, "created and imported character ids should exist").toBeGreaterThan(0);
-    for (const characterId of characters) {
-      await page.getByTestId(`story-bundle-editor-characters-add-${characterId}`).click();
+    const characterSearch = page.getByTestId("story-bundle-editor-characters-search");
+    for (const character of characters) {
+      await characterSearch.fill(character.name);
+      const addButton = page.getByTestId(`story-bundle-editor-characters-add-${character.id}`);
+      await addButton.scrollIntoViewIfNeeded();
+      await addButton.click();
+      await characterSearch.fill("");
     }
 
     // The imported card's name is random, so only assert the known one is selected.
@@ -474,6 +579,14 @@ test("Story Bundle Happy Path", async ({ page }) => {
       await dialog.getByRole("button", { name: "Confirm Choices" }).click();
       await expect(dialog).toBeHidden();
     });
+
+    await test.step("Close the story bundles panel", async () => {
+      // On mobile the right panel overlays the new chat as a full-screen
+      // sheet; close it so the chat toolbar becomes reachable. On desktop
+      // the panel sits beside the chat, so closing it is a harmless no-op.
+      const closePanel = page.getByRole("button", { name: "Close panel", exact: true });
+      if (await closePanel.isVisible().catch(() => false)) await closePanel.click();
+    });
   });
 
   await test.step("Verify story configuration in chat settings", async () => {
@@ -498,7 +611,13 @@ test("Story Bundle Happy Path", async ({ page }) => {
         .then(() => true)
         .catch(() => false);
       if (!autoOpened) {
-        await page.getByRole("button", { name: "Chat Settings", exact: true }).click();
+        const settingsButton = page.getByRole("button", { name: "Chat Settings", exact: true });
+        // On mobile the settings button collapses into the toolbar's
+        // "More options" overflow menu; open it first when needed.
+        if (!(await settingsButton.isVisible().catch(() => false))) {
+          await page.getByRole("button", { name: "More options", exact: true }).click();
+        }
+        await settingsButton.click();
       }
       await expect(drawer).toBeVisible();
     });
@@ -510,7 +629,9 @@ test("Story Bundle Happy Path", async ({ page }) => {
         .locator('[data-testid^="chat-settings-character-"]')
         .evaluateAll((els) => els.map((el) => el.getAttribute("data-testid") ?? ""));
 
-      expect(ids.map((id) => id.replace("chat-settings-character-", "")).sort()).toEqual([...characters].sort());
+      expect(ids.map((id) => id.replace("chat-settings-character-", "")).sort()).toEqual(
+        characters.map((char) => char.id).sort(),
+      );
     });
 
     await test.step("Verify persona", async () => {

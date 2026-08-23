@@ -341,7 +341,21 @@ test.describe("Story Bundle Play — Preset Loading", () => {
       // section is collapsed by default, so expand it before reading the value.
       const presetSection = page.locator('[data-chat-settings-section="prompt-preset"]');
       await expect(presetSection).toBeVisible({ timeout: 10_000 });
-      await presetSection.locator('[role="button"]').first().click();
+      // The chat view can remount while the new chat loads; a header click
+      // in that window is silently lost and leaves the section collapsed.
+      // Self-heal: keep clicking until the section reports expanded.
+      const presetHeader = presetSection.locator('[role="button"]').first();
+      await expect
+        .poll(
+          async () => {
+            if ((await presetHeader.getAttribute("aria-expanded")) !== "true") {
+              await presetHeader.click();
+            }
+            return presetHeader.getAttribute("aria-expanded");
+          },
+          { timeout: 10_000 },
+        )
+        .toBe("true");
       const presetSelect = presetSection.locator("select.mari-preset-native-select").first();
       await expect(presetSelect).toBeVisible({ timeout: 10_000 });
       await expect(presetSelect).toHaveValue(preset.id);
