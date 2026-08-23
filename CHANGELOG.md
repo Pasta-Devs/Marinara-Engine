@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Pull requests and scheduled security audits now run the focused import, sandbox, host-authentication, and runtime-integrity regression lane, while the new security policy provides private vulnerability reporting without changing Marinara's local-first capabilities (#5436).
 - Game setup's Review Starting Widgets step can now add, rename, re-icon, retype, duplicate, and fully edit proposed widgets before the first turn (#5426).
 - Roleplay and Conversation message deletion can now keep the selected swipe and delete every alternate in one action (#5380).
 - The chat Help overlay and its App Behavior visibility setting are now localized in Arabic, German, Spanish, French, Hindi, Japanese, Korean, Polish, Brazilian Portuguese, Russian, and Simplified Chinese (#5420).

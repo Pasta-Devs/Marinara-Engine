@@ -41,8 +41,8 @@ jobs:
       - name: Test dependency update handoff
         run: pnpm regression:launcher-update
 
-      - name: Test Android local authentication
-        run: pnpm regression:android-local-auth
+      - name: Run focused security regressions
+        run: pnpm regression:security
 
       - name: Validate pull request gate topology
         run: node scripts/validate-pr-triage.mjs
