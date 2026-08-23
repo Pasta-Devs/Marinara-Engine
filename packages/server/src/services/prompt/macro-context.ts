@@ -656,7 +656,12 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
 
   // Load per-lorebook entry counts for {{lorebooksize::ID}}.
   const lorebooks = createLorebooksStorage(input.db);
-  const lorebookEntryCounts = await lorebooks.countAllEntriesByLorebook();
+  let lorebookEntryCounts: Record<string, number> = {};
+  try {
+    lorebookEntryCounts = await lorebooks.countAllEntriesByLorebook();
+  } catch {
+    // If the count fails, continue with empty counts — {{lorebooksize::ID}} resolves to 0.
+  }
 
   return {
     user: input.personaName || "User",
