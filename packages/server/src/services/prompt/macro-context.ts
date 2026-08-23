@@ -659,7 +659,8 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
   let lorebookEntryCounts: Record<string, number> = {};
   try {
     lorebookEntryCounts = await lorebooks.countAllEntriesByLorebook();
-  } catch {
+  } catch (err) {
+    logger.warn(err, "Failed to load lorebook entry counts; using empty counts");
     // If the count fails, continue with empty counts — {{lorebooksize::ID}} resolves to 0.
   }
 
