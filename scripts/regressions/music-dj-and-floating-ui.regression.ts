@@ -54,10 +54,10 @@ assert.match(
   /mari-chrome-token-scope fixed inset-x-0 top-\[calc\(3rem_/u,
   "Professor Mari's mobile floating window must use chat-chroma tokens",
 );
-assert.match(
+assert.doesNotMatch(
   globalsSource,
-  /\.mari-chrome-token-scope\s*\{[\s\S]{0,180}--primary: var\(--marinara-chat-chrome-accent\);[\s\S]{0,180}--primary-foreground: var\(--marinara-chat-chrome-highlight-text\);/u,
-  "The shared chat-chroma scope must replace the legacy primary-color fallback",
+  /\.mari-chrome-token-scope\s*\{[^}]*--primary:/u,
+  "The shared chat-chroma scope must not replace the configured app accent",
 );
 
 assert.match(
