@@ -2249,7 +2249,10 @@ try {
       }),
     ),
   );
-  assert.equal(concurrentEntryFolderResults.every((result) => result.ok), true);
+  assert.equal(
+    concurrentEntryFolderResults.every((result) => result.ok),
+    true,
+  );
   const professorMariFolderList = await mariDb.executeAction({
     action: "lorebook.folder.list",
     lorebookId: professorMariLorebookId,
@@ -2293,7 +2296,10 @@ try {
       }),
     ),
   );
-  assert.equal(concurrentLibraryFolderResults.every((result) => result.ok), true);
+  assert.equal(
+    concurrentLibraryFolderResults.every((result) => result.ok),
+    true,
+  );
   const professorMariLibraryFolders = await mariDb.executeAction({ action: "lorebook.libraryFolder.list" });
   const professorMariLibraryFolderRows = professorMariLibraryFolders.output as Array<{
     id: string;
@@ -7104,6 +7110,7 @@ const sharedGameSetupSource: GameSetupShareSource = {
     useCampaignArtStyle: false,
     imageStyleProfileId: "image-style-profile-local-id",
     enableAgents: true,
+    enableQuickTimeEvents: false,
     enableSpriteGeneration: true,
     imageConnectionId: "image-connection-local-id",
     videoConnectionId: "video-connection-local-id",
@@ -7154,6 +7161,7 @@ assert.match(sharedGameSetup, /gpt-5\.6-sol/iu);
 assert.match(sharedGameSetup, /Use clear progression and frequent loot rewards/u);
 assert.match(sharedGameSetup, /Dungeon Lore/u);
 assert.match(sharedGameSetup, /Combat style: Tactical/u);
+assert.match(sharedGameSetup, /Quick Time Events: Off/u);
 assert.match(sharedGameSetup, /Build a shifting tower with a market ward and flooded catacombs\./u);
 assert.match(sharedGameSetup, /World map size: Medium/u);
 assert.match(sharedGameSetup, /World map place target: 10/u);
@@ -7196,6 +7204,7 @@ assert.equal(exportedGameSetup.format, "marinara-game-setup");
 assert.equal(exportedGameSetup.version, 1);
 assert.equal(exportedGameSetup.exportedAt, "2026-07-16T12:00:00.000Z");
 assert.equal(resolvedGameSetup.config.enableAgents, true);
+assert.equal(resolvedGameSetup.config.enableQuickTimeEvents, false);
 assert.equal(parsedGameSetup.setup.effectiveGenerationParameters?.temperature, 1.1);
 assert.equal(parsedGameSetup.setup.effectiveGenerationParameters?.maxContext, 128000);
 assert.deepEqual(parsedGameSetup.setup.effectiveGenerationParameters?.stopSequences, ["[END]"]);
