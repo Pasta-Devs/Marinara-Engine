@@ -9,6 +9,7 @@ const trackerSidebar = readSource("packages/client/src/features/tracker-panel/co
 const inventoryTracker = readSource(
   "packages/client/src/features/tracker-panel/components/sections/InventoryTrackerPanel.tsx",
 );
+const trackerSectionList = readSource("packages/client/src/features/tracker-panel/components/TrackerSectionList.tsx");
 const roleplayHud = readSource("packages/client/src/components/chat/RoleplayHUD.tsx");
 const roleplayPanels = readSource("packages/client/src/components/chat/RoleplayHUDPanels.tsx");
 const appShell = readSource("packages/client/src/components/layout/AppShell.tsx");
@@ -18,6 +19,8 @@ const chatGallery = readSource("packages/client/src/components/chat/ChatGallery.
 const chatSettingsDrawer = readSource("packages/client/src/components/chat/ChatSettingsDrawer.tsx");
 const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
 const chatBranchSelector = readSource("packages/client/src/components/chat/ChatBranchSelector.tsx");
+const homeBrowserHub = readSource("packages/client/src/components/chat/HomeBrowserHub.tsx");
+const storyboardChatSettings = readSource("packages/client/src/components/chat/StoryboardChatSettingsPanel.tsx");
 const conversationView = readSource("packages/client/src/components/chat/ConversationView.tsx");
 const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
 const translationSection = readSource("packages/client/src/features/chat-settings/sections/TranslationSection.tsx");
@@ -27,6 +30,10 @@ const gameExtraPromptSection = readSource(
 );
 const gameWidgetEditor = readSource("packages/client/src/components/game/GameWidgetSetupEditor.tsx");
 const gameVolumeMixer = readSource("packages/client/src/components/game/GameVolumeMixer.tsx");
+const advancedParameters = readSource(
+  "packages/client/src/features/chat-settings/sections/AdvancedParametersSection.tsx",
+);
+const globalStyles = readSource("packages/client/src/styles/globals.css");
 
 assert.doesNotMatch(
   trackerSidebar,
@@ -55,13 +62,13 @@ assert.match(
 );
 assert.match(
   roleplayHud,
-  /TrackerPanelIcon[^\n]*text-\[var\(--marinara-app-accent-static\)\]/u,
-  "the roleplay Tracker Panel launcher must use the configured app accent",
+  /TrackerPanelIcon[\s\S]*?mari-accent-animated[^\n]*marinara-app-accent-solid/u,
+  "the roleplay Tracker Panel launcher must follow the animated app accent",
 );
 assert.match(
   trackerHeader,
-  /text-\[var\(--marinara-app-accent-static\)\]/u,
-  "the Tracker Panel header dice must use the configured app accent",
+  /mari-accent-animated[^\n]*marinara-app-accent-solid/u,
+  "the Tracker Panel header dice must follow the animated app accent",
 );
 assert.doesNotMatch(
   inventoryTracker,
@@ -74,14 +81,29 @@ assert.match(
   "Inventory must retain the shared Tracker Panel section wrapper",
 );
 assert.match(
+  inventoryTracker,
+  /mari-chrome-tag grid h-4 w-4[^\n]*place-items-center[^\n]*text-current/u,
+  "Inventory delete controls must stay centered and inherit the item text color",
+);
+assert.match(
+  trackerSectionList,
+  /case "inventory":[\s\S]*?<InventoryTrackerPanel[\s\S]*?\n\s+deleteMode\n/u,
+  "Inventory items must expose delete controls directly in Tracker Panel",
+);
+assert.match(
   roleplayHud,
   /className: compact \? CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS : undefined/u,
   "downloadable tracker controls must receive the built-in mobile toolbar height",
 );
 assert.match(
   roleplayHud,
-  /const hasWorldState =[\s\S]*!hasWorldState \?[\s\S]*marinara-app-accent-static/u,
-  "World State must stay a standard accent icon until it has generated content",
+  /const hasWorldState =[\s\S]*!hasWorldState \?[\s\S]*mari-accent-animated[\s\S]*marinara-app-accent-solid/u,
+  "World State must follow the animated accent until it has generated content",
+);
+assert.match(
+  roleplayHud,
+  /function InventoryTrackerWidget[\s\S]*mari-accent-animated[\s\S]*marinara-app-accent-solid/u,
+  "the Inventory toolbar backpack must follow the animated app accent",
 );
 assert.match(
   roleplayPanels,
@@ -145,6 +167,36 @@ assert.match(
   /<SettingsSwitch\s+label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.addTurnToPrompt"\)\}/u,
   "Add Turn To Prompt must use the shared Settings toggle",
 );
+assert.match(
+  chatSettingsDrawer,
+  /<AgentSettingsActionButton[\s\S]*accessMemoriesForThisChat/u,
+  "Memory Recall must use the shared Chat Settings action button",
+);
+assert.doesNotMatch(
+  chatSettingsDrawer,
+  /noodleTimelineContextEnabled[\s\S]*disabled=\{updateMeta\.isPending\}/u,
+  "unrelated metadata writes must not visually disable the Noodle timeline switch",
+);
+assert.equal(
+  (storyboardChatSettings.match(/className="flex h-full flex-col gap-1"/gu) ?? []).length,
+  2,
+  "Storyboard slider and number cards must share equal-height wrappers",
+);
+assert.equal(
+  (homeBrowserHub.match(/\? "flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0"/gu) ?? []).length,
+  3,
+  "mobile Home tabs must expand only the active tab and collapse inactive tabs to icons",
+);
+assert.equal(
+  (homeBrowserHub.match(/\? "block" : "hidden sm:block"/gu) ?? []).length,
+  3,
+  "inactive mobile Home tabs must hide their labels while retaining desktop labels",
+);
+assert.equal(
+  (advancedParameters.match(/<AgentSettingsActionButton/gu) ?? []).length,
+  2,
+  "Advanced Parameters save and reset actions must reuse the shared action button",
+);
 assert.doesNotMatch(
   chatSettingsDrawer,
   /mari-chat-option-switch[^\n]*groupTurnPromptEnabled/u,
@@ -152,13 +204,18 @@ assert.doesNotMatch(
 );
 assert.match(
   chatSidebar,
-  /mari-chrome-muted-badge flex shrink-0 items-center gap-0\.5 !rounded-\[0\.25rem\]/u,
+  /mari-chrome-muted-badge mari-chrome-tag flex shrink-0 items-center gap-0\.5/u,
   "chat-list branch counts must use compact rounded-corner tags instead of capsules",
 );
 assert.match(
   chatBranchSelector,
-  /absolute -right-1 -top-1[^"\n]*rounded-\[0\.25rem\]/u,
+  /mari-chrome-tag absolute -right-1 -top-1/u,
   "the active-chat branch count must use the same compact rounded-corner tag",
+);
+assert.match(
+  globalStyles,
+  /\.mari-chrome-tag\s*\{\s*border-radius: 0\.25rem;/u,
+  "the shared compact tag class must own rounded-square geometry",
 );
 assert.match(
   conversationView,

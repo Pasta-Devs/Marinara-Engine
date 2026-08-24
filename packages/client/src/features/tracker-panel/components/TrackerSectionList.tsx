@@ -310,7 +310,7 @@ export function TrackerSectionList({
             onUpdateCurrencies={(rows) => editInventoryTracker("currencies", rows)}
             onUpdateEquipped={(rows) => editInventoryTracker("equipped", rows)}
             onUpdateInventory={(rows) => editInventoryTracker("inventory", rows)}
-            deleteMode={deleteMode}
+            deleteMode
             addMode={addMode}
             collapsed={isPanelCollapsed("inventory")}
             onToggleCollapsed={() => toggleTrackerPanelSectionCollapsed("inventory")}

@@ -86,7 +86,7 @@ export function TrackerSidebarHeader({
       onClick={onClose}
       title={localizeUi("ui.trackerPanel.trackersidebarheader.closeTrackers")}
       aria-label={localizeUi("ui.trackerPanel.trackersidebarheader.closeTrackerPanel")}
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-[var(--marinara-app-accent-static)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--marinara-app-accent-static)] active:scale-90"
+      className="mari-accent-animated flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-[var(--marinara-app-accent-solid)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--marinara-app-accent-solid)] active:scale-90"
     >
       <TrackerPanelIcon size="1.25rem" />
     </button>

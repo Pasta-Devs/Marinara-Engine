@@ -133,7 +133,7 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
           return (
             <div
               key={`${row.name}-${index}`}
-              className="flex min-h-6 min-w-0 max-w-full items-center gap-1 rounded-md border border-[var(--tracker-profile-slot-rule)] bg-[image:var(--tracker-profile-slot-surface)] px-1.5 shadow-[inset_0_1px_2px_var(--tracker-profile-slot-shadow)] [@media(pointer:coarse)]:min-h-7"
+              className="mari-chrome-tag flex min-h-6 min-w-0 max-w-full items-center gap-1 border border-[var(--tracker-profile-slot-rule)] bg-[image:var(--tracker-profile-slot-surface)] px-1.5 text-[color:var(--tracker-profile-text)] shadow-[inset_0_1px_2px_var(--tracker-profile-slot-shadow)] [@media(pointer:coarse)]:min-h-7"
             >
               {nameLocked && LOCK_GLYPH}
               <InlineEdit
@@ -170,11 +170,11 @@ function InventoryGroup({ group, label, rows, onUpdate, deleteMode, addMode }: I
                 <button
                   type="button"
                   onClick={() => removeRow(index)}
-                  className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[var(--destructive)] ring-1 ring-[var(--border)]"
+                  className="mari-chrome-tag grid h-4 w-4 shrink-0 place-items-center p-0 leading-none text-current ring-1 ring-[color-mix(in_srgb,var(--tracker-profile-text)_28%,transparent)] transition-colors hover:bg-[color-mix(in_srgb,var(--tracker-profile-text)_8%,transparent)] focus-visible:outline-none focus-visible:ring-[color-mix(in_srgb,var(--tracker-profile-text)_48%,transparent)]"
                   title={localizeUi("ui.trackerPanel.inventoryTracker.removeItem", { item: row.name })}
                   aria-label={localizeUi("ui.trackerPanel.inventoryTracker.removeItem", { item: row.name })}
                 >
-                  <X size="0.5625rem" />
+                  <X size="0.5625rem" className="block" />
                 </button>
               )}
             </div>

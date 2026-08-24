@@ -38,6 +38,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Chat Settings now reuses shared action controls without dimming unrelated Connected Chats options during saves; Storyboard controls align evenly; mobile Home tabs collapse inactive labels; Inventory and branch tags use compact rounded-square styling with usable delete controls; and Tracker Panel, empty Inventory, World State, and Beholder launchers follow cycling accent colors (#5490, Pasta-Devs/Marinara-Agents#555).
 - Roleplay tracker controls now keep World State compact until it has content; Persona Stats, Inventory, Quests, and Custom popovers share the established header order, styling, accent treatment, and count-free titles (#5488, Pasta-Devs/Marinara-Agents#549).
 - Adding Memory Nag to a Roleplay chat now explains how to create its initial memories, then opens and scrolls to its Agent Settings menu after confirmation (#5484).
 - Download Agents now styles its trusted-code permission notice with the configured accent instead of a hard-coded amber warning box.

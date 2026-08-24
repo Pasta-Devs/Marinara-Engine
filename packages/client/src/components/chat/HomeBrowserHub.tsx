@@ -2202,37 +2202,46 @@ export function HomeBrowserHub({
                 type="button"
                 role="tab"
                 aria-controls={HOME_BROWSER_PANEL_ID}
+                aria-label={t("home.browser.homeTab")}
                 aria-selected={activeTab === "home"}
                 onClick={() => selectTab("home")}
                 className={cn(
-                  "flex min-h-9 min-w-0 flex-[0.8] items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.79_0.16_205)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                  "flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.79_0.16_205)] sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                  activeTab === "home" ? "flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
                   activeTab === "home"
                     ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                     : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                 )}
               >
                 <img src="/home/tab-icons/home.png" alt="" className="h-[1.125rem] w-[1.125rem] object-contain" />
-                <span className="min-w-0 truncate">{t("home.browser.homeTab")}</span>
+                <span className={cn("min-w-0 truncate", activeTab === "home" ? "block" : "hidden sm:block")}>
+                  {t("home.browser.homeTab")}
+                </span>
               </button>
               <button
                 id={homeBrowserTabId("professor")}
                 type="button"
                 role="tab"
                 aria-controls={HOME_BROWSER_PANEL_ID}
+                aria-label={t("home.browser.professorTab")}
                 aria-selected={activeTab === "professor"}
                 onClick={openProfessor}
                 className={cn(
-                  "flex min-h-9 min-w-0 flex-[1.1] items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                  "flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                  activeTab === "professor" ? "flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
                   activeTab === "professor"
                     ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                     : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                 )}
               >
                 <img src="/sprites/mari/Mari_profile.png" alt="" className="h-4 w-4 rounded-sm object-cover" />
-                <span className="min-w-0 truncate">{t("home.browser.professorTab")}</span>
+                <span className={cn("min-w-0 truncate", activeTab === "professor" ? "block" : "hidden sm:block")}>
+                  {t("home.browser.professorTab")}
+                </span>
               </button>
               {localizedBrowserPackages.map(({ item, display }) => {
                 const tab = display.homeBrowserTab;
+                const tabActive = activeTab === item.id;
                 const hasUnreadRefresh = item.id === "noodle" && noodleRefreshUnread;
                 const activityDescriptionId = `${homeBrowserTabId(item.id)}-activity`;
                 return (
@@ -2242,19 +2251,22 @@ export function HomeBrowserHub({
                     type="button"
                     role="tab"
                     aria-controls={HOME_BROWSER_PANEL_ID}
-                    aria-label={tab?.ariaLabel ?? tab?.label}
+                    aria-label={tab?.ariaLabel ?? tab?.label ?? display.name}
                     aria-describedby={hasUnreadRefresh ? activityDescriptionId : undefined}
-                    aria-selected={activeTab === item.id}
+                    aria-selected={tabActive}
                     onClick={() => selectTab(item.id)}
                     className={cn(
-                      "relative flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
-                      activeTab === item.id
+                      "relative flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                      tabActive ? "flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
+                      tabActive
                         ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                         : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                     )}
                   >
                     <BrowserPackageTabIcon packageId={item.id} version={item.version} iconPaths={tab?.iconPaths} />
-                    <span className="min-w-0 truncate">{tab?.label ?? display.name}</span>
+                    <span className={cn("min-w-0 truncate", tabActive ? "block" : "hidden sm:block")}>
+                      {tab?.label ?? display.name}
+                    </span>
                     {hasUnreadRefresh ? (
                       <span
                         id={activityDescriptionId}

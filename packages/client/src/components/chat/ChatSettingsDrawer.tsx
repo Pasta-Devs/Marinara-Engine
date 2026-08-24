@@ -942,7 +942,6 @@ export function ChatSettingsDrawer({
       description={localizeUi("ui.chat.chatsettingsdrawer.timelineRefreshesMayIncludeRecentMessagesFromThisChat")}
       checked={noodleTimelineContextEnabled}
       onChange={(checked) => updateMeta.mutate({ id: chat.id, noodleTimelineContextEnabled: checked })}
-      disabled={updateMeta.isPending}
       labelPosition="start"
       className={cn(
         "justify-between rounded-md px-3 py-2.5 text-left",
@@ -4270,14 +4269,10 @@ export function ChatSettingsDrawer({
           )}
           labelClassName="text-[0.6875rem] font-medium"
         />
-        <button
-          type="button"
-          onClick={() => setShowMemoriesModal(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-        >
+        <AgentSettingsActionButton type="button" onClick={() => setShowMemoriesModal(true)} className="w-full">
           <Brain size="0.75rem" />
           {localizeUi("ui.chat.chatsettingsdrawer.accessMemoriesForThisChat")}
-        </button>
+        </AgentSettingsActionButton>
       </div>
     );
   };

@@ -601,7 +601,10 @@ function TrackerPanelToggleButton({ onToggle }: { onToggle: () => void }) {
       title={localizeUi("ui.chat.trackerpaneltogglebutton.showTrackerPanel")}
       aria-label={localizeUi("ui.chat.trackerpaneltogglebutton.showTrackerPanel")}
     >
-      <TrackerPanelIcon size="1.05rem" className="shrink-0 text-[var(--marinara-app-accent-static)]" />
+      <TrackerPanelIcon
+        size="1.05rem"
+        className="mari-accent-animated shrink-0 text-[var(--marinara-app-accent-solid)]"
+      />
       <span className="sr-only">{localizeUi("ui.panels.trackerpanelappearancedrawer.trackerPanel")}</span>
     </button>
   );
@@ -1266,7 +1269,10 @@ function InventoryTrackerWidget({
         className={WIDGET}
         title={localizeUi("ui.chat.inventoryTracker.title")}
       >
-        <Backpack size="0.875rem" className="text-[var(--marinara-app-accent-static)] max-md:h-3 max-md:w-3" />
+        <Backpack
+          size="0.875rem"
+          className="mari-accent-animated text-[var(--marinara-app-accent-solid)] max-md:h-3 max-md:w-3"
+        />
         {total > 0 && <span className="text-[0.5rem] font-semibold tabular-nums">{total}</span>}
       </button>
       <WidgetPopover
@@ -1440,7 +1446,7 @@ function CombinedWorldWidget({
         {!hasWorldState ? (
           <MapPin
             size="0.875rem"
-            className="shrink-0 text-[var(--marinara-app-accent-static)] max-md:h-3.5 max-md:w-3.5"
+            className="mari-accent-animated shrink-0 text-[var(--marinara-app-accent-solid)] max-md:h-3.5 max-md:w-3.5"
           />
         ) : (
           <>

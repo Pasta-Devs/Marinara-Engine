@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { ChevronDown, Save, Settings2 } from "lucide-react";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
+import { AgentSettingsActionButton } from "../../../components/chat/AgentSettingsControls";
 import {
   CHAT_PARAMETER_DEFAULTS,
   GenerationParametersFields,
@@ -307,7 +308,9 @@ export function AdvancedParametersSection({
             )}
           </div>
           {canSaveConnectionDefaults && (
-            <button
+            <AgentSettingsActionButton
+              type="button"
+              variant="primary"
               onClick={() => {
                 saveDefaults.mutate({
                   id: connectionId,
@@ -318,20 +321,17 @@ export function AdvancedParametersSection({
                   },
                 });
               }}
-              className="w-full rounded-lg bg-[var(--primary)]/10 px-3 py-1.5 text-[0.625rem] font-medium text-[var(--primary)] ring-1 ring-[var(--primary)]/20 transition-colors hover:bg-[var(--primary)]/20"
+              className="w-full"
             >
               <Save size="0.625rem" className="inline mr-1 -mt-px" />
               {saveDefaults.isPending
                 ? localizeUi("chat.settings.inlineEditor.saving")
                 : localizeUi("ui.chatSettings.advancedparameterssection.saveAsConnectionDefault")}
-            </button>
+            </AgentSettingsActionButton>
           )}
-          <button
-            onClick={() => onChatParametersChange({})}
-            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
+          <AgentSettingsActionButton type="button" onClick={() => onChatParametersChange({})} className="w-full">
             {localizeUi("ui.chatSettings.advancedparameterssection.resetToDefaults")}
-          </button>
+          </AgentSettingsActionButton>
         </div>
       )}
     </div>

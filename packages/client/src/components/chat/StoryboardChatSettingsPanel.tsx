@@ -83,8 +83,8 @@ function StoryboardSlider({
   onReset: () => void;
 }) {
   return (
-    <div className="space-y-1">
-      <label className="block space-y-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
+    <div className="flex h-full flex-col gap-1">
+      <label className="flex flex-1 flex-col justify-between gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
         <span className="flex items-center justify-between gap-3">
           <span className="min-w-0">
             <span className="block text-[0.625rem] font-medium text-[var(--foreground)]">{label}</span>
@@ -150,8 +150,8 @@ function StoryboardNumberInput({
   };
 
   return (
-    <div className="space-y-1">
-      <label className="grid gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+    <div className="flex h-full flex-col gap-1">
+      <label className="grid flex-1 gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <span className="min-w-0">
           <span className="block text-[0.625rem] font-medium text-[var(--foreground)]">{label}</span>
           <span className="mt-0.5 block text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
