@@ -92,6 +92,10 @@ assert.deepEqual(formatInitialGameGmConnectionError(Object.assign(new Error("Mod
   statusCode: 400,
   message: "The selected GM model is unavailable. Check the connection's model and try again.",
 });
+assert.deepEqual(formatInitialGameGmConnectionError(Object.assign(new Error("Not found"), { status: 404 })), {
+  statusCode: 502,
+  message: "The GM provider returned an error. Check the provider and model settings, then try again.",
+});
 assert.deepEqual(formatInitialGameGmConnectionError(Object.assign(new Error("Quota exceeded"), { status: 429 })), {
   statusCode: 429,
   message: "The GM provider is rate-limited or out of quota. Check the provider account or try again later.",

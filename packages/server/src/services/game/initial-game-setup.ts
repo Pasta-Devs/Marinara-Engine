@@ -59,7 +59,7 @@ export function formatInitialGameGmConnectionError(error: unknown): {
         "The GM provider rejected the configured credentials. Check the API key or account connection and try again.",
     };
   }
-  if (/\b404\b|invalid model|unknown model|model.*(?:not found|does not exist|unavailable)/u.test(joined)) {
+  if (/invalid model|unknown model|model.*(?:not found|does not exist|unavailable)/u.test(joined)) {
     return {
       statusCode: 400,
       message: "The selected GM model is unavailable. Check the connection's model and try again.",

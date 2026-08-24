@@ -95,6 +95,23 @@ assert.match(
   /if ! has_explicit_node_heap_limit; then[\s\S]*NODE_OPTIONS="\$\{NODE_OPTIONS:\+\$\{NODE_OPTIONS\} \}--max-old-space-size=1024"/u,
   "an explicit NODE_OPTIONS heap limit must override the 1 GB mobile default",
 );
+const heapSetupStart = termuxLauncherSource.indexOf("has_explicit_node_heap_limit() {");
+const heapDefaultStart = termuxLauncherSource.indexOf("if ! has_explicit_node_heap_limit; then", heapSetupStart);
+const heapSetupEnd = termuxLauncherSource.indexOf("\nfi", heapDefaultStart);
+assert.ok(heapSetupStart >= 0 && heapDefaultStart >= 0 && heapSetupEnd >= 0, "the Termux heap setup must be present");
+const heapSetupSource = termuxLauncherSource.slice(heapSetupStart, heapSetupEnd + 3);
+const resolveTermuxNodeOptions = (nodeOptions) => {
+  const marker = "__NODE_OPTIONS__";
+  const probe = spawnSync("bash", ["-c", `${heapSetupSource}\nprintf '\\n${marker}%s' "$NODE_OPTIONS"`], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    env: { ...process.env, NODE_OPTIONS: nodeOptions },
+  });
+  assert.equal(probe.status, 0, probe.stderr);
+  return probe.stdout.slice(probe.stdout.lastIndexOf(marker) + marker.length);
+};
+assert.equal(resolveTermuxNodeOptions("--max-old-space-size=512"), "--max-old-space-size=512");
+assert.equal(resolveTermuxNodeOptions(""), "--max-old-space-size=1024");
 const wakeLockTrapIndex = termuxLauncherSource.search(/^[ \t]*trap release_termux_wake_lock EXIT[ \t]*$/mu);
 const wakeLockAcquireIndex = termuxLauncherSource.search(/^[ \t]*if[ \t]+termux-wake-lock\b[^\n]*;[ \t]*then[ \t]*$/mu);
 const serverStartIndex = termuxLauncherSource.lastIndexOf("node dist/index.js");
