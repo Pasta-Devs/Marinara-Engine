@@ -200,7 +200,8 @@ type SpriteType = "expressions" | "full-body";
 
 const DEFAULT_SPRITE_PRESET: PresetKey = "6 (2×3)";
 const MATCHED_FULL_BODY_EXPRESSION_LIMIT = 16;
-const MATCHED_FULL_BODY_BATCH_SIZE = 4;
+// One expression per request keeps the client timeout scoped to one provider generation.
+const MATCHED_FULL_BODY_BATCH_SIZE = 1;
 const SPRITE_GENERATION_REQUEST_TIMEOUT_MS = 305_000;
 const SPRITE_ANIMATED_GENERATION_REQUEST_TIMEOUT_MS = 1_830_000;
 
@@ -1081,9 +1082,14 @@ export function SpriteGenerationModal({
       for (let attempt = 0; attempt < 2; attempt += 1) {
         if (generationControllerRef.current?.signal.aborted) throw new SpriteGenerationAbortedError();
         setGenerationProgress(
-          `Batch ${batchIndex + 1} of ${totalBatches}${attempt === 1 ? " (retrying once)" : ""}: ${batchExpressions
-            .map((expr) => expr.replace(/_/g, " "))
-            .join(", ")}`,
+          localizeUi(
+            attempt === 1 ? "ui.spriteGeneration.matched.progressRetrying" : "ui.spriteGeneration.matched.progress",
+            {
+              value1: batchIndex + 1,
+              value2: totalBatches,
+              value3: batchExpressions[0]?.replace(/_/g, " ") ?? "",
+            },
+          ),
         );
 
         try {
@@ -1094,16 +1100,16 @@ export function SpriteGenerationModal({
           if (result.cells.length < batchExpressions.length) {
             throw new Error("The provider returned fewer sprites than requested");
           }
-          return createGeneratedSpritesFromResult(result, grid, `Batch ${batchIndex + 1}`);
+          return createGeneratedSpritesFromResult(result, grid, `Sprite ${batchIndex + 1}`);
         } catch (err) {
-          if (isSpriteGenerationAborted(err)) throw err;
+          if (isSpritePromptReviewCancelled(err) || isSpriteGenerationAborted(err)) throw err;
           lastError = getGenerationErrorMessage(err);
         }
       }
 
       throw new Error(lastError);
     },
-    [requestGeneratedSheet],
+    [localizeUi, requestGeneratedSheet],
   );
 
   const generateNeutralFullBodyCandidate = useCallback(async () => {
@@ -1158,7 +1164,7 @@ export function SpriteGenerationModal({
       for (let batchIndex = startIndex; batchIndex < batches.length; batchIndex += 1) {
         if (generationControllerRef.current?.signal.aborted) {
           setGenerationProgress(null);
-          setStep(0);
+          setStep(nextCells.length > 0 ? 2 : 0);
           return;
         }
         const batchExpressions = batches[batchIndex] ?? [];
@@ -1178,9 +1184,15 @@ export function SpriteGenerationModal({
           }
           nextCells = [...nextCells, ...generated.cells];
           if (generated.sheet) nextSheets = [...nextSheets, generated.sheet];
+          setCells(nextCells);
+          setGeneratedSheets(nextSheets);
+          setGeneratedSheet(nextSheets[0]?.dataUrl ?? null);
         } catch (err) {
           if (isSpritePromptReviewCancelled(err) || isSpriteGenerationAborted(err)) {
-            setStep(0);
+            setCells(nextCells);
+            setGeneratedSheets(nextSheets);
+            setGeneratedSheet(nextSheets[0]?.dataUrl ?? null);
+            setStep(nextCells.length > 0 ? 2 : 0);
             setError(null);
             setGenerationProgress(null);
             return;
@@ -1199,7 +1211,13 @@ export function SpriteGenerationModal({
           setCleanupApplied(noBackground);
           setGenerationProgress(null);
           setStep(2);
-          setError(`Batch ${batchIndex + 1} of ${batches.length} failed after one automatic retry: ${message}`);
+          setError(
+            localizeUi("ui.spriteGeneration.matched.failed", {
+              value1: batchIndex + 1,
+              value2: batches.length,
+              value3: message,
+            }),
+          );
           return;
         }
       }
@@ -1213,7 +1231,7 @@ export function SpriteGenerationModal({
       setError(null);
       setStep(2);
     },
-    [generateMatchedFullBodyBatch, noBackground],
+    [generateMatchedFullBodyBatch, localizeUi, noBackground],
   );
 
   const handleGenerate = useCallback(async () => {
@@ -1435,9 +1453,9 @@ export function SpriteGenerationModal({
     setGenerationProgress(null);
     setPromptReviewSubmitting(false);
     setNeutralFullBodyCandidate(null);
-    setStep(0);
+    setStep(fullBodyExpressionMode && cells.length > 0 ? 2 : 0);
     setError(null);
-  }, [abortActiveGeneration]);
+  }, [abortActiveGeneration, cells.length, fullBodyExpressionMode]);
 
   const performCleanup = useCallback(
     (cellsToClean: SlicedCell[]) =>
@@ -2157,9 +2175,9 @@ export function SpriteGenerationModal({
                         {matchedFullBodyExpressions.length})
                       </span>
                       <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        {matchedFullBodyBatches.length} {localizeUi("ui.ui.spritegenerationmodal.batch")}
-                        {matchedFullBodyBatches.length === 1 ? "" : localizeUi("ui.lorebooks.lorebookeditor.es")}{" "}
-                        {localizeUi("ui.ui.spritegenerationmodal.ofUpTo")} {MATCHED_FULL_BODY_BATCH_SIZE}
+                        {localizeUi("ui.spriteGeneration.matched.requestCount", {
+                          value1: matchedFullBodyBatches.length,
+                        })}
                       </span>
                       {existingPortraitExpressions.length > matchedPortraitExpressionCount && (
                         <span className="text-[0.625rem] text-[var(--muted-foreground)]">
@@ -2309,7 +2327,7 @@ export function SpriteGenerationModal({
                 {animatedExpressionMode
                   ? localizeUi("ui.ui.spritegenerationmodal.eachExpressionBecomesAShortVideoFirstThenMarinara")
                   : fullBodyExpressionMode
-                    ? localizeUi("ui.ui.spritegenerationmodal.each22BatchGetsOneAutomaticRetryBefore")
+                    ? localizeUi("ui.spriteGeneration.matched.automaticRetry")
                     : spriteType === "full-body"
                       ? singleImageMode
                         ? localizeUi("ui.ui.spritegenerationmodal.thisMayTake3060SecondsDependingOnThe")
@@ -2383,15 +2401,16 @@ export function SpriteGenerationModal({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-[var(--foreground)]">
-                      {localizeUi("ui.ui.spritegenerationmodal.batch_8bf1ef5")} {failedMatchedBatch.batchIndex + 1}{" "}
-                      {localizeUi("ui.noodle.noodlehome.of")} {failedMatchedBatch.totalBatches}{" "}
-                      {localizeUi("ui.ui.spritegenerationmodal.paused")}
+                      {localizeUi("ui.spriteGeneration.matched.paused", {
+                        value1: failedMatchedBatch.batchIndex + 1,
+                        value2: failedMatchedBatch.totalBatches,
+                      })}
                     </p>
                     <p className="mt-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                       {failedMatchedBatch.expressions.map((expr) => expr.replace(/_/g, " ")).join(", ")}
                     </p>
                     <p className="mt-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                      {localizeUi("ui.ui.spritegenerationmodal.theBatchAlreadyRetriedOnceAutomaticallyRetryItHere")}
+                      {localizeUi("ui.spriteGeneration.matched.retryHelp")}
                     </p>
                   </div>
                   <button
@@ -2401,7 +2420,7 @@ export function SpriteGenerationModal({
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
                   >
                     <RotateCcw size={13} />
-                    {localizeUi("ui.ui.spritegenerationmodal.retryBatch")}
+                    {localizeUi("ui.spriteGeneration.matched.retry")}
                   </button>
                 </div>
               </div>

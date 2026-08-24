@@ -3944,7 +3944,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
   }
 });
 
-test("Matched full-body sprites approve a neutral anchor before using portrait references", async ({
+test("Matched full-body sprites approve a neutral anchor before sending each expression separately", async ({
   page,
   request,
 }, testInfo) => {
@@ -3977,7 +3977,7 @@ test("Matched full-body sprites approve a neutral anchor before using portrait r
   expect(characterResponse.ok()).toBeTruthy();
   const character = (await characterResponse.json()) as { id: string };
 
-  for (const expression of ["neutral", "happy"]) {
+  for (const expression of ["neutral", "happy", "sad"]) {
     const spriteResponse = await request.post(`/api/sprites/${character.id}`, {
       data: {
         expression,
@@ -4062,7 +4062,7 @@ test("Matched full-body sprites approve a neutral anchor before using portrait r
     ]);
 
     await modal.getByRole("button", { name: "Use neutral and continue" }).click();
-    await expect.poll(() => generationRequests.length).toBe(2);
+    await expect.poll(() => generationRequests.length).toBeGreaterThanOrEqual(2);
     expect(generationRequests[1]).toMatchObject({
       expressions: ["happy"],
       nativeTransparentPng: true,
@@ -4075,7 +4075,21 @@ test("Matched full-body sprites approve a neutral anchor before using portrait r
         image: expect.stringContaining(`/api/sprites/${character.id}/file/`),
       },
     ]);
+    await expect.poll(() => generationRequests.length).toBe(3);
+    expect(generationRequests[2]).toMatchObject({
+      expressions: ["sad"],
+      nativeTransparentPng: true,
+      noBackground: true,
+      neutralFullBodyReference: expect.stringMatching(/^data:image\/png;base64,/u),
+    });
+    expect(generationRequests[2]?.expressionReferences).toEqual([
+      {
+        expression: "sad",
+        image: expect.stringContaining(`/api/sprites/${character.id}/file/`),
+      },
+    ]);
     await expect(modal.locator('input[value="happy"]')).toBeVisible();
+    await expect(modal.locator('input[value="sad"]')).toBeVisible();
   } finally {
     await page.unroute("**/api/sprites/generate-sheet");
     await request.delete(`/api/characters/${character.id}`).catch(() => undefined);
