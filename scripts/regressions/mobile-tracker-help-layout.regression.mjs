@@ -40,5 +40,15 @@ assert.match(
   /window\.innerWidth < 768 \? 0 : TARGET_PADDING/u,
   "dense mobile help targets must not be expanded into overlapping frames",
 );
+assert.match(
+  chatHelp,
+  /closest\("\[data-chat-toolbar-overflow-menu\]"\)[\s\S]*MOBILE_TOOLBAR_HIGHLIGHT_SIZE/u,
+  "mobile overflow help targets must share one square highlight size",
+);
+assert.match(
+  chatHelp,
+  /const railLeft = mobileOverflowRect\.left - TARGET_PADDING[\s\S]*reachesBehindRail[\s\S]*width: railLeft - target\.rect\.left/u,
+  "large mobile help regions must reserve the open toolbar rail instead of squeezing button highlights",
+);
 
 process.stdout.write("Mobile tracker and help layout regression passed\n");

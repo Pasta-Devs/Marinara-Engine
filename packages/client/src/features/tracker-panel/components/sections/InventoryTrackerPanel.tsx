@@ -196,6 +196,7 @@ export function InventoryTrackerPanel({
   deleteMode,
   addMode,
   header,
+  plain = false,
   collapsed = false,
   onToggleCollapsed,
 }: {
@@ -209,6 +210,7 @@ export function InventoryTrackerPanel({
   deleteMode: boolean;
   addMode: boolean;
   header?: ReactNode;
+  plain?: boolean;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }) {
@@ -217,8 +219,14 @@ export function InventoryTrackerPanel({
     // Own the query container rather than inheriting one. The docked sidebar provides
     // `@container`, but the HUD popover is portaled to document.body and has none — so
     // the same component used to lay itself out differently in its two hosts.
-    <section className="@container relative z-10 overflow-hidden border-b border-[var(--border)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_10%,transparent))]">
-      <TrackerReadabilityVeil strength="strong" />
+    <section
+      className={cn(
+        "@container relative z-10 overflow-hidden",
+        !plain &&
+          "border-b border-[var(--border)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_10%,transparent))]",
+      )}
+    >
+      {!plain && <TrackerReadabilityVeil strength="strong" />}
       <div className="relative z-10">
         {header ?? (
           <SectionHeader

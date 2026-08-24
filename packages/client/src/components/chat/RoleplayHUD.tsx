@@ -666,7 +666,8 @@ function ActionsGroup({
     const aboveTop = rect.top - dropdownHeight - 4;
     const preferredTop = belowTop + dropdownHeight > window.innerHeight - 8 ? aboveTop : belowTop;
     const top = Math.max(8, Math.min(preferredTop, window.innerHeight - dropdownHeight - 8));
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - dropdownWidth - 8));
+    const preferredLeft = window.innerWidth < 768 ? Math.round((window.innerWidth - dropdownWidth) / 2) : rect.left;
+    const left = Math.max(8, Math.min(preferredLeft, window.innerWidth - dropdownWidth - 8));
     return { top, left };
   }, []);
 

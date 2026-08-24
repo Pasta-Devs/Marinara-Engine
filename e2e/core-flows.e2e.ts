@@ -7219,7 +7219,7 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
           optionalCall.type = "button";
           optionalCall.dataset.chatHelp = "call";
           optionalCall.setAttribute("aria-label", "Optional voice call fixture");
-          optionalCall.style.cssText = "position:absolute;top:3.5rem;right:1rem;width:2rem;height:2rem";
+          optionalCall.style.cssText = "position:absolute;top:3.5rem;left:1rem;width:2rem;height:2rem";
           root.append(optionalCall);
         });
       }
@@ -7266,6 +7266,21 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
       await expect(overlay.locator('[data-chat-help-highlight="branches"]')).toBeVisible();
       await expect(overlay.locator('[data-chat-help-highlight="settings"]')).toBeVisible();
       await expect(overlay.locator('[data-chat-help-highlight="help"]')).toBeVisible();
+
+      if (mobile) {
+        const firstToolbarTargets = await page
+          .locator("[data-chat-toolbar-overflow-menu] [data-chat-help]")
+          .filter({ visible: true })
+          .evaluateAll((elements) =>
+            [...new Set(elements.map((element) => element.getAttribute("data-chat-help")).filter(Boolean))].slice(0, 3),
+          );
+        for (const target of firstToolbarTargets) {
+          const box = await overlay.locator(`[data-chat-help-highlight="${target}"]`).boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.width, `${target} highlight width`).toBe(32);
+          expect(box!.height, `${target} highlight height`).toBe(32);
+        }
+      }
 
       if (chat.mode === "conversation") {
         await expect(overlay.locator('[data-chat-help-highlight="call"]')).toBeVisible();

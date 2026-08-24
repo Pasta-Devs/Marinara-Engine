@@ -117,10 +117,11 @@ export function RoleplayInventoryTrackerPanel({
       onUpdateInventory={onUpdateInventory}
       deleteMode
       addMode
+      plain
       header={
-        <div className={cn(NEUTRAL_PANEL_HEADER, "flex items-center justify-between")}>
-          <span className={NEUTRAL_PANEL_TITLE}>
-            <Backpack size="0.625rem" className="text-[var(--marinara-app-accent-static)]" />
+        <div className="flex items-center justify-between px-3 pb-1 pt-2">
+          <span className={TRACKER_SECTION_TITLE}>
+            <Backpack size="0.5625rem" className="text-[var(--marinara-chat-chrome-accent)]" />
             {localizeUi("ui.chat.inventoryTracker.title")}
           </span>
           {action}
@@ -439,7 +440,8 @@ export function CombinedPlayerPanel({
     <>
       <div className={cn(NEUTRAL_PANEL_HEADER, "flex items-center justify-between")}>
         <span className={NEUTRAL_PANEL_TITLE}>
-          <Swords size="0.625rem" className="text-orange-400/80" /> {localizeUi("ui.chat.combinedplayerpanel.trackers")}
+          <Swords size="0.625rem" className="text-[var(--marinara-chat-chrome-accent)]" />{" "}
+          {localizeUi("ui.chat.combinedplayerpanel.trackers")}
         </span>
         <span className="flex items-center gap-1">
           <HudLockModeToggle />
@@ -454,12 +456,6 @@ export function CombinedPlayerPanel({
       <div className="overflow-y-auto max-h-[min(calc(75vh-2rem),30rem)] divide-y divide-[var(--border)]">
         {showPersona && (
           <div className="p-2">
-            <PersonaStatusField
-              value={personaStatus}
-              onSave={onUpdatePersonaStatus}
-              locked={personaStatusLock.locked}
-              onToggleLock={personaStatusLock.onToggle}
-            />
             <div className="flex items-center justify-between px-1 pb-1">
               <span className="flex items-center gap-1 text-[0.625rem] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">
                 <BarChart3 size="0.5625rem" className="text-[var(--marinara-chat-chrome-accent)]" />
@@ -472,6 +468,12 @@ export function CombinedPlayerPanel({
                 title={localizeUi("ui.chat.combinedplayerpanel.reRunPersonaTrackerStatsInventory")}
               />
             </div>
+            <PersonaStatusField
+              value={personaStatus}
+              onSave={onUpdatePersonaStatus}
+              locked={personaStatusLock.locked}
+              onToggleLock={personaStatusLock.onToggle}
+            />
             <div className="space-y-2">
               {personaStats.length === 0 && (
                 <div className={EMPTY_STATE}>{localizeUi("ui.chat.combinedplayerpanel.noStatsTracked")}</div>
@@ -504,9 +506,8 @@ export function CombinedPlayerPanel({
           <div className="p-2">
             <div className="flex items-center justify-between px-1 pb-1">
               <span className={TRACKER_SECTION_TITLE}>
-                <Users size="0.5625rem" className="text-sky-400/80" />{" "}
+                <Users size="0.5625rem" className="text-[var(--marinara-chat-chrome-accent)]" />{" "}
                 {localizeUi("ui.panels.characterspanel.characters")}
-                {characters.length})
               </span>
               <span className="flex items-center gap-1">
                 <TrackerSectionRefresh
@@ -673,8 +674,7 @@ export function CombinedPlayerPanel({
             <div className="flex items-center justify-between px-1 pb-1">
               <span className={TRACKER_SECTION_TITLE}>
                 <Scroll size="0.5625rem" className="text-[var(--marinara-chat-chrome-accent)]" />{" "}
-                {localizeUi("ui.chat.combinedplayerpanel.quests")}
-                {quests.length})
+                {localizeUi("ui.chat.questspanel.quests")}
               </span>
               <span className="flex items-center gap-1">
                 <TrackerSectionRefresh
@@ -723,7 +723,7 @@ export function CombinedPlayerPanel({
             key={`${packageId}-mobile-combined-tracker`}
             packageId={packageId}
             view="tracker"
-            capabilityProps={{ chatId, chatMode: "roleplay" }}
+            capabilityProps={{ chatId, chatMode: "roleplay", mobileCompact: true }}
             className="block"
           />
         ))}
@@ -733,7 +733,7 @@ export function CombinedPlayerPanel({
             <div className="flex items-center justify-between px-1 pb-1">
               <span className={TRACKER_SECTION_TITLE}>
                 <SlidersHorizontal size="0.5625rem" className="text-[var(--marinara-chat-chrome-accent)]" />{" "}
-                {localizeUi("ui.chat.combinedplayerpanel.customValue1", { value1: customTrackerFields.length })}
+                {localizeUi("ui.trackerPanel.customtrackerpanel.customStats")}
               </span>
               <span className="flex items-center gap-1">
                 <TrackerSectionRefresh

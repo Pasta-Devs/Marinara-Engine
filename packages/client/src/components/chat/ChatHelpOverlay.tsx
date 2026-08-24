@@ -273,6 +273,7 @@ const TARGETS_BY_MODE: Record<ChatMode, HelpTargetDefinition[]> = {
 
 const TARGET_PADDING = 5;
 const HIGHLIGHT_GAP = 5;
+const MOBILE_TOOLBAR_HIGHLIGHT_SIZE = 32;
 
 const ACTIONS_BY_MODE: Record<ChatMode, HelpActionDefinition[]> = {
   conversation: [
@@ -347,6 +348,24 @@ function readVisibleRect(element: Element, preferInteractive = false): Rect | nu
   return null;
 }
 
+function normalizeMobileToolbarRect(element: Element, rect: Rect): Rect {
+  if (window.innerWidth >= 768) return rect;
+  const interactive = element.matches("button, [role='button']")
+    ? (element as HTMLElement)
+    : Array.from(element.querySelectorAll<HTMLElement>("button, [role='button']")).find(
+        (candidate) => candidate.getBoundingClientRect().width > 1,
+      );
+  if (!interactive?.closest("[data-chat-toolbar-overflow-menu]")) return rect;
+
+  const interactiveRect = rectFromDomRect(interactive.getBoundingClientRect());
+  return {
+    top: interactiveRect.top + (interactiveRect.height - MOBILE_TOOLBAR_HIGHLIGHT_SIZE) / 2,
+    left: interactiveRect.left + (interactiveRect.width - MOBILE_TOOLBAR_HIGHLIGHT_SIZE) / 2,
+    width: MOBILE_TOOLBAR_HIGHLIGHT_SIZE,
+    height: MOBILE_TOOLBAR_HIGHLIGHT_SIZE,
+  };
+}
+
 function clipRect(rect: Rect, viewportWidth: number, viewportHeight: number): Rect | null {
   const left = Math.max(0, rect.left);
   const top = Math.max(0, rect.top);
@@ -395,7 +414,10 @@ function findTargetRect(definition: HelpTargetDefinition, root: HTMLElement, mod
   if (!definition.selector) return null;
   const preferInteractive = definition.selector.startsWith("[data-chat-help=");
   const rects = Array.from(document.querySelectorAll(definition.selector))
-    .map((element) => readVisibleRect(element, preferInteractive))
+    .map((element) => {
+      const rect = readVisibleRect(element, preferInteractive);
+      return rect ? normalizeMobileToolbarRect(element, rect) : null;
+    })
     .filter((rect): rect is Rect => rect !== null);
   return definition.mergeMatches ? unionRects(rects) : (rects[0] ?? null);
 }
@@ -472,11 +494,29 @@ function measureTargets(mode: ChatMode) {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   const rootRect = clipRect(rectFromDomRect(root.getBoundingClientRect()), viewportWidth, viewportHeight);
-  const targets = TARGETS_BY_MODE[mode].flatMap((definition) => {
+  let targets = TARGETS_BY_MODE[mode].flatMap((definition) => {
     const measured = findTargetRect(definition, root, mode);
     const rect = measured ? clipRect(measured, viewportWidth, viewportHeight) : null;
     return rect ? [{ ...definition, rect }] : [];
   });
+  const mobileOverflowRect =
+    window.innerWidth < 768
+      ? Array.from(document.querySelectorAll<HTMLElement>("[data-chat-toolbar-overflow-menu]"))
+          .map((element) => readVisibleRect(element))
+          .find((rect): rect is Rect => rect !== null)
+      : null;
+  if (mobileOverflowRect) {
+    const railLeft = mobileOverflowRect.left - TARGET_PADDING;
+    targets = targets.map((target) => {
+      const targetBottom = target.rect.top + target.rect.height;
+      const railBottom = mobileOverflowRect.top + mobileOverflowRect.height;
+      const overlapsRailVertically = target.rect.top < railBottom && targetBottom > mobileOverflowRect.top;
+      const reachesBehindRail = target.rect.left < railLeft && target.rect.left + target.rect.width > railLeft;
+      return overlapsRailVertically && reachesBehindRail
+        ? { ...target, rect: { ...target.rect, width: railLeft - target.rect.left } }
+        : target;
+    });
+  }
   const highlightPadding = window.innerWidth < 768 ? 0 : TARGET_PADDING;
   return { rootRect, targets: rootRect ? separateHighlightRects(targets, rootRect, highlightPadding) : targets };
 }

@@ -77,7 +77,7 @@ assert.doesNotMatch(
 );
 assert.match(
   inventoryTracker,
-  /<section className="@container relative z-10 overflow-hidden border-b/u,
+  /"@container relative z-10 overflow-hidden"[\s\S]*border-b border-\[var\(--border\)\]/u,
   "Inventory must retain the shared Tracker Panel section wrapper",
 );
 assert.match(
@@ -97,6 +97,11 @@ assert.match(
 );
 assert.match(
   roleplayHud,
+  /window\.innerWidth < 768 \? Math\.round\(\(window\.innerWidth - dropdownWidth\) \/ 2\) : rect\.left/u,
+  "the mobile Agents menu must center itself horizontally",
+);
+assert.match(
+  roleplayHud,
   /const hasWorldState =[\s\S]*!hasWorldState \?[\s\S]*mari-accent-animated[\s\S]*marinara-app-accent-solid/u,
   "World State must follow the animated accent until it has generated content",
 );
@@ -112,13 +117,28 @@ assert.match(
 );
 assert.match(
   roleplayPanels,
-  /header=\{[\s\S]*NEUTRAL_PANEL_HEADER[\s\S]*Backpack[\s\S]*marinara-app-accent-static/u,
-  "the Inventory HUD popover must reuse the neutral header with an accent backpack",
+  /\{showPersona && \([\s\S]*personastatswidget\.personaStats[\s\S]*<PersonaStatusField/u,
+  "the combined mobile panel must place Persona Stats above Current Status",
 );
-assert.equal(
-  (roleplayPanels.match(/ui\.chat\.combinedplayerpanel\.quests/gu) ?? []).length,
-  1,
-  "only the combined mobile panel may keep the counted Quests title",
+assert.doesNotMatch(
+  roleplayPanels,
+  /\{(?:characters|quests)\.length\}\)/u,
+  "combined mobile Character and Quests headings must not append counts",
+);
+assert.doesNotMatch(
+  roleplayPanels,
+  /combinedplayerpanel\.customValue1/u,
+  "the combined mobile Custom heading must not append a count",
+);
+assert.match(
+  roleplayPanels,
+  /capabilityProps=\{\{ chatId, chatMode: "roleplay", mobileCompact: true \}\}/u,
+  "the combined mobile panel must request Memory Nag's fixed-open compact presentation",
+);
+assert.match(
+  roleplayPanels,
+  /<InventoryTrackerGridPanel[\s\S]*\n\s+plain\n/u,
+  "the mobile Inventory section must use the same plain surface treatment as neighboring trackers",
 );
 assert.doesNotMatch(
   roleplayPanels,
