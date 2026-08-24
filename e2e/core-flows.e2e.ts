@@ -7268,13 +7268,14 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
       await expect(overlay.locator('[data-chat-help-highlight="help"]')).toBeVisible();
 
       if (mobile) {
-        const firstToolbarTargets = await page
+        const toolbarTargets = await page
           .locator("[data-chat-toolbar-overflow-menu] [data-chat-help]")
           .filter({ visible: true })
-          .evaluateAll((elements) =>
-            [...new Set(elements.map((element) => element.getAttribute("data-chat-help")).filter(Boolean))].slice(0, 3),
-          );
-        for (const target of firstToolbarTargets) {
+          .evaluateAll((elements) => [
+            ...new Set(elements.map((element) => element.getAttribute("data-chat-help")).filter(Boolean)),
+          ]);
+        expect(toolbarTargets.length).toBeGreaterThanOrEqual(4);
+        for (const target of toolbarTargets) {
           const box = await overlay.locator(`[data-chat-help-highlight="${target}"]`).boundingBox();
           expect(box).not.toBeNull();
           expect(box!.width, `${target} highlight width`).toBe(32);

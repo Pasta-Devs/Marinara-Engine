@@ -331,13 +331,42 @@ function unionRects(rects: Rect[]): Rect | null {
   return { top, left, width: right - left, height: bottom - top };
 }
 
+function querySelectorAllDeep(root: Document | ShadowRoot | Element, selector: string): Element[] {
+  const matches = Array.from(root.querySelectorAll(selector));
+  for (const element of root.querySelectorAll("*")) {
+    const shadowRoot = (element as HTMLElement).shadowRoot;
+    if (shadowRoot) matches.push(...querySelectorAllDeep(shadowRoot, selector));
+  }
+  return matches;
+}
+
+function closestDeep(element: Element, selector: string): Element | null {
+  let current: Element | null = element;
+  while (current) {
+    const match = current.closest(selector);
+    if (match) return match;
+    const root = current.getRootNode();
+    current = root instanceof ShadowRoot ? root.host : null;
+  }
+  return null;
+}
+
+function visibleInteractiveElements(element: Element): HTMLElement[] {
+  const descendants = querySelectorAllDeep(element, "button, [role='button'], input, textarea") as HTMLElement[];
+  const candidates = element.matches("button, [role='button'], input, textarea")
+    ? [element as HTMLElement, ...descendants]
+    : descendants;
+  return candidates.filter((candidate) => {
+    const rect = candidate.getBoundingClientRect();
+    return rect.width > 1 && rect.height > 1;
+  });
+}
+
 function readVisibleRect(element: Element, preferInteractive = false): Rect | null {
   const ownRect = rectFromDomRect((element as HTMLElement).getBoundingClientRect());
   if (!preferInteractive && ownRect.width > 1 && ownRect.height > 1) return ownRect;
 
-  const interactive = element.matches("button, [role='button'], input, textarea")
-    ? [element as HTMLElement]
-    : Array.from(element.querySelectorAll<HTMLElement>("button, [role='button'], input, textarea"));
+  const interactive = visibleInteractiveElements(element);
   const interactiveRects = interactive
     .map((child) => rectFromDomRect(child.getBoundingClientRect()))
     .filter((rect) => rect.width > 1 && rect.height > 1);
@@ -350,12 +379,10 @@ function readVisibleRect(element: Element, preferInteractive = false): Rect | nu
 
 function normalizeMobileToolbarRect(element: Element, rect: Rect): Rect {
   if (window.innerWidth >= 768) return rect;
-  const interactive = element.matches("button, [role='button']")
-    ? (element as HTMLElement)
-    : Array.from(element.querySelectorAll<HTMLElement>("button, [role='button']")).find(
-        (candidate) => candidate.getBoundingClientRect().width > 1,
-      );
-  if (!interactive?.closest("[data-chat-toolbar-overflow-menu]")) return rect;
+  const interactive = visibleInteractiveElements(element).find((candidate) =>
+    candidate.matches("button, [role='button']"),
+  );
+  if (!interactive || !closestDeep(interactive, "[data-chat-toolbar-overflow-menu]")) return rect;
 
   const interactiveRect = rectFromDomRect(interactive.getBoundingClientRect());
   return {
@@ -413,7 +440,7 @@ function findTargetRect(definition: HelpTargetDefinition, root: HTMLElement, mod
 
   if (!definition.selector) return null;
   const preferInteractive = definition.selector.startsWith("[data-chat-help=");
-  const rects = Array.from(document.querySelectorAll(definition.selector))
+  const rects = querySelectorAllDeep(document, definition.selector)
     .map((element) => {
       const rect = readVisibleRect(element, preferInteractive);
       return rect ? normalizeMobileToolbarRect(element, rect) : null;
@@ -501,7 +528,7 @@ function measureTargets(mode: ChatMode) {
   });
   const mobileOverflowRect =
     window.innerWidth < 768
-      ? Array.from(document.querySelectorAll<HTMLElement>("[data-chat-toolbar-overflow-menu]"))
+      ? querySelectorAllDeep(document, "[data-chat-toolbar-overflow-menu]")
           .map((element) => readVisibleRect(element))
           .find((rect): rect is Rect => rect !== null)
       : null;
@@ -518,7 +545,34 @@ function measureTargets(mode: ChatMode) {
     });
   }
   const highlightPadding = window.innerWidth < 768 ? 0 : TARGET_PADDING;
-  return { rootRect, targets: rootRect ? separateHighlightRects(targets, rootRect, highlightPadding) : targets };
+  if (!rootRect) return { rootRect, targets };
+
+  const fixedMobileToolbarRects = new Map(
+    mobileOverflowRect
+      ? targets
+          .filter((target) => {
+            const centerX = target.rect.left + target.rect.width / 2;
+            const centerY = target.rect.top + target.rect.height / 2;
+            return (
+              centerX >= mobileOverflowRect.left &&
+              centerX <= mobileOverflowRect.left + mobileOverflowRect.width &&
+              centerY >= mobileOverflowRect.top &&
+              centerY <= mobileOverflowRect.top + mobileOverflowRect.height &&
+              target.rect.width === MOBILE_TOOLBAR_HIGHLIGHT_SIZE &&
+              target.rect.height === MOBILE_TOOLBAR_HIGHLIGHT_SIZE
+            );
+          })
+          .map((target) => [target.id, target.rect] as const)
+      : [],
+  );
+  const separated = separateHighlightRects(targets, rootRect, highlightPadding);
+  return {
+    rootRect,
+    targets: separated.map((target) => ({
+      ...target,
+      rect: fixedMobileToolbarRects.get(target.id) ?? target.rect,
+    })),
+  };
 }
 
 function getLegendStyle(rootRect: Rect): CSSProperties {

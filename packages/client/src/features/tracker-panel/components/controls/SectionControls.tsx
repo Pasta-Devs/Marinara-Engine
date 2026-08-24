@@ -3,6 +3,9 @@ import { ChevronDown, Plus } from "lucide-react";
 import { cn } from "../../../../lib/utils";
 import { TRACKER_TEXT_MICRO } from "../../lib/tracker-panel.constants";
 
+export const TRACKER_SECTION_SHELL_CLASS =
+  "relative z-10 overflow-hidden border-b border-[var(--border)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_5%,transparent))] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_5%,transparent)]";
+
 export function AddRowButton({
   children,
   onClick,

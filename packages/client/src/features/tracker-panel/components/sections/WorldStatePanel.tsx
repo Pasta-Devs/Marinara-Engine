@@ -31,7 +31,7 @@ import { getWorldStatePresentation, type WorldSceneGlyph } from "../../lib/world
 import { visibleText } from "../../lib/tracker-display";
 import { WorldCustomFieldIcon } from "../../lib/world-custom-field-icons";
 import { InlineEdit } from "../controls/InlineControls";
-import { AddRowButton, SectionHeader } from "../controls/SectionControls";
+import { AddRowButton, SectionHeader, TRACKER_SECTION_SHELL_CLASS } from "../controls/SectionControls";
 import { useTrackerFieldLock, useTrackerLockContext } from "../TrackerLockContext";
 import { WorldDateTimeTile } from "./WorldDateTimeTiles";
 import { WorldRenderedEdit, WorldValueText } from "./WorldEditableTile";
@@ -385,7 +385,7 @@ export function WorldStatePanel({
   const isCompact = trackerPanelSizeProfile === "compact";
   return (
     <div
-      className="relative z-10 overflow-hidden border-b border-[var(--border)] shadow-inner transition-colors duration-200 @container"
+      className={cn(TRACKER_SECTION_SHELL_CLASS, "transition-colors duration-200 @container")}
       style={presentation.ambienceStyle}
     >
       <div className="pointer-events-none absolute inset-0 opacity-[var(--tracker-world-atmosphere-opacity)] [background-image:radial-gradient(circle_at_68%_54%,var(--tracker-world-scene-wash),transparent_34%),radial-gradient(ellipse_at_18%_0%,var(--tracker-world-time-tone),transparent_48%),radial-gradient(ellipse_at_82%_12%,var(--tracker-world-weather-tone),transparent_44%),radial-gradient(ellipse_at_50%_100%,var(--tracker-world-temperature-tone),transparent_52%)] transition-[opacity,filter] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none" />

@@ -8,6 +8,16 @@ function readSource(relativePath) {
 const roleplayHud = readSource("packages/client/src/components/chat/RoleplayHUD.tsx");
 const roleplayPanels = readSource("packages/client/src/components/chat/RoleplayHUDPanels.tsx");
 const chatHelp = readSource("packages/client/src/components/chat/ChatHelpOverlay.tsx");
+const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
+const branchSelector = readSource("packages/client/src/components/chat/ChatBranchSelector.tsx");
+const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
+const inventoryPanel = readSource(
+  "packages/client/src/features/tracker-panel/components/sections/InventoryTrackerPanel.tsx",
+);
+const sectionControls = readSource(
+  "packages/client/src/features/tracker-panel/components/controls/SectionControls.tsx",
+);
+const globals = readSource("packages/client/src/styles/globals.css");
 
 const beholderLauncher = roleplayHud.indexOf("item.id}-beholder-launcher");
 const agentsGroup = roleplayHud.indexOf("<ActionsGroup");
@@ -27,8 +37,8 @@ assert.match(
 );
 assert.match(
   chatHelp,
-  /element\.matches\("button, \[role='button'\], input, textarea"\)[\s\S]*interactiveRect/u,
-  "help targets must be able to use the full interactive control bounds",
+  /querySelectorAllDeep\(root[\s\S]*shadowRoot[\s\S]*querySelectorAllDeep\(shadowRoot/u,
+  "help target discovery must descend into package shadow roots",
 );
 assert.match(
   chatHelp,
@@ -42,13 +52,78 @@ assert.match(
 );
 assert.match(
   chatHelp,
-  /closest\("\[data-chat-toolbar-overflow-menu\]"\)[\s\S]*MOBILE_TOOLBAR_HIGHLIGHT_SIZE/u,
+  /closestDeep\(interactive, "\[data-chat-toolbar-overflow-menu\]"\)[\s\S]*MOBILE_TOOLBAR_HIGHLIGHT_SIZE/u,
   "mobile overflow help targets must share one square highlight size",
 );
 assert.match(
   chatHelp,
   /const railLeft = mobileOverflowRect\.left - TARGET_PADDING[\s\S]*reachesBehindRail[\s\S]*width: railLeft - target\.rect\.left/u,
   "large mobile help regions must reserve the open toolbar rail instead of squeezing button highlights",
+);
+assert.match(
+  chatHelp,
+  /fixedMobileToolbarRects[\s\S]*fixedMobileToolbarRects\.get\(target\.id\) \?\? target\.rect/u,
+  "collision separation must preserve the equal square frames around mobile toolbar buttons",
+);
+assert.match(
+  roleplayHud,
+  /left: pos\.left, transform: pos\.centered \? "translateX\(-50%\)"/u,
+  "the mobile Agents menu must center from its rendered width",
+);
+assert.match(
+  roleplayHud,
+  /total > 0 \? \([\s\S]*tabular-nums[\s\S]*\) : \([\s\S]*<Backpack/u,
+  "the Inventory launcher must show only the item count after inventory is populated",
+);
+assert.equal(
+  (roleplayHud.match(/mari-chrome-accent-icon mari-accent-animated/g) ?? []).length >= 4,
+  true,
+  "Tracker Panel, Inventory, and both World State launcher states must use the animated chat accent token",
+);
+assert.match(
+  roleplayHud,
+  /onRerunTracker:[\s\S]*trackerRetryBusy:[\s\S]*onToggleLockMode:/u,
+  "package tracker launchers must receive working regenerate and lock callbacks",
+);
+assert.match(
+  roleplayPanels,
+  /personaStats[\s\S]*<PersonaStatusField/u,
+  "the mobile tracker panel must present Persona Stats before Current Status",
+);
+assert.doesNotMatch(
+  roleplayPanels,
+  /(?:Characters|Quests|Custom)\s*\{[^}]*\.length/u,
+  "mobile tracker headings must not append item counts",
+);
+assert.match(
+  inventoryPanel,
+  /mari-rgb-static-icon block text-current/u,
+  "Inventory remove icons must inherit their item text color instead of the animated accent",
+);
+assert.match(
+  globals,
+  /\.mari-chrome-tag\s*\{\s*border-radius: 999px;/u,
+  "shared tags must retain the character-tag pill shape",
+);
+assert.doesNotMatch(
+  chatSidebar,
+  /mari-chrome-muted-badge mari-chrome-tag/u,
+  "chat branch badges must use the exact shared character-tag badge",
+);
+assert.match(
+  branchSelector,
+  /mari-chrome-muted-badge absolute/u,
+  "toolbar branch counts must use the same shared badge shape",
+);
+assert.match(
+  sectionControls,
+  /export const TRACKER_SECTION_SHELL_CLASS/u,
+  "Tracker Panel sections must share one themed shell class",
+);
+assert.match(
+  agentSettingsControls,
+  /flex min-h-8 items-center justify-center rounded-md[\s\S]*text-center/u,
+  "shared agent segmented controls, including Music DJ, must center their contents",
 );
 
 process.stdout.write("Mobile tracker and help layout regression passed\n");

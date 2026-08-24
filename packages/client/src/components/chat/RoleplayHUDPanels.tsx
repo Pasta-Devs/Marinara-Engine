@@ -108,26 +108,28 @@ export function RoleplayInventoryTrackerPanel({
     </span>
   );
   return (
-    <InventoryTrackerGridPanel
-      currencies={currencies}
-      equipped={equipped}
-      inventory={inventory}
-      onUpdateCurrencies={onUpdateCurrencies}
-      onUpdateEquipped={onUpdateEquipped}
-      onUpdateInventory={onUpdateInventory}
-      deleteMode
-      addMode
-      plain
-      header={
-        <div className="flex items-center justify-between px-3 pb-1 pt-2">
-          <span className={TRACKER_SECTION_TITLE}>
-            <Backpack size="0.5625rem" className="text-[var(--marinara-chat-chrome-accent)]" />
-            {localizeUi("ui.chat.inventoryTracker.title")}
-          </span>
-          {action}
-        </div>
-      }
-    />
+    <div className="p-2">
+      <InventoryTrackerGridPanel
+        currencies={currencies}
+        equipped={equipped}
+        inventory={inventory}
+        onUpdateCurrencies={onUpdateCurrencies}
+        onUpdateEquipped={onUpdateEquipped}
+        onUpdateInventory={onUpdateInventory}
+        deleteMode
+        addMode
+        plain
+        header={
+          <div className="flex items-center justify-between px-1 pb-1">
+            <span className={TRACKER_SECTION_TITLE}>
+              <Backpack size="0.5625rem" className="text-[var(--marinara-chat-chrome-accent)]" />
+              {localizeUi("ui.chat.inventoryTracker.title")}
+            </span>
+            {action}
+          </div>
+        }
+      />
+    </div>
   );
 }
 
@@ -321,7 +323,7 @@ export function CombinedPlayerPanel({
   isTrackerRetryBusy,
 }: CombinedPlayerPanelProps) {
   const { t: localizeUi } = useUiTranslation();
-  const { onUpdateFieldLocks, onUpdateHiddenFields } = useTrackerLockContext();
+  const { lockMode, onSetLockMode, onUpdateFieldLocks, onUpdateHiddenFields } = useTrackerLockContext();
   const updateBar = (idx: number, field: "value" | "max" | "name", val: number | string) => {
     const previous = personaStats[idx];
     const next = [...personaStats];
@@ -723,7 +725,15 @@ export function CombinedPlayerPanel({
             key={`${packageId}-mobile-combined-tracker`}
             packageId={packageId}
             view="tracker"
-            capabilityProps={{ chatId, chatMode: "roleplay", mobileCompact: true }}
+            capabilityProps={{
+              chatId,
+              chatMode: "roleplay",
+              mobileCompact: true,
+              onRerunTracker: onRerunSingleTracker ? () => onRerunSingleTracker(packageId) : undefined,
+              trackerRetryBusy: isTrackerRetryBusy,
+              lockMode,
+              onToggleLockMode: onSetLockMode ? () => onSetLockMode(!lockMode) : undefined,
+            }}
             className="block"
           />
         ))}

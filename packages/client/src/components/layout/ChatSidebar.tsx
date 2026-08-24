@@ -1229,7 +1229,7 @@ export function ChatSidebar() {
 
         {/* Branch count badge */}
         {branchCount > 1 && (
-          <span className="mari-chrome-muted-badge mari-chrome-tag flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 text-[0.625rem]">
+          <span className="mari-chrome-muted-badge flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 text-[0.625rem]">
             <GitBranch size="0.625rem" />
             {branchCount}
           </span>

@@ -435,7 +435,7 @@ export function AgentSettingsSegmentedControl<T extends string>({
           onClick={() => onChange(option.id)}
           aria-pressed={value === option.id}
           className={cn(
-            "rounded-md px-2.5 py-2 text-left transition-all",
+            "flex min-h-8 items-center justify-center rounded-md px-2.5 py-2 text-center transition-all",
             value === option.id
               ? "bg-[var(--primary)]/12 text-[var(--foreground)] ring-1 ring-[var(--primary)]/35"
               : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",

@@ -36,7 +36,7 @@ import {
   TRACKER_PROFILE_SURFACE_TEXTURE_CLASS,
   TRACKER_PROFILE_SURFACE_TOP_RULE_CLASS,
 } from "../controls/TrackerProfileChrome";
-import { SectionHeader } from "../controls/SectionControls";
+import { SectionHeader, TRACKER_SECTION_SHELL_CLASS } from "../controls/SectionControls";
 import { StatList } from "../controls/StatList";
 import { useTrackerLockContext } from "../TrackerLockContext";
 import { useTrackerWindow } from "../TrackerWindowContext";
@@ -204,14 +204,14 @@ export function PersonaInventoryPanel({
   }, [flushPersonaPortraitSave, trackerWindow]);
 
   return (
-    <div className="relative z-10 overflow-hidden border-b border-[color-mix(in_srgb,var(--border)_72%,transparent)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_5%,transparent))] shadow-inner transition-colors duration-200">
+    <div className={cn(TRACKER_SECTION_SHELL_CLASS, "transition-colors duration-200")}>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[color-mix(in_srgb,var(--foreground)_6%,transparent)]" />
 
       <SectionHeader
         icon={<Sparkles size="0.6875rem" />}
         title={localizeUi("ui.characters.cardlibrarydetailcard.persona")}
         action={action}
-        className="bg-[color-mix(in_srgb,var(--background)_86%,var(--card)_14%)] [--primary:var(--foreground)] [--tracker-profile-icon:var(--muted-foreground)]"
+        className="[--primary:var(--foreground)] [--tracker-profile-icon:var(--muted-foreground)]"
         collapsed={collapsed}
         onToggle={onToggleCollapsed}
       />

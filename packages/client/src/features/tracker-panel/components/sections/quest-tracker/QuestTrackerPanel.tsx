@@ -2,10 +2,9 @@ import type { ReactNode } from "react";
 import type { QuestProgress } from "@marinara-engine/shared";
 import type { TrackerPanelSizeProfile } from "../../../../../stores/ui.store";
 import { TrackerReadabilityVeil } from "../../controls/TrackerProfileChrome";
+import { TRACKER_SECTION_SHELL_CLASS } from "../../controls/SectionControls";
 import { QuestBoard } from "./QuestBoard";
 
-const QUEST_PANEL_CLASS =
-  "relative z-10 overflow-hidden border-b border-[var(--border)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_6%,transparent))] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent)]";
 const QUEST_PANEL_TEXTURE_CLASS =
   "pointer-events-none absolute inset-x-1 bottom-1 top-6 z-0 opacity-[0.1] [background-image:radial-gradient(circle,color-mix(in_srgb,var(--foreground)_42%,transparent)_1px,transparent_1.25px)] [background-size:5px_5px]";
 
@@ -33,7 +32,7 @@ export function QuestTrackerPanel({
   onToggleCollapsed?: () => void;
 }) {
   return (
-    <section className={QUEST_PANEL_CLASS}>
+    <section className={TRACKER_SECTION_SHELL_CLASS}>
       <TrackerReadabilityVeil />
       {!collapsed && <div className={QUEST_PANEL_TEXTURE_CLASS} />}
       <QuestBoard
