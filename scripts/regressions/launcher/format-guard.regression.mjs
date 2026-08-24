@@ -80,6 +80,16 @@ assert.match(
   /trap release_termux_wake_lock EXIT/u,
   "the Termux launcher must release its wake lock whenever the server exits",
 );
+assert.match(
+  termuxLauncherSource,
+  /--max-old-space-size=1024/u,
+  "the Termux launcher must leave Android enough memory headroom instead of inviting a full-session LMK kill",
+);
+assert.doesNotMatch(
+  termuxLauncherSource,
+  /--max-old-space-size=2048/u,
+  "the Termux launcher must not restore the memory-heavy 2 GB automatic heap default",
+);
 const wakeLockTrapIndex = termuxLauncherSource.search(/^[ \t]*trap release_termux_wake_lock EXIT[ \t]*$/mu);
 const wakeLockAcquireIndex = termuxLauncherSource.search(/^[ \t]*if[ \t]+termux-wake-lock\b[^\n]*;[ \t]*then[ \t]*$/mu);
 const serverStartIndex = termuxLauncherSource.lastIndexOf("node dist/index.js");

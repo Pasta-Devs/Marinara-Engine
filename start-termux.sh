@@ -160,7 +160,7 @@ fi
 
 # Large profiles can exceed Node's conservative mobile heap limit while the
 # file-backed store serializes them. Keep an explicit operator limit, otherwise
-# give Termux enough headroom for installation and normal server operation.
+# use a bounded mobile default that leaves Android room for the Termux process.
 has_explicit_node_heap_limit() {
     local node_options_value="${NODE_OPTIONS:-}"
     NODE_OPTIONS= NODE_OPTIONS_VALUE="$node_options_value" node <<'NODE_OPTIONS_PARSER'
@@ -202,9 +202,9 @@ NODE_OPTIONS_PARSER
 }
 
 if ! has_explicit_node_heap_limit; then
-    NODE_OPTIONS="${NODE_OPTIONS:+${NODE_OPTIONS} }--max-old-space-size=2048"
+    NODE_OPTIONS="${NODE_OPTIONS:+${NODE_OPTIONS} }--max-old-space-size=1024"
     export NODE_OPTIONS
-    echo "  [OK] Node.js heap limit raised for large profiles"
+    echo "  [OK] Node.js heap limit set for large profiles"
 fi
 
 load_launcher_setting() {
