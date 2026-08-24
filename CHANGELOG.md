@@ -38,6 +38,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Adding Memory Nag to a Roleplay chat now explains how to create its initial memories, then opens and scrolls to its Agent Settings menu after confirmation (#5484).
 - Download Agents now styles its trusted-code permission notice with the configured accent instead of a hard-coded amber warning box.
 - Fixed the dev server and Playwright webServer failing to start on Windows with standalone pnpm installs: the pnpm runner now detects that `npm_execpath` points at a native `pnpm.exe` binary — which Node cannot execute — and falls back to invoking pnpm through `ComSpec` instead of crashing with `SyntaxError: Invalid or unexpected token` on the PE header.
 - Profile imports now keep only the local canonical Universal Preset protected; imported copies retain their content but remain editable and deletable (#5469).

@@ -2268,6 +2268,17 @@ export function ChatSettingsDrawer({
     },
     [focusAgentMenu],
   );
+  const showMemoryNagSetupReminder = useCallback(async () => {
+    await showAlertDialog({
+      title: localizeUi("ui.chat.chatsettingsdrawer.memoryNagSetupTitle"),
+      message: localizeUi("ui.chat.chatsettingsdrawer.memoryNagSetupMessage"),
+      confirmLabel: localizeUi("ui.chat.chatsettingsdrawer.memoryNagSetupOkay"),
+      tone: "accent",
+    });
+    const targetId = getAgentSettingsMenuId(chat.id, "memory-nag");
+    setChatSettingsSectionExpanded(targetId, true);
+    scrollToAgentMenu(targetId);
+  }, [chat.id, localizeUi, scrollToAgentMenu, setChatSettingsSectionExpanded]);
   useEffect(() => {
     if (!pendingAgentMenuTargetId) return;
     let secondFrame = 0;
@@ -2992,6 +3003,9 @@ export function ChatSettingsDrawer({
       };
       if (isRemoving) await customAgentImageSettingsWriteQueueRef.current.enqueue(saveAgentSelection);
       else await saveAgentSelection();
+      if (!isRemoving && agentId === "memory-nag" && isRoleplayMode) {
+        await showMemoryNagSetupReminder();
+      }
     } catch (error) {
       if (metadataSaved && isRemoving && agentId === "director") {
         const rollbackIds = Array.from(new Set([...readLatestActiveAgentIds(), agentId]));
@@ -3814,6 +3828,9 @@ export function ChatSettingsDrawer({
       );
       setAgentAddPreview(null);
       setAgentSetupQueue((current) => (current[0] === agent.id ? current.slice(1) : current));
+      if (agent.id === "memory-nag" && isRoleplayMode) {
+        await showMemoryNagSetupReminder();
+      }
     } catch (error) {
       await showAlertDialog({
         title: "Couldn’t Add Agent",
