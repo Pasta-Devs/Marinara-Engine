@@ -79,6 +79,23 @@ assert.deepEqual(formatInitialGameGmConnectionError(new Error("fetch failed", { 
   statusCode: 502,
   message: "The GM connection could not be reached. Check the connection and try again.",
 });
+assert.deepEqual(formatInitialGameGmConnectionError(new Error("provider exploded")), {
+  statusCode: 502,
+  message: "The GM provider returned an error. Check the provider and model settings, then try again.",
+});
+assert.deepEqual(formatInitialGameGmConnectionError(Object.assign(new Error("Unauthorized"), { status: 401 })), {
+  statusCode: 401,
+  message:
+    "The GM provider rejected the configured credentials. Check the API key or account connection and try again.",
+});
+assert.deepEqual(formatInitialGameGmConnectionError(Object.assign(new Error("Model not found"), { status: 404 })), {
+  statusCode: 400,
+  message: "The selected GM model is unavailable. Check the connection's model and try again.",
+});
+assert.deepEqual(formatInitialGameGmConnectionError(Object.assign(new Error("Quota exceeded"), { status: 429 })), {
+  statusCode: 429,
+  message: "The GM provider is rate-limited or out of quota. Check the provider account or try again later.",
+});
 
 const dispatchedAgentEvents: Array<Record<string, unknown>> = [];
 const immutableAgentOwnership = {

@@ -5027,10 +5027,11 @@ const termuxLauncher = readFileSync(new URL("../../start-termux.sh", import.meta
 assert.doesNotMatch(termuxLauncher, /run_pnpm install --force/u);
 assert.match(termuxLauncher, /run_pnpm store prune/u);
 assert.match(termuxLauncher, /TERMUX_REBUILD_REQUIRED/u);
-assert.match(termuxLauncher, /--max-old-space-size=2048/u);
+assert.match(termuxLauncher, /--max-old-space-size=1024/u);
+assert.doesNotMatch(termuxLauncher, /--max-old-space-size=2048/u);
 assert.match(
   termuxLauncher,
-  /has_explicit_node_heap_limit\(\)[\s\S]*NODE_OPTIONS_VALUE[\s\S]*const heapOption = \/\^--max[\s\S]*if ! has_explicit_node_heap_limit; then[\s\S]*NODE_OPTIONS="\$\{NODE_OPTIONS:\+\$\{NODE_OPTIONS\} \}--max-old-space-size=2048"/u,
+  /has_explicit_node_heap_limit\(\)[\s\S]*NODE_OPTIONS_VALUE[\s\S]*const heapOption = \/\^--max[\s\S]*if ! has_explicit_node_heap_limit; then[\s\S]*NODE_OPTIONS="\$\{NODE_OPTIONS:\+\$\{NODE_OPTIONS\} \}--max-old-space-size=1024"/u,
   "Termux must parse complete heap-option tokens before applying its safe default",
 );
 for (const buildEntry of [

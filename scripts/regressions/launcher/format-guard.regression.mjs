@@ -90,12 +90,15 @@ assert.doesNotMatch(
   /--max-old-space-size=2048/u,
   "the Termux launcher must not restore the memory-heavy 2 GB automatic heap default",
 );
+assert.match(
+  termuxLauncherSource,
+  /if ! has_explicit_node_heap_limit; then[\s\S]*NODE_OPTIONS="\$\{NODE_OPTIONS:\+\$\{NODE_OPTIONS\} \}--max-old-space-size=1024"/u,
+  "an explicit NODE_OPTIONS heap limit must override the 1 GB mobile default",
+);
 const wakeLockTrapIndex = termuxLauncherSource.search(/^[ \t]*trap release_termux_wake_lock EXIT[ \t]*$/mu);
 const wakeLockAcquireIndex = termuxLauncherSource.search(/^[ \t]*if[ \t]+termux-wake-lock\b[^\n]*;[ \t]*then[ \t]*$/mu);
 const serverStartIndex = termuxLauncherSource.lastIndexOf("node dist/index.js");
-const persistentLogIndex = termuxLauncherSource.indexOf(
-  'exec > >(tee -a "$MARINARA_TERMUX_LOG_FILE") 2>&1',
-);
+const persistentLogIndex = termuxLauncherSource.indexOf('exec > >(tee -a "$MARINARA_TERMUX_LOG_FILE") 2>&1');
 const dependencySetupIndex = termuxLauncherSource.indexOf("resolve_pnpm_runner || exit 1");
 assert.ok(
   wakeLockTrapIndex >= 0 && wakeLockAcquireIndex >= 0 && wakeLockTrapIndex < wakeLockAcquireIndex,

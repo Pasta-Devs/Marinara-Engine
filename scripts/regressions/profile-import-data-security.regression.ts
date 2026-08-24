@@ -107,6 +107,7 @@ try {
     });
     const localStockPreset = promptPresetFixture("local-stock-preset", "Marinara's Universal Preset");
     const importedStockCopy = promptPresetFixture("imported-stock-copy", "Marinara's Universal Preset");
+    const importedLocalStockPreset = { ...localStockPreset, systemKey: "" };
     await db.insert(schema.promptPresets).values(localStockPreset);
     const storedConnections = (await db.select().from(schema.apiConnections)) as Array<Record<string, unknown>>;
     const storedById = new Map(storedConnections.map((row) => [row.id, row]));
@@ -222,7 +223,7 @@ try {
           version: 1,
           tables: {
             api_connections: importedConnections,
-            prompt_presets: [importedStockCopy],
+            prompt_presets: [importedLocalStockPreset, importedStockCopy],
             mari_instructions: [importedInstruction],
             custom_themes: [importedTheme],
             custom_tools: [importedTool],
@@ -241,7 +242,7 @@ try {
     assert.equal(previewResponse.statusCode, 200, previewResponse.body);
     const preview = previewResponse.json();
     assert.equal(preview.imported.connections, 6);
-    assert.equal(preview.imported.presets, 1);
+    assert.equal(preview.imported.presets, 2);
     assert.equal(preview.imported.customTools, 1);
     assert.equal(preview.imported.mariInstructions, 1);
     assert.equal(preview.imported.personalExtensions, 2);

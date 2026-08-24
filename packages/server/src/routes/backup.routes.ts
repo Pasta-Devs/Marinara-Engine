@@ -764,9 +764,10 @@ export function normalizeProfilePromptPresetRow(
   row: Record<string, unknown>,
   localStockPresetId: string | null,
 ): Record<string, unknown> {
-  if (!localStockPresetId || row.id === localStockPresetId || row.systemKey !== MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY) {
-    return row;
+  if (localStockPresetId && row.id === localStockPresetId) {
+    return { ...row, systemKey: MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY };
   }
+  if (!localStockPresetId || row.systemKey !== MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY) return row;
   return { ...row, systemKey: "" };
 }
 
