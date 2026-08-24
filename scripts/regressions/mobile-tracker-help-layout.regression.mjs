@@ -37,7 +37,7 @@ assert.match(
 );
 assert.match(
   chatHelp,
-  /querySelectorAllDeep\(root[\s\S]*shadowRoot[\s\S]*querySelectorAllDeep\(shadowRoot/u,
+  /querySelectorAllDeep\(root[\s\S]*root instanceof Element && root\.shadowRoot[\s\S]*querySelectorAllDeep\(root\.shadowRoot/u,
   "help target discovery must descend into package shadow roots",
 );
 assert.match(

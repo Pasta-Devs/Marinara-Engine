@@ -333,6 +333,9 @@ function unionRects(rects: Rect[]): Rect | null {
 
 function querySelectorAllDeep(root: Document | ShadowRoot | Element, selector: string): Element[] {
   const matches = Array.from(root.querySelectorAll(selector));
+  if (root instanceof Element && root.shadowRoot) {
+    matches.push(...querySelectorAllDeep(root.shadowRoot, selector));
+  }
   for (const element of root.querySelectorAll("*")) {
     const shadowRoot = (element as HTMLElement).shadowRoot;
     if (shadowRoot) matches.push(...querySelectorAllDeep(shadowRoot, selector));
