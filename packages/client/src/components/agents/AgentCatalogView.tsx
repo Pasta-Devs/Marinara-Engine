@@ -702,7 +702,7 @@ export function AgentCatalogView() {
               <section>
                 <h3 className="text-sm font-semibold">{localizeUi("ui.agents.agentcatalogview.permissions")}</h3>
                 {(selected.manifest.entrypoints.server || selected.manifest.entrypoints.client) && (
-                  <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-[var(--foreground)]">
+                  <p className="mt-2 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs leading-relaxed text-[var(--foreground)]">
                     {localizeUi("ui.agents.agentcatalogview.trustedCodeAccessNotice")}
                   </p>
                 )}
