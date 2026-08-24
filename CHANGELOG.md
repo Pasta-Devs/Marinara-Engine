@@ -39,7 +39,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ### Fixed
 
 - Profile imports now keep only the local canonical Universal Preset protected; imported copies retain their content but remain editable and deletable (#5469).
-- Game creation now reports reachable, refused, and timed-out GM connection failures with actionable messages instead of a bare internal-server error (#5466).
+- Game creation now reports unreachable, refused, and timed-out GM connection failures with actionable messages instead of a bare internal-server error (#5466).
 - Termux now uses a 1 GB automatic Node.js heap ceiling while preserving explicit operator overrides, reducing Android memory pressure that could terminate the entire background session (#5470).
 - Conversation autonomy and Game agent controls now use the shared toggle design; automatic-summary, Discord Mirror, Illustrator, Prompt Preset, and widget controls reuse canonical fields and actions; muted Game audio follows the configured accent; journal entries can be deleted after confirmation; and Stop Agents cancels every attached or detached agent run without flickering or aborting the main response (#5463).
 - Tracker Panel now keeps Inventory above Custom and uses the configured app accent for its frame and dice controls; Group Chat's Add Turn To Prompt setting now uses the shared toggle and muted off-state; branch counts use the compact rounded-corner tag shape instead of capsules; Conversation places Start Call beside the character or group name; and Markdown horizontal rules follow the surrounding message text color instead of the legacy border tint (#5462).
