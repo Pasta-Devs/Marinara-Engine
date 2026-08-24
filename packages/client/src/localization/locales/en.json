@@ -5217,6 +5217,8 @@
   "ui.game.gamesetupwizard.powersAutomaticPortraitsBackgroundsAndSceneIllustrations": "Powers automatic portraits, backgrounds, and scene illustrations.",
   "ui.game.gamesetupwizard.powersAutomaticPortraitsBackgroundsSceneIllustrationsAndStoryboardKeyframes": "Powers automatic portraits, backgrounds, scene illustrations, and storyboard keyframes.",
   "ui.game.gamesetupwizard.previewingTheSelectedPromptEditItToOverride": "Previewing the selected prompt; edit it to override",
+  "ui.game.gamesetupwizard.quickTimeEvents": "Quick Time Events",
+  "ui.game.gamesetupwizard.quickTimeEventsDescription": "Let the GM offer timed reactions. Turn this off for screen-reader or untimed play.",
   "ui.game.gamesetupwizard.recommendedUseAStrongStateOfTheArtImage": "Recommended: use a strong state-of-the-art image model for storyboard images, or something equivalent to Google Nano Banana 2 Lite.",
   "ui.game.gamesetupwizard.resetToSelected": "Reset to selected",
   "ui.game.gamesetupwizard.reuseAGameSetup": "Reuse a game setup",

@@ -200,6 +200,7 @@ function parseShareConfig(value: unknown): GameSetupConfig {
 
   const optionalBooleans = [
     "enableAgents",
+    "enableQuickTimeEvents",
     "enableSpriteGeneration",
     "gameImageDynamicPromptEnabled",
     "gameStoryboardsEnabled",
@@ -692,6 +693,7 @@ export function buildGameSetupSummarySections(source: GameSetupShareSource): Gam
         { label: "Tone", value: config.tone },
         { label: "Difficulty", value: titleCaseToken(config.difficulty) },
         { label: "Combat style", value: titleCaseToken(config.combatStyle ?? "classic") },
+        { label: "Quick Time Events", value: config.enableQuickTimeEvents === false ? "Off" : "On" },
         { label: "Content rating", value: config.rating.toUpperCase() },
         { label: "Language", value: config.language?.trim() || "Default" },
         { label: "Player goals", value: config.playerGoals.trim() || "None" },

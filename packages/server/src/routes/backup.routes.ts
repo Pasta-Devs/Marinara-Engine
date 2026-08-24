@@ -26,6 +26,8 @@ import { createThemesStorage } from "../services/storage/themes.storage.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import {
   canReparentFolder,
+  isStockMarinaraUniversalPreset,
+  MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
   normalizePersonalExtensionCapabilities,
   type ExportEnvelope,
 } from "@marinara-engine/shared";
@@ -758,6 +760,16 @@ export function quarantineProfileThemeRow(row: Record<string, unknown>) {
   return { ...row, isActive: "false" };
 }
 
+export function normalizeProfilePromptPresetRow(
+  row: Record<string, unknown>,
+  localStockPresetId: string | null,
+): Record<string, unknown> {
+  if (!localStockPresetId || row.id === localStockPresetId || row.systemKey !== MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY) {
+    return row;
+  }
+  return { ...row, systemKey: "" };
+}
+
 // Secret-bearing columns to omit on the conflict-UPDATE path so an existing row
 // keeps its stored secret (the file store leaves an unmentioned column untouched); only
 // the fresh-insert path carries the export's redacted values. For custom_tools the
@@ -1236,6 +1248,8 @@ async function importProfileStorageSnapshot(
     let rollbackFailed = false;
     try {
       await app.db.transaction(async (tx) => {
+        const localStockPresetId =
+          ((await tx.select().from(schema.promptPresets)).find(isStockMarinaraUniversalPreset)?.id as string) ?? null;
         const plannedSnapshot = await planProfileNoodleImport(
           tx,
           snapshot,
@@ -1270,6 +1284,9 @@ async function importProfileStorageSnapshot(
             if (tableName === "custom_tools") cleanRow = quarantineProfileCustomToolRow(cleanRow);
             if (tableName === "mari_instructions") cleanRow = quarantineProfileMariInstructionRow(cleanRow);
             if (tableName === "custom_themes") cleanRow = quarantineProfileThemeRow(cleanRow);
+            if (tableName === "prompt_presets") {
+              cleanRow = normalizeProfilePromptPresetRow(cleanRow, localStockPresetId);
+            }
             const insert = tx.insert(table as any).values(cleanRow as any) as any;
             const conflictTarget = schemaPrimaryKeyColumn(table);
             if (conflictTarget) {

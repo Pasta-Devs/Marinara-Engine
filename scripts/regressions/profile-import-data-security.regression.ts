@@ -84,6 +84,30 @@ try {
       connectionFixture("changed-embedding", { embeddingBaseUrl: "https://trusted.example/embeddings" }),
     ];
     await db.insert(schema.apiConnections).values(existingFixtures as never);
+    const promptPresetFixture = (id: string, name: string) => ({
+      id,
+      name,
+      description: "",
+      imagePath: null,
+      conversationPrompt: "",
+      gamePrompt: "",
+      sectionOrder: "[]",
+      groupOrder: "[]",
+      variableGroups: "[]",
+      variableValues: "{}",
+      parameters: "{}",
+      wrapFormat: "xml",
+      defaultChoices: "{}",
+      isDefault: "false",
+      author: "Marinara",
+      systemKey: "marinara-universal-preset",
+      embedding: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    const localStockPreset = promptPresetFixture("local-stock-preset", "Marinara's Universal Preset");
+    const importedStockCopy = promptPresetFixture("imported-stock-copy", "Marinara's Universal Preset");
+    await db.insert(schema.promptPresets).values(localStockPreset);
     const storedConnections = (await db.select().from(schema.apiConnections)) as Array<Record<string, unknown>>;
     const storedById = new Map(storedConnections.map((row) => [row.id, row]));
     const importedConnection = (id: string, overrides: Record<string, unknown> = {}) => {
@@ -198,6 +222,7 @@ try {
           version: 1,
           tables: {
             api_connections: importedConnections,
+            prompt_presets: [importedStockCopy],
             mari_instructions: [importedInstruction],
             custom_themes: [importedTheme],
             custom_tools: [importedTool],
@@ -216,6 +241,7 @@ try {
     assert.equal(previewResponse.statusCode, 200, previewResponse.body);
     const preview = previewResponse.json();
     assert.equal(preview.imported.connections, 6);
+    assert.equal(preview.imported.presets, 1);
     assert.equal(preview.imported.customTools, 1);
     assert.equal(preview.imported.mariInstructions, 1);
     assert.equal(preview.imported.personalExtensions, 2);
@@ -238,6 +264,17 @@ try {
     const afterImport = (await db.select().from(schema.apiConnections)) as Array<Record<string, unknown>>;
     const afterById = new Map(afterImport.map((row) => [row.id, row]));
     const connections = connectionsModule.createConnectionsStorage(db);
+    const importedPresets = await db.select().from(schema.promptPresets);
+    assert.equal(
+      importedPresets.find((preset) => preset.id === localStockPreset.id)?.systemKey,
+      "marinara-universal-preset",
+      "the local canonical Universal Preset must stay protected",
+    );
+    assert.equal(
+      importedPresets.find((preset) => preset.id === importedStockCopy.id)?.systemKey,
+      "",
+      "a foreign Universal Preset copy must import as an editable, deletable preset",
+    );
     const sameIdentity = afterById.get("same-identity")!;
     assert.equal(
       cryptoModule.decryptApiKey(String(sameIdentity.apiKeyEncrypted)),

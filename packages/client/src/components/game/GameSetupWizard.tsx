@@ -41,6 +41,7 @@ import {
   Download,
   CheckCircle2,
   ChevronDown,
+  Timer,
 } from "lucide-react";
 import {
   ANIME_GAME_PROMPT_TEMPLATE_ID,
@@ -516,6 +517,7 @@ export function GameSetupWizard({
   const [enableSpriteGeneration, setEnableSpriteGeneration] = useState(false);
   const [gameImageDynamicPromptEnabled, setGameImageDynamicPromptEnabled] = useState(false);
   const [enableAgents, setEnableAgents] = useState(false);
+  const [enableQuickTimeEvents, setEnableQuickTimeEvents] = useState(true);
   const [enableSpotifyDj, setEnableSpotifyDj] = useState(false);
   const [gameSpotifySourceType, setGameSpotifySourceType] = useState<GameSpotifySourceType>("liked");
   const [gameSpotifyPlaylistId, setGameSpotifyPlaylistId] = useState("");
@@ -1075,6 +1077,7 @@ export function GameSetupWizard({
           config.gameWorldMapMode === "hierarchical" ||
           Boolean(config.spatialMapInstructions?.trim()),
       );
+      setEnableQuickTimeEvents(config.enableQuickTimeEvents !== false);
       setEnableSpriteGeneration(visualGenerationEnabled);
       setGameImageDynamicPromptEnabled(config.gameImageDynamicPromptEnabled === true);
       setImageConnectionId(config.imageConnectionId ?? null);
@@ -1181,6 +1184,7 @@ export function GameSetupWizard({
       personaId: personaId ?? undefined,
       sceneConnectionId: sceneModelValue && sceneModelValue !== "local" ? sceneModelValue : undefined,
       enableAgents: enableAgents || undefined,
+      enableQuickTimeEvents: enableQuickTimeEvents ? undefined : false,
       enableSpriteGeneration: illustratorEnabled,
       gameImageDynamicPromptEnabled: illustratorEnabled && gameImageDynamicPromptEnabled,
       imageConnectionId: illustratorEnabled && imageConnectionId ? imageConnectionId : undefined,
@@ -2199,6 +2203,49 @@ export function GameSetupWizard({
                         {localizeUi("ui.game.gamesetupwizard.gameFeatures")}
                       </label>
                       <div className="space-y-2">
+                        <button
+                          type="button"
+                          aria-pressed={enableQuickTimeEvents}
+                          onClick={() => setEnableQuickTimeEvents((enabled) => !enabled)}
+                          className={cn(
+                            "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
+                            enableQuickTimeEvents
+                              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                              : "bg-[var(--secondary)] ring-1 ring-transparent hover:ring-[var(--border)]",
+                          )}
+                        >
+                          <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                            <Timer
+                              size={14}
+                              className={
+                                enableQuickTimeEvents ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"
+                              }
+                            />
+                            <span className="min-w-0">
+                              <span className="block text-xs font-medium text-[var(--foreground)]">
+                                {localizeUi("ui.game.gamesetupwizard.quickTimeEvents")}
+                              </span>
+                              <span className="block text-[0.575rem] text-[var(--muted-foreground)]">
+                                {localizeUi("ui.game.gamesetupwizard.quickTimeEventsDescription")}
+                              </span>
+                            </span>
+                          </span>
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                              enableQuickTimeEvents ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "block h-4 w-4 rounded-full bg-white transition-transform",
+                                enableQuickTimeEvents && "translate-x-3.5",
+                              )}
+                            />
+                          </span>
+                        </button>
+
                         {installedAgentsLoading ? (
                           <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border)] px-4 py-4 text-xs text-[var(--muted-foreground)]">
                             <Loader2 size={13} className="animate-spin" />

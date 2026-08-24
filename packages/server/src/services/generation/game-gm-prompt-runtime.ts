@@ -324,6 +324,7 @@ export async function injectGameGmPromptRuntime(args: {
     setting: (setupConfig?.setting as string) || "original",
     tone: (setupConfig?.tone as string) || "balanced",
     rating: (setupConfig?.rating as "sfw" | "nsfw") || "sfw",
+    enableQuickTimeEvents: setupConfig?.enableQuickTimeEvents !== false,
     campaignPlan: gameBlueprint?.campaignPlan ?? null,
     canGenerateBackgrounds:
       !!args.chatMetadata.enableSpriteGeneration &&

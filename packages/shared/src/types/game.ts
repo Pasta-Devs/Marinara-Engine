@@ -232,6 +232,8 @@ export interface GameSetupConfig {
   experienceConfig?: Record<string, unknown>;
   /** Enable installed agents and agent-driven Game Mode features for this game. */
   enableAgents?: boolean;
+  /** Let the GM offer timed reaction prompts. Defaults to true. */
+  enableQuickTimeEvents?: boolean;
   /** Enable automatic sprite generation for characters using image model */
   enableSpriteGeneration?: boolean;
   /** Ask the configured prompt model to rewrite Game Illustrator prompts before image generation. */

@@ -19,6 +19,8 @@ import {
 import { useAgentStore } from "../../packages/client/src/stores/agent.store.js";
 import { agentResultMatchesVisibleSwipe } from "../../packages/client/src/lib/agent-result-ownership.js";
 import { createAgentEventDispatcher } from "../../packages/server/src/services/generation/agent-event-dispatcher.js";
+import { buildGmFormatReminder } from "../../packages/server/src/services/game/gm-prompts.js";
+import { formatInitialGameGmConnectionError } from "../../packages/server/src/services/game/initial-game-setup.js";
 import { resolveMacrosForPreview } from "../../packages/server/src/services/prompt/macro-context.js";
 import {
   isStockMarinaraUniversalPreset,
@@ -30,6 +32,53 @@ import {
 } from "../../packages/shared/src/types/game.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
+
+const gameFormatContext = {
+  hasSceneModel: false,
+  canGenerateBackgrounds: false,
+  artStylePrompt: undefined,
+  hudWidgets: [],
+  turnNumber: 1,
+  gameActiveState: "exploration" as const,
+  sessionNumber: 1,
+  gameTime: "Day 1, 09:00",
+  map: null,
+  partyNames: [],
+  playerName: "Mari",
+  characterSprites: [],
+  playerInventory: [],
+  language: "English",
+  rating: "sfw" as const,
+  gameSpecialInstructions: null,
+};
+assert.match(
+  buildGmFormatReminder(gameFormatContext),
+  /\[qte:/u,
+  "legacy and default game setups continue offering Quick Time Events",
+);
+assert.doesNotMatch(
+  buildGmFormatReminder({ ...gameFormatContext, enableQuickTimeEvents: false }),
+  /\[qte:/u,
+  "disabling Quick Time Events removes the command from the provider prompt",
+);
+
+const refusedCause = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:1234"), {
+  code: "ECONNREFUSED",
+});
+const refusedConnectionError = new Error("fetch failed", { cause: refusedCause });
+assert.deepEqual(formatInitialGameGmConnectionError(refusedConnectionError), {
+  statusCode: 502,
+  message:
+    "The GM connection refused the request. Check that the provider is running and the connection URL is correct, then try again.",
+});
+assert.deepEqual(formatInitialGameGmConnectionError(new Error("Game setup timed out after 500 seconds")), {
+  statusCode: 504,
+  message: "The GM connection timed out. Check the connection and try again.",
+});
+assert.deepEqual(formatInitialGameGmConnectionError(new Error("fetch failed", { cause: new Error("bad port") })), {
+  statusCode: 502,
+  message: "The GM connection could not be reached. Check the connection and try again.",
+});
 
 const dispatchedAgentEvents: Array<Record<string, unknown>> = [];
 const immutableAgentOwnership = {

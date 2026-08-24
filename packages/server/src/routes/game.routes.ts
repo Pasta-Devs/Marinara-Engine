@@ -48,6 +48,7 @@ import {
 import { isDiceNotation, rollDice } from "../services/game/dice.service.js";
 import { jsonishLooksTruncated, parseGameJsonish } from "../services/game/jsonish.js";
 import {
+  formatInitialGameGmConnectionError,
   GAME_SETUP_GENERATION_TIMEOUT_MS,
   resolveInitialGameGmConnectionId,
 } from "../services/game/initial-game-setup.js";
@@ -1777,6 +1778,7 @@ const gameSetupConfigSchema = z.object({
     .optional(),
   sceneConnectionId: z.string().optional(),
   enableAgents: z.boolean().optional(),
+  enableQuickTimeEvents: z.boolean().optional(),
   enableSpriteGeneration: z.boolean().optional(),
   gameImageDynamicPromptEnabled: z.boolean().optional(),
   imageConnectionId: z.string().optional(),
@@ -6790,12 +6792,20 @@ export async function gameRoutes(app: FastifyInstance) {
     let setupFinishReason: ChatCompletionResult["finishReason"] | null = null;
 
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const result = await runGameChatComplete(
-        provider,
-        messages,
-        setupOptions,
-        attempt === 1 ? "Game setup" : "Game setup retry",
-      );
+      let result: ChatCompletionResult;
+      try {
+        result = await runGameChatComplete(
+          provider,
+          messages,
+          setupOptions,
+          attempt === 1 ? "Game setup" : "Game setup retry",
+        );
+      } catch (error) {
+        const failure = formatInitialGameGmConnectionError(error);
+        logger.warn(error, "[game/setup] GM connection failed");
+        reply.code(failure.statusCode).send({ error: failure.message });
+        return;
+      }
       setupFinishReason = result.finishReason;
       const setupExtraction = extractLeadingThinkingBlocks(
         result.content ?? "",

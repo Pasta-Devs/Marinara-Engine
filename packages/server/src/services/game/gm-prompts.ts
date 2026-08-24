@@ -51,6 +51,8 @@ export interface GmPromptContext {
   hudWidgets?: HudWidget[];
   /** Content rating: sfw or nsfw */
   rating?: "sfw" | "nsfw";
+  /** Whether the GM may emit timed reaction prompts. Defaults to true. */
+  enableQuickTimeEvents?: boolean;
   /** Whether a separate scene model handles bg, music, sfx, ambient, widgets, expressions */
   hasSceneModel?: boolean;
   /** Whether inline GM scene tags may request generated location backgrounds. */
@@ -620,6 +622,7 @@ export function buildGmFormatReminder(
     | "playerInventory"
     | "language"
     | "rating"
+    | "enableQuickTimeEvents"
     | "gameSpecialInstructions"
   > & {
     /** Special non-scene-advancing address mode inferred from the current player turn prefix. */
@@ -765,7 +768,11 @@ export function buildGmFormatReminder(
   }
 
   lines.push(
-    `- [qte: action1|action2|action3, timer: 6s] - only as the final thing in the turn when the player must react to an immediate timed prompt or split-second action. Stop immediately after this tag: choosing an action commits the player's next turn.`,
+    ...(ctx.enableQuickTimeEvents === false
+      ? []
+      : [
+          `- [qte: action1|action2|action3, timer: 6s] - only as the final thing in the turn when the player must react to an immediate timed prompt or split-second action. Stop immediately after this tag: choosing an action commits the player's next turn.`,
+        ]),
     ...(ctx.map?.type === "node"
       ? [
           `- [map_update: new_location="Location Name" connected_to="Previous Location Name" node_emoji="emoji"] - only when the party arrives at an entirely new location on the current node map.`,
