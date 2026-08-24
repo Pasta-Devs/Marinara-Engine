@@ -14,6 +14,8 @@ import {
   packagedAgentDefinitionsSchema,
   type CapabilityCatalog,
   type CapabilityCatalogPackage,
+  type StampedCapabilityCatalog,
+  type StampedCapabilityCatalogPackage,
   type PackagedAgentDefinition,
   type CapabilityPackageUpdate,
   type InstalledCapabilityPackage,
@@ -128,6 +130,52 @@ export function resolveCapabilityCatalogUrl(
   return match ? `${catalogRoot}/v${Number(match[1])}/catalog.json` : `${catalogRoot}/catalog.json`;
 }
 const CATALOG_URL = resolveCapabilityCatalogUrl();
+
+// Packages the catalog repo marks staging-only are cut from the published lanes
+// and emitted into an overlay under catalog/preview/ instead (Marinara-Agents
+// scripts/catalog-incomplete.mjs). Promotion copies staging to main verbatim, so
+// that overlay EXISTS on main and serves 200 there — nothing on the catalog side
+// hides it. The only thing keeping an unreleased package away from a stable user
+// is this Engine declining to build the URL.
+const PREVIEW_CATALOG_SEGMENT = "preview";
+
+/** Whether this Engine may read the staging preview overlay.
+ *
+ *  Deliberately NOT `resolveOfficialAgentBranch() === "staging"`. That helper is
+ *  deny-list shaped — anything that is not `main`, `hotfix/*`, or a release tag
+ *  resolves to "staging" — so a checkout on a branch named `master` (which the
+ *  launchers themselves treat as a mainline name) would qualify. Being wrong
+ *  there merely hands someone a slightly newer package list; being wrong HERE
+ *  shows unreleased packages to a stable user, so this gate takes an exact
+ *  opt-in. Detached checkouts report no branch and are excluded, which costs a
+ *  detached staging tester their preview — the fail-hidden direction, and the
+ *  same way those checkouts already resolve for the published catalog. */
+export function isPreviewCatalogChannel(engineBranch: string | null = getBuildBranch()): boolean {
+  return engineBranch === "staging";
+}
+
+/** URL of the staging preview overlay, or null when this Engine must not read one.
+ *
+ *  Returns null rather than a URL for callers to filter later, so a stable Engine
+ *  never holds a preview URL at all and no later code path can fetch one by
+ *  mistake. Mirrors resolveCapabilityCatalogUrl's lane derivation, including its
+ *  fallback to the legacy alias for a non-release version string. */
+export function resolvePreviewCatalogUrl(
+  engineVersion: string = APP_VERSION,
+  configuredUrl: string | undefined = process.env.MARINARA_AGENT_CATALOG_URL,
+  previewChannel: boolean = isPreviewCatalogChannel(),
+): string | null {
+  // An explicit override IS the whole catalog. Synthesising a preview sibling for
+  // someone's local or forked catalog would fetch a URL they never pointed us at.
+  if (configuredUrl?.trim()) return null;
+  if (!previewChannel) return null;
+  // Only ever the staging branch: isPreviewCatalogChannel already required it.
+  const previewRoot = `${officialCatalogRoot("staging")}/${PREVIEW_CATALOG_SEGMENT}`;
+  const match = ENGINE_RELEASE_VERSION_PATTERN.exec(engineVersion.trim());
+  return match ? `${previewRoot}/v${Number(match[1])}/catalog.json` : `${previewRoot}/catalog.json`;
+}
+
+const PREVIEW_CATALOG_URL = resolvePreviewCatalogUrl();
 const MAX_ARTIFACT_BYTES = 100 * 1024 * 1024;
 const MAX_EXPANDED_BYTES = 250 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 8_192;
@@ -645,23 +693,80 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
   }
 }
 
-export const capabilityPackageManager = {
-  async catalog(fetchCatalog: typeof safeFetch = safeFetch): Promise<CapabilityCatalog> {
-    const response = await fetchCatalog(CATALOG_URL, {
-      policy: { allowedProtocols: ["https:"] },
-      maxResponseBytes: 2 * 1024 * 1024,
-      allowedContentTypes: ["application/json", "text/plain"],
-      // The fixed catalog remains size-capped and must pass its Zod schema even
-      // when a network intermediary strips the Content-Type header.
-      allowMissingContentType: true,
-      decodeCompressedResponse: true,
-      headers: {
-        Accept: "application/json, text/plain;q=0.9",
-        "User-Agent": `MarinaraEngine/${APP_VERSION}`,
-      },
-      signal: AbortSignal.timeout(15_000),
-      agentOptions: { bodyTimeout: 15_000, headersTimeout: 15_000 },
+function fetchCatalogDocument(url: string, fetchCatalog: typeof safeFetch) {
+  return fetchCatalog(url, {
+    policy: { allowedProtocols: ["https:"] },
+    maxResponseBytes: 2 * 1024 * 1024,
+    allowedContentTypes: ["application/json", "text/plain"],
+    // The fixed catalog remains size-capped and must pass its Zod schema even
+    // when a network intermediary strips the Content-Type header. text/plain is
+    // also what raw.githubusercontent.com answers a missing overlay with, so the
+    // absent-overlay case reaches the status check instead of being rejected as
+    // a disallowed content type.
+    allowMissingContentType: true,
+    decodeCompressedResponse: true,
+    headers: {
+      Accept: "application/json, text/plain;q=0.9",
+      "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+    },
+    signal: AbortSignal.timeout(15_000),
+    agentOptions: { bodyTimeout: 15_000, headersTimeout: 15_000 },
+  });
+}
+
+/** Sort the merged catalog deterministically regardless of the server's locale. */
+const CATALOG_SORT_COLLATOR = new Intl.Collator("en");
+
+/** Staging-only entries from the preview overlay, or [] — never throws.
+ *
+ *  The overlay is absent whenever no package is marked staging-only, which is its
+ *  normal steady state, and raw.githubusercontent.com answers that with a 404.
+ *  catalog() has no cache and no stale fallback, so letting anything here
+ *  propagate would blank the Agents browser and the update prompter for every
+ *  package at once — an unreleased package is never worth that. */
+async function fetchPreviewCatalogPackages(
+  previewCatalogUrl: string | null,
+  fetchCatalog: typeof safeFetch,
+): Promise<CapabilityCatalogPackage[]> {
+  if (!previewCatalogUrl) return [];
+  try {
+    const response = await fetchCatalogDocument(previewCatalogUrl, fetchCatalog);
+    if (response.status === 404) {
+      logger.debug("No Agent preview overlay is published at %s", previewCatalogUrl);
+      return [];
+    }
+    if (!response.ok) {
+      logger.warn("Agent preview overlay request failed with HTTP %d", response.status);
+      return [];
+    }
+    const { catalog, droppedEntries, droppedIds } = parseCapabilityCatalogWithCompat(await response.json());
+    if (droppedEntries > 0) {
+      logger.warn(
+        "Skipped %d Agent preview overlay entr%s this Engine version cannot parse: %s",
+        droppedEntries,
+        droppedEntries === 1 ? "y" : "ies",
+        droppedIds.join(", "),
+      );
+    }
+    return catalog.packages.filter((entry) => {
+      // Dropped rather than fatal, unlike the published path: a tampered stable
+      // catalog must stop everything, but one bad preview entry must not.
+      const sourceIssue = getCapabilityPackageArtifactSourceIssue(entry, previewCatalogUrl);
+      if (sourceIssue) logger.warn("Ignoring an Agent preview overlay entry: %s", sourceIssue);
+      return !sourceIssue;
     });
+  } catch (error) {
+    logger.warn(error, "Could not read the Agent preview overlay; continuing with the published catalog");
+    return [];
+  }
+}
+
+export const capabilityPackageManager = {
+  async catalog(
+    fetchCatalog: typeof safeFetch = safeFetch,
+    previewCatalogUrl: string | null = PREVIEW_CATALOG_URL,
+  ): Promise<StampedCapabilityCatalog> {
+    const response = await fetchCatalogDocument(CATALOG_URL, fetchCatalog);
     if (!response.ok) throw new Error(`Catalog request failed with HTTP ${response.status}`);
     // Per-entry tolerant: a catalog entry built for a NEWER Engine (unknown
     // manifest keys under this Engine's strict schemas) is dropped with a log
@@ -680,19 +785,51 @@ export const capabilityPackageManager = {
       const sourceIssue = getCapabilityPackageArtifactSourceIssue(entry, CATALOG_URL);
       if (sourceIssue) throw new Error(sourceIssue);
     }
+    const publishedIds = new Set(catalog.packages.map((entry) => entry.manifest.id));
+    const previewPackages = (await fetchPreviewCatalogPackages(previewCatalogUrl, fetchCatalog)).filter((entry) => {
+      // The overlay only ever holds packages the published lanes do NOT carry, so
+      // an id in both means the catalog build is inconsistent. Keep what stable
+      // users already receive and carry on rather than failing the catalog.
+      if (!publishedIds.has(entry.manifest.id)) return true;
+      logger.warn(
+        "Agent preview overlay also lists published package %s; keeping the published entry",
+        entry.manifest.id,
+      );
+      return false;
+    });
+    const decorate = (
+      entry: CapabilityCatalogPackage,
+      sourceUrl: string,
+      preview: boolean,
+    ): StampedCapabilityCatalogPackage => ({
+      ...entry,
+      // Assigned here from the source URL and nowhere else. `preview` is absent
+      // from the strict downloaded-entry schema, so a published or custom
+      // catalog cannot ship an entry that claims preview provenance for itself
+      // and then ride through this spread.
+      ...(preview ? { preview: true as const } : {}),
+      iconUrl: resolveCapabilityPackageIconUrl(entry, sourceUrl),
+      artifact: {
+        ...entry.artifact,
+        url: resolveCapabilityPackageArtifactUrl(entry, sourceUrl),
+      },
+    });
+
     return {
       ...catalog,
       provenance: { kind: isOfficialCatalogUrl(CATALOG_URL) ? "official" : "custom", url: CATALOG_URL },
-      packages: catalog.packages
+      // Re-sorted because the two documents are each sorted only within
+      // themselves and the client renders catalog order as-is.
+      packages: [
+        ...catalog.packages.map((entry) => decorate(entry, CATALOG_URL, false)),
+        ...(previewCatalogUrl ? previewPackages.map((entry) => decorate(entry, previewCatalogUrl, true)) : []),
+      ]
         .filter((entry) => !NON_DOWNLOADABLE_CORE_PACKAGE_IDS.has(entry.manifest.id))
-        .map((entry) => ({
-          ...entry,
-          iconUrl: resolveCapabilityPackageIconUrl(entry, CATALOG_URL),
-          artifact: {
-            ...entry.artifact,
-            url: resolveCapabilityPackageArtifactUrl(entry, CATALOG_URL),
-          },
-        })),
+        .sort(
+          (left, right) =>
+            CATALOG_SORT_COLLATOR.compare(left.manifest.name, right.manifest.name) ||
+            CATALOG_SORT_COLLATOR.compare(left.manifest.id, right.manifest.id),
+        ),
     };
   },
 
@@ -916,7 +1053,11 @@ export const capabilityPackageManager = {
       return { migrated: false, legacy: false, complete: true };
     }
 
-    const catalog = await this.catalog();
+    // Published lanes only (preview overlay explicitly not fetched): this loop
+    // installs and activates EVERY entry it is handed, unattended, at startup.
+    // Merging staging-only packages in here would silently install every
+    // unfinished package on a tester's machine the first time they upgrade.
+    const catalog = await this.catalog(safeFetch, null);
     const installedById = new Map((await this.installed()).map((item) => [item.id, item]));
     for (const entry of catalog.packages) {
       if (installedById.get(entry.manifest.id)?.version === entry.manifest.version) continue;
@@ -942,7 +1083,9 @@ export const capabilityPackageManager = {
 
     const alreadyInstalled = (await this.installed()).some((item) => item.id === "noodle");
     if (!alreadyInstalled) {
-      const catalog = await this.catalog();
+      // Published lanes only, for the same reason as migrateLegacyAvailability:
+      // this path auto-installs what it finds without asking.
+      const catalog = await this.catalog(safeFetch, null);
       const entry = catalog.packages.find((candidate) => candidate.manifest.id === "noodle");
       if (!entry) {
         // Engine and Agents are published independently. Do not turn the short

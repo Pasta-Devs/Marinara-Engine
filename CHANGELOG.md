@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Staging-channel Engines now merge the Agents catalog preview overlay over the published catalog, so packages marked staging-only in the Agents repository reach testers while stable Engines never resolve the overlay URL at all and the unattended startup migrations never auto-install one (#5492).
 - Implemented {{lorebookSize::lorebookID}} macro, which resolves to the total number of entries inside a lorebook, when given its unique ID (#5464)
 - Game Setup now includes an on-by-default Quick Time Events switch; turning it off removes the timed-reaction command from GM prompts for that campaign (#5467).
 - Custom Agents can now opt into proposing complete character cards, which remain editable and require explicit approval before they are saved to the Characters library (#5456).

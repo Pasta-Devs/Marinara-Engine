@@ -441,6 +441,20 @@ export const packagedAgentDefinitionsSchema = z.array(packagedAgentDefinitionSch
 export type CapabilityPackageManifest = z.infer<typeof capabilityPackageManifestSchema>;
 export type CapabilityCatalogPackage = z.infer<typeof capabilityCatalogPackageSchema>;
 export type CapabilityCatalog = z.infer<typeof capabilityCatalogSchema>;
+
+/** A catalog entry after the Engine has stamped where it came from.
+ *
+ *  `preview` marks an entry the Engine itself read from the staging preview
+ *  overlay. It is deliberately NOT part of the downloaded-entry schema above:
+ *  that schema is the contract for bytes we fetched, and accepting `preview`
+ *  there would let any published or custom catalog claim preview provenance for
+ *  its own entries. The Engine assigns it from the source URL and nowhere else,
+ *  so a value arriving on the wire is rejected by the strict entry schema and
+ *  can never reach a consumer. */
+export type StampedCapabilityCatalogPackage = CapabilityCatalogPackage & { preview?: true };
+export type StampedCapabilityCatalog = Omit<CapabilityCatalog, "packages"> & {
+  packages: StampedCapabilityCatalogPackage[];
+};
 export type InstalledCapabilityPackage = z.infer<typeof installedCapabilityPackageSchema>;
 export type PackagedAgentDefinition = z.infer<typeof packagedAgentDefinitionSchema>;
 

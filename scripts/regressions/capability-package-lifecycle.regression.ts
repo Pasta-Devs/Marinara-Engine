@@ -551,6 +551,10 @@ try {
   const stagingCatalogUrl = resolveCapabilityCatalogUrl("development", "", "staging");
   const activeCatalogUrl = resolveCapabilityCatalogUrl();
   let requestedCatalogUrl: string | URL | undefined;
+  // The explicit null preview URL keeps this block pinning the PUBLISHED catalog
+  // selection: run from a `staging` checkout the preview overlay fetch would
+  // otherwise land second and overwrite requestedCatalogUrl. Overlay behaviour
+  // has its own coverage in capability-preview-overlay.regression.ts.
   const normalizedCatalog = await capabilityPackageManager.catalog(async (url) => {
     requestedCatalogUrl = url;
     return new Response(
@@ -561,7 +565,7 @@ try {
       }),
       { status: 200, headers: { "content-type": "application/json" } },
     );
-  });
+  }, null);
   assert.equal(
     requestedCatalogUrl,
     activeCatalogUrl,
