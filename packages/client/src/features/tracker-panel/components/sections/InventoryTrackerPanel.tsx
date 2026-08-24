@@ -195,6 +195,7 @@ export function InventoryTrackerPanel({
   onUpdateInventory,
   deleteMode,
   addMode,
+  header,
   collapsed = false,
   onToggleCollapsed,
 }: {
@@ -207,6 +208,7 @@ export function InventoryTrackerPanel({
   onUpdateInventory: (rows: InventoryTrackerRow[]) => void;
   deleteMode: boolean;
   addMode: boolean;
+  header?: ReactNode;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }) {
@@ -218,14 +220,16 @@ export function InventoryTrackerPanel({
     <section className="@container relative z-10 overflow-hidden border-b border-[var(--border)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_10%,transparent))]">
       <TrackerReadabilityVeil strength="strong" />
       <div className="relative z-10">
-        <SectionHeader
-          icon={<Backpack size="0.6875rem" />}
-          title={localizeUi("ui.trackerPanel.inventoryTracker.title")}
-          badge={currencies.length + equipped.length + inventory.length}
-          action={action}
-          collapsed={collapsed}
-          onToggle={onToggleCollapsed}
-        />
+        {header ?? (
+          <SectionHeader
+            icon={<Backpack size="0.6875rem" />}
+            title={localizeUi("ui.trackerPanel.inventoryTracker.title")}
+            badge={currencies.length + equipped.length + inventory.length}
+            action={action}
+            collapsed={collapsed}
+            onToggle={onToggleCollapsed}
+          />
+        )}
         {!collapsed && (
           // Groups stack full-width. Splitting the panel into three columns gave the
           // longest group a third of the width and truncated its names, while a group

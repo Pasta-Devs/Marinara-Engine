@@ -3960,6 +3960,7 @@
   "ui.chat.questcardeditable.questName": "Quest name",
   "ui.chat.questcardeditable.removeQuest": "Remove quest",
   "ui.chat.questcardeditable.value1Completion": "{{value1}} completion",
+  "ui.chat.questspanel.quests": "Quests",
   "ui.chat.questswidget.activeQuests": "Active Quests",
   "ui.chat.questswidget.loadingQuests": "Loading quests…",
   "ui.chat.quickconnectionswitcher.clickToAddToRandomPool": "Click to add to random pool",

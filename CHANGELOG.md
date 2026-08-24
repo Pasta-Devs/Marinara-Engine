@@ -38,6 +38,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Roleplay tracker controls now keep World State compact until it has content; Persona Stats, Inventory, Quests, and Custom popovers share the established header order, styling, accent treatment, and count-free titles (#5488, Pasta-Devs/Marinara-Agents#549).
 - Adding Memory Nag to a Roleplay chat now explains how to create its initial memories, then opens and scrolls to its Agent Settings menu after confirmation (#5484).
 - Download Agents now styles its trusted-code permission notice with the configured accent instead of a hard-coded amber warning box.
 - Fixed the dev server and Playwright webServer failing to start on Windows with standalone pnpm installs: the pnpm runner now detects that `npm_execpath` points at a native `pnpm.exe` binary — which Node cannot execute — and falls back to invoking pnpm through `ComSpec` instead of crashing with `SyntaxError: Invalid or unexpected token` on the PE header.

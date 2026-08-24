@@ -10,6 +10,7 @@ const inventoryTracker = readSource(
   "packages/client/src/features/tracker-panel/components/sections/InventoryTrackerPanel.tsx",
 );
 const roleplayHud = readSource("packages/client/src/components/chat/RoleplayHUD.tsx");
+const roleplayPanels = readSource("packages/client/src/components/chat/RoleplayHUDPanels.tsx");
 const appShell = readSource("packages/client/src/components/layout/AppShell.tsx");
 const trackerHeader = readSource("packages/client/src/features/tracker-panel/components/TrackerSidebarHeader.tsx");
 const uiStore = readSource("packages/client/src/stores/ui.store.ts");
@@ -20,9 +21,7 @@ const chatBranchSelector = readSource("packages/client/src/components/chat/ChatB
 const conversationView = readSource("packages/client/src/components/chat/ConversationView.tsx");
 const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
 const translationSection = readSource("packages/client/src/features/chat-settings/sections/TranslationSection.tsx");
-const discordMirrorSection = readSource(
-  "packages/client/src/features/chat-settings/sections/DiscordMirrorSection.tsx",
-);
+const discordMirrorSection = readSource("packages/client/src/features/chat-settings/sections/DiscordMirrorSection.tsx");
 const gameExtraPromptSection = readSource(
   "packages/client/src/features/chat-settings/sections/GameExtraPromptSection.tsx",
 );
@@ -78,6 +77,31 @@ assert.match(
   roleplayHud,
   /className: compact \? CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS : undefined/u,
   "downloadable tracker controls must receive the built-in mobile toolbar height",
+);
+assert.match(
+  roleplayHud,
+  /const hasWorldState =[\s\S]*!hasWorldState \?[\s\S]*marinara-app-accent-static/u,
+  "World State must stay a standard accent icon until it has generated content",
+);
+assert.match(
+  roleplayPanels,
+  /export function PersonaStatsPanel[\s\S]*NEUTRAL_PANEL_HEADER[\s\S]*PersonaStatusField/u,
+  "Persona Stats must place Current Status below its panel header",
+);
+assert.match(
+  roleplayPanels,
+  /header=\{[\s\S]*NEUTRAL_PANEL_HEADER[\s\S]*Backpack[\s\S]*marinara-app-accent-static/u,
+  "the Inventory HUD popover must reuse the neutral header with an accent backpack",
+);
+assert.equal(
+  (roleplayPanels.match(/ui\.chat\.combinedplayerpanel\.quests/gu) ?? []).length,
+  1,
+  "only the combined mobile panel may keep the counted Quests title",
+);
+assert.doesNotMatch(
+  roleplayPanels,
+  /ui\.chat\.customtrackerpanel\.customTrackerValue1/u,
+  "the Custom HUD popover must not append a count to its title",
 );
 assert.match(
   chatGallery,

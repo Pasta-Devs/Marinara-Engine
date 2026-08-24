@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import {
   CalendarDays,
+  Backpack,
   BarChart3,
   CheckCircle2,
   Circle,
@@ -95,6 +96,17 @@ export function RoleplayInventoryTrackerPanel({
   isTrackerRetryBusy?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const action = (
+    <span className="flex items-center gap-0.5">
+      <TrackerSectionRefresh
+        agentType="inventory-tracker"
+        onRerunSingleTracker={onRerunSingleTracker}
+        busy={isTrackerRetryBusy}
+        title={localizeUi("ui.chat.inventoryTracker.reRun")}
+      />
+      <HudLockModeToggle />
+    </span>
+  );
   return (
     <InventoryTrackerGridPanel
       currencies={currencies}
@@ -105,16 +117,14 @@ export function RoleplayInventoryTrackerPanel({
       onUpdateInventory={onUpdateInventory}
       deleteMode
       addMode
-      action={
-        <span className="flex items-center gap-0.5">
-          <TrackerSectionRefresh
-            agentType="inventory-tracker"
-            onRerunSingleTracker={onRerunSingleTracker}
-            busy={isTrackerRetryBusy}
-            title={localizeUi("ui.chat.inventoryTracker.reRun")}
-          />
-          <HudLockModeToggle />
-        </span>
+      header={
+        <div className={cn(NEUTRAL_PANEL_HEADER, "flex items-center justify-between")}>
+          <span className={NEUTRAL_PANEL_TITLE}>
+            <Backpack size="0.625rem" className="text-[var(--marinara-app-accent-static)]" />
+            {localizeUi("ui.chat.inventoryTracker.title")}
+          </span>
+          {action}
+        </div>
       }
     />
   );
@@ -843,14 +853,6 @@ export function PersonaStatsPanel({
 
   return (
     <>
-      <div className="border-b border-[var(--border)] p-2">
-        <PersonaStatusField
-          value={status}
-          onSave={onUpdateStatus}
-          locked={statusLock.locked}
-          onToggleLock={statusLock.onToggle}
-        />
-      </div>
       <div className={cn(NEUTRAL_PANEL_HEADER, "flex items-center justify-between")}>
         <span className={NEUTRAL_PANEL_TITLE}>
           <BarChart3 size="0.625rem" className="text-[var(--marinara-chat-chrome-accent)]" />
@@ -865,6 +867,14 @@ export function PersonaStatsPanel({
           />
           <HudLockModeToggle />
         </span>
+      </div>
+      <div className="border-b border-[var(--border)] p-2">
+        <PersonaStatusField
+          value={status}
+          onSave={onUpdateStatus}
+          locked={statusLock.locked}
+          onToggleLock={statusLock.onToggle}
+        />
       </div>
       <div className="p-2 space-y-2">
         {bars.map((bar, idx) => {
@@ -1277,8 +1287,7 @@ export function QuestsPanel({ quests, onUpdate, onRerunSingleTracker, isTrackerR
       <div className={cn(NEUTRAL_PANEL_HEADER, "flex items-center justify-between")}>
         <span className={NEUTRAL_PANEL_TITLE}>
           <Scroll size="0.625rem" className="text-[var(--marinara-chat-chrome-accent)]" />{" "}
-          {localizeUi("ui.chat.combinedplayerpanel.quests")}
-          {quests.length})
+          {localizeUi("ui.chat.questspanel.quests")}
         </span>
         <span className="flex items-center gap-1">
           <TrackerSectionRefresh
@@ -1359,7 +1368,7 @@ export function CustomTrackerPanel({
       <div className={cn(NEUTRAL_PANEL_HEADER, "flex items-center justify-between")}>
         <span className={NEUTRAL_PANEL_TITLE}>
           <SlidersHorizontal size="0.625rem" className="text-[var(--marinara-chat-chrome-accent)]" />{" "}
-          {localizeUi("ui.chat.customtrackerpanel.customTrackerValue1", { value1: fields.length })}
+          {localizeUi("ui.chat.customtrackerwidget.customTracker")}
         </span>
         <span className="flex items-center gap-1">
           <TrackerSectionRefresh
