@@ -1592,20 +1592,6 @@ function MetadataTab({
         helpText={CHARACTER_METADATA_HELP}
       />
 
-      <div className="space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          {t("editor.avatar.label")}
-          <HelpTooltip text={t("editor.avatar.character.help")} />
-        </span>
-        <AvatarReplaceActions
-          hasAvatar={Boolean(avatarPreview)}
-          uploading={avatarUploading}
-          generationAvailable={imageGenerationAvailable}
-          onUpload={onSelectAvatar}
-          onGenerate={onGenerateAvatar}
-        />
-      </div>
-
       {characterId && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 px-3 py-2">
           <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
@@ -1630,17 +1616,32 @@ function MetadataTab({
         </div>
       )}
 
-      {/* Avatar Crop */}
-      {avatarPreview && (
-        <AvatarCropWidget
-          src={avatarPreview}
-          alt={formData.name}
-          crop={savedCrop}
-          onChange={(next) => updateExtension("avatarCrop", next)}
-          onRemove={onRemoveAvatar}
-          removing={removingAvatar}
+      <div className="space-y-1.5">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+          {t("editor.avatar.label")}
+          <HelpTooltip text={t("editor.avatar.character.help")} />
+        </span>
+
+        {/* Avatar Crop */}
+        {avatarPreview && (
+          <AvatarCropWidget
+            src={avatarPreview}
+            alt={formData.name}
+            crop={savedCrop}
+            onChange={(next) => updateExtension("avatarCrop", next)}
+            onRemove={onRemoveAvatar}
+            removing={removingAvatar}
+          />
+        )}
+
+        <AvatarReplaceActions
+          hasAvatar={Boolean(avatarPreview)}
+          uploading={avatarUploading}
+          generationAvailable={imageGenerationAvailable}
+          onUpload={onSelectAvatar}
+          onGenerate={onGenerateAvatar}
         />
-      )}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-1.5 sm:col-span-2">
