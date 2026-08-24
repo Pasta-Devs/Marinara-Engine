@@ -2832,6 +2832,21 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "lorebook size macros resolve known counts and treat inherited object keys as unknown IDs",
+    run() {
+      const context: MacroContext = {
+        user: "Mari",
+        char: "Dottore",
+        characters: ["Dottore"],
+        variables: {},
+        lorebookEntryCounts: { "V1StGXR8_Z5jdHi6B-myT": 151 },
+      };
+      assert.equal(resolveMacros("{{lorebooksize::V1StGXR8_Z5jdHi6B-myT}}", context), "151");
+      assert.equal(resolveMacros("{{lorebooksize::missing}}", context), "0");
+      assert.equal(resolveMacros("{{lorebooksize::constructor}}", context), "0");
+    },
+  },
+  {
     name: "phonetic name macros fall back to visible names",
     run() {
       assert.equal(

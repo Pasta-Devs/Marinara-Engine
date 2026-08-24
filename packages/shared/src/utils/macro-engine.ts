@@ -2355,7 +2355,8 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   // Resolves {{lorebooksize::ID}} to the total number of entries in the
   // referenced lorebook. Unknown IDs resolve to 0.
   result = result.replace(/\{\{lorebooksize::([\w-]+)\}\}/gi, (_, id) => {
-    return String(ctx.lorebookEntryCounts?.[id] ?? 0);
+    const counts = ctx.lorebookEntryCounts;
+    return counts && Object.prototype.hasOwnProperty.call(counts, id) ? String(counts[id]) : "0";
   });
 
   if (options.trimResult !== false) {
