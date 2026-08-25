@@ -200,6 +200,10 @@ export function professorMariWorkspaceResponseFormat(provider: string): ChatOpti
 }
 
 export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
+  "chat.list",
+  "chat.get",
+  "chat.messages",
+  "chat.search",
   "character.list",
   "character.get",
   "character.search",
@@ -442,7 +446,7 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
   {
     name: "app_data",
     description:
-      'Read or change live app data through structured actions, without shell commands. Use this for characters, character folders, personas, lorebooks, lorebook entries, entry folders inside a lorebook, Lorebooks-panel library folders, themes, Personal Extension drafts, agents, prompt presets, and safe data-only Home widgets. lorebook.entries returns entry summaries; call lorebook.getEntry with entryId to read one complete entry body. Single-item reads (e.g. character.get) are size-bounded: oversized fields come back elided with a note naming each one — re-read any elided field in full by passing field="<path>" (e.g. field="data.alternate_greetings[0]"), optionally with offset to page through a long value.',
+      'Read or change live app data through structured actions, without shell commands. Use this for chats, characters, character folders, personas, lorebooks, lorebook entries, entry folders inside a lorebook, Lorebooks-panel library folders, themes, Personal Extension drafts, agents, prompt presets, and safe data-only Home widgets. lorebook.entries returns entry summaries; call lorebook.getEntry with entryId to read one complete entry body. Single-item reads (e.g. character.get) are size-bounded: oversized fields come back elided with a note naming each one — re-read any elided field in full by passing field="<path>" (e.g. field="data.alternate_greetings[0]"), optionally with offset to page through a long value.',
     parameters: {
       type: "object",
       properties: {
@@ -451,6 +455,7 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           enum: PROFESSOR_MARI_APP_DATA_ACTIONS,
         },
         id: { type: "string" },
+        chatId: { type: "string" },
         characterId: { type: "string" },
         folderId: { type: "string" },
         folderName: { type: "string" },
@@ -464,6 +469,9 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
         extensionId: { type: "string" },
         query: { type: "string" },
         limit: { type: "integer", minimum: 1 },
+        last: { type: "integer", minimum: 1, maximum: 200 },
+        afterPost: { type: "integer", minimum: 0 },
+        tail: { type: "boolean" },
         field: {
           type: "string",
           description:
@@ -472,7 +480,7 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
         offset: {
           type: "integer",
           minimum: 0,
-          description: "Start character offset when paging through a field= read.",
+          description: "Start item offset for chat.messages, or character offset when paging through a field= read.",
         },
         name: { type: "string" },
         version: { type: "string" },
@@ -575,7 +583,7 @@ ${PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE}
 
 Workspace defaults:
 - Marinara's first-party agents and larger optional features are downloaded from **Agents → Download Agents**. Fresh installs start without them; maps, Conversation calls, and Conversation games are packages too. Tell users to install the desired package, enable it for the chat, and restart Marinara Engine when the catalog prompts them. Existing pre-package installs are migrated automatically without losing settings or history.
-- Use the structured \`app_data\` workspace command, not shell, for character/character-folder/persona/lorebook/lorebook-entry/theme/Personal Extension/agent/preset/Home-widget reads, creation, and updates.
+- Use the structured \`app_data\` workspace command, not shell, for chat reads and character/character-folder/persona/lorebook/lorebook-entry/theme/Personal Extension/agent/preset/Home-widget reads, creation, and updates.
 - When the user supplies a character or persona ID, call its exact \`get\` action directly. Do not list or search for a record whose type and ID are already known.
 - Use Mari CLI commands for images, wiki reads, code/workspace tasks, agents, tools, raw DB work, or anything \`app_data\` does not cover. Only write raw files when no CLI/helper path fits.
 - You may create and update Personal Extension drafts with \`personal_extension.create\` and \`personal_extension.update\`. These actions always disable changed code and clear its approval. Browser Extensions receive active chat and Character IDs through \`marinara.context\`; request \`read_active_characters\` or \`read_active_persona\` only when the extension truly needs bounded active-record fields. Never claim to approve, enable, or run an extension: only the user can review the exact code hash and requested permissions, then choose **Review and Run** in **Settings → Addons → Personal Extensions**.
@@ -594,7 +602,7 @@ Workspace defaults:
 - Character/persona updates are patches. Include only fields the user asked to change and leave every unrelated field out of the patch so it stays untouched. After writing, read the entity back and compare each requested field with the requested value; for an explicit clear, confirm the field is empty. Claim completion only when every requested value or clear operation matches; otherwise correct it before replying.
 
 Command families:
-- \`app_data\`: no-shell structured actions for characters, character folders, personas, lorebooks, lorebook entries, themes, Personal Extension drafts, agents, prompt presets, and safe data-only Home widgets. Prefer this before shell commands for those objects.
+- \`app_data\`: no-shell structured actions for chat reads, characters, character folders, personas, lorebooks, lorebook entries, themes, Personal Extension drafts, agents, prompt presets, and safe data-only Home widgets. Prefer this before shell commands for those objects.
 - \`mari db\`: generic live app data and storage-backed rows, including customization tables such as \`agent_configs\` and \`custom_tools\` when no narrower helper exists.
 - \`mari themes\`: synced custom themes and active theme state.
 - \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries.
@@ -666,7 +674,8 @@ Field rules:
 ${MARI_GUIDED_SEQUENCES}
 
 \`app_data\` quick reference:
-- Reads: \`character.list|get|search|folder.list\`, \`persona.list|active|get|search\`, \`lorebook.list|get|entries|getEntry|search|folder.list|libraryFolder.list\`, \`theme.list|active|get\`, \`personal_extension.list|get|search\`, \`agent.list|get|search\`, \`preset.list|get|search|sections|getSection|groups|getGroup|choiceBlocks|getChoiceBlock\`, \`home_widget.list|get\`, \`instruction.list|get\`.
+- Reads: \`chat.list|get|messages|search\`, \`character.list|get|search|folder.list\`, \`persona.list|active|get|search\`, \`lorebook.list|get|entries|getEntry|search|folder.list|libraryFolder.list\`, \`theme.list|active|get\`, \`personal_extension.list|get|search\`, \`agent.list|get|search\`, \`preset.list|get|search|sections|getSection|groups|getGroup|choiceBlocks|getChoiceBlock\`, \`home_widget.list|get\`, \`instruction.list|get\`.
+- Chat reading: use \`chat.messages\` with \`chatId\`; preserve user-requested bounds with \`last\` or \`afterPost\`, and page only inside that range with \`limit\` and \`offset\`.
 - Writes: \`character.create|update|moveToFolder\`, \`persona.create|update\`, \`lorebook.create|update|addEntry|updateEntry|deleteEntry|folder.create|libraryFolder.create\`, \`theme.create|update|setActive\`, \`personal_extension.create|update\`, \`agent.create|update\`, \`preset.create|update|addSection|updateSection|deleteSection|addGroup|updateGroup|deleteGroup|addChoiceBlock|updateChoiceBlock|deleteChoiceBlock\`, \`home_widget.create|update|delete\`, \`instruction.remember|update|forget\`.
 - Character folders: call \`character.folder.list\` to resolve the destination, then \`character.moveToFolder\` with \`characterId\` and either \`folderId\` or \`folderName\`. A move removes the character from its previous folder. When the user explicitly asks for the move, set \`apply:true\`, then verify with \`character.folder.list\`.
 - Lorebook folders are two separate things. Use \`lorebook.folder.list|create\` with \`lorebookId\` for folders that organize entries inside one book; pass \`parentFolderId\` only for a nested folder. Use \`lorebook.libraryFolder.list|create\` for folders shown in the main Lorebooks panel. Create requested folders with \`apply:true\`, then verify them with the matching list action.
@@ -1583,7 +1592,7 @@ function appDataActionLooksReadOnly(action: unknown): boolean {
     .trim()
     .toLowerCase()
     .replace(/[-_\s]+/g, "");
-  return /\.(list|get|getentry|search|active|entries|sections|getsection|groups|getgroup|choiceblocks|getchoiceblock)$/.test(
+  return /\.(list|get|getentry|search|active|entries|messages|sections|getsection|groups|getgroup|choiceblocks|getchoiceblock)$/.test(
     normalized,
   );
 }

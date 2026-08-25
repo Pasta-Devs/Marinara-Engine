@@ -367,10 +367,10 @@ interface GameNarrationProps {
   onSegmentChange?: (index: number) => void;
   /**
    * Called when narration is fully complete (all segments read, not streaming).
-   * `messageId` identifies which assistant message the completion refers to so the
+   * `turnKey` identifies which assistant message and swipe the completion refers to so the
    * caller can guard against stale narrationDone leaking from the previous turn.
    */
-  onNarrationComplete?: (complete: boolean, messageId: string | null) => void;
+  onNarrationComplete?: (complete: boolean, turnKey: string | null) => void;
   /** Slot rendered above the narration box (used for mobile widget icons) */
   widgetSlot?: ReactNode;
   /** Slot rendered above the narration box for GM choice cards */
@@ -2391,13 +2391,13 @@ export function GameNarration({
   // Notify parent about narration completion state. While reviewing the past via
   // wheel-nav, the past message will look "complete" — but it's not the present, so
   // suppress the notification to keep the parent's narrationDone state honest.
-  // Pass the active segment's source message ID so the parent can tell which message's
-  // typewriter the completion refers to (otherwise stale "done" from the previous turn
-  // can leak across to the new turn before this effect re-runs to push false).
+  // Pass the active assistant turn key so the parent can reject completion from
+  // another message or swipe.
+  const narrationKey = latestAssistant ? `${latestAssistant.id}:${latestAssistant.activeSwipeIndex ?? 0}` : null;
   useEffect(() => {
     if (messageOffset > 0) return;
-    onNarrationComplete?.(narrationComplete, activeSourceMessageId);
-  }, [messageOffset, narrationComplete, activeSourceMessageId, onNarrationComplete]);
+    onNarrationComplete?.(narrationComplete, narrationKey);
+  }, [messageOffset, narrationComplete, narrationKey, onNarrationComplete]);
 
   // Build log entries from the LAST scene — includes party chat & player action.
   // Entries are stored chronologically (oldest first, newest last).
@@ -2837,7 +2837,6 @@ export function GameNarration({
   const lastNarrationKeyRef = useRef<string | undefined>(undefined);
   const segmentChangeReady = useRef(false);
   const segmentEnterReady = useRef(false);
-  const narrationKey = latestAssistant ? `${latestAssistant.id}:${latestAssistant.activeSwipeIndex}` : null;
   const narrationMessageChanged = Boolean(narrationKey && narrationKey !== lastNarrationKeyRef.current);
   const gameInstantTextReveal = useUIStore((s) => s.gameInstantTextReveal);
   const reduceAmbientEffects = useReducedAmbientEffects();
@@ -2883,14 +2882,14 @@ export function GameNarration({
     const firstNarrationForChat = restoredChatIdRef.current !== currentChatId;
     const shouldRestorePosition = hasStoredNarrationPosition && firstNarrationForChat && segments.length > 0;
     if (shouldRestorePosition) {
-      // Jump to saved segment index (or last segment if saved index exceeds current
-      // segment count — party dialogue may not be restored yet).
+      // Jump to the saved segment index. A stale out-of-range cursor must restart
+      // rather than silently completing a shorter swipe.
       restoredRef.current = true;
       restoredChatIdRef.current = currentChatId;
       const targetIdx =
         restoredSegmentIndex != null && restoredSegmentIndex >= 0 && restoredSegmentIndex < segments.length
           ? restoredSegmentIndex
-          : segments.length - 1;
+          : 0;
       setActiveIndex(targetIdx);
       setVisibleChars(effectDisplayLength(segments[targetIdx]!.content));
       // Allow persistence and segment-enter AFTER the restore state settles

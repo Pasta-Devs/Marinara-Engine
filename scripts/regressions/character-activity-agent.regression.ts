@@ -8,11 +8,27 @@ import {
 } from "../../packages/shared/src/types/agent.js";
 import { CUSTOM_AGENT_RESULT_EXAMPLES } from "../../packages/client/src/lib/custom-agent-result-examples.js";
 import {
+  resolveActiveCharacterIds,
   resolveCharacterActivityUpdate,
   shouldRunCharacterActivityAgents,
 } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 
 const chatCharacterIds = ["char-a", "char-b", "char-c"];
+
+assert.deepEqual(
+  resolveActiveCharacterIds(chatCharacterIds, { inactiveCharacterIds: ["char-b"] }, { mode: "roleplay" }),
+  ["char-a", "char-c"],
+  "Disabled Roleplay characters must not be eligible for sequential replies",
+);
+assert.deepEqual(
+  resolveActiveCharacterIds(
+    chatCharacterIds,
+    { inactiveCharacterIds: ["char-b", "char-c"] },
+    { mode: "roleplay", allowEmpty: true },
+  ),
+  ["char-a"],
+  "A group chat must retain its sole enabled character",
+);
 
 assert.deepEqual(
   resolveCharacterActivityUpdate({ activeCharacterIds: ["char-c", "char-a", "char-a"] }, chatCharacterIds),
@@ -71,6 +87,11 @@ assert.ok(
   generateRouteSource.indexOf("eligibleCharacterActivityConfigs.length > 0") <
     generateRouteSource.indexOf("while (true)"),
   "Character routing must finish before the main prompt-assembly loop starts",
+);
+assert.match(
+  generateRouteSource,
+  /const isGroupChat = allCharacterIds\.length > 1;/u,
+  "Temporarily disabled characters must not collapse a group chat into single-character behavior",
 );
 
 console.log("Character activity agent regression checks passed.");

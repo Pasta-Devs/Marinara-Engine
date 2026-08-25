@@ -642,6 +642,8 @@ interface UIState {
   cardLibraryKind: CardLibraryKind;
   /** When true, the main area shows the full-page downloadable agent catalog */
   agentCatalogOpen: boolean;
+  /** Optional package selected when opening the downloadable agent catalog */
+  agentCatalogInitialPackageId: string | null;
   /** Last selected character card inside the full-page character library */
   characterLibrarySelectedId: string | null;
   /** Last selected persona card inside the full-page card library */
@@ -1037,7 +1039,7 @@ interface UIState {
   openCharacterLibrary: () => void;
   openPersonaLibrary: () => void;
   closeCharacterLibrary: () => void;
-  openAgentCatalog: () => void;
+  openAgentCatalog: (packageId?: string) => void;
   closeAgentCatalog: () => void;
   openBotBrowser: () => void;
   closeBotBrowser: () => void;
@@ -1456,6 +1458,7 @@ export const useUIStore = create<UIState>()(
       characterLibraryOpen: false,
       cardLibraryKind: "characters" as CardLibraryKind,
       agentCatalogOpen: false,
+      agentCatalogInitialPackageId: null,
       characterLibrarySelectedId: null,
       personaLibrarySelectedId: null,
       characterLibrarySort: "name-asc" as CharacterLibrarySort,
@@ -2079,9 +2082,10 @@ export const useUIStore = create<UIState>()(
           rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
         })),
       closeCharacterLibrary: () => set({ characterLibraryOpen: false }),
-      openAgentCatalog: () =>
+      openAgentCatalog: (packageId) =>
         set((state) => ({
           agentCatalogOpen: true,
+          agentCatalogInitialPackageId: packageId ?? null,
           characterLibraryOpen: false,
           characterDetailId: null,
           lorebookDetailId: null,
@@ -2100,7 +2104,7 @@ export const useUIStore = create<UIState>()(
           detailReturnRightPanel: null,
           rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
         })),
-      closeAgentCatalog: () => set({ agentCatalogOpen: false }),
+      closeAgentCatalog: () => set({ agentCatalogOpen: false, agentCatalogInitialPackageId: null }),
       openBotBrowser: () =>
         set({
           botBrowserOpen: true,

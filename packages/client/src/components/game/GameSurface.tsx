@@ -711,6 +711,25 @@ type StoredNarrationProgress = {
   messageId: string | null;
 };
 
+type NarrationTurnMessage = {
+  id?: string | null;
+  activeSwipeIndex?: number | null;
+};
+
+function narrationTurnKey(message: NarrationTurnMessage | null | undefined): string | null {
+  return message?.id ? `${message.id}:${message.activeSwipeIndex ?? 0}` : null;
+}
+
+function narrationProgressMatchesTurn(
+  storedMessageId: string | null,
+  message: NarrationTurnMessage | null | undefined,
+): boolean {
+  if (!storedMessageId || !message?.id) return false;
+  if (storedMessageId === narrationTurnKey(message)) return true;
+  // Read old id-only progress once for the original swipe, then persist the new key.
+  return (message.activeSwipeIndex ?? 0) === 0 && storedMessageId === message.id;
+}
+
 function parseStoredNarrationProgress(raw: string | null): StoredNarrationProgress | null {
   if (!raw) return null;
 
@@ -2969,16 +2988,16 @@ function GameSurfaceComponent({
   // still render party overlay boxes. Never set by a new-turn pipeline — the GM
   // now voices party members inline via the `[Name] [main] ...` format.
   const [partyChatMessageId, setPartyChatMessageId] = useState<string | null>(null);
-  // The active assistant message ID whose typewriter is currently complete, or null if
+  // The active assistant turn key whose typewriter is currently complete, or null if
   // either no message is finished typing or it's the *previous* turn's completion.
-  // We track the message ID rather than a boolean so a stale completion from the
+  // We track message ID and swipe rather than a boolean so a stale completion from the
   // previous turn cannot unlock interactions on the new turn — the derived
   // `narrationDone` flag below recomputes each render against the latest assistant
   // message, so encounter gates, choice rendering, map movement, inventory, etc. all
   // get the same scope-correct view of completion.
-  const [narrationDoneMsgId, setNarrationDoneMsgId] = useState<string | null>(null);
-  const handleNarrationComplete = useCallback((complete: boolean, messageId: string | null) => {
-    setNarrationDoneMsgId(complete ? messageId : null);
+  const [narrationDoneTurnKey, setNarrationDoneTurnKey] = useState<string | null>(null);
+  const handleNarrationComplete = useCallback((complete: boolean, turnKey: string | null) => {
+    setNarrationDoneTurnKey(complete ? turnKey : null);
   }, []);
   const [directionsPlaying, setDirectionsPlaying] = useState(false);
   const [pendingSegmentEffects, setPendingSegmentEffects] = useState<SceneSegmentEffect[]>([]);
@@ -3218,10 +3237,10 @@ function GameSurfaceComponent({
     () => messages.filter((m) => (m.role === "assistant" || m.role === "narrator") && !!m.content.trim()).length,
     [messages],
   );
-  const latestAssistantMessageIdForIntro = useMemo(() => {
+  const latestAssistantTurnForIntro = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i]!;
-      if (message.role === "assistant" || message.role === "narrator") return message.id;
+      if (message.role === "assistant" || message.role === "narrator") return message;
     }
     return null;
   }, [messages]);
@@ -3255,14 +3274,15 @@ function GameSurfaceComponent({
 
   useEffect(() => {
     let hasAdvancedNarrationProgress = false;
-    if (latestAssistantMessageIdForIntro) {
+    if (latestAssistantTurnForIntro) {
       const saved = readStoredNarrationProgress(activeChatId);
-      const savedAdvanced = !!saved && saved.messageId === latestAssistantMessageIdForIntro && saved.index > 0;
+      const savedAdvanced =
+        !!saved && narrationProgressMatchesTurn(saved.messageId, latestAssistantTurnForIntro) && saved.index > 0;
       const serverIdx = chatMeta.gameNarrationIndex;
       const serverMessageId =
         typeof chatMeta.gameNarrationMessageId === "string" ? chatMeta.gameNarrationMessageId : null;
       const serverAdvanced =
-        serverMessageId === latestAssistantMessageIdForIntro &&
+        narrationProgressMatchesTurn(serverMessageId, latestAssistantTurnForIntro) &&
         typeof serverIdx === "number" &&
         Number.isFinite(serverIdx) &&
         serverIdx > 0;
@@ -3281,7 +3301,7 @@ function GameSurfaceComponent({
     chatMeta.gameNarrationIndex,
     chatMeta.gameNarrationMessageId,
     introPresentationStorageKey,
-    latestAssistantMessageIdForIntro,
+    latestAssistantTurnForIntro,
   ]);
 
   useEffect(() => {
@@ -3330,7 +3350,7 @@ function GameSurfaceComponent({
     setCombatMusicTier(null);
     contextMusicRequestRef.current.clear();
     setCombatSpriteSuggestion(null);
-    setNarrationDoneMsgId(null);
+    setNarrationDoneTurnKey(null);
     lastProcessedMsgRef.current = null;
     // Reset inventory/readables for the new chat or game.
     setInventoryItems((chatMeta.gameInventory as Array<{ name: string; quantity: number }>) ?? []);
@@ -3937,6 +3957,7 @@ function GameSurfaceComponent({
     return null;
   }, [messages]);
   const latestAssistantSwipeIndex = latestAssistantMsg?.activeSwipeIndex ?? 0;
+  const latestAssistantTurnKey = narrationTurnKey(latestAssistantMsg);
   const turnStoryboardsQuery = useGameTurnStoryboards(
     activeChatId,
     latestAssistantMsg?.id,
@@ -3974,9 +3995,9 @@ function GameSurfaceComponent({
   // also defeat the undefined-vs-undefined edge case where both sides could otherwise
   // compare equal (Message.id is typed as optional) and silently unlock UI gates.
   const narrationDone =
-    typeof narrationDoneMsgId === "string" &&
-    typeof latestAssistantMsg?.id === "string" &&
-    narrationDoneMsgId === latestAssistantMsg.id;
+    typeof narrationDoneTurnKey === "string" &&
+    typeof latestAssistantTurnKey === "string" &&
+    narrationDoneTurnKey === latestAssistantTurnKey;
 
   const latestNarrationText = useMemo(() => {
     return buildStoryboardVisibleNarration(latestAssistantMsg, segmentEdits, segmentDeletes);
@@ -4522,8 +4543,8 @@ function GameSurfaceComponent({
       const suppressInteractiveCommands = interruptedInteractiveCommandKeysRef.current.has(
         interactiveCommandKey(activeChatId, latestAssistantMsg.id),
       );
+      setActiveChoices(!suppressInteractiveCommands && tags.choices ? tags.choices : null);
       if (!suppressInteractiveCommands) {
-        if (tags.choices) setActiveChoices(tags.choices);
         if (tags.qte && !hasQteResponseAfterMessage(latestAssistantMsg.id)) {
           setQueuedQte({ qte: tags.qte, messageId: latestAssistantMsg.id });
         }
@@ -4533,7 +4554,7 @@ function GameSurfaceComponent({
           setQueuedCombatGeneration({ messageId: latestAssistantMsg.id, notify: true });
         }
       }
-      lastProcessedMsgRef.current = latestAssistantMsg.id;
+      lastProcessedMsgRef.current = latestAssistantTurnKey;
       // Clear restored flag so subsequent new messages are processed normally
       // by processScene (which skips when isRestoredRef.current is true).
       isRestoredRef.current = false;
@@ -4543,6 +4564,7 @@ function GameSurfaceComponent({
     isMessagesLoading,
     latestAssistantMsg?.content,
     latestAssistantMsg?.id,
+    latestAssistantTurnKey,
     assetManifest,
     scopedAssetMap,
     chatMeta.gameSceneBackground,
@@ -4783,7 +4805,7 @@ function GameSurfaceComponent({
   // ── Persist narration segment index (localStorage for instant reads + server for durability) ──
   const segmentStorageKey = `narration-idx:${activeChatId}`;
   const segmentPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const narrationProgressMessageId = latestAssistantMsg?.id ?? null;
+  const narrationProgressMessageId = latestAssistantTurnKey;
   const handleSegmentChange = useCallback(
     (index: number) => {
       try {
@@ -4831,10 +4853,9 @@ function GameSurfaceComponent({
   // Read the saved narration index for restore — prefer localStorage (fast, survives
   // browser restarts) for instant restore, fall back to server metadata.
   const restoredNarrationState = useMemo(() => {
-    const currentMessageId = latestAssistantMsg?.id ?? null;
     try {
       const saved = parseStoredNarrationProgress(localStorage.getItem(segmentStorageKey));
-      if (saved && saved.messageId && currentMessageId && saved.messageId === currentMessageId) {
+      if (saved && narrationProgressMatchesTurn(saved.messageId, latestAssistantMsg)) {
         return { index: saved.index, hasStoredPosition: true };
       }
     } catch {
@@ -4845,8 +4866,7 @@ function GameSurfaceComponent({
     const serverMessageId =
       typeof chatMeta.gameNarrationMessageId === "string" ? chatMeta.gameNarrationMessageId : null;
     if (
-      currentMessageId &&
-      serverMessageId === currentMessageId &&
+      narrationProgressMatchesTurn(serverMessageId, latestAssistantMsg) &&
       typeof serverIdx === "number" &&
       Number.isFinite(serverIdx) &&
       serverIdx >= 0
@@ -4854,7 +4874,7 @@ function GameSurfaceComponent({
       return { index: serverIdx, hasStoredPosition: true };
     }
     return { index: 0, hasStoredPosition: false };
-  }, [segmentStorageKey, latestAssistantMsg?.id, chatMeta.gameNarrationIndex, chatMeta.gameNarrationMessageId]);
+  }, [segmentStorageKey, latestAssistantMsg, chatMeta.gameNarrationIndex, chatMeta.gameNarrationMessageId]);
 
   const restoredSegmentIndex = restoredNarrationState.index;
   useEffect(() => {
@@ -4936,17 +4956,19 @@ function GameSurfaceComponent({
       console.warn("[scene-process] No message content yet, skipping");
       return;
     }
-    if (lastProcessedMsgRef.current === msg.id) return;
+    const turnKey = narrationTurnKey(msg);
+    if (lastProcessedMsgRef.current === turnKey) return;
     if (isRestoredRef.current) {
-      lastProcessedMsgRef.current = msg.id;
+      lastProcessedMsgRef.current = turnKey;
       return;
     }
 
     const assets = getScopedAssetMap();
 
     console.warn("[scene-process] FIRING for message:", msg.id, "| assets:", !!assets);
-    lastProcessedMsgRef.current = msg.id;
-    setNarrationDoneMsgId(null);
+    lastProcessedMsgRef.current = turnKey;
+    setNarrationDoneTurnKey(null);
+    setActiveChoices(null);
     setSceneAnalysisFailed(false);
     setPartyDialogue([]);
     setPartyChatMessageId(null);
@@ -4971,13 +4993,13 @@ function GameSurfaceComponent({
     try {
       localStorage.setItem(
         segmentStorageKey,
-        JSON.stringify({ index: 0, messageId: msg.id } satisfies StoredNarrationProgress),
+        JSON.stringify({ index: 0, messageId: turnKey } satisfies StoredNarrationProgress),
       );
     } catch {
       /* ignore */
     }
     api
-      .patch(`/chats/${activeChatId}/metadata`, { gameNarrationIndex: 0, gameNarrationMessageId: msg.id })
+      .patch(`/chats/${activeChatId}/metadata`, { gameNarrationIndex: 0, gameNarrationMessageId: turnKey })
       .catch(() => {});
 
     const tags = parseGmTags(msg.content);
@@ -6513,7 +6535,7 @@ function GameSurfaceComponent({
       requestAnimationFrame(() => {
         const tryProcess = (attempt: number) => {
           const msg = latestAssistantMsgRef.current;
-          if (msg?.content && lastProcessedMsgRef.current !== msg.id) {
+          if (msg?.content && lastProcessedMsgRef.current !== narrationTurnKey(msg)) {
             processSceneRef.current?.();
           } else if (attempt < 10) {
             setTimeout(() => tryProcess(attempt + 1), 200);
@@ -6533,9 +6555,9 @@ function GameSurfaceComponent({
   useEffect(() => {
     if (isMessagesLoading || isStreaming) return;
     if (!latestAssistantMsg?.content) return;
-    if (lastProcessedMsgRef.current === latestAssistantMsg.id) return;
+    if (lastProcessedMsgRef.current === latestAssistantTurnKey) return;
     processSceneRef.current?.();
-  }, [isMessagesLoading, isStreaming, latestAssistantMsg?.content, latestAssistantMsg?.id]);
+  }, [isMessagesLoading, isStreaming, latestAssistantMsg?.content, latestAssistantTurnKey]);
 
   // Listen for generation-error event to show retry button.
   useEffect(() => {
@@ -6671,7 +6693,7 @@ function GameSurfaceComponent({
     setPendingInventorySegmentUpdates([]);
     appliedSegmentsRef.current = new Set();
     appliedInventorySegmentsRef.current = new Set();
-    setNarrationDoneMsgId(null);
+    setNarrationDoneTurnKey(null);
     interruptedInteractiveCommandKeysRef.current.delete(interactiveCommandKey(activeChatId, msg.id));
     sceneReadyMsgIdRef.current = "__retry_turn__";
     setSceneReadyTick((tick) => tick + 1);

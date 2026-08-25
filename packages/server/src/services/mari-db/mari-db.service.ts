@@ -863,6 +863,7 @@ function normalizeAppDataActionName(action: string): string {
     .replace(/^themes\./, "theme.")
     .replace(/^personalextensions\./, "personalextension.")
     .replace(/^agents\./, "agent.")
+    .replace(/^chats\./, "chat.")
     .replace(/^presets\./, "preset.")
     .replace(/^promptpresets\./, "preset.");
   const aliases: Record<string, string> = {
@@ -2515,6 +2516,7 @@ export class MariDbService {
           return this.executePersonalExtensionAction(key.slice("personalextension.".length), envelope, context);
         }
         if (key.startsWith("agent.")) return this.executeAgentAction(key.slice("agent.".length), envelope, context);
+        if (key.startsWith("chat.")) return this.executeChatAction(key.slice("chat.".length), envelope, context);
         if (key.startsWith("preset.")) return this.executePresetAction(key.slice("preset.".length), envelope, context);
         if (key.startsWith("homewidget."))
           return this.executeHomeWidgetAction(key.slice("homewidget.".length), envelope, context);
@@ -2527,7 +2529,7 @@ export class MariDbService {
           mode: "read",
           command,
           error:
-            "Unsupported app_data action. Use character.*, persona.*, lorebook.*, theme.*, personal_extension.*, agent.*, preset.*, home_widget.*, or instruction.* actions for structured no-shell app-data work.",
+            "Unsupported app_data action. Use character.*, persona.*, lorebook.*, theme.*, personal_extension.*, agent.*, chat.*, preset.*, home_widget.*, or instruction.* actions for structured no-shell app-data work.",
         };
       };
       // Field-aware bounding keeps a single read response within the workspace
@@ -6651,6 +6653,37 @@ export class MariDbService {
       default:
         return { ok: false, mode: "read", command: context.command, error: this.chatsHelpText() };
     }
+  }
+
+  private executeChatAction(
+    sub: string,
+    args: Row,
+    context: { command: string; sessionId: string; cwd?: string },
+  ): Promise<MariDbCommandResult> {
+    const argv = [sub];
+    const addFlag = (flag: string, value: unknown) => {
+      if (value === undefined || value === null || value === "") return;
+      argv.push(`--${flag}`, String(value));
+    };
+
+    if (sub === "list") {
+      addFlag("limit", firstNumber(args, ["limit"]));
+      addFlag("character", firstString(args, ["characterId", "character_id"]));
+    } else if (sub === "get") {
+      argv.push(requiredString(args, ["chatId", "chat_id", "id"], "chat id"));
+    } else if (sub === "messages") {
+      argv.push(requiredString(args, ["chatId", "chat_id", "id"], "chat id"));
+      addFlag("last", firstNumber(args, ["last"]));
+      addFlag("after-post", firstNumber(args, ["afterPost", "after_post"]));
+      addFlag("limit", firstNumber(args, ["limit"]));
+      addFlag("offset", firstNumber(args, ["offset"]));
+      if (firstBoolean(args, ["tail"]) === true) argv.push("--tail");
+    } else if (sub === "search") {
+      argv.push(requiredString(args, ["query"], "chat search query"));
+      addFlag("limit", firstNumber(args, ["limit"]));
+    }
+
+    return this.executeChatsCommand(argv, context);
   }
 
   private async executeThemeCommand(

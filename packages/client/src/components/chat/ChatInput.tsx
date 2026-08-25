@@ -1732,7 +1732,8 @@ export const ChatInput = memo(function ChatInput({
     });
   }, [charPickerOpen]);
 
-  const showCharPicker = !!activeChatCharacters && activeChatCharacters.length > 1 && !!groupResponseOrder;
+  const showCharPicker =
+    !!chatCharacters && chatCharacters.length > 1 && !!activeChatCharacters?.length && !!groupResponseOrder;
   const showDraftTranslateButton = chatMetadata.showInputTranslateButton === true;
 
   const handleTranslateDraft = useCallback(async () => {

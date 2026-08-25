@@ -3881,7 +3881,9 @@ export async function generateRoutes(app: FastifyInstance) {
         }
 
         // ── Group chat processing ──
-        const isGroupChat = characterIds.length > 1;
+        // Preserve group-chat behavior when the user temporarily disables all but
+        // one participant. The active list still controls who may respond.
+        const isGroupChat = allCharacterIds.length > 1;
         const groupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
         const groupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
         // Auto-enable speaker colors for conversation mode groups (system prompt already requests tags)

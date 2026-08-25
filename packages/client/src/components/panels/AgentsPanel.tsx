@@ -1019,7 +1019,7 @@ export function AgentsPanel() {
 
       <button
         type="button"
-        onClick={openAgentCatalog}
+        onClick={() => openAgentCatalog()}
         className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
       >
         <Sparkles size="0.875rem" />

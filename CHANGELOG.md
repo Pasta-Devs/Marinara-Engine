@@ -6,6 +6,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Download Agents can now filter the existing Writer, Tracker, and Misc sections by Conversation, Roleplay, or Game support, and a Discovery Desk recommendation opens its exact Agent instead of the catalog's first entry (#5494, #5500).
+- Game HUD widgets now expose their unique model-facing ID for editing after creation (#5477).
+- Professor Mari's structured `app_data` helper can now list, search, inspect, and read bounded message ranges from chats without falling back to raw database commands (#5476).
 - Staging-channel Engines now merge the Agents catalog preview overlay over the published catalog, so packages marked staging-only in the Agents repository reach testers while stable Engines never resolve the overlay URL at all and the unattended startup migrations never auto-install one (#5492).
 - Implemented {{lorebookSize::lorebookID}} macro, which resolves to the total number of entries inside a lorebook, when given its unique ID (#5464)
 - Game Setup now includes an on-by-default Quick Time Events switch; turning it off removes the timed-reaction command from GM prompts for that campaign (#5467).
@@ -39,6 +42,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Roleplay group chats now retain their response controls and generation behavior when only one character is enabled, while Sequential generation skips every disabled character (#5501, #5502).
+- Game narration now restores choices after rewinding or switching swipes, scopes saved narration progress to the active swipe, and restarts safely when a saved cursor exceeds the available segments (#5474).
+- The Roleplay active-summary and branch counters now share one themed badge treatment with the configured accent color (#5499).
 - Matched full-body sprite generation now sends each expression as its own sequential request after neutral approval, giving every image an independent timeout and retry while preserving completed sprites if a later expression fails or the run is cancelled (#5497).
 - Tracker launchers and panel sections now share animated theme colors and one section shell; populated Inventory launchers show only their count, Inventory items and branch counts use the character-tag pill shape, and Memory Nag receives working regenerate and lock controls. Mobile Agents and Help overlays now stay centered and evenly framed, while shared agent selectors—including Music DJ in Roleplay and Game—center their contents (#5495, Pasta-Devs/Marinara-Agents#560).
 - Chat Settings now reuses shared action controls without dimming unrelated Connected Chats options during saves; Storyboard controls align evenly; mobile Home tabs collapse inactive labels; the centered mobile Agents menu and combined Trackers panel use consistent count-free sections; the mobile Help overlay keeps uniform toolbar highlights; Inventory and branch tags use compact rounded-square styling with usable delete controls; and Tracker Panel, empty Inventory, World State, and Beholder launchers follow cycling accent colors (#5490, Pasta-Devs/Marinara-Agents#555, Pasta-Devs/Marinara-Agents#557).

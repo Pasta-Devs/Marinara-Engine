@@ -212,7 +212,12 @@ export function NewGameExperienceChooser({
               <p className="min-w-0 flex-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                 {localizeUi("ui.game.newgameexperiencechooser.noExperiencesDownloadedYet")}
               </p>
-              <button type="button" onClick={openAgentCatalog} disabled={launching} className={SECONDARY_BUTTON}>
+              <button
+                type="button"
+                onClick={() => openAgentCatalog()}
+                disabled={launching}
+                className={SECONDARY_BUTTON}
+              >
                 <Gamepad2 size={13} />
                 {localizeUi("ui.agents.agentcatalogview.downloadAgents")}
               </button>

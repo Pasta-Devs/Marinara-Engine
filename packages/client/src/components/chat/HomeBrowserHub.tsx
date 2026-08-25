@@ -2771,7 +2771,7 @@ export function HomeBrowserHub({
                             <button
                               key={activeRecommendation.manifest.id}
                               type="button"
-                              onClick={() => useUIStore.getState().openAgentCatalog()}
+                              onClick={() => useUIStore.getState().openAgentCatalog(activeRecommendation.manifest.id)}
                               className="mari-home-discovery-card flex min-h-24 w-full items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--home-module-accent)_20%,var(--border))] bg-[color-mix(in_srgb,var(--home-module-accent)_5%,var(--secondary))] p-3 text-left transition-colors hover:border-[color-mix(in_srgb,var(--home-module-accent)_48%,var(--border))] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_10%,var(--secondary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                             >
                               <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[color-mix(in_srgb,var(--home-module-accent)_14%,var(--accent))] text-[var(--home-module-accent)]">

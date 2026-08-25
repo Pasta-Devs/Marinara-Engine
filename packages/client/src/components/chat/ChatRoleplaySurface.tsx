@@ -911,7 +911,7 @@ function SummaryButton({
       >
         <ScrollText size="0.875rem" />
         {enabledSummaryCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex min-w-4 justify-center rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] px-1 text-[0.5625rem] font-semibold leading-4 text-[var(--marinara-chat-chrome-panel-muted)]">
+          <span className="mari-chrome-muted-badge absolute -right-1 -top-1 flex min-w-4 justify-center px-1 text-[0.5625rem] font-semibold leading-4 text-[var(--marinara-chat-chrome-accent)]">
             {enabledSummaryCount}
           </span>
         )}
