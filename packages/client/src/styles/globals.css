@@ -4184,6 +4184,45 @@ strong {
   --tracker-panel-base-line-height: 1.5rem;
 }
 
+/* Downloadable tracker panels render into light-DOM custom elements. Their
+   content stays package-owned, while this host shell keeps section material,
+   dividers, and constrained typography consistent with built-in trackers. */
+.mari-tracker-capability-section :is(.mn-tracker, .bh-tracker-launch) {
+  border-bottom: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.mari-tracker-capability-section .mn-tracker-veil {
+  display: none;
+}
+
+.mari-tracker-capability-section :is(.mn-tracker-title, .bh-tracker-launch__title) {
+  font-family: inherit;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"]
+  .mari-tracker-capability-section
+  :is(.mn-tracker-title, .bh-tracker-launch__title) {
+  font-size: calc(0.625rem * var(--tracker-panel-font-scale));
+  line-height: calc(0.75rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] .mari-tracker-capability-section .mn-tracker-value {
+  font-size: calc(0.6875rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"]
+  .mari-tracker-capability-section
+  .mn-tracker-value--empty {
+  line-height: calc(0.875rem * var(--tracker-panel-font-scale));
+}
+
 .mari-tracker-panel-scroll::-webkit-scrollbar {
   width: 0.25rem;
 }

@@ -19,7 +19,8 @@ import { useTrackerPanelModel } from "../hooks/use-tracker-panel-model";
 import { useStatIcons } from "../hooks/use-stat-icons";
 import type { PersonaPortraitSaveSnapshot } from "../hooks/use-persona-portrait-save";
 import type { TrackerEditMode } from "../tracker-panel.types";
-import { EmptySection } from "./controls/SectionControls";
+import { EmptySection, TRACKER_SECTION_SHELL_CLASS } from "./controls/SectionControls";
+import { TrackerReadabilityVeil } from "./controls/TrackerProfileChrome";
 import { TrackerSectionList } from "./TrackerSectionList";
 import { TrackerSkeleton } from "./TrackerSkeleton";
 import { TrackerSidebarHeader } from "./TrackerSidebarHeader";
@@ -136,13 +137,20 @@ export function TrackerDataSidebar({
     other: otherCapabilityTrackerPackages,
   } = partitionTrackerCapabilityPackages(capabilityTrackerPackages);
   const renderCapabilityTrackerPackage = (item: (typeof capabilityTrackerPackages)[number]) => (
-    <CapabilityElement
+    <div
       key={`${item.id}-tracker-panel`}
-      packageId={item.id}
-      view="tracker"
-      capabilityProps={{ chatId: activeChatId, chatMode: "roleplay", detached }}
-      className="block"
-    />
+      className={cn(TRACKER_SECTION_SHELL_CLASS, "mari-tracker-capability-section")}
+    >
+      <TrackerReadabilityVeil strength="strong" />
+      <div className="relative z-10">
+        <CapabilityElement
+          packageId={item.id}
+          view="tracker"
+          capabilityProps={{ chatId: activeChatId, chatMode: "roleplay", detached }}
+          className="block"
+        />
+      </div>
+    </div>
   );
   const resolveStatIcon = useStatIcons({
     activeChatId,

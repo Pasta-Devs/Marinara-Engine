@@ -17,6 +17,10 @@ const inventoryPanel = readSource(
 const sectionControls = readSource(
   "packages/client/src/features/tracker-panel/components/controls/SectionControls.tsx",
 );
+const trackerDataSidebar = readSource("packages/client/src/features/tracker-panel/components/TrackerDataSidebar.tsx");
+const questTrackerPanel = readSource(
+  "packages/client/src/features/tracker-panel/components/sections/quest-tracker/QuestTrackerPanel.tsx",
+);
 const globals = readSource("packages/client/src/styles/globals.css");
 
 const beholderLauncher = roleplayHud.indexOf("item.id}-beholder-launcher");
@@ -129,6 +133,21 @@ assert.match(
   sectionControls,
   /export const TRACKER_SECTION_SHELL_CLASS/u,
   "Tracker Panel sections must share one themed shell class",
+);
+assert.match(
+  trackerDataSidebar,
+  /TRACKER_SECTION_SHELL_CLASS, "mari-tracker-capability-section"[\s\S]*TrackerReadabilityVeil strength="strong"[\s\S]*<CapabilityElement/u,
+  "downloadable tracker sections must use the same shell and readability veil as built-in sections",
+);
+assert.doesNotMatch(
+  questTrackerPanel,
+  /radial-gradient|QUEST_PANEL_TEXTURE_CLASS/u,
+  "Quest Board must inherit the shared square panel texture instead of adding dots",
+);
+assert.match(
+  globals,
+  /\.mari-tracker-capability-section :is\(\.mn-tracker, \.bh-tracker-launch\)[\s\S]*border-bottom: 0;[\s\S]*\.mn-tracker-title, \.bh-tracker-launch__title[\s\S]*--tracker-panel-font-scale/u,
+  "Memory Nag and Beholder must inherit shared section dividers, backgrounds, and constrained typography",
 );
 assert.match(
   agentSettingsControls,
