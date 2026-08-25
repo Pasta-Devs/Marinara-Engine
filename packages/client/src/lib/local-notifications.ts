@@ -1,4 +1,4 @@
-import { getAndroidBridgeToken } from "@/lib/android-bridge";
+import { getAndroidBridgeToken } from "./android-bridge";
 
 export type LocalNotificationPermission = NotificationPermission | "insecure" | "unsupported";
 export type NativeNotificationPermission = "default" | "denied" | "granted" | "unsupported";

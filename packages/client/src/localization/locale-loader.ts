@@ -14,10 +14,15 @@ const INTENTIONALLY_EMPTY_TRANSLATION_KEYS = new Set([
   "ui.noodle.stageprofileview.s",
 ]);
 
-const localeAssets = import.meta.glob<string>("./locales/*.json", {
-  import: "default",
-  query: "?url",
-});
+const localeAssets: Record<string, LocaleAssetLoader> = import.meta.env
+  ? import.meta.glob<string>("./locales/*.json", {
+      import: "default",
+      query: "?url",
+    })
+  : {
+      [`./locales/${DEFAULT_APP_LANGUAGE}.json`]: async () =>
+        `${new URL(/* @vite-ignore */ ".", import.meta.url).href}locales/${DEFAULT_APP_LANGUAGE}.json`,
+    };
 const localeLoaders = new Map<string, LocaleAssetLoader>();
 
 function canonicalizeLocale(value: string): string | null {

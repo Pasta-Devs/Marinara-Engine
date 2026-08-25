@@ -6175,10 +6175,14 @@ assert.equal(
 );
 assert.match(gameJournalSource, /data-game-journal-scroll/u);
 assert.match(gameJournalSource, /\/game\/\$\{chatId\}\/journal\/entries\/\$\{editingEntry\.index\}/u);
-assert.match(gameJournalSource, /<TimelineView entries=\{visibleEntries\} onEdit=\{beginEditingEntry\}/u);
+assert.match(
+  gameJournalSource,
+  /<TimelineView\s+entries=\{visibleEntries\}\s+onEdit=\{beginEditingEntry\}/u,
+  "Game Journal must keep edit controls connected after JSX formatting changes",
+);
 assert.match(
   gameNarrationSource,
-  /const narrationKey = latestAssistant \? `\$\{latestAssistant\.id\}:\$\{latestAssistant\.activeSwipeIndex\}` : null/u,
+  /const narrationKey = latestAssistant \? `\$\{latestAssistant\.id\}:\$\{latestAssistant\.activeSwipeIndex \?\? 0\}` : null/u,
   "Game rerolls must reset narration when the saved swipe changes on the same message",
 );
 assert.match(gameAudioSource, /audio\.onended = \(\) => \{[\s\S]*remainingPlays -= 1/u);
@@ -7048,7 +7052,7 @@ const projectionState = {
   ...useUIStore.getState(),
   enterToSendGame: false,
   enterToSendProfessorMari: false,
-  gameTutorialDisabled: true,
+  chatHelpSeenModes: ["game"] as ChatMode[],
 };
 assert.equal(
   pickSyncedSettings(projectionState).enterToSendGame,
@@ -7060,10 +7064,10 @@ assert.equal(
   false,
   "Professor Mari's Send on Enter preference must be server-synced",
 );
-assert.equal(
-  pickSyncedSettings(projectionState).gameTutorialDisabled,
-  true,
-  "The tutorial dismissal must be server-synced",
+assert.deepEqual(
+  pickSyncedSettings(projectionState).chatHelpSeenModes,
+  ["game"],
+  "The chat-help seen modes must be server-synced",
 );
 const localProjection = useUIStore.persist.getOptions().partialize(projectionState) as Record<string, unknown>;
 const syncedSettingsMissingFromLocalPersistence = Object.keys(pickSyncedSettings(projectionState)).filter(
@@ -7074,7 +7078,7 @@ assert.deepEqual(
   [],
   "Every server-synced setting must also be browser-local persisted",
 );
-assert.equal(localProjection.gameTutorialDisabled, true, "The tutorial dismissal must be browser-local persisted");
+assert.deepEqual(localProjection.chatHelpSeenModes, ["game"], "Chat-help seen modes must be browser-local persisted");
 assert.match(chatAreaPromptReviewSource, /MEDIA_PROMPT_PREVIEW_TIMEOUT_MS/);
 assert.match(chatAreaPromptReviewSource, /confirmRoleplayVideoPromptReview/);
 assert.match(chatAreaPromptReviewSource, /confirmConversationSelfiePromptReview/);
@@ -8333,7 +8337,7 @@ assert.equal(
 );
 assert.match(
   summaryPopoverSource,
-  /rows=\{5\}[\s\S]{0,500}className="h-28 w-full resize-none/u,
+  /rows=\{5\}[\s\S]{0,500}className="mari-chrome-field h-28 resize-none/u,
   "The Combine prompt editor must stay compact enough to match the Chat Summary view",
 );
 const promptSettingsPersistSource = summaryPopoverSource.slice(
@@ -8355,12 +8359,12 @@ const summaryPromptControlsSource = summaryPopoverSource.slice(
 );
 assert.equal(
   summaryPromptControlsSource.match(/disabled=\{promptSettingsSaveLocked\}/gu)?.length,
-  9,
+  8,
   "Every prompt option, template row, and open template editor control must use the save lock",
 );
 assert.equal(
   summaryPromptControlsSource.match(/disabled=\{!globalPromptSettingsReady \|\| promptSettingsSaveLocked\}/gu)?.length,
-  3,
+  2,
   "Every prompt-level action must use the save lock",
 );
 assert.match(
@@ -8838,8 +8842,13 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(
     chatSettingsSource,
-    /role="checkbox"[\s\S]{0,100}aria-checked=\{effectiveValue\}/u,
+    /<SettingsSwitch[\s\S]{0,220}checked=\{effectiveValue\}/u,
     "Memory Recall must expose its switch state to assistive technology",
+  );
+  assert.match(
+    notificationSettingsSource,
+    /export function SettingsSwitch[\s\S]*?<input[\s\S]{0,180}type="checkbox"[\s\S]{0,100}checked=\{checked\}/u,
+    "The shared settings switch must expose a native checkbox",
   );
   assert.match(
     chatSettingsSource,
@@ -9416,16 +9425,16 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     /Add the Agent|Chat Settings|Tracker Agents/iu,
     "The World Maps settings summary must not repeat installation guidance",
   );
-  const gameWorldMapsSettingsBranch = sourceBetween(
+  const standaloneRoleplayAgentSettings = sourceBetween(
     chatSettingsSource,
-    'if (agent.id === "hierarchical-maps" && mapsPackage) {',
-    'if (agent.id === "long-term-memory" && ltmPackage) {',
-    "Game World Maps settings branch",
+    "const renderStandaloneRoleplayAgentSettingsCard =",
+    "const updateAgentPromptTemplateSelection =",
+    "Standalone Roleplay agent settings renderer",
   );
   assert.match(
-    gameWorldMapsSettingsBranch,
-    /<AgentSettingsCard[\s\S]*?description=\{worldMapsSettingsDescription\}[\s\S]*?<CapabilityElement/u,
-    "Game Chat Settings must omit package-installation guidance from the expanded World Maps card",
+    standaloneRoleplayAgentSettings,
+    /agent\.id === "hierarchical-maps"[\s\S]*?<CapabilityElement[\s\S]*?<AgentSettingsCard[\s\S]*?agent\.id === "hierarchical-maps"[\s\S]*?worldMapsSettingsDescription/u,
+    "Standalone Roleplay World Maps settings must use the concise feature summary",
   );
   const roleplayActiveAgentCards = sourceBetween(
     chatSettingsSource,
@@ -9841,7 +9850,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.equal(
     (
       settingsDrawerSource.match(
-        /packageId=\{ltmPackage\.id\}[\s\S]*?className="(?:mt-2 )?block overflow-hidden rounded-lg"/gu,
+        /packageId=\{ltmPackage\.id\}[\s\S]*?className="block overflow-hidden(?: rounded-lg)?"/gu,
       ) ?? []
     ).length,
     3,
@@ -9951,13 +9960,16 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     /for \(const result of results\) \{\s*if \(abortController\.signal\.aborted\) return;[\s\S]{0,500}sendSseEvent\(reply, \{\s*type: "agent_result"/u,
     "Forced retries must stop emitting results as soon as their shared abort signal fires",
   );
-  for (const phase of ["persistRetryResults", "applyRetryResultEffects"]) {
-    assert.match(
-      retryAgentsRouteSource,
-      new RegExp(`if \\(abortController\\.signal\\.aborted\\) return;\\s*await ${phase}\\(`, "u"),
-      `Forced retries must check cancellation immediately before ${phase}`,
-    );
-  }
+  assert.match(
+    retryAgentsRouteSource,
+    /if \(abortController\.signal\.aborted\) return;\s*await persistRetryResults\(/u,
+    "Forced retries must check cancellation immediately before persistRetryResults",
+  );
+  assert.match(
+    retryAgentsRouteSource,
+    /if \(abortController\.signal\.aborted\) return;[\s\S]{0,140}await applyRetryResultEffects\(\{/u,
+    "Forced retries must check cancellation before applyRetryResultEffects",
+  );
   assert.match(
     retryAgentsRouteSource,
     /if \(abortController\.signal\.aborted\) return;\s*sendSseEvent\(reply, \{ type: "done"/u,
