@@ -1523,14 +1523,14 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--marinara-chat-chrome-button-border);
-  border-radius: 999px;
+  border-radius: 0.625rem;
   background: var(--marinara-chat-chrome-button-bg);
   color: var(--marinara-chat-chrome-button-text);
   font-weight: 600;
 }
 
 .mari-chrome-tag {
-  border-radius: 999px;
+  border-radius: 0.625rem;
 }
 
 .mari-chat-option-field {

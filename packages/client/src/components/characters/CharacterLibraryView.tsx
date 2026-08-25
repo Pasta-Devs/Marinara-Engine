@@ -266,7 +266,7 @@ function CardLibraryDetailCard({
                 {card.favorite && (
                   <span
                     data-character-favorite-indicator="detail"
-                    className="mari-chrome-accent-surface mari-accent-animated inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium"
+                    className="mari-chrome-accent-surface mari-accent-animated mari-chrome-tag inline-flex items-center gap-1 px-2.5 py-1 text-[0.6875rem] font-medium"
                   >
                     <Star size="0.75rem" className="fill-current" />{" "}
                     {localizeUi("ui.characters.cardlibrarydetailcard.favorite")}
@@ -690,14 +690,14 @@ export function CharacterLibraryView() {
                         {card.favorite && (
                           <div
                             data-character-favorite-indicator="card"
-                            className="mari-chrome-accent-surface mari-accent-animated absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.5625rem] font-medium backdrop-blur-sm sm:right-3 sm:top-3 sm:text-[0.625rem]"
+                            className="mari-chrome-accent-surface mari-accent-animated mari-chrome-tag absolute right-2 top-2 inline-flex items-center gap-1 px-2 py-1 text-[0.5625rem] font-medium backdrop-blur-sm sm:right-3 sm:top-3 sm:text-[0.625rem]"
                           >
                             <Star size="0.625rem" className="fill-current sm:h-[0.6875rem] sm:w-[0.6875rem]" />{" "}
                             {localizeUi("ui.characters.cardlibrarydetailcard.favorite")}
                           </div>
                         )}
                         {card.active && (
-                          <div className="mari-chrome-accent-surface absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.5625rem] font-medium backdrop-blur-sm sm:right-3 sm:top-3 sm:text-[0.625rem]">
+                          <div className="mari-chrome-accent-surface mari-chrome-tag absolute right-2 top-2 inline-flex items-center gap-1 px-2 py-1 text-[0.5625rem] font-medium backdrop-blur-sm sm:right-3 sm:top-3 sm:text-[0.625rem]">
                             <Check size="0.625rem" /> {localizeUi("ui.characters.lorebooktab.active")}
                           </div>
                         )}
@@ -735,13 +735,13 @@ export function CharacterLibraryView() {
                           {card.tags.slice(0, 2).map((tag) => (
                             <span
                               key={tag}
-                              className="rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--marinara-chat-chrome-panel-text)] sm:px-2 sm:py-1 sm:text-[0.625rem]"
+                              className="mari-chrome-tag bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--marinara-chat-chrome-panel-text)] sm:px-2 sm:py-1 sm:text-[0.625rem]"
                             >
                               {tag}
                             </span>
                           ))}
                           {card.tags.length > 2 && (
-                            <span className="rounded-full bg-[var(--marinara-chat-chrome-button-bg)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--marinara-chat-chrome-panel-muted)] sm:px-2 sm:py-1 sm:text-[0.625rem]">
+                            <span className="mari-chrome-tag bg-[var(--marinara-chat-chrome-button-bg)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--marinara-chat-chrome-panel-muted)] sm:px-2 sm:py-1 sm:text-[0.625rem]">
                               +{card.tags.length - 2}
                             </span>
                           )}

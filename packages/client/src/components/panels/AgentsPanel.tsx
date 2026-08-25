@@ -1526,7 +1526,7 @@ export function AgentsPanel() {
                           {candidate.description || localizeUi("ui.panels.agentcard.noDescription")}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-[var(--secondary)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                      <span className="mari-chrome-tag shrink-0 bg-[var(--secondary)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)]">
                         {candidate.phase}
                       </span>
                     </div>

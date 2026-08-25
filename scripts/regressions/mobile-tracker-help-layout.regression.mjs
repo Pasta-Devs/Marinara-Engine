@@ -10,6 +10,8 @@ const roleplayPanels = readSource("packages/client/src/components/chat/RoleplayH
 const chatHelp = readSource("packages/client/src/components/chat/ChatHelpOverlay.tsx");
 const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
 const branchSelector = readSource("packages/client/src/components/chat/ChatBranchSelector.tsx");
+const cardLibrary = readSource("packages/client/src/components/characters/CharacterLibraryView.tsx");
+const agentCatalog = readSource("packages/client/src/components/agents/AgentCatalogView.tsx");
 const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
 const inventoryPanel = readSource(
   "packages/client/src/features/tracker-panel/components/sections/InventoryTrackerPanel.tsx",
@@ -116,8 +118,8 @@ assert.match(
 );
 assert.match(
   globals,
-  /\.mari-chrome-tag\s*\{\s*border-radius: 999px;/u,
-  "shared tags must retain the character-tag pill shape",
+  /\.mari-chrome-muted-badge[\s\S]*border-radius: 0\.625rem;[\s\S]*\.mari-chrome-tag\s*\{\s*border-radius: 0\.625rem;/u,
+  "shared tags and badges must use the compact search-tag corner radius",
 );
 assert.doesNotMatch(
   chatSidebar,
@@ -128,6 +130,16 @@ assert.match(
   branchSelector,
   /mari-chrome-muted-badge absolute/u,
   "toolbar branch counts must use the same shared badge shape",
+);
+assert.match(
+  cardLibrary,
+  /card\.tags\.slice\(0, 2\)\.map[\s\S]*mari-chrome-tag/u,
+  "character and persona library tags must use the shared compact tag shape",
+);
+assert.match(
+  agentCatalog,
+  /selected\.manifest\.kind[\s\S]*mari-chrome-tag[\s\S]*packageModes\(selected\.manifest\.id\)[\s\S]*mari-chrome-tag/u,
+  "agent kind and mode tags must use the shared compact tag shape",
 );
 assert.match(
   sectionControls,

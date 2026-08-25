@@ -617,7 +617,7 @@ export function AgentCatalogView() {
                                         <span className="flex items-center gap-2">
                                           <span className="truncate text-sm font-semibold">{entry.manifest.name}</span>
                                           {group.id === "installed" && (
-                                            <span className="rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.6rem] font-semibold text-[var(--marinara-chat-chrome-highlight-text)]">
+                                            <span className="mari-chrome-tag bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.6rem] font-semibold text-[var(--marinara-chat-chrome-highlight-text)]">
                                               {localizeUi("ui.agents.agentcatalogview.installed_7bb4405")}
                                             </span>
                                           )}
@@ -688,7 +688,7 @@ export function AgentCatalogView() {
                     {selected.manifest.kind.filter(isAgentCatalogKindBadgeVisible).map((kind) => (
                       <span
                         key={kind}
-                        className="rounded-full border border-[var(--border)] px-2.5 py-1 text-[0.68rem]"
+                        className="mari-chrome-tag border border-[var(--border)] px-2.5 py-1 text-[0.68rem]"
                       >
                         {kindLabel(kind)}
                       </span>
@@ -698,7 +698,7 @@ export function AgentCatalogView() {
                         key={mode}
                         data-chat-mode={mode}
                         className={cn(
-                          "rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold text-[var(--foreground)]",
+                          "mari-chrome-tag border px-2.5 py-1 text-[0.68rem] font-semibold text-[var(--foreground)]",
                           MODE_BADGES[mode].className,
                         )}
                       >
