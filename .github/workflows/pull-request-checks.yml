@@ -44,6 +44,9 @@ jobs:
       - name: Run focused security regressions
         run: pnpm regression:security
 
+      - name: Test release tag validation
+        run: pnpm regression:release
+
       - name: Validate pull request gate topology
         run: node scripts/validate-pr-triage.mjs
 

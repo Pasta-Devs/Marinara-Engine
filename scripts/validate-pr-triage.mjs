@@ -43,6 +43,7 @@ export function validatePullRequestTriage() {
   ).replace(/\r\n/gu, "\n");
   const approvalEvaluator = readFileSync(new URL("./evaluate-owner-approval.mjs", import.meta.url), "utf8");
   const codeOwners = readFileSync(new URL("../.github/CODEOWNERS", import.meta.url), "utf8");
+  const codeqlWorkflow = readFileSync(new URL("../.github/workflows/codeql.yml", import.meta.url), "utf8");
   const triggersSectionStart = triageWorkflow.indexOf("\non:\n");
   const triggersSectionEnd = triageWorkflow.indexOf("\nconcurrency:\n", triggersSectionStart);
   const jobsSectionStart = triageWorkflow.indexOf("\njobs:\n");
@@ -57,9 +58,7 @@ export function validatePullRequestTriage() {
   );
 
   const jobIds = [
-    ...triageWorkflow
-      .slice(jobsSectionStart + "\njobs:\n".length)
-      .matchAll(/^  ([A-Za-z_][A-Za-z0-9_-]*):\s*$/gmu),
+    ...triageWorkflow.slice(jobsSectionStart + "\njobs:\n".length).matchAll(/^  ([A-Za-z_][A-Za-z0-9_-]*):\s*$/gmu),
   ].map((match) => match[1]);
   assert.ok(jobIds.includes("branch-policy"));
   assert.ok(jobIds.includes("owner-approval"));
@@ -74,10 +73,7 @@ export function validatePullRequestTriage() {
   assert.match(ownerApprovalJob, /run: node scripts\/evaluate-owner-approval\.mjs/u);
   assert.doesNotMatch(ownerApprovalJob, /github\.event\.pull_request\.head/u);
 
-  assert.match(
-    reviewSignal,
-    /on:\n  pull_request_review:\n    types: \[submitted, edited, dismissed\]/u,
-  );
+  assert.match(reviewSignal, /on:\n  pull_request_review:\n    types: \[submitted, edited, dismissed\]/u);
   assert.match(reviewSignal, /permissions: \{\}/u);
   assert.doesNotMatch(reviewSignal, /secrets\.|github\.token|actions\/checkout|PASTA_DEVS_MEMBERS_TOKEN/u);
 
@@ -110,7 +106,7 @@ export function validatePullRequestTriage() {
     exemptionStep,
     [
       "      - name: Exempt trusted contributor",
-      "        if: contains(fromJSON('[\"MEMBER\",\"OWNER\",\"COLLABORATOR\"]'), github.event.pull_request.author_association)",
+      '        if: contains(fromJSON(\'["MEMBER","OWNER","COLLABORATOR"]\'), github.event.pull_request.author_association)',
       '        run: echo "Trusted contributor; pull request template validation is not required."',
     ].join("\n"),
   );
@@ -122,6 +118,7 @@ export function validatePullRequestTriage() {
   );
 
   assert.match(codeOwners, /^\* @SpicyMarinara$/mu);
+  assert.match(codeqlWorkflow, /pull_request:\s*\n\s*branches:\s*\[main, staging\]/u);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

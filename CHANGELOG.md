@@ -42,6 +42,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Official release workflows now reject tags that do not match the canonical app version, avoid retaining checkout write credentials, and run CodeQL for both staging and main-targeted pull requests (#5510).
 - Matched character, persona, and agent tags plus chat branch counts to the shared compact search-tag shape instead of capsule badges.
 - Unified Quest Board, Memory Nag, and Beholder surfaces, separators, and responsive typography with the rest of the Roleplay Tracker Panel.
 - Unified inactive Roleplay tracker toolbar icons at the shared muted chroma strength and removed the stray count punctuation from the mobile Characters heading.

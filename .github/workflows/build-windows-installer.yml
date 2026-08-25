@@ -25,6 +25,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref }}
+          persist-credentials: false
 
       - name: Install NSIS
         run: |
@@ -39,6 +40,7 @@ jobs:
           input_tag="${{ github.event.inputs.tag || '' }}"
           ref_name="${{ github.ref_name }}"
           tag="${release_tag:-${input_tag:-$ref_name}}"
+          node scripts/check-release-tag.mjs "$tag"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Build installer

@@ -40,6 +40,7 @@
     "regression:professor-mari-shell-sandbox": "pnpm build:shared && node ./scripts/run-regressions.mjs --filter scripts/regressions/professor-mari/shell-sandbox.regression.ts",
     "regression:runtime-integrity": "pnpm build:shared && node ./scripts/run-regressions.mjs --filter scripts/regressions/runtime-integrity.regression.ts",
     "regression:security": "pnpm build:shared && node ./scripts/run-regressions.mjs --filter security && node ./scripts/run-regressions.mjs --filter runtime-integrity && node ./scripts/run-regressions.mjs --filter shell-sandbox && node ./scripts/run-regressions.mjs --filter extension-ipc && node ./scripts/run-regressions.mjs --filter android-local-auth && node ./scripts/run-regressions.mjs --filter docker-proxy-auth",
+    "regression:release": "node ./scripts/regressions/release-tag-version.regression.mjs",
     "regression:static-cache": "node ./scripts/run-regressions.mjs --filter scripts/regressions/static-cache-headers.regression.ts",
     "regression:launcher-update": "node ./scripts/regressions/pnpm-runner.regression.mjs && node ./scripts/regressions/launcher/env.regression.mjs && node ./scripts/regressions/launcher/existing-server.regression.mjs && node ./scripts/regressions/launcher/update.regression.mjs && node ./scripts/regressions/dev-launcher-process.regression.mjs && node ./scripts/regressions/launcher/format-guard.regression.mjs && node ./scripts/check-windows-installer-layout.mjs",
     "regression:android-local-auth:run": "pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/android-local-auth.regression.ts",
@@ -53,6 +54,7 @@
     "backgroundremover:install": "node ./scripts/install-backgroundremover.mjs",
     "backgroundremover:reinstall": "node ./scripts/install-backgroundremover.mjs --reinstall",
     "guard:installer-artifacts": "node ./scripts/check-tracked-installers.mjs",
+    "release:check-tag": "node ./scripts/check-release-tag.mjs",
     "release:notes": "node ./scripts/render-release-notes.mjs",
     "clean": "pnpm -r --if-present run clean && node ./scripts/clean-workspace.mjs"
   },

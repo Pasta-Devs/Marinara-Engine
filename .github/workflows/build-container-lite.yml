@@ -40,6 +40,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Verify release tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: node scripts/check-release-tag.mjs "${{ github.ref_name }}"
 
       - name: Lowercase image name
         id: lower
@@ -111,6 +117,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Lowercase image name
         id: lower

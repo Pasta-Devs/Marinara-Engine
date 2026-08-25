@@ -22,3 +22,5 @@ Some features intentionally execute code only after explicit opt-in:
 - Official capability-package and local-model runtimes are integrity checked before execution.
 
 Security boundaries include unintended host command execution, sandbox escape, unauthorized remote access, unsafe filesystem access, archive traversal, secret exposure, and active content executing without the documented approval gates. Reports that preserve legitimate local-first workflows while demonstrating one of those boundary crossings are especially helpful.
+
+Official versioned artifact workflows reject malformed or mismatched release tags before building or publishing. CodeQL analyzes pull requests to both `staging` and `main`, while the dependency audit and focused security regressions provide a separate release-candidate check.

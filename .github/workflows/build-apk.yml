@@ -64,10 +64,7 @@ jobs:
           else
             tag="${RELEASE_TAG:-${INPUT_TAG:-$REF_NAME}}"
           fi
-          if [ -n "$tag" ] && [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
-            echo "Release tag must use vX.Y.Z semantic-version format: $tag" >&2
-            exit 1
-          fi
+          if [ -n "$tag" ]; then node scripts/check-release-tag.mjs "$tag"; fi
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Decode signing key
@@ -92,8 +89,6 @@ jobs:
       - name: Locate APK
         id: locate
         working-directory: android
-        env:
-          RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
         run: |
           APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n1)
           if [ -z "$APK_PATH" ]; then
@@ -103,10 +98,6 @@ jobs:
           VERSION=$(node -p "require('../package.json').version")
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
             echo "package.json version must use X.Y.Z semantic-version format: $VERSION" >&2
-            exit 1
-          fi
-          if [ -n "$RELEASE_TAG" ] && [ "${RELEASE_TAG#v}" != "$VERSION" ]; then
-            echo "Release tag $RELEASE_TAG must match package.json version $VERSION" >&2
             exit 1
           fi
           OUT_NAME="marinara-engine-${VERSION}-android-termux-bootstrap.apk"
