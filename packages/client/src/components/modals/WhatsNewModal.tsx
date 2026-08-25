@@ -49,6 +49,73 @@ function localizedCopy(key: string): ReleaseCopy {
 // Add each release here before its version ships. Versions without a tailored
 // entry still get a one-time update notice and a link to their full release.
 const RELEASE_ANNOUNCEMENTS: Record<string, ReleaseAnnouncement> = {
+  "2.4.4": {
+    headline: localizedCopy("ui.modals.whatsnewmodal.release244.headline"),
+    intro: localizedCopy("ui.modals.whatsnewmodal.release244.intro"),
+    highlights: [],
+    story: [
+      {
+        id: "help-overlay",
+        copyKey: "ui.modals.whatsnewmodal.release244.paragraphs.helpOverlay",
+        media: [
+          {
+            url: "https://i.imgur.com/YUFXyhq.mp4",
+            altKey: "ui.modals.whatsnewmodal.release244.media.helpOverlay",
+            kind: "video",
+          },
+        ],
+      },
+      {
+        id: "memory-nag",
+        copyKey: "ui.modals.whatsnewmodal.release244.paragraphs.memoryNag",
+      },
+      {
+        id: "memory-nag-setup",
+        copyKey: "ui.modals.whatsnewmodal.release244.paragraphs.memoryNagSetup",
+        media: [
+          {
+            url: "https://i.imgur.com/uLIjEnU.png",
+            altKey: "ui.modals.whatsnewmodal.release244.media.memoryNag",
+          },
+        ],
+      },
+      {
+        id: "thinking-in-messages",
+        copyKey: "ui.modals.whatsnewmodal.release244.paragraphs.thinkingInMessages",
+        media: [
+          {
+            url: "https://i.imgur.com/OzRFKHp.png",
+            altKey: "ui.modals.whatsnewmodal.release244.media.thinkingInMessages",
+          },
+        ],
+      },
+      {
+        id: "ui-ux",
+        copyKey: "ui.modals.whatsnewmodal.release244.paragraphs.uiUx",
+      },
+      {
+        id: "agent-library",
+        copyKey: "ui.modals.whatsnewmodal.release244.paragraphs.agentLibrary",
+      },
+      {
+        id: "game-mode",
+        copyKey: "ui.modals.whatsnewmodal.release244.paragraphs.gameMode",
+      },
+      {
+        id: "preview-agents",
+        copyKey: "ui.modals.whatsnewmodal.release244.paragraphs.previewAgents",
+      },
+      {
+        id: "additional-improvements",
+        copyKey: "ui.modals.whatsnewmodal.release244.paragraphs.additionalImprovements",
+      },
+      {
+        id: "thanks",
+        copyKey: "ui.modals.whatsnewmodal.release244.paragraphs.thanks",
+      },
+    ],
+    outro: localizedCopy("ui.modals.whatsnewmodal.release244.outro"),
+  },
   "2.4.3": {
     headline: localizedCopy("ui.modals.whatsnewmodal.release243.headline"),
     intro: localizedCopy("ui.modals.whatsnewmodal.release243.intro"),

@@ -164,6 +164,10 @@ import {
   resolveLorebookScopeExclusions,
 } from "../../services/lorebook/game-lorebook-scope.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
+import {
+  finalizeCapabilityAgentResults,
+  prepareCapabilityAgentContexts,
+} from "../../services/capability-packages/capability-agent-runtime.service.js";
 import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } from "./sse.js";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection.js";
 import {
@@ -2165,6 +2169,7 @@ async function executeRetryBatches(
   chatMode?: ChatMode,
   chatMeta?: Record<string, unknown>,
   customLorebookReadBehindContexts: ReadonlyMap<string, AgentContext> = new Map(),
+  preparedCapabilityContexts: Map<string, AgentContext> = new Map(),
 ) {
   const retryAgents = mergeRetryPairedBuiltInRewriteAgents(resolvedAgents);
   const effectiveChatMode: ChatMode = chatMode ?? (agentContext.chatMode as ChatMode);
@@ -2242,6 +2247,10 @@ async function executeRetryBatches(
     jobGroups,
     AGENT_PHASE_MAX_CONCURRENT_GROUPS,
     async (group) => {
+      const groupAgents = group.agents.map((agent) => agent.resolved);
+      const preparedGroupContext = await prepareCapabilityAgentContexts(groupAgents, group.context);
+      for (const agent of groupAgents) preparedCapabilityContexts.set(agent.id, preparedGroupContext);
+
       const toolAgents = group.agents.filter((agent) => shouldUseToolsDuringAgentExecution(agent.resolved));
       const batchAgents = group.agents.filter((agent) => !shouldUseToolsDuringAgentExecution(agent.resolved));
       const imagePromptAgents = batchAgents.filter(isImagePromptRetryAgent);
@@ -2250,14 +2259,14 @@ async function executeRetryBatches(
 
       if (regularBatchAgents.length > 0) {
         const configs = regularBatchAgents.map((agent) => agent.resolved);
-        const batchResults = await executeAgentBatch(configs, group.context, group.provider, group.model);
+        const batchResults = await executeAgentBatch(configs, preparedGroupContext, group.provider, group.model);
         for (const result of batchResults) {
           const entry = regularBatchAgents.find(
             (agent) => agent.resolved.id === result.agentId || agent.resolved.type === result.agentType,
           );
           groupResults.push(
             entry?.resolved.type === "spotify"
-              ? await validateSpotifyRetryPlayback(entry, result, group.context)
+              ? await validateSpotifyRetryPlayback(entry, result, preparedGroupContext)
               : result,
           );
         }
@@ -2266,7 +2275,7 @@ async function executeRetryBatches(
       for (const entry of imagePromptAgents) {
         const imagePromptContext = await resolveRetryImagePromptContext({
           entry,
-          context: group.context,
+          context: preparedGroupContext,
           conns,
           chatMode,
           chatMeta,
@@ -2284,8 +2293,8 @@ async function executeRetryBatches(
 
       for (const entry of toolAgents) {
         const toolContext = isImagePromptRetryAgent(entry)
-          ? await resolveRetryImagePromptContext({ entry, context: group.context, conns, chatMode, chatMeta })
-          : group.context;
+          ? await resolveRetryImagePromptContext({ entry, context: preparedGroupContext, conns, chatMode, chatMeta })
+          : preparedGroupContext;
         const result = await executeAgent(
           entry.resolved,
           toolContext,
@@ -2293,7 +2302,7 @@ async function executeRetryBatches(
           group.model,
           entry.resolved.toolContext,
         );
-        groupResults.push(await validateSpotifyRetryPlayback(entry, result, group.context));
+        groupResults.push(await validateSpotifyRetryPlayback(entry, result, preparedGroupContext));
       }
 
       return groupResults;
@@ -4473,6 +4482,7 @@ export async function registerRetryAgentsRoute(
       if (cyoaAgentWillRun) {
         logger.info("[retry-agents] CYOA re-roll chatId=%s assistantMessageId=%s", chatId, lastAssistant?.id ?? "none");
       }
+      const preparedCapabilityContexts = new Map<string, AgentContext>();
       const rawResults = illustratorPromptReviewOverride
         ? [
             {
@@ -4523,10 +4533,11 @@ export async function registerRetryAgentsRoute(
                   chatMode,
                   chatMeta,
                   new Map([...customLorebookReadBehindTargets].map(([agentId, target]) => [agentId, target.context])),
+                  preparedCapabilityContexts,
                 )
               : [];
       if (abortController.signal.aborted) return;
-      const results = rawResults.map(markInvalidJsonAgentResult).map((result) =>
+      let results = rawResults.map(markInvalidJsonAgentResult).map((result) =>
         requireAgentWriteApproval
           ? markRetryLorebookResultForApproval({
               result,
@@ -4536,6 +4547,14 @@ export async function registerRetryAgentsRoute(
               resolvedAgents: nonLorebookAgents,
             })
           : result,
+      );
+      results = await Promise.all(
+        results.map(async (result) => {
+          const entry = nonLorebookAgents.find((agent) => agent.resolved.id === result.agentId);
+          const preparedContext = preparedCapabilityContexts.get(result.agentId);
+          if (!entry || !preparedContext) return result;
+          return (await finalizeCapabilityAgentResults([result], [entry.resolved], preparedContext))[0] ?? result;
+        }),
       );
       let rawLorebookKeeperRunEntries: Array<{ messageId: string; swipeIndex: number; result: AgentResult }> = [];
       if (lorebookKeeperAgent) {
