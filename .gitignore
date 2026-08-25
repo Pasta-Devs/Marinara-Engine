@@ -68,3 +68,6 @@ win/installer/*.exe
 # Local docker compose overrides (per-machine dev config)
 docker-compose.override.yml
 docker-compose.override.yaml
+
+# MCP
+.playwright-mcp
