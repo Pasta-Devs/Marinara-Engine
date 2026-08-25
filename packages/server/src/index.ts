@@ -9,6 +9,7 @@ import { logger } from "./lib/logger.js";
 import { getHost, getPort, getServerProtocol, loadTlsOptions, logStorageDiagnostics } from "./config/runtime-config.js";
 import { logCsrfTrustSummary } from "./middleware/csrf-protection.js";
 import { startEnvWatcher } from "./config/env-watcher.js";
+import { startHeapMonitor } from "./services/heap-monitor.js";
 import { migrateTaskbarShortcuts } from "./services/setup/taskbar-shortcut-migration.js";
 import { sidecarProcessService } from "./services/sidecar/sidecar-process.service.js";
 
@@ -52,6 +53,7 @@ async function main() {
   logStorageDiagnostics();
   const app = await buildApp(tls ?? undefined);
   const envWatcher = startEnvWatcher();
+  const heapMonitor = startHeapMonitor();
   const protocol = tls ? "https" : getServerProtocol();
   const port = getPort();
   const host = getHost();
@@ -84,6 +86,7 @@ async function main() {
 
     try {
       envWatcher.stop();
+      heapMonitor.stop();
       await app.close();
       logger.info("Shutdown complete");
       process.exit(0);

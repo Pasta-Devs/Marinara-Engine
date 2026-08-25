@@ -39,6 +39,7 @@ import {
 } from "./config/runtime-config.js";
 import { corsDelegate } from "./config/cors-config.js";
 import { sidecarProcessService } from "./services/sidecar/sidecar-process.service.js";
+import { captureHeapSnapshot } from "./services/heap-monitor.js";
 import { startServerAutonomousScheduler } from "./services/conversation/server-autonomous-scheduler.service.js";
 import { preparePersonalExtensionTrust } from "./services/setup/personal-extension-trust.js";
 import { personalServerExtensionRuntime } from "./services/extensions/personal-server-extension-runtime.js";
@@ -318,6 +319,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       commit,
       build: getBuildLabel(),
       serverOs: SERVER_OS,
+      // Heap-vs-limit telemetry so support reports can distinguish memory
+      // pressure from other unresponsiveness causes (#5506).
+      memory: captureHeapSnapshot(),
       timestamp: new Date().toISOString(),
       capabilityPackages: {
         status: capabilityPackages

@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- The server now reports memory telemetry so unresponsive-install reports are diagnosable (related to #5506): `/api/health` and the copyable Support Diagnostics include the live heap, the Node heap limit, and RSS; the server logs its heap limit at startup; and when heap usage crosses 85% of the limit it logs an actionable warning into the session log (with spaced reminders and a recovery line, never per-minute spam) telling the operator to raise `NODE_OPTIONS="--max-old-space-size=<MB>"`. This distinguishes "GC storm at the heap ceiling" from "process frozen or killed by the OS" directly from a Termux log tail.
 - Download Agents can now filter the existing Writer, Tracker, and Misc sections by Conversation, Roleplay, or Game support, and a Discovery Desk recommendation opens its exact Agent instead of the catalog's first entry (#5494, #5500).
 - Game HUD widgets now expose their unique model-facing ID for editing after creation (#5477).
 - Professor Mari's structured `app_data` helper can now list, search, inspect, and read bounded message ranges from chats without falling back to raw database commands (#5476).

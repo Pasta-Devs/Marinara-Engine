@@ -3,12 +3,28 @@ export interface SupportDiagnostics {
   build: string;
   commit: string | null;
   serverOs: string;
+  serverMemory: string | null;
   clientOs: string;
   browser: string;
   gpu: string;
   connectionName: string | null;
   connectionProvider: string | null;
   model: string | null;
+}
+
+export interface ServerMemorySnapshot {
+  heapUsedMB: number;
+  heapLimitMB: number;
+  heapUsedPercent: number;
+  rssMB: number;
+}
+
+/** One human-readable line for the diagnostics paste, e.g. "842 MB / 1024 MB heap (82%), 1210 MB RSS". */
+export function formatServerMemory(memory: ServerMemorySnapshot | null | undefined): string | null {
+  if (!memory) return null;
+  const numbers = [memory.heapUsedMB, memory.heapLimitMB, memory.heapUsedPercent, memory.rssMB];
+  if (numbers.some((value) => typeof value !== "number" || !Number.isFinite(value))) return null;
+  return `${memory.heapUsedMB} MB / ${memory.heapLimitMB} MB heap (${memory.heapUsedPercent}%), ${memory.rssMB} MB RSS`;
 }
 
 export function resolveClientOs(userAgent: string, platform: string, maxTouchPoints = 0): string {
@@ -54,6 +70,7 @@ export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): strin
     `Build: ${available(diagnostics.build)}`,
     `Commit: ${available(diagnostics.commit)}`,
     `Server OS: ${available(diagnostics.serverOs)}`,
+    `Server memory: ${available(diagnostics.serverMemory)}`,
     `Client OS: ${available(diagnostics.clientOs)}`,
     `Browser / app shell: ${available(diagnostics.browser)}`,
     `GPU: ${available(diagnostics.gpu)}`,

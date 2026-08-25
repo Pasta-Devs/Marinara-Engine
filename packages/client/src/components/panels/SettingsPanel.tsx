@@ -161,7 +161,13 @@ import { useAgentImportPolicy, useSetAgentImportsEnabled } from "../../hooks/use
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
-import { detectBrowserGpu, formatSupportDiagnostics, resolveClientOs } from "../../lib/support-diagnostics";
+import {
+  detectBrowserGpu,
+  formatServerMemory,
+  formatSupportDiagnostics,
+  resolveClientOs,
+  type ServerMemorySnapshot,
+} from "../../lib/support-diagnostics";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import {
@@ -7669,6 +7675,7 @@ function AdvancedSettings() {
     commit: string | null;
     build: string;
     serverOs: string;
+    memory?: ServerMemorySnapshot;
   }>({
     queryKey: ["health"],
     queryFn: () => api.get("/health"),
@@ -7687,6 +7694,7 @@ function AdvancedSettings() {
         build: health.data?.build ?? APP_VERSION,
         commit: health.data?.commit ?? null,
         serverOs: health.data?.serverOs ?? "Unavailable",
+        serverMemory: formatServerMemory(health.data?.memory),
         clientOs: resolveClientOs(navigator.userAgent, navigator.platform, navigator.maxTouchPoints),
         browser: navigator.userAgent,
         gpu: detectBrowserGpu(),
