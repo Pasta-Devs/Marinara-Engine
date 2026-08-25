@@ -576,24 +576,26 @@ function RoleplayTrackerCapability({
 }) {
   const { lockMode, onSetLockMode } = useTrackerLockContext();
   return (
-    <CapabilityElement
-      packageId={packageId}
-      view="toolbar"
-      capabilityProps={{
-        chatId,
-        chatMode: "roleplay",
-        mobileCompact: compact,
-        onRerunTracker: onRerunSingleTracker ? () => onRerunSingleTracker(packageId) : undefined,
-        trackerRetryBusy: isTrackerRetryBusy,
-        lockMode,
-        onToggleLockMode: onSetLockMode ? () => onSetLockMode(!lockMode) : undefined,
-        toolbarButtonClass: getChatToolbarButtonClass({
-          compact,
-          className: compact ? CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS : undefined,
-        }),
-      }}
-      className="contents"
-    />
+    <span className="contents [&_button>svg]:!text-inherit">
+      <CapabilityElement
+        packageId={packageId}
+        view="toolbar"
+        capabilityProps={{
+          chatId,
+          chatMode: "roleplay",
+          mobileCompact: compact,
+          onRerunTracker: onRerunSingleTracker ? () => onRerunSingleTracker(packageId) : undefined,
+          trackerRetryBusy: isTrackerRetryBusy,
+          lockMode,
+          onToggleLockMode: onSetLockMode ? () => onSetLockMode(!lockMode) : undefined,
+          toolbarButtonClass: getChatToolbarButtonClass({
+            compact,
+            className: compact ? CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS : undefined,
+          }),
+        }}
+        className="contents"
+      />
+    </span>
   );
 }
 
@@ -626,7 +628,7 @@ function TrackerPanelToggleButton({ onToggle }: { onToggle: () => void }) {
       title={localizeUi("ui.chat.trackerpaneltogglebutton.showTrackerPanel")}
       aria-label={localizeUi("ui.chat.trackerpaneltogglebutton.showTrackerPanel")}
     >
-      <TrackerPanelIcon size="1.05rem" className="mari-chrome-accent-icon mari-accent-animated shrink-0" />
+      <TrackerPanelIcon size="1.05rem" className="shrink-0" />
       <span className="sr-only">{localizeUi("ui.panels.trackerpanelappearancedrawer.trackerPanel")}</span>
     </button>
   );
@@ -1297,7 +1299,7 @@ function InventoryTrackerWidget({
         {total > 0 ? (
           <span className="text-[0.625rem] font-semibold tabular-nums">{total}</span>
         ) : (
-          <Backpack size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated max-md:h-3 max-md:w-3" />
+          <Backpack size="0.875rem" className="max-md:h-3 max-md:w-3" />
         )}
       </button>
       <WidgetPopover
@@ -1469,14 +1471,11 @@ function CombinedWorldWidget({
         title={localizeUi("ui.panels.appearancesettings.worldState")}
       >
         {!hasWorldState ? (
-          <MapPin
-            size="0.875rem"
-            className="mari-chrome-accent-icon mari-accent-animated shrink-0 max-md:h-3.5 max-md:w-3.5"
-          />
+          <MapPin size="0.875rem" className="shrink-0 max-md:h-3.5 max-md:w-3.5" />
         ) : (
           <>
             {/* Location pin */}
-            <MapPin size="0.9375rem" className="mari-chrome-accent-icon mari-accent-animated shrink-0 drop-shadow-sm" />
+            <MapPin size="0.9375rem" className="shrink-0 drop-shadow-sm" />
 
             {/* Mini calendar with day number */}
             <WorldCalendarIcon

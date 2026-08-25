@@ -75,10 +75,15 @@ assert.match(
   /total > 0 \? \([\s\S]*tabular-nums[\s\S]*\) : \([\s\S]*<Backpack/u,
   "the Inventory launcher must show only the item count after inventory is populated",
 );
-assert.equal(
-  (roleplayHud.match(/mari-chrome-accent-icon mari-accent-animated/g) ?? []).length >= 4,
-  true,
-  "Tracker Panel, Inventory, and both World State launcher states must use the animated chat accent token",
+assert.doesNotMatch(
+  roleplayHud,
+  /<(?:TrackerPanelIcon|Backpack|MapPin)[^>]*mari-chrome-accent-icon/u,
+  "built-in tracker launchers must inherit the shared toolbar resting color",
+);
+assert.match(
+  roleplayHud,
+  /<span className="contents \[&_button>svg\]:!text-inherit">[\s\S]*<CapabilityElement/u,
+  "downloadable tracker icons must inherit the same shared toolbar color",
 );
 assert.match(
   roleplayHud,
@@ -94,6 +99,11 @@ assert.doesNotMatch(
   roleplayPanels,
   /(?:Characters|Quests|Custom)\s*\{[^}]*\.length/u,
   "mobile tracker headings must not append item counts",
+);
+assert.doesNotMatch(
+  roleplayPanels,
+  /ui\.panels\.characterspanel\.characters/u,
+  "the mobile Characters heading must not reuse the library count-prefix label",
 );
 assert.match(
   inventoryPanel,

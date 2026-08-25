@@ -508,8 +508,8 @@ export function CombinedPlayerPanel({
           <div className="p-2">
             <div className="flex items-center justify-between px-1 pb-1">
               <span className={TRACKER_SECTION_TITLE}>
-                <Users size="0.5625rem" className="text-[var(--marinara-chat-chrome-accent)]" />{" "}
-                {localizeUi("ui.panels.characterspanel.characters")}
+                <Users size="0.5625rem" className="text-[var(--marinara-chat-chrome-accent)]" />
+                {localizeUi("navigation.topbar.characters")}
               </span>
               <span className="flex items-center gap-1">
                 <TrackerSectionRefresh
