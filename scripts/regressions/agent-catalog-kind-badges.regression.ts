@@ -21,12 +21,12 @@ assert.match(
   /storyboard:\s*\["roleplay",\s*"game"\]/u,
   "Storyboard must advertise its Roleplay and Game catalog badges",
 );
-for (const packageId of ["beholder", "gacha-forge", "slurp"]) {
-  assert.match(catalogViewSource, new RegExp(`(?:"${packageId}"|${packageId}):\\s*\\[`, "u"));
-}
+assert.match(catalogViewSource, /(?:"beholder"|beholder):\s*\[\s*"roleplay"\s*\]/u);
+assert.match(catalogViewSource, /(?:"gacha-forge"|gacha-forge):\s*\[\s*"conversation",\s*"roleplay",\s*"game"\s*\]/u);
+assert.match(catalogViewSource, /(?:"slurp"|slurp):\s*\[\s*"conversation",\s*"roleplay",\s*"game"\s*\]/u);
 assert.match(
   catalogViewSource,
-  /data-agent-catalog-mode-badges[\s\S]*?packageModes\(entry\.manifest\.id\)\.map/u,
+  /const modes = packageModes\(entry\.manifest\.id\);[\s\S]*?data-agent-catalog-mode-badges[\s\S]*?modes\.map/u,
   "Catalog rows must show their supported chat modes without opening the detail view",
 );
 assert.match(
