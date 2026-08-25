@@ -63,6 +63,7 @@ try {
     const tailWindow = await mari.executeAction({
       action: "chat.messages",
       chatId: chat.id,
+      last: 2,
       tail: true,
       field: "messages[0].content",
       offset: 30_000,

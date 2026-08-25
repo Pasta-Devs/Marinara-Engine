@@ -6621,7 +6621,13 @@ export class MariDbService {
         let selectedMessages: typeof numberedMessages;
         if (last !== null || afterPost !== null) {
           const scopedMessages = last !== null ? numberedMessages.slice(-last) : numberedMessages.slice(afterPost ?? 0);
-          selectedMessages = scopedMessages.slice(offset, limit !== null ? offset + limit : undefined);
+          if (tail) {
+            const offsetMessages =
+              offset > 0 ? scopedMessages.slice(0, Math.max(0, scopedMessages.length - offset)) : scopedMessages;
+            selectedMessages = limit !== null ? offsetMessages.slice(-limit) : offsetMessages;
+          } else {
+            selectedMessages = scopedMessages.slice(offset, limit !== null ? offset + limit : undefined);
+          }
         } else if (tail) {
           const offsetMessages =
             offset > 0 ? numberedMessages.slice(0, Math.max(0, numberedMessages.length - offset)) : numberedMessages;
