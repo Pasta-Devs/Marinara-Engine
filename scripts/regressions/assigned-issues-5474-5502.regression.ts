@@ -8,6 +8,7 @@ function readSource(path: string) {
 
 const homeBrowser = readSource("packages/client/src/components/chat/HomeBrowserHub.tsx");
 const agentCatalog = readSource("packages/client/src/components/agents/AgentCatalogView.tsx");
+const agentModeFilter = readSource("packages/client/src/components/agents/AgentModeFilter.tsx");
 const uiStore = readSource("packages/client/src/stores/ui.store.ts");
 const widgetEditor = readSource("packages/client/src/components/game/GameWidgetSetupEditor.tsx");
 const roleplaySurface = readSource("packages/client/src/components/chat/ChatRoleplaySurface.tsx");
@@ -22,7 +23,8 @@ assert.match(
   "Discovery Desk must open the displayed Agent",
 );
 assert.match(uiStore, /agentCatalogInitialPackageId: packageId \?\? null/u);
-assert.match(agentCatalog, /type CatalogModeFilter = "all" \| CatalogMode/u);
+assert.match(agentModeFilter, /export type AgentModeFilterValue = "all" \| ChatMode/u);
+assert.match(agentCatalog, /<AgentModeFilter className="mt-2" value=\{modeFilter\} onChange=\{setModeFilter\} \/>/u);
 assert.match(agentCatalog, /modeFilter === "all" \|\| packageModes\(manifest\.id\)\.includes\(modeFilter\)/u);
 assert.match(agentCatalog, /const hasActiveFilters = Boolean\(query\.trim\(\)\) \|\| modeFilter !== "all";/u);
 

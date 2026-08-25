@@ -9,8 +9,12 @@ const trackerSidebar = readSource("packages/client/src/features/tracker-panel/co
 const inventoryTracker = readSource(
   "packages/client/src/features/tracker-panel/components/sections/InventoryTrackerPanel.tsx",
 );
+const trackerSectionControls = readSource(
+  "packages/client/src/features/tracker-panel/components/controls/SectionControls.tsx",
+);
 const trackerSectionList = readSource("packages/client/src/features/tracker-panel/components/TrackerSectionList.tsx");
 const roleplayHud = readSource("packages/client/src/components/chat/RoleplayHUD.tsx");
+const chatToolbarControls = readSource("packages/client/src/components/chat/ChatToolbarControls.tsx");
 const roleplayPanels = readSource("packages/client/src/components/chat/RoleplayHUDPanels.tsx");
 const appShell = readSource("packages/client/src/components/layout/AppShell.tsx");
 const trackerHeader = readSource("packages/client/src/features/tracker-panel/components/TrackerSidebarHeader.tsx");
@@ -62,8 +66,18 @@ assert.match(
 );
 assert.match(
   roleplayHud,
-  /TrackerPanelIcon[\s\S]*?mari-accent-animated[^\n]*marinara-app-accent-solid/u,
-  "the roleplay Tracker Panel launcher must follow the animated app accent",
+  /function TrackerPanelToggleButton[\s\S]*?className=\{WIDGET\}[\s\S]*?<TrackerPanelIcon/u,
+  "the roleplay Tracker Panel launcher must reuse the shared tracker widget control",
+);
+assert.match(
+  roleplayHud,
+  /const HUD_ICON_BUTTON = getChatToolbarButtonClass\(\{ compact: true \}\)/u,
+  "tracker widget controls must inherit the shared chat toolbar treatment",
+);
+assert.match(
+  chatToolbarControls,
+  /text-\[var\(--marinara-chat-chrome-button-text\)\]/u,
+  "shared chat toolbar icons must inherit the configured chat chrome color",
 );
 assert.match(
   trackerHeader,
@@ -77,9 +91,10 @@ assert.doesNotMatch(
 );
 assert.match(
   inventoryTracker,
-  /"@container relative z-10 overflow-hidden"[\s\S]*border-b border-\[var\(--border\)\]/u,
+  /"@container relative z-10 overflow-hidden", !plain && TRACKER_SECTION_SHELL_CLASS/u,
   "Inventory must retain the shared Tracker Panel section wrapper",
 );
+assert.match(trackerSectionControls, /TRACKER_SECTION_SHELL_CLASS =[\s\S]*border-b border-\[var\(--border\)\]/u);
 assert.match(
   inventoryTracker,
   /mari-chrome-tag grid h-4 w-4[^\n]*place-items-center[^\n]*text-current/u,
@@ -97,18 +112,18 @@ assert.match(
 );
 assert.match(
   roleplayHud,
-  /window\.innerWidth < 768 \? Math\.round\(\(window\.innerWidth - dropdownWidth\) \/ 2\) : rect\.left/u,
+  /const centered = window\.innerWidth < 768;[\s\S]*?Math\.round\(window\.innerWidth \/ 2\)[\s\S]*?transform: pos\.centered \? "translateX\(-50%\)" : undefined/u,
   "the mobile Agents menu must center itself horizontally",
 );
 assert.match(
   roleplayHud,
-  /const hasWorldState =[\s\S]*!hasWorldState \?[\s\S]*mari-accent-animated[\s\S]*marinara-app-accent-solid/u,
-  "World State must follow the animated accent until it has generated content",
+  /const hasWorldState =[\s\S]*?getChatToolbarButtonClass\([\s\S]*?hasWorldState \? "w-auto min-w-8 gap-1 px-2" : "group flex-col gap-0 overflow-hidden"[\s\S]*?!hasWorldState \? \([\s\S]*?<MapPin/u,
+  "World State must use the shared toolbar treatment and stay compact until it has generated content",
 );
 assert.match(
   roleplayHud,
-  /function InventoryTrackerWidget[\s\S]*mari-accent-animated[\s\S]*marinara-app-accent-solid/u,
-  "the Inventory toolbar backpack must follow the animated app accent",
+  /function InventoryTrackerWidget[\s\S]*?className=\{WIDGET\}[\s\S]*?total > 0 \?[\s\S]*?<Backpack/u,
+  "the Inventory launcher must reuse the shared toolbar treatment and only show its backpack while empty",
 );
 assert.match(
   roleplayPanels,
@@ -132,7 +147,7 @@ assert.doesNotMatch(
 );
 assert.match(
   roleplayPanels,
-  /capabilityProps=\{\{ chatId, chatMode: "roleplay", mobileCompact: true \}\}/u,
+  /capabilityProps=\{\{[\s\S]*?chatId,[\s\S]*?chatMode: "roleplay",[\s\S]*?mobileCompact: true,/u,
   "the combined mobile panel must request Memory Nag's fixed-open compact presentation",
 );
 assert.match(
@@ -224,18 +239,18 @@ assert.doesNotMatch(
 );
 assert.match(
   chatSidebar,
-  /mari-chrome-muted-badge mari-chrome-tag flex shrink-0 items-center gap-0\.5/u,
-  "chat-list branch counts must use compact rounded-corner tags instead of capsules",
+  /mari-chrome-muted-badge flex shrink-0 items-center gap-0\.5/u,
+  "chat-list branch counts must use the shared compact tag treatment",
 );
 assert.match(
   chatBranchSelector,
-  /mari-chrome-tag absolute -right-1 -top-1/u,
-  "the active-chat branch count must use the same compact rounded-corner tag",
+  /mari-chrome-muted-badge absolute -right-1 -top-1/u,
+  "the active-chat branch count must use the same shared compact tag treatment",
 );
 assert.match(
   globalStyles,
-  /\.mari-chrome-tag\s*\{\s*border-radius: 0\.25rem;/u,
-  "the shared compact tag class must own rounded-square geometry",
+  /\.mari-chrome-tag\s*\{\s*border-radius: 0\.625rem;/u,
+  "the shared compact tag class must own the same softly rounded geometry as library tags",
 );
 assert.match(
   conversationView,
