@@ -3748,18 +3748,31 @@ const cases: RegressionCase[] = [
       );
       const activeAgentMenuSource = drawerSource.slice(activeAgentMenuStart, activeAgentMenuEnd);
       assert.match(
-        activeAgentMenuSource,
-        /agent\.id === "long-term-memory"[\s\S]*getAgentSettingsMenuId\(chat\.id, agent\.id\)/u,
-        "Active Long-Term Memory should expose the menu link target",
+        drawerSource,
+        /const renderStandaloneRoleplayAgentSettingsCard[\s\S]*?<AgentSettingsCard[\s\S]*?id=\{getAgentSettingsMenuId\(chat\.id, agent\.id\)\}/u,
+        "Standalone Roleplay agents such as Long-Term Memory must expose the menu link target",
       );
-      const storyboardMenuBranchStart = activeAgentMenuSource.indexOf("{agent.id === STORYBOARD_AGENT_ID && (");
-      const storyboardMenuBranchEnd = activeAgentMenuSource.indexOf(
-        "\n                                          )}",
+      const standaloneAgentRendererStart = drawerSource.indexOf("const renderStandaloneRoleplayAgentSettingsCard =");
+      const standaloneAgentRendererEnd = drawerSource.indexOf(
+        "const updateAgentPromptTemplateSelection =",
+        standaloneAgentRendererStart,
+      );
+      assert.notEqual(standaloneAgentRendererStart, -1, "Standalone Roleplay agent settings should be rendered");
+      assert.notEqual(standaloneAgentRendererEnd, -1, "Standalone Roleplay agent settings should be bounded");
+      const standaloneAgentRendererSource = drawerSource.slice(
+        standaloneAgentRendererStart,
+        standaloneAgentRendererEnd,
+      );
+      const storyboardMenuBranchStart = standaloneAgentRendererSource.indexOf(
+        "} else if (agent.id === STORYBOARD_AGENT_ID) {",
+      );
+      const storyboardMenuBranchEnd = standaloneAgentRendererSource.indexOf(
+        '} else if (agent.id === "beholder") {',
         storyboardMenuBranchStart,
       );
       assert.notEqual(storyboardMenuBranchStart, -1, "Active Storyboard should render its chat settings branch");
       assert.notEqual(storyboardMenuBranchEnd, -1, "Storyboard chat settings branch should be complete");
-      const storyboardMenuBranchSource = activeAgentMenuSource.slice(
+      const storyboardMenuBranchSource = standaloneAgentRendererSource.slice(
         storyboardMenuBranchStart,
         storyboardMenuBranchEnd,
       );
@@ -3812,7 +3825,7 @@ const cases: RegressionCase[] = [
       );
       assert.match(
         activeAgentMenuSource,
-        /const hasSettingsTarget =\s*agent\.id === "hierarchical-maps"[\s\S]*agent\.id === STORYBOARD_AGENT_ID[\s\S]*chatSettingsPackageByAgentId\.has\(agent\.id\)[\s\S]*id=\{hasSettingsTarget \? getAgentSettingsMenuId\(chat\.id, agent\.id\)/u,
+        /const hasSettingsTarget = chatSettingsPackageByAgentId\.has\(agent\.id\);[\s\S]*id=\{hasSettingsTarget \? getAgentSettingsMenuId\(chat\.id, agent\.id\)/u,
       );
       assert.match(
         roleplayMenuLinksSource,
