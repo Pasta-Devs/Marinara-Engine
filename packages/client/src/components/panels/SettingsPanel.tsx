@@ -7680,6 +7680,10 @@ function AdvancedSettings() {
     queryKey: ["health"],
     queryFn: () => api.get("/health"),
     staleTime: 60_000,
+    // Keep the memory numbers in the Support Diagnostics copy current while
+    // the panel is open. Copying must stay synchronous with the click (Safari
+    // clipboard gesture rules), so freshness lives here, not in the handler.
+    refetchInterval: 30_000,
   });
   const connections = (rawConnections ?? []) as APIConnection[];
   const activeConnection = activeChat?.connectionId

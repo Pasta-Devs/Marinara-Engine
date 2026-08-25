@@ -26,6 +26,7 @@ export interface HeapSnapshot {
 
 const MB = 1024 * 1024;
 export const HEAP_PRESSURE_THRESHOLD_PERCENT = 85;
+export const HEAP_PRESSURE_RECOVERY_PERCENT = 80;
 export const HEAP_PRESSURE_CHECK_INTERVAL_MS = 60_000;
 export const HEAP_PRESSURE_REMINDER_INTERVAL_MS = 10 * 60_000;
 
@@ -33,47 +34,75 @@ export function captureHeapSnapshot(): HeapSnapshot {
   const stats = getHeapStatistics();
   const heapUsedMB = Math.round(stats.used_heap_size / MB);
   const heapLimitMB = Math.round(stats.heap_size_limit / MB);
+  // RSS reads /proc/self/stat on Linux/Android and can throw under fd
+  // exhaustion; telemetry must degrade, never fail the caller.
+  let rssMB = 0;
+  try {
+    rssMB = Math.round(process.memoryUsage.rss() / MB);
+  } catch {
+    // Leave 0: "unknown", still distinguishable from a real reading.
+  }
   return {
     heapUsedMB,
     heapLimitMB,
     heapUsedPercent: heapLimitMB > 0 ? Math.min(100, Math.round((heapUsedMB / heapLimitMB) * 100)) : 0,
-    rssMB: Math.round(process.memoryUsage.rss() / MB),
+    rssMB,
   };
 }
 
 export interface HeapPressureState {
   underPressure: boolean;
+  /** Whether the CURRENT pressure episode has produced a log line yet. */
+  announced: boolean;
+  /** Monotonic timestamp of the last warn/remind line (0 = never). */
   lastWarnedAt: number;
 }
 
 export type HeapPressureAction = "warn" | "remind" | "recovered" | "none";
 
 /**
- * Pure threshold logic: warn once on crossing into pressure, remind at most
- * every reminder interval while it persists, and log recovery once on the way
- * back down. A wall-clock jump (Android process freeze) at worst issues one
- * late reminder — it can never kill or spam anything.
+ * Pure threshold logic with hysteresis: pressure starts at the warn threshold
+ * but only clears below the lower recovery threshold, and warn/remind lines
+ * are globally rate-limited to one per reminder interval. Under ANY usage
+ * oscillation this emits at most one pressure line and one recovery line per
+ * reminder interval — a heap saw-toothing across the boundary can never flood
+ * the session log. `now` must come from a monotonic clock; a paused clock
+ * (Android process freeze) at worst delays a reminder.
  */
 export function evaluateHeapPressure(
   state: HeapPressureState,
   heapUsedPercent: number,
   now: number,
 ): HeapPressureAction {
-  if (heapUsedPercent >= HEAP_PRESSURE_THRESHOLD_PERCENT) {
-    if (!state.underPressure) {
-      state.underPressure = true;
-      state.lastWarnedAt = now;
-      return "warn";
+  const reminderElapsed = state.lastWarnedAt === 0 || now - state.lastWarnedAt >= HEAP_PRESSURE_REMINDER_INTERVAL_MS;
+  if (state.underPressure) {
+    if (heapUsedPercent < HEAP_PRESSURE_RECOVERY_PERCENT) {
+      state.underPressure = false;
+      const wasAnnounced = state.announced;
+      state.announced = false;
+      // A silent episode (re-entry inside the rate-limit window) also ends
+      // silently, so flapping cannot emit unmatched recovery lines.
+      return wasAnnounced ? "recovered" : "none";
     }
-    if (now - state.lastWarnedAt >= HEAP_PRESSURE_REMINDER_INTERVAL_MS) {
+    if (reminderElapsed) {
       state.lastWarnedAt = now;
-      return "remind";
+      const firstLineOfEpisode = !state.announced;
+      state.announced = true;
+      return firstLineOfEpisode ? "warn" : "remind";
     }
     return "none";
   }
-  if (state.underPressure) {
-    state.underPressure = false;
-    return "recovered";
+  if (heapUsedPercent >= HEAP_PRESSURE_THRESHOLD_PERCENT) {
+    state.underPressure = true;
+    if (reminderElapsed) {
+      state.lastWarnedAt = now;
+      state.announced = true;
+      return "warn";
+    }
+    // Re-crossed shortly after a previous line: stay silent now; the next
+    // reminder tick announces the episode if pressure persists.
+    state.announced = false;
+    return "none";
   }
   return "none";
 }
@@ -101,19 +130,27 @@ export function startHeapMonitor(): { stop: () => void } {
     startup.rssMB,
   );
 
-  const state: HeapPressureState = { underPressure: false, lastWarnedAt: 0 };
+  const state: HeapPressureState = { underPressure: false, announced: false, lastWarnedAt: 0 };
   const timer = setInterval(() => {
-    const snapshot = captureHeapSnapshot();
-    const action = evaluateHeapPressure(state, snapshot.heapUsedPercent, Date.now());
-    if (action === "warn" || action === "remind") {
-      logPressure(snapshot);
-    } else if (action === "recovered") {
-      logger.info(
-        "[heap] Memory pressure cleared: %dMB of %dMB in use (%d%%)",
-        snapshot.heapUsedMB,
-        snapshot.heapLimitMB,
-        snapshot.heapUsedPercent,
-      );
+    // The tick must never throw: an exception here would reach the process-
+    // fatal uncaughtException handler and let the telemetry kill the server
+    // it monitors. performance.now() is monotonic, so a backward wall-clock
+    // step (Android NTP correction) cannot silence reminders.
+    try {
+      const snapshot = captureHeapSnapshot();
+      const action = evaluateHeapPressure(state, snapshot.heapUsedPercent, performance.now());
+      if (action === "warn" || action === "remind") {
+        logPressure(snapshot);
+      } else if (action === "recovered") {
+        logger.info(
+          "[heap] Memory pressure cleared: %dMB of %dMB in use (%d%%)",
+          snapshot.heapUsedMB,
+          snapshot.heapLimitMB,
+          snapshot.heapUsedPercent,
+        );
+      }
+    } catch (error) {
+      logger.debug(error, "[heap] Skipped a heap pressure check");
     }
   }, HEAP_PRESSURE_CHECK_INTERVAL_MS);
   timer.unref?.();
