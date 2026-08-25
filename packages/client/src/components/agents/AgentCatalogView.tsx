@@ -44,6 +44,7 @@ type CatalogMode = "conversation" | "roleplay" | "game";
 type CatalogModeFilter = "all" | CatalogMode;
 
 const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> = Object.freeze({
+  beholder: ["roleplay"],
   "card-evolution-auditor": ["roleplay"],
   continuity: ["roleplay"],
   "knowledge-retrieval": ["roleplay"],
@@ -57,6 +58,7 @@ const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> =
   "memory-nag": ["roleplay"],
   "long-term-memory": ["conversation", "roleplay", "game"],
   expression: ["roleplay"],
+  "gacha-forge": ["conversation", "roleplay", "game"],
   "hierarchical-maps": ["roleplay", "game"],
   "persona-stats": ["roleplay"],
   quest: ["roleplay"],
@@ -73,6 +75,7 @@ const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> =
   html: ["roleplay"],
   "lorebook-keeper": ["roleplay", "game"],
   noodle: ["conversation", "roleplay", "game"],
+  slurp: ["conversation", "roleplay", "game"],
   spotify: ["conversation", "roleplay", "game"],
   poker: ["conversation"],
   "rock-paper-scissors": ["conversation"],
@@ -620,6 +623,19 @@ export function AgentCatalogView() {
                                         </span>
                                         <span className="mt-0.5 line-clamp-2 text-xs text-[var(--muted-foreground)]">
                                           {entry.manifest.description}
+                                        </span>
+                                        <span data-agent-catalog-mode-badges className="mt-1 flex flex-wrap gap-1">
+                                          {packageModes(entry.manifest.id).map((mode) => (
+                                            <span
+                                              key={mode}
+                                              className={cn(
+                                                "rounded-md border px-1.5 py-0.5 text-[0.5625rem] font-semibold text-[var(--foreground)]",
+                                                MODE_BADGES[mode].className,
+                                              )}
+                                            >
+                                              {MODE_BADGES[mode].label}
+                                            </span>
+                                          ))}
                                         </span>
                                       </span>
                                     </button>

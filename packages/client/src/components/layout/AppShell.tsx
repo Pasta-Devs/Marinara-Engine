@@ -125,6 +125,7 @@ const TRACKER_PANEL_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"
 const ROLEPLAY_CHAT_COLUMN_SELECTOR = '[data-roleplay-chat-column="true"]';
 const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
 const MOBILE_SHELL_PANEL_TOP_CLASS = "top-[calc(env(safe-area-inset-top)_+_3rem)]";
+const MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS = "pb-[min(max(env(safe-area-inset-bottom),0.5rem),3rem)]";
 const CENTER_COMPACT_WIDTH = 768;
 const CENTER_COMPACT_HYSTERESIS = 80;
 const CENTER_COMPACT_SCAN_DEPTH = 6;
@@ -1363,8 +1364,9 @@ export function AppShell() {
                   "mari-app-background-paint flex min-h-0 flex-1 flex-col overflow-hidden",
                   shellOverlayMode &&
                     cn(
-                      "mari-mobile-detail-sheet !fixed bottom-0 right-0 z-50 !w-full bg-[var(--background)]/95 pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl backdrop-blur-xl",
+                      "mari-mobile-detail-sheet !fixed bottom-0 right-0 z-50 !w-full bg-[var(--background)]/95 shadow-2xl backdrop-blur-xl",
                       MOBILE_SHELL_PANEL_TOP_CLASS,
+                      MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
                     ),
                 )}
               >
@@ -1414,8 +1416,9 @@ export function AppShell() {
               data-component="TrackerDataSidebarMobile"
               aria-label={localizeUi("ui.layout.appshell.trackerDataPanel")}
               className={cn(
-                "mari-tracker-panel !fixed bottom-0 z-50 w-screen max-w-none overflow-hidden bg-zinc-950/95 pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl ring-1 ring-[var(--marinara-app-accent-static)] backdrop-blur-xl",
+                "mari-tracker-panel !fixed bottom-0 z-50 w-screen max-w-none overflow-hidden bg-zinc-950/95 shadow-2xl ring-1 ring-[var(--marinara-app-accent-static)] backdrop-blur-xl",
                 MOBILE_SHELL_PANEL_TOP_CLASS,
+                MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
                 trackerPanelSide === "left" ? "left-0" : "right-0",
               )}
               style={trackerPanelBackgroundStyle}
@@ -1446,8 +1449,9 @@ export function AppShell() {
                   : "ui.layout.appshell.settingsAndToolsPanel",
               )}
               className={cn(
-                "!fixed right-0 bottom-0 z-50 !w-full overflow-hidden pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl backdrop-blur-xl",
+                "!fixed right-0 bottom-0 z-50 !w-full overflow-hidden shadow-2xl backdrop-blur-xl",
                 MOBILE_SHELL_PANEL_TOP_CLASS,
+                MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
                 mobileNavigationPanel === "chats"
                   ? "mari-sidebar bg-[var(--background)]/95"
                   : "mari-right-panel bg-[var(--background)]/80",

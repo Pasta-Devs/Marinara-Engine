@@ -11664,13 +11664,17 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
   await expect(trackerSection.getByText("Hierarchical Maps", { exact: true })).toBeVisible();
   await expect(catalogView.getByText("About Me Keeper")).toHaveCount(0);
   await expect(catalogView.getByText("Play UNO with Conversation characters.").first()).toBeVisible();
+  const unoListButton = catalogView.locator("aside button").filter({
+    hasText: "Play UNO with Conversation characters.",
+  });
+  await expect(unoListButton.getByText("Conversation", { exact: true })).toBeVisible();
   const allAgentsButton = catalogView.locator("button", { hasText: "All agents" });
   if (testInfo.project.name.includes("mobile")) {
-    await catalogView.getByRole("button", { name: "UNO Play UNO with Conversation characters.", exact: true }).click();
+    await unoListButton.click();
     await expect(allAgentsButton).toBeVisible();
     await allAgentsButton.click();
     await expect(allAgentsButton).toBeHidden();
-    await catalogView.getByRole("button", { name: "UNO Play UNO with Conversation characters.", exact: true }).click();
+    await unoListButton.click();
   } else {
     await expect(allAgentsButton).toBeHidden();
   }
