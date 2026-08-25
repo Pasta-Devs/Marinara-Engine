@@ -12,6 +12,8 @@ Rozmawiasz z nią zwykłym językiem. Wpisz wiadomość w polu, a potem naciśni
 
 Wysłanie pierwszej wiadomości odblokowuje osiągnięcie **Hello World**.
 
+**Wskaźnik obecności Professor Mari**, zwykły czat z postacią Professor Mari i czat obszaru roboczego na ekranie głównym korzystają z tego samego formatu przekazania.
+
 ## Co potrafi
 
 Professor Mari to coś więcej niż okienko na pytania. Wyjaśnia działanie aplikacji, pomaga w konfiguracji i tworzy różne rzeczy na życzenie.

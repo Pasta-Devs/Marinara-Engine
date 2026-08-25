@@ -12,6 +12,8 @@ Tu lui parles en langage courant. Saisis un message dans le champ, puis appuie s
 
 Le tout premier message que tu lui envoies débloque le succès **Hello World**.
 
+L'**indicateur de présence de Professor Mari**, le chat de personnage normal avec Professor Mari et le chat de l'espace de travail de l'accueil utilisent le même format de transmission.
+
 ## Ce qu'elle sait faire
 
 Professor Mari est bien plus qu'une boîte à questions. Elle explique l'application, t'aide à la configurer et fabrique des choses pour toi quand tu le demandes.

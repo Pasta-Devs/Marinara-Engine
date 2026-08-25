@@ -12,6 +12,8 @@ Mit ihr sprichst du in ganz normaler Sprache. Tipp eine Nachricht in das Feld un
 
 Die allererste Nachricht an sie schaltet die Errungenschaft **Hello World** frei.
 
+Die **Professor-Mari-Präsenzanzeige**, ein normaler Charakterchat mit Professor Mari und der Arbeitsbereich-Chat auf Home verwenden dasselbe Übergabeformat.
+
 ## Was sie kann
 
 Professor Mari ist mehr als ein Frage-Feld. Sie erklärt die App, hilft bei der Einrichtung und baut auf Zuruf Dinge für dich.

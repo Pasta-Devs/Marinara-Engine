@@ -1,6 +1,6 @@
 {
   "language": "es",
-  "sourceCommit": "3bf9781975a7a172e19784f6be2596fb8a86d4c1",
+  "sourceCommit": "191e75c2c391506b1e698d0c6351efdfa4446b44",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -419,8 +419,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "674a6918a3f78a4eae816b617bef1a09c3334d4163584ee5a590b50a3829c9f2",
-      "bytes": 18509
+      "sha256": "d9d7f78d8445b6b65d5f681a630262f156a753ac24531428c4ec6ae186a76ce0",
+      "bytes": 18684
     },
     {
       "path": "home/tutorial.md",

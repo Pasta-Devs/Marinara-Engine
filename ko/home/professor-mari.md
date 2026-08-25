@@ -12,6 +12,8 @@ Professor Mari는 홈 화면에 있습니다. 홈 화면은 채팅을 하나도 
 
 Professor Mari에게 첫 메시지를 보내면 **Hello World** 업적이 열립니다.
 
+**Professor Mari 상태 표시기**, 일반 Professor Mari 캐릭터 채팅, 홈 작업 공간 채팅은 모두 같은 전달 형식을 사용합니다.
+
 ## 할 수 있는 일
 
 Professor Mari는 단순한 질문 상자가 아닙니다. 앱을 설명해 주고, 초기 설정을 도와주고, 부탁하면 이것저것 만들어 줍니다.

@@ -12,6 +12,8 @@ Professor Mari 待在主页上。没有打开任何聊天时看到的界面就�
 
 给她发出第一条消息，就会解锁 **Hello World** 成就。
 
+**Professor Mari 在线状态指示器**、普通的 Professor Mari 角色聊天和主页工作区聊天使用同一种交接格式。
+
 ## 她能做什么
 
 Professor Mari 不只是一个问答框。她能讲解这个应用、帮你完成配置，也能按要求直接做出成品。

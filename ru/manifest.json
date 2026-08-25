@@ -1,6 +1,6 @@
 {
   "language": "ru",
-  "sourceCommit": "3bf9781975a7a172e19784f6be2596fb8a86d4c1",
+  "sourceCommit": "191e75c2c391506b1e698d0c6351efdfa4446b44",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -419,8 +419,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "4060acb8df9e89201fdbb0b028d1b9adeffd51fb148d4a4fd7c36b7f2530ed30",
-      "bytes": 28842
+      "sha256": "02afcc8bf928a8e4ef2eb62a3295579544e14b0b65139e4816d8e492aee65dec",
+      "bytes": 29127
     },
     {
       "path": "home/tutorial.md",

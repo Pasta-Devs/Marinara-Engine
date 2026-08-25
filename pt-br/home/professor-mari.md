@@ -12,6 +12,8 @@ A conversa é em linguagem comum. Digite uma mensagem na caixa e pressione Enter
 
 A primeira mensagem enviada para ela desbloqueia a conquista **Hello World**.
 
+O **indicador de presença da Professor Mari**, o chat normal com a personagem Professor Mari e o chat da área de trabalho da tela inicial usam o mesmo formato de encaminhamento.
+
 ## O que ela faz
 
 Professor Mari é bem mais que uma caixa de perguntas. Ela explica o aplicativo, ajuda na configuração inicial e cria coisas quando você pede.

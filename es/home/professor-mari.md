@@ -12,6 +12,8 @@ Le hablas en lenguaje sencillo. Escribe un mensaje en el cuadro y pulsa Enter pa
 
 Enviarle tu primer mensaje desbloquea el logro **Hello World**.
 
+El **indicador de presencia de Professor Mari**, el chat normal con el personaje Professor Mari y el chat del espacio de trabajo de Inicio usan el mismo formato de traspaso.
+
 ## Qué puede hacer
 
 Professor Mari es más que un cuadro de preguntas. Puede explicarte la app, ayudarte a configurarla y crear cosas por ti cuando se lo pides.
