@@ -80,6 +80,7 @@ import {
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { AgentArtwork } from "../agents/AgentArtwork";
+import { AgentModeFilter, type AgentModeFilterValue } from "../agents/AgentModeFilter";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -235,6 +236,7 @@ export function AgentsPanel() {
   const sort = useUIStore((s) => s.agentPanelSort);
   const setSort = useUIStore((s) => s.setAgentPanelSort);
   const [agentSearch, setAgentSearch] = useState("");
+  const [agentModeFilter, setAgentModeFilter] = useState<AgentModeFilterValue>("all");
   const agentImageInputRef = useRef<HTMLInputElement>(null);
   const agentImportInputRef = useRef<HTMLInputElement>(null);
   const agentFolderImportInputRef = useRef<HTMLInputElement>(null);
@@ -378,12 +380,29 @@ export function AgentsPanel() {
 
   const agentSearchQuery = agentSearch.trim().toLowerCase();
   const agentSearchActive = agentSearchQuery.length > 0;
-  const matchesAgentSearch = (agent: { name: string; description: string; category: string }) =>
-    !agentSearchQuery ||
-    agent.name.toLowerCase().includes(agentSearchQuery) ||
-    agent.description.toLowerCase().includes(agentSearchQuery) ||
-    agent.category.toLowerCase().includes(agentSearchQuery);
-  const getAgentSearchData = (agent: AgentConfigRow) => ({
+  const agentFilterActive = agentSearchActive || agentModeFilter !== "all";
+  const modeAllowlistByAgentType = useMemo(
+    () => new Map(availableBuiltInAgents.map((agent) => [agent.id, agent.modeAllowlist] as const)),
+    [availableBuiltInAgents],
+  );
+  const matchesAgentFilters = (agent: {
+    type: string;
+    name: string;
+    description: string;
+    category: string;
+  }) => {
+    const modeAllowlist = modeAllowlistByAgentType.get(agent.type);
+    const matchesMode =
+      agentModeFilter === "all" || !modeAllowlist?.length || modeAllowlist.includes(agentModeFilter);
+    const matchesSearch =
+      !agentSearchQuery ||
+      agent.name.toLowerCase().includes(agentSearchQuery) ||
+      agent.description.toLowerCase().includes(agentSearchQuery) ||
+      agent.category.toLowerCase().includes(agentSearchQuery);
+    return matchesMode && matchesSearch;
+  };
+  const getAgentFilterData = (agent: AgentConfigRow) => ({
+    type: agent.type,
     name: agent.name,
     description: agent.description,
     category: builtInAgentIds.has(agent.type)
@@ -419,7 +438,8 @@ export function AgentsPanel() {
     customAgents.filter(
       (agent) =>
         !folderedAgentIds.has(agent.id) &&
-        matchesAgentSearch({
+        matchesAgentFilters({
+          type: agent.type,
           name: agent.name,
           description: agent.description,
           category: "custom",
@@ -432,13 +452,16 @@ export function AgentsPanel() {
   const hasVisibleFolderAgents = agentFolders.some((folder) =>
     folder.itemIds.some((id) => {
       const agent = selectableAgentById.get(id);
-      return agent ? matchesAgentSearch(getAgentSearchData(agent)) : false;
+      return agent ? matchesAgentFilters(getAgentFilterData(agent)) : false;
     }),
   );
   const hasVisibleAgents =
     agentCategorySections.some((section) =>
       visibleBuiltInDisplayAgents.some(
-        (agent) => !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
+        (agent) =>
+          !folderedAgentIds.has(agent.id) &&
+          agent.category === section.category &&
+          matchesAgentFilters({ ...agent, type: agent.id }),
       ),
     ) ||
     visibleCustomAgents.length > 0 ||
@@ -1127,7 +1150,7 @@ export function AgentsPanel() {
 
       {hasInstalledAgents && !hasVisibleAgents && (
         <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
-          {localizeUi("ui.panels.agentspanel.noAgentsMatchYourSearch")}
+          {localizeUi("ui.panels.agentspanel.noAgentsMatchFilters")}
         </p>
       )}
 
@@ -1142,6 +1165,7 @@ export function AgentsPanel() {
               {localizeUi("ui.panels.backgroundpicker.newFolder")}
             </button>
           </div>
+          <AgentModeFilter value={agentModeFilter} onChange={setAgentModeFilter} />
           {agentFolders.length > 0 && (
             <p className="mari-folder-helper">
               {localizeUi("ui.panels.agentspanel.dragAndDropAgentsToFoldersDoubleClickOr")}
@@ -1170,13 +1194,13 @@ export function AgentsPanel() {
               folder.itemIds
                 .map((id) => selectableAgentById.get(id))
                 .filter((agent): agent is AgentConfigRow => Boolean(agent))
-                .filter((agent) => matchesAgentSearch(getAgentSearchData(agent))),
+                .filter((agent) => matchesAgentFilters(getAgentFilterData(agent))),
               sort,
               (agent) => agent.name,
               (agent) => agent.createdAt || agent.updatedAt,
             );
-            if (agentSearchActive && folderAgents.length === 0) return null;
-            const isExpanded = (agentSearchActive && folderAgents.length > 0) || expandedFolderId === folder.id;
+            if (agentFilterActive && folderAgents.length === 0) return null;
+            const isExpanded = (agentFilterActive && folderAgents.length > 0) || expandedFolderId === folder.id;
             return (
               <div
                 key={folder.id}
@@ -1255,24 +1279,24 @@ export function AgentsPanel() {
                       <div className="truncate text-xs font-medium text-[var(--muted-foreground)]">{folder.name}</div>
                     )}
                   </div>
-                  {(agentSearchActive ? folderAgents.length : folder.itemIds.length) > 0 && (
+                  {(agentFilterActive ? folderAgents.length : folder.itemIds.length) > 0 && (
                     <span
                       data-folder-item-count="inline"
                       className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)] max-md:hidden [@media(pointer:coarse)]:hidden"
                     >
-                      {agentSearchActive ? folderAgents.length : folder.itemIds.length}
+                      {agentFilterActive ? folderAgents.length : folder.itemIds.length}
                     </span>
                   )}
                   <div
                     data-folder-actions
                     className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto"
                   >
-                    {(agentSearchActive ? folderAgents.length : folder.itemIds.length) > 0 && (
+                    {(agentFilterActive ? folderAgents.length : folder.itemIds.length) > 0 && (
                       <span
                         data-folder-item-count="actions"
                         className="hidden px-1 text-[0.5625rem] text-[var(--muted-foreground)] max-md:inline [@media(pointer:coarse)]:inline"
                       >
-                        {agentSearchActive ? folderAgents.length : folder.itemIds.length}
+                        {agentFilterActive ? folderAgents.length : folder.itemIds.length}
                       </span>
                     )}
                     <button
@@ -1322,13 +1346,15 @@ export function AgentsPanel() {
           const visibleAgents = sortBasicPanelItems(
             visibleBuiltInDisplayAgents.filter(
               (agent) =>
-                !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
+                !folderedAgentIds.has(agent.id) &&
+                agent.category === section.category &&
+                matchesAgentFilters({ ...agent, type: agent.id }),
             ),
             sort,
             (agent) => agent.name,
             (agent) => agent.createdAt || agent.updatedAt,
           );
-          if (visibleAgents.length === 0 && agentSearchQuery) return null;
+          if (visibleAgents.length === 0 && agentFilterActive) return null;
           return (
             <PanelSection key={section.category} title={section.title} icon={section.icon}>
               {visibleAgents.length === 0 ? (
@@ -1400,7 +1426,7 @@ export function AgentsPanel() {
           );
         })}
 
-      {hasInstalledAgents && (visibleCustomAgents.length > 0 || !agentSearchQuery) && (
+      {hasInstalledAgents && (visibleCustomAgents.length > 0 || !agentFilterActive) && (
         <PanelSection title={localizeUi("ui.panels.agentspanel.customAgents")} icon={<Sparkles size="0.8125rem" />}>
           {visibleCustomAgents.length === 0 ? (
             <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">

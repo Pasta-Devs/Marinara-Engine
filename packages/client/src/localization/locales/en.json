@@ -7345,6 +7345,7 @@
   "ui.panels.agentspanel.importAgents": "Import agents",
   "ui.panels.agentspanel.miscAgents": "Misc Agents",
   "ui.panels.agentspanel.noAgentsInstalledYetClickDownloadAgentsToAdd": "No Agents installed yet, click Download Agents to add them!",
+  "ui.panels.agentspanel.noAgentsMatchFilters": "No agents match these filters.",
   "ui.panels.agentspanel.noAgentsMatchYourSearch": "No agents match your search.",
   "ui.panels.agentspanel.noCustomAgentsYet": "No custom agents yet",
   "ui.panels.agentspanel.noMiscAgentsYet": "No misc agents yet",

@@ -31,6 +31,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { AgentArtwork } from "./AgentArtwork";
+import { AgentModeFilter, type AgentModeFilterValue } from "./AgentModeFilter";
 import { CustomAgentRepositoriesModal } from "./CustomAgentRepositoriesModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -41,7 +42,6 @@ const CATEGORY_SECTIONS = [
 ] as const;
 
 type CatalogMode = "conversation" | "roleplay" | "game";
-type CatalogModeFilter = "all" | CatalogMode;
 
 const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> = Object.freeze({
   beholder: ["roleplay"],
@@ -146,7 +146,7 @@ export function AgentCatalogView() {
   const uninstallAll = useUninstallAllCapabilityPackages();
   const customRepositories = useCustomAgentRepositories();
   const [query, setQuery] = useState("");
-  const [modeFilter, setModeFilter] = useState<CatalogModeFilter>("all");
+  const [modeFilter, setModeFilter] = useState<AgentModeFilterValue>("all");
   const [selectedId, setSelectedId] = useState<string | null>(initialPackageId);
   const [mobileDetail, setMobileDetail] = useState(Boolean(initialPackageId));
   const [bulkProgress, setBulkProgress] = useState<BulkActionProgress | null>(null);
@@ -418,33 +418,7 @@ export function AgentCatalogView() {
                 aria-label={localizeUi("ui.agents.agentcatalogview.searchDownloadableAgents")}
               />
             </div>
-            <div
-              className="mt-2 grid grid-cols-4 gap-1"
-              role="group"
-              aria-label={localizeUi("ui.agents.agentcatalogview.filterByChatMode")}
-            >
-              {(
-                [
-                  ["all", "ui.agents.agentcatalogview.allModes"],
-                  ["conversation", "ui.agents.agentcatalogview.conversationMode"],
-                  ["roleplay", "ui.agents.agentcatalogview.roleplayMode"],
-                  ["game", "ui.agents.agentcatalogview.gameMode"],
-                ] as const
-              ).map(([mode, labelKey]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={cn(
-                    "mari-chrome-control h-8 min-w-0 px-1 text-[0.625rem]",
-                    modeFilter === mode && "mari-chrome-control--primary",
-                  )}
-                  onClick={() => setModeFilter(mode)}
-                  aria-pressed={modeFilter === mode}
-                >
-                  <span className="truncate">{localizeUi(labelKey)}</span>
-                </button>
-              ))}
-            </div>
+            <AgentModeFilter className="mt-2" value={modeFilter} onChange={setModeFilter} />
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button
                 type="button"

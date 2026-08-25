@@ -45,6 +45,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Download Agents mode tags now keep identical dimensions when selected, and the installed Agents sidebar reuses the same filters below New Folder for Conversation, Roleplay, and Game Agents (#5523).
 - Help overlays now align compact desktop highlights exactly with their toolbar controls at responsive widths and keep mobile toolbar controls visible while people inspect highlighted sections (#5521).
 - Fixed the open-issues regression lane crashing at import time because a directly loaded client utility used the browser-only `@/lib` path alias (#5516).
 - Official release workflows now reject tags that do not match the canonical app version, avoid retaining checkout write credentials, and run CodeQL for both staging and main-targeted pull requests (#5510).
