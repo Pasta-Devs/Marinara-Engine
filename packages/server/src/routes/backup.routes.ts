@@ -3322,9 +3322,13 @@ export async function backupRoutes(app: FastifyInstance) {
       }
       logger.info("[backup] Automatic backup completed; pruned %d expired automatic archive(s)", removedBackups.length);
     } catch (error) {
-      const current = await loadAutomaticBackupSettings();
       const message = getBackupErrorMessage(error, "Automatic backup failed");
-      await saveAutomaticBackupSettings({ ...current, lastError: message });
+      try {
+        const current = await loadAutomaticBackupSettings();
+        await saveAutomaticBackupSettings({ ...current, lastError: message });
+      } catch (settingsError) {
+        logger.error(settingsError, "[backup] Could not persist the automatic backup failure state");
+      }
       logger.error(error, "[backup] Automatic backup failed");
     } finally {
       automaticBackupRunning = false;

@@ -6300,6 +6300,11 @@ assert.match(
 );
 assert.match(
   backupRoutesSource,
+  /catch \(error\) \{\s*const message = getBackupErrorMessage[\s\S]*try \{[\s\S]*await saveAutomaticBackupSettings[\s\S]*catch \(settingsError\)[\s\S]*Could not persist the automatic backup failure state/u,
+  "automatic-backup error reporting must not reject when its settings write also fails",
+);
+assert.match(
+  backupRoutesSource,
   /const hasAutomaticBackup = await automaticBackupExists\(backupsRoot\);[\s\S]*runAutomaticBackupIfDue\(!current\.enabled \|\| !hasAutomaticBackup\)/u,
   "enabling automatic backups or repairing a missing archive should run immediately",
 );
