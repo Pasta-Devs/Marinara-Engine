@@ -60,6 +60,16 @@ try {
     assert.equal(contentWindow.output, oversizedContent.slice(20_000));
     assert.equal(contentWindow.truncation?.field?.offset, 20_000);
 
+    const tailWindow = await mari.executeAction({
+      action: "chat.messages",
+      chatId: chat.id,
+      tail: true,
+      field: "messages[0].content",
+      offset: 30_000,
+      limit: 10_000,
+    });
+    assert.equal(tailWindow.output, oversizedContent.slice(30_000));
+
     const search = await mari.executeAction({ action: "chats.search", query: "App data chat" });
     assert.equal(search.ok, true, "plural chat action aliases should resolve");
     assert.equal((search.output as Array<{ id: string }>)[0]?.id, chat.id);

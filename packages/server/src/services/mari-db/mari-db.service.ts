@@ -6676,11 +6676,14 @@ export class MariDbService {
       argv.push(requiredString(args, ["chatId", "chat_id", "id"], "chat id"));
       addFlag("last", firstNumber(args, ["last"]));
       addFlag("after-post", firstNumber(args, ["afterPost", "after_post"]));
-      if (!fieldRead) {
+      const tail = firstBoolean(args, ["tail"]) === true;
+      if (fieldRead && tail) {
+        addFlag("limit", 1);
+      } else if (!fieldRead) {
         addFlag("limit", firstNumber(args, ["limit"]));
         addFlag("offset", firstNumber(args, ["offset"]));
       }
-      if (firstBoolean(args, ["tail"]) === true) argv.push("--tail");
+      if (tail) argv.push("--tail");
     } else if (sub === "search") {
       argv.push(requiredString(args, ["query"], "chat search query"));
       addFlag("limit", firstNumber(args, ["limit"]));

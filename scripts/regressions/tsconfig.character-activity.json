@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "typeRoots": ["../../node_modules/@types", "../../packages/server/node_modules/@types"]
+  },
+  "include": ["character-activity-agent.regression.ts"]
+}
