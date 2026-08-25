@@ -11,24 +11,57 @@ assert.throws(() => validateReleaseTag("v01.2.3", "01.2.3"), /must use vX\.Y\.Z/
 assert.throws(() => validateReleaseTag("v2.4.4-rc.01", "2.4.4-rc.01"), /must use vX\.Y\.Z/u);
 assert.throws(() => validateReleaseTag("v2.4.5", "2.4.4"), /must match package\.json version/u);
 
-for (const [workflow, invocation] of [
-  ["build-apk.yml", /node scripts\/check-release-tag\.mjs "\$tag"/u],
-  ["build-container.yml", /RELEASE_TAG: \$\{\{ github\.ref_name \}\}[\s\S]*check-release-tag\.mjs "\$RELEASE_TAG"/u],
-  [
-    "build-container-lite.yml",
-    /RELEASE_TAG: \$\{\{ github\.ref_name \}\}[\s\S]*check-release-tag\.mjs "\$RELEASE_TAG"/u,
-  ],
-  [
-    "build-windows-installer.yml",
-    /RELEASE_TAG: \$\{\{ github\.event\.release\.tag_name \|\| github\.event\.inputs\.tag \|\| github\.ref_name \}\}[\s\S]*check-release-tag\.mjs "\$RELEASE_TAG"/u,
-  ],
-  [
-    "publish-github-release.yml",
-    /RELEASE_TAG: \$\{\{ github\.event\.inputs\.tag \|\| github\.ref_name \}\}[\s\S]*check-release-tag\.mjs "\$RELEASE_TAG"/u,
-  ],
+for (const { workflow, validationStep, tagSource, invocation, artifactStep } of [
+  {
+    workflow: "build-apk.yml",
+    validationStep: "Resolve release tag",
+    tagSource:
+      /EVENT_NAME: \$\{\{ github\.event_name \}\}[\s\S]*INPUT_TAG: \$\{\{ github\.event\.inputs\.tag \|\| '' \}\}[\s\S]*RELEASE_TAG: \$\{\{ github\.event\.release\.tag_name \|\| '' \}\}[\s\S]*REF_NAME: \$\{\{ github\.ref_name \}\}/u,
+    invocation: /node scripts\/check-release-tag\.mjs "\$tag"/u,
+    artifactStep: "Build release APK",
+  },
+  {
+    workflow: "build-container.yml",
+    validationStep: "Verify release tag",
+    tagSource: /RELEASE_TAG: \$\{\{ github\.ref_name \}\}/u,
+    invocation: /node scripts\/check-release-tag\.mjs "\$RELEASE_TAG"/u,
+    artifactStep: "Build and push by digest",
+  },
+  {
+    workflow: "build-container-lite.yml",
+    validationStep: "Verify release tag",
+    tagSource: /RELEASE_TAG: \$\{\{ github\.ref_name \}\}/u,
+    invocation: /node scripts\/check-release-tag\.mjs "\$RELEASE_TAG"/u,
+    artifactStep: "Build and push by digest",
+  },
+  {
+    workflow: "build-windows-installer.yml",
+    validationStep: "Resolve release tag",
+    tagSource:
+      /RELEASE_TAG: \$\{\{ github\.event\.release\.tag_name \|\| github\.event\.inputs\.tag \|\| github\.ref_name \}\}/u,
+    invocation: /node scripts\/check-release-tag\.mjs "\$RELEASE_TAG"/u,
+    artifactStep: "Build installer",
+  },
+  {
+    workflow: "publish-github-release.yml",
+    validationStep: "Resolve release tag",
+    tagSource: /RELEASE_TAG: \$\{\{ github\.event\.inputs\.tag \|\| github\.ref_name \}\}/u,
+    invocation: /node scripts\/check-release-tag\.mjs "\$RELEASE_TAG"/u,
+    artifactStep: "Build named source archive",
+  },
 ]) {
   const source = readFileSync(new URL(`../../.github/workflows/${workflow}`, import.meta.url), "utf8");
-  assert.match(source, invocation, `${workflow} must reject a tag that does not match package.json`);
+  const validationMarker = `      - name: ${validationStep}\n`;
+  const validationStart = source.indexOf(validationMarker);
+  assert.notEqual(validationStart, -1, `${workflow} must contain its ${validationStep} step`);
+  const validationEnd = source.indexOf("\n      - name:", validationStart + validationMarker.length);
+  const validationSource = source.slice(validationStart, validationEnd === -1 ? undefined : validationEnd);
+  assert.match(validationSource, tagSource, `${workflow} must pass the tag through the validation step environment`);
+  assert.match(validationSource, invocation, `${workflow} must reject a tag that does not match package.json`);
+  assert.ok(
+    validationStart < source.indexOf(`      - name: ${artifactStep}\n`),
+    `${workflow} must validate the tag before ${artifactStep}`,
+  );
 }
 
 console.info("Release tag/version regressions passed.");
