@@ -121,7 +121,9 @@ const ALL_AGENT_CONTEXT_SOURCES: CustomAgentContextSources = {
 function getAgentContextSources(
   config: Pick<AgentExecConfig, "isCustomAgent" | "settings">,
 ): CustomAgentContextSources {
-  return config.isCustomAgent ? normalizeCustomAgentContextSources(config.settings) : ALL_AGENT_CONTEXT_SOURCES;
+  return config.isCustomAgent || isRecord(config.settings.contextSources)
+    ? normalizeCustomAgentContextSources(config.settings)
+    : ALL_AGENT_CONTEXT_SOURCES;
 }
 
 function getBatchContextSources(configs: Array<Pick<AgentExecConfig, "isCustomAgent" | "settings">>) {
