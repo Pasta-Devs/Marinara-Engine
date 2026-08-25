@@ -4,6 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+### Fixed
+
+- Capability-package agents now publish post-processing results only after package validation, so rejected or normalized output cannot reach the browser as a successful tracker result (#5525).
+
 ## [2.4.4]
 
 ### Added

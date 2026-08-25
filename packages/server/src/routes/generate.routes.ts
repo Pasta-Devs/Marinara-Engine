@@ -235,6 +235,7 @@ import {
 import {
   finalizeCapabilityAgentResults,
   prepareCapabilityAgentContexts,
+  shouldDeferCapabilityAgentResult,
 } from "../services/capability-packages/capability-agent-runtime.service.js";
 import { newId } from "../utils/id-generator.js";
 import {
@@ -4779,6 +4780,7 @@ export async function generateRoutes(app: FastifyInstance) {
         let deferParallelAgentEvents = false;
         let parallelAgentStartPending = false;
         const sendAgentEventAfterMainStream = (result: AgentResult, options?: { finalized?: boolean }) => {
+          if (shouldDeferCapabilityAgentResult(result.agentType, options?.finalized)) return;
           if (deferParallelAgentEvents) {
             deferredParallelAgentEvents.push({ result, options });
             return;
@@ -8437,6 +8439,11 @@ export async function generateRoutes(app: FastifyInstance) {
             resolvedAgents,
             preparedCapabilityPostContext ?? postAgentContext,
           );
+          for (const result of postResults) {
+            if (shouldDeferCapabilityAgentResult(result.agentType)) {
+              sendAgentEvent(result, { finalized: true });
+            }
+          }
 
           // Finalize expression results before streaming/persisting them so
           // required persona/character entries are visible immediately.

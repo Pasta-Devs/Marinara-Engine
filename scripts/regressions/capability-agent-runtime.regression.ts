@@ -5,6 +5,7 @@ import {
   assertCapabilityAgentRuntimeServiceRegistration,
   finalizeCapabilityAgentResults,
   prepareCapabilityAgentContexts,
+  shouldDeferCapabilityAgentResult,
 } from "../../packages/server/src/services/capability-packages/capability-agent-runtime.service.js";
 import {
   registerCapabilityService,
@@ -59,6 +60,9 @@ const release = registerCapabilityService("agent-runtime:memory-nag", {
     data: { nags_needed: true, memoryIds: ["promise"] },
   }),
 });
+assert.equal(shouldDeferCapabilityAgentResult("memory-nag"), true);
+assert.equal(shouldDeferCapabilityAgentResult("memory-nag", true), false);
+assert.equal(shouldDeferCapabilityAgentResult("ordinary-agent"), false);
 
 const prepared = await prepareCapabilityAgentContexts([agent], context);
 assert.deepEqual(prepared.memory._capabilityAgentContexts, {

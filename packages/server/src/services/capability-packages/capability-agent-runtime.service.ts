@@ -34,6 +34,10 @@ function runtimeFor(agentType: string): CapabilityAgentRuntimeService | null {
   return getCapabilityService<CapabilityAgentRuntimeService>(`${SERVICE_PREFIX}${agentType}`);
 }
 
+export function shouldDeferCapabilityAgentResult(agentType: string, finalized = false): boolean {
+  return !finalized && typeof runtimeFor(agentType)?.finalizeResult === "function";
+}
+
 export async function prepareCapabilityAgentContexts(
   agents: AgentExecConfig[],
   context: AgentContext,
