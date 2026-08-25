@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import type { AgentContext, AgentResult } from "../../packages/shared/src/index.js";
 import type { AgentExecConfig } from "../../packages/server/src/services/agents/agent-executor.js";
 import {
@@ -70,6 +71,29 @@ assert.deepEqual(prepared.memory._capabilityAgentContexts, {
 });
 const finalized = await finalizeCapabilityAgentResults([result], [agent], prepared);
 assert.deepEqual(finalized[0]?.data, { nags_needed: true, memoryIds: ["promise"] });
+
+const retryRouteSource = readFileSync(
+  new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
+  "utf8",
+);
+const retryBatchStart = retryRouteSource.indexOf("async function executeRetryBatches(");
+const retryBatchEnd = retryRouteSource.indexOf("function mergeRetryPairedBuiltInRewriteAgents", retryBatchStart);
+const retryBatchSource = retryRouteSource.slice(retryBatchStart, retryBatchEnd);
+assert.ok(retryBatchStart >= 0 && retryBatchEnd > retryBatchStart);
+assert.match(
+  retryBatchSource,
+  /prepareCapabilityAgentContexts\(groupAgents, group\.context\)[\s\S]*executeAgentBatch\(configs, preparedGroupContext/u,
+  "manual Agent reruns must prepare capability runtime context before building provider requests",
+);
+const retryFinalizeStart = retryRouteSource.indexOf("results = await Promise.all(");
+const retryResultEventsStart = retryRouteSource.indexOf("// ── Pre-validate expression results", retryFinalizeStart);
+const retryFinalizeSource = retryRouteSource.slice(retryFinalizeStart, retryResultEventsStart);
+assert.ok(retryFinalizeStart >= 0 && retryResultEventsStart > retryFinalizeStart);
+assert.match(
+  retryFinalizeSource,
+  /finalizeCapabilityAgentResults\(\[result\], \[entry\.resolved\], preparedContext\)/u,
+  "manual Agent reruns must finalize capability results before they are emitted or persisted",
+);
 await assert.rejects(withDeadline(new Promise(() => undefined), "agent-runtime regression", 5), /exceeded 5ms/);
 
 release();
