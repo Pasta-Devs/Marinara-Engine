@@ -148,6 +148,7 @@ export function AgentCatalogView() {
   const [mobileDetail, setMobileDetail] = useState(Boolean(initialPackageId));
   const [bulkProgress, setBulkProgress] = useState<BulkActionProgress | null>(null);
   const [customRepositoriesOpen, setCustomRepositoriesOpen] = useState(false);
+  const hasActiveFilters = Boolean(query.trim()) || modeFilter !== "all";
 
   const installedById = useMemo(() => new Map((installed.data ?? []).map((item) => [item.id, item])), [installed.data]);
   const packages = useMemo(() => {
@@ -541,12 +542,12 @@ export function AgentCatalogView() {
               <div className="flex min-h-56 flex-col items-center justify-center gap-2 px-4 text-center">
                 <Sparkles size="2rem" className="text-[var(--muted-foreground)]" />
                 <p className="font-semibold">
-                  {query
+                  {hasActiveFilters
                     ? localizeUi("ui.agents.agentcatalogview.noMatchingAgents")
                     : localizeUi("ui.agents.agentcatalogview.theOfficialCatalogIsEmpty")}
                 </p>
                 <p className="text-sm text-[var(--muted-foreground)]">
-                  {query
+                  {hasActiveFilters
                     ? localizeUi("ui.noodle.noodlehome.tryADifferentSearch")
                     : localizeUi("ui.agents.agentcatalogview.publishedAgentsWillAppearHereAutomatically")}
                 </p>

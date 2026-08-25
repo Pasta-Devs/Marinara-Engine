@@ -90,8 +90,13 @@ assert.ok(
 );
 assert.match(
   generateRouteSource,
-  /const isGroupChat = allCharacterIds\.length > 1;/u,
+  /const isGroupChat = chatMode === "roleplay" \? allCharacterIds\.length > 1 : characterIds\.length > 1;/u,
   "Temporarily disabled characters must not collapse a group chat into single-character behavior",
+);
+assert.doesNotMatch(
+  generateRouteSource,
+  /const isGroupChat = allCharacterIds\.length > 1;/u,
+  "Game generation must not enter an empty individual responder loop when every character is disabled",
 );
 
 console.log("Character activity agent regression checks passed.");

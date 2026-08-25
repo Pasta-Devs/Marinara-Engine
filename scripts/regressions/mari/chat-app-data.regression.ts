@@ -34,15 +34,31 @@ try {
 
     const messages = await mari.executeAction({ action: "chat.messages", chatId: chat.id, last: 2 });
     assert.deepEqual(
-      (messages.output as Array<{ postNumber: number; content: string }>).map(({ postNumber, content }) => ({
-        postNumber,
-        content,
-      })),
+      (messages.output as { messages: Array<{ postNumber: number; content: string }> }).messages.map(
+        ({ postNumber, content }) => ({ postNumber, content }),
+      ),
       [
         { postNumber: 2, content: "Second" },
         { postNumber: 3, content: "Third" },
       ],
     );
+
+    const oversizedContent = "x".repeat(40_000);
+    await chats.createMessage({ chatId: chat.id, role: "assistant", content: oversizedContent });
+    const bounded = await mari.executeAction({ action: "chat.messages", chatId: chat.id, last: 1 });
+    assert.equal(bounded.truncation?.truncated, true);
+    assert.ok(JSON.stringify(bounded.output).length < 28_000, "chat message pages must stay under the hard cap");
+
+    const contentWindow = await mari.executeAction({
+      action: "chat.messages",
+      chatId: chat.id,
+      last: 1,
+      field: "messages[0].content",
+      offset: 20_000,
+      limit: 20_000,
+    });
+    assert.equal(contentWindow.output, oversizedContent.slice(20_000));
+    assert.equal(contentWindow.truncation?.field?.offset, 20_000);
 
     const search = await mari.executeAction({ action: "chats.search", query: "App data chat" });
     assert.equal(search.ok, true, "plural chat action aliases should resolve");

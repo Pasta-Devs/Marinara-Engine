@@ -6655,12 +6655,13 @@ export class MariDbService {
     }
   }
 
-  private executeChatAction(
+  private async executeChatAction(
     sub: string,
     args: Row,
     context: { command: string; sessionId: string; cwd?: string },
   ): Promise<MariDbCommandResult> {
     const argv = [sub];
+    const fieldRead = Boolean(firstString(args, ["field"]));
     const addFlag = (flag: string, value: unknown) => {
       if (value === undefined || value === null || value === "") return;
       argv.push(`--${flag}`, String(value));
@@ -6675,15 +6676,26 @@ export class MariDbService {
       argv.push(requiredString(args, ["chatId", "chat_id", "id"], "chat id"));
       addFlag("last", firstNumber(args, ["last"]));
       addFlag("after-post", firstNumber(args, ["afterPost", "after_post"]));
-      addFlag("limit", firstNumber(args, ["limit"]));
-      addFlag("offset", firstNumber(args, ["offset"]));
+      if (!fieldRead) {
+        addFlag("limit", firstNumber(args, ["limit"]));
+        addFlag("offset", firstNumber(args, ["offset"]));
+      }
       if (firstBoolean(args, ["tail"]) === true) argv.push("--tail");
     } else if (sub === "search") {
       argv.push(requiredString(args, ["query"], "chat search query"));
       addFlag("limit", firstNumber(args, ["limit"]));
     }
 
-    return this.executeChatsCommand(argv, context);
+    const result = await this.executeChatsCommand(argv, context);
+    if (sub !== "messages" || !result.ok || !Array.isArray(result.output)) return result;
+    return {
+      ...result,
+      output: {
+        messages: result.output,
+        returned: result.output.length,
+        offset: fieldRead ? 0 : normalizeOffset(firstNumber(args, ["offset"])),
+      },
+    };
   }
 
   private async executeThemeCommand(

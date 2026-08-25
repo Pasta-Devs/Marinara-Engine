@@ -24,12 +24,15 @@ assert.match(
 assert.match(uiStore, /agentCatalogInitialPackageId: packageId \?\? null/u);
 assert.match(agentCatalog, /type CatalogModeFilter = "all" \| CatalogMode/u);
 assert.match(agentCatalog, /modeFilter === "all" \|\| packageModes\(manifest\.id\)\.includes\(modeFilter\)/u);
+assert.match(agentCatalog, /const hasActiveFilters = Boolean\(query\.trim\(\)\) \|\| modeFilter !== "all";/u);
 
 assert.match(widgetEditor, /ui\.game\.gamewidgetsetupeditor\.id/u);
-assert.match(widgetEditor, /onBlur=\{\(event\) => replaceWidgetId\(widget\.id, event\.target\.value\)\}/u);
+assert.match(
+  widgetEditor,
+  /event\.currentTarget\.value = replaceWidgetId\(widget\.id, event\.currentTarget\.value\);/u,
+);
 
-const themedCountBadge =
-  /mari-chrome-muted-badge[^"]*text-\[var\(--marinara-chat-chrome-accent\)\]/u;
+const themedCountBadge = /mari-chrome-muted-badge[^"]*text-\[var\(--marinara-chat-chrome-accent\)\]/u;
 assert.match(roleplaySurface, themedCountBadge);
 assert.match(branchSelector, themedCountBadge);
 

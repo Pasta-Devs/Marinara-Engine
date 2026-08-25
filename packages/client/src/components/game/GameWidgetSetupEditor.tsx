@@ -448,7 +448,9 @@ export function GameWidgetSetupEditor({ widgets, onChange, disabled, className }
 
   const replaceWidgetId = (widgetId: string, value: string) => {
     const otherWidgets = normalizedWidgets.filter((widget) => widget.id !== widgetId);
-    replaceWidget(widgetId, { id: nextWidgetId(value, otherWidgets) });
+    const normalizedId = nextWidgetId(value, otherWidgets);
+    replaceWidget(widgetId, { id: normalizedId });
+    return normalizedId;
   };
 
   const updateWidgetConfig = (widgetId: string, patch: Partial<HudWidgetConfig>) => {
@@ -595,7 +597,9 @@ export function GameWidgetSetupEditor({ widgets, onChange, disabled, className }
                     key={widget.id}
                     defaultValue={widget.id}
                     disabled={disabled}
-                    onBlur={(event) => replaceWidgetId(widget.id, event.target.value)}
+                    onBlur={(event) => {
+                      event.currentTarget.value = replaceWidgetId(widget.id, event.currentTarget.value);
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") event.currentTarget.blur();
                     }}
