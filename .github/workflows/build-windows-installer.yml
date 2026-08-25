@@ -35,13 +35,11 @@ jobs:
       - name: Resolve release tag
         id: release_tag
         shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name }}
         run: |
-          release_tag="${{ github.event.release.tag_name || '' }}"
-          input_tag="${{ github.event.inputs.tag || '' }}"
-          ref_name="${{ github.ref_name }}"
-          tag="${release_tag:-${input_tag:-$ref_name}}"
-          node scripts/check-release-tag.mjs "$tag"
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          node scripts/check-release-tag.mjs "$RELEASE_TAG"
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Build installer
         id: build

@@ -43,11 +43,12 @@ jobs:
       - name: Resolve release tag
         id: resolve_tag
         shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          node scripts/check-release-tag.mjs "$TAG"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          node scripts/check-release-tag.mjs "$RELEASE_TAG"
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Check version drift
         run: pnpm version:check

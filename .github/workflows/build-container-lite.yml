@@ -45,7 +45,9 @@ jobs:
 
       - name: Verify release tag
         if: startsWith(github.ref, 'refs/tags/v')
-        run: node scripts/check-release-tag.mjs "${{ github.ref_name }}"
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/check-release-tag.mjs "$RELEASE_TAG"
 
       - name: Lowercase image name
         id: lower
