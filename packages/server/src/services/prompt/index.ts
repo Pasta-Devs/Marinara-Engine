@@ -25,6 +25,7 @@ export {
   resolvePromptIdleDuration,
   resolvePromptLastGenerationType,
   resolveMacrosWithVariableSnapshot,
+  setLorebookEntryCounts,
   resolveCharacterMacroData,
   type CharacterMacroData,
   type MacroResolutionTransaction,

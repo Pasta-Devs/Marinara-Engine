@@ -42,6 +42,11 @@ export const SANDBOX_HEARTBEAT_STALE_MS = 25_000;
 /** Host watchdog cadence for heartbeat/file-limit checks (was 250ms). */
 export const SANDBOX_WATCHDOG_INTERVAL_MS = 1_000;
 
+/** Detect a process-wide pause so a healthy child gets a fresh heartbeat window after resume. */
+export function shouldGrantSandboxResumeGrace(now: number, lastWatchdogTickAt: number): boolean {
+  return now - lastWatchdogTickAt > SANDBOX_WATCHDOG_INTERVAL_MS * 2;
+}
+
 /**
  * Next delay for a self-scheduling poll chain. Hot while the startup
  * handshake has not settled or any traffic moved within the hot window.

@@ -151,6 +151,7 @@ import {
   resolvePromptLastGenerationType,
   resolvePromptMessageMacros,
   scopePromptMacroContextToCharacter,
+  setLorebookEntryCounts,
   type AssemblerInput,
 } from "../services/prompt/index.js";
 import { wrapContent } from "../services/prompt/format-engine.js";
@@ -2220,6 +2221,11 @@ export async function generateRoutes(app: FastifyInstance) {
           lastGenerationType: promptLastGenerationType,
           idleDuration: promptIdleDuration,
           timeZone: promptTimeZone,
+          macroSources: [
+            activeChatSummary ?? "",
+            ...currentInputMessages().map((message) => message.content),
+            ...pipelineConfiguredPromptAgents.map((agent) => JSON.stringify(agent.settings)),
+          ],
         });
         const conversationMacroFieldsByCharacterId = new Map<string, NonNullable<MacroContext["convoFields"]>>();
         const historyMacroProfilesById = (await resolveCharacterMacroData(app.db, allCharacterIds)).profilesById;
@@ -2239,12 +2245,17 @@ export async function generateRoutes(app: FastifyInstance) {
         };
         const resolvePromptMacrosWithoutVariableWrites = (value: string) =>
           resolveMacrosForPreview(value, promptMacroContext, { trimResult: false });
-        const resolvePromptMacrosForLorebook = (value: string) =>
-          resolveMacrosWithVariableSnapshot(
+        const resolvePromptMacrosForLorebook = (
+          value: string,
+          lorebookEntryCounts?: Readonly<Record<string, number>>,
+        ) => {
+          setLorebookEntryCounts(promptMacroContext, lorebookEntryCounts);
+          return resolveMacrosWithVariableSnapshot(
             value,
             promptMacroContext,
             deferCharacterMacros ? { deferCharacterMacros: "names" } : undefined,
           );
+        };
         let promptRegexScripts: Awaited<ReturnType<typeof regexScriptsStore.list>> | null = null;
         const getPromptRegexScripts = async () => {
           promptRegexScripts ??= await regexScriptsStore.list();

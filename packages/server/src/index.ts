@@ -11,6 +11,7 @@ import { logCsrfTrustSummary } from "./middleware/csrf-protection.js";
 import { startEnvWatcher } from "./config/env-watcher.js";
 import { migrateTaskbarShortcuts } from "./services/setup/taskbar-shortcut-migration.js";
 import { sidecarProcessService } from "./services/sidecar/sidecar-process.service.js";
+import { startRuntimeMemoryMonitor } from "./utils/runtime-memory.js";
 
 function isAddressInUseError(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err && err.code === "EADDRINUSE";
@@ -56,6 +57,7 @@ async function main() {
   const port = getPort();
   const host = getHost();
   let isShuttingDown = false;
+  let stopRuntimeMemoryMonitor: () => void = () => undefined;
 
   const reapSidecar = () => {
     sidecarProcessService.killCurrentChildForProcessExit();
@@ -84,6 +86,7 @@ async function main() {
 
     try {
       envWatcher.stop();
+      stopRuntimeMemoryMonitor();
       await app.close();
       logger.info("Shutdown complete");
       process.exit(0);
@@ -103,6 +106,7 @@ async function main() {
   try {
     await app.listen({ port, host });
     logger.info(`Marinara Engine server listening on ${protocol}://${host}:${port}`);
+    stopRuntimeMemoryMonitor = startRuntimeMemoryMonitor();
     logCsrfTrustSummary();
     scheduleTaskbarShortcutMigration();
   } catch (err) {

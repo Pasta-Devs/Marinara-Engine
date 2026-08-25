@@ -18,6 +18,7 @@ import {
   extractProtocolLines,
   resolveSandboxPollDelay,
   SANDBOX_HEARTBEAT_STALE_MS,
+  shouldGrantSandboxResumeGrace,
   SANDBOX_HOST_IDLE_POLL_MS,
   SANDBOX_HOT_POLL_MS,
   SANDBOX_WATCHDOG_INTERVAL_MS,
@@ -356,6 +357,7 @@ export class PersonalServerExtensionRuntime {
     let pollChainStopped = false;
     let closing = false;
     let lastHeartbeat = Date.now();
+    let lastWatchdogTickAt = Date.now();
     let messageWindowStartedAt = Date.now();
     let messageCount = 0;
     let outputHandle: Awaited<ReturnType<typeof open>>;
@@ -371,6 +373,9 @@ export class PersonalServerExtensionRuntime {
     }
     active.watchdog = setInterval(() => {
       if (active.expectedStop) return;
+      const watchdogTickAt = Date.now();
+      const resumedAfterPause = shouldGrantSandboxResumeGrace(watchdogTickAt, lastWatchdogTickAt);
+      lastWatchdogTickAt = watchdogTickAt;
       void Promise.all([stat(sandbox.protocol.heartbeatPath), stat(sandbox.protocol.errorPath)])
         .then(([heartbeatStats, errorStats]) => {
           if (heartbeatStats.size > MAX_HEARTBEAT_BYTES || errorStats.size > MAX_ERROR_LOG_BYTES) {
@@ -383,6 +388,7 @@ export class PersonalServerExtensionRuntime {
             return;
           }
           if (heartbeatStats.mtimeMs > lastHeartbeat) lastHeartbeat = heartbeatStats.mtimeMs;
+          if (resumedAfterPause) lastHeartbeat = Math.max(lastHeartbeat, watchdogTickAt);
           // Five missed heartbeats at the 5s cadence — the same missed-beat
           // multiple the old 1s/5s pair allowed (#4706).
           if (Date.now() - lastHeartbeat <= SANDBOX_HEARTBEAT_STALE_MS) return;

@@ -3,6 +3,11 @@ export interface SupportDiagnostics {
   build: string;
   commit: string | null;
   serverOs: string;
+  serverMemory?: {
+    heapUsedMiB: number;
+    heapLimitMiB: number;
+    rssMiB: number;
+  };
   clientOs: string;
   browser: string;
   gpu: string;
@@ -48,12 +53,14 @@ function available(value: string | null | undefined): string {
 }
 
 export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): string {
+  const memory = diagnostics.serverMemory;
   return [
     "Marinara Engine diagnostics",
     `Version: ${available(diagnostics.version)}`,
     `Build: ${available(diagnostics.build)}`,
     `Commit: ${available(diagnostics.commit)}`,
     `Server OS: ${available(diagnostics.serverOs)}`,
+    `Server memory: ${memory ? `heap ${memory.heapUsedMiB} / ${memory.heapLimitMiB} MiB; RSS ${memory.rssMiB} MiB` : "Unavailable"}`,
     `Client OS: ${available(diagnostics.clientOs)}`,
     `Browser / app shell: ${available(diagnostics.browser)}`,
     `GPU: ${available(diagnostics.gpu)}`,

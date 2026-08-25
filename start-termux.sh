@@ -160,7 +160,7 @@ fi
 
 # Large profiles can exceed Node's conservative mobile heap limit while the
 # file-backed store serializes them. Keep an explicit operator limit, otherwise
-# use a bounded mobile default that leaves Android room for the Termux process.
+# choose a bounded default from the profile size and available device memory.
 has_explicit_node_heap_limit() {
     local node_options_value="${NODE_OPTIONS:-}"
     NODE_OPTIONS= NODE_OPTIONS_VALUE="$node_options_value" node <<'NODE_OPTIONS_PARSER'
@@ -201,11 +201,29 @@ process.exit(hasHeapLimit ? 0 : 1);
 NODE_OPTIONS_PARSER
 }
 
-if ! has_explicit_node_heap_limit; then
-    NODE_OPTIONS="${NODE_OPTIONS:+${NODE_OPTIONS} }--max-old-space-size=1024"
-    export NODE_OPTIONS
-    echo "  [OK] Node.js heap limit set for large profiles"
-fi
+resolve_default_node_heap_mb() {
+    local profile_storage_kib="${1:-0}"
+    local device_memory_kib="${2:-0}"
+    case "$profile_storage_kib" in *[!0-9]*|"") profile_storage_kib=0 ;; esac
+    case "$device_memory_kib" in *[!0-9]*|"") device_memory_kib=0 ;; esac
+
+    # Allow about 512 MiB above the on-disk structured profile, rounded to a
+    # stable 128 MiB step. Media lives outside storage and does not inflate it.
+    local heap_mb=$(( (profile_storage_kib + 1023) / 1024 + 512 ))
+    heap_mb=$(( (heap_mb + 127) / 128 * 128 ))
+    [ "$heap_mb" -lt 1024 ] && heap_mb=1024
+    [ "$heap_mb" -gt 1536 ] && heap_mb=1536
+
+    # On smaller phones, retain at least the safe 1 GiB baseline but avoid
+    # granting a large profile more than roughly one quarter of physical RAM.
+    if [ "$device_memory_kib" -gt 0 ]; then
+        local device_cap_mb=$(( device_memory_kib / 1024 / 4 / 128 * 128 ))
+        if [ "$device_cap_mb" -ge 1024 ] && [ "$heap_mb" -gt "$device_cap_mb" ]; then
+            heap_mb="$device_cap_mb"
+        fi
+    fi
+    printf '%s' "$heap_mb"
+}
 
 load_launcher_setting() {
     local setting_name="$1"
@@ -219,9 +237,23 @@ load_launcher_setting() {
 # Read only settings used by this launcher. The server loads every other .env
 # value itself. Node parses these as inert dotenv data; no shell code is sourced.
 if [ -f .env ]; then
-    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER; do
+    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR; do
         load_launcher_setting "$setting_name"
     done
+fi
+
+if ! has_explicit_node_heap_limit; then
+    MARINARA_TERMUX_DATA_DIR="${DATA_DIR:-./data}"
+    case "$MARINARA_TERMUX_DATA_DIR" in
+        /*) MARINARA_TERMUX_STORAGE_DIR="$MARINARA_TERMUX_DATA_DIR/storage" ;;
+        *) MARINARA_TERMUX_STORAGE_DIR="$PWD/packages/server/$MARINARA_TERMUX_DATA_DIR/storage" ;;
+    esac
+    MARINARA_TERMUX_PROFILE_STORAGE_KIB=$(du -sk "$MARINARA_TERMUX_STORAGE_DIR" 2>/dev/null | awk '{print $1}' || true)
+    MARINARA_TERMUX_DEVICE_MEMORY_KIB=$(awk '/^MemTotal:/ { print $2; exit }' /proc/meminfo 2>/dev/null || true)
+    MARINARA_TERMUX_HEAP_MB=$(resolve_default_node_heap_mb "$MARINARA_TERMUX_PROFILE_STORAGE_KIB" "$MARINARA_TERMUX_DEVICE_MEMORY_KIB")
+    NODE_OPTIONS="${NODE_OPTIONS:+${NODE_OPTIONS} }--max-old-space-size=${MARINARA_TERMUX_HEAP_MB}"
+    export NODE_OPTIONS
+    echo "  [OK] Node.js heap limit set to ${MARINARA_TERMUX_HEAP_MB} MiB for this profile and device"
 fi
 
 AUTO_UPDATE_ENABLED_NORMALIZED=$(printf '%s' "${AUTO_UPDATE_ENABLED:-true}" | tr '[:upper:]' '[:lower:]' | tr -d '\r ')

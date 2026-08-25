@@ -25,6 +25,7 @@ const envContents = [
   "SSL_CERT='certs/my cert.pem'",
   "SSL_KEY=keys/$USER.pem",
   "AUTO_OPEN_BROWSER=false",
+  "DATA_DIR=../marinara data",
   "BACKGROUNDREMOVER_AUTO_INSTALL=true",
   "BASIC_AUTH_REALM=My Private Server",
 ].join("\n");
@@ -41,6 +42,7 @@ try {
   assert.equal(readLauncherEnvValue(envContents, "SSL_CERT", {}), "certs/my cert.pem");
   assert.equal(readLauncherEnvValue(envContents, "SSL_KEY", {}), "keys/$USER.pem");
   assert.equal(readLauncherEnvValue(envContents, "AUTO_OPEN_BROWSER", {}), "false");
+  assert.equal(readLauncherEnvValue(envContents, "DATA_DIR", {}), "../marinara data");
   assert.equal(readLauncherEnvValue(envContents, "BASIC_AUTH_REALM", {}), null);
   assert.equal(readLauncherEnvValue(envContents, "PORT", { PORT: "9000" }), null);
   assert.equal(readLauncherEnvValue(envContents, "PORT", { PORT: "" }), null);

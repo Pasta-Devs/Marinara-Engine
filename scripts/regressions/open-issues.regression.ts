@@ -630,6 +630,7 @@ const copiedSupportDiagnostics = formatSupportDiagnostics({
   build: "2.4.2+abcdef123456",
   commit: "abcdef123456",
   serverOs: "Linux 6.8.0 (x64)",
+  serverMemory: { heapUsedMiB: 768, heapLimitMiB: 1536, rssMiB: 1024 },
   clientOs: "macOS 15.6",
   browser: "Marinara test shell",
   gpu: "Test GPU",
@@ -642,6 +643,7 @@ for (const expectedLine of [
   "Build: 2.4.2+abcdef123456",
   "Commit: abcdef123456",
   "Server OS: Linux 6.8.0 (x64)",
+  "Server memory: heap 768 / 1536 MiB; RSS 1024 MiB",
   "Client OS: macOS 15.6",
   "Browser / app shell: Marinara test shell",
   "GPU: Test GPU",
@@ -5027,12 +5029,11 @@ const termuxLauncher = readFileSync(new URL("../../start-termux.sh", import.meta
 assert.doesNotMatch(termuxLauncher, /run_pnpm install --force/u);
 assert.match(termuxLauncher, /run_pnpm store prune/u);
 assert.match(termuxLauncher, /TERMUX_REBUILD_REQUIRED/u);
-assert.match(termuxLauncher, /--max-old-space-size=1024/u);
 assert.doesNotMatch(termuxLauncher, /--max-old-space-size=2048/u);
 assert.match(
   termuxLauncher,
-  /has_explicit_node_heap_limit\(\)[\s\S]*NODE_OPTIONS_VALUE[\s\S]*const heapOption = \/\^--max[\s\S]*if ! has_explicit_node_heap_limit; then[\s\S]*NODE_OPTIONS="\$\{NODE_OPTIONS:\+\$\{NODE_OPTIONS\} \}--max-old-space-size=1024"/u,
-  "Termux must parse complete heap-option tokens before applying its safe default",
+  /has_explicit_node_heap_limit\(\)[\s\S]*NODE_OPTIONS_VALUE[\s\S]*const heapOption = \/\^--max[\s\S]*resolve_default_node_heap_mb\(\)[\s\S]*heap_mb=1024[\s\S]*heap_mb=1536[\s\S]*if ! has_explicit_node_heap_limit; then[\s\S]*--max-old-space-size=\$\{MARINARA_TERMUX_HEAP_MB\}/u,
+  "Termux must parse complete heap-option tokens before applying its bounded profile-aware default",
 );
 for (const buildEntry of [
   "packages/shared/dist/constants/defaults.js",
@@ -5922,6 +5923,14 @@ const backupRoutesSource = readFileSync(
   new URL("../../packages/server/src/routes/backup.routes.ts", import.meta.url),
   "utf8",
 );
+const promptMacroContextSource = readFileSync(
+  new URL("../../packages/server/src/services/prompt/macro-context.ts", import.meta.url),
+  "utf8",
+);
+const lorebookServiceSource = readFileSync(
+  new URL("../../packages/server/src/services/lorebook/index.ts", import.meta.url),
+  "utf8",
+);
 const serverAppSource = readFileSync(new URL("../../packages/server/src/app.ts", import.meta.url), "utf8");
 const gameTypesSource = readFileSync(new URL("../../packages/shared/src/types/game.ts", import.meta.url), "utf8");
 const backupGuideSource = readFileSync(new URL("../../docs/data/backup-and-restore.md", import.meta.url), "utf8");
@@ -6291,6 +6300,16 @@ assert.match(backupRoutesSource, /AUTOMATIC_BACKUP_OMISSION_HISTORY_LIMIT = 1_00
 assert.match(
   backupRoutesSource,
   /lastOmittedEntries: limitAutomaticBackupOmissionHistory\(settings\.lastOmittedEntries\)/u,
+);
+assert.match(
+  promptMacroContextSource,
+  /macroSources\.some\(\(source\) => \/\\\{\\\{\\s\*lorebooksize::\/iu\.test\(source\)\)[\s\S]*countAllEntriesByLorebook/u,
+  "prompt macro contexts must only scan lorebook counts when a source uses lorebooksize",
+);
+assert.match(
+  lorebookServiceSource,
+  /allEntries\.some\(\(entry\) => \/\\\{\\\{\\s\*lorebooksize::\/iu\.test\(entry\.content\)\)[\s\S]*countAllEntriesByLorebook/u,
+  "lorebook scans must only count all entries when relevant content uses lorebooksize",
 );
 assert.match(serverAppSource, /const clientIndex = resolve\(clientDist, "index\.html"\)/u);
 assert.match(serverAppSource, /if \(existsSync\(clientIndex\)\)/u);

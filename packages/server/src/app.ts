@@ -53,6 +53,7 @@ import { hostValidationHook } from "./middleware/host-validation.js";
 import { androidLocalAuthHook, androidLocalLoginRoute } from "./middleware/android-local-auth.js";
 import { arch, platform, release } from "node:os";
 import { execFileSync } from "node:child_process";
+import { getRuntimeMemorySnapshot } from "./utils/runtime-memory.js";
 
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 const MAX_UPLOAD_BYTES = 256 * 1024 * 1024;
@@ -318,6 +319,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       commit,
       build: getBuildLabel(),
       serverOs: SERVER_OS,
+      memory: getRuntimeMemorySnapshot(),
       timestamp: new Date().toISOString(),
       capabilityPackages: {
         status: capabilityPackages

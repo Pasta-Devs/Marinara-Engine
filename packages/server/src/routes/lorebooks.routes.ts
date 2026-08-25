@@ -39,6 +39,7 @@ import {
   buildPromptMacroContext,
   resolveMacrosWithVariableSnapshot,
   resolvePromptIdleDuration,
+  setLorebookEntryCounts,
 } from "../services/prompt/index.js";
 import { parseGameStateRow, resolveVisibleGameStateAnchor } from "./generate/generate-route-utils.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
@@ -1017,7 +1018,10 @@ export async function lorebooksRoutes(app: FastifyInstance) {
           idleDuration: resolvePromptIdleDuration(scanSourceMessages),
         });
         return {
-          resolveContent: (value: string) => resolveMacrosWithVariableSnapshot(value, macroContext),
+          resolveContent: (value: string, lorebookEntryCounts?: Readonly<Record<string, number>>) => {
+            setLorebookEntryCounts(macroContext, lorebookEntryCounts);
+            return resolveMacrosWithVariableSnapshot(value, macroContext);
+          },
         };
       } catch {
         return undefined;

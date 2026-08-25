@@ -815,6 +815,10 @@ async function buildRetryAgentContext(args: {
     chatId,
     lastGenerationType: "retry_agents",
     idleDuration: resolvePromptIdleDuration(recentMessages),
+    macroSources: [
+      ...recentMessages.map((message: any) => (typeof message.content === "string" ? message.content : "")),
+      ...resolvedAgents.map((agent) => JSON.stringify(agent.settings)),
+    ],
   });
   const historyMacroProfilesById = (await resolveCharacterMacroData(db, allCharacterIds)).profilesById;
   const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(

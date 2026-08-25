@@ -31,6 +31,7 @@ import {
   MAX_REFERENCED_PERSONAS,
   resolveMacrosForPreview,
   resolveMacrosWithVariableSnapshot,
+  setLorebookEntryCounts,
 } from "./macro-context.js";
 
 interface RuntimeAgentData {
@@ -347,6 +348,19 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       separator: cb.separator,
     });
   }
+  const enabledSectionContents = sectionOrder.flatMap((sectionId) => {
+    const section = sectionMap.get(sectionId);
+    if (!section || section.enabled !== "true") return [];
+    if (input.impersonate === true && input.preserveImpersonatePresetSections !== true && section.isMarker !== "true") {
+      return [];
+    }
+    if (section.groupId) {
+      const group = groupMap.get(section.groupId);
+      if (group && group.enabled !== "true") return [];
+    }
+    return [section.content];
+  });
+
   // Build macro context (character names and primary card fields resolved from IDs)
   const macroCtx = await buildPromptMacroContext({
     db: input.db,
@@ -364,18 +378,11 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     lastGenerationType: input.lastGenerationType,
     idleDuration: input.idleDuration,
     timeZone: input.timeZone,
-  });
-  const enabledSectionContents = sectionOrder.flatMap((sectionId) => {
-    const section = sectionMap.get(sectionId);
-    if (!section || section.enabled !== "true") return [];
-    if (input.impersonate === true && input.preserveImpersonatePresetSections !== true && section.isMarker !== "true") {
-      return [];
-    }
-    if (section.groupId) {
-      const group = groupMap.get(section.groupId);
-      if (group && group.enabled !== "true") return [];
-    }
-    return [section.content];
+    macroSources: [
+      ...enabledSectionContents,
+      input.chatSummary ?? "",
+      ...input.chatMessages.map((message) => message.content),
+    ],
   });
   const personaReferenceSources = Object.values(input.personaFields ?? {}).filter(
     (value): value is string => typeof value === "string",
@@ -538,7 +545,10 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     gameState: input.gameState ?? null,
     generationTriggers: input.generationTriggers ?? ["chat"],
     previewOnly: input.previewOnly === true,
-    resolveLorebookContent: (value) => resolveMacrosWithVariableSnapshot(value, macroCtx, deferNameMacroOptions),
+    resolveLorebookContent: (value, lorebookEntryCounts) => {
+      setLorebookEntryCounts(macroCtx, lorebookEntryCounts);
+      return resolveMacrosWithVariableSnapshot(value, macroCtx, deferNameMacroOptions);
+    },
     onLorebookScan: addActivatedLorebookCardReferences,
     groupScenarioOverrideText: input.groupScenarioOverrideText ?? null,
     includeExampleDialogueInCharacterMarker: !hasDialogueExamplesMarker,

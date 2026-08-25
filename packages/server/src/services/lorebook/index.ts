@@ -436,7 +436,10 @@ export interface LorebookContentResolution {
   rollback?: () => void;
 }
 
-export type LorebookFinalContentResolver = (value: string) => string | LorebookContentResolution;
+export type LorebookFinalContentResolver = (
+  value: string,
+  lorebookEntryCounts?: Readonly<Record<string, number>>,
+) => string | LorebookContentResolution;
 
 export function resolveActivatedLorebookEntryContent(
   activatedEntries: ActivatedEntry[],
@@ -1123,6 +1126,13 @@ export async function processLorebooks(
     };
   }
 
+  let resolveContent = options?.resolveContent;
+  if (resolveContent && allEntries.some((entry) => /\{\{\s*lorebooksize::/iu.test(entry.content))) {
+    const lorebookEntryCounts = await storage.countAllEntriesByLorebook();
+    const originalResolver = resolveContent;
+    resolveContent = (value) => originalResolver(value, lorebookEntryCounts);
+  }
+
   const tokenBudget = options?.tokenBudget ?? LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET;
   const timingStates = toTimingStateMap(options?.entryTimingStates);
   const currentMessageIndex = messages.length;
@@ -1193,7 +1203,7 @@ export async function processLorebooks(
         relevantLorebooksById,
         tokenBudget,
         0,
-        options?.resolveContent,
+        resolveContent,
         options?.enableRecursive ? undefined : recursiveLorebookIds,
         initialActivatedEntries,
       )
@@ -1202,7 +1212,7 @@ export async function processLorebooks(
         relevantLorebooksById,
         tokenBudget,
         0,
-        options?.resolveContent,
+        resolveContent,
       );
   const budgetResult = {
     ...baseBudgetResult,

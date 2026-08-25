@@ -62,7 +62,11 @@ import {
 import { buildPartySystemPrompt } from "../services/game/party-prompts.js";
 import { normalizeNextSessionCampaignPlan, normalizeNextSessionNpcs } from "../services/game/next-session-plan.js";
 import { normalizeCharacterLookupName } from "../services/game/name-normalization.js";
-import { buildPromptMacroContext, resolveMacrosWithVariableSnapshot } from "../services/prompt/index.js";
+import {
+  buildPromptMacroContext,
+  resolveMacrosWithVariableSnapshot,
+  setLorebookEntryCounts,
+} from "../services/prompt/index.js";
 import { escapeXmlAttribute } from "../services/prompt/xml-escaping.js";
 import { listPartySprites, readPreferredFullBodySpriteBase64 } from "../services/game/sprite.service.js";
 import {
@@ -6675,8 +6679,13 @@ export async function gameRoutes(app: FastifyInstance) {
         lastGenerationType: "game_setup",
         idleDuration: "0 seconds",
       });
-      const resolveSetupLorebookMacrosForFinal = (value: string) =>
-        resolveMacrosWithVariableSnapshot(value, setupPromptMacroContext);
+      const resolveSetupLorebookMacrosForFinal = (
+        value: string,
+        lorebookEntryCounts?: Readonly<Record<string, number>>,
+      ) => {
+        setLorebookEntryCounts(setupPromptMacroContext, lorebookEntryCounts);
+        return resolveMacrosWithVariableSnapshot(value, setupPromptMacroContext);
+      };
       const setupLorebookScopeExclusions = resolveLorebookScopeExclusions("game", meta);
       const lorebookResult = await processLorebooks(app.db, [], null, {
         chatId,
