@@ -4795,7 +4795,7 @@ export async function generateRoutes(app: FastifyInstance) {
           if (deferredParallelAgentEvents.length === 0) return;
           const events = deferredParallelAgentEvents.splice(0);
           for (const event of events) {
-            sendAgentEvent(event.result, event.options);
+            sendAgentEventAfterMainStream(event.result, event.options);
           }
         };
 
@@ -8404,7 +8404,9 @@ export async function generateRoutes(app: FastifyInstance) {
                   retryCtx,
                 );
                 const finalizedRetry = finalizedRetryResults[0] ?? retried;
-                sendAgentEvent(finalizedRetry, { finalized: finalizedRetry.agentType === "spotify" });
+                sendAgentEventAfterMainStream(finalizedRetry, {
+                  finalized: finalizedRetry.agentType === "spotify",
+                });
                 retryResults.push(finalizedRetry);
               } catch {
                 retryResults.push(failed);
