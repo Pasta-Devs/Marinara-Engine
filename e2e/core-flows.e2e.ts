@@ -7239,7 +7239,8 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
       for (const targetId of toolbarTargetIds) {
         const source = page.locator(`[data-chat-help="${targetId}"]`).filter({ visible: true }).first();
         const highlight = overlay.locator(`[data-chat-help-highlight="${targetId}"]`);
-        if ((await source.count()) === 0 || (await highlight.count()) === 0) continue;
+        if ((await source.count()) === 0) continue;
+        await expect(highlight).toBeVisible();
         const sourceBox = await source.boundingBox();
         const highlightBox = await highlight.boundingBox();
         expect(sourceBox).not.toBeNull();
