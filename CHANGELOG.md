@@ -8,6 +8,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Professor Mari no longer rejects an explicitly requested character/persona/lorebook create or update as unauthorized when her own quoted authorization excerpt is a valid but incomplete substring of the user's message (e.g. just the character's name) or when a long pasted document (like a character card) happens to contain the word "authorized" among ordinary narrative verbs.
 - Professor Mari no longer blocks German-language create/update requests ("Erstelle...", "Ändere...", "Aktualisiere...", etc.) as unauthorized, and no longer mistakes quoted example dialogue in a pasted character card (e.g. "Don't tell me it's nothing.") for the user explicitly denying the requested change.
+- Professor Mari no longer mistakes an ordinary narrative sentence deep inside a long pasted character card (e.g. "Juli should never feel like a quest objective") for the user denying the requested change; the denial check now only scans the leading and trailing edges of long pasted messages, where a real user instruction actually appears.
 
 ## [2.4.4]
 

@@ -15118,8 +15118,9 @@ test("Professor Mari creates a character when its own authorization quote omits 
 });
 
 // Regression coverage for the German-instruction reproduction: a non-English intent verb ("Erstelle")
-// plus a pasted card whose example dialogue quotes "Don't tell me it's nothing." must not be
-// mistaken for an English-only intent gate miss or a denial phrase inside the quoted dialogue.
+// plus a long pasted card whose example dialogue quotes "Don't tell me it's nothing." and whose bio
+// prose says "Juli should never feel like a quest objective" must not be mistaken for an
+// English-only intent gate miss or a denial phrase buried in the pasted card.
 test("Professor Mari creates a character from a German instruction and a card with quoted denial-like dialogue", async ({
   request,
 }) => {
@@ -15127,6 +15128,14 @@ test("Professor Mari creates a character from a German instruction and a card wi
   const characterName = `Juli Bellona DE ${suffix}`;
   const cardWithQuotedDialogue = `Character - Juli
 Crown Princess ${characterName} is a 20-year-old human woman and heir to the Martian Commonwealth.
+
+With vibrant crimson-red hair, large sapphire-blue eyes, and a gentle smile, Juli is one of the most recognizable individuals in human space. Generations ago, House Bellona genetically altered their bloodline to possess distinctive red hair, making members of the royal family instantly recognizable across both Mars and Earth.
+
+Despite being the future ruler of Mars, Juli does not project intimidation or authority through her appearance. Instead, she appears kind, approachable, and sincere. To the public she is often called "The Princess of Peace."
+
+Juli is kind, compassionate, intelligent, diplomatic, and idealistic. Despite her kindness, Juli can become surprisingly stubborn when she believes lives are at stake. Once she commits to a course of action she considers morally right, she is difficult to dissuade.
+
+Juli should never feel like a quest objective. She should feel like a living person with her own opinions, goals, emotions, and agency. She is the emotional core of the story.
 
 Worried About Kranael
 

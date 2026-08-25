@@ -1754,6 +1754,11 @@ const DIRECT_MUTATION_AFTER_INFORMATION =
   /(?:[.!?]\s*|\b(?:and|also|then)\s+)(?:please\s+)?(?:add|apply|build|change|copy|create|delete|edit|fix|generate|implement|install|make|modify|move|remove|rename|replace|save|set|update|write)\b/iu;
 const MUTATION_DENIAL =
   /\b(?:do\s+not|don't|never|no\s+changes?|read[- ]only|without\s+(?:changing|editing|saving|writing))\b/iu;
+// A pasted document (character/persona card, transcript) can be far longer than any real user
+// instruction; only its leading and trailing edges are checked for a denial phrase to avoid
+// incidental narrative words (e.g. "never") deep inside the pasted body.
+const DENIAL_CHECK_LONG_MESSAGE_THRESHOLD = 500;
+const DENIAL_CHECK_WINDOW = 220;
 const LOCALIZED_SHORT_MUTATION_DENIAL =
   /^(?:no|nope|нет|не\s+соглас(?:ен|на)|отмена|nie|nie\s+zgadzam\s+się|anuluj|nein|abbrechen|non|annuler|não|cancelar|いいえ|しない|キャンセル|아니요|취소|لا|إلغاء|नहीं|रद्द|不要|取消)[,.!؟。\s]*$/iu;
 const SHORT_MUTATION_CONFIRMATION =
@@ -1874,11 +1879,19 @@ export function workspaceMutationAuthorizationIssue(
   const directUserText = normalizeAuthorizationText(context.directUserText);
   const authorization = normalizeAuthorizationText(command.authorization ?? "");
   // Pasted character/persona cards routinely embed quoted example dialogue (e.g. "Don't tell me
-  // it's nothing.") that reads as a denial phrase out of context. Strip quoted spans before running
-  // the denial check so that dialogue can't be mistaken for the user's own instruction; the
-  // anchored localized-short-reply check still runs on the untouched text since it only ever
+  // it's nothing.") and plain narrative sentences (e.g. "Juli should never feel like a quest
+  // objective.") that read as a denial phrase out of context. Neither belongs to the user's own
+  // instruction, which realistically sits at the very start or end of a message around a bulk
+  // paste, so long messages are only checked at their edges; short messages are checked in full.
+  // The anchored localized-short-reply check still runs on the untouched text since it only ever
   // matches when the *entire* message is one short denial word.
-  const denialCheckText = directUserText.replace(/"[^"]*"/gu, " ").replace(/“[^”]*”/gu, " ");
+  const denialCheckText = (
+    directUserText.length <= DENIAL_CHECK_LONG_MESSAGE_THRESHOLD
+      ? directUserText
+      : `${directUserText.slice(0, DENIAL_CHECK_WINDOW)} ${directUserText.slice(-DENIAL_CHECK_WINDOW)}`
+  )
+    .replace(/"[^"]*"/gu, " ")
+    .replace(/“[^”]*”/gu, " ");
   if (MUTATION_DENIAL.test(denialCheckText) || LOCALIZED_SHORT_MUTATION_DENIAL.test(directUserText)) {
     return "Mutation blocked before execution: the active user message explicitly requests no workspace changes.";
   }
