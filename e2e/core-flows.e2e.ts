@@ -14967,6 +14967,241 @@ test("Professor Mari dependency and sensitive-file reviews stay explicit across 
   await expect.poll(() => window.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
 });
 
+// Regression coverage for a false-positive mutation block: a small model's own quoted
+// "authorization" excerpt can be a valid substring of the user's message that nonetheless omits the
+// actual instruction verb (e.g. it quotes just the character's name), and the user's message can be
+// a long pasted character card. Neither shape may cause workspaceMutationAuthorizationIssue to reject
+// an explicitly requested create/update.
+const JULI_BELLONA_CARD = `## Character - Juli
+Crown Princess Juli Bellona is a 20-year-old human woman and heir to the Martian Commonwealth.
+
+With vibrant crimson-red hair, large sapphire-blue eyes, and a gentle smile, Juli is one of the most recognizable individuals in human space. Generations ago, House Bellona genetically altered their bloodline to possess distinctive red hair, making members of the royal family instantly recognizable across both Mars and Earth.
+
+Despite being the future ruler of Mars, Juli does not project intimidation or authority through her appearance. Instead, she appears kind, approachable, and sincere. To the public she is often called "The Princess of Peace."
+
+Juli is kind, compassionate, intelligent, diplomatic, and idealistic. Despite her kindness, Juli can become surprisingly stubborn when she believes lives are at stake. Once she commits to a course of action she considers morally right, she is difficult to dissuade.
+
+Despite her public confidence, Juli is not fearless. She often worries that she is not strong enough to carry the expectations placed upon her. If the mission begins to fail, Juli's greatest fear is not dying — it is surviving long enough to watch humanity destroy itself despite all her efforts.
+
+## Juli Tags
+Royalty, Princess, Female, Human, Kind, Gentle, Friendly, Calm, Determined, Brave, Patient, Elegant, Leader, PoliticalIntrigue, War, Futuristic, Romance, Angst, SlowBurn, Protective, Humble`;
+
+function respondWithProfessorMariAction(response: import("node:http").ServerResponse, action: Record<string, unknown>) {
+  response.writeHead(200, {
+    "content-type": "text/event-stream",
+    connection: "close",
+    "cache-control": "no-cache",
+  });
+  response.end(
+    [
+      `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: JSON.stringify(action) }, finish_reason: null }] })}`,
+      `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}`,
+      "data: [DONE]",
+      "",
+    ].join("\n\n"),
+  );
+}
+
+test("Professor Mari creates a character when its own authorization quote omits the intent verb", async ({
+  request,
+}) => {
+  const suffix = Date.now().toString(36);
+  const characterName = `Juli Bellona ${suffix}`;
+  let callCount = 0;
+  const providerServer = createServer((incoming, response) => {
+    const chunks: Buffer[] = [];
+    incoming.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    incoming.on("end", () => {
+      if (incoming.method !== "POST" || incoming.url !== "/v1/chat/completions") {
+        response.writeHead(404, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: "Unexpected Professor Mari provider request" }));
+        return;
+      }
+      callCount += 1;
+      respondWithProfessorMariAction(
+        response,
+        callCount === 1
+          ? {
+              say: `Creating ${characterName} now.`,
+              // Only the character's NAME is quoted back as authorization — no verb from the
+              // user's own "add build create generate" instruction is present in the quote.
+              authorization: characterName,
+              commands: [
+                {
+                  id: "create-juli",
+                  name: "app_data",
+                  arguments: {
+                    action: "character.create",
+                    data: { name: characterName, description: "Crown Princess of the Martian Commonwealth." },
+                    reason: "User requested a new character",
+                    apply: true,
+                  },
+                },
+              ],
+              stop: false,
+            }
+          : { say: "Done, she's ready.", commands: [], stop: true },
+      );
+    });
+  });
+  await new Promise<void>((resolve) => providerServer.listen(0, "127.0.0.1", resolve));
+
+  let connectionId = "";
+  let chatId = "";
+  let characterId = "";
+  try {
+    const address = providerServer.address();
+    if (!address || typeof address === "string") throw new Error("Professor Mari provider fixture did not bind");
+
+    const connectionResponse = await request.post("/api/connections", {
+      data: {
+        name: `Mari Authorization Provider ${suffix}`,
+        provider: "custom",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        apiKey: "e2e-mari-authorization",
+        model: "mari-authorization-model",
+        maxContext: 32_768,
+      },
+    });
+    expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
+    connectionId = ((await connectionResponse.json()) as { id: string }).id;
+
+    const chatResponse = await request.get(`/api/chats/internal/professor-mari?connectionId=${connectionId}`);
+    expect(chatResponse.ok(), await chatResponse.text()).toBeTruthy();
+    chatId = ((await chatResponse.json()) as { id: string }).id;
+
+    const message = `add build create generate ${characterName}\n\nThis is the character:\n${JULI_BELLONA_CARD}`;
+    const promptResponse = await request.post("/api/professor-mari/workspace/prompt", {
+      data: { chatId, message, connectionId },
+    });
+    expect(promptResponse.ok(), await promptResponse.text()).toBeTruthy();
+    const sseBody = await promptResponse.text();
+    expect(sseBody).not.toContain("Mutation blocked before execution");
+
+    const events = sseBody
+      .split("\n\n")
+      .map((chunk) => chunk.trim())
+      .filter((chunk) => chunk.startsWith("data: ") && chunk !== "data: [DONE]")
+      .map((chunk) => JSON.parse(chunk.slice("data: ".length)) as { type: string; data: unknown });
+    const toolEnd = events.find(
+      (event) => event.type === "tool_end" && (event.data as { name?: string }).name === "app_data",
+    );
+    expect(toolEnd, `expected a tool_end event in: ${sseBody}`).toBeTruthy();
+    const toolEndData = toolEnd!.data as { isError: boolean; output: string };
+    expect(toolEndData.isError, toolEndData.output).toBe(false);
+    const resultJson = JSON.parse(toolEndData.output.slice(toolEndData.output.indexOf("{"))) as {
+      ok: boolean;
+      summary?: { preview?: Array<{ table: string; id: string; action: string }> };
+    };
+    expect(resultJson.ok).toBe(true);
+    const insertedCharacter = resultJson.summary?.preview?.find(
+      (row) => row.table === "characters" && row.action === "insert",
+    );
+    expect(insertedCharacter, `expected an inserted character row in: ${toolEndData.output}`).toBeTruthy();
+    characterId = insertedCharacter!.id;
+
+    const characterResponse = await request.get(`/api/characters/${characterId}`);
+    expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
+    const character = (await characterResponse.json()) as { data?: unknown };
+    const characterData = (typeof character.data === "string" ? JSON.parse(character.data) : character.data) as {
+      name?: string;
+    };
+    expect(characterData.name).toBe(characterName);
+  } finally {
+    if (characterId) await request.delete(`/api/characters/${characterId}`).catch(() => undefined);
+    if (chatId) await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
+    if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);
+    await new Promise<void>((resolve, reject) => {
+      providerServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test("Professor Mari still blocks a generic authorization that names multiple operation categories", async ({
+  request,
+}) => {
+  const suffix = Date.now().toString(36);
+  const characterName = `Blocked Multi Category ${suffix}`;
+  const providerServer = createServer((incoming, response) => {
+    const chunks: Buffer[] = [];
+    incoming.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    incoming.on("end", () => {
+      if (incoming.method !== "POST" || incoming.url !== "/v1/chat/completions") {
+        response.writeHead(404, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: "Unexpected Professor Mari provider request" }));
+        return;
+      }
+      respondWithProfessorMariAction(response, {
+        say: `Creating ${characterName} now.`,
+        authorization: "I authorize the change",
+        commands: [
+          {
+            id: "create-blocked",
+            name: "app_data",
+            arguments: {
+              action: "character.create",
+              data: { name: characterName },
+              reason: "User requested a new character",
+              apply: true,
+            },
+          },
+        ],
+        stop: true,
+      });
+    });
+  });
+  await new Promise<void>((resolve) => providerServer.listen(0, "127.0.0.1", resolve));
+
+  let connectionId = "";
+  let chatId = "";
+  try {
+    const address = providerServer.address();
+    if (!address || typeof address === "string") throw new Error("Professor Mari provider fixture did not bind");
+
+    const connectionResponse = await request.post("/api/connections", {
+      data: {
+        name: `Mari Multi Category Provider ${suffix}`,
+        provider: "custom",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        apiKey: "e2e-mari-multi-category",
+        model: "mari-multi-category-model",
+        maxContext: 32_768,
+      },
+    });
+    expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
+    connectionId = ((await connectionResponse.json()) as { id: string }).id;
+
+    const chatResponse = await request.get(`/api/chats/internal/professor-mari?connectionId=${connectionId}`);
+    expect(chatResponse.ok(), await chatResponse.text()).toBeTruthy();
+    chatId = ((await chatResponse.json()) as { id: string }).id;
+
+    const promptResponse = await request.post("/api/professor-mari/workspace/prompt", {
+      data: {
+        chatId,
+        message: `I authorize the change, create and delete ${characterName}'s character record.`,
+        connectionId,
+      },
+    });
+    expect(promptResponse.ok(), await promptResponse.text()).toBeTruthy();
+    const sseBody = await promptResponse.text();
+    expect(sseBody).toContain("Mutation blocked before execution");
+    expect(sseBody).toContain("authorizes create and delete, not create");
+
+    const listResponse = await request.get("/api/characters", {
+      params: { search: characterName, limit: "20", offset: "0" },
+    });
+    expect(listResponse.ok(), await listResponse.text()).toBeTruthy();
+    const payload = (await listResponse.json()) as { items?: Array<{ data?: { name?: string } }> };
+    expect((payload.items ?? []).some((item) => item.data?.name === characterName)).toBe(false);
+  } finally {
+    if (chatId) await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
+    if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);
+    await new Promise<void>((resolve, reject) => {
+      providerServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test("Lorebook vectorization saves pending eligibility settings first", async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop Lorebook vector controls are covered here.");
 

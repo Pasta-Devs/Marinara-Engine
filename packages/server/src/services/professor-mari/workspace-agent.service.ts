@@ -1845,10 +1845,20 @@ export function workspaceMutationAuthorizationIssue(
   // sometimes omit or paraphrase it, so fall back to the direct user message that
   // the server already separated from attachments and fetched content.
   const authorizationSource = authorization && directUserText.includes(authorization) ? authorization : directUserText;
-  const genericAuthorization = GENERIC_MUTATION_AUTHORIZATION.test(authorizationSource);
+  // A generic "I authorize/approve" phrase only narrows scope when it is a genuine model-quoted
+  // excerpt distinct from the raw message. Without this guard, the word "authorized" appearing
+  // anywhere inside a long pasted document (e.g. a character card's backstory) falls back to the
+  // full message and makes every unrelated action verb in that document look like a conflicting
+  // explicit request.
+  const genericAuthorization =
+    authorizationSource !== directUserText && GENERIC_MUTATION_AUTHORIZATION.test(authorizationSource);
+  // Once generic-authorization detection is settled, always resolve the working scope from the full
+  // active user turn rather than the (possibly too-narrow) model-quoted excerpt. A model can quote a
+  // valid but incomplete substring — e.g. just the character's name — that never contains the verb
+  // that actually justifies the mutation, which must not block a request the user clearly authorized.
   const authorizationScope = genericAuthorization
     ? directUserText.replace(GENERIC_MUTATION_AUTHORIZATION_CLAUSE, "").trim()
-    : authorizationSource;
+    : directUserText;
   const lorebookEntrySplit = authorizesLorebookEntrySplit(authorizationScope, commandEntity, category);
   if (
     INFORMATIONAL_REQUEST_START.test(authorizationScope) &&

@@ -4,6 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+### Fixed
+
+- Professor Mari no longer rejects an explicitly requested character/persona/lorebook create or update as unauthorized when her own quoted authorization excerpt is a valid but incomplete substring of the user's message (e.g. just the character's name) or when a long pasted document (like a character card) happens to contain the word "authorized" among ordinary narrative verbs.
+
 ## [2.4.4]
 
 ### Added
