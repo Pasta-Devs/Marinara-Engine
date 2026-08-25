@@ -385,15 +385,9 @@ export function AgentsPanel() {
     () => new Map(availableBuiltInAgents.map((agent) => [agent.id, agent.modeAllowlist] as const)),
     [availableBuiltInAgents],
   );
-  const matchesAgentFilters = (agent: {
-    type: string;
-    name: string;
-    description: string;
-    category: string;
-  }) => {
+  const matchesAgentFilters = (agent: { type: string; name: string; description: string; category: string }) => {
     const modeAllowlist = modeAllowlistByAgentType.get(agent.type);
-    const matchesMode =
-      agentModeFilter === "all" || !modeAllowlist?.length || modeAllowlist.includes(agentModeFilter);
+    const matchesMode = agentModeFilter === "all" || !modeAllowlist?.length || modeAllowlist.includes(agentModeFilter);
     const matchesSearch =
       !agentSearchQuery ||
       agent.name.toLowerCase().includes(agentSearchQuery) ||
