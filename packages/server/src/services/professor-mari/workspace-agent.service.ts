@@ -1677,14 +1677,75 @@ export function workspaceMutationSignature(command: Pick<WorkspaceCommandCall, "
     .digest("hex");
 }
 
+// JS \b treats German umlauts (ä/ö/ü) and ß as non-word characters, so a plain \b fails right at the
+// edge of umlaut-initial/umlaut-final German verbs (e.g. "\bändern\b" never matches "ändern" after a
+// space). Build the localized alternation with explicit Unicode-letter boundary lookarounds instead.
+function localizedIntentWords(words: string[]): string {
+  return `(?<![\\p{L}\\p{N}_])(?:${words.join("|")})(?![\\p{L}\\p{N}_])`;
+}
+
 const MUTATION_INTENT_PATTERNS: Record<WorkspaceMutationCategory, RegExp> = {
-  create: /\b(?:add|build|create|generate|import|make|remember|save|write)\b/iu,
-  update:
-    /\b(?:add|address|adjust|apply|assign|build|change|create|delete|disable|edit|enable|ensure|fix|generate|handle|implement|link|make|modify|remove|rename|replace|reword|save|set|tweak|unlink|update|write)\b/iu,
-  delete: /\b(?:delete|erase|forget|remove|uninstall)\b/iu,
-  move: /\b(?:move|place|put|relocate|reorder)\b/iu,
-  copy: /\b(?:clone|copy|duplicate)\b/iu,
-  install: /\b(?:add|install|update|upgrade)\b/iu,
+  create: new RegExp(
+    `\\b(?:add|build|create|generate|import|make|remember|save|write)\\b|${localizedIntentWords([
+      "erstelle(?:n|st)?",
+      "erstell",
+      "anlege(?:n|st)?",
+      "generiere(?:n|st)?",
+      "importiere(?:n|st)?",
+      "hinzufüge(?:n|st)?",
+      "mache(?:n|st)?",
+      "speichere(?:n|st)?",
+      "schreibe(?:n|st)?",
+      "merke(?:n|st)?",
+    ])}`,
+    "iu",
+  ),
+  update: new RegExp(
+    "\\b(?:add|address|adjust|apply|assign|build|change|create|delete|disable|edit|enable|ensure|fix|generate|handle|implement|link|make|modify|remove|rename|replace|reword|save|set|tweak|unlink|update|write)\\b|" +
+      localizedIntentWords([
+        "änder(?:e|n|st)?",
+        "anpasse(?:n|st)?",
+        "aktualisiere(?:n|st)?",
+        "bearbeite(?:n|st)?",
+        "behebe(?:n|st)?",
+        "repariere(?:n|st)?",
+        "ergänze(?:n|st)?",
+        "korrigiere(?:n|st)?",
+        "(?:um)?benenne(?:n|st)?",
+        "ersetze(?:n|st)?",
+        "setze(?:n|st)?",
+        "aktiviere(?:n|st)?",
+        "deaktiviere(?:n|st)?",
+        "verlinke(?:n|st)?",
+        "verknüpfe(?:n|st)?",
+      ]),
+    "iu",
+  ),
+  delete: new RegExp(
+    `\\b(?:delete|erase|forget|remove|uninstall)\\b|${localizedIntentWords([
+      "lösche(?:n|st)?",
+      "entferne(?:n|st)?",
+      "vergisst?",
+      "vergessen",
+    ])}`,
+    "iu",
+  ),
+  move: new RegExp(
+    `\\b(?:move|place|put|relocate|reorder)\\b|${localizedIntentWords([
+      "verschiebe(?:n|st)?",
+      "bewege(?:n|st)?",
+      "platziere(?:n|st)?",
+    ])}`,
+    "iu",
+  ),
+  copy: new RegExp(
+    `\\b(?:clone|copy|duplicate)\\b|${localizedIntentWords(["kopiere(?:n|st)?", "dupliziere(?:n|st)?", "klone(?:n|st)?"])}`,
+    "iu",
+  ),
+  install: new RegExp(
+    `\\b(?:add|install|update|upgrade)\\b|${localizedIntentWords(["installiere(?:n|st)?", "aktualisiere(?:n|st)?"])}`,
+    "iu",
+  ),
 };
 
 const INFORMATIONAL_REQUEST_START =
@@ -1812,7 +1873,13 @@ export function workspaceMutationAuthorizationIssue(
 
   const directUserText = normalizeAuthorizationText(context.directUserText);
   const authorization = normalizeAuthorizationText(command.authorization ?? "");
-  if (MUTATION_DENIAL.test(directUserText) || LOCALIZED_SHORT_MUTATION_DENIAL.test(directUserText)) {
+  // Pasted character/persona cards routinely embed quoted example dialogue (e.g. "Don't tell me
+  // it's nothing.") that reads as a denial phrase out of context. Strip quoted spans before running
+  // the denial check so that dialogue can't be mistaken for the user's own instruction; the
+  // anchored localized-short-reply check still runs on the untouched text since it only ever
+  // matches when the *entire* message is one short denial word.
+  const denialCheckText = directUserText.replace(/"[^"]*"/gu, " ").replace(/“[^”]*”/gu, " ");
+  if (MUTATION_DENIAL.test(denialCheckText) || LOCALIZED_SHORT_MUTATION_DENIAL.test(directUserText)) {
     return "Mutation blocked before execution: the active user message explicitly requests no workspace changes.";
   }
 

@@ -15117,6 +15117,136 @@ test("Professor Mari creates a character when its own authorization quote omits 
   }
 });
 
+// Regression coverage for the German-instruction reproduction: a non-English intent verb ("Erstelle")
+// plus a pasted card whose example dialogue quotes "Don't tell me it's nothing." must not be
+// mistaken for an English-only intent gate miss or a denial phrase inside the quoted dialogue.
+test("Professor Mari creates a character from a German instruction and a card with quoted denial-like dialogue", async ({
+  request,
+}) => {
+  const suffix = Date.now().toString(36);
+  const characterName = `Juli Bellona DE ${suffix}`;
+  const cardWithQuotedDialogue = `Character - Juli
+Crown Princess ${characterName} is a 20-year-old human woman and heir to the Martian Commonwealth.
+
+Worried About Kranael
+
+"You're hurt."
+
+"Don't tell me it's nothing."
+
+Her expression hardens slightly.
+
+"That only works when fictional heroes say it."
+
+"Sit down."`;
+  let callCount = 0;
+  const providerServer = createServer((incoming, response) => {
+    const chunks: Buffer[] = [];
+    incoming.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    incoming.on("end", () => {
+      if (incoming.method !== "POST" || incoming.url !== "/v1/chat/completions") {
+        response.writeHead(404, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: "Unexpected Professor Mari provider request" }));
+        return;
+      }
+      callCount += 1;
+      respondWithProfessorMariAction(
+        response,
+        callCount === 1
+          ? {
+              say: `Ich erstelle ${characterName} jetzt.`,
+              authorization: `Erstelle mir aus dem Juli\n\nCharacter - Juli`,
+              commands: [
+                {
+                  id: "create-juli-de",
+                  name: "app_data",
+                  arguments: {
+                    action: "character.create",
+                    data: { name: characterName, description: "Crown Princess of the Martian Commonwealth." },
+                    reason: "User requested a new character",
+                    apply: true,
+                  },
+                },
+              ],
+              stop: false,
+            }
+          : { say: "Fertig.", commands: [], stop: true },
+      );
+    });
+  });
+  await new Promise<void>((resolve) => providerServer.listen(0, "127.0.0.1", resolve));
+
+  let connectionId = "";
+  let chatId = "";
+  let characterId = "";
+  try {
+    const address = providerServer.address();
+    if (!address || typeof address === "string") throw new Error("Professor Mari provider fixture did not bind");
+
+    const connectionResponse = await request.post("/api/connections", {
+      data: {
+        name: `Mari German Provider ${suffix}`,
+        provider: "custom",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        apiKey: "e2e-mari-german",
+        model: "mari-german-model",
+        maxContext: 32_768,
+      },
+    });
+    expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
+    connectionId = ((await connectionResponse.json()) as { id: string }).id;
+
+    const chatResponse = await request.get(`/api/chats/internal/professor-mari?connectionId=${connectionId}`);
+    expect(chatResponse.ok(), await chatResponse.text()).toBeTruthy();
+    chatId = ((await chatResponse.json()) as { id: string }).id;
+
+    const message = `Erstelle mir aus dem Juli\n\n${cardWithQuotedDialogue}`;
+    const promptResponse = await request.post("/api/professor-mari/workspace/prompt", {
+      data: { chatId, message, connectionId },
+    });
+    expect(promptResponse.ok(), await promptResponse.text()).toBeTruthy();
+    const sseBody = await promptResponse.text();
+    expect(sseBody).not.toContain("Mutation blocked before execution");
+
+    const events = sseBody
+      .split("\n\n")
+      .map((chunk) => chunk.trim())
+      .filter((chunk) => chunk.startsWith("data: ") && chunk !== "data: [DONE]")
+      .map((chunk) => JSON.parse(chunk.slice("data: ".length)) as { type: string; data: unknown });
+    const toolEnd = events.find(
+      (event) => event.type === "tool_end" && (event.data as { name?: string }).name === "app_data",
+    );
+    expect(toolEnd, `expected a tool_end event in: ${sseBody}`).toBeTruthy();
+    const toolEndData = toolEnd!.data as { isError: boolean; output: string };
+    expect(toolEndData.isError, toolEndData.output).toBe(false);
+    const resultJson = JSON.parse(toolEndData.output.slice(toolEndData.output.indexOf("{"))) as {
+      ok: boolean;
+      summary?: { preview?: Array<{ table: string; id: string; action: string }> };
+    };
+    expect(resultJson.ok).toBe(true);
+    const insertedCharacter = resultJson.summary?.preview?.find(
+      (row) => row.table === "characters" && row.action === "insert",
+    );
+    expect(insertedCharacter, `expected an inserted character row in: ${toolEndData.output}`).toBeTruthy();
+    characterId = insertedCharacter!.id;
+
+    const characterResponse = await request.get(`/api/characters/${characterId}`);
+    expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
+    const character = (await characterResponse.json()) as { data?: unknown };
+    const characterData = (typeof character.data === "string" ? JSON.parse(character.data) : character.data) as {
+      name?: string;
+    };
+    expect(characterData.name).toBe(characterName);
+  } finally {
+    if (characterId) await request.delete(`/api/characters/${characterId}`).catch(() => undefined);
+    if (chatId) await request.delete(`/api/chats/internal/professor-mari/chats/${chatId}`).catch(() => undefined);
+    if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);
+    await new Promise<void>((resolve, reject) => {
+      providerServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test("Professor Mari still blocks a generic authorization that names multiple operation categories", async ({
   request,
 }) => {
