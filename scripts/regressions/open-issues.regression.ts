@@ -290,6 +290,7 @@ import {
   extractPersonaReferenceIds,
   MAX_REFERENCED_CHARACTERS,
   normalizeChatMacroVariables,
+  setLorebookEntryCounts,
 } from "../../packages/server/src/services/prompt/macro-context.js";
 import { assemblePrompt } from "../../packages/server/src/services/prompt/assembler.js";
 import { resolveRunPodComfyUiTimeoutSeconds } from "../../packages/server/src/services/image/runpod-comfyui.service.js";
@@ -1569,6 +1570,46 @@ try {
       content: "REFERENCED_PERSONA_LOREBOOK_MEMORY",
       keys: ["cafe"],
     }),
+  );
+  const countOnlyReferencedCharacter = await characterStorage.create(
+    characterDataSchema.parse({
+      name: "Count-only character reference",
+      description: `This card can see ${"{{"}lorebooksize::${hiddenCharacterLorebook.id}}} saved memory.`,
+    }),
+  );
+  const countOnlyReferencedPersona = await characterStorage.createPersona(
+    "Count-only Persona reference",
+    `This Persona can see ${"{{"}lorebooksize::${hiddenPersonaLorebook.id}}} saved memory.`,
+  );
+  assert.ok(countOnlyReferencedPersona);
+  const countOnlyCharacterContext = await buildReferencedCharacterContext({
+    db,
+    activeCharacterIds: [],
+    sources: [`{{${countOnlyReferencedCharacter.id}}}`],
+    chatMessages: [],
+    macroCtx: { user: "Mari", char: "Character", characters: [], variables: {} },
+    wrapFormat: "xml",
+    chatId: "count-only-character-reference",
+    includeLorebooks: false,
+  });
+  assert.match(
+    countOnlyCharacterContext.content,
+    /This card can see 1 saved memory\./u,
+    "referenced Character fields must load lorebook counts without an attached lorebook scan",
+  );
+  const countOnlyPersonaContext = await buildReferencedPersonaContext({
+    db,
+    sources: [`{{persona-${countOnlyReferencedPersona.id}}}`],
+    chatMessages: [],
+    macroCtx: { user: "Mari", char: "Character", characters: [], variables: {} },
+    wrapFormat: "xml",
+    chatId: "count-only-persona-reference",
+    includeLorebooks: false,
+  });
+  assert.match(
+    countOnlyPersonaContext.content,
+    /This Persona can see 1 saved memory\./u,
+    "referenced Persona fields must load lorebook counts without an attached lorebook scan",
   );
   assert.equal(
     (await lorebookStorage.list()).some((book) => book.id === hiddenCharacterLorebook.id),
@@ -6309,6 +6350,19 @@ assert.match(
   promptMacroContextSource,
   /macroSources\.some\(\(source\) => \/\\\{\\\{\\s\*lorebooksize::\/iu\.test\(source\)\)[\s\S]*countAllEntriesByLorebook/u,
   "prompt macro contexts must only scan lorebook counts when a source uses lorebooksize",
+);
+const staleLorebookCountContext = {
+  user: "Mari",
+  char: "Character",
+  characters: ["Character"],
+  variables: {},
+  lorebookEntryCounts: { stale: 4 },
+};
+setLorebookEntryCounts(staleLorebookCountContext, undefined);
+assert.deepEqual(
+  staleLorebookCountContext.lorebookEntryCounts,
+  {},
+  "an omitted lorebook count snapshot must clear stale values",
 );
 assert.match(
   lorebookServiceSource,

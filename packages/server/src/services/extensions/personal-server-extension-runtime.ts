@@ -358,6 +358,7 @@ export class PersonalServerExtensionRuntime {
     let closing = false;
     let lastHeartbeat = Date.now();
     let lastWatchdogTickAt = Date.now();
+    let watchdogTickGeneration = 0;
     let messageWindowStartedAt = Date.now();
     let messageCount = 0;
     let outputHandle: Awaited<ReturnType<typeof open>>;
@@ -374,10 +375,12 @@ export class PersonalServerExtensionRuntime {
     active.watchdog = setInterval(() => {
       if (active.expectedStop) return;
       const watchdogTickAt = Date.now();
+      const tickGeneration = ++watchdogTickGeneration;
       const resumedAfterPause = shouldGrantSandboxResumeGrace(watchdogTickAt, lastWatchdogTickAt);
       lastWatchdogTickAt = watchdogTickAt;
       void Promise.all([stat(sandbox.protocol.heartbeatPath), stat(sandbox.protocol.errorPath)])
         .then(([heartbeatStats, errorStats]) => {
+          if (tickGeneration !== watchdogTickGeneration || active.expectedStop) return;
           if (heartbeatStats.size > MAX_HEARTBEAT_BYTES || errorStats.size > MAX_ERROR_LOG_BYTES) {
             active.expectedStop = true;
             this.statuses.set(extension.id, {

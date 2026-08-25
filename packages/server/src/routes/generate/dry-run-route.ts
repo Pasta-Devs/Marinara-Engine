@@ -882,6 +882,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       model: conn.model,
       lastGenerationType: promptLastGenerationType,
       idleDuration: promptIdleDuration,
+      macroSources: [
+        ...mappedMessages.map((message) => message.content),
+        promptParts ? JSON.stringify(promptParts) : "",
+      ],
     });
     const historyMacroProfilesById = (await resolveCharacterMacroData(app.db, allCharacterIds)).profilesById;
     const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(

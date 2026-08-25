@@ -1128,7 +1128,12 @@ export async function processLorebooks(
 
   let resolveContent = options?.resolveContent;
   if (resolveContent && allEntries.some((entry) => /\{\{\s*lorebooksize::/iu.test(entry.content))) {
-    const lorebookEntryCounts = await storage.countAllEntriesByLorebook();
+    let lorebookEntryCounts: Record<string, number> = {};
+    try {
+      lorebookEntryCounts = await storage.countAllEntriesByLorebook();
+    } catch (err) {
+      logger.warn(err, "Failed to load lorebook entry counts while processing lorebooks; using empty counts");
+    }
     const originalResolver = resolveContent;
     resolveContent = (value) => originalResolver(value, lorebookEntryCounts);
   }

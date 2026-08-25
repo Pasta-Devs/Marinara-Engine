@@ -107,7 +107,7 @@ export function setLorebookEntryCounts(
   macroCtx: MacroContext,
   counts: Readonly<Record<string, number>> | undefined,
 ): void {
-  if (counts) macroCtx.lorebookEntryCounts = { ...counts };
+  macroCtx.lorebookEntryCounts = counts ? { ...counts } : {};
 }
 
 /** Resolve macros while discarding variable writes made by preview and scan-only paths. */
@@ -349,6 +349,14 @@ export async function buildReferencedPersonaContext(input: {
     },
   };
   const lorebooks = createLorebooksStorage(input.db);
+  if (referenced.some(({ persona }) => /\{\{\s*lorebooksize::/iu.test(JSON.stringify(persona) ?? ""))) {
+    try {
+      setLorebookEntryCounts(macroCtx, await lorebooks.countAllEntriesByLorebook());
+    } catch (err) {
+      logger.warn(err, "Failed to load lorebook entry counts for referenced personas; using empty counts");
+      setLorebookEntryCounts(macroCtx, undefined);
+    }
+  }
   const allLorebooks = (await lorebooks.list()) as unknown as Array<{
     id: string;
     personaId?: string | null;
@@ -433,6 +441,14 @@ export async function buildReferencedCharacterContext(input: {
   const references = Object.fromEntries(referenced.map(({ id, data }) => [id, data.name || "Character"]));
   const macroCtx = { ...input.macroCtx, characterReferences: references };
   const lorebooks = createLorebooksStorage(input.db);
+  if (referenced.some(({ data }) => /\{\{\s*lorebooksize::/iu.test(JSON.stringify(data) ?? ""))) {
+    try {
+      setLorebookEntryCounts(macroCtx, await lorebooks.countAllEntriesByLorebook());
+    } catch (err) {
+      logger.warn(err, "Failed to load lorebook entry counts for referenced characters; using empty counts");
+      setLorebookEntryCounts(macroCtx, undefined);
+    }
+  }
   const allLorebooks = (await lorebooks.list()) as unknown as Array<{
     id: string;
     characterId?: string | null;

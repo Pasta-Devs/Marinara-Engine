@@ -34,6 +34,17 @@ import {
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CAP = 64;
+const extensionRuntimeSource = readFileSync(
+  join(REPOSITORY_ROOT, "packages/server/src/services/extensions/personal-server-extension-runtime.ts"),
+  "utf8",
+);
+
+assert.match(extensionRuntimeSource, /const tickGeneration = \+\+watchdogTickGeneration/u);
+assert.match(
+  extensionRuntimeSource,
+  /if \(tickGeneration !== watchdogTickGeneration \|\| active\.expectedStop\) return;/u,
+  "a delayed watchdog sample must not apply after a newer tick starts",
+);
 
 // ── Per-message cap semantics ──
 
