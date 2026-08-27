@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- File-native storage format advances to version 6, pairing `STORAGE_VERSION` and `storage-format.json` so the launcher downgrade guard correctly rejects rollbacks to builds that do not understand the new sharded layout and writer-lease ownership model.
 - Chat connection switchers can now show the latest measured context usage in their popup and around the connection button, with Game usage available under Chat Settings > Connection. The display is enabled by default and can be controlled in Advanced settings (#5577).
 - Character card sprites can now be renamed after upload without replacing the image (#5575).
 - Character cards now support editable metadata summaries, AI-generated summary drafts, and Character Library previews that use the saved summary when available.
