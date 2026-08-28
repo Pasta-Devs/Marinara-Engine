@@ -14767,11 +14767,14 @@ test("Professor Mari suggestions stay visible after chat history loads", async (
     const suggestions = window.getByRole("group", { name: "Suggested replies" });
     await expect(suggestions).toBeVisible();
     await expect(suggestions.getByRole("button", { name: "Create a character" })).toBeVisible();
-    const configuredChromeTextColor = await page.evaluate(() =>
-      document.documentElement.style.getPropertyValue("--marinara-chat-chrome-text").trim(),
-    );
+    // The store write propagates to the inline CSS variable asynchronously;
+    // poll instead of sampling once.
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.style.getPropertyValue("--marinara-chat-chrome-text").trim()),
+      )
+      .toBe("#14b8a6");
     const chromeMutedColor = await readCssVariableColor(page, "--marinara-chat-chrome-panel-muted");
-    expect(configuredChromeTextColor).toBe("#14b8a6");
     await expect(window.getByText("You", { exact: true }).last()).toHaveCSS("color", chromeMutedColor);
     await expect(window.getByRole("button", { name: "Edit Message" }).last()).toHaveCSS("color", chromeMutedColor);
     await expect(window.getByText("Suggestions only. Pick one, or type your own.", { exact: true })).toHaveCSS(
