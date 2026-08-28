@@ -49,6 +49,8 @@ const RESTART_REQUIRED_KEYS = new Set<string>([
   "SSL_KEY",
   "DATA_DIR",
   "FILE_STORAGE_DIR",
+  // Read once at module load to build the lazy-table tier (#5592).
+  "MARINARA_EAGER_STORAGE",
   "MARINARA_ENV_FILE",
   "ENCRYPTION_KEY",
   "TZ",

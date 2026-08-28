@@ -9,7 +9,7 @@
 // reviewer of, so panel writes are DIRECT (no Keep/Restore review card) — like
 // the Skills / Memories panels, unlike Mari's own autonomous mutations.
 // ──────────────────────────────────────────────
-import { eq } from "../../db/file-query.js";
+import { and, eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { mariWorkspaceContext } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -117,7 +117,9 @@ export function createMariWorkspaceContextStorage(db: DB) {
     async remove(id: string): Promise<boolean> {
       const existing = await this.get(id);
       if (!existing) return false;
-      await db.delete(mariWorkspaceContext).where(eq(mariWorkspaceContext.id, id));
+      await db
+        .delete(mariWorkspaceContext)
+        .where(and(eq(mariWorkspaceContext.chatId, existing.chatId), eq(mariWorkspaceContext.id, id)));
       return true;
     },
   };

@@ -335,7 +335,7 @@ export async function agentsRoutes(app: FastifyInstance) {
     if (BUILT_IN_AGENTS.some((agent) => agent.id === run.agentType)) {
       return reply.status(403).send({ error: "Built-in agent runs are not editable here" });
     }
-    return storage.updateRunResultData(req.params.runId, input.resultData);
+    return storage.updateRunResultData(req.params.runId, input.resultData, run.chatId ?? undefined);
   });
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {

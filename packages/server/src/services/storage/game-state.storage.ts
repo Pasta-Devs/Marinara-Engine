@@ -326,8 +326,11 @@ export function createGameStateStorage(db: DB) {
     },
 
     /** Mark a specific snapshot as committed. */
-    async commit(id: string) {
-      await db.update(gameStateSnapshots).set({ committed: 1 }).where(eq(gameStateSnapshots.id, id));
+    async commit(id: string, chatId?: string) {
+      const condition = chatId
+        ? and(eq(gameStateSnapshots.chatId, chatId), eq(gameStateSnapshots.id, id))
+        : eq(gameStateSnapshots.id, id);
+      await db.update(gameStateSnapshots).set({ committed: 1 }).where(condition);
     },
 
     async create(state: Omit<GameState, "id" | "createdAt">, manualOverrides?: Record<string, string> | null) {
@@ -543,7 +546,10 @@ export function createGameStateStorage(db: DB) {
 
       if (Object.keys(updates).length === 0) return row;
 
-      await db.update(gameStateSnapshots).set(updates).where(eq(gameStateSnapshots.id, row.id));
+      await db
+        .update(gameStateSnapshots)
+        .set(updates)
+        .where(and(eq(gameStateSnapshots.chatId, row.chatId), eq(gameStateSnapshots.id, row.id)));
       return { ...row, ...updates };
     },
 

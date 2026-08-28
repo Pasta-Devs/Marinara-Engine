@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Schema: Chats, Messages & Folders
 // ──────────────────────────────────────────────
-import { fileTable, text, integer } from "../file-schema.js";
+import { fileTable, text, integer, vectorText } from "../file-schema.js";
 
 export const chatFolders = fileTable("chat_folders", {
   id: text("id").primaryKey(),
@@ -125,7 +125,7 @@ export const memoryChunks = fileTable("memory_chunks", {
   /** Formatted conversation text: "Name: message\n\nName: message\n\n..." */
   content: text("content").notNull(),
   /** JSON-serialized float[] embedding (null until vectorized) */
-  embedding: text("embedding"),
+  embedding: vectorText("embedding"),
   /** Stable provider/model/profile identity for the stored embedding */
   embeddingSpaceId: text("embedding_space_id"),
   /** How many messages were grouped into this chunk */

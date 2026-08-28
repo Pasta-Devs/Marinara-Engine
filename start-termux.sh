@@ -237,7 +237,7 @@ load_launcher_setting() {
 # Read only settings used by this launcher. The server loads every other .env
 # value itself. Node parses these as inert dotenv data; no shell code is sourced.
 if [ -f .env ]; then
-    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR; do
+    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR MARINARA_MAX_RESIDENT_CHATS; do
         load_launcher_setting "$setting_name"
     done
 fi
@@ -255,6 +255,9 @@ if ! has_explicit_node_heap_limit; then
     export NODE_OPTIONS
     echo "  [OK] Node.js heap limit set to ${MARINARA_TERMUX_HEAP_MB} MiB for this profile and device"
 fi
+
+# Resident chat cap (#5592): evict clean LRU chats from memory past this. 0 = off.
+export MARINARA_MAX_RESIDENT_CHATS="${MARINARA_MAX_RESIDENT_CHATS:-8}"
 
 AUTO_UPDATE_ENABLED_NORMALIZED=$(printf '%s' "${AUTO_UPDATE_ENABLED:-true}" | tr '[:upper:]' '[:lower:]' | tr -d '\r ')
 case "$AUTO_UPDATE_ENABLED_NORMALIZED" in
