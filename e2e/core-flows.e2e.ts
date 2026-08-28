@@ -16625,7 +16625,10 @@ test("Character of the Day stays vertically centered inside its mobile widget", 
       const storageKey = "marinara-engine-ui";
       let persisted: { state?: Record<string, unknown>; version?: number } = {};
       try {
-        persisted = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as typeof persisted;
+        const parsed = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          persisted = parsed as typeof persisted;
+        }
       } catch {
         // Replace malformed browser-local state with the minimal fixture.
       }
