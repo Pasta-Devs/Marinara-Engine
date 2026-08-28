@@ -16293,11 +16293,23 @@ test("mobile Home collects its bookmarks into a Marinara-colored menu", async ({
     await expect(menu.getByText(label, { exact: true })).toBeVisible();
   }
 
-  await menu.getByRole("button", { name: "FAQ", exact: true }).click();
+  // Exit lifecycle: activate the FAQ bookmark in-page and sample the DOM in
+  // the same task — a menu torn down synchronously by the click would already
+  // be gone, while the intended animated exit cannot be. Sampling on the
+  // driver side (attached checks around a wall-clock wait) races the exit
+  // animation on slow runners.
+  const menuStayedMountedForExit = await page.evaluate(() => {
+    const menuElement = document.querySelector('[data-component="HomeBrowserHub.MobileBookmarksMenu"]');
+    if (!menuElement) return null;
+    const faqButton = Array.from(menuElement.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "FAQ",
+    );
+    if (!faqButton) return null;
+    faqButton.click();
+    return document.contains(menuElement);
+  });
+  expect(menuStayedMountedForExit).toBe(true);
   await expect(page.getByRole("dialog", { name: "Professor Mari's FAQ" })).toBeVisible();
-  await expect(menu).toBeAttached();
-  await page.waitForTimeout(50);
-  await expect(menu).toBeAttached();
   await expect(menu).toHaveCount(0);
 });
 
@@ -18337,8 +18349,14 @@ test("mobile composers preserve history position and restore focus in Conversati
       const preservedScrollTop = await transcript.evaluate((element) => element.scrollTop);
 
       const showComposer = page.getByRole("button", { name: "Show message input", exact: true });
-      if (await showComposer.isVisible()) await activateControl(showComposer, testInfo);
-      await expect(textarea).toBeVisible();
+      // The roleplay surface can re-collapse the composer while the transcript
+      // is being scrolled; keep re-expanding until the textarea is visible.
+      await expect
+        .poll(async () => {
+          if (await showComposer.isVisible()) await activateControl(showComposer, testInfo);
+          return textarea.isVisible();
+        })
+        .toBe(true);
       await textarea.evaluate((element) => {
         element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
         element.focus();
