@@ -23,6 +23,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- A storage file whose content is valid JSON but not the expected shape (for example `{}` where a list of rows belongs) is now treated as corruption: it recovers from its backup when one exists and is quarantined for manual recovery otherwise, instead of silently loading as an empty chat while a healthy backup sat unused (#5601).
 - A transaction rollback no longer strands a storage self-heal mid-flight: a chat whose shard file held another chat's misfiled rows could lose those rows' only on-disk copy when a rolled-back request had loaded it, because the healing rewrite ran without the paired shard writes. Rollback now re-merges load-created healing marks so the repair stays atomic (#5606).
 - Memory Recall embeddings now live outside the JavaScript heap as packed vectors — the largest single memory block for long roleplay profiles on phones — and recall scoring reads them directly instead of re-parsing JSON per chunk, without changing the on-disk storage format (#5592).
 - Message swipe reads are now scoped to the requested chat instead of scanning every chat's swipes on each message list, made possible by resolving list-membership filters once per query rather than per row — the cost that originally motivated the unscoped scans (#3402, #5592).
