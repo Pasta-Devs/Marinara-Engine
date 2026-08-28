@@ -14814,17 +14814,18 @@ test("Professor Mari shows the latest context budget when token usage is enabled
         useUIStore: {
           getState: () => {
             setChatChromeTextColor: (value: string) => void;
-            setShowTokenUsage: (value: boolean) => void;
+            setShowContextUsage: (value: boolean) => void;
           };
         };
       };
       useUIStore.getState().setChatChromeTextColor("#14b8a6");
-      useUIStore.getState().setShowTokenUsage(true);
+      useUIStore.getState().setShowContextUsage(true);
     });
     await page.getByRole("tab", { name: "Professor", exact: true }).click();
 
     const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
-    const budget = window.locator('[data-component="HomeProfessorMariChat.ContextBudget"]');
+    await window.getByRole("button", { name: "Select connection" }).click();
+    const budget = window.locator('[data-component="ContextBudget"]');
     const configuredChromeTextColor = await page.evaluate(() =>
       document.documentElement.style.getPropertyValue("--marinara-chat-chrome-text").trim(),
     );
