@@ -18349,18 +18349,22 @@ test("mobile composers preserve history position and restore focus in Conversati
       const preservedScrollTop = await transcript.evaluate((element) => element.scrollTop);
 
       const showComposer = page.getByRole("button", { name: "Show message input", exact: true });
-      // The roleplay surface can re-collapse the composer while the transcript
-      // is being scrolled; keep re-expanding until the textarea is visible.
+      // The roleplay surface can re-collapse (and remount) the composer while
+      // the transcript is being scrolled, dropping a just-taken focus. Keep
+      // re-expanding and re-focusing until the focus sticks; each retry also
+      // re-dispatches the anchor-arming pointerdown.
       await expect
         .poll(async () => {
           if (await showComposer.isVisible()) await activateControl(showComposer, testInfo);
-          return textarea.isVisible();
+          return textarea
+            .evaluate((element) => {
+              element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
+              element.focus();
+              return document.activeElement === element;
+            })
+            .catch(() => false);
         })
         .toBe(true);
-      await textarea.evaluate((element) => {
-        element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
-        element.focus();
-      });
       await expect(textarea).toBeFocused();
       // Let the delayed focus viewport samples settle: AppShell re-samples the
       // real geometry up to 320ms after focus and dispatches keyboardOpen:false,
