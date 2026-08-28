@@ -16122,7 +16122,13 @@ test("Home Community and clock widgets are useful, timezone-aware, and optional"
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
 
-  await page.evaluate(() => {
+  // Seed the legacy-visibility state from an init script rather than mutating
+  // the live page: the running Home hub persists the current visibility back
+  // to v2 whenever its layouts update, which can race an evaluate-then-reload
+  // and re-erase the v2 removal before the new document loads.
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("marinara:e2e:legacy-visibility-seeded") === "true") return;
+    sessionStorage.setItem("marinara:e2e:legacy-visibility-seeded", "true");
     localStorage.removeItem("marinara:home:widget-visibility:v2");
     localStorage.setItem(
       "marinara:home:widget-visibility:v1",
