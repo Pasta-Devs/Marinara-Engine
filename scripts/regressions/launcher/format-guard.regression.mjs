@@ -106,8 +106,11 @@ const probeHeapHelpers = (script, nodeOptions = "") => {
 probeHeapHelpers("has_explicit_node_heap_limit", "--max-old-space-size=512");
 probeHeapHelpers("! has_explicit_node_heap_limit", "--trace-warnings");
 assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 0 8388608"), "1024");
-assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 8388608"), "1536");
+assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 524288 8388608"), "1536");
+assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 8388608"), "2048");
 assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 4194304"), "1024");
+assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 3145728"), "1024");
+assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 0"), "1536");
 const wakeLockTrapIndex = termuxLauncherSource.search(/^[ \t]*trap release_termux_wake_lock EXIT[ \t]*$/mu);
 const wakeLockAcquireIndex = termuxLauncherSource.search(/^[ \t]*if[ \t]+termux-wake-lock\b[^\n]*;[ \t]*then[ \t]*$/mu);
 const serverStartIndex = termuxLauncherSource.lastIndexOf("node dist/index.js");

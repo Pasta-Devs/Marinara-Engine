@@ -207,20 +207,23 @@ resolve_default_node_heap_mb() {
     case "$profile_storage_kib" in *[!0-9]*|"") profile_storage_kib=0 ;; esac
     case "$device_memory_kib" in *[!0-9]*|"") device_memory_kib=0 ;; esac
 
-    # Allow about 512 MiB above the on-disk structured profile, rounded to a
-    # stable 128 MiB step. Media lives outside storage and does not inflate it.
-    local heap_mb=$(( (profile_storage_kib + 1023) / 1024 + 512 ))
+    # Budget about twice the on-disk structured profile plus 512 MiB of
+    # headroom, in stable 128 MiB steps: the file-backed store keeps every
+    # row in memory, and V8 objects plus flush serialization run well above
+    # the JSON byte size. Media lives outside storage.
+    local heap_mb=$(( ((profile_storage_kib + 1023) / 1024) * 2 + 512 ))
     heap_mb=$(( (heap_mb + 127) / 128 * 128 ))
     [ "$heap_mb" -lt 1024 ] && heap_mb=1024
-    [ "$heap_mb" -gt 1536 ] && heap_mb=1536
 
-    # On smaller phones, retain at least the safe 1 GiB baseline but avoid
-    # granting a large profile more than roughly one quarter of physical RAM.
     if [ "$device_memory_kib" -gt 0 ]; then
+        # Cap at about one quarter of physical RAM so Android keeps room for
+        # the Termux process, but never below the safe 1 GiB baseline.
         local device_cap_mb=$(( device_memory_kib / 1024 / 4 / 128 * 128 ))
-        if [ "$device_cap_mb" -ge 1024 ] && [ "$heap_mb" -gt "$device_cap_mb" ]; then
-            heap_mb="$device_cap_mb"
-        fi
+        [ "$device_cap_mb" -lt 1024 ] && device_cap_mb=1024
+        [ "$heap_mb" -gt "$device_cap_mb" ] && heap_mb="$device_cap_mb"
+    elif [ "$heap_mb" -gt 1536 ]; then
+        # Unknown device memory: keep the conservative bounded default.
+        heap_mb=1536
     fi
     printf '%s' "$heap_mb"
 }

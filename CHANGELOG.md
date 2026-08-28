@@ -15,6 +15,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- The Termux launcher's default Node.js heap now budgets roughly twice the on-disk structured profile plus headroom, bounded by one quarter of device RAM, so large profiles that ran within the pre-2.4.4 2 GiB default no longer exhaust the JavaScript heap and abort with status 134; small installs and low-RAM devices keep their bounded 1 GiB baseline, and explicit `NODE_OPTIONS` limits remain authoritative (#5585).
 - Linux and Termux now reclaim a same-host file-storage writer lease from an earlier device boot even when the operating system has reused its recorded process ID (#5580).
 
 - Avatar generation now preserves the complete user Avatar Prompt, and OpenRouter caching remains enabled for eligible unknown models (#5552, #5574).
