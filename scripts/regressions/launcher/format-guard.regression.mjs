@@ -83,7 +83,7 @@ assert.match(
 assert.doesNotMatch(
   termuxLauncherSource,
   /--max-old-space-size=2048/u,
-  "the Termux launcher must not restore the memory-heavy 2 GB automatic heap default",
+  "the Termux launcher must not restore a flat 2 GB heap literal; RAM-justified computed grants come from resolve_default_node_heap_mb",
 );
 assert.match(
   termuxLauncherSource,
