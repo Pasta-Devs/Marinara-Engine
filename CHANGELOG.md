@@ -12,6 +12,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Character cards now support editable metadata summaries, AI-generated summary drafts, and Character Library previews that use the saved summary when available.
 - Character card Conversation profiles now provide controls to generate About Me and Conversation behavior text from the card's available information.
 - The Home Character of the Day widget now uses saved character summaries and offers direct chat-start and character-view actions.
+- Outbound requests can now route through an optional local proxy via the new `MARINARA_PROXY` setting (SOCKS5/SOCKS5H/HTTP/HTTPS, with `HTTPS_PROXY`/`ALL_PROXY` fallback), so agent and capability-package downloads and provider calls work on networks that block direct GitHub access. Loopback and private-network provider requests always connect directly (#5588).
 
 ### Fixed
 
