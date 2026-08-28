@@ -18291,6 +18291,13 @@ test("mobile composers preserve history position and restore focus in Conversati
   page,
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Focused composer history behavior is mobile-only.");
+  // Quarantined on webkit (#5594): across seven CI rounds this test tripped an
+  // engine-level instability in Playwright WebKit — intermittent hard freezes
+  // of the page main thread (during pointer actionability, and later inside a
+  // plain dispatchEvent evaluation) plus outright focus refusals — each time
+  // through a different step of its dense interaction sequence. The same
+  // contract runs in full on mobile-chromium.
+  test.skip(testInfo.project.name.includes("webkit"), "Quarantined on webkit: engine freeze/focus instability (#5594).");
   test.setTimeout(180_000);
 
   const chatIds: string[] = [];
