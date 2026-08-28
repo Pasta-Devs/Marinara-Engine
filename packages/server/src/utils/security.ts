@@ -2,7 +2,7 @@ import { promises as dns } from "node:dns";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { basename, extname, relative, resolve, sep, win32 } from "node:path";
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib";
-import { Agent } from "undici";
+import { Agent, ProxyAgent, Socks5ProxyAgent, type Dispatcher } from "undici";
 import { isLoopbackIp, isPrivateNetworkIp } from "../middleware/ip-allowlist.js";
 import { logger } from "../lib/logger.js";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
@@ -371,12 +371,42 @@ export async function validateOutboundUrl(url: string | URL, policy: OutboundUrl
   return parsed;
 }
 
+const OUTBOUND_PROXY_ENV_VARS = ["MARINARA_PROXY", "HTTPS_PROXY", "ALL_PROXY"] as const;
+
+function resolveOutboundProxyUrl(): string | null {
+  for (const name of OUTBOUND_PROXY_ENV_VARS) {
+    const raw = process.env[name];
+    if (raw && raw.trim()) return raw.trim();
+  }
+  return null;
+}
+
+function createOutboundProxyDispatcher(proxyUrl: string): Dispatcher {
+  let parsed: URL;
+  try {
+    parsed = new URL(proxyUrl);
+  } catch {
+    throw new Error(`Invalid outbound proxy URL: ${proxyUrl}`);
+  }
+  const protocol = parsed.protocol.toLowerCase();
+  if (protocol === "socks5h:" || protocol === "socks5:" || protocol === "socks:") {
+    // undici's Socks5ProxyAgent sends hostnames to the proxy for remote DNS
+    // resolution and only accepts the socks5:// scheme.
+    parsed.protocol = "socks5:";
+    return new Socks5ProxyAgent(parsed.toString());
+  }
+  if (protocol === "http:" || protocol === "https:") {
+    return new ProxyAgent(proxyUrl);
+  }
+  throw new Error(`Unsupported outbound proxy protocol '${parsed.protocol}' (use socks5://, http://, or https://)`);
+}
+
 async function validateOutboundUrlForFetch(
   url: string | URL,
   policy: OutboundUrlPolicy = {},
   agentOptions?: Omit<AgentOptions, "connect">,
   keepAliveInitialDelayMs?: number,
-): Promise<{ url: URL; dispatcher?: Agent }> {
+): Promise<{ url: URL; dispatcher?: Dispatcher }> {
   const parsed = await validateOutboundUrl(url, policy);
   if (policy.allowLocal) {
     const dispatcher =
@@ -391,6 +421,10 @@ async function validateOutboundUrlForFetch(
 
   const original = typeof url === "string" ? url : parsed.toString();
   const addresses = await validateResolvedAddresses(parsed.hostname, policy, original);
+  const proxyUrl = resolveOutboundProxyUrl();
+  if (proxyUrl) {
+    return { url: parsed, dispatcher: createOutboundProxyDispatcher(proxyUrl) };
+  }
   let used = false;
   const dispatcher = new Agent({
     ...(agentOptions ?? {}),
@@ -415,7 +449,7 @@ async function validateOutboundUrlForFetch(
 async function readCappedResponse(
   response: Response,
   maxBytes: number,
-  dispatcher?: Agent,
+  dispatcher?: Dispatcher,
   decodeCompressedResponse = false,
 ): Promise<Response> {
   if (!response.body) {
@@ -472,7 +506,7 @@ function normalizeCompressedBody(body: Buffer, headers: Headers, maxBytes: numbe
   return { body, headers };
 }
 
-function capStreamingResponse(response: Response, maxBytes: number, dispatcher?: Agent): Response {
+function capStreamingResponse(response: Response, maxBytes: number, dispatcher?: Dispatcher): Response {
   if (!response.body) {
     void dispatcher?.close().catch(() => undefined);
     return response;

@@ -316,6 +316,7 @@ Scene video providers are set up as connections inside the app, not as environme
 | Variable                          | Default                                    | What it does                                                                      |
 | --------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
 | `DOCS_I18N_BASE_URL`              | official `docs-i18n` branch                | Where translated documentation packs download from (Settings → General → Documentation Language). Must be a public `https://` host; forks and mirrors can point it at their own copy of the `docs-i18n` branch. |
+| `MARINARA_PROXY`                  | empty                                      | Optional outbound proxy for non-local requests. Accepts `socks5://`, `socks5h://`, `http://`, or `https://`; local and private-network provider requests never use it. See below. |
 | `GIPHY_API_KEY`                   | empty                                      | Giphy key for GIF search in Conversation mode. Search is off when unset.          |
 | `INTIFACE_URL`                    | `ws://127.0.0.1:12345`                     | Default address for the Intiface haptic app.                                      |
 | `SPOTIFY_REDIRECT_URI`            | derived from request                       | Override for the Spotify login callback URL. Set it when TLS is handled upstream. |
@@ -327,6 +328,8 @@ Scene video providers are set up as connections inside the app, not as environme
 | `SSL_KEY`                         | empty                                      | Path to a TLS private key. See Access control above.                              |
 
 For a Giphy key, note that GIF search stays unavailable until you set `GIPHY_API_KEY` and restart. For the built-in local model, see [Local Model Setup](connections/local-model.md).
+
+`MARINARA_PROXY` optionally routes every non-local outbound request — agent and capability package downloads, provider API calls, media generation, wiki reads, and translated documentation — through a SOCKS5, SOCKS5H, HTTP, or HTTPS proxy. Set it when the server cannot reach GitHub or a provider directly, for example `MARINARA_PROXY=socks5://127.0.0.1:1080`. Loopback and private-network provider requests always connect directly and never use the proxy. When it is empty, the server also honors the standard `HTTPS_PROXY` and `ALL_PROXY` environment variables. A malformed or unsupported proxy URL is reported when the first request tries to use it.
 
 ## Related guides
 
