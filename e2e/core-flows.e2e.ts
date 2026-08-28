@@ -16600,6 +16600,19 @@ test("Character of the Day stays vertically centered inside its mobile widget", 
       localStorage.setItem("marinara:home:widget-visibility:v2", JSON.stringify(["character"]));
       localStorage.removeItem("marinara:home:widget-layout:v2");
       localStorage.removeItem("marinara:home:widget-order:v1");
+      // The floating Professor Mari assistant popup overlaps the widget's
+      // action row on the iPhone-profile viewport and intercepts the "View
+      // character" click. It is unrelated to the layout under test.
+      const storageKey = "marinara-engine-ui";
+      let persisted: { state?: Record<string, unknown>; version?: number } = {};
+      try {
+        persisted = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as typeof persisted;
+      } catch {
+        // Replace malformed browser-local state with the minimal fixture.
+      }
+      persisted.state = { ...(persisted.state ?? {}), professorMariNavigationEnabled: false };
+      persisted.version ??= 65;
+      localStorage.setItem(storageKey, JSON.stringify(persisted));
     });
     await page.goto("/");
 
@@ -16675,7 +16688,7 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await expect(page.getByRole("heading", { name: "Recent chats" })).toBeVisible();
   await expect(page.getByRole("heading", { name: `What's new in v${APP_VERSION}` })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Something new for your engine" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Character of the Day" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Character of the Day", exact: true })).toBeVisible();
   await expect(
     page.getByText(
       "Feeling a little lost? It's not a skill issue yet, I am here to help! Ask me about the app, your setup, or what to do next. I can also create characters, lorebooks, agents, and extensions for you!",
@@ -18009,6 +18022,18 @@ test("mobile chat composer follows the visual viewport above the software keyboa
 
     await textarea.focus();
 
+    // The app intentionally pins the visual-viewport offset to 0 on iOS WebKit
+    // (see the isIOSWebKit branch in AppShell) and counters iOS scroll drift
+    // with a transform instead. The mobile-webkit project runs an iPhone
+    // profile, so it exercises that branch even before the explicit iOS UA
+    // reload below; mirror the app's own predicate for the expected offset.
+    const isIOSWebKitProfile = await page.evaluate(
+      () =>
+        /iP(?:ad|hone|od)/i.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1),
+    );
+    const expectedOffsetTop = isIOSWebKitProfile ? 0 : 72;
+
     await page.evaluate(() => {
       (
         window as typeof window & {
@@ -18024,7 +18049,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
           top: getComputedStyle(document.documentElement).getPropertyValue("--mari-visual-viewport-offset-top").trim(),
         })),
       )
-      .toEqual({ height: "360px", top: "72px" });
+      .toEqual({ height: "360px", top: `${expectedOffsetTop}px` });
     await expect(page.locator("html")).toHaveAttribute("data-mari-software-keyboard-open", "");
     const compactComposerStyle = await composer.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -18038,10 +18063,10 @@ test("mobile chat composer follows the visual viewport above the software keyboa
     const [shellBox, composerBox] = await Promise.all([shell.boundingBox(), composer.boundingBox()]);
     expect(shellBox).not.toBeNull();
     expect(composerBox).not.toBeNull();
-    expect(Math.abs(shellBox!.y - 72)).toBeLessThanOrEqual(1);
+    expect(Math.abs(shellBox!.y - expectedOffsetTop)).toBeLessThanOrEqual(1);
     expect(Math.abs(shellBox!.height - 360)).toBeLessThanOrEqual(1);
-    expect(composerBox!.y).toBeGreaterThanOrEqual(72);
-    expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(432);
+    expect(composerBox!.y).toBeGreaterThanOrEqual(expectedOffsetTop);
+    expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(expectedOffsetTop + 360);
     await expect
       .poll(() => transcript.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight))
       .toBeLessThanOrEqual(2);
@@ -18272,6 +18297,10 @@ test("mobile composers preserve history position and restore focus in Conversati
         element.focus();
       });
       await expect(textarea).toBeFocused();
+      // Let the delayed focus viewport samples settle: AppShell re-samples the
+      // real geometry up to 320ms after focus and dispatches keyboardOpen:false,
+      // which would reset the anchor captured for the synthetic keyboard event.
+      await page.waitForTimeout(350);
 
       // Firefox may scroll an overlaid Roleplay transcript during the focus /
       // keyboard animation. The pre-focus anchor must win over that transient
