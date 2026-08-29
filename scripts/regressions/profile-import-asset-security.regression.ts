@@ -240,6 +240,30 @@ try {
   await assert.rejects(
     stageProfileImportAssets(
       dataDir,
+      [{ path: "game-assets/sprites/.native", expectedSize: html.length, read: () => html }],
+      1024 * 1024,
+    ),
+    (error) => error instanceof ProfileImportAssetValidationError && /not a supported image file/u.test(error.message),
+    "a non-empty .native marker must not smuggle content past image validation",
+  );
+  const emptyNativeMarker = Buffer.alloc(0);
+  const nativeMarkerStage = await stageProfileImportAssets(
+    dataDir,
+    [
+      { path: "game-assets/sprites/.native", expectedSize: 0, read: () => emptyNativeMarker },
+      { path: "game-assets/backgrounds/pack/.native", expectedSize: 0, read: () => emptyNativeMarker },
+    ],
+    1024 * 1024,
+  );
+  assert.equal(
+    nativeMarkerStage.assets.length,
+    2,
+    "the seeder's empty .native directory markers must stage instead of failing a stock profile restore",
+  );
+  await cleanupStagedProfileAssets(nativeMarkerStage);
+  await assert.rejects(
+    stageProfileImportAssets(
+      dataDir,
       [{ path: "gallery/character-videos/char/payload.mp4", expectedSize: html.length, read: () => html }],
       1024 * 1024,
     ),
