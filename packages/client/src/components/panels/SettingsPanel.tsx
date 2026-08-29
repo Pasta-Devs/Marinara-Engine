@@ -6626,7 +6626,7 @@ type ProfileImportPreviewResult = {
   preview?: boolean;
   imported?: ProfileImportStats;
   warnings?: ProfileImportWarning[];
-  fileFingerprint?: string;
+  previewToken?: string;
   error?: string;
   message?: string;
 };
@@ -6701,8 +6701,10 @@ function getProfileImportItemCount(stats?: ProfileImportStats) {
 function getProfileImportWarningCopy(localizeUi: TFunction): ProfileImportWarningCopy {
   return {
     missingAssetSummary: (count) => localizeUi("ui.panels.importsettings.profileImportMissingAssets", { count }),
+    skippedAssetSummary: (count) => localizeUi("ui.panels.importsettings.profileImportSkippedAssets", { count }),
     securityWarningSummary: (count) => localizeUi("ui.panels.importsettings.profileImportSecurityWarnings", { count }),
     missingLabel: localizeUi("ui.panels.importsettings.profileImportMissingLabel"),
+    skippedLabel: localizeUi("ui.panels.importsettings.profileImportSkippedLabel"),
     additionalPaths: (count) => localizeUi("ui.panels.importsettings.profileImportAdditionalPaths", { count }),
     additionalMessages: (count) => localizeUi("ui.panels.importsettings.profileImportAdditionalMessages", { count }),
   };
@@ -6835,6 +6837,15 @@ function ImportSettings() {
   const handleProfileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    let previewToken: string | undefined;
+    const releaseProfilePreview = async () => {
+      if (!previewToken) return;
+      const token = previewToken;
+      previewToken = undefined;
+      await api
+        .raw(`/backup/import-profile-preview/${encodeURIComponent(token)}`, { method: "DELETE" })
+        .catch(() => {});
+    };
     const startedAt = Date.now();
     const makeImportBody = (isZip: boolean, text: string): BodyInit => {
       if (!isZip) return text;
@@ -6895,6 +6906,7 @@ function ImportSettings() {
       if (preview.success === false) {
         throw new Error(preview.message ?? preview.error ?? "Unknown error");
       }
+      previewToken = preview.previewToken;
       const previewWarnings = normalizeProfileImportWarnings(preview.warnings);
       const previewTotalItems = Math.max(1, getProfileImportItemCount(preview.imported));
       setProfileImportProgress({
@@ -6916,6 +6928,7 @@ function ImportSettings() {
         tone: "destructive",
       });
       if (!confirmed) {
+        await releaseProfilePreview();
         setProfileImportProgress(null);
         e.target.value = "";
         return;
@@ -6945,7 +6958,11 @@ function ImportSettings() {
           ? {
               ...current,
               status: "starting",
-              label: isZip ? "Uploading profile archive" : "Starting profile import",
+              label: previewToken
+                ? "Starting profile import"
+                : isZip
+                  ? "Uploading profile archive"
+                  : "Starting profile import",
               elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
             }
           : current,
@@ -6954,9 +6971,9 @@ function ImportSettings() {
         method: "POST",
         headers: {
           Accept: "text/event-stream",
-          ...(preview.fileFingerprint ? { "X-Profile-Preview-Fingerprint": preview.fileFingerprint } : {}),
+          ...(previewToken ? { "X-Profile-Preview-Token": previewToken } : {}),
         },
-        body: makeImportBody(isZip, profileText),
+        body: previewToken ? undefined : makeImportBody(isZip, profileText),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
@@ -7035,7 +7052,9 @@ function ImportSettings() {
       if (!importCompleted) {
         throw new Error("Profile import stream closed before completion.");
       }
+      previewToken = undefined;
     } catch (err) {
+      await releaseProfilePreview();
       const message =
         err instanceof SyntaxError
           ? "Import failed. Make sure this is a valid profile JSON or ZIP file."

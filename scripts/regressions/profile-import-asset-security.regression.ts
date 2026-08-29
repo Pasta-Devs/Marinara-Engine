@@ -31,12 +31,7 @@ const [
   { customStickersRoutes },
   { gameAssetsRoutes },
   { knowledgeSourcesRoutes },
-  {
-    ProfileImportAssetValidationError,
-    cleanupStagedProfileAssets,
-    promoteStagedProfileAssets,
-    stageProfileImportAssets,
-  },
+  { cleanupStagedProfileAssets, promoteStagedProfileAssets, stageProfileImportAssets },
   {
     isCanonicalMediaPathInsideRoot,
     sendValidatedMediaFile,
@@ -219,33 +214,42 @@ try {
   assert.deepEqual(rangeResponse.rawPayload, rangeVideo.subarray(4, 12));
   await rangeApp.close();
 
-  await assert.rejects(
-    stageProfileImportAssets(
-      dataDir,
-      [{ path: "gallery/global/payload.html", expectedSize: html.length, read: () => html }],
-      1024 * 1024,
-    ),
-    (error) => error instanceof ProfileImportAssetValidationError && /not a supported image file/u.test(error.message),
-    "a profile must not smuggle executable HTML into a same-origin gallery route",
+  const mixedStage = await stageProfileImportAssets(
+    dataDir,
+    [
+      { path: "gallery/global/payload.html", expectedSize: html.length, read: () => html },
+      { path: "game-assets/other/payload.svg", expectedSize: html.length, read: () => html },
+      { path: "game-assets/sprites/.native", expectedSize: html.length, read: () => html },
+      { path: "gallery/character-videos/char/payload.mp4", expectedSize: html.length, read: () => html },
+      { path: "custom-emojis/payload.png", expectedSize: javascript.length, read: () => javascript },
+      { path: "gallery/global/still-valid.png", expectedSize: validPng.length, read: () => validPng },
+    ],
+    1024 * 1024,
   );
-  await assert.rejects(
-    stageProfileImportAssets(
-      dataDir,
-      [{ path: "game-assets/other/payload.svg", expectedSize: html.length, read: () => html }],
-      1024 * 1024,
-    ),
-    ProfileImportAssetValidationError,
-    "a profile must not smuggle active SVG into a game-asset route",
+  assert.deepEqual(
+    mixedStage.assets.map((asset) => asset.path),
+    ["gallery/global/still-valid.png"],
+    "invalid media must be omitted without blocking a valid profile asset",
   );
-  await assert.rejects(
-    stageProfileImportAssets(
-      dataDir,
-      [{ path: "game-assets/sprites/.native", expectedSize: html.length, read: () => html }],
-      1024 * 1024,
-    ),
-    (error) => error instanceof ProfileImportAssetValidationError && /not a supported image file/u.test(error.message),
-    "a non-empty .native marker must not smuggle content past image validation",
+  assert.deepEqual(
+    mixedStage.skipped.map((asset) => asset.path),
+    [
+      "gallery/global/payload.html",
+      "game-assets/other/payload.svg",
+      "game-assets/sprites/.native",
+      "gallery/character-videos/char/payload.mp4",
+      "custom-emojis/payload.png",
+    ],
+    "every rejected asset must be reported instead of aborting the profile",
   );
+  assert.ok(mixedStage.skipped.every((asset) => /not a supported/u.test(asset.message)));
+  await promoteStagedProfileAssets(mixedStage);
+  assert.deepEqual(readFileSync(join(dataDir, "gallery", "global", "still-valid.png")), validPng);
+  for (const skipped of mixedStage.skipped) {
+    assert.equal(existsSync(join(dataDir, ...skipped.path.split("/"))), false, `${skipped.path} must stay omitted`);
+  }
+  await cleanupStagedProfileAssets(mixedStage);
+
   const emptyNativeMarker = Buffer.alloc(0);
   const nativeMarkerStage = await stageProfileImportAssets(
     dataDir,
@@ -261,30 +265,7 @@ try {
     "the seeder's empty .native directory markers must stage instead of failing a stock profile restore",
   );
   await cleanupStagedProfileAssets(nativeMarkerStage);
-  assert.equal(
-    existsSync(nativeMarkerStage.rootDir),
-    false,
-    "cleanup must remove the .native marker staging root",
-  );
-  await assert.rejects(
-    stageProfileImportAssets(
-      dataDir,
-      [{ path: "gallery/character-videos/char/payload.mp4", expectedSize: html.length, read: () => html }],
-      1024 * 1024,
-    ),
-    ProfileImportAssetValidationError,
-    "a video extension must not override the imported container bytes",
-  );
-  await assert.rejects(
-    stageProfileImportAssets(
-      dataDir,
-      [{ path: "custom-emojis/payload.png", expectedSize: javascript.length, read: () => javascript }],
-      1024 * 1024,
-    ),
-    ProfileImportAssetValidationError,
-    "a trusted image extension must not override the imported bytes",
-  );
-
+  assert.equal(existsSync(nativeMarkerStage.rootDir), false, "cleanup must remove the .native marker staging root");
   const validStage = await stageProfileImportAssets(
     dataDir,
     [

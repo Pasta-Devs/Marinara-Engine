@@ -16056,11 +16056,16 @@ test("streamed profile and full-backup ZIPs round-trip through import preview", 
       const preview = (await previewResponse.json()) as {
         success: boolean;
         preview: boolean;
+        previewToken: string;
         imported: { characters: number };
       };
       expect(preview.success).toBe(true);
       expect(preview.preview).toBe(true);
+      expect(preview.previewToken).toBeTruthy();
       expect(preview.imported.characters).toBeGreaterThanOrEqual(1);
+      expect(
+        (await request.delete(`/api/backup/import-profile-preview/${encodeURIComponent(preview.previewToken)}`)).ok(),
+      ).toBeTruthy();
     }
   } finally {
     await request

@@ -10,7 +10,7 @@ import type { FileHandle } from "fs/promises";
 import { tmpdir } from "os";
 import { pipeline } from "stream/promises";
 import { StringDecoder } from "string_decoder";
-import { createHash, randomBytes, randomUUID } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { inflateRawSync } from "zlib";
 import AdmZip from "adm-zip";
 import { FILE_BACKED_TABLES } from "../db/file-backed-store.js";
@@ -87,6 +87,7 @@ const BACKUP_DIRS = [
   "long-term-memory",
 ];
 const ENCRYPTION_KEY_FILENAME = ".encryption-key";
+const PROFILE_IMPORT_PREVIEW_TTL_MS = 30 * 60 * 1_000;
 const PROFILE_ASSET_DIRS = BACKUP_DIRS.filter((dirName) => dirName !== "storage");
 const ZIP16_MAX_VALUE = 0xffff;
 const ZIP32_MAX_VALUE = 0xffffffff;
@@ -301,6 +302,7 @@ type ProfileArchiveAssetIndex = Map<string, { entryName: string; expectedSize: n
 type ProfileImportWarning =
   | ProfileNoodleImportWarning
   | { type: "missing_asset"; path: string; message: string }
+  | { type: "skipped_asset"; path: string; message: string }
   | {
       type:
         | "connection_credentials_quarantined"
@@ -353,7 +355,6 @@ type ProfileImportInput = {
   readAsset?: ProfileAssetReader;
   warnings?: ProfileImportWarning[];
   cleanup?: () => Promise<void>;
-  fileFingerprint?: string;
   assetTotalByteLimit?: number;
 };
 type ProfileImportStats = {
@@ -976,23 +977,11 @@ function buildProfileImportStats(tableCounts: Record<string, number>, files: num
   };
 }
 
-function profileEnvelopeFingerprint(envelope: ExportEnvelope) {
-  return `sha256:${createHash("sha256")
-    .update(JSON.stringify(envelope ?? null))
-    .digest("hex")}`;
-}
-
-async function fileFingerprint(filePath: string) {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(filePath)) {
-    hash.update(chunk);
-  }
-  return `sha256:${hash.digest("hex")}`;
-}
-
-function profileMissingAssetWarningPathSet(warnings: ProfileImportWarning[]) {
+function profileUnavailableAssetWarningPathSet(warnings: ProfileImportWarning[]) {
   return new Set(
-    warnings.flatMap((warning) => (warning.type === "missing_asset" && warning.path ? [warning.path] : [])),
+    warnings.flatMap((warning) =>
+      (warning.type === "missing_asset" || warning.type === "skipped_asset") && warning.path ? [warning.path] : [],
+    ),
   );
 }
 
@@ -1094,12 +1083,12 @@ function previewProfileStorageSnapshotStats(
     tableCounts[tableName] = Array.isArray(rows) ? rows.length : 0;
   }
 
-  const missingAssetPaths = profileMissingAssetWarningPathSet(warnings);
+  const unavailableAssetPaths = profileUnavailableAssetWarningPathSet(warnings);
   let files = 0;
   if (Array.isArray(snapshot.files)) {
     for (const file of snapshot.files) {
       const safePath = normalizeProfileAssetPath(file?.path);
-      if (!safePath || missingAssetPaths.has(safePath)) continue;
+      if (!safePath || unavailableAssetPaths.has(safePath)) continue;
       if (typeof file.data === "string" || readAsset) {
         files++;
         continue;
@@ -1188,13 +1177,24 @@ function validateProfileStorageTableInputs(snapshot: ProfileStorageSnapshot) {
 function buildProfileImportAssetInputs(
   snapshot: ProfileStorageSnapshot,
   readAsset: ProfileAssetReader | undefined,
+  warnings: ProfileImportWarning[],
 ): Array<ProfileImportAssetInput> {
   if (!Array.isArray(snapshot.files)) return [];
   return snapshot.files.flatMap((file) => {
     const safePath = normalizeProfileAssetPath(file?.path);
     if (!safePath) return [];
-    const expectedSize = getProfileAssetManifestSize(file, safePath);
-    if (typeof file.data === "string") assertProfileArchiveEntryLimit(safePath, expectedSize);
+    let expectedSize: number;
+    try {
+      expectedSize = getProfileAssetManifestSize(file, safePath);
+      if (typeof file.data === "string") assertProfileArchiveEntryLimit(safePath, expectedSize);
+    } catch (error) {
+      addProfileImportWarning(warnings, {
+        type: "skipped_asset",
+        path: safePath,
+        message: error instanceof Error ? error.message : `Profile asset ${safePath} has an invalid manifest.`,
+      });
+      return [];
+    }
     return [
       {
         path: safePath,
@@ -1219,7 +1219,7 @@ async function importProfileStorageSnapshot(
   try {
     stagedAssets = await stageProfileImportAssets(
       getDataDir(),
-      buildProfileImportAssetInputs(snapshot, readAsset),
+      buildProfileImportAssetInputs(snapshot, readAsset, warnings),
       assetTotalByteLimit,
     );
   } catch (error) {
@@ -1228,9 +1228,12 @@ async function importProfileStorageSnapshot(
     }
     throw error;
   }
+  for (const skipped of stagedAssets.skipped) {
+    addProfileImportWarning(warnings, { type: "skipped_asset", ...skipped });
+  }
 
   const totalItems = Math.max(1, countProfileStorageSnapshotItems(snapshot));
-  let completedItems = 0;
+  let completedItems = stagedAssets.skipped.length;
   const tableCounts: Record<string, number> = {};
 
   const emit = (phase: string, label: string, files = 0) => {
@@ -2891,7 +2894,17 @@ function validateProfileArchiveAssets(
     const safePath = normalizeProfileAssetPath(file?.path);
     if (!safePath) continue;
     const entryName = profileArchiveEntryPath(basePath, safePath);
-    const expectedSize = getProfileAssetManifestSize(file, safePath);
+    let expectedSize: number;
+    try {
+      expectedSize = getProfileAssetManifestSize(file, safePath);
+    } catch (error) {
+      addProfileImportWarning(warnings, {
+        type: "skipped_asset",
+        path: safePath,
+        message: error instanceof Error ? error.message : `Profile archive asset ${safePath} has an invalid manifest.`,
+      });
+      continue;
+    }
     const entry = getProfileZipEntry(zip, entryName);
     if (!entry || entry.isDirectory) {
       warnings.push({
@@ -2903,7 +2916,12 @@ function validateProfileArchiveAssets(
     }
     const entrySize = getZipEntryUncompressedSize(entry);
     if (entrySize === null || entrySize !== expectedSize) {
-      throw new ProfileImportRequestError(`Profile archive asset ${safePath} does not match its manifest size.`);
+      addProfileImportWarning(warnings, {
+        type: "skipped_asset",
+        path: safePath,
+        message: `Profile archive asset ${safePath} does not match its manifest size.`,
+      });
+      continue;
     }
     const compressedSize = getZipEntryCompressedSize(entry);
     if (
@@ -2911,9 +2929,12 @@ function validateProfileArchiveAssets(
       (!zip.isFullBackup &&
         !isPermittedLargeStoredBackupEntry(entryName, entry.header.method, compressedSize, expectedSize))
     ) {
-      throw new ProfileImportRequestError(
-        profileArchiveSizeError(safePath, compressedSize ?? -1, PROFILE_ARCHIVE_ENTRY_LIMIT_BYTES),
-      );
+      addProfileImportWarning(warnings, {
+        type: "skipped_asset",
+        path: safePath,
+        message: profileArchiveSizeError(safePath, compressedSize ?? -1, PROFILE_ARCHIVE_ENTRY_LIMIT_BYTES),
+      });
+      continue;
     }
     totalUncompressedBytes = checkedZipSum(totalUncompressedBytes, expectedSize, "restored assets");
     if (!zip.isFullBackup) assertProfileArchiveTotalLimit(totalUncompressedBytes);
@@ -2927,34 +2948,41 @@ async function readProfileArchiveAsset(
   archiveAssets: ProfileArchiveAssetIndex,
   safePath: string,
 ) {
-  const normalized = normalizeProfileAssetPath(safePath);
-  if (!normalized) return null;
-  const asset = archiveAssets.get(normalized);
-  if (!asset) return null;
-  const entry = getProfileZipEntry(zip, asset.entryName);
-  if (!entry || entry.isDirectory) return null;
-  if (entry.header.method === 0) {
-    const compressedSize = getZipEntryCompressedSize(entry);
-    if (compressedSize === null || compressedSize !== asset.expectedSize) {
-      throw new ProfileImportRequestError(`Profile archive asset ${safePath} does not match its stored entry size.`);
+  try {
+    const normalized = normalizeProfileAssetPath(safePath);
+    if (!normalized) return null;
+    const asset = archiveAssets.get(normalized);
+    if (!asset) return null;
+    const entry = getProfileZipEntry(zip, asset.entryName);
+    if (!entry || entry.isDirectory) return null;
+    if (entry.header.method === 0) {
+      const compressedSize = getZipEntryCompressedSize(entry);
+      if (compressedSize === null || compressedSize !== asset.expectedSize) {
+        throw new ProfileImportRequestError(`Profile archive asset ${safePath} does not match its stored entry size.`);
+      }
+      if (asset.expectedSize === 0) return Buffer.alloc(0);
+      return {
+        stream: createReadStream(zip.filePath, {
+          start: entry.header.dataOffset,
+          end: entry.header.dataOffset + asset.expectedSize - 1,
+        }),
+        expectedCrc32: entry.header.crc32,
+      } satisfies ProfileImportAssetStream;
     }
-    if (asset.expectedSize === 0) return Buffer.alloc(0);
-    return {
-      stream: createReadStream(zip.filePath, {
-        start: entry.header.dataOffset,
-        end: entry.header.dataOffset + asset.expectedSize - 1,
-      }),
-      expectedCrc32: entry.header.crc32,
-    } satisfies ProfileImportAssetStream;
+    return readProfileArchiveEntryBuffer(zip, entry, asset.expectedSize);
+  } catch (error) {
+    if (error instanceof ProfileImportRequestError) {
+      throw new ProfileImportAssetValidationError(error.message);
+    }
+    throw error;
   }
-  return readProfileArchiveEntryBuffer(zip, entry, asset.expectedSize);
 }
 
 async function readProfileImportRequest(req: FastifyRequest): Promise<ProfileImportInput> {
   const contentType = String(req.headers["content-type"] ?? "").toLowerCase();
   if (!contentType.includes("multipart/form-data")) {
     const envelope = req.body as ExportEnvelope;
-    return { envelope, fileFingerprint: profileEnvelopeFingerprint(envelope) };
+    return { envelope };
   }
 
   const uploadDir = await mkdtemp(join(tmpdir(), "marinara-profile-import-"));
@@ -2971,13 +2999,11 @@ async function readProfileImportRequest(req: FastifyRequest): Promise<ProfileImp
     const { envelope, basePath } = await readProfileEnvelopeFromArchive(zip);
     const warnings: ProfileImportWarning[] = [];
     const archiveAssets = validateProfileArchiveAssets(zip, basePath, envelope, warnings);
-    const fingerprint = await fileFingerprint(archivePath);
     return {
       envelope,
       readAsset: (safePath) => readProfileArchiveAsset(zip, archiveAssets, safePath),
       warnings,
       cleanup: () => rm(uploadDir, { recursive: true, force: true }),
-      fileFingerprint: fingerprint,
       assetTotalByteLimit: zip.isFullBackup ? Number.MAX_SAFE_INTEGER : PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES,
     };
   } catch (err) {
@@ -3267,6 +3293,43 @@ export async function backupRoutes(app: FastifyInstance) {
       [...backupDownloadJobs.values()].flatMap((job) => (job.workPromise ? [job.workPromise] : [])),
     );
     await Promise.all([...backupDownloadJobs.keys()].map(removeBackupDownloadJob));
+  });
+
+  type ProfileImportPreview = { input: ProfileImportInput; expiresAt: number };
+  const profileImportPreviews = new Map<string, ProfileImportPreview>();
+  const discardProfileImportPreview = async (token: string) => {
+    const preview = profileImportPreviews.get(token);
+    if (!preview) return false;
+    profileImportPreviews.delete(token);
+    try {
+      await preview.input.cleanup?.();
+    } catch (error) {
+      logger.warn(error, "[backup] Failed to remove a staged profile preview");
+    }
+    return true;
+  };
+  const takeProfileImportPreview = async (token: string) => {
+    const preview = profileImportPreviews.get(token);
+    if (!preview) return null;
+    profileImportPreviews.delete(token);
+    if (preview.expiresAt <= Date.now()) {
+      await preview.input.cleanup?.().catch((error) => {
+        logger.warn(error, "[backup] Failed to remove an expired profile preview");
+      });
+      return null;
+    }
+    return preview.input;
+  };
+  const profileImportPreviewCleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [token, preview] of profileImportPreviews) {
+      if (preview.expiresAt <= now) void discardProfileImportPreview(token);
+    }
+  }, 60 * 1_000);
+  profileImportPreviewCleanupTimer.unref();
+  app.addHook("onClose", async () => {
+    clearInterval(profileImportPreviewCleanupTimer);
+    await Promise.all([...profileImportPreviews.keys()].map(discardProfileImportPreview));
   });
 
   const loadAutomaticBackupSettings = async () => {
@@ -3632,26 +3695,42 @@ export async function backupRoutes(app: FastifyInstance) {
 
   // ── Profile Import ──
   // Accepts a profile JSON envelope or profile ZIP archive and creates all entities.
+  app.delete<{ Params: { token: string } }>("/import-profile-preview/:token", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Profile import" })) return;
+    await discardProfileImportPreview(req.params.token);
+    return { success: true };
+  });
+
   app.post("/import-profile", { bodyLimit: PROFILE_IMPORT_BODY_LIMIT_BYTES }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Profile import" })) return;
 
     const wantsProgressStream = String(req.headers.accept ?? "").includes("text/event-stream");
     const previewOnly = (req.query as { preview?: unknown } | undefined)?.preview === "true";
-    const expectedFingerprint =
-      typeof req.headers["x-profile-preview-fingerprint"] === "string"
-        ? req.headers["x-profile-preview-fingerprint"].trim()
-        : "";
+    const providedPreviewToken =
+      typeof req.headers["x-profile-preview-token"] === "string" ? req.headers["x-profile-preview-token"].trim() : "";
     let importInput: ProfileImportInput;
-    try {
-      importInput = await readProfileImportRequest(req);
-    } catch (err) {
-      if (err instanceof ProfileImportRequestError) {
-        return sendProfileImportRequestError(reply, err);
+    if (!previewOnly && providedPreviewToken) {
+      const previewInput = await takeProfileImportPreview(providedPreviewToken);
+      if (!previewInput) {
+        return reply.status(410).send({
+          error: "Profile preview expired",
+          message: "Profile preview expired. Select the file again before importing.",
+        });
       }
-      const message = err instanceof Error ? err.message : "Profile import file could not be read.";
-      return reply.status(400).send({ error: "Invalid profile export", message });
+      importInput = previewInput;
+    } else {
+      try {
+        importInput = await readProfileImportRequest(req);
+      } catch (err) {
+        if (err instanceof ProfileImportRequestError) {
+          return sendProfileImportRequestError(reply, err);
+        }
+        const message = err instanceof Error ? err.message : "Profile import file could not be read.";
+        return reply.status(400).send({ error: "Invalid profile export", message });
+      }
     }
 
+    let retainInputForPreview = false;
     try {
       const envelope = importInput.envelope;
       if (!envelope || envelope.type !== "marinara_profile" || envelope.version !== 1) {
@@ -3671,27 +3750,24 @@ export async function backupRoutes(app: FastifyInstance) {
         );
         await addProfileStoragePreviewSecurityWarnings(app.db, data.fileStorage, warnings);
       }
-      if (!previewOnly && expectedFingerprint && importInput.fileFingerprint !== expectedFingerprint) {
-        return reply.status(409).send({
-          error: "Profile file changed",
-          code: "PROFILE_FILE_CHANGED_AFTER_PREVIEW",
-          message: "Profile file changed after preview. Select the file again before importing.",
-          expectedFingerprint,
-          actualFingerprint: importInput.fileFingerprint,
-        });
-      }
       const totalItems = isProfileStorageSnapshot(data.fileStorage)
         ? Math.max(1, countProfileStorageSnapshotItems(data.fileStorage))
         : Math.max(1, countLegacyProfileImportItems(data));
 
       if (previewOnly) {
         const imported = profileStoragePreviewStats ?? previewLegacyProfileImportStats(data, warnings);
+        const previewToken = randomUUID();
+        profileImportPreviews.set(previewToken, {
+          input: importInput,
+          expiresAt: Date.now() + PROFILE_IMPORT_PREVIEW_TTL_MS,
+        });
+        retainInputForPreview = true;
         return {
           success: true,
           preview: true,
           imported,
           warnings,
-          fileFingerprint: importInput.fileFingerprint,
+          previewToken,
           totalItems,
         };
       }
@@ -4175,7 +4251,7 @@ export async function backupRoutes(app: FastifyInstance) {
         return sendBackupRouteError(reply, err, "Profile import");
       }
     } finally {
-      await importInput.cleanup?.();
+      if (!retainInputForPreview) await importInput.cleanup?.();
     }
   });
 }
