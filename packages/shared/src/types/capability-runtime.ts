@@ -202,6 +202,13 @@ export interface CapabilityMessageRecord {
 }
 
 export interface CapabilitySpatialSnapshotWrite {
+  /**
+   * Must be globally unique across ALL chats (use a UUID). The store rejects
+   * an id that collides with a loaded chat's snapshot, but under lazy storage
+   * (#5592) a collision with a chat that is not yet in memory cannot be
+   * detected at write time — the duplicate is resolved later by dropping one
+   * copy, so a package that reuses ids across chats loses data silently.
+   */
   id: string;
   chatId: string;
   messageId: string;

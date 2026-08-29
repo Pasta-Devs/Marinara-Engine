@@ -261,10 +261,13 @@ export function createGameEngineStateStorage(db: DB) {
     },
 
     /** Replace the stored state (and optionally the commit flag) on an existing row. */
-    async updateStateById(id: string, state: string, committed?: boolean) {
+    async updateStateById(id: string, state: string, committed?: boolean, chatId?: string) {
       const updates: Partial<GameEngineStateRow> = { state };
       if (committed !== undefined) updates.committed = committed ? 1 : 0;
-      await db.update(gameEngineState).set(updates).where(eq(gameEngineState.id, id));
+      const condition = chatId
+        ? and(eq(gameEngineState.chatId, chatId), eq(gameEngineState.id, id))
+        : eq(gameEngineState.id, id);
+      await db.update(gameEngineState).set(updates).where(condition);
     },
 
     /** Re-anchor a snapshot to a (message, swipe) once the narration message exists. */
@@ -272,8 +275,11 @@ export function createGameEngineStateStorage(db: DB) {
       await db.update(gameEngineState).set({ messageId, swipeIndex }).where(eq(gameEngineState.id, id));
     },
 
-    async commit(id: string) {
-      await db.update(gameEngineState).set({ committed: 1 }).where(eq(gameEngineState.id, id));
+    async commit(id: string, chatId?: string) {
+      const condition = chatId
+        ? and(eq(gameEngineState.chatId, chatId), eq(gameEngineState.id, id))
+        : eq(gameEngineState.id, id);
+      await db.update(gameEngineState).set({ committed: 1 }).where(condition);
     },
 
     /** Mark every snapshot for a chat committed (used when a turn cycle finishes). */

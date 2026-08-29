@@ -150,7 +150,7 @@ assert.match(
 );
 assert.match(
   termuxLauncherSource,
-  /MARINARA_TERMUX_LOG_TEE_PID=\$![\s\S]{0,30000}exec 1>&3 2>&4 3>&- 4>&-[\s\S]{0,200}wait "\$MARINARA_TERMUX_LOG_TEE_PID"[\s\S]{0,300}Persistent Termux logging failed with status \$MARINARA_TERMUX_LOG_TEE_STATUS/u,
+  /MARINARA_TERMUX_LOG_TEE_PID=\$![\s\S]{0,40000}exec 1>&3 2>&4 3>&- 4>&-[\s\S]{0,200}wait "\$MARINARA_TERMUX_LOG_TEE_PID"[\s\S]{0,300}Persistent Termux logging failed with status \$MARINARA_TERMUX_LOG_TEE_STATUS/u,
   "the Termux launcher must flush and report tee failures without replacing the server status",
 );
 assert.match(

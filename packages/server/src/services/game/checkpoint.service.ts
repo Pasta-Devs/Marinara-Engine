@@ -117,7 +117,9 @@ export async function pruneAutoCheckpoints(db: DB, chatId: string, protectId?: s
   }
 
   if (overflowIds.length > 0) {
-    await db.delete(gameCheckpoints).where(inArray(gameCheckpoints.id, overflowIds));
+    await db
+      .delete(gameCheckpoints)
+      .where(and(eq(gameCheckpoints.chatId, chatId), inArray(gameCheckpoints.id, overflowIds)));
     logger.debug("Pruned %d expired auto-checkpoint(s) for chat %s", overflowIds.length, chatId);
   }
 }

@@ -591,21 +591,22 @@ async function invalidateMemoryChunksFrom(db: DB, chatId: string, createdAt: str
 }
 
 /**
- * Count swipes per message id. Avoids `inArray(messageSwipes.messageId, ids)`,
- * which the file-native store evaluates as `ids.includes()` for every swipe row
- * (re-materializing the ids array each row) — O(swipeRows * ids) = O(n^2) for a
- * large chat and a prime cause of the post-generation stall (#3402). One scan of
- * the swipes table + a Set of the wanted ids is O(totalSwipes) instead.
+ * Count swipes per message id, scoped to the requested messages. The WHERE-less
+ * scan this replaces existed because `inArray` used to cost O(ids) plus an array
+ * allocation per scanned row (#3402); the store now resolves membership sets
+ * once per condition, so the scoped form is O(totalSwipes + ids) — the store
+ * still walks every swipe row, but nonmatching rows are no longer materialized
+ * or handed back for JS-side filtering (#5592 Phase 0).
  */
 async function countSwipesByMessageId(db: DB, ids: string[]): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   if (ids.length === 0) return counts;
-  const wanted = new Set(ids);
-  const rows = await db.select({ messageId: messageSwipes.messageId }).from(messageSwipes);
+  const rows = await db
+    .select({ messageId: messageSwipes.messageId })
+    .from(messageSwipes)
+    .where(inArray(messageSwipes.messageId, ids));
   for (const row of rows) {
-    if (wanted.has(row.messageId)) {
-      counts.set(row.messageId, (counts.get(row.messageId) ?? 0) + 1);
-    }
+    counts.set(row.messageId, (counts.get(row.messageId) ?? 0) + 1);
   }
   return counts;
 }
@@ -679,9 +680,22 @@ export function createChatsStorage(db: DB) {
     return { allowed: true };
   }
 
-  async function deleteGameStateForMessages(messageIds: string[]) {
+  /**
+   * `chatIds` scopes every messageId-keyed condition to the owning chats so
+   * the lazy store (#5592 Phase 2) loads only those chat units instead of
+   * leasing each game table whole. Callers pass the chatIds of the messages
+   * being removed (they read the rows first); omitting it keeps the old
+   * unscoped behavior.
+   */
+  async function deleteGameStateForMessages(messageIds: string[], chatIds?: string[]) {
     const ids = Array.from(new Set(messageIds.filter(Boolean)));
     if (ids.length === 0) return;
+    const ownerChatIds = Array.from(new Set((chatIds ?? []).filter(Boolean)));
+    // A game row whose chatId disagrees with its message's chat (corrupt
+    // cross-chat ref) is skipped by the scoped form; the store-level cascade
+    // accepts the same corner and such rows are cleaned when their unit loads.
+    const chatScoped = (chatColumn: Parameters<typeof inArray>[0], condition: ReturnType<typeof inArray>) =>
+      ownerChatIds.length > 0 ? and(condition, inArray(chatColumn, ownerChatIds)) : condition;
 
     const CHUNK = 500;
     for (let i = 0; i < ids.length; i += CHUNK) {
@@ -689,17 +703,27 @@ export function createChatsStorage(db: DB) {
       const snapshots = await db
         .select({ id: gameStateSnapshots.id })
         .from(gameStateSnapshots)
-        .where(inArray(gameStateSnapshots.messageId, chunk));
+        .where(chatScoped(gameStateSnapshots.chatId, inArray(gameStateSnapshots.messageId, chunk)));
       const snapshotIds = snapshots.map((row) => row.id).filter(Boolean);
 
       for (let j = 0; j < snapshotIds.length; j += CHUNK) {
         const snapshotChunk = snapshotIds.slice(j, j + CHUNK);
-        await db.delete(gameCheckpoints).where(inArray(gameCheckpoints.snapshotId, snapshotChunk));
+        await db
+          .delete(gameCheckpoints)
+          .where(chatScoped(gameCheckpoints.chatId, inArray(gameCheckpoints.snapshotId, snapshotChunk)));
       }
-      await db.delete(gameCheckpoints).where(inArray(gameCheckpoints.messageId, chunk));
-      await db.delete(gameStateSnapshots).where(inArray(gameStateSnapshots.messageId, chunk));
-      await db.delete(spatialContextSnapshots).where(inArray(spatialContextSnapshots.messageId, chunk));
-      await db.delete(gameEngineState).where(inArray(gameEngineState.messageId, chunk));
+      await db
+        .delete(gameCheckpoints)
+        .where(chatScoped(gameCheckpoints.chatId, inArray(gameCheckpoints.messageId, chunk)));
+      await db
+        .delete(gameStateSnapshots)
+        .where(chatScoped(gameStateSnapshots.chatId, inArray(gameStateSnapshots.messageId, chunk)));
+      await db
+        .delete(spatialContextSnapshots)
+        .where(chatScoped(spatialContextSnapshots.chatId, inArray(spatialContextSnapshots.messageId, chunk)));
+      await db
+        .delete(gameEngineState)
+        .where(chatScoped(gameEngineState.chatId, inArray(gameEngineState.messageId, chunk)));
     }
   }
 
@@ -734,18 +758,13 @@ export function createChatsStorage(db: DB) {
         return;
       }
 
-      const latestByChat = new Map<string, string>();
-      const messageRows = await db
-        .select({ chatId: messages.chatId, createdAt: messages.createdAt })
-        .from(messages)
-        .orderBy(desc(messages.createdAt));
-      for (const row of messageRows) {
-        if (!missingChatIds.has(row.chatId) || latestByChat.has(row.chatId)) continue;
-        latestByChat.set(row.chatId, row.createdAt);
-        if (latestByChat.size === missingChatIds.size) break;
-      }
-
-      for (const [chatId, lastMessageAt] of latestByChat) {
+      // Per-chat lookups instead of one global messages sweep: under lazy
+      // chat units (#5592 Phase 2) the sweep would make every chat's messages
+      // resident just to backfill the few legacy rows missing lastMessageAt,
+      // while eq(chatId) loads only the chats that actually need it.
+      for (const chatId of missingChatIds) {
+        const lastMessageAt = await readLatestMessageAt(chatId);
+        if (lastMessageAt === null) continue;
         await db.update(chats).set({ lastMessageAt }).where(eq(chats.id, chatId));
       }
       chatLastMessageAtBackfilled = true;
@@ -1783,7 +1802,10 @@ export function createChatsStorage(db: DB) {
                 swipePatch.extra = JSON.stringify({ ...swipeExtra, conversationCommandContent: null });
               }
             }
-            await db.update(messageSwipes).set(swipePatch).where(eq(messageSwipes.id, activeSwipe.id));
+            await db
+              .update(messageSwipes)
+              .set(swipePatch)
+              .where(and(eq(messageSwipes.messageId, id), eq(messageSwipes.id, activeSwipe.id)));
           }
         }
         return msg;
@@ -1809,7 +1831,7 @@ export function createChatsStorage(db: DB) {
           await db
             .update(messageSwipes)
             .set({ extra: JSON.stringify({ ...swipeExtra, ...partial }) })
-            .where(eq(messageSwipes.id, activeSwipe.id));
+            .where(and(eq(messageSwipes.messageId, id), eq(messageSwipes.id, activeSwipe.id)));
         }
 
         return this.getMessage(id);
@@ -1829,7 +1851,7 @@ export function createChatsStorage(db: DB) {
         await db
           .update(messageSwipes)
           .set({ extra: JSON.stringify({ ...swipeExtra, ...partial }) })
-          .where(eq(messageSwipes.id, targetSwipe.id));
+          .where(and(eq(messageSwipes.messageId, id), eq(messageSwipes.id, targetSwipe.id)));
 
         if (msg.activeSwipeIndex === swipeIndex) {
           const msgExtra = parseExtraRecord(msg.extra);
@@ -1856,7 +1878,7 @@ export function createChatsStorage(db: DB) {
         await db
           .update(messageSwipes)
           .set({ extra: JSON.stringify({ ...swipeExtra, [key]: value }) })
-          .where(eq(messageSwipes.id, targetSwipe.id));
+          .where(and(eq(messageSwipes.messageId, id), eq(messageSwipes.id, targetSwipe.id)));
         if (msg.activeSwipeIndex === swipeIndex) {
           const messageExtra = parseExtraRecord(msg.extra);
           await db
@@ -1990,7 +2012,7 @@ export function createChatsStorage(db: DB) {
 
     async removeMessage(id: string) {
       const existing = await this.getMessage(id);
-      if (existing) await deleteGameStateForMessages([id]);
+      if (existing) await deleteGameStateForMessages([id], [existing.chatId]);
       await db.delete(messages).where(eq(messages.id, id));
       if (existing) {
         await invalidateMemoryChunksFrom(db, existing.chatId, existing.createdAt);
@@ -2015,7 +2037,10 @@ export function createChatsStorage(db: DB) {
           const current = earliestByChat.get(row.chatId);
           if (!current || row.createdAt < current) earliestByChat.set(row.chatId, row.createdAt);
         }
-        await deleteGameStateForMessages(existingRows.map((row) => row.id));
+        await deleteGameStateForMessages(
+          existingRows.map((row) => row.id),
+          existingRows.map((row) => row.chatId),
+        );
         await db.delete(messages).where(condition);
       }
       for (const [affectedChatId, createdAt] of earliestByChat) {
@@ -2029,15 +2054,14 @@ export function createChatsStorage(db: DB) {
     },
 
     /**
-     * Read swipe rows for a message set with one linear file-store scan.
-     * The file-native store scans the table for `inArray` too, where membership
-     * is O(ids) per row; chunking that query would also rescan the table.
+     * Read swipe rows for a message set. Scoped via `inArray`, which the store
+     * now evaluates against a per-condition Set (#3402's cost is gone), so only
+     * the matching rows are cloned instead of every swipe in the install
+     * (#5592 Phase 0).
      */
     async listSwipesByMessageIds(messageIds: string[]) {
       if (messageIds.length === 0) return [];
-      const wanted = new Set(messageIds);
-      const rows = await db.select().from(messageSwipes);
-      return rows.filter((row) => wanted.has(row.messageId));
+      return db.select().from(messageSwipes).where(inArray(messageSwipes.messageId, messageIds));
     },
 
     async addSwipe(messageId: string, content: string, silent?: boolean) {
@@ -2057,7 +2081,7 @@ export function createChatsStorage(db: DB) {
             await db
               .update(messageSwipes)
               .set({ extra: JSON.stringify(msgExtra) })
-              .where(eq(messageSwipes.id, activeSwipe.id));
+              .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, activeSwipe.id)));
           }
         }
 
@@ -2101,7 +2125,7 @@ export function createChatsStorage(db: DB) {
             await db
               .update(messageSwipes)
               .set({ content: msg.content, extra: JSON.stringify(msgExtra) })
-              .where(eq(messageSwipes.id, outgoingSwipe.id));
+              .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, outgoingSwipe.id)));
           }
         }
 
@@ -2150,7 +2174,9 @@ export function createChatsStorage(db: DB) {
           }
         }
 
-        await db.delete(messageSwipes).where(eq(messageSwipes.id, target.id));
+        await db
+          .delete(messageSwipes)
+          .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, target.id)));
         await db
           .delete(gameStateSnapshots)
           .where(and(eq(gameStateSnapshots.messageId, messageId), eq(gameStateSnapshots.swipeIndex, index)));
@@ -2166,7 +2192,7 @@ export function createChatsStorage(db: DB) {
           await db
             .update(messageSwipes)
             .set({ index: swipe.index - 1 })
-            .where(eq(messageSwipes.id, swipe.id));
+            .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, swipe.id)));
         }
 
         const snapshotsToShift = await db
@@ -2234,7 +2260,7 @@ export function createChatsStorage(db: DB) {
         await db
           .update(messageSwipes)
           .set({ extra: JSON.stringify(merged) })
-          .where(eq(messageSwipes.id, target.id));
+          .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, target.id)));
       });
     },
 
@@ -2250,7 +2276,7 @@ export function createChatsStorage(db: DB) {
         await db
           .update(messageSwipes)
           .set({ extra: JSON.stringify(merged) })
-          .where(eq(messageSwipes.id, target.id));
+          .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, target.id)));
       });
     },
 
@@ -2301,9 +2327,16 @@ export function createChatsStorage(db: DB) {
         .orderBy(oocInfluences.createdAt);
     },
 
-    /** Mark an influence as consumed after it's been injected. */
-    async markInfluenceConsumed(id: string) {
-      await db.update(oocInfluences).set({ consumed: "true" }).where(eq(oocInfluences.id, id));
+    /**
+     * Mark an influence as consumed after it's been injected. The
+     * targetChatId keeps the write's unit scope resolvable when the row's
+     * unit is not resident (#5592 PR-B) — the caller always has it.
+     */
+    async markInfluenceConsumed(id: string, targetChatId?: string) {
+      const condition = targetChatId
+        ? and(eq(oocInfluences.targetChatId, targetChatId), eq(oocInfluences.id, id))
+        : eq(oocInfluences.id, id);
+      await db.update(oocInfluences).set({ consumed: "true" }).where(condition);
     },
 
     /** Delete all influences associated with a chat (as source or target). */
@@ -2342,7 +2375,9 @@ export function createChatsStorage(db: DB) {
         }
       }
       if (toDelete.length > 0) {
-        await db.delete(conversationNotes).where(inArray(conversationNotes.id, toDelete));
+        await db
+          .delete(conversationNotes)
+          .where(and(eq(conversationNotes.targetChatId, targetChatId), inArray(conversationNotes.id, toDelete)));
       }
 
       return id;

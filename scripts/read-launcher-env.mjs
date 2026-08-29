@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 
 export const LAUNCHER_ENV_KEYS = [
   "AUTO_UPDATE_ENABLED",
+  "MARINARA_MAX_RESIDENT_CHATS",
   "PORT",
   "HOST",
   "SSL_CERT",

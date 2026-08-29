@@ -353,7 +353,7 @@ export async function applyTurnGameMove(
     });
   } else if (row.messageId === "") {
     // No assistant message yet (e.g. the human plays first) — keep a single live row.
-    await storage.updateStateById(row.id, serialized, true);
+    await storage.updateStateById(row.id, serialized, true, row.chatId);
   } else {
     await storage.create({
       chatId,

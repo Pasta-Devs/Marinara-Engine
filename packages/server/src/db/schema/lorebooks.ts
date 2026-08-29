@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Schema: Lorebooks, Folders & Entries
 // ──────────────────────────────────────────────
-import { fileTable, text, integer, real } from "../file-schema.js";
+import { fileTable, text, integer, vectorText, real } from "../file-schema.js";
 
 export const lorebooks = fileTable("lorebooks", {
   id: text("id").primaryKey(),
@@ -179,8 +179,8 @@ export const lorebookEntries = fileTable("lorebook_entries", {
   /** When true, bulk vectorization skips this entry and semantic matching ignores stored vectors */
   excludeFromVectorization: text("exclude_from_vectorization").notNull().default("false"),
 
-  /** Pre-computed embedding vector (JSON array of floats) for semantic matching */
-  embedding: text("embedding"),
+  /** Pre-computed embedding vector (JSON array of floats) for semantic matching; held in memory as a packed Float64Array (#5592). */
+  embedding: vectorText("embedding"),
   /** Stable provider/model/profile identity for the stored embedding */
   embeddingSpaceId: text("embedding_space_id"),
 

@@ -4962,15 +4962,32 @@ function storyboardStaleRenderCutoff(): string {
   return new Date(Date.now() - GAME_STORYBOARD_STALE_RENDER_MS).toISOString();
 }
 
+/**
+ * Process-start timestamp: any storyboard still "in progress" from BEFORE
+ * this moment belongs to a previous (crashed) process and is dead no matter
+ * how recently it was updated. Folding it into the per-request sweep replaces
+ * the old startup-wide sweep, which the lazy store (#5592 Phase 2) can no
+ * longer run without loading every chat's storyboards — each chat is now
+ * recovered on its first storyboard read instead, before anything is listed.
+ */
+const storyboardBootRecoveryCutoff = new Date().toISOString();
+
+function storyboardRecoveryCutoff(): string {
+  const stale = storyboardStaleRenderCutoff();
+  return stale > storyboardBootRecoveryCutoff ? stale : storyboardBootRecoveryCutoff;
+}
+
 async function recoverStaleGameStoryboards(
   storyboards: ReturnType<typeof createGameStoryboardsStorage>,
   cutoffUpdatedAt: string,
   context: string,
+  chatId?: string,
 ) {
   try {
     const recovered = await storyboards.failInProgressUpdatedBefore(
       cutoffUpdatedAt,
       GAME_STORYBOARD_STALE_RENDER_ERROR,
+      chatId,
     );
     if (recovered > 0) {
       logger.warn("[game/storyboard] marked %d stale storyboard render job(s) failed during %s", recovered, context);
@@ -5906,7 +5923,9 @@ async function serializeGameTurnStoryboard(args: {
 }
 
 export async function gameRoutes(app: FastifyInstance) {
-  await recoverStaleGameStoryboards(createGameStoryboardsStorage(app.db), new Date().toISOString(), "startup");
+  // Startup-wide storyboard recovery is gone (#5592 Phase 2): the per-request
+  // sweeps below use storyboardRecoveryCutoff(), whose boot-time floor marks
+  // every pre-boot in-progress row failed the first time its chat is read.
   const characterGallery = createCharacterGalleryStorage(app.db);
   const personaGallery = createPersonaGalleryStorage(app.db);
 
@@ -11881,7 +11900,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const storyboards = createGameStoryboardsStorage(app.db);
     const gallery = createGalleryStorage(app.db);
     const sceneVideos = createGameSceneVideosStorage(app.db);
-    await recoverStaleGameStoryboards(storyboards, storyboardStaleRenderCutoff(), "storyboard list");
+    await recoverStaleGameStoryboards(storyboards, storyboardRecoveryCutoff(), "storyboard list", chatId);
     const rows = query.messageId
       ? await storyboards.listForTurn(chatId, query.messageId, query.swipeIndex ?? 0)
       : await storyboards.listRecentByChatId(chatId, query.limit);
@@ -11918,7 +11937,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const sceneVideos = createGameSceneVideosStorage(app.db);
       const gallery = createGalleryStorage(app.db);
       const promptOverridesStorage = createPromptOverridesStorage(app.db);
-      await recoverStaleGameStoryboards(storyboards, storyboardStaleRenderCutoff(), "storyboard generate");
+      await recoverStaleGameStoryboards(storyboards, storyboardRecoveryCutoff(), "storyboard generate", input.chatId);
 
       const chat = await chats.getById(input.chatId);
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
@@ -12616,7 +12635,7 @@ export async function gameRoutes(app: FastifyInstance) {
           await storyboards.updateKeyframe(frame.id, { chatImageId: galleryImage.id, status: "image_complete" });
 
           if (videoRuntime) {
-            await storyboards.update(storyboardRow.id, { status: "rendering_videos" });
+            await storyboards.update(storyboardRow.id, { status: "rendering_videos" }, storyboardRow.chatId);
             await storyboards.updateKeyframe(frame.id, { status: "rendering_video" });
             let savedFilePath: string | null = null;
             let metadataSaved = false;
@@ -12862,7 +12881,11 @@ export async function gameRoutes(app: FastifyInstance) {
                   (videoRuntime && generatedVideos < plan.keyframes.length)
                 ? "partial"
                 : "complete";
-          const updatedStoryboard = await storyboards.update(storyboardRow.id, { status: finalStatus });
+          const updatedStoryboard = await storyboards.update(
+            storyboardRow.id,
+            { status: finalStatus },
+            storyboardRow.chatId,
+          );
           if (!updatedStoryboard) throw new Error("Storyboard metadata could not be reloaded");
           const storyboardAgentConfigId = readTrimmedString(meta.storyboardAgentConfigId);
           if (ownerMode === "roleplay" && generatedImages > 0 && storyboardAgentConfigId) {
@@ -12894,13 +12917,15 @@ export async function gameRoutes(app: FastifyInstance) {
         } catch (err) {
           const message = err instanceof Error ? err.message : "Storyboard media rendering failed";
           logger.warn(err, "[game/storyboard] background media rendering failed for storyboard %s", storyboardRow.id);
-          await storyboards.update(storyboardRow.id, { status: "failed", error: message }).catch((updateErr) => {
-            logger.warn(
-              updateErr,
-              "[game/storyboard] failed to persist background media rendering error for storyboard %s",
-              storyboardRow.id,
-            );
-          });
+          await storyboards
+            .update(storyboardRow.id, { status: "failed", error: message }, storyboardRow.chatId)
+            .catch((updateErr) => {
+              logger.warn(
+                updateErr,
+                "[game/storyboard] failed to persist background media rendering error for storyboard %s",
+                storyboardRow.id,
+              );
+            });
         } finally {
           clearTimeout(backgroundTimeout);
           releaseBackgroundStoryboardLock?.();
