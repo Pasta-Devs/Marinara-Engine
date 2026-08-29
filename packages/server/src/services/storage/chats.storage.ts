@@ -68,6 +68,17 @@ const metadataPatchQueues = new Map<string, Promise<void>>();
 const messageExtraPatchQueues = new Map<string, Promise<void>>();
 const swipeExtraPatchQueues = new Map<string, Promise<void>>();
 
+/**
+ * LOCK ORDER (#5599/#5600): the message patch queue is always acquired
+ * BEFORE the store's transaction slot — updateMessageContent takes the queue
+ * and then opens db.transaction, and the delete paths hold the queue across
+ * plain writes that wait out active transactions. A db.transaction callback
+ * must therefore NEVER call a queue-taking message API (updateMessageContent,
+ * updateMessageExtra, add/remove/setActiveSwipe, removeMessage(s), ...) —
+ * that is the reverse order and deadlocks the whole store with no timeout.
+ * Same discipline as the experience-lock → metadata-queue order documented
+ * further down. The queues are not reentrant either.
+ */
 async function withPatchQueue<T>(
   queues: Map<string, Promise<void>>,
   key: string,
@@ -86,6 +97,37 @@ async function withPatchQueue<T>(
   } finally {
     if (queues.get(key) === queuedVoid) {
       queues.delete(key);
+    }
+  }
+}
+
+/**
+ * Serialize one operation against MANY keys' queues at once (#5599: a bulk
+ * delete must be ordered against every affected message's in-flight edits).
+ * The shared gate is installed on every key synchronously before any await,
+ * so two concurrent multi-acquires order themselves strictly — the second
+ * finds the first's gate among its predecessors — and a cycle cannot form.
+ */
+async function withPatchQueues<T>(
+  queues: Map<string, Promise<void>>,
+  keys: string[],
+  operation: () => Promise<T>,
+): Promise<T> {
+  const uniqueKeys = [...new Set(keys)];
+  const previous = uniqueKeys.map((key) => queues.get(key) ?? Promise.resolve());
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  for (const key of uniqueKeys) queues.set(key, gate);
+
+  try {
+    await Promise.all(previous.map((tail) => tail.catch(() => undefined)));
+    return await operation();
+  } finally {
+    release();
+    for (const key of uniqueKeys) {
+      if (queues.get(key) === gate) queues.delete(key);
     }
   }
 }
@@ -1779,36 +1821,43 @@ export function createChatsStorage(db: DB) {
         if (clearCommandContent) {
           messagePatch.extra = JSON.stringify({ ...existingExtra, conversationCommandContent: null });
         }
-        await db.update(messages).set(messagePatch).where(eq(messages.id, id));
-        if (existing) {
-          await invalidateMemoryChunksFrom(db, existing.chatId, existing.createdAt);
-        }
-        // Also sync the edit to the active swipe row so it persists across swipe switches.
-        const msg = await this.getMessage(id);
-        if (msg) {
-          const swipes = await this.getSwipes(id);
-          const activeSwipe = swipes.find((s: any) => s.index === msg.activeSwipeIndex);
-          if (activeSwipe) {
-            const swipePatch: Record<string, unknown> = { content };
-            if (clearCommandContent) {
-              const swipeExtra = parseExtraRecord(activeSwipe.extra);
-              // Clear only a raw copy this swipe itself carries, and never a
-              // command-only carrier's.
-              if (
-                typeof swipeExtra.conversationCommandContent === "string" &&
-                swipeExtra.conversationCommandContent.trim() !== "" &&
-                swipeExtra.commandOnly !== true
-              ) {
-                swipePatch.extra = JSON.stringify({ ...swipeExtra, conversationCommandContent: null });
-              }
-            }
-            await db
-              .update(messageSwipes)
-              .set(swipePatch)
-              .where(and(eq(messageSwipes.messageId, id), eq(messageSwipes.id, activeSwipe.id)));
+        // One transaction around the messages row and its swipe mirror
+        // (#5600): the store defers flushes while a transaction is active, so
+        // a crash or badly timed flush can no longer persist the edit on the
+        // message while the active swipe still holds the pre-edit text — the
+        // tear that used to surface only in exports and branched chats.
+        return db.transaction(async () => {
+          await db.update(messages).set(messagePatch).where(eq(messages.id, id));
+          if (existing) {
+            await invalidateMemoryChunksFrom(db, existing.chatId, existing.createdAt);
           }
-        }
-        return msg;
+          // Also sync the edit to the active swipe row so it persists across swipe switches.
+          const msg = await this.getMessage(id);
+          if (msg) {
+            const swipes = await this.getSwipes(id);
+            const activeSwipe = swipes.find((s: any) => s.index === msg.activeSwipeIndex);
+            if (activeSwipe) {
+              const swipePatch: Record<string, unknown> = { content };
+              if (clearCommandContent) {
+                const swipeExtra = parseExtraRecord(activeSwipe.extra);
+                // Clear only a raw copy this swipe itself carries, and never a
+                // command-only carrier's.
+                if (
+                  typeof swipeExtra.conversationCommandContent === "string" &&
+                  swipeExtra.conversationCommandContent.trim() !== "" &&
+                  swipeExtra.commandOnly !== true
+                ) {
+                  swipePatch.extra = JSON.stringify({ ...swipeExtra, conversationCommandContent: null });
+                }
+              }
+              await db
+                .update(messageSwipes)
+                .set(swipePatch)
+                .where(and(eq(messageSwipes.messageId, id), eq(messageSwipes.id, activeSwipe.id)));
+            }
+          }
+          return msg;
+        });
       });
     },
 
@@ -2011,13 +2060,19 @@ export function createChatsStorage(db: DB) {
     },
 
     async removeMessage(id: string) {
-      const existing = await this.getMessage(id);
-      if (existing) await deleteGameStateForMessages([id], [existing.chatId]);
-      await db.delete(messages).where(eq(messages.id, id));
-      if (existing) {
-        await invalidateMemoryChunksFrom(db, existing.chatId, existing.createdAt);
-        await refreshChatLastMessageAt(existing.chatId);
-      }
+      // Serialized on the same per-message queue as every other message
+      // mutation (#5599): an in-flight edit either completes before the
+      // delete or starts after it and sees a consistent world, instead of
+      // having its writes silently vanish mid-flight into a 404.
+      return withPatchQueue(messageExtraPatchQueues, id, async () => {
+        const existing = await this.getMessage(id);
+        if (existing) await deleteGameStateForMessages([id], [existing.chatId]);
+        await db.delete(messages).where(eq(messages.id, id));
+        if (existing) {
+          await invalidateMemoryChunksFrom(db, existing.chatId, existing.createdAt);
+          await refreshChatLastMessageAt(existing.chatId);
+        }
+      });
     },
 
     async removeMessages(ids: string[], chatId?: string) {
@@ -2026,22 +2081,27 @@ export function createChatsStorage(db: DB) {
       const CHUNK = 500;
       for (let i = 0; i < ids.length; i += CHUNK) {
         const chunk = ids.slice(i, i + CHUNK);
-        const condition = chatId
-          ? and(inArray(messages.id, chunk), eq(messages.chatId, chatId))
-          : inArray(messages.id, chunk);
-        const existingRows = await db
-          .select({ id: messages.id, chatId: messages.chatId, createdAt: messages.createdAt })
-          .from(messages)
-          .where(condition);
-        for (const row of existingRows) {
-          const current = earliestByChat.get(row.chatId);
-          if (!current || row.createdAt < current) earliestByChat.set(row.chatId, row.createdAt);
-        }
-        await deleteGameStateForMessages(
-          existingRows.map((row) => row.id),
-          existingRows.map((row) => row.chatId),
-        );
-        await db.delete(messages).where(condition);
+        // Per-chunk queue acquisition (#5599): each message's delete is
+        // ordered against its in-flight edits; cross-chunk atomicity was
+        // never promised by this bulk path.
+        await withPatchQueues(messageExtraPatchQueues, chunk, async () => {
+          const condition = chatId
+            ? and(inArray(messages.id, chunk), eq(messages.chatId, chatId))
+            : inArray(messages.id, chunk);
+          const existingRows = await db
+            .select({ id: messages.id, chatId: messages.chatId, createdAt: messages.createdAt })
+            .from(messages)
+            .where(condition);
+          for (const row of existingRows) {
+            const current = earliestByChat.get(row.chatId);
+            if (!current || row.createdAt < current) earliestByChat.set(row.chatId, row.createdAt);
+          }
+          await deleteGameStateForMessages(
+            existingRows.map((row) => row.id),
+            existingRows.map((row) => row.chatId),
+          );
+          await db.delete(messages).where(condition);
+        });
       }
       for (const [affectedChatId, createdAt] of earliestByChat) {
         await invalidateMemoryChunksFrom(db, affectedChatId, createdAt);

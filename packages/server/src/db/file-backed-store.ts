@@ -231,6 +231,14 @@ export type FileNativeStoreTestHooks = {
   beforeTableWrite?: (table: string, serializedRows: string) => Promise<void> | void;
   writerLeaseScopeId?: string;
   writerLeaseBootId?: string;
+  /**
+   * Regression seam (#5631): runs after a plain (non-transaction) write has
+   * cleared the write gate, before its mutation applies. Lets a regression
+   * place the apply at a chosen point relative to a transaction's lifecycle
+   * — the one-tick scheduling freedom the gate race exposed, made
+   * deterministic. Never invoked for transaction-context writes.
+   */
+  afterWritableTurn?: () => Promise<void> | void;
 };
 
 type SelectFromBuilder<TProjection extends Projection | undefined> = {
@@ -2156,6 +2164,12 @@ class FileTableStore {
   private readonly txContext = new AsyncLocalStorage<FileTransactionContext>();
   private transactionQueue: Promise<void> = Promise.resolve();
   private activeTransactionCount = 0;
+  // Transactions that have taken their queue slot but not yet incremented
+  // activeTransactionCount (they are awaiting the previous transaction or an
+  // in-flight flush). The plain-write gate honors this too (#5631): a write
+  // passing the gate in that window could apply after the transaction's
+  // first-mutation snapshot and be silently erased by a rollback.
+  private pendingTransactionCount = 0;
   private transactionIdleWaiters = new Set<() => void>();
   private pendingTransactionFlush = false;
   private quarantinedTables: QuarantinedStorageTable[] = [];
@@ -2713,23 +2727,41 @@ class FileTableStore {
     this.transactionQueue = new Promise<void>((resolve) => {
       releaseTransaction = resolve;
     });
-    await previousTransaction;
-    if (this.activeFlush) await this.activeFlush;
-
-    const ctx: FileTransactionContext = {
-      snapshots: new Map<string, Row[]>(),
-      dirtyTables: new Set<string>(),
-      dirtyShards: new Map<string, Set<string>>(),
-      loadHealDirtyShards: new Map<string, Set<string>>(),
-      loadHealDirtyTables: new Set<string>(),
-      flushed: false,
-    };
-    const dirtySnapshot = this.dirty;
-    const dirtyTablesSnapshot = new Set(this.dirtyTables);
-    // Deep copy — a shallow one would let in-transaction writes mutate the
-    // snapshot's Sets and corrupt the rollback state (#4708).
-    const dirtyShardsSnapshot = new Map([...this.dirtyShards].map(([table, keys]) => [table, new Set(keys)]));
-    this.activeTransactionCount++;
+    // Close the plain-write gate atomically with queue admission (#5631):
+    // without the pending count, a write could pass waitForWritableTurn
+    // during the awaits below (activeTransactionCount still 0), apply after
+    // this transaction's first-mutation snapshot, and vanish on rollback.
+    this.pendingTransactionCount++;
+    let ctx!: FileTransactionContext;
+    let dirtySnapshot!: boolean;
+    let dirtyTablesSnapshot!: Set<string>;
+    let dirtyShardsSnapshot!: Map<string, Set<string>>;
+    try {
+      await previousTransaction;
+      if (this.activeFlush) await this.activeFlush;
+      ctx = {
+        snapshots: new Map<string, Row[]>(),
+        dirtyTables: new Set<string>(),
+        dirtyShards: new Map<string, Set<string>>(),
+        loadHealDirtyShards: new Map<string, Set<string>>(),
+        loadHealDirtyTables: new Set<string>(),
+        flushed: false,
+      };
+      dirtySnapshot = this.dirty;
+      dirtyTablesSnapshot = new Set(this.dirtyTables);
+      // Deep copy — a shallow one would let in-transaction writes mutate the
+      // snapshot's Sets and corrupt the rollback state (#4708).
+      dirtyShardsSnapshot = new Map([...this.dirtyShards].map(([table, keys]) => [table, new Set(keys)]));
+      // Handoff is synchronous, so the combined gate count never dips to zero
+      // between reservation and activation. Nothing after the increment can
+      // throw inside this try, so the reservation can never leak.
+      this.activeTransactionCount++;
+      this.pendingTransactionCount--;
+    } catch (err) {
+      this.pendingTransactionCount--;
+      releaseTransaction();
+      throw err;
+    }
 
     try {
       const result = await this.txContext.run(ctx, () => fn(tx));
@@ -2819,9 +2851,20 @@ class FileTableStore {
 
   private async waitForWritableTurn(): Promise<void> {
     this.assertWritable();
-    if (this.activeTransactionCount > 0 && !this.txContext.getStore()) {
-      await this.waitForTransactions();
+    if (this.txContext.getStore()) return;
+    // Loop: a wake at activeTransactionCount === 0 can still land inside
+    // another transaction's reservation window (#5631), so re-check both
+    // counters after every wait. The idle waiters only fire on active-count
+    // transitions, so the pending-only case waits on the transaction queue
+    // instead (resolved when the queued transaction fully finishes).
+    while (this.activeTransactionCount > 0 || this.pendingTransactionCount > 0) {
+      if (this.activeTransactionCount > 0) {
+        await this.waitForTransactions();
+      } else {
+        await this.transactionQueue;
+      }
     }
+    await this.testHooks?.afterWritableTurn?.();
   }
 
   private assertWritable() {

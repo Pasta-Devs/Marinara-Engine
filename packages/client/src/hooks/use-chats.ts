@@ -521,6 +521,40 @@ function mergeMetadataForVersion(
   return next as Chat["metadata"];
 }
 
+/**
+ * Version snapshot to take BEFORE issuing a request whose response will be
+ * written back through {@link guardServerChatSnapshot}: any metadata field
+ * the user edits after this moment outranks that response.
+ */
+export function captureChatMetadataVersion(chatId: string) {
+  return chatMetadataMutationVersions.get(chatId) ?? 0;
+}
+
+/**
+ * Prepare a SERVER SNAPSHOT for a cache write without letting it revert
+ * newer local metadata edits (#5641). The per-field version guard used to
+ * live only inside useUpdateChatMetadata; every other mutation wrote its
+ * response chat back raw, so a response produced before a metadata PATCH but
+ * consumed after it replaced the whole chat — momentarily (or, with no
+ * refetch pending, until reload) flipping recently-edited fields back and
+ * unmounting the settings sections they gate. Non-metadata fields stay
+ * server-authoritative, matching these writers' previous behavior. A field
+ * the server response OMITS keeps its cached value until the next refetch —
+ * the callers that need deletion semantics already invalidate the detail
+ * query alongside their write.
+ */
+export function guardServerChatSnapshot(qc: QueryClient, chat: Chat, versionAtRequest: number): Chat {
+  const cached = qc.getQueryData<Chat>(chatKeys.detail(chat.id));
+  const chatStore = useChatStore.getState();
+  const fallback = chatStore.activeChat?.id === chat.id ? chatStore.activeChat : null;
+  const base = cached ?? fallback;
+  if (!base) return chat;
+  return {
+    ...chat,
+    metadata: mergeMetadataForVersion(chat.id, base.metadata, chat.metadata, versionAtRequest),
+  };
+}
+
 export function syncCachedChat(qc: QueryClient, chat: Chat) {
   const normalized = normalizeChatForCache(chat);
   qc.setQueryData<Chat>(chatKeys.detail(normalized.id), normalized);
@@ -721,9 +755,11 @@ export function useUpdateChat() {
       personaId?: string | null;
       characterIds?: string[];
     }) => api.patch<Chat>(`/chats/${id}`, data),
-    onSuccess: (updatedChat, vars) => {
-      if (updatedChat) {
-        syncCachedChat(qc, updatedChat);
+    onMutate: ({ id }) => ({ metadataVersion: captureChatMetadataVersion(id) }),
+    onSuccess: (updatedChat, vars, context) => {
+      const guardedChat = updatedChat ? guardServerChatSnapshot(qc, updatedChat, context?.metadataVersion ?? 0) : null;
+      if (guardedChat) {
+        syncCachedChat(qc, guardedChat);
       }
       qc.invalidateQueries({ queryKey: chatKeys.detail(vars.id) });
       qc.invalidateQueries({ queryKey: chatKeys.list() });
@@ -733,10 +769,12 @@ export function useUpdateChat() {
       }
 
       // Patch the group cache so the branch selector dropdown reflects renames
-      // (and any other field changes) without waiting for a chat switch.
-      if (updatedChat?.groupId) {
-        qc.setQueryData<Chat[]>(chatKeys.group(updatedChat.groupId), (existing) =>
-          existing?.map((chat) => (chat.id === vars.id ? updatedChat : chat)),
+      // (and any other field changes) without waiting for a chat switch. Use
+      // the guarded chat — the raw snapshot would regress this cache to the
+      // stale metadata the guard just filtered out (#5641).
+      if (guardedChat?.groupId) {
+        qc.setQueryData<Chat[]>(chatKeys.group(guardedChat.groupId), (existing) =>
+          existing?.map((chat) => (chat.id === vars.id ? guardedChat : chat)),
         );
       }
       qc.invalidateQueries({ queryKey: [...chatKeys.all, "group"] });
@@ -814,9 +852,19 @@ export function useClearAutonomousUnread() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (chatId: string) => api.delete<Chat>(`/chats/${chatId}/autonomous-unread`),
-    onSuccess: (data, chatId) => {
+    onMutate: (chatId) => ({ metadataVersion: captureChatMetadataVersion(chatId) }),
+    onSuccess: (data, chatId, context) => {
       if (data) {
-        qc.setQueryData(chatKeys.detail(chatId), data);
+        const guarded = guardServerChatSnapshot(qc, data, context?.metadataVersion ?? 0);
+        // The server clears unread state by DELETING these keys, so the
+        // response omits them and the merge keeps the cached residue. Nothing
+        // client-side ever PATCHes them, so no field version can legitimately
+        // outrank their deletion — drop them explicitly.
+        const metadata = { ...(normalizeChatMetadataValue(guarded.metadata) as Record<string, unknown>) };
+        delete metadata.autonomousUnreadCount;
+        delete metadata.autonomousUnreadCharacterIds;
+        delete metadata.autonomousUnreadAt;
+        qc.setQueryData(chatKeys.detail(chatId), { ...guarded, metadata: metadata as Chat["metadata"] });
       }
       qc.invalidateQueries({ queryKey: chatKeys.list() });
     },
@@ -852,9 +900,10 @@ function useSummaryEntryMutation() {
   return useMutation({
     mutationFn: ({ chatId, ...body }: { chatId: string } & SummaryEntryOperation) =>
       api.patch<Chat>(`/chats/${chatId}/summary-entries`, body),
-    onSuccess: (data, vars) => {
+    onMutate: ({ chatId }) => ({ metadataVersion: captureChatMetadataVersion(chatId) }),
+    onSuccess: (data, vars, context) => {
       if (data) {
-        syncCachedChat(qc, data);
+        syncCachedChat(qc, guardServerChatSnapshot(qc, data, context?.metadataVersion ?? 0));
       } else {
         qc.invalidateQueries({ queryKey: chatKeys.detail(vars.chatId) });
       }

@@ -48,7 +48,10 @@ export default defineConfig({
       ? undefined
       : {
           command: "node ./e2e/start-servers.mjs",
-          url: baseURL,
+          // The readiness check must target a server that actually boots:
+          // when a CI shard gates the boot to one project pair (#5637), the
+          // desktop URL would never come up on a mobile-only shard.
+          url: process.env.PLAYWRIGHT_ONLY_PROJECT?.trim() === "mobile" ? mobileBaseURL : baseURL,
           reuseExistingServer: false,
           timeout: 180_000,
           gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },

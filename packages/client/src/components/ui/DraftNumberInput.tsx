@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 interface DraftNumberInputProps {
   value: number;
@@ -32,8 +32,16 @@ export function DraftNumberInput({
   id,
 }: DraftNumberInputProps) {
   const [draft, setDraft] = useState(String(value));
+  const focusedRef = useRef(false);
 
   useEffect(() => {
+    // While the user is editing, the draft belongs to them: a value-prop
+    // update arriving mid-edit is usually the ASYNC ECHO of the previous
+    // commit (mutate → invalidate → refetch), and syncing it here wiped the
+    // in-progress draft so blur re-committed the OLD value — a silently
+    // dropped edit (#5636). External updates still sync any time the field
+    // is not focused.
+    if (focusedRef.current) return;
     setDraft(String(value));
   }, [value]);
 
@@ -70,6 +78,42 @@ export function DraftNumberInput({
     setDraft(String(value));
   };
 
+  const commitRef = useRef(commit);
+  useLayoutEffect(() => {
+    // Assigned post-commit rather than during render so an abandoned
+    // concurrent render can never leave the ref pointing at a closure whose
+    // state was never current.
+    commitRef.current = commit;
+  });
+
+  useEffect(() => {
+    // The browser fires no blur when a focused input becomes disabled, which
+    // would leave the editing latch stuck and suppress prop syncs for the
+    // rest of the mount. Drop the latch without committing — disabling
+    // mid-edit means the pending draft was not confirmed — and resync the
+    // abandoned draft, since the value-sync effect already ran (and skipped)
+    // for a value that arrived in this same render. The resync is gated on
+    // the latch: after a blur-commit flips `disabled` via isPending, the
+    // latch is already clear and the just-committed draft must stay visible
+    // rather than flashing back to the not-yet-echoed prop.
+    if (!disabled || !focusedRef.current) return;
+    focusedRef.current = false;
+    setDraft(String(value));
+  }, [disabled, value]);
+
+  useEffect(() => {
+    return () => {
+      // React fires no blur for a node that unmounts, so an edit in progress
+      // when the surrounding tree is torn down (a parent re-keys or a
+      // condition flips, the drawer closes) was silently dropped (#5636).
+      // Flush it the same way blur would have.
+      if (focusedRef.current) {
+        focusedRef.current = false;
+        commitRef.current();
+      }
+    };
+  }, []);
+
   return (
     <input
       type="text"
@@ -81,6 +125,7 @@ export function DraftNumberInput({
       title={title}
       disabled={disabled}
       onFocus={(e) => {
+        focusedRef.current = true;
         if (selectOnFocus) e.target.select();
       }}
       onChange={(e) => {
@@ -91,7 +136,10 @@ export function DraftNumberInput({
           if (parsed !== null) onCommit(clampValue(parsed));
         }
       }}
-      onBlur={commit}
+      onBlur={() => {
+        focusedRef.current = false;
+        commit();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.currentTarget.blur();

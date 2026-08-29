@@ -302,7 +302,7 @@ function parseImpersonatePromptArg(args: string): string {
   let prompt = args.trim();
   if (!prompt) return "";
 
-  const quote = prompt[0];
+  const quote = prompt[0] ?? "";
   const closeQuote = quote === "\u201c" ? "\u201d" : quote === "\u2018" ? "\u2019" : quote;
   if (quote === '"' || quote === "'" || quote === "\u201c" || quote === "\u2018") {
     prompt = prompt.slice(1);

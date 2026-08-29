@@ -34,8 +34,8 @@ function canonicalizeLocale(value: string): string | null {
 }
 
 function localeFromModulePath(path: string): string | null {
-  const match = /\/([^/]+)\.json$/u.exec(path);
-  return match ? canonicalizeLocale(match[1]) : null;
+  const captured = /\/([^/]+)\.json$/u.exec(path)?.[1];
+  return captured ? canonicalizeLocale(captured) : null;
 }
 
 for (const [path, loader] of Object.entries(localeAssets)) {

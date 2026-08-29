@@ -3457,6 +3457,10 @@ export function HomeProfessorMariChat({
       const query = params.toString();
       const chat = await api.get<Chat>(`/chats/internal/professor-mari${query ? `?${query}` : ""}`);
       setActiveChatId(chat.id);
+      // The ensure/restart/activate writes in this file are deliberately
+      // unguarded (#5641): each loads or switches to a Mari chat whose id is
+      // unknown before the request, with no concurrent local metadata edits
+      // to protect.
       qc.setQueryData(chatKeys.detail(chat.id), chat);
       return chat;
     },

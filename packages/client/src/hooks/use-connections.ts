@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import { useChatStore } from "../stores/chat.store";
-import { chatKeys } from "./use-chats";
+import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
 import type { APIProvider, Chat, ConnectionTestResult, ImageGenerationQuality } from "@marinara-engine/shared";
 
 export const connectionKeys = {
@@ -120,8 +120,9 @@ export function useDeleteConnection() {
       const activeChat = qc.getQueryData<Chat>(chatKeys.detail(activeChatId));
       if (activeChat?.connectionId !== id) return;
       try {
+        const metadataVersion = captureChatMetadataVersion(activeChatId);
         const updated = await api.patch<Chat>(`/chats/${activeChatId}`, { connectionId: null });
-        qc.setQueryData<Chat>(chatKeys.detail(activeChatId), updated);
+        qc.setQueryData<Chat>(chatKeys.detail(activeChatId), guardServerChatSnapshot(qc, updated, metadataVersion));
         qc.invalidateQueries({ queryKey: chatKeys.list() });
       } catch {
         qc.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) });

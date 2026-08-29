@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api, isJsonRepairApiError } from "../lib/api-client";
-import { chatKeys } from "./use-chats";
+import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
 import { lorebookKeys } from "./use-lorebooks";
 import {
   clearPendingHudWidgetPersist,
@@ -182,6 +182,21 @@ export function patchChatMetadata(chat: Chat | null | undefined, patch: Record<s
   };
 }
 
+// Mirror a guarded snapshot into the active-chat store when it targets the
+// active chat: several game surfaces read useChatStore.activeChat directly,
+// and ChatArea only re-syncs it from the detail cache in a later effect —
+// without this, that gap serves stale metadata (#5641 review).
+function syncActiveChatIfCurrent(chat: Chat) {
+  const chatStore = useChatStore.getState();
+  // The activeChat fallback only counts when no chat is selected: during a
+  // chat switch activeChatId is already the NEW chat while activeChat still
+  // holds the old one, and a delayed response for the old chat must not
+  // resurrect it into the store.
+  if (chatStore.activeChatId === chat.id || (!chatStore.activeChatId && chatStore.activeChat?.id === chat.id)) {
+    chatStore.setActiveChat(chat);
+  }
+}
+
 // ── Mutations ──
 
 export function useCreateGame() {
@@ -298,6 +313,9 @@ export function useStartSession() {
       useGameAssetStore.getState().resetPlaybackState();
       store.getState().setActiveGame(variables.gameId, res.sessionChat.id, null);
       store.getState().setSessionNumber(res.sessionNumber);
+      // Deliberately unguarded (#5641): the session chat id is unknown until
+      // the response arrives, and a chat being started/switched to has no
+      // concurrent local metadata edits to protect.
       qc.setQueryData(chatKeys.detail(res.sessionChat.id), res.sessionChat);
       const chatStore = useChatStore.getState();
       chatStore.setActiveChatId(res.sessionChat.id);
@@ -449,9 +467,12 @@ export function useUpdateCampaignProgression() {
       toast.loading(`Updating plot arcs from session ${variables.sessionNumber}...`, {
         id: `game-campaign-progression:${variables.chatId}:${variables.sessionNumber}`,
       });
+      return { metadataVersion: captureChatMetadataVersion(variables.chatId) };
     },
-    onSuccess: (res, variables) => {
-      qc.setQueryData(chatKeys.detail(res.sessionChat.id), res.sessionChat);
+    onSuccess: (res, variables, context) => {
+      const guardedChat = guardServerChatSnapshot(qc, res.sessionChat, context?.metadataVersion ?? 0);
+      qc.setQueryData(chatKeys.detail(res.sessionChat.id), guardedChat);
+      syncActiveChatIfCurrent(guardedChat);
       toast.success(`Plot arcs updated from session ${variables.sessionNumber}.`, {
         id: `game-campaign-progression:${variables.chatId}:${variables.sessionNumber}`,
       });
@@ -481,8 +502,11 @@ export function useRecruitPartyMember() {
   return useMutation({
     mutationFn: (data: { chatId: string; characterName: string; connectionId?: string }) =>
       api.post<RecruitPartyMemberResponse>("/game/party/recruit", data),
-    onSuccess: (res, variables) => {
-      qc.setQueryData(chatKeys.detail(variables.chatId), res.sessionChat);
+    onMutate: (variables) => ({ metadataVersion: captureChatMetadataVersion(variables.chatId) }),
+    onSuccess: (res, variables, context) => {
+      const guardedChat = guardServerChatSnapshot(qc, res.sessionChat, context?.metadataVersion ?? 0);
+      qc.setQueryData(chatKeys.detail(variables.chatId), guardedChat);
+      syncActiveChatIfCurrent(guardedChat);
       qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
       qc.invalidateQueries({ queryKey: chatKeys.list() });
       if (res.added) {
@@ -525,8 +549,11 @@ export function useRemovePartyMember() {
   return useMutation({
     mutationFn: (data: { chatId: string; characterName: string }) =>
       api.post<RemovePartyMemberResponse>("/game/party/remove", data),
-    onSuccess: (res, variables) => {
-      qc.setQueryData(chatKeys.detail(variables.chatId), res.sessionChat);
+    onMutate: (variables) => ({ metadataVersion: captureChatMetadataVersion(variables.chatId) }),
+    onSuccess: (res, variables, context) => {
+      const guardedChat = guardServerChatSnapshot(qc, res.sessionChat, context?.metadataVersion ?? 0);
+      qc.setQueryData(chatKeys.detail(variables.chatId), guardedChat);
+      syncActiveChatIfCurrent(guardedChat);
       qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
       qc.invalidateQueries({ queryKey: chatKeys.list() });
       if (res.removed) {
