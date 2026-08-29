@@ -5078,9 +5078,15 @@ test("mobile transcript swipes navigate Conversation and Roleplay alternatives",
     });
 
     for (const fixture of fixtures) {
+      // Seed the active chat before the document loads and navigate once, rather
+      // than setting it on a live page and reloading. The reload landed about a
+      // second into the first page's on-demand module graph and cancelled the
+      // tens of module requests still streaming; WebKit then intermittently
+      // failed the next document's own bootstrap scripts, leaving a blank app
+      // with no transcript to assert against. Init scripts run in registration
+      // order, so the entry added for this fixture wins.
+      await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), fixture.chatId);
       await page.goto("/");
-      await page.evaluate((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), fixture.chatId);
-      await page.reload();
 
       const messageRow = page.locator(`[data-message-id="${fixture.messageId}"]`);
       await expect(messageRow).toContainText(fixture.first);
@@ -19191,6 +19197,29 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
         contentType: "image/gif",
         body: Buffer.from(TRANSPARENT_GIF_BASE64, "base64"),
       });
+    });
+    // Hold the first page of messages until the Game surface has committed its
+    // messages-loading branch, which mounts no HUD surface. The widget state
+    // hydrates from chat metadata during that window, so the compact HUD layout
+    // has to survive being measured with nothing to measure and still mount the
+    // choice stage asserted below. The mobile WebKit lane reached that ordering
+    // at random whenever the messages fetch trailed the chat detail; pinning it
+    // here keeps the case deterministic instead of leaving it to runner timing.
+    let messagesPageHeld = false;
+    await page.route("**/api/chats/*/messages**", async (route) => {
+      if (!messagesPageHeld) {
+        messagesPageHeld = true;
+        await page
+          .waitForFunction(
+            () => document.querySelector('[data-component="GameSurface.MessagesLoading"]') !== null,
+            undefined,
+            { timeout: 15_000 },
+          )
+          .catch(() => undefined);
+        // The widget state hydrates a frame or two after that branch commits.
+        await page.waitForTimeout(150);
+      }
+      await route.continue();
     });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
