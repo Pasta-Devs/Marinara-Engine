@@ -110,16 +110,22 @@ try {
     assert.equal(zipPreviewResponse.statusCode, 200, zipPreviewResponse.body);
     const zipPreview = zipPreviewResponse.json();
     assert.equal(typeof zipPreview.previewToken, "string");
-    const zipImportResponse = await app.inject({
-      method: "POST",
-      url: "/api/backup/import-profile",
-      headers: { "x-profile-preview-token": zipPreview.previewToken },
-    });
+    const realDateNow = Date.now;
+    Date.now = () => realDateNow() + 31 * 60 * 1_000;
+    const zipImportResponse = await app
+      .inject({
+        method: "POST",
+        url: "/api/backup/import-profile",
+        headers: { "x-profile-preview-token": zipPreview.previewToken },
+      })
+      .finally(() => {
+        Date.now = realDateNow;
+      });
     assert.equal(zipImportResponse.statusCode, 200, zipImportResponse.body);
     assert.deepEqual(
       await readFile(join(storageRoot, ...zipAssetPath.split("/"))),
       validPng,
-      "a ZIP import must reuse the preview upload and restore assets without a second request body",
+      "a ZIP import must reuse its staged preview after 30 minutes without a second request body",
     );
     const replayedZipImport = await app.inject({
       method: "POST",
