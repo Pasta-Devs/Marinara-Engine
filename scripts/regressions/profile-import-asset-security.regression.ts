@@ -261,6 +261,11 @@ try {
     "the seeder's empty .native directory markers must stage instead of failing a stock profile restore",
   );
   await cleanupStagedProfileAssets(nativeMarkerStage);
+  assert.equal(
+    existsSync(nativeMarkerStage.rootDir),
+    false,
+    "cleanup must remove the .native marker staging root",
+  );
   await assert.rejects(
     stageProfileImportAssets(
       dataDir,
