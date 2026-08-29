@@ -19678,10 +19678,13 @@ test("Game HUD compacts on tablet widths when its surface mounts after the widge
           .waitForFunction(
             () => document.querySelector('[data-component="GameSurface.MessagesLoading"]') !== null,
             undefined,
-            // Short budget: the branch commits within a frame of the request
-            // being issued, so a longer one only buys a confusing failure if the
-            // marker is ever renamed away.
-            { timeout: 5_000 },
+            // Generous enough for a cold lazy GameSurface chunk: the lanes are
+            // sharded within this one file, so this case can be the first Game
+            // test its shard runs. The branch commits within a frame once that
+            // chunk is warm. The narration wait below is budgeted to outlast
+            // this hold, so a marker renamed away still fails on the assertion
+            // that follows rather than as an unrelated visibility timeout.
+            { timeout: 15_000 },
           )
           .then(() => {
             sawMessagesLoadingBranch = true;
@@ -19723,7 +19726,9 @@ test("Game HUD compacts on tablet widths when its surface mounts after the widge
 
     await page.goto("/");
     await expect(page.getByText("The party reaches a fork in the flooded vault.", { exact: true })).toBeVisible({
-      timeout: 30_000,
+      // Must outlast the hold above so the assertion below is the one that
+      // reports a hold which never saw its branch.
+      timeout: 40_000,
     });
     expect(
       sawMessagesLoadingBranch,
