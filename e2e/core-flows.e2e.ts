@@ -19477,53 +19477,6 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
         body: Buffer.from(TRANSPARENT_GIF_BASE64, "base64"),
       });
     });
-    // Hold the first page of messages until the Game surface has committed its
-    // messages-loading branch, which mounts no HUD surface. The widget state
-    // hydrates from chat metadata during that window, so the compact HUD layout
-    // has to survive being measured with nothing to measure and still mount the
-    // choice stage asserted below. The mobile WebKit lane reached that ordering
-    // at random whenever the messages fetch trailed the chat detail; pinning it
-    // here keeps the case deterministic instead of leaving it to runner timing.
-    let sawMessagesLoadingBranch = false;
-    let messagesPageHeld = false;
-    await page.route("**/api/chats/*/messages**", async (route) => {
-      if (!messagesPageHeld) {
-        messagesPageHeld = true;
-        await page
-          .waitForFunction(
-            () => document.querySelector('[data-component="GameSurface.MessagesLoading"]') !== null,
-            undefined,
-            // Short budget on purpose. The branch commits within a frame of the
-            // request being issued, so this only ever waits milliseconds when
-            // the marker is right. Keeping it short means a marker that has been
-            // renamed away costs a few seconds rather than consuming the
-            // assertion budget below and failing as a confusing timeout.
-            { timeout: 5_000 },
-          )
-          .then(() => {
-            sawMessagesLoadingBranch = true;
-          })
-          // Swallowed on purpose: throwing here would leave the route unhandled
-          // and hang the request until the test times out, hiding the reason.
-          // The assertion after the layout checks names it precisely instead, so
-          // a renamed marker or an unreachable branch fails loudly rather than
-          // quietly turning this hold into a no-op that still passes.
-          .catch(() => undefined);
-        // Let React flush the passive effects committed with that branch, which
-        // is where the widget state hydrates. Frames rather than a fixed delay,
-        // so the wait stretches on a loaded runner instead of expiring early.
-        // Also swallowed: if the page is already gone the hold has no work left.
-        await page
-          .evaluate(
-            () =>
-              new Promise<void>((resolve) => {
-                requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-              }),
-          )
-          .catch(() => undefined);
-      }
-      await route.continue();
-    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
       localStorage.setItem(
@@ -19555,13 +19508,6 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
     await expect(rightWidgetRail).toBeVisible();
     await expect(composer).toBeVisible();
     await expect(options).toHaveCount(3);
-    // The layout above only proves the compact HUD survived the hold if the hold
-    // actually happened. Without this the guard could fail open and keep passing
-    // while no longer exercising the ordering it exists to pin.
-    expect(
-      sawMessagesLoadingBranch,
-      "expected the Game messages-loading branch to render while the first page of messages was held",
-    ).toBe(true);
 
     const viewport = { width: 390, height: 700 };
     await page.setViewportSize(viewport);
@@ -19617,6 +19563,182 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
     await expect(page.getByText("The party reaches a fork in the flooded vault.", { exact: true })).toBeVisible();
 
     expect(errors).toEqual([]);
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
+test("Game HUD compacts on tablet widths when its surface mounts after the widgets", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Needs a viewport wider than the compact-by-width shortcut.");
+  // 900px is the point of this case: it is past the width<768 shortcut, so the
+  // compact layout can only be reached by measuring the surface. That makes it
+  // the width where a layout that never gets measured stays visibly wrong.
+  await page.setViewportSize({ width: 900, height: 800 });
+
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "Tablet Game HUD Compaction", mode: "game", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  const hudWidgets = [
+    {
+      id: "widget-floor",
+      type: "counter",
+      label: "Dungeon Floor",
+      icon: "🗼",
+      position: "hud_left",
+      accent: "#9B6CFF",
+      config: { count: 1 },
+    },
+    {
+      id: "widget-exp",
+      type: "progress_bar",
+      label: "EXP to Next Level",
+      icon: "✨",
+      position: "hud_left",
+      accent: "#4FD6FF",
+      config: { value: 20, max: 100 },
+    },
+    {
+      id: "widget-bonds",
+      type: "stat_block",
+      label: "Party Bonds",
+      icon: "💞",
+      position: "hud_right",
+      accent: "#FF69B4",
+      config: { stats: [{ name: "Ally", value: 40 }] },
+    },
+    {
+      id: "widget-pressure",
+      type: "gauge",
+      label: "Curse Pressure",
+      icon: "💜",
+      position: "hud_right",
+      accent: "#C43DFF",
+      config: { value: 10, max: 100 },
+    },
+  ];
+
+  try {
+    const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: {
+        gameId: "tablet-hud-compaction",
+        gameSessionStatus: "active",
+        gameSessionNumber: 1,
+        gameIntroPresented: true,
+        gameActiveState: "dialogue",
+        enableAgents: false,
+        activeAgentIds: [],
+        enableCustomWidgets: true,
+        gameBlueprint: { campaignPlan: {}, hudWidgets, introSequence: [], visualTheme: {} },
+      },
+    });
+    expect(metadataResponse.ok()).toBeTruthy();
+
+    const messageResponse = await request.post(`/api/chats/${chat.id}/messages`, {
+      data: {
+        role: "assistant",
+        content:
+          'The party reaches a fork in the flooded vault.\n\n[choices: "Take the surveyed stairs"|"Risk the faster waterway"|"Follow the unstable violet route"]',
+      },
+    });
+    expect(messageResponse.ok()).toBeTruthy();
+
+    await page.route("**/api/game-assets/manifest", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ scannedAt: "2026-07-16T00:00:00.000Z", count: 0, assets: {}, byCategory: {} }),
+      });
+    });
+    await page.route("**/api/backgrounds/file/Black.jpg**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/gif",
+        body: Buffer.from(TRANSPARENT_GIF_BASE64, "base64"),
+      });
+    });
+
+    // Hold the first page of messages until the Game surface has committed its
+    // messages-loading branch, which mounts no HUD surface at all. The widget
+    // state hydrates from chat metadata during that window, so the layout has to
+    // survive being measured with nothing to measure and still compact once the
+    // surface arrives. Holding here pins that ordering rather than leaving it to
+    // runner timing.
+    let sawMessagesLoadingBranch = false;
+    let messagesPageHeld = false;
+    await page.route("**/api/chats/*/messages**", async (route) => {
+      if (!messagesPageHeld) {
+        messagesPageHeld = true;
+        await page
+          .waitForFunction(
+            () => document.querySelector('[data-component="GameSurface.MessagesLoading"]') !== null,
+            undefined,
+            // Short budget: the branch commits within a frame of the request
+            // being issued, so a longer one only buys a confusing failure if the
+            // marker is ever renamed away.
+            { timeout: 5_000 },
+          )
+          .then(() => {
+            sawMessagesLoadingBranch = true;
+          })
+          // Swallowed on purpose: throwing here would leave the route unhandled
+          // and hang the request until the test times out. The assertion below
+          // names the cause instead, so this hold cannot quietly become a no-op.
+          .catch(() => undefined);
+        // Let React flush the passive effects committed with that branch, which
+        // is where the widget state hydrates. Frames rather than a fixed delay,
+        // so the wait stretches on a loaded runner instead of expiring early.
+        await page
+          .evaluate(
+            () =>
+              new Promise<void>((resolve) => {
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+              }),
+          )
+          .catch(() => undefined);
+      }
+      await route.continue();
+    });
+
+    await page.addInitScript((chatId) => {
+      localStorage.setItem("marinara-active-chat-id", chatId);
+      localStorage.setItem(
+        "marinara-engine-ui",
+        JSON.stringify({
+          state: {
+            hasCompletedOnboarding: true,
+            rightPanelOpen: false,
+            sidebarOpen: false,
+            gameTextSpeed: 100,
+          },
+          version: 65,
+        }),
+      );
+    }, chat.id);
+
+    await page.goto("/");
+    await expect(page.getByText("The party reaches a fork in the flooded vault.", { exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    expect(
+      sawMessagesLoadingBranch,
+      "expected the Game messages-loading branch to render while the first page of messages was held",
+    ).toBe(true);
+
+    // At this width the widget rails would otherwise sit on top of the dialogue,
+    // so the measured layout has to collapse into the compact stage. Polling
+    // because the measurement lands on the frame after the surface mounts.
+    await expect
+      .poll(async () => ({
+        choiceStage: await page.locator('[data-component="GameSurface.MobileChoiceStage"]').count(),
+        desktopRails: await page.locator("[data-game-widget-rail]").count(),
+      }))
+      .toEqual({ choiceStage: 1, desktopRails: 0 });
   } finally {
     await request.delete(`/api/chats/${chat.id}`);
   }
