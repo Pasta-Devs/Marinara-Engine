@@ -94,7 +94,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       transport: getNodeEnv() !== "production" ? { target: "pino-pretty", options: { colorize: true } } : undefined,
     },
     logController: new LogController({ disableRequestLogging: isRequestLoggingDisabled() }),
-    bodyLimit: MAX_UPLOAD_BYTES, // Large profile imports can include many base64 avatars.
+    bodyLimit: MAX_UPLOAD_BYTES, // General-route default; transfer routes opt into streamed or unbounded imports.
     ...(https && { https }),
   });
 

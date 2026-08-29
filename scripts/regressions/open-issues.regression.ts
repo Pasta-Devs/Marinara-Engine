@@ -524,6 +524,15 @@ const stCharacterImporterSource = readFileSync(
   join(REPOSITORY_ROOT, "packages/server/src/services/import/st-character.importer.ts"),
   "utf8",
 );
+const marinaraImporterSource = readFileSync(
+  join(REPOSITORY_ROOT, "packages/server/src/services/import/marinara.importer.ts"),
+  "utf8",
+);
+const importRoutesSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/import.routes.ts"), "utf8");
+const stBulkImporterSource = readFileSync(
+  join(REPOSITORY_ROOT, "packages/server/src/services/import/st-bulk.importer.ts"),
+  "utf8",
+);
 const portableSprites = [
   { filename: "happy.png", data: "data:image/png;base64,iVBORw0KGgo=" },
   { filename: "full_idle.webp", data: "data:image/webp;base64,UklGRg==" },
@@ -577,6 +586,40 @@ assert.match(
   stCharacterImporterSource,
   /await restoreSprites\(embeddedMarinaraSprites, charId\)/u,
   "PNG import must restore embedded sprites under the newly imported character ID",
+);
+const nativeGalleryRestoreMatch = marinaraImporterSource.match(
+  /export async function restoreSprites[\s\S]*?export async function importMarinara/u,
+);
+assert.ok(nativeGalleryRestoreMatch, "native gallery restore implementation must remain discoverable");
+assert.doesNotMatch(
+  nativeGalleryRestoreMatch[0],
+  /MAX_FILE_SIZES|embeddedSpriteSizesAreWithinLimits|MAX_EMBEDDED_SPRITE_DATA_CHARS/u,
+  "native character and persona imports must not reject galleries by byte size",
+);
+assert.doesNotMatch(
+  stCharacterImporterSource,
+  /MAX_CHARX_ENTRIES|MAX_CHARX_ENTRY_BYTES|MAX_CHARX_TOTAL_BYTES/u,
+  "CharX imports must not reject galleries by entry count or byte size",
+);
+assert.match(
+  importRoutesSource,
+  /app\.post\("\/marinara-package", \{ bodyLimit: UNBOUNDED_IMPORT_BYTES \}[\s\S]*?req\.file\(\{ limits: \{ fileSize: UNBOUNDED_IMPORT_BYTES \} \}\)/u,
+  "native character and persona packages must opt out of the general upload-size ceiling",
+);
+assert.match(
+  importRoutesSource,
+  /app\.post\("\/st-character", \{ bodyLimit: UNBOUNDED_IMPORT_BYTES \}[\s\S]*?req\.file\(\{ limits: \{ fileSize: UNBOUNDED_IMPORT_BYTES \} \}\)/u,
+  "character-card uploads must opt out of the general upload-size ceiling",
+);
+assert.doesNotMatch(
+  importRoutesSource,
+  /MAX_DATA_JSON_BYTES|MAX_AVATAR_BYTES|MAX_CHARACTER_CARD_CHUNK_SIZE/u,
+  "native packages and compressed PNG metadata must not have fixed byte ceilings",
+);
+assert.doesNotMatch(
+  stBulkImporterSource,
+  /MAX_CHARACTER_CARD_CHUNK_SIZE|maxOutputLength/u,
+  "folder-scanned PNG character cards must not retain the former metadata byte ceiling",
 );
 assert.equal(embeddedSpriteSizesAreWithinLimits([MAX_FILE_SIZES.SPRITE]), true);
 assert.equal(embeddedSpriteSizesAreWithinLimits([MAX_FILE_SIZES.SPRITE + 1]), false);
@@ -9680,28 +9723,39 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     "Client Card Browser import must extract character JSON from zTXt chunks",
   );
 
-  const maxCharacterCardChunkSize = Math.ceil(MAX_FILE_SIZES.CHARACTER_JSON / 3) * 4;
-  const oversizedZtxtData = Buffer.concat([
+  const largeCard = {
+    ...card,
+    data: {
+      ...card.data,
+      name: "Large Gallery Import",
+      description: "x".repeat(MAX_FILE_SIZES.CHARACTER_JSON + 1),
+    },
+  };
+  const largeCardText = Buffer.from(JSON.stringify(largeCard), "utf8").toString("base64");
+  const largeZtxtData = Buffer.concat([
     Buffer.from("chara", "ascii"),
     Buffer.from([0, 0]),
-    deflateSync(Buffer.alloc(maxCharacterCardChunkSize + 1, 0x41)),
+    deflateSync(Buffer.from(largeCardText, "ascii")),
   ]);
-  const oversizedZtxtPng = Buffer.concat([
+  const largeZtxtPng = Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     pngChunk("IHDR", ihdr),
-    pngChunk("zTXt", oversizedZtxtData),
+    pngChunk("zTXt", largeZtxtData),
     pngChunk("IDAT", idat),
     pngChunk("IEND", Buffer.alloc(0)),
   ]);
   assert.equal(
-    extractCharaFromPng(oversizedZtxtPng),
-    null,
-    "Server import must reject zTXt metadata that expands beyond the character-card limit",
+    (extractCharaFromPng(largeZtxtPng) as { data?: { description?: string } } | null)?.data?.description?.length,
+    MAX_FILE_SIZES.CHARACTER_JSON + 1,
+    "Server import must accept valid zTXt card metadata beyond the former byte limit",
   );
-  await assert.rejects(
-    parsePngCharacterCard(new File([new Uint8Array(oversizedZtxtPng)], "oversized-card.png", { type: "image/png" })),
-    /No character data found/,
-    "Client import must reject zTXt metadata that expands beyond the character-card limit",
+  const largeClientParsed = await parsePngCharacterCard(
+    new File([new Uint8Array(largeZtxtPng)], "large-card.png", { type: "image/png" }),
+  );
+  assert.equal(
+    (largeClientParsed.json as { data?: { description?: string } }).data?.description?.length,
+    MAX_FILE_SIZES.CHARACTER_JSON + 1,
+    "Client import must accept valid zTXt card metadata beyond the former byte limit",
   );
 
   const { injectTextChunk } = await import("../../packages/server/src/routes/characters.routes.js");

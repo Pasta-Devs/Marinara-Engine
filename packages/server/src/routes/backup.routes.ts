@@ -11,7 +11,7 @@ import { tmpdir } from "os";
 import { pipeline } from "stream/promises";
 import { StringDecoder } from "string_decoder";
 import { randomBytes, randomUUID } from "crypto";
-import { inflateRawSync } from "zlib";
+import { createInflateRaw, inflateRawSync } from "zlib";
 import AdmZip from "adm-zip";
 import { FILE_BACKED_TABLES } from "../db/file-backed-store.js";
 import { migrateLegacyNoodleAccountRow } from "../db/noodle-platform-migration.js";
@@ -355,7 +355,6 @@ type ProfileImportInput = {
   readAsset?: ProfileAssetReader;
   warnings?: ProfileImportWarning[];
   cleanup?: () => Promise<void>;
-  assetTotalByteLimit?: number;
 };
 type ProfileImportStats = {
   characters: number;
@@ -390,12 +389,9 @@ class ProfileJsonTooLargeError extends Error {
 
 class ProfileArchiveTooLargeError extends Error {}
 
-class ProfileImportArchiveTooLargeError extends ProfileImportRequestError {}
-
 function sendProfileImportRequestError(reply: FastifyReply, err: ProfileImportRequestError) {
   const message = err.message || "Profile import file could not be read.";
-  const statusCode = err instanceof ProfileImportArchiveTooLargeError ? 413 : 400;
-  return reply.status(statusCode).send({ error: "Invalid profile export", message });
+  return reply.status(400).send({ error: "Invalid profile export", message });
 }
 
 function resolveBackupDir(dataDir: string, dirName: string) {
@@ -832,20 +828,6 @@ function getProfileAssetManifestSize(file: unknown, safePath: string) {
   return size;
 }
 
-function assertProfileArchiveEntryLimit(label: string, size: number) {
-  if (size > PROFILE_ARCHIVE_ENTRY_LIMIT_BYTES) {
-    throw new ProfileImportRequestError(profileArchiveSizeError(label, size, PROFILE_ARCHIVE_ENTRY_LIMIT_BYTES));
-  }
-}
-
-function assertProfileArchiveTotalLimit(total: number, label = "Profile archive restored assets") {
-  if (total > PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES) {
-    throw new ProfileImportRequestError(
-      profileArchiveSizeError(label, total, PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES),
-    );
-  }
-}
-
 function getZipEntryUncompressedSize(entry: ProfileZipEntry) {
   const size = entry.header.size;
   return Number.isSafeInteger(size) && size >= 0 ? size : null;
@@ -1180,13 +1162,21 @@ function buildProfileImportAssetInputs(
   warnings: ProfileImportWarning[],
 ): Array<ProfileImportAssetInput> {
   if (!Array.isArray(snapshot.files)) return [];
+  const unavailableAssetPaths = profileUnavailableAssetWarningPathSet(warnings);
   return snapshot.files.flatMap((file) => {
     const safePath = normalizeProfileAssetPath(file?.path);
-    if (!safePath) return [];
+    if (!safePath || unavailableAssetPaths.has(safePath)) return [];
+    if (typeof file.data !== "string" && !readAsset) {
+      addProfileImportWarning(warnings, {
+        type: "missing_asset",
+        path: safePath,
+        message: `Profile JSON is missing ${safePath}. Imported the rest of the profile without that asset.`,
+      });
+      return [];
+    }
     let expectedSize: number;
     try {
       expectedSize = getProfileAssetManifestSize(file, safePath);
-      if (typeof file.data === "string") assertProfileArchiveEntryLimit(safePath, expectedSize);
     } catch (error) {
       addProfileImportWarning(warnings, {
         type: "skipped_asset",
@@ -1212,7 +1202,6 @@ async function importProfileStorageSnapshot(
   warnings: ProfileImportWarning[],
   onProgress?: ProfileImportProgressReporter,
   readAsset?: ProfileAssetReader,
-  assetTotalByteLimit = PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES,
 ) {
   validateProfileStorageTableInputs(snapshot);
   let stagedAssets: StagedProfileImportAssets;
@@ -1220,7 +1209,6 @@ async function importProfileStorageSnapshot(
     stagedAssets = await stageProfileImportAssets(
       getDataDir(),
       buildProfileImportAssetInputs(snapshot, readAsset, warnings),
-      assetTotalByteLimit,
     );
   } catch (error) {
     if (error instanceof ProfileImportAssetValidationError) {
@@ -1233,7 +1221,7 @@ async function importProfileStorageSnapshot(
   }
 
   const totalItems = Math.max(1, countProfileStorageSnapshotItems(snapshot));
-  let completedItems = stagedAssets.skipped.length;
+  let completedItems = profileUnavailableAssetWarningPathSet(warnings).size;
   const tableCounts: Record<string, number> = {};
 
   const emit = (phase: string, label: string, files = 0) => {
@@ -1459,7 +1447,6 @@ async function collectProfileAssetZipSources(
 ) {
   const dataDir = getDataDir();
   const sources: StoredZipEntrySource[] = [];
-  let totalUncompressedBytes = 0;
   const seenEntryNames = new Set<string>();
 
   for (const file of files) {
@@ -1473,16 +1460,9 @@ async function collectProfileAssetZipSources(
       if (fileStat.size !== file.size) {
         throw new Error(`Profile asset changed while exporting: ${safePath}`);
       }
-      const nextTotalBytes = totalUncompressedBytes + fileStat.size;
-      if (nextTotalBytes > PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES) {
-        throw new ProfileArchiveTooLargeError(
-          profileArchiveSizeError("Profile ZIP assets", nextTotalBytes, PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES),
-        );
-      }
       const entryName = profileArchiveEntryPath(basePath, safePath);
       if (seenEntryNames.has(entryName)) continue;
       seenEntryNames.add(entryName);
-      totalUncompressedBytes = nextTotalBytes;
       sources.push({
         entryName,
         filePath: inputPath,
@@ -1591,7 +1571,11 @@ async function writeNativeProfileZip(app: FastifyInstance, outputPath: string, s
     const sources = await withOptionalNoodleAutoPostPaused(() =>
       buildProfileArchiveSources(app, "", workingDir, true, skipFailedAssets),
     );
-    await writeStoredZipArchive(outputPath, sources, { skipFailedFileEntries: skipFailedAssets });
+    await writeStoredZipArchive(outputPath, sources, {
+      skipFailedFileEntries: skipFailedAssets,
+      entryLimitBytes: Number.MAX_SAFE_INTEGER,
+      unlimitedArchiveSize: true,
+    });
   } finally {
     await rm(workingDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -2496,7 +2480,6 @@ async function readProfileZipArchive(filePath: string): Promise<ProfileZipArchiv
     const entries: ProfileZipEntry[] = [];
     const entriesByName = new Map<string, ProfileZipEntry>();
     let offset = 0;
-    let totalUncompressedBytes = 0;
     for (let index = 0; index < totalEntries; index++) {
       if (
         offset + 46 > centralDirectory.length ||
@@ -2534,8 +2517,6 @@ async function readProfileZipArchive(filePath: string): Promise<ProfileZipArchiv
       const size = zip64Values.size ?? size32;
       const compressedSize = zip64Values.compressedSize ?? compressedSize32;
       const localHeaderOffset = zip64Values.localHeaderOffset ?? localHeaderOffset32;
-      totalUncompressedBytes = checkedZipSum(totalUncompressedBytes, size, "contents");
-
       if (checkedZipSum(localHeaderOffset, 30, "local file header") > archiveStat.size) {
         throw new ProfileImportRequestError("Profile archive entry points outside the ZIP file.");
       }
@@ -2570,26 +2551,6 @@ async function readProfileZipArchive(filePath: string): Promise<ProfileZipArchiv
     }
 
     const isFullBackup = isStoredFullBackupArchive(entries, archiveStat.size);
-    if (!isFullBackup) {
-      if (archiveStat.size > PROFILE_IMPORT_ARCHIVE_LIMIT_BYTES) {
-        throw new ProfileImportArchiveTooLargeError(
-          profileArchiveSizeError("Profile archive", archiveStat.size, PROFILE_IMPORT_ARCHIVE_LIMIT_BYTES),
-        );
-      }
-      assertProfileArchiveTotalLimit(totalUncompressedBytes, "Profile archive contents");
-      for (const entry of entries) {
-        const { method, compressedSize, size } = entry.header;
-        if (!isPermittedLargeStoredBackupEntry(entry.entryName, method, compressedSize, size)) {
-          throw new ProfileImportRequestError(
-            profileArchiveSizeError(
-              "Profile archive entry",
-              Math.max(compressedSize, size),
-              PROFILE_ARCHIVE_ENTRY_LIMIT_BYTES,
-            ),
-          );
-        }
-      }
-    }
     return { filePath, entries, entriesByName, isFullBackup };
   } finally {
     await handle.close();
@@ -2657,15 +2618,6 @@ async function readProfileArchiveTableRows(
   }
   if (uncompressedSize !== descriptor.size || compressedSize !== descriptor.size) {
     throw new ProfileImportRequestError(`Profile table ${tableName} does not match its manifest size.`);
-  }
-  if (uncompressedSize > PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES) {
-    throw new ProfileImportRequestError(
-      profileArchiveSizeError(
-        `Profile table ${tableName}`,
-        uncompressedSize,
-        PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES,
-      ),
-    );
   }
   if (descriptor.size === 0) {
     if (descriptor.count !== 0 || entry.header.crc32 !== crc32Buffer(Buffer.alloc(0))) {
@@ -2888,7 +2840,6 @@ function validateProfileArchiveAssets(
   const assets: ProfileArchiveAssetIndex = new Map();
   if (!snapshot || !Array.isArray(snapshot.files)) return assets;
 
-  let totalUncompressedBytes = 0;
   for (const file of snapshot.files) {
     if (typeof file?.data === "string") continue;
     const safePath = normalizeProfileAssetPath(file?.path);
@@ -2924,20 +2875,14 @@ function validateProfileArchiveAssets(
       continue;
     }
     const compressedSize = getZipEntryCompressedSize(entry);
-    if (
-      compressedSize === null ||
-      (!zip.isFullBackup &&
-        !isPermittedLargeStoredBackupEntry(entryName, entry.header.method, compressedSize, expectedSize))
-    ) {
+    if (compressedSize === null || (entry.header.method !== 0 && entry.header.method !== 8)) {
       addProfileImportWarning(warnings, {
         type: "skipped_asset",
         path: safePath,
-        message: profileArchiveSizeError(safePath, compressedSize ?? -1, PROFILE_ARCHIVE_ENTRY_LIMIT_BYTES),
+        message: `Profile archive asset ${safePath} uses an unsupported ZIP method.`,
       });
       continue;
     }
-    totalUncompressedBytes = checkedZipSum(totalUncompressedBytes, expectedSize, "restored assets");
-    if (!zip.isFullBackup) assertProfileArchiveTotalLimit(totalUncompressedBytes);
     assets.set(safePath, { entryName, expectedSize });
   }
   return assets;
@@ -2955,21 +2900,26 @@ async function readProfileArchiveAsset(
     if (!asset) return null;
     const entry = getProfileZipEntry(zip, asset.entryName);
     if (!entry || entry.isDirectory) return null;
-    if (entry.header.method === 0) {
-      const compressedSize = getZipEntryCompressedSize(entry);
-      if (compressedSize === null || compressedSize !== asset.expectedSize) {
-        throw new ProfileImportRequestError(`Profile archive asset ${safePath} does not match its stored entry size.`);
-      }
-      if (asset.expectedSize === 0) return Buffer.alloc(0);
-      return {
-        stream: createReadStream(zip.filePath, {
-          start: entry.header.dataOffset,
-          end: entry.header.dataOffset + asset.expectedSize - 1,
-        }),
-        expectedCrc32: entry.header.crc32,
-      } satisfies ProfileImportAssetStream;
+    const compressedSize = getZipEntryCompressedSize(entry);
+    if (compressedSize === null || (entry.header.method === 0 && compressedSize !== asset.expectedSize)) {
+      throw new ProfileImportRequestError(`Profile archive asset ${safePath} does not match its stored entry size.`);
     }
-    return readProfileArchiveEntryBuffer(zip, entry, asset.expectedSize);
+    if (asset.expectedSize === 0) return Buffer.alloc(0);
+    const source = createReadStream(zip.filePath, {
+      start: entry.header.dataOffset,
+      end: entry.header.dataOffset + compressedSize - 1,
+    });
+    let stream: ProfileImportAssetStream["stream"] = source;
+    if (entry.header.method === 8) {
+      const inflater = createInflateRaw();
+      source.on("error", (error) => inflater.destroy(error));
+      source.pipe(inflater);
+      stream = inflater;
+    }
+    return {
+      stream,
+      expectedCrc32: entry.header.crc32,
+    } satisfies ProfileImportAssetStream;
   } catch (error) {
     if (error instanceof ProfileImportRequestError) {
       throw new ProfileImportAssetValidationError(error.message);
@@ -2988,8 +2938,7 @@ async function readProfileImportRequest(req: FastifyRequest): Promise<ProfileImp
   const uploadDir = await mkdtemp(join(tmpdir(), "marinara-profile-import-"));
   const archivePath = join(uploadDir, "profile.zip");
   try {
-    // Full backups are streamed to disk before inspection. Their stored-only ZIP layout is
-    // physically bounded, so the production reader can safely recognize archives above 2 GiB.
+    // Stream uploads to disk so large profile archives do not need to fit in server memory.
     const file = await req.file({ limits: { fileSize: Number.MAX_SAFE_INTEGER } });
     if (!file) throw new ProfileImportRequestError("No profile archive uploaded.");
     const fileStream = file.file as typeof file.file & { truncated?: boolean };
@@ -3004,7 +2953,6 @@ async function readProfileImportRequest(req: FastifyRequest): Promise<ProfileImp
       readAsset: (safePath) => readProfileArchiveAsset(zip, archiveAssets, safePath),
       warnings,
       cleanup: () => rm(uploadDir, { recursive: true, force: true }),
-      assetTotalByteLimit: zip.isFullBackup ? Number.MAX_SAFE_INTEGER : PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES,
     };
   } catch (err) {
     await rm(uploadDir, { recursive: true, force: true }).catch(() => {});
@@ -3027,7 +2975,6 @@ export async function readStoredBackupImportForRegression(filePath: string, safe
     envelope,
     warnings,
     asset: await readProfileArchiveAsset(zip, archiveAssets, safePath),
-    assetTotalByteLimit: zip.isFullBackup ? Number.MAX_SAFE_INTEGER : PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES,
   };
 }
 
@@ -3695,13 +3642,17 @@ export async function backupRoutes(app: FastifyInstance) {
 
   // ── Profile Import ──
   // Accepts a profile JSON envelope or profile ZIP archive and creates all entities.
-  app.delete<{ Params: { token: string } }>("/import-profile-preview/:token", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Profile import" })) return;
-    await discardProfileImportPreview(req.params.token);
-    return { success: true };
-  });
+  app.delete<{ Params: { token: string } }>(
+    "/import-profile-preview/:token",
+    { config: { rateLimit: BACKUP_RATE_LIMIT } },
+    async (req, reply) => {
+      if (!requirePrivilegedAccess(req, reply, { feature: "Profile import" })) return;
+      await discardProfileImportPreview(req.params.token);
+      return { success: true };
+    },
+  );
 
-  app.post("/import-profile", { bodyLimit: PROFILE_IMPORT_BODY_LIMIT_BYTES }, async (req, reply) => {
+  const importProfile = async (req: FastifyRequest, reply: FastifyReply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Profile import" })) return;
 
     const wantsProgressStream = String(req.headers.accept ?? "").includes("text/event-stream");
@@ -3804,7 +3755,6 @@ export async function backupRoutes(app: FastifyInstance) {
             warnings,
             wantsProgressStream ? sendProgress : undefined,
             importInput.readAsset,
-            importInput.assetTotalByteLimit,
           );
           const payload = { success: true, imported, warnings };
           if (wantsProgressStream) {
@@ -4253,5 +4203,10 @@ export async function backupRoutes(app: FastifyInstance) {
     } finally {
       if (!retainInputForPreview) await importInput.cleanup?.();
     }
-  });
+  };
+  app.post(
+    "/import-profile",
+    { bodyLimit: Number.MAX_SAFE_INTEGER, config: { rateLimit: BACKUP_RATE_LIMIT } },
+    importProfile,
+  );
 }

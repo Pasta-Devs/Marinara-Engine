@@ -123,7 +123,7 @@ async function stageStreamedAsset(
   source: ProfileImportAssetStream,
   stagedPath: string,
   expectedSize: number,
-  remainingBytes: number,
+  remainingBytes = Number.MAX_SAFE_INTEGER,
 ) {
   if (!Number.isSafeInteger(source.expectedCrc32) || source.expectedCrc32 < 0 || source.expectedCrc32 > 0xffffffff) {
     throw new ProfileImportAssetValidationError("Profile asset has an invalid CRC manifest.");
@@ -143,7 +143,12 @@ async function stageStreamedAsset(
       callback(null, buffer);
     },
   });
-  await pipeline(source.stream, inspect, createWriteStream(stagedPath, { mode: 0o600 }));
+  try {
+    await pipeline(source.stream, inspect, createWriteStream(stagedPath, { mode: 0o600 }));
+  } catch (error) {
+    if (error instanceof ProfileImportAssetValidationError) throw error;
+    throw new ProfileImportAssetValidationError("Profile asset could not be read from its archive.");
+  }
 
   if (bytesRead !== expectedSize) {
     throw new ProfileImportAssetValidationError("Profile asset does not match its manifest size.");
@@ -158,7 +163,7 @@ async function stageStreamedAsset(
 export async function stageProfileImportAssets(
   dataDir: string,
   inputs: Array<ProfileImportAssetInput>,
-  totalByteLimit: number,
+  totalByteLimit = Number.MAX_SAFE_INTEGER,
 ): Promise<StagedProfileImportAssets> {
   await mkdir(dataDir, { recursive: true });
   const rootDir = await mkdtemp(join(dataDir, ".profile-import-"));

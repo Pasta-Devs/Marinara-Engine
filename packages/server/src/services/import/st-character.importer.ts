@@ -405,47 +405,11 @@ export function inspectSTCharacter(raw: Record<string, unknown>): STCharacterImp
 }
 
 /**
- * Guard a parsed CharX zip against decompression-bomb abuse before any
- * `getData()` call materializes a decompressed entry into memory.
- *
- * adm-zip's `getData()` allocates the full uncompressed entry as a single
- * Buffer, and the 256 MB multipart cap (`app.ts`) bounds only the
- * *compressed* upload — DEFLATE reaches ~1000:1 on repetitive data, so a
- * few-MB `.charx` can expand to multiple GB and OOM the shared process.
- * Sizes are read off the central-directory headers (`entry.header.size`),
- * not the decompressed stream, so we reject before paying the memory cost.
- * Mirrors the `/marinara-package` cap in `import.routes.ts`. Throws on
- * violation; callers wrap this so the route surfaces a 4xx-style failure
- * instead of crashing.
- */
-function assertCharXWithinLimits(zip: AdmZip): void {
-  const MAX_CHARX_ENTRIES = 512;
-  const MAX_CHARX_ENTRY_BYTES = 64 * 1024 * 1024;
-  const MAX_CHARX_TOTAL_BYTES = 256 * 1024 * 1024;
-  const entries = zip.getEntries();
-  if (entries.length > MAX_CHARX_ENTRIES) {
-    throw new Error(".charx file has too many entries");
-  }
-  let total = 0;
-  for (const entry of entries) {
-    const size = entry.header.size ?? 0;
-    if (size > MAX_CHARX_ENTRY_BYTES) {
-      throw new Error(".charx file has an entry that is too large");
-    }
-    total += size;
-    if (total > MAX_CHARX_TOTAL_BYTES) {
-      throw new Error(".charx file decompresses to too much data");
-    }
-  }
-}
-
-/**
  * Import a CharX (.charx) file — RisuAI Character Card V3 zip format.
  * Extracts card.json and the main icon asset from the zip.
  */
 export async function importCharX(buf: Buffer, db: DB, options?: STCharacterImportOptions) {
   const zip = new AdmZip(buf);
-  assertCharXWithinLimits(zip);
 
   // Extract card.json from root of the zip
   const cardJson = readCharXCardJson(zip);
@@ -499,7 +463,6 @@ export async function importCharX(buf: Buffer, db: DB, options?: STCharacterImpo
 export function inspectCharX(buf: Buffer): STCharacterImportPreview {
   try {
     const zip = new AdmZip(buf);
-    assertCharXWithinLimits(zip);
     const cardJson = readCharXCardJson(zip);
     if (!cardJson) {
       return {

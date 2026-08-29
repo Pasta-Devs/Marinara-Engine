@@ -99,7 +99,6 @@ interface SavedAvatar {
 }
 
 export const MAX_EMBEDDED_SPRITE_COUNT = 256;
-const MAX_EMBEDDED_SPRITE_DATA_CHARS = Math.ceil(MAX_FILE_SIZES.SPRITE / 3) * 4 + 128;
 
 export function embeddedSpriteSizesAreWithinLimits(byteLengths: readonly number[]): boolean {
   if (byteLengths.length > MAX_EMBEDDED_SPRITE_COUNT) return false;
@@ -165,26 +164,16 @@ export async function restoreSprites(sprites: unknown, id: string): Promise<void
     rawName: string;
     decoded: NonNullable<ReturnType<typeof decodeImageDataUrl>>;
   }> = [];
-  const preparedByteLengths: number[] = [];
   for (const [index, sprite] of sprites.entries()) {
     if (!sprite || typeof sprite !== "object") {
       logger.warn("Skipped invalid sprite entry %d for %s", index, id);
       continue;
     }
     const entry = sprite as Record<string, unknown>;
-    if (typeof entry.data === "string" && entry.data.length > MAX_EMBEDDED_SPRITE_DATA_CHARS) {
-      logger.warn("Skipped oversized embedded sprite collection for %s", id);
-      return;
-    }
     const decoded = decodeImageDataUrl(entry.data);
     if (!decoded) {
       logger.warn("Skipped sprite %d with invalid image data for %s", index, id);
       continue;
-    }
-    preparedByteLengths.push(decoded.buffer.length);
-    if (!embeddedSpriteSizesAreWithinLimits(preparedByteLengths)) {
-      logger.warn("Skipped embedded sprites exceeding import byte limits for %s", id);
-      return;
     }
     prepared.push({
       index,

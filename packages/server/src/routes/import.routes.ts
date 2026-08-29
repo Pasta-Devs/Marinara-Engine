@@ -7,7 +7,7 @@ import { inflateSync } from "node:zlib";
 import { platform, homedir } from "os";
 import { readdir, stat } from "fs/promises";
 import { resolve as pathResolve } from "path";
-import { MAX_FILE_SIZES, normalizeTextForMatch, type ChatMode } from "@marinara-engine/shared";
+import { normalizeTextForMatch, type ChatMode } from "@marinara-engine/shared";
 import { importSTChat } from "../services/import/st-chat.importer.js";
 import {
   importSTCharacter,
@@ -32,7 +32,7 @@ import { assertInsideDir, safeCompareString, tokenForPath } from "../utils/secur
 
 const PICK_FOLDER_TIMEOUT_MS = 60_000; // 60s — prevents infinite hang on headless servers
 const FOLDER_TOKEN_TTL_MS = 15 * 60_000;
-const MAX_CHARACTER_CARD_CHUNK_SIZE = Math.ceil(MAX_FILE_SIZES.CHARACTER_JSON / 3) * 4;
+const UNBOUNDED_IMPORT_BYTES = Number.MAX_SAFE_INTEGER;
 
 const folderTokens = new Map<string, { path: string; expiresAt: number }>();
 
@@ -240,9 +240,7 @@ export function extractCharaFromPng(buf: Buffer): Record<string, unknown> | null
         const keyword = payload.subarray(0, nullIdx).toString("ascii");
         if (CHARA_KEYWORDS.has(keyword) && !found.has(keyword) && payload[nullIdx + 1] === 0) {
           try {
-            const text = inflateSync(payload.subarray(nullIdx + 2), {
-              maxOutputLength: MAX_CHARACTER_CARD_CHUNK_SIZE,
-            }).toString("utf-8");
+            const text = inflateSync(payload.subarray(nullIdx + 2)).toString("utf-8");
             const parsed = parseCharaChunkText(text);
             if (parsed) found.set(keyword, parsed);
           } catch {
@@ -662,7 +660,7 @@ export async function importRoutes(app: FastifyInstance) {
   });
 
   /** Import a Marinara Engine export (.marinara.json). */
-  app.post("/marinara", async (req) => {
+  app.post("/marinara", { bodyLimit: UNBOUNDED_IMPORT_BYTES }, async (req) => {
     const body = req.body as Record<string, unknown>;
     const timestampOverrides = readTimestampOverridesFromBody(body);
     const payload =
@@ -688,8 +686,8 @@ export async function importRoutes(app: FastifyInstance) {
    * Import a Marinara Engine native package (.marinara file — a zip with
    * data.json plus the avatar binary). Single-file multipart upload.
    */
-  app.post("/marinara-package", async (req, reply) => {
-    const file = await req.file();
+  app.post("/marinara-package", { bodyLimit: UNBOUNDED_IMPORT_BYTES }, async (req, reply) => {
+    const file = await req.file({ limits: { fileSize: UNBOUNDED_IMPORT_BYTES } });
     if (!file) return reply.status(400).send({ success: false, error: "No file uploaded" });
     const buffer = await file.toBuffer();
     if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
@@ -702,14 +700,10 @@ export async function importRoutes(app: FastifyInstance) {
     } catch {
       return reply.status(400).send({ success: false, error: "Could not read .marinara package" });
     }
-    // Bounds checks before any getData() call — a legitimate .marinara package
-    // ships data.json plus at most one avatar.* entry, so anything way past
-    // that is either accidental cruft or a zip-bomb-style decompression
-    // attempt. Sizes are read off the entry headers, not the decompressed
-    // stream, so we reject before paying the memory cost.
+    // Native packages contain data.json plus an optional avatar. Keep the
+    // structural entry boundary, but do not reject legitimate large embedded
+    // galleries or avatars by byte size.
     const MAX_PACKAGE_ENTRIES = 8;
-    const MAX_DATA_JSON_BYTES = 5 * 1024 * 1024;
-    const MAX_AVATAR_BYTES = 20 * 1024 * 1024;
     const entries = zip.getEntries();
     if (entries.length > MAX_PACKAGE_ENTRIES) {
       return reply.status(400).send({ success: false, error: ".marinara package has too many entries" });
@@ -718,9 +712,6 @@ export async function importRoutes(app: FastifyInstance) {
     if (!dataEntry) {
       return reply.status(400).send({ success: false, error: ".marinara package is missing data.json" });
     }
-    if ((dataEntry.header.size ?? 0) > MAX_DATA_JSON_BYTES) {
-      return reply.status(400).send({ success: false, error: "data.json in package is too large" });
-    }
     let envelope: Record<string, unknown>;
     try {
       envelope = JSON.parse(dataEntry.getData().toString("utf-8")) as Record<string, unknown>;
@@ -728,9 +719,6 @@ export async function importRoutes(app: FastifyInstance) {
       return reply.status(400).send({ success: false, error: "data.json is not valid JSON" });
     }
     const avatarEntry = entries.find((e) => /^avatar\.(png|jpe?g|webp|gif|avif)$/i.test(e.entryName));
-    if (avatarEntry && (avatarEntry.header.size ?? 0) > MAX_AVATAR_BYTES) {
-      return reply.status(400).send({ success: false, error: "Avatar image in package is too large" });
-    }
     if (avatarEntry && envelope.data && typeof envelope.data === "object") {
       const ext = avatarEntry.entryName.split(".").pop()!.toLowerCase();
       const mime =
@@ -757,12 +745,12 @@ export async function importRoutes(app: FastifyInstance) {
   });
 
   /** Import a SillyTavern character (JSON body or PNG file upload). */
-  app.post("/st-character", async (req) => {
+  app.post("/st-character", { bodyLimit: UNBOUNDED_IMPORT_BYTES }, async (req) => {
     const contentType = req.headers["content-type"] ?? "";
 
     // Handle multipart file upload (PNG character cards)
     if (contentType.includes("multipart/form-data")) {
-      const file = await req.file();
+      const file = await req.file({ limits: { fileSize: UNBOUNDED_IMPORT_BYTES } });
       if (!file) return { success: false, error: "No file uploaded" };
       const timestampOverrides = readTimestampOverridesFromMultipart(file as any);
       const importEmbeddedLorebook = readMultipartBooleanField(file as any, "importEmbeddedLorebook");
@@ -815,8 +803,8 @@ export async function importRoutes(app: FastifyInstance) {
   });
 
   /** Inspect character cards before importing, so clients can ask about embedded lorebooks. */
-  app.post("/st-character/inspect", async (req) => {
-    const parts = req.parts();
+  app.post("/st-character/inspect", { bodyLimit: UNBOUNDED_IMPORT_BYTES }, async (req) => {
+    const parts = req.parts({ limits: { fileSize: UNBOUNDED_IMPORT_BYTES } });
     const results: Array<{ filename: string } & STCharacterImportPreview> = [];
 
     for await (const part of parts) {
@@ -842,8 +830,8 @@ export async function importRoutes(app: FastifyInstance) {
   });
 
   /** Import multiple character cards in one multipart request. */
-  app.post("/st-character/batch", async (req) => {
-    const parts = req.parts();
+  app.post("/st-character/batch", { bodyLimit: UNBOUNDED_IMPORT_BYTES }, async (req) => {
+    const parts = req.parts({ limits: { fileSize: UNBOUNDED_IMPORT_BYTES } });
     const files: Array<{ filename: string; buffer: Buffer }> = [];
     const timestampEntries: Array<{ name?: string; lastModified?: number | string }> = [];
     let importEmbeddedLorebook: boolean | undefined;

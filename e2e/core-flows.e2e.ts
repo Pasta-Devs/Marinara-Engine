@@ -16075,6 +16075,77 @@ test("streamed profile and full-backup ZIPs round-trip through import preview", 
   }
 });
 
+test("Settings profile import reuses its preview upload and skips one invalid asset", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "The Settings profile import flow is covered once on desktop.");
+
+  const suffix = Date.now().toString(36);
+  const validAssetName = `profile-import-${suffix}.gif`;
+  const validAsset = Buffer.from(TRANSPARENT_GIF_BASE64, "base64");
+  const invalidAsset = Buffer.from("not an image");
+  const profile = {
+    type: "marinara_profile",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: {
+      fileStorage: {
+        version: 1,
+        tables: {},
+        files: [
+          {
+            path: "game-assets/sprites/.native",
+            size: invalidAsset.length,
+            data: invalidAsset.toString("base64"),
+          },
+          {
+            path: `game-assets/sprites/${validAssetName}`,
+            size: validAsset.length,
+            data: validAsset.toString("base64"),
+          },
+        ],
+      },
+    },
+  };
+  const importRequests: Array<{ bodyBytes: number; previewToken?: string }> = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (request.method() !== "POST" || url.pathname !== "/api/backup/import-profile") return;
+    importRequests.push({
+      bodyBytes: request.postDataBuffer()?.length ?? 0,
+      previewToken: request.headers()["x-profile-preview-token"],
+    });
+  });
+
+  try {
+    await page.goto("/");
+    await page.locator('[data-tour="panel-settings"]').click();
+    await page.getByRole("tab", { name: "Imports", exact: true }).click();
+    await page.locator('input[type="file"][accept*="application/zip"]').setInputFiles({
+      name: `profile-import-${suffix}.json`,
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(profile)),
+    });
+
+    const confirmation = page.getByRole("dialog", { name: "Import Profile" });
+    await expect(confirmation).toContainText("Found: 2 files");
+    await confirmation.getByRole("button", { name: "Import", exact: true }).click();
+
+    const status = page.locator('[role="status"][aria-live="polite"]');
+    await expect(status).toContainText("Profile import complete with warnings");
+    await expect(status).toContainText("game-assets/sprites/.native");
+    await expect.poll(() => importRequests.length).toBe(2);
+    expect(importRequests[0].bodyBytes).toBeGreaterThan(0);
+    expect(importRequests[0].previewToken).toBeUndefined();
+    expect(importRequests[1].bodyBytes).toBe(0);
+    expect(importRequests[1].previewToken).toBeTruthy();
+
+    const restoredAsset = await page.request.get(`/api/game-assets/file/sprites/${validAssetName}`);
+    expect(restoredAsset.ok()).toBeTruthy();
+    expect(await restoredAsset.body()).toEqual(validAsset);
+  } finally {
+    await page.request.delete(`/api/game-assets/file/sprites/${validAssetName}`).catch(() => undefined);
+  }
+});
+
 test("a fresh Home desk starts with the guided five-widget composition", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop verifies the four-column first-run composition.");
 

@@ -19,11 +19,10 @@ import { characters as charactersTable } from "../../db/schema/index.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { getFileTimestampOverrides, parseTrustedTimestamp } from "./import-timestamps.js";
-import { MAX_FILE_SIZES, normalizeTextForMatch } from "@marinara-engine/shared";
+import { normalizeTextForMatch } from "@marinara-engine/shared";
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
 const BG_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
-const MAX_CHARACTER_CARD_CHUNK_SIZE = Math.ceil(MAX_FILE_SIZES.CHARACTER_JSON / 3) * 4;
 
 // ─── Helpers ───
 
@@ -63,9 +62,7 @@ function extractCharaFromPng(buf: Buffer): Record<string, unknown> | null {
         const keyword = payload.subarray(0, nullIdx).toString("ascii");
         if (CHARA_KEYWORDS.has(keyword) && !found.has(keyword) && payload[nullIdx + 1] === 0) {
           try {
-            const text = inflateSync(payload.subarray(nullIdx + 2), {
-              maxOutputLength: MAX_CHARACTER_CARD_CHUNK_SIZE,
-            }).toString("utf-8");
+            const text = inflateSync(payload.subarray(nullIdx + 2)).toString("utf-8");
             try {
               found.set(keyword, JSON.parse(text));
             } catch {
