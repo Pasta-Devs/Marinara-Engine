@@ -23,6 +23,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Profile preview uploads now remain available until they are imported, cancelled, or the server stops instead of expiring after 30 minutes and forcing another upload (#5624).
 - Opening a Game chat on a phone no longer leaves its HUD in the wide layout: when the custom widget state finished hydrating while the transcript was still loading, the compact mobile HUD measured a surface that had not mounted yet and never measured again, so widgets stayed stacked above the narration instead of flanking the choice cards for the rest of the session (#5626).
 - Profile imports now upload and scan the selected JSON or ZIP only once, reusing the reviewed server-side preview when import is confirmed; an unsupported or corrupt individual asset is skipped and reported as a warning while the rest of the valid profile continues restoring (#5624).
 - Profile ZIP import and export no longer impose archive, individual-asset, or restored-total byte ceilings, and native character, persona, PNG card, and CharX imports no longer reject otherwise valid image galleries by byte size; paths, media contents, and archive structure remain validated, while profile executable content stays quarantined (#5624).

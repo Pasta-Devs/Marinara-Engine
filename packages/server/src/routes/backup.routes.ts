@@ -87,7 +87,6 @@ const BACKUP_DIRS = [
   "long-term-memory",
 ];
 const ENCRYPTION_KEY_FILENAME = ".encryption-key";
-const PROFILE_IMPORT_PREVIEW_TTL_MS = 30 * 60 * 1_000;
 const PROFILE_ASSET_DIRS = BACKUP_DIRS.filter((dirName) => dirName !== "storage");
 const ZIP16_MAX_VALUE = 0xffff;
 const ZIP32_MAX_VALUE = 0xffffffff;
@@ -3245,40 +3244,25 @@ export async function backupRoutes(app: FastifyInstance) {
     await Promise.all([...backupDownloadJobs.keys()].map(removeBackupDownloadJob));
   });
 
-  type ProfileImportPreview = { input: ProfileImportInput; expiresAt: number };
-  const profileImportPreviews = new Map<string, ProfileImportPreview>();
+  const profileImportPreviews = new Map<string, ProfileImportInput>();
   const discardProfileImportPreview = async (token: string) => {
-    const preview = profileImportPreviews.get(token);
-    if (!preview) return false;
+    const input = profileImportPreviews.get(token);
+    if (!input) return false;
     profileImportPreviews.delete(token);
     try {
-      await preview.input.cleanup?.();
+      await input.cleanup?.();
     } catch (error) {
       logger.warn(error, "[backup] Failed to remove a staged profile preview");
     }
     return true;
   };
   const takeProfileImportPreview = async (token: string) => {
-    const preview = profileImportPreviews.get(token);
-    if (!preview) return null;
+    const input = profileImportPreviews.get(token);
+    if (!input) return null;
     profileImportPreviews.delete(token);
-    if (preview.expiresAt <= Date.now()) {
-      await preview.input.cleanup?.().catch((error) => {
-        logger.warn(error, "[backup] Failed to remove an expired profile preview");
-      });
-      return null;
-    }
-    return preview.input;
+    return input;
   };
-  const profileImportPreviewCleanupTimer = setInterval(() => {
-    const now = Date.now();
-    for (const [token, preview] of profileImportPreviews) {
-      if (preview.expiresAt <= now) void discardProfileImportPreview(token);
-    }
-  }, 60 * 1_000);
-  profileImportPreviewCleanupTimer.unref();
   app.addHook("onClose", async () => {
-    clearInterval(profileImportPreviewCleanupTimer);
     await Promise.all([...profileImportPreviews.keys()].map(discardProfileImportPreview));
   });
 
@@ -3667,8 +3651,8 @@ export async function backupRoutes(app: FastifyInstance) {
       const previewInput = await takeProfileImportPreview(providedPreviewToken);
       if (!previewInput) {
         return reply.status(410).send({
-          error: "Profile preview expired",
-          message: "Profile preview expired. Select the file again before importing.",
+          error: "Profile preview unavailable",
+          message: "Profile preview is no longer available. Select the file again before importing.",
         });
       }
       importInput = previewInput;
@@ -3711,10 +3695,7 @@ export async function backupRoutes(app: FastifyInstance) {
       if (previewOnly) {
         const imported = profileStoragePreviewStats ?? previewLegacyProfileImportStats(data, warnings);
         const previewToken = randomUUID();
-        profileImportPreviews.set(previewToken, {
-          input: importInput,
-          expiresAt: Date.now() + PROFILE_IMPORT_PREVIEW_TTL_MS,
-        });
+        profileImportPreviews.set(previewToken, importInput);
         retainInputForPreview = true;
         return {
           success: true,
