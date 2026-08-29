@@ -19205,6 +19205,7 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
     // choice stage asserted below. The mobile WebKit lane reached that ordering
     // at random whenever the messages fetch trailed the chat detail; pinning it
     // here keeps the case deterministic instead of leaving it to runner timing.
+    let sawMessagesLoadingBranch = false;
     let messagesPageHeld = false;
     await page.route("**/api/chats/*/messages**", async (route) => {
       if (!messagesPageHeld) {
@@ -19213,11 +19214,34 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
           .waitForFunction(
             () => document.querySelector('[data-component="GameSurface.MessagesLoading"]') !== null,
             undefined,
-            { timeout: 15_000 },
+            // Short budget on purpose. The branch commits within a frame of the
+            // request being issued, so this only ever waits milliseconds when
+            // the marker is right. Keeping it short means a marker that has been
+            // renamed away costs a few seconds rather than consuming the
+            // assertion budget below and failing as a confusing timeout.
+            { timeout: 5_000 },
+          )
+          .then(() => {
+            sawMessagesLoadingBranch = true;
+          })
+          // Swallowed on purpose: throwing here would leave the route unhandled
+          // and hang the request until the test times out, hiding the reason.
+          // The assertion after the layout checks names it precisely instead, so
+          // a renamed marker or an unreachable branch fails loudly rather than
+          // quietly turning this hold into a no-op that still passes.
+          .catch(() => undefined);
+        // Let React flush the passive effects committed with that branch, which
+        // is where the widget state hydrates. Frames rather than a fixed delay,
+        // so the wait stretches on a loaded runner instead of expiring early.
+        // Also swallowed: if the page is already gone the hold has no work left.
+        await page
+          .evaluate(
+            () =>
+              new Promise<void>((resolve) => {
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+              }),
           )
           .catch(() => undefined);
-        // The widget state hydrates a frame or two after that branch commits.
-        await page.waitForTimeout(150);
       }
       await route.continue();
     });
@@ -19252,6 +19276,13 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
     await expect(rightWidgetRail).toBeVisible();
     await expect(composer).toBeVisible();
     await expect(options).toHaveCount(3);
+    // The layout above only proves the compact HUD survived the hold if the hold
+    // actually happened. Without this the guard could fail open and keep passing
+    // while no longer exercising the ordering it exists to pin.
+    expect(
+      sawMessagesLoadingBranch,
+      "expected the Game messages-loading branch to render while the first page of messages was held",
+    ).toBe(true);
 
     const viewport = { width: 390, height: 700 };
     await page.setViewportSize(viewport);

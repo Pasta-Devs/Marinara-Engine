@@ -10605,7 +10605,8 @@ function GameSurfaceComponent({
     // hudSurfaceEl is a dependency so the measurement and the ResizeObserver are
     // re-established when the surface mounts. Without it, widgets that hydrate
     // while the messages-loading branch is showing leave the layout unmeasured
-    // for the rest of the session and the compact mobile HUD never engages.
+    // and no observer attached, so the compact mobile HUD stays off until a
+    // window resize happens to run the measurement again.
   }, [combatUiActive, hudSurfaceEl, normalizedWidgets.length]);
 
   const effectiveBackgroundTag = replayActive ? replayBackgroundTag : currentBackground;
