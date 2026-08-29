@@ -104,7 +104,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 14 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 15 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -140,20 +140,20 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.14/,
+    /requires capability API 2\.0; this Engine supports 1\.15/,
   );
   const currentMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 14 },
+    capabilityApi: { major: 1, minor: 15 },
   });
   assert.equal(getCapabilityApiCompatibilityIssue(currentMinorManifest), null);
   const unsupportedMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 15 },
+    capabilityApi: { major: 1, minor: 16 },
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMinorManifest) ?? "",
-    /requires capability API 1\.15; this Engine supports 1\.14/,
+    /requires capability API 1\.16; this Engine supports 1\.15/,
   );
 
   const forwardCompatibleCatalog = capabilityCatalogSchema.parse({
@@ -1221,6 +1221,9 @@ try {
       if (typeof api.runtime.getAgentConfig !== "function") {
         throw new Error("Capability API 1.5 agent config host is unavailable");
       }
+      if (typeof api.runtime.resolveEmbeddings !== "function") {
+        throw new Error("Capability API 1.15 embedding resolver is unavailable");
+      }
       if (typeof api.runtime.embeddings?.embed !== "function" || !api.runtime.embeddings.spaceId) {
         throw new Error("Capability embedding host is unavailable");
       }
@@ -1234,7 +1237,7 @@ try {
       await api.runtime.persistence.listExistingLorebookEntryIds([]);
       await api.runtime.resources.listCharacters([]);
       await api.runtime.resources.listEligibleLorebookEntries({ lorebookIds: [], entryIds: [] });
-      api.registerService("readiness:success", { active: true, debugAgentsEnabled });
+      api.registerService("readiness:success", { active: true, debugAgentsEnabled, runtime: api.runtime });
     }
     export async function selfCheck({ api }) {
       const dependency = await import("./runtime-dependency.mjs");
@@ -1270,12 +1273,16 @@ try {
   const db = await getDB();
   const { createConnectionsStorage } =
     await import("../../packages/server/src/services/storage/connections.storage.js");
-  const remoteEmbeddingConnection = await createConnectionsStorage(db).create({
+  const connections = createConnectionsStorage(db);
+  const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
+  const agents = createAgentsStorage(db);
+  const remoteEmbeddingConnection = await connections.create({
     name: "Capability remote embeddings",
     provider: "custom",
     baseUrl: "https://chat.example.invalid/v1",
     embeddingBaseUrl: "https://embeddings.example.invalid/v1",
     embeddingModel: "text-embedding-regression",
+    isDefault: true,
   });
   const configuredEmbeddingHost = await createConfiguredCapabilityEmbeddingHost(db, remoteEmbeddingConnection.id);
   assert.equal(configuredEmbeddingHost.label, "Capability remote embeddings (text-embedding-regression)");
@@ -1289,7 +1296,7 @@ try {
     repeatedConfiguredEmbeddingHost.spaceId,
     "the same configured embedding source must keep a stable space ID",
   );
-  const caseDistinctEmbeddingConnection = await createConnectionsStorage(db).create({
+  const caseDistinctEmbeddingConnection = await connections.create({
     name: "Capability case-distinct embeddings",
     provider: "custom",
     baseUrl: "https://chat.example.invalid/v1",
@@ -1703,6 +1710,46 @@ try {
     typeof getCapabilityService<{ active: boolean; debugAgentsEnabled: boolean }>("readiness:success")
       ?.debugAgentsEnabled,
     "boolean",
+  );
+  const liveEmbeddingRuntime = getCapabilityService<{
+    runtime: { embeddings: { label: string }; resolveEmbeddings(): Promise<{ label: string }> };
+  }>("readiness:success")?.runtime;
+  assert.ok(liveEmbeddingRuntime, "activated package must expose its capability runtime");
+  assert.equal(
+    liveEmbeddingRuntime.embeddings.label,
+    "Capability remote embeddings (text-embedding-regression)",
+    "legacy static embeddings must retain the activation-time source",
+  );
+  const replacementEmbeddingConnection = await connections.create({
+    name: "Capability replacement embeddings",
+    provider: "custom",
+    baseUrl: "https://chat.example.invalid/v1",
+    embeddingBaseUrl: "https://embeddings.example.invalid/v1",
+    embeddingModel: "text-embedding-replacement",
+  });
+  await connections.update(remoteEmbeddingConnection.id, { isDefault: false });
+  await connections.update(replacementEmbeddingConnection.id, { isDefault: true });
+  assert.equal(
+    (await liveEmbeddingRuntime.resolveEmbeddings()).label,
+    "Capability replacement embeddings (text-embedding-replacement)",
+    "live capability embeddings must follow a changed global default without reactivation",
+  );
+  const packageConfig = await agents.create({
+    type: "readiness-success",
+    name: "Readiness success",
+    phase: "parallel",
+    connectionId: remoteEmbeddingConnection.id,
+  });
+  assert.equal(
+    (await liveEmbeddingRuntime.resolveEmbeddings()).label,
+    "Capability remote embeddings (text-embedding-regression)",
+    "a package-specific connection must override the global embedding default",
+  );
+  await agents.update(packageConfig!.id, { connectionId: null });
+  assert.equal(
+    (await liveEmbeddingRuntime.resolveEmbeddings()).label,
+    "Capability replacement embeddings (text-embedding-replacement)",
+    "clearing a package override must resume the current global embedding default",
   );
   assert.equal(await capabilityPackageManager.clientEntrypoint("hierarchical-maps"), null);
   assert.equal(await capabilityPackageManager.clientEntrypoint("readiness-failure"), null);
