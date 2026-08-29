@@ -56,6 +56,7 @@ const validPng = Buffer.from(
   "base64",
 );
 const html = Buffer.from("<!doctype html><script>globalThis.pwned=true</script>", "utf8");
+const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>globalThis.pwned=true</script></svg>', "utf8");
 const javascript = Buffer.from("globalThis.pwned=true", "utf8");
 const passiveSvgWithDoctype = Buffer.from(
   '<?xml version="1.0"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>',
@@ -218,7 +219,7 @@ try {
     dataDir,
     [
       { path: "gallery/global/payload.html", expectedSize: html.length, read: () => html },
-      { path: "game-assets/other/payload.svg", expectedSize: html.length, read: () => html },
+      { path: "game-assets/other/payload.svg", expectedSize: svg.length, read: () => svg },
       { path: "game-assets/sprites/.native", expectedSize: html.length, read: () => html },
       { path: "gallery/character-videos/char/payload.mp4", expectedSize: html.length, read: () => html },
       { path: "custom-emojis/payload.png", expectedSize: javascript.length, read: () => javascript },

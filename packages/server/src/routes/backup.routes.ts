@@ -2904,17 +2904,20 @@ async function readProfileArchiveAsset(
     if (compressedSize === null || (entry.header.method === 0 && compressedSize !== asset.expectedSize)) {
       throw new ProfileImportRequestError(`Profile archive asset ${safePath} does not match its stored entry size.`);
     }
-    if (asset.expectedSize === 0) return Buffer.alloc(0);
+    if (asset.expectedSize === 0 && entry.header.method === 0) {
+      const empty = Buffer.alloc(0);
+      if (entry.header.crc32 !== crc32Buffer(empty)) {
+        throw new ProfileImportRequestError(`Profile archive asset ${safePath} failed its CRC check.`);
+      }
+      return empty;
+    }
     const source = createReadStream(zip.filePath, {
       start: entry.header.dataOffset,
       end: entry.header.dataOffset + compressedSize - 1,
     });
     let stream: ProfileImportAssetStream["stream"] = source;
     if (entry.header.method === 8) {
-      const inflater = createInflateRaw();
-      source.on("error", (error) => inflater.destroy(error));
-      source.pipe(inflater);
-      stream = inflater;
+      stream = source.compose(createInflateRaw());
     }
     return {
       stream,
