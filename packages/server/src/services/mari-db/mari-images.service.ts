@@ -981,7 +981,7 @@ export class MariImagesService {
   }
 
   private async chatGalleryImageUrl(chatId: string, imageId: string) {
-    const image = await createGalleryStorage(this.db).getById(imageId);
+    const image = await createGalleryStorage(this.db).getById(imageId, chatId);
     if (!image || image.chatId !== chatId) throw new Error(`Chat gallery image not found: ${imageId}`);
     const filename = image.filePath.split("/").pop() ?? "";
     const ownerChatId = image.filePath.split("/").filter(Boolean).length > 1 ? image.filePath.split("/")[0]! : chatId;
@@ -1350,7 +1350,7 @@ export class MariImagesService {
 
   private async deleteChatGallery(chatId: string, imageId: string) {
     const store = createGalleryStorage(this.db);
-    const image = await store.getById(imageId);
+    const image = await store.getById(imageId, chatId);
     if (!image || image.chatId !== chatId) throw new Error(`Chat gallery image not found: ${imageId}`);
     const cleanup = await deleteChatGalleryImageEverywhere({ db: this.db, image });
     return { deleted: image, cleanup };

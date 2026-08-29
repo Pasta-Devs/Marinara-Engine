@@ -1702,6 +1702,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
       const chatsStorage = createChatsStorage(app.db);
       const sceneVideos = createGameSceneVideosStorage(app.db);
+      // Id-only lookup: the owning chat is only known after the read (permanent-lease risk accepted, #5611).
       const video = await sceneVideos.getById(sceneVideoId);
       if (!video) return reply.status(404).send({ error: "Clip not found" });
 
@@ -1711,7 +1712,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       }
 
       await removeSavedVideoFromDisk(video.filePath);
-      await sceneVideos.remove(video.id);
+      await sceneVideos.remove(video.id, video.chatId);
       return { success: true };
     }
 

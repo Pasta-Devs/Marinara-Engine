@@ -2360,8 +2360,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     let updated: Awaited<ReturnType<typeof gameStateStore.updateLatest>> = null;
     if (hasExplicitTarget) {
       const targetMessage = await storage.getMessage(targetMessageId);
-      const targetSnapshot = await gameStateStore.getByMessage(targetMessageId, targetSwipeIndex);
-      if (targetMessage?.chatId === req.params.id || targetSnapshot?.chatId === req.params.id) {
+      const targetSnapshot = await gameStateStore.getByChatAndMessage(req.params.id, targetMessageId, targetSwipeIndex);
+      if (targetMessage?.chatId === req.params.id || targetSnapshot !== null) {
         updated = await gameStateStore.updateByMessage(
           targetMessageId,
           targetSwipeIndex,
@@ -2397,7 +2397,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       await app.db
         .update(gameStateSnapshots)
         .set({ manualOverrides: null })
-        .where(eq(gameStateSnapshots.id, (updated as any).id));
+        .where(and(eq(gameStateSnapshots.chatId, req.params.id), eq(gameStateSnapshots.id, (updated as any).id)));
       updated = { ...updated, manualOverrides: null };
     }
     // If no snapshot exists yet, create one so manual edits aren't lost
@@ -4004,7 +4004,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
       // Helpers to create snapshots re-keyed for the new branch.
       const copySnapshot = async (
-        snapshot: NonNullable<Awaited<ReturnType<typeof gameStateStore.getByMessage>>>,
+        snapshot: NonNullable<Awaited<ReturnType<typeof gameStateStore.getByChatAndMessage>>>,
         targetMessageId: string,
         targetSwipeIndex: number,
       ) => {
@@ -4100,7 +4100,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                 transitionPayloadHash: null,
               });
             }
-            const snapshot = await gameStateStore.getByMessage(srcMsg.id, swipeIndex);
+            const snapshot = await gameStateStore.getByChatAndMessage(req.params.id, srcMsg.id, swipeIndex);
             if (snapshot) {
               await copySnapshot(snapshot, branchedMsgId, swipeIndex);
             }

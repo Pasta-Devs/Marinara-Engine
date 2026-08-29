@@ -430,12 +430,13 @@ export function createAgentsStorage(db: DB) {
       return rows.map((row) => serializeRunWithConfig(row));
     },
 
-    async getRunWithConfig(id: string) {
+    async getRunWithConfig(id: string, chatId?: string) {
+      const condition = chatId ? and(eq(agentRuns.chatId, chatId), eq(agentRuns.id, id)) : eq(agentRuns.id, id);
       const rows = await db
         .select()
         .from(agentRuns)
         .innerJoin(agentConfigs, eq(agentRuns.agentConfigId, agentConfigs.id))
-        .where(eq(agentRuns.id, id))
+        .where(condition)
         .limit(1);
       const row = rows[0];
       return row ? serializeRunWithConfig(row) : null;
@@ -447,7 +448,7 @@ export function createAgentsStorage(db: DB) {
         .update(agentRuns)
         .set({ resultData: JSON.stringify(resultData) })
         .where(condition);
-      return this.getRunWithConfig(id);
+      return this.getRunWithConfig(id, chatId);
     },
 
     // ── Agent Memory (persistent KV per agent per chat) ──

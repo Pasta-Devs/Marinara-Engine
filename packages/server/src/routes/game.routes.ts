@@ -5852,7 +5852,7 @@ async function serializeGameTurnStoryboard(args: {
     let image: GameTurnStoryboardKeyframe["image"] = null;
     let video: GeneratedSceneVideo | null = null;
     if (frame.chatImageId) {
-      const imageRow = await args.gallery.getById(frame.chatImageId).catch(() => null);
+      const imageRow = await args.gallery.getById(frame.chatImageId, args.row.chatId).catch(() => null);
       if (imageRow) {
         image = {
           id: imageRow.id,
@@ -5865,7 +5865,7 @@ async function serializeGameTurnStoryboard(args: {
       }
     }
     if (frame.sceneVideoId) {
-      const videoRow = await args.sceneVideos.getById(frame.sceneVideoId).catch(() => null);
+      const videoRow = await args.sceneVideos.getById(frame.sceneVideoId, args.row.chatId).catch(() => null);
       if (videoRow) video = serializeGameSceneVideo(videoRow);
     }
 
@@ -13029,6 +13029,8 @@ export async function gameRoutes(app: FastifyInstance) {
     let referenceImage: VideoReferenceImage;
 
     if (requestedGalleryImageId) {
+      // Deliberately unscoped: galleryImageBelongsToGameScope accepts sibling-chat images,
+      // so the owning chat is not necessarily this one (permanent-lease risk accepted, #5611).
       const galleryImage = await gallery.getById(requestedGalleryImageId);
       if (!galleryImage || !(await galleryImageBelongsToGameScope(chats, chat, galleryImage.chatId))) {
         return reply.status(404).send({ error: "Gallery illustration not found" });
@@ -14198,8 +14200,10 @@ export async function gameRoutes(app: FastifyInstance) {
   // Delete a specific checkpoint.
   app.delete("/checkpoint/:id", async (req) => {
     const { id } = req.params as { id: string };
+    // Optional chatId keeps the lazy store from loading the whole table for a bare-id delete.
+    const { chatId } = req.query as { chatId?: string };
     const checkpoints = createCheckpointService(app.db);
-    await checkpoints.deleteById(id);
+    await checkpoints.deleteById(id, typeof chatId === "string" && chatId ? chatId : undefined);
     return { ok: true };
   });
 
@@ -14221,7 +14225,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const chat = await chats.getById(input.chatId);
     if (!chat) throw new Error("Chat not found");
 
-    const cp = await checkpointSvc.getById(input.checkpointId);
+    const cp = await checkpointSvc.getById(input.checkpointId, input.chatId);
     if (!cp) throw new Error("Checkpoint not found");
     if (cp.chatId !== input.chatId) throw new Error("Checkpoint does not belong to this chat");
 
@@ -14229,14 +14233,14 @@ export async function gameRoutes(app: FastifyInstance) {
     // still be edited after capture. Older checkpoints fall back to their row IDs.
     const snapshot =
       parseJsonField<NonNullable<Awaited<ReturnType<typeof stateStore.getById>>> | null>(cp.snapshotData, null) ??
-      (await stateStore.getById(cp.snapshotId));
+      (await stateStore.getById(cp.snapshotId, input.chatId));
     if (!snapshot) throw new Error("Checkpoint snapshot was deleted and can no longer be restored");
     if (snapshot.chatId !== input.chatId) throw new Error("Checkpoint snapshot does not belong to this chat");
     const spatialSnapshot =
       parseJsonField<NonNullable<Awaited<ReturnType<typeof spatialStore.getById>>> | null>(
         cp.spatialSnapshotData,
         null,
-      ) ?? (cp.spatialSnapshotId ? await spatialStore.getById(cp.spatialSnapshotId) : null);
+      ) ?? (cp.spatialSnapshotId ? await spatialStore.getById(cp.spatialSnapshotId, input.chatId) : null);
     if (cp.spatialSnapshotId && !spatialSnapshot) {
       throw new Error("Checkpoint spatial snapshot was deleted and can no longer be restored");
     }

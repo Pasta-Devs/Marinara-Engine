@@ -2179,10 +2179,22 @@ export function createChatsStorage(db: DB) {
           .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, target.id)));
         await db
           .delete(gameStateSnapshots)
-          .where(and(eq(gameStateSnapshots.messageId, messageId), eq(gameStateSnapshots.swipeIndex, index)));
+          .where(
+            and(
+              eq(gameStateSnapshots.chatId, msg.chatId),
+              eq(gameStateSnapshots.messageId, messageId),
+              eq(gameStateSnapshots.swipeIndex, index),
+            ),
+          );
         await db
           .delete(spatialContextSnapshots)
-          .where(and(eq(spatialContextSnapshots.messageId, messageId), eq(spatialContextSnapshots.swipeIndex, index)));
+          .where(
+            and(
+              eq(spatialContextSnapshots.chatId, msg.chatId),
+              eq(spatialContextSnapshots.messageId, messageId),
+              eq(spatialContextSnapshots.swipeIndex, index),
+            ),
+          );
 
         const swipesToShift = await db
           .select()
@@ -2198,39 +2210,63 @@ export function createChatsStorage(db: DB) {
         const snapshotsToShift = await db
           .select()
           .from(gameStateSnapshots)
-          .where(and(eq(gameStateSnapshots.messageId, messageId), gt(gameStateSnapshots.swipeIndex, index)));
+          .where(
+            and(
+              eq(gameStateSnapshots.chatId, msg.chatId),
+              eq(gameStateSnapshots.messageId, messageId),
+              gt(gameStateSnapshots.swipeIndex, index),
+            ),
+          );
         for (const snapshot of snapshotsToShift) {
           await db
             .update(gameStateSnapshots)
             .set({ swipeIndex: snapshot.swipeIndex - 1 })
-            .where(eq(gameStateSnapshots.id, snapshot.id));
+            .where(and(eq(gameStateSnapshots.chatId, msg.chatId), eq(gameStateSnapshots.id, snapshot.id)));
         }
 
         const spatialSnapshotsToShift = await db
           .select()
           .from(spatialContextSnapshots)
-          .where(and(eq(spatialContextSnapshots.messageId, messageId), gt(spatialContextSnapshots.swipeIndex, index)));
+          .where(
+            and(
+              eq(spatialContextSnapshots.chatId, msg.chatId),
+              eq(spatialContextSnapshots.messageId, messageId),
+              gt(spatialContextSnapshots.swipeIndex, index),
+            ),
+          );
         for (const snapshot of spatialSnapshotsToShift) {
           await db
             .update(spatialContextSnapshots)
             .set({ swipeIndex: snapshot.swipeIndex - 1 })
-            .where(eq(spatialContextSnapshots.id, snapshot.id));
+            .where(and(eq(spatialContextSnapshots.chatId, msg.chatId), eq(spatialContextSnapshots.id, snapshot.id)));
         }
 
         // Mirror the prune for turn-game (UNO) snapshots so anchors stay aligned
         // with the message's swipes after one is removed.
         await db
           .delete(gameEngineState)
-          .where(and(eq(gameEngineState.messageId, messageId), eq(gameEngineState.swipeIndex, index)));
+          .where(
+            and(
+              eq(gameEngineState.chatId, msg.chatId),
+              eq(gameEngineState.messageId, messageId),
+              eq(gameEngineState.swipeIndex, index),
+            ),
+          );
         const engineSnapshotsToShift = await db
           .select()
           .from(gameEngineState)
-          .where(and(eq(gameEngineState.messageId, messageId), gt(gameEngineState.swipeIndex, index)));
+          .where(
+            and(
+              eq(gameEngineState.chatId, msg.chatId),
+              eq(gameEngineState.messageId, messageId),
+              gt(gameEngineState.swipeIndex, index),
+            ),
+          );
         for (const snapshot of engineSnapshotsToShift) {
           await db
             .update(gameEngineState)
             .set({ swipeIndex: snapshot.swipeIndex - 1 })
-            .where(eq(gameEngineState.id, snapshot.id));
+            .where(and(eq(gameEngineState.chatId, msg.chatId), eq(gameEngineState.id, snapshot.id)));
         }
 
         await db

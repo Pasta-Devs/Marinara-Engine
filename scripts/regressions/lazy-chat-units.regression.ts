@@ -21,7 +21,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq, inArray } from "../../packages/server/src/db/file-query.js";
 import { createFileNativeDB, encodeShardKey } from "../../packages/server/src/db/file-backed-store.js";
-import { chats, memoryChunks, messages, messageSwipes } from "../../packages/server/src/db/schema/index.js";
+import { chats, gameStateSnapshots, memoryChunks, messages, messageSwipes } from "../../packages/server/src/db/schema/index.js";
 
 if (process.env.MARINARA_EAGER_STORAGE === "1" || process.env.MARINARA_EAGER_STORAGE === "true") {
   // The kill switch restores eager boot loading; these regressions assert
@@ -924,6 +924,80 @@ const loadedUnitsOf = (db: Awaited<ReturnType<typeof createFileNativeDB>>) => db
     assert.equal(loaded.has("chat-5"), true, "the most recent healthy unit stays resident");
   } finally {
     delete process.env.MARINARA_MAX_RESIDENT_CHATS;
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ── #5611: chat-scoped game-state operations do not lease the whole table ──
+// Before the residual-lease fixes, the hot tracker path (getByMessage inside
+// updateByMessage, the create() dedupe delete, getCommittedForMessages) queried
+// game_state_snapshots without a chatId conjunct. The store cannot scope those
+// conditions, so the FIRST game-mode turn converted the table to permanently
+// fully-resident — silently defeating MARINARA_MAX_RESIDENT_CHATS. This block
+// drives the real storage layer through the same operations and asserts the
+// table is never leased and the other chat's unit is never loaded; the final
+// half runs a deliberately unscoped query to prove the lease tripwire (and the
+// diagnostics accessor) still detect exactly what the old code used to do.
+
+{
+  const dir = tempStorageDir();
+  const gameStateRow = (id: string, chatId: string, messageId: string, swipeIndex: number, committed: number) => ({
+    id,
+    chatId,
+    messageId,
+    swipeIndex,
+    date: null,
+    time: null,
+    location: null,
+    weather: null,
+    temperature: null,
+    worldCustomFields: "[]",
+    presentCharacters: "[]",
+    recentEvents: "[]",
+    playerStats: null,
+    personaStats: null,
+    manualOverrides: null,
+    fieldLocks: null,
+    hiddenTrackerFields: null,
+    committed,
+    createdAt: `2026-08-28T09:00:0${swipeIndex}.000Z`,
+  });
+  writeShard(dir, "chats", "chat-a", [chatRow("chat-a")]);
+  writeShard(dir, "chats", "chat-b", [chatRow("chat-b")]);
+  writeShard(dir, "game_state_snapshots", "chat-a", [gameStateRow("gs-a1", "chat-a", "m-a1", 0, 1)]);
+  writeShard(dir, "game_state_snapshots", "chat-b", [gameStateRow("gs-b1", "chat-b", "m-b1", 0, 1)]);
+  const db = await createFileNativeDB();
+  const { createGameStateStorage } = await import(
+    "../../packages/server/src/services/storage/game-state.storage.js"
+  );
+  const gameStateStore = createGameStateStorage(db as never);
+  const leasedTables = () => db._fileStore.getFullyResidentLazyTables();
+  try {
+    const found = await gameStateStore.getByChatAndMessage("chat-a", "m-a1", 0);
+    assert.equal(found?.id, "gs-a1", "the chat-scoped message lookup finds the snapshot");
+    assert.equal(leasedTables().size, 0, "a chat-scoped message lookup does not lease any table");
+    assert.equal(loadedUnitsOf(db).has("chat-b"), false, "the other chat's unit stays on disk");
+
+    // The clone path exercises create()'s dedupe delete AND the re-read after insert.
+    const cloned = await gameStateStore.updateByMessage("m-a2", 0, "chat-a", { location: "harbor" });
+    assert.equal(cloned?.messageId, "m-a2", "updateByMessage clones a snapshot for the new anchor");
+    assert.equal(leasedTables().size, 0, "the tracker write path (update + create dedupe) does not lease");
+
+    const committed = await gameStateStore.getCommittedForMessages("chat-a", ["m-a1"]);
+    assert.equal(committed.get("m-a1")?.id, "gs-a1", "the batch committed fetch finds the snapshot");
+    assert.equal(leasedTables().size, 0, "the batch committed fetch does not lease");
+    assert.equal(loadedUnitsOf(db).has("chat-b"), false, "chat-b is still untouched after the full hot path");
+
+    // Inversion: the pre-fix condition shape (messageId with no chatId) MUST
+    // still trip the lease — this pins the tripwire the fix is measured against.
+    await db.select().from(gameStateSnapshots).where(eq(gameStateSnapshots.messageId, "m-b1"));
+    assert.equal(
+      leasedTables().has("game_state_snapshots"),
+      true,
+      "an unscoped messageId query still converts the table to fully resident",
+    );
+  } finally {
     await db._fileStore.close();
     rmSync(dir, { recursive: true, force: true });
   }

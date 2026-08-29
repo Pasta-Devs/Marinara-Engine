@@ -33,7 +33,7 @@ import {
   type WrapFormat,
   type GenerationParameterSendMap,
 } from "@marinara-engine/shared";
-import { eq } from "../../db/file-query.js";
+import { and, eq } from "../../db/file-query.js";
 import { listCharacterSprites } from "../../services/game/sprite.service.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
@@ -855,6 +855,7 @@ async function buildRetryAgentContext(args: {
     })),
   );
   const retryCommittedSnapshots = await gameStateStore.getCommittedForMessages(
+    chatId,
     agentSlice.filter((message: any) => message.role === "assistant"),
   );
   const retryVisibleAnchor =
@@ -2636,7 +2637,7 @@ async function applyRetryResultEffects(args: {
       assertRetryActive();
       return projectGameSnapshotLocation(created, retryOwnerSpatialProjection);
     }
-    const existing = await gameStateStore.getByMessage(retryMessageId, retrySwipeIndex);
+    const existing = await gameStateStore.getByChatAndMessage(chatId, retryMessageId, retrySwipeIndex);
     assertRetryActive();
     if (existing) return projectGameSnapshotLocation(existing, retryOwnerSpatialProjection);
     const updateOptions = await buildSnapshotUpdateOptions();
@@ -2930,7 +2931,7 @@ async function applyRetryResultEffects(args: {
             await app.db
               .update(gameStateSnapshotsTable)
               .set(personaPatch.updates)
-              .where(eq(gameStateSnapshotsTable.id, latest.id));
+              .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, latest.id)));
             assertRetryActive();
           }
         }
@@ -3059,7 +3060,7 @@ async function applyRetryResultEffects(args: {
               await app.db
                 .update(gameStateSnapshotsTable)
                 .set({ playerStats: JSON.stringify(questTrackerPatch.playerStats) })
-                .where(eq(gameStateSnapshotsTable.id, snap.id));
+                .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, snap.id)));
               assertRetryActive();
             }
             assertRetryActive();
@@ -3120,7 +3121,7 @@ async function applyRetryResultEffects(args: {
           await app.db
             .update(gameStateSnapshotsTable)
             .set({ playerStats: JSON.stringify(inventoryTrackerPatch.playerStats) })
-            .where(eq(gameStateSnapshotsTable.id, snap.id));
+            .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, snap.id)));
           assertRetryActive();
         }
         if (inventoryTrackerPatch.changed) {
@@ -3158,7 +3159,7 @@ async function applyRetryResultEffects(args: {
             await app.db
               .update(gameStateSnapshotsTable)
               .set({ playerStats: JSON.stringify(customTrackerPatch.playerStats) })
-              .where(eq(gameStateSnapshotsTable.id, snap.id));
+              .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, snap.id)));
             assertRetryActive();
           }
           if (customTrackerPatch.changed) {

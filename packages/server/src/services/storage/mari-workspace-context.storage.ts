@@ -87,8 +87,11 @@ export function createMariWorkspaceContextStorage(db: DB) {
       });
     },
 
-    async get(id: string): Promise<MariWorkspaceContextRow | null> {
-      const rows = await db.select().from(mariWorkspaceContext).where(eq(mariWorkspaceContext.id, id));
+    async get(id: string, chatId?: string): Promise<MariWorkspaceContextRow | null> {
+      const condition = chatId
+        ? and(eq(mariWorkspaceContext.chatId, chatId), eq(mariWorkspaceContext.id, id))
+        : eq(mariWorkspaceContext.id, id);
+      const rows = await db.select().from(mariWorkspaceContext).where(condition);
       const row = rows[0];
       return row ? mapRow(row) : null;
     },
@@ -114,8 +117,8 @@ export function createMariWorkspaceContextStorage(db: DB) {
       return mapRow(row);
     },
 
-    async remove(id: string): Promise<boolean> {
-      const existing = await this.get(id);
+    async remove(id: string, chatId?: string): Promise<boolean> {
+      const existing = await this.get(id, chatId);
       if (!existing) return false;
       await db
         .delete(mariWorkspaceContext)

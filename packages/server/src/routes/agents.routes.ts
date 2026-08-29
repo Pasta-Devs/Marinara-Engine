@@ -58,6 +58,9 @@ const IMPORT_UNSAFE_AGENT_SETTING_KEYS = new Set([
 
 const updateAgentRunSchema = z.object({
   resultData: z.unknown(),
+  // Optional owner hint: keeps the lazy file store from loading every chat's agent_runs
+  // shards for a bare-id lookup. The chat is always open when a run is edited.
+  chatId: z.string().min(1).optional(),
 });
 
 const AGENT_SUITE_REWRITE_SYSTEM_PROMPT = [
@@ -330,7 +333,7 @@ export async function agentsRoutes(app: FastifyInstance) {
   /** Edit the persisted output of a custom agent run. */
   app.patch<{ Params: { runId: string } }>("/runs/:runId", async (req, reply) => {
     const input = updateAgentRunSchema.parse(req.body);
-    const run = await storage.getRunWithConfig(req.params.runId);
+    const run = await storage.getRunWithConfig(req.params.runId, input.chatId);
     if (!run) return reply.status(404).send({ error: "Agent run not found" });
     if (BUILT_IN_AGENTS.some((agent) => agent.id === run.agentType)) {
       return reply.status(403).send({ error: "Built-in agent runs are not editable here" });

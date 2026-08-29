@@ -1,4 +1,4 @@
-import { desc, eq } from "../../db/file-query.js";
+import { and, desc, eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { gameSceneVideos } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -25,13 +25,19 @@ export function createGameSceneVideosStorage(db: DB) {
         .orderBy(desc(gameSceneVideos.createdAt));
     },
 
-    async getById(id: string) {
-      const rows = await db.select().from(gameSceneVideos).where(eq(gameSceneVideos.id, id));
+    async getById(id: string, chatId?: string) {
+      const condition = chatId
+        ? and(eq(gameSceneVideos.chatId, chatId), eq(gameSceneVideos.id, id))
+        : eq(gameSceneVideos.id, id);
+      const rows = await db.select().from(gameSceneVideos).where(condition);
       return rows[0] ?? null;
     },
 
-    async remove(id: string) {
-      await db.delete(gameSceneVideos).where(eq(gameSceneVideos.id, id));
+    async remove(id: string, chatId?: string) {
+      const condition = chatId
+        ? and(eq(gameSceneVideos.chatId, chatId), eq(gameSceneVideos.id, id))
+        : eq(gameSceneVideos.id, id);
+      await db.delete(gameSceneVideos).where(condition);
     },
 
     async create(input: CreateGameSceneVideoInput) {
@@ -50,7 +56,7 @@ export function createGameSceneVideosStorage(db: DB) {
         aspectRatio: input.aspectRatio,
         createdAt,
       });
-      return this.getById(id);
+      return this.getById(id, input.chatId);
     },
 
     async removeByChatId(chatId: string) {

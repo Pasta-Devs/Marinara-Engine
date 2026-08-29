@@ -5360,11 +5360,7 @@ for (const [name, source] of [
   ["mobile connection switcher", quickSwitcherMobileSource],
 ] as const) {
   assert.match(source, /<ContextBudgetIndicator budget=\{contextBudget\}/u, `${name} must show usage in its popup`);
-  assert.match(
-    source,
-    /relative flex h-\[1\.875rem\] w-\[1\.875rem\]/u,
-    `${name} must use the larger context gauge`,
-  );
+  assert.match(source, /relative flex h-\[1\.875rem\] w-\[1\.875rem\]/u, `${name} must use the larger context gauge`);
 }
 assert.equal(
   professorMariHomeSource.match(/<ContextBudgetIndicator budget=\{contextBudget\} professorMari \/>/gu)?.length,
@@ -6188,10 +6184,13 @@ assert.doesNotMatch(localMusicPlayerSource, /return `\/api\/game-assets\/local-m
 assert.match(gameAssetsRoutesSource, /app\.get\("\/local-music-file"/u);
 assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query as \{ path\?: string \}\)/u);
 assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
-assert.match(galleryRoutesSource, /app\.delete<[\s\S]*>\("\/scene-videos\/:chatId\/:id"/u);
 assert.match(
   galleryRoutesSource,
-  /video\.chatId !== chatId[\s\S]*sceneVideos\.remove\(video\.id\)[\s\S]*removeSavedVideoFromDisk\(video\.filePath\)\.catch/u,
+  // Anchored at the one scene-video delete route, with bounded lazy gaps so the
+  // match cannot span into another handler: ownership check, then the DB row
+  // removal with its exact #5611 chat-scoping argument, then the tolerated disk
+  // unlink — in that order, all inside this handler.
+  /app\.delete<\{ Params: \{ chatId: string; id: string \} \}>\("\/scene-videos\/:chatId\/:id"[\s\S]{0,400}?video\.chatId !== chatId[\s\S]{0,200}?await sceneVideos\.remove\(video\.id, video\.chatId\);[\s\S]{0,120}?await removeSavedVideoFromDisk\(video\.filePath\)\.catch/u,
 );
 assert.match(galleryHooksSource, /api\.delete\(`\/gallery\/scene-videos\/\$\{chatId\}\/\$\{videoId\}`\)/u);
 assert.match(chatGallerySource, /handleDeleteVideo\(video\)/u);

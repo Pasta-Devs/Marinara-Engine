@@ -716,7 +716,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const requestedGalleryImageId = input.galleryImageId?.trim();
     const galleryImages = requestedGalleryImageId ? [] : await storage.listByChatId(input.chatId);
     const galleryImage = requestedGalleryImageId
-      ? await storage.getById(requestedGalleryImageId)
+      ? await storage.getById(requestedGalleryImageId, input.chatId)
       : (galleryImages[0] ?? null);
     if (!galleryImage || galleryImage.chatId !== input.chatId) {
       throw new GallerySceneVideoRequestError(
@@ -1015,10 +1015,10 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
 
     const sceneVideos = createGameSceneVideosStorage(app.db);
-    const video = await sceneVideos.getById(id);
+    const video = await sceneVideos.getById(id, chatId);
     if (!video || video.chatId !== chatId) return reply.status(404).send({ error: "Scene video not found" });
 
-    await sceneVideos.remove(video.id);
+    await sceneVideos.remove(video.id, video.chatId);
     await removeSavedVideoFromDisk(video.filePath).catch((error) => {
       logger.warn(error, "[gallery/scene-videos] Failed to remove video file %s", video.filePath);
     });
@@ -1771,7 +1771,7 @@ export async function galleryRoutes(app: FastifyInstance) {
 
     let image = findGalleryRowByFilename(await storage.listByChatId(chatId), filename);
     if (!image) {
-      image = (await storage.listByFilePath(`${chatId}/${filename}`))[0] ?? null;
+      image = (await storage.listByChatAndFilePath(chatId, `${chatId}/${filename}`))[0] ?? null;
     }
     const storedFile = image ? resolveStoredGalleryFile(image.filePath, GALLERY_DIR) : null;
     if (!storedFile || !existsSync(storedFile.absolutePath)) {
@@ -1787,7 +1787,9 @@ export async function galleryRoutes(app: FastifyInstance) {
   // Delete a gallery image
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const { id } = req.params;
-    const image = await storage.getById(id);
+    // Optional chatId keeps the lazy store from loading the whole table for a bare-id lookup.
+    const { chatId } = req.query as { chatId?: string };
+    const image = await storage.getById(id, typeof chatId === "string" && chatId ? chatId : undefined);
     if (!image) {
       return reply.status(404).send({ error: "Not found" });
     }
