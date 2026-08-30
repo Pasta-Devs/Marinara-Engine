@@ -52,25 +52,33 @@ async function copyToClipboard(value: string) {
   textarea.remove();
 }
 
+/** What a block's copy button puts on the clipboard, and how it reports itself. */
+type CopyAction = {
+  value: string;
+  label: string;
+  title: string;
+  copiedMessage: string;
+  failedMessage: string;
+};
+
 function TextBlock({
   label,
   value,
   muted = false,
-  copyValue,
+  copy,
 }: {
   label: string;
   value: string;
   muted?: boolean;
-  copyValue?: string | null;
+  copy?: CopyAction | null;
 }) {
-  const { t: localizeUi } = useUiTranslation();
   const handleCopy = async () => {
-    if (!copyValue) return;
+    if (!copy) return;
     try {
-      await copyToClipboard(copyValue);
-      toast.success(localizeUi("ui.chat.textblock.guidedCommandCopied"));
+      await copyToClipboard(copy.value);
+      toast.success(copy.copiedMessage);
     } catch {
-      toast.error(localizeUi("ui.chat.textblock.couldNotCopyGuidance"));
+      toast.error(copy.failedMessage);
     }
   };
 
@@ -80,16 +88,16 @@ function TextBlock({
         <h3 className="text-[0.75rem] font-semibold uppercase tracking-normal text-[var(--muted-foreground)]">
           {label}
         </h3>
-        {copyValue && (
+        {copy && (
           <button
             type="button"
             onClick={() => void handleCopy()}
             className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            title={localizeUi("ui.chat.textblock.copyAsGuidedCommand")}
-            aria-label={localizeUi("ui.chat.textblock.copyAsGuidedCommand")}
+            title={copy.title}
+            aria-label={copy.title}
           >
             <Copy size="0.75rem" className="shrink-0" />
-            {localizeUi("ui.chat.textblock.copyGuided")}
+            {copy.label}
           </button>
         )}
       </div>
@@ -135,6 +143,36 @@ export function GenerationReplayDetailsModal({
     generationGuide && !hasImpersonate && replay?.generationGuideSource !== "game_start"
       ? `/guided ${generationGuide.trim()}`
       : null;
+  const guidedCopy: CopyAction | null = guidedCopyCommand
+    ? {
+        value: guidedCopyCommand,
+        label: localizeUi("ui.chat.textblock.copyGuided"),
+        title: localizeUi("ui.chat.textblock.copyAsGuidedCommand"),
+        copiedMessage: localizeUi("ui.chat.textblock.guidedCommandCopied"),
+        failedMessage: localizeUi("ui.chat.textblock.couldNotCopyGuidance"),
+      }
+    : null;
+  // The stored guidance is what /impersonate took as its direction, so the
+  // command below replays the same generation.
+  const impersonateCopy: CopyAction | null = impersonateGuidance
+    ? {
+        value: `/impersonate ${impersonateGuidance.trim()}`,
+        label: localizeUi("ui.chat.textblock.copyImpersonate"),
+        title: localizeUi("ui.chat.textblock.copyAsImpersonateCommand"),
+        copiedMessage: localizeUi("ui.chat.textblock.impersonateCommandCopied"),
+        failedMessage: localizeUi("ui.chat.textblock.couldNotCopyGuidance"),
+      }
+    : null;
+  // The template is a stored setting rather than a command, so it copies as-is.
+  const promptTemplateCopy: CopyAction | null = impersonatePromptTemplate
+    ? {
+        value: impersonatePromptTemplate,
+        label: localizeUi("ui.chat.textblock.copy"),
+        title: localizeUi("ui.chat.textblock.copyPromptTemplate"),
+        copiedMessage: localizeUi("ui.chat.textblock.promptTemplateCopied"),
+        failedMessage: localizeUi("ui.chat.textblock.couldNotCopyPromptTemplate"),
+      }
+    : null;
   const hasMetadata =
     hasImpersonate &&
     (storedText(replay?.impersonatePresetId) ||
@@ -145,11 +183,7 @@ export function GenerationReplayDetailsModal({
     <Modal open={open} onClose={onClose} title={localizeUi("ui.chat.chatmessage.storedGuidance")} width="max-w-xl">
       <div className="space-y-5">
         {generationGuide && !hasImpersonate && (
-          <TextBlock
-            label={guideLabel(replay?.generationGuideSource)}
-            value={generationGuide}
-            copyValue={guidedCopyCommand}
-          />
+          <TextBlock label={guideLabel(replay?.generationGuideSource)} value={generationGuide} copy={guidedCopy} />
         )}
 
         {hasImpersonate && (
@@ -161,11 +195,13 @@ export function GenerationReplayDetailsModal({
               label={localizeUi("ui.chat.generationreplaydetailsmodal.currentGuidance")}
               value={impersonateGuidance ?? "No guidance stored"}
               muted={!impersonateGuidance}
+              copy={impersonateCopy}
             />
             {impersonatePromptTemplate && (
               <TextBlock
                 label={localizeUi("ui.chat.generationreplaydetailsmodal.promptTemplate")}
                 value={impersonatePromptTemplate}
+                copy={promptTemplateCopy}
               />
             )}
             {hasMetadata && (
