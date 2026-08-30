@@ -5880,7 +5880,7 @@ function GenerationsSettings() {
   );
   const openDownloadAgents = useCallback(() => {
     openRightPanel("agents");
-    openAgentCatalog();
+    openAgentCatalog("illustrator");
   }, [openAgentCatalog, openRightPanel]);
 
   return (
