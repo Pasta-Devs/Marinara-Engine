@@ -36,7 +36,7 @@ export function SelectionActionBar({
     <div
       className={cn(
         isPanelFooter
-          ? "mari-selection-action-bar fixed bottom-0 right-0 z-[60] w-[min(var(--mari-right-panel-width,20rem),100vw)] px-3 pb-[calc(0.625rem+env(safe-area-inset-bottom))] pt-2.5"
+          ? "mari-selection-action-bar fixed bottom-0 right-0 z-[60] w-[min(var(--mari-right-panel-width,20rem),100vw)] px-3 pb-[calc(0.625rem+var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] pt-2.5"
           : "mari-selection-action-bar sticky bottom-0 z-20 -mx-3 mt-auto px-3 py-2.5",
         className,
       )}
@@ -74,7 +74,10 @@ export function SelectionActionBar({
   if (isPanelFooter) {
     return (
       <>
-        <div aria-hidden="true" className="h-[calc(6rem+env(safe-area-inset-bottom))] shrink-0" />
+        <div
+          aria-hidden="true"
+          className="h-[calc(6rem+var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] shrink-0"
+        />
         {actionBar}
       </>
     );

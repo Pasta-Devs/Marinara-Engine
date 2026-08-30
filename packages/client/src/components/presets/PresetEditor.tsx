@@ -3201,7 +3201,7 @@ function ExpandedEditorModal({
     <PresetModalPortal>
       <div
         data-chat-floating-panel
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6"
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6"
       >
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
         <div className="mari-editor-shell mari-editor-legacy-bridge relative flex h-[80vh] max-h-[calc(100vh-1.5rem)] w-full max-w-3xl flex-col rounded-2xl border border-[var(--marinara-editor-border)] bg-[var(--marinara-editor-surface-bg)] shadow-2xl shadow-black/50 supports-[height:100dvh]:h-[80dvh] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]">
