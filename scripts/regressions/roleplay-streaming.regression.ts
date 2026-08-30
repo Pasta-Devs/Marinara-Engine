@@ -1145,8 +1145,8 @@ assert.match(
 );
 assert.match(
   chatRoleplaySurfaceSource,
-  /paddingBottom: "var\(--mari-roleplay-content-padding-bottom, 16px\)"/u,
-  "Roleplay transcript padding should consume the imperatively measured composer inset",
+  /paddingBottom:\s*"calc\(var\(--mari-roleplay-content-padding-bottom, 16px\) \+ var\(--mari-message-editor-scroll-space, 0px\)\)"/u,
+  "Roleplay transcript padding should combine the measured composer inset with editor scroll space",
 );
 assert.match(
   chatMessageSource,
