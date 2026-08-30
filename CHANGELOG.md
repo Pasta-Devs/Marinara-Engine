@@ -32,6 +32,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Mobile Roleplay and Game message numbers now follow Chat Chrome Text Color, and Marinara preset import and save/export feedback follows the active accent instead of fixed theme-independent colors (#5679).
 - Mobile Roleplay now clears Trackers, Echo Chamber, and other agent windows while the composer is active; the app-owned composer chrome is shorter above the software keyboard; and Conversation and Roleplay message editors leave enough trailing scroll space to reach their final lines without first changing the text (#5672).
 - Roleplay context usage now follows the configured chat chroma text color; mobile message editing temporarily clears agent overlays while keeping message controls available; and the Characters and Personas libraries now use concise search copy, full-width sorting fields, and a consistent action layout (#5648).
 - Firefox on Android no longer shows a large empty band above the system navigation bar that obscured the bottom of the Agents, Connections, Presets, and chats panels and pushed the chat composer up: Gecko reports the navigation-bar height as a bottom safe-area inset even though its viewport already stops above the bar, so the app now zeroes its bottom safe-area padding on that engine instead of double-compensating (#5665).

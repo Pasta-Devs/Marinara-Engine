@@ -114,6 +114,17 @@ async function readCssVariableColor(page: Page, variableName: string) {
   }, variableName);
 }
 
+async function readScopedCssVariableColor(scope: Locator, variableName: string) {
+  return scope.evaluate((element, name) => {
+    const probe = document.createElement("span");
+    probe.style.color = `var(${name})`;
+    element.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  }, variableName);
+}
+
 async function openEditorSection(editor: Locator, label: string) {
   const compactMenuButton = editor.getByRole("button", { name: "Editor sections" });
   const navigation = editor.getByRole("navigation", { name: "Editor sections" });
@@ -2083,6 +2094,51 @@ test("Conversation transcript dates and message numbers follow Chat Chrome Text 
     await assertChromeText("#3b82f6");
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
+test("mobile Roleplay message numbers follow Chat Chrome Text Color", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "Mobile Roleplay message-number regression.");
+
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Roleplay Message Number Chroma Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+    data: { role: "user", content: "Roleplay message-number chroma probe." },
+  });
+  expect(messageResponse.ok()).toBeTruthy();
+  const message = (await messageResponse.json()) as { id: string };
+
+  try {
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+        useUIStore: {
+          getState: () => {
+            setChatChromeTextColor: (value: string) => void;
+            setShowMessageNumbers: (value: boolean) => void;
+          };
+        };
+      };
+      const ui = useUIStore.getState();
+      ui.setChatChromeTextColor("#3b82f6");
+      ui.setShowMessageNumbers(true);
+    });
+    await setAppAccentColor(page, "#ec4899");
+
+    const messageNumber = page.locator(`[data-message-id="${message.id}"]`).getByText(/^#1$/u);
+    await expect(messageNumber).toBeVisible();
+    const expectedColor = await readCssVariableColor(page, "--marinara-chat-chrome-text");
+    await expect(messageNumber).toHaveCSS("color", expectedColor);
+    await testInfo.attach(`mobile-roleplay-message-number-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+  } finally {
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}?force=true`);
   }
 });
 
@@ -8039,6 +8095,90 @@ test("message search stays before Chat Settings and jumps to unloaded history", 
     }
   } finally {
     await Promise.allSettled(chats.map((chat) => request.delete(`/api/chats/${chat.id}`)));
+  }
+});
+
+test("preset import and save-export feedback follow the active accent", async ({ page, request }, testInfo) => {
+  const suffix = `${testInfo.project.name}-${Date.now().toString(36)}`;
+  const presetResponse = await request.post("/api/prompts", {
+    data: { name: `Theme Feedback Preset ${suffix}`, description: "Theme feedback regression fixture." },
+  });
+  expect(presetResponse.ok()).toBeTruthy();
+  const preset = (await presetResponse.json()) as { id: string };
+
+  await page.route(/\/api\/import\/st-preset$/u, async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true }) });
+  });
+
+  try {
+    await page.goto("/");
+    await setAppAccentColor(page, "#14b8a6");
+    await page.evaluate(async () => {
+      const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+        useUIStore: { getState: () => { openModal: (type: string) => void } };
+      };
+      useUIStore.getState().openModal("import-preset");
+    });
+
+    const importDialog = page.getByRole("dialog", { name: "Import Preset", exact: true });
+    await expect(importDialog).toBeVisible();
+    await importDialog.locator('input[type="file"]').setInputFiles({
+      name: "theme-aware-preset.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify({ name: "Theme-aware import" })),
+    });
+
+    const importSummary = importDialog.getByText(/1\s+succeeded,?\s+0\s+failed/u);
+    await expect(importSummary).toBeVisible();
+    const expectedModalAccent = await readScopedCssVariableColor(importSummary, "--primary");
+    await expect(importSummary).toHaveCSS("color", expectedModalAccent);
+    await expect(importDialog.locator('svg[class*="lucide-circle-check"]').last()).toHaveCSS(
+      "color",
+      expectedModalAccent,
+    );
+    await testInfo.attach(`preset-import-accent-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+
+    await importDialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(importDialog).toBeHidden();
+    await page.evaluate(async (presetId) => {
+      const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+        useUIStore: { getState: () => { openPresetDetail: (id: string) => void } };
+      };
+      useUIStore.getState().openPresetDetail(presetId);
+    }, preset.id);
+
+    const editor = page.locator(".mari-editor-shell");
+    const titleInput = editor.locator(".mari-editor-title-input");
+    await expect(titleInput).toBeVisible();
+    await titleInput.fill(`Theme Feedback Export ${suffix}`);
+    await editor.getByTitle("Save current edits before exporting", { exact: true }).click();
+    const exportDialog = page.getByRole("dialog", { name: /Save before exporting/u });
+    await expect(exportDialog).toBeVisible();
+    await exportDialog.getByRole("button", { name: "Save and export", exact: true }).click();
+
+    const expectedEditorAccent = await readScopedCssVariableColor(editor, "--marinara-editor-accent");
+    const savedFeedback = editor.getByText("Changes saved", { exact: true });
+    await expect(savedFeedback).toBeVisible();
+    await expect(savedFeedback).toHaveCSS("color", expectedEditorAccent);
+    await testInfo.attach(`preset-save-export-accent-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+
+    await titleInput.fill(`Unsaved Theme Feedback ${suffix}`);
+    await editor.locator(".mari-editor-header-main > button").first().click();
+    const unsavedFeedback = editor.getByText("You have unsaved changes.", { exact: true }).locator("..");
+    await expect(unsavedFeedback).toBeVisible();
+    await expect(unsavedFeedback).toHaveCSS("color", expectedEditorAccent);
+    await testInfo.attach(`preset-unsaved-accent-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+  } finally {
+    await bestEffortDelete(request, `/api/prompts/${preset.id}`);
   }
 });
 
