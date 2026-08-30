@@ -608,14 +608,14 @@ export function PresetEditor() {
 
       {/* Saved toast */}
       {showSaved && (
-        <div className="absolute left-1/2 top-14 z-50 -translate-x-1/2 animate-fade-in-up rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 shadow-lg backdrop-blur-sm">
+        <div className="absolute left-1/2 top-14 z-50 -translate-x-1/2 animate-fade-in-up rounded-lg border border-[var(--marinara-editor-accent)]/30 bg-[var(--marinara-editor-accent)]/15 px-3 py-1.5 text-xs font-medium text-[var(--marinara-editor-accent)] shadow-lg backdrop-blur-sm">
           {localizeUi("ui.presets.preseteditor.changesSaved")}
         </div>
       )}
 
       {/* Unsaved warning */}
       {showUnsavedWarning && (
-        <div className="flex items-center justify-between bg-[var(--warning)]/10 px-4 py-2 text-xs text-[var(--warning)]">
+        <div className="flex items-center justify-between bg-[var(--marinara-editor-accent)]/10 px-4 py-2 text-xs text-[var(--marinara-editor-accent)]">
           <span>{localizeUi("ui.presets.preseteditor.youHaveUnsavedChanges")}</span>
           <div className="flex gap-2">
             <button
