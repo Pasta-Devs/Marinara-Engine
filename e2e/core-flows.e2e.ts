@@ -1884,7 +1884,6 @@ test("Conversation message actions follow their messages on desktop and mobile",
         expect(metrics!.verticalGap).toBeLessThanOrEqual(5);
         expect(metrics!.leftOffset).toBeLessThanOrEqual(6);
         expect(metrics!.actionBottom).toBeLessThanOrEqual(metrics!.rowBottom);
-
       }
 
       const messageGap = await page.evaluate(
