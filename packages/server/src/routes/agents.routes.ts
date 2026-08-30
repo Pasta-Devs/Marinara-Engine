@@ -275,6 +275,27 @@ export async function agentsRoutes(app: FastifyInstance) {
     return storage.listCustomRunsForChat(req.params.chatId, parsedLimit);
   });
 
+  /**
+   * Persist an operator correction to the Beholder physical state.
+   *
+   * The state a chat carries forward is the result of the agent's last successful
+   * run, which is also what the next prompt is built from — so a correction has to
+   * land there to mean anything. Without this, a hand-set slot would look right on
+   * screen and be narrated away on the next turn.
+   *
+   * The body is normalized before it is stored, so a malformed correction is refused
+   * rather than written into the state the prompt is built from.
+   */
+  app.put<{ Params: { chatId: string } }>("/beholder-state/:chatId", async (req, reply) => {
+    const body = req.body as { state?: unknown } | undefined;
+    const state = normalizeBeholderState(body?.state);
+    if (!state) return reply.status(400).send({ error: "Invalid Beholder state" });
+    const run = await storage.getLastSuccessfulRunByType("beholder", req.params.chatId);
+    if (!run) return reply.status(404).send({ error: "No Beholder run to correct yet" });
+    await storage.updateRunResultData(run.id, state, req.params.chatId);
+    return { state, messageId: run.messageId ?? null, createdAt: run.createdAt ?? null };
+  });
+
   /** Get the latest validated Beholder physical-state snapshot for a roleplay chat. */
   app.get<{ Params: { chatId: string } }>("/beholder-state/:chatId", async (req) => {
     const run = await storage.getLastSuccessfulRunByType("beholder", req.params.chatId);
