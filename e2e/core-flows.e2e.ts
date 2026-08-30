@@ -1888,6 +1888,17 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
     await messageScroll.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
     });
+    await editor.evaluate((element: HTMLTextAreaElement) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect
+      .poll(() =>
+        editor.evaluate(
+          (element: HTMLTextAreaElement) =>
+            Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop) <= 1,
+        ),
+      )
+      .toBe(true);
     await expect
       .poll(() =>
         Promise.all([messageScroll.boundingBox(), editor.boundingBox()]).then(([scrollBox, editorBox]) =>
@@ -1979,6 +1990,17 @@ test("mobile Conversation editing exposes the final line before text changes", a
     await messageScroll.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
     });
+    await editor.evaluate((element: HTMLTextAreaElement) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect
+      .poll(() =>
+        editor.evaluate(
+          (element: HTMLTextAreaElement) =>
+            Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop) <= 1,
+        ),
+      )
+      .toBe(true);
     const readScrollMetrics = () =>
       Promise.all([
         messageScroll.evaluate((element) => ({
