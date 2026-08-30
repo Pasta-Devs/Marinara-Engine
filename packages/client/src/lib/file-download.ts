@@ -1,4 +1,5 @@
 import { getAndroidBridgeToken } from "@/lib/android-bridge";
+import { isIosWebKitBrowser } from "./generation-stream-policy";
 
 type MarinaraAndroidFileBridge = {
   saveFile?: {
@@ -35,6 +36,51 @@ function triggerBrowserDownload(blob: Blob, filename: string) {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+}
+
+function isIosDevice(): boolean {
+  return (
+    typeof navigator !== "undefined" &&
+    isIosWebKitBrowser(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)
+  );
+}
+
+export interface PreparedImageSave {
+  blob: Blob;
+  file: File;
+  filename: string;
+  url: string;
+}
+
+/** Whether image saves should use the native iOS share sheet instead of WebKit's PWA download preview. */
+export function shouldUseIosImageShare(): boolean {
+  return isIosDevice() && typeof navigator.share === "function";
+}
+
+/** Fetch and construct the image file before a later user gesture opens the iOS share sheet. */
+export async function prepareImageSave(url: string, filename: string): Promise<PreparedImageSave> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Download failed (${response.status})`);
+  const blob = await response.blob();
+  return {
+    blob,
+    file: new File([blob], filename, { type: blob.type || "image/png" }),
+    filename,
+    url,
+  };
+}
+
+/** Share a prepared image synchronously from the tap, falling back to the active platform's file saver. */
+export function savePreparedImageToDevice(prepared: PreparedImageSave): Promise<void> {
+  if (!shouldUseIosImageShare()) return saveBlobToDevice(prepared.blob, prepared.filename);
+
+  const shareData = navigator.canShare?.({ files: [prepared.file] })
+    ? { files: [prepared.file] }
+    : { url: prepared.url };
+  return navigator.share(shareData).catch((error: unknown) => {
+    if (error instanceof DOMException && error.name === "AbortError") return;
+    return saveBlobToDevice(prepared.blob, prepared.filename);
+  });
 }
 
 /** Save a fetched file through the Android shell when available, or through the browser otherwise. */

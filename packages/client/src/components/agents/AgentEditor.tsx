@@ -91,6 +91,7 @@ import {
   CUSTOM_AGENT_PERMISSIONS_EXPLICIT_SETTING,
   DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   LOCAL_SIDECAR_CONNECTION_ID,
+  UTILITY_SIDECAR_CONNECTION_ID,
   MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   MIN_AGENT_MAX_TOKENS,
   getDefaultBuiltInAgentSettings,
@@ -699,7 +700,7 @@ export function AgentEditor() {
 
   const normalizeTextConnectionOverride = useCallback((connectionId: unknown): string => {
     if (typeof connectionId !== "string" || !connectionId.trim()) return "";
-    if (connectionId === LOCAL_SIDECAR_CONNECTION_ID) {
+    if (connectionId === LOCAL_SIDECAR_CONNECTION_ID || connectionId === UTILITY_SIDECAR_CONNECTION_ID) {
       return import.meta.env.VITE_MARINARA_LITE === "true" ? "" : connectionId;
     }
     const index = connectionIndexRef.current;
@@ -1205,6 +1206,39 @@ export function AgentEditor() {
     (connections as
       | Array<{ id: string; name: string; provider: string; defaultForAgents?: boolean | string }>
       | undefined) ?? [];
+
+  /**
+   * Whether the engine's utility model slot holds a model for this agent.
+   *
+   * Offered as a connection only when it exists: a picker entry that cannot answer is
+   * worse than no entry, and this slot is optional — most engines will not have one.
+   */
+  const utilityAgentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
+  const [utilitySlotServesThisAgent, setUtilitySlotServesThisAgent] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    if (!utilityAgentType || import.meta.env.VITE_MARINARA_LITE === "true") {
+      setUtilitySlotServesThisAgent(false);
+      return;
+    }
+    void (async () => {
+      try {
+        const res = await fetch("/api/utility-sidecar/status", {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const status = (await res.json()) as { models?: Record<string, unknown> };
+        if (!cancelled) setUtilitySlotServesThisAgent(!!status?.models?.[utilityAgentType]);
+      } catch {
+        // An engine without the utility slot simply does not offer the option.
+        if (!cancelled) setUtilitySlotServesThisAgent(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [utilityAgentType]);
 
   const llmConnections = allConnections.filter(
     (conn) => conn.provider !== "image_generation" && conn.provider !== "video_generation" && conn.provider !== "audio",
@@ -2346,6 +2380,18 @@ export function AgentEditor() {
                   {localizeUi("ui.agents.agenteditor.localModelSidecar")}
                 </option>
               )}
+              {/* Only offered once a model is installed for this agent: an option that
+                  cannot answer is worse than no option at all. The exception is a
+                  selection already saved — dropping that option would leave the select
+                  with no match and silently hide that the saved choice cannot serve. */}
+              {import.meta.env.VITE_MARINARA_LITE !== "true" &&
+                (utilitySlotServesThisAgent || localConnectionId === UTILITY_SIDECAR_CONNECTION_ID) && (
+                  <option value={UTILITY_SIDECAR_CONNECTION_ID}>
+                    {utilitySlotServesThisAgent
+                      ? localizeUi("ui.agents.agenteditor.utilityModelSidecar")
+                      : localizeUi("ui.agents.agenteditor.utilityModelSidecarUnavailable")}
+                  </option>
+                )}
               {llmConnections.map((conn) => (
                 <option key={conn.id} value={conn.id}>
                   {conn.name} ({conn.provider})
