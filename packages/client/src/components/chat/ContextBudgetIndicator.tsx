@@ -17,7 +17,7 @@ export function ContextBudgetGauge({ percentage }: { percentage: number }) {
         cy="12"
         r="10"
         fill="none"
-        stroke="var(--primary)"
+        stroke="var(--marinara-chat-chrome-accent)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeDasharray={`${(percentage / 100) * CONTEXT_GAUGE_CIRCUMFERENCE} ${CONTEXT_GAUGE_CIRCUMFERENCE}`}
@@ -26,13 +26,7 @@ export function ContextBudgetGauge({ percentage }: { percentage: number }) {
   );
 }
 
-export function ContextBudgetIndicator({
-  budget,
-  professorMari = false,
-}: {
-  budget: ProfessorMariContextBudget;
-  professorMari?: boolean;
-}) {
+export function ContextBudgetIndicator({ budget }: { budget: ProfessorMariContextBudget }) {
   const { t: localizeUi } = useUiTranslation();
   const used = formatCompactTokenCount(budget.usedTokens);
   const maximum = formatCompactTokenCount(budget.maxTokens);
@@ -42,19 +36,11 @@ export function ContextBudgetIndicator({
   return (
     <div
       data-component="ContextBudget"
-      className={`mb-2 space-y-1 px-0.5 text-[0.6875rem] ${
-        professorMari ? "text-[var(--marinara-chat-chrome-panel-muted)]" : "text-[var(--muted-foreground)]"
-      }`}
+      className="mb-2 space-y-1 px-0.5 text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]"
     >
       <div className="flex items-center justify-between gap-3">
         <span>{localizeUi("ui.chat.contextBudget.label")}</span>
-        <span
-          className={
-            professorMari
-              ? "tabular-nums text-[var(--marinara-chat-chrome-panel-text)]"
-              : "tabular-nums text-foreground/80"
-          }
-        >
+        <span className="tabular-nums text-[var(--marinara-chat-chrome-panel-text)]">
           {localizeUi("ui.chat.contextBudget.value", { used, maximum })}
         </span>
       </div>
@@ -67,7 +53,7 @@ export function ContextBudgetIndicator({
         className="h-1 overflow-hidden rounded-full bg-[var(--muted)]/55"
       >
         <div
-          className="h-full w-[var(--context-budget)] rounded-full bg-[var(--primary)] transition-[width] duration-200 motion-reduce:transition-none"
+          className="h-full w-[var(--context-budget)] rounded-full bg-[var(--marinara-chat-chrome-accent)] transition-[width] duration-200 motion-reduce:transition-none"
           style={progressStyle}
         />
       </div>

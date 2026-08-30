@@ -727,6 +727,7 @@
   "search.folder.placeholder": "Search in folder",
   "search.folder.title": "Search in folder",
   "search.panels.agents": "Search agents",
+  "search.panels.characters": "Search characters",
   "search.panels.charactersWithExcludedTag": "Search characters or {{query}}",
   "search.panels.connections": "Search connections",
   "search.panels.imported": "Search imported",

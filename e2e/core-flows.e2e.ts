@@ -2810,7 +2810,7 @@ test("Character favorite tags and stars inherit the configured accent color", as
 
     await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
-    await library.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterName);
+    await library.getByPlaceholder("Search characters").fill(characterName);
 
     const cardFavorite = library.locator('[data-character-favorite-indicator="card"]');
     const detailFavorite = library.locator('[data-character-favorite-indicator="detail"]:visible');
@@ -3075,7 +3075,7 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
 
     await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
-    await library.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterName);
+    await library.getByPlaceholder("Search characters").fill(characterName);
     const libraryCard = library.locator(`[data-card-library-card="${character.id}"]`);
     await expect(libraryCard).toBeVisible();
     if (mobile) {
@@ -4207,7 +4207,9 @@ test("expanded character editors keep native keyboard and quote caret behavior",
     });
     await page.keyboard.type("X");
     await page.waitForTimeout(40);
-    await expect.poll(() => expandedEditor.evaluate((textarea: HTMLTextAreaElement) => textarea.selectionStart)).toBe(3);
+    await expect
+      .poll(() => expandedEditor.evaluate((textarea: HTMLTextAreaElement) => textarea.selectionStart))
+      .toBe(3);
     await page.keyboard.type("Y");
     await expect(expandedEditor).toHaveValue("alXYpha\nbeta");
     await page.keyboard.press(`${process.platform === "darwin" ? "Meta" : "Control"}+z`);
@@ -11603,7 +11605,7 @@ test("Character and Persona sidebars find cards by creator", async ({ page, requ
 
     await page.locator('[data-tour="panel-characters"]').click();
     await expect(rightPanel).toBeVisible();
-    await rightPanel.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterCreator);
+    await rightPanel.getByPlaceholder("Search characters").fill(characterCreator);
     await expect(
       rightPanel.locator(`[data-touch-drag-card="character"][data-character-id="${character.id}"]`),
     ).toContainText(characterName);
@@ -11810,9 +11812,18 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
   await page.locator('[data-tour="panel-characters"]').click();
   await page.getByRole("button", { name: "Open Library", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Browse your characters" })).toBeVisible();
-  await expect(
-    page.locator('[data-component="CharacterLibraryView"]').getByPlaceholder('Search characters or -tag:"tag name"'),
-  ).toBeVisible();
+  const characterLibrary = page.locator('[data-component="CharacterLibraryView"]');
+  await expect(characterLibrary.getByPlaceholder("Search characters")).toBeVisible();
+  await expect(characterLibrary.getByRole("button", { name: "Select", exact: true })).toHaveCount(0);
+  await expect(characterLibrary.getByRole("button", { name: "Generate missing summaries", exact: true })).toHaveCount(
+    0,
+  );
+  const sortControl = characterLibrary.locator("[data-library-toolbar-sort]");
+  const sortControlWidth = await sortControl.evaluate((control) => control.getBoundingClientRect().width);
+  const sortFieldWidth = await sortControl
+    .getByRole("combobox", { name: "Sort order" })
+    .evaluate((field) => field.getBoundingClientRect().width);
+  expect(Math.abs(sortControlWidth - sortFieldWidth)).toBeLessThanOrEqual(1);
   if (testInfo.project.name.includes("mobile")) {
     await expect(page.locator('[data-component="RightPanelMobile"]')).toHaveCount(0);
   } else {
@@ -19121,7 +19132,9 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   );
   await page.goto("/");
   await page.evaluate(async () => {
-    const { DEFAULT_MOBILE_MUSIC_WIDGET_POSITION, useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+    const { DEFAULT_MOBILE_MUSIC_WIDGET_POSITION, useUIStore } = (await import(
+      "/src/stores/ui.store.ts" as string
+    )) as PageUiStoreModule;
     const state = useUIStore.getState();
     state.setMusicPlayerSource("spotify");
     state.setSpotifyMobileWidgetCollapsed(true);
