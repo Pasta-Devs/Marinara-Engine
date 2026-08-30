@@ -502,6 +502,7 @@ export function ConversationMessageEditForm({
     <div className="space-y-2">
       <textarea
         ref={editRef}
+        data-chat-message-editor="true"
         value={editValue}
         onChange={(e) => {
           const nextValue = applyTextareaQuoteFormat(e.currentTarget, quoteFormat, e.nativeEvent as InputEvent);
