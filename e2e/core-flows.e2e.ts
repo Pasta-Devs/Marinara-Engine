@@ -18788,7 +18788,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
         paddingBottom: Number.parseFloat(style.paddingBottom),
       };
     });
-    expect(compactComposerStyle.paddingBottom).toBeCloseTo(compactComposerStyle.fontSize * 0.5, 5);
+    expect(compactComposerStyle.paddingBottom).toBeCloseTo(compactComposerStyle.fontSize * 0.25, 5);
 
     const [shellBox, composerBox] = await Promise.all([shell.boundingBox(), composer.boundingBox()]);
     expect(shellBox).not.toBeNull();
@@ -18850,7 +18850,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
         paddingBottom: Number.parseFloat(style.paddingBottom),
       };
     });
-    expect(iosCompactComposerStyle.paddingBottom).toBeCloseTo(iosCompactComposerStyle.fontSize * 0.5, 5);
+    expect(iosCompactComposerStyle.paddingBottom).toBeCloseTo(iosCompactComposerStyle.fontSize * 0.25, 5);
 
     const [iosShellBox, iosComposerBox] = await Promise.all([shell.boundingBox(), composer.boundingBox()]);
     expect(iosShellBox).not.toBeNull();
