@@ -1776,13 +1776,18 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
   });
   expect(usageResponse.ok(), await usageResponse.text()).toBeTruthy();
   const userMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
-    data: { role: "user", content: "Keep every edit action available." },
+    data: {
+      role: "user",
+      content: Array.from({ length: 24 }, (_, index) => `Editable Roleplay line ${index + 1}.`).join("\n"),
+    },
   });
   expect(userMessageResponse.ok(), await userMessageResponse.text()).toBeTruthy();
   const userMessage = (await userMessageResponse.json()) as { id: string };
 
   try {
-    await page.request.patch(`/api/chats/${chat.id}/metadata`, { data: { enableAgents: false } });
+    await page.request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { enableAgents: true, activeAgentIds: ["echo-chamber"] },
+    });
     await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
     await page.goto("/");
     await page.evaluate(async () => {
@@ -1839,15 +1844,73 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
       surface.append(probe);
     });
     const agentWindow = roleplaySurface.locator('[data-roleplay-agent-window="regression-probe"]');
+    const echoChamber = roleplaySurface.locator('[data-roleplay-agent-window="echo"]');
     await expect(agentWindow).toBeVisible();
+    await expect(echoChamber).toBeVisible();
+
+    const composer = roleplaySurface.locator("[data-chat-composer]");
+    const inputContainer = roleplaySurface.locator(".chat-input-container");
+    const inputShell = inputContainer.locator(".marinara-chat-input-shell");
+    const expandedInputHeight = await inputContainer.evaluate((element) => element.getBoundingClientRect().height);
+    await composer.focus();
+    await expect(roleplaySurface).toHaveAttribute("data-mobile-composer-active", "true");
+    await expect(agentWindow).toBeHidden();
+    await expect(echoChamber).toBeHidden();
+
+    await page.waitForTimeout(400);
+    await page.evaluate(() => document.documentElement.setAttribute("data-mari-software-keyboard-open", ""));
+    await expect
+      .poll(() => inputContainer.evaluate((element) => element.getBoundingClientRect().height))
+      .toBeLessThanOrEqual(expandedInputHeight - 10);
+    expect(await inputShell.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+    await testInfo.attach(`mobile-roleplay-composer-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+    await page.evaluate(() => document.documentElement.removeAttribute("data-mari-software-keyboard-open"));
+    await composer.evaluate((element: HTMLTextAreaElement) => element.blur());
+    await expect(roleplaySurface).not.toHaveAttribute("data-mobile-composer-active");
+    await expect(agentWindow).toBeVisible();
+    await expect(echoChamber).toBeVisible();
 
     const message = page.locator(`[data-message-id="${userMessage.id}"]`);
     await message.scrollIntoViewIfNeeded();
-    await message.click({ position: { x: 80, y: 24 } });
-    await activateControl(message.getByTitle("Edit", { exact: true }), testInfo);
+    await message.dispatchEvent("click");
+    await message.getByTitle("Edit", { exact: true }).dispatchEvent("click");
 
     const editor = message.locator("textarea");
     await expect(editor).toBeVisible();
+    const messageScroll = roleplaySurface.locator("[data-chat-scroll]");
+    await expect
+      .poll(() =>
+        messageScroll.evaluate((element) =>
+          getComputedStyle(element).getPropertyValue("--mari-message-editor-scroll-space").trim(),
+        ),
+      )
+      .toBe("8rem");
+    const untouchedEditValue = await editor.inputValue();
+    await messageScroll.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await editor.evaluate((element: HTMLTextAreaElement) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect
+      .poll(() =>
+        editor.evaluate(
+          (element: HTMLTextAreaElement) =>
+            Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop) <= 1,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(() =>
+        Promise.all([messageScroll.boundingBox(), editor.boundingBox()]).then(([scrollBox, editorBox]) =>
+          scrollBox && editorBox ? scrollBox.y + scrollBox.height - (editorBox.y + editorBox.height) : 0,
+        ),
+      )
+      .toBeGreaterThanOrEqual(100);
+    await expect(editor).toHaveValue(untouchedEditValue);
     await expect
       .poll(() => message.locator(".mari-message-actions").evaluate((actions) => getComputedStyle(actions).opacity))
       .toBe("1");
@@ -1880,6 +1943,93 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
   } finally {
     await bestEffortDelete(page.request, `/api/chats/${chat.id}?force=true`);
     await bestEffortDelete(page.request, `/api/connections/${connection.id}`);
+  }
+});
+
+test("mobile Conversation editing exposes the final line before text changes", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "The mobile message-editor scroll buffer is mobile-only.");
+
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Mobile Conversation Edit Scroll Smoke", mode: "conversation", characterIds: [] },
+  });
+  expect(chatResponse.ok(), await chatResponse.text()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const fillerResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+    data: {
+      role: "assistant",
+      content: Array.from({ length: 80 }, (_, index) => `Conversation history line ${index + 1}.`).join("\n"),
+    },
+  });
+  expect(fillerResponse.ok(), await fillerResponse.text()).toBeTruthy();
+  const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+    data: {
+      role: "user",
+      content: Array.from({ length: 36 }, (_, index) => `Editable Conversation line ${index + 1}.`).join("\n"),
+    },
+  });
+  expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
+  const message = (await messageResponse.json()) as { id: string };
+
+  try {
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+
+    const messageRow = page.locator(`[data-message-id="${message.id}"]`);
+    const content = messageRow.locator(':scope > [data-component="ConversationMessage.Content"]');
+    await messageRow.scrollIntoViewIfNeeded();
+    await expect(async () => {
+      await activateControl(content, testInfo);
+      await expect(messageRow.getByTitle("Edit", { exact: true })).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
+    await activateControl(messageRow.getByTitle("Edit", { exact: true }), testInfo);
+
+    const editor = messageRow.locator("[data-chat-message-editor]");
+    const messageScroll = page.locator('[data-chat-mode="conversation"] [data-chat-scroll]');
+    await expect(editor).toBeVisible();
+    await expect
+      .poll(() => messageScroll.evaluate((element) => Number.parseFloat(getComputedStyle(element).paddingBottom)))
+      .toBeGreaterThanOrEqual(128);
+
+    const untouchedEditValue = await editor.inputValue();
+    await messageScroll.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await editor.evaluate((element: HTMLTextAreaElement) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect
+      .poll(() =>
+        editor.evaluate(
+          (element: HTMLTextAreaElement) =>
+            Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop) <= 1,
+        ),
+      )
+      .toBe(true);
+    const readScrollMetrics = () =>
+      Promise.all([
+        messageScroll.evaluate((element) => ({
+          maxScrollTop: element.scrollHeight - element.clientHeight,
+          scrollTop: element.scrollTop,
+        })),
+        messageScroll.boundingBox(),
+        editor.boundingBox(),
+      ]).then(([scroll, scrollBox, editorBox]) => ({
+        atBottom: Math.abs(scroll.maxScrollTop - scroll.scrollTop) <= 1,
+        maxScrollTop: scroll.maxScrollTop,
+        trailingSpace: scrollBox && editorBox ? scrollBox.y + scrollBox.height - (editorBox.y + editorBox.height) : 0,
+      }));
+    await expect.poll(readScrollMetrics).toMatchObject({ atBottom: true });
+    const scrollMetrics = await readScrollMetrics();
+    expect(scrollMetrics.maxScrollTop).toBeGreaterThan(0);
+    expect(scrollMetrics.trailingSpace).toBeGreaterThanOrEqual(100);
+    await expect(editor).toHaveValue(untouchedEditValue);
+
+    await testInfo.attach(`mobile-conversation-edit-scroll-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+  } finally {
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}?force=true`);
   }
 });
 
@@ -18638,7 +18788,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
         paddingBottom: Number.parseFloat(style.paddingBottom),
       };
     });
-    expect(compactComposerStyle.paddingBottom).toBeCloseTo(compactComposerStyle.fontSize * 0.5, 5);
+    expect(compactComposerStyle.paddingBottom).toBeCloseTo(compactComposerStyle.fontSize * 0.25, 5);
 
     const [shellBox, composerBox] = await Promise.all([shell.boundingBox(), composer.boundingBox()]);
     expect(shellBox).not.toBeNull();
@@ -18700,7 +18850,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
         paddingBottom: Number.parseFloat(style.paddingBottom),
       };
     });
-    expect(iosCompactComposerStyle.paddingBottom).toBeCloseTo(iosCompactComposerStyle.fontSize * 0.5, 5);
+    expect(iosCompactComposerStyle.paddingBottom).toBeCloseTo(iosCompactComposerStyle.fontSize * 0.25, 5);
 
     const [iosShellBox, iosComposerBox] = await Promise.all([shell.boundingBox(), composer.boundingBox()]);
     expect(iosShellBox).not.toBeNull();

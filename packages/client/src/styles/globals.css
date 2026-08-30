@@ -6189,8 +6189,18 @@ strong {
     width: calc(100% - var(--mari-roleplay-mobile-avatar-space, 3rem));
   }
 
+  [data-component="ChatArea.Roleplay"][data-mobile-composer-active="true"] [data-roleplay-agent-window],
   [data-component="ChatArea.Roleplay"]:has(.mari-roleplay-message-body--editing) [data-roleplay-agent-window] {
     display: none;
+  }
+
+  [data-chat-mode="conversation"] [data-chat-scroll]:has([data-chat-message-editor]) {
+    padding-bottom: 8rem;
+    scroll-padding-bottom: 8rem;
+  }
+
+  [data-chat-mode="roleplay"] [data-chat-scroll]:has([data-chat-message-editor]) {
+    --mari-message-editor-scroll-space: 8rem;
   }
 
   .rpg-hud {
@@ -6207,8 +6217,13 @@ strong {
     scroll-margin-bottom: max(4.5rem, var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)));
   }
   html[data-mari-software-keyboard-open] .chat-input-container {
-    padding-bottom: 0.5em !important;
+    padding-top: 0 !important;
+    padding-bottom: 0.25em !important;
     scroll-margin-bottom: 4.5rem;
+  }
+  html[data-mari-software-keyboard-open] .chat-input-container .marinara-chat-input-shell {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
   }
   .chat-input-container .marinara-chat-input-shell {
     gap: 0.25rem !important;
