@@ -4,8 +4,10 @@ import { Download, Pin, X } from "lucide-react";
 import type { GeneratedSceneVideo } from "@marinara-engine/shared";
 import type { ChatImage } from "../../hooks/use-gallery";
 import { useGalleryStore } from "../../stores/gallery.store";
+import { saveImageUrlToDevice } from "../../lib/file-download";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 export function formatChatImageMeta(image: Pick<ChatImage, "model" | "provider" | "width" | "height">) {
   const details: string[] = [];
@@ -63,6 +65,14 @@ export function ChatImageLightbox({
   const portalRoot = typeof document !== "undefined" ? document.body : null;
   const prompt = image.prompt.trim();
   const meta = formatChatImageMeta(image);
+
+  const handleDownload = async () => {
+    try {
+      await saveImageUrlToDevice(image.url, getChatImageDownloadName(image));
+    } catch {
+      toast.error(localizeUi("ui.chat.chatgallery.downloadFailed"));
+    }
+  };
 
   useEffect(() => {
     closeButtonRef.current?.focus();
@@ -123,14 +133,14 @@ export function ChatImageLightbox({
               </button>
             )}
             {downloadEnabled && (
-              <a
-                href={image.url}
-                download={getChatImageDownloadName(image)}
+              <button
+                type="button"
+                onClick={() => void handleDownload()}
                 aria-label={localizeUi("ui.chat.chatgallery.downloadImage")}
                 className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
               >
                 <Download size="0.875rem" />
-              </a>
+              </button>
             )}
             <button
               type="button"

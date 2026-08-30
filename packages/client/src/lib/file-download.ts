@@ -1,4 +1,5 @@
 import { getAndroidBridgeToken } from "@/lib/android-bridge";
+import { isIosWebKitBrowser } from "./generation-stream-policy";
 
 type MarinaraAndroidFileBridge = {
   saveFile?: {
@@ -37,6 +38,27 @@ function triggerBrowserDownload(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
 
+function isIosDevice(): boolean {
+  return (
+    typeof navigator !== "undefined" &&
+    isIosWebKitBrowser(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)
+  );
+}
+
+async function shareImageOnIos(blob: Blob, url: string, filename: string): Promise<boolean> {
+  if (!isIosDevice() || typeof navigator.share !== "function") return false;
+
+  const file = new File([blob], filename, { type: blob.type || "image/png" });
+  const shareData = navigator.canShare?.({ files: [file] }) ? { files: [file] } : { url };
+  try {
+    await navigator.share(shareData);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") return true;
+    throw error;
+  }
+  return true;
+}
+
 /** Save a fetched file through the Android shell when available, or through the browser otherwise. */
 export async function saveBlobToDevice(blob: Blob, filename: string): Promise<void> {
   const bridge = getAndroidFileBridge();
@@ -56,4 +78,13 @@ export async function downloadUrlToDevice(url: string, filename: string): Promis
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed (${response.status})`);
   await saveBlobToDevice(await response.blob(), filename);
+}
+
+/** Save an image without navigating an installed iPhone web app into WebKit's non-dismissible file preview. */
+export async function saveImageUrlToDevice(url: string, filename: string): Promise<void> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Download failed (${response.status})`);
+  const blob = await response.blob();
+  if (await shareImageOnIos(blob, url, filename)) return;
+  await saveBlobToDevice(blob, filename);
 }

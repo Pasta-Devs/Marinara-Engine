@@ -14,6 +14,8 @@ import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
 
 const TRANSPARENT_GIF_BASE64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+const TRANSPARENT_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZlfsAAAAASUVORK5CYII=";
 const WHATS_NEW_SEEN_VERSION_KEY = "marinara:whats-new:seen-version";
 const WHATS_NEW_E2E_BYPASS_KEY = "marinara:e2e:show-whats-new";
 const APP_VERSION = (
@@ -7393,6 +7395,86 @@ test("Gallery Illustrate offers active custom image agents", async ({ page, requ
     await Promise.all(
       createdAgentIds.map((agentId) => request.delete(`/api/agents/${agentId}`).catch(() => undefined)),
     );
+  }
+});
+
+test("iPhone gallery image saves return through the system share sheet", async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-webkit", "The installed iPhone image-save path is WebKit-specific.");
+
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "iPhone Gallery Download Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const uploadResponse = await request.post(`/api/gallery/${chat.id}/upload`, {
+    multipart: {
+      file: {
+        name: "illustration_1.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(TRANSPARENT_PNG_BASE64, "base64"),
+      },
+      prompt: "Illustrator iPhone download probe.",
+    },
+  });
+  expect(uploadResponse.ok()).toBeTruthy();
+  const image = (await uploadResponse.json()) as { filePath: string };
+  const expectedFilename = image.filePath.split("/").pop();
+  expect(expectedFilename).toBeTruthy();
+
+  await page.addInitScript(() => {
+    const resultWindow = window as Window & {
+      __marinaraSharedImage?: { name: string; size: number; type: string };
+    };
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: (data: ShareData) => data.files?.length === 1,
+    });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (data: ShareData) => {
+        const file = data.files?.[0];
+        if (!file) throw new Error("Expected an image file in the iPhone share sheet");
+        resultWindow.__marinaraSharedImage = { name: file.name, size: file.size, type: file.type };
+      },
+    });
+  });
+  await page.addInitScript((chatId) => {
+    localStorage.setItem("marinara-active-chat-id", chatId);
+  }, chat.id);
+
+  try {
+    await page.goto("/");
+    await page.getByRole("button", { name: "More options", exact: true }).click();
+    await page.getByRole("button", { name: "Gallery", exact: true }).filter({ visible: true }).click();
+    const drawer = page.locator(".mari-chat-gallery-drawer");
+    await drawer.getByRole("button", { name: "Open gallery image", exact: true }).click();
+    const lightbox = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await expect(lightbox).toBeVisible();
+    const appUrl = page.url();
+
+    await lightbox.getByRole("button", { name: "Download image", exact: true }).click();
+
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as Window & { __marinaraSharedImage?: { name: string; size: number; type: string } })
+              .__marinaraSharedImage,
+        ),
+      )
+      .toEqual({
+        name: expectedFilename,
+        size: Buffer.from(TRANSPARENT_PNG_BASE64, "base64").length,
+        type: "image/png",
+      });
+    await expect(lightbox).toBeVisible();
+    await expect(page).toHaveURL(appUrl);
+    await testInfo.attach("iphone-gallery-image-share.png", {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+  } finally {
+    await bestEffortDelete(request, `/api/chats/${chat.id}?force=true`);
   }
 });
 

@@ -40,7 +40,7 @@ import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { buildCardAssetMarkdown, dispatchCardAssetInsert } from "../../lib/card-asset-links";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn, copyToClipboard } from "../../lib/utils";
-import { downloadUrlToDevice } from "../../lib/file-download";
+import { downloadUrlToDevice, saveImageUrlToDevice } from "../../lib/file-download";
 import {
   ChatImageLightbox,
   ChatVideoLightbox,
@@ -273,6 +273,17 @@ export function ChatGallery({
       },
     );
   };
+
+  const handleDownloadImage = useCallback(
+    async (image: ChatImage) => {
+      try {
+        await saveImageUrlToDevice(image.url, getChatImageDownloadName(image));
+      } catch {
+        toast.error(localizeUi("ui.chat.chatgallery.downloadFailed"));
+      }
+    },
+    [localizeUi],
+  );
 
   const handleBatchDownload = useCallback(async () => {
     if (selectedImages.length === 0 || batchOperationPendingRef.current) return;
@@ -1090,15 +1101,15 @@ export function ChatGallery({
                             >
                               <Pin size="0.75rem" />
                             </button>
-                            <a
-                              href={img.url}
-                              download={getChatImageDownloadName(img)}
+                            <button
+                              type="button"
+                              onClick={() => void handleDownloadImage(img)}
                               aria-label={localizeUi("ui.chat.chatgallery.downloadGalleryImage")}
                               className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
                               title={localizeUi("ui.chat.chatgallery.downloadImage")}
                             >
                               <Download size="0.75rem" />
-                            </a>
+                            </button>
                             {sceneVideosEnabled && onAnimateImage && (
                               <button
                                 type="button"
