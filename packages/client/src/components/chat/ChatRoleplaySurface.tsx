@@ -1434,7 +1434,7 @@ export function ChatRoleplaySurface({
   const compactAuthorNotesOpen = authorNotesOpenOwner === "compact";
   const keyboardOpen = useChatKeyboardOpen();
   const composerFocused = useChatComposerFocused();
-  const mobileComposerActive = isMobileToolbarViewport && (keyboardOpen || composerFocused);
+  const mobileComposerActive = isMobileToolbarViewport && composerFocused;
   const ambientVisualsPaused =
     generationVisualsPaused || (isMobileToolbarViewport && (keyboardOpen || composerFocused || hasMobileDraftInput));
   const weatherEffectsPaused = isMobileToolbarViewport && (keyboardOpen || composerFocused || hasMobileDraftInput);
