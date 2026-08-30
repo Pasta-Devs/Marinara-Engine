@@ -1823,6 +1823,10 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
       "background-color",
       configuredChromeText,
     );
+    await testInfo.attach(`mobile-roleplay-context-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
     await quickSwitcher.click();
     await expect(budget).toHaveCount(0);
 
@@ -11488,6 +11492,10 @@ test("Character and Persona panels launch card downloads and their local librari
     .getByRole("combobox", { name: "Sort order" })
     .evaluate((field) => field.getBoundingClientRect().width);
   expect(Math.abs(characterSortControlWidth - characterSortFieldWidth)).toBeLessThanOrEqual(1);
+  await testInfo.attach(`character-full-library-${testInfo.project.name}.png`, {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
   await characterLibrary.getByTitle("Close library").click();
 
   await page.locator('[data-tour="panel-personas"]').click();
