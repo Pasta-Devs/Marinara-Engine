@@ -20,11 +20,11 @@ if (!releaseCommit) {
     }
 }
 android {
-    namespace 'com.marinara.engine'
+    namespace = 'com.marinara.engine'
     compileSdk 34
 
     buildFeatures {
-        buildConfig true
+        buildConfig = true
     }
 
     defaultConfig {

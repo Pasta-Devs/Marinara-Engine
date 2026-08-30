@@ -50,15 +50,10 @@ else
     if command -v gradle &>/dev/null; then
         GRADLE_CMD="gradle"
     else
-        echo "Downloading Gradle wrapper..."
-        gradle wrapper --gradle-version 8.5 2>/dev/null || {
-            echo "Error: Gradle not found. Install it or run from Android Studio."
-            echo "  macOS:  brew install gradle"
-            echo "  Termux: pkg install gradle"
-            exit 1
-        }
-        chmod +x ./gradlew
-        GRADLE_CMD="./gradlew"
+        echo "Error: Gradle not found. Install it or run from Android Studio."
+        echo "  macOS:  brew install gradle"
+        echo "  Termux: pkg install gradle"
+        exit 1
     fi
 fi
 
