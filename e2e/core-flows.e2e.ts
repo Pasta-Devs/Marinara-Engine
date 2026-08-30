@@ -19696,11 +19696,22 @@ test("Game HUD compacts on tablet widths when its surface mounts after the widge
         // Let React flush the passive effects committed with that branch, which
         // is where the widget state hydrates. Frames rather than a fixed delay,
         // so the wait stretches on a loaded runner instead of expiring early.
+        // The timer is a ceiling, not a delay: page.evaluate carries no timeout
+        // of its own, so a page whose frames are throttled would leave this
+        // promise pending forever and hang the held request, and a rejection
+        // handler cannot recover a promise that never settles. Frames win the
+        // race in the normal case, which is every case seen so far.
         await page
           .evaluate(
             () =>
               new Promise<void>((resolve) => {
-                requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+                const framesUnavailable = setTimeout(resolve, 1_000);
+                requestAnimationFrame(() =>
+                  requestAnimationFrame(() => {
+                    clearTimeout(framesUnavailable);
+                    resolve();
+                  }),
+                );
               }),
           )
           .catch(() => undefined);
