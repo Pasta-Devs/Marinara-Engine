@@ -605,9 +605,11 @@ function stripManualOnlyFlags(container: unknown): boolean {
  * is meant to prevent.
  */
 function carryManualFlagsForward(prior: BeholderState, next: BeholderState): BeholderState {
-  const priorByName = new Map(prior.characters.map((character) => [character.name, character]));
+  // Matched the way delta resolution matches, via sameCharacterName. Keying on the
+  // exact string meant a snapshot that merely recased a name — "Hesperia" to
+  // "HESPERIA" — found no prior character and dropped its flags silently.
   for (const character of next.characters) {
-    const previous = priorByName.get(character.name);
+    const previous = prior.characters.find((candidate) => sameCharacterName(candidate.name, character.name));
     if (!previous) continue;
     for (const [rawSlotName, priorSlot] of Object.entries(previous.body)) {
       if (!BODY_SLOT_SET.has(rawSlotName) || !isRecord(priorSlot)) continue;
@@ -718,7 +720,12 @@ export function resolveBeholderStateResponse(
     if (!normalized || (parsed.characters.length > 0 && normalized.characters.length === 0)) {
       return { state: prior, valid: false, error: "Beholder returned an unusable full state snapshot." };
     }
-    return { state: carryManualFlagsForward(prior, normalized), valid: true };
+    // Re-normalized after the carry: `missing` clears the slot's contents, so pinning
+    // it onto a snapshot slot that still carries `worn` would return a state that this
+    // function's own prior-normalization would change on the next turn — the contents
+    // would vanish a turn late, which reads as a bug rather than as the flag working.
+    const carried = normalizeBeholderState(carryManualFlagsForward(prior, normalized));
+    return { state: carried ?? normalized, valid: true };
   }
 
   if (parsed.changed === false) return { state: prior, valid: true };

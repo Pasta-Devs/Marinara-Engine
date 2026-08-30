@@ -157,6 +157,7 @@ const priorWithManualFlags = {
         body: {
           left_arm: { missing: false, worn: [{ item: "sleeve", damage: "pristine" }] },
           right_hand: { bare: false },
+          chest: { worn: [{ item: "coat", damage: "pristine" }] },
         },
       },
     ],
@@ -165,11 +166,44 @@ const priorWithManualFlags = {
   assert.equal(valid, true);
   assert.equal(slot(state, "Hesperia", "left_arm")?.missing, true, "a snapshot may not overrule a manual missing");
   assert.equal(slot(state, "Hesperia", "right_hand")?.bare, true, "a snapshot may not overrule a manual bare");
+  // A missing limb cannot be wearing anything, so the flag winning means the garment
+  // the snapshot put on it goes too. Anything else would leave a sleeve on a severed arm.
+  assert.equal(slot(state, "Hesperia", "left_arm")?.worn, undefined, "a missing slot carries no worn items");
   assert.deepEqual(
-    slot(state, "Hesperia", "left_arm")?.worn,
-    [{ item: "sleeve", damage: "pristine" }],
-    "the rest of the snapshot's slot is still taken",
+    slot(state, "Hesperia", "chest")?.worn,
+    [{ item: "coat", damage: "pristine" }],
+    "slots the flags do not touch still take the snapshot's value",
   );
+}
+
+// Case 3: a snapshot that merely recases the name must still find the prior flags.
+// Delta resolution matches names case-insensitively; keying the carry-forward on the
+// exact string dropped the flags whenever the model shouted a name.
+{
+  const snapshot = { characters: [{ name: "HESPERIA", body: { chest: { worn: [] } } }] };
+  const { state, valid } = resolveBeholderStateResponse(snapshot, priorWithManualFlags, persona);
+  assert.equal(valid, true);
+  assert.equal(slot(state, "HESPERIA", "left_arm")?.missing, true, "a recased name must still carry its flags");
+  assert.equal(slot(state, "HESPERIA", "right_hand")?.bare, true, "and both flags, not just the first");
+}
+
+// Case 4: the result must be a fixed point of normalization. `missing` clears a slot's
+// contents, so pinning it onto a snapshot slot that still carries `worn` would return
+// a state that the next turn's prior-normalization changes — the garment would vanish
+// a turn late, which reads as a bug rather than as the flag working.
+{
+  const snapshot = {
+    characters: [{ name: "Hesperia", body: { left_arm: { worn: [{ item: "bracer", damage: "pristine" }] } } }],
+  };
+  const { state, valid } = resolveBeholderStateResponse(snapshot, priorWithManualFlags, persona);
+  assert.equal(valid, true);
+  const arm = slot(state, "Hesperia", "left_arm");
+  assert.equal(arm?.missing, true, "the manual missing survives");
+  assert.equal(arm?.worn, undefined, "and a missing slot carries no worn items, in the same turn");
+
+  // Feeding the result back in as prior must change nothing.
+  const again = resolveBeholderStateResponse({ changed: false }, state, persona);
+  assert.deepEqual(again.state, state, "the resolved state must survive a round trip through prior-normalization");
 }
 
 console.log("beholder manual-only flags regression passed.");
