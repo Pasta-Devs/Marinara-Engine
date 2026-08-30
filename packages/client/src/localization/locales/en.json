@@ -1565,6 +1565,7 @@
   "ui.agents.agenteditor.useThisChatSActiveLorebooks": "Use this chat's active lorebooks",
   "ui.agents.agenteditor.usingBuiltInDefault": "Using built-in default",
   "ui.agents.agenteditor.utilityModelSidecar": "Agent's own local model (utility slot)",
+  "ui.agents.agenteditor.utilityModelSidecarUnavailable": "Agent's own local model (utility slot) — unavailable",
   "ui.agents.agenteditor.value1AppearsAsASectionOptionInPromptPresets": "\"{{value1}}\" appears as a section option in prompt presets",
   "ui.agents.agenteditor.value1Prompt": "{{value1}} Prompt",
   "ui.agents.agenteditor.visiblePlayer": "Visible player:",

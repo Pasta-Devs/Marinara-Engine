@@ -1755,7 +1755,8 @@ async function resolveRetryAgents(args: {
         isCustomAgent: !BUILT_IN_AGENTS.some((agent) => agent.id === cfg.type),
         phase: normalizeAgentPhaseValue(cfg.phase),
         promptTemplate: selectedPromptTemplate,
-        connectionId: effectiveConnectionId,
+        // The connection that actually answered; the override may have replaced it.
+        connectionId: agentConnection.entry.connectionId ?? effectiveConnectionId,
         settings,
         customParameters: agentConnection.entry.customParameters,
         temperature: agentConnection.entry.temperature,

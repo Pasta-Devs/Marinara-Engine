@@ -199,12 +199,12 @@ assert.ok(mainSidecarBefore.includes("operators-own-model"), "fixture must finge
   assert.equal(service.getStatus().configured, true, "an installed model makes the slot configured");
   assert.ok(service.getStatus().models.beholder, "the installed model is listed by id");
 
-  assert.throws(
+  await assert.rejects(
     () => service.setActiveModel("not-installed"),
     "activating a model that was never installed must fail loudly",
   );
 
-  service.setActiveModel("beholder");
+  await service.setActiveModel("beholder");
   assert.equal(service.getConfig().activeModelId, "beholder");
   assert.equal(
     service.servesAgent("beholder"),
@@ -212,11 +212,11 @@ assert.ok(mainSidecarBefore.includes("operators-own-model"), "fixture must finge
     "once selected it routes as soon as the shared runtime exists; the process starts on demand",
   );
 
-  service.setActiveModel(null);
+  await service.setActiveModel(null);
   assert.equal(service.getConfig().activeModelId, null, "the slot can be turned off");
 
-  service.setActiveModel("beholder");
-  service.removeModel("beholder");
+  await service.setActiveModel("beholder");
+  await service.removeModel("beholder");
   assert.equal(service.getStatus().models.beholder, undefined, "removal drops the record");
   assert.equal(
     service.getConfig().activeModelId,
@@ -225,6 +225,35 @@ assert.ok(mainSidecarBefore.includes("operators-own-model"), "fixture must finge
   );
   assert.equal(existsSync(join(modelDir, "Beholder-Q8_0.gguf")), false, "removal deletes the model file it installed");
   assert.equal(existsSync(UTILITY_CONFIG), true, "the slot keeps its own config inside its own directory");
+}
+
+// ── a model id is rejected, never normalized ────────────────────────────────────
+// Normalizing was a trap: "a/b" and "a_b" collapsed onto one directory, and an empty
+// id resolved to the utility root — so removing it would have taken the whole
+// directory with it. These must throw rather than resolve to something plausible.
+{
+  const service = new UtilitySidecarService();
+  const canary = join(UTILITY_DIR, "canary.txt");
+  mkdirSync(UTILITY_DIR, { recursive: true });
+  writeFileSync(canary, "the utility directory itself must survive");
+
+  for (const badId of ["", ".", "..", "a/b", "../escape", "a b"]) {
+    await assert.rejects(
+      () => service.removeModel(badId),
+      `removeModel must reject the id ${JSON.stringify(badId)} rather than normalizing it`,
+    );
+    await assert.rejects(
+      () => service.setActiveModel(badId),
+      `setActiveModel must reject the id ${JSON.stringify(badId)}`,
+    );
+  }
+
+  assert.equal(
+    existsSync(canary),
+    true,
+    "no rejected id may delete anything — an empty id once resolved to the utility root",
+  );
+  assert.equal(existsSync(UTILITY_DIR), true, "the utility directory itself must still exist");
 }
 
 // ── THE INVARIANT: the main sidecar is byte-for-byte unchanged ──────────────────

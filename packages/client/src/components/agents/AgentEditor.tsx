@@ -2381,12 +2381,17 @@ export function AgentEditor() {
                 </option>
               )}
               {/* Only offered once a model is installed for this agent: an option that
-                  cannot answer is worse than no option at all. */}
-              {import.meta.env.VITE_MARINARA_LITE !== "true" && utilitySlotServesThisAgent && (
-                <option value={UTILITY_SIDECAR_CONNECTION_ID}>
-                  {localizeUi("ui.agents.agenteditor.utilityModelSidecar")}
-                </option>
-              )}
+                  cannot answer is worse than no option at all. The exception is a
+                  selection already saved — dropping that option would leave the select
+                  with no match and silently hide that the saved choice cannot serve. */}
+              {import.meta.env.VITE_MARINARA_LITE !== "true" &&
+                (utilitySlotServesThisAgent || localConnectionId === UTILITY_SIDECAR_CONNECTION_ID) && (
+                  <option value={UTILITY_SIDECAR_CONNECTION_ID}>
+                    {utilitySlotServesThisAgent
+                      ? localizeUi("ui.agents.agenteditor.utilityModelSidecar")
+                      : localizeUi("ui.agents.agenteditor.utilityModelSidecarUnavailable")}
+                  </option>
+                )}
               {llmConnections.map((conn) => (
                 <option key={conn.id} value={conn.id}>
                   {conn.name} ({conn.provider})

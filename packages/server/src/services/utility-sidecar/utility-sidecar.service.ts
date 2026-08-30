@@ -103,13 +103,34 @@ function assertInsideUtilityDir(candidate: string): string {
   return target;
 }
 
+/**
+ * A model id is a plain name, and it is rejected rather than normalized.
+ *
+ * Normalizing was a trap: "a/b" and "a_b" collapsed onto the same directory, and an
+ * empty id resolved to the utility root itself — so removing it would have taken the
+ * whole directory with it.
+ */
+function assertValidModelId(modelId: string): string {
+  if (!/^[A-Za-z0-9._-]+$/.test(modelId) || modelId === "." || modelId === "..") {
+    throw new Error(`Invalid utility model id: ${JSON.stringify(modelId)}`);
+  }
+  return modelId;
+}
+
+function modelDirPath(modelId: string): string {
+  return assertInsideUtilityDir(join(UTILITY_DIR, assertValidModelId(modelId)));
+}
+
 function modelFilePath(modelId: string, file: string): string {
-  return assertInsideUtilityDir(join(UTILITY_DIR, modelId.replace(/[^A-Za-z0-9._-]+/g, "_"), file));
+  if (!isValidModelFile(file)) throw new Error(`Invalid utility model file: ${JSON.stringify(file)}`);
+  return assertInsideUtilityDir(join(modelDirPath(modelId), file));
 }
 
 export class UtilitySidecarService {
   private config: UtilitySidecarConfig = { ...UTILITY_SIDECAR_DEFAULT_CONFIG };
   private child: ChildProcess | null = null;
+  /** Which model the running child actually loaded, so a stale one is never reused. */
+  private runningModelId: string | null = null;
   private port: number | null = null;
   private ready = false;
   private startupError: string | null = null;
@@ -261,14 +282,25 @@ export class UtilitySidecarService {
     };
   }
 
-  removeModel(modelId: string): void {
+  /**
+   * Remove an installed model, stopping it first if it is the one running.
+   *
+   * Without the stop, the deleted model kept serving: the child stayed ready, and a
+   * later ensureRunning() handed that same process back for whatever was selected
+   * next. The slot would answer as a model that no longer exists on disk.
+   */
+  async removeModel(modelId: string): Promise<void> {
+    assertValidModelId(modelId);
     const installed = this.config.models[modelId];
     if (!installed) return;
-    if (this.config.activeModelId === modelId) this.config.activeModelId = null;
+    if (this.config.activeModelId === modelId) {
+      this.config.activeModelId = null;
+      await this.stop();
+    }
     delete this.config.models[modelId];
     this.writeConfig();
     try {
-      rmSync(dirname(modelFilePath(modelId, installed.file)), { recursive: true, force: true });
+      rmSync(modelDirPath(modelId), { recursive: true, force: true });
     } catch (error) {
       logger.warn(error, "[utility-sidecar] Could not remove the model directory");
     }
@@ -308,10 +340,24 @@ export class UtilitySidecarService {
     return this.getStatus();
   }
 
-  setActiveModel(modelId: string | null): UtilitySidecarConfig {
-    if (modelId && !this.config.models[modelId]) throw new Error(`No utility model installed as ${modelId}`);
+  /**
+   * Choose which model this slot serves.
+   *
+   * Stops a process that is serving something else first. Otherwise the running child
+   * stayed up and ensureRunning() returned it as ready, so status and routing reported
+   * the newly selected model while the old one was still answering every request.
+   */
+  async setActiveModel(modelId: string | null): Promise<UtilitySidecarConfig> {
+    // null is the only way to clear the selection. An empty string used to slip
+    // through as "clear", which quietly turns a malformed request into a state change.
+    if (modelId !== null) {
+      assertValidModelId(modelId);
+      if (!this.config.models[modelId]) throw new Error(`No utility model installed as ${modelId}`);
+    }
+    const changed = this.config.activeModelId !== modelId;
     this.config.activeModelId = modelId;
     this.writeConfig();
+    if (changed && this.child) await this.stop();
     return this.getConfig();
   }
 
@@ -334,7 +380,10 @@ export class UtilitySidecarService {
 
   /** Start the utility process if it is not already up. Never touches the main one. */
   async ensureRunning(): Promise<UtilitySidecarStatus> {
-    if (this.ready && this.child) return this.getStatus();
+    // Ready is not enough: the child may be holding a model that is no longer the
+    // selected one, in which case it has to go before a new one can start.
+    if (this.ready && this.child && this.runningModelId === this.config.activeModelId) return this.getStatus();
+    if (this.child && this.runningModelId !== this.config.activeModelId) await this.stop();
     if (this.starting) {
       await this.starting;
       return this.getStatus();
@@ -397,12 +446,14 @@ export class UtilitySidecarService {
       const child = spawn(runtime.serverPath, args, { stdio: ["ignore", "pipe", "pipe"] });
       this.child = child;
       this.port = port;
+      this.runningModelId = modelId;
       child.on("exit", (code) => {
         logger.info(`[utility-sidecar] llama-server exited (${code})`);
         if (this.child === child) {
           this.child = null;
           this.port = null;
           this.ready = false;
+          this.runningModelId = null;
         }
       });
       child.on("error", (error) => {
@@ -457,6 +508,7 @@ export class UtilitySidecarService {
     this.child = null;
     this.ready = false;
     this.port = null;
+    this.runningModelId = null;
     if (!child) return;
     child.kill();
     await new Promise((done) => setTimeout(done, 250));

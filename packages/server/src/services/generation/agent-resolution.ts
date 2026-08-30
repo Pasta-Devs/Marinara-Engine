@@ -527,7 +527,9 @@ export async function resolveAgentPipelineAgents({
       isCustomAgent: !BUILT_IN_AGENTS.some((agent) => agent.id === cfg.type),
       phase: normalizeAgentPhaseValue(cfg.phase),
       promptTemplate: selectedPromptTemplate,
-      connectionId: effectiveConnectionId,
+      // The connection that actually answered, not the one configured — otherwise a
+      // run served by the utility slot still reports a paid connection.
+      connectionId: utilityEntry ? utilityEntry.connectionId : effectiveConnectionId,
       settings,
       provider: resolvedProvider.entry.provider,
       model: resolvedProvider.entry.model,
@@ -636,7 +638,7 @@ export async function resolveAgentPipelineAgents({
       isCustomAgent: false,
       phase: normalizeAgentPhaseValue(builtIn.phase),
       promptTemplate: selectedPromptTemplate,
-      connectionId: builtInConnectionId,
+      connectionId: builtInUtilityEntry ? builtInUtilityEntry.connectionId : builtInConnectionId,
       settings: builtInSettings,
       provider: builtInConnection.entry.provider,
       model: builtInConnection.entry.model,

@@ -124,7 +124,7 @@ export async function utilitySidecarRoutes(app: FastifyInstance) {
     { config: { rateLimit: UTILITY_SIDECAR_RATE_LIMIT } },
     async (req, reply) => {
       if (!requirePrivilegedAccess(req, reply, { feature: "Utility model removal" })) return;
-      utilitySidecarService.removeModel(modelIdSchema.parse(req.params.modelId));
+      await utilitySidecarService.removeModel(modelIdSchema.parse(req.params.modelId));
       return utilitySidecarService.getStatus();
     },
   );
@@ -134,7 +134,7 @@ export async function utilitySidecarRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Utility model selection" })) return;
     const body = z.object({ modelId: modelIdSchema.nullable() }).parse(req.body);
     try {
-      utilitySidecarService.setActiveModel(body.modelId);
+      await utilitySidecarService.setActiveModel(body.modelId);
       if (body.modelId) await utilitySidecarService.ensureRunning();
       else await utilitySidecarService.stop();
       return utilitySidecarService.getStatus();
