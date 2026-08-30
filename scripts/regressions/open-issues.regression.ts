@@ -5295,6 +5295,10 @@ const quickSwitcherMobileSource = readFileSync(
   new URL("../../packages/client/src/components/chat/QuickSwitcherMobile.tsx", import.meta.url),
   "utf8",
 );
+const contextBudgetIndicatorSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ContextBudgetIndicator.tsx", import.meta.url),
+  "utf8",
+);
 const lorebookHooksSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-lorebooks.ts", import.meta.url),
   "utf8",
@@ -5367,6 +5371,14 @@ assert.equal(
   "chat context usage must use the newest assistant measurement",
 );
 assert.equal(
+  contextBudgetIndicatorSource.match(/var\(--marinara-chat-chrome-text\)/gu)?.length,
+  2,
+  "Context usage gauges and bars must use the configured chat chroma text color",
+);
+assert.match(contextBudgetIndicatorSource, /text-\[var\(--marinara-chat-chrome-panel-muted\)\]/u);
+assert.match(contextBudgetIndicatorSource, /text-\[var\(--marinara-chat-chrome-panel-text\)\]/u);
+assert.doesNotMatch(contextBudgetIndicatorSource, /professorMari/u);
+assert.equal(
   resolveChatContextBudget(
     [{ role: "assistant", extra: { generationInfo: { tokensPrompt: 4_000, tokensCompletion: 100 } } }] as Message[],
     "random",
@@ -5408,7 +5420,7 @@ for (const [name, source] of [
   assert.match(source, /relative flex h-\[1\.875rem\] w-\[1\.875rem\]/u, `${name} must use the larger context gauge`);
 }
 assert.equal(
-  professorMariHomeSource.match(/<ContextBudgetIndicator budget=\{contextBudget\} professorMari \/>/gu)?.length,
+  professorMariHomeSource.match(/<ContextBudgetIndicator budget=\{contextBudget\} \/>/gu)?.length,
   2,
   "Both Professor Mari connection popups must show context usage",
 );
@@ -5515,6 +5527,10 @@ const roleplaySurfaceSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
   "utf8",
 );
+const echoChamberPanelSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/EchoChamberPanel.tsx", import.meta.url),
+  "utf8",
+);
 const chatToolbarControlsSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatToolbarControls.tsx", import.meta.url),
   "utf8",
@@ -5561,6 +5577,21 @@ assert.match(
   "Roleplay New Start dividers must span user and assistant message bodies",
 );
 assert.match(chatMessageSource, /pointer-events-auto relative z-30 flex h-11 w-11/u);
+assert.equal(
+  chatMessageSource.match(/\(showActions \|\| editing\) && "opacity-100"/gu)?.length,
+  2,
+  "Editing must keep every Roleplay and Game message action visible",
+);
+assert.equal(
+  roleplaySurfaceSource.match(/data-roleplay-agent-window/gu)?.length,
+  3,
+  "Roleplay must identify both HUD layouts and package-provided agent surfaces",
+);
+assert.equal(
+  echoChamberPanelSource.match(/data-roleplay-agent-window="echo"/gu)?.length,
+  2,
+  "Collapsed and expanded Echo Chamber windows must share the mobile edit marker",
+);
 assert.match(chatRowPeekSource, /mari-chrome-accent-text-muted mari-accent-animated text-\[0\.6875rem\]/u);
 assert.match(assignedSweepChatAreaSource, /mari-chrome-accent-text-muted mari-accent-animated max-w-sm text-xs/u);
 assert.match(
@@ -5962,6 +5993,11 @@ assert.match(
 const globalStylesSource = readFileSync(
   new URL("../../packages/client/src/styles/globals.css", import.meta.url),
   "utf8",
+);
+assert.match(
+  globalStylesSource,
+  /@media \(max-width: 767px\)[\s\S]*\[data-component="ChatArea\.Roleplay"\]:has\(\.mari-roleplay-message-body--editing\) \[data-roleplay-agent-window\] \{\s*display: none;/u,
+  "Mobile Roleplay editing must temporarily remove agent windows from the constrained viewport",
 );
 assert.equal(
   appSource.match(/document\.addEventListener\("visibilitychange", syncEffectsPausedState\)/gu)?.length,

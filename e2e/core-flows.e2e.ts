@@ -1740,6 +1740,149 @@ test("message deletion uses unified chroma controls and selection states", async
   }
 });
 
+test("mobile Roleplay context and edit controls keep their chrome and space", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "The constrained Roleplay edit state is mobile-only.");
+
+  const suffix = Date.now().toString(36);
+  const connectionResponse = await page.request.post("/api/connections", {
+    data: {
+      name: `Mobile Roleplay Chrome ${suffix}`,
+      provider: "custom",
+      baseUrl: "http://127.0.0.1:9/v1",
+      apiKey: "e2e-mobile-roleplay-chrome",
+      model: "mobile-roleplay-chrome",
+      maxContext: 32_768,
+    },
+  });
+  expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
+  const connection = (await connectionResponse.json()) as { id: string };
+  const chatResponse = await page.request.post("/api/chats", {
+    data: {
+      name: `Mobile Roleplay Chrome ${suffix}`,
+      mode: "roleplay",
+      characterIds: [],
+      connectionId: connection.id,
+    },
+  });
+  expect(chatResponse.ok(), await chatResponse.text()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const assistantMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+    data: { role: "assistant", content: "Context usage probe." },
+  });
+  expect(assistantMessageResponse.ok(), await assistantMessageResponse.text()).toBeTruthy();
+  const assistantMessage = (await assistantMessageResponse.json()) as { id: string };
+  const usageResponse = await page.request.patch(`/api/chats/${chat.id}/messages/${assistantMessage.id}/extra`, {
+    data: { generationInfo: { tokensPrompt: 8_000, tokensCompletion: 192 } },
+  });
+  expect(usageResponse.ok(), await usageResponse.text()).toBeTruthy();
+  const userMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+    data: { role: "user", content: "Keep every edit action available." },
+  });
+  expect(userMessageResponse.ok(), await userMessageResponse.text()).toBeTruthy();
+  const userMessage = (await userMessageResponse.json()) as { id: string };
+
+  try {
+    await page.request.patch(`/api/chats/${chat.id}/metadata`, { data: { enableAgents: false } });
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+        useUIStore: {
+          getState: () => {
+            setAppAccentColor: (value: string) => void;
+            setChatChromeTextColor: (value: string) => void;
+            setShowContextUsage: (value: boolean) => void;
+          };
+        };
+      };
+      const ui = useUIStore.getState();
+      ui.setAppAccentColor("#ff1493");
+      ui.setChatChromeTextColor("#14b8a6");
+      ui.setShowContextUsage(true);
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.style.getPropertyValue("--marinara-chat-chrome-text").trim()),
+      )
+      .toBe("#14b8a6");
+
+    const quickSwitcher = page.getByTitle("Quick Switcher", { exact: true });
+    await quickSwitcher.click();
+    const budget = page.locator('[data-component="ContextBudget"]');
+    const [chromeMuted, chromeText, appAccent] = await Promise.all([
+      readCssVariableColor(page, "--marinara-chat-chrome-panel-muted"),
+      readCssVariableColor(page, "--marinara-chat-chrome-panel-text"),
+      readCssVariableColor(page, "--primary"),
+    ]);
+    const configuredChromeText = await readCssVariableColor(page, "--marinara-chat-chrome-text");
+    expect(configuredChromeText).not.toBe(appAccent);
+    await expect(quickSwitcher.locator("circle").nth(1)).toHaveCSS("stroke", configuredChromeText);
+    await expect(budget.getByText("Context", { exact: true })).toHaveCSS("color", chromeMuted);
+    await expect(budget.getByText(/tokens$/u)).toHaveCSS("color", chromeText);
+    await expect(budget.getByRole("progressbar").locator(":scope > div")).toHaveCSS(
+      "background-color",
+      configuredChromeText,
+    );
+    await testInfo.attach(`mobile-roleplay-context-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+    await quickSwitcher.click();
+    await expect(budget).toHaveCount(0);
+
+    const roleplaySurface = page.locator('[data-component="ChatArea.Roleplay"]');
+    await roleplaySurface.evaluate((surface) => {
+      const probe = document.createElement("div");
+      probe.dataset.roleplayAgentWindow = "regression-probe";
+      probe.textContent = "Agent window probe";
+      probe.style.cssText = "position:absolute;left:0;top:0;width:24px;height:24px";
+      surface.append(probe);
+    });
+    const agentWindow = roleplaySurface.locator('[data-roleplay-agent-window="regression-probe"]');
+    await expect(agentWindow).toBeVisible();
+
+    const message = page.locator(`[data-message-id="${userMessage.id}"]`);
+    await message.scrollIntoViewIfNeeded();
+    await message.click({ position: { x: 80, y: 24 } });
+    await activateControl(message.getByTitle("Edit", { exact: true }), testInfo);
+
+    const editor = message.locator("textarea");
+    await expect(editor).toBeVisible();
+    await expect
+      .poll(() => message.locator(".mari-message-actions").evaluate((actions) => getComputedStyle(actions).opacity))
+      .toBe("1");
+    for (const title of ["Mark as new start", "Hide from AI"]) {
+      const action = message.getByTitle(title, { exact: true });
+      await expect(action).toBeVisible();
+      await expect(action).toBeInViewport();
+    }
+    await expect(agentWindow).toBeHidden();
+
+    const editLayout = editor.locator("..");
+    const controls = editLayout.locator(":scope > div");
+    const [editorBox, controlsBox] = await Promise.all([editor.boundingBox(), controls.boundingBox()]);
+    expect(editorBox).not.toBeNull();
+    expect(controlsBox).not.toBeNull();
+    expect(controlsBox!.y - (editorBox!.y + editorBox!.height)).toBeLessThanOrEqual(1);
+    for (const label of ["Cancel edit", "Save edit"]) {
+      const box = await message.getByLabel(label, { exact: true }).boundingBox();
+      expect(box?.width).toBeGreaterThanOrEqual(44);
+      expect(box?.height).toBeGreaterThanOrEqual(44);
+    }
+
+    await testInfo.attach(`mobile-roleplay-edit-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+    await activateControl(message.getByLabel("Cancel edit", { exact: true }), testInfo);
+    await expect(editor).toHaveCount(0);
+    await expect(agentWindow).toBeVisible();
+  } finally {
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}?force=true`);
+    await bestEffortDelete(page.request, `/api/connections/${connection.id}`);
+  }
+});
+
 test("Conversation transcript dates and message numbers follow Chat Chrome Text Color", async ({ page }) => {
   const chatResponse = await page.request.post("/api/chats", {
     data: { name: "Conversation Transcript Chroma Smoke", mode: "conversation", characterIds: [] },
@@ -2810,7 +2953,7 @@ test("Character favorite tags and stars inherit the configured accent color", as
 
     await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
-    await library.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterName);
+    await library.getByPlaceholder("Search characters").fill(characterName);
 
     const cardFavorite = library.locator('[data-character-favorite-indicator="card"]');
     const detailFavorite = library.locator('[data-character-favorite-indicator="detail"]:visible');
@@ -3075,7 +3218,7 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
 
     await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
-    await library.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterName);
+    await library.getByPlaceholder("Search characters").fill(characterName);
     const libraryCard = library.locator(`[data-card-library-card="${character.id}"]`);
     await expect(libraryCard).toBeVisible();
     if (mobile) {
@@ -4207,7 +4350,9 @@ test("expanded character editors keep native keyboard and quote caret behavior",
     });
     await page.keyboard.type("X");
     await page.waitForTimeout(40);
-    await expect.poll(() => expandedEditor.evaluate((textarea: HTMLTextAreaElement) => textarea.selectionStart)).toBe(3);
+    await expect
+      .poll(() => expandedEditor.evaluate((textarea: HTMLTextAreaElement) => textarea.selectionStart))
+      .toBe(3);
     await page.keyboard.type("Y");
     await expect(expandedEditor).toHaveValue("alXYpha\nbeta");
     await page.keyboard.press(`${process.platform === "darwin" ? "Meta" : "Control"}+z`);
@@ -11331,6 +11476,31 @@ test("Character and Persona panels launch card downloads and their local librari
   await expect(closeCardLibrary).toBeVisible();
   await closeCardLibrary.click();
 
+  const openCharacterLibrary = characterActions.getByRole("button", { name: "Open Library", exact: true });
+  if (!(await openCharacterLibrary.isVisible())) {
+    await page.locator('[data-tour="panel-characters"]').click();
+  }
+  await openCharacterLibrary.click();
+  const characterLibrary = page.locator('[data-component="CharacterLibraryView"]');
+  await expect(characterLibrary.getByPlaceholder("Search characters")).toBeVisible();
+  await expect(characterLibrary.getByRole("button", { name: "Select", exact: true })).toHaveCount(0);
+  await expect(characterLibrary.getByRole("button", { name: "Generate missing summaries", exact: true })).toHaveCount(
+    0,
+  );
+  const characterSortControl = characterLibrary.locator("[data-library-toolbar-sort]");
+  const characterSortControlWidth = await characterSortControl.evaluate(
+    (control) => control.getBoundingClientRect().width,
+  );
+  const characterSortFieldWidth = await characterSortControl
+    .getByRole("combobox", { name: "Sort order" })
+    .evaluate((field) => field.getBoundingClientRect().width);
+  expect(Math.abs(characterSortControlWidth - characterSortFieldWidth)).toBeLessThanOrEqual(1);
+  await testInfo.attach(`character-full-library-${testInfo.project.name}.png`, {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
+  await characterLibrary.getByTitle("Close library").click();
+
   await page.locator('[data-tour="panel-personas"]').click();
   const personaActions = page.locator('[data-component="PersonaLibraryActions"]');
   await expect(personaActions.getByRole("button", { name: "Download", exact: true })).toBeVisible();
@@ -11342,9 +11512,14 @@ test("Character and Persona panels launch card downloads and their local librari
   await expect(page.getByText("Persona Library", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Browse your personas" })).toBeVisible();
   await expect(page.getByRole("button", { name: "New persona" })).toBeVisible();
-  await expect(
-    page.locator('[data-component="CharacterLibraryView"]').getByPlaceholder("Search personas"),
-  ).toBeVisible();
+  const personaLibrary = page.locator('[data-component="CharacterLibraryView"]');
+  await expect(personaLibrary.getByPlaceholder("Search personas")).toBeVisible();
+  const personaSortControl = personaLibrary.locator("[data-library-toolbar-sort]");
+  const personaSortControlWidth = await personaSortControl.evaluate((control) => control.getBoundingClientRect().width);
+  const personaSortFieldWidth = await personaSortControl
+    .getByRole("combobox", { name: "Sort order" })
+    .evaluate((field) => field.getBoundingClientRect().width);
+  expect(Math.abs(personaSortControlWidth - personaSortFieldWidth)).toBeLessThanOrEqual(1);
   await expect(page.locator('[data-tour="panel-personas"]')).toHaveClass(/mari-topbar-panel-icon--active/);
   await expect(page.locator('[data-tour="panel-characters"]')).not.toHaveClass(/bg-\[var\(--accent\)\]/);
   expect(errors.filter((error) => !error.includes("status of 503 (Service Unavailable)"))).toEqual([]);
@@ -11603,7 +11778,7 @@ test("Character and Persona sidebars find cards by creator", async ({ page, requ
 
     await page.locator('[data-tour="panel-characters"]').click();
     await expect(rightPanel).toBeVisible();
-    await rightPanel.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterCreator);
+    await rightPanel.getByPlaceholder("Search characters").fill(characterCreator);
     await expect(
       rightPanel.locator(`[data-touch-drag-card="character"][data-character-id="${character.id}"]`),
     ).toContainText(characterName);
@@ -11807,19 +11982,6 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
     });
   });
   await page.goto("/");
-  await page.locator('[data-tour="panel-characters"]').click();
-  await page.getByRole("button", { name: "Open Library", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Browse your characters" })).toBeVisible();
-  await expect(
-    page.locator('[data-component="CharacterLibraryView"]').getByPlaceholder('Search characters or -tag:"tag name"'),
-  ).toBeVisible();
-  if (testInfo.project.name.includes("mobile")) {
-    await expect(page.locator('[data-component="RightPanelMobile"]')).toHaveCount(0);
-  } else {
-    await expect(page.locator('[data-component="RightPanelDesktop"]')).toBeVisible();
-  }
-  await page.getByTitle("Close library").click();
-
   await page.locator('[data-tour="panel-agents"]').click();
   await expect(page.getByText("No Agents installed yet, click Download Agents to add them!")).toBeVisible();
   await page.getByLabel("Agents").getByRole("button", { name: "Download Agents", exact: true }).click();
@@ -19121,7 +19283,9 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   );
   await page.goto("/");
   await page.evaluate(async () => {
-    const { DEFAULT_MOBILE_MUSIC_WIDGET_POSITION, useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+    const { DEFAULT_MOBILE_MUSIC_WIDGET_POSITION, useUIStore } = (await import(
+      "/src/stores/ui.store.ts" as string
+    )) as PageUiStoreModule;
     const state = useUIStore.getState();
     state.setMusicPlayerSource("spotify");
     state.setSpotifyMobileWidgetCollapsed(true);

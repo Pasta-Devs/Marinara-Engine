@@ -5210,7 +5210,7 @@ export function HomeProfessorMariChat({
               </div>
               {showContextUsage && contextBudget && (
                 <div className="border-b border-[var(--border)] px-3 pt-2">
-                  <ContextBudgetIndicator budget={contextBudget} professorMari />
+                  <ContextBudgetIndicator budget={contextBudget} />
                 </div>
               )}
               <div className="overflow-y-auto p-1">
@@ -5989,7 +5989,7 @@ export function HomeProfessorMariChat({
                                 </div>
                                 {showContextUsage && contextBudget && (
                                   <div className="border-b border-[var(--border)] px-3 pt-2">
-                                    <ContextBudgetIndicator budget={contextBudget} professorMari />
+                                    <ContextBudgetIndicator budget={contextBudget} />
                                   </div>
                                 )}
                                 <div className="overflow-y-auto p-1">
