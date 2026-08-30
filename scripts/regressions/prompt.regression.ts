@@ -10892,7 +10892,17 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       ]);
       assert.equal(mergedMari?.body.face?.worn, undefined);
       assert.equal(mergedMari?.body.left_hand?.holding, undefined);
-      assert.deepEqual(mergedMari?.body.right_arm, { missing: true });
+      // `missing` and `bare` are manual-only: the extractor proposed both on this slot
+      // and neither is applied, so what it also reported — the bracelet, and the wound
+      // merged against the one already there — is what survives. Before they became
+      // manual-only, `missing` took the slot and discarded all of it.
+      assert.deepEqual(mergedMari?.body.right_arm, {
+        worn: [{ item: "bracelet", damage: "pristine" }],
+        wounds: [
+          { text: "shallow cut", severity: "minor", bleeding: true },
+          { text: "ignored wound", severity: "critical", bleeding: true },
+        ],
+      });
       assert.equal(merged.state.characters.find((character) => character.name === "Dottore")?.species, "human");
       assert.equal(
         merged.state.characters.some((character) => character.name === "Columbina"),
