@@ -24,6 +24,7 @@ import {
   type CustomAgentCapability,
 } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { BEHOLDER_STATE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import {
   getCustomAgentImportPolicy,
   setCustomAgentImportsEnabled,
@@ -286,21 +287,25 @@ export async function agentsRoutes(app: FastifyInstance) {
    * The body is normalized before it is stored, so a malformed correction is refused
    * rather than written into the state the prompt is built from.
    */
-  app.put<{ Params: { chatId: string } }>("/beholder-state/:chatId", async (req, reply) => {
-    // Guarded like the other write routes in this file: this rewrites the state the
-    // next prompt is built from, for any chat id the caller names.
-    if (!requirePrivilegedAccess(req, reply, { feature: "Beholder state correction" })) return;
-    const body = req.body as { state?: unknown } | undefined;
-    const state = normalizeBeholderState(body?.state);
-    if (!state) return reply.status(400).send({ error: "Invalid Beholder state" });
-    const run = await storage.getLastSuccessfulRunByType("beholder", req.params.chatId);
-    if (!run) return reply.status(404).send({ error: "No Beholder run to correct yet" });
-    // The run can be deleted between the lookup and the write. Reporting success then
-    // would tell the operator their correction was saved when it was discarded.
-    const updated = await storage.updateRunResultData(run.id, state, req.params.chatId);
-    if (!updated) return reply.status(409).send({ error: "The Beholder run changed while saving; try again" });
-    return { state, messageId: run.messageId ?? null, createdAt: run.createdAt ?? null };
-  });
+  app.put<{ Params: { chatId: string } }>(
+    "/beholder-state/:chatId",
+    { config: { rateLimit: BEHOLDER_STATE_RATE_LIMIT } },
+    async (req, reply) => {
+      // Guarded like the other write routes in this file: this rewrites the state the
+      // next prompt is built from, for any chat id the caller names.
+      if (!requirePrivilegedAccess(req, reply, { feature: "Beholder state correction" })) return;
+      const body = req.body as { state?: unknown } | undefined;
+      const state = normalizeBeholderState(body?.state);
+      if (!state) return reply.status(400).send({ error: "Invalid Beholder state" });
+      const run = await storage.getLastSuccessfulRunByType("beholder", req.params.chatId);
+      if (!run) return reply.status(404).send({ error: "No Beholder run to correct yet" });
+      // The run can be deleted between the lookup and the write. Reporting success then
+      // would tell the operator their correction was saved when it was discarded.
+      const updated = await storage.updateRunResultData(run.id, state, req.params.chatId);
+      if (!updated) return reply.status(409).send({ error: "The Beholder run changed while saving; try again" });
+      return { state, messageId: run.messageId ?? null, createdAt: run.createdAt ?? null };
+    },
+  );
 
   /** Get the latest validated Beholder physical-state snapshot for a roleplay chat. */
   app.get<{ Params: { chatId: string } }>("/beholder-state/:chatId", async (req) => {
