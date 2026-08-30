@@ -135,6 +135,8 @@ export class UtilitySidecarService {
   private ready = false;
   private startupError: string | null = null;
   private starting: Promise<void> | null = null;
+  /** In-progress shutdown, so a start cannot race a process that is still exiting. */
+  private stopping: Promise<void> | null = null;
 
   constructor() {
     this.config = this.readConfig();
@@ -388,6 +390,9 @@ export class UtilitySidecarService {
    */
   async ensureRunning(): Promise<UtilitySidecarStatus> {
     for (let attempt = 0; attempt < 3; attempt += 1) {
+      // A process that is still exiting must be gone before anything is started, or
+      // two llama-servers end up competing for the same GPU and model slot.
+      if (this.stopping) await this.stopping;
       const wanted = this.config.activeModelId;
       // Ready is not enough: the child may be holding a model that is no longer the
       // selected one, in which case it has to go before a new one can start.
@@ -528,6 +533,9 @@ export class UtilitySidecarService {
    * goes on to delete or replace it.
    */
   async stop(): Promise<void> {
+    // Join an in-progress shutdown rather than starting a second one.
+    if (this.stopping) return this.stopping;
+
     const child = this.child;
     this.child = null;
     this.ready = false;
@@ -535,18 +543,31 @@ export class UtilitySidecarService {
     this.runningModelId = null;
     if (!child || child.exitCode !== null || child.signalCode !== null) return;
 
-    const exited = new Promise<void>((done) => {
-      child.once("exit", () => done());
-      child.once("error", () => done());
-    });
-    const waitFor = (ms: number) =>
-      Promise.race([exited, new Promise<"timeout">((done) => setTimeout(() => done("timeout"), ms))]);
+    this.stopping = (async () => {
+      const exited = new Promise<void>((done) => {
+        child.once("exit", () => done());
+        child.once("error", () => done());
+      });
+      // The timer is cleared when the process wins the race; an orphaned one keeps
+      // the Node process alive for no reason.
+      const waitFor = (ms: number) => {
+        let timer: NodeJS.Timeout;
+        const timeout = new Promise<"timeout">((done) => {
+          timer = setTimeout(() => done("timeout"), ms);
+        });
+        return Promise.race([exited.then(() => "exited" as const), timeout]).finally(() => clearTimeout(timer));
+      };
 
-    child.kill();
-    if ((await waitFor(5_000)) === "timeout") {
-      child.kill("SIGKILL");
-      await waitFor(5_000);
-    }
+      child.kill();
+      if ((await waitFor(5_000)) === "timeout") {
+        child.kill("SIGKILL");
+        await waitFor(5_000);
+      }
+    })().finally(() => {
+      this.stopping = null;
+    });
+
+    return this.stopping;
   }
 
   /** Digest of the active model file, for the operator to confirm what is loaded. */
