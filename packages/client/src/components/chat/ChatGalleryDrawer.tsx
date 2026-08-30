@@ -154,7 +154,7 @@ export function ChatGalleryDrawer({
         data-chat-floating-panel
         className={cn(
           NEUTRAL_PANEL_SHELL,
-          "mari-chat-gallery-drawer fixed bottom-3 z-[70] flex w-[min(44rem,calc(100vw-var(--mari-chat-ui-inset-left,0px)-var(--mari-chat-ui-inset-right,0px)-1.5rem))] flex-col overflow-hidden max-md:inset-x-2 max-md:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto",
+          "mari-chat-gallery-drawer fixed bottom-3 z-[70] flex w-[min(44rem,calc(100vw-var(--mari-chat-ui-inset-left,0px)-var(--mari-chat-ui-inset-right,0px)-1.5rem))] flex-col overflow-hidden max-md:inset-x-2 max-md:bottom-[calc(0.75rem+var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto",
           anchor ? "" : "right-[calc(var(--mari-chat-ui-inset-right,0px)+0.75rem)] top-14",
         )}
         style={panelStyle}

@@ -1287,7 +1287,7 @@ function FloatingProfessorMari({
         }}
         aria-label={t("home.assistant.navigate")}
         title={t("home.assistant.navigate")}
-        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-recall absolute bottom-[max(0.65rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-[30] flex h-14 w-14 items-end justify-center overflow-hidden rounded-full border p-0.5 transition-[transform,box-shadow,background-color] hover:-translate-y-0.5 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] active:scale-95 motion-reduce:transition-none sm:bottom-4 sm:right-4"
+        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-recall absolute bottom-[max(0.65rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] right-[max(0.75rem,env(safe-area-inset-right))] z-[30] flex h-14 w-14 items-end justify-center overflow-hidden rounded-full border p-0.5 transition-[transform,box-shadow,background-color] hover:-translate-y-0.5 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] active:scale-95 motion-reduce:transition-none sm:bottom-4 sm:right-4"
       >
         <img
           src={MARI_ASSISTANT_IDLE}
@@ -1342,7 +1342,7 @@ function FloatingProfessorMari({
         "mari-home-professor-popup pointer-events-none absolute z-[30]",
         desktopDragEnabled
           ? "inset-0"
-          : "bottom-[max(0rem,env(safe-area-inset-bottom))] left-2 right-2 flex items-end justify-end sm:left-5 sm:right-5",
+          : "bottom-[max(0rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] left-2 right-2 flex items-end justify-end sm:left-5 sm:right-5",
       )}
       aria-label={t("home.assistant.landmark")}
       data-dragging={dragging ? "true" : "false"}

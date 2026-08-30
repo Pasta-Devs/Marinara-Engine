@@ -134,7 +134,7 @@ function ExpandedMacroEditor({
         data-component="ExpandedMacroEditor"
         data-macro-modal="true"
         className={cn(
-          "fixed inset-0 z-[10050] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
+          "fixed inset-0 z-[10050] flex items-center justify-center bg-black/70 p-3 pb-[max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
           EDITOR_MODAL_SURFACE_VARIABLES,
         )}
       >
@@ -210,7 +210,7 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
         data-component="MacroReference"
         data-macro-modal="true"
         className={cn(
-          "fixed inset-0 z-[10050] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
+          "fixed inset-0 z-[10050] flex items-center justify-center bg-black/70 p-3 pb-[max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
           EDITOR_MODAL_SURFACE_VARIABLES,
         )}
       >

@@ -461,7 +461,7 @@ export function GameCharacterSheet({
   return (
     <div
       data-game-skip-bg-nav="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 pb-[max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
       onClick={onClose}
     >
       <div

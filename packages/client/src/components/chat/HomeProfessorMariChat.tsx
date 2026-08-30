@@ -5477,7 +5477,7 @@ export function HomeProfessorMariChat({
                 "flex min-h-0 items-stretch justify-center",
                 embeddedTab
                   ? "relative z-auto h-full w-full bg-transparent p-0"
-                  : "fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top)_+_3rem)] z-[80] bg-[var(--background)] pb-[env(safe-area-inset-bottom)] sm:static sm:z-auto sm:h-full sm:max-h-none sm:w-full sm:flex-1 sm:bg-transparent sm:p-0",
+                  : "fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top)_+_3rem)] z-[80] bg-[var(--background)] pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:h-full sm:max-h-none sm:w-full sm:flex-1 sm:bg-transparent sm:p-0",
               )}
             >
               <div className={cn("h-full min-h-0 w-full", embeddedTab ? "max-w-none" : "max-w-none sm:max-w-5xl")}>
