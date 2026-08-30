@@ -379,19 +379,35 @@ export class UtilitySidecarService {
   }
 
   /** Start the utility process if it is not already up. Never touches the main one. */
+  /**
+   * Start the utility process if what is running is not already the selected model.
+   *
+   * The identity check is re-made after waiting on an in-flight start: a caller that
+   * joins model A's startup and then finds model B selected must not be handed A's
+   * ready port. Bounded so a pathological flip-flop cannot spin here forever.
+   */
   async ensureRunning(): Promise<UtilitySidecarStatus> {
-    // Ready is not enough: the child may be holding a model that is no longer the
-    // selected one, in which case it has to go before a new one can start.
-    if (this.ready && this.child && this.runningModelId === this.config.activeModelId) return this.getStatus();
-    if (this.child && this.runningModelId !== this.config.activeModelId) await this.stop();
-    if (this.starting) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const wanted = this.config.activeModelId;
+      // Ready is not enough: the child may be holding a model that is no longer the
+      // selected one, in which case it has to go before a new one can start.
+      if (this.ready && this.child && this.runningModelId === wanted) return this.getStatus();
+      if (this.child && this.runningModelId !== wanted) await this.stop();
+
+      if (this.starting) {
+        await this.starting;
+        // Someone else's start just finished. If it produced what we want we are done;
+        // otherwise go round again and start the right one.
+        if (this.runningModelId === this.config.activeModelId) return this.getStatus();
+        continue;
+      }
+
+      this.starting = this.start().finally(() => {
+        this.starting = null;
+      });
       await this.starting;
-      return this.getStatus();
+      if (this.runningModelId === this.config.activeModelId) return this.getStatus();
     }
-    this.starting = this.start().finally(() => {
-      this.starting = null;
-    });
-    await this.starting;
     return this.getStatus();
   }
 
@@ -503,16 +519,34 @@ export class UtilitySidecarService {
   }
 
   /** Stop only this process. The main sidecar is never signalled from here. */
+  /**
+   * Stop the utility process and wait for it to actually be gone.
+   *
+   * `child.killed` only records that a signal was sent, not that the process exited,
+   * so the old SIGKILL fallback could never fire and this could return while
+   * llama-server still held the model file open — which is exactly when the caller
+   * goes on to delete or replace it.
+   */
   async stop(): Promise<void> {
     const child = this.child;
     this.child = null;
     this.ready = false;
     this.port = null;
     this.runningModelId = null;
-    if (!child) return;
+    if (!child || child.exitCode !== null || child.signalCode !== null) return;
+
+    const exited = new Promise<void>((done) => {
+      child.once("exit", () => done());
+      child.once("error", () => done());
+    });
+    const waitFor = (ms: number) =>
+      Promise.race([exited, new Promise<"timeout">((done) => setTimeout(() => done("timeout"), ms))]);
+
     child.kill();
-    await new Promise((done) => setTimeout(done, 250));
-    if (!child.killed) child.kill("SIGKILL");
+    if ((await waitFor(5_000)) === "timeout") {
+      child.kill("SIGKILL");
+      await waitFor(5_000);
+    }
   }
 
   /** Digest of the active model file, for the operator to confirm what is loaded. */
