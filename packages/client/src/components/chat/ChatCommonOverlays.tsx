@@ -155,7 +155,7 @@ function MultiSelectBar({
       data-component="MessageMultiSelectBar"
       className={cn(
         NEUTRAL_PANEL_SHELL,
-        "mari-chrome-token-scope fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-50 flex w-[min(30rem,calc(100vw-1.5rem))] -translate-x-1/2 flex-col gap-2 p-3",
+        "mari-chrome-token-scope fixed bottom-[max(1rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] left-1/2 z-50 flex w-[min(30rem,calc(100vw-1.5rem))] -translate-x-1/2 flex-col gap-2 p-3",
       )}
     >
       <span className="text-center text-xs font-medium text-[var(--marinara-chat-chrome-panel-muted)]">
@@ -228,7 +228,7 @@ function ChatSettingsLoadingFallback({ anchor }: { anchor: ChatFloatingPanelAnch
   return (
     <div
       data-chat-floating-panel
-      className="mari-chrome-token-scope fixed bottom-3 right-[calc(var(--mari-chat-ui-inset-right,0px)+0.75rem)] top-14 z-[70] flex w-[min(34rem,calc(100vw-var(--mari-chat-ui-inset-left,0px)-var(--mari-chat-ui-inset-right,0px)-1.5rem))] flex-col overflow-hidden rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-text)] shadow-2xl shadow-black/40 backdrop-blur-md max-md:inset-x-2 max-md:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto"
+      className="mari-chrome-token-scope fixed bottom-3 right-[calc(var(--mari-chat-ui-inset-right,0px)+0.75rem)] top-14 z-[70] flex w-[min(34rem,calc(100vw-var(--mari-chat-ui-inset-left,0px)-var(--mari-chat-ui-inset-right,0px)-1.5rem))] flex-col overflow-hidden rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-text)] shadow-2xl shadow-black/40 backdrop-blur-md max-md:inset-x-2 max-md:bottom-[calc(0.75rem+var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto"
       style={panelStyle}
     >
       <div className="mari-chrome-text-strong flex shrink-0 items-center gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-4 py-3 text-sm font-semibold">

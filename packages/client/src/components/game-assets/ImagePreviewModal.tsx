@@ -35,7 +35,7 @@ export function ImagePreviewModal({ node, onClose }: { node: TreeNode; onClose: 
       role="dialog"
       aria-modal="true"
       aria-label={localizeUi("ui.gameAssets.imagepreviewmodal.imagePreviewValue1", { value1: node.name })}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 pb-[max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
       onClick={onClose}
     >
       <div className="relative flex max-h-[90vh] max-w-[90vw] supports-[height:100dvh]:max-h-[90dvh]">

@@ -7251,24 +7251,24 @@ strong {
 }
 
 .mari-conversation-call-mini {
-  bottom: max(env(safe-area-inset-bottom), 0.75rem);
+  bottom: max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem);
   left: max(env(safe-area-inset-left), 0.75rem);
   transition: bottom 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 :root[data-professor-mari-floating="true"] .mari-conversation-call-mini {
-  bottom: calc(max(env(safe-area-inset-bottom), 0.75rem) + min(32rem, calc(100vh - 5rem)) + 0.75rem);
+  bottom: calc(max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem) + min(32rem, calc(100vh - 5rem)) + 0.75rem);
 }
 
 @supports (height: 100dvh) {
   :root[data-professor-mari-floating="true"] .mari-conversation-call-mini {
-    bottom: calc(max(env(safe-area-inset-bottom), 0.75rem) + min(32rem, calc(100dvh - 5rem)) + 0.75rem);
+    bottom: calc(max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem) + min(32rem, calc(100dvh - 5rem)) + 0.75rem);
   }
 }
 
 @media (max-width: 639px) {
   :root[data-professor-mari-floating="true"] .mari-conversation-call-mini {
-    bottom: calc(max(env(safe-area-inset-bottom), 0.75rem) + 4rem);
+    bottom: calc(max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem) + 4rem);
   }
 }
 

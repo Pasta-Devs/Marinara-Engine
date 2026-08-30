@@ -345,7 +345,7 @@ export function AboutMeViewerModal({
         className={cn(
           "mari-about-me-popout mari-modal-panel border border-[var(--border)] bg-[var(--card)] shadow-2xl",
           isMobile
-            ? "absolute inset-x-0 bottom-0 top-16 flex flex-col overflow-hidden rounded-t-2xl pb-[env(safe-area-inset-bottom)]"
+            ? "absolute inset-x-0 bottom-0 top-16 flex flex-col overflow-hidden rounded-t-2xl pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]"
             : "absolute w-80 max-w-[calc(100vw-1rem)] rounded-2xl",
         )}
         style={

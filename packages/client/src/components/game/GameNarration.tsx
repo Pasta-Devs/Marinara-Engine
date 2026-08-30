@@ -4532,7 +4532,7 @@ export function GameNarration({
   };
 
   return (
-    <div className="relative flex min-h-0 flex-1 items-end px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-20 md:pt-24 sm:px-6 md:pb-4">
+    <div className="relative flex min-h-0 flex-1 items-end px-3 pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] pt-20 md:pt-24 sm:px-6 md:pb-4">
       {/* Readability scrim. It darkens the whole scene, not just the panel, so it has to fade
           out with the panel — otherwise collapsing hides the text but keeps the art dimmed. */}
       <div

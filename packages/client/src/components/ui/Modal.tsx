@@ -150,7 +150,7 @@ export function Modal({
       className={`mari-modal fixed inset-0 z-[10000] flex items-center justify-center ${dragThrough ? "pointer-events-none" : ""} ${
         mobileFullscreen
           ? "p-0 sm:p-4"
-          : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4"
+          : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4"
       }`}
       style={{
         opacity: isEntering ? 1 : 0,
@@ -175,7 +175,7 @@ export function Modal({
         tabIndex={-1}
         className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${dragThrough ? "pointer-events-auto" : ""} ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]${
           mobileFullscreen
-            ? " max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]"
+            ? " max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]"
             : ""
         } ${panelClassName ?? ""}`}
         style={{
