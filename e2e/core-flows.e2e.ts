@@ -11476,8 +11476,11 @@ test("Character and Persona panels launch card downloads and their local librari
   await expect(closeCardLibrary).toBeVisible();
   await closeCardLibrary.click();
 
-  await page.locator('[data-tour="panel-characters"]').click();
-  await characterActions.getByRole("button", { name: "Open Library", exact: true }).click();
+  const openCharacterLibrary = characterActions.getByRole("button", { name: "Open Library", exact: true });
+  if (!(await openCharacterLibrary.isVisible())) {
+    await page.locator('[data-tour="panel-characters"]').click();
+  }
+  await openCharacterLibrary.click();
   const characterLibrary = page.locator('[data-component="CharacterLibraryView"]');
   await expect(characterLibrary.getByPlaceholder("Search characters")).toBeVisible();
   await expect(characterLibrary.getByRole("button", { name: "Select", exact: true })).toHaveCount(0);
