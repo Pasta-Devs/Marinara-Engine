@@ -34,19 +34,19 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
         with:
-          packages: "platform-tools platforms;android-34 build-tools;34.0.0"
+          packages: "platform-tools platforms;android-34 build-tools;36.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
-          gradle-version: "8.5"
+          gradle-version: "9.7.1"
           cache-read-only: true
 
       - name: Bootstrap Gradle wrapper
         working-directory: android
         run: |
           if [ ! -f ./gradlew ]; then
-            gradle wrapper --gradle-version 8.5
+            gradle wrapper --gradle-version 9.7.1 --gradle-distribution-sha256-sum acd53f1edaf02f1a8ff99879f8a34b302661a057d9b063ae9e35b552f804d20a
           fi
           chmod +x ./gradlew
 
