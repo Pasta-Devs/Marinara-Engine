@@ -50,6 +50,9 @@ import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../../services/llm
 import { createLLMProvider } from "../../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../../services/llm/connection-fallback-provider.js";
 import { sidecarModelService } from "../../services/sidecar/sidecar-model.service.js";
+import { utilitySidecarService } from "../../services/utility-sidecar/utility-sidecar.service.js";
+import { buildUtilitySidecarEntry } from "../../services/utility-sidecar/utility-sidecar.provider.js";
+import { UTILITY_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { buildSpotifyDjConstraints } from "../../services/spotify/spotify-dj-constraints.js";
 import { fingerprintChatSummary } from "../../services/prompt/chat-summary-fingerprint.js";
 import {
@@ -1574,6 +1577,8 @@ async function resolveRetryAgents(args: {
   const resolvedAgents: ResolvedRetryAgent[] = [];
   const skippedLocalSidecarAgents: string[] = [];
   const defaultAgentConnectionAgents: string[] = [];
+  /** Agents this run routed to the utility slot, so the UI can say which model answered. */
+  const utilitySidecarAgents: string[] = [];
   // Explicit per-agent sidecar selection is valid independently of the global
   // tracker default; the provider starts the configured model on demand.
   const localSidecarAvailableForTrackers = sidecarModelService.getConfiguredModelRef() !== null;
@@ -1642,6 +1647,44 @@ async function resolveRetryAgents(args: {
     retryAgentConnectionCache.set(connectionId, resolution);
     return resolution;
   };
+  /**
+   * The utility slot outranks the agent's configured connection.
+   *
+   * When an agent has a purpose-trained model installed in the utility slot and that
+   * slot is answering, the run goes there — that model is the reason it was installed.
+   * When the slot is off, missing, or serving a different agent, this returns the
+   * resolution untouched and the agent's own connection is used.
+   *
+   * Deliberately additive: it never mutates the main sidecar's config or provider, and
+   * an agent with no utility model installed takes exactly the path it did before.
+   */
+  const applyUtilitySidecarOverride = (
+    agentType: string,
+    resolution: RetryAgentConnectionResolution,
+    requestedConnectionId?: string | null,
+  ): RetryAgentConnectionResolution => {
+    const utilityEntry = buildUtilitySidecarEntry(agentType);
+    if (!utilityEntry) {
+      // An operator who explicitly picked the local model must not be silently answered
+      // by a different one: the two need different prompts, and the wrong pairing looks
+      // like a broken model rather than a wrong setting.
+      if (requestedConnectionId === UTILITY_SIDECAR_CONNECTION_ID) {
+        return {
+          entry: null,
+          unavailableReason: "the local model slot is not serving this agent",
+        };
+      }
+      return resolution;
+    }
+    utilitySidecarAgents.push(agentType);
+    return {
+      entry: {
+        ...utilityEntry,
+        provider: wrapRetryAgentProvider(utilityEntry.provider, utilityEntry.connectionId),
+      },
+    };
+  };
+
   const defaultAgentConnection = defaultAgentConn
     ? await resolveRetryAgentConnection(defaultAgentConn.id as string)
     : null;
@@ -1655,7 +1698,9 @@ async function resolveRetryAgents(args: {
       localSidecarAvailable: localSidecarAvailableForTrackers,
     });
 
-    if (effectiveConnectionId === "skip-local-sidecar") {
+    // The utility slot outranks this skip: if it serves this agent it can answer even
+    // though the main sidecar — the connection the agent asked for — is unavailable.
+    if (effectiveConnectionId === "skip-local-sidecar" && !utilitySidecarService.servesAgent(cfg.type as string)) {
       skippedLocalSidecarAgents.push(cfg.name ?? cfg.type);
       logger.warn(
         "[retry-agents] Skipping agent %s because Local Model was requested but the sidecar is unavailable",
@@ -1664,7 +1709,11 @@ async function resolveRetryAgents(args: {
       continue;
     }
 
-    const agentConnection = await resolveRetryAgentConnection(effectiveConnectionId);
+    const agentConnection = applyUtilitySidecarOverride(
+      cfg.type as string,
+      await resolveRetryAgentConnection(effectiveConnectionId),
+      effectiveConnectionId,
+    );
     if (!agentConnection.entry) {
       addUnavailableConnectionWarning(cfg.name ?? cfg.type, agentConnection);
       logger.warn(
@@ -1730,7 +1779,7 @@ async function resolveRetryAgents(args: {
       localSidecarAvailable: localSidecarAvailableForTrackers,
     });
 
-    if (builtInConnectionId === "skip-local-sidecar") {
+    if (builtInConnectionId === "skip-local-sidecar" && !utilitySidecarService.servesAgent(builtIn.id)) {
       skippedLocalSidecarAgents.push(builtIn.name);
       logger.warn(
         "[retry-agents] Skipping built-in agent %s because Local Model was requested but the sidecar is unavailable",
@@ -1739,10 +1788,13 @@ async function resolveRetryAgents(args: {
       continue;
     }
 
-    const builtInConnection =
-      defaultAgentConn && builtInConnectionId === defaultAgentConn.id
+    const builtInConnection = applyUtilitySidecarOverride(
+      builtIn.id,
+      (defaultAgentConn && builtInConnectionId === defaultAgentConn.id
         ? defaultAgentConnection
-        : await resolveRetryAgentConnection(builtInConnectionId);
+        : await resolveRetryAgentConnection(builtInConnectionId)) ?? { entry: null },
+      builtInConnectionId,
+    );
     if (!builtInConnection?.entry) {
       addUnavailableConnectionWarning(builtIn.name, builtInConnection ?? {});
       logger.warn(

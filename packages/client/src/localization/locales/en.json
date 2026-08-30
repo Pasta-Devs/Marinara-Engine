@@ -1443,6 +1443,7 @@
   "ui.agents.agenteditor.leaveTheKey": "Leave the key",
   "ui.agents.agenteditor.letsThisCustomAgentCallAFunctionThatCreates": "Lets this custom agent call a function that creates or updates entries in one selected lorebook.",
   "ui.agents.agenteditor.localModelSidecar": "Local Model (sidecar)",
+  "ui.agents.agenteditor.utilityModelSidecar": "Agent's own local model (utility slot)",
   "ui.agents.agenteditor.lorebookContextSources": "Lorebook Context Sources",
   "ui.agents.agenteditor.lorebookWriter": "Lorebook Writer",
   "ui.agents.agenteditor.lowresBadAnatomyTextArtifacts": "lowres, bad anatomy, text artifacts",

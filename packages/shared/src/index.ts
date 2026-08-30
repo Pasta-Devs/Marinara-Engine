@@ -23,6 +23,7 @@ export * from "./types/theme.js";
 export * from "./types/chat-preset.js";
 export * from "./types/game.js";
 export * from "./types/sidecar.js";
+export * from "./types/utility-sidecar.js";
 export * from "./types/image-generation-defaults.js";
 export * from "./types/video-generation-defaults.js";
 export * from "./types/video-generation-settings.js";

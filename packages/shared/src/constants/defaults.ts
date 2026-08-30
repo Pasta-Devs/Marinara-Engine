@@ -9,6 +9,14 @@ export const APP_VERSION = "2.4.5";
 /** Stable synthetic connection id for the built-in local llama sidecar. */
 export const LOCAL_SIDECAR_CONNECTION_ID = "__local_sidecar__";
 
+/**
+ * Pseudo-connection for the utility model slot — the agent's own purpose-trained model.
+ *
+ * Distinct from LOCAL_SIDECAR_CONNECTION_ID: that one is the engine's main sidecar,
+ * which this must never be confused with or route to.
+ */
+export const UTILITY_SIDECAR_CONNECTION_ID = "__utility_sidecar__";
+
 /** Stable ID for the built-in Professor Mari assistant character. */
 export const PROFESSOR_MARI_ID = "__professor_mari__";
 

@@ -19,6 +19,9 @@ import type { BaseLLMProvider } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
+import { utilitySidecarService } from "../utility-sidecar/utility-sidecar.service.js";
+import { buildUtilitySidecarEntry } from "../utility-sidecar/utility-sidecar.provider.js";
+import { UTILITY_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import { logger } from "../../lib/logger.js";
 import {
@@ -399,6 +402,8 @@ export async function resolveAgentPipelineAgents({
 
   const agentConnectionWarnings: AgentConnectionWarning[] = [];
   const skippedLocalSidecarAgents: string[] = [];
+  /** Agents this run routed to the utility slot, so the UI can say which model answered. */
+  const utilitySidecarAgents: string[] = [];
   const defaultAgentConnectionAgents: string[] = [];
   const unavailableConnectionWarnings = new Map<
     string,
@@ -451,7 +456,9 @@ export async function resolveAgentPipelineAgents({
       localSidecarAvailable: localSidecarAvailableForTrackers,
     });
 
-    if (effectiveConnectionId === "skip-local-sidecar") {
+    // The utility slot outranks this skip: if it serves this agent it can answer even
+    // though the main sidecar — the connection the agent asked for — is unavailable.
+    if (effectiveConnectionId === "skip-local-sidecar" && !utilitySidecarService.servesAgent(cfg.type as string)) {
       skippedLocalSidecarAgents.push(cfg.name ?? cfg.type);
       logger.warn(
         "[generate] Skipping agent %s for chat %s because Local Model was requested but the sidecar is unavailable",
@@ -461,7 +468,7 @@ export async function resolveAgentPipelineAgents({
       continue;
     }
 
-    const resolvedProvider = await resolveAgentConnectionProvider({
+    let resolvedProvider = await resolveAgentConnectionProvider({
       connections,
       agentProviderCache,
       connectionId: effectiveConnectionId,
@@ -481,6 +488,17 @@ export async function resolveAgentPipelineAgents({
       onFallback,
       resolveBaseUrl,
     });
+    // The utility slot outranks the agent's configured connection; see
+    // buildUtilitySidecarEntry for the rule. Returns null when it serves someone else.
+    const utilityEntry = buildUtilitySidecarEntry(cfg.type as string);
+    if (utilityEntry) {
+      utilitySidecarAgents.push(cfg.name ?? (cfg.type as string));
+      resolvedProvider = { entry: { ...utilityEntry } };
+    } else if (effectiveConnectionId === UTILITY_SIDECAR_CONNECTION_ID) {
+      // Explicitly chosen but not serving: warn rather than quietly answer with a
+      // different model that needs a different prompt.
+      resolvedProvider = { entry: null, unavailableReason: "the local model slot is not serving this agent" };
+    }
     if (!resolvedProvider.entry) {
       addUnavailableConnectionWarning(cfg.name ?? cfg.type, resolvedProvider);
       logger.warn(
