@@ -368,6 +368,8 @@ export interface CapabilityEmbeddingHost {
 
 export interface CapabilityRuntimeHost {
   embeddings: CapabilityEmbeddingHost;
+  /** Resolve the package's current embedding configuration. Requires capability API 1.15. */
+  resolveEmbeddings(): Promise<CapabilityEmbeddingHost>;
   getAgentConfig(): Promise<{ connectionId: string | null; settings: Record<string, unknown> } | null>;
   isDebugAgentsEnabled(): boolean;
   json: CapabilityJsonHost;
