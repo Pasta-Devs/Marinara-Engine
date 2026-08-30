@@ -9,7 +9,11 @@ import { resolveBeholderStateResponse } from "../../packages/server/src/services
 
 const persona = "Rissha";
 
-function slot(state: { characters: Array<{ name: string; body: Record<string, unknown> }> }, name: string, key: string) {
+function slot(
+  state: { characters: Array<{ name: string; body: Record<string, unknown> }> },
+  name: string,
+  key: string,
+) {
   return state.characters.find((entry) => entry.name === name)?.body[key] as Record<string, unknown> | undefined;
 }
 
@@ -78,7 +82,9 @@ const prior = {
 
 // Removing a garment still works — the take-off primitive must not be caught by the strip.
 {
-  const worn = { characters: [{ name: "Hesperia", body: { chest: { worn: [{ item: "cloak" }, { item: "shirt" }] } } }] };
+  const worn = {
+    characters: [{ name: "Hesperia", body: { chest: { worn: [{ item: "cloak" }, { item: "shirt" }] } } }],
+  };
   const reply = { changed: true, delta: { Hesperia: { body: { chest: { worn_remove: ["cloak"] } } } } };
   const { state } = resolveBeholderStateResponse(reply, worn, persona);
   const remaining = (slot(state, "Hesperia", "chest")?.worn as Array<{ item: string }>) ?? [];
@@ -107,6 +113,63 @@ const prior = {
   const { state, valid } = resolveBeholderStateResponse(reply, prior, persona);
   assert.equal(valid, true, "a refused-but-well-formed delta is a valid no-op");
   assert.deepEqual(state, prior, "and it changes nothing");
+}
+
+// A full snapshot must not erase the operator's manual flags. They are set by hand and
+// never by extraction, so a snapshot that simply does not mention them is silence, not
+// a clearing — and treating it as a clearing undoes every correction on the next turn,
+// which is the whole thing this file exists to prevent.
+const priorWithManualFlags = {
+  characters: [
+    {
+      name: "Hesperia",
+      body: {
+        chest: { worn: [{ item: "shirt", damage: "pristine" }] },
+        left_arm: { missing: true },
+        right_hand: { bare: true },
+      },
+    },
+  ],
+};
+
+// Case 1: the snapshot omits the flagged slots entirely.
+{
+  const snapshot = {
+    characters: [{ name: "Hesperia", body: { chest: { worn: [{ item: "coat", damage: "pristine" }] } } }],
+  };
+  const { state, valid } = resolveBeholderStateResponse(snapshot, priorWithManualFlags, persona);
+  assert.equal(valid, true);
+  assert.equal(slot(state, "Hesperia", "left_arm")?.missing, true, "an omitted slot must keep its manual missing");
+  assert.equal(slot(state, "Hesperia", "right_hand")?.bare, true, "an omitted slot must keep its manual bare");
+  assert.deepEqual(
+    slot(state, "Hesperia", "chest")?.worn,
+    [{ item: "coat", damage: "pristine" }],
+    "and the snapshot still wins for everything it does carry",
+  );
+}
+
+// Case 2: the snapshot names the slots and contradicts the flags.
+{
+  const snapshot = {
+    characters: [
+      {
+        name: "Hesperia",
+        body: {
+          left_arm: { missing: false, worn: [{ item: "sleeve", damage: "pristine" }] },
+          right_hand: { bare: false },
+        },
+      },
+    ],
+  };
+  const { state, valid } = resolveBeholderStateResponse(snapshot, priorWithManualFlags, persona);
+  assert.equal(valid, true);
+  assert.equal(slot(state, "Hesperia", "left_arm")?.missing, true, "a snapshot may not overrule a manual missing");
+  assert.equal(slot(state, "Hesperia", "right_hand")?.bare, true, "a snapshot may not overrule a manual bare");
+  assert.deepEqual(
+    slot(state, "Hesperia", "left_arm")?.worn,
+    [{ item: "sleeve", damage: "pristine" }],
+    "the rest of the snapshot's slot is still taken",
+  );
 }
 
 console.log("beholder manual-only flags regression passed.");

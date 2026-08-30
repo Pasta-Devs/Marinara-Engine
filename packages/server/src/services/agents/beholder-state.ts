@@ -596,6 +596,32 @@ function stripManualOnlyFlags(container: unknown): boolean {
   return refused;
 }
 
+/**
+ * Carry the operator's manual flags across a full snapshot.
+ *
+ * `missing` and `bare` are set by hand and never by extraction, so a snapshot that
+ * simply does not mention them must not be read as clearing them. Without this the
+ * next full snapshot silently undid every correction — which is the whole thing this
+ * is meant to prevent.
+ */
+function carryManualFlagsForward(prior: BeholderState, next: BeholderState): BeholderState {
+  const priorByName = new Map(prior.characters.map((character) => [character.name, character]));
+  for (const character of next.characters) {
+    const previous = priorByName.get(character.name);
+    if (!previous) continue;
+    for (const [rawSlotName, priorSlot] of Object.entries(previous.body)) {
+      if (!BODY_SLOT_SET.has(rawSlotName) || !isRecord(priorSlot)) continue;
+      const slotName = rawSlotName as BeholderBodySlot;
+      for (const flag of MANUAL_ONLY_SLOT_FLAGS) {
+        if (!Object.hasOwn(priorSlot, flag)) continue;
+        const slot = (character.body[slotName] ??= {});
+        (slot as Record<string, unknown>)[flag] = (priorSlot as Record<string, unknown>)[flag];
+      }
+    }
+  }
+  return next;
+}
+
 export function resolveBeholderStateResponse(
   value: unknown,
   priorValue: unknown,
@@ -615,7 +641,7 @@ export function resolveBeholderStateResponse(
     if (!normalized || (parsed.characters.length > 0 && normalized.characters.length === 0)) {
       return { state: prior, valid: false, error: "Beholder returned an unusable full state snapshot." };
     }
-    return { state: normalized, valid: true };
+    return { state: carryManualFlagsForward(prior, normalized), valid: true };
   }
 
   if (parsed.changed === false) return { state: prior, valid: true };
