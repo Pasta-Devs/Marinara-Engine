@@ -2747,6 +2747,7 @@
   "ui.chat.chatgallery.deleteSceneVideo": "Delete scene video",
   "ui.chat.chatgallery.deleteThisImage": "Delete this image?",
   "ui.chat.chatgallery.deleteThisVideo": "Delete this video? Its source message and other Gallery media will stay unchanged.",
+  "ui.chat.chatgallery.downloadFailed": "Failed to save image.",
   "ui.chat.chatgallery.downloadGalleryImage": "Download gallery image",
   "ui.chat.chatgallery.downloadImage": "Download image",
   "ui.chat.chatgallery.downloadSceneVideo": "Download scene video",

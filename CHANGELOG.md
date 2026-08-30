@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Illustrator image downloads in the installed iPhone app now open the dismissible iOS share sheet instead of stranding the user in WebKit's full-screen file preview; choosing Save Image writes to Photos and returns to the still-open Marinara lightbox (#5681).
 - Firefox on Android no longer shows the empty band above the system navigation bar on the surfaces the earlier shell fix did not cover — full-screen mobile modals, the chat settings and gallery drawers, the setup wizards, game overlays (character sheet, inventory, narration, readables), the selection action bar, the browser hub, and the floating call/launcher buttons: every remaining bottom safe-area consumer now honors the engine-specific override that zeroes Gecko's misreported inset (#5667).
 
 ## [2.4.5]
