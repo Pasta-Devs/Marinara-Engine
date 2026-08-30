@@ -17,7 +17,7 @@ export function ContextBudgetGauge({ percentage }: { percentage: number }) {
         cy="12"
         r="10"
         fill="none"
-        stroke="var(--marinara-chat-chrome-accent)"
+        stroke="var(--marinara-chat-chrome-text)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeDasharray={`${(percentage / 100) * CONTEXT_GAUGE_CIRCUMFERENCE} ${CONTEXT_GAUGE_CIRCUMFERENCE}`}
@@ -53,7 +53,7 @@ export function ContextBudgetIndicator({ budget }: { budget: ProfessorMariContex
         className="h-1 overflow-hidden rounded-full bg-[var(--muted)]/55"
       >
         <div
-          className="h-full w-[var(--context-budget)] rounded-full bg-[var(--marinara-chat-chrome-accent)] transition-[width] duration-200 motion-reduce:transition-none"
+          className="h-full w-[var(--context-budget)] rounded-full bg-[var(--marinara-chat-chrome-text)] transition-[width] duration-200 motion-reduce:transition-none"
           style={progressStyle}
         />
       </div>

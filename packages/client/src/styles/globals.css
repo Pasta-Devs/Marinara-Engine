@@ -6180,6 +6180,10 @@ strong {
     width: calc(100% - var(--mari-roleplay-mobile-avatar-space, 3rem));
   }
 
+  [data-component="ChatArea.Roleplay"]:has(.mari-roleplay-message-body--editing) [data-roleplay-agent-window] {
+    display: none;
+  }
+
   .rpg-hud {
     font-size: 0.625rem;
   }
