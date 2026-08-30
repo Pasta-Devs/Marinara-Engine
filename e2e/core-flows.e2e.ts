@@ -7406,48 +7406,48 @@ test("iPhone gallery image saves return through the system share sheet", async (
   });
   expect(chatResponse.ok()).toBeTruthy();
   const chat = (await chatResponse.json()) as { id: string };
-  const uploadResponse = await request.post(`/api/gallery/${chat.id}/upload`, {
-    multipart: {
-      file: {
-        name: "illustration_1.png",
-        mimeType: "image/png",
-        buffer: Buffer.from(TRANSPARENT_PNG_BASE64, "base64"),
-      },
-      prompt: "Illustrator iPhone download probe.",
-    },
-  });
-  expect(uploadResponse.ok()).toBeTruthy();
-  const image = (await uploadResponse.json()) as { filePath: string };
-  const expectedFilename = image.filePath.split("/").pop();
-  expect(expectedFilename).toBeTruthy();
-
-  await page.addInitScript(() => {
-    const resultWindow = window as Window & {
-      __marinaraSharedImage?: { activation: boolean; name: string; size: number; type: string };
-    };
-    Object.defineProperty(navigator, "canShare", {
-      configurable: true,
-      value: (data: ShareData) => data.files?.length === 1,
-    });
-    Object.defineProperty(navigator, "share", {
-      configurable: true,
-      value: async (data: ShareData) => {
-        const file = data.files?.[0];
-        if (!file) throw new Error("Expected an image file in the iPhone share sheet");
-        resultWindow.__marinaraSharedImage = {
-          activation: navigator.userActivation.isActive,
-          name: file.name,
-          size: file.size,
-          type: file.type,
-        };
-      },
-    });
-  });
-  await page.addInitScript((chatId) => {
-    localStorage.setItem("marinara-active-chat-id", chatId);
-  }, chat.id);
-
   try {
+    const uploadResponse = await request.post(`/api/gallery/${chat.id}/upload`, {
+      multipart: {
+        file: {
+          name: "illustration_1.png",
+          mimeType: "image/png",
+          buffer: Buffer.from(TRANSPARENT_PNG_BASE64, "base64"),
+        },
+        prompt: "Illustrator iPhone download probe.",
+      },
+    });
+    expect(uploadResponse.ok()).toBeTruthy();
+    const image = (await uploadResponse.json()) as { filePath: string };
+    const expectedFilename = image.filePath.split("/").pop();
+    expect(expectedFilename).toBeTruthy();
+
+    await page.addInitScript(() => {
+      const resultWindow = window as Window & {
+        __marinaraSharedImage?: { activation: boolean; name: string; size: number; type: string };
+      };
+      Object.defineProperty(navigator, "canShare", {
+        configurable: true,
+        value: (data: ShareData) => data.files?.length === 1,
+      });
+      Object.defineProperty(navigator, "share", {
+        configurable: true,
+        value: async (data: ShareData) => {
+          const file = data.files?.[0];
+          if (!file) throw new Error("Expected an image file in the iPhone share sheet");
+          resultWindow.__marinaraSharedImage = {
+            activation: navigator.userActivation.isActive,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+          };
+        },
+      });
+    });
+    await page.addInitScript((chatId) => {
+      localStorage.setItem("marinara-active-chat-id", chatId);
+    }, chat.id);
+
     await page.goto("/");
     await page.getByRole("button", { name: "More options", exact: true }).click();
     await page.getByRole("button", { name: "Gallery", exact: true }).filter({ visible: true }).click();

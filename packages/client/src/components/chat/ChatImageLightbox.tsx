@@ -97,11 +97,13 @@ export function ChatImageLightbox({
       .then((prepared) => {
         if (active) setPreparedImage(prepared);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (active) toast.error(localizeUi("ui.chat.chatgallery.downloadFailed"));
+      });
     return () => {
       active = false;
     };
-  }, [downloadEnabled, downloadName, image.url, useIosShare]);
+  }, [downloadEnabled, downloadName, image.url, localizeUi, useIosShare]);
 
   if (!portalRoot) return null;
 
