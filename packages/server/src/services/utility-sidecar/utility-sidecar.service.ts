@@ -26,7 +26,7 @@ import {
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { getDataDir } from "../../utils/data-dir.js";
-import { buildLlamaArgs } from "../sidecar/sidecar-launch-plan.js";
+import { buildLlamaArgs, buildLlamaStartupPlans } from "../sidecar/sidecar-launch-plan.js";
 import { downloadFileWithProgress, fetchJson } from "../sidecar/sidecar-download.js";
 import { sidecarRuntimeService } from "../sidecar/sidecar-runtime.service.js";
 import type { SidecarDownloadProgress } from "@marinara-engine/shared";
@@ -370,38 +370,61 @@ export class UtilitySidecarService {
       return;
     }
 
-    const port = await UtilitySidecarService.allocatePort();
-    const args = buildLlamaArgs({
-      modelPath,
-      gpuLayers: this.config.gpuLayers,
-      port,
-      contextSize: this.config.contextSize,
-      runtimeVariant: runtime.variant,
-      // Fixed by what the extractor needs, not by operator preference: no tool calls,
-      // and the embedding flags are inert here but required by the shared arg builder.
-      enableNativeToolCalls: false,
-      embeddingPooling: "mean",
-      embeddingBatchSize: 512,
-      maxParallelJobs: this.config.maxParallelJobs,
+    // -1 means "all layers on the GPU, and fall back to CPU if that start fails" — the
+    // same convention the main sidecar uses. Passing it straight to llama-server would
+    // send `-ngl -1`, which is not what it means.
+    const plans = buildLlamaStartupPlans({
+      configuredGpuLayers: this.config.gpuLayers,
+      usesGpuRuntime: sidecarRuntimeService.isGpuVariant(runtime.variant),
     });
 
-    const child = spawn(runtime.serverPath, args, { stdio: ["ignore", "pipe", "pipe"] });
-    this.child = child;
-    this.port = port;
-    child.on("exit", (code) => {
-      logger.info(`[utility-sidecar] llama-server exited (${code})`);
-      if (this.child === child) {
-        this.child = null;
-        this.port = null;
-        this.ready = false;
+    for (const [index, plan] of plans.entries()) {
+      const port = await UtilitySidecarService.allocatePort();
+      const args = buildLlamaArgs({
+        modelPath,
+        gpuLayers: plan.gpuLayers,
+        port,
+        contextSize: this.config.contextSize,
+        runtimeVariant: runtime.variant,
+        // Fixed by what the extractor needs, not by operator preference: no tool calls,
+        // and the embedding flags are inert here but required by the shared arg builder.
+        enableNativeToolCalls: false,
+        embeddingPooling: "mean",
+        embeddingBatchSize: 512,
+        maxParallelJobs: this.config.maxParallelJobs,
+      });
+
+      const child = spawn(runtime.serverPath, args, { stdio: ["ignore", "pipe", "pipe"] });
+      this.child = child;
+      this.port = port;
+      child.on("exit", (code) => {
+        logger.info(`[utility-sidecar] llama-server exited (${code})`);
+        if (this.child === child) {
+          this.child = null;
+          this.port = null;
+          this.ready = false;
+        }
+      });
+      child.on("error", (error) => {
+        this.startupError = error.message;
+        logger.warn(error, "[utility-sidecar] llama-server failed to start");
+      });
+
+      this.startupError = null;
+      await this.waitUntilAnswering(port);
+      if (this.ready) {
+        logger.info(`[utility-sidecar] Started with ${plan.label}`);
+        return;
       }
-    });
-    child.on("error", (error) => {
-      this.startupError = error.message;
-      logger.warn(error, "[utility-sidecar] llama-server failed to start");
-    });
 
-    await this.waitUntilAnswering(port);
+      // That plan failed. Clear it away before trying the next one, so a half-started
+      // process is never left holding memory or a port.
+      await this.stop();
+      const remaining = plans.length - index - 1;
+      if (remaining > 0) {
+        logger.warn(`[utility-sidecar] ${plan.label} failed (${this.startupError ?? "no reason given"}); trying CPU`);
+      }
+    }
   }
 
   private async waitUntilAnswering(port: number, timeoutMs = 120_000): Promise<void> {
