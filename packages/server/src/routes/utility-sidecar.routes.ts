@@ -53,15 +53,20 @@ export async function utilitySidecarRoutes(app: FastifyInstance) {
       modelId: serves ? status.activeModelId : null,
       model: serves && installed ? { repo: installed.repo, file: installed.file, oid: installed.oid } : null,
       baseUrl: serves ? status.baseUrl : null,
+      running: status.ready,
       reason: serves
-        ? "The utility slot has this agent's model loaded and answering; it takes precedence."
+        ? status.ready
+          ? "The local model is loaded and answering; it takes precedence over this agent's connection."
+          : "The local model is selected and starts on the next run; it takes precedence over this agent's connection."
         : !installed
           ? "No model is installed in the utility slot for this agent."
           : status.activeModelId !== agentType
             ? "The utility slot is serving a different model."
             : status.error
-              ? `The utility slot is not answering: ${status.error}`
-              : "The utility slot is not running.",
+              ? `The local model could not start: ${status.error}`
+              : !status.runtimeInstalled
+                ? "The local runtime is not installed, so the local model cannot start."
+                : "The local model is installed but not selected.",
     };
   });
 

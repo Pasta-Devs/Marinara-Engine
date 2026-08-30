@@ -8,6 +8,7 @@
 import { OpenAIProvider } from "../llm/providers/openai.provider.js";
 import type { BaseLLMProvider } from "../llm/base-provider.js";
 import { utilitySidecarService } from "./utility-sidecar.service.js";
+import { logger } from "../../lib/logger.js";
 
 /** Model name reported to llama-server; it serves whatever single model it loaded. */
 export const UTILITY_SIDECAR_MODEL = "utility-sidecar";
@@ -24,13 +25,26 @@ export const UTILITY_SIDECAR_CONNECTION_PREFIX = "utility-sidecar:";
 let cached: { baseUrl: string; provider: BaseLLMProvider } | null = null;
 
 /**
- * The provider for the running utility slot, or null when it is not serving.
+ * The provider for the utility slot, starting the process if it is not up yet.
  *
- * Returns null rather than throwing so a caller can fall back to the agent's own
- * connection, which is the documented behaviour when this slot is off.
+ * Started on demand rather than at boot, the way the main sidecar's provider does it:
+ * a selected model that has not been used yet should not be holding memory, and an
+ * engine restart should not silently hand the agent back to a paid connection.
+ *
+ * Returns null rather than throwing when the slot cannot serve, so the caller falls
+ * back to the agent's own connection instead of failing the run. The reason is left
+ * in the slot's status for the UI to show.
  */
-export function getUtilitySidecarProvider(): BaseLLMProvider | null {
-  const status = utilitySidecarService.getStatus();
+export async function getUtilitySidecarProvider(): Promise<BaseLLMProvider | null> {
+  let status = utilitySidecarService.getStatus();
+  if (!status.ready) {
+    try {
+      status = await utilitySidecarService.ensureRunning();
+    } catch (error) {
+      logger.warn(error, "[utility-sidecar] Could not start the slot; falling back to the agent connection");
+      return null;
+    }
+  }
   if (!status.ready || !status.baseUrl) return null;
   const existing = cached;
   if (existing && existing.baseUrl === status.baseUrl) return existing.provider;
@@ -61,9 +75,9 @@ export interface UtilitySidecarAgentEntry {
  * Both agent paths — the retry-agents route and the main generation resolver — call
  * this so the precedence rule is stated once rather than drifting between two copies.
  */
-export function buildUtilitySidecarEntry(agentType: string): UtilitySidecarAgentEntry | null {
+export async function buildUtilitySidecarEntry(agentType: string): Promise<UtilitySidecarAgentEntry | null> {
   if (!utilitySidecarService.servesAgent(agentType)) return null;
-  const provider = getUtilitySidecarProvider();
+  const provider = await getUtilitySidecarProvider();
   if (!provider) return null;
   return {
     connectionId: `${UTILITY_SIDECAR_CONNECTION_PREFIX}${agentType}`,

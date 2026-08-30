@@ -23,12 +23,10 @@ const dataDir = await mkdtemp(join(tmpdir(), "utility-sidecar-regression-"));
 process.env.DATA_DIR = dataDir;
 
 // Imported after DATA_DIR is set: the service resolves its paths at module load.
-const { UtilitySidecarService, utilitySlotServesAgent, compareModelVersions } = await import(
-  "../../packages/server/src/services/utility-sidecar/utility-sidecar.service.js"
-);
-const { buildUtilitySidecarEntry, UTILITY_SIDECAR_CONNECTION_PREFIX } = await import(
-  "../../packages/server/src/services/utility-sidecar/utility-sidecar.provider.js"
-);
+const { UtilitySidecarService, utilitySlotServesAgent, compareModelVersions } =
+  await import("../../packages/server/src/services/utility-sidecar/utility-sidecar.service.js");
+const { buildUtilitySidecarEntry, UTILITY_SIDECAR_CONNECTION_PREFIX } =
+  await import("../../packages/server/src/services/utility-sidecar/utility-sidecar.provider.js");
 
 const UTILITY_DIR = join(dataDir, "models", "utility");
 const UTILITY_CONFIG = join(UTILITY_DIR, "utility-sidecar-config.json");
@@ -61,44 +59,56 @@ const mainSidecarBefore = fingerprintMainSidecar();
 assert.ok(mainSidecarBefore.includes("operators-own-model"), "fixture must fingerprint the main slot's model");
 
 // ── the routing rule, across every state the slot can be in ─────────────────────
+// Selected-and-installed is enough: the process starts on demand, the way the main
+// sidecar's provider does it. Requiring it to be already running would hand the agent
+// back to its paid connection after every engine restart, silently.
 {
-  const cases: Array<{ ready: boolean; activeModelId: string | null; agent: string; serves: boolean; why: string }> = [
-    { ready: true, activeModelId: "beholder", agent: "beholder", serves: true, why: "running and bound: it wins" },
+  const installedBeholder = { repo: "r", file: "f.gguf", oid: null, bytes: null, downloadedAt: "" };
+  const cases: Array<{
+    status: { activeModelId: string | null; models: Record<string, unknown>; runtimeInstalled: boolean };
+    agent: string;
+    serves: boolean;
+    why: string;
+  }> = [
     {
-      ready: false,
-      activeModelId: "beholder",
+      status: { activeModelId: "beholder", models: { beholder: installedBeholder }, runtimeInstalled: true },
       agent: "beholder",
-      serves: false,
-      why: "configured but down must fall back to the agent's connection, not fail the run",
+      serves: true,
+      why: "selected, installed and runnable: it wins",
     },
     {
-      ready: true,
-      activeModelId: "beholder",
+      status: { activeModelId: "beholder", models: { beholder: installedBeholder }, runtimeInstalled: true },
       agent: "prose-guardian",
       serves: false,
       why: "the binding is the model id; it must not capture unrelated agents",
     },
     {
-      ready: true,
-      activeModelId: null,
+      status: { activeModelId: null, models: { beholder: installedBeholder }, runtimeInstalled: true },
       agent: "beholder",
       serves: false,
-      why: "no active model means nothing to route to",
+      why: "installed but not selected means the agent's own connection is used",
     },
     {
-      ready: true,
-      activeModelId: "beholder-old",
+      status: { activeModelId: "beholder", models: {}, runtimeInstalled: true },
+      agent: "beholder",
+      serves: false,
+      why: "a selection with no installed model cannot serve",
+    },
+    {
+      status: { activeModelId: "beholder", models: { beholder: installedBeholder }, runtimeInstalled: false },
+      agent: "beholder",
+      serves: false,
+      why: "without the shared runtime it can never start, so it must not claim the agent",
+    },
+    {
+      status: { activeModelId: "beholder-old", models: { "beholder-old": installedBeholder }, runtimeInstalled: true },
       agent: "beholder",
       serves: false,
       why: "a near-miss id must not match",
     },
   ];
   for (const testCase of cases) {
-    assert.equal(
-      utilitySlotServesAgent({ ready: testCase.ready, activeModelId: testCase.activeModelId }, testCase.agent),
-      testCase.serves,
-      testCase.why,
-    );
+    assert.equal(utilitySlotServesAgent(testCase.status as never, testCase.agent), testCase.serves, testCase.why);
   }
 }
 
@@ -132,9 +142,9 @@ assert.ok(mainSidecarBefore.includes("operators-own-model"), "fixture must finge
   assert.equal(status.baseUrl, null, "nothing serves before a model is installed");
   assert.equal(service.servesAgent("beholder"), false);
   assert.equal(
-    buildUtilitySidecarEntry("beholder"),
+    await buildUtilitySidecarEntry("beholder"),
     null,
-    "with nothing running the resolver returns null so callers fall through unchanged",
+    "with nothing installed the resolver returns null so callers fall through unchanged",
   );
 }
 
@@ -198,8 +208,8 @@ assert.ok(mainSidecarBefore.includes("operators-own-model"), "fixture must finge
   assert.equal(service.getConfig().activeModelId, "beholder");
   assert.equal(
     service.servesAgent("beholder"),
-    false,
-    "selection alone does not route; the process still has to be answering",
+    service.getStatus().runtimeInstalled,
+    "once selected it routes as soon as the shared runtime exists; the process starts on demand",
   );
 
   service.setActiveModel(null);
@@ -213,11 +223,7 @@ assert.ok(mainSidecarBefore.includes("operators-own-model"), "fixture must finge
     null,
     "removing the active model must clear the selection, not leave a dangling pointer",
   );
-  assert.equal(
-    existsSync(join(modelDir, "Beholder-Q8_0.gguf")),
-    false,
-    "removal deletes the model file it installed",
-  );
+  assert.equal(existsSync(join(modelDir, "Beholder-Q8_0.gguf")), false, "removal deletes the model file it installed");
   assert.equal(existsSync(UTILITY_CONFIG), true, "the slot keeps its own config inside its own directory");
 }
 
@@ -240,9 +246,8 @@ assert.ok(mainSidecarBefore.includes("operators-own-model"), "fixture must finge
 
 // ── the utility connection id cannot be confused with the main sidecar's ────────
 {
-  const { isLocalSidecarConnectionId } = await import(
-    "../../packages/server/src/routes/generate/agent-connection-guards.js"
-  );
+  const { isLocalSidecarConnectionId } =
+    await import("../../packages/server/src/routes/generate/agent-connection-guards.js");
   const { LOCAL_SIDECAR_CONNECTION_ID } = await import("@marinara-engine/shared");
   const utilityId = `${UTILITY_SIDECAR_CONNECTION_PREFIX}beholder`;
   assert.equal(

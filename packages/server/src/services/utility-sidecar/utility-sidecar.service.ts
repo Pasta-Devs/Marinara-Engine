@@ -48,10 +48,14 @@ const HF_API = "https://huggingface.co/api/models";
  * connection instead of failing the run.
  */
 export function utilitySlotServesAgent(
-  status: Pick<UtilitySidecarStatus, "ready" | "activeModelId">,
+  status: Pick<UtilitySidecarStatus, "activeModelId" | "models" | "runtimeInstalled">,
   agentType: string,
 ): boolean {
-  return status.ready && !!status.activeModelId && status.activeModelId === agentType;
+  if (!status.activeModelId || status.activeModelId !== agentType) return false;
+  // Selected is enough — the process starts on demand. Requiring it to be already
+  // running would hand the agent back to its paid connection after every restart,
+  // silently, which is the failure this slot exists to avoid.
+  return !!status.models[agentType] && status.runtimeInstalled;
 }
 
 /**
@@ -165,8 +169,9 @@ export class UtilitySidecarService {
    * agent. One rule, visible in the status payload, and no second mapping to fall out
    * of sync with the installed set.
    *
-   * Only true while the process is actually answering, so a configured-but-down slot
-   * falls back to the agent's own connection instead of failing the run.
+   * True as soon as a model is selected and its runtime exists; the process is started
+   * on demand. If that start fails the caller falls back to the agent's own connection
+   * rather than failing the run.
    */
   servesAgent(agentType: string): boolean {
     return utilitySlotServesAgent(this.getStatus(), agentType);

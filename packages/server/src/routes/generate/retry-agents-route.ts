@@ -1658,12 +1658,12 @@ async function resolveRetryAgents(args: {
    * Deliberately additive: it never mutates the main sidecar's config or provider, and
    * an agent with no utility model installed takes exactly the path it did before.
    */
-  const applyUtilitySidecarOverride = (
+  const applyUtilitySidecarOverride = async (
     agentType: string,
     resolution: RetryAgentConnectionResolution,
     requestedConnectionId?: string | null,
-  ): RetryAgentConnectionResolution => {
-    const utilityEntry = buildUtilitySidecarEntry(agentType);
+  ): Promise<RetryAgentConnectionResolution> => {
+    const utilityEntry = await buildUtilitySidecarEntry(agentType);
     if (!utilityEntry) {
       // An operator who explicitly picked the local model must not be silently answered
       // by a different one: the two need different prompts, and the wrong pairing looks
@@ -1709,7 +1709,7 @@ async function resolveRetryAgents(args: {
       continue;
     }
 
-    const agentConnection = applyUtilitySidecarOverride(
+    const agentConnection = await applyUtilitySidecarOverride(
       cfg.type as string,
       await resolveRetryAgentConnection(effectiveConnectionId),
       effectiveConnectionId,
@@ -1723,7 +1723,13 @@ async function resolveRetryAgents(args: {
       );
       continue;
     }
-    if (defaultAgentConn && effectiveConnectionId === defaultAgentConn.id) {
+    // Not when the utility slot took the run: warning about billing a paid default
+    // connection that was never called is worse than saying nothing.
+    if (
+      defaultAgentConn &&
+      effectiveConnectionId === defaultAgentConn.id &&
+      !utilitySidecarService.servesAgent(cfg.type as string)
+    ) {
       defaultAgentConnectionAgents.push(cfg.name ?? cfg.type);
     }
 
@@ -1768,6 +1774,12 @@ async function resolveRetryAgents(args: {
     });
   }
 
+  if (utilitySidecarAgents.length > 0) {
+    // Recorded because the slot silently outranks the configured connection; without
+    // this a run that went somewhere unexpected leaves no trace of where.
+    logger.info("[retry-agents] Utility model slot answered for: %s", utilitySidecarAgents.join(", "));
+  }
+
   const warnings: AgentConnectionWarning[] = [];
 
   for (const builtIn of builtInFallbackConfigs) {
@@ -1788,7 +1800,7 @@ async function resolveRetryAgents(args: {
       continue;
     }
 
-    const builtInConnection = applyUtilitySidecarOverride(
+    const builtInConnection = await applyUtilitySidecarOverride(
       builtIn.id,
       (defaultAgentConn && builtInConnectionId === defaultAgentConn.id
         ? defaultAgentConnection
@@ -1804,7 +1816,11 @@ async function resolveRetryAgents(args: {
       );
       continue;
     }
-    if (defaultAgentConn && builtInConnectionId === defaultAgentConn.id)
+    if (
+      defaultAgentConn &&
+      builtInConnectionId === defaultAgentConn.id &&
+      !utilitySidecarService.servesAgent(builtIn.id)
+    )
       defaultAgentConnectionAgents.push(builtIn.name);
 
     const settings = resolveEffectiveAgentSettings({
