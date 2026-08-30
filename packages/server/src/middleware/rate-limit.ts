@@ -44,6 +44,18 @@ export const BACKUP_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/**
+ * The utility model slot's API.
+ *
+ * Generous enough for the UI to poll status and routing while a page is open, tight
+ * enough that install and start — which spawn processes and download hundreds of
+ * megabytes — cannot be hammered.
+ */
+export const UTILITY_SIDECAR_RATE_LIMIT = {
+  max: 60,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
   { pattern: /^\/api\/generate(?:\/|$)/, rule: { key: "generate", limit: 60, windowMs: 60_000 } },
   { pattern: /^\/api\/tts(?:\/|$)/, rule: { key: "tts", limit: 90, windowMs: 60_000 } },
