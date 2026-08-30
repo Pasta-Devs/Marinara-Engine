@@ -1088,6 +1088,15 @@ async function executeBeholderLanePasses(args: {
       const repairMessages = prepareAgentProviderMessages(
         buildBeholderMessages(config, lanePrompts.worn, context, takeoffClause),
       );
+      // Through the debug path like every other provider call. This one is easy to
+      // miss precisely because it is conditional, and it is the call you most want to
+      // see when a removal did not come back.
+      emitAgentDebug(context, {
+        stage: "request",
+        ...agentDebugBase(config, model, temperature, maxTokens),
+        messageCount: repairMessages.length,
+        messages: debugMessages(repairMessages),
+      });
       const repair = await provider.chatComplete(repairMessages, {
         model,
         temperature,

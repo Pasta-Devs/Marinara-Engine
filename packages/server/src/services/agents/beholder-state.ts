@@ -567,7 +567,17 @@ export function formatBeholderRequestContext(state: unknown, personaName: string
 export function beholderTakeoffClause(prose: string): string | null {
   const text = typeof prose === "string" ? prose : "";
   if (!TAKEOFF_CUE.test(text)) return null;
-  const clauses = text.split(/,?\s+\band\b\s+/u);
+  // Work inside the sentence that shows the take-off. beholderNarration can join
+  // several messages, and taking the subject from the first clause of all of them
+  // attributed the removal to whoever happened to act first: "Tim waits. Maggie ties
+  // a scarf and takes off her boots." produced "Tim takes off her boots.", which then
+  // removed Tim's garment. The last matching sentence is the most recent action.
+  const sentences = text
+    .split(/(?<=[.!?])\s+|\n+/u)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  const sentence = sentences.filter((candidate) => TAKEOFF_CUE.test(candidate)).pop() ?? text;
+  const clauses = sentence.split(/,?\s+\band\b\s+/u);
   if (clauses.length < 2) return null; // not compound; the lane already handles it
   const index = clauses.findIndex((clause) => TAKEOFF_CUE.test(clause));
   if (index === -1) return null;

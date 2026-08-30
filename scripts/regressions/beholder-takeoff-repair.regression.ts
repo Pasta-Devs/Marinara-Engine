@@ -49,7 +49,11 @@ assert.ok(/[.!?]$/u.test(beholderTakeoffClause("Maggie hangs the cloak on a hook
 // The repair only runs when the reply carried no removal at all.
 assert.equal(beholderDeltaLacksRemoval({ Tim: { body: { chest: { worn: [{ item: "coat" }] } } } }), true);
 assert.equal(beholderDeltaLacksRemoval({ Tim: { body: { chest: { worn_remove: ["cloak"] } } } }), false);
-assert.equal(beholderDeltaLacksRemoval({ Tim: { body: { chest: { worn_remove: [] } } } }), true, "an empty list is no removal");
+assert.equal(
+  beholderDeltaLacksRemoval({ Tim: { body: { chest: { worn_remove: [] } } } }),
+  true,
+  "an empty list is no removal",
+);
 assert.equal(beholderDeltaLacksRemoval(null), true);
 
 // Only worn_remove is taken from the repair answer — never additions, or the second
@@ -79,3 +83,21 @@ assert.equal(beholderDeltaLacksRemoval(null), true);
 }
 
 console.log("beholder take-off repair regression passed.");
+
+// The narration handed to the lane can span several messages. Taking the subject from
+// the first clause of all of them bound the removal to whoever acted first, and the
+// repair then stripped that character's garment instead.
+{
+  const joined = "Tim waits.\nMaggie ties a scarf and takes off her boots.";
+  const clause = beholderTakeoffClause(joined);
+  assert.ok(clause, "a compound take-off in a later sentence is still recovered");
+  assert.match(clause, /^Maggie\b/u, "the subject must come from the take-off's own sentence, not the first one");
+  assert.ok(!/^Tim\b/u.test(clause), "binding the removal to the wrong character strips the wrong garment");
+  assert.match(clause, /takes off her boots/u);
+}
+
+{
+  // Same shape, separated by sentences rather than a newline.
+  const clause = beholderTakeoffClause("Tim waits. Maggie ties a scarf and takes off her boots.");
+  assert.ok(clause && /^Maggie\b/u.test(clause), "sentence-separated narration must behave the same");
+}
