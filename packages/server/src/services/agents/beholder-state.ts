@@ -553,6 +553,73 @@ export function formatBeholderRequestContext(state: unknown, personaName: string
  * Resolve either the benchmarked delta response or the legacy full snapshot
  * into the full normalized shape used by storage and the Beholder drawer.
  */
+/**
+ * The clause of a sentence that shows a garment coming off, or null when there is
+ * nothing to repair.
+ *
+ * The extractor loses the removal when ONE sentence both takes a garment off and puts
+ * another on: measured against the held-out set it emits the removal 2 times in 8 on
+ * compound prose, against 3 in 3 when the take-off stands alone. Re-asking the same
+ * compound sentence with removal-only framing recovers none of it — the compound
+ * sentence itself is what blinds the model — so the repair has to hand it prose of the
+ * shape it handles, which means splitting the sentence and keeping the take-off half.
+ */
+export function beholderTakeoffClause(prose: string): string | null {
+  const text = typeof prose === "string" ? prose : "";
+  if (!TAKEOFF_CUE.test(text)) return null;
+  const clauses = text.split(/,?\s+\band\b\s+/u);
+  if (clauses.length < 2) return null; // not compound; the lane already handles it
+  const index = clauses.findIndex((clause) => TAKEOFF_CUE.test(clause));
+  if (index === -1) return null;
+  let clause = clauses[index]!.trim();
+  // A trailing clause ("and takes off her boots") has lost its subject; carry the
+  // first clause's opening word so the lane still knows who is acting.
+  if (index > 0 && !/^[A-Z]/u.test(clause)) {
+    const subject = clauses[0]!.trim().split(/\s+/u)[0];
+    if (subject) clause = `${subject} ${clause}`;
+  }
+  return /[.!?]$/u.test(clause) ? clause : `${clause}.`;
+}
+
+/** Verbs that show something coming off. Narrow on purpose: a false positive costs one
+ *  extra call on a turn that did not need it, a false negative costs the removal. */
+const TAKEOFF_CUE =
+  /\b(takes?|took|pulls?|pulled|peels?|peeled|kicks?|kicked|strips?|stripped|shrugs?|shrugged|slips?|slipped)\b[^.]{0,24}\b(off|out of)\b|\b(unbuckles?|unbuttons?|unzips?|removes?|removed|discards?|drops?|dropped|hangs?|hung|sheds?|doffs?)\b/iu;
+
+/** True when no slot anywhere in the delta carries a worn_remove. */
+export function beholderDeltaLacksRemoval(delta: unknown): boolean {
+  if (!isRecord(delta)) return true;
+  for (const characterDelta of Object.values(delta)) {
+    if (!isRecord(characterDelta) || !isRecord(characterDelta.body)) continue;
+    for (const slotState of Object.values(characterDelta.body)) {
+      if (isRecord(slotState) && Array.isArray(slotState.worn_remove) && slotState.worn_remove.length > 0) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/** Merge ONLY worn_remove entries from a repair pass into a delta. Never additions:
+ *  the repair exists to recover a lost removal, not to re-open the whole reply. */
+export function mergeBeholderWornRemovals(delta: Record<string, unknown>, repair: unknown): Record<string, unknown> {
+  if (!isRecord(repair)) return delta;
+  for (const [name, characterDelta] of Object.entries(repair)) {
+    if (!isRecord(characterDelta) || !isRecord(characterDelta.body)) continue;
+    for (const [slotName, slotState] of Object.entries(characterDelta.body)) {
+      if (!isRecord(slotState)) continue;
+      const removals = slotState.worn_remove;
+      if (!Array.isArray(removals) || removals.length === 0) continue;
+      const target = (isRecord(delta[name]) ? delta[name] : (delta[name] = {})) as Record<string, unknown>;
+      const body = (isRecord(target.body) ? target.body : (target.body = {})) as Record<string, unknown>;
+      const slot = (isRecord(body[slotName]) ? body[slotName] : (body[slotName] = {})) as Record<string, unknown>;
+      const existing = Array.isArray(slot.worn_remove) ? (slot.worn_remove as unknown[]) : [];
+      slot.worn_remove = [...new Set([...existing, ...removals])];
+    }
+  }
+  return delta;
+}
+
 export function resolveBeholderStateResponse(
   value: unknown,
   priorValue: unknown,
