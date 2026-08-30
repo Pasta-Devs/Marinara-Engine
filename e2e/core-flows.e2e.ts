@@ -1863,6 +1863,10 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
       .poll(() => inputContainer.evaluate((element) => element.getBoundingClientRect().height))
       .toBeLessThanOrEqual(expandedInputHeight - 10);
     expect(await inputShell.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+    await testInfo.attach(`mobile-roleplay-composer-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
     await page.evaluate(() => document.documentElement.removeAttribute("data-mari-software-keyboard-open"));
     await composer.evaluate((element: HTMLTextAreaElement) => element.blur());
     await expect(roleplaySurface).not.toHaveAttribute("data-mobile-composer-active");
