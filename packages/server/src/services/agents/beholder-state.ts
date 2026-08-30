@@ -583,7 +583,10 @@ function stripManualOnlyFlags(container: unknown): boolean {
     for (const flag of MANUAL_ONLY_SLOT_FLAGS) {
       if (Object.hasOwn(slotState, flag)) {
         delete slotState[flag];
-        refused = true;
+        // Only a refusal on a REAL slot makes the reply a no-op. A delta naming a
+        // slot that does not exist is malformed whatever it carried, and must still
+        // resolve as invalid rather than be excused by the strip.
+        if (BODY_SLOT_SET.has(slot)) refused = true;
       }
     }
     // A slot the flags were the whole of carries nothing now; dropping it keeps the

@@ -89,4 +89,24 @@ const prior = {
   );
 }
 
+// A refusal makes the reply a no-op, but only when it happened on a real slot. A
+// delta naming a slot that does not exist is malformed whatever it carried, and the
+// strip must not excuse it — otherwise every junk delta carrying `bare` would be
+// reported as a clean no-op.
+{
+  const reply = { changed: true, delta: { Hesperia: { body: { invented_slot: { bare: true } } } } };
+  const { state, valid } = resolveBeholderStateResponse(reply, prior, persona);
+  assert.equal(valid, false, "an invalid slot must stay invalid even when the strip empties it");
+  assert.deepEqual(state, prior, "an invalid delta must leave prior state untouched");
+}
+
+// Whereas a refusal on a REAL slot is a no-op, not an error: the agent declined it
+// on purpose, so there is nothing for the operator to act on.
+{
+  const reply = { changed: true, delta: { Hesperia: { body: { left_arm: { bare: true } } } } };
+  const { state, valid } = resolveBeholderStateResponse(reply, prior, persona);
+  assert.equal(valid, true, "a refused-but-well-formed delta is a valid no-op");
+  assert.deepEqual(state, prior, "and it changes nothing");
+}
+
 console.log("beholder manual-only flags regression passed.");
