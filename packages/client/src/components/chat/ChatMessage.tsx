@@ -831,6 +831,7 @@ const EditTextarea = memo(function EditTextarea({
     <div className="relative isolate z-20 flex flex-col gap-2 max-md:gap-0">
       <textarea
         ref={ref}
+        data-chat-message-editor="true"
         defaultValue={formatTextQuotes(initialContent, quoteFormat)}
         readOnly={saving}
         aria-busy={saving}
