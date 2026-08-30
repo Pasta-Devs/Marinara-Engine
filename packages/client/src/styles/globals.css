@@ -169,19 +169,6 @@
   --font-y2k: var(--font-y2k);
 }
 
-/* Gecko on Android reports env(safe-area-inset-bottom) as the system
-   navigation-bar height even though its layout viewport already stops above
-   the bar, so honoring the raw env() value double-compensates into a dead
-   band above the navigation bar (#5665). Publish a zero override through the
-   --mari-safe-area-inset-bottom hook that bottom safe-area consumers prefer
-   over env(). Desktop Firefox also matches this @supports probe, but it
-   reports env() as 0px there, so the override is a no-op outside Android. */
-@supports (-moz-appearance: none) {
-  :root {
-    --mari-safe-area-inset-bottom: 0px;
-  }
-}
-
 /* ─────────────────────────────────────────────
    2. DARK THEME VARIABLES
    Default color tokens, palette, and font.
@@ -4343,6 +4330,15 @@ strong {
 
   :root {
     --marinara-topbar-surface: var(--card);
+    /* Gecko on Android reports env(safe-area-inset-bottom) as the system
+       navigation-bar height even though its layout viewport already stops
+       above the bar, so honoring the raw env() value double-compensates into
+       a dead band above the navigation bar (#5665). Publish a zero override
+       through the --mari-safe-area-inset-bottom hook that bottom safe-area
+       consumers prefer over env(). Desktop Firefox also matches this
+       @supports probe, but it reports env() as 0px there, so the override is
+       a no-op outside Android. */
+    --mari-safe-area-inset-bottom: 0px;
   }
 
   .mari-topbar,
