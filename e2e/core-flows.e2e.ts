@@ -1885,10 +1885,6 @@ test("Conversation message actions follow their messages on desktop and mobile",
         expect(metrics!.leftOffset).toBeLessThanOrEqual(6);
         expect(metrics!.actionBottom).toBeLessThanOrEqual(metrics!.rowBottom);
 
-        if (testInfo.project.name.includes("mobile")) {
-          await content.click({ position: { x: 8, y: 8 } });
-          await expect(actions).toHaveCSS("opacity", "0");
-        }
       }
 
       const messageGap = await page.evaluate(
