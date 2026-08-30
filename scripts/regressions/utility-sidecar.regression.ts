@@ -248,7 +248,9 @@ assert.ok(mainSidecarBefore.includes("operators-own-model"), "fixture must finge
 {
   const { isLocalSidecarConnectionId } =
     await import("../../packages/server/src/routes/generate/agent-connection-guards.js");
-  const { LOCAL_SIDECAR_CONNECTION_ID } = await import("@marinara-engine/shared");
+  // Imported from source, not by package name: `scripts/` has no dependency on the
+  // workspace package, so the bare specifier resolves locally and not on CI.
+  const { LOCAL_SIDECAR_CONNECTION_ID } = await import("../../packages/shared/src/constants/defaults.js");
   const utilityId = `${UTILITY_SIDECAR_CONNECTION_PREFIX}beholder`;
   assert.equal(
     isLocalSidecarConnectionId(utilityId),
