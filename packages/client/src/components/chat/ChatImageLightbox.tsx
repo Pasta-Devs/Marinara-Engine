@@ -1,10 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Download, Pin, X } from "lucide-react";
 import type { GeneratedSceneVideo } from "@marinara-engine/shared";
 import type { ChatImage } from "../../hooks/use-gallery";
 import { useGalleryStore } from "../../stores/gallery.store";
-import { saveImageUrlToDevice } from "../../lib/file-download";
+import {
+  downloadUrlToDevice,
+  prepareImageSave,
+  savePreparedImageToDevice,
+  shouldUseIosImageShare,
+  type PreparedImageSave,
+} from "../../lib/file-download";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -65,18 +71,37 @@ export function ChatImageLightbox({
   const portalRoot = typeof document !== "undefined" ? document.body : null;
   const prompt = image.prompt.trim();
   const meta = formatChatImageMeta(image);
+  const downloadName = getChatImageDownloadName(image);
+  const useIosShare = shouldUseIosImageShare();
+  const [preparedImage, setPreparedImage] = useState<PreparedImageSave | null>(null);
+  const currentPreparedImage =
+    preparedImage?.url === image.url && preparedImage.filename === downloadName ? preparedImage : null;
 
-  const handleDownload = async () => {
-    try {
-      await saveImageUrlToDevice(image.url, getChatImageDownloadName(image));
-    } catch {
-      toast.error(localizeUi("ui.chat.chatgallery.downloadFailed"));
-    }
+  const handleDownload = () => {
+    const save = useIosShare
+      ? currentPreparedImage
+        ? savePreparedImageToDevice(currentPreparedImage)
+        : Promise.resolve()
+      : downloadUrlToDevice(image.url, downloadName);
+    void save.catch(() => toast.error(localizeUi("ui.chat.chatgallery.downloadFailed")));
   };
 
   useEffect(() => {
     closeButtonRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (!downloadEnabled || !useIosShare) return;
+    let active = true;
+    void prepareImageSave(image.url, downloadName)
+      .then((prepared) => {
+        if (active) setPreparedImage(prepared);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [downloadEnabled, downloadName, image.url, useIosShare]);
 
   if (!portalRoot) return null;
 
@@ -135,9 +160,10 @@ export function ChatImageLightbox({
             {downloadEnabled && (
               <button
                 type="button"
-                onClick={() => void handleDownload()}
+                onClick={handleDownload}
+                disabled={useIosShare && !currentPreparedImage}
                 aria-label={localizeUi("ui.chat.chatgallery.downloadImage")}
-                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
+                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
               >
                 <Download size="0.875rem" />
               </button>

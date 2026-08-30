@@ -45,18 +45,42 @@ function isIosDevice(): boolean {
   );
 }
 
-async function shareImageOnIos(blob: Blob, url: string, filename: string): Promise<boolean> {
-  if (!isIosDevice() || typeof navigator.share !== "function") return false;
+export interface PreparedImageSave {
+  blob: Blob;
+  file: File;
+  filename: string;
+  url: string;
+}
 
-  const file = new File([blob], filename, { type: blob.type || "image/png" });
-  const shareData = navigator.canShare?.({ files: [file] }) ? { files: [file] } : { url };
-  try {
-    await navigator.share(shareData);
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") return true;
-    throw error;
-  }
-  return true;
+/** Whether image saves should use the native iOS share sheet instead of WebKit's PWA download preview. */
+export function shouldUseIosImageShare(): boolean {
+  return isIosDevice() && typeof navigator.share === "function";
+}
+
+/** Fetch and construct the image file before a later user gesture opens the iOS share sheet. */
+export async function prepareImageSave(url: string, filename: string): Promise<PreparedImageSave> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Download failed (${response.status})`);
+  const blob = await response.blob();
+  return {
+    blob,
+    file: new File([blob], filename, { type: blob.type || "image/png" }),
+    filename,
+    url,
+  };
+}
+
+/** Share a prepared image synchronously from the tap, falling back to the active platform's file saver. */
+export function savePreparedImageToDevice(prepared: PreparedImageSave): Promise<void> {
+  if (!shouldUseIosImageShare()) return saveBlobToDevice(prepared.blob, prepared.filename);
+
+  const shareData = navigator.canShare?.({ files: [prepared.file] })
+    ? { files: [prepared.file] }
+    : { url: prepared.url };
+  return navigator.share(shareData).catch((error: unknown) => {
+    if (error instanceof DOMException && error.name === "AbortError") return;
+    return saveBlobToDevice(prepared.blob, prepared.filename);
+  });
 }
 
 /** Save a fetched file through the Android shell when available, or through the browser otherwise. */
@@ -78,13 +102,4 @@ export async function downloadUrlToDevice(url: string, filename: string): Promis
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed (${response.status})`);
   await saveBlobToDevice(await response.blob(), filename);
-}
-
-/** Save an image without navigating an installed iPhone web app into WebKit's non-dismissible file preview. */
-export async function saveImageUrlToDevice(url: string, filename: string): Promise<void> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Download failed (${response.status})`);
-  const blob = await response.blob();
-  if (await shareImageOnIos(blob, url, filename)) return;
-  await saveBlobToDevice(blob, filename);
 }

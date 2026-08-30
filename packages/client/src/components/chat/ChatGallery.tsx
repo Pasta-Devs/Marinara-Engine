@@ -40,7 +40,7 @@ import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { buildCardAssetMarkdown, dispatchCardAssetInsert } from "../../lib/card-asset-links";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn, copyToClipboard } from "../../lib/utils";
-import { downloadUrlToDevice, saveImageUrlToDevice } from "../../lib/file-download";
+import { downloadUrlToDevice, shouldUseIosImageShare } from "../../lib/file-download";
 import {
   ChatImageLightbox,
   ChatVideoLightbox,
@@ -276,8 +276,12 @@ export function ChatGallery({
 
   const handleDownloadImage = useCallback(
     async (image: ChatImage) => {
+      if (shouldUseIosImageShare()) {
+        setLightbox(image);
+        return;
+      }
       try {
-        await saveImageUrlToDevice(image.url, getChatImageDownloadName(image));
+        await downloadUrlToDevice(image.url, getChatImageDownloadName(image));
       } catch {
         toast.error(localizeUi("ui.chat.chatgallery.downloadFailed"));
       }

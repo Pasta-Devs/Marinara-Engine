@@ -7423,7 +7423,7 @@ test("iPhone gallery image saves return through the system share sheet", async (
 
   await page.addInitScript(() => {
     const resultWindow = window as Window & {
-      __marinaraSharedImage?: { name: string; size: number; type: string };
+      __marinaraSharedImage?: { activation: boolean; name: string; size: number; type: string };
     };
     Object.defineProperty(navigator, "canShare", {
       configurable: true,
@@ -7434,7 +7434,12 @@ test("iPhone gallery image saves return through the system share sheet", async (
       value: async (data: ShareData) => {
         const file = data.files?.[0];
         if (!file) throw new Error("Expected an image file in the iPhone share sheet");
-        resultWindow.__marinaraSharedImage = { name: file.name, size: file.size, type: file.type };
+        resultWindow.__marinaraSharedImage = {
+          activation: navigator.userActivation.isActive,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        };
       },
     });
   });
@@ -7447,22 +7452,28 @@ test("iPhone gallery image saves return through the system share sheet", async (
     await page.getByRole("button", { name: "More options", exact: true }).click();
     await page.getByRole("button", { name: "Gallery", exact: true }).filter({ visible: true }).click();
     const drawer = page.locator(".mari-chat-gallery-drawer");
-    await drawer.getByRole("button", { name: "Open gallery image", exact: true }).click();
+    await drawer.getByRole("button", { name: "Download gallery image", exact: true }).click();
     const lightbox = page.getByRole("dialog", { name: "Image preview", exact: true });
     await expect(lightbox).toBeVisible();
     const appUrl = page.url();
 
-    await lightbox.getByRole("button", { name: "Download image", exact: true }).click();
+    const downloadButton = lightbox.getByRole("button", { name: "Download image", exact: true });
+    await expect(downloadButton).toBeEnabled();
+    await downloadButton.click();
 
     await expect
       .poll(() =>
         page.evaluate(
           () =>
-            (window as Window & { __marinaraSharedImage?: { name: string; size: number; type: string } })
-              .__marinaraSharedImage,
+            (
+              window as Window & {
+                __marinaraSharedImage?: { activation: boolean; name: string; size: number; type: string };
+              }
+            ).__marinaraSharedImage,
         ),
       )
       .toEqual({
+        activation: true,
         name: expectedFilename,
         size: Buffer.from(TRANSPARENT_PNG_BASE64, "base64").length,
         type: "image/png",
