@@ -440,7 +440,11 @@ export function createAgentsStorage(db: DB) {
      */
     async listRunsByTypeForChat(agentType: string, chatId: string, limit = 5) {
       const finiteLimit = Number.isFinite(limit) ? limit : 5;
-      const normalizedLimit = Math.max(1, Math.min(finiteLimit, 50));
+      // 51, not 50. Callers that diff consecutive runs ask for one more than they intend
+      // to show, so the oldest row still has a predecessor to be compared against; a cap
+      // of exactly 50 silently removed that row and left the oldest run reporting no
+      // comparison at all.
+      const normalizedLimit = Math.max(1, Math.min(finiteLimit, 51));
       const rows = await db
         .select()
         .from(agentRuns)

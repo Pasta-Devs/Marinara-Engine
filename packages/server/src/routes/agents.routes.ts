@@ -330,7 +330,10 @@ export async function agentsRoutes(app: FastifyInstance) {
     { config: { rateLimit: BEHOLDER_STATE_RATE_LIMIT } },
     async (req) => {
       const parsed = req.query.limit ? Number.parseInt(req.query.limit, 10) : undefined;
-      const wanted = Number.isFinite(parsed) ? (parsed as number) : 5;
+      // Clamped once, here, and used for both the fetch and the slice. The raw value
+      // reached the slice unchecked, so limit=0 or a negative returned an empty window
+      // while storage had quietly normalised its own end to at least one row.
+      const wanted = Math.max(1, Math.min(Number.isFinite(parsed) ? (parsed as number) : 5, 50));
       // One extra, so the oldest run in the window still has a predecessor to be
       // compared against and is not reported as having introduced everything it holds.
       const runs = await storage.listRunsByTypeForChat("beholder", req.params.chatId, wanted + 1);
@@ -355,14 +358,20 @@ export async function agentsRoutes(app: FastifyInstance) {
         const now = maps[index] ?? new Map<string, Map<string, string>>();
         // Runs come back newest first, so the NEXT entry is the previous state.
         const before = maps[index + 1] ?? null;
+        // Over the union of both states, not just the current one. Visiting only what
+        // is here now cannot see a removal: a garment taken off deletes the slot, and a
+        // character who leaves the scene disappears entirely, so the message that did it
+        // reported no change at all — on a panel whose whole purpose is tracking things
+        // being put on and taken off.
         const changes: { name: string; slots: string[] }[] = [];
-        for (const [name, slots] of now) {
-          const previous = before?.get(name) ?? null;
+        for (const name of new Set([...now.keys(), ...(before?.keys() ?? [])])) {
+          const current = now.get(name) ?? new Map<string, string>();
+          const previous = before?.get(name) ?? new Map<string, string>();
           const touched: string[] = [];
-          for (const [slot, value] of slots) {
-            if (previous?.get(slot) !== value) touched.push(slot);
+          for (const slot of new Set([...current.keys(), ...previous.keys()])) {
+            if (current.get(slot) !== previous.get(slot)) touched.push(slot);
           }
-          if (touched.length) changes.push({ name, slots: touched });
+          if (touched.length) changes.push({ name, slots: touched.sort() });
         }
         return {
           messageId: run.messageId ?? null,

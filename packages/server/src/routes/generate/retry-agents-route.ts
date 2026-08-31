@@ -721,6 +721,8 @@ async function buildRetryAgentContext(args: {
   chatId: string;
   /** Prose Beholder should read instead of the chat, when the operator typed a correction. */
   beholderDirective?: string;
+  /** Set when the retry targets a specific earlier message rather than the latest turn. */
+  historicalAnchorId?: string | null;
   db: Parameters<typeof buildPromptMacroContext>[0]["db"];
   chat: any;
   chatMeta: Record<string, unknown>;
@@ -1063,7 +1065,19 @@ async function buildRetryAgentContext(args: {
     // top of what is there now — so excluding the last message would silently discard
     // everything that turn established. Observed: a directive about one character wiped
     // every other character from the panel.
-    excludeMessageId: args.beholderDirective || typeof lastAssistant?.id !== "string" ? null : lastAssistant.id,
+    // A retry re-runs a message, so it starts from the state as it was BEFORE that
+    // message and re-derives it. A directive does not replace a turn — it states a fact
+    // on top of what is there now — so excluding the last message would silently discard
+    // everything that turn established. Observed: a directive about one character wiped
+    // every other character from the panel.
+    //
+    // But only when the directive is about the current turn. With a historical anchor
+    // the run IS a re-run of an earlier message, and dropping the exclusion there let it
+    // be seeded from a message after the one being redone.
+    excludeMessageId:
+      (args.beholderDirective && !args.historicalAnchorId) || typeof lastAssistant?.id !== "string"
+        ? null
+        : lastAssistant.id,
   });
   if (previousBeholderState) agentContext.memory._beholderState = previousBeholderState;
 
@@ -4309,6 +4323,7 @@ export async function registerRetryAgentsRoute(
           cyoaAgentWillRun,
           chatId,
           beholderDirective: sanitisedDirective,
+          historicalAnchorId: forMessageId ?? null,
           db: app.db,
           chat,
           chatMeta,

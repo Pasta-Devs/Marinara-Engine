@@ -9,9 +9,10 @@
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const root = dirname(dirname(dirname(new URL(import.meta.url).pathname)));
+const root = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const executor = readFileSync(join(root, "packages/server/src/services/agents/agent-executor.ts"), "utf8");
 const route = readFileSync(join(root, "packages/server/src/routes/generate/retry-agents-route.ts"), "utf8");
 const agentTypes = readFileSync(join(root, "packages/shared/src/types/agent.ts"), "utf8");
