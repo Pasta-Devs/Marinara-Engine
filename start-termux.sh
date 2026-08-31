@@ -37,6 +37,9 @@ echo ""
 # Navigate to script directory
 cd "$(dirname "$0")"
 
+# Public update checks must never pause for GitHub credentials.
+export GIT_TERMINAL_PROMPT=0
+
 # APK-managed installs provision a per-install secret in Termux-private
 # storage. The server uses it to keep unrelated Android apps from inheriting
 # loopback trust; manual Termux installs simply continue without this setting.
