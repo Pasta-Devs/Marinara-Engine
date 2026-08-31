@@ -6330,14 +6330,6 @@ strong {
   animation-play-state: paused !important;
 }
 
-.rpg-sprite-container img,
-.rpg-avatar-glow img,
-.rpg-avatar-panel img,
-.rpg-avatar-panel-media img,
-.rpg-avatar-panel-tail-image {
-  will-change: opacity, filter;
-}
-
 .game-stats-bar-fill {
   will-change: width;
 }

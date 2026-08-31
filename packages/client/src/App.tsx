@@ -37,6 +37,7 @@ import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
 import { api } from "./lib/api-client";
 import { forceRefreshSpa } from "./lib/browser-runtime";
+import { showAppUpdatePrompt } from "./lib/app-update-prompt";
 import { formatRuntimeBuild, getServerRuntimeBuild, isRuntimeBuildCurrent } from "./lib/runtime-build";
 import {
   getCssColorFallback,
@@ -55,7 +56,6 @@ import { getStoreBackLayers } from "./lib/back-layers";
 import { initBackNavigation, syncBackNavigation } from "./lib/back-navigation";
 import { setCustomNotificationSoundUrl } from "./lib/notification-sound";
 
-const VERSION_RECOVERY_KEY = "marinara:pwa-version-recovery";
 const VERSION_CHECK_INTERVAL_MS = 5 * 60_000;
 const CLIENT_BUILD = formatRuntimeBuild(APP_VERSION, __MARINARA_BUILD_COMMIT__);
 const LazyModalRenderer = lazy(() =>
@@ -467,11 +467,6 @@ function isTextEntryFocused() {
 }
 
 async function recoverFromVersionSkew(serverVersion: string) {
-  if (sessionStorage.getItem(VERSION_RECOVERY_KEY) === serverVersion) {
-    return;
-  }
-
-  sessionStorage.setItem(VERSION_RECOVERY_KEY, serverVersion);
   await forceRefreshSpa({
     queryParamKey: "v",
     queryParamValue: serverVersion,
@@ -975,11 +970,10 @@ export function App() {
 
         const serverBuild = getServerRuntimeBuild(health);
         if (isRuntimeBuildCurrent(APP_VERSION, CLIENT_BUILD, health)) {
-          sessionStorage.removeItem(VERSION_RECOVERY_KEY);
           return;
         }
 
-        await recoverFromVersionSkew(serverBuild);
+        showAppUpdatePrompt(() => recoverFromVersionSkew(serverBuild));
       } catch {
         // Ignore version checks when the network is unavailable.
       }

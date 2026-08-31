@@ -184,8 +184,6 @@ function readFileAsDataUrl(file: Blob): Promise<string> {
 
 interface ChatInputProps {
   mode?: "conversation" | "roleplay";
-  mobileHistoryCollapsed?: boolean;
-  onMobileHistoryCollapsedChange?: (collapsed: boolean) => void;
   characterNames?: string[];
   groupResponseOrder?: string;
   chatCharacters?: Array<{
@@ -208,8 +206,6 @@ interface ChatInputProps {
 
 export const ChatInput = memo(function ChatInput({
   mode = "conversation",
-  mobileHistoryCollapsed = false,
-  onMobileHistoryCollapsedChange,
   characterNames = [],
   groupResponseOrder,
   chatCharacters,
@@ -243,7 +239,6 @@ export const ChatInput = memo(function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const inputBarRef = useRef<HTMLDivElement>(null);
-  const focusAfterMobileRestoreRef = useRef(false);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resizeFrameRef = useRef(0);
@@ -344,15 +339,6 @@ export const ChatInput = memo(function ChatInput({
   const updateMessageExtra = useUpdateMessageExtra(activeChatId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
-  const shouldShowMobileCollapsedComposer =
-    isMobileComposerViewport &&
-    mobileHistoryCollapsed &&
-    !hasInput &&
-    attachments.length === 0 &&
-    !pendingSpatialTransition &&
-    !isInputBusy &&
-    !emojiOpen &&
-    !charPickerOpen;
   const activeAgentIds = useMemo(
     () =>
       Array.isArray(chatMetadata.activeAgentIds)
@@ -1804,40 +1790,6 @@ export const ChatInput = memo(function ChatInput({
     };
     requestAnimationFrame(scroll);
   }, []);
-
-  useEffect(() => {
-    if (mobileHistoryCollapsed || !focusAfterMobileRestoreRef.current) return;
-    focusAfterMobileRestoreRef.current = false;
-    const focus = () => {
-      textareaRef.current?.focus({ preventScroll: true });
-      ensureInputVisible();
-    };
-    requestAnimationFrame(focus);
-    window.setTimeout(focus, 120);
-  }, [ensureInputVisible, mobileHistoryCollapsed]);
-
-  if (shouldShowMobileCollapsedComposer) {
-    return (
-      <div className="mari-chat-input chat-input-container px-3 pb-3 md:hidden">
-        <button
-          type="button"
-          onClick={() => {
-            focusAfterMobileRestoreRef.current = true;
-            onMobileHistoryCollapsedChange?.(false);
-          }}
-          className={cn(
-            getChatInputShellClass({ dragging: false, hasContent: false, layout: "roleplay" }),
-            "min-h-10 w-full justify-start text-left text-sm text-foreground/55",
-          )}
-          aria-label={t("chat.input.show")}
-        >
-          <span className="truncate">
-            {t(mode === "roleplay" ? "chat.input.mobile.roleplay" : "chat.input.mobile.message")}
-          </span>
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="mari-chat-input chat-input-container px-3 pb-3">

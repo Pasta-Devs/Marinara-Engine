@@ -308,6 +308,33 @@ test("What's New opens once for each Marinara Engine version", async ({ page }) 
   await expect(announcement).toBeHidden();
 });
 
+test("available app updates wait for confirmation before refreshing", async ({ page }) => {
+  let mainFrameNavigations = 0;
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame() && frame.url().startsWith("http")) mainFrameNavigations += 1;
+  });
+  await page.route("**/api/health", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        version: "99.0.0",
+        build: "99.0.0+new-build",
+      }),
+    }),
+  );
+
+  await page.goto("/");
+  await expect(page.getByText("A Marinara update is ready.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
+  const navigationsAtPrompt = mainFrameNavigations;
+
+  await page.waitForTimeout(750);
+  expect(mainFrameNavigations).toBe(navigationsAtPrompt);
+});
+
 test("turning off the custom mouse pointer persists immediately and after reload", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Appearance preference persistence is covered on desktop.");
 
@@ -1886,6 +1913,18 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
     await expect(agentWindow).toBeVisible();
     await expect(echoChamber).toBeVisible();
 
+    const messageScroll = roleplaySurface.locator("[data-chat-scroll]");
+    await messageScroll.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      element.dispatchEvent(new Event("scroll"));
+      element.scrollTop = Math.max(0, element.scrollTop - 240);
+      element.dispatchEvent(new Event("scroll"));
+    });
+    await expect(composer).toBeVisible();
+    await expect(inputContainer.getByTitle("Attach files", { exact: true })).toBeVisible();
+    await expect(inputContainer.getByTitle("Quick Switcher", { exact: true })).toBeVisible();
+    await expect(inputContainer.locator("button.mari-chat-send-btn")).toBeVisible();
+
     const message = page.locator(`[data-message-id="${userMessage.id}"]`);
     await message.scrollIntoViewIfNeeded();
     await message.dispatchEvent("click");
@@ -1893,7 +1932,6 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
 
     const editor = message.locator("textarea");
     await expect(editor).toBeVisible();
-    const messageScroll = roleplaySurface.locator("[data-chat-scroll]");
     await expect
       .poll(() =>
         messageScroll.evaluate((element) =>

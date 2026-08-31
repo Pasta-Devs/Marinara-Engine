@@ -5,6 +5,7 @@ import { App, AppRecoveryBoundary } from "./App";
 import { startKeepAlive } from "./lib/keep-alive";
 import { installCsrfFetchShim } from "./lib/csrf-fetch";
 import { registerPreloadErrorRecovery } from "./lib/browser-runtime";
+import { showAppUpdatePrompt } from "./lib/app-update-prompt";
 import { initializeLocalization } from "./localization/i18n";
 import { LocalizationProvider } from "./localization/LocalizationProvider";
 import { useUIStore } from "./stores/ui.store";
@@ -60,7 +61,7 @@ function registerServiceWorker() {
         const updateSW = registerSW({
           immediate: true,
           onNeedRefresh() {
-            void updateSW(true);
+            showAppUpdatePrompt(() => updateSW(true));
           },
           onRegisteredSW(_swUrl: string, registration?: ServiceWorkerRegistration) {
             if (!registration) {
