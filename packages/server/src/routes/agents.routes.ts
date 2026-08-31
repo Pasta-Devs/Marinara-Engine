@@ -330,25 +330,53 @@ export async function agentsRoutes(app: FastifyInstance) {
     { config: { rateLimit: BEHOLDER_STATE_RATE_LIMIT } },
     async (req) => {
       const parsed = req.query.limit ? Number.parseInt(req.query.limit, 10) : undefined;
-      const runs = await storage.listRunsByTypeForChat(
-        "beholder",
-        req.params.chatId,
-        Number.isFinite(parsed) ? parsed : 5,
-      );
-      return runs.map((run) => {
-        const state = normalizeBeholderState(run.resultData);
-        const slots = (state?.characters ?? []).reduce(
-          (total, character) => total + Object.keys(character.body ?? {}).length,
-          0,
-        );
+      const wanted = Number.isFinite(parsed) ? (parsed as number) : 5;
+      // One extra, so the oldest run in the window still has a predecessor to be
+      // compared against and is not reported as having introduced everything it holds.
+      const runs = await storage.listRunsByTypeForChat("beholder", req.params.chatId, wanted + 1);
+
+      /** Slots per character, as a comparable map. */
+      const slotMap = (data: unknown) => {
+        const state = normalizeBeholderState(data);
+        const map = new Map<string, Map<string, string>>();
+        for (const character of state?.characters ?? []) {
+          const slots = new Map<string, string>();
+          for (const [slot, value] of Object.entries(character.body ?? {})) {
+            slots.set(slot, JSON.stringify(value ?? null));
+          }
+          map.set(character.name, slots);
+        }
+        return map;
+      };
+
+      const maps = runs.map((run) => slotMap(run.resultData));
+      return runs.slice(0, wanted).map((run, index) => {
+        // Indexed access is typed as possibly-undefined; index is bounded by slice.
+        const now = maps[index] ?? new Map<string, Map<string, string>>();
+        // Runs come back newest first, so the NEXT entry is the previous state.
+        const before = maps[index + 1] ?? null;
+        const changes: { name: string; slots: string[] }[] = [];
+        for (const [name, slots] of now) {
+          const previous = before?.get(name) ?? null;
+          const touched: string[] = [];
+          for (const [slot, value] of slots) {
+            if (previous?.get(slot) !== value) touched.push(slot);
+          }
+          if (touched.length) changes.push({ name, slots: touched });
+        }
         return {
           messageId: run.messageId ?? null,
           createdAt: run.createdAt ?? null,
           durationMs: run.durationMs ?? null,
           success: run.success,
           error: run.error ?? null,
-          characters: state?.characters?.length ?? 0,
-          slots,
+          characters: now.size,
+          slots: [...now.values()].reduce((total, slots) => total + slots.size, 0),
+          // What THIS run changed, rather than everything it holds. Null when there is
+          // no earlier run to compare against: the first extraction in a chat did not
+          // "change" the whole body, it established it, and saying otherwise would put
+          // a wall of badges on one message.
+          changes: before ? changes : null,
         };
       });
     },
