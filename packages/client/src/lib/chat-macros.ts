@@ -92,6 +92,18 @@ function toMacroPersonaData(persona: Persona): MacroPersonaData {
   };
 }
 
+function toMacroPersonaDataFromCharacter(character: MacroCharacterData): MacroPersonaData {
+  return {
+    personaId: character.id,
+    name: character.name,
+    description: character.description,
+    personality: character.personality,
+    backstory: character.backstory,
+    appearance: character.appearance,
+    scenario: character.scenario,
+  };
+}
+
 export function selectChatCharacters(
   chat: { characterIds?: unknown } | null | undefined,
   characters: Array<{ id: string; data: unknown }> | undefined,
@@ -236,13 +248,23 @@ export function isPromptPreviewMacro(input: string): boolean {
 }
 
 export function createInputMacroResolverForChat(
-  chat: { characterIds?: unknown; personaId?: string | null; mode?: string | null } | null | undefined,
+  chat:
+    | { characterIds?: unknown; personaId?: string | null; personaCharacterId?: string | null; mode?: string | null }
+    | null
+    | undefined,
   characters: Array<{ id: string; data: unknown }> | undefined,
   personas: Persona[] | undefined,
   lastInput?: string,
 ) {
   const chatCharacters = selectChatCharacters(chat, characters);
-  const activePersona = selectActivePersona(chat, personas);
+  const characterPersona = chat?.personaCharacterId
+    ? parseCharacterMacroData(characters?.find((character) => character.id === chat.personaCharacterId))
+    : null;
+  const activePersona: MacroPersonaData | undefined = chat?.personaCharacterId
+    ? characterPersona
+      ? toMacroPersonaDataFromCharacter(characterPersona)
+      : undefined
+    : selectActivePersona(chat, personas);
   return createMessageMacroResolver({
     persona: activePersona,
     primaryCharacter: chatCharacters[0] ?? null,

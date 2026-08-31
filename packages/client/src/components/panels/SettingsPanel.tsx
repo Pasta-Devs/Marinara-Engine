@@ -1062,6 +1062,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Button group",
   },
   {
+    id: "show-characters-in-persona-pickers",
+    sectionId: "message-tools",
+    label: "Show Characters in Persona Pickers",
+    description: "Allow character cards to appear as user identities in chat.",
+    aliases: ["persona", "character", "play as", "identity"],
+    kind: "Toggle",
+  },
+  {
     id: "tracker-panel",
     sectionId: "roleplay-tracker",
     label: "Tracker Panel",
@@ -7394,6 +7402,8 @@ function AdvancedSettings() {
   const setShowContextUsage = useUIStore((s) => s.setShowContextUsage);
   const showMessageNumbers = useUIStore((s) => s.showMessageNumbers);
   const setShowMessageNumbers = useUIStore((s) => s.setShowMessageNumbers);
+  const showCharactersInPersonaPickers = useUIStore((s) => s.showCharactersInPersonaPickers);
+  const setShowCharactersInPersonaPickers = useUIStore((s) => s.setShowCharactersInPersonaPickers);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const setGuideGenerations = useUIStore((s) => s.setGuideGenerations);
   const includeReasoningInExports = useUIStore((s) => s.includeReasoningInExports);
@@ -8233,6 +8243,13 @@ function AdvancedSettings() {
             checked={showTimestamps}
             onChange={setShowTimestamps}
             help={localizeUi("settings.controls.showTimestamps.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-characters-in-persona-pickers")}
+            label={localizeUi("settings.controls.showCharactersInPersonaPickers.label")}
+            checked={showCharactersInPersonaPickers}
+            onChange={setShowCharactersInPersonaPickers}
+            help={localizeUi("settings.controls.showCharactersInPersonaPickers.description")}
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("show-model-name")}

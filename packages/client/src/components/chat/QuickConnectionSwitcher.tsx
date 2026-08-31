@@ -129,7 +129,7 @@ export function QuickConnectionSwitcher({
                 btnRef.current?.focus();
               }
             }}
-            className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[360px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-2xl"
+            className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[360px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl"
             style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" as const }}
           >
             <div className="flex items-center justify-between gap-2 border-b border-foreground/10 px-3 py-2">

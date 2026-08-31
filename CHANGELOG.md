@@ -4,11 +4,26 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+### Added
+
+- Added character cards to Persona selection so you can play as any saved character in Conversation and Roleplay setup or an active chat.
+- Added an opt-in setting to show character identities in Persona pickers, with collapsed folder navigation and identity transition notices.
+
+### Changed
+
+- Simplified the quick Persona switcher to one rounded character disclosure with folder artwork and viewport-safe scrolling.
+- Moved the character picker toggle to Advanced Message Tools.
+
 ### Fixed
 
+- Fixed character identity prompt previews, imports, gallery participant handling, and quick-menu scrolling and bounds.
+- Fixed character identity profile routing, prompt macro resolution, sprite subjects, memory naming, and lorebook scan context.
+- Preserved historical user names and portraits across identity switches.
 - Termux startup no longer prompts for GitHub credentials during public update checks; failed checks now continue with the installed version.
 - Mobile Roleplay now keeps its full composer controls visible while scrolling through chat history instead of replacing them with a simplified text field (#5685).
 - Available app updates now wait for an explicit refresh instead of silently reloading active sessions, and Roleplay avatars no longer request persistent compositor layers, reducing iPhone WebKit memory pressure (#5686).
+- Character-backed chat identities now resolve consistently in macros and show searchable character names and descriptions in the quick pickers.
+- Quick identity pickers now keep their empty messages accurate and non-duplicated when hidden characters match a search.
 - JSON agents now preserve mandatory reasoning for GLM 5.3 Flash on OpenRouter and NanoGPT instead of sending a reasoning-disable request that those providers reject (#5582).
 
 - Illustrator image downloads in the installed iPhone app now open the dismissible iOS share sheet instead of stranding the user in WebKit's full-screen file preview; choosing Save Image writes to Photos and returns to the still-open Marinara lightbox (#5681).

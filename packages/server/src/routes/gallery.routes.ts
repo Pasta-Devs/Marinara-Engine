@@ -648,8 +648,14 @@ export async function galleryRoutes(app: FastifyInstance) {
     return { ...compiled, ...reviewed, ...size };
   }
 
-  async function collectChatAssetParticipants(chat: { id: string; characterIds?: unknown; personaId?: string | null }) {
+  async function collectChatAssetParticipants(chat: {
+    id: string;
+    characterIds?: unknown;
+    personaId?: string | null;
+    personaCharacterId?: string | null;
+  }) {
     const characterIds = new Set(parseStringArray(chat.characterIds));
+    if (chat.personaCharacterId) characterIds.add(chat.personaCharacterId);
     const personaIds = new Set<string>();
     if (chat.personaId) personaIds.add(chat.personaId);
 
@@ -661,7 +667,8 @@ export async function galleryRoutes(app: FastifyInstance) {
       const extra = parseJsonRecord(message.extra);
       const personaSnapshot = isRecord(extra.personaSnapshot) ? extra.personaSnapshot : null;
       if (typeof personaSnapshot?.personaId === "string" && personaSnapshot.personaId.trim()) {
-        personaIds.add(personaSnapshot.personaId);
+        if (personaSnapshot.source === "character") characterIds.add(personaSnapshot.personaId);
+        else personaIds.add(personaSnapshot.personaId);
       }
     }
 

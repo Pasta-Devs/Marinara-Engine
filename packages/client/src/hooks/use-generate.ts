@@ -1313,27 +1313,75 @@ export function useGenerate() {
           qc.getQueryData<any>(chatKeys.detail(params.chatId)) ??
           (qc.getQueryData<any[]>(chatKeys.list()) ?? []).find((c: any) => c.id === params.chatId);
         const chatPersonaId = activeChat?.personaId as string | null | undefined;
+        const chatPersonaCharacterId = activeChat?.personaCharacterId as string | null | undefined;
+        const cachedCharacters = qc.getQueryData<
+          Array<{ id: string; data: string | Record<string, unknown>; avatarPath?: string | null }>
+        >(characterKeys.list());
         // Roleplay may intentionally have no Persona. Keep optimistic snapshot
         // stamping identical to the server's Conversation-only fallback policy.
         const snapshotPersona = cachedPersonas
           ? resolveChatPersonaCandidate(cachedPersonas, chatPersonaId, activeChat?.mode)
           : null;
-        const personaSnapshot = snapshotPersona
-          ? {
-              personaId: snapshotPersona.id,
-              name: snapshotPersona.name,
-              description: snapshotPersona.description || "",
-              personality: snapshotPersona.personality || "",
-              scenario: snapshotPersona.scenario || "",
-              backstory: snapshotPersona.backstory || "",
-              appearance: snapshotPersona.appearance || "",
-              avatarUrl: snapshotPersona.avatarPath || null,
-              avatarCrop: snapshotPersona.avatarCrop ? JSON.stringify(snapshotPersona.avatarCrop) : null,
-              nameColor: snapshotPersona.nameColor || null,
-              dialogueColor: snapshotPersona.dialogueColor || null,
-              boxColor: snapshotPersona.boxColor || null,
-            }
+        const snapshotCharacter = chatPersonaCharacterId
+          ? cachedCharacters?.find((character) => character.id === chatPersonaCharacterId)
           : null;
+        const characterData = snapshotCharacter
+          ? (() => {
+              try {
+                return characterDataSchema.safeParse(
+                  typeof snapshotCharacter.data === "string"
+                    ? JSON.parse(snapshotCharacter.data)
+                    : snapshotCharacter.data,
+                );
+              } catch {
+                return { success: false as const };
+              }
+            })()
+          : null;
+        const personaSnapshot = characterData?.success
+          ? {
+              personaId: snapshotCharacter!.id,
+              source: "character" as const,
+              name: characterData.data.name,
+              description: characterData.data.description || "",
+              personality: characterData.data.personality || "",
+              scenario: characterData.data.scenario || "",
+              backstory: characterData.data.extensions?.backstory || "",
+              appearance: characterData.data.extensions?.appearance || "",
+              avatarUrl: snapshotCharacter!.avatarPath || null,
+              avatarCrop: characterData.data.extensions?.avatarCrop
+                ? JSON.stringify(characterData.data.extensions.avatarCrop)
+                : null,
+              nameColor:
+                typeof characterData.data.extensions?.nameColor === "string"
+                  ? characterData.data.extensions.nameColor
+                  : null,
+              dialogueColor:
+                typeof characterData.data.extensions?.dialogueColor === "string"
+                  ? characterData.data.extensions.dialogueColor
+                  : null,
+              boxColor:
+                typeof characterData.data.extensions?.boxColor === "string"
+                  ? characterData.data.extensions.boxColor
+                  : null,
+            }
+          : !chatPersonaCharacterId && snapshotPersona
+            ? {
+                personaId: snapshotPersona.id,
+                source: "persona" as const,
+                name: snapshotPersona.name,
+                description: snapshotPersona.description || "",
+                personality: snapshotPersona.personality || "",
+                scenario: snapshotPersona.scenario || "",
+                backstory: snapshotPersona.backstory || "",
+                appearance: snapshotPersona.appearance || "",
+                avatarUrl: snapshotPersona.avatarPath || null,
+                avatarCrop: snapshotPersona.avatarCrop ? JSON.stringify(snapshotPersona.avatarCrop) : null,
+                nameColor: snapshotPersona.nameColor || null,
+                dialogueColor: snapshotPersona.dialogueColor || null,
+                boxColor: snapshotPersona.boxColor || null,
+              }
+            : null;
 
         const optimisticMsg: Message = {
           id: `__optimistic_${Date.now()}`,

@@ -3194,8 +3194,14 @@ const cases: RegressionCase[] = [
         "utf8",
       );
       assert.match(assemblerSource, /groupCharacterIds: input\.groupCharacterIds/);
-      assert.match(generateRouteSource, /characterIds: promptCharacterIds,\s*groupCharacterIds: characterIds,/);
-      assert.match(dryRunRouteSource, /characterIds: promptCharacterIds,\s*groupCharacterIds: characterIds,/);
+      assert.match(
+        generateRouteSource,
+        /characterIds: promptCharacterIds,\s*lorebookCharacterIds: withIdentityLorebookScope\(promptCharacterIds\),\s*groupCharacterIds: characterIds,/,
+      );
+      assert.match(
+        dryRunRouteSource,
+        /characterIds: promptCharacterIds,\s*lorebookCharacterIds: withIdentityLorebookScope\(promptCharacterIds\),\s*groupCharacterIds: characterIds,/,
+      );
     },
   },
   {

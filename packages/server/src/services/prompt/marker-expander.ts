@@ -31,6 +31,8 @@ export interface MarkerContext {
   db: DB;
   chatId: string;
   characterIds: string[];
+  /** Character scope used only for lorebook matching. */
+  lorebookCharacterIds?: string[];
   personaId?: string | null;
   personaName: string;
   personaDescription: string;
@@ -374,7 +376,7 @@ export async function ensureLorebookScan(ctx: MarkerContext): Promise<LorebookSc
       ctx.gameState ?? null,
       {
         chatId: ctx.chatId,
-        characterIds: ctx.characterIds,
+        characterIds: ctx.lorebookCharacterIds ?? ctx.characterIds,
         personaId: ctx.personaId ?? null,
         activeLorebookIds: ctx.activeLorebookIds,
         forcedEntryIds: ctx.forcedLorebookEntryIds,

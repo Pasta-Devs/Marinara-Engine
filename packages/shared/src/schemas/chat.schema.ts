@@ -14,6 +14,7 @@ export const createChatSchema = z.object({
   characterIds: z.array(z.string()).default([]),
   groupId: z.string().nullable().default(null),
   personaId: z.string().nullable().default(null),
+  personaCharacterId: z.string().nullable().default(null),
   promptPresetId: z.string().nullable().default(null),
   connectionId: z.string().nullable().default(null),
 });

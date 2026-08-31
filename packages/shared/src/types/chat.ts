@@ -113,6 +113,8 @@ export interface Chat {
   /** Groups related chats together (like ST "chat files" per character) */
   groupId: string | null;
   personaId: string | null;
+  /** Character card currently being played as the user identity. */
+  personaCharacterId: string | null;
   promptPresetId: string | null;
   connectionId: string | null;
   /** ID of a linked chat (conversation ↔ roleplay bidirectional link) */
@@ -812,6 +814,7 @@ export interface MessageExtra {
   /** Snapshot of the persona that was active when this message was sent (user messages only) */
   personaSnapshot?: {
     personaId: string;
+    source?: "persona" | "character";
     name: string;
     avatarUrl?: string | null;
     /** JSON-encoded AvatarCrop captured at send time so re-edits don't restyle past messages. */

@@ -588,6 +588,7 @@ export function useCreateChat() {
       groupId?: string | null;
       connectionId?: string | null;
       personaId?: string | null;
+      personaCharacterId?: string | null;
       promptPresetId?: string | null;
     }) => api.post<Chat>("/chats", data),
     onSuccess: (chat) => {
@@ -753,6 +754,7 @@ export function useUpdateChat() {
       connectionId?: string | null;
       promptPresetId?: string | null;
       personaId?: string | null;
+      personaCharacterId?: string | null;
       characterIds?: string[];
     }) => api.patch<Chat>(`/chats/${id}`, data),
     onMutate: ({ id }) => ({ metadataVersion: captureChatMetadataVersion(id) }),
@@ -766,6 +768,11 @@ export function useUpdateChat() {
       if (vars.characterIds !== undefined) {
         qc.invalidateQueries({ queryKey: chatKeys.messages(vars.id) });
         qc.invalidateQueries({ queryKey: chatKeys.messageCount(vars.id) });
+      }
+      if (vars.personaId !== undefined || vars.personaCharacterId !== undefined) {
+        qc.invalidateQueries({ queryKey: chatKeys.messages(vars.id) });
+        qc.invalidateQueries({ queryKey: chatKeys.messageCount(vars.id) });
+        qc.invalidateQueries({ queryKey: chatKeys.messagePeek(vars.id) });
       }
 
       // Patch the group cache so the branch selector dropdown reflects renames

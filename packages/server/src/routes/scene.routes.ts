@@ -13,6 +13,7 @@ import { join, extname } from "path";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../services/llm/connection-fallback-provider.js";
 import type { GenerationFallbackNotifier } from "../services/generation/fallback-notification.js";
@@ -33,10 +34,7 @@ import type {
   ScenePromptPreferences,
   SceneFullPlan,
 } from "@marinara-engine/shared";
-import {
-  resolveActivePersonaCandidate,
-  resolveBaseUrl as resolveSceneConnectionBaseUrl,
-} from "./generate/generate-route-utils.js";
+import { resolveBaseUrl as resolveSceneConnectionBaseUrl } from "./generate/generate-route-utils.js";
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
 const ALLOWED_BG_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
@@ -147,9 +145,13 @@ async function buildPersonaContext(
   chars: ReturnType<typeof createCharactersStorage>,
   chatPersonaId?: string | null,
   chatMode?: string | null,
+  personaCharacterId?: string | null,
 ) {
-  const allPersonas = await chars.listPersonas();
-  const persona = resolveActivePersonaCandidate(allPersonas, chatPersonaId, chatMode);
+  const persona = await resolveChatUserIdentity(chars, {
+    personaId: chatPersonaId,
+    personaCharacterId,
+    mode: chatMode,
+  });
   if (!persona) return { personaName: "User", personaCtx: "No persona information available." };
   let ctx = `Name: ${persona.name}\n`;
   if (persona.description) ctx += `${persona.description}\n`;
@@ -330,6 +332,7 @@ export async function sceneRoutes(app: FastifyInstance) {
       // branch group crosses chat modes and can hide Conversation rows.
       groupId: null,
       personaId: originChat.personaId,
+      personaCharacterId: originChat.personaCharacterId ?? null,
       // Scene chats use the generated sceneSystemPrompt as their prompt source.
       // Copying the origin conversation preset can make those instructions clash.
       promptPresetId: null,
@@ -339,7 +342,12 @@ export async function sceneRoutes(app: FastifyInstance) {
     if (!sceneChat) return reply.status(500).send({ error: "Failed to create scene chat" });
 
     // Build conversation transcript as hidden context (NOT displayed)
-    const { personaName } = await buildPersonaContext(chars, originChat.personaId, originChat.mode);
+    const { personaName } = await buildPersonaContext(
+      chars,
+      originChat.personaId,
+      originChat.mode,
+      originChat.personaCharacterId,
+    );
     const initiatorName = initiatorCharId ? await getCharacterName(chars, initiatorCharId) : "User";
     const recentMsgs = await getRecentMessages(chats, originChatId, 30);
     const historyText = recentMsgs
@@ -431,7 +439,12 @@ export async function sceneRoutes(app: FastifyInstance) {
     // the game guard has to come from the origin since scene chats are "roleplay"
     const characterIds = parseCharacterIds(sceneChat.characterIds);
     const characterCtx = await buildCharacterContext(chars, characterIds);
-    const { personaName, personaCtx } = await buildPersonaContext(chars, sceneChat.personaId, sceneOriginChat?.mode);
+    const { personaName, personaCtx } = await buildPersonaContext(
+      chars,
+      sceneChat.personaId,
+      sceneOriginChat?.mode,
+      sceneChat.personaCharacterId,
+    );
 
     // Get all scene messages for the summary
     const sceneMessages = await getRecentMessages(chats, sceneChatId, 100);
@@ -651,6 +664,7 @@ export async function sceneRoutes(app: FastifyInstance) {
       characterIds: parseCharacterIds(sceneChat.characterIds),
       groupId: forkGroupId,
       personaId: sceneChat.personaId,
+      personaCharacterId: sceneChat.personaCharacterId ?? null,
       promptPresetId: sceneChat.promptPresetId,
       connectionId: sceneChat.connectionId,
     });
@@ -796,7 +810,12 @@ export async function sceneRoutes(app: FastifyInstance) {
     const characterIds: string[] =
       typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : (chat.characterIds as string[]);
     const characterCtx = await buildCharacterContext(chars, characterIds);
-    const { personaName, personaCtx } = await buildPersonaContext(chars, chat.personaId, chat.mode);
+    const { personaName, personaCtx } = await buildPersonaContext(
+      chars,
+      chat.personaId,
+      chat.mode,
+      chat.personaCharacterId,
+    );
 
     // Get available backgrounds
     const availableBackgrounds = listAvailableBackgrounds();

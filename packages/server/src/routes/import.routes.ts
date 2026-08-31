@@ -651,6 +651,7 @@ export async function importRoutes(app: FastifyInstance) {
       ...(inheritedCharacterIds.length > 0 ? { characterIds: inheritedCharacterIds } : {}),
       ...(speakerMap ? { speakerMap } : {}),
       personaId: targetChat.personaId ?? null,
+      personaCharacterId: targetChat.personaCharacterId ?? null,
       connectionId: targetChat.connectionId ?? null,
       promptPresetId: targetChat.promptPresetId ?? null,
       ...(timestampOverrides ? { timestampOverrides } : {}),

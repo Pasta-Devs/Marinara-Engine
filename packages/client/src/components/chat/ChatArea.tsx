@@ -670,6 +670,19 @@ export const ChatArea = memo(function ChatArea() {
     enabled: !!chat?.id && chat.id === activeChatId && isGameChat,
     includeBuiltIn: true,
   });
+  // Only the selected identity card is needed here, so fetch that one row
+  // instead of the whole character library. [PR #5583]
+  const identityCharacterId = isGameChat ? null : (chat?.personaCharacterId ?? null);
+  const identityCharacterQueries = useQueries({
+    queries: (identityCharacterId ? [identityCharacterId] : []).map((id) => ({
+      queryKey: characterKeys.detail(id),
+      queryFn: () => api.get<CharacterRow>(`/characters/${id}`),
+      enabled: !!chat?.id && chat.id === activeChatId,
+      retry: false,
+      staleTime: 5 * 60_000,
+    })),
+  });
+  const identityCharacterRow = identityCharacterQueries[0]?.data ?? null;
   const deleteMessage = useDeleteMessage(activeChatId);
   const deleteMessages = useDeleteMessages(activeChatId);
   const deleteSwipe = useDeleteSwipe(activeChatId);
@@ -952,10 +965,51 @@ export const ChatArea = memo(function ChatArea() {
   const personaInfo = useMemo(() => {
     // Roleplay and Game may intentionally have no Persona; only Conversation
     // falls back to the globally active account Persona.
+    if (chat?.personaCharacterId) {
+      const row = identityCharacterRow;
+      if (row && row.id === chat.personaCharacterId) {
+        try {
+          const rawData = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
+          const data = rawData && typeof rawData === "object" && !Array.isArray(rawData) ? rawData : {};
+          const extensions = data?.extensions ?? {};
+          const conversationStatus =
+            extensions.conversationStatus === "online" ||
+            extensions.conversationStatus === "idle" ||
+            extensions.conversationStatus === "dnd" ||
+            extensions.conversationStatus === "offline"
+              ? extensions.conversationStatus
+              : undefined;
+          return {
+            id: row.id,
+            source: "character" as const,
+            name: typeof data?.name === "string" && data.name.trim() ? data.name : "Unknown",
+            convoDisplayName: typeof extensions.convoDisplayName === "string" ? extensions.convoDisplayName : undefined,
+            phoneticName: typeof extensions.phoneticName === "string" ? extensions.phoneticName : undefined,
+            description: typeof data?.description === "string" ? data.description : undefined,
+            personality: typeof data?.personality === "string" ? data.personality : undefined,
+            scenario: typeof data?.scenario === "string" ? data.scenario : undefined,
+            backstory: typeof extensions.backstory === "string" ? extensions.backstory : undefined,
+            appearance: typeof extensions.appearance === "string" ? extensions.appearance : undefined,
+            avatarUrl: row.avatarPath || undefined,
+            avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
+            nameColor: typeof extensions.nameColor === "string" ? extensions.nameColor : undefined,
+            dialogueColor: typeof extensions.dialogueColor === "string" ? extensions.dialogueColor : undefined,
+            boxColor: typeof extensions.boxColor === "string" ? extensions.boxColor : undefined,
+            conversationStatus,
+            conversationActivity:
+              typeof extensions.conversationActivity === "string" ? extensions.conversationActivity : undefined,
+          };
+        } catch {
+          return undefined;
+        }
+      }
+      return undefined;
+    }
     const persona = chatPersona ?? (chatMode === "conversation" ? activePersonaFallback : null);
     if (!persona) return undefined;
     return {
       id: persona.id,
+      source: "persona" as const,
       name: persona.name,
       convoDisplayName: persona.convoDisplayName || undefined,
       phoneticName: persona.phoneticName || undefined,
@@ -970,7 +1024,7 @@ export const ChatArea = memo(function ChatArea() {
       dialogueColor: persona.dialogueColor || undefined,
       boxColor: persona.boxColor || undefined,
     };
-  }, [activePersonaFallback, chatMode, chatPersona]);
+  }, [activePersonaFallback, chat, chatMode, chatPersona, identityCharacterRow]);
 
   const { startEncounter } = useEncounter();
   const { concludeScene, abandonScene, forkScene, isForking } = useScene();
