@@ -341,13 +341,18 @@ export async function agentsRoutes(app: FastifyInstance) {
       /** Slots per character, as a comparable map. */
       const slotMap = (data: unknown) => {
         const state = normalizeBeholderState(data);
-        const map = new Map<string, Map<string, string>>();
+        // Keyed the way the normalizer identifies a character, which is case-folded.
+        // Keying by the raw name made "Maggie" and "maggie" two people, so one run
+        // spelling a name differently read as one character leaving and another
+        // arriving — a page of invented changes from a capital letter. The display
+        // name is carried alongside so the answer still reads naturally.
+        const map = new Map<string, { name: string; slots: Map<string, string> }>();
         for (const character of state?.characters ?? []) {
           const slots = new Map<string, string>();
           for (const [slot, value] of Object.entries(character.body ?? {})) {
             slots.set(slot, JSON.stringify(value ?? null));
           }
-          map.set(character.name, slots);
+          map.set(character.name.toLocaleLowerCase("en-US"), { name: character.name, slots });
         }
         return map;
       };
@@ -355,7 +360,7 @@ export async function agentsRoutes(app: FastifyInstance) {
       const maps = runs.map((run) => slotMap(run.resultData));
       return runs.slice(0, wanted).map((run, index) => {
         // Indexed access is typed as possibly-undefined; index is bounded by slice.
-        const now = maps[index] ?? new Map<string, Map<string, string>>();
+        const now = maps[index] ?? new Map<string, { name: string; slots: Map<string, string> }>();
         // Runs come back newest first, so the NEXT entry is the previous state.
         const before = maps[index + 1] ?? null;
         // Over the union of both states, not just the current one. Visiting only what
@@ -364,9 +369,12 @@ export async function agentsRoutes(app: FastifyInstance) {
         // reported no change at all — on a panel whose whole purpose is tracking things
         // being put on and taken off.
         const changes: { name: string; slots: string[] }[] = [];
-        for (const name of new Set([...now.keys(), ...(before?.keys() ?? [])])) {
-          const current = now.get(name) ?? new Map<string, string>();
-          const previous = before?.get(name) ?? new Map<string, string>();
+        for (const key of new Set([...now.keys(), ...(before?.keys() ?? [])])) {
+          const currentEntry = now.get(key);
+          const previousEntry = before?.get(key);
+          const current = currentEntry?.slots ?? new Map<string, string>();
+          const previous = previousEntry?.slots ?? new Map<string, string>();
+          const name = currentEntry?.name ?? previousEntry?.name ?? key;
           const touched: string[] = [];
           for (const slot of new Set([...current.keys(), ...previous.keys()])) {
             if (current.get(slot) !== previous.get(slot)) touched.push(slot);
@@ -376,7 +384,7 @@ export async function agentsRoutes(app: FastifyInstance) {
           // The panel draws one badge per slot, so such an entry shows nothing there —
           // which is right, because there is nothing to show — but the answer this route
           // gives is now true rather than conveniently empty.
-          const presenceChanged = now.has(name) !== (before?.has(name) ?? false);
+          const presenceChanged = now.has(key) !== (before?.has(key) ?? false);
           if (touched.length || presenceChanged) changes.push({ name, slots: touched.sort() });
         }
         return {
@@ -386,7 +394,7 @@ export async function agentsRoutes(app: FastifyInstance) {
           success: run.success,
           error: run.error ?? null,
           characters: now.size,
-          slots: [...now.values()].reduce((total, slots) => total + slots.size, 0),
+          slots: [...now.values()].reduce((total, entry) => total + entry.slots.size, 0),
           // What THIS run changed, rather than everything it holds. Null when there is
           // no earlier run to compare against: the first extraction in a chat did not
           // "change" the whole body, it established it, and saying otherwise would put
