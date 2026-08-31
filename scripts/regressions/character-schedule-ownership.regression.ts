@@ -192,6 +192,27 @@ try {
     "ordinary card edits bump the card version",
   );
 
+  // ── 8. Last week's schedule survives. Dropping it on read blanked the panel
+  //       and hid the staleness from `needsRefresh`, so it never regenerated ──
+  const staleSchedule = makeSchedule("Last week's rounds");
+  const lastMonday = new Date(currentWeekStart());
+  lastMonday.setDate(lastMonday.getDate() - 7);
+  staleSchedule.weekStart = lastMonday.toISOString();
+  const staleCard = JSON.parse((await chars.getById(characterId))!.data as string) as {
+    extensions: Record<string, unknown>;
+  };
+  await chars.update(
+    characterId,
+    { extensions: { ...staleCard.extensions, conversationSchedule: staleSchedule } } as never,
+    undefined,
+    { skipVersionSnapshot: true },
+  );
+  assert.deepEqual(
+    (await chats.resolveConversationPresenceState(legacyChat!.id)).schedules[characterId],
+    staleSchedule,
+    "a schedule from last week still resolves instead of being cleared",
+  );
+
   console.log("character-schedule-ownership regression passed");
 } finally {
   await app?.close();

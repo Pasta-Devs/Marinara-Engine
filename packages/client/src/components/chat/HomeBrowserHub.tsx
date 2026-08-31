@@ -42,6 +42,7 @@ import {
 import {
   APP_VERSION,
   HOME_CUSTOM_WIDGETS_SETTINGS_KEY,
+  normalizeAvatarCrop,
   type AchievementEvent,
   type HomeCustomWidget,
   type HomeCustomWidgetCatalog,
@@ -49,7 +50,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useChats } from "../../hooks/use-chats";
-import { useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useAllCharacterCatalog, usePersonas } from "../../hooks/use-characters";
 import {
   selectHomeBrowserPackages,
   useCapabilityCatalog,
@@ -62,7 +63,6 @@ import { achievementKeys, trackAchievementEvent } from "../../hooks/use-achievem
 import { api, ApiError } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
-import { parseCharacterDisplayData } from "../../lib/character-display";
 import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-localization";
 import {
   PROFESSOR_MARI_NAVIGATOR_POSITION_STORAGE_KEY,
@@ -360,13 +360,6 @@ const HOME_STARS = Array.from({ length: 42 }, (_, index) => ({
     index % 4
   ],
 }));
-
-type CharacterRow = {
-  id?: unknown;
-  data?: unknown;
-  comment?: unknown;
-  avatarPath?: unknown;
-};
 
 type HomeBrowserHubProps = {
   pageActive: boolean;
@@ -1584,7 +1577,7 @@ export function HomeBrowserHub({
   });
   const installed = useInstalledCapabilityPackages();
   const catalog = useCapabilityCatalog();
-  const characters = useCharacters();
+  const characterCatalog = useAllCharacterCatalog();
   const personas = usePersonas();
   const presets = usePresets();
   const lorebooks = useLorebooks(undefined, { includeHidden: true });
@@ -1819,21 +1812,22 @@ export function HomeBrowserHub({
     setDiscoveryIndex((current) => (current + direction + recommendations.length) % recommendations.length);
   };
   const characterOfDay = useMemo(() => {
-    const rows = (characters.data ?? []) as CharacterRow[];
+    const rows = (characterCatalog.data ?? []).filter((row) => row.name.trim().length > 0);
     if (rows.length === 0) return null;
     const day = new Date().toISOString().slice(0, 10);
     const hash = Array.from(day).reduce((total, character) => total + character.charCodeAt(0), 0);
     const row = rows[hash % rows.length];
-    if (!row || typeof row.id !== "string" || !("data" in row)) return null;
+    if (!row || typeof row.id !== "string") return null;
     return {
       id: row.id,
-      avatarPath: typeof row.avatarPath === "string" ? row.avatarPath : null,
-      ...parseCharacterDisplayData({
-        data: row.data,
-        comment: typeof row.comment === "string" ? row.comment : null,
-      }),
+      avatarPath: row.avatarPath,
+      avatarCrop: normalizeAvatarCrop(row.avatarCrop),
+      comment: row.comment,
+      name: row.name,
+      summary: row.summary,
+      description: row.summary,
     };
-  }, [characters.data]);
+  }, [characterCatalog.data]);
 
   const address = `marinara/${activeTab}`;
   const selectTab = (tab: string) => {
@@ -2072,14 +2066,28 @@ export function HomeBrowserHub({
     [localizedBrowserPackages],
   );
   const professorMariResources = useMemo<ProfessorMariNavigationResource[]>(() => {
-    const characterResources = ((characters.data ?? []) as CharacterRow[]).flatMap((row) => {
-      if (typeof row.id !== "string") return [];
-      const display = parseCharacterDisplayData({
-        data: row.data,
-        comment: typeof row.comment === "string" ? row.comment : null,
-      });
-      return display.name.trim() ? [{ kind: "character" as const, id: row.id, name: display.name }] : [];
-    });
+    const characterResources = (characterCatalog.data ?? []).flatMap((row) =>
+      row.name.trim()
+        ? [
+            {
+              kind: "character" as const,
+              id: row.id,
+              name: row.name,
+              searchText: [
+                row.summary,
+                row.explicitSummary,
+                row.creatorNotes,
+                row.description,
+                row.personality,
+                row.scenario,
+                row.firstMessage,
+                row.creator,
+                ...row.tags,
+              ],
+            },
+          ]
+        : [],
+    );
     return [
       ...characterResources,
       ...(personas.data ?? []).map((persona) => ({ kind: "persona" as const, id: persona.id, name: persona.name })),
@@ -2096,7 +2104,7 @@ export function HomeBrowserHub({
         aliases: [agent.type],
       })),
     ];
-  }, [agents.data, characters.data, lorebooks.data, personas.data, presets.data]);
+  }, [agents.data, characterCatalog.data, lorebooks.data, personas.data, presets.data]);
   const openProfessorMariTarget = (target: ProfessorMariNavigationTarget) => {
     const ui = useUIStore.getState();
     if (target.kind === "home") {

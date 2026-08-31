@@ -219,6 +219,14 @@ interface ChatState {
   abortControllers: Map<string, AbortController>;
   /** Chats whose reply is complete while an Illustrator image finishes on the existing SSE tail. */
   backgroundIllustrationChatIds: Set<string>;
+  /**
+   * Game chats whose narration text is already saved while the rest of the turn
+   * finishes. The game stream deliberately stays open past the last narration
+   * token — post-processing agents, the message refresh, and scene analysis all
+   * run on the same request — so `isStreaming` alone cannot tell "the model is
+   * writing" apart from "the model is done and the turn is being assembled".
+   */
+  narrationSavedChatIds: Set<string>;
   /** When regenerating, the ID of the message being regenerated (so streaming shows in-place). */
   regenerateMessageId: string | null;
   /** During group chat individual mode, the character currently streaming. */
@@ -272,6 +280,7 @@ interface ChatState {
   setMariPhase: (chatId: string, phase: "thinking" | "updating" | "idle") => void;
   setAbortController: (chatId: string, controller: AbortController | null) => void;
   setBackgroundIllustration: (chatId: string, pending: boolean) => void;
+  setNarrationSaved: (chatId: string, saved: boolean) => void;
   stopGeneration: (chatId?: string) => void;
   appendStreamBuffer: (text: string, chatId?: string) => void;
   setStreamBuffer: (text: string, chatId?: string) => void;
@@ -360,6 +369,7 @@ export const useChatStore = create<ChatState>()(
     thinkingBuffers: new Map(),
     abortControllers: new Map(),
     backgroundIllustrationChatIds: new Set(),
+    narrationSavedChatIds: new Set(),
     regenerateMessageId: null,
     streamingCharacterId: null,
     responseQueues: new Map(),
@@ -513,7 +523,9 @@ export const useChatStore = create<ChatState>()(
         abortControllers.set(chatId, controller);
         const backgroundIllustrationChatIds = new Set(state.backgroundIllustrationChatIds);
         backgroundIllustrationChatIds.delete(chatId);
-        return { abortControllers, backgroundIllustrationChatIds };
+        const narrationSavedChatIds = new Set(state.narrationSavedChatIds);
+        narrationSavedChatIds.delete(chatId);
+        return { abortControllers, backgroundIllustrationChatIds, narrationSavedChatIds };
       }),
     setBackgroundIllustration: (chatId, pending) =>
       set((state) => {
@@ -521,6 +533,13 @@ export const useChatStore = create<ChatState>()(
         if (pending) next.add(chatId);
         else next.delete(chatId);
         return { backgroundIllustrationChatIds: next };
+      }),
+    setNarrationSaved: (chatId, saved) =>
+      set((state) => {
+        const next = new Set(state.narrationSavedChatIds);
+        if (saved) next.add(chatId);
+        else next.delete(chatId);
+        return { narrationSavedChatIds: next };
       }),
     stopGeneration: (chatId) => {
       const { activeChatId, streamingChatId, abortControllers } = useChatStore.getState();
@@ -699,13 +718,16 @@ export const useChatStore = create<ChatState>()(
         const t = new Map(state.perChatTyping);
         const d = new Map(state.perChatDelayed);
         const thoughts = new Map(state.thinkingBuffers);
+        const narrationSaved = new Set(state.narrationSavedChatIds);
         t.delete(chatId);
         d.delete(chatId);
         thoughts.delete(chatId);
+        narrationSaved.delete(chatId);
         return {
           perChatTyping: t,
           perChatDelayed: d,
           thinkingBuffers: thoughts,
+          narrationSavedChatIds: narrationSaved,
           ...(state.activeChatId === chatId ? { thinkingBuffer: "" } : {}),
         };
       }),
@@ -1008,6 +1030,7 @@ export const useChatStore = create<ChatState>()(
         thinkingBuffers: new Map(),
         abortControllers: new Map(),
         backgroundIllustrationChatIds: new Set(),
+        narrationSavedChatIds: new Set(),
         regenerateMessageId: null,
         streamingCharacterId: null,
         responseQueues: new Map(),

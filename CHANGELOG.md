@@ -16,6 +16,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Character library and omnibar searches now share a generation-aware in-memory character catalog, so list views do not repeatedly scan and transfer complete character cards.
 - Fixed character identity prompt previews, imports, gallery participant handling, and quick-menu scrolling and bounds.
 - Fixed character identity profile routing, prompt macro resolution, sprite subjects, memory naming, and lorebook scan context.
 - Preserved historical user names and portraits across identity switches.
@@ -36,6 +37,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - The server now notices when it stopped running for a stretch — consistent with the host suspending it (the Android/Termux background freeze that shows as an endless "Opening chat…" until Termux is foregrounded, or a laptop sleeping) or with a severe internal stall — and logs the estimated length on thaw, so session logs carry positive evidence instead of nothing (#5655).
 - The Termux launcher reports its Android wake-lock outcome to the server, and both the health endpoint and Copy Support Diagnostics now include the wake-lock status and the most recent detected freeze; a failed or unavailable wake lock is announced with a prominent launcher warning that names the fix (`pkg install termux-tools`, battery set to Unrestricted) (#5656).
 - Capability API 1.15 adds `runtime.resolveEmbeddings()`, allowing packages to use the current package-specific or global embedding connection without reactivation while preserving the static embeddings host for older packages.
+- Stored guidance now provides copy actions for guided directions, impersonation directions, and impersonation prompt templates, with distinct replayable command and verbatim template payloads.
 - File-native storage format advances to version 6, pairing `STORAGE_VERSION` and `storage-format.json` so the launcher downgrade guard correctly rejects rollbacks to builds that do not understand the new sharded layout and writer-lease ownership model.
 - Chat connection switchers can now show the latest measured context usage in their popup and around the connection button, with Game usage available under Chat Settings > Connection. The display is enabled by default and can be controlled in Advanced settings (#5577).
 - Character card sprites can now be renamed after upload without replacing the image (#5575).

@@ -2161,6 +2161,14 @@ export function useGenerate() {
               const turn = event.data as { characterId: string; characterName: string; index: number };
               sawGroupTurn = true;
               leadingSpeakerPrefixFilter.addLabels([turn.characterName]);
+              // Each character in a group turn saves its own message, so the
+              // previous `message_saved` must not leave the status reading
+              // "preparing" while the next character is still narrating. Guarded
+              // by stream ownership for the same reason the set is: a queued
+              // event from a superseded stream must not touch its replacement.
+              if (isGameGeneration && useChatStore.getState().abortControllers.get(params.chatId) === abortController) {
+                useChatStore.getState().setNarrationSaved(params.chatId, false);
+              }
 
               // If this isn't the first character, flush the previous one's content
               if (turn.index > 0) {
@@ -2394,6 +2402,18 @@ export function useGenerate() {
               if (savedMessage.role === "assistant") {
                 completeQueuedResponse(params.chatId, savedMessage.characterId);
                 currentGroupTurnSavedMessage = savedMessage;
+                if (
+                  isGameGeneration &&
+                  useChatStore.getState().abortControllers.get(params.chatId) === abortController
+                ) {
+                  // The narration text is durable now. The request stays open for
+                  // post-processing, the refresh, and scene analysis, so this is
+                  // the point where the Game Master has stopped writing.
+                  //
+                  // Ownership-checked: a queued event from a superseded stream
+                  // would otherwise mark the generation that replaced it as done.
+                  useChatStore.getState().setNarrationSaved(params.chatId, true);
+                }
               }
               await qc.cancelQueries({ queryKey: chatKeys.messages(params.chatId), exact: true });
               persistedMessages.set(savedMessage.id, savedMessage);

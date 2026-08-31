@@ -11020,7 +11020,7 @@ test("Professor Mari opens a named character directly in its editor", async ({ p
   try {
     const characterListResponse = page.waitForResponse((response) => {
       const url = new URL(response.url());
-      return response.request().method() === "GET" && url.pathname === "/api/characters";
+      return response.request().method() === "GET" && url.pathname === "/api/characters/catalog";
     });
     await page.goto("/");
     await characterListResponse;
@@ -18350,12 +18350,27 @@ test("Home lifecycle stays bounded across repeated tab and chat navigation", asy
     await page.waitForTimeout(3_000);
 
     const cdp = await page.context().newCDPSession(page);
+    /**
+     * A single `collectGarbage` leaves incrementally-freed memory behind, so a
+     * clean run still reads megabytes above its own baseline and trips the heap
+     * budget at random. Collect repeatedly and keep the smallest reading — memory
+     * that is genuinely retained survives every pass, so this loses no leak
+     * detection.
+     */
+    const settledHeapUsage = async (): Promise<number> => {
+      let smallest = Number.POSITIVE_INFINITY;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await cdp.send("HeapProfiler.collectGarbage");
+        await page.waitForTimeout(150);
+        const { usedSize } = await cdp.send("Runtime.getHeapUsage");
+        smallest = Math.min(smallest, usedSize);
+      }
+      return smallest;
+    };
     const collect = async () => {
-      await cdp.send("HeapProfiler.collectGarbage");
-      await page.waitForTimeout(150);
-      const [dom, heap, runtime] = await Promise.all([
+      const heapUsed = await settledHeapUsage();
+      const [dom, runtime] = await Promise.all([
         cdp.send("Memory.getDOMCounters"),
-        cdp.send("Runtime.getHeapUsage"),
         page.evaluate(() => ({
           animations: document.getAnimations().filter((animation) => animation.playState === "running").length,
           homePages: document.querySelectorAll('[data-component="HomeBrowserHub.HomePage"]').length,
@@ -18380,7 +18395,7 @@ test("Home lifecycle stays bounded across repeated tab and chat navigation", asy
         documents: dom.documents,
         nodes: dom.nodes,
         listeners: dom.jsEventListeners,
-        heap: heap.usedSize,
+        heap: heapUsed,
         ...runtime,
       };
     };
@@ -20090,7 +20105,11 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
     const composer = page.getByPlaceholder("What do you do?");
     const optionList = page.locator('[data-component="GameChoiceCards.Options"]');
     const options = page.locator('[data-component="GameChoiceCards.Options"] > button');
-    await expect(choiceStage).toBeVisible();
+    // First mount after `goto`, so this assertion absorbs app boot plus the lazy
+    // GameSurface chunk. The neighbouring game specs already allow 30s for that;
+    // the default 10s makes this spec fail on mobile-webkit under CI load. Every
+    // assertion after it stays on the default timeout.
+    await expect(choiceStage).toBeVisible({ timeout: 30_000 });
     await expect(choiceStack).toBeVisible();
     await expect(leftWidgetRail).toBeVisible();
     await expect(rightWidgetRail).toBeVisible();

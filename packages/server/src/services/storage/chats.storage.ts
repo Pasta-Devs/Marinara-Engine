@@ -48,9 +48,9 @@ import {
   normalizeTimestampOverrides,
   type TimestampOverrides,
 } from "../import/import-timestamps.js";
-import { scheduleNeedsRefresh, type CharacterSchedules, type WeekSchedule } from "../conversation/schedule.service.js";
+import { type CharacterSchedules, type WeekSchedule } from "../conversation/schedule.service.js";
 import type { ConversationStatusOverride } from "@marinara-engine/shared";
-import { resolveConversationTimeZone, toZonedWallClockDate } from "../conversation/timezone.js";
+import { resolveConversationTimeZone } from "../conversation/timezone.js";
 import { logger } from "../../lib/logger.js";
 import { galleryFileHasReferences, unlinkGalleryFileIfUnreferenced } from "../image/gallery-file-lifecycle.js";
 
@@ -817,26 +817,27 @@ export function createChatsStorage(db: DB) {
   }
 
   /**
-   * Read the character-owned schedules for `characterIds`, skipping any that are
-   * stale for `scheduleNow`. The character card is the single source of truth;
-   * chats only cache a resolved copy in `metadata.characterSchedules`.
+   * Read the character-owned schedules for `characterIds`. The character card is
+   * the single source of truth; chats only cache a resolved copy in
+   * `metadata.characterSchedules`.
+   *
+   * Last week's schedule is returned as-is. Days are keyed by weekday, so it
+   * still yields a usable routine, and dropping it here would both blank the
+   * panel and hide the staleness from the `needsRefresh` signal that drives
+   * regeneration — the schedule would then stay empty forever.
    */
-  async function collectFreshConversationSchedules(
-    characterIds: string[],
-    scheduleNow: Date,
-  ): Promise<CharacterSchedules> {
+  async function collectConversationSchedules(characterIds: string[]): Promise<CharacterSchedules> {
     const wanted = Array.from(new Set(characterIds));
-    const freshSchedules: CharacterSchedules = {};
-    if (wanted.length === 0) return freshSchedules;
+    const collected: CharacterSchedules = {};
+    if (wanted.length === 0) return collected;
 
     const rows = await db.select().from(characters).where(inArray(characters.id, wanted));
     for (const row of rows) {
       const schedule = readCharacterSchedule(row.data);
-      if (!schedule || scheduleNeedsRefresh(schedule, scheduleNow)) continue;
-      freshSchedules[row.id] = schedule;
+      if (schedule) collected[row.id] = schedule;
     }
 
-    return freshSchedules;
+    return collected;
   }
 
   /**
@@ -900,7 +901,6 @@ export function createChatsStorage(db: DB) {
 
   async function collectConversationPresence(
     characterIds: string[],
-    scheduleNow: Date,
   ): Promise<{ schedules: CharacterSchedules; overrides: Record<string, ConversationStatusOverride | null> }> {
     const wanted = Array.from(new Set(characterIds));
     const schedules: CharacterSchedules = {};
@@ -909,7 +909,7 @@ export function createChatsStorage(db: DB) {
     const rows = await db.select().from(characters).where(inArray(characters.id, wanted));
     for (const row of rows) {
       const schedule = readCharacterSchedule(row.data);
-      if (schedule && !scheduleNeedsRefresh(schedule, scheduleNow)) schedules[row.id] = schedule;
+      if (schedule) schedules[row.id] = schedule;
       overrides[row.id] = readCharacterStatusOverride(row.data);
     }
     return { schedules, overrides };
@@ -1046,12 +1046,7 @@ export function createChatsStorage(db: DB) {
         ? resolveConversationTimeZone(parseMetadata(recentConversation.metadata))
         : undefined;
       const inheritedSchedules =
-        input.mode === "conversation"
-          ? await collectFreshConversationSchedules(
-              input.characterIds,
-              toZonedWallClockDate(new Date(), conversationTimeZone),
-            )
-          : {};
+        input.mode === "conversation" ? await collectConversationSchedules(input.characterIds) : {};
       const metadata: MetadataPatch = {
         summary: null,
         tags: [],
@@ -1107,10 +1102,7 @@ export function createChatsStorage(db: DB) {
         await hoistLegacyChatOverrides(meta.conversationStatusOverrides, characterIds);
       }
 
-      const presence = await collectConversationPresence(
-        characterIds,
-        toZonedWallClockDate(new Date(), resolveConversationTimeZone(meta)),
-      );
+      const presence = await collectConversationPresence(characterIds);
       const cardOverrides = presence.overrides;
       const statusOverrides: Record<string, ConversationStatusOverride> = {};
       for (const [characterId, override] of Object.entries(cardOverrides)) {
@@ -1149,11 +1141,10 @@ export function createChatsStorage(db: DB) {
 
       const characterIds = parseCharacterIds(chat.characterIds);
       const currentSchedules = hasConversationSchedules(meta.characterSchedules) ? meta.characterSchedules : {};
-      const scheduleNow = toZonedWallClockDate(new Date(), resolveConversationTimeZone(meta));
 
       // The character card is the source of truth; the chat map is a cache that
       // can be stale or hold a schedule the character has since replaced.
-      const freshSchedules = await collectFreshConversationSchedules(characterIds, scheduleNow);
+      const freshSchedules = await collectConversationSchedules(characterIds);
       const nextSchedules: CharacterSchedules = {};
       for (const characterId of characterIds) {
         const schedule = freshSchedules[characterId];

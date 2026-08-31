@@ -23,6 +23,7 @@ import {
 } from "@marinara-engine/shared";
 import type { CharacterData, ConversationCallCharacterVideoClipKind, ExportEnvelope } from "@marinara-engine/shared";
 import { createCharactersStorage, type PersonaStorageRow } from "../services/storage/characters.storage.js";
+import { createCharacterCatalog } from "../services/storage/character-catalog.js";
 import { encodePersonaCreate, encodePersonaUpdate, projectPersona } from "../services/personas/persona-projector.js";
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
 import { createPersonaGalleryStorage } from "../services/storage/persona-gallery.storage.js";
@@ -867,6 +868,7 @@ export async function validateCharacterGalleryReferences<T extends Record<string
 
 export async function charactersRoutes(app: FastifyInstance) {
   const storage = createCharactersStorage(app.db);
+  const catalog = createCharacterCatalog(app.db);
   const characterGallery = createCharacterGalleryStorage(app.db);
   const personaGallery = createPersonaGalleryStorage(app.db);
   const lorebooksStorage = createLorebooksStorage(app.db);
@@ -914,6 +916,27 @@ export async function charactersRoutes(app: FastifyInstance) {
     const characters = await storage.list();
     if (includeBuiltIn) return characters;
     return characters.filter((character) => character.id !== PROFESSOR_MARI_ID);
+  });
+
+  app.get<{
+    Querystring: {
+      includeBuiltIn?: string;
+      limit?: string;
+      offset?: string;
+      search?: string;
+      sort?: string;
+      favoriteFilter?: string;
+    };
+  }>("/catalog", async (req) => {
+    const page = parseLibraryPageQuery(req.query);
+    return catalog.list({
+      includeBuiltIn: req.query.includeBuiltIn === "true",
+      limit: page.limit,
+      offset: page.offset,
+      search: page.search,
+      sort: page.sort,
+      favoriteFilter: page.favoriteFilter,
+    });
   });
 
   app.post<{ Body: { ids?: unknown } }>("/summaries", async (req) => {

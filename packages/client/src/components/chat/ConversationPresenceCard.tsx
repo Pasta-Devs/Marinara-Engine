@@ -1,5 +1,13 @@
 import { createPortal } from "react-dom";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, ChevronDown, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -335,11 +343,13 @@ export function ConversationPresenceCard({
   }, [messages]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const refreshStatuses = async () => {
+  const needsScheduleRefresh = statusesQuery.data?.needsRefresh ?? false;
+  const refetchStatuses = statusesQuery.refetch;
+  const refreshStatuses = useCallback(async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
     try {
-      if (statusesQuery.data?.needsRefresh) {
+      if (needsScheduleRefresh) {
         await api.post("/conversation/schedule/generate", {
           chatId,
           characterIds: chatCharIds,
@@ -348,11 +358,29 @@ export function ConversationPresenceCard({
         });
         await queryClient.refetchQueries({ queryKey: ["chat", chatId] });
       }
-      await statusesQuery.refetch();
+      await refetchStatuses();
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [chatCharIds, chatId, isRefreshing, needsScheduleRefresh, queryClient, refetchStatuses]);
+
+  /**
+   * Roll the week over without waiting for the refresh button. A schedule from
+   * an earlier week still works, but nothing regenerated it on its own: the
+   * `ensureSchedules` helper was never wired to a caller, so the button was the
+   * only path and a routine silently stayed a week behind.
+   *
+   * Once per chat per session, so a missing or failing connection cannot loop.
+   * Chats with schedules switched off never report `needsRefresh`, so this
+   * cannot generate for them.
+   */
+  const autoRegeneratedChatsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!chatId || !needsScheduleRefresh || isRefreshing) return;
+    if (autoRegeneratedChatsRef.current.has(chatId)) return;
+    autoRegeneratedChatsRef.current.add(chatId);
+    void refreshStatuses();
+  }, [chatId, isRefreshing, needsScheduleRefresh, refreshStatuses]);
 
   if (characters.length === 0) return <div />;
 

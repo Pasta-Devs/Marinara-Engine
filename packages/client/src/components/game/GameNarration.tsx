@@ -320,6 +320,31 @@ interface GameVoiceEntryPlan {
 
 const GAME_TTS_CHUNK_ATTEMPTS = 2;
 
+/**
+ * Status line under the narration box.
+ *
+ * The game stream stays open past the last narration token while post-processing
+ * agents, the message refresh, and scene analysis run, so a single "writing"
+ * label claimed the Game Master was still writing during that whole gap. The
+ * server's `message_saved` event marks the exact moment the narration text is
+ * durable; past it, report the scene-preparation phase instead.
+ */
+function GameGenerationStatus() {
+  const { t: localizeUi } = useUiTranslation();
+  const narrationSaved = useChatStore((s) => (s.activeChatId ? s.narrationSavedChatIds.has(s.activeChatId) : false));
+
+  return (
+    <div className="mt-2 flex items-center gap-1 text-xs text-[var(--foreground)]/50">
+      <span className="animate-pulse">●</span>
+      <span>
+        {narrationSaved
+          ? localizeUi("ui.game.gamenarration.preparingScene")
+          : localizeUi("ui.game.gamenarration.theGameMasterIsWritingTheNextSegment")}
+      </span>
+    </div>
+  );
+}
+
 interface GameNarrationProps {
   messages: NarrationMessage[];
   isStreaming: boolean;
@@ -5172,12 +5197,7 @@ export function GameNarration({
               </div>
             )}
 
-            {isStreaming && (
-              <div className="mt-2 flex items-center gap-1 text-xs text-[var(--foreground)]/50">
-                <span className="animate-pulse">●</span>
-                <span>{localizeUi("ui.game.gamenarration.theGameMasterIsWritingTheNextSegment")}</span>
-              </div>
-            )}
+            {isStreaming && <GameGenerationStatus />}
           </div>
         )}
       </div>

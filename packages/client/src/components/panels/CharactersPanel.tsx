@@ -1,7 +1,16 @@
 // ──────────────────────────────────────────────
 // Panel: Characters (overhauled — search, folders, avatars)
 // ──────────────────────────────────────────────
-import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, type UIEvent } from "react";
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type UIEvent,
+} from "react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -51,6 +60,7 @@ import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import type { CharacterCatalogEntry } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { estimateCharacterCardTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
@@ -60,14 +70,7 @@ import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 
-type CharacterRow = {
-  id: string;
-  data: string;
-  comment?: string | null;
-  avatarPath: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
+type CharacterRow = CharacterCatalogEntry;
 type GroupRow = { id: string; name: string; description: string; characterIds: string; avatarPath: string | null };
 type ParsedCharacterRow = CharacterRow & { parsed: Record<string, any> };
 type ParsedGroupRow = GroupRow & { memberIds: string[] };
@@ -95,8 +98,20 @@ function getCharacterTags(char: ParsedCharacterRow): string[] {
 
 function parseCharacterRow(char: CharacterRow): ParsedCharacterRow {
   try {
-    const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
-    return { ...char, parsed: (parsed as ParsedCharacterRow["parsed"]) ?? {} };
+    const parsed = {
+      name: char.name,
+      summary: char.explicitSummary,
+      description: char.description,
+      personality: char.personality,
+      scenario: char.scenario,
+      first_mes: char.firstMessage,
+      creator_notes: char.creatorNotes,
+      tags: char.tags,
+      creator: char.creator,
+      character_version: char.version,
+      extensions: { fav: char.favorite, avatarCrop: char.avatarCrop, nameColor: char.nameColor },
+    };
+    return { ...char, parsed: (parsed as unknown as ParsedCharacterRow["parsed"]) ?? {} };
   } catch {
     return { ...char, parsed: { name: "Unknown", description: "" } };
   }
@@ -171,7 +186,8 @@ export function CharactersPanel() {
   const favFilter = useUIStore((s) => s.characterPanelFavoriteFilter);
   const setFavFilter = useUIStore((s) => s.setCharacterPanelFavoriteFilter);
   const setCharacterPanelScrollTop = useUIStore((s) => s.setCharacterPanelScrollTop);
-  const serverSearch = useMemo(() => parseCardLibrarySearchQuery(search).text, [search]);
+  const deferredSearch = useDeferredValue(search);
+  const serverSearch = useMemo(() => parseCardLibrarySearchQuery(deferredSearch).text, [deferredSearch]);
   const serverFavoriteFilter = favFilter === "favorites" || favFilter === "non-favorites" ? favFilter : "";
   const characterPages = useCharacterPages({ search: serverSearch, sort, favoriteFilter: serverFavoriteFilter });
   const characters = useMemo(() => flattenCharacterPages(characterPages.data), [characterPages.data]);
@@ -223,7 +239,7 @@ export function CharactersPanel() {
 
   const filteredCharacters = useMemo(() => {
     let list = parsedCharacters;
-    const query = parseCardLibrarySearchQuery(search);
+    const query = parseCardLibrarySearchQuery(deferredSearch);
     // Filter by favorites
     if (favFilter === "favorites") {
       list = list.filter((c) => c.parsed.extensions?.fav);
@@ -255,7 +271,12 @@ export function CharactersPanel() {
           name: c.parsed.name,
           title: getCharacterTitle({ name: c.parsed.name ?? "", comment: c.comment }),
           meta: formatCardLibraryMeta(c.parsed.creator, c.parsed.character_version),
-          summary: getCardLibrarySummary([c.parsed.creator_notes, c.parsed.description, c.parsed.personality]),
+          summary: getCardLibrarySummary([
+            c.parsed.summary,
+            c.parsed.creator_notes,
+            c.parsed.description,
+            c.parsed.personality,
+          ]),
           tags,
           sections: [
             { content: c.parsed.description },
@@ -268,7 +289,7 @@ export function CharactersPanel() {
       );
     });
     return list;
-  }, [parsedCharacters, search, includedTags, excludedTags, favFilter]);
+  }, [parsedCharacters, deferredSearch, includedTags, excludedTags, favFilter]);
 
   // Collect all unique tags across characters for the filter bar
   const allTags = useMemo(() => {

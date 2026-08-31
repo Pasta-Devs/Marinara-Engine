@@ -7,6 +7,7 @@ export * from "./types/tts.js";
 export * from "./types/chat.js";
 export * from "./types/spotify.js";
 export * from "./types/character.js";
+export * from "./types/character-catalog.js";
 export * from "./types/lorebook.js";
 export * from "./types/prompt.js";
 export * from "./types/connection.js";
