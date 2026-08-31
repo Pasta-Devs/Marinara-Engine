@@ -371,7 +371,13 @@ export async function agentsRoutes(app: FastifyInstance) {
           for (const slot of new Set([...current.keys(), ...previous.keys()])) {
             if (current.get(slot) !== previous.get(slot)) touched.push(slot);
           }
-          if (touched.length) changes.push({ name, slots: touched.sort() });
+          // A character who appears or disappears is a change even when they carried no
+          // tracked slots, and reporting only slot differences swallowed that entirely.
+          // The panel draws one badge per slot, so such an entry shows nothing there —
+          // which is right, because there is nothing to show — but the answer this route
+          // gives is now true rather than conveniently empty.
+          const presenceChanged = now.has(name) !== (before?.has(name) ?? false);
+          if (touched.length || presenceChanged) changes.push({ name, slots: touched.sort() });
         }
         return {
           messageId: run.messageId ?? null,
