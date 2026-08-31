@@ -328,11 +328,14 @@ test("available app updates wait for confirmation before refreshing", async ({ p
 
   await page.goto("/");
   await expect(page.getByText("A Marinara update is ready.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
+  const refresh = page.getByRole("button", { name: "Refresh", exact: true });
+  await expect(refresh).toBeVisible();
   const navigationsAtPrompt = mainFrameNavigations;
+  expect(navigationsAtPrompt).toBe(1);
 
-  await page.waitForTimeout(750);
-  expect(mainFrameNavigations).toBe(navigationsAtPrompt);
+  await page.unroute("**/api/health");
+  await Promise.all([page.waitForURL((url) => url.searchParams.get("v") === "99.0.0+new-build"), refresh.click()]);
+  expect(mainFrameNavigations).toBe(navigationsAtPrompt + 1);
 });
 
 test("turning off the custom mouse pointer persists immediately and after reload", async ({ page }, testInfo) => {

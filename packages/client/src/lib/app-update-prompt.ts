@@ -10,7 +10,11 @@ export function showAppUpdatePrompt(refresh: () => void | Promise<void>) {
     duration: Infinity,
     action: {
       label: translate("ui.app.update.refresh"),
-      onClick: () => void refresh(),
+      onClick: () => {
+        void Promise.resolve()
+          .then(refresh)
+          .catch(() => window.location.reload());
+      },
     },
   });
 }
