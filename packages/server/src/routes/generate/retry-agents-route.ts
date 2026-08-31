@@ -719,6 +719,8 @@ export function resolveRetryAgentPhaseToolInputs(args: {
 async function buildRetryAgentContext(args: {
   cyoaAgentWillRun: boolean;
   chatId: string;
+  /** Prose Beholder should read instead of the chat, when the operator typed a correction. */
+  beholderDirective?: string;
   db: Parameters<typeof buildPromptMacroContext>[0]["db"];
   chat: any;
   chatMeta: Record<string, unknown>;
@@ -984,6 +986,8 @@ async function buildRetryAgentContext(args: {
     chatId,
     chatMode,
     wrapFormat,
+    // Only ever set for a directive; every other run reads the story.
+    narrationOverride: args.beholderDirective,
     recentMessages: agentSlice.map((message: any, index: number) => {
       const resolved = resolvedAgentSlice[index];
       const nextMessage: AgentContext["recentMessages"][number] = {
@@ -1054,7 +1058,12 @@ async function buildRetryAgentContext(args: {
     chatMode,
     activeAgentIds: resolvedAgentTypes,
     chatEnableAgents: isChatAgentsEnabled(chatMeta),
-    excludeMessageId: typeof lastAssistant?.id === "string" ? lastAssistant.id : null,
+    // A retry re-runs a message, so it starts from the state as it was BEFORE that
+    // message and re-derives. A directive does not replace a turn — it states a fact on
+    // top of what is there now — so excluding the last message would silently discard
+    // everything that turn established. Observed: a directive about one character wiped
+    // every other character from the panel.
+    excludeMessageId: args.beholderDirective || typeof lastAssistant?.id !== "string" ? null : lastAssistant.id,
   });
   if (previousBeholderState) agentContext.memory._beholderState = previousBeholderState;
 
@@ -4031,6 +4040,15 @@ export async function registerRetryAgentsRoute(
       customLorebookBackfill?: boolean;
       /** When set, scope history and game state to this assistant message (as at original generation), not the latest turn. */
       forMessageId?: string;
+      /**
+       * Prose for Beholder to read instead of the chat's recent messages.
+       *
+       * The operator typing a correction — "her sword is broken" — rather than waiting
+       * for the story to say it. Runs through this route rather than a route of its own
+       * so it inherits connection resolution, the local model slot, prompt selection and
+       * the state merge, all of which would otherwise have to be duplicated.
+       */
+      beholderDirective?: string;
       musicPlayerSource?: "spotify" | "youtube" | "custom";
       musicPlayerEnabled?: boolean;
       /** Secret Plot re-run mode: full = refresh arc+turn data, turn_only = preserve arc and refresh only turn guidance. */
@@ -4052,6 +4070,7 @@ export async function registerRetryAgentsRoute(
       lorebookKeeperBackfill = false,
       customLorebookBackfill = false,
       forMessageId,
+      beholderDirective,
       musicPlayerSource = "spotify",
       musicPlayerEnabled = true,
       secretPlotRerollMode,
@@ -4072,6 +4091,12 @@ export async function registerRetryAgentsRoute(
     if (illustratorRetryTargets && !agentTypes.includes("illustrator")) {
       return reply.status(400).send({ error: "Illustrator retry targets require an Illustrator retry" });
     }
+    // Trimmed and bounded once, here, so neither call site has to remember to.
+    const sanitisedDirective =
+      typeof beholderDirective === "string" && beholderDirective.trim()
+        ? beholderDirective.trim().slice(0, 2000)
+        : undefined;
+
     if (customLorebookBackfill && (agentTypes.length !== 1 || lorebookKeeperBackfill || forMessageId)) {
       return reply.status(400).send({ error: "Custom lorebook backfill requires exactly one custom agent" });
     }
@@ -4283,6 +4308,7 @@ export async function registerRetryAgentsRoute(
         buildRetryAgentContext({
           cyoaAgentWillRun,
           chatId,
+          beholderDirective: sanitisedDirective,
           db: app.db,
           chat,
           chatMeta,
@@ -4309,6 +4335,7 @@ export async function registerRetryAgentsRoute(
           ? await runRetrySetupPhase(abortController.signal, () =>
               buildRetryAgentContext({
                 cyoaAgentWillRun: false,
+                beholderDirective: sanitisedDirective,
                 chatId,
                 db: app.db,
                 chat,

@@ -332,6 +332,15 @@ export interface AgentCallDebugEvent {
 
 /** Shared context passed to every agent. */
 export interface AgentContext {
+  /**
+   * Prose to read instead of the recent messages.
+   *
+   * Set when the operator types a correction directly — "her sword is broken" — rather
+   * than waiting for the story to say it. The extractor runs on that sentence with the
+   * current state as context, so an unnamed subject still attaches to whoever is
+   * actually holding the sword.
+   */
+  narrationOverride?: string;
   chatId: string;
   chatMode: string;
   /** Prompt wrapper format selected for this generation. */

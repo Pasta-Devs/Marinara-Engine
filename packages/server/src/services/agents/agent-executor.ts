@@ -2138,7 +2138,9 @@ function buildBeholderMessages(
   context: AgentContext,
   narrationOverride?: string,
 ): ChatMessage[] {
-  const narration = narrationOverride ?? beholderNarration(config, context);
+  // The explicit argument wins (the take-off repair passes one clause), then a
+  // directive typed by the operator, then the story itself.
+  const narration = narrationOverride ?? context.narrationOverride ?? beholderNarration(config, context);
   const user = buildBeholderUserMessage(context.memory._beholderState, context.persona?.name ?? null, narration);
   return [
     { role: "system", content: template },
