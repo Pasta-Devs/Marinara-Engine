@@ -50,6 +50,10 @@ assert.match(
   "the impersonation prompt template must copy verbatim, not as a slash command",
 );
 
+assert.match(modal, /import \{ copyToClipboard \} from "\.\.\/\.\.\/lib\/utils";/u, "the modal must use the shared clipboard helper");
+assert.doesNotMatch(modal, /function copyToClipboard\(/u, "the modal must not duplicate clipboard fallback logic");
+assert.match(modal, /if \(copied\) \{\s*toast\.success\(copy\.copiedMessage\);\s*\} else \{\s*toast\.error\(copy\.failedMessage\);/u, "failed clipboard results must show an error toast");
+
 // Copy buttons must be reachable by assistive technology and localized.
 assert.match(modal, /title=\{copy\.title\}/u, "a copy button must carry a tooltip");
 assert.match(modal, /aria-label=\{copy\.title\}/u, "a copy button must carry an accessible name");
@@ -66,6 +70,11 @@ for (const key of [
   "ui.chat.textblock.guidedCommandCopied",
   "ui.chat.textblock.impersonateCommandCopied",
   "ui.chat.textblock.promptTemplateCopied",
+  "ui.chat.generationreplaydetailsmodal.guideSource.gameStart",
+  "ui.chat.generationreplaydetailsmodal.guideSource.guide",
+  "ui.chat.generationreplaydetailsmodal.guideSource.narrator",
+  "ui.chat.generationreplaydetailsmodal.noGuidanceStored",
+  "ui.chat.generationreplaydetailsmodal.blocked",
 ]) {
   assert.ok(englishLocale[key], `${key} must exist in the English catalog`);
   assert.match(modal, new RegExp(`"${key.replace(/\./gu, "\\.")}"`, "u"), `${key} must be used by the modal`);
