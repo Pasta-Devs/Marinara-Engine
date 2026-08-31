@@ -430,6 +430,28 @@ export function createAgentsStorage(db: DB) {
       return rows.map((row) => serializeRunWithConfig(row));
     },
 
+    /**
+     * The recent runs of one agent type in a chat, newest first.
+     *
+     * getLastSuccessfulRunByType answers "what is the state now"; this answers "what has
+     * this agent been doing", which is what a diagnostic panel needs. Failures are kept:
+     * a run that errored is the most interesting row on the list, and dropping it would
+     * make a broken agent look idle instead of broken.
+     */
+    async listRunsByTypeForChat(agentType: string, chatId: string, limit = 5) {
+      const finiteLimit = Number.isFinite(limit) ? limit : 5;
+      const normalizedLimit = Math.max(1, Math.min(finiteLimit, 50));
+      const rows = await db
+        .select()
+        .from(agentRuns)
+        .innerJoin(agentConfigs, eq(agentRuns.agentConfigId, agentConfigs.id))
+        .where(and(eq(agentRuns.chatId, chatId), eq(agentConfigs.type, agentType)))
+        .orderBy(desc(agentRuns.createdAt))
+        .limit(normalizedLimit);
+
+      return rows.map((row) => serializeRunWithConfig(row));
+    },
+
     async getRunWithConfig(id: string, chatId?: string) {
       const condition = chatId ? and(eq(agentRuns.chatId, chatId), eq(agentRuns.id, id)) : eq(agentRuns.id, id);
       const rows = await db

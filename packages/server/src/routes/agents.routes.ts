@@ -317,6 +317,43 @@ export async function agentsRoutes(app: FastifyInstance) {
     };
   });
 
+  /**
+   * A summary of Beholder's recent runs, for the panel's diagnostic view.
+   *
+   * Only shapes and timings: how long each run took, how many slots it changed, and
+   * whether it failed. The extracted state itself is not repeated here — the panel
+   * already holds the current one — so this stays a health signal rather than a second
+   * copy of the chat's contents.
+   */
+  app.get<{ Params: { chatId: string }; Querystring: { limit?: string } }>(
+    "/beholder-runs/:chatId",
+    { config: { rateLimit: BEHOLDER_STATE_RATE_LIMIT } },
+    async (req) => {
+      const parsed = req.query.limit ? Number.parseInt(req.query.limit, 10) : undefined;
+      const runs = await storage.listRunsByTypeForChat(
+        "beholder",
+        req.params.chatId,
+        Number.isFinite(parsed) ? parsed : 5,
+      );
+      return runs.map((run) => {
+        const state = normalizeBeholderState(run.resultData);
+        const slots = (state?.characters ?? []).reduce(
+          (total, character) => total + Object.keys(character.body ?? {}).length,
+          0,
+        );
+        return {
+          messageId: run.messageId ?? null,
+          createdAt: run.createdAt ?? null,
+          durationMs: run.durationMs ?? null,
+          success: run.success,
+          error: run.error ?? null,
+          characters: state?.characters?.length ?? 0,
+          slots,
+        };
+      });
+    },
+  );
+
   /** Get run interval status for built-in cadence-gated agents. */
   app.get<{ Params: { agentType: string; chatId: string } }>("/cadence/:agentType/:chatId", async (req, reply) => {
     const { agentType, chatId } = req.params;
