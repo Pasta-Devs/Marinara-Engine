@@ -341,6 +341,16 @@ async function main() {
   assert.equal(legacyInstalled.statusCode, 200);
   assert.equal(legacyInstalled.json()[0]?.previousManifest?.version, manifestV1.version);
 
+  const packageManagerSource = readFileSync(
+    new URL("../../packages/server/src/services/capability-packages/package-manager.service.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    packageManagerSource,
+    /const registryPrevious = registry\.packages\.find[\s\S]{0,180}await hydratePreviousManifest\(registryPrevious\)[\s\S]{0,180}const activePrevious =/u,
+    "a repeated update must hydrate legacy pending state before selecting the version that remains active",
+  );
+
   writeInstalledRecord(manifestV2, { status: "active", readiness: "ready" });
   const updatedEtag = `"${manifestV2.files[0]!.sha256}"`;
   assert.notEqual(updatedEtag, clientEtag);

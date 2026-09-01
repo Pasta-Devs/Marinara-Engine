@@ -689,7 +689,8 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
     await rm(destination, { recursive: true, force: true });
     await rename(temporary, destination);
     const registry = await readRegistry();
-    const previous = registry.packages.find((item) => item.id === manifest.id);
+    const registryPrevious = registry.packages.find((item) => item.id === manifest.id);
+    const previous = registryPrevious ? await hydratePreviousManifest(registryPrevious) : undefined;
     assertNotDowngrade(previous, manifest.version);
     const activePrevious =
       previous?.status === "restart-required" && previous.previousVersion && previous.previousManifest
