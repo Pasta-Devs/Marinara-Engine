@@ -8,7 +8,7 @@
 // responses only when the request pins the installed version with ?v=.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -25,6 +25,10 @@ const ICON = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64",
 );
+const ICON_V2 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
 // contributions.assets fixtures (general asset delivery, #5091): a nested
 // tileset image and a tilemap JSON, plus a file that is deliberately NOT
 // declared in contributions.assets to prove the allowlist still gates.
@@ -39,11 +43,11 @@ const SECRET = "not servable\n";
 
 const sha256 = (data: Buffer | string) => createHash("sha256").update(data).digest("hex");
 
-function writeFixture(version: string, clientSource: string) {
+function writeFixture(version: string, clientSource: string, icon = ICON) {
   const versionRoot = join(packagesRoot, "versions", "cache-probe", version);
   mkdirSync(join(versionRoot, "art"), { recursive: true });
   writeFileSync(join(versionRoot, "client.js"), clientSource);
-  writeFileSync(join(versionRoot, "icon.png"), ICON);
+  writeFileSync(join(versionRoot, "icon.png"), icon);
   writeFileSync(join(versionRoot, "art", "tiles.png"), TILES);
   writeFileSync(join(versionRoot, "art", "zone.json"), TILEMAP);
   writeFileSync(join(versionRoot, "art", "secret.png"), SECRET);
@@ -68,7 +72,7 @@ function writeFixture(version: string, clientSource: string) {
     },
     files: [
       { path: "client.js", sha256: sha256(clientSource), bytes: Buffer.byteLength(clientSource) },
-      { path: "icon.png", sha256: sha256(ICON), bytes: ICON.byteLength },
+      { path: "icon.png", sha256: sha256(icon), bytes: icon.byteLength },
       { path: "art/tiles.png", sha256: sha256(TILES), bytes: TILES.byteLength },
       { path: "art/zone.json", sha256: sha256(TILEMAP), bytes: Buffer.byteLength(TILEMAP) },
       // On disk AND hash-pinned, but NOT in contributions.assets/iconPaths —
@@ -95,6 +99,31 @@ function writeFixture(version: string, clientSource: string) {
   return manifest;
 }
 
+function writeInstalledRecord(
+  manifest: ReturnType<typeof writeFixture>,
+  state: {
+    status: "active" | "restart-required";
+    readiness: "ready" | "pending";
+    previousManifest?: ReturnType<typeof writeFixture>;
+  },
+) {
+  const record = {
+    id: "cache-probe",
+    version: manifest.version,
+    manifest,
+    installedAt: "2026-08-15T00:00:00.000Z",
+    status: state.status,
+    error: null,
+    readiness: state.readiness,
+    readinessError: null,
+    legacy: false,
+    ...(state.previousManifest
+      ? { previousVersion: state.previousManifest.version, previousManifest: state.previousManifest }
+      : {}),
+  };
+  writeFileSync(registryPath, JSON.stringify({ schemaVersion: 1, packages: [record] }, null, 2));
+}
+
 async function main() {
   const manifestV1 = writeFixture("1.0.0", CLIENT_V1);
 
@@ -105,12 +134,9 @@ async function main() {
     new URL("../../packages/server/src/routes/capability-packages.routes.ts", import.meta.url),
   );
   const fastify = serverRequire("fastify") as typeof import("fastify").default;
-  const { capabilityPackagesRoutes } = await import(
-    "../../packages/server/src/routes/capability-packages.routes.js"
-  );
-  const { rateLimitHook, resetRateLimitBucketsForTests } = await import(
-    "../../packages/server/src/middleware/rate-limit.js"
-  );
+  const { capabilityPackagesRoutes } = await import("../../packages/server/src/routes/capability-packages.routes.js");
+  const { rateLimitHook, resetRateLimitBucketsForTests } =
+    await import("../../packages/server/src/middleware/rate-limit.js");
   resetRateLimitBucketsForTests();
   const app = fastify({ logger: false });
   app.addHook("onRequest", rateLimitHook);
@@ -229,9 +255,8 @@ async function main() {
   assert.equal(collapsedRes.headers.etag, `"${sha256(TILES)}"`, "a collapsed URL must serve the declared bytes only");
   // The resolver's own containment (independent of framework normalization):
   // dot-segment and escape paths must resolve to nothing, never throw.
-  const { capabilityPackageManager } = await import(
-    "../../packages/server/src/services/capability-packages/package-manager.service.js"
-  );
+  const { capabilityPackageManager } =
+    await import("../../packages/server/src/services/capability-packages/package-manager.service.js");
   assert.equal(await capabilityPackageManager.packageAsset("cache-probe", "art/../art/tiles.png"), null);
   assert.equal(await capabilityPackageManager.packageAsset("cache-probe", "../installed.json"), null);
 
@@ -243,9 +268,8 @@ async function main() {
 
   // Schema gates (install-time): active document extensions are rejected, and a
   // declared asset missing from files[] fails the manifest, not runtime 404s.
-  const { capabilityPackageManifestSchema } = await import(
-    "../../packages/shared/src/schemas/capability-package.schema.js"
-  );
+  const { capabilityPackageManifestSchema } =
+    await import("../../packages/shared/src/schemas/capability-package.schema.js");
   const svgAttempt = capabilityPackageManifestSchema.safeParse({
     ...manifestV1,
     contributions: { ...manifestV1.contributions, assets: { paths: ["art/vector.svg"] } },
@@ -272,7 +296,52 @@ async function main() {
 
   // ── update: new bytes under a new version yield a NEW validator, and the
   //    old validator no longer short-circuits to 304 ──
-  const manifestV2 = writeFixture("1.0.1", CLIENT_V2);
+  const manifestV2 = writeFixture("1.0.1", CLIENT_V2, ICON_V2);
+  writeInstalledRecord(manifestV2, {
+    status: "restart-required",
+    readiness: "pending",
+    previousManifest: manifestV1,
+  });
+
+  const pendingClient = await app.inject({
+    method: "GET",
+    url: "/api/capability-packages/cache-probe/client?v=1.0.1",
+  });
+  assert.equal(
+    pendingClient.statusCode,
+    200,
+    "the active client must remain available while its update awaits restart",
+  );
+  assert.equal(pendingClient.body, CLIENT_V1, "pending updates must not replace the active client before restart");
+
+  const pendingIcon = await app.inject({
+    method: "GET",
+    url: "/api/capability-packages/cache-probe/assets/icon.png?v=1.0.1",
+  });
+  assert.equal(pendingIcon.statusCode, 200, "the active icon must remain available while its update awaits restart");
+  assert.ok(
+    ICON.equals(pendingIcon.rawPayload),
+    "pending updates must serve the active version's verified asset bytes",
+  );
+
+  writeInstalledRecord(manifestV2, { status: "restart-required", readiness: "pending" });
+  const legacyPendingRecord = JSON.parse(readFileSync(registryPath, "utf8")) as {
+    packages: Array<Record<string, unknown>>;
+  };
+  legacyPendingRecord.packages[0]!.previousVersion = manifestV1.version;
+  writeFileSync(registryPath, JSON.stringify(legacyPendingRecord, null, 2));
+  const legacyPendingIcon = await app.inject({
+    method: "GET",
+    url: "/api/capability-packages/cache-probe/assets/icon.png",
+  });
+  assert.equal(legacyPendingIcon.statusCode, 200, "old registry records must recover their active asset manifest");
+  assert.ok(ICON.equals(legacyPendingIcon.rawPayload));
+
+  const legacyInstalled = await app.inject({ method: "GET", url: "/api/capability-packages/installed" });
+  assert.equal(legacyInstalled.statusCode, 200);
+  assert.equal(legacyInstalled.json()[0]?.previousManifest?.version, manifestV1.version);
+
+  writeInstalledRecord(manifestV2, { status: "active", readiness: "ready" });
   const updatedEtag = `"${manifestV2.files[0]!.sha256}"`;
   assert.notEqual(updatedEtag, clientEtag);
   const afterUpdate = await app.inject({
@@ -283,6 +352,11 @@ async function main() {
   assert.equal(afterUpdate.statusCode, 200, "a stale validator must not mask an updated bundle");
   assert.equal(afterUpdate.headers.etag, updatedEtag);
   assert.equal(afterUpdate.body, CLIENT_V2);
+  const iconAfterRestart = await app.inject({
+    method: "GET",
+    url: "/api/capability-packages/cache-probe/assets/icon.png?v=1.0.1",
+  });
+  assert.ok(ICON_V2.equals(iconAfterRestart.rawPayload), "the new asset must become active after restart");
 
   // ── existing failure modes preserved ──
   const unknown = await app.inject({ method: "GET", url: "/api/capability-packages/nope/client" });

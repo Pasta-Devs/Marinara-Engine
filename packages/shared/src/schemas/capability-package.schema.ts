@@ -380,6 +380,7 @@ export const installedCapabilityPackageSchema = z.object({
   readinessError: z.string().nullable().default(null),
   legacy: z.boolean().default(false),
   previousVersion: z.string().optional(),
+  previousManifest: capabilityPackageManifestSchema.optional(),
 });
 
 export const installedCapabilityRegistrySchema = z

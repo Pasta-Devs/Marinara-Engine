@@ -165,15 +165,28 @@ const pendingNoodleUpdate = {
   status: "restart-required",
   readiness: "pending",
   previousVersion: "1.0.8",
+  previousManifest: {
+    entrypoints: { client: "client.js" },
+    contributions: {
+      slots: ["home-browser-tab"],
+      homeBrowserTab: { label: "Previous Noodle", ariaLabel: "Open previous Noodle" },
+    },
+  },
 } as unknown as InstalledCapabilityPackage;
 assert.equal(isCapabilityPackageAvailableUntilRestart(pendingNoodleUpdate), true);
 assert.deepEqual(
-  selectHomeBrowserPackages([pendingNoodleUpdate]).map((item) => item.id),
-  ["noodle"],
-  "A Noodle update waiting for restart must keep the already-loaded Home tab visible",
+  selectHomeBrowserPackages([pendingNoodleUpdate]).map((item) => [
+    item.id,
+    item.version,
+    item.manifest.contributions?.homeBrowserTab?.label,
+  ]),
+  [["noodle", "1.0.8", "Previous Noodle"]],
+  "A Noodle update waiting for restart must keep the already-loaded Home tab and its manifest visible",
 );
 assert.deepEqual(
-  selectHomeBrowserPackages([{ ...pendingNoodleUpdate, previousVersion: undefined }]).map((item) => item.id),
+  selectHomeBrowserPackages([{ ...pendingNoodleUpdate, previousVersion: undefined, previousManifest: undefined }]).map(
+    (item) => item.id,
+  ),
   [],
   "A first install waiting for restart must not expose a client module that has never loaded",
 );
