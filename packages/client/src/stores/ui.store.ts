@@ -557,6 +557,9 @@ export type MariPanelSortMode = "az" | "za" | "newest" | "oldest";
 export type MariEditViewMode = "easy" | "raw";
 
 interface UIState {
+  showHomeBrowserAddressBar: boolean;
+  showHomeBrowserDesktopBookmarksOnOtherTabs: boolean;
+  showHomeBrowserMobileBookmarksOnOtherTabs: boolean;
   sidebarOpen: boolean;
   sidebarWidth: number;
   rightPanelOpen: boolean;
@@ -957,6 +960,9 @@ interface UIState {
   chatModeShortcutRequest: { mode: ChatModeShortcut; token: number } | null;
 
   // Actions
+  setShowHomeBrowserAddressBar: (visible: boolean) => void;
+  setShowHomeBrowserDesktopBookmarksOnOtherTabs: (visible: boolean) => void;
+  setShowHomeBrowserMobileBookmarksOnOtherTabs: (visible: boolean) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   setSidebarWidth: (width: number) => void;
@@ -1407,6 +1413,9 @@ export function pickSyncedSettings(state: UIState) {
 export const useUIStore = create<UIState>()(
   persist(
     (set, get) => ({
+      showHomeBrowserAddressBar: true,
+      showHomeBrowserDesktopBookmarksOnOtherTabs: true,
+      showHomeBrowserMobileBookmarksOnOtherTabs: true,
       sidebarOpen: true,
       sidebarWidth: 320,
       rightPanelOpen: false,
@@ -2340,6 +2349,11 @@ export const useUIStore = create<UIState>()(
       setQuoteFormat: (v) => set({ quoteFormat: normalizeQuoteFormat(v) }),
       setConvertLatexSymbols: (v) => set({ convertLatexSymbols: v }),
       setTrimIncompleteModelOutput: (v) => set({ trimIncompleteModelOutput: v }),
+      setShowHomeBrowserAddressBar: (visible) => set({ showHomeBrowserAddressBar: visible }),
+      setShowHomeBrowserDesktopBookmarksOnOtherTabs: (visible) =>
+        set({ showHomeBrowserDesktopBookmarksOnOtherTabs: visible }),
+      setShowHomeBrowserMobileBookmarksOnOtherTabs: (visible) =>
+        set({ showHomeBrowserMobileBookmarksOnOtherTabs: visible }),
       setContinueAddsNewline: (v) => set({ continueAddsNewline: v }),
       setSpeechToTextEnabled: (v) => set({ speechToTextEnabled: v }),
       setTTSLineVolume: (v) => set({ ttsLineVolume: Math.max(0, Math.min(100, Math.round(v))) }),
@@ -2598,8 +2612,8 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      // v96 -> v97: add opt-in character identities to Persona pickers.
-      version: 97,
+      // v97 -> v98: add Home browser chrome visibility settings.
+      version: 98,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2644,6 +2658,15 @@ export const useUIStore = create<UIState>()(
         };
       }),
       migrate: (persisted: any, version: number) => {
+        if (version <= 97) {
+          if (persisted.showHomeBrowserAddressBar === undefined) persisted.showHomeBrowserAddressBar = true;
+          if (persisted.showHomeBrowserDesktopBookmarksOnOtherTabs === undefined) {
+            persisted.showHomeBrowserDesktopBookmarksOnOtherTabs = true;
+          }
+          if (persisted.showHomeBrowserMobileBookmarksOnOtherTabs === undefined) {
+            persisted.showHomeBrowserMobileBookmarksOnOtherTabs = true;
+          }
+        }
         if (version <= 96 && persisted.showCharactersInPersonaPickers === undefined) {
           persisted.showCharactersInPersonaPickers = false;
         }
@@ -3208,6 +3231,9 @@ export const useUIStore = create<UIState>()(
         return persisted;
       },
       partialize: (state) => ({
+        showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
+        showHomeBrowserDesktopBookmarksOnOtherTabs: state.showHomeBrowserDesktopBookmarksOnOtherTabs,
+        showHomeBrowserMobileBookmarksOnOtherTabs: state.showHomeBrowserMobileBookmarksOnOtherTabs,
         sidebarOpen: state.sidebarOpen,
         sidebarWidth: state.sidebarWidth,
         rightPanelOpen: state.rightPanelOpen,

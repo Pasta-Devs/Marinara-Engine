@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added Home Widgets settings to control the URL bar and desktop or mobile bookmarks on other tabs.
 - Added character cards to Persona selection so you can play as any saved character in Conversation and Roleplay setup or an active chat.
 - Added an opt-in setting to show character identities in Persona pickers, with collapsed folder navigation and identity transition notices.
 
