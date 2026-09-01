@@ -3182,16 +3182,19 @@ export function HomeBrowserHub({
               label={t("home.browser.showAddressBar")}
               checked={showHomeBrowserAddressBar}
               onChange={(visible) => useUIStore.getState().setShowHomeBrowserAddressBar(visible)}
+              help={t("home.browser.showAddressBarHelp")}
             />
             <ToggleSetting
               label={t("home.browser.showDesktopBookmarksOnOtherTabs")}
               checked={showHomeBrowserDesktopBookmarksOnOtherTabs}
               onChange={(visible) => useUIStore.getState().setShowHomeBrowserDesktopBookmarksOnOtherTabs(visible)}
+              help={t("home.browser.showDesktopBookmarksOnOtherTabsHelp")}
             />
             <ToggleSetting
               label={t("home.browser.showMobileBookmarksOnOtherTabs")}
               checked={showHomeBrowserMobileBookmarksOnOtherTabs}
               onChange={(visible) => useUIStore.getState().setShowHomeBrowserMobileBookmarksOnOtherTabs(visible)}
+              help={t("home.browser.showMobileBookmarksOnOtherTabsHelp")}
             />
           </div>
         </div>
