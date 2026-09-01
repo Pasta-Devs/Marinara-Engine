@@ -14,8 +14,8 @@ export function isGlm52Model(model: string): boolean {
   return /(?:^|\/)glm-5\.2(?:$|[-:])/u.test(model.toLowerCase());
 }
 
-export function isGlm53FlashMandatoryReasoningModel(model: string): boolean {
-  return /(?:^|\/)glm-5\.3-flash(?:$|[-:])/u.test(model.toLowerCase());
+export function isGlm53MandatoryReasoningModel(model: string): boolean {
+  return /(?:^|\/)glm-5\.3(?:$|[-:])/u.test(model.toLowerCase());
 }
 
 export function isNativeGlmEndpoint(baseUrl: string): boolean {
@@ -54,7 +54,14 @@ export function applyGlmThinkingParameters(body: Record<string, unknown>, option
     return true;
   }
 
-  body.enable_thinking =
-    options.providerKind === "nanogpt" && isGlm53FlashMandatoryReasoningModel(options.model) ? true : thinkingEnabled;
+  // GLM 5.3 always reasons and endpoints reject a disable with 400 ("please
+  // use low, high, or max"). NanoGPT still requires the explicit flag;
+  // elsewhere omit the field so the provider's always-on default applies.
+  if (isGlm53MandatoryReasoningModel(options.model) && !thinkingEnabled) {
+    if (options.providerKind === "nanogpt") body.enable_thinking = true;
+    return true;
+  }
+
+  body.enable_thinking = thinkingEnabled;
   return true;
 }
