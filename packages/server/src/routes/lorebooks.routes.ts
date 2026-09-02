@@ -1284,9 +1284,8 @@ export async function lorebooksRoutes(app: FastifyInstance) {
         });
       }
       for (let j = 0; j < batchEntries.length; j++) {
-        const entry = batchEntries[j] as unknown as Record<string, unknown>;
         if (embeddings[j]) {
-          await storage.updateEntryEmbedding(entry.id as string, embeddings[j]!, embeddingSpaceId);
+          await storage.updateEntryEmbedding(batchEntries[j]!.id, embeddings[j]!, embeddingSpaceId);
           vectorized++;
         }
       }

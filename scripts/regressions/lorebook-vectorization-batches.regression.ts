@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { LorebookEntry } from "@marinara-engine/shared";
 import {
   createLorebookEmbeddingBatches,
   DEFAULT_VECTORIZE_BATCH_SIZE,
