@@ -142,6 +142,15 @@ async function collectProviderOutputForMessages(
   return output;
 }
 
+async function collectProviderUsage(provider: BaseLLMProvider, options: ChatOptions): Promise<LLMUsage | void> {
+  const stream = provider.chat([{ role: "user", content: "test" }], options);
+  while (true) {
+    const result = await stream.next();
+    if (result.done) return result.value;
+    // Consume the provider stream before reading its returned usage.
+  }
+}
+
 const gatewaySseBody = [
   ": x-omniroute-cache-hit=false",
   'data: {"choices":[{"delta":{},"finish_reason":null}]}',
@@ -164,7 +173,14 @@ await new Promise<void>((resolve) => embeddingServer.listen(0, "127.0.0.1", reso
 try {
   const address = embeddingServer.address();
   assert.ok(address && typeof address === "object");
-  const nanoGpt = new OpenAIProvider(`http://localhost:${address.port}/v1`, "nano-key", undefined, undefined, undefined, "nanogpt");
+  const nanoGpt = new OpenAIProvider(
+    `http://localhost:${address.port}/v1`,
+    "nano-key",
+    undefined,
+    undefined,
+    undefined,
+    "nanogpt",
+  );
   await nanoGpt.embed(["test"], "text-embedding-model");
   assert.equal(embeddingRequests[0]?.headers.authorization, "Bearer nano-key");
   assert.equal(embeddingRequests[0]?.headers["x-api-key"], "nano-key");
@@ -1009,7 +1025,7 @@ assert.equal(
           { type: "text", text: "Claude reply" },
         ],
         stop_reason: "end_turn",
-        usage: { input_tokens: 10, output_tokens: 6 },
+        usage: { input_tokens: 10, output_tokens: 6, cache_read_input_tokens: 500, cache_creation_input_tokens: 100 },
       }),
     );
   });
@@ -1034,6 +1050,56 @@ assert.equal(
       "Claude reply",
     );
     assert.equal(thinking, "Summarized Claude reasoning.");
+    assert.deepEqual(
+      await collectProviderUsage(provider, { model: "claude-opus-5", stream: false }),
+      {
+        promptTokens: 10,
+        completionTokens: 6,
+        totalTokens: 16,
+        cachedPromptTokens: 500,
+        cacheWritePromptTokens: 100,
+        finishReason: "end_turn",
+      },
+      "Anthropic non-stream usage must preserve prompt-cache counters",
+    );
+
+    const streamingAnthropicServer = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(
+        [
+          'data: {"type":"message_start","message":{"usage":{"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":700,"cache_creation_input_tokens":50}}}',
+          'data: {"type":"content_block_start","content_block":{"type":"text"}}',
+          'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Cached stream"}}',
+          'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":0}}',
+          'data: {"type":"message_stop"}',
+          "",
+        ].join("\n"),
+      );
+    });
+    await new Promise<void>((resolve) => streamingAnthropicServer.listen(0, "127.0.0.1", resolve));
+    try {
+      const streamingAddress = streamingAnthropicServer.address();
+      assert.ok(streamingAddress && typeof streamingAddress === "object");
+      assert.deepEqual(
+        await collectProviderUsage(new AnthropicProvider(`http://127.0.0.1:${streamingAddress.port}`, "test"), {
+          model: "claude-opus-5",
+          stream: true,
+        }),
+        {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          cachedPromptTokens: 700,
+          cacheWritePromptTokens: 50,
+          finishReason: "end_turn",
+        },
+        "Anthropic streamed usage must preserve cache-only prompt counters",
+      );
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        streamingAnthropicServer.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
     const maxEffortBody = anthropicRequestBodies[0];
     assert.ok(maxEffortBody);
     assert.deepEqual(maxEffortBody.thinking, { type: "adaptive", display: "summarized" });
@@ -1050,7 +1116,7 @@ assert.equal(
       temperature: 0.7,
       topK: 32,
     });
-    const disabledBody = anthropicRequestBodies[1];
+    const disabledBody = anthropicRequestBodies[2];
     assert.ok(disabledBody);
     assert.deepEqual(disabledBody.thinking, { type: "disabled" });
     assert.equal("output_config" in disabledBody, false);
