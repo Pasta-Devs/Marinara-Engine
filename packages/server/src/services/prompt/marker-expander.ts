@@ -440,6 +440,10 @@ export async function ensureLorebookScan(ctx: MarkerContext): Promise<LorebookSc
   return result;
 }
 
+/**
+ * Expand a lorebook marker into the activated world-info content for its position(s).
+ * A combined marker covers both positions; "before" and "after" markers cover one each.
+ */
 async function expandLorebook(config: MarkerConfig, ctx: MarkerContext): Promise<ExpandedMarker> {
   const result = await ensureLorebookScan(ctx);
   if (!result) return { content: "" };
