@@ -703,6 +703,8 @@ interface UIState {
   fontFamily: string;
   enableStreaming: boolean;
   debugMode: boolean;
+  /** When true, warn when an agent uses the configured default connection. */
+  showPaidAgentConnectionWarning: boolean;
   /** Typewriter speed: 1 (very slow) to 100 (instant). Controls how fast streaming tokens appear. */
   streamingSpeed: number;
   /** When true, Game mode narration segments are revealed in full as soon as they become active. */
@@ -1073,6 +1075,7 @@ interface UIState {
   setFontFamily: (family: string) => void;
   setEnableStreaming: (v: boolean) => void;
   setDebugMode: (v: boolean) => void;
+  setShowPaidAgentConnectionWarning: (v: boolean) => void;
   setStreamingSpeed: (v: number) => void;
   setGameInstantTextReveal: (v: boolean) => void;
   setGameMiddleMouseNav: (v: boolean) => void;
@@ -1293,6 +1296,7 @@ export function pickSyncedSettings(state: UIState) {
     fontFamily: state.fontFamily,
     enableStreaming: state.enableStreaming,
     streamingSpeed: state.streamingSpeed,
+    showPaidAgentConnectionWarning: state.showPaidAgentConnectionWarning,
     gameInstantTextReveal: state.gameInstantTextReveal,
     gameMiddleMouseNav: state.gameMiddleMouseNav,
     gameDialogueDisplayMode: state.gameDialogueDisplayMode,
@@ -1509,6 +1513,7 @@ export const useUIStore = create<UIState>()(
       fontFamily: "",
       enableStreaming: true,
       debugMode: false,
+      showPaidAgentConnectionWarning: true,
       streamingSpeed: 50,
       gameInstantTextReveal: false,
       gameMiddleMouseNav: false,
@@ -2262,6 +2267,7 @@ export const useUIStore = create<UIState>()(
       setFontFamily: (family) => set({ fontFamily: family }),
       setEnableStreaming: (v) => set({ enableStreaming: v }),
       setDebugMode: (v) => set({ debugMode: v }),
+      setShowPaidAgentConnectionWarning: (v) => set({ showPaidAgentConnectionWarning: v }),
       setStreamingSpeed: (v) => set({ streamingSpeed: Math.max(1, Math.min(100, v)) }),
       setGameInstantTextReveal: (v) => set({ gameInstantTextReveal: v }),
       setGameMiddleMouseNav: (v) => set({ gameMiddleMouseNav: v }),
@@ -3307,6 +3313,7 @@ export const useUIStore = create<UIState>()(
         fontFamily: state.fontFamily,
         enableStreaming: state.enableStreaming,
         debugMode: state.debugMode,
+        showPaidAgentConnectionWarning: state.showPaidAgentConnectionWarning,
         streamingSpeed: state.streamingSpeed,
         gameInstantTextReveal: state.gameInstantTextReveal,
         gameMiddleMouseNav: state.gameMiddleMouseNav,

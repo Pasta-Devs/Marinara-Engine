@@ -5322,6 +5322,26 @@ assert.equal(formatCompactTokenCount(professorMariContextBudget!.usedTokens), "1
 assert.equal(
   resolveProfessorMariContextBudget(
     [
+      {
+        role: "assistant",
+        extra: {
+          generationInfo: {
+            tokensPrompt: 3_500,
+            tokensCachedPrompt: 75_000,
+            tokensCacheWritePrompt: 5_000,
+            tokensCompletion: 2_000,
+          },
+        },
+      },
+    ] as Message[],
+    128_000,
+  )?.usedTokens,
+  85_500,
+  "context usage must include all Anthropic input tokens and the current response",
+);
+assert.equal(
+  resolveProfessorMariContextBudget(
+    [
       { role: "assistant", extra: { generationInfo: { usage: { promptTokens: 8_000, completionTokens: 192 } } } },
     ] as Message[],
     32_000,

@@ -7696,6 +7696,8 @@
   "ui.panels.connectiondefaultssection.main": "Main",
   "ui.panels.connectiondefaultssection.mainAgentsImagesAndVideosDefaultsAndFallbacks": "Main, Agents, Images, Videos, and Audio defaults and fallbacks",
   "ui.panels.connectiondefaultssection.noDefaultAudioConnection": "No default audio connection",
+  "ui.panels.connectiondefaultssection.showPaidConnectionWarning": "Show paid connection warning",
+  "ui.panels.connectiondefaultssection.showPaidConnectionWarningHelp": "Warn when an agent uses the configured default connection. Disable this if you do not need this warning.",
   "ui.panels.connectiondefaultssection.videos": "Videos",
   "ui.panels.connectionrow.addToRandomPool": "Add to random pool",
   "ui.panels.connectionrow.deleteConnection": "Delete Connection",

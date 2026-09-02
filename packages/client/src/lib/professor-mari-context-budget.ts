@@ -29,11 +29,13 @@ export function resolveProfessorMariContextBudget(
     if (!generationInfo) continue;
     const legacyUsage = record(generationInfo.usage);
     const promptTokens = tokenCount(generationInfo.tokensPrompt) ?? tokenCount(legacyUsage?.promptTokens);
-    const completionTokens =
-      tokenCount(generationInfo.tokensCompletion) ?? tokenCount(legacyUsage?.completionTokens) ?? 0;
     if (promptTokens === null) continue;
 
-    const usedTokens = promptTokens + completionTokens;
+    const cachedPromptTokens = tokenCount(generationInfo.tokensCachedPrompt) ?? 0;
+    const cacheWritePromptTokens = tokenCount(generationInfo.tokensCacheWritePrompt) ?? 0;
+    const completionTokens =
+      tokenCount(generationInfo.tokensCompletion) ?? tokenCount(legacyUsage?.completionTokens) ?? 0;
+    const usedTokens = promptTokens + cachedPromptTokens + cacheWritePromptTokens + completionTokens;
     return {
       usedTokens,
       maxTokens,
