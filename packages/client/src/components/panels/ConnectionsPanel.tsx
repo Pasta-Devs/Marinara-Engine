@@ -92,7 +92,7 @@ import {
 } from "../../lib/connection-transfer";
 import { toast } from "sonner";
 import { TTSConfigCard } from "./settings/TTSConfigCard";
-import { SettingsSwitch } from "./settings/SettingControls";
+import { SettingsSwitch, ToggleSetting } from "./settings/SettingControls";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { TouchDragHandle } from "../ui/TouchDragHandle";
@@ -796,6 +796,7 @@ function isEnabledConnectionRole(value: boolean | string | undefined): boolean {
   return value === true || value === "true";
 }
 
+/** Renders one connection default and fallback pair with optional agent controls. */
 function ConnectionDefaultPair({
   title,
   icon,
@@ -805,6 +806,7 @@ function ConnectionDefaultPair({
   primaryEmptyLabel,
   fallbackModelLabel,
   includeLocalSidecar,
+  showPaidConnectionWarningToggle = false,
 }: {
   title: string;
   icon: ReactNode;
@@ -817,6 +819,7 @@ function ConnectionDefaultPair({
    *  The sidecar has no connection row to carry the role flag, so selecting it
    *  writes the sidecar config's useAsAgentsDefault instead. */
   includeLocalSidecar?: boolean;
+  showPaidConnectionWarningToggle?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const openConnectionDetail = useUIStore((state) => state.openConnectionDetail);
@@ -826,6 +829,8 @@ function ConnectionDefaultPair({
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const sidecarAsAgentsDefault = useSidecarStore((state) => state.config.useAsAgentsDefault);
   const updateSidecarConfig = useSidecarStore((state) => state.updateConfig);
+  const showPaidAgentConnectionWarning = useUIStore((state) => state.showPaidAgentConnectionWarning);
+  const setShowPaidAgentConnectionWarning = useUIStore((state) => state.setShowPaidAgentConnectionWarning);
   const primaryConnection = connections.find((connection) => isEnabledConnectionRole(connection[primaryField])) ?? null;
   const fallbackConnection =
     connections.find((connection) => isEnabledConnectionRole(connection[fallbackField])) ?? null;
@@ -961,12 +966,21 @@ function ConnectionDefaultPair({
               )}
             </div>
           </label>
+          {showPaidConnectionWarningToggle && (
+            <ToggleSetting
+              label={localizeUi("ui.panels.connectiondefaultssection.showPaidConnectionWarning")}
+              checked={showPaidAgentConnectionWarning}
+              onChange={setShowPaidAgentConnectionWarning}
+              help={localizeUi("ui.panels.connectiondefaultssection.showPaidConnectionWarningHelp")}
+            />
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+/** Renders the expandable connection defaults section. */
 function ConnectionDefaultsSection({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
@@ -1048,6 +1062,7 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
             primaryEmptyLabel="Use the active chat connection"
             fallbackModelLabel="No model set"
             includeLocalSidecar
+            showPaidConnectionWarningToggle
           />
           <ConnectionDefaultPair
             title={localizeUi("ui.panels.connectiondefaultssection.images")}

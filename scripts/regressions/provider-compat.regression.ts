@@ -1131,7 +1131,8 @@ assert.equal(
       captureReasoning: true,
       reasoningEffort: "max",
     });
-    const fableMaxOutputBody = anthropicRequestBodies[2];
+    // The usage assertion above adds a third request before the Fable request.
+    const fableMaxOutputBody = anthropicRequestBodies[3];
     assert.ok(fableMaxOutputBody);
     assert.equal(fableMaxOutputBody.max_tokens, 128_000);
   } finally {
