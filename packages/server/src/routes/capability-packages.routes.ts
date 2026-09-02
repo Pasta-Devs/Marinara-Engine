@@ -76,6 +76,10 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
   app.get("/installed", async () => capabilityPackageManager.installed());
   app.get("/updates/pending", async () => capabilityPackageManager.pendingUpdates());
   app.get("/agents", async () => BUILT_IN_AGENT_MANIFESTS);
+  app.get<{ Params: { id: string } }>("/:id/release-notes", async (request) => {
+    const { id } = packageParams.parse(request.params);
+    return capabilityPackageManager.releaseNotes(id);
+  });
   app.post<{ Params: { id: string; version: string } }>("/:id/updates/:version/decline", async (request, reply) => {
     if (!requirePrivilegedAccess(request, reply, { feature: "Agent update decline" })) return;
     const { id, version } = packageUpdateParams.parse(request.params);

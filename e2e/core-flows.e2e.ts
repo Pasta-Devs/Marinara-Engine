@@ -1875,10 +1875,7 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
     await expect(quickSwitcher.locator("circle").nth(1)).toHaveCSS("stroke", configuredChromeText);
     await expect(budget.getByText("Context", { exact: true })).toHaveCSS("color", chromeMuted);
     await expect(budget.getByText(/tokens$/u)).toHaveCSS("color", chromeText);
-    await expect(budget.getByRole("progressbar").locator(":scope > div")).toHaveCSS(
-      "background-color",
-      appAccent,
-    );
+    await expect(budget.getByRole("progressbar").locator(":scope > div")).toHaveCSS("background-color", appAccent);
     await testInfo.attach(`mobile-roleplay-context-${testInfo.project.name}.png`, {
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
@@ -12572,7 +12569,11 @@ test("Agent updates share one dismissible prompt and remain available after Not 
       installedVersion: "1.0.0",
       version: "1.1.0",
       restartRequired: false,
+      releaseNotes: "- Keeps dialogue tags out of narration.",
+      releaseHighlight: true,
     },
+    // Deliberately publishes no notes: the catalog may ship none, and the row
+    // must stay complete and disclosure-free rather than offering an empty panel.
     {
       id: "world-builder",
       name: "World Builder",
@@ -12653,9 +12654,30 @@ test("Agent updates share one dismissible prompt and remain available after Not 
 
   const updateDialog = page.getByRole("dialog", { name: "Agent updates available" });
   await expect(updateDialog).toBeVisible();
-  await expect(updateDialog.getByText(/update Agents later in Download Agents/u)).toBeVisible();
-  await expect(updateDialog).toContainText("• Prose Guardian (1.0.0 → 1.1.0)");
-  await expect(updateDialog).toContainText("• World Builder (2.0.0 → 2.1.0)");
+  // Scoped per row, not dialog-wide: a dialog-wide toContainText passes even when
+  // a version, a restart tag, or a notable marker is rendered against the wrong
+  // agent, which is exactly the regression worth catching here.
+  const proseGuardianRow = updateDialog.locator("li").filter({ hasText: "Prose Guardian" });
+  const worldBuilderRow = updateDialog.locator("li").filter({ hasText: "World Builder" });
+  await expect(proseGuardianRow).toContainText("1.0.0 → 1.1.0");
+  await expect(worldBuilderRow).toContainText("2.0.0 → 2.1.0");
+  // Only the update that needs one carries the restart tag.
+  await expect(worldBuilderRow.getByText("Restart required", { exact: true })).toHaveCount(1);
+  await expect(proseGuardianRow.getByText("Restart required", { exact: true })).toHaveCount(0);
+  // The notable-change marker belongs to the update the catalog flagged, and its
+  // accessible name is what a screen reader announces in place of the dot.
+  await expect(proseGuardianRow.getByText("Notable change", { exact: true })).toHaveCount(1);
+  await expect(worldBuilderRow.getByText("Notable change", { exact: true })).toHaveCount(0);
+  // Release notes stay collapsed: the prompt must not grow into a wall of text
+  // that trains people to dismiss it unread.
+  const notes = proseGuardianRow.getByText("- Keeps dialogue tags out of narration.");
+  await expect(notes).toBeHidden();
+  // Exactly one: the update without notes offers nothing to expand.
+  const disclosures = updateDialog.getByRole("button", { name: "What changed", exact: true });
+  await expect(disclosures).toHaveCount(1);
+  await expect(worldBuilderRow.getByRole("button", { name: "What changed", exact: true })).toHaveCount(0);
+  await proseGuardianRow.getByRole("button", { name: "What changed", exact: true }).click();
+  await expect(notes).toBeVisible();
   await expect(updateDialog.getByRole("button", { name: "Update all", exact: true })).toBeVisible();
   await expect(updateDialog.getByRole("button", { name: "Not now", exact: true })).toBeVisible();
   await expect
@@ -19035,7 +19057,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
 
     await textarea.focus();
 
-    const expectedOffsetTop = 72;
+    const expectedOffsetTop = (await page.locator("html").getAttribute("data-mari-ios-webkit")) === null ? 72 : 0;
 
     await page.evaluate(() => {
       (
@@ -19141,6 +19163,8 @@ test("mobile chat composer follows the visual viewport above the software keyboa
     });
     const iosFocusOffsetTop = Math.min(72, Math.max(0, initialViewportHeight - 360));
     const iosFocusPageTop = Math.min(340, Math.max(0, initialViewportHeight - 360));
+    // Some iPhones update pageTop while leaving the fixed body at its visual
+    // origin. Applying that reported top would push the shell below the view.
     await page.evaluate(
       ({ offsetTop, pageTop }) => {
         (
@@ -19175,7 +19199,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
           top: getComputedStyle(document.documentElement).getPropertyValue("--mari-visual-viewport-offset-top").trim(),
         })),
       )
-      .toEqual({ height: "360px", top: `${iosFocusPageTop}px` });
+      .toEqual({ height: "360px", top: "0px" });
     await expect(page.locator("html")).toHaveAttribute("data-mari-software-keyboard-open", "");
     const iosCompactComposerStyle = await composer.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -19189,10 +19213,10 @@ test("mobile chat composer follows the visual viewport above the software keyboa
     const [iosShellBox, iosComposerBox] = await Promise.all([shell.boundingBox(), composer.boundingBox()]);
     expect(iosShellBox).not.toBeNull();
     expect(iosComposerBox).not.toBeNull();
-    expect(Math.abs(iosShellBox!.y - iosFocusPageTop)).toBeLessThanOrEqual(1);
+    expect(Math.abs(iosShellBox!.y)).toBeLessThanOrEqual(1);
     expect(Math.abs(iosShellBox!.height - 360)).toBeLessThanOrEqual(1);
-    expect(iosComposerBox!.y).toBeGreaterThanOrEqual(iosFocusPageTop);
-    expect(iosComposerBox!.y + iosComposerBox!.height).toBeLessThanOrEqual(iosFocusPageTop + 360);
+    expect(iosComposerBox!.y).toBeGreaterThanOrEqual(0);
+    expect(iosComposerBox!.y + iosComposerBox!.height).toBeLessThanOrEqual(360);
 
     // Model WebKit's native keyboard pan: the body moves visually while the
     // document scroll offsets stay at zero. The shell's document-coordinate
@@ -19209,6 +19233,14 @@ test("mobile chat composer follows the visual viewport above the software keyboa
         })),
       )
       .toEqual({ bodyTop: -iosFocusPageTop, bodyScrollTop: 0, documentScrollTop: 0 });
+    await page.evaluate(() => window.visualViewport?.dispatchEvent(new Event("scroll")));
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          getComputedStyle(document.documentElement).getPropertyValue("--mari-visual-viewport-offset-top").trim(),
+        ),
+      )
+      .toBe(`${iosFocusPageTop}px`);
     const [pannedShellBox, pannedComposerBox] = await Promise.all([shell.boundingBox(), composer.boundingBox()]);
     expect(pannedShellBox).not.toBeNull();
     expect(pannedComposerBox).not.toBeNull();

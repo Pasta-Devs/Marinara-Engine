@@ -1749,16 +1749,31 @@ export function mariPermissionsModePrompt(mode: MariPermissionsMode): string | n
   return lines.join("\n");
 }
 
-export type WorkspaceMutationVerification = "none" | "unverified" | "verified";
+export type WorkspaceMutationVerification = "none" | "unverified" | "staged" | "verified";
 
 function commandCallForResult(result: WorkspaceCommandResult): WorkspaceCommandCall {
   return { id: result.id, name: result.name, arguments: result.input };
+}
+
+// #5756: staging marker for sensitive write/edit. The emitters put this at
+// position zero of the command output and compactOutput() only cuts tails, so
+// startsWith cannot be forged by model-authored text (paths, file content)
+// appearing at a later line start of an applied result's output.
+const STAGED_SENSITIVE_CHANGE_PREFIX = "Staged sensitive file change for user approval:";
+
+function isStagedSensitiveMutation(result: WorkspaceCommandResult): boolean {
+  return (
+    result.success &&
+    (result.name === "write" || result.name === "edit") &&
+    result.output.startsWith(STAGED_SENSITIVE_CHANGE_PREFIX)
+  );
 }
 
 function isAppliedWorkspaceMutation(result: WorkspaceCommandResult): boolean {
   if (!result.success || result.name === "dependency") return false;
   const command = commandCallForResult(result);
   if (!isMutatingWorkspaceCommand(command)) return false;
+  if (isStagedSensitiveMutation(result)) return false;
   if (result.name !== "app_data") return true;
   return /"saved"\s*:\s*true/u.test(result.output);
 }
@@ -1767,8 +1782,18 @@ export function resolveWorkspaceMutationVerification(
   results: readonly WorkspaceCommandResult[],
 ): WorkspaceMutationVerification {
   let mutationSeen = false;
+  let stagedSeen = false;
   let verifiedAfterMutation = false;
   for (const result of results) {
+    if (isStagedSensitiveMutation(result)) {
+      // #5756: a staged change is not applied, so it creates no verification
+      // debt and no read can pay one off for it. It leaves an earlier applied
+      // mutation's verification standing - the round still resolves "staged",
+      // so a completion claim is intercepted with the pending-approval
+      // coaching instead of a pointless re-read demand.
+      stagedSeen = true;
+      continue;
+    }
     if (isAppliedWorkspaceMutation(result)) {
       mutationSeen = true;
       verifiedAfterMutation = false;
@@ -1778,7 +1803,9 @@ export function resolveWorkspaceMutationVerification(
       verifiedAfterMutation = true;
     }
   }
-  return !mutationSeen ? "none" : verifiedAfterMutation ? "verified" : "unverified";
+  if (mutationSeen && !verifiedAfterMutation) return "unverified";
+  if (stagedSeen) return "staged";
+  return mutationSeen ? "verified" : "none";
 }
 
 export function workspaceTextClaimsMutationCompletion(text: string): boolean {
@@ -2385,7 +2412,9 @@ export class ProfessorMariWorkspaceService {
               content:
                 verificationIssue === "none"
                   ? "Your previous reply claimed the requested workspace change was complete, but no mutating command succeeded in this run. Do not repeat the completion claim. Use a read command to inspect the requested state; if it is missing, perform the mutation, then verify it with another read before setting stop to true."
-                  : "A mutating workspace command succeeded, but no successful read verified the resulting state. Run a confirmatory read now. Only claim completion after that read confirms the change. Do it matter-of-factly - never apologize or present the check as fixing a mistake; report the confirmed state plainly.",
+                  : verificationIssue === "staged"
+                    ? "Your previous reply claimed a change was complete, but at least one change in this run was only staged for the user's approval and has NOT been applied. Do not claim it is done, and do not re-run the mutation - the change is already staged and re-running it cannot apply it. Restate plainly which changes are applied and which are awaiting the user's approval, then stop."
+                    : "A mutating workspace command succeeded, but no successful read verified the resulting state. Run a confirmatory read now. Only claim completion after that read confirms the change. Do it matter-of-factly - never apologize or present the check as fixing a mistake; report the confirmed state plainly.",
               contextKind: "history",
             });
             continue;
@@ -2511,7 +2540,14 @@ export class ProfessorMariWorkspaceService {
           const anyMutatingFailed = commandResults.some(
             (commandResult, index) => isMutatingWorkspaceCommand(action.commands[index]!) && !commandResult.success,
           );
-          runUnderstoodRequest = { ...runUnderstoodRequest, outcome: anyMutatingFailed ? "failed" : "applied" };
+          // #5756: a round that staged a sensitive change applied nothing for
+          // it - report "held" so diagnostics never corroborate a completion
+          // claim the verification guard would refuse.
+          const anyStaged = commandResults.some(isStagedSensitiveMutation);
+          runUnderstoodRequest = {
+            ...runUnderstoodRequest,
+            outcome: anyMutatingFailed ? "failed" : anyStaged ? "held" : "applied",
+          };
           this.latestUnderstoodRequest = runUnderstoodRequest;
         }
 
@@ -3248,7 +3284,7 @@ ${sections.join("\n\n")}
         sessionId: SESSION_ID,
       });
       return [
-        `Staged sensitive file change for user approval: ${approval.path}`,
+        `${STAGED_SENSITIVE_CHANGE_PREFIX} ${approval.path}`,
         `Approval: ${approval.id}`,
         "The file was not changed. Continue with unrelated source work, but do not claim this change is applied.",
       ].join("\n");
@@ -3359,7 +3395,7 @@ ${sections.join("\n\n")}
         sessionId: SESSION_ID,
       });
       return [
-        `Staged sensitive file change for user approval: ${approval.path}`,
+        `${STAGED_SENSITIVE_CHANGE_PREFIX} ${approval.path}`,
         `Approval: ${approval.id}`,
         "The file was not changed. Continue with unrelated source work, but do not claim this change is applied.",
       ].join("\n");

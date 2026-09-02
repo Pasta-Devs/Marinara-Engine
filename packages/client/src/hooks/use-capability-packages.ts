@@ -5,6 +5,7 @@ import {
   replaceBuiltInAgentDefinitions,
   type CapabilityCatalog,
   type CapabilityPackageUpdate,
+  type CapabilityPackageVersionNote,
   type BuiltInAgentManifest,
   type InstalledCapabilityPackage,
 } from "@marinara-engine/shared";
@@ -22,6 +23,7 @@ export const capabilityPackageKeys = {
   installed: () => [...capabilityPackageKeys.all, "installed"] as const,
   pendingUpdates: () => [...capabilityPackageKeys.all, "pending-updates"] as const,
   agents: () => [...capabilityPackageKeys.all, "agents"] as const,
+  releaseNotes: (id: string) => [...capabilityPackageKeys.all, "release-notes", id] as const,
 };
 
 export function useCapabilityCatalog(enabled = true) {
@@ -29,6 +31,18 @@ export function useCapabilityCatalog(enabled = true) {
     queryKey: capabilityPackageKeys.catalog(),
     queryFn: () => api.get<CapabilityCatalog>("/capability-packages/catalog"),
     enabled,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
+}
+
+/** Published release notes for one package, newest first. Empty when the catalog
+ *  publishes no notes sidecar, which is the normal state for a custom catalog. */
+export function useCapabilityPackageReleaseNotes(packageId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: capabilityPackageKeys.releaseNotes(packageId ?? ""),
+    queryFn: () => api.get<CapabilityPackageVersionNote[]>(`/capability-packages/${packageId}/release-notes`),
+    enabled: enabled && !!packageId,
     staleTime: 5 * 60_000,
     retry: 1,
   });

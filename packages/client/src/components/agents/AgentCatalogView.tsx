@@ -27,6 +27,7 @@ import {
 import { useCustomAgentRepositories } from "../../hooks/use-custom-agent-repositories";
 import { ApiError, getPrivilegedActionErrorMessage } from "../../lib/api-client";
 import { isAgentCatalogKindBadgeVisible } from "../../lib/agent-catalog-kind-badges";
+import { AgentVersionHistory } from "./AgentVersionHistory";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
@@ -742,6 +743,8 @@ export function AgentCatalogView() {
                   ))}
                 </ul>
               </section>
+
+              <AgentVersionHistory packageId={selected.manifest.id} />
 
               <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-5">
                 {selected.documentationUrl && (

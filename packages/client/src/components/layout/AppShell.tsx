@@ -262,7 +262,14 @@ export function AppShell() {
         );
         const height = heightCandidates.length > 0 ? Math.min(...heightCandidates) : window.innerHeight;
         const maxOffsetTop = Math.max(0, window.innerHeight - height);
-        const offsetTop = Math.min(maxOffsetTop, Math.max(0, viewport?.offsetTop ?? 0, viewport?.pageTop ?? 0));
+        const visualViewportTop = Math.max(0, viewport?.offsetTop ?? 0, viewport?.pageTop ?? 0);
+        // iOS reports pageTop whether its fixed body stayed anchored or moved.
+        // Compensate only for the displacement WebKit actually rendered.
+        const renderedBodyTop = isIosWebKit ? document.body.getBoundingClientRect().top : 0;
+        const offsetTop = Math.min(
+          maxOffsetTop,
+          isIosWebKit && Number.isFinite(renderedBodyTop) ? Math.max(0, -renderedBodyTop) : visualViewportTop,
+        );
         largestViewportHeight = Math.max(largestViewportHeight, height);
         root.style.setProperty("--mari-visual-viewport-height", `${Math.max(0, Math.round(height))}px`);
         root.style.setProperty("--mari-visual-viewport-offset-top", `${Math.round(offsetTop)}px`);

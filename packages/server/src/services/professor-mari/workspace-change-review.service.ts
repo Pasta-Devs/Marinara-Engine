@@ -413,6 +413,28 @@ export class WorkspaceChangeReviewService {
     }
     const beforeContent = await readOptionalText(absolutePath);
     const path = normalizeRelativePath(relative(this.workspaceRoot, absolutePath));
+    const beforeHash = beforeContent === null ? null : sha256(beforeContent);
+    const afterHash = sha256(input.afterContent);
+    // #5756: re-staging the identical change is idempotent - hand back the
+    // live approval instead of stacking duplicate cards for one decision.
+    // A record mid-approval still matches: minting a sibling would capture
+    // stale beforeContent and die as state_changed once the first applies.
+    // Windows resolves paths case-insensitively, so the comparison folds
+    // case there (elsewhere a fold could match a genuinely different file).
+    const samePath =
+      process.platform === "win32"
+        ? (candidate: string) => candidate.toLowerCase() === absolutePath.toLowerCase()
+        : (candidate: string) => candidate === absolutePath;
+    for (const existing of this.pending.values()) {
+      if (
+        existing.kind === "sensitive_file" &&
+        samePath(existing.absolutePath) &&
+        existing.beforeHash === beforeHash &&
+        existing.afterHash === afterHash
+      ) {
+        return publicApproval(existing) as MariSensitiveFileApproval;
+      }
+    }
     const id = `mari-file-${nanoid()}`;
     const requestedAt = new Date().toISOString();
     const expiresAt = new Date(Date.now() + APPROVAL_TIMEOUT_MS).toISOString();
@@ -425,8 +447,8 @@ export class WorkspaceChangeReviewService {
       sessionId: input.sessionId,
       path,
       changeType: beforeContent === null ? "create" : "update",
-      beforeHash: beforeContent === null ? null : sha256(beforeContent),
-      afterHash: sha256(input.afterContent),
+      beforeHash,
+      afterHash,
       ...preview,
       reason: input.reason?.trim() || null,
       requestedAt,

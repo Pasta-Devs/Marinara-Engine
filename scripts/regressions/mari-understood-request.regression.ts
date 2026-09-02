@@ -95,7 +95,10 @@ assert.match(
 // held/interrupted and only the command batch's own results upgrade it -
 // a Plan-floor refusal must never read as an execution in a pasted report.
 assert.match(workspaceAgent, /outcome: shouldDeferMutations \? "held" : "interrupted"/u);
-assert.match(workspaceAgent, /outcome: anyMutatingFailed \? "failed" : "applied"/u);
+// #5756: a staged sensitive change applied nothing, so the upgrade reports
+// "held" for it - "applied" stays reserved for batches that actually applied.
+assert.match(workspaceAgent, /outcome: anyMutatingFailed \? "failed" : anyStaged \? "held" : "applied"/u);
+assert.match(workspaceAgent, /const anyStaged = commandResults\.some\(isStagedSensitiveMutation\);/u);
 // Model-authored command labels are flattened and capped before entering the
 // record (they feed a line-oriented diagnostics report).
 assert.match(workspaceAgent, /label\.replace\(\/\\s\+\/gu, " "\)\.trim\(\)\.slice\(0, 80\)/u);

@@ -458,9 +458,11 @@ export interface MariDbHistoryEntry {
  */
 /**
  * What actually became of the round's mutating commands. "held" = deferred
- * behind the Accept action; "applied" = every mutating command succeeded;
- * "failed" = at least one was refused (a permissions floor, validation) or
- * errored; "interrupted" = the run ended before the outcome was observed.
+ * behind the Accept action, or staged behind a sensitive-change approval
+ * card (#5756) - either way, awaiting the user; "applied" = every mutating
+ * command succeeded and applied; "failed" = at least one was refused (a
+ * permissions floor, validation) or errored; "interrupted" = the run ended
+ * before the outcome was observed.
  */
 export type MariUnderstoodRequestOutcome = "held" | "applied" | "failed" | "interrupted";
 
