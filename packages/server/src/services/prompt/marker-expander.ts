@@ -26,10 +26,10 @@ import { sanitizeExampleDialoguePromptLeaf, sanitizePromptLeaf } from "./prompt-
 import { agentRuns } from "../../db/schema/index.js";
 import { eq, and, desc } from "../../db/file-query.js";
 
-/** Context required for expanding markers. */
 /** World-info positions a lorebook marker can place: position 0 (before) and position 1 (after). */
 export type LorebookMarkerPosition = "before" | "after";
 
+/** Context required for expanding markers. */
 export interface MarkerContext {
   db: DB;
   chatId: string;
@@ -444,10 +444,11 @@ async function expandLorebook(config: MarkerConfig, ctx: MarkerContext): Promise
   const result = await ensureLorebookScan(ctx);
   if (!result) return { content: "" };
 
-  // Each world-info position is owned by the first lorebook marker that asks for it.
-  // A later marker covering the same position (a second "All" marker, or an "All"
-  // marker following a "Before" marker) expands without it, so entries are never
-  // inserted twice in one prompt.
+  // Each world-info position is owned by the first lorebook marker that asks for it,
+  // in preset section order (the assembler's resolve order, which also covers
+  // depth-injected markers). A later marker covering the same position (a second
+  // "All" marker, or an "All" marker following a "Before" marker) expands without
+  // it, so entries are never inserted twice in one prompt.
   const emitted = (ctx.lorebookPositionsEmitted ??= new Set<LorebookMarkerPosition>());
   const claim = (position: LorebookMarkerPosition, content: string): string => {
     if (emitted.has(position)) return "";
