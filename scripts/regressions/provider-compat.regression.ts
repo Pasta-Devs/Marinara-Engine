@@ -1971,6 +1971,65 @@ try {
   await new Promise<void>((resolve, reject) => arliImageServer.close((error) => (error ? reject(error) : resolve())));
 }
 
+// OpenRouter routes a /chat/completions request only to endpoints that emit every
+// modality in `modalities`. Most of its image models return image only, so the
+// request must ask for image alone; the handful that also return text opt in.
+const openRouterModalityRequests: Array<{ model: unknown; modalities: unknown }> = [];
+const openRouterModalityServer = createServer(async (request, response) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+  openRouterModalityRequests.push({ model: body.model, modalities: body.modalities });
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(
+    JSON.stringify({
+      choices: [{ message: { images: [{ image_url: { url: `data:image/png;base64,${onePixelPng}` } }] } }],
+    }),
+  );
+});
+await new Promise<void>((resolve) => openRouterModalityServer.listen(0, "127.0.0.1", resolve));
+try {
+  const address = openRouterModalityServer.address();
+  assert.ok(address && typeof address === "object");
+  const baseUrl = `http://127.0.0.1:${address.port}/api/v1`;
+  const runModel = async (model: string) => {
+    openRouterModalityRequests.length = 0;
+    const result = await generateImage("openrouter", baseUrl, "openrouter-secret", "openrouter", {
+      prompt: "a red ceramic mug",
+      model,
+      allowLocalUrls: true,
+    });
+    assert.equal(result.base64, onePixelPng);
+    return openRouterModalityRequests[0]?.modalities;
+  };
+
+  // Image-only models. "flux" is in the legacy prefix list; the others are the
+  // regression this guards — models the old list did not know about that would
+  // otherwise 404 with "No endpoints found that support ... image, text".
+  for (const model of [
+    "black-forest-labs/flux.2-klein-4b",
+    "microsoft/mai-image-2.5",
+    "x-ai/grok-imagine-image-2.0",
+    "qwen/qwen-image-3",
+  ]) {
+    assert.deepEqual(await runModel(model), ["image"], `${model} must request image-only modalities`);
+  }
+
+  // Models that also return text must keep asking for it.
+  for (const model of [
+    "google/gemini-2.5-flash-image",
+    "google/gemini-3-pro-image-preview",
+    "openai/gpt-5-image",
+    "openrouter/auto",
+  ]) {
+    assert.deepEqual(await runModel(model), ["image", "text"], `${model} must still request text output`);
+  }
+} finally {
+  await new Promise<void>((resolve, reject) =>
+    openRouterModalityServer.close((error) => (error ? reject(error) : resolve())),
+  );
+}
+
 assert.equal(resolveConnectionImageQuality({ imageGenerationQuality: "high" }), "high");
 assert.equal(resolveConnectionImageQuality({ imageGenerationQuality: "unsupported" }), "auto");
 assert.equal(resolveConnectionImageQuality({}), "auto");

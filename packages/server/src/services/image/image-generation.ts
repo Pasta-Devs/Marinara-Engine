@@ -2608,18 +2608,18 @@ function openRouterAspectRatio(width?: number, height?: number): string | null {
   )[0];
 }
 
+/**
+ * OpenRouter only routes to endpoints that emit every requested modality, and
+ * most of its image models return image only. Default to image-only; opt in to
+ * text for the few families that also return it.
+ */
 export function openRouterModalities(model?: string): string[] {
   const lower = model?.trim().toLowerCase() ?? "";
-  if (
-    lower.startsWith("black-forest-labs/") ||
-    lower.startsWith("sourceful/") ||
-    lower.startsWith("recraft/") ||
-    lower.startsWith("krea/") ||
-    lower.startsWith("bytedance-seed/seedream-")
-  ) {
-    return ["image"];
-  }
-  return ["image", "text"];
+  const emitsText =
+    /^google\/gemini-.*-image/.test(lower) ||
+    /^openai\/gpt-5.*-image/.test(lower) ||
+    lower.startsWith("openrouter/auto");
+  return emitsText ? ["image", "text"] : ["image"];
 }
 
 export function usesOpenRouterImagesApi(model?: string): boolean {
