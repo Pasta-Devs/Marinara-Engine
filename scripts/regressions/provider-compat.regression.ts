@@ -165,14 +165,7 @@ await new Promise<void>((resolve) => embeddingServer.listen(0, "127.0.0.1", reso
 try {
   const address = embeddingServer.address();
   assert.ok(address && typeof address === "object");
-  const nanoGpt = new OpenAIProvider(
-    `http://localhost:${address.port}/v1`,
-    "nano-key",
-    undefined,
-    undefined,
-    undefined,
-    "nanogpt",
-  );
+  const nanoGpt = new OpenAIProvider(`http://localhost:${address.port}/v1`, "nano-key", undefined, undefined, undefined, "nanogpt");
   await nanoGpt.embed(["test"], "text-embedding-model");
   assert.equal(embeddingRequests[0]?.headers.authorization, "Bearer nano-key");
   assert.equal(embeddingRequests[0]?.headers["x-api-key"], "nano-key");
