@@ -1177,8 +1177,10 @@ assert.equal(
       captureReasoning: true,
       reasoningEffort: "max",
     });
-    // The usage assertion above adds a third request before the Fable request.
-    const fableMaxOutputBody = anthropicRequestBodies[3];
+    // .at(-1), not a hardcoded index: two branches each appended a request
+    // block here with fixed indices and collided on merge - this request is
+    // whatever the block above just sent, i.e. always the newest body.
+    const fableMaxOutputBody = anthropicRequestBodies.at(-1);
     assert.ok(fableMaxOutputBody);
     assert.equal(fableMaxOutputBody.max_tokens, 128_000);
   } finally {

@@ -375,7 +375,6 @@ export function ConversationInput({
   const activeChatId = useChatStore((s) => s.activeChatId);
   const mariChips = useAgentStore((s) => s.mariChips);
   const mariChipsChatId = useAgentStore((s) => s.mariChipsChatId);
-  const clearMariChips = useAgentStore((s) => s.clearMariChips);
   const professorMariSuggestionsEnabled = useUIStore((s) => s.professorMariSuggestionsEnabled);
   const { data: activeChat } = useChat(activeChatId);
   const { data: contextConnections = [] } = useConnections();
@@ -640,12 +639,6 @@ export function ConversationInput({
     },
     [activeChatId, setInputDraft, syncInputState, guidedPlanStep, recordMariPlanAnswer, clearMariPlan],
   );
-  useEffect(() => {
-    if (professorMariSuggestionsEnabled) return;
-    clearMariChips();
-    clearMariPlan();
-  }, [clearMariChips, clearMariPlan, professorMariSuggestionsEnabled]);
-
   useEffect(() => {
     const handleCardAssetInsert = (event: Event) => {
       const detail = (event as CustomEvent<CardAssetInsertDetail>).detail;

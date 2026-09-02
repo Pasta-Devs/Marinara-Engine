@@ -255,7 +255,6 @@ export const ChatInput = memo(function ChatInput({
   const canSubmitSpatialMove = mode === "roleplay" && pendingSpatialTransition?.status === "ready";
   const mariChips = useAgentStore((s) => s.mariChips);
   const mariChipsChatId = useAgentStore((s) => s.mariChipsChatId);
-  const clearMariChips = useAgentStore((s) => s.clearMariChips);
   const professorMariSuggestionsEnabled = useUIStore((s) => s.professorMariSuggestionsEnabled);
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const isStreamingGlobal = useChatStore((s) => s.isStreaming);
@@ -618,11 +617,6 @@ export const ChatInput = memo(function ChatInput({
     },
     [activeChatId, setInputDraft, syncInputState, guidedPlanStep, recordMariPlanAnswer, clearMariPlan],
   );
-  useEffect(() => {
-    if (professorMariSuggestionsEnabled) return;
-    clearMariChips();
-    clearMariPlan();
-  }, [clearMariChips, clearMariPlan, professorMariSuggestionsEnabled]);
   const lastMessage = useMemo(() => {
     const firstPage = messagesData?.pages?.[0];
     return firstPage?.[firstPage.length - 1] ?? null;

@@ -18,6 +18,7 @@ import { flushSync } from "react-dom";
 import {
   ArrowLeft,
   ArrowRight,
+  Bookmark,
   BookOpen,
   Bot,
   ChevronLeft,
@@ -1626,7 +1627,8 @@ export function HomeBrowserHub({
   const contentRef = useRef<HTMLElement | null>(null);
   const heroRef = useRef<HTMLElement | null>(null);
   const feedShellRef = useRef<HTMLDivElement | null>(null);
-  const mobileBookmarksRef = useRef<HTMLElement | null>(null);
+  const mobileBookmarksRef = useRef<HTMLDivElement | null>(null);
+  const mobileBookmarksTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [draggedWidgetId, setDraggedWidgetId] = useState<HomeWidgetId | null>(null);
   const pendingProfessorExitTabRef = useRef<string | null>(null);
   const draggedWidgetIdRef = useRef<HomeWidgetId | null>(null);
@@ -1748,7 +1750,10 @@ export function HomeBrowserHub({
   useEffect(() => {
     if (!mobileBookmarksOpen) return;
     const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (!mobileBookmarksRef.current?.contains(event.target as Node)) setMobileBookmarksOpen(false);
+      const target = event.target as Node;
+      if (mobileBookmarksRef.current?.contains(target)) return;
+      if (mobileBookmarksTriggerRef.current?.contains(target)) return;
+      setMobileBookmarksOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMobileBookmarksOpen(false);
@@ -2207,6 +2212,27 @@ export function HomeBrowserHub({
                 </span>
               </div>
             </div>
+            {/* #5743: a SIBLING of the tab list, never a child - a tablist may
+                only contain tabs, and two independent reviews flagged the
+                nesting. On phone widths the wordmark above is hidden, so this
+                renders as the strip's leading control beside the Home tab. */}
+            <button
+              ref={mobileBookmarksTriggerRef}
+              type="button"
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-t-lg border border-b-0 border-transparent text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-app-accent-solid)] sm:hidden",
+                mobileBookmarksOpen && "bg-[var(--accent)] text-[var(--foreground)]",
+                activeTab !== "home" && !showHomeBrowserMobileBookmarksOnOtherTabs && "hidden",
+              )}
+              aria-label={t("home.browser.bookmarksCompact")}
+              title={t("home.browser.bookmarksCompact")}
+              aria-expanded={mobileBookmarksOpen}
+              aria-controls="marinara-mobile-bookmarks"
+              onClick={() => setMobileBookmarksOpen((open) => !open)}
+              data-component="HomeBrowserHub.MobileBookmarksTrigger"
+            >
+              <Bookmark size="1rem" aria-hidden="true" />
+            </button>
             <div
               className="flex min-w-0 flex-1 items-end gap-0.5 overflow-hidden sm:gap-1 sm:overflow-x-auto"
               role="tablist"
@@ -2353,20 +2379,12 @@ export function HomeBrowserHub({
             </div>
           ) : null}
 
-          {activeTab === "home" ||
-          showHomeBrowserDesktopBookmarksOnOtherTabs ||
-          showHomeBrowserMobileBookmarksOnOtherTabs ? (
+          {activeTab === "home" || showHomeBrowserDesktopBookmarksOnOtherTabs ? (
             <nav
-              ref={mobileBookmarksRef}
-              className="relative flex min-h-8 items-center border-t border-[var(--border)]/45 px-2 sm:min-h-9 sm:px-3"
+              className="hidden min-h-8 items-center border-t border-[var(--border)]/45 px-2 sm:flex sm:min-h-9 sm:px-3"
               aria-label={t("home.browser.bookmarksLabel")}
             >
-              <div
-                className={cn(
-                  "hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto sm:flex",
-                  activeTab !== "home" && !showHomeBrowserDesktopBookmarksOnOtherTabs && "sm:hidden",
-                )}
-              >
+              <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
                 <BrowserBookmark
                   href="https://discord.com/invite/KdAkTg94ME"
                   onClick={() => trackHomeAction("discord_clicked")}
@@ -2435,137 +2453,110 @@ export function HomeBrowserHub({
                   {t("home.browser.widgets")}
                 </BrowserBookmark>
               </div>
-
-              <button
-                type="button"
-                className={cn(
-                  "flex min-h-7 items-center gap-2 rounded-md px-2 text-[0.7rem] font-bold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] sm:hidden",
-                  activeTab !== "home" && !showHomeBrowserMobileBookmarksOnOtherTabs && "hidden",
-                )}
-                aria-expanded={mobileBookmarksOpen}
-                aria-controls="marinara-mobile-bookmarks"
-                onClick={() => setMobileBookmarksOpen((open) => !open)}
-                data-component="HomeBrowserHub.MobileBookmarksTrigger"
-              >
-                <span className="flex items-center gap-1" aria-hidden="true">
-                  <i
-                    className="h-1.5 w-1.5 rounded-full bg-[oklch(0.79_0.16_205)] shadow-[0_0_8px_oklch(0.79_0.16_205/0.65)]"
-                    data-bookmark-dot="cyan"
-                  />
-                  <i
-                    className="h-1.5 w-1.5 rounded-full bg-[oklch(0.76_0.19_52)] shadow-[0_0_8px_oklch(0.76_0.19_52/0.65)]"
-                    data-bookmark-dot="orange"
-                  />
-                  <i
-                    className="h-1.5 w-1.5 rounded-full bg-[oklch(0.73_0.21_345)] shadow-[0_0_8px_oklch(0.73_0.21_345/0.65)]"
-                    data-bookmark-dot="pink"
-                  />
-                </span>
-                {t("home.browser.bookmarks")}
-              </button>
-
-              <AnimatePresence initial={false}>
-                {mobileBookmarksOpen && (activeTab === "home" || showHomeBrowserMobileBookmarksOnOtherTabs) ? (
-                  <motion.div
-                    id="marinara-mobile-bookmarks"
-                    initial={reduceMotion ? false : { opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-                    transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute left-2 right-2 top-[calc(100%+0.35rem)] grid max-h-[calc(100dvh-8rem)] gap-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_96%,var(--background))] p-1.5 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.72)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_7%,transparent)] sm:hidden"
-                    data-component="HomeBrowserHub.MobileBookmarksMenu"
-                    data-bookmarks-motion="slide"
-                  >
-                    <MobileBrowserBookmark
-                      href="https://discord.com/invite/KdAkTg94ME"
-                      onClick={() => {
-                        setMobileBookmarksOpen(false);
-                        trackHomeAction("discord_clicked");
-                      }}
-                      icon={<img src="/home/tab-icons/discord.svg" alt="" className="h-4 w-4 object-contain" />}
-                      tone="#5865F2"
-                    >
-                      {t("home.browser.bookmarks.discord")}
-                    </MobileBrowserBookmark>
-                    <MobileBrowserBookmark
-                      href="https://ko-fi.com/marinara_spaghetti"
-                      onClick={() => {
-                        setMobileBookmarksOpen(false);
-                        trackHomeAction("kofi_clicked");
-                      }}
-                      icon={<img src="/home/tab-icons/kofi.png" alt="" className="h-4 w-4 object-contain" />}
-                      tone="#ff6433"
-                    >
-                      {t("home.actions.support")}
-                    </MobileBrowserBookmark>
-                    <MobileBrowserBookmark
-                      onClick={() => {
-                        setMobileBookmarksOpen(false);
-                        trackHomeAction("credits_viewed");
-                        onOpenCredits();
-                      }}
-                      icon={<img src="/home/tab-icons/credits.png" alt="" className="h-4 w-4 object-contain" />}
-                      tone={HOME_MODULE_ACCENTS.orange}
-                    >
-                      {t("home.actions.credits")}
-                    </MobileBrowserBookmark>
-                    <MobileBrowserBookmark
-                      onClick={() => {
-                        setMobileBookmarksOpen(false);
-                        useUIStore.getState().openModal("docs-viewer");
-                      }}
-                      icon={<img src="/home/tab-icons/documentation.png" alt="" className="h-4 w-4 object-contain" />}
-                      tone={HOME_MODULE_ACCENTS.cyan}
-                    >
-                      {t("home.actions.documentation")}
-                    </MobileBrowserBookmark>
-                    <MobileBrowserBookmark
-                      onClick={() => {
-                        setMobileBookmarksOpen(false);
-                        useUIStore.getState().setHasCompletedOnboarding(false);
-                      }}
-                      icon={<img src="/home/tab-icons/tutorial.png" alt="" className="h-4 w-4 object-contain" />}
-                      tone={HOME_MODULE_ACCENTS.orange}
-                    >
-                      {t("home.browser.bookmarks.tutorial")}
-                    </MobileBrowserBookmark>
-                    <MobileBrowserBookmark
-                      onClick={() => {
-                        setMobileBookmarksOpen(false);
-                        setFaqOpen(true);
-                      }}
-                      icon={<img src="/home/tab-icons/faq.png" alt="" className="h-4 w-4 object-contain" />}
-                      tone={HOME_MODULE_ACCENTS.pink}
-                    >
-                      {t("home.browser.faqTab")}
-                    </MobileBrowserBookmark>
-                    {achievementsEnabled ? (
-                      <MobileBrowserBookmark
-                        onClick={() => {
-                          setMobileBookmarksOpen(false);
-                          setAchievementsOpen(true);
-                        }}
-                        icon={<img src="/home/tab-icons/achievements.png" alt="" className="h-4 w-4 object-contain" />}
-                        tone={HOME_MODULE_ACCENTS.orange}
-                      >
-                        {t("home.browser.achievements")}
-                      </MobileBrowserBookmark>
-                    ) : null}
-                    <MobileBrowserBookmark
-                      onClick={() => {
-                        setMobileBookmarksOpen(false);
-                        setWidgetManagerOpen(true);
-                      }}
-                      icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
-                      tone={HOME_MODULE_ACCENTS.violet}
-                    >
-                      {t("home.browser.widgets")}
-                    </MobileBrowserBookmark>
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
             </nav>
           ) : null}
+
+          <AnimatePresence initial={false}>
+            {mobileBookmarksOpen && (activeTab === "home" || showHomeBrowserMobileBookmarksOnOtherTabs) ? (
+              <motion.div
+                ref={mobileBookmarksRef}
+                id="marinara-mobile-bookmarks"
+                initial={reduceMotion ? false : { opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute left-2 right-2 top-[calc(100%+0.35rem)] grid max-h-[calc(100dvh-8rem)] gap-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_96%,var(--background))] p-1.5 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.72)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_7%,transparent)] sm:hidden"
+                data-component="HomeBrowserHub.MobileBookmarksMenu"
+                data-bookmarks-motion="slide"
+              >
+                <MobileBrowserBookmark
+                  href="https://discord.com/invite/KdAkTg94ME"
+                  onClick={() => {
+                    setMobileBookmarksOpen(false);
+                    trackHomeAction("discord_clicked");
+                  }}
+                  icon={<img src="/home/tab-icons/discord.svg" alt="" className="h-4 w-4 object-contain" />}
+                  tone="#5865F2"
+                >
+                  {t("home.browser.bookmarks.discord")}
+                </MobileBrowserBookmark>
+                <MobileBrowserBookmark
+                  href="https://ko-fi.com/marinara_spaghetti"
+                  onClick={() => {
+                    setMobileBookmarksOpen(false);
+                    trackHomeAction("kofi_clicked");
+                  }}
+                  icon={<img src="/home/tab-icons/kofi.png" alt="" className="h-4 w-4 object-contain" />}
+                  tone="#ff6433"
+                >
+                  {t("home.actions.support")}
+                </MobileBrowserBookmark>
+                <MobileBrowserBookmark
+                  onClick={() => {
+                    setMobileBookmarksOpen(false);
+                    trackHomeAction("credits_viewed");
+                    onOpenCredits();
+                  }}
+                  icon={<img src="/home/tab-icons/credits.png" alt="" className="h-4 w-4 object-contain" />}
+                  tone={HOME_MODULE_ACCENTS.orange}
+                >
+                  {t("home.actions.credits")}
+                </MobileBrowserBookmark>
+                <MobileBrowserBookmark
+                  onClick={() => {
+                    setMobileBookmarksOpen(false);
+                    useUIStore.getState().openModal("docs-viewer");
+                  }}
+                  icon={<img src="/home/tab-icons/documentation.png" alt="" className="h-4 w-4 object-contain" />}
+                  tone={HOME_MODULE_ACCENTS.cyan}
+                >
+                  {t("home.actions.documentation")}
+                </MobileBrowserBookmark>
+                <MobileBrowserBookmark
+                  onClick={() => {
+                    setMobileBookmarksOpen(false);
+                    useUIStore.getState().setHasCompletedOnboarding(false);
+                  }}
+                  icon={<img src="/home/tab-icons/tutorial.png" alt="" className="h-4 w-4 object-contain" />}
+                  tone={HOME_MODULE_ACCENTS.orange}
+                >
+                  {t("home.browser.bookmarks.tutorial")}
+                </MobileBrowserBookmark>
+                <MobileBrowserBookmark
+                  onClick={() => {
+                    setMobileBookmarksOpen(false);
+                    setFaqOpen(true);
+                  }}
+                  icon={<img src="/home/tab-icons/faq.png" alt="" className="h-4 w-4 object-contain" />}
+                  tone={HOME_MODULE_ACCENTS.pink}
+                >
+                  {t("home.browser.faqTab")}
+                </MobileBrowserBookmark>
+                {achievementsEnabled ? (
+                  <MobileBrowserBookmark
+                    onClick={() => {
+                      setMobileBookmarksOpen(false);
+                      setAchievementsOpen(true);
+                    }}
+                    icon={<img src="/home/tab-icons/achievements.png" alt="" className="h-4 w-4 object-contain" />}
+                    tone={HOME_MODULE_ACCENTS.orange}
+                  >
+                    {t("home.browser.achievements")}
+                  </MobileBrowserBookmark>
+                ) : null}
+                <MobileBrowserBookmark
+                  onClick={() => {
+                    setMobileBookmarksOpen(false);
+                    setWidgetManagerOpen(true);
+                  }}
+                  icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
+                  tone={HOME_MODULE_ACCENTS.violet}
+                >
+                  {t("home.browser.widgets")}
+                </MobileBrowserBookmark>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </header>
 
         <main

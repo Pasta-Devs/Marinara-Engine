@@ -211,12 +211,20 @@ async function activateControl(control: Locator, testInfo: TestInfo) {
 }
 
 async function openHomeBookmark(page: Page, name: string) {
-  const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
-  const mobileTrigger = bookmarks.getByRole("button", { name: "Bookmarks", exact: true });
+  // #5743: at phone widths the bookmarks live behind the compact tab-strip
+  // trigger and open in the dropdown menu; on desktop the full labeled bar
+  // renders its entries directly.
+  const mobileTrigger = page.getByRole("button", { name: "Open bookmarks", exact: true });
   if (await mobileTrigger.isVisible()) {
     if ((await mobileTrigger.getAttribute("aria-expanded")) !== "true") await mobileTrigger.click();
     await expect(mobileTrigger).toHaveAttribute("aria-expanded", "true");
+    await page
+      .locator('[data-component="HomeBrowserHub.MobileBookmarksMenu"]')
+      .getByText(name, { exact: true })
+      .click();
+    return;
   }
+  const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
   await bookmarks.getByRole("button", { name, exact: true }).filter({ visible: true }).click();
 }
 
@@ -17180,22 +17188,18 @@ test("mobile Home collects its bookmarks into a Marinara-colored menu", async ({
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
 
-  const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
-  const trigger = bookmarks.getByRole("button", { name: "Bookmarks", exact: true });
+  // #5743: the full bookmarks bar no longer spends a line at phone widths -
+  // the compact tab-strip trigger replaces it outright.
+  const bookmarksBar = page.getByRole("navigation", { name: "Home bookmarks" });
+  const trigger = page.getByRole("button", { name: "Open bookmarks", exact: true });
   const menu = page.locator('[data-component="HomeBrowserHub.MobileBookmarksMenu"]');
   const addressRow = page.locator('[data-component="HomeBrowserHub.AddressRow"]');
   await expect(addressRow).toBeHidden();
   expect(await addressRow.boundingBox()).toBeNull();
-  expect((await bookmarks.boundingBox())?.height).toBeLessThanOrEqual(35);
+  await expect(bookmarksBar).toBeHidden();
   await expect(trigger).toBeVisible();
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
-  await expect(trigger.locator("[data-bookmark-dot]")).toHaveCount(3);
-  const dotColors = await trigger
-    .locator("[data-bookmark-dot]")
-    .evaluateAll((elements) => elements.map((element) => getComputedStyle(element).backgroundColor));
-  expect(new Set(dotColors).size).toBe(3);
   await expect(menu).toHaveCount(0);
-  await expect(bookmarks.getByRole("link", { name: "Discord", exact: true })).toBeHidden();
 
   await trigger.click();
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
@@ -19908,7 +19912,9 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
 
   const musicDjWidget = page.locator('[data-component="SpotifyMiniPlayer.Mobile"]');
   await expect(musicDjWidget).toBeVisible();
-  const bookmarksBounds = await page.getByRole("navigation", { name: "Home bookmarks" }).boundingBox();
+  // #5743: at phone widths the bookmarks affordance is the compact tab-strip
+  // trigger, so that is what the Music DJ widget must not cover.
+  const bookmarksBounds = await page.getByRole("button", { name: "Open bookmarks", exact: true }).boundingBox();
   const initialMusicDjBounds = await musicDjWidget.boundingBox();
   expect(bookmarksBounds).not.toBeNull();
   expect(initialMusicDjBounds).not.toBeNull();

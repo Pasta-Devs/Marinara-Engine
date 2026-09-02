@@ -1285,8 +1285,13 @@ export function useGenerate() {
         setStreaming(true, params.chatId);
         clearThoughtBubbles();
         clearCyoaChoices();
-        clearMariChips();
-        clearMariPlan();
+        // #5753: the Mari chips/plan slots are app-wide - only clear them when
+        // they belong to THIS chat, or a regular chat's generation wipes a
+        // Mari chat's pending suggestions (observed: a held proposal's Accept
+        // chip vanishing after unrelated navigation).
+        const agentState = useAgentStore.getState();
+        if (agentState.mariChipsChatId === params.chatId) clearMariChips();
+        if (agentState.mariPlanChatId === params.chatId) clearMariPlan();
         clearFailedAgentTypes(params.chatId);
         setRegenerateMessageId(params.regenerateMessageId ?? null);
       }
