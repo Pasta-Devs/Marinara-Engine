@@ -25,6 +25,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- NanoGPT connections now read each model's context window and output limit from the provider catalog, so the model picker and the auto-filled Max Context Window show real values instead of 0 for models that are not covered by the built-in aggregator fallback (#5770).
 - Lorebook entries are no longer inserted twice when a preset has more than one lorebook marker (#5716): each world-info position (Before / After) is now placed by the first marker that covers it, so a second "Lorebook Marker (All)" placeholder - or an "All" marker following a "Before" marker - no longer repeats the same entries in the prompt.
 - Mobile connection drag previews now retain the configured Chat Chrome Text Color, and the Roleplay quick switcher context progress bar follows Accent Color (#5758).
 - Professor Mari can no longer answer her own permission question (#5748): once she asks whether to apply a change, that question is binding for the rest of the run - any edit she stages afterwards is held behind the Accept action instead of executing, and a hidden follow-up edit is refused with guidance. Previously an ask that rode alongside an `apply:false` preview left the engine nothing to hold, so she could pivot to applying unasked one round later ("to show you the review card"). Dry-run previews now tell her, truthfully, that the user cannot see them, and "propose your edits" maps to one described-and-held proposal instead of a preview plus a second full generation.
