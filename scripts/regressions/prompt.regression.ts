@@ -9293,6 +9293,63 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
+    name: "lorebook markers insert each world-info position at most once per prompt build",
+    async run() {
+      const makeMarkerCtx = (): MarkerContext => ({
+        db: undefined as unknown as DB,
+        chatId: "chat-lorebook-marker-dedupe",
+        characterIds: [],
+        personaName: "Mari",
+        personaDescription: "",
+        chatMessages: [],
+        chatSummary: null,
+        wrapFormat: "xml" as const,
+        enableAgents: true,
+        activeAgentIds: [],
+        activeLorebookIds: [],
+        macroCtx: { user: "Mari", char: "Dottore", characters: ["Dottore"], variables: {} },
+        lorebookScanResult: {
+          worldInfoBefore: "LORE_BEFORE_ENTRY",
+          worldInfoAfter: "LORE_AFTER_ENTRY",
+          depthEntries: [],
+          outlets: {},
+          totalEntries: 2,
+          totalTokensEstimate: 8,
+          activatedEntryIds: ["entry-before", "entry-after"],
+          activatedEntries: [],
+          budgetSkippedEntries: [],
+        },
+      });
+
+      // Two combined "All" markers (issue #5716): the second placeholder must not repeat the entries.
+      const twoCombined = makeMarkerCtx();
+      const firstAll = await expandMarker({ type: "lorebook" }, twoCombined);
+      const secondAll = await expandMarker({ type: "lorebook" }, twoCombined);
+      assert.equal(firstAll.content, "LORE_BEFORE_ENTRY\n\nLORE_AFTER_ENTRY");
+      assert.equal(secondAll.content, "");
+
+      // A "Before" marker followed by an "All" marker: the combined marker only adds the after position.
+      const beforeThenAll = makeMarkerCtx();
+      const before = await expandMarker({ type: "world_info_before" }, beforeThenAll);
+      const remainder = await expandMarker({ type: "lorebook" }, beforeThenAll);
+      assert.equal(before.content, "LORE_BEFORE_ENTRY");
+      assert.equal(remainder.content, "LORE_AFTER_ENTRY");
+
+      // Dedicated Before + After markers keep their own positions and stay independent of each other.
+      const typed = makeMarkerCtx();
+      const typedBefore = await expandMarker({ type: "world_info_before" }, typed);
+      const typedAfter = await expandMarker({ type: "world_info_after" }, typed);
+      const repeatedBefore = await expandMarker({ type: "world_info_before" }, typed);
+      assert.equal(typedBefore.content, "LORE_BEFORE_ENTRY");
+      assert.equal(typedAfter.content, "LORE_AFTER_ENTRY");
+      assert.equal(repeatedBefore.content, "");
+
+      // A fresh prompt build starts with no claimed positions.
+      const fresh = await expandMarker({ type: "lorebook" }, makeMarkerCtx());
+      assert.equal(fresh.content, "LORE_BEFORE_ENTRY\n\nLORE_AFTER_ENTRY");
+    },
+  },
+  {
     name: "mode-specific prompt gates keep known behavior stable",
     run() {
       assert.equal(shouldInjectIdentityFallback({ chatMode: "conversation", presetId: "preset" }), true);

@@ -27,6 +27,9 @@ import { agentRuns } from "../../db/schema/index.js";
 import { eq, and, desc } from "../../db/file-query.js";
 
 /** Context required for expanding markers. */
+/** World-info positions a lorebook marker can place: position 0 (before) and position 1 (after). */
+export type LorebookMarkerPosition = "before" | "after";
+
 export interface MarkerContext {
   db: DB;
   chatId: string;
@@ -95,6 +98,12 @@ export interface MarkerContext {
   updatedEntryTimingStates?: Record<string, LorebookEntryTimingState>;
   /** Cached lorebook scan for all lorebook marker sections in this prompt build. */
   lorebookScanResult?: LorebookScanResult;
+  /**
+   * World-info positions already emitted by a lorebook marker in this prompt build.
+   * Each position (before / after) is inserted at most once, so a preset with several
+   * lorebook markers cannot duplicate the same entries across placeholders.
+   */
+  lorebookPositionsEmitted?: Set<LorebookMarkerPosition>;
   /** Adds context for character-ID macros found only after lorebook activation. */
   onLorebookScan?: (result: LorebookScanResult) => Promise<void>;
   /** True once the activated lorebook callback has completed. */
@@ -435,15 +444,28 @@ async function expandLorebook(config: MarkerConfig, ctx: MarkerContext): Promise
   const result = await ensureLorebookScan(ctx);
   if (!result) return { content: "" };
 
+  // Each world-info position is owned by the first lorebook marker that asks for it.
+  // A later marker covering the same position (a second "All" marker, or an "All"
+  // marker following a "Before" marker) expands without it, so entries are never
+  // inserted twice in one prompt.
+  const emitted = (ctx.lorebookPositionsEmitted ??= new Set<LorebookMarkerPosition>());
+  const claim = (position: LorebookMarkerPosition, content: string): string => {
+    if (emitted.has(position)) return "";
+    emitted.add(position);
+    return content;
+  };
+
   switch (config.type) {
     case "world_info_before":
-      return { content: result.worldInfoBefore };
+      return { content: claim("before", result.worldInfoBefore) };
     case "world_info_after":
-      return { content: result.worldInfoAfter };
+      return { content: claim("after", result.worldInfoAfter) };
     case "lorebook":
     default: {
-      // Combined lorebook — all world info
-      const combined = [result.worldInfoBefore, result.worldInfoAfter].filter(Boolean).join("\n\n");
+      // Combined lorebook — all world info not already placed by an earlier marker
+      const combined = [claim("before", result.worldInfoBefore), claim("after", result.worldInfoAfter)]
+        .filter(Boolean)
+        .join("\n\n");
       return { content: combined };
     }
   }
