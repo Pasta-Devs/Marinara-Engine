@@ -270,6 +270,18 @@ try {
   assert.deepEqual(nanoGptRequestBody?.chat_template_kwargs, { enable_thinking: false });
   nanoGptRequestBody = null;
   await collectProviderOutput(customGateway, {
+    model: "z-ai/glm-5.3",
+    stream: false,
+    reasoningEffort: "medium",
+    enabledParameters: { reasoningEffort: true },
+  });
+  assert.equal(
+    "reasoning_effort" in (nanoGptRequestBody ?? {}),
+    false,
+    "local custom GLM 5.3 keeps the generic no-effort body for an active effort",
+  );
+  nanoGptRequestBody = null;
+  await collectProviderOutput(customGateway, {
     model: "some-model",
     stream: false,
     reasoningEffort: "none",
@@ -1485,7 +1497,15 @@ assert.equal(glm53ReasoningEffort("high"), "high");
 assert.equal(glm53ReasoningEffort("xhigh"), "max");
 assert.equal(glm53ReasoningEffort("max"), "max");
 assert.equal(glm53CustomGatewayReasoningEffort("z-ai/glm-5.3", "https://gateway.example.com/v1", "none"), "low");
+assert.equal(glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", "low"), "low");
 assert.equal(glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", "medium"), "high");
+assert.equal(glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", "high"), "high");
+assert.equal(glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", "max"), "max");
+assert.equal(
+  glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", undefined),
+  null,
+  "no configured effort stays omitted on remote custom gateways",
+);
 assert.equal(
   glm53CustomGatewayReasoningEffort("z-ai/glm-5.3", "http://127.0.0.1:8080/v1", "none"),
   null,
