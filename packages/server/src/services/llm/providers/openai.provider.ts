@@ -27,7 +27,7 @@ import { logger } from "../../../lib/logger.js";
 import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
 import {
   applyGlmThinkingParameters,
-  glm53ReasoningEffort,
+  glm53CustomGatewayReasoningEffort,
   isGlm53MandatoryReasoningModel,
 } from "./glm-request-compat.js";
 
@@ -871,12 +871,12 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (this.isGenericCustomProvider()) {
       if (this.hasExplicitReasoningDisable(options.reasoningEffort)) {
-        // GLM 5.3 served through a non-native gateway still cannot disable
-        // reasoning; send the lightest accepted level instead of a rejected
-        // "none" (mirrors the native Z.AI and NanoGPT handling above).
-        body.reasoning_effort = isGlm53MandatoryReasoningModel(options.model)
-          ? (glm53ReasoningEffort(options.reasoningEffort) ?? "low")
-          : "none";
+        // GLM 5.3 served through a remote non-native gateway still cannot
+        // disable reasoning; send the lightest accepted level instead of a
+        // rejected "none" (mirrors the native Z.AI and NanoGPT handling above).
+        // Local inference servers keep "none" so their template kwarg wins.
+        body.reasoning_effort =
+          glm53CustomGatewayReasoningEffort(options.model, this.baseUrl, options.reasoningEffort) ?? "none";
       } else if (this.shouldSendReasoningEffort(options.model, options.reasoningEffort)) {
         body.reasoning_effort = options.reasoningEffort;
       }

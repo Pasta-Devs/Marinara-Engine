@@ -8,6 +8,7 @@ import {
 } from "../../packages/shared/src/constants/model-lists.js";
 import {
   applyGlmThinkingParameters,
+  glm53CustomGatewayReasoningEffort,
   glm53ReasoningEffort,
   isGlm53MandatoryReasoningModel,
   isNativeGlmEndpoint,
@@ -230,8 +231,10 @@ try {
   );
   assert.equal(nanoGptRequestBody?.enable_thinking, true);
 
-  // A generic custom connection pointed at a non-native gateway still must not
-  // send reasoning_effort "none" for GLM 5.3 (#5765); other models keep it.
+  // A generic custom connection on a LOCAL inference host keeps the
+  // pre-existing "none" for GLM 5.3 (its chat template can really disable
+  // thinking); the remote-gateway substitution is pinned on the pure helper
+  // below (#5765). Other models keep "none" everywhere.
   const customGateway = new OpenAIProvider(
     `http://127.0.0.1:${address.port}/v1`,
     "custom-key",
@@ -247,8 +250,8 @@ try {
     reasoningEffort: "none",
     enabledParameters: { reasoningEffort: true },
   });
-  assert.equal(nanoGptRequestBody?.reasoning_effort, "low");
-  assert.equal("enable_thinking" in (nanoGptRequestBody ?? {}), false);
+  assert.equal(nanoGptRequestBody?.reasoning_effort, "none");
+  assert.deepEqual(nanoGptRequestBody?.chat_template_kwargs, { enable_thinking: false });
   nanoGptRequestBody = null;
   await collectProviderOutput(customGateway, {
     model: "some-model",
@@ -1412,6 +1415,16 @@ assert.equal(glm53ReasoningEffort("medium"), "high");
 assert.equal(glm53ReasoningEffort("high"), "high");
 assert.equal(glm53ReasoningEffort("xhigh"), "max");
 assert.equal(glm53ReasoningEffort("max"), "max");
+assert.equal(glm53CustomGatewayReasoningEffort("z-ai/glm-5.3", "https://gateway.example.com/v1", "none"), "low");
+assert.equal(glm53CustomGatewayReasoningEffort("glm-5.3", "https://gateway.example.com/v1", "medium"), "high");
+assert.equal(
+  glm53CustomGatewayReasoningEffort("z-ai/glm-5.3", "http://127.0.0.1:8080/v1", "none"),
+  null,
+  "local inference hosts keep the explicit disable for GLM 5.3",
+);
+assert.equal(glm53CustomGatewayReasoningEffort("z-ai/glm-5.3", "http://192.168.1.20:11434/v1", "none"), null);
+assert.equal(glm53CustomGatewayReasoningEffort("some-model", "https://gateway.example.com/v1", "none"), null);
+assert.equal(glm53CustomGatewayReasoningEffort("z-ai/glm-5.2", "https://gateway.example.com/v1", "none"), null);
 
 const nanogptMandatoryGlmBody: Record<string, unknown> = {};
 applyGlmThinkingParameters(nanogptMandatoryGlmBody, {

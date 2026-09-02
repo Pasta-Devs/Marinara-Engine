@@ -1,3 +1,5 @@
+import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
+
 type GlmThinkingOptions = {
   model: string;
   baseUrl: string;
@@ -96,4 +98,23 @@ export function applyGlmThinkingParameters(body: Record<string, unknown>, option
 
   body.enable_thinking = thinkingEnabled;
   return true;
+}
+
+/**
+ * Reasoning value a generic custom connection should send in place of an
+ * explicit "none" for GLM 5.3. Remote gateways forward the request to a
+ * provider that rejects the disable, so they get the lightest accepted level.
+ * Local inference servers (llama.cpp, vLLM, Ollama) serve the open weights
+ * with a chat template that can actually turn thinking off, so they keep the
+ * pre-existing "none" (and the enable_thinking template kwarg that follows).
+ * Returns null when no substitution applies.
+ */
+export function glm53CustomGatewayReasoningEffort(
+  model: string,
+  baseUrl: string,
+  reasoningEffort?: string | null,
+): "low" | "high" | "max" | null {
+  if (!isGlm53MandatoryReasoningModel(model)) return null;
+  if (isLocalInferenceBaseUrl(baseUrl)) return null;
+  return glm53ReasoningEffort(reasoningEffort) ?? "low";
 }
