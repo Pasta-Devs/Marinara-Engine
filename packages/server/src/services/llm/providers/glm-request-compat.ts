@@ -14,8 +14,15 @@ export function isGlm52Model(model: string): boolean {
   return /(?:^|\/)glm-5\.2(?:$|[-:])/u.test(model.toLowerCase());
 }
 
-export function isGlm53FlashMandatoryReasoningModel(model: string): boolean {
-  return /(?:^|\/)glm-5\.3-flash(?:$|[-:])/u.test(model.toLowerCase());
+/**
+ * GLM 5.3 and every GLM 5.3 variant (Flash, provider suffixes such as
+ * `:free`) always reason. Z.AI documents that disabling thinking is no longer
+ * supported for the family and that only the `low`, `high`, and `max` effort
+ * levels are accepted; OpenRouter and NanoGPT reject any disable request for
+ * these models with HTTP 400.
+ */
+export function isGlm53MandatoryReasoningModel(model: string): boolean {
+  return /(?:^|\/)glm-5\.3(?:$|[-:])/u.test(model.toLowerCase());
 }
 
 export function isNativeGlmEndpoint(baseUrl: string): boolean {
@@ -41,11 +48,44 @@ function glm52ReasoningEffort(reasoningEffort?: string | null): "high" | "max" |
   return reasoningEffort === "max" || reasoningEffort === "xhigh" ? "max" : "high";
 }
 
+/**
+ * Map Marinara's reasoning effort onto the three levels GLM 5.3 accepts. An
+ * explicit reasoning-off request cannot be honored, so it becomes the lightest
+ * level instead of a disable the provider rejects (Z.AI's own migration
+ * guidance for `thinking.type: "disabled"`). No effort at all leaves the
+ * provider default in place.
+ */
+export function glm53ReasoningEffort(reasoningEffort?: string | null): "low" | "high" | "max" | null {
+  if (!reasoningEffort) return null;
+  switch (reasoningEffort) {
+    case "none":
+    case "minimal":
+    case "low":
+      return "low";
+    case "max":
+    case "xhigh":
+      return "max";
+    default:
+      return "high";
+  }
+}
+
 export function applyGlmThinkingParameters(body: Record<string, unknown>, options: GlmThinkingOptions): boolean {
   if (!isGlmModel(options.model)) return false;
   const nativeEndpoint = isNativeGlmEndpoint(options.baseUrl);
   if (!nativeEndpoint && options.providerKind !== "nanogpt") return false;
   const thinkingEnabled = options.enableThinking === true || hasActiveReasoningEffort(options.reasoningEffort);
+
+  if (isGlm53MandatoryReasoningModel(options.model)) {
+    if (nativeEndpoint) {
+      body.thinking = { type: "enabled" };
+    } else {
+      body.enable_thinking = true;
+    }
+    const effort = glm53ReasoningEffort(options.reasoningEffort);
+    if (effort) body.reasoning_effort = effort;
+    return true;
+  }
 
   if (nativeEndpoint && isGlm52Model(options.model)) {
     body.thinking = { type: thinkingEnabled ? "enabled" : "disabled" };
@@ -54,7 +94,6 @@ export function applyGlmThinkingParameters(body: Record<string, unknown>, option
     return true;
   }
 
-  body.enable_thinking =
-    options.providerKind === "nanogpt" && isGlm53FlashMandatoryReasoningModel(options.model) ? true : thinkingEnabled;
+  body.enable_thinking = thinkingEnabled;
   return true;
 }

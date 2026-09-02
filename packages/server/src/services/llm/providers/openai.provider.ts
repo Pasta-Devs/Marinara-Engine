@@ -25,7 +25,7 @@ import {
 } from "@marinara-engine/shared";
 import { logger } from "../../../lib/logger.js";
 import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
-import { applyGlmThinkingParameters, isGlm53FlashMandatoryReasoningModel } from "./glm-request-compat.js";
+import { applyGlmThinkingParameters, glm53ReasoningEffort, isGlm53MandatoryReasoningModel } from "./glm-request-compat.js";
 
 /**
  * Models that ONLY support the Responses API (`/responses`) and not Chat Completions.
@@ -783,7 +783,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     return (
       this.supportsOpenAIReasoningDisable(normalized) ||
       this.supportsXAIReasoningDisable(normalized) ||
-      (normalized.startsWith("z-ai/glm-") && !isGlm53FlashMandatoryReasoningModel(normalized)) ||
+      (normalized.startsWith("z-ai/glm-") && !isGlm53MandatoryReasoningModel(normalized)) ||
       normalized.startsWith("thudm/glm-") ||
       /^google\/gemini-2\.5-flash(?:-lite)?(?:$|-preview|-latest|:)/u.test(normalized) ||
       /^anthropic\/claude-(?:opus|sonnet)-5(?:$|[-.])/u.test(normalized)
@@ -867,7 +867,12 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (this.isGenericCustomProvider()) {
       if (this.hasExplicitReasoningDisable(options.reasoningEffort)) {
-        body.reasoning_effort = "none";
+        // GLM 5.3 served through a non-native gateway still cannot disable
+        // reasoning; send the lightest accepted level instead of a rejected
+        // "none" (mirrors the native Z.AI and NanoGPT handling above).
+        body.reasoning_effort = isGlm53MandatoryReasoningModel(options.model)
+          ? (glm53ReasoningEffort(options.reasoningEffort) ?? "low")
+          : "none";
       } else if (this.shouldSendReasoningEffort(options.model, options.reasoningEffort)) {
         body.reasoning_effort = options.reasoningEffort;
       }
@@ -877,7 +882,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (
       this.providerKind === "nanogpt" &&
       this.hasExplicitReasoningDisable(options.reasoningEffort) &&
-      !isGlm53FlashMandatoryReasoningModel(options.model)
+      !isGlm53MandatoryReasoningModel(options.model)
     ) {
       body.reasoning_effort = "none";
       return;
