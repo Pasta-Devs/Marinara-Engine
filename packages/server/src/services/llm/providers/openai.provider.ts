@@ -25,7 +25,11 @@ import {
 } from "@marinara-engine/shared";
 import { logger } from "../../../lib/logger.js";
 import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
-import { applyGlmThinkingParameters, glm53ReasoningEffort, isGlm53MandatoryReasoningModel } from "./glm-request-compat.js";
+import {
+  applyGlmThinkingParameters,
+  glm53ReasoningEffort,
+  isGlm53MandatoryReasoningModel,
+} from "./glm-request-compat.js";
 
 /**
  * Models that ONLY support the Responses API (`/responses`) and not Chat Completions.
