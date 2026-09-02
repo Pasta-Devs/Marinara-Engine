@@ -75,6 +75,8 @@ export interface ImportSTChatOptions {
   groupId?: string | null;
   /** Persona to attach to the imported chat */
   personaId?: string | null;
+  /** Character card to use as the user identity */
+  personaCharacterId?: string | null;
   /** Connection to attach to the imported chat */
   connectionId?: string | null;
   /** Prompt preset to attach to the imported chat */
@@ -425,6 +427,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       characterIds,
       groupId: opts?.groupId ?? null,
       personaId: opts?.personaId ?? null,
+      personaCharacterId: opts?.personaCharacterId ?? null,
       promptPresetId: opts?.promptPresetId ?? null,
       connectionId: opts?.connectionId ?? null,
     },

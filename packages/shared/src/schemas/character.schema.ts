@@ -97,6 +97,7 @@ export const characterBookSchema = z
 export const characterDataSchema = z
   .object({
     name: z.string().trim().min(1),
+    summary: z.string().trim().max(500).default(""),
     description: z.string().default(""),
     personality: z.string().default(""),
     scenario: z.string().default(""),

@@ -143,8 +143,15 @@ export function useGenerateGallerySelfie(chatId: string) {
 export function useDeleteGalleryImage(chatId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (imageId: string) => api.delete(`/gallery/${imageId}`),
-    onMutate: async (imageId) => {
+    // The wire-level chatId is the image row's OWN owner, not this hook's
+    // ambient chatId: a Game-mode gallery aggregates sibling sessions'
+    // images, so the two can differ. The server scopes the lookup by the
+    // hint (#5615), and a wrong owner would 404 the delete. The ambient
+    // chatId stays correct for the cache keys — that is what the list
+    // queries are keyed on.
+    mutationFn: ({ imageId, chatId: ownerChatId }: { imageId: string; chatId: string }) =>
+      api.delete(`/gallery/${imageId}?chatId=${encodeURIComponent(ownerChatId)}`),
+    onMutate: async ({ imageId }) => {
       await Promise.all([
         qc.cancelQueries({ queryKey: galleryKeys.chat(chatId) }),
         qc.cancelQueries({ queryKey: galleryKeys.assets(chatId) }),
@@ -160,13 +167,19 @@ export function useDeleteGalleryImage(chatId: string) {
 
       return { previousImages, previousAssets };
     },
-    onError: (_error, _imageId, context) => {
+    onError: (_error, _variables, context) => {
       if (context?.previousImages) qc.setQueryData(galleryKeys.chat(chatId), context.previousImages);
       if (context?.previousAssets) qc.setQueryData(galleryKeys.assets(chatId), context.previousAssets);
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       qc.invalidateQueries({ queryKey: galleryKeys.chat(chatId) });
       qc.invalidateQueries({ queryKey: galleryKeys.assets(chatId) });
+      // A Game-mode gallery can delete a sibling session's image; that
+      // session's own cached lists must not keep showing the deleted row.
+      if (variables && variables.chatId !== chatId) {
+        qc.invalidateQueries({ queryKey: galleryKeys.chat(variables.chatId) });
+        qc.invalidateQueries({ queryKey: galleryKeys.assets(variables.chatId) });
+      }
     },
   });
 }

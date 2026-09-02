@@ -1,10 +1,14 @@
 // ──────────────────────────────────────────────
 // Routes: Professor Mari Workspace Agent
 // ──────────────────────────────────────────────
+import { MARI_PERMISSIONS_MODES, MARI_PERMISSIONS_MODE_SETTINGS_KEY } from "@marinara-engine/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } from "./generate/sse.js";
+import { readStoredMariPermissionsMode } from "../services/professor-mari/workspace-agent.service.js";
+import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { getProfessorMariWorkspaceService } from "../services/professor-mari/workspace-agent.service.js";
 import { getProfessorMariWorkspaceSkillsService } from "../services/professor-mari/workspace-skills.service.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
@@ -119,6 +123,15 @@ const rejectRowsSchema = z.object({
 // #4931: synthetic Peek-Prompt render of one reviewed character/preset row (same identity tuple).
 const renderPromptSchema = rejectRowRowSchema;
 
+// #5725 Permissions Mode. A dedicated validated route owns the setting (the
+// docs-language pattern) - it is deliberately NOT in app-settings ALLOWED_KEYS,
+// so nothing can write junk the per-run reader would have to distrust.
+const permissionsModeSchema = z.object({
+  // mode null + chatId clears that chat's override back to the default.
+  mode: z.enum(MARI_PERMISSIONS_MODES).nullable(),
+  chatId: z.string().min(1).optional(),
+});
+
 function privileged(request: FastifyRequest, reply: FastifyReply, loopbackOnly = false) {
   return requirePrivilegedAccess(request, reply, {
     loopbackOnly,
@@ -127,9 +140,9 @@ function privileged(request: FastifyRequest, reply: FastifyReply, loopbackOnly =
 }
 
 export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
-  app.get<{ Querystring: { connectionId?: string } }>("/status", async (req, reply) => {
+  app.get<{ Querystring: { connectionId?: string; chatId?: string } }>("/status", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    return getProfessorMariWorkspaceService(app).status(req.query.connectionId ?? null);
+    return getProfessorMariWorkspaceService(app).status(req.query.connectionId ?? null, req.query.chatId ?? null);
   });
 
   app.post("/abort", async (req, reply) => {
@@ -174,6 +187,34 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
   });
 
   // #4851: Memories management panel. Direct, reset-free writes (see instructionCreateSchema note).
+  // #5725: Permissions Mode. Reads never reset() the agent (the memories
+  // convention) - a mode switch must not abort an in-flight turn; the next
+  // run reads the new mode.
+  app.get("/permissions-mode", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    return { mode: await readStoredMariPermissionsMode(createAppSettingsStorage(app.db)) };
+  });
+
+  app.put("/permissions-mode", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    const input = permissionsModeSchema.parse(req.body);
+    if (input.chatId) {
+      // Per-chat override (#5725 maintainer call): stored in chat metadata via
+      // the queued patch (#5076), null clears it. isMariPermissionsMode treats
+      // a null/absent value as "no override" on every read path.
+      const patched = await createChatsStorage(app.db).patchMetadata(input.chatId, {
+        mariPermissionsMode: input.mode,
+      });
+      if (!patched) return reply.status(404).send({ error: "Chat not found" });
+      return { ok: true, mode: input.mode, chatId: input.chatId };
+    }
+    if (input.mode === null) {
+      return reply.status(400).send({ error: "The global default mode cannot be cleared - pick a mode." });
+    }
+    await createAppSettingsStorage(app.db).set(MARI_PERMISSIONS_MODE_SETTINGS_KEY, input.mode);
+    return { ok: true, mode: input.mode };
+  });
+
   app.get("/instructions", async (req, reply) => {
     if (!privileged(req, reply)) return;
     return { instructions: await createMariInstructionsStorage(app.db).list() };
@@ -217,9 +258,14 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     return { ok: true, item };
   });
 
-  app.delete<{ Params: { id: string } }>("/context/:id", async (req, reply) => {
+  app.delete<{ Params: { id: string }; Querystring: { chatId?: string } }>("/context/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const removed = await createMariWorkspaceContextStorage(app.db).remove(req.params.id);
+    // Optional chatId (same convention as GET /context) keeps the lazy store from
+    // loading the whole table for a bare-id delete. The typeof guard also covers a
+    // repeated query param, which Fastify hands over as an array.
+    const chatIdRaw = req.query.chatId;
+    const chatId = typeof chatIdRaw === "string" ? chatIdRaw.trim() : "";
+    const removed = await createMariWorkspaceContextStorage(app.db).remove(req.params.id, chatId || undefined);
     if (!removed) return reply.status(404).send({ error: "Attached context not found" });
     return { ok: true };
   });

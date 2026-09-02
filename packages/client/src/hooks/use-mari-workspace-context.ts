@@ -62,8 +62,11 @@ export function useAddMariWorkspaceContext() {
 export function useRemoveMariWorkspaceContext(chatId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/professor-mari/workspace/context/${id}`);
+    // The wire-level chatId is the item row's owning workspace chat (#5615):
+    // it lets the server scope the lookup to one chat's storage instead of
+    // loading every chat's. The hook's ambient chatId stays for the cache key.
+    mutationFn: async ({ id, chatId: ownerChatId }: { id: string; chatId: string }) => {
+      await api.delete(`/professor-mari/workspace/context/${id}?chatId=${encodeURIComponent(ownerChatId)}`);
       return id;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: mariWorkspaceContextKeys.list(chatId) }),

@@ -2,10 +2,10 @@
 // React Query: Connection hooks
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api-client";
+import { api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import { useChatStore } from "../stores/chat.store";
-import { chatKeys } from "./use-chats";
+import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
 import type { APIProvider, Chat, ConnectionTestResult, ImageGenerationQuality } from "@marinara-engine/shared";
 
 export const connectionKeys = {
@@ -17,8 +17,11 @@ export const connectionKeys = {
 export function useConnections() {
   return useQuery({
     queryKey: connectionKeys.list(),
-    queryFn: () => api.get<unknown[]>("/connections"),
+    // Deadline so a frozen host cannot leave isLoading true forever — this
+    // query gates the Support Diagnostics copy button alongside health (#5657).
+    queryFn: ({ signal }) => api.get<unknown[]>("/connections", { signal: requestTimeoutSignal(10_000, signal) }),
     staleTime: 5 * 60_000,
+    retry: (failureCount, error) => !isRequestTimeoutError(error) && failureCount < 1,
   });
 }
 
@@ -120,8 +123,9 @@ export function useDeleteConnection() {
       const activeChat = qc.getQueryData<Chat>(chatKeys.detail(activeChatId));
       if (activeChat?.connectionId !== id) return;
       try {
+        const metadataVersion = captureChatMetadataVersion(activeChatId);
         const updated = await api.patch<Chat>(`/chats/${activeChatId}`, { connectionId: null });
-        qc.setQueryData<Chat>(chatKeys.detail(activeChatId), updated);
+        qc.setQueryData<Chat>(chatKeys.detail(activeChatId), guardServerChatSnapshot(qc, updated, metadataVersion));
         qc.invalidateQueries({ queryKey: chatKeys.list() });
       } catch {
         qc.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) });

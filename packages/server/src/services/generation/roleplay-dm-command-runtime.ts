@@ -41,11 +41,23 @@ type ChatsStore = {
     role: string;
     characterId: string | null;
     content: string;
-  }): Promise<{ id?: unknown } | null>;
+    // createdAt is part of the contract so adapters cannot silently omit the
+    // timestamp the lastMessageRole ordering guard depends on.
+  }): Promise<{ id?: unknown; createdAt: string } | null>;
   updateMessageExtra(id: string, partial: Record<string, unknown>): Promise<unknown>;
   patchMetadata(id: string, patch: Record<string, unknown>): Promise<unknown>;
   remove(id: string): Promise<unknown>;
 };
+
+function messageTimestampMsOf(message: unknown): number | undefined {
+  const createdAt = (message as { createdAt?: unknown } | null | undefined)?.createdAt;
+  if (typeof createdAt !== "string" || !createdAt) return undefined;
+  const timestampMs = new Date(createdAt).getTime();
+  // NaN would silently fail the ordering comparison and leave the role on
+  // "user" after an assistant DM; an unparseable timestamp must behave like
+  // an absent one (last-writer-wins).
+  return Number.isFinite(timestampMs) ? timestampMs : undefined;
+}
 
 export async function handleRoleplayDmCommand(args: {
   command: CharacterCommand;
@@ -137,7 +149,7 @@ async function runRoleplayDmCommand(
       characterId: targetCharId,
       content: messageText,
     });
-    recordAssistantActivity(linkedConversationId, targetCharId);
+    recordAssistantActivity(linkedConversationId, targetCharId, messageTimestampMsOf(dmMessage));
 
     args.sendAssistantAction({
       action: "dm_posted",
@@ -200,7 +212,7 @@ async function runRoleplayDmCommand(
       characterId: targetCharId,
       content: messageText,
     });
-    recordAssistantActivity(targetChat.id, targetCharId);
+    recordAssistantActivity(targetChat.id, targetCharId, messageTimestampMsOf(dmMessage));
   } catch (dmWriteErr) {
     if (createdNewChat) {
       try {

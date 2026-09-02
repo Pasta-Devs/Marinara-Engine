@@ -6,7 +6,7 @@ import { eq, ne } from "../db/file-query.js";
 import { spawn } from "node:child_process";
 import { existsSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
-import { PROFESSOR_MARI_ID, TTS_SETTINGS_KEY } from "@marinara-engine/shared";
+import { MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY, PROFESSOR_MARI_ID, TTS_SETTINGS_KEY } from "@marinara-engine/shared";
 import { DATA_DIR } from "../utils/data-dir.js";
 import * as schema from "../db/schema/index.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
@@ -225,10 +225,47 @@ export async function adminRoutes(app: FastifyInstance) {
     }
 
     if (requestedScopes.includes("presets")) {
-      await runDelete("prompt_sections", () => db.delete(schema.promptSections).run());
-      await runDelete("prompt_groups", () => db.delete(schema.promptGroups).run());
-      await runDelete("choice_blocks", () => db.delete(schema.choiceBlocks).run());
-      await runDelete("prompt_presets", () => db.delete(schema.promptPresets).run());
+      const defaultPreset = (
+        await db
+          .select({ id: schema.promptPresets.id })
+          .from(schema.promptPresets)
+          .where(eq(schema.promptPresets.isDefault, "true"))
+      )[0];
+      const stockPreset = (
+        await db
+          .select({ id: schema.promptPresets.id })
+          .from(schema.promptPresets)
+          .where(eq(schema.promptPresets.systemKey, MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY))
+          .limit(1)
+      )[0];
+      const stockPresetId = stockPreset?.id;
+
+      await runDelete("prompt_sections", () =>
+        stockPresetId
+          ? db.delete(schema.promptSections).where(ne(schema.promptSections.presetId, stockPresetId)).run()
+          : db.delete(schema.promptSections).run(),
+      );
+      await runDelete("prompt_groups", () =>
+        stockPresetId
+          ? db.delete(schema.promptGroups).where(ne(schema.promptGroups.presetId, stockPresetId)).run()
+          : db.delete(schema.promptGroups).run(),
+      );
+      await runDelete("choice_blocks", () =>
+        stockPresetId
+          ? db.delete(schema.choiceBlocks).where(ne(schema.choiceBlocks.presetId, stockPresetId)).run()
+          : db.delete(schema.choiceBlocks).run(),
+      );
+      await runDelete("prompt_presets", () =>
+        stockPresetId
+          ? db.delete(schema.promptPresets).where(ne(schema.promptPresets.id, stockPresetId)).run()
+          : db.delete(schema.promptPresets).run(),
+      );
+      if (stockPresetId && defaultPreset && defaultPreset.id !== stockPresetId) {
+        await db
+          .update(schema.promptPresets)
+          .set({ isDefault: "true" })
+          .where(eq(schema.promptPresets.id, stockPresetId));
+      }
       await runDelete("library_folders:presets", () =>
         db.delete(schema.libraryFolders).where(eq(schema.libraryFolders.scope, "presets")).run(),
       );

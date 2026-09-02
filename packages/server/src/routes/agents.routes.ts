@@ -24,6 +24,7 @@ import {
   type CustomAgentCapability,
 } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { BEHOLDER_STATE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import {
   getCustomAgentImportPolicy,
   setCustomAgentImportsEnabled,
@@ -58,6 +59,9 @@ const IMPORT_UNSAFE_AGENT_SETTING_KEYS = new Set([
 
 const updateAgentRunSchema = z.object({
   resultData: z.unknown(),
+  // Optional owner hint: keeps the lazy file store from loading every chat's agent_runs
+  // shards for a bare-id lookup. The chat is always open when a run is edited.
+  chatId: z.string().min(1).optional(),
 });
 
 const AGENT_SUITE_REWRITE_SYSTEM_PROMPT = [
@@ -272,6 +276,37 @@ export async function agentsRoutes(app: FastifyInstance) {
     return storage.listCustomRunsForChat(req.params.chatId, parsedLimit);
   });
 
+  /**
+   * Persist an operator correction to the Beholder physical state.
+   *
+   * The state a chat carries forward is the result of the agent's last successful
+   * run, which is also what the next prompt is built from — so a correction has to
+   * land there to mean anything. Without this, a hand-set slot would look right on
+   * screen and be narrated away on the next turn.
+   *
+   * The body is normalized before it is stored, so a malformed correction is refused
+   * rather than written into the state the prompt is built from.
+   */
+  app.put<{ Params: { chatId: string } }>(
+    "/beholder-state/:chatId",
+    { config: { rateLimit: BEHOLDER_STATE_RATE_LIMIT } },
+    async (req, reply) => {
+      // Guarded like the other write routes in this file: this rewrites the state the
+      // next prompt is built from, for any chat id the caller names.
+      if (!requirePrivilegedAccess(req, reply, { feature: "Beholder state correction" })) return;
+      const body = req.body as { state?: unknown } | undefined;
+      const state = normalizeBeholderState(body?.state);
+      if (!state) return reply.status(400).send({ error: "Invalid Beholder state" });
+      const run = await storage.getLastSuccessfulRunByType("beholder", req.params.chatId);
+      if (!run) return reply.status(404).send({ error: "No Beholder run to correct yet" });
+      // The run can be deleted between the lookup and the write. Reporting success then
+      // would tell the operator their correction was saved when it was discarded.
+      const updated = await storage.updateRunResultData(run.id, state, req.params.chatId);
+      if (!updated) return reply.status(409).send({ error: "The Beholder run changed while saving; try again" });
+      return { state, messageId: run.messageId ?? null, createdAt: run.createdAt ?? null };
+    },
+  );
+
   /** Get the latest validated Beholder physical-state snapshot for a roleplay chat. */
   app.get<{ Params: { chatId: string } }>("/beholder-state/:chatId", async (req) => {
     const run = await storage.getLastSuccessfulRunByType("beholder", req.params.chatId);
@@ -281,6 +316,94 @@ export async function agentsRoutes(app: FastifyInstance) {
       createdAt: run?.createdAt ?? null,
     };
   });
+
+  /**
+   * A summary of Beholder's recent runs, for the panel's diagnostic view.
+   *
+   * Only shapes and timings: how long each run took, how many slots it changed, and
+   * whether it failed. The extracted state itself is not repeated here — the panel
+   * already holds the current one — so this stays a health signal rather than a second
+   * copy of the chat's contents.
+   */
+  app.get<{ Params: { chatId: string }; Querystring: { limit?: string } }>(
+    "/beholder-runs/:chatId",
+    { config: { rateLimit: BEHOLDER_STATE_RATE_LIMIT } },
+    async (req) => {
+      const parsed = req.query.limit ? Number.parseInt(req.query.limit, 10) : undefined;
+      // Clamped once, here, and used for both the fetch and the slice. The raw value
+      // reached the slice unchecked, so limit=0 or a negative returned an empty window
+      // while storage had quietly normalised its own end to at least one row.
+      const wanted = Math.max(1, Math.min(Number.isFinite(parsed) ? (parsed as number) : 5, 50));
+      // One extra, so the oldest run in the window still has a predecessor to be
+      // compared against and is not reported as having introduced everything it holds.
+      const runs = await storage.listRunsByTypeForChat("beholder", req.params.chatId, wanted + 1);
+
+      /** Slots per character, as a comparable map. */
+      const slotMap = (data: unknown) => {
+        const state = normalizeBeholderState(data);
+        // Keyed the way the normalizer identifies a character, which is case-folded.
+        // Keying by the raw name made "Maggie" and "maggie" two people, so one run
+        // spelling a name differently read as one character leaving and another
+        // arriving — a page of invented changes from a capital letter. The display
+        // name is carried alongside so the answer still reads naturally.
+        const map = new Map<string, { name: string; slots: Map<string, string> }>();
+        for (const character of state?.characters ?? []) {
+          const slots = new Map<string, string>();
+          for (const [slot, value] of Object.entries(character.body ?? {})) {
+            slots.set(slot, JSON.stringify(value ?? null));
+          }
+          map.set(character.name.toLocaleLowerCase("en-US"), { name: character.name, slots });
+        }
+        return map;
+      };
+
+      const maps = runs.map((run) => slotMap(run.resultData));
+      return runs.slice(0, wanted).map((run, index) => {
+        // Indexed access is typed as possibly-undefined; index is bounded by slice.
+        const now = maps[index] ?? new Map<string, { name: string; slots: Map<string, string> }>();
+        // Runs come back newest first, so the NEXT entry is the previous state.
+        const before = maps[index + 1] ?? null;
+        // Over the union of both states, not just the current one. Visiting only what
+        // is here now cannot see a removal: a garment taken off deletes the slot, and a
+        // character who leaves the scene disappears entirely, so the message that did it
+        // reported no change at all — on a panel whose whole purpose is tracking things
+        // being put on and taken off.
+        const changes: { name: string; slots: string[] }[] = [];
+        for (const key of new Set([...now.keys(), ...(before?.keys() ?? [])])) {
+          const currentEntry = now.get(key);
+          const previousEntry = before?.get(key);
+          const current = currentEntry?.slots ?? new Map<string, string>();
+          const previous = previousEntry?.slots ?? new Map<string, string>();
+          const name = currentEntry?.name ?? previousEntry?.name ?? key;
+          const touched: string[] = [];
+          for (const slot of new Set([...current.keys(), ...previous.keys()])) {
+            if (current.get(slot) !== previous.get(slot)) touched.push(slot);
+          }
+          // A character who appears or disappears is a change even when they carried no
+          // tracked slots, and reporting only slot differences swallowed that entirely.
+          // The panel draws one badge per slot, so such an entry shows nothing there —
+          // which is right, because there is nothing to show — but the answer this route
+          // gives is now true rather than conveniently empty.
+          const presenceChanged = now.has(key) !== (before?.has(key) ?? false);
+          if (touched.length || presenceChanged) changes.push({ name, slots: touched.sort() });
+        }
+        return {
+          messageId: run.messageId ?? null,
+          createdAt: run.createdAt ?? null,
+          durationMs: run.durationMs ?? null,
+          success: run.success,
+          error: run.error ?? null,
+          characters: now.size,
+          slots: [...now.values()].reduce((total, entry) => total + entry.slots.size, 0),
+          // What THIS run changed, rather than everything it holds. Null when there is
+          // no earlier run to compare against: the first extraction in a chat did not
+          // "change" the whole body, it established it, and saying otherwise would put
+          // a wall of badges on one message.
+          changes: before ? changes : null,
+        };
+      });
+    },
+  );
 
   /** Get run interval status for built-in cadence-gated agents. */
   app.get<{ Params: { agentType: string; chatId: string } }>("/cadence/:agentType/:chatId", async (req, reply) => {
@@ -330,12 +453,12 @@ export async function agentsRoutes(app: FastifyInstance) {
   /** Edit the persisted output of a custom agent run. */
   app.patch<{ Params: { runId: string } }>("/runs/:runId", async (req, reply) => {
     const input = updateAgentRunSchema.parse(req.body);
-    const run = await storage.getRunWithConfig(req.params.runId);
+    const run = await storage.getRunWithConfig(req.params.runId, input.chatId);
     if (!run) return reply.status(404).send({ error: "Agent run not found" });
     if (BUILT_IN_AGENTS.some((agent) => agent.id === run.agentType)) {
       return reply.status(403).send({ error: "Built-in agent runs are not editable here" });
     }
-    return storage.updateRunResultData(req.params.runId, input.resultData);
+    return storage.updateRunResultData(req.params.runId, input.resultData, run.chatId ?? undefined);
   });
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {

@@ -40,7 +40,7 @@ import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { buildCardAssetMarkdown, dispatchCardAssetInsert } from "../../lib/card-asset-links";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn, copyToClipboard } from "../../lib/utils";
-import { downloadUrlToDevice } from "../../lib/file-download";
+import { downloadUrlToDevice, shouldUseIosImageShare } from "../../lib/file-download";
 import {
   ChatImageLightbox,
   ChatVideoLightbox,
@@ -257,16 +257,37 @@ export function ChatGallery({
     unpinImage(id);
     setConfirmDeleteId(null);
     if (lightbox?.id === id) setLightbox(null);
-    remove.mutate(id, {
-      onSuccess: () => {
-        toast.success(localizeUi("ui.chat.chatgallery.imageDeleted"));
+    // The image's own chatId is the owner (a Game-mode gallery shows sibling
+    // sessions' images too); fall back to the open chat only if the row is
+    // somehow not in the list.
+    remove.mutate(
+      { imageId: id, chatId: image?.chatId ?? chatId },
+      {
+        onSuccess: () => {
+          toast.success(localizeUi("ui.chat.chatgallery.imageDeleted"));
+        },
+        onError: (error) => {
+          if (wasPinned && image) pinImage({ ...image, chatId });
+          toast.error(error instanceof Error ? error.message : localizeUi("ui.chat.chatgallery.failedToDeleteImage"));
+        },
       },
-      onError: (error) => {
-        if (wasPinned && image) pinImage({ ...image, chatId });
-        toast.error(error instanceof Error ? error.message : localizeUi("ui.chat.chatgallery.failedToDeleteImage"));
-      },
-    });
+    );
   };
+
+  const handleDownloadImage = useCallback(
+    async (image: ChatImage) => {
+      if (shouldUseIosImageShare()) {
+        setLightbox(image);
+        return;
+      }
+      try {
+        await downloadUrlToDevice(image.url, getChatImageDownloadName(image));
+      } catch {
+        toast.error(localizeUi("ui.chat.chatgallery.downloadFailed"));
+      }
+    },
+    [localizeUi],
+  );
 
   const handleBatchDownload = useCallback(async () => {
     if (selectedImages.length === 0 || batchOperationPendingRef.current) return;
@@ -331,7 +352,7 @@ export function ChatGallery({
         const wasPinned = useGalleryStore.getState().pinnedImages.some((item) => item.id === image.id);
         unpinImage(image.id);
         try {
-          await remove.mutateAsync(image.id);
+          await remove.mutateAsync({ imageId: image.id, chatId: image.chatId });
         } catch {
           failedDeletes += 1;
           if (wasPinned) pinImage({ ...image, chatId });
@@ -1084,15 +1105,15 @@ export function ChatGallery({
                             >
                               <Pin size="0.75rem" />
                             </button>
-                            <a
-                              href={img.url}
-                              download={getChatImageDownloadName(img)}
+                            <button
+                              type="button"
+                              onClick={() => void handleDownloadImage(img)}
                               aria-label={localizeUi("ui.chat.chatgallery.downloadGalleryImage")}
                               className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
                               title={localizeUi("ui.chat.chatgallery.downloadImage")}
                             >
                               <Download size="0.75rem" />
-                            </a>
+                            </button>
                             {sceneVideosEnabled && onAnimateImage && (
                               <button
                                 type="button"

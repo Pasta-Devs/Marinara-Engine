@@ -26,7 +26,14 @@ import { APP_LANGUAGE_OPTIONS } from "../../localization/locale-loader";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn, copyToClipboard } from "../../lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ADMIN_SECRET_STORAGE_KEY, ApiError, api, getPrivilegedActionErrorMessage } from "../../lib/api-client";
+import {
+  ADMIN_SECRET_STORAGE_KEY,
+  ApiError,
+  api,
+  getPrivilegedActionErrorMessage,
+  isRequestTimeoutError,
+  requestTimeoutSignal,
+} from "../../lib/api-client";
 import { ANDROID_BRIDGE_READY_EVENT, getAndroidBridgeToken } from "../../lib/android-bridge";
 import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { normalizeThemeCss, sanitizeAppCss } from "../../lib/theme-css";
@@ -146,6 +153,7 @@ import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { TrackerSizeTierIcon } from "../ui/TrackerSizeTierIcon";
 import {
   ConversationSoundSetting,
+  MariPermissionsModeSetting,
   SettingsIntro,
   SettingsSection,
   SettingsSwitch,
@@ -161,7 +169,12 @@ import { useAgentImportPolicy, useSetAgentImportsEnabled } from "../../hooks/use
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
-import { detectBrowserGpu, formatSupportDiagnostics, resolveClientOs } from "../../lib/support-diagnostics";
+import {
+  detectBrowserGpu,
+  formatSupportDiagnostics,
+  resolveClientOs,
+  type SupportDiagnostics,
+} from "../../lib/support-diagnostics";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import {
@@ -642,6 +655,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Toggle",
   },
   {
+    id: "mari-permissions-mode",
+    sectionId: "application",
+    label: "Professor Mari Permissions Mode",
+    description: "When Mari may stage or apply workspace changes: Auto, Manual, Accept edits, Plan, or Bypass.",
+    aliases: ["mari", "permissions", "mode", "plan", "bypass", "accept", "manual", "approve"],
+    kind: "Select",
+  },
+  {
     id: "notification-conversation-sound",
     sectionId: "notifications",
     label: "Conversation mode notification sound",
@@ -1060,6 +1081,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     description: "Choose circular or square avatars in Conversation mode.",
     aliases: ["conversation", "avatar", "circle", "square"],
     kind: "Button group",
+  },
+  {
+    id: "show-characters-in-persona-pickers",
+    sectionId: "message-tools",
+    label: "Show Characters in Persona Pickers",
+    description: "Allow character cards to appear as user identities in chat.",
+    aliases: ["persona", "character", "play as", "identity"],
+    kind: "Toggle",
   },
   {
     id: "tracker-panel",
@@ -3523,6 +3552,7 @@ function GeneralSettings() {
             onChange={setProfessorMariNavigationEnabled}
             help={localizeUi("settings.controls.professorMariNavigation.help")}
           />
+          <MariPermissionsModeSetting anchorId={getSettingsControlAnchorId("mari-permissions-mode")} />
         </div>
       </SettingsSection>
 
@@ -5880,7 +5910,7 @@ function GenerationsSettings() {
   );
   const openDownloadAgents = useCallback(() => {
     openRightPanel("agents");
-    openAgentCatalog();
+    openAgentCatalog("illustrator");
   }, [openAgentCatalog, openRightPanel]);
 
   return (
@@ -6626,7 +6656,7 @@ type ProfileImportPreviewResult = {
   preview?: boolean;
   imported?: ProfileImportStats;
   warnings?: ProfileImportWarning[];
-  fileFingerprint?: string;
+  previewToken?: string;
   error?: string;
   message?: string;
 };
@@ -6701,8 +6731,10 @@ function getProfileImportItemCount(stats?: ProfileImportStats) {
 function getProfileImportWarningCopy(localizeUi: TFunction): ProfileImportWarningCopy {
   return {
     missingAssetSummary: (count) => localizeUi("ui.panels.importsettings.profileImportMissingAssets", { count }),
+    skippedAssetSummary: (count) => localizeUi("ui.panels.importsettings.profileImportSkippedAssets", { count }),
     securityWarningSummary: (count) => localizeUi("ui.panels.importsettings.profileImportSecurityWarnings", { count }),
     missingLabel: localizeUi("ui.panels.importsettings.profileImportMissingLabel"),
+    skippedLabel: localizeUi("ui.panels.importsettings.profileImportSkippedLabel"),
     additionalPaths: (count) => localizeUi("ui.panels.importsettings.profileImportAdditionalPaths", { count }),
     additionalMessages: (count) => localizeUi("ui.panels.importsettings.profileImportAdditionalMessages", { count }),
   };
@@ -6835,6 +6867,15 @@ function ImportSettings() {
   const handleProfileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    let previewToken: string | undefined;
+    const releaseProfilePreview = async () => {
+      if (!previewToken) return;
+      const token = previewToken;
+      previewToken = undefined;
+      await api
+        .raw(`/backup/import-profile-preview/${encodeURIComponent(token)}`, { method: "DELETE" })
+        .catch(() => {});
+    };
     const startedAt = Date.now();
     const makeImportBody = (isZip: boolean, text: string): BodyInit => {
       if (!isZip) return text;
@@ -6895,6 +6936,7 @@ function ImportSettings() {
       if (preview.success === false) {
         throw new Error(preview.message ?? preview.error ?? "Unknown error");
       }
+      previewToken = preview.previewToken;
       const previewWarnings = normalizeProfileImportWarnings(preview.warnings);
       const previewTotalItems = Math.max(1, getProfileImportItemCount(preview.imported));
       setProfileImportProgress({
@@ -6916,6 +6958,7 @@ function ImportSettings() {
         tone: "destructive",
       });
       if (!confirmed) {
+        await releaseProfilePreview();
         setProfileImportProgress(null);
         e.target.value = "";
         return;
@@ -6945,7 +6988,11 @@ function ImportSettings() {
           ? {
               ...current,
               status: "starting",
-              label: isZip ? "Uploading profile archive" : "Starting profile import",
+              label: previewToken
+                ? "Starting profile import"
+                : isZip
+                  ? "Uploading profile archive"
+                  : "Starting profile import",
               elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
             }
           : current,
@@ -6954,9 +7001,9 @@ function ImportSettings() {
         method: "POST",
         headers: {
           Accept: "text/event-stream",
-          ...(preview.fileFingerprint ? { "X-Profile-Preview-Fingerprint": preview.fileFingerprint } : {}),
+          ...(previewToken ? { "X-Profile-Preview-Token": previewToken } : {}),
         },
-        body: makeImportBody(isZip, profileText),
+        body: previewToken ? undefined : makeImportBody(isZip, profileText),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
@@ -7035,7 +7082,9 @@ function ImportSettings() {
       if (!importCompleted) {
         throw new Error("Profile import stream closed before completion.");
       }
+      previewToken = undefined;
     } catch (err) {
+      await releaseProfilePreview();
       const message =
         err instanceof SyntaxError
           ? "Import failed. Make sure this is a valid profile JSON or ZIP file."
@@ -7371,8 +7420,12 @@ function AdvancedSettings() {
   const setShowModelName = useUIStore((s) => s.setShowModelName);
   const showTokenUsage = useUIStore((s) => s.showTokenUsage);
   const setShowTokenUsage = useUIStore((s) => s.setShowTokenUsage);
+  const showContextUsage = useUIStore((s) => s.showContextUsage);
+  const setShowContextUsage = useUIStore((s) => s.setShowContextUsage);
   const showMessageNumbers = useUIStore((s) => s.showMessageNumbers);
   const setShowMessageNumbers = useUIStore((s) => s.setShowMessageNumbers);
+  const showCharactersInPersonaPickers = useUIStore((s) => s.showCharactersInPersonaPickers);
+  const setShowCharactersInPersonaPickers = useUIStore((s) => s.setShowCharactersInPersonaPickers);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const setGuideGenerations = useUIStore((s) => s.setGuideGenerations);
   const includeReasoningInExports = useUIStore((s) => s.includeReasoningInExports);
@@ -7674,25 +7727,53 @@ function AdvancedSettings() {
       heapLimitMiB: number;
       rssMiB: number;
     };
+    wakeLock?: string | null;
+    lastFreeze?: { detectedAt: string; gapMs: number; suspendedMs: number } | null;
   }>({
     queryKey: ["health"],
-    queryFn: () => api.get("/health"),
+    // Against a frozen host this fetch would otherwise pend forever, leaving
+    // supportDiagnosticsPending true and the copy button disabled with no
+    // explanation (#5657). A deadline turns that into a distinguishable error.
+    queryFn: ({ signal }) => api.get("/health", { signal: requestTimeoutSignal(10_000, signal) }),
     staleTime: 60_000,
+    // failureCount < 1 preserves the app-wide default of one retry (main.tsx);
+    // only the timeout carve-out is new.
+    retry: (failureCount, error) => !isRequestTimeoutError(error) && failureCount < 1,
   });
   const connections = (rawConnections ?? []) as APIConnection[];
   const activeConnection = activeChat?.connectionId
     ? (connections.find((connection) => connection.id === activeChat.connectionId) ?? null)
     : (connections.find((connection) => connection.isDefault) ?? null);
-  const supportDiagnosticsPending = isConnectionsLoading || (!!activeChatId && isActiveChatLoading);
+  // Health is included so a copy taken before the query settles cannot label
+  // pending wake-lock/freeze telemetry as genuinely absent (#5656 review).
+  const supportDiagnosticsPending = isConnectionsLoading || (!!activeChatId && isActiveChatLoading) || health.isPending;
 
   const handleCopySupportDiagnostics = useCallback(async () => {
+    // #5740: include what Mari last reported acting on - the load-bearing
+    // triage line for "she edited something I never asked for" reports.
+    // Best-effort: a failed fetch reads as unavailable, never blocks the copy.
+    // The deadline matters most on the frozen host this button exists for
+    // (#5657) - without it the fetch pends forever and no report is copied.
+    const mariActingOn = await api
+      .get<{
+        latestUnderstoodRequest: SupportDiagnostics["mariActingOn"];
+      }>("/professor-mari/workspace/status", { signal: requestTimeoutSignal(5_000) })
+      .then((status) => status.latestUnderstoodRequest ?? null)
+      .catch(() => undefined);
     const copied = await copyToClipboard(
       formatSupportDiagnostics({
+        mariActingOn,
+        // Distinguish "the server never answered" (frozen host) from ordinary
+        // missing fields so support reports carry the signal (#5657): the
+        // formatter renders every server telemetry line as unreachable.
+        serverUnreachable: isRequestTimeoutError(health.error),
         version: health.data?.version ?? APP_VERSION,
         build: health.data?.build ?? APP_VERSION,
         commit: health.data?.commit ?? null,
-        serverOs: health.data?.serverOs ?? "Unavailable",
+        serverOs: health.data?.serverOs ?? "",
         serverMemory: health.data?.memory,
+        wakeLock: health.data?.wakeLock ?? null,
+        lastFreeze: health.data?.lastFreeze ?? null,
         clientOs: resolveClientOs(navigator.userAgent, navigator.platform, navigator.maxTouchPoints),
         browser: navigator.userAgent,
         gpu: detectBrowserGpu(),
@@ -7706,7 +7787,7 @@ function AdvancedSettings() {
     } else {
       toast.error(localizeUi("ui.panels.advancedsettings.supportDiagnosticsCopyFailed"));
     }
-  }, [activeConnection, health.data, localizeUi]);
+  }, [activeConnection, health.data, health.error, localizeUi]);
 
   const deleteBackupMutation = useMutation({
     mutationFn: (name: string) => api.delete(`/backup/${name}`),
@@ -7772,7 +7853,13 @@ function AdvancedSettings() {
     applyAvailable?: boolean;
     channelSwitch?: boolean;
     updatesApplyEnabled?: boolean;
-    applyUnavailableReason?: "disabled" | "unsupported-install" | "container-install" | null;
+    applyUnavailableReason?:
+      | "disabled"
+      | "hard-disabled"
+      | "dev-branch"
+      | "unsupported-install"
+      | "container-install"
+      | null;
     manualUpdateCommand?: string | null;
     manualUpdateHint?: string | null;
   }>({
@@ -7840,9 +7927,13 @@ function AdvancedSettings() {
   const applyUnavailableCopy =
     applyUnavailableReason === "container-install"
       ? "Container installs cannot replace themselves from inside the browser. Pull the release image tag or latest image on the host, then restart the container."
-      : applyUnavailableReason === "disabled"
-        ? "This install can check for updates, but applying them from the browser is disabled. Update manually with the command below. Advanced git installs can enable server-side apply with UPDATES_APPLY_ENABLED=true."
-        : "This install can check for updates, but it cannot apply them from the browser. Relaunch the app if you use the launcher, or update manually for your install type.";
+      : applyUnavailableReason === "hard-disabled"
+        ? "Applying updates from the browser is blocked for this server instance (UPDATES_APPLY_DISABLED). The dev and e2e launchers set this so a browser tab cannot rewrite a development checkout."
+        : applyUnavailableReason === "dev-branch"
+          ? "This checkout is on a development branch, so applying updates from the browser is blocked to protect work in progress. Update the checkout manually if you really intend to."
+          : applyUnavailableReason === "disabled"
+            ? "This install can check for updates, but applying them from the browser is disabled. Update manually with the command below. Advanced git installs can enable server-side apply with UPDATES_APPLY_ENABLED=true."
+            : "This install can check for updates, but it cannot apply them from the browser. Relaunch the app if you use the launcher, or update manually for your install type.";
   const isClearing = clearAllData.isPending || expungeData.isPending;
   const isAllScopesSelected = selectedScopes.length === EXPUNGE_SCOPE_OPTIONS.length;
 
@@ -8208,6 +8299,13 @@ function AdvancedSettings() {
             help={localizeUi("settings.controls.showTimestamps.help")}
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-characters-in-persona-pickers")}
+            label={localizeUi("settings.controls.showCharactersInPersonaPickers.label")}
+            checked={showCharactersInPersonaPickers}
+            onChange={setShowCharactersInPersonaPickers}
+            help={localizeUi("settings.controls.showCharactersInPersonaPickers.description")}
+          />
+          <ToggleSetting
             anchorId={getSettingsControlAnchorId("show-model-name")}
             label={localizeUi("settings.controls.showModelName.label")}
             checked={showModelName}
@@ -8220,6 +8318,13 @@ function AdvancedSettings() {
             checked={showTokenUsage}
             onChange={setShowTokenUsage}
             help={localizeUi("settings.controls.showTokenUsage.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-context-usage")}
+            label={localizeUi("settings.controls.showContextUsage.label")}
+            checked={showContextUsage}
+            onChange={setShowContextUsage}
+            help={localizeUi("settings.controls.showContextUsage.help")}
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("show-message-numbers")}

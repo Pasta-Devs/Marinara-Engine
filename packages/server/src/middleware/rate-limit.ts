@@ -29,12 +29,40 @@ export const AVATAR_STORAGE_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+export const SPRITE_RENAME_RATE_LIMIT = {
+  max: 60,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 export const ADMIN_RESTART_RATE_LIMIT = {
   max: 5,
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/**
+ * Operator corrections to Beholder's physical state.
+ *
+ * A person fixing slots clicks Apply a handful of times a minute; this is far above
+ * that and still bounds an authorized write to the state the next prompt is built from.
+ */
+export const BEHOLDER_STATE_RATE_LIMIT = {
+  max: 60,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 export const BACKUP_RATE_LIMIT = {
+  max: 60,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
+/**
+ * The utility model slot's API.
+ *
+ * Generous enough for the UI to poll status and routing while a page is open, tight
+ * enough that install and start — which spawn processes and download hundreds of
+ * megabytes — cannot be hammered.
+ */
+export const UTILITY_SIDECAR_RATE_LIMIT = {
   max: 60,
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;

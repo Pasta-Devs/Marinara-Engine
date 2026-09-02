@@ -4,11 +4,7 @@
 // Supports V2 and V3 character card specs
 // ──────────────────────────────────────────────
 
-import { MAX_FILE_SIZES } from "@marinara-engine/shared";
-
 const CHARA_KEYWORDS = new Set(["ccv3", "chara"]);
-// zTXt card metadata may be raw JSON or base64 (up to 4/3 the JSON size).
-const MAX_CHARACTER_CARD_CHUNK_SIZE = Math.ceil(MAX_FILE_SIZES.CHARACTER_JSON / 3) * 4;
 
 /** Find the first null byte in a Uint8Array starting from `from`. */
 function findNull(data: Uint8Array, from: number): number {
@@ -43,10 +39,6 @@ async function inflateZlib(data: Uint8Array): Promise<Uint8Array> {
       if (done) break;
 
       totalLength += value.byteLength;
-      if (totalLength > MAX_CHARACTER_CARD_CHUNK_SIZE) {
-        await reader.cancel().catch(() => undefined);
-        throw new Error("Compressed character metadata exceeds the allowed size");
-      }
       chunks.push(value);
     }
   } finally {

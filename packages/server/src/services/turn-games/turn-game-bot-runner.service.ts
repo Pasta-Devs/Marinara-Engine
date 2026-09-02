@@ -438,7 +438,7 @@ export async function runTurnGameBotTurns(args: RunBotTurnsArgs): Promise<void> 
       .join(" ");
 
     if (SILENT_BOT_MOVE_GAME_TYPES.has(engine.gameType)) {
-      await engineStorage.updateStateById(active.row.id, JSON.stringify(nextState), true);
+      await engineStorage.updateStateById(active.row.id, JSON.stringify(nextState), true, active.row.chatId);
     } else {
       // ── Narration: a natural in-character turn — may banter with the table AND flavor the move ──
       let narration = await narrateOutcome(

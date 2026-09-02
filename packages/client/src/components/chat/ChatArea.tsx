@@ -48,7 +48,7 @@ import { usePageActivity } from "../../hooks/use-page-activity";
 import { useRenderTimer, useWhyRender } from "../../lib/perf-diagnostics";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { useKeepLatestChatMessageVisible } from "../../hooks/use-visual-viewport-chat-bottom";
-import { api, ApiError } from "../../lib/api-client";
+import { api, ApiError, isRequestTimeoutError } from "../../lib/api-client";
 import { getChatDisplayName, getConnectedChatDisplayName, parseChatMetadata } from "../../lib/chat-display";
 import { getChatCharacterIds } from "../../lib/chat-macros";
 import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
@@ -533,7 +533,12 @@ export const ChatArea = memo(function ChatArea() {
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const [selectionAnchorIndex, setSelectionAnchorIndex] = useState<number | null>(null);
 
-  const { data: chatDetail, error: chatError, isFetched: chatDetailFetched } = useChat(activeChatId);
+  const {
+    data: chatDetail,
+    error: chatError,
+    isFetched: chatDetailFetched,
+    refetch: refetchChatDetail,
+  } = useChat(activeChatId);
   const { data: allChats } = useChats();
   const listedActiveChat = useMemo(
     () => (activeChatId ? (allChats?.find((candidate) => candidate.id === activeChatId) ?? null) : null),
@@ -670,6 +675,19 @@ export const ChatArea = memo(function ChatArea() {
     enabled: !!chat?.id && chat.id === activeChatId && isGameChat,
     includeBuiltIn: true,
   });
+  // Only the selected identity card is needed here, so fetch that one row
+  // instead of the whole character library. [PR #5583]
+  const identityCharacterId = isGameChat ? null : (chat?.personaCharacterId ?? null);
+  const identityCharacterQueries = useQueries({
+    queries: (identityCharacterId ? [identityCharacterId] : []).map((id) => ({
+      queryKey: characterKeys.detail(id),
+      queryFn: () => api.get<CharacterRow>(`/characters/${id}`),
+      enabled: !!chat?.id && chat.id === activeChatId,
+      retry: false,
+      staleTime: 5 * 60_000,
+    })),
+  });
+  const identityCharacterRow = identityCharacterQueries[0]?.data ?? null;
   const deleteMessage = useDeleteMessage(activeChatId);
   const deleteMessages = useDeleteMessages(activeChatId);
   const deleteSwipe = useDeleteSwipe(activeChatId);
@@ -952,10 +970,51 @@ export const ChatArea = memo(function ChatArea() {
   const personaInfo = useMemo(() => {
     // Roleplay and Game may intentionally have no Persona; only Conversation
     // falls back to the globally active account Persona.
+    if (chat?.personaCharacterId) {
+      const row = identityCharacterRow;
+      if (row && row.id === chat.personaCharacterId) {
+        try {
+          const rawData = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
+          const data = rawData && typeof rawData === "object" && !Array.isArray(rawData) ? rawData : {};
+          const extensions = data?.extensions ?? {};
+          const conversationStatus =
+            extensions.conversationStatus === "online" ||
+            extensions.conversationStatus === "idle" ||
+            extensions.conversationStatus === "dnd" ||
+            extensions.conversationStatus === "offline"
+              ? extensions.conversationStatus
+              : undefined;
+          return {
+            id: row.id,
+            source: "character" as const,
+            name: typeof data?.name === "string" && data.name.trim() ? data.name : "Unknown",
+            convoDisplayName: typeof extensions.convoDisplayName === "string" ? extensions.convoDisplayName : undefined,
+            phoneticName: typeof extensions.phoneticName === "string" ? extensions.phoneticName : undefined,
+            description: typeof data?.description === "string" ? data.description : undefined,
+            personality: typeof data?.personality === "string" ? data.personality : undefined,
+            scenario: typeof data?.scenario === "string" ? data.scenario : undefined,
+            backstory: typeof extensions.backstory === "string" ? extensions.backstory : undefined,
+            appearance: typeof extensions.appearance === "string" ? extensions.appearance : undefined,
+            avatarUrl: row.avatarPath || undefined,
+            avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
+            nameColor: typeof extensions.nameColor === "string" ? extensions.nameColor : undefined,
+            dialogueColor: typeof extensions.dialogueColor === "string" ? extensions.dialogueColor : undefined,
+            boxColor: typeof extensions.boxColor === "string" ? extensions.boxColor : undefined,
+            conversationStatus,
+            conversationActivity:
+              typeof extensions.conversationActivity === "string" ? extensions.conversationActivity : undefined,
+          };
+        } catch {
+          return undefined;
+        }
+      }
+      return undefined;
+    }
     const persona = chatPersona ?? (chatMode === "conversation" ? activePersonaFallback : null);
     if (!persona) return undefined;
     return {
       id: persona.id,
+      source: "persona" as const,
       name: persona.name,
       convoDisplayName: persona.convoDisplayName || undefined,
       phoneticName: persona.phoneticName || undefined,
@@ -970,7 +1029,7 @@ export const ChatArea = memo(function ChatArea() {
       dialogueColor: persona.dialogueColor || undefined,
       boxColor: persona.boxColor || undefined,
     };
-  }, [activePersonaFallback, chatMode, chatPersona]);
+  }, [activePersonaFallback, chat, chatMode, chatPersona, identityCharacterRow]);
 
   const { startEncounter } = useEncounter();
   const { concludeScene, abandonScene, forkScene, isForking } = useScene();
@@ -2817,8 +2876,10 @@ export const ChatArea = memo(function ChatArea() {
   // Restoring persisted active chat
   // ═══════════════════════════════════════════════
   if (activeChatId && !chat) {
-    const errorMessage =
-      chatError instanceof ApiError
+    const chatOpenTimedOut = isRequestTimeoutError(chatError);
+    const errorMessage = chatOpenTimedOut
+      ? localizeUi("ui.chat.chatarea.serverUnreachableHint")
+      : chatError instanceof ApiError
         ? chatError.message
         : chatError instanceof Error
           ? chatError.message
@@ -2837,7 +2898,9 @@ export const ChatArea = memo(function ChatArea() {
           <div className="space-y-1">
             <p className="text-sm font-medium text-[var(--foreground)]">
               {hasOpenError
-                ? localizeUi("ui.chat.chatarea.couldNotOpenThisChat")
+                ? chatOpenTimedOut
+                  ? localizeUi("ui.chat.chatarea.serverUnreachable")
+                  : localizeUi("ui.chat.chatarea.couldNotOpenThisChat")
                 : localizeUi("ui.chat.chatarea.openingChat")}
             </p>
             {hasOpenError && (
@@ -2845,13 +2908,27 @@ export const ChatArea = memo(function ChatArea() {
             )}
           </div>
           {hasOpenError && (
-            <button
-              type="button"
-              onClick={() => setActiveChatId(null)}
-              className="mari-chrome-control mari-chrome-control--small text-xs"
-            >
-              {localizeUi("ui.chat.chatarea.backToChats")}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* The unreachable hint tells the user to try again after
+                  foregrounding Termux; with focus-refetch globally off and
+                  timeout retries disabled, this button is the recovery path. */}
+              {chatOpenTimedOut && (
+                <button
+                  type="button"
+                  onClick={() => void refetchChatDetail()}
+                  className="mari-chrome-control mari-chrome-control--small text-xs"
+                >
+                  {localizeUi("ui.chat.chatarea.tryAgain")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setActiveChatId(null)}
+                className="mari-chrome-control mari-chrome-control--small text-xs"
+              >
+                {localizeUi("ui.chat.chatarea.backToChats")}
+              </button>
+            </div>
           )}
         </div>
       </div>

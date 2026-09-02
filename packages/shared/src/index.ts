@@ -7,6 +7,7 @@ export * from "./types/tts.js";
 export * from "./types/chat.js";
 export * from "./types/spotify.js";
 export * from "./types/character.js";
+export * from "./types/character-catalog.js";
 export * from "./types/lorebook.js";
 export * from "./types/prompt.js";
 export * from "./types/connection.js";
@@ -23,6 +24,7 @@ export * from "./types/theme.js";
 export * from "./types/chat-preset.js";
 export * from "./types/game.js";
 export * from "./types/sidecar.js";
+export * from "./types/utility-sidecar.js";
 export * from "./types/image-generation-defaults.js";
 export * from "./types/video-generation-defaults.js";
 export * from "./types/video-generation-settings.js";
@@ -88,6 +90,7 @@ export * from "./constants/achievements.js";
 export * from "./constants/tracker-custom-field-icons.js";
 export * from "./constants/stat-icons.js";
 export * from "./constants/docs-languages.js";
+export * from "./constants/mari-permissions-mode.js";
 
 // Feature registries
 export * from "./features/agents/agent-manifest.types.js";

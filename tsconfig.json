@@ -1,14 +1,26 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"],
     "typeRoots": ["./node_modules/@types", "./packages/server/node_modules/@types"],
     "noEmit": true,
     "declaration": false,
     "declarationMap": false,
     "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "noUnusedParameters": false,
+    // The page-context aliases in e2e/page-context-modules.d.ts type-query
+    // real client/shared sources so the specs type-check against the actual
+    // app APIs; these mappings let those sources resolve their own imports
+    // without building anything first (lib is ES2023 to match the client
+    // project those sources normally compile under). Note: Playwright's own
+    // transpiler also honors these paths when it resolves NODE-side imports
+    // in spec files, so keep them pointing at import-compatible sources —
+    // today only a type-only import uses a mapped specifier.
+    "paths": {
+      "@marinara-engine/shared": ["./packages/shared/src/index.ts"],
+      "@/*": ["./packages/client/src/*"]
+    }
   },
   "include": ["e2e/**/*.ts", "playwright.config.ts"]
 }

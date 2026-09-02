@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { createGameStateStorage } from "../services/storage/game-state.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import { mapSheetAttributesToRPG } from "../services/game/skill-check.service.js";
@@ -25,7 +26,6 @@ import type {
   EncounterLogEntry,
   RPGStatsConfig,
 } from "@marinara-engine/shared";
-import { resolveActivePersonaCandidate } from "./generate/generate-route-utils.js";
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -164,9 +164,13 @@ async function buildPersonaContext(
   chars: ReturnType<typeof createCharactersStorage>,
   chatPersonaId: string | null,
   chatMode?: string | null,
+  personaCharacterId?: string | null,
 ) {
-  const allPersonas = await chars.listPersonas();
-  const persona = resolveActivePersonaCandidate(allPersonas, chatPersonaId, chatMode);
+  const persona = await resolveChatUserIdentity(chars, {
+    personaId: chatPersonaId,
+    personaCharacterId,
+    mode: chatMode,
+  });
   if (!persona) return { personaName: "User", personaCtx: "No persona information available." };
   let ctx = `Name: ${persona.name}\n`;
   const description = cardPromptText(persona.description);
@@ -181,15 +185,16 @@ async function buildPersonaContext(
   // combat-init AI uses the user-defined HP instead of inventing values.
   // `personaStats` is stored as a JSON string of { enabled, bars, rpgStats? }.
   let personaStats: Record<string, unknown> | null = null;
-  if (persona.personaStats) {
-    if (typeof persona.personaStats === "string") {
+  const personaStatsValue = (persona as typeof persona & { personaStats?: unknown }).personaStats;
+  if (personaStatsValue) {
+    if (typeof personaStatsValue === "string") {
       try {
-        personaStats = JSON.parse(persona.personaStats);
+        personaStats = JSON.parse(personaStatsValue);
       } catch {
         personaStats = null;
       }
     } else {
-      personaStats = persona.personaStats as Record<string, unknown>;
+      personaStats = personaStatsValue as Record<string, unknown>;
     }
   }
   // Only configured maxes are exposed — combat always starts at full HP.
@@ -592,7 +597,12 @@ export async function encounterRoutes(app: FastifyInstance) {
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
       const characterCtx = await buildCharacterContext(chars, characterIds);
-      const { personaName, personaCtx } = await buildPersonaContext(chars, chat.personaId ?? null, chat.mode);
+      const { personaName, personaCtx } = await buildPersonaContext(
+        chars,
+        chat.personaId ?? null,
+        chat.mode,
+        chat.personaCharacterId,
+      );
       let chatMeta: Record<string, unknown> | null = null;
       if (typeof chat.metadata === "string") {
         try {
@@ -703,7 +713,12 @@ export async function encounterRoutes(app: FastifyInstance) {
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
       const characterCtx = await buildCharacterContext(chars, characterIds);
-      const { personaName, personaCtx } = await buildPersonaContext(chars, chat.personaId ?? null, chat.mode);
+      const { personaName, personaCtx } = await buildPersonaContext(
+        chars,
+        chat.personaId ?? null,
+        chat.mode,
+        chat.personaCharacterId,
+      );
       const spellbookCtx = await loadSpellbookContext(spellbookId);
 
       const chatMessages = await chats.listMessages(chatId);
@@ -805,7 +820,12 @@ export async function encounterRoutes(app: FastifyInstance) {
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
       const characterCtx = await buildCharacterContext(chars, characterIds);
-      const { personaName, personaCtx } = await buildPersonaContext(chars, chat.personaId ?? null, chat.mode);
+      const { personaName, personaCtx } = await buildPersonaContext(
+        chars,
+        chat.personaId ?? null,
+        chat.mode,
+        chat.personaCharacterId,
+      );
 
       const prompt = buildSummaryPrompt(
         personaName,

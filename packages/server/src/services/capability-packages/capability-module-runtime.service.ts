@@ -65,6 +65,12 @@ async function createCapabilityRuntimeHost(app: FastifyInstance, packageId: stri
     : createCapabilityEmbeddingHost();
   return Object.freeze({
     embeddings,
+    async resolveEmbeddings() {
+      const config = await agents?.getByType(packageId);
+      return app.db
+        ? createConfiguredCapabilityEmbeddingHost(app.db, config?.connectionId)
+        : createCapabilityEmbeddingHost();
+    },
     async getAgentConfig() {
       const config = await agents?.getByType(packageId);
       return config ? { connectionId: config.connectionId, settings: parseAgentSettingsRecord(config.settings) } : null;

@@ -480,6 +480,28 @@ async function readInstalledAgentDefinitions(installed: InstalledCapabilityPacka
   return packagedAgentDefinitionsSchema.parse(JSON.parse(await readFile(file, "utf8")));
 }
 
+async function hydratePreviousManifest(installed: InstalledCapabilityPackage): Promise<InstalledCapabilityPackage> {
+  if (installed.previousManifest || !installed.previousVersion) return installed;
+  const manifestFile = inside(VERSIONS, join(VERSIONS, installed.id, installed.previousVersion, "manifest.json"));
+  if (!existsSync(manifestFile)) return installed;
+  const previousManifest = capabilityPackageManifestSchema.parse(JSON.parse(await readFile(manifestFile, "utf8")));
+  if (previousManifest.id !== installed.id || previousManifest.version !== installed.previousVersion) return installed;
+  return { ...installed, previousManifest };
+}
+
+async function resolveServableInstalledPackage(
+  installed: InstalledCapabilityPackage,
+): Promise<InstalledCapabilityPackage | null> {
+  if (isInstalledCapabilityReady(installed)) return installed;
+  const hydrated = await hydratePreviousManifest(installed);
+  if (hydrated.status !== "restart-required" || !hydrated.previousVersion || !hydrated.previousManifest) return null;
+  return {
+    ...hydrated,
+    version: hydrated.previousVersion,
+    manifest: hydrated.previousManifest,
+  };
+}
+
 type VerifiedInstalledPackageFile = { file: string; data: Buffer };
 
 async function readVerifiedInstalledPackageFile(
@@ -667,8 +689,15 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
     await rm(destination, { recursive: true, force: true });
     await rename(temporary, destination);
     const registry = await readRegistry();
-    const previous = registry.packages.find((item) => item.id === manifest.id);
+    const registryPrevious = registry.packages.find((item) => item.id === manifest.id);
+    const previous = registryPrevious ? await hydratePreviousManifest(registryPrevious) : undefined;
     assertNotDowngrade(previous, manifest.version);
+    const activePrevious =
+      previous?.status === "restart-required" && previous.previousVersion && previous.previousManifest
+        ? { version: previous.previousVersion, manifest: previous.previousManifest }
+        : previous
+          ? { version: previous.version, manifest: previous.manifest }
+          : null;
     const installed: InstalledCapabilityPackage = {
       id: manifest.id,
       version: manifest.version,
@@ -679,7 +708,9 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
       readiness: manifest.entrypoints.server ? "pending" : "ready",
       readinessError: null,
       legacy: false,
-      ...(previous && previous.version !== manifest.version ? { previousVersion: previous.version } : {}),
+      ...(activePrevious && activePrevious.version !== manifest.version
+        ? { previousVersion: activePrevious.version, previousManifest: activePrevious.manifest }
+        : {}),
     };
     await writeRegistry([...registry.packages.filter((item) => item.id !== manifest.id), installed]);
     try {
@@ -843,7 +874,7 @@ export const capabilityPackageManager = {
   },
 
   async installed() {
-    return (await readRegistry()).packages;
+    return Promise.all((await readRegistry()).packages.map(hydratePreviousManifest));
   },
 
   async diagnostics() {
@@ -911,21 +942,23 @@ export const capabilityPackageManager = {
 
   async clientEntrypoint(packageId: string) {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
-    if (!installed || !isInstalledCapabilityReady(installed)) return null;
-    const entrypoint = installed.manifest.entrypoints.client;
+    if (!installed) return null;
+    const servable = await resolveServableInstalledPackage(installed);
+    if (!servable) return null;
+    const entrypoint = servable.manifest.entrypoints.client;
     if (!entrypoint) return null;
     // The manifest-recorded hash doubles as a strong HTTP validator (ETag): it
     // is the same value the read below re-verifies the bytes against.
-    const declaration = installed.manifest.files.find(
+    const declaration = servable.manifest.files.find(
       (item) => normalizeArchivePath(item.path) === normalizeArchivePath(entrypoint),
     );
     if (!declaration) return null;
     // The client path verifies by reading on EVERY request — return the
     // verified bytes so the route serves exactly what was hashed instead of
     // re-reading the file a second time.
-    const verified = await readVerifiedInstalledPackageFile(installed, entrypoint);
+    const verified = await readVerifiedInstalledPackageFile(servable, entrypoint);
     return {
-      installed,
+      installed: servable,
       sha256: declaration.sha256,
       file: verified.file,
       data: verified.data,
@@ -939,7 +972,9 @@ export const capabilityPackageManager = {
    *  TOCTOU re-verification below it are identical for both sources. */
   async packageAsset(packageId: string, assetPath: string) {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
-    if (!installed || !isInstalledCapabilityReady(installed)) return null;
+    if (!installed) return null;
+    const servable = await resolveServableInstalledPackage(installed);
+    if (!servable) return null;
     // Every normalization below treats an unsafe path — requested OR declared —
     // as simply "not servable" (404). Declared paths are manifest-controlled,
     // and a single throwing declaration must not 500 the whole asset surface.
@@ -955,11 +990,11 @@ export const capabilityPackageManager = {
     // The in-package manifest is metadata about the artifact, never an asset —
     // it cannot be hash-pinned by itself, so refuse it outright.
     if (normalizedPath === "manifest.json") return null;
-    const iconPaths = installed.manifest.contributions?.homeBrowserTab?.iconPaths ?? [];
-    const declaredAssetPaths = installed.manifest.contributions?.assets?.paths ?? [];
+    const iconPaths = servable.manifest.contributions?.homeBrowserTab?.iconPaths ?? [];
+    const declaredAssetPaths = servable.manifest.contributions?.assets?.paths ?? [];
     const allowed = [...iconPaths, ...declaredAssetPaths].some((path) => tryNormalize(path) === normalizedPath);
     if (!allowed) return null;
-    const declaration = installed.manifest.files.find((item) => tryNormalize(item.path) === normalizedPath);
+    const declaration = servable.manifest.files.find((item) => tryNormalize(item.path) === normalizedPath);
     if (!declaration) return null;
     const contentType = PACKAGE_ASSET_CONTENT_TYPES.get(extname(normalizedPath).toLowerCase());
     if (!contentType) return null;
@@ -971,9 +1006,9 @@ export const capabilityPackageManager = {
     // NOTE: an on-disk integrity failure below still THROWS (lifecycle
     // regression pins it) — tampering must be loud, not a quiet 404. Only
     // manifest-shape problems above degrade to "not servable".
-    const verified = await readVerifiedInstalledPackageFile(installed, normalizedPath);
+    const verified = await readVerifiedInstalledPackageFile(servable, normalizedPath);
     return {
-      installed,
+      installed: servable,
       contentType,
       sha256: declaration.sha256,
       file: verified.file,
@@ -1023,6 +1058,7 @@ export const capabilityPackageManager = {
       readiness: "pending",
       readinessError: null,
       previousVersion: undefined,
+      previousManifest: undefined,
     };
     if (runtimeBlockReason(restored)) return null;
     registry.packages[index] = restored;

@@ -14,6 +14,10 @@ export function isGlm52Model(model: string): boolean {
   return /(?:^|\/)glm-5\.2(?:$|[-:])/u.test(model.toLowerCase());
 }
 
+export function isGlm53FlashMandatoryReasoningModel(model: string): boolean {
+  return /(?:^|\/)glm-5\.3-flash(?:$|[-:])/u.test(model.toLowerCase());
+}
+
 export function isNativeGlmEndpoint(baseUrl: string): boolean {
   try {
     const hostname = new URL(baseUrl).hostname.toLowerCase();
@@ -50,6 +54,7 @@ export function applyGlmThinkingParameters(body: Record<string, unknown>, option
     return true;
   }
 
-  body.enable_thinking = thinkingEnabled;
+  body.enable_thinking =
+    options.providerKind === "nanogpt" && isGlm53FlashMandatoryReasoningModel(options.model) ? true : thinkingEnabled;
   return true;
 }

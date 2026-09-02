@@ -214,6 +214,7 @@ export interface CreatePersonaCommand {
 export interface CreateCharacterCommand {
   type: "create_character";
   name: string;
+  summary?: string;
   description?: string;
   personality?: string;
   firstMessage?: string;
@@ -240,6 +241,7 @@ export interface CreateCharacterCommand {
 export interface UpdateCharacterCommand {
   type: "update_character";
   name: string;
+  summary?: string;
   description?: string;
   personality?: string;
   firstMessage?: string;
@@ -1087,6 +1089,7 @@ function applyCommonCharacterFields(
   };
 
   assignText("description", "description");
+  assignText("summary", "summary");
   assignText("personality", "personality");
   assignText("firstMessage", "first_message");
   assignText("scenario", "scenario");

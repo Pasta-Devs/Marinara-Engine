@@ -13,7 +13,8 @@ export interface CreateSpatialSnapshotInput {
 }
 
 export interface SpatialContextStorage {
-  getById(id: string): Promise<SpatialContextSnapshot | null>;
+  /** chatId is optional but keeps the lazy file store from loading every chat's shards for a bare-id probe. */
+  getById(id: string, chatId?: string): Promise<SpatialContextSnapshot | null>;
   getByAnchor(chatId: string, messageId: string, swipeIndex: number): Promise<SpatialContextSnapshot | null>;
   getByCommand(chatId: string, commandId: string): Promise<SpatialContextSnapshot | null>;
   listByAnchors(

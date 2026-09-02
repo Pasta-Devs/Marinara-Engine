@@ -40,6 +40,10 @@ export interface AvatarCropWidgetProps {
 }
 
 const MIN_CROP_PX = 24;
+/** Drawn size of a corner handle. */
+const HANDLE_VISUAL_PX = 14;
+/** Touch target around it — the usual 44px mobile minimum. */
+const HANDLE_TOUCH_PX = 44;
 const MAX_DISPLAY_W = 360;
 const MAX_DISPLAY_H = 360;
 
@@ -369,24 +373,39 @@ function CornerHandle({
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerUp: () => void;
 }) {
-  const base: React.CSSProperties = {
-    position: "absolute",
-    width: 14,
-    height: 14,
-    background: "white",
-    border: "1px solid black",
-    borderRadius: 2,
-  };
+  // The visible square stays small, but a 14px target is roughly 3.5mm on a phone
+  // and misses far more often than it hits. Wrap it in a 44px transparent target
+  // (the standard mobile minimum) that reaches mostly *outward* from the crop
+  // corner: it intrudes only `HANDLE_VISUAL_PX / 2` into the crop box, so the
+  // four corners cannot swallow the pan area even at `MIN_CROP_PX`.
+  const inset = HANDLE_TOUCH_PX - HANDLE_VISUAL_PX / 2;
   const cursorByPos = { tl: "nwse-resize", tr: "nesw-resize", bl: "nesw-resize", br: "nwse-resize" } as const;
-  const positionByPos: Record<typeof pos, React.CSSProperties> = {
-    tl: { top: -8, left: -8 },
-    tr: { top: -8, right: -8 },
-    bl: { bottom: -8, left: -8 },
-    br: { bottom: -8, right: -8 },
+  const targetByPos: Record<typeof pos, React.CSSProperties> = {
+    tl: { top: -inset, left: -inset },
+    tr: { top: -inset, right: -inset },
+    bl: { bottom: -inset, left: -inset },
+    br: { bottom: -inset, right: -inset },
+  };
+  // Pin the visible square to the target's crop-facing corner, so it lands where
+  // it has always been drawn.
+  const squareByPos: Record<typeof pos, React.CSSProperties> = {
+    tl: { bottom: 0, right: 0 },
+    tr: { bottom: 0, left: 0 },
+    bl: { top: 0, right: 0 },
+    br: { top: 0, left: 0 },
   };
   return (
     <div
-      style={{ ...base, ...positionByPos[pos], cursor: cursorByPos[pos] }}
+      style={{
+        position: "absolute",
+        width: HANDLE_TOUCH_PX,
+        height: HANDLE_TOUCH_PX,
+        // Without this the WebView can claim the gesture as a scroll before the
+        // pointer capture in `onPointerDown` takes effect.
+        touchAction: "none",
+        ...targetByPos[pos],
+        cursor: cursorByPos[pos],
+      }}
       onPointerDown={(e) => {
         e.stopPropagation();
         onPointerDown(e);
@@ -394,7 +413,19 @@ function CornerHandle({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-    />
+    >
+      <div
+        style={{
+          position: "absolute",
+          width: HANDLE_VISUAL_PX,
+          height: HANDLE_VISUAL_PX,
+          background: "white",
+          border: "1px solid black",
+          borderRadius: 2,
+          ...squareByPos[pos],
+        }}
+      />
+    </div>
   );
 }
 

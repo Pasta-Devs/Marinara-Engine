@@ -113,6 +113,8 @@ export interface Chat {
   /** Groups related chats together (like ST "chat files" per character) */
   groupId: string | null;
   personaId: string | null;
+  /** Character card currently being played as the user identity. */
+  personaCharacterId: string | null;
   promptPresetId: string | null;
   connectionId: string | null;
   /** ID of a linked chat (conversation ↔ roleplay bidirectional link) */
@@ -792,10 +794,8 @@ export interface MessageExtra {
   conversationCommandContent?: string | null;
   /** Professor Mari workspace trace shown on the home assistant transcript. */
   mariWorkspaceTimeline?: MariWorkspaceTraceItem[] | null;
-  /** Mutation kinds Professor Mari has explicitly asked the user to approve. */
-  mariPendingMutationCategories?: string[] | null;
-  /** Fingerprints binding Professor Mari approval to the exact proposed commands. */
-  mariPendingMutationSignatures?: string[] | null;
+  /** True when this Mari turn deferred mutating commands behind an Accept action (#5725 Manual mode). */
+  mariDeferredMutations?: boolean | null;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
   /** Per-swipe CYOA choices from the CYOA Choices agent */
@@ -812,6 +812,7 @@ export interface MessageExtra {
   /** Snapshot of the persona that was active when this message was sent (user messages only) */
   personaSnapshot?: {
     personaId: string;
+    source?: "persona" | "character";
     name: string;
     avatarUrl?: string | null;
     /** JSON-encoded AvatarCrop captured at send time so re-edits don't restyle past messages. */

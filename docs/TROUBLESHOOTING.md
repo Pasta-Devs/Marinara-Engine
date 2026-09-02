@@ -323,7 +323,13 @@ If it still stops, close other Android apps, reopen Termux, and run the command 
 
 The launcher requests an Android wake lock while the server runs and saves each server session under `~/.marinara-engine/logs/`. After an unexpected restart, include the newest `server-*.log` file in the report. If the file ends without a Marinara or Node error, Android or the phone vendor most likely terminated Termux outside the server process.
 
-Allow Termux to run in the background and remove battery optimization for it in Android settings. On devices that support the Termux:API add-on, install that add-on and the `termux-api` package so `termux-wake-lock` is available. These settings cannot prevent every vendor-specific process kill, but they remove the common idle-suspension cause while the persistent log preserves evidence from application-level failures.
+Allow Termux to run in the background and remove battery optimization for it in Android settings. The `termux-wake-lock` and `termux-wake-unlock` commands ship with every standard Termux install (the core `termux-tools` package) — no add-on is required. These settings cannot prevent every vendor-specific process kill, but they remove the common idle-suspension cause while the persistent log preserves evidence from application-level failures.
+
+### Marinara stops responding until Termux is brought to the foreground
+
+If chats hang at "Opening chat..." and the app then reports **Server unreachable**, the Support Diagnostics copy shows **Unreachable (request timed out)** for the server fields, and everything recovers the instant you open Termux — the host process is **frozen**, not crashed. Android's cached-app freezer (and vendor equivalents, which are especially aggressive on some phones) suspends the whole Termux process: the phone still accepts the connection, but the frozen server never answers it. A wake lock alone does not exempt a process from freezing, and the session log shows a timestamp gap over the frozen window rather than an error.
+
+To reduce it: exempt Termux from battery optimization and allow background activity in Android settings, lock Termux in the recents screen if your phone supports it, and keep the Termux notification visible. If the freezes continue, the reliable workaround is keeping Termux foregrounded (or the screen on) while Marinara is in active use.
 
 ### Android update runs out of storage while installing dependencies
 

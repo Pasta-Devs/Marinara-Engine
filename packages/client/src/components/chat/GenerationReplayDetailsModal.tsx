@@ -3,14 +3,15 @@ import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { copyToClipboard } from "../../lib/utils";
 
 type GenerationReplay = NonNullable<MessageExtra["generationReplay"]>;
 type GuideSource = NonNullable<GenerationReplay["generationGuideSource"]>;
 
 const GUIDE_SOURCE_LABELS: Record<GuideSource, string> = {
-  narrator: "/guided",
-  guide: "Guided regenerate",
-  game_start: "Game start",
+  narrator: "ui.chat.generationreplaydetailsmodal.guideSource.narrator",
+  guide: "ui.chat.generationreplaydetailsmodal.guideSource.guide",
+  game_start: "ui.chat.generationreplaydetailsmodal.guideSource.gameStart",
 };
 
 function storedText(value: unknown): string | null {
@@ -31,46 +32,45 @@ export function hasGenerationReplayDetails(value: unknown): value is GenerationR
   return replay.impersonate === true || storedText(replay.generationGuide) !== null;
 }
 
-function guideLabel(source: GenerationReplay["generationGuideSource"]): string {
-  return source && source in GUIDE_SOURCE_LABELS ? GUIDE_SOURCE_LABELS[source as GuideSource] : "Stored guidance";
+function guideLabel(source: GenerationReplay["generationGuideSource"], localizeUi: (key: string) => string): string {
+  const key =
+    source && source in GUIDE_SOURCE_LABELS
+      ? GUIDE_SOURCE_LABELS[source as GuideSource]
+      : "ui.chat.chatmessage.storedGuidance";
+  return localizeUi(key);
 }
 
-async function copyToClipboard(value: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = value;
-  textarea.setAttribute("readonly", "true");
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand("copy");
-  textarea.remove();
-}
+/** What a block's copy button puts on the clipboard, and how it reports itself. */
+type CopyAction = {
+  value: string;
+  label: string;
+  title: string;
+  copiedMessage: string;
+  failedMessage: string;
+};
 
 function TextBlock({
   label,
   value,
   muted = false,
-  copyValue,
+  copy,
 }: {
   label: string;
   value: string;
   muted?: boolean;
-  copyValue?: string | null;
+  copy?: CopyAction | null;
 }) {
-  const { t: localizeUi } = useUiTranslation();
   const handleCopy = async () => {
-    if (!copyValue) return;
+    if (!copy) return;
     try {
-      await copyToClipboard(copyValue);
-      toast.success(localizeUi("ui.chat.textblock.guidedCommandCopied"));
+      const copied = await copyToClipboard(copy.value);
+      if (copied) {
+        toast.success(copy.copiedMessage);
+      } else {
+        toast.error(copy.failedMessage);
+      }
     } catch {
-      toast.error(localizeUi("ui.chat.textblock.couldNotCopyGuidance"));
+      toast.error(copy.failedMessage);
     }
   };
 
@@ -80,16 +80,16 @@ function TextBlock({
         <h3 className="text-[0.75rem] font-semibold uppercase tracking-normal text-[var(--muted-foreground)]">
           {label}
         </h3>
-        {copyValue && (
+        {copy && (
           <button
             type="button"
             onClick={() => void handleCopy()}
             className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            title={localizeUi("ui.chat.textblock.copyAsGuidedCommand")}
-            aria-label={localizeUi("ui.chat.textblock.copyAsGuidedCommand")}
+            title={copy.title}
+            aria-label={copy.title}
           >
             <Copy size="0.75rem" className="shrink-0" />
-            {localizeUi("ui.chat.textblock.copyGuided")}
+            {copy.label}
           </button>
         )}
       </div>
@@ -135,6 +135,36 @@ export function GenerationReplayDetailsModal({
     generationGuide && !hasImpersonate && replay?.generationGuideSource !== "game_start"
       ? `/guided ${generationGuide.trim()}`
       : null;
+  const guidedCopy: CopyAction | null = guidedCopyCommand
+    ? {
+        value: guidedCopyCommand,
+        label: localizeUi("ui.chat.textblock.copyGuided"),
+        title: localizeUi("ui.chat.textblock.copyAsGuidedCommand"),
+        copiedMessage: localizeUi("ui.chat.textblock.guidedCommandCopied"),
+        failedMessage: localizeUi("ui.chat.textblock.couldNotCopyGuidance"),
+      }
+    : null;
+  // The stored guidance is what /impersonate took as its direction, so the
+  // command below replays the same generation.
+  const impersonateCopy: CopyAction | null = impersonateGuidance
+    ? {
+        value: `/impersonate ${impersonateGuidance.trim()}`,
+        label: localizeUi("ui.chat.textblock.copyImpersonate"),
+        title: localizeUi("ui.chat.textblock.copyAsImpersonateCommand"),
+        copiedMessage: localizeUi("ui.chat.textblock.impersonateCommandCopied"),
+        failedMessage: localizeUi("ui.chat.textblock.couldNotCopyGuidance"),
+      }
+    : null;
+  // The template is a stored setting rather than a command, so it copies as-is.
+  const promptTemplateCopy: CopyAction | null = impersonatePromptTemplate
+    ? {
+        value: impersonatePromptTemplate,
+        label: localizeUi("ui.chat.textblock.copy"),
+        title: localizeUi("ui.chat.textblock.copyPromptTemplate"),
+        copiedMessage: localizeUi("ui.chat.textblock.promptTemplateCopied"),
+        failedMessage: localizeUi("ui.chat.textblock.couldNotCopyPromptTemplate"),
+      }
+    : null;
   const hasMetadata =
     hasImpersonate &&
     (storedText(replay?.impersonatePresetId) ||
@@ -146,9 +176,9 @@ export function GenerationReplayDetailsModal({
       <div className="space-y-5">
         {generationGuide && !hasImpersonate && (
           <TextBlock
-            label={guideLabel(replay?.generationGuideSource)}
+            label={guideLabel(replay?.generationGuideSource, localizeUi)}
             value={generationGuide}
-            copyValue={guidedCopyCommand}
+            copy={guidedCopy}
           />
         )}
 
@@ -159,13 +189,15 @@ export function GenerationReplayDetailsModal({
             </h3>
             <TextBlock
               label={localizeUi("ui.chat.generationreplaydetailsmodal.currentGuidance")}
-              value={impersonateGuidance ?? "No guidance stored"}
+              value={impersonateGuidance ?? localizeUi("ui.chat.generationreplaydetailsmodal.noGuidanceStored")}
               muted={!impersonateGuidance}
+              copy={impersonateCopy}
             />
             {impersonatePromptTemplate && (
               <TextBlock
                 label={localizeUi("ui.chat.generationreplaydetailsmodal.promptTemplate")}
                 value={impersonatePromptTemplate}
+                copy={promptTemplateCopy}
               />
             )}
             {hasMetadata && (
@@ -183,7 +215,10 @@ export function GenerationReplayDetailsModal({
                   />
                 )}
                 {replay?.impersonateBlockAgents === true && (
-                  <MetadataRow label={localizeUi("navigation.topbar.agents")} value="Blocked" />
+                  <MetadataRow
+                    label={localizeUi("navigation.topbar.agents")}
+                    value={localizeUi("ui.chat.generationreplaydetailsmodal.blocked")}
+                  />
                 )}
               </dl>
             )}

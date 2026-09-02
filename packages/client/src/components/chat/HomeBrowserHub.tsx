@@ -42,6 +42,7 @@ import {
 import {
   APP_VERSION,
   HOME_CUSTOM_WIDGETS_SETTINGS_KEY,
+  normalizeAvatarCrop,
   type AchievementEvent,
   type HomeCustomWidget,
   type HomeCustomWidgetCatalog,
@@ -49,7 +50,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useChats } from "../../hooks/use-chats";
-import { useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useAllCharacterCatalog, usePersonas } from "../../hooks/use-characters";
 import {
   selectHomeBrowserPackages,
   useCapabilityCatalog,
@@ -62,7 +63,6 @@ import { achievementKeys, trackAchievementEvent } from "../../hooks/use-achievem
 import { api, ApiError } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
-import { parseCharacterDisplayData } from "../../lib/character-display";
 import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-localization";
 import {
   PROFESSOR_MARI_NAVIGATOR_POSITION_STORAGE_KEY,
@@ -78,6 +78,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { Modal } from "../ui/Modal";
+import { ToggleSetting } from "../panels/settings/SettingControls";
 import { HomeAchievements } from "./HomeAchievements";
 import { ChatModeIcon } from "./ChatModeIcon";
 import { HomeClockCalendar } from "./HomeClockCalendar";
@@ -360,13 +361,6 @@ const HOME_STARS = Array.from({ length: 42 }, (_, index) => ({
     index % 4
   ],
 }));
-
-type CharacterRow = {
-  id?: unknown;
-  data?: unknown;
-  comment?: unknown;
-  avatarPath?: unknown;
-};
 
 type HomeBrowserHubProps = {
   pageActive: boolean;
@@ -1287,7 +1281,7 @@ function FloatingProfessorMari({
         }}
         aria-label={t("home.assistant.navigate")}
         title={t("home.assistant.navigate")}
-        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-recall absolute bottom-[max(0.65rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-[30] flex h-14 w-14 items-end justify-center overflow-hidden rounded-full border p-0.5 transition-[transform,box-shadow,background-color] hover:-translate-y-0.5 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] active:scale-95 motion-reduce:transition-none sm:bottom-4 sm:right-4"
+        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-recall absolute bottom-[max(0.65rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] right-[max(0.75rem,env(safe-area-inset-right))] z-[30] flex h-14 w-14 items-end justify-center overflow-hidden rounded-full border p-0.5 transition-[transform,box-shadow,background-color] hover:-translate-y-0.5 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] active:scale-95 motion-reduce:transition-none sm:bottom-4 sm:right-4"
       >
         <img
           src={MARI_ASSISTANT_IDLE}
@@ -1342,7 +1336,7 @@ function FloatingProfessorMari({
         "mari-home-professor-popup pointer-events-none absolute z-[30]",
         desktopDragEnabled
           ? "inset-0"
-          : "bottom-[max(0rem,env(safe-area-inset-bottom))] left-2 right-2 flex items-end justify-end sm:left-5 sm:right-5",
+          : "bottom-[max(0rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] left-2 right-2 flex items-end justify-end sm:left-5 sm:right-5",
       )}
       aria-label={t("home.assistant.landmark")}
       data-dragging={dragging ? "true" : "false"}
@@ -1584,7 +1578,7 @@ export function HomeBrowserHub({
   });
   const installed = useInstalledCapabilityPackages();
   const catalog = useCapabilityCatalog();
-  const characters = useCharacters();
+  const characterCatalog = useAllCharacterCatalog();
   const personas = usePersonas();
   const presets = usePresets();
   const lorebooks = useLorebooks(undefined, { includeHidden: true });
@@ -1597,6 +1591,13 @@ export function HomeBrowserHub({
   const achievementsEnabled = useUIStore((state) => state.achievementsEnabled);
   const professorMariNavigationEnabled = useUIStore((state) => state.professorMariNavigationEnabled);
   const hasCompletedOnboarding = useUIStore((state) => state.hasCompletedOnboarding);
+  const showHomeBrowserAddressBar = useUIStore((state) => state.showHomeBrowserAddressBar);
+  const showHomeBrowserDesktopBookmarksOnOtherTabs = useUIStore(
+    (state) => state.showHomeBrowserDesktopBookmarksOnOtherTabs,
+  );
+  const showHomeBrowserMobileBookmarksOnOtherTabs = useUIStore(
+    (state) => state.showHomeBrowserMobileBookmarksOnOtherTabs,
+  );
   const browserPackages = useMemo(() => selectHomeBrowserPackages(installed.data), [installed.data]);
   const localizedBrowserPackages = useMemo(
     () =>
@@ -1819,21 +1820,22 @@ export function HomeBrowserHub({
     setDiscoveryIndex((current) => (current + direction + recommendations.length) % recommendations.length);
   };
   const characterOfDay = useMemo(() => {
-    const rows = (characters.data ?? []) as CharacterRow[];
+    const rows = (characterCatalog.data ?? []).filter((row) => row.name.trim().length > 0);
     if (rows.length === 0) return null;
     const day = new Date().toISOString().slice(0, 10);
     const hash = Array.from(day).reduce((total, character) => total + character.charCodeAt(0), 0);
     const row = rows[hash % rows.length];
-    if (!row || typeof row.id !== "string" || !("data" in row)) return null;
+    if (!row || typeof row.id !== "string") return null;
     return {
       id: row.id,
-      avatarPath: typeof row.avatarPath === "string" ? row.avatarPath : null,
-      ...parseCharacterDisplayData({
-        data: row.data,
-        comment: typeof row.comment === "string" ? row.comment : null,
-      }),
+      avatarPath: row.avatarPath,
+      avatarCrop: normalizeAvatarCrop(row.avatarCrop),
+      comment: row.comment,
+      name: row.name,
+      summary: row.summary,
+      description: row.summary,
     };
-  }, [characters.data]);
+  }, [characterCatalog.data]);
 
   const address = `marinara/${activeTab}`;
   const selectTab = (tab: string) => {
@@ -2072,14 +2074,28 @@ export function HomeBrowserHub({
     [localizedBrowserPackages],
   );
   const professorMariResources = useMemo<ProfessorMariNavigationResource[]>(() => {
-    const characterResources = ((characters.data ?? []) as CharacterRow[]).flatMap((row) => {
-      if (typeof row.id !== "string") return [];
-      const display = parseCharacterDisplayData({
-        data: row.data,
-        comment: typeof row.comment === "string" ? row.comment : null,
-      });
-      return display.name.trim() ? [{ kind: "character" as const, id: row.id, name: display.name }] : [];
-    });
+    const characterResources = (characterCatalog.data ?? []).flatMap((row) =>
+      row.name.trim()
+        ? [
+            {
+              kind: "character" as const,
+              id: row.id,
+              name: row.name,
+              searchText: [
+                row.summary,
+                row.explicitSummary,
+                row.creatorNotes,
+                row.description,
+                row.personality,
+                row.scenario,
+                row.firstMessage,
+                row.creator,
+                ...row.tags,
+              ],
+            },
+          ]
+        : [],
+    );
     return [
       ...characterResources,
       ...(personas.data ?? []).map((persona) => ({ kind: "persona" as const, id: persona.id, name: persona.name })),
@@ -2096,7 +2112,7 @@ export function HomeBrowserHub({
         aliases: [agent.type],
       })),
     ];
-  }, [agents.data, characters.data, lorebooks.data, personas.data, presets.data]);
+  }, [agents.data, characterCatalog.data, lorebooks.data, personas.data, presets.data]);
   const openProfessorMariTarget = (target: ProfessorMariNavigationTarget) => {
     const ui = useUIStore.getState();
     if (target.kind === "home") {
@@ -2283,259 +2299,273 @@ export function HomeBrowserHub({
             </div>
           </div>
 
-          <div
-            className="mari-home-browser-address-row hidden h-8 shrink-0 items-center gap-1.5 px-2 py-0.5 sm:flex sm:h-10 sm:gap-2 sm:px-3"
-            data-component="HomeBrowserHub.AddressRow"
-          >
-            <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
-              <button
-                type="button"
-                onClick={() => selectTab("home")}
-                disabled={activeTab === "home"}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.79_0.16_205)] disabled:opacity-30"
-                aria-label={t("home.browser.back")}
-              >
-                <ArrowLeft size="0.9rem" />
-              </button>
-              <button
-                type="button"
-                disabled
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] opacity-30"
-                aria-label={t("home.browser.forward")}
-              >
-                <ArrowRight size="0.9rem" />
-              </button>
-              <span
-                aria-hidden="true"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] opacity-70"
-                data-component="HomeBrowserHub.DecorativeRefresh"
-              >
-                <RefreshCw size="0.88rem" />
-              </span>
-            </div>
+          {showHomeBrowserAddressBar ? (
             <div
-              className="mari-home-browser-address flex h-7 min-w-0 flex-1 items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--marinara-app-accent-solid)_44%,var(--border))] px-2.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent),0_0_18px_-14px_var(--marinara-app-accent-solid)] sm:h-9 sm:px-3"
-              role="status"
-              aria-label={t("home.browser.addressLabel", { address })}
-              data-component="HomeBrowserHub.Address"
+              className="mari-home-browser-address-row hidden h-8 shrink-0 items-center gap-1.5 px-2 py-0.5 sm:flex sm:h-10 sm:gap-2 sm:px-3"
+              data-component="HomeBrowserHub.AddressRow"
             >
-              <img
-                src="/favicon.png"
-                alt=""
-                className="h-[0.9rem] w-[0.9rem] shrink-0 object-contain sm:h-[1.05rem] sm:w-[1.05rem]"
-              />
-              <span className="truncate font-mono text-[0.67rem] text-[var(--foreground)] sm:text-[0.72rem]">
-                {address}
-              </span>
-              <Star
-                size="0.72rem"
-                className="ml-auto shrink-0 text-[var(--marinara-app-accent-solid)]"
-                aria-hidden="true"
-              />
+              <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
+                <button
+                  type="button"
+                  onClick={() => selectTab("home")}
+                  disabled={activeTab === "home"}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.79_0.16_205)] disabled:opacity-30"
+                  aria-label={t("home.browser.back")}
+                >
+                  <ArrowLeft size="0.9rem" />
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] opacity-30"
+                  aria-label={t("home.browser.forward")}
+                >
+                  <ArrowRight size="0.9rem" />
+                </button>
+                <span
+                  aria-hidden="true"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] opacity-70"
+                  data-component="HomeBrowserHub.DecorativeRefresh"
+                >
+                  <RefreshCw size="0.88rem" />
+                </span>
+              </div>
+              <div
+                className="mari-home-browser-address flex h-7 min-w-0 flex-1 items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--marinara-app-accent-solid)_44%,var(--border))] px-2.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent),0_0_18px_-14px_var(--marinara-app-accent-solid)] sm:h-9 sm:px-3"
+                role="status"
+                aria-label={t("home.browser.addressLabel", { address })}
+                data-component="HomeBrowserHub.Address"
+              >
+                <img
+                  src="/favicon.png"
+                  alt=""
+                  className="h-[0.9rem] w-[0.9rem] shrink-0 object-contain sm:h-[1.05rem] sm:w-[1.05rem]"
+                />
+                <span className="truncate font-mono text-[0.67rem] text-[var(--foreground)] sm:text-[0.72rem]">
+                  {address}
+                </span>
+                <Star
+                  size="0.72rem"
+                  className="ml-auto shrink-0 text-[var(--marinara-app-accent-solid)]"
+                  aria-hidden="true"
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
 
-          <nav
-            ref={mobileBookmarksRef}
-            className="relative flex min-h-8 items-center border-t border-[var(--border)]/45 px-2 sm:min-h-9 sm:px-3"
-            aria-label={t("home.browser.bookmarksLabel")}
-          >
-            <div className="hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto sm:flex">
-              <BrowserBookmark
-                href="https://discord.com/invite/KdAkTg94ME"
-                onClick={() => trackHomeAction("discord_clicked")}
-                icon={<img src="/home/tab-icons/discord.svg" alt="" className="h-4 w-4 object-contain" />}
-                tone="#5865F2"
+          {activeTab === "home" ||
+          showHomeBrowserDesktopBookmarksOnOtherTabs ||
+          showHomeBrowserMobileBookmarksOnOtherTabs ? (
+            <nav
+              ref={mobileBookmarksRef}
+              className="relative flex min-h-8 items-center border-t border-[var(--border)]/45 px-2 sm:min-h-9 sm:px-3"
+              aria-label={t("home.browser.bookmarksLabel")}
+            >
+              <div
+                className={cn(
+                  "hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto sm:flex",
+                  activeTab !== "home" && !showHomeBrowserDesktopBookmarksOnOtherTabs && "sm:hidden",
+                )}
               >
-                {t("home.browser.bookmarks.discord")}
-              </BrowserBookmark>
-              <BrowserBookmark
-                href="https://ko-fi.com/marinara_spaghetti"
-                onClick={() => trackHomeAction("kofi_clicked")}
-                icon={<img src="/home/tab-icons/kofi.png" alt="" className="h-4 w-4 object-contain" />}
-                tone="#ff6433"
-              >
-                {t("home.actions.support")}
-              </BrowserBookmark>
-              <BrowserBookmark
-                onClick={() => {
-                  trackHomeAction("credits_viewed");
-                  onOpenCredits();
-                }}
-                icon={<img src="/home/tab-icons/credits.png" alt="" className="h-4 w-4 object-contain" />}
-                tone={HOME_MODULE_ACCENTS.orange}
-              >
-                {t("home.actions.credits")}
-              </BrowserBookmark>
-              <BrowserBookmark
-                onClick={() => useUIStore.getState().openModal("docs-viewer")}
-                icon={<img src="/home/tab-icons/documentation.png" alt="" className="h-4 w-4 object-contain" />}
-                tone={HOME_MODULE_ACCENTS.cyan}
-                tourTarget="home-documentation"
-              >
-                {t("home.actions.documentation")}
-              </BrowserBookmark>
-              <BrowserBookmark
-                onClick={() => useUIStore.getState().setHasCompletedOnboarding(false)}
-                icon={<img src="/home/tab-icons/tutorial.png" alt="" className="h-4 w-4 object-contain" />}
-                tone={HOME_MODULE_ACCENTS.orange}
-                tourTarget="home-tutorial"
-              >
-                {t("home.browser.bookmarks.tutorial")}
-              </BrowserBookmark>
-              <BrowserBookmark
-                onClick={() => setFaqOpen(true)}
-                icon={<img src="/home/tab-icons/faq.png" alt="" className="h-4 w-4 object-contain" />}
-                tone={HOME_MODULE_ACCENTS.pink}
-                tourTarget="home-faq"
-              >
-                {t("home.browser.faqTab")}
-              </BrowserBookmark>
-              {achievementsEnabled ? (
                 <BrowserBookmark
-                  onClick={() => setAchievementsOpen(true)}
-                  icon={<img src="/home/tab-icons/achievements.png" alt="" className="h-4 w-4 object-contain" />}
+                  href="https://discord.com/invite/KdAkTg94ME"
+                  onClick={() => trackHomeAction("discord_clicked")}
+                  icon={<img src="/home/tab-icons/discord.svg" alt="" className="h-4 w-4 object-contain" />}
+                  tone="#5865F2"
+                >
+                  {t("home.browser.bookmarks.discord")}
+                </BrowserBookmark>
+                <BrowserBookmark
+                  href="https://ko-fi.com/marinara_spaghetti"
+                  onClick={() => trackHomeAction("kofi_clicked")}
+                  icon={<img src="/home/tab-icons/kofi.png" alt="" className="h-4 w-4 object-contain" />}
+                  tone="#ff6433"
+                >
+                  {t("home.actions.support")}
+                </BrowserBookmark>
+                <BrowserBookmark
+                  onClick={() => {
+                    trackHomeAction("credits_viewed");
+                    onOpenCredits();
+                  }}
+                  icon={<img src="/home/tab-icons/credits.png" alt="" className="h-4 w-4 object-contain" />}
                   tone={HOME_MODULE_ACCENTS.orange}
                 >
-                  {t("home.browser.achievements")}
+                  {t("home.actions.credits")}
                 </BrowserBookmark>
-              ) : null}
-              <BrowserBookmark
-                onClick={() => setWidgetManagerOpen(true)}
-                icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
-                tone={HOME_MODULE_ACCENTS.violet}
-                tourTarget="home-widgets"
-              >
-                {t("home.browser.widgets")}
-              </BrowserBookmark>
-            </div>
-
-            <button
-              type="button"
-              className="flex min-h-7 items-center gap-2 rounded-md px-2 text-[0.7rem] font-bold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] sm:hidden"
-              aria-expanded={mobileBookmarksOpen}
-              aria-controls="marinara-mobile-bookmarks"
-              onClick={() => setMobileBookmarksOpen((open) => !open)}
-              data-component="HomeBrowserHub.MobileBookmarksTrigger"
-            >
-              <span className="flex items-center gap-1" aria-hidden="true">
-                <i
-                  className="h-1.5 w-1.5 rounded-full bg-[oklch(0.79_0.16_205)] shadow-[0_0_8px_oklch(0.79_0.16_205/0.65)]"
-                  data-bookmark-dot="cyan"
-                />
-                <i
-                  className="h-1.5 w-1.5 rounded-full bg-[oklch(0.76_0.19_52)] shadow-[0_0_8px_oklch(0.76_0.19_52/0.65)]"
-                  data-bookmark-dot="orange"
-                />
-                <i
-                  className="h-1.5 w-1.5 rounded-full bg-[oklch(0.73_0.21_345)] shadow-[0_0_8px_oklch(0.73_0.21_345/0.65)]"
-                  data-bookmark-dot="pink"
-                />
-              </span>
-              {t("home.browser.bookmarks")}
-            </button>
-
-            <AnimatePresence initial={false}>
-              {mobileBookmarksOpen ? (
-                <motion.div
-                  id="marinara-mobile-bookmarks"
-                  initial={reduceMotion ? false : { opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-                  transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute left-2 right-2 top-[calc(100%+0.35rem)] grid max-h-[calc(100dvh-8rem)] gap-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_96%,var(--background))] p-1.5 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.72)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_7%,transparent)] sm:hidden"
-                  data-component="HomeBrowserHub.MobileBookmarksMenu"
-                  data-bookmarks-motion="slide"
+                <BrowserBookmark
+                  onClick={() => useUIStore.getState().openModal("docs-viewer")}
+                  icon={<img src="/home/tab-icons/documentation.png" alt="" className="h-4 w-4 object-contain" />}
+                  tone={HOME_MODULE_ACCENTS.cyan}
+                  tourTarget="home-documentation"
                 >
-                  <MobileBrowserBookmark
-                    href="https://discord.com/invite/KdAkTg94ME"
-                    onClick={() => {
-                      setMobileBookmarksOpen(false);
-                      trackHomeAction("discord_clicked");
-                    }}
-                    icon={<img src="/home/tab-icons/discord.svg" alt="" className="h-4 w-4 object-contain" />}
-                    tone="#5865F2"
-                  >
-                    {t("home.browser.bookmarks.discord")}
-                  </MobileBrowserBookmark>
-                  <MobileBrowserBookmark
-                    href="https://ko-fi.com/marinara_spaghetti"
-                    onClick={() => {
-                      setMobileBookmarksOpen(false);
-                      trackHomeAction("kofi_clicked");
-                    }}
-                    icon={<img src="/home/tab-icons/kofi.png" alt="" className="h-4 w-4 object-contain" />}
-                    tone="#ff6433"
-                  >
-                    {t("home.actions.support")}
-                  </MobileBrowserBookmark>
-                  <MobileBrowserBookmark
-                    onClick={() => {
-                      setMobileBookmarksOpen(false);
-                      trackHomeAction("credits_viewed");
-                      onOpenCredits();
-                    }}
-                    icon={<img src="/home/tab-icons/credits.png" alt="" className="h-4 w-4 object-contain" />}
+                  {t("home.actions.documentation")}
+                </BrowserBookmark>
+                <BrowserBookmark
+                  onClick={() => useUIStore.getState().setHasCompletedOnboarding(false)}
+                  icon={<img src="/home/tab-icons/tutorial.png" alt="" className="h-4 w-4 object-contain" />}
+                  tone={HOME_MODULE_ACCENTS.orange}
+                  tourTarget="home-tutorial"
+                >
+                  {t("home.browser.bookmarks.tutorial")}
+                </BrowserBookmark>
+                <BrowserBookmark
+                  onClick={() => setFaqOpen(true)}
+                  icon={<img src="/home/tab-icons/faq.png" alt="" className="h-4 w-4 object-contain" />}
+                  tone={HOME_MODULE_ACCENTS.pink}
+                  tourTarget="home-faq"
+                >
+                  {t("home.browser.faqTab")}
+                </BrowserBookmark>
+                {achievementsEnabled ? (
+                  <BrowserBookmark
+                    onClick={() => setAchievementsOpen(true)}
+                    icon={<img src="/home/tab-icons/achievements.png" alt="" className="h-4 w-4 object-contain" />}
                     tone={HOME_MODULE_ACCENTS.orange}
                   >
-                    {t("home.actions.credits")}
-                  </MobileBrowserBookmark>
-                  <MobileBrowserBookmark
-                    onClick={() => {
-                      setMobileBookmarksOpen(false);
-                      useUIStore.getState().openModal("docs-viewer");
-                    }}
-                    icon={<img src="/home/tab-icons/documentation.png" alt="" className="h-4 w-4 object-contain" />}
-                    tone={HOME_MODULE_ACCENTS.cyan}
+                    {t("home.browser.achievements")}
+                  </BrowserBookmark>
+                ) : null}
+                <BrowserBookmark
+                  onClick={() => setWidgetManagerOpen(true)}
+                  icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
+                  tone={HOME_MODULE_ACCENTS.violet}
+                  tourTarget="home-widgets"
+                >
+                  {t("home.browser.widgets")}
+                </BrowserBookmark>
+              </div>
+
+              <button
+                type="button"
+                className={cn(
+                  "flex min-h-7 items-center gap-2 rounded-md px-2 text-[0.7rem] font-bold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] sm:hidden",
+                  activeTab !== "home" && !showHomeBrowserMobileBookmarksOnOtherTabs && "hidden",
+                )}
+                aria-expanded={mobileBookmarksOpen}
+                aria-controls="marinara-mobile-bookmarks"
+                onClick={() => setMobileBookmarksOpen((open) => !open)}
+                data-component="HomeBrowserHub.MobileBookmarksTrigger"
+              >
+                <span className="flex items-center gap-1" aria-hidden="true">
+                  <i
+                    className="h-1.5 w-1.5 rounded-full bg-[oklch(0.79_0.16_205)] shadow-[0_0_8px_oklch(0.79_0.16_205/0.65)]"
+                    data-bookmark-dot="cyan"
+                  />
+                  <i
+                    className="h-1.5 w-1.5 rounded-full bg-[oklch(0.76_0.19_52)] shadow-[0_0_8px_oklch(0.76_0.19_52/0.65)]"
+                    data-bookmark-dot="orange"
+                  />
+                  <i
+                    className="h-1.5 w-1.5 rounded-full bg-[oklch(0.73_0.21_345)] shadow-[0_0_8px_oklch(0.73_0.21_345/0.65)]"
+                    data-bookmark-dot="pink"
+                  />
+                </span>
+                {t("home.browser.bookmarks")}
+              </button>
+
+              <AnimatePresence initial={false}>
+                {mobileBookmarksOpen && (activeTab === "home" || showHomeBrowserMobileBookmarksOnOtherTabs) ? (
+                  <motion.div
+                    id="marinara-mobile-bookmarks"
+                    initial={reduceMotion ? false : { opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute left-2 right-2 top-[calc(100%+0.35rem)] grid max-h-[calc(100dvh-8rem)] gap-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_96%,var(--background))] p-1.5 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.72)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_7%,transparent)] sm:hidden"
+                    data-component="HomeBrowserHub.MobileBookmarksMenu"
+                    data-bookmarks-motion="slide"
                   >
-                    {t("home.actions.documentation")}
-                  </MobileBrowserBookmark>
-                  <MobileBrowserBookmark
-                    onClick={() => {
-                      setMobileBookmarksOpen(false);
-                      useUIStore.getState().setHasCompletedOnboarding(false);
-                    }}
-                    icon={<img src="/home/tab-icons/tutorial.png" alt="" className="h-4 w-4 object-contain" />}
-                    tone={HOME_MODULE_ACCENTS.orange}
-                  >
-                    {t("home.browser.bookmarks.tutorial")}
-                  </MobileBrowserBookmark>
-                  <MobileBrowserBookmark
-                    onClick={() => {
-                      setMobileBookmarksOpen(false);
-                      setFaqOpen(true);
-                    }}
-                    icon={<img src="/home/tab-icons/faq.png" alt="" className="h-4 w-4 object-contain" />}
-                    tone={HOME_MODULE_ACCENTS.pink}
-                  >
-                    {t("home.browser.faqTab")}
-                  </MobileBrowserBookmark>
-                  {achievementsEnabled ? (
+                    <MobileBrowserBookmark
+                      href="https://discord.com/invite/KdAkTg94ME"
+                      onClick={() => {
+                        setMobileBookmarksOpen(false);
+                        trackHomeAction("discord_clicked");
+                      }}
+                      icon={<img src="/home/tab-icons/discord.svg" alt="" className="h-4 w-4 object-contain" />}
+                      tone="#5865F2"
+                    >
+                      {t("home.browser.bookmarks.discord")}
+                    </MobileBrowserBookmark>
+                    <MobileBrowserBookmark
+                      href="https://ko-fi.com/marinara_spaghetti"
+                      onClick={() => {
+                        setMobileBookmarksOpen(false);
+                        trackHomeAction("kofi_clicked");
+                      }}
+                      icon={<img src="/home/tab-icons/kofi.png" alt="" className="h-4 w-4 object-contain" />}
+                      tone="#ff6433"
+                    >
+                      {t("home.actions.support")}
+                    </MobileBrowserBookmark>
                     <MobileBrowserBookmark
                       onClick={() => {
                         setMobileBookmarksOpen(false);
-                        setAchievementsOpen(true);
+                        trackHomeAction("credits_viewed");
+                        onOpenCredits();
                       }}
-                      icon={<img src="/home/tab-icons/achievements.png" alt="" className="h-4 w-4 object-contain" />}
+                      icon={<img src="/home/tab-icons/credits.png" alt="" className="h-4 w-4 object-contain" />}
                       tone={HOME_MODULE_ACCENTS.orange}
                     >
-                      {t("home.browser.achievements")}
+                      {t("home.actions.credits")}
                     </MobileBrowserBookmark>
-                  ) : null}
-                  <MobileBrowserBookmark
-                    onClick={() => {
-                      setMobileBookmarksOpen(false);
-                      setWidgetManagerOpen(true);
-                    }}
-                    icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
-                    tone={HOME_MODULE_ACCENTS.violet}
-                  >
-                    {t("home.browser.widgets")}
-                  </MobileBrowserBookmark>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </nav>
+                    <MobileBrowserBookmark
+                      onClick={() => {
+                        setMobileBookmarksOpen(false);
+                        useUIStore.getState().openModal("docs-viewer");
+                      }}
+                      icon={<img src="/home/tab-icons/documentation.png" alt="" className="h-4 w-4 object-contain" />}
+                      tone={HOME_MODULE_ACCENTS.cyan}
+                    >
+                      {t("home.actions.documentation")}
+                    </MobileBrowserBookmark>
+                    <MobileBrowserBookmark
+                      onClick={() => {
+                        setMobileBookmarksOpen(false);
+                        useUIStore.getState().setHasCompletedOnboarding(false);
+                      }}
+                      icon={<img src="/home/tab-icons/tutorial.png" alt="" className="h-4 w-4 object-contain" />}
+                      tone={HOME_MODULE_ACCENTS.orange}
+                    >
+                      {t("home.browser.bookmarks.tutorial")}
+                    </MobileBrowserBookmark>
+                    <MobileBrowserBookmark
+                      onClick={() => {
+                        setMobileBookmarksOpen(false);
+                        setFaqOpen(true);
+                      }}
+                      icon={<img src="/home/tab-icons/faq.png" alt="" className="h-4 w-4 object-contain" />}
+                      tone={HOME_MODULE_ACCENTS.pink}
+                    >
+                      {t("home.browser.faqTab")}
+                    </MobileBrowserBookmark>
+                    {achievementsEnabled ? (
+                      <MobileBrowserBookmark
+                        onClick={() => {
+                          setMobileBookmarksOpen(false);
+                          setAchievementsOpen(true);
+                        }}
+                        icon={<img src="/home/tab-icons/achievements.png" alt="" className="h-4 w-4 object-contain" />}
+                        tone={HOME_MODULE_ACCENTS.orange}
+                      >
+                        {t("home.browser.achievements")}
+                      </MobileBrowserBookmark>
+                    ) : null}
+                    <MobileBrowserBookmark
+                      onClick={() => {
+                        setMobileBookmarksOpen(false);
+                        setWidgetManagerOpen(true);
+                      }}
+                      icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
+                      tone={HOME_MODULE_ACCENTS.violet}
+                    >
+                      {t("home.browser.widgets")}
+                    </MobileBrowserBookmark>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </nav>
+          ) : null}
         </header>
 
         <main
@@ -2864,18 +2894,33 @@ export function HomeBrowserHub({
                               <h3 className="truncate text-base font-bold text-[var(--foreground)]">
                                 {characterOfDay.name}
                               </h3>
-                              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--muted-foreground)] sm:line-clamp-3">
-                                {characterOfDay.comment ||
-                                  characterOfDay.description ||
+                              <p className="mt-1 line-clamp-1 text-xs leading-relaxed text-[var(--muted-foreground)] sm:line-clamp-3">
+                                {characterOfDay.summary ||
+                                  characterOfDay.comment ||
+                                  characterOfDay.description?.trim() ||
                                   t("home.characterOfDay.fallback")}
                               </p>
-                              <button
-                                type="button"
-                                onClick={() => useUIStore.getState().openCharacterDetail(characterOfDay.id)}
-                                className="mt-2 inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
-                              >
-                                {t("home.characterOfDay.open")}
-                              </button>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    useUIStore.getState().openModal("start-character-chat", {
+                                      characterId: characterOfDay.id,
+                                      characterName: characterOfDay.name,
+                                    })
+                                  }
+                                  className="inline-flex min-h-8 items-center rounded-md bg-[var(--home-module-accent)] px-2.5 text-xs font-bold text-[var(--primary-foreground)] transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                                >
+                                  {t("home.characterOfDay.startChat")}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => useUIStore.getState().openCharacterDetail(characterOfDay.id)}
+                                  className="inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                                >
+                                  {t("home.characterOfDay.open")}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ) : (
@@ -3128,6 +3173,29 @@ export function HomeBrowserHub({
                 </div>
               );
             })}
+          </div>
+          <div className="border-t border-[var(--border)] pt-3">
+            <p className="mb-1 px-1 text-[0.7rem] font-bold uppercase tracking-wide text-[var(--muted-foreground)]">
+              {t("home.browser.chromeSettings")}
+            </p>
+            <ToggleSetting
+              label={t("home.browser.showAddressBar")}
+              checked={showHomeBrowserAddressBar}
+              onChange={(visible) => useUIStore.getState().setShowHomeBrowserAddressBar(visible)}
+              help={t("home.browser.showAddressBarHelp")}
+            />
+            <ToggleSetting
+              label={t("home.browser.showDesktopBookmarksOnOtherTabs")}
+              checked={showHomeBrowserDesktopBookmarksOnOtherTabs}
+              onChange={(visible) => useUIStore.getState().setShowHomeBrowserDesktopBookmarksOnOtherTabs(visible)}
+              help={t("home.browser.showDesktopBookmarksOnOtherTabsHelp")}
+            />
+            <ToggleSetting
+              label={t("home.browser.showMobileBookmarksOnOtherTabs")}
+              checked={showHomeBrowserMobileBookmarksOnOtherTabs}
+              onChange={(visible) => useUIStore.getState().setShowHomeBrowserMobileBookmarksOnOtherTabs(visible)}
+              help={t("home.browser.showMobileBookmarksOnOtherTabsHelp")}
+            />
           </div>
         </div>
       </Modal>

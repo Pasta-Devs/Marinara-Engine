@@ -828,9 +828,10 @@ const EditTextarea = memo(function EditTextarea({
   }, [onSave, quoteFormat]);
 
   return (
-    <div className="relative isolate z-20 flex flex-col gap-2">
+    <div className="relative isolate z-20 flex flex-col gap-2 max-md:gap-0">
       <textarea
         ref={ref}
+        data-chat-message-editor="true"
         defaultValue={formatTextQuotes(initialContent, quoteFormat)}
         readOnly={saving}
         aria-busy={saving}
@@ -2440,13 +2441,13 @@ export const ChatMessage = memo(function ChatMessage({
   // to preserve the correct persona name/avatar even after switching personas.
   // Fall back to the current personaInfo prop for older messages without snapshots.
   const msgPersona = isUser && extra.personaSnapshot ? extra.personaSnapshot : null;
-  const userName = msgPersona?.name ?? personaInfo?.name ?? "You";
+  const userName = msgPersona ? (msgPersona.name ?? "You") : (personaInfo?.name ?? "You");
   const charName = primaryCharInfo?.name ?? "Assistant";
-  const personaDescription = msgPersona?.description ?? personaInfo?.description;
-  const personaPersonality = msgPersona?.personality ?? personaInfo?.personality;
-  const personaBackstory = msgPersona?.backstory ?? personaInfo?.backstory;
-  const personaAppearance = msgPersona?.appearance ?? personaInfo?.appearance;
-  const personaScenario = msgPersona?.scenario ?? personaInfo?.scenario;
+  const personaDescription = msgPersona ? msgPersona.description : personaInfo?.description;
+  const personaPersonality = msgPersona ? msgPersona.personality : personaInfo?.personality;
+  const personaBackstory = msgPersona ? msgPersona.backstory : personaInfo?.backstory;
+  const personaAppearance = msgPersona ? msgPersona.appearance : personaInfo?.appearance;
+  const personaScenario = msgPersona ? msgPersona.scenario : personaInfo?.scenario;
   const macroCharacters = useMemo(() => {
     if (scopedCharacterMap?.size) {
       const candidates = Array.from(scopedCharacterMap.values()).filter(
@@ -2509,7 +2510,9 @@ export const ChatMessage = memo(function ChatMessage({
 
   const displayName = isUser ? userName : charName;
   const avatarUrl = isUser
-    ? (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null)
+    ? msgPersona
+      ? (msgPersona.avatarUrl ?? null)
+      : (personaInfo?.avatarUrl ?? null)
     : (resolvedCharacterInfo?.avatarUrl ?? null);
   const personaExpressionId =
     isUser && typeof msgPersona?.personaId === "string" ? msgPersona.personaId : personaInfo?.id;
@@ -2521,7 +2524,9 @@ export const ChatMessage = memo(function ChatMessage({
         : null;
   const displayAvatarUrl = expressionAvatarUrl ?? avatarUrl;
   const personaAvatarCrop = isUser
-    ? (normalizeAvatarCrop(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
+    ? msgPersona
+      ? (normalizeAvatarCrop(msgPersona.avatarCrop) ?? null)
+      : (personaInfo?.avatarCrop ?? null)
     : null;
   const avatarCropStyle = expressionAvatarUrl
     ? {}
@@ -3254,7 +3259,7 @@ export const ChatMessage = memo(function ChatMessage({
                 </div>
               )}
               {(showActions || showMessageNumbers) && messageIndex != null && (
-                <span className="mt-1 text-[0.5625rem] font-medium text-[var(--muted-foreground)] select-none">
+                <span className="mt-1 text-[0.5625rem] font-medium text-[var(--marinara-chat-chrome-text)] select-none">
                   #{messageIndex}
                 </span>
               )}
@@ -3300,7 +3305,9 @@ export const ChatMessage = memo(function ChatMessage({
                 {(showRoleplayAvatarPanel || hideRoleplayAvatars) &&
                   (showActions || showMessageNumbers) &&
                   messageIndex != null && (
-                    <span className="text-[0.5625rem] font-medium text-white/25 select-none">#{messageIndex}</span>
+                    <span className="text-[0.5625rem] font-medium text-[var(--marinara-chat-chrome-text)] select-none">
+                      #{messageIndex}
+                    </span>
                   )}
               </div>
             )}
@@ -3533,7 +3540,7 @@ export const ChatMessage = memo(function ChatMessage({
               className={cn(
                 "mari-message-actions flex items-center gap-0.5 px-1 opacity-0 transition-all group-hover:opacity-100",
                 isUser && "flex-row-reverse",
-                showActions && "opacity-100",
+                (showActions || editing) && "opacity-100",
                 showStreamingThinkingAction &&
                   "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
               )}
@@ -3803,7 +3810,7 @@ export const ChatMessage = memo(function ChatMessage({
               </div>
             )}
             {(showActions || showMessageNumbers) && messageIndex != null && (
-              <span className="mt-0.5 text-[0.5rem] font-medium text-[var(--muted-foreground)] select-none">
+              <span className="mt-0.5 text-[0.5rem] font-medium text-[var(--marinara-chat-chrome-text)] select-none">
                 #{messageIndex}
               </span>
             )}
@@ -4009,7 +4016,7 @@ export const ChatMessage = memo(function ChatMessage({
             className={cn(
               "mari-message-actions flex items-center gap-0 px-1 opacity-0 transition-all group-hover:opacity-100",
               isUser && "flex-row-reverse",
-              showActions && "opacity-100",
+              (showActions || editing) && "opacity-100",
               showStreamingThinkingAction &&
                 "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
             )}

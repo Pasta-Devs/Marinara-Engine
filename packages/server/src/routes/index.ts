@@ -10,6 +10,7 @@ import { connectionsRoutes } from "./connections.routes.js";
 import { agentsRoutes } from "./agents.routes.js";
 import { customToolsRoutes } from "./custom-tools.routes.js";
 import { generateRoutes } from "./generate.routes.js";
+import { utilitySidecarRoutes } from "./utility-sidecar.routes.js";
 import { importRoutes } from "./import.routes.js";
 import { backgroundsRoutes } from "./backgrounds.routes.js";
 import { avatarsRoutes } from "./avatars.routes.js";
@@ -72,6 +73,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(connectionFoldersRoutes, { prefix: "/api/connection-folders" });
   await app.register(libraryFoldersRoutes, { prefix: "/api/library-folders" });
   await app.register(agentsRoutes, { prefix: "/api/agents" });
+  await app.register(utilitySidecarRoutes, { prefix: "/api/utility-sidecar" });
   await app.register(customToolsRoutes, { prefix: "/api/custom-tools" });
   await app.register(generateRoutes, { prefix: "/api/generate" });
   await app.register(importRoutes, { prefix: "/api/import" });

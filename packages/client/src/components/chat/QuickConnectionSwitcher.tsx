@@ -11,8 +11,16 @@ import { useSidecarStore } from "../../stores/sidecar.store";
 import { appendLocalSidecarConnectionOption, isLocalSidecarConnectionOption } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import type { ProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
+import { ContextBudgetGauge, ContextBudgetIndicator } from "./ContextBudgetIndicator";
 
-export function QuickConnectionSwitcher({ className }: { className?: string }) {
+export function QuickConnectionSwitcher({
+  className,
+  contextBudget,
+}: {
+  className?: string;
+  contextBudget?: ProfessorMariContextBudget | null;
+}) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -85,6 +93,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
     return () => window.cancelAnimationFrame(frame);
   }, [open]);
 
+  const hasContextBudget = Boolean(contextBudget);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   useEffect(() => {
     if (!open || !btnRef.current) return;
@@ -100,7 +109,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
       if (left < 8) left = 8;
       setPos({ left, top: Math.max(8, anchorTop - menuHeight - 4) });
     });
-  }, [open]);
+  }, [open, hasContextBudget]);
 
   if (!activeChatId) return null;
 
@@ -120,7 +129,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
                 btnRef.current?.focus();
               }
             }}
-            className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[360px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-2xl"
+            className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[360px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl"
             style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" as const }}
           >
             <div className="flex items-center justify-between gap-2 border-b border-foreground/10 px-3 py-2">
@@ -143,6 +152,11 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
                 <Dices size="0.875rem" />
               </button>
             </div>
+            {contextBudget && (
+              <div className="border-b border-foreground/10 px-3 pt-2">
+                <ContextBudgetIndicator budget={contextBudget} />
+              </div>
+            )}
             <div className="overflow-y-auto p-1">
               {sorted.map((conn) => {
                 const inPool = conn.useForRandom === "true";
@@ -216,7 +230,10 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
           className,
         )}
       >
-        <Link size="1rem" />
+        <span className="relative flex h-[1.875rem] w-[1.875rem] items-center justify-center">
+          {contextBudget && <ContextBudgetGauge percentage={contextBudget.percentage} />}
+          <Link size="1rem" />
+        </span>
       </button>
       {menu}
     </>

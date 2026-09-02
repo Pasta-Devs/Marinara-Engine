@@ -557,6 +557,9 @@ export type MariPanelSortMode = "az" | "za" | "newest" | "oldest";
 export type MariEditViewMode = "easy" | "raw";
 
 interface UIState {
+  showHomeBrowserAddressBar: boolean;
+  showHomeBrowserDesktopBookmarksOnOtherTabs: boolean;
+  showHomeBrowserMobileBookmarksOnOtherTabs: boolean;
   sidebarOpen: boolean;
   sidebarWidth: number;
   rightPanelOpen: boolean;
@@ -700,6 +703,8 @@ interface UIState {
   fontFamily: string;
   enableStreaming: boolean;
   debugMode: boolean;
+  /** When true, warn when an agent uses the configured default connection. */
+  showPaidAgentConnectionWarning: boolean;
   /** Typewriter speed: 1 (very slow) to 100 (instant). Controls how fast streaming tokens appear. */
   streamingSpeed: number;
   /** When true, Game mode narration segments are revealed in full as soon as they become active. */
@@ -752,7 +757,10 @@ interface UIState {
   showTimestamps: boolean;
   showModelName: boolean;
   showTokenUsage: boolean;
+  showContextUsage: boolean;
   showMessageNumbers: boolean;
+  /** When true, character cards are available in Persona pickers. */
+  showCharactersInPersonaPickers: boolean;
   guideGenerations: boolean;
   showQuickRepliesMenu: boolean;
   showQuickReplyPostOnly: boolean;
@@ -954,6 +962,9 @@ interface UIState {
   chatModeShortcutRequest: { mode: ChatModeShortcut; token: number } | null;
 
   // Actions
+  setShowHomeBrowserAddressBar: (visible: boolean) => void;
+  setShowHomeBrowserDesktopBookmarksOnOtherTabs: (visible: boolean) => void;
+  setShowHomeBrowserMobileBookmarksOnOtherTabs: (visible: boolean) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   setSidebarWidth: (width: number) => void;
@@ -1064,6 +1075,7 @@ interface UIState {
   setFontFamily: (family: string) => void;
   setEnableStreaming: (v: boolean) => void;
   setDebugMode: (v: boolean) => void;
+  setShowPaidAgentConnectionWarning: (v: boolean) => void;
   setStreamingSpeed: (v: number) => void;
   setGameInstantTextReveal: (v: boolean) => void;
   setGameMiddleMouseNav: (v: boolean) => void;
@@ -1087,7 +1099,9 @@ interface UIState {
   setShowTimestamps: (v: boolean) => void;
   setShowModelName: (v: boolean) => void;
   setShowTokenUsage: (v: boolean) => void;
+  setShowContextUsage: (v: boolean) => void;
   setShowMessageNumbers: (v: boolean) => void;
+  setShowCharactersInPersonaPickers: (v: boolean) => void;
   setGuideGenerations: (v: boolean) => void;
   setShowQuickRepliesMenu: (v: boolean) => void;
   setShowQuickReplyPostOnly: (v: boolean) => void;
@@ -1254,6 +1268,9 @@ function normalizePersistedMainSurface(persisted: Record<string, unknown>) {
  */
 export function pickSyncedSettings(state: UIState) {
   return {
+    showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
+    showHomeBrowserDesktopBookmarksOnOtherTabs: state.showHomeBrowserDesktopBookmarksOnOtherTabs,
+    showHomeBrowserMobileBookmarksOnOtherTabs: state.showHomeBrowserMobileBookmarksOnOtherTabs,
     sidebarOpen: state.sidebarOpen,
     sidebarWidth: state.sidebarWidth,
     trackerPanelEnabled: state.trackerPanelEnabled,
@@ -1279,6 +1296,7 @@ export function pickSyncedSettings(state: UIState) {
     fontFamily: state.fontFamily,
     enableStreaming: state.enableStreaming,
     streamingSpeed: state.streamingSpeed,
+    showPaidAgentConnectionWarning: state.showPaidAgentConnectionWarning,
     gameInstantTextReveal: state.gameInstantTextReveal,
     gameMiddleMouseNav: state.gameMiddleMouseNav,
     gameDialogueDisplayMode: state.gameDialogueDisplayMode,
@@ -1307,7 +1325,9 @@ export function pickSyncedSettings(state: UIState) {
     showTimestamps: state.showTimestamps,
     showModelName: state.showModelName,
     showTokenUsage: state.showTokenUsage,
+    showContextUsage: state.showContextUsage,
     showMessageNumbers: state.showMessageNumbers,
+    showCharactersInPersonaPickers: state.showCharactersInPersonaPickers,
     guideGenerations: state.guideGenerations,
     showQuickRepliesMenu: state.showQuickRepliesMenu,
     showQuickReplyPostOnly: state.showQuickReplyPostOnly,
@@ -1400,6 +1420,9 @@ export function pickSyncedSettings(state: UIState) {
 export const useUIStore = create<UIState>()(
   persist(
     (set, get) => ({
+      showHomeBrowserAddressBar: true,
+      showHomeBrowserDesktopBookmarksOnOtherTabs: true,
+      showHomeBrowserMobileBookmarksOnOtherTabs: true,
       sidebarOpen: true,
       sidebarWidth: 320,
       rightPanelOpen: false,
@@ -1490,6 +1513,7 @@ export const useUIStore = create<UIState>()(
       fontFamily: "",
       enableStreaming: true,
       debugMode: false,
+      showPaidAgentConnectionWarning: true,
       streamingSpeed: 50,
       gameInstantTextReveal: false,
       gameMiddleMouseNav: false,
@@ -1519,7 +1543,9 @@ export const useUIStore = create<UIState>()(
       showTimestamps: false,
       showModelName: false,
       showTokenUsage: false,
+      showContextUsage: true,
       showMessageNumbers: false,
+      showCharactersInPersonaPickers: false,
       guideGenerations: false,
       showQuickRepliesMenu: false,
       showQuickReplyPostOnly: true,
@@ -2241,6 +2267,7 @@ export const useUIStore = create<UIState>()(
       setFontFamily: (family) => set({ fontFamily: family }),
       setEnableStreaming: (v) => set({ enableStreaming: v }),
       setDebugMode: (v) => set({ debugMode: v }),
+      setShowPaidAgentConnectionWarning: (v) => set({ showPaidAgentConnectionWarning: v }),
       setStreamingSpeed: (v) => set({ streamingSpeed: Math.max(1, Math.min(100, v)) }),
       setGameInstantTextReveal: (v) => set({ gameInstantTextReveal: v }),
       setGameMiddleMouseNav: (v) => set({ gameMiddleMouseNav: v }),
@@ -2288,7 +2315,9 @@ export const useUIStore = create<UIState>()(
       setShowTimestamps: (v) => set({ showTimestamps: v }),
       setShowModelName: (v) => set({ showModelName: v }),
       setShowTokenUsage: (v) => set({ showTokenUsage: v }),
+      setShowContextUsage: (v) => set({ showContextUsage: v }),
       setShowMessageNumbers: (v) => set({ showMessageNumbers: v }),
+      setShowCharactersInPersonaPickers: (v) => set({ showCharactersInPersonaPickers: v }),
       setGuideGenerations: (v) => set({ guideGenerations: v }),
       setShowQuickRepliesMenu: (v) => set({ showQuickRepliesMenu: v }),
       setShowQuickReplyPostOnly: (v) => set({ showQuickReplyPostOnly: v }),
@@ -2329,6 +2358,11 @@ export const useUIStore = create<UIState>()(
       setQuoteFormat: (v) => set({ quoteFormat: normalizeQuoteFormat(v) }),
       setConvertLatexSymbols: (v) => set({ convertLatexSymbols: v }),
       setTrimIncompleteModelOutput: (v) => set({ trimIncompleteModelOutput: v }),
+      setShowHomeBrowserAddressBar: (visible) => set({ showHomeBrowserAddressBar: visible }),
+      setShowHomeBrowserDesktopBookmarksOnOtherTabs: (visible) =>
+        set({ showHomeBrowserDesktopBookmarksOnOtherTabs: visible }),
+      setShowHomeBrowserMobileBookmarksOnOtherTabs: (visible) =>
+        set({ showHomeBrowserMobileBookmarksOnOtherTabs: visible }),
       setContinueAddsNewline: (v) => set({ continueAddsNewline: v }),
       setSpeechToTextEnabled: (v) => set({ speechToTextEnabled: v }),
       setTTSLineVolume: (v) => set({ ttsLineVolume: Math.max(0, Math.min(100, Math.round(v))) }),
@@ -2587,8 +2621,8 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      // v95 -> v96: add inline Roleplay reasoning preferences and per-mode chat help history.
-      version: 96,
+      // v97 -> v98: add Home browser chrome visibility settings.
+      version: 98,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2633,6 +2667,18 @@ export const useUIStore = create<UIState>()(
         };
       }),
       migrate: (persisted: any, version: number) => {
+        if (version <= 97) {
+          if (persisted.showHomeBrowserAddressBar === undefined) persisted.showHomeBrowserAddressBar = true;
+          if (persisted.showHomeBrowserDesktopBookmarksOnOtherTabs === undefined) {
+            persisted.showHomeBrowserDesktopBookmarksOnOtherTabs = true;
+          }
+          if (persisted.showHomeBrowserMobileBookmarksOnOtherTabs === undefined) {
+            persisted.showHomeBrowserMobileBookmarksOnOtherTabs = true;
+          }
+        }
+        if (version <= 96 && persisted.showCharactersInPersonaPickers === undefined) {
+          persisted.showCharactersInPersonaPickers = false;
+        }
         if (version <= 95 && !Array.isArray(persisted.chatHelpSeenModes)) {
           persisted.chatHelpSeenModes = persisted.gameTutorialDisabled === true ? ["game"] : [];
         }
@@ -3194,6 +3240,9 @@ export const useUIStore = create<UIState>()(
         return persisted;
       },
       partialize: (state) => ({
+        showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
+        showHomeBrowserDesktopBookmarksOnOtherTabs: state.showHomeBrowserDesktopBookmarksOnOtherTabs,
+        showHomeBrowserMobileBookmarksOnOtherTabs: state.showHomeBrowserMobileBookmarksOnOtherTabs,
         sidebarOpen: state.sidebarOpen,
         sidebarWidth: state.sidebarWidth,
         rightPanelOpen: state.rightPanelOpen,
@@ -3264,6 +3313,7 @@ export const useUIStore = create<UIState>()(
         fontFamily: state.fontFamily,
         enableStreaming: state.enableStreaming,
         debugMode: state.debugMode,
+        showPaidAgentConnectionWarning: state.showPaidAgentConnectionWarning,
         streamingSpeed: state.streamingSpeed,
         gameInstantTextReveal: state.gameInstantTextReveal,
         gameMiddleMouseNav: state.gameMiddleMouseNav,
@@ -3293,7 +3343,9 @@ export const useUIStore = create<UIState>()(
         showTimestamps: state.showTimestamps,
         showModelName: state.showModelName,
         showTokenUsage: state.showTokenUsage,
+        showContextUsage: state.showContextUsage,
         showMessageNumbers: state.showMessageNumbers,
+        showCharactersInPersonaPickers: state.showCharactersInPersonaPickers,
         guideGenerations: state.guideGenerations,
         showQuickRepliesMenu: state.showQuickRepliesMenu,
         showQuickReplyPostOnly: state.showQuickReplyPostOnly,

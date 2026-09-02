@@ -163,6 +163,7 @@ export interface PersonalExtensionCharacterSnapshot {
 
 export interface PersonalExtensionPersonaSnapshot {
   id: string;
+  source?: "persona" | "character";
   name: string;
   description: string;
   personality: string;

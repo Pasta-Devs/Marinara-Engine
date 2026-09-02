@@ -9,7 +9,7 @@
 // reviewer of, so panel writes are DIRECT (no Keep/Restore review card) — like
 // the Skills / Memories panels, unlike Mari's own autonomous mutations.
 // ──────────────────────────────────────────────
-import { eq } from "../../db/file-query.js";
+import { and, eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { mariWorkspaceContext } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -87,8 +87,11 @@ export function createMariWorkspaceContextStorage(db: DB) {
       });
     },
 
-    async get(id: string): Promise<MariWorkspaceContextRow | null> {
-      const rows = await db.select().from(mariWorkspaceContext).where(eq(mariWorkspaceContext.id, id));
+    async get(id: string, chatId?: string): Promise<MariWorkspaceContextRow | null> {
+      const condition = chatId
+        ? and(eq(mariWorkspaceContext.chatId, chatId), eq(mariWorkspaceContext.id, id))
+        : eq(mariWorkspaceContext.id, id);
+      const rows = await db.select().from(mariWorkspaceContext).where(condition);
       const row = rows[0];
       return row ? mapRow(row) : null;
     },
@@ -114,10 +117,12 @@ export function createMariWorkspaceContextStorage(db: DB) {
       return mapRow(row);
     },
 
-    async remove(id: string): Promise<boolean> {
-      const existing = await this.get(id);
+    async remove(id: string, chatId?: string): Promise<boolean> {
+      const existing = await this.get(id, chatId);
       if (!existing) return false;
-      await db.delete(mariWorkspaceContext).where(eq(mariWorkspaceContext.id, id));
+      await db
+        .delete(mariWorkspaceContext)
+        .where(and(eq(mariWorkspaceContext.chatId, existing.chatId), eq(mariWorkspaceContext.id, id)));
       return true;
     },
   };

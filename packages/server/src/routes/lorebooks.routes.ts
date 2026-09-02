@@ -26,6 +26,7 @@ import type { ExportEnvelope } from "@marinara-engine/shared";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { createGameStateStorage } from "../services/storage/game-state.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { filterRelevantLorebooks, processLorebooks } from "../services/lorebook/index.js";
@@ -867,24 +868,23 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const chat = await chatsStorage.getById(chatId);
     let characterIds: string[] = [];
     let personaId: string | null = null;
+    let identityForScan: Awaited<ReturnType<typeof resolveChatUserIdentity>> = null;
     let activeLorebookIds: string[] = [];
     let chatMeta: Record<string, unknown> = {};
     if (chat) {
-      personaId = typeof chat.personaId === "string" ? chat.personaId : null;
-      if (!personaId && chat.mode !== "game") {
-        try {
-          const charactersStorage = createCharactersStorage(app.db);
-          const activePersona = (await charactersStorage.listPersonas()).find((p: any) => p.isActive === "true");
-          personaId = (activePersona?.id as string | undefined) ?? null;
-        } catch {
-          /* ignore */
-        }
+      try {
+        identityForScan = await resolveChatUserIdentity(createCharactersStorage(app.db), chat);
+        personaId = identityForScan?.source === "persona" ? identityForScan.id : null;
+        if (identityForScan?.source === "character") characterIds.push(identityForScan.id);
+      } catch {
+        /* ignore */
       }
       try {
-        characterIds =
+        const chatCharacterIds =
           typeof chat.characterIds === "string"
             ? JSON.parse(chat.characterIds)
             : ((chat.characterIds as string[]) ?? []);
+        characterIds = [...characterIds, ...chatCharacterIds];
       } catch {
         /* ignore */
       }
@@ -988,22 +988,18 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
     const lorebookMacroResolvers = await (async () => {
       try {
-        const charactersStorage = createCharactersStorage(app.db);
         let personaName = "User";
         let personaDescription = "";
         let personaFields: { personality?: string; scenario?: string; backstory?: string; appearance?: string } = {};
-        if (personaId) {
-          const persona = await charactersStorage.getPersona(personaId);
-          if (persona) {
-            personaName = persona.name || personaName;
-            personaDescription = cardPromptText(persona.description);
-            personaFields = {
-              personality: cardPromptText(persona.personality),
-              scenario: cardPromptText(persona.scenario),
-              backstory: cardPromptText(persona.backstory),
-              appearance: cardPromptText(persona.appearance),
-            };
-          }
+        if (identityForScan) {
+          personaName = identityForScan.name || personaName;
+          personaDescription = cardPromptText(identityForScan.description);
+          personaFields = {
+            personality: cardPromptText(identityForScan.personality),
+            scenario: cardPromptText(identityForScan.scenario),
+            backstory: cardPromptText(identityForScan.backstory),
+            appearance: cardPromptText(identityForScan.appearance),
+          };
         }
         const macroContext = await buildPromptMacroContext({
           db: app.db,

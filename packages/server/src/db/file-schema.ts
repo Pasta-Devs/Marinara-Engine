@@ -144,6 +144,18 @@ export function text<const TValues extends readonly string[] = readonly string[]
   return column<TValues extends readonly [] ? string : TValues[number]>(name);
 }
 
+/**
+ * A text column holding a JSON-serialized float vector that the store may keep
+ * in memory as a parsed Float64Array (#5592 Phase 1). On disk the value is a
+ * plain JSON string, identical to text(); only the resident representation
+ * differs. Consumers must accept both shapes: unprojected selects return the
+ * original string, projected selects return the packed Float64Array. Packed
+ * values are shared by reference and must never be mutated.
+ */
+export function vectorText(name: string): FileColumn<string | Float64Array, false, false> {
+  return column<string | Float64Array>(name);
+}
+
 export function integer(name: string): FileColumn<number, false, false> {
   return column<number>(name);
 }

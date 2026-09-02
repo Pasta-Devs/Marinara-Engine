@@ -4962,15 +4962,32 @@ function storyboardStaleRenderCutoff(): string {
   return new Date(Date.now() - GAME_STORYBOARD_STALE_RENDER_MS).toISOString();
 }
 
+/**
+ * Process-start timestamp: any storyboard still "in progress" from BEFORE
+ * this moment belongs to a previous (crashed) process and is dead no matter
+ * how recently it was updated. Folding it into the per-request sweep replaces
+ * the old startup-wide sweep, which the lazy store (#5592 Phase 2) can no
+ * longer run without loading every chat's storyboards — each chat is now
+ * recovered on its first storyboard read instead, before anything is listed.
+ */
+const storyboardBootRecoveryCutoff = new Date().toISOString();
+
+function storyboardRecoveryCutoff(): string {
+  const stale = storyboardStaleRenderCutoff();
+  return stale > storyboardBootRecoveryCutoff ? stale : storyboardBootRecoveryCutoff;
+}
+
 async function recoverStaleGameStoryboards(
   storyboards: ReturnType<typeof createGameStoryboardsStorage>,
   cutoffUpdatedAt: string,
   context: string,
+  chatId?: string,
 ) {
   try {
     const recovered = await storyboards.failInProgressUpdatedBefore(
       cutoffUpdatedAt,
       GAME_STORYBOARD_STALE_RENDER_ERROR,
+      chatId,
     );
     if (recovered > 0) {
       logger.warn("[game/storyboard] marked %d stale storyboard render job(s) failed during %s", recovered, context);
@@ -5835,7 +5852,7 @@ async function serializeGameTurnStoryboard(args: {
     let image: GameTurnStoryboardKeyframe["image"] = null;
     let video: GeneratedSceneVideo | null = null;
     if (frame.chatImageId) {
-      const imageRow = await args.gallery.getById(frame.chatImageId).catch(() => null);
+      const imageRow = await args.gallery.getById(frame.chatImageId, args.row.chatId).catch(() => null);
       if (imageRow) {
         image = {
           id: imageRow.id,
@@ -5848,7 +5865,7 @@ async function serializeGameTurnStoryboard(args: {
       }
     }
     if (frame.sceneVideoId) {
-      const videoRow = await args.sceneVideos.getById(frame.sceneVideoId).catch(() => null);
+      const videoRow = await args.sceneVideos.getById(frame.sceneVideoId, args.row.chatId).catch(() => null);
       if (videoRow) video = serializeGameSceneVideo(videoRow);
     }
 
@@ -5906,7 +5923,9 @@ async function serializeGameTurnStoryboard(args: {
 }
 
 export async function gameRoutes(app: FastifyInstance) {
-  await recoverStaleGameStoryboards(createGameStoryboardsStorage(app.db), new Date().toISOString(), "startup");
+  // Startup-wide storyboard recovery is gone (#5592 Phase 2): the per-request
+  // sweeps below use storyboardRecoveryCutoff(), whose boot-time floor marks
+  // every pre-boot in-progress row failed the first time its chat is read.
   const characterGallery = createCharacterGalleryStorage(app.db);
   const personaGallery = createPersonaGalleryStorage(app.db);
 
@@ -11881,7 +11900,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const storyboards = createGameStoryboardsStorage(app.db);
     const gallery = createGalleryStorage(app.db);
     const sceneVideos = createGameSceneVideosStorage(app.db);
-    await recoverStaleGameStoryboards(storyboards, storyboardStaleRenderCutoff(), "storyboard list");
+    await recoverStaleGameStoryboards(storyboards, storyboardRecoveryCutoff(), "storyboard list", chatId);
     const rows = query.messageId
       ? await storyboards.listForTurn(chatId, query.messageId, query.swipeIndex ?? 0)
       : await storyboards.listRecentByChatId(chatId, query.limit);
@@ -11918,7 +11937,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const sceneVideos = createGameSceneVideosStorage(app.db);
       const gallery = createGalleryStorage(app.db);
       const promptOverridesStorage = createPromptOverridesStorage(app.db);
-      await recoverStaleGameStoryboards(storyboards, storyboardStaleRenderCutoff(), "storyboard generate");
+      await recoverStaleGameStoryboards(storyboards, storyboardRecoveryCutoff(), "storyboard generate", input.chatId);
 
       const chat = await chats.getById(input.chatId);
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
@@ -12616,7 +12635,7 @@ export async function gameRoutes(app: FastifyInstance) {
           await storyboards.updateKeyframe(frame.id, { chatImageId: galleryImage.id, status: "image_complete" });
 
           if (videoRuntime) {
-            await storyboards.update(storyboardRow.id, { status: "rendering_videos" });
+            await storyboards.update(storyboardRow.id, { status: "rendering_videos" }, storyboardRow.chatId);
             await storyboards.updateKeyframe(frame.id, { status: "rendering_video" });
             let savedFilePath: string | null = null;
             let metadataSaved = false;
@@ -12862,7 +12881,11 @@ export async function gameRoutes(app: FastifyInstance) {
                   (videoRuntime && generatedVideos < plan.keyframes.length)
                 ? "partial"
                 : "complete";
-          const updatedStoryboard = await storyboards.update(storyboardRow.id, { status: finalStatus });
+          const updatedStoryboard = await storyboards.update(
+            storyboardRow.id,
+            { status: finalStatus },
+            storyboardRow.chatId,
+          );
           if (!updatedStoryboard) throw new Error("Storyboard metadata could not be reloaded");
           const storyboardAgentConfigId = readTrimmedString(meta.storyboardAgentConfigId);
           if (ownerMode === "roleplay" && generatedImages > 0 && storyboardAgentConfigId) {
@@ -12894,13 +12917,15 @@ export async function gameRoutes(app: FastifyInstance) {
         } catch (err) {
           const message = err instanceof Error ? err.message : "Storyboard media rendering failed";
           logger.warn(err, "[game/storyboard] background media rendering failed for storyboard %s", storyboardRow.id);
-          await storyboards.update(storyboardRow.id, { status: "failed", error: message }).catch((updateErr) => {
-            logger.warn(
-              updateErr,
-              "[game/storyboard] failed to persist background media rendering error for storyboard %s",
-              storyboardRow.id,
-            );
-          });
+          await storyboards
+            .update(storyboardRow.id, { status: "failed", error: message }, storyboardRow.chatId)
+            .catch((updateErr) => {
+              logger.warn(
+                updateErr,
+                "[game/storyboard] failed to persist background media rendering error for storyboard %s",
+                storyboardRow.id,
+              );
+            });
         } finally {
           clearTimeout(backgroundTimeout);
           releaseBackgroundStoryboardLock?.();
@@ -13004,6 +13029,8 @@ export async function gameRoutes(app: FastifyInstance) {
     let referenceImage: VideoReferenceImage;
 
     if (requestedGalleryImageId) {
+      // Deliberately unscoped: galleryImageBelongsToGameScope accepts sibling-chat images,
+      // so the owning chat is not necessarily this one (permanent-lease risk accepted, #5611).
       const galleryImage = await gallery.getById(requestedGalleryImageId);
       if (!galleryImage || !(await galleryImageBelongsToGameScope(chats, chat, galleryImage.chatId))) {
         return reply.status(404).send({ error: "Gallery illustration not found" });
@@ -14173,8 +14200,10 @@ export async function gameRoutes(app: FastifyInstance) {
   // Delete a specific checkpoint.
   app.delete("/checkpoint/:id", async (req) => {
     const { id } = req.params as { id: string };
+    // Optional chatId keeps the lazy store from loading the whole table for a bare-id delete.
+    const { chatId } = req.query as { chatId?: string };
     const checkpoints = createCheckpointService(app.db);
-    await checkpoints.deleteById(id);
+    await checkpoints.deleteById(id, typeof chatId === "string" && chatId ? chatId : undefined);
     return { ok: true };
   });
 
@@ -14196,7 +14225,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const chat = await chats.getById(input.chatId);
     if (!chat) throw new Error("Chat not found");
 
-    const cp = await checkpointSvc.getById(input.checkpointId);
+    const cp = await checkpointSvc.getById(input.checkpointId, input.chatId);
     if (!cp) throw new Error("Checkpoint not found");
     if (cp.chatId !== input.chatId) throw new Error("Checkpoint does not belong to this chat");
 
@@ -14204,14 +14233,14 @@ export async function gameRoutes(app: FastifyInstance) {
     // still be edited after capture. Older checkpoints fall back to their row IDs.
     const snapshot =
       parseJsonField<NonNullable<Awaited<ReturnType<typeof stateStore.getById>>> | null>(cp.snapshotData, null) ??
-      (await stateStore.getById(cp.snapshotId));
+      (await stateStore.getById(cp.snapshotId, input.chatId));
     if (!snapshot) throw new Error("Checkpoint snapshot was deleted and can no longer be restored");
     if (snapshot.chatId !== input.chatId) throw new Error("Checkpoint snapshot does not belong to this chat");
     const spatialSnapshot =
       parseJsonField<NonNullable<Awaited<ReturnType<typeof spatialStore.getById>>> | null>(
         cp.spatialSnapshotData,
         null,
-      ) ?? (cp.spatialSnapshotId ? await spatialStore.getById(cp.spatialSnapshotId) : null);
+      ) ?? (cp.spatialSnapshotId ? await spatialStore.getById(cp.spatialSnapshotId, input.chatId) : null);
     if (cp.spatialSnapshotId && !spatialSnapshot) {
       throw new Error("Checkpoint spatial snapshot was deleted and can no longer be restored");
     }

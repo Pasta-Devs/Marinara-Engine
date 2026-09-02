@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { buildApp } from "./app.js";
 import { StorageWriterLeaseError } from "./db/file-backed-store.js";
 import { logger } from "./lib/logger.js";
+import { startFreezeDetector, stopFreezeDetector } from "./lib/freeze-detector.js";
 import { getHost, getPort, getServerProtocol, loadTlsOptions, logStorageDiagnostics } from "./config/runtime-config.js";
 import { logCsrfTrustSummary } from "./middleware/csrf-protection.js";
 import { startEnvWatcher } from "./config/env-watcher.js";
@@ -87,6 +88,7 @@ async function main() {
     try {
       envWatcher.stop();
       stopRuntimeMemoryMonitor();
+      stopFreezeDetector();
       await app.close();
       logger.info("Shutdown complete");
       process.exit(0);
@@ -106,6 +108,7 @@ async function main() {
   try {
     await app.listen({ port, host });
     logger.info(`Marinara Engine server listening on ${protocol}://${host}:${port}`);
+    startFreezeDetector();
     stopRuntimeMemoryMonitor = startRuntimeMemoryMonitor();
     logCsrfTrustSummary();
     scheduleTaskbarShortcutMigration();

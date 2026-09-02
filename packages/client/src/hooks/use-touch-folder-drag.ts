@@ -85,6 +85,7 @@ function createPreviewElement(drag: TouchFolderDragState) {
   drag.previewOffsetY = drag.startY - rect.top;
 
   clone.setAttribute("aria-hidden", "true");
+  clone.classList.add("mari-chrome-token-scope");
   clone.style.position = "fixed";
   clone.style.left = "0";
   clone.style.top = "0";

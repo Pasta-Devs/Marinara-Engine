@@ -10,7 +10,7 @@ type PromptMessage = {
 
 type ConnectedConversationStore = {
   listPendingInfluences(chatId: string): Promise<Array<{ id: string; content?: unknown }>>;
-  markInfluenceConsumed(id: string): Promise<unknown>;
+  markInfluenceConsumed(id: string, targetChatId?: string): Promise<unknown>;
   listNotes(chatId: string): Promise<Array<{ content?: unknown }>>;
   getById(chatId: string): Promise<{ mode?: string | null; name?: string | null } | null>;
 };
@@ -55,7 +55,7 @@ export async function injectConnectedConversationPromptBlocks(args: {
       }
 
       for (const inf of pendingInfluences) {
-        await chats.markInfluenceConsumed(inf.id);
+        await chats.markInfluenceConsumed(inf.id, chatId);
       }
     }
   }

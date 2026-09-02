@@ -55,6 +55,14 @@ export interface ChatActivityState {
   autonomousMessages: Map<string, { count: number; lastSentAt: number }>;
   /** Timestamp when generation started, or null if not in progress */
   generationInProgressSince: number | null;
+  /**
+   * Role of the chat's last message ("user"/"assistant"/other), maintained so
+   * repeat autonomous checks can answer "did the user speak last?" without
+   * reading the transcript — an unconditional read would load the chat's
+   * whole storage unit on every 30s poll (#5592 PR-B). Seeded from the
+   * transcript once, then kept live by the record* calls on the send paths.
+   */
+  lastMessageRole?: string | null;
   /** Last status reported by a connected client autonomous poller. */
   clientPresence?: { status: AutonomousClientPresenceStatus; updatedAt: number };
 }
@@ -160,6 +168,7 @@ export function recordUserActivity(chatId: string, opts: { preserveGenerationInP
   const existing = activityStates.get(chatId);
   if (existing) {
     existing.lastUserMessageAt = now;
+    existing.lastMessageRole = "user";
     existing.autonomousMessages.clear(); // Reset — user is active again
     if (!opts.preserveGenerationInProgress) {
       existing.generationInProgressSince = null;
@@ -168,6 +177,7 @@ export function recordUserActivity(chatId: string, opts: { preserveGenerationInP
     activityStates.set(chatId, {
       lastUserMessageAt: now,
       lastAssistantMessageAt: 0,
+      lastMessageRole: "user",
       autonomousMessages: new Map(),
       generationInProgressSince: null,
     });
@@ -199,11 +209,20 @@ export function recordUserReaction(chatId: string): void {
 /**
  * Record that an assistant message was sent (either user-triggered or autonomous).
  */
-export function recordAssistantActivity(chatId: string, characterId?: string): void {
+export function recordAssistantActivity(chatId: string, characterId?: string, messageTimestampMs?: number): void {
   const existing = activityStates.get(chatId);
   if (existing) {
     const now = Date.now();
     existing.lastAssistantMessageAt = now;
+    // Ordering guard for lastMessageRole: the record call runs a few awaits
+    // AFTER the assistant row persisted, and a user message can land in that
+    // window — its record already set the role. When the caller can supply
+    // the assistant MESSAGE's timestamp, an older-than-the-user's message
+    // must not steal the role back; callers without a message (generic
+    // activity pings) keep last-writer-wins.
+    if (messageTimestampMs === undefined || messageTimestampMs >= existing.lastUserMessageAt) {
+      existing.lastMessageRole = "assistant";
+    }
     if (characterId) {
       const prev = existing.autonomousMessages.get(characterId);
       existing.autonomousMessages.set(characterId, {
@@ -254,8 +273,16 @@ export function initializeActivityFromMessages(
   chatId: string,
   messages: Array<{ role: string; createdAt?: string; characterId?: string | null }>,
 ): void {
-  // Already tracked — don't overwrite
-  if (activityStates.has(chatId)) return;
+  // A PARTIAL state routinely exists before the seed runs:
+  // recordAutonomousClientPresence creates a zeroed one at the top of the
+  // same request. Bailing on mere existence would let the seed latch with
+  // the transcript timestamps and lastMessageRole never populated (the
+  // pre-#5592 code tolerated this because the catch-up branch re-read the
+  // transcript each tick; it no longer does). Merge instead: fill only the
+  // fields live activity has not already set, so real recorded activity is
+  // never overwritten by transcript-derived values.
+  const existing = activityStates.get(chatId);
+  if (existing && (existing.lastUserMessageAt > 0 || existing.lastAssistantMessageAt > 0)) return;
   if (messages.length === 0) return;
 
   let lastUserAt = 0;
@@ -272,9 +299,17 @@ export function initializeActivityFromMessages(
 
   if (!lastUserAt) return; // No user messages — can't initialize
 
+  const lastMessageRole = messages[messages.length - 1]!.role ?? null;
+  if (existing) {
+    existing.lastUserMessageAt = lastUserAt;
+    existing.lastAssistantMessageAt = lastAssistantAt;
+    existing.lastMessageRole ??= lastMessageRole;
+    return;
+  }
   activityStates.set(chatId, {
     lastUserMessageAt: lastUserAt,
     lastAssistantMessageAt: lastAssistantAt,
+    lastMessageRole,
     autonomousMessages: new Map(),
     generationInProgressSince: null,
   });

@@ -265,6 +265,13 @@ function assertPosixReminderRouting(launcherName) {
 assertPosixReminderRouting("start.sh");
 assertPosixReminderRouting("start-termux.sh");
 
+const termuxLauncherSource = readFileSync(join(repositoryRoot, "start-termux.sh"), "utf8");
+assert.match(
+  termuxLauncherSource,
+  /cd "\$\(dirname "\$0"\)"[\s\S]*?export GIT_TERMINAL_PROMPT=0/u,
+  "The Termux launcher must disable interactive Git credential prompts before update checks",
+);
+
 const windowsLauncherSource = readFileSync(join(repositoryRoot, "start.bat"), "utf8");
 assert.match(windowsLauncherSource, /check-launcher-update\.mjs/u);
 assert.match(

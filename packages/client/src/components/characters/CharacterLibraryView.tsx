@@ -1,4 +1,14 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type UIEvent } from "react";
+import {
+  Fragment,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type UIEvent,
+} from "react";
 import {
   ArrowLeft,
   ArrowUpDown,
@@ -13,6 +23,7 @@ import {
   User,
 } from "lucide-react";
 import { type CharacterData, type Persona } from "@marinara-engine/shared";
+import type { CharacterCatalogEntry } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import {
   flattenCharacterPages,
@@ -43,14 +54,7 @@ const libraryToolbarButtonClass =
   "mari-chrome-control mari-chrome-control--primary h-10 min-h-10 min-w-0 px-3 text-[0.75rem]";
 const libraryToolbarFieldClass = "mari-chrome-field h-10 w-full text-[0.75rem] md:h-9";
 
-type CharacterRow = {
-  id: string;
-  data: string;
-  comment?: string | null;
-  avatarPath: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
+type CharacterRow = CharacterCatalogEntry;
 
 type ParsedCharacterRow = CharacterRow & {
   parsed: Partial<CharacterData> & {
@@ -75,6 +79,7 @@ type LibraryCard = {
   favorite: boolean;
   active: boolean;
   creatorNotes: string;
+  hasExplicitSummary: boolean;
   sections: LibrarySection[];
 };
 
@@ -102,8 +107,20 @@ const LIBRARY_COPY: Record<CardLibraryKind, LibraryCopy> = {
 
 function parseCharacterRow(char: CharacterRow): ParsedCharacterRow {
   try {
-    const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
-    return { ...char, parsed: (parsed as ParsedCharacterRow["parsed"]) ?? {} };
+    const parsed = {
+      name: char.name,
+      summary: char.explicitSummary,
+      description: char.description,
+      personality: char.personality,
+      scenario: char.scenario,
+      first_mes: char.firstMessage,
+      creator_notes: char.creatorNotes,
+      tags: char.tags,
+      creator: char.creator,
+      character_version: char.version,
+      extensions: { fav: char.favorite, avatarCrop: char.avatarCrop, nameColor: char.nameColor },
+    };
+    return { ...char, parsed: (parsed as unknown as ParsedCharacterRow["parsed"]) ?? {} };
   } catch {
     return { ...char, parsed: { name: "Unknown", description: "" } };
   }
@@ -120,7 +137,12 @@ function getCharacterTags(char: ParsedCharacterRow): string[] {
 }
 
 function getCharacterSummary(char: ParsedCharacterRow) {
-  return getCardLibrarySummary([char.parsed.creator_notes, char.parsed.description, char.parsed.personality]);
+  return getCardLibrarySummary([
+    char.parsed.summary,
+    char.parsed.creator_notes,
+    char.parsed.description,
+    char.parsed.personality,
+  ]);
 }
 
 function getPersonaSummary(persona: Persona) {
@@ -176,6 +198,7 @@ function toCharacterLibraryCard(char: ParsedCharacterRow): LibraryCard {
     favorite: !!char.parsed.extensions?.fav,
     active: false,
     creatorNotes: getText(char.parsed.creator_notes),
+    hasExplicitSummary: Boolean(getText(char.parsed.summary)),
     sections: getCharacterSections(char),
   };
 }
@@ -196,6 +219,7 @@ function toPersonaLibraryCard(persona: Persona): LibraryCard {
     favorite: false,
     active: persona.isActive,
     creatorNotes: getText(persona.creatorNotes),
+    hasExplicitSummary: false,
     sections: getPersonaSections(persona),
   };
 }
@@ -280,6 +304,17 @@ function CardLibraryDetailCard({
               </div>
             </div>
 
+            {card.hasExplicitSummary && (
+              <section className="mt-4 rounded-[1.5rem] border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-4 py-3">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--marinara-chat-chrome-panel-muted)]">
+                  {localizeUi("ui.characters.summary.label")}
+                </h3>
+                <div className="mari-message-content mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--marinara-chat-chrome-panel-text)]">
+                  {renderMarkdownBlocks(card.summary, applyInlineMarkdown, `summary-${card.id}`)}
+                </div>
+              </section>
+            )}
+
             {card.creatorNotes && (
               <div className="mari-message-content mt-4 whitespace-pre-wrap rounded-[1.5rem] border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-4 py-3 text-sm leading-6 text-[var(--marinara-chat-chrome-panel-text)]">
                 {renderMarkdownBlocks(card.creatorNotes, applyInlineMarkdown, `creator-notes-${card.id}`)}
@@ -362,7 +397,8 @@ export function CharacterLibraryView() {
   const selectedId = isPersonaLibrary ? personaSelectedId : characterSelectedId;
   const sort = isPersonaLibrary ? personaSort : characterSort;
   const [search, setSearch] = useState("");
-  const serverSearch = useMemo(() => parseCardLibrarySearchQuery(search).text, [search]);
+  const deferredSearch = useDeferredValue(search);
+  const serverSearch = useMemo(() => parseCardLibrarySearchQuery(deferredSearch).text, [deferredSearch]);
   const characterPages = useCharacterPages({ enabled: !isPersonaLibrary, search: serverSearch, sort: characterSort });
   const personaPages = usePersonaPages({ enabled: isPersonaLibrary, search: serverSearch, sort: personaSort });
   const characters = useMemo(() => flattenCharacterPages(characterPages.data), [characterPages.data]);
@@ -579,22 +615,19 @@ export function CharacterLibraryView() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder={
-                  isPersonaLibrary
-                    ? localize("Search personas")
-                    : t("search.panels.charactersWithExcludedTag", { query: '-tag:"tag name"' })
-                }
+                placeholder={isPersonaLibrary ? localize("Search personas") : t("search.panels.characters")}
                 className={cn(libraryToolbarFieldClass, "pl-7 pr-2.5")}
               />
             </div>
 
-            <div className="relative min-w-0">
+            <div data-library-toolbar-sort className="relative min-w-0">
               <select
                 value={sort}
                 onChange={(event) => handleSortChange(event.target.value)}
+                aria-label={localizeUi("ui.panels.agentspanel.sortOrder")}
                 className={cn(
                   libraryToolbarFieldClass,
-                  "mari-chrome-sort-field mari-accent-animated appearance-none pl-2.5 pr-7",
+                  "mari-chrome-sort-field mari-accent-animated !w-full appearance-none pl-2.5 pr-7",
                 )}
               >
                 <option value="name-asc">{localizeUi("ui.characters.characterlibraryview.nameAZ")}</option>

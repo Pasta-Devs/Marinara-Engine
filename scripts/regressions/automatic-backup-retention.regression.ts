@@ -204,13 +204,10 @@ try {
   );
   const zip64Import = await readStoredBackupImportForRegression(zip64Archive, "backgrounds/large.gif");
   assert.equal(zip64Import.isFullBackup, true);
-  assert.equal(zip64Import.assetTotalByteLimit, Number.MAX_SAFE_INTEGER);
   assert.ok(zip64Import.asset && !Buffer.isBuffer(zip64Import.asset));
-  const zip64Restore = await stageProfileImportAssets(
-    join(zipFixtureRoot, "zip64-restored"),
-    [{ path: "backgrounds/large.gif", expectedSize: logicalSize, read: () => zip64Import.asset }],
-    zip64Import.assetTotalByteLimit,
-  );
+  const zip64Restore = await stageProfileImportAssets(join(zipFixtureRoot, "zip64-restored"), [
+    { path: "backgrounds/large.gif", expectedSize: logicalSize, read: () => zip64Import.asset },
+  ]);
   try {
     await promoteStagedProfileAssets(zip64Restore);
     assert.equal((await stat(join(zipFixtureRoot, "zip64-restored", "backgrounds", "large.gif"))).size, logicalSize);

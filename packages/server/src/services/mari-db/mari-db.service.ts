@@ -50,6 +50,7 @@ import {
   type MariDbRowChange,
   type MariDbValidationIssue,
   type MariDbValidationResult,
+  MARI_PERMISSIONS_MODE_SETTINGS_KEY,
 } from "@marinara-engine/shared";
 import { computePersonalExtensionHash } from "../extensions/personal-extension-hash.js";
 import { HomeWidgetCatalogConflictError, replaceHomeWidgetCatalog } from "../home-widget-catalog.service.js";
@@ -158,6 +159,8 @@ type MariAppDataActionEnvelope = Row & {
   action?: unknown;
   cwd?: string;
   sessionId?: string;
+  /** #5725 Permissions Mode: "auto-keep" applies without a pending Keep/Restore card. */
+  reviewPolicy?: "standard" | "auto-keep";
 };
 
 type CodeCommandContext = {
@@ -1693,7 +1696,7 @@ function stripPromptPresetChildPayload(row: Row): Row {
 function actionCommandPayload(envelope: MariAppDataActionEnvelope): Row {
   const out: Row = {};
   for (const [key, value] of Object.entries(envelope)) {
-    if (key === "cwd" || key === "sessionId") continue;
+    if (key === "cwd" || key === "sessionId" || key === "reviewPolicy") continue;
     out[key] = typeof value === "string" && value.length > 600 ? truncateStr(value, 600) : value;
   }
   return out;
@@ -2072,6 +2075,7 @@ function summarizeCharacterRow(row: Row): Row {
     id: row.id,
     name: typeof data.name === "string" ? data.name : "(unnamed)",
     comment: row.comment ?? "",
+    summary: typeof data.summary === "string" ? data.summary : "",
     tags: Array.isArray(data.tags) ? data.tags.slice(0, 8) : [],
     avatarPath: row.avatarPath ?? null,
     createdAt: row.createdAt,
@@ -2246,6 +2250,7 @@ function summarizeChatRow(row: Row): Row {
 
 const CHARACTER_DATA_HINT_KEYS = new Set([
   "name",
+  "summary",
   "description",
   "personality",
   "scenario",
@@ -2370,6 +2375,7 @@ function buildMinimalCharacterData(
     ? (normalizedBase.extensions as Record<string, unknown>)
     : {};
   const data: Record<string, unknown> = {
+    summary: "",
     description: "",
     personality: "",
     scenario: "",
@@ -2386,6 +2392,7 @@ function buildMinimalCharacterData(
     extensions: { ...baseExtensions },
   };
   const topLevelMap: Array<[string, string]> = [
+    ["summary", "summary"],
     ["description", "description"],
     ["personality", "personality"],
     ["scenario", "scenario"],
@@ -2397,6 +2404,7 @@ function buildMinimalCharacterData(
     const val = flagString(flags, flagName);
     if (val !== undefined) data[fieldName] = val;
   }
+  data.summary = typeof data.summary === "string" ? data.summary.trim().slice(0, 500) : "";
   // backstory and appearance are Marinara extensions stored under data.extensions.*
   const extensions = data.extensions as Record<string, unknown>;
   const extMap: Array<[string, string]> = [
@@ -2432,6 +2440,11 @@ export class MariDbService {
   // requests for the SAME review id would both read the same record and clobber each other on write.
   // Keyed by id so unrelated reviews stay concurrent; entries self-evict once the queue drains.
   private reviewLocks = new Map<string, Promise<unknown>>();
+  // #5725 Permissions Mode: review policy of the executeAction call currently in
+  // flight. Mutating workspace commands are serialized upstream (the workspace
+  // agent's serializeWorkspaceMutation), so at most one mutating executeAction
+  // is active at a time; reset to "standard" at every executeAction entry.
+  private activeReviewPolicy: "standard" | "auto-keep" = "standard";
 
   constructor(private readonly db: DB) {}
 
@@ -2439,6 +2452,9 @@ export class MariDbService {
     const argv = envelope.argv ?? [];
     const command = formatCommand(argv, envelope.command);
     const sessionId = envelope.sessionId || "mari-cli";
+    // #5725: the CLI path never carries a review policy - a stale "auto-keep"
+    // left by a prior executeAction must not strip cards from CLI mutations.
+    this.activeReviewPolicy = "standard";
     try {
       const group = argv[0];
       if (!group || group === "help" || group === "--help" || group === "-h") {
@@ -2492,6 +2508,10 @@ export class MariDbService {
 
   async executeAction(envelope: MariAppDataActionEnvelope): Promise<MariDbCommandResult> {
     let command = "app_data";
+    // #5725: the Permissions Mode review policy rides the envelope. Mutating
+    // workspace commands are serialized upstream, so a transient field is a
+    // safe way to reach executeMutation without threading every call site.
+    this.activeReviewPolicy = envelope.reviewPolicy === "auto-keep" ? "auto-keep" : "standard";
     try {
       const action = requiredString(envelope, ["action", "type"], "app_data action");
       command = formatAppDataActionCommand(action, envelope);
@@ -2538,6 +2558,10 @@ export class MariDbService {
     } catch (err) {
       logger.warn(err, "[mari-db] structured app_data action failed");
       return { ok: false, mode: "read", command, error: err instanceof Error ? err.message : String(err) };
+    } finally {
+      // Reset on exit: the transient policy must never outlive the call that
+      // set it (the CLI entry also resets defensively on entry).
+      this.activeReviewPolicy = "standard";
     }
   }
 
@@ -2600,6 +2624,7 @@ export class MariDbService {
             ["data", "card", "character"],
             [
               "name",
+              "summary",
               "description",
               "personality",
               "scenario",
@@ -2657,6 +2682,7 @@ export class MariDbService {
             ["patch", "data", "card", "character"],
             [
               "name",
+              "summary",
               "description",
               "personality",
               "scenario",
@@ -2683,7 +2709,7 @@ export class MariDbService {
           comment === (typeof existing.comment === "string" ? existing.comment : "")
         ) {
           throw new Error(
-            "character.update needs a patch field such as name, description, personality, scenario, firstMes, creatorNotes, backstory, appearance, aboutMe, tags, or comment",
+            "character.update needs a patch field such as name, summary, description, personality, scenario, firstMes, creatorNotes, backstory, appearance, aboutMe, tags, or comment",
           );
         }
         const name =
@@ -5741,7 +5767,7 @@ export class MariDbService {
         const rawJson = await resolveJsonInput(flags, context.cwd);
         if (!name && !rawJson) {
           throw new Error(
-            "Usage: mari characters create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--about-me <text>] [--apply]\n" +
+            "Usage: mari characters create --name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--about-me <text>] [--apply]\n" +
               "       or: mari characters create --json '<data_json>' [--json-file <path>] [--apply]",
           );
         }
@@ -5774,7 +5800,7 @@ export class MariDbService {
         const id = parsed.positionals[0];
         if (!id)
           throw new Error(
-            "Usage: mari characters update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
+            "Usage: mari characters update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
           );
         const existing = await this.getRawById(getMeta("characters"), id);
         if (!existing) throw new Error(`Character ${id} not found`);
@@ -7089,6 +7115,21 @@ export class MariDbService {
         status: "approved",
         journalPath,
       });
+      // #5725 Accept edits / Bypass: apply without staging a pending
+      // Keep/Restore card. The caller only sets auto-keep for non-delete
+      // actions, so deletions always keep their review; history and the
+      // journal are recorded above either way.
+      if (this.activeReviewPolicy === "auto-keep") {
+        return {
+          ok: true,
+          mode: "apply",
+          command,
+          summary: plan.summary,
+          validation: plan.validation,
+          approval: { status: "not_required", operationHash: plan.operationHash },
+          journalPath,
+        };
+      }
       const review = await this.createAppliedReview(plan, storedCommand, sessionId, journalPath, history.id);
       return {
         ok: true,
@@ -7137,6 +7178,45 @@ export class MariDbService {
     // systemKey identifies Engine-owned presets. Apply this after every planner so raw writes and
     // transforms cannot bypass the structured preset-action boundary.
     protectPromptPresetSystemKeys(changes);
+
+    // #5725: the Permissions Mode governs Mari herself, so she must never be
+    // able to rewrite it - by ANY path, including raw db mutations and
+    // transforms (change-level, so every planner is covered). Only the user's
+    // validated PUT route writes this row.
+    const permissionsModeChanges = changes.filter(
+      (change) => change.table === "app_settings" && change.id === MARI_PERMISSIONS_MODE_SETTINGS_KEY,
+    );
+    if (permissionsModeChanges.length > 0) {
+      issues.push({
+        level: "error",
+        table: "app_settings",
+        id: MARI_PERMISSIONS_MODE_SETTINGS_KEY,
+        message: "The Permissions Mode can only be changed by the user, from the Mari panel or Settings.",
+      });
+    }
+    // Same floor for the per-chat override: a chats-row write whose metadata
+    // changes "mariPermissionsMode" is blocked (deleting a whole chat is not -
+    // that removes the override legitimately).
+    const chatModeMetadataValue = (raw: unknown): unknown => {
+      if (typeof raw !== "string" || !raw) return undefined;
+      try {
+        return (JSON.parse(raw) as Record<string, unknown>).mariPermissionsMode;
+      } catch {
+        return undefined;
+      }
+    };
+    for (const change of changes) {
+      if (change.table !== "chats" || !change.afterRaw) continue;
+      if (chatModeMetadataValue(change.afterRaw.metadata) !== chatModeMetadataValue(change.beforeRaw?.metadata)) {
+        issues.push({
+          level: "error",
+          table: "chats",
+          id: change.id,
+          message:
+            "The chat's Permissions Mode override can only be changed by the user, from the Mari panel or Settings.",
+        });
+      }
+    }
 
     const personalExtensionChanges = changes.filter((change) => change.table === "installed_extensions");
     if (personalExtensionChanges.length > 0 && !request.personalExtensionDraftMutation) {
@@ -8531,9 +8611,9 @@ export class MariDbService {
       "Read:  list [--limit <n>] [--search <text>]",
       "Read:  get <id>",
       "Read:  search <query> [--limit <n>]",
-      "Write: create (--name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] | --json '<data_json>' | --json-file <path>) [--apply] [--reason <text>]",
+      "Write: create (--name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] | --json '<data_json>' | --json-file <path>) [--apply] [--reason <text>]",
       "       --backstory, --appearance, and --about-me write to matching data.extensions fields",
-      "Write: update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
+      "Write: update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
       "Write: delete <id> [--apply] [--reason <text>]",
       "Writes dry-run by default; --apply saves reversible changes and shows a Keep/Restore review card.",
     ].join("\n");

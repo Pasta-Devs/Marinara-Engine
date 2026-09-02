@@ -4330,6 +4330,15 @@ strong {
 
   :root {
     --marinara-topbar-surface: var(--card);
+    /* Gecko on Android reports env(safe-area-inset-bottom) as the system
+       navigation-bar height even though its layout viewport already stops
+       above the bar, so honoring the raw env() value double-compensates into
+       a dead band above the navigation bar (#5665). Publish a zero override
+       through the --mari-safe-area-inset-bottom hook that bottom safe-area
+       consumers prefer over env(). Desktop Firefox also matches this
+       @supports probe, but it reports env() as 0px there, so the override is
+       a no-op outside Android. */
+    --mari-safe-area-inset-bottom: 0px;
   }
 
   .mari-topbar,
@@ -5982,14 +5991,29 @@ strong {
    * the literal and WKWebView cannot resolve variables → shows black instead.
    */
   html {
-    min-height: 100dvh;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
+    overscroll-behavior: none;
   }
 
   body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     /* Safe-area insets handled by AppShell — only apply sides here */
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+  }
+
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
   }
 
   /* Scoped to conversation/roleplay/game (each sets data-chat-mode on its
@@ -6000,8 +6024,13 @@ strong {
     bottom: auto;
     height: var(--mari-visual-viewport-height, 100dvh);
     min-height: 0;
-    /* Counters the iOS scroll-drag bug described in AppShell.tsx. */
-    transform: translateY(var(--mari-app-scroll-compensate, 0px)) translateZ(0);
+  }
+
+  /* iOS can visually pan a locked document during keyboard focus without
+     changing its scroll offsets. Use document coordinates there so the
+     visual-viewport top cancels that pan instead of shifting a fixed shell. */
+  html[data-mari-ios-webkit] .mari-app[data-chat-surface-active="true"]:has([data-chat-mode]) {
+    position: absolute;
   }
 
   .app-sidebar-mobile {
@@ -6180,6 +6209,20 @@ strong {
     width: calc(100% - var(--mari-roleplay-mobile-avatar-space, 3rem));
   }
 
+  [data-component="ChatArea.Roleplay"][data-mobile-composer-active="true"] [data-roleplay-agent-window],
+  [data-component="ChatArea.Roleplay"]:has(.mari-roleplay-message-body--editing) [data-roleplay-agent-window] {
+    display: none;
+  }
+
+  [data-chat-mode="conversation"] [data-chat-scroll]:has([data-chat-message-editor]) {
+    padding-bottom: 8rem;
+    scroll-padding-bottom: 8rem;
+  }
+
+  [data-chat-mode="roleplay"] [data-chat-scroll]:has([data-chat-message-editor]) {
+    --mari-message-editor-scroll-space: 8rem;
+  }
+
   .rpg-hud {
     font-size: 0.625rem;
   }
@@ -6194,8 +6237,13 @@ strong {
     scroll-margin-bottom: max(4.5rem, var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)));
   }
   html[data-mari-software-keyboard-open] .chat-input-container {
-    padding-bottom: 0.5em !important;
+    padding-top: 0 !important;
+    padding-bottom: 0.25em !important;
     scroll-margin-bottom: 4.5rem;
+  }
+  html[data-mari-software-keyboard-open] .chat-input-container .marinara-chat-input-shell {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
   }
   .chat-input-container .marinara-chat-input-shell {
     gap: 0.25rem !important;
@@ -6300,14 +6348,6 @@ strong {
   ),
 .mari-generation-render-paused .rpg-streaming::after {
   animation-play-state: paused !important;
-}
-
-.rpg-sprite-container img,
-.rpg-avatar-glow img,
-.rpg-avatar-panel img,
-.rpg-avatar-panel-media img,
-.rpg-avatar-panel-tail-image {
-  will-change: opacity, filter;
 }
 
 .game-stats-bar-fill {
@@ -7238,24 +7278,24 @@ strong {
 }
 
 .mari-conversation-call-mini {
-  bottom: max(env(safe-area-inset-bottom), 0.75rem);
+  bottom: max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem);
   left: max(env(safe-area-inset-left), 0.75rem);
   transition: bottom 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 :root[data-professor-mari-floating="true"] .mari-conversation-call-mini {
-  bottom: calc(max(env(safe-area-inset-bottom), 0.75rem) + min(32rem, calc(100vh - 5rem)) + 0.75rem);
+  bottom: calc(max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem) + min(32rem, calc(100vh - 5rem)) + 0.75rem);
 }
 
 @supports (height: 100dvh) {
   :root[data-professor-mari-floating="true"] .mari-conversation-call-mini {
-    bottom: calc(max(env(safe-area-inset-bottom), 0.75rem) + min(32rem, calc(100dvh - 5rem)) + 0.75rem);
+    bottom: calc(max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem) + min(32rem, calc(100dvh - 5rem)) + 0.75rem);
   }
 }
 
 @media (max-width: 639px) {
   :root[data-professor-mari-floating="true"] .mari-conversation-call-mini {
-    bottom: calc(max(env(safe-area-inset-bottom), 0.75rem) + 4rem);
+    bottom: calc(max(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), 0.75rem) + 4rem);
   }
 }
 

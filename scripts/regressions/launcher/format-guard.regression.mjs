@@ -83,7 +83,7 @@ assert.match(
 assert.doesNotMatch(
   termuxLauncherSource,
   /--max-old-space-size=2048/u,
-  "the Termux launcher must not restore the memory-heavy 2 GB automatic heap default",
+  "the Termux launcher must not restore a flat 2 GB heap literal; RAM-justified computed grants come from resolve_default_node_heap_mb",
 );
 assert.match(
   termuxLauncherSource,
@@ -106,8 +106,11 @@ const probeHeapHelpers = (script, nodeOptions = "") => {
 probeHeapHelpers("has_explicit_node_heap_limit", "--max-old-space-size=512");
 probeHeapHelpers("! has_explicit_node_heap_limit", "--trace-warnings");
 assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 0 8388608"), "1024");
-assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 8388608"), "1536");
+assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 524288 8388608"), "1536");
+assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 8388608"), "2048");
 assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 4194304"), "1024");
+assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 3145728"), "1024");
+assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 0"), "1536");
 const wakeLockTrapIndex = termuxLauncherSource.search(/^[ \t]*trap release_termux_wake_lock EXIT[ \t]*$/mu);
 const wakeLockAcquireIndex = termuxLauncherSource.search(/^[ \t]*if[ \t]+termux-wake-lock\b[^\n]*;[ \t]*then[ \t]*$/mu);
 const serverStartIndex = termuxLauncherSource.lastIndexOf("node dist/index.js");
@@ -147,7 +150,7 @@ assert.match(
 );
 assert.match(
   termuxLauncherSource,
-  /MARINARA_TERMUX_LOG_TEE_PID=\$![\s\S]{0,30000}exec 1>&3 2>&4 3>&- 4>&-[\s\S]{0,200}wait "\$MARINARA_TERMUX_LOG_TEE_PID"[\s\S]{0,300}Persistent Termux logging failed with status \$MARINARA_TERMUX_LOG_TEE_STATUS/u,
+  /MARINARA_TERMUX_LOG_TEE_PID=\$![\s\S]{0,40000}exec 1>&3 2>&4 3>&- 4>&-[\s\S]{0,200}wait "\$MARINARA_TERMUX_LOG_TEE_PID"[\s\S]{0,300}Persistent Termux logging failed with status \$MARINARA_TERMUX_LOG_TEE_STATUS/u,
   "the Termux launcher must flush and report tee failures without replacing the server status",
 );
 assert.match(

@@ -1078,7 +1078,7 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
                           value={serializeValue(run.resultData, mode)}
                           onSave={async (draftText) => {
                             const parsed: unknown = mode === "json" ? JSON.parse(draftText) : draftText;
-                            await updateRunData.mutateAsync({ id: run.id, chatId: chat.id, resultData: parsed });
+                            await updateRunData.mutateAsync({ id: run.id, chatId: run.chatId, resultData: parsed });
                           }}
                           onDirtyChange={handleBlockDirtyChange}
                           disabled={isAgentProcessing}

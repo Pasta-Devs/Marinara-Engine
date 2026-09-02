@@ -73,6 +73,9 @@ function startProject(name, clientPort, serverPort) {
       ...process.env,
       DATA_DIR: dataDir,
       DEV_SKIP_SHARED_BUILD: "true",
+      // The e2e servers run from the working repo; a test-driven or stray
+      // loopback channel switch must never rewrite the checkout (#5646).
+      UPDATES_APPLY_DISABLED: "true",
       MARINARA_ENV_FILE: resolve(dataDir, ".env"),
       PORT: String(serverPort),
       VITE_PORT: String(clientPort),
@@ -108,12 +111,23 @@ async function waitForUrl(url) {
 process.on("SIGINT", () => stopChildren("SIGINT"));
 process.on("SIGTERM", () => stopChildren("SIGTERM"));
 
+// CI shards set PLAYWRIGHT_ONLY_PROJECT to boot just the server pair their
+// Playwright project talks to (#5637) — no test reaches across to the other
+// pair's ports. Unset (local runs) keeps the boot-both behavior.
+const onlyProject = ["desktop", "mobile"].includes(process.env.PLAYWRIGHT_ONLY_PROJECT?.trim())
+  ? process.env.PLAYWRIGHT_ONLY_PROJECT.trim()
+  : null;
+
 try {
   resetPlaywrightData();
   await runPnpm(["--filter", "@marinara-engine/shared", "build:preserve"]);
-  startProject("mobile", mobileClientPort, mobileServerPort);
-  await waitForUrl(`http://127.0.0.1:${mobileClientPort}`);
-  startProject("desktop", desktopClientPort, desktopServerPort);
+  if (onlyProject !== "desktop") {
+    startProject("mobile", mobileClientPort, mobileServerPort);
+    await waitForUrl(`http://127.0.0.1:${mobileClientPort}`);
+  }
+  if (onlyProject !== "mobile") {
+    startProject("desktop", desktopClientPort, desktopServerPort);
+  }
 } catch (error) {
   stopChildren();
   console.error(error instanceof Error ? error.message : error);

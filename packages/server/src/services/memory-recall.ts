@@ -46,7 +46,7 @@ async function serializeMemoryMutation<T>(chatId: string, task: () => Promise<T>
 
 // ── Cosine similarity ──
 
-function cosineSimilarity(a: number[], b: number[]): number {
+function cosineSimilarity(a: ArrayLike<number>, b: ArrayLike<number>): number {
   if (a.length !== b.length || a.length === 0) return 0;
   let dot = 0,
     magA = 0,
@@ -60,8 +60,14 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
-function parseStoredEmbedding(value: string | null): number[] | null {
+function parseStoredEmbedding(value: string | Float64Array | null): number[] | Float64Array | null {
   if (!value) return null;
+  // The store holds memory_chunks embeddings as packed Float64Arrays (#5592
+  // Phase 1); projected selects hand the vector back directly, so recall skips
+  // the per-chunk JSON.parse entirely. The string branch remains for values
+  // the store declined to pack (non-canonical text) and for callers that pass
+  // freshly serialized embeddings.
+  if (value instanceof Float64Array) return value;
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed) && parsed.every((item) => typeof item === "number" && Number.isFinite(item))
@@ -408,11 +414,7 @@ async function chunkAndEmbedMessagesUnlocked(
     .where(and(eq(memoryChunks.chatId, chatId), isNull(memoryChunks.sourceChatId), isNotNull(memoryChunks.embedding)))
     .limit(1);
   const existingEmbedding = parseStoredEmbedding(existingEmbeddedChunk[0]?.embedding ?? null);
-  if (
-    Array.isArray(existingEmbedding) &&
-    existingEmbedding.length > 0 &&
-    existingEmbedding.length !== embeddingDimension
-  ) {
+  if (existingEmbedding !== null && existingEmbedding.length > 0 && existingEmbedding.length !== embeddingDimension) {
     logger.warn(
       "[memory-recall] Skipping memory chunk insert for chat %s because embedding dimension changed from %d to %d. Rebuild memories before mixing embedding models.",
       chatId,

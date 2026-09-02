@@ -153,6 +153,7 @@ const ActiveLorebookEntriesContent = lazy(async () => {
 const roleplayNotificationSeenKeys = new Set<string>();
 const MAX_ROLEPLAY_NOTIFICATION_SEEN_KEYS = 5_000;
 const MOBILE_FLOATING_PANEL_PADDING = 8;
+const BACKGROUND_CROSSFADE_MS = 700;
 
 type MobileFloatingPanelFrame = {
   top: number;
@@ -230,6 +231,7 @@ function CrossfadeBackground({
   const [bgB, setBgB] = useState<string | null>(null);
   const [aActive, setAActive] = useState(true);
   const activeSlot = useRef<"a" | "b">("a");
+  const cleanupTimerRef = useRef<number | null>(null);
   const backgroundBlurStyle = getBackgroundBlurStyle(blurPx);
 
   useEffect(() => {
@@ -259,17 +261,33 @@ function CrossfadeBackground({
     };
 
     function applyUrl(nextUrl: string | null) {
+      if (cleanupTimerRef.current !== null) window.clearTimeout(cleanupTimerRef.current);
       if (activeSlot.current === "a") {
         setBgB(nextUrl);
         setAActive(false);
         activeSlot.current = "b";
+        cleanupTimerRef.current = window.setTimeout(() => {
+          cleanupTimerRef.current = null;
+          setBgA(null);
+        }, BACKGROUND_CROSSFADE_MS);
       } else {
         setBgA(nextUrl);
         setAActive(true);
         activeSlot.current = "a";
+        cleanupTimerRef.current = window.setTimeout(() => {
+          cleanupTimerRef.current = null;
+          setBgB(null);
+        }, BACKGROUND_CROSSFADE_MS);
       }
     }
   }, [bgA, bgB, url]);
+
+  useEffect(
+    () => () => {
+      if (cleanupTimerRef.current !== null) window.clearTimeout(cleanupTimerRef.current);
+    },
+    [],
+  );
 
   return (
     <>
@@ -283,7 +301,7 @@ function CrossfadeBackground({
         )}
         style={{
           opacity: aActive && bgA ? 1 : 0,
-          transition: "opacity 700ms ease-in-out, filter 180ms ease-out, transform 180ms ease-out",
+          transition: `opacity ${BACKGROUND_CROSSFADE_MS}ms ease-in-out, filter 180ms ease-out, transform 180ms ease-out`,
           ...backgroundBlurStyle,
         }}
       />
@@ -297,7 +315,7 @@ function CrossfadeBackground({
         )}
         style={{
           opacity: !aActive && bgB ? 1 : 0,
-          transition: "opacity 700ms ease-in-out, filter 180ms ease-out, transform 180ms ease-out",
+          transition: `opacity ${BACKGROUND_CROSSFADE_MS}ms ease-in-out, filter 180ms ease-out, transform 180ms ease-out`,
           ...backgroundBlurStyle,
         }}
       />
@@ -1421,51 +1439,21 @@ export function ChatRoleplaySurface({
   const pendingPostProcessingKeysRef = useRef<Set<string>>(new Set());
   const topChromeRef = useRef<HTMLDivElement>(null);
   const inputChromeRef = useRef<HTMLDivElement>(null);
-  const composerScrollTopRef = useRef(0);
   const chromeInsetsRef = useRef<{ target: HTMLDivElement | null; top: number; bottom: number }>({
     target: null,
     top: -1,
     bottom: -1,
   });
-  const [mobileHistoryComposerCollapsed, setMobileHistoryComposerCollapsed] = useState(false);
   const [authorNotesOpenOwner, setAuthorNotesOpenOwner] = useState<"expanded" | "compact" | null>(null);
   const compactToolbarOwnsAuthorNotes = centerCompact || isMobileToolbarViewport;
   const expandedAuthorNotesOpen = authorNotesOpenOwner === "expanded";
   const compactAuthorNotesOpen = authorNotesOpenOwner === "compact";
   const keyboardOpen = useChatKeyboardOpen();
   const composerFocused = useChatComposerFocused();
+  const mobileComposerActive = isMobileToolbarViewport && composerFocused;
   const ambientVisualsPaused =
     generationVisualsPaused || (isMobileToolbarViewport && (keyboardOpen || composerFocused || hasMobileDraftInput));
   const weatherEffectsPaused = isMobileToolbarViewport && (keyboardOpen || composerFocused || hasMobileDraftInput);
-  const shouldKeepMobileComposerOpen =
-    keyboardOpen || composerFocused || hasLiveStream || hasMobileDraftInput || isFetchingNextPage;
-
-  useEffect(() => {
-    if (shouldKeepMobileComposerOpen) setMobileHistoryComposerCollapsed(false);
-  }, [shouldKeepMobileComposerOpen]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      const nearBottom = distFromBottom < 150;
-      const currentTop = el.scrollTop;
-      const previousTop = composerScrollTopRef.current;
-      const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
-      const composerHasFocus = document.activeElement?.matches("[data-chat-composer]") === true;
-      if (!isMobile || shouldKeepMobileComposerOpen || composerHasFocus || nearBottom) {
-        setMobileHistoryComposerCollapsed(false);
-      } else if (currentTop > previousTop + 18) {
-        setMobileHistoryComposerCollapsed(false);
-      } else if (currentTop < previousTop - 12 && distFromBottom > 180) {
-        setMobileHistoryComposerCollapsed(true);
-      }
-      composerScrollTopRef.current = currentTop;
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [scrollRef, shouldKeepMobileComposerOpen]);
   const setExpandedAuthorNotesOpen = useCallback((open: boolean) => {
     setAuthorNotesOpenOwner(open ? "expanded" : null);
   }, []);
@@ -1790,7 +1778,11 @@ export function ChatRoleplaySurface({
   ]);
 
   return (
-    <div data-component="ChatArea.Roleplay" className="flex flex-1 overflow-hidden">
+    <div
+      data-component="ChatArea.Roleplay"
+      data-mobile-composer-active={mobileComposerActive || undefined}
+      className="flex flex-1 overflow-hidden"
+    >
       <div
         className={cn(
           "rpg-chat-area mari-chat-area mari-card-css relative flex flex-1 flex-col overflow-hidden",
@@ -1840,7 +1832,11 @@ export function ChatRoleplaySurface({
                   }}
                 >
                   {chat && chatMeta.enableAgents && (
-                    <div data-chat-help="agents" className="pointer-events-auto flex-1 overflow-x-auto">
+                    <div
+                      data-chat-help="agents"
+                      data-roleplay-agent-window
+                      className="pointer-events-auto flex-1 overflow-x-auto"
+                    >
                       <Suspense fallback={null}>
                         <RoleplayHUD
                           chatId={chat.id}
@@ -1974,7 +1970,7 @@ export function ChatRoleplaySurface({
                       paddingRight: "calc(0.5rem + var(--tracker-panel-hud-clear-right, 0px))",
                     }}
                   >
-                    <div data-chat-help="agents" className="min-w-0 flex-1 overflow-x-auto">
+                    <div data-chat-help="agents" data-roleplay-agent-window className="min-w-0 flex-1 overflow-x-auto">
                       <Suspense fallback={null}>
                         <RoleplayHUD
                           chatId={chat.id}
@@ -2196,9 +2192,11 @@ export function ChatRoleplaySurface({
                 )}
                 style={{
                   paddingTop: "var(--mari-roleplay-content-padding-top, 16px)",
-                  paddingBottom: "var(--mari-roleplay-content-padding-bottom, 16px)",
+                  paddingBottom:
+                    "calc(var(--mari-roleplay-content-padding-bottom, 16px) + var(--mari-message-editor-scroll-space, 0px))",
                   scrollPaddingTop: "var(--mari-roleplay-scroll-padding-top, 16px)",
-                  scrollPaddingBottom: "var(--mari-roleplay-scroll-padding-bottom, 16px)",
+                  scrollPaddingBottom:
+                    "calc(var(--mari-roleplay-scroll-padding-bottom, 16px) + var(--mari-message-editor-scroll-space, 0px))",
                 }}
               >
                 {hasNextPage && (
@@ -2379,8 +2377,6 @@ export function ChatRoleplaySurface({
                 <ChatInput
                   key={activeChatId}
                   mode={isRoleplay ? "roleplay" : "conversation"}
-                  mobileHistoryCollapsed={mobileHistoryComposerCollapsed}
-                  onMobileHistoryCollapsedChange={setMobileHistoryComposerCollapsed}
                   combatAgentEnabled={combatAgentEnabled}
                   onStartEncounter={onStartEncounter}
                   characterNames={characterNames}
@@ -2468,13 +2464,14 @@ export function ChatRoleplaySurface({
         onSelectAllBelowSelection={onSelectAllBelowSelection}
       />
       {conversationSurfacePackages.map((item) => (
-        <CapabilityElement
-          key={`${item.id}-conversation-surface`}
-          packageId={item.id}
-          view="surface"
-          capabilityProps={conversationCapabilityProps}
-          className="contents"
-        />
+        <div key={`${item.id}-conversation-surface`} data-roleplay-agent-window className="contents">
+          <CapabilityElement
+            packageId={item.id}
+            view="surface"
+            capabilityProps={conversationCapabilityProps}
+            className="contents"
+          />
+        </div>
       ))}
     </div>
   );

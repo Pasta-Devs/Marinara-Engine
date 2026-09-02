@@ -187,7 +187,8 @@ const capabilityPackageManifestBaseSchema = z
 //        still force the box open when it holds something to act on.
 // 1.14: roleplay-tracker and tracker-panel UI contribution slots, package-aware
 //        prompt placement, and package-agent post-processing lifecycle hooks.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 14 } as const);
+// 1.15: packages can resolve their current embedding connection without reactivation.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 15 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -379,6 +380,7 @@ export const installedCapabilityPackageSchema = z.object({
   readinessError: z.string().nullable().default(null),
   legacy: z.boolean().default(false),
   previousVersion: z.string().optional(),
+  previousManifest: capabilityPackageManifestSchema.optional(),
 });
 
 export const installedCapabilityRegistrySchema = z

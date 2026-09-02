@@ -37,6 +37,9 @@ echo ""
 # Navigate to script directory
 cd "$(dirname "$0")"
 
+# Public update checks must never pause for GitHub credentials.
+export GIT_TERMINAL_PROMPT=0
+
 # APK-managed installs provision a per-install secret in Termux-private
 # storage. The server uses it to keep unrelated Android apps from inheriting
 # loopback trust; manual Termux installs simply continue without this setting.
@@ -207,20 +210,23 @@ resolve_default_node_heap_mb() {
     case "$profile_storage_kib" in *[!0-9]*|"") profile_storage_kib=0 ;; esac
     case "$device_memory_kib" in *[!0-9]*|"") device_memory_kib=0 ;; esac
 
-    # Allow about 512 MiB above the on-disk structured profile, rounded to a
-    # stable 128 MiB step. Media lives outside storage and does not inflate it.
-    local heap_mb=$(( (profile_storage_kib + 1023) / 1024 + 512 ))
+    # Budget about twice the on-disk structured profile plus 512 MiB of
+    # headroom, in stable 128 MiB steps: the file-backed store keeps every
+    # row in memory, and V8 objects plus flush serialization run well above
+    # the JSON byte size. Media lives outside storage.
+    local heap_mb=$(( ((profile_storage_kib + 1023) / 1024) * 2 + 512 ))
     heap_mb=$(( (heap_mb + 127) / 128 * 128 ))
     [ "$heap_mb" -lt 1024 ] && heap_mb=1024
-    [ "$heap_mb" -gt 1536 ] && heap_mb=1536
 
-    # On smaller phones, retain at least the safe 1 GiB baseline but avoid
-    # granting a large profile more than roughly one quarter of physical RAM.
     if [ "$device_memory_kib" -gt 0 ]; then
+        # Cap at about one quarter of physical RAM so Android keeps room for
+        # the Termux process, but never below the safe 1 GiB baseline.
         local device_cap_mb=$(( device_memory_kib / 1024 / 4 / 128 * 128 ))
-        if [ "$device_cap_mb" -ge 1024 ] && [ "$heap_mb" -gt "$device_cap_mb" ]; then
-            heap_mb="$device_cap_mb"
-        fi
+        [ "$device_cap_mb" -lt 1024 ] && device_cap_mb=1024
+        [ "$heap_mb" -gt "$device_cap_mb" ] && heap_mb="$device_cap_mb"
+    elif [ "$heap_mb" -gt 1536 ]; then
+        # Unknown device memory: keep the conservative bounded default.
+        heap_mb=1536
     fi
     printf '%s' "$heap_mb"
 }
@@ -237,7 +243,7 @@ load_launcher_setting() {
 # Read only settings used by this launcher. The server loads every other .env
 # value itself. Node parses these as inert dotenv data; no shell code is sourced.
 if [ -f .env ]; then
-    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR; do
+    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER DATA_DIR MARINARA_MAX_RESIDENT_CHATS; do
         load_launcher_setting "$setting_name"
     done
 fi
@@ -255,6 +261,9 @@ if ! has_explicit_node_heap_limit; then
     export NODE_OPTIONS
     echo "  [OK] Node.js heap limit set to ${MARINARA_TERMUX_HEAP_MB} MiB for this profile and device"
 fi
+
+# Resident chat cap (#5592): evict clean LRU chats from memory past this. 0 = off.
+export MARINARA_MAX_RESIDENT_CHATS="${MARINARA_MAX_RESIDENT_CHATS:-8}"
 
 AUTO_UPDATE_ENABLED_NORMALIZED=$(printf '%s' "${AUTO_UPDATE_ENABLED:-true}" | tr '[:upper:]' '[:lower:]' | tr -d '\r ')
 case "$AUTO_UPDATE_ENABLED_NORMALIZED" in
@@ -663,12 +672,35 @@ trap release_termux_wake_lock EXIT
 if command -v termux-wake-lock &> /dev/null && command -v termux-wake-unlock &> /dev/null; then
     if termux-wake-lock >/dev/null 2>&1; then
         TERMUX_WAKE_LOCK_ACQUIRED=1
+        export MARINARA_WAKE_LOCK_STATUS=acquired
         echo "  [OK] Android wake lock acquired for background reliability"
     else
+        export MARINARA_WAKE_LOCK_STATUS=failed
         echo "  [WARN] Could not acquire an Android wake lock; background execution may pause."
     fi
 else
+    export MARINARA_WAKE_LOCK_STATUS=unavailable
     echo "  [WARN] Termux wake-lock commands are unavailable; background execution may pause."
+fi
+
+# A missing wake lock is the #1 background-reliability signal (#5656): repeat
+# it prominently right before the server starts so it cannot scroll away
+# unnoticed, and tell the user what to do about it.
+if [ "$MARINARA_WAKE_LOCK_STATUS" != "acquired" ]; then
+    echo ""
+    echo "  ============================================================"
+    echo "  [WARN] NO ANDROID WAKE LOCK ($MARINARA_WAKE_LOCK_STATUS)."
+    echo "         Android may FREEZE the server whenever Termux is in"
+    echo "         the background: the app will hang until you bring"
+    echo "         Termux back to the foreground."
+    if [ "$MARINARA_WAKE_LOCK_STATUS" = "unavailable" ]; then
+        echo "         termux-wake-lock ships with the core termux-tools"
+        echo "         package: run 'pkg install termux-tools' and restart."
+    fi
+    echo "         Also set Termux's battery usage to Unrestricted in"
+    echo "         Android settings."
+    echo "  ============================================================"
+    echo ""
 fi
 
 # Start server

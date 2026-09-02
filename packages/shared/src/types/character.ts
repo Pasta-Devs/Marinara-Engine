@@ -11,6 +11,8 @@ export interface CharacterCardV2 {
 /** Core character data (V2 spec). */
 export interface CharacterData {
   name: string;
+  /** Short metadata synopsis for library previews. Not sent to the model. */
+  summary?: string;
   description: string;
   personality: string;
   scenario: string;

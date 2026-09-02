@@ -135,7 +135,7 @@ export default defineConfig({
     !PWA_DISABLED
       ? VitePWA({
           injectRegister: false,
-          registerType: "autoUpdate",
+          registerType: "prompt",
           devOptions: { enabled: false },
           manifest: false, // We use the static manifest.json in public/
           workbox: {

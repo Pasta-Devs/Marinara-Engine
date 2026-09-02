@@ -461,7 +461,7 @@ export function GameCharacterSheet({
   return (
     <div
       data-game-skip-bg-nav="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 pb-[max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
       onClick={onClose}
     >
       <div
@@ -525,7 +525,15 @@ export function GameCharacterSheet({
             ) : (
               onSave && (
                 <button
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    // Reseed on entry: the parked draft can hold residue from
+                    // an edit session torn down mid-typing (the number inputs
+                    // flush pending edits on unmount, and their index-captured
+                    // commits land in whatever draft is current by then).
+                    // Editing must always start from the live card.
+                    setDraft(createDraft(card.gameCard));
+                    setIsEditing(true);
+                  }}
                   disabled={isRegenerating}
                   className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-button-bg)] p-0 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)] disabled:opacity-60 sm:h-auto sm:w-auto sm:min-w-0 sm:gap-1.5 sm:px-3 sm:py-1.5"
                   title={localizeUi("ui.game.gamecharactersheet.editSheet")}

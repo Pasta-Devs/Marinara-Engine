@@ -99,6 +99,14 @@ pnpm check
 
 This runs the Impeccable project-context guard, localization checks, Prettier verification, workspace lint/type checks, and the production build.
 
+**Windows note:** the repo checks out with LF line endings on every platform (`.gitattributes` sets `* text=auto eol=lf`, which overrides Git for Windows' `core.autocrlf=true` default), so `pnpm check` behaves identically to CI. A clone made before this rule existed still has CRLF in its working tree and will fail Prettier on every file until you refresh it once — commit or stash any work first, then run:
+
+```bash
+git rm -r --cached . -q && git reset --hard
+```
+
+A fresh clone needs nothing.
+
 Run the individual formatting and lint checks while iterating:
 
 ```bash

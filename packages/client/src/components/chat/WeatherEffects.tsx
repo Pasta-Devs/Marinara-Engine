@@ -315,7 +315,7 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
     <canvas
       key={`${weather ?? ""}:${timeOfDay ?? ""}:${showCelestial ? "celestial" : "particles"}:${workerFailed ? "fallback" : "worker"}`}
       ref={canvasRef}
-      className="pointer-events-none absolute inset-0 z-0 h-full w-full transform-gpu [contain:strict] [will-change:transform]"
+      className="pointer-events-none absolute inset-0 z-0 h-full w-full [contain:strict]"
     />
   );
 }

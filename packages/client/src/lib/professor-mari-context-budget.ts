@@ -1,4 +1,5 @@
-import type { Message } from "@marinara-engine/shared";
+import { LOCAL_SIDECAR_CONNECTION_ID, type APIConnection, type Message } from "@marinara-engine/shared";
+import { parseMessageExtraRecord } from "./chat-message-extra";
 
 export type ProfessorMariContextBudget = {
   usedTokens: number;
@@ -24,15 +25,17 @@ export function resolveProfessorMariContextBudget(
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message?.role !== "assistant") continue;
-    const generationInfo = record(message.extra?.generationInfo);
+    const generationInfo = record(parseMessageExtraRecord(message.extra).generationInfo);
     if (!generationInfo) continue;
     const legacyUsage = record(generationInfo.usage);
     const promptTokens = tokenCount(generationInfo.tokensPrompt) ?? tokenCount(legacyUsage?.promptTokens);
-    const completionTokens =
-      tokenCount(generationInfo.tokensCompletion) ?? tokenCount(legacyUsage?.completionTokens) ?? 0;
     if (promptTokens === null) continue;
 
-    const usedTokens = promptTokens + completionTokens;
+    const cachedPromptTokens = tokenCount(generationInfo.tokensCachedPrompt) ?? 0;
+    const cacheWritePromptTokens = tokenCount(generationInfo.tokensCacheWritePrompt) ?? 0;
+    const completionTokens =
+      tokenCount(generationInfo.tokensCompletion) ?? tokenCount(legacyUsage?.completionTokens) ?? 0;
+    const usedTokens = promptTokens + cachedPromptTokens + cacheWritePromptTokens + completionTokens;
     return {
       usedTokens,
       maxTokens,
@@ -41,6 +44,23 @@ export function resolveProfessorMariContextBudget(
   }
 
   return null;
+}
+
+export function resolveChatContextBudget(
+  messages: readonly Message[],
+  connectionId: string | null | undefined,
+  connections: readonly unknown[],
+  sidecarMaxContext?: number | null,
+): ProfessorMariContextBudget | null {
+  if (connectionId === "random") return null;
+  if (connectionId === LOCAL_SIDECAR_CONNECTION_ID) {
+    return resolveProfessorMariContextBudget(messages, sidecarMaxContext);
+  }
+  if (!connectionId) return null;
+  const connection = connections.find(
+    (candidate): candidate is APIConnection => record(candidate)?.id === connectionId,
+  );
+  return resolveProfessorMariContextBudget(messages, connection?.maxContext);
 }
 
 export function formatCompactTokenCount(value: number): string {

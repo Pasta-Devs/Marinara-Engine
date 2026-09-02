@@ -33,6 +33,7 @@ export interface ProfessorMariNavigationResource {
   id: string;
   name: string;
   aliases?: string[];
+  searchText?: string[];
 }
 
 export interface ProfessorMariNavigationChat {
@@ -280,6 +281,7 @@ function scoreDynamicResource(query: string, resource: ProfessorMariNavigationRe
   const names = [resource.name, ...(resource.aliases ?? [])]
     .map(normalizeProfessorMariNavigationQuery)
     .filter((name) => name.length >= 2);
+  const searchableText = (resource.searchText ?? []).map(normalizeProfessorMariNavigationQuery).filter(Boolean);
   const hintedKinds = (
     Object.entries(RESOURCE_TYPE_ALIASES) as Array<[ProfessorMariNavigationResourceKind, readonly string[]]>
   )
@@ -300,6 +302,10 @@ function scoreDynamicResource(query: string, resource: ProfessorMariNavigationRe
     if (hintedKinds.includes(resource.kind)) score += 42;
     else if (hintedKinds.length > 0) score -= 90;
     best = Math.max(best, score);
+  }
+
+  if (best < 0 && remainder.length >= 3 && searchableText.some((value) => includesNormalizedPhrase(value, remainder))) {
+    best = 80;
   }
 
   return best;

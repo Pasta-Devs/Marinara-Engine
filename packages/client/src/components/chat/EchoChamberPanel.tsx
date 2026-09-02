@@ -567,6 +567,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     return (
       <button
         type="button"
+        data-roleplay-agent-window="echo"
         onClick={toggleEchoChamber}
         className={cn(
           NEUTRAL_PANEL_SHELL,
@@ -603,6 +604,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   return (
     <div
       ref={panelRef}
+      data-roleplay-agent-window="echo"
       className={cn(
         NEUTRAL_PANEL_SHELL,
         "absolute z-[60] flex min-w-0 flex-col",

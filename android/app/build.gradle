@@ -20,21 +20,21 @@ if (!releaseCommit) {
     }
 }
 android {
-    namespace 'com.marinara.engine'
+    namespace = 'com.marinara.engine'
     compileSdk 34
 
     buildFeatures {
-        buildConfig true
+        buildConfig = true
     }
 
     defaultConfig {
         applicationId "com.marinara.engine"
         minSdk 24
         targetSdk 34
-        versionCode 45
-        versionName "2.4.4"
+        versionCode 46
+        versionName "2.4.5"
         buildConfigField "String", "MARINARA_SERVER_URL", "\"http://127.0.0.1:${marinaraPort}\""
-        buildConfigField "String", "MARINARA_RELEASE_TAG", "\"v2.4.4\""
+        buildConfigField "String", "MARINARA_RELEASE_TAG", "\"v2.4.5\""
         buildConfigField "String", "MARINARA_RELEASE_COMMIT", "\"${releaseCommit}\""
     }
 

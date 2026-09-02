@@ -467,6 +467,22 @@ export function isUpdatesApplyEnabled() {
   return isEnabledFlag(process.env.UPDATES_APPLY_ENABLED);
 }
 
+/**
+ * Hard refusal for server-side update application (#5646). The dev and e2e
+ * launchers set UPDATES_APPLY_DISABLED so a loopback browser tab pointed at a
+ * server booted from a working repo can never stash/checkout/rebuild that
+ * checkout via the channel selector. Wins over UPDATES_APPLY_ENABLED and the
+ * loopback channel-switch bypass.
+ */
+const BOOT_UPDATES_APPLY_HARD_DISABLED = isEnabledFlag(process.env.UPDATES_APPLY_DISABLED);
+
+export function isUpdatesApplyHardDisabled() {
+  // Latched at boot: the launchers set this in the environment, and a later
+  // .env hot-reload writing UPDATES_APPLY_DISABLED=false must not lift a
+  // guard whose whole point is protecting the checkout this process runs from.
+  return BOOT_UPDATES_APPLY_HARD_DISABLED || isEnabledFlag(process.env.UPDATES_APPLY_DISABLED);
+}
+
 export function isUpdatesRemoteApplyAllowed() {
   return isEnabledFlag(process.env.UPDATES_ALLOW_REMOTE_APPLY);
 }
@@ -500,6 +516,37 @@ export function getAgentCallTimeoutMs() {
 /** Dynamic Game image-prompt LLM timeout. Read per request so .env hot reloads apply without a restart. */
 export function getGameDynamicImagePromptTimeoutMs() {
   return readGameDynamicImagePromptTimeoutMs();
+}
+
+/**
+ * Resident chat-unit cap for the lazy file store (#5592 Phase 2 PR-B).
+ * 0 (the default when unset or invalid) disables eviction entirely,
+ * preserving load-and-keep behavior. Read per sweep so .env hot reloads
+ * apply without a restart. The floor of 2 keeps multi-chat operations
+ * (branching, cross-chat notes) from thrashing their own working set.
+ */
+let lastInvalidMaxResidentChats: string | null = null;
+
+export function getMaxResidentChatUnits() {
+  const raw = normalizeEnvValue(process.env.MARINARA_MAX_RESIDENT_CHATS);
+  if (!raw) return 0;
+  const parsed = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    // Warn once per distinct value: a typo silently disabling eviction would
+    // remove the memory bound on exactly the constrained targets (the Termux
+    // launcher defaults this to 8).
+    if (lastInvalidMaxResidentChats !== raw) {
+      lastInvalidMaxResidentChats = raw;
+      sharedLogger.warn(
+        "[runtime-config] Ignoring invalid MARINARA_MAX_RESIDENT_CHATS=%s; expected 0 (disabled) or a positive integer — eviction stays disabled",
+        raw,
+      );
+    }
+    return 0;
+  }
+  lastInvalidMaxResidentChats = null;
+  if (parsed === 0) return 0;
+  return Math.max(2, Math.min(parsed, 10_000));
 }
 
 export function getMaxToolRounds() {

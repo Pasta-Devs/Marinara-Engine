@@ -1,5 +1,11 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Auto detect text files, store them LF, and check them out LF on every
+# platform (#5598). Without eol=lf, Git for Windows' default autocrlf=true
+# produced CRLF working trees, which made prettier --check flag every file
+# and broke the regression lanes that match file contents against LF
+# patterns or hash file bytes. In-tree eol overrides core.autocrlf, so no
+# contributor git config is required — but clones made before this line
+# need a one-time refresh (see CONTRIBUTING.md § Validation).
+* text=auto eol=lf
 
 # Generated TypeScript registries are written with LF by the codegen script.
 # Keep Windows checkouts aligned so every launcher build does not dirty them.

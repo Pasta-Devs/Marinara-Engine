@@ -31,12 +31,18 @@ export function createGalleryStorage(db: DB) {
         .orderBy(desc(chatImages.createdAt));
     },
 
-    async listByFilePath(filePath: string) {
-      return db.select().from(chatImages).where(eq(chatImages.filePath, filePath)).orderBy(desc(chatImages.createdAt));
+    /** Chat-scoped filePath lookup (keeps the lazy file store from loading every chat's shards). */
+    async listByChatAndFilePath(chatId: string, filePath: string) {
+      return db
+        .select()
+        .from(chatImages)
+        .where(and(eq(chatImages.chatId, chatId), eq(chatImages.filePath, filePath)))
+        .orderBy(desc(chatImages.createdAt));
     },
 
-    async getById(id: string) {
-      const rows = await db.select().from(chatImages).where(eq(chatImages.id, id));
+    async getById(id: string, chatId?: string) {
+      const condition = chatId ? and(eq(chatImages.chatId, chatId), eq(chatImages.id, id)) : eq(chatImages.id, id);
+      const rows = await db.select().from(chatImages).where(condition);
       return rows[0] ?? null;
     },
 
@@ -53,11 +59,12 @@ export function createGalleryStorage(db: DB) {
         height: input.height ?? null,
         createdAt: now(),
       });
-      return this.getById(id);
+      return this.getById(id, input.chatId);
     },
 
-    async remove(id: string) {
-      await db.delete(chatImages).where(eq(chatImages.id, id));
+    async remove(id: string, chatId?: string) {
+      const condition = chatId ? and(eq(chatImages.chatId, chatId), eq(chatImages.id, id)) : eq(chatImages.id, id);
+      await db.delete(chatImages).where(condition);
     },
 
     async removeByChatAndFilePath(chatId: string, filePath: string) {

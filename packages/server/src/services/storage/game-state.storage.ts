@@ -161,8 +161,11 @@ export function createGameStateStorage(db: DB) {
         .limit(Math.max(1, Math.min(500, limit)));
     },
 
-    async getById(id: string) {
-      const rows = await db.select().from(gameStateSnapshots).where(eq(gameStateSnapshots.id, id)).limit(1);
+    async getById(id: string, chatId?: string) {
+      const condition = chatId
+        ? and(eq(gameStateSnapshots.chatId, chatId), eq(gameStateSnapshots.id, id))
+        : eq(gameStateSnapshots.id, id);
+      const rows = await db.select().from(gameStateSnapshots).where(condition).limit(1);
       return rows[0] ?? null;
     },
 
@@ -273,17 +276,7 @@ export function createGameStateStorage(db: DB) {
       return rows[0] ?? null;
     },
 
-    async getByMessage(messageId: string, swipeIndex: number = 0) {
-      const rows = await db
-        .select()
-        .from(gameStateSnapshots)
-        .where(and(eq(gameStateSnapshots.messageId, messageId), eq(gameStateSnapshots.swipeIndex, swipeIndex)))
-        .orderBy(desc(gameStateSnapshots.createdAt))
-        .limit(1);
-      return rows[0] ?? null;
-    },
-
-    /** Chat-scoped variant of getByMessage (avoids cross-chat collisions for messageId=""). */
+    /** Chat-scoped message lookup (the chatId also keeps the lazy store from loading other chats' shards). */
     async getByChatAndMessage(chatId: string, messageId: string, swipeIndex: number = 0) {
       const rows = await db
         .select()
@@ -300,8 +293,11 @@ export function createGameStateStorage(db: DB) {
       return rows[0] ?? null;
     },
 
-    /** Batch-fetch committed snapshots for multiple messages. Returns a Map of messageId → row. */
-    async getCommittedForMessages(messagesOrIds: Array<string | { id: string; activeSwipeIndex?: number | null }>) {
+    /** Batch-fetch committed snapshots for multiple messages in one chat. Returns a Map of messageId → row. */
+    async getCommittedForMessages(
+      chatId: string,
+      messagesOrIds: Array<string | { id: string; activeSwipeIndex?: number | null }>,
+    ) {
       const activeSwipeByMessageId = new Map<string, number>();
       const messageIds = messagesOrIds.map((messageOrId) => {
         if (typeof messageOrId === "string") return messageOrId;
@@ -314,7 +310,13 @@ export function createGameStateStorage(db: DB) {
       const rows = await db
         .select()
         .from(gameStateSnapshots)
-        .where(and(inArray(gameStateSnapshots.messageId, messageIds), eq(gameStateSnapshots.committed, 1)))
+        .where(
+          and(
+            eq(gameStateSnapshots.chatId, chatId),
+            inArray(gameStateSnapshots.messageId, messageIds),
+            eq(gameStateSnapshots.committed, 1),
+          ),
+        )
         .orderBy(desc(gameStateSnapshots.createdAt));
       const map = new Map<string, typeof gameStateSnapshots.$inferSelect>();
       for (const row of rows) {
@@ -326,8 +328,11 @@ export function createGameStateStorage(db: DB) {
     },
 
     /** Mark a specific snapshot as committed. */
-    async commit(id: string) {
-      await db.update(gameStateSnapshots).set({ committed: 1 }).where(eq(gameStateSnapshots.id, id));
+    async commit(id: string, chatId?: string) {
+      const condition = chatId
+        ? and(eq(gameStateSnapshots.chatId, chatId), eq(gameStateSnapshots.id, id))
+        : eq(gameStateSnapshots.id, id);
+      await db.update(gameStateSnapshots).set({ committed: 1 }).where(condition);
     },
 
     async create(state: Omit<GameState, "id" | "createdAt">, manualOverrides?: Record<string, string> | null) {
@@ -337,7 +342,11 @@ export function createGameStateStorage(db: DB) {
         await db
           .delete(gameStateSnapshots)
           .where(
-            and(eq(gameStateSnapshots.messageId, state.messageId), eq(gameStateSnapshots.swipeIndex, state.swipeIndex)),
+            and(
+              eq(gameStateSnapshots.chatId, state.chatId),
+              eq(gameStateSnapshots.messageId, state.messageId),
+              eq(gameStateSnapshots.swipeIndex, state.swipeIndex),
+            ),
           );
       }
       const id = newId();
@@ -398,7 +407,7 @@ export function createGameStateStorage(db: DB) {
         compatibilityLocation?: string | null;
       },
     ) {
-      const snap = await this.getByMessage(messageId, swipeIndex);
+      const snap = await this.getByChatAndMessage(chatId, messageId, swipeIndex);
       if (snap) return this._applyUpdate(snap, fields, manual);
 
       // No snapshot for this swipe yet — clone the chosen base into a new row
@@ -482,7 +491,7 @@ export function createGameStateStorage(db: DB) {
         : {};
       // Manual overrides are one-shot — carry only overrides from this edit.
       await this.create(baseState as any, Object.keys(manualOverrides).length > 0 ? manualOverrides : null);
-      return this.getByMessage(messageId, swipeIndex);
+      return this.getByChatAndMessage(chatId, messageId, swipeIndex);
     },
 
     /** Internal: apply field updates + optional manual-override tracking to a snapshot row. */
@@ -543,7 +552,10 @@ export function createGameStateStorage(db: DB) {
 
       if (Object.keys(updates).length === 0) return row;
 
-      await db.update(gameStateSnapshots).set(updates).where(eq(gameStateSnapshots.id, row.id));
+      await db
+        .update(gameStateSnapshots)
+        .set(updates)
+        .where(and(eq(gameStateSnapshots.chatId, row.chatId), eq(gameStateSnapshots.id, row.id)));
       return { ...row, ...updates };
     },
 

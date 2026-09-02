@@ -1,3 +1,4 @@
+import type { MariPermissionsMode } from "../constants/mari-permissions-mode.js";
 // ──────────────────────────────────────────────
 // Professor Mari Workspace Agent Contracts
 // ──────────────────────────────────────────────
@@ -38,6 +39,18 @@ export interface MariSuggestionChip {
   icon?: string;
   tone?: MariChipTone;
 }
+
+/**
+ * #5748: the Accept action for a deferred (held) mutation. Shared so the
+ * server's deferral event and the client's persisted-deferral re-derivation
+ * (from the mariDeferredMutations message extra) can never drift.
+ */
+export const MARI_AUTHORIZATION_ACCEPT_CHIP: MariSuggestionChip = {
+  id: "authorization-accept",
+  label: "Accept",
+  prompt: "I accept the proposed change.",
+  tone: "success",
+};
 
 export const MARI_STARTER_CHIPS: MariSuggestionChip[] = [
   {
@@ -436,6 +449,36 @@ export interface MariDbHistoryEntry {
   completedAt?: string | null;
 }
 
+/**
+ * #5740: the request/permission phrase Professor Mari reported acting on in
+ * her most recent round that carried mutating commands. DIAGNOSTIC ONLY -
+ * never validated, never gates anything (#5721's lesson stands). Retention is
+ * deliberately the latest round only: one in-memory record, overwritten each
+ * time, lost on server restart.
+ */
+/**
+ * What actually became of the round's mutating commands. "held" = deferred
+ * behind the Accept action; "applied" = every mutating command succeeded;
+ * "failed" = at least one was refused (a permissions floor, validation) or
+ * errored; "interrupted" = the run ended before the outcome was observed.
+ */
+export type MariUnderstoodRequestOutcome = "held" | "applied" | "failed" | "interrupted";
+
+export interface MariUnderstoodRequest {
+  /** Mari's quoted trigger phrase (user words or memory/instruction), or null when she reported none. */
+  text: string | null;
+  chatId: string;
+  /** The persisted assistant message the round produced, once known. */
+  messageId: string | null;
+  /** Effective Permissions Mode when the round ran. */
+  permissionsMode: MariPermissionsMode;
+  /** Observed outcome - never inferred: "applied" is only set after the command batch reports success. */
+  outcome: MariUnderstoodRequestOutcome;
+  /** Short descriptions of the mutating commands (e.g. "app_data character.update"). */
+  commands: string[];
+  recordedAt: string;
+}
+
 export interface MariWorkspaceStatus {
   enabled: boolean;
   piAvailable: boolean;
@@ -452,6 +495,14 @@ export interface MariWorkspaceStatus {
   skills: MariWorkspaceSkillSummary[];
   skillDiagnostics: string[];
   active: boolean;
+  /** The EFFECTIVE Permissions Mode for the requested chat (#5725): the chat's override, else the global default. */
+  permissionsMode: MariPermissionsMode;
+  /** The global default mode (what a chat without an override runs under). */
+  permissionsModeDefault: MariPermissionsMode;
+  /** Whether permissionsMode came from a per-chat override or the global default. */
+  permissionsModeSource: "default" | "chat";
+  /** #5740: latest-round understood-request record (diagnostic only). */
+  latestUnderstoodRequest: MariUnderstoodRequest | null;
   pendingApprovals: MariWorkspacePendingApproval[];
   history: MariDbHistoryEntry[];
   error?: string | null;

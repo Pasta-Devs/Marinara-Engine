@@ -24,8 +24,8 @@ import {
   shouldSuppressUnknownModelParameters,
 } from "@marinara-engine/shared";
 import { logger } from "../../../lib/logger.js";
-import { isLoopbackIp, isNonRoutableNetworkIp } from "../../../middleware/ip-allowlist.js";
-import { applyGlmThinkingParameters } from "./glm-request-compat.js";
+import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
+import { applyGlmThinkingParameters, isGlm53FlashMandatoryReasoningModel } from "./glm-request-compat.js";
 
 /**
  * Models that ONLY support the Responses API (`/responses`) and not Chat Completions.
@@ -558,6 +558,12 @@ export class OpenAIProvider extends BaseLLMProvider {
     return h;
   }
 
+  protected override embeddingHeaders(): Record<string, string> {
+    const headers = this.buildHeaders();
+    if (this.providerKind === "nanogpt" && this.apiKey.trim()) headers["x-api-key"] = this.apiKey.trim();
+    return headers;
+  }
+
   private isGenericCustomProvider(): boolean {
     return this.providerKind === "custom";
   }
@@ -732,16 +738,7 @@ export class OpenAIProvider extends BaseLLMProvider {
    * off" choice is silently discarded before it reaches the request body.
    */
   private isLocalInferenceEndpoint(): boolean {
-    try {
-      const hostname = new URL(this.baseUrl).hostname.toLowerCase().replace(/^\[|\]$|\.$/g, "");
-      if (hostname === "localhost" || isLoopbackIp(hostname)) return true;
-      if (hostname.endsWith(".local") || hostname.endsWith(".localhost")) return true;
-      if (hostname === "host.docker.internal" || hostname === "host.containers.internal") return true;
-      if (!hostname.includes(".") || hostname.endsWith(".internal")) return true;
-      return isNonRoutableNetworkIp(hostname);
-    } catch {
-      return false;
-    }
+    return isLocalInferenceBaseUrl(this.baseUrl);
   }
 
   private enforceLocalInferenceThinkingDisable(
@@ -786,7 +783,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     return (
       this.supportsOpenAIReasoningDisable(normalized) ||
       this.supportsXAIReasoningDisable(normalized) ||
-      normalized.startsWith("z-ai/glm-") ||
+      (normalized.startsWith("z-ai/glm-") && !isGlm53FlashMandatoryReasoningModel(normalized)) ||
       normalized.startsWith("thudm/glm-") ||
       /^google\/gemini-2\.5-flash(?:-lite)?(?:$|-preview|-latest|:)/u.test(normalized) ||
       /^anthropic\/claude-(?:opus|sonnet)-5(?:$|[-.])/u.test(normalized)
@@ -874,6 +871,15 @@ export class OpenAIProvider extends BaseLLMProvider {
       } else if (this.shouldSendReasoningEffort(options.model, options.reasoningEffort)) {
         body.reasoning_effort = options.reasoningEffort;
       }
+      return;
+    }
+
+    if (
+      this.providerKind === "nanogpt" &&
+      this.hasExplicitReasoningDisable(options.reasoningEffort) &&
+      !isGlm53FlashMandatoryReasoningModel(options.model)
+    ) {
+      body.reasoning_effort = "none";
       return;
     }
 
@@ -1221,8 +1227,6 @@ export class OpenAIProvider extends BaseLLMProvider {
         body.provider = { order: [openrouterProvider] };
       }
 
-      this.applyOpenRouterPromptCaching(body, options);
-
       // Force response format (e.g. JSON mode)
       const normalizedResponseFormat = this.normalizeChatCompletionsResponseFormat(options.responseFormat);
       if (normalizedResponseFormat) {
@@ -1237,6 +1241,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.applyChatCompletionsReasoning(body, options);
     }
 
+    this.applyOpenRouterPromptCaching(body, options);
     this.applyOpenRouterServiceTier(body, options);
     this.applyCustomParameters(body, options);
     // Local chat templates may ignore reasoning_effort. Apply this after custom
@@ -1509,8 +1514,6 @@ export class OpenAIProvider extends BaseLLMProvider {
         body.provider = { order: [openrouterProvider] };
       }
 
-      this.applyOpenRouterPromptCaching(body, options);
-
       // Force response format (e.g. JSON mode)
       const normalizedResponseFormat = this.normalizeChatCompletionsResponseFormat(options.responseFormat);
       if (normalizedResponseFormat) {
@@ -1525,6 +1528,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.applyChatCompletionsReasoning(body, options);
     }
 
+    this.applyOpenRouterPromptCaching(body, options);
     this.applyOpenRouterServiceTier(body, options);
     this.applyCustomParameters(body, options);
     this.enforceLocalInferenceThinkingDisable(body, options, suppressModelParameters);

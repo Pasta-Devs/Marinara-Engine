@@ -2,6 +2,8 @@ import { AlertTriangle, Plug } from "lucide-react";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { ContextBudgetIndicator } from "../../../components/chat/ContextBudgetIndicator";
+import type { ProfessorMariContextBudget } from "../../../lib/professor-mari-context-budget";
 
 export interface ChatConnectionOption {
   id: string;
@@ -12,11 +14,18 @@ export interface ChatConnectionOption {
 interface ConnectionSectionProps {
   connectionId: string | null;
   connections: ChatConnectionOption[];
+  contextBudget?: ProfessorMariContextBudget | null;
   isGame: boolean;
   onConnectionChange: (connectionId: string | null) => void;
 }
 
-export function ConnectionSection({ connectionId, connections, isGame, onConnectionChange }: ConnectionSectionProps) {
+export function ConnectionSection({
+  connectionId,
+  connections,
+  contextBudget,
+  isGame,
+  onConnectionChange,
+}: ConnectionSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const selectedLocalSidecar = connectionId === LOCAL_SIDECAR_CONNECTION_ID;
 
@@ -54,6 +63,7 @@ export function ConnectionSection({ connectionId, connections, isGame, onConnect
               ))}
             </select>
           </div>
+          {contextBudget && <ContextBudgetIndicator budget={contextBudget} />}
         </div>
       ) : (
         <>

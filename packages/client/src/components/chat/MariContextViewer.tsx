@@ -84,7 +84,7 @@ export function MariContextViewer({ open, onClose, workspaceChatId }: Props) {
                     type="button"
                     onClick={async () => {
                       try {
-                        await removeContext.mutateAsync(item.id);
+                        await removeContext.mutateAsync({ id: item.id, chatId: item.chatId });
                       } catch {
                         toast.error(localizeUi("ui.chat.homeprofessormarichat.contextViewerRemoveFailed"));
                       }
