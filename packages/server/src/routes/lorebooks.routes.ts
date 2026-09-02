@@ -33,6 +33,8 @@ import { filterRelevantLorebooks, processLorebooks } from "../services/lorebook/
 import {
   buildLorebookEntryEmbeddingText,
   buildLorebookSemanticEmbeddingsById,
+  createLorebookEmbeddingBatches,
+  DEFAULT_VECTORIZE_BATCH_SIZE,
 } from "../services/lorebook/embeddings.js";
 import { resolveOwnerSpatialProjection } from "../services/spatial-context/projection.js";
 import { resolveLorebookScopeExclusions } from "../services/lorebook/game-lorebook-scope.js";
@@ -1245,12 +1247,14 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       });
     }
 
-    // Batch embed (most APIs support multiple texts per call)
-    const BATCH_SIZE = 50;
+    // Keep batches small enough for slower local embedding servers to finish within one request timeout.
+    const embeddingBatches = createLorebookEmbeddingBatches(
+      entries as LorebookEntry[],
+      texts,
+      DEFAULT_VECTORIZE_BATCH_SIZE,
+    );
     let vectorized = 0;
-    for (let i = 0; i < texts.length; i += BATCH_SIZE) {
-      const batchTexts = texts.slice(i, i + BATCH_SIZE);
-      const batchEntries = entries.slice(i, i + BATCH_SIZE);
+    for (const { entries: batchEntries, texts: batchTexts } of embeddingBatches) {
       let embeddings: number[][];
       try {
         embeddings = await provider.embed(batchTexts, embeddingModel);
@@ -1280,7 +1284,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
         });
       }
       for (let j = 0; j < batchEntries.length; j++) {
-        const entry = batchEntries[j] as Record<string, unknown>;
+        const entry = batchEntries[j] as unknown as Record<string, unknown>;
         if (embeddings[j]) {
           await storage.updateEntryEmbedding(entry.id as string, embeddings[j]!, embeddingSpaceId);
           vectorized++;

@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Lorebook vectorization now sends smaller embedding batches so large lorebooks can finish on slower local embedding servers (#5717).
+
 ### Added
 
 - Professor Mari now shows what she acted on (#5740): when a reply stages or applies changes, an "Acting on" line under it quotes the exact words she treated as the request or permission - your message, or the memory/instruction that directed her - truncated to one row and expandable on click; expanding also lists the commands it covered, marked when they were held for your approval. The same record (latest round only, kept in memory, never validated) rides Support Diagnostics as a "Mari last acted on" line, so behavior reports carry the signal needed to tell user error from a real Mari issue - and Mari herself sees the record for the chat, so asking her why she treated something as permission gets an answer grounded in it.

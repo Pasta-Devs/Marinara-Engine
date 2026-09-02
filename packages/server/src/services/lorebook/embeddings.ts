@@ -7,6 +7,7 @@ import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 
 const DEFAULT_SEMANTIC_TOP_K = 40;
 const DEFAULT_WARMUP_BATCH_SIZE = 32;
+export const DEFAULT_VECTORIZE_BATCH_SIZE = 10;
 const SEMANTIC_CALIBRATION_TEXTS = [
   "A recipe explains how to bake a loaf of bread.",
   "A spacecraft studies distant galaxies and nebulae.",
@@ -18,6 +19,11 @@ export type LorebookEmbeddingOptions = MemoryRecallEmbeddingOptions;
 export interface LorebookEmbeddingWarmupResult {
   attempted: number;
   embedded: number;
+}
+
+export interface LorebookEmbeddingBatch {
+  entries: LorebookEntry[];
+  texts: string[];
 }
 
 export interface SemanticLorebookMatch {
@@ -122,6 +128,22 @@ function normalizePositiveInteger(value: unknown, fallback: number): number {
   const numeric = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
   if (!Number.isFinite(numeric) || numeric < 1) return fallback;
   return Math.max(1, Math.trunc(numeric));
+}
+
+export function createLorebookEmbeddingBatches(
+  entries: LorebookEntry[],
+  texts: string[],
+  batchSize = DEFAULT_VECTORIZE_BATCH_SIZE,
+): LorebookEmbeddingBatch[] {
+  if (entries.length !== texts.length) {
+    throw new Error("Lorebook embedding entries and texts must have the same length.");
+  }
+  const size = normalizePositiveInteger(batchSize, DEFAULT_VECTORIZE_BATCH_SIZE);
+  const batches: LorebookEmbeddingBatch[] = [];
+  for (let index = 0; index < entries.length; index += size) {
+    batches.push({ entries: entries.slice(index, index + size), texts: texts.slice(index, index + size) });
+  }
+  return batches;
 }
 
 function getExistingEmbeddingDimension(entries: LorebookEntry[]): number | null {
