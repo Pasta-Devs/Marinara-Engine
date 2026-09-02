@@ -11140,6 +11140,33 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
 
       const dryRunMutation = { ...mutationResult, output: '{"saved": false}' };
       assert.equal(resolveWorkspaceMutationVerification([dryRunMutation, verificationResult]), "none");
+
+      const stagedSensitiveWrite: WorkspaceCommandResult = {
+        id: "staged-sensitive-write",
+        name: "write",
+        input: { path: ".github/workflows/ci.yml", content: "staged" },
+        output:
+          "Staged sensitive file change for user approval: .github/workflows/ci.yml\nApproval: approval-1\nThe file was not changed. Continue with unrelated source work, but do not claim this change is applied.",
+        success: true,
+      };
+      const stagedSensitiveEdit: WorkspaceCommandResult = {
+        id: "staged-sensitive-edit",
+        name: "edit",
+        input: { path: "package.json", edits: [{ oldText: "before", newText: "after" }] },
+        output:
+          "Staged sensitive file change for user approval: package.json\nApproval: approval-2\nThe file was not changed. Continue with unrelated source work, but do not claim this change is applied.",
+        success: true,
+      };
+      assert.equal(resolveWorkspaceMutationVerification([stagedSensitiveWrite, verificationResult]), "none");
+      assert.equal(resolveWorkspaceMutationVerification([stagedSensitiveEdit, verificationResult]), "none");
+
+      const appliedWrite: WorkspaceCommandResult = {
+        ...stagedSensitiveWrite,
+        id: "applied-write",
+        input: { path: "notes.md", content: "applied" },
+        output: "Wrote 7 bytes to notes.md.",
+      };
+      assert.equal(resolveWorkspaceMutationVerification([appliedWrite]), "unverified");
       const honestBlocker = parseAssistantWorkspaceAction(
         '{"say":"I could not create it because the name is missing.","commands":[],"stop":true}',
       );

@@ -1976,6 +1976,12 @@ function isAppliedWorkspaceMutation(result: WorkspaceCommandResult): boolean {
   if (!result.success || result.name === "dependency") return false;
   const command = commandCallForResult(result);
   if (!isMutatingWorkspaceCommand(command)) return false;
+  if (
+    (result.name === "write" || result.name === "edit") &&
+    /^Staged sensitive file change for user approval:/mu.test(result.output)
+  ) {
+    return false;
+  }
   if (result.name !== "app_data") return true;
   return /"saved"\s*:\s*true/u.test(result.output);
 }
