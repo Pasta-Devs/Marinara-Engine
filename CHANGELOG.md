@@ -27,6 +27,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- NanoGPT connections now read each model's context window and output limit from the provider catalog, so the model picker and the auto-filled Max Context Window show real values instead of 0 for models that are not covered by the built-in aggregator fallback (#5770).
 - Lorebook entries are no longer inserted twice when a preset has more than one lorebook marker (#5716): each world-info position (Before / After) is now placed by the first marker that covers it, so a second "Lorebook Marker (All)" placeholder - or an "All" marker following a "Before" marker - no longer repeats the same entries in the prompt.
 - Mobile connection drag previews now retain the configured Chat Chrome Text Color, and the Roleplay quick switcher context progress bar follows Accent Color (#5758).
 - Professor Mari's panel header no longer overflows into her avatar at phone widths (#5741): Skills and Memories now share one "Skills & Memories" button with a two-row menu (per-row badges preserved), and the combined label collapses to its icon below 430px.
