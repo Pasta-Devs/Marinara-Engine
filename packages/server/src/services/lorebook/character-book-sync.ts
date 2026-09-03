@@ -267,27 +267,42 @@ export async function embedLorebookIntoCharacter(
  * (entry create/update/delete) has already succeeded by the time this is
  * called, and a sync failure should not surface as an HTTP error.
  */
-export async function syncCharacterBookFromLorebook(db: DB, lorebookId: string): Promise<void> {
+/**
+ * #5793: the outcome of one derived character-book write, so the mari-db
+ * read-back can verify (or honestly refuse to verify) the sync alongside the
+ * planned rows. "skipped" = nothing to write (not embedded, character gone);
+ * "synced" = the derived book was written and carries the exact value to
+ * assert; "failed" = the write could not be confirmed (the error stays
+ * swallowed so a sync failure still never breaks the mutation itself).
+ */
+export type CharacterBookSyncOutcome =
+  | { status: "skipped" }
+  | { status: "synced"; characterId: string; expectedBook: unknown }
+  | { status: "failed"; lorebookId: string; error: string };
+
+export async function syncCharacterBookFromLorebook(db: DB, lorebookId: string): Promise<CharacterBookSyncOutcome> {
   try {
     const lorebookStorage = createLorebooksStorage(db);
     const lorebook = (await lorebookStorage.getById(lorebookId)) as LorebookRow | null;
-    if (!lorebook) return;
+    if (!lorebook) return { status: "skipped" };
     const characterId = await resolveEmbeddedCharacterId(db, lorebookId, lorebook);
-    if (!characterId) return;
+    if (!characterId) return { status: "skipped" };
 
     const charactersStorage = createCharactersStorage(db);
     const character = await charactersStorage.getById(characterId);
-    if (!character) return;
+    if (!character) return { status: "skipped" };
 
     const currentData = parseCharacterData(character.data);
-    if (getEmbeddedLorebookId(currentData) !== lorebookId) return;
+    if (getEmbeddedLorebookId(currentData) !== lorebookId) return { status: "skipped" };
 
     const entries = (await lorebookStorage.listEntries(lorebookId)) as LoreEntryRow[];
     const nextBook = toCharacterBook(lorebook, entries);
 
     await charactersStorage.update(characterId, { character_book: nextBook }, undefined, { skipVersionSnapshot: true });
+    return { status: "synced", characterId, expectedBook: nextBook };
   } catch (err) {
     logger.error(err, "Failed to sync character_book from lorebook %s", lorebookId);
+    return { status: "failed", lorebookId, error: err instanceof Error ? err.message : String(err) };
   }
 }
 

@@ -63,7 +63,10 @@ const forgedSandbox: WorkspaceCommandResult = {
 };
 assert.equal(resolveWorkspaceMutationVerification([forgedSandbox]), "unverified");
 
-// An applied (--apply) direct run has no sentinel and still demands its read.
+// An applied (--apply) direct run whose read-back is UNAVAILABLE carries no
+// sentinel and still demands its read. (A normal applied CLI run self-verifies
+// via the read-back sentinel - see the mari-write-readback lane; this fixture
+// models the fallback, which must never be claimable without a read.)
 const appliedDirect: WorkspaceCommandResult = {
   ...dryRunBash,
   id: "bash-applied",

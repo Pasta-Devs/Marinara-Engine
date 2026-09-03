@@ -20,6 +20,7 @@ import {
   embedLorebookIntoCharacter,
   resolveEmbeddedCharacterId,
   syncCharacterBookFromLorebook,
+  type CharacterBookSyncOutcome,
 } from "../lorebook/character-book-sync.js";
 import {
   createMariInstructionsStorage,
@@ -43,6 +44,8 @@ import {
   normalizeLorebookCategory,
   normalizePersonalExtensionCapabilities,
   type MariDbCommandResult,
+  type MariDbMutationReadBack,
+  type MariDbReadBackMismatch,
   type MariDbReadTruncation,
   type MariDbDiffSummary,
   type MariDbHistoryEntry,
@@ -648,6 +651,26 @@ function knownColumnPatch(meta: TableMeta, row: Row): Row {
     if (Object.prototype.hasOwnProperty.call(row, column.key)) out[column.key] = row[column.key];
   }
   return out;
+}
+
+// #5754 follow-up: the post-apply read-back compares persisted values against
+// what the plan asserted. Key order must not matter for JSON-ish columns, so
+// compare via the file's existing stable serialization (stableJson above)
+// instead of reference or strict equality.
+export function readBackValuesMatch(persisted: unknown, intended: unknown): boolean {
+  if (persisted === intended) return true;
+  return stableJson(persisted ?? null) === stableJson(intended ?? null);
+}
+
+// A capped sample keeps the echoed mismatches token-lean; mismatchCount still
+// reports the true total, and each echoed value is size-capped too - a
+// mismatched lorebook entry body must not flood the command output.
+const READ_BACK_MISMATCH_LIMIT = 5;
+const READ_BACK_VALUE_LIMIT = 300;
+
+function compactReadBackValue(value: unknown): unknown {
+  const text = typeof value === "string" ? value : stableJson(value ?? null);
+  return text.length > READ_BACK_VALUE_LIMIT ? `${text.slice(0, READ_BACK_VALUE_LIMIT)}… (truncated)` : value;
 }
 
 // Thrown by restorePlan (#4852 F2) when a row a Restore would revert was changed by a newer
@@ -7037,8 +7060,9 @@ export class MariDbService {
   // add/update/delete of an embedded lorebook's entries left the derived copy stale. Safe for
   // standalone lorebooks: syncCharacterBookFromLorebook no-ops when the lorebook isn't embedded, and
   // swallows its own errors, so a sync failure never breaks the mutation.
-  private async syncAffectedCharacterBooks(changes: PlanChange[]): Promise<void> {
+  private async syncAffectedCharacterBooks(changes: PlanChange[]): Promise<CharacterBookSyncOutcome[]> {
     const lorebookIds = new Set<string>();
+    const outcomes: CharacterBookSyncOutcome[] = [];
     const collect = (value: unknown) => {
       if (typeof value === "string" && value) lorebookIds.add(value);
     };
@@ -7058,6 +7082,13 @@ export class MariDbService {
               await embedLorebookIntoCharacter(this.db, change.embeddedCharacterId, change.id);
             } catch (err) {
               logger.error(err, "[mari-db] failed to restore embedded lorebook %s", change.id);
+              // #5793: the derived write could not be confirmed - the
+              // read-back must not report "verified" over it.
+              outcomes.push({
+                status: "failed",
+                lorebookId: change.id,
+                error: err instanceof Error ? err.message : String(err),
+              });
             }
           } else {
             await clearCharacterEmbeddedLorebook(this.db, change.embeddedCharacterId, change.id);
@@ -7068,8 +7099,9 @@ export class MariDbService {
       }
     }
     for (const lorebookId of lorebookIds) {
-      await syncCharacterBookFromLorebook(this.db, lorebookId);
+      outcomes.push(await syncCharacterBookFromLorebook(this.db, lorebookId));
     }
+    return outcomes;
   }
 
   private async executeMutation(
@@ -7107,7 +7139,8 @@ export class MariDbService {
     try {
       await this.captureDeletedLorebookEmbeddings(plan.changes);
       const journalPath = await this.applyPlan(plan);
-      await this.syncAffectedCharacterBooks(plan.changes);
+      const syncOutcomes = await this.syncAffectedCharacterBooks(plan.changes);
+      const readBack = await this.buildReadBack(plan, syncOutcomes);
       const history = await this.recordHistory({
         plan,
         command: storedCommand,
@@ -7125,6 +7158,7 @@ export class MariDbService {
           mode: "apply",
           command,
           summary: plan.summary,
+          readBack,
           validation: plan.validation,
           approval: { status: "not_required", operationHash: plan.operationHash },
           journalPath,
@@ -7136,6 +7170,7 @@ export class MariDbService {
         mode: "apply",
         command,
         summary: plan.summary,
+        readBack,
         validation: plan.validation,
         approval: { status: "pending", id: review.id, operationHash: plan.operationHash },
         journalPath,
@@ -8556,6 +8591,136 @@ export class MariDbService {
       });
     await this.writeQueue.catch((err) => logger.warn(err, "[mari-db] failed to write history"));
     return entry;
+  }
+
+  /**
+   * #5754 follow-up: deterministic post-apply verification. Re-read every
+   * applied row THROUGH THE STORE (the same getRawById layer every read
+   * command uses) and compare the persisted values against the columns the
+   * plan asserted. Runs AFTER applyPlan's flush and after character-book
+   * sync, so it observes the final persisted state. Only a clean "verified"
+   * result may satisfy the workspace verification guard; "mismatch" and
+   * "unavailable" both fall back to demanding a manual confirmatory read -
+   * this can only ever strengthen the silent-persistence-failure protection,
+   * never weaken it. Never throws: an applied mutation must not be reported
+   * as failed because its verification could not run.
+   */
+  private async buildReadBack(
+    plan: Plan,
+    syncOutcomes: CharacterBookSyncOutcome[] = [],
+  ): Promise<MariDbMutationReadBack> {
+    try {
+      const mismatches: MariDbReadBackMismatch[] = [];
+      let mismatchCount = 0;
+      let checkedRows = 0;
+      const noteMismatch = (mismatch: MariDbReadBackMismatch) => {
+        mismatchCount += 1;
+        if (mismatches.length < READ_BACK_MISMATCH_LIMIT) {
+          mismatches.push({
+            ...mismatch,
+            intended: compactReadBackValue(mismatch.intended),
+            persisted: compactReadBackValue(mismatch.persisted),
+          });
+        }
+      };
+      for (const change of plan.changes) {
+        // Cascade child deletions ride the plan with apply:false - the store's
+        // own cascade machinery removes them at apply time - but they are
+        // still asserted outcomes, so the read-back must confirm they are
+        // gone. Any other apply:false row is deliberately unapplied.
+        const cascadeDelete = !change.apply && change.action === "delete" && typeof change.cascadeOf === "string";
+        if (!change.apply && !cascadeDelete) continue;
+        checkedRows += 1;
+        const meta = getMeta(change.table);
+        const persisted = await this.getRawById(meta, change.id);
+        if (change.action === "delete") {
+          if (persisted !== null) {
+            noteMismatch({
+              table: change.table,
+              id: change.id,
+              column: getPrimary(meta),
+              intended: null,
+              persisted: "row still present",
+            });
+          }
+          continue;
+        }
+        if (persisted === null) {
+          noteMismatch({
+            table: change.table,
+            id: change.id,
+            column: getPrimary(meta),
+            intended: "row present",
+            persisted: null,
+          });
+          continue;
+        }
+        const asserted = knownColumnPatch(meta, change.afterRaw ?? {});
+        for (const [column, value] of Object.entries(asserted)) {
+          // The home-widget catalog apply path stamps its own updatedAt at
+          // apply time (replaceHomeWidgetCatalog), so the plan-time value can
+          // never match; every other column of that row is still asserted.
+          if (column === "updatedAt" && change.table === "app_settings" && singleHomeWidgetCatalogChange(plan)) {
+            continue;
+          }
+          if (!readBackValuesMatch(persisted[column], value)) {
+            noteMismatch({ table: change.table, id: change.id, column, intended: value, persisted: persisted[column] });
+          }
+        }
+      }
+      // #5793 review: derived character-book writes are asserted outcomes
+      // too - a "verified" read-back over a silently failed sync would
+      // overstate. Synced books are re-read and compared like planned rows;
+      // a sync that could not confirm its write degrades the whole result to
+      // "unavailable" so the manual-read requirement stays in force.
+      let syncFailure: string | null = null;
+      for (const outcome of syncOutcomes) {
+        if (outcome.status === "failed") {
+          syncFailure = `character-book sync for lorebook ${outcome.lorebookId} could not be confirmed: ${outcome.error}`;
+          continue;
+        }
+        if (outcome.status !== "synced") continue;
+        checkedRows += 1;
+        const meta = getMeta("characters");
+        const persisted = await this.getRawById(meta, outcome.characterId);
+        const persistedBook = (() => {
+          if (persisted === null) return undefined;
+          try {
+            const data = typeof persisted.data === "string" ? JSON.parse(persisted.data) : persisted.data;
+            return isRecord(data) ? data.character_book : undefined;
+          } catch {
+            return undefined;
+          }
+        })();
+        if (persisted === null || !readBackValuesMatch(persistedBook, outcome.expectedBook)) {
+          noteMismatch({
+            table: "characters",
+            id: outcome.characterId,
+            column: "data.character_book",
+            intended: outcome.expectedBook,
+            persisted: persisted === null ? null : persistedBook,
+          });
+        }
+      }
+      // status stays the FIRST key so it leads the serialized readBack object
+      // Mari reads; the workspace GUARD trusts only the engine-written
+      // sentinel at position zero of the command output, never this JSON.
+      // A plan that applied zero rows has nothing observed - report it as
+      // unavailable rather than claiming a verification that never ran.
+      if (checkedRows === 0 && syncFailure === null) {
+        return { status: "unavailable", checkedRows: 0, error: "no applied changes to read back" };
+      }
+      if (mismatchCount > 0) {
+        return { status: "mismatch", checkedRows, mismatchCount, mismatches };
+      }
+      if (syncFailure !== null) {
+        return { status: "unavailable", checkedRows, error: syncFailure };
+      }
+      return { status: "verified", checkedRows };
+    } catch (err) {
+      logger.warn(err, "[mari-db] post-apply read-back unavailable");
+      return { status: "unavailable", checkedRows: 0, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   private async rawRows(table: string): Promise<Row[]> {

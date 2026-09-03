@@ -49,13 +49,10 @@ const workspaceAgent = readSource("packages/server/src/services/professor-mari/w
 const workspaceAgentFlat = flatten(workspaceAgent);
 assert.match(workspaceAgent, /include the confirmatory read in the SAME response whenever you can/u);
 assert.match(workspaceAgent, /never present it with an apology \("Oops", "my bad"\)/u);
-// The direct-request few-shot models write + read in ONE frame.
-assert.ok(
-  workspaceAgentFlat.includes(
-    '"apply":true}},{"name":"app_data","arguments":{"action":"character.get","characterId":"gundorfson-id"}}],"stop":false}',
-  ),
-  "the mutating few-shot must carry its confirmatory read in the same frame",
-);
+// app_data writes verify themselves via the store read-back (see the
+// mari-write-readback lane); the same-frame read guidance remains for the
+// write/edit/copy/move/bash mutations that have no read-back.
+assert.match(workspaceAgent, /the result's readBack confirms the persisted state/u);
 // Both coaching surfaces forbid the apology framing.
 assert.match(workspaceAgent, /matter-of-factly, never as an apology or correction/u);
 assert.match(workspaceAgent, /never apologize or present the check as fixing a mistake/u);
