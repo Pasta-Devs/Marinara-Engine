@@ -3722,7 +3722,7 @@
   "ui.chat.peekpromptmodal.cacheWrite": "写入缓存",
   "ui.chat.peekpromptmodal.closeAssembledPrompt": "关闭组装后的提示词",
   "ui.chat.peekpromptmodal.estTokens": "估算 token",
-  "ui.chat.peekpromptmodal.middot": "&middot; 约",
+  "ui.chat.peekpromptmodal.middot": "· 约",
   "ui.chat.peekpromptmodal.note": "注意：",
   "ui.chat.peekpromptmodal.section": "个部分",
   "ui.chat.personapicker.noMatchingPersonas": "没有匹配的人设。",

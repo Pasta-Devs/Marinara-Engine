@@ -42,7 +42,7 @@ export function MessageActionButton({
       tabIndex={tabIndex}
       className={cn(
         "inline-flex h-[1.7em] w-[1.7em] shrink-0 items-center justify-center rounded-md p-0 text-[0.8125rem] leading-none transition-all active:scale-90 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-30",
-        "text-[var(--marinara-chat-message-action-text)] hover:bg-[var(--marinara-chat-message-action-bg-hover)] hover:text-[var(--marinara-chat-message-action-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+        "text-[var(--marinara-chat-message-action-text)] [@media(pointer:fine)]:hover:bg-[var(--marinara-chat-message-action-bg-hover)] [@media(pointer:fine)]:hover:text-[var(--marinara-chat-message-action-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
         className,
       )}
     >

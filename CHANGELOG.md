@@ -35,6 +35,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Mobile message-action icons no longer keep an iPhone-only hover color after being tapped, and Peek Prompt now shows a readable middle dot between its section and estimated-token totals (#5825).
 - Mobile chat overlays stay usable around the software keyboard: focused toolbar menus remain inside the visible viewport while editing, and chats with Echo Chamber leave enough top scroll clearance to keep Load More tappable below its collapsed window (#5817, #5822).
 - The button that applies changes Mari is holding for your approval is no longer labelled as a suggestion (#5820). It sat under the caption "Suggestions only. Pick one, or type your own.", which told you the one control that applies her pending edits was optional - so it looked like she had quietly done nothing. The row now says she is waiting for approval and that nothing has been changed yet, and a "Don't apply" button sits next to Accept so declining is a click rather than a typed sentence.
 

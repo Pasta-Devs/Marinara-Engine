@@ -4004,7 +4004,7 @@
   "ui.chat.peekpromptmodal.cacheWrite": "cache write",
   "ui.chat.peekpromptmodal.closeAssembledPrompt": "Close assembled prompt",
   "ui.chat.peekpromptmodal.estTokens": "est. tokens",
-  "ui.chat.peekpromptmodal.middot": "&middot; ~",
+  "ui.chat.peekpromptmodal.middot": "· ~",
   "ui.chat.peekpromptmodal.note": "Note:",
   "ui.chat.peekpromptmodal.section": "section",
   "ui.chat.personapicker.characterSource": "Character",

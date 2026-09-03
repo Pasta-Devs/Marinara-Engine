@@ -204,8 +204,9 @@ async function openEditorSection(editor: Locator, label: string) {
   const navigation = editor.getByRole("navigation", { name: "Editor sections" });
   const desktopRail = editor.locator(".mari-editor-tab-rail");
   await expect
-    .poll(async () =>
-      (await compactMenuButton.isVisible()) || (await navigation.isVisible()) || (await desktopRail.isVisible()),
+    .poll(
+      async () =>
+        (await compactMenuButton.isVisible()) || (await navigation.isVisible()) || (await desktopRail.isVisible()),
     )
     .toBe(true);
   if (await compactMenuButton.isVisible()) {
@@ -19687,9 +19688,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
       .poll(() =>
         page.evaluate(() => ({
           height: getComputedStyle(document.documentElement).getPropertyValue("--mari-visual-viewport-height").trim(),
-          top: getComputedStyle(document.documentElement)
-            .getPropertyValue("--mari-visual-viewport-offset-top")
-            .trim(),
+          top: getComputedStyle(document.documentElement).getPropertyValue("--mari-visual-viewport-offset-top").trim(),
         })),
       )
       .toEqual({ height: "360px", top: `${iosFocusPageTop}px` });
