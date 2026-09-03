@@ -545,6 +545,10 @@ export function SummaryPopover({
   );
   const batchFailedRanges = batchRanges.filter((range) => range.status === "failed");
   const batchCompletedRanges = batchRanges.filter((range) => range.status === "success");
+  const batchMessageTotal = inspectedBatchRanges.reduce((total, range) => {
+    if (range.error !== null || range.normalizedStart === null || range.normalizedEnd === null) return total;
+    return total + range.normalizedEnd - range.normalizedStart + 1;
+  }, 0);
   const batchHasPriorRun = batchRanges.some((range) => range.status !== "pending");
   const batchRunnableRanges = inspectedBatchRanges.filter((range) => {
     const row = batchRanges.find((candidate) => candidate.id === range.id);
@@ -561,11 +565,15 @@ export function SummaryPopover({
   const displayedRangeCount = displayedRangeEnd - displayedRangeStart + 1;
   const sourceSummary =
     sourceMode === "range"
-      ? localizeUi("chat.summary.source.range", { start: displayedRangeStart, end: displayedRangeEnd })
+      ? batchRanges.length > 1
+        ? localizeUi("chat.summary.source.batchRanges")
+        : localizeUi("chat.summary.source.range", { start: displayedRangeStart, end: displayedRangeEnd })
       : localizeUi("chat.summary.source.lastMessages", { count: normalizedLastSize });
   const sourceDetail =
     sourceMode === "range"
-      ? localizeUi("chat.summary.source.selectedMessages", { count: displayedRangeCount })
+      ? batchRanges.length > 1
+        ? localizeUi("chat.summary.source.batchMessages", { count: batchMessageTotal, ranges: batchRanges.length })
+        : localizeUi("chat.summary.source.selectedMessages", { count: displayedRangeCount })
       : totalMessageCount > 0
         ? localizeUi("chat.summary.source.usingMessages", {
             count: Math.min(normalizedLastSize, totalMessageCount),
@@ -2481,44 +2489,6 @@ export function SummaryPopover({
               </label>
             ) : (
               <div className="space-y-1.5">
-                <div className="flex flex-wrap items-center justify-between gap-1.5">
-                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    <span>{localizeUi("ui.chat.summarypopover.batchRangeCount", { count: batchRanges.length })}</span>
-                    {batchCompletedRanges.length > 0 && (
-                      <span>
-                        {localizeUi("ui.chat.summarypopover.batchCompletedCount", {
-                          count: batchCompletedRanges.length,
-                        })}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center justify-end gap-1">
-                    {batchCompletedRanges.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleClearCompletedRanges}
-                        disabled={isBatchGenerating}
-                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400 dark:hover:text-emerald-300"
-                        title={localizeUi("ui.chat.summarypopover.batchClearCompleted")}
-                      >
-                        <CheckCheck size="0.6875rem" />
-                        {localizeUi("ui.chat.summarypopover.batchClearCompleted")}
-                      </button>
-                    )}
-                    {batchRanges.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={handleClearExtraRanges}
-                        disabled={isBatchGenerating}
-                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-40"
-                        title={localizeUi("ui.chat.summarypopover.batchClear")}
-                      >
-                        <Trash2 size="0.6875rem" />
-                        {localizeUi("ui.chat.summarypopover.batchClear")}
-                      </button>
-                    )}
-                  </div>
-                </div>
                 <div className="max-h-64 overflow-y-auto pr-1">
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                     {batchRanges.map((range, rangeIndex) => {
@@ -2542,11 +2512,8 @@ export function SummaryPopover({
                                 : "border-[var(--border)]/70",
                           )}
                         >
-                          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)_1.125rem_auto] items-center gap-1.5">
-                            <span className="text-xs font-bold tabular-nums text-[var(--foreground)]">
-                              {rangeIndex + 1}
-                            </span>
-                            <label className="min-w-0 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                          <div className="grid grid-cols-[4.5rem_minmax(3rem,1fr)_4.5rem_1.125rem_auto] items-center gap-1.5">
+                            <label className="min-w-0 justify-self-center text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                               <span className="sr-only">{localizeUi("ui.chat.summarypopover.from")}</span>
                               <input
                                 type="number"
@@ -2574,13 +2541,23 @@ export function SummaryPopover({
                                 })}
                               />
                             </label>
-                            <span
-                              className="text-sm font-bold leading-none text-[var(--foreground)]"
-                              aria-hidden="true"
+                            <div
+                              className="flex items-center justify-center gap-1.5"
+                              aria-label={localizeUi("ui.chat.summarypopover.batchRangeNumber", {
+                                number: rangeIndex + 1,
+                              })}
                             >
-                              -
-                            </span>
-                            <label className="min-w-0 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                              <span className="text-sm font-bold tabular-nums text-[var(--foreground)]">
+                                {rangeIndex + 1}
+                              </span>
+                              <span
+                                className="text-sm font-bold leading-none text-[var(--foreground)]"
+                                aria-hidden="true"
+                              >
+                                -
+                              </span>
+                            </div>
+                            <label className="min-w-0 justify-self-center text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                               <span className="sr-only">{localizeUi("ui.chat.summarypopover.to")}</span>
                               <input
                                 type="number"
@@ -2689,7 +2666,7 @@ export function SummaryPopover({
                     })}
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <button
                     type="button"
                     onClick={handleAddBatchRange}
@@ -2699,6 +2676,35 @@ export function SummaryPopover({
                     <Plus size="0.6875rem" />
                     {localizeUi("ui.chat.summarypopover.batchAddRange")}
                   </button>
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.chat.summarypopover.batchRangeCount", { count: batchRanges.length })}
+                    </span>
+                    {batchCompletedRanges.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearCompletedRanges}
+                        disabled={isBatchGenerating}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400 dark:hover:text-emerald-300"
+                        title={localizeUi("ui.chat.summarypopover.batchClearCompleted")}
+                      >
+                        <CheckCheck size="0.6875rem" />
+                        {localizeUi("ui.chat.summarypopover.batchClearCompleted")}
+                      </button>
+                    )}
+                    {batchRanges.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={handleClearExtraRanges}
+                        disabled={isBatchGenerating}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-40"
+                        title={localizeUi("ui.chat.summarypopover.batchClear")}
+                      >
+                        <Trash2 size="0.6875rem" />
+                        {localizeUi("ui.chat.summarypopover.batchClear")}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {batchRun && (
                   <div className="space-y-1.5" aria-live="polite">

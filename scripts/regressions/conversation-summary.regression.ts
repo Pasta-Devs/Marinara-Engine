@@ -201,6 +201,14 @@ assert.match(
   /batchRanges\.length > 1[\s\S]*?handleClearExtraRanges[\s\S]*?batchClear/u,
   "The clear-all action should remain available even without completed ranges",
 );
+assert.match(summaryPopoverSource, /batchMessageTotal[\s\S]*?normalizedEnd - range\.normalizedStart \+ 1/u);
+assert.match(summaryPopoverSource, /chat\.summary\.source\.batchRanges/u);
+assert.match(summaryPopoverSource, /chat\.summary\.source\.batchMessages/u);
+assert.match(
+  summaryPopoverSource,
+  /grid-cols-\[4\.5rem_minmax\(3rem,1fr\)_4\.5rem_1\.125rem_auto\]/u,
+  "Range controls should keep a stable centered range cluster",
+);
 assert.match(
   summaryPopoverSource,
   /onClick=\{handleAddBatchRange\}[\s\S]*?disabled=\{isBatchGenerating \|\| !nextBatchRange\}/u,
