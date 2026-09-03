@@ -8,6 +8,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Allowed trusted backend scheduler calls to execute their own capability routes without a browser `X-Admin-Secret`, while keeping external package route requests protected.
 - Prevented profile preview tokens from being sent over non-local HTTP connections.
 - Moved the desktop right-panel resize hit area away from the main chat scrollbar.
+- Moved the agent connection bulk assignment control from the Agents panel to Connections -> Defaults -> Agents.
 
 ### Added
 
