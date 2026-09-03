@@ -177,6 +177,32 @@ assert.match(
 );
 assert.match(
   summaryPopoverSource,
+  /handleClearExtraRanges[\s\S]*?return \[kept\]/u,
+  "Clearing extra batch ranges should retain one range",
+);
+assert.match(
+  summaryPopoverSource,
+  /text-emerald-600[\s\S]*?batchClearCompleted/u,
+  "Completed controls should be green",
+);
+assert.match(
+  summaryPopoverSource,
+  /w-\[4\.5rem\][\s\S]*?aria-label=.*batchRangeFrom/u,
+  "Range inputs should fit four digits",
+);
+assert.match(summaryPopoverSource, /<span[^>]*>\s*-\s*<\/span>/u, "Range inputs should show a separator");
+assert.match(
+  summaryPopoverSource,
+  /batchErrorInfoId[\s\S]*?role="tooltip"[\s\S]*?range\.error/u,
+  "Failed range details should be available through an info popover",
+);
+assert.match(
+  summaryPopoverSource,
+  /batchRanges\.length > 1[\s\S]*?handleClearExtraRanges/u,
+  "The clear-all action should remain available even without completed ranges",
+);
+assert.match(
+  summaryPopoverSource,
   /onClick=\{handleAddBatchRange\}[\s\S]*?disabled=\{isBatchGenerating \|\| !nextBatchRange\}/u,
   "Batch range editing should lock while a run is active",
 );
