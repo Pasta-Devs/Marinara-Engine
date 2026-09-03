@@ -1031,12 +1031,18 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
     [connectionsList],
   );
   const { data: agentConfigs } = useAgentConfigs();
-  const { data: capabilityAgents } = useCapabilityAgentRegistry();
+  const {
+    data: capabilityAgents,
+    isLoading: capabilityAgentsLoading,
+    isError: capabilityAgentsError,
+  } = useCapabilityAgentRegistry();
   const updateAgent = useUpdateAgent();
   const updateAgentByType = useUpdateAgentByType();
   const sidecarAsAgentsDefault = useSidecarStore((state) => state.config.useAsAgentsDefault);
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const [applyingToAllAgents, setApplyingToAllAgents] = useState(false);
+  const capabilityAgentRegistryReady =
+    !capabilityAgentsLoading && !capabilityAgentsError && capabilityAgents !== undefined;
   const agentConnection =
     languageConnections.find((connection) => isEnabledConnectionRole(connection.defaultForAgents)) ?? null;
   const effectiveAgentConnectionId = sidecarAsAgentsDefault
@@ -1065,7 +1071,7 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
   );
   const handleApplyToAllAgents = async () => {
     const targetCount = visibleBuiltInAgents.length + customAgentConfigs.length;
-    if (applyingToAllAgents || targetCount === 0) return;
+    if (applyingToAllAgents || !capabilityAgentRegistryReady || targetCount === 0) return;
     const confirmed = await showConfirmDialog({
       title: localizeUi("ui.panels.agentspanel.bulkConnectionApply"),
       message: localizeUi("ui.panels.agentspanel.bulkConnectionConfirm", {
@@ -1076,7 +1082,7 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
     if (!confirmed) return;
     setApplyingToAllAgents(true);
     try {
-      await Promise.all([
+      const results = await Promise.allSettled([
         ...visibleBuiltInAgents.map((agent) =>
           updateAgentByType.mutateAsync({ agentType: agent.id, connectionId: effectiveAgentConnectionId }),
         ),
@@ -1084,6 +1090,8 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
           updateAgent.mutateAsync({ id: config.id, connectionId: effectiveAgentConnectionId }),
         ),
       ]);
+      const rejected = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+      if (rejected) throw rejected.reason;
       toast.success(
         localizeUi("ui.panels.agentspanel.bulkConnectionDone", {
           value1: String(targetCount),
@@ -1155,7 +1163,9 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
             showPaidConnectionWarningToggle
             onApplyToAllAgents={() => void handleApplyToAllAgents()}
             applyingToAllAgents={applyingToAllAgents}
-            canApplyToAllAgents={visibleBuiltInAgents.length + customAgentConfigs.length > 0}
+            canApplyToAllAgents={
+              capabilityAgentRegistryReady && visibleBuiltInAgents.length + customAgentConfigs.length > 0
+            }
           />
           <ConnectionDefaultPair
             title={localizeUi("ui.panels.connectiondefaultssection.images")}
