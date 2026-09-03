@@ -1045,13 +1045,16 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
   const capabilityAgentRegistryReady =
     !capabilityAgentsLoading && !capabilityAgentsError && capabilityAgents !== undefined;
   const agentConfigsReady = !agentConfigsLoading && !agentConfigsError && agentConfigs !== undefined;
-  const agentAssignmentReady =
-    capabilityAgentRegistryReady && agentConfigsReady && (!sidecarAsAgentsDefault || sidecarModelDownloaded);
   const agentConnection =
     languageConnections.find((connection) => isEnabledConnectionRole(connection.defaultForAgents)) ?? null;
   const effectiveAgentConnectionId = sidecarAsAgentsDefault
     ? LOCAL_SIDECAR_CONNECTION_ID
     : (agentConnection?.id ?? null);
+  const agentAssignmentReady =
+    capabilityAgentRegistryReady &&
+    agentConfigsReady &&
+    effectiveAgentConnectionId !== null &&
+    (!sidecarAsAgentsDefault || sidecarModelDownloaded);
   const agentConnectionName = sidecarAsAgentsDefault
     ? createLocalSidecarConnectionOption(sidecarModelDisplayName).name
     : (agentConnection?.name ?? localizeUi("ui.panels.agentspanel.bulkConnectionAgentDefault"));
@@ -1075,7 +1078,8 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
   );
   const handleApplyToAllAgents = async () => {
     const targetCount = visibleBuiltInAgents.length + customAgentConfigs.length;
-    if (applyingToAllAgents || !agentAssignmentReady || targetCount === 0) return;
+    if (applyingToAllAgents || !agentAssignmentReady || effectiveAgentConnectionId === null || targetCount === 0)
+      return;
     const confirmed = await showConfirmDialog({
       title: localizeUi("ui.panels.agentspanel.bulkConnectionApply"),
       message: localizeUi("ui.panels.agentspanel.bulkConnectionConfirm", {
