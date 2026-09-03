@@ -43,6 +43,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Simplified the quick Persona switcher to one rounded character disclosure with folder artwork and viewport-safe scrolling.
 - Moved the character picker toggle to Advanced Message Tools.
+- Roleplay Chat Summary can now generate multiple explicit message ranges sequentially, keeping each result as its own chronological batch entry with per-range progress and retry status.
 
 ### Fixed
 
