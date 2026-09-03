@@ -242,7 +242,7 @@ A solução mais limpa a longo prazo é colocar o servidor atrás de HTTPS. Últ
 
 O Marinara permite que apenas um servidor em execução grave em um diretório de dados local. Se a inicialização informar **Another Marinara Engine process ... may be using** o diretório, encerre o outro processo do Marinara e tente de novo.
 
-Depois de uma falha ou da movimentação de um volume de dados do Docker, a inicialização pode informar **The storage writer lease ... is incomplete or invalid** ou identificar um processo que já não existe neste host. Primeiro confirme que todos os processos e contêineres do Marinara que usam esse diretório estão parados. Depois remova somente o diretório `.writer-lease` indicado no erro e reinicie o Marinara. Não remova o diretório `storage` ao redor dele nem qualquer arquivo de tabela.
+Depois de uma falha ou da movimentação de um volume de dados do Docker, a inicialização pode informar **The storage writer lease ... is incomplete or invalid** ou identificar um processo que já não existe neste host. Primeiro confirme que todos os processos e contêineres do Marinara que usam esse diretório estão parados. Depois remova somente o diretório `.writer-lease` indicado no erro e reinicie o Marinara. Não remova o diretório `storage` ao redor dele nem qualquer arquivo de tabela. Em hosts Linux, Android e de contêiner cujo diretório de dados fica em disco local, Marinara libera sozinho o diretório `.writer-lease` deixado por um processo que caiu por falha ou foi encerrado à força, inclusive depois de uma reinicialização; a etapa manual continua sendo a opção de reserva para armazenamento em rede ou compartilhado.
 
 ### Os dados parecem ter sumido depois de uma atualização
 

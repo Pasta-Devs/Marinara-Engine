@@ -242,7 +242,7 @@ Najczystsze rozwiązanie na dłuższą metę to postawienie serwera za HTTPS. Os
 
 Marinara Engine pozwala tylko jednemu działającemu serwerowi zapisywać w lokalnym katalogu danych. Jeśli przy uruchamianiu pojawi się komunikat **Another Marinara Engine process ... may be using** wskazujący ten katalog, zamknij drugi proces Marinara Engine i uruchom ponownie.
 
-Po awarii lub przeniesieniu wolumenu danych Dockera może zamiast tego pojawić się **The storage writer lease ... is incomplete or invalid** albo wskazanie procesu, który już nie istnieje na tym hoście. Najpierw upewnij się, że wszystkie procesy i kontenery Marinara Engine korzystające z tego katalogu danych są zatrzymane. Następnie usuń wyłącznie katalog `.writer-lease` wskazany w błędzie i uruchom Marinara Engine ponownie. Nie usuwaj otaczającego go katalogu `storage` ani żadnych plików tabel.
+Po awarii lub przeniesieniu wolumenu danych Dockera może zamiast tego pojawić się **The storage writer lease ... is incomplete or invalid** albo wskazanie procesu, który już nie istnieje na tym hoście. Najpierw upewnij się, że wszystkie procesy i kontenery Marinara Engine korzystające z tego katalogu danych są zatrzymane. Następnie usuń wyłącznie katalog `.writer-lease` wskazany w błędzie i uruchom Marinara Engine ponownie. Nie usuwaj otaczającego go katalogu `storage` ani żadnych plików tabel. Na hostach z systemem Linux i Android oraz w kontenerach, których katalog danych znajduje się na lokalnym dysku, Marinara Engine sam usuwa katalog `.writer-lease` pozostawiony przez proces, który uległ awarii lub został zamknięty na siłę, także po ponownym uruchomieniu hosta; ręczny krok pozostaje rozwiązaniem awaryjnym dla sieciowej lub współdzielonej pamięci masowej.
 
 ### Po aktualizacji brakuje danych
 
