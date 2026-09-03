@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, InjectOptions, LightMyRequestResponse as InjectResponse } from "fastify";
 import {
   registerTurnGameEngine,
   type AnyTurnGameEngine,
@@ -32,7 +32,10 @@ import {
 } from "./capability-embedding.service.js";
 import { createCapabilityPersistenceHost } from "./capability-persistence.service.js";
 import { createCapabilityResourceHost } from "./capability-resources.service.js";
-import { registerCapabilityPrivilegedRoutes } from "./capability-route-registration.service.js";
+import {
+  registerCapabilityPrivilegedRoutes,
+  runCapabilityInternalRoute,
+} from "./capability-route-registration.service.js";
 import {
   registerCapabilityPromptContext,
   type CapabilityPromptContextContributor,
@@ -54,6 +57,8 @@ type CapabilityActivationContext = {
       routes: import("fastify").FastifyPluginAsync,
       options: { prefix: string },
     ): Promise<Cleanup>;
+    /** Run an active route owned by this package as trusted server work. */
+    runInternalRoute?: (options: InjectOptions | string) => Promise<InjectResponse>;
   };
 };
 
@@ -235,6 +240,7 @@ class CapabilityModuleRuntime {
           },
           registerPrivilegedRoutes: async (routes, options) =>
             trackCleanup(await registerCapabilityPrivilegedRoutes(app, installed, routes, options)),
+          runInternalRoute: (options) => runCapabilityInternalRoute(app, installed.id, options),
         },
       };
       const cleanup = await module.activate(context);

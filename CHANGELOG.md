@@ -5,6 +5,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ## [Unreleased]
 
 - Fixed PNG metadata decompression, Nano Banana full-body image requests, GPT Image 2 OpenRouter routing, capability swipe timestamps, and bounded import uploads.
+- Allowed trusted backend scheduler calls to execute their own capability routes without a browser `X-Admin-Secret`, while keeping external package route requests protected.
 - Prevented profile preview tokens from being sent over non-local HTTP connections.
 - Moved the desktop right-panel resize hit area away from the main chat scrollbar.
 
