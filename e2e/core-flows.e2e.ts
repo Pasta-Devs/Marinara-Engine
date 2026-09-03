@@ -2092,27 +2092,29 @@ test("mobile Roleplay Peek prompt keeps its tapped action visible and labels pro
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "The sticky action state is mobile-only.");
 
-  const chatResponse = await page.request.post("/api/chats", {
-    data: { name: "Mobile Roleplay Peek Prompt Smoke", mode: "roleplay", characterIds: [] },
-  });
-  expect(chatResponse.ok(), await chatResponse.text()).toBeTruthy();
-  const chat = (await chatResponse.json()) as { id: string };
-  const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
-    data: {
-      role: "assistant",
-      content: "A mobile prompt action remains within reach.",
-      extra: {
-        cachedPrompt: [
-          { role: "system", content: "Stay in character." },
-          { role: "user", content: "Continue the scene." },
-        ],
-      },
-    },
-  });
-  expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
-  const message = (await messageResponse.json()) as { id: string };
-
+  let chatId: string | null = null;
   try {
+    const chatResponse = await page.request.post("/api/chats", {
+      data: { name: "Mobile Roleplay Peek Prompt Smoke", mode: "roleplay", characterIds: [] },
+    });
+    expect(chatResponse.ok(), await chatResponse.text()).toBeTruthy();
+    const chat = (await chatResponse.json()) as { id: string };
+    chatId = chat.id;
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: {
+        role: "assistant",
+        content: "A mobile prompt action remains within reach.",
+        extra: {
+          cachedPrompt: [
+            { role: "system", content: "Stay in character." },
+            { role: "user", content: "Continue the scene." },
+          ],
+        },
+      },
+    });
+    expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
+    const message = (await messageResponse.json()) as { id: string };
+
     await prepareFreshClient(page);
     await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
     await page.goto("/");
@@ -2146,7 +2148,7 @@ test("mobile Roleplay Peek prompt keeps its tapped action visible and labels pro
       contentType: "image/png",
     });
   } finally {
-    await bestEffortDelete(page.request, `/api/chats/${chat.id}?force=true`);
+    if (chatId) await bestEffortDelete(page.request, `/api/chats/${chatId}?force=true`);
   }
 });
 
