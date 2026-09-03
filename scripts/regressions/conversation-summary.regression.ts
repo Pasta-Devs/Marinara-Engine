@@ -162,6 +162,21 @@ assert.match(
 assert.match(summaryPopoverSource, /signal: controller\.signal/u, "Batch summary requests should be cancellable");
 assert.match(
   summaryPopoverSource,
+  /handleClearCompletedRanges[\s\S]*?status !== "success"/u,
+  "Completed batch ranges should be removable without clearing retryable ranges",
+);
+assert.match(
+  summaryPopoverSource,
+  /grid-cols-1 gap-1\.5 sm:grid-cols-2/u,
+  "Batch ranges should use one column on mobile and two on desktop",
+);
+assert.match(
+  summaryPopoverSource,
+  /remaining\.length > 0[\s\S]*?status: "pending"/u,
+  "Clearing the final completed range should leave an editable pending range",
+);
+assert.match(
+  summaryPopoverSource,
   /onClick=\{handleAddBatchRange\}[\s\S]*?disabled=\{isBatchGenerating \|\| !nextBatchRange\}/u,
   "Batch range editing should lock while a run is active",
 );

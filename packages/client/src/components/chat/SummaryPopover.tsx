@@ -34,6 +34,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRollingBackfillStore } from "../../stores/backfill.store";
 import {
   Check,
+  CheckCheck,
   ArrowDown,
   ArrowUp,
   AlertTriangle,
@@ -531,14 +532,18 @@ export function SummaryPopover({
     [batchRanges, totalMessageCount],
   );
   const firstBatchRange = inspectedBatchRanges[0];
-  const nextBatchRange = inspectedBatchRanges[inspectedBatchRanges.length - 1]
-    ? createNextChatSummaryBatchRange(inspectedBatchRanges[inspectedBatchRanges.length - 1]!, totalMessageCount)
-    : null;
+  const lastBatchRange = inspectedBatchRanges[inspectedBatchRanges.length - 1];
+  const nextBatchRange = lastBatchRange
+    ? createNextChatSummaryBatchRange(lastBatchRange, totalMessageCount)
+    : totalMessageCount > 0
+      ? { start: "1", end: String(Math.min(totalMessageCount, MAX_SUMMARY_MESSAGES)) }
+      : null;
   const batchRangeHasInvalid = inspectedBatchRanges.some((range) => range.error !== null);
   const batchRemainingRanges = batchRanges.filter(
     (range) => range.status === "pending" || range.status === "cancelled",
   );
   const batchFailedRanges = batchRanges.filter((range) => range.status === "failed");
+  const batchCompletedRanges = batchRanges.filter((range) => range.status === "success");
   const batchHasPriorRun = batchRanges.some((range) => range.status !== "pending");
   const batchRunnableRanges = inspectedBatchRanges.filter((range) => {
     const row = batchRanges.find((candidate) => candidate.id === range.id);
@@ -830,6 +835,26 @@ export function SummaryPopover({
   const handleRemoveBatchRange = useCallback((rangeId: string) => {
     setBatchRanges((current) => (current.length > 1 ? current.filter((range) => range.id !== rangeId) : current));
   }, []);
+
+  const handleClearCompletedRanges = useCallback(() => {
+    setBatchRanges((current) => {
+      const remaining = current.filter((range) => range.status !== "success");
+      return remaining.length > 0
+        ? remaining
+        : [
+            {
+              id: generateClientId(),
+              requestId: generateClientId(),
+              start: "1",
+              end: String(Math.max(1, Math.min(totalMessageCount, MAX_SUMMARY_MESSAGES))),
+              status: "pending",
+            },
+          ];
+    });
+    batchEntryRangesRef.current = batchEntryRangesRef.current.filter(
+      (entry) => !batchRanges.some((range) => range.status === "success" && range.entryId === entry.id),
+    );
+  }, [batchRanges, totalMessageCount]);
 
   const handleCancelBatch = useCallback(() => {
     batchAbortControllerRef.current?.abort();
@@ -2445,126 +2470,170 @@ export function SummaryPopover({
               </label>
             ) : (
               <div className="space-y-1.5">
-                {batchRanges.map((range, rangeIndex) => {
-                  const inspection = inspectedBatchRanges.find((candidate) => candidate.id === range.id);
-                  const validationMessage = inspection?.error
-                    ? summaryBatchRangeErrorMessage(inspection.error, localizeUi)
-                    : null;
-                  const statusMessage = summaryBatchRangeStatusMessage(range.status, localizeUi);
-                  const overlapMessage = inspection?.overlaps
-                    ? localizeUi("ui.chat.summarypopover.batchRangeOverlap")
-                    : null;
-                  return (
-                    <div
-                      key={range.id}
-                      className={cn(
-                        "space-y-1.5 rounded-lg border bg-[var(--background)]/25 p-2",
-                        validationMessage
-                          ? "border-[var(--destructive)]/45"
-                          : inspection?.overlaps
-                            ? "border-amber-500/60"
-                            : "border-[var(--border)]/70",
-                      )}
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    <span>{localizeUi("ui.chat.summarypopover.batchRangeCount", { count: batchRanges.length })}</span>
+                    {batchCompletedRanges.length > 0 && (
+                      <span>
+                        {localizeUi("ui.chat.summarypopover.batchCompletedCount", {
+                          count: batchCompletedRanges.length,
+                        })}
+                      </span>
+                    )}
+                  </div>
+                  {batchCompletedRanges.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearCompletedRanges}
+                      disabled={isBatchGenerating}
+                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                      title={localizeUi("ui.chat.summarypopover.batchClearCompleted")}
                     >
-                      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2">
-                        <label className="min-w-0 space-y-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                          {localizeUi("ui.chat.summarypopover.from")}
-                          <input
-                            type="number"
-                            min={1}
-                            max={Math.max(1, totalMessageCount)}
-                            value={range.start}
-                            disabled={isBatchGenerating}
-                            onFocus={() => {
-                              rangeInputFocused.current = true;
-                            }}
-                            onChange={(event) => handleBatchRangeChange(range.id, "start", event.target.value)}
-                            onBlur={() => {
-                              rangeInputFocused.current = false;
-                            }}
-                            className={cn(
-                              "w-full rounded-md bg-[var(--card)] px-2 py-1 text-center text-xs tabular-nums text-[var(--foreground)] ring-1 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60",
-                              inspection?.overlaps
-                                ? "ring-amber-500/70"
-                                : validationMessage
-                                  ? "ring-[var(--destructive)]/60"
-                                  : "ring-[var(--border)]",
-                            )}
-                            aria-label={localizeUi("ui.chat.summarypopover.batchRangeFrom", {
-                              number: rangeIndex + 1,
-                            })}
-                          />
-                        </label>
-                        <label className="min-w-0 space-y-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                          {localizeUi("ui.chat.summarypopover.to")}
-                          <input
-                            type="number"
-                            min={1}
-                            max={Math.max(1, totalMessageCount)}
-                            value={range.end}
-                            disabled={isBatchGenerating}
-                            onFocus={() => {
-                              rangeInputFocused.current = true;
-                            }}
-                            onChange={(event) => handleBatchRangeChange(range.id, "end", event.target.value)}
-                            onBlur={() => {
-                              rangeInputFocused.current = false;
-                            }}
-                            className={cn(
-                              "w-full rounded-md bg-[var(--card)] px-2 py-1 text-center text-xs tabular-nums text-[var(--foreground)] ring-1 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60",
-                              inspection?.overlaps
-                                ? "ring-amber-500/70"
-                                : validationMessage
-                                  ? "ring-[var(--destructive)]/60"
-                                  : "ring-[var(--border)]",
-                            )}
-                            aria-label={localizeUi("ui.chat.summarypopover.batchRangeTo", {
-                              number: rangeIndex + 1,
-                            })}
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveBatchRange(range.id)}
-                          disabled={isBatchGenerating || batchRanges.length === 1}
-                          className="rounded-md p-1.5 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:cursor-not-allowed disabled:opacity-30"
-                          title={localizeUi("ui.chat.summarypopover.batchRemoveRange")}
-                          aria-label={localizeUi("ui.chat.summarypopover.batchRemoveRangeNumber", {
-                            number: rangeIndex + 1,
-                          })}
-                        >
-                          <X size="0.75rem" />
-                        </button>
-                      </div>
-                      <div className="flex min-w-0 items-start gap-1.5 text-[0.625rem] leading-snug">
-                        {inspection?.overlaps && (
-                          <AlertTriangle
-                            size="0.75rem"
-                            className="mt-0.5 shrink-0 text-amber-500"
-                            aria-label={overlapMessage ?? undefined}
-                          />
-                        )}
-                        <div className="min-w-0">
-                          {validationMessage ? (
-                            <p className="text-[var(--destructive)]">{validationMessage}</p>
-                          ) : overlapMessage ? (
-                            <p className="text-amber-600 dark:text-amber-400">{overlapMessage}</p>
-                          ) : (
-                            <p className="text-[var(--muted-foreground)]">{statusMessage}</p>
+                      <CheckCheck size="0.6875rem" />
+                      {localizeUi("ui.chat.summarypopover.batchClearCompleted")}
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-64 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {batchRanges.map((range, rangeIndex) => {
+                      const inspection = inspectedBatchRanges.find((candidate) => candidate.id === range.id);
+                      const validationMessage = inspection?.error
+                        ? summaryBatchRangeErrorMessage(inspection.error, localizeUi)
+                        : null;
+                      const statusMessage = summaryBatchRangeStatusMessage(range.status, localizeUi);
+                      const overlapMessage = inspection?.overlaps
+                        ? localizeUi("ui.chat.summarypopover.batchRangeOverlap")
+                        : null;
+                      return (
+                        <div
+                          key={range.id}
+                          className={cn(
+                            "space-y-1 rounded-md border bg-[var(--background)]/25 px-1.5 py-1",
+                            validationMessage
+                              ? "border-[var(--destructive)]/45"
+                              : inspection?.overlaps
+                                ? "border-amber-500/60"
+                                : "border-[var(--border)]/70",
                           )}
-                          {range.error && <p className="text-[var(--destructive)]">{range.error}</p>}
+                        >
+                          <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-1.5">
+                            <span className="text-[0.625rem] font-semibold tabular-nums text-[var(--muted-foreground)]">
+                              {rangeIndex + 1}
+                            </span>
+                            <label className="min-w-0 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                              <span className="sr-only">{localizeUi("ui.chat.summarypopover.from")}</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={Math.max(1, totalMessageCount)}
+                                value={range.start}
+                                disabled={isBatchGenerating}
+                                onFocus={() => {
+                                  rangeInputFocused.current = true;
+                                }}
+                                onChange={(event) => handleBatchRangeChange(range.id, "start", event.target.value)}
+                                onBlur={() => {
+                                  rangeInputFocused.current = false;
+                                }}
+                                className={cn(
+                                  "h-7 w-full rounded-md bg-[var(--card)] px-1.5 text-center text-xs tabular-nums text-[var(--foreground)] ring-1 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60",
+                                  inspection?.overlaps
+                                    ? "ring-amber-500/70"
+                                    : validationMessage
+                                      ? "ring-[var(--destructive)]/60"
+                                      : "ring-[var(--border)]",
+                                )}
+                                aria-label={localizeUi("ui.chat.summarypopover.batchRangeFrom", {
+                                  number: rangeIndex + 1,
+                                })}
+                              />
+                            </label>
+                            <label className="min-w-0 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                              <span className="sr-only">{localizeUi("ui.chat.summarypopover.to")}</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={Math.max(1, totalMessageCount)}
+                                value={range.end}
+                                disabled={isBatchGenerating}
+                                onFocus={() => {
+                                  rangeInputFocused.current = true;
+                                }}
+                                onChange={(event) => handleBatchRangeChange(range.id, "end", event.target.value)}
+                                onBlur={() => {
+                                  rangeInputFocused.current = false;
+                                }}
+                                className={cn(
+                                  "h-7 w-full rounded-md bg-[var(--card)] px-1.5 text-center text-xs tabular-nums text-[var(--foreground)] ring-1 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60",
+                                  inspection?.overlaps
+                                    ? "ring-amber-500/70"
+                                    : validationMessage
+                                      ? "ring-[var(--destructive)]/60"
+                                      : "ring-[var(--border)]",
+                                )}
+                                aria-label={localizeUi("ui.chat.summarypopover.batchRangeTo", {
+                                  number: rangeIndex + 1,
+                                })}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveBatchRange(range.id)}
+                              disabled={isBatchGenerating || batchRanges.length === 1}
+                              className="rounded-md p-1 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:cursor-not-allowed disabled:opacity-30"
+                              title={localizeUi("ui.chat.summarypopover.batchRemoveRange")}
+                              aria-label={localizeUi("ui.chat.summarypopover.batchRemoveRangeNumber", {
+                                number: rangeIndex + 1,
+                              })}
+                            >
+                              <X size="0.75rem" />
+                            </button>
+                          </div>
+                          <div className="flex min-w-0 items-start gap-1.5 text-[0.625rem] leading-snug">
+                            {inspection?.overlaps && (
+                              <AlertTriangle
+                                size="0.75rem"
+                                className="mt-0.5 shrink-0 text-amber-500"
+                                aria-label={overlapMessage ?? undefined}
+                              />
+                            )}
+                            {(validationMessage || overlapMessage || range.error) && (
+                              <div className="min-w-0">
+                                {validationMessage ? (
+                                  <p className="text-[var(--destructive)]">{validationMessage}</p>
+                                ) : overlapMessage ? (
+                                  <p className="text-amber-600 dark:text-amber-400">{overlapMessage}</p>
+                                ) : (
+                                  <p className="text-[var(--destructive)]">{range.error}</p>
+                                )}
+                              </div>
+                            )}
+                            {range.status === "success" && (
+                              <Check size="0.75rem" className="shrink-0 text-emerald-500" aria-label={statusMessage} />
+                            )}
+                            {range.status === "failed" && (
+                              <AlertTriangle
+                                size="0.75rem"
+                                className="shrink-0 text-[var(--destructive)]"
+                                aria-label={statusMessage}
+                              />
+                            )}
+                            {range.status === "running" && (
+                              <Loader2
+                                size="0.75rem"
+                                className="shrink-0 animate-spin text-[var(--primary)]"
+                                aria-label={statusMessage}
+                              />
+                            )}
+                            {range.status === "pending" && <span className="sr-only">{statusMessage}</span>}
+                            {range.status === "cancelled" && <span className="sr-only">{statusMessage}</span>}
+                          </div>
                         </div>
-                        {range.status === "success" && <Check size="0.75rem" className="shrink-0 text-emerald-500" />}
-                        {range.status === "failed" && (
-                          <AlertTriangle size="0.75rem" className="shrink-0 text-[var(--destructive)]" />
-                        )}
-                        {range.status === "running" && (
-                          <Loader2 size="0.75rem" className="shrink-0 animate-spin text-[var(--primary)]" />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                </div>
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
@@ -2575,9 +2644,6 @@ export function SummaryPopover({
                     <Plus size="0.6875rem" />
                     {localizeUi("ui.chat.summarypopover.batchAddRange")}
                   </button>
-                  <span className="text-right text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.chat.summarypopover.batchRangeCount", { count: batchRanges.length })}
-                  </span>
                 </div>
                 {batchRun && (
                   <div className="space-y-1.5" aria-live="polite">
