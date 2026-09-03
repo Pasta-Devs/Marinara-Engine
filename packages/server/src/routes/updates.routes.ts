@@ -20,6 +20,7 @@ import { getBuildBranch, getBuildCommit, getBuildLabel } from "../config/build-i
 import { getFileStorageDir } from "../config/runtime-config.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { isLoopbackIp } from "../middleware/ip-allowlist.js";
+import { noteSessionExitKind } from "../lib/session-postmortem.js";
 import {
   isChannelCheckoutBranch,
   isGitUpdateApplyAllowed,
@@ -1229,6 +1230,9 @@ export async function updatesRoutes(app: FastifyInstance) {
             // app.close() runs Fastify onClose -> closeDB() -> fileStore.close()
             // -> flush(true), plus stops the sidecar. A bare process.exit(0)
             // bypasses onClose/beforeExit and silently drops debounced writes.
+            // #5506 diagnostics: name this ending so the next startup reports
+            // an update restart instead of an external kill.
+            noteSessionExitKind("restart");
             await app.close();
             logger.info("[Update] Shutting down after update...");
             process.exit(0);

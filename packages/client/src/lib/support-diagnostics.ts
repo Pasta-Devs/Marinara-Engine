@@ -25,6 +25,31 @@ export interface SupportDiagnostics {
   /** Most recent host suspension the server's freeze detector observed. */
   lastFreeze?: { detectedAt: string; gapMs: number; suspendedMs: number } | null;
   /**
+   * #5506 diagnostics: how the PREVIOUS server session ended, from the
+   * heartbeat postmortem. An external kill (Android phantom process killer,
+   * battery manager, reboot) leaves no in-process trace, so this is the only
+   * witness. Tri-state on purpose: "unknown" (first run, unreadable record,
+   * a live sibling instance) must never render as a clean shutdown.
+   */
+  previousSession?:
+    | { status: "unknown"; reason: string }
+    | { status: "ended"; exitKind: "clean" | "crash" | "restart"; exitedAt: string | null; exitCode: number | null }
+    | {
+        status: "unclean";
+        record: {
+          startedAt: string;
+          lastSeenAt: string;
+          uptimeMs: number;
+          rssMiB: number;
+          heapUsedMiB: number;
+          pid: number;
+          rebootedSince: boolean | null;
+          detectedAt: string;
+        };
+      };
+  /** How many unclean exits the server has recorded (rolling window). */
+  uncleanExitCount?: number;
+  /**
    * #5740: the phrase Professor Mari reported acting on in her most recent
    * mutating round, for triaging "she edited something I never asked for"
    * reports. Latest round only; undefined when the status fetch failed.
@@ -101,6 +126,36 @@ const MARI_OUTCOME_LABELS: Record<string, string> = {
   interrupted: "interrupted before completion",
 };
 
+function formatUptime(uptimeMs: number): string {
+  const minutes = Math.round(uptimeMs / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+/**
+ * #5506: how the previous server session ended. Every branch reports only
+ * what was observed - an unknown fate never renders as a clean shutdown, and
+ * an ending the server itself logged (crash, restart) is never attributed to
+ * an external kill.
+ */
+const SESSION_EXIT_LABELS: Record<string, string> = {
+  clean: "shut down cleanly",
+  crash: "ended in a server crash (details in the server log)",
+  restart: "restarted itself for an update or a settings restart",
+};
+
+function formatPreviousSession(diagnostics: SupportDiagnostics): string {
+  const previous = diagnostics.previousSession;
+  if (previous === undefined) return "Unavailable";
+  if (previous.status === "unknown") return `unknown - ${previous.reason}`;
+  if (previous.status === "ended") {
+    const label = SESSION_EXIT_LABELS[previous.exitKind] ?? previous.exitKind;
+    return previous.exitedAt ? `${label} at ${previous.exitedAt}` : label;
+  }
+  const record = previous.record;
+  return `ended without shutting down - last alive ${record.lastSeenAt} (up ${formatUptime(record.uptimeMs)}, RSS ${record.rssMiB} MiB); device rebooted before next launch: ${record.rebootedSince === null ? "unknown" : record.rebootedSince ? "yes" : "no"}`;
+}
+
 export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): string {
   const memory = diagnostics.serverMemory;
   const freeze = diagnostics.lastFreeze;
@@ -118,6 +173,18 @@ export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): strin
     `Server memory: ${unreachable ? SERVER_UNREACHABLE_DIAGNOSTIC : memory ? `heap ${memory.heapUsedMiB} / ${memory.heapLimitMiB} MiB; RSS ${memory.rssMiB} MiB` : "Unavailable"}`,
     `Background wake lock: ${unreachable ? SERVER_UNREACHABLE_DIAGNOSTIC : (diagnostics.wakeLock ?? "not reported")}`,
     `Last detected freeze: ${unreachable ? SERVER_UNREACHABLE_DIAGNOSTIC : freeze ? `~${Math.round(freeze.suspendedMs / 1000)}s suspension, thawed at ${freeze.detectedAt}` : "none detected"}`,
+    // #5506: the previous session's fate, and the running count of sessions
+    // that ended without shutting down. The count is reported even when the
+    // LAST session ended normally - a history of kills is the pattern worth
+    // seeing, and hiding it behind the most recent session buries it.
+    `Previous session: ${unreachable ? SERVER_UNREACHABLE_DIAGNOSTIC : formatPreviousSession(diagnostics)}`,
+    `Sessions ended without shutdown: ${
+      unreachable
+        ? SERVER_UNREACHABLE_DIAGNOSTIC
+        : typeof diagnostics.uncleanExitCount === "number"
+          ? `${diagnostics.uncleanExitCount} recorded`
+          : "Unavailable"
+    }`,
     `Client OS: ${available(diagnostics.clientOs)}`,
     `Browser / app shell: ${available(diagnostics.browser)}`,
     `GPU: ${available(diagnostics.gpu)}`,

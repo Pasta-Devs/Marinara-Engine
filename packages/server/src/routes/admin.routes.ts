@@ -13,6 +13,7 @@ import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { ADMIN_RESTART_RATE_LIMIT, AVATAR_STORAGE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { logger } from "../lib/logger.js";
 import { isDockerRuntime } from "../config/runtime-config.js";
+import { noteSessionExitKind } from "../lib/session-postmortem.js";
 import {
   ABANDONED_AVATAR_MIN_AGE_MS,
   collectCharacterAvatarPaths,
@@ -89,6 +90,9 @@ export async function adminRoutes(app: FastifyInstance) {
           }, GRACEFUL_RESTART_TIMEOUT_MS);
           forceCloseTimer.unref();
           try {
+            // #5506 diagnostics: name this ending so the next startup reports
+            // an operator restart instead of an external kill.
+            noteSessionExitKind("restart");
             await app.close();
             if (!isDockerRuntime()) {
               const child = spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {

@@ -7,6 +7,7 @@ import { buildApp } from "./app.js";
 import { StorageWriterLeaseError } from "./db/file-backed-store.js";
 import { logger } from "./lib/logger.js";
 import { startFreezeDetector, stopFreezeDetector } from "./lib/freeze-detector.js";
+import { finalizeSessionExit, noteSessionExitKind, startSessionPostmortem } from "./lib/session-postmortem.js";
 import { getHost, getPort, getServerProtocol, loadTlsOptions, logStorageDiagnostics } from "./config/runtime-config.js";
 import { logCsrfTrustSummary } from "./middleware/csrf-protection.js";
 import { startEnvWatcher } from "./config/env-watcher.js";
@@ -65,13 +66,22 @@ async function main() {
   };
 
   process.once("exit", reapSidecar);
+  // #5506 diagnostics: stamp how this session ended. Every deliberate ending
+  // reaches process "exit" (signal shutdown, in-app update, Advanced Settings
+  // restart, a fatal crash); an external SIGKILL reaches nothing, which is
+  // precisely the signal the postmortem reports at the next startup.
+  process.once("exit", (code) => {
+    finalizeSessionExit(code);
+  });
   process.on("uncaughtException", (err) => {
     logFatalProcessError(err, "[process] Uncaught exception; reaping sidecar before exit");
+    noteSessionExitKind("crash");
     reapSidecar();
     process.exit(1);
   });
   process.on("unhandledRejection", (reason) => {
     logFatalProcessError(reason, "[process] Unhandled rejection; reaping sidecar before exit");
+    noteSessionExitKind("crash");
     reapSidecar();
     process.exit(1);
   });
@@ -109,6 +119,7 @@ async function main() {
     await app.listen({ port, host });
     logger.info(`Marinara Engine server listening on ${protocol}://${host}:${port}`);
     startFreezeDetector();
+    startSessionPostmortem();
     stopRuntimeMemoryMonitor = startRuntimeMemoryMonitor();
     logCsrfTrustSummary();
     scheduleTaskbarShortcutMigration();
