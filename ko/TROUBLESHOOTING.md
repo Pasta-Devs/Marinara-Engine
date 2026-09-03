@@ -242,7 +242,7 @@ Music DJ 에이전트의 Spotify 모드는 OAuth를 씁니다. OAuth는 Spotify�
 
 Marinara는 실행 중인 서버 하나만 로컬 데이터 디렉터리에 쓰도록 허용합니다. 시작 시 디렉터리에 대해 **Another Marinara Engine process ... may be using**이 표시되면 다른 Marinara 프로세스를 종료하고 다시 시작하세요.
 
-크래시가 났거나 Docker 데이터 볼륨을 옮긴 뒤에는 **The storage writer lease ... is incomplete or invalid**가 표시되거나 이 호스트에 더는 없는 프로세스를 가리킬 수 있습니다. 먼저 해당 데이터 디렉터리를 쓰는 모든 Marinara 프로세스와 컨테이너가 중지되었는지 확인하세요. 그런 다음 오류에 나온 `.writer-lease` 디렉터리만 제거하고 Marinara를 다시 시작하세요. 바깥의 `storage` 디렉터리나 테이블 파일은 제거하지 마세요.
+크래시가 났거나 Docker 데이터 볼륨을 옮긴 뒤에는 **The storage writer lease ... is incomplete or invalid**가 표시되거나 이 호스트에 더는 없는 프로세스를 가리킬 수 있습니다. 먼저 해당 데이터 디렉터리를 쓰는 모든 Marinara 프로세스와 컨테이너가 중지되었는지 확인하세요. 그런 다음 오류에 나온 `.writer-lease` 디렉터리만 제거하고 Marinara를 다시 시작하세요. 바깥의 `storage` 디렉터리나 테이블 파일은 제거하지 마세요. 데이터 디렉터리가 로컬 디스크에 있는 Linux, Android, 컨테이너 호스트에서는 크래시가 났거나 강제로 종료된 프로세스가 남긴 리스를 재부팅한 뒤에도 Marinara가 저절로 회수합니다. 네트워크 저장소나 공유 저장소에서는 수동 단계가 여전히 대체 수단입니다.
 
 ### 업데이트 후에 데이터가 사라진 것처럼 보일 때
 

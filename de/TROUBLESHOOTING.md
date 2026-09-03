@@ -242,7 +242,7 @@ Am saubersten löst du das langfristig, indem du den Server hinter HTTPS setzt. 
 
 Nur ein laufender Marinara-Server darf in ein lokales Datenverzeichnis schreiben. Meldet der Start **Another Marinara Engine process ... may be using** für das Verzeichnis, beende den anderen Marinara-Prozess und starte erneut.
 
-Nach einem Absturz oder einem verschobenen Docker-Datenvolume kann stattdessen **The storage writer lease ... is incomplete or invalid** erscheinen oder ein Prozess genannt werden, der auf diesem Host nicht mehr existiert. Prüfe zuerst, dass alle Marinara-Prozesse und -Container mit diesem Datenverzeichnis beendet sind. Entferne dann ausschließlich das in der Fehlermeldung genannte Verzeichnis `.writer-lease` und starte Marinara neu. Entferne weder das umgebende Verzeichnis `storage` noch Tabellendateien.
+Nach einem Absturz oder einem verschobenen Docker-Datenvolume kann stattdessen **The storage writer lease ... is incomplete or invalid** erscheinen oder ein Prozess genannt werden, der auf diesem Host nicht mehr existiert. Prüfe zuerst, dass alle Marinara-Prozesse und -Container mit diesem Datenverzeichnis beendet sind. Entferne dann ausschließlich das in der Fehlermeldung genannte Verzeichnis `.writer-lease` und starte Marinara neu. Entferne weder das umgebende Verzeichnis `storage` noch Tabellendateien. Auf Linux-, Android- und Container-Hosts, deren Datenverzeichnis auf einer lokalen Festplatte liegt, räumt Marinara ein von einem abgestürzten oder zwangsweise beendeten Prozess hinterlassenes Verzeichnis `.writer-lease` von allein weg – auch nach einem Neustart; bei Netzwerk- oder gemeinsam genutztem Speicher bleibt es beim manuellen Schritt.
 
 ### Nach einem Update fehlen scheinbar Daten
 

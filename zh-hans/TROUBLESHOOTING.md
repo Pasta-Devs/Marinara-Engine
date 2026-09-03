@@ -242,7 +242,7 @@ Music DJ 智能体的 Spotify 模式走的是 OAuth。OAuth 是一种登录交�
 
 Marinara 只允许一个正在运行的服务器写入本地数据目录。如果启动时针对该目录显示 **Another Marinara Engine process ... may be using**，请关闭另一个 Marinara 进程后重新启动。
 
-发生崩溃或移动 Docker 数据卷后，启动时可能改为显示 **The storage writer lease ... is incomplete or invalid**，或者指向此主机上已不存在的进程。请先确认使用该数据目录的所有 Marinara 进程和容器均已停止。然后只删除错误中指定的 `.writer-lease` 目录，再重启 Marinara。不要删除其外层的 `storage` 目录或任何表文件。
+发生崩溃或移动 Docker 数据卷后，启动时可能改为显示 **The storage writer lease ... is incomplete or invalid**，或者指向此主机上已不存在的进程。请先确认使用该数据目录的所有 Marinara 进程和容器均已停止。然后只删除错误中指定的 `.writer-lease` 目录，再重启 Marinara。不要删除其外层的 `storage` 目录或任何表文件。在数据目录位于本地磁盘的 Linux、Android 和容器主机上，Marinara 会自行回收因进程崩溃或被强制终止而遗留的 `.writer-lease` 目录，即使重启后也不例外；网络存储或共享存储上，手动步骤仍是后备方案。
 
 ### 更新之后数据像是丢了
 

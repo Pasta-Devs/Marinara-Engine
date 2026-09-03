@@ -242,7 +242,7 @@ La solution la plus propre sur le long terme consiste à placer le serveur derri
 
 Marinara n'autorise qu'un seul serveur en cours d'exécution à écrire dans un répertoire de données local. Si le démarrage signale **Another Marinara Engine process ... may be using** le répertoire, fermez l'autre processus Marinara et recommencez.
 
-Après un plantage ou le déplacement d'un volume de données Docker, le démarrage peut plutôt signaler **The storage writer lease ... is incomplete or invalid** ou désigner un processus qui n'existe plus sur cette machine. Vérifiez d'abord que tous les processus et conteneurs Marinara utilisant ce répertoire sont arrêtés. Supprimez ensuite uniquement le répertoire `.writer-lease` indiqué dans l'erreur, puis redémarrez Marinara. Ne supprimez pas le répertoire `storage` qui l'entoure ni aucun fichier de table.
+Après un plantage ou le déplacement d'un volume de données Docker, le démarrage peut plutôt signaler **The storage writer lease ... is incomplete or invalid** ou désigner un processus qui n'existe plus sur cette machine. Vérifiez d'abord que tous les processus et conteneurs Marinara utilisant ce répertoire sont arrêtés. Supprimez ensuite uniquement le répertoire `.writer-lease` indiqué dans l'erreur, puis redémarrez Marinara. Ne supprimez pas le répertoire `storage` qui l'entoure ni aucun fichier de table. Sur les hôtes Linux, Android et conteneurisés dont le répertoire de données se trouve sur un disque local, Marinara libère automatiquement le répertoire `.writer-lease` laissé par un processus planté ou tué de force, y compris après un redémarrage ; l'étape manuelle reste le repli pour le stockage réseau ou partagé.
 
 ### Des données semblent manquer après une mise à jour
 
