@@ -774,9 +774,17 @@ export function ConversationView({
     if (transcriptWindow.hiddenAfterCount > 0) return;
     // A pending jump-to-message owns the initial scroll position. With an
     // unbounded render window nothing is ever hidden after the target, so the
-    // hidden-after guard alone no longer defers to the jump.
+    // hidden-after guard alone no longer defers to the jump. Only treat the chat
+    // as opened once the target is loaded (ChatArea scrolls to it in that same
+    // commit); a target that is still being paged in, out of range, or
+    // unreachable leaves this effect retryable so the chat still opens at the
+    // bottom once the request clears.
     if (gotoRequest && gotoRequest.chatId === chatId) {
-      openedAtBottomChatIdRef.current = chatId;
+      const loadedMessageOffset = totalMessageCount - (messages?.length ?? 0);
+      const localIndex = gotoRequest.messageNumber - 1 - loadedMessageOffset;
+      if (messages && localIndex >= 0 && localIndex < messages.length) {
+        openedAtBottomChatIdRef.current = chatId;
+      }
       return;
     }
 
@@ -789,8 +797,9 @@ export function ConversationView({
     gotoRequest,
     isFetchingNextPage,
     isLoading,
-    messages?.length,
+    messages,
     scheduleScrollToMessagesBottom,
+    totalMessageCount,
     transcriptWindow.hiddenAfterCount,
   ]);
 
