@@ -30,7 +30,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@rollup/wasm-node": "4.60.2",
     "@tailwindcss/vite": "^4.2.4",
     "@types/react": "^19.2.14",
