@@ -2510,11 +2510,11 @@ export function SummaryPopover({
                         type="button"
                         onClick={handleClearExtraRanges}
                         disabled={isBatchGenerating}
-                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-                        title={localizeUi("ui.chat.summarypopover.batchClearExtraRanges")}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-40"
+                        title={localizeUi("ui.chat.summarypopover.batchClear")}
                       >
                         <Trash2 size="0.6875rem" />
-                        {localizeUi("ui.chat.summarypopover.batchClearExtraRanges")}
+                        {localizeUi("ui.chat.summarypopover.batchClear")}
                       </button>
                     )}
                   </div>
@@ -2542,7 +2542,7 @@ export function SummaryPopover({
                                 : "border-[var(--border)]/70",
                           )}
                         >
-                          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_auto] items-center gap-1.5">
+                          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)_1.125rem_auto] items-center gap-1.5">
                             <span className="text-xs font-bold tabular-nums text-[var(--foreground)]">
                               {rangeIndex + 1}
                             </span>
@@ -2574,7 +2574,10 @@ export function SummaryPopover({
                                 })}
                               />
                             </label>
-                            <span className="text-xs font-semibold text-[var(--muted-foreground)]" aria-hidden="true">
+                            <span
+                              className="text-sm font-bold leading-none text-[var(--foreground)]"
+                              aria-hidden="true"
+                            >
                               -
                             </span>
                             <label className="min-w-0 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
@@ -2614,20 +2617,22 @@ export function SummaryPopover({
                             )}
                             {range.status === "failed" && (
                               <div
-                                className="relative flex items-center"
+                                className="relative flex h-5 w-4 items-center justify-center"
                                 onMouseEnter={() => setBatchErrorInfoId(range.id)}
                                 onMouseLeave={() => setBatchErrorInfoId(null)}
                               >
                                 <button
                                   type="button"
-                                  onClick={() => setBatchErrorInfoId(range.id)}
-                                  className="rounded-full p-0.5 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10"
+                                  onClick={() =>
+                                    setBatchErrorInfoId((current) => (current === range.id ? null : range.id))
+                                  }
+                                  className="rounded-full p-0.5 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 focus:outline-none focus:ring-1 focus:ring-[var(--destructive)]"
                                   aria-label={localizeUi("ui.chat.summarypopover.batchShowError", {
                                     number: rangeIndex + 1,
                                   })}
                                   aria-expanded={batchErrorInfoId === range.id}
                                 >
-                                  <Info size="0.8125rem" />
+                                  <AlertTriangle size="0.875rem" />
                                 </button>
                                 {batchErrorInfoId === range.id && (
                                   <div
@@ -2642,7 +2647,7 @@ export function SummaryPopover({
                             {range.status === "running" && (
                               <Loader2
                                 size="0.8125rem"
-                                className="shrink-0 animate-spin text-[var(--primary)]"
+                                className="h-4 w-4 shrink-0 animate-spin text-[var(--primary)]"
                                 aria-label={statusMessage}
                               />
                             )}

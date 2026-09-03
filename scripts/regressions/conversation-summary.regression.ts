@@ -198,7 +198,7 @@ assert.match(
 );
 assert.match(
   summaryPopoverSource,
-  /batchRanges\.length > 1[\s\S]*?handleClearExtraRanges/u,
+  /batchRanges\.length > 1[\s\S]*?handleClearExtraRanges[\s\S]*?batchClear/u,
   "The clear-all action should remain available even without completed ranges",
 );
 assert.match(
