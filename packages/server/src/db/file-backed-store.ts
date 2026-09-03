@@ -13,6 +13,7 @@ import {
   closeSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   readSync,
   renameSync,
@@ -101,6 +102,7 @@ type StorageWriterLeaseRecord = {
   hostId: string | null;
   scopeId?: string;
   bootId?: string;
+  pidNamespace?: string;
   hostname: string;
   token: string;
   acquiredAt: string;
@@ -234,6 +236,8 @@ export type FileNativeStoreTestHooks = {
   writerLeaseBootId?: string;
   /** Overrides the filesystem check behind writerLeaseStorageIsMachineLocal (#5744). */
   writerLeaseStorageIsMachineLocal?: boolean;
+  /** Overrides the PID namespace recorded in and compared against the lease (#5744). */
+  writerLeasePidNamespace?: string;
   /**
    * Regression seam (#5631): runs after a plain (non-transaction) write has
    * cleared the write gate, before its mutation applies. Lets a regression
@@ -1416,6 +1420,18 @@ const CURRENT_HOST_ID = (() => {
     .digest("hex");
 })();
 const CURRENT_BOOT_ID = readBootId();
+// PID liveness and start-time checks only mean something inside one PID
+// namespace: sibling containers on the same host cannot see each other's
+// processes. The lease records the writer's namespace so a later reader can
+// tell whether those checks apply to it (#5744).
+const CURRENT_PID_NAMESPACE = (() => {
+  if (process.platform !== "linux" && process.platform !== "android") return null;
+  try {
+    return readlinkSync("/proc/self/ns/pid") || null;
+  } catch {
+    return null;
+  }
+})();
 const CURRENT_CLOCK_TICKS_PER_SECOND = (() => {
   if (process.platform !== "linux" && process.platform !== "android") return null;
   try {
@@ -1570,6 +1586,7 @@ function parseWriterLease(path: string): { raw: string; record: StorageWriterLea
       (record.hostId !== null && typeof record.hostId !== "string") ||
       (record.version === 3 && (typeof record.scopeId !== "string" || record.scopeId.length === 0)) ||
       (record.version === 4 && (typeof record.bootId !== "string" || record.bootId.length === 0)) ||
+      (record.pidNamespace !== undefined && typeof record.pidNamespace !== "string") ||
       typeof record.hostname !== "string" ||
       typeof record.token !== "string" ||
       typeof record.acquiredAt !== "string"
@@ -1656,12 +1673,16 @@ function isTermuxPrivateHomeStorage(rootDir: string) {
   }
 }
 
-// Filesystem magic numbers (linux/magic.h) of filesystems that only the kernel
-// holding their block device or memory can mount. A lease directory on one of
-// these cannot be reached by a second machine at the same time, so a writer
-// that left a lease there necessarily ran on this host. Network and cluster
-// filesystems, FUSE mounts, and anything unrecognised are deliberately absent:
-// an unknown type keeps the manual-recovery behavior.
+// Filesystem magic numbers (linux/magic.h) of single-host filesystems: ones
+// that are only ever mounted by the one kernel holding their block device or
+// memory. A lease directory on one of these cannot be reached by a second
+// machine at the same time, so a writer that left a lease there necessarily
+// ran on this host. Network and cluster filesystems, FUSE mounts, and anything
+// unrecognised are deliberately absent: an unknown type keeps the
+// manual-recovery behavior. The one shape this cannot see is a non-cluster
+// filesystem on a multi-attached block device (shared SAN LUN, multi-attach
+// cloud volume) mounted read-write by two hosts at once; that setup corrupts
+// the filesystem itself and is outside what any of these proofs cover.
 const MACHINE_LOCAL_FILESYSTEM_MAGICS = new Set<number>([
   0xef53, // ext2 / ext3 / ext4
   0x58465342, // xfs
@@ -1693,6 +1714,8 @@ const MACHINE_LOCAL_FILESYSTEM_MAGICS = new Set<number>([
 export function writerLeaseStorageIsMachineLocal(rootDir: string) {
   if (process.platform !== "linux" && process.platform !== "android") return false;
   try {
+    // `>>> 0` recovers the unsigned magic from a possibly sign-extended statfs
+    // `type`; magics at or above 0x80000000 (btrfs, f2fs, erofs, ...) need it.
     return MACHINE_LOCAL_FILESYSTEM_MAGICS.has(Number(statfsSync(rootDir).type) >>> 0);
   } catch {
     return false;
@@ -2246,6 +2269,7 @@ class FileTableStore {
     const path = writerLeasePath(this.rootDir);
     const writerScopeId = this.testHooks?.writerLeaseScopeId ?? CURRENT_CONTAINER_WRITER_SCOPE_ID;
     const writerBootId = this.testHooks?.writerLeaseBootId ?? CURRENT_BOOT_ID;
+    const writerPidNamespace = this.testHooks?.writerLeasePidNamespace ?? CURRENT_PID_NAMESPACE;
     for (let attempt = 0; attempt < 10; attempt++) {
       const token = randomUUID();
       let created = false;
@@ -2269,6 +2293,7 @@ class FileTableStore {
             hostId: CURRENT_HOST_ID,
             ...(liveness ? { scopeId: liveness.scopeId } : {}),
             ...(writerBootId ? { bootId: writerBootId } : {}),
+            ...(writerPidNamespace ? { pidNamespace: writerPidNamespace } : {}),
             hostname: CURRENT_HOSTNAME,
             token,
             acquiredAt: new Date().toISOString(),
@@ -2322,6 +2347,15 @@ class FileTableStore {
         hostProof = "local-storage";
       }
       const sameHost = hostProof !== null;
+      // A machine-ID or Termux proof comes from a native process, so it shares
+      // our PID namespace. The storage-based proof also covers sibling
+      // containers on this host, whose PIDs are invisible to each other, so
+      // the PID checks below additionally require the lease to record our own
+      // namespace; older or foreign-namespace records rely on the boot and
+      // liveness proofs alone (#5744).
+      const pidProofUsable =
+        hostProof !== "local-storage" ||
+        (writerPidNamespace !== null && existing.record.pidNamespace === writerPidNamespace);
       if (existing.record.version === 4 && sameHost && writerBootId && existing.record.bootId !== writerBootId) {
         staleReason = "boot";
       } else if (existing.record.version === 3 || (existing.record.version === 4 && existing.record.scopeId)) {
@@ -2334,11 +2368,9 @@ class FileTableStore {
         ) {
           staleReason = "liveness";
         }
-      } else {
-        if (sameHost) {
-          if (pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
-          else if (pidWasReused(existing.record)) staleReason = "pid-reused";
-        }
+      } else if (sameHost && pidProofUsable) {
+        if (pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
+        else if (pidWasReused(existing.record)) staleReason = "pid-reused";
       }
       if (!staleReason) {
         throw new StorageWriterLeaseError(
