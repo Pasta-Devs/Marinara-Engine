@@ -1030,7 +1030,7 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
     () => connectionsList.filter((connection) => connection.provider === "audio"),
     [connectionsList],
   );
-  const { data: agentConfigs } = useAgentConfigs();
+  const { data: agentConfigs, isLoading: agentConfigsLoading, isError: agentConfigsError } = useAgentConfigs();
   const {
     data: capabilityAgents,
     isLoading: capabilityAgentsLoading,
@@ -1039,10 +1039,14 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
   const updateAgent = useUpdateAgent();
   const updateAgentByType = useUpdateAgentByType();
   const sidecarAsAgentsDefault = useSidecarStore((state) => state.config.useAsAgentsDefault);
+  const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const [applyingToAllAgents, setApplyingToAllAgents] = useState(false);
   const capabilityAgentRegistryReady =
     !capabilityAgentsLoading && !capabilityAgentsError && capabilityAgents !== undefined;
+  const agentConfigsReady = !agentConfigsLoading && !agentConfigsError && agentConfigs !== undefined;
+  const agentAssignmentReady =
+    capabilityAgentRegistryReady && agentConfigsReady && (!sidecarAsAgentsDefault || sidecarModelDownloaded);
   const agentConnection =
     languageConnections.find((connection) => isEnabledConnectionRole(connection.defaultForAgents)) ?? null;
   const effectiveAgentConnectionId = sidecarAsAgentsDefault
@@ -1071,7 +1075,7 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
   );
   const handleApplyToAllAgents = async () => {
     const targetCount = visibleBuiltInAgents.length + customAgentConfigs.length;
-    if (applyingToAllAgents || !capabilityAgentRegistryReady || targetCount === 0) return;
+    if (applyingToAllAgents || !agentAssignmentReady || targetCount === 0) return;
     const confirmed = await showConfirmDialog({
       title: localizeUi("ui.panels.agentspanel.bulkConnectionApply"),
       message: localizeUi("ui.panels.agentspanel.bulkConnectionConfirm", {
@@ -1163,9 +1167,7 @@ function ConnectionDefaultsSection({ connectionsList }: { connectionsList: Conne
             showPaidConnectionWarningToggle
             onApplyToAllAgents={() => void handleApplyToAllAgents()}
             applyingToAllAgents={applyingToAllAgents}
-            canApplyToAllAgents={
-              capabilityAgentRegistryReady && visibleBuiltInAgents.length + customAgentConfigs.length > 0
-            }
+            canApplyToAllAgents={agentAssignmentReady && visibleBuiltInAgents.length + customAgentConfigs.length > 0}
           />
           <ConnectionDefaultPair
             title={localizeUi("ui.panels.connectiondefaultssection.images")}
