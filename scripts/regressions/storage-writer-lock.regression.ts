@@ -349,7 +349,8 @@ try {
         );
       };
 
-      if (process.platform === "linux") {
+      const linuxLikePlatform = process.platform === "linux" || process.platform === "android";
+      if (linuxLikePlatform) {
         assert.match(
           leaseTemplate.pidNamespace ?? "",
           /^pid:\[\d+\]$/u,
@@ -443,7 +444,7 @@ try {
       );
       rmSync(leasePath(dir), { recursive: true });
 
-      if (process.platform === "linux") {
+      if (linuxLikePlatform) {
         assert.equal(
           writerLeaseStorageIsMachineLocal(dir),
           true,
