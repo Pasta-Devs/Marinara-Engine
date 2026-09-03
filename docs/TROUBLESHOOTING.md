@@ -242,7 +242,7 @@ The cleanest long-term fix is to put the server behind HTTPS. Last checked again
 
 Marinara allows only one running server to write to a local data directory. If startup reports **Another Marinara Engine process ... may be using** the directory, close the other Marinara process and start again.
 
-After a crash or a moved Docker data volume, startup can instead report **The storage writer lease ... is incomplete or invalid** or identify a process that no longer exists on this host. First verify that every Marinara process and container using that data directory is stopped. Then remove only the `.writer-lease` directory named in the error and restart Marinara. Do not remove the surrounding `storage` directory or any table files.
+After a crash or a moved Docker data volume, startup can instead report **The storage writer lease ... is incomplete or invalid** or identify a process that no longer exists on this host. First verify that every Marinara process and container using that data directory is stopped. Then remove only the `.writer-lease` directory named in the error and restart Marinara. Do not remove the surrounding `storage` directory or any table files. On Linux, Android, and container hosts whose data directory lives on a local disk, Marinara reclaims a lease left by a crashed or force-killed process on its own, including after a reboot; the manual step remains the fallback for network or shared storage.
 
 ### Data seems missing after an update
 

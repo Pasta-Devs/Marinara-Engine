@@ -17,6 +17,7 @@ import {
   readSync,
   renameSync,
   rmSync,
+  statfsSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -231,6 +232,8 @@ export type FileNativeStoreTestHooks = {
   beforeTableWrite?: (table: string, serializedRows: string) => Promise<void> | void;
   writerLeaseScopeId?: string;
   writerLeaseBootId?: string;
+  /** Overrides the filesystem check behind writerLeaseStorageIsMachineLocal (#5744). */
+  writerLeaseStorageIsMachineLocal?: boolean;
   /**
    * Regression seam (#5631): runs after a plain (non-transaction) write has
    * cleared the write gate, before its mutation applies. Lets a regression
@@ -1653,6 +1656,49 @@ function isTermuxPrivateHomeStorage(rootDir: string) {
   }
 }
 
+// Filesystem magic numbers (linux/magic.h) of filesystems that only the kernel
+// holding their block device or memory can mount. A lease directory on one of
+// these cannot be reached by a second machine at the same time, so a writer
+// that left a lease there necessarily ran on this host. Network and cluster
+// filesystems, FUSE mounts, and anything unrecognised are deliberately absent:
+// an unknown type keeps the manual-recovery behavior.
+const MACHINE_LOCAL_FILESYSTEM_MAGICS = new Set<number>([
+  0xef53, // ext2 / ext3 / ext4
+  0x58465342, // xfs
+  0x9123683e, // btrfs
+  0xf2f52010, // f2fs
+  0x2fc12fc1, // zfs
+  0xca451a4e, // bcachefs
+  0x794c7630, // overlayfs
+  0x01021994, // tmpfs
+  0x858458f6, // ramfs
+  0xe0f5e1e2, // erofs
+  0x73717368, // squashfs
+  0x5346544e, // ntfs / ntfs3
+  0x2011bab0, // exfat
+  0x4d44, // msdos / vfat
+  0x3153464a, // jfs
+]);
+
+/**
+ * Whether the storage directory sits on a filesystem that no other machine can
+ * mount concurrently. A writer lease whose record carries `hostId: null` was
+ * written by a process that could not read a stable machine ID — every Docker
+ * and Podman container, and Linux hosts without /etc/machine-id — so the host
+ * comparison can never match it. When the storage is machine-local, that
+ * writer provably ran here and the same staleness proofs as a same-host lease
+ * apply (#5744). Only Linux and Android expose the statfs magic reliably; other
+ * platforms always have a stable machine ID and keep the strict path.
+ */
+export function writerLeaseStorageIsMachineLocal(rootDir: string) {
+  if (process.platform !== "linux" && process.platform !== "android") return false;
+  try {
+    return MACHINE_LOCAL_FILESYSTEM_MAGICS.has(Number(statfsSync(rootDir).type) >>> 0);
+  } catch {
+    return false;
+  }
+}
+
 function fileStoreManifestExists(rootDir: string) {
   return existsSync(manifestPath(rootDir));
 }
@@ -2261,7 +2307,21 @@ class FileTableStore {
       }
 
       let staleReason: "boot" | "liveness" | "pid" | "pid-reused" | null = null;
-      const sameHost = writerLeaseBelongsToCurrentHost(existing.record) || isTermuxPrivateHomeStorage(this.rootDir);
+      // Same-host proof, in order of strength: the recorded machine ID matches
+      // ours; the storage is Termux's app-private HOME; or the writer could not
+      // identify its machine at all (hostId null) but left the lease on storage
+      // only this machine can mount (#5744). A lease that names a different
+      // machine never qualifies for the storage-based proof.
+      let hostProof: "host-id" | "termux-home" | "local-storage" | null = null;
+      if (writerLeaseBelongsToCurrentHost(existing.record)) hostProof = "host-id";
+      else if (isTermuxPrivateHomeStorage(this.rootDir)) hostProof = "termux-home";
+      else if (
+        existing.record.hostId === null &&
+        (this.testHooks?.writerLeaseStorageIsMachineLocal ?? writerLeaseStorageIsMachineLocal(this.rootDir))
+      ) {
+        hostProof = "local-storage";
+      }
+      const sameHost = hostProof !== null;
       if (existing.record.version === 4 && sameHost && writerBootId && existing.record.bootId !== writerBootId) {
         staleReason = "boot";
       } else if (existing.record.version === 3 || (existing.record.version === 4 && existing.record.scopeId)) {
@@ -2309,7 +2369,7 @@ class FileTableStore {
       }
       rmSync(stalePath, { recursive: true });
       logger.warn(
-        { previousPid: existing.record.pid, path, staleReason },
+        { previousPid: existing.record.pid, path, staleReason, hostProof },
         staleReason === "boot"
           ? "[file-storage] Reclaimed the writer lease after detecting that the previous owner belonged to an earlier boot."
           : staleReason === "liveness"
