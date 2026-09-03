@@ -714,6 +714,12 @@ export function ConversationView({
 
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const maxMountedMessages = resolveTranscriptRenderWindowSize(messagesPerPage);
+  // The window size follows the "Messages per page" setting, which can change while
+  // this chat stays mounted. A pinned start index is relative to the old size, so
+  // re-anchor to the latest messages the same way a chat switch does.
+  useLayoutEffect(() => {
+    setTranscriptWindowStart(null);
+  }, [maxMountedMessages]);
   const transcriptWindow = useMemo(
     () => getTranscriptRenderWindow(messages, { maxMountedMessages, startIndex: transcriptWindowStart }),
     [maxMountedMessages, messages, transcriptWindowStart],
@@ -766,6 +772,13 @@ export function ConversationView({
     if (openedAtBottomChatIdRef.current === chatId) return;
     if (isLoading && (messages?.length ?? 0) === 0) return;
     if (transcriptWindow.hiddenAfterCount > 0) return;
+    // A pending jump-to-message owns the initial scroll position. With an
+    // unbounded render window nothing is ever hidden after the target, so the
+    // hidden-after guard alone no longer defers to the jump.
+    if (gotoRequest && gotoRequest.chatId === chatId) {
+      openedAtBottomChatIdRef.current = chatId;
+      return;
+    }
 
     openedAtBottomChatIdRef.current = chatId;
     userScrolledAwayRef.current = false;
@@ -773,6 +786,7 @@ export function ConversationView({
     scheduleScrollToMessagesBottom("auto");
   }, [
     chatId,
+    gotoRequest,
     isFetchingNextPage,
     isLoading,
     messages?.length,

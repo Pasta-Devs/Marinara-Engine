@@ -1512,6 +1512,13 @@ export function ChatRoleplaySurface({
   const messagesLength = messages?.length ?? 0;
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const maxMountedMessages = resolveTranscriptRenderWindowSize(messagesPerPage);
+  // The window size follows the "Messages per page" setting, which can change while
+  // this chat stays mounted. A pinned start index is relative to the old size, so
+  // re-anchor to the latest messages the same way a chat switch does.
+  useLayoutEffect(() => {
+    setTranscriptWindowStart(null);
+    pendingLoadMoreRevealRef.current = null;
+  }, [maxMountedMessages]);
   const transcriptWindow = useMemo(
     () => getTranscriptRenderWindow(messages, { maxMountedMessages, startIndex: transcriptWindowStart }),
     [maxMountedMessages, messages, transcriptWindowStart],
