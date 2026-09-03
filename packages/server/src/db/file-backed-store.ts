@@ -1423,7 +1423,10 @@ const CURRENT_BOOT_ID = readBootId();
 // PID liveness and start-time checks only mean something inside one PID
 // namespace: sibling containers on the same host cannot see each other's
 // processes. The lease records the writer's namespace so a later reader can
-// tell whether those checks apply to it (#5744).
+// tell whether those checks apply to it (#5744). The kernel can hand a freed
+// namespace inode number to a new namespace, but only after the old one and
+// every process in it are gone, so a matching value never describes a writer
+// that is still alive somewhere else.
 const CURRENT_PID_NAMESPACE = (() => {
   if (process.platform !== "linux" && process.platform !== "android") return null;
   try {
