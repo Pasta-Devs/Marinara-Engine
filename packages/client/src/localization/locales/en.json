@@ -2453,6 +2453,7 @@
   "ui.characters.schedulemanager.clearSearch": "Clear search",
   "ui.characters.schedulemanager.clearSelection": "Clear selection",
   "ui.characters.schedulemanager.current": "Current schedule",
+  "ui.characters.schedulemanager.description": "This is the Bulk Character Schedule Manager. Each character also has an individual schedule in the Character Editor.",
   "ui.characters.schedulemanager.edit": "Edit",
   "ui.characters.schedulemanager.editCharacter": "Edit {{name}} schedule",
   "ui.characters.schedulemanager.failed": "Schedule generation failed",
