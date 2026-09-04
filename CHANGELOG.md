@@ -7,6 +7,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Added a reusable Character Schedule Manager for Conversation schedules. It groups characters with and without schedules, supports bulk generation and removal, and provides per-character weekly renewal controls.
 - Improved the Character Schedule Manager with character folders, avatars, current presence indicators, current schedule activity, direct schedule editing, and schedule generation without an open Conversation chat.
 - Character Schedule Manager folders now use the existing read-only collapsible character-group view, matching the quick Persona switcher.
+- Character Schedule Manager now puts scheduled characters above folders and shows queued, active, completed, and failed states during bulk generation.
 
 - Moved Noodle and Slurp image canvas settings out of Engine Settings and into their respective package settings.
 
