@@ -106,6 +106,12 @@ import type { GenerationFallbackNotifier } from "../../services/generation/fallb
 import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { runImageGenerationRequest } from "../../services/image/image-generation-queue.js";
 import { generateIllustratorImageVariants } from "../../services/image/illustrator-image-variants.js";
+import {
+  buildCharacterAppearanceReferenceBlock,
+  readCharacterPrompts,
+  resolveNovelAiCharacterPromptLimit,
+  supportsNovelAiCharacterPrompts,
+} from "../../services/image/character-prompts.js";
 import { resolveImagePromptReviewSize } from "../../services/image/image-prompt-review.js";
 import {
   parseIllustratorPromptReviewOverride,
@@ -214,6 +220,7 @@ import {
   parseIllustratorBackgroundPlan,
   previewIllustratorSceneBackground,
   resolveIllustratorImageConnectionId,
+  resolveIllustratorCharacterPromptInstruction,
   resolveIllustratorPromptStyle,
 } from "../../services/generation/illustrator-background-generation.js";
 import { writeManualIllustratorPromptPlan } from "../../services/generation/illustrator-manual-prompt-generation.js";
@@ -572,10 +579,35 @@ async function executeManualIllustratorPromptRequest(args: {
     );
     let imageConnection = imageConnectionId ? await args.conns.getById(imageConnectionId).catch(() => null) : null;
     imageConnection ??= await args.conns.getDefaultForImageGeneration().catch(() => null);
+    const { instruction: characterPromptInstruction } = await resolveIllustratorCharacterPromptInstruction({
+      connections: args.conns,
+      illustratorAgent: args.illustratorEntry.resolved,
+      chatMode: args.chat.mode,
+      chatMetadata: args.chatMeta,
+    });
+    const manualAttachCardAppearance =
+      typeof args.chatMeta.illustratorIncludeCharacterAppearance === "boolean"
+        ? args.chatMeta.illustratorIncludeCharacterAppearance
+        : args.illustratorEntry.resolved.settings.includeCharacterAppearance === true;
+    const manualCharacterPromptInstruction =
+      characterPromptInstruction && manualAttachCardAppearance
+        ? [
+            characterPromptInstruction,
+            buildCharacterAppearanceReferenceBlock([
+              ...args.agentContext.characters.map((char) => ({ name: char.name, appearance: char.appearance ?? "" })),
+              ...(args.agentContext.persona
+                ? [{ name: args.agentContext.persona.name, appearance: args.agentContext.persona.appearance ?? "" }]
+                : []),
+            ]),
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : characterPromptInstruction;
     const generated = await writeManualIllustratorPromptPlan({
       illustratorAgent: args.illustratorEntry.resolved,
       context: args.agentContext,
       styleInstruction,
+      characterPromptInstruction: manualCharacterPromptInstruction || undefined,
       imagePromptInstructions: normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions) ?? undefined,
       signal: args.agentContext.signal,
       debugLog: (message, ...values) => logDebugOverride(args.debugMode || isDebugAgentsEnabled(), message, ...values),
@@ -3373,6 +3405,21 @@ async function applyRetryResultEffects(args: {
             const notifyImageFallback = createReplyFallbackNotifier(reply);
 
             const imgModel = imgConnFull.model || "";
+            const characterPromptLimit = supportsNovelAiCharacterPrompts(imgConnFull)
+              ? resolveNovelAiCharacterPromptLimit(imgModel)
+              : 0;
+            const illustratorCharacterPrompts = readCharacterPrompts(
+              illData,
+              illCharacters.filter((name): name is string => typeof name === "string"),
+              characterPromptLimit,
+            );
+            if (illustratorCharacterPrompts.length > 0) {
+              logger.debug(
+                "[retry-agents] Illustrator sending %d native NovelAI character caption(s): %s",
+                illustratorCharacterPrompts.length,
+                illustratorCharacterPrompts.map((entry) => entry.name).join(", "),
+              );
+            }
             const imgBaseUrl = imgConnFull.baseUrl || "https://image.pollinations.ai";
             const imgApiKey = imgConnFull.apiKey || "";
             const imgSource = (imgConnFull as any).imageGenerationSource || imgModel;
@@ -3508,11 +3555,20 @@ async function applyRetryResultEffects(args: {
             });
             assertRetryActive();
             if (includeCharacterAppearance && referenceResolution.appearanceBlock) {
-              fullPrompt += `\n\n${referenceResolution.appearanceBlock}`;
-              logger.debug(
-                "[retry-agents] Illustrator added character appearance notes for: %s",
-                referenceResolution.appearanceNames.join(", "),
-              );
+              if (illustratorCharacterPrompts.length > 0) {
+                // The prompt writer already received the appearance reference and owns the
+                // captions; appending the card text here would duplicate it into the base prompt.
+                logger.debug(
+                  "[retry-agents] Illustrator character appearance handled by captions for: %s",
+                  referenceResolution.appearanceNames.join(", "),
+                );
+              } else {
+                fullPrompt += `\n\n${referenceResolution.appearanceBlock}`;
+                logger.debug(
+                  "[retry-agents] Illustrator added character appearance notes for: %s",
+                  referenceResolution.appearanceNames.join(", "),
+                );
+              }
             }
             if (useAvatarRefs && referenceResolution.referenceImages.length > 0) {
               if (referenceResolution.referenceLine && !suppressReferencePromptLine)
@@ -3626,6 +3682,9 @@ async function applyRetryResultEffects(args: {
                     ...(promptSubmission.negativePrompt ? { negativePrompt: promptSubmission.negativePrompt } : {}),
                     width: previewSize.width,
                     height: previewSize.height,
+                    ...(illustratorCharacterPrompts.length > 0
+                      ? { characterPrompts: illustratorCharacterPrompts }
+                      : {}),
                   },
                   resultData: illData,
                 },
@@ -3676,6 +3735,9 @@ async function applyRetryResultEffects(args: {
                       imageDefaults,
                       quality: resolveConnectionImageQuality(imgConnFull),
                       referenceImages,
+                      ...(illustratorCharacterPrompts.length > 0
+                        ? { characterPrompts: illustratorCharacterPrompts }
+                        : {}),
                       signal: agentContext.signal,
                       fallback: providerAwareImageFallback,
                       onFallback: (notice) => {
@@ -4583,6 +4645,31 @@ export async function registerRetryAgentsRoute(
         } catch (error) {
           if (abortController.signal.aborted) throw error;
           logger.warn(error, "[retry-agents] Failed to resolve image style instruction for the prompt writer");
+        }
+        try {
+          const { instruction: characterPromptInstruction } = await runRetrySetupPhase(abortController.signal, () =>
+            resolveIllustratorCharacterPromptInstruction({
+              connections: conns,
+              illustratorAgent: retryIllustratorPromptAgent.resolved,
+              chatMode,
+              chatMetadata: chatMeta,
+            }),
+          );
+          if (characterPromptInstruction) {
+            const attachCardAppearance =
+              typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
+                ? chatMeta.illustratorIncludeCharacterAppearance
+                : retryIllustratorPromptAgent.resolved.settings.includeCharacterAppearance === true;
+            agentContext.memory._illustratorCharacterPromptInstruction = characterPromptInstruction;
+            if (attachCardAppearance) agentContext.memory._illustratorCaptionAppearanceReference = true;
+            if (preGenerationAgentContext) {
+              preGenerationAgentContext.memory._illustratorCharacterPromptInstruction = characterPromptInstruction;
+              if (attachCardAppearance) preGenerationAgentContext.memory._illustratorCaptionAppearanceReference = true;
+            }
+          }
+        } catch (error) {
+          if (abortController.signal.aborted) throw error;
+          logger.warn(error, "[retry-agents] Failed to resolve character prompt instruction for the prompt writer");
         }
       }
       if (debugMode) {

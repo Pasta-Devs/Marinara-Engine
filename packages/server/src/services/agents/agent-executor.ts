@@ -2,6 +2,7 @@
 // Agent Executor — Single & Batched LLM execution
 // ──────────────────────────────────────────────
 import { existsSync, readdirSync, statSync, type Dirent } from "node:fs";
+import { buildCharacterAppearanceReferenceBlock } from "../image/character-prompts.js";
 import { basename, extname, join, relative, resolve } from "node:path";
 import type { BaseLLMProvider, ChatMessage, LLMToolDefinition, LLMToolCall, LLMUsage } from "../llm/base-provider.js";
 import type {
@@ -2618,6 +2619,21 @@ function buildCommittedTrackerStateContext(
   ].join("\n");
 }
 
+/**
+ * Native NovelAI character-caption instruction resolved by the host for this chat's
+ * image connection. The block is already fully formed; it is only passed through
+ * when the host set it, so non-NovelAI connections never see the schema extension.
+ */
+export function buildIllustratorCharacterPromptInstructionBlock(
+  instruction: unknown,
+  appearanceReference?: unknown,
+): string {
+  const block = typeof instruction === "string" ? instruction.trim() : "";
+  if (!block) return "";
+  const reference = typeof appearanceReference === "string" ? appearanceReference.trim() : "";
+  return reference ? `${block}\n${reference}` : block;
+}
+
 export function buildIllustratorImageStyleInstructionBlock(styleInstruction: unknown): string {
   const instruction = typeof styleInstruction === "string" ? styleInstruction.trim() : "";
   if (!instruction) return "";
@@ -3002,6 +3018,21 @@ function buildAgentExtras(
       context.memory._illustratorImageStyleInstruction,
     );
     if (illustratorStyleBlock) parts.push(illustratorStyleBlock);
+  }
+
+  if (agentTypes.includes("illustrator")) {
+    const appearanceReference =
+      context.memory._illustratorCaptionAppearanceReference === true
+        ? buildCharacterAppearanceReferenceBlock([
+            ...context.characters.map((char) => ({ name: char.name, appearance: char.appearance ?? "" })),
+            ...(context.persona ? [{ name: context.persona.name, appearance: context.persona.appearance ?? "" }] : []),
+          ])
+        : "";
+    const characterPromptBlock = buildIllustratorCharacterPromptInstructionBlock(
+      context.memory._illustratorCharacterPromptInstruction,
+      appearanceReference,
+    );
+    if (characterPromptBlock) parts.push(characterPromptBlock);
   }
 
   if (agentTypes.includes("character-tracker") && context.characterTrackerHistory?.length) {

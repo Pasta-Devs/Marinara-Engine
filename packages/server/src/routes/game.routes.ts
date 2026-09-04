@@ -266,6 +266,13 @@ import {
   resolveStoryboardAnimationRefinement,
 } from "../services/video/storyboard-animation-refinement.js";
 import {
+  NOVELAI_CHARACTER_PROMPT_RULES,
+  NOVELAI_V5_MAX_CHARACTER_PROMPTS,
+  defaultCharacterPromptPosition,
+  resolveNovelAiCharacterPromptLimit,
+  sanitizeCharacterPrompts,
+} from "../services/image/character-prompts.js";
+import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
 } from "../services/image/image-generation-defaults.js";
@@ -5351,70 +5358,13 @@ function asStoryboardRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-const MAX_STORYBOARD_CHARACTER_PROMPTS = 6;
-
-function defaultStoryboardCharacterPosition(index: number, total: number): { x: number; y: number } {
-  if (total <= 1) return { x: 0.5, y: 0.5 };
-  if (total <= 3) return { x: (index + 1) / (total + 1), y: 0.5 };
-
-  const columns = 3;
-  const rows = Math.ceil(total / columns);
-  const row = Math.floor(index / columns);
-  const rowStart = row * columns;
-  const rowCount = Math.min(columns, total - rowStart);
-  return {
-    x: (index - rowStart + 1) / (rowCount + 1),
-    y: (row + 1) / (rows + 1),
-  };
-}
-
-function normalizeStoryboardCharacterCoordinate(value: unknown, fallback: number): number {
-  const numeric = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(numeric)) return fallback;
-  return Math.round(Math.min(1, Math.max(0, numeric)) * 100) / 100;
-}
-
-function matchStoryboardCharacterPromptName(value: unknown, characters: string[]): string | null {
-  const requested = typeof value === "string" ? normalizeAvatarLookupName(value) : "";
-  if (!requested) return null;
-  return characters.find((name) => normalizeAvatarLookupName(name) === requested) ?? null;
-}
-
-function sanitizeStoryboardCharacterPrompts(value: unknown, characters: string[]): SceneIllustrationCharacterPrompt[] {
-  if (!Array.isArray(value) || characters.length === 0) return [];
-  const seen = new Set<string>();
-  const candidates: Array<
-    Omit<SceneIllustrationCharacterPrompt, "position"> & { position?: { x: number; y: number } }
-  > = [];
-
-  for (const rawEntry of value.slice(0, MAX_STORYBOARD_CHARACTER_PROMPTS)) {
-    const entry = asStoryboardRecord(rawEntry);
-    const name = matchStoryboardCharacterPromptName(entry.name, characters);
-    const prompt = compactStoryboardText(entry.prompt, 1400);
-    if (!name || !prompt) continue;
-    const normalizedName = normalizeAvatarLookupName(name);
-    if (seen.has(normalizedName)) continue;
-    seen.add(normalizedName);
-
-    const rawPosition = asStoryboardRecord(entry.position);
-    const hasPosition = rawPosition.x != null || rawPosition.y != null;
-    candidates.push({
-      name,
-      prompt,
-      negativePrompt: compactStoryboardText(entry.negativePrompt, 700) || undefined,
-      position: hasPosition
-        ? {
-            x: normalizeStoryboardCharacterCoordinate(rawPosition.x, 0.5),
-            y: normalizeStoryboardCharacterCoordinate(rawPosition.y, 0.5),
-          }
-        : undefined,
-    });
-  }
-
-  return candidates.map((entry, index) => ({
-    ...entry,
-    position: entry.position ?? defaultStoryboardCharacterPosition(index, candidates.length),
-  }));
+/** Plan-time sanitizer keeps up to the V5 cap; render time trims to the actual model's limit. */
+function sanitizeStoryboardCharacterPrompts(
+  value: unknown,
+  characters: string[],
+  limit = NOVELAI_V5_MAX_CHARACTER_PROMPTS,
+): SceneIllustrationCharacterPrompt[] {
+  return sanitizeCharacterPrompts(value, characters, limit);
 }
 
 function storyboardCharacterPromptIdentity(name: string): string {
@@ -5429,10 +5379,11 @@ function resolveStoryboardCharacterPromptsForImage(args: {
   characters: string[];
   characterDescriptions: Map<string, string>;
   includeCharacterAppearance: boolean;
+  limit: number;
 }): SceneIllustrationCharacterPrompt[] {
-  if (args.characters.length < 2) return [];
+  if (args.characters.length < 2 || args.limit <= 0) return [];
   const promptByName = new Map(args.prompts.map((entry) => [normalizeAvatarLookupName(entry.name), entry] as const));
-  const selectedCharacters = args.characters.slice(0, MAX_STORYBOARD_CHARACTER_PROMPTS);
+  const selectedCharacters = args.characters.slice(0, args.limit);
 
   return selectedCharacters.map((name, index) => {
     const existing = promptByName.get(normalizeAvatarLookupName(name));
@@ -5445,7 +5396,7 @@ function resolveStoryboardCharacterPromptsForImage(args: {
       name,
       prompt: [basePrompt, appearance ? `appearance: ${appearance}` : ""].filter(Boolean).join(", "),
       negativePrompt: existing?.negativePrompt,
-      position: existing?.position ?? defaultStoryboardCharacterPosition(index, selectedCharacters.length),
+      position: existing?.position ?? defaultCharacterPromptPosition(index, selectedCharacters.length),
     };
   });
 }
@@ -5788,14 +5739,11 @@ export async function buildStoryboardIllustratorMessages(args: {
   });
   const structuredCharacterPromptInstructions = args.structuredCharacterPrompts
     ? [
-        "NovelAI V4/V4.5 native multi-character prompting is enabled for this request.",
+        "NovelAI native multi-character prompting is enabled for this request.",
         'Extend every keyframe with "characterPrompts": [ { "name": string, "prompt": string, "negativePrompt": string, "position": { "x": number, "y": number } } ].',
         "For scenes with two or more named visible characters, include exactly one characterPrompts entry for every name in keyframe.characters, using the exact same spelling.",
         "Keep keyframe.imagePrompt as the base scene prompt: subject-count tags, shared interaction, camera, composition, environment, lighting, mood, and props. Put character-specific identity, appearance, clothing, expression, pose, and role in that character's prompt.",
-        "Start each character prompt with girl, boy, or other without a number, then add the canonical character tag or visual identity traits.",
-        "For interactions, use NovelAI action roles such as source#hug, target#hug, or mutual#hug in the relevant character prompts when applicable.",
-        "Use negativePrompt to block traits belonging only to the other visible characters. Use an empty string when no character-specific negative is needed.",
-        "position is the character's approximate normalized center: x=0 is left, x=1 is right, y=0 is top, y=1 is bottom. Keep positions consistent with camera composition and character order.",
+        ...NOVELAI_CHARACTER_PROMPT_RULES,
         "For zero or one named visible character, return an empty characterPrompts array.",
       ].join("\n")
     : "";
@@ -12111,8 +12059,11 @@ export async function gameRoutes(app: FastifyInstance) {
       const providerSupportsStructuredCharacterPrompts =
         supportsSceneIllustrationStructuredCharacterPrompts(storyboardImageRequestContext);
       const structuredCharacterPrompts = useNovelAiCharacterPrompts && providerSupportsStructuredCharacterPrompts;
+      const storyboardCharacterPromptLimit = structuredCharacterPrompts
+        ? resolveNovelAiCharacterPromptLimit(storyboardImageRequestContext.imgModel)
+        : 0;
       const storyboardMaxVisibleCharacters = structuredCharacterPrompts
-        ? Math.min(MAX_STORYBOARD_CHARACTER_PROMPTS, storyboardReferenceImageLimit)
+        ? Math.min(storyboardCharacterPromptLimit, storyboardReferenceImageLimit)
         : storyboardReferenceImageLimit;
 
       const sceneConnId =
@@ -12363,6 +12314,7 @@ export async function gameRoutes(app: FastifyInstance) {
               characters: plannedFrame.characters,
               characterDescriptions: charDescriptionByName,
               includeCharacterAppearance: includeCharacterAppearanceAtRender,
+              limit: storyboardCharacterPromptLimit,
             })
           : [];
         const illustration: SceneIllustrationRequest = {
