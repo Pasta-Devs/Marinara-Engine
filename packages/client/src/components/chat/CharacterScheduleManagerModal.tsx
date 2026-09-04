@@ -78,17 +78,18 @@ function readCard(row: Record<string, unknown>): ManagerCharacter | null {
 function scheduleState(schedule: WeekSchedule | undefined, timeZone?: string, now = new Date()): "current" | "due" {
   if (!schedule) return "current";
   const wallClockNow = toConversationScheduleWallClockDate(now, timeZone);
-  const monday = new Date(wallClockNow);
-  const day = monday.getDay();
-  monday.setDate(monday.getDate() - (day === 0 ? 6 : day - 1));
-  const currentMondayKey = Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate());
-  const scheduleDate = new Date(schedule.weekStart);
-  const scheduleMondayKey = Date.UTC(
-    scheduleDate.getUTCFullYear(),
-    scheduleDate.getUTCMonth(),
-    scheduleDate.getUTCDate(),
+  const day = wallClockNow.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const currentMonday = new Date(
+    wallClockNow.getFullYear(),
+    wallClockNow.getMonth(),
+    wallClockNow.getDate() + mondayOffset,
   );
-  return Number.isFinite(scheduleMondayKey) && currentMondayKey > scheduleMondayKey ? "due" : "current";
+  const currentMondayKey = [currentMonday.getFullYear(), currentMonday.getMonth() + 1, currentMonday.getDate()]
+    .map((part) => String(part).padStart(2, "0"))
+    .join("-");
+  const scheduleMondayKey = typeof schedule.weekStart === "string" ? schedule.weekStart.slice(0, 10) : "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(scheduleMondayKey) && currentMondayKey > scheduleMondayKey ? "due" : "current";
 }
 
 function statusDotClass(status: ConversationPresenceStatus) {
@@ -439,7 +440,12 @@ function CharacterScheduleGroup({
       </h2>
       {characters.map((character) => {
         const state = scheduleState(character.schedule, conversationTimeZone);
-        const currentBlock = character.schedule ? getAdjacentScheduleBlocks(character.schedule).current : null;
+        const currentBlock = character.schedule
+          ? getAdjacentScheduleBlocks(
+              character.schedule,
+              toConversationScheduleWallClockDate(new Date(), conversationTimeZone),
+            ).current
+          : null;
         const currentStatus = currentBlock?.status ?? character.conversationStatus;
         const generationState = generationStates[character.id];
         return (

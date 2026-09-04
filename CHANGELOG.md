@@ -17,6 +17,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Bulk schedule generation now reports per-character failures correctly, preserves chat time zones during chatless generation, and keeps folder counts aligned with visible rows.
 - Schedule renewal indicators now use the configured Conversation time zone.
 - Character Schedule Manager folder parsing now ignores malformed group member data instead of failing to render the manager.
+- Character Schedule Manager now uses configured Conversation calendar dates for renewal and active-block status.
+- Renewal comparisons now use explicit date-only values without host-timezone shifts.
 - Increased the Conversation schedule manager calendar icon size while keeping its compact button dimensions.
 
 - Moved Noodle and Slurp image canvas settings out of Engine Settings and into their respective package settings.
