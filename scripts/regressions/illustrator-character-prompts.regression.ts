@@ -224,3 +224,51 @@ console.log("illustrator character prompts regression (manual + executor) passed
 }
 
 console.log("illustrator character prompts regression (appearance) passed");
+
+// Ensemble cards keep one Appearance block for several characters as "[NAME] tags | [NAME] tags".
+// Each segment routes to its own caption; nothing from a split card lands in the base prompt.
+{
+  const { applyCharacterAppearanceToPrompts, splitEnsembleAppearance } =
+    await import("../../packages/server/src/services/image/character-prompts.js");
+  const ensemble =
+    "[MALI] petite, tan, black hair, thong | [DARCIE] 1girl, solo, toned, pale skin, blue hair |, [ZOE] short hair";
+  const segments = splitEnsembleAppearance(ensemble);
+  assert.deepEqual(
+    segments?.map((entry) => entry.name),
+    ["MALI", "DARCIE", "ZOE"],
+    "bracket markers split the block, with or without a stray comma after the pipe",
+  );
+  assert.equal(segments?.[0]?.appearance, "petite, tan, black hair, thong");
+  assert.equal(splitEnsembleAppearance("1girl, solo, red hair"), null, "single-character blocks are not split");
+
+  const routed = applyCharacterAppearanceToPrompts(
+    [
+      { name: "Mali", prompt: "girl, petite, Tan, black hair, grin", position: { x: 0.3, y: 0.5 } },
+      { name: "Darcie", prompt: "girl, blue hair, serious", position: { x: 0.65, y: 0.6 } },
+      { name: "Blake", prompt: "boy, tall", position: { x: 0.15, y: 0.4 } },
+    ],
+    [
+      { name: "Darcie and Mali", appearance: ensemble },
+      { name: "Blake", appearance: "1boy, solo, black hair, green eyes" },
+    ],
+  );
+  assert.equal(
+    routed.prompts[0]!.prompt,
+    "girl, petite, Tan, black hair, grin, thong",
+    "only tags missing from the caption are appended",
+  );
+  assert.equal(
+    routed.prompts[1]!.prompt,
+    "girl, blue hair, serious, toned, pale skin",
+    "subject-count and solo tags never enter a caption",
+  );
+  assert.equal(routed.prompts[2]!.prompt, "boy, tall, black hair, green eyes");
+  assert.equal(
+    routed.remainingAppearanceBlock,
+    null,
+    "matched ensemble segments and unmatched ones alike stay out of the base prompt",
+  );
+  assert.deepEqual(routed.appliedNames, ["Mali", "Darcie", "Blake"]);
+}
+
+console.log("illustrator character prompts regression (ensemble) passed");

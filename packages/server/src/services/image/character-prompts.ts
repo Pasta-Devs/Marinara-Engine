@@ -161,10 +161,63 @@ export function readCharacterPrompts(
 
 export type CharacterAppearanceSource = { name: string; appearance: string };
 
+const ENSEMBLE_SEGMENT = /\[([^\]]+)\]\s*([^[]*)/g;
+const SUBJECT_COUNT_TAG = /^(?:\d+\s*(?:girls?|boys?|others?)|solo)$/i;
+
+function normalizeTag(tag: string): string {
+  return tag.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function splitTags(value: string): string[] {
+  return value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Ensemble cards keep one Appearance block for several characters, written as
+ * "[NAME] tags | [NAME] tags". Returns one segment per marker, or null when the
+ * block has no markers and therefore describes a single character.
+ */
+export function splitEnsembleAppearance(appearance: string): CharacterAppearanceSource[] | null {
+  const text = appearance.trim();
+  if (!text.startsWith("[")) return null;
+  const segments: CharacterAppearanceSource[] = [];
+  for (const match of text.matchAll(ENSEMBLE_SEGMENT)) {
+    const name = (match[1] ?? "").trim();
+    const body = (match[2] ?? "")
+      .replace(/^[\s,|]+/, "")
+      .replace(/[\s,|]+$/, "")
+      .trim();
+    if (!name) continue;
+    segments.push({ name, appearance: body });
+  }
+  return segments.length > 0 ? segments : null;
+}
+
+/** Append only the tags a caption does not already carry; count and solo tags never enter a caption. */
+function mergeAppearanceIntoCaption(
+  caption: SceneIllustrationCharacterPrompt,
+  appearance: string,
+): SceneIllustrationCharacterPrompt {
+  const present = new Set(splitTags(caption.prompt).map(normalizeTag));
+  const additions: string[] = [];
+  for (const tag of splitTags(appearance)) {
+    const key = normalizeTag(tag);
+    if (!key || present.has(key) || SUBJECT_COUNT_TAG.test(key)) continue;
+    present.add(key);
+    additions.push(tag);
+  }
+  if (additions.length === 0) return caption;
+  return { ...caption, prompt: `${caption.prompt}, ${additions.join(", ")}` };
+}
+
 /**
  * Route matched card/persona appearance text into each character's own caption
- * instead of the base prompt, mirroring the Storyboard renderer. Characters that
- * have appearance text but no caption keep the classic base-prompt line.
+ * instead of the base prompt, mirroring the Storyboard renderer. Single-character
+ * cards that match no caption keep the classic base-prompt line. Ensemble cards
+ * are split per marker and never reach the base prompt once captions exist.
  */
 export function applyCharacterAppearanceToPrompts(
   prompts: SceneIllustrationCharacterPrompt[],
@@ -172,22 +225,30 @@ export function applyCharacterAppearanceToPrompts(
 ): { prompts: SceneIllustrationCharacterPrompt[]; appliedNames: string[]; remainingAppearanceBlock: string | null } {
   const appliedNames: string[] = [];
   const remainingLines: string[] = [];
-  const captionByName = new Map(prompts.map((entry) => [normalizeAvatarLookupName(entry.name), entry] as const));
-  const merged = new Map<string, SceneIllustrationCharacterPrompt>();
+  const merged = new Map(prompts.map((entry) => [normalizeAvatarLookupName(entry.name), entry] as const));
+
+  const applyTo = (name: string, appearance: string): boolean => {
+    const key = normalizeAvatarLookupName(name);
+    const caption = merged.get(key);
+    if (!caption) return false;
+    merged.set(key, mergeAppearanceIntoCaption(caption, appearance));
+    if (!appliedNames.includes(caption.name)) appliedNames.push(caption.name);
+    return true;
+  };
 
   for (const source of appearances) {
     const appearance = compactText(source.appearance, MAX_CHARACTER_PROMPT_LENGTH);
     if (!appearance) continue;
-    const key = normalizeAvatarLookupName(source.name);
-    const caption = captionByName.get(key);
-    if (!caption) {
-      remainingLines.push(`${source.name}'s Appearance: ${appearance}`);
+    const segments = prompts.length > 0 ? splitEnsembleAppearance(appearance) : null;
+    if (segments) {
+      for (const segment of segments) {
+        if (segment.appearance) applyTo(segment.name, segment.appearance);
+      }
       continue;
     }
-    if (appliedNames.includes(caption.name)) continue;
-    appliedNames.push(caption.name);
-    const alreadyPresent = caption.prompt.toLowerCase().includes(appearance.toLowerCase());
-    merged.set(key, alreadyPresent ? caption : { ...caption, prompt: `${caption.prompt}, ${appearance}` });
+    if (!applyTo(source.name, appearance)) {
+      remainingLines.push(`${source.name}'s Appearance: ${appearance}`);
+    }
   }
 
   return {
