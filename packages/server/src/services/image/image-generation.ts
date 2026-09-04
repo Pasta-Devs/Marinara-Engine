@@ -27,6 +27,7 @@ import {
   type NovelAiDefaults,
   type SceneIllustrationCharacterPrompt,
 } from "@marinara-engine/shared";
+import { resolveNovelAiCharacterPromptLimit } from "./character-prompts.js";
 import { isImageLocalUrlsEnabled } from "../../config/runtime-config.js";
 import { runMediaGenerationRequest } from "./image-generation-queue.js";
 import { generateRunPodComfyUI } from "./runpod-comfyui.service.js";
@@ -1931,7 +1932,6 @@ const NOVELAI_SIZE_MULTIPLE = 64;
 const NOVELAI_MIN_DIMENSION = 64;
 const NOVELAI_MAX_DIMENSION = 2048;
 const NOVELAI_MAX_PIXELS = 1024 * 1024;
-const NOVELAI_MAX_CHARACTER_PROMPTS = 6;
 const NOVELAI_REFERENCE_MAX_INPUT_PIXELS = 32_000_000;
 const NOVELAI_DIRECTOR_REFERENCE_SIZES = [
   { width: 1024, height: 1536 },
@@ -2186,7 +2186,7 @@ function prepareNovelAiCharacterPrompts(
 ): PreparedNovelAiCharacterPrompt[] {
   const candidates = (prompts ?? [])
     .filter((entry) => entry && typeof entry.prompt === "string" && entry.prompt.trim().length > 0)
-    .slice(0, NOVELAI_MAX_CHARACTER_PROMPTS);
+    .slice(0, resolveNovelAiCharacterPromptLimit(model));
 
   return candidates
     .map((entry, index) => {
@@ -2261,11 +2261,18 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
   const characterReferenceImages = collectNovelAiReferenceImages(request)
     .filter((reference) => reference !== styleReferenceImage)
     .slice(0, styleReferenceImage ? 15 : 16);
-  const referenceImages = styleReferenceImage
+  let referenceImages = styleReferenceImage
     ? [styleReferenceImage, ...characterReferenceImages]
     : characterReferenceImages;
   if (referenceImages.length > 0 && !isNovelAiPreciseReferenceModel(model)) {
-    throw new Error("NovelAI precise reference images require a V4.5 model such as nai-diffusion-4-5-full.");
+    // NovelAI only ships Precise Reference on V4.5; V5 support is still pending upstream.
+    // Render without the references rather than failing the whole illustration.
+    logger.warn(
+      "[novelai] Dropping %d reference image(s): precise reference requires a V4.5 model, got %s",
+      referenceImages.length,
+      model,
+    );
+    referenceImages = [];
   }
   const directorReferenceImages = await prepareNovelAiDirectorReferenceImages(referenceImages);
   const characterPromptPayload = buildNovelAiV4CharacterPromptPayload(request.characterPrompts, model);

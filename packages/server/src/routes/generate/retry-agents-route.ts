@@ -106,6 +106,11 @@ import type { GenerationFallbackNotifier } from "../../services/generation/fallb
 import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { runImageGenerationRequest } from "../../services/image/image-generation-queue.js";
 import { generateIllustratorImageVariants } from "../../services/image/illustrator-image-variants.js";
+import {
+  readCharacterPrompts,
+  resolveNovelAiCharacterPromptLimit,
+  supportsNovelAiCharacterPrompts,
+} from "../../services/image/character-prompts.js";
 import { resolveImagePromptReviewSize } from "../../services/image/image-prompt-review.js";
 import {
   parseIllustratorPromptReviewOverride,
@@ -214,6 +219,7 @@ import {
   parseIllustratorBackgroundPlan,
   previewIllustratorSceneBackground,
   resolveIllustratorImageConnectionId,
+  resolveIllustratorCharacterPromptInstruction,
   resolveIllustratorPromptStyle,
 } from "../../services/generation/illustrator-background-generation.js";
 import { writeManualIllustratorPromptPlan } from "../../services/generation/illustrator-manual-prompt-generation.js";
@@ -572,10 +578,17 @@ async function executeManualIllustratorPromptRequest(args: {
     );
     let imageConnection = imageConnectionId ? await args.conns.getById(imageConnectionId).catch(() => null) : null;
     imageConnection ??= await args.conns.getDefaultForImageGeneration().catch(() => null);
+    const { instruction: characterPromptInstruction } = await resolveIllustratorCharacterPromptInstruction({
+      connections: args.conns,
+      illustratorAgent: args.illustratorEntry.resolved,
+      chatMode: args.chat.mode,
+      chatMetadata: args.chatMeta,
+    });
     const generated = await writeManualIllustratorPromptPlan({
       illustratorAgent: args.illustratorEntry.resolved,
       context: args.agentContext,
       styleInstruction,
+      characterPromptInstruction: characterPromptInstruction || undefined,
       imagePromptInstructions: normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions) ?? undefined,
       signal: args.agentContext.signal,
       debugLog: (message, ...values) => logDebugOverride(args.debugMode || isDebugAgentsEnabled(), message, ...values),
@@ -3373,6 +3386,21 @@ async function applyRetryResultEffects(args: {
             const notifyImageFallback = createReplyFallbackNotifier(reply);
 
             const imgModel = imgConnFull.model || "";
+            const characterPromptLimit = supportsNovelAiCharacterPrompts(imgConnFull)
+              ? resolveNovelAiCharacterPromptLimit(imgModel)
+              : 0;
+            const illustratorCharacterPrompts = readCharacterPrompts(
+              illData,
+              illCharacters.filter((name): name is string => typeof name === "string"),
+              characterPromptLimit,
+            );
+            if (illustratorCharacterPrompts.length > 0) {
+              logger.debug(
+                "[retry-agents] Illustrator sending %d native NovelAI character caption(s): %s",
+                illustratorCharacterPrompts.length,
+                illustratorCharacterPrompts.map((entry) => entry.name).join(", "),
+              );
+            }
             const imgBaseUrl = imgConnFull.baseUrl || "https://image.pollinations.ai";
             const imgApiKey = imgConnFull.apiKey || "";
             const imgSource = (imgConnFull as any).imageGenerationSource || imgModel;
@@ -3626,6 +3654,9 @@ async function applyRetryResultEffects(args: {
                     ...(promptSubmission.negativePrompt ? { negativePrompt: promptSubmission.negativePrompt } : {}),
                     width: previewSize.width,
                     height: previewSize.height,
+                    ...(illustratorCharacterPrompts.length > 0
+                      ? { characterPrompts: illustratorCharacterPrompts }
+                      : {}),
                   },
                   resultData: illData,
                 },
@@ -3676,6 +3707,9 @@ async function applyRetryResultEffects(args: {
                       imageDefaults,
                       quality: resolveConnectionImageQuality(imgConnFull),
                       referenceImages,
+                      ...(illustratorCharacterPrompts.length > 0
+                        ? { characterPrompts: illustratorCharacterPrompts }
+                        : {}),
                       signal: agentContext.signal,
                       fallback: providerAwareImageFallback,
                       onFallback: (notice) => {
@@ -4583,6 +4617,25 @@ export async function registerRetryAgentsRoute(
         } catch (error) {
           if (abortController.signal.aborted) throw error;
           logger.warn(error, "[retry-agents] Failed to resolve image style instruction for the prompt writer");
+        }
+        try {
+          const { instruction: characterPromptInstruction } = await runRetrySetupPhase(abortController.signal, () =>
+            resolveIllustratorCharacterPromptInstruction({
+              connections: conns,
+              illustratorAgent: retryIllustratorPromptAgent.resolved,
+              chatMode,
+              chatMetadata: chatMeta,
+            }),
+          );
+          if (characterPromptInstruction) {
+            agentContext.memory._illustratorCharacterPromptInstruction = characterPromptInstruction;
+            if (preGenerationAgentContext) {
+              preGenerationAgentContext.memory._illustratorCharacterPromptInstruction = characterPromptInstruction;
+            }
+          }
+        } catch (error) {
+          if (abortController.signal.aborted) throw error;
+          logger.warn(error, "[retry-agents] Failed to resolve character prompt instruction for the prompt writer");
         }
       }
       if (debugMode) {

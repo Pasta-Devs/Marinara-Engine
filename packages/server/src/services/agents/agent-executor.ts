@@ -2618,6 +2618,15 @@ function buildCommittedTrackerStateContext(
   ].join("\n");
 }
 
+/**
+ * Native NovelAI character-caption instruction resolved by the host for this chat's
+ * image connection. The block is already fully formed; it is only passed through
+ * when the host set it, so non-NovelAI connections never see the schema extension.
+ */
+export function buildIllustratorCharacterPromptInstructionBlock(instruction: unknown): string {
+  return typeof instruction === "string" ? instruction.trim() : "";
+}
+
 export function buildIllustratorImageStyleInstructionBlock(styleInstruction: unknown): string {
   const instruction = typeof styleInstruction === "string" ? styleInstruction.trim() : "";
   if (!instruction) return "";
@@ -3002,6 +3011,13 @@ function buildAgentExtras(
       context.memory._illustratorImageStyleInstruction,
     );
     if (illustratorStyleBlock) parts.push(illustratorStyleBlock);
+  }
+
+  if (agentTypes.includes("illustrator")) {
+    const characterPromptBlock = buildIllustratorCharacterPromptInstructionBlock(
+      context.memory._illustratorCharacterPromptInstruction,
+    );
+    if (characterPromptBlock) parts.push(characterPromptBlock);
   }
 
   if (agentTypes.includes("character-tracker") && context.characterTrackerHistory?.length) {

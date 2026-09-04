@@ -136,6 +136,11 @@ import {
 } from "../services/image/spatial-location-reference.js";
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
+import {
+  readCharacterPrompts,
+  resolveNovelAiCharacterPromptLimit,
+  supportsNovelAiCharacterPrompts,
+} from "../services/image/character-prompts.js";
 import { resolveCustomAgentStyleProfileId } from "../services/generation/custom-agent-image-settings.js";
 import { buildSpotifyDjConstraints } from "../services/spotify/spotify-dj-constraints.js";
 import {
@@ -179,6 +184,7 @@ import {
   illustratorRequestedBackground,
   illustratorTrackerLocationChanged,
   resolveIllustratorImageConnectionId,
+  resolveIllustratorCharacterPromptInstruction,
   resolveIllustratorPromptStyle,
 } from "../services/generation/illustrator-background-generation.js";
 import {
@@ -4272,6 +4278,19 @@ export async function generateRoutes(app: FastifyInstance) {
             agentContext.memory._illustratorImageStyleInstruction = styleInstruction;
           } catch (error) {
             logger.warn(error, "[illustrator] Failed to resolve image style instruction for the prompt writer");
+          }
+          try {
+            const { instruction: characterPromptInstruction } = await resolveIllustratorCharacterPromptInstruction({
+              connections,
+              illustratorAgent: illustratorPromptAgent,
+              chatMode: requestChatMode,
+              chatMetadata: chatMeta,
+            });
+            if (characterPromptInstruction) {
+              agentContext.memory._illustratorCharacterPromptInstruction = characterPromptInstruction;
+            }
+          } catch (error) {
+            logger.warn(error, "[illustrator] Failed to resolve character prompt instruction for the prompt writer");
           }
         }
 
@@ -9798,6 +9817,21 @@ export async function generateRoutes(app: FastifyInstance) {
                       const galleryStore = createGalleryStorage(app.db);
 
                       const imgModel = imgConnFull.model || "";
+                      const characterPromptLimit = supportsNovelAiCharacterPrompts(imgConnFull)
+                        ? resolveNovelAiCharacterPromptLimit(imgModel)
+                        : 0;
+                      const illustratorCharacterPrompts = readCharacterPrompts(
+                        illData,
+                        illCharacters.filter((name): name is string => typeof name === "string"),
+                        characterPromptLimit,
+                      );
+                      if (illustratorCharacterPrompts.length > 0) {
+                        logger.debug(
+                          "[illustrator] Sending %d native NovelAI character caption(s): %s",
+                          illustratorCharacterPrompts.length,
+                          illustratorCharacterPrompts.map((entry) => entry.name).join(", "),
+                        );
+                      }
                       const imgBaseUrl = imgConnFull.baseUrl || "https://image.pollinations.ai";
                       const imgApiKey = imgConnFull.apiKey || "";
                       const imgSource = (imgConnFull as any).imageGenerationSource || imgModel;
@@ -10000,6 +10034,9 @@ export async function generateRoutes(app: FastifyInstance) {
                             imageDefaults,
                             quality: resolveConnectionImageQuality(imgConnFull),
                             referenceImages: illustratorRefImages,
+                            ...(illustratorCharacterPrompts.length > 0
+                              ? { characterPrompts: illustratorCharacterPrompts }
+                              : {}),
                             debugMode: input.debugMode,
                             fallback: providerAwareImageFallback,
                             onFallback,

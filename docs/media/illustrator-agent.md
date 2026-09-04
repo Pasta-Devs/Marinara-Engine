@@ -67,6 +67,14 @@ Two toggles on the Illustrator card help characters look consistent. Both are of
 
 **Send Avatar References** sends character and persona avatars, or their sprites, to the image provider as reference images. Its help text reads: "Send matching character and persona avatars or sprites as reference images when the provider supports them." This helps the image model copy a face or outfit. Not every provider accepts reference images, so the effect depends on the provider you chose.
 
+## Multiple characters on NovelAI
+
+When the Illustrator's image connection is NovelAI on a V4, V4.5, or V5 model, the prompt writer is asked for one extra caption per visible character. Each caption carries that character's own appearance, expression, pose, and an approximate position in the frame. Marinara checks the captions against the scene's character list, drops any it cannot match, and sends them to NovelAI as native character prompts alongside the main scene prompt. This keeps hair, clothing, and other traits from leaking between characters in group scenes.
+
+The number of captions follows the model. V5 accepts up to 22 characters, and V4 or V4.5 accept up to 6. Scenes with more visible characters keep the most important ones and treat the rest as unnamed background.
+
+No setting is needed. The captions appear only for a NovelAI connection on its own host, so a proxy or a different provider is unaffected. When **Review image prompts before sending** is on, the review dialog lists the captions under the main prompt so you can see what will be sent. The captions are read-only there; edit the main prompt as usual.
+
 ## More settings and running it by hand
 
 The Illustrator card has an **Open Setup** button. It opens the agent's full setup screen, where you can set how often the agent runs and give it its own image connection.
