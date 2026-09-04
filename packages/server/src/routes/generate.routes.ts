@@ -137,7 +137,6 @@ import {
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
 import {
-  applyCharacterAppearanceToPrompts,
   readCharacterPrompts,
   resolveNovelAiCharacterPromptLimit,
   supportsNovelAiCharacterPrompts,
@@ -4289,6 +4288,11 @@ export async function generateRoutes(app: FastifyInstance) {
             });
             if (characterPromptInstruction) {
               agentContext.memory._illustratorCharacterPromptInstruction = characterPromptInstruction;
+              const attachCardAppearance =
+                typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
+                  ? chatMeta.illustratorIncludeCharacterAppearance
+                  : illustratorPromptAgent.settings.includeCharacterAppearance === true;
+              if (attachCardAppearance) agentContext.memory._illustratorCaptionAppearanceReference = true;
             }
           } catch (error) {
             logger.warn(error, "[illustrator] Failed to resolve character prompt instruction for the prompt writer");
@@ -9821,7 +9825,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       const characterPromptLimit = supportsNovelAiCharacterPrompts(imgConnFull)
                         ? resolveNovelAiCharacterPromptLimit(imgModel)
                         : 0;
-                      let illustratorCharacterPrompts = readCharacterPrompts(
+                      const illustratorCharacterPrompts = readCharacterPrompts(
                         illData,
                         illCharacters.filter((name): name is string => typeof name === "string"),
                         characterPromptLimit,
@@ -9942,21 +9946,20 @@ export async function generateRoutes(app: FastifyInstance) {
                         maxReferences: spatialLocationReferenceImage ? 5 : 6,
                       });
                       if (includeCharacterAppearance && referenceResolution.appearanceBlock) {
-                        // With native captions, each matched character's appearance rides inside
-                        // its own caption so traits cannot leak into the shared base prompt.
-                        const appearanceRouting = applyCharacterAppearanceToPrompts(
-                          illustratorCharacterPrompts,
-                          referenceResolution.appearances,
-                        );
-                        illustratorCharacterPrompts = appearanceRouting.prompts;
-                        if (appearanceRouting.remainingAppearanceBlock) {
-                          fullPrompt += `\n\n${appearanceRouting.remainingAppearanceBlock}`;
+                        if (illustratorCharacterPrompts.length > 0) {
+                          // The prompt writer already received the appearance reference and owns the
+                          // captions; appending the card text here would duplicate it into the base prompt.
+                          logger.debug(
+                            "[illustrator] Character appearance handled by captions for: %s",
+                            referenceResolution.appearanceNames.join(", "),
+                          );
+                        } else {
+                          fullPrompt += `\n\n${referenceResolution.appearanceBlock}`;
+                          logger.debug(
+                            "[illustrator] Added character appearance notes for: %s",
+                            referenceResolution.appearanceNames.join(", "),
+                          );
                         }
-                        logger.debug(
-                          "[illustrator] Added character appearance notes for: %s (in captions: %s)",
-                          referenceResolution.appearanceNames.join(", "),
-                          appearanceRouting.appliedNames.join(", ") || "none",
-                        );
                       }
                       if (useAvatarRefs && referenceResolution.referenceImages.length > 0) {
                         if (referenceResolution.referenceLine && !suppressReferencePromptLine)

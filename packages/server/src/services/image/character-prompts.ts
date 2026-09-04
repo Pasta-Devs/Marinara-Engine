@@ -162,18 +162,7 @@ export function readCharacterPrompts(
 export type CharacterAppearanceSource = { name: string; appearance: string };
 
 const ENSEMBLE_SEGMENT = /\[([^\]]+)\]\s*([^[]*)/g;
-const SUBJECT_COUNT_TAG = /^(?:\d+\s*(?:girls?|boys?|others?)|solo)$/i;
-
-function normalizeTag(tag: string): string {
-  return tag.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
-function splitTags(value: string): string[] {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
+const MAX_APPEARANCE_REFERENCE_CHARS = 8000;
 
 /**
  * Ensemble cards keep one Appearance block for several characters, written as
@@ -196,64 +185,44 @@ export function splitEnsembleAppearance(appearance: string): CharacterAppearance
   return segments.length > 0 ? segments : null;
 }
 
-/** Append only the tags a caption does not already carry; count and solo tags never enter a caption. */
-function mergeAppearanceIntoCaption(
-  caption: SceneIllustrationCharacterPrompt,
-  appearance: string,
-): SceneIllustrationCharacterPrompt {
-  const present = new Set(splitTags(caption.prompt).map(normalizeTag));
-  const additions: string[] = [];
-  for (const tag of splitTags(appearance)) {
-    const key = normalizeTag(tag);
-    if (!key || present.has(key) || SUBJECT_COUNT_TAG.test(key)) continue;
-    present.add(key);
-    additions.push(tag);
-  }
-  if (additions.length === 0) return caption;
-  return { ...caption, prompt: `${caption.prompt}, ${additions.join(", ")}` };
-}
-
 /**
- * Route matched card/persona appearance text into each character's own caption
- * instead of the base prompt, mirroring the Storyboard renderer. Single-character
- * cards that match no caption keep the classic base-prompt line. Ensemble cards
- * are split per marker and never reach the base prompt once captions exist.
+ * Appearance reference handed to the prompt writer when Attach Card Appearance
+ * is on and native captions are in play. The writer is the final arbiter: it
+ * copies fixed traits into the matching caption, treats clothing as a default
+ * the tracker or scene overrides, and ignores characters who are not visible.
+ * Nothing here is appended to the image prompt by the server.
  */
-export function applyCharacterAppearanceToPrompts(
-  prompts: SceneIllustrationCharacterPrompt[],
-  appearances: CharacterAppearanceSource[],
-): { prompts: SceneIllustrationCharacterPrompt[]; appliedNames: string[]; remainingAppearanceBlock: string | null } {
-  const appliedNames: string[] = [];
-  const remainingLines: string[] = [];
-  const merged = new Map(prompts.map((entry) => [normalizeAvatarLookupName(entry.name), entry] as const));
-
-  const applyTo = (name: string, appearance: string): boolean => {
-    const key = normalizeAvatarLookupName(name);
-    const caption = merged.get(key);
-    if (!caption) return false;
-    merged.set(key, mergeAppearanceIntoCaption(caption, appearance));
-    if (!appliedNames.includes(caption.name)) appliedNames.push(caption.name);
-    return true;
-  };
-
-  for (const source of appearances) {
-    const appearance = compactText(source.appearance, MAX_CHARACTER_PROMPT_LENGTH);
-    if (!appearance) continue;
-    const segments = prompts.length > 0 ? splitEnsembleAppearance(appearance) : null;
-    if (segments) {
-      for (const segment of segments) {
-        if (segment.appearance) applyTo(segment.name, segment.appearance);
+export function buildCharacterAppearanceReferenceBlock(sources: CharacterAppearanceSource[]): string {
+  const lines: string[] = [];
+  let used = 0;
+  let truncated = false;
+  for (const source of sources) {
+    const text = source.appearance.trim().replace(/\s+/g, " ");
+    if (!text) continue;
+    const segments = splitEnsembleAppearance(text) ?? [{ name: source.name.trim(), appearance: text }];
+    for (const segment of segments) {
+      if (!segment.name || !segment.appearance) continue;
+      const line = `[${segment.name}] ${segment.appearance}`;
+      if (used + line.length > MAX_APPEARANCE_REFERENCE_CHARS) {
+        truncated = true;
+        break;
       }
-      continue;
+      used += line.length;
+      lines.push(line);
     }
-    if (!applyTo(source.name, appearance)) {
-      remainingLines.push(`${source.name}'s Appearance: ${appearance}`);
-    }
+    if (truncated) break;
   }
-
-  return {
-    prompts: prompts.map((entry) => merged.get(normalizeAvatarLookupName(entry.name)) ?? entry),
-    appliedNames,
-    remainingAppearanceBlock: remainingLines.length > 0 ? remainingLines.join("\n") : null,
-  };
+  if (lines.length === 0) return "";
+  return [
+    "<character_appearance_reference>",
+    "Card and persona Appearance fields for this chat, one line per character. Use them only for characters who are visible in the scene.",
+    "Fixed traits (body, face, hair, eyes, skin, markings) go verbatim into that character's caption when they are already Danbooru tags; convert prose into Danbooru tags.",
+    "Clothing and accessory tags here are the character's default outfit. The tracker's current outfit or what the scene describes overrides them; drop the default clothing tags when it does.",
+    "Do not repeat these traits in the base prompt.",
+    ...lines,
+    truncated ? "(Reference truncated: remaining characters omitted.)" : "",
+    "</character_appearance_reference>",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

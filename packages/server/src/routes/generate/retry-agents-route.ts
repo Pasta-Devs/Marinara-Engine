@@ -107,7 +107,7 @@ import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { runImageGenerationRequest } from "../../services/image/image-generation-queue.js";
 import { generateIllustratorImageVariants } from "../../services/image/illustrator-image-variants.js";
 import {
-  applyCharacterAppearanceToPrompts,
+  buildCharacterAppearanceReferenceBlock,
   readCharacterPrompts,
   resolveNovelAiCharacterPromptLimit,
   supportsNovelAiCharacterPrompts,
@@ -585,11 +585,29 @@ async function executeManualIllustratorPromptRequest(args: {
       chatMode: args.chat.mode,
       chatMetadata: args.chatMeta,
     });
+    const manualAttachCardAppearance =
+      typeof args.chatMeta.illustratorIncludeCharacterAppearance === "boolean"
+        ? args.chatMeta.illustratorIncludeCharacterAppearance
+        : args.illustratorEntry.resolved.settings.includeCharacterAppearance === true;
+    const manualCharacterPromptInstruction =
+      characterPromptInstruction && manualAttachCardAppearance
+        ? [
+            characterPromptInstruction,
+            buildCharacterAppearanceReferenceBlock([
+              ...args.agentContext.characters.map((char) => ({ name: char.name, appearance: char.appearance ?? "" })),
+              ...(args.agentContext.persona
+                ? [{ name: args.agentContext.persona.name, appearance: args.agentContext.persona.appearance ?? "" }]
+                : []),
+            ]),
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : characterPromptInstruction;
     const generated = await writeManualIllustratorPromptPlan({
       illustratorAgent: args.illustratorEntry.resolved,
       context: args.agentContext,
       styleInstruction,
-      characterPromptInstruction: characterPromptInstruction || undefined,
+      characterPromptInstruction: manualCharacterPromptInstruction || undefined,
       imagePromptInstructions: normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions) ?? undefined,
       signal: args.agentContext.signal,
       debugLog: (message, ...values) => logDebugOverride(args.debugMode || isDebugAgentsEnabled(), message, ...values),
@@ -3390,7 +3408,7 @@ async function applyRetryResultEffects(args: {
             const characterPromptLimit = supportsNovelAiCharacterPrompts(imgConnFull)
               ? resolveNovelAiCharacterPromptLimit(imgModel)
               : 0;
-            let illustratorCharacterPrompts = readCharacterPrompts(
+            const illustratorCharacterPrompts = readCharacterPrompts(
               illData,
               illCharacters.filter((name): name is string => typeof name === "string"),
               characterPromptLimit,
@@ -3537,21 +3555,20 @@ async function applyRetryResultEffects(args: {
             });
             assertRetryActive();
             if (includeCharacterAppearance && referenceResolution.appearanceBlock) {
-              // With native captions, each matched character's appearance rides inside
-              // its own caption so traits cannot leak into the shared base prompt.
-              const appearanceRouting = applyCharacterAppearanceToPrompts(
-                illustratorCharacterPrompts,
-                referenceResolution.appearances,
-              );
-              illustratorCharacterPrompts = appearanceRouting.prompts;
-              if (appearanceRouting.remainingAppearanceBlock) {
-                fullPrompt += `\n\n${appearanceRouting.remainingAppearanceBlock}`;
+              if (illustratorCharacterPrompts.length > 0) {
+                // The prompt writer already received the appearance reference and owns the
+                // captions; appending the card text here would duplicate it into the base prompt.
+                logger.debug(
+                  "[retry-agents] Illustrator character appearance handled by captions for: %s",
+                  referenceResolution.appearanceNames.join(", "),
+                );
+              } else {
+                fullPrompt += `\n\n${referenceResolution.appearanceBlock}`;
+                logger.debug(
+                  "[retry-agents] Illustrator added character appearance notes for: %s",
+                  referenceResolution.appearanceNames.join(", "),
+                );
               }
-              logger.debug(
-                "[retry-agents] Illustrator added character appearance notes for: %s (in captions: %s)",
-                referenceResolution.appearanceNames.join(", "),
-                appearanceRouting.appliedNames.join(", ") || "none",
-              );
             }
             if (useAvatarRefs && referenceResolution.referenceImages.length > 0) {
               if (referenceResolution.referenceLine && !suppressReferencePromptLine)
@@ -4639,9 +4656,15 @@ export async function registerRetryAgentsRoute(
             }),
           );
           if (characterPromptInstruction) {
+            const attachCardAppearance =
+              typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
+                ? chatMeta.illustratorIncludeCharacterAppearance
+                : retryIllustratorPromptAgent.resolved.settings.includeCharacterAppearance === true;
             agentContext.memory._illustratorCharacterPromptInstruction = characterPromptInstruction;
+            if (attachCardAppearance) agentContext.memory._illustratorCaptionAppearanceReference = true;
             if (preGenerationAgentContext) {
               preGenerationAgentContext.memory._illustratorCharacterPromptInstruction = characterPromptInstruction;
+              if (attachCardAppearance) preGenerationAgentContext.memory._illustratorCaptionAppearanceReference = true;
             }
           }
         } catch (error) {

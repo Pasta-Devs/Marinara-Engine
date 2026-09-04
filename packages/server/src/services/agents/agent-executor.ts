@@ -2,6 +2,7 @@
 // Agent Executor — Single & Batched LLM execution
 // ──────────────────────────────────────────────
 import { existsSync, readdirSync, statSync, type Dirent } from "node:fs";
+import { buildCharacterAppearanceReferenceBlock } from "../image/character-prompts.js";
 import { basename, extname, join, relative, resolve } from "node:path";
 import type { BaseLLMProvider, ChatMessage, LLMToolDefinition, LLMToolCall, LLMUsage } from "../llm/base-provider.js";
 import type {
@@ -2623,8 +2624,14 @@ function buildCommittedTrackerStateContext(
  * image connection. The block is already fully formed; it is only passed through
  * when the host set it, so non-NovelAI connections never see the schema extension.
  */
-export function buildIllustratorCharacterPromptInstructionBlock(instruction: unknown): string {
-  return typeof instruction === "string" ? instruction.trim() : "";
+export function buildIllustratorCharacterPromptInstructionBlock(
+  instruction: unknown,
+  appearanceReference?: unknown,
+): string {
+  const block = typeof instruction === "string" ? instruction.trim() : "";
+  if (!block) return "";
+  const reference = typeof appearanceReference === "string" ? appearanceReference.trim() : "";
+  return reference ? `${block}\n${reference}` : block;
 }
 
 export function buildIllustratorImageStyleInstructionBlock(styleInstruction: unknown): string {
@@ -3014,8 +3021,16 @@ function buildAgentExtras(
   }
 
   if (agentTypes.includes("illustrator")) {
+    const appearanceReference =
+      context.memory._illustratorCaptionAppearanceReference === true
+        ? buildCharacterAppearanceReferenceBlock([
+            ...context.characters.map((char) => ({ name: char.name, appearance: char.appearance ?? "" })),
+            ...(context.persona ? [{ name: context.persona.name, appearance: context.persona.appearance ?? "" }] : []),
+          ])
+        : "";
     const characterPromptBlock = buildIllustratorCharacterPromptInstructionBlock(
       context.memory._illustratorCharacterPromptInstruction,
+      appearanceReference,
     );
     if (characterPromptBlock) parts.push(characterPromptBlock);
   }

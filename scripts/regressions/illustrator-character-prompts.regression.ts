@@ -180,56 +180,14 @@ console.log("illustrator character prompts regression passed");
 
 console.log("illustrator character prompts regression (manual + executor) passed");
 
-// Card appearance and tracker outfit feed the captions, not the base prompt.
+// Card appearance reaches the prompt writer as a reference block; the writer decides how to use it.
 {
-  const { applyCharacterAppearanceToPrompts } =
+  const { buildCharacterAppearanceReferenceBlock, splitEnsembleAppearance } =
     await import("../../packages/server/src/services/image/character-prompts.js");
   const sourced = buildIllustratorCharacterPromptInstruction(22);
   assert.match(sourced, /verbatim/i, "Danbooru-tagged card appearance is to be copied verbatim");
   assert.match(sourced, /outfit/i, "clothing is sourced from the tracker outfit");
 
-  const applied = applyCharacterAppearanceToPrompts(
-    [
-      { name: "Imogen McSweeney", prompt: "girl, light smile", position: { x: 0.3, y: 0.5 } },
-      { name: "Vivianne", prompt: "girl, platinum hair, long hair", position: { x: 0.7, y: 0.5 } },
-    ],
-    [
-      { name: "imogen mcsweeney", appearance: "copper hair, green eyes, freckles" },
-      { name: "Vivianne", appearance: "platinum hair, long hair" },
-      { name: "Bartender", appearance: "1boy, adult male, apron" },
-    ],
-  );
-  assert.equal(
-    applied.prompts[0]!.prompt,
-    "girl, light smile, copper hair, green eyes, freckles",
-    "appearance joins the caption",
-  );
-  assert.equal(
-    applied.prompts[1]!.prompt,
-    "girl, platinum hair, long hair",
-    "already-present appearance is not duplicated",
-  );
-  assert.deepEqual(applied.prompts[0]!.position, { x: 0.3, y: 0.5 }, "positions survive the merge");
-  assert.deepEqual(applied.appliedNames, ["Imogen McSweeney", "Vivianne"]);
-  assert.equal(
-    applied.remainingAppearanceBlock,
-    "Bartender's Appearance: 1boy, adult male, apron",
-    "characters without a caption keep the base-prompt appearance line",
-  );
-  assert.equal(
-    applyCharacterAppearanceToPrompts([], [{ name: "Vivianne", appearance: "platinum hair" }]).remainingAppearanceBlock,
-    "Vivianne's Appearance: platinum hair",
-    "no captions means everything stays in the base prompt",
-  );
-}
-
-console.log("illustrator character prompts regression (appearance) passed");
-
-// Ensemble cards keep one Appearance block for several characters as "[NAME] tags | [NAME] tags".
-// Each segment routes to its own caption; nothing from a split card lands in the base prompt.
-{
-  const { applyCharacterAppearanceToPrompts, splitEnsembleAppearance } =
-    await import("../../packages/server/src/services/image/character-prompts.js");
   const ensemble =
     "[MALI] petite, tan, black hair, thong | [DARCIE] 1girl, solo, toned, pale skin, blue hair |, [ZOE] short hair";
   const segments = splitEnsembleAppearance(ensemble);
@@ -241,34 +199,46 @@ console.log("illustrator character prompts regression (appearance) passed");
   assert.equal(segments?.[0]?.appearance, "petite, tan, black hair, thong");
   assert.equal(splitEnsembleAppearance("1girl, solo, red hair"), null, "single-character blocks are not split");
 
-  const routed = applyCharacterAppearanceToPrompts(
-    [
-      { name: "Mali", prompt: "girl, petite, Tan, black hair, grin", position: { x: 0.3, y: 0.5 } },
-      { name: "Darcie", prompt: "girl, blue hair, serious", position: { x: 0.65, y: 0.6 } },
-      { name: "Blake", prompt: "boy, tall", position: { x: 0.15, y: 0.4 } },
-    ],
-    [
-      { name: "Darcie and Mali", appearance: ensemble },
-      { name: "Blake", appearance: "1boy, solo, black hair, green eyes" },
-    ],
+  const block = buildCharacterAppearanceReferenceBlock([
+    { name: "Darcie and Mali", appearance: ensemble },
+    { name: "Blake", appearance: "A tall man with black hair and green eyes." },
+    { name: "Empty", appearance: "   " },
+  ]);
+  assert.match(block, /<character_appearance_reference>/);
+  assert.match(block, /\[MALI\] petite, tan, black hair, thong/, "ensemble segments are listed per character");
+  assert.match(block, /\[DARCIE\] 1girl, solo, toned, pale skin, blue hair/);
+  assert.match(block, /\[ZOE\] short hair/, "every segment is offered; the writer picks who is visible");
+  assert.match(block, /\[Blake\] A tall man with black hair and green eyes\./, "single cards keep their own name");
+  assert.doesNotMatch(block, /\[Empty\]/, "blank appearance fields are skipped");
+  assert.match(block, /verbatim/i, "fixed traits are to be copied verbatim into the caption");
+  assert.match(block, /outfit|clothing/i, "clothing tags are a default the scene or tracker overrides");
+  assert.equal(buildCharacterAppearanceReferenceBlock([]), "", "no appearance means no block");
+
+  const oversized = buildCharacterAppearanceReferenceBlock(
+    Array.from({ length: 40 }, (_, index) => ({ name: `Colonist ${index + 1}`, appearance: "x".repeat(400) })),
   );
-  assert.equal(
-    routed.prompts[0]!.prompt,
-    "girl, petite, Tan, black hair, grin, thong",
-    "only tags missing from the caption are appended",
-  );
-  assert.equal(
-    routed.prompts[1]!.prompt,
-    "girl, blue hair, serious, toned, pale skin",
-    "subject-count and solo tags never enter a caption",
-  );
-  assert.equal(routed.prompts[2]!.prompt, "boy, tall, black hair, green eyes");
-  assert.equal(
-    routed.remainingAppearanceBlock,
-    null,
-    "matched ensemble segments and unmatched ones alike stay out of the base prompt",
-  );
-  assert.deepEqual(routed.appliedNames, ["Mali", "Darcie", "Blake"]);
+  assert.ok(oversized.length < 9000, "the reference block is capped so a huge ensemble cannot flood the prompt");
 }
 
-console.log("illustrator character prompts regression (ensemble) passed");
+// The executor composes the instruction and the appearance reference; both are host-resolved.
+{
+  const { buildIllustratorCharacterPromptInstructionBlock } =
+    await import("../../packages/server/src/services/agents/agent-executor.js");
+  const instruction = buildIllustratorCharacterPromptInstruction(22);
+  const composed = buildIllustratorCharacterPromptInstructionBlock(
+    instruction,
+    "<character_appearance_reference>x</character_appearance_reference>",
+  );
+  assert.ok(composed.startsWith(instruction), "instruction comes first");
+  assert.match(composed, /<character_appearance_reference>x<\/character_appearance_reference>$/);
+  assert.equal(
+    buildIllustratorCharacterPromptInstructionBlock(
+      undefined,
+      "<character_appearance_reference>x</character_appearance_reference>",
+    ),
+    "",
+    "no caption instruction means no reference block either",
+  );
+}
+
+console.log("illustrator character prompts regression (appearance reference) passed");
