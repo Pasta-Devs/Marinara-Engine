@@ -674,6 +674,11 @@ export async function conversationRoutes(app: FastifyInstance) {
       // The character owns its schedule; the chat map is only a cache, so a
       // legacy chat-only schedule still counts as existing.
       const existing = readCharacterSchedule(charData) ?? existingSchedules[charId];
+      if (existing && !forceRefresh && charData.extensions?.conversationScheduleAutoRenew === false) {
+        newSchedules[charId] = existing;
+        results[charId] = { status: "renewal_disabled" };
+        continue;
+      }
       if (existing && !forceRefresh && !scheduleNeedsRefresh(existing, scheduleNow)) {
         newSchedules[charId] = existing;
         results[charId] =
@@ -792,8 +797,11 @@ export async function conversationRoutes(app: FastifyInstance) {
       string,
       { status: string; activity: string; schedule?: WeekSchedule; override?: object; lastContact?: string }
     > = {};
+    let needsRefresh = false;
 
     for (const charId of characterIds) {
+      const charRow = await chars.getById(charId);
+      const charData = charRow ? (JSON.parse(charRow.data as string) as CharacterData) : null;
       const schedule = schedules[charId];
       if (!schedule) {
         const { status, activity, override } = getEffectiveCurrentStatus(
@@ -803,14 +811,13 @@ export async function conversationRoutes(app: FastifyInstance) {
           "",
           scheduleNow,
         );
-        const charRow = await chars.getById(charId);
         if (charRow) {
-          const charData = JSON.parse(charRow.data as string) as CharacterData;
-          const currentExtensions = (charData.extensions as Record<string, unknown> | undefined) ?? {};
+          const currentData = charData!;
+          const currentExtensions = (currentData.extensions as Record<string, unknown> | undefined) ?? {};
           // The card's status is global. Only reset it when the character truly
           // has no schedule — if it has one and this chat simply has schedules
           // switched off, writing here would clear presence in every other chat.
-          const characterOwnsSchedule = !!readCharacterSchedule(charData);
+          const characterOwnsSchedule = !!readCharacterSchedule(currentData);
           if (
             !characterOwnsSchedule &&
             (currentExtensions.conversationStatus !== status || currentExtensions.conversationActivity !== activity)
@@ -835,17 +842,21 @@ export async function conversationRoutes(app: FastifyInstance) {
         "free time",
         scheduleNow,
       );
+      if (
+        scheduleNeedsRefresh(schedule, scheduleNow) &&
+        charData?.extensions?.conversationScheduleAutoRenew !== false
+      ) {
+        needsRefresh = true;
+      }
 
       // Sync the character's conversationStatus in the database
-      const charRow = await chars.getById(charId);
       if (charRow) {
-        const charData = JSON.parse(charRow.data as string) as CharacterData;
         if (
-          charData.extensions?.conversationStatus !== status ||
-          charData.extensions?.conversationActivity !== activity
+          charData!.extensions?.conversationStatus !== status ||
+          charData!.extensions?.conversationActivity !== activity
         ) {
           const extensions = {
-            ...(charData.extensions ?? {}),
+            ...(charData!.extensions ?? {}),
             conversationStatus: status,
             conversationActivity: activity,
           };
@@ -860,7 +871,7 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     return reply.send({
       statuses,
-      needsRefresh: Object.values(schedules).some((schedule) => scheduleNeedsRefresh(schedule, scheduleNow)),
+      needsRefresh,
     });
   });
 

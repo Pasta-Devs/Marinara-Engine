@@ -10,7 +10,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getAdjacentScheduleBlocks,
   PROFESSOR_MARI_ID,
@@ -111,6 +111,12 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(null);
   const [generationStates, setGenerationStates] = useState<Record<string, GenerationState>>({});
+
+  useEffect(() => {
+    if (!open) return;
+    setSelected(new Set());
+    setGenerationStates({});
+  }, [open]);
 
   const characters = useMemo(
     () =>
