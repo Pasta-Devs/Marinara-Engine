@@ -39,6 +39,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Context Circle rings now use the configured accent color while keeping a muted background ring for separation across light and dark themes (#5840).
+
 - Marinara Engine no longer gets silently force-killed on Steam Deck during active use (#5838). Games claim most of the Deck's shared memory, and the server used to keep every opened chat in memory until the system killed it without a trace. On SteamOS the server now keeps at most 8 chats in memory by default - the same protection Termux already had. Set `MARINARA_MAX_RESIDENT_CHATS` to raise the cap, or to `0` to turn the cap off. Termux gets the same default built into the server as well, so a typo in the setting can no longer switch that protection off silently.
 
 - Mobile message-action icons no longer keep an iPhone-only hover color after being tapped, and Peek Prompt now shows a readable middle dot between its section and estimated-token totals (#5825).

@@ -1954,7 +1954,7 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
     ]);
     const configuredChromeText = await readCssVariableColor(page, "--marinara-chat-chrome-text");
     expect(configuredChromeText).not.toBe(appAccent);
-    await expect(quickSwitcher.locator("circle").nth(1)).toHaveCSS("stroke", configuredChromeText);
+    await expect(quickSwitcher.locator("circle").nth(1)).toHaveCSS("stroke", appAccent);
     await expect(budget.getByText("Context", { exact: true })).toHaveCSS("color", chromeMuted);
     await expect(budget.getByText(/tokens$/u)).toHaveCSS("color", chromeText);
     await expect(budget.getByRole("progressbar").locator(":scope > div")).toHaveCSS("background-color", appAccent);
