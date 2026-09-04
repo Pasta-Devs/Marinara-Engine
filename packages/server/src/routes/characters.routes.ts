@@ -43,6 +43,7 @@ import { loadImageGenerationUserSettings } from "../services/image/image-generat
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
 import { resolveImagePromptReviewSize } from "../services/image/image-prompt-review.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
+import { buildAvatarPortraitLeadPrompt } from "../services/image/avatar-generation-prompt.js";
 import {
   ConversationCallVideoClipAvatarMismatchError,
   ConversationCallVideoClipNotFoundError,
@@ -503,15 +504,18 @@ const CHARACTER_SHEET_HARD_NEGATIVE_PROMPT =
 async function buildAvatarGenerationPrompt(
   promptOverridesStorage: ReturnType<typeof createPromptOverridesStorage>,
   body: AvatarGenerationBody,
-  profileSubjectTags: string,
+  profile: Pick<ImageStyleProfile, "promptMode" | "subjectTags">,
 ): Promise<string> {
   const name = body.name?.trim() || "Character";
   const appearance = body.appearance?.trim() || name;
   if (body.purpose === "character-sheet") {
     return loadPrompt(promptOverridesStorage, CHARACTERS_REFERENCE_SHEET, { name, appearance });
   }
-  if (profileSubjectTags.trim()) return `Create a polished character avatar portrait for ${name}.`;
-  return `Create a polished character avatar portrait for ${name}. Composition: centered face-and-shoulders portrait, readable expression, clear silhouette, suitable as a chat avatar.`;
+  return buildAvatarPortraitLeadPrompt({
+    name,
+    profileSubjectTags: profile.subjectTags.avatar ?? "",
+    promptMode: profile.promptMode,
+  });
 }
 
 async function resolveAvatarGenerationConnection(app: FastifyInstance, body: AvatarGenerationBody) {
@@ -1130,14 +1134,13 @@ export async function charactersRoutes(app: FastifyInstance) {
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;
     const imageDefaults = resolveConnectionImageDefaults(resolved.conn);
-    const profileSubjectTags =
-      findImageStyleProfile(
-        imageSettings.styleProfiles,
-        body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
-      ).subjectTags[isCharacterSheet ? "illustration" : "avatar"] ?? "";
+    const avatarStyleProfile = findImageStyleProfile(
+      imageSettings.styleProfiles,
+      body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
+    );
     const compiled = compileImagePrompt({
       kind: isCharacterSheet ? "illustration" : "avatar",
-      prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, profileSubjectTags),
+      prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
       userPositive: isCharacterSheet ? undefined : body.appearance,
       styleProfiles: imageSettings.styleProfiles,
       styleProfileId: body.styleProfileId,
@@ -1211,11 +1214,10 @@ export async function charactersRoutes(app: FastifyInstance) {
     const imgSource = conn.imageGenerationSource || imgModel;
     const imgServiceHint = conn.imageService || imgSource;
     const imageDefaults = resolveConnectionImageDefaults(conn);
-    const profileSubjectTags =
-      findImageStyleProfile(
-        imageSettings.styleProfiles,
-        body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
-      ).subjectTags[isCharacterSheet ? "illustration" : "avatar"] ?? "";
+    const avatarStyleProfile = findImageStyleProfile(
+      imageSettings.styleProfiles,
+      body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
+    );
     const imageFallback = await resolveImageConnectionFallback(connections, conn.id);
     const compiled = promptOverride
       ? {
@@ -1224,7 +1226,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         }
       : compileImagePrompt({
           kind: isCharacterSheet ? "illustration" : "avatar",
-          prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, profileSubjectTags),
+          prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
           userPositive: isCharacterSheet ? undefined : body.appearance,
           styleProfiles: imageSettings.styleProfiles,
           styleProfileId: body.styleProfileId,

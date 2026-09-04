@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Avatar "Generate with AI" no longer prepends the prose sentence "Create a polished character avatar portrait for ..." when the active style profile uses Danbooru or tag grammar; the profile's avatar subject tags carry the composition, and a tag-only fallback is used when a tag profile has none. Prose and hybrid profiles are unchanged.
 - Moved Noodle and Slurp image canvas settings out of Engine Settings and into their respective package settings.
 
 - Fixed PNG metadata decompression, Nano Banana full-body image requests, GPT Image 2 OpenRouter routing, capability swipe timestamps, and bounded import uploads.
