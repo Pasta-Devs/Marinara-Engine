@@ -1663,7 +1663,7 @@ export function ChatSidebar() {
         onOpenScheduleManager={() => setScheduleManagerOpen(true)}
       />
 
-      <CharacterScheduleManagerModal open={scheduleManagerOpen} onClose={() => setScheduleManagerOpen(false)} />
+      {scheduleManagerOpen && <CharacterScheduleManagerModal open onClose={() => setScheduleManagerOpen(false)} />}
 
       {/* ── Delete Branch Modal ── */}
       <Modal

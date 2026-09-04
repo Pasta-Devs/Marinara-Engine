@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
   getAdjacentScheduleBlocks,
+  toConversationScheduleWallClockDate,
   PROFESSOR_MARI_ID,
   type ConversationPresenceStatus,
   type WeekSchedule,
@@ -72,10 +73,11 @@ function readCard(row: Record<string, unknown>): ManagerCharacter | null {
   };
 }
 
-function scheduleState(schedule: WeekSchedule | undefined, now = new Date()): "current" | "due" {
+function scheduleState(schedule: WeekSchedule | undefined, timeZone?: string, now = new Date()): "current" | "due" {
   if (!schedule) return "current";
   const weekStart = new Date(schedule.weekStart).getTime();
-  const monday = new Date(now);
+  const wallClockNow = toConversationScheduleWallClockDate(now, timeZone);
+  const monday = new Date(wallClockNow);
   const day = monday.getDay();
   monday.setDate(monday.getDate() - (day === 0 ? 6 : day - 1));
   monday.setHours(0, 0, 0, 0);
@@ -258,6 +260,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
       onEditSchedule={setEditingCharacterId}
       localizeUi={localizeUi}
       generationStates={generationStates}
+      conversationTimeZone={conversationTimeZone}
     />
   );
 
@@ -404,6 +407,7 @@ function CharacterScheduleGroup({
   onEditSchedule,
   localizeUi,
   generationStates,
+  conversationTimeZone,
 }: {
   title: string;
   characters: ManagerCharacter[];
@@ -413,6 +417,7 @@ function CharacterScheduleGroup({
   onEditSchedule: (id: string) => void;
   localizeUi: (key: string, options?: Record<string, unknown>) => string;
   generationStates: Record<string, GenerationState>;
+  conversationTimeZone?: string;
 }) {
   if (!characters.length) return null;
   return (
@@ -421,7 +426,7 @@ function CharacterScheduleGroup({
         {title} <span className="font-normal">({characters.length})</span>
       </h2>
       {characters.map((character) => {
-        const state = scheduleState(character.schedule);
+        const state = scheduleState(character.schedule, conversationTimeZone);
         const currentBlock = character.schedule ? getAdjacentScheduleBlocks(character.schedule).current : null;
         const currentStatus = currentBlock?.status ?? character.conversationStatus;
         const generationState = generationStates[character.id];
