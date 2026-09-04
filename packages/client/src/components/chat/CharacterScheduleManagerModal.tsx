@@ -41,7 +41,7 @@ type ManagerCharacter = {
   autoRenew: boolean;
 };
 
-type GenerationState = "queued" | "generating" | "generated" | "failed";
+type GenerationState = "queued" | "generating" | "generated" | "failed" | "skipped";
 
 function readCard(row: Record<string, unknown>): ManagerCharacter | null {
   const id = typeof row.id === "string" ? row.id : "";
@@ -49,7 +49,9 @@ function readCard(row: Record<string, unknown>): ManagerCharacter | null {
   let data: Record<string, unknown> = row;
   if (typeof row.data === "string") {
     try {
-      data = JSON.parse(row.data) as Record<string, unknown>;
+      const parsed: unknown = JSON.parse(row.data);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+      data = parsed as Record<string, unknown>;
     } catch {
       return null;
     }
@@ -75,13 +77,18 @@ function readCard(row: Record<string, unknown>): ManagerCharacter | null {
 
 function scheduleState(schedule: WeekSchedule | undefined, timeZone?: string, now = new Date()): "current" | "due" {
   if (!schedule) return "current";
-  const weekStart = new Date(schedule.weekStart).getTime();
   const wallClockNow = toConversationScheduleWallClockDate(now, timeZone);
   const monday = new Date(wallClockNow);
   const day = monday.getDay();
   monday.setDate(monday.getDate() - (day === 0 ? 6 : day - 1));
-  monday.setHours(0, 0, 0, 0);
-  return Number.isFinite(weekStart) && monday.getTime() > weekStart ? "due" : "current";
+  const currentMondayKey = Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate());
+  const scheduleDate = new Date(schedule.weekStart);
+  const scheduleMondayKey = Date.UTC(
+    scheduleDate.getUTCFullYear(),
+    scheduleDate.getUTCMonth(),
+    scheduleDate.getUTCDate(),
+  );
+  return Number.isFinite(scheduleMondayKey) && currentMondayKey > scheduleMondayKey ? "due" : "current";
 }
 
 function statusDotClass(status: ConversationPresenceStatus) {
@@ -140,7 +147,10 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
         const row = group as { id: string; name: string; characterIds?: string };
         let memberIds: string[] = [];
         try {
-          memberIds = JSON.parse(row.characterIds ?? "[]") as string[];
+          const parsed = JSON.parse(row.characterIds ?? "[]");
+          memberIds = Array.isArray(parsed)
+            ? parsed.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+            : [];
         } catch {
           /* Ignore malformed legacy groups. */
         }
@@ -182,6 +192,8 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
         if (resultStatus === "generated" || resultStatus === "fresh" || resultStatus === "shared") {
           setGenerationStates((current) => ({ ...current, [id]: "generated" }));
           generatedCount += 1;
+        } else if (resultStatus === "renewal_disabled") {
+          setGenerationStates((current) => ({ ...current, [id]: "skipped" }));
         } else {
           setGenerationStates((current) => ({ ...current, [id]: "failed" }));
           failedCount += 1;
@@ -480,6 +492,8 @@ function CharacterScheduleGroup({
                     <span className="text-[var(--destructive)]">
                       {localizeUi("ui.characters.schedulemanager.failed")}
                     </span>
+                  ) : generationState === "skipped" ? (
+                    localizeUi("ui.characters.schedulemanager.skipped")
                   ) : character.schedule ? (
                     currentBlock?.activity ||
                     (state === "due"

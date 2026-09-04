@@ -2477,6 +2477,7 @@
   "ui.characters.schedulemanager.selectCharacter": "Select {{name}}",
   "ui.characters.schedulemanager.selected": "{{count}} selected",
   "ui.characters.schedulemanager.selectVisible": "Select visible",
+  "ui.characters.schedulemanager.skipped": "Skipped",
   "ui.characters.schedulemanager.title": "Character Schedule Manager",
   "ui.characters.schedulemanager.unscheduled": "Characters without schedules",
   "ui.characters.spritestab.addSprite": "Add Sprite",
