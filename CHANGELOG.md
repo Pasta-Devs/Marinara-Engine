@@ -39,10 +39,14 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Changed
 
+- Updated image processing (including the Termux WASM fallback), Tailwind class merging, Android build tooling, and pinned CI/release actions while retaining compatible runtime and compiler major versions (#5847).
+
 - Simplified the quick Persona switcher to one rounded character disclosure with folder artwork and viewport-safe scrolling.
 - Moved the character picker toggle to Advanced Message Tools.
 
 ### Fixed
+
+- Updated transitive Browserslist, query-string, and URI parsing dependencies to address their current security advisories (#5847).
 
 - Context Circle rings now use the configured accent color while keeping a muted background ring for separation across light and dark themes (#5840).
 
