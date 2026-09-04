@@ -7782,7 +7782,11 @@ test("Gallery Illustrate offers active custom image agents", async ({ page, requ
         }, nextChat.id);
         await expect(page.locator(`[data-chat-mode="${mode}"]`).first()).toBeVisible();
         const gallery = page.getByRole("button", { name: "Gallery", exact: true }).filter({ visible: true });
-        if (!(await gallery.isVisible())) await page.getByRole("button", { name: "More options", exact: true }).click();
+        if (!(await gallery.isVisible())) {
+          await page
+            .getByRole("button", { name: mode === "game" ? "Game actions" : "More options", exact: true })
+            .click();
+        }
         await gallery.click();
         await expect(drawer.getByRole("button", { name: "Open gallery image", exact: true })).toBeVisible();
         await expectMobileGalleryControls(mode);
