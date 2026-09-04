@@ -256,6 +256,9 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
         mobileFullscreen
       >
         <div className="flex min-h-0 flex-col gap-3">
+          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("ui.characters.schedulemanager.description")}
+          </p>
           <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2">
             <Search className="h-4 w-4 text-[var(--muted-foreground)]" />
             <input

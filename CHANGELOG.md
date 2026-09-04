@@ -11,6 +11,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Moved the Conversation schedule manager to a compact icon button beside the activity field and tightened the status selector spacing.
 - Restored avatar placeholders and folder headers in the schedule manager, and increased the manager icon button size.
 - Fixed schedule manager status dots to preserve the character's stored status when no schedule block is active, and matched the manager button size to its neighboring controls.
+- Added a description below the Bulk Character Schedule Manager header that points to each character's individual schedule editor.
 
 - Moved Noodle and Slurp image canvas settings out of Engine Settings and into their respective package settings.
 
