@@ -1,5 +1,4 @@
 import {
-  CalendarClock,
   Check,
   ChevronDown,
   ChevronRight,
@@ -319,10 +318,9 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
             <div className="max-h-[min(60vh,36rem)] space-y-4 overflow-y-auto pr-1">
               {renderGroup(localizeUi("ui.characters.schedulemanager.scheduled"), scheduled)}
               {parsedGroups.map((folder) => {
-                const members = filtered.filter(
-                  (character) => folder.memberIds.includes(character.id) && !character.schedule,
-                );
+                const members = filtered.filter((character) => folder.memberIds.includes(character.id));
                 if (!members.length) return null;
+                const unscheduledMembers = members.filter((character) => !character.schedule);
                 const isExpanded = expandedFolders.has(folder.id);
                 return (
                   <section key={folder.id} className="space-y-2">
@@ -337,7 +335,8 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
                     </button>
                     {isExpanded && (
                       <div className="space-y-4 pl-2">
-                        {renderGroup(localizeUi("ui.characters.schedulemanager.unscheduled"), members)}
+                        {unscheduledMembers.length > 0 &&
+                          renderGroup(localizeUi("ui.characters.schedulemanager.unscheduled"), unscheduledMembers)}
                       </div>
                     )}
                   </section>
@@ -434,7 +433,9 @@ function CharacterScheduleGroup({
                 style={getAvatarCropStyle(character.avatarCrop as Parameters<typeof getAvatarCropStyle>[0])}
               />
             ) : (
-              <CalendarClock className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+              <div className="mari-avatar-placeholder mari-avatar-placeholder--character flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+                {character.name.trim().charAt(0).toUpperCase() || "?"}
+              </div>
             )}
             <button
               type="button"
