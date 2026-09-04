@@ -25,6 +25,7 @@ import {
   Tag,
   Loader2,
   PhoneIncoming,
+  CalendarClock,
 } from "lucide-react";
 import { useBulkExportChats, useChats, useCreateChat, useDeleteChat, useDeleteChatGroup } from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
@@ -77,6 +78,7 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
 import { ChatModeIcon } from "../chat/ChatModeIcon";
+import { CharacterScheduleManagerModal } from "../chat/CharacterScheduleManagerModal";
 
 type ChatSortOption = "recent" | "newest" | "oldest" | "name-asc" | "name-desc";
 const CHAT_LIST_PAGE_SIZE = 100;
@@ -270,6 +272,7 @@ export function ChatSidebar() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<"conversation" | "roleplay" | "game">("conversation");
+  const [scheduleManagerOpen, setScheduleManagerOpen] = useState(false);
   const [visibleChatLimit, setVisibleChatLimit] = useState(CHAT_LIST_PAGE_SIZE);
   const [deleteTarget, setDeleteTarget] = useState<{
     chatId: string;
@@ -1655,7 +1658,19 @@ export function ChatSidebar() {
       />
 
       {/* ── User Status Selector ── */}
+      {activeTab === "conversation" && (
+        <button
+          type="button"
+          onClick={() => setScheduleManagerOpen(true)}
+          className="mx-3 mb-2 inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
+        >
+          <CalendarClock size="0.875rem" />
+          {localizeUi("ui.layout.chatsidebar.characterScheduleManager")}
+        </button>
+      )}
       <UserStatusFooter />
+
+      <CharacterScheduleManagerModal open={scheduleManagerOpen} onClose={() => setScheduleManagerOpen(false)} />
 
       {/* ── Delete Branch Modal ── */}
       <Modal
