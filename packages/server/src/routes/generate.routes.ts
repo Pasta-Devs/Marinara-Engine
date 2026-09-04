@@ -137,6 +137,7 @@ import {
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
 import {
+  applyCharacterAppearanceToPrompts,
   readCharacterPrompts,
   resolveNovelAiCharacterPromptLimit,
   supportsNovelAiCharacterPrompts,
@@ -9820,7 +9821,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       const characterPromptLimit = supportsNovelAiCharacterPrompts(imgConnFull)
                         ? resolveNovelAiCharacterPromptLimit(imgModel)
                         : 0;
-                      const illustratorCharacterPrompts = readCharacterPrompts(
+                      let illustratorCharacterPrompts = readCharacterPrompts(
                         illData,
                         illCharacters.filter((name): name is string => typeof name === "string"),
                         characterPromptLimit,
@@ -9941,10 +9942,20 @@ export async function generateRoutes(app: FastifyInstance) {
                         maxReferences: spatialLocationReferenceImage ? 5 : 6,
                       });
                       if (includeCharacterAppearance && referenceResolution.appearanceBlock) {
-                        fullPrompt += `\n\n${referenceResolution.appearanceBlock}`;
+                        // With native captions, each matched character's appearance rides inside
+                        // its own caption so traits cannot leak into the shared base prompt.
+                        const appearanceRouting = applyCharacterAppearanceToPrompts(
+                          illustratorCharacterPrompts,
+                          referenceResolution.appearances,
+                        );
+                        illustratorCharacterPrompts = appearanceRouting.prompts;
+                        if (appearanceRouting.remainingAppearanceBlock) {
+                          fullPrompt += `\n\n${appearanceRouting.remainingAppearanceBlock}`;
+                        }
                         logger.debug(
-                          "[illustrator] Added character appearance notes for: %s",
+                          "[illustrator] Added character appearance notes for: %s (in captions: %s)",
                           referenceResolution.appearanceNames.join(", "),
+                          appearanceRouting.appliedNames.join(", ") || "none",
                         );
                       }
                       if (useAvatarRefs && referenceResolution.referenceImages.length > 0) {

@@ -107,6 +107,7 @@ import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { runImageGenerationRequest } from "../../services/image/image-generation-queue.js";
 import { generateIllustratorImageVariants } from "../../services/image/illustrator-image-variants.js";
 import {
+  applyCharacterAppearanceToPrompts,
   readCharacterPrompts,
   resolveNovelAiCharacterPromptLimit,
   supportsNovelAiCharacterPrompts,
@@ -3389,7 +3390,7 @@ async function applyRetryResultEffects(args: {
             const characterPromptLimit = supportsNovelAiCharacterPrompts(imgConnFull)
               ? resolveNovelAiCharacterPromptLimit(imgModel)
               : 0;
-            const illustratorCharacterPrompts = readCharacterPrompts(
+            let illustratorCharacterPrompts = readCharacterPrompts(
               illData,
               illCharacters.filter((name): name is string => typeof name === "string"),
               characterPromptLimit,
@@ -3536,10 +3537,20 @@ async function applyRetryResultEffects(args: {
             });
             assertRetryActive();
             if (includeCharacterAppearance && referenceResolution.appearanceBlock) {
-              fullPrompt += `\n\n${referenceResolution.appearanceBlock}`;
+              // With native captions, each matched character's appearance rides inside
+              // its own caption so traits cannot leak into the shared base prompt.
+              const appearanceRouting = applyCharacterAppearanceToPrompts(
+                illustratorCharacterPrompts,
+                referenceResolution.appearances,
+              );
+              illustratorCharacterPrompts = appearanceRouting.prompts;
+              if (appearanceRouting.remainingAppearanceBlock) {
+                fullPrompt += `\n\n${appearanceRouting.remainingAppearanceBlock}`;
+              }
               logger.debug(
-                "[retry-agents] Illustrator added character appearance notes for: %s",
+                "[retry-agents] Illustrator added character appearance notes for: %s (in captions: %s)",
                 referenceResolution.appearanceNames.join(", "),
+                appearanceRouting.appliedNames.join(", ") || "none",
               );
             }
             if (useAvatarRefs && referenceResolution.referenceImages.length > 0) {

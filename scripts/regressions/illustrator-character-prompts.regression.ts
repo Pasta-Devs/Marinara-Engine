@@ -196,3 +196,48 @@ console.log("illustrator character prompts regression passed");
 }
 
 console.log("illustrator character prompts regression (manual + executor) passed");
+
+// Card appearance and tracker outfit feed the captions, not the base prompt.
+{
+  const { applyCharacterAppearanceToPrompts } =
+    await import("../../packages/server/src/services/image/character-prompts.js");
+  const sourced = buildIllustratorCharacterPromptInstruction(22);
+  assert.match(sourced, /verbatim/i, "Danbooru-tagged card appearance is to be copied verbatim");
+  assert.match(sourced, /outfit/i, "clothing is sourced from the tracker outfit");
+
+  const applied = applyCharacterAppearanceToPrompts(
+    [
+      { name: "Imogen McSweeney", prompt: "girl, light smile", position: { x: 0.3, y: 0.5 } },
+      { name: "Vivianne", prompt: "girl, platinum hair, long hair", position: { x: 0.7, y: 0.5 } },
+    ],
+    [
+      { name: "imogen mcsweeney", appearance: "copper hair, green eyes, freckles" },
+      { name: "Vivianne", appearance: "platinum hair, long hair" },
+      { name: "Bartender", appearance: "1boy, adult male, apron" },
+    ],
+  );
+  assert.equal(
+    applied.prompts[0]!.prompt,
+    "girl, light smile, copper hair, green eyes, freckles",
+    "appearance joins the caption",
+  );
+  assert.equal(
+    applied.prompts[1]!.prompt,
+    "girl, platinum hair, long hair",
+    "already-present appearance is not duplicated",
+  );
+  assert.deepEqual(applied.prompts[0]!.position, { x: 0.3, y: 0.5 }, "positions survive the merge");
+  assert.deepEqual(applied.appliedNames, ["Imogen McSweeney", "Vivianne"]);
+  assert.equal(
+    applied.remainingAppearanceBlock,
+    "Bartender's Appearance: 1boy, adult male, apron",
+    "characters without a caption keep the base-prompt appearance line",
+  );
+  assert.equal(
+    applyCharacterAppearanceToPrompts([], [{ name: "Vivianne", appearance: "platinum hair" }]).remainingAppearanceBlock,
+    "Vivianne's Appearance: platinum hair",
+    "no captions means everything stays in the base prompt",
+  );
+}
+
+console.log("illustrator character prompts regression (appearance) passed");

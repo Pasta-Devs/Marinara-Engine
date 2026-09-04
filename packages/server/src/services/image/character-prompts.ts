@@ -143,6 +143,8 @@ export function buildIllustratorCharacterPromptInstruction(limit: number): strin
     'When two or more named characters are visible, include exactly one characterPrompts entry for every name in "characters", using the exact same spelling. For zero or one visible character, return an empty characterPrompts array.',
     `Never return more than ${limit} entries. If more characters are visible, keep the most important for this beat and treat the rest as unnamed background.`,
     'Keep "prompt" as the base scene prompt: subject-count tags such as 1girl, 2girls, or 1boy, the shared interaction, camera, composition, environment, lighting, mood, and props. Put character-specific identity, appearance, hair, eyes, build, clothing, expression, pose, and role in that character\'s own prompt so traits never leak between characters.',
+    "Fixed traits come from that character's card or persona Appearance field. If the Appearance field is already written as Danbooru tags, copy those tags verbatim into the caption; if it is prose, convert it into Danbooru tags. Do not restate fixed traits in the base prompt.",
+    "Clothing comes from the tracker's current outfit for that character when one is present, converted into Danbooru tags; otherwise use what the scene describes. Put the clothing tags in the caption, not the base prompt.",
     ...NOVELAI_CHARACTER_PROMPT_RULES,
     "</illustrator_character_prompts>",
   ].join("\n");
@@ -155,4 +157,42 @@ export function readCharacterPrompts(
   limit: number,
 ): SceneIllustrationCharacterPrompt[] {
   return sanitizeCharacterPrompts(data.characterPrompts, characters, limit);
+}
+
+export type CharacterAppearanceSource = { name: string; appearance: string };
+
+/**
+ * Route matched card/persona appearance text into each character's own caption
+ * instead of the base prompt, mirroring the Storyboard renderer. Characters that
+ * have appearance text but no caption keep the classic base-prompt line.
+ */
+export function applyCharacterAppearanceToPrompts(
+  prompts: SceneIllustrationCharacterPrompt[],
+  appearances: CharacterAppearanceSource[],
+): { prompts: SceneIllustrationCharacterPrompt[]; appliedNames: string[]; remainingAppearanceBlock: string | null } {
+  const appliedNames: string[] = [];
+  const remainingLines: string[] = [];
+  const captionByName = new Map(prompts.map((entry) => [normalizeAvatarLookupName(entry.name), entry] as const));
+  const merged = new Map<string, SceneIllustrationCharacterPrompt>();
+
+  for (const source of appearances) {
+    const appearance = compactText(source.appearance, MAX_CHARACTER_PROMPT_LENGTH);
+    if (!appearance) continue;
+    const key = normalizeAvatarLookupName(source.name);
+    const caption = captionByName.get(key);
+    if (!caption) {
+      remainingLines.push(`${source.name}'s Appearance: ${appearance}`);
+      continue;
+    }
+    if (appliedNames.includes(caption.name)) continue;
+    appliedNames.push(caption.name);
+    const alreadyPresent = caption.prompt.toLowerCase().includes(appearance.toLowerCase());
+    merged.set(key, alreadyPresent ? caption : { ...caption, prompt: `${caption.prompt}, ${appearance}` });
+  }
+
+  return {
+    prompts: prompts.map((entry) => merged.get(normalizeAvatarLookupName(entry.name)) ?? entry),
+    appliedNames,
+    remainingAppearanceBlock: remainingLines.length > 0 ? remainingLines.join("\n") : null,
+  };
 }
