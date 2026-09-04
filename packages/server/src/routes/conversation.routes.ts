@@ -613,7 +613,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     if (req.body.timeZone != null && !requestedTimeZone) {
       return reply.status(400).send({ error: "timeZone must be a valid IANA timezone" });
     }
-    if (requestedTimeZone) await rememberConversationTimeZone(requestedTimeZone);
+    if (requestedTimeZone && chatId) await rememberConversationTimeZone(requestedTimeZone);
 
     // Resolve connection (need decrypted API key; "random" is a sentinel, not a persisted connection id)
     const { conn, error: connectionError } = await resolveConversationScheduleConnection(

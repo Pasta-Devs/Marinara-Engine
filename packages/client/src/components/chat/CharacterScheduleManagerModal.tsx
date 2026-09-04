@@ -167,14 +167,23 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
     for (const id of ids) {
       setGenerationStates((current) => ({ ...current, [id]: "generating" }));
       try {
-        await api.post("/conversation/schedule/generate", {
-          ...(activeConversationChat ? { chatId: activeConversationChat.id } : {}),
-          characterIds: [id],
-          forceRefresh: !!characters.find((character) => character.id === id)?.schedule,
-          timeZone: conversationTimeZone,
-        });
-        setGenerationStates((current) => ({ ...current, [id]: "generated" }));
-        generatedCount += 1;
+        const response = await api.post<{ results?: Record<string, { status?: string }> }>(
+          "/conversation/schedule/generate",
+          {
+            ...(activeConversationChat ? { chatId: activeConversationChat.id } : {}),
+            characterIds: [id],
+            forceRefresh: !!characters.find((character) => character.id === id)?.schedule,
+            timeZone: conversationTimeZone,
+          },
+        );
+        const resultStatus = response.results?.[id]?.status ?? "error: missing result";
+        if (resultStatus === "generated" || resultStatus === "fresh" || resultStatus === "shared") {
+          setGenerationStates((current) => ({ ...current, [id]: "generated" }));
+          generatedCount += 1;
+        } else {
+          setGenerationStates((current) => ({ ...current, [id]: "failed" }));
+          failedCount += 1;
+        }
       } catch {
         setGenerationStates((current) => ({ ...current, [id]: "failed" }));
         failedCount += 1;
@@ -327,8 +336,8 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
               {renderGroup(localizeUi("ui.characters.schedulemanager.scheduled"), scheduled)}
               {parsedGroups.map((folder) => {
                 const members = filtered.filter((character) => folder.memberIds.includes(character.id));
-                if (!members.length) return null;
                 const unscheduledMembers = members.filter((character) => !character.schedule);
+                if (!unscheduledMembers.length) return null;
                 const isExpanded = expandedFolders.has(folder.id);
                 return (
                   <section key={folder.id} className="space-y-2">
@@ -339,7 +348,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
                     >
                       {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                       {isExpanded ? <FolderOpen className="h-3.5 w-3.5" /> : <Folder className="h-3.5 w-3.5" />}
-                      {folder.name} <span className="font-normal">({members.length})</span>
+                      {folder.name} <span className="font-normal">({unscheduledMembers.length})</span>
                     </button>
                     {isExpanded && (
                       <div className="space-y-4 pl-2">
