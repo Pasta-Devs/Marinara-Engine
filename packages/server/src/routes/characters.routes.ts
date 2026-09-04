@@ -19,6 +19,7 @@ import {
   PROFESSOR_MARI_ID,
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
   findImageStyleProfile,
+  type ImageStyleProfile,
   MAX_FILE_SIZES,
 } from "@marinara-engine/shared";
 import type { CharacterData, ConversationCallCharacterVideoClipKind, ExportEnvelope } from "@marinara-engine/shared";
