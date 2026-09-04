@@ -9,6 +9,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Character Schedule Manager folders now use the existing read-only collapsible character-group view, matching the quick Persona switcher.
 - Character Schedule Manager now puts scheduled characters above folders and shows queued, active, completed, and failed states during bulk generation.
 - Moved the Conversation schedule manager to a compact icon button beside the activity field and tightened the status selector spacing.
+- Restored avatar placeholders and folder headers in the schedule manager, and increased the manager icon button size.
 
 - Moved Noodle and Slurp image canvas settings out of Engine Settings and into their respective package settings.
 
