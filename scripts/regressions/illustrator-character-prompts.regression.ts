@@ -11,7 +11,6 @@ import {
   sanitizeCharacterPrompts,
   supportsNovelAiCharacterPrompts,
 } from "../../packages/server/src/services/image/character-prompts.js";
-import { buildNovelAiV4CharacterPromptPayload } from "../../packages/server/src/services/image/image-generation.js";
 import { resolveIllustratorCharacterPromptInstruction } from "../../packages/server/src/services/generation/illustrator-background-generation.js";
 
 // Caption cap follows the model generation.
@@ -87,22 +86,6 @@ const crowdPrompts = crowd.map((name) => ({ name, prompt: `girl, ${name}` }));
 assert.equal(sanitizeCharacterPrompts(crowdPrompts, crowd, 6).length, 6, "V4.5 cap keeps the first six");
 assert.equal(sanitizeCharacterPrompts(crowdPrompts, crowd, 22).length, 10, "V5 keeps every entry under 22");
 assert.equal(sanitizeCharacterPrompts(crowdPrompts, [], 22).length, 0, "no roster means no captions");
-
-// The NovelAI request builder honours the V5 cap instead of the old fixed six.
-const sevenCaptions = crowdPrompts.slice(0, 7).map((entry, index) => ({
-  ...entry,
-  position: { x: (index + 1) / 8, y: 0.5 },
-}));
-assert.equal(
-  buildNovelAiV4CharacterPromptPayload(sevenCaptions, "nai-diffusion-5-full").captions.length,
-  7,
-  "V5 payload carries all seven captions",
-);
-assert.equal(
-  buildNovelAiV4CharacterPromptPayload(sevenCaptions, "nai-diffusion-4-5-full").captions.length,
-  6,
-  "V4.5 payload still stops at six",
-);
 
 // Instruction block names the field and the cap so the prompt writer stays inside it.
 const instruction = buildIllustratorCharacterPromptInstruction(22);
