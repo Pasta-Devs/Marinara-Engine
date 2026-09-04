@@ -1658,17 +1658,10 @@ export function ChatSidebar() {
       />
 
       {/* ── User Status Selector ── */}
-      {activeTab === "conversation" && (
-        <button
-          type="button"
-          onClick={() => setScheduleManagerOpen(true)}
-          className="mx-3 mb-2 inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[0.6875rem] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-        >
-          <CalendarClock size="0.875rem" />
-          {localizeUi("ui.layout.chatsidebar.characterScheduleManager")}
-        </button>
-      )}
-      <UserStatusFooter />
+      <UserStatusFooter
+        showScheduleManager={activeTab === "conversation"}
+        onOpenScheduleManager={() => setScheduleManagerOpen(true)}
+      />
 
       <CharacterScheduleManagerModal open={scheduleManagerOpen} onClose={() => setScheduleManagerOpen(false)} />
 
@@ -1951,7 +1944,13 @@ const STATUS_OPTIONS: Array<{
   },
 ];
 
-function UserStatusFooter() {
+function UserStatusFooter({
+  showScheduleManager,
+  onOpenScheduleManager,
+}: {
+  showScheduleManager: boolean;
+  onOpenScheduleManager: () => void;
+}) {
   const { t: localizeUi } = useUiTranslation();
   const userStatus = useUIStore((s) => s.userStatus);
   const userActivity = useUIStore((s) => s.userActivity);
@@ -2044,7 +2043,7 @@ function UserStatusFooter() {
       <div className="flex min-w-0 items-center gap-1.5">
         <button
           onClick={() => setOpen((v) => !v)}
-          className="mari-chrome-control mari-chrome-control--small min-w-0 shrink-0 px-2 py-1.5 max-md:h-9 max-md:min-h-9"
+          className="mari-chrome-control mari-chrome-control--small min-w-0 shrink-0 px-1.5 py-1 max-md:h-9 max-md:min-h-9"
           title={localizeUi("ui.layout.userstatusfooter.changeActivityStatus")}
           aria-label={localizeUi("ui.layout.userstatusfooter.changeActivityStatus")}
         >
@@ -2070,8 +2069,19 @@ function UserStatusFooter() {
           maxLength={120}
           placeholder={localizeUi("ui.layout.userstatusfooter.whatAreYouDoing")}
           aria-label={localizeUi("ui.layout.userstatusfooter.customActivity")}
-          className="mari-chrome-field mari-chrome-field--compact min-w-0 flex-1 px-2 py-1.5 text-xs max-md:h-9 max-md:min-h-9"
+          className="mari-chrome-field mari-chrome-field--compact min-w-0 flex-1 px-2 py-1 text-xs max-md:h-9 max-md:min-h-9"
         />
+        {showScheduleManager && (
+          <button
+            type="button"
+            onClick={onOpenScheduleManager}
+            title={localizeUi("ui.layout.chatsidebar.characterScheduleManager")}
+            aria-label={localizeUi("ui.layout.chatsidebar.characterScheduleManager")}
+            className="mari-chrome-control mari-chrome-control--small ml-1 h-7 w-7 shrink-0 justify-center p-0 max-md:h-9 max-md:min-h-9 max-md:w-9"
+          >
+            <CalendarClock size="0.875rem" />
+          </button>
+        )}
       </div>
     </div>
   );
