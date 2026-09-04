@@ -2504,7 +2504,7 @@ export function SummaryPopover({
                         <div
                           key={range.id}
                           className={cn(
-                            "space-y-1 rounded-md border bg-[var(--background)]/25 px-1.5 py-1",
+                            "space-y-1 min-w-0 rounded-md border bg-[var(--background)]/25 px-0.5 py-1",
                             validationMessage
                               ? "border-[var(--destructive)]/45"
                               : inspection?.overlaps
@@ -2512,9 +2512,9 @@ export function SummaryPopover({
                                 : "border-[var(--border)]/70",
                           )}
                         >
-                          <div className="grid grid-cols-[1.5rem_4.5rem_minmax(3rem,1fr)_4.5rem_1.125rem_auto] items-center gap-1.5">
+                          <div className="grid min-w-0 grid-cols-[1.25rem_4.5rem_minmax(0,1fr)_4.5rem_1rem_1rem] items-center gap-0.5">
                             <span
-                              className="flex h-7 items-center justify-center text-sm font-bold tabular-nums text-[var(--foreground)]"
+                              className="flex h-7 w-4 items-center justify-center p-0 text-sm font-bold tabular-nums text-[var(--foreground)]"
                               aria-label={localizeUi("ui.chat.summarypopover.batchRangeNumber", {
                                 number: rangeIndex + 1,
                               })}
@@ -2537,7 +2537,7 @@ export function SummaryPopover({
                                   rangeInputFocused.current = false;
                                 }}
                                 className={cn(
-                                  "h-7 w-[4.5rem] rounded-md bg-[var(--card)] px-1.5 text-center text-xs tabular-nums text-[var(--foreground)] ring-1 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60",
+                                  "h-7 w-full max-w-[4.5rem] rounded-md bg-[var(--card)] px-1 text-center text-xs tabular-nums text-[var(--foreground)] ring-1 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60",
                                   inspection?.overlaps
                                     ? "ring-amber-500/70"
                                     : validationMessage
@@ -2568,7 +2568,7 @@ export function SummaryPopover({
                                   rangeInputFocused.current = false;
                                 }}
                                 className={cn(
-                                  "h-7 w-[4.5rem] rounded-md bg-[var(--card)] px-1.5 text-center text-xs tabular-nums text-[var(--foreground)] ring-1 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60",
+                                  "h-7 w-full max-w-[4.5rem] rounded-md bg-[var(--card)] px-1 text-center text-xs tabular-nums text-[var(--foreground)] ring-1 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60",
                                   inspection?.overlaps
                                     ? "ring-amber-500/70"
                                     : validationMessage
@@ -2583,13 +2583,13 @@ export function SummaryPopover({
                             {range.status === "success" && (
                               <Check
                                 size="0.8125rem"
-                                className="shrink-0 text-emerald-500"
+                                className="justify-self-center text-emerald-500"
                                 aria-label={statusMessage}
                               />
                             )}
                             {range.status === "failed" && (
                               <div
-                                className="relative flex h-5 w-4 items-center justify-center"
+                                className="relative flex h-5 w-4 items-center justify-center justify-self-center p-0"
                                 onMouseEnter={() => setBatchErrorInfoId(range.id)}
                                 onMouseLeave={() => setBatchErrorInfoId(null)}
                               >
@@ -2598,7 +2598,7 @@ export function SummaryPopover({
                                   onClick={() =>
                                     setBatchErrorInfoId((current) => (current === range.id ? null : range.id))
                                   }
-                                  className="rounded-full p-0.5 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 focus:outline-none focus:ring-1 focus:ring-[var(--destructive)]"
+                                  className="rounded-full p-0 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 focus:outline-none focus:ring-1 focus:ring-[var(--destructive)]"
                                   aria-label={localizeUi("ui.chat.summarypopover.batchShowError", {
                                     number: rangeIndex + 1,
                                   })}
@@ -2619,15 +2619,18 @@ export function SummaryPopover({
                             {range.status === "running" && (
                               <Loader2
                                 size="0.8125rem"
-                                className="h-4 w-4 shrink-0 animate-spin text-[var(--primary)]"
+                                className="h-4 w-4 shrink-0 animate-spin justify-self-center text-[var(--primary)]"
                                 aria-label={statusMessage}
                               />
+                            )}
+                            {(range.status === "pending" || range.status === "cancelled") && (
+                              <span className="h-4 w-4" aria-hidden="true" />
                             )}
                             <button
                               type="button"
                               onClick={() => handleRemoveBatchRange(range.id)}
                               disabled={isBatchGenerating || batchRanges.length === 1}
-                              className="rounded-md p-1 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:cursor-not-allowed disabled:opacity-30"
+                              className="justify-self-center rounded-md p-0 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:cursor-not-allowed disabled:opacity-30"
                               title={localizeUi("ui.chat.summarypopover.batchRemoveRange")}
                               aria-label={localizeUi("ui.chat.summarypopover.batchRemoveRangeNumber", {
                                 number: rangeIndex + 1,

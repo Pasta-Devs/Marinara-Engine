@@ -206,8 +206,18 @@ assert.match(summaryPopoverSource, /chat\.summary\.source\.batchRanges/u);
 assert.match(summaryPopoverSource, /chat\.summary\.source\.batchMessages/u);
 assert.match(
   summaryPopoverSource,
-  /grid-cols-\[1\.5rem_4\.5rem_minmax\(3rem,1fr\)_4\.5rem_1\.125rem_auto\]/u,
-  "Range controls should keep the number left and the separator centered",
+  /grid-cols-\[1\.25rem_4\.5rem_minmax\(0,1fr\)_4\.5rem_1rem_1rem\].*?gap-0\.5/u,
+  "Range controls should keep the number left and the separator centered within the card",
+);
+assert.match(
+  summaryPopoverSource,
+  /range\.status === "pending" \|\| range\.status === "cancelled"[\s\S]*?h-4 w-4[\s\S]*?<button/u,
+  "Pending ranges should reserve the status column so the remove button stays inside the card",
+);
+assert.match(
+  summaryPopoverSource,
+  /className="rounded-full p-0 text-\[var\(--destructive\)\]/u,
+  "The failed status control should fit inside its compact status column",
 );
 assert.doesNotMatch(
   summaryPopoverSource,
