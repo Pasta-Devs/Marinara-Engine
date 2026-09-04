@@ -13,7 +13,6 @@ import {
 import { useMemo, useState } from "react";
 import {
   getAdjacentScheduleBlocks,
-  getCurrentStatus,
   PROFESSOR_MARI_ID,
   type ConversationPresenceStatus,
   type WeekSchedule,
@@ -405,8 +404,8 @@ function CharacterScheduleGroup({
       </h2>
       {characters.map((character) => {
         const state = scheduleState(character.schedule);
-        const current = character.schedule ? getCurrentStatus(character.schedule) : null;
         const currentBlock = character.schedule ? getAdjacentScheduleBlocks(character.schedule).current : null;
+        const currentStatus = currentBlock?.status ?? character.conversationStatus;
         const generationState = generationStates[character.id];
         return (
           <div
@@ -446,9 +445,7 @@ function CharacterScheduleGroup({
               <p className="truncate text-sm font-medium">{character.name}</p>
               <p className="truncate text-xs text-[var(--muted-foreground)]">
                 <span className="inline-flex items-center gap-1.5">
-                  <span
-                    className={`h-2 w-2 rounded-full ${statusDotClass(current?.status ?? character.conversationStatus)}`}
-                  />
+                  <span className={`h-2 w-2 rounded-full ${statusDotClass(currentStatus)}`} />
                   {generationState === "generating" ? (
                     <span className="inline-flex items-center gap-1.5">
                       <Loader2 className="h-3 w-3 animate-spin" />
