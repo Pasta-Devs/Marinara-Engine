@@ -206,8 +206,13 @@ assert.match(summaryPopoverSource, /chat\.summary\.source\.batchRanges/u);
 assert.match(summaryPopoverSource, /chat\.summary\.source\.batchMessages/u);
 assert.match(
   summaryPopoverSource,
-  /grid-cols-\[4\.5rem_minmax\(3rem,1fr\)_4\.5rem_1\.125rem_auto\]/u,
-  "Range controls should keep a stable centered range cluster",
+  /grid-cols-\[1\.5rem_4\.5rem_minmax\(3rem,1fr\)_4\.5rem_1\.125rem_auto\]/u,
+  "Range controls should keep the number left and the separator centered",
+);
+assert.doesNotMatch(
+  summaryPopoverSource,
+  /batchRangeCount.*batchRanges\.length/u,
+  "The footer should not display a separate batch range count",
 );
 assert.match(
   summaryPopoverSource,

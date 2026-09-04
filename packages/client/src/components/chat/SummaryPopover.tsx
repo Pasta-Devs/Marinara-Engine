@@ -2512,7 +2512,15 @@ export function SummaryPopover({
                                 : "border-[var(--border)]/70",
                           )}
                         >
-                          <div className="grid grid-cols-[4.5rem_minmax(3rem,1fr)_4.5rem_1.125rem_auto] items-center gap-1.5">
+                          <div className="grid grid-cols-[1.5rem_4.5rem_minmax(3rem,1fr)_4.5rem_1.125rem_auto] items-center gap-1.5">
+                            <span
+                              className="flex h-7 items-center justify-center text-sm font-bold tabular-nums text-[var(--foreground)]"
+                              aria-label={localizeUi("ui.chat.summarypopover.batchRangeNumber", {
+                                number: rangeIndex + 1,
+                              })}
+                            >
+                              {rangeIndex + 1}
+                            </span>
                             <label className="min-w-0 justify-self-center text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                               <span className="sr-only">{localizeUi("ui.chat.summarypopover.from")}</span>
                               <input
@@ -2541,21 +2549,8 @@ export function SummaryPopover({
                                 })}
                               />
                             </label>
-                            <div
-                              className="flex items-center justify-center gap-1.5"
-                              aria-label={localizeUi("ui.chat.summarypopover.batchRangeNumber", {
-                                number: rangeIndex + 1,
-                              })}
-                            >
-                              <span className="text-sm font-bold tabular-nums text-[var(--foreground)]">
-                                {rangeIndex + 1}
-                              </span>
-                              <span
-                                className="text-sm font-bold leading-none text-[var(--foreground)]"
-                                aria-hidden="true"
-                              >
-                                -
-                              </span>
+                            <div className="flex h-7 items-center justify-center" aria-hidden="true">
+                              <span className="text-base font-bold leading-none text-[var(--foreground)]">-</span>
                             </div>
                             <label className="min-w-0 justify-self-center text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                               <span className="sr-only">{localizeUi("ui.chat.summarypopover.to")}</span>
@@ -2677,9 +2672,6 @@ export function SummaryPopover({
                     {localizeUi("ui.chat.summarypopover.batchAddRange")}
                   </button>
                   <div className="flex flex-wrap items-center justify-end gap-1">
-                    <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                      {localizeUi("ui.chat.summarypopover.batchRangeCount", { count: batchRanges.length })}
-                    </span>
                     {batchCompletedRanges.length > 0 && (
                       <button
                         type="button"

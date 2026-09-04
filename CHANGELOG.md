@@ -11,6 +11,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Added a compact responsive batch-summary range list with a control to clear completed ranges while retaining retryable ones.
 - Added a clear-all-except-one batch range action, clearer range separators and numbering, and compact failure details behind a visible warning control.
 - Batch mode now identifies multiple ranges in the source summary and shows their combined message count.
+- Batch range rows now keep their number left-aligned and their separator centered between the message inputs.
 
 - Fixed PNG metadata decompression, Nano Banana full-body image requests, GPT Image 2 OpenRouter routing, capability swipe timestamps, and bounded import uploads.
 - Allowed trusted backend scheduler calls to execute their own capability routes without a browser `X-Admin-Secret`, while keeping external package route requests protected.
