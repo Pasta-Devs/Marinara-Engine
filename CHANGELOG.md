@@ -46,6 +46,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Mobile Roleplay keeps composer boundary drags inside the input, avoids animated press transforms on message actions, opens older-message editors at their beginning, and returns the reopened Echo Chamber to its latest message (#5851).
+- Mobile galleries keep generation labels and image actions within their available width, use neutral Delete controls, and give the Local Speech Model selector consistent spacing. Desktop layouts are unchanged (#5851).
+
 - Updated transitive Browserslist, query-string, and URI parsing dependencies to address their current security advisories (#5847).
 
 - Context Circle rings now use the configured accent color while keeping a muted background ring for separation across light and dark themes (#5840).

@@ -337,6 +337,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   // ── Compute position style relative to the chat area container ──
   const [posStyle, setPosStyle] = useState<CSSProperties>({});
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const mobileCollapsed = isMobile && !echoChamberOpen;
   const resizeFromLeft = !isMobile && echoChamberSide.endsWith("right");
   const resizeFromTop = !isMobile && echoChamberSide.startsWith("bottom");
 
@@ -545,7 +546,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   }, [echoEnabled, echoChamberSide, trackerPanelEnabled, trackerPanelOpen, trackerPanelSide]);
 
   useEffect(() => {
-    if (!echoEnabled || (isMobile && hiddenOnMobile)) return;
+    if (!echoEnabled || (isMobile && hiddenOnMobile) || mobileCollapsed) return;
 
     let frame = window.requestAnimationFrame(() => {
       frame = window.requestAnimationFrame(() => {
@@ -556,7 +557,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [echoEnabled, hiddenOnMobile, isMobile]);
+  }, [echoEnabled, hiddenOnMobile, isMobile, mobileCollapsed]);
 
   if (!echoEnabled || (isMobile && hiddenOnMobile)) return null;
   const visibleMessages = echoMessages.slice(0, visibleCount);
