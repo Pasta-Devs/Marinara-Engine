@@ -42,6 +42,8 @@ type ManagerCharacter = {
   autoRenew: boolean;
 };
 
+type GenerationState = "queued" | "generating" | "generated" | "failed";
+
 function readCard(row: Record<string, unknown>): ManagerCharacter | null {
   const id = typeof row.id === "string" ? row.id : "";
   if (!id || id === PROFESSOR_MARI_ID) return null;
@@ -99,7 +101,7 @@ interface Props {
 
 export function CharacterScheduleManagerModal({ open, onClose }: Props) {
   const { t: localizeUi } = useUiTranslation();
-  const { data: rows, isLoading } = useCharacters(open);
+  const { data: rows, isLoading, refetch: refetchCharacters } = useCharacters(open);
   const { data: chats } = useChats();
   const { data: groups } = useCharacterGroups();
   const updateCharacter = useUpdateCharacter();
@@ -110,6 +112,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
   const [working, setWorking] = useState<"generate" | "remove" | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(null);
+  const [generationStates, setGenerationStates] = useState<Record<string, GenerationState>>({});
 
   const characters = useMemo(
     () =>
@@ -154,22 +157,35 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
     const ids = Array.from(selected);
     if (!ids.length) return;
     setWorking("generate");
-    try {
-      await api.post("/conversation/schedule/generate", {
-        ...(activeConversationChat ? { chatId: activeConversationChat.id } : {}),
-        characterIds: ids,
-        forceRefresh: ids.some((id) => characters.find((character) => character.id === id)?.schedule),
-        timeZone: conversationTimeZone,
-      });
-      toast.success(localizeUi("ui.characters.schedulemanager.schedulesGenerated"));
-      setSelected(new Set());
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : localizeUi("ui.characters.schedulemanager.generationFailed"),
-      );
-    } finally {
-      setWorking(null);
+    setGenerationStates(Object.fromEntries(ids.map((id) => [id, "queued" as const])));
+    let generatedCount = 0;
+    let failedCount = 0;
+    for (const id of ids) {
+      setGenerationStates((current) => ({ ...current, [id]: "generating" }));
+      try {
+        await api.post("/conversation/schedule/generate", {
+          ...(activeConversationChat ? { chatId: activeConversationChat.id } : {}),
+          characterIds: [id],
+          forceRefresh: !!characters.find((character) => character.id === id)?.schedule,
+          timeZone: conversationTimeZone,
+        });
+        setGenerationStates((current) => ({ ...current, [id]: "generated" }));
+        generatedCount += 1;
+      } catch {
+        setGenerationStates((current) => ({ ...current, [id]: "failed" }));
+        failedCount += 1;
+      }
     }
+    await refetchCharacters();
+    toast[failedCount > 0 ? "error" : "success"](
+      failedCount > 0
+        ? localizeUi("ui.characters.schedulemanager.generationSummary", {
+            generated: generatedCount,
+            failed: failedCount,
+          })
+        : localizeUi("ui.characters.schedulemanager.schedulesGenerated"),
+    );
+    setWorking(null);
   };
 
   const remove = async () => {
@@ -228,6 +244,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
       onAutoRenew={setAutoRenew}
       onEditSchedule={setEditingCharacterId}
       localizeUi={localizeUi}
+      generationStates={generationStates}
     />
   );
 
@@ -300,8 +317,11 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
             <Loader2 className="mx-auto my-8 h-5 w-5 animate-spin" />
           ) : (
             <div className="max-h-[min(60vh,36rem)] space-y-4 overflow-y-auto pr-1">
+              {renderGroup(localizeUi("ui.characters.schedulemanager.scheduled"), scheduled)}
               {parsedGroups.map((folder) => {
-                const members = filtered.filter((character) => folder.memberIds.includes(character.id));
+                const members = filtered.filter(
+                  (character) => folder.memberIds.includes(character.id) && !character.schedule,
+                );
                 if (!members.length) return null;
                 const isExpanded = expandedFolders.has(folder.id);
                 return (
@@ -317,25 +337,12 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
                     </button>
                     {isExpanded && (
                       <div className="space-y-4 pl-2">
-                        {renderGroup(
-                          localizeUi("ui.characters.schedulemanager.scheduled"),
-                          members.filter((character) => character.schedule),
-                        )}
-                        {renderGroup(
-                          localizeUi("ui.characters.schedulemanager.unscheduled"),
-                          members.filter((character) => !character.schedule),
-                        )}
+                        {renderGroup(localizeUi("ui.characters.schedulemanager.unscheduled"), members)}
                       </div>
                     )}
                   </section>
                 );
               })}
-              {renderGroup(
-                localizeUi("ui.characters.schedulemanager.scheduled"),
-                scheduled.filter(
-                  (character) => !parsedGroups.some((folder) => folder.memberIds.includes(character.id)),
-                ),
-              )}
               {renderGroup(
                 localizeUi("ui.characters.schedulemanager.unscheduled"),
                 unscheduled.filter(
@@ -380,6 +387,7 @@ function CharacterScheduleGroup({
   onAutoRenew,
   onEditSchedule,
   localizeUi,
+  generationStates,
 }: {
   title: string;
   characters: ManagerCharacter[];
@@ -388,6 +396,7 @@ function CharacterScheduleGroup({
   onAutoRenew: (character: ManagerCharacter, value: boolean) => void;
   onEditSchedule: (id: string) => void;
   localizeUi: (key: string, options?: Record<string, unknown>) => string;
+  generationStates: Record<string, GenerationState>;
 }) {
   if (!characters.length) return null;
   return (
@@ -399,6 +408,7 @@ function CharacterScheduleGroup({
         const state = scheduleState(character.schedule);
         const current = character.schedule ? getCurrentStatus(character.schedule) : null;
         const currentBlock = character.schedule ? getAdjacentScheduleBlocks(character.schedule).current : null;
+        const generationState = generationStates[character.id];
         return (
           <div
             key={character.id}
@@ -438,12 +448,25 @@ function CharacterScheduleGroup({
                   <span
                     className={`h-2 w-2 rounded-full ${statusDotClass(current?.status ?? character.conversationStatus)}`}
                   />
-                  {character.schedule
-                    ? currentBlock?.activity ||
-                      (state === "due"
-                        ? localizeUi("ui.characters.schedulemanager.needsRenewal")
-                        : localizeUi("ui.characters.schedulemanager.noCurrentBlock"))
-                    : localizeUi("ui.characters.schedulemanager.noSchedule")}
+                  {generationState === "generating" ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {localizeUi("ui.characters.schedulemanager.generating")}
+                    </span>
+                  ) : generationState === "queued" ? (
+                    localizeUi("ui.characters.schedulemanager.queued")
+                  ) : generationState === "failed" ? (
+                    <span className="text-[var(--destructive)]">
+                      {localizeUi("ui.characters.schedulemanager.failed")}
+                    </span>
+                  ) : character.schedule ? (
+                    currentBlock?.activity ||
+                    (state === "due"
+                      ? localizeUi("ui.characters.schedulemanager.needsRenewal")
+                      : localizeUi("ui.characters.schedulemanager.noCurrentBlock"))
+                  ) : (
+                    localizeUi("ui.characters.schedulemanager.noSchedule")
+                  )}
                 </span>
               </p>
             </button>
