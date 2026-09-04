@@ -18,6 +18,7 @@ import {
   isClaudeAdaptiveOnlyNoSamplingModel,
   isOpenAIGpt56Model,
   isOpenAIGpt56SolProAlias,
+  isOpenAIGpt6AstraModel,
   isXaiAutoReasoningModel,
   isXaiConfigurableReasoningModel,
   resolveOpenAIGpt56ModelForRequest,
@@ -32,8 +33,8 @@ import {
 } from "./glm-request-compat.js";
 
 /**
- * Models that ONLY support the Responses API (`/responses`) and not Chat Completions.
- * GPT-5.6, GPT-5.5, GPT-5.4 variants (base, pro, mini, dated snapshots), and Codex models use Responses.
+ * Models routed through the Responses API (`/responses`).
+ * Astra requires Responses for tool calling; GPT-5.6, GPT-5.5, GPT-5.4 variants and Codex also use it.
  * Matching is case-insensitive.
  */
 const RESPONSES_ONLY_PREFIXES = ["gpt-5.6", "gpt-5.5", "gpt-5.4", "codex-"];
@@ -615,9 +616,9 @@ export class OpenAIProvider extends BaseLLMProvider {
     return model.toLowerCase().startsWith("gpt-5.5");
   }
 
-  private isOpenAIGpt55Or56Model(model: string): boolean {
+  private isOpenAINoSamplingModel(model: string): boolean {
     const normalized = model.toLowerCase();
-    return normalized.startsWith("gpt-5.5") || isOpenAIGpt56Model(normalized);
+    return normalized.startsWith("gpt-5.5") || isOpenAIGpt56Model(normalized) || isOpenAIGpt6AstraModel(normalized);
   }
 
   private isResponsesStreamingUnsupportedModel(model: string): boolean {
@@ -629,9 +630,9 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   /** Check if a model ID represents an OpenAI reasoning model */
   private isReasoningModel(model: string): boolean {
-    if (this.isGenericCustomProvider() && !this.isOpenAIGpt55Or56Model(model)) return false;
+    if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model)) return false;
     const m = model.toLowerCase();
-    return /^(o1|o3|o4)/.test(m) || m.startsWith("gpt-5");
+    return /^(o1|o3|o4)/.test(m) || m.startsWith("gpt-5") || isOpenAIGpt6AstraModel(m);
   }
 
   private isXAIEndpoint(): boolean {
@@ -695,15 +696,14 @@ export class OpenAIProvider extends BaseLLMProvider {
   /**
    * Check if a model/config does NOT support temperature/topP.
    * o-series models never do.
-   * GPT-5.6/GPT-5.5 reject sampling params entirely; older GPT-5.x models only
+   * Astra and GPT-5.6/GPT-5.5 reject sampling params entirely; older GPT-5.x models only
    * reject them when reasoning effort is active.
    */
   private isNoTemperatureModel(model: string, reasoningEffort?: string): boolean {
-    if (this.isGenericCustomProvider() && !this.isOpenAIGpt55Or56Model(model)) return false;
+    if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model)) return false;
     const m = model.toLowerCase();
     if (/^(o1|o3|o4)/.test(m)) return true;
-    if (isOpenAIGpt56Model(m)) return true;
-    if (this.isGpt55Model(model)) return true;
+    if (this.isOpenAINoSamplingModel(m)) return true;
     if (m.startsWith("gpt-5") && reasoningEffort && reasoningEffort !== "none") return true;
     // Claude adaptive-only models forbid all sampling params (covers reverse proxies).
     if (isClaudeAdaptiveOnlyNoSamplingModel(m)) return true;
@@ -724,6 +724,13 @@ export class OpenAIProvider extends BaseLLMProvider {
     removeUnlessExplicit("min_p");
     removeUnlessExplicit("frequency_penalty");
     removeUnlessExplicit("presence_penalty");
+    if (isOpenAIGpt6AstraModel(options.model)) {
+      removeUnlessExplicit("logprobs");
+      removeUnlessExplicit("top_logprobs");
+      if (!this.isGenericCustomProvider() && Array.isArray(body.include)) {
+        body.include = body.include.filter((value) => value !== "message.output_text.logprobs");
+      }
+    }
   }
 
   private hasActiveReasoningEffort(reasoningEffort?: string | null): boolean {
@@ -834,6 +841,10 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private applyChatCompletionsReasoning(body: Record<string, unknown>, options: ChatOptions): void {
+    if (isOpenAIGpt6AstraModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
+      body.reasoning_effort = "low";
+      return;
+    }
     if (this.isNativeXAIConfigurableReasoningModel(options.model)) {
       const effort = this.resolveXAIReasoningEffort(options.reasoningEffort);
       if (effort && (effort !== "none" || this.supportsXAIReasoningDisable(options.model))) {
@@ -967,6 +978,9 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
 
     const reasoning: Record<string, unknown> = {};
+    if (isOpenAIGpt6AstraModel(options.model) && this.hasExplicitReasoningDisable(options.reasoningEffort)) {
+      reasoning.effort = "low";
+    }
     if (
       this.hasExplicitReasoningDisable(options.reasoningEffort) &&
       this.supportsOpenAIReasoningDisable(options.model)
@@ -983,7 +997,10 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (isOpenAIGpt56SolProAlias(normalizedModel)) {
       reasoning.mode = "pro";
     }
-    if (isOpenAIGpt56Model(normalizedModel) && options.excludePastReasoning !== undefined) {
+    if (
+      (isOpenAIGpt56Model(normalizedModel) || isOpenAIGpt6AstraModel(normalizedModel)) &&
+      options.excludePastReasoning !== undefined
+    ) {
       reasoning.context = options.excludePastReasoning ? "current_turn" : "all_turns";
     }
     if (!this.hasExplicitReasoningDisable(options.reasoningEffort)) {
@@ -1002,7 +1019,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     // (max_completion_tokens, temperature suppression) still apply via
     // isReasoningModel / isNoTemperatureModel which have their own GPT-5.5 gates.
     if (this.isGenericCustomProvider()) return false;
-    if (this.isGpt55Model(model)) return true;
+    if (this.isGpt55Model(model) || isOpenAIGpt6AstraModel(model)) return true;
     const m = model.toLowerCase();
     return (
       this.isXAIMultiAgentModel(model) ||
@@ -1024,7 +1041,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   private supportsGpt5Verbosity(model: string): boolean {
     if (this.isOpenAIChatGPTProvider()) return false;
-    return this.isGenericCustomProvider() || model.toLowerCase().startsWith("gpt-5");
+    return this.isGenericCustomProvider() || model.toLowerCase().startsWith("gpt-5") || isOpenAIGpt6AstraModel(model);
   }
 
   private applyResponsesTextOptions(body: Record<string, unknown>, options: ChatOptions): void {
@@ -1087,7 +1104,13 @@ export class OpenAIProvider extends BaseLLMProvider {
   private usesDeveloperRole(model: string): boolean {
     if (this.isGenericCustomProvider()) return false;
     const m = model.toLowerCase();
-    return m.startsWith("gpt-5") || m.startsWith("o1") || m.startsWith("o3") || m.startsWith("o4");
+    return (
+      m.startsWith("gpt-5") ||
+      isOpenAIGpt6AstraModel(m) ||
+      m.startsWith("o1") ||
+      m.startsWith("o3") ||
+      m.startsWith("o4")
+    );
   }
 
   private formatMessages(messages: ChatMessage[], model?: string) {

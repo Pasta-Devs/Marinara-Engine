@@ -45,6 +45,7 @@ import {
   extractLeadingThinkingBlocks,
   unwrapConversationInstructions,
   findKnownModel,
+  isOpenAIGpt6AstraModel,
   LOCAL_SIDECAR_CONNECTION_ID,
   normalizeImagePromptInstructions,
   normalizeTextForMatch,
@@ -6370,7 +6371,9 @@ export async function generateRoutes(app: FastifyInstance) {
               const effModel = conn.model.toLowerCase();
               const tempSuppressed =
                 ((conn.provider === "openai" || conn.provider === "openrouter") &&
-                  (/^(o1|o3|o4)/.test(effModel) || (effModel.startsWith("gpt-5") && !!resolvedEffort))) ||
+                  (/^(o1|o3|o4)/.test(effModel) ||
+                    isOpenAIGpt6AstraModel(effModel) ||
+                    (effModel.startsWith("gpt-5") && !!resolvedEffort))) ||
                 isClaudeNoSampling;
               const effTemp = tempSuppressed ? "N/A" : temperature;
               const effTopP = tempSuppressed ? "N/A" : topP;

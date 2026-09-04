@@ -28,6 +28,7 @@ export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
 export function supportsXhighReasoningEffort(model: string): boolean {
   const normalized = model.toLowerCase();
   return (
+    isOpenAIGpt6AstraModel(normalized) ||
     normalized.startsWith("gpt-5.6") ||
     normalized.startsWith("gpt-5.5") ||
     normalized.startsWith("gpt-5.4") ||
@@ -38,6 +39,10 @@ export function supportsXhighReasoningEffort(model: string): boolean {
 
 export function isOpenAIGpt56Model(model: string): boolean {
   return model.toLowerCase().startsWith("gpt-5.6");
+}
+
+export function isOpenAIGpt6AstraModel(model: string): boolean {
+  return /^gpt-6-astra(?:$|-)/i.test(model);
 }
 
 export function isOpenAIGpt56SolProAlias(model: string): boolean {
@@ -69,7 +74,8 @@ export function resolveProviderReasoningEffort(args: {
     (providerLower === "anthropic" || providerLower === "claude_subscription") &&
     isClaudeAdaptiveOnlyNoSamplingModel(modelLower);
   const supportsXhigh = supportsXhighReasoningEffort(modelLower);
-  const supportsMax = isOpenAIGpt56Model(modelLower) || isNativeAnthropicAdaptiveOnly;
+  const supportsMax =
+    isOpenAIGpt6AstraModel(modelLower) || isOpenAIGpt56Model(modelLower) || isNativeAnthropicAdaptiveOnly;
 
   if (args.reasoningEffort === "maximum") {
     return supportsMax ? "max" : supportsXhigh ? "xhigh" : "high";
@@ -102,6 +108,8 @@ export const OPENAI_MODELS: KnownModel[] = [
   { id: "gpt-5.6-sol-pro", name: "gpt-5.6-sol-pro (Sol with pro mode)", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.6-terra", name: "gpt-5.6-terra", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.6-luna", name: "gpt-5.6-luna", context: 1050000, maxOutput: 128000 },
+  // GPT-6 Astra
+  { id: "gpt-6-astra", name: "gpt-6-astra", context: 1050000, maxOutput: 128000 },
   // GPT-5.5
   { id: "gpt-5.5", name: "gpt-5.5", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.5-2026-04-23", name: "gpt-5.5-2026-04-23", context: 1050000, maxOutput: 128000 },
