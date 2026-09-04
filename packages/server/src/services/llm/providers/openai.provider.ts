@@ -34,7 +34,8 @@ import {
 
 /**
  * Models routed through the Responses API (`/responses`).
- * Astra requires Responses for tool calling; GPT-5.6, GPT-5.5, GPT-5.4 variants and Codex also use it.
+ * GPT-5.6, GPT-5.5, GPT-5.4 variants and Codex use these lists. Astra is routed
+ * separately by isOpenAIGpt6AstraModel in useResponsesAPI because its tools require Responses.
  * Matching is case-insensitive.
  */
 const RESPONSES_ONLY_PREFIXES = ["gpt-5.6", "gpt-5.5", "gpt-5.4", "codex-"];
