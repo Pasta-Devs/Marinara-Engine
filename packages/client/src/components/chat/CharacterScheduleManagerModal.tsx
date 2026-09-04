@@ -3,7 +3,8 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  FolderPlus,
+  Folder,
+  FolderOpen,
   Loader2,
   RefreshCw,
   Search,
@@ -19,7 +20,7 @@ import {
   type WeekSchedule,
 } from "@marinara-engine/shared";
 import { useCharacters, useUpdateCharacter } from "../../hooks/use-characters";
-import { useCharacterGroups, useCreateGroup, useUpdateGroup } from "../../hooks/use-characters";
+import { useCharacterGroups } from "../../hooks/use-characters";
 import { useChatStore } from "../../stores/chat.store";
 import { useChats } from "../../hooks/use-chats";
 import { useUIStore } from "../../stores/ui.store";
@@ -101,8 +102,6 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
   const { data: rows, isLoading } = useCharacters(open);
   const { data: chats } = useChats();
   const { data: groups } = useCharacterGroups();
-  const createGroup = useCreateGroup();
-  const updateGroup = useUpdateGroup();
   const updateCharacter = useUpdateCharacter();
   const activeChatId = useChatStore((state) => state.activeChatId);
   const conversationTimeZone = useUIStore((state) => state.conversationTimeZone);
@@ -140,7 +139,6 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
       }),
     [groups],
   );
-  const folderFor = (id: string) => parsedGroups.find((group) => group.memberIds.includes(id));
   const editingCharacter = characters.find((character) => character.id === editingCharacterId);
 
   const toggle = (id: string) => {
@@ -212,16 +210,6 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
     });
   };
 
-  const moveToFolder = async (characterId: string, folderId: string | null) => {
-    await Promise.all(
-      parsedGroups.map((group) => {
-        const characterIds = group.memberIds.filter((id) => id !== characterId);
-        if (group.id === folderId) characterIds.push(characterId);
-        return updateGroup.mutateAsync({ id: group.id, characterIds });
-      }),
-    );
-  };
-
   const toggleFolder = (folderId: string) => {
     setExpandedFolders((current) => {
       const next = new Set(current);
@@ -229,14 +217,6 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
       else next.add(folderId);
       return next;
     });
-  };
-
-  const createFolder = () => {
-    const names = new Set(parsedGroups.map((folder) => folder.name.trim().toLowerCase()));
-    let name = "Unnamed";
-    let number = 2;
-    while (names.has(name.toLowerCase())) name = `Unnamed ${number++}`;
-    createGroup.mutate({ name, characterIds: [] });
   };
 
   const renderGroup = (title: string, groupCharacters: ManagerCharacter[]) => (
@@ -248,9 +228,6 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
       onAutoRenew={setAutoRenew}
       onEditSchedule={setEditingCharacterId}
       localizeUi={localizeUi}
-      folders={parsedGroups}
-      folderFor={folderFor}
-      onMoveToFolder={moveToFolder}
     />
   );
 
@@ -289,15 +266,6 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
               className="text-xs font-medium text-[var(--primary)]"
             >
               {localizeUi("ui.characters.schedulemanager.selectVisible")}
-            </button>
-            <button
-              type="button"
-              onClick={createFolder}
-              disabled={createGroup.isPending}
-              className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
-            >
-              <FolderPlus className="h-3.5 w-3.5" />
-              {localizeUi("ui.characters.schedulemanager.newFolder")}
             </button>
             <button
               type="button"
@@ -344,7 +312,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
                       className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
                     >
                       {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                      <FolderPlus className="h-3.5 w-3.5" />
+                      {isExpanded ? <FolderOpen className="h-3.5 w-3.5" /> : <Folder className="h-3.5 w-3.5" />}
                       {folder.name} <span className="font-normal">({members.length})</span>
                     </button>
                     {isExpanded && (
@@ -364,11 +332,15 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
               })}
               {renderGroup(
                 localizeUi("ui.characters.schedulemanager.scheduled"),
-                scheduled.filter((character) => !folderFor(character.id)),
+                scheduled.filter(
+                  (character) => !parsedGroups.some((folder) => folder.memberIds.includes(character.id)),
+                ),
               )}
               {renderGroup(
                 localizeUi("ui.characters.schedulemanager.unscheduled"),
-                unscheduled.filter((character) => !folderFor(character.id)),
+                unscheduled.filter(
+                  (character) => !parsedGroups.some((folder) => folder.memberIds.includes(character.id)),
+                ),
               )}
               {!scheduled.length && !unscheduled.length && (
                 <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
@@ -408,9 +380,6 @@ function CharacterScheduleGroup({
   onAutoRenew,
   onEditSchedule,
   localizeUi,
-  folders,
-  folderFor,
-  onMoveToFolder,
 }: {
   title: string;
   characters: ManagerCharacter[];
@@ -419,9 +388,6 @@ function CharacterScheduleGroup({
   onAutoRenew: (character: ManagerCharacter, value: boolean) => void;
   onEditSchedule: (id: string) => void;
   localizeUi: (key: string, options?: Record<string, unknown>) => string;
-  folders: Array<{ id: string; name: string; memberIds: string[] }>;
-  folderFor: (id: string) => { id: string; name: string } | undefined;
-  onMoveToFolder: (characterId: string, folderId: string | null) => Promise<void>;
 }) {
   if (!characters.length) return null;
   return (
@@ -500,19 +466,6 @@ function CharacterScheduleGroup({
                 {localizeUi("ui.characters.schedulemanager.edit")}
               </button>
             )}
-            <select
-              value={folderFor(character.id)?.id ?? ""}
-              onChange={(event) => void onMoveToFolder(character.id, event.target.value || null)}
-              aria-label={localizeUi("ui.characters.schedulemanager.folderFor", { name: character.name })}
-              className="max-w-28 rounded bg-[var(--background)] px-1 py-1 text-[0.65rem]"
-            >
-              <option value="">{localizeUi("ui.characters.schedulemanager.noFolder")}</option>
-              {folders.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.name}
-                </option>
-              ))}
-            </select>
           </div>
         );
       })}
