@@ -7,6 +7,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Removed the unfinished Slurp creator-feed material from the Noodle guides.
 - Updated the timeout reference in `.env.example` to use Slurp consistently.
 - Added a reusable Character Schedule Manager for Conversation schedules. It groups characters with and without schedules, supports bulk generation and removal, and provides per-character weekly renewal controls.
+- Improved the Character Schedule Manager with character folders, avatars, current presence indicators, current schedule activity, direct schedule editing, and schedule generation without an open Conversation chat.
 
 - Moved Noodle and Slurp image canvas settings out of Engine Settings and into their respective package settings.
 

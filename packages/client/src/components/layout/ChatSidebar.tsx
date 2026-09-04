@@ -1662,7 +1662,7 @@ export function ChatSidebar() {
         <button
           type="button"
           onClick={() => setScheduleManagerOpen(true)}
-          className="mx-3 mb-2 inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
+          className="mx-3 mb-2 inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[0.6875rem] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
         >
           <CalendarClock size="0.875rem" />
           {localizeUi("ui.layout.chatsidebar.characterScheduleManager")}

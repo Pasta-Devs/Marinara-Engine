@@ -590,7 +590,7 @@ export async function conversationRoutes(app: FastifyInstance) {
   // ─────────────────────────────────────────────
   app.post<{
     Body: {
-      chatId: string;
+      chatId?: string;
       forceRefresh?: boolean;
       characterIds?: string[];
       scheduleGenerationPreferences?: string;
@@ -606,9 +606,9 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
     const userSchedulePreferences = typeof rawPrefs === "string" ? rawPrefs.trim() : "";
 
-    const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
-    if (chat.mode !== "conversation") return reply.status(400).send({ error: "Not a conversation chat" });
+    const chat = chatId ? await chats.getById(chatId) : null;
+    if (chatId && !chat) return reply.status(404).send({ error: "Chat not found" });
+    if (chat && chat.mode !== "conversation") return reply.status(400).send({ error: "Not a conversation chat" });
     const requestedTimeZone = normalizePromptTimeZone(req.body.timeZone);
     if (req.body.timeZone != null && !requestedTimeZone) {
       return reply.status(400).send({ error: "timeZone must be a valid IANA timezone" });
@@ -618,13 +618,13 @@ export async function conversationRoutes(app: FastifyInstance) {
     // Resolve connection (need decrypted API key; "random" is a sentinel, not a persisted connection id)
     const { conn, error: connectionError } = await resolveConversationScheduleConnection(
       connections,
-      chat.connectionId,
+      chat?.connectionId ?? null,
     );
     if (!conn) return reply.status(400).send({ error: connectionError ?? "No connection configured" });
     const baseUrl = resolveBaseUrl(conn);
     if (!baseUrl) return reply.status(400).send({ error: "No base URL" });
 
-    const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+    const meta = chat ? (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})) : {};
     if (requestedTimeZone) meta.conversationTimeZone = requestedTimeZone;
     const scheduleTimeZone = requestedTimeZone ?? resolveConversationTimeZone(meta);
     const nowInstant = new Date();
@@ -634,9 +634,9 @@ export async function conversationRoutes(app: FastifyInstance) {
     const characterIds: string[] =
       Array.isArray(req.body.characterIds) && req.body.characterIds.length > 0
         ? req.body.characterIds
-        : typeof chat.characterIds === "string"
+        : typeof chat?.characterIds === "string"
           ? JSON.parse(chat.characterIds)
-          : chat.characterIds;
+          : (chat?.characterIds ?? []);
 
     const provider = await createConversationAgentProvider(conn, baseUrl);
     const model = conn.model ?? "";
@@ -745,20 +745,21 @@ export async function conversationRoutes(app: FastifyInstance) {
         .filter(([, result]) => result.status === "generated" || result.status === "shared")
         .map(([id]) => id);
       if (changedCharIds.length > 0) {
-        await chats.patchMetadata(chatId, (current) => {
-          const currentSchedules: CharacterSchedules = hasSchedules(current.characterSchedules)
-            ? (current.characterSchedules as CharacterSchedules)
-            : {};
-          const mergedSchedules: CharacterSchedules = { ...currentSchedules };
-          for (const id of changedCharIds) {
-            mergedSchedules[id] = preserveTimingSettings(newSchedules[id]!, currentSchedules[id]);
-          }
-          return {
-            conversationSchedulesEnabled: true,
-            characterSchedules: mergedSchedules,
-            scheduleWeekStart: mondayStr,
-          };
-        });
+        if (chatId)
+          await chats.patchMetadata(chatId, (current) => {
+            const currentSchedules: CharacterSchedules = hasSchedules(current.characterSchedules)
+              ? (current.characterSchedules as CharacterSchedules)
+              : {};
+            const mergedSchedules: CharacterSchedules = { ...currentSchedules };
+            for (const id of changedCharIds) {
+              mergedSchedules[id] = preserveTimingSettings(newSchedules[id]!, currentSchedules[id]);
+            }
+            return {
+              conversationSchedulesEnabled: true,
+              characterSchedules: mergedSchedules,
+              scheduleWeekStart: mondayStr,
+            };
+          });
       }
       // Other chats pick the new schedule up on their next resolve, because it
       // now lives on the character card rather than in each chat's metadata.
