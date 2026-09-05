@@ -30,7 +30,7 @@ rules, including the per-file English fallback that makes partial packs safe.
 ## UI language packs
 
 `ui/<BCP-47>.json` contains community interface translations, separate from documentation folders.
-The original eleven packs were moved from Engine without changing their bytes. English remains canonical on
+The original eleven packs were moved from Engine; a subsequent review corrected three German spelling errors. English remains canonical on
 `staging` at `packages/client/src/localization/locales/en.json`. Arabic has a UI pack even without a docs pack.
 Preserve canonical filenames such as `pt-BR.json` and `zh-Hans.json`.
 
