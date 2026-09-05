@@ -67,7 +67,7 @@ export async function resolveChatUserIdentity(
       backstory: stringValue(extensions.backstory),
       appearance: stringValue(extensions.appearance),
       avatarPath: row.avatarPath ?? null,
-      avatarCrop: extensions.avatarCrop ?? null,
+      avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
       nameColor: stringValue(extensions.nameColor) || null,
       dialogueColor: stringValue(extensions.dialogueColor) || null,
       boxColor: stringValue(extensions.boxColor) || null,

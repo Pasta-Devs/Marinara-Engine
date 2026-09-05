@@ -30,6 +30,86 @@ test.beforeEach(async ({ page }) => {
   }, appVersion);
 });
 
+test("chat page-size changes while disabled restart from the newest cursor when re-enabled", async ({ page }) => {
+  const fixtureMessages = Array.from({ length: 12 }, (_, index) => ({
+    id: `paused-message-${index}`,
+    createdAt: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
+    content: `Paused transcript message ${index}`,
+    role: "assistant",
+    extra: "{}",
+  }));
+  await page.route("**/api/chats/paused-page-size/messages?*", (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const before = params.get("before")?.split("|")[1];
+    const end = before ? fixtureMessages.findIndex((message) => message.id === before) : fixtureMessages.length;
+    const limit = Number(params.get("limit"));
+    return route.fulfill({ json: fixtureMessages.slice(Math.max(0, end - limit), end) });
+  });
+  await page.goto("/");
+  await page.evaluate(async () => {
+    // Mount the real hook with an isolated cache so chat-detail loading can be
+    // paused independently of the app shell and its own query observers.
+    const { useChatMessages } = await import("/src/hooks/use-chats.ts" as string);
+    // Reuse the app's exact versioned module URLs, including Vite's cache hash,
+    // so the harness and hook share the same React Query context.
+    const dependencyUrl = (name: string) =>
+      performance
+        .getEntriesByType("resource")
+        .find((entry) => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
+    const { default: React } = await import(dependencyUrl("react"));
+    const { default: ReactDOM } = await import(dependencyUrl("react-dom_client"));
+    const { QueryClient, QueryClientProvider } = await import(dependencyUrl("@tanstack_react-query"));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    function Harness() {
+      const [enabled, setEnabled] = React.useState(true);
+      const [pageSize, setPageSize] = React.useState(4);
+      const query = useChatMessages("paused-page-size", pageSize, enabled);
+      return React.createElement(
+        "div",
+        { style: { position: "fixed", inset: 0, zIndex: 99999, background: "#16151c" } },
+        React.createElement("button", { onClick: () => query.fetchNextPage() }, "Load fixture history"),
+        React.createElement(
+          "button",
+          { onClick: () => setEnabled(!enabled) },
+          enabled ? "Pause fixture" : "Resume fixture",
+        ),
+        React.createElement("button", { onClick: () => setPageSize(2) }, `Fixture page size ${pageSize}`),
+        React.createElement(
+          "output",
+          { "data-testid": "paused-pages" },
+          JSON.stringify(
+            query.data?.pages.map((messages: Array<{ id: string }>) => messages.map((message) => message.id)),
+          ),
+        ),
+      );
+    }
+    const container = document.createElement("div");
+    document.body.append(container);
+    ReactDOM.createRoot(container).render(
+      React.createElement(QueryClientProvider, { client }, React.createElement(Harness)),
+    );
+  });
+  const pages = page.getByTestId("paused-pages");
+  await expect(pages).toHaveText(
+    JSON.stringify([["paused-message-8", "paused-message-9", "paused-message-10", "paused-message-11"]]),
+  );
+  await page.getByRole("button", { name: "Load fixture history" }).click();
+  await expect(pages).toContainText("paused-message-4");
+  await page.getByRole("button", { name: "Pause fixture" }).click();
+  await page.getByRole("button", { name: "Fixture page size 4" }).click();
+  await expect(page.getByRole("button", { name: "Fixture page size 2" })).toBeVisible();
+  await expect(pages).toContainText("paused-message-4");
+  await page.getByRole("button", { name: "Resume fixture" }).click();
+  await expect(pages).toHaveText(JSON.stringify([["paused-message-10", "paused-message-11"]]));
+  await page.getByRole("button", { name: "Load fixture history" }).click();
+  await expect(pages).toHaveText(
+    JSON.stringify([
+      ["paused-message-10", "paused-message-11"],
+      ["paused-message-8", "paused-message-9"],
+    ]),
+  );
+});
+
 for (const mode of ["conversation", "roleplay"] as const) {
   test(`${mode} issue sweep: persona crops match the current image and padded times remain prose`, async ({
     page,

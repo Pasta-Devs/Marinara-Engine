@@ -304,8 +304,13 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
   });
   useEffect(() => {
     const previous = previousWindow.current;
+    if (!chatId || previous.chatId !== chatId) {
+      previousWindow.current = { chatId, pageSize };
+      return;
+    }
+    if (!enabled) return;
     previousWindow.current = { chatId, pageSize };
-    if (!chatId || !enabled || previous.chatId !== chatId || previous.pageSize === pageSize) return;
+    if (previous.pageSize === pageSize) return;
     // Run after the query observer adopts the new size. The shared key excludes
     // it, so restart from the newest cursor instead of retaining a truncated page.
     void queryClient.resetQueries({ queryKey: chatKeys.messages(chatId), exact: true });
