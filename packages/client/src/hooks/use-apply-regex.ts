@@ -8,13 +8,16 @@ import {
   formatTextQuotes,
   isPatternSafe,
   resolveRegexPatternLiteralMacros,
+  resolveScopedRegexMode,
   type RegexPlacement,
+  type ScopedRegexMode,
 } from "@marinara-engine/shared";
 import { useUIStore } from "../stores/ui.store";
 import { useChatStore } from "../stores/chat.store";
+import { usePresets } from "./use-presets";
 
 /** How character-scoped regex scripts apply at display time (mirrors card CSS modes). */
-export type ScopedRegexMode = "disabled" | "exclusive" | "chat";
+export type { ScopedRegexMode } from "@marinara-engine/shared";
 type RegexApplyMode = "prompt" | "display" | "both";
 
 function getApplyMode(row: RegexScriptRow): RegexApplyMode {
@@ -90,7 +93,7 @@ function applyScripts(
     resolveMacros?: (value: string) => string;
     targetCharacterId?: string | null;
     targetedOnly?: boolean;
-    scopedMode?: ScopedRegexMode;
+    scopedMode?: ScopedRegexMode | null;
     characterId?: string | null;
     promptPresetId?: string | null;
   },
@@ -167,6 +170,8 @@ export function useApplyRegex() {
   const { data: regexScripts } = useRegexScripts();
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const activePromptPresetId = useChatStore((s) => s.activeChat?.promptPresetId ?? null);
+  const { data: presets } = usePresets();
+  const presetScopedRegexMode = presets?.find((preset) => preset.id === activePromptPresetId)?.scopedRegexMode;
 
   // Pre-parse all scripts (sorted by order, which is done server-side)
   const parsedScripts = useMemo(() => {
@@ -180,27 +185,35 @@ export function useApplyRegex() {
       options?: {
         depth?: number;
         resolveMacros?: (value: string) => string;
-        scopedMode?: ScopedRegexMode;
+        scopedMode?: ScopedRegexMode | null;
         characterId?: string | null;
       },
     ) =>
       formatTextQuotes(
-        applyScripts(text, parsedScripts, "ai_output", { ...options, promptPresetId: activePromptPresetId }),
+        applyScripts(text, parsedScripts, "ai_output", {
+          ...options,
+          scopedMode: resolveScopedRegexMode(options?.scopedMode, presetScopedRegexMode),
+          promptPresetId: activePromptPresetId,
+        }),
         quoteFormat,
       ),
-    [activePromptPresetId, parsedScripts, quoteFormat],
+    [activePromptPresetId, parsedScripts, presetScopedRegexMode, quoteFormat],
   );
 
   const applyToUserInput = useCallback(
     (
       text: string,
-      options?: { depth?: number; resolveMacros?: (value: string) => string; scopedMode?: ScopedRegexMode },
+      options?: { depth?: number; resolveMacros?: (value: string) => string; scopedMode?: ScopedRegexMode | null },
     ) =>
       formatTextQuotes(
-        applyScripts(text, parsedScripts, "user_input", { ...options, promptPresetId: activePromptPresetId }),
+        applyScripts(text, parsedScripts, "user_input", {
+          ...options,
+          scopedMode: resolveScopedRegexMode(options?.scopedMode, presetScopedRegexMode),
+          promptPresetId: activePromptPresetId,
+        }),
         quoteFormat,
       ),
-    [activePromptPresetId, parsedScripts, quoteFormat],
+    [activePromptPresetId, parsedScripts, presetScopedRegexMode, quoteFormat],
   );
 
   return { applyToAIOutput, applyToUserInput };

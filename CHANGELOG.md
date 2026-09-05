@@ -41,6 +41,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Added example text to Assistant Reasoning Prefill without changing saved values (#5864).
 - Illustrator accepts Run Interval 0 for manual-only generation, preserving Gallery actions while stopping automatic runs (Marinara-Agents #629).
 - The Roleplay Agents & Actions menu shows per-agent phases, incoming output activity, reported input/output tokens, time to first output, and elapsed time without enabling debug prompt logs (#5860).
+- Added a Regex tab to prompt presets, with existing-script editing and preset-level scoped-regex defaults. Chats inherit the default unless they have an explicit override, and can return to the preset default at any time (#5774).
 
 - Added separate, saved "Always display swipe menu" appearance toggles for Conversation and Roleplay, enabled by default so the right arrow can regenerate the first response (#5854).
 - Made Conversation and Roleplay message action icons larger, with roomier click/tap targets and spacing across the message width on desktop and mobile (#5854).
