@@ -6,6 +6,20 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Removed the unfinished Slurp creator-feed material from the Noodle guides.
 - Updated the timeout reference in `.env.example` to use Slurp consistently.
+- Added a reusable Character Schedule Manager for Conversation schedules. It groups characters with and without schedules, supports bulk generation and removal, and provides per-character weekly renewal controls.
+- Improved the Character Schedule Manager with character folders, avatars, current presence indicators, current schedule activity, direct schedule editing, and schedule generation without an open Conversation chat.
+- Character Schedule Manager folders now use the existing read-only collapsible character-group view, matching the quick Persona switcher.
+- Character Schedule Manager now puts scheduled characters above folders and shows queued, active, completed, and failed states during bulk generation.
+- Moved the Conversation schedule manager to a compact icon button beside the activity field and tightened the status selector spacing.
+- Restored avatar placeholders and folder headers in the schedule manager, and increased the manager icon button size.
+- Fixed schedule manager status dots to preserve the character's stored status when no schedule block is active, and matched the manager button size to its neighboring controls.
+- Added a description below the Bulk Character Schedule Manager header that points to each character's individual schedule editor.
+- Bulk schedule generation now reports per-character failures correctly, preserves chat time zones during chatless generation, and keeps folder counts aligned with visible rows.
+- Schedule renewal indicators now use the configured Conversation time zone.
+- Character Schedule Manager folder parsing now ignores malformed group member data instead of failing to render the manager.
+- Character Schedule Manager now uses configured Conversation calendar dates for renewal and active-block status.
+- Renewal comparisons now use explicit date-only values without host-timezone shifts.
+- Increased the Conversation schedule manager calendar icon size while keeping its compact button dimensions.
 
 - Moved Noodle and Slurp image canvas settings out of Engine Settings and into their respective package settings.
 - Added a compact responsive batch-summary range list with a control to clear completed ranges while retaining retryable ones.
