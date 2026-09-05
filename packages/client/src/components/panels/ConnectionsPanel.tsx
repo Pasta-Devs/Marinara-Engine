@@ -526,18 +526,26 @@ function SidecarCard() {
                   )}
                   {!speechModelDownloaded && speechAvailable && (
                     <div className="mt-2 flex flex-col gap-2">
-                      <select
-                        value={speechModelChoice}
-                        onChange={(event) => setSpeechModelChoice(event.target.value as SidecarSpeechModelId)}
-                        className="mari-chrome-field h-8 text-xs"
-                        disabled={speechDownloading || speechModels.length === 0}
-                      >
-                        {speechModels.map((model) => (
-                          <option key={model.id} value={model.id}>
-                            {model.label}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="max-md:relative md:contents">
+                        <select
+                          value={speechModelChoice}
+                          onChange={(event) => setSpeechModelChoice(event.target.value as SidecarSpeechModelId)}
+                          className="mari-chrome-field h-8 text-xs max-md:w-full max-md:min-w-0 max-md:appearance-none max-md:pl-2.5 max-md:pr-8"
+                          aria-label={localizeUi("ui.panels.sidecarcard.localSpeechModel")}
+                          disabled={speechDownloading || speechModels.length === 0}
+                        >
+                          {speechModels.map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          size="0.875rem"
+                          aria-hidden="true"
+                          className="mari-chrome-field-icon pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 md:hidden"
+                        />
+                      </div>
                       {activeSpeechModel && (
                         <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                           {activeSpeechModel.description} {localizeUi("ui.noodle.stageprofileview.about")}{" "}

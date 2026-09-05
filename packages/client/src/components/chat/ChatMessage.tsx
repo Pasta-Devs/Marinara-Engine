@@ -819,6 +819,7 @@ const EditTextarea = memo(function EditTextarea({
   useLayoutEffect(() => {
     if (ref.current) {
       autoResize();
+      if (window.matchMedia("(max-width: 767px)").matches) ref.current.setSelectionRange(0, 0);
       ref.current.focus({ preventScroll: true });
     }
   }, [autoResize]);
@@ -2308,7 +2309,17 @@ export const ChatMessage = memo(function ChatMessage({
   useLayoutEffect(() => {
     // Restore scroll position saved before the state change
     if (scrollRestoreRef.current) {
-      scrollRestoreRef.current.el.scrollTop = scrollRestoreRef.current.top;
+      const { el, top } = scrollRestoreRef.current;
+      el.scrollTop = top;
+      if (editing && window.matchMedia("(max-width: 767px)").matches) {
+        const editor = msgRef.current?.querySelector<HTMLTextAreaElement>("[data-chat-message-editor]");
+        if (editor) {
+          editor.scrollTop = 0;
+          // The action row can be far below a long message's first line.
+          // Align only the transcript, never scroll the mobile app shell.
+          el.scrollTop += editor.getBoundingClientRect().top - el.getBoundingClientRect().top - 8;
+        }
+      }
       scrollRestoreRef.current = null;
     }
   }, [editing]);

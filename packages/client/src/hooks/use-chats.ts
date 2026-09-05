@@ -1486,6 +1486,7 @@ export type GenerateSummaryInput = {
   rangeEndIndex?: number;
   summaryEntryIds?: string[];
   promptTemplateId?: string | null;
+  signal?: AbortSignal;
 };
 
 export function useGenerateSummary() {
@@ -1500,6 +1501,7 @@ export function useGenerateSummary() {
       rangeEndIndex,
       summaryEntryIds,
       promptTemplateId,
+      signal,
     }: GenerateSummaryInput) =>
       api.post<{
         summary: string | null;
@@ -1508,15 +1510,19 @@ export function useGenerateSummary() {
         messageIds: string[];
         /** Subset of messageIds eligible to hide (summarized set minus the protected tail). */
         hideMessageIds: string[];
-      }>(`/chats/${chatId}/generate-summary`, {
-        contextSize,
-        rangeStartMessageId,
-        rangeEndMessageId,
-        rangeStartIndex,
-        rangeEndIndex,
-        summaryEntryIds,
-        promptTemplateId,
-      }),
+      }>(
+        `/chats/${chatId}/generate-summary`,
+        {
+          contextSize,
+          rangeStartMessageId,
+          rangeEndMessageId,
+          rangeStartIndex,
+          rangeEndIndex,
+          summaryEntryIds,
+          promptTemplateId,
+        },
+        { signal },
+      ),
     onSuccess: (data, vars) => {
       const existing = qc.getQueryData<Chat>(chatKeys.detail(vars.chatId));
       if (existing) {

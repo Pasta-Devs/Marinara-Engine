@@ -22,6 +22,12 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Increased the Conversation schedule manager calendar icon size while keeping its compact button dimensions.
 
 - Moved Noodle and Slurp image canvas settings out of Engine Settings and into their respective package settings.
+- Added a compact responsive batch-summary range list with a control to clear completed ranges while retaining retryable ones.
+- Added a clear-all-except-one batch range action, clearer range separators and numbering, and compact failure details behind a visible warning control.
+- Batch mode now identifies multiple ranges in the source summary and shows their combined message count.
+- Batch range rows now keep their number left-aligned and their separator centered between the message inputs.
+- Batch range rows now keep all controls inside their borders in the compact two-column layout.
+- Fixed batch summary cancellation responses, fallback range typing, summary-settings dismissal, and multiline footer regression coverage.
 
 - Fixed PNG metadata decompression, Nano Banana full-body image requests, GPT Image 2 OpenRouter routing, capability swipe timestamps, and bounded import uploads.
 - Allowed trusted backend scheduler calls to execute their own capability routes without a browser `X-Admin-Secret`, while keeping external package route requests protected.
@@ -57,8 +63,12 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Simplified the quick Persona switcher to one rounded character disclosure with folder artwork and viewport-safe scrolling.
 - Moved the character picker toggle to Advanced Message Tools.
+- Roleplay Chat Summary can now generate multiple explicit message ranges sequentially, keeping each result as its own chronological batch entry with per-range progress and retry status.
 
 ### Fixed
+
+- Mobile Roleplay keeps composer boundary drags inside the input, avoids animated press transforms on message actions, opens older-message editors at their beginning, and returns the reopened Echo Chamber to its latest message (#5851).
+- Mobile galleries keep generation labels and image actions within their available width, use neutral Delete controls, and give the Local Speech Model selector consistent spacing. Desktop layouts are unchanged (#5851).
 
 - Updated transitive Browserslist, query-string, and URI parsing dependencies to address their current security advisories (#5847).
 
@@ -116,6 +126,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Guided package onboarding can open the active Roleplay chat's Summary popover and assigned prompt preset Sections editor directly.
 - The server now notices when it stopped running for a stretch — consistent with the host suspending it (the Android/Termux background freeze that shows as an endless "Opening chat…" until Termux is foregrounded, or a laptop sleeping) or with a severe internal stall — and logs the estimated length on thaw, so session logs carry positive evidence instead of nothing (#5655).
 - The Termux launcher reports its Android wake-lock outcome to the server, and both the health endpoint and Copy Support Diagnostics now include the wake-lock status and the most recent detected freeze; a failed or unavailable wake lock is announced with a prominent launcher warning that names the fix (`pkg install termux-tools`, battery set to Unrestricted) (#5656).
 - Capability API 1.15 adds `runtime.resolveEmbeddings()`, allowing packages to use the current package-specific or global embedding connection without reactivation while preserving the static embeddings host for older packages.
