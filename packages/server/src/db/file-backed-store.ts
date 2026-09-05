@@ -3492,7 +3492,18 @@ class FileTableStore {
         logger.warn("[file-storage] Ignored a package table registration that is not a file table definition.");
         continue;
       }
-      const name = tableNameOf(candidate);
+      // isFileTable only proves the metadata symbol is present, not that it
+      // holds a usable object. A package-supplied value carrying a null or
+      // malformed metadata makes tableNameOf throw, so read the name inside the
+      // guard too: one bad definition must be skipped, not abort the loop and
+      // strand every later table in the same package.
+      let name: string;
+      try {
+        name = tableNameOf(candidate);
+      } catch (err) {
+        logger.error(err, "[file-storage] Ignored a package table registration with unreadable metadata.");
+        continue;
+      }
       // The one non-negotiable check. tableFilePath/shardDirPath join this name
       // straight into the storage tree with no sanitisation; that was safe only
       // while every name came from the Engine's own hardcoded allowlist. A
@@ -3622,9 +3633,16 @@ class FileTableStore {
         if (normalized.length === 0 && !quarantinedAway) staleFiles.add(encoded);
       }
       if (skipped > 0) {
+        // The next flush rewrites this shard from the normalized rows, so the
+        // malformed entries are about to be overwritten. Copy the source aside
+        // first, exactly as the boot loader does: without a readable .bak there
+        // is otherwise no copy of the dropped package data left anywhere.
+        const sourcePath = recoveredFromBackup && existsSync(`${path}.bak`) ? `${path}.bak` : path;
+        const files = preserveMalformedRowSourceSync(sourcePath, meta.name);
+        if (files.length > 0) this.quarantinedTables.push({ table: meta.name, files });
         logger.warn(
-          { table: meta.name, shard: fileName, skipped },
-          "[file-storage] Skipped malformed rows in a package table shard.",
+          { table: meta.name, shard: fileName, skipped, preservedFiles: files.map((file) => file.to) },
+          "[file-storage] Skipped malformed rows in a package table shard and preserved the source file.",
         );
       }
       rows.push(...normalized);

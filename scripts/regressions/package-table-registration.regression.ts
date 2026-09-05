@@ -76,6 +76,7 @@ await refusesToShadowEngineTables();
 await healsRecoveredShardsOnRegistration();
 await clearsShardsThatRecoverToNoRows();
 await quarantinesUnreadableShardPairs();
+await preservesMalformedRowsOnRegistration();
 
 async function rejectsHostileNames() {
   const { sandbox } = tempStorageDir();
@@ -94,6 +95,12 @@ async function rejectsHostileNames() {
       db._fileStore.registerTables([fileTable(name, { id: text("id").primaryKey() })]);
       assert.ok(!FILE_BACKED_TABLES.includes(name), `${name} must not join the file-backed table list`);
     }
+    // isFileTable() only proves the metadata symbol is present. A package
+    // shipping a broken definition must be skipped, not throw out of the loop
+    // and strand the valid tables registered after it in the same call.
+    const brokenMetadata = { [Symbol.for("marinara:file-table")]: null } as unknown;
+    db._fileStore.registerTables([brokenMetadata, "not a table", null]);
+
     // A table with no primary key registers cleanly but can never resolve a
     // shard key, so it must be refused up front rather than on first insert.
     db._fileStore.registerTables([fileTable("package_demo_keyless", { body: text("body").notNull() })]);
@@ -140,8 +147,12 @@ async function registersAndPersists() {
     await db._fileStore.close();
   }
 
-  // Reload: registration happens after initialize(), so the rows on disk must
-  // be picked up by registerTables itself or they are silently lost.
+  // Reload. NOTE: the registries are process-global, so this second store
+  // already knows the name and boot-loads it through initialize(); the
+  // re-registration below therefore takes the idempotent path. That is the
+  // documented constraint, and this case asserts the rows survive either way.
+  // registerTables' own shard loading is covered by the cases below, which each
+  // use a name this process has never registered.
   const reopened = await createFileNativeDB();
   try {
     reopened._fileStore.registerTables([packageNotes]);
@@ -179,6 +190,49 @@ async function refusesToShadowEngineTables() {
       FILE_BACKED_TABLES.filter((table) => table === "chats").length,
       1,
       "a shadowing attempt must not duplicate the name in the table list",
+    );
+  } finally {
+    await db._fileStore.close();
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+}
+
+async function preservesMalformedRowsOnRegistration() {
+  // Fresh name again, so this goes through registerTables and not the boot loader.
+  const packageMetrics = fileTable("package_demo_metrics", {
+    id: text("id").primaryKey(),
+    body: text("body").notNull(),
+    createdAt: text("created_at").notNull(),
+  });
+  const { sandbox, dir } = tempStorageDir();
+  const shardDir = join(dir, "tables", "package_demo_metrics");
+  mkdirSync(shardDir, { recursive: true });
+  const shardPath = join(shardDir, "metric-1.json");
+  // A readable shard holding one good row and one malformed entry. The next
+  // flush rewrites the file from the good row alone, so the malformed entry is
+  // about to be destroyed and there is no .bak holding a copy of it.
+  writeFileSync(
+    shardPath,
+    JSON.stringify([{ id: "metric-1", body: "kept", createdAt: "2026-09-05T10:00:00.000Z" }, "not a row"]),
+    "utf8",
+  );
+
+  const db = await createFileNativeDB();
+  try {
+    db._fileStore.registerTables([packageMetrics]);
+    const rows = await db.select().from(packageMetrics);
+    assert.equal(rows.length, 1, "the usable row is kept");
+    const preserved = readdirSync(shardDir).filter((entry) => entry.includes(".corrupt-"));
+    assert.equal(preserved.length, 1, "the source file is copied aside before the malformed row is dropped");
+    assert.ok(
+      readFileSync(join(shardDir, preserved[0]!), "utf8").includes("not a row"),
+      "the preserved copy still contains the dropped entry",
+    );
+    await db._fileStore.flush();
+    assert.deepEqual(
+      JSON.parse(readFileSync(shardPath, "utf8")),
+      rows,
+      "the shard is rewritten from the usable rows",
     );
   } finally {
     await db._fileStore.close();
