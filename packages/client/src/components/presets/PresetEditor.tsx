@@ -2618,48 +2618,50 @@ function VariableCard({
                 {localizeUi("ui.presets.variablecard.allowUsersToSelectMultipleOptionsInsteadOfJust")}
               </p>
 
-              {isMultiSelect && (
-                <div className="space-y-2 border-t border-[var(--border)] pt-2">
-                  {/* Random Pick Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Shuffle size="0.75rem" className="mari-chrome-accent-icon mari-accent-animated" />
-                      <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
-                        {localizeUi("ui.presets.variablecard.randomPick")}
-                      </span>
-                    </div>
-                    <SettingsSwitch
-                      ariaLabel={isRandomPick ? "Disable random pick" : "Enable random pick"}
-                      checked={isRandomPick}
-                      onChange={(checked) => update({ randomPick: checked })}
-                      className="p-0 hover:bg-transparent"
-                    />
+              <div className="space-y-2 border-t border-[var(--border)] pt-2">
+                {/* Random Pick Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Shuffle size="0.75rem" className="mari-chrome-accent-icon mari-accent-animated" />
+                    <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
+                      {localizeUi("ui.presets.variablecard.randomPick")}
+                    </span>
                   </div>
-                  <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
-                    {isRandomPick
-                      ? localizeUi("ui.presets.variablecard.oneOfTheUserSSelectedOptionsWillBe")
-                      : localizeUi("ui.presets.variablecard.allSelectedOptionsWillBeJoinedTogetherWithThe")}
-                  </p>
-
-                  {/* Separator (only shown when not random pick) */}
-                  {!isRandomPick && (
-                    <div className="flex items-center gap-2">
-                      <label className="shrink-0 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                        {localizeUi("ui.presets.variablecard.separator")}
-                      </label>
-                      <OptionFieldInput
-                        value={separatorValue}
-                        onCommit={(value) => update({ separator: value })}
-                        className="mari-editor-field w-20 px-1.5 py-0.5 text-center font-mono text-xs"
-                        placeholder=", "
-                      />
-                      <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.presets.variablecard.eGBecomesRomanceFantasyAction")}
-                      </span>
-                    </div>
-                  )}
+                  <SettingsSwitch
+                    ariaLabel={isRandomPick ? "Disable random pick" : "Enable random pick"}
+                    checked={isRandomPick}
+                    onChange={(checked) => update({ randomPick: checked })}
+                    className="p-0 hover:bg-transparent"
+                  />
                 </div>
-              )}
+                <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                  {isMultiSelect
+                    ? isRandomPick
+                      ? localizeUi("ui.presets.variablecard.oneOfTheUserSSelectedOptionsWillBe")
+                      : localizeUi("ui.presets.variablecard.allSelectedOptionsWillBeJoinedTogetherWithThe")
+                    : isRandomPick
+                      ? localizeUi("ui.presets.variablecard.aRandomOptionIsRolledOnceWhenTheVariable")
+                      : localizeUi("ui.presets.variablecard.theFirstOptionIsUsedByDefaultUntilThe")}
+                </p>
+
+                {/* Separator (only shown for multi-select, and not random pick) */}
+                {isMultiSelect && !isRandomPick && (
+                  <div className="flex items-center gap-2">
+                    <label className="shrink-0 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                      {localizeUi("ui.presets.variablecard.separator")}
+                    </label>
+                    <OptionFieldInput
+                      value={separatorValue}
+                      onCommit={(value) => update({ separator: value })}
+                      className="mari-editor-field w-20 px-1.5 py-0.5 text-center font-mono text-xs"
+                      placeholder=", "
+                    />
+                    <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.presets.variablecard.eGBecomesRomanceFantasyAction")}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

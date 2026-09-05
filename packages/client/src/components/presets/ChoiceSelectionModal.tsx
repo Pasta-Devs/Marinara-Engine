@@ -82,6 +82,9 @@ function sanitizeChoiceSelection(
 
 function fallbackChoiceSelection(variable: VariableData): string | string[] | undefined {
   if (variable.multiSelect) return [];
+  if (variable.randomPick && variable.options.length > 0) {
+    return variable.options[Math.floor(Math.random() * variable.options.length)].value;
+  }
   return variable.options[0]?.value;
 }
 
@@ -149,8 +152,8 @@ export function ChoiceSelectionModal({
         initial[v.variableName] = sanitizeChoiceSelection(v, saved) ?? fallbackChoiceSelection(v) ?? "";
       } else if (v.multiSelect) {
         initial[v.variableName] = [];
-      } else if (v.options.length > 0) {
-        initial[v.variableName] = v.options[0].value;
+      } else {
+        initial[v.variableName] = fallbackChoiceSelection(v) ?? (v.options[0]?.value ?? "");
       }
     }
     return initial;
