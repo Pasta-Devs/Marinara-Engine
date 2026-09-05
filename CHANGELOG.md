@@ -77,6 +77,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Conversation swipe menus now reuse Roleplay's compact, unboxed controls on desktop and mobile, with arrows and counters following the configured chat-chrome text color instead of pink/orchid styling (#5875).
 - Released temporary rendering hints after message entrance animations, reducing unnecessary compositor layers around long, growing Roleplay replies without changing their animation or layout (#5870).
 - Agent connection warnings and other notifications now use the selected accent for their border in light and dark themes (#5870).
 - Illustrator-only manual and retried image requests now finish saving after a browser disconnect; explicit Stop still cancels them. Reopened chats refresh saved messages and gallery images when server-side generation finishes (#5870).
