@@ -4,6 +4,12 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Parameters can keep a chosen number of past assistant reasoning blocks when exclusion is off (default 1; 0 keeps all), preserving provider-native reasoning and local custom-tag thinking.
+
+- Added example text to Assistant Reasoning Prefill without changing saved values.
+- Removed SillyTavern `{{original}}` placeholders during prompt expansion while preserving saved character cards and literal instruction text.
+- Import and other multipart uploads now check CSRF access before sending file data.
+
 - Removed the unfinished Slurp creator-feed material from the Noodle guides.
 - Updated the timeout reference in `.env.example` to use Slurp consistently.
 - Added a reusable Character Schedule Manager for Conversation schedules. It groups characters with and without schedules, supports bulk generation and removal, and provides per-character weekly renewal controls.

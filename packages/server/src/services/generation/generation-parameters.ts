@@ -5,6 +5,7 @@ import {
   resolveProviderReasoningEffort,
 } from "@marinara-engine/shared";
 import type { BaseLLMProvider, ChatOptions } from "../llm/base-provider.js";
+import { parseExtra } from "./prompt-attachments.js";
 
 export function normalizeMaxContext(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
@@ -119,6 +120,55 @@ export function shouldReplayStoredChatCompletionsReasoning(provider: string, mod
   if (provider !== "openrouter") return true;
   const normalizedModel = model.toLowerCase();
   return !normalizedModel.startsWith("google/gemini") && !normalizedModel.includes("/gemini-");
+}
+
+/** Keep provider-native reasoning on its original message; plain assistant turns do not consume the limit. */
+export function collectPastReasoningMetadata(
+  messages: Array<{ id: string; role: string; extra?: unknown }>,
+  settings: { excludePastReasoning?: unknown; pastReasoningLimit?: unknown },
+  provider: string,
+  model: string,
+): Map<string, Record<string, unknown>> {
+  const selected = new Map<string, Record<string, unknown>>();
+  if (settings.excludePastReasoning !== false) return selected;
+  const value = settings.pastReasoningLimit;
+  const limit = typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 1;
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index]!;
+    if (message.role !== "assistant") continue;
+    const extra = parseExtra(message.extra);
+    const metadata: Record<string, unknown> = {};
+    if (
+      (provider === "google" || provider === "google_vertex") &&
+      Array.isArray(extra.geminiParts) &&
+      extra.geminiParts.length
+    ) {
+      metadata.geminiParts = extra.geminiParts;
+    }
+    if (supportsAssistantReasoningPrefill(provider) && shouldReplayStoredChatCompletionsReasoning(provider, model)) {
+      Object.assign(metadata, readChatCompletionsReasoningMetadata(extra.chatCompletionsReasoning));
+      // Local templates can consume thinking extracted from custom tags even without native reasoning deltas.
+      if (
+        provider === "custom" &&
+        !Object.keys(metadata).length &&
+        typeof extra.thinking === "string" &&
+        extra.thinking
+      ) {
+        metadata.reasoning_content = extra.thinking;
+      }
+    }
+    if (
+      ["openai", "xai", "custom"].includes(provider) &&
+      Array.isArray(extra.encryptedReasoning) &&
+      extra.encryptedReasoning.length
+    ) {
+      metadata.encryptedReasoning = extra.encryptedReasoning;
+    }
+    if (!Object.keys(metadata).length) continue;
+    selected.set(message.id, metadata);
+    if (limit > 0 && selected.size >= limit) break;
+  }
+  return selected;
 }
 
 /** Whether the connection uses the OpenAI-style message shape that can carry a partial reasoning prefill. */

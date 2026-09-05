@@ -42,6 +42,8 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
 
   const canMerge = (a: ChatMLMessage, b: ChatMLMessage) => {
     if (a.role !== b.role) return false;
+    // Reasoning/signatures must stay paired with their own assistant output.
+    if (a.role === "assistant" && (a.providerMetadata || b.providerMetadata)) return false;
     if ((a.characterId ?? null) !== (b.characterId ?? null)) return false;
     if (!hasSamePromptAudience(a, b)) return false;
     if (!a.contextKind || !b.contextKind) return true;

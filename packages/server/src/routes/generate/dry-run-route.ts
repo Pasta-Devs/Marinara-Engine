@@ -63,7 +63,7 @@ import {
   resolveModelAccessPolicy,
   resolveStoredModelContextLimit,
 } from "../../services/generation/model-access-policy.js";
-import { normalizeChatTopP } from "../../services/generation/generation-parameters.js";
+import { collectPastReasoningMetadata, normalizeChatTopP } from "../../services/generation/generation-parameters.js";
 import { filterPromptMessagesForCharacterAudience } from "../../services/generation/prompt-message-scope.js";
 import { applyAllSegmentEdits } from "../../services/game/segment-edits.js";
 import { applyRegexScriptsToPromptMessages } from "../../services/regex/regex-application.js";
@@ -682,8 +682,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     }
     const promptIdleDuration = resolvePromptIdleDuration(chatMessages, { excludeMessageId: "__dryrun_user__" });
 
-    const isGoogleProvider = conn.provider === "google" || conn.provider === "google_vertex";
     const excludePastReasoning = chatMeta.excludePastReasoning !== false;
+    const reasoningMessages = regenerateMessageId
+      ? scopedMessages.filter((message: any) => message.id !== regenerateMessageId)
+      : scopedMessages;
+    const pastReasoning = collectPastReasoningMetadata(reasoningMessages, chatMeta, conn.provider, conn.model);
     let mappedMessages: DryRunPromptMessage[] = chatMessages.map((m: any) => {
       const extra = parseExtra(m.extra);
       const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
@@ -692,10 +695,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       const files = extractFileAttachmentInputs(attachments);
       const hiddenFromAICharacterIds = getMessageHiddenFromAICharacterIds(m);
       const conversationStartForCharacterIds = getMessageConversationStartCharacterIds(m);
-      const geminiParts =
-        !excludePastReasoning && isGoogleProvider && m.role === "assistant" && extra.geminiParts
-          ? { providerMetadata: { geminiParts: extra.geminiParts } }
-          : {};
+      const providerMetadata = pastReasoning.get(m.id);
       return {
         id: typeof m.id === "string" ? m.id : null,
         role: m.role === "narrator" ? ("system" as const) : (m.role as "user" | "assistant" | "system"),
@@ -707,7 +707,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ...(conversationStartForCharacterIds.length ? { conversationStartForCharacterIds } : {}),
         ...(images?.length ? { images } : {}),
         ...(files.length ? { files } : {}),
-        ...geminiParts,
+        ...(providerMetadata ? { providerMetadata } : {}),
       };
     });
 

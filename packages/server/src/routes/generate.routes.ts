@@ -512,10 +512,10 @@ import {
   type GenerationPromptMessage,
 } from "../services/generation/prompt-message-scope.js";
 import {
+  collectPastReasoningMetadata,
   readChatCompletionsReasoningMetadata,
   resolveStoredChatOptions,
   resolveStoredMaxTokens,
-  shouldReplayStoredChatCompletionsReasoning,
 } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
@@ -1414,16 +1414,17 @@ export async function generateRoutes(app: FastifyInstance) {
       // OpenAI Responses API uses encrypted reasoning items for multi-turn continuity.
       // Recover them before choosing the tool or streaming provider path. Hidden command
       // anchors remain eligible, while a regenerated response cannot seed its replacement.
+      const reasoningMessages = input.regenerateMessageId
+        ? scopedMessages.filter((message: any) => message.id !== input.regenerateMessageId)
+        : scopedMessages;
+      const pastReasoning = collectPastReasoningMetadata(reasoningMessages, chatMeta, conn.provider, conn.model);
       if (!excludePastReasoning) {
-        const reasoningMessages = input.regenerateMessageId
-          ? scopedMessages.filter((message: any) => message.id !== input.regenerateMessageId)
-          : scopedMessages;
         for (let i = reasoningMessages.length - 1; i >= 0; i--) {
           const message = reasoningMessages[i]!;
           if (message.role === "assistant") {
-            const extra = parseExtra(message.extra);
-            if (Array.isArray(extra.encryptedReasoning) && extra.encryptedReasoning.length > 0) {
-              encryptedReasoningItems = extra.encryptedReasoning;
+            const encrypted = pastReasoning.get(message.id)?.encryptedReasoning;
+            if (Array.isArray(encrypted) && encrypted.length > 0) {
+              encryptedReasoningItems = encrypted;
             }
             break;
           }
@@ -1578,20 +1579,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const extra = parseExtra(m.extra);
         const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
         const attachments = normalizePromptAttachments(m.extra);
-        const providerMetadata: Record<string, unknown> = {};
-        // For Google connections, carry stored Gemini parts (thought signatures) on assistant messages
-        if (!excludePastReasoning && isGoogleProvider && m.role === "assistant" && extra.geminiParts) {
-          providerMetadata.geminiParts = extra.geminiParts;
-        }
-        const chatCompletionsReasoning =
-          !excludePastReasoning &&
-          m.role === "assistant" &&
-          shouldReplayStoredChatCompletionsReasoning(conn.provider, conn.model)
-            ? readChatCompletionsReasoningMetadata(extra.chatCompletionsReasoning)
-            : undefined;
-        if (chatCompletionsReasoning) {
-          Object.assign(providerMetadata, chatCompletionsReasoning);
-        }
+        const providerMetadata = pastReasoning.get(m.id);
 
         // Annotate assistant messages that have user-uploaded image attachments
         // so the model is aware it sent a photo in prior turns.
@@ -1628,7 +1616,7 @@ export async function generateRoutes(app: FastifyInstance) {
           ...(conversationStartForCharacterIds.length ? { conversationStartForCharacterIds } : {}),
           ...(attachmentInputs.images.length ? { images: attachmentInputs.images } : {}),
           ...(attachmentInputs.files.length ? { files: attachmentInputs.files } : {}),
-          ...(Object.keys(providerMetadata).length ? { providerMetadata } : {}),
+          ...(providerMetadata ? { providerMetadata } : {}),
         };
       };
 
@@ -6284,7 +6272,11 @@ export async function generateRoutes(app: FastifyInstance) {
               if (!hasProviderMessagePayload(message)) continue;
 
               const last = merged[merged.length - 1];
-              if (last && last.role === message.role) {
+              if (
+                last &&
+                last.role === message.role &&
+                !(message.role === "assistant" && (last.providerMetadata || message.providerMetadata))
+              ) {
                 last.content = `${last.content}\n\n${message.content}`;
                 delete last.contextKind;
                 if (message.images?.length) {

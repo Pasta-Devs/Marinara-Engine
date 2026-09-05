@@ -9336,6 +9336,9 @@ export function ChatSettingsDrawer({
               onExcludePastReasoningChange={(excludePastReasoning) =>
                 updateMeta.mutate({ id: chat.id, excludePastReasoning })
               }
+              onPastReasoningLimitChange={(pastReasoningLimit) =>
+                updateMeta.mutate({ id: chat.id, pastReasoningLimit })
+              }
               onImageCaptioningChange={(patch) => updateMeta.mutate({ id: chat.id, ...patch })}
             />
           </div>

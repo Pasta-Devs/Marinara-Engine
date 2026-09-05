@@ -587,6 +587,7 @@ export function resolveCharacterScopedMacros(
   const scopedContext = macroContextForCharacterProfile(profile, baseContext);
   const scoped = resolveConditionalBlocks(stripMacroComments(template), scopedContext, {});
   return scoped
+    .replace(/\{\{\s*original\s*\}\}/gi, "")
     .replace(/\{\{\s*char(?:Name)?\s*\}\}/gi, profile.name)
     .replace(/\{\{\s*char(?:Name)?Phonetic\s*\}\}/gi, profile.phoneticName ?? profile.name)
     .replace(/\{\{\s*group\s*\}\}/gi, resolveGroupCharacters(scopedContext))
@@ -2172,7 +2173,8 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   result = resolveConditionalBlocks(result, ctx, options);
 
   // ── No-op & banned ──
-  result = result.replace(/\{\{noop\}\}/gi, "");
+  // SillyTavern's original instruction has no counterpart in preset-owned prompts.
+  result = result.replace(/\{\{\s*(?:noop|original)\s*\}\}/gi, "");
   result = replaceBalancedMacros(result, (body) => (/^banned(?:\s+[\s\S]*)?$/i.test(body.trim()) ? "" : undefined));
 
   // ── Static substitutions ──
@@ -2213,8 +2215,8 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   result = result.replace(/\{\{appearance\}\}/gi, characterReplacement("appearance"));
   result = result.replace(/\{\{scenario\}\}/gi, characterReplacement("scenario"));
   result = result.replace(/\{\{example\}\}/gi, characterReplacement("example"));
-  result = result.replace(/\{\{charSysInfo\}\}/gi, characterReplacement("systemPrompt"));
-  result = result.replace(/\{\{charPostHistory\}\}/gi, characterReplacement("postHistoryInstructions"));
+  result = result.replace(/\{\{charSysInfo\}\}/gi, () => characterReplacement("systemPrompt"));
+  result = result.replace(/\{\{charPostHistory\}\}/gi, () => characterReplacement("postHistoryInstructions"));
   // Conversation-mode-only macros. `convoFields` is set only by the convo prompt
   // branch, so these are "" in every other mode.
   result = result.replace(/\{\{convo_display\}\}/gi, () =>

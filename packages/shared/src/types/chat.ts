@@ -696,6 +696,8 @@ export interface ChatMetadata {
   summaryTailMessages?: number;
   /** When true or omitted, prior provider reasoning metadata is not replayed into future prompts. */
   excludePastReasoning?: boolean;
+  /** Most recent assistant reasoning blocks to replay when enabled. Default: 1; 0 includes all. */
+  pastReasoningLimit?: number;
 
   /** Any extra key-value data */
   [key: string]: unknown;

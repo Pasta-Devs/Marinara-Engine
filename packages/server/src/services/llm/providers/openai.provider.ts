@@ -1862,7 +1862,10 @@ export class OpenAIProvider extends BaseLLMProvider {
    * Tool messages become `function_call_output` items.
    * Assistant messages with tool_calls become `function_call` items.
    */
-  private formatResponsesInput(messages: ChatMessage[]): {
+  private formatResponsesInput(
+    messages: ChatMessage[],
+    replayReasoning = false,
+  ): {
     instructions: string | undefined;
     input: Array<Record<string, unknown>>;
   } {
@@ -1903,6 +1906,16 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
 
       sawNonSystemInput = true;
+
+      // Replay each turn's opaque reasoning immediately before the assistant output it belongs to.
+      const encrypted = m.providerMetadata?.encryptedReasoning;
+      if (replayReasoning && m.role === "assistant" && Array.isArray(encrypted)) {
+        for (const item of encrypted) {
+          if (!item || typeof item !== "object" || item.type !== "reasoning") continue;
+          if (typeof item.id === "string" && input.some((existing) => existing.id === item.id)) continue;
+          input.push(item);
+        }
+      }
 
       if (m.role === "tool") {
         // Tool result → function_call_output item
@@ -1983,13 +1996,14 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   /** Build the Responses API request body */
   private buildResponsesBody(messages: ChatMessage[], options: ChatOptions): Record<string, unknown> {
-    const { instructions, input } = this.formatResponsesInput(messages);
     const isOpenAIChatGPT = this.isOpenAIChatGPTProvider();
+    const replayReasoning = !isOpenAIChatGPT && options.reasoningEffort !== "none";
+    const { instructions, input } = this.formatResponsesInput(messages, replayReasoning);
     const suppressModelParameters = this.shouldSuppressModelParameters(options);
 
     // Replay encrypted reasoning items from the previous turn so the model
     // retains its reasoning context and avoids re-deriving (and re-narrating) the same conclusions.
-    if (!isOpenAIChatGPT && options.reasoningEffort !== "none" && options.encryptedReasoningItems?.length) {
+    if (replayReasoning && options.encryptedReasoningItems?.length) {
       let lastAssistantIdx = -1;
       for (let i = input.length - 1; i >= 0; i--) {
         if ((input[i] as Record<string, unknown>).role === "assistant") {
@@ -1998,7 +2012,11 @@ export class OpenAIProvider extends BaseLLMProvider {
         }
       }
       if (lastAssistantIdx >= 0) {
-        input.splice(lastAssistantIdx, 0, ...(options.encryptedReasoningItems as Array<Record<string, unknown>>));
+        const existingIds = new Set(input.filter((item) => item.type === "reasoning").map((item) => item.id));
+        const missing = (options.encryptedReasoningItems as Array<Record<string, unknown>>).filter(
+          (item) => !item.id || !existingIds.has(item.id),
+        );
+        input.splice(lastAssistantIdx, 0, ...missing);
       }
     }
 
@@ -2130,7 +2148,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       if (
         response.status === 400 &&
         this.isEncryptedContentError(errorText) &&
-        options.encryptedReasoningItems?.length
+        (body.input as Array<Record<string, unknown>>).some((item) => item.type === "reasoning")
       ) {
         logger.warn("[OpenAI chatResponses] Encrypted reasoning items rejected, retrying without them");
         options.onEncryptedReasoning?.([]); // clear the cache
@@ -2395,7 +2413,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       if (
         response.status === 400 &&
         this.isEncryptedContentError(errorText) &&
-        options.encryptedReasoningItems?.length
+        (body.input as Array<Record<string, unknown>>).some((item) => item.type === "reasoning")
       ) {
         logger.warn("[OpenAI chatCompleteResponses] Encrypted reasoning items rejected, retrying without them");
         options.onEncryptedReasoning?.([]); // clear the cache
