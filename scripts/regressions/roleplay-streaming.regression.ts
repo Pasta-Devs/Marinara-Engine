@@ -1479,8 +1479,8 @@ const illustrationHandlerSource =
   useGenerateSource.match(/case "illustration": \{[\s\S]*?case "illustration_queued":/u)?.[0] ?? "";
 assert.match(
   illustrationHandlerSource,
-  /if \(!streamingEnabled && !isGameGeneration\) \{[\s\S]*?refreshMessagesAuthoritatively/u,
-  "illustrations should not refresh the visible cache during Game generation",
+  /if \(!isGameGeneration && canRefreshCurrentMessagesNow\(\)\) \{[\s\S]*?refreshMessagesAuthoritatively/u,
+  "illustrations refresh after the live presentation hands off, but never during Game generation",
 );
 assert.match(
   useGenerateSource,
