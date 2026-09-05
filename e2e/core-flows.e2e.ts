@@ -19281,7 +19281,18 @@ test("mobile reopening Echo Chamber and editing older Roleplay messages restore 
     await expect(echo.getByText("Echo reaction 40.", { exact: true })).toBeInViewport();
     await echo.getByTitle("Collapse Echo Chamber", { exact: true }).tap();
     await page.getByTitle("Open Echo Chamber", { exact: true }).tap();
-    await expect.soft(echo.getByText("Echo reaction 40.", { exact: true })).toBeInViewport();
+    await expect(echo.getByText("Echo reaction 40.", { exact: true })).toBeInViewport();
+    await echo.getByTitle("Collapse Echo Chamber", { exact: true }).tap();
+
+    const mobileViewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 900, height: mobileViewport.height });
+    await page.getByTitle("Open Echo Chamber", { exact: true }).tap();
+    await expect(echo.getByRole("button", { name: "Resize Echo Chamber" })).toBeVisible();
+    await page.setViewportSize(mobileViewport);
+    await expect(echo.getByText("Echo reaction 40.", { exact: true })).toBeInViewport();
+    await echo.getByTitle("Collapse Echo Chamber", { exact: true }).tap();
+    await page.getByTitle("Open Echo Chamber", { exact: true }).tap();
+    await expect(echo.getByText("Echo reaction 40.", { exact: true })).toBeInViewport();
     await echo.getByTitle("Collapse Echo Chamber", { exact: true }).tap();
 
     const transcript = page.locator('[data-chat-mode="roleplay"] [data-chat-scroll]');
@@ -19304,7 +19315,8 @@ test("mobile reopening Echo Chamber and editing older Roleplay messages restore 
           scroll: element.scrollTop,
           visibleStart:
             element.getBoundingClientRect().top >=
-            element.closest("[data-chat-scroll]")!.getBoundingClientRect().top - 1,
+              element.closest("[data-chat-scroll]")!.getBoundingClientRect().top - 1 &&
+            element.getBoundingClientRect().top < element.closest("[data-chat-scroll]")!.getBoundingClientRect().bottom,
         })),
       )
       .toEqual({ selection: 0, scroll: 0, visibleStart: true });

@@ -336,7 +336,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
 
   // ── Compute position style relative to the chat area container ──
   const [posStyle, setPosStyle] = useState<CSSProperties>({});
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   const mobileCollapsed = isMobile && !echoChamberOpen;
   const resizeFromLeft = !isMobile && echoChamberSide.endsWith("right");
   const resizeFromTop = !isMobile && echoChamberSide.startsWith("bottom");
@@ -454,7 +454,10 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   );
 
   useEffect(() => {
-    const clampCurrentSize = () => setPanelSize((size) => (size ? clampPanelSize(size.width, size.height) : null));
+    const clampCurrentSize = () => {
+      setIsMobile(window.innerWidth < 768);
+      setPanelSize((size) => (size ? clampPanelSize(size.width, size.height) : null));
+    };
     window.addEventListener("resize", clampCurrentSize);
     return () => window.removeEventListener("resize", clampCurrentSize);
   }, [clampPanelSize]);
@@ -462,7 +465,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   useEffect(() => {
     if (!echoEnabled) return;
     // On mobile, position below the HUD bar.
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
+    if (isMobile) {
       const update = () => {
         const hudEl = findVisibleHud();
         // Position relative to container, so measure HUD bottom relative to rpg-chat-area
@@ -543,7 +546,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       discoveryObserver?.disconnect();
       window.removeEventListener("resize", scheduleUpdate);
     };
-  }, [echoEnabled, echoChamberSide, trackerPanelEnabled, trackerPanelOpen, trackerPanelSide]);
+  }, [echoEnabled, echoChamberSide, isMobile, trackerPanelEnabled, trackerPanelOpen, trackerPanelSide]);
 
   useEffect(() => {
     if (!echoEnabled || (isMobile && hiddenOnMobile) || mobileCollapsed) return;
