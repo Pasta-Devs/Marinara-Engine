@@ -1,4 +1,4 @@
-# Marinara Engine — Documentation language packs
+# Marinara Engine — Documentation and UI language packs
 
 This orphan branch holds the translated in-app documentation, one folder per
 language code (`es/`, …), each mirroring the English `docs/` folder and file
@@ -26,3 +26,27 @@ single tag, so translations add zero checkout size.
 
 See `CONTRIBUTING.md § Translated documentation` on `staging` for the full
 rules, including the per-file English fallback that makes partial packs safe.
+
+## UI language packs
+
+`ui/<BCP-47>.json` contains community interface translations, separate from documentation folders.
+The original eleven packs were moved from Engine; a subsequent review corrected three German spelling errors. English remains canonical on
+`staging` at `packages/client/src/localization/locales/en.json`. Arabic has a UI pack even without a docs pack.
+Preserve canonical filenames such as `pt-BR.json` and `zh-Hans.json`.
+
+Engine downloads a UI pack only when the user selects its language (Settings → General → Language).
+Refresh language pack updates it explicitly. Downloaded UI packs survive updates in `DATA_DIR/ui-packs`;
+missing packs and missing keys fall back to English. Startup never downloads one.
+
+After editing translations, generate and validate the shared manifest:
+
+```bash
+node scripts/ui-i18n/validate-packs.mjs /path/to/Engine/packages/client/src/localization/locales/en.json --write-manifest
+node scripts/ui-i18n/validate-packs.mjs /path/to/Engine/packages/client/src/localization/locales/en.json
+```
+
+The dependency-free validator checks metadata, semantic keys, text, interpolation and rich-text tokens, reports
+coverage and stale keys against the supplied English source, and verifies `ui/manifest.json` sizes/hashes.
+Engine ignores stale keys; use `[ui-i18n]` follow-ups to batch catch-up work after key renames/deletions.
+New languages also need their code added to Engine's `UI_LANGUAGE_CODES` registry. Existing pack corrections
+only need a PR against `docs-i18n`. Do not copy English into every pack to satisfy key parity.
