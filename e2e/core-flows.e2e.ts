@@ -1781,6 +1781,16 @@ test("message deletion uses unified chroma controls and selection states", async
           };
         }),
       );
+    await expect
+      .poll(
+        async () =>
+          new Set(
+            (await readChromeStyles(dialogActions)).map(({ backgroundColor, borderColor, color }) =>
+              [backgroundColor, borderColor, color].join("|"),
+            ),
+          ).size,
+      )
+      .toBe(1);
     const tealStyles = await readChromeStyles(dialogActions);
     expect(new Set(tealStyles.map(({ backgroundColor }) => backgroundColor)).size).toBe(1);
     expect(new Set(tealStyles.map(({ borderColor }) => borderColor)).size).toBe(1);
@@ -1791,6 +1801,16 @@ test("message deletion uses unified chroma controls and selection states", async
 
     await setAppAccentColor(page, "#3b82f6");
     await expect.poll(async () => (await readChromeStyles(dialogActions))[0]?.color).not.toBe(tealStyles[0]?.color);
+    await expect
+      .poll(
+        async () =>
+          new Set(
+            (await readChromeStyles(dialogActions)).map(({ backgroundColor, borderColor, color }) =>
+              [backgroundColor, borderColor, color].join("|"),
+            ),
+          ).size,
+      )
+      .toBe(1);
     const blueStyles = await readChromeStyles(dialogActions);
     expect(new Set(blueStyles.map(({ backgroundColor }) => backgroundColor)).size).toBe(1);
     expect(new Set(blueStyles.map(({ borderColor }) => borderColor)).size).toBe(1);
@@ -5444,7 +5464,7 @@ test("stopped and refused generations keep sent text cleared and accept the firs
       options: { delaySave?: boolean; failFirstSave?: boolean } = {},
     ) => {
       const message = page.locator(`[data-message-id="${messageId}"]`);
-      if (mobile) await message.click();
+      if (mobile) await message.locator(".mari-message-content").first().click();
       else await message.hover();
       await message.getByTitle("Edit", { exact: true }).click();
       const editor = message.locator("textarea");
@@ -6620,7 +6640,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
 
       const savedRow = page.locator(`[data-message-id="${savedMessage.id}"]`);
       if (testInfo.project.name.includes("mobile")) {
-        await savedRow.click();
+        await savedRow.getByText("A completed response with saved reasoning.", { exact: true }).click();
       } else {
         await savedRow.hover();
       }
@@ -6636,7 +6656,9 @@ for (const mode of ["roleplay", "conversation"] as const) {
 
       const unavailableRow = page.locator(`[data-message-id="${unavailableMessage.id}"]`);
       if (testInfo.project.name.includes("mobile")) {
-        await unavailableRow.click();
+        await unavailableRow
+          .getByText("A response whose provider omitted its reasoning summary.", { exact: true })
+          .click();
       } else {
         await unavailableRow.hover();
       }
@@ -13464,7 +13486,9 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
 
   const openExpandedLocalModel = async () => {
     const rightPanel = page.locator('[data-component="RightPanel"]');
-    await page.locator('[data-tour="panel-connections"]').click();
+    const connectionsButton = page.locator('[data-tour="panel-connections"]');
+    await expect(connectionsButton).toBeVisible();
+    if ((await connectionsButton.getAttribute("aria-pressed")) !== "true") await connectionsButton.click();
     await expect(rightPanel).toBeVisible();
     const localModelLabel = rightPanel.getByText("Local Model", { exact: true });
     await localModelLabel.evaluate((element) => element.parentElement?.parentElement?.click());
