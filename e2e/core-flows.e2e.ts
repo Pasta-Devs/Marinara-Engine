@@ -5678,12 +5678,6 @@ for (const mode of ["conversation", "roleplay"] as const) {
       const row = page.locator(`[data-message-id="${message.id}"]`);
       const actions = row.locator(".mari-message-actions");
       await expect(row).toBeVisible();
-      if (mobile) await row.locator(".mari-message-content").first().tap();
-      else await row.hover();
-      await testInfo.attach(`${mode}-message-controls-${testInfo.project.name}.png`, {
-        body: await row.screenshot(),
-        contentType: "image/png",
-      });
       await expect(row.locator(".mari-message-swipes")).toBeVisible();
       await expect(row.getByRole("button", { name: "Previous swipe", exact: true })).toBeDisabled();
       await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 1", exact: true })).toHaveValue("1");
@@ -5693,6 +5687,7 @@ for (const mode of ["conversation", "roleplay"] as const) {
       if (mobile) await userRow.locator(".mari-message-content").first().tap();
       else await userRow.hover();
       const userActions = userRow.locator(".mari-message-actions");
+      await expect.poll(() => userActions.evaluate((bar) => getComputedStyle(bar).opacity)).toBe("1");
       const copy = await userActions.locator('button[title="Copy"]').boundingBox();
       const translate = await userActions.locator('button[title="Translate"]').boundingBox();
       const edit = await userActions.locator('button[title="Edit"]').boundingBox();
@@ -5704,6 +5699,12 @@ for (const mode of ["conversation", "roleplay"] as const) {
       });
       if (mobile) await row.locator(".mari-message-content").first().tap();
       else await row.hover();
+      await expect.poll(() => actions.evaluate((bar) => getComputedStyle(bar).opacity)).toBe("1");
+      await expect(row.locator("textarea")).toHaveCount(0);
+      await testInfo.attach(`${mode}-message-controls-${testInfo.project.name}.png`, {
+        body: await row.screenshot(),
+        contentType: "image/png",
+      });
 
       const viewport = page.viewportSize()!;
       for (const width of mobile ? [320, viewport.width] : [viewport.width]) {
