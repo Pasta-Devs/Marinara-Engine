@@ -5755,7 +5755,12 @@ for (const mode of ["conversation", "roleplay"] as const) {
           .click();
       }
       expect((await regeneration).postDataJSON()).toMatchObject({ chatId: chat.id, regenerateMessageId: message.id });
-      await expect(page.getByText("Synthetic generation boundary reached.", { exact: false }).first()).toBeVisible();
+      const generationToast = page
+        .locator("[data-sonner-toast]")
+        .filter({ hasText: "Synthetic generation boundary reached." });
+      await expect(generationToast).toBeVisible();
+      await generationToast.getByRole("button", { name: "Close toast", exact: true }).click();
+      await expect(generationToast).toBeHidden();
 
       const readSynced = async () => {
         const result = await request.get("/api/app-settings/ui");
