@@ -88,21 +88,25 @@ setTimeout(() => process.exit(7), 8_000);
   assert.match(child.stdout, /severing open connections/u);
 }
 
-// ── A fast shutdown is never held open by its own watchdogs ─────────────────
+// ── An explicit exit preempts the armed watchdogs without delay ─────────────
+// The force-exit timer is deliberately ref'd (a hung close with an empty loop
+// must not let Node exit "clean" before the forced stamp is written), so the
+// no-delay guarantee comes from callers exiting explicitly after close - the
+// contract this child proves.
 {
   const child = runChild(
     `import { armShutdownDeadline } from ${JSON.stringify(helperUrl)};
-armShutdownDeadline({ server: { closeAllConnections() {} } }, "lane unref", {
+armShutdownDeadline({ server: { closeAllConnections() {} } }, "lane explicit-exit", {
   connectionDeadlineMs: 60_000,
   forceExitDeadlineMs: 120_000,
 });
-// Nothing else keeps the loop alive: unref'd watchdogs must let the process
-// end immediately instead of pinning it for two minutes.
+// Mirrors every production caller: close finished, exit explicitly.
+process.exit(0);
 `,
     9_000,
   );
   assert.equal(child.status, 0);
-  assert.ok(child.elapsedMs < 7_500, `unref'd watchdogs must not pin the process (took ${child.elapsedMs} ms)`);
+  assert.ok(child.elapsedMs < 7_500, `explicit exit must preempt the ref'd watchdog (took ${child.elapsedMs} ms)`);
 }
 
 // ── Source pins: every unbounded close path stays armed ─────────────────────
@@ -128,7 +132,11 @@ assert.doesNotMatch(adminRoutes, /armShutdownDeadline/u);
 const helper = readSource("packages/server/src/lib/shutdown-deadline.ts");
 assert.match(helper, /SHUTDOWN_CONNECTION_DEADLINE_MS = 4_000;/u);
 assert.match(helper, /SHUTDOWN_FORCE_EXIT_DEADLINE_MS = 8_000;/u);
-assert.match(helper, /connectionTimer\.unref\(\);\s*\n\s*forceExitTimer\.unref\(\);/u);
+assert.match(helper, /connectionTimer\.unref\(\);/u);
+// The force-exit watchdog must stay referenced: with an empty event loop an
+// unref'd timer never fires, Node exits naturally, and the postmortem stamps
+// "clean" for a close that may have skipped the flush.
+assert.doesNotMatch(helper, /forceExitTimer\.unref\(\)/u);
 // A forced exit may have truncated the flush, so it must never be stamped
 // "clean": the honest kind is written before the exit, and the exit hook
 // persists it.

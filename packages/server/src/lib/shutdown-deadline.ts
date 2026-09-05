@@ -65,7 +65,15 @@ export function armShutdownDeadline(
     process.exit(0);
   }, forceExitDeadlineMs);
 
-  // A shutdown that finishes on time must not be held open by its watchdogs.
+  // The connection watchdog is advisory: if the loop empties there are no
+  // connections left to sever, so it must never hold the process open.
   connectionTimer.unref();
-  forceExitTimer.unref();
+  // The force-exit watchdog is deliberately REFERENCED (CodeRabbit, #5863):
+  // a pending await app.close() does not keep the event loop alive, so a
+  // never-settling onClose hook that has already released its handles would
+  // otherwise let Node exit naturally before this fires - recording a "clean"
+  // exit for a close that may have skipped the flush, the exact lie the
+  // "forced" stamp exists to prevent. Successful shutdowns are unaffected:
+  // every caller ends with an explicit process.exit right after close, which
+  // preempts this timer.
 }

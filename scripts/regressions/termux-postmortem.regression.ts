@@ -60,16 +60,10 @@ try {
   assert.equal(killed.status === "unclean" && killed.record.rebootedSince, true);
   assert.equal(killed.status === "unclean" && killed.record.uptimeMs, 3.5 * 60 * 60 * 1000);
   assert.equal(killed.status === "unclean" && killed.record.rssMiB, 119.3);
-  assert.equal(
-    classifyPreviousSession(previousBeat, "boot-a", "now", deadPid).status === "unclean" &&
-      classifyPreviousSession(previousBeat, "boot-a", "now", deadPid).record.rebootedSince,
-    false,
-  );
-  assert.equal(
-    classifyPreviousSession({ ...previousBeat, bootId: null }, "boot-a", "now", deadPid).status === "unclean" &&
-      classifyPreviousSession({ ...previousBeat, bootId: null }, "boot-a", "now", deadPid).record.rebootedSince,
-    null,
-  );
+  const sameBoot = classifyPreviousSession(previousBeat, "boot-a", "now", deadPid);
+  assert.equal(sameBoot.status === "unclean" && sameBoot.record.rebootedSince, false);
+  const unknownBoot = classifyPreviousSession({ ...previousBeat, bootId: null }, "boot-a", "now", deadPid);
+  assert.equal(unknownBoot.status === "unclean" && unknownBoot.record.rebootedSince, null);
 
   // NEVER CLAIM AN UNOBSERVED SHUTDOWN: a missing or unreadable record, and a
   // record whose owner is still running (a restart's detached child racing
