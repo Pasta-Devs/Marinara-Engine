@@ -10,6 +10,8 @@ import {
   type AgentFailure,
 } from "../../lib/agent-failures";
 import { ContextInjectionPanel } from "../agents/ContextInjectionPanel";
+import { AgentTaskStatus } from "../agents/AgentTaskStatus";
+import { useAgentStore } from "../../stores/agent.store";
 import { ContinuityIssueChecklist } from "../agents/ContinuityIssueChecklist";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -66,6 +68,7 @@ export function RoleplayHUDActionsMenu({
   showInjectionsTab,
 }: RoleplayHUDActionsMenuProps) {
   const { t: localizeUi } = useUiTranslation();
+  const hasTaskProgress = useAgentStore((state) => state.taskProgress.some((entry) => entry.chatId === chatId));
   const [tab, setTab] = useState<AgentsMenuTab>("activity");
   const [stoppingAgents, setStoppingAgents] = useState(false);
   const uniqueAgentCount = new Set(thoughtBubbles.map((bubble) => bubble.agentId)).size;
@@ -95,7 +98,8 @@ export function RoleplayHUDActionsMenu({
     () => hasActiveCustomAgentType(agentConfigs ?? [], enabledAgentTypes),
     [agentConfigs, enabledAgentTypes],
   );
-  const hasAnyActivity = isAgentProcessing || thoughtBubbles.length > 0 || hasCustomRuns || customAgentRunsLoading;
+  const hasAnyActivity =
+    isAgentProcessing || hasTaskProgress || thoughtBubbles.length > 0 || hasCustomRuns || customAgentRunsLoading;
   const tabs = [
     { id: "activity" as const, label: "Activity" },
     ...(showInjectionsTab ? [{ id: "injections" as const, label: "Injections" }] : []),
@@ -157,6 +161,7 @@ export function RoleplayHUDActionsMenu({
 
       {activeTab === "activity" && (
         <>
+          <AgentTaskStatus chatId={chatId} />
           {isAgentProcessing && (
             <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
               <Sparkles size="0.75rem" className="animate-pulse text-[var(--muted-foreground)]" />

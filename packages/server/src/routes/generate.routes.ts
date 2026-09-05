@@ -1907,6 +1907,7 @@ export async function generateRoutes(app: FastifyInstance) {
             chatSummary: null,
             authorNotes: typeof chatMeta.authorNotes === "string" ? chatMeta.authorNotes : null,
             streaming: input.streaming,
+            agentProgress: (event) => sendSseEvent(reply, { type: "agent_progress", data: event }),
             ...(requestDebug
               ? {
                   agentDebug: (event: AgentCallDebugEvent) => {
@@ -4132,6 +4133,7 @@ export async function generateRoutes(app: FastifyInstance) {
             : {}),
           ...(Object.keys(triggeredLorebookEntriesByAgentId).length > 0 ? { triggeredLorebookEntriesByAgentId } : {}),
           streaming: input.streaming,
+          agentProgress: (event) => sendSseEvent(reply, { type: "agent_progress", data: event }),
           ...(requestDebug
             ? {
                 agentDebug: (event: AgentCallDebugEvent) => {

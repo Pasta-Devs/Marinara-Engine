@@ -59,6 +59,7 @@ import {
   resolveChatPersonaCandidate,
   type AgentWriteApprovalProposal,
   type AgentCallDebugEvent,
+  type AgentTaskProgress,
   type CharacterCardFieldUpdate,
   type EditableCharacterCardField,
   type MariGuidedPlanStep,
@@ -1875,6 +1876,13 @@ export function useGenerate() {
 
             case "agent_start": {
               setProcessingRun(agentProcessingRunId, true, params.chatId);
+              break;
+            }
+
+            case "agent_progress": {
+              useAgentStore
+                .getState()
+                .updateTaskProgress(params.chatId, agentProcessingRunId, event.data as AgentTaskProgress);
               break;
             }
 
@@ -3696,6 +3704,12 @@ export function useGenerate() {
                 phase: "agent_call",
                 agentCall: event.data as AgentCallDebugEvent,
               });
+              break;
+            }
+            case "agent_progress": {
+              useAgentStore
+                .getState()
+                .updateTaskProgress(chatId, agentProcessingRunId, event.data as AgentTaskProgress);
               break;
             }
             case "agents_retry_failed": {
