@@ -1411,26 +1411,6 @@ export async function generateRoutes(app: FastifyInstance) {
         lorebookKeeperMessages = lorebookKeeperMessages.filter((m: any) => m.id !== input.regenerateMessageId);
       }
 
-      // OpenAI Responses API uses encrypted reasoning items for multi-turn continuity.
-      // Recover them before choosing the tool or streaming provider path. Hidden command
-      // anchors remain eligible, while a regenerated response cannot seed its replacement.
-      const reasoningMessages = input.regenerateMessageId
-        ? scopedMessages.filter((message: any) => message.id !== input.regenerateMessageId)
-        : scopedMessages;
-      const pastReasoning = collectPastReasoningMetadata(reasoningMessages, chatMeta, conn.provider, conn.model);
-      if (!excludePastReasoning) {
-        for (let i = reasoningMessages.length - 1; i >= 0; i--) {
-          const message = reasoningMessages[i]!;
-          if (message.role === "assistant") {
-            const encrypted = pastReasoning.get(message.id)?.encryptedReasoning;
-            if (Array.isArray(encrypted) && encrypted.length > 0) {
-              encryptedReasoningItems = encrypted;
-            }
-            break;
-          }
-        }
-      }
-
       const regenerateContextCutoff =
         input.regenerateMessageId && typeof regenMsg?.createdAt === "string" ? regenMsg.createdAt : null;
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
@@ -1475,6 +1455,26 @@ export async function generateRoutes(app: FastifyInstance) {
       const contextMessageLimit = chatMeta.contextMessageLimit as number | null;
       if (contextMessageLimit && contextMessageLimit > 0 && chatMessages.length > contextMessageLimit) {
         chatMessages = chatMessages.slice(-contextMessageLimit);
+      }
+      const pastReasoning = collectPastReasoningMetadata(chatMessages, chatMeta, conn.provider, conn.model);
+
+      // Ordinary reasoning stays on visible history messages. Only a generated
+      // command-only anchor needs the legacy continuity slot when its text is hidden.
+      if (!excludePastReasoning) {
+        for (let i = scopedMessages.length - 1; i >= 0; i--) {
+          const message = scopedMessages[i]!;
+          if (message.role !== "assistant" || message.id === input.regenerateMessageId) continue;
+          const extra = parseExtra(message.extra);
+          if (extra.hiddenFromAI === true && extra.commandOnly !== true) continue;
+          if (
+            extra.commandOnly === true &&
+            Array.isArray(extra.encryptedReasoning) &&
+            extra.encryptedReasoning.length
+          ) {
+            encryptedReasoningItems = extra.encryptedReasoning;
+          }
+          break;
+        }
       }
 
       // Agent activation is request-scoped. Resolve the configured set once so

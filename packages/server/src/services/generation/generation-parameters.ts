@@ -137,6 +137,7 @@ export function collectPastReasoningMetadata(
     const message = messages[index]!;
     if (message.role !== "assistant") continue;
     const extra = parseExtra(message.extra);
+    if (extra.hiddenFromAI === true) continue;
     const metadata: Record<string, unknown> = {};
     if (
       (provider === "google" || provider === "google_vertex") &&

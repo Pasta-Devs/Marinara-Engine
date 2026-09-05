@@ -683,10 +683,12 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const promptIdleDuration = resolvePromptIdleDuration(chatMessages, { excludeMessageId: "__dryrun_user__" });
 
     const excludePastReasoning = chatMeta.excludePastReasoning !== false;
-    const reasoningMessages = regenerateMessageId
-      ? scopedMessages.filter((message: any) => message.id !== regenerateMessageId)
-      : scopedMessages;
-    const pastReasoning = collectPastReasoningMetadata(reasoningMessages, chatMeta, conn.provider, conn.model);
+    const pastReasoning = collectPastReasoningMetadata(
+      regenerateMessageId ? chatMessages.filter((message: any) => message.id !== regenerateMessageId) : chatMessages,
+      chatMeta,
+      conn.provider,
+      conn.model,
+    );
     let mappedMessages: DryRunPromptMessage[] = chatMessages.map((m: any) => {
       const extra = parseExtra(m.extra);
       const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
@@ -1405,6 +1407,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       finalMessages = mappedMessages.map((m: any) => ({
         role: m.role,
         content: m.content,
+        ...(m.contextKind ? { contextKind: m.contextKind } : {}),
+        ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
         ...(m.images ? { images: m.images } : {}),
         ...(m.files ? { files: m.files } : {}),
       }));

@@ -37,7 +37,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
-- Advanced Parameters can keep a chosen number of past assistant reasoning blocks when exclusion is off (default 1; 0 keeps all), preserving provider-native reasoning and local custom-tag thinking (#5785).
+- Advanced Parameters can keep a chosen number of eligible past assistant reasoning blocks when exclusion is off (default 1; 0 keeps all), preserving provider-native reasoning and local custom-tag thinking. Prompt previews and encrypted tool-round continuation retain the correct reasoning (#5785).
 - Added example text to Assistant Reasoning Prefill without changing saved values (#5864).
 - Illustrator accepts Run Interval 0 for manual-only generation, preserving Gallery actions while stopping automatic runs (Marinara-Agents #629).
 - The Roleplay Agents & Actions menu shows per-agent phases, incoming output activity, reported input/output tokens, time to first output, and elapsed time without enabling debug prompt logs (#5860).

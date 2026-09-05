@@ -2477,6 +2477,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     let currentEvent = "";
     let emittedReasoningSummary = "";
     let streamedReasoningSummary = "";
+    let encryptedReasoning: unknown[] = [];
 
     try {
       while (true) {
@@ -2612,6 +2613,7 @@ export class OpenAIProvider extends BaseLLMProvider {
                   },
                 });
               } else if (item?.type === "reasoning") {
+                if (typeof item.encrypted_content === "string") encryptedReasoning.push(item);
                 emittedReasoningSummary = this.emitMissingResponsesReasoningSummary(
                   { output: [item] },
                   options,
@@ -2625,6 +2627,8 @@ export class OpenAIProvider extends BaseLLMProvider {
               const resp = parsed.response as Record<string, unknown> | undefined;
               if (resp) {
                 streamUsage = this.extractResponsesUsage(resp);
+                const completedReasoning = this.extractEncryptedReasoningItems(resp);
+                if (completedReasoning.length) encryptedReasoning = completedReasoning;
                 this.emitEncryptedReasoning(resp, options);
                 emittedReasoningSummary = this.emitMissingResponsesReasoningSummary(
                   resp,
@@ -2662,6 +2666,9 @@ export class OpenAIProvider extends BaseLLMProvider {
               logger.warn("[OpenAI Responses] chatCompleteResponses stream incomplete (reason=%s)", reason);
               finishReason = OpenAIProvider.normalizeResponsesIncompleteFinishReason(reason);
               if (resp) {
+                const completedReasoning = this.extractEncryptedReasoningItems(resp);
+                if (completedReasoning.length) encryptedReasoning = completedReasoning;
+                this.emitEncryptedReasoning(resp, options);
                 emittedReasoningSummary = this.emitMissingResponsesReasoningSummary(
                   resp,
                   options,
@@ -2688,6 +2695,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       toolCalls: functionCalls,
       finishReason,
       usage: streamUsage,
+      ...(encryptedReasoning.length ? { providerMetadata: { encryptedReasoning } } : {}),
     };
   }
 
@@ -2846,6 +2854,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     const text = this.extractResponsesText(json);
     const usage = this.extractResponsesUsage(json);
     const output = json.output as Array<Record<string, unknown>> | undefined;
+    const encryptedReasoning = this.extractEncryptedReasoningItems(json);
 
     // Extract function calls from output items
     const toolCalls: LLMToolCall[] = [];
@@ -2881,6 +2890,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       toolCalls,
       finishReason,
       usage,
+      ...(encryptedReasoning.length ? { providerMetadata: { encryptedReasoning } } : {}),
     };
   }
 }

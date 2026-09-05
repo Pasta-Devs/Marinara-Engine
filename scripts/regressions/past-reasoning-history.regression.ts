@@ -59,6 +59,19 @@ for (const limit of [0, 2, 10]) {
   );
 }
 assert.equal(JSON.stringify(history), original, "limiting replay must not delete saved reasoning");
+const hiddenHistory = [
+  history[0]!,
+  {
+    id: "hidden",
+    role: "assistant",
+    extra: { hiddenFromAI: true, chatCompletionsReasoning: { reasoning_content: "not for the AI" } },
+  },
+];
+assert.deepEqual(
+  [...collectPastReasoningMetadata(hiddenHistory, { excludePastReasoning: false }, "custom", "local-model").keys()],
+  ["a"],
+  "hidden messages must neither replay nor consume the visible reasoning allowance",
+);
 const localHistory = [
   { id: "a", role: "assistant", extra: { thinking: "from custom thinking tags" } },
   { id: "b", role: "assistant", extra: "invalid JSON" },
@@ -97,7 +110,20 @@ const provider = new OpenAIProvider(
   "openai",
 ) as unknown as {
   buildResponsesBody(messages: ChatMessage[], options: ChatOptions): { input: Array<Record<string, unknown>> };
+  parseResponsesResult(result: Record<string, unknown>): { providerMetadata?: Record<string, unknown> };
 };
+const toolReasoning = reasoning("rs_tool");
+assert.deepEqual(
+  provider.parseResponsesResult({
+    status: "completed",
+    output: [
+      toolReasoning,
+      { type: "function_call", id: "fc_tool", call_id: "fc_tool", name: "lookup", arguments: "{}" },
+    ],
+  }).providerMetadata,
+  { encryptedReasoning: [toolReasoning] },
+  "tool-round reasoning must travel with its assistant result, not just the legacy latest-turn callback",
+);
 const all = collectPastReasoningMetadata(
   history,
   { excludePastReasoning: false, pastReasoningLimit: 0 },
