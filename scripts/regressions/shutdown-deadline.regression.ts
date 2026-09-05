@@ -135,8 +135,9 @@ assert.match(helper, /SHUTDOWN_FORCE_EXIT_DEADLINE_MS = 8_000;/u);
 assert.match(helper, /connectionTimer\.unref\(\);/u);
 // The force-exit watchdog must stay referenced: with an empty event loop an
 // unref'd timer never fires, Node exits naturally, and the postmortem stamps
-// "clean" for a close that may have skipped the flush.
-assert.doesNotMatch(helper, /forceExitTimer\.unref\(\)/u);
+// "clean" for a close that may have skipped the flush. Exactly ONE unref may
+// exist in this file - the connection watchdog's.
+assert.equal((helper.match(/\.unref\(\)/gu) ?? []).length, 1, "only the connection watchdog is unref'd");
 // A forced exit may have truncated the flush, so it must never be stamped
 // "clean": the honest kind is written before the exit, and the exit hook
 // persists it.

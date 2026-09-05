@@ -47,7 +47,15 @@ export function armShutdownDeadline(
     }
   }, connectionDeadlineMs);
 
-  const forceExitTimer = setTimeout(() => {
+  // This timer is deliberately REFERENCED - no handle kept, no unref
+  // (CodeRabbit, #5863): a pending await app.close() does not keep the event
+  // loop alive, so a never-settling onClose hook that has already released
+  // its handles would otherwise let Node exit naturally before this fires -
+  // recording a "clean" exit for a close that may have skipped the flush,
+  // the exact lie the "forced" stamp exists to prevent. Successful shutdowns
+  // are unaffected: every caller ends with an explicit process.exit right
+  // after close, which preempts this timer.
+  setTimeout(() => {
     logger.warn(
       "Graceful shutdown (%s) exceeded %d ms; forcing exit now, before a supervisor escalates to SIGKILL",
       context,
@@ -68,12 +76,4 @@ export function armShutdownDeadline(
   // The connection watchdog is advisory: if the loop empties there are no
   // connections left to sever, so it must never hold the process open.
   connectionTimer.unref();
-  // The force-exit watchdog is deliberately REFERENCED (CodeRabbit, #5863):
-  // a pending await app.close() does not keep the event loop alive, so a
-  // never-settling onClose hook that has already released its handles would
-  // otherwise let Node exit naturally before this fires - recording a "clean"
-  // exit for a close that may have skipped the flush, the exact lie the
-  // "forced" stamp exists to prevent. Successful shutdowns are unaffected:
-  // every caller ends with an explicit process.exit right after close, which
-  // preempts this timer.
 }
