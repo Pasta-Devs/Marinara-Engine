@@ -2652,7 +2652,11 @@ export function openRouterModalities(model?: string): string[] {
 export function usesOpenRouterImagesApi(model?: string): boolean {
   const lower = normalizeOpenRouterImagesApiModel(model)?.toLowerCase() ?? "";
   return (
-    lower.startsWith("krea/") || lower.startsWith("bytedance-seed/seedream-") || lower.startsWith("openai/gpt-image-")
+    lower.startsWith("krea/") ||
+    lower.startsWith("bytedance-seed/seedream-") ||
+    lower.startsWith("openai/gpt-image-") ||
+    lower === "qwen/qwen-image-3" ||
+    lower === "meta/muse-image"
   );
 }
 
@@ -2799,6 +2803,14 @@ async function generateOpenRouter(baseUrl: string, apiKey: string, request: Imag
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => "Unknown error");
+    // Only retry an explicit endpoint rejection, never a generation/auth/rate-limit failure.
+    if (
+      (resp.status === 400 || resp.status === 404) &&
+      /image generation model.*cannot be used with.*chat\/completions/is.test(errText) &&
+      errText.includes("/api/v1/images")
+    ) {
+      return generateOpenRouterImageApi(baseUrl, apiKey, request);
+    }
     throw new Error(`OpenRouter image generation failed (${resp.status}): ${sanitizeErrorText(errText)}`);
   }
 

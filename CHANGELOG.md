@@ -5,6 +5,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ## [Unreleased]
 
 - Advanced Parameters can keep a chosen number of past assistant reasoning blocks when exclusion is off (default 1; 0 keeps all), preserving provider-native reasoning and local custom-tag thinking.
+- OpenRouter now routes Qwen Image 3 and Muse Image to the Images API and recovers when another image-only model explicitly rejects the chat endpoint (#5750).
 
 - Added example text to Assistant Reasoning Prefill without changing saved values.
 - Removed SillyTavern `{{original}}` placeholders during prompt expansion while preserving saved character cards and literal instruction text.
