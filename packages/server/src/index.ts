@@ -8,6 +8,7 @@ import { StorageWriterLeaseError } from "./db/file-backed-store.js";
 import { logger } from "./lib/logger.js";
 import { startFreezeDetector, stopFreezeDetector } from "./lib/freeze-detector.js";
 import { finalizeSessionExit, noteSessionExitKind, startSessionPostmortem } from "./lib/session-postmortem.js";
+import { armShutdownDeadline } from "./lib/shutdown-deadline.js";
 import { getHost, getPort, getServerProtocol, loadTlsOptions, logStorageDiagnostics } from "./config/runtime-config.js";
 import { logCsrfTrustSummary } from "./middleware/csrf-protection.js";
 import { startEnvWatcher } from "./config/env-watcher.js";
@@ -94,6 +95,10 @@ async function main() {
 
     isShuttingDown = true;
     logger.info("Received %s; shutting down Marinara Engine", signal);
+    // #5838: bound the whole close - sever connections at 4 s, force-exit at
+    // 8 s - so a supervisor's stop window (earlyoom ~10 s, Docker 10 s) never
+    // expires on a connection-wait and escalates to a write-dropping SIGKILL.
+    armShutdownDeadline(app, signal);
 
     try {
       envWatcher.stop();

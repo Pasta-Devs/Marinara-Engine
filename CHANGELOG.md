@@ -90,6 +90,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Refetched the open chat at the committed Messages per page size, avoiding truncated history while editing the setting (#5796).
 - Kept paused weather visible across mobile viewport changes, using the community resize fix linked by luma-inibitor (#5814).
 
+- Stopping Marinara Engine can no longer hang for half a minute or more (#5838). Shutting down used to wait forever for open browser connections before saving and exiting - long enough that system watchdogs (SteamOS's low-memory guard, Docker) would give up and force-kill it, losing unsaved changes. The engine now cuts lingering connections after 4 seconds and, if the shutdown is still stuck, exits on its own after 8 - inside every watchdog's patience, with pending saves given their chance first.
 - Kept user-message actions in the same left-to-right order as assistant-message actions (#5854).
 - Mobile Roleplay keeps composer boundary drags inside the input, avoids animated press transforms on message actions, opens older-message editors at their beginning, and returns the reopened Echo Chamber to its latest message (#5851).
 - Mobile galleries keep generation labels and image actions within their available width, use neutral Delete controls, and give the Local Speech Model selector consistent spacing. Desktop layouts are unchanged (#5851).

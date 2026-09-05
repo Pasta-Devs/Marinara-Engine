@@ -33,7 +33,12 @@ export interface SupportDiagnostics {
    */
   previousSession?:
     | { status: "unknown"; reason: string }
-    | { status: "ended"; exitKind: "clean" | "crash" | "restart"; exitedAt: string | null; exitCode: number | null }
+    | {
+        status: "ended";
+        exitKind: "clean" | "crash" | "restart" | "forced";
+        exitedAt: string | null;
+        exitCode: number | null;
+      }
     | {
         status: "unclean";
         record: {
@@ -142,6 +147,7 @@ const SESSION_EXIT_LABELS: Record<string, string> = {
   clean: "shut down cleanly",
   crash: "ended in a server crash (details in the server log)",
   restart: "restarted itself for an update or a settings restart",
+  forced: "was stopped before its shutdown could finish, so the very last changes may not have been saved",
 };
 
 function formatPreviousSession(diagnostics: SupportDiagnostics): string {
