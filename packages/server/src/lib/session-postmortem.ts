@@ -37,7 +37,7 @@ export const HEARTBEAT_INTERVAL_MS = 30_000;
 const UNCLEAN_EXIT_HISTORY_LIMIT = 10;
 
 /** How a session ended, when the ending was observed from inside. */
-export type SessionExitKind = "clean" | "crash" | "restart";
+export type SessionExitKind = "clean" | "crash" | "restart" | "forced";
 
 export type SessionHeartbeat = {
   pid: number;
@@ -109,7 +109,7 @@ export function processIsAlive(pid: number): boolean {
   }
 }
 
-const SESSION_EXIT_KINDS = new Set<string>(["clean", "crash", "restart"]);
+const SESSION_EXIT_KINDS = new Set<string>(["clean", "crash", "restart", "forced"]);
 
 /**
  * The record is parsed from disk, so its shape is a claim rather than a fact:

@@ -98,7 +98,7 @@ try {
   // OBSERVED ENDINGS ARE NAMED, NEVER CALLED KILLS: clean shutdown, an
   // app-level crash (the server logged it), and the update / settings restart
   // paths each report themselves.
-  for (const exitKind of ["clean", "crash", "restart"] as const) {
+  for (const exitKind of ["clean", "crash", "restart", "forced"] as const) {
     const ended = classifyPreviousSession({ ...previousBeat, exitKind }, "boot-b", "now", deadPid);
     assert.equal(ended.status, "ended");
     assert.equal(ended.status === "ended" && ended.exitKind, exitKind);
@@ -201,10 +201,19 @@ assert.equal(
 assert.match(indexSource, /startFreezeDetector\(\); startSessionPostmortem\(\);/u);
 
 // The two deliberate restart paths name themselves, so an in-app update or a
-// settings restart is never reported as an Android kill.
-for (const route of ["packages/server/src/routes/updates.routes.ts", "packages/server/src/routes/admin.routes.ts"]) {
-  assert.match(flatten(readSource(route)), /noteSessionExitKind\("restart"\); await app\.close\(\);/u, route);
-}
+// settings restart is never reported as an Android kill. The stamp must land
+// BEFORE close begins - #5838's shutdown deadline can force-exit a stuck
+// close, and a stamp written after it would never be written at all.
+assert.match(
+  flatten(readSource("packages/server/src/routes/updates.routes.ts")),
+  /noteSessionExitKind\("restart"\);.*?armShutdownDeadline\(app, "update restart"\); await app\.close\(\);/u,
+  "updates route: stamp, then deadline, then close",
+);
+assert.match(
+  flatten(readSource("packages/server/src/routes/admin.routes.ts")),
+  /noteSessionExitKind\("restart"\); await app\.close\(\);/u,
+  "admin route: stamp directly before close (no stage-2 deadline - it spawns the relaunch child after close)",
+);
 
 const appSource = flatten(readSource("packages/server/src/app.ts"));
 assert.match(
