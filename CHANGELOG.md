@@ -4,16 +4,6 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Advanced Parameters can keep a chosen number of past assistant reasoning blocks when exclusion is off (default 1; 0 keeps all), preserving provider-native reasoning and local custom-tag thinking.
-- OpenAI-compatible image connections now preserve non-GPT models' requested dimensions. FLUX.2 requests also recover once from an explicit provider dimension-limit rejection, scaling the requested shape to the reported limit without capping endpoints that accept larger images (#5861).
-- OpenRouter now routes Qwen Image 3 and Muse Image to the Images API and recovers when another image-only model explicitly rejects the chat endpoint (#5750).
-
-- Added example text to Assistant Reasoning Prefill without changing saved values.
-- Removed SillyTavern `{{original}}` placeholders during prompt expansion while preserving saved character cards and literal instruction text.
-- Import and other multipart uploads now check CSRF access before sending file data.
-- Illustrator now limits passive avatar matching to the current chat and requires an explicit, unique full name for global-library characters, avoiding unrelated or duplicate reference cards (#5862).
-- Illustrator now accepts Run Interval 0 for manual-only generation, preserving Gallery actions while stopping automatic runs.
-
 - Removed the unfinished Slurp creator-feed material from the Noodle guides.
 - Updated the timeout reference in `.env.example` to use Slurp consistently.
 - Added a reusable Character Schedule Manager for Conversation schedules. It groups characters with and without schedules, supports bulk generation and removal, and provides per-character weekly renewal controls.
@@ -47,6 +37,11 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Advanced Parameters can keep a chosen number of past assistant reasoning blocks when exclusion is off (default 1; 0 keeps all), preserving provider-native reasoning and local custom-tag thinking (#5785).
+- Added example text to Assistant Reasoning Prefill without changing saved values (#5864).
+- Illustrator accepts Run Interval 0 for manual-only generation, preserving Gallery actions while stopping automatic runs (Marinara-Agents #629).
+- The Roleplay Agents & Actions menu shows per-agent phases, incoming output activity, reported input/output tokens, time to first output, and elapsed time without enabling debug prompt logs (#5860).
+
 - Added separate, saved "Always display swipe menu" appearance toggles for Conversation and Roleplay, enabled by default so the right arrow can regenerate the first response (#5854).
 - Made Conversation and Roleplay message action icons larger, with roomier click/tap targets and spacing across the message width on desktop and mobile (#5854).
 - Added GPT-6 Astra for OpenAI connections, with its 1.05M context window, 128k output limit, reasoning levels through Maximum, and Responses API support for chats and tool-using agents (#5845).
@@ -71,6 +66,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Changed
 
+- Community UI translations download on demand from `docs-i18n`, with explicit refresh and offline English fallback. Existing non-English users reselect their language once after upgrading; English stays bundled and canonical (#5827).
+
 - Updated image processing (including the Termux WASM fallback), Tailwind class merging, Android build tooling, and pinned CI/release actions while retaining compatible runtime and compiler major versions (#5847).
 
 - Simplified the quick Persona switcher to one rounded character disclosure with folder artwork and viewport-safe scrolling.
@@ -78,6 +75,12 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Roleplay Chat Summary can now generate multiple explicit message ranges sequentially, keeping each result as its own chronological batch entry with per-range progress and retry status.
 
 ### Fixed
+
+- OpenAI-compatible image connections preserve non-GPT models' requested dimensions; FLUX.2 requests retry once after an explicit dimension-limit rejection using the reported bound (#5861).
+- OpenRouter routes Qwen Image 3 and Muse Image to the Images API and recovers when another image-only model explicitly rejects the chat endpoint (#5750).
+- SillyTavern `{{original}}` placeholders no longer leak into prompts; saved character cards and literal instruction text are preserved (#5813).
+- Import and other multipart uploads check CSRF access before sending file data (#5859).
+- Illustrator limits passive avatar matching to the current chat and requires an explicit, unique full name for global-library characters (#5862).
 
 - Fixed incorrectly encoded persona avatar crops in chat, including existing message snapshots, without changing historical persona attribution (#5843).
 - Preserved zero-padded times such as "0600. Wake up" as text instead of numbered lists (#5858).
