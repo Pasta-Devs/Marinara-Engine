@@ -211,7 +211,10 @@ const parseTableList = (source, constantName, label) => {
 const launcherShardedTables = parseTableList(launcherGuardSource, "SHARDED_TABLES", "protect-launcher-data.mjs");
 assert.deepEqual(
   launcherShardedTables,
-  parseTableList(storeSource, "FILE_BACKED_TABLES", "file-backed-store.ts"),
+  // BUILT_IN_FILE_BACKED_TABLES, not the widened FILE_BACKED_TABLES the store
+  // exports: capability packages register their own tables into that list at
+  // runtime, and an offline downgrade script can never know them.
+  parseTableList(storeSource, "BUILT_IN_FILE_BACKED_TABLES", "file-backed-store.ts"),
   "unshard's SHARDED_TABLES copy must match the store's — a new sharded table the script does not fold back " +
     "into a monolith would silently vanish for the downgraded build",
 );

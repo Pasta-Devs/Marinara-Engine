@@ -215,6 +215,33 @@ export type FileNativeStoreController = {
    * safe, a missed one is not. 0 = never written in this process.
    */
   getTableWriteGeneration: (table: string) => number;
+  /**
+   * Adds capability-package-owned file tables to the live store: host
+   * integration for downloaded packages that declare their own storage.
+   * Packages activate after initialize(), so this integrates
+   * a table into an already-running store rather than at boot. Names that fail
+   * validation, or that a table already claims, are skipped and logged — one bad
+   * package table must never abort host startup.
+   *
+   * Registered tables persist exactly like the Engine's own — they flush, they
+   * appear in the snapshot manifest, and a full data-directory backup captures
+   * them. They are deliberately NOT part of profile export/import; see the note
+   * beside profileTableObjects in backup.routes.ts for why.
+   *
+   * KNOWN CONSTRAINT — the registries are PROCESS-GLOBAL, not per store. A name
+   * registered here stays in tableMetasByName/FILE_BACKED_TABLES for the life of
+   * the process, so a store constructed later against a DIFFERENT storage
+   * directory already knows the name and boot-loads it from its own directory,
+   * where it finds nothing. That degrades to an empty table, never to corruption
+   * or a cross-directory read. It is accepted because production runs one store
+   * per process, and because the alternative — instance registries — means
+   * threading them through getMeta() and the whole module-level lookup surface.
+   * Per-instance registration is the correct fix if the Engine ever runs more
+   * than one store at a time. Until then: a test that constructs several stores
+   * MUST give each scenario a distinct table name, or its second store will
+   * silently exercise the boot loader instead of this method.
+   */
+  registerTables: (tables: readonly unknown[]) => void;
 };
 
 export type FileNativeDB = {
@@ -299,7 +326,7 @@ export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";
 const SAVE_DEBOUNCE_MS = 750;
 const SAFETY_SAVE_MS = 10_000;
 
-export const FILE_BACKED_TABLES = [
+const BUILT_IN_FILE_BACKED_TABLES = [
   "chats",
   "messages",
   "message_swipes",
@@ -383,12 +410,28 @@ export const FILE_BACKED_TABLES = [
   "mari_workspace_context",
 ] as const;
 
-type FileBackedTable = (typeof FILE_BACKED_TABLES)[number];
+/**
+ * The Engine's own tables keep their literal-union type so CASCADES and other
+ * table-name constants stay compile-checked. The runtime list is a widened copy
+ * because capability packages register their own tables into a live store
+ * (registerTables): every consumer that walks "all file-backed tables" — the
+ * flush loop, the manifest, the Mari db tooling — must see them, and an
+ * `as const` tuple could never grow.
+ */
+type FileBackedTable = (typeof BUILT_IN_FILE_BACKED_TABLES)[number];
+/**
+ * The registry itself. Module-private because the ONLY sanctioned way to grow
+ * it is registerTables, which validates the name and updates every companion
+ * registry in the same breath; an outside push would land a name in the flush
+ * loop with no metadata and no shard classification.
+ */
+const fileBackedTables: string[] = [...BUILT_IN_FILE_BACKED_TABLES];
+export const FILE_BACKED_TABLES: readonly string[] = fileBackedTables;
 
 // #5302: every file-backed table uses the existing crash-safe shard pipeline.
 // Order remains significant for messages/swipes because swipe ownership is
 // resolved through the parent-message index.
-export const SHARDED_TABLES = FILE_BACKED_TABLES;
+export const SHARDED_TABLES: readonly string[] = FILE_BACKED_TABLES;
 
 /**
  * Child tables group by their stable owner. Every unlisted table uses its
@@ -436,7 +479,12 @@ const SHARD_KEY_COLUMNS: Record<string, string> = {
   memory_chunks: "chatId",
   mari_workspace_context: "chatId",
 };
-const SHARDED_TABLE_SET: ReadonlySet<string> = new Set(SHARDED_TABLES);
+// Deliberately mutable, unlike the arrays it mirrors: SHARDED_TABLES aliases
+// FILE_BACKED_TABLES, so a registered table becomes "sharded" by array identity
+// the instant it is pushed. If this set were the module-load snapshot it once
+// was, the load, flush and delete paths would each classify that same table
+// differently. Registration writes both, together, or neither.
+const SHARDED_TABLE_SET = new Set<string>(SHARDED_TABLES);
 
 /**
  * Chat-unit lazy tier (#5592 Phase 2). These tables no longer load at boot:
@@ -817,41 +865,66 @@ function tableNameOf(table: Table): string {
   return getFileTableConfig(table).name;
 }
 
+/**
+ * Table names become filesystem paths (`tables/<name>.json`, `tables/<name>/`)
+ * with no further escaping anywhere in this file, so this is the ONLY thing
+ * standing between a package-declared name and an arbitrary write outside the
+ * data directory. Allow exactly what the Engine's own names already look like:
+ * lowercase snake_case, no dots, no separators, no traversal, and short enough
+ * that `<name>.json` plus a shard filename stays inside path limits. Windows
+ * reserved basenames are excluded because Windows blocks them with any
+ * extension. Returns null when the name is acceptable.
+ */
+function fileBackedTableNameRejection(name: string): string | null {
+  if (typeof name !== "string" || name.length === 0) return "table name is empty";
+  if (name.length > 64) return "table name is longer than 64 characters";
+  if (!/^[a-z][a-z0-9_]*$/.test(name)) return "table name must match /^[a-z][a-z0-9_]*$/";
+  if (WINDOWS_RESERVED_BASENAMES.has(name.toUpperCase())) return "table name is reserved by Windows";
+  return null;
+}
+
+/** Shared shape work for schema-declared and package-registered tables alike;
+ *  the unique-constraint validation is the part neither may skip. */
+function buildFileTableMetadata(table: AnyFileTable, name: string): TableMeta {
+  const tableConfig = getFileTableConfig(table);
+  const columns: ColumnMeta[] = tableConfig.columns.map((column) => ({
+    key: column.key,
+    dbName: column.name,
+    column,
+    primary: column.primary,
+    hasDefault: column.hasDefault,
+    defaultValue: column.defaultValue,
+  }));
+  const meta: TableMeta = {
+    name,
+    table,
+    columns,
+    byKey: new Map(columns.map((column) => [column.key, column])),
+    byDbName: new Map(columns.map((column) => [column.dbName, column])),
+    primaryKey: columns.find((column) => column.primary)?.key ?? null,
+    uniqueConstraints: tableConfig.uniqueConstraints.map((constraint) => ({
+      keys: [...constraint.keys],
+      when: constraint.when,
+    })),
+  };
+  for (const constraint of meta.uniqueConstraints) {
+    if (constraint.keys.length === 0 || constraint.keys.some((key) => !meta.byKey.has(key))) {
+      throw new Error(`[file-storage] Invalid unique key metadata for ${name}: ${constraint.keys.join(", ")}`);
+    }
+  }
+  return meta;
+}
+
 function buildTableMetadata() {
   for (const candidate of Object.values(schema)) {
     if (!isFileTable(candidate)) continue;
     const table = candidate;
     const name = tableNameOf(table);
     if (!FILE_BACKED_TABLE_SET.has(name)) continue;
-    const tableConfig = getFileTableConfig(table);
-    const columns: ColumnMeta[] = tableConfig.columns.map((column) => ({
-      key: column.key,
-      dbName: column.name,
-      column,
-      primary: column.primary,
-      hasDefault: column.hasDefault,
-      defaultValue: column.defaultValue,
-    }));
-    const meta: TableMeta = {
-      name,
-      table,
-      columns,
-      byKey: new Map(columns.map((column) => [column.key, column])),
-      byDbName: new Map(columns.map((column) => [column.dbName, column])),
-      primaryKey: columns.find((column) => column.primary)?.key ?? null,
-      uniqueConstraints: tableConfig.uniqueConstraints.map((constraint) => ({
-        keys: [...constraint.keys],
-        when: constraint.when,
-      })),
-    };
-    for (const constraint of meta.uniqueConstraints) {
-      if (constraint.keys.length === 0 || constraint.keys.some((key) => !meta.byKey.has(key))) {
-        throw new Error(`[file-storage] Invalid unique key metadata for ${name}: ${constraint.keys.join(", ")}`);
-      }
-    }
+    const meta = buildFileTableMetadata(table, name);
     tableMetasByObject.set(table, meta);
     tableMetasByName.set(name, meta);
-    for (const column of columns) {
+    for (const column of meta.columns) {
       columnMetasByObject.set(column.column, column);
     }
   }
@@ -3382,6 +3455,198 @@ class FileTableStore {
     return this.tableWriteGenerations.get(table) ?? 0;
   }
 
+  /**
+   * Registers capability-package tables against the running store. Everything a
+   * boot-loaded table gets, a registered one must get too — metadata, a row
+   * container, its rows read off disk, membership in the flush loop and in the
+   * manifest — because the alternative is a table that accepts writes and
+   * silently loses them.
+   *
+   * Registered tables are SHARDED, like every Engine table (SHARDED_TABLES
+   * aliases FILE_BACKED_TABLES, so pushing a name makes it sharded whether we
+   * want it or not). Making them flat would mean opting a new table into the
+   * store's least-exercised path and would still leave the alias lying about
+   * them. One file per primary key, the default strategy for a table with no
+   * SHARD_KEY_COLUMNS entry.
+   *
+   * Failures are per-table and non-fatal: a package with one malformed table
+   * definition must not take the host down with it.
+   *
+   * Known constraint: the registries this writes (tableMetasByName,
+   * FILE_BACKED_TABLE_SET, SHARDED_TABLE_SET) are process-global, as the
+   * Engine's own table metadata already is. A registered name therefore
+   * outlives the store that registered it, so a later store built in the same
+   * process — a different storage directory, say — sees the name at boot and
+   * loads it from its own directory, finding nothing. That degrades to an
+   * empty table rather than to corruption or a cross-directory read, and
+   * production runs one store per process, so it is accepted here rather than
+   * threading instance-scoped registries through getMeta and every lookup that
+   * calls it. Tests that construct more than one store must use distinct table
+   * names, or a name registered by an earlier case makes a later one pass
+   * without exercising this method at all. Per-instance registries are the
+   * correct fix if the Engine ever runs several stores at once.
+   */
+  registerTables(tables: readonly unknown[]) {
+    for (const candidate of tables) {
+      if (!isFileTable(candidate)) {
+        logger.warn("[file-storage] Ignored a package table registration that is not a file table definition.");
+        continue;
+      }
+      const name = tableNameOf(candidate);
+      // The one non-negotiable check. tableFilePath/shardDirPath join this name
+      // straight into the storage tree with no sanitisation; that was safe only
+      // while every name came from the Engine's own hardcoded allowlist. A
+      // package-supplied "../../.ssh/authorized_keys" would otherwise be a write
+      // primitive outside the data directory.
+      const rejection = fileBackedTableNameRejection(name);
+      if (rejection) {
+        logger.error({ table: name }, "[file-storage] Rejected package table registration: %s", rejection);
+        continue;
+      }
+      if (tableMetasByName.has(name)) {
+        // Idempotent by design (re-registration on package reload) and a hard
+        // shadowing guard: the first definition of a name — always the Engine's
+        // own, since those are built at module load — keeps the name. Silently
+        // redefining it would repoint live queries at foreign column metadata.
+        const existing = tableMetasByName.get(name)!;
+        if (existing.table !== candidate) {
+          logger.warn(
+            { table: name },
+            "[file-storage] A table named %s is already registered; keeping the existing definition.",
+            name,
+          );
+        }
+        continue;
+      }
+      let meta: TableMeta;
+      try {
+        meta = buildFileTableMetadata(candidate, name);
+      } catch (err) {
+        logger.error(err, "[file-storage] Package table %s has invalid metadata and was not registered.", name);
+        continue;
+      }
+      if (!meta.primaryKey) {
+        // Registered tables shard by primary key (no SHARD_KEY_COLUMNS entry),
+        // so a keyless table would register cleanly and then throw "no stable
+        // shard key" on its first insert — long after the package author could
+        // connect the failure to the definition. Refuse it here, before the name
+        // enters any registry.
+        logger.error(
+          { table: name },
+          "[file-storage] Rejected package table registration: table has no primary key column",
+        );
+        continue;
+      }
+
+      tableMetasByObject.set(candidate, meta);
+      tableMetasByName.set(name, meta);
+      for (const column of meta.columns) columnMetasByObject.set(column.column, column);
+      fileBackedTables.push(name);
+      FILE_BACKED_TABLE_SET.add(name);
+      SHARDED_TABLE_SET.add(name);
+      // Never lazy: the lazy tier is keyed on chat units, which a package table
+      // has no part in. Fully resident is also what saveShardedTable's
+      // shard-deletion gate requires before it will unlink an emptied shard.
+      this.fullyResidentTables.add(name);
+      this.tables.set(name, this.loadRegisteredTableRows(meta));
+      logger.info(
+        { table: name, rows: this.tables.get(name)?.length ?? 0 },
+        "[file-storage] Registered package table.",
+      );
+    }
+  }
+
+  /**
+   * Reads a newly registered table's existing shards. Deliberately thinner than
+   * the boot loader: the self-heal machinery there (re-home detection, duplicate
+   * arbitration, malformed-row quarantine) exists to repair histories of format
+   * migrations and interrupted flushes that a table the Engine has never written
+   * cannot have. Corrupt-file recovery still applies, because that comes from
+   * parseJsonFile and applies to any file on disk.
+   */
+  private loadRegisteredTableRows(meta: TableMeta): Row[] {
+    const dir = shardDirPath(this.rootDir, meta.name);
+    let entries: string[] = [];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return []; // no shard dir yet — first run with this package installed
+    }
+    const known = new Set<string>();
+    const rows: Row[] = [];
+    const recoveredKeys = new Set<string>();
+    const staleFiles = new Set<string>();
+    for (const fileName of discoverShardPrimaries(entries)) {
+      const encoded = fileName.slice(0, -".json".length);
+      const path = join(dir, fileName);
+      const { value, recoveredFromBackup, recoveredFromFallback, unreadablePaths } = parseJsonFile<Row[]>(
+        path,
+        [],
+        Array.isArray,
+      );
+      const usable = (Array.isArray(value) ? value : []).filter(isRowRecord);
+      const skipped = (Array.isArray(value) ? value.length : 0) - usable.length;
+      const normalized = usable.map((row) => normalizeRow(meta, row));
+      // Neither primary nor backup could be read. The rows are gone either way,
+      // so the only remaining question is whether the bytes survive for someone
+      // to inspect — quarantine MOVES them aside, which also stops the next
+      // flush from overwriting the evidence. Must happen before the repair
+      // marks below: a file that has been moved away needs neither.
+      let quarantinedAway = false;
+      if (recoveredFromFallback && unreadablePaths.length > 0) {
+        const files = quarantineUnrecoverableFilesSync(unreadablePaths, `table ${meta.name} shard ${encoded}`);
+        if (files.length > 0) {
+          this.quarantinedTables.push({ table: meta.name, files });
+          quarantinedAway = files.some((file) => file.from === path);
+          logger.error(
+            { table: meta.name, shard: encoded, files },
+            "[file-storage] Shard was unrecoverable from primary and backup; quarantined corrupt files. Preserved files require manual recovery.",
+          );
+        }
+      }
+      if (recoveredFromBackup || recoveredFromFallback || skipped > 0) {
+        // Same self-heal contract the boot loader honours: the in-memory rows
+        // are now the good copy, so rewrite this shard from memory on the next
+        // flush, with .bak refresh suppressed for that write so a corrupt
+        // primary is never copied over the recovery source.
+        this.backupRecoveredPaths.add(path);
+        this.dirty = true;
+        this.dirtyTables.add(meta.name);
+        for (const row of normalized) recoveredKeys.add(this.shardKeyForRow(meta.name, row));
+        // A shard that recovered to NO usable rows yields no key to dirty, and a
+        // flush only visits shards by key — so the corrupt pair would survive
+        // every boot, be re-recovered, and re-log forever. Mark the physical
+        // FILE stale instead, exactly as the boot loader does for a primary
+        // recovered from a valid-but-empty backup: the flush then deletes it
+        // (zero-row shards are deleted by design) or rewrites it canonically.
+        if (normalized.length === 0 && !quarantinedAway) staleFiles.add(encoded);
+      }
+      if (skipped > 0) {
+        logger.warn(
+          { table: meta.name, shard: fileName, skipped },
+          "[file-storage] Skipped malformed rows in a package table shard.",
+        );
+      }
+      rows.push(...normalized);
+      // Known only when the primary actually sits on disk, same rule as the
+      // boot loader: counting a quarantined shard would report a phantom file.
+      if (!quarantinedAway && existsSync(path)) known.add(encoded);
+    }
+    this.knownShardFiles.set(meta.name, known);
+    if (entries.length > 0) this.shardDirsCreated.add(meta.name);
+    if (recoveredKeys.size > 0) {
+      const dirty = this.dirtyShards.get(meta.name) ?? new Set<string>();
+      for (const key of recoveredKeys) dirty.add(key);
+      this.dirtyShards.set(meta.name, dirty);
+    }
+    if (staleFiles.size > 0) {
+      const stale = this.staleShardFiles.get(meta.name) ?? new Set<string>();
+      for (const encoded of staleFiles) stale.add(encoded);
+      this.staleShardFiles.set(meta.name, stale);
+    }
+    return rows;
+  }
+
   contextForRow(meta: TableMeta, row: Row): RowContext {
     return {
       rows: { [meta.name]: row },
@@ -5059,6 +5324,7 @@ export async function createFileNativeDB(testHooks?: FileNativeStoreTestHooks): 
     close: () => store.close(),
     getQuarantinedTables: () => store.getQuarantinedTables(),
     getTableWriteGeneration: (table) => store.getTableWriteGeneration(table),
+    registerTables: (tables) => store.registerTables(tables),
     getResidentChatUnits: () => store.getResidentChatUnits(),
     getFullyResidentLazyTables: () => store.getFullyResidentLazyTables(),
     getResidentLazyRows: (table) => store.getResidentLazyRows(table),
