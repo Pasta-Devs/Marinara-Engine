@@ -38,16 +38,20 @@ try {
 
   const calls: string[] = [];
   let blocked = true;
+  let uploadDenied = false;
+  let preflightFailure: DOMException | undefined;
   globalThis.fetch = async (input, init) => {
     const path = String(input);
     calls.push(path);
     assert.equal(new Headers(init?.headers).get(CSRF_HEADER), CSRF_HEADER_VALUE);
     if (path === "/api/csrf/upload-preflight") {
       assert.equal(init?.body, undefined, "preflight must not carry the upload body");
+      if (preflightFailure) throw preflightFailure;
       return blocked
         ? new Response(JSON.stringify({ error: "Origin is not trusted" }), { status: 403 })
         : new Response(null, { status: 204 });
     }
+    if (uploadDenied) return new Response(JSON.stringify({ error: "Upload access denied" }), { status: 403 });
     return Response.json({ uploaded: true });
   };
   const form = new FormData();
@@ -61,6 +65,16 @@ try {
   calls.length = 0;
   await api.raw("/backup/import", { method: "POST", body: form });
   assert.deepEqual(calls, ["/api/csrf/upload-preflight", "/api/backup/import"]);
+  uploadDenied = true;
+  await assert.rejects(api.upload("/import", form), (error) => error instanceof ApiError && error.status === 403);
+  uploadDenied = false;
+  for (const name of ["AbortError", "TimeoutError"]) {
+    calls.length = 0;
+    preflightFailure = new DOMException("Preflight stopped", name);
+    await assert.rejects(api.upload("/import", form), (error) => error === preflightFailure);
+    assert.deepEqual(calls, ["/api/csrf/upload-preflight"], "interrupted preflight must send no upload bytes");
+  }
+  preflightFailure = undefined;
   calls.length = 0;
   await api.post("/settings", { value: "unchanged JSON path" });
   assert.deepEqual(calls, ["/api/settings"], "ordinary JSON writes do not need upload preflight");
