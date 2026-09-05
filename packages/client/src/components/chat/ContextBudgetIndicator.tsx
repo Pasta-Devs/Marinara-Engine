@@ -17,7 +17,7 @@ export function ContextBudgetGauge({ percentage }: { percentage: number }) {
         cy="12"
         r="10"
         fill="none"
-        stroke="var(--marinara-chat-chrome-text)"
+        stroke="var(--marinara-chat-chrome-accent)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeDasharray={`${(percentage / 100) * CONTEXT_GAUGE_CIRCUMFERENCE} ${CONTEXT_GAUGE_CIRCUMFERENCE}`}

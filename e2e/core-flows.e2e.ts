@@ -1769,6 +1769,12 @@ test("message deletion uses unified chroma controls and selection states", async
     await expect(dialog.getByRole("button", { name: "Delete more" })).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Cancel" })).toBeVisible();
 
+    // Compare idle theme colors, not pointer hover or WebKit's retained transition serialization.
+    await page.mouse.move(0, 0);
+    await dialogActions.evaluateAll((buttons) => {
+      for (const button of buttons) (button as HTMLElement).style.transition = "none";
+    });
+
     const readChromeStyles = (locator: typeof dialogActions) =>
       locator.evaluateAll((buttons) =>
         buttons.map((button) => {
@@ -1954,7 +1960,7 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
     ]);
     const configuredChromeText = await readCssVariableColor(page, "--marinara-chat-chrome-text");
     expect(configuredChromeText).not.toBe(appAccent);
-    await expect(quickSwitcher.locator("circle").nth(1)).toHaveCSS("stroke", configuredChromeText);
+    await expect(quickSwitcher.locator("circle").nth(1)).toHaveCSS("stroke", appAccent);
     await expect(budget.getByText("Context", { exact: true })).toHaveCSS("color", chromeMuted);
     await expect(budget.getByText(/tokens$/u)).toHaveCSS("color", chromeText);
     await expect(budget.getByRole("progressbar").locator(":scope > div")).toHaveCSS("background-color", appAccent);
@@ -2147,6 +2153,15 @@ test("mobile Roleplay Peek prompt keeps its tapped action visible and labels pro
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
     });
+    await page.getByRole("button", { name: "Close assembled prompt", exact: true }).tap();
+    await expect(page.getByRole("heading", { name: "Assembled Prompt" })).toHaveCount(0);
+    await expect(peekPrompt.locator("svg")).toBeVisible();
+    await expect(peekPrompt).toHaveCSS("color", actionColor);
+    // A touch action must not create an animated transform layer underneath
+    // the dialog: iOS can leave that SVG layer unpainted after dismissal.
+    await expect(peekPrompt).not.toHaveCSS("transition-property", "all");
+    await peekPrompt.tap();
+    await expect(page.getByRole("heading", { name: "Assembled Prompt" })).toBeVisible();
   } finally {
     if (chatId) await bestEffortDelete(page.request, `/api/chats/${chatId}?force=true`);
   }
@@ -5435,7 +5450,7 @@ test("stopped and refused generations keep sent text cleared and accept the firs
       options: { delaySave?: boolean; failFirstSave?: boolean } = {},
     ) => {
       const message = page.locator(`[data-message-id="${messageId}"]`);
-      if (mobile) await message.click();
+      if (mobile) await message.locator(".mari-message-content").first().click();
       else await message.hover();
       await message.getByTitle("Edit", { exact: true }).click();
       const editor = message.locator("textarea");
@@ -5630,6 +5645,228 @@ test("stopped and refused generations keep sent text cleared and accept the firs
     });
   }
 });
+
+for (const mode of ["conversation", "roleplay"] as const) {
+  test(`${mode} message actions are roomy and first-swipe preferences persist independently`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const mobile = testInfo.project.name.includes("mobile");
+    const preference =
+      mode === "conversation" ? "alwaysDisplayConversationSwipeMenu" : "alwaysDisplayRoleplaySwipeMenu";
+    const otherPreference =
+      mode === "conversation" ? "alwaysDisplayRoleplaySwipeMenu" : "alwaysDisplayConversationSwipeMenu";
+    const response = await request.post("/api/chats", {
+      data: { name: `${mode} action controls`, mode, characterIds: [], connectionId: "swipe-controls-fixture" },
+    });
+    expect(response.ok()).toBeTruthy();
+    const chat = (await response.json()) as { id: string };
+    try {
+      const userResponse = await request.post(`/api/chats/${chat.id}/messages`, {
+        data: { role: "user", content: "A synthetic request for a story." },
+      });
+      expect(userResponse.ok()).toBeTruthy();
+      const userMessage = (await userResponse.json()) as { id: string };
+      const messageResponse = await request.post(`/api/chats/${chat.id}/messages`, {
+        data: {
+          role: "assistant",
+          content:
+            "A synthetic first response with enough text to fill a readable message box. All message tools should remain easy to select.",
+        },
+      });
+      expect(messageResponse.ok()).toBeTruthy();
+      const message = (await messageResponse.json()) as { id: string };
+      await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+      await page.route("**/api/generate", (route) =>
+        route.fulfill({ status: 503, json: { error: "Synthetic generation boundary reached." } }),
+      );
+      await page.goto("/");
+      const row = page.locator(`[data-message-id="${message.id}"]`);
+      const actions = row.locator(".mari-message-actions");
+      await expect(row).toBeVisible();
+      await expect(row.locator(".mari-message-swipes")).toBeVisible();
+      await expect(row.getByRole("button", { name: "Previous swipe", exact: true })).toBeDisabled();
+      await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 1", exact: true })).toHaveValue("1");
+      await expect(page.locator(`[data-message-id="${userMessage.id}"] .mari-message-swipes`)).toHaveCount(0);
+
+      const userRow = page.locator(`[data-message-id="${userMessage.id}"]`);
+      if (mobile) await userRow.locator(".mari-message-content").first().tap();
+      else await userRow.hover();
+      const userActions = userRow.locator(".mari-message-actions");
+      await expect.poll(() => userActions.evaluate((bar) => getComputedStyle(bar).opacity)).toBe("1");
+      const copy = await userActions.locator('button[title="Copy"]').boundingBox();
+      const translate = await userActions.locator('button[title="Translate"]').boundingBox();
+      const edit = await userActions.locator('button[title="Edit"]').boundingBox();
+      expect(copy!.x).toBeLessThan(translate!.x);
+      expect(translate!.x).toBeLessThan(edit!.x);
+      await testInfo.attach(`${mode}-user-actions-${testInfo.project.name}.png`, {
+        body: await userRow.screenshot(),
+        contentType: "image/png",
+      });
+      if (mobile) await row.locator(".mari-message-content").first().tap();
+      else await row.hover();
+      await expect.poll(() => actions.evaluate((bar) => getComputedStyle(bar).opacity)).toBe("1");
+      await expect(row.locator("textarea")).toHaveCount(0);
+      await testInfo.attach(`${mode}-message-controls-${testInfo.project.name}.png`, {
+        body: await row.screenshot(),
+        contentType: "image/png",
+      });
+
+      const viewport = page.viewportSize()!;
+      for (const width of mobile ? [320, viewport.width] : [viewport.width]) {
+        await page.setViewportSize({ width, height: viewport.height });
+        const bar = await actions.boundingBox();
+        expect(bar).not.toBeNull();
+        const buttons = await actions.locator("button").filter({ visible: true }).all();
+        expect(buttons.length).toBeGreaterThanOrEqual(5);
+        let previous: { x: number; y: number; width: number } | null = null;
+        for (const button of buttons) {
+          const box = await button.boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.width).toBeGreaterThanOrEqual(mobile ? 44 : 32);
+          expect(box!.height).toBeGreaterThanOrEqual(mobile ? 44 : 32);
+          expect(box!.x).toBeGreaterThanOrEqual(bar!.x);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(bar!.x + bar!.width + 1);
+          if (previous && Math.abs(previous.y - box!.y) < 1) {
+            expect(box!.x - previous.x - previous.width).toBeGreaterThanOrEqual(mobile ? 3 : 6);
+          }
+          previous = box;
+        }
+        await testInfo.attach(`${mode}-actions-${width}-${testInfo.project.name}.png`, {
+          body: await row.screenshot(),
+          contentType: "image/png",
+        });
+      }
+
+      await page.evaluate(async () => {
+        const module = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+        module.useUIStore.getState().setTheme("light");
+      });
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+      await testInfo.attach(`${mode}-light-controls-${testInfo.project.name}.png`, {
+        body: await row.screenshot(),
+        contentType: "image/png",
+      });
+      await page.evaluate(async () => {
+        const module = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+        module.useUIStore.getState().setTheme("dark");
+      });
+
+      const regeneration = page.waitForRequest((req) => req.url().endsWith("/api/generate") && req.method() === "POST");
+      await row.getByRole("button", { name: "Generate next swipe", exact: true }).click();
+      if (mobile) {
+        await page
+          .getByRole("dialog", { name: "Regenerate Message", exact: true })
+          .getByRole("button", { name: "Regenerate", exact: true })
+          .click();
+      }
+      expect((await regeneration).postDataJSON()).toMatchObject({ chatId: chat.id, regenerateMessageId: message.id });
+      const generationToast = page
+        .locator("[data-sonner-toast]")
+        .filter({ hasText: "Synthetic generation boundary reached." });
+      await expect(generationToast).toBeVisible();
+      await generationToast.getByRole("button", { name: "Close toast", exact: true }).click();
+      await expect(generationToast).toBeHidden();
+
+      const readSynced = async () => {
+        const result = await request.get("/api/app-settings/ui");
+        const { value } = (await result.json()) as { value: string | null };
+        return JSON.parse(value || "{}") as Record<string, unknown>;
+      };
+      const openAppearance = async () => {
+        await page.locator('[data-tour="panel-settings"]').click();
+        await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+      };
+      const closeSettings = async () => {
+        await page.evaluate(async () => {
+          const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+            useUIStore: { getState: () => { closeRightPanel: () => void } };
+          };
+          useUIStore.getState().closeRightPanel();
+        });
+      };
+      const toggle = page
+        .locator(`#settings-control-${mode}-always-display-swipe-menu`)
+        .getByLabel("Always display swipe menu", { exact: true });
+      const toggleLabel = page
+        .locator(`#settings-control-${mode}-always-display-swipe-menu`)
+        .getByText("Always display swipe menu", { exact: true });
+      const otherToggle = page
+        .locator(`#settings-control-${mode === "conversation" ? "roleplay" : "conversation"}-always-display-swipe-menu`)
+        .getByLabel("Always display swipe menu", { exact: true });
+      await openAppearance();
+      await expect(toggle).toBeChecked();
+      await expect(otherToggle).toBeChecked();
+      await toggleLabel.scrollIntoViewIfNeeded();
+      await testInfo.attach(`${mode}-swipe-settings-${testInfo.project.name}.png`, {
+        body: await page.screenshot(),
+        contentType: "image/png",
+      });
+      await toggleLabel.click();
+      await expect(toggle).not.toBeChecked();
+      await expect(otherToggle).toBeChecked();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      await closeSettings();
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+      await page.reload();
+      await expect(row).toBeVisible();
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+
+      // Resetting unrelated appearance choices must not undo the explicit swipe-menu opt-out.
+      await page.evaluate(async () => {
+        const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+          useUIStore: { getState: () => { resetAppearanceSettings: () => void } };
+        };
+        useUIStore.getState().resetAppearanceSettings();
+      });
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+
+      // A server blob from before these preferences existed must not reset a saved opt-out.
+      const legacy = await readSynced();
+      delete legacy[preference];
+      delete legacy[otherPreference];
+      legacy.__updatedAt = Date.now() + 1000;
+      await request.put("/api/app-settings/ui", { data: { value: JSON.stringify(legacy) } });
+      await page.reload();
+      await expect(row).toBeVisible();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+      await openAppearance();
+      await expect(toggle).not.toBeChecked();
+      await expect(otherToggle).toBeChecked();
+      await toggleLabel.click();
+      await expect(toggle).toBeChecked();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(true);
+      await closeSettings();
+      await expect(row.locator(".mari-message-swipes")).toBeVisible();
+      await openAppearance();
+      await toggleLabel.click();
+      await expect(toggle).not.toBeChecked();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      await closeSettings();
+
+      const alternate = await request.post(`/api/chats/${chat.id}/messages/${message.id}/swipes`, {
+        data: { content: "A synthetic regenerated response.", silent: true },
+      });
+      expect(alternate.ok()).toBeTruthy();
+      await page.reload();
+      await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true })).toBeVisible();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      if (mode === "conversation") {
+        await openAppearance();
+        await page
+          .locator("#settings-control-conversation-layout")
+          .getByRole("button", { name: /Bubbles/ })
+          .click();
+        await closeSettings();
+        await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true })).toBeVisible();
+      }
+    } finally {
+      await bestEffortDelete(request, `/api/chats/${chat.id}?force=true`);
+    }
+  });
+}
 
 test("empty focused chat composers keep keyboard swipe navigation", async ({ page, request }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Keyboard swipe navigation is covered on desktop.");
@@ -6399,7 +6636,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
 
       const savedRow = page.locator(`[data-message-id="${savedMessage.id}"]`);
       if (testInfo.project.name.includes("mobile")) {
-        await savedRow.click();
+        await savedRow.getByText("A completed response with saved reasoning.", { exact: true }).click();
       } else {
         await savedRow.hover();
       }
@@ -6415,7 +6652,9 @@ for (const mode of ["roleplay", "conversation"] as const) {
 
       const unavailableRow = page.locator(`[data-message-id="${unavailableMessage.id}"]`);
       if (testInfo.project.name.includes("mobile")) {
-        await unavailableRow.click();
+        await unavailableRow
+          .getByText("A response whose provider omitted its reasoning summary.", { exact: true })
+          .click();
       } else {
         await unavailableRow.hover();
       }
@@ -7576,6 +7815,7 @@ test("Gallery Illustrate offers active custom image agents", async ({ page, requ
   const activeAgentName = `Gallery Image Agent ${suffix}`;
   const inactiveAgentName = `Inactive Gallery Agent ${suffix}`;
   const createdAgentIds: string[] = [];
+  const additionalChatIds: string[] = [];
   let chatId: string | null = null;
 
   try {
@@ -7614,6 +7854,17 @@ test("Gallery Illustrate offers active custom image agents", async ({ page, requ
       data: { enableAgents: true, activeAgentIds: ["illustrator", agents[0]!.type] },
     });
     expect(metadataResponse.ok()).toBeTruthy();
+    const imageResponse = await request.post(`/api/gallery/${chat.id}/upload`, {
+      multipart: {
+        file: {
+          name: "mobile-gallery.png",
+          mimeType: "image/png",
+          buffer: Buffer.from(TRANSPARENT_PNG_BASE64, "base64"),
+        },
+        prompt: "Synthetic gallery layout probe.",
+      },
+    });
+    expect(imageResponse.ok()).toBeTruthy();
 
     await page.route("**/api/capability-packages/installed", async (route) => {
       await route.fulfill({
@@ -7679,6 +7930,41 @@ test("Gallery Illustrate offers active custom image agents", async ({ page, requ
     const illustrateButton = drawer.getByRole("button", { name: "Illustrate", exact: true });
     await expect(illustrateButton).toBeVisible();
     await expect(illustrateButton).toHaveAttribute("aria-haspopup", "menu");
+    const expectMobileGalleryControls = async (mode: string) => {
+      if (!mobile) return;
+      const originalViewport = page.viewportSize()!;
+      for (const width of [320, originalViewport.width]) {
+        await page.setViewportSize({ width, height: originalViewport.height });
+        await testInfo.attach(`gallery-layout-${mode}-${width}-${testInfo.project.name}.png`, {
+          body: await drawer.screenshot(),
+          contentType: "image/png",
+        });
+        const labels = drawer.locator(
+          ".mari-gallery-generation-actions > button > span, .mari-gallery-generation-actions > div > button > span",
+        );
+        expect(await labels.count()).toBeGreaterThan(0);
+        for (const label of await labels.all()) {
+          await expect
+            .poll(() => label.evaluate((element) => element.scrollWidth - element.clientWidth))
+            .toBeLessThanOrEqual(1);
+        }
+        const tile = drawer.getByRole("button", { name: "Open gallery image", exact: true }).locator("..");
+        const tileBox = await tile.boundingBox();
+        expect(tileBox).not.toBeNull();
+        for (const button of await tile.locator("button[aria-label]").all()) {
+          const box = await button.boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.x).toBeGreaterThanOrEqual(tileBox!.x);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(tileBox!.x + tileBox!.width + 1);
+        }
+        const pin = tile.getByRole("button", { name: "Pin image to chat", exact: true });
+        await expect(tile.getByRole("button", { name: "Delete gallery image", exact: true })).toHaveCSS(
+          "color",
+          await pin.evaluate((element) => getComputedStyle(element).color),
+        );
+      }
+    };
+    await expectMobileGalleryControls("roleplay");
     await illustrateButton.click();
 
     const menu = drawer.getByRole("menu", { name: "Choose an image agent" });
@@ -7687,8 +7973,58 @@ test("Gallery Illustrate offers active custom image agents", async ({ page, requ
     await expect(menu.getByRole("menuitem", { name: inactiveAgentName, exact: true })).toHaveCount(0);
     await drawer.getByRole("searchbox", { name: "Search gallery images", exact: true }).dispatchEvent("pointerdown");
     await expect(menu).toHaveCount(0);
+    if (mobile) {
+      for (const mode of ["conversation", "game"] as const) {
+        await drawer.getByRole("button", { name: "Close gallery", exact: true }).click();
+        const response = await request.post("/api/chats", {
+          data: { name: `Mobile ${mode} gallery`, mode, characterIds: [] },
+        });
+        expect(response.ok()).toBeTruthy();
+        const nextChat = (await response.json()) as { id: string };
+        additionalChatIds.push(nextChat.id);
+        const metadata = await request.patch(`/api/chats/${nextChat.id}/metadata`, {
+          data: {
+            enableAgents: true,
+            activeAgentIds: ["illustrator", agents[0]!.type],
+            conversationCommandToggles: { selfie: true },
+            gameId: "mobile-gallery-proof",
+            gameSessionStatus: "active",
+            gameSessionNumber: 1,
+            gameIntroPresented: true,
+            enableSpriteGeneration: true,
+          },
+        });
+        expect(metadata.ok()).toBeTruthy();
+        const upload = await request.post(`/api/gallery/${nextChat.id}/upload`, {
+          multipart: {
+            file: {
+              name: "mobile-gallery.png",
+              mimeType: "image/png",
+              buffer: Buffer.from(TRANSPARENT_PNG_BASE64, "base64"),
+            },
+            prompt: "Synthetic gallery layout probe.",
+          },
+        });
+        expect(upload.ok()).toBeTruthy();
+        await page.evaluate(async (chatId) => {
+          const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;
+          useChatStore.getState().setActiveChatId(chatId);
+        }, nextChat.id);
+        await expect(page.locator(`[data-chat-mode="${mode}"]`).first()).toBeVisible();
+        const gallery = page.getByRole("button", { name: "Gallery", exact: true }).filter({ visible: true });
+        if (!(await gallery.isVisible())) {
+          await page
+            .getByRole("button", { name: mode === "game" ? "Game actions" : "More options", exact: true })
+            .click();
+        }
+        await gallery.click();
+        await expect(drawer.getByRole("button", { name: "Open gallery image", exact: true })).toBeVisible();
+        await expectMobileGalleryControls(mode);
+      }
+    }
   } finally {
     if (chatId) await request.delete(`/api/chats/${chatId}`).catch(() => undefined);
+    await Promise.all(additionalChatIds.map((id) => bestEffortDelete(request, `/api/chats/${id}?force=true`)));
     await Promise.all(
       createdAgentIds.map((agentId) => request.delete(`/api/agents/${agentId}`).catch(() => undefined)),
     );
@@ -13059,8 +13395,6 @@ test("Music Player stays unavailable until Music DJ is installed", async ({ page
 });
 
 test("Connections exposes Local Whisper only while Conversation Calls is installed", async ({ page }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("desktop"), "The capability ownership path is covered on desktop.");
-
   const errors = collectUnexpectedErrors(page);
   let callsInstalled = true;
   const callsPackage = {
@@ -13148,7 +13482,9 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
 
   const openExpandedLocalModel = async () => {
     const rightPanel = page.locator('[data-component="RightPanel"]');
-    await page.locator('[data-tour="panel-connections"]').click();
+    const connectionsButton = page.locator('[data-tour="panel-connections"]');
+    await expect(connectionsButton).toBeVisible();
+    if ((await connectionsButton.getAttribute("aria-pressed")) !== "true") await connectionsButton.click();
     await expect(rightPanel).toBeVisible();
     const localModelLabel = rightPanel.getByText("Local Model", { exact: true });
     await localModelLabel.evaluate((element) => element.parentElement?.parentElement?.click());
@@ -13161,6 +13497,21 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
   let rightPanel = await openExpandedLocalModel();
   await expect(rightPanel.getByText("Local Speech Model", { exact: true })).toBeVisible();
   await expect(rightPanel.getByRole("button", { name: "Download Whisper" })).toBeVisible();
+  if (testInfo.project.name.includes("mobile")) {
+    const speechSelect = rightPanel.locator("select").filter({ has: page.locator('option[value="whisper_tiny"]') });
+    await expect(speechSelect).toBeVisible();
+    const spacing = await speechSelect.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { left: parseFloat(style.paddingLeft), right: parseFloat(style.paddingRight) };
+    });
+    expect(spacing.left).toBeGreaterThanOrEqual(8);
+    expect(spacing.right).toBeGreaterThanOrEqual(24);
+    await speechSelect.scrollIntoViewIfNeeded();
+    await testInfo.attach(`mobile-whisper-spacing-${testInfo.project.name}.png`, {
+      body: await rightPanel.screenshot(),
+      contentType: "image/png",
+    });
+  }
 
   callsInstalled = false;
   await page.reload();
@@ -19114,6 +19465,102 @@ test("memory recall modal accepts clicks from chat settings", async ({ page }, t
   await expect(drawer.getByRole("heading", { name: "Chat Settings" })).toBeVisible();
 });
 
+test("mobile reopening Echo Chamber and editing older Roleplay messages restore the intended position", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "These scroll anchors are mobile-only.");
+  const response = await page.request.post("/api/chats", {
+    data: { name: "Mobile scroll anchors", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  try {
+    await page.request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { enableAgents: true, activeAgentIds: ["echo-chamber"] },
+    });
+    let olderMessageId = "";
+    for (let index = 0; index < 12; index++) {
+      const message = await page.request.post(`/api/chats/${chat.id}/messages`, {
+        data: {
+          role: "assistant",
+          content: Array.from(
+            { length: index === 1 ? 50 : 3 },
+            (_, line) => `History ${index + 1}, line ${line + 1}.`,
+          ).join("\n"),
+        },
+      });
+      expect(message.ok()).toBeTruthy();
+      if (index === 1) olderMessageId = ((await message.json()) as { id: string }).id;
+    }
+    await page.route(`**/api/agents/echo-messages/${chat.id}`, (route) =>
+      route.fulfill({
+        json: Array.from({ length: 40 }, (_, index) => ({
+          characterName: "Observer",
+          reaction: `Echo reaction ${index + 1}.`,
+          timestamp: index,
+        })),
+      }),
+    );
+    await prepareFreshClient(page);
+    await page.addInitScript((chatId) => {
+      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui")!);
+      Object.assign(persisted.state, { messagesPerPage: 10, echoChamberOpen: true });
+      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
+      localStorage.setItem("marinara-active-chat-id", chatId);
+    }, chat.id);
+    await page.goto("/");
+    const echo = page.locator('[data-roleplay-agent-window="echo"]');
+    await expect(echo.getByText("Echo reaction 40.", { exact: true })).toBeInViewport();
+    await echo.getByTitle("Collapse Echo Chamber", { exact: true }).tap();
+    await page.getByTitle("Open Echo Chamber", { exact: true }).tap();
+    await expect(echo.getByText("Echo reaction 40.", { exact: true })).toBeInViewport();
+    await echo.getByTitle("Collapse Echo Chamber", { exact: true }).tap();
+
+    const mobileViewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 900, height: mobileViewport.height });
+    await page.getByTitle("Open Echo Chamber", { exact: true }).tap();
+    await expect(echo.getByRole("button", { name: "Resize Echo Chamber" })).toBeVisible();
+    await page.setViewportSize(mobileViewport);
+    await expect(echo.getByText("Echo reaction 40.", { exact: true })).toBeInViewport();
+    await echo.getByTitle("Collapse Echo Chamber", { exact: true }).tap();
+    await page.getByTitle("Open Echo Chamber", { exact: true }).tap();
+    await expect(echo.getByText("Echo reaction 40.", { exact: true })).toBeInViewport();
+    await echo.getByTitle("Collapse Echo Chamber", { exact: true }).tap();
+
+    const transcript = page.locator('[data-chat-mode="roleplay"] [data-chat-scroll]');
+    await transcript.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await page.getByRole("button", { name: "Load More", exact: true }).tap();
+    const older = page.locator(`[data-message-id="${olderMessageId}"]`);
+    await expect(older).toBeAttached();
+    await older.dispatchEvent("click");
+    const edit = older.getByTitle("Edit", { exact: true });
+    await edit.scrollIntoViewIfNeeded();
+    await edit.tap();
+    const editor = older.locator("[data-chat-message-editor]");
+    await expect(editor).toBeFocused();
+    await expect
+      .poll(() =>
+        editor.evaluate((element: HTMLTextAreaElement) => ({
+          selection: element.selectionStart,
+          scroll: element.scrollTop,
+          visibleStart:
+            element.getBoundingClientRect().top >=
+              element.closest("[data-chat-scroll]")!.getBoundingClientRect().top - 1 &&
+            element.getBoundingClientRect().top < element.closest("[data-chat-scroll]")!.getBoundingClientRect().bottom,
+        })),
+      )
+      .toEqual({ selection: 0, scroll: 0, visibleStart: true });
+    await testInfo.attach(`mobile-scroll-anchors-${testInfo.project.name}.png`, {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  } finally {
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}?force=true`);
+  }
+});
+
 test("mobile Load More clears the collapsed Echo Chamber", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Echo Chamber touch clearance is mobile-only.");
 
@@ -19403,6 +19850,34 @@ test("mobile chat composer follows the visual viewport above the software keyboa
       .poll(() => transcript.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight))
       .toBeLessThanOrEqual(2);
     await expect(textarea).toBeVisible();
+    await expect(textarea).toHaveCSS("overscroll-behavior-y", "contain");
+    await textarea.fill("Scrollable draft line.\n".repeat(30));
+    const boundaryGestures = await textarea.evaluate((element: HTMLTextAreaElement) => {
+      const drag = (delta: number, touches = 1) => {
+        const dispatch = (type: string, y: number) => {
+          const event = new Event(type, { bubbles: true, cancelable: true });
+          Object.defineProperty(event, "touches", { value: Array.from({ length: touches }, () => ({ clientY: y })) });
+          element.dispatchEvent(event);
+          return event.defaultPrevented;
+        };
+        dispatch("touchstart", 100);
+        return dispatch("touchmove", 100 + delta);
+      };
+      element.setSelectionRange(0, 0);
+      element.scrollTop = 20;
+      const inside = drag(-10);
+      element.scrollTop = element.scrollHeight;
+      const bottom = drag(-10);
+      element.scrollTop = 0;
+      const top = drag(10);
+      const multitouch = drag(10, 2);
+      element.setSelectionRange(0, 4);
+      const selection = drag(10);
+      return { inside, bottom, top, multitouch, selection };
+    });
+    expect(boundaryGestures).toEqual({ inside: false, bottom: true, top: true, multitouch: false, selection: false });
+    await textarea.fill("");
+    await textarea.blur();
     await expect.poll(() => composer.evaluate((element) => getComputedStyle(element).paddingBottom)).toBe("34px");
 
     const initialViewportHeight = await page.evaluate(() => window.innerHeight);

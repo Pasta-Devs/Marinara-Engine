@@ -5408,8 +5408,13 @@ assert.equal(
 );
 assert.equal(
   contextBudgetIndicatorSource.match(/var\(--marinara-chat-chrome-text\)/gu)?.length,
-  2,
-  "Context usage gauges and bars must use the configured chat chroma text color",
+  1,
+  "non-accent context usage bars must use the configured chat chrome text color",
+);
+assert.match(
+  contextBudgetIndicatorSource,
+  /stroke="var\(--marinara-chat-chrome-accent\)"/u,
+  "Context usage gauge rings must use the configured chat chrome accent color",
 );
 assert.match(contextBudgetIndicatorSource, /text-\[var\(--marinara-chat-chrome-panel-muted\)\]/u);
 assert.match(contextBudgetIndicatorSource, /text-\[var\(--marinara-chat-chrome-panel-text\)\]/u);

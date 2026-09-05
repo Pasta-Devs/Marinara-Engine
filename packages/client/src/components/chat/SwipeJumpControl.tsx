@@ -7,6 +7,7 @@ interface SwipeJumpControlProps {
   messageId: string;
   activeSwipeIndex: number;
   swipeCount: number;
+  alwaysShow?: boolean;
   onSetActiveSwipe: (index: number) => void;
   onCreateNextSwipe?: () => void;
   className?: string;
@@ -19,6 +20,7 @@ export function SwipeJumpControl({
   messageId,
   activeSwipeIndex,
   swipeCount,
+  alwaysShow = false,
   onSetActiveSwipe,
   onCreateNextSwipe,
   className,
@@ -33,7 +35,7 @@ export function SwipeJumpControl({
     setInputValue(String(activeSwipeIndex + 1));
   }, [activeSwipeIndex]);
 
-  if (swipeCount <= 1) return null;
+  if (swipeCount <= 1 && !alwaysShow) return null;
 
   const inputId = `swipe-jump-${messageId}`;
   const displaySwipeCount = Math.max(1, swipeCount);
@@ -61,7 +63,10 @@ export function SwipeJumpControl({
     <div className={cn("mari-message-swipes flex items-center gap-1.5", className)}>
       <button
         type="button"
-        className={buttonClassName}
+        className={cn(
+          "inline-flex min-h-8 min-w-8 items-center justify-center max-md:min-h-[44px] max-md:min-w-[44px]",
+          buttonClassName,
+        )}
         onClick={(event) => {
           event.stopPropagation();
           setSwipeByDisplayIndex(activeSwipeIndex);
@@ -102,7 +107,10 @@ export function SwipeJumpControl({
       <span className="tabular-nums">/{displaySwipeCount}</span>
       <button
         type="button"
-        className={buttonClassName}
+        className={cn(
+          "inline-flex min-h-8 min-w-8 items-center justify-center max-md:min-h-[44px] max-md:min-w-[44px]",
+          buttonClassName,
+        )}
         onClick={(event) => {
           event.stopPropagation();
           if (hasNextSwipe) {

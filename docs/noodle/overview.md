@@ -23,7 +23,7 @@ Note on content: the built-in instructions Noodle sends to the AI treat every ac
 
 Noodle is a downloadable agent package. Install it once before looking for its Home tab:
 
-1. Open **Agents**, choose **Download Agents**, and install **Noodle & NoodleR**.
+1. Open **Agents**, choose **Download Agents**, and install **Noodle**.
 2. Restart Marinara Engine when prompted so its server and Home contributions can load.
 3. Open **Home** and click the **Noodle** tab beside **Home** and **Professor**.
 

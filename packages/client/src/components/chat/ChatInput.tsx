@@ -388,6 +388,34 @@ export const ChatInput = memo(function ChatInput({
     setAttachments(next);
   }, []);
 
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea || !isMobileComposerViewport || mode !== "roleplay") return;
+    // iOS can chain a textarea's boundary drag into the keyboard's root
+    // scroll area even when html/body disallow overscroll. Keep inner text
+    // scrolling, selection, and multi-touch gestures native.
+    let previousY = 0;
+    const start = (event: TouchEvent) => {
+      previousY = event.touches[0]?.clientY ?? 0;
+    };
+    const move = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      const y = event.touches[0]!.clientY;
+      const delta = y - previousY;
+      previousY = y;
+      if (textarea.selectionStart !== textarea.selectionEnd) return;
+      const atTop = textarea.scrollTop <= 0;
+      const atBottom = textarea.scrollTop + textarea.clientHeight >= textarea.scrollHeight - 1;
+      if ((delta > 0 && atTop) || (delta < 0 && atBottom)) event.preventDefault();
+    };
+    textarea.addEventListener("touchstart", start, { passive: true });
+    textarea.addEventListener("touchmove", move, { passive: false });
+    return () => {
+      textarea.removeEventListener("touchstart", start);
+      textarea.removeEventListener("touchmove", move);
+    };
+  }, [isMobileComposerViewport, mode]);
+
   const insertTextAtCursor = useCallback(
     (text: string) => {
       const el = textareaRef.current;

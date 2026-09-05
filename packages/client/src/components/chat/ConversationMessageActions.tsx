@@ -91,7 +91,7 @@ export function ConversationMessageActions({
   return (
     <div
       className={cn(
-        "mari-message-actions flex w-fit items-center gap-0.5 px-1 transition-all",
+        "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 transition-all md:gap-x-2",
         visible
           ? "visible pointer-events-auto opacity-100"
           : "invisible pointer-events-none opacity-0 group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 focus-within:visible focus-within:pointer-events-auto focus-within:opacity-100",

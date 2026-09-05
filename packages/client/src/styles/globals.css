@@ -6072,6 +6072,37 @@ strong {
 }
 
 @media (max-width: 767px) {
+  [data-chat-mode="roleplay"] .mari-chat-input-textarea {
+    overscroll-behavior-y: contain;
+  }
+
+  .mari-gallery-generation-actions > button,
+  .mari-gallery-generation-actions > div > button {
+    @apply relative min-h-11 flex-col gap-1 px-1 py-2 text-[0.625rem];
+  }
+
+  .mari-gallery-generation-actions > button > svg,
+  .mari-gallery-generation-actions > div > button > svg {
+    @apply size-3;
+  }
+
+  .mari-gallery-generation-actions > button > span,
+  .mari-gallery-generation-actions > div > button > span {
+    @apply max-w-full whitespace-normal break-words;
+  }
+
+  .mari-gallery-image-actions {
+    @apply grid grid-cols-[repeat(auto-fit,minmax(24px,1fr))] gap-0.5 p-1;
+  }
+
+  .mari-gallery-image-actions button {
+    @apply flex min-h-8 min-w-0 items-center justify-center px-0;
+  }
+
+  .mari-gallery-image-actions .mari-chrome-accent-surface {
+    @apply border-transparent bg-white/20 text-white hover:bg-white/30;
+  }
+
   /*
    * WKWebView native backing color is set by the literal background-color in
    * index.html <style> (inline critical CSS — not cached by SW, always fresh).

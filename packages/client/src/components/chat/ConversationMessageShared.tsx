@@ -20,6 +20,7 @@ import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { MessageActionButton } from "./MessageActionButton";
 import { SwipeJumpControl } from "./SwipeJumpControl";
+import { useUIStore } from "../../stores/ui.store";
 import { AnimatedDiceRoll, isDiceRollResult, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
 import type { CharacterMap } from "./chat-area.types";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -631,6 +632,7 @@ export function ConversationMessageTranslation({
 
 /** Compact swipe control — consistent style for all Conversation layouts. */
 export function ConversationMessageSwipes({
+  isUser,
   messageId,
   activeSwipeIndex,
   swipeCount,
@@ -638,6 +640,7 @@ export function ConversationMessageSwipes({
   onCreateNextSwipe,
   className,
 }: {
+  isUser: boolean;
   messageId: string;
   activeSwipeIndex: number;
   swipeCount: number;
@@ -645,8 +648,10 @@ export function ConversationMessageSwipes({
   onCreateNextSwipe?: () => void;
   className?: string;
 }) {
+  const alwaysShow = useUIStore((state) => state.alwaysDisplayConversationSwipeMenu);
   return (
     <SwipeJumpControl
+      alwaysShow={alwaysShow && !isUser}
       messageId={messageId}
       activeSwipeIndex={activeSwipeIndex}
       swipeCount={swipeCount}
