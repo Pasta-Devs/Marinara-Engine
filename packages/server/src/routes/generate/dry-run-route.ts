@@ -63,7 +63,11 @@ import {
   resolveModelAccessPolicy,
   resolveStoredModelContextLimit,
 } from "../../services/generation/model-access-policy.js";
-import { collectPastReasoningMetadata, normalizeChatTopP } from "../../services/generation/generation-parameters.js";
+import {
+  collectPastReasoningMetadata,
+  limitPastReasoningMetadata,
+  normalizeChatTopP,
+} from "../../services/generation/generation-parameters.js";
 import { filterPromptMessagesForCharacterAudience } from "../../services/generation/prompt-message-scope.js";
 import { applyAllSegmentEdits } from "../../services/game/segment-edits.js";
 import { applyRegexScriptsToPromptMessages } from "../../services/regex/regex-application.js";
@@ -685,7 +689,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const excludePastReasoning = chatMeta.excludePastReasoning !== false;
     const pastReasoning = collectPastReasoningMetadata(
       regenerateMessageId ? chatMessages.filter((message: any) => message.id !== regenerateMessageId) : chatMessages,
-      chatMeta,
+      { ...chatMeta, pastReasoningLimit: 0 },
       conn.provider,
       conn.model,
     );
@@ -1722,7 +1726,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     };
 
     const fit = fitMessagesForModelAccess({
-      messages: toProviderMessages(finalMessages as any),
+      messages: limitPastReasoningMetadata(toProviderMessages(finalMessages as any), chatMeta),
       policy: { ...modelAccessPolicy, effectiveMaxContext },
       maxTokens,
     });

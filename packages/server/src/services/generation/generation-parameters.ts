@@ -122,17 +122,62 @@ export function shouldReplayStoredChatCompletionsReasoning(provider: string, mod
   return !normalizedModel.startsWith("google/gemini") && !normalizedModel.includes("/gemini-");
 }
 
+type PastReasoningSettings = { excludePastReasoning?: unknown; pastReasoningLimit?: unknown };
+const PAST_REASONING_KEYS = new Set([
+  "geminiParts",
+  "reasoning_content",
+  "reasoning",
+  "reasoning_details",
+  "encryptedReasoning",
+]);
+
+function resolvePastReasoningLimit(settings: PastReasoningSettings): number {
+  const value = settings.pastReasoningLimit;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 1;
+}
+
+/** Apply the allowance after target/audience filtering, before context fitting. */
+export function limitPastReasoningMetadata<
+  T extends {
+    role: string;
+    contextKind?: string;
+    providerMetadata?: Record<string, unknown>;
+  },
+>(messages: T[], settings: PastReasoningSettings): T[] {
+  const limit = resolvePastReasoningLimit(settings);
+  let kept = 0;
+  const limited = [...messages];
+  for (let index = limited.length - 1; index >= 0; index--) {
+    const message = limited[index]!;
+    const metadata = message.providerMetadata;
+    if (
+      message.role !== "assistant" ||
+      message.contextKind !== "history" ||
+      !metadata ||
+      metadata.partial === true ||
+      !Object.keys(metadata).some((key) => PAST_REASONING_KEYS.has(key))
+    )
+      continue;
+    if (settings.excludePastReasoning === false && (limit === 0 || kept++ < limit)) continue;
+    const remaining = Object.fromEntries(Object.entries(metadata).filter(([key]) => !PAST_REASONING_KEYS.has(key)));
+    const withoutReasoning = { ...message };
+    if (Object.keys(remaining).length) withoutReasoning.providerMetadata = remaining;
+    else delete withoutReasoning.providerMetadata;
+    limited[index] = withoutReasoning;
+  }
+  return limited;
+}
+
 /** Keep provider-native reasoning on its original message; plain assistant turns do not consume the limit. */
 export function collectPastReasoningMetadata(
   messages: Array<{ id: string; role: string; extra?: unknown }>,
-  settings: { excludePastReasoning?: unknown; pastReasoningLimit?: unknown },
+  settings: PastReasoningSettings,
   provider: string,
   model: string,
 ): Map<string, Record<string, unknown>> {
   const selected = new Map<string, Record<string, unknown>>();
   if (settings.excludePastReasoning !== false) return selected;
-  const value = settings.pastReasoningLimit;
-  const limit = typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 1;
+  const limit = resolvePastReasoningLimit(settings);
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index]!;
     if (message.role !== "assistant") continue;
@@ -142,7 +187,12 @@ export function collectPastReasoningMetadata(
     if (
       (provider === "google" || provider === "google_vertex") &&
       Array.isArray(extra.geminiParts) &&
-      extra.geminiParts.length
+      extra.geminiParts.some(
+        (part) =>
+          part &&
+          typeof part === "object" &&
+          (part.thought === true || (typeof part.thoughtSignature === "string" && part.thoughtSignature)),
+      )
     ) {
       metadata.geminiParts = extra.geminiParts;
     }

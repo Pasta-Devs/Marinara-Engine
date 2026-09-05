@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
-import { collectPastReasoningMetadata } from "../../packages/server/src/services/generation/generation-parameters.js";
+import {
+  collectPastReasoningMetadata,
+  limitPastReasoningMetadata,
+} from "../../packages/server/src/services/generation/generation-parameters.js";
 import { OpenAIProvider } from "../../packages/server/src/services/llm/providers/openai.provider.js";
 import type { ChatMessage, ChatOptions } from "../../packages/server/src/services/llm/base-provider.js";
 import { mergeAdjacentMessages } from "../../packages/server/src/services/prompt/merger.js";
+import { assemblePrompt } from "../../packages/server/src/services/prompt/assembler.js";
+import { filterPromptMessagesForCharacterAudience } from "../../packages/server/src/services/generation/prompt-message-scope.js";
+import { fitMessagesToContext } from "../../packages/server/src/services/llm/base-provider.js";
 
 const reasoning = (id: string) => ({ type: "reasoning", id, encrypted_content: `opaque-${id}`, summary: [] });
 const history = [
@@ -99,6 +105,21 @@ assert.deepEqual(
   ).get("g"),
   { geminiParts },
 );
+assert.deepEqual(
+  [
+    ...collectPastReasoningMetadata(
+      [
+        { id: "signed", role: "assistant", extra: { geminiParts } },
+        { id: "plain", role: "assistant", extra: { geminiParts: [{ text: "ordinary answer" }] } },
+      ],
+      { excludePastReasoning: false },
+      "google",
+      "gemini-3-pro",
+    ).keys(),
+  ],
+  ["signed"],
+  "Plain Gemini response parts do not consume a reasoning block",
+);
 
 // Exercise the real Responses formatter without contacting a paid provider.
 const provider = new OpenAIProvider(
@@ -168,5 +189,121 @@ assert.equal(
   1,
   "ordinary adjacent merging stays unchanged",
 );
+
+const scopedHistory = [
+  {
+    role: "assistant" as const,
+    contextKind: "history" as const,
+    content: "visible",
+    providerMetadata: { reasoning_content: "visible thought" },
+  },
+  {
+    role: "assistant" as const,
+    contextKind: "history" as const,
+    content: "hidden for Ada",
+    hiddenFromAICharacterIds: ["ada"],
+    providerMetadata: { reasoning_content: "other character thought" },
+  },
+];
+const beforeLimit = JSON.stringify(scopedHistory);
+const targetHistory = filterPromptMessagesForCharacterAudience(scopedHistory, ["ada"]);
+assert.equal(
+  limitPastReasoningMetadata(targetHistory, { excludePastReasoning: false })[0]?.providerMetadata?.reasoning_content,
+  "visible thought",
+);
+const limited = limitPastReasoningMetadata(scopedHistory, { excludePastReasoning: false });
+assert.equal(limited[0]?.providerMetadata, undefined);
+assert.equal(limited[1]?.providerMetadata?.reasoning_content, "other character thought");
+assert.equal(
+  JSON.stringify(scopedHistory),
+  beforeLimit,
+  "Limit enforcement must not mutate stored or other-character history",
+);
+assert.equal(
+  limitPastReasoningMetadata(scopedHistory, { excludePastReasoning: false, pastReasoningLimit: 0 }).filter(
+    (message) => message.providerMetadata,
+  ).length,
+  2,
+);
+assert.equal(limitPastReasoningMetadata(scopedHistory, {}).filter((message) => message.providerMetadata).length, 0);
+const prefill = { role: "assistant", content: "", providerMetadata: { partial: true, reasoning_content: "prefill" } };
+const currentToolRound = { role: "assistant", content: "", providerMetadata: { encryptedReasoning: [toolReasoning] } };
+const withCurrentTurn = limitPastReasoningMetadata([...scopedHistory, prefill, currentToolRound], {
+  excludePastReasoning: false,
+});
+assert.deepEqual(
+  withCurrentTurn.slice(-2),
+  [prefill, currentToolRound],
+  "Prefill and current tool rounds are not past history",
+);
+
+const assembled = await assemblePrompt({
+  db: undefined as never,
+  preset: {
+    id: "reasoning",
+    name: "Reasoning",
+    sectionOrder: '["history"]',
+    groupOrder: "[]",
+    wrapFormat: "none",
+    parameters: JSON.stringify({ strictRoleFormatting: true }),
+    variableGroups: "[]",
+    variableValues: "{}",
+  },
+  sections: [
+    {
+      id: "history",
+      presetId: "reasoning",
+      identifier: "chatHistory",
+      name: "Chat History",
+      content: "",
+      role: "system",
+      enabled: "true",
+      isMarker: "true",
+      groupId: null,
+      markerConfig: JSON.stringify({ type: "chat_history" }),
+      injectionPosition: "ordered",
+      injectionDepth: 0,
+      injectionOrder: 0,
+      forbidOverrides: "false",
+    },
+  ],
+  groups: [],
+  choiceBlocks: [],
+  chatChoices: {},
+  chatId: "reasoning",
+  characterIds: [],
+  personaName: "User",
+  personaDescription: "",
+  chatMessages: scopedHistory.map(({ role, content, providerMetadata }) => ({ role, content, providerMetadata })),
+});
+assert.deepEqual(
+  assembled.messages.filter((message) => message.role === "assistant").map((message) => message.providerMetadata),
+  scopedHistory.map((message) => message.providerMetadata),
+  "Strict role formatting must retain each reasoning block's original assistant boundary",
+);
+
+for (const key of ["reasoning_content", "reasoning"]) {
+  const largeThinking: ChatMessage[] = [
+    { role: "system", content: "Instructions." },
+    {
+      role: "assistant",
+      content: "Short answer",
+      contextKind: "history",
+      providerMetadata: { [key]: "thinking ".repeat(10_000) },
+    },
+    { role: "user", content: "Next turn." },
+  ];
+  const fit = fitMessagesToContext(largeThinking, { maxContext: 4096, maxTokens: 512 });
+  assert.ok(fit.trimmed, "Plaintext thinking must count fully toward the local context budget");
+  assert.equal(
+    fit.messages.some((message) => message.providerMetadata?.[key]),
+    false,
+  );
+  assert.equal(
+    largeThinking[1]?.providerMetadata?.[key],
+    "thinking ".repeat(10_000),
+    "Context fitting must not erase saved thinking",
+  );
+}
 
 console.log("past reasoning history: ok");

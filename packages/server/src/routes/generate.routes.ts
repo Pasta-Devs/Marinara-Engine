@@ -513,6 +513,7 @@ import {
 } from "../services/generation/prompt-message-scope.js";
 import {
   collectPastReasoningMetadata,
+  limitPastReasoningMetadata,
   readChatCompletionsReasoningMetadata,
   resolveStoredChatOptions,
   resolveStoredMaxTokens,
@@ -1456,7 +1457,12 @@ export async function generateRoutes(app: FastifyInstance) {
       if (contextMessageLimit && contextMessageLimit > 0 && chatMessages.length > contextMessageLimit) {
         chatMessages = chatMessages.slice(-contextMessageLimit);
       }
-      const pastReasoning = collectPastReasoningMetadata(chatMessages, chatMeta, conn.provider, conn.model);
+      const pastReasoning = collectPastReasoningMetadata(
+        chatMessages,
+        { ...chatMeta, pastReasoningLimit: 0 },
+        conn.provider,
+        conn.model,
+      );
 
       // Ordinary reasoning stays on visible history messages. Only a generated
       // command-only anchor needs the legacy continuity slot when its text is hidden.
@@ -6315,7 +6321,7 @@ export async function generateRoutes(app: FastifyInstance) {
           let effectiveMaxTokensForSend: number | undefined = maxTokens;
           const fitPromptForSend = (candidateMessages: ChatMessage[]): ChatMessage[] => {
             const fit = fitMessagesForModelAccess({
-              messages: candidateMessages,
+              messages: limitPastReasoningMetadata(candidateMessages, chatMeta),
               policy: { ...modelAccessPolicy, effectiveMaxContext },
               maxTokens,
               tools: toolDefs,

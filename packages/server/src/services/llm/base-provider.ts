@@ -365,7 +365,10 @@ function estimateMessageTokens(message: ChatMessage): number {
     total += message.media.reduce((sum, media) => sum + estimateFileTokens({ data: media.data }), 0);
   }
   if (message.providerMetadata) {
-    total += Math.min(estimateStructuredTokens(message.providerMetadata), 512);
+    const { reasoning_content, reasoning, ...opaqueMetadata } = message.providerMetadata;
+    if (typeof reasoning_content === "string") total += estimateTextTokens(reasoning_content);
+    if (typeof reasoning === "string") total += estimateTextTokens(reasoning);
+    total += Math.min(estimateStructuredTokens(opaqueMetadata), 512);
   }
   return total;
 }
