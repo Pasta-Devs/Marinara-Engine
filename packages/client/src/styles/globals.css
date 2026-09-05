@@ -6071,6 +6071,22 @@ strong {
 }
 
 @media (max-width: 767px) {
+  .mari-message-actions {
+    flex-wrap: nowrap;
+    column-gap: 0;
+    padding-inline: 0;
+  }
+
+  .mari-message-actions > button,
+  .mari-message-actions > div {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .mari-message-actions > div > button {
+    width: 100%;
+  }
+
   [data-chat-mode="roleplay"] .mari-chat-input-textarea {
     overscroll-behavior-y: contain;
   }

@@ -29,6 +29,7 @@ async function openFreshChat(page: Page, chatId: string) {
             hasCompletedOnboarding: true,
             rightPanelOpen: false,
             sidebarOpen: false,
+            messagesPerPage: 20,
             chatHelpSeenModes: ["conversation", "roleplay", "game"],
           },
           version: 65,
@@ -168,8 +169,17 @@ test("orphan recovery yields to a resumed local stream and its typewriter", asyn
     expect({ statusReads, messageReads }).toEqual(readsWithLocalOwner);
     await page.evaluate(async (id) => {
       const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;
+      const { useAgentStore } = (await import("/src/stores/agent.store.ts" as string)) as PageAgentStoreModule;
+      useAgentStore.getState().setProcessingRun("local-illustrator-tail", true, id);
       useChatStore.getState().setStreaming(false, id);
       useChatStore.getState().clearStreamBuffer(id);
+    }, chatId);
+    // The durable reply may release the composer while its local agent SSE lives on.
+    await page.waitForTimeout(1_200);
+    expect({ statusReads, messageReads }).toEqual(readsWithLocalOwner);
+    await page.evaluate(async (id) => {
+      const { useAgentStore } = (await import("/src/stores/agent.store.ts" as string)) as PageAgentStoreModule;
+      useAgentStore.getState().setProcessingRun("local-illustrator-tail", false, id);
     }, chatId);
     await expect.poll(() => statusReads).toBeGreaterThan(readsWithLocalOwner.statusReads);
     await page.waitForTimeout(1_200);

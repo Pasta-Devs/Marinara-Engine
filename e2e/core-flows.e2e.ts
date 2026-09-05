@@ -5708,7 +5708,7 @@ test("stopped and refused generations keep sent text cleared and accept the firs
 });
 
 for (const mode of ["conversation", "roleplay"] as const) {
-  test(`${mode} message actions are roomy and first-swipe preferences persist independently`, async ({
+  test(`${mode} message actions fit mobile rows and first-swipe preferences persist independently`, async ({
     page,
     request,
   }, testInfo) => {
@@ -5784,12 +5784,19 @@ for (const mode of ["conversation", "roleplay"] as const) {
         for (const button of buttons) {
           const box = await button.boundingBox();
           expect(box).not.toBeNull();
-          expect(box!.width).toBeGreaterThanOrEqual(mobile ? 44 : 32);
-          expect(box!.height).toBeGreaterThanOrEqual(mobile ? 44 : 32);
+          expect(box!.width).toBeGreaterThanOrEqual(mobile ? 24 : 32);
+          expect(box!.height).toBeGreaterThanOrEqual(32);
           expect(box!.x).toBeGreaterThanOrEqual(bar!.x);
           expect(box!.x + box!.width).toBeLessThanOrEqual(bar!.x + bar!.width + 1);
           if (previous && Math.abs(previous.y - box!.y) < 1) {
-            expect(box!.x - previous.x - previous.width).toBeGreaterThanOrEqual(mobile ? 3 : 6);
+            expect(box!.x - previous.x - previous.width).toBeGreaterThanOrEqual(mobile ? -1 : 6);
+          }
+          if (mobile && previous) expect(Math.abs(previous.y - box!.y)).toBeLessThan(1);
+          const icon = button.locator("svg").first();
+          if (mobile && (await icon.count())) {
+            const iconBox = await icon.boundingBox();
+            expect(iconBox!.width).toBeGreaterThanOrEqual(14);
+            expect(iconBox!.width).toBeLessThanOrEqual(16);
           }
           previous = box;
         }

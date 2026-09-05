@@ -294,17 +294,30 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
   const queryClient = useQueryClient();
   const previousWindow = useRef({ chatId, pageSize });
   const orphanedGeneration = useRef<string | null>(null);
+  const localAgentsProcessing = useAgentStore((state) => !!chatId && state.processingChatIds.includes(chatId));
   const canRecover = useChatStore(
     (state) => !!chatId && state.activeChatId === chatId && !hasLocalGeneration(state, chatId),
   );
-  const { data: generationStatus } = useGenerationStatus(chatId, enabled && canRecover);
+  const { data: generationStatus, isFetching: checkingGeneration } = useGenerationStatus(
+    chatId,
+    enabled && canRecover && !localAgentsProcessing,
+  );
   useEffect(() => {
     const state = useChatStore.getState();
-    if (!chatId || !enabled || state.activeChatId !== chatId || hasLocalGeneration(state, chatId)) {
+    if (
+      !chatId ||
+      !enabled ||
+      state.activeChatId !== chatId ||
+      hasLocalGeneration(state, chatId) ||
+      useAgentStore.getState().processingChatIds.includes(chatId)
+    ) {
       orphanedGeneration.current = null;
       return;
     }
     if (orphanedGeneration.current !== chatId) orphanedGeneration.current = null;
+    // Re-enabling the query must not adopt a cached active status from before
+    // a local stream took ownership. Wait for the fresh server response.
+    if (checkingGeneration) return;
     if (generationStatus?.active) {
       orphanedGeneration.current = chatId;
     } else if (generationStatus?.active === false && orphanedGeneration.current === chatId) {
@@ -321,7 +334,7 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
         void queryClient.invalidateQueries({ queryKey });
       }
     }
-  }, [chatId, enabled, canRecover, generationStatus?.active, queryClient]);
+  }, [chatId, enabled, canRecover, localAgentsProcessing, checkingGeneration, generationStatus?.active, queryClient]);
   const query = useInfiniteQuery({
     queryKey: chatKeys.messages(chatId ?? ""),
     queryFn: ({ pageParam, signal }) => {
