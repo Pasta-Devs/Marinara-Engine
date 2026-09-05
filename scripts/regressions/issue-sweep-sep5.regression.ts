@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
+import { createRequire } from "node:module";
 import { resolveMacros, resolveCharacterScopedMacros } from "../../packages/shared/src/utils/macro-engine.js";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "../../packages/shared/src/constants/security.js";
 import { csrfProtectionHook } from "../../packages/server/src/middleware/csrf-protection.js";
 import { csrfDiagnosticsRoutes } from "../../packages/server/src/routes/csrf-diagnostics.routes.js";
 import { api, ApiError } from "../../packages/client/src/lib/api-client.js";
+
+const serverRequire = createRequire(new URL("../../packages/server/package.json", import.meta.url));
+const Fastify = serverRequire("fastify");
 
 const profile = {
   name: "Ada",
@@ -17,6 +20,27 @@ assert.equal(resolveMacros("{{charPostHistory}}", context), "Keep <scene> intact
 assert.equal(resolveCharacterScopedMacros("{{charSysInfo}}", profile), "Speak as Ada.");
 assert.equal(resolveCharacterScopedMacros("{{charPostHistory}}", profile), "Keep <scene> intact. $&");
 assert.match(profile.systemPrompt, /\{\{original\}\}/, "prompt expansion must not mutate the saved card");
+
+const literal = "Costs $100 & $& $1 $` $' more";
+const literalProfile = {
+  name: literal,
+  phoneticName: literal,
+  description: literal,
+  personality: literal,
+  backstory: literal,
+  appearance: literal,
+  scenario: literal,
+  example: literal,
+};
+const literalContext = { ...context, char: literal, characters: [literal], characterFields: literalProfile };
+for (const macro of ["char", "charName", "charPhonetic", "description", "personality", "backstory", "appearance", "scenario", "example"]) {
+  assert.equal(resolveMacros(`{{${macro}}}`, literalContext), literal, `global ${macro} inserts card text literally`);
+  assert.equal(resolveCharacterScopedMacros(`{{${macro}}}`, literalProfile), literal, `scoped ${macro} inserts card text literally`);
+}
+assert.equal(resolveMacros("{{characters}}", literalContext), literal);
+const groupContext = { ...context, characters: ["Ada", literal] };
+assert.equal(resolveMacros("{{group}}", groupContext), literal);
+assert.equal(resolveCharacterScopedMacros("{{group}}", profile, 0, groupContext), literal);
 
 const app = Fastify();
 app.addHook("onRequest", csrfProtectionHook);
