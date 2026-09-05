@@ -1769,7 +1769,8 @@ test("message deletion uses unified chroma controls and selection states", async
     await expect(dialog.getByRole("button", { name: "Delete more" })).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Cancel" })).toBeVisible();
 
-    // Compare static theme colors, not WebKit's retained interpolated color serialization.
+    // Compare idle theme colors, not pointer hover or WebKit's retained transition serialization.
+    await page.mouse.move(0, 0);
     await dialogActions.evaluateAll((buttons) => {
       for (const button of buttons) (button as HTMLElement).style.transition = "none";
     });
