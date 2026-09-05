@@ -23,7 +23,7 @@ test("message entrance releases rendering hints while long replies keep growing"
     element.classList.add("animate-message-in");
     const animations = element.getAnimations();
     if (animations.length !== 1) throw new Error("The existing message entrance must still animate");
-    await animations[0].finished;
+    await animations[0]!.finished;
   }, longParagraph);
 
   await expect(reply).toHaveCSS("will-change", "auto");

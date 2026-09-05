@@ -77,6 +77,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Released temporary rendering hints after message entrance animations, reducing unnecessary compositor layers around long, growing Roleplay replies without changing their animation or layout (#5870).
+- Agent connection warnings and other notifications now use the selected accent for their border in light and dark themes (#5870).
+
 - Restored Professor Mari preset creation after adding preset-level regex defaults, and preserved those defaults during unrelated preset edits.
 
 - OpenAI-compatible image connections preserve non-GPT models' requested dimensions; FLUX.2 requests retry once after an explicit dimension-limit rejection using the reported bound (#5861).
