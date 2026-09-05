@@ -39,7 +39,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Advanced Parameters can keep a chosen number of eligible past assistant reasoning blocks when exclusion is off (default 1; 0 keeps all), preserving provider-native reasoning and local custom-tag thinking. The allowance follows the target-character context; prompt previews, strict role formatting, reasoning-only turns, and encrypted tool-round continuation retain the correct reasoning. Plain-text and structured replay payloads count toward the context estimate; a provider session avoids resending rejected encrypted items without deleting saved thoughts (#5785).
 - Added example text to Assistant Reasoning Prefill without changing saved values (#5864).
-- Illustrator accepts Run Interval 0 for manual-only generation, preserving Gallery actions while stopping automatic runs (Marinara-Agents #629).
+- Illustrator accepts Run Interval 0 for manual-only generation, including typed and stepped cadence in record-based editors, preserving Gallery actions while stopping automatic runs (Marinara-Agents #629).
 - The Roleplay Agents & Actions menu shows per-agent phases, incoming output activity, reported input/output tokens, time to first output, and elapsed time without enabling debug prompt logs (#5860).
 - Added a Regex tab to prompt presets, with existing-script editing and preset-level scoped-regex defaults. Chats inherit the default unless they have an explicit override, and can return to the preset default at any time (#5774).
 

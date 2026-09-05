@@ -9589,6 +9589,7 @@ export function ChatSettingsDrawer({
                                     current.runInterval ?? 1,
                                     delta,
                                     agentAddIntervalMeta.max,
+                                    agentAddIntervalMeta.min,
                                   ),
                                 }
                               : current,
@@ -9603,6 +9604,7 @@ export function ChatSettingsDrawer({
                                     e.target.value,
                                     current.runInterval ?? 1,
                                     agentAddIntervalMeta.max,
+                                    agentAddIntervalMeta.min,
                                   ),
                                 }
                               : current,
@@ -9625,6 +9627,7 @@ export function ChatSettingsDrawer({
                                       current.runInterval ?? 1,
                                       1,
                                       agentAddIntervalMeta.max,
+                                      agentAddIntervalMeta.min,
                                     ),
                                   }
                                 : current,
@@ -9647,6 +9650,7 @@ export function ChatSettingsDrawer({
                                       current.runInterval ?? 1,
                                       -1,
                                       agentAddIntervalMeta.max,
+                                      agentAddIntervalMeta.min,
                                     ),
                                   }
                                 : current,

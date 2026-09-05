@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { getAgentRunIntervalMeta, parseCadenceInputValue } from "../../packages/client/src/lib/agent-cadence.js";
+import {
+  getAgentRunIntervalMeta,
+  parseCadenceInputValue,
+  stepCadenceValue,
+} from "../../packages/client/src/lib/agent-cadence.js";
 import { shouldSkipAgentByMessageInterval } from "../../packages/server/src/services/generation/agent-cadence.js";
 
 const illustrator = getAgentRunIntervalMeta("illustrator")!;
@@ -11,6 +15,9 @@ assert.equal(parseCadenceInputValue("-1", 5, 100, illustrator.min), 0);
 assert.equal(parseCadenceInputValue("101", 5, 100, illustrator.min), 100);
 assert.equal(parseCadenceInputValue("", 5, 100, illustrator.min), 5);
 assert.equal(parseCadenceInputValue("0", 8, 100), 1, "other agents keep their positive minimum");
+assert.equal(stepCadenceValue(1, -1, 100, illustrator.min), 0, "Illustrator arrows reach manual-only cadence");
+assert.equal(stepCadenceValue(0, -1, 100, illustrator.min), 0);
+assert.equal(stepCadenceValue(1, -1, 100), 1, "other agents retain their positive stepping minimum");
 assert.equal(getAgentRunIntervalMeta("lorebook-keeper")?.min ?? 1, 1);
 assert.equal(getAgentRunIntervalMeta("custom", false)?.min ?? 1, 1);
 

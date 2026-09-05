@@ -97,6 +97,21 @@ test("Illustrator manual-only interval saves and survives reopening and chat set
     await page.reload();
     await openEditor();
     await expect(interval).toHaveValue("0");
+    // A saved Illustrator can also be opened by its record ID, using the
+    // existing custom-agent cadence field alongside its Illustrator settings.
+    await page.evaluate(async (agentId) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openAgentDetail(agentId);
+    }, agent.id);
+    const recordInterval = page.locator('.mari-editor-shell .relative.w-28 > input[type="text"][inputmode="numeric"]');
+    await expect(recordInterval).toHaveValue("0");
+    await recordInterval.fill("0");
+    await expect(recordInterval).toHaveValue("0");
+    await recordInterval.fill("1");
+    await recordInterval.press("ArrowDown");
+    await expect(recordInterval).toHaveValue("0");
+    await page.locator(".mari-editor-header .mari-editor-action--primary").click();
+    await expect.poll(async () => (await readSettings()).runInterval).toBe(0);
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().closeAgentDetail();

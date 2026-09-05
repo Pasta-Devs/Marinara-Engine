@@ -68,7 +68,7 @@ export function parseCadenceInputValue(value: string, fallback: number, max: num
   return parsed === "" ? fallback : parsed;
 }
 
-export function stepCadenceValue(value: number | "", delta: number, max: number): number {
+export function stepCadenceValue(value: number | "", delta: number, max: number, min = 1): number {
   const current = value === "" ? 1 : value;
-  return Math.max(1, Math.min(max, current + delta));
+  return Math.max(min, Math.min(max, current + delta));
 }

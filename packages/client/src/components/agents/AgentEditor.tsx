@@ -2756,11 +2756,19 @@ export function AgentEditor() {
                       if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
                       e.preventDefault();
                       const delta = e.key === "ArrowUp" ? 1 : -1;
-                      setLocalRunInterval(stepCadenceValue(localRunInterval, delta, customRunIntervalMeta.max));
+                      setLocalRunInterval(
+                        stepCadenceValue(localRunInterval, delta, customRunIntervalMeta.max, customRunIntervalMeta.min),
+                      );
                       markDirty();
                     }}
                     onChange={(e) => {
-                      setLocalRunInterval(parseOptionalCadenceInputValue(e.target.value, customRunIntervalMeta.max));
+                      setLocalRunInterval(
+                        parseOptionalCadenceInputValue(
+                          e.target.value,
+                          customRunIntervalMeta.max,
+                          customRunIntervalMeta.min,
+                        ),
+                      );
                       markDirty();
                     }}
                     className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 pr-8 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
@@ -2770,7 +2778,9 @@ export function AgentEditor() {
                       type="button"
                       aria-label={localizeUi("ui.agents.agenteditor.increaseTriggerCadence")}
                       onClick={() => {
-                        setLocalRunInterval(stepCadenceValue(localRunInterval, 1, customRunIntervalMeta.max));
+                        setLocalRunInterval(
+                          stepCadenceValue(localRunInterval, 1, customRunIntervalMeta.max, customRunIntervalMeta.min),
+                        );
                         markDirty();
                       }}
                       className="flex h-4 w-5 items-center justify-center text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
@@ -2781,7 +2791,9 @@ export function AgentEditor() {
                       type="button"
                       aria-label={localizeUi("ui.agents.agenteditor.decreaseTriggerCadence")}
                       onClick={() => {
-                        setLocalRunInterval(stepCadenceValue(localRunInterval, -1, customRunIntervalMeta.max));
+                        setLocalRunInterval(
+                          stepCadenceValue(localRunInterval, -1, customRunIntervalMeta.max, customRunIntervalMeta.min),
+                        );
                         markDirty();
                       }}
                       className="flex h-4 w-5 items-center justify-center text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
