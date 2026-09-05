@@ -43,6 +43,7 @@ import {
   homeCustomWidgetSchema,
   normalizeLorebookCategory,
   normalizePersonalExtensionCapabilities,
+  scopedRegexModeSchema,
   type MariDbCommandResult,
   type MariDbMutationReadBack,
   type MariDbReadBackMismatch,
@@ -1333,6 +1334,13 @@ function normalizePromptPresetActionData(input: Row, existing?: Row | null): Row
     wrapFormat:
       firstString(input, ["wrapFormat", "wrap_format"]) ??
       (typeof existing?.wrapFormat === "string" ? existing.wrapFormat : "xml"),
+    scopedRegexMode: scopedRegexModeSchema.parse(
+      input.scopedRegexMode !== undefined
+        ? input.scopedRegexMode
+        : input.scoped_regex_mode !== undefined
+          ? input.scoped_regex_mode
+          : (existing?.scopedRegexMode ?? "disabled"),
+    ),
     defaultChoices: jsonString(input.defaultChoices ?? input.default_choices ?? existing?.defaultChoices, {}),
     isDefault: boolText(
       firstBoolean(input, ["isDefault", "is_default"]) ?? (existing ? existing.isDefault === "true" : false),
@@ -1349,6 +1357,7 @@ function normalizePromptPresetActionData(input: Row, existing?: Row | null): Row
   delete row.variable_groups;
   delete row.variable_values;
   delete row.wrap_format;
+  delete row.scoped_regex_mode;
   delete row.default_choices;
   delete row.is_default;
   delete row.system_key;
@@ -4382,6 +4391,8 @@ export class MariDbService {
             "variableValues",
             "parameters",
             "wrapFormat",
+            "scopedRegexMode",
+            "scoped_regex_mode",
             "defaultChoices",
             "isDefault",
             "author",
@@ -4428,6 +4439,8 @@ export class MariDbService {
             "variableValues",
             "parameters",
             "wrapFormat",
+            "scopedRegexMode",
+            "scoped_regex_mode",
             "defaultChoices",
             "isDefault",
             "author",

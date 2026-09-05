@@ -77,6 +77,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Restored Professor Mari preset creation after adding preset-level regex defaults, and preserved those defaults during unrelated preset edits.
+
 - OpenAI-compatible image connections preserve non-GPT models' requested dimensions; FLUX.2 requests retry once after an explicit dimension-limit rejection using the reported bound (#5861).
 - OpenRouter routes Qwen Image 3 and Muse Image to the Images API and recovers when another image-only model explicitly rejects the chat endpoint (#5750).
 - SillyTavern `{{original}}` placeholders no longer leak into prompts; saved character cards and literal instruction text are preserved (#5813).
