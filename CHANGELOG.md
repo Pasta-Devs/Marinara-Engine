@@ -78,6 +78,11 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Fixed incorrectly encoded persona avatar crops in chat, including existing message snapshots, without changing historical persona attribution (#5843).
+- Preserved zero-padded times such as "0600. Wake up" as text instead of numbered lists (#5858).
+- Refetched the open chat at the committed Messages per page size, avoiding truncated history while editing the setting (#5796).
+- Kept paused weather visible across mobile viewport changes, using the community resize fix linked by luma-inibitor (#5814).
+
 - Kept user-message actions in the same left-to-right order as assistant-message actions (#5854).
 - Mobile Roleplay keeps composer boundary drags inside the input, avoids animated press transforms on message actions, opens older-message editors at their beginning, and returns the reopened Echo Chamber to its latest message (#5851).
 - Mobile galleries keep generation labels and image actions within their available width, use neutral Delete controls, and give the Local Speech Model selector consistent spacing. Desktop layouts are unchanged (#5851).

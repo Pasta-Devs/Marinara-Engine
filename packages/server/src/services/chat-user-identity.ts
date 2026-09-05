@@ -1,4 +1,4 @@
-import { characterDataSchema, resolveChatPersonaCandidate } from "@marinara-engine/shared";
+import { characterDataSchema, normalizeAvatarCrop, resolveChatPersonaCandidate } from "@marinara-engine/shared";
 import type { createCharactersStorage } from "./storage/characters.storage.js";
 
 type CharactersStorage = ReturnType<typeof createCharactersStorage>;
@@ -95,7 +95,7 @@ export async function resolveChatUserIdentity(
     backstory: persona.backstory ?? "",
     appearance: persona.appearance ?? "",
     avatarPath: persona.avatarPath ?? null,
-    avatarCrop: persona.avatarCrop ?? null,
+    avatarCrop: normalizeAvatarCrop(persona.avatarCrop),
     nameColor: persona.nameColor ?? null,
     dialogueColor: persona.dialogueColor ?? null,
     boxColor: persona.boxColor ?? null,

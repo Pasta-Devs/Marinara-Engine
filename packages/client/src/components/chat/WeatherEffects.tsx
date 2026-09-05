@@ -155,7 +155,15 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
     let accumulatedFrameTime = 0;
 
     let canvasScale = 1;
+    let resizePending = false;
     const resize = () => {
+      // Resizing clears the bitmap, but a paused animation cannot repaint it.
+      // Keep its frozen frame until rendering resumes (community fix #5814).
+      if (document.hidden || pausedRef.current) {
+        resizePending = true;
+        return;
+      }
+      resizePending = false;
       const rect = canvas.parentElement?.getBoundingClientRect();
       if (!rect || rect.width <= 0 || rect.height <= 0) return;
       const pixelBudgetScale = Math.sqrt(MAX_CANVAS_PIXELS / (rect.width * rect.height));
@@ -292,6 +300,7 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
 
     const ensureFallbackRunning = () => {
       if (!running || document.hidden || pausedRef.current || frameRef.current !== 0) return;
+      if (resizePending) resize();
       frameRef.current = requestAnimationFrame(tick);
     };
     resumeFallbackRef.current = ensureFallbackRunning;
