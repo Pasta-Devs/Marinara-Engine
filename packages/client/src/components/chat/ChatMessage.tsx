@@ -1792,6 +1792,7 @@ export const ChatMessage = memo(function ChatMessage({
   const isSystem = message.role === "system";
   const isNarrator = message.role === "narrator";
   const isRoleplay = chatMode === "roleplay";
+  const alwaysDisplaySwipeMenu = useUIStore((state) => state.alwaysDisplayRoleplaySwipeMenu);
   const {
     chatFontSize,
     chatFontColor,
@@ -3534,6 +3535,7 @@ export const ChatMessage = memo(function ChatMessage({
             {/* Swipes */}
             {(hasSwipes || canCreateNextSwipe) && (
               <SwipeJumpControl
+                alwaysShow={isRoleplay && alwaysDisplaySwipeMenu && !isUser}
                 messageId={message.id}
                 activeSwipeIndex={message.activeSwipeIndex}
                 swipeCount={swipeCount}
@@ -3549,8 +3551,7 @@ export const ChatMessage = memo(function ChatMessage({
             {/* Hover actions (tap to toggle on mobile) */}
             <div
               className={cn(
-                "mari-message-actions flex items-center gap-0.5 px-1 opacity-0 transition-all group-hover:opacity-100",
-                isUser && "flex-row-reverse",
+                "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all group-hover:opacity-100 md:gap-x-2",
                 (showActions || editing) && "opacity-100",
                 showStreamingThinkingAction &&
                   "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
@@ -4011,6 +4012,7 @@ export const ChatMessage = memo(function ChatMessage({
           {/* Swipes */}
           {(hasSwipes || canCreateNextSwipe) && (
             <SwipeJumpControl
+              alwaysShow={isRoleplay && alwaysDisplaySwipeMenu && !isUser}
               messageId={message.id}
               activeSwipeIndex={message.activeSwipeIndex}
               swipeCount={swipeCount}
@@ -4025,8 +4027,7 @@ export const ChatMessage = memo(function ChatMessage({
           {/* Hover actions (tap to toggle on mobile) */}
           <div
             className={cn(
-              "mari-message-actions flex items-center gap-0 px-1 opacity-0 transition-all group-hover:opacity-100",
-              isUser && "flex-row-reverse",
+              "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all group-hover:opacity-100 md:gap-x-2",
               (showActions || editing) && "opacity-100",
               showStreamingThinkingAction &&
                 "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",

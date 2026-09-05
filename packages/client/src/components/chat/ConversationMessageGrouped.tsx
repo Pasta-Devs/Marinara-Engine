@@ -433,6 +433,7 @@ export function ConversationMessageGrouped({
               {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
                 <div className="ml-14 mt-1.5">
                   <ConversationMessageSwipes
+                    isUser={false}
                     messageId={message.id}
                     activeSwipeIndex={message.activeSwipeIndex}
                     swipeCount={swipeCount}

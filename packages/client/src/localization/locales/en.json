@@ -883,6 +883,8 @@
   "settings.controls.accentPulse.label": "Accent Pulse",
   "settings.controls.achievements.help": "Shows the Home achievements button and unlock notifications. Tracking stays silent in the current profile when this is off.",
   "settings.controls.achievements.label": "Achievements",
+  "settings.controls.alwaysDisplaySwipeMenu.help": "Show swipe arrows and the counter from the first response. Turn off to show them only after regeneration.",
+  "settings.controls.alwaysDisplaySwipeMenu.label": "Always display swipe menu",
   "settings.controls.alwaysShowDockedThoughts.help": "When Thought display mode is Docked, every featured character's thought stays visible inside the tracker card instead of waiting for the per-card thought button.",
   "settings.controls.alwaysShowDockedThoughts.label": "Always show Docked thoughts",
   "settings.controls.backgroundColor.label": "Background Color",

@@ -1067,6 +1067,24 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Button group",
   },
   {
+    id: "conversation-always-display-swipe-menu",
+    sectionId: "chat-display",
+    label: "Always display swipe menu",
+    description:
+      "Show swipe arrows and the counter from the first response. Turn off to show them only after regeneration.",
+    aliases: ["conversation", "swipe", "regenerate", "arrows"],
+    kind: "Toggle",
+  },
+  {
+    id: "roleplay-always-display-swipe-menu",
+    sectionId: "roleplay-messages",
+    label: "Always display swipe menu",
+    description:
+      "Show swipe arrows and the counter from the first response. Turn off to show them only after regeneration.",
+    aliases: ["roleplay", "swipe", "regenerate", "arrows"],
+    kind: "Toggle",
+  },
+  {
     id: "conversation-avatar-shape",
     sectionId: "chat-display",
     label: "Avatar Shape",
@@ -4667,6 +4685,10 @@ function AppearanceSettings() {
   const setChatFontSize = useUIStore((s) => s.setChatFontSize);
   const conversationMessageStyle = useUIStore((s) => s.conversationMessageStyle);
   const setConversationMessageStyle = useUIStore((s) => s.setConversationMessageStyle);
+  const alwaysDisplayConversationSwipeMenu = useUIStore((s) => s.alwaysDisplayConversationSwipeMenu);
+  const setAlwaysDisplayConversationSwipeMenu = useUIStore((s) => s.setAlwaysDisplayConversationSwipeMenu);
+  const alwaysDisplayRoleplaySwipeMenu = useUIStore((s) => s.alwaysDisplayRoleplaySwipeMenu);
+  const setAlwaysDisplayRoleplaySwipeMenu = useUIStore((s) => s.setAlwaysDisplayRoleplaySwipeMenu);
   const conversationAvatarShape = useUIStore((s) => s.conversationAvatarShape);
   const setConversationAvatarShape = useUIStore((s) => s.setConversationAvatarShape);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
@@ -5161,6 +5183,13 @@ function AppearanceSettings() {
         {...getSettingsSectionAnchorProps("chat-display")}
       >
         <div className="flex flex-col gap-3">
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("conversation-always-display-swipe-menu")}
+            label={localizeUi("settings.controls.alwaysDisplaySwipeMenu.label")}
+            checked={alwaysDisplayConversationSwipeMenu}
+            onChange={setAlwaysDisplayConversationSwipeMenu}
+            help={localizeUi("settings.controls.alwaysDisplaySwipeMenu.help")}
+          />
           <div
             id={getSettingsControlAnchorId("conversation-layout")}
             className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
@@ -5328,6 +5357,13 @@ function AppearanceSettings() {
             </button>
           </label>
 
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("roleplay-always-display-swipe-menu")}
+            label={localizeUi("settings.controls.alwaysDisplaySwipeMenu.label")}
+            checked={alwaysDisplayRoleplaySwipeMenu}
+            onChange={setAlwaysDisplayRoleplaySwipeMenu}
+            help={localizeUi("settings.controls.alwaysDisplaySwipeMenu.help")}
+          />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("roleplay-reduced-paint-effects")}
             label={localizeUi("settings.controls.reducedPaintEffects.label")}

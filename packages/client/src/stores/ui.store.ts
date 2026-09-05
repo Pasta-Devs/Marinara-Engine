@@ -751,6 +751,8 @@ interface UIState {
   imageStyleProfiles: ImageStyleProfileSettings;
 
   conversationMessageStyle: ConversationMessageStyle;
+  alwaysDisplayConversationSwipeMenu: boolean;
+  alwaysDisplayRoleplaySwipeMenu: boolean;
   conversationAvatarShape: ConversationAvatarShape;
   showTimestamps: boolean;
   showModelName: boolean;
@@ -1092,6 +1094,8 @@ interface UIState {
   setImageStyleProfiles: (settings: ImageStyleProfileSettings) => void;
 
   setConversationMessageStyle: (v: ConversationMessageStyle) => void;
+  setAlwaysDisplayConversationSwipeMenu: (v: boolean) => void;
+  setAlwaysDisplayRoleplaySwipeMenu: (v: boolean) => void;
   setConversationAvatarShape: (v: ConversationAvatarShape) => void;
   setShowTimestamps: (v: boolean) => void;
   setShowModelName: (v: boolean) => void;
@@ -1316,6 +1320,8 @@ export function pickSyncedSettings(state: UIState) {
     [IMAGE_STYLE_PROFILES_STORAGE_KEY]: state.imageStyleProfiles,
 
     conversationMessageStyle: state.conversationMessageStyle,
+    alwaysDisplayConversationSwipeMenu: state.alwaysDisplayConversationSwipeMenu,
+    alwaysDisplayRoleplaySwipeMenu: state.alwaysDisplayRoleplaySwipeMenu,
     conversationAvatarShape: state.conversationAvatarShape,
     showTimestamps: state.showTimestamps,
     showModelName: state.showModelName,
@@ -1532,6 +1538,8 @@ export const useUIStore = create<UIState>()(
       imageStyleProfiles: normalizeImageStyleProfileSettings(null),
 
       conversationMessageStyle: "classic" as ConversationMessageStyle,
+      alwaysDisplayConversationSwipeMenu: true,
+      alwaysDisplayRoleplaySwipeMenu: true,
       conversationAvatarShape: "circle" as ConversationAvatarShape,
       showTimestamps: false,
       showModelName: false,
@@ -2299,6 +2307,8 @@ export const useUIStore = create<UIState>()(
       setImageStyleProfiles: (settings) => set({ imageStyleProfiles: normalizeImageStyleProfileSettings(settings) }),
 
       setConversationMessageStyle: (v) => set({ conversationMessageStyle: normalizeConversationMessageStyle(v) }),
+      setAlwaysDisplayConversationSwipeMenu: (v) => set({ alwaysDisplayConversationSwipeMenu: v }),
+      setAlwaysDisplayRoleplaySwipeMenu: (v) => set({ alwaysDisplayRoleplaySwipeMenu: v }),
       setConversationAvatarShape: (v) => set({ conversationAvatarShape: normalizeConversationAvatarShape(v) }),
       setShowTimestamps: (v) => set({ showTimestamps: v }),
       setShowModelName: (v) => set({ showModelName: v }),
@@ -3333,6 +3343,8 @@ export const useUIStore = create<UIState>()(
         imageStyleProfiles: state.imageStyleProfiles,
 
         conversationMessageStyle: state.conversationMessageStyle,
+        alwaysDisplayConversationSwipeMenu: state.alwaysDisplayConversationSwipeMenu,
+        alwaysDisplayRoleplaySwipeMenu: state.alwaysDisplayRoleplaySwipeMenu,
         conversationAvatarShape: state.conversationAvatarShape,
         showTimestamps: state.showTimestamps,
         showModelName: state.showModelName,
