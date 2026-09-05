@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
+import { mockUILanguagePacks } from "./ui-language-fixtures.js";
 
 const TRANSPARENT_GIF_BASE64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const TRANSPARENT_PNG_BASE64 =
@@ -660,6 +661,7 @@ test("gradient Accent Pulse keeps animating while Appearance settings are open",
 });
 
 test("Android status bar setting reads and updates the native bridge", async ({ page }) => {
+  await mockUILanguagePacks(page);
   await page.addInitScript(() => {
     const nativeWindow = window as Window & {
       MarinaraAndroid?: {
@@ -12175,9 +12177,112 @@ test("custom generation parameters become reusable chat controls", async ({ page
   }
 });
 
-test("UI language selection loads locale files and persists across reloads", async ({ page }) => {
+test("Agents menu shows private-content-free progress, timings and reported usage", async ({ page }, testInfo) => {
+  const response = await page.request.post("/api/chats", {
+    data: { name: "Agent progress fixture", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  try {
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "assistant", content: "Agent status fixture." },
+    });
+    expect(messageResponse.ok()).toBeTruthy();
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await expect(page.getByText("Agent status fixture.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Agents & Actions", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Agent task status" })).toHaveCount(0);
+    const update = async (stage: "waiting" | "streaming" | "received", extra = {}) => {
+      await page.evaluate(
+        async ({ chatId, stage, extra }) => {
+          const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
+          const store = useAgentStore.getState();
+          store.setProcessingRun("progress-run", true, chatId);
+          store.updateTaskProgress(chatId, "progress-run", {
+            callId: "progress-call",
+            agents: [{ id: "tracker", type: "world-state", name: "World tracker", phase: "post_processing" }],
+            stage,
+            receivedChunks: 0,
+            receivedCharacters: 0,
+            elapsedMs: 0,
+            ...extra,
+          });
+          store.updateTaskProgress("another-chat", "other-run", {
+            callId: "private-other",
+            agents: [{ id: "other", type: "other", name: "Other chat tracker", phase: "pre_generation" }],
+            stage: "waiting",
+            receivedChunks: 0,
+            receivedCharacters: 0,
+            elapsedMs: 0,
+          });
+        },
+        { chatId: chat.id, stage, extra },
+      );
+    };
+    await update("waiting");
+    const status = page.getByRole("region", { name: "Agent task status" });
+    await expect(status.getByText("World tracker", { exact: true })).toBeVisible();
+    await expect(status.getByText("Post-generation", { exact: true })).toBeVisible();
+    await expect(status.getByText("Waiting for first output", { exact: true })).toBeVisible();
+    await expect(status.getByText("Not reported", { exact: true })).toHaveCount(3);
+    await expect(page.getByText("Other chat tracker", { exact: true })).toHaveCount(0);
+    await update("streaming", { receivedChunks: 17, receivedCharacters: 300, ttftMs: 125, elapsedMs: 700 });
+    await expect(status.getByText("17 chunks · 300 characters received", { exact: true })).toBeVisible();
+    await expect(status.getByText("Receiving output", { exact: true })).toBeVisible();
+    await expect(status.getByText("Not reported", { exact: true })).toHaveCount(2);
+    await expect
+      .poll(async () =>
+        status.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return bounds.left >= 7 && bounds.right <= window.innerWidth - 7;
+        }),
+      )
+      .toBe(true);
+    await testInfo.attach("agent-progress-streaming", { body: await page.screenshot(), contentType: "image/png" });
+    await update("received", {
+      receivedChunks: 20,
+      receivedCharacters: 370,
+      ttftMs: 125,
+      elapsedMs: 2000,
+      promptTokens: 123,
+      completionTokens: 45,
+    });
+    await expect(status.getByText("Output received", { exact: true })).toBeVisible();
+    await expect(status.locator("dd", { hasText: /^123$/ })).toBeVisible();
+    await expect(status.locator("dd", { hasText: /^45$/ })).toBeVisible();
+    await expect(status.getByText("Not reported", { exact: true })).toHaveCount(0);
+    await expect(status.getByText("World tracker", { exact: true })).toHaveCount(1);
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setTheme("light");
+    });
+    await testInfo.attach("agent-progress-reported-usage-light", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    await update("streaming", { receivedChunks: 21, receivedCharacters: 400, ttftMs: 125, elapsedMs: 2300 });
+    await page.evaluate(async (chatId) => {
+      const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
+      useAgentStore.getState().setProcessingRun("progress-run", false, chatId);
+    }, chat.id);
+    await expect(status.getByText("Stopped", { exact: true })).toBeVisible();
+    const elapsed = status
+      .locator("dl div")
+      .filter({ has: page.locator("dt", { hasText: /^Elapsed$/ }) })
+      .locator("dd");
+    const frozen = await elapsed.innerText();
+    await page.waitForTimeout(1100);
+    await expect(elapsed).toHaveText(frozen);
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
+test("UI language selection downloads packs on demand and persists across reloads", async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   const errors = collectUnexpectedErrors(page);
+  const packs = await mockUILanguagePacks(page);
   const languageSelect = page.locator("#settings-control-language select");
 
   // UI settings are normally synchronized through a single server record. Keep
@@ -12205,8 +12310,23 @@ test("UI language selection loads locale files and persists across reloads", asy
     await expect(languageSelect).toBeVisible({ timeout: 30_000 });
   };
 
+  // Upgrade: an old non-English selection without a local pack is a clean English fallback.
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("ui-pack-upgrade-fixture")) return;
+    sessionStorage.setItem("ui-pack-upgrade-fixture", "true");
+    const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{}}');
+    persisted.state = { ...persisted.state, language: "pl" };
+    localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
+  });
   await page.goto("/");
   await openGeneralSettings();
+  await expect(languageSelect).toHaveValue("en");
+  await expect(page.getByText("App Behavior", { exact: true })).toBeVisible();
+  expect(packs.downloads).toEqual([]);
+  await testInfo.attach("ui-language-pack-before-download", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   for (const locale of ["en", "ar", "de", "es", "fr", "hi", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"]) {
     await expect(languageSelect.locator(`option[value="${locale}"]`)).toHaveCount(1);
   }
@@ -12216,6 +12336,17 @@ test("UI language selection loads locale files and persists across reloads", asy
   await expect(page.getByPlaceholder("Szukaj w ustawieniach")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Ogólne" })).toBeVisible();
   await expect(page.getByText("Potwierdzaj przed usunięciem", { exact: true })).toBeVisible();
+
+  expect(packs.downloads).toEqual(["pl"]);
+  await page.getByRole("button", { name: "Refresh language pack", exact: true }).click();
+  await expect.poll(() => packs.downloads).toEqual(["pl", "pl"]);
+  await expect(page.getByRole("button", { name: "Refresh language pack", exact: true })).toBeEnabled();
+  await testInfo.attach("ui-language-pack-downloaded", { body: await page.screenshot(), contentType: "image/png" });
+  packs.setOffline(true);
+  await page.getByRole("button", { name: "Refresh language pack", exact: true }).click();
+  await expect(page.getByText("Could not download the language pack.", { exact: false })).toBeVisible();
+  await expect(languageSelect).toHaveValue("pl");
+  packs.setOffline(false);
   await expect(page.locator('[data-tour="panel-settings"]')).toHaveAttribute("title", "Ustawienia");
   await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe("pl");
   await expect.poll(() => page.evaluate(() => document.documentElement.dir)).toBe("ltr");
@@ -12338,7 +12469,8 @@ test("UI language selection loads locale files and persists across reloads", asy
   await openGeneralSettings();
   await expect(languageSelect).toHaveValue("en");
   await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe("en");
-  expect(errors).toEqual([]);
+  // The deliberately failed refresh is the only expected browser resource error.
+  expect(errors).toEqual(["Failed to load resource: the server responded with a status of 502 (Bad Gateway)"]);
 });
 
 test("incomplete synced settings preserve disabled Game text effects and repair the server blob", async ({ page }) => {

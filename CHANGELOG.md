@@ -37,6 +37,12 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Advanced Parameters can keep a chosen number of eligible past assistant reasoning blocks when exclusion is off (default 1; 0 keeps all), preserving provider-native reasoning and local custom-tag thinking. The allowance follows the target-character context; prompt previews, strict role formatting, reasoning-only turns, and encrypted tool-round continuation retain the correct reasoning. Plain-text and structured replay payloads count toward the context estimate; a provider session avoids resending rejected encrypted items without deleting saved thoughts (#5785).
+- Added example text to Assistant Reasoning Prefill without changing saved values (#5864).
+- Illustrator accepts Run Interval 0 for manual-only generation, including typed and stepped cadence in record-based editors, preserving Gallery actions while stopping automatic runs (Marinara-Agents #629).
+- The Roleplay Agents & Actions menu shows per-agent phases, incoming output activity, reported input/output tokens, time to first output, and elapsed time without enabling debug prompt logs (#5860).
+- Added a Regex tab to prompt presets, with existing-script editing and preset-level scoped-regex defaults. Chats inherit the default unless they have an explicit override, and can return to the preset default at any time (#5774).
+
 - Added separate, saved "Always display swipe menu" appearance toggles for Conversation and Roleplay, enabled by default so the right arrow can regenerate the first response (#5854).
 - Made Conversation and Roleplay message action icons larger, with roomier click/tap targets and spacing across the message width on desktop and mobile (#5854).
 - Added GPT-6 Astra for OpenAI connections, with its 1.05M context window, 128k output limit, reasoning levels through Maximum, and Responses API support for chats and tool-using agents (#5845).
@@ -61,6 +67,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Changed
 
+- Community UI translations download on demand from `docs-i18n`, with explicit refresh and offline English fallback. Existing non-English users reselect their language once after upgrading; English stays bundled and canonical (#5827).
+
 - Updated image processing (including the Termux WASM fallback), Tailwind class merging, Android build tooling, and pinned CI/release actions while retaining compatible runtime and compiler major versions (#5847).
 
 - Simplified the quick Persona switcher to one rounded character disclosure with folder artwork and viewport-safe scrolling.
@@ -68,6 +76,19 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Roleplay Chat Summary can now generate multiple explicit message ranges sequentially, keeping each result as its own chronological batch entry with per-range progress and retry status.
 
 ### Fixed
+
+- Restored Professor Mari preset creation after adding preset-level regex defaults, and preserved those defaults during unrelated preset edits.
+
+- OpenAI-compatible image connections preserve non-GPT models' requested dimensions; FLUX.2 requests retry once after an explicit dimension-limit rejection using the reported bound (#5861).
+- OpenRouter routes Qwen Image 3 and Muse Image to the Images API and recovers when another image-only model explicitly rejects the chat endpoint (#5750).
+- SillyTavern `{{original}}` placeholders no longer leak into prompts; saved character cards and literal instruction text are preserved (#5813).
+- Import and other multipart uploads check CSRF access before sending file data (#5859).
+- Illustrator limits passive avatar matching to the current chat and requires an explicit, unique full name for global-library characters (#5862).
+
+- Fixed incorrectly encoded persona and character-identity avatar crops in chat, including existing message snapshots, without changing historical persona attribution (#5843).
+- Preserved zero-padded times such as "0600. Wake up" as text instead of numbered lists (#5858).
+- Refetched the open chat at the committed Messages per page size, including changes made while chat loading is paused, avoiding truncated history while editing the setting (#5796).
+- Kept paused weather visible across mobile viewport changes and positioned its particles for the current viewport when rendering resumes, using the community resize fix linked by luma-inibitor (#5814).
 
 - Stopping Marinara Engine can no longer hang for half a minute or more (#5838). Shutting down used to wait forever for open browser connections before saving and exiting - long enough that system watchdogs (SteamOS's low-memory guard, Docker) would give up and force-kill it, losing unsaved changes. The engine now cuts lingering connections after 4 seconds and, if the shutdown is still stuck, exits on its own after 8 - inside every watchdog's patience, with pending saves given their chance first.
 - Kept user-message actions in the same left-to-right order as assistant-message actions (#5854).

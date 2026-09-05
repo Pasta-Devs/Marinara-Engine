@@ -13,6 +13,7 @@ export const promptRoleSchema = z.enum(["system", "user", "assistant"]);
 export const injectionPositionSchema = z.enum(["ordered", "depth"]);
 
 export const wrapFormatSchema = z.enum(["xml", "markdown", "none"]);
+export const scopedRegexModeSchema = z.enum(["disabled", "exclusive", "chat"]);
 
 export const markerTypeSchema = z.enum([
   "character",
@@ -145,6 +146,7 @@ export const createPromptPresetSchema = z.object({
   variableValues: z.record(z.string()).default({}),
   parameters: generationParametersSchema.default({}),
   wrapFormat: wrapFormatSchema.default("xml"),
+  scopedRegexMode: scopedRegexModeSchema.default("disabled"),
   isDefault: z.boolean().default(false),
   author: z.string().default(""),
 });
@@ -161,6 +163,7 @@ export const updatePromptPresetSchema = z.object({
   variableValues: z.record(z.string()).optional(),
   parameters: generationParametersSchema.partial().optional(),
   wrapFormat: wrapFormatSchema.optional(),
+  scopedRegexMode: scopedRegexModeSchema.optional(),
   author: z.string().optional(),
   defaultChoices: z.record(z.union([z.string(), z.array(z.string())])).optional(),
 });

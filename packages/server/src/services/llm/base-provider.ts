@@ -365,7 +365,15 @@ function estimateMessageTokens(message: ChatMessage): number {
     total += message.media.reduce((sum, media) => sum + estimateFileTokens({ data: media.data }), 0);
   }
   if (message.providerMetadata) {
-    total += Math.min(estimateStructuredTokens(message.providerMetadata), 512);
+    const { reasoning_content, reasoning, reasoning_details, geminiParts, encryptedReasoning, ...opaqueMetadata } =
+      message.providerMetadata;
+    if (typeof reasoning_content === "string") total += estimateTextTokens(reasoning_content);
+    if (typeof reasoning === "string") total += estimateTextTokens(reasoning);
+    // Conservatively estimate serialized replay payloads, not their decrypted reasoning-token usage.
+    if (reasoning_details !== undefined) total += estimateStructuredTokens(reasoning_details);
+    if (geminiParts !== undefined) total += estimateStructuredTokens(geminiParts);
+    if (encryptedReasoning !== undefined) total += estimateStructuredTokens(encryptedReasoning);
+    total += Math.min(estimateStructuredTokens(opaqueMetadata), 512);
   }
   return total;
 }

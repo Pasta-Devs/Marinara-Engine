@@ -88,6 +88,7 @@ import { SceneInstructionsSection } from "../../features/chat-settings/sections/
 import { TranslationSection } from "../../features/chat-settings/sections/TranslationSection";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import type { AvatarCrop } from "@marinara-engine/shared";
+import { resolveScopedRegexMode } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -760,9 +761,9 @@ function isMemoryRecallExportEnvelope(value: unknown): value is ExportEnvelope<C
   return isRecord(data) && Array.isArray(data.chunks);
 }
 
-function normalizePositiveInteger(value: unknown, fallback: number, max: number): number {
+function normalizePositiveInteger(value: unknown, fallback: number, max: number, min = 1): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.max(1, Math.min(max, Math.trunc(value)));
+  return Math.max(min, Math.min(max, Math.trunc(value)));
 }
 
 function normalizeAgentMaxTokens(value: unknown): number {
@@ -1109,12 +1110,12 @@ export function ChatSettingsDrawer({
       return typeof notes === "string" && extractCreatorNotesCss(notes).css.trim().length > 0;
     });
   }, [allCharacters, chatCharIds]);
-  // Scoped regex: the per-chat display mode (default "disabled"), and whether any
-  // script is character-scoped — the control only appears when at least one is.
-  const scopedRegexMode: "disabled" | "exclusive" | "chat" =
-    metadata.scopedRegexMode === "exclusive" || metadata.scopedRegexMode === "chat"
-      ? metadata.scopedRegexMode
-      : "disabled";
+  // Unset chat choices inherit the selected preset; explicit choices remain overrides.
+  const presetScopedRegexMode = resolveScopedRegexMode(
+    promptPresetOptions.find((preset) => preset.id === chat.promptPresetId)?.scopedRegexMode,
+  );
+  const inheritsScopedRegexMode = metadata.scopedRegexMode == null;
+  const scopedRegexMode = resolveScopedRegexMode(metadata.scopedRegexMode, presetScopedRegexMode);
   // Character-scoped regex scripts grouped by the chat's characters — drives the
   // per-character list + the section badge, and whether the section shows at all.
   const chatScopedRegexGroups = useMemo(() => {
@@ -3752,7 +3753,12 @@ export function ChatSettingsDrawer({
         contextSize: normalizePositiveInteger(mergedSettings.contextSize, DEFAULT_AGENT_CONTEXT_SIZE, 200),
         maxTokens: normalizeAgentMaxTokens(mergedSettings.maxTokens),
         runInterval: intervalMeta
-          ? normalizePositiveInteger(mergedSettings.runInterval, intervalMeta.defaultValue, intervalMeta.max)
+          ? normalizePositiveInteger(
+              mergedSettings.runInterval,
+              intervalMeta.defaultValue,
+              intervalMeta.max,
+              intervalMeta.min,
+            )
           : null,
         setup: buildInitialAgentAddSetupState({
           agentId: agent.id,
@@ -5955,9 +5961,25 @@ export function ChatSettingsDrawer({
               )}
             >
               <div className="space-y-2">
+                <SettingsSwitch
+                  label={localizeUi("chat.settings.regex.usePreset")}
+                  checked={inheritsScopedRegexMode}
+                  onChange={(inherit) =>
+                    updateMeta.mutate({ id: chat.id, scopedRegexMode: inherit ? null : scopedRegexMode })
+                  }
+                  description={localizeUi("chat.settings.regex.presetDefault", {
+                    mode:
+                      presetScopedRegexMode === "disabled"
+                        ? localizeUi("ui.agents.agenteditor.disabled")
+                        : presetScopedRegexMode === "exclusive"
+                          ? localizeUi("ui.chat.chatsettingsdrawer.exclusive")
+                          : localizeUi("ui.chat.chatsettingsdrawer.chat"),
+                  })}
+                />
                 <div className="flex rounded-lg ring-1 ring-[var(--border)]">
                   <button
                     onClick={() => updateMeta.mutate({ id: chat.id, scopedRegexMode: "disabled" })}
+                    aria-pressed={scopedRegexMode === "disabled"}
                     className={cn(
                       "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-l-lg",
                       scopedRegexMode === "disabled"
@@ -5969,6 +5991,7 @@ export function ChatSettingsDrawer({
                   </button>
                   <button
                     onClick={() => updateMeta.mutate({ id: chat.id, scopedRegexMode: "exclusive" })}
+                    aria-pressed={scopedRegexMode === "exclusive"}
                     className={cn(
                       "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors",
                       scopedRegexMode === "exclusive"
@@ -5980,6 +6003,7 @@ export function ChatSettingsDrawer({
                   </button>
                   <button
                     onClick={() => updateMeta.mutate({ id: chat.id, scopedRegexMode: "chat" })}
+                    aria-pressed={scopedRegexMode === "chat"}
                     className={cn(
                       "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-r-lg",
                       scopedRegexMode === "chat"
@@ -9336,6 +9360,9 @@ export function ChatSettingsDrawer({
               onExcludePastReasoningChange={(excludePastReasoning) =>
                 updateMeta.mutate({ id: chat.id, excludePastReasoning })
               }
+              onPastReasoningLimitChange={(pastReasoningLimit) =>
+                updateMeta.mutate({ id: chat.id, pastReasoningLimit })
+              }
               onImageCaptioningChange={(patch) => updateMeta.mutate({ id: chat.id, ...patch })}
             />
           </div>
@@ -9514,7 +9541,7 @@ export function ChatSettingsDrawer({
                   {agentAddPreview.agent.builtIn ? (
                     <input
                       type="number"
-                      min={1}
+                      min={agentAddIntervalMeta.min ?? 1}
                       max={agentAddIntervalMeta.max}
                       value={agentAddPreview.runInterval}
                       onChange={(e) => {
@@ -9526,6 +9553,7 @@ export function ChatSettingsDrawer({
                                   e.target.value,
                                   agentAddIntervalMeta.defaultValue,
                                   agentAddIntervalMeta.max,
+                                  agentAddIntervalMeta.min,
                                 ),
                               }
                             : current,
@@ -9561,6 +9589,7 @@ export function ChatSettingsDrawer({
                                     current.runInterval ?? 1,
                                     delta,
                                     agentAddIntervalMeta.max,
+                                    agentAddIntervalMeta.min,
                                   ),
                                 }
                               : current,
@@ -9575,6 +9604,7 @@ export function ChatSettingsDrawer({
                                     e.target.value,
                                     current.runInterval ?? 1,
                                     agentAddIntervalMeta.max,
+                                    agentAddIntervalMeta.min,
                                   ),
                                 }
                               : current,
@@ -9597,6 +9627,7 @@ export function ChatSettingsDrawer({
                                       current.runInterval ?? 1,
                                       1,
                                       agentAddIntervalMeta.max,
+                                      agentAddIntervalMeta.min,
                                     ),
                                   }
                                 : current,
@@ -9619,6 +9650,7 @@ export function ChatSettingsDrawer({
                                       current.runInterval ?? 1,
                                       -1,
                                       agentAddIntervalMeta.max,
+                                      agentAddIntervalMeta.min,
                                     ),
                                   }
                                 : current,
@@ -9633,6 +9665,11 @@ export function ChatSettingsDrawer({
                   )}
                   <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{agentAddIntervalMeta.unit}</span>
                 </div>
+                {agentAddPreview.agent.id === "illustrator" && (
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("agents.illustrator.manualOnlyIntervalHelp")}
+                  </p>
+                )}
                 <p className="text-[0.625rem] text-[var(--muted-foreground)]">{agentAddIntervalMeta.help}</p>
               </div>
             )}

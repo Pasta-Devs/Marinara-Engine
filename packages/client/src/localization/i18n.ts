@@ -30,9 +30,10 @@ const initialization = i18n.use(initReactI18next).init({
 let activationRevision = 0;
 
 async function ensureLocaleResource(locale: AppLanguage) {
-  if (i18n.hasResourceBundle(locale, "translation")) return;
+  if (i18n.hasResourceBundle(locale, "translation")) return true;
 
   const resource = await loadLocaleResource(locale);
+  if (!resource) return false;
   i18n.addResourceBundle(locale, "translation", resource.messages, true, true);
   loadedMetadata.set(locale, resource.metadata);
 
@@ -44,6 +45,7 @@ async function ensureLocaleResource(locale: AppLanguage) {
       englishMessageKeys.set(message, keys);
     }
   }
+  return true;
 }
 
 function syncDocumentLocale(locale: string, metadata: LocaleMetadata) {
@@ -57,14 +59,15 @@ function syncDocumentTitle() {
   document.title = i18n.t("app.documentTitle");
 }
 
-export async function activateLocale(requestedLocale: unknown): Promise<AppLanguage> {
+export async function activateLocale(requestedLocale: unknown, refresh = false): Promise<AppLanguage> {
   const requestRevision = ++activationRevision;
   await initialization;
   await ensureLocaleResource(DEFAULT_APP_LANGUAGE);
 
   let locale = resolveSupportedLocale(requestedLocale);
+  if (refresh && locale !== DEFAULT_APP_LANGUAGE) i18n.removeResourceBundle(locale, "translation");
   try {
-    await ensureLocaleResource(locale);
+    if (!(await ensureLocaleResource(locale))) locale = DEFAULT_APP_LANGUAGE;
   } catch (error) {
     console.error(`[localization] Could not load ${locale}; falling back to English`, error);
     locale = DEFAULT_APP_LANGUAGE;

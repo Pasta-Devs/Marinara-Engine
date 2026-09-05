@@ -330,6 +330,20 @@ export interface AgentCallDebugEvent {
   batchedAgentTypes?: string[];
 }
 
+/** Content-free progress for the normal Agents menu, independent of prompt/debug logging. */
+export interface AgentTaskProgress {
+  callId: string;
+  agents: Array<{ id: string; type: string; name: string; phase: string }>;
+  stage: "waiting" | "streaming" | "received" | "error" | "stopped";
+  receivedChunks: number;
+  receivedCharacters: number;
+  /** First received text or reasoning chunk; unavailable for non-streaming calls. */
+  ttftMs?: number;
+  elapsedMs: number;
+  promptTokens?: number;
+  completionTokens?: number;
+}
+
 /** Shared context passed to every agent. */
 export interface AgentContext {
   /**
@@ -461,6 +475,8 @@ export interface AgentContext {
   streaming?: boolean;
   /** Emits full agent call diagnostics for the client debug console. */
   agentDebug?: (event: AgentCallDebugEvent) => void;
+  /** Lightweight provider progress; never includes prompts, reasoning, or response content. */
+  agentProgress?: (event: AgentTaskProgress) => void;
   /** Abort signal — when triggered, agent execution should stop. Typed as `any` to avoid DOM/Node lib dependency. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   signal?: any;

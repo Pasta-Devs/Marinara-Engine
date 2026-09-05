@@ -9,6 +9,7 @@ import {
 } from "../lib/echo-chamber-queue";
 import type {
   AgentCallDebugEvent,
+  AgentTaskProgress,
   AgentResult,
   AgentWriteApprovalProposal,
   CharacterCardFieldUpdate,
@@ -105,7 +106,17 @@ function logAgentDebugToBrowserConsole(entry: AgentDebugEntry) {
 export const EMPTY_AGENT_TYPES: string[] = [];
 export const EMPTY_AGENT_FAILURES: AgentFailure[] = [];
 
+export interface AgentProgressEntry extends AgentTaskProgress {
+  chatId: string;
+  runId: string;
+  startedAt: number;
+  receivedAt: number;
+  stopped?: boolean;
+}
+
 interface AgentState {
+  taskProgress: AgentProgressEntry[];
+  updateTaskProgress: (chatId: string, runId: string, progress: AgentTaskProgress) => void;
   activeAgents: string[];
   lastResults: Map<string, AgentResult>;
   isProcessing: boolean;
@@ -210,6 +221,7 @@ interface AgentState {
 type AgentDataState = Pick<
   AgentState,
   | "activeAgents"
+  | "taskProgress"
   | "lastResults"
   | "isProcessing"
   | "processingChatIds"
@@ -244,6 +256,7 @@ function createInitialAgentDataState(): AgentDataState {
   return {
     activeAgents: [],
     lastResults: new Map(),
+    taskProgress: [],
     isProcessing: false,
     processingChatIds: [],
     legacyProcessingChatIds: [],
@@ -278,6 +291,26 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   ...createInitialAgentDataState(),
 
   setActiveAgents: (agents) => set({ activeAgents: agents }),
+  updateTaskProgress: (chatId, runId, progress) =>
+    set((state) => {
+      const previous = state.taskProgress.find(
+        (entry) => entry.chatId === chatId && entry.callId === progress.callId && entry.runId === runId,
+      );
+      if (previous?.stopped) return {};
+      const receivedAt = Date.now();
+      const entry = {
+        ...progress,
+        chatId,
+        runId,
+        receivedAt,
+        startedAt: previous?.startedAt ?? receivedAt - progress.elapsedMs,
+      };
+      return {
+        taskProgress: previous
+          ? state.taskProgress.map((item) => (item === previous ? entry : item))
+          : [...state.taskProgress, entry],
+      };
+    }),
   setProcessing: (processing, chatId = null) =>
     set((s) => {
       if (!chatId) {
@@ -310,6 +343,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set((s) => {
       const processingRunIdsByChat = { ...s.processingRunIdsByChat };
       const runIds = new Set(processingRunIdsByChat[chatId] ?? []);
+      const newRun = processing && !runIds.has(runId);
       if (processing) runIds.add(runId);
       else runIds.delete(runId);
       if (runIds.size > 0) processingRunIdsByChat[chatId] = [...runIds];
@@ -319,6 +353,25 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         new Set([...s.legacyProcessingChatIds, ...Object.keys(processingRunIdsByChat)]),
       );
       return {
+        taskProgress: newRun
+          ? s.taskProgress.filter(
+              (entry) => entry.chatId !== chatId || entry.runId === runId || runIds.has(entry.runId),
+            )
+          : !processing
+            ? s.taskProgress.map((entry) =>
+                entry.chatId === chatId &&
+                entry.runId === runId &&
+                !entry.stopped &&
+                (entry.stage === "waiting" || entry.stage === "streaming")
+                  ? {
+                      ...entry,
+                      stopped: true,
+                      elapsedMs: entry.elapsedMs + Date.now() - entry.receivedAt,
+                      receivedAt: Date.now(),
+                    }
+                  : entry,
+              )
+            : s.taskProgress,
         processingRunIdsByChat,
         processingChatIds,
         isProcessing: s.legacyGlobalProcessing || processingChatIds.length > 0,

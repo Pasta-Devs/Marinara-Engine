@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
 // Full-Page Preset Editor
-// Tabs: Overview · Sections · Prompts
+// Tabs: Overview · Sections · Prompts · Regex
 // ──────────────────────────────────────────────
 import {
   useState,
@@ -69,6 +69,8 @@ import {
   Copy,
   Camera,
   Loader2,
+  Regex,
+  Pencil,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -79,6 +81,8 @@ import { api } from "../../lib/api-client";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import {
   isStockMarinaraUniversalPreset,
+  resolveScopedRegexMode,
+  type ScopedRegexMode,
   type MarkerType,
   type PromptPreset,
   type PromptSection,
@@ -92,6 +96,7 @@ import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
 import { handleTextareaTab } from "../../lib/textarea-editing";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
+import { useRegexScripts } from "../../hooks/use-regex-scripts";
 
 // ── Input caret helpers ──
 type TextSelection = { start: number; end: number };
@@ -146,6 +151,7 @@ const TABS = [
   { id: "overview", label: "Overview", icon: FileText },
   { id: "sections", label: "Sections", icon: Layers },
   { id: "prompts", label: "Prompts", icon: MessageSquare },
+  { id: "regex", label: "Regex", icon: Regex },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -300,6 +306,7 @@ export function PresetEditor() {
   const [localAuthor, setLocalAuthor] = useState("");
   const [localConversationPrompt, setLocalConversationPrompt] = useState("");
   const [localGamePrompt, setLocalGamePrompt] = useState("");
+  const [localScopedRegexMode, setLocalScopedRegexMode] = useState<ScopedRegexMode>("disabled");
   const hydratedPresetIdRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
   const formatQuotes = useQuoteFormatter();
@@ -320,6 +327,7 @@ export function PresetEditor() {
     setLocalAuthor(p.author ?? "");
     setLocalConversationPrompt(p.conversationPrompt ?? "");
     setLocalGamePrompt(p.gamePrompt ?? "");
+    setLocalScopedRegexMode(resolveScopedRegexMode(p.scopedRegexMode));
   }, [data, presetDetailId]);
 
   useEffect(() => {
@@ -365,6 +373,7 @@ export function PresetEditor() {
       author: localAuthor,
       conversationPrompt: localConversationPrompt,
       gamePrompt: localGamePrompt,
+      scopedRegexMode: localScopedRegexMode,
     };
     await updatePreset.mutateAsync(payload);
     setDirty(false);
@@ -378,6 +387,7 @@ export function PresetEditor() {
     localAuthor,
     localConversationPrompt,
     localGamePrompt,
+    localScopedRegexMode,
     updatePreset,
   ]);
 
@@ -720,8 +730,118 @@ export function PresetEditor() {
                 }}
               />
             )}
+            {activeTab === "regex" && (
+              <PresetRegexTab
+                presetId={presetDetailId}
+                mode={localScopedRegexMode}
+                onModeChange={(mode) => {
+                  setLocalScopedRegexMode(mode);
+                  markDirty();
+                }}
+              />
+            )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PresetRegexTab({
+  presetId,
+  mode,
+  onModeChange,
+}: {
+  presetId: string;
+  mode: ScopedRegexMode;
+  onModeChange: (mode: ScopedRegexMode) => void;
+}) {
+  const { t } = useUiTranslation();
+  const { data: scripts } = useRegexScripts();
+  const openRegexDetail = useUIStore((s) => s.openRegexDetail);
+  const editorDirty = useUIStore((s) => s.editorDirty);
+  const linkedScripts = useMemo(
+    () =>
+      (scripts ?? []).filter((script) => {
+        try {
+          const ids: unknown = JSON.parse(script.targetPromptPresetIds);
+          return Array.isArray(ids) && ids.includes(presetId);
+        } catch {
+          return false;
+        }
+      }),
+    [scripts, presetId],
+  );
+  const openScript = async (id: string) => {
+    if (editorDirty) {
+      const proceed = await showConfirmDialog({
+        title: t("ui.characters.characterregexsection.unsavedChanges"),
+        message: t("presets.regex.unsavedChanges"),
+        confirmLabel: t("ui.characters.characterregexsection.discardContinue"),
+        tone: "destructive",
+      });
+      if (!proceed) return;
+    }
+    openRegexDetail(id, { defaultPresetIds: [presetId], returnTo: { presetId } });
+  };
+
+  return (
+    <div className="space-y-6" data-preset-regex>
+      <div className="mari-editor-panel space-y-3 p-4">
+        <label className="flex flex-wrap items-center justify-between gap-3 text-sm font-medium">
+          {t("presets.regex.defaultMode")}
+          <select
+            className="mari-editor-input px-3 py-2 text-sm"
+            value={mode}
+            onChange={(event) => onModeChange(event.target.value as ScopedRegexMode)}
+          >
+            <option value="disabled">{t("ui.agents.agenteditor.disabled")}</option>
+            <option value="exclusive">{t("ui.chat.chatsettingsdrawer.exclusive")}</option>
+            <option value="chat">{t("ui.chat.chatsettingsdrawer.chat")}</option>
+          </select>
+        </label>
+        <p className="text-xs text-[var(--marinara-editor-muted)]">{t("presets.regex.defaultHelp")}</p>
+      </div>
+      <div className="mari-editor-panel space-y-3 p-4">
+        <h3 className="text-sm font-medium">{t("ui.characters.characterregexsection.regexScripts")}</h3>
+        <p className="text-xs text-[var(--marinara-editor-muted)]">{t("presets.regex.linkedHelp")}</p>
+        <button type="button" className="mari-editor-action inline-flex" onClick={() => void openScript("__new__")}>
+          <Plus size="1rem" />
+          {t("ui.characters.characterregexsection.createRegex")}
+        </button>
+        <label className="flex flex-wrap items-center gap-3 text-sm">
+          {t("presets.regex.addExisting")}
+          <select
+            value=""
+            className="mari-editor-input min-w-0 max-w-full px-3 py-2 text-sm"
+            onChange={(event) => {
+              if (event.target.value) void openScript(event.target.value);
+            }}
+          >
+            <option value="">{t("presets.regex.chooseScript")}</option>
+            {(scripts ?? [])
+              .filter((script) => !linkedScripts.includes(script))
+              .map((script) => (
+                <option key={script.id} value={script.id}>
+                  {script.name}
+                </option>
+              ))}
+          </select>
+        </label>
+        {linkedScripts.length === 0 && (
+          <p className="text-xs text-[var(--marinara-editor-muted)]">{t("presets.regex.noScripts")}</p>
+        )}
+        {linkedScripts.map((script) => (
+          <button
+            key={script.id}
+            type="button"
+            className="mari-editor-action flex w-full items-center justify-between gap-2 text-left"
+            onClick={() => void openScript(script.id)}
+          >
+            <span className="min-w-0 truncate">{script.name}</span>
+            <Pencil size="1rem" className="shrink-0" />
+          </button>
+        ))}
       </div>
     </div>
   );

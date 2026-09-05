@@ -72,7 +72,9 @@ function resizeSurface(nextWidth: number, nextHeight: number, nextScale: number)
 }
 
 function drawFrame(now: number, advanceSimulation = true) {
-  if (!context || !config || hidden) {
+  // The scheduler guards suspension. Explicit init/resize draws must still
+  // restore the bitmap after a canvas-size change clears it (#5814).
+  if (!context || !config) {
     previousTime = now;
     return;
   }

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Chat hooks
 // ──────────────────────────────────────────────
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   useQuery,
   useInfiniteQuery,
@@ -272,7 +272,9 @@ export function useChat(id: string | null) {
 }
 
 export function useChatMessages(chatId: string | null, pageSize: number = 0, enabled = true) {
-  return useInfiniteQuery({
+  const queryClient = useQueryClient();
+  const previousWindow = useRef({ chatId, pageSize });
+  const query = useInfiniteQuery({
     queryKey: chatKeys.messages(chatId ?? ""),
     queryFn: ({ pageParam, signal }) => {
       const params = new URLSearchParams();
@@ -300,6 +302,20 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
     // the post-generation refresh, and explicit invalidations.
     refetchOnReconnect: (query) => shouldRefetchMessagesOnReconnect(query.state.data?.pages.length ?? 0),
   });
+  useEffect(() => {
+    const previous = previousWindow.current;
+    if (!chatId || previous.chatId !== chatId) {
+      previousWindow.current = { chatId, pageSize };
+      return;
+    }
+    if (!enabled) return;
+    previousWindow.current = { chatId, pageSize };
+    if (previous.pageSize === pageSize) return;
+    // Run after the query observer adopts the new size. The shared key excludes
+    // it, so restart from the newest cursor instead of retaining a truncated page.
+    void queryClient.resetQueries({ queryKey: chatKeys.messages(chatId), exact: true });
+  }, [chatId, enabled, pageSize, queryClient]);
+  return query;
 }
 
 /**

@@ -43,6 +43,7 @@ import { normalizeGemma4Delimiters } from "../llm/textual-tool-call-parser.js";
 import { wrapContent } from "../prompt/format-engine.js";
 import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { settleAgentJobsWithConcurrencyLimit } from "./agent-concurrency.js";
+import { completeAgentCall } from "./agent-progress.js";
 import { normalizeCyoaChoiceOutput } from "./cyoa-choice-normalization.js";
 import { getAssetManifest } from "../game/asset-manifest.service.js";
 import { normalizeBeholderProse } from "./beholder-normalizer.js";
@@ -834,7 +835,7 @@ export async function executeAgent(
     });
 
     let responseText = "";
-    const result = await provider.chatComplete(messages, {
+    const result = await completeAgentCall(context, [config], provider, messages, {
       model,
       temperature,
       maxTokens,
@@ -886,7 +887,7 @@ export async function executeAgent(
         messages: debugMessages(retryMessages),
       });
       let retryResponseText = "";
-      const retryResult = await provider.chatComplete(retryMessages, {
+      const retryResult = await completeAgentCall(context, [config], provider, retryMessages, {
         model,
         temperature,
         maxTokens,
@@ -1009,7 +1010,7 @@ async function executeBeholderLanePasses(args: {
       });
 
       let laneText = "";
-      const result = await provider.chatComplete(messages, {
+      const result = await completeAgentCall(context, [config], provider, messages, {
         model,
         temperature,
         maxTokens,
@@ -1097,7 +1098,7 @@ async function executeBeholderLanePasses(args: {
         messageCount: repairMessages.length,
         messages: debugMessages(repairMessages),
       });
-      const repair = await provider.chatComplete(repairMessages, {
+      const repair = await completeAgentCall(context, [config], provider, repairMessages, {
         model,
         temperature,
         maxTokens,
@@ -1178,7 +1179,7 @@ async function executeAgentWithTools(
       tools: debugToolNames(toolContext.tools),
       round: round + 1,
     });
-    const result = await provider.chatComplete(providerMessages, {
+    const result = await completeAgentCall(context, [config], provider, providerMessages, {
       model,
       temperature,
       maxTokens,
@@ -1274,7 +1275,7 @@ async function executeAgentWithTools(
     round: maxToolRounds + 1,
   });
   const finalRoundStartedAt = Date.now();
-  const finalResult = await provider.chatComplete(finalProviderMessages, {
+  const finalResult = await completeAgentCall(context, [config], provider, finalProviderMessages, {
     model,
     temperature,
     maxTokens,
@@ -1511,7 +1512,7 @@ export async function executeAgentBatch(
     // timeouts (e.g. Cloudflare 524) on large batch responses.
     let responseText = "";
     const result = await runProviderJob(() =>
-      provider.chatComplete(messages, {
+      completeAgentCall(context, configs, provider, messages, {
         model,
         temperature,
         maxTokens: batchMaxTokens,

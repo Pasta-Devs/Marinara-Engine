@@ -4585,6 +4585,10 @@ export async function registerRetryAgentsRoute(
           logger.warn(error, "[retry-agents] Failed to resolve image style instruction for the prompt writer");
         }
       }
+      agentContext.agentProgress = (event) => {
+        if (!abortController.signal.aborted) sendSseEvent(reply, { type: "agent_progress", data: event });
+      };
+      if (preGenerationAgentContext) preGenerationAgentContext.agentProgress = agentContext.agentProgress;
       if (debugMode) {
         const emitRetryAgentDebug = (event: AgentCallDebugEvent) => {
           if (abortController.signal.aborted) return;

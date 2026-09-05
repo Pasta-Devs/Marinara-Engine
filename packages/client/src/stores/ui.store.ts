@@ -621,8 +621,10 @@ interface UIState {
   pendingSpatialMapDraftReview: PendingSpatialMapDraftReview | null;
   /** Pre-selected target characters for a NEW regex script opened via openRegexDetail("__new__") */
   regexDetailDefaultCharacterIds: string[] | null;
+  /** Pre-selected preset targets when adding a script from a preset's Regex tab. */
+  regexDetailDefaultPresetIds: string[] | null;
   /** Where to return when the regex editor closes — e.g. back to a character's Advanced tab */
-  regexDetailReturn: { characterId: string; tab?: string } | null;
+  regexDetailReturn: ({ characterId: string; tab?: string } | { presetId: string }) | null;
   /** One-shot tab the character editor should open to (set by the regex-editor return path) */
   characterDetailInitialTab: string | null;
   /** One-shot tab the lorebook editor should open to. */
@@ -1040,7 +1042,11 @@ interface UIState {
   closePersonaDetail: () => void;
   openRegexDetail: (
     id: string,
-    options?: { defaultCharacterIds?: string[]; returnTo?: { characterId: string; tab?: string } },
+    options?: {
+      defaultCharacterIds?: string[];
+      defaultPresetIds?: string[];
+      returnTo?: { characterId: string; tab?: string } | { presetId: string };
+    },
   ) => void;
   closeRegexDetail: () => void;
   openSpatialMapDetail: (chatId: string) => void;
@@ -1470,6 +1476,7 @@ export const useUIStore = create<UIState>()(
       spatialMapDetailChatId: null,
       pendingSpatialMapDraftReview: null,
       regexDetailDefaultCharacterIds: null,
+      regexDetailDefaultPresetIds: null,
       regexDetailReturn: null,
       characterDetailInitialTab: null,
       lorebookDetailInitialTab: null,
@@ -1982,6 +1989,7 @@ export const useUIStore = create<UIState>()(
         set((s) => ({
           regexDetailId: id,
           regexDetailDefaultCharacterIds: options?.defaultCharacterIds ?? null,
+          regexDetailDefaultPresetIds: options?.defaultPresetIds ?? null,
           regexDetailReturn: options?.returnTo ?? null,
           personaDetailId: null,
           characterLibraryOpen: false,
@@ -2002,19 +2010,23 @@ export const useUIStore = create<UIState>()(
         set((s) => {
           const ret = s.regexDetailReturn;
           if (ret) {
-            // Opened from a character's scoped-regex manager — return to that character's tab.
+            // Return to the character/preset manager that opened the existing editor.
             return {
               regexDetailId: null,
               regexDetailReturn: null,
               regexDetailDefaultCharacterIds: null,
-              characterDetailId: ret.characterId,
-              characterDetailInitialTab: ret.tab ?? null,
+              regexDetailDefaultPresetIds: null,
+              ...("presetId" in ret
+                ? { presetDetailId: ret.presetId, presetDetailInitialTab: "regex" }
+                : { characterDetailId: ret.characterId, characterDetailInitialTab: ret.tab ?? null }),
               editorDirty: false,
             };
           }
           return {
             regexDetailId: null,
             regexDetailReturn: null,
+            regexDetailDefaultCharacterIds: null,
+            regexDetailDefaultPresetIds: null,
             editorDirty: false,
             ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
           };

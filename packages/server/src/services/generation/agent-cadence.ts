@@ -33,6 +33,10 @@ export async function shouldSkipAgentByMessageInterval({
   messages: ChatMessageLike[];
   countUpcomingAssistantMessage?: boolean;
 }): Promise<boolean> {
+  const rawInterval =
+    settings && typeof settings === "object" ? (settings as { runInterval?: unknown }).runInterval : undefined;
+  if (agentType === "illustrator" && (rawInterval === 0 || rawInterval === "0")) return true;
+
   const runInterval = resolveAgentRunInterval(settings, fallbackInterval);
   if (runInterval <= 1) return false;
 

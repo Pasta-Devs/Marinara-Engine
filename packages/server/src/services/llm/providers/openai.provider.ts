@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // LLM Provider — OpenAI (& OAI-Compatible)
 // ──────────────────────────────────────────────
+import { createHash } from "node:crypto";
 import {
   BaseLLMProvider,
   llmFetch,
@@ -146,6 +147,10 @@ export function normalizeOpenAIChatCompletionsResponseFormat(
  * Handles OpenAI, OpenRouter, Mistral, Cohere, and any OpenAI-compatible endpoint.
  */
 export class OpenAIProvider extends BaseLLMProvider {
+  // ponytail: remember at most 256 rejected payloads in this provider session.
+  // A new instance may retry them; persistent cleanup needs connection-scoped provenance.
+  private readonly rejectedEncryptedReasoning = new Set<string>();
+
   constructor(
     baseUrl: string,
     apiKey: string,
@@ -1862,7 +1867,10 @@ export class OpenAIProvider extends BaseLLMProvider {
    * Tool messages become `function_call_output` items.
    * Assistant messages with tool_calls become `function_call` items.
    */
-  private formatResponsesInput(messages: ChatMessage[]): {
+  private formatResponsesInput(
+    messages: ChatMessage[],
+    replayReasoning = false,
+  ): {
     instructions: string | undefined;
     input: Array<Record<string, unknown>>;
   } {
@@ -1903,6 +1911,16 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
 
       sawNonSystemInput = true;
+
+      // Replay each turn's opaque reasoning immediately before the assistant output it belongs to.
+      const encrypted = m.providerMetadata?.encryptedReasoning;
+      if (replayReasoning && m.role === "assistant" && Array.isArray(encrypted)) {
+        for (const item of encrypted) {
+          if (!item || typeof item !== "object" || item.type !== "reasoning") continue;
+          if (typeof item.id === "string" && input.some((existing) => existing.id === item.id)) continue;
+          input.push(item);
+        }
+      }
 
       if (m.role === "tool") {
         // Tool result → function_call_output item
@@ -1972,24 +1990,54 @@ export class OpenAIProvider extends BaseLLMProvider {
     return errorText.includes("encrypted content") && errorText.includes("could not be");
   }
 
-  /** Strip encrypted reasoning items from a Responses API body for retry */
-  private stripEncryptedItems(body: Record<string, unknown>): Record<string, unknown> {
+  private encryptedReasoningKey(item: Record<string, unknown>, model: string): string {
+    return createHash("sha256").update(model).update("\0").update(JSON.stringify(item)).digest("hex");
+  }
+
+  /** Remove rejected payloads from this retry and later requests on the same provider/model. */
+  private stripEncryptedItems(body: Record<string, unknown>, errorText: string, model: string): void {
     const input = body.input as Array<Record<string, unknown>> | undefined;
-    if (input) {
-      body.input = input.filter((item) => item.type !== "reasoning");
+    if (!input) return;
+    let rejectedIndex = -1;
+    let message = errorText;
+    try {
+      const error = (JSON.parse(errorText) as { error?: { param?: string; message?: string } } | null)?.error;
+      if (typeof error?.message === "string") message = error.message;
+      const index = typeof error?.param === "string" ? /^input(?:\[(\d+)\]|\.(\d+))(?:\.|$)/.exec(error.param) : null;
+      if (index) rejectedIndex = Number(index[1] ?? index[2]);
+    } catch {
+      /* Non-JSON errors use the existing batch fallback. */
     }
-    return body;
+    const reasoningItems = input.filter((item) => item.type === "reasoning");
+    const identified = reasoningItems.filter(
+      (item) =>
+        input[rejectedIndex] === item ||
+        (typeof item.id === "string" && (message.includes(`'${item.id}'`) || message.includes(`"${item.id}"`))),
+    );
+    const rejectedKeys = new Set(
+      (identified.length ? identified : reasoningItems).map((item) => this.encryptedReasoningKey(item, model)),
+    );
+    for (const key of rejectedKeys) {
+      this.rejectedEncryptedReasoning.add(key);
+      if (this.rejectedEncryptedReasoning.size > 256) {
+        this.rejectedEncryptedReasoning.delete(this.rejectedEncryptedReasoning.values().next().value!);
+      }
+    }
+    body.input = input.filter(
+      (item) => item.type !== "reasoning" || !rejectedKeys.has(this.encryptedReasoningKey(item, model)),
+    );
   }
 
   /** Build the Responses API request body */
   private buildResponsesBody(messages: ChatMessage[], options: ChatOptions): Record<string, unknown> {
-    const { instructions, input } = this.formatResponsesInput(messages);
     const isOpenAIChatGPT = this.isOpenAIChatGPTProvider();
+    const replayReasoning = !isOpenAIChatGPT && options.reasoningEffort !== "none";
+    const { instructions, input } = this.formatResponsesInput(messages, replayReasoning);
     const suppressModelParameters = this.shouldSuppressModelParameters(options);
 
     // Replay encrypted reasoning items from the previous turn so the model
     // retains its reasoning context and avoids re-deriving (and re-narrating) the same conclusions.
-    if (!isOpenAIChatGPT && options.reasoningEffort !== "none" && options.encryptedReasoningItems?.length) {
+    if (replayReasoning && options.encryptedReasoningItems?.length) {
       let lastAssistantIdx = -1;
       for (let i = input.length - 1; i >= 0; i--) {
         if ((input[i] as Record<string, unknown>).role === "assistant") {
@@ -1998,13 +2046,21 @@ export class OpenAIProvider extends BaseLLMProvider {
         }
       }
       if (lastAssistantIdx >= 0) {
-        input.splice(lastAssistantIdx, 0, ...(options.encryptedReasoningItems as Array<Record<string, unknown>>));
+        const existingIds = new Set(input.filter((item) => item.type === "reasoning").map((item) => item.id));
+        const missing = (options.encryptedReasoningItems as Array<Record<string, unknown>>).filter(
+          (item) => !item.id || !existingIds.has(item.id),
+        );
+        input.splice(lastAssistantIdx, 0, ...missing);
       }
     }
 
     const body: Record<string, unknown> = {
       model: resolveOpenAIGpt56ModelForRequest(options.model),
-      input,
+      input: input.filter(
+        (item) =>
+          item.type !== "reasoning" ||
+          !this.rejectedEncryptedReasoning.has(this.encryptedReasoningKey(item, options.model)),
+      ),
       store: false, // don't persist responses on OpenAI side
     };
     const shouldStreamResponses =
@@ -2130,11 +2186,10 @@ export class OpenAIProvider extends BaseLLMProvider {
       if (
         response.status === 400 &&
         this.isEncryptedContentError(errorText) &&
-        options.encryptedReasoningItems?.length
+        (body.input as Array<Record<string, unknown>>).some((item) => item.type === "reasoning")
       ) {
         logger.warn("[OpenAI chatResponses] Encrypted reasoning items rejected, retrying without them");
-        options.onEncryptedReasoning?.([]); // clear the cache
-        this.stripEncryptedItems(body);
+        this.stripEncryptedItems(body, errorText, options.model);
         response = await llmFetch(url, {
           method: "POST",
           headers: this.buildHeaders(),
@@ -2395,11 +2450,10 @@ export class OpenAIProvider extends BaseLLMProvider {
       if (
         response.status === 400 &&
         this.isEncryptedContentError(errorText) &&
-        options.encryptedReasoningItems?.length
+        (body.input as Array<Record<string, unknown>>).some((item) => item.type === "reasoning")
       ) {
         logger.warn("[OpenAI chatCompleteResponses] Encrypted reasoning items rejected, retrying without them");
-        options.onEncryptedReasoning?.([]); // clear the cache
-        this.stripEncryptedItems(body);
+        this.stripEncryptedItems(body, errorText, options.model);
         response = await llmFetch(url, {
           method: "POST",
           headers: this.buildHeaders(),
@@ -2459,6 +2513,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     let currentEvent = "";
     let emittedReasoningSummary = "";
     let streamedReasoningSummary = "";
+    let encryptedReasoning: unknown[] = [];
 
     try {
       while (true) {
@@ -2594,6 +2649,7 @@ export class OpenAIProvider extends BaseLLMProvider {
                   },
                 });
               } else if (item?.type === "reasoning") {
+                if (typeof item.encrypted_content === "string") encryptedReasoning.push(item);
                 emittedReasoningSummary = this.emitMissingResponsesReasoningSummary(
                   { output: [item] },
                   options,
@@ -2607,6 +2663,8 @@ export class OpenAIProvider extends BaseLLMProvider {
               const resp = parsed.response as Record<string, unknown> | undefined;
               if (resp) {
                 streamUsage = this.extractResponsesUsage(resp);
+                const completedReasoning = this.extractEncryptedReasoningItems(resp);
+                if (completedReasoning.length) encryptedReasoning = completedReasoning;
                 this.emitEncryptedReasoning(resp, options);
                 emittedReasoningSummary = this.emitMissingResponsesReasoningSummary(
                   resp,
@@ -2644,6 +2702,9 @@ export class OpenAIProvider extends BaseLLMProvider {
               logger.warn("[OpenAI Responses] chatCompleteResponses stream incomplete (reason=%s)", reason);
               finishReason = OpenAIProvider.normalizeResponsesIncompleteFinishReason(reason);
               if (resp) {
+                const completedReasoning = this.extractEncryptedReasoningItems(resp);
+                if (completedReasoning.length) encryptedReasoning = completedReasoning;
+                this.emitEncryptedReasoning(resp, options);
                 emittedReasoningSummary = this.emitMissingResponsesReasoningSummary(
                   resp,
                   options,
@@ -2670,6 +2731,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       toolCalls: functionCalls,
       finishReason,
       usage: streamUsage,
+      ...(encryptedReasoning.length ? { providerMetadata: { encryptedReasoning } } : {}),
     };
   }
 
@@ -2828,6 +2890,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     const text = this.extractResponsesText(json);
     const usage = this.extractResponsesUsage(json);
     const output = json.output as Array<Record<string, unknown>> | undefined;
+    const encryptedReasoning = this.extractEncryptedReasoningItems(json);
 
     // Extract function calls from output items
     const toolCalls: LLMToolCall[] = [];
@@ -2863,6 +2926,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       toolCalls,
       finishReason,
       usage,
+      ...(encryptedReasoning.length ? { providerMetadata: { encryptedReasoning } } : {}),
     };
   }
 }

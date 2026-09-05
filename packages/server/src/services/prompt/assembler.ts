@@ -1100,7 +1100,13 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
 
     const prev = result[result.length - 1];
     const sameCharacter = (prev?.characterId ?? null) === (msg.characterId ?? null);
-    if (prev && prev.role === msg.role && sameCharacter && hasSamePromptAudience(prev, msg)) {
+    if (
+      prev &&
+      prev.role === msg.role &&
+      sameCharacter &&
+      hasSamePromptAudience(prev, msg) &&
+      !(msg.role === "assistant" && (prev.providerMetadata || msg.providerMetadata))
+    ) {
       mergeInto(prev, msg);
     } else {
       result.push({ ...msg });
