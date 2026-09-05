@@ -300,7 +300,12 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
 
     const ensureFallbackRunning = () => {
       if (!running || document.hidden || pausedRef.current || frameRef.current !== 0) return;
-      if (resizePending) resize();
+      if (resizePending) {
+        resize();
+        particlesRef.current = particlesRef.current.map((particle) =>
+          createWeatherParticle(particle.type, canvas.width / canvasScale, canvas.height / canvasScale),
+        );
+      }
       frameRef.current = requestAnimationFrame(tick);
     };
     resumeFallbackRef.current = ensureFallbackRunning;
