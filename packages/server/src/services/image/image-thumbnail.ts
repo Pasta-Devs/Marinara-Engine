@@ -76,7 +76,7 @@ export async function resolveThumbPath(filePath: string, width: number): Promise
     }
     if (existsSync(thumbPath)) return thumbPath;
 
-    const buffer = await image.resize({ width, withoutEnlargement: true }).webp({ quality: 72 }).toBuffer();
+    const buffer = await image.rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 72 }).toBuffer();
     if (!existsSync(THUMB_DIR)) mkdirSync(THUMB_DIR, { recursive: true });
     const temporaryPath = `${thumbPath}.${process.pid}.${randomUUID()}.tmp`;
     try {

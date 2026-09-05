@@ -90,6 +90,14 @@ try {
   const smallPreview = await app.inject("/api/gallery/file/small/image.png?w=1024");
   assert.equal((await sharp(smallPreview.rawPayload).metadata()).width, 40, "Small images are not enlarged");
 
+  const rotated = await sharp(small).withMetadata({ orientation: 6 }).jpeg().toBuffer();
+  await seed("rotated", "rotated/image.jpg", rotated);
+  const rotatedPreview = await sharp(
+    (await app.inject("/api/gallery/file/rotated/image.jpg?w=320")).rawPayload,
+  ).metadata();
+  assert.equal(rotatedPreview.width, 60);
+  assert.equal(rotatedPreview.height, 40, "Previews retain the original's displayed EXIF orientation");
+
   // One-frame APNG with valid animation chunks: even this must remain an original,
   // not be silently flattened by Sharp's static PNG decoder.
   const animation = Buffer.alloc(8);
