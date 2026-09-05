@@ -254,7 +254,7 @@ export function AdvancedParametersSection({
                   {localizeUi("chatSettings.advanced.pastReasoningLimit")}
                 </span>
                 <DraftNumberInput
-                  aria-label={localizeUi("chatSettings.advanced.pastReasoningLimit")}
+                  ariaLabel={localizeUi("chatSettings.advanced.pastReasoningLimit")}
                   min={0}
                   max={9999}
                   value={typeof metadata.pastReasoningLimit === "number" ? metadata.pastReasoningLimit : 1}

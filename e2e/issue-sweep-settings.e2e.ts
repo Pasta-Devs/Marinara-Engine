@@ -90,7 +90,10 @@ for (const mode of ["conversation", "roleplay"] as const) {
       await expect(exclusion).toBeChecked();
       await expect(limit).toHaveCount(0);
       expect(await previewReasoning()).toEqual([]);
-      await exclusion.uncheck();
+      await section
+        .locator(`label[for="${await exclusion.getAttribute("id")}"]`)
+        .first()
+        .click();
       await expect.poll(async () => (await readMeta()).excludePastReasoning).toBe(false);
       await expect(limit).toHaveValue("1");
       expect(await previewReasoning()).toEqual(["Reasoning third"]);
@@ -117,7 +120,10 @@ for (const mode of ["conversation", "roleplay"] as const) {
       await openSettings();
       await expect(prefill).toHaveValue("My saved prefill.");
       await testInfo.attach("reasoning-settings", { body: await section.screenshot(), contentType: "image/png" });
-      await exclusion.check();
+      await section
+        .locator(`label[for="${await exclusion.getAttribute("id")}"]`)
+        .first()
+        .click();
       await expect.poll(async () => (await readMeta()).excludePastReasoning).toBe(true);
       await expect(limit).toHaveCount(0);
       expect(await previewReasoning()).toEqual([]);
