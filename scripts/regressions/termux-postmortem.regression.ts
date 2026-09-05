@@ -60,16 +60,10 @@ try {
   assert.equal(killed.status === "unclean" && killed.record.rebootedSince, true);
   assert.equal(killed.status === "unclean" && killed.record.uptimeMs, 3.5 * 60 * 60 * 1000);
   assert.equal(killed.status === "unclean" && killed.record.rssMiB, 119.3);
-  assert.equal(
-    classifyPreviousSession(previousBeat, "boot-a", "now", deadPid).status === "unclean" &&
-      classifyPreviousSession(previousBeat, "boot-a", "now", deadPid).record.rebootedSince,
-    false,
-  );
-  assert.equal(
-    classifyPreviousSession({ ...previousBeat, bootId: null }, "boot-a", "now", deadPid).status === "unclean" &&
-      classifyPreviousSession({ ...previousBeat, bootId: null }, "boot-a", "now", deadPid).record.rebootedSince,
-    null,
-  );
+  const sameBoot = classifyPreviousSession(previousBeat, "boot-a", "now", deadPid);
+  assert.equal(sameBoot.status === "unclean" && sameBoot.record.rebootedSince, false);
+  const unknownBoot = classifyPreviousSession({ ...previousBeat, bootId: null }, "boot-a", "now", deadPid);
+  assert.equal(unknownBoot.status === "unclean" && unknownBoot.record.rebootedSince, null);
 
   // NEVER CLAIM AN UNOBSERVED SHUTDOWN: a missing or unreadable record, and a
   // record whose owner is still running (a restart's detached child racing
@@ -98,7 +92,7 @@ try {
   // OBSERVED ENDINGS ARE NAMED, NEVER CALLED KILLS: clean shutdown, an
   // app-level crash (the server logged it), and the update / settings restart
   // paths each report themselves.
-  for (const exitKind of ["clean", "crash", "restart"] as const) {
+  for (const exitKind of ["clean", "crash", "restart", "forced"] as const) {
     const ended = classifyPreviousSession({ ...previousBeat, exitKind }, "boot-b", "now", deadPid);
     assert.equal(ended.status, "ended");
     assert.equal(ended.status === "ended" && ended.exitKind, exitKind);
@@ -201,10 +195,19 @@ assert.equal(
 assert.match(indexSource, /startFreezeDetector\(\); startSessionPostmortem\(\);/u);
 
 // The two deliberate restart paths name themselves, so an in-app update or a
-// settings restart is never reported as an Android kill.
-for (const route of ["packages/server/src/routes/updates.routes.ts", "packages/server/src/routes/admin.routes.ts"]) {
-  assert.match(flatten(readSource(route)), /noteSessionExitKind\("restart"\); await app\.close\(\);/u, route);
-}
+// settings restart is never reported as an Android kill. The stamp must land
+// BEFORE close begins - #5838's shutdown deadline can force-exit a stuck
+// close, and a stamp written after it would never be written at all.
+assert.match(
+  flatten(readSource("packages/server/src/routes/updates.routes.ts")),
+  /noteSessionExitKind\("restart"\);.*?armShutdownDeadline\(app, "update restart"\); await app\.close\(\);/u,
+  "updates route: stamp, then deadline, then close",
+);
+assert.match(
+  flatten(readSource("packages/server/src/routes/admin.routes.ts")),
+  /noteSessionExitKind\("restart"\); await app\.close\(\);/u,
+  "admin route: stamp directly before close (no stage-2 deadline - it spawns the relaunch child after close)",
+);
 
 const appSource = flatten(readSource("packages/server/src/app.ts"));
 assert.match(

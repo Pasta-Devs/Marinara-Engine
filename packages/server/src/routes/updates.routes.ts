@@ -21,6 +21,7 @@ import { getFileStorageDir } from "../config/runtime-config.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { isLoopbackIp } from "../middleware/ip-allowlist.js";
 import { noteSessionExitKind } from "../lib/session-postmortem.js";
+import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
 import {
   isChannelCheckoutBranch,
   isGitUpdateApplyAllowed,
@@ -1233,6 +1234,10 @@ export async function updatesRoutes(app: FastifyInstance) {
             // #5506 diagnostics: name this ending so the next startup reports
             // an update restart instead of an external kill.
             noteSessionExitKind("restart");
+            // #5838: the update relaunch relies on an external launcher
+            // either way, so a close stuck on open connections or a hung
+            // flush must not leave the old process running forever.
+            armShutdownDeadline(app, "update restart");
             await app.close();
             logger.info("[Update] Shutting down after update...");
             process.exit(0);
