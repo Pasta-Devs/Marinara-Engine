@@ -35,6 +35,7 @@ import {
 import { resolveGameVideoRuntime } from "../services/video/game-video-runtime.js";
 import { generateImage, removeSavedImageFromDisk, saveImageToDisk } from "../services/image/image-generation.js";
 import { resolveGalleryImagePath } from "../services/image/gallery-image-path.js";
+import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
@@ -1787,6 +1788,14 @@ export async function galleryRoutes(app: FastifyInstance) {
 
     const validatedImage = await validateImageAssetFile(storedFile.absolutePath, storedFile.filename);
     if (!validatedImage) return reply.status(404).send({ error: "Not found" });
+
+    const width = parseThumbnailWidth((req.query as { w?: string }).w);
+    const thumbPath = width ? await resolveThumbPath(storedFile.absolutePath, width) : null;
+    const preview = thumbPath ? await validateImageAssetFile(thumbPath, basename(thumbPath)) : null;
+    if (preview) {
+      await validatedImage.handle.close();
+      return sendValidatedMediaFile(reply, preview, { method: req.method, rangeHeader: req.headers.range });
+    }
 
     return sendValidatedMediaFile(reply, validatedImage, { method: req.method, rangeHeader: req.headers.range });
   });

@@ -18,6 +18,7 @@ import { renderInlineWithCustomEmojis } from "../../lib/custom-emoji-render";
 import { renderWithStickerBlocks } from "../../lib/sticker-render";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { ImagePromptPanel } from "./ImagePromptPanel";
+import { ChatImagePreview } from "./ChatImagePreview";
 import { MessageActionButton } from "./MessageActionButton";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { useUIStore } from "../../stores/ui.store";
@@ -563,7 +564,7 @@ export function ConversationMessageAttachments({
               className="block cursor-zoom-in rounded-lg text-left"
               title={localizeUi("ui.noodle.noodlepostcard.openImage")}
             >
-              <img
+              <ChatImagePreview
                 src={att.url || att.data}
                 alt={att.filename || att.name || "image"}
                 className="max-h-[70vh] max-w-full rounded-lg object-contain sm:max-h-[32rem]"

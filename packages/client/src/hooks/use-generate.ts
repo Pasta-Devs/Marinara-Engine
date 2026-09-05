@@ -2666,11 +2666,10 @@ export function useGenerate() {
                 reason?: string;
               };
               toast(illData.reason ? `🎨 ${illData.reason}` : "🎨 Scene illustration generated");
-              // During streaming the real message is deferred — refreshing now
-              // would insert it into the cache alongside the StreamingIndicator,
-              // causing a duplicate flash. The finally block's authoritative
-              // refresh will pick up the illustration attachment from DB.
-              if (!streamingEnabled && !isGameGeneration) {
+              // Roleplay can already have handed off to the durable row while other
+              // agents still own this stream. Show its saved image immediately;
+              // only defer when the live message presentation still owns the row.
+              if (!isGameGeneration && canRefreshCurrentMessagesNow()) {
                 await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
               }
               void qc.invalidateQueries({ queryKey: ["gallery", params.chatId] });
