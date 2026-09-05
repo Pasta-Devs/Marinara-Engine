@@ -37,6 +37,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added separate, saved "Always display swipe menu" appearance toggles for Conversation and Roleplay, enabled by default so the right arrow can regenerate the first response (#5854).
+- Made Conversation and Roleplay message action icons larger, with roomier click/tap targets and spacing across the message width on desktop and mobile (#5854).
 - Added GPT-6 Astra for OpenAI connections, with its 1.05M context window, 128k output limit, reasoning levels through Maximum, and Responses API support for chats and tool-using agents (#5845).
 
 - The server now notices when its previous session ended without a recorded shutdown (#5506): a tiny status file is refreshed silently every half minute while running (nothing is printed to the console), every deliberate ending stamps itself, and the next start reports which of those happened - a normal shutdown, a crash, an update or settings restart, or a session that simply stopped with no shutdown recorded, along with when it was last alive, how long it ran, its memory use at the time, and whether the device rebooted in between. The cause of a session that just stops is _not_ something the server can know - it is ended from outside with no chance to log anything - so the report says exactly that and leaves the diagnosis to the surrounding evidence. It never guesses elsewhere either: a first run, an unreadable record, or a second server sharing the same data folder all report "unknown" rather than claiming a shutdown nobody saw. The finding appears as one line at startup and as "Previous session" and "Sessions ended without shutdown" lines in Support Diagnostics, so reports from Android/Termux phones carry the evidence automatically.
@@ -67,6 +69,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Kept user-message actions in the same left-to-right order as assistant-message actions (#5854).
 - Mobile Roleplay keeps composer boundary drags inside the input, avoids animated press transforms on message actions, opens older-message editors at their beginning, and returns the reopened Echo Chamber to its latest message (#5851).
 - Mobile galleries keep generation labels and image actions within their available width, use neutral Delete controls, and give the Local Speech Model selector consistent spacing. Desktop layouts are unchanged (#5851).
 

@@ -343,6 +343,7 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
       {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
         <div className={cn("mt-1", isUser ? "flex justify-end" : "pl-12")}>
           <ConversationMessageSwipes
+            isUser={isUser}
             messageId={message.id}
             activeSwipeIndex={message.activeSwipeIndex}
             swipeCount={swipeCount}

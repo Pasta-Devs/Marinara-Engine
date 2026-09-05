@@ -1769,6 +1769,12 @@ test("message deletion uses unified chroma controls and selection states", async
     await expect(dialog.getByRole("button", { name: "Delete more" })).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Cancel" })).toBeVisible();
 
+    // Compare idle theme colors, not pointer hover or WebKit's retained transition serialization.
+    await page.mouse.move(0, 0);
+    await dialogActions.evaluateAll((buttons) => {
+      for (const button of buttons) (button as HTMLElement).style.transition = "none";
+    });
+
     const readChromeStyles = (locator: typeof dialogActions) =>
       locator.evaluateAll((buttons) =>
         buttons.map((button) => {
@@ -5444,7 +5450,7 @@ test("stopped and refused generations keep sent text cleared and accept the firs
       options: { delaySave?: boolean; failFirstSave?: boolean } = {},
     ) => {
       const message = page.locator(`[data-message-id="${messageId}"]`);
-      if (mobile) await message.click();
+      if (mobile) await message.locator(".mari-message-content").first().click();
       else await message.hover();
       await message.getByTitle("Edit", { exact: true }).click();
       const editor = message.locator("textarea");
@@ -5639,6 +5645,228 @@ test("stopped and refused generations keep sent text cleared and accept the firs
     });
   }
 });
+
+for (const mode of ["conversation", "roleplay"] as const) {
+  test(`${mode} message actions are roomy and first-swipe preferences persist independently`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const mobile = testInfo.project.name.includes("mobile");
+    const preference =
+      mode === "conversation" ? "alwaysDisplayConversationSwipeMenu" : "alwaysDisplayRoleplaySwipeMenu";
+    const otherPreference =
+      mode === "conversation" ? "alwaysDisplayRoleplaySwipeMenu" : "alwaysDisplayConversationSwipeMenu";
+    const response = await request.post("/api/chats", {
+      data: { name: `${mode} action controls`, mode, characterIds: [], connectionId: "swipe-controls-fixture" },
+    });
+    expect(response.ok()).toBeTruthy();
+    const chat = (await response.json()) as { id: string };
+    try {
+      const userResponse = await request.post(`/api/chats/${chat.id}/messages`, {
+        data: { role: "user", content: "A synthetic request for a story." },
+      });
+      expect(userResponse.ok()).toBeTruthy();
+      const userMessage = (await userResponse.json()) as { id: string };
+      const messageResponse = await request.post(`/api/chats/${chat.id}/messages`, {
+        data: {
+          role: "assistant",
+          content:
+            "A synthetic first response with enough text to fill a readable message box. All message tools should remain easy to select.",
+        },
+      });
+      expect(messageResponse.ok()).toBeTruthy();
+      const message = (await messageResponse.json()) as { id: string };
+      await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+      await page.route("**/api/generate", (route) =>
+        route.fulfill({ status: 503, json: { error: "Synthetic generation boundary reached." } }),
+      );
+      await page.goto("/");
+      const row = page.locator(`[data-message-id="${message.id}"]`);
+      const actions = row.locator(".mari-message-actions");
+      await expect(row).toBeVisible();
+      await expect(row.locator(".mari-message-swipes")).toBeVisible();
+      await expect(row.getByRole("button", { name: "Previous swipe", exact: true })).toBeDisabled();
+      await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 1", exact: true })).toHaveValue("1");
+      await expect(page.locator(`[data-message-id="${userMessage.id}"] .mari-message-swipes`)).toHaveCount(0);
+
+      const userRow = page.locator(`[data-message-id="${userMessage.id}"]`);
+      if (mobile) await userRow.locator(".mari-message-content").first().tap();
+      else await userRow.hover();
+      const userActions = userRow.locator(".mari-message-actions");
+      await expect.poll(() => userActions.evaluate((bar) => getComputedStyle(bar).opacity)).toBe("1");
+      const copy = await userActions.locator('button[title="Copy"]').boundingBox();
+      const translate = await userActions.locator('button[title="Translate"]').boundingBox();
+      const edit = await userActions.locator('button[title="Edit"]').boundingBox();
+      expect(copy!.x).toBeLessThan(translate!.x);
+      expect(translate!.x).toBeLessThan(edit!.x);
+      await testInfo.attach(`${mode}-user-actions-${testInfo.project.name}.png`, {
+        body: await userRow.screenshot(),
+        contentType: "image/png",
+      });
+      if (mobile) await row.locator(".mari-message-content").first().tap();
+      else await row.hover();
+      await expect.poll(() => actions.evaluate((bar) => getComputedStyle(bar).opacity)).toBe("1");
+      await expect(row.locator("textarea")).toHaveCount(0);
+      await testInfo.attach(`${mode}-message-controls-${testInfo.project.name}.png`, {
+        body: await row.screenshot(),
+        contentType: "image/png",
+      });
+
+      const viewport = page.viewportSize()!;
+      for (const width of mobile ? [320, viewport.width] : [viewport.width]) {
+        await page.setViewportSize({ width, height: viewport.height });
+        const bar = await actions.boundingBox();
+        expect(bar).not.toBeNull();
+        const buttons = await actions.locator("button").filter({ visible: true }).all();
+        expect(buttons.length).toBeGreaterThanOrEqual(5);
+        let previous: { x: number; y: number; width: number } | null = null;
+        for (const button of buttons) {
+          const box = await button.boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.width).toBeGreaterThanOrEqual(mobile ? 44 : 32);
+          expect(box!.height).toBeGreaterThanOrEqual(mobile ? 44 : 32);
+          expect(box!.x).toBeGreaterThanOrEqual(bar!.x);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(bar!.x + bar!.width + 1);
+          if (previous && Math.abs(previous.y - box!.y) < 1) {
+            expect(box!.x - previous.x - previous.width).toBeGreaterThanOrEqual(mobile ? 3 : 6);
+          }
+          previous = box;
+        }
+        await testInfo.attach(`${mode}-actions-${width}-${testInfo.project.name}.png`, {
+          body: await row.screenshot(),
+          contentType: "image/png",
+        });
+      }
+
+      await page.evaluate(async () => {
+        const module = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+        module.useUIStore.getState().setTheme("light");
+      });
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+      await testInfo.attach(`${mode}-light-controls-${testInfo.project.name}.png`, {
+        body: await row.screenshot(),
+        contentType: "image/png",
+      });
+      await page.evaluate(async () => {
+        const module = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+        module.useUIStore.getState().setTheme("dark");
+      });
+
+      const regeneration = page.waitForRequest((req) => req.url().endsWith("/api/generate") && req.method() === "POST");
+      await row.getByRole("button", { name: "Generate next swipe", exact: true }).click();
+      if (mobile) {
+        await page
+          .getByRole("dialog", { name: "Regenerate Message", exact: true })
+          .getByRole("button", { name: "Regenerate", exact: true })
+          .click();
+      }
+      expect((await regeneration).postDataJSON()).toMatchObject({ chatId: chat.id, regenerateMessageId: message.id });
+      const generationToast = page
+        .locator("[data-sonner-toast]")
+        .filter({ hasText: "Synthetic generation boundary reached." });
+      await expect(generationToast).toBeVisible();
+      await generationToast.getByRole("button", { name: "Close toast", exact: true }).click();
+      await expect(generationToast).toBeHidden();
+
+      const readSynced = async () => {
+        const result = await request.get("/api/app-settings/ui");
+        const { value } = (await result.json()) as { value: string | null };
+        return JSON.parse(value || "{}") as Record<string, unknown>;
+      };
+      const openAppearance = async () => {
+        await page.locator('[data-tour="panel-settings"]').click();
+        await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+      };
+      const closeSettings = async () => {
+        await page.evaluate(async () => {
+          const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+            useUIStore: { getState: () => { closeRightPanel: () => void } };
+          };
+          useUIStore.getState().closeRightPanel();
+        });
+      };
+      const toggle = page
+        .locator(`#settings-control-${mode}-always-display-swipe-menu`)
+        .getByLabel("Always display swipe menu", { exact: true });
+      const toggleLabel = page
+        .locator(`#settings-control-${mode}-always-display-swipe-menu`)
+        .getByText("Always display swipe menu", { exact: true });
+      const otherToggle = page
+        .locator(`#settings-control-${mode === "conversation" ? "roleplay" : "conversation"}-always-display-swipe-menu`)
+        .getByLabel("Always display swipe menu", { exact: true });
+      await openAppearance();
+      await expect(toggle).toBeChecked();
+      await expect(otherToggle).toBeChecked();
+      await toggleLabel.scrollIntoViewIfNeeded();
+      await testInfo.attach(`${mode}-swipe-settings-${testInfo.project.name}.png`, {
+        body: await page.screenshot(),
+        contentType: "image/png",
+      });
+      await toggleLabel.click();
+      await expect(toggle).not.toBeChecked();
+      await expect(otherToggle).toBeChecked();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      await closeSettings();
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+      await page.reload();
+      await expect(row).toBeVisible();
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+
+      // Resetting unrelated appearance choices must not undo the explicit swipe-menu opt-out.
+      await page.evaluate(async () => {
+        const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+          useUIStore: { getState: () => { resetAppearanceSettings: () => void } };
+        };
+        useUIStore.getState().resetAppearanceSettings();
+      });
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+
+      // A server blob from before these preferences existed must not reset a saved opt-out.
+      const legacy = await readSynced();
+      delete legacy[preference];
+      delete legacy[otherPreference];
+      legacy.__updatedAt = Date.now() + 1000;
+      await request.put("/api/app-settings/ui", { data: { value: JSON.stringify(legacy) } });
+      await page.reload();
+      await expect(row).toBeVisible();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+      await openAppearance();
+      await expect(toggle).not.toBeChecked();
+      await expect(otherToggle).toBeChecked();
+      await toggleLabel.click();
+      await expect(toggle).toBeChecked();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(true);
+      await closeSettings();
+      await expect(row.locator(".mari-message-swipes")).toBeVisible();
+      await openAppearance();
+      await toggleLabel.click();
+      await expect(toggle).not.toBeChecked();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      await closeSettings();
+
+      const alternate = await request.post(`/api/chats/${chat.id}/messages/${message.id}/swipes`, {
+        data: { content: "A synthetic regenerated response.", silent: true },
+      });
+      expect(alternate.ok()).toBeTruthy();
+      await page.reload();
+      await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true })).toBeVisible();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      if (mode === "conversation") {
+        await openAppearance();
+        await page
+          .locator("#settings-control-conversation-layout")
+          .getByRole("button", { name: /Bubbles/ })
+          .click();
+        await closeSettings();
+        await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true })).toBeVisible();
+      }
+    } finally {
+      await bestEffortDelete(request, `/api/chats/${chat.id}?force=true`);
+    }
+  });
+}
 
 test("empty focused chat composers keep keyboard swipe navigation", async ({ page, request }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Keyboard swipe navigation is covered on desktop.");
@@ -6408,7 +6636,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
 
       const savedRow = page.locator(`[data-message-id="${savedMessage.id}"]`);
       if (testInfo.project.name.includes("mobile")) {
-        await savedRow.click();
+        await savedRow.getByText("A completed response with saved reasoning.", { exact: true }).click();
       } else {
         await savedRow.hover();
       }
@@ -6424,7 +6652,9 @@ for (const mode of ["roleplay", "conversation"] as const) {
 
       const unavailableRow = page.locator(`[data-message-id="${unavailableMessage.id}"]`);
       if (testInfo.project.name.includes("mobile")) {
-        await unavailableRow.click();
+        await unavailableRow
+          .getByText("A response whose provider omitted its reasoning summary.", { exact: true })
+          .click();
       } else {
         await unavailableRow.hover();
       }
@@ -13252,7 +13482,9 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
 
   const openExpandedLocalModel = async () => {
     const rightPanel = page.locator('[data-component="RightPanel"]');
-    await page.locator('[data-tour="panel-connections"]').click();
+    const connectionsButton = page.locator('[data-tour="panel-connections"]');
+    await expect(connectionsButton).toBeVisible();
+    if ((await connectionsButton.getAttribute("aria-pressed")) !== "true") await connectionsButton.click();
     await expect(rightPanel).toBeVisible();
     const localModelLabel = rightPanel.getByText("Local Model", { exact: true });
     await localModelLabel.evaluate((element) => element.parentElement?.parentElement?.click());

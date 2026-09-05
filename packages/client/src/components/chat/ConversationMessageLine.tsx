@@ -258,6 +258,7 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
             {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
               <div className="mt-1.5">
                 <ConversationMessageSwipes
+                  isUser={isUser}
                   messageId={message.id}
                   activeSwipeIndex={message.activeSwipeIndex}
                   swipeCount={swipeCount}
