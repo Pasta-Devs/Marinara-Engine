@@ -2441,6 +2441,7 @@ export const useUIStore = create<UIState>()(
             [scheme]: { ...s.convoGradient[scheme], [field]: value },
           },
         })),
+      // Swipe-menu choices intentionally survive appearance resets; only their toggles change them.
       resetAppearanceSettings: () =>
         set({
           trackerPanelEnabled: true,

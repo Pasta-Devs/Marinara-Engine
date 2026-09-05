@@ -1769,6 +1769,11 @@ test("message deletion uses unified chroma controls and selection states", async
     await expect(dialog.getByRole("button", { name: "Delete more" })).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Cancel" })).toBeVisible();
 
+    // Compare static theme colors, not WebKit's retained interpolated color serialization.
+    await dialogActions.evaluateAll((buttons) => {
+      for (const button of buttons) (button as HTMLElement).style.transition = "none";
+    });
+
     const readChromeStyles = (locator: typeof dialogActions) =>
       locator.evaluateAll((buttons) =>
         buttons.map((button) => {
@@ -1781,16 +1786,6 @@ test("message deletion uses unified chroma controls and selection states", async
           };
         }),
       );
-    await expect
-      .poll(
-        async () =>
-          new Set(
-            (await readChromeStyles(dialogActions)).map(({ backgroundColor, borderColor, color }) =>
-              [backgroundColor, borderColor, color].join("|"),
-            ),
-          ).size,
-      )
-      .toBe(1);
     const tealStyles = await readChromeStyles(dialogActions);
     expect(new Set(tealStyles.map(({ backgroundColor }) => backgroundColor)).size).toBe(1);
     expect(new Set(tealStyles.map(({ borderColor }) => borderColor)).size).toBe(1);
@@ -1801,16 +1796,6 @@ test("message deletion uses unified chroma controls and selection states", async
 
     await setAppAccentColor(page, "#3b82f6");
     await expect.poll(async () => (await readChromeStyles(dialogActions))[0]?.color).not.toBe(tealStyles[0]?.color);
-    await expect
-      .poll(
-        async () =>
-          new Set(
-            (await readChromeStyles(dialogActions)).map(({ backgroundColor, borderColor, color }) =>
-              [backgroundColor, borderColor, color].join("|"),
-            ),
-          ).size,
-      )
-      .toBe(1);
     const blueStyles = await readChromeStyles(dialogActions);
     expect(new Set(blueStyles.map(({ backgroundColor }) => backgroundColor)).size).toBe(1);
     expect(new Set(blueStyles.map(({ borderColor }) => borderColor)).size).toBe(1);
@@ -5825,6 +5810,16 @@ for (const mode of ["conversation", "roleplay"] as const) {
       await page.reload();
       await expect(row).toBeVisible();
       await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+
+      // Resetting unrelated appearance choices must not undo the explicit swipe-menu opt-out.
+      await page.evaluate(async () => {
+        const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+          useUIStore: { getState: () => { resetAppearanceSettings: () => void } };
+        };
+        useUIStore.getState().resetAppearanceSettings();
+      });
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
 
       // A server blob from before these preferences existed must not reset a saved opt-out.
       const legacy = await readSynced();

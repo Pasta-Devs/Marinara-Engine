@@ -1792,7 +1792,11 @@ export const ChatMessage = memo(function ChatMessage({
   const isSystem = message.role === "system";
   const isNarrator = message.role === "narrator";
   const isRoleplay = chatMode === "roleplay";
-  const alwaysDisplaySwipeMenu = useUIStore((state) => state.alwaysDisplayRoleplaySwipeMenu);
+  const alwaysDisplaySwipeMenu = useUIStore((state) =>
+    isRoleplay
+      ? state.alwaysDisplayRoleplaySwipeMenu
+      : chatMode === "conversation" && state.alwaysDisplayConversationSwipeMenu,
+  );
   const {
     chatFontSize,
     chatFontColor,
@@ -3535,7 +3539,7 @@ export const ChatMessage = memo(function ChatMessage({
             {/* Swipes */}
             {(hasSwipes || canCreateNextSwipe) && (
               <SwipeJumpControl
-                alwaysShow={isRoleplay && alwaysDisplaySwipeMenu && !isUser}
+                alwaysShow={alwaysDisplaySwipeMenu && !isUser}
                 messageId={message.id}
                 activeSwipeIndex={message.activeSwipeIndex}
                 swipeCount={swipeCount}
@@ -4012,7 +4016,7 @@ export const ChatMessage = memo(function ChatMessage({
           {/* Swipes */}
           {(hasSwipes || canCreateNextSwipe) && (
             <SwipeJumpControl
-              alwaysShow={isRoleplay && alwaysDisplaySwipeMenu && !isUser}
+              alwaysShow={alwaysDisplaySwipeMenu && !isUser}
               messageId={message.id}
               activeSwipeIndex={message.activeSwipeIndex}
               swipeCount={swipeCount}
