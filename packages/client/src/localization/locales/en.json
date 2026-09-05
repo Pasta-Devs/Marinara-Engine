@@ -33,6 +33,7 @@
   "achievements.definitions.whoNeedsIrlFriends.description_one": "Created {{target}} Conversation chat.",
   "achievements.definitions.whoNeedsIrlFriends.description_other": "Created {{target}} Conversation chats.",
   "achievements.definitions.whoNeedsIrlFriends.title": "Who Needs IRL Friends",
+  "agents.illustrator.manualOnlyIntervalHelp": "Set to 0 for manual-only generation. Automatic Illustrator runs stop; Gallery actions remain available.",
   "app.documentTitle": "Marinara Engine",
   "capabilities.actions.backToAgents": "Back to Agents",
   "capabilities.actions.close": "Close",

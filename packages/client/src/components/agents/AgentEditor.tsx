@@ -2997,12 +2997,12 @@ export function AgentEditor() {
               <div className="flex items-center gap-3">
                 <input
                   type="number"
-                  min={1}
+                  min={0}
                   max={100}
                   value={localRunInterval}
                   onChange={(e) => {
                     const v = e.target.value;
-                    setLocalRunInterval(v === "" ? "" : Math.max(1, Math.min(100, parseInt(v) || 1)));
+                    setLocalRunInterval(v === "" ? "" : Math.max(0, Math.min(100, parseInt(v) || 0)));
                     markDirty();
                   }}
                   placeholder="5"
@@ -3014,6 +3014,9 @@ export function AgentEditor() {
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.agents.agenteditor.theIllustratorCanOnlyCreateANewImageOnce")}
+              </p>
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("agents.illustrator.manualOnlyIntervalHelp")}
               </p>
             </FieldGroup>
           )}

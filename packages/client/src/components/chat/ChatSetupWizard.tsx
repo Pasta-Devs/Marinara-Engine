@@ -417,9 +417,9 @@ function isConversationCommandToggleEnabled(
   return toggles[command] !== false;
 }
 
-function normalizePositiveInteger(value: unknown, fallback: number, max: number): number {
+function normalizePositiveInteger(value: unknown, fallback: number, max: number, min = 1): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.max(1, Math.min(max, Math.trunc(value)));
+  return Math.max(min, Math.min(max, Math.trunc(value)));
 }
 
 function normalizeAgentMaxTokens(value: unknown): number {
@@ -2448,7 +2448,12 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         contextSize: normalizePositiveInteger(mergedSettings.contextSize, DEFAULT_AGENT_CONTEXT_SIZE, 200),
         maxTokens: normalizeAgentMaxTokens(mergedSettings.maxTokens),
         runInterval: intervalMeta
-          ? normalizePositiveInteger(mergedSettings.runInterval, intervalMeta.defaultValue, intervalMeta.max)
+          ? normalizePositiveInteger(
+              mergedSettings.runInterval,
+              intervalMeta.defaultValue,
+              intervalMeta.max,
+              intervalMeta.min,
+            )
           : null,
         setup: buildInitialAgentAddSetupState({
           agentId: agent.id,
@@ -3115,7 +3120,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                       {agentAddIntervalMeta.label}
                     </span>
                     <DraftNumberInput
-                      min={1}
+                      min={agentAddIntervalMeta.min ?? 1}
                       max={agentAddIntervalMeta.max}
                       value={agentAddPreview.runInterval}
                       onCommit={(value) => {
@@ -3123,7 +3128,10 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                           current
                             ? {
                                 ...current,
-                                runInterval: Math.max(1, Math.min(agentAddIntervalMeta.max, value)),
+                                runInterval: Math.max(
+                                  agentAddIntervalMeta.min ?? 1,
+                                  Math.min(agentAddIntervalMeta.max, value),
+                                ),
                               }
                             : current,
                         );
@@ -3135,6 +3143,11 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                     <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
                       {agentAddIntervalMeta.help}
                     </span>
+                    {agentAddPreview.agent.id === "illustrator" && (
+                      <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
+                        {localizeUi("agents.illustrator.manualOnlyIntervalHelp")}
+                      </span>
+                    )}
                   </label>
                 )}
 

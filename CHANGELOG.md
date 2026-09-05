@@ -9,6 +9,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Added example text to Assistant Reasoning Prefill without changing saved values.
 - Removed SillyTavern `{{original}}` placeholders during prompt expansion while preserving saved character cards and literal instruction text.
 - Import and other multipart uploads now check CSRF access before sending file data.
+- Illustrator now accepts Run Interval 0 for manual-only generation, preserving Gallery actions while stopping automatic runs.
 
 - Removed the unfinished Slurp creator-feed material from the Noodle guides.
 - Updated the timeout reference in `.env.example` to use Slurp consistently.
