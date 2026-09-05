@@ -95,12 +95,6 @@ async function rejectsHostileNames() {
       db._fileStore.registerTables([fileTable(name, { id: text("id").primaryKey() })]);
       assert.ok(!FILE_BACKED_TABLES.includes(name), `${name} must not join the file-backed table list`);
     }
-    // isFileTable() only proves the metadata symbol is present. A package
-    // shipping a broken definition must be skipped, not throw out of the loop
-    // and strand the valid tables registered after it in the same call.
-    const brokenMetadata = { [Symbol.for("marinara:file-table")]: null } as unknown;
-    db._fileStore.registerTables([brokenMetadata, "not a table", null]);
-
     // A table with no primary key registers cleanly but can never resolve a
     // shard key, so it must be refused up front rather than on first insert.
     db._fileStore.registerTables([fileTable("package_demo_keyless", { body: text("body").notNull() })]);
@@ -111,6 +105,18 @@ async function rejectsHostileNames() {
       treeSnapshot(sandbox).filter((entry) => !before.includes(entry)),
       [],
       "a rejected table name must not create any file or directory, inside or outside the data directory",
+    );
+
+    // isFileTable() only proves the metadata symbol is present. A package
+    // shipping a broken definition must be skipped, not throw out of the loop
+    // and strand the valid tables that follow it in the same call. Registered
+    // after the tree comparison above, because this one is meant to succeed.
+    const validAfterBroken = fileTable("package_demo_after_broken", { id: text("id").primaryKey() });
+    const brokenMetadata = { [Symbol.for("marinara:file-table")]: null } as unknown;
+    db._fileStore.registerTables([brokenMetadata, "not a table", null, validAfterBroken]);
+    assert.ok(
+      FILE_BACKED_TABLES.includes("package_demo_after_broken"),
+      "a malformed definition is skipped and the valid table after it still registers",
     );
   } finally {
     await db._fileStore.close();
