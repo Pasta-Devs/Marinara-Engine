@@ -853,7 +853,6 @@ export function SummaryPopover({
         : [
             {
               id: generateClientId(),
-              requestId: generateClientId(),
               start: "1",
               end: String(Math.max(1, Math.min(totalMessageCount, MAX_SUMMARY_MESSAGES))),
               status: "pending",

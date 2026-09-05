@@ -607,9 +607,10 @@ export function AppShell() {
   const openChatSummarySettings = useCallback(() => {
     if (!activeChatId || activeChat?.mode !== "roleplay") return;
     const chatId = activeChatId;
-    closeFeatureDetail();
+    closeAgentDetail();
+    closeRightPanel();
     window.requestAnimationFrame(() => requestChatSummaryOpen(chatId));
-  }, [activeChat?.mode, activeChatId, closeFeatureDetail]);
+  }, [activeChat?.mode, activeChatId, closeAgentDetail, closeRightPanel]);
   const openActivePromptPresetEditor = useCallback(() => {
     const presetId = activeChat?.promptPresetId;
     if (!activeChat || !presetId) return;

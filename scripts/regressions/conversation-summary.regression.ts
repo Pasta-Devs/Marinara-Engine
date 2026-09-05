@@ -221,7 +221,7 @@ assert.match(
 );
 assert.doesNotMatch(
   summaryPopoverSource,
-  /batchRangeCount.*batchRanges\.length/u,
+  /batchRangeCount[\s\S]*?batchRanges\.length/u,
   "The footer should not display a separate batch range count",
 );
 assert.match(

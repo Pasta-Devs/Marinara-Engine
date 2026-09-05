@@ -4407,7 +4407,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           },
         );
       } catch (error) {
-        if (signal.aborted) return;
+        if (signal.aborted) return reply;
         throw error;
       }
       throwIfChatSummaryAborted(signal);
@@ -4564,7 +4564,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         signal,
       });
     } catch (error) {
-      if (signal.aborted) return;
+      if (signal.aborted) return reply;
       throw error;
     }
     throwIfChatSummaryAborted(signal);
