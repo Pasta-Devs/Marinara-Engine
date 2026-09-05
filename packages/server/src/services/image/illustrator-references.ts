@@ -489,22 +489,40 @@ export async function resolveIllustratorCharacterReferences(args: {
   }
 
   const sources = [...sourcesById.values()];
+  const chatIds = new Set(args.chatCharacters.map((character) => character.id));
+  const chatSources = sources.filter((source) => chatIds.has(source.id));
+  const globalSources = sources.filter((source) => !chatIds.has(source.id));
   const normalizedPromptText = normalizeReferenceName(args.promptText);
   const requestedNames = args.requestedNames.map((name) => normalizeReferenceName(name)).filter(Boolean);
   const selected = new Map<string, CharacterReferenceSource>();
 
   for (const requestedName of requestedNames) {
-    const match = sources.find(
-      (source) =>
-        source.aliases.some((alias) => alias === requestedName || textContainsAlias(requestedName, alias)) ||
-        source.aliases.some((alias) => textContainsAlias(alias, requestedName)),
-    );
-    if (match) selected.set(match.id, match);
+    const exactChatMatches = chatSources.filter((source) => normalizeReferenceName(source.name) === requestedName);
+    const chatMatches =
+      exactChatMatches.length > 0
+        ? exactChatMatches
+        : chatSources.filter(
+            (source) =>
+              source.aliases.some((alias) => alias === requestedName || textContainsAlias(requestedName, alias)) ||
+              source.aliases.some((alias) => textContainsAlias(alias, requestedName)),
+          );
+    // Chat aliases are useful for nicknames; outside the chat, require a unique full name.
+    const matches =
+      chatMatches.length > 0
+        ? chatMatches
+        : globalSources.filter((source) => normalizeReferenceName(source.name) === requestedName);
+    if (matches.length === 1) selected.set(matches[0]!.id, matches[0]!);
   }
 
-  for (const source of sources) {
+  for (const source of chatSources) {
     if (selected.has(source.id)) continue;
-    if (source.promptAliases.some((alias) => textContainsAlias(normalizedPromptText, alias))) {
+    if (
+      source.promptAliases.some(
+        (alias) =>
+          textContainsAlias(normalizedPromptText, alias) &&
+          chatSources.filter((candidate) => candidate.promptAliases.includes(alias)).length === 1,
+      )
+    ) {
       selected.set(source.id, source);
     }
   }
