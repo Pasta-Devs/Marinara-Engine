@@ -10210,7 +10210,9 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(conversationSurfaceSource, /onIllustrateWithAgent=\{onIllustrateWithAgent\}/u);
 
-  assert.match(settingsDrawerSource, /\/generate\/status\/\$\{encodeURIComponent\(chat\.id\)\}/u);
+  assert.match(settingsDrawerSource, /useGenerationStatus\(\s*chat\.id,\s*open && isRoleplayMode/u);
+  const generationStatusHookSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/hooks/use-chats.ts"), "utf8");
+  assert.match(generationStatusHookSource, /\/generate\/status\/\$\{encodeURIComponent\(chatId \?\? ""\)\}/u);
   assert.match(settingsDrawerSource, /isRoleplayMode && \(activeGeneration \|\| stoppingGeneration\)/u);
   assert.match(settingsDrawerSource, /await abortGenerationForChat\(chat\.id, controller\)/u);
   const stopGenerationActionStart = settingsDrawerSource.indexOf(

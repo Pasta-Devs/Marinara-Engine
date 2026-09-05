@@ -271,9 +271,70 @@ export function useChat(id: string | null) {
   });
 }
 
+export function useGenerationStatus(chatId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["generation-status", chatId ?? ""],
+    queryFn: ({ signal }) =>
+      api.get<{ active: boolean }>(`/generate/status/${encodeURIComponent(chatId ?? "")}`, { signal }),
+    enabled: !!chatId && enabled,
+    staleTime: 0,
+    refetchInterval: (query) => (query.state.data?.active ? 1_000 : false),
+  });
+}
+
+function hasLocalGeneration(state: ReturnType<typeof useChatStore.getState>, chatId: string) {
+  return (
+    state.abortControllers.has(chatId) ||
+    (state.isStreaming && state.streamingChatId === chatId) ||
+    state.backgroundIllustrationChatIds.has(chatId)
+  );
+}
+
 export function useChatMessages(chatId: string | null, pageSize: number = 0, enabled = true) {
   const queryClient = useQueryClient();
   const previousWindow = useRef({ chatId, pageSize });
+  const orphanedGeneration = useRef<string | null>(null);
+  const localAgentsProcessing = useAgentStore((state) => !!chatId && state.processingChatIds.includes(chatId));
+  const canRecover = useChatStore(
+    (state) => !!chatId && state.activeChatId === chatId && !hasLocalGeneration(state, chatId),
+  );
+  const { data: generationStatus, isFetching: checkingGeneration } = useGenerationStatus(
+    chatId,
+    enabled && canRecover && !localAgentsProcessing,
+  );
+  useEffect(() => {
+    const state = useChatStore.getState();
+    if (
+      !chatId ||
+      !enabled ||
+      state.activeChatId !== chatId ||
+      hasLocalGeneration(state, chatId) ||
+      useAgentStore.getState().processingChatIds.includes(chatId)
+    ) {
+      orphanedGeneration.current = null;
+      return;
+    }
+    if (orphanedGeneration.current !== chatId) orphanedGeneration.current = null;
+    // Re-enabling the query must not adopt a cached active status from before
+    // a local stream took ownership. Wait for the fresh server response.
+    if (checkingGeneration) return;
+    if (generationStatus?.active) {
+      orphanedGeneration.current = chatId;
+    } else if (generationStatus?.active === false && orphanedGeneration.current === chatId) {
+      orphanedGeneration.current = null;
+      // A fresh browser has no surviving SSE callback. Refresh saved rows once
+      // that server work finishes, but leave live local streams/typewriters alone.
+      for (const queryKey of [
+        chatKeys.messages(chatId),
+        chatKeys.messageCount(chatId),
+        chatKeys.messagePeek(chatId),
+        chatKeys.detail(chatId),
+        ["gallery", chatId],
+      ]) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
+    }
+  }, [chatId, enabled, canRecover, localAgentsProcessing, checkingGeneration, generationStatus?.active, queryClient]);
   const query = useInfiniteQuery({
     queryKey: chatKeys.messages(chatId ?? ""),
     queryFn: ({ pageParam, signal }) => {

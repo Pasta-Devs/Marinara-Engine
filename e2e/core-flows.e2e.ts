@@ -5171,6 +5171,65 @@ test("character schedules export the live draft and import safely", async ({ pag
   }
 });
 
+test("agent connection warning borders follow the configured accent", async ({ page, request }, testInfo) => {
+  const created = await request.post("/api/chats", {
+    data: {
+      name: "Agent connection warning",
+      mode: "roleplay",
+      characterIds: [],
+      connectionId: "synthetic-agent-warning-connection",
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const chat = (await created.json()) as { id: string };
+  const message =
+    'Echo Chamber and Illustrator agents are using the default agent connection "Fixture model" (local-fixture). If this is a paid API model, agent calls may bill that provider.';
+  try {
+    await page.route("**/api/generate", (route) =>
+      route.fulfill({
+        contentType: "text/event-stream",
+        body: [
+          { type: "agent_warning", data: { code: "default_agent_connection_active", message } },
+          { type: "done", data: {} },
+        ]
+          .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+          .join(""),
+      }),
+    );
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await setAppAccentColor(page, "#14b8a6");
+    await page.locator("textarea.mari-chat-input-textarea").fill("Show the model warning");
+    await page.locator("button.mari-chat-send-btn").click();
+    const warning = page.locator('[data-sonner-toast][data-type="warning"]').filter({ hasText: message });
+    await expect(warning).toBeVisible();
+    await testInfo.attach(`agent-warning-initial-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ animations: "disabled" }),
+      contentType: "image/png",
+    });
+    for (const theme of ["dark", "light"] as const) {
+      await page.evaluate(async (nextTheme) => {
+        const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+        useUIStore.getState().setTheme(nextTheme);
+      }, theme);
+      for (const accent of ["#14b8a6", "#1256aa"]) {
+        await setAppAccentColor(page, accent);
+        const border = await readCssVariableColor(page, "--marinara-chat-chrome-panel-border");
+        expect(border).not.toBe(await readCssVariableColor(page, "--border"));
+        await expect(warning).toHaveCSS("border-top-color", border);
+      }
+      await testInfo.attach(`agent-warning-${theme}-${testInfo.project.name}.png`, {
+        body: await page.screenshot({ animations: "disabled" }),
+        contentType: "image/png",
+      });
+    }
+    await warning.getByRole("button", { name: "Close toast", exact: true }).click();
+    await expect(warning).toBeHidden();
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("provider concurrency errors appear in generation toasts", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Generation error toast regression is covered on desktop.");
 
@@ -5649,7 +5708,7 @@ test("stopped and refused generations keep sent text cleared and accept the firs
 });
 
 for (const mode of ["conversation", "roleplay"] as const) {
-  test(`${mode} message actions are roomy and first-swipe preferences persist independently`, async ({
+  test(`${mode} message actions fit mobile rows and first-swipe preferences persist independently`, async ({
     page,
     request,
   }, testInfo) => {
@@ -5725,12 +5784,19 @@ for (const mode of ["conversation", "roleplay"] as const) {
         for (const button of buttons) {
           const box = await button.boundingBox();
           expect(box).not.toBeNull();
-          expect(box!.width).toBeGreaterThanOrEqual(mobile ? 44 : 32);
-          expect(box!.height).toBeGreaterThanOrEqual(mobile ? 44 : 32);
+          expect(box!.width).toBeGreaterThanOrEqual(mobile ? 24 : 32);
+          expect(box!.height).toBeGreaterThanOrEqual(32);
           expect(box!.x).toBeGreaterThanOrEqual(bar!.x);
           expect(box!.x + box!.width).toBeLessThanOrEqual(bar!.x + bar!.width + 1);
           if (previous && Math.abs(previous.y - box!.y) < 1) {
-            expect(box!.x - previous.x - previous.width).toBeGreaterThanOrEqual(mobile ? 3 : 6);
+            expect(box!.x - previous.x - previous.width).toBeGreaterThanOrEqual(mobile ? -1 : 6);
+          }
+          if (mobile && previous) expect(Math.abs(previous.y - box!.y)).toBeLessThan(1);
+          const icon = button.locator("svg").first();
+          if (mobile && (await icon.count())) {
+            const iconBox = await icon.boundingBox();
+            expect(iconBox!.width).toBeGreaterThanOrEqual(14);
+            expect(iconBox!.width).toBeLessThanOrEqual(16);
           }
           previous = box;
         }
