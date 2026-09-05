@@ -22,7 +22,7 @@ import {
   type TrackerThoughtBubbleDisplay,
   type VisualTheme,
 } from "../../stores/ui.store";
-import { APP_LANGUAGE_OPTIONS } from "../../localization/locale-loader";
+import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn, copyToClipboard } from "../../lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -3412,8 +3412,6 @@ function GeneralSettings() {
   const musicDjInstalled = installedCapabilities.some(
     (capability) => capability.id === "spotify" && capability.status === "active",
   );
-  const language = useUIStore((s) => s.language);
-  const setLanguage = useUIStore((s) => s.setLanguage);
   const enableStreaming = useUIStore((s) => s.enableStreaming);
   const setEnableStreaming = useUIStore((s) => s.setEnableStreaming);
   const streamingSpeed = useUIStore((s) => s.streamingSpeed);
@@ -3486,26 +3484,7 @@ function GeneralSettings() {
         {...getSettingsSectionAnchorProps("application")}
       >
         <div className="flex flex-col gap-2.5">
-          <label id={getSettingsControlAnchorId("language")} className="flex scroll-mt-3 flex-col gap-1">
-            <span className="inline-flex items-center gap-1 text-xs font-medium">
-              {t("settings.application.language.label")}
-              <HelpTooltip text={t("settings.application.language.help")} />
-            </span>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-            >
-              {APP_LANGUAGE_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {t("settings.application.language.fallback")}
-            </p>
-          </label>
+          <UILanguageSetting anchorId={getSettingsControlAnchorId("language")} />
 
           <DocsLanguageSetting />
 

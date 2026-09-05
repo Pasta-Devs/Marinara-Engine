@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
+import { mockUILanguagePacks } from "./ui-language-fixtures.js";
 
 const TRANSPARENT_GIF_BASE64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const TRANSPARENT_PNG_BASE64 =
@@ -660,6 +661,7 @@ test("gradient Accent Pulse keeps animating while Appearance settings are open",
 });
 
 test("Android status bar setting reads and updates the native bridge", async ({ page }) => {
+  await mockUILanguagePacks(page);
   await page.addInitScript(() => {
     const nativeWindow = window as Window & {
       MarinaraAndroid?: {
@@ -12175,9 +12177,10 @@ test("custom generation parameters become reusable chat controls", async ({ page
   }
 });
 
-test("UI language selection loads locale files and persists across reloads", async ({ page }) => {
+test("UI language selection downloads packs on demand and persists across reloads", async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   const errors = collectUnexpectedErrors(page);
+  const packs = await mockUILanguagePacks(page);
   const languageSelect = page.locator("#settings-control-language select");
 
   // UI settings are normally synchronized through a single server record. Keep
@@ -12205,8 +12208,23 @@ test("UI language selection loads locale files and persists across reloads", asy
     await expect(languageSelect).toBeVisible({ timeout: 30_000 });
   };
 
+  // Upgrade: an old non-English selection without a local pack is a clean English fallback.
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("ui-pack-upgrade-fixture")) return;
+    sessionStorage.setItem("ui-pack-upgrade-fixture", "true");
+    const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{}}');
+    persisted.state = { ...persisted.state, language: "pl" };
+    localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
+  });
   await page.goto("/");
   await openGeneralSettings();
+  await expect(languageSelect).toHaveValue("en");
+  await expect(page.getByText("App Behavior", { exact: true })).toBeVisible();
+  expect(packs.downloads).toEqual([]);
+  await testInfo.attach("ui-language-pack-before-download", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   for (const locale of ["en", "ar", "de", "es", "fr", "hi", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"]) {
     await expect(languageSelect.locator(`option[value="${locale}"]`)).toHaveCount(1);
   }
@@ -12216,6 +12234,17 @@ test("UI language selection loads locale files and persists across reloads", asy
   await expect(page.getByPlaceholder("Szukaj w ustawieniach")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Ogólne" })).toBeVisible();
   await expect(page.getByText("Potwierdzaj przed usunięciem", { exact: true })).toBeVisible();
+
+  expect(packs.downloads).toEqual(["pl"]);
+  await page.getByRole("button", { name: "Refresh language pack", exact: true }).click();
+  await expect.poll(() => packs.downloads).toEqual(["pl", "pl"]);
+  await expect(page.getByRole("button", { name: "Refresh language pack", exact: true })).toBeEnabled();
+  await testInfo.attach("ui-language-pack-downloaded", { body: await page.screenshot(), contentType: "image/png" });
+  packs.setOffline(true);
+  await page.getByRole("button", { name: "Refresh language pack", exact: true }).click();
+  await expect(page.getByText("Could not download the language pack.", { exact: false })).toBeVisible();
+  await expect(languageSelect).toHaveValue("pl");
+  packs.setOffline(false);
   await expect(page.locator('[data-tour="panel-settings"]')).toHaveAttribute("title", "Ustawienia");
   await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe("pl");
   await expect.poll(() => page.evaluate(() => document.documentElement.dir)).toBe("ltr");
@@ -12338,7 +12367,8 @@ test("UI language selection loads locale files and persists across reloads", asy
   await openGeneralSettings();
   await expect(languageSelect).toHaveValue("en");
   await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe("en");
-  expect(errors).toEqual([]);
+  // The deliberately failed refresh is the only expected browser resource error.
+  expect(errors).toEqual(["Failed to load resource: the server responded with a status of 502 (Bad Gateway)"]);
 });
 
 test("incomplete synced settings preserve disabled Game text effects and repair the server blob", async ({ page }) => {

@@ -245,12 +245,21 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
 
 ## Localization
 
-UI translations live in one JSON file per locale and fall back to the canonical English catalog. See
+English UI text stays in `packages/client/src/localization/locales/en.json`. Community UI translations live in
+`ui/<BCP-47>.json` on `docs-i18n` and download into `DATA_DIR/ui-packs` only when selected in Settings. They are not
+part of Engine releases or checkouts. Existing downloads work offline; missing packs and keys fall back to English.
+See
 [`docs/development/localization.md`](docs/development/localization.md) for the translation boundary, file format,
 semantic-key conventions, downloadable Agent handoff, and validation command.
 
 Keep prompts, authored content, identifiers, protocol values, and persisted machine values out of UI localization.
-Run `pnpm localization:check` whenever a locale file or localization key changes.
+Run `pnpm localization:check` whenever an English localization key changes; it validates English and audits client
+UI copy without requiring community translation changes. On `docs-i18n`, run
+`node scripts/ui-i18n/validate-packs.mjs <engine-checkout>/packages/client/src/localization/locales/en.json --write-manifest`
+after editing `ui/` packs, then repeat without `--write-manifest` to validate hashes and report coverage/stale keys.
+Submit community translations against `docs-i18n`, not `staging`. When keys are renamed or deleted, mirror the change
+there or open a `[ui-i18n] <affected area or keys>` follow-up so translators can catch up in batches. Missing keys
+fall back to English; stale keys are ignored at runtime and reported by the pack validator.
 
 ## Versioning and Releases
 
