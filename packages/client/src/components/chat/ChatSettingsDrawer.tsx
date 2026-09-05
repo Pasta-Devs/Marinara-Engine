@@ -146,6 +146,7 @@ import {
   useChatNotes,
   useDeleteChatNote,
   useClearChatNotes,
+  useGenerationStatus,
   chatKeys,
 } from "../../hooks/use-chats";
 import { useUpdateGameWidgets } from "../../hooks/use-game";
@@ -911,13 +912,10 @@ export function ChatSettingsDrawer({
   const isConversation = chatMode === "conversation";
   const isGame = chatMode === "game";
   const isRoleplayMode = chatMode === "roleplay";
-  const { data: generationStatus, refetch: refetchGenerationStatus } = useQuery({
-    queryKey: ["generation-status", chat.id],
-    queryFn: () => api.get<{ active: boolean }>(`/generate/status/${encodeURIComponent(chat.id)}`),
-    enabled: open && isRoleplayMode,
-    staleTime: 0,
-    refetchInterval: (query) => (query.state.data?.active ? 1_000 : false),
-  });
+  const { data: generationStatus, refetch: refetchGenerationStatus } = useGenerationStatus(
+    chat.id,
+    open && isRoleplayMode,
+  );
   const activeGeneration = hasLocalGeneration || generationStatus?.active === true;
   const handleStopActiveGeneration = useCallback(async () => {
     setStoppingGeneration(true);
