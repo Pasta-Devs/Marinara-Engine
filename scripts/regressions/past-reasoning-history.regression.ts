@@ -189,6 +189,27 @@ assert.equal(
   1,
   "ordinary adjacent merging stays unchanged",
 );
+const reasoningOnly = {
+  role: "assistant" as const,
+  content: "",
+  contextKind: "history" as const,
+  providerMetadata: { encryptedReasoning: [reasoning("rs_empty")] },
+};
+assert.deepEqual(
+  mergeAdjacentMessages([
+    { role: "assistant", content: "Before" },
+    { role: "user", content: "   " },
+    reasoningOnly,
+    { role: "assistant", content: "After" },
+  ]),
+  [{ role: "assistant", content: "Before" }, reasoningOnly, { role: "assistant", content: "After" }],
+  "Reasoning-only assistant turns survive merging; truly empty messages are still skipped",
+);
+assert.deepEqual(
+  provider.buildResponsesBody(mergeAdjacentMessages([reasoningOnly]), options).input,
+  reasoningOnly.providerMetadata.encryptedReasoning,
+  "A reasoning-only turn must reach the native Responses input",
+);
 
 const scopedHistory = [
   {
@@ -304,6 +325,30 @@ for (const key of ["reasoning_content", "reasoning"]) {
     "thinking ".repeat(10_000),
     "Context fitting must not erase saved thinking",
   );
+}
+
+for (const providerMetadata of [
+  { reasoning_details: [{ type: "reasoning.text", text: "thinking ".repeat(10_000) }] },
+  { geminiParts: [{ thought: true, text: "thinking ".repeat(10_000), thoughtSignature: "signed" }] },
+  { encryptedReasoning: [{ ...reasoning("rs_large"), encrypted_content: "opaque ".repeat(10_000) }] },
+]) {
+  const largeHistory: ChatMessage = { role: "assistant", content: "", contextKind: "history", providerMetadata };
+  const saved = JSON.stringify(largeHistory);
+  const budget = { maxContext: 4096, maxTokens: 512 };
+  const fit = fitMessagesToContext([largeHistory, { role: "user", content: "Next turn." }], budget);
+  assert.ok(fit.trimmed, "Structured replay payloads must not hide behind the opaque metadata cap");
+  assert.ok(fit.estimatedTokensBefore > fit.inputBudget!);
+  assert.ok(fit.estimatedTokensAfter <= fit.inputBudget!);
+  assert.equal(
+    fit.messages.some((message) => message.providerMetadata),
+    false,
+  );
+  const untrimmable = fitMessagesToContext([largeHistory], budget);
+  assert.ok(
+    untrimmable.estimatedTokensAfter > untrimmable.inputBudget!,
+    "A retained final reasoning-only turn must not be falsely reported as under budget",
+  );
+  assert.equal(JSON.stringify(largeHistory), saved, "Budget estimates never mutate signed replay payloads");
 }
 
 console.log("past reasoning history: ok");

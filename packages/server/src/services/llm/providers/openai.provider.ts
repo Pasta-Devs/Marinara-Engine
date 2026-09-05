@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // LLM Provider — OpenAI (& OAI-Compatible)
 // ──────────────────────────────────────────────
+import { createHash } from "node:crypto";
 import {
   BaseLLMProvider,
   llmFetch,
@@ -146,6 +147,10 @@ export function normalizeOpenAIChatCompletionsResponseFormat(
  * Handles OpenAI, OpenRouter, Mistral, Cohere, and any OpenAI-compatible endpoint.
  */
 export class OpenAIProvider extends BaseLLMProvider {
+  // ponytail: remember at most 256 rejected payloads in this provider session.
+  // A new instance may retry them; persistent cleanup needs connection-scoped provenance.
+  private readonly rejectedEncryptedReasoning = new Set<string>();
+
   constructor(
     baseUrl: string,
     apiKey: string,
@@ -1985,13 +1990,42 @@ export class OpenAIProvider extends BaseLLMProvider {
     return errorText.includes("encrypted content") && errorText.includes("could not be");
   }
 
-  /** Strip encrypted reasoning items from a Responses API body for retry */
-  private stripEncryptedItems(body: Record<string, unknown>): Record<string, unknown> {
+  private encryptedReasoningKey(item: Record<string, unknown>, model: string): string {
+    return createHash("sha256").update(model).update("\0").update(JSON.stringify(item)).digest("hex");
+  }
+
+  /** Remove rejected payloads from this retry and later requests on the same provider/model. */
+  private stripEncryptedItems(body: Record<string, unknown>, errorText: string, model: string): void {
     const input = body.input as Array<Record<string, unknown>> | undefined;
-    if (input) {
-      body.input = input.filter((item) => item.type !== "reasoning");
+    if (!input) return;
+    let rejectedIndex = -1;
+    let message = errorText;
+    try {
+      const error = (JSON.parse(errorText) as { error?: { param?: string; message?: string } } | null)?.error;
+      if (typeof error?.message === "string") message = error.message;
+      const index = typeof error?.param === "string" ? /^input(?:\[(\d+)\]|\.(\d+))(?:\.|$)/.exec(error.param) : null;
+      if (index) rejectedIndex = Number(index[1] ?? index[2]);
+    } catch {
+      /* Non-JSON errors use the existing batch fallback. */
     }
-    return body;
+    const reasoningItems = input.filter((item) => item.type === "reasoning");
+    const identified = reasoningItems.filter(
+      (item) =>
+        input[rejectedIndex] === item ||
+        (typeof item.id === "string" && (message.includes(`'${item.id}'`) || message.includes(`"${item.id}"`))),
+    );
+    const rejectedKeys = new Set(
+      (identified.length ? identified : reasoningItems).map((item) => this.encryptedReasoningKey(item, model)),
+    );
+    for (const key of rejectedKeys) {
+      this.rejectedEncryptedReasoning.add(key);
+      if (this.rejectedEncryptedReasoning.size > 256) {
+        this.rejectedEncryptedReasoning.delete(this.rejectedEncryptedReasoning.values().next().value!);
+      }
+    }
+    body.input = input.filter(
+      (item) => item.type !== "reasoning" || !rejectedKeys.has(this.encryptedReasoningKey(item, model)),
+    );
   }
 
   /** Build the Responses API request body */
@@ -2022,7 +2056,11 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     const body: Record<string, unknown> = {
       model: resolveOpenAIGpt56ModelForRequest(options.model),
-      input,
+      input: input.filter(
+        (item) =>
+          item.type !== "reasoning" ||
+          !this.rejectedEncryptedReasoning.has(this.encryptedReasoningKey(item, options.model)),
+      ),
       store: false, // don't persist responses on OpenAI side
     };
     const shouldStreamResponses =
@@ -2151,8 +2189,7 @@ export class OpenAIProvider extends BaseLLMProvider {
         (body.input as Array<Record<string, unknown>>).some((item) => item.type === "reasoning")
       ) {
         logger.warn("[OpenAI chatResponses] Encrypted reasoning items rejected, retrying without them");
-        options.onEncryptedReasoning?.([]); // clear the cache
-        this.stripEncryptedItems(body);
+        this.stripEncryptedItems(body, errorText, options.model);
         response = await llmFetch(url, {
           method: "POST",
           headers: this.buildHeaders(),
@@ -2416,8 +2453,7 @@ export class OpenAIProvider extends BaseLLMProvider {
         (body.input as Array<Record<string, unknown>>).some((item) => item.type === "reasoning")
       ) {
         logger.warn("[OpenAI chatCompleteResponses] Encrypted reasoning items rejected, retrying without them");
-        options.onEncryptedReasoning?.([]); // clear the cache
-        this.stripEncryptedItems(body);
+        this.stripEncryptedItems(body, errorText, options.model);
         response = await llmFetch(url, {
           method: "POST",
           headers: this.buildHeaders(),

@@ -23,7 +23,7 @@ export function hasSamePromptAudience(first: ChatMLMessage | undefined, second: 
  *   `characterId` (including both unset), and a compatible `contextKind` (equal, or
  *   one/both unset).
  * - Preserves the `name` of the first message if set.
- * - Skips empty messages entirely.
+ * - Skips empty messages unless they carry attachments or assistant reasoning metadata.
  *
  * @example
  *   [{ role: "system", content: "A" }, { role: "system", content: "B" }, { role: "user", content: "C" }]
@@ -51,8 +51,14 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
   };
 
   for (const msg of messages) {
-    // Skip empty messages unless they carry provider-native attachments.
-    if (!msg.content.trim() && !msg.images?.length && !msg.files?.length) continue;
+    // Skip empty messages unless they carry attachments or assistant reasoning metadata.
+    if (
+      !msg.content.trim() &&
+      !msg.images?.length &&
+      !msg.files?.length &&
+      !(msg.role === "assistant" && msg.providerMetadata)
+    )
+      continue;
 
     if (current && canMerge(current, msg)) {
       // Same role — merge
