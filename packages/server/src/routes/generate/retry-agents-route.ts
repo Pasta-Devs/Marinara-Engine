@@ -4199,9 +4199,10 @@ export async function registerRetryAgentsRoute(
 
     startSseReply(reply, { "X-Accel-Buffering": "no" });
 
-    // Abort in-flight agent LLM calls when the client disconnects, and stop
-    // writing to a closed socket. Mirrors the main /generate handler so a dropped
-    // retry tab does not leak upstream provider requests to completion.
+    // Illustrator saves its output to the chat even if the mobile tab disappears.
+    // Explicit Stop still cancels through activeAgentRuns; other retries retain
+    // their existing disconnect cancellation.
+    const preserveIllustratorOnDisconnect = agentTypes.every((agentType) => agentType === "illustrator");
     const abortController = new AbortController();
     const assertRetrySetupActive = () => abortController.signal.throwIfAborted();
     const notifyFallback = createReplyFallbackNotifier(reply);
@@ -4223,7 +4224,7 @@ export async function registerRetryAgentsRoute(
     const stopSseKeepalive = startSseKeepalive(reply);
     const onClientClose = () => {
       clientDisconnected = true;
-      abortController.abort();
+      if (!preserveIllustratorOnDisconnect) abortController.abort();
     };
     reply.raw.on("close", onClientClose);
 
