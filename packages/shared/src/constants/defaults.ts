@@ -26,6 +26,9 @@ export const DEFAULT_CONNECTION_ID = "__default_openrouter__";
 /** Shared width for cached background thumbnails used by compact client surfaces. */
 export const BACKGROUND_THUMBNAIL_WIDTH = 320;
 
+/** Mobile inline illustrations; full-size originals remain available in the lightbox/download. */
+export const CHAT_IMAGE_PREVIEW_WIDTH = 1024;
+
 /** Maximum length for image-backend instructions stored on an image connection. */
 export const MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH = 20_000;
 

@@ -78,6 +78,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Mobile chat illustrations and gallery tiles use smaller cached display copies to reduce image decoding pressure; opening and downloading still uses the original. Saved automatic Roleplay illustrations also appear as soon as they arrive, without waiting for remaining agent work (#5870).
+
 - Conversation swipe menus now reuse Roleplay's compact, unboxed controls on desktop and mobile, with arrows and counters following the configured chat-chrome text color instead of pink/orchid styling (#5875).
 - Released temporary rendering hints after message entrance animations, reducing unnecessary compositor layers around long, growing Roleplay replies without changing their animation or layout (#5870).
 - Agent connection warnings and other notifications now use the selected accent for their border in light and dark themes (#5870).

@@ -33,7 +33,8 @@ import {
   type ChatAssetBrowserItem,
   type ChatImage,
 } from "../../hooks/use-gallery";
-import type { GeneratedSceneVideo } from "@marinara-engine/shared";
+import { BACKGROUND_THUMBNAIL_WIDTH, type GeneratedSceneVideo } from "@marinara-engine/shared";
+import { ChatImagePreview } from "./ChatImagePreview";
 import { useGalleryStore } from "../../stores/gallery.store";
 import { toast } from "sonner";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
@@ -940,8 +941,9 @@ export function ChatGallery({
                           <Check size="0.9rem" />
                         </span>
                       ) : null}
-                      <img
+                      <ChatImagePreview
                         src={asset.url}
+                        mobileWidth={BACKGROUND_THUMBNAIL_WIDTH}
                         alt={asset.prompt || asset.name}
                         loading="lazy"
                         decoding="async"
@@ -1083,8 +1085,9 @@ export function ChatGallery({
                           : localizeUi("ui.chat.chatgallery.openGalleryImage")
                       }
                     >
-                      <img
+                      <ChatImagePreview
                         src={img.url}
+                        mobileWidth={BACKGROUND_THUMBNAIL_WIDTH}
                         alt={img.prompt || "Gallery image"}
                         loading="lazy"
                         decoding="async"
