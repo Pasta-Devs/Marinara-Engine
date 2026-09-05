@@ -657,12 +657,7 @@ export function ConversationMessageSwipes({
       swipeCount={swipeCount}
       onSetActiveSwipe={onSetActiveSwipe}
       onCreateNextSwipe={onCreateNextSwipe}
-      className={cn(
-        "inline-flex items-center gap-0.5 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]",
-        className,
-      )}
-      buttonClassName="rounded-sm p-0.5 transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
-      inputClassName="h-[1.25rem] w-[2rem] border-none bg-transparent text-center text-[0.625rem] outline-none"
+      className={className}
     />
   );
 }

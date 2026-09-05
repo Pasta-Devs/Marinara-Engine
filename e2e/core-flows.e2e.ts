@@ -5707,6 +5707,133 @@ test("stopped and refused generations keep sent text cleared and accept the firs
   }
 });
 
+test("Conversation swipe controls match Roleplay sizing and chat-chrome colors", async ({
+  page,
+  request,
+}, testInfo) => {
+  const fixtures: Array<{ chatId: string; messageId: string; layout: "roleplay" | "classic" | "bubble" | "grouped" }> =
+    [];
+  try {
+    for (const layout of ["roleplay", "classic", "bubble", "grouped"] as const) {
+      const created = await request.post("/api/chats", {
+        data: {
+          name: `${layout} swipe parity`,
+          mode: layout === "roleplay" ? "roleplay" : "conversation",
+          characterIds: [],
+        },
+      });
+      expect(created.ok()).toBeTruthy();
+      const { id: chatId } = (await created.json()) as { id: string };
+      const content =
+        layout === "grouped"
+          ? '<speaker="Alice">A synthetic grouped response.</speaker><speaker="Bob">Another synthetic turn.</speaker>'
+          : "A synthetic response for comparing the same swipe controls in each layout.";
+      const saved = await request.post(`/api/chats/${chatId}/messages`, { data: { role: "assistant", content } });
+      expect(saved.ok()).toBeTruthy();
+      const { id: messageId } = (await saved.json()) as { id: string };
+      fixtures.push({ chatId, messageId, layout });
+      const alternate = await request.post(`/api/chats/${chatId}/messages/${messageId}/swipes`, {
+        data: { content, silent: true },
+      });
+      expect(alternate.ok()).toBeTruthy();
+    }
+    await page.goto("/");
+    await setAppAccentColor(page, "#38bdf8");
+    const viewport = page.viewportSize()!;
+    for (const width of testInfo.project.name.includes("mobile") ? [320, viewport.width] : [viewport.width]) {
+      await page.setViewportSize({ width, height: viewport.height });
+      for (const theme of ["dark", "light"] as const) {
+        let roleplayMetrics: unknown;
+        for (const { chatId, messageId, layout } of fixtures) {
+          await page.evaluate(
+            async ({ id, style, nextTheme }) => {
+              const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as {
+                useChatStore: { getState: () => { setActiveChatId: (id: string) => void } };
+              };
+              const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+                useUIStore: {
+                  getState: () => {
+                    setConversationMessageStyle: (style: "classic" | "bubble") => void;
+                    setTheme: (theme: "dark" | "light") => void;
+                    setChatChromeTextColor: (color: string) => void;
+                  };
+                };
+              };
+              const ui = useUIStore.getState();
+              ui.setConversationMessageStyle(style === "bubble" ? "bubble" : "classic");
+              ui.setTheme(nextTheme);
+              ui.setChatChromeTextColor(nextTheme === "dark" ? "#c2dce5" : "#263a47");
+              useChatStore.getState().setActiveChatId(id);
+            },
+            { id: chatId, style: layout, nextTheme: theme },
+          );
+          const row = page.locator(`[data-message-id="${messageId}"]`);
+          const control = row.locator(".mari-message-swipes");
+          await expect(control).toBeVisible();
+          const input = control.getByRole("textbox");
+          await expect(input).toHaveValue("1");
+          const metrics = await control.evaluate((element) => {
+            const button = element.querySelector("button")!;
+            const field = element.querySelector("input")!;
+            const icon = button.querySelector("svg")!;
+            const styles = getComputedStyle(element);
+            return {
+              height: element.getBoundingClientRect().height,
+              gap: styles.gap,
+              padding: styles.padding,
+              fontSize: styles.fontSize,
+              buttonWidth: button.getBoundingClientRect().width,
+              buttonHeight: button.getBoundingClientRect().height,
+              iconWidth: icon.getBoundingClientRect().width,
+              inputWidth: field.getBoundingClientRect().width,
+              inputHeight: field.getBoundingClientRect().height,
+              inputFontSize: getComputedStyle(field).fontSize,
+              inputRadius: getComputedStyle(field).borderRadius,
+            };
+          });
+          if (layout === "roleplay") roleplayMetrics = metrics;
+          else expect.soft(metrics, `${layout} ${theme} ${width}px matches Roleplay`).toEqual(roleplayMetrics);
+          const actionColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
+          await expect.soft(control).toHaveCSS("color", actionColor, { timeout: 500 });
+          await expect.soft(control).toHaveCSS("border-top-width", "0px", { timeout: 500 });
+          await expect.soft(control).toHaveCSS("background-color", "rgba(0, 0, 0, 0)", { timeout: 500 });
+          await expect
+            .soft(input)
+            .toHaveCSS("color", await readCssVariableColor(page, "--marinara-chat-message-action-text-hover"), {
+              timeout: 500,
+            });
+          await testInfo.attach(`${layout}-swipes-${theme}-${width}.png`, {
+            body: await row.screenshot({ animations: "disabled" }),
+            contentType: "image/png",
+          });
+          // Wait for persistence, not just the optimistic counter, before the next interaction.
+          const selectSwipe = async (index: number, action: () => Promise<void>) => {
+            const saved = page.waitForResponse(
+              (response) =>
+                response.url().endsWith(`/messages/${messageId}/active-swipe`) &&
+                response.request().method() === "PUT" &&
+                response.request().postDataJSON().index === index,
+            );
+            await action();
+            expect(((await (await saved).json()) as { activeSwipeIndex: number }).activeSwipeIndex).toBe(index);
+            await expect(input).toHaveValue(String(index + 1));
+          };
+          await selectSwipe(1, () => control.getByRole("button", { name: "Next swipe", exact: true }).click());
+          await selectSwipe(0, () => control.getByRole("button", { name: "Previous swipe", exact: true }).click());
+          await selectSwipe(1, () => input.fill("2"));
+          await input.press("Enter");
+          await expect(control.getByRole("button", { name: "Previous swipe", exact: true })).toBeEnabled();
+          await selectSwipe(0, () => input.fill("1"));
+          await input.press("Enter");
+          await expect(control.getByRole("button", { name: "Previous swipe", exact: true })).toBeDisabled();
+        }
+      }
+    }
+  } finally {
+    for (const { chatId } of fixtures) await bestEffortDelete(request, `/api/chats/${chatId}?force=true`);
+  }
+});
+
 for (const mode of ["conversation", "roleplay"] as const) {
   test(`${mode} message actions fit mobile rows and first-swipe preferences persist independently`, async ({
     page,
