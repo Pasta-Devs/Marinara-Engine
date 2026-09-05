@@ -778,9 +778,7 @@ export function AppShell() {
           onOpenLorebook: openSpatialLorebook,
           onLorebooksChanged: refreshLorebooks,
           onOpenChatSummarySettings: activeChat?.mode === "roleplay" ? openChatSummarySettings : undefined,
-          onOpenActivePromptPresetEditor: activeChat?.promptPresetId
-            ? openActivePromptPresetEditor
-            : undefined,
+          onOpenActivePromptPresetEditor: activeChat?.promptPresetId ? openActivePromptPresetEditor : undefined,
         }}
       />
     ) : (
