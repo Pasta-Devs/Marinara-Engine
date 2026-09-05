@@ -1793,7 +1793,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const thumbPath = width ? await resolveThumbPath(storedFile.absolutePath, width) : null;
     const preview = thumbPath ? await validateImageAssetFile(thumbPath, basename(thumbPath)) : null;
     if (preview) {
-      await validatedImage.handle.close();
+      await validatedImage.handle.close().catch(() => undefined);
       return sendValidatedMediaFile(reply, preview, { method: req.method, rangeHeader: req.headers.range });
     }
 

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -48,6 +49,13 @@ try {
   for (const source of ["shared", "legacy"]) {
     const file = await seed(source, `${source}/image.png`, original);
     const url = `/api/gallery/file/${source}/image.png`;
+    const thumbDir = join(fixtureDir, "backgrounds-thumbs");
+    mkdirSync(thumbDir, { recursive: true });
+    const key = createHash("sha1").update(file).digest("hex").slice(0, 16);
+    writeFileSync(
+      join(thumbDir, `320-${statSync(file).mtimeMs}-${key}.webp`),
+      await sharp(original).resize(10).webp().toBuffer(),
+    );
     for (const width of [320, 1024]) {
       const response = await app.inject(`${url}?w=${width}`);
       assert.equal(response.statusCode, 200);
@@ -59,6 +67,15 @@ try {
       const cached = await resolveThumbPath(file, width);
       assert.ok(cached);
       assert.deepEqual(response.rawPayload, readFileSync(cached));
+      const metadata = sharp.prototype.metadata;
+      sharp.prototype.metadata = () => {
+        throw new Error("Cache hits must not reopen image metadata");
+      };
+      try {
+        assert.equal(await resolveThumbPath(file, width), cached);
+      } finally {
+        sharp.prototype.metadata = metadata;
+      }
       const head = await app.inject({ method: "HEAD", url: `${url}?w=${width}` });
       assert.equal(head.headers["content-length"], String(response.rawPayload.length));
       assert.equal(head.rawPayload.length, 0);

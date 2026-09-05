@@ -48,7 +48,10 @@ export async function resolveThumbPath(filePath: string, width: number): Promise
   try {
     // Inside the try: the source can vanish between the caller's existsSync and this stat.
     const key = createHash("sha1").update(filePath).digest("hex").slice(0, 16);
-    const thumbPath = join(THUMB_DIR, `${width}-${statSync(filePath).mtimeMs}-${key}.webp`);
+    // v2 invalidates older copies that could flatten animation or lose EXIF orientation.
+    const thumbPath = join(THUMB_DIR, `v2-${width}-${statSync(filePath).mtimeMs}-${key}.webp`);
+    if (existsSync(thumbPath)) return thumbPath;
+
     const sharp = await getSharp();
     const image = sharp(filePath);
     const metadata = await image.metadata();
@@ -74,8 +77,6 @@ export async function resolveThumbPath(filePath: string, width: number): Promise
       }
       if (!staticPng) return null;
     }
-    if (existsSync(thumbPath)) return thumbPath;
-
     const buffer = await image.rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 72 }).toBuffer();
     if (!existsSync(THUMB_DIR)) mkdirSync(THUMB_DIR, { recursive: true });
     const temporaryPath = `${thumbPath}.${process.pid}.${randomUUID()}.tmp`;
