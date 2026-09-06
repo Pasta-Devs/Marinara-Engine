@@ -78,6 +78,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Mobile Roleplay Connections/Personas now uses the same themed surface as the character response picker. The Agents menu groups each agent's reports with its outputs, preserving dismissal, saved custom-output editing, and the separate Echo Chamber window (#5883).
 - Mobile image previews now bound both dimensions, including tall illustrations, and large PNG metadata no longer bypasses previews. This reduces image-arrival decoding pressure without changing appearance settings or saved originals (#5870).
 
 - Mobile chat illustrations and gallery tiles use smaller cached display copies to reduce image decoding pressure; opening and downloading still uses the original. Saved automatic Roleplay illustrations also appear as soon as they arrive, without waiting for remaining agent work (#5870).

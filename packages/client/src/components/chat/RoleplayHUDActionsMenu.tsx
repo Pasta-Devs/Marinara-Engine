@@ -68,7 +68,17 @@ export function RoleplayHUDActionsMenu({
   showInjectionsTab,
 }: RoleplayHUDActionsMenuProps) {
   const { t: localizeUi } = useUiTranslation();
-  const hasTaskProgress = useAgentStore((state) => state.taskProgress.some((entry) => entry.chatId === chatId));
+  const taskProgress = useAgentStore((state) => state.taskProgress);
+  const reportedAgentTypes = useMemo(
+    () =>
+      new Set(
+        taskProgress
+          .filter((entry) => entry.chatId === chatId)
+          .flatMap((entry) => entry.agents.map((agent) => agent.type)),
+      ),
+    [chatId, taskProgress],
+  );
+  const hasTaskProgress = reportedAgentTypes.size > 0;
   const [tab, setTab] = useState<AgentsMenuTab>("activity");
   const [stoppingAgents, setStoppingAgents] = useState(false);
   const uniqueAgentCount = new Set(thoughtBubbles.map((bubble) => bubble.agentId)).size;
@@ -86,6 +96,7 @@ export function RoleplayHUDActionsMenu({
         ? latestHistoricalCustomRuns
         : [];
   const hasCustomRuns = customActivityRuns.length > 0;
+  const unreportedCustomRuns = customActivityRuns.filter((run) => !reportedAgentTypes.has(run.agentType));
   const injectableCustomRuns = useMemo(
     () => getLatestInjectableCustomRuns(customAgentRuns, agentConfigs ?? [], enabledAgentTypes),
     [customAgentRuns, agentConfigs, enabledAgentTypes],
@@ -132,6 +143,32 @@ export function RoleplayHUDActionsMenu({
     if (!isAgentProcessing) setStoppingAgents(false);
   }, [isAgentProcessing]);
 
+  const renderThoughtBubble = (bubble: ThoughtBubble, index: number) => (
+    <div
+      key={`${bubble.agentId}-${bubble.timestamp}`}
+      data-agent-output
+      className="relative rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2 text-[0.625rem]"
+    >
+      <button
+        onClick={() => dismissThoughtBubble(index)}
+        aria-label={localizeUi("agents.activity.dismissOutput", { agent: bubble.agentName })}
+        className="absolute right-1.5 top-1.5 text-[var(--muted-foreground)]/50 transition-colors hover:text-[var(--foreground)]"
+      >
+        <X size="0.625rem" />
+      </button>
+      <div className="pr-4">
+        <span className="font-semibold text-foreground/75">{bubble.agentName}</span>
+        {bubble.agentId === "continuity" ? (
+          <ContinuityIssueChecklist content={bubble.content} compact />
+        ) : (
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-[var(--muted-foreground)] leading-relaxed">
+            {bubble.content}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <>
       {tabs.length > 1 && (
@@ -161,7 +198,41 @@ export function RoleplayHUDActionsMenu({
 
       {activeTab === "activity" && (
         <>
-          <AgentTaskStatus chatId={chatId} />
+          {thoughtBubbles.length > 0 && (
+            <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-1.5">
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {uniqueAgentCount} {localizeUi("ui.agents.agentcatalogview.agent")}
+                {uniqueAgentCount !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}{" "}
+                {localizeUi("ui.chat.roleplayhudactionsmenu.triggered")}
+              </span>
+              <button
+                onClick={clearThoughtBubbles}
+                className="text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+              >
+                {localizeUi("ui.chat.roleplayhudactionsmenu.clearAll")}
+              </button>
+            </div>
+          )}
+          <AgentTaskStatus
+            chatId={chatId}
+            renderOutput={(agentType) => (
+              <>
+                {thoughtBubbles.map((bubble, index) =>
+                  bubble.agentId === agentType ? renderThoughtBubble(bubble, index) : null,
+                )}
+                {customActivityRuns
+                  .filter((run) => run.agentType === agentType)
+                  .map((run) => (
+                    <div key={run.id} className="space-y-1">
+                      <p className="text-[var(--muted-foreground)]">
+                        {localizeUi("agents.activity.latestSavedOutput")}
+                      </p>
+                      <CustomAgentRunItem run={run} />
+                    </div>
+                  ))}
+              </>
+            )}
+          />
           {isAgentProcessing && (
             <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
               <Sparkles size="0.75rem" className="animate-pulse text-[var(--muted-foreground)]" />
@@ -175,52 +246,17 @@ export function RoleplayHUDActionsMenu({
               {localizeUi("ui.chat.roleplayhudactionsmenu.noAgentActivityYet")}
             </div>
           )}
-          {thoughtBubbles.length > 0 && (
-            <>
-              <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-1.5">
-                <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  {uniqueAgentCount} {localizeUi("ui.agents.agentcatalogview.agent")}
-                  {uniqueAgentCount !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}{" "}
-                  {localizeUi("ui.chat.roleplayhudactionsmenu.triggered")}
-                </span>
-                <button
-                  onClick={clearThoughtBubbles}
-                  className="text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
-                >
-                  {localizeUi("ui.chat.roleplayhudactionsmenu.clearAll")}
-                </button>
-              </div>
-              <div className="flex flex-col gap-1 p-2">
-                {thoughtBubbles.map((bubble, index) => (
-                  <div
-                    key={`${bubble.agentId}-${bubble.timestamp}`}
-                    className="relative rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2 text-[0.625rem]"
-                  >
-                    <button
-                      onClick={() => dismissThoughtBubble(index)}
-                      className="absolute right-1.5 top-1.5 text-[var(--muted-foreground)]/50 transition-colors hover:text-[var(--foreground)]"
-                    >
-                      <X size="0.625rem" />
-                    </button>
-                    <div className="pr-4">
-                      <span className="font-semibold text-foreground/75">{bubble.agentName}</span>
-                      {bubble.agentId === "continuity" ? (
-                        <ContinuityIssueChecklist content={bubble.content} compact />
-                      ) : (
-                        <p className="mt-0.5 whitespace-pre-wrap text-[var(--muted-foreground)] leading-relaxed">
-                          {bubble.content}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
+          {thoughtBubbles.some((bubble) => !reportedAgentTypes.has(bubble.agentId)) && (
+            <div className="flex flex-col gap-1 p-2">
+              {thoughtBubbles.map((bubble, index) =>
+                !reportedAgentTypes.has(bubble.agentId) ? renderThoughtBubble(bubble, index) : null,
+              )}
+            </div>
           )}
 
-          {(hasCustomRuns || customAgentRunsLoading) && (
+          {(unreportedCustomRuns.length > 0 || customAgentRunsLoading) && (
             <CustomAgentRunsSection
-              runs={customActivityRuns}
+              runs={unreportedCustomRuns}
               loading={customAgentRunsLoading}
               title={localizeUi("ui.chat.roleplayhudactionsmenu.customOutputs")}
               countMode="latest"

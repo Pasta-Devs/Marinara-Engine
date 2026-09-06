@@ -33,6 +33,8 @@
   "achievements.definitions.whoNeedsIrlFriends.description_one": "Created {{target}} Conversation chat.",
   "achievements.definitions.whoNeedsIrlFriends.description_other": "Created {{target}} Conversation chats.",
   "achievements.definitions.whoNeedsIrlFriends.title": "Who Needs IRL Friends",
+  "agents.activity.dismissOutput": "Dismiss output from {{agent}}",
+  "agents.activity.latestSavedOutput": "Latest saved output",
   "agents.illustrator.manualOnlyIntervalHelp": "Set to 0 for manual-only generation. Automatic Illustrator runs stop; Gallery actions remain available.",
   "agents.progress.elapsed": "Elapsed",
   "agents.progress.input": "Input tokens",

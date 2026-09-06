@@ -12370,6 +12370,194 @@ test("custom generation parameters become reusable chat controls", async ({ page
   }
 });
 
+test("Mobile Roleplay quick picker matches the character selector surface", async ({ page, isMobile }, testInfo) => {
+  test.skip(!isMobile, "The combined quick picker is mobile-only.");
+  const characterIds: string[] = [];
+  let chatId: string | undefined;
+  try {
+    for (const name of ["Picker botanist", "Picker librarian"]) {
+      const response = await page.request.post("/api/characters", { data: { data: { name } } });
+      expect(response.ok()).toBeTruthy();
+      characterIds.push(((await response.json()) as { id: string }).id);
+    }
+    const response = await page.request.post("/api/chats", {
+      data: { name: "Roleplay picker surface fixture", mode: "roleplay", characterIds },
+    });
+    expect(response.ok()).toBeTruthy();
+    chatId = ((await response.json()) as { id: string }).id;
+    await page.request.patch(`/api/chats/${chatId}/metadata`, {
+      data: { groupChatMode: "individual", groupResponseOrder: "sequential" },
+    });
+    await page.request.post(`/api/chats/${chatId}/messages`, {
+      data: { role: "assistant", content: "The garden is ready for inspection." },
+    });
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chatId);
+    await page.goto("/");
+    await expect(page.getByText("The garden is ready for inspection.", { exact: true })).toBeVisible();
+    for (const theme of ["dark", "light", "custom"] as const) {
+      await page.evaluate(async (theme) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        const ui = useUIStore.getState();
+        ui.setTheme(theme === "light" ? "light" : "dark");
+        ui.setAppBackgroundColor(theme === "custom" ? "#0b1920" : "");
+        ui.setChatChromeTextColor(theme === "custom" ? "#22d3ee" : "");
+      }, theme);
+      await page.getByTitle("Trigger character response", { exact: true }).click();
+      const characterPicker = page.getByText("Trigger Response", { exact: true }).locator("..");
+      await expect(characterPicker).toBeVisible();
+      const surface = await characterPicker.evaluate((element) => getComputedStyle(element).backgroundColor);
+      await page.getByTitle("Trigger character response", { exact: true }).click();
+      await page.getByTitle("Quick Switcher", { exact: true }).click();
+      const picker = page.locator(".fixed[data-chat-floating-panel]");
+      await expect(picker).toBeVisible();
+      for (const tab of ["Connections", "Personas"]) {
+        await picker.getByRole("button", { name: tab, exact: true }).click();
+        await testInfo.attach(`roleplay-picker-${theme}-${tab}`, {
+          body: await page.screenshot(),
+          contentType: "image/png",
+        });
+        await expect(picker).toHaveCSS("background-color", surface);
+        const bounds = await picker.boundingBox();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+      }
+      await page.getByTitle("Quick Switcher", { exact: true }).click();
+    }
+  } finally {
+    if (chatId) await page.request.delete(`/api/chats/${chatId}`);
+    for (const id of characterIds) await page.request.delete(`/api/characters/${id}`);
+  }
+});
+
+test("Agents menu groups outputs under their own reports and preserves output controls", async ({ page }, testInfo) => {
+  const response = await page.request.post("/api/chats", {
+    data: { name: "Grouped agent activity fixture", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  let customText = "Saved garden notes.";
+  await page.route(`**/api/agents/runs/${chat.id}/custom`, (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "activity-custom-run",
+          agentConfigId: "custom-config",
+          agentType: "custom-notes",
+          agentName: "Garden notes",
+          chatId: chat.id,
+          messageId: "fixture-message",
+          resultType: "custom",
+          resultData: { text: customText },
+          tokensUsed: 12,
+          durationMs: 100,
+          success: true,
+          error: null,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/agents/runs/activity-custom-run", async (route) => {
+    customText = route.request().postDataJSON().resultData.text;
+    await route.fulfill({ json: { success: true } });
+  });
+  try {
+    await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "assistant", content: "A quiet day in the garden." },
+    });
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    await page.goto("/");
+    await expect(page.getByText("A quiet day in the garden.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Agents & Actions", exact: true }).click();
+    await page.evaluate(async (chatId) => {
+      const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
+      const store = useAgentStore.getState();
+      store.setProcessingRun("activity-run", true, chatId);
+      for (const [type, name] of [
+        ["echo-chamber", "Echo Chamber"],
+        ["world-state", "World State"],
+        ["custom-notes", "Garden notes"],
+      ]) {
+        store.updateTaskProgress(chatId, "activity-run", {
+          callId: type,
+          agents: [{ id: `${type}-config`, type, name, phase: "post_processing" }],
+          stage: "received",
+          receivedChunks: 10,
+          receivedCharacters: 50,
+          elapsedMs: 2000,
+        });
+      }
+      // Two concurrent calls for an agent must retain separate metrics, but not duplicate its outputs.
+      store.setProcessingRun("overlapping-run", true, chatId);
+      store.updateTaskProgress(chatId, "overlapping-run", {
+        callId: "echo-overlap",
+        agents: [{ id: "echo-chamber-config", type: "echo-chamber", name: "Echo Chamber", phase: "parallel" }],
+        stage: "received",
+        receivedChunks: 2,
+        receivedCharacters: 15,
+        elapsedMs: 1000,
+      });
+      store.addThoughtBubble("echo-chamber", "Echo Chamber", "The readers loved the garden.");
+      store.addThoughtBubble("world-state", "World State", "Location: Garden. Weather: Sunny.");
+      store.addThoughtBubble("legacy-agent", "Legacy agent", "Output without progress remains available.");
+      store.setProcessingRun("activity-run", false, chatId);
+      store.setProcessingRun("overlapping-run", false, chatId);
+    }, chat.id);
+    const status = page.getByRole("region", { name: "Agent task status" });
+    const echo = status.locator('[data-agent-activity="echo-chamber"]');
+    const world = status.locator('[data-agent-activity="world-state"]');
+    await expect(echo.getByText("The readers loved the garden.", { exact: true })).toBeVisible();
+    await expect(echo.getByText("Output received", { exact: true })).toHaveCount(2);
+    await expect(echo.getByText("Location: Garden. Weather: Sunny.", { exact: true })).toHaveCount(0);
+    await expect(world.getByText("Location: Garden. Weather: Sunny.", { exact: true })).toBeVisible();
+    await expect(page.getByText("The readers loved the garden.", { exact: true })).toHaveCount(1);
+    await expect(page.getByText("Output without progress remains available.", { exact: true })).toBeVisible();
+    await echo.locator("[data-agent-output]").scrollIntoViewIfNeeded();
+    await testInfo.attach("agent-activity-grouping", { body: await page.screenshot(), contentType: "image/png" });
+    expect(
+      await echo
+        .locator("dl")
+        .last()
+        .evaluate(
+          (element) =>
+            !!(
+              element.compareDocumentPosition(
+                element.parentElement!.parentElement!.querySelector("[data-agent-output]")!,
+              ) & Node.DOCUMENT_POSITION_FOLLOWING
+            ),
+        ),
+    ).toBe(true);
+    await echo.getByRole("button", { name: "Dismiss output from Echo Chamber" }).click();
+    await expect(echo.getByText("The readers loved the garden.", { exact: true })).toHaveCount(0);
+    await expect(echo.getByText("Output received", { exact: true })).toHaveCount(2);
+    await expect(world.getByText("Location: Garden. Weather: Sunny.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Clear all", exact: true }).click();
+    await expect(page.getByText("Output without progress remains available.", { exact: true })).toHaveCount(0);
+    const custom = status.locator('[data-agent-activity="custom-notes"]');
+    await expect(custom.getByText("Saved garden notes.", { exact: true })).toBeVisible();
+    await custom.getByTitle("Edit output", { exact: true }).click();
+    await custom.getByRole("textbox").fill("Edited garden notes.");
+    await custom.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(custom.getByText("Edited garden notes.", { exact: true })).toBeVisible();
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setTheme("light");
+    });
+    await custom.scrollIntoViewIfNeeded();
+    await testInfo.attach("agent-activity-saved-output-light", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    // A reload has no live telemetry; the saved custom-output fallback must remain usable.
+    await page.reload();
+    await page.getByRole("button", { name: "Agents & Actions", exact: true }).click();
+    await page.getByRole("button", { name: /Custom outputs/ }).click();
+    await expect(page.getByText("Edited garden notes.", { exact: true })).toBeVisible();
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("Agents menu shows private-content-free progress, timings and reported usage", async ({ page }, testInfo) => {
   const response = await page.request.post("/api/chats", {
     data: { name: "Agent progress fixture", mode: "roleplay", characterIds: [] },
