@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -23,7 +24,9 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import {
@@ -41,6 +44,7 @@ import {
   killSandboxedProcessTree,
   linuxBubblewrapArgs,
   packageStoreCacheCarveouts,
+  restoreReplacedStoreLinks,
   snapshotSensitiveWorkspaceFiles,
   workspacePolicyPaths,
 } from "../../packages/server/src/services/professor-mari/workspace-shell-sandbox.js";
@@ -795,6 +799,66 @@ assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
         false,
         "a store link deleted mid-run cannot expose its target as created files",
       );
+
+      // CWE-59, third edition (#5894 review): the mount layer protects the
+      // TARGET, but the link ENTRY sits in the writable workspace - unlink it,
+      // recreate it as a real directory, and writes land in an unprotected
+      // impostor that shadows the read-only store. Post-run link integrity
+      // quarantines the impostor by rename (never deletes - the scan still
+      // walks it for sensitive files) and restores the symlink.
+      symlinkSync(join(workspace, "real-store"), join(workspace, "node_modules"), "junction");
+      const linkSnapshot = await snapshotSensitiveWorkspaceFiles(workspace);
+      assert.ok(
+        linkSnapshot.storeLinks.some(
+          (pair) => pair.link === join(workspace, "node_modules") && pair.target === realStore,
+        ),
+        "the snapshot records the store link and its canonical target",
+      );
+      // An intact link is left alone.
+      assert.deepEqual(await restoreReplacedStoreLinks(linkSnapshot), []);
+      assert.ok(lstatSync(join(workspace, "node_modules")).isSymbolicLink(), "an intact link is untouched");
+
+      // The attack: unlink, recreate as a directory, plant require-resolvable
+      // code (no sensitive-named file needed) plus a sensitive-named file.
+      rmSync(join(workspace, "node_modules"), { recursive: true, force: true });
+      mkdirSync(join(workspace, "node_modules", "evil"), { recursive: true });
+      writeFileSync(join(workspace, "node_modules", "evil", "index.js"), "module.exports = 666;");
+      writeFileSync(join(workspace, "node_modules", "package.json"), '{"name":"impostor"}');
+      const restoreLines = await restoreReplacedStoreLinks(linkSnapshot);
+      assert.equal(restoreLines.length, 1, "the replacement is reported to the engine region");
+      assert.match(restoreLines[0] ?? "", /quarantined/u);
+      assert.ok(
+        lstatSync(join(workspace, "node_modules")).isSymbolicLink() &&
+          realpathSync(join(workspace, "node_modules")) === realStore,
+        "the store link is restored to its canonical target",
+      );
+      const quarantine = readdirSync(workspace).find((name) => name.startsWith("node_modules.unreviewed-"));
+      assert.ok(quarantine, "the impostor is quarantined by rename, not deleted");
+      assert.ok(
+        existsSync(join(workspace, quarantine ?? "", "evil", "index.js")),
+        "planted code survives inside the quarantine for the user to inspect",
+      );
+      // The quarantine is NOT store-exempt and NOT skip-named: the normal scan
+      // stages its sensitive-by-name files.
+      const afterRestore = await detectUnreviewedSensitiveChanges(workspace, linkSnapshot);
+      assert.ok(
+        afterRestore.hits.some(
+          (hit) => hit.relativePath.includes("unreviewed-") && hit.relativePath.endsWith("package.json"),
+        ),
+        "sensitive files inside the quarantined impostor still reach the review gate",
+      );
+      rmSync(join(workspace, quarantine ?? "node_modules.unreviewed-none"), { recursive: true, force: true });
+
+      // A link DELETED outright (not replaced) is restored silently - the
+      // target is a protected store, so the link's absence is never an
+      // intended workspace state.
+      rmSync(join(workspace, "node_modules"), { recursive: true, force: true });
+      assert.deepEqual(await restoreReplacedStoreLinks(linkSnapshot), []);
+      assert.ok(
+        lstatSync(join(workspace, "node_modules")).isSymbolicLink() &&
+          realpathSync(join(workspace, "node_modules")) === realStore,
+        "a deleted store link is restored",
+      );
     }
   } finally {
     rmSync(workspace, { recursive: true, force: true });
@@ -808,11 +872,70 @@ assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
 // the orphaned timer could SIGKILL a recycled process group after close. A
 // sequence-level simulation needs a live sandbox spawn, so the guard whose
 // absence recreates the bug is pinned instead.
+assert.match(
+  flatAgentSource,
+  /linkLines = await restoreReplacedStoreLinks\(snapshot\);.*scan = await detectUnreviewedSensitiveChanges\(this\.workspaceRoot, snapshot\);/u,
+  "the aftermath pass restores store links before the sensitive-change scan",
+);
+
 assert.match(flatAgentSource, /let killIssued = false;/u);
 assert.match(
   flatAgentSource,
   /if \(killIssued\) return; killIssued = true; killSandboxedProcessTree\(child, "SIGTERM"\);/u,
   "only the first killChild call ever schedules the escalation timer",
 );
+
+// ── #5894 review: group teardown RUNTIME case (POSIX) ───────────────────────
+// The Trivial finding asks for a live Bubblewrap teardown regression. Neither
+// CI nor the dev boxes install bwrap, so a bwrap-gated test would skip
+// everywhere it could ever run - the bwrap layer stays pinned via
+// linuxBubblewrapArgs (--die-with-parent, --new-session) above. What CAN run
+// for real is the semantics the finding is about: a TERM-trapping grandchild
+// that never setsid()s must die with the PROCESS GROUP when the production
+// TERM -> hard-kill escalation fires. The spawn shape mirrors production:
+// detached, so the child leads its own group.
+if (process.platform === "win32") {
+  console.log("POSIX process groups unavailable on Windows; the runtime teardown case runs in CI.");
+} else {
+  const child = spawn("bash", ["-c", "trap '' TERM; (trap '' TERM; sleep 300) & echo GRANDCHILD:$!; wait"], {
+    detached: true,
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  const grandchildPid = await new Promise<number>((resolvePid, rejectPid) => {
+    let buffered = "";
+    const bail = setTimeout(() => rejectPid(new Error("grandchild never announced itself")), 5000);
+    child.stdout.on("data", (chunk: Buffer) => {
+      buffered += chunk.toString();
+      const match = /GRANDCHILD:(\d+)/u.exec(buffered);
+      if (match?.[1]) {
+        clearTimeout(bail);
+        resolvePid(Number(match[1]));
+      }
+    });
+    child.on("error", rejectPid);
+  });
+  const alive = (pid: number): boolean => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  // Validity check first: the trap really absorbs the graceful signal, so
+  // this case cannot silently degrade into "TERM killed it anyway".
+  killSandboxedProcessTree(child, "SIGTERM");
+  await delay(300);
+  assert.ok(alive(grandchildPid), "the TERM-trapping grandchild survives the graceful signal (trap works)");
+  // The production hard-kill escalation: SIGKILL the group.
+  killSandboxedProcessTree(child, "SIGKILL");
+  const deadline = Date.now() + 5000;
+  while (alive(grandchildPid) && Date.now() < deadline) await delay(100);
+  assert.equal(
+    alive(grandchildPid),
+    false,
+    "the escalated group kill takes the non-setsid grandchild before any post-run scan could race it",
+  );
+}
 
 console.log("Mari guard sibling-paths regression passed.");

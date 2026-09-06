@@ -88,6 +88,7 @@ import { getProfessorMariWorkspaceSkillsService } from "./workspace-skills.servi
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
 import {
   detectUnreviewedSensitiveChanges,
+  restoreReplacedStoreLinks,
   getWorkspaceShellSandboxStatus,
   killSandboxedProcessTree,
   snapshotSensitiveWorkspaceFiles,
@@ -3967,6 +3968,13 @@ ${sections.join("\n\n")}
    */
   private async revertAndStageSensitiveAftermath(snapshot: SensitiveWorkspaceSnapshot): Promise<string[]> {
     const MAX_POSTEXEC_STAGED = 5;
+    let linkLines: string[] = [];
+    try {
+      linkLines = await restoreReplacedStoreLinks(snapshot);
+    } catch (err) {
+      logger.error(err, "[mari] Store-link integrity pass failed");
+      linkLines = ["Store-link integrity check failed; treat package-store paths as unreviewed."];
+    }
     let scan: SensitiveScanResult;
     try {
       scan = await detectUnreviewedSensitiveChanges(this.workspaceRoot, snapshot);
@@ -3974,7 +3982,7 @@ ${sections.join("\n\n")}
       logger.error(err, "[mari] Post-execution sensitive-file scan failed");
       return ["Post-execution sensitive-file scan failed; treat this run's file changes as unreviewed."];
     }
-    const lines: string[] = [];
+    const lines: string[] = [...linkLines];
     if (snapshot.entryCapExceeded || scan.entryCapExceeded) {
       lines.push(
         "Post-execution scan stopped at its entry cap; part of the workspace went uninspected - treat this run's file changes as unreviewed.",

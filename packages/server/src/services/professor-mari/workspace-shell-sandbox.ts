@@ -1,8 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, realpathSync, statSync } from "node:fs";
-import { lstat, mkdir, mkdtemp, readdir, readlink, rm } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readlink, rename, rm, symlink } from "node:fs/promises";
 import type { Stats } from "node:fs";
-import { delimiter, dirname, join, relative, resolve, sep } from "node:path";
+import { basename, delimiter, dirname, join, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -169,6 +169,7 @@ export async function workspacePolicyPaths(workspaceRoot: string) {
   const forbidden: string[] = [];
   const sensitive: string[] = [];
   const packageStores: string[] = [];
+  const storeLinks: Array<{ link: string; target: string }> = [];
   // Canonical paths whose LOGICAL name is node_modules - the only store kind
   // whose caches must stay writable - tracked separately because a symlinked
   // store's canonical target carries a different basename.
@@ -205,6 +206,7 @@ export async function workspacePolicyPaths(workspaceRoot: string) {
               statSync(target).isDirectory()
             ) {
               packageStores.push(target);
+              storeLinks.push({ link: storePath, target });
               if (entry.name === "node_modules") nodeModulesStores.push(target);
             }
           } catch {
@@ -223,6 +225,7 @@ export async function workspacePolicyPaths(workspaceRoot: string) {
     sensitive: uniqueExistingPaths(sensitive),
     packageStores: uniqueExistingPaths(packageStores),
     nodeModulesStores: uniqueExistingPaths(nodeModulesStores),
+    storeLinks,
   };
 }
 
@@ -278,6 +281,14 @@ export type SensitiveWorkspaceSnapshot = {
    * during the run.
    */
   storePaths: string[];
+  /**
+   * Store symlinks (link -> canonical target) at snapshot time. The mount
+   * layer can only protect the TARGET - the link entry itself lives in the
+   * writable workspace - so post-run integrity is checked here: a link
+   * unlinked and recreated as a real directory is an escape from the
+   * read-only store, quarantined and restored by restoreReplacedStoreLinks.
+   */
+  storeLinks: StoreLink[];
   /**
    * Subtrees the PRE-run walk could not inspect. Anything detected under
    * them later cannot be attributed to the command - a pre-existing file
@@ -346,7 +357,9 @@ async function fingerprintSensitiveFile(path: string, stats: Stats): Promise<Sen
   }
 }
 
-async function canonicalStorePaths(workspaceRoot: string): Promise<string[]> {
+type StoreLink = { link: string; target: string };
+
+async function canonicalStorePaths(workspaceRoot: string): Promise<{ paths: string[]; links: StoreLink[] }> {
   // The policy walk deliberately THROWS on unreadable entries - for the
   // spawn path that is fail-closed (a rule it cannot mint is a command that
   // does not run). The scan must not inherit that hard failure: no store
@@ -357,7 +370,7 @@ async function canonicalStorePaths(workspaceRoot: string): Promise<string[]> {
     policy = await workspacePolicyPaths(workspaceRoot);
   } catch (err) {
     logger.warn(err, "[mari] Store discovery for the post-run scan failed; scanning without store exemptions");
-    return [];
+    return { paths: [], links: [] };
   }
   const canonical: string[] = [];
   for (const store of policy.packageStores) {
@@ -367,7 +380,7 @@ async function canonicalStorePaths(workspaceRoot: string): Promise<string[]> {
       /* vanished between walks */
     }
   }
-  return canonical;
+  return { paths: canonical, links: policy.storeLinks };
 }
 
 async function walkSensitiveEntries(
@@ -445,7 +458,7 @@ async function walkSensitiveEntries(
 export async function snapshotSensitiveWorkspaceFiles(workspaceRoot: string): Promise<SensitiveWorkspaceSnapshot> {
   const files = new Map<string, SensitiveFingerprint>();
   const unscannable: string[] = [];
-  const storePaths = await canonicalStorePaths(workspaceRoot);
+  const { paths: storePaths, links: storeLinks } = await canonicalStorePaths(workspaceRoot);
   const { entryCapExceeded } = await walkSensitiveEntries(
     workspaceRoot,
     (path, fingerprint) => files.set(resolve(path), fingerprint),
@@ -453,7 +466,7 @@ export async function snapshotSensitiveWorkspaceFiles(workspaceRoot: string): Pr
     unscannable,
     storePaths,
   );
-  return { files, unscannable, entryCapExceeded, storePaths };
+  return { files, unscannable, entryCapExceeded, storePaths, storeLinks };
 }
 
 function stageableText(content: Buffer | null): string | null {
@@ -462,6 +475,55 @@ function stageableText(content: Buffer | null): string | null {
   // Binary content does not survive a utf8 round-trip; such files can be
   // reverted (bytes retained) but never staged as a text diff.
   return Buffer.compare(Buffer.from(text, "utf8"), content) === 0 ? text : null;
+}
+
+/**
+ * #5894 review (CWE-59, third edition): the mount layer protects a linked
+ * store's TARGET, but the link entry itself sits in the writable workspace -
+ * a command can unlink it and recreate it as a real directory, writing into
+ * an unprotected impostor that shadows the read-only store (require() would
+ * resolve planted code from it with no sensitive-named file involved).
+ * Post-run, every snapshot-time store link is verified: an impostor is
+ * QUARANTINED BY RENAME (never deleted - a concurrent legitimate writer is
+ * conceivable, and the quarantine name is not skip-named, so the normal scan
+ * still stages any sensitive-by-name files inside it) and the link restored.
+ * Returns engine lines describing what happened.
+ */
+export async function restoreReplacedStoreLinks(snapshot: SensitiveWorkspaceSnapshot): Promise<string[]> {
+  const lines: string[] = [];
+  for (const { link, target } of snapshot.storeLinks) {
+    try {
+      let current: Stats | null = null;
+      try {
+        current = await lstat(link);
+      } catch {
+        current = null;
+      }
+      if (current?.isSymbolicLink()) {
+        try {
+          if (realpathSync(link) === target) continue;
+        } catch {
+          /* dangling now - fall through to restore */
+        }
+        await rm(link, { force: true });
+      } else if (current) {
+        const quarantine = `${link}.unreviewed-${Date.now()}`;
+        await rename(link, quarantine);
+        lines.push(
+          `A package-store symlink was replaced during the run; the replacement was quarantined to ${quarantine
+            .slice(link.length - basename(link).length)
+            .replace(/[\r\n]+/gu, " ")} and the link restored - ask the user to inspect the quarantined directory.`,
+        );
+      }
+      await symlink(target, link, "junction");
+    } catch (err) {
+      logger.error(err, "[mari] Could not restore a replaced package-store symlink");
+      lines.push(
+        `A package-store symlink changed during the run and could not be restored; ask the user to inspect it.`,
+      );
+    }
+  }
+  return lines;
 }
 
 export async function detectUnreviewedSensitiveChanges(
