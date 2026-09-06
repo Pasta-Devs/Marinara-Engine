@@ -1,9 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
-import { lstat, mkdtemp, readdir, rm } from "node:fs/promises";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { lstat, mkdtemp, readdir, readlink, rm } from "node:fs/promises";
+import type { Stats } from "node:fs";
+import { delimiter, dirname, join, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
-import { workspacePathAccessPolicy } from "./workspace-change-review.service.js";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { MAX_REVIEW_FILE_BYTES, workspacePathAccessPolicy } from "./workspace-change-review.service.js";
 import { getBubblewrapRuntimeStatus } from "../sandbox/bubblewrap-runtime.js";
 
 export type WorkspaceShellSandboxBackend = "macos-seatbelt" | "linux-bubblewrap";
@@ -142,6 +145,213 @@ async function workspacePolicyPaths(workspaceRoot: string) {
     forbidden: uniqueExistingPaths(forbidden),
     sensitive: uniqueExistingPaths(sensitive),
   };
+}
+
+// ── #5786: post-execution safety net ────────────────────────────────────────────
+// The deny list above is spawn-time-only: a command can create a NEW
+// sensitive-by-name file (a package.json in a fresh directory, a root
+// Dockerfile that was absent) with no rule attached and no review. The
+// pre-command heuristics catch common write shapes, but they are string
+// checks by design. These functions are the net under all of it: a
+// fingerprint of every sensitive file before the command, and a re-walk
+// after it, so an unreviewed write is detected no matter what command shape
+// produced it.
+//
+// Hardening rules (adversarial review, #5786):
+// - Only REGULAR files are ever opened. A symlink is fingerprinted by its
+//   own identity and never followed - this scan runs in the unsandboxed
+//   server process, and following a link named package.json would read
+//   arbitrary host files into an approval card (or hang on a FIFO, or read
+//   /dev/zero unboundedly). Special files get the same treatment.
+// - Failures are contained PER ENTRY: a file the command chmod'd unreadable
+//   still produces a (diffable) fingerprint instead of aborting the walk,
+//   so its co-created siblings are still caught and reverted.
+// - Content is retained as raw BYTES (a utf8 round-trip corrupts binary
+//   lockfiles like bun.lockb on restore), up to the review cap; grossly
+//   oversized files are fingerprinted by size alone and never read.
+const SNAPSHOT_HARD_READ_CAP_BYTES = 8 * 1024 * 1024;
+// Aggregate retention budget for a single scan: per-file caps bound each
+// entry, this bounds the SUM - thousands of planted ~512KB manifests must
+// not OOM the server during the very scan meant to contain them. Past the
+// budget, hits still revert (hash + unlink need no content) but cannot stage.
+const SCAN_RETAINED_CONTENT_BUDGET_BYTES = 8 * 1024 * 1024;
+// The scan's own skip set is NARROWER than the spawn walk's: dist/, build/,
+// coverage/, .cache/ are walked (a manifest planted there is exactly the
+// #5786 class - verified bypass otherwise), while the package-store trees
+// stay skipped for cost. Their contents are a documented residual: writing
+// inside node_modules was always sandbox-permitted, and the review floor
+// defends the manifests that would INSTALL such content, not the store
+// itself.
+const SCAN_SKIPPED_DIRS = new Set(["node_modules", ".pnpm", ".pnpm-store", ".git"]);
+
+type SensitiveFingerprint = { kind: "file"; hash: string; content: Buffer | null } | { kind: "dir" };
+
+export type SensitiveWorkspaceSnapshot = {
+  files: Map<string, SensitiveFingerprint>;
+  /**
+   * Subtrees the PRE-run walk could not inspect. Anything detected under
+   * them later cannot be attributed to the command - a pre-existing file
+   * would look "created" - so the revert must never delete there.
+   */
+  unscannable: string[];
+};
+
+export type UnreviewedSensitiveChange = {
+  absolutePath: string;
+  relativePath: string;
+  change: "created" | "modified";
+  beforeContent: Buffer | null;
+  /**
+   * UTF-8 text for the approval card; null when the file cannot be staged
+   * (binary, oversize, unreadable, not a regular file, or past the scan's
+   * aggregate retention budget).
+   */
+  afterContent: string | null;
+  /**
+   * True when the PRE-run walk could not inspect this file's subtree: the
+   * "created" attribution is then untrustworthy (it may simply have been
+   * invisible before), and the revert must report instead of delete.
+   */
+  attributionUncertain: boolean;
+};
+
+export type SensitiveScanResult = {
+  hits: UnreviewedSensitiveChange[];
+  /** Paths the walk could not inspect - reported loudly, never silently. */
+  unscannable: string[];
+};
+
+async function fingerprintSensitiveFile(path: string, stats: Stats): Promise<SensitiveFingerprint> {
+  if (stats.isSymbolicLink()) {
+    let target = "unresolved";
+    try {
+      target = await readlink(path);
+    } catch {
+      /* fingerprint below still identifies it as a link */
+    }
+    return { kind: "file", hash: `symlink:${target}`, content: null };
+  }
+  if (!stats.isFile()) {
+    return { kind: "file", hash: `special:${stats.mode}:${stats.size}`, content: null };
+  }
+  if (stats.size > SNAPSHOT_HARD_READ_CAP_BYTES) {
+    return { kind: "file", hash: `oversize:${stats.size}:${Math.trunc(stats.mtimeMs)}`, content: null };
+  }
+  try {
+    const raw = await readFile(path);
+    return {
+      kind: "file",
+      hash: createHash("sha256").update(raw).digest("hex"),
+      content: raw.byteLength <= MAX_REVIEW_FILE_BYTES ? raw : null,
+    };
+  } catch (err) {
+    return { kind: "file", hash: `unreadable:${(err as NodeJS.ErrnoException).code ?? "error"}`, content: null };
+  }
+}
+
+async function walkSensitiveEntries(
+  workspaceRoot: string,
+  onEntry: (path: string, fingerprint: SensitiveFingerprint) => void,
+  descendIntoCoveredDir: (path: string) => boolean,
+  unscannable: string[],
+) {
+  const visit = async (path: string) => {
+    let policy: "normal" | "sensitive" | "forbidden";
+    let stats: Stats;
+    try {
+      policy = workspacePathAccessPolicy(workspaceRoot, path);
+      if (policy === "forbidden") return;
+      stats = await lstat(path);
+    } catch {
+      unscannable.push(path);
+      return;
+    }
+    if (policy === "sensitive" && (!stats.isDirectory() || stats.isSymbolicLink())) {
+      onEntry(path, await fingerprintSensitiveFile(path, stats));
+      return;
+    }
+    if (policy === "sensitive") {
+      onEntry(path, { kind: "dir" });
+      // An EXISTING sensitive directory is covered by the spawn-time rules,
+      // so its subtree needs no fingerprints; a directory that appeared
+      // during the run has no rule at all and must be walked in full.
+      if (!descendIntoCoveredDir(path)) return;
+    }
+    if (!stats.isDirectory() || stats.isSymbolicLink()) return;
+    const name = path === workspaceRoot ? "" : path.slice(path.lastIndexOf(sep) + 1);
+    if (SCAN_SKIPPED_DIRS.has(name)) return;
+    let entries;
+    try {
+      entries = await readdir(path, { withFileTypes: true });
+    } catch {
+      unscannable.push(path);
+      return;
+    }
+    for (const entry of entries) {
+      await visit(join(path, entry.name));
+    }
+  };
+  await visit(workspaceRoot);
+}
+
+export async function snapshotSensitiveWorkspaceFiles(workspaceRoot: string): Promise<SensitiveWorkspaceSnapshot> {
+  const files = new Map<string, SensitiveFingerprint>();
+  const unscannable: string[] = [];
+  await walkSensitiveEntries(
+    workspaceRoot,
+    (path, fingerprint) => files.set(resolve(path), fingerprint),
+    () => false,
+    unscannable,
+  );
+  return { files, unscannable };
+}
+
+function stageableText(content: Buffer | null): string | null {
+  if (content === null) return null;
+  const text = content.toString("utf8");
+  // Binary content does not survive a utf8 round-trip; such files can be
+  // reverted (bytes retained) but never staged as a text diff.
+  return Buffer.compare(Buffer.from(text, "utf8"), content) === 0 ? text : null;
+}
+
+export async function detectUnreviewedSensitiveChanges(
+  workspaceRoot: string,
+  before: SensitiveWorkspaceSnapshot,
+): Promise<SensitiveScanResult> {
+  const hits: UnreviewedSensitiveChange[] = [];
+  const unscannable: string[] = [];
+  let retainedBudget = SCAN_RETAINED_CONTENT_BUDGET_BYTES;
+  const underUnscannable = (absolute: string) =>
+    before.unscannable.some((prefix) => absolute === prefix || absolute.startsWith(prefix + sep));
+  await walkSensitiveEntries(
+    workspaceRoot,
+    (path, fingerprint) => {
+      if (fingerprint.kind === "dir") return;
+      const absolute = resolve(path);
+      const prior = before.files.get(absolute);
+      if (prior && prior.kind === "file" && prior.hash === fingerprint.hash) return;
+      const isNew = !prior || prior.kind === "dir";
+      let afterContent = stageableText(fingerprint.content);
+      if (afterContent !== null) {
+        const cost = Buffer.byteLength(afterContent, "utf8");
+        if (cost > retainedBudget) afterContent = null;
+        else retainedBudget -= cost;
+      }
+      hits.push({
+        absolutePath: absolute,
+        relativePath: relative(workspaceRoot, absolute).split(sep).join("/"),
+        change: isNew ? "created" : "modified",
+        beforeContent: prior && prior.kind === "file" ? prior.content : null,
+        afterContent,
+        attributionUncertain: isNew && underUnscannable(absolute),
+      });
+    },
+    // Directories the snapshot never saw were created by the run and have no
+    // rule covering them: walk them in full.
+    (path) => !before.files.has(resolve(path)),
+    unscannable,
+  );
+  return { hits, unscannable };
 }
 
 function macosReadRoots(workspaceRoot: string, env: NodeJS.ProcessEnv, sandboxTemp: string) {
