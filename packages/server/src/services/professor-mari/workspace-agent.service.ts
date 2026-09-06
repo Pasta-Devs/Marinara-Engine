@@ -3879,10 +3879,16 @@ ${sections.join("\n\n")}
           signal.removeEventListener("abort", abortHandler);
           void sandboxed.cleanup().finally(callback);
         };
+        let killIssued = false;
         const killChild = () => {
           // #5892: group kill - the detached spawn makes the child a group
           // leader, so backgrounded grandchildren die with it (the macOS
           // teardown-survivor residual). Escalates for TERM-trapping trees.
+          // Idempotent: abort and timeout can BOTH fire, and a second call
+          // would overwrite hardKillTimer, orphaning the first escalation to
+          // SIGKILL a possibly recycled process group after close.
+          if (killIssued) return;
+          killIssued = true;
           killSandboxedProcessTree(child, "SIGTERM");
           hardKillTimer = setTimeout(() => killSandboxedProcessTree(child, "SIGKILL"), KILL_ESCALATION_MS);
           hardKillTimer.unref?.();

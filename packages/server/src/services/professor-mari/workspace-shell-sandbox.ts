@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { lstat, mkdir, mkdtemp, readdir, readlink, rm } from "node:fs/promises";
 import type { Stats } from "node:fs";
 import { delimiter, dirname, join, relative, resolve, sep } from "node:path";
@@ -151,7 +151,8 @@ async function packageStoreCacheCarveouts(packageStores: string[]): Promise<stri
   return carveouts;
 }
 
-async function workspacePolicyPaths(workspaceRoot: string) {
+/** Exported for the regression lane; production goes through the profile builders. */
+export async function workspacePolicyPaths(workspaceRoot: string) {
   const forbidden: string[] = [];
   const sensitive: string[] = [];
   const packageStores: string[] = [];
@@ -168,10 +169,29 @@ async function workspacePolicyPaths(workspaceRoot: string) {
     }
     if (!stats.isDirectory() || stats.isSymbolicLink()) return;
     for (const entry of await readdir(path, { withFileTypes: true })) {
-      if (entry.isDirectory() && PACKAGE_STORE_DIR_NAMES.has(entry.name)) {
-        // Seen while being skipped: recorded for the read-only bind at zero
-        // extra walk cost, nested stores included.
-        packageStores.push(join(path, entry.name));
+      if (PACKAGE_STORE_DIR_NAMES.has(entry.name)) {
+        const storePath = join(path, entry.name);
+        if (entry.isDirectory()) {
+          // Seen while being skipped: recorded for the read-only bind at
+          // zero extra walk cost, nested stores included.
+          packageStores.push(storePath);
+        } else if (entry.isSymbolicLink()) {
+          // CWE-59: a store exposed AS a symlink must protect its TARGET -
+          // writes travel through the link. Only in-workspace targets need a
+          // rule (outside targets are never sandbox-writable to begin with);
+          // a dangling link protects nothing.
+          try {
+            const target = realpathSync(storePath);
+            if (
+              (target === workspaceRoot || target.startsWith(workspaceRoot + sep)) &&
+              statSync(target).isDirectory()
+            ) {
+              packageStores.push(target);
+            }
+          } catch {
+            /* dangling or unreadable link */
+          }
+        }
         continue;
       }
       if (entry.isDirectory() && POLICY_SCAN_SKIPPED_DIRS.has(entry.name)) continue;
@@ -642,10 +662,7 @@ export async function spawnWorkspaceSandboxedProcess(
  * equivalent of bubblewrap's --die-with-parent. Residuals: a process that
  * setsid()s itself out of the group, and - macOS only - a tree orphaned by a
  * hard SERVER crash (teardown never runs; Linux is covered by
- * --die-with-parent regardless of grouping). A store exposed as a SYMLINK is
- * also not enumerated for the read-only binds (dirent.isDirectory() is false
- * for links); writes through the link land at its target, which the normal
- * policy covers when the target is itself sensitive or store-named.
+ * --die-with-parent regardless of grouping).
  */
 export function killSandboxedProcessTree(child: Pick<ChildProcess, "pid" | "kill">, signal: NodeJS.Signals): void {
   if (typeof child.pid === "number" && process.platform !== "win32") {

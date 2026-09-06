@@ -41,6 +41,7 @@ import {
   killSandboxedProcessTree,
   linuxBubblewrapArgs,
   snapshotSensitiveWorkspaceFiles,
+  workspacePolicyPaths,
 } from "../../packages/server/src/services/professor-mari/workspace-shell-sandbox.js";
 
 const workspaceAgentSource = readFileSync(
@@ -696,5 +697,67 @@ assert.equal(
   "both backend spawns are detached - group semantics for teardown",
 );
 assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
+
+// ── #5894 review: store-name SYMLINKS protect their canonical targets ───────
+// CWE-59: a pre-existing node_modules symlink is not a directory, so the old
+// walk skipped it entirely - a command could write THROUGH the link into its
+// in-workspace target with no read-only bind. The walk now resolves the
+// link: in-workspace directory targets get the rule, outside targets are
+// rejected (never sandbox-writable anyway), dangling links protect nothing.
+{
+  const workspace = mkdtempSync(join(tmpdir(), "store-symlink-"));
+  const outside = mkdtempSync(join(tmpdir(), "store-outside-"));
+  try {
+    mkdirSync(join(workspace, "real-store"));
+    writeFileSync(join(workspace, "real-store", "left-pad.js"), "module.exports = 1;");
+    let symlinksSupported = true;
+    try {
+      symlinkSync(join(workspace, "real-store"), join(workspace, "node_modules"), "junction");
+    } catch {
+      symlinksSupported = false;
+    }
+    if (symlinksSupported) {
+      const linked = await workspacePolicyPaths(workspace);
+      const realStore = realpathSync(join(workspace, "real-store"));
+      assert.ok(
+        linked.packageStores.some((path) => realpathSync(path) === realStore),
+        "a store-name symlink binds its canonical in-workspace target read-only",
+      );
+      rmSync(join(workspace, "node_modules"), { recursive: true, force: true });
+
+      symlinkSync(outside, join(workspace, "node_modules"), "junction");
+      const escaping = await workspacePolicyPaths(workspace);
+      assert.ok(
+        !escaping.packageStores.some((path) => realpathSync(path).startsWith(realpathSync(outside))),
+        "a link escaping the workspace never mints a rule for the outside target",
+      );
+      rmSync(join(workspace, "node_modules"), { recursive: true, force: true });
+
+      symlinkSync(join(workspace, "does-not-exist"), join(workspace, "node_modules"), "junction");
+      const dangling = await workspacePolicyPaths(workspace);
+      assert.equal(
+        dangling.packageStores.some((path) => path.includes("does-not-exist")),
+        false,
+        "a dangling store link protects nothing and never throws",
+      );
+    }
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+}
+
+// ── #5894 review: teardown is idempotent ────────────────────────────────────
+// Abort and timeout can BOTH invoke killChild; without the guard the second
+// call overwrote hardKillTimer, and finish() cleared only the newer one -
+// the orphaned timer could SIGKILL a recycled process group after close. A
+// sequence-level simulation needs a live sandbox spawn, so the guard whose
+// absence recreates the bug is pinned instead.
+assert.match(flatAgentSource, /let killIssued = false;/u);
+assert.match(
+  flatAgentSource,
+  /if \(killIssued\) return; killIssued = true; killSandboxedProcessTree\(child, "SIGTERM"\);/u,
+  "only the first killChild call ever schedules the escalation timer",
+);
 
 console.log("Mari guard sibling-paths regression passed.");
