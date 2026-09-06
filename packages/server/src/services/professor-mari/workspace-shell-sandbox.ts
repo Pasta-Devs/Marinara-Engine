@@ -134,10 +134,16 @@ const PACKAGE_STORE_DIR_NAMES = new Set(["node_modules", ".pnpm", ".pnpm-store"]
 // the carve-out every default-scaffold build fails on a read-only store.
 const PACKAGE_STORE_WRITABLE_CACHES = [".cache", ".vite", ".vite-temp"];
 
-async function packageStoreCacheCarveouts(packageStores: string[]): Promise<string[]> {
+/**
+ * Takes the LOGICAL node_modules stores (see workspacePolicyPaths) - a store
+ * exposed through a symlink has a canonical target with some other basename,
+ * so a physical-name check here would leave linked stores without their
+ * cache carve-outs and every build writing node_modules/.cache would fail.
+ * Exported for the regression lane.
+ */
+export async function packageStoreCacheCarveouts(nodeModulesStores: string[]): Promise<string[]> {
   const carveouts: string[] = [];
-  for (const store of packageStores) {
-    if (!store.endsWith(`${sep}node_modules`)) continue;
+  for (const store of nodeModulesStores) {
     for (const cache of PACKAGE_STORE_WRITABLE_CACHES) {
       const cachePath = join(store, cache);
       try {
@@ -156,6 +162,10 @@ export async function workspacePolicyPaths(workspaceRoot: string) {
   const forbidden: string[] = [];
   const sensitive: string[] = [];
   const packageStores: string[] = [];
+  // Canonical paths whose LOGICAL name is node_modules - the only store kind
+  // whose caches must stay writable - tracked separately because a symlinked
+  // store's canonical target carries a different basename.
+  const nodeModulesStores: string[] = [];
   const visit = async (path: string) => {
     const policy = workspacePathAccessPolicy(workspaceRoot, path);
     if (policy === "forbidden") {
@@ -175,6 +185,7 @@ export async function workspacePolicyPaths(workspaceRoot: string) {
           // Seen while being skipped: recorded for the read-only bind at
           // zero extra walk cost, nested stores included.
           packageStores.push(storePath);
+          if (entry.name === "node_modules") nodeModulesStores.push(storePath);
         } else if (entry.isSymbolicLink()) {
           // CWE-59: a store exposed AS a symlink must protect its TARGET -
           // writes travel through the link. Only in-workspace targets need a
@@ -187,6 +198,7 @@ export async function workspacePolicyPaths(workspaceRoot: string) {
               statSync(target).isDirectory()
             ) {
               packageStores.push(target);
+              if (entry.name === "node_modules") nodeModulesStores.push(target);
             }
           } catch {
             /* dangling or unreadable link */
@@ -203,6 +215,7 @@ export async function workspacePolicyPaths(workspaceRoot: string) {
     forbidden: uniqueExistingPaths(forbidden),
     sensitive: uniqueExistingPaths(sensitive),
     packageStores: uniqueExistingPaths(packageStores),
+    nodeModulesStores: uniqueExistingPaths(nodeModulesStores),
   };
 }
 
@@ -473,7 +486,7 @@ export async function buildMacosWorkspaceShellProfile(
   allowChildProcesses = true,
 ) {
   const policyPaths = await workspacePolicyPaths(workspaceRoot);
-  const storeCaches = writableWorkspace ? await packageStoreCacheCarveouts(policyPaths.packageStores) : [];
+  const storeCaches = writableWorkspace ? await packageStoreCacheCarveouts(policyPaths.nodeModulesStores) : [];
   const readable = macosReadRoots(workspaceRoot, env, sandboxTemp)
     .map((path) => `    (subpath ${sandboxLiteral(path)})`)
     .join("\n");
@@ -569,7 +582,7 @@ export async function linuxBubblewrapArgs(
     }
     // Later mounts stack over earlier ones: the cache dirs come back
     // writable inside the read-only store.
-    for (const cache of await packageStoreCacheCarveouts(policyPaths.packageStores)) {
+    for (const cache of await packageStoreCacheCarveouts(policyPaths.nodeModulesStores)) {
       args.push("--bind", cache, cache);
     }
   }

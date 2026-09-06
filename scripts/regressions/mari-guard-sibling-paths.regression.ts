@@ -40,6 +40,7 @@ import {
   detectUnreviewedSensitiveChanges,
   killSandboxedProcessTree,
   linuxBubblewrapArgs,
+  packageStoreCacheCarveouts,
   snapshotSensitiveWorkspaceFiles,
   workspacePolicyPaths,
 } from "../../packages/server/src/services/professor-mari/workspace-shell-sandbox.js";
@@ -723,6 +724,19 @@ assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
         linked.packageStores.some((path) => realpathSync(path) === realStore),
         "a store-name symlink binds its canonical in-workspace target read-only",
       );
+      // The carve-outs follow the LOGICAL name: node_modules-through-a-link
+      // keeps its writable caches, so builds writing node_modules/.cache do
+      // not break on the read-only bind.
+      assert.ok(
+        linked.nodeModulesStores.some((path) => realpathSync(path) === realStore),
+        "the linked store is recognized as a logical node_modules",
+      );
+      const carveouts = await packageStoreCacheCarveouts(linked.nodeModulesStores);
+      assert.ok(
+        carveouts.some((path) => path.endsWith(".cache") && realpathSync(join(path, "..")) === realStore),
+        "cache carve-outs are created inside the canonical target",
+      );
+      assert.ok(existsSync(join(workspace, "real-store", ".vite")), "the carve-out directories exist on disk");
       rmSync(join(workspace, "node_modules"), { recursive: true, force: true });
 
       symlinkSync(outside, join(workspace, "node_modules"), "junction");
