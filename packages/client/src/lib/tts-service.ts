@@ -210,8 +210,11 @@ export async function playWhenAvailable(
       if (attempts >= MAX_PLAY_ATTEMPTS) {
         throw err instanceof Error ? err : new Error("Browser blocked audio playback");
       }
+      // Only the autoplay-policy rejection is retryable - a decode or
+      // not-supported failure does not heal by waiting or foregrounding.
+      if (!(err instanceof Error) || err.name !== "NotAllowedError") throw err;
       const hiddenNow = typeof document !== "undefined" && document.visibilityState === "hidden";
-      if (err instanceof Error && err.name === "NotAllowedError" && !hiddenNow) {
+      if (!hiddenNow) {
         // Autoplay policy, not visibility: only a fresh user gesture can
         // unblock playback, and retrying inside its transient activation is
         // exactly what makes the retry succeed.
@@ -219,11 +222,8 @@ export async function playWhenAvailable(
         await waitForUserGesture(signal);
         continue;
       }
-      if (hiddenNow) {
-        waitBeforeRetry = true;
-        continue;
-      }
-      throw err;
+      waitBeforeRetry = true;
+      continue;
     }
   }
 }
@@ -400,13 +400,19 @@ class TTSService {
       if (this.abortController === abortController) {
         this.abortController = null;
       }
+      // Record the REAL failure and detach the element first: the abort below
+      // rejects a parked playWhenAvailable with AbortError, and the outer
+      // catch must find this.audio already cleared so it cannot overwrite the
+      // decode error with the abort message.
+      this.audio = null;
+      this.cleanup();
+      this.lastError = "Audio playback failed";
+      this.setState("error");
       // A decode error can land while playWhenAvailable is parked waiting for
       // a user gesture; aborting (not merely dropping) the controller is what
-      // releases those window listeners and rejects the parked promise, so no
-      // future keystroke retries a dead element on a revoked URL.
+      // releases those window listeners, so no future keystroke retries a
+      // dead element on a revoked URL.
       abortController.abort();
-      this.cleanup();
-      this.setState("error");
     };
 
     try {
@@ -546,10 +552,13 @@ class TTSService {
           try {
             runChunkEnd();
           } finally {
-            // Same parked-listener release as the single-clip path: a decode
-            // error while blocked must abort the park, not orphan it.
-            abortController.abort();
+            // Settle the chunk with the REAL failure before aborting: the
+            // abort synchronously rejects the parked playWhenAvailable, and a
+            // fail() after that would hit an already-settled promise, letting
+            // the sequence continue as if the decode error never happened.
             fail(new Error("Audio playback failed"));
+            // Then release the parked gesture listeners.
+            abortController.abort();
           }
         };
 

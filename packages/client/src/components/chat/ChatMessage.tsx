@@ -3666,7 +3666,7 @@ export const ChatMessage = memo(function ChatMessage({
               />
               {ttsEnabled && (
                 <>
-                  {isSpeakingThis && !isLoadingThis && (
+                  {isSpeakingThis && (ttsState === "playing" || ttsState === "paused") && (
                     <>
                       <ActionBtn
                         icon={

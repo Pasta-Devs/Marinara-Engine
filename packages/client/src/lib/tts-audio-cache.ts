@@ -72,9 +72,20 @@ function rememberInMemory(key: string, blob: Blob) {
   }
 }
 
+/** The production memory read: a hit refreshes Map recency, making the tier LRU. */
+function readFromMemory(key: string): Blob | null {
+  const hit = memoryCache.get(key);
+  if (!hit) return null;
+  rememberInMemory(key, hit);
+  return hit;
+}
+
 /** Test seams for the regression lane; production code never calls these. */
 export function __rememberTTSAudioInMemoryForTests(key: string, blob: Blob) {
   rememberInMemory(key, blob);
+}
+export function __readTTSAudioFromMemoryForTests(key: string): Blob | null {
+  return readFromMemory(key);
 }
 export function __ttsMemoryCacheStatsForTests(): { entries: number; bytes: number } {
   return { entries: memoryCache.size, bytes: memoryCacheBytes };
@@ -252,11 +263,8 @@ async function putPersistentBlob(key: string, blob: Blob): Promise<void> {
 }
 
 export async function getCachedTTSAudioBlob(key: string): Promise<Blob | null> {
-  const memoryHit = memoryCache.get(key);
-  if (memoryHit) {
-    rememberInMemory(key, memoryHit);
-    return memoryHit;
-  }
+  const memoryHit = readFromMemory(key);
+  if (memoryHit) return memoryHit;
 
   const persisted = await getPersistentBlob(key);
   if (persisted) rememberInMemory(key, persisted);

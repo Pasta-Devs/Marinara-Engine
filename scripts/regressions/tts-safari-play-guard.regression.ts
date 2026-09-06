@@ -13,6 +13,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { playWhenAvailable } from "../../packages/client/src/lib/tts-service.js";
 import {
+  __readTTSAudioFromMemoryForTests,
   __rememberTTSAudioInMemoryForTests,
   __resetTTSMemoryCacheForTests,
   __ttsMemoryCacheStatsForTests,
@@ -33,7 +34,12 @@ const windowStub = {
     gestureListeners.get(name)?.delete(fn);
   },
 };
-const documentStub = {
+const documentStub: {
+  visibilityState: string;
+  hasFocus: () => boolean;
+  addEventListener: () => void;
+  removeEventListener: () => void;
+} = {
   visibilityState: "visible",
   hasFocus: () => true,
   addEventListener() {},
@@ -122,6 +128,28 @@ try {
     assert.equal(plays, 1);
     assert.equal(blocked, 0);
   }
+  // A decode failure whose tab goes hidden mid-play fails immediately too -
+  // it does not heal by foregrounding, so it must not park until the cap.
+  // (A tab hidden at ENTRY never plays at all - that gate is by design.)
+  {
+    let plays = 0;
+    const failure = new Error("decode failed");
+    failure.name = "NotSupportedError";
+    const audio = {
+      play() {
+        plays += 1;
+        documentStub.visibilityState = "hidden";
+        return Promise.reject(failure);
+      },
+    };
+    const err = await playWhenAvailable(audio).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    assert.equal(err, failure, "a non-policy error surfaces even when the tab just went hidden");
+    assert.equal(plays, 1);
+    documentStub.visibilityState = "visible";
+  }
 } finally {
   delete (globalThis as Record<string, unknown>).window;
   delete (globalThis as Record<string, unknown>).document;
@@ -140,6 +168,17 @@ try {
   __rememberTTSAudioInMemoryForTests("huge", mb(65));
   stats = __ttsMemoryCacheStatsForTests();
   assert.equal(stats.entries, 2, "a single over-budget blob never enters the cache");
+  // True LRU, not FIFO: reading through the production path refreshes
+  // recency, so the untouched entry is the one the byte cap evicts.
+  __resetTTSMemoryCacheForTests();
+  const blobA = mb(30);
+  __rememberTTSAudioInMemoryForTests("lru-a", blobA);
+  __rememberTTSAudioInMemoryForTests("lru-b", mb(30));
+  assert.equal(__readTTSAudioFromMemoryForTests("lru-a"), blobA, "the read path returns the cached blob");
+  __rememberTTSAudioInMemoryForTests("lru-c", mb(30));
+  assert.equal(__readTTSAudioFromMemoryForTests("lru-a"), blobA, "recently read audio survives the eviction");
+  assert.equal(__readTTSAudioFromMemoryForTests("lru-b"), null, "the least-recently-USED entry is the one evicted");
+
   // Alias keys share one physical Blob - the budget must count it once.
   __resetTTSMemoryCacheForTests();
   const shared = mb(30);
@@ -197,10 +236,15 @@ assert.match(
 // A decode error while parked must release the gesture listeners by aborting
 // the controller - a nulled-but-live controller would let a later keystroke
 // retry a dead element on a revoked object URL.
-assert.equal(
-  (service.match(/abortController\.abort\(\);\s*(?:fail\(|this\.cleanup)/gu) ?? []).length,
-  2,
-  "both onerror paths abort the parked playback before tearing down",
+assert.match(
+  service,
+  /fail\(new Error\("Audio playback failed"\)\);\s*\/\/ Then release the parked gesture listeners\.\s*abortController\.abort\(\);/u,
+  "the sequence onerror settles the chunk with the real failure BEFORE the abort can swallow it",
+);
+assert.match(
+  service,
+  /this\.setState\("error"\);[^]{0,400}?abortController\.abort\(\);\s*\};/u,
+  "the single-clip onerror records the decode failure before releasing the park",
 );
 assert.match(chatArea, /toast\.dismiss\("tts-playback-blocked"\)/u, "resuming playback clears the tap-to-play toast");
 const configCard = readSource("packages/client/src/components/panels/settings/TTSConfigCard.tsx");
