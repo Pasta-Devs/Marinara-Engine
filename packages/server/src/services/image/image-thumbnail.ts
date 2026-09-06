@@ -14,8 +14,8 @@ import { BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH } from "@marinara-
 const THUMB_DIR = join(DATA_DIR, "backgrounds-thumbs");
 
 /**
- * Fixed widths only, so `?w=` cannot create arbitrarily many copies of each image.
- * Compact tiles share 320px; mobile inline illustrations use 1024px.
+ * Fixed bounds only, so `?w=` cannot create arbitrarily many copies of each image.
+ * Compact tiles fit inside 320px; mobile inline illustrations fit inside 1024px.
  */
 const THUMB_WIDTHS = new Set([BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH]);
 
@@ -48,8 +48,9 @@ export async function resolveThumbPath(filePath: string, width: number): Promise
   try {
     // Inside the try: the source can vanish between the caller's existsSync and this stat.
     const key = createHash("sha1").update(filePath).digest("hex").slice(0, 16);
-    // v2 invalidates older copies that could flatten animation or lose EXIF orientation.
-    const thumbPath = join(THUMB_DIR, `v2-${width}-${statSync(filePath).mtimeMs}-${key}.webp`);
+    const source = statSync(filePath);
+    // v3 also invalidates width-only previews that left portrait/tall images too large.
+    const thumbPath = join(THUMB_DIR, `v3-${width}-${source.mtimeMs}-${key}.webp`);
     if (existsSync(thumbPath)) return thumbPath;
 
     const sharp = await getSharp();
@@ -58,26 +59,37 @@ export async function resolveThumbPath(filePath: string, width: number): Promise
     if ((metadata.pages ?? 1) > 1) return null;
     if (metadata.format === "png") {
       // Sharp does not expose APNG frame counts. acTL must precede the first IDAT.
-      // ponytail: inspect only 64 KiB of headers; unusually large metadata keeps the
-      // original. Increase this ceiling if those images need previews too.
+      // Read chunk headers, skipping metadata payloads rather than falling back to
+      // a full-size image when (for example) provenance data exceeds 64 KiB.
       const handle = await open(filePath, "r");
       let staticPng = false;
       try {
-        const { buffer, bytesRead } = await handle.read(Buffer.alloc(64 * 1024), 0, 64 * 1024, 0);
-        for (let offset = 8; offset + 8 <= bytesRead; offset += 12 + buffer.readUInt32BE(offset)) {
-          const chunk = buffer.toString("ascii", offset + 4, offset + 8);
+        const header = Buffer.alloc(8);
+        // Bound both I/O and offsets for malformed/pathological files. Unknown
+        // animation status still keeps the original instead of flattening it.
+        for (let offset = 8, chunks = 0; offset + 12 <= source.size && chunks < 1024; chunks++) {
+          const { bytesRead } = await handle.read(header, 0, header.length, offset);
+          if (bytesRead !== header.length) break;
+          const nextOffset = offset + 12 + header.readUInt32BE(0);
+          if (nextOffset > source.size) break;
+          const chunk = header.toString("ascii", 4, 8);
           if (chunk === "acTL") return null;
           if (chunk === "IDAT") {
             staticPng = true;
             break;
           }
+          offset = nextOffset;
         }
       } finally {
         await handle.close();
       }
       if (!staticPng) return null;
     }
-    const buffer = await image.rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 72 }).toBuffer();
+    const buffer = await image
+      .rotate()
+      .resize({ width, height: width, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 72 })
+      .toBuffer();
     if (!existsSync(THUMB_DIR)) mkdirSync(THUMB_DIR, { recursive: true });
     const temporaryPath = `${thumbPath}.${process.pid}.${randomUUID()}.tmp`;
     try {
