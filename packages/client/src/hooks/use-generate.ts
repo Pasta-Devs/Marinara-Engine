@@ -6,6 +6,7 @@ import { characterDataSchema, normalizeAvatarCrop, type AvatarCrop } from "@mari
 import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { toast, type ExternalToast } from "sonner";
 import { api, ApiError, isPassiveStreamDisconnect } from "../lib/api-client";
+import { recordClientRuntimeEvent } from "../lib/client-runtime-diagnostics";
 import {
   formatAgentFailuresToast,
   illustratorRetryTargetsForFailures,
@@ -2659,6 +2660,7 @@ export function useGenerate() {
             }
 
             case "illustration": {
+              recordClientRuntimeEvent("image-arrived");
               illustrationSettled = true;
               const illData = event.data as {
                 messageId: string;
@@ -3760,6 +3762,7 @@ export function useGenerate() {
               break;
             }
             case "illustration": {
+              recordClientRuntimeEvent("image-arrived");
               const illData = event.data as { messageId: string; imageUrl: string; reason?: string };
               toast(illData.reason ? `🎨 ${illData.reason}` : "🎨 Scene illustration generated");
               // Refresh messages so the illustration attachment appears

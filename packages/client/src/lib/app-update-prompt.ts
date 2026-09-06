@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { translate } from "../localization/i18n";
+import { reloadBrowser } from "./browser-runtime";
 
 const APP_UPDATE_TOAST_ID = "marinara-app-update";
 let latestRefresh: (() => void | Promise<void>) | null = null;
@@ -15,7 +16,7 @@ export function showAppUpdatePrompt(refresh: () => void | Promise<void>) {
       onClick: () => {
         void Promise.resolve()
           .then(() => latestRefresh?.())
-          .catch(() => window.location.reload());
+          .catch(() => reloadBrowser("update-fallback"));
       },
     },
   });

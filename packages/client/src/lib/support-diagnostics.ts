@@ -1,4 +1,7 @@
+import type { ClientRuntimeDiagnostics } from "./client-runtime-diagnostics";
+
 export interface SupportDiagnostics {
+  clientRuntime?: ClientRuntimeDiagnostics;
   version: string;
   build: string;
   commit: string | null;
@@ -193,6 +196,9 @@ export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): strin
     }`,
     `Client OS: ${available(diagnostics.clientOs)}`,
     `Browser / app shell: ${available(diagnostics.browser)}`,
+    // Like the existing server fields, this is an English technical support
+    // report, not UI copy. Event names are stable diagnostic protocol values.
+    `Client runtime: ${diagnostics.clientRuntime ? JSON.stringify(diagnostics.clientRuntime) : "Unavailable"}`,
     `GPU: ${available(diagnostics.gpu)}`,
     `Active connection: ${available(diagnostics.connectionName)}`,
     `Connection provider: ${available(diagnostics.connectionProvider)}`,
