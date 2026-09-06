@@ -754,6 +754,47 @@ assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
         false,
         "a dangling store link protects nothing and never throws",
       );
+      rmSync(join(workspace, "node_modules"), { recursive: true, force: true });
+
+      // A symlinked CACHE inside the store must never receive a write grant -
+      // mkdir({recursive}) succeeds through a directory link, and the grant
+      // would aim at the link's target (CWE-59, second edition).
+      symlinkSync(join(workspace, "real-store"), join(workspace, "node_modules"), "junction");
+      mkdirSync(join(workspace, "cache-target"));
+      // The earlier carve-out assertion created a REAL .cache here; replace
+      // it with the hostile link shape this case exists to reject.
+      rmSync(join(workspace, "real-store", ".cache"), { recursive: true, force: true });
+      symlinkSync(join(workspace, "cache-target"), join(workspace, "real-store", ".cache"), "junction");
+      const guarded = await packageStoreCacheCarveouts((await workspacePolicyPaths(workspace)).nodeModulesStores);
+      assert.equal(
+        guarded.some((path) => path.endsWith(".cache")),
+        false,
+        "a symlinked cache is rejected; only a real directory canonically inside the store qualifies",
+      );
+      assert.ok(
+        guarded.some((path) => path.endsWith(".vite")),
+        "the sibling real caches still carve out",
+      );
+      rmSync(join(workspace, "real-store", ".cache"), { recursive: true, force: true });
+
+      // The scan exempts the linked store by CANONICAL identity: writes into
+      // the target (legitimate carve-out traffic) are never reverted, and a
+      // link DELETED mid-run cannot expose the target as "created" files.
+      const storeSnapshot = await snapshotSensitiveWorkspaceFiles(workspace);
+      writeFileSync(join(workspace, "real-store", "package.json"), '{"name":"cache-metadata"}');
+      const throughLink = await detectUnreviewedSensitiveChanges(workspace, storeSnapshot);
+      assert.equal(
+        throughLink.hits.some((hit) => hit.relativePath.includes("real-store")),
+        false,
+        "the linked store's target is exempt from the scan while the link stands",
+      );
+      rmSync(join(workspace, "node_modules"), { recursive: true, force: true });
+      const afterUnlink = await detectUnreviewedSensitiveChanges(workspace, storeSnapshot);
+      assert.equal(
+        afterUnlink.hits.some((hit) => hit.relativePath.includes("real-store")),
+        false,
+        "a store link deleted mid-run cannot expose its target as created files",
+      );
     }
   } finally {
     rmSync(workspace, { recursive: true, force: true });

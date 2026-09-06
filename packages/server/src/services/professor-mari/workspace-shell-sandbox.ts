@@ -148,6 +148,12 @@ export async function packageStoreCacheCarveouts(nodeModulesStores: string[]): P
       const cachePath = join(store, cache);
       try {
         await mkdir(cachePath, { recursive: true });
+        // CWE-59: mkdir succeeds through an existing directory SYMLINK, and
+        // the write grant would then aim at the link's target. Only a real
+        // directory sitting canonically at store/<cache> qualifies.
+        const stats = await lstat(cachePath);
+        if (stats.isSymbolicLink() || !stats.isDirectory()) continue;
+        if (realpathSync(cachePath) !== join(realpathSync(store), cache)) continue;
         carveouts.push(cachePath);
       } catch {
         /* an unreadable store keeps its cache unwritable - fail closed */
@@ -265,6 +271,13 @@ type SensitiveFingerprint = { kind: "file"; hash: string; content: Buffer | null
 export type SensitiveWorkspaceSnapshot = {
   files: Map<string, SensitiveFingerprint>;
   /**
+   * Canonical package-store paths at snapshot time. Store contents are the
+   * scan's documented residual; tracking them canonically keeps a store
+   * exposed through a symlink exempt even if the link is created or deleted
+   * during the run.
+   */
+  storePaths: string[];
+  /**
    * Subtrees the PRE-run walk could not inspect. Anything detected under
    * them later cannot be attributed to the command - a pre-existing file
    * would look "created" - so the revert must never delete there.
@@ -332,11 +345,25 @@ async function fingerprintSensitiveFile(path: string, stats: Stats): Promise<Sen
   }
 }
 
+async function canonicalStorePaths(workspaceRoot: string): Promise<string[]> {
+  const policy = await workspacePolicyPaths(workspaceRoot);
+  const canonical: string[] = [];
+  for (const store of policy.packageStores) {
+    try {
+      canonical.push(realpathSync(store));
+    } catch {
+      /* vanished between walks */
+    }
+  }
+  return canonical;
+}
+
 async function walkSensitiveEntries(
   workspaceRoot: string,
   onEntry: (path: string, fingerprint: SensitiveFingerprint) => void,
   descendIntoCoveredDir: (path: string) => boolean,
   unscannable: string[],
+  storePaths: readonly string[] = [],
 ): Promise<{ entryCapExceeded: boolean }> {
   let remainingEntries = MAX_SCAN_ENTRIES;
   let entryCapExceeded = false;
@@ -368,6 +395,17 @@ async function walkSensitiveEntries(
       if (!descendIntoCoveredDir(path)) return;
     }
     if (!stats.isDirectory() || stats.isSymbolicLink()) return;
+    // Canonical store identity beats physical naming: a store exposed (or
+    // once exposed) through a symlink is exempt by its TARGET path, so the
+    // scan neither reverts legitimate carve-out writes inside it nor - if
+    // the link vanished mid-run - misreads the target as "created" files.
+    if (storePaths.length > 0) {
+      try {
+        if (storePaths.includes(realpathSync(path))) return;
+      } catch {
+        /* keep walking; per-entry containment reports deeper failures */
+      }
+    }
     const name = path === workspaceRoot ? "" : path.slice(path.lastIndexOf(sep) + 1);
     if (SCAN_SKIPPED_DIRS.has(name)) {
       // A PRE-EXISTING store is skipped for cost (and is read-only in the
@@ -395,13 +433,15 @@ async function walkSensitiveEntries(
 export async function snapshotSensitiveWorkspaceFiles(workspaceRoot: string): Promise<SensitiveWorkspaceSnapshot> {
   const files = new Map<string, SensitiveFingerprint>();
   const unscannable: string[] = [];
+  const storePaths = await canonicalStorePaths(workspaceRoot);
   const { entryCapExceeded } = await walkSensitiveEntries(
     workspaceRoot,
     (path, fingerprint) => files.set(resolve(path), fingerprint),
     () => false,
     unscannable,
+    storePaths,
   );
-  return { files, unscannable, entryCapExceeded };
+  return { files, unscannable, entryCapExceeded, storePaths };
 }
 
 function stageableText(content: Buffer | null): string | null {
@@ -451,6 +491,11 @@ export async function detectUnreviewedSensitiveChanges(
     // rule covering them: walk them in full.
     (path) => !before.files.has(resolve(path)),
     unscannable,
+    // SNAPSHOT-time stores only: those were read-only-bound for the whole
+    // run (so nothing unreviewed can sit in them, and a link deleted
+    // mid-run cannot expose its already-exempt target), while a store the
+    // run itself CREATED was never bound and must be walked in full.
+    before.storePaths,
   );
   return { hits, unscannable, entryCapExceeded: capState.entryCapExceeded };
 }
