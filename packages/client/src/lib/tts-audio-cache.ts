@@ -8,6 +8,11 @@ const DB_VERSION = 2;
 const STORE_NAME = "voiceLines";
 const META_STORE_NAME = "voiceLineMeta";
 const MAX_MEMORY_ENTRIES = 150;
+// #5889: iOS WebKit deliberately has no persistent tier, so the memory tier
+// is the ONLY tier there - and 150 entries with no byte bound can hold
+// hundreds of MB of live blobs in the web-content process. The count cap
+// stays; the byte cap is what actually protects Safari.
+const MAX_MEMORY_BYTES = 64 * 1024 * 1024;
 const MAX_PERSISTENT_ENTRIES = 750;
 const MAX_PERSISTENT_BYTES = 100 * 1024 * 1024;
 const PERSISTENT_PRUNE_THROTTLE_MS = 30_000;
@@ -27,6 +32,7 @@ export type CachedTTSAudioExportEntry = CachedVoiceLineMeta & {
 };
 
 const memoryCache = new Map<string, Blob>();
+let memoryCacheBytes = 0;
 const inFlight = new Map<string, Promise<Blob>>();
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 let lastPersistentPruneAt = 0;
@@ -35,14 +41,47 @@ export function shouldUsePersistentTTSAudioCache(userAgent: string, platform: st
   return !isIosWebKitBrowser(userAgent, platform, maxTouchPoints);
 }
 
-function rememberInMemory(key: string, blob: Blob) {
+// One voice line is stored under its primary key AND alias keys, all sharing
+// the same physical Blob - the byte budget must count each Blob once, or
+// aliases would book a 10MB line as 30MB and evict real audio early. The
+// reference scans are bounded by MAX_MEMORY_ENTRIES.
+function blobReferencedByAnotherKey(key: string, blob: Blob): boolean {
+  for (const [otherKey, otherBlob] of memoryCache) {
+    if (otherKey !== key && otherBlob === blob) return true;
+  }
+  return false;
+}
+
+function dropFromMemory(key: string) {
+  const existing = memoryCache.get(key);
   memoryCache.delete(key);
+  if (existing && !blobReferencedByAnotherKey(key, existing)) memoryCacheBytes -= existing.size;
+}
+
+function rememberInMemory(key: string, blob: Blob) {
+  dropFromMemory(key);
+  // A single blob over the whole-tier budget must never enter the cache -
+  // it would evict everything else and still bust the cap.
+  if (blob.size > MAX_MEMORY_BYTES) return;
+  if (!blobReferencedByAnotherKey(key, blob)) memoryCacheBytes += blob.size;
   memoryCache.set(key, blob);
-  while (memoryCache.size > MAX_MEMORY_ENTRIES) {
+  while (memoryCache.size > MAX_MEMORY_ENTRIES || memoryCacheBytes > MAX_MEMORY_BYTES) {
     const oldest = memoryCache.keys().next().value;
     if (!oldest) break;
-    memoryCache.delete(oldest);
+    dropFromMemory(oldest);
   }
+}
+
+/** Test seams for the regression lane; production code never calls these. */
+export function __rememberTTSAudioInMemoryForTests(key: string, blob: Blob) {
+  rememberInMemory(key, blob);
+}
+export function __ttsMemoryCacheStatsForTests(): { entries: number; bytes: number } {
+  return { entries: memoryCache.size, bytes: memoryCacheBytes };
+}
+export function __resetTTSMemoryCacheForTests() {
+  memoryCache.clear();
+  memoryCacheBytes = 0;
 }
 
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
@@ -158,7 +197,7 @@ async function prunePersistentCache(db: IDBDatabase): Promise<void> {
   for (const key of keysToDelete) {
     blobStore.delete(key);
     metaStore.delete(key);
-    memoryCache.delete(key);
+    dropFromMemory(key);
   }
   await transactionDone(deleteTx);
 }

@@ -2750,6 +2750,7 @@
   "ui.chat.charactersprite.value1Value2Sprite": "{{value1}} {{value2}} sprite",
   "ui.chat.characterswidget.loadingCharacters": "Loading characters…",
   "ui.chat.characterswidget.presentCharacters": "Present Characters",
+  "ui.chat.chatarea.audioBlockedTapToPlay": "The browser blocked audio playback - tap anywhere or press any key to play.",
   "ui.chat.chatarea.backToChats": "Back to chats",
   "ui.chat.chatarea.branchCreated": "Branch created.",
   "ui.chat.chatarea.branchFailed": "Branch failed.",

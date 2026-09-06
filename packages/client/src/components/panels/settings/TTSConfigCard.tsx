@@ -1187,7 +1187,7 @@ export function TTSConfigCard() {
   };
 
   const handlePreview = () => {
-    if (ttsState === "playing" || ttsState === "loading") {
+    if (ttsState === "playing" || ttsState === "loading" || ttsState === "blocked") {
       ttsService.stop();
       return;
     }
@@ -1416,7 +1416,7 @@ export function TTSConfigCard() {
       ? "Select an ElevenLabs voice first"
       : !enabled
         ? "Enable TTS first"
-        : ttsState === "playing"
+        : ttsState === "playing" || ttsState === "blocked"
           ? "Stop preview"
           : "Preview voice";
   const updateVoiceAssignments = (nextAssignments: TTSVoiceAssignment[]) => {

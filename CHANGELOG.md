@@ -69,6 +69,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Text-to-speech no longer freezes Safari (#5889). When Safari blocked playback for lacking a recent tap - which it does for autoplay, and even for the play button once fetching the audio took longer than the click - the app retried playing in a tight loop until the tab ran out of memory and froze. Blocked playback now waits quietly, shows a "tap anywhere to play" notice, and resumes on your next tap or keypress; on iPhone/iPad the audio kept in memory is also capped so long sessions cannot balloon Safari's memory.
+
 - Stopping Marinara Engine can no longer hang for half a minute or more (#5838). Shutting down used to wait forever for open browser connections before saving and exiting - long enough that system watchdogs (SteamOS's low-memory guard, Docker) would give up and force-kill it, losing unsaved changes. The engine now cuts lingering connections after 4 seconds and, if the shutdown is still stuck, exits on its own after 8 - inside every watchdog's patience, with pending saves given their chance first.
 - Kept user-message actions in the same left-to-right order as assistant-message actions (#5854).
 - Mobile Roleplay keeps composer boundary drags inside the input, avoids animated press transforms on message actions, opens older-message editors at their beginning, and returns the reopened Echo Chamber to its latest message (#5851).

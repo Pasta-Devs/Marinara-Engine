@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "typeRoots": ["../../node_modules/@types", "../../packages/server/node_modules/@types"],
+    "paths": {
+      "@marinara-engine/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["tts-safari-play-guard.regression.ts"]
+}
