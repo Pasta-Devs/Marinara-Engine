@@ -45,6 +45,7 @@ import { getAgentRunIntervalMeta } from "../../lib/agent-cadence";
 import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { buildCharacterIdentityGroups } from "../../lib/character-identity-groups";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
+import { resolveMessageMacros } from "../../lib/chat-macros";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import {
   CONVERSATION_COMMAND_AGENT_IDS,
@@ -2238,9 +2239,18 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         const firstMes = (parsed as { first_mes?: string }).first_mes;
         const altGreetings = (parsed as { alternate_greetings?: string[] }).alternate_greetings ?? [];
         if (firstMes) {
-          const msg = await createMessage.mutateAsync({ role: "assistant", content: firstMes, characterId: charId });
-          if (msg?.id && altGreetings.length > 0) {
-            await addSilentGreetingSwipes(chat.id, msg.id, altGreetings);
+          // Resolve preset choice variables ({{genre}}, {{setting}}, etc.) in the greeting
+          const metadata = readChatMetadata(chat);
+          const presetChoices = (metadata.presetChoices ?? {}) as Record<string, string>;
+          const resolvedFirstMes = resolveMessageMacros(firstMes, { variables: presetChoices });
+          const resolvedAltGreetings = altGreetings.map((g) => resolveMessageMacros(g, { variables: presetChoices }));
+          const msg = await createMessage.mutateAsync({
+            role: "assistant",
+            content: resolvedFirstMes,
+            characterId: charId,
+          });
+          if (msg?.id && resolvedAltGreetings.length > 0) {
+            await addSilentGreetingSwipes(chat.id, msg.id, resolvedAltGreetings);
             queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
           }
         }
@@ -2248,7 +2258,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         /* ignore */
       }
     },
-    [characters, chat.id, createMessage, queryClient],
+    [characters, chat, createMessage, queryClient],
   );
 
   const toggleCharacter = useCallback(
