@@ -824,6 +824,11 @@ assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
       mkdirSync(join(workspace, "node_modules", "evil"), { recursive: true });
       writeFileSync(join(workspace, "node_modules", "evil", "index.js"), "module.exports = 666;");
       writeFileSync(join(workspace, "node_modules", "package.json"), '{"name":"impostor"}');
+      // A pre-planted NON-EMPTY decoy at a quarantine-shaped name must not
+      // block restoration (rename onto a non-empty directory fails, which a
+      // predictable destination would let the command force).
+      mkdirSync(join(workspace, "node_modules.unreviewed-deadbeef"));
+      writeFileSync(join(workspace, "node_modules.unreviewed-deadbeef", "occupied"), "x");
       const restoreLines = await restoreReplacedStoreLinks(linkSnapshot);
       assert.equal(restoreLines.length, 1, "the replacement is reported to the engine region");
       assert.match(restoreLines[0] ?? "", /quarantined/u);
@@ -832,8 +837,14 @@ assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
           realpathSync(join(workspace, "node_modules")) === realStore,
         "the store link is restored to its canonical target",
       );
-      const quarantine = readdirSync(workspace).find((name) => name.startsWith("node_modules.unreviewed-"));
-      assert.ok(quarantine, "the impostor is quarantined by rename, not deleted");
+      const quarantine = readdirSync(workspace).find(
+        (name) => name.startsWith("node_modules.unreviewed-") && name !== "node_modules.unreviewed-deadbeef",
+      );
+      assert.ok(quarantine, "the impostor is quarantined by rename, not deleted, at an unpredictable name");
+      assert.ok(
+        existsSync(join(workspace, "node_modules.unreviewed-deadbeef", "occupied")),
+        "the decoy is left untouched",
+      );
       assert.ok(
         existsSync(join(workspace, quarantine ?? "", "evil", "index.js")),
         "planted code survives inside the quarantine for the user to inspect",
@@ -848,6 +859,7 @@ assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
         "sensitive files inside the quarantined impostor still reach the review gate",
       );
       rmSync(join(workspace, quarantine ?? "node_modules.unreviewed-none"), { recursive: true, force: true });
+      rmSync(join(workspace, "node_modules.unreviewed-deadbeef"), { recursive: true, force: true });
 
       // A link DELETED outright (not replaced) is restored silently - the
       // target is a protected store, so the link's absence is never an
@@ -859,6 +871,24 @@ assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
           realpathSync(join(workspace, "node_modules")) === realStore,
         "a deleted store link is restored",
       );
+
+      // A symlinked WORKSPACE ROOT (macOS tmpdirs: /var -> /private/var) must
+      // not defeat containment: the policy canonicalizes the root before the
+      // canonical store targets are measured against it, so the linked store
+      // keeps both its bind rule and the storeLinks pair restoration needs.
+      const rootLink = join(outside, "root-link");
+      symlinkSync(workspace, rootLink, "junction");
+      const throughRoot = await workspacePolicyPaths(rootLink);
+      assert.ok(
+        throughRoot.packageStores.some((path) => realpathSync(path) === realStore),
+        "a symlinked workspace root still mints the linked store's protection",
+      );
+      const rootSnapshot = await snapshotSensitiveWorkspaceFiles(rootLink);
+      assert.ok(
+        rootSnapshot.storeLinks.some((pair) => pair.target === realStore),
+        "storeLinks survive a symlinked root for post-run restoration",
+      );
+      rmSync(rootLink, { recursive: true, force: true });
     }
   } finally {
     rmSync(workspace, { recursive: true, force: true });

@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { lstat, mkdir, mkdtemp, readdir, readlink, rename, rm, symlink } from "node:fs/promises";
 import type { Stats } from "node:fs";
@@ -166,6 +167,17 @@ export async function packageStoreCacheCarveouts(nodeModulesStores: string[]): P
 
 /** Exported for the regression lane; production goes through the profile builders. */
 export async function workspacePolicyPaths(workspaceRoot: string) {
+  // CWE-59 (#5894 review): the containment checks below compare CANONICAL
+  // store targets against this root - a symlinked root (macOS tmpdirs live
+  // under /var -> /private/var) would reject every in-workspace linked store
+  // as "outside" and silently drop its bind rule AND its storeLinks entry,
+  // leaving nothing to restore post-run. Resolve the root to its physical
+  // path before anything is measured against it.
+  try {
+    workspaceRoot = realpathSync(workspaceRoot);
+  } catch {
+    /* an unreadable root fails loudly in the walk below */
+  }
   const forbidden: string[] = [];
   const sensitive: string[] = [];
   const packageStores: string[] = [];
@@ -507,8 +519,22 @@ export async function restoreReplacedStoreLinks(snapshot: SensitiveWorkspaceSnap
         }
         await rm(link, { force: true });
       } else if (current) {
-        const quarantine = `${link}.unreviewed-${Date.now()}`;
-        await rename(link, quarantine);
+        // #5894 review: the destination must be unguessable and collisions
+        // retried - rename onto a NON-EMPTY directory fails, so a command
+        // that pre-planted content at a predictable timestamp name would
+        // keep its impostor live at the store path.
+        let quarantine: string | null = null;
+        let renameFailure: unknown = null;
+        for (let attempt = 0; attempt < 3 && quarantine === null; attempt += 1) {
+          const candidate = `${link}.unreviewed-${randomBytes(6).toString("hex")}`;
+          try {
+            await rename(link, candidate);
+            quarantine = candidate;
+          } catch (renameErr) {
+            renameFailure = renameErr;
+          }
+        }
+        if (quarantine === null) throw renameFailure;
         lines.push(
           `A package-store symlink was replaced during the run; the replacement was quarantined to ${quarantine
             .slice(link.length - basename(link).length)
