@@ -368,8 +368,10 @@ assert.ok(
 );
 // Debt semantics: a self-verified mutation never pays off an earlier one.
 assert.ok(
-  workspaceAgentFlat.includes("if (!appliedMutationReadBackVerified(result)) unverifiedMutationSeen = true;"),
-  "each applied mutation carries its OWN verification debt",
+  workspaceAgentFlat.includes(
+    "if (inScope && !appliedMutationReadBackVerified(result)) unverifiedMutationSeen = true;",
+  ),
+  "each applied mutation carries its OWN verification debt, judged inside the claim's audit scope",
 );
 // The #5740 record treats a read-back mismatch as a failure, matching the
 // do-not-claim-success coaching on the same result.

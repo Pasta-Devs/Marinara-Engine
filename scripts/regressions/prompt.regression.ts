@@ -785,7 +785,7 @@ import {
   parseAssistantWorkspaceAction,
   professorMariWorkspaceResponseFormat,
   resolveWorkspaceMutationVerification,
-  workspaceActionNeedsVerification,
+  auditWorkspaceCompletionClaim,
   workspaceTextClaimsMutationCompletion,
   type WorkspaceCommandResult,
 } from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
@@ -11220,13 +11220,13 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         '{"say":"Done — I created it and verified it saved.","commands":[],"stop":true}',
       );
       assert.equal(workspaceTextClaimsMutationCompletion(unsupportedCompletion.visibleText), true);
-      assert.equal(workspaceActionNeedsVerification(unsupportedCompletion, []), "none");
+      assert.equal(auditWorkspaceCompletionClaim(unsupportedCompletion, []).issue, "none");
 
       const completedSupportReply = parseAssistantWorkspaceAction(
         '{"say":"Done. Shell commands are unavailable here, so use these manual steps.","commands":[],"stop":true}',
       );
       assert.equal(workspaceTextClaimsMutationCompletion(completedSupportReply.visibleText), false);
-      assert.equal(workspaceActionNeedsVerification(completedSupportReply, []), null);
+      assert.equal(auditWorkspaceCompletionClaim(completedSupportReply, []).issue, null);
       const approvalRequest = parseAssistantWorkspaceAction(
         '{"say":"Should I save this character update?","awaitingAuthorization":true,"commands":[{"name":"app_data","arguments":{"action":"character.update","characterId":"char-1","patch":{"appearance":"Blue coat"},"apply":true}}],"stop":false}',
       );
@@ -11247,9 +11247,12 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         success: true,
       };
       assert.equal(resolveWorkspaceMutationVerification([mutationResult]), "unverified");
-      assert.equal(workspaceActionNeedsVerification(unsupportedCompletion, [mutationResult]), "unverified");
+      assert.equal(auditWorkspaceCompletionClaim(unsupportedCompletion, [mutationResult]).issue, "unverified");
       assert.equal(resolveWorkspaceMutationVerification([mutationResult, verificationResult]), "verified");
-      assert.equal(workspaceActionNeedsVerification(unsupportedCompletion, [mutationResult, verificationResult]), null);
+      assert.equal(
+        auditWorkspaceCompletionClaim(unsupportedCompletion, [mutationResult, verificationResult]).issue,
+        null,
+      );
 
       const dryRunMutation = { ...mutationResult, output: '{"saved": false}' };
       assert.equal(resolveWorkspaceMutationVerification([dryRunMutation, verificationResult]), "none");
@@ -11277,7 +11280,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(resolveWorkspaceMutationVerification([stagedSensitiveWrite]), "staged");
       assert.equal(resolveWorkspaceMutationVerification([stagedSensitiveWrite, verificationResult]), "staged");
       assert.equal(resolveWorkspaceMutationVerification([stagedSensitiveEdit, verificationResult]), "staged");
-      assert.equal(workspaceActionNeedsVerification(unsupportedCompletion, [stagedSensitiveWrite]), "staged");
+      assert.equal(auditWorkspaceCompletionClaim(unsupportedCompletion, [stagedSensitiveWrite]).issue, "staged");
 
       const appliedWrite: WorkspaceCommandResult = {
         ...stagedSensitiveWrite,
@@ -11312,7 +11315,12 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         "staged",
       );
       assert.equal(
-        resolveWorkspaceMutationVerification([appliedWrite, verificationResult, stagedSensitiveWrite, verificationResult]),
+        resolveWorkspaceMutationVerification([
+          appliedWrite,
+          verificationResult,
+          stagedSensitiveWrite,
+          verificationResult,
+        ]),
         "staged",
       );
       // A read after the staged result still pays the applied mutation's
@@ -11322,10 +11330,193 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         resolveWorkspaceMutationVerification([appliedWrite, stagedSensitiveWrite, verificationResult]),
         "staged",
       );
+      // ── Loop wiring pins: the pure function is only half the contract ────
+      const agentSourceForPins = readFileSync(
+        new URL("../../packages/server/src/services/professor-mari/workspace-agent.service.ts", import.meta.url),
+        "utf8",
+      ).replace(/\s+/gu, " ");
+      assert.ok(
+        agentSourceForPins.includes(
+          "auditWorkspaceCompletionClaim(action, commandResultsForContinuity, { auditFrom: claimAuditWatermark, hadPassedClaimAudit, })",
+        ),
+        "the loop audits against the live watermark, never from zero",
+      );
+      assert.ok(
+        agentSourceForPins.includes(
+          "if (claimAudit.advanceWatermark) { claimAuditWatermark = commandResultsForContinuity.length; hadPassedClaimAudit = true; }",
+        ),
+        "a passing audit consumes its evidence and arms the summary allowance",
+      );
+      assert.ok(
+        agentSourceForPins.includes("midRunClaimRepairRounds <= MAX_MIDRUN_CLAIM_REPAIR_ROUNDS"),
+        "mid-run claims draw on their own repair budget",
+      );
+      assert.ok(
+        agentSourceForPins.includes(
+          "auditWorkspaceCompletionClaim(finalAction, commandResultsForContinuity, { auditFrom: claimAuditWatermark, hadPassedClaimAudit, })",
+        ),
+        "the command-limit audit shares the run's scope state",
+      );
+
       const honestBlocker = parseAssistantWorkspaceAction(
         '{"say":"I could not create it because the name is missing.","commands":[],"stop":true}',
       );
-      assert.equal(workspaceActionNeedsVerification(honestBlocker, []), null);
+      assert.equal(auditWorkspaceCompletionClaim(honestBlocker, []).issue, null);
+
+      // ── #5819/#5830: watermark-scoped claim auditing ────────────────────
+      // The reported batch: step 1 verified, its claim passes and CONSUMES
+      // that evidence; the skipped step 2's empty scope is caught instead of
+      // riding step 1's success (the flaw that killed the first fix).
+      const midRunClaimOne = parseAssistantWorkspaceAction(
+        '{"say":"I created Aria. Now creating Bran.","commands":[{"name":"app_data","arguments":{"action":"character.create","apply":true}}],"stop":false}',
+      );
+      const batchResults: WorkspaceCommandResult[] = [mutationResult, verificationResult];
+      const auditOne = auditWorkspaceCompletionClaim(midRunClaimOne, batchResults, { auditFrom: 0 });
+      assert.equal(auditOne.issue, null, "a truthful step claim over verified work passes");
+      assert.equal(auditOne.advanceWatermark, true, "and consumes its evidence");
+      const midRunClaimTwo = parseAssistantWorkspaceAction(
+        '{"say":"I created Bran. Now creating Cass.","commands":[{"name":"app_data","arguments":{"action":"character.create","apply":true}}],"stop":false}',
+      );
+      const auditTwo = auditWorkspaceCompletionClaim(midRunClaimTwo, batchResults, { auditFrom: batchResults.length });
+      assert.equal(auditTwo.issue, "none", "a skipped step's empty scope is challenged - the #5819 report");
+
+      // A recap claim is backable by the read the coaching demands, so an
+      // honest continuation converges instead of looping into the budget
+      // (#5830's sticky-none trap).
+      const recapResults = [...batchResults, { ...verificationResult, id: "recap-read" }];
+      const recapAudit = auditWorkspaceCompletionClaim(midRunClaimTwo, recapResults, {
+        auditFrom: batchResults.length,
+      });
+      assert.equal(recapAudit.issue, null, "a successful read in scope backs a recap");
+      assert.equal(recapAudit.advanceWatermark, true, "and the read is consumed so it cannot vouch twice");
+
+      // A terminal summary right after a passed audit needs nothing new; the
+      // same empty scope WITHOUT a passed audit stays challenged.
+      assert.equal(
+        auditWorkspaceCompletionClaim(unsupportedCompletion, batchResults, {
+          auditFrom: batchResults.length,
+          hadPassedClaimAudit: true,
+        }).issue,
+        null,
+      );
+      assert.equal(
+        auditWorkspaceCompletionClaim(unsupportedCompletion, batchResults, {
+          auditFrom: batchResults.length,
+          hadPassedClaimAudit: false,
+        }).issue,
+        "none",
+      );
+
+      // Mismatch is GLOBAL debt: scoping past it must not launder it, and
+      // only the same-key verified retry clears it (#5754 invariant).
+      const mismatchedCreate: WorkspaceCommandResult = {
+        id: "mismatched-create",
+        name: "app_data",
+        input: { action: "lorebook.create" },
+        output: 'Readback: store-mismatch\n{"saved": true}',
+        success: true,
+      };
+      const afterMismatch = [mismatchedCreate, mutationResult, verificationResult];
+      assert.equal(
+        resolveWorkspaceMutationVerification(afterMismatch, 1),
+        "mismatch",
+        "an out-of-scope mismatch still shadows every later claim",
+      );
+      const retriedVerified: WorkspaceCommandResult = {
+        ...mismatchedCreate,
+        id: "retried-create",
+        output: 'Readback: store-verified\n{"saved": true}',
+      };
+      assert.equal(
+        resolveWorkspaceMutationVerification([mismatchedCreate, retriedVerified], 1),
+        "verified",
+        "the same-key store-verified retry clears it, wherever the mismatch happened",
+      );
+
+      // Tolerated states never advance the watermark, so their debt stays
+      // visible to the terminal audit.
+      const unverifiedMidRun = auditWorkspaceCompletionClaim(midRunClaimOne, [mutationResult], { auditFrom: 0 });
+      assert.equal(unverifiedMidRun.issue, null, "unverified is tolerated mid-run - a later frame can read it back");
+      assert.equal(unverifiedMidRun.advanceWatermark, false, "without consuming the debt");
+
+      // #5830: "I've verified..." describes a READ - the exact sentence the
+      // coaching asks for - and is no longer a completion claim.
+      assert.equal(
+        workspaceTextClaimsMutationCompletion("I have verified the card looks right."),
+        false,
+        "the verified verb is deliberately absent from the claim detector",
+      );
+      // Plural persistence assertions stay caught without it.
+      assert.equal(workspaceTextClaimsMutationCompletion("The changes were saved."), true);
+      assert.equal(workspaceTextClaimsMutationCompletion("Both entries have been created."), true);
+
+      // ── Escape hatches never paper over a failure the resolver cannot see ──
+      // A FAILED create plus an unrelated successful list resolves "none" to
+      // the resolver - but it is active evidence of non-completion, and both
+      // escapes are denied outright.
+      const failedCreate: WorkspaceCommandResult = {
+        id: "failed-create",
+        name: "app_data",
+        input: { action: "lorebook.create" },
+        output: "Error: name is required",
+        success: false,
+      };
+      const failedScope = [failedCreate, { ...verificationResult, id: "orienting-list" }];
+      assert.equal(
+        auditWorkspaceCompletionClaim(midRunClaimTwo, failedScope, { auditFrom: 0 }).issue,
+        "none",
+        "a read never launders a failed mutating attempt into a passing claim",
+      );
+      assert.equal(
+        auditWorkspaceCompletionClaim(unsupportedCompletion, failedScope, {
+          auditFrom: 0,
+          hadPassedClaimAudit: true,
+        }).issue,
+        "none",
+        "the terminal-summary escape is denied over a scope containing a failure",
+      );
+      // Same denial for an apply:false preview - it looks like nothing to the
+      // resolver but is a non-applied attempt to the audit.
+      const previewOnly: WorkspaceCommandResult = {
+        id: "preview-create",
+        name: "app_data",
+        input: { action: "lorebook.create", apply: false },
+        output: '{"preview": true}',
+        success: true,
+      };
+      assert.equal(
+        auditWorkspaceCompletionClaim(midRunClaimTwo, [previewOnly, verificationResult], { auditFrom: 0 }).issue,
+        "none",
+        "a preview plus a read cannot back a completion claim",
+      );
+
+      // Documentation reads never qualify as recap backing - knowing what the
+      // manual says is not knowing what the store holds.
+      const docsRead: WorkspaceCommandResult = {
+        id: "docs",
+        name: "docs_search",
+        input: { query: "characters" },
+        output: "results",
+        success: true,
+      };
+      assert.equal(
+        auditWorkspaceCompletionClaim(midRunClaimTwo, [docsRead], { auditFrom: 0 }).issue,
+        "none",
+        "a docs read is not a state read",
+      );
+
+      // A verified scope that ALSO contains a failed attempt is downgraded
+      // until a later state read clears it - then the retry passes.
+      const mixedScope = [failedCreate, mutationResult, verificationResult];
+      // verificationResult follows the failure, clearing the outstanding
+      // attempt: the verified pass stands.
+      assert.equal(auditWorkspaceCompletionClaim(unsupportedCompletion, mixedScope, { auditFrom: 0 }).issue, null);
+      const uncleared = [mutationResult, { ...verificationResult, id: "pre-read" }, failedCreate];
+      assert.equal(
+        auditWorkspaceCompletionClaim(unsupportedCompletion, uncleared, { auditFrom: 0 }).issue,
+        "unverified",
+        "a trailing failed attempt demands a fresh read before the claim can stand",
+      );
     },
   },
   {
