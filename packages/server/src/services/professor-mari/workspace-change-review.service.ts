@@ -16,7 +16,7 @@ import { logger } from "../../lib/logger.js";
 const APPROVAL_TIMEOUT_MS = 10 * 60_000;
 const INSTALL_TIMEOUT_MS = 10 * 60_000;
 const MAX_REGISTRY_RESPONSE_BYTES = 1_000_000;
-const MAX_REVIEW_FILE_BYTES = 512_000;
+export const MAX_REVIEW_FILE_BYTES = 512_000;
 const MAX_REVIEW_DIFF_BYTES = 64_000;
 const MAX_PROCESS_OUTPUT = 32_000;
 const PUBLIC_NPM_REGISTRY = "https://registry.npmjs.org/";

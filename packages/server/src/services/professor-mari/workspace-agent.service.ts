@@ -86,7 +86,14 @@ import { getMariDbService } from "../mari-db/mari-db.service.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 import { getProfessorMariWorkspaceSkillsService } from "./workspace-skills.service.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
-import { getWorkspaceShellSandboxStatus, spawnWorkspaceSandboxedShell } from "./workspace-shell-sandbox.js";
+import {
+  detectUnreviewedSensitiveChanges,
+  getWorkspaceShellSandboxStatus,
+  snapshotSensitiveWorkspaceFiles,
+  spawnWorkspaceSandboxedShell,
+  type SensitiveScanResult,
+  type SensitiveWorkspaceSnapshot,
+} from "./workspace-shell-sandbox.js";
 import { personalServerExtensionRuntime } from "../extensions/personal-server-extension-runtime.js";
 import { isLocalInferenceBaseUrl } from "../../middleware/ip-allowlist.js";
 import {
@@ -1796,14 +1803,43 @@ const STAGED_SENSITIVE_CHANGE_PREFIX = "Staged sensitive file change for user ap
 // or by marker-shaped text embedded in the command string or row content.
 const MARI_DRY_RUN_SENTINEL = "Dry-run: the mari CLI ran without --apply, so no changes were saved.";
 
+// #5786: a bash result can also report staged changes - the post-execution
+// scan reverts an unreviewed sensitive write and stages it for approval. A
+// bash output can never carry the prefix at position zero (the engine-written
+// "Command:" header owns it), so the staged line lives in the ENGINE region:
+// the lines the engine composes before its own "\nstdout:" / "\nstderr:"
+// markers. Script text is appended only after those markers, so scoping the
+// search to the region before the FIRST marker keeps this unforgeable by
+// echoed text, exactly like the position-zero contract it mirrors.
+// Model- or filesystem-authored text that the engine interpolates into its
+// own region (the command string, staged paths) is flattened to one line
+// first: a newline inside it could otherwise start a forged engine line or
+// inject an early stdout marker that truncates the region.
+function engineLineText(value: string): string {
+  return value.replace(/[\r\n]+/gu, " ");
+}
+
+function bashEngineRegion(output: string): string {
+  const markers = [output.indexOf("\nstdout:"), output.indexOf("\nstderr:")].filter((index) => index >= 0);
+  return markers.length > 0 ? output.slice(0, Math.min(...markers)) : output;
+}
+
 function isStagedSensitiveMutation(result: WorkspaceCommandResult): boolean {
+  if (!result.success) return false;
+  if ((result.name === "write" || result.name === "edit") && result.output.startsWith(STAGED_SENSITIVE_CHANGE_PREFIX)) {
+    return true;
+  }
   return (
-    result.success &&
-    (result.name === "write" || result.name === "edit") &&
-    result.output.startsWith(STAGED_SENSITIVE_CHANGE_PREFIX)
+    result.name === "bash" &&
+    result.output.startsWith("Command: ") &&
+    bashEngineRegion(result.output).includes(`\n${STAGED_SENSITIVE_CHANGE_PREFIX}`)
   );
 }
 
+// A bash run that both persisted normal writes AND staged a sensitive hit
+// resolves as staged only: the round's completion claims are still
+// intercepted (the safe direction), at the cost of not demanding a re-read
+// for the normal writes in that same round. Accepted under-claiming.
 function isAppliedWorkspaceMutation(result: WorkspaceCommandResult): boolean {
   if (!result.success || result.name === "dependency") return false;
   const command = commandCallForResult(result);
@@ -3650,63 +3686,198 @@ ${sections.join("\n\n")}
         "This command touches a supply-chain-sensitive file (package manifests, launcher, installer, or workflow files). The shell sandbox blocks writes to those silently, so the command cannot work as intended. To change one, use the write or edit command - it stages the change for the user's approval. To copy content OUT of one, read it and write the copy to the destination instead.",
       );
     }
+    // #5786: the deny list is spawn-time-only, so a command can create a NEW
+    // sensitive-by-name file no rule covers. Fingerprint the sensitive set
+    // before the run; whatever changed unreviewed afterwards is reverted and
+    // staged for approval - the net under the pre-execution heuristics above.
+    const sensitiveSnapshot = await snapshotSensitiveWorkspaceFiles(this.workspaceRoot);
     const sandboxed = await spawnWorkspaceSandboxedShell({
       command,
       workspaceRoot: this.workspaceRoot,
       env: process.env,
     });
-    return new Promise<string>((resolveRun, rejectRun) => {
-      const child = sandboxed.child;
-      let stdout = "";
-      let stderr = "";
-      let settled = false;
-      let timedOut = false;
-      const finish = (callback: () => void) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        signal.removeEventListener("abort", abortHandler);
-        void sandboxed.cleanup().finally(callback);
-      };
-      const killChild = () => {
-        child.kill();
-      };
-      const abortHandler = () => {
-        killChild();
-        finish(() => rejectRun(new Error("aborted")));
-      };
-      const timer = setTimeout(() => {
-        timedOut = true;
-        killChild();
-      }, timeoutSeconds * 1000);
-      timer.unref?.();
-      if (signal.aborted) abortHandler();
-      else signal.addEventListener("abort", abortHandler, { once: true });
-      child.stdout?.on("data", (chunk) => {
-        stdout += String(chunk);
-        if (stdout.length > COMMAND_OUTPUT_LIMIT) stdout = stdout.slice(0, COMMAND_OUTPUT_LIMIT);
+    type SandboxRun = { stdout: string; stderr: string; exitCode: number | null; timedOut: boolean };
+    const ABORT_TEARDOWN_GRACE_MS = 5_000;
+    const KILL_ESCALATION_MS = 2_000;
+    let aborted = false;
+    let run: SandboxRun;
+    try {
+      run = await new Promise<SandboxRun>((resolveRun, rejectRun) => {
+        const child = sandboxed.child;
+        let stdout = "";
+        let stderr = "";
+        let settled = false;
+        let timedOut = false;
+        let graceTimer: NodeJS.Timeout | null = null;
+        const finish = (callback: () => void) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          if (graceTimer) clearTimeout(graceTimer);
+          signal.removeEventListener("abort", abortHandler);
+          void sandboxed.cleanup().finally(callback);
+        };
+        const killChild = () => {
+          child.kill();
+          // A TERM-trapping child (reachable on macOS, where seatbelt has no
+          // PID-namespace teardown) must not outlive the net: escalate.
+          const hardKill = setTimeout(() => child.kill("SIGKILL"), KILL_ESCALATION_MS);
+          hardKill.unref?.();
+        };
+        const abortHandler = () => {
+          aborted = true;
+          killChild();
+          // Do NOT settle here: the post-execution scan must not race a
+          // dying child's final writes, so the close handler (or the grace
+          // timer below, if the child ignores the kill) settles instead.
+          graceTimer = setTimeout(() => {
+            finish(() => resolveRun({ stdout, stderr, exitCode: null, timedOut }));
+          }, ABORT_TEARDOWN_GRACE_MS);
+          graceTimer.unref?.();
+        };
+        const timer = setTimeout(() => {
+          timedOut = true;
+          killChild();
+          // Same bounded settle as the abort path: without it, a child that
+          // swallows the kill leaves the promise unsettled forever and the
+          // post-execution scan never runs at all.
+          graceTimer = setTimeout(() => {
+            finish(() => resolveRun({ stdout, stderr, exitCode: null, timedOut }));
+          }, ABORT_TEARDOWN_GRACE_MS);
+          graceTimer.unref?.();
+        }, timeoutSeconds * 1000);
+        timer.unref?.();
+        if (signal.aborted) abortHandler();
+        else signal.addEventListener("abort", abortHandler, { once: true });
+        child.stdout?.on("data", (chunk) => {
+          stdout += String(chunk);
+          if (stdout.length > COMMAND_OUTPUT_LIMIT) stdout = stdout.slice(0, COMMAND_OUTPUT_LIMIT);
+        });
+        child.stderr?.on("data", (chunk) => {
+          stderr += String(chunk);
+          if (stderr.length > COMMAND_OUTPUT_LIMIT) stderr = stderr.slice(0, COMMAND_OUTPUT_LIMIT);
+        });
+        child.on("error", (err) => finish(() => rejectRun(err)));
+        child.on("close", (exitCode) => finish(() => resolveRun({ stdout, stderr, exitCode, timedOut })));
       });
-      child.stderr?.on("data", (chunk) => {
-        stderr += String(chunk);
-        if (stderr.length > COMMAND_OUTPUT_LIMIT) stderr = stderr.slice(0, COMMAND_OUTPUT_LIMIT);
-      });
-      child.on("error", (err) => finish(() => rejectRun(err)));
-      child.on("close", (exitCode) =>
-        finish(() => {
-          const output = compactOutput(
-            [
-              `Command: ${command}`,
-              `Sandbox: ${sandboxed.backend} (network denied; writes confined to workspace)`,
-              `Exit code: ${exitCode}${timedOut ? ` (timeout after ${timeoutSeconds}s)` : ""}`,
-              stdout ? `\nstdout:\n${stdout.trimEnd()}` : "",
-              stderr ? `\nstderr:\n${stderr.trimEnd()}` : "",
-            ].join("\n"),
-          );
-          if (timedOut || exitCode !== 0) rejectRun(new Error(output));
-          else resolveRun(output);
-        }),
+    } catch (err) {
+      // Spawn failure: the round's result is discarded, but a write that
+      // already landed must still be reverted and surfaced as pending.
+      await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      throw err;
+    }
+    if (aborted) {
+      // The child has closed (or exhausted its teardown grace); revert and
+      // stage the aftermath, then report the abort as before.
+      await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      throw new Error("aborted");
+    }
+    const stagedLines = await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+    const output = compactOutput(
+      [
+        `Command: ${engineLineText(command)}`,
+        `Sandbox: ${sandboxed.backend} (network denied; writes confined to workspace)`,
+        // Engine region: staged lines sit BEFORE the stdout/stderr markers,
+        // where script text cannot reach - isStagedSensitiveMutation keys on
+        // exactly this placement.
+        ...stagedLines,
+        `Exit code: ${run.exitCode}${run.timedOut ? ` (timeout after ${timeoutSeconds}s)` : ""}`,
+        run.stdout ? `\nstdout:\n${run.stdout.trimEnd()}` : "",
+        run.stderr ? `\nstderr:\n${run.stderr.trimEnd()}` : "",
+      ].join("\n"),
+    );
+    if (run.timedOut || run.exitCode !== 0) throw new Error(output);
+    return output;
+  }
+
+  /**
+   * #5786: revert every sensitive file the run changed without review and
+   * stage each one through the normal approval pipeline. Returns the engine
+   * lines describing what happened. Capped so a hostile command cannot mint
+   * unbounded approval cards; everything past the cap is still reverted.
+   */
+  private async revertAndStageSensitiveAftermath(snapshot: SensitiveWorkspaceSnapshot): Promise<string[]> {
+    const MAX_POSTEXEC_STAGED = 5;
+    let scan: SensitiveScanResult;
+    try {
+      scan = await detectUnreviewedSensitiveChanges(this.workspaceRoot, snapshot);
+    } catch (err) {
+      logger.error(err, "[mari] Post-execution sensitive-file scan failed");
+      return ["Post-execution sensitive-file scan failed; treat this run's file changes as unreviewed."];
+    }
+    const lines: string[] = [];
+    if (snapshot.entryCapExceeded || scan.entryCapExceeded) {
+      lines.push(
+        "Post-execution scan stopped at its entry cap; part of the workspace went uninspected - treat this run's file changes as unreviewed.",
       );
-    });
+    }
+    for (const path of new Set([...snapshot.unscannable, ...scan.unscannable])) {
+      lines.push(
+        `Post-execution scan could not inspect ${engineLineText(path)}; treat its contents as unreviewed and ask the user to check it.`,
+      );
+    }
+    let stagedCount = 0;
+    for (const hit of scan.hits) {
+      const shownPath = engineLineText(hit.relativePath);
+      try {
+        if (hit.attributionUncertain) {
+          // The pre-run walk could not see this subtree, so "created" may
+          // simply mean "previously invisible" - deleting here could destroy
+          // a pre-existing user file. Report, never delete.
+          lines.push(
+            `Sensitive file ${shownPath} appeared under a path the pre-run snapshot could not inspect; left in place unreviewed - ask the user to check it.`,
+          );
+          continue;
+        }
+        if (hit.change === "created") {
+          await unlink(hit.absolutePath);
+        } else if (hit.beforeContent !== null) {
+          // Bytes, not text: a utf8 round-trip would corrupt binary
+          // lockfiles (bun.lockb) on restore.
+          await writeFile(hit.absolutePath, hit.beforeContent);
+        } else {
+          lines.push(
+            `Unreviewed change to sensitive file ${shownPath} could not be reverted (pre-run content was not retainable); ask the user to inspect it.`,
+          );
+          continue;
+        }
+        if (hit.afterContent === null) {
+          lines.push(
+            `Reverted unreviewed sensitive file ${hit.change === "created" ? "creation" : "change"}: ${shownPath} (not stageable for review: binary, oversize, unreadable, or not a regular file).`,
+          );
+          continue;
+        }
+        // Count actual cards, not loop positions: earlier report-only hits
+        // must not consume approval slots.
+        if (stagedCount >= MAX_POSTEXEC_STAGED) {
+          lines.push(
+            `Reverted unreviewed sensitive file change: ${shownPath} (approval cap reached; re-run for this file alone).`,
+          );
+          continue;
+        }
+        const approval = await this.workspaceChangeReviews.stageSensitiveFileChange({
+          absolutePath: hit.absolutePath,
+          afterContent: hit.afterContent,
+          // Attribution-neutral on purpose: a concurrent legitimate writer
+          // (the user's editor, an approval applying mid-run) can also land
+          // in this window; the staged card restores either way.
+          reason:
+            "Changed during a sandboxed shell command without review; reverted and staged by the post-execution scan.",
+          sessionId: SESSION_ID,
+        });
+        stagedCount += 1;
+        lines.push(`${STAGED_SENSITIVE_CHANGE_PREFIX} ${engineLineText(approval.path)}`);
+      } catch (err) {
+        logger.error(err, "[mari] Could not revert/stage a sensitive file the sandbox run changed");
+        lines.push(
+          `Unreviewed change to sensitive file ${shownPath} could not be fully processed; ask the user to inspect it.`,
+        );
+      }
+    }
+    if (lines.length > 0) {
+      logger.warn("[mari] Post-execution scan intercepted %d unreviewed sensitive file change(s)", scan.hits.length);
+    }
+    return lines;
   }
 
   private async commandDependency(args: Record<string, unknown>): Promise<string> {
@@ -3750,7 +3921,7 @@ ${sections.join("\n\n")}
             ? [READ_BACK_MISMATCH_SENTINEL]
             : []),
         ...(isRecord(result) && result.mode === "dry-run" ? [MARI_DRY_RUN_SENTINEL] : []),
-        `Command: ${command}`,
+        `Command: ${engineLineText(command)}`,
         `Exit code: ${result.ok === false ? 1 : 0} (direct mari runtime)`,
         "",
         "stdout:",
