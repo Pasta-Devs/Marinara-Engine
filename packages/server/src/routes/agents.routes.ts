@@ -291,9 +291,25 @@ export async function agentsRoutes(app: FastifyInstance) {
     "/beholder-state/:chatId",
     { config: { rateLimit: BEHOLDER_STATE_RATE_LIMIT } },
     async (req, reply) => {
-      // Guarded like the other write routes in this file: this rewrites the state the
-      // next prompt is built from, for any chat id the caller names.
-      if (!requirePrivilegedAccess(req, reply, { feature: "Beholder state correction" })) return;
+      // Deliberately NOT behind requirePrivilegedAccess.
+      //
+      // It was, and the effect was that correcting a slot returned 403 for everyone not
+      // on loopback. That gate admits a request only from loopback or with an
+      // X-Admin-Secret header, and a browser has no way to send that header — so behind
+      // a reverse proxy, on a LAN, or through a tunnel, every correction and the whole
+      // "start over" action failed, with no setting an operator could change to fix it.
+      // It failed quietly too: the gate does not log, so the server said nothing.
+      //
+      // The gate was the wrong tool for this route. This writes one chat's own tracked
+      // state, which is the same kind of act as editing a message in that chat, and
+      // chats.routes.ts guards none of its writes this way. Sitting next to the
+      // genuinely administrative routes in this file — import-policy, import — made it
+      // look like company it does not keep.
+      //
+      // What protects it instead: the app-wide Basic Auth hook registered in app.ts,
+      // which every route in the product sits behind; the rate limit configured above;
+      // and normalizeBeholderState below, which refuses a malformed body rather than
+      // letting it reach the state the next prompt is built from.
       const body = req.body as { state?: unknown } | undefined;
       const state = normalizeBeholderState(body?.state);
       if (!state) return reply.status(400).send({ error: "Invalid Beholder state" });
