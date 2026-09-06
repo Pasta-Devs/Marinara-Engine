@@ -205,11 +205,36 @@ try {
 // ── Source pins: the wiring that turns "blocked" into a user affordance ─────
 const service = readSource("packages/client/src/lib/tts-service.ts");
 assert.match(service, /"idle" \| "loading" \| "playing" \| "paused" \| "blocked" \| "error"/u);
-assert.equal(
-  (service.match(/this\.setState\("blocked"/gu) ?? []).length,
-  4,
-  "all four playback paths (speak, sequence, resume, restart) surface the blocked state",
-);
+// Each playback path is asserted in its own method slice - an aggregate
+// count could be satisfied by one path double-handling while another is bare.
+{
+  const methodSlice = (start: string, end: string) => {
+    const from = service.indexOf(start);
+    const to = service.indexOf(end);
+    assert.ok(from >= 0 && to > from, `method anchors present: ${start} .. ${end}`);
+    return service.slice(from, to);
+  };
+  assert.match(
+    methodSlice("async speak(", "async speakSequence("),
+    /this\.setState\("blocked", id \?\? null\)/u,
+    "speak surfaces the blocked state",
+  );
+  assert.match(
+    methodSlice("async speakSequence(", "resume(): void"),
+    /this\.setState\("blocked", request\.activeId \?\? id \?\? null\)/u,
+    "speakSequence surfaces the blocked state",
+  );
+  assert.match(
+    methodSlice("resume(): void", "restart(): void"),
+    /this\.setState\("blocked"\)/u,
+    "resume surfaces the blocked state",
+  );
+  assert.match(
+    methodSlice("restart(): void", "private cleanup(): void"),
+    /this\.setState\("blocked"\)/u,
+    "restart surfaces the blocked state",
+  );
+}
 assert.match(service, /const MAX_PLAY_ATTEMPTS = 20;/u);
 assert.match(service, /await waitForUserGesture\(signal\);/u);
 const chatArea = readSource("packages/client/src/components/chat/ChatArea.tsx");
