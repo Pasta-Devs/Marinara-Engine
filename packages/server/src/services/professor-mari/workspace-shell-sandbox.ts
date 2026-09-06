@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
-import { lstat, mkdtemp, readdir, readlink, rm } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readlink, rm } from "node:fs/promises";
 import type { Stats } from "node:fs";
 import { delimiter, dirname, join, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
@@ -120,9 +120,41 @@ function uniqueExistingMountPaths(paths: Array<string | undefined>) {
 // The walk runs fresh on every spawn on purpose: caching would let a newly
 // created secret file slip past the deny list. It is async so a large
 // workspace scan yields to the event loop instead of blocking other requests.
+// #5892: package-store trees become READ-ONLY in the sandbox. Sandboxed bash
+// has no legitimate install path (isPackageManagerMutationCommand refuses
+// package-manager mutations before execution, and approved dependency
+// installs run OUTSIDE the sandbox), so the #5786 residual - planting
+// ready-made node_modules/<pkg> code that executes on the server's next
+// require - closes structurally. Build-tool caches that legitimately live
+// inside the store get writable carve-outs, pre-created when absent so a
+// first build is not broken by its own missing cache directory.
+const PACKAGE_STORE_DIR_NAMES = new Set(["node_modules", ".pnpm", ".pnpm-store"]);
+// .vite-temp: modern Vite bundles a TS/ESM config into node_modules/.vite-temp
+// before anything else runs (probed against this repo's vite@7.x), so without
+// the carve-out every default-scaffold build fails on a read-only store.
+const PACKAGE_STORE_WRITABLE_CACHES = [".cache", ".vite", ".vite-temp"];
+
+async function packageStoreCacheCarveouts(packageStores: string[]): Promise<string[]> {
+  const carveouts: string[] = [];
+  for (const store of packageStores) {
+    if (!store.endsWith(`${sep}node_modules`)) continue;
+    for (const cache of PACKAGE_STORE_WRITABLE_CACHES) {
+      const cachePath = join(store, cache);
+      try {
+        await mkdir(cachePath, { recursive: true });
+        carveouts.push(cachePath);
+      } catch {
+        /* an unreadable store keeps its cache unwritable - fail closed */
+      }
+    }
+  }
+  return carveouts;
+}
+
 async function workspacePolicyPaths(workspaceRoot: string) {
   const forbidden: string[] = [];
   const sensitive: string[] = [];
+  const packageStores: string[] = [];
   const visit = async (path: string) => {
     const policy = workspacePathAccessPolicy(workspaceRoot, path);
     if (policy === "forbidden") {
@@ -136,6 +168,12 @@ async function workspacePolicyPaths(workspaceRoot: string) {
     }
     if (!stats.isDirectory() || stats.isSymbolicLink()) return;
     for (const entry of await readdir(path, { withFileTypes: true })) {
+      if (entry.isDirectory() && PACKAGE_STORE_DIR_NAMES.has(entry.name)) {
+        // Seen while being skipped: recorded for the read-only bind at zero
+        // extra walk cost, nested stores included.
+        packageStores.push(join(path, entry.name));
+        continue;
+      }
       if (entry.isDirectory() && POLICY_SCAN_SKIPPED_DIRS.has(entry.name)) continue;
       await visit(join(path, entry.name));
     }
@@ -144,6 +182,7 @@ async function workspacePolicyPaths(workspaceRoot: string) {
   return {
     forbidden: uniqueExistingPaths(forbidden),
     sensitive: uniqueExistingPaths(sensitive),
+    packageStores: uniqueExistingPaths(packageStores),
   };
 }
 
@@ -178,10 +217,9 @@ const SCAN_RETAINED_CONTENT_BUDGET_BYTES = 8 * 1024 * 1024;
 // The scan's own skip set is NARROWER than the spawn walk's: dist/, build/,
 // coverage/, .cache/ are walked (a manifest planted there is exactly the
 // #5786 class - verified bypass otherwise), while the package-store trees
-// stay skipped for cost. Their contents are a documented residual: writing
-// inside node_modules was always sandbox-permitted, and the review floor
-// defends the manifests that would INSTALL such content, not the store
-// itself.
+// stay skipped for cost. That skip is safe since #5892: the stores are
+// READ-ONLY in the sandbox (see PACKAGE_STORE_DIR_NAMES), and a store
+// directory the run itself creates is walked in full by the scan.
 const SCAN_SKIPPED_DIRS = new Set(["node_modules", ".pnpm", ".pnpm-store", ".git"]);
 // A hostile command can mkdir-storm the workspace; the scan must stay
 // bounded. Past the cap the walk stops and says so - the caller treats the
@@ -298,7 +336,14 @@ async function walkSensitiveEntries(
     }
     if (!stats.isDirectory() || stats.isSymbolicLink()) return;
     const name = path === workspaceRoot ? "" : path.slice(path.lastIndexOf(sep) + 1);
-    if (SCAN_SKIPPED_DIRS.has(name)) return;
+    if (SCAN_SKIPPED_DIRS.has(name)) {
+      // A PRE-EXISTING store is skipped for cost (and is read-only in the
+      // sandbox anyway); one the run itself CREATED has no bind covering it
+      // and must be walked in full - the marker below is what lets detect's
+      // descend predicate tell the two apart.
+      onEntry(path, { kind: "dir" });
+      if (!descendIntoCoveredDir(path)) return;
+    }
     let entries;
     try {
       entries = await readdir(path, { withFileTypes: true });
@@ -408,6 +453,7 @@ export async function buildMacosWorkspaceShellProfile(
   allowChildProcesses = true,
 ) {
   const policyPaths = await workspacePolicyPaths(workspaceRoot);
+  const storeCaches = writableWorkspace ? await packageStoreCacheCarveouts(policyPaths.packageStores) : [];
   const readable = macosReadRoots(workspaceRoot, env, sandboxTemp)
     .map((path) => `    (subpath ${sandboxLiteral(path)})`)
     .join("\n");
@@ -415,6 +461,12 @@ export async function buildMacosWorkspaceShellProfile(
   const sensitiveWrites = policyPaths.sensitive.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
   const forbiddenReadRule = forbiddenReads ? `(deny file-read*\n${forbiddenReads})` : "";
   const sensitiveWriteRule = writableWorkspace && sensitiveWrites ? `(deny file-write*\n${sensitiveWrites})` : "";
+  const storeWrites = policyPaths.packageStores.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
+  const storeWriteRule = writableWorkspace && storeWrites ? `(deny file-write*\n${storeWrites})` : "";
+  const storeCacheAllows = storeCaches.map((path) => `    (subpath ${sandboxLiteral(path)})`).join("\n");
+  // Placed AFTER the store deny: seatbelt's last matching rule wins, so the
+  // cache subpaths stay writable inside the otherwise read-only store.
+  const storeCacheRule = writableWorkspace && storeCacheAllows ? `(allow file-write*\n${storeCacheAllows})` : "";
   const workspaceWriteRule = writableWorkspace ? `    (subpath ${sandboxLiteral(workspaceRoot)})\n` : "";
   const processRules = allowChildProcesses
     ? `(allow process*)\n(allow signal)`
@@ -436,6 +488,8 @@ ${workspaceWriteRule}
     (literal "/dev/tty"))
 ${forbiddenReadRule}
 ${sensitiveWriteRule}
+${storeWriteRule}
+${storeCacheRule}
 (deny network*)
 `;
 }
@@ -460,7 +514,7 @@ function linuxReadRoots(workspaceRoot: string, env: NodeJS.ProcessEnv) {
   ]);
 }
 
-async function linuxBubblewrapArgs(
+export async function linuxBubblewrapArgs(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv,
   sandboxTemp: string,
@@ -489,6 +543,16 @@ async function linuxBubblewrapArgs(
   for (const path of policyPaths.sensitive) {
     args.push("--ro-bind", path, path);
   }
+  if (writableWorkspace) {
+    for (const store of policyPaths.packageStores) {
+      args.push("--ro-bind", store, store);
+    }
+    // Later mounts stack over earlier ones: the cache dirs come back
+    // writable inside the read-only store.
+    for (const cache of await packageStoreCacheCarveouts(policyPaths.packageStores)) {
+      args.push("--bind", cache, cache);
+    }
+  }
   for (const path of policyPaths.forbidden) {
     if ((await lstat(path)).isDirectory()) args.push("--tmpfs", path);
     else args.push("--ro-bind", "/dev/null", path);
@@ -506,7 +570,13 @@ export async function spawnWorkspaceSandboxedProcess(
     throw new Error(`${status.reason}`);
   }
 
-  const workspaceRoot = resolve(input.workspaceRoot);
+  // #5892: canonicalize BEFORE any rules are derived. The store/sensitive
+  // ro-binds go through realpath (uniqueExistingPaths), so a symlink
+  // component in the workspace path would otherwise put the writable
+  // workspace bind and the read-only binds on two different mount points -
+  // and every deny would silently fail open on Linux.
+  const resolvedRoot = resolve(input.workspaceRoot);
+  const workspaceRoot = existsSync(resolvedRoot) ? realpathSync(resolvedRoot) : resolvedRoot;
   const writableWorkspace = input.writableWorkspace !== false;
   const allowChildProcesses = input.allowChildProcesses !== false;
   const sandboxTemp = await mkdtemp(join(tmpdir(), "marinara-mari-shell-"));
@@ -539,13 +609,13 @@ export async function spawnWorkspaceSandboxedProcess(
           input.executable,
           ...input.args,
         ],
-        { cwd: workspaceRoot, env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] },
+        { cwd: workspaceRoot, env, windowsHide: true, detached: true, stdio: ["pipe", "pipe", "pipe"] },
       );
     } else {
       child = spawn(
         findBubblewrap()!,
         await linuxBubblewrapArgs(workspaceRoot, env, sandboxTemp, input.executable, input.args, writableWorkspace),
-        { cwd: workspaceRoot, env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] },
+        { cwd: workspaceRoot, env, windowsHide: true, detached: true, stdio: ["pipe", "pipe", "pipe"] },
       );
     }
   } catch (error) {
@@ -563,6 +633,30 @@ export async function spawnWorkspaceSandboxedProcess(
       await rm(sandboxTemp, { recursive: true, force: true });
     },
   };
+}
+
+/**
+ * #5892: signal the sandboxed process GROUP (the spawn is detached, so the
+ * child leads its own group), taking backgrounded grandchildren with it - the
+ * macOS teardown-survivor residual, since seatbelt has no PID-namespace
+ * equivalent of bubblewrap's --die-with-parent. Residuals: a process that
+ * setsid()s itself out of the group, and - macOS only - a tree orphaned by a
+ * hard SERVER crash (teardown never runs; Linux is covered by
+ * --die-with-parent regardless of grouping). A store exposed as a SYMLINK is
+ * also not enumerated for the read-only binds (dirent.isDirectory() is false
+ * for links); writes through the link land at its target, which the normal
+ * policy covers when the target is itself sensitive or store-named.
+ */
+export function killSandboxedProcessTree(child: Pick<ChildProcess, "pid" | "kill">, signal: NodeJS.Signals): void {
+  if (typeof child.pid === "number" && process.platform !== "win32") {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+      /* group gone or not a leader - fall through to the direct child */
+    }
+  }
+  child.kill(signal);
 }
 
 export async function spawnWorkspaceSandboxedShell(input: SpawnWorkspaceShellInput): Promise<WorkspaceSandboxedShell> {

@@ -89,6 +89,7 @@ import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
 import {
   detectUnreviewedSensitiveChanges,
   getWorkspaceShellSandboxStatus,
+  killSandboxedProcessTree,
   snapshotSensitiveWorkspaceFiles,
   spawnWorkspaceSandboxedShell,
   type SensitiveScanResult,
@@ -3866,20 +3867,25 @@ ${sections.join("\n\n")}
         let settled = false;
         let timedOut = false;
         let graceTimer: NodeJS.Timeout | null = null;
+        let hardKillTimer: NodeJS.Timeout | null = null;
         const finish = (callback: () => void) => {
           if (settled) return;
           settled = true;
           clearTimeout(timer);
           if (graceTimer) clearTimeout(graceTimer);
+          // A stale escalation must never fire a raw group SIGKILL at a pid
+          // the OS may have recycled after the tree already died.
+          if (hardKillTimer) clearTimeout(hardKillTimer);
           signal.removeEventListener("abort", abortHandler);
           void sandboxed.cleanup().finally(callback);
         };
         const killChild = () => {
-          child.kill();
-          // A TERM-trapping child (reachable on macOS, where seatbelt has no
-          // PID-namespace teardown) must not outlive the net: escalate.
-          const hardKill = setTimeout(() => child.kill("SIGKILL"), KILL_ESCALATION_MS);
-          hardKill.unref?.();
+          // #5892: group kill - the detached spawn makes the child a group
+          // leader, so backgrounded grandchildren die with it (the macOS
+          // teardown-survivor residual). Escalates for TERM-trapping trees.
+          killSandboxedProcessTree(child, "SIGTERM");
+          hardKillTimer = setTimeout(() => killSandboxedProcessTree(child, "SIGKILL"), KILL_ESCALATION_MS);
+          hardKillTimer.unref?.();
         };
         const abortHandler = () => {
           aborted = true;

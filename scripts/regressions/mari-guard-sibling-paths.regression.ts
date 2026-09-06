@@ -36,7 +36,10 @@ import {
   bashCommandTargetsSensitivePath,
 } from "../../packages/server/src/services/professor-mari/workspace-change-review.service.js";
 import {
+  buildMacosWorkspaceShellProfile,
   detectUnreviewedSensitiveChanges,
+  killSandboxedProcessTree,
+  linuxBubblewrapArgs,
   snapshotSensitiveWorkspaceFiles,
 } from "../../packages/server/src/services/professor-mari/workspace-shell-sandbox.js";
 
@@ -345,11 +348,16 @@ assert.match(
     // A manifest planted in a PRE-EXISTING build-output dir is the same
     // #5786 class - the scan's skip set is narrower than the spawn walk's.
     writeFileSync(join(workspace, "dist", "package.json"), '{"name":"planted"}');
-    // node_modules stays skipped for cost - the documented residual; its
-    // contents were always sandbox-writable, and the review floor defends
-    // the manifests that would INSTALL such content.
+    // A PRE-EXISTING node_modules stays scan-skipped for cost - safe since
+    // #5892, because the sandbox binds it read-only. (The workspace seeded
+    // one before the snapshot above.)
     mkdirSync(join(workspace, "node_modules", "evil"), { recursive: true });
     writeFileSync(join(workspace, "node_modules", "evil", "package.json"), '{"name":"evil"}');
+    // A store the run itself CREATES has no bind covering it, so the scan
+    // must walk it in full - losing this descent was a review-caught
+    // regression (#5892 verification round).
+    mkdirSync(join(workspace, "fresh-tool", "node_modules", "planted"), { recursive: true });
+    writeFileSync(join(workspace, "fresh-tool", "node_modules", "planted", "package.json"), '{"name":"planted"}');
     // Normal files never report.
     writeFileSync(join(workspace, "notes.txt"), "edited");
 
@@ -358,7 +366,13 @@ assert.match(
     const byPath = new Map(scan.hits.map((hit) => [hit.relativePath, hit]));
     assert.deepEqual(
       [...byPath.keys()].sort(),
-      ["dist/package.json", "fresh/package.json", "package.json", "win/installer/installer.nsi"],
+      [
+        "dist/package.json",
+        "fresh-tool/node_modules/planted/package.json",
+        "fresh/package.json",
+        "package.json",
+        "win/installer/installer.nsi",
+      ],
       "exactly the uncovered sensitive changes report - covered dirs and normal files stay silent",
     );
     assert.equal(byPath.get("fresh/package.json")?.change, "created");
@@ -371,7 +385,12 @@ assert.match(
     );
     assert.equal(byPath.get("win/installer/installer.nsi")?.change, "created");
     assert.equal(byPath.get("dist/package.json")?.attributionUncertain, false);
-    assert.ok(!byPath.has("node_modules/evil/package.json"), "the package-store residual is skipped by design");
+    assert.ok(!byPath.has("node_modules/evil/package.json"), "a pre-existing store stays skipped (it is ro-bound)");
+    assert.equal(
+      byPath.get("fresh-tool/node_modules/planted/package.json")?.change,
+      "created",
+      "a store the run created is walked in full - no bind covers it",
+    );
 
     // Binary content is revertable (bytes retained) but never staged as text.
     const binary = Buffer.from([0x00, 0xff, 0xfe, 0x00, 0x81]);
@@ -567,7 +586,10 @@ assert.match(
 );
 // Timeout gets the same bounded settle as abort, and the kill escalates.
 assert.match(flatAgentSource, /const KILL_ESCALATION_MS = 2_000;/u);
-assert.match(flatAgentSource, /child\.kill\("SIGKILL"\)/u);
+// #5892: teardown signals the whole detached process GROUP, with SIGKILL
+// escalation - a TERM-trapping tree or backgrounded grandchild dies too.
+assert.match(flatAgentSource, /killSandboxedProcessTree\(child, "SIGTERM"\);/u);
+assert.match(flatAgentSource, /killSandboxedProcessTree\(child, "SIGKILL"\), KILL_ESCALATION_MS\)/u);
 // The revert writes BYTES, never a utf8 round-trip that would corrupt
 // binary lockfiles.
 assert.match(flatAgentSource, /await writeFile\(hit\.absolutePath, hit\.beforeContent\);/u);
@@ -579,5 +601,100 @@ assert.doesNotMatch(
   /abortHandler = \(\) => \{ killChild\(\); finish\(/u,
   "the abort handler no longer settles immediately",
 );
+
+// ── #5892: package stores are read-only in the sandbox, caches carved out ──
+// Both backends' generated rules are asserted functionally - the store deny
+// must cover nested stores, and the cache carve-out must come AFTER the deny
+// (bubblewrap: later mounts stack; seatbelt: last matching rule wins).
+{
+  // realpathSync: macOS tmpdir() is a /var/folders symlink, and the emitted
+  // binds are realpath'd - un-canonicalized expectations would false-fail.
+  const workspace = realpathSync(mkdtempSync(join(tmpdir(), "store-robind-")));
+  try {
+    mkdirSync(join(workspace, "node_modules", "some-pkg"), { recursive: true });
+    mkdirSync(join(workspace, "packages", "a", "node_modules"), { recursive: true });
+    mkdirSync(join(workspace, ".pnpm-store"), { recursive: true });
+
+    const bwrapArgs = await linuxBubblewrapArgs(workspace, {}, tmpdir(), "/bin/bash", ["-c", "true"], true);
+    const flatArgs = bwrapArgs.join("\u0000");
+    const rootStore = join(workspace, "node_modules");
+    const nestedStore = join(workspace, "packages", "a", "node_modules");
+    const pnpmStore = join(workspace, ".pnpm-store");
+    for (const store of [rootStore, nestedStore, pnpmStore]) {
+      assert.ok(flatArgs.includes(`--ro-bind\u0000${store}\u0000${store}`), `store is read-only: ${store}`);
+    }
+    const cachePath = join(rootStore, ".cache");
+    assert.ok(existsSync(cachePath), "the cache carve-out is pre-created so first builds work");
+    const roIndex = bwrapArgs.findIndex((arg, i) => arg === "--ro-bind" && bwrapArgs[i + 1] === rootStore);
+    const cacheIndex = bwrapArgs.findIndex((arg, i) => arg === "--bind" && bwrapArgs[i + 1] === cachePath);
+    assert.ok(roIndex >= 0 && cacheIndex > roIndex, "the writable cache mount stacks OVER the read-only store");
+
+    // Profile literals are JSON-stringified realpaths - build the expected
+    // fragments the same way the profile does.
+    const literal = (path: string) => JSON.stringify(realpathSync(path));
+    const profile = await buildMacosWorkspaceShellProfile(workspace, {}, tmpdir(), true, "/bin/bash", true);
+    const rootStoreRule = profile.indexOf(`(subpath ${literal(rootStore)})`);
+    const cacheRule = profile.indexOf(`(subpath ${literal(cachePath)})`);
+    assert.ok(rootStoreRule >= 0, "seatbelt denies store writes");
+    assert.ok(profile.includes(`(subpath ${literal(nestedStore)})`), "seatbelt denies the nested store too");
+    assert.ok(
+      profile.lastIndexOf("(deny file-write*", rootStoreRule) >= 0,
+      "the store subpath sits inside a deny block",
+    );
+    assert.ok(
+      cacheRule > rootStoreRule &&
+        profile.lastIndexOf("(allow file-write*", cacheRule) > profile.lastIndexOf("(deny file-write*", cacheRule),
+      "the cache subpath sits in an ALLOW block after the deny - last matching rule wins",
+    );
+
+    // A read-only workspace emits no store rules at all (nothing is writable
+    // to begin with).
+    const roProfile = await buildMacosWorkspaceShellProfile(workspace, {}, tmpdir(), false, "/bin/bash", true);
+    assert.ok(!roProfile.includes(`(subpath ${literal(rootStore)})`));
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+}
+
+// killSandboxedProcessTree, honestly scoped: the fallback branch is proven
+// on POSIX (pid 2**30 exceeds every pid_max, so the group signal throws
+// ESRCH); on win32 the platform guard makes this the direct path, so the
+// assertion is gated. The group-signal SUCCESS path is proven by killing a
+// real detached leader below (grandchild efficacy stays a source pin - a
+// full tree test would be timing-flaky in a lane).
+{
+  let direct: string | null = null;
+  const fakeChild = {
+    pid: 2 ** 30,
+    kill(signal?: NodeJS.Signals | number) {
+      direct = String(signal);
+      return true;
+    },
+  };
+  killSandboxedProcessTree(fakeChild, "SIGTERM");
+  if (process.platform !== "win32") {
+    assert.equal(direct, "SIGTERM", "an unreachable group falls back to the direct child");
+  }
+}
+if (process.platform !== "win32") {
+  const { spawn } = await import("node:child_process");
+  const leader = spawn("sleep", ["30"], { detached: true, stdio: "ignore" });
+  const exited = new Promise<void>((resolveExit) => leader.once("close", () => resolveExit()));
+  killSandboxedProcessTree(leader, "SIGKILL");
+  const winner = await Promise.race([
+    exited.then(() => "killed" as const),
+    new Promise<"hung">((resolveHang) => setTimeout(() => resolveHang("hung"), 5_000)),
+  ]);
+  assert.equal(winner, "killed", "the group signal kills a real detached leader promptly");
+}
+
+// The spawns are detached so the child leads its own killable group.
+const sandboxFlat = sandboxSource;
+assert.equal(
+  (sandboxFlat.match(/detached: true/gu) ?? []).length,
+  2,
+  "both backend spawns are detached - group semantics for teardown",
+);
+assert.match(sandboxFlat, /process\.kill\(-child\.pid, signal\);/u);
 
 console.log("Mari guard sibling-paths regression passed.");
