@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { MAX_REVIEW_FILE_BYTES, workspacePathAccessPolicy } from "./workspace-change-review.service.js";
 import { getBubblewrapRuntimeStatus } from "../sandbox/bubblewrap-runtime.js";
+import { logger } from "../../lib/logger.js";
 
 export type WorkspaceShellSandboxBackend = "macos-seatbelt" | "linux-bubblewrap";
 export type WorkspaceProcessIsolationBackend = WorkspaceShellSandboxBackend | "node-permission-opt-in";
@@ -346,7 +347,18 @@ async function fingerprintSensitiveFile(path: string, stats: Stats): Promise<Sen
 }
 
 async function canonicalStorePaths(workspaceRoot: string): Promise<string[]> {
-  const policy = await workspacePolicyPaths(workspaceRoot);
+  // The policy walk deliberately THROWS on unreadable entries - for the
+  // spawn path that is fail-closed (a rule it cannot mint is a command that
+  // does not run). The scan must not inherit that hard failure: no store
+  // exemptions is the fail-safe direction here (the scan then walks and
+  // REPORTS more, never less), so contain the walk error to an empty set.
+  let policy;
+  try {
+    policy = await workspacePolicyPaths(workspaceRoot);
+  } catch (err) {
+    logger.warn(err, "[mari] Store discovery for the post-run scan failed; scanning without store exemptions");
+    return [];
+  }
   const canonical: string[] = [];
   for (const store of policy.packageStores) {
     try {
