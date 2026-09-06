@@ -12385,12 +12385,14 @@ test("Mobile Roleplay quick picker matches the character selector surface", asyn
     });
     expect(response.ok()).toBeTruthy();
     chatId = ((await response.json()) as { id: string }).id;
-    await page.request.patch(`/api/chats/${chatId}/metadata`, {
+    const metadataResponse = await page.request.patch(`/api/chats/${chatId}/metadata`, {
       data: { groupChatMode: "individual", groupResponseOrder: "sequential" },
     });
-    await page.request.post(`/api/chats/${chatId}/messages`, {
+    expect(metadataResponse.ok(), await metadataResponse.text()).toBeTruthy();
+    const messageResponse = await page.request.post(`/api/chats/${chatId}/messages`, {
       data: { role: "assistant", content: "The garden is ready for inspection." },
     });
+    expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
     await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chatId);
     await page.goto("/");
     await expect(page.getByText("The garden is ready for inspection.", { exact: true })).toBeVisible();
@@ -12406,6 +12408,7 @@ test("Mobile Roleplay quick picker matches the character selector surface", asyn
       const characterPicker = page.getByText("Trigger Response", { exact: true }).locator("..");
       await expect(characterPicker).toBeVisible();
       const surface = await characterPicker.evaluate((element) => getComputedStyle(element).backgroundColor);
+      expect(surface).not.toMatch(/^(?:transparent|rgba\([^)]*,\s*0\))$/u);
       await page.getByTitle("Trigger character response", { exact: true }).click();
       await page.getByTitle("Quick Switcher", { exact: true }).click();
       const picker = page.locator(".fixed[data-chat-floating-panel]");
@@ -12424,8 +12427,8 @@ test("Mobile Roleplay quick picker matches the character selector surface", asyn
       await page.getByTitle("Quick Switcher", { exact: true }).click();
     }
   } finally {
-    if (chatId) await page.request.delete(`/api/chats/${chatId}`);
-    for (const id of characterIds) await page.request.delete(`/api/characters/${id}`);
+    if (chatId) await bestEffortDelete(page.request, `/api/chats/${chatId}`);
+    await Promise.all(characterIds.map((id) => bestEffortDelete(page.request, `/api/characters/${id}`)));
   }
 });
 
@@ -12458,13 +12461,17 @@ test("Agents menu groups outputs under their own reports and preserves output co
     }),
   );
   await page.route("**/api/agents/runs/activity-custom-run", async (route) => {
-    customText = route.request().postDataJSON().resultData.text;
+    if (route.request().method() !== "PATCH") return route.continue();
+    const body = route.request().postDataJSON() as { resultData?: { text?: string } } | null;
+    expect(body?.resultData?.text).toEqual(expect.any(String));
+    customText = body!.resultData!.text!;
     await route.fulfill({ json: { success: true } });
   });
   try {
-    await page.request.post(`/api/chats/${chat.id}/messages`, {
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
       data: { role: "assistant", content: "A quiet day in the garden." },
     });
+    expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
     await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
     await page.goto("/");
     await expect(page.getByText("A quiet day in the garden.", { exact: true })).toBeVisible();
@@ -12515,17 +12522,16 @@ test("Agents menu groups outputs under their own reports and preserves output co
     await echo.locator("[data-agent-output]").scrollIntoViewIfNeeded();
     await testInfo.attach("agent-activity-grouping", { body: await page.screenshot(), contentType: "image/png" });
     expect(
-      await echo
-        .locator("dl")
-        .last()
-        .evaluate(
-          (element) =>
-            !!(
-              element.compareDocumentPosition(
-                element.parentElement!.parentElement!.querySelector("[data-agent-output]")!,
-              ) & Node.DOCUMENT_POSITION_FOLLOWING
-            ),
-        ),
+      await echo.evaluate((block) => {
+        const metrics = block.querySelectorAll("dl");
+        const output = block.querySelector("[data-agent-output]");
+        const lastMetrics = metrics[metrics.length - 1];
+        return (
+          !!lastMetrics &&
+          !!output &&
+          !!(lastMetrics.compareDocumentPosition(output) & Node.DOCUMENT_POSITION_FOLLOWING)
+        );
+      }),
     ).toBe(true);
     await echo.getByRole("button", { name: "Dismiss output from Echo Chamber" }).click();
     await expect(echo.getByText("The readers loved the garden.", { exact: true })).toHaveCount(0);
@@ -12554,7 +12560,7 @@ test("Agents menu groups outputs under their own reports and preserves output co
     await page.getByRole("button", { name: /Custom outputs/ }).click();
     await expect(page.getByText("Edited garden notes.", { exact: true })).toBeVisible();
   } finally {
-    await page.request.delete(`/api/chats/${chat.id}`);
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}`);
   }
 });
 
