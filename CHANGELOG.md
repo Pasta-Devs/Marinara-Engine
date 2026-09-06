@@ -79,6 +79,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Professor Mari's shell sandbox closes its two remaining supply-chain gaps (#5892). Installed-package folders (`node_modules` and the pnpm stores, nested ones included) are now read-only inside the sandbox - a command can no longer plant ready-made package code there - while build-tool cache folders inside them stay writable so builds keep working. And stopping a sandboxed command now takes its whole process tree with it, so a background process it left behind can no longer keep writing after the safety scan has run.
+
 - Professor Mari's self-check now audits every step of a longer job, not just the last thing she says (#5819). In a batch - "I created the first character, now doing the second" - each claim is checked against the work done since her previous checked claim, so skipping a step gets caught immediately instead of riding an earlier success. When a step is missing she is told to look first and only redo work a check shows is truly absent, never blindly.
 - Mari can answer "did you finish?" truthfully again (#5830). A run that only reported on earlier work could never satisfy the old check - her honest recap was challenged twice and then replaced with an error. A recap backed by a fresh look at the actual state now passes, a wrap-up right after checked work needs nothing extra, and "I've verified..." (describing a check, not a change) no longer trips the detector at all. A claim with nothing behind it whatsoever is still challenged, and a change the store observed failing still blocks every later claim until a retry proves it saved.
 
