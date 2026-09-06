@@ -78,6 +78,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Mobile image previews now bound both dimensions, including tall illustrations, and large PNG metadata no longer bypasses previews. This reduces image-arrival decoding pressure without changing appearance settings or saved originals (#5870).
+
 - Mobile chat illustrations and gallery tiles use smaller cached display copies to reduce image decoding pressure; opening and downloading still uses the original. Saved automatic Roleplay illustrations also appear as soon as they arrive, without waiting for remaining agent work (#5870).
 
 - Conversation swipe menus now reuse Roleplay's compact, unboxed controls on desktop and mobile, with arrows and counters following the configured chat-chrome text color instead of pink/orchid styling (#5875).

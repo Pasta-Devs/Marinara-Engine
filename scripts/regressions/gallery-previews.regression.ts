@@ -52,17 +52,22 @@ try {
     const thumbDir = join(fixtureDir, "backgrounds-thumbs");
     mkdirSync(thumbDir, { recursive: true });
     const key = createHash("sha1").update(file).digest("hex").slice(0, 16);
-    writeFileSync(
-      join(thumbDir, `320-${statSync(file).mtimeMs}-${key}.webp`),
-      await sharp(original).resize(10).webp().toBuffer(),
-    );
+    for (const prefix of ["", "v2-"]) {
+      writeFileSync(
+        join(thumbDir, `${prefix}320-${statSync(file).mtimeMs}-${key}.webp`),
+        await sharp(original)
+          .resize(prefix ? 320 : 10)
+          .webp()
+          .toBuffer(),
+      );
+    }
     for (const width of [320, 1024]) {
       const response = await app.inject(`${url}?w=${width}`);
       assert.equal(response.statusCode, 200);
       assert.equal(response.headers["content-type"], "image/webp");
       const meta = await sharp(response.rawPayload).metadata();
-      assert.equal(meta.width, width);
-      assert.equal(meta.height, width * 1.5);
+      assert.equal(meta.width, Math.round(width / 1.5));
+      assert.equal(meta.height, width, "Both dimensions must fit the preview bound");
       assert.equal(response.headers["cache-control"], "public, max-age=0");
       const cached = await resolveThumbPath(file, width);
       assert.ok(cached);
@@ -100,6 +105,24 @@ try {
   assert.equal((await app.inject("/api/gallery/file/bad/fake.png?w=320")).statusCode, 404);
   assert.equal((await app.inject("/api/gallery/file/owner/%2e%2e%2fgenerated.png?w=320")).statusCode, 400);
 
+  // GPT Image's standard portrait size already fits the old width-only cap.
+  // Tall illustrations must not keep their full decoded height either.
+  for (const [width, height] of [
+    [1024, 1536],
+    [1024, 4096],
+    [4096, 1024],
+  ]) {
+    const bytes = await sharp({ create: { width, height, channels: 3, background: "#164e63" } })
+      .png()
+      .toBuffer();
+    await seed("dimensions", `dimensions/${width}x${height}.png`, bytes);
+    const response = await app.inject(`/api/gallery/file/dimensions/${width}x${height}.png?w=1024`);
+    const preview = await sharp(response.rawPayload).metadata();
+    assert.equal(Math.max(preview.width, preview.height), 1024);
+    assert.equal(preview.width, Math.round((width * 1024) / Math.max(width, height)));
+    assert.equal(preview.height, Math.round((height * 1024) / Math.max(width, height)));
+  }
+
   const small = await sharp({ create: { width: 40, height: 60, channels: 3, background: "#164e63" } })
     .png()
     .toBuffer();
@@ -130,6 +153,8 @@ try {
     pngChunk("fcTL", frame),
     small.subarray(33),
   ]);
+  const metadataChunk = pngChunk("tEXt", Buffer.from(`Comment\0${"x".repeat(200_000)}`));
+  const metadataApng = Buffer.concat([apng.subarray(0, 33), metadataChunk, apng.subarray(33)]);
   const frames = Buffer.alloc(16 * 32 * 3, 120);
   frames.fill(200, 16 * 16 * 3);
   const animatedWebp = await sharp(frames, { raw: { width: 16, height: 32, channels: 3, pageHeight: 16 } })
@@ -139,6 +164,7 @@ try {
   const gif = await sharp(animatedWebp, { animated: true }).gif().toBuffer();
   for (const [filename, bytes] of [
     ["animated.png", apng],
+    ["metadata-animated.png", metadataApng],
     ["animated.webp", animatedWebp],
     ["animated.gif", gif],
   ] as const) {
@@ -147,14 +173,17 @@ try {
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.rawPayload, bytes, "Animations retain their original bytes");
   }
-  // Large PNG metadata uses the documented conservative fallback, not a partial decode.
-  const largeMetadata = Buffer.concat([
-    small.subarray(0, 33),
-    pngChunk("tEXt", Buffer.from(`Comment\0${"x".repeat(70_000)}`)),
-    small.subarray(33),
-  ]);
+  // Metadata payloads must not make static generated PNGs bypass mobile previews.
+  const largeMetadata = Buffer.concat([original.subarray(0, 33), metadataChunk, original.subarray(33)]);
   await seed("large-metadata", "large-metadata/image.png", largeMetadata);
-  assert.deepEqual((await app.inject("/api/gallery/file/large-metadata/image.png?w=320")).rawPayload, largeMetadata);
+  for (const width of [320, 1024]) {
+    const response = await app.inject(`/api/gallery/file/large-metadata/image.png?w=${width}`);
+    assert.equal(response.headers["content-type"], "image/webp", "Large metadata must not fall back to the original");
+    const preview = await sharp(response.rawPayload).metadata();
+    assert.equal(preview.height, width);
+    assert.equal(preview.width, Math.round(width / 1.5));
+  }
+  assert.deepEqual((await app.inject("/api/gallery/file/large-metadata/image.png")).rawPayload, largeMetadata);
   for (const width of ["123", "NaN", undefined]) assert.equal(parseThumbnailWidth(width), null);
   console.info(
     "Gallery preview sizes, original downloads, animation fallbacks, ownership and media validation passed.",
