@@ -78,6 +78,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Text-to-speech no longer freezes Safari (#5889). When Safari blocked playback for lacking a recent tap - which it does for autoplay, and even for the play button once fetching the audio took longer than the click - the app retried playing in a tight loop until the tab ran out of memory and froze. Blocked playback now waits quietly, shows a "tap anywhere to play" notice, and resumes on your next tap or keypress; on iPhone/iPad the audio kept in memory is also capped so long sessions cannot balloon Safari's memory.
 - Mobile Roleplay Connections/Personas now uses the same themed surface as the character response picker. The Agents menu groups each agent's reports with its outputs, preserving dismissal, saved custom-output editing, and the separate Echo Chamber window (#5883).
 - Mobile image previews now bound both dimensions, including tall illustrations, and large PNG metadata no longer bypasses previews. This reduces image-arrival decoding pressure without changing appearance settings or saved originals (#5870).
 

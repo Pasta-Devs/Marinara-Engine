@@ -519,6 +519,22 @@ export const ChatArea = memo(function ChatArea() {
   useEffect(() => {
     homeProfessorChatOpenRef.current = homeProfessorChatOpen;
   }, [homeProfessorChatOpen]);
+  // #5889: when Safari's autoplay policy blocks playback, the service parks in
+  // "blocked" and waits for a user gesture instead of retrying - tell the user
+  // the one tap that resumes it. Deduped by toast id across repeat blocks.
+  useEffect(() => {
+    let lastTtsState: ReturnType<typeof ttsService.getState> | null = null;
+    return ttsService.subscribe((state) => {
+      if (state === "blocked" && lastTtsState !== "blocked") {
+        toast.info(localizeUi("ui.chat.chatarea.audioBlockedTapToPlay"), { id: "tts-playback-blocked" });
+      } else if (state !== "blocked" && lastTtsState === "blocked") {
+        // The tap that resumed playback also fulfilled the toast - a lingering
+        // "tap to play" over audio that is already playing reads as broken.
+        toast.dismiss("tts-playback-blocked");
+      }
+      lastTtsState = state;
+    });
+  }, [localizeUi]);
   const handleHomeProfessorChatOpenChange = useCallback((open: boolean) => {
     homeProfessorChatOpenRef.current = open;
     if (open) setHomeProfessorChatActive(true);

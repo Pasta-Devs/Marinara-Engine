@@ -2011,7 +2011,7 @@ export const ChatMessage = memo(function ChatMessage({
       }),
     [],
   );
-  const ttsBusy = ttsState === "loading" || ttsState === "playing" || ttsState === "paused";
+  const ttsBusy = ttsState === "loading" || ttsState === "playing" || ttsState === "paused" || ttsState === "blocked";
   const isSpeakingThis = ttsActiveId === message.id;
   const isLoadingThis = isSpeakingThis && ttsState === "loading";
   const isPausedThis = isSpeakingThis && ttsState === "paused";
@@ -2034,7 +2034,8 @@ export const ChatMessage = memo(function ChatMessage({
     // Read directly from the singleton so we never act on stale React state
     const liveState = ttsService.getState();
     const liveActiveId = ttsService.getActiveId();
-    const liveBusy = liveState === "loading" || liveState === "playing" || liveState === "paused";
+    const liveBusy =
+      liveState === "loading" || liveState === "playing" || liveState === "paused" || liveState === "blocked";
     const liveIsThis = liveActiveId === message.id;
     if (liveBusy && !liveIsThis) return;
     if (liveIsThis) {
@@ -3665,7 +3666,7 @@ export const ChatMessage = memo(function ChatMessage({
               />
               {ttsEnabled && (
                 <>
-                  {isSpeakingThis && !isLoadingThis && (
+                  {isSpeakingThis && (ttsState === "playing" || ttsState === "paused") && (
                     <>
                       <ActionBtn
                         icon={
