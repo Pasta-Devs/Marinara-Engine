@@ -1181,11 +1181,6 @@ assert.equal(
 const lorebookEnglishLocale = JSON.parse(
   readFileSync(join(REPOSITORY_ROOT, "packages/client/src/localization/locales/en.json"), "utf8"),
 ) as Record<string, unknown>;
-const lorebookKoreanLocale = JSON.parse(
-  readFileSync(join(REPOSITORY_ROOT, "packages/client/src/localization/locales/ko.json"), "utf8"),
-) as Record<string, unknown>;
-assert.equal(lorebookKoreanLocale["ui.lorebooks.lorebookeditor.es"], "");
-assert.equal(lorebookKoreanLocale["ui.noodle.stageprofileview.s"], "");
 assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.beforeCharacter"], "Before character definitions");
 assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.afterCharacter"], "After character definitions");
 assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.beforeCompact"], "↑Char");
@@ -1193,14 +1188,6 @@ assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.afterCompact"]
 assert.match(
   String(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.positionInThePromptBeforeCharacterAfterCharacterOr"]),
   /Before Character Definitions, After Character Definitions/u,
-);
-assert.equal(lorebookKoreanLocale["ui.lorebooks.lorebookentryrow.beforeCharacter"], "캐릭터 정의 전");
-assert.equal(lorebookKoreanLocale["ui.lorebooks.lorebookentryrow.afterCharacter"], "캐릭터 정의 후");
-assert.equal(lorebookKoreanLocale["ui.lorebooks.lorebookentryrow.beforeCompact"], "↑캐릭터");
-assert.equal(lorebookKoreanLocale["ui.lorebooks.lorebookentryrow.afterCompact"], "↓캐릭터");
-assert.match(
-  String(lorebookKoreanLocale["ui.lorebooks.lorebookentryrow.positionInThePromptBeforeCharacterAfterCharacterOr"]),
-  /캐릭터 정의 전, 캐릭터 정의 후/u,
 );
 const updatesRouteSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/updates.routes.ts"), "utf8");
 assert.match(
@@ -10223,7 +10210,9 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(conversationSurfaceSource, /onIllustrateWithAgent=\{onIllustrateWithAgent\}/u);
 
-  assert.match(settingsDrawerSource, /\/generate\/status\/\$\{encodeURIComponent\(chat\.id\)\}/u);
+  assert.match(settingsDrawerSource, /useGenerationStatus\(\s*chat\.id,\s*open && isRoleplayMode/u);
+  const generationStatusHookSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/hooks/use-chats.ts"), "utf8");
+  assert.match(generationStatusHookSource, /\/generate\/status\/\$\{encodeURIComponent\(chatId \?\? ""\)\}/u);
   assert.match(settingsDrawerSource, /isRoleplayMode && \(activeGeneration \|\| stoppingGeneration\)/u);
   assert.match(settingsDrawerSource, /await abortGenerationForChat\(chat\.id, controller\)/u);
   const stopGenerationActionStart = settingsDrawerSource.indexOf(

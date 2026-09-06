@@ -202,8 +202,8 @@ const TASK_ITEM_RE = /^(\s*)[-*+] \[([ xX])\]\s+(.+)/;
 /** Regex to match an unordered list item (-, *, +). */
 const UL_ITEM_RE = /^(\s*)[*+-]\s+(.+)/;
 
-/** Regex to match an ordered list item (1., 2., …). */
-const OL_ITEM_RE = /^(\s*)(\d+)\.\s+(.+)/;
+/** Padded times such as "0600. Wake up" are prose, not ordered list markers. */
+const OL_ITEM_RE = /^(\s*)(0|[1-9]\d*)\.\s+(.+)/;
 
 /** Regex to match a table row: starts and ends with |. */
 const TABLE_ROW_RE = /^\|(.+)\|$/;

@@ -512,10 +512,11 @@ import {
   type GenerationPromptMessage,
 } from "../services/generation/prompt-message-scope.js";
 import {
+  collectPastReasoningMetadata,
+  limitPastReasoningMetadata,
   readChatCompletionsReasoningMetadata,
   resolveStoredChatOptions,
   resolveStoredMaxTokens,
-  shouldReplayStoredChatCompletionsReasoning,
 } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
@@ -1411,25 +1412,6 @@ export async function generateRoutes(app: FastifyInstance) {
         lorebookKeeperMessages = lorebookKeeperMessages.filter((m: any) => m.id !== input.regenerateMessageId);
       }
 
-      // OpenAI Responses API uses encrypted reasoning items for multi-turn continuity.
-      // Recover them before choosing the tool or streaming provider path. Hidden command
-      // anchors remain eligible, while a regenerated response cannot seed its replacement.
-      if (!excludePastReasoning) {
-        const reasoningMessages = input.regenerateMessageId
-          ? scopedMessages.filter((message: any) => message.id !== input.regenerateMessageId)
-          : scopedMessages;
-        for (let i = reasoningMessages.length - 1; i >= 0; i--) {
-          const message = reasoningMessages[i]!;
-          if (message.role === "assistant") {
-            const extra = parseExtra(message.extra);
-            if (Array.isArray(extra.encryptedReasoning) && extra.encryptedReasoning.length > 0) {
-              encryptedReasoningItems = extra.encryptedReasoning;
-            }
-            break;
-          }
-        }
-      }
-
       const regenerateContextCutoff =
         input.regenerateMessageId && typeof regenMsg?.createdAt === "string" ? regenMsg.createdAt : null;
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
@@ -1474,6 +1456,31 @@ export async function generateRoutes(app: FastifyInstance) {
       const contextMessageLimit = chatMeta.contextMessageLimit as number | null;
       if (contextMessageLimit && contextMessageLimit > 0 && chatMessages.length > contextMessageLimit) {
         chatMessages = chatMessages.slice(-contextMessageLimit);
+      }
+      const pastReasoning = collectPastReasoningMetadata(
+        chatMessages,
+        { ...chatMeta, pastReasoningLimit: 0 },
+        conn.provider,
+        conn.model,
+      );
+
+      // Ordinary reasoning stays on visible history messages. Only a generated
+      // command-only anchor needs the legacy continuity slot when its text is hidden.
+      if (!excludePastReasoning) {
+        for (let i = scopedMessages.length - 1; i >= 0; i--) {
+          const message = scopedMessages[i]!;
+          if (message.role !== "assistant" || message.id === input.regenerateMessageId) continue;
+          const extra = parseExtra(message.extra);
+          if (extra.hiddenFromAI === true && extra.commandOnly !== true) continue;
+          if (
+            extra.commandOnly === true &&
+            Array.isArray(extra.encryptedReasoning) &&
+            extra.encryptedReasoning.length
+          ) {
+            encryptedReasoningItems = extra.encryptedReasoning;
+          }
+          break;
+        }
       }
 
       // Agent activation is request-scoped. Resolve the configured set once so
@@ -1578,20 +1585,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const extra = parseExtra(m.extra);
         const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
         const attachments = normalizePromptAttachments(m.extra);
-        const providerMetadata: Record<string, unknown> = {};
-        // For Google connections, carry stored Gemini parts (thought signatures) on assistant messages
-        if (!excludePastReasoning && isGoogleProvider && m.role === "assistant" && extra.geminiParts) {
-          providerMetadata.geminiParts = extra.geminiParts;
-        }
-        const chatCompletionsReasoning =
-          !excludePastReasoning &&
-          m.role === "assistant" &&
-          shouldReplayStoredChatCompletionsReasoning(conn.provider, conn.model)
-            ? readChatCompletionsReasoningMetadata(extra.chatCompletionsReasoning)
-            : undefined;
-        if (chatCompletionsReasoning) {
-          Object.assign(providerMetadata, chatCompletionsReasoning);
-        }
+        const providerMetadata = pastReasoning.get(m.id);
 
         // Annotate assistant messages that have user-uploaded image attachments
         // so the model is aware it sent a photo in prior turns.
@@ -1628,7 +1622,7 @@ export async function generateRoutes(app: FastifyInstance) {
           ...(conversationStartForCharacterIds.length ? { conversationStartForCharacterIds } : {}),
           ...(attachmentInputs.images.length ? { images: attachmentInputs.images } : {}),
           ...(attachmentInputs.files.length ? { files: attachmentInputs.files } : {}),
-          ...(Object.keys(providerMetadata).length ? { providerMetadata } : {}),
+          ...(providerMetadata ? { providerMetadata } : {}),
         };
       };
 
@@ -1919,6 +1913,7 @@ export async function generateRoutes(app: FastifyInstance) {
             chatSummary: null,
             authorNotes: typeof chatMeta.authorNotes === "string" ? chatMeta.authorNotes : null,
             streaming: input.streaming,
+            agentProgress: (event) => sendSseEvent(reply, { type: "agent_progress", data: event }),
             ...(requestDebug
               ? {
                   agentDebug: (event: AgentCallDebugEvent) => {
@@ -4144,6 +4139,7 @@ export async function generateRoutes(app: FastifyInstance) {
             : {}),
           ...(Object.keys(triggeredLorebookEntriesByAgentId).length > 0 ? { triggeredLorebookEntriesByAgentId } : {}),
           streaming: input.streaming,
+          agentProgress: (event) => sendSseEvent(reply, { type: "agent_progress", data: event }),
           ...(requestDebug
             ? {
                 agentDebug: (event: AgentCallDebugEvent) => {
@@ -6284,7 +6280,11 @@ export async function generateRoutes(app: FastifyInstance) {
               if (!hasProviderMessagePayload(message)) continue;
 
               const last = merged[merged.length - 1];
-              if (last && last.role === message.role) {
+              if (
+                last &&
+                last.role === message.role &&
+                !(message.role === "assistant" && (last.providerMetadata || message.providerMetadata))
+              ) {
                 last.content = `${last.content}\n\n${message.content}`;
                 delete last.contextKind;
                 if (message.images?.length) {
@@ -6321,7 +6321,7 @@ export async function generateRoutes(app: FastifyInstance) {
           let effectiveMaxTokensForSend: number | undefined = maxTokens;
           const fitPromptForSend = (candidateMessages: ChatMessage[]): ChatMessage[] => {
             const fit = fitMessagesForModelAccess({
-              messages: candidateMessages,
+              messages: limitPastReasoningMetadata(candidateMessages, chatMeta),
               policy: { ...modelAccessPolicy, effectiveMaxContext },
               maxTokens,
               tools: toolDefs,

@@ -13,6 +13,7 @@ import {
 import { useChatGalleryFilenameIndex } from "../../hooks/use-characters";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { PendingTypingDots } from "./PendingTypingDots";
+import { ChatImagePreview } from "./ChatImagePreview";
 import { isDiceRollResult } from "../dice/AnimatedDiceRoll";
 import { DiceMessageContent } from "./ConversationMessageShared";
 import {
@@ -98,7 +99,6 @@ import { MessageThinkingModal } from "./MessageThinkingModal";
 import { MESSAGE_ACTION_ICON_SIZE, MessageActionButton } from "./MessageActionButton";
 import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia";
 
-const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
 const MESSAGE_CHROME_ACTIVE_ICON_CLASS =
@@ -3489,7 +3489,7 @@ export const ChatMessage = memo(function ChatMessage({
                           value1: att.filename || att.name || localizeUi("ui.ui.spritegenerationmodal.image"),
                         })}
                       >
-                        <img
+                        <ChatImagePreview
                           src={att.url || att.data}
                           alt={att.filename || att.name || "image"}
                           className="max-h-[70vh] max-w-full rounded-lg object-contain sm:max-h-[32rem]"
@@ -3546,10 +3546,6 @@ export const ChatMessage = memo(function ChatMessage({
                 swipeCount={swipeCount}
                 onSetActiveSwipe={handleSetActiveSwipe}
                 onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
-                className="px-1 text-[0.75rem] text-white/40"
-                buttonClassName="rounded-md p-[0.25em] transition-colors hover:bg-white/10 disabled:opacity-30"
-                inputClassName="border-white/10 bg-white/5 text-white/70 [color-scheme:dark]"
-                iconSize={MESSAGE_SWIPE_ICON_SIZE}
               />
             )}
 
@@ -3957,7 +3953,7 @@ export const ChatMessage = memo(function ChatMessage({
                         value1: att.filename || att.name || localizeUi("ui.ui.spritegenerationmodal.image"),
                       })}
                     >
-                      <img
+                      <ChatImagePreview
                         src={att.url || att.data}
                         alt={att.filename || att.name || "image"}
                         className="max-h-[70vh] max-w-full rounded-lg object-contain sm:max-h-[32rem]"
@@ -4023,9 +4019,6 @@ export const ChatMessage = memo(function ChatMessage({
               swipeCount={swipeCount}
               onSetActiveSwipe={handleSetActiveSwipe}
               onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
-              className="px-2 text-[0.75rem] text-[var(--muted-foreground)]"
-              buttonClassName="rounded p-[0.25em] transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
-              iconSize={MESSAGE_SWIPE_ICON_SIZE}
             />
           )}
 

@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
+import { mockUILanguagePacks } from "./ui-language-fixtures.js";
 
 const TRANSPARENT_GIF_BASE64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const TRANSPARENT_PNG_BASE64 =
@@ -660,6 +661,7 @@ test("gradient Accent Pulse keeps animating while Appearance settings are open",
 });
 
 test("Android status bar setting reads and updates the native bridge", async ({ page }) => {
+  await mockUILanguagePacks(page);
   await page.addInitScript(() => {
     const nativeWindow = window as Window & {
       MarinaraAndroid?: {
@@ -5169,6 +5171,65 @@ test("character schedules export the live draft and import safely", async ({ pag
   }
 });
 
+test("agent connection warning borders follow the configured accent", async ({ page, request }, testInfo) => {
+  const created = await request.post("/api/chats", {
+    data: {
+      name: "Agent connection warning",
+      mode: "roleplay",
+      characterIds: [],
+      connectionId: "synthetic-agent-warning-connection",
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const chat = (await created.json()) as { id: string };
+  const message =
+    'Echo Chamber and Illustrator agents are using the default agent connection "Fixture model" (local-fixture). If this is a paid API model, agent calls may bill that provider.';
+  try {
+    await page.route("**/api/generate", (route) =>
+      route.fulfill({
+        contentType: "text/event-stream",
+        body: [
+          { type: "agent_warning", data: { code: "default_agent_connection_active", message } },
+          { type: "done", data: {} },
+        ]
+          .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+          .join(""),
+      }),
+    );
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await setAppAccentColor(page, "#14b8a6");
+    await page.locator("textarea.mari-chat-input-textarea").fill("Show the model warning");
+    await page.locator("button.mari-chat-send-btn").click();
+    const warning = page.locator('[data-sonner-toast][data-type="warning"]').filter({ hasText: message });
+    await expect(warning).toBeVisible();
+    await testInfo.attach(`agent-warning-initial-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ animations: "disabled" }),
+      contentType: "image/png",
+    });
+    for (const theme of ["dark", "light"] as const) {
+      await page.evaluate(async (nextTheme) => {
+        const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+        useUIStore.getState().setTheme(nextTheme);
+      }, theme);
+      for (const accent of ["#14b8a6", "#1256aa"]) {
+        await setAppAccentColor(page, accent);
+        const border = await readCssVariableColor(page, "--marinara-chat-chrome-panel-border");
+        expect(border).not.toBe(await readCssVariableColor(page, "--border"));
+        await expect(warning).toHaveCSS("border-top-color", border);
+      }
+      await testInfo.attach(`agent-warning-${theme}-${testInfo.project.name}.png`, {
+        body: await page.screenshot({ animations: "disabled" }),
+        contentType: "image/png",
+      });
+    }
+    await warning.getByRole("button", { name: "Close toast", exact: true }).click();
+    await expect(warning).toBeHidden();
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("provider concurrency errors appear in generation toasts", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Generation error toast regression is covered on desktop.");
 
@@ -5646,8 +5707,135 @@ test("stopped and refused generations keep sent text cleared and accept the firs
   }
 });
 
+test("Conversation swipe controls match Roleplay sizing and chat-chrome colors", async ({
+  page,
+  request,
+}, testInfo) => {
+  const fixtures: Array<{ chatId: string; messageId: string; layout: "roleplay" | "classic" | "bubble" | "grouped" }> =
+    [];
+  try {
+    for (const layout of ["roleplay", "classic", "bubble", "grouped"] as const) {
+      const created = await request.post("/api/chats", {
+        data: {
+          name: `${layout} swipe parity`,
+          mode: layout === "roleplay" ? "roleplay" : "conversation",
+          characterIds: [],
+        },
+      });
+      expect(created.ok()).toBeTruthy();
+      const { id: chatId } = (await created.json()) as { id: string };
+      const content =
+        layout === "grouped"
+          ? '<speaker="Alice">A synthetic grouped response.</speaker><speaker="Bob">Another synthetic turn.</speaker>'
+          : "A synthetic response for comparing the same swipe controls in each layout.";
+      const saved = await request.post(`/api/chats/${chatId}/messages`, { data: { role: "assistant", content } });
+      expect(saved.ok()).toBeTruthy();
+      const { id: messageId } = (await saved.json()) as { id: string };
+      fixtures.push({ chatId, messageId, layout });
+      const alternate = await request.post(`/api/chats/${chatId}/messages/${messageId}/swipes`, {
+        data: { content, silent: true },
+      });
+      expect(alternate.ok()).toBeTruthy();
+    }
+    await page.goto("/");
+    await setAppAccentColor(page, "#38bdf8");
+    const viewport = page.viewportSize()!;
+    for (const width of testInfo.project.name.includes("mobile") ? [320, viewport.width] : [viewport.width]) {
+      await page.setViewportSize({ width, height: viewport.height });
+      for (const theme of ["dark", "light"] as const) {
+        let roleplayMetrics: unknown;
+        for (const { chatId, messageId, layout } of fixtures) {
+          await page.evaluate(
+            async ({ id, style, nextTheme }) => {
+              const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as {
+                useChatStore: { getState: () => { setActiveChatId: (id: string) => void } };
+              };
+              const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+                useUIStore: {
+                  getState: () => {
+                    setConversationMessageStyle: (style: "classic" | "bubble") => void;
+                    setTheme: (theme: "dark" | "light") => void;
+                    setChatChromeTextColor: (color: string) => void;
+                  };
+                };
+              };
+              const ui = useUIStore.getState();
+              ui.setConversationMessageStyle(style === "bubble" ? "bubble" : "classic");
+              ui.setTheme(nextTheme);
+              ui.setChatChromeTextColor(nextTheme === "dark" ? "#c2dce5" : "#263a47");
+              useChatStore.getState().setActiveChatId(id);
+            },
+            { id: chatId, style: layout, nextTheme: theme },
+          );
+          const row = page.locator(`[data-message-id="${messageId}"]`);
+          const control = row.locator(".mari-message-swipes");
+          await expect(control).toBeVisible();
+          const input = control.getByRole("textbox");
+          await expect(input).toHaveValue("1");
+          const metrics = await control.evaluate((element) => {
+            const button = element.querySelector("button")!;
+            const field = element.querySelector("input")!;
+            const icon = button.querySelector("svg")!;
+            const styles = getComputedStyle(element);
+            return {
+              height: element.getBoundingClientRect().height,
+              gap: styles.gap,
+              padding: styles.padding,
+              fontSize: styles.fontSize,
+              buttonWidth: button.getBoundingClientRect().width,
+              buttonHeight: button.getBoundingClientRect().height,
+              iconWidth: icon.getBoundingClientRect().width,
+              inputWidth: field.getBoundingClientRect().width,
+              inputHeight: field.getBoundingClientRect().height,
+              inputFontSize: getComputedStyle(field).fontSize,
+              inputRadius: getComputedStyle(field).borderRadius,
+            };
+          });
+          if (layout === "roleplay") roleplayMetrics = metrics;
+          else expect.soft(metrics, `${layout} ${theme} ${width}px matches Roleplay`).toEqual(roleplayMetrics);
+          const actionColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
+          await expect.soft(control).toHaveCSS("color", actionColor, { timeout: 500 });
+          await expect.soft(control).toHaveCSS("border-top-width", "0px", { timeout: 500 });
+          await expect.soft(control).toHaveCSS("background-color", "rgba(0, 0, 0, 0)", { timeout: 500 });
+          await expect
+            .soft(input)
+            .toHaveCSS("color", await readCssVariableColor(page, "--marinara-chat-message-action-text-hover"), {
+              timeout: 500,
+            });
+          await testInfo.attach(`${layout}-swipes-${theme}-${width}.png`, {
+            body: await row.screenshot({ animations: "disabled" }),
+            contentType: "image/png",
+          });
+          // Wait for persistence, not just the optimistic counter, before the next interaction.
+          const selectSwipe = async (index: number, action: () => Promise<void>) => {
+            const saved = page.waitForResponse(
+              (response) =>
+                response.url().endsWith(`/messages/${messageId}/active-swipe`) &&
+                response.request().method() === "PUT" &&
+                response.request().postDataJSON().index === index,
+            );
+            await action();
+            expect(((await (await saved).json()) as { activeSwipeIndex: number }).activeSwipeIndex).toBe(index);
+            await expect(input).toHaveValue(String(index + 1));
+          };
+          await selectSwipe(1, () => control.getByRole("button", { name: "Next swipe", exact: true }).click());
+          await selectSwipe(0, () => control.getByRole("button", { name: "Previous swipe", exact: true }).click());
+          await selectSwipe(1, () => input.fill("2"));
+          await input.press("Enter");
+          await expect(control.getByRole("button", { name: "Previous swipe", exact: true })).toBeEnabled();
+          await selectSwipe(0, () => input.fill("1"));
+          await input.press("Enter");
+          await expect(control.getByRole("button", { name: "Previous swipe", exact: true })).toBeDisabled();
+        }
+      }
+    }
+  } finally {
+    for (const { chatId } of fixtures) await bestEffortDelete(request, `/api/chats/${chatId}?force=true`);
+  }
+});
+
 for (const mode of ["conversation", "roleplay"] as const) {
-  test(`${mode} message actions are roomy and first-swipe preferences persist independently`, async ({
+  test(`${mode} message actions fit mobile rows and first-swipe preferences persist independently`, async ({
     page,
     request,
   }, testInfo) => {
@@ -5723,12 +5911,19 @@ for (const mode of ["conversation", "roleplay"] as const) {
         for (const button of buttons) {
           const box = await button.boundingBox();
           expect(box).not.toBeNull();
-          expect(box!.width).toBeGreaterThanOrEqual(mobile ? 44 : 32);
-          expect(box!.height).toBeGreaterThanOrEqual(mobile ? 44 : 32);
+          expect(box!.width).toBeGreaterThanOrEqual(mobile ? 24 : 32);
+          expect(box!.height).toBeGreaterThanOrEqual(32);
           expect(box!.x).toBeGreaterThanOrEqual(bar!.x);
           expect(box!.x + box!.width).toBeLessThanOrEqual(bar!.x + bar!.width + 1);
           if (previous && Math.abs(previous.y - box!.y) < 1) {
-            expect(box!.x - previous.x - previous.width).toBeGreaterThanOrEqual(mobile ? 3 : 6);
+            expect(box!.x - previous.x - previous.width).toBeGreaterThanOrEqual(mobile ? -1 : 6);
+          }
+          if (mobile && previous) expect(Math.abs(previous.y - box!.y)).toBeLessThan(1);
+          const icon = button.locator("svg").first();
+          if (mobile && (await icon.count())) {
+            const iconBox = await icon.boundingBox();
+            expect(iconBox!.width).toBeGreaterThanOrEqual(14);
+            expect(iconBox!.width).toBeLessThanOrEqual(16);
           }
           previous = box;
         }
@@ -12175,9 +12370,306 @@ test("custom generation parameters become reusable chat controls", async ({ page
   }
 });
 
-test("UI language selection loads locale files and persists across reloads", async ({ page }) => {
+test("Mobile Roleplay quick picker matches the character selector surface", async ({ page, isMobile }, testInfo) => {
+  test.skip(!isMobile, "The combined quick picker is mobile-only.");
+  const characterIds: string[] = [];
+  let chatId: string | undefined;
+  try {
+    for (const name of ["Picker botanist", "Picker librarian"]) {
+      const response = await page.request.post("/api/characters", { data: { data: { name } } });
+      expect(response.ok()).toBeTruthy();
+      characterIds.push(((await response.json()) as { id: string }).id);
+    }
+    const response = await page.request.post("/api/chats", {
+      data: { name: "Roleplay picker surface fixture", mode: "roleplay", characterIds },
+    });
+    expect(response.ok()).toBeTruthy();
+    chatId = ((await response.json()) as { id: string }).id;
+    const metadataResponse = await page.request.patch(`/api/chats/${chatId}/metadata`, {
+      data: { groupChatMode: "individual", groupResponseOrder: "sequential" },
+    });
+    expect(metadataResponse.ok(), await metadataResponse.text()).toBeTruthy();
+    const messageResponse = await page.request.post(`/api/chats/${chatId}/messages`, {
+      data: { role: "assistant", content: "The garden is ready for inspection." },
+    });
+    expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chatId);
+    await page.goto("/");
+    await expect(page.getByText("The garden is ready for inspection.", { exact: true })).toBeVisible();
+    for (const theme of ["dark", "light", "custom"] as const) {
+      await page.evaluate(async (theme) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        const ui = useUIStore.getState();
+        ui.setTheme(theme === "light" ? "light" : "dark");
+        ui.setAppBackgroundColor(theme === "custom" ? "#0b1920" : "");
+        ui.setChatChromeTextColor(theme === "custom" ? "#22d3ee" : "");
+      }, theme);
+      await page.getByTitle("Trigger character response", { exact: true }).click();
+      const characterPicker = page.getByText("Trigger Response", { exact: true }).locator("..");
+      await expect(characterPicker).toBeVisible();
+      const surface = await characterPicker.evaluate((element) => getComputedStyle(element).backgroundColor);
+      expect(surface).not.toMatch(/^(?:transparent|rgba\([^)]*,\s*0\))$/u);
+      await page.getByTitle("Trigger character response", { exact: true }).click();
+      await page.getByTitle("Quick Switcher", { exact: true }).click();
+      const picker = page.locator(".fixed[data-chat-floating-panel]");
+      await expect(picker).toBeVisible();
+      for (const tab of ["Connections", "Personas"]) {
+        await picker.getByRole("button", { name: tab, exact: true }).click();
+        await testInfo.attach(`roleplay-picker-${theme}-${tab}`, {
+          body: await page.screenshot(),
+          contentType: "image/png",
+        });
+        await expect(picker).toHaveCSS("background-color", surface);
+        const bounds = await picker.boundingBox();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+      }
+      await page.getByTitle("Quick Switcher", { exact: true }).click();
+    }
+  } finally {
+    if (chatId) await bestEffortDelete(page.request, `/api/chats/${chatId}`);
+    await Promise.all(characterIds.map((id) => bestEffortDelete(page.request, `/api/characters/${id}`)));
+  }
+});
+
+test("Agents menu groups outputs under their own reports and preserves output controls", async ({ page }, testInfo) => {
+  const response = await page.request.post("/api/chats", {
+    data: { name: "Grouped agent activity fixture", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  let customText = "Saved garden notes.";
+  await page.route(`**/api/agents/runs/${chat.id}/custom`, (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "activity-custom-run",
+          agentConfigId: "custom-config",
+          agentType: "custom-notes",
+          agentName: "Garden notes",
+          chatId: chat.id,
+          messageId: "fixture-message",
+          resultType: "custom",
+          resultData: { text: customText },
+          tokensUsed: 12,
+          durationMs: 100,
+          success: true,
+          error: null,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/agents/runs/activity-custom-run", async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    const body = route.request().postDataJSON() as { resultData?: { text?: string } } | null;
+    expect(body?.resultData?.text).toEqual(expect.any(String));
+    customText = body!.resultData!.text!;
+    await route.fulfill({ json: { success: true } });
+  });
+  try {
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "assistant", content: "A quiet day in the garden." },
+    });
+    expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    await page.goto("/");
+    await expect(page.getByText("A quiet day in the garden.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Agents & Actions", exact: true }).click();
+    await page.evaluate(async (chatId) => {
+      const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
+      const store = useAgentStore.getState();
+      store.setProcessingRun("activity-run", true, chatId);
+      for (const [type, name] of [
+        ["echo-chamber", "Echo Chamber"],
+        ["world-state", "World State"],
+        ["custom-notes", "Garden notes"],
+      ]) {
+        store.updateTaskProgress(chatId, "activity-run", {
+          callId: type,
+          agents: [{ id: `${type}-config`, type, name, phase: "post_processing" }],
+          stage: "received",
+          receivedChunks: 10,
+          receivedCharacters: 50,
+          elapsedMs: 2000,
+        });
+      }
+      // Two concurrent calls for an agent must retain separate metrics, but not duplicate its outputs.
+      store.setProcessingRun("overlapping-run", true, chatId);
+      store.updateTaskProgress(chatId, "overlapping-run", {
+        callId: "echo-overlap",
+        agents: [{ id: "echo-chamber-config", type: "echo-chamber", name: "Echo Chamber", phase: "parallel" }],
+        stage: "received",
+        receivedChunks: 2,
+        receivedCharacters: 15,
+        elapsedMs: 1000,
+      });
+      store.addThoughtBubble("echo-chamber", "Echo Chamber", "The readers loved the garden.");
+      store.addThoughtBubble("world-state", "World State", "Location: Garden. Weather: Sunny.");
+      store.addThoughtBubble("legacy-agent", "Legacy agent", "Output without progress remains available.");
+      store.setProcessingRun("activity-run", false, chatId);
+      store.setProcessingRun("overlapping-run", false, chatId);
+    }, chat.id);
+    const status = page.getByRole("region", { name: "Agent task status" });
+    const echo = status.locator('[data-agent-activity="echo-chamber"]');
+    const world = status.locator('[data-agent-activity="world-state"]');
+    await expect(echo.getByText("The readers loved the garden.", { exact: true })).toBeVisible();
+    await expect(echo.getByText("Output received", { exact: true })).toHaveCount(2);
+    await expect(echo.getByText("Location: Garden. Weather: Sunny.", { exact: true })).toHaveCount(0);
+    await expect(world.getByText("Location: Garden. Weather: Sunny.", { exact: true })).toBeVisible();
+    await expect(page.getByText("The readers loved the garden.", { exact: true })).toHaveCount(1);
+    await expect(page.getByText("Output without progress remains available.", { exact: true })).toBeVisible();
+    await echo.locator("[data-agent-output]").scrollIntoViewIfNeeded();
+    await testInfo.attach("agent-activity-grouping", { body: await page.screenshot(), contentType: "image/png" });
+    expect(
+      await echo.evaluate((block) => {
+        const metrics = block.querySelectorAll("dl");
+        const output = block.querySelector("[data-agent-output]");
+        const lastMetrics = metrics[metrics.length - 1];
+        return (
+          !!lastMetrics &&
+          !!output &&
+          !!(lastMetrics.compareDocumentPosition(output) & Node.DOCUMENT_POSITION_FOLLOWING)
+        );
+      }),
+    ).toBe(true);
+    await echo.getByRole("button", { name: "Dismiss output from Echo Chamber" }).click();
+    await expect(echo.getByText("The readers loved the garden.", { exact: true })).toHaveCount(0);
+    await expect(echo.getByText("Output received", { exact: true })).toHaveCount(2);
+    await expect(world.getByText("Location: Garden. Weather: Sunny.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Clear all", exact: true }).click();
+    await expect(page.getByText("Output without progress remains available.", { exact: true })).toHaveCount(0);
+    const custom = status.locator('[data-agent-activity="custom-notes"]');
+    await expect(custom.getByText("Saved garden notes.", { exact: true })).toBeVisible();
+    await custom.getByTitle("Edit output", { exact: true }).click();
+    await custom.getByRole("textbox").fill("Edited garden notes.");
+    await custom.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(custom.getByText("Edited garden notes.", { exact: true })).toBeVisible();
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setTheme("light");
+    });
+    await custom.scrollIntoViewIfNeeded();
+    await testInfo.attach("agent-activity-saved-output-light", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    // A reload has no live telemetry; the saved custom-output fallback must remain usable.
+    await page.reload();
+    await page.getByRole("button", { name: "Agents & Actions", exact: true }).click();
+    await page.getByRole("button", { name: /Custom outputs/ }).click();
+    await expect(page.getByText("Edited garden notes.", { exact: true })).toBeVisible();
+  } finally {
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}`);
+  }
+});
+
+test("Agents menu shows private-content-free progress, timings and reported usage", async ({ page }, testInfo) => {
+  const response = await page.request.post("/api/chats", {
+    data: { name: "Agent progress fixture", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  try {
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "assistant", content: "Agent status fixture." },
+    });
+    expect(messageResponse.ok()).toBeTruthy();
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await expect(page.getByText("Agent status fixture.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Agents & Actions", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Agent task status" })).toHaveCount(0);
+    const update = async (stage: "waiting" | "streaming" | "received", extra = {}) => {
+      await page.evaluate(
+        async ({ chatId, stage, extra }) => {
+          const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
+          const store = useAgentStore.getState();
+          store.setProcessingRun("progress-run", true, chatId);
+          store.updateTaskProgress(chatId, "progress-run", {
+            callId: "progress-call",
+            agents: [{ id: "tracker", type: "world-state", name: "World tracker", phase: "post_processing" }],
+            stage,
+            receivedChunks: 0,
+            receivedCharacters: 0,
+            elapsedMs: 0,
+            ...extra,
+          });
+          store.updateTaskProgress("another-chat", "other-run", {
+            callId: "private-other",
+            agents: [{ id: "other", type: "other", name: "Other chat tracker", phase: "pre_generation" }],
+            stage: "waiting",
+            receivedChunks: 0,
+            receivedCharacters: 0,
+            elapsedMs: 0,
+          });
+        },
+        { chatId: chat.id, stage, extra },
+      );
+    };
+    await update("waiting");
+    const status = page.getByRole("region", { name: "Agent task status" });
+    await expect(status.getByText("World tracker", { exact: true })).toBeVisible();
+    await expect(status.getByText("Post-generation", { exact: true })).toBeVisible();
+    await expect(status.getByText("Waiting for first output", { exact: true })).toBeVisible();
+    await expect(status.getByText("Not reported", { exact: true })).toHaveCount(3);
+    await expect(page.getByText("Other chat tracker", { exact: true })).toHaveCount(0);
+    await update("streaming", { receivedChunks: 17, receivedCharacters: 300, ttftMs: 125, elapsedMs: 700 });
+    await expect(status.getByText("17 chunks · 300 characters received", { exact: true })).toBeVisible();
+    await expect(status.getByText("Receiving output", { exact: true })).toBeVisible();
+    await expect(status.getByText("Not reported", { exact: true })).toHaveCount(2);
+    await expect
+      .poll(async () =>
+        status.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return bounds.left >= 7 && bounds.right <= window.innerWidth - 7;
+        }),
+      )
+      .toBe(true);
+    await testInfo.attach("agent-progress-streaming", { body: await page.screenshot(), contentType: "image/png" });
+    await update("received", {
+      receivedChunks: 20,
+      receivedCharacters: 370,
+      ttftMs: 125,
+      elapsedMs: 2000,
+      promptTokens: 123,
+      completionTokens: 45,
+    });
+    await expect(status.getByText("Output received", { exact: true })).toBeVisible();
+    await expect(status.locator("dd", { hasText: /^123$/ })).toBeVisible();
+    await expect(status.locator("dd", { hasText: /^45$/ })).toBeVisible();
+    await expect(status.getByText("Not reported", { exact: true })).toHaveCount(0);
+    await expect(status.getByText("World tracker", { exact: true })).toHaveCount(1);
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setTheme("light");
+    });
+    await testInfo.attach("agent-progress-reported-usage-light", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    await update("streaming", { receivedChunks: 21, receivedCharacters: 400, ttftMs: 125, elapsedMs: 2300 });
+    await page.evaluate(async (chatId) => {
+      const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
+      useAgentStore.getState().setProcessingRun("progress-run", false, chatId);
+    }, chat.id);
+    await expect(status.getByText("Stopped", { exact: true })).toBeVisible();
+    const elapsed = status
+      .locator("dl div")
+      .filter({ has: page.locator("dt", { hasText: /^Elapsed$/ }) })
+      .locator("dd");
+    const frozen = await elapsed.innerText();
+    await page.waitForTimeout(1100);
+    await expect(elapsed).toHaveText(frozen);
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
+test("UI language selection downloads packs on demand and persists across reloads", async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   const errors = collectUnexpectedErrors(page);
+  const packs = await mockUILanguagePacks(page);
   const languageSelect = page.locator("#settings-control-language select");
 
   // UI settings are normally synchronized through a single server record. Keep
@@ -12205,8 +12697,23 @@ test("UI language selection loads locale files and persists across reloads", asy
     await expect(languageSelect).toBeVisible({ timeout: 30_000 });
   };
 
+  // Upgrade: an old non-English selection without a local pack is a clean English fallback.
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("ui-pack-upgrade-fixture")) return;
+    sessionStorage.setItem("ui-pack-upgrade-fixture", "true");
+    const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{}}');
+    persisted.state = { ...persisted.state, language: "pl" };
+    localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
+  });
   await page.goto("/");
   await openGeneralSettings();
+  await expect(languageSelect).toHaveValue("en");
+  await expect(page.getByText("App Behavior", { exact: true })).toBeVisible();
+  expect(packs.downloads).toEqual([]);
+  await testInfo.attach("ui-language-pack-before-download", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   for (const locale of ["en", "ar", "de", "es", "fr", "hi", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"]) {
     await expect(languageSelect.locator(`option[value="${locale}"]`)).toHaveCount(1);
   }
@@ -12216,6 +12723,17 @@ test("UI language selection loads locale files and persists across reloads", asy
   await expect(page.getByPlaceholder("Szukaj w ustawieniach")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Ogólne" })).toBeVisible();
   await expect(page.getByText("Potwierdzaj przed usunięciem", { exact: true })).toBeVisible();
+
+  expect(packs.downloads).toEqual(["pl"]);
+  await page.getByRole("button", { name: "Refresh language pack", exact: true }).click();
+  await expect.poll(() => packs.downloads).toEqual(["pl", "pl"]);
+  await expect(page.getByRole("button", { name: "Refresh language pack", exact: true })).toBeEnabled();
+  await testInfo.attach("ui-language-pack-downloaded", { body: await page.screenshot(), contentType: "image/png" });
+  packs.setOffline(true);
+  await page.getByRole("button", { name: "Refresh language pack", exact: true }).click();
+  await expect(page.getByText("Could not download the language pack.", { exact: false })).toBeVisible();
+  await expect(languageSelect).toHaveValue("pl");
+  packs.setOffline(false);
   await expect(page.locator('[data-tour="panel-settings"]')).toHaveAttribute("title", "Ustawienia");
   await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe("pl");
   await expect.poll(() => page.evaluate(() => document.documentElement.dir)).toBe("ltr");
@@ -12338,7 +12856,8 @@ test("UI language selection loads locale files and persists across reloads", asy
   await openGeneralSettings();
   await expect(languageSelect).toHaveValue("en");
   await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe("en");
-  expect(errors).toEqual([]);
+  // The deliberately failed refresh is the only expected browser resource error.
+  expect(errors).toEqual(["Failed to load resource: the server responded with a status of 502 (Bad Gateway)"]);
 });
 
 test("incomplete synced settings preserve disabled Game text effects and repair the server blob", async ({ page }) => {

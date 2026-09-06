@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 
 import type { ThinkingTagPair } from "../utils/thinking-tags.js";
+import type { ScopedRegexMode } from "./regex.js";
 
 export const MARINARA_UNIVERSAL_PRESET_NAME = "Marinara's Universal Preset";
 export const MARINARA_UNIVERSAL_PRESET_AUTHOR = "Marinara";
@@ -77,6 +78,8 @@ export interface PromptPreset {
   parameters: GenerationParameters;
   /** Auto-wrapping format: XML (default) or Markdown */
   wrapFormat: WrapFormat;
+  /** Display default for character-scoped regex; an explicit chat choice overrides it. */
+  scopedRegexMode?: ScopedRegexMode;
   /** Saved default variable selections (variableName → value or values) */
   defaultChoices: Record<string, string | string[]>;
   /** Whether this is the built-in default preset */

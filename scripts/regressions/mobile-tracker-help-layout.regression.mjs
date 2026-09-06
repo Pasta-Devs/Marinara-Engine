@@ -73,8 +73,13 @@ assert.match(
 );
 assert.match(
   roleplayHud,
-  /left: pos\.left, transform: pos\.centered \? "translateX\(-50%\)"/u,
-  "the mobile Agents menu must center from its rendered width",
+  /dropdownRef\.current\?\.offsetWidth[\s\S]*Math\.max\(8, Math\.round\(\(window\.innerWidth - dropdownWidth\) \/ 2\)\)/u,
+  "the mobile Agents menu must center from its rendered width with an eight-pixel viewport inset",
+);
+assert.match(
+  roleplayHud,
+  /style=\{\{ top: pos\.top, left: pos\.left \}\}/u,
+  "the Agents menu must leave transform to its entrance animation instead of overriding pixel centering",
 );
 assert.match(
   roleplayHud,

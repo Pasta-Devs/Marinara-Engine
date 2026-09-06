@@ -78,6 +78,8 @@ Your chats, characters, and settings are stored on the server, not on your iPhon
 
 **Safari keeps showing an old build.** Reload the page first. If it still looks old, follow the Clearing and reinstalling the PWA steps above.
 
+**The Home Screen app closes or turns blank during generation.** Reopen it and return to the chat. You do not need to restart a healthy server. Automatic chat replies and Illustrator-only manual or retried image requests keep running on the server after a lost browser connection. The reopened chat checks for unfinished work and refreshes saved messages and gallery images when it finishes. **Stop** still cancels the selected chat's generation. If the blank screen keeps returning, report your Support Diagnostics and whether reopening restores the chat; this recovery does not diagnose or prevent every iOS browser failure.
+
 **A red banner says saves will silently fail.** This is a network trust warning from the server, not an iPhone or iPad problem. The server owner needs to trust your address. See the [Remote Access guide](../REMOTE_ACCESS.md) and [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 
 **Privileged actions are blocked.** Some maintenance actions need an admin secret from the server owner. On your iPhone or iPad, you save that value in **Settings**, then **Advanced**, then **Admin Access**. The [Remote Access guide](../REMOTE_ACCESS.md) explains what the admin secret is and how to get one.

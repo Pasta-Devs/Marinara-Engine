@@ -16,6 +16,8 @@ Marinara groups its agents into three categories in the **Agents** panel: **Writ
 
 A run interval means the agent runs once every few user and assistant messages instead of after every message. You can change a run interval in the agent's setup, up to 100.
 
+Illustrator also accepts **0** for manual-only generation: it stays available for Gallery actions but never runs automatically. Other agents keep their existing positive intervals.
+
 ## Writer agents
 
 Writer agents shape the story or the prose. They either add guidance before the reply or clean up the reply after it.

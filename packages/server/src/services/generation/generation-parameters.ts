@@ -5,6 +5,7 @@ import {
   resolveProviderReasoningEffort,
 } from "@marinara-engine/shared";
 import type { BaseLLMProvider, ChatOptions } from "../llm/base-provider.js";
+import { parseExtra } from "./prompt-attachments.js";
 
 export function normalizeMaxContext(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
@@ -119,6 +120,106 @@ export function shouldReplayStoredChatCompletionsReasoning(provider: string, mod
   if (provider !== "openrouter") return true;
   const normalizedModel = model.toLowerCase();
   return !normalizedModel.startsWith("google/gemini") && !normalizedModel.includes("/gemini-");
+}
+
+type PastReasoningSettings = { excludePastReasoning?: unknown; pastReasoningLimit?: unknown };
+const PAST_REASONING_KEYS = new Set([
+  "geminiParts",
+  "reasoning_content",
+  "reasoning",
+  "reasoning_details",
+  "encryptedReasoning",
+]);
+
+function resolvePastReasoningLimit(settings: PastReasoningSettings): number {
+  const value = settings.pastReasoningLimit;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 1;
+}
+
+/** Apply the allowance after target/audience filtering, before context fitting. */
+export function limitPastReasoningMetadata<
+  T extends {
+    role: string;
+    contextKind?: string;
+    providerMetadata?: Record<string, unknown>;
+  },
+>(messages: T[], settings: PastReasoningSettings): T[] {
+  const limit = resolvePastReasoningLimit(settings);
+  let kept = 0;
+  const limited = [...messages];
+  for (let index = limited.length - 1; index >= 0; index--) {
+    const message = limited[index]!;
+    const metadata = message.providerMetadata;
+    if (
+      message.role !== "assistant" ||
+      message.contextKind !== "history" ||
+      !metadata ||
+      metadata.partial === true ||
+      !Object.keys(metadata).some((key) => PAST_REASONING_KEYS.has(key))
+    )
+      continue;
+    if (settings.excludePastReasoning === false && (limit === 0 || kept++ < limit)) continue;
+    const remaining = Object.fromEntries(Object.entries(metadata).filter(([key]) => !PAST_REASONING_KEYS.has(key)));
+    const withoutReasoning = { ...message };
+    if (Object.keys(remaining).length) withoutReasoning.providerMetadata = remaining;
+    else delete withoutReasoning.providerMetadata;
+    limited[index] = withoutReasoning;
+  }
+  return limited;
+}
+
+/** Keep provider-native reasoning on its original message; plain assistant turns do not consume the limit. */
+export function collectPastReasoningMetadata(
+  messages: Array<{ id: string; role: string; extra?: unknown }>,
+  settings: PastReasoningSettings,
+  provider: string,
+  model: string,
+): Map<string, Record<string, unknown>> {
+  const selected = new Map<string, Record<string, unknown>>();
+  if (settings.excludePastReasoning !== false) return selected;
+  const limit = resolvePastReasoningLimit(settings);
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index]!;
+    if (message.role !== "assistant") continue;
+    const extra = parseExtra(message.extra);
+    if (extra.hiddenFromAI === true) continue;
+    const metadata: Record<string, unknown> = {};
+    if (
+      (provider === "google" || provider === "google_vertex") &&
+      Array.isArray(extra.geminiParts) &&
+      extra.geminiParts.some(
+        (part) =>
+          part &&
+          typeof part === "object" &&
+          (part.thought === true || (typeof part.thoughtSignature === "string" && part.thoughtSignature)),
+      )
+    ) {
+      metadata.geminiParts = extra.geminiParts;
+    }
+    if (supportsAssistantReasoningPrefill(provider) && shouldReplayStoredChatCompletionsReasoning(provider, model)) {
+      Object.assign(metadata, readChatCompletionsReasoningMetadata(extra.chatCompletionsReasoning));
+      // Local templates can consume thinking extracted from custom tags even without native reasoning deltas.
+      if (
+        provider === "custom" &&
+        !Object.keys(metadata).length &&
+        typeof extra.thinking === "string" &&
+        extra.thinking
+      ) {
+        metadata.reasoning_content = extra.thinking;
+      }
+    }
+    if (
+      ["openai", "xai", "custom"].includes(provider) &&
+      Array.isArray(extra.encryptedReasoning) &&
+      extra.encryptedReasoning.length
+    ) {
+      metadata.encryptedReasoning = extra.encryptedReasoning;
+    }
+    if (!Object.keys(metadata).length) continue;
+    selected.set(message.id, metadata);
+    if (limit > 0 && selected.size >= limit) break;
+  }
+  return selected;
 }
 
 /** Whether the connection uses the OpenAI-style message shape that can carry a partial reasoning prefill. */

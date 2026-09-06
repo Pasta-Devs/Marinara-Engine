@@ -18,6 +18,7 @@ import { renderInlineWithCustomEmojis } from "../../lib/custom-emoji-render";
 import { renderWithStickerBlocks } from "../../lib/sticker-render";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { ImagePromptPanel } from "./ImagePromptPanel";
+import { ChatImagePreview } from "./ChatImagePreview";
 import { MessageActionButton } from "./MessageActionButton";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { useUIStore } from "../../stores/ui.store";
@@ -563,7 +564,7 @@ export function ConversationMessageAttachments({
               className="block cursor-zoom-in rounded-lg text-left"
               title={localizeUi("ui.noodle.noodlepostcard.openImage")}
             >
-              <img
+              <ChatImagePreview
                 src={att.url || att.data}
                 alt={att.filename || att.name || "image"}
                 className="max-h-[70vh] max-w-full rounded-lg object-contain sm:max-h-[32rem]"
@@ -657,12 +658,7 @@ export function ConversationMessageSwipes({
       swipeCount={swipeCount}
       onSetActiveSwipe={onSetActiveSwipe}
       onCreateNextSwipe={onCreateNextSwipe}
-      className={cn(
-        "inline-flex items-center gap-0.5 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]",
-        className,
-      )}
-      buttonClassName="rounded-sm p-0.5 transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
-      inputClassName="h-[1.25rem] w-[2rem] border-none bg-transparent text-center text-[0.625rem] outline-none"
+      className={className}
     />
   );
 }

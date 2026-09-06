@@ -22,13 +22,13 @@ const generateRouteSource = readFileSync(
 assert.doesNotMatch(generateRouteSource, /encryptedReasoningCache/u);
 
 const reasoningRecoveryIndex = generateRouteSource.indexOf(
-  "// OpenAI Responses API uses encrypted reasoning items for multi-turn continuity.",
+  "const pastReasoning = collectPastReasoningMetadata(",
 );
 const toolBranchIndex = generateRouteSource.indexOf("if (enableChatTools && provider.chatComplete)");
 assert.ok(reasoningRecoveryIndex >= 0 && reasoningRecoveryIndex < toolBranchIndex);
 assert.match(
   generateRouteSource.slice(reasoningRecoveryIndex, toolBranchIndex),
-  /reasoningMessages[\s\S]*scopedMessages/u,
+  /collectPastReasoningMetadata\(\s*chatMessages,[\s\S]*scopedMessages[\s\S]*extra\.commandOnly === true/u,
 );
 
 const hiddenAnchorStart = generateRouteSource.indexOf("const anchoredMsg = savedMsg?.id");

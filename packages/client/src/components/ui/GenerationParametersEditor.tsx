@@ -383,6 +383,7 @@ export function GenerationParametersFields({
             rows={3}
             title={localizeUi("ui.ui.generationparametersfields.assistantReasoningPrefill")}
             className={PARAM_TEXTAREA_CLASS}
+            placeholder={localizeUi("generationParameters.assistantReasoningPrefill.placeholder")}
           />
         </div>
         <ThinkingTagsInput

@@ -59,6 +59,7 @@ import {
   resolveChatPersonaCandidate,
   type AgentWriteApprovalProposal,
   type AgentCallDebugEvent,
+  type AgentTaskProgress,
   type CharacterCardFieldUpdate,
   type EditableCharacterCardField,
   type MariGuidedPlanStep,
@@ -1878,6 +1879,13 @@ export function useGenerate() {
               break;
             }
 
+            case "agent_progress": {
+              useAgentStore
+                .getState()
+                .updateTaskProgress(params.chatId, agentProcessingRunId, event.data as AgentTaskProgress);
+              break;
+            }
+
             case "agent_warning": {
               showAgentWarning(event.data, params.chatId);
               break;
@@ -2658,11 +2666,10 @@ export function useGenerate() {
                 reason?: string;
               };
               toast(illData.reason ? `🎨 ${illData.reason}` : "🎨 Scene illustration generated");
-              // During streaming the real message is deferred — refreshing now
-              // would insert it into the cache alongside the StreamingIndicator,
-              // causing a duplicate flash. The finally block's authoritative
-              // refresh will pick up the illustration attachment from DB.
-              if (!streamingEnabled && !isGameGeneration) {
+              // Roleplay can already have handed off to the durable row while other
+              // agents still own this stream. Show its saved image immediately;
+              // only defer when the live message presentation still owns the row.
+              if (!isGameGeneration && canRefreshCurrentMessagesNow()) {
                 await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
               }
               void qc.invalidateQueries({ queryKey: ["gallery", params.chatId] });
@@ -3696,6 +3703,12 @@ export function useGenerate() {
                 phase: "agent_call",
                 agentCall: event.data as AgentCallDebugEvent,
               });
+              break;
+            }
+            case "agent_progress": {
+              useAgentStore
+                .getState()
+                .updateTaskProgress(chatId, agentProcessingRunId, event.data as AgentTaskProgress);
               break;
             }
             case "agents_retry_failed": {

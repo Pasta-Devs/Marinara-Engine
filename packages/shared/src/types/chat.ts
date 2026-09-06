@@ -382,10 +382,10 @@ export interface ChatMetadata {
    * How character-scoped regex scripts (those with target characters) apply at
    * display time in this chat: "exclusive" (a scoped script only transforms its
    * own character's messages) or "chat" (all scoped scripts transform every
-   * message). Defaults to "disabled" — scoped scripts are off at display unless
-   * opted in per chat. Global scripts (no target characters) are unaffected.
+   * message). Missing/null inherits the prompt preset (otherwise "disabled").
+   * Global scripts (no target characters) are unaffected.
    */
-  scopedRegexMode?: "disabled" | "exclusive" | "chat";
+  scopedRegexMode?: "disabled" | "exclusive" | "chat" | null;
   /** Legacy display scale for roleplay Expression Engine sprites. */
   spriteScale?: number;
   /** Display scale for roleplay Expression Engine expression sprites. Falls back to spriteScale. */
@@ -696,6 +696,8 @@ export interface ChatMetadata {
   summaryTailMessages?: number;
   /** When true or omitted, prior provider reasoning metadata is not replayed into future prompts. */
   excludePastReasoning?: boolean;
+  /** Most recent assistant reasoning blocks to replay when enabled. Default: 1; 0 includes all. */
+  pastReasoningLimit?: number;
 
   /** Any extra key-value data */
   [key: string]: unknown;

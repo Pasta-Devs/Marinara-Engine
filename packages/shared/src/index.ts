@@ -118,6 +118,7 @@ export * from "./features/tactical-combat/index.js";
 
 // Utils
 export * from "./utils/macro-engine.js";
+export * from "./utils/ui-locales.js";
 export * from "./utils/xml-wrapper.js";
 export * from "./utils/music-score.js";
 export * from "./utils/agent-cost.js";
@@ -126,6 +127,7 @@ export * from "./utils/skill-check-format.js";
 export * from "./utils/generation-guide.js";
 export * from "./utils/lorebook-keyword-matching.js";
 export * from "./utils/regex-safety.js";
+export * from "./utils/regex-scoping.js";
 export * from "./utils/game-state-text.js";
 export * from "./utils/custom-tracker-fields.js";
 export * from "./utils/illustrator-generation-count.js";

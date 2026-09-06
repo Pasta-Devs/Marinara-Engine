@@ -677,7 +677,7 @@ function ActionsGroup({
 }: ActionsGroupProps) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number; centered: boolean } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const echoMessages = useAgentStore((s) => s.echoMessages);
   const { data: customAgentRuns = [], isLoading: customAgentRunsLoading } = useCustomAgentRuns(chatId, agentsOpen);
 
@@ -690,11 +690,12 @@ function ActionsGroup({
     const aboveTop = rect.top - dropdownHeight - 4;
     const preferredTop = belowTop + dropdownHeight > window.innerHeight - 8 ? aboveTop : belowTop;
     const top = Math.max(8, Math.min(preferredTop, window.innerHeight - dropdownHeight - 8));
-    const centered = window.innerWidth < 768;
-    const left = centered
-      ? Math.round(window.innerWidth / 2)
-      : Math.max(8, Math.min(rect.left, window.innerWidth - dropdownWidth - 8));
-    return { top, left, centered };
+    // Center with layout coordinates: the panel's entrance animation owns transform.
+    const left =
+      window.innerWidth < 768
+        ? Math.max(8, Math.round((window.innerWidth - dropdownWidth) / 2))
+        : Math.max(8, Math.min(rect.left, window.innerWidth - dropdownWidth - 8));
+    return { top, left };
   }, []);
 
   // Position with fixed layout to avoid overflow clipping
@@ -759,7 +760,7 @@ function ActionsGroup({
           NEUTRAL_PANEL_SCROLL_AREA,
           "fixed z-[9999] max-h-80 w-72 max-w-[calc(100vw-1rem)] overflow-y-auto",
         )}
-        style={{ top: pos.top, left: pos.left, transform: pos.centered ? "translateX(-50%)" : undefined }}
+        style={{ top: pos.top, left: pos.left }}
       >
         <Suspense fallback={<DeferredActionsFallback isAgentProcessing={isAgentProcessing} />}>
           <RoleplayHUDActionsMenu

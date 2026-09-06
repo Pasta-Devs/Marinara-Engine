@@ -358,7 +358,10 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
           <div
             ref={menuRef}
             data-chat-floating-panel
-            className="fixed z-[9999] flex min-w-0 flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--background)] shadow-2xl"
+            className={cn(
+              "fixed z-[9999] flex min-w-0 flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
+              chatMode === "roleplay" ? "bg-[var(--card)]" : "bg-[var(--background)]",
+            )}
             style={
               pos
                 ? {
