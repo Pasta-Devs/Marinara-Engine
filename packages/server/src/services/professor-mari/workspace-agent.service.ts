@@ -189,6 +189,9 @@ const MAX_PROTOCOL_REPAIR_ROUNDS = 2;
 // the actual work.
 const MAX_PROTOCOL_REPAIR_ROUNDS_LOCAL_SIDECAR = 6;
 const MAX_VERIFICATION_REPAIR_ROUNDS = 2;
+// #5819: mid-run completion claims get their own budget so catching a false
+// claim early in a batch cannot starve the terminal check at the end of it.
+const MAX_MIDRUN_CLAIM_REPAIR_ROUNDS = 2;
 const MAX_REPEATED_COMMAND_FAILURES = 3;
 const MAX_HISTORY_MESSAGES = 40;
 const MAX_PARALLEL_READONLY_COMMANDS = 4;
@@ -1913,6 +1916,7 @@ function mutationMismatchKey(result: WorkspaceCommandResult): string {
 
 export function resolveWorkspaceMutationVerification(
   results: readonly WorkspaceCommandResult[],
+  auditFrom = 0,
 ): WorkspaceMutationVerification {
   // Debt semantics: every applied mutation that does not carry its own
   // store-verified read-back adds a verification DEBT, and only a successful
@@ -1921,12 +1925,19 @@ export function resolveWorkspaceMutationVerification(
   // pay off an earlier file/bash/mismatched mutation's debt (the review
   // proved the previous single-boolean form did exactly that, which would
   // have weakened the silent-persistence-failure guard).
+  // #5819/#5830: auditFrom scopes the judgment to results since the last
+  // audited claim (the caller's watermark), so one early success can no
+  // longer vouch for every later claim in the run. Mismatch tracking stays
+  // GLOBAL on purpose: a store-observed persistence failure anywhere in the
+  // run must shadow every later claim until its same-key verified retry.
   let mutationSeen = false;
   let stagedSeen = false;
   let unverifiedMutationSeen = false;
   const mismatchKeys = new Set<string>();
-  for (const result of results) {
+  for (const [index, result] of results.entries()) {
+    const inScope = index >= auditFrom;
     if (isStagedSensitiveMutation(result)) {
+      if (!inScope) continue;
       // #5756: a staged change is not applied, so it creates no verification
       // debt and no read can pay one off for it. It leaves an earlier applied
       // mutation's verification standing - the round still resolves "staged",
@@ -1936,7 +1947,7 @@ export function resolveWorkspaceMutationVerification(
       continue;
     }
     if (isAppliedWorkspaceMutation(result)) {
-      mutationSeen = true;
+      if (inScope) mutationSeen = true;
       // A store-observed persistence failure is POSITIVE knowledge and must
       // not be forgettable: unlike ordinary debt, no read clears it. Only a
       // later store-VERIFIED apply of the SAME mutation target - an
@@ -1945,10 +1956,15 @@ export function resolveWorkspaceMutationVerification(
       // successful mutation ever launders the failure into a claimable round.
       if (appliedMutationReadBackMismatched(result)) mismatchKeys.add(mutationMismatchKey(result));
       else if (appliedMutationReadBackVerified(result)) mismatchKeys.delete(mutationMismatchKey(result));
-      if (!appliedMutationReadBackVerified(result)) unverifiedMutationSeen = true;
+      if (inScope && !appliedMutationReadBackVerified(result)) unverifiedMutationSeen = true;
       continue;
     }
-    if (unverifiedMutationSeen && result.success && isReadOnlyWorkspaceCommand(commandCallForResult(result))) {
+    if (
+      inScope &&
+      unverifiedMutationSeen &&
+      result.success &&
+      isReadOnlyWorkspaceCommand(commandCallForResult(result))
+    ) {
       unverifiedMutationSeen = false;
     }
   }
@@ -1962,25 +1978,142 @@ export function workspaceTextClaimsMutationCompletion(text: string): boolean {
   const normalized = text.trim().replace(/\s+/gu, " ");
   if (!normalized) return false;
   const completedMutation =
-    "created|updated|changed|deleted|removed|renamed|wrote|written|fixed|implemented|built|installed|imported|exported|saved|enabled|disabled|assigned|linked|unlinked|generated|moved|copied|replaced|verified";
+    // #5830: "verified" is deliberately absent - it describes a READ, and it
+    // is the exact word the guard's own coaching asks the model to produce.
+    "created|updated|changed|deleted|removed|renamed|wrote|written|fixed|implemented|built|installed|imported|exported|saved|enabled|disabled|assigned|linked|unlinked|generated|moved|copied|replaced";
   return (
     new RegExp(
       `\\b(?:i(?:'ve| have)?|we(?:'ve| have)?|it(?:'s| is)?|that(?:'s| is)?)\\s+(?:successfully\\s+)?(?:${completedMutation})\\b`,
       "iu",
     ).test(normalized) ||
-    new RegExp(`\\b(?:is|was|has been)\\s+(?:successfully\\s+)?(?:${completedMutation})\\b`, "iu").test(normalized)
+    new RegExp(
+      `\\b(?:is|are|was|were|has been|have been)\\s+(?:successfully\\s+)?(?:${completedMutation})\\b`,
+      "iu",
+    ).test(normalized)
   );
 }
 
-export function workspaceActionNeedsVerification(
+/**
+ * A mutating-SHAPED command that did not apply: a failed create/update, an
+ * apply:false preview, a mari-CLI dry-run. The resolver cannot see these
+ * ("none" means "nothing I can see", not "nothing happened"), but to a claim
+ * audit they are active evidence of NON-completion - no escape hatch may
+ * pass a claim over a scope that contains one.
+ */
+function isUnappliedMutationAttempt(result: WorkspaceCommandResult): boolean {
+  const call = commandCallForResult(result);
+  if (!isMutatingWorkspaceCommand(call) && !isPreviewOnlyAppDataCommand(call)) return false;
+  return !isAppliedWorkspaceMutation(result) && !isStagedSensitiveMutation(result);
+}
+
+function scopeHasUnappliedMutationAttempt(results: readonly WorkspaceCommandResult[], auditFrom: number): boolean {
+  return results.slice(auditFrom).some(isUnappliedMutationAttempt);
+}
+
+/**
+ * Debt-style variant for the verified branch: an unapplied attempt is
+ * outstanding until a LATER successful state read - the coaching's own
+ * "read, then answer from what it shows" - so a run that fails a step,
+ * verifies another, and then actually looks can converge.
+ */
+function scopeHasOutstandingUnappliedAttempt(results: readonly WorkspaceCommandResult[], auditFrom: number): boolean {
+  let outstanding = false;
+  for (const result of results.slice(auditFrom)) {
+    if (isUnappliedMutationAttempt(result)) outstanding = true;
+    else if (outstanding && isSuccessfulStateRead(result)) outstanding = false;
+  }
+  return outstanding;
+}
+
+/**
+ * A read of WORKSPACE STATE. Documentation reads (docs_search/docs_read)
+ * never qualify - knowing what the manual says cannot back a claim about
+ * what the store holds.
+ */
+function isSuccessfulStateRead(result: WorkspaceCommandResult): boolean {
+  if (!result.success) return false;
+  const call = commandCallForResult(result);
+  if (call.name === "docs_search" || call.name === "docs_read") return false;
+  return isReadOnlyWorkspaceCommand(call);
+}
+
+function scopeHasSuccessfulStateRead(results: readonly WorkspaceCommandResult[], auditFrom: number): boolean {
+  return results.slice(auditFrom).some(isSuccessfulStateRead);
+}
+
+export type WorkspaceClaimAudit = {
+  issue: WorkspaceMutationVerification | null;
+  /**
+   * True when this claim consumed its evidence (a verified scope, or the
+   * read that backed a recap): the caller moves the watermark so the same
+   * evidence can never vouch for a later claim too.
+   */
+  advanceWatermark: boolean;
+};
+
+/**
+ * #5819: every completion claim is audited - not just the run's final frame -
+ * and judged against the results since the LAST audited claim, so "created
+ * the first, now doing the second" checks the first step specifically, and a
+ * skipped step's empty scope is caught instead of riding an earlier success.
+ *
+ * #5830: a claim about work from BEFORE this scope (an earlier run, or steps
+ * already audited) is backable by a successful STATE read - the exact action
+ * the coaching demands - so a truthful recap converges instead of looping
+ * into the repair budget; a terminal summary directly after a passed audit
+ * needs nothing new. A bare claim with nothing behind it at all stays
+ * challenged, and NEITHER escape applies to a scope containing a failed,
+ * preview, or dry-run mutating attempt - "none" to the resolver, but active
+ * evidence of non-completion to the audit.
+ *
+ * ACCEPTED RESIDUALS (this is a tripwire, not proof): a state read cannot be
+ * semantically matched to the claim it backs, so a read of one thing can
+ * pass an unrelated recap-shaped claim; and the claim DETECTOR only sees
+ * subject-ful English ("I created..." - a bare participle "Created X." is
+ * not detected, see #5830's open detector-design question).
+ *
+ * "unverified" and "staged" are tolerated mid-run without advancing the
+ * watermark, so their debt stays visible to the terminal audit: a later
+ * frame can still read the change back, and the user can still accept a
+ * staged one.
+ */
+export function auditWorkspaceCompletionClaim(
   action: Pick<AssistantWorkspaceAction, "commands" | "stop" | "visibleText">,
   results: readonly WorkspaceCommandResult[],
-): WorkspaceMutationVerification | null {
-  if (action.commands.length > 0 || !action.stop || !workspaceTextClaimsMutationCompletion(action.visibleText)) {
-    return null;
+  options: { auditFrom?: number; hadPassedClaimAudit?: boolean } = {},
+): WorkspaceClaimAudit {
+  const auditFrom = options.auditFrom ?? 0;
+  const hadPassedClaimAudit = options.hadPassedClaimAudit ?? false;
+  if (!workspaceTextClaimsMutationCompletion(action.visibleText)) {
+    return { issue: null, advanceWatermark: false };
   }
-  const verification = resolveWorkspaceMutationVerification(results);
-  return verification === "verified" ? null : verification;
+  const verification = resolveWorkspaceMutationVerification(results, auditFrom);
+  const isTerminal = action.commands.length === 0 && action.stop;
+  if (verification === "verified") {
+    // A verified scope that ALSO contains an unapplied mutating attempt
+    // (failed/preview/dry-run) cannot vouch for a claim that may span both:
+    // demand the read the coaching asks for, which clears the outstanding
+    // attempt and lets the retry pass. Over-challenging is the accepted
+    // direction; silently blessing a failed step is not.
+    if (scopeHasOutstandingUnappliedAttempt(results, auditFrom)) {
+      return { issue: isTerminal ? "unverified" : null, advanceWatermark: false };
+    }
+    return { issue: null, advanceWatermark: true };
+  }
+  if (verification === "mismatch") return { issue: "mismatch", advanceWatermark: false };
+  if (verification === "none") {
+    // Escape hatches exist for truthful RECAPS of work outside this scope.
+    // A scope containing any mutating-shaped attempt that did not apply is
+    // not a recap scope - it is a failure being papered over - so both
+    // escapes are denied outright there (strict: not clearable by a read,
+    // because there is no applied evidence for the read to confirm).
+    if (!scopeHasUnappliedMutationAttempt(results, auditFrom)) {
+      if (scopeHasSuccessfulStateRead(results, auditFrom)) return { issue: null, advanceWatermark: true };
+      if (isTerminal && hadPassedClaimAudit) return { issue: null, advanceWatermark: false };
+    }
+    return { issue: "none", advanceWatermark: false };
+  }
+  return { issue: isTerminal ? verification : null, advanceWatermark: false };
 }
 
 function workspaceCommandValidationIssue(command: WorkspaceCommandCall): string | null {
@@ -2521,6 +2654,9 @@ export class ProfessorMariWorkspaceService {
       const repeatedFailureCounts = new Map<string, number>();
       let protocolRepairRounds = 0;
       let verificationRepairRounds = 0;
+      let midRunClaimRepairRounds = 0;
+      let claimAuditWatermark = 0;
+      let hadPassedClaimAudit = false;
       // protocolRepairRounds resets on every productive round, so a model that alternates malformed
       // and good frames could otherwise refund the round budget indefinitely. Cap the TOTAL refunds
       // for the whole task so repeated formatting stumbles cannot drive unbounded requests; past the
@@ -2650,21 +2786,39 @@ export class ProfessorMariWorkspaceService {
           for (const chunk of chunkText(content)) args.onEvent({ type: "token", data: chunk });
           break;
         }
-        const verificationIssue = workspaceActionNeedsVerification(action, commandResultsForContinuity);
+        const claimAudit = auditWorkspaceCompletionClaim(action, commandResultsForContinuity, {
+          auditFrom: claimAuditWatermark,
+          hadPassedClaimAudit,
+        });
+        if (claimAudit.advanceWatermark) {
+          claimAuditWatermark = commandResultsForContinuity.length;
+          hadPassedClaimAudit = true;
+        }
+        const verificationIssue = claimAudit.issue;
         if (verificationIssue) {
-          verificationRepairRounds += 1;
-          if (verificationRepairRounds <= MAX_VERIFICATION_REPAIR_ROUNDS) {
+          // #5819: mid-run claims draw on their own budget, so catching a
+          // false step-claim early in a batch cannot starve the terminal
+          // check that ends the run.
+          const terminalClaim = action.commands.length === 0 && action.stop;
+          if (terminalClaim) verificationRepairRounds += 1;
+          else midRunClaimRepairRounds += 1;
+          const withinRepairBudget = terminalClaim
+            ? verificationRepairRounds <= MAX_VERIFICATION_REPAIR_ROUNDS
+            : midRunClaimRepairRounds <= MAX_MIDRUN_CLAIM_REPAIR_ROUNDS;
+          if (withinRepairBudget) {
             messages.push({ role: "assistant", content: action.assistantHistoryContent });
             messages.push({
               role: "user",
               content:
-                verificationIssue === "none"
-                  ? "Your previous reply claimed the requested workspace change was complete, but no mutating command succeeded in this run. Do not repeat the completion claim. Use a read command to inspect the requested state; if it is missing, perform the mutation, then verify it with another read before setting stop to true."
-                  : verificationIssue === "mismatch"
-                    ? "Your previous reply claimed a change was complete, but the store read-back observed that a change in this run did NOT persist as intended (see readBack.mismatches on that result). Do not claim success. Tell the user plainly which change failed to persist and what the store observed; you may retry the mutation once if a retry is sensible - a retry whose result confirms the persisted state clears this."
-                    : verificationIssue === "staged"
-                      ? "Your previous reply claimed a change was complete, but at least one change in this run was only staged for the user's approval and has NOT been applied. Do not claim it is done, and do not re-run the mutation - the change is already staged and re-running it cannot apply it. Restate plainly which changes are applied and which are awaiting the user's approval, then stop."
-                      : "A mutating workspace command succeeded, but no successful read verified the resulting state. Run a confirmatory read now. Only claim completion after that read confirms the change. Do it matter-of-factly - never apologize or present the check as fixing a mistake; report the confirmed state plainly.",
+                verificationIssue === "none" && !terminalClaim
+                  ? "You claimed a step was completed, but no command output since your last verified claim backs it up. Do not repeat the claim. First run a read that shows the state you claimed; if the work is genuinely missing, perform it and verify it with another read before moving on. Never redo work a read shows already exists."
+                  : verificationIssue === "none"
+                    ? "Your previous reply claimed the requested workspace change was complete, but no mutating command succeeded in this run. Do not repeat the completion claim. Use a read command to inspect the requested state; if it is missing, perform the mutation, then verify it with another read before setting stop to true. If an earlier run already completed the work, answer from what the read shows - never redo work that already exists."
+                    : verificationIssue === "mismatch"
+                      ? "Your previous reply claimed a change was complete, but the store read-back observed that a change in this run did NOT persist as intended (see readBack.mismatches on that result). Do not claim success. Tell the user plainly which change failed to persist and what the store observed; you may retry the mutation once if a retry is sensible - a retry whose result confirms the persisted state clears this."
+                      : verificationIssue === "staged"
+                        ? "Your previous reply claimed a change was complete, but at least one change in this run was only staged for the user's approval and has NOT been applied. Do not claim it is done, and do not re-run the mutation - the change is already staged and re-running it cannot apply it. Restate plainly which changes are applied and which are awaiting the user's approval, then stop."
+                        : "A mutating workspace command succeeded, but no successful read verified the resulting state. Run a confirmatory read now. Only claim completion after that read confirms the change. Do it matter-of-factly - never apologize or present the check as fixing a mistake; report the confirmed state plainly.",
               contextKind: "history",
             });
             continue;
@@ -2845,7 +2999,10 @@ export class ProfessorMariWorkspaceService {
             totalTokens: totalUsage.totalTokens + finalUsage.totalTokens,
           };
           const finalAction = parseAssistantWorkspaceAction(finalResult.content ?? "");
-          const finalVerificationIssue = workspaceActionNeedsVerification(finalAction, commandResultsForContinuity);
+          const finalVerificationIssue = auditWorkspaceCompletionClaim(finalAction, commandResultsForContinuity, {
+            auditFrom: claimAuditWatermark,
+            hadPassedClaimAudit,
+          }).issue;
           if (finalVerificationIssue) {
             const content =
               "Professor Mari reached the workspace command limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.";
