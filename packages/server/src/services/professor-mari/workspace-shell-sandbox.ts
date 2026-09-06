@@ -183,6 +183,11 @@ const SCAN_RETAINED_CONTENT_BUDGET_BYTES = 8 * 1024 * 1024;
 // defends the manifests that would INSTALL such content, not the store
 // itself.
 const SCAN_SKIPPED_DIRS = new Set(["node_modules", ".pnpm", ".pnpm-store", ".git"]);
+// A hostile command can mkdir-storm the workspace; the scan must stay
+// bounded. Past the cap the walk stops and says so - the caller treats the
+// remainder as uninspectable, which the attribution machinery already
+// handles safely (report, never delete).
+const MAX_SCAN_ENTRIES = 50_000;
 
 type SensitiveFingerprint = { kind: "file"; hash: string; content: Buffer | null } | { kind: "dir" };
 
@@ -194,6 +199,11 @@ export type SensitiveWorkspaceSnapshot = {
    * would look "created" - so the revert must never delete there.
    */
   unscannable: string[];
+  /**
+   * The walk stopped at the entry cap: the files map is INCOMPLETE, so no
+   * "created" attribution from a later scan can be trusted.
+   */
+  entryCapExceeded: boolean;
 };
 
 export type UnreviewedSensitiveChange = {
@@ -219,6 +229,8 @@ export type SensitiveScanResult = {
   hits: UnreviewedSensitiveChange[];
   /** Paths the walk could not inspect - reported loudly, never silently. */
   unscannable: string[];
+  /** The walk stopped at the entry cap; the remainder went uninspected. */
+  entryCapExceeded: boolean;
 };
 
 async function fingerprintSensitiveFile(path: string, stats: Stats): Promise<SensitiveFingerprint> {
@@ -254,8 +266,15 @@ async function walkSensitiveEntries(
   onEntry: (path: string, fingerprint: SensitiveFingerprint) => void,
   descendIntoCoveredDir: (path: string) => boolean,
   unscannable: string[],
-) {
+): Promise<{ entryCapExceeded: boolean }> {
+  let remainingEntries = MAX_SCAN_ENTRIES;
+  let entryCapExceeded = false;
   const visit = async (path: string) => {
+    if (remainingEntries <= 0) {
+      entryCapExceeded = true;
+      return;
+    }
+    remainingEntries -= 1;
     let policy: "normal" | "sensitive" | "forbidden";
     let stats: Stats;
     try {
@@ -292,18 +311,19 @@ async function walkSensitiveEntries(
     }
   };
   await visit(workspaceRoot);
+  return { entryCapExceeded };
 }
 
 export async function snapshotSensitiveWorkspaceFiles(workspaceRoot: string): Promise<SensitiveWorkspaceSnapshot> {
   const files = new Map<string, SensitiveFingerprint>();
   const unscannable: string[] = [];
-  await walkSensitiveEntries(
+  const { entryCapExceeded } = await walkSensitiveEntries(
     workspaceRoot,
     (path, fingerprint) => files.set(resolve(path), fingerprint),
     () => false,
     unscannable,
   );
-  return { files, unscannable };
+  return { files, unscannable, entryCapExceeded };
 }
 
 function stageableText(content: Buffer | null): string | null {
@@ -321,9 +341,12 @@ export async function detectUnreviewedSensitiveChanges(
   const hits: UnreviewedSensitiveChange[] = [];
   const unscannable: string[] = [];
   let retainedBudget = SCAN_RETAINED_CONTENT_BUDGET_BYTES;
+  // An incomplete snapshot (cap hit) means NO created-attribution is
+  // trustworthy: the file may simply never have been fingerprinted.
   const underUnscannable = (absolute: string) =>
+    before.entryCapExceeded ||
     before.unscannable.some((prefix) => absolute === prefix || absolute.startsWith(prefix + sep));
-  await walkSensitiveEntries(
+  const capState = await walkSensitiveEntries(
     workspaceRoot,
     (path, fingerprint) => {
       if (fingerprint.kind === "dir") return;
@@ -351,7 +374,7 @@ export async function detectUnreviewedSensitiveChanges(
     (path) => !before.files.has(resolve(path)),
     unscannable,
   );
-  return { hits, unscannable };
+  return { hits, unscannable, entryCapExceeded: capState.entryCapExceeded };
 }
 
 function macosReadRoots(workspaceRoot: string, env: NodeJS.ProcessEnv, sandboxTemp: string) {

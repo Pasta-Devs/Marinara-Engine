@@ -17,6 +17,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -408,32 +409,58 @@ assert.match(
       assert.equal(req?.afterContent, null, "content past the review cap is never carried into staging");
     }
 
-    if (process.platform !== "win32") {
+    // Mode bits are advisory for root / CAP_DAC_OVERRIDE (container CI often
+    // runs as root), so probe whether chmod 0 actually enforces before
+    // asserting on unreadability.
+    const modeBitsEnforced = (() => {
+      if (process.platform === "win32") return false;
+      const probe = join(workspace, ".mode-probe");
+      mkdirSync(probe);
+      try {
+        chmodSync(probe, 0);
+        try {
+          readdirSync(probe);
+          return false;
+        } catch {
+          return true;
+        }
+      } finally {
+        chmodSync(probe, 0o755);
+        rmSync(probe, { recursive: true, force: true });
+      }
+    })();
+    if (modeBitsEnforced) {
       const hidden = join(workspace, "hidden");
       mkdirSync(hidden);
       writeFileSync(join(hidden, "package.json"), '{"name":"pre-existing"}');
-      chmodSync(hidden, 0);
-      const blindBefore = await snapshotSensitiveWorkspaceFiles(workspace);
-      assert.ok(
-        blindBefore.unscannable.some((path) => path.endsWith("hidden")),
-        "a subtree the snapshot cannot inspect is reported, never silently dropped",
-      );
-      chmodSync(hidden, 0o755);
-      const blindScan = await detectUnreviewedSensitiveChanges(workspace, blindBefore);
-      const blindHit = blindScan.hits.find((hit) => hit.relativePath === "hidden/package.json");
-      assert.ok(blindHit, "the previously invisible file reports once visible");
-      assert.equal(
-        blindHit?.attributionUncertain,
-        true,
-        "but its 'created' attribution is marked untrustworthy - the revert must report, never delete",
-      );
-      rmSync(hidden, { recursive: true, force: true });
+      try {
+        chmodSync(hidden, 0);
+        const blindBefore = await snapshotSensitiveWorkspaceFiles(workspace);
+        assert.ok(
+          blindBefore.unscannable.some((path) => path.endsWith("hidden")),
+          "a subtree the snapshot cannot inspect is reported, never silently dropped",
+        );
+        chmodSync(hidden, 0o755);
+        const blindScan = await detectUnreviewedSensitiveChanges(workspace, blindBefore);
+        const blindHit = blindScan.hits.find((hit) => hit.relativePath === "hidden/package.json");
+        assert.ok(blindHit, "the previously invisible file reports once visible");
+        assert.equal(
+          blindHit?.attributionUncertain,
+          true,
+          "but its 'created' attribution is marked untrustworthy - the revert must report, never delete",
+        );
+      } finally {
+        // A throw above must never strand a mode-000 dir the workspace
+        // teardown cannot remove.
+        chmodSync(hidden, 0o755);
+        rmSync(hidden, { recursive: true, force: true });
+      }
     }
 
     // Per-entry containment: an unreadable co-created file must not abort the
     // scan and let siblings survive. chmod is advisory on Windows, so the
     // unreadable case is POSIX-only; the sibling assertion runs everywhere.
-    if (process.platform !== "win32") {
+    if (modeBitsEnforced) {
       writeFileSync(join(workspace, "fresh", "go.mod"), "module x");
       chmodSync(join(workspace, "fresh", "go.mod"), 0);
       const contained = await detectUnreviewedSensitiveChanges(workspace, before);
@@ -521,6 +548,17 @@ assert.match(
   /reason: "Changed during a sandboxed shell command without review; reverted and staged by the post-execution scan\.",/u,
   "attribution-neutral wording - a concurrent legitimate writer can land in the same window",
 );
+const sandboxSource = readFileSync(
+  new URL("../../packages/server/src/services/professor-mari/workspace-shell-sandbox.ts", import.meta.url),
+  "utf8",
+).replace(/\s+/gu, " ");
+// The approval cap counts actual staged cards, not loop positions.
+assert.match(flatAgentSource, /if \(stagedCount >= MAX_POSTEXEC_STAGED\) \{/u);
+assert.match(flatAgentSource, /stagedCount \+= 1; lines\.push\(`\$\{STAGED_SENSITIVE_CHANGE_PREFIX\}/u);
+// The walk is entry-capped, and an incomplete SNAPSHOT poisons all
+// created-attribution (report-only), never trusts it.
+assert.match(sandboxSource, /const MAX_SCAN_ENTRIES = 50_000;/u);
+assert.match(sandboxSource, /before\.entryCapExceeded \|\|/u);
 // An attribution-uncertain hit is never deleted.
 assert.match(
   flatAgentSource,

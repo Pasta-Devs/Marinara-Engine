@@ -3806,12 +3806,18 @@ ${sections.join("\n\n")}
       return ["Post-execution sensitive-file scan failed; treat this run's file changes as unreviewed."];
     }
     const lines: string[] = [];
+    if (snapshot.entryCapExceeded || scan.entryCapExceeded) {
+      lines.push(
+        "Post-execution scan stopped at its entry cap; part of the workspace went uninspected - treat this run's file changes as unreviewed.",
+      );
+    }
     for (const path of new Set([...snapshot.unscannable, ...scan.unscannable])) {
       lines.push(
         `Post-execution scan could not inspect ${engineLineText(path)}; treat its contents as unreviewed and ask the user to check it.`,
       );
     }
-    for (const [index, hit] of scan.hits.entries()) {
+    let stagedCount = 0;
+    for (const hit of scan.hits) {
       const shownPath = engineLineText(hit.relativePath);
       try {
         if (hit.attributionUncertain) {
@@ -3841,7 +3847,9 @@ ${sections.join("\n\n")}
           );
           continue;
         }
-        if (index >= MAX_POSTEXEC_STAGED) {
+        // Count actual cards, not loop positions: earlier report-only hits
+        // must not consume approval slots.
+        if (stagedCount >= MAX_POSTEXEC_STAGED) {
           lines.push(
             `Reverted unreviewed sensitive file change: ${shownPath} (approval cap reached; re-run for this file alone).`,
           );
@@ -3857,6 +3865,7 @@ ${sections.join("\n\n")}
             "Changed during a sandboxed shell command without review; reverted and staged by the post-execution scan.",
           sessionId: SESSION_ID,
         });
+        stagedCount += 1;
         lines.push(`${STAGED_SENSITIVE_CHANGE_PREFIX} ${engineLineText(approval.path)}`);
       } catch (err) {
         logger.error(err, "[mari] Could not revert/stage a sensitive file the sandbox run changed");
