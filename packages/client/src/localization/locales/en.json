@@ -7535,7 +7535,7 @@
   "ui.panels.advancedsettings.supportDiagnostics": "Support Diagnostics",
   "ui.panels.advancedsettings.supportDiagnosticsCopied": "Support diagnostics copied.",
   "ui.panels.advancedsettings.supportDiagnosticsCopyFailed": "Could not copy support diagnostics.",
-  "ui.panels.advancedsettings.supportDiagnosticsDescription": "Copy version, build, system, GPU, active model and recent client recovery events for a support ticket. Recovery events stay on this device and exclude chat content. Includes the phrase Professor Mari last treated as a request, when recorded.",
+  "ui.panels.advancedsettings.supportDiagnosticsDescription": "Copy version, build, system, GPU, active model and recent client recovery events for a support ticket. Recovery events exclude chat content and are stored locally, not sent automatically. They are included when you copy this report. Includes the phrase Professor Mari last treated as a request, when recorded.",
   "ui.panels.advancedsettings.switching": "Switching…",
   "ui.panels.advancedsettings.switchToValue1": "Switch to {{value1}}",
   "ui.panels.advancedsettings.target": "target (",
