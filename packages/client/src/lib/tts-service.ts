@@ -717,7 +717,9 @@ class TTSService {
   resume(): void {
     if (this.state !== "paused" || !this.audio) return;
     const audio = this.audio;
-    void playWhenAvailable(audio, this.abortController?.signal)
+    void playWhenAvailable(audio, this.abortController?.signal, () => {
+      if (this.audio === audio) this.setState("blocked");
+    })
       .then(() => {
         if (this.audio !== audio) return;
         this.setState("playing");
@@ -736,7 +738,9 @@ class TTSService {
     if (!this.audio || (this.state !== "playing" && this.state !== "paused")) return;
     const audio = this.audio;
     audio.currentTime = 0;
-    void playWhenAvailable(audio, this.abortController?.signal)
+    void playWhenAvailable(audio, this.abortController?.signal, () => {
+      if (this.audio === audio) this.setState("blocked");
+    })
       .then(() => {
         if (this.audio !== audio) return;
         this.setState("playing");

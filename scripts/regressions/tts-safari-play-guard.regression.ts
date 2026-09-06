@@ -207,8 +207,8 @@ const service = readSource("packages/client/src/lib/tts-service.ts");
 assert.match(service, /"idle" \| "loading" \| "playing" \| "paused" \| "blocked" \| "error"/u);
 assert.equal(
   (service.match(/this\.setState\("blocked"/gu) ?? []).length,
-  2,
-  "both fresh-playback paths surface the blocked state",
+  4,
+  "all four playback paths (speak, sequence, resume, restart) surface the blocked state",
 );
 assert.match(service, /const MAX_PLAY_ATTEMPTS = 20;/u);
 assert.match(service, /await waitForUserGesture\(signal\);/u);
