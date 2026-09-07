@@ -25,6 +25,9 @@
 //   5. A VERB-ONLY turn keeps its turn. Its narration strips to empty, and the hidden-anchor gate it
 //      then meets counted only Conversation commands — both zero in game mode — so the turn errored
 //      and its already-validated writes were discarded before the executor was ever reached.
+//   6. A MIXED turn does both. The verb executes and the skill check resolves over one narration, in
+//      that order — the verb pass deletes text, the check pass only rewrites a tag in place — and the
+//      surviving check keeps the turn off the anchor path entirely.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -158,6 +161,8 @@ const [
   { logger },
   { buildGmFormatReminder },
   { shouldSaveHiddenGenerationAnchor },
+  { resolveSkillCheckTagsInContent },
+  { parseSkillCheckTagBody },
 ] = await Promise.all([
   import("../../packages/server/src/services/capability-packages/package-manager.service.js"),
   import("../../packages/server/src/services/capability-packages/capability-gm-verb-runtime.service.js"),
@@ -168,6 +173,8 @@ const [
   import("../../packages/server/src/lib/logger.js"),
   import("../../packages/server/src/services/game/gm-prompts.js"),
   import("../../packages/server/src/routes/generate/spatial-transition-request.js"),
+  import("../../packages/server/src/services/game/skill-check-resolution.service.js"),
+  import("../../packages/shared/src/utils/skill-check-tag.js"),
 ]);
 
 const {
@@ -586,6 +593,44 @@ try {
   assert.deepEqual(repeated.calls[0]!.args, { word: "rain" });
   assert.equal(repeated.content.trim(), "then");
 
+  // ── A MIXED turn: a verb tag and a skill check in one narration ────────────
+  //
+  // The sixth turn shape, and the one where the two Game-mode post-processing passes meet. Their
+  // order is load-bearing rather than incidental: the verb pass DELETES text — a matched tag leaves
+  // the narration entirely — while the check pass only REWRITES a `[skill_check:]` in place. Strip
+  // first and the roller sees exactly the text that survives into the saved turn; roll first and a
+  // check the strip was about to carry off has already thrown a real die and read the chat's
+  // modifier snapshot to write numbers nothing will ever display.
+  const mixedNarration =
+    'Rain sheets down. [weather:{"word":"storm","intensity":"heavy"}] You press flat against the crates. ' +
+    '[skill_check: skill="Stealth" dc="15"]';
+  const mixedStrip = parseAndStripGmVerbCalls(mixedNarration, live);
+  assert.equal(mixedStrip.calls.length, 1, "the verb still parses out of a turn that also asks for a check");
+  assert.deepEqual(mixedStrip.calls[0]!.args, { word: "storm", intensity: "heavy" });
+  assert.ok(
+    mixedStrip.content.includes('[skill_check: skill="Stealth" dc="15"]'),
+    "the verb strip must leave the check tag alone — it belongs to the roller, and it is content",
+  );
+
+  // …and what survives the strip is exactly what the roller is handed.
+  const mixedRolled = await resolveSkillCheckTagsInContent(mixedStrip.content, {
+    loadContext: async () => ({ skills: { Stealth: 2 }, attributes: null, sheetAttributes: { dex: 14 } }),
+    rollD20: () => 12,
+    chatId: "mixed-turn",
+  });
+  assert.equal(mixedRolled.resolved, 1, "the check in a mixed turn is rolled like any other");
+  const mixedTag = parseSkillCheckTagBody(mixedRolled.content.match(/\[skill_check:\s*([^\]]+)\]/u)![1]!);
+  assert.equal(mixedTag?.resolvedResult?.usedRoll, 12, "the engine's own die");
+  assert.equal(mixedTag?.resolvedResult?.total, 16, "12, plus Stealth's +2 and DEX 14's +2");
+  assert.ok(mixedRolled.content.includes("Rain sheets down."), "the prose either pass left alone survives both");
+  assert.ok(mixedRolled.content.includes("You press flat against the crates."));
+  assert.doesNotMatch(mixedRolled.content, /\[weather:/u, "the verb tag is gone; the player never sees the machinery");
+
+  // The turn-shape consequence: a resolved check is content, so a mixed turn is never empty and
+  // never reaches the hidden-anchor branch. It takes the ordinary saved-message path and executes
+  // its verbs there, which is why the anchor gate above can stay scoped to the verb-only shape.
+  assert.ok(mixedRolled.content.trim().length > 0, "a mixed turn always has a message of its own to claim against");
+
   // An optional argument may simply be absent; it is never defaulted into the payload.
   assert.deepEqual(validateGmVerbArgs(weatherVerb, '{"word":"snow"}'), { ok: true, args: { word: "snow" } });
   // A number argument is rejected rather than coerced from its string spelling.
@@ -858,6 +903,15 @@ try {
     /if \(chatMode === "game" && !input\.impersonate && fullResponse\) \{/,
     "the GM verb scan must run on its own game-mode-only path",
   );
+  // The seam's ORDER, which the mixed-turn lane above drives but cannot see the route commit to.
+  // The verb pass deletes text and the check pass only rewrites a tag in place, so the dependency
+  // runs one way: strip, then roll. Reversed, a check the strip was about to carry off has already
+  // thrown a real die and read the chat's modifiers to write numbers nothing will ever display.
+  const verbScanAt = generateRoute.indexOf('if (chatMode === "game" && !input.impersonate && fullResponse) {');
+  const checkRollAt = generateRoute.indexOf("resolveSkillCheckTagsInContent(fullResponse");
+  assert.ok(verbScanAt > 0 && checkRollAt > 0, "both Game-mode post-processing passes must exist");
+  assert.ok(verbScanAt < checkRollAt, "verbs are stripped before the turn's checks are rolled, never after");
+
   // The other side of that same predicate. Teach and parse must agree on WHO is speaking: a turn the
   // scan above skips must not be handed the vocabulary, or the model writes a tag nobody removes and
   // it lands raw in the player's own impersonated message.

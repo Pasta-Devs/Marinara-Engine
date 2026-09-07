@@ -19,9 +19,22 @@
  * nothing else, so a tag naming a system it does not implement is left standing
  * — including a malformed one, which looks identical to a sparse d20 request
  * once the reader refuses to vouch for its numbers.
+ *
+ * And it pins the three ways that authority can be honest and still get the
+ * answer wrong:
+ *
+ *   - A tag declaring advantage AND disadvantage names no system at all. The
+ *     roller cancels the pair and throws one die, so passing the tag as rollable
+ *     turned a declared `dice="2d20"` into a saved `dice="1d20"`.
+ *   - A roll that CANNOT happen — the chat's modifiers failing to load — used to
+ *     leave the turn saved exactly as the model wrote it, invented rolls, total
+ *     and result included. The error path is not a licence to save the invention.
+ *   - The player's sheet is found by who the player is, not by which card sits
+ *     first in an array that recruiting and removal reorder.
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
@@ -30,15 +43,41 @@ import {
   parseSkillCheckTagBody,
   serializeResolvedSkillCheckTag,
 } from "../../packages/shared/dist/index.js";
-import {
-  resolveSkillCheckTagsInContent,
-  type SkillCheckModifierContext,
-} from "../../packages/server/src/services/game/skill-check-resolution.service.js";
-import { stripGmCommandTags } from "../../packages/server/src/services/game/segment-edits.js";
-import { buildGmFormatReminder } from "../../packages/server/src/services/game/gm-prompts.js";
+import type { SkillCheckModifierContext } from "../../packages/server/src/services/game/skill-check-resolution.service.js";
 import { parseGmTags } from "../../packages/client/src/lib/game-tag-parser.js";
 
 const root = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+
+// The last lane drives a REAL chat and a REAL persona, because "the player's card
+// is found by identity" is a claim about stored state and nothing smaller proves
+// it. Every server import is therefore made AFTER DATA_DIR points at a scratch
+// directory: `runtime-config.ts` reads it once at module load, and a static
+// import would have run that read against the developer's own install. Only the
+// type import above is static, and a type import is erased before it can.
+const dataDir = mkdtempSync(join(tmpdir(), "marinara-gm-skill-check-"));
+const previousDataDir = process.env.DATA_DIR;
+const previousFileStorageDir = process.env.FILE_STORAGE_DIR;
+const previousMarinaraFileStorageDir = process.env.MARINARA_FILE_STORAGE_DIR;
+const fileStorageDir = join(dataDir, "file-storage");
+process.env.DATA_DIR = dataDir;
+process.env.FILE_STORAGE_DIR = fileStorageDir;
+process.env.MARINARA_FILE_STORAGE_DIR = fileStorageDir;
+
+const [
+  { loadSkillCheckModifierContext, resolveSkillCheckTagsInContent },
+  { stripGmCommandTags },
+  { buildGmFormatReminder },
+  { createChatsStorage },
+  { createCharactersStorage },
+  { getDB, closeDB },
+] = await Promise.all([
+  import("../../packages/server/src/services/game/skill-check-resolution.service.js"),
+  import("../../packages/server/src/services/game/segment-edits.js"),
+  import("../../packages/server/src/services/game/gm-prompts.js"),
+  import("../../packages/server/src/services/storage/chats.storage.js"),
+  import("../../packages/server/src/services/storage/characters.storage.js"),
+  import("../../packages/server/src/db/connection.js"),
+]);
 
 // Stealth: +2 from the snapshot's skills, +2 from a DEX 14 sheet attribute.
 // Perception is unlisted, so it earns the WIS 10 sheet attribute's +0.
@@ -532,4 +571,276 @@ const roundTripped = parseSkillCheckTagBody(
 assert.ok(roundTripped?.resolvedResult, "what the resolver writes must read back as audited, or nothing is idempotent");
 assert.equal(roundTripped.resolvedResult!.total, 15);
 
-console.log("gm-skill-check-resolution regression passed");
+// ── 11. A tag declaring BOTH modes is a system the engine does not have ──
+//
+// The roller cancels the pair — `advantage && !disadvantage` on one side,
+// `disadvantage && !advantage` on the other — so a contradictory tag is rolled as
+// a plain, single-die, normal check. The rollable guard, meanwhile, read the pair
+// as "two dice wanted" and let it through, so `dice="2d20" mode="advantage"
+// disadvantage` was accepted, thrown once, and written back `dice="1d20"
+// mode="normal"`: the GM's own declaration rewritten in the text about to be
+// saved, which is the exact move refusing a pool exists to prevent.
+for (const contradiction of [
+  `[skill_check: skill="Stealth" dc="15" mode="advantage" disadvantage]`,
+  `[skill_check: skill="Stealth" dc="15" advantage disadvantage]`,
+  `[skill_check: skill="Stealth" dc="15" mode="disadvantage" advantage]`,
+  // The sharp one: a label the count rule would otherwise have blessed.
+  `[skill_check: skill="Stealth" dc="15" dice="2d20" mode="advantage" disadvantage]`,
+]) {
+  const tag = parseSkillCheckTagBody(contradiction.replace(/^\[skill_check:\s*|\]$/gu, ""))!;
+  assert.equal(tag.advantage, true, `precondition — both modes are read: ${contradiction}`);
+  assert.equal(tag.disadvantage, true, `precondition — both modes are read: ${contradiction}`);
+  assert.equal(
+    isEngineRollableSkillCheckTag(tag),
+    false,
+    `a check declaring both modes names no system the engine has: ${contradiction}`,
+  );
+
+  const outcome = await resolve(`She hesitates. ${contradiction} The door gives.`, []);
+  assert.equal(outcome.content, `She hesitates. ${contradiction} The door gives.`, "the tag is left as written");
+  assert.equal(outcome.resolved, 0, `nothing may be rewritten here: ${contradiction}`);
+  assert.equal(outcome.consumed, 0, `no die may be thrown for it either: ${contradiction}`);
+  assert.equal(outcome.contextLoads, 0);
+
+  // The client's fallback is the other door onto the same roll, and it must
+  // refuse the tag for the same reason rather than POST it to the endpoint.
+  const clientTag = parseGmTags(contradiction).skillChecks[0]!;
+  assert.equal(isEngineRollableSkillCheckTag(clientTag), false, `nor may the client ask for it: ${contradiction}`);
+}
+
+// One mode on its own is untouched by that rule — the guard must refuse the
+// contradiction, not the modes.
+for (const single of [
+  `[skill_check: skill="Stealth" dc="15" mode="advantage"]`,
+  `[skill_check: skill="Stealth" dc="15" mode="disadvantage"]`,
+  `[skill_check: skill="Stealth" dc="15" advantage]`,
+]) {
+  assert.equal((await resolve(single, [4, 16])).consumed, 2, `one declared mode still throws two dice: ${single}`);
+}
+
+// ── 12. A roll that cannot happen saves the ask, never the invention ──
+//
+// This is the error path's half of section 2. When the chat's modifiers will not
+// load, the turn still has to be saved, and saving it unchanged means saving the
+// model's `rolls="7" total="19" result="success"` on a check nobody rolled — read
+// back next turn as fact, which is the whole dishonesty the engine took the die
+// away to end. Arriving at it through the catch instead of the happy path does
+// not make it a different outcome.
+
+const failingTurn = [
+  invented,
+  `You reach for the latch. [skill_check: skill="Stealth" dc="15" mode="advantage"]`,
+  `The clerk flinches. ${pool}`,
+  honest,
+].join("\n\n");
+
+let failedLoads = 0;
+const failed = await resolveSkillCheckTagsInContent(failingTurn, {
+  loadContext: async () => {
+    failedLoads += 1;
+    throw new Error("game state store is down");
+  },
+  rollD20: () => {
+    throw new Error("no die may be thrown when the modifiers are unknown");
+  },
+  chatId: "chat-regression",
+});
+
+assert.equal(failedLoads, 1, "precondition — the modifier read is what failed");
+assert.equal(failed.resolved, 0, "nothing was rolled, so nothing may claim to have been");
+assert.equal(failed.sparse, 2, "both tags that owed a roll go back sparse");
+assert.equal(failed.trusted, 2, "the honest check and the complete pool still hold their own numbers");
+assert.equal(failed.left, 4, "every tag is accounted for — resolved + left is all four");
+// The invention is gone. Not corrected, not re-rolled — gone, with nothing put in
+// its place, because the engine has no number to put there. Read off the stripped
+// tag itself rather than the whole turn: the honest check further down carries a
+// `result="success"` it is fully entitled to.
+const strippedBody = tagBodies(failed.content)[0]!;
+assert.doesNotMatch(strippedBody, /total=/u, "the invented total must not be saved by the error path either");
+assert.doesNotMatch(strippedBody, /rolls=/u, "nor the invented die");
+assert.doesNotMatch(strippedBody, /result=/u, "nor the invented outcome");
+assert.doesNotMatch(strippedBody, /modifier=/u, "nor a modifier nobody applied");
+assert.doesNotMatch(failed.content, /total="19"/u, "and the invented numbers are gone from the turn entirely");
+assert.doesNotMatch(failed.content, /rolls="7"/u);
+// The prose and the systems the engine never touches survive it.
+assert.match(failed.content, /The guard turns\./u);
+assert.match(failed.content, /He does not see you\./u);
+assert.ok(failed.content.includes(pool), "a pool the engine does not roll is not the error path's business");
+assert.ok(failed.content.includes(honest), "and neither is a check whose own numbers held up");
+
+// What is written back is the ask, and it reads back as one: same skill, same DC,
+// same mode, still owing a roll, still something the client's fallback may ask
+// the endpoint for. Nothing was invented to fill the gap.
+const sparseBodies = tagBodies(failed.content).map((body) => parseSkillCheckTagBody(body)!);
+assert.equal(sparseBodies.length, 4);
+assert.equal(sparseBodies[0]!.resolvedResult, undefined, "the stripped tag still owes a roll");
+assert.equal(sparseBodies[0]!.skill, "Perception");
+assert.equal(sparseBodies[0]!.dc, 12);
+assert.equal(isEngineRollableSkillCheckTag(sparseBodies[0]!), true, "and the client may still ask for it");
+assert.equal(sparseBodies[1]!.resolvedResult, undefined);
+assert.equal(sparseBodies[1]!.skill, "Stealth");
+assert.equal(sparseBodies[1]!.dc, 15);
+assert.equal(sparseBodies[1]!.advantage, true, "the mode the GM declared survives the strip");
+assert.equal(parseGmTags(failed.content).skillChecks[0]!.resolvedResult, undefined, "both readers agree it is unrolled");
+
+// The turn completes: a later pass over the saved text rolls the checks that were
+// owed, so the strip costs the check its numbers for one turn and costs the turn
+// nothing at all.
+const recovered = await resolve(failed.content, [11, 4, 16]);
+assert.equal(recovered.resolved, 2, "the sparse tags are rollable again the moment the modifiers load");
+assert.equal(recovered.consumed, 3, "one die for the plain check, two for the advantage one");
+
+// A turn with nothing owed cannot be harmed by a failure it never reaches.
+let untouchedLoads = 0;
+const untouched = await resolveSkillCheckTagsInContent(`${honest}\n\n${pool}`, {
+  loadContext: async () => {
+    untouchedLoads += 1;
+    throw new Error("game state store is down");
+  },
+  chatId: "chat-regression",
+});
+assert.equal(untouchedLoads, 0, "a turn with nothing to roll never reads the chat, so it never fails");
+assert.equal(untouched.content, `${honest}\n\n${pool}`);
+assert.equal(untouched.sparse, 0);
+
+// The route follows the CONTENT, not the roll count, or the honest sparse text is
+// computed and then thrown away — and it must not wrap the call in a catch that
+// saves `fullResponse` as the model wrote it, which is the invention arriving
+// through the error door.
+assert.match(
+  generateRoutes,
+  /const rolled = await resolveSkillCheckTagsInContent\(fullResponse, \{[\s\S]*?\}\);\s*\n\s*if \(rolled\.content !== fullResponse\) \{/u,
+  "the resolver's own output decides the frame and the save on both paths",
+);
+
+// ── 13. The tag reader does not slow down on a long run of word characters ──
+//
+// CodeQL's polynomial-ReDoS alert (code-scanning/500). The attribute grammar was
+// `(\w+)\s*=\s*(…)`, and a key match can begin at ANY offset inside a word, so a
+// body of repeated `0`s made the engine scan to the end of the run once per
+// character. Measured on this machine before the rewrite: 32,000 zeros took just
+// over two seconds, and the `0…0=0…0=` shape below took nearly five. The bound is
+// deliberately coarse — three orders of magnitude above the ~1ms the scan costs
+// now — so it fails on the quadratic shape and never on a slow CI box.
+const ZEROS = "0".repeat(60_000);
+const adversarialBodies = [
+  // No `=` at all: every offset in the run was a fresh doomed key match.
+  ZEROS,
+  // A readable check with the run trailing it — the shape a GM could actually emit.
+  `skill="Stealth" dc="15" note=${ZEROS}`,
+  // The negative lookahead's own shape: `\w+\s*=` re-scanned the next run too.
+  `${ZEROS}=${ZEROS}=`,
+];
+const scanStart = performance.now();
+const adversarialTags = adversarialBodies.map((body) => parseSkillCheckTagBody(body));
+const scanMs = performance.now() - scanStart;
+assert.ok(scanMs < 1000, `reading ${adversarialBodies.length} adversarial bodies must stay linear (took ${scanMs}ms)`);
+
+// Fast is only half of it — the reader must still say the same things it said.
+assert.equal(adversarialTags[0], null, "a body with no attributes at all is not a check");
+assert.equal(adversarialTags[1]?.skill, "Stealth", "a real check followed by garbage is still that check");
+assert.equal(adversarialTags[1]?.dc, 15);
+assert.equal(adversarialTags[1]?.resolvedResult, undefined, "and it still owes a roll");
+assert.equal(adversarialTags[2], null, "neither is a run of digits with equals signs in it");
+
+// ── 14. The player's card is found by identity, not by position ──
+//
+// `gameCharacterCards[0]` was "the player". That is a convention the setup prompt
+// follows — it lists the player's name first — not a fact the array keeps: a
+// recruit appends, a removal splices, and a session-conclusion rewrite re-emits
+// the array in whatever order it read the cards back in. The moment the player
+// stops being first, every check in the campaign scores against a PARTY MEMBER's
+// sheet, and a wrong DEX changes whether the player got past the guard with
+// nothing in the turn to say so.
+const createdChatIds: string[] = [];
+try {
+  const db = await getDB();
+  const chats = createChatsStorage(db);
+  const characters = createCharactersStorage(db);
+
+  const persona = await characters.createPersona("Bex Marrow", "The player character.");
+  assert.ok(persona?.id, "precondition — the chat needs a persona to be identified by");
+
+  const partyOf = (cards: Array<[string, number]>) =>
+    cards.map(([name, dex]) => ({ name, rpgStats: { attributes: [{ name: "DEX", value: dex }] } }));
+
+  const newGameChat = async (name: string, personaId: string | null, cards: Array<[string, number]>) => {
+    const chat = await chats.create({
+      name,
+      mode: "game",
+      characterIds: [],
+      ...(personaId ? { personaId } : {}),
+    } as Parameters<typeof chats.create>[0]);
+    assert.ok(chat?.id);
+    createdChatIds.push(chat.id);
+    await chats.patchMetadata(chat.id, { gameCharacterCards: partyOf(cards) });
+    return chat.id;
+  };
+
+  // The party as recruiting leaves it: the player is LAST, behind two members
+  // whose Dexterity is deliberately the opposite of theirs.
+  const recruitedChatId = await newGameChat("skill check identity", persona.id, [
+    ["Kade", 6],
+    ["Tam", 8],
+    ["Bex Marrow", 18],
+  ]);
+  const identity = await loadSkillCheckModifierContext(db, recruitedChatId);
+  assert.equal(identity.sheetAttributes.dex, 18, "the player's own sheet, not whichever card sits first");
+
+  // …and it reaches the die, which is the part a player would actually notice.
+  const identityRoll = await resolve(`[skill_check: skill="Stealth" dc="15"]`, [10], identity);
+  const identityTag = parseSkillCheckTagBody(tagBodies(identityRoll.content)[0]!);
+  assert.equal(identityTag?.resolvedResult?.modifier, 4, "DEX 18 is +4; the first card's DEX 6 would have been -2");
+  assert.equal(identityTag?.resolvedResult?.total, 14, "10 + 4");
+  assert.equal(identityTag?.resolvedResult?.success, false, "14 misses DC 15 — which the wrong sheet would not have");
+
+  // Matching is by name the way every other card lookup in Game Mode matches:
+  // normalized, so case and punctuation are not identity either.
+  const punctuatedChatId = await newGameChat("skill check identity punctuation", persona.id, [
+    ["Kade", 6],
+    ["bex  marrow", 18],
+  ]);
+  assert.equal(
+    (await loadSkillCheckModifierContext(db, punctuatedChatId)).sheetAttributes.dex,
+    18,
+    "the same name spelled loosely is still the same player",
+  );
+
+  // The two chats that give this nothing to match on keep the behavior they had.
+  // A game with no persona has no identity to look up…
+  const anonymousChatId = await newGameChat("skill check identity anonymous", null, [
+    ["Kade", 6],
+    ["Bex Marrow", 18],
+  ]);
+  assert.equal(
+    (await loadSkillCheckModifierContext(db, anonymousChatId)).sheetAttributes.dex,
+    6,
+    "with no persona to match, the first card is still the answer it always was",
+  );
+  // …and neither does a game whose cards never included one for the player.
+  const uncardedChatId = await newGameChat("skill check identity uncarded", persona.id, [
+    ["Kade", 6],
+    ["Tam", 8],
+  ]);
+  assert.equal(
+    (await loadSkillCheckModifierContext(db, uncardedChatId)).sheetAttributes.dex,
+    6,
+    "a player with no card of their own falls back to the first card, unchanged",
+  );
+
+  console.log("gm-skill-check-resolution regression passed");
+} finally {
+  const db = await getDB().catch(() => null);
+  if (db) {
+    const chats = createChatsStorage(db);
+    for (const chatId of createdChatIds) await chats.remove(chatId).catch(() => undefined);
+  }
+  await closeDB().catch(() => undefined);
+  rmSync(dataDir, { recursive: true, force: true });
+  if (previousDataDir === undefined) delete process.env.DATA_DIR;
+  else process.env.DATA_DIR = previousDataDir;
+  if (previousFileStorageDir === undefined) delete process.env.FILE_STORAGE_DIR;
+  else process.env.FILE_STORAGE_DIR = previousFileStorageDir;
+  if (previousMarinaraFileStorageDir === undefined) delete process.env.MARINARA_FILE_STORAGE_DIR;
+  else process.env.MARINARA_FILE_STORAGE_DIR = previousMarinaraFileStorageDir;
+}
