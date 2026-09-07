@@ -24,6 +24,11 @@ type RateLimitRule = {
 
 const DEFAULT_RULE: RateLimitRule = { key: "default", limit: 600, windowMs: 60_000 };
 
+export const UPDATE_CHANNEL_RATE_LIMIT = {
+  max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 export const AVATAR_STORAGE_RATE_LIMIT = {
   max: 20,
   timeWindow: 60_000,
@@ -92,6 +97,14 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
     rule: { key: "admin-restart", limit: ADMIN_RESTART_RATE_LIMIT.max, windowMs: ADMIN_RESTART_RATE_LIMIT.timeWindow },
   },
   { pattern: /^\/api\/updates\/apply(?:\?|$)/, rule: { key: "updates-apply", limit: 5, windowMs: 60_000 } },
+  {
+    pattern: /^\/api\/updates\/channel(?:\?|$)/,
+    rule: {
+      key: "updates-channel",
+      limit: UPDATE_CHANNEL_RATE_LIMIT.max,
+      windowMs: UPDATE_CHANNEL_RATE_LIMIT.timeWindow,
+    },
+  },
   {
     pattern: /^\/api\/sidecar\/(?:runtime\/install|reinstall|download|model|speech\/download|speech\/model)(?:\/|\?|$)/,
     rule: { key: "sidecar-privileged", limit: 20, windowMs: 60_000 },
