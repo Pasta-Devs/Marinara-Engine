@@ -18,7 +18,9 @@ test.beforeEach(async ({ page }) => {
     rightPanelOpen: false,
     chatHelpSeenModes: ["conversation", "roleplay", "game"],
     messagesPerPage: 20,
-    conversationMessageStyle: "bubble",
+    // These portrait assertions exercise the classic layout. The old
+    // chatBubbleStyle key was ignored, so it never selected bubble mode.
+    conversationMessageStyle: "classic",
   });
   await page.addInitScript((version) => {
     localStorage.setItem("marinara:whats-new:seen-version", version);
