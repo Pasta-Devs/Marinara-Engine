@@ -689,6 +689,13 @@ export function sanitizeApiError(raw: string, maxLen = 300): string {
  * Every provider must implement the `chat` method as an async generator.
  */
 export abstract class BaseLLMProvider {
+  protected customRequestHeaders: Record<string, string> = {};
+
+  /** Bind validated connection options without exposing credentials through the facade. */
+  public setCustomRequestHeaders(headers: Record<string, string>): void {
+    this.customRequestHeaders = { ...headers };
+  }
+
   constructor(
     protected baseUrl: string,
     protected apiKey: string,
@@ -833,6 +840,7 @@ export abstract class BaseLLMProvider {
 
   protected embeddingHeaders(): Record<string, string> {
     return {
+      ...this.customRequestHeaders,
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.apiKey}`,
     };

@@ -3186,9 +3186,18 @@ export const ChatArea = memo(function ChatArea() {
             onOpenScheduleEditor={handleOpenScheduleEditor}
             onCloseSettings={handleCloseSettingsPanel}
             onCloseGallery={handleCloseGalleryPanel}
-            onIllustrate={() =>
+            onIllustrate={(prompt) =>
               retryAgents(activeChatId, ["illustrator"], {
                 illustratorRetryTargets: ["illustration"],
+                ...(prompt
+                  ? {
+                      illustratorPromptReviewOverride: {
+                        prompt,
+                        subjectOnly: true,
+                        resultData: { prompt, characters: [] },
+                      },
+                    }
+                  : {}),
               })
             }
             onIllustrateWithAgent={async (agentType) => {
@@ -3333,9 +3342,18 @@ export const ChatArea = memo(function ChatArea() {
           onCloseSettings={handleCloseSettingsPanel}
           onCloseGallery={handleCloseGalleryPanel}
           onOpenScheduleEditor={handleOpenScheduleEditor}
-          onIllustrate={() =>
+          onIllustrate={(prompt) =>
             retryAgents(activeChatId, ["illustrator"], {
               illustratorRetryTargets: ["illustration"],
+              ...(prompt
+                ? {
+                    illustratorPromptReviewOverride: {
+                      prompt,
+                      subjectOnly: true,
+                      resultData: { prompt, characters: [] },
+                    },
+                  }
+                : {}),
             })
           }
           onIllustrateWithAgent={async (agentType) => {

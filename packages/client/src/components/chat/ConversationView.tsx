@@ -92,7 +92,7 @@ interface ConversationViewProps {
   onSetActiveSwipe: (messageId: string, index: number) => void;
   onToggleHiddenFromAI: (messageId: string, current: boolean) => void;
   onPeekPrompt: () => void;
-  onIllustrate?: () => void | Promise<void>;
+  onIllustrate?: (prompt?: string) => void | Promise<void>;
   onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
   lastAssistantMessageId: string | null;
   onOpenSettings: (event?: ReactMouseEvent<HTMLElement>, options?: { initialSection?: "autonomous" | null }) => void;

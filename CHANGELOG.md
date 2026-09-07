@@ -39,6 +39,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Advanced Parameters now offers Apply, Don't Apply, and Single User Message history formatting while keeping the leading system prompt separate (#5915).
+- NanoGPT connections can use the existing Default, Flex, and Priority service-tier controls. Language connections can configure validated, non-secret custom HTTP headers (#5909, #5910).
+- `/illustrate [prompt]` generates the requested subject without scene or character references; bare `/illustrate` keeps its current behavior (#5914).
+
 - UX feedback sweep: background selection during Roleplay setup and in Roleplay/Game chat settings, scrollable App/Conversation/Roleplay/Game Appearance categories, desktop sidebar widths, and an optional daily Character Library home widget (#5916).
 - Support Diagnostics includes local client build and recovery events to investigate mobile reloads and black screens without collecting chat content or changing appearance settings (#5870).
 - An Agent package can now describe a short list of Game Master actions it wants the GM to be able to take, as a `gm-verbs.json` file shipped inside the package, and the Engine checks that description: an action cannot borrow the name of a built-in Game tag, and the chat setting an action writes has to belong to the package that asked for it (#5798).

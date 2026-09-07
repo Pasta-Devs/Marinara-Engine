@@ -78,6 +78,7 @@ type RetryAgentsOptions = {
   secretPlotRerollMode?: "full" | "turn_only";
   agentPromptTemplateIds?: Record<string, string>;
   illustratorPromptReviewOverride?: {
+    subjectOnly?: boolean;
     resultData: Record<string, unknown>;
     prompt: string;
     negativePrompt?: string;

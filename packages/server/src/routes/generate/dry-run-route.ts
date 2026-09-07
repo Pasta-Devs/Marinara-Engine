@@ -49,7 +49,6 @@ import {
 } from "../../services/prompt/index.js";
 import { cardPromptText } from "../../services/prompt/card-text.js";
 import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
-import { mergeAdjacentMessages } from "../../services/prompt/merger.js";
 import { wrapContent } from "../../services/prompt/format-engine.js";
 import {
   yieldToEventLoop,
@@ -74,7 +73,7 @@ import { applyRegexScriptsToPromptMessages } from "../../services/regex/regex-ap
 import { sendSseEvent, startSseReply } from "./sse.js";
 import {
   appendReadableAttachmentsToContent,
-  appendNonLeadingSystemMessagesToLastUser,
+  postProcessMessages,
   buildGenerationGuideInstruction,
   createLocalSidecarGenerationConnection,
   dedupeLastMessageWrappers,
@@ -1300,6 +1299,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       ]);
 
       const assemblerInput: AssemblerInput = {
+        deferMessagePostProcessing: true,
         db: app.db,
         preset: preset as any,
         sections: sections as any,
@@ -1719,10 +1719,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       }));
 
     const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
-      // Append mid-prompt system messages to the last user turn after context fitting.
-      // This mirrors /api/generate while keeping prompt/injection blocks protected
-      // during history trimming.
-      return mergeAdjacentMessages(appendNonLeadingSystemMessagesToLastUser(messages) as any) as ChatMessage[];
+      return postProcessMessages(messages, {
+        ...parseStoredGenerationParameters(effectivePreset?.parameters),
+        ...connectionParams,
+        ...chatParams,
+      });
     };
 
     const fit = fitMessagesForModelAccess({

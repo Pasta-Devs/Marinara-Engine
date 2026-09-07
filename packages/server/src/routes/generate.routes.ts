@@ -246,7 +246,6 @@ import {
   dedupeLastMessageWrappers,
   findLastIndex,
   findTrackerContextInsertIndex,
-  hasProviderMessagePayload,
   formatConversationInstructionsForWrap,
   extractFileAttachmentInputs,
   buildGenerationGuideInstruction,
@@ -260,7 +259,7 @@ import {
   collectLatestTrackerCharacterHistory,
   createLocalSidecarGenerationConnection,
   extractImageAttachmentDataUrls,
-  appendNonLeadingSystemMessagesToLastUser,
+  postProcessMessages,
   appendSeparateAgentInjectionMessage,
   computeSummaryHideIds,
   computeSummaryMessageRange,
@@ -2566,6 +2565,7 @@ export async function generateRoutes(app: FastifyInstance) {
           );
 
           const assemblerInput: AssemblerInput = {
+            deferMessagePostProcessing: true,
             db: app.db,
             preset: preset as any,
             sections: sections as any,
@@ -6314,44 +6314,12 @@ export async function generateRoutes(app: FastifyInstance) {
               ...(message.providerMetadata ? { providerMetadata: message.providerMetadata } : {}),
             }));
 
-          const mergeProviderAdjacentMessages = (messages: ChatMessage[]): ChatMessage[] => {
-            const merged: ChatMessage[] = [];
-            for (const message of messages) {
-              if (!hasProviderMessagePayload(message)) continue;
-
-              const last = merged[merged.length - 1];
-              if (
-                last &&
-                last.role === message.role &&
-                !(message.role === "assistant" && (last.providerMetadata || message.providerMetadata))
-              ) {
-                last.content = `${last.content}\n\n${message.content}`;
-                delete last.contextKind;
-                if (message.images?.length) {
-                  last.images = [...(last.images ?? []), ...message.images];
-                }
-                if (message.files?.length) {
-                  last.files = [...(last.files ?? []), ...message.files];
-                }
-                if (message.providerMetadata) {
-                  last.providerMetadata = message.providerMetadata;
-                }
-              } else {
-                merged.push({
-                  ...message,
-                  ...(message.images?.length ? { images: [...message.images] } : {}),
-                  ...(message.files?.length ? { files: message.files.map((file) => ({ ...file })) } : {}),
-                });
-              }
-            }
-            return merged;
-          };
-
           const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
-            // Append mid-prompt system messages to the last user turn after context fitting.
-            // This keeps prompt/injection system blocks protected while trimming history,
-            // then preserves provider alternation rules for the actual request.
-            return mergeProviderAdjacentMessages(appendNonLeadingSystemMessagesToLastUser(messages));
+            return postProcessMessages(messages, {
+              ...parseStoredGenerationParameters(resolvedPreset?.parameters),
+              ...providerRuntime.connectionParams,
+              ...providerRuntime.chatParams,
+            });
           };
 
           let finalPromptSent: ChatMessage[] = [];

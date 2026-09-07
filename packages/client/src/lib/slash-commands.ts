@@ -83,7 +83,7 @@ export interface SlashCommandContext {
   /** Apply a manual sprite expression override */
   setSpriteExpression?: (characterId: string, expression: string) => void | Promise<void>;
   /** Trigger the same image illustration action exposed in the chat Gallery. */
-  illustrate?: () => void | Promise<void>;
+  illustrate?: (prompt?: string) => void | Promise<void>;
   /** Trigger the same Conversation selfie action exposed in the chat Gallery. */
   selfie?: (characterId?: string) => void | Promise<void>;
   /** Active downloadable capability packages available to this composer. */
@@ -1200,11 +1200,11 @@ const COMMANDS: SlashCommand[] = [
     name: "illustrate",
     aliases: ["ill"],
     description: "Generate a gallery illustration for the current chat",
-    usage: "/illustrate",
+    usage: "/illustrate [prompt]",
     requiredCapabilityId: "illustrator",
     modes: ["roleplay"],
     local: true,
-    async execute(_args, ctx) {
+    async execute(args, ctx) {
       if (!ctx.illustrate) {
         return { handled: true, feedback: "Illustrate is not available in this chat." };
       }
@@ -1215,7 +1215,7 @@ const COMMANDS: SlashCommand[] = [
       useGalleryStore.getState().setChatIllustrating(ctx.chatId, true);
       try {
         await withSlashCommandTimeout(
-          Promise.resolve(ctx.illustrate()),
+          Promise.resolve(ctx.illustrate(args.trim() || undefined)),
           ILLUSTRATE_SLASH_TIMEOUT_MS,
           "Illustration generation timed out.",
         );

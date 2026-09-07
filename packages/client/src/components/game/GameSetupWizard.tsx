@@ -1491,7 +1491,10 @@ export function GameSetupWizard({
                           <div className="mt-3 border-t border-[var(--border)] pt-3">
                             <GenerationParametersFields
                               value={generationParameters}
-                              showOpenRouterServiceTier={selectedGmConnection?.provider === "openrouter"}
+                              showServiceTier={
+                                selectedGmConnection?.provider === "openrouter" ||
+                                selectedGmConnection?.provider === "nanogpt"
+                              }
                               onChange={setGenerationParameters}
                             />
                           </div>
