@@ -668,6 +668,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Select",
   },
   {
+    id: "notification-position",
+    sectionId: "notifications",
+    label: "Notification position",
+    description: "Choose where error messages and other notifications appear.",
+    aliases: ["error", "toast", "top", "bottom", "position"],
+    kind: "Select",
+  },
+  {
     id: "notification-conversation-sound",
     sectionId: "notifications",
     label: "Conversation mode notification sound",
@@ -3585,7 +3593,10 @@ function GeneralSettings() {
         icon={<Bell size="0.875rem" />}
         {...getSettingsSectionAnchorProps("notifications")}
       >
-        <label className="mb-3 flex flex-col gap-1.5 text-xs">
+        <label
+          id={getSettingsControlAnchorId("notification-position")}
+          className="mb-3 flex scroll-mt-3 flex-col gap-1.5 text-xs"
+        >
           <span>{localizeUi("settings.notifications.position.label")}</span>
           <select
             value={notificationPosition}

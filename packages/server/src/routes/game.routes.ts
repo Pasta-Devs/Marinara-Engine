@@ -11865,7 +11865,7 @@ export async function gameRoutes(app: FastifyInstance) {
           content: z.string().min(1).max(6000),
         }),
       )
-      .max(200)
+      .max(GAME_STORYBOARD_KEYFRAME_COUNT_MAX)
       .optional(),
     keyframeCount: z
       .number()

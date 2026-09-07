@@ -34,7 +34,13 @@ test("Game translation follows changed narration and remains manually accessible
       expect(body.targetLanguage).toBe("pl");
       requested.push(body.text);
       await route.fulfill({
-        json: { translatedText: body.text.includes("river") ? "Rzeka jest głęboka." : "Most jest bezpieczny." },
+        json: {
+          translatedText: body.text.includes("Note:")
+            ? "[Note: Zapisana wiadomość.]"
+            : body.text.includes("river")
+              ? "Rzeka jest głęboka."
+              : "Most jest bezpieczny.",
+        },
       });
     });
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
@@ -81,6 +87,21 @@ test("Game translation follows changed narration and remains manually accessible
     await panel.getByRole("button", { name: "Hide translation", exact: true }).click();
     await expect(panel).not.toContainText("Rzeka jest głęboka.");
     await expect.poll(async () => (await extra()).translationHidden).toBe(true);
+    await page.reload();
+    await expect(panel).toContainText("The river is deep.");
+    await expect(panel).not.toContainText("Rzeka jest głęboka.");
+    await panel.getByRole("button", { name: "Translate", exact: true }).click();
+    await expect(panel).toContainText("Rzeka jest głęboka.");
+    expect(requested).toEqual(["The bridge is safe.", "The river is deep.", "The river is deep."]);
+    await request.patch(`/api/chats/${chat.id}/metadata`, { data: { autoTranslate: false } });
+    await request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "assistant", content: "[Note: A written message.]" },
+    });
+    await page.reload();
+    await expect(panel).toContainText("You find a note...");
+    await page.locator("div.fixed.inset-y-0").filter({ hasText: "A written message." }).getByRole("button").click();
+    await panel.getByRole("button", { name: "Translate", exact: true }).click();
+    await expect(panel).toContainText("Zapisana wiadomość.");
   } finally {
     await request.delete(`/api/chats/${chat.id}`);
   }
@@ -104,6 +125,13 @@ test("Notification position is selectable, moves errors, and survives reload", a
   await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
   await page.goto("/");
   const selector = page.getByRole("combobox", { name: /Notification position/ });
+  await page.getByPlaceholder("Search settings").fill("notification position");
+  await page
+    .locator(".mari-settings-search-header button")
+    .filter({ hasText: "Notification position" })
+    .first()
+    .click();
+  await expect(selector).toBeFocused();
   await expect(selector).toHaveValue("top");
   await selector.selectOption("bottom");
   const error = async () =>

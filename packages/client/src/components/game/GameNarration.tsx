@@ -1373,6 +1373,7 @@ export function GameNarration({
   useEffect(() => {
     if (!parsedActiveChatMetadata.autoTranslate || isStreaming || !latestAssistant || generationFailed) return;
     if (
+      translationConfig.chatId !== latestAssistant.chatId ||
       translationConfig.outputTargetLanguage !==
         (parsedActiveChatMetadata.translationOutputTargetLang?.trim() ||
           parsedActiveChatMetadata.translationTargetLang?.trim() ||
@@ -1383,6 +1384,15 @@ export function GameNarration({
     if (useTranslationStore.getState().hiddenTranslationIds[latestAssistant.id]) return;
     const source = getGameTranslationSource(latestAssistant);
     if (!source || translating[latestAssistant.id]) return;
+    const extra = parseMessageExtraRecord(latestAssistant.extra);
+    if (
+      typeof extra.translation === "string" &&
+      gameTranslationMatchesMessage(
+        latestAssistant,
+        typeof extra.translationSource === "string" ? extra.translationSource : latestAssistant.content,
+      )
+    )
+      return; // The parent seeds saved translations (including hidden ones); do not request them again.
     if (lastAutoTranslation.current?.id === latestAssistant.id && lastAutoTranslation.current.source === source) return;
     // Try each completed source once; failures stay manually retryable, not an API retry loop.
     lastAutoTranslation.current = { id: latestAssistant.id, source };
@@ -5207,7 +5217,7 @@ export function GameNarration({
                   ref={activeSegmentScrollRef}
                   className={cn(
                     "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-amber-400/20 bg-amber-950/20 px-3 py-2.5 sm:max-h-48",
-                    activeCopyKey && "pr-9",
+                    (activeCopyButton || activeTranslateButton) && "pr-16",
                   )}
                 >
                   <div
@@ -5222,18 +5232,16 @@ export function GameNarration({
                       __html: animateTextHtml(formatNarration(activeVisibleContent, false), gameTextEffectsEnabled),
                     }}
                   />
-                  {activeCopyKey && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleCopyMessage(activeCopyKey, activeCopyText);
-                      }}
-                      className="absolute right-1.5 top-1.5 rounded p-1 text-amber-200/45 transition-colors hover:bg-amber-100/10 hover:text-amber-100/70"
-                      title={localizeUi("lorebook.editor.batch.copy")}
-                      aria-label={localizeUi("lorebook.editor.batch.copy")}
+                  {(activeCopyButton || activeTranslateButton) && (
+                    <div
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onPointerUp={(event) => event.stopPropagation()}
+                      onClick={(event) => event.stopPropagation()}
+                      className="absolute right-1.5 top-1.5 flex items-center gap-1"
                     >
-                      {copiedMessageKey === activeCopyKey ? <Check size={11} /> : <Copy size={11} />}
-                    </button>
+                      {activeCopyButton}
+                      {activeTranslateButton}
+                    </div>
                   )}
                 </div>
 

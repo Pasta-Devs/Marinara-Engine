@@ -1461,6 +1461,7 @@ export const ChatArea = memo(function ChatArea() {
           ? chatMeta.translationOutputPrompt
           : undefined;
     useTranslationStore.getState().setConfig({
+      chatId: chat.id,
       provider: chatMeta.translationProvider ?? "google",
       // A cleared settings field stores "" — fall back to the legacy/default
       // language so translation never runs with an empty target.
