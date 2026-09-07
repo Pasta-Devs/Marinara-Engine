@@ -8,10 +8,14 @@
 // Returns clean content + extracted commands.
 // ──────────────────────────────────────────────
 
-import type { DirectionCommand, DirectionEffect, SkillCheckResult, WidgetUpdate } from "@marinara-engine/shared";
-
-const MAX_DICE_COUNT = 100;
-const MAX_DICE_SIDES = 1000;
+import {
+  isWithinDiceLimits,
+  parseDiceNotation,
+  type DirectionCommand,
+  type DirectionEffect,
+  type SkillCheckResult,
+  type WidgetUpdate,
+} from "@marinara-engine/shared";
 
 export interface CombatEncounterTag {
   enemies: Array<{
@@ -374,17 +378,16 @@ function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   // how a pool system (V20 and friends) tells the card what to draw.
   const hasDeclaredDice = values.has("dice");
   const declaredDice = values.get("dice")?.trim().toLowerCase();
-  const diceMatch = declaredDice?.match(/^(\d*)d(\d+)$/);
-  const declaredCount = Number.parseInt(diceMatch?.[1] || "1", 10);
-  const declaredSides = Number.parseInt(diceMatch?.[2] ?? "", 10);
+  // The shared grammar accepts a modifier ("1d20+3"); a dice label must not
+  // carry one, because the modifier belongs in modifier=. Comparing against the
+  // parsed NdM half refuses the label without forking the grammar.
+  const parsedDeclaredDice = declaredDice ? parseDiceNotation(declaredDice) : null;
+  const declaredNotation = parsedDeclaredDice?.dice === declaredDice ? parsedDeclaredDice : null;
+  const declaredCount = declaredNotation?.count ?? Number.NaN;
+  const declaredSides = declaredNotation?.sides ?? Number.NaN;
   const declaredDiceValue =
-    diceMatch &&
-    Number.isSafeInteger(declaredCount) &&
-    Number.isSafeInteger(declaredSides) &&
-    declaredCount >= 1 &&
-    declaredCount <= MAX_DICE_COUNT &&
-    declaredSides >= 1 &&
-    declaredSides <= MAX_DICE_SIDES &&
+    declaredNotation &&
+    isWithinDiceLimits(declaredNotation) &&
     declaredCount === rolls.length &&
     rolls.every((roll) => roll >= 1 && roll <= declaredSides)
       ? declaredDice
@@ -394,7 +397,7 @@ function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   // the one shape we can audit. If the GM's own arithmetic disagrees, drop the
   // resolved result and let the server resolver roll it properly. Pool systems
   // are left alone — we cannot second-guess rules the engine does not implement.
-  const declaredD20 = !!diceMatch && declaredCount === 1 && declaredSides === 20;
+  const declaredD20 = !!declaredNotation && declaredCount === 1 && declaredSides === 20;
   const isImplicitD20Notation = parsedRolls.notation
     ? parsedRolls.notation.count === 1 && parsedRolls.notation.sides === 20
     : rolls.length === 1;
@@ -445,14 +448,13 @@ function parseSkillCheckRolls(
   inferredRollFromTotal: number,
 ): { rolls: number[]; notation?: { dice: string; count: number; sides: number } } {
   const trimmed = rollsValue.trim();
-  const diceNotationMatch = trimmed.match(/^((\d+)?d(\d+))(?:[+-]\d+)?$/i);
-  if (diceNotationMatch) {
-    const count = Number.parseInt(diceNotationMatch[2] ?? "1", 10);
-    const sides = Number.parseInt(diceNotationMatch[3] ?? "", 10);
+  const parsed = parseDiceNotation(trimmed);
+  if (parsed) {
+    const { count, sides } = parsed;
     if (count === 1 && inferredRollFromTotal >= 1 && inferredRollFromTotal <= sides) {
       return {
         rolls: [inferredRollFromTotal],
-        notation: { dice: diceNotationMatch[1]!.toLowerCase(), count, sides },
+        notation: { dice: parsed.dice, count, sides },
       };
     }
     return { rolls: [] };

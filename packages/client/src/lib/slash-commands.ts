@@ -14,7 +14,11 @@ import {
   SUPPORTED_MACROS,
   buildGuidedGenerationInstructionMessage,
   buildNarratorInstructionMessage,
+  isWithinDiceLimits,
   normalizeTextForMatch,
+  parseDiceNotation,
+  rollParsedDice,
+  type ParsedDiceNotation,
 } from "@marinara-engine/shared";
 
 export interface SlashCommand {
@@ -207,23 +211,13 @@ async function translateSlash(key: string, options?: Record<string, unknown>): P
 
 // ── Dice roller ────────────────
 
-function parseDice(notation: string): { count: number; sides: number; modifier: number } | null {
-  const match = notation.trim().match(/^(\d+)?d(\d+)([+-]\d+)?$/i);
-  if (!match) return null;
-  const count = parseInt(match[1] || "1", 10);
-  const sides = parseInt(match[2]!, 10);
+function parseDice(notation: string): ParsedDiceNotation | null {
+  const parsed = parseDiceNotation(notation);
   // Same caps the server dice route enforces. Without them "/roll 99999999d6"
-  // spins the render thread, and "0d6" rolls nothing at all.
-  if (count < 1 || count > 100 || sides < 1 || sides > 1000) return null;
-  return { count, sides, modifier: match[3] ? parseInt(match[3], 10) : 0 };
-}
-
-function rollDice(count: number, sides: number): number[] {
-  const results: number[] = [];
-  for (let i = 0; i < count; i++) {
-    results.push(Math.floor(Math.random() * sides) + 1);
-  }
-  return results;
+  // spins the render thread, and "0d6" rolls nothing at all (the shared grammar
+  // already refuses a count below one).
+  if (!parsed || !isWithinDiceLimits(parsed)) return null;
+  return parsed;
 }
 
 // ── Reminder parser ────────────────
@@ -636,8 +630,7 @@ const COMMANDS: SlashCommand[] = [
       const notation = args.trim() || "1d20";
       const parsed = parseDice(notation);
       if (!parsed) return { handled: true, feedback: `Invalid dice notation: ${notation}` };
-      const rolls = rollDice(parsed.count, parsed.sides);
-      const sum = rolls.reduce((a, b) => a + b, 0) + parsed.modifier;
+      const { rolls, total: sum } = rollParsedDice(parsed);
       const modStr = parsed.modifier > 0 ? `+${parsed.modifier}` : parsed.modifier < 0 ? `${parsed.modifier}` : "";
       const detail = parsed.count > 1 ? ` [${rolls.join(", ")}]${modStr}` : modStr ? ` (${rolls[0]}${modStr})` : "";
       const text = `🎲 **${notation}** → **${sum}**${detail}`;
