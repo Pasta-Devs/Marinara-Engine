@@ -77,10 +77,20 @@ export function createSkillCheckTagRegex(): RegExp {
  * two dice are thrown for a straight check, which the engine does not have —
  * answering it with one die and relabelling it `dice="1d20"` is the same silent
  * rewrite as answering a pool with a d20.
+ *
+ * A tag declaring BOTH modes is refused for that same reason, and it is the
+ * sharpest case of it. The roller cancels the pair and throws a single normal
+ * die, while this function used to read the pair as "two dice wanted" and pass
+ * `dice="2d20" mode="advantage" disadvantage` as rollable — so the GM's declared
+ * two dice came back as one, relabelled `dice="1d20" mode="normal"`, in the text
+ * about to be saved. The guide already promises a check is never rolled with
+ * both at once; refusing the tag keeps that promise as a refusal instead of
+ * keeping it as a rewrite.
  */
 export function isEngineRollableSkillCheckTag(
   tag: Pick<SkillCheckTag, "declaredResolution" | "declaredDice" | "advantage" | "disadvantage">,
 ): boolean {
+  if (tag.advantage && tag.disadvantage) return false;
   if (tag.declaredResolution != null && tag.declaredResolution !== "sum") return false;
   if (tag.declaredDice == null) return true;
 
@@ -90,6 +100,101 @@ export function isEngineRollableSkillCheckTag(
   if (!notation || notation.dice !== tag.declaredDice) return false;
   const wantedCount = tag.advantage || tag.disadvantage ? 2 : 1;
   return notation.sides === 20 && notation.count === wantedCount;
+}
+
+/** One `key = value` pair as it was written, with the span it occupied. */
+interface SkillCheckTagAttribute {
+  /** The `key` half, exactly as written. */
+  key: string;
+  /** The value half including its quotes, if it had any. */
+  rawValue: string;
+  /** Index of the key's first character in the body. */
+  start: number;
+  /** Index one past the value's last character. */
+  end: number;
+}
+
+const WORD_CHARACTER = /\w/;
+const SPACE_CHARACTER = /\s/;
+
+/**
+ * Read the value half at `at`: a quoted string, or an unquoted run.
+ *
+ * An unterminated quote is not a quoted value; it falls through to the unquoted
+ * run, which reads the quote as an ordinary character. That is what the
+ * alternation did when its first two branches failed, and a GM that opens a
+ * quote and never closes it must not silently take the rest of the tag with it.
+ *
+ * The unquoted run refuses to start on something that is itself a `key=`, which
+ * is what stops an attribute written with no value from swallowing the
+ * declaration after it — see the note in `parseSkillCheckTagBody`.
+ */
+function readSkillCheckTagValue(body: string, at: number): { rawValue: string; end: number } | null {
+  const opener = body[at];
+  if (opener === '"' || opener === "'") {
+    const close = body.indexOf(opener, at + 1);
+    if (close >= 0) return { rawValue: body.slice(at, close + 1), end: close + 1 };
+  }
+
+  if (at < body.length && WORD_CHARACTER.test(body[at]!)) {
+    let probe = at;
+    while (probe < body.length && WORD_CHARACTER.test(body[probe]!)) probe += 1;
+    while (probe < body.length && SPACE_CHARACTER.test(body[probe]!)) probe += 1;
+    if (body[probe] === "=") return null;
+  }
+
+  let end = at;
+  while (end < body.length && !SPACE_CHARACTER.test(body[end]!) && body[end] !== "]") end += 1;
+  return end === at ? null : { rawValue: body.slice(at, end), end };
+}
+
+/**
+ * Scan a tag body for `key = value` pairs, left to right, in one pass.
+ *
+ * This is the grammar the alternation above describes, walked by hand rather
+ * than by a regex, and it is walked by hand for one reason: `(\w+)\s*=` can
+ * restart inside a word. A body of repeated `0`s carries no `=` at all, and the
+ * regex engine still tried the key at every one of those offsets, scanning to
+ * the end of the run each time — the polynomial backtracking CodeQL flagged on
+ * this line. Measured: 32,000 zeros took two seconds, and `0…0=0…0=` took nearly
+ * five. The scan below visits each character a bounded number of times, so the
+ * same bodies cost about a millisecond.
+ *
+ * It is the *same* grammar, not a tightened one, and the reason is worth stating
+ * because "skip to the next run" looks like it should lose matches. A key can
+ * only ever be a WHOLE run of word characters: the `=` a match needs must sit
+ * after the run's last character, since inside the run the next character is a
+ * word character and `\s*=` cannot match one. So every offset inside a run
+ * reaches the same `=` and the same value, and therefore succeeds or fails
+ * together with the run's start — the extra attempts the regex made were all
+ * duplicates of one it had already made.
+ */
+function readSkillCheckTagAttributes(body: string): SkillCheckTagAttribute[] {
+  const attributes: SkillCheckTagAttribute[] = [];
+  let index = 0;
+  while (index < body.length) {
+    if (!WORD_CHARACTER.test(body[index]!)) {
+      index += 1;
+      continue;
+    }
+    const start = index;
+    while (index < body.length && WORD_CHARACTER.test(body[index]!)) index += 1;
+    const key = body.slice(start, index);
+
+    // `\s*=\s*`, and on any miss the scan resumes at `index` — past this key run,
+    // which is the next offset a match could possibly begin at.
+    let cursor = index;
+    while (cursor < body.length && SPACE_CHARACTER.test(body[cursor]!)) cursor += 1;
+    if (body[cursor] !== "=") continue;
+    cursor += 1;
+    while (cursor < body.length && SPACE_CHARACTER.test(body[cursor]!)) cursor += 1;
+
+    const value = readSkillCheckTagValue(body, cursor);
+    if (!value) continue;
+    attributes.push({ key, rawValue: value.rawValue, start, end: value.end });
+    index = value.end;
+  }
+  return attributes;
 }
 
 /**
@@ -126,13 +231,13 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   // re-open the hole above it: `dice = 6d10` would stop being read at all, which
   // is a declared pool going unseen — exactly the sparse-looking pool tag this
   // reader must never hand to a d20. Whitespace still decides nothing.
-  const attributes = Array.from(body.matchAll(/(\w+)\s*=\s*("[^"]*"|'[^']*'|(?!\w+\s*=)[^\s\]]+)/g));
+  const attributes = readSkillCheckTagAttributes(body);
   if (attributes.length === 0) return null;
 
   const values = new Map<string, string>();
-  for (const match of attributes) {
-    const key = match[1]?.trim().toLowerCase();
-    const rawValue = match[2]?.trim();
+  for (const attribute of attributes) {
+    const key = attribute.key.trim().toLowerCase();
+    const rawValue = attribute.rawValue.trim();
     if (!key || !rawValue) continue;
     values.set(key, rawValue.replace(/^['"]|['"]$/g, ""));
   }
@@ -154,9 +259,9 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   // left over can carry a flag.
   let outsideAttributes = "";
   let attributeEnd = 0;
-  for (const match of attributes) {
-    outsideAttributes += body.slice(attributeEnd, match.index);
-    attributeEnd = match.index + match[0].length;
+  for (const attribute of attributes) {
+    outsideAttributes += body.slice(attributeEnd, attribute.start);
+    attributeEnd = attribute.end;
   }
   outsideAttributes += body.slice(attributeEnd);
   const flags = outsideAttributes.toLowerCase();

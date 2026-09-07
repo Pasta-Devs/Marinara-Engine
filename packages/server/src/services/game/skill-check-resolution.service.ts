@@ -17,13 +17,17 @@ import {
   isEngineRollableSkillCheckTag,
   parseSkillCheckTagBody,
   serializeResolvedSkillCheckTag,
+  serializeSparseSkillCheckTag,
   type RPGAttributes,
   type SkillCheckResult,
+  type SkillCheckTag,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
+import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createGameStateStorage } from "../storage/game-state.storage.js";
+import { normalizeCharacterLookupName } from "./name-normalization.js";
 import {
   attributeModifier,
   getGoverningAttribute,
@@ -84,6 +88,66 @@ function parseChatMetadata(raw: unknown, chatId: string): Record<string, unknown
   }
 }
 
+function readTrimmedString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * The player's card, found by who the player IS rather than where they sit.
+ *
+ * `gameCharacterCards[0]` used to be the answer, and position is not identity.
+ * The setup prompt asks the model for the player's card first and the party's
+ * after it, which is a convention the model follows, not a guarantee the array
+ * keeps: a recruit appends, a removal splices, and a session-conclusion rewrite
+ * re-emits the array in whatever order it read the cards back in. The moment any
+ * of those moves the player off the front, every check in the game silently
+ * starts scoring against a *party member's* sheet — a wrong DEX quietly changes
+ * whether the player got past the guard, and nothing in the turn says so.
+ *
+ * What the setup data actually marks the player with is the name: the persona's
+ * name is what `characterCards` is told to use for the player's entry, and the
+ * chat carries the persona id. So the persona's card is looked up by name.
+ *
+ * The first card stays the last resort, unchanged, for the chats that give this
+ * nothing to match on — no persona set, a persona that no longer exists, or a
+ * game whose cards never included one for the player. Those were served by
+ * position before and still are; the fix is that a chat which CAN say who the
+ * player is no longer guesses.
+ */
+async function findPlayerCharacterCard(
+  db: DB,
+  cards: Array<Record<string, unknown>>,
+  chatPersonaId: unknown,
+  meta: Record<string, unknown>,
+  chatId: string,
+): Promise<Record<string, unknown> | undefined> {
+  if (cards.length === 0) return undefined;
+  const setupConfig =
+    meta.gameSetupConfig && typeof meta.gameSetupConfig === "object" && !Array.isArray(meta.gameSetupConfig)
+      ? (meta.gameSetupConfig as Record<string, unknown>)
+      : null;
+  const personaId = readTrimmedString(chatPersonaId) || readTrimmedString(setupConfig?.personaId);
+  if (!personaId) return cards[0];
+
+  let personaName = "";
+  try {
+    const persona = await createCharactersStorage(db).getPersona(personaId);
+    personaName = readTrimmedString(persona?.name);
+  } catch (err) {
+    // An unreadable persona costs the check its identity lookup, never the turn.
+    logger.warn(err, "[game/skill-check] Could not read the persona for chat %s; using the first card", chatId);
+    return cards[0];
+  }
+  if (!personaName) return cards[0];
+
+  const wanted = normalizeCharacterLookupName(personaName);
+  const playerCard = cards.find((card) => normalizeCharacterLookupName(readTrimmedString(card.name)) === wanted);
+  if (playerCard) return playerCard;
+
+  logger.debug("[game/skill-check] Chat %s has no card for the player; using the first card's sheet", chatId);
+  return cards[0];
+}
+
 /**
  * Read the chat's modifier sources: the game-state snapshot's playerStats, and
  * the player character card's sheet attributes as the fallback the shipped
@@ -113,7 +177,7 @@ export async function loadSkillCheckModifierContext(db: DB, chatId: string): Pro
   const cards = Array.isArray(meta.gameCharacterCards)
     ? (meta.gameCharacterCards as Array<Record<string, unknown>>)
     : [];
-  const playerCard = cards[0];
+  const playerCard = await findPlayerCharacterCard(db, cards, chat?.personaId, meta, chatId);
   const rpgStats = playerCard?.rpgStats as { attributes?: Array<{ name: string; value: number }> } | undefined;
 
   return { skills, attributes: null, sheetAttributes: mapSheetAttributesToRPG(rpgStats?.attributes) };
@@ -189,11 +253,18 @@ export interface SkillCheckTagResolution {
   /**
    * Every tag left standing, for any reason — the numbers held, the engine does
    * not implement the system the tag names, the DC or skill was out of bounds,
-   * or the body was not readable as a check at all. `resolved + left` is every
-   * `[skill_check:]` in the content, so a log line can say what happened to all
-   * of them instead of accounting for two of the four cases.
+   * the body was not readable as a check at all, or the roll could not happen and
+   * the tag went back sparse. `resolved + left` is every `[skill_check:]` in the
+   * content, so a log line can say what happened to all of them instead of
+   * accounting for two of the five cases.
    */
   left: number;
+  /**
+   * How many tags were rewritten into their honest sparse form because the roll
+   * could not happen at all. Counted inside `left` — they owe a roll still — and
+   * non-zero only on the failure path.
+   */
+  sparse: number;
 }
 
 /**
@@ -214,75 +285,119 @@ export interface SkillCheckTagResolution {
  * That holds for a malformed pool tag as much as a tidy one: the shared reader
  * refusing to vouch for a pool's numbers is not permission to answer it with a
  * d20, so `isEngineRollableSkillCheckTag` is asked before anything is rolled.
+ *
+ * **It does not throw, and that is the point.** The failure this owns is the
+ * chat's modifiers not loading, and the caller's only two options used to be
+ * losing the turn or saving it unchanged — and unchanged means saving the
+ * model's invented `rolls="7" total="19"` on a check nobody rolled, which the
+ * next turn reads back as fact. That is the exact dishonesty the engine took the
+ * die away to end, arrived at through the error path instead of the happy one.
+ * So a roll that cannot happen writes the tags back SPARSE: the ask the GM made,
+ * the numbers dropped, nothing invented in their place. The turn survives, the
+ * transcript stays honest, and the check reads back as still owing a roll — so
+ * the client's own fallback can ask for one.
  */
 export async function resolveSkillCheckTagsInContent(
   content: string,
   options: SkillCheckTagResolutionOptions,
 ): Promise<SkillCheckTagResolution> {
-  if (!content || !/\[skill_check\b/i.test(content)) return { content, resolved: 0, trusted: 0, left: 0 };
+  if (!content || !/\[skill_check\b/i.test(content)) {
+    return { content, resolved: 0, trusted: 0, left: 0, sparse: 0 };
+  }
 
-  const pending: Array<{ start: number; end: number; request: SkillCheckRequest }> = [];
+  const pending: Array<{ start: number; end: number; request: SkillCheckRequest; tag: SkillCheckTag }> = [];
   let trusted = 0;
   let left = 0;
 
-  const regex = createSkillCheckTagRegex();
-  for (let match = regex.exec(content); match; match = regex.exec(content)) {
-    const tag = parseSkillCheckTagBody(match[1] ?? "");
-    // Not a check at all (no skill or DC) — leave whatever the model wrote.
-    if (!tag) {
-      left += 1;
-      continue;
+  /** Splice one replacement per pending tag, in reading order, keeping the prose between them. */
+  const rewrite = (replace: (entry: (typeof pending)[number]) => string): string => {
+    let out = "";
+    let cursor = 0;
+    for (const entry of pending) {
+      out += content.slice(cursor, entry.start) + replace(entry);
+      cursor = entry.end;
     }
-    if (tag.resolvedResult) {
-      trusted += 1;
-      left += 1;
-      continue;
+    return out + content.slice(cursor);
+  };
+
+  try {
+    const regex = createSkillCheckTagRegex();
+    for (let match = regex.exec(content); match; match = regex.exec(content)) {
+      const tag = parseSkillCheckTagBody(match[1] ?? "");
+      // Not a check at all (no skill or DC) — leave whatever the model wrote.
+      if (!tag) {
+        left += 1;
+        continue;
+      }
+      if (tag.resolvedResult) {
+        trusted += 1;
+        left += 1;
+        continue;
+      }
+      // A system this engine does not implement — a success pool, or a die that is
+      // not the d20 the resolver throws. Its numbers did not survive the audit (or
+      // it never wrote any), but rolling a d20 here would not repair the tag, it
+      // would replace the GM's rules with ours in the text about to be saved.
+      if (!isEngineRollableSkillCheckTag(tag)) {
+        logger.debug(
+          "[game/skill-check] Leaving a check the engine does not roll for chat %s (resolution=%s dice=%s)",
+          options.chatId ?? "unknown",
+          tag.declaredResolution ?? "none",
+          tag.declaredDice ?? "none",
+        );
+        left += 1;
+        continue;
+      }
+      const request: SkillCheckRequest = {
+        skill: tag.skill,
+        dc: tag.dc,
+        advantage: tag.advantage,
+        disadvantage: tag.disadvantage,
+        preRolledD20: tag.preRolledD20,
+      };
+      if (!isResolvableRequest(request)) {
+        logger.debug(
+          "[game/skill-check] Leaving out-of-bounds check tag unresolved for chat %s (dc=%d)",
+          options.chatId ?? "unknown",
+          request.dc,
+        );
+        left += 1;
+        continue;
+      }
+      pending.push({ start: match.index, end: match.index + match[0].length, request, tag });
     }
-    // A system this engine does not implement — a success pool, or a die that is
-    // not the d20 the resolver throws. Its numbers did not survive the audit (or
-    // it never wrote any), but rolling a d20 here would not repair the tag, it
-    // would replace the GM's rules with ours in the text about to be saved.
-    if (!isEngineRollableSkillCheckTag(tag)) {
-      logger.debug(
-        "[game/skill-check] Leaving a check the engine does not roll for chat %s (resolution=%s dice=%s)",
-        options.chatId ?? "unknown",
-        tag.declaredResolution ?? "none",
-        tag.declaredDice ?? "none",
-      );
-      left += 1;
-      continue;
-    }
-    const request: SkillCheckRequest = {
-      skill: tag.skill,
-      dc: tag.dc,
-      advantage: tag.advantage,
-      disadvantage: tag.disadvantage,
-      preRolledD20: tag.preRolledD20,
-    };
-    if (!isResolvableRequest(request)) {
-      logger.debug(
-        "[game/skill-check] Leaving out-of-bounds check tag unresolved for chat %s (dc=%d)",
-        options.chatId ?? "unknown",
-        request.dc,
-      );
-      left += 1;
-      continue;
-    }
-    pending.push({ start: match.index, end: match.index + match[0].length, request });
+
+    if (pending.length === 0) return { content, resolved: 0, trusted, left, sparse: 0 };
+
+    const context = await options.loadContext();
+    const rolled = rewrite((entry) =>
+      serializeResolvedSkillCheckTag(resolveSkillCheckWithContext(context, entry.request, options.rollD20)),
+    );
+    return { content: rolled, resolved: pending.length, trusted, left, sparse: 0 };
+  } catch (err) {
+    logger.error(
+      err,
+      "[game/skill-check] Could not roll %d check tag(s) for chat %s; saving them sparse rather than as written",
+      pending.length,
+      options.chatId ?? "unknown",
+    );
+    // Nothing was found to owe a roll before this failed, so there is nothing to
+    // strip and the text stands as the model wrote it — the same outcome the
+    // caller's own catch used to reach, kept only for the case where this
+    // function never got far enough to know better.
+    if (pending.length === 0) return { content, resolved: 0, trusted, left, sparse: 0 };
+    // Otherwise: pure string work over tags already parsed above, so the honest
+    // path cannot fail its way back into saving the model's numbers.
+    const honest = rewrite((entry) =>
+      serializeSparseSkillCheckTag({
+        skill: entry.request.skill,
+        dc: entry.request.dc,
+        advantage: entry.request.advantage,
+        disadvantage: entry.request.disadvantage,
+        preRolledD20: entry.request.preRolledD20,
+        declaredDice: entry.tag.declaredDice,
+      }),
+    );
+    return { content: honest, resolved: 0, trusted, left: left + pending.length, sparse: pending.length };
   }
-
-  if (pending.length === 0) return { content, resolved: 0, trusted, left };
-
-  const context = await options.loadContext();
-
-  let out = "";
-  let cursor = 0;
-  for (const entry of pending) {
-    const result = resolveSkillCheckWithContext(context, entry.request, options.rollD20);
-    out += content.slice(cursor, entry.start) + serializeResolvedSkillCheckTag(result);
-    cursor = entry.end;
-  }
-  out += content.slice(cursor);
-
-  return { content: out, resolved: pending.length, trusted, left };
 }

@@ -7325,25 +7325,30 @@ export async function generateRoutes(app: FastifyInstance) {
           // On a continue the whole message body is rewritten later from
           // `fullResponse`; here `fullResponse` is still only the new segment,
           // so already-resolved earlier text is never re-scanned.
+          //
+          // No try/catch here on purpose. A roll that cannot happen — the chat's
+          // modifiers failing to load is the realistic one — is the resolver's own
+          // failure to own, and it owns it by writing the tags back SPARSE rather
+          // than by throwing. Catching here and saving `fullResponse` unchanged is
+          // what saved the model's invented rolls/total/result, which is the whole
+          // dishonesty this path exists to end; it must not come back through the
+          // error door. The content therefore decides the frame and the save on
+          // both paths, because on both paths the text changed.
           if (chatMode === "game" && !input.impersonate) {
-            try {
-              const rolled = await resolveSkillCheckTagsInContent(fullResponse, {
-                loadContext: () => loadSkillCheckModifierContext(app.db, input.chatId),
-                chatId: input.chatId,
-              });
-              if (rolled.resolved > 0) {
-                fullResponse = rolled.content;
-                contentReplaced = true;
-                logger.debug(
-                  "[generate/game] Resolved %d skill check tag(s) for chat %s (%d left as the GM wrote them)",
-                  rolled.resolved,
-                  input.chatId,
-                  rolled.left,
-                );
-              }
-            } catch (err) {
-              // A check that cannot be rolled costs the check, never the turn.
-              logger.error(err, "[generate/game] Skill check resolution failed for chat %s", input.chatId);
+            const rolled = await resolveSkillCheckTagsInContent(fullResponse, {
+              loadContext: () => loadSkillCheckModifierContext(app.db, input.chatId),
+              chatId: input.chatId,
+            });
+            if (rolled.content !== fullResponse) {
+              fullResponse = rolled.content;
+              contentReplaced = true;
+              logger.debug(
+                "[generate/game] Resolved %d skill check tag(s) for chat %s (%d left as the GM wrote them, %d saved sparse)",
+                rolled.resolved,
+                input.chatId,
+                rolled.left,
+                rolled.sparse,
+              );
             }
           }
 
