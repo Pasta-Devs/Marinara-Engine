@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Layout: Chat Sidebar (polished with rich buttons)
 // ──────────────────────────────────────────────
+import { hasEditorLeaveHandler } from "../../lib/editor-leave";
 import {
   MessageSquareText,
   Search,
@@ -991,7 +992,7 @@ export function ChatSidebar() {
             return;
           }
           if (hasAnyDetailOpen()) {
-            if (editorDirty) {
+            if (editorDirty && !hasEditorLeaveHandler(useUIStore.getState())) {
               if (
                 !(await showConfirmDialog({
                   title: localizeUi("ui.layout.chatsidebar.unsavedChanges"),

@@ -2135,6 +2135,36 @@
   max-width: 48rem;
 }
 
+[data-editor-section] + [data-editor-section] {
+  margin-block-start: 2rem;
+  border-top: 1px solid var(--marinara-editor-border);
+  padding-block-start: 2rem;
+}
+
+/* iOS library/sidebar overlays do not need a second live copy of the scene behind them. */
+html[data-mari-ios-webkit] :is(.mari-modal, .mari-right-panel-content) [class*="backdrop-blur"] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Resolve the app background before the panel remaps its neutral-surface tokens.
+   An opaque backing keeps covered settings from showing through without blur. */
+html[data-mari-ios-webkit] .mari-modal {
+  --mari-modal-opaque-bg: var(--background);
+}
+
+html[data-mari-ios-webkit] .mari-modal-panel {
+  background-color: var(--mari-modal-opaque-bg);
+  background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
+}
+
+/* Full-screen mobile navigation needs no translucent copy of the covered chat. */
+html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-component="ChatSidebarPanel"]) {
+  background-color: var(--background) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
 .mari-editor-tab {
   height: 2.25rem;
   min-height: 2.25rem;
@@ -3088,6 +3118,11 @@ body {
   width: 68%;
 }
 
+.mari-home-widget--achievements header > div > p:last-child {
+  font-size: 0.6875rem;
+  line-height: 1.375;
+}
+
 .mari-home-professor-widget .mari-professor-pixel-scene [data-part="laptop"] {
   width: 76%;
 }
@@ -3192,12 +3227,13 @@ body {
   }
 }
 
-.mari-home-feed-grid[data-home-grid-columns="1"] .mari-home-widget--recent {
+.mari-home-feed-grid[data-home-grid-columns="1"] :is(.mari-home-widget--recent, .mari-home-widget--character-library) {
   grid-column: span 1;
   grid-row: span 2;
 }
 
-.mari-home-feed-grid:not([data-home-grid-columns="1"]) .mari-home-widget--recent {
+.mari-home-feed-grid:not([data-home-grid-columns="1"])
+  :is(.mari-home-widget--recent, .mari-home-widget--character-library) {
   grid-column: span 2;
   grid-row: span 2;
 }

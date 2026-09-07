@@ -515,6 +515,10 @@ test("Appearance distinguishes the square avatar-shape preview from the circular
   await page.getByRole("tab", { name: "Appearance" }).click();
 
   const circle = page.locator('[data-avatar-shape-preview="circle"]');
+  await page
+    .getByRole("group", { name: "Appearance by chat mode" })
+    .getByRole("button", { name: "Conversation", exact: true })
+    .click();
   const square = page.locator('[data-avatar-shape-preview="square"]');
   await expect(circle).toBeVisible();
   await expect(square).toBeVisible();
@@ -533,6 +537,10 @@ test("Art scale sliders stay interactive at the largest display size", async ({ 
   await page.getByRole("tab", { name: "Appearance" }).click();
 
   const exerciseSlider = async (controlId: string) => {
+    await page
+      .getByRole("group", { name: "Appearance by chat mode" })
+      .getByRole("button", { name: controlId.includes("roleplay") ? "Roleplay" : "Game", exact: true })
+      .click();
     const control = page.locator(`#${controlId}`);
     const slider = control.locator('input[type="range"]');
     await control.scrollIntoViewIfNeeded();
@@ -573,6 +581,10 @@ test("Art scale sliders stay interactive at the largest display size", async ({ 
     "settings-control-game-full-body-sprite-scale",
   ];
   for (const controlId of controlIds) await exerciseSlider(controlId);
+  await page
+    .getByRole("group", { name: "Appearance by chat mode" })
+    .getByRole("button", { name: "App", exact: true })
+    .click();
   await page.locator("#settings-control-display-size select").selectOption("22");
   for (const controlId of controlIds) await exerciseSlider(controlId);
 });
@@ -3423,7 +3435,7 @@ test("Character favorite tags and stars inherit the configured accent color", as
     await expect(favoriteToggle).toHaveAttribute("data-favorite", "true");
     await expect(favoriteToggle).toHaveCSS("color", accentColor);
     expect(await favoriteToggle.getAttribute("class")).not.toMatch(/amber|yellow/iu);
-    await editor.getByTitle("Back").click();
+    await editor.getByTitle("Back", { exact: true }).click();
 
     await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
@@ -4135,8 +4147,15 @@ test("Character and Persona avatar actions stay separated and visually balanced"
       }
       const selectedMenuItem = compactMenu.getByRole("menuitemradio", { checked: true });
       await expect(selectedMenuItem).toBeFocused();
+      const selectedIndex = await selectedMenuItem.evaluate((element) =>
+        Array.from(element.parentElement!.querySelectorAll('[role="menuitemradio"]')).indexOf(element),
+      );
       await selectedMenuItem.press("ArrowDown");
-      await expect(compactMenu.getByRole("menuitemradio").nth(1)).toBeFocused();
+      await expect(
+        compactMenu
+          .getByRole("menuitemradio")
+          .nth((selectedIndex + 1) % (await compactMenu.getByRole("menuitemradio").count())),
+      ).toBeFocused();
       await page.keyboard.press("Escape");
       await expect(compactMenu).toHaveCount(0);
       await expect(compactMenuButton).toBeFocused();
@@ -4563,7 +4582,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
     await openEditorSection(editor, "Metadata");
-    await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).toHaveCount(0);
+    await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).not.toBeInViewport();
     await expect(
       editor
         .getByRole("navigation", { name: "Editor sections" })
@@ -4575,7 +4594,10 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(editor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
     await expect(editor.getByText(/Character sheet reference is active/u)).toBeVisible();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
-    await editor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await editor
+      .locator('[data-editor-section="sprites"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     const sheetDialog = page.getByRole("dialog", { name: "Create Character Sheet" });
     await expect(sheetDialog).toBeVisible();
     await expect(sheetDialog.getByText("Character Sheet Prompt", { exact: true })).toBeVisible();
@@ -4598,7 +4620,10 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(editor.getByRole("button", { name: "Delete selected" })).toBeVisible();
     await expect(editor.getByRole("button", { name: "Set as avatar" })).toHaveCount(0);
     await editor.getByRole("button", { name: "Cancel selection", exact: true }).click();
-    await editor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await editor
+      .locator('[data-editor-section="gallery"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     await expect(sheetDialog).toBeVisible();
     await expect(sheetDialog.getByText("Character Sheet Prompt", { exact: true })).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -4615,12 +4640,15 @@ test("Character and persona sheets persist an explicit reference choice and fall
       .click({ position: { x: 2, y: 2 } });
     const personaEditor = page.locator(".mari-editor-shell");
     await expect(personaEditor).toBeVisible();
-    await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toHaveCount(0);
+    await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).not.toBeInViewport();
     await openEditorSection(personaEditor, "Sprites");
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(personaEditor.getByAltText(`${personaName} character sheet`)).toBeVisible();
     await expect(personaEditor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
-    await personaEditor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await personaEditor
+      .locator('[data-editor-section="sprites"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     await expect(sheetDialog).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await openEditorSection(personaEditor, "Gallery");
@@ -4632,7 +4660,10 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(personaEditor.getByRole("button", { name: "Delete selected" })).toBeVisible();
     await expect(personaEditor.getByRole("button", { name: "Set as avatar" })).toHaveCount(0);
     await personaEditor.getByRole("button", { name: "Cancel selection", exact: true }).click();
-    await personaEditor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await personaEditor
+      .locator('[data-editor-section="gallery"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     await expect(sheetDialog).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
@@ -6055,6 +6086,10 @@ for (const mode of ["conversation", "roleplay"] as const) {
       const openAppearance = async () => {
         await page.locator('[data-tour="panel-settings"]').click();
         await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+        await page
+          .getByRole("group", { name: "Appearance by chat mode" })
+          .getByRole("button", { name: mode === "conversation" ? "Conversation" : "Roleplay", exact: true })
+          .click();
       };
       const closeSettings = async () => {
         await page.evaluate(async () => {
@@ -6073,9 +6108,19 @@ for (const mode of ["conversation", "roleplay"] as const) {
       const otherToggle = page
         .locator(`#settings-control-${mode === "conversation" ? "roleplay" : "conversation"}-always-display-swipe-menu`)
         .getByLabel("Always display swipe menu", { exact: true });
+      const expectOtherToggleChecked = async () => {
+        const modes = page.getByRole("group", { name: "Appearance by chat mode" });
+        await modes
+          .getByRole("button", { name: mode === "conversation" ? "Roleplay" : "Conversation", exact: true })
+          .click();
+        await expect(otherToggle).toBeChecked();
+        await modes
+          .getByRole("button", { name: mode === "conversation" ? "Conversation" : "Roleplay", exact: true })
+          .click();
+      };
       await openAppearance();
       await expect(toggle).toBeChecked();
-      await expect(otherToggle).toBeChecked();
+      await expectOtherToggleChecked();
       await toggleLabel.scrollIntoViewIfNeeded();
       await testInfo.attach(`${mode}-swipe-settings-${testInfo.project.name}.png`, {
         body: await page.screenshot(),
@@ -6083,7 +6128,7 @@ for (const mode of ["conversation", "roleplay"] as const) {
       });
       await toggleLabel.click();
       await expect(toggle).not.toBeChecked();
-      await expect(otherToggle).toBeChecked();
+      await expectOtherToggleChecked();
       await expect.poll(async () => (await readSynced())[preference]).toBe(false);
       await closeSettings();
       await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
@@ -6113,7 +6158,7 @@ for (const mode of ["conversation", "roleplay"] as const) {
       await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
       await openAppearance();
       await expect(toggle).not.toBeChecked();
-      await expect(otherToggle).toBeChecked();
+      await expectOtherToggleChecked();
       await toggleLabel.click();
       await expect(toggle).toBeChecked();
       await expect.poll(async () => (await readSynced())[preference]).toBe(true);
@@ -7003,6 +7048,10 @@ test("Roleplay can show streaming reasoning inline and control automatic collaps
     await page.getByRole("tab", { name: "Appearance" }).click();
 
     const showControl = page.locator("#settings-control-show-roleplay-thinking-in-messages");
+    await page
+      .getByRole("group", { name: "Appearance by chat mode" })
+      .getByRole("button", { name: "Roleplay", exact: true })
+      .click();
     const keepControl = page.locator("#settings-control-keep-roleplay-thinking-expanded");
     const showToggle = showControl.getByRole("checkbox", { name: "Show Thinking In Messages" });
     const keepToggle = keepControl.getByRole("checkbox", { name: "Don't Collapse Thinking" });
@@ -9179,13 +9228,10 @@ test("preset import and save-export feedback follow the active accent", async ({
     await titleInput.fill(`Unsaved Theme Feedback ${suffix}`);
     await waitForEditorDirty(page);
     await editor.locator(".mari-editor-header-main > button").first().click();
-    const unsavedFeedback = editor.getByText("You have unsaved changes.", { exact: true }).locator("..");
-    await expect(unsavedFeedback).toBeVisible();
-    await expect(unsavedFeedback).toHaveCSS("color", expectedEditorAccent);
-    await testInfo.attach(`preset-unsaved-accent-${testInfo.project.name}.png`, {
-      body: await page.screenshot({ fullPage: true }),
-      contentType: "image/png",
-    });
+    await expect(editor).toHaveCount(0);
+    await expect
+      .poll(async () => (await (await request.get(`/api/prompts/${preset.id}`)).json()).name)
+      .toBe(`Unsaved Theme Feedback ${suffix}`);
   } finally {
     await bestEffortDelete(request, `/api/prompts/${preset.id}`);
   }
@@ -17562,20 +17608,14 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
     expect(vectorizeRequestCount).toBe(vectorizeCountBeforeCancel);
 
     await vectorPanel.locator("label").filter({ hasText: "Query Messages" }).locator("input").fill("8");
-    await page.locator(".mari-editor-header").getByRole("button").first().click();
-    const unsavedWarning = page.getByText("You have unsaved changes", { exact: true });
-    await expect(unsavedWarning).toBeVisible();
-    const discardCloseButton = page.getByRole("button", { name: "Discard & close", exact: true });
-    const saveCloseButton = page.getByRole("button", { name: "Save & close", exact: true });
     const backButton = page.locator(".mari-editor-header").getByRole("button").first();
     delayCloseSave = true;
-    await saveCloseButton.click();
+    await backButton.click();
     await closeSaveStarted.promise;
-    await expect(discardCloseButton).toBeDisabled();
-    await expect(saveCloseButton).toBeDisabled();
     await expect(backButton).toBeDisabled();
     releaseCloseSave.resolve();
-    await expect(unsavedWarning).toBeVisible();
+    await expect(page.getByText("Deliberate save failure", { exact: true }).first()).toBeVisible();
+    await expect(vectorPanel.locator("label").filter({ hasText: "Query Messages" }).locator("input")).toHaveValue("8");
     await expect(page.locator(".mari-editor-header").getByText(lorebookName, { exact: true })).toBeVisible();
   } finally {
     if (lorebookId) await request.delete(`/api/lorebooks/${lorebookId}`).catch(() => undefined);
@@ -18322,7 +18362,7 @@ test("Home Community and clock widgets are useful, timezone-aware, and optional"
 
   await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
-  await expect(widgetManager.getByRole("switch")).toHaveCount(9);
+  await expect(widgetManager.getByRole("switch")).toHaveCount(10);
   for (const label of [
     "Your guide — Professor Mari",
     "Continue chatting — Recent chats",
@@ -18874,7 +18914,7 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
   await expect(widgetManager).toBeVisible();
-  await expect(widgetManager.getByRole("switch")).toHaveCount(9);
+  await expect(widgetManager.getByRole("switch")).toHaveCount(10);
   await activateControl(widgetManager.getByRole("switch", { name: "Hide Your shelf — Achievements" }), testInfo);
   await expect(page.locator('[data-home-widget-id="achievements"]')).toHaveCount(0);
   await expect
@@ -19955,6 +19995,10 @@ test("Roleplay reduced paint effects preserve semantic and custom styling", asyn
     await page.locator('[data-tour="panel-settings"]').click();
     await page.getByRole("tab", { name: "Appearance" }).click();
     const reducedPaintToggle = page.getByLabel("Reduced paint effects");
+    await page
+      .getByRole("group", { name: "Appearance by chat mode" })
+      .getByRole("button", { name: "Roleplay", exact: true })
+      .click();
     await reducedPaintToggle.scrollIntoViewIfNeeded();
     await page.getByText("Reduced paint effects", { exact: true }).click();
     await expect(reducedPaintToggle).toBeChecked();

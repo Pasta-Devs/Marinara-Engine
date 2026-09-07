@@ -46,6 +46,7 @@ import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } 
 import { buildCharacterIdentityGroups } from "../../lib/character-identity-groups";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
+import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import {
   CONVERSATION_COMMAND_AGENT_IDS,
   CONVERSATION_COMMAND_KEYS,
@@ -2623,18 +2624,24 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
 
   function renderPreset() {
     return (
-      <WizardSelect
-        value={chat.promptPresetId ?? ""}
-        ariaLabel={localizeUi("chat.toolbar.preset")}
-        options={[
-          { value: "", label: localizeUi("ui.game.gamesurfacecomponent.none") },
-          ...((presets ?? []) as Array<{ id: string; name: string; isDefault?: boolean | string }>).map((preset) => ({
-            value: preset.id,
-            label: preset.name,
-          })),
-        ]}
-        onChange={(nextValue) => setPreset(nextValue || null)}
-      />
+      <div className="space-y-4">
+        <WizardSelect
+          value={chat.promptPresetId ?? ""}
+          ariaLabel={localizeUi("chat.toolbar.preset")}
+          options={[
+            { value: "", label: localizeUi("ui.game.gamesurfacecomponent.none") },
+            ...((presets ?? []) as Array<{ id: string; name: string; isDefault?: boolean | string }>).map((preset) => ({
+              value: preset.id,
+              label: preset.name,
+            })),
+          ]}
+          onChange={(nextValue) => setPreset(nextValue || null)}
+        />
+        <section className="space-y-2 border-t border-[var(--border)] pt-4">
+          <h4 className="text-sm font-semibold">{localizeUi("chat.setup.pickBackground")}</h4>
+          <ActiveChatBackgroundPicker />
+        </section>
+      </div>
     );
   }
 

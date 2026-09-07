@@ -12,6 +12,7 @@ import { ChatResourceMobileDropDock } from "../chat/ChatResourceMobileDropDock";
 import { hasProfessorMariFloatingFollowup } from "../chat/professor-mari-floating-events";
 import {
   getTrackerPanelWidthForProfile,
+  isMobileShellViewport,
   MOBILE_SHELL_MEDIA_QUERY,
   RIGHT_PANEL_WIDTH_MAX,
   RIGHT_PANEL_WIDTH_MIN,
@@ -397,16 +398,19 @@ export function AppShell() {
     ? getCssBackgroundStyle(trackerPanelBackgroundColor)
     : undefined;
 
-  // Track mobile breakpoint for right-panel animation strategy
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(MOBILE_SHELL_MEDIA_QUERY).matches,
-  );
+  // Use the same available-width decision as navigation and back dismissal.
+  const [isMobile, setIsMobile] = useState(isMobileShellViewport);
   useEffect(() => {
     const mq = window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    const handler = () => setIsMobile(isMobileShellViewport());
+    handler();
     mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
+    window.addEventListener("resize", handler);
+    return () => {
+      mq.removeEventListener("change", handler);
+      window.removeEventListener("resize", handler);
+    };
+  }, [sharedSidebarWidth]);
 
   const [viewportWidth, setViewportWidth] = useState(getViewportWidth);
   useEffect(() => {
@@ -427,7 +431,7 @@ export function AppShell() {
   }, []);
 
   const shellOverlayMode = isMobile;
-  const mobileNavigationPanel = shellOverlayMode ? (sidebarOpen ? "chats" : rightPanelOpen ? "right" : null) : null;
+  const mobileNavigationPanel = shellOverlayMode ? (rightPanelOpen ? "right" : sidebarOpen ? "chats" : null) : null;
   const [rightPanelEverOpened, setRightPanelEverOpened] = useState(rightPanelOpen);
   useEffect(() => {
     if (rightPanelOpen) setRightPanelEverOpened(true);
@@ -1316,7 +1320,7 @@ export function AppShell() {
       >
         {/* iOS safe area spacer — pushes TopBar below status bar and fills that gap with topbar bg */}
         <div className="flex-shrink-0 md:hidden h-[env(safe-area-inset-top)] bg-[var(--marinara-topbar-surface)] backdrop-blur-sm" />
-        <TopBar />
+        <TopBar mobileTopbarNavigation={shellOverlayMode} />
         <div className="mari-app-background-paint relative flex flex-1 flex-col overflow-hidden">
           {/* Browser — kept mounted once opened so state persists across close/reopen */}
           <MountOnceWhenOpened open={botBrowserOpen} overlay>

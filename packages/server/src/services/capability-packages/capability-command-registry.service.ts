@@ -75,14 +75,26 @@ export function listCapabilityConversationCommandInstructions(): string[] {
   );
 }
 
+/** The bracket-tag grammar, as a source string so a second parser cannot drift from the shipped one.
+ *  Group 1 is the tag name, group 2 the optional payload. A JSON payload can itself contain `]` (a
+ *  note body, an array), so the payload alternative matches a `{…}` brace run before falling back to
+ *  bracket-free text. Lazy, so two commands on one line stay separate. ponytail: flat objects only —
+ *  a nested `}` ends the match early; upgrade to a real scanner if payloads ever nest.
+ *
+ *  Exported for the package-declared GM verb runtime (#5798), which scans the same grammar against a
+ *  different, per-chat vocabulary. Sharing the source is the point: a verb the prompt advertises but
+ *  the parser cannot match would leave a raw tag in the player's prose. */
+export const CAPABILITY_COMMAND_TAG_PATTERN = String.raw`\[([a-z][a-z0-9_-]*)(?::(\{[^\r\n]*?\}|[^\]\r\n]*))?\]`;
+
+/** A fresh global regex per call — a shared one carries `lastIndex` between callers. */
+export function createCapabilityCommandTagRegex(): RegExp {
+  return new RegExp(CAPABILITY_COMMAND_TAG_PATTERN, "gi");
+}
+
 export function parseCapabilityConversationCommands(content: string) {
   const commands: Array<{ type: "capability"; commandType: string; payload: string | null }> = [];
   const seen = new Set<string>();
-  // A JSON payload can itself contain `]` (a note body, an array), so the payload group matches a
-  // `{…}` brace run before falling back to bracket-free text. Lazy so two commands on one line stay
-  // separate. ponytail: flat objects only — a nested `}` ends the match early; upgrade to a real
-  // scanner if payloads ever nest.
-  for (const match of content.matchAll(/\[([a-z][a-z0-9_-]*)(?::(\{[^\r\n]*?\}|[^\]\r\n]*))?\]/gi)) {
+  for (const match of content.matchAll(createCapabilityCommandTagRegex())) {
     const commandType = tagToCommandType.get(match[1]!.toLocaleLowerCase());
     if (!commandType || seen.has(commandType)) continue;
     seen.add(commandType);
@@ -117,7 +129,7 @@ export async function dispatchCapabilityConversationAction(
 }
 
 export function stripCapabilityConversationCommands(content: string) {
-  return content.replace(/\[([a-z][a-z0-9_-]*)(?::(?:\{[^\r\n]*?\}|[^\]\r\n]*))?\]/gi, (match, tag: string) =>
+  return content.replace(createCapabilityCommandTagRegex(), (match, tag: string) =>
     tagToCommandType.has(tag.toLocaleLowerCase()) ? "" : match,
   );
 }

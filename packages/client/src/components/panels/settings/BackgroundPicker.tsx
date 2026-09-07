@@ -14,7 +14,7 @@ import {
   Star,
   Tag,
   Trash2,
-  Upload,
+  Download,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,8 +33,10 @@ import {
   showConfirmDialog,
   showPromptDialog,
 } from "../../../lib/app-dialogs";
-import { DEFAULT_ROLEPLAY_BACKGROUND_URL } from "../../../stores/ui.store";
+import { DEFAULT_ROLEPLAY_BACKGROUND_URL, useUIStore } from "../../../stores/ui.store";
 import { useGameAssetManifest } from "../../../hooks/use-game-assets";
+import { useGameAssetStore } from "../../../stores/game-asset.store";
+import { gameAssetFileUrl } from "../../../lib/game-asset-urls";
 import { useTouchFolderDrag } from "../../../hooks/use-touch-folder-drag";
 import { ImageUploadDropzone } from "../../ui/ImageUploadDropzone";
 import { TouchDragHandle } from "../../ui/TouchDragHandle";
@@ -74,6 +76,9 @@ type BackgroundUploadResponse = {
 
 type BackgroundPickerProps = {
   selected: string | null;
+  sceneBackgroundTag?: string | null;
+  chatFloatingPanel?: boolean;
+  showRoleplayDefault?: boolean;
   onSelect: (url: string | null) => void;
   defaultRoleplayBackground: string;
   onDefaultChange: (url: string) => void;
@@ -205,8 +210,31 @@ function CardTagInput({
   );
 }
 
+/** ChatArea already restores and persists this active-chat selection for every picker/agent. */
+export function ActiveChatBackgroundPicker({ game = false }: { game?: boolean }) {
+  const selected = useUIStore((state) => state.chatBackground);
+  const onSelect = useUIStore((state) => state.setChatBackground);
+  const defaultBackground = useUIStore((state) => state.defaultRoleplayBackground);
+  const onDefaultChange = useUIStore((state) => state.setDefaultRoleplayBackground);
+  const sceneBackgroundTag = useGameAssetStore((state) => (game ? state.currentBackground : null));
+  return (
+    <BackgroundPicker
+      chatFloatingPanel
+      showRoleplayDefault={!game}
+      selected={selected}
+      sceneBackgroundTag={sceneBackgroundTag}
+      onSelect={onSelect}
+      defaultRoleplayBackground={defaultBackground}
+      onDefaultChange={onDefaultChange}
+    />
+  );
+}
+
 export function BackgroundPicker({
   selected,
+  chatFloatingPanel = false,
+  showRoleplayDefault = true,
+  sceneBackgroundTag,
   onSelect,
   defaultRoleplayBackground,
   onDefaultChange,
@@ -224,7 +252,7 @@ export function BackgroundPicker({
   const [includedTagValues, setIncludedTagValues] = useState<string[]>([]);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [draggedBackgroundId, setDraggedBackgroundId] = useState<string | null>(null);
-  const { refetch: refreshGameAssetManifest } = useGameAssetManifest();
+  const { data: assetManifest, refetch: refreshGameAssetManifest } = useGameAssetManifest();
   const qc = useQueryClient();
   const draggedBackgroundIdRef = useRef<string | null>(null);
   const tagUpdatePendingRef = useRef(false);
@@ -370,7 +398,9 @@ export function BackgroundPicker({
     });
   }, [backgrounds, folderFilter, includedTags, searchQuery, sort, sourceFilter]);
   const activeFolder = folders.find((folder) => folder.id === folderFilter) ?? null;
-  const selectedBackground = backgrounds.find((background) => background.url === selected) ?? null;
+  const previewUrl =
+    selected ?? (sceneBackgroundTag ? gameAssetFileUrl(assetManifest?.assets[sceneBackgroundTag]?.path) : null);
+  const selectedBackground = backgrounds.find((background) => background.url === previewUrl) ?? null;
   const sourceCounts = useMemo(
     () => ({
       all: backgrounds.length,
@@ -698,7 +728,7 @@ export function BackgroundPicker({
           clearActiveChatResourceDrag();
         }}
         className={cn(
-          "group relative min-w-0 touch-pan-y overflow-hidden rounded-xl bg-[var(--secondary)]/35 ring-1 transition-all",
+          "group relative min-w-0 touch-pan-y rounded-xl bg-[var(--secondary)]/35 ring-1 transition-all",
           isSelected
             ? "shadow-[0_0_0_3px_color-mix(in_srgb,var(--primary)_12%,transparent)] ring-2 ring-[var(--primary)]"
             : "ring-[var(--border)] hover:-translate-y-0.5 hover:shadow-lg hover:ring-[var(--primary)]/45",
@@ -711,7 +741,7 @@ export function BackgroundPicker({
           <button
             type="button"
             onClick={() => selectBackground(background, isSelected)}
-            className="relative block aspect-[16/10] w-full overflow-hidden bg-[var(--background)] text-left"
+            className="relative block aspect-[16/10] w-full overflow-hidden rounded-t-xl bg-[var(--background)] text-left"
             aria-label={
               isSelected
                 ? localizeUi("ui.panels.backgroundpicker.removeValue1FromThisChat", { value1: title })
@@ -737,20 +767,24 @@ export function BackgroundPicker({
                   : "ui.panels.backgroundpicker.myUpload",
               )}
             </span>
-            {isDefaultRoleplay && (
+            {showRoleplayDefault && isDefaultRoleplay && (
               <span
                 data-background-default-indicator
-                className="absolute bottom-2 right-2 hidden rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5rem] font-medium text-amber-300 backdrop-blur-sm md:block md:group-hover:opacity-0"
+                className="absolute bottom-2 right-2 hidden rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5rem] font-medium text-[var(--primary)] md:block md:group-hover:opacity-0"
               >
                 {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
               </span>
             )}
-            {isSelected && (
-              <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg">
-                <Check size="0.875rem" strokeWidth={3} />
-              </span>
-            )}
           </button>
+
+          {isSelected && (
+            <span
+              data-background-selection-indicator
+              className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm ring-2 ring-[var(--card)]"
+            >
+              <Check size="0.875rem" strokeWidth={3} />
+            </span>
+          )}
 
           {/* The star sits on the image so favouriting never competes with the row of card actions. */}
           <button
@@ -856,35 +890,37 @@ export function BackgroundPicker({
                 </button>
               </>
             )}
-            <button
-              type="button"
-              data-background-default-toggle
-              onClick={() => {
-                cancelPendingClose();
-                onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url);
-              }}
-              className={cn(
-                CARD_ACTION_CLASS,
-                isFloatingActions && FLOATING_CARD_ACTION_CLASS,
-                "w-auto px-2 text-[0.5625rem] font-medium md:px-1.5 md:text-[0.5rem]",
-                isDefaultRoleplay && "bg-amber-300/12 text-amber-300",
-              )}
-              title={
-                isDefaultRoleplay
-                  ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
-                  : localizeUi("ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats")
-              }
-              aria-label={
-                isDefaultRoleplay
-                  ? localizeUi("ui.panels.backgroundpicker.value1IsTheDefaultRoleplayBackground", { value1: title })
-                  : localizeUi("ui.panels.backgroundpicker.setValue1AsTheDefaultRoleplayBackground", {
-                      value1: title,
-                    })
-              }
-              aria-pressed={isDefaultRoleplay}
-            >
-              {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
-            </button>
+            {showRoleplayDefault && (
+              <button
+                type="button"
+                data-background-default-toggle
+                onClick={() => {
+                  cancelPendingClose();
+                  onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url);
+                }}
+                className={cn(
+                  CARD_ACTION_CLASS,
+                  isFloatingActions && FLOATING_CARD_ACTION_CLASS,
+                  "w-auto px-2 text-[0.5625rem] font-medium md:px-1.5 md:text-[0.5rem]",
+                  isDefaultRoleplay && "bg-[var(--primary)]/12 !text-[var(--primary)]",
+                )}
+                title={
+                  isDefaultRoleplay
+                    ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
+                    : localizeUi("ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats")
+                }
+                aria-label={
+                  isDefaultRoleplay
+                    ? localizeUi("ui.panels.backgroundpicker.value1IsTheDefaultRoleplayBackground", { value1: title })
+                    : localizeUi("ui.panels.backgroundpicker.setValue1AsTheDefaultRoleplayBackground", {
+                        value1: title,
+                      })
+                }
+                aria-pressed={isDefaultRoleplay}
+              >
+                {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
+              </button>
+            )}
             {background.deletable !== false && isEditable && (
               <button
                 type="button"
@@ -972,9 +1008,9 @@ export function BackgroundPicker({
           className="group flex min-w-0 items-center gap-2.5 rounded-lg p-1.5 text-left ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)]/55 hover:ring-[var(--primary)]/45"
         >
           <span className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)]">
-            {selected ? (
+            {previewUrl ? (
               <img
-                src={`${selected}?w=${BACKGROUND_THUMBNAIL_WIDTH}`}
+                src={`${previewUrl}?w=${BACKGROUND_THUMBNAIL_WIDTH}`}
                 alt=""
                 className="h-full w-full object-cover"
                 loading="lazy"
@@ -1009,7 +1045,7 @@ export function BackgroundPicker({
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="mari-chrome-control mari-chrome-control--compact min-h-9 w-full !text-[var(--muted-foreground)] hover:!text-[var(--destructive)]"
+            className="mari-chrome-control mari-chrome-control--compact min-h-9 w-full"
             title={localizeUi("ui.panels.backgroundpicker.clearSelection")}
           >
             <X size="0.75rem" />
@@ -1020,6 +1056,7 @@ export function BackgroundPicker({
 
       <Modal
         open={open}
+        chatFloatingPanel={chatFloatingPanel}
         onClose={closePicker}
         title={localizeUi("ui.panels.backgroundpicker.backgroundLibrary")}
         width="max-w-4xl"
@@ -1055,7 +1092,7 @@ export function BackgroundPicker({
               <select
                 value={sort}
                 onChange={(event) => setSort(event.target.value as BackgroundLibrarySort)}
-                className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+                className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] max-md:!w-10 max-md:!px-0 max-md:!text-transparent [&>option]:text-[var(--foreground)] md:h-9"
                 title={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
                 aria-label={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
               >
@@ -1066,7 +1103,7 @@ export function BackgroundPicker({
               </select>
               <ArrowUpDown
                 size="0.625rem"
-                className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+                className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 max-md:left-1/2 max-md:-translate-x-1/2"
               />
             </div>
             <ImageUploadDropzone
@@ -1075,8 +1112,9 @@ export function BackgroundPicker({
               pendingLabel={localizeUi("ui.panels.backgroundpicker.importing")}
               dragLabel={localizeUi("ui.panels.backgroundpicker.dropBackgroundsToImport")}
               onFilesSelected={(files) => void handleUpload(files)}
-              icon={uploading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Upload size="0.75rem" />}
-              className="!h-10 shrink-0 !rounded-lg !border !border-solid !px-3 !py-0 text-[0.6875rem] hover:border-[var(--primary)]/40 hover:bg-[var(--secondary)]/50 md:!h-9"
+              icon={uploading ? <Loader2 size="0.875rem" className="animate-spin" /> : <Download size="0.875rem" />}
+              labelClassName="max-md:sr-only"
+              className="!h-10 shrink-0 !rounded-lg !border !border-solid !px-3 !py-0 text-[0.6875rem] hover:border-[var(--primary)]/40 hover:bg-[var(--secondary)]/50 max-md:w-10 max-md:!px-0 md:!h-9"
             />
           </div>
 
@@ -1282,19 +1320,21 @@ export function BackgroundPicker({
               {visibleBackgrounds.length} {localizeUi("ui.noodle.noodlehome.of")} {backgrounds.length}{" "}
               {localizeUi("ui.panels.backgroundpicker.backgrounds")}
             </span>
-            <button
-              type="button"
-              onClick={() => onDefaultChange(DEFAULT_ROLEPLAY_BACKGROUND_URL)}
-              className={cn(
-                "inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL && "invisible pointer-events-none",
-              )}
-              aria-hidden={defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL}
-              tabIndex={defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL ? -1 : 0}
-            >
-              <Star size="0.625rem" />
-              {localizeUi("ui.panels.backgroundpicker.resetRoleplayDefault")}
-            </button>
+            {showRoleplayDefault && (
+              <button
+                type="button"
+                onClick={() => onDefaultChange(DEFAULT_ROLEPLAY_BACKGROUND_URL)}
+                className={cn(
+                  "inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                  defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL && "invisible pointer-events-none",
+                )}
+                aria-hidden={defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL}
+                tabIndex={defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL ? -1 : 0}
+              >
+                <Star size="0.625rem" />
+                {localizeUi("ui.panels.backgroundpicker.resetRoleplayDefault")}
+              </button>
+            )}
           </div>
 
           {visibleBackgrounds.length > 0 && (

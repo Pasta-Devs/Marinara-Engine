@@ -5,7 +5,9 @@
 // @marinara-engine/shared (utils/dice-notation.ts).
 // What stays here is this path's own bounds policy:
 // an oversized roll is clamped to the ceilings, not
-// refused, so /roll keeps behaving as it always has.
+// refused, so /roll still answers 500d6 with a roll.
+// The result names the dice it threw, so a clamped
+// roll reads 100d6 rather than the 500d6 asked for.
 // ──────────────────────────────────────────────
 
 import {

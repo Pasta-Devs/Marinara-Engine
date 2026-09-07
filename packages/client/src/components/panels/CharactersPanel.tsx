@@ -785,7 +785,7 @@ export function CharactersPanel() {
         </button>
         <button
           type="button"
-          onClick={openCharacterLibrary}
+          onClick={() => openCharacterLibrary()}
           className="mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
           title={localizeUi("ui.panels.characterspanel.openCharactersLibrary")}
         >

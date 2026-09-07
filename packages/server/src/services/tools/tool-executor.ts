@@ -508,7 +508,12 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
   }
 
   const { rolls, modifier, total } = rollParsedDice(parsed);
-  const sum = total - modifier;
+  // Sum the dice directly rather than re-deriving it as total - modifier. The
+  // two agree now that the grammar refuses any notation whose range of totals
+  // could leave the exact integers, so this is not a workaround for drift — it
+  // is what the field means, and it keeps meaning it without leaning on that
+  // guarantee holding forever.
+  const sum = rolls.reduce((a, b) => a + b, 0);
 
   return {
     notation: parsed.notation,

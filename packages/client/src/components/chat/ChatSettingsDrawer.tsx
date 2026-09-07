@@ -73,6 +73,7 @@ import {
 } from "./ChatToolbarControls";
 import { PickerDropdown } from "../../features/chat-settings/PickerDropdown";
 import { ChatSettingsSection as Section } from "../../features/chat-settings/ChatSettingsSection";
+import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
 import { ChatNameSection } from "../../features/chat-settings/sections/ChatNameSection";
 import { CombatStyleSection } from "../../features/chat-settings/sections/CombatStyleSection";
@@ -611,6 +612,7 @@ const CHAT_SETTINGS_ORDER = {
   connectedNotes: -690,
   lorebooks: -600,
   agents: -500,
+  background: -490,
   widgets: -450,
   impersonate: -400,
   memoryRecall: -300,
@@ -9050,6 +9052,18 @@ export function ChatSettingsDrawer({
                   {isGame && renderCustomAgentPicker({ showWhenEmpty: true })}
                 </div>
               )}
+            </Section>
+          )}
+
+          {(isRoleplayMode || isGame) && (
+            <Section
+              id={`${chatMode}-background`}
+              style={{ order: CHAT_SETTINGS_ORDER.background }}
+              label={localizeUi("chat.settings.background")}
+              icon={<Image size="0.875rem" />}
+              help={localizeUi("chat.settings.backgroundHelp")}
+            >
+              <ActiveChatBackgroundPicker game={isGame} />
             </Section>
           )}
 
