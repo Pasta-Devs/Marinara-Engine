@@ -837,6 +837,16 @@ export const ChatArea = memo(function ChatArea() {
     [activeChatId, localizeUi, retryAgents],
   );
 
+  const illustratorPromptReviewModal = (
+    <ImagePromptReviewModal
+      open={!!illustratorPromptReview}
+      items={illustratorPromptReview ? [illustratorPromptReview.item] : []}
+      isSubmitting={illustratorPromptReviewSubmitting}
+      onCancel={handleCloseIllustratorPromptReview}
+      onConfirm={(overrides) => void handleContinueIllustratorPromptReview(overrides)}
+    />
+  );
+
   // Character IDs in the active chat. Keyed on the raw characterIds field
   // (all getChatCharacterIds reads) so chat-detail refetches that only bump
   // other fields don't renew the array identity. [#3164]
@@ -3240,6 +3250,7 @@ export const ChatArea = memo(function ChatArea() {
             lastAssistantMessageId={lastAssistantMessageId}
           />
         </Suspense>
+        {illustratorPromptReviewModal}
         <ImagePromptReviewModal
           open={conversationSelfieReviewItems.length > 0}
           items={conversationSelfieReviewItems}
@@ -3400,13 +3411,7 @@ export const ChatArea = memo(function ChatArea() {
           onClose={handleCloseAgentInjectionReview}
         />
       )}
-      <ImagePromptReviewModal
-        open={!!illustratorPromptReview}
-        items={illustratorPromptReview ? [illustratorPromptReview.item] : []}
-        isSubmitting={illustratorPromptReviewSubmitting}
-        onCancel={handleCloseIllustratorPromptReview}
-        onConfirm={(overrides) => void handleContinueIllustratorPromptReview(overrides)}
-      />
+      {illustratorPromptReviewModal}
       <ImagePromptReviewModal
         open={roleplayVideoReviewItems.length > 0}
         items={roleplayVideoReviewItems}

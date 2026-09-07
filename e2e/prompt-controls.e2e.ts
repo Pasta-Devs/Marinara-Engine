@@ -5,17 +5,20 @@ import { seedUIState } from "./ui-state-fixture.js";
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 test("typed illustration prompts wait for review and send only the confirmed subject", async ({ page, request }) => {
-  const connection = await (
-    await request.post("/api/connections", {
-      data: { name: "Illustration review fixture", provider: "custom", baseUrl: "http://127.0.0.1:9/v1" },
-    })
-  ).json();
-  const chat = await (
-    await request.post("/api/chats", {
-      data: { name: "Illustration review", mode: "roleplay", characterIds: [], connectionId: connection.id },
-    })
-  ).json();
+  const resources: string[] = [];
   try {
+    const connection = await (
+      await request.post("/api/connections", {
+        data: { name: "Illustration review fixture", provider: "custom", baseUrl: "http://127.0.0.1:9/v1" },
+      })
+    ).json();
+    resources.push(`/api/connections/${connection.id}`);
+    const chat = await (
+      await request.post("/api/chats", {
+        data: { name: "Illustration review", mode: "roleplay", characterIds: [], connectionId: connection.id },
+      })
+    ).json();
+    resources.push(`/api/chats/${chat.id}`);
     await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "assistant", content: "A quiet room." } });
     await page.route("**/api/capability-packages/installed", (route) =>
       route.fulfill({
@@ -99,9 +102,40 @@ test("typed illustration prompts wait for review and send only the confirmed sub
       resultData: { characters: [] },
     });
     await expect(dialog).not.toBeVisible();
+    const conversation = await (
+      await request.post("/api/chats", {
+        data: { name: "Conversation review", mode: "conversation", characterIds: [], connectionId: connection.id },
+      })
+    ).json();
+    resources.push(`/api/chats/${conversation.id}`);
+    await request.post(`/api/chats/${conversation.id}/messages`, {
+      data: { role: "assistant", content: "Conversation fixture." },
+    });
+    await page.evaluate(async (id) => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      useChatStore.getState().setActiveChatId(id);
+    }, conversation.id);
+    await expect(page.getByText("Conversation fixture.", { exact: true })).toBeVisible();
+    await page.evaluate(
+      (id) =>
+        window.dispatchEvent(
+          new CustomEvent("marinara:image-prompt-review", {
+            detail: {
+              chatId: id,
+              resultData: { prompt: "A reviewed scene", characters: [] },
+              item: { id: "conversation-review", kind: "illustration", title: "Scene", prompt: "A reviewed scene" },
+            },
+          }),
+        ),
+      conversation.id,
+    );
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("textbox")).toHaveValue("A reviewed scene");
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    expect(calls).toHaveLength(1);
   } finally {
-    await request.delete(`/api/chats/${chat.id}`);
-    await request.delete(`/api/connections/${connection.id}`);
+    await Promise.all(resources.map((path) => request.delete(path)));
   }
 });
 
@@ -187,7 +221,7 @@ test("prompt controls persist and preview preserves the selected history shape",
     const savedParameters = async () => {
       const row = await (await request.get(`/api/chats/${chat.id}`)).json();
       const meta = typeof row.metadata === "string" ? JSON.parse(row.metadata) : row.metadata;
-      return meta.chatParameters;
+      return meta.chatParameters ?? {};
     };
     const preview = async () => {
       const response = await request.post("/api/generate/dryRun", { data: { chatId: chat.id, returnPrompt: true } });
@@ -256,6 +290,6 @@ test("prompt controls persist and preview preserves the selected history shape",
     }, chat.id);
     expect(received).toEqual(["cup of tea", null]);
   } finally {
-    for (const path of resources) await request.delete(path);
+    await Promise.all(resources.map((path) => request.delete(path)));
   }
 });
