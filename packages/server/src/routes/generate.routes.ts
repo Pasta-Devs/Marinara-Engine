@@ -493,6 +493,10 @@ import { addInventoryEntry, addLocationEntry, upsertQuest, addNpcEntry } from ".
 import { updateJournal } from "../services/generation/game-journal-runtime.js";
 import { buildGmFormatReminder } from "../services/game/gm-prompts.js";
 import {
+  loadSkillCheckModifierContext,
+  resolveSkillCheckTagsInContent,
+} from "../services/game/skill-check-resolution.service.js";
+import {
   applyMapUpdateCommand,
   getGameMapsFromMeta,
   parseMapUpdateCommands,
@@ -7221,6 +7225,40 @@ export async function generateRoutes(app: FastifyInstance) {
                 parsedSpatial.directive.type,
                 input.chatId,
               );
+            }
+          }
+
+          // ── Roll the GM's skill checks before anyone reads them ──
+          // The GM emits checks sparse and the engine owns the die, so every
+          // [skill_check:] tag that still owes a roll is resolved here and
+          // rewritten in place — all of them, not just the first, and including
+          // a tag whose self-reported d20 arithmetic fails the shared audit.
+          // This runs before the content_replace frame so the client renders the
+          // resolved text, and before the save so the number the model reads back
+          // next turn is the engine's, never its own invention.
+          //
+          // On a continue the whole message body is rewritten later from
+          // `fullResponse`; here `fullResponse` is still only the new segment,
+          // so already-resolved earlier text is never re-scanned.
+          if (chatMode === "game" && !input.impersonate) {
+            try {
+              const rolled = await resolveSkillCheckTagsInContent(fullResponse, {
+                loadContext: () => loadSkillCheckModifierContext(app.db, input.chatId),
+                chatId: input.chatId,
+              });
+              if (rolled.resolved > 0) {
+                fullResponse = rolled.content;
+                contentReplaced = true;
+                logger.debug(
+                  "[generate/game] Resolved %d skill check tag(s) for chat %s (%d left as declared)",
+                  rolled.resolved,
+                  input.chatId,
+                  rolled.trusted,
+                );
+              }
+            } catch (err) {
+              // A check that cannot be rolled costs the check, never the turn.
+              logger.error(err, "[generate/game] Skill check resolution failed for chat %s", input.chatId);
             }
           }
 
