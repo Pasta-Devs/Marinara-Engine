@@ -21640,6 +21640,59 @@ test("Characters topbar underline uses the Characters pink", async ({ page }) =>
     .toBe("#f472b6");
 });
 
+test("Updates shows the installed channel before checks and after a failed check", async ({ page }) => {
+  await page.route("**/api/updates/channel", (route) => route.fulfill({ json: { channel: "staging" } }));
+  await page.route("**/api/updates/check*", (route) =>
+    route.fulfill({ status: 502, json: { error: "Offline fixture" } }),
+  );
+  await page.goto("/");
+  await page.locator('[data-tour="panel-settings"]').click();
+  await page.getByRole("tab", { name: "Advanced" }).click();
+  const channel = page.getByLabel("Release Channel");
+  await expect(channel).toHaveValue("staging");
+  await page.getByRole("button", { name: "Check for Updates" }).click();
+  await expect(page.getByRole("button", { name: "Check for Updates" })).toBeEnabled();
+  await expect(channel).toHaveValue("staging");
+  await channel.selectOption("stable");
+  await expect(channel).toHaveValue("stable");
+});
+
+test("clearing Roleplay trackers requires confirmation and Cancel preserves state", async ({ page, request }) => {
+  const created = await request.post("/api/chats", {
+    data: { name: "Tracker clear confirmation", mode: "roleplay", characterIds: [] },
+  });
+  expect(created.ok()).toBeTruthy();
+  const chat = await created.json();
+  try {
+    await request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { enableAgents: true, activeAgentIds: ["world-state"] },
+    });
+    await request.patch(`/api/chats/${chat.id}/game-state`, { data: { location: "Protected location", manual: true } });
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    await page.goto("/");
+    await page
+      .getByRole("button", { name: /^Agents & Actions/ })
+      .filter({ visible: true })
+      .click();
+    await page.getByRole("button", { name: "Clear Trackers", exact: true }).click();
+    const dialog = page.getByRole("dialog").filter({ hasText: "Clear all trackers for this chat?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect((await (await request.get(`/api/chats/${chat.id}/game-state`)).json()).location).toBe("Protected location");
+    await page
+      .getByRole("button", { name: /^Agents & Actions/ })
+      .filter({ visible: true })
+      .click();
+    await page.getByRole("button", { name: "Clear Trackers", exact: true }).click();
+    await dialog.getByRole("button", { name: "Clear Trackers", exact: true }).click();
+    await expect
+      .poll(async () => (await (await request.get(`/api/chats/${chat.id}/game-state`)).json()).location)
+      .toBeNull();
+  } finally {
+    await bestEffortDelete(request, `/api/chats/${chat.id}`);
+  }
+});
+
 test("mobile Docker update checks offer the selected staging image", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Mobile Docker channel regression.");
 

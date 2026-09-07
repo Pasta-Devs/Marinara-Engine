@@ -879,6 +879,14 @@ function getApplyAvailability(
 }
 
 export async function updatesRoutes(app: FastifyInstance) {
+  // Local-only metadata stays available before (or after a failed) GitHub update check.
+  app.get("/channel", async () => {
+    const root = getMonorepoRoot();
+    const currentBranch = isGitInstall() ? await getCurrentBranch(root).catch(() => null) : getBuildBranch();
+    const channel = await getUpdateChannelForCheckout(root, currentBranch);
+    return { channel: channel.id, currentBranch, channels: serializeUpdateChannels() };
+  });
+
   // ── Check for updates ──
   // GET /api/updates/check
   // Fetches the newest stable Git tag from GitHub, then hydrates it
