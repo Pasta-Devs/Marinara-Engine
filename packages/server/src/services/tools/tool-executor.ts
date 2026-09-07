@@ -19,6 +19,11 @@ import {
   appendChatSummaryEntryToMetadata,
   BUILT_IN_TOOLS,
   isJsonRecord,
+  isWithinDiceLimits,
+  MAX_DICE_COUNT,
+  MAX_DICE_SIDES,
+  parseDiceNotation,
+  rollParsedDice,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
 } from "@marinara-engine/shared";
 
@@ -491,35 +496,33 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
   const notation = String(args.notation ?? "1d6");
   const reason = String(args.reason ?? "");
 
-  // Parse notation: NdS+M or NdS-M
-  const match = notation.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
-  if (!match) {
-    return { error: `Invalid dice notation: ${notation}`, hint: "Use format like 2d6, 1d20+5, 3d8-2" };
+  const parsed = parseDiceNotation(notation);
+  if (!parsed) {
+    return { error: `Invalid dice notation: ${notation}`, hint: "Use format like 2d6, d20+5, 3d8-2" };
   }
 
-  const count = parseInt(match[1]!, 10);
-  const sides = parseInt(match[2]!, 10);
-  const modifier = match[3] ? parseInt(match[3], 10) : 0;
-
-  if (count < 1 || count > 100 || sides < 2 || sides > 1000) {
-    return { error: "Dice values out of range (1-100 dice, 2-1000 sides)" };
+  // Refuse rather than clamp. A result that quietly rolled 100 dice for a model
+  // that asked for 500 is a lie the model has no way to notice.
+  if (!isWithinDiceLimits(parsed) || parsed.sides < 2) {
+    return { error: `Dice values out of range (1-${MAX_DICE_COUNT} dice, 2-${MAX_DICE_SIDES} sides)` };
   }
 
-  const rolls: number[] = [];
-  for (let i = 0; i < count; i++) {
-    rolls.push(Math.floor(Math.random() * sides) + 1);
-  }
+  const { rolls, modifier, total } = rollParsedDice(parsed);
+  // Sum the dice directly rather than re-deriving it as total - modifier. The
+  // two agree now that the grammar refuses any notation whose range of totals
+  // could leave the exact integers, so this is not a workaround for drift — it
+  // is what the field means, and it keeps meaning it without leaning on that
+  // guarantee holding forever.
   const sum = rolls.reduce((a, b) => a + b, 0);
-  const total = sum + modifier;
 
   return {
-    notation,
+    notation: parsed.notation,
     rolls,
     sum,
     modifier,
     total,
     reason,
-    display: `🎲 ${notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**`,
+    display: `🎲 ${parsed.notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**`,
   };
 }
 

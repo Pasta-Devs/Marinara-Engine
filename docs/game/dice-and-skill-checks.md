@@ -61,7 +61,7 @@ Some more examples you can type:
 - `4d8-1` rolls four 8-sided dice and subtracts 1.
 - `2d6+3` rolls two 6-sided dice and adds 3.
 
-There are two hard limits. You can roll at most 100 dice at once, and each die can have at most 1000 sides. If you ask for more, the app trims your request down to those limits instead of refusing it. If your text is not valid `NdM` notation, the roll fails and you get an error that names the expected format.
+There are two hard limits. You can roll at most 100 dice at once, and each die can have at most 1000 sides. If you ask for more, the app trims your request down to those limits instead of refusing it, and the result card shows the trimmed notation, so typing `500d6` gives you a `100d6` card for the hundred dice it actually rolled. If your text is not valid dice notation — `NdM`, or a bare `dM` like `d20` — the roll fails and you get an error that names the expected format.
 
 ## Skill checks
 
