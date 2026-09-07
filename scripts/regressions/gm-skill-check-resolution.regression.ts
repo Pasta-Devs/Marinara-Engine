@@ -14,12 +14,21 @@
  * player's own die and advantage mode preserved, honest tags left byte-identical,
  * a second pass rolling nothing, the legacy client fallback still able to fire
  * for old messages, and the prompt still telling the GM not to invent numbers.
+ *
+ * It also pins the boundary of that authority. The engine rolls d20 checks and
+ * nothing else, so a tag naming a system it does not implement is left standing
+ * — including a malformed one, which looks identical to a sparse d20 request
+ * once the reader refuses to vouch for its numbers.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { parseSkillCheckTagBody, serializeResolvedSkillCheckTag } from "../../packages/shared/dist/index.js";
+import {
+  isEngineRollableSkillCheckTag,
+  parseSkillCheckTagBody,
+  serializeResolvedSkillCheckTag,
+} from "../../packages/shared/dist/index.js";
 import {
   resolveSkillCheckTagsInContent,
   type SkillCheckModifierContext,
@@ -95,6 +104,17 @@ assert.deepEqual(
   [5, 17, 1],
   "each tag is resolved with the engine's own die, in reading order",
 );
+// Each tag keeps its own request. Two Stealth checks at different DCs in one
+// turn must not end up sharing a DC because the splice matched the wrong tag.
+assert.deepEqual(
+  sparseTags.map((tag) => [tag!.resolvedResult!.skill, tag!.resolvedResult!.dc]),
+  [
+    ["Stealth", 15],
+    ["Perception", 10],
+    ["Stealth", 12],
+  ],
+  "every tag is resolved against its own skill and DC, not a neighbour's",
+);
 // Modifiers come from the chat, so a resolved check is not just a bare die.
 assert.equal(sparseTags[0]!.resolvedResult!.modifier, 4, "Stealth: +2 skill, +2 from DEX 14");
 assert.equal(sparseTags[1]!.resolvedResult!.modifier, 0, "Perception: unlisted skill, WIS 10");
@@ -146,10 +166,83 @@ assert.equal(poolKept.content, pool, "pool systems are left exactly as the GM wr
 assert.equal(poolKept.resolved, 0);
 assert.equal(poolKept.trusted, 1);
 
+// The half of that promise the audit cannot keep on its own. A pool tag the
+// reader refuses to vouch for comes back in exactly the same shape as a sparse
+// d20 request — skill and DC, no resolvedResult — so a resolver that reads an
+// absent resolvedResult as "roll it" answers a V20 check with one engine d20 and
+// writes the GM's notation out of the message before it is ever saved.
+const unvouchedPools = [
+  // Six dice declared, five listed.
+  `[skill_check: skill="Intimidation" dc="4" rolls="3|7|9|2|10" modifier="0" total="3" result="failure" mode="normal" resolution="successes" dice="6d10"]`,
+  // An 11 on a d10.
+  `[skill_check: skill="Intimidation" dc="4" rolls="3|7|9|2|11|5" modifier="0" total="3" result="failure" mode="normal" resolution="successes" dice="6d10"]`,
+  // No modifier=.
+  `[skill_check: skill="Intimidation" dc="4" rolls="3|7|9|2|10|5" total="3" result="failure" mode="normal" resolution="successes" dice="6d10"]`,
+  // No result=.
+  `[skill_check: skill="Intimidation" dc="4" rolls="3|7|9|2|10|5" modifier="0" total="3" mode="normal" resolution="successes" dice="6d10"]`,
+  // A success pool with no dice= label at all.
+  `[skill_check: skill="Intimidation" dc="4" rolls="3|7|9|2|10|5" resolution="successes"]`,
+  // A lone d10 result, which must never be adopted as a player's d20 pre-roll.
+  `[skill_check: skill="Stealth" dc="8" rolls="7" resolution="successes" dice="1d10"]`,
+  // A pool asked for and not yet thrown.
+  `[skill_check: skill="Stealth" dc="12" dice="6d10" resolution="successes"]`,
+  // Another die, summed rather than counted — still not a system the engine has.
+  `[skill_check: skill="Athletics" dc="10" dice="3d6"]`,
+  // Labels this reader cannot restate, so it must not restate them. The second
+  // is a d20 — but with a flat bonus the engine has no way to keep, since its
+  // modifier comes from the sheet.
+  `[skill_check: skill="Stealth" dc="12" dice="6d10+2"]`,
+  `[skill_check: skill="Stealth" dc="15" dice="1d20+3"]`,
+];
+for (const poolTag of unvouchedPools) {
+  const content = `He looms over the clerk. ${poolTag} The room waits.`;
+  const outcome = await resolve(content, []);
+  assert.equal(outcome.content, content, `a system the engine does not implement must survive verbatim: ${poolTag}`);
+  assert.equal(outcome.resolved, 0, `nothing may be rewritten here: ${poolTag}`);
+  assert.equal(outcome.consumed, 0, `no die may be thrown for a system the engine does not roll: ${poolTag}`);
+  assert.equal(outcome.contextLoads, 0);
+
+  // The client's legacy fallback is the other door onto the same rewrite: it
+  // POSTs any tag with no resolvedResult, and the endpoint only rolls d20s.
+  const clientTag = parseGmTags(poolTag).skillChecks[0]!;
+  assert.equal(clientTag.resolvedResult, undefined, `precondition — the reader cannot vouch for this: ${poolTag}`);
+  assert.equal(isEngineRollableSkillCheckTag(clientTag), false, `the client must not ask the endpoint to roll: ${poolTag}`);
+  assert.equal(clientTag.preRolledD20, undefined, "a pool die is never adopted as the player's own d20");
+}
+
+// …and the guard must not swallow the d20 shapes it exists to protect.
+for (const [d20Tag, expectedDice] of [
+  [`[skill_check: skill="Stealth" dc="15" dice="1d20"]`, 1],
+  [`[skill_check: skill="Stealth" dc="15" dice="d20" resolution="sum"]`, 1],
+  [`[skill_check: skill="Stealth" dc="15" dice="2d20" mode="advantage"]`, 2],
+] as const) {
+  const outcome = await resolve(d20Tag, [12, 6]);
+  assert.equal(outcome.resolved, 1, `a d20 check must still be rolled by the engine: ${d20Tag}`);
+  assert.equal(outcome.consumed, expectedDice, `the engine throws its own dice for: ${d20Tag}`);
+}
+
 // Text with no check tag at all is returned untouched, without a chat read.
 const plain = await resolve("Nothing mechanical happens here.", []);
 assert.equal(plain.content, "Nothing mechanical happens here.");
 assert.equal(plain.contextLoads, 0);
+
+// The counts account for every tag, so the debug line that reports them cannot
+// quietly omit the pools and the out-of-bounds ones.
+const mixedTurn = await resolve(
+  [
+    `[skill_check: skill="Stealth" dc="15"]`,
+    honest,
+    pool,
+    `[skill_check: skill="Intimidation" dc="4" rolls="3|7|9|2|10" resolution="successes" dice="6d10"]`,
+    `[skill_check: skill="Stealth" dc="99"]`,
+    `[skill_check: nonsense]`,
+  ].join("\n\n"),
+  [8],
+);
+assert.equal(mixedTurn.resolved, 1, "only the sparse d20 is rewritten");
+assert.equal(mixedTurn.trusted, 2, "trusted still counts only tags whose own numbers held up");
+assert.equal(mixedTurn.left, 5, "the unvouched pool, the out-of-bounds tag and the unreadable one count too");
+assert.equal(mixedTurn.resolved + mixedTurn.left, 6, "resolved + left is every check tag in the turn");
 
 // ── 4. Idempotent on re-entry ──
 //
@@ -226,6 +319,20 @@ assert.match(
   "the endpoint must decide replaceability with the shared audit, not an attribute grep",
 );
 assert.match(gameRoutes, /resolveChatSkillCheck\(app\.db, input\.chatId, \{/u, "the endpoint is a thin caller now");
+assert.match(
+  gameRoutes,
+  /if \(!tag \|\| tag\.resolvedResult\) return fullTag;\s*\n\s*if \(!isEngineRollableSkillCheckTag\(tag\)\) return fullTag;/u,
+  "the endpoint rewrite must refuse a system the engine does not roll, not only a tag whose numbers held",
+);
+
+// The client's fallback is the third door onto that same rewrite: it POSTs any
+// tag with no resolvedResult, and this endpoint only ever rolls a d20.
+const gameSurface = readFileSync(join(root, "packages/client/src/components/game/GameSurface.tsx"), "utf8");
+assert.match(
+  gameSurface,
+  /\} else if \(isEngineRollableSkillCheckTag\(sc\)\) \{\s*\n\s*skillCheck\.mutate\(/u,
+  "the client must not ask the endpoint to roll a system the engine does not implement",
+);
 
 // ── 8. Resolution runs before the client is told what the turn says ──
 
@@ -267,11 +374,31 @@ assert.match(preRollReminder, /Do NOT write modifier, total or result/u);
 assert.match(preRollReminder, /the consequence belongs to your next turn/u);
 assert.doesNotMatch(preRollReminder, /total="roll \+ modifier"/u);
 
-// Pool systems still need the full form, because the engine cannot resolve them.
+// Pool systems still need the full form, because the engine cannot resolve them
+// — and the sparse convention removed the full form from every other template
+// in the file, so this clause is the only place the GM is shown one. Telling it
+// to "write the full tag yourself" without showing the tag is how a pool arrives
+// missing modifier= or result=, which is exactly the shape left unresolved.
+const POOL_EXAMPLE_TAG = `[skill_check: skill="Intimidation" dc="4" rolls="3|7|9|2|10|5" modifier="0" total="3" result="failure" resolution="successes" dice="6d10"]`;
 for (const text of [reminder, preRollReminder]) {
   assert.match(text, /dice="6d10"/u, "pool guidance survives the convention change");
   assert.match(text, /resolution="successes"/u);
+  assert.ok(text.includes(POOL_EXAMPLE_TAG), "the GM must be shown the full tag it is told to write");
 }
+
+// The example is not decoration: the shape the GM is shown has to be one the
+// shared reader audits as complete, or the prompt teaches a tag the engine
+// leaves unresolved.
+const poolExampleTag = parseSkillCheckTagBody(POOL_EXAMPLE_TAG.replace(/^\[skill_check:\s*|\]$/gu, ""));
+assert.ok(poolExampleTag?.resolvedResult, "the advertised pool tag must read back as a complete, trusted pool");
+assert.equal(poolExampleTag.resolvedResult!.resolution, "successes");
+assert.equal(poolExampleTag.resolvedResult!.dice, "6d10");
+assert.deepEqual(poolExampleTag.resolvedResult!.rolls, [3, 7, 9, 2, 10, 5]);
+assert.equal(
+  (await resolve(POOL_EXAMPLE_TAG, [])).content,
+  POOL_EXAMPLE_TAG,
+  "and the engine must leave the tag it advertises exactly as written",
+);
 
 // ── 10. The serializer round-trips, so the two halves cannot drift ──
 

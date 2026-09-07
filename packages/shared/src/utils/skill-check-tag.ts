@@ -25,6 +25,18 @@ export interface SkillCheckTag {
    * attribute modifier is applied on top of the player's number.
    */
   preRolledD20?: number;
+  /**
+   * `resolution=` as the GM wrote it, lowercased, when they wrote one.
+   *
+   * Carried on **every** tag, including one whose numbers this reader refused
+   * to vouch for, because an absent `resolvedResult` means only "these numbers
+   * are not trustworthy" — never "roll a d20 for this". A resolver that cannot
+   * see the declaration cannot tell a sparse d20 request from a pool tag that
+   * merely failed to parse. Ask `isEngineRollableSkillCheckTag`, not this field.
+   */
+  declaredResolution?: string;
+  /** `dice=` as the GM wrote it, lowercased, when they wrote one. Same reason. */
+  declaredDice?: string;
 }
 
 /**
@@ -40,14 +52,49 @@ export function createSkillCheckTagRegex(): RegExp {
 }
 
 /**
+ * Whether the engine may roll this tag itself.
+ *
+ * The engine implements exactly one system: one d20 — two under advantage or
+ * disadvantage, which it labels itself — plus the sheet's flat modifier against
+ * a DC. A tag that declares anything else names rules the engine does not have,
+ * so the only honest answer is to leave the GM's tag standing.
+ *
+ * This must be asked **in addition to** `resolvedResult`, never instead of it.
+ * An absent `resolvedResult` says only that the numbers are not vouched for, and
+ * a pool tag that omits `modifier=`, or lists five dice where it declared six,
+ * comes back looking exactly like a sparse d20 request. Answering that with a
+ * d20 does not fix the tag — it deletes a V20 check and writes a D&D one in its
+ * place, in the text that is about to be saved and read back as fact.
+ *
+ * Refusing a `dice=` label this reader cannot restate exactly (`"1d20+3"`, `""`,
+ * `"pool"`) is the same judgement. `"1d20+3"` is the sharp one: it *is* a d20,
+ * but the engine's modifier comes from the sheet, so rolling it would drop the
+ * GM's flat bonus and relabel the tag `dice="1d20"` as if it had never asked.
+ */
+export function isEngineRollableSkillCheckTag(
+  tag: Pick<SkillCheckTag, "declaredResolution" | "declaredDice">,
+): boolean {
+  if (tag.declaredResolution != null && tag.declaredResolution !== "sum") return false;
+  if (tag.declaredDice == null) return true;
+
+  const notation = parseDiceNotation(tag.declaredDice);
+  // A label carrying a flat modifier is refused for the same reason the audit
+  // refuses it: the modifier belongs in modifier=, not in the die notation.
+  if (!notation || notation.dice !== tag.declaredDice) return false;
+  return notation.sides === 20 && notation.count <= 2;
+}
+
+/**
  * Read one `[skill_check: ...]` tag body.
  *
  * Returns `null` when the body is not a check at all (no attributes, or no
  * skill/DC). Otherwise the request is always returned; `resolvedResult` is set
  * only when the GM reported a complete roll **that survives the audit below**.
- * An absent `resolvedResult` is the signal that a resolver still owes this tag
- * a real roll — for a sparse tag because no numbers were written, and for a
- * full tag because the numbers written were wrong.
+ * An absent `resolvedResult` is the signal that this tag's numbers are not to be
+ * believed — for a sparse tag because none were written, and for a full tag
+ * because the ones written were wrong. It is **not** on its own permission to
+ * roll: only `isEngineRollableSkillCheckTag` says whether the engine implements
+ * the system the tag names.
  */
 export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const attributes = Array.from(body.matchAll(/(\w+)=("[^"]*"|'[^']*'|[^\s\]]+)/g));
@@ -70,18 +117,29 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   if (values.get("mode") === "advantage" || raw.includes(" advantage")) tag.advantage = true;
   if (values.get("mode") === "disadvantage" || raw.includes(" disadvantage")) tag.disadvantage = true;
 
+  // Recorded before the sparse return below, so what the GM declared about the
+  // rules system survives even on a tag whose numbers do not. Keyed on the
+  // attribute being written at all, not on it being readable: `dice=""` is a
+  // declaration this reader cannot restate, and refusing to roll it is the
+  // conservative half of the same rule.
+  const declaredResolution = values.has("resolution") ? values.get("resolution")!.trim().toLowerCase() : undefined;
+  const declaredDice = values.has("dice") ? values.get("dice")!.trim().toLowerCase() : undefined;
+  if (declaredResolution !== undefined) tag.declaredResolution = declaredResolution;
+  if (declaredDice !== undefined) tag.declaredDice = declaredDice;
+
   const rollsValue = values.get("rolls");
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
   const total = Number.parseInt(values.get("total") ?? "", 10);
   const resultValue = values.get("result")?.trim().toLowerCase();
   const modeValue = values.get("mode")?.trim().toLowerCase();
-  const resolution: SkillCheckResult["resolution"] =
-    values.get("resolution")?.trim().toLowerCase() === "successes" ? "successes" : "sum";
+  const resolution: SkillCheckResult["resolution"] = declaredResolution === "successes" ? "successes" : "sum";
 
   if (!rollsValue || Number.isNaN(modifier) || Number.isNaN(total) || !resultValue) {
-    // Sparse tag — the resolver will roll + apply modifier. If the GM echoed
-    // a single integer in rolls="...", treat it as a player-submitted d20.
-    if (rollsValue) {
+    // Sparse tag — the resolver will roll + apply modifier, unless the tag names
+    // a system the engine does not roll. If the GM echoed a single integer in
+    // rolls="...", treat it as a player-submitted d20 — but only on a tag the
+    // engine would actually roll, so a d10 from a pool is never adopted as a d20.
+    if (rollsValue && isEngineRollableSkillCheckTag(tag)) {
       const trimmed = rollsValue.trim();
       if (/^-?\d+$/.test(trimmed)) {
         const n = Number.parseInt(trimmed, 10);
@@ -122,7 +180,6 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   // Dice notation the GM declared. Only trusted as a label; a non-d20 value is
   // how a pool system (V20 and friends) tells the card what to draw.
   const hasDeclaredDice = values.has("dice");
-  const declaredDice = values.get("dice")?.trim().toLowerCase();
   // The shared grammar accepts a modifier ("1d20+3"); a dice label must not
   // carry one, because the modifier belongs in modifier=. Comparing against the
   // parsed NdM half refuses the label without forking the grammar.

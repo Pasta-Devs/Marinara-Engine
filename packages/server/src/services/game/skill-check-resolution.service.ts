@@ -14,6 +14,7 @@
 
 import {
   createSkillCheckTagRegex,
+  isEngineRollableSkillCheckTag,
   parseSkillCheckTagBody,
   serializeResolvedSkillCheckTag,
   type RPGAttributes,
@@ -185,6 +186,14 @@ export interface SkillCheckTagResolution {
   resolved: number;
   /** How many tags it left alone because the GM's own numbers held up. */
   trusted: number;
+  /**
+   * Every tag left standing, for any reason — the numbers held, the engine does
+   * not implement the system the tag names, the DC or skill was out of bounds,
+   * or the body was not readable as a check at all. `resolved + left` is every
+   * `[skill_check:]` in the content, so a log line can say what happened to all
+   * of them instead of accounting for two of the four cases.
+   */
+  left: number;
 }
 
 /**
@@ -202,23 +211,45 @@ export interface SkillCheckTagResolution {
  * over the same content rewrites nothing and rolls no dice. Pool systems
  * (`resolution="successes"`, non-d20 `dice=`) are never audited and never
  * rewritten — the engine does not implement those rules and will not pretend to.
+ * That holds for a malformed pool tag as much as a tidy one: the shared reader
+ * refusing to vouch for a pool's numbers is not permission to answer it with a
+ * d20, so `isEngineRollableSkillCheckTag` is asked before anything is rolled.
  */
 export async function resolveSkillCheckTagsInContent(
   content: string,
   options: SkillCheckTagResolutionOptions,
 ): Promise<SkillCheckTagResolution> {
-  if (!content || !/\[skill_check\b/i.test(content)) return { content, resolved: 0, trusted: 0 };
+  if (!content || !/\[skill_check\b/i.test(content)) return { content, resolved: 0, trusted: 0, left: 0 };
 
   const pending: Array<{ start: number; end: number; request: SkillCheckRequest }> = [];
   let trusted = 0;
+  let left = 0;
 
   const regex = createSkillCheckTagRegex();
   for (let match = regex.exec(content); match; match = regex.exec(content)) {
     const tag = parseSkillCheckTagBody(match[1] ?? "");
     // Not a check at all (no skill or DC) — leave whatever the model wrote.
-    if (!tag) continue;
+    if (!tag) {
+      left += 1;
+      continue;
+    }
     if (tag.resolvedResult) {
       trusted += 1;
+      left += 1;
+      continue;
+    }
+    // A system this engine does not implement — a success pool, or a die that is
+    // not the d20 the resolver throws. Its numbers did not survive the audit (or
+    // it never wrote any), but rolling a d20 here would not repair the tag, it
+    // would replace the GM's rules with ours in the text about to be saved.
+    if (!isEngineRollableSkillCheckTag(tag)) {
+      logger.debug(
+        "[game/skill-check] Leaving a check the engine does not roll for chat %s (resolution=%s dice=%s)",
+        options.chatId ?? "unknown",
+        tag.declaredResolution ?? "none",
+        tag.declaredDice ?? "none",
+      );
+      left += 1;
       continue;
     }
     const request: SkillCheckRequest = {
@@ -234,12 +265,13 @@ export async function resolveSkillCheckTagsInContent(
         options.chatId ?? "unknown",
         request.dc,
       );
+      left += 1;
       continue;
     }
     pending.push({ start: match.index, end: match.index + match[0].length, request });
   }
 
-  if (pending.length === 0) return { content, resolved: 0, trusted };
+  if (pending.length === 0) return { content, resolved: 0, trusted, left };
 
   const context = await options.loadContext();
 
@@ -252,5 +284,5 @@ export async function resolveSkillCheckTagsInContent(
   }
   out += content.slice(cursor);
 
-  return { content: out, resolved: pending.length, trusted };
+  return { content: out, resolved: pending.length, trusted, left };
 }

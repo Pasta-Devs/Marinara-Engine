@@ -161,6 +161,7 @@ import {
   musicAreaSlug,
   scoreAmbient,
   createSkillCheckTagRegex,
+  isEngineRollableSkillCheckTag,
   parseSkillCheckTagBody,
   serializeResolvedSkillCheckTag,
   type SkillCheckResult,
@@ -4851,6 +4852,11 @@ function reconcileJournal(
  * overwritten. The caller always arrives holding a tag the client parsed, so
  * the target is always readable; the old attribute-grep could reach past it and
  * clobber an unrelated malformed tag standing earlier in the same message.
+ *
+ * A tag naming a system the engine does not implement is left alone too. Failing
+ * the audit is not permission to answer a dice pool with a d20 — this endpoint
+ * only ever rolls one, so overwriting the pool would be the engine substituting
+ * its own rules for the GM's in the saved message.
  */
 function replaceFirstUnresolvedSkillCheckTag(
   content: string,
@@ -4863,6 +4869,7 @@ function replaceFirstUnresolvedSkillCheckTag(
 
     const tag = parseSkillCheckTagBody(body);
     if (!tag || tag.resolvedResult) return fullTag;
+    if (!isEngineRollableSkillCheckTag(tag)) return fullTag;
     if (tag.skill.trim().toLowerCase() !== request.skill.trim().toLowerCase()) return fullTag;
     if (tag.dc !== request.dc) return fullTag;
 

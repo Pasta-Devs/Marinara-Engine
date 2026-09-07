@@ -7250,10 +7250,10 @@ export async function generateRoutes(app: FastifyInstance) {
                 fullResponse = rolled.content;
                 contentReplaced = true;
                 logger.debug(
-                  "[generate/game] Resolved %d skill check tag(s) for chat %s (%d left as declared)",
+                  "[generate/game] Resolved %d skill check tag(s) for chat %s (%d left as the GM wrote them)",
                   rolled.resolved,
                   input.chatId,
-                  rolled.trusted,
+                  rolled.left,
                 );
               }
             } catch (err) {

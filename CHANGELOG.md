@@ -5,7 +5,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ## [Unreleased]
 
 - Dice notation is now read by one shared grammar everywhere instead of four private copies, so the `roll_dice` tool accepts a bare `d20` like the rest of the app already did.
-- Game Mode skill checks are rolled by the engine instead of written by the Game Master. The GM now asks for a check and the engine rolls every one in the turn — not just the first — applying the player's skill and attribute modifiers, keeping a die the player rolled themselves, and overwriting numbers the GM made up when its own arithmetic does not add up. Dice pools the engine does not implement are left exactly as the GM wrote them. The GM narrates up to the attempt and the outcome lands on the following turn.
+- Game Mode skill checks are rolled by the engine instead of written by the Game Master. The GM now asks for a check and the engine rolls every one in the turn — not just the first — applying the player's skill and attribute modifiers, keeping a die the player rolled themselves, and overwriting numbers the GM made up when its own arithmetic does not add up. Dice pools and any other system the engine does not roll are left exactly as the GM wrote them, whether or not the tag is complete. The GM narrates up to the attempt and the outcome lands on the following turn.
 - Added a storage API that lets a downloaded capability package register and persist its own file tables, with strict table-name validation. No caller is wired to it yet.
 - Removed the unfinished Slurp creator-feed material from the Noodle guides.
 - Updated the timeout reference in `.env.example` to use Slurp consistently.
