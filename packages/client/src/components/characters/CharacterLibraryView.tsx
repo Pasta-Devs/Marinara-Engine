@@ -388,7 +388,7 @@ export function CharacterLibraryView() {
   const characterSelectedId = useUIStore((s) => s.characterLibrarySelectedId);
   const initialCharacterId = useUIStore((s) => s.characterLibraryInitialId);
   const initialCharacter = useCharacter(isPersonaLibrary ? null : initialCharacterId);
-  const initialScrollHandled = useRef(false);
+  const initialScrollHandled = useRef<string | null>(null);
   const personaSelectedId = useUIStore((s) => s.personaLibrarySelectedId);
   const setCharacterSelectedId = useUIStore((s) => s.setCharacterLibrarySelectedId);
   const setPersonaSelectedId = useUIStore((s) => s.setPersonaLibrarySelectedId);
@@ -520,13 +520,13 @@ export function CharacterLibraryView() {
   useLayoutEffect(() => {
     if (isLoading) return;
     const restoreScroll = () => {
-      if (!isPersonaLibrary && initialCharacterId && !initialScrollHandled.current) {
+      if (!isPersonaLibrary && initialCharacterId && initialScrollHandled.current !== initialCharacterId) {
         const target = libraryRootScrollRef.current?.querySelector<HTMLElement>(
           `[data-card-library-card="${CSS.escape(initialCharacterId)}"]`,
         );
         if (target) {
           target.scrollIntoView({ block: "start", behavior: "instant" });
-          initialScrollHandled.current = true;
+          initialScrollHandled.current = initialCharacterId;
           rememberLibraryScroll();
           return;
         }

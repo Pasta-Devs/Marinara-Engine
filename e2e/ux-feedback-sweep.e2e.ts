@@ -51,6 +51,79 @@ async function openEditor(page: Page, kind: string, id: string) {
   await expect(page.locator(".mari-editor-shell")).toBeVisible();
 }
 
+test("UX sweep: narrow desktop windows use the overlay shell before sidebar topbar controls collide", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Desktop window and docked-sidebar transition.");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.evaluate(async () => {
+    const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+    useUIStore.setState({
+      sidebarWidth: 400,
+      rightPanelWidth: 400,
+      sidebarOpen: true,
+      rightPanelOpen: true,
+      rightPanel: "settings",
+    });
+  });
+  const center = page.locator('[data-component="CenterContent"]');
+  await expect(center).not.toHaveAttribute("data-shell-overlay-mode", "true");
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await expect(center).toHaveAttribute("data-shell-overlay-mode", "true");
+  await expect(page.locator('[data-component="RightPanelMobile"]')).toBeVisible();
+  const buttons = await page
+    .locator('[data-component="TopBar"] button[data-topbar-hover-key]')
+    .evaluateAll((elements) =>
+      elements.map((el) => {
+        const rect = el.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+      }),
+    );
+  for (let i = 0; i < buttons.length; i++) {
+    expect(buttons[i]!.left).toBeGreaterThanOrEqual(0);
+    expect(buttons[i]!.right).toBeLessThanOrEqual(1100);
+    for (let j = i + 1; j < buttons.length; j++)
+      expect(buttons[i]!.right <= buttons[j]!.left || buttons[j]!.right <= buttons[i]!.left).toBe(true);
+  }
+  await page.locator('[data-topbar-hover-key="chats"]').click();
+  await expect(page.locator('[data-component="ChatSidebarPanel"]')).toBeVisible();
+  await expect(page.locator('[data-component="RightPanelMobile"]')).toHaveCount(0);
+  await page.locator('[data-tour="panel-settings"]').click();
+  await expect(page.locator('[data-component="RightPanelMobile"]')).toBeVisible();
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await expect(center).not.toHaveAttribute("data-shell-overlay-mode", "true");
+  await expect(page.locator('[data-component="RightPanelDesktop"]')).toBeVisible();
+});
+
+test("UX sweep: achievement highlights stay inside the widget with padding", async ({ page }, testInfo) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("marinara:home:widget-visibility:v2", JSON.stringify(["achievements"])),
+  );
+  await page.goto("/");
+  const widget = page.locator('[data-home-widget-id="achievements"]');
+  await expect(widget.getByRole("button", { name: "Open Achievements" })).toBeVisible();
+  for (const width of testInfo.project.name.includes("mobile") ? [320, 390] : [1440, 1100]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect
+      .poll(async () =>
+        widget.evaluate((el) => {
+          const outer = el.getBoundingClientRect();
+          const highlights = Array.from(el.querySelectorAll("[data-achievement-highlight]"));
+          return (
+            highlights.length === 2 &&
+            highlights.every((row) => {
+              const rect = row.getBoundingClientRect();
+              return rect.left >= outer.left + 12 && rect.right <= outer.right - 12 && rect.bottom <= outer.bottom - 12;
+            })
+          );
+        }),
+      )
+      .toBe(true);
+    await widget.screenshot({ path: testInfo.outputPath(`achievements-${width}.png`) });
+  }
+});
+
 for (const spec of [
   { kind: "Character", path: "/api/characters", sections: 9, last: "Advanced", lastId: "advanced" },
   { kind: "Persona", path: "/api/characters/personas", sections: 8, last: "Stats", lastId: "stats" },
@@ -271,6 +344,7 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
     await expect(widget).not.toHaveAttribute("style", initialOrder!);
     await widget.locator(".mari-home-widget__drag-handle").press("ArrowRight");
     await widget.locator(".mari-home-widget__drag-handle").click();
+    await expect(widget.locator(".mari-home-widget__drag-handle")).toBeFocused();
     await expect(page.locator('[data-component="CharacterLibraryView"]')).toHaveCount(0);
     await widget.scrollIntoViewIfNeeded();
     const recent = page.locator('[data-home-widget-id="recent"]');
@@ -338,24 +412,49 @@ test("UX sweep: home library cards fit equally and widgets open their destinatio
     await expect(
       library.getByRole("button", { name: "Chat Now", exact: true }).filter({ visible: true }),
     ).toBeVisible();
+    const viewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 390, height: 400 });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const currentId = await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        return useUIStore.getState().characterLibraryInitialId;
+      });
+      const nextId = await library.locator("[data-card-library-card]").evaluateAll((cards, current) => {
+        const offscreen = cards.find((card) => {
+          const bounds = card.getBoundingClientRect();
+          return (
+            card.getAttribute("data-card-library-card") !== current &&
+            (bounds.bottom < 0 || bounds.top >= window.innerHeight)
+          );
+        });
+        return offscreen?.getAttribute("data-card-library-card");
+      }, currentId);
+      expect(nextId, "The small window must contain an offscreen card to exercise a new scroll target").toBeTruthy();
+      await page.evaluate(async (id) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().openCharacterLibrary(id!);
+      }, nextId);
+      await expect(library.locator(`[data-card-library-card="${nextId}"]`)).toBeInViewport();
+    }
+    await page.setViewportSize(viewport);
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().closeCharacterLibrary();
     });
     await expect(widget).toBeVisible();
     await widget.scrollIntoViewIfNeeded();
-    const heading = (await widget.getByRole("heading", { name: "Today's characters" }).boundingBox())!;
-    if (testInfo.project.name.includes("mobile")) await page.touchscreen.tap(heading.x + 5, heading.y + 5);
-    else await page.mouse.click(heading.x + 5, heading.y + 5);
+    const libraryOpen = widget.getByRole("button", { name: "Open Character Library", exact: true });
+    if (testInfo.project.name.includes("mobile")) await libraryOpen.tap({ position: { x: 24, y: 48 } });
+    else await libraryOpen.click({ position: { x: 24, y: 48 } });
     await expect(library).toBeVisible();
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().closeCharacterLibrary();
     });
     await recent.scrollIntoViewIfNeeded();
-    const recentHeading = (await recent.getByRole("heading", { name: "Recent chats", exact: true }).boundingBox())!;
-    if (testInfo.project.name.includes("mobile")) await page.touchscreen.tap(recentHeading.x + 5, recentHeading.y + 5);
-    else await page.mouse.click(recentHeading.x + 5, recentHeading.y + 5);
+    const recentOpen = recent.getByRole("button", { name: "Open Chats tab", exact: true });
+    if (testInfo.project.name.includes("mobile")) await recentOpen.tap({ position: { x: 24, y: 48 } });
+    else await recentOpen.click({ position: { x: 24, y: 48 } });
     await expect
       .poll(() =>
         page.evaluate(async () => {
@@ -403,6 +502,27 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
     try {
       await page.goto("/");
       if (mode === "roleplay") {
+        if (!testInfo.project.name.includes("mobile")) {
+          const cardColor = await page.evaluate(() => {
+            const probe = document.createElement("div");
+            probe.style.backgroundColor = "var(--card)";
+            document.body.appendChild(probe);
+            const color = getComputedStyle(probe).backgroundColor;
+            probe.remove();
+            return color;
+          });
+          for (const [trigger, name] of [
+            ["Quick Connection Switcher", "Connections"],
+            ["Quick Persona Switcher", "Personas"],
+          ] as const) {
+            await page.getByTitle(trigger, { exact: true }).click();
+            const picker = page.getByRole("menu", { name, exact: true });
+            await expect(picker).toHaveCSS("background-color", cardColor);
+            await picker.screenshot({ path: testInfo.outputPath(`desktop-${name.toLowerCase()}-picker.png`) });
+            await picker.press("Escape");
+            await expect(picker).toHaveCount(0);
+          }
+        }
         await page.evaluate(async () => {
           const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
           useChatStore.getState().setShouldOpenWizard(true);
@@ -436,6 +556,16 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
       );
       const header = section.locator('[role="button"][aria-expanded]').first();
       await expect(header.locator("svg.lucide-image")).toBeVisible();
+      const wasExpanded = await header.getAttribute("aria-expanded");
+      await header.getByRole("button", { name: "Show help", exact: true }).click();
+      await expect(
+        page.getByText(
+          "Choose a background for this chat from your library. The preview shows the currently active background.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(header).toHaveAttribute("aria-expanded", wasExpanded!);
+      await header.getByRole("button", { name: "Show help", exact: true }).click();
       if ((await header.getAttribute("aria-expanded")) !== "true") await header.click();
       await section.getByRole("button", { name: "Browse library", exact: true }).click();
       const library = page.getByRole("dialog", { name: "Background Library" });
@@ -480,6 +610,9 @@ for (const failed of [false, true]) {
     const chat = (await (
       await request.post("/api/chats", { data: { name: "Background save order", mode: "roleplay", characterIds: [] } })
     ).json()) as { id: string };
+    expect(
+      (await request.patch(`/api/chats/${chat.id}/metadata`, { data: { background: "dark_forest.jpg" } })).ok(),
+    ).toBeTruthy();
     await request.post(`/api/chats/${chat.id}/messages`, {
       data: { role: "assistant", content: "A quiet afternoon." },
     });
@@ -494,6 +627,7 @@ for (const failed of [false, true]) {
       await expect(page.getByText("A quiet afternoon.", { exact: true })).toBeVisible();
       const previous = (await (await request.get(`/api/chats/${chat.id}`)).json()).metadata;
       const previousBackground = (typeof previous === "string" ? JSON.parse(previous) : previous).background;
+      expect(previousBackground).toBeTruthy();
       await page.route(`**/api/chats/${chat.id}/metadata`, async (route) => {
         if (route.request().method() !== "PATCH") return route.continue();
         const data = route.request().postDataJSON();
@@ -553,7 +687,9 @@ for (const failed of [false, true]) {
         const { chatBackground, defaultRoleplayBackground } = useUIStore.getState();
         return { chatBackground, defaultRoleplayBackground };
       });
-      expect(restored.chatBackground).toBe(restored.defaultRoleplayBackground);
+      expect(restored.chatBackground).toBe(
+        failed ? "/api/backgrounds/file/dark_forest.jpg" : restored.defaultRoleplayBackground,
+      );
     } finally {
       release();
       await page.unrouteAll({ behavior: "wait" });

@@ -3118,6 +3118,11 @@ body {
   width: 68%;
 }
 
+.mari-home-widget--achievements header > div > p:last-child {
+  font-size: 0.6875rem;
+  line-height: 1.375;
+}
+
 .mari-home-professor-widget .mari-professor-pixel-scene [data-part="laptop"] {
   width: 76%;
 }

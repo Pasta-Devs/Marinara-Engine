@@ -351,8 +351,16 @@ function normalizeScrollTop(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 }
 
-function isMobileShellViewport() {
-  return typeof window !== "undefined" && window.matchMedia(MOBILE_SHELL_MEDIA_QUERY).matches;
+let mobileShellQuery: MediaQueryList | null = null;
+
+export function isMobileShellViewport(): boolean {
+  if (typeof window === "undefined") return false;
+  mobileShellQuery ??= window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
+  if (mobileShellQuery.matches) return true;
+  const { sidebarWidth, rightPanelWidth } = useUIStore.getState();
+  // Reserve both docked widths plus room for the topbar controls. Checking
+  // capacity, not open panels, avoids layout flips while switching sidebars.
+  return window.innerWidth < 2 * (rightPanelWidth || sidebarWidth) + 384;
 }
 
 function dismissChatFloatingUiForMobilePanel(open: boolean) {
@@ -1671,8 +1679,8 @@ export const useUIStore = create<UIState>()(
 
         toggleSidebar: () =>
           set((s) => {
-            const sidebarOpen = !s.sidebarOpen;
             const mobile = isMobileShellViewport();
+            const sidebarOpen = !s.sidebarOpen || (mobile && s.rightPanelOpen);
             dismissChatFloatingUiForMobilePanel(sidebarOpen);
             return {
               sidebarOpen,

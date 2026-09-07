@@ -257,6 +257,7 @@
   "chat.settings.actions.editLorebookEntries": "Edit lorebook entries",
   "chat.settings.actions.editPersonaCard": "Edit persona card",
   "chat.settings.background": "Background",
+  "chat.settings.backgroundHelp": "Choose a background for this chat from your library. The preview shows the currently active background.",
   "chat.settings.dragDropHint": "You can drag and drop the Characters/Personas/Lorebooks/Presets/Connections/Agents/Backgrounds you want to use for this chat from the sidebar.",
   "chat.settings.inlineEditor.autoSave": "Changes save automatically when you leave a field.",
   "chat.settings.inlineEditor.cardTitle": "Edit {{name}}'s card",

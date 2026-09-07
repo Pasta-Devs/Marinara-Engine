@@ -117,7 +117,7 @@ function CompactAchievementHighlight({
   return (
     <span data-achievement-highlight={kind} className="flex min-w-0 items-center gap-1.5 py-0 sm:gap-2 sm:py-0.5">
       <span
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-[color-mix(in_srgb,var(--achievement-tone)_44%,var(--border))] bg-[color-mix(in_srgb,var(--achievement-tone)_15%,var(--card))] text-[var(--achievement-tone)] sm:h-6 sm:w-6"
+        className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-md border border-[color-mix(in_srgb,var(--achievement-tone)_44%,var(--border))] bg-[color-mix(in_srgb,var(--achievement-tone)_15%,var(--card))] text-[var(--achievement-tone)] sm:h-6 sm:w-6"
         style={{ "--achievement-tone": tone } as CSSProperties}
         data-achievement-icon={achievement?.icon ?? "trophy"}
         data-achievement-rank={achievement?.rank ?? "unranked"}
@@ -291,7 +291,10 @@ export function HomeAchievements({
           aria-label={t("home.achievements.open")}
         >
           <span
-            className={cn("flex min-w-0 items-center", compact ? "w-full items-start pr-[42%]" : "gap-2.5 sm:gap-3")}
+            className={cn(
+              "flex min-w-0 items-center",
+              compact ? "w-full items-start leading-tight sm:pr-[42%]" : "gap-2.5 sm:gap-3",
+            )}
           >
             {!compact ? (
               <span
@@ -319,7 +322,7 @@ export function HomeAchievements({
                     <span className="min-w-0 flex-1">
                       <span
                         data-achievement-open-label
-                        className="block truncate text-[0.68rem] font-bold text-[var(--foreground)] sm:text-xs"
+                        className="block truncate text-[0.625rem] font-bold text-[var(--foreground)] sm:text-xs"
                       >
                         {t("home.achievements.title")}
                       </span>

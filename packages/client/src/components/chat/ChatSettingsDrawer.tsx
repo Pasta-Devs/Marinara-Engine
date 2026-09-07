@@ -9061,6 +9061,7 @@ export function ChatSettingsDrawer({
               style={{ order: CHAT_SETTINGS_ORDER.background }}
               label={localizeUi("chat.settings.background")}
               icon={<Image size="0.875rem" />}
+              help={localizeUi("chat.settings.backgroundHelp")}
             >
               <ActiveChatBackgroundPicker game={isGame} />
             </Section>
