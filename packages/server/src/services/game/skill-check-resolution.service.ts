@@ -385,7 +385,10 @@ export async function resolveSkillCheckTagsInContent(
         options.chatId ?? "unknown",
       );
     } catch {
-      logger.error("[game/skill-check] Could not roll %d check tag(s); the failure also refused to serialize", pending.length);
+      logger.error(
+        "[game/skill-check] Could not roll %d check tag(s); the failure also refused to serialize",
+        pending.length,
+      );
     }
     // Nothing was found to owe a roll before this failed, so there is nothing to
     // strip and the text stands as the model wrote it — the same outcome the
