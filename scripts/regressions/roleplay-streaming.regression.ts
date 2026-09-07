@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { UI_PERSISTENCE } from "../../packages/client/src/lib/ui-persistence.js";
 import {
   getRoleplayTypewriterRevealCharsPerSecond,
   getStreamingCharsPerSecond,
@@ -466,7 +467,8 @@ assert.match(
   "active Roleplay tracker agents should expose their saved prompt templates",
 );
 assert.match(reducedAmbientEffectsHookSource, /manualPreference \|\| systemPreference/u);
-  assert.match(uiStoreSource, /version: 99/u);
+  assert.match(uiStoreSource, /version: UI_PERSISTENCE.version/u);
+  assert.ok(UI_PERSISTENCE.version >= 99, "the Roleplay persistence migration must remain applied");
 assert.match(globalStylesSource, /data-marinara-reduced-effects/u);
 const accentTransitionStyles =
   globalStylesSource.match(

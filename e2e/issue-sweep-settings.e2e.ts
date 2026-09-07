@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -40,22 +41,16 @@ for (const mode of ["conversation", "roleplay"] as const) {
         ).toBeTruthy();
       }
       await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+      await seedUIState(page, {
+        hasCompletedOnboarding: true,
+        rightPanelOpen: false,
+        sidebarOpen: false,
+        chatHelpSeenModes: ["conversation", "roleplay", "game"],
+      });
       await page.addInitScript(
         ({ chatId, appVersion }) => {
           localStorage.setItem("marinara-active-chat-id", chatId);
           localStorage.setItem("marinara:whats-new:seen-version", appVersion);
-          localStorage.setItem(
-            "marinara-engine-ui",
-            JSON.stringify({
-              state: {
-                hasCompletedOnboarding: true,
-                rightPanelOpen: false,
-                sidebarOpen: false,
-                chatHelpSeenModes: ["conversation", "roleplay", "game"],
-              },
-              version: 65,
-            }),
-          );
         },
         { chatId: chat.id, appVersion: version },
       );

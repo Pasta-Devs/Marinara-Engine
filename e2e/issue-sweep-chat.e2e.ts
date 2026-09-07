@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { seedUIState } from "./ui-state-fixture.js";
 
 const appVersion = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -11,22 +12,18 @@ test.beforeEach(async ({ page }) => {
       ? route.fulfill({ json: { value: null } })
       : route.fulfill({ json: { success: true } }),
   );
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    sidebarOpen: false,
+    rightPanelOpen: false,
+    chatHelpSeenModes: ["conversation", "roleplay", "game"],
+    messagesPerPage: 20,
+    // These portrait assertions exercise the classic layout. The old
+    // chatBubbleStyle key was ignored, so it never selected bubble mode.
+    conversationMessageStyle: "classic",
+  });
   await page.addInitScript((version) => {
     localStorage.setItem("marinara:whats-new:seen-version", version);
-    localStorage.setItem(
-      "marinara-engine-ui",
-      JSON.stringify({
-        state: {
-          hasCompletedOnboarding: true,
-          sidebarOpen: false,
-          rightPanelOpen: false,
-          chatHelpSeenModes: ["conversation", "roleplay", "game"],
-          messagesPerPage: 20,
-          chatBubbleStyle: "bubbles",
-        },
-        version: 96,
-      }),
-    );
   }, appVersion);
 });
 
