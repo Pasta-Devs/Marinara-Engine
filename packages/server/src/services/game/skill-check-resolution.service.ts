@@ -97,10 +97,10 @@ function readTrimmedString(value: unknown): string {
  *
  * `gameCharacterCards[0]` used to be the answer, and position is not identity.
  * The setup prompt asks the model for the player's card first and the party's
- * after it, which is a convention the model follows, not a guarantee the array
- * keeps: a recruit appends, a removal splices, and a session-conclusion rewrite
- * re-emits the array in whatever order it read the cards back in. The moment any
- * of those moves the player off the front, every check in the game silently
+ * after it, which is a convention the model usually follows, not a guarantee
+ * anything enforces: the array is the model's own emission order from setup (and
+ * from any later setup-style rewrite), and nothing in the engine pins the player
+ * to the front. The moment an emission leads with someone else, every check silently
  * starts scoring against a *party member's* sheet — a wrong DEX quietly changes
  * whether the player got past the guard, and nothing in the turn says so.
  *
@@ -375,12 +375,18 @@ export async function resolveSkillCheckTagsInContent(
     );
     return { content: rolled, resolved: pending.length, trusted, left, sparse: 0 };
   } catch (err) {
-    logger.error(
-      err,
-      "[game/skill-check] Could not roll %d check tag(s) for chat %s; saving them sparse rather than as written",
-      pending.length,
-      options.chatId ?? "unknown",
-    );
+    // The log itself must not be a second way to fail: a rejected value with a
+    // throwing getter would otherwise escape this catch and take the turn down.
+    try {
+      logger.error(
+        err,
+        "[game/skill-check] Could not roll %d check tag(s) for chat %s; saving them sparse rather than as written",
+        pending.length,
+        options.chatId ?? "unknown",
+      );
+    } catch {
+      logger.error("[game/skill-check] Could not roll %d check tag(s); the failure also refused to serialize", pending.length);
+    }
     // Nothing was found to owe a roll before this failed, so there is nothing to
     // strip and the text stands as the model wrote it — the same outcome the
     // caller's own catch used to reach, kept only for the case where this

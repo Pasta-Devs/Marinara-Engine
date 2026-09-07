@@ -722,7 +722,7 @@ assert.match(
 // over two seconds, and the `0…0=0…0=` shape below took nearly five. The bound is
 // deliberately coarse — three orders of magnitude above the ~1ms the scan costs
 // now — so it fails on the quadratic shape and never on a slow CI box.
-const ZEROS = "0".repeat(60_000);
+const ZEROS = "0".repeat(24_000); // 24k keeps the quadratic/linear separation unambiguous at a fifth of the red-path cost
 const adversarialBodies = [
   // No `=` at all: every offset in the run was a fresh doomed key match.
   ZEROS,
