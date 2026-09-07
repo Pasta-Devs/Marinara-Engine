@@ -482,6 +482,7 @@ async function recoverFromVersionSkew(serverVersion: string) {
 
 export function App() {
   const theme = useUIStore((s) => s.theme);
+  const notificationPosition = useUIStore((s) => s.notificationPosition);
   const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
   const fontSize = useUIStore((s) => s.fontSize);
   const language = useUIStore((s) => s.language);
@@ -1122,8 +1123,8 @@ export function App() {
         }}
       >
         <Toaster
-          position="top-center"
-          swipeDirections={["left", "right", "top"]}
+          position={notificationPosition === "bottom" ? "bottom-center" : "top-center"}
+          swipeDirections={["left", "right", notificationPosition === "bottom" ? "bottom" : "top"]}
           offset="4rem"
           theme={theme}
           closeButton

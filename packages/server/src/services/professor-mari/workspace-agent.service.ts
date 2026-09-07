@@ -3310,6 +3310,16 @@ ${sections.join("\n\n")}
     onToken?: (chunk: string) => void,
     debugLog?: (message: string, ...values: unknown[]) => void,
   ): Promise<ChatCompletionResult> {
+    // Local chat templates commonly accept a single system message at index 0.
+    // Keep trusted context in that role, including context added after history,
+    // on every command round without modifying the stored conversation.
+    const systemMessages = messages.filter((message) => message.role === "system");
+    messages = [
+      ...(systemMessages.length
+        ? [{ role: "system" as const, content: systemMessages.map((message) => message.content).join("\n\n") }]
+        : []),
+      ...messages.filter((message) => message.role !== "system"),
+    ];
     const options: ChatOptions = onToken
       ? {
           ...baseOptions,

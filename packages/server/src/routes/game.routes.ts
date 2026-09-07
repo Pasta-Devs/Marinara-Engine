@@ -10,6 +10,7 @@ import { eq } from "../db/file-query.js";
 import { IMPORTED_GAME_ENGINE_ANCHOR_PREFIX } from "../db/file-backed-store.js";
 import { chats as chatsTable } from "../db/schema/index.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
+import { isLocalInferenceBaseUrl } from "../middleware/ip-allowlist.js";
 import { readImageDimensionsFromFile } from "../utils/image-metadata.js";
 import { createChatsStorage, METADATA_WRITE_ORDINALS_KEY } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
@@ -291,6 +292,7 @@ import { createAppSettingsStorage } from "../services/storage/app-settings.stora
 import { applyStoryboardAgentSettings } from "../services/game/storyboard-agent-settings.js";
 import {
   STORYBOARD_FALLBACK_BEAT_MAX_CHARS,
+  completeStoryboardPlan,
   compactStoryboardFallbackBeat,
   compactStoryboardTextAtWordBoundary,
   createStoryboardReviewPlanEnvelope,
@@ -1818,6 +1820,8 @@ const gameSetupConfigSchema = z.object({
   spotifyArtist: z.string().nullable().optional(),
   enableLorebookKeeper: z.boolean().optional(),
   language: z.string().min(1).max(100).optional(),
+  autoTranslate: z.boolean().optional(),
+  translationOutputTargetLang: z.string().trim().min(1).max(100).optional(),
   generationParameters: generationParametersSchema.partial().optional(),
   promptPresetId: z.string().nullable().optional(),
   gameSystemPrompt: z.string().max(50_000).nullable().optional(),
@@ -5615,7 +5619,7 @@ function sanitizeStoryboardPlan(
   return {
     title: compactStoryboardText(root.title, 160) || fallback.title,
     summary: compactStoryboardText(root.summary, 2000) || fallback.summary,
-    keyframes: frames.slice(0, 6),
+    keyframes: frames,
   };
 }
 
@@ -6480,6 +6484,10 @@ export async function gameRoutes(app: FastifyInstance) {
       gameId,
       gameSessionNumber: 1,
       gameSessionStatus: "setup",
+      ...(setupConfig.autoTranslate !== undefined ? { autoTranslate: setupConfig.autoTranslate } : {}),
+      ...(setupConfig.translationOutputTargetLang
+        ? { translationOutputTargetLang: setupConfig.translationOutputTargetLang }
+        : {}),
       gameCurrentSessionStartedAt: new Date().toISOString(),
       gameActiveState: "exploration",
       gameGmMode: setupConfig.gmMode,
@@ -12249,30 +12257,48 @@ export async function gameRoutes(app: FastifyInstance) {
         }
       } else {
         try {
-          const directorResult = await runGameChatComplete(
-            provider,
-            illustratorMessages.messages,
-            gameGenOptions(
-              conn.model ?? "",
-              {
-                stream: false,
-                maxTokens: structuredCharacterPrompts ? 3600 : 2200,
-                responseFormat: { type: "json_object" },
-                signal: storyboardAbortSignal,
-              },
-              parameters,
-              conn.provider,
-            ),
-            "Game storyboard illustrator",
-            GAME_STORYBOARD_ILLUSTRATOR_TIMEOUT_MS,
+          const plannerOptions = gameGenOptions(
+            conn.model ?? "",
+            {
+              stream: false,
+              maxTokens: Math.min(
+                32_000,
+                Math.max(structuredCharacterPrompts ? 3600 : 2200, storyboardKeyframeCount * 900),
+              ),
+              responseFormat: { type: "json_object" },
+              signal: storyboardAbortSignal,
+            },
+            parameters,
+            conn.provider,
           );
-          const extraction = extractLeadingThinkingBlocks(directorResult.content || "", parameters?.customThinkingTags);
-          const rawPlan = extraction.content.trim();
-          if (debugLogsEnabled) debugLog("[debug/game/storyboard-illustrator] raw response:\n%s", rawPlan);
-          const parsedPlan = parseJSON(rawPlan);
-          if (!storyboardPlanHasRenderableKeyframe(parsedPlan)) {
-            throw new Error("Storyboard Illustrator returned no usable keyframes");
-          }
+          const parsedPlan = await completeStoryboardPlan({
+            retryWithoutReasoning:
+              plannerOptions.reasoningEffort !== "none" &&
+              conn.provider === "custom" &&
+              isLocalInferenceBaseUrl(baseUrl),
+            customThinkingTags: parameters?.customThinkingTags,
+            generate: async (withoutReasoning) => {
+              if (withoutReasoning)
+                logger.warn("[game/storyboard] Retrying empty local planner output without reasoning");
+              const result = await runGameChatComplete(
+                provider,
+                illustratorMessages.messages,
+                {
+                  ...plannerOptions,
+                  ...(withoutReasoning
+                    ? {
+                        reasoningEffort: "none",
+                        enabledParameters: { ...plannerOptions.enabledParameters, reasoningEffort: true },
+                      }
+                    : {}),
+                },
+                "Game storyboard illustrator",
+                GAME_STORYBOARD_ILLUSTRATOR_TIMEOUT_MS,
+              );
+              if (debugLogsEnabled) debugLog("[debug/game/storyboard-illustrator] raw response:\n%s", result.content);
+              return result;
+            },
+          });
           plan = sanitizeStoryboardPlan(parsedPlan, storyboardPlanSanitizerOptions);
         } catch (err) {
           if (storyboardAbortSignal.aborted) {

@@ -894,6 +894,7 @@ interface UIState {
   rpNotificationSound: boolean;
   gameNotificationSound: boolean;
   notificationSoundsOnlyWhenUnfocused: boolean;
+  notificationPosition: "top" | "bottom";
   conversationBrowserNotifications: boolean;
   conversationMobileNotifications: boolean;
   generationBrowserNotifications: boolean;
@@ -1186,6 +1187,7 @@ interface UIState {
   setRpNotificationSound: (v: boolean) => void;
   setGameNotificationSound: (v: boolean) => void;
   setNotificationSoundsOnlyWhenUnfocused: (v: boolean) => void;
+  setNotificationPosition: (v: "top" | "bottom") => void;
   setConversationBrowserNotifications: (v: boolean) => void;
   setConversationMobileNotifications: (v: boolean) => void;
   setGenerationBrowserNotifications: (v: boolean) => void;
@@ -1421,6 +1423,7 @@ export function pickSyncedSettings(state: UIState) {
     rpNotificationSound: state.rpNotificationSound,
     gameNotificationSound: state.gameNotificationSound,
     notificationSoundsOnlyWhenUnfocused: state.notificationSoundsOnlyWhenUnfocused,
+    notificationPosition: state.notificationPosition,
     conversationBrowserNotifications: state.conversationBrowserNotifications,
     conversationMobileNotifications: state.conversationMobileNotifications,
     generationBrowserNotifications: state.generationBrowserNotifications,
@@ -1625,6 +1628,7 @@ export function pickPersistedUIState(state: UIState) {
     rpNotificationSound: state.rpNotificationSound,
     gameNotificationSound: state.gameNotificationSound,
     notificationSoundsOnlyWhenUnfocused: state.notificationSoundsOnlyWhenUnfocused,
+    notificationPosition: state.notificationPosition,
     conversationBrowserNotifications: state.conversationBrowserNotifications,
     conversationMobileNotifications: state.conversationMobileNotifications,
     generationBrowserNotifications: state.generationBrowserNotifications,
@@ -1844,6 +1848,7 @@ export const useUIStore = create<UIState>()(
         rpNotificationSound: true,
         gameNotificationSound: true,
         notificationSoundsOnlyWhenUnfocused: false,
+        notificationPosition: "top",
         conversationBrowserNotifications: false,
         conversationMobileNotifications: false,
         generationBrowserNotifications: false,
@@ -2748,6 +2753,7 @@ export const useUIStore = create<UIState>()(
         setRpNotificationSound: (v) => set({ rpNotificationSound: v }),
         setGameNotificationSound: (v) => set({ gameNotificationSound: v }),
         setNotificationSoundsOnlyWhenUnfocused: (v) => set({ notificationSoundsOnlyWhenUnfocused: v }),
+        setNotificationPosition: (v) => set({ notificationPosition: v === "bottom" ? "bottom" : "top" }),
         setConversationBrowserNotifications: (v) => set({ conversationBrowserNotifications: v }),
         setConversationMobileNotifications: (v) => set({ conversationMobileNotifications: v }),
         setGenerationBrowserNotifications: (v) => set({ generationBrowserNotifications: v }),

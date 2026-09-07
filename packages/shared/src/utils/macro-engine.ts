@@ -453,7 +453,7 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   {
     category: "Game",
     syntax: "{{gameStoryboardKeyframeCount}}",
-    description: "Current Game Mode Keyframes per Turn target (1-6, default 3)",
+    description: "Current Game Mode Keyframes per Turn target (1-200, default 3)",
   },
   { category: "Time", syntax: "{{date}}", description: "Current real date in the user's timezone" },
   { category: "Time", syntax: "{{time}}", description: "Current real time in the user's timezone" },

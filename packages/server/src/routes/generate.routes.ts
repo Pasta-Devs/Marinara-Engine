@@ -5140,7 +5140,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const placeRuntimeAgentInjection = (injection: AgentInjection): boolean => {
           const tokens = runtimeAgentSectionTokens.get(injection.agentType);
           if (tokens && replaceRuntimeAgentSection(finalMessages, tokens, injection.text)) return true;
-          if (presetOwnsAgentPlacement) return false;
+          if (presetOwnsAgentPlacement && injection.agentType !== "director") return false;
           appendSeparateAgentInjection(injection.agentType, injection.text);
           return true;
         };

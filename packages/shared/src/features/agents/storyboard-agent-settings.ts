@@ -1,5 +1,6 @@
 import { normalizeAgentPromptTemplateOptions, type AgentPromptTemplateOption } from "../../types/agent.js";
 import { LTX_DIRECTOR_GAME_VIDEO_PROMPT_TEMPLATE_ID } from "../../constants/game-video-prompts.js";
+import { normalizeGameStoryboardKeyframeCount } from "../../constants/game-storyboard-prompts.js";
 
 export const STORYBOARD_AGENT_ID = "storyboard";
 
@@ -141,7 +142,7 @@ export function normalizeStoryboardAgentSettings(value: unknown): StoryboardAgen
     imageConnectionId: normalizeId(settings.imageConnectionId),
     videoConnectionId: normalizeId(settings.videoConnectionId),
     autoGenerateMode,
-    keyframeCount: normalizeBoundedInteger(settings.keyframeCount, 3, 1, 6),
+    keyframeCount: normalizeGameStoryboardKeyframeCount(settings.keyframeCount),
     animationDurationSeconds: normalizeBoundedInteger(settings.animationDurationSeconds, 5, 1, 15),
     viewerDisplayMode: settings.viewerDisplayMode === "background" ? "background" : "floating",
     includeCharacterAppearance: settings.includeCharacterAppearance !== false,
