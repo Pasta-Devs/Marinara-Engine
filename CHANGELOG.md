@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Documented Capability API 1.14 tracker surfaces, prompt placement and agent lifecycle hooks, plus API 1.15 embedding-configuration refresh for package authors (#5900).
+
 - Dice notation is now read by one shared grammar in the four places that read it as a command — the `roll_dice` tool, the server and client sides of `/roll`, and the GM skill-check tag — instead of four private copies, so `roll_dice` accepts a bare `d20` like the other three already did. Notation whose roll could not be totalled exactly is now rejected as invalid instead of reporting a total that cannot be trusted — both a modifier too large for the engine to count exactly, and a countable modifier whose dice would push the total past that same limit. An oversized custom roll from the Game Mode dice menu is still trimmed and rolled rather than refused, but its card and its narrator line now name the dice actually thrown, so asking for `500d6` reads `100d6` instead of claiming five hundred dice over a hundred (a typed `/roll 500d6` refuses, as it always has). The `{{roll:XdY}}` macro and the dice-roll animation keep their own parsing and are unchanged.
 - Added a storage API that lets a downloaded capability package register and persist its own file tables, with strict table-name validation. No caller is wired to it yet.
 - Removed the unfinished Slurp creator-feed material from the Noodle guides.

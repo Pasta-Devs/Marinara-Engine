@@ -133,7 +133,7 @@ mirror the generation's progress and failure so a package is never left waiting 
 `combatActive` after a failed generation. Like the 1.7/1.8 seams (and unlike the hard-gated
 1.10 `contributions.assets`), these props are delivered to every `game-surface` package
 regardless of the `capabilityApi` it declares — the 1.11 label marks when they appeared, so a
-package that *requires* them declares 1.11 and older Engines refuse it cleanly.
+package that _requires_ them declares 1.11 and older Engines refuse it cleanly.
 
 ### Capability API 1.12: spatial events for the owning Experience
 
@@ -180,7 +180,84 @@ handle also keeps raising its attention indicator for a pending scene-analysis, 
 or combat-generation retry. A player who expands the box by hand during a request keeps it
 open until the request drops. Like the 1.11/1.12 seams, this is a soft seam: the field is
 honored regardless of the declared `capabilityApi`, and the 1.13 label marks when it
-appeared, so a package that *requires* it declares 1.13.
+appeared, so a package that _requires_ it declares 1.13.
+
+### Capability API 1.14: tracker surfaces and agent lifecycle
+
+Capability API 1.14 adds two `contributions.slots` values for active, enabled Roleplay
+agent packages with a client entrypoint:
+
+- `roleplay-tracker` mounts the package's `toolbar` view in the Roleplay HUD. Its props
+  include `chatId`, `chatMode`, `mobileCompact`, the host's `toolbarButtonClass`,
+  `onRerunTracker`, `trackerRetryBusy`, `lockMode`, and `onToggleLockMode`. The callbacks
+  are optional: check that they exist before using them.
+- `tracker-panel` mounts the package's `tracker` view inside the existing Tracker Panel,
+  with `chatId`, `chatMode`, and `detached`. Reuse that host surface rather than opening
+  a second panel. Both slots also receive the ordinary capability identity and localization props.
+
+Prompt-context contributions remain registered through `api.registerPromptContext` and
+require `prompt-context` permission. The request now exposes `targetCharacterIds`,
+`personaId`, and `placedAgentTypes` (optional for compatibility). `placedAgentTypes` tells
+the contributor which agent-data sections the preset already placed, so it can avoid
+duplicating its context. The host retains each contribution's package identity in
+`packageBlocks` to place package-owned text at the corresponding agent section. A
+contributor returning audience-specific text should respect the supplied target character IDs.
+
+A server entrypoint may also register its own post-processing lifecycle service through
+`api.registerService("agent-runtime:<package-id>", service)`. It needs the `agent-runtime`
+permission; registration for another package ID is rejected. The optional hooks are:
+
+```ts
+const cleanup = api.registerService(`agent-runtime:${packageId}`, {
+  prepareContext({ agent, context }) {
+    // Return small, JSON-serializable context for this agent, or nothing.
+    return { chatId: context.chatId };
+  },
+  finalizeResult({ agent, context, preparedContext, result }) {
+    // Validate or enrich the result before the host publishes/applies it.
+    return result;
+  },
+});
+// Return cleanup from activate(), or include it in the activation cleanup.
+```
+
+`prepareContext` runs before post-processing; its non-null result is scoped to the agent
+and included in its prompt as serialized runtime context. `finalizeResult` receives that
+value plus the generated result, and returns an `AgentResult`. The generation and manual
+retry paths defer result publication until finalization. Each asynchronous hook has a
+two-second deadline: a failed preparation is logged and skipped, while a failed finalization
+turns the result into a failure instead of applying unvalidated output. These are short
+host lifecycle hooks, not a place for an additional slow model call.
+
+There is no per-field 1.14 version gate for these additions. A package may feature-detect
+optional props and degrade on older Engines, but one that requires the slots, placement,
+or lifecycle behavior must declare `capabilityApi: { major: 1, minor: 14 }` in its v2
+manifest so an older Engine refuses installation cleanly.
+
+### Capability API 1.15: current embedding configuration
+
+`api.runtime.resolveEmbeddings()` returns a fresh `Promise<CapabilityEmbeddingHost>` using
+the package's current agent connection configuration. Call it when starting an embedding
+operation, rather than caching `api.runtime.embeddings`, which is the activation-time
+snapshot and will not follow later connection changes without reactivation.
+
+```ts
+const embeddings = await api.runtime.resolveEmbeddings();
+const vectors = await embeddings.embed(texts, signal);
+// Store/compare embeddings.spaceId with persisted vectors; do not mix embedding spaces.
+```
+
+The returned host has `spaceId`, `label`, and `embed(texts, signal?)`. Resolution uses the
+configured embedding source and falls back to the built-in local MiniLM embedder when
+none is available or configuration resolution fails. `embed` can return `null`; empty
+batches, more than 128 texts, or more than 200,000 combined characters are refused. A
+new host does not re-embed existing vectors, so a package must handle a changed `spaceId`
+before comparing new vectors with stored ones.
+
+The method is exposed regardless of the package's declared API version on current Engines.
+Declare API 1.15 if following connection changes is required. A package deliberately
+supporting older Engines may check `typeof api.runtime.resolveEmbeddings === "function"`
+and fall back to `api.runtime.embeddings`, accepting its activation-time limitation.
 
 ### Capability API 1.16: package-declared Game Master verbs
 
