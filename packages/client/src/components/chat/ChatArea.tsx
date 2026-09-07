@@ -1534,7 +1534,6 @@ export const ChatArea = memo(function ChatArea() {
   // stale saved background. We only write null when metadata already had a
   // background — that way a global UI background carried over from a previous
   // chat doesn't pollute a fresh chat's metadata on switch.
-  const bgPersistTimer = useRef<ReturnType<typeof setTimeout>>(null);
   useEffect(() => {
     if (!chat?.id) return;
     const savedBackground = chatBackgroundUrlToMetadata(chatBackgroundMetadataToUrl(chatMeta.background));
@@ -1550,28 +1549,13 @@ export const ChatArea = memo(function ChatArea() {
       restoredBackground.isSyncing = false;
     }
 
-    if (!chatBackground) {
-      if (savedBackground === null) return;
-      if (bgPersistTimer.current) clearTimeout(bgPersistTimer.current);
-      bgPersistTimer.current = setTimeout(() => {
-        updateMeta.mutate({ id: chat!.id, background: null });
-      }, 500);
-      return;
-    }
-
     const nextBackground = chatBackgroundUrlToMetadata(chatBackground);
     if (nextBackground === savedBackground) return;
-    if (bgPersistTimer.current) clearTimeout(bgPersistTimer.current);
-    bgPersistTimer.current = setTimeout(() => {
-      updateMeta.mutate({ id: chat!.id, background: nextBackground });
-    }, 500);
+    // A selection is a discrete action, not typing: save immediately so leaving
+    // the chat cannot cancel a pending background change.
+    updateMeta.mutate({ id: chat.id, background: nextBackground });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatBackground, chat?.id]);
-  useEffect(() => {
-    return () => {
-      if (bgPersistTimer.current) clearTimeout(bgPersistTimer.current);
-    };
-  }, []);
 
   const expressionSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const pendingExpressions = useRef<Record<string, string>>(spriteExpressions);

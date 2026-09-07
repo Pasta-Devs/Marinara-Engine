@@ -87,6 +87,7 @@ import { HomeFaq } from "./HomeFaq";
 import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
 import { HomeProfessorMariChat, ProfessorMariPixelScene } from "./HomeProfessorMariChat";
 import { RecentChats } from "./RecentChats";
+import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
 
 const MARI_ASSISTANT_ARRIVAL_SHEET = "/sprites/mari/generated/professor-mari-assistant-sheet.png";
 const MARI_ASSISTANT_IDLE = "/sprites/mari/generated/professor-mari-assistant-idle.png";
@@ -129,6 +130,7 @@ const HOME_WIDGET_VISIBILITY_STORAGE_KEY = "marinara:home:widget-visibility:v2";
 const LEGACY_HOME_WIDGET_VISIBILITY_STORAGE_KEY = "marinara:home:widget-visibility:v1";
 const HOME_CUSTOM_WIDGET_KNOWN_STORAGE_KEY = "marinara:home:custom-widget-known:v1";
 const HOME_WIDGET_IDS = [
+  "character-library",
   "professor",
   "whats-new",
   "recent",
@@ -287,6 +289,7 @@ function BrowserPackageTabIcon({
 }
 const DEFAULT_HOME_WIDGET_ORDER = [
   "recent",
+  "character-library",
   "professor",
   "learn",
   "whats-new",
@@ -308,6 +311,7 @@ type HomeGridColumns = 1 | 2 | 3 | 4;
 type HomeWidgetSlot = HomeWidgetId | null;
 type HomeWidgetLayouts = Record<HomeGridColumns, HomeWidgetSlot[]>;
 const HOME_WIDGET_LABEL_KEYS: Record<BuiltInHomeWidgetId, string> = {
+  "character-library": "home.widgets.characterLibrary",
   professor: "home.widgets.professor",
   recent: "home.widgets.recent",
   "whats-new": "home.widgets.whatsNew",
@@ -319,6 +323,7 @@ const HOME_WIDGET_LABEL_KEYS: Record<BuiltInHomeWidgetId, string> = {
   achievements: "home.widgets.achievements",
 };
 const HOME_WIDGET_MANAGER_LABEL_KEYS: Record<BuiltInHomeWidgetId, { name: string; purpose: string }> = {
+  "character-library": { name: "home.widgets.characterLibrary", purpose: "home.characterLibrary.description" },
   professor: { name: "home.professorMari.eyebrow", purpose: "home.widgets.professor" },
   recent: { name: "home.recentChats.eyebrow", purpose: "home.recentChats.title" },
   "whats-new": { name: "home.whatsNew.eyebrow", purpose: "home.widgets.whatsNew" },
@@ -421,7 +426,10 @@ function readHomeWidgetVisibility(): HomeWidgetId[] {
 }
 
 function homeWidgetSpotCount(columns: HomeGridColumns, visibleWidgets: readonly HomeWidgetId[]) {
-  return visibleWidgets.reduce((total, id) => total + (id === "recent" ? (columns === 1 ? 2 : 4) : 1), 0);
+  return visibleWidgets.reduce(
+    (total, id) => total + (id === "recent" || id === "character-library" ? (columns === 1 ? 2 : 4) : 1),
+    0,
+  );
 }
 
 function homeEmptySlotCount(columns: HomeGridColumns, visibleWidgets: readonly HomeWidgetId[]) {
@@ -2733,6 +2741,22 @@ export function HomeBrowserHub({
                         className="h-full"
                       >
                         <RecentChats />
+                      </FeedModule>
+                    </HomeWidgetFrame>
+
+                    <HomeWidgetFrame {...widgetFrameProps("character-library")}>
+                      <FeedModule
+                        eyebrow={t("home.widgets.characterLibrary")}
+                        title={t("home.characterLibrary.title")}
+                        accent={HOME_MODULE_ACCENTS.cyan}
+                        className="h-full"
+                      >
+                        <HomeCharacterLibrary
+                          characters={characterCatalog.data ?? []}
+                          loading={characterCatalog.isLoading}
+                          error={characterCatalog.isError}
+                          onRetry={() => void characterCatalog.refetch()}
+                        />
                       </FeedModule>
                     </HomeWidgetFrame>
 

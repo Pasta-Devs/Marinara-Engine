@@ -515,6 +515,10 @@ test("Appearance distinguishes the square avatar-shape preview from the circular
   await page.getByRole("tab", { name: "Appearance" }).click();
 
   const circle = page.locator('[data-avatar-shape-preview="circle"]');
+  await page
+    .getByRole("group", { name: "Appearance by chat mode" })
+    .getByRole("button", { name: "Conversation", exact: true })
+    .click();
   const square = page.locator('[data-avatar-shape-preview="square"]');
   await expect(circle).toBeVisible();
   await expect(square).toBeVisible();
@@ -533,6 +537,10 @@ test("Art scale sliders stay interactive at the largest display size", async ({ 
   await page.getByRole("tab", { name: "Appearance" }).click();
 
   const exerciseSlider = async (controlId: string) => {
+    await page
+      .getByRole("group", { name: "Appearance by chat mode" })
+      .getByRole("button", { name: controlId.includes("roleplay") ? "Roleplay" : "Game", exact: true })
+      .click();
     const control = page.locator(`#${controlId}`);
     const slider = control.locator('input[type="range"]');
     await control.scrollIntoViewIfNeeded();
@@ -573,6 +581,10 @@ test("Art scale sliders stay interactive at the largest display size", async ({ 
     "settings-control-game-full-body-sprite-scale",
   ];
   for (const controlId of controlIds) await exerciseSlider(controlId);
+  await page
+    .getByRole("group", { name: "Appearance by chat mode" })
+    .getByRole("button", { name: "App", exact: true })
+    .click();
   await page.locator("#settings-control-display-size select").selectOption("22");
   for (const controlId of controlIds) await exerciseSlider(controlId);
 });
@@ -4135,8 +4147,15 @@ test("Character and Persona avatar actions stay separated and visually balanced"
       }
       const selectedMenuItem = compactMenu.getByRole("menuitemradio", { checked: true });
       await expect(selectedMenuItem).toBeFocused();
+      const selectedIndex = await selectedMenuItem.evaluate((element) =>
+        Array.from(element.parentElement!.querySelectorAll('[role="menuitemradio"]')).indexOf(element),
+      );
       await selectedMenuItem.press("ArrowDown");
-      await expect(compactMenu.getByRole("menuitemradio").nth(1)).toBeFocused();
+      await expect(
+        compactMenu
+          .getByRole("menuitemradio")
+          .nth((selectedIndex + 1) % (await compactMenu.getByRole("menuitemradio").count())),
+      ).toBeFocused();
       await page.keyboard.press("Escape");
       await expect(compactMenu).toHaveCount(0);
       await expect(compactMenuButton).toBeFocused();
@@ -6055,6 +6074,10 @@ for (const mode of ["conversation", "roleplay"] as const) {
       const openAppearance = async () => {
         await page.locator('[data-tour="panel-settings"]').click();
         await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+        await page
+          .getByRole("group", { name: "Appearance by chat mode" })
+          .getByRole("button", { name: mode === "conversation" ? "Conversation" : "Roleplay", exact: true })
+          .click();
       };
       const closeSettings = async () => {
         await page.evaluate(async () => {
@@ -6073,9 +6096,19 @@ for (const mode of ["conversation", "roleplay"] as const) {
       const otherToggle = page
         .locator(`#settings-control-${mode === "conversation" ? "roleplay" : "conversation"}-always-display-swipe-menu`)
         .getByLabel("Always display swipe menu", { exact: true });
+      const expectOtherToggleChecked = async () => {
+        const modes = page.getByRole("group", { name: "Appearance by chat mode" });
+        await modes
+          .getByRole("button", { name: mode === "conversation" ? "Roleplay" : "Conversation", exact: true })
+          .click();
+        await expect(otherToggle).toBeChecked();
+        await modes
+          .getByRole("button", { name: mode === "conversation" ? "Conversation" : "Roleplay", exact: true })
+          .click();
+      };
       await openAppearance();
       await expect(toggle).toBeChecked();
-      await expect(otherToggle).toBeChecked();
+      await expectOtherToggleChecked();
       await toggleLabel.scrollIntoViewIfNeeded();
       await testInfo.attach(`${mode}-swipe-settings-${testInfo.project.name}.png`, {
         body: await page.screenshot(),
@@ -6083,7 +6116,7 @@ for (const mode of ["conversation", "roleplay"] as const) {
       });
       await toggleLabel.click();
       await expect(toggle).not.toBeChecked();
-      await expect(otherToggle).toBeChecked();
+      await expectOtherToggleChecked();
       await expect.poll(async () => (await readSynced())[preference]).toBe(false);
       await closeSettings();
       await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
@@ -6113,7 +6146,7 @@ for (const mode of ["conversation", "roleplay"] as const) {
       await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
       await openAppearance();
       await expect(toggle).not.toBeChecked();
-      await expect(otherToggle).toBeChecked();
+      await expectOtherToggleChecked();
       await toggleLabel.click();
       await expect(toggle).toBeChecked();
       await expect.poll(async () => (await readSynced())[preference]).toBe(true);
@@ -7003,6 +7036,10 @@ test("Roleplay can show streaming reasoning inline and control automatic collaps
     await page.getByRole("tab", { name: "Appearance" }).click();
 
     const showControl = page.locator("#settings-control-show-roleplay-thinking-in-messages");
+    await page
+      .getByRole("group", { name: "Appearance by chat mode" })
+      .getByRole("button", { name: "Roleplay", exact: true })
+      .click();
     const keepControl = page.locator("#settings-control-keep-roleplay-thinking-expanded");
     const showToggle = showControl.getByRole("checkbox", { name: "Show Thinking In Messages" });
     const keepToggle = keepControl.getByRole("checkbox", { name: "Don't Collapse Thinking" });
@@ -9179,13 +9216,10 @@ test("preset import and save-export feedback follow the active accent", async ({
     await titleInput.fill(`Unsaved Theme Feedback ${suffix}`);
     await waitForEditorDirty(page);
     await editor.locator(".mari-editor-header-main > button").first().click();
-    const unsavedFeedback = editor.getByText("You have unsaved changes.", { exact: true }).locator("..");
-    await expect(unsavedFeedback).toBeVisible();
-    await expect(unsavedFeedback).toHaveCSS("color", expectedEditorAccent);
-    await testInfo.attach(`preset-unsaved-accent-${testInfo.project.name}.png`, {
-      body: await page.screenshot({ fullPage: true }),
-      contentType: "image/png",
-    });
+    await expect(editor).toHaveCount(0);
+    await expect
+      .poll(async () => (await (await request.get(`/api/prompts/${preset.id}`)).json()).name)
+      .toBe(`Unsaved Theme Feedback ${suffix}`);
   } finally {
     await bestEffortDelete(request, `/api/prompts/${preset.id}`);
   }
@@ -17562,20 +17596,14 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
     expect(vectorizeRequestCount).toBe(vectorizeCountBeforeCancel);
 
     await vectorPanel.locator("label").filter({ hasText: "Query Messages" }).locator("input").fill("8");
-    await page.locator(".mari-editor-header").getByRole("button").first().click();
-    const unsavedWarning = page.getByText("You have unsaved changes", { exact: true });
-    await expect(unsavedWarning).toBeVisible();
-    const discardCloseButton = page.getByRole("button", { name: "Discard & close", exact: true });
-    const saveCloseButton = page.getByRole("button", { name: "Save & close", exact: true });
     const backButton = page.locator(".mari-editor-header").getByRole("button").first();
     delayCloseSave = true;
-    await saveCloseButton.click();
+    await backButton.click();
     await closeSaveStarted.promise;
-    await expect(discardCloseButton).toBeDisabled();
-    await expect(saveCloseButton).toBeDisabled();
     await expect(backButton).toBeDisabled();
     releaseCloseSave.resolve();
-    await expect(unsavedWarning).toBeVisible();
+    await expect(page.getByText("Deliberate save failure", { exact: true }).first()).toBeVisible();
+    await expect(vectorPanel.locator("label").filter({ hasText: "Query Messages" }).locator("input")).toHaveValue("8");
     await expect(page.locator(".mari-editor-header").getByText(lorebookName, { exact: true })).toBeVisible();
   } finally {
     if (lorebookId) await request.delete(`/api/lorebooks/${lorebookId}`).catch(() => undefined);
@@ -19955,6 +19983,10 @@ test("Roleplay reduced paint effects preserve semantic and custom styling", asyn
     await page.locator('[data-tour="panel-settings"]').click();
     await page.getByRole("tab", { name: "Appearance" }).click();
     const reducedPaintToggle = page.getByLabel("Reduced paint effects");
+    await page
+      .getByRole("group", { name: "Appearance by chat mode" })
+      .getByRole("button", { name: "Roleplay", exact: true })
+      .click();
     await reducedPaintToggle.scrollIntoViewIfNeeded();
     await page.getByText("Reduced paint effects", { exact: true }).click();
     await expect(reducedPaintToggle).toBeChecked();

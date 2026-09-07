@@ -10,6 +10,7 @@ import { useDialogStore } from "../stores/dialog.store";
 import { dismissActiveDialog, showConfirmDialog } from "./app-dialogs";
 import { translate } from "../localization/i18n";
 import type { BackLayer } from "./back-navigation";
+import { hasEditorLeaveHandler } from "./editor-leave";
 
 /**
  * The shell docks the sidebar / right panel / tracker panel on a desktop-sized
@@ -39,7 +40,7 @@ async function requestCloseDetails() {
   const ui = useUIStore.getState();
   if (!ui.hasAnyDetailOpen()) return;
 
-  if (ui.editorDirty) {
+  if (ui.editorDirty && !hasEditorLeaveHandler(ui)) {
     detailCloseInFlight = true;
     try {
       const discard = await showConfirmDialog({

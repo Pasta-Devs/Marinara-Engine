@@ -181,7 +181,8 @@ export function Modal({
         style={{
           ...panelStyle,
           opacity: isEntering ? 1 : 0,
-          transform: isEntering ? "scale(1) translateY(0)" : "scale(0.97) translateY(6px)",
+          // Settle at `none`: an identity transform keeps the entire image library in a composited layer.
+          transform: isEntering ? undefined : "scale(0.97) translateY(6px)",
           transition: "opacity 150ms ease-out, transform 150ms ease-out",
         }}
       >

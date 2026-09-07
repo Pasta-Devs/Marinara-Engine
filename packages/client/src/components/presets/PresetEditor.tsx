@@ -91,6 +91,9 @@ import {
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { EditorTabNavigation } from "../ui/EditorTabNavigation";
+import { useEditorSections } from "../../hooks/use-editor-sections";
+import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
+import { hasEditorLeaveHandler, leaveWithoutSaving } from "../../lib/editor-leave";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
 import { handleTextareaTab } from "../../lib/textarea-editing";
@@ -286,6 +289,12 @@ export function PresetEditor() {
   const reorderVariables = useReorderVariables();
 
   const [activeTab, setActiveTab] = useState<TabId>(() => presetDetailInitialTab ?? "overview");
+  const { contentRef, scrollToSection } = useEditorSections(
+    presetDetailId,
+    !!data,
+    presetDetailInitialTab ?? "overview",
+    setActiveTab,
+  );
   useEffect(() => {
     setActiveTab(presetDetailInitialTab ?? "overview");
   }, [presetDetailId, presetDetailInitialTab]);
@@ -294,7 +303,7 @@ export function PresetEditor() {
   useEffect(() => {
     setEditorDirty(dirty);
   }, [dirty, setEditorDirty]);
-  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+
   const [showSaved, setShowSaved] = useState(false);
   const [stockCopyError, setStockCopyError] = useState<string | null>(null);
   const [stockCopyPending, setStockCopyPending] = useState(false);
@@ -309,6 +318,7 @@ export function PresetEditor() {
   const [localScopedRegexMode, setLocalScopedRegexMode] = useState<ScopedRegexMode>("disabled");
   const hydratedPresetIdRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
+  const editRevisionRef = useRef(0);
   const formatQuotes = useQuoteFormatter();
 
   useEffect(() => {
@@ -336,12 +346,8 @@ export function PresetEditor() {
   }, [presetDetailId]);
 
   const handleClose = useCallback(() => {
-    if (dirty) {
-      setShowUnsavedWarning(true);
-      return;
-    }
     closePresetDetail();
-  }, [dirty, closePresetDetail]);
+  }, [closePresetDetail]);
 
   const handleCreateStockCopy = useCallback(async () => {
     if (!presetDetailId || stockCopyPending) return;
@@ -364,7 +370,8 @@ export function PresetEditor() {
   }, [duplicatePreset, localizeUi, openPresetDetail, presetDetailId, presetDetailInitialTab, stockCopyPending]);
 
   const handleSave = useCallback(async () => {
-    if (!presetDetailId) return;
+    if (!presetDetailId) return false;
+    const revision = editRevisionRef.current;
     const payload: { id: string } & Record<string, unknown> = {
       id: presetDetailId,
       name: localName,
@@ -376,9 +383,11 @@ export function PresetEditor() {
       scopedRegexMode: localScopedRegexMode,
     };
     await updatePreset.mutateAsync(payload);
+    if (editRevisionRef.current !== revision) return false;
     setDirty(false);
     setShowSaved(true);
     setTimeout(() => setShowSaved(false), 1500);
+    return true;
   }, [
     presetDetailId,
     localName,
@@ -425,10 +434,14 @@ export function PresetEditor() {
     ) {
       return;
     }
-    deletePreset.mutate(presetDetailId, { onSuccess: () => closePresetDetail() });
+    deletePreset.mutate(presetDetailId, { onSuccess: () => leaveWithoutSaving(closePresetDetail) });
   }, [closePresetDetail, data?.preset, deletePreset, localizeUi, presetDetailId]);
 
-  const markDirty = useCallback(() => setDirty(true), []);
+  useEditorLeaveSave(`presetDetailId:${presetDetailId}`, dirty, handleSave, updatePreset.isPending);
+  const markDirty = useCallback(() => {
+    editRevisionRef.current += 1;
+    setDirty(true);
+  }, []);
 
   // Parse sections in order
   const sectionOrder = useMemo(() => {
@@ -571,7 +584,7 @@ export function PresetEditor() {
           />
         </div>
 
-        <EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
+        <EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={scrollToSection} />
 
         <div className="mari-editor-actions flex">
           <button
@@ -623,47 +636,12 @@ export function PresetEditor() {
         </div>
       )}
 
-      {/* Unsaved warning */}
-      {showUnsavedWarning && (
-        <div className="flex items-center justify-between bg-[var(--marinara-editor-accent)]/10 px-4 py-2 text-xs text-[var(--marinara-editor-accent)]">
-          <span>{localizeUi("ui.presets.preseteditor.youHaveUnsavedChanges")}</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowUnsavedWarning(false)}
-              className="mari-editor-action mari-editor-action--compact px-3 py-1"
-            >
-              {localizeUi("ui.presets.preseteditor.keepEditing")}
-            </button>
-            <button
-              onClick={() => closePresetDetail()}
-              className="rounded-lg px-3 py-1 text-[var(--destructive)] hover:bg-[var(--destructive)]/15"
-            >
-              {localizeUi("ui.presets.preseteditor.discard")}
-            </button>
-            <button
-              onClick={async () => {
-                try {
-                  await handleSave();
-                  closePresetDetail();
-                } catch {
-                  // Keep the editor open so the user can fix the failed save.
-                }
-              }}
-              className="mari-editor-action mari-editor-action--primary mari-editor-action--compact px-3 py-1"
-            >
-              {localizeUi("ui.presets.preseteditor.saveClose")}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── Body ── */}
       <div className="mari-editor-body">
         {/* Content area */}
-        <div className="mari-editor-content @max-5xl:p-4">
+        <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
           <div className="mari-editor-content-inner space-y-6">
-            {/* ── Overview Tab ── */}
-            {activeTab === "overview" && (
+            <section data-editor-section="overview">
               <OverviewTab
                 preset={data.preset}
                 name={localName}
@@ -689,10 +667,8 @@ export function PresetEditor() {
                 sectionCount={orderedSections.length}
                 groupCount={data.groups?.length ?? 0}
               />
-            )}
-
-            {/* ── Sections Tab ── */}
-            {activeTab === "sections" && (
+            </section>
+            <section data-editor-section="sections">
               <SectionsTab
                 presetId={presetDetailId}
                 sections={orderedSections}
@@ -713,10 +689,8 @@ export function PresetEditor() {
                 hasLorebookMarker={sectionHasLorebookMarker}
                 parentChatHasLorebook={parentChatHasLorebook}
               />
-            )}
-
-            {/* ── Prompts Tab ── */}
-            {activeTab === "prompts" && (
+            </section>
+            <section data-editor-section="prompts">
               <PromptsTab
                 conversationPrompt={localConversationPrompt}
                 onConversationPromptChange={(v) => {
@@ -729,8 +703,8 @@ export function PresetEditor() {
                   markDirty();
                 }}
               />
-            )}
-            {activeTab === "regex" && (
+            </section>
+            <section data-editor-section="regex">
               <PresetRegexTab
                 presetId={presetDetailId}
                 mode={localScopedRegexMode}
@@ -739,7 +713,7 @@ export function PresetEditor() {
                   markDirty();
                 }}
               />
-            )}
+            </section>
           </div>
         </div>
       </div>
@@ -773,7 +747,7 @@ function PresetRegexTab({
     [scripts, presetId],
   );
   const openScript = async (id: string) => {
-    if (editorDirty) {
+    if (editorDirty && !hasEditorLeaveHandler(useUIStore.getState())) {
       const proceed = await showConfirmDialog({
         title: t("ui.characters.characterregexsection.unsavedChanges"),
         message: t("presets.regex.unsavedChanges"),
