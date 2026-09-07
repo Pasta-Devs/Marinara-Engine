@@ -117,12 +117,7 @@ import {
   type CapturedEngineState,
   type CheckpointTrigger,
 } from "../services/game/checkpoint.service.js";
-import {
-  resolveSkillCheck,
-  attributeModifier,
-  getGoverningAttribute,
-  mapSheetAttributesToRPG,
-} from "../services/game/skill-check.service.js";
+import { resolveChatSkillCheck } from "../services/game/skill-check-resolution.service.js";
 import { applyAllSegmentEdits, stripGmCommandTags } from "../services/game/segment-edits.js";
 import { processLorebooks } from "../services/lorebook/index.js";
 import {
@@ -165,7 +160,10 @@ import {
   scoreMusic,
   musicAreaSlug,
   scoreAmbient,
+  createSkillCheckTagRegex,
+  parseSkillCheckTagBody,
   serializeResolvedSkillCheckTag,
+  type SkillCheckResult,
   applyTrackerFieldLocksToGameStatePatch,
   normalizeWorldCustomFields,
   parseTrackerFieldLocks,
@@ -4837,25 +4835,36 @@ function reconcileJournal(
   return next;
 }
 
-function parseSkillCheckAttribute(body: string, key: string): string | null {
-  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = body.match(new RegExp(`\\b${escapedKey}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s\\]]+)`, "i"));
-  return match?.[1]?.trim().replace(/^['"]|['"]$/g, "") ?? null;
-}
-
+/**
+ * Rewrite the first check tag in a saved message that still owes a real roll.
+ *
+ * "Owes a roll" is the shared reader's verdict, not a `result=` grep. The grep
+ * was the bug: a GM that wrote a complete tag with broken arithmetic had its
+ * numbers thrown out by the client audit and re-rolled here, and then this
+ * function refused to touch the tag because it carried a `result=` — so the
+ * honest roll reached the dice card while the invention stayed in the
+ * transcript for the next turn to read back as fact. `parseSkillCheckTagBody`
+ * returns `resolvedResult` only for numbers that survive that same audit, so a
+ * tag it cannot vouch for is exactly the tag this may overwrite.
+ *
+ * A tag the shared reader cannot read at all is now left alone rather than
+ * overwritten. The caller always arrives holding a tag the client parsed, so
+ * the target is always readable; the old attribute-grep could reach past it and
+ * clobber an unrelated malformed tag standing earlier in the same message.
+ */
 function replaceFirstUnresolvedSkillCheckTag(
   content: string,
   request: { skill: string; dc: number },
-  result: ReturnType<typeof resolveSkillCheck>,
+  result: SkillCheckResult,
 ): string {
   let replaced = false;
-  return content.replace(/\[skill_check:\s*([^\]]+)\]/gi, (fullTag, body: string) => {
-    if (replaced || /\bresult\s*=/i.test(body)) return fullTag;
+  return content.replace(createSkillCheckTagRegex(), (fullTag, body: string) => {
+    if (replaced) return fullTag;
 
-    const skill = parseSkillCheckAttribute(body, "skill");
-    const dc = Number.parseInt(parseSkillCheckAttribute(body, "dc") ?? "", 10);
-    if (skill && skill.trim().toLowerCase() !== request.skill.trim().toLowerCase()) return fullTag;
-    if (Number.isFinite(dc) && dc !== request.dc) return fullTag;
+    const tag = parseSkillCheckTagBody(body);
+    if (!tag || tag.resolvedResult) return fullTag;
+    if (tag.skill.trim().toLowerCase() !== request.skill.trim().toLowerCase()) return fullTag;
+    if (tag.dc !== request.dc) return fullTag;
 
     replaced = true;
     return serializeResolvedSkillCheckTag(result);
@@ -9169,41 +9178,12 @@ export async function gameRoutes(app: FastifyInstance) {
 
   app.post("/skill-check", async (req) => {
     const input = skillCheckSchema.parse(req.body);
-    const stateStore = createGameStateStorage(app.db);
 
-    const snapshot = await stateStore.getLatest(input.chatId);
-    const playerStats = snapshot?.playerStats ? JSON.parse(snapshot.playerStats as string) : null;
-
-    // Look up skill modifier
-    const skillMod = playerStats?.skills?.[input.skill] ?? playerStats?.skills?.[input.skill.toLowerCase()] ?? 0;
-
-    // Look up governing attribute modifier. Prefer playerStats.attributes
-    // (engine-shape), fall back to the player's character-sheet rpgStats
-    // (free-form names) since playerStats.attributes is never seeded today.
-    const attr = getGoverningAttribute(input.skill);
-    let attrMod = 0;
-    let attrScore: number | null = null;
-    if (playerStats?.attributes && Number.isFinite(Number(playerStats.attributes[attr]))) {
-      attrScore = Number(playerStats.attributes[attr]);
-    } else {
-      const chats = createChatsStorage(app.db);
-      const chat = await chats.getById(input.chatId);
-      const meta = chat ? parseMeta(chat.metadata) : {};
-      const cards = Array.isArray(meta.gameCharacterCards)
-        ? (meta.gameCharacterCards as Array<Record<string, unknown>>)
-        : [];
-      const playerCard = cards[0];
-      const rpgStats = playerCard?.rpgStats as { attributes?: Array<{ name: string; value: number }> } | undefined;
-      const mapped = mapSheetAttributesToRPG(rpgStats?.attributes);
-      if (mapped[attr] != null) attrScore = mapped[attr]!;
-    }
-    if (attrScore != null) attrMod = attributeModifier(attrScore);
-
-    const result = resolveSkillCheck({
+    // The modifier lookup this endpoint used to inline lives in the shared
+    // service now, so generation post-processing rolls checks the same way.
+    const result = await resolveChatSkillCheck(app.db, input.chatId, {
       skill: input.skill,
       dc: input.dc,
-      skillModifier: skillMod,
-      attributeModifier: attrMod,
       advantage: input.advantage,
       disadvantage: input.disadvantage,
       preRolledD20: input.preRolledD20,
