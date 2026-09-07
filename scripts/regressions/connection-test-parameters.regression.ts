@@ -72,9 +72,15 @@ try {
   }
 } finally {
   try {
-    await app.close();
-    await new Promise<void>((resolve) => provider.close(() => resolve()));
-    await db?._fileStore.close();
+    try {
+      await app.close();
+    } finally {
+      try {
+        await new Promise<void>((resolve) => provider.close(() => resolve()));
+      } finally {
+        await db?._fileStore.close();
+      }
+    }
   } finally {
     if (previousDirectory === undefined) delete process.env.FILE_STORAGE_DIR;
     else process.env.FILE_STORAGE_DIR = previousDirectory;
