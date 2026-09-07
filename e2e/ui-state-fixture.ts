@@ -24,6 +24,7 @@ export async function seedUIState(
       }
       localStorage.setItem(name, JSON.stringify({ state: { ...previous, ...state }, version }));
     },
-    { ...UI_PERSISTENCE, state, mode },
+    // Surprise visits are random, interactive overlays, not part of unrelated UI proofs.
+    { ...UI_PERSISTENCE, state: { chibiProfessorMariEnabled: false, ...state }, mode },
   );
 }
