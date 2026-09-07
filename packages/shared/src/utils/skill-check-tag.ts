@@ -70,9 +70,16 @@ export function createSkillCheckTagRegex(): RegExp {
  * `"pool"`) is the same judgement. `"1d20+3"` is the sharp one: it *is* a d20,
  * but the engine's modifier comes from the sheet, so rolling it would drop the
  * GM's flat bonus and relabel the tag `dice="1d20"` as if it had never asked.
+ *
+ * The die *count* is held to the same standard as the notation, so the declared
+ * label and the mode have to agree with each other: one die normally, two under
+ * advantage or disadvantage. `dice="2d20"` with no mode asks for a system where
+ * two dice are thrown for a straight check, which the engine does not have —
+ * answering it with one die and relabelling it `dice="1d20"` is the same silent
+ * rewrite as answering a pool with a d20.
  */
 export function isEngineRollableSkillCheckTag(
-  tag: Pick<SkillCheckTag, "declaredResolution" | "declaredDice">,
+  tag: Pick<SkillCheckTag, "declaredResolution" | "declaredDice" | "advantage" | "disadvantage">,
 ): boolean {
   if (tag.declaredResolution != null && tag.declaredResolution !== "sum") return false;
   if (tag.declaredDice == null) return true;
@@ -81,7 +88,8 @@ export function isEngineRollableSkillCheckTag(
   // A label carrying a flat modifier is refused for the same reason the audit
   // refuses it: the modifier belongs in modifier=, not in the die notation.
   if (!notation || notation.dice !== tag.declaredDice) return false;
-  return notation.sides === 20 && notation.count <= 2;
+  const wantedCount = tag.advantage || tag.disadvantage ? 2 : 1;
+  return notation.sides === 20 && notation.count === wantedCount;
 }
 
 /**
@@ -97,7 +105,15 @@ export function isEngineRollableSkillCheckTag(
  * the system the tag names.
  */
 export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
-  const attributes = Array.from(body.matchAll(/(\w+)=("[^"]*"|'[^']*'|[^\s\]]+)/g));
+  // `key = "value"` with any amount of space — a newline included — around the
+  // `=`, because the spacing decides nothing about what the GM meant and it must
+  // not decide which attributes the tag is read as carrying. A tag whose `dice=`
+  // and `resolution=` both happened to be spaced read as skill and DC alone —
+  // indistinguishable from a sparse d20 request — so the pool it had declared was
+  // answered with an engine d20. The server's other check reader
+  // (`segment-edits.ts`) always scanned this loosely, so the strict form was also
+  // the two of them disagreeing about the same tag.
+  const attributes = Array.from(body.matchAll(/(\w+)\s*=\s*("[^"]*"|'[^']*'|[^\s\]]+)/g));
   if (attributes.length === 0) return null;
 
   const values = new Map<string, string>();

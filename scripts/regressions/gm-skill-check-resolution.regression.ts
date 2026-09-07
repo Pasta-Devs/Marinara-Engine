@@ -25,6 +25,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
+  formatSkillCheckResultSummary,
   isEngineRollableSkillCheckTag,
   parseSkillCheckTagBody,
   serializeResolvedSkillCheckTag,
@@ -33,6 +34,7 @@ import {
   resolveSkillCheckTagsInContent,
   type SkillCheckModifierContext,
 } from "../../packages/server/src/services/game/skill-check-resolution.service.js";
+import { stripGmCommandTags } from "../../packages/server/src/services/game/segment-edits.js";
 import { buildGmFormatReminder } from "../../packages/server/src/services/game/gm-prompts.js";
 import { parseGmTags } from "../../packages/client/src/lib/game-tag-parser.js";
 
@@ -193,6 +195,22 @@ const unvouchedPools = [
   // modifier comes from the sheet.
   `[skill_check: skill="Stealth" dc="12" dice="6d10+2"]`,
   `[skill_check: skill="Stealth" dc="15" dice="1d20+3"]`,
+  // A count the engine cannot restate either. Two d20s are what advantage and
+  // disadvantage throw, and the engine labels those itself; two d20s summed for a
+  // straight check is someone else's system, and answering it with one die and a
+  // `dice="1d20"` label is the same silent rewrite as answering a pool with a d20.
+  `[skill_check: skill="Stealth" dc="15" dice="2d20"]`,
+  // The mirror: a mode that needs two dice, declared over a label that names one.
+  `[skill_check: skill="Stealth" dc="15" dice="1d20" mode="advantage"]`,
+  `[skill_check: skill="Stealth" dc="15" dice="1d20" mode="disadvantage"]`,
+  // Spacing around `=` decides nothing about what the GM meant, so it must not
+  // decide whether the declarations are seen at all. With both of them spaced and
+  // skill/dc not, the reader used to come back with skill and DC alone — a sparse
+  // d20 request, indistinguishable from the real thing — and this pool was rolled
+  // as `1d20` and relabelled `resolution="sum"` in the text about to be saved.
+  `[skill_check: skill="Stealth" dc="12" dice = "6d10" resolution = "successes"]`,
+  `[skill_check: skill = "Stealth" dc = "12" dice = "6d10" resolution = "successes"]`,
+  `[skill_check: skill="Stealth" dc="12" dice\n= "6d10" resolution\n= "successes"]`,
 ];
 for (const poolTag of unvouchedPools) {
   const content = `He looms over the clerk. ${poolTag} The room waits.`;
@@ -215,11 +233,38 @@ for (const [d20Tag, expectedDice] of [
   [`[skill_check: skill="Stealth" dc="15" dice="1d20"]`, 1],
   [`[skill_check: skill="Stealth" dc="15" dice="d20" resolution="sum"]`, 1],
   [`[skill_check: skill="Stealth" dc="15" dice="2d20" mode="advantage"]`, 2],
+  // The two dice the engine labels itself, on the other mode.
+  [`[skill_check: skill="Stealth" dc="15" dice="2d20" mode="disadvantage"]`, 2],
+  // Spacing is not a rules declaration in either direction: a spaced d20 request
+  // is still a d20 request, not a tag the reader gives up on.
+  [`[skill_check: skill = "Stealth" dc = "15" dice = "1d20" resolution = "sum"]`, 1],
 ] as const) {
   const outcome = await resolve(d20Tag, [12, 6]);
   assert.equal(outcome.resolved, 1, `a d20 check must still be rolled by the engine: ${d20Tag}`);
   assert.equal(outcome.consumed, expectedDice, `the engine throws its own dice for: ${d20Tag}`);
 }
+
+// Uniformly, not merely safely: the same request written with and without spaces
+// around `=` must come out of the resolver as the same text, or the spacing is
+// still deciding something.
+const tightRequest = await resolve(`[skill_check: skill="Stealth" dc="15" dice="1d20"]`, [12]);
+const spacedRequest = await resolve(`[skill_check: skill = "Stealth" dc = "15" dice = "1d20"]`, [12]);
+assert.equal(spacedRequest.content, tightRequest.content, "spacing around = must not change what the engine writes");
+
+// The server's other check reader has always scanned attributes loosely, so a
+// tag both of them see is the only way the shared module's "one parse" claim
+// holds. A spaced complete pool is prose to `stripGmCommandTags` and a trusted
+// result to the shared reader, and they must agree on its numbers.
+const spacedPool = `[skill_check: skill = "Intimidation" dc = "4" rolls = "3|7|9|2|10|5" modifier = "0" total = "3" result = "failure" mode = "normal" resolution = "successes" dice = "6d10"]`;
+const spacedPoolTag = parseSkillCheckTagBody(spacedPool.replace(/^\[skill_check:\s*|\]$/gu, ""));
+assert.ok(spacedPoolTag?.resolvedResult, "the shared reader must see the spaced pool the segment reader already sees");
+assert.equal(spacedPoolTag.resolvedResult!.resolution, "successes");
+assert.equal(spacedPoolTag.resolvedResult!.dice, "6d10");
+assert.equal(
+  stripGmCommandTags(spacedPool),
+  `Skill check result: ${formatSkillCheckResultSummary(spacedPoolTag.resolvedResult!)}`,
+  "both server readers must produce the same check from the same spaced tag",
+);
 
 // Text with no check tag at all is returned untouched, without a chat read.
 const plain = await resolve("Nothing mechanical happens here.", []);
