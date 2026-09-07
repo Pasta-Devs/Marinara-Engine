@@ -8,17 +8,23 @@ export function useEditorSections<T extends string>(
   onSectionChange: (section: T) => void,
 ) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const navigationTargetRef = useRef<HTMLElement | null>(null);
 
-  const scrollToSection = useCallback((section: T, smooth = true) => {
-    const root = contentRef.current;
-    const target = root?.querySelector<HTMLElement>(`[data-editor-section="${section}"]`);
-    if (!root || !target) return;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    root.scrollTo({
-      top: root.scrollTop + target.getBoundingClientRect().top - root.getBoundingClientRect().top - 16,
-      behavior: smooth && !reducedMotion ? "smooth" : "auto",
-    });
-  }, []);
+  const scrollToSection = useCallback(
+    (section: T, smooth = true) => {
+      const root = contentRef.current;
+      const target = root?.querySelector<HTMLElement>(`[data-editor-section="${section}"]`);
+      if (!root || !target) return;
+      navigationTargetRef.current = target;
+      onSectionChange(section);
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      root.scrollTo({
+        top: root.scrollTop + target.getBoundingClientRect().top - root.getBoundingClientRect().top - 16,
+        behavior: smooth && !reducedMotion ? "smooth" : "auto",
+      });
+    },
+    [onSectionChange],
+  );
 
   useEffect(() => {
     const root = contentRef.current;
@@ -40,10 +46,29 @@ export function useEditorSections<T extends string>(
     scrollToSection(initialSection, false);
     sync();
     root.addEventListener("scroll", onScroll, { passive: true });
-    const observer = new ResizeObserver(onScroll);
+    // Deferred media sections can grow during a topbar jump. Keep its destination
+    // anchored until the user resumes scrolling or editing the form directly.
+    const releaseNavigation = () => {
+      navigationTargetRef.current = null;
+    };
+    const gestures = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+    for (const gesture of gestures) root.addEventListener(gesture, releaseNavigation, { passive: true });
+    const observer = new ResizeObserver(() => {
+      const target = navigationTargetRef.current;
+      if (target && root.contains(target)) {
+        root.scrollTo({
+          top: root.scrollTop + target.getBoundingClientRect().top - root.getBoundingClientRect().top - 16,
+          behavior: "instant",
+        });
+      }
+      onScroll();
+    });
     observer.observe(root);
+    if (root.firstElementChild) observer.observe(root.firstElementChild);
     return () => {
       root.removeEventListener("scroll", onScroll);
+      for (const gesture of gestures) root.removeEventListener(gesture, releaseNavigation);
+      releaseNavigation();
       observer.disconnect();
       cancelAnimationFrame(frame);
     };

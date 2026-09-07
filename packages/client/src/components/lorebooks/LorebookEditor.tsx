@@ -496,6 +496,7 @@ export function LorebookEditor() {
     () => (useUIStore.getState().lorebookDetailInitialTab as TabId | null) ?? "overview",
   );
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
+  const newlyCreatedEntryRef = useRef<string | null>(null);
   const { contentRef, scrollToSection } = useEditorSections(
     lorebookId,
     !isLoading,
@@ -513,6 +514,14 @@ export function LorebookEditor() {
   const [saving, setSaving] = useState(false);
 
   const [entrySearch, setEntrySearch] = useState("");
+  useEffect(() => {
+    const id = newlyCreatedEntryRef.current;
+    if (!id) return;
+    const row = contentRef.current?.querySelector<HTMLElement>(`[data-lorebook-entry-row-id="${CSS.escape(id)}"]`);
+    if (!row) return;
+    row.scrollIntoView({ block: "start" });
+    newlyCreatedEntryRef.current = null;
+  }, [entries, expandedEntryId, contentRef]);
   const [entrySort, setEntrySort] = useState<EntrySortKey>("order");
   // Keyword-test panel state. The panel is collapsed by default so it doesn't
   // crowd the editor for users who don't need it. We debounce the text input
@@ -1584,10 +1593,11 @@ export function LorebookEditor() {
     });
     if (result && typeof result === "object" && "id" in result) {
       // Auto-expand the new entry's drawer so the user can fill it in.
+      newlyCreatedEntryRef.current = (result as LorebookEntry).id;
+      setEntrySearch("");
       setExpandedEntryId((result as LorebookEntry).id);
-      scrollToSection("entries");
     }
-  }, [lorebookId, createEntry, scrollToSection]);
+  }, [lorebookId, createEntry]);
 
   const handleClose = useCallback(() => {
     if (saving) return;

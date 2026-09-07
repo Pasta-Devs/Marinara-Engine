@@ -81,9 +81,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
-- Editors now show their sections in one continuous form, track the section being read, and save unsaved character, persona, lorebook and preset fields before leaving; failed saves keep the editor open (#5916).
+- Editors now show their sections in one continuous form, track the section being read, and save unsaved character, persona, lorebook and preset fields before leaving; failed saves keep the editor open. Media/library sections load when approached, pending saves honor the latest navigation, and newly added lorebook entries scroll into view (#5916).
 - Background Library search and actions fit mobile screens, Default uses the accent color, and the selection marker no longer overlaps the drag handle. Settings mode options use the current rounded-square styling (#5916).
-- Hidden sidebar and Settings panels suspend their effects without discarding local state, mobile panel reopening no longer remounts every previously visited panel, and iOS library/sidebar overlays avoid live backdrop blur. Modals release their entry transform after opening to reduce retained compositing work; physical iPhone crash confirmation remains necessary (#5916).
+- Hidden sidebar and Settings panels suspend their effects without discarding local state, mobile panel reopening no longer remounts every previously visited panel, and iOS library/sidebar overlays avoid live backdrop blur while keeping covered text behind opaque themed surfaces. Modals release their entry transform after opening to reduce retained compositing work; physical iPhone crash confirmation remains necessary (#5916).
 
 - Restored Character Editor sections to the same desktop topbar row as the name, avatar, and actions. Editor section buttons adapt their size and spacing before falling back to the existing compact menu on narrow layouts (#5905).
 

@@ -213,10 +213,19 @@ test("UX sweep: Background library mobile toolbar, accent marker and settled mod
   expect(markerBox.x + markerBox.width).toBeGreaterThan(cardBox.x + cardBox.width);
   expect(markerBox.y).toBeLessThan(cardBox.y);
   await expect(library).toBeHidden();
+  await expect(page.getByRole("button", { name: "Clear selection", exact: true })).toHaveAttribute(
+    "class",
+    (await page.getByRole("button", { name: "Browse library", exact: true }).getAttribute("class"))!,
+  );
   await page.getByRole("button", { name: "Browse library", exact: true }).click();
+  await expect(library).toHaveCSS("opacity", "1");
   await page.screenshot({ path: testInfo.outputPath("background-library.png") });
   if (testInfo.project.name === "mobile-webkit") {
     await expect(library.locator(".mari-modal-backdrop")).toHaveCSS("backdrop-filter", "none");
+    await expect(library.locator(".mari-modal-panel")).toHaveCSS(
+      "background-color",
+      await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor),
+    );
   }
 });
 
@@ -328,13 +337,20 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
         Number(await agents.evaluate((el) => getComputedStyle(el).order)),
       );
       const header = section.locator('[role="button"][aria-expanded]').first();
+      await expect(header.locator("svg.lucide-image")).toBeVisible();
       if ((await header.getAttribute("aria-expanded")) !== "true") await header.click();
       await section.getByRole("button", { name: "Browse library", exact: true }).click();
       const library = page.getByRole("dialog", { name: "Background Library" });
+      if (mode === "game") await expect(library.locator("[data-background-default-toggle]")).toHaveCount(0);
+      else await expect(library.locator("[data-background-default-toggle]").first()).toBeVisible();
       const choice = library.locator('[data-background-id="user:ancient_library.jpg"]');
       await choice.getByRole("button", { name: /Use .* for this chat/ }).click();
       await expect(library).toBeHidden();
       await expect(section.locator('img[src*="ancient_library.jpg"]')).toBeVisible();
+      await expect(section.getByRole("button", { name: "Clear selection", exact: true })).toHaveAttribute(
+        "class",
+        (await section.getByRole("button", { name: "Browse library", exact: true }).getAttribute("class"))!,
+      );
       await expect
         .poll(async () => {
           const data = await (await request.get(`/api/chats/${chat.id}`)).json();
@@ -371,7 +387,8 @@ test("UX sweep: leaving a focused preset prompt flushes its pending autosave", a
     const editor = page.locator(".mari-editor-shell");
     await openSection(editor, "Sections");
     await editor.getByText("Prompt draft section", { exact: true }).click();
-    const prompt = editor.locator("textarea").filter({ visible: true }).getByText("Original prompt", { exact: true });
+    const prompt = editor.locator('[data-editor-section="sections"] textarea').filter({ visible: true });
+    await expect(prompt).toHaveValue("Original prompt");
     await prompt.fill("Prompt edited immediately before leaving");
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -432,5 +449,112 @@ test("UX sweep: pending editor saves cannot discard edits made during the reques
   } finally {
     release();
     await request.delete(`/api/prompts/${preset.id}`);
+  }
+});
+
+for (const spec of [
+  { kind: "Character", path: "/api/characters" },
+  { kind: "Persona", path: "/api/characters/personas" },
+]) {
+  test(`UX sweep: ${spec.kind} media sections load on approach and remain mounted`, async ({ page, request }) => {
+    const entity = (await (
+      await request.post(spec.path, {
+        data: spec.kind === "Character" ? { data: { name: "Deferred media" } } : { name: "Deferred media" },
+      })
+    ).json()) as { id: string };
+    let galleryRequests = 0;
+    page.on("request", (incoming) => {
+      if (new URL(incoming.url()).pathname === `${spec.path}/${entity.id}/gallery`) galleryRequests++;
+    });
+    try {
+      await page.goto("/");
+      await openEditor(page, spec.kind, entity.id);
+      const editor = page.locator(".mari-editor-shell");
+      const gallery = editor.locator('[data-editor-section="gallery"]');
+      await expect(gallery).toHaveAttribute("aria-busy", "true");
+      expect(galleryRequests).toBe(0);
+      await openSection(editor, "Gallery");
+      await expect(gallery).toHaveAttribute("aria-busy", "false");
+      await expect.poll(() => galleryRequests).toBeGreaterThan(0);
+      const firstControl = gallery.getByRole("button").first();
+      await firstControl.evaluate((element) => element.setAttribute("data-ux-retained", "true"));
+      const scroller = editor.locator(".mari-editor-content");
+      await scroller.evaluate(async (element) => {
+        element.dispatchEvent(new Event("wheel"));
+        element.scrollTop = 0;
+        (element.firstElementChild as HTMLElement).style.paddingBottom = "1px";
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      });
+      expect(await scroller.evaluate((element) => element.scrollTop)).toBe(0);
+      await expect(firstControl).toHaveAttribute("data-ux-retained", "true");
+    } finally {
+      await request.delete(`${spec.path}/${entity.id}`);
+    }
+  });
+}
+
+test("UX sweep: the latest navigation wins while the editor autosave is pending", async ({ page, request }) => {
+  const presets = await Promise.all(
+    ["Pending origin", "Latest destination"].map(
+      async (name) => (await (await request.post("/api/prompts", { data: { name } })).json()) as { id: string },
+    ),
+  );
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let saveStarted = false;
+  try {
+    await page.goto("/");
+    await openEditor(page, "Preset", presets[0]!.id);
+    await page.locator(".mari-editor-title-input").fill("Saved before navigation");
+    await page.route(`**/api/prompts/${presets[0]!.id}`, async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      saveStarted = true;
+      await gate;
+      await route.continue();
+    });
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().closeAllDetails();
+    });
+    await expect.poll(() => saveStarted).toBe(true);
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openPresetDetail(id);
+    }, presets[1]!.id);
+    release();
+    await expect(page.locator(".mari-editor-title-input")).toHaveValue("Latest destination");
+    expect((await (await request.get(`/api/prompts/${presets[0]!.id}`)).json()).name).toBe("Saved before navigation");
+  } finally {
+    release();
+    for (const preset of presets) await request.delete(`/api/prompts/${preset.id}`);
+  }
+});
+
+test("UX sweep: adding a lorebook entry reveals the new row in a long list", async ({ page, request }) => {
+  const book = (await (await request.post("/api/lorebooks", { data: { name: "Entry navigation" } })).json()) as {
+    id: string;
+  };
+  try {
+    await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        request.post(`/api/lorebooks/${book.id}/entries`, {
+          data: { name: `Existing ${index}`, content: "Existing content", order: index },
+        }),
+      ),
+    );
+    await page.goto("/");
+    await openEditor(page, "Lorebook", book.id);
+    const response = page.waitForResponse(
+      (r) => r.url().endsWith(`/api/lorebooks/${book.id}/entries`) && r.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Add Entry", exact: true }).click();
+    const entry = (await (await response).json()) as { id: string };
+    const row = page.locator(`[data-lorebook-entry-row-id="${entry.id}"]`);
+    await expect(row).toBeInViewport();
+    await expect(row.locator("textarea").first()).toBeVisible();
+  } finally {
+    await request.delete(`/api/lorebooks/${book.id}`);
   }
 });

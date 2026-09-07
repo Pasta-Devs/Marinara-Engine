@@ -116,6 +116,7 @@ import { Modal } from "../ui/Modal";
 import { EditorTabNavigation } from "../ui/EditorTabNavigation";
 import { useEditorSections } from "../../hooks/use-editor-sections";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
+import { LazyEditorSection } from "../ui/LazyEditorSection";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
@@ -2089,10 +2090,10 @@ export function PersonaEditor() {
                 updateField={updateField}
               />
             </section>
-            <section data-editor-section="lorebook">
+            <LazyEditorSection key={`lorebook:${personaId}`} id="lorebook">
               {personaId && <PersonaLorebookTab personaId={personaId} personaName={formData.name} />}
-            </section>
-            <section data-editor-section="sprites">
+            </LazyEditorSection>
+            <LazyEditorSection key={`sprites:${personaId}`} id="sprites">
               {personaId && (
                 <PersonaSpritesTab
                   personaId={personaId}
@@ -2105,8 +2106,8 @@ export function PersonaEditor() {
                   onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
                 />
               )}
-            </section>
-            <section data-editor-section="gallery">
+            </LazyEditorSection>
+            <LazyEditorSection key={`gallery:${personaId}`} id="gallery">
               {personaId && (
                 <PersonaGalleryTab
                   personaId={personaId}
@@ -2117,7 +2118,7 @@ export function PersonaEditor() {
                   onSetAvatar={handleSetGalleryAvatar}
                 />
               )}
-            </section>
+            </LazyEditorSection>
             <section data-editor-section="colors">
               <PersonaColorsTab formData={formData} updateField={updateField} avatarUrl={avatarPreview} />
             </section>

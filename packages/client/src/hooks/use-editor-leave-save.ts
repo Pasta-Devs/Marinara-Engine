@@ -14,9 +14,11 @@ export function useEditorLeaveSave(key: string, dirty: boolean, save: () => Prom
   useLayoutEffect(() => {
     let pending = false;
     let active = true;
+    let latestNavigation: (() => void) | null = null;
     const unregister = registerEditorLeaveHandler({
       key,
       request: (proceed) => {
+        latestNavigation = proceed;
         if (pending) return true;
         // Keyboard/back navigation does not necessarily blur first. Let the
         // existing field-level autosavers commit before their editor unmounts.
@@ -34,7 +36,7 @@ export function useEditorLeaveSave(key: string, dirty: boolean, save: () => Prom
         void current
           .save()
           .then((saved) => {
-            if (active && saved !== false) proceed();
+            if (active && saved !== false) latestNavigation?.();
           })
           .catch(() => toast.error(current.t("editor.autosave.failed")))
           .finally(() => {

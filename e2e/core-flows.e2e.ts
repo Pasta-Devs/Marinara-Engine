@@ -3435,7 +3435,7 @@ test("Character favorite tags and stars inherit the configured accent color", as
     await expect(favoriteToggle).toHaveAttribute("data-favorite", "true");
     await expect(favoriteToggle).toHaveCSS("color", accentColor);
     expect(await favoriteToggle.getAttribute("class")).not.toMatch(/amber|yellow/iu);
-    await editor.getByTitle("Back").click();
+    await editor.getByTitle("Back", { exact: true }).click();
 
     await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
@@ -4582,7 +4582,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
     await openEditorSection(editor, "Metadata");
-    await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).toHaveCount(0);
+    await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).not.toBeInViewport();
     await expect(
       editor
         .getByRole("navigation", { name: "Editor sections" })
@@ -4594,7 +4594,10 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(editor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
     await expect(editor.getByText(/Character sheet reference is active/u)).toBeVisible();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
-    await editor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await editor
+      .locator('[data-editor-section="sprites"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     const sheetDialog = page.getByRole("dialog", { name: "Create Character Sheet" });
     await expect(sheetDialog).toBeVisible();
     await expect(sheetDialog.getByText("Character Sheet Prompt", { exact: true })).toBeVisible();
@@ -4617,7 +4620,10 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(editor.getByRole("button", { name: "Delete selected" })).toBeVisible();
     await expect(editor.getByRole("button", { name: "Set as avatar" })).toHaveCount(0);
     await editor.getByRole("button", { name: "Cancel selection", exact: true }).click();
-    await editor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await editor
+      .locator('[data-editor-section="gallery"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     await expect(sheetDialog).toBeVisible();
     await expect(sheetDialog.getByText("Character Sheet Prompt", { exact: true })).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -4634,12 +4640,15 @@ test("Character and persona sheets persist an explicit reference choice and fall
       .click({ position: { x: 2, y: 2 } });
     const personaEditor = page.locator(".mari-editor-shell");
     await expect(personaEditor).toBeVisible();
-    await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toHaveCount(0);
+    await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).not.toBeInViewport();
     await openEditorSection(personaEditor, "Sprites");
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(personaEditor.getByAltText(`${personaName} character sheet`)).toBeVisible();
     await expect(personaEditor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
-    await personaEditor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await personaEditor
+      .locator('[data-editor-section="sprites"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     await expect(sheetDialog).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await openEditorSection(personaEditor, "Gallery");
@@ -4651,7 +4660,10 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(personaEditor.getByRole("button", { name: "Delete selected" })).toBeVisible();
     await expect(personaEditor.getByRole("button", { name: "Set as avatar" })).toHaveCount(0);
     await personaEditor.getByRole("button", { name: "Cancel selection", exact: true }).click();
-    await personaEditor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await personaEditor
+      .locator('[data-editor-section="gallery"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     await expect(sheetDialog).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
@@ -18350,7 +18362,7 @@ test("Home Community and clock widgets are useful, timezone-aware, and optional"
 
   await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
-  await expect(widgetManager.getByRole("switch")).toHaveCount(9);
+  await expect(widgetManager.getByRole("switch")).toHaveCount(10);
   for (const label of [
     "Your guide — Professor Mari",
     "Continue chatting — Recent chats",
@@ -18902,7 +18914,7 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
   await expect(widgetManager).toBeVisible();
-  await expect(widgetManager.getByRole("switch")).toHaveCount(9);
+  await expect(widgetManager.getByRole("switch")).toHaveCount(10);
   await activateControl(widgetManager.getByRole("switch", { name: "Hide Your shelf — Achievements" }), testInfo);
   await expect(page.locator('[data-home-widget-id="achievements"]')).toHaveCount(0);
   await expect

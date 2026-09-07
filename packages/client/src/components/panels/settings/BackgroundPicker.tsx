@@ -78,6 +78,7 @@ type BackgroundPickerProps = {
   selected: string | null;
   sceneBackgroundTag?: string | null;
   chatFloatingPanel?: boolean;
+  showRoleplayDefault?: boolean;
   onSelect: (url: string | null) => void;
   defaultRoleplayBackground: string;
   onDefaultChange: (url: string) => void;
@@ -219,6 +220,7 @@ export function ActiveChatBackgroundPicker({ game = false }: { game?: boolean })
   return (
     <BackgroundPicker
       chatFloatingPanel
+      showRoleplayDefault={!game}
       selected={selected}
       sceneBackgroundTag={sceneBackgroundTag}
       onSelect={onSelect}
@@ -231,6 +233,7 @@ export function ActiveChatBackgroundPicker({ game = false }: { game?: boolean })
 export function BackgroundPicker({
   selected,
   chatFloatingPanel = false,
+  showRoleplayDefault = true,
   sceneBackgroundTag,
   onSelect,
   defaultRoleplayBackground,
@@ -764,7 +767,7 @@ export function BackgroundPicker({
                   : "ui.panels.backgroundpicker.myUpload",
               )}
             </span>
-            {isDefaultRoleplay && (
+            {showRoleplayDefault && isDefaultRoleplay && (
               <span
                 data-background-default-indicator
                 className="absolute bottom-2 right-2 hidden rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5rem] font-medium text-[var(--primary)] md:block md:group-hover:opacity-0"
@@ -887,35 +890,37 @@ export function BackgroundPicker({
                 </button>
               </>
             )}
-            <button
-              type="button"
-              data-background-default-toggle
-              onClick={() => {
-                cancelPendingClose();
-                onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url);
-              }}
-              className={cn(
-                CARD_ACTION_CLASS,
-                isFloatingActions && FLOATING_CARD_ACTION_CLASS,
-                "w-auto px-2 text-[0.5625rem] font-medium md:px-1.5 md:text-[0.5rem]",
-                isDefaultRoleplay && "bg-[var(--primary)]/12 !text-[var(--primary)]",
-              )}
-              title={
-                isDefaultRoleplay
-                  ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
-                  : localizeUi("ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats")
-              }
-              aria-label={
-                isDefaultRoleplay
-                  ? localizeUi("ui.panels.backgroundpicker.value1IsTheDefaultRoleplayBackground", { value1: title })
-                  : localizeUi("ui.panels.backgroundpicker.setValue1AsTheDefaultRoleplayBackground", {
-                      value1: title,
-                    })
-              }
-              aria-pressed={isDefaultRoleplay}
-            >
-              {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
-            </button>
+            {showRoleplayDefault && (
+              <button
+                type="button"
+                data-background-default-toggle
+                onClick={() => {
+                  cancelPendingClose();
+                  onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url);
+                }}
+                className={cn(
+                  CARD_ACTION_CLASS,
+                  isFloatingActions && FLOATING_CARD_ACTION_CLASS,
+                  "w-auto px-2 text-[0.5625rem] font-medium md:px-1.5 md:text-[0.5rem]",
+                  isDefaultRoleplay && "bg-[var(--primary)]/12 !text-[var(--primary)]",
+                )}
+                title={
+                  isDefaultRoleplay
+                    ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
+                    : localizeUi("ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats")
+                }
+                aria-label={
+                  isDefaultRoleplay
+                    ? localizeUi("ui.panels.backgroundpicker.value1IsTheDefaultRoleplayBackground", { value1: title })
+                    : localizeUi("ui.panels.backgroundpicker.setValue1AsTheDefaultRoleplayBackground", {
+                        value1: title,
+                      })
+                }
+                aria-pressed={isDefaultRoleplay}
+              >
+                {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
+              </button>
+            )}
             {background.deletable !== false && isEditable && (
               <button
                 type="button"
@@ -1315,19 +1320,21 @@ export function BackgroundPicker({
               {visibleBackgrounds.length} {localizeUi("ui.noodle.noodlehome.of")} {backgrounds.length}{" "}
               {localizeUi("ui.panels.backgroundpicker.backgrounds")}
             </span>
-            <button
-              type="button"
-              onClick={() => onDefaultChange(DEFAULT_ROLEPLAY_BACKGROUND_URL)}
-              className={cn(
-                "inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL && "invisible pointer-events-none",
-              )}
-              aria-hidden={defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL}
-              tabIndex={defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL ? -1 : 0}
-            >
-              <Star size="0.625rem" />
-              {localizeUi("ui.panels.backgroundpicker.resetRoleplayDefault")}
-            </button>
+            {showRoleplayDefault && (
+              <button
+                type="button"
+                onClick={() => onDefaultChange(DEFAULT_ROLEPLAY_BACKGROUND_URL)}
+                className={cn(
+                  "inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                  defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL && "invisible pointer-events-none",
+                )}
+                aria-hidden={defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL}
+                tabIndex={defaultRoleplayBackground === DEFAULT_ROLEPLAY_BACKGROUND_URL ? -1 : 0}
+              >
+                <Star size="0.625rem" />
+                {localizeUi("ui.panels.backgroundpicker.resetRoleplayDefault")}
+              </button>
+            )}
           </div>
 
           {visibleBackgrounds.length > 0 && (
