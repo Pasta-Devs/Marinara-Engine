@@ -15,6 +15,7 @@ test.beforeEach(async ({ page }) => {
       JSON.stringify({
         state: {
           hasCompletedOnboarding: true,
+          professorMariNavigationEnabled: false,
           sidebarOpen: false,
           rightPanelOpen: false,
           chatHelpSeenModes: ["conversation", "roleplay", "game"],
