@@ -20,6 +20,7 @@ test.beforeEach(async ({ page }) => {
             rightPanelOpen: false,
             chatHelpSeenModes: ["conversation", "roleplay", "game"],
             appAccentColor: "#16a6b6",
+            professorMariNavigationEnabled: false,
           },
         }),
       );
@@ -229,14 +230,27 @@ test("UX sweep: Background library mobile toolbar, accent marker and settled mod
   }
 });
 
-test("UX sweep: Character Library widget is opt-in, persistent and uses the shared cards and chat launcher", async ({
+test("UX sweep: home library cards fit equally and widgets open their destinations without hijacking drag handles", async ({
   page,
   request,
 }, testInfo) => {
-  const created = await request.post("/api/characters", {
-    data: { data: { name: "Daily library fixture", description: "Ready for a conversation." } },
-  });
-  const character = (await created.json()) as { id: string };
+  const characters = await Promise.all(
+    ["Daily library fixture", "A character with a much longer name", "Short", "Another daily character"].map(
+      async (name, index) =>
+        (await (
+          await request.post("/api/characters", {
+            data: {
+              data: {
+                name,
+                description: "Ready for a conversation. ".repeat(index * 10 + 1),
+                creator: index ? "A creator with a long display name" : "",
+                tags: ["Long character tag", "Another tag"],
+              },
+            },
+          })
+        ).json()) as { id: string },
+    ),
+  );
   try {
     await page.goto("/");
     await expect(page.locator('[data-home-widget-id="character-library"]')).toHaveCount(0);
@@ -249,16 +263,41 @@ test("UX sweep: Character Library widget is opt-in, persistent and uses the shar
     await expect(page.getByRole("dialog", { name: "Home Widgets" })).toBeHidden();
     const widget = page.locator('[data-home-widget-id="character-library"]');
     await expect(widget).toBeVisible();
-    await expect(widget.locator("[data-card-library-card]").first()).toBeVisible();
+    await expect(widget.locator("[data-card-library-card]")).toHaveCount(4);
+    await expect(widget.getByRole("button", { name: /Browse full library|Chat with/ })).toHaveCount(0);
     await expect(widget.locator(".mari-home-widget__drag-handle")).toBeVisible();
     const initialOrder = await widget.getAttribute("style");
     await widget.locator(".mari-home-widget__drag-handle").press("ArrowLeft");
     await expect(widget).not.toHaveAttribute("style", initialOrder!);
     await widget.locator(".mari-home-widget__drag-handle").press("ArrowRight");
+    await widget.locator(".mari-home-widget__drag-handle").click();
+    await expect(page.locator('[data-component="CharacterLibraryView"]')).toHaveCount(0);
     await widget.scrollIntoViewIfNeeded();
     const recent = page.locator('[data-home-widget-id="recent"]');
     expect(Math.abs((await widget.boundingBox())!.height - (await recent.boundingBox())!.height)).toBeLessThan(2);
     expect(Math.abs((await widget.boundingBox())!.width - (await recent.boundingBox())!.width)).toBeLessThan(2);
+    const layout = await widget.locator("[data-home-library-grid]").evaluate((grid) => {
+      const bounds = grid.getBoundingClientRect();
+      return {
+        overflow: grid.scrollHeight - grid.clientHeight,
+        cards: Array.from(grid.querySelectorAll("[data-card-library-card]"), (card) => {
+          const box = card.getBoundingClientRect();
+          return {
+            width: box.width,
+            height: box.height,
+            fits: box.bottom <= bounds.bottom + 1 && box.right <= bounds.right + 1,
+          };
+        }),
+      };
+    });
+    expect(layout.overflow).toBeLessThanOrEqual(1);
+    expect(layout.cards.every((card) => card.fits)).toBe(true);
+    expect(
+      Math.max(...layout.cards.map((card) => card.height)) - Math.min(...layout.cards.map((card) => card.height)),
+    ).toBeLessThan(1);
+    expect(
+      Math.max(...layout.cards.map((card) => card.width)) - Math.min(...layout.cards.map((card) => card.width)),
+    ).toBeLessThan(1);
     await page.screenshot({ path: testInfo.outputPath("character-library-widget.png") });
     const ids = await widget
       .locator("[data-home-library-character]")
@@ -272,15 +311,74 @@ test("UX sweep: Character Library widget is opt-in, persistent and uses the shar
           .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-home-library-character"))),
       )
       .toEqual(ids);
-    await widget
-      .getByRole("button", { name: /Chat with/ })
-      .first()
-      .click();
+    const selectedId = ids[0]!;
+    // Keep the selected character out of the first library page to prove a
+    // shortcut reaches it without downloading every intervening page.
+    await page.route("**/api/characters/catalog?**", async (route) => {
+      if (!new URL(route.request().url()).searchParams.has("sort")) return route.continue();
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({
+        response,
+        json: { ...data, items: data.items.filter((card: { id: string }) => card.id !== selectedId), hasMore: true },
+      });
+    });
+    await widget.locator(`[data-card-library-card="${selectedId}"]`).click();
+    const library = page.locator('[data-component="CharacterLibraryView"]');
+    await expect(library).toBeVisible();
+    await expect(library.locator(`[data-card-library-card="${selectedId}"]`)).toBeInViewport();
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          return useUIStore.getState().characterLibrarySelectedId;
+        }),
+      )
+      .toBe(selectedId);
     await expect(
-      page.getByRole("dialog", { name: "Choose a chat mode" }).getByRole("button", { name: /^Roleplay / }),
+      library.getByRole("button", { name: "Chat Now", exact: true }).filter({ visible: true }),
     ).toBeVisible();
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().closeCharacterLibrary();
+    });
+    await expect(widget).toBeVisible();
+    await widget.scrollIntoViewIfNeeded();
+    const heading = (await widget.getByRole("heading", { name: "Today's characters" }).boundingBox())!;
+    if (testInfo.project.name.includes("mobile")) await page.touchscreen.tap(heading.x + 5, heading.y + 5);
+    else await page.mouse.click(heading.x + 5, heading.y + 5);
+    await expect(library).toBeVisible();
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().closeCharacterLibrary();
+    });
+    await recent.scrollIntoViewIfNeeded();
+    const recentHeading = (await recent.getByRole("heading", { name: "Recent chats", exact: true }).boundingBox())!;
+    if (testInfo.project.name.includes("mobile")) await page.touchscreen.tap(recentHeading.x + 5, recentHeading.y + 5);
+    else await page.mouse.click(recentHeading.x + 5, recentHeading.y + 5);
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          return useUIStore.getState().sidebarOpen;
+        }),
+      )
+      .toBe(true);
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setSidebarOpen(false);
+    });
+    await recent.getByRole("button", { name: "Open Chats tab", exact: true }).press("Enter");
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          return useUIStore.getState().sidebarOpen;
+        }),
+      )
+      .toBe(true);
   } finally {
-    await request.delete(`/api/characters/${character.id}`);
+    for (const character of characters) await request.delete(`/api/characters/${character.id}`);
   }
 });
 
@@ -374,72 +472,95 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
   });
 }
 
-test("UX sweep: background picks and clear persist in selection order", async ({ page, request }) => {
-  const chat = (await (
-    await request.post("/api/chats", { data: { name: "Background save order", mode: "roleplay", characterIds: [] } })
-  ).json()) as { id: string };
-  await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "assistant", content: "A quiet afternoon." } });
-  await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const requests: unknown[] = [];
-  try {
-    await page.goto("/");
-    await expect(page.getByText("A quiet afternoon.", { exact: true })).toBeVisible();
-    await page.route(`**/api/chats/${chat.id}/metadata`, async (route) => {
-      if (route.request().method() !== "PATCH") return route.continue();
-      const data = route.request().postDataJSON();
-      if (!Object.hasOwn(data, "background")) return route.continue();
-      requests.push(data.background);
-      if (requests.length === 1) await gate;
-      await route.continue();
+for (const failed of [false, true]) {
+  test(`UX sweep: background picks and clear ${failed ? "reconcile failed saves" : "persist in selection order"}`, async ({
+    page,
+    request,
+  }) => {
+    const chat = (await (
+      await request.post("/api/chats", { data: { name: "Background save order", mode: "roleplay", characterIds: [] } })
+    ).json()) as { id: string };
+    await request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "assistant", content: "A quiet afternoon." },
     });
-    for (const background of ["ancient_library.jpg", "dark_forest.jpg", null]) {
-      await page.evaluate(async (name) => {
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const requests: unknown[] = [];
+    try {
+      await page.goto("/");
+      await expect(page.getByText("A quiet afternoon.", { exact: true })).toBeVisible();
+      const previous = (await (await request.get(`/api/chats/${chat.id}`)).json()).metadata;
+      const previousBackground = (typeof previous === "string" ? JSON.parse(previous) : previous).background;
+      await page.route(`**/api/chats/${chat.id}/metadata`, async (route) => {
+        if (route.request().method() !== "PATCH") return route.continue();
+        const data = route.request().postDataJSON();
+        if (!Object.hasOwn(data, "background")) return route.continue();
+        requests.push(data.background);
+        if (requests.length === 1) await gate;
+        if (failed) return route.fulfill({ status: 500, json: { error: "Synthetic background save failure" } });
+        await route.continue();
+      });
+      for (const background of ["ancient_library.jpg", "dark_forest.jpg", null]) {
+        await page.evaluate(async (name) => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          useUIStore.getState().setChatBackground(name ? `/api/backgrounds/file/${name}` : null);
+        }, background);
+        await expect
+          .poll(() =>
+            page.evaluate(async () => {
+              const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+              const metadata = useChatStore.getState().activeChat?.metadata;
+              return (typeof metadata === "string" ? JSON.parse(metadata) : metadata)?.background;
+            }),
+          )
+          .toBe(background);
+      }
+      // The older request is held before reaching the server. Newer choices must
+      // remain queued even though their optimistic UI updates are already visible.
+      expect(requests).toEqual(["ancient_library.jpg"]);
+      const cleared = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/api/chats/${chat.id}/metadata`) &&
+          response.request().method() === "PATCH" &&
+          response.request().postDataJSON().background === null &&
+          (failed ? response.status() === 500 : response.ok()),
+      );
+      release();
+      await cleared;
+      expect(requests).toEqual(["ancient_library.jpg", "dark_forest.jpg", null]);
+      const saved = (await (await request.get(`/api/chats/${chat.id}`)).json()).metadata;
+      expect((typeof saved === "string" ? JSON.parse(saved) : saved).background).toBe(
+        failed ? previousBackground : null,
+      );
+      if (failed) {
+        await expect
+          .poll(() =>
+            page.evaluate(async () => {
+              const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+              const metadata = useChatStore.getState().activeChat?.metadata;
+              return (typeof metadata === "string" ? JSON.parse(metadata) : metadata)?.background;
+            }),
+          )
+          .toBe(previousBackground);
+      }
+      await page.reload();
+      await expect(page.getByText("A quiet afternoon.", { exact: true })).toBeVisible();
+      const restored = await page.evaluate(async () => {
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-        useUIStore.getState().setChatBackground(name ? `/api/backgrounds/file/${name}` : null);
-      }, background);
-      await expect
-        .poll(() =>
-          page.evaluate(async () => {
-            const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
-            const metadata = useChatStore.getState().activeChat?.metadata;
-            return (typeof metadata === "string" ? JSON.parse(metadata) : metadata)?.background;
-          }),
-        )
-        .toBe(background);
+        const { chatBackground, defaultRoleplayBackground } = useUIStore.getState();
+        return { chatBackground, defaultRoleplayBackground };
+      });
+      expect(restored.chatBackground).toBe(restored.defaultRoleplayBackground);
+    } finally {
+      release();
+      await page.unrouteAll({ behavior: "wait" });
+      await request.delete(`/api/chats/${chat.id}`);
     }
-    // The older request is held before reaching the server. Newer choices must
-    // remain queued even though their optimistic UI updates are already visible.
-    expect(requests).toEqual(["ancient_library.jpg"]);
-    const cleared = page.waitForResponse(
-      (response) =>
-        response.url().endsWith(`/api/chats/${chat.id}/metadata`) &&
-        response.request().method() === "PATCH" &&
-        response.request().postDataJSON().background === null &&
-        response.ok(),
-    );
-    release();
-    await cleared;
-    expect(requests).toEqual(["ancient_library.jpg", "dark_forest.jpg", null]);
-    const saved = (await (await request.get(`/api/chats/${chat.id}`)).json()).metadata;
-    expect((typeof saved === "string" ? JSON.parse(saved) : saved).background).toBeNull();
-    await page.reload();
-    await expect(page.getByText("A quiet afternoon.", { exact: true })).toBeVisible();
-    const restored = await page.evaluate(async () => {
-      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-      const { chatBackground, defaultRoleplayBackground } = useUIStore.getState();
-      return { chatBackground, defaultRoleplayBackground };
-    });
-    expect(restored.chatBackground).toBe(restored.defaultRoleplayBackground);
-  } finally {
-    release();
-    await page.unrouteAll({ behavior: "wait" });
-    await request.delete(`/api/chats/${chat.id}`);
-  }
-});
+  });
+}
 
 test("UX sweep: leaving a focused preset prompt flushes its pending autosave", async ({ page, request }) => {
   const preset = (await (await request.post("/api/prompts", { data: { name: "Prompt draft" } })).json()) as {

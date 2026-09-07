@@ -652,6 +652,8 @@ interface UIState {
   agentCatalogInitialPackageId: string | null;
   /** Last selected character card inside the full-page character library */
   characterLibrarySelectedId: string | null;
+  /** Optional card to reveal when opening from a library shortcut; not persisted. */
+  characterLibraryInitialId: string | null;
   /** Last selected persona card inside the full-page card library */
   personaLibrarySelectedId: string | null;
   /** Last selected sort order for character lists and the full-page character library */
@@ -1054,7 +1056,7 @@ interface UIState {
   openSpatialMapDraftReview: (review: PendingSpatialMapDraftReview) => void;
   clearPendingSpatialMapDraftReview: () => void;
   closeSpatialMapDetail: () => void;
-  openCharacterLibrary: () => void;
+  openCharacterLibrary: (characterId?: string) => void;
   openPersonaLibrary: () => void;
   closeCharacterLibrary: () => void;
   openAgentCatalog: (packageId?: string) => void;
@@ -1500,6 +1502,7 @@ export const useUIStore = create<UIState>()(
         agentCatalogOpen: false,
         agentCatalogInitialPackageId: null,
         characterLibrarySelectedId: null,
+        characterLibraryInitialId: null,
         personaLibrarySelectedId: null,
         characterLibrarySort: "name-asc" as CharacterLibrarySort,
         personaLibrarySort: "name-asc" as ResourcePanelSort,
@@ -2087,9 +2090,11 @@ export const useUIStore = create<UIState>()(
             editorDirty: false,
             ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
           })),
-        openCharacterLibrary: () =>
+        openCharacterLibrary: (characterId) =>
           set((state) => ({
             characterLibraryOpen: true,
+            characterLibraryInitialId: characterId ?? null,
+            characterLibrarySelectedId: characterId ?? state.characterLibrarySelectedId,
             cardLibraryKind: "characters",
             agentCatalogOpen: false,
             characterDetailId: null,
@@ -2131,7 +2136,7 @@ export const useUIStore = create<UIState>()(
             detailReturnRightPanel: null,
             rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
           })),
-        closeCharacterLibrary: () => set({ characterLibraryOpen: false }),
+        closeCharacterLibrary: () => set({ characterLibraryOpen: false, characterLibraryInitialId: null }),
         openAgentCatalog: (packageId) =>
           set((state) => ({
             agentCatalogOpen: true,

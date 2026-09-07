@@ -42,7 +42,7 @@ export function CardLibraryPreview({
       onClick={onClick}
       className={cn(
         "group flex w-full items-stretch overflow-hidden rounded-[1.25rem] border bg-[var(--card)]/70 text-left shadow-[0_20px_50px_-32px_rgba(15,23,42,0.75)] transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:shadow-[0_24px_60px_-32px_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_35%,transparent)]",
-        !compact && "sm:flex-col sm:rounded-[1.75rem] sm:hover:-translate-y-0.5",
+        compact ? "min-h-0 flex-1" : "sm:flex-col sm:rounded-[1.75rem] sm:hover:-translate-y-0.5",
         isSelected
           ? "border-[var(--marinara-chat-chrome-button-border-active)] ring-1 ring-[var(--marinara-chat-chrome-focus-ring)]"
           : "border-[var(--marinara-chat-chrome-panel-border)]",
@@ -51,9 +51,11 @@ export function CardLibraryPreview({
       <div
         data-card-library-avatar
         className={cn(
-          "mari-avatar-placeholder relative min-h-24 w-24 shrink-0 self-stretch overflow-hidden",
+          "mari-avatar-placeholder relative shrink-0 self-stretch overflow-hidden",
           placeholderClass,
-          !compact && "sm:h-auto sm:min-h-0 sm:w-full sm:self-auto sm:aspect-square",
+          compact
+            ? "min-h-0 w-[28%] max-w-20"
+            : "min-h-24 w-24 sm:h-auto sm:min-h-0 sm:w-full sm:self-auto sm:aspect-square",
         )}
       >
         {card.avatarPath ? (
@@ -72,10 +74,14 @@ export function CardLibraryPreview({
         {card.favorite && (
           <div
             data-character-favorite-indicator="card"
-            className="mari-chrome-accent-surface mari-accent-animated mari-chrome-tag absolute right-2 top-2 inline-flex items-center gap-1 px-2 py-1 text-[0.5625rem] font-medium backdrop-blur-sm sm:right-3 sm:top-3 sm:text-[0.625rem]"
+            className={cn(
+              "mari-chrome-accent-surface mari-accent-animated mari-chrome-tag absolute inline-flex items-center gap-1 py-1 text-[0.5625rem] font-medium backdrop-blur-sm",
+              compact ? "right-1 top-1 px-1" : "right-2 top-2 px-2 sm:right-3 sm:top-3 sm:text-[0.625rem]",
+            )}
+            title={localizeUi("ui.characters.cardlibrarydetailcard.favorite")}
           >
             <Star size="0.625rem" className="fill-current sm:h-[0.6875rem] sm:w-[0.6875rem]" />{" "}
-            {localizeUi("ui.characters.cardlibrarydetailcard.favorite")}
+            {!compact && localizeUi("ui.characters.cardlibrarydetailcard.favorite")}
           </div>
         )}
         {card.active && (
@@ -85,9 +91,14 @@ export function CardLibraryPreview({
         )}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-2 p-3 sm:gap-3 sm:p-4">
+      <div className={cn("flex min-w-0 flex-1 flex-col", compact ? "gap-1 p-2" : "gap-2 p-3 sm:gap-3 sm:p-4")}>
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)] sm:text-base">
+          <div
+            className={cn(
+              "truncate font-semibold text-[var(--marinara-chat-chrome-panel-title)]",
+              compact ? "text-xs" : "text-sm sm:text-base",
+            )}
+          >
             {card.name}
           </div>
           {card.title && (
@@ -101,33 +112,40 @@ export function CardLibraryPreview({
             </div>
           )}
         </div>
-        <p className="line-clamp-3 text-[0.6875rem] leading-4 text-[var(--marinara-chat-chrome-panel-muted)] sm:line-clamp-4 sm:text-xs sm:leading-5">
+        <p
+          className={cn(
+            "text-[0.6875rem] leading-4 text-[var(--marinara-chat-chrome-panel-muted)]",
+            compact ? "line-clamp-2" : "line-clamp-3 sm:line-clamp-4 sm:text-xs sm:leading-5",
+          )}
+        >
           {card.summary.length > 180 ? card.summary.slice(0, 177).trimEnd() + "..." : card.summary}
         </p>
-        <div className="mt-auto flex flex-wrap gap-1 sm:gap-1.5">
-          <span
-            className="mari-chrome-muted-badge gap-1 px-1.5 py-0.5 text-[0.5625rem] sm:px-2 sm:py-1 sm:text-[0.625rem]"
-            title={localizeUi(
-              "ui.characters.cardlibrarydetailcard.estimatedFromValue1CardTextFieldsActualTokenizerCounts",
-              { value1: kind === "personas" ? "persona" : "character" },
-            )}
-          >
-            <Hash size="0.5625rem" /> {formatEstimatedTokens(card.tokenEstimate)}
-          </span>
-          {card.tags.slice(0, 2).map((tag) => (
+        {!compact && (
+          <div className="mt-auto flex flex-wrap gap-1 sm:gap-1.5">
             <span
-              key={tag}
-              className="mari-chrome-tag bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--marinara-chat-chrome-panel-text)] sm:px-2 sm:py-1 sm:text-[0.625rem]"
+              className="mari-chrome-muted-badge gap-1 px-1.5 py-0.5 text-[0.5625rem] sm:px-2 sm:py-1 sm:text-[0.625rem]"
+              title={localizeUi(
+                "ui.characters.cardlibrarydetailcard.estimatedFromValue1CardTextFieldsActualTokenizerCounts",
+                { value1: kind === "personas" ? "persona" : "character" },
+              )}
             >
-              {tag}
+              <Hash size="0.5625rem" /> {formatEstimatedTokens(card.tokenEstimate)}
             </span>
-          ))}
-          {card.tags.length > 2 && (
-            <span className="mari-chrome-tag bg-[var(--marinara-chat-chrome-button-bg)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--marinara-chat-chrome-panel-muted)] sm:px-2 sm:py-1 sm:text-[0.625rem]">
-              +{card.tags.length - 2}
-            </span>
-          )}
-        </div>
+            {card.tags.slice(0, 2).map((tag) => (
+              <span
+                key={tag}
+                className="mari-chrome-tag bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--marinara-chat-chrome-panel-text)] sm:px-2 sm:py-1 sm:text-[0.625rem]"
+              >
+                {tag}
+              </span>
+            ))}
+            {card.tags.length > 2 && (
+              <span className="mari-chrome-tag bg-[var(--marinara-chat-chrome-button-bg)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--marinara-chat-chrome-panel-muted)] sm:px-2 sm:py-1 sm:text-[0.625rem]">
+                +{card.tags.length - 2}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </button>
   );

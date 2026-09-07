@@ -20,7 +20,7 @@ import { useUIStore } from "../stores/ui.store";
 import { clearBrowserRuntimeCaches } from "../lib/browser-runtime";
 import { shouldRefetchMessagesOnReconnect } from "../lib/message-page-cache";
 import { normalizeHydratedMessage } from "../lib/message-hydration";
-import { trackChatMetadataSave } from "../lib/chat-metadata-save-barrier";
+import { trackChatMetadataSave, waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
 import { isMessageHidden } from "../lib/message-visibility";
 import { copyLocalSpriteVisualSettings } from "../components/chat/local-sprite-visual-settings";
 import { lorebookKeys } from "./use-lorebooks";
@@ -920,6 +920,13 @@ export function useUpdateChatMetadata() {
           ),
           updatedAt: context.previous.updatedAt,
         });
+      }
+      if (Object.hasOwn(variables, "background")) {
+        // A later failed save may have captured an earlier optimistic value.
+        // Reconcile with storage after all queued choices have settled.
+        void waitForPendingChatMetadataSaves(variables.id).then(() =>
+          qc.invalidateQueries({ queryKey: chatKeys.detail(variables.id) }),
+        );
       }
     },
     onSuccess: (data, vars, context) => {

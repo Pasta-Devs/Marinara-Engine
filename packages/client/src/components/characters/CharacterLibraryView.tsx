@@ -30,6 +30,7 @@ import {
   flattenCharacterPages,
   flattenPersonaPages,
   useCharacterPages,
+  useCharacter,
   usePersonaPages,
 } from "../../hooks/use-characters";
 import { getCharacterTitle } from "../../lib/character-display";
@@ -57,7 +58,7 @@ const libraryToolbarFieldClass = "mari-chrome-field h-10 w-full text-[0.75rem] m
 
 type CharacterRow = CharacterCatalogEntry;
 
-type ParsedCharacterRow = CharacterRow & {
+type ParsedCharacterRow = Pick<CharacterRow, "id" | "comment" | "avatarPath" | "createdAt" | "updatedAt"> & {
   parsed: Partial<CharacterData> & {
     extensions?: Record<string, unknown>;
   };
@@ -385,6 +386,9 @@ export function CharacterLibraryView() {
   const openPersonaDetail = useUIStore((s) => s.openPersonaDetail);
   const openModal = useUIStore((s) => s.openModal);
   const characterSelectedId = useUIStore((s) => s.characterLibrarySelectedId);
+  const initialCharacterId = useUIStore((s) => s.characterLibraryInitialId);
+  const initialCharacter = useCharacter(isPersonaLibrary ? null : initialCharacterId);
+  const initialScrollHandled = useRef(false);
   const personaSelectedId = useUIStore((s) => s.personaLibrarySelectedId);
   const setCharacterSelectedId = useUIStore((s) => s.setCharacterLibrarySelectedId);
   const setPersonaSelectedId = useUIStore((s) => s.setPersonaLibrarySelectedId);
@@ -404,7 +408,7 @@ export function CharacterLibraryView() {
   const personaPages = usePersonaPages({ enabled: isPersonaLibrary, search: serverSearch, sort: personaSort });
   const characters = useMemo(() => flattenCharacterPages(characterPages.data), [characterPages.data]);
   const personas = useMemo(() => flattenPersonaPages(personaPages.data), [personaPages.data]);
-  const isLoading = isPersonaLibrary ? personaPages.isLoading : characterPages.isLoading;
+  const isLoading = isPersonaLibrary ? personaPages.isLoading : characterPages.isLoading || initialCharacter.isLoading;
   const hasNextPage = isPersonaLibrary ? personaPages.hasNextPage : characterPages.hasNextPage;
   const isFetchingNextPage = isPersonaLibrary ? personaPages.isFetchingNextPage : characterPages.isFetchingNextPage;
   const libraryRootScrollRef = useRef<HTMLDivElement | null>(null);
@@ -414,8 +418,19 @@ export function CharacterLibraryView() {
 
   const cards = useMemo<LibraryCard[]>(() => {
     if (isPersonaLibrary) return personas.map(toPersonaLibraryCard);
-    return (characters as CharacterRow[]).map(parseCharacterRow).map(toCharacterLibraryCard);
-  }, [characters, isPersonaLibrary, personas]);
+    const rows = (characters as CharacterRow[]).map(parseCharacterRow).map(toCharacterLibraryCard);
+    // A home shortcut can target a card outside the loaded page. Reuse the
+    // single-card query instead of loading every library page to reach it.
+    const initial = initialCharacter.data as (Omit<ParsedCharacterRow, "parsed"> & { data: string }) | undefined;
+    if (initial && !rows.some((card) => card.id === initial.id)) {
+      try {
+        rows.push(toCharacterLibraryCard({ ...initial, parsed: JSON.parse(initial.data) }));
+      } catch {
+        // Keep the normal library usable if the target contains malformed data.
+      }
+    }
+    return rows;
+  }, [characters, initialCharacter.data, isPersonaLibrary, personas]);
 
   const filteredCards = useMemo(() => {
     const query = parseCardLibrarySearchQuery(search);
@@ -451,9 +466,10 @@ export function CharacterLibraryView() {
   );
 
   useEffect(() => {
+    if (isLoading) return;
     if (selectedId && sortedCards.some((card) => card.id === selectedId)) return;
     setSelectedId(sortedCards[0]?.id ?? null);
-  }, [selectedId, setSelectedId, sortedCards]);
+  }, [isLoading, selectedId, setSelectedId, sortedCards]);
 
   const selectedCard = useMemo(
     () => sortedCards.find((card) => card.id === selectedId) ?? null,
@@ -504,6 +520,17 @@ export function CharacterLibraryView() {
   useLayoutEffect(() => {
     if (isLoading) return;
     const restoreScroll = () => {
+      if (!isPersonaLibrary && initialCharacterId && !initialScrollHandled.current) {
+        const target = libraryRootScrollRef.current?.querySelector<HTMLElement>(
+          `[data-card-library-card="${CSS.escape(initialCharacterId)}"]`,
+        );
+        if (target) {
+          target.scrollIntoView({ block: "start", behavior: "instant" });
+          initialScrollHandled.current = true;
+          rememberLibraryScroll();
+          return;
+        }
+      }
       const state = useUIStore.getState();
       const scrollTop = isPersonaLibrary ? state.personaLibraryScrollTop : state.characterLibraryScrollTop;
       for (const node of [libraryRootScrollRef.current, libraryListScrollRef.current]) {
@@ -515,7 +542,7 @@ export function CharacterLibraryView() {
     restoreScroll();
     const frame = window.requestAnimationFrame(restoreScroll);
     return () => window.cancelAnimationFrame(frame);
-  }, [isLoading, isPersonaLibrary, sortedCards.length]);
+  }, [initialCharacterId, isLoading, isPersonaLibrary, rememberLibraryScroll, sortedCards.length]);
 
   useLayoutEffect(
     () => () => {
