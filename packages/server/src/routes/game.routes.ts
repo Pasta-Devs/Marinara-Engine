@@ -107,6 +107,7 @@ import { processReputationActions } from "../services/game/reputation.service.js
 import {
   addNameLookupEntry,
   findCharAvatarFuzzy,
+  loadCharacterLibraryAvatarLookup,
   nameLookupWithoutLeadingPrefix,
   normalizeAvatarLookupName,
   npcAvatarSlug,
@@ -5929,6 +5930,22 @@ export async function gameRoutes(app: FastifyInstance) {
   const characterGallery = createCharacterGalleryStorage(app.db);
   const personaGallery = createPersonaGalleryStorage(app.db);
 
+  const loadGameAvatarLookup = async (chatId: string) => {
+    const chat = await createChatsStorage(app.db).getById(chatId);
+    if (!chat) return new Map<string, string>();
+    const meta = parseMeta(chat.metadata);
+    const ids = getStoryboardLibraryCharacterIds(
+      meta,
+      (meta.gameSetupConfig as Record<string, unknown>) ?? null,
+      parseChatCharacterIds(chat.characterIds),
+    );
+    const characters = createCharactersStorage(app.db);
+    return loadCharacterLibraryAvatarLookup(
+      async () => (await Promise.all(ids.map((id) => characters.getById(id)))).filter((row) => row != null),
+      (error) => logger.warn(error, "[game] Failed to load active character portraits"),
+    );
+  };
+
   const buildHydratedGameMeta = async (
     chatId: string,
     baseMeta: Record<string, unknown>,
@@ -6083,19 +6100,7 @@ export async function gameRoutes(app: FastifyInstance) {
       Object.assign(updates, buildInitialGameMapPatch(updates, setupConfig, generatedStartingMap));
     }
     if (setupData.startingNpcs) {
-      const charStore = createCharactersStorage(app.db);
-      const allChars = await charStore.list();
-      const charAvatarByName = new Map<string, string>();
-      for (const ch of allChars) {
-        try {
-          const parsed = JSON.parse(ch.data) as { name?: string };
-          if (parsed.name && ch.avatarPath) {
-            addNameLookupEntry(charAvatarByName, parsed.name, ch.avatarPath);
-          }
-        } catch {
-          /* skip unparseable */
-        }
-      }
+      const charAvatarByName = await loadGameAvatarLookup(chatId);
 
       const usedNpcNames = new Set<string>();
       const uniqueNpcName = (rawName: string, fallbackName: string) => {
@@ -11647,19 +11652,7 @@ export async function gameRoutes(app: FastifyInstance) {
         try {
           const imgConn = await connections.getWithKey(imgConnId);
           if (imgConn) {
-            const charStore = createCharactersStorage(app.db);
-            const allChars = await charStore.list();
-            const charAvatarByName = new Map<string, string>();
-            for (const ch of allChars) {
-              try {
-                const parsed = JSON.parse(ch.data) as Record<string, unknown> & { name?: string };
-                if (parsed.name && ch.avatarPath) {
-                  addNameLookupEntry(charAvatarByName, parsed.name, ch.avatarPath);
-                }
-              } catch {
-                /* skip */
-              }
-            }
+            const charAvatarByName = await loadGameAvatarLookup(input.chatId);
 
             const illustration = sceneResult.illustration as SceneIllustrationRequest | null | undefined;
             if (illustration && sceneCtx.canGenerateIllustrations) {
@@ -11702,7 +11695,7 @@ export async function gameRoutes(app: FastifyInstance) {
             for (const npc of npcs) {
               if (!npc.name) continue;
               const libAvatar = findCharAvatarFuzzy(npc.name, charAvatarByName);
-              if (libAvatar && npc.avatarUrl !== libAvatar) {
+              if (libAvatar && !npc.avatarUrl) {
                 npc.avatarUrl = libAvatar;
                 libResolvedNpcs.push({
                   name: npc.name,
@@ -13524,19 +13517,7 @@ export async function gameRoutes(app: FastifyInstance) {
         addExistingNpcAvatar(existingNpcAvatarByName, npc.name, generatedAvatarUrl);
       }
 
-      const charStore = createCharactersStorage(app.db);
-      const allChars = await charStore.list();
-      const charAvatarByName = new Map<string, string>();
-      for (const ch of allChars) {
-        try {
-          const parsed = JSON.parse(ch.data) as { name?: string };
-          if (parsed.name && ch.avatarPath) {
-            addNameLookupEntry(charAvatarByName, parsed.name, ch.avatarPath);
-          }
-        } catch {
-          /* skip */
-        }
-      }
+      const charAvatarByName = await loadGameAvatarLookup(input.chatId);
 
       type PreviewAssetItem = (typeof items)[number];
       const portraitPreviewItems: Array<PreviewAssetItem | null> = new Array(input.npcsNeedingAvatars.length).fill(
@@ -13997,20 +13978,7 @@ export async function gameRoutes(app: FastifyInstance) {
           addExistingNpcAvatar(existingNpcAvatarByName, npc.name, generatedAvatarUrl);
         }
 
-        // Check character library first — reuse existing avatars
-        const charStore = createCharactersStorage(app.db);
-        const allChars = await charStore.list();
-        const charAvatarByName = new Map<string, string>();
-        for (const ch of allChars) {
-          try {
-            const parsed = JSON.parse(ch.data) as { name?: string };
-            if (parsed.name && ch.avatarPath) {
-              addNameLookupEntry(charAvatarByName, parsed.name, ch.avatarPath);
-            }
-          } catch {
-            /* skip */
-          }
-        }
+        const charAvatarByName = await loadGameAvatarLookup(input.chatId);
 
         let nextNpcIndex = 0;
         const runPortraitWorker = async () => {

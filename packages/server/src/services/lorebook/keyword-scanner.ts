@@ -396,7 +396,8 @@ function applyGroupSelection(entries: ActivatedEntry[], random: () => number): A
   const result: ActivatedEntry[] = [...ungrouped];
 
   for (const [, groupEntries] of grouped) {
-    const selected = pickWeightedGroupEntry(groupEntries, random);
+    const stickyEntries = groupEntries.filter((entry) => entry.sticky);
+    const selected = pickWeightedGroupEntry(stickyEntries.length > 0 ? stickyEntries : groupEntries, random);
     if (selected) result.push(selected);
   }
 

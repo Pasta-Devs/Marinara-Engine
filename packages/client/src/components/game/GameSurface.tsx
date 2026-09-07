@@ -28,7 +28,7 @@ import {
   type GameAssetEntry,
   type GameAssetManifest,
 } from "../../hooks/use-game-assets";
-import { cleanNpcAvatarDisplayName, isSameNpcAvatarResource, normalizeNpcAvatarName } from "../../lib/game-npc-avatar";
+import { cleanNpcAvatarDisplayName, normalizeNpcAvatarName } from "../../lib/game-npc-avatar";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useGameStateStore } from "../../stores/game-state.store";
@@ -2286,7 +2286,7 @@ function GameSurfaceComponent({
   messages,
   isStreaming,
   characterMap,
-  characters,
+  characters: libraryCharacters,
   personaInfo,
   chatBackground,
   connectedChatName,
@@ -2416,6 +2416,17 @@ function GameSurfaceComponent({
   const chatCharacterIds = useMemo(
     () => getChatCharacterIds(chat.characterIds).filter((id) => id !== PROFESSOR_MARI_ID),
     [chat.characterIds],
+  );
+  const gameCharacterIds = useMemo(() => {
+    const config = chatMeta.gameSetupConfig as Record<string, unknown> | undefined;
+    const ids = new Set([...chatCharacterIds, ...getActivePartyIds(chatMeta)]);
+    if (typeof config?.gmCharacterId === "string") ids.add(config.gmCharacterId);
+    return [...ids].filter((id) => characterMap.has(id));
+  }, [characterMap, chatCharacterIds, chatMeta]);
+  // An unrelated library card with the same name is not a character in this game.
+  const characters = useMemo(
+    () => libraryCharacters.filter((character) => gameCharacterIds.includes(character.id)),
+    [gameCharacterIds, libraryCharacters],
   );
   const gameMusicDjEnabled =
     chatMeta.gameUseMusicDj === true ||
@@ -3616,23 +3627,6 @@ function GameSurfaceComponent({
     }
   }, [assetManifest, chatMeta.gameSceneBackground, scopedAssetMap, useMusicDjPlayerMusic]);
 
-  const gameCharacterIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const id of chatCharacterIds) {
-      if (characterMap.has(id)) ids.add(id);
-    }
-
-    const config = chatMeta.gameSetupConfig as Record<string, unknown> | undefined;
-    const gmCharacterId = typeof config?.gmCharacterId === "string" ? config.gmCharacterId : null;
-    if (gmCharacterId && characterMap.has(gmCharacterId)) ids.add(gmCharacterId);
-
-    for (const id of getActivePartyIds(chatMeta)) {
-      if (characterMap.has(id)) ids.add(id);
-    }
-
-    return [...ids];
-  }, [characterMap, chatCharacterIds, chatMeta]);
-
   // Fetch sprites for active game characters only. The full library is deliberately
   // not used here because a same-named character card can masquerade as the player.
   const characterIds = gameCharacterIds;
@@ -3664,10 +3658,7 @@ function GameSurfaceComponent({
     for (const npc of npcs) {
       if (!npc.name) continue;
       const libraryCharacter = findNamedEntry(characters, npc.name, (character) => character.name);
-      if (
-        libraryCharacter?.avatarUrl &&
-        (!npc.avatarUrl || !isSameNpcAvatarResource(libraryCharacter.avatarUrl, npc.avatarUrl))
-      ) {
+      if (libraryCharacter?.avatarUrl && !npc.avatarUrl) {
         avatarPatches.push({ name: npc.name, avatarUrl: libraryCharacter.avatarUrl });
       }
     }
