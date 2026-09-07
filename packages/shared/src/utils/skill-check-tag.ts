@@ -113,7 +113,20 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   // answered with an engine d20. The server's other check reader
   // (`segment-edits.ts`) always scanned this loosely, so the strict form was also
   // the two of them disagreeing about the same tag.
-  const attributes = Array.from(body.matchAll(/(\w+)\s*=\s*("[^"]*"|'[^']*'|[^\s\]]+)/g));
+  //
+  // The unquoted alternative may not start on something that is itself a `key=`,
+  // or reaching across the space turns an attribute written with no value into a
+  // swallow: `mode= dice="6d10"` read as `mode='dice="6d10'`, leaving no `dice=`
+  // for the guard to see and the declared pool answered with an engine d20 —
+  // the same rewrite the guard exists to refuse, arrived at from the other end.
+  // A bare `key=` therefore declares nothing and consumes nothing, and the
+  // attribute after it is read as written.
+  //
+  // Requiring the unquoted value to *touch* the `=` would close that too, and
+  // re-open the hole above it: `dice = 6d10` would stop being read at all, which
+  // is a declared pool going unseen — exactly the sparse-looking pool tag this
+  // reader must never hand to a d20. Whitespace still decides nothing.
+  const attributes = Array.from(body.matchAll(/(\w+)\s*=\s*("[^"]*"|'[^']*'|(?!\w+\s*=)[^\s\]]+)/g));
   if (attributes.length === 0) return null;
 
   const values = new Map<string, string>();
@@ -129,9 +142,28 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   if (!skill || Number.isNaN(dc)) return null;
 
   const tag: SkillCheckTag = { skill, dc };
-  const raw = body.toLowerCase();
-  if (values.get("mode") === "advantage" || raw.includes(" advantage")) tag.advantage = true;
-  if (values.get("mode") === "disadvantage" || raw.includes(" disadvantage")) tag.disadvantage = true;
+  const modeValue = values.get("mode")?.trim().toLowerCase();
+
+  // Advantage is a declaration, so it is read where declarations live: `mode=`,
+  // or a bare `advantage` / `disadvantage` flag standing on its own in the body.
+  // Never as a substring of the whole body — that read the word out of the skill
+  // *name*, so `skill="Press the advantage" dice="1d20"` became a two-die request
+  // over a one-die label, which the count rule then refuses, and the check was
+  // left unresolved for good with nothing in the transcript to say why.
+  // Everything inside a `key=value` pair is the value's business; only what is
+  // left over can carry a flag.
+  let outsideAttributes = "";
+  let attributeEnd = 0;
+  for (const match of attributes) {
+    outsideAttributes += body.slice(attributeEnd, match.index);
+    attributeEnd = match.index + match[0].length;
+  }
+  outsideAttributes += body.slice(attributeEnd);
+  const flags = outsideAttributes.toLowerCase();
+  // `\badvantage\b` does not match inside "disadvantage" — no word boundary
+  // after "dis" — so the two flags stay distinct.
+  if (modeValue === "advantage" || /\badvantage\b/.test(flags)) tag.advantage = true;
+  if (modeValue === "disadvantage" || /\bdisadvantage\b/.test(flags)) tag.disadvantage = true;
 
   // Recorded before the sparse return below, so what the GM declared about the
   // rules system survives even on a tag whose numbers do not. Keyed on the
@@ -147,7 +179,6 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
   const total = Number.parseInt(values.get("total") ?? "", 10);
   const resultValue = values.get("result")?.trim().toLowerCase();
-  const modeValue = values.get("mode")?.trim().toLowerCase();
   const resolution: SkillCheckResult["resolution"] = declaredResolution === "successes" ? "successes" : "sum";
 
   if (!rollsValue || Number.isNaN(modifier) || Number.isNaN(total) || !resultValue) {

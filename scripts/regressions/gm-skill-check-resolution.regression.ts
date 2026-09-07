@@ -211,6 +211,32 @@ const unvouchedPools = [
   `[skill_check: skill="Stealth" dc="12" dice = "6d10" resolution = "successes"]`,
   `[skill_check: skill = "Stealth" dc = "12" dice = "6d10" resolution = "successes"]`,
   `[skill_check: skill="Stealth" dc="12" dice\n= "6d10" resolution\n= "successes"]`,
+  // An unquoted value reached across the space is still a declaration. This pair
+  // is what stops the hole below from being closed by the blunter rule — "an
+  // unquoted value must touch the `=`" — which would close it by making these
+  // two unreadable again, and an unread `dice="6d10"` is a pool handed to a d20.
+  `[skill_check: skill="Stealth" dc="12" dice = 6d10]`,
+  `[skill_check: skill="Stealth" dc="12" dice = 6d10 resolution = successes]`,
+  // …and the same hole approached from the other side. An attribute written with
+  // no value must declare nothing and consume nothing: reading its value across
+  // the space swallowed the declaration after it whole, so `dice=` stopped
+  // existing as far as the guard could tell and the pool was answered with an
+  // engine d20 and relabelled `resolution="sum" dice="1d20"` — the swallowing key
+  // is any key, and the pool it eats is the last one standing.
+  `[skill_check: skill="Stealth" dc="12" mode= dice="6d10"]`,
+  `[skill_check: skill="Stealth" dc="12" used= dice="6d10"]`,
+  `[skill_check: skill="Athletics" dc="10" note= dice="3d6"]`,
+  `[skill_check: skill="Stealth" dc="12" mode=\ndice="6d10"]`,
+  // A swallowed `resolution=` is the same class; it happened to refuse already,
+  // because the garbage it swallowed was not the word "sum".
+  `[skill_check: skill="Stealth" dc="12" resolution= dice="6d10"]`,
+  // The declaration the empty value cannot reach, either because something else
+  // survives it or because there is nothing after it at all. These were always
+  // left standing; they must stay that way, so closing the hole above is not
+  // paid for by a reader that gives up whenever it sees an empty value.
+  `[skill_check: skill="Stealth" dc="12" mode= dice="6d10" resolution="successes"]`,
+  `[skill_check: skill="Stealth" dc="12" dice="6d10" mode=]`,
+  `[skill_check: skill="Stealth" dc="12" mode="" dice="6d10"]`,
 ];
 for (const poolTag of unvouchedPools) {
   const content = `He looms over the clerk. ${poolTag} The room waits.`;
@@ -242,6 +268,46 @@ for (const [d20Tag, expectedDice] of [
   const outcome = await resolve(d20Tag, [12, 6]);
   assert.equal(outcome.resolved, 1, `a d20 check must still be rolled by the engine: ${d20Tag}`);
   assert.equal(outcome.consumed, expectedDice, `the engine throws its own dice for: ${d20Tag}`);
+}
+
+// Advantage is a declaration, so only a declaration may set it. Reading the word
+// out of the whole body read it out of the skill *name* too, and once the count
+// rule above started holding the label and the mode to each other, that turned a
+// plain d20 check into a two-die request over a one-die label — refused, and left
+// unresolved for good with nothing in the turn to say why.
+for (const [modeTag, wantAdvantage, wantDisadvantage, expectedDice, why] of [
+  // The name is text, not a mode — in either spacing, either quote, and even when
+  // the name is the bare word.
+  [`[skill_check: skill="Press the advantage" dc="15" dice="1d20"]`, false, false, 1, "a skill name is not a mode"],
+  [`[skill_check: skill="Fight at a disadvantage" dc="15" dice="1d20"]`, false, false, 1, "nor is this one"],
+  [`[skill_check: skill = "Press the advantage" dc = "15"]`, false, false, 1, "spacing does not make it one"],
+  [`[skill_check: skill='Press the advantage' dc="15"]`, false, false, 1, "neither does the quote style"],
+  [`[skill_check: skill="Advantage" dc="15"]`, false, false, 1, "the whole name being the word changes nothing"],
+  // What a declaration looks like, in every form the reader accepts. The bare
+  // flag is the one the loose scan used to serve, and it must keep working.
+  [`[skill_check: skill="Stealth" dc="15" mode="advantage"]`, true, false, 2, "mode= declares it"],
+  [`[skill_check: skill="Stealth" dc="15" mode = advantage]`, true, false, 2, "spaced and unquoted, still mode="],
+  [`[skill_check: skill="Stealth" dc="15" advantage]`, true, false, 2, "a bare flag is a declaration"],
+  [`[skill_check: skill="Stealth" dc="15" disadvantage]`, false, true, 2, "and so is this one"],
+  // `mode=` is compared lowercased, which the substring scan never managed: a
+  // capitalised mode used to be read as no mode at all and quietly rolled one die.
+  [`[skill_check: skill="Stealth" dc="15" mode="Advantage"]`, true, false, 2, "a capitalised mode still declares"],
+  [`[skill_check: skill="Stealth" dc="15" mode="DISADVANTAGE"]`, false, true, 2, "in either direction"],
+  // When the name and the declaration disagree, the declaration wins.
+  [`[skill_check: skill="Seize the advantage" dc="15" mode="disadvantage"]`, false, true, 2, "mode= beats the name"],
+] as const) {
+  const tag = parseSkillCheckTagBody(modeTag.replace(/^\[skill_check:\s*|\]$/gu, ""))!;
+  assert.equal(tag.advantage ?? false, wantAdvantage, `advantage is read from a declaration only — ${why}: ${modeTag}`);
+  assert.equal(tag.disadvantage ?? false, wantDisadvantage, `disadvantage likewise — ${why}: ${modeTag}`);
+  // The client reads the same tag through the same module, so the two sides
+  // cannot disagree about whose turn it is to throw two dice.
+  const clientTag = parseGmTags(modeTag).skillChecks[0]!;
+  assert.equal(clientTag.advantage ?? false, wantAdvantage, `both readers agree on advantage: ${modeTag}`);
+  assert.equal(clientTag.disadvantage ?? false, wantDisadvantage, `both readers agree on disadvantage: ${modeTag}`);
+
+  const outcome = await resolve(modeTag, [4, 16]);
+  assert.equal(outcome.resolved, 1, `a check the engine implements must not be left unresolved: ${modeTag}`);
+  assert.equal(outcome.consumed, expectedDice, `${expectedDice} die/dice for ${why}: ${modeTag}`);
 }
 
 // Uniformly, not merely safely: the same request written with and without spaces
