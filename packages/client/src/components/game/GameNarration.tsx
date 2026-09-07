@@ -65,6 +65,7 @@ import { getDefaultChatTextColor, useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { parseMessageExtraRecord } from "../../lib/chat-message-extra";
+import { isMessageHiddenFromUser } from "../../lib/chat-message-visibility";
 import { estimateGameSessionHistoryTokens } from "../../lib/game-session-history";
 import { createMessageMacroResolver, findCharacterByName } from "../../lib/chat-macros";
 import { animateTextHtml } from "./AnimatedText";
@@ -296,6 +297,26 @@ const SYNTHETIC_GAME_START_MESSAGE_RE = /^\s*\[start(?:\s+the)?\s+game\]\s*$/i;
 
 function isSyntheticGameStartMessage(message: Pick<NarrationMessage, "role" | "content">): boolean {
   return message.role === "user" && SYNTHETIC_GAME_START_MESSAGE_RE.test(message.content || "");
+}
+
+// A GM turn that leaves no prose behind — a command-only turn, or one that was
+// nothing but GM verb tags (#5798) — is still saved, as a hidden empty anchor its
+// writes can hang on. Roleplay and Conversation drop those rows while mapping the
+// transcript (`ChatRoleplaySurface`, `ConversationView`); the game surface reads a
+// single "latest GM turn" instead of mapping, so the same filter has to sit where
+// that row is picked or the anchor blanks the narration area. Same triple the
+// server uses to decide a message is worth previewing: visible content, not
+// hidden, not command-only.
+//
+// The commandOnly test is defensive redundancy, not a live filter: the server writes
+// that flag in exactly one place (`generate.routes.ts` empty-response branch) and
+// always sets hiddenFromUser in the same call, so no row the server produces today
+// reaches here on commandOnly alone. It stays for the day one of them is written
+// without the other, and because the server's own preview gate carries both.
+function isNarratableGmMessage(message: NarrationMessage): boolean {
+  if (isMessageHiddenFromUser(message)) return false;
+  if (parseMessageExtraRecord(message.extra).commandOnly === true) return false;
+  return !!message.content?.trim();
 }
 
 function hasExactCachedPrompt(message: Pick<Message, "extra"> | null): boolean {
@@ -1340,7 +1361,9 @@ export function GameNarration({
     // recent turn" — segment edits, voice resolution, log builders, etc.
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i]!;
-      if (msg.role === "assistant" || msg.role === "narrator") return msg;
+      if (msg.role !== "assistant" && msg.role !== "narrator") continue;
+      if (!isNarratableGmMessage(msg)) continue;
+      return msg;
     }
     return null;
   }, [messages]);
@@ -1384,6 +1407,7 @@ export function GameNarration({
         continue;
       }
       if (msg.role !== "assistant" && msg.role !== "narrator") continue;
+      if (!isNarratableGmMessage(msg)) continue;
       const segs = parseNarrationSegments(msg, speakerColors);
       for (let si = 0; si < segs.length; si++) {
         const seg = segs[si]!;

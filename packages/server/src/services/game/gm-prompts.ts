@@ -631,6 +631,12 @@ export function buildGmFormatReminder(
     playerDiceRollSubmitted?: boolean;
     /** Built-in systems an installed experience replaces with its own. Undeclared systems stay built-in. */
     experienceProvidedSystems?: { inventory?: boolean };
+    /** Rendered COMMANDS lines for the verbs an installed experience declares (#5798). They belong
+     *  in this reminder rather than in the system message because the reminder is what the engine
+     *  parses back out of the turn, and because the game system message is rebuilt wholesale by
+     *  `injectGameGmPromptRuntime` — anything spliced into it there would be overwritten. Empty or
+     *  absent (the normal case, and every case today) renders nothing at all. */
+    experienceGmVerbs?: string[];
   },
 ): string {
   const lines: string[] = [];
@@ -789,6 +795,11 @@ export function buildGmFormatReminder(
     `- [party_change: character="Exact Character Name" change="add|remove"] - only when someone truly joins or leaves the party. Use remove when a party member dies, permanently departs, or is no longer traveling with the player.`,
     `- [session_end: reason="goal achieved|good place to pause"] - only when the current session truly ends.`,
   );
+
+  // The installed experience's own verbs, last in the block so the built-ins keep their order. Each
+  // line already arrives fully rendered from the verb runtime; nothing here inspects or reformats it.
+  const experienceGmVerbs = normalizePromptTextList(ctx.experienceGmVerbs);
+  if (experienceGmVerbs.length > 0) lines.push(...experienceGmVerbs);
 
   if (ctx.gameActiveState === "combat") {
     lines.push(

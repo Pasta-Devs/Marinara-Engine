@@ -45,11 +45,18 @@ export function shouldSaveHiddenGenerationAnchor(input: {
   impersonate?: boolean;
   parsedCommandCount: number;
   parsedRawCommandCount: number;
+  /** Package-declared GM verbs parsed out of this turn (#5798). A game turn that is nothing but verb
+   *  tags strips to empty, and the two command counts are both zero in game mode by construction —
+   *  the Conversation command surface never runs there. Without this the turn takes the error branch
+   *  and its already-validated writes are dropped on the floor. Optional so every non-game caller
+   *  keeps its current shape. */
+  gmVerbCallCount?: number;
   spatialDirectiveDetected: boolean;
 }): boolean {
   return Boolean(
     input.spatialDirectiveDetected ||
-    (!input.impersonate && (input.parsedCommandCount > 0 || input.parsedRawCommandCount > 0)),
+    (!input.impersonate &&
+      (input.parsedCommandCount > 0 || input.parsedRawCommandCount > 0 || (input.gmVerbCallCount ?? 0) > 0)),
   );
 }
 

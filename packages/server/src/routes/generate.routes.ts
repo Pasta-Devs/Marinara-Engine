@@ -328,6 +328,14 @@ import {
 } from "./generate/conversation-presence-runtime.js";
 import { resolveProfessorMariPromptContext } from "./generate/professor-mari-prompt-context.js";
 import { collectCapabilityPromptContext } from "../services/capability-packages/capability-prompt-context.service.js";
+import {
+  executeGmVerbCalls,
+  parseAndStripGmVerbCalls,
+  renderGmVerbInstructions,
+  resolveGmVerbTable,
+  type GmVerbCall,
+  type ResolvedGmVerbTable,
+} from "../services/capability-packages/capability-gm-verb-runtime.service.js";
 import { collectRoleplayEventContext } from "../services/capability-packages/capability-roleplay-events.service.js";
 import {
   appendToFirstSystemMessage,
@@ -2064,6 +2072,25 @@ export async function generateRoutes(app: FastifyInstance) {
       // Embed the Mari relevance-ranking query once per turn, not once per
       // follow-up iteration (the query is invariant across the turn's passes).
       const mariQueryEmbeddingCache = new Map<string, number[] | null>();
+      // Package-declared GM verbs (#5798), resolved at most ONCE per turn and threaded to both the
+      // prompt render and the post-save parse. Two resolutions could disagree — a package updated
+      // mid-turn, a table that stops verifying — and the prompt would then advertise a verb the
+      // parser no longer matches, leaving a raw bracket tag in the player's prose. Hoisted out of
+      // the follow-up loop for the same reason: every pass of one turn shares one vocabulary.
+      let gmVerbTable: ResolvedGmVerbTable | null = null;
+      let gmVerbTableResolved = false;
+      const getGmVerbTable = async (): Promise<ResolvedGmVerbTable | null> => {
+        if (gmVerbTableResolved) return gmVerbTable;
+        gmVerbTableResolved = true;
+        try {
+          gmVerbTable = await resolveGmVerbTable(chatMeta);
+        } catch (error) {
+          // Nothing about a package's verb table may cost the player a turn.
+          logger.warn(error, "[capability/gm-verbs] Verb table resolution failed for chat %s", input.chatId);
+          gmVerbTable = null;
+        }
+        return gmVerbTable;
+      };
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
@@ -3709,6 +3736,8 @@ export async function generateRoutes(app: FastifyInstance) {
               ? "gm"
               : undefined;
           const playerDiceRollSubmitted = /\[dice\b/i.test(latestUserContent);
+          // The same table object the post-save parse will use — resolved here, cached for the turn.
+          const gmVerbTableForPrompt = await getGmVerbTable();
           const formatReminder = resolvePromptMacros(
             buildGmFormatReminder({
               hasSceneModel,
@@ -3731,6 +3760,17 @@ export async function generateRoutes(app: FastifyInstance) {
               playerDiceRollSubmitted,
               // A package that brought its own inventory takes the built-in one out of the prompt.
               experienceProvidedSystems: capabilityPromptContext.provides,
+              // A package that declares GM verbs gets one COMMANDS line each. No package declares a
+              // table today, so this renders nothing and the reminder is byte-identical.
+              //
+              // Gated on impersonate to match the scan below, which skips impersonated turns
+              // (`chatMode === "game" && !input.impersonate`). An impersonated turn is the player
+              // writing, so nothing parses verbs back out of it, and the game surface renders
+              // user-role rows raw — a verb tag the model wrote would land in the player's own
+              // message as visible text. The built-in GM tags already teach-but-never-parse on
+              // these turns; the gate declines to widen that wart rather than matching it.
+              experienceGmVerbs:
+                gmVerbTableForPrompt && !input.impersonate ? renderGmVerbInstructions(gmVerbTableForPrompt) : undefined,
               playerInventory: (() => {
                 try {
                   const inv = (chatMeta.gameInventory as Array<{ name: string; quantity: number }>) ?? [];
@@ -6908,6 +6948,11 @@ export async function generateRoutes(app: FastifyInstance) {
           // group conversations (null elsewhere — caller falls back to the message char).
           let parsedCommandCharacterIds: (string | null)[] | null = null;
           let parsedRawCommandCount = 0;
+          // Package-declared GM verbs parsed out of this pass's narration (#5798). Deliberately its
+          // own array rather than a widening of the CharacterCommand union: these never reach the
+          // Conversation command pipeline, and nothing downstream of that union should have to learn
+          // a shape it will never dispatch.
+          let collectedGmVerbCalls: GmVerbCall[] = [];
           let assistantSpatialDirective: ReturnType<typeof extractAssistantSpatialDirective>["directive"] = null;
           let assistantSpatialDirectiveDetected = false;
           let conversationCommandContent: string | null = null;
@@ -7224,6 +7269,62 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
 
+          // ── Parse and strip package-declared GM verbs (#5798) ──
+          // Game mode only, and a narrow path of its own: `conversationCommandsEnabled` gates the
+          // ENTIRE Conversation command surface, so flipping it here would arm every registered
+          // conversation command on every game turn. An impersonated turn is the player writing, not
+          // the GM, so it declares nothing. This runs BEFORE the content_replace frame below —
+          // anything that must reach the client has to be in `fullResponse` by then.
+          if (chatMode === "game" && !input.impersonate && fullResponse) {
+            const verbTable = await getGmVerbTable();
+            if (verbTable) {
+              const verbScan = parseAndStripGmVerbCalls(fullResponse, verbTable);
+              collectedGmVerbCalls = verbScan.calls;
+              if (verbScan.matched) {
+                fullResponse = verbScan.content;
+                contentReplaced = true;
+              }
+            }
+          }
+
+          // ── Package-declared GM verb execution (Game mode) (#5798) ──
+          // Its own execution site, deliberately not the Conversation command block below: that one
+          // brackets its work in assistant_commands_start/_end frames the game client does not
+          // consume, and it never runs in game mode at all.
+          //
+          // A closure rather than one inline block because the turn reaches this from two places —
+          // the saved-message path and the hidden-anchor path a verb-only turn takes, which returns
+          // before the saved-message path is ever reached. The verbs are validated identically on
+          // both; only the turn reference they claim against differs.
+          //
+          // Nothing runs on an aborted turn. For a state verb that is a policy choice — a stopped
+          // turn must not change the world. For an event verb it is not a choice at all: the client
+          // has dropped the stream, so the frame would evaporate unlogged.
+          const executeCollectedGmVerbCalls = async (turnRef: { messageId: string; swipeIndex: number }) => {
+            if (collectedGmVerbCalls.length > 0 && gmVerbTable && !abortController.signal.aborted) {
+              let gmVerbMetadataWritten = false;
+              await executeGmVerbCalls({
+                calls: collectedGmVerbCalls,
+                table: gmVerbTable,
+                turn: { chatId: input.chatId, ...turnRef },
+                store: chats,
+                reply,
+                onMetadataWritten: () => {
+                  gmVerbMetadataWritten = true;
+                },
+              });
+              if (gmVerbMetadataWritten) {
+                // The payload is inert — the client handler reads only the event type and refetches
+                // the chat, which re-delivers the whole metadata object to the package's surface as
+                // props. It rides along for debuggability, not because anything consumes it.
+                sendSseEvent(reply, {
+                  type: "metadata_patch",
+                  data: { source: "gm_verb", packageId: gmVerbTable.packageId },
+                });
+              }
+            }
+          };
+
           if (contentReplaced) {
             if (!holdForTextRewrite) {
               sendSseEvent(reply, { type: "content_replace", data: fullResponse });
@@ -7241,6 +7342,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 targetCharId,
                 parsedCommandCount: parsedCommands.length,
                 parsedRawCommandCount,
+                gmVerbCallCount: collectedGmVerbCalls.length,
                 providerThinkingLength: providerThinking.length,
                 fullThinkingLength: fullThinking.length,
                 contentReplaced,
@@ -7254,13 +7356,18 @@ export async function generateRoutes(app: FastifyInstance) {
                 impersonate: input.impersonate,
                 parsedCommandCount: parsedCommands.length,
                 parsedRawCommandCount,
+                // A game turn that is nothing but verb tags strips to empty. Without this the gate
+                // sees only the two Conversation counts — both zero in game mode — and the turn
+                // errors out, discarding writes that already validated (#5798, #5902).
+                gmVerbCallCount: collectedGmVerbCalls.length,
                 spatialDirectiveDetected: assistantSpatialDirectiveDetected,
               })
             ) {
               logger.info(
-                "[generate] Model emitted %d enabled command(s) (%d parsed) with no visible prose for chat %s; saving hidden command anchor",
+                "[generate] Model emitted %d enabled command(s) (%d parsed) and %d GM verb(s) with no visible prose for chat %s; saving hidden command anchor",
                 parsedCommands.length,
                 parsedRawCommandCount,
+                collectedGmVerbCalls.length,
                 input.chatId,
               );
               const savedMsg = await chats.createMessage({
@@ -7279,6 +7386,12 @@ export async function generateRoutes(app: FastifyInstance) {
                     encryptedReasoning: encryptedReasoningItems?.length ? encryptedReasoningItems : null,
                   })
                 : savedMsg;
+              // The anchor exists so this can run: a verb-only turn's writes land here, against the
+              // anchor's own message, in the same order the saved-message path uses them.
+              await executeCollectedGmVerbCalls({
+                messageId: anchoredMsg?.id ?? "",
+                swipeIndex: anchoredMsg?.activeSwipeIndex ?? 0,
+              });
               if (
                 anchoredMsg?.id &&
                 hierarchicalMapsEnabledForChat &&
@@ -7447,6 +7560,9 @@ export async function generateRoutes(app: FastifyInstance) {
             });
             savedSwipeIndex = 0;
           }
+          // Empty messageId on the paths that save no message; that costs the claim, never the effect.
+          await executeCollectedGmVerbCalls({ messageId: savedMsg?.id ?? "", swipeIndex: savedSwipeIndex ?? 0 });
+
           if (
             savedMsg?.id &&
             savedSwipeIndex !== null &&

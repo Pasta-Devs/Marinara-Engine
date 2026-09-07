@@ -2315,6 +2315,23 @@ export function useGenerate() {
               break;
             }
 
+            case "gm_verb": {
+              // A package-declared GM event verb (#5798). Addressed by an explicit packageId on the
+              // envelope rather than by a convention field inside the payload, so nothing has to
+              // agree about where the address lives. Transient by design: one synchronous dispatch,
+              // no queue and no replay, so a package not yet mounted simply misses it.
+              const verbEvent = event.data as { packageId?: string } | null;
+              if (verbEvent?.packageId) {
+                dispatchCapabilityClientEvent({
+                  packageId: verbEvent.packageId,
+                  type: event.type,
+                  chatId: params.chatId,
+                  data: event.data,
+                });
+              }
+              break;
+            }
+
             case "text_rewrite": {
               // A post-processing editor replaced the message — update displayed text.
               const rw = event.data as {
@@ -3745,6 +3762,29 @@ export function useGenerate() {
               const turnGameType = (event.data as { gameType?: string } | null)?.gameType;
               if (turnGameType) {
                 dispatchCapabilityClientEvent({ packageId: turnGameType, type: event.type, chatId, data: event.data });
+              }
+              break;
+            }
+            case "metadata_patch": {
+              // The retry route emits this and this switch had no case for it, so a metadata write on
+              // a retried turn never reached the package until the chat was reopened. Load-bearing
+              // for GM state verbs (#5798): props re-delivery after the refetch IS the delivery
+              // mechanism — there is no second event carrying the value.
+              qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
+              qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+              break;
+            }
+            case "gm_verb": {
+              // GM verbs do not run on the agents-retry route today. The case is here anyway so the
+              // next wiring does not have to rediscover that this switch is a twin of the main one.
+              const verbEvent = event.data as { packageId?: string } | null;
+              if (verbEvent?.packageId) {
+                dispatchCapabilityClientEvent({
+                  packageId: verbEvent.packageId,
+                  type: event.type,
+                  chatId,
+                  data: event.data,
+                });
               }
               break;
             }
