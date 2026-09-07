@@ -485,6 +485,8 @@ export async function persistLorebookKeeperUpdates(args: {
   chatName: string | null | undefined;
   preferredTargetLorebookId: string | null;
   writableLorebookIds: string[] | null;
+  /** An explicitly selected target takes precedence over model-proposed destinations. */
+  allowTargetRouting?: boolean;
   writableLorebooks?: WritableLorebookSummary[];
   lorebookNamingScheme?: LorebookNamingScheme;
   worldName?: string | null;
@@ -499,6 +501,7 @@ export async function persistLorebookKeeperUpdates(args: {
     preferredTargetLorebookId,
     writableLorebookIds,
     writableLorebooks,
+    allowTargetRouting = true,
     lorebookNamingScheme = {},
     worldName,
     updates,
@@ -510,7 +513,7 @@ export async function persistLorebookKeeperUpdates(args: {
   const routedUpdates = updates.filter(
     (update) => typeof update.targetLorebook === "string" && update.targetLorebook.trim().length > 0,
   );
-  if (routedUpdates.length > 0) {
+  if (allowTargetRouting && routedUpdates.length > 0) {
     const writableIds = new Set(writableLorebookIds ?? []);
     if (preferredTargetLorebookId) writableIds.add(preferredTargetLorebookId);
     const allBooks = (await lorebooksStore.list()) as unknown as WritableLorebookSummary[];

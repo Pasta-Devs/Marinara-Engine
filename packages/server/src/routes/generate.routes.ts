@@ -4325,6 +4325,8 @@ export async function generateRoutes(app: FastifyInstance) {
             });
           agentContext.writableLorebookIds = writableLorebookIds;
           agentContext.memory._writableLorebooks = writableLorebooks;
+          agentContext.memory._lorebookKeeperTargetIsExplicit =
+            !!targetLorebookId && targetLorebookId === lorebookKeeperSettings.targetLorebookId;
           if (targetLorebookId) {
             agentContext.memory._lorebookKeeperTargetLorebookId = targetLorebookId;
           }
@@ -4804,6 +4806,8 @@ export async function generateRoutes(app: FastifyInstance) {
                 updates,
                 preferredTargetLorebookId,
                 writableLorebookIds,
+                allowTargetRouting:
+                  !isBuiltInLorebookAgent || agentContext.memory._lorebookKeeperTargetIsExplicit !== true,
                 writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
                   ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
                   : undefined,
@@ -9525,6 +9529,8 @@ export async function generateRoutes(app: FastifyInstance) {
                     chatName: chat.name,
                     preferredTargetLorebookId,
                     writableLorebookIds,
+                    allowTargetRouting:
+                      !isBuiltInLorebookAgent || agentContext.memory._lorebookKeeperTargetIsExplicit !== true,
                     writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
                       ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
                       : undefined,
