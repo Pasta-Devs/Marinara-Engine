@@ -7974,6 +7974,11 @@ function AdvancedSettings() {
 
   type UpdateChannelId = "stable" | "staging";
   const [updateChannel, setUpdateChannel] = useState<UpdateChannelId | null>(null);
+  const installedChannel = useQuery<{ channel: UpdateChannelId }>({
+    queryKey: ["update-channel"],
+    queryFn: () => api.get("/updates/channel"),
+    staleTime: 30_000,
+  });
   const updateCheck = useQuery<{
     currentVersion: string;
     currentCommit: string | null;
@@ -8024,7 +8029,7 @@ function AdvancedSettings() {
     retry: false,
   });
 
-  const selectedUpdateChannelId = updateChannel ?? updateCheck.data?.channel ?? "stable";
+  const selectedUpdateChannelId = updateChannel ?? updateCheck.data?.channel ?? installedChannel.data?.channel;
 
   const applyUpdate = useMutation({
     mutationFn: () =>
@@ -8193,10 +8198,15 @@ function AdvancedSettings() {
             >
               {localizeUi("ui.panels.advancedsettings.releaseChannel")}
               <select
-                value={selectedUpdateChannelId}
+                value={selectedUpdateChannelId ?? ""}
                 onChange={(event) => setUpdateChannel(event.target.value as UpdateChannelId)}
                 className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs font-medium normal-case tracking-normal text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
               >
+                {!selectedUpdateChannelId && (
+                  <option value="" disabled>
+                    {localizeUi("settings.updates.channelPending")}
+                  </option>
+                )}
                 {updateChannelOptions.map((channel) => (
                   <option key={channel.id} value={channel.id}>
                     {channel.label}

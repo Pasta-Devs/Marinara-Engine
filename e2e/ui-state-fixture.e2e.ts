@@ -37,7 +37,12 @@ test("UI fixtures use the live persistence contract and preserve existing prefer
   });
   expect(contract).toMatchObject({
     ...UI_PERSISTENCE,
-    state: { messagesPerPage: 20, conversationMessageStyle: "bubble", hasCompletedOnboarding: true },
+    state: {
+      messagesPerPage: 20,
+      conversationMessageStyle: "bubble",
+      hasCompletedOnboarding: true,
+      chibiProfessorMariEnabled: false,
+    },
   });
   await page.evaluate(async () => {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);

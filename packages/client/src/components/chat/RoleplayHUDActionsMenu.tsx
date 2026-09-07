@@ -14,6 +14,7 @@ import { AgentTaskStatus } from "../agents/AgentTaskStatus";
 import { useAgentStore } from "../../stores/agent.store";
 import { ContinuityIssueChecklist } from "../agents/ContinuityIssueChecklist";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 
 interface ThoughtBubble {
   agentId: string;
@@ -341,7 +342,15 @@ export function RoleplayHUDActionsMenu({
           )}
           {showTrackerActions && (
             <button
-              onClick={() => {
+              onClick={async () => {
+                const confirmed = await showConfirmDialog({
+                  title: localizeUi("ui.chat.roleplayhudactionsmenu.clearTrackers"),
+                  message: localizeUi("chat.trackers.clearConfirmation"),
+                  confirmLabel: localizeUi("ui.chat.roleplayhudactionsmenu.clearTrackers"),
+                  cancelLabel: localizeUi("chat.delete.dialog.cancel"),
+                  tone: "destructive",
+                });
+                if (!confirmed) return;
                 clearGameState();
                 onClose();
               }}
