@@ -12,7 +12,30 @@ try {
   const db = await createFileNativeDB();
   try {
     const mari = new MariDbService(db);
-    for (const id of ["ordinary-id", "-single-prefix", "--EwXN_y0nAZbMu0baN4O", "--lowercase-id", "--apply"]) {
+    const untouchedId = "unrelated-row";
+    assert.equal(
+      (
+        await mari.executeAction({
+          action: "character.create",
+          characterId: untouchedId,
+          data: { name: "Untouched fixture" },
+          apply: true,
+        })
+      ).ok,
+      true,
+    );
+    const readUntouched = () => mari.executeCli({ argv: ["db", "get", "--parsed", "characters", untouchedId] });
+    const untouched = (await readUntouched()).output;
+    for (const id of [
+      "ordinary-id",
+      "-single-prefix",
+      "--EwXN_y0nAZbMu0baN4O",
+      "--lowercase-id",
+      "--enable",
+      "--raw",
+      "--selective",
+      "--apply",
+    ]) {
       const created = await mari.executeAction({
         action: "character.create",
         characterId: id,
@@ -51,6 +74,7 @@ try {
       const removed = await mari.executeCli({ argv: ["db", "delete", "--apply", "--cascade", ...target] });
       assert.equal(removed.ok, true, JSON.stringify(removed));
       assert.equal((await get()).ok, false, "only the addressed row should be removed");
+      assert.deepEqual((await readUntouched()).output, untouched, "deleting one row must preserve unrelated rows");
     }
     const missingSelector = await mari.executeCli({ argv: ["db", "delete", "characters", "--apply"] });
     assert.equal(missingSelector.ok, false, "a flag must not turn an unscoped delete into a valid mutation");

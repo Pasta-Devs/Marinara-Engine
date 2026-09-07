@@ -234,6 +234,7 @@ const BOOLEAN_FLAGS = new Set([
   "use-regex",
 ]);
 const DB_VALUE_FLAGS = new Set(["table", "limit", "offset", "where", "json", "json-file", "file", "reason"]);
+const DB_BOOLEAN_FLAGS = new Set(["apply", "cascade", "dry-run", "help", "parsed"]);
 
 function truncateOutput(value: string, limit = COMMAND_OUTPUT_LIMIT): { text: string; truncated: boolean } {
   if (value.length <= limit) return { text: value, truncated: false };
@@ -789,7 +790,7 @@ function formatCommand(argv: string[] | undefined, fallback: string | undefined)
     .trim();
 }
 
-function parseArgs(args: string[], knownValueFlags?: ReadonlySet<string>) {
+function parseArgs(args: string[], knownValueFlags?: ReadonlySet<string>, booleanFlags = BOOLEAN_FLAGS) {
   const positionals: string[] = [];
   const flags = new Map<string, string | boolean>();
   for (let i = 0; i < args.length; i++) {
@@ -799,7 +800,7 @@ function parseArgs(args: string[], knownValueFlags?: ReadonlySet<string>) {
       break;
     }
     const name = arg.slice(2).split("=", 1)[0]!;
-    if (!arg.startsWith("--") || (knownValueFlags && !knownValueFlags.has(name) && !BOOLEAN_FLAGS.has(name))) {
+    if (!arg.startsWith("--") || (knownValueFlags && !knownValueFlags.has(name) && !booleanFlags.has(name))) {
       positionals.push(arg);
       continue;
     }
@@ -809,7 +810,7 @@ function parseArgs(args: string[], knownValueFlags?: ReadonlySet<string>) {
       continue;
     }
     const next = args[i + 1];
-    if (next !== undefined && !next.startsWith("--") && !BOOLEAN_FLAGS.has(name)) {
+    if (next !== undefined && !next.startsWith("--") && !booleanFlags.has(name)) {
       flags.set(name, next);
       i += 1;
     } else {
@@ -6884,7 +6885,7 @@ export class MariDbService {
     const rest = args.slice(1);
     // Row IDs may start with --. Only actual options are flags; exact option-name
     // collisions can be passed after the standard -- end-of-options marker.
-    const parsed = parseArgs(rest, DB_VALUE_FLAGS);
+    const parsed = parseArgs(rest, DB_VALUE_FLAGS, DB_BOOLEAN_FLAGS);
     if (!sub || sub === "help" || sub === "--help" || sub === "-h" || hasFlag(parsed.flags, "help")) {
       return { ok: true, mode: "read", command: context.command, output: this.helpText() };
     }
