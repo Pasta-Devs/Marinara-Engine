@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { seedUIState } from "./ui-state-fixture";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const pixel = readFileSync(new URL("../packages/client/public/icon-512.png", import.meta.url));
@@ -56,22 +57,16 @@ test("Game NPC portraits survive a same-name library card and reload over LAN", 
       ({ id, appVersion }) => {
         localStorage.setItem("marinara-active-chat-id", id);
         localStorage.setItem("marinara:whats-new:seen-version", appVersion);
-        localStorage.setItem(
-          "marinara-engine-ui",
-          JSON.stringify({
-            version: 99,
-            state: {
-              hasCompletedOnboarding: true,
-              sidebarOpen: false,
-              rightPanelOpen: false,
-              chatHelpSeenModes: ["conversation", "roleplay", "game"],
-              gameInstantTextReveal: true,
-            },
-          }),
-        );
       },
       { id: chat.id, appVersion: version },
     );
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      chatHelpSeenModes: ["conversation", "roleplay", "game"],
+      gameInstantTextReveal: true,
+    });
     await page.goto("/");
     for (const reload of [false, true]) {
       if (reload) await page.reload();

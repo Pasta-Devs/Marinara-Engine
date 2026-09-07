@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -18,23 +19,17 @@ async function createChat(request: APIRequestContext, name: string) {
 
 async function openFreshChat(page: Page, chatId: string) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    rightPanelOpen: false,
+    sidebarOpen: false,
+    messagesPerPage: 20,
+    chatHelpSeenModes: ["conversation", "roleplay", "game"],
+  });
   await page.addInitScript(
     ({ id, appVersion }) => {
       localStorage.setItem("marinara-active-chat-id", id);
       localStorage.setItem("marinara:whats-new:seen-version", appVersion);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            rightPanelOpen: false,
-            sidebarOpen: false,
-            messagesPerPage: 20,
-            chatHelpSeenModes: ["conversation", "roleplay", "game"],
-          },
-          version: 65,
-        }),
-      );
     },
     { id: chatId, appVersion: version },
   );

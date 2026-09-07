@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { crc32 } from "node:zlib";
+import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const requireServer = createRequire(new URL("../packages/server/package.json", import.meta.url));
@@ -9,25 +10,19 @@ const sharp = requireServer("sharp");
 
 async function openChat(page: Page, chatId: string) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    rightPanelOpen: false,
+    sidebarOpen: false,
+    messagesPerPage: 20,
+    enableStreaming: true,
+    streamingSpeed: 100,
+    chatHelpSeenModes: ["conversation", "roleplay", "game"],
+  });
   await page.addInitScript(
     ({ id, appVersion }) => {
       localStorage.setItem("marinara-active-chat-id", id);
       localStorage.setItem("marinara:whats-new:seen-version", appVersion);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            rightPanelOpen: false,
-            sidebarOpen: false,
-            messagesPerPage: 20,
-            enableStreaming: true,
-            streamingSpeed: 100,
-            chatHelpSeenModes: ["conversation", "roleplay", "game"],
-          },
-          version: 65,
-        }),
-      );
     },
     { id: chatId, appVersion: version },
   );
