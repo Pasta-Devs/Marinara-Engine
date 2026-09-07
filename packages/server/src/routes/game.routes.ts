@@ -13978,7 +13978,10 @@ export async function gameRoutes(app: FastifyInstance) {
           addExistingNpcAvatar(existingNpcAvatarByName, npc.name, generatedAvatarUrl);
         }
 
-        const charAvatarByName = await loadGameAvatarLookup(meta, parseChatCharacterIds(chat.characterIds));
+        const charAvatarByName = await loadGameAvatarLookup(
+          latestMeta,
+          parseChatCharacterIds((latestChat ?? chat).characterIds),
+        );
 
         let nextNpcIndex = 0;
         const runPortraitWorker = async () => {
