@@ -169,6 +169,7 @@ import { useAgentImportPolicy, useSetAgentImportsEnabled } from "../../hooks/use
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
+import { getClientRuntimeDiagnostics } from "../../lib/client-runtime-diagnostics";
 import {
   detectBrowserGpu,
   formatSupportDiagnostics,
@@ -7778,6 +7779,7 @@ function AdvancedSettings() {
       .catch(() => undefined);
     const copied = await copyToClipboard(
       formatSupportDiagnostics({
+        clientRuntime: getClientRuntimeDiagnostics(),
         mariActingOn,
         // Distinguish "the server never answered" (frozen host) from ordinary
         // missing fields so support reports carry the signal (#5657): the

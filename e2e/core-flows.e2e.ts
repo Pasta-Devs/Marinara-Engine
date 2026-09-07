@@ -203,23 +203,13 @@ async function readScopedCssVariableColor(scope: Locator, variableName: string) 
 async function openEditorSection(editor: Locator, label: string) {
   const compactMenuButton = editor.getByRole("button", { name: "Editor sections" });
   const navigation = editor.getByRole("navigation", { name: "Editor sections" });
-  const desktopRail = editor.locator(".mari-editor-tab-rail");
-  await expect
-    .poll(
-      async () =>
-        (await compactMenuButton.isVisible()) || (await navigation.isVisible()) || (await desktopRail.isVisible()),
-    )
-    .toBe(true);
+  await expect.poll(async () => (await compactMenuButton.isVisible()) || (await navigation.isVisible())).toBe(true);
   if (await compactMenuButton.isVisible()) {
     await compactMenuButton.click();
     await editor
       .getByRole("menu", { name: "Editor sections" })
       .getByRole("menuitemradio", { name: label, exact: true })
       .click();
-    return;
-  }
-  if (await desktopRail.isVisible()) {
-    await desktopRail.getByRole("button", { name: label, exact: true }).click();
     return;
   }
   await navigation.getByRole("button", { name: label, exact: true }).click();
@@ -3965,6 +3955,70 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
   }
 });
 
+for (const { panel, endpoint, sections } of [
+  { panel: "presets", endpoint: "/api/prompts", sections: ["Overview", "Sections", "Prompts", "Regex"] },
+  { panel: "lorebooks", endpoint: "/api/lorebooks", sections: ["Overview", "Entries"] },
+]) {
+  test(`${panel} keeps themed section navigation in the editor topbar`, async ({ page, request }, testInfo) => {
+    const name = `Topbar ${panel} ${Date.now().toString(36)}`;
+    const response = await request.post(endpoint, { data: { name } });
+    expect(response.ok()).toBeTruthy();
+    const resource = (await response.json()) as { id: string };
+    try {
+      await page.goto("/");
+      await page.locator(`[data-tour="panel-${panel}"]`).click();
+      if (panel === "presets") {
+        await page
+          .locator('[data-touch-drag-card="preset"]')
+          .filter({ hasText: name })
+          .locator("[data-preset-open-action]")
+          .click({ position: { x: 8, y: 8 } });
+      } else {
+        await page.getByText(name, { exact: true }).first().click();
+      }
+      const editor = page.locator(".mari-editor-shell");
+      const header = editor.locator(".mari-editor-header");
+      await expect(header).toBeVisible();
+      const compact = header.getByRole("button", { name: "Editor sections", exact: true });
+      const tabs = header.getByRole("navigation", { name: "Editor sections", exact: true });
+      const mobile = testInfo.project.name.includes("mobile");
+      if (mobile) {
+        await expect(compact).toBeVisible();
+      } else {
+        await expect(compact).toBeHidden();
+        await expect(tabs.getByRole("button")).toHaveCount(sections.length);
+        const [identity, navigation] = await Promise.all([
+          header.locator(".mari-editor-header-main").boundingBox(),
+          tabs.boundingBox(),
+        ]);
+        expect(identity).not.toBeNull();
+        expect(navigation).not.toBeNull();
+        if (identity && navigation) {
+          expect(
+            Math.abs(identity.y + identity.height / 2 - (navigation.y + navigation.height / 2)),
+          ).toBeLessThanOrEqual(1);
+          expect(identity.x + identity.width).toBeLessThanOrEqual(navigation.x);
+        }
+      }
+      for (const section of sections) await openEditorSection(editor, section);
+      for (const theme of ["dark", "light"]) {
+        await page.evaluate((value) => {
+          document.documentElement.dataset.theme = value;
+        }, theme);
+        const activeControl = mobile ? compact : tabs.locator('[aria-current="page"]');
+        await expect(activeControl).toHaveCSS(
+          "color",
+          await readScopedCssVariableColor(header, "--marinara-editor-text"),
+        );
+        await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
+        await testInfo.attach(`${panel}-${theme}`, { body: await page.screenshot(), contentType: "image/png" });
+      }
+    } finally {
+      await bestEffortDelete(request, `${endpoint}/${resource.id}`);
+    }
+  });
+}
+
 test("Character and Persona avatar actions stay separated and visually balanced", async ({ page }, testInfo) => {
   const mobileProject = (page.viewportSize()?.width ?? 768) < 768;
   if (!mobileProject) await page.setViewportSize({ width: 2560, height: 900 });
@@ -4044,7 +4098,6 @@ test("Character and Persona avatar actions stay separated and visually balanced"
 
     const header = editor.locator(".mari-editor-header");
     const navigation = header.locator(".mari-editor-navigation");
-    const desktopRail = editor.locator(".mari-editor-tab-rail");
     const actions = header.locator(".mari-editor-actions");
     const compactMenuButton = navigation.getByRole("button", { name: "Editor sections" });
     const desktopTabs = navigation.getByRole("navigation", { name: "Editor sections" });
@@ -4093,94 +4146,122 @@ test("Character and Persona avatar actions stay separated and visually balanced"
     if (mobileProject) {
       await verifyCompactNavigation();
     } else {
-      if (panel === "characters") {
-        for (const width of [767, 768, 1024, 1800, 2560]) {
-          await page.setViewportSize({ width, height: 900 });
-          if (width === 767) {
-            await expect(desktopRail).toBeHidden();
-            const mobilePanel = page.locator('[data-component="RightPanelMobile"]');
-            if (await mobilePanel.isVisible()) {
-              await mobilePanel.getByRole("button", { name: "Close panel", exact: true }).click();
-              await expect(mobilePanel).toHaveCount(0);
-            }
-            await verifyCompactNavigation();
-          } else {
-            await expect(desktopRail).toBeVisible();
-            await expect(navigation).toBeHidden();
-            await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
-          }
-        }
-      }
-      await page.setViewportSize({ width: 1800, height: 900 });
-      if (panel === "characters") {
-        await expect(desktopRail).toBeVisible();
-        await expect(navigation).toBeHidden();
-        await desktopRail.getByRole("button", { name: "Card", exact: true }).click();
-        await expect(editor.getByRole("heading", { name: /^Card\b/u })).toBeVisible();
-      } else {
-        await verifyCompactNavigation();
-      }
-
-      if (panel !== "characters") {
-        let compactTabsWidth: number | null = null;
-        for (const width of [1900, 2000, 2100, 2200, 2300, 2400]) {
-          await page.setViewportSize({ width, height: 900 });
-          if (
-            (await desktopTabs.isVisible()) &&
-            (await desktopTabs.locator(".mari-editor-tab svg").first().isHidden())
-          ) {
-            compactTabsWidth = width;
-            break;
-          }
-        }
-        expect(compactTabsWidth).not.toBeNull();
+      // The fixture keeps the 320px resource panel open. Exercise both sides
+      // of each container-density boundary, not just the viewport breakpoint.
+      const rootFontSize = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+      for (const width of [
+        56 * rootFontSize + 320,
+        1280,
+        1440,
+        80 * rootFontSize + 321,
+        1800,
+        96 * rootFontSize + 321,
+        108 * rootFontSize + 321,
+        2560,
+      ]) {
+        await page.setViewportSize({ width, height: 900 });
+        await testInfo.attach(`${panel}-topbar-${width}`, {
+          body: await page.screenshot(),
+          contentType: "image/png",
+        });
+        await testInfo.attach(`${panel}-geometry-${width}`, {
+          body: JSON.stringify(
+            await header.evaluate((element) => ({
+              width: element.clientWidth,
+              scrollWidth: element.scrollWidth,
+              rootFont: getComputedStyle(document.documentElement).fontSize,
+              items: Array.from(element.children).map((child) => ({
+                className: child.className,
+                width: child.getBoundingClientRect().width,
+              })),
+            })),
+          ),
+          contentType: "application/json",
+        });
         await expect(desktopTabs).toBeVisible();
         await expect(compactMenuButton).toBeHidden();
-        const compactTabBoxes = await desktopTabs.locator(".mari-editor-tab").evaluateAll((tabs) =>
-          tabs.map((tab) => {
-            const box = tab.getBoundingClientRect();
-            return { left: box.left, right: box.right };
-          }),
-        );
-        for (let index = 1; index < compactTabBoxes.length; index += 1) {
-          expect(compactTabBoxes[index]!.left - compactTabBoxes[index - 1]!.right).toBeGreaterThanOrEqual(-0.5);
-        }
-        await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
-      }
-
-      await page.setViewportSize({ width: 2560, height: 900 });
-      if (panel === "characters") {
-        await expect(desktopRail).toBeVisible();
-        await expect(navigation).toBeHidden();
-      } else {
-        await expect(desktopTabs).toBeVisible();
-        await expect(compactMenuButton).toBeHidden();
-        await expect(desktopTabs.locator(".mari-editor-tab svg").first()).toBeVisible();
-        const [headerBox, navigationBox, firstActionBox, tabBoxes] = await Promise.all([
+        await expect(editor.locator(".mari-editor-tab-rail")).toHaveCount(0);
+        await expect(desktopTabs.getByRole("button")).toHaveCount(panel === "characters" ? 9 : 8);
+        const [headerBox, identityBox, navigationBox, firstActionBox, tabBoxes] = await Promise.all([
           header.boundingBox(),
+          header.locator(".mari-editor-header-main").boundingBox(),
           navigation.boundingBox(),
           actions.locator(".mari-editor-action").first().boundingBox(),
           desktopTabs.locator(".mari-editor-tab").evaluateAll((tabs) =>
             tabs.map((tab) => {
               const box = tab.getBoundingClientRect();
-              return { left: box.left, right: box.right, height: box.height };
+              const label = tab.querySelector("span")!;
+              return {
+                left: box.left,
+                right: box.right,
+                top: box.top,
+                height: box.height,
+                labelFits: label.scrollWidth <= label.clientWidth,
+              };
             }),
           ),
         ]);
         expect(headerBox).not.toBeNull();
+        expect(identityBox).not.toBeNull();
         expect(navigationBox).not.toBeNull();
+        if (identityBox && navigationBox) {
+          expect(
+            Math.abs(identityBox.y + identityBox.height / 2 - (navigationBox.y + navigationBox.height / 2)),
+          ).toBeLessThanOrEqual(1);
+          expect(identityBox.x + identityBox.width).toBeLessThanOrEqual(navigationBox.x);
+        }
         if (headerBox && navigationBox) {
-          expect(navigationBox.width).toBeLessThan(headerBox.width * 0.65);
+          expect(navigationBox.y).toBeGreaterThanOrEqual(headerBox.y);
+          expect(navigationBox.y + navigationBox.height).toBeLessThanOrEqual(headerBox.y + headerBox.height);
+        }
+        if (navigationBox && firstActionBox) {
+          expect(navigationBox.x + navigationBox.width).toBeLessThanOrEqual(firstActionBox.x);
         }
         for (let index = 1; index < tabBoxes.length; index += 1) {
           expect(tabBoxes[index]!.left - tabBoxes[index - 1]!.right).toBeGreaterThanOrEqual(-0.5);
           expect(tabBoxes[index]!.left - tabBoxes[index - 1]!.right).toBeLessThanOrEqual(5);
+          expect(tabBoxes[index]!.top).toBe(tabBoxes[0]!.top);
         }
+        for (const tabBox of tabBoxes) expect(tabBox.labelFits).toBe(true);
         if (firstActionBox) {
           for (const tabBox of tabBoxes) expect(Math.abs(tabBox.height - firstActionBox.height)).toBeLessThanOrEqual(1);
         }
         await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
       }
+      await desktopTabs.getByRole("button", { name: "Card", exact: true }).click();
+      await expect(desktopTabs.getByRole("button", { name: "Card", exact: true })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      await expect(desktopTabs.locator(".mari-editor-tab svg").first()).toBeVisible();
+
+      await page.setViewportSize({ width: 56 * rootFontSize + 319, height: 900 });
+      await expect(compactMenuButton).toBeVisible();
+      await expect(compactMenuButton).toHaveText("Card");
+      await openEditorSection(editor, "Metadata");
+      await verifyCompactNavigation();
+
+      await page.setViewportSize({ width: 767, height: 900 });
+      const mobilePanel = page.locator('[data-component="RightPanelMobile"]');
+      if (await mobilePanel.isVisible()) {
+        await mobilePanel.getByRole("button", { name: "Close panel", exact: true }).click();
+        await expect(mobilePanel).toHaveCount(0);
+      }
+      await verifyCompactNavigation();
+      await page.setViewportSize({ width: 2560, height: 900 });
+      await expect(desktopTabs).toBeVisible();
+    }
+
+    for (const theme of ["dark", "light"]) {
+      await page.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      const activeControl = mobileProject ? compactMenuButton : desktopTabs.locator('[aria-current="page"]');
+      await expect(activeControl).toHaveCSS(
+        "color",
+        await readScopedCssVariableColor(header, "--marinara-editor-text"),
+      );
+      await testInfo.attach(`${panel}-${theme}`, { body: await page.screenshot(), contentType: "image/png" });
     }
 
     const [titleLineBox, titleInputBox, bylineBox] = await Promise.all([
@@ -4200,11 +4281,9 @@ test("Character and Persona avatar actions stay separated and visually balanced"
       );
       if ((page.viewportSize()?.width ?? 768) >= 768) {
         expect(bylineBox.x - (titleInputBox.x + titleInputBox.width)).toBeLessThanOrEqual(10);
-        if (panel !== "characters") {
-          const navigationBox = await navigation.boundingBox();
-          expect(navigationBox).not.toBeNull();
-          if (navigationBox) expect(navigationBox.x - (bylineBox.x + bylineBox.width)).toBeLessThanOrEqual(24);
-        }
+        const navigationBox = await navigation.boundingBox();
+        expect(navigationBox).not.toBeNull();
+        if (navigationBox) expect(navigationBox.x - (bylineBox.x + bylineBox.width)).toBeLessThanOrEqual(24);
         const creatorFits = await byline
           .locator(".mari-editor-byline-creator")
           .evaluate((element) => element.scrollWidth <= element.clientWidth);
@@ -5767,6 +5846,11 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
             },
             { id: chatId, style: layout, nextTheme: theme },
           );
+          // Theme/chroma reach CSS through an effect. Wait for that update
+          // before capturing expected colors, especially on Linux WebKit.
+          await expect
+            .poll(() => readCssVariableColor(page, "--marinara-chat-chrome-text"))
+            .toBe(theme === "dark" ? "rgb(194, 220, 229)" : "rgb(38, 58, 71)");
           const row = page.locator(`[data-message-id="${messageId}"]`);
           const control = row.locator(".mari-message-swipes");
           await expect(control).toBeVisible();

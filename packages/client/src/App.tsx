@@ -36,7 +36,8 @@ import {
 import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
 import { api, requestTimeoutSignal } from "./lib/api-client";
-import { forceRefreshSpa } from "./lib/browser-runtime";
+import { forceRefreshSpa, reloadBrowser } from "./lib/browser-runtime";
+import { recordClientError } from "./lib/client-runtime-diagnostics";
 import { showAppUpdatePrompt } from "./lib/app-update-prompt";
 import { formatRuntimeBuild, getServerRuntimeBuild, isRuntimeBuildCurrent } from "./lib/runtime-build";
 import {
@@ -150,6 +151,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
+    recordClientError("render-error", error);
     console.error("[AppRecoveryBoundary] Unhandled render error", error, info.componentStack);
   }
 
@@ -162,7 +164,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
     } catch {
       /* ignore storage reset errors */
     }
-    window.location.reload();
+    reloadBrowser("reset-ui");
   };
 
   render() {
@@ -190,7 +192,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => window.location.reload()}
+                  onClick={() => reloadBrowser("render-recovery")}
                   className="mari-chrome-control mari-chrome-control--selected px-3 py-2 text-sm"
                 >
                   {t("ui.app.recovery.reload")}
@@ -472,6 +474,7 @@ function isTextEntryFocused() {
 
 async function recoverFromVersionSkew(serverVersion: string) {
   await forceRefreshSpa({
+    reason: "version-update",
     queryParamKey: "v",
     queryParamValue: serverVersion,
   });

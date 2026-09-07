@@ -14,6 +14,7 @@ import { useChatGalleryFilenameIndex } from "../../hooks/use-characters";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { PendingTypingDots } from "./PendingTypingDots";
 import { ChatImagePreview } from "./ChatImagePreview";
+import { recordClientRuntimeEvent } from "../../lib/client-runtime-diagnostics";
 import { isDiceRollResult } from "../dice/AnimatedDiceRoll";
 import { DiceMessageContent } from "./ConversationMessageShared";
 import {
@@ -2354,6 +2355,7 @@ export const ChatMessage = memo(function ChatMessage({
         setEditSavePending(true);
         try {
           await onEdit?.(message.id, content);
+          recordClientRuntimeEvent("message-edited");
         } catch {
           toast.error(localizeUi("ui.chat.chatmessage.couldNotSaveThatEdit"));
           return;

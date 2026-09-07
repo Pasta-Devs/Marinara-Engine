@@ -88,7 +88,9 @@ import { getProfessorMariWorkspaceSkillsService } from "./workspace-skills.servi
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
 import {
   detectUnreviewedSensitiveChanges,
+  restoreReplacedStoreLinks,
   getWorkspaceShellSandboxStatus,
+  killSandboxedProcessTree,
   snapshotSensitiveWorkspaceFiles,
   spawnWorkspaceSandboxedShell,
   type SensitiveScanResult,
@@ -3866,20 +3868,31 @@ ${sections.join("\n\n")}
         let settled = false;
         let timedOut = false;
         let graceTimer: NodeJS.Timeout | null = null;
+        let hardKillTimer: NodeJS.Timeout | null = null;
         const finish = (callback: () => void) => {
           if (settled) return;
           settled = true;
           clearTimeout(timer);
           if (graceTimer) clearTimeout(graceTimer);
+          // A stale escalation must never fire a raw group SIGKILL at a pid
+          // the OS may have recycled after the tree already died.
+          if (hardKillTimer) clearTimeout(hardKillTimer);
           signal.removeEventListener("abort", abortHandler);
           void sandboxed.cleanup().finally(callback);
         };
+        let killIssued = false;
         const killChild = () => {
-          child.kill();
-          // A TERM-trapping child (reachable on macOS, where seatbelt has no
-          // PID-namespace teardown) must not outlive the net: escalate.
-          const hardKill = setTimeout(() => child.kill("SIGKILL"), KILL_ESCALATION_MS);
-          hardKill.unref?.();
+          // #5892: group kill - the detached spawn makes the child a group
+          // leader, so backgrounded grandchildren die with it (the macOS
+          // teardown-survivor residual). Escalates for TERM-trapping trees.
+          // Idempotent: abort and timeout can BOTH fire, and a second call
+          // would overwrite hardKillTimer, orphaning the first escalation to
+          // SIGKILL a possibly recycled process group after close.
+          if (killIssued) return;
+          killIssued = true;
+          killSandboxedProcessTree(child, "SIGTERM");
+          hardKillTimer = setTimeout(() => killSandboxedProcessTree(child, "SIGKILL"), KILL_ESCALATION_MS);
+          hardKillTimer.unref?.();
         };
         const abortHandler = () => {
           aborted = true;
@@ -3955,6 +3968,13 @@ ${sections.join("\n\n")}
    */
   private async revertAndStageSensitiveAftermath(snapshot: SensitiveWorkspaceSnapshot): Promise<string[]> {
     const MAX_POSTEXEC_STAGED = 5;
+    let linkLines: string[] = [];
+    try {
+      linkLines = await restoreReplacedStoreLinks(snapshot);
+    } catch (err) {
+      logger.error(err, "[mari] Store-link integrity pass failed");
+      linkLines = ["Store-link integrity check failed; treat package-store paths as unreviewed."];
+    }
     let scan: SensitiveScanResult;
     try {
       scan = await detectUnreviewedSensitiveChanges(this.workspaceRoot, snapshot);
@@ -3962,7 +3982,7 @@ ${sections.join("\n\n")}
       logger.error(err, "[mari] Post-execution sensitive-file scan failed");
       return ["Post-execution sensitive-file scan failed; treat this run's file changes as unreviewed."];
     }
-    const lines: string[] = [];
+    const lines: string[] = [...linkLines];
     if (snapshot.entryCapExceeded || scan.entryCapExceeded) {
       lines.push(
         "Post-execution scan stopped at its entry cap; part of the workspace went uninspected - treat this run's file changes as unreviewed.",
