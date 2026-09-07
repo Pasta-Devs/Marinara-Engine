@@ -48,6 +48,17 @@ const scoped = filterPromptMessagesForCharacterAudience(
   ["reader"],
 );
 assert.ok(!JSON.stringify(postProcessMessages(scoped, { singleUserMessage: true })).includes("Secret"));
+const scopedSystems = filterPromptMessagesForCharacterAudience(
+  [
+    { role: "system", content: "PUBLIC_RULES" },
+    { role: "system", content: "PRIVATE_RULES", hiddenFromAICharacterIds: ["reader"] },
+    { role: "user", content: "VISIBLE_TURN" },
+  ],
+  ["reader"],
+);
+for (const parameters of [{}, { strictRoleFormatting: false }, { singleUserMessage: true }]) {
+  assert.ok(!JSON.stringify(postProcessMessages(scopedSystems, parameters)).includes("PRIVATE_RULES"));
+}
 const toolTurns: ChatMessage[] = [
   {
     role: "assistant",

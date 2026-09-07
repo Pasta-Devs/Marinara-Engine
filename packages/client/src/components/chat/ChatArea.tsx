@@ -329,6 +329,7 @@ type AgentInjectionReviewRequest = {
 
 type IllustratorPromptReviewRequest = {
   chatId: string;
+  subjectOnly?: boolean;
   item: ImagePromptReviewItem;
   resultData: Record<string, unknown>;
 };
@@ -793,6 +794,7 @@ export const ChatArea = memo(function ChatArea() {
       const success = await retryAgents(illustratorPromptReview.chatId, ["illustrator"], {
         illustratorPromptReviewOverride: {
           resultData: illustratorPromptReview.resultData,
+          ...(illustratorPromptReview.subjectOnly ? { subjectOnly: true } : {}),
           prompt: override.prompt,
           ...(override.negativePrompt ? { negativePrompt: override.negativePrompt } : {}),
         },
@@ -808,6 +810,32 @@ export const ChatArea = memo(function ChatArea() {
     if (illustratorPromptReviewSubmitting) return;
     setIllustratorPromptReview(null);
   }, [illustratorPromptReviewSubmitting]);
+
+  const handleIllustrate = useCallback(
+    (prompt?: string) => {
+      if (!activeChatId) return;
+      const resultData = { prompt, characters: [] };
+      if (prompt && useUIStore.getState().reviewImagePromptsBeforeSend) {
+        setIllustratorPromptReview({
+          chatId: activeChatId,
+          subjectOnly: true,
+          resultData,
+          item: {
+            id: "roleplay-scene-illustration",
+            kind: "illustration",
+            title: localizeUi("ui.chat.chatgallery.illustrate"),
+            prompt,
+          },
+        });
+        return;
+      }
+      return retryAgents(activeChatId, ["illustrator"], {
+        illustratorRetryTargets: ["illustration"],
+        ...(prompt ? { illustratorPromptReviewOverride: { prompt, subjectOnly: true, resultData } } : {}),
+      }).then(() => undefined);
+    },
+    [activeChatId, localizeUi, retryAgents],
+  );
 
   // Character IDs in the active chat. Keyed on the raw characterIds field
   // (all getChatCharacterIds reads) so chat-detail refetches that only bump
@@ -3186,20 +3214,7 @@ export const ChatArea = memo(function ChatArea() {
             onOpenScheduleEditor={handleOpenScheduleEditor}
             onCloseSettings={handleCloseSettingsPanel}
             onCloseGallery={handleCloseGalleryPanel}
-            onIllustrate={(prompt) =>
-              retryAgents(activeChatId, ["illustrator"], {
-                illustratorRetryTargets: ["illustration"],
-                ...(prompt
-                  ? {
-                      illustratorPromptReviewOverride: {
-                        prompt,
-                        subjectOnly: true,
-                        resultData: { prompt, characters: [] },
-                      },
-                    }
-                  : {}),
-              })
-            }
+            onIllustrate={handleIllustrate}
             onIllustrateWithAgent={async (agentType) => {
               await retryAgents(activeChatId, [agentType], { forceImageGeneration: true });
             }}
@@ -3342,20 +3357,7 @@ export const ChatArea = memo(function ChatArea() {
           onCloseSettings={handleCloseSettingsPanel}
           onCloseGallery={handleCloseGalleryPanel}
           onOpenScheduleEditor={handleOpenScheduleEditor}
-          onIllustrate={(prompt) =>
-            retryAgents(activeChatId, ["illustrator"], {
-              illustratorRetryTargets: ["illustration"],
-              ...(prompt
-                ? {
-                    illustratorPromptReviewOverride: {
-                      prompt,
-                      subjectOnly: true,
-                      resultData: { prompt, characters: [] },
-                    },
-                  }
-                : {}),
-            })
-          }
+          onIllustrate={handleIllustrate}
           onIllustrateWithAgent={async (agentType) => {
             await retryAgents(activeChatId, [agentType], { forceImageGeneration: true });
           }}

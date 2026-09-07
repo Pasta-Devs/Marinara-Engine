@@ -4,6 +4,107 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
+test("typed illustration prompts wait for review and send only the confirmed subject", async ({ page, request }) => {
+  const connection = await (
+    await request.post("/api/connections", {
+      data: { name: "Illustration review fixture", provider: "custom", baseUrl: "http://127.0.0.1:9/v1" },
+    })
+  ).json();
+  const chat = await (
+    await request.post("/api/chats", {
+      data: { name: "Illustration review", mode: "roleplay", characterIds: [], connectionId: connection.id },
+    })
+  ).json();
+  try {
+    await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "assistant", content: "A quiet room." } });
+    await page.route("**/api/capability-packages/installed", (route) =>
+      route.fulfill({
+        json: [
+          {
+            id: "illustrator",
+            version: "1.0.0",
+            status: "active",
+            readiness: "ready",
+            manifest: {
+              schemaVersion: 1,
+              id: "illustrator",
+              name: "Illustrator",
+              version: "1.0.0",
+              engine: { min: "2.0.0", maxExclusive: "3.0.0" },
+              kind: ["agent"],
+              entrypoints: { agents: "agents.json" },
+              permissions: ["agent-runtime"],
+              files: [],
+            },
+          },
+        ],
+      }),
+    );
+    await page.route("**/api/capability-packages/agents", (route) =>
+      route.fulfill({
+        json: [
+          {
+            id: "illustrator",
+            name: "Illustrator",
+            phase: "post_processing",
+            execution: "feature",
+            enabledByDefault: false,
+            category: "misc",
+            defaultPromptTemplate: "Plan an image.",
+          },
+        ],
+      }),
+    );
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    const calls: Record<string, unknown>[] = [];
+    await page.route("**/api/generate/retry-agents", (route) => {
+      calls.push(route.request().postDataJSON());
+      return route.fulfill({ contentType: "text/event-stream", body: "event: done\ndata: {}\n\n" });
+    });
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      chatHelpSeenModes: ["roleplay"],
+      reviewImagePromptsBeforeSend: true,
+    });
+    await page.addInitScript(
+      ({ id, version }) => {
+        localStorage.setItem("marinara-active-chat-id", id);
+        localStorage.setItem("marinara:whats-new:seen-version", version);
+      },
+      { id: chat.id, version },
+    );
+    await page.goto("/");
+    const input = page.locator("textarea[data-chat-composer]");
+    const send = async () => {
+      await input.fill("/illustrate cup of tea");
+      await page.locator(".mari-chat-send-btn").click();
+    };
+    await send();
+    const dialog = page.getByRole("dialog", { name: "Review Image Prompt", exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("textbox")).toHaveValue("cup of tea");
+    expect(calls).toHaveLength(0);
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    expect(calls).toHaveLength(0);
+    await send();
+    await dialog.getByRole("textbox").fill("cup of green tea");
+    await dialog.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect.poll(() => calls.length).toBe(1);
+    expect(calls[0]?.illustratorPromptReviewOverride).toMatchObject({
+      prompt: "cup of green tea",
+      subjectOnly: true,
+      resultData: { characters: [] },
+    });
+    await expect(dialog).not.toBeVisible();
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+    await request.delete(`/api/connections/${connection.id}`);
+  }
+});
+
 test("prompt controls persist and preview preserves the selected history shape", async ({
   page,
   request,
