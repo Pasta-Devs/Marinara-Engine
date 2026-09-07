@@ -5930,14 +5930,11 @@ export async function gameRoutes(app: FastifyInstance) {
   const characterGallery = createCharacterGalleryStorage(app.db);
   const personaGallery = createPersonaGalleryStorage(app.db);
 
-  const loadGameAvatarLookup = async (chatId: string) => {
-    const chat = await createChatsStorage(app.db).getById(chatId);
-    if (!chat) return new Map<string, string>();
-    const meta = parseMeta(chat.metadata);
+  const loadGameAvatarLookup = async (meta: Record<string, unknown>, chatCharacterIds: string[]) => {
     const ids = getStoryboardLibraryCharacterIds(
       meta,
       (meta.gameSetupConfig as Record<string, unknown>) ?? null,
-      parseChatCharacterIds(chat.characterIds),
+      chatCharacterIds,
     );
     const characters = createCharactersStorage(app.db);
     return loadCharacterLibraryAvatarLookup(
@@ -6018,6 +6015,7 @@ export async function gameRoutes(app: FastifyInstance) {
 
   const applyGameSetupPayload = async (args: {
     chatId: string;
+    chatCharacterIds: string[];
     meta: Record<string, unknown>;
     setupData: Record<string, unknown>;
     rpgContext: SetupRpgContext;
@@ -6100,7 +6098,7 @@ export async function gameRoutes(app: FastifyInstance) {
       Object.assign(updates, buildInitialGameMapPatch(updates, setupConfig, generatedStartingMap));
     }
     if (setupData.startingNpcs) {
-      const charAvatarByName = await loadGameAvatarLookup(chatId);
+      const charAvatarByName = await loadGameAvatarLookup(meta, args.chatCharacterIds);
 
       const usedNpcNames = new Set<string>();
       const uniqueNpcName = (rawName: string, fallbackName: string) => {
@@ -6911,6 +6909,7 @@ export async function gameRoutes(app: FastifyInstance) {
     try {
       setupResult = await applyGameSetupPayload({
         chatId,
+        chatCharacterIds: parseChatCharacterIds(chat.characterIds),
         meta,
         setupData,
         rpgContext: { partyRpgStats, personaRpgStats, personaName },
@@ -6974,6 +6973,7 @@ export async function gameRoutes(app: FastifyInstance) {
     try {
       setupResult = await applyGameSetupPayload({
         chatId,
+        chatCharacterIds: parseChatCharacterIds(chat.characterIds),
         meta,
         setupData,
         rpgContext: await loadSetupRpgContext(chat, setupConfig),
@@ -11652,7 +11652,7 @@ export async function gameRoutes(app: FastifyInstance) {
         try {
           const imgConn = await connections.getWithKey(imgConnId);
           if (imgConn) {
-            const charAvatarByName = await loadGameAvatarLookup(input.chatId);
+            const charAvatarByName = await loadGameAvatarLookup(meta, parseChatCharacterIds(chat.characterIds));
 
             const illustration = sceneResult.illustration as SceneIllustrationRequest | null | undefined;
             if (illustration && sceneCtx.canGenerateIllustrations) {
@@ -13517,7 +13517,7 @@ export async function gameRoutes(app: FastifyInstance) {
         addExistingNpcAvatar(existingNpcAvatarByName, npc.name, generatedAvatarUrl);
       }
 
-      const charAvatarByName = await loadGameAvatarLookup(input.chatId);
+      const charAvatarByName = await loadGameAvatarLookup(meta, parseChatCharacterIds(chat.characterIds));
 
       type PreviewAssetItem = (typeof items)[number];
       const portraitPreviewItems: Array<PreviewAssetItem | null> = new Array(input.npcsNeedingAvatars.length).fill(
@@ -13978,7 +13978,7 @@ export async function gameRoutes(app: FastifyInstance) {
           addExistingNpcAvatar(existingNpcAvatarByName, npc.name, generatedAvatarUrl);
         }
 
-        const charAvatarByName = await loadGameAvatarLookup(input.chatId);
+        const charAvatarByName = await loadGameAvatarLookup(meta, parseChatCharacterIds(chat.characterIds));
 
         let nextNpcIndex = 0;
         const runPortraitWorker = async () => {
