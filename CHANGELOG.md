@@ -93,6 +93,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ### Fixed
 
 - Experience lore selections respect their token limit even when a selected lorebook enables recursive scanning; entries reported as skipped stay out of the prompt (#5942).
+- Scoped the character-action browser fixture to its test character so unrelated catalog entries do not delay the check.
 
 - Game narration has a Translate action and rejects stale translations after rerolls; automatic translation can start with the first response when enabled during setup. Delayed translations stay with their original chat when switching chats (#5888).
 - Push Story uses the current Director result with or without a preset marker, and Mari consolidates system context for local chat templates (#5931, #5932).
