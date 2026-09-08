@@ -19,6 +19,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AgentOutputSpoiler } from "../agents/AgentOutputSpoiler";
 import type { Chat, GameState } from "@marinara-engine/shared";
 import {
   useAgentMemory,
@@ -1069,28 +1070,30 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
                     {customRuns.map((run) => {
                       const mode: "text" | "json" = typeof run.resultData === "string" ? "text" : "json";
                       return (
-                        <DataBlock
-                          key={run.id}
-                          blockId={run.id}
-                          label={run.resultType.replace(/_/g, " ")}
-                          description={formatRunTimestamp(run.createdAt)}
-                          mode={mode}
-                          value={serializeValue(run.resultData, mode)}
-                          onSave={async (draftText) => {
-                            const parsed: unknown = mode === "json" ? JSON.parse(draftText) : draftText;
-                            await updateRunData.mutateAsync({ id: run.id, chatId: run.chatId, resultData: parsed });
-                          }}
-                          onDirtyChange={handleBlockDirtyChange}
-                          disabled={isAgentProcessing}
-                          agentName={selectedAgent.name}
-                          connectionOptions={connectionOptions}
-                          rewriteConnectionId={effectiveRewriteConnectionId}
-                          onRewriteConnectionChange={setRewriteConnectionId}
-                          contextPicker={contextPicker}
-                          contextCount={selectedContextSources.length}
-                          contextOverLimit={contextOverLimit}
-                          buildContextSections={buildContextSections}
-                        />
+                        <AgentOutputSpoiler key={run.id} hidden={run.hideOutput}>
+                          <DataBlock
+                            key={run.id}
+                            blockId={run.id}
+                            label={run.resultType.replace(/_/g, " ")}
+                            description={formatRunTimestamp(run.createdAt)}
+                            mode={mode}
+                            value={serializeValue(run.resultData, mode)}
+                            onSave={async (draftText) => {
+                              const parsed: unknown = mode === "json" ? JSON.parse(draftText) : draftText;
+                              await updateRunData.mutateAsync({ id: run.id, chatId: run.chatId, resultData: parsed });
+                            }}
+                            onDirtyChange={handleBlockDirtyChange}
+                            disabled={isAgentProcessing}
+                            agentName={selectedAgent.name}
+                            connectionOptions={connectionOptions}
+                            rewriteConnectionId={effectiveRewriteConnectionId}
+                            onRewriteConnectionChange={setRewriteConnectionId}
+                            contextPicker={contextPicker}
+                            contextCount={selectedContextSources.length}
+                            contextOverLimit={contextOverLimit}
+                            buildContextSections={buildContextSections}
+                          />
+                        </AgentOutputSpoiler>
                       );
                     })}
                   </section>

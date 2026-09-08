@@ -1,9 +1,9 @@
 // ──────────────────────────────────────────────
 // Storage: Agent Configs, Runs & Memory
 // ──────────────────────────────────────────────
-import { eq, ne, and, desc, notInArray } from "../../db/file-query.js";
+import { eq, ne, and, desc, lte, notInArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
-import { agentConfigs, agentRuns, agentMemory } from "../../db/schema/index.js";
+import { agentConfigs, agentRuns, agentMemory, messages } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import {
   BUILT_IN_AGENTS,
@@ -92,6 +92,7 @@ function serializeRunWithConfig(row: { agent_runs: AgentRunRow; agent_configs: A
     agentConfigId: row.agent_runs.agentConfigId,
     agentType: row.agent_configs.type,
     agentName: row.agent_configs.name,
+    hideOutput: parseAgentSettingsRecord(row.agent_configs.settings).hideOutput === true,
     chatId: row.agent_runs.chatId,
     messageId: row.agent_runs.messageId,
     resultType: row.agent_runs.resultType,
@@ -301,11 +302,17 @@ export function createAgentsStorage(db: DB) {
     }) {
       const agentConfigId = await resolveAgentConfigId(input.agentConfigId);
       const id = input.runId ?? newId();
+      const [message] = await db
+        .select({ activeSwipeIndex: messages.activeSwipeIndex })
+        .from(messages)
+        .where(and(eq(messages.id, input.messageId), eq(messages.chatId, input.chatId)))
+        .limit(1);
       const values = {
         id,
         agentConfigId,
         chatId: input.chatId,
         messageId: input.messageId,
+        swipeIndex: message?.activeSwipeIndex ?? null,
         resultType: input.result.type,
         resultData: JSON.stringify(input.result.data),
         tokensUsed: input.result.tokensUsed,
@@ -324,6 +331,41 @@ export function createAgentsStorage(db: DB) {
         await insert;
       }
       return id;
+    },
+
+    /** Follow visible message chronology, not the wall-clock order of manual retries. */
+    async getPreviousOutput(
+      agentConfigId: string,
+      chatId: string,
+      throughMessageId?: string,
+      excludeMessageId?: string,
+    ) {
+      let through: { createdAt: string } | undefined;
+      if (throughMessageId) {
+        [through] = await db
+          .select({ createdAt: messages.createdAt })
+          .from(messages)
+          .where(and(eq(messages.id, throughMessageId), eq(messages.chatId, chatId)))
+          .limit(1);
+        if (!through) return null;
+      }
+      const rows = await db
+        .select()
+        .from(agentRuns)
+        .innerJoin(messages, eq(agentRuns.messageId, messages.id))
+        .where(
+          and(
+            eq(agentRuns.agentConfigId, agentConfigId),
+            eq(agentRuns.chatId, chatId),
+            eq(messages.chatId, chatId),
+            eq(agentRuns.success, "true"),
+            through ? lte(messages.createdAt, through.createdAt) : undefined,
+            excludeMessageId ? ne(messages.id, excludeMessageId) : undefined,
+          ),
+        )
+        .orderBy(desc(messages.createdAt), desc(agentRuns.createdAt));
+      const run = rows.find((row) => (row.agent_runs.swipeIndex ?? 0) === row.messages.activeSwipeIndex)?.agent_runs;
+      return run ? parseRunData(run.resultData) : null;
     },
 
     /** Get the most recent successful run of an agent type in a given chat. */

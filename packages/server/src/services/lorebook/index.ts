@@ -38,6 +38,7 @@ export interface LorebookScanResult {
   activatedEntryIds: string[];
   activatedEntries: Array<{
     id: string;
+    name?: string;
     content: string;
     matchedKeys: string[];
     activationSources: LorebookActivationSource[];
@@ -1325,6 +1326,7 @@ export async function processLorebooks(
       const semanticScore = readSemanticScore(a.matchedKeys);
       return {
         id: a.entry.id,
+        name: a.entry.name,
         content: a.entry.content,
         activationSources: a.activationSources,
         matchedKeys: a.matchedKeys,

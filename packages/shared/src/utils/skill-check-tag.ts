@@ -169,7 +169,7 @@ function readSkillCheckTagValue(body: string, at: number): { rawValue: string; e
  * together with the run's start — the extra attempts the regex made were all
  * duplicates of one it had already made.
  */
-function readSkillCheckTagAttributes(body: string): SkillCheckTagAttribute[] {
+export function readGmTagAttributes(body: string): SkillCheckTagAttribute[] {
   const attributes: SkillCheckTagAttribute[] = [];
   let index = 0;
   while (index < body.length) {
@@ -231,7 +231,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   // re-open the hole above it: `dice = 6d10` would stop being read at all, which
   // is a declared pool going unseen — exactly the sparse-looking pool tag this
   // reader must never hand to a d20. Whitespace still decides nothing.
-  const attributes = readSkillCheckTagAttributes(body);
+  const attributes = readGmTagAttributes(body);
   if (attributes.length === 0) return null;
 
   const values = new Map<string, string>();

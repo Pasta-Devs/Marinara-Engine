@@ -30,6 +30,7 @@ export interface AgentConfigRow {
 }
 
 export interface AgentRunRow {
+  hideOutput?: boolean;
   id: string;
   agentConfigId: string;
   agentType: string;

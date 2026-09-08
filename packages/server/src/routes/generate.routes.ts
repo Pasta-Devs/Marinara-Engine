@@ -2569,6 +2569,7 @@ export async function generateRoutes(app: FastifyInstance) {
           );
 
           const assemblerInput: AssemblerInput = {
+            agentHistoryMessageId: input.regenerateMessageId ?? undefined,
             deferMessagePostProcessing: true,
             db: app.db,
             preset: preset as any,
@@ -4104,6 +4105,13 @@ export async function generateRoutes(app: FastifyInstance) {
           chatMode,
           wrapFormat,
           recentMessages: recentMsgs,
+          loadPreviousOutput: (agentId) =>
+            agentsStore.getPreviousOutput(
+              agentId,
+              input.chatId,
+              recentMsgs.at(-1)?.id,
+              input.regenerateMessageId ?? undefined,
+            ),
           mainResponse: null,
           gameState,
           characters: charInfo,
@@ -4160,6 +4168,7 @@ export async function generateRoutes(app: FastifyInstance) {
           authorNotes: authorNotes || null,
           activatedLorebookEntries: lorebookScanSnapshot.activatedEntries.map((entry) => ({
             id: entry.id,
+            name: entry.name,
             content: entry.content,
           })),
           ...(customAgentVectorAccessEnabled

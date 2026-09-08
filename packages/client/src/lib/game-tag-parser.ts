@@ -10,6 +10,7 @@
 
 import {
   parseSkillCheckTagBody,
+  readGmTagAttributes,
   type DirectionCommand,
   type DirectionEffect,
   type SkillCheckTag,
@@ -126,10 +127,9 @@ function parseQteMatch(match: RegExpMatchArray): { actions: string[]; timer: num
 
 function parseTagAttributes(body: string): Map<string, string> {
   const values = new Map<string, string>();
-  const attributes = Array.from(body.matchAll(/(\w+)\s*=\s*("[^"]*"|'[^']*'|[^\s\]]+)/g));
-  for (const match of attributes) {
-    const key = match[1]?.trim().toLowerCase();
-    const rawValue = match[2]?.trim();
+  for (const attribute of readGmTagAttributes(body)) {
+    const key = attribute.key.trim().toLowerCase();
+    const rawValue = attribute.rawValue.trim();
     if (!key || !rawValue) continue;
     values.set(key, rawValue.replace(/^['"]|['"]$/g, ""));
   }

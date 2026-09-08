@@ -201,6 +201,8 @@ export interface AssemblerInput {
   personaStats?: any;
   /** Chat messages from the DB (user + assistant + narrator etc.) */
   chatMessages: ChatMLMessage[];
+  /** Regeneration must not use the output of the message being replaced or later messages. */
+  agentHistoryMessageId?: string;
   /** Optional scan-only messages for lorebook matching. Keeps synthetic guidance out of chat history. */
   lorebookScanMessages?: ChatMLMessage[];
   /** Current chat summary text (if any) */
@@ -522,6 +524,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const markerCtx: MarkerContext = {
     db: input.db,
     chatId: input.chatId,
+    agentHistoryMessageId: input.agentHistoryMessageId,
     characterIds: input.characterIds,
     lorebookCharacterIds: input.lorebookCharacterIds,
     personaId: input.personaId ?? null,

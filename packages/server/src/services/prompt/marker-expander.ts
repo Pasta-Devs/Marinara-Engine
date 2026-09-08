@@ -4,7 +4,12 @@
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
-import { formatRpgStatsForPrompt, isExternallyImportedAgent, resolveMacros } from "@marinara-engine/shared";
+import {
+  formatRpgStatsForPrompt,
+  isExternallyImportedAgent,
+  publicAgentOutput,
+  resolveMacros,
+} from "@marinara-engine/shared";
 import type {
   CharacterMacroProfile,
   MarkerConfig,
@@ -23,8 +28,6 @@ import { processLorebooks, type LorebookFinalContentResolver, type LorebookScanR
 import { cardPromptText } from "./card-text.js";
 import { wrapContent } from "./format-engine.js";
 import { sanitizeExampleDialoguePromptLeaf, sanitizePromptLeaf } from "./prompt-escaping.js";
-import { agentRuns } from "../../db/schema/index.js";
-import { eq, and, desc } from "../../db/file-query.js";
 
 /** World-info positions a lorebook marker can place: position 0 (before) and position 1 (after). */
 export type LorebookMarkerPosition = "before" | "after";
@@ -33,6 +36,7 @@ export type LorebookMarkerPosition = "before" | "after";
 export interface MarkerContext {
   db: DB;
   chatId: string;
+  agentHistoryMessageId?: string;
   characterIds: string[];
   /** Character scope used only for lorebook matching. */
   lorebookCharacterIds?: string[];
@@ -606,28 +610,15 @@ async function expandAgentData(config: MarkerConfig, ctx: MarkerContext): Promis
     return { content: "" };
   }
 
-  const latestRuns = await ctx.db
-    .select()
-    .from(agentRuns)
-    .where(
-      and(eq(agentRuns.agentConfigId, agentConfig.id), eq(agentRuns.chatId, ctx.chatId), eq(agentRuns.success, "true")),
-    )
-    .orderBy(desc(agentRuns.createdAt))
-    .limit(1);
-
-  const run = latestRuns[0];
-  if (!run) return { content: "" };
-
-  let resultData: unknown;
-  try {
-    resultData = JSON.parse(run.resultData);
-  } catch (err) {
-    logger.warn(err, "[prompt] Skipping malformed agent result data for %s in chat %s", agentType, ctx.chatId);
-    return { content: "" };
-  }
+  const resultData = await agentsStorage.getPreviousOutput(
+    agentConfig.id,
+    ctx.chatId,
+    ctx.agentHistoryMessageId,
+    ctx.agentHistoryMessageId,
+  );
 
   // Format result data as readable text
-  return { content: sanitizePromptLeaf(formatAgentResult(resultData), ctx.wrapFormat) };
+  return { content: sanitizePromptLeaf(formatAgentResult(publicAgentOutput(resultData)), ctx.wrapFormat) };
 }
 
 function formatAgentResult(data: unknown): string {

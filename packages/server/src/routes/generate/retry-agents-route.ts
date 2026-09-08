@@ -953,7 +953,9 @@ async function buildRetryAgentContext(args: {
   ).flatMap((entry) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
     const row = entry as Record<string, unknown>;
-    return typeof row.id === "string" && typeof row.content === "string" ? [{ id: row.id, content: row.content }] : [];
+    return typeof row.id === "string" && typeof row.content === "string"
+      ? [{ id: row.id, name: typeof row.name === "string" ? row.name : undefined, content: row.content }]
+      : [];
   });
   const semanticLorebookEntries = (
     Array.isArray(rawLorebookScan.activatedEntries) ? rawLorebookScan.activatedEntries : []
@@ -1060,6 +1062,13 @@ async function buildRetryAgentContext(args: {
       return nextMessage;
     }),
     mainResponse: resolvedLastAssistantContent,
+    loadPreviousOutput: (agentId) =>
+      createAgentsStorage(db).getPreviousOutput(
+        agentId,
+        chatId,
+        agentSlice.at(-1)?.id,
+        typeof lastAssistant?.id === "string" ? lastAssistant.id : undefined,
+      ),
     gameState: null,
     characters: charInfo,
     characterTrackerHistory: characterTrackerHistory as unknown as AgentContext["characterTrackerHistory"],

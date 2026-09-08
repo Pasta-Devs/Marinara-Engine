@@ -1715,7 +1715,7 @@ function sourceIllustrationPathForMetadata(assetPath: string): string {
 const MAX_GAME_HUD_WIDGETS = 4;
 /** Cap for the opaque `experienceConfig`, so it can't grow into a payload every later write of the
  *  setup config has to carry. Generous next to what a setup wizard actually collects. */
-const MAX_EXPERIENCE_CONFIG_CHARS = 32_000;
+const MAX_EXPERIENCE_CONFIG_CHARS = 262_144;
 /** Ceiling for a game-surface Experience's per-anchor world-state blob (#5102), counted in
  *  UTF-16 code units of the serialized JSON. Generous for a serialized tile-world save. */
 const MAX_EXPERIENCE_STATE_CHARS = 262_144;

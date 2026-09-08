@@ -1583,6 +1583,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         preferredTargetLorebookId,
         writableLorebookIds,
         allowTargetRouting: payload.allowTargetRouting !== false,
+        namesAreVerbatim: true,
         writableLorebooks,
         lorebookNamingScheme: getLorebookNamingScheme({ lorebookNamingScheme: payload.lorebookNamingScheme }),
         worldName:

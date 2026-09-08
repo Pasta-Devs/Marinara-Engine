@@ -335,6 +335,11 @@ const CUSTOM_AGENT_CONTEXT_SOURCE_META: Array<{
   requiredCapability?: CustomAgentCapability;
 }> = [
   {
+    id: "previousOutput",
+    label: "agents.context.previousOutput.label",
+    description: "agents.context.previousOutput.description",
+  },
+  {
     id: "chatHistory",
     label: "ui.agents.agenteditor.contextSource.chatHistory.label",
     description: "ui.agents.agenteditor.contextSource.chatHistory.description",
@@ -753,6 +758,7 @@ export function AgentEditor() {
   const [localAuthor, setLocalAuthor] = useState("");
   const [localPromptTemplates, setLocalPromptTemplates] = useState<AgentPromptTemplateOption[]>([]);
   const [localResultType, setLocalResultType] = useState<CustomAgentResultType>("context_injection");
+  const [localOutputOptions, setLocalOutputOptions] = useState({ jsonContextOutput: false, hideOutput: false });
   const [localCustomCapabilities, setLocalCustomCapabilities] = useState<CustomAgentCapabilityMap>({});
   const [localContextSources, setLocalContextSources] = useState<CustomAgentContextSources>(() => ({
     ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES,
@@ -940,6 +946,10 @@ export function AgentEditor() {
       setLocalCustomCapabilities(normalizeCustomAgentCapabilities(settings));
       setLocalContextSources(normalizeCustomAgentContextSources(settings));
       setLocalResultType(normalizeCustomResultType(settings.resultType));
+      setLocalOutputOptions({
+        jsonContextOutput: settings.jsonContextOutput === true,
+        hideOutput: settings.hideOutput === true,
+      });
       setLocalIncludePreGenInjections(settings.includePreGenInjections === true);
       setLocalIncludeParallelResults(settings.includeParallelResults === true);
       setLocalPrompt(dbConfig.promptTemplate || "");
@@ -983,6 +993,7 @@ export function AgentEditor() {
       setLocalCustomCapabilities({});
       setLocalContextSources({ ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES });
       setLocalResultType("context_injection");
+      setLocalOutputOptions({ jsonContextOutput: false, hideOutput: false });
       setLocalIncludePreGenInjections(false);
       setLocalIncludeParallelResults(false);
       setLocalLorebookWriteEnabled(false);
@@ -1040,6 +1051,7 @@ export function AgentEditor() {
       setLocalCustomCapabilities({});
       setLocalContextSources({ ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES });
       setLocalResultType("context_injection");
+      setLocalOutputOptions({ jsonContextOutput: false, hideOutput: false });
       setLocalIncludePreGenInjections(false);
       setLocalIncludeParallelResults(false);
       setLocalLorebookWriteEnabled(false);
@@ -1352,6 +1364,7 @@ export function AgentEditor() {
         ...(isEditingCustomAgent ? { customCapabilities } : {}),
         ...(isEditingCustomAgent ? { contextSources: localContextSources } : {}),
         ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
+        ...(isEditingCustomAgent ? localOutputOptions : {}),
         ...(isEditingCustomAgent ? { triggerLorebooksForAgentCalls: localTriggerLorebooksForAgentCalls } : {}),
         ...(activationKeywords.length > 0
           ? {
@@ -1467,6 +1480,7 @@ export function AgentEditor() {
     localDescription,
     localPhase,
     localResultType,
+    localOutputOptions,
     localCustomCapabilities,
     localContextSources,
     localConnectionId,
@@ -1576,6 +1590,7 @@ export function AgentEditor() {
       ...(isEditingCustomAgent ? { customCapabilities } : {}),
       ...(isEditingCustomAgent ? { contextSources: localContextSources } : {}),
       ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
+      ...(isEditingCustomAgent ? localOutputOptions : {}),
       ...(isEditingCustomAgent ? { triggerLorebooksForAgentCalls: localTriggerLorebooksForAgentCalls } : {}),
       ...(activationKeywords.length > 0 ? { activationKeywords, activationScanDepth } : {}),
       ...(mayIncludeTurnData && localIncludePreGenInjections ? { includePreGenInjections: true } : {}),
@@ -1853,7 +1868,17 @@ export function AgentEditor() {
   );
   const selectedVisibleToolCount = localEnabledTools.filter((toolName) => visibleToolNames.has(toolName)).length;
   const availableVisibleToolCount = visibleToolNames.size;
-  const customResultExample = CUSTOM_AGENT_RESULT_EXAMPLES[localResultType];
+  const customResultExample =
+    localResultType === "context_injection" && localOutputOptions.jsonContextOutput
+      ? {
+          format: "json" as const,
+          value: JSON.stringify(
+            { text: "Content for the main prompt", "agent-context": "Private context for my next run" },
+            null,
+            2,
+          ),
+        }
+      : CUSTOM_AGENT_RESULT_EXAMPLES[localResultType];
   const customPromptPlaceholder = `${localizeUi(
     customResultExample.format === "json"
       ? "ui.agents.agenteditor.writePromptForJsonResultExample"
@@ -2192,6 +2217,26 @@ export function AgentEditor() {
                   );
                 })}
               </div>
+              {localResultType === "context_injection" && (
+                <EditorSwitchRow
+                  label={localizeUi("agents.output.jsonContext.label")}
+                  description={localizeUi("agents.output.jsonContext.description")}
+                  checked={localOutputOptions.jsonContextOutput}
+                  onChange={(checked) => {
+                    setLocalOutputOptions((value) => ({ ...value, jsonContextOutput: checked }));
+                    markDirty();
+                  }}
+                />
+              )}
+              <EditorSwitchRow
+                label={localizeUi("agents.output.hide.label")}
+                description={localizeUi("agents.output.hide.description")}
+                checked={localOutputOptions.hideOutput}
+                onChange={(checked) => {
+                  setLocalOutputOptions((value) => ({ ...value, hideOutput: checked }));
+                  markDirty();
+                }}
+              />
               {localResultType === "text_rewrite" && (
                 <p className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[0.625rem] leading-relaxed text-amber-200">
                   {localizeUi("ui.agents.agenteditor.textRewriteAgentsAlwaysSaveAsPostProcessingTheir")}{" "}

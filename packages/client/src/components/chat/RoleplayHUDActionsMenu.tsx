@@ -11,6 +11,7 @@ import {
 } from "../../lib/agent-failures";
 import { ContextInjectionPanel } from "../agents/ContextInjectionPanel";
 import { AgentTaskStatus } from "../agents/AgentTaskStatus";
+import { AgentOutputSpoiler } from "../agents/AgentOutputSpoiler";
 import { useAgentStore } from "../../stores/agent.store";
 import { ContinuityIssueChecklist } from "../agents/ContinuityIssueChecklist";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -602,6 +603,14 @@ function formatRunTime(value: string): string {
 }
 
 function CustomAgentRunItem({ run }: { run: AgentRunRow }) {
+  return (
+    <AgentOutputSpoiler hidden={run.hideOutput}>
+      <CustomAgentRunContent run={run} />
+    </AgentOutputSpoiler>
+  );
+}
+
+function CustomAgentRunContent({ run }: { run: AgentRunRow }) {
   const { t: localizeUi } = useUiTranslation();
   const updateRun = useUpdateAgentRunData();
   const mode = getEditableMode(run.resultData);

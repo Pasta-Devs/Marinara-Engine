@@ -113,7 +113,7 @@ assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 3145728"), "
 assert.equal(probeHeapHelpers("resolve_default_node_heap_mb 1153434 0"), "1536");
 const wakeLockTrapIndex = termuxLauncherSource.search(/^[ \t]*trap release_termux_wake_lock EXIT[ \t]*$/mu);
 const wakeLockAcquireIndex = termuxLauncherSource.search(/^[ \t]*if[ \t]+termux-wake-lock\b[^\n]*;[ \t]*then[ \t]*$/mu);
-const serverStartIndex = termuxLauncherSource.lastIndexOf("node dist/index.js");
+const serverStartIndex = termuxLauncherSource.lastIndexOf("node ../../scripts/run-server.mjs dist/index.js");
 const persistentLogIndex = termuxLauncherSource.indexOf('exec > >(tee -a "$MARINARA_TERMUX_LOG_FILE") 2>&1');
 const dependencySetupIndex = termuxLauncherSource.indexOf("resolve_pnpm_runner || exit 1");
 assert.ok(
@@ -126,7 +126,7 @@ assert.ok(
 );
 assert.doesNotMatch(
   termuxLauncherSource,
-  /exec node dist\/index\.js/u,
+  /exec node (?:\.\.\/\.\.\/scripts\/run-server\.mjs )?dist\/index\.js/u,
   "the Termux launcher must retain its shell so the EXIT cleanup trap can run",
 );
 assert.match(
@@ -145,7 +145,7 @@ assert.ok(
 );
 assert.match(
   termuxLauncherSource,
-  /node dist\/index\.js\s+MARINARA_SERVER_STATUS=\$\?[\s\S]{0,900}exit "\$MARINARA_SERVER_STATUS"/u,
+  /node \.\.\/\.\.\/scripts\/run-server\.mjs dist\/index\.js\s+MARINARA_SERVER_STATUS=\$\?[\s\S]{0,900}exit "\$MARINARA_SERVER_STATUS"/u,
   "the Termux launcher must preserve the server process exit status",
 );
 assert.match(

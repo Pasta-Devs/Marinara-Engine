@@ -28,6 +28,8 @@ Package lifecycle and storage:
 
 ### Custom Agent imports
 
+Custom agents can enable **Previous output** under Context Sources to read their own last successful output on the visible message history. With **JSON context output**, return `{"text":"main prompt content","agent-context":"private continuation context"}`. Only `text` is injected into the main prompt; the optional `agent-context` field is for that agent's next run. **Hide output as spoilers** keeps saved outputs collapsed until revealed. Regenerations exclude the turn being replaced, and deleted messages or inactive swipes cannot supply continuation context.
+
 External Agent files, folders, and custom repositories are locked by default. To allow them, open **Settings → Advanced → Danger Zone** and enable **Allow custom Agent imports**. Unlike External Extensions, this user-controlled gate does not require an environment variable. The import controls remain greyed out until it is enabled.
 
 Every import shows the Agent's requested capabilities before it is stored. Permissions must be approved explicitly, bundled functions and tool selections are not imported, generated CSS is sanitized, and result actions are checked against the approved capability set. Turning the gate off stops externally imported Agents from running. Custom Agents created in Marinara and official packages installed through **Download Agents** remain runnable and do not use this gate.

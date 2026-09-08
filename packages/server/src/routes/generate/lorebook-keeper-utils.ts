@@ -1,5 +1,6 @@
 import {
   customAgentHasCapability,
+  decodeAgentXmlEntities,
   normalizeLorebookCategory,
   type AgentContext,
   type LorebookEntry,
@@ -440,7 +441,7 @@ function readNestedEntry(update: Record<string, unknown>): Record<string, unknow
     : {};
 }
 
-function readKeeperUpdateName(update: Record<string, unknown>): string {
+export function readKeeperUpdateName(update: Record<string, unknown>, namesAreVerbatim = false): string {
   const nestedEntry = readNestedEntry(update);
   const rawName =
     typeof update.entryName === "string"
@@ -450,7 +451,7 @@ function readKeeperUpdateName(update: Record<string, unknown>): string {
         : typeof nestedEntry.name === "string"
           ? nestedEntry.name
           : "";
-  return rawName.trim();
+  return (namesAreVerbatim ? rawName : decodeAgentXmlEntities(rawName)).trim();
 }
 
 function readKeeperUpdateContent(update: Record<string, unknown>): string {
@@ -487,6 +488,8 @@ export async function persistLorebookKeeperUpdates(args: {
   writableLorebookIds: string[] | null;
   /** An explicitly selected target takes precedence over model-proposed destinations. */
   allowTargetRouting?: boolean;
+  /** Human-approved names have already crossed the model-output decoding boundary. */
+  namesAreVerbatim?: boolean;
   writableLorebooks?: WritableLorebookSummary[];
   lorebookNamingScheme?: LorebookNamingScheme;
   worldName?: string | null;
@@ -502,6 +505,7 @@ export async function persistLorebookKeeperUpdates(args: {
     writableLorebookIds,
     writableLorebooks,
     allowTargetRouting = true,
+    namesAreVerbatim = false,
     lorebookNamingScheme = {},
     worldName,
     updates,
@@ -527,7 +531,7 @@ export async function persistLorebookKeeperUpdates(args: {
 
     const resolveTarget = async (rawTarget: string): Promise<string | null> => {
       signal?.throwIfAborted();
-      const target = rawTarget.trim();
+      const target = (namesAreVerbatim ? rawTarget : decodeAgentXmlEntities(rawTarget)).trim();
       const exact = [...books.values()].find((book) => book.name === target);
       if (exact) return exact.id;
 
@@ -579,6 +583,7 @@ export async function persistLorebookKeeperUpdates(args: {
         preferredTargetLorebookId: targetId ?? preferredTargetLorebookId,
         writableLorebookIds: targetId ? [targetId] : [...writableIds],
         updates: targetUpdates,
+        namesAreVerbatim,
         revectorizeEntry,
         signal,
       });
@@ -625,7 +630,7 @@ export async function persistLorebookKeeperUpdates(args: {
 
   for (const update of updates) {
     signal?.throwIfAborted();
-    const rawName = readKeeperUpdateName(update);
+    const rawName = readKeeperUpdateName(update, namesAreVerbatim);
     if (!rawName) continue;
 
     const content = readKeeperUpdateContent(update);

@@ -1,5 +1,9 @@
 import type { AgentWriteApprovalEnvelope, AgentWriteApprovalProposal } from "@marinara-engine/shared";
-import { mergeLorebookKeeperUpdateContent, readLorebookKeeperUpdateOrder } from "./lorebook-keeper-utils.js";
+import {
+  mergeLorebookKeeperUpdateContent,
+  readKeeperUpdateName as readUpdateName,
+  readLorebookKeeperUpdateOrder,
+} from "./lorebook-keeper-utils.js";
 
 const LOREBOOK_APPROVAL_ENTRY_DELIMITER = "<!-- marinara:lorebook-entry:v1 -->";
 
@@ -55,19 +59,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readNestedEntry(update: Record<string, unknown>): Record<string, unknown> {
   return isRecord(update.entry) ? update.entry : {};
-}
-
-function readUpdateName(update: Record<string, unknown>): string {
-  const nested = readNestedEntry(update);
-  const raw =
-    typeof update.entryName === "string"
-      ? update.entryName
-      : typeof update.name === "string"
-        ? update.name
-        : typeof nested.name === "string"
-          ? nested.name
-          : "";
-  return raw.trim();
 }
 
 function readUpdateReplacementContent(update: Record<string, unknown>): string {

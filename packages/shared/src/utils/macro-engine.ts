@@ -1848,7 +1848,8 @@ const AGENT_CONDITIONAL_ENTITY_REPLACEMENTS: ReadonlyArray<readonly [RegExp, str
   [/&amp;|&#38;|&#x26;/gi, "&"],
 ];
 
-function decodeAgentConditionalTextEntities(input: string): string {
+/** Decode one layer of XML protocol escaping, not authored prompt/content leaves. */
+export function decodeAgentXmlEntities(input: string): string {
   return AGENT_CONDITIONAL_ENTITY_REPLACEMENTS.reduce(
     (value, [pattern, replacement]) => value.replace(pattern, replacement),
     input,
@@ -1858,7 +1859,7 @@ function decodeAgentConditionalTextEntities(input: string): string {
 function decodeAgentConditionalEntities(input: string): string {
   return replaceBalancedMacros(input, (body) => {
     if (parseIfCondition(body) === null && parseElseIfCondition(body) === null) return undefined;
-    return `{{${decodeAgentConditionalTextEntities(body)}}}`;
+    return `{{${decodeAgentXmlEntities(body)}}}`;
   });
 }
 
@@ -1872,9 +1873,7 @@ export function flattenAgentConditionalMacros(input: string): string {
 }
 
 function flattenAgentConditionalMacrosInner(input: string, decodeTextEntities: boolean): string {
-  const normalized = decodeAgentConditionalEntities(
-    decodeTextEntities ? decodeAgentConditionalTextEntities(input) : input,
-  );
+  const normalized = decodeAgentConditionalEntities(decodeTextEntities ? decodeAgentXmlEntities(input) : input);
   let result = "";
   let index = 0;
 

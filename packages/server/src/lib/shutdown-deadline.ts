@@ -24,6 +24,8 @@ export const SHUTDOWN_FORCE_EXIT_DEADLINE_MS = 8_000;
 export interface ShutdownDeadlineOptions {
   connectionDeadlineMs?: number;
   forceExitDeadlineMs?: number;
+  /** Managed restarts signal the owning launcher only after this process exits. */
+  exitCode?: number;
 }
 
 export function armShutdownDeadline(
@@ -61,16 +63,15 @@ export function armShutdownDeadline(
       context,
       forceExitDeadlineMs,
     );
-    // Exit 0: the stop was requested and honored, matching the restart
-    // routes' convention of never signaling a crash to a supervisor for an
-    // intentional stop. The postmortem stamp, however, must NOT read "clean":
+    // Exit 0 for a normal stop, or the owning launcher's managed restart code.
+    // The postmortem stamp, however, must NOT read "clean":
     // a close cut short here may have truncated the store flush, and a user
     // pasting Support Diagnostics after losing a message needs the record to
     // say the shutdown was forced - not to alibi it. Last-write-wins, so a
     // forced update-restart is stamped forced too, which is the truth that
     // matters for triage. The process "exit" hook writes the stamp.
     noteSessionExitKind("forced");
-    process.exit(0);
+    process.exit(options.exitCode ?? 0);
   }, forceExitDeadlineMs);
 
   // The connection watchdog is advisory: if the loop empties there are no

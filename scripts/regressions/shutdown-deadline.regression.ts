@@ -42,7 +42,7 @@ function runChild(body: string, timeoutMs: number) {
 
 // Budget arithmetic: the lane runner gives this whole file 30 s. Each child
 // carries an 8 s in-child hang sentinel (exit 7) inside a 9 s spawnSync
-// timeout, so even three worst-case children (27 s) report their own
+// timeout, plus a 2 s managed-restart check, so worst-case children (29 s) report their own
 // assertion messages before the runner would kill the lane tree bare.
 
 // ── Stage 2: a close stuck past the force deadline exits 0 on its own ───────
@@ -109,6 +109,20 @@ process.exit(0);
   assert.ok(child.elapsedMs < 7_500, `explicit exit must preempt the ref'd watchdog (took ${child.elapsedMs} ms)`);
 }
 
+// A managed restart still reaches its launcher if a close must be forced.
+{
+  const child = runChild(
+    `import { armShutdownDeadline } from ${JSON.stringify(helperUrl)};
+armShutdownDeadline({ server: { closeAllConnections() {} } }, "managed restart", {
+  connectionDeadlineMs: 10,
+  forceExitDeadlineMs: 40,
+  exitCode: 75,
+});`,
+    2_000,
+  );
+  assert.equal(child.status, 75, "A forced managed restart must retain the supervisor exit code");
+}
+
 // ── Source pins: every unbounded close path stays armed ─────────────────────
 const readSource = (path: string) => readFileSync(join(repositoryRoot, path), "utf8");
 const indexTs = readSource("packages/server/src/index.ts");
@@ -123,12 +137,11 @@ assert.match(
   /armShutdownDeadline\(app, "update restart"\);\s*\n\s*await app\.close\(\);/u,
   "the update restart arms the deadline before awaiting close",
 );
-// admin.routes.ts is deliberately NOT armed with stage 2: it spawns the
-// relaunch child only AFTER close, so a blind force exit would leave the
-// server down; its own closeAllConnections timer remains its protection.
+// The owning launcher now relaunches only after exit, so admin restart can
+// use both deadline stages without leaving an orphan or losing the restart.
 const adminRoutes = readSource("packages/server/src/routes/admin.routes.ts");
-assert.match(adminRoutes, /closeAllConnections\(\);\s*\n\s*\}, GRACEFUL_RESTART_TIMEOUT_MS\);/u);
-assert.doesNotMatch(adminRoutes, /armShutdownDeadline/u);
+assert.match(adminRoutes, /armShutdownDeadline\(app, "restart", \{ exitCode \}\);[^]*?await app\.close\(\);/u);
+assert.doesNotMatch(adminRoutes, /\bspawn\(/u);
 const helper = readSource("packages/server/src/lib/shutdown-deadline.ts");
 assert.match(helper, /SHUTDOWN_CONNECTION_DEADLINE_MS = 4_000;/u);
 assert.match(helper, /SHUTDOWN_FORCE_EXIT_DEADLINE_MS = 8_000;/u);
@@ -141,7 +154,7 @@ assert.equal((helper.match(/\.unref\(\)/gu) ?? []).length, 1, "only the connecti
 // A forced exit may have truncated the flush, so it must never be stamped
 // "clean": the honest kind is written before the exit, and the exit hook
 // persists it.
-assert.match(helper, /noteSessionExitKind\("forced"\);\s*process\.exit\(0\);/u);
+assert.match(helper, /noteSessionExitKind\("forced"\);\s*process\.exit\(options\.exitCode \?\? 0\);/u);
 const postmortem = readSource("packages/server/src/lib/session-postmortem.ts");
 assert.match(postmortem, /"clean" \| "crash" \| "restart" \| "forced"/u);
 const clientDiagnostics = readSource("packages/client/src/lib/support-diagnostics.ts");

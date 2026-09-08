@@ -14,8 +14,8 @@ assert.match(adminRoutes, /requirePrivilegedAccess\(req, reply, \{ feature: "Ser
 assert.match(adminRoutes, /rateLimit: ADMIN_RESTART_RATE_LIMIT/u);
 assert.match(adminRoutes, /req\.body\?\.confirm !== true/u);
 assert.match(adminRoutes, /await app\.close\(\)/u);
-assert.match(adminRoutes, /spawn\(process\.execPath, \[\.\.\.process\.execArgv, \.\.\.process\.argv\.slice\(1\)\]/u);
-assert.match(adminRoutes, /app\.server\.closeAllConnections\(\)/u);
+assert.match(adminRoutes, /armShutdownDeadline\(app, "restart", \{ exitCode \}\)/u);
+assert.doesNotMatch(adminRoutes, /\bspawn\(/u, "The server must never fork its own replacement");
 assert.match(appFactory, /forceCloseConnections: false/u);
 assert.match(settingsPanel, /api\.post<\{ status: "restarting" \}>\("\/admin\/restart", \{ confirm: true \}\)/u);
 assert.match(settingsPanel, /controlId="restart-server"/u);
@@ -46,6 +46,9 @@ try {
       return { status: "complete" };
     });
     await app.listen({ host: "127.0.0.1", port: 0 });
+
+    const unsupported = await app.inject({ method: "POST", url: "/api/admin/restart", payload: { confirm: true } });
+    assert.equal(unsupported.statusCode, 409, "Unsupervised starts must not fork an orphan replacement");
 
     const address = app.server.address();
     assert(address && typeof address !== "string");

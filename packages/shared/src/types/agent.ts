@@ -429,6 +429,9 @@ export interface AgentContext {
   } | null;
   /** The agent's own persistent memory (key-value) */
   memory: Record<string, unknown>;
+  /** Host resolves only this agent's output on the visible message history. */
+  loadPreviousOutput?: (agentConfigId: string) => Promise<unknown>;
+  previousOutput?: { agentType: string; text: string };
   /** All lorebook IDs the agent can write to */
   writableLorebookIds: string[] | null;
   /** Chat summary text (if any) — helps agents avoid duplicating summarized info */
@@ -438,6 +441,7 @@ export interface AgentContext {
   /** Lorebook entries activated for the main generation on this turn. */
   activatedLorebookEntries?: Array<{
     id: string;
+    name?: string;
     content: string;
   }>;
   /** Per-lorebook total entry counts (for {{lorebooksize::ID}} macro in agent prompts). */
@@ -600,6 +604,7 @@ export const CUSTOM_AGENT_CONTEXT_SOURCE_IDS = [
   "authorNotes",
   "trackerData",
   "recalledMemories",
+  "previousOutput",
 ] as const;
 
 export type CustomAgentContextSource = (typeof CUSTOM_AGENT_CONTEXT_SOURCE_IDS)[number];
@@ -614,6 +619,7 @@ export const DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES: CustomAgentContextSources = {
   authorNotes: false,
   trackerData: false,
   recalledMemories: false,
+  previousOutput: false,
 };
 
 export function normalizeCustomAgentContextSources(settings: unknown): CustomAgentContextSources {

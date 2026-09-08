@@ -26,6 +26,8 @@ export const agentRuns = fileTable("agent_runs", {
     .references(() => agentConfigs.id),
   chatId: text("chat_id").notNull(),
   messageId: text("message_id").notNull(),
+  /** Null on legacy runs, which are only reusable on the original swipe. */
+  swipeIndex: integer("swipe_index"),
   resultType: text("result_type").notNull(),
   /** JSON payload of the result */
   resultData: text("result_data").notNull().default("{}"),
