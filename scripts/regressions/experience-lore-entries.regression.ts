@@ -690,6 +690,100 @@ try {
       "...and the ceiling itself is accepted",
     );
   }
+
+  // ── 10. PROTOCOL: a selection is always answered, even when nothing survives ──
+  // The key's presence is the only thing that separates an Engine which considered
+  // the picks and kept none from an Engine which has never heard of
+  // lorebookEntryIds — emitted only when something survived, those two are the same
+  // bytes on the wire. The package half reads that shape as "every id was refused"
+  // and writes a line into the seal that outlives the session, so an older Engine
+  // would hand every lore-using player a permanent false accusation.
+  //
+  // Nothing survives here, through two gates of the kind that leave NO skip record:
+  // a disabled entry is refused by storage and an unknown id resolves to nothing,
+  // both long before any budget runs. That is precisely the case a skipped-count
+  // test cannot see, and why the KEY carries the signal rather than its contents.
+  {
+    const book = await createBook("Johto", { tokenBudget: 4_000 });
+    const switchedOff = await lorebooks.createEntry({
+      lorebookId: book.id,
+      name: "Ecruteak (switched off)",
+      content: loreContent("REFUSEDMARK", 400),
+      enabled: false,
+    } as Parameters<typeof lorebooks.createEntry>[0]);
+    assert.ok(switchedOff);
+
+    const chat = await createExperienceChat("all refused");
+    upstreamBodies = [];
+    const res = await post(chat.id, {
+      ...BASE_BODY,
+      lorebookEntryIds: [switchedOff.id, "deleted-between-picking-and-launching"],
+    });
+    assert.equal(res.statusCode, 200, res.body);
+
+    assert.equal(systemPromptOf(), INSTRUCTIONS, "Nothing survived, so nothing is appended to the instructions");
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(res.json(), "lorebook"),
+      true,
+      "A non-empty selection is ALWAYS answered with the lorebook key — an all-refused reply must not be the same bytes as a reply from an Engine that predates the feature",
+    );
+    assert.equal(res.json().lorebook.includedEntries, 0);
+    assert.deepEqual(
+      res.json().lorebook.skippedEntries,
+      [],
+      "Gates ahead of the budget leave no skip record, so the count is the contract and the array is only ever a diagnostic",
+    );
+
+    // Same chat, one request later, with no selection: presence tracks the REQUEST,
+    // not the chat and not whether the feature is compiled in.
+    const none = await post(chat.id, BASE_BODY);
+    assert.equal(none.statusCode, 200, none.body);
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(none.json(), "lorebook"),
+      false,
+      "No selection still means no key — absence stays reserved for 'this Engine never answered a selection'",
+    );
+  }
+
+  // ── 11. ...and it reports the refusals the gates did record ──
+  // Two entries, each larger on its own than the 3,000-token location wall, with the
+  // book's own budget raised out of the way so only that wall can bind. Included is
+  // 0 and both are named: the shape a package reads for its omitted-entry line is
+  // the same at zero included as it is at seven, so nothing about the empty case is
+  // special-cased on the way out.
+  {
+    const book = await createBook("Orre", { tokenBudget: 20_000 });
+    const ids: string[] = [];
+    for (let index = 0; index < 2; index += 1) {
+      const entry = await lorebooks.createEntry({
+        lorebookId: book.id,
+        name: `Colosseum ${index}`,
+        content: `OVERMARK${index} ${"granite terraces above the drowned quarter. ".repeat(400)}`.slice(0, 16_000),
+        order: 100 + index,
+      } as Parameters<typeof lorebooks.createEntry>[0]);
+      assert.ok(entry);
+      ids.push(entry.id);
+    }
+
+    const chat = await createExperienceChat("all refused by budget");
+    upstreamBodies = [];
+    const res = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: ids });
+    assert.equal(res.statusCode, 200, res.body);
+
+    assert.equal(
+      systemPromptOf(),
+      INSTRUCTIONS,
+      "A 4,000-token entry does not fit a 3,000-token wall on its own, and neither does the second",
+    );
+    assert.equal(res.json().lorebook.includedEntries, 0);
+    const skipped = res.json().lorebook.skippedEntries as Array<{ name: string; blockedBy: string }>;
+    assert.deepEqual(
+      skipped.map((entry) => entry.name).sort(),
+      ["Colosseum 0", "Colosseum 1"],
+      "An empty inclusion still names every entry the budget turned away",
+    );
+    for (const entry of skipped) assert.equal(entry.blockedBy, "location");
+  }
 } catch (error) {
   scenarioFailed = true;
   scenarioError = error;

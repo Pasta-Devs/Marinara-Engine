@@ -10819,10 +10819,13 @@ export async function gameRoutes(app: FastifyInstance) {
     /** Optional tightening of the stored max-output-token parameter; never a raise. */
     maxTokens: z.number().int().min(256).max(8_192).optional(),
     /** Lorebook ENTRIES the player picked for this generation — never whole books.
-     *  Omitted or empty is the default and changes nothing: no lookup runs and the
-     *  outbound messages are the ones this route has always sent. The ceiling is the
-     *  same LIMITS.MAX_LOREBOOK_ENTRIES the lorebook service already truncates to
-     *  twice on this path, so the wire cannot promise more than the server accepts. */
+     *  Omitted or empty is the default and changes nothing: no lookup runs, the
+     *  outbound messages are the ones this route has always sent, and the reply
+     *  carries no lorebook key. Non-empty ALWAYS comes back with that key, even
+     *  when nothing survived the gates — see the protocol note at the return site.
+     *  The ceiling is the same LIMITS.MAX_LOREBOOK_ENTRIES the lorebook service
+     *  already truncates to twice on this path, so the wire cannot promise more
+     *  than the server accepts. */
     lorebookEntryIds: z.array(z.string()).max(LIMITS.MAX_LOREBOOK_ENTRIES).optional(),
   });
 
@@ -10863,10 +10866,14 @@ export async function gameRoutes(app: FastifyInstance) {
       // Entries are named by id and the storage layer still refuses a disabled
       // entry, a disabled book and an effectively-disabled folder, so a picker
       // cannot smuggle anything past the safeguards.
+      //
+      // This same flag decides whether the reply carries the lorebook key; the
+      // protocol note at the return site is the whole of that contract.
+      const lorebookSelectionRequested = (input.lorebookEntryIds?.length ?? 0) > 0;
       let lorebookContext: string | undefined;
       let lorebookSkippedEntries: LorebookScanResult["budgetSkippedEntries"] = [];
       let lorebookIncludedEntries = 0;
-      if ((input.lorebookEntryIds?.length ?? 0) > 0) {
+      if (lorebookSelectionRequested) {
         const characters = createCharactersStorage(app.db);
         const experienceSetupConfig = (meta.gameSetupConfig as GameSetupConfig | null) ?? null;
         const lorePersonaId = chat.personaId || experienceSetupConfig?.personaId || null;
@@ -10950,6 +10957,15 @@ export async function gameRoutes(app: FastifyInstance) {
           logger.info(
             "[game/experience-generation] Injecting %d selected lorebook entries (%d skipped by budget)",
             lorebookResult.totalEntries,
+            lorebookSkippedEntries.length,
+          );
+        } else {
+          // An answered selection that kept nothing is a real outcome the reply now
+          // reports as includedEntries: 0, so it gets a line of its own rather than
+          // reading as "the lore block never ran" in the log.
+          logger.info(
+            "[game/experience-generation] Selection of %d lorebook entries produced no content (%d reported by budget)",
+            input.lorebookEntryIds?.length ?? 0,
             lorebookSkippedEntries.length,
           );
         }
@@ -11122,11 +11138,29 @@ export async function gameRoutes(app: FastifyInstance) {
           }
           try {
             const data = parseJSON(raw);
-            // The omitted-entry line the package shows reads THIS array — it is
-            // the Engine's own budget diagnostic, so a package cannot invent a
-            // second count that disagrees with it. The key is absent entirely
-            // when no selection was sent, keeping the unused path unchanged.
-            return lorebookContext || lorebookSkippedEntries.length > 0
+            // PROTOCOL — the lorebook key is a PRESENCE contract, not a content
+            // one: it is on every reply to a request that carried a non-empty
+            // lorebookEntryIds, and off every reply to one that did not. Key
+            // present means THIS ENGINE ANSWERED THE SELECTION. Key absent means
+            // this Engine predates the feature, and means nothing else.
+            //
+            // A selection where nothing survived therefore answers
+            // { includedEntries: 0, skippedEntries: [...] } instead of going quiet.
+            // Emitting only when something survived made those two cases the same
+            // bytes on the wire, and the package half reads that shape as "every id
+            // was refused" — a console warning plus a line stored with the seal
+            // forever, on an Engine that had simply never been asked.
+            //
+            // skippedEntries is whatever skip records the gates happened to
+            // produce, and is NOT a census of the refusals: it is the Engine's own
+            // budget diagnostic (which is why a package reads it rather than
+            // computing a second count that would disagree), and every gate that
+            // runs BEFORE the budget leaves no record behind — a disabled entry, a
+            // book storage refuses, an id that no longer exists. Those are visible
+            // only as absence from includedEntries. includedEntries is the number
+            // that always holds, and included + skipped is the whole selection only
+            // when the budget was the only thing that bound.
+            return lorebookSelectionRequested
               ? {
                   ok: true,
                   data,
