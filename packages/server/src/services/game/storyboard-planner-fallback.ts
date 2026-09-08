@@ -1,4 +1,26 @@
+import { extractLeadingThinkingBlocks } from "@marinara-engine/shared";
+import { parseGameJsonish } from "./jsonish.js";
+
 export const STORYBOARD_FALLBACK_BEAT_MAX_CHARS = 2000;
+
+/** Retry unusable local structured output once without spending the budget on hidden reasoning. */
+export async function completeStoryboardPlan(args: {
+  generate: (withoutReasoning: boolean) => Promise<{ content: string | null }>;
+  retryWithoutReasoning: boolean;
+  customThinkingTags?: unknown;
+}): Promise<unknown> {
+  for (let attempt = 0; attempt < (args.retryWithoutReasoning ? 2 : 1); attempt++) {
+    const result = await args.generate(attempt > 0);
+    const content = extractLeadingThinkingBlocks(result.content || "", args.customThinkingTags).content;
+    try {
+      const plan = parseGameJsonish(content);
+      if (storyboardPlanHasRenderableKeyframe(plan)) return plan;
+    } catch {
+      // Malformed/empty model output is retryable; transport failures and cancellation are not.
+    }
+  }
+  throw new Error("Storyboard Illustrator returned no usable keyframes");
+}
 
 const STORYBOARD_REVIEW_PLAN_KIND = "marinara-storyboard-review-plan-v1";
 const STORYBOARD_PLANNER_ERROR_MAX_CHARS = 1200;

@@ -2,18 +2,35 @@
 // Hook: Translation — multi-provider message translation
 // ──────────────────────────────────────────────
 import { useCallback } from "react";
+import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
+import type { Message } from "@marinara-engine/shared";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
+import { parseMessageExtraRecord } from "../lib/chat-message-extra";
 import { useTranslationStore } from "../stores/translation.store";
+import { chatKeys, replaceCachedMessage } from "./use-chats";
 
 const translationPersistenceQueues = new Map<string, Promise<void>>();
 
-function enqueueTranslationPersistence(chatId: string, messageId: string, extra: Record<string, unknown>) {
+function enqueueTranslationPersistence(
+  queryClient: QueryClient,
+  chatId: string,
+  messageId: string,
+  extra: Record<string, unknown>,
+) {
   const queueKey = `${chatId}:${messageId}`;
   const previous = translationPersistenceQueues.get(queueKey) ?? Promise.resolve();
   const request = previous
     .catch(() => undefined)
-    .then(() => api.patch(`/chats/${chatId}/messages/${messageId}/extra`, extra));
+    .then(async () => {
+      await api.patch(`/chats/${chatId}/messages/${messageId}/extra`, extra);
+      queryClient.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) =>
+        replaceCachedMessage(old, messageId, (message) => ({
+          ...message,
+          extra: { ...parseMessageExtraRecord(message.extra), ...extra } as unknown as Message["extra"],
+        })),
+      );
+    });
   const settled = request.then(
     () => undefined,
     () => undefined,
@@ -29,6 +46,7 @@ function enqueueTranslationPersistence(chatId: string, messageId: string, extra:
 
 // ── Hook ──
 export function useTranslate() {
+  const queryClient = useQueryClient();
   const translations = useTranslationStore((s) => s.translations);
   const translationSources = useTranslationStore((s) => s.translationSources);
   const translating = useTranslationStore((s) => s.translating);
@@ -37,6 +55,8 @@ export function useTranslate() {
   const translate = useCallback(
     async (messageId: string, text: string, chatId?: string, currentSourceAliases: readonly string[] = []) => {
       const store = useTranslationStore.getState();
+      const requestChatId = chatId ?? store.config.chatId;
+      const isCurrentChat = () => useTranslationStore.getState().config.chatId === requestChatId;
       const storedSource = store.translationSources[messageId];
       const translationMatchesCurrentText = storedSource === text || currentSourceAliases.includes(storedSource);
 
@@ -44,7 +64,7 @@ export function useTranslate() {
       if (store.translations[messageId] && translationMatchesCurrentText) {
         store.removeTranslation(messageId);
         if (chatId) {
-          enqueueTranslationPersistence(chatId, messageId, { translationHidden: true }).catch(() => {});
+          enqueueTranslationPersistence(queryClient, chatId, messageId, { translationHidden: true }).catch(() => {});
         }
         return;
       }
@@ -63,10 +83,10 @@ export function useTranslate() {
           deeplApiKey: store.config.deeplApiKey,
           deeplxUrl: store.config.deeplxUrl,
         });
-        store.setTranslation(messageId, result.translatedText, text);
+        if (isCurrentChat()) store.setTranslation(messageId, result.translatedText, text);
         // Persist to message extra so translation survives refresh/chat switch
         if (chatId) {
-          enqueueTranslationPersistence(chatId, messageId, {
+          enqueueTranslationPersistence(queryClient, chatId, messageId, {
             translation: result.translatedText,
             translationSource: text,
             translationHidden: false,
@@ -74,12 +94,12 @@ export function useTranslate() {
         }
       } catch (err) {
         console.error("Translation failed:", err);
-        toast.error(err instanceof Error ? err.message : "Translation failed");
+        if (isCurrentChat()) toast.error(err instanceof Error ? err.message : "Translation failed");
       } finally {
-        store.setTranslating(messageId, false);
+        if (isCurrentChat()) store.setTranslating(messageId, false);
       }
     },
-    [],
+    [queryClient],
   );
 
   return {

@@ -668,6 +668,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Select",
   },
   {
+    id: "notification-position",
+    sectionId: "notifications",
+    label: "Notification position",
+    description: "Choose where error messages and other notifications appear.",
+    aliases: ["error", "toast", "top", "bottom", "position"],
+    kind: "Select",
+  },
+  {
     id: "notification-conversation-sound",
     sectionId: "notifications",
     label: "Conversation mode notification sound",
@@ -3445,6 +3453,8 @@ function GeneralSettings() {
     (capability) => capability.id === "spotify" && capability.status === "active",
   );
   const enableStreaming = useUIStore((s) => s.enableStreaming);
+  const notificationPosition = useUIStore((s) => s.notificationPosition);
+  const setNotificationPosition = useUIStore((s) => s.setNotificationPosition);
   const setEnableStreaming = useUIStore((s) => s.setEnableStreaming);
   const streamingSpeed = useUIStore((s) => s.streamingSpeed);
   const setStreamingSpeed = useUIStore((s) => s.setStreamingSpeed);
@@ -3583,6 +3593,21 @@ function GeneralSettings() {
         icon={<Bell size="0.875rem" />}
         {...getSettingsSectionAnchorProps("notifications")}
       >
+        <label
+          id={getSettingsControlAnchorId("notification-position")}
+          className="mb-3 flex scroll-mt-3 flex-col gap-1.5 text-xs"
+        >
+          <span>{localizeUi("settings.notifications.position.label")}</span>
+          <select
+            value={notificationPosition}
+            onChange={(event) => setNotificationPosition(event.target.value === "bottom" ? "bottom" : "top")}
+            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)]"
+          >
+            <option value="top">{localizeUi("settings.notifications.position.top")}</option>
+            <option value="bottom">{localizeUi("settings.notifications.position.bottom")}</option>
+          </select>
+          <span className="text-[var(--muted-foreground)]">{localizeUi("settings.notifications.position.help")}</span>
+        </label>
         <ConversationSoundSetting />
       </SettingsSection>
 

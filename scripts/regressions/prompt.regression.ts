@@ -3815,7 +3815,7 @@ const cases: RegressionCase[] = [
 
       assert.equal(normalizeGameStoryboardKeyframeCount(undefined), 3);
       assert.equal(normalizeGameStoryboardKeyframeCount(0), 1);
-      assert.equal(normalizeGameStoryboardKeyframeCount(12), 6);
+      assert.equal(normalizeGameStoryboardKeyframeCount(12), 12);
       assert.doesNotMatch(sharedPlannerSource, /You are Marinara's/u);
       assert.doesNotMatch(sharedImageSource, /promptTemplate:/u);
       assert.equal(listPromptOverrideKeys().includes("game.storyboardIllustrationDirector"), false);
@@ -4213,7 +4213,7 @@ const cases: RegressionCase[] = [
       assert.doesNotMatch(gameRouteSource, /ltxDirectorPrompt:\s*promptBuild|storyboardVideoTemplateId/);
       assert.match(gameRouteSource, /generateStoryboardVideos && !usedFallbackStoryboardPlanner/);
       assert.match(gameRouteSource, /if \(storyboardAbortSignal\.aborted\)/);
-      assert.match(gameRouteSource, /Storyboard Illustrator returned no usable keyframes/);
+      assert.match(gameRouteSource, /completeStoryboardPlan\(\{/);
       assert.match(gameRouteSource, /Storyboard keyframe is missing its planned animation prompt/);
       assert.doesNotMatch(
         gameRouteSource,

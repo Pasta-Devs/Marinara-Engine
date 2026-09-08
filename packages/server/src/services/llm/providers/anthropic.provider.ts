@@ -448,6 +448,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     const response = await llmFetch(url, {
       method: "POST",
       headers: {
+        ...this.customRequestHeaders,
         "Content-Type": "application/json",
         ...(this.apiKey.trim() ? { "x-api-key": this.apiKey.trim() } : {}),
         "anthropic-version": "2023-06-01",
@@ -638,6 +639,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     const response = await llmFetch(url, {
       method: "POST",
       headers: {
+        ...this.customRequestHeaders,
         "Content-Type": "application/json",
         ...(this.apiKey.trim() ? { "x-api-key": this.apiKey.trim() } : {}),
         "anthropic-version": "2023-06-01",

@@ -545,6 +545,8 @@ export function GameSetupWizard({
   const [gameSystemPromptDraft, setGameSystemPromptDraft] = useState(DEFAULT_GAME_SYSTEM_PROMPT);
   const [gameSystemPromptEdited, setGameSystemPromptEdited] = useState(false);
   const [language, setLanguage] = useState("English");
+  const [autoTranslate, setAutoTranslate] = useState(false);
+  const [translationLanguage, setTranslationLanguage] = useState("en");
   const [startMuted, setStartMuted] = useState(false);
   const [adjustGameAssetsOpen, setAdjustGameAssetsOpen] = useState(false);
   const [draftSpatialMap, setDraftSpatialMap] = useState(false);
@@ -1036,6 +1038,8 @@ export function GameSetupWizard({
       setCombatStyle(config.combatStyle === "tactical" ? "tactical" : "classic");
       setRating(config.rating);
       setLanguage(config.language?.trim() || "English");
+      setAutoTranslate(config.autoTranslate === true);
+      setTranslationLanguage(config.translationOutputTargetLang?.trim() || "en");
       setGmMode(config.gmMode);
       setGmCharacterId(config.gmCharacterId ?? null);
       setPartyCharacterIds(config.partyCharacterIds);
@@ -1215,6 +1219,8 @@ export function GameSetupWizard({
         musicDjEnabled && gameSpotifySourceType === "artist" ? gameSpotifyArtist.trim() || undefined : undefined,
       enableLorebookKeeper: lorebookKeeperEnabled || undefined,
       language: normalizedLanguage || undefined,
+      autoTranslate,
+      translationOutputTargetLang: translationLanguage.trim() || "en",
       generationParameters: customizeParameters
         ? { ...(importedGenerationParametersRef.current ?? {}), ...generationParameters }
         : undefined,
@@ -1491,7 +1497,10 @@ export function GameSetupWizard({
                           <div className="mt-3 border-t border-[var(--border)] pt-3">
                             <GenerationParametersFields
                               value={generationParameters}
-                              showOpenRouterServiceTier={selectedGmConnection?.provider === "openrouter"}
+                              showServiceTier={
+                                selectedGmConnection?.provider === "openrouter" ||
+                                selectedGmConnection?.provider === "nanogpt"
+                              }
                               onChange={setGenerationParameters}
                             />
                           </div>
@@ -1817,6 +1826,28 @@ export function GameSetupWizard({
 
                     {/* Language */}
                     <div>
+                      <label className="mb-2 flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={autoTranslate}
+                          onChange={(event) => setAutoTranslate(event.target.checked)}
+                        />
+                        {localizeUi("ui.chatSettings.translationsection.autoTranslateResponses")}
+                      </label>
+                      {autoTranslate && (
+                        <label className="mb-3 flex flex-col gap-1.5 text-xs">
+                          {localizeUi("ui.chatSettings.translationsection.myLanguage")}
+                          <input
+                            value={translationLanguage}
+                            onChange={(event) => setTranslationLanguage(event.target.value)}
+                            maxLength={100}
+                            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)]"
+                          />
+                          <span className="text-[var(--muted-foreground)]">
+                            {localizeUi("game.setup.translation.help")}
+                          </span>
+                        </label>
+                      )}
                       <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
                         {localizeUi("settings.application.language.label")}
                       </label>
