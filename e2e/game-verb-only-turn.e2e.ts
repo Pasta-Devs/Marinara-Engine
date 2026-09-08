@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -76,27 +77,20 @@ async function seedVerbOnlyTurn(request: APIRequestContext) {
 
 async function openGameChat(page: Page, chatId: string) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    rightPanelOpen: false,
+    sidebarOpen: false,
+    messagesPerPage: 20,
+    chatHelpSeenModes: ["conversation", "roleplay", "game"],
+    // Read settled text; explicitly enable the otherwise disabled wheel navigation.
+    gameInstantTextReveal: true,
+    gameMiddleMouseNav: true,
+  });
   await page.addInitScript(
     ({ id, appVersion }) => {
       localStorage.setItem("marinara-active-chat-id", id);
       localStorage.setItem("marinara:whats-new:seen-version", appVersion);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            rightPanelOpen: false,
-            sidebarOpen: false,
-            messagesPerPage: 20,
-            chatHelpSeenModes: ["conversation", "roleplay", "game"],
-            // Skip the typewriter so the assertion reads settled text.
-            gameInstantTextReveal: true,
-            // Off by default; the wheel-nav listener is a no-op without it.
-            gameMiddleMouseNav: true,
-          },
-          version: 99,
-        }),
-      );
     },
     { id: chatId, appVersion: version },
   );

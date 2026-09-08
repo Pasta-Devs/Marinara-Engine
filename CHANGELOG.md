@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Documented Capability API 1.14 tracker surfaces, prompt placement and agent lifecycle hooks, plus API 1.15 embedding-configuration refresh for package authors (#5900).
+
 - Dice notation is now read by one shared grammar in the four places that read it as a command — the `roll_dice` tool, the server and client sides of `/roll`, and the GM skill-check tag — instead of four private copies, so `roll_dice` accepts a bare `d20` like the other three already did. Notation whose roll could not be totalled exactly is now rejected as invalid instead of reporting a total that cannot be trusted — both a modifier too large for the engine to count exactly, and a countable modifier whose dice would push the total past that same limit. An oversized custom roll from the Game Mode dice menu is still trimmed and rolled rather than refused, but its card and its narrator line now name the dice actually thrown, so asking for `500d6` reads `100d6` instead of claiming five hundred dice over a hundred (a typed `/roll 500d6` refuses, as it always has). The `{{roll:XdY}}` macro and the dice-roll animation keep their own parsing and are unchanged.
 - Game Mode skill checks are rolled by the engine instead of written by the Game Master. The GM now asks for a check and the engine rolls every one in the turn — not just the first — applying the player's skill and attribute modifiers, keeping a die the player rolled themselves, and overwriting numbers the GM made up when its own arithmetic does not add up. Those modifiers now come from the player's own character sheet, found by name, rather than from whichever party card happened to be listed first — the old lookup leaned on the card order the model chose to emit, where the player leading the list is a convention the prompt asks for, not a guarantee anything enforces. Dice pools and any other system the engine does not roll are left exactly as the GM wrote them, whether or not the tag is complete, and a check asking for advantage and disadvantage at once is now left alone rather than rolled as one of the two. When a check cannot be rolled at all, the turn is saved carrying the plain request instead of the numbers the GM invented for it. The GM narrates up to the attempt and the outcome lands on the following turn.
 - Added a storage API that lets a downloaded capability package register and persist its own file tables, with strict table-name validation. No caller is wired to it yet.
@@ -39,6 +41,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Moved the agent connection bulk assignment control from the Agents panel to Connections -> Defaults -> Agents.
 
 ### Added
+
+- Advanced Parameters now offers Apply, Don't Apply, and Single User Message history formatting while keeping the leading system prompt separate (#5915).
+- NanoGPT connections can use the existing Default, Flex, and Priority service-tier controls. Language connections can configure validated, non-secret custom HTTP headers (#5909, #5910).
+- `/illustrate [prompt]` generates the requested subject without scene or character references; bare `/illustrate` keeps its current behavior (#5914).
 
 - UX feedback sweep: background selection during Roleplay setup and in Roleplay/Game chat settings, scrollable App/Conversation/Roleplay/Game Appearance categories, desktop sidebar widths, and an optional daily Character Library home widget (#5916).
 - Support Diagnostics includes local client build and recovery events to investigate mobile reloads and black screens without collecting chat content or changing appearance settings (#5870).
@@ -84,6 +90,21 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Game narration has a Translate action and rejects stale translations after rerolls; automatic translation can start with the first response when enabled during setup. Delayed translations stay with their original chat when switching chats (#5888).
+- Push Story uses the current Director result with or without a preset marker, and Mari consolidates system context for local chat templates (#5931, #5932).
+- Storyboards accept more than six frames (up to the existing 200-section request safety ceiling) and retry unusable local planner output once without reasoning before falling back (#5886).
+- General Settings can place error messages and other notifications at the top or bottom, using the existing saved preferences (#5933).
+
+- Connection test messages honor saved generation parameter overrides and output limits (#5908).
+- Clearing Roleplay trackers asks for confirmation before removing their state (#5911).
+- Update checks read the installed release channel without waiting for GitHub, so staging does not appear as Stable before a check or when the check fails (#5912).
+- Browser regression fixtures disable random Chibi Mari surprise overlays so unrelated controls remain reachable during tests (#5928).
+- Grouped lorebook entries remain selected for their configured Sticky Messages duration (#5913).
+- Lorebook Keeper respects an explicitly selected target during automatic runs, retries, and approval, while retaining automatic destination routing when no target is selected (#5907).
+- Game NPC portraits no longer borrow unrelated same-name library cards or overwrite an existing portrait; legacy loopback avatar links resolve correctly for LAN clients (#5885, #5887).
+
+- Mari's database CLI can address generated IDs beginning with `--` without treating them as options; exact option-name IDs can use the standard `--` separator, and mutation approval/cascade safeguards remain enforced (#5895).
+- Browser regressions share the UI store's typed persistence contract instead of stale preference names/versions, and live Roleplay tests stop their stream before deleting fixtures (#5897, #5928).
 - Narrow desktop windows switch to the existing overlay navigation when the configured sidebar widths leave too little room for topbar buttons. Desktop Roleplay connection/persona pickers match the other input menus, Background drawers include help, and Achievements retain inner padding on desktop and mobile (#5916).
 - Editors now show their sections in one continuous form, track the section being read, and save unsaved character, persona, lorebook and preset fields before leaving; failed saves keep the editor open. Media/library sections load when approached, pending saves honor the latest navigation, and newly added lorebook entries scroll into view (#5916).
 - Background Library search and actions fit mobile screens, Default uses the accent color, and the selection marker no longer overlaps the drag handle. Settings mode options use the current rounded-square styling (#5916).

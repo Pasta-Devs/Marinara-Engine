@@ -1419,7 +1419,7 @@ export function useUpdateMessageExtra(chatId: string | null) {
   });
 }
 
-function replaceCachedMessage(
+export function replaceCachedMessage(
   old: InfiniteData<Message[]> | undefined,
   messageId: string,
   updater: (message: Message) => Message,

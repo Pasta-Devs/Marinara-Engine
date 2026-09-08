@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -9,22 +10,18 @@ test("Illustrator manual-only interval saves and survives reopening and chat set
 }, testInfo) => {
   const reset = await request.put("/api/app-settings/ui", { data: { value: "" } });
   expect(reset.ok()).toBeTruthy();
+  await seedUIState(
+    page,
+    {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: false,
+      sidebarOpen: false,
+      chatHelpSeenModes: ["roleplay"],
+    },
+    "if-missing",
+  );
   await page.addInitScript((appVersion) => {
     localStorage.setItem("marinara:whats-new:seen-version", appVersion);
-    if (!localStorage.getItem("marinara-engine-ui")) {
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            rightPanelOpen: false,
-            sidebarOpen: false,
-            chatHelpSeenModes: ["roleplay"],
-          },
-          version: 65,
-        }),
-      );
-    }
   }, version);
   await page.route("**/api/capability-packages/agents", (route) =>
     route.fulfill({

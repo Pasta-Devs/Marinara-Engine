@@ -387,6 +387,7 @@ function markRetryLorebookResultForApproval(args: {
         updates,
         preferredTargetLorebookId,
         writableLorebookIds,
+        allowTargetRouting: !isBuiltInLorebookAgent || agentContext.memory._lorebookKeeperTargetIsExplicit !== true,
         writableLorebooks,
         lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
         worldName: agentContext.characters[0]?.world ?? chatName,
@@ -1146,6 +1147,8 @@ async function buildRetryAgentContext(args: {
       });
     agentContext.writableLorebookIds = writableLorebookIds;
     agentContext.memory._writableLorebooks = writableLorebooks;
+    agentContext.memory._lorebookKeeperTargetIsExplicit =
+      !!targetLorebookId && targetLorebookId === lorebookKeeperSettings.targetLorebookId;
     if (targetLorebookId) {
       agentContext.memory._lorebookKeeperTargetLorebookId = targetLorebookId;
     }
@@ -2599,6 +2602,7 @@ async function executeLorebookKeeperRetries(args: {
             chatName,
             preferredTargetLorebookId,
             writableLorebookIds: retryContext.writableLorebookIds,
+            allowTargetRouting: retryContext.memory._lorebookKeeperTargetIsExplicit !== true,
             writableLorebooks: Array.isArray(retryContext.memory._writableLorebooks)
               ? (retryContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
               : undefined,
@@ -3145,6 +3149,7 @@ async function applyRetryResultEffects(args: {
             chatName: (chat as any).name,
             preferredTargetLorebookId,
             writableLorebookIds,
+            allowTargetRouting: !isBuiltInLorebookAgent || agentContext.memory._lorebookKeeperTargetIsExplicit !== true,
             writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
               ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
               : undefined,
@@ -3422,19 +3427,25 @@ async function applyRetryResultEffects(args: {
 
             // Collect optional character visual context. Prefer avatar portraits
             // for references, then fall back to full-body sprites.
+            const subjectOnly = illustratorPromptReviewOverride?.subjectOnly === true;
             const useAvatarRefs =
-              usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
+              !subjectOnly &&
+              (usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                 ? chatMeta.illustratorUseAvatarReferences
-                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true;
+                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true);
             const includeCharacterAppearance =
-              usesChatIllustratorSettings && typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
+              !subjectOnly &&
+              (usesChatIllustratorSettings && typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
                 ? chatMeta.illustratorIncludeCharacterAppearance
-                : imagePromptAgent?.resolved.settings?.includeCharacterAppearance === true;
-            const spatialLocationReferenceImage = await resolveSpatialLocationReferenceImage({
-              db: app.db,
-              chatId,
-              projection: retryOwnerSpatialProjection?.ownerMode === "roleplay" ? retryOwnerSpatialProjection : null,
-            });
+                : imagePromptAgent?.resolved.settings?.includeCharacterAppearance === true);
+            const spatialLocationReferenceImage = subjectOnly
+              ? null
+              : await resolveSpatialLocationReferenceImage({
+                  db: app.db,
+                  chatId,
+                  projection:
+                    retryOwnerSpatialProjection?.ownerMode === "roleplay" ? retryOwnerSpatialProjection : null,
+                });
             assertRetryActive();
             let referenceImages: string[] | undefined;
             const retryIdentityId =

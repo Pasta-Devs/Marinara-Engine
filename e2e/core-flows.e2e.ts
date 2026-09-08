@@ -13,6 +13,7 @@ import { createServer } from "node:http";
 import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
 import { mockUILanguagePacks } from "./ui-language-fixtures.js";
+import { seedUIState } from "./ui-state-fixture.js";
 
 const TRANSPARENT_GIF_BASE64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const TRANSPARENT_PNG_BASE64 =
@@ -46,23 +47,20 @@ function collectUnexpectedErrors(page: Page) {
 }
 
 async function prepareFreshClient(page: Page) {
+  await seedUIState(
+    page,
+    {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: false,
+      sidebarOpen: false,
+      chatHelpSeenModes: ["conversation", "roleplay", "game"],
+    },
+    "if-missing",
+  );
   await page.addInitScript((appVersion) => {
     if (sessionStorage.getItem("marinara:e2e:show-whats-new") !== "true") {
       localStorage.setItem("marinara:whats-new:seen-version", appVersion);
     }
-    if (localStorage.getItem("marinara-engine-ui")) return;
-    localStorage.setItem(
-      "marinara-engine-ui",
-      JSON.stringify({
-        state: {
-          hasCompletedOnboarding: true,
-          rightPanelOpen: false,
-          sidebarOpen: false,
-          chatHelpSeenModes: ["conversation", "roleplay", "game"],
-        },
-        version: 65,
-      }),
-    );
   }, APP_VERSION);
 }
 
@@ -117,23 +115,7 @@ async function installMockVisualViewport(page: Page) {
 }
 
 async function prepareOnboardingReplay(page: Page) {
-  await page.addInitScript(() => {
-    const storageKey = "marinara-engine-ui";
-    let persisted: { state?: Record<string, unknown>; version?: number } = {};
-    try {
-      persisted = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as typeof persisted;
-    } catch {
-      // Replace malformed browser-local state with the minimal replay fixture.
-    }
-    persisted.state = {
-      ...(persisted.state ?? {}),
-      hasCompletedOnboarding: false,
-      rightPanelOpen: false,
-      sidebarOpen: false,
-    };
-    persisted.version ??= 65;
-    localStorage.setItem(storageKey, JSON.stringify(persisted));
-  });
+  await seedUIState(page, { hasCompletedOnboarding: false, rightPanelOpen: false, sidebarOpen: false }, "merge");
 }
 
 async function setAppAccentColor(page: Page, color: string) {
@@ -2587,18 +2569,12 @@ test("bulk chat deletion uses the shared primary accent control", async ({ page 
   const chats = (await Promise.all(chatResponses.map((response) => response.json()))) as Array<{ id: string }>;
 
   try {
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: true,
+    });
     await page.addInitScript((activeChatId) => {
       localStorage.setItem("marinara-active-chat-id", activeChatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            sidebarOpen: true,
-          },
-          version: 75,
-        }),
-      );
     }, chats[0]!.id);
     await page.goto("/");
     await setAppAccentColor(page, "#14b8a6");
@@ -2665,17 +2641,9 @@ test("empty chat hover previews inherit the configured accent", async ({ page },
   const chat = (await response.json()) as { id: string };
 
   try {
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            sidebarOpen: true,
-          },
-          version: 75,
-        }),
-      );
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: true,
     });
     await page.goto("/");
     await setAppAccentColor(page, "#14b8a6");
@@ -4939,15 +4907,7 @@ test("expanded character editors keep native keyboard and quote caret behavior",
   const character = (await createResponse.json()) as { id: string };
 
   try {
-    await page.addInitScript(() => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      persisted.state.quoteFormat = "typographic";
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
-    });
+    await seedUIState(page, { hasCompletedOnboarding: true, quoteFormat: "typographic" }, "merge");
     await page.goto("/");
     await page.locator('[data-tour="panel-characters"]').click();
     await page.getByText(characterName, { exact: true }).first().click();
@@ -6211,18 +6171,12 @@ test("empty focused chat composers keep keyboard swipe navigation", async ({ pag
   expect(swipeResponse.ok()).toBeTruthy();
 
   try {
+    await seedUIState(page, {
+      intuitiveSwipeNavigation: true,
+      intuitiveSwipeRerollLatest: false,
+    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            intuitiveSwipeNavigation: true,
-            intuitiveSwipeRerollLatest: false,
-          },
-          version: 87,
-        }),
-      );
     }, chat.id);
     await page.goto("/");
 
@@ -6301,17 +6255,9 @@ test("mobile transcript swipes navigate Conversation and Roleplay alternatives",
     // Safe alongside each page's own chat-id writer: the two scripts touch
     // disjoint keys, so their (documented-as-undefined) relative order
     // cannot matter.
-    await page.context().addInitScript(() => {
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            intuitiveSwipeNavigation: true,
-            intuitiveSwipeRerollLatest: false,
-          },
-          version: 87,
-        }),
-      );
+    await seedUIState(page.context(), {
+      intuitiveSwipeNavigation: true,
+      intuitiveSwipeRerollLatest: false,
     });
 
     for (const fixture of fixtures) {
@@ -6377,15 +6323,14 @@ test("goto keeps stale CYOA choices out of the chat tail", async ({ page, reques
   const imported = (await importResponse.json()) as { chatId: string };
 
   try {
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      messagesPerPage: 100,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: { hasCompletedOnboarding: true, messagesPerPage: 100, sidebarOpen: false, rightPanelOpen: false },
-          version: 87,
-        }),
-      );
     }, imported.chatId);
     await page.goto("/");
 
@@ -6413,14 +6358,8 @@ test("typographic quotes do not pull the Roleplay caret behind later text", asyn
   const chat = (await chatResponse.json()) as { id: string };
 
   try {
+    await seedUIState(page, { hasCompletedOnboarding: true, quoteFormat: "typographic" }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      persisted.state.quoteFormat = "typographic";
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -6467,14 +6406,8 @@ test("desktop Roleplay composition keeps ambient work off the input path and gro
   const chat = (await chatResponse.json()) as { id: string };
 
   try {
+    await seedUIState(page, { hasCompletedOnboarding: true, appAccentPulseMode: true }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      persisted.state.appAccentPulseMode = true;
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -6586,15 +6519,12 @@ test("desktop Echo Chamber commits its per-chat size and corner before reload", 
     expect(metadataResponse.ok()).toBeTruthy();
 
     await page.setViewportSize({ width: 1280, height: 900 });
+    await seedUIState(
+      page,
+      { hasCompletedOnboarding: true, echoChamberOpen: true, echoChamberSide: "bottom-right" },
+      "merge",
+    );
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      persisted.state.echoChamberOpen = true;
-      persisted.state.echoChamberSide = "bottom-right";
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -6652,14 +6582,8 @@ test("mobile Roleplay composition avoids draft rewrites and pauses ambient rende
   const chat = (await chatResponse.json()) as { id: string };
 
   try {
+    await seedUIState(page, { hasCompletedOnboarding: true, quoteFormat: "typographic" }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      persisted.state.quoteFormat = "typographic";
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -6700,13 +6624,8 @@ test("held Roleplay deletion defers draft persistence and autosizing until a rel
   const chat = (await chatResponse.json()) as { id: string };
 
   try {
+    await seedUIState(page, { hasCompletedOnboarding: true }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -7191,14 +7110,8 @@ test("Roleplay rewrite streaming follows the rendered message height", async ({ 
         body: events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""),
       });
     });
+    await seedUIState(page, { enableStreaming: true, streamingSpeed: 90 }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.enableStreaming = true;
-      persisted.state.streamingSpeed = 90;
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -7223,10 +7136,9 @@ test("Roleplay rewrite streaming follows the rendered message height", async ({ 
     await expect
       .poll(() => scroller.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight))
       .toBeLessThan(40);
-
-    await page.locator("button.mari-chat-send-btn").click();
   } finally {
-    await page.request.delete(`/api/chats/${chat.id}`);
+    await updateLiveReasoningState(page, chat.id, "stop").catch(() => undefined);
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}`);
   }
 });
 
@@ -7288,14 +7200,8 @@ test("editing the preceding Roleplay message keeps one live stream row", async (
         body: events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""),
       });
     });
+    await seedUIState(page, { enableStreaming: true, streamingSpeed: 55 }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.enableStreaming = true;
-      persisted.state.streamingSpeed = 55;
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -7319,10 +7225,9 @@ test("editing the preceding Roleplay message keeps one live stream row", async (
     await expect(userMessage.locator("textarea")).toHaveCount(0);
     await expect(liveStream).toHaveCount(1);
     await expect(visibleAssistantRows).toHaveCount(1);
-
-    await page.locator("button.mari-chat-send-btn").click();
   } finally {
-    await page.request.delete(`/api/chats/${chat.id}`);
+    await updateLiveReasoningState(page, chat.id, "stop").catch(() => undefined);
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}`);
   }
 });
 
@@ -7548,17 +7453,18 @@ test("desktop Tracker scales into either Roleplay gutter without shifting chat",
       data: { enableAgents: true, activeAgentIds: [] },
     });
     expect(metadataResponse.ok()).toBeTruthy();
+    await seedUIState(
+      page,
+      {
+        trackerPanelEnabled: true,
+        trackerPanelOpen: false,
+        trackerPanelSide: "left",
+        trackerPanelSizeProfile: "expanded",
+        trackerPanelHideHudWidgets: false,
+      },
+      "merge",
+    );
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.trackerPanelEnabled = true;
-      persisted.state.trackerPanelOpen = false;
-      persisted.state.trackerPanelSide = "left";
-      persisted.state.trackerPanelSizeProfile = "expanded";
-      persisted.state.trackerPanelHideHudWidgets = false;
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -8691,18 +8597,9 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
       }
     }
 
+    await seedUIState(page, { chatHelpSeenModes: ["conversation", "roleplay", "game"] }, "merge");
     await page.addInitScript((activeChatId) => {
       localStorage.setItem("marinara-active-chat-id", activeChatId);
-      const storageKey = "marinara-engine-ui";
-      const persisted = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as {
-        state?: Record<string, unknown>;
-        version?: number;
-      };
-      persisted.state = {
-        ...(persisted.state ?? {}),
-        chatHelpSeenModes: ["conversation", "roleplay", "game"],
-      };
-      localStorage.setItem(storageKey, JSON.stringify(persisted));
     }, chats[0]!.id);
     await page.goto("/");
 
@@ -8970,18 +8867,9 @@ test("the first conversation opens Help once after setup", async ({ page, reques
     const chats = (await upstream.json()) as Array<{ id: string }>;
     await route.fulfill({ response: upstream, json: chats.filter((candidate) => candidate.id === chat.id) });
   });
+  await seedUIState(page, { chatHelpSeenModes: ["roleplay", "game"] }, "merge");
   await page.addInitScript((activeChatId) => {
     localStorage.setItem("marinara-active-chat-id", activeChatId);
-    const storageKey = "marinara-engine-ui";
-    const persisted = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as {
-      state?: Record<string, unknown>;
-      version?: number;
-    };
-    persisted.state = {
-      ...(persisted.state ?? {}),
-      chatHelpSeenModes: ["roleplay", "game"],
-    };
-    localStorage.setItem(storageKey, JSON.stringify(persisted));
   }, chat.id);
 
   try {
@@ -10209,23 +10097,9 @@ test("Game widget editing and log deletion follow Chroma while weather effects r
         body: JSON.stringify({ scannedAt: "2026-08-22T00:00:00.000Z", count: 0, assets: {}, byCategory: {} }),
       });
     });
+    await seedUIState(page, { gameTextSpeed: 100, chatHelpSeenModes: ["conversation", "roleplay", "game"] }, "merge");
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      const stored = JSON.parse(localStorage.getItem("marinara-engine-ui") || '{"state":{}}') as {
-        state?: Record<string, unknown>;
-        version?: number;
-      };
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          ...stored,
-          state: {
-            ...(stored.state ?? {}),
-            gameTextSpeed: 100,
-            gameTutorialDisabled: true,
-          },
-        }),
-      );
     }, chat.id);
     await page.goto("/");
     await setAppAccentColor(page, "#ec4899");
@@ -10506,24 +10380,10 @@ test("Game character sheet Retry remains a draft until Save", async ({ page, req
       ).ok(),
     ).toBeTruthy();
 
-    await page.addInitScript(
-      ({ activeChatId }) => {
-        localStorage.setItem("marinara-active-chat-id", activeChatId);
-        const stored = JSON.parse(localStorage.getItem("marinara-engine-ui") || '{"state":{}}') as {
-          state?: Record<string, unknown>;
-          version?: number;
-        };
-        localStorage.setItem(
-          "marinara-engine-ui",
-          JSON.stringify({
-            ...stored,
-            state: { ...(stored.state ?? {}), gameTutorialDisabled: true },
-            version: 82,
-          }),
-        );
-      },
-      { activeChatId: chat.id },
-    );
+    await seedUIState(page, { chatHelpSeenModes: ["conversation", "roleplay", "game"] }, "merge");
+    await page.addInitScript((activeChatId) => {
+      localStorage.setItem("marinara-active-chat-id", activeChatId);
+    }, chat.id);
 
     const readStoredCard = async () => {
       const response = await request.get(`/api/chats/${chat.id}`);
@@ -11180,20 +11040,14 @@ test("Game history above the dialogue box opens a historical Peek Prompt", async
       },
     });
 
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: false,
+      sidebarOpen: false,
+      gameDialogueDisplayMode: "stacked",
+    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            rightPanelOpen: false,
-            sidebarOpen: false,
-            gameDialogueDisplayMode: "stacked",
-          },
-          version: 65,
-        }),
-      );
     }, chat.id);
     await page.goto("/");
     const peekButton = page.locator('[data-component="GameNarration.PeekPrompt"]').first();
@@ -18787,20 +18641,8 @@ test("Character of the Day stays vertically centered inside its mobile widget", 
       // The floating Professor Mari assistant popup overlaps the widget's
       // action row on the iPhone-profile viewport and intercepts the "View
       // character" click. It is unrelated to the layout under test.
-      const storageKey = "marinara-engine-ui";
-      let persisted: { state?: Record<string, unknown>; version?: number } = {};
-      try {
-        const parsed = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as unknown;
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          persisted = parsed as typeof persisted;
-        }
-      } catch {
-        // Replace malformed browser-local state with the minimal fixture.
-      }
-      persisted.state = { ...(persisted.state ?? {}), professorMariNavigationEnabled: false };
-      persisted.version ??= 65;
-      localStorage.setItem(storageKey, JSON.stringify(persisted));
     });
+    await seedUIState(page, { professorMariNavigationEnabled: false }, "merge");
     await page.goto("/");
 
     const characterWidget = page.locator('[data-home-widget-id="character"]');
@@ -21640,6 +21482,59 @@ test("Characters topbar underline uses the Characters pink", async ({ page }) =>
     .toBe("#f472b6");
 });
 
+test("Updates shows the installed channel before checks and after a failed check", async ({ page }) => {
+  await page.route("**/api/updates/channel", (route) => route.fulfill({ json: { channel: "staging" } }));
+  await page.route("**/api/updates/check*", (route) =>
+    route.fulfill({ status: 502, json: { error: "Offline fixture" } }),
+  );
+  await page.goto("/");
+  await page.locator('[data-tour="panel-settings"]').click();
+  await page.getByRole("tab", { name: "Advanced" }).click();
+  const channel = page.getByLabel("Release Channel");
+  await expect(channel).toHaveValue("staging");
+  await page.getByRole("button", { name: "Check for Updates" }).click();
+  await expect(page.getByRole("button", { name: "Check for Updates" })).toBeEnabled();
+  await expect(channel).toHaveValue("staging");
+  await channel.selectOption("stable");
+  await expect(channel).toHaveValue("stable");
+});
+
+test("clearing Roleplay trackers requires confirmation and Cancel preserves state", async ({ page, request }) => {
+  const created = await request.post("/api/chats", {
+    data: { name: "Tracker clear confirmation", mode: "roleplay", characterIds: [] },
+  });
+  expect(created.ok()).toBeTruthy();
+  const chat = await created.json();
+  try {
+    await request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { enableAgents: true, activeAgentIds: ["world-state"] },
+    });
+    await request.patch(`/api/chats/${chat.id}/game-state`, { data: { location: "Protected location", manual: true } });
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    await page.goto("/");
+    await page
+      .getByRole("button", { name: /^Agents & Actions/ })
+      .filter({ visible: true })
+      .click();
+    await page.getByRole("button", { name: "Clear Trackers", exact: true }).click();
+    const dialog = page.getByRole("dialog").filter({ hasText: "Clear all trackers for this chat?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect((await (await request.get(`/api/chats/${chat.id}/game-state`)).json()).location).toBe("Protected location");
+    await page
+      .getByRole("button", { name: /^Agents & Actions/ })
+      .filter({ visible: true })
+      .click();
+    await page.getByRole("button", { name: "Clear Trackers", exact: true }).click();
+    await dialog.getByRole("button", { name: "Clear Trackers", exact: true }).click();
+    await expect
+      .poll(async () => (await (await request.get(`/api/chats/${chat.id}/game-state`)).json()).location)
+      .toBeNull();
+  } finally {
+    await bestEffortDelete(request, `/api/chats/${chat.id}`);
+  }
+});
+
 test("mobile Docker update checks offer the selected staging image", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Mobile Docker channel regression.");
 
@@ -21818,20 +21713,14 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
         body: Buffer.from(TRANSPARENT_GIF_BASE64, "base64"),
       });
     });
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: false,
+      sidebarOpen: false,
+      gameTextSpeed: 100,
+    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            rightPanelOpen: false,
-            sidebarOpen: false,
-            gameTextSpeed: 100,
-          },
-          version: 65,
-        }),
-      );
     }, chat.id);
 
     await page.goto("/");
@@ -22064,20 +21953,14 @@ test("Game HUD compacts on tablet widths when its surface mounts after the widge
       await route.continue();
     });
 
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: false,
+      sidebarOpen: false,
+      gameTextSpeed: 100,
+    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            rightPanelOpen: false,
-            sidebarOpen: false,
-            gameTextSpeed: 100,
-          },
-          version: 65,
-        }),
-      );
     }, chat.id);
 
     await page.goto("/");

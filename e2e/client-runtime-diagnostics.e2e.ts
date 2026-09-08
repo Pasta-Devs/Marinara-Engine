@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { seedUIState } from "./ui-state-fixture.js";
 
 const appVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 type RuntimeReport = {
@@ -12,27 +13,23 @@ type RuntimeReport = {
 
 async function prepareClient(page: Page, chatId?: string) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  await seedUIState(
+    page,
+    {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: !chatId,
+      rightPanel: "settings",
+      settingsTab: "advanced",
+      sidebarOpen: false,
+      messagesPerPage: 20,
+      chatHelpSeenModes: ["conversation", "roleplay", "game"],
+    },
+    "if-missing",
+  );
   await page.addInitScript(
     ({ version, id }) => {
       localStorage.setItem("marinara:whats-new:seen-version", version);
       if (id) localStorage.setItem("marinara-active-chat-id", id);
-      if (!localStorage.getItem("marinara-engine-ui")) {
-        localStorage.setItem(
-          "marinara-engine-ui",
-          JSON.stringify({
-            state: {
-              hasCompletedOnboarding: true,
-              rightPanelOpen: !id,
-              rightPanel: "settings",
-              settingsTab: "advanced",
-              sidebarOpen: false,
-              messagesPerPage: 20,
-              chatHelpSeenModes: ["conversation", "roleplay", "game"],
-            },
-            version: 65,
-          }),
-        );
-      }
       let copied = "";
       Object.defineProperty(navigator, "clipboard", {
         configurable: true,

@@ -20,6 +20,7 @@ import { getBuildBranch, getBuildCommit, getBuildLabel } from "../config/build-i
 import { getFileStorageDir } from "../config/runtime-config.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { isLoopbackIp } from "../middleware/ip-allowlist.js";
+import { UPDATE_CHANNEL_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { noteSessionExitKind } from "../lib/session-postmortem.js";
 import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
 import {
@@ -879,6 +880,14 @@ function getApplyAvailability(
 }
 
 export async function updatesRoutes(app: FastifyInstance) {
+  // Local-only metadata stays available before (or after a failed) GitHub update check.
+  app.get("/channel", { config: { rateLimit: UPDATE_CHANNEL_RATE_LIMIT } }, async () => {
+    const root = getMonorepoRoot();
+    const currentBranch = isGitInstall() ? await getCurrentBranch(root).catch(() => null) : getBuildBranch();
+    const channel = await getUpdateChannelForCheckout(root, currentBranch);
+    return { channel: channel.id, currentBranch, channels: serializeUpdateChannels() };
+  });
+
   // ── Check for updates ──
   // GET /api/updates/check
   // Fetches the newest stable Git tag from GitHub, then hydrates it

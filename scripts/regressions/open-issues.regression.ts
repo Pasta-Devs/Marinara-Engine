@@ -6285,7 +6285,11 @@ const illustratorReferencesSource = readFileSync(
   "utf8",
 );
 assert.match(appSource, /--marinara-app-accent-static-gradient/u);
-assert.match(appSource, /swipeDirections=\{\["left", "right", "top"\]\}/u);
+assert.match(appSource, /position=\{notificationPosition === "bottom" \? "bottom-center" : "top-center"\}/u);
+assert.match(
+  appSource,
+  /swipeDirections=\{\["left", "right", notificationPosition === "bottom" \? "bottom" : "top"\]\}/u,
+);
 assert.doesNotMatch(agentEditorSource, /fetch\(["']\/api\/game-assets\/pick-local-music-folder/u);
 assert.match(agentEditorSource, /api\.post<[^>]+>\(["']\/game-assets\/pick-local-music-folder["']\)/u);
 assert.match(localMusicPlayerSource, /api\.raw\(`\/game-assets\/local-music-file\?path=\$\{encodedPath\}`\)/u);
@@ -10211,7 +10215,10 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.match(conversationSurfaceSource, /onIllustrateWithAgent=\{onIllustrateWithAgent\}/u);
 
   assert.match(settingsDrawerSource, /useGenerationStatus\(\s*chat\.id,\s*open && isRoleplayMode/u);
-  const generationStatusHookSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/hooks/use-chats.ts"), "utf8");
+  const generationStatusHookSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/hooks/use-chats.ts"),
+    "utf8",
+  );
   assert.match(generationStatusHookSource, /\/generate\/status\/\$\{encodeURIComponent\(chatId \?\? ""\)\}/u);
   assert.match(settingsDrawerSource, /isRoleplayMode && \(activeGeneration \|\| stoppingGeneration\)/u);
   assert.match(settingsDrawerSource, /await abortGenerationForChat\(chat\.id, controller\)/u);

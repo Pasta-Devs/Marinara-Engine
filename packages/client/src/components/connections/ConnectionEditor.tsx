@@ -1400,6 +1400,7 @@ export function ConnectionEditor() {
           )}
           <button
             onClick={handleSave}
+            aria-label={localizeUi("ui.noodle.noodlehome.save")}
             disabled={updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError}
             className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
           >
@@ -2707,7 +2708,10 @@ export function ConnectionEditor() {
                   </p>
                   <GenerationParametersFields
                     value={localDefaultParameters}
-                    showOpenRouterServiceTier={localProvider === "openrouter"}
+                    showServiceTier={localProvider === "openrouter" || localProvider === "nanogpt"}
+                    showCustomHeaders={
+                      !["openai_chatgpt", "claude_subscription", "grok_subscription"].includes(localProvider)
+                    }
                     enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
                     onChange={(next) => {
                       setLocalDefaultParameters(next);

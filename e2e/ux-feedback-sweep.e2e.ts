@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 test.use({ actionTimeout: 10_000 });
@@ -9,22 +10,19 @@ test.beforeEach(async ({ page }) => {
   );
   await page.addInitScript((appVersion) => {
     localStorage.setItem("marinara:whats-new:seen-version", appVersion);
-    if (!localStorage.getItem("marinara-engine-ui"))
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          version: 99,
-          state: {
-            hasCompletedOnboarding: true,
-            sidebarOpen: false,
-            rightPanelOpen: false,
-            chatHelpSeenModes: ["conversation", "roleplay", "game"],
-            appAccentColor: "#16a6b6",
-            professorMariNavigationEnabled: false,
-          },
-        }),
-      );
   }, version);
+  await seedUIState(
+    page,
+    {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      chatHelpSeenModes: ["conversation", "roleplay", "game"],
+      appAccentColor: "#16a6b6",
+      professorMariNavigationEnabled: false,
+    },
+    "if-missing",
+  );
 });
 
 async function openSection(editor: Locator, label: string) {

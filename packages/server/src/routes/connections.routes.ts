@@ -26,6 +26,7 @@ import {
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embedding.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
+import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { fetchOpenAIChatGPTModels, getOpenAIChatGPTAuth } from "../services/llm/openai-chatgpt-auth.js";
 import { fetchGrokCliModels } from "../services/llm/providers/grok-subscription.provider.js";
 import {
@@ -1521,11 +1522,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
         conn.id,
       );
 
+      const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, model);
       let fullResponse = "";
       for await (const chunk of provider.chat([{ role: "user", content: "hi" }], {
         model,
-        temperature: 0.7,
-        maxTokens: 200,
+        ...storedOptions,
+        temperature: storedOptions.temperature ?? 0.7,
+        maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 200),
         stream: false,
       })) {
         fullResponse += chunk;

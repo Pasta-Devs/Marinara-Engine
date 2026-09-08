@@ -14,7 +14,8 @@ export const GAME_STORYBOARD_COLORED_MANGA_ANIMATION_PROMPT_TEMPLATE_ID = "color
 export const GAME_STORYBOARD_BW_MANGA_ANIMATION_PROMPT_TEMPLATE_ID = "bw-manga-keyframes-animation";
 
 export const GAME_STORYBOARD_KEYFRAME_COUNT_MIN = 1;
-export const GAME_STORYBOARD_KEYFRAME_COUNT_MAX = 6;
+// Bound queued media work to the existing per-request section limit, not six story beats.
+export const GAME_STORYBOARD_KEYFRAME_COUNT_MAX = 200;
 export const GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT = 3;
 export const GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MIN = 1;
 export const GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MAX = 15;
@@ -24,7 +25,7 @@ export function normalizeGameStoryboardKeyframeCount(
   value: unknown,
   fallback = GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT,
 ): number {
-  const parsed = typeof value === "number" ? value : Number(value);
+  const parsed = value == null || value === "" ? NaN : typeof value === "number" ? value : Number(value);
   const normalizedFallback = Math.min(
     GAME_STORYBOARD_KEYFRAME_COUNT_MAX,
     Math.max(GAME_STORYBOARD_KEYFRAME_COUNT_MIN, Math.trunc(fallback)),

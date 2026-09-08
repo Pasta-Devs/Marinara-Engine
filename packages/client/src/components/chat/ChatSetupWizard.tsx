@@ -823,13 +823,13 @@ function PersonaPicker({
 function SetupGenerationParametersPanel({
   enabled,
   value,
-  showOpenRouterServiceTier,
+  showServiceTier,
   onEnabledChange,
   onChange,
 }: {
   enabled: boolean;
   value: EditableGenerationParameters;
-  showOpenRouterServiceTier: boolean;
+  showServiceTier: boolean;
   onEnabledChange: (enabled: boolean) => void;
   onChange: (next: EditableGenerationParameters) => void;
 }) {
@@ -860,11 +860,7 @@ function SetupGenerationParametersPanel({
       </button>
       {enabled && (
         <div className="mt-3 border-t border-[var(--border)] pt-3">
-          <GenerationParametersFields
-            value={value}
-            showOpenRouterServiceTier={showOpenRouterServiceTier}
-            onChange={onChange}
-          />
+          <GenerationParametersFields value={value} showServiceTier={showServiceTier} onChange={onChange} />
         </div>
       )}
     </div>
@@ -1394,7 +1390,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
         <SetupGenerationParametersPanel
           enabled={customizeParameters}
           value={generationParameters}
-          showOpenRouterServiceTier={selectedConnection?.provider === "openrouter"}
+          showServiceTier={selectedConnection?.provider === "openrouter" || selectedConnection?.provider === "nanogpt"}
           onEnabledChange={setCustomizeParameters}
           onChange={setGenerationParameters}
         />
@@ -2614,7 +2610,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         <SetupGenerationParametersPanel
           enabled={customizeParameters}
           value={generationParameters}
-          showOpenRouterServiceTier={selectedConnection?.provider === "openrouter"}
+          showServiceTier={selectedConnection?.provider === "openrouter" || selectedConnection?.provider === "nanogpt"}
           onEnabledChange={setCustomizeParameters}
           onChange={setGenerationParameters}
         />

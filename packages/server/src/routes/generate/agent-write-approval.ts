@@ -244,6 +244,7 @@ export function buildLorebookWriteApprovalProposal(args: {
   updates: Array<Record<string, unknown>>;
   preferredTargetLorebookId: string | null;
   writableLorebookIds: string[] | null;
+  allowTargetRouting?: boolean;
   writableLorebooks?: Array<{ id: string; name: string }>;
   lorebookNamingScheme?: Record<string, string>;
   worldName?: string | null;
@@ -259,6 +260,7 @@ export function buildLorebookWriteApprovalProposal(args: {
     payload: {
       preferredTargetLorebookId: args.preferredTargetLorebookId,
       writableLorebookIds: args.writableLorebookIds,
+      allowTargetRouting: args.allowTargetRouting,
       writableLorebooks: args.writableLorebooks,
       lorebookNamingScheme: args.lorebookNamingScheme,
       worldName: args.worldName,

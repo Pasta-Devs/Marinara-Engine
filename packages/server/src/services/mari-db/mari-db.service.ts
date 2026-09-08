@@ -233,6 +233,8 @@ const BOOLEAN_FLAGS = new Set([
   "tail",
   "use-regex",
 ]);
+const DB_VALUE_FLAGS = new Set(["table", "limit", "offset", "where", "json", "json-file", "file", "reason"]);
+const DB_BOOLEAN_FLAGS = new Set(["apply", "cascade", "dry-run", "help", "parsed"]);
 
 function truncateOutput(value: string, limit = COMMAND_OUTPUT_LIMIT): { text: string; truncated: boolean } {
   if (value.length <= limit) return { text: value, truncated: false };
@@ -788,12 +790,17 @@ function formatCommand(argv: string[] | undefined, fallback: string | undefined)
     .trim();
 }
 
-function parseArgs(args: string[]) {
+function parseArgs(args: string[], knownValueFlags?: ReadonlySet<string>, booleanFlags = BOOLEAN_FLAGS) {
   const positionals: string[] = [];
   const flags = new Map<string, string | boolean>();
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
-    if (!arg.startsWith("--")) {
+    if (arg === "--") {
+      positionals.push(...args.slice(i + 1));
+      break;
+    }
+    const name = arg.slice(2).split("=", 1)[0]!;
+    if (!arg.startsWith("--") || (knownValueFlags && !knownValueFlags.has(name) && !booleanFlags.has(name))) {
       positionals.push(arg);
       continue;
     }
@@ -802,9 +809,8 @@ function parseArgs(args: string[]) {
       flags.set(arg.slice(2, eqIndex), arg.slice(eqIndex + 1));
       continue;
     }
-    const name = arg.slice(2);
     const next = args[i + 1];
-    if (next !== undefined && !next.startsWith("--") && !BOOLEAN_FLAGS.has(name)) {
+    if (next !== undefined && !next.startsWith("--") && !booleanFlags.has(name)) {
       flags.set(name, next);
       i += 1;
     } else {
@@ -6877,7 +6883,9 @@ export class MariDbService {
   ): Promise<MariDbCommandResult> {
     const sub = args[0];
     const rest = args.slice(1);
-    const parsed = parseArgs(rest);
+    // Row IDs may start with --. Only actual options are flags; exact option-name
+    // collisions can be passed after the standard -- end-of-options marker.
+    const parsed = parseArgs(rest, DB_VALUE_FLAGS, DB_BOOLEAN_FLAGS);
     if (!sub || sub === "help" || sub === "--help" || sub === "-h" || hasFlag(parsed.flags, "help")) {
       return { ok: true, mode: "read", command: context.command, output: this.helpText() };
     }
@@ -8888,6 +8896,7 @@ export class MariDbService {
       "Read: list <table>, get <table> <id>, select <table> --where <expr>, search <table|all> <query>, validate [--table <table>]",
       "Where: row.field and row['field'] with comparisons, &&, ||, !, parentheses, and safe string/array methods (includes, startsWith, endsWith, case conversion, trim); arbitrary code and calls are rejected",
       "Write: insert|patch|replace|delete|transform ... (dry-run by default; --apply saves reversible changes and shows a Keep/Restore review card)",
+      "Use -- before positional arguments that match option names, with options first: mari db get --parsed -- characters --apply",
       "Transform scripts use an OS sandbox where supported; on other systems, reviewed local scripts remain available only with MARI_DB_ALLOW_UNSAFE_TRANSFORMS=true.",
       `Known tables: ${FILE_BACKED_TABLES.slice(0, 8).join(", ")} ... (${FILE_BACKED_TABLES.length})`,
       `Journal directory: ${this.journalDir()} (${basename(getFileStorageDir())})`,

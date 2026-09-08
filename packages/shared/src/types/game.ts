@@ -292,6 +292,9 @@ export interface GameSetupConfig {
   enableLorebookKeeper?: boolean;
   /** Language for all narration and dialogue (e.g. "English", "Japanese", "Spanish") */
   language?: string;
+  /** Translate displayed narration from the first completed game turn. */
+  autoTranslate?: boolean;
+  translationOutputTargetLang?: string;
   /** Optional generation parameter overrides applied from the moment the game is created. */
   generationParameters?: Partial<GenerationParameters>;
   /** Prompt preset whose Game prompt should drive the GM instruction block. */
