@@ -99,6 +99,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Professor Mari now executes a frame's edits before checking its completion claim, recovers common command formats, and repairs unrecognized commands instead of silently dropping them. Requested lorebook edits use the real save/review path; explicit previews remain read-only (#5966, #5967).
+
 - Restart Server now uses the launcher's console and waits for the old process to exit before replacing it, with bounded shutdown instead of detached or overlapping servers (#5934).
 - Malformed Game combat tags no longer trigger quadratic parsing delays in the browser (#5937).
 - Experience setup preserves explicit package configs without double nesting and accepts larger, bounded setup payloads (#5938).
