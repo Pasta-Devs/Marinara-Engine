@@ -136,6 +136,7 @@ try {
     ],
     {
       ...context,
+      memory: { _agentResults: { other: { text: "Visible", "agent-context": "EDITOR_SECRET" } } },
       loadPreviousOutput: async () => {
         assert.fail("Disabled sources must not load prior output");
       },

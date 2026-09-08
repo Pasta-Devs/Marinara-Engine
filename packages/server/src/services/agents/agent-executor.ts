@@ -2764,7 +2764,16 @@ function buildAgentMessages(
 
   if (context.memory._agentResults) {
     finalParts.push(`\n<agent_results>`);
-    finalParts.push(JSON.stringify(context.memory._agentResults));
+    finalParts.push(
+      JSON.stringify(
+        Object.fromEntries(
+          Object.entries(context.memory._agentResults as Record<string, unknown>).map(([type, data]) => [
+            type,
+            publicAgentOutput(data),
+          ]),
+        ),
+      ),
+    );
     finalParts.push(`</agent_results>`);
   }
 
