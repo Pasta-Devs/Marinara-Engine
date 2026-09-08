@@ -4,8 +4,6 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Added OpenAI GPT Image 2.5 Flare and Sunburst for image generation and reference edits, including transparent PNGs, custom image sizes, and the new Extra high and Max quality settings.
-
 - A game-surface Experience can now be handed specific lorebook entries to read before it writes your world, so a place you have already written history for comes out knowing it. You pick the entries, never whole books, and nothing else tags along — a lorebook you have switched on for every chat does not add itself to this one call. An entry you ticked arrives instead of being dropped by a chance roll — though a disabled entry stays disabled and every other filter on it still applies. If your selection is larger than the world-writing call can hold, whole entries are set aside rather than any of them being cut in half, and the reply says which ones. Whenever you pick anything at all, the reply answers your picks — including when none of them made it, which comes back as "none used" rather than as silence, so an Experience can tell that answer apart from an older engine that cannot read lorebook entries and does not mistake one for the other. Experiences that do not send a selection are unaffected.
 
 - Documented Capability API 1.14 tracker surfaces, prompt placement and agent lifecycle hooks, plus API 1.15 embedding-configuration refresh for package authors (#5900).
@@ -46,6 +44,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added OpenAI GPT Image 2.5 Flare and Sunburst for image generation and reference edits, including transparent PNGs, custom image sizes, and the new Extra high and Max quality settings.
 - Conversation and Roleplay setup wizards can save mode-specific defaults independently of profiles, or reset the saved choices (#5948).
 - Custom agents can read their own prior output, retain private JSON continuation context, and hide saved outputs as spoilers. Context follows visible message history; activated lorebook references include entry names (#5945).
 
