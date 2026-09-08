@@ -11242,6 +11242,23 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
           assert.deepEqual(recovered.commands[0]?.arguments, updateArgs);
         }
       }
+      const nestedCalls = [
+        { name: "app_data", arguments: updateArgs },
+        { name: "read", arguments: { path: "README.md" } },
+      ];
+      const nestedFrame = parseAssistantWorkspaceAction(
+        JSON.stringify({ commands: [{ tool_calls: nestedCalls }], stop: false }),
+      );
+      assert.equal(nestedFrame.protocolValid, true);
+      assert.equal(nestedFrame.commands.length, 2);
+      for (const commands of [
+        [{ tool_calls: nestedCalls }, { name: "unknown_tool" }],
+        [{ tool_calls: [...nestedCalls, { name: "unknown_tool" }] }],
+      ]) {
+        const invalid = parseAssistantWorkspaceAction(JSON.stringify({ commands, stop: false }));
+        assert.equal(invalid.protocolValid, false, "expanded nested commands cannot cancel out an unrecognized entry");
+        assert.deepEqual(invalid.commands, []);
+      }
       const malformed = parseAssistantWorkspaceAction(
         JSON.stringify({
           say: "Done!",
@@ -11257,7 +11274,6 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         "I’ve created the entry.",
         "I have now updated the card.",
         "I just created it.",
-        "Created the entry.",
         "Updated.",
         "Edit applied.",
         "Done!",
@@ -11270,6 +11286,9 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         "I verified the entry.",
         "Here are the updated instructions.",
         "I can create it.",
+        "Set its type to Constant",
+        "Added fields appear",
+        "Removed entries cannot be restored",
       ]) {
         assert.equal(workspaceTextClaimsMutationCompletion(text), false, text);
       }

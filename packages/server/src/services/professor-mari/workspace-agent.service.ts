@@ -1205,10 +1205,17 @@ function rawJsonToolCalls(payload: Record<string, unknown>): unknown[] {
   return [];
 }
 
-function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): WorkspaceCommandCall[] {
+function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): {
+  calls: WorkspaceCommandCall[];
+  unrecognized: boolean;
+} {
   const calls: WorkspaceCommandCall[] = [];
+  let unrecognized = false;
   rawJsonToolCalls(payload).forEach((raw, index) => {
-    if (!isRecord(raw)) return;
+    if (!isRecord(raw)) {
+      unrecognized = true;
+      return;
+    }
     const requestedName = typeof raw.name === "string" ? raw.name.trim() : "";
     const directAction = isAppDataActionName(raw.action) ? raw.action.trim() : null;
     const nameAsAction = isAppDataActionName(requestedName) ? requestedName : null;
@@ -1218,12 +1225,18 @@ function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): Wor
         ? "app_data"
         : null;
     if (!workspaceName) {
-      // Reuse the provider parser for tool/parameters and native function wrappers.
-      calls.push(
-        ...parseTextualWorkspaceCommandCalls(
+      // Validate nested envelopes per entry too: one recognized call cannot hide a dropped sibling.
+      if (rawJsonToolCalls(raw).some((call) => call !== raw)) {
+        const nested = parseJsonCommandCallsFromPayload(raw);
+        calls.push(...nested.calls);
+        unrecognized ||= nested.unrecognized;
+      } else {
+        const recovered = parseTextualWorkspaceCommandCalls(
           JSON.stringify({ ...raw, ...(typeof raw.tool_name === "string" ? { name: raw.tool_name } : {}) }),
-        ),
-      );
+        );
+        calls.push(...recovered);
+        unrecognized ||= recovered.length === 0;
+      }
       return;
     }
 
@@ -1239,7 +1252,7 @@ function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): Wor
     const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : newToolCallId(workspaceName, index);
     calls.push({ id, name: workspaceName, arguments: argumentsWithRecoveredAction });
   });
-  return calls;
+  return { calls, unrecognized };
 }
 
 function parseTextualWorkspaceCommandCalls(content: string): WorkspaceCommandCall[] {
@@ -1384,9 +1397,9 @@ function stripWorkspaceCommands(content: string): string {
 
 export function parseAssistantWorkspaceAction(content: string): AssistantWorkspaceAction {
   const { content: contentWithoutJson, matches } = removeJsonActionFrames(content);
-  const jsonCommands = matches.flatMap((match) => parseJsonCommandCallsFromPayload(match.payload));
-  const hasInvalidCommands =
-    jsonCommands.length !== matches.reduce((count, match) => count + rawJsonToolCalls(match.payload).length, 0);
+  const parsedFrames = matches.map((match) => ({ ...match, ...parseJsonCommandCallsFromPayload(match.payload) }));
+  const jsonCommands = parsedFrames.flatMap((frame) => frame.calls);
+  const hasInvalidCommands = parsedFrames.some((frame) => frame.unrecognized);
   const textualCommands = parseTextualWorkspaceCommandCalls(contentWithoutJson);
   // If JSON frames are present, treat all prose outside them as protocol leakage.
   // Textual calls have no visible-text field, so retain their surrounding prose.
@@ -1404,8 +1417,8 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
   // phrase: in a tolerated multi-frame response, a read-only frame's phrase
   // must not be attributed to another frame's mutations.
   const understoodRequest =
-    matches
-      .filter((match) => parseJsonCommandCallsFromPayload(match.payload).some(isMutatingWorkspaceCommand))
+    parsedFrames
+      .filter((frame) => frame.calls.some(isMutatingWorkspaceCommand))
       .map((match) =>
         typeof match.payload.understoodRequest === "string" ? match.payload.understoodRequest.trim() : "",
       )
@@ -2018,11 +2031,10 @@ export function workspaceTextClaimsMutationCompletion(text: string): boolean {
     new RegExp(`\\b(?:is|are|was|were|has been|have been)\\s+${adverbs}(?:${completedMutation})\\b`, "iu").test(
       normalized,
     ) ||
-    new RegExp(
-      `^(?:(?:the )?(?:edit|change|update)s?\\s+)?${adverbs}(?:${completedMutation})\\b[^?]*[.!]?$`,
-      "iu",
-    ).test(normalized) ||
-    /^done[.!]*$/iu.test(normalized)
+    new RegExp(`^(?:(?:the )?(?:edit|change|update)s?\\s+)${adverbs}(?:${completedMutation})\\b[^?]*[.!]?$`, "iu").test(
+      normalized,
+    ) ||
+    new RegExp(`^(?:${completedMutation}|done)[.!]*$`, "iu").test(normalized)
   );
 }
 
