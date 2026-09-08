@@ -20,6 +20,11 @@ import {
   mergeNegativePrompt,
   mergePromptPrefix,
   inferImageSource,
+  isOpenAIGptImageModel,
+  isOpenAIGptImage2Model,
+  isOpenAIGptImage25Model,
+  supportsOpenAITransparentBackground,
+  resolveOpenAIImageQuality,
   type Automatic1111Defaults,
   type ComfyUiDefaults,
   type ImageGenerationDefaultsProfile,
@@ -698,21 +703,6 @@ function localImageBackendFetch(
   });
 }
 
-function isOpenAIGptImageModel(model?: string): boolean {
-  return !!model && /^gpt-image-(?:1|1\.5|2)(?:$|-)/i.test(model.trim());
-}
-
-function isOpenAIGptImage2Model(model?: string): boolean {
-  return !!model && /^gpt-image-2(?:$|-)/i.test(model.trim());
-}
-
-function supportsOpenAITransparentBackground(model?: string): boolean {
-  const m = model?.trim().toLowerCase() ?? "";
-  // OpenAI documents transparent backgrounds for GPT Image output generally,
-  // but explicitly excludes GPT Image 2 from background: "transparent".
-  return /^gpt-image-(?:1|1\.5)(?:$|-)/i.test(m);
-}
-
 const OPENAI_GPT_IMAGE_2_MIN_PIXELS = 1024 * 1024;
 const OPENAI_GPT_IMAGE_2_SIZE_MULTIPLE = 32;
 
@@ -728,6 +718,36 @@ function openAIGptImage2Size(width: number, height: number): string {
   const scaledWidth = roundUpToMultiple(width * scale, OPENAI_GPT_IMAGE_2_SIZE_MULTIPLE);
   const scaledHeight = roundUpToMultiple(height * scale, OPENAI_GPT_IMAGE_2_SIZE_MULTIPLE);
   return `${scaledWidth}x${scaledHeight}`;
+}
+
+function openAIGptImage25Size(width: number, height: number): string {
+  // https://developers.openai.com/api/docs/guides/image-generation#size-and-quality-options
+  const minPixels = 655_360;
+  const maxPixels = 8_294_400;
+  const maxEdge = 3840;
+  width = Number.isFinite(width) && width > 0 ? width : 1024;
+  height = Number.isFinite(height) && height > 0 ? height : 1024;
+  const ratio = Math.max(1 / 3, Math.min(3, width / height));
+  if (
+    width % 16 === 0 &&
+    height % 16 === 0 &&
+    width <= maxEdge &&
+    height <= maxEdge &&
+    width / height === ratio &&
+    width * height >= minPixels &&
+    width * height <= maxPixels
+  )
+    return `${width}x${height}`;
+
+  const pixels = Math.max(minPixels, Math.min(width * height, maxPixels, maxEdge ** 2 / Math.max(ratio, 1 / ratio)));
+  let outputWidth = Math.min(maxEdge, roundUpToMultiple(Math.sqrt(pixels * ratio), 16));
+  let outputHeight = Math.min(maxEdge, roundUpToMultiple(Math.sqrt(pixels / ratio), 16));
+  // Rounding up can cross the total-pixel ceiling by one row or column.
+  while (outputWidth * outputHeight > maxPixels) {
+    if (outputWidth >= outputHeight) outputWidth -= 16;
+    else outputHeight -= 16;
+  }
+  return `${outputWidth}x${outputHeight}`;
 }
 
 function openAIImageSize(request: ImageGenRequest): string {
@@ -747,6 +767,7 @@ function openAIImageSize(request: ImageGenRequest): string {
     return "1024x1024";
   }
 
+  if (isOpenAIGptImage25Model(model)) return openAIGptImage25Size(width, height);
   if (isOpenAIGptImage2Model(model)) {
     return openAIGptImage2Size(width, height);
   }
@@ -1163,7 +1184,7 @@ async function generateOpenAI(baseUrl: string, apiKey: string, request: ImageGen
     formData.append("n", "1");
     formData.append("size", openAIImageSize(request));
     formData.append("output_format", "png");
-    if (request.quality) formData.append("quality", request.quality);
+    if (request.quality) formData.append("quality", resolveOpenAIImageQuality(request.quality, request.model));
     if (request.transparentBackground && supportsOpenAITransparentBackground(request.model)) {
       formData.append("background", "transparent");
     }
@@ -1205,7 +1226,7 @@ async function generateOpenAI(baseUrl: string, apiKey: string, request: ImageGen
     // GPT Image models return base64 image data from the Images API without the
     // legacy DALL-E `response_format` toggle. `output_format` controls PNG/JPEG/WebP.
     body.output_format = "png";
-    if (request.quality) body.quality = request.quality;
+    if (request.quality) body.quality = resolveOpenAIImageQuality(request.quality, request.model);
     if (request.transparentBackground && supportsOpenAITransparentBackground(request.model)) {
       body.background = "transparent";
     }
@@ -2720,7 +2741,7 @@ export function buildOpenRouterImagesRequest(request: ImageGenRequest): Record<s
     ...(isGptImage ? {} : { resolution: "1K" }),
   };
   if (isGptImage) {
-    if (request.quality) body.quality = request.quality;
+    if (request.quality) body.quality = resolveOpenAIImageQuality(request.quality, model);
     if (request.transparentBackground) body.background = "transparent";
   }
   const aspectRatio = openRouterImageAspectRatio(model, request.width, request.height);

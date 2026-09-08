@@ -4,7 +4,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
-import { inferImageSource, type ImagePromptKind } from "@marinara-engine/shared";
+import { inferImageSource, isOpenAIGptImageModel, type ImagePromptKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
@@ -241,10 +241,6 @@ function detectImageKind(target: ImageTarget | null, explicit?: string): ImagePr
     default:
       return "illustration";
   }
-}
-
-function isOpenAIGptImageModel(model?: string) {
-  return !!model && /^gpt-image-(?:1|1\.5|2)(?:$|-)/i.test(model.trim());
 }
 
 function isStabilityV1Base(baseUrl: string) {

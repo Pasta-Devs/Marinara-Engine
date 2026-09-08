@@ -1,5 +1,6 @@
 import {
   normalizeImagePromptInstructions,
+  resolveOpenAIImageQuality,
   PROVIDERS,
   type APIProvider,
   type ImageGenerationQuality,
@@ -151,7 +152,7 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
       imageService,
       imageEndpointId: asNullableString(value.imageEndpointId),
       imagePromptInstructions: normalizeImagePromptInstructions(value.imagePromptInstructions),
-      imageGenerationQuality: asImageGenerationQuality(value.imageGenerationQuality),
+      imageGenerationQuality: resolveOpenAIImageQuality(value.imageGenerationQuality, asString(value.model)),
       videoGenerationSource: provider === "video_generation" ? asNullableString(value.videoGenerationSource) : null,
       videoService,
       audioSource: provider === "audio" ? asAudioGenerationSource(value.audioSource ?? value.service) : null,
@@ -207,15 +208,11 @@ function serializeConnectionForExport(connection: ConnectionTransferRow): SafeCo
     audioMusic: isAudioProvider && asBoolean(connection.audioMusic),
     imageEndpointId: asNullableString(connection.imageEndpointId),
     imagePromptInstructions: normalizeImagePromptInstructions(connection.imagePromptInstructions),
-    imageGenerationQuality: asImageGenerationQuality(connection.imageGenerationQuality),
+    imageGenerationQuality: resolveOpenAIImageQuality(connection.imageGenerationQuality, asString(connection.model)),
     comfyuiWorkflow: asNullableString(connection.comfyuiWorkflow),
     treatAsLocalEndpoint: asBoolean(connection.treatAsLocalEndpoint),
     claudeFastMode: asBoolean(connection.claudeFastMode),
   };
-}
-
-function asImageGenerationQuality(value: unknown): ImageGenerationQuality {
-  return value === "low" || value === "medium" || value === "high" ? value : "auto";
 }
 
 /** Unknown sources degrade to null (resolved as ElevenLabs) instead of failing the whole connection import. */

@@ -3,6 +3,7 @@ import {
   imageSourceToDefaultsService,
   inferImageSource,
   normalizeImageGenerationProfile,
+  resolveOpenAIImageQuality,
   type ImageGenerationDefaultsProfile,
   type ImageGenerationQuality,
 } from "@marinara-engine/shared";
@@ -18,11 +19,7 @@ export interface ImageDefaultsConnection {
 }
 
 export function resolveConnectionImageQuality(conn: ImageDefaultsConnection): ImageGenerationQuality {
-  return conn.imageGenerationQuality === "low" ||
-    conn.imageGenerationQuality === "medium" ||
-    conn.imageGenerationQuality === "high"
-    ? conn.imageGenerationQuality
-    : "auto";
+  return resolveOpenAIImageQuality(conn.imageGenerationQuality, conn.model);
 }
 
 export function resolveImageGenerationService(conn: ImageDefaultsConnection): string {
