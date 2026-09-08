@@ -7610,12 +7610,15 @@ export async function generateRoutes(app: FastifyInstance) {
                 collectedGmVerbCalls.length,
                 input.chatId,
               );
-              const savedMsg = await chats.createMessage({
-                chatId: input.chatId,
-                role: "assistant",
-                characterId: targetCharId,
-                content: "",
-              });
+              if (input.regenerateMessageId) await chats.addSwipe(input.regenerateMessageId, "");
+              const savedMsg = input.regenerateMessageId
+                ? await chats.getMessage(input.regenerateMessageId)
+                : await chats.createMessage({
+                    chatId: input.chatId,
+                    role: "assistant",
+                    characterId: targetCharId,
+                    content: "",
+                  });
               const anchoredMsg = savedMsg?.id
                 ? await chats.updateMessageExtra(savedMsg.id, {
                     hiddenFromUser: true,
@@ -7643,7 +7646,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     chatId: input.chatId,
                     messageId: anchoredMsg.id,
                     swipeIndex: anchoredMsg.activeSwipeIndex ?? 0,
-                    regenerate: false,
+                    regenerate: Boolean(input.regenerateMessageId),
                     continuation: false,
                     directive: assistantSpatialDirective,
                   },

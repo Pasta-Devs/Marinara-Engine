@@ -99,6 +99,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Command-only regenerations now save a swipe on the original turn instead of appending hidden rows. Game narration, storyboards, turn progress, and logs consistently skip hidden or empty turns; regenerating prose from a command anchor makes the new swipe visible (#5926, #5927).
+
 - Restart Server now uses the launcher's console and waits for the old process to exit before replacing it, with bounded shutdown instead of detached or overlapping servers (#5934).
 - Malformed Game combat tags no longer trigger quadratic parsing delays in the browser (#5937).
 - Experience setup preserves explicit package configs without double nesting and accepts larger, bounded setup payloads (#5938).
