@@ -55,10 +55,14 @@ async function createFixture(request: APIRequestContext, baseUrl: string, names:
     characterIds: characters.map((character) => character.id),
     connectionId: connection.id,
   });
-  await request.patch(`/api/chats/${chat.id}/metadata`, {
+  const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
     data: { enableAgents: false, enableTools: false, groupChatMode: "individual", groupResponseOrder: "manual" },
   });
-  await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "user", content: "Begin the scene." } });
+  expect(metadataResponse.ok(), await metadataResponse.text()).toBeTruthy();
+  const seedResponse = await request.post(`/api/chats/${chat.id}/messages`, {
+    data: { role: "user", content: "Begin the scene." },
+  });
+  expect(seedResponse.ok(), await seedResponse.text()).toBeTruthy();
   return {
     chat,
     characters,
@@ -150,7 +154,7 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
         .locator("label")
         .filter({ hasText: new RegExp(`^${label}$`, "u") })
         .click();
-      await expect(commands.getByRole("checkbox", { name: new RegExp(`^${label}\\b`, "u") })).toBeEnabled();
+      await expect(commands.getByRole("checkbox", { name: new RegExp(`^${label}\\b`, "u") })).toBeChecked();
     }
     const narratorSelect = commands.getByRole("combobox", { name: /^Narrator with access to personal notes/u });
     await narratorSelect.selectOption(narrator);
@@ -357,6 +361,9 @@ for (const native of [true, false]) {
     let total = 0;
     let requestCount = 0;
     let firstStreamClosed = false;
+    let firstRequestTools: string[] = [];
+    let resultMessageFound = false;
+    let followupPrompt = "";
     const provider = createServer(async (incoming, response) => {
       const chunks: Buffer[] = [];
       for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
@@ -366,7 +373,7 @@ for (const native of [true, false]) {
       const write = (delta: unknown, finishReason: string | null = null) =>
         response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason: finishReason }] })}\n\n`);
       if (requestCount === 1) {
-        expect(body.tools.map((tool: any) => tool.function.name)).toEqual(["roll_dice"]);
+        firstRequestTools = (body.tools ?? []).map((tool: any) => tool.function?.name);
         write({ content: "I attempt the lock." });
         if (native) {
           write(
@@ -396,12 +403,20 @@ for (const native of [true, false]) {
         const resultMessage = body.messages.find((message: any) =>
           native
             ? message.role === "tool"
-            : message.role === "user" && message.content.includes("The engine resolved your roll request:"),
+            : message.role === "user" &&
+              typeof message.content === "string" &&
+              message.content.includes("The engine resolved your roll request:"),
         );
-        expect(resultMessage).toBeTruthy();
-        expect(contentOf(body)).not.toContain("INVENTED_OUTCOME");
-        const result = native ? JSON.parse(resultMessage.content) : JSON.parse(resultMessage.content.split("\n")[1]);
-        total = result.total;
+        resultMessageFound = Boolean(resultMessage);
+        followupPrompt = contentOf(body);
+        try {
+          const result = native
+            ? JSON.parse(resultMessage?.content ?? "{}")
+            : JSON.parse(resultMessage?.content?.split("\n")[1] ?? "{}");
+          total = result.total ?? 0;
+        } catch {
+          total = 0; // Assert malformed results in the test body so its cleanup can finish the response.
+        }
         response.flushHeaders();
         finishFollowup = () => {
           write({ content: ` The engine rolled ${total}; the lock opens.` }, "stop");
@@ -414,13 +429,17 @@ for (const native of [true, false]) {
     if (!address || typeof address === "string") throw new Error("Fixture did not bind");
     const fixture = await createFixture(request, `http://127.0.0.1:${address.port}/v1`, ["Alice"]);
     try {
-      await request.patch(`/api/chats/${fixture.chat.id}/metadata`, {
+      const metadataResponse = await request.patch(`/api/chats/${fixture.chat.id}/metadata`, {
         data: { roleplayCommandsEnabled: true, roleplayCommandToggles: { roll: true } },
       });
+      expect(metadataResponse.ok(), await metadataResponse.text()).toBeTruthy();
       await openChat(page, fixture.chat.id);
       await page.locator("textarea[data-chat-composer]").fill("Try the lock.");
       await page.locator(".mari-chat-send-btn").click();
       await expect.poll(() => Boolean(finishFollowup)).toBe(true);
+      expect(firstRequestTools).toEqual(["roll_dice"]);
+      expect(resultMessageFound).toBe(true);
+      expect(followupPrompt).not.toContain("INVENTED_OUTCOME");
       expect(total).toBeGreaterThanOrEqual(4);
       expect(total).toBeLessThanOrEqual(9);
       if (!native) await expect.poll(() => firstStreamClosed).toBe(true);

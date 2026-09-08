@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 export function RoleplayCommandResults({ documents, attachments }: { documents: unknown; attachments: unknown }) {
   const { t } = useTranslation();
+  // Message extras can also come from imported chats and older swipes.
   const pages = Array.isArray(documents)
     ? documents.filter((page) => page && typeof page.title === "string" && typeof page.content === "string")
     : [];
@@ -10,6 +11,7 @@ export function RoleplayCommandResults({ documents, attachments }: { documents: 
     ? attachments.filter(
         (attachment) =>
           attachment?.roleplaySound === true &&
+          typeof attachment.name === "string" &&
           typeof attachment.url === "string" &&
           attachment.url.startsWith("/api/game-assets/file/sfx/"),
       )

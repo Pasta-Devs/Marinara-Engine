@@ -1,4 +1,9 @@
 import assert from "node:assert/strict";
+import { addAbortListener, getEventListeners } from "node:events";
+import { readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { setImmediate as nextTurn } from "node:timers/promises";
+import { runInNewContext } from "node:vm";
 import {
   ROLEPLAY_COMMAND_KEYS,
   isRoleplayCommandEnabled,
@@ -23,6 +28,77 @@ await assert.rejects(
   { name: "AbortError" },
   "a cancelled sound command must not resolve a connection or start a provider request",
 );
+
+// Execute the production entry point with controlled configuration/provider I/O.
+// This exercises shared locks and cancellation without a database or a paid audio call.
+const soundSource = readFileSync(new URL("../../packages/server/src/routes/tts.routes.ts", import.meta.url), "utf8");
+const soundEntry = soundSource.match(/^export async function generateRoleplaySoundEffect\([\s\S]*?^}/m)?.[0];
+assert.ok(soundEntry);
+type AudioResult = { tag: string; path: string; cached: boolean };
+let finishAudio!: (value: AudioResult) => void;
+let failAudio!: (error: Error) => void;
+const deferredAudio = () =>
+  new Promise<AudioResult>((resolve, reject) => {
+    finishAudio = resolve;
+    failAudio = reject;
+  });
+let upstreamAudio = deferredAudio();
+const sharedAudio = new Map<string, Promise<AudioResult>>();
+const audioRequests: unknown[][] = [];
+const sound = runInNewContext(
+  stripTypeScriptTypes(soundEntry.replace(/^export /, "")) + "\ngenerateRoleplaySoundEffect",
+  {
+    addAbortListener,
+    Promise,
+    Symbol,
+    createAppSettingsStorage: () => ({}),
+    createConnectionsStorage: () => ({}),
+    resolveAudioConfig: async () => ({ source: "elevenlabs", elevenLabsGameSoundEffects: true, apiKey: "fixture-key" }),
+    normalizeGameAudioPrompt: (prompt: string) => prompt.trim(),
+    logDebugOverride: () => {},
+    gameAudioGenerationLocks: sharedAudio,
+    generateElevenLabsGameAudio: (...args: unknown[]) => {
+      audioRequests.push(args);
+      return upstreamAudio;
+    },
+  },
+) as typeof generateRoleplaySoundEffect;
+const firstSound = new AbortController();
+const secondSound = new AbortController();
+const firstWait = sound(null as never, "Shared cue", null, false, firstSound.signal);
+const secondWait = sound(null as never, "Shared cue", null, false, secondSound.signal);
+await nextTurn();
+assert.equal(audioRequests.length, 1, "identical cues share a single generation");
+assert.equal(audioRequests[0]?.length, 3, "the shared provider work must not receive a caller's signal");
+const gameWait = sharedAudio.get("sfx\0shared cue");
+assert.ok(gameWait, "Game audio joins the same pending generation");
+const cancelledWait = assert.rejects(firstWait, { name: "AbortError" });
+firstSound.abort();
+await Promise.race([
+  cancelledWait,
+  nextTurn().then(() => {
+    throw new Error("Cancellation must release the caller before audio generation finishes");
+  }),
+]);
+assert.equal(getEventListeners(firstSound.signal, "abort").length, 0);
+assert.equal(getEventListeners(secondSound.signal, "abort").length, 1, "the other caller is still waiting");
+const audioResult = { tag: "sfx:generated:fixture", path: "sfx/generated/fixture.mp3", cached: false };
+finishAudio(audioResult);
+assert.deepEqual(await secondWait, audioResult);
+assert.deepEqual(await gameWait, audioResult);
+assert.equal(sharedAudio.size, 0);
+assert.equal(getEventListeners(secondSound.signal, "abort").length, 0, "completed waits remove their abort listener");
+
+upstreamAudio = deferredAudio();
+const abandonedSound = new AbortController();
+const abandonedWait = sound(null as never, "Abandoned cue", null, false, abandonedSound.signal);
+await nextTurn();
+const abandonedFailure = assert.rejects(abandonedWait, { name: "AbortError" });
+abandonedSound.abort();
+await abandonedFailure;
+failAudio(new Error("Late provider failure"));
+await nextTurn();
+assert.equal(sharedAudio.size, 0, "a failure after cancellation clears the lock without an unhandled rejection");
 
 for (const key of ROLEPLAY_COMMAND_KEYS) {
   assert.equal(isRoleplayCommandEnabled({}, key), false);
