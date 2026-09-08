@@ -1013,6 +1013,14 @@ export async function processLorebooks(
     excludedSourceAgentIds?: string[];
     /** Entries explicitly attached to the exact current hierarchical location. */
     forcedEntryIds?: string[];
+    /** Token ceiling for the forced entries alone. Omitted keeps the 2,048-token
+     *  current-location default, which is sized for a location's own lore rather
+     *  than for a caller that hands over a deliberate, player-made selection. */
+    currentLocationTokenBudget?: number;
+    /** Let forced entries skip the probability roll. A caller that resolves ids
+     *  from the world (a location's attached lore) still wants the roll; a caller
+     *  passing a selection a person made by hand does not. Omitted keeps the roll. */
+    ignoreForcedEntryProbability?: boolean;
     tokenBudget?: number;
     enableRecursive?: boolean;
     /** Pre-computed embedding of the chat context for semantic matching. */
@@ -1188,15 +1196,27 @@ export async function processLorebooks(
         }, 1)
       : 3;
 
+  // The one place `ignoreProbability` is ever set. It rides a copy of the scan
+  // options so it cannot reach `scanForActivatedEntries` below, and it is off
+  // unless the caller asked — every existing caller keeps its rolls.
+  const forcedEntryScanOpts: ScanOptions = {
+    ...scanOpts,
+    ...(options?.ignoreForcedEntryProbability ? { ignoreProbability: true } : {}),
+  };
   const forcedActivatedEntries: ActivatedEntry[] = forcedEntries
-    .filter((entry) => passesForcedEntryActivationGates(entry, scanOpts))
+    .filter((entry) => passesForcedEntryActivationGates(entry, forcedEntryScanOpts))
     .map((entry) => ({
       entry,
       matchedKeys: ["[current_location]"],
       activationSources: ["current_location"],
       injectionOrder: entry.order,
     }));
-  const locationBudgetResult = applyCurrentLocationLoreBudget(forcedActivatedEntries, relevantLorebooksById);
+  // Undefined keeps the parameter's own CURRENT_LOCATION_LORE_TOKEN_BUDGET default.
+  const locationBudgetResult = applyCurrentLocationLoreBudget(
+    forcedActivatedEntries,
+    relevantLorebooksById,
+    options?.currentLocationTokenBudget,
+  );
   const ordinaryActivatedEntries = scanForActivatedEntries(messages, allEntries, scanOpts);
   const initialActivatedEntries = mergeActivatedEntries(ordinaryActivatedEntries, locationBudgetResult.selected);
   const baseBudgetResult = anyRecursive
