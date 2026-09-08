@@ -11221,6 +11221,78 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(fencedTrailingComma.commands[0]?.arguments.action, "lorebook.search");
       assert.equal(fencedTrailingComma.protocolValid, true);
 
+      const updateArgs = {
+        action: "lorebook.updateEntry",
+        entryId: "entry-1",
+        patch: { content: "Changed" },
+        apply: true,
+      };
+      for (const raw of [
+        { name: "app_data", parameters: updateArgs },
+        { tool: "app_data", arguments: updateArgs },
+        { tool_name: "app_data", parameters: updateArgs },
+        { type: "function", function: { name: "app_data", arguments: JSON.stringify(updateArgs) } },
+      ]) {
+        for (const commands of [[raw], raw]) {
+          const recovered = parseAssistantWorkspaceAction(
+            JSON.stringify({ say: "I’ve updated the entry.", commands, stop: false }),
+          );
+          assert.equal(recovered.protocolValid, true);
+          assert.equal(recovered.commands.length, 1);
+          assert.deepEqual(recovered.commands[0]?.arguments, updateArgs);
+        }
+      }
+      const nestedCalls = [
+        { name: "app_data", arguments: updateArgs },
+        { name: "read", arguments: { path: "README.md" } },
+      ];
+      const nestedFrame = parseAssistantWorkspaceAction(
+        JSON.stringify({ commands: [{ tool_calls: nestedCalls }], stop: false }),
+      );
+      assert.equal(nestedFrame.protocolValid, true);
+      assert.equal(nestedFrame.commands.length, 2);
+      for (const commands of [
+        [{ tool_calls: nestedCalls }, { name: "unknown_tool" }],
+        [{ tool_calls: [...nestedCalls, { name: "unknown_tool" }] }],
+      ]) {
+        const invalid = parseAssistantWorkspaceAction(JSON.stringify({ commands, stop: false }));
+        assert.equal(invalid.protocolValid, false, "expanded nested commands cannot cancel out an unrecognized entry");
+        assert.deepEqual(invalid.commands, []);
+      }
+      const malformed = parseAssistantWorkspaceAction(
+        JSON.stringify({
+          say: "Done!",
+          commands: [{ name: "app_data", arguments: updateArgs }, { name: "unknown_tool" }],
+          stop: true,
+        }),
+      );
+      assert.equal(malformed.protocolValid, false, "a dropped command must enter protocol repair");
+      assert.equal(malformed.stop, false, "an explicit stop cannot hide malformed commands");
+      assert.equal(malformed.commands.length, 0, "repair the whole frame before applying only part of it");
+      for (const claim of [
+        "I added the entry.",
+        "I’ve created the entry.",
+        "I have now updated the card.",
+        "I just created it.",
+        "Updated.",
+        "Edit applied.",
+        "Done!",
+      ]) {
+        assert.equal(workspaceTextClaimsMutationCompletion(claim), true, claim);
+      }
+      for (const text of [
+        "I have not updated it.",
+        "Have I updated it?",
+        "I verified the entry.",
+        "Here are the updated instructions.",
+        "I can create it.",
+        "Set its type to Constant",
+        "Added fields appear",
+        "Removed entries cannot be restored",
+      ]) {
+        assert.equal(workspaceTextClaimsMutationCompletion(text), false, text);
+      }
+
       const unsupportedCompletion = parseAssistantWorkspaceAction(
         '{"say":"Done — I created it and verified it saved.","commands":[],"stop":true}',
       );

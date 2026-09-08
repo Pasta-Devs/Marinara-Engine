@@ -516,7 +516,11 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
         js: { type: "string" },
         serverJs: { type: "string" },
         activate: { type: "boolean" },
-        apply: { type: "boolean" },
+        apply: {
+          type: "boolean",
+          description:
+            "Set true for a requested change so it is saved or staged for review. False is an invisible preview: it saves nothing and creates no review card. Updates and deletes preview unless explicitly true.",
+        },
         reason: { type: "string" },
         data: {
           type: "object",
@@ -760,7 +764,7 @@ Revising a saved memory (read its full text, edit it, then write the whole new c
 {"say":"Found the memory. I'll read its full text before editing.","commands":[{"name":"app_data","arguments":{"action":"instruction.get","id":"memory-id"}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"instruction.update","id":"memory-id","data":{"content":"...the full memory text with the requested change applied..."},"reason":"User asked to reword this memory","apply":true}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"agent.create","data":{"name":"Image Marker","description":"Turns IMG_PROMPT markers into image prompts.","resultType":"image_prompt","activationKeywords":["IMG_PROMPT:"],"activationScanDepth":4,"settings":{"customCapabilities":{"trigger_image_generation":true}}},"reason":"User requested a marker-triggered image agent","apply":true}}],"stop":false}
-{"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.updateEntry","entryId":"entry-id","patch":{"content":"new content"},"reason":"Update requested by user","apply":false}}],"stop":false}
+{"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.updateEntry","entryId":"entry-id","patch":{"content":"new content"},"reason":"Update requested by user","apply":true}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.deleteEntry","entryId":"entry-id","reason":"User asked to delete this entry","apply":true}}],"stop":false}
 
 Available command schemas:
@@ -1187,17 +1191,31 @@ export function isAppDataActionName(value: unknown): value is string {
 
 function rawJsonToolCalls(payload: Record<string, unknown>): unknown[] {
   const plural = payload.tool_calls ?? payload.toolCalls ?? payload.commands ?? payload.calls;
-  if (Array.isArray(plural)) return plural;
+  if (plural !== undefined) return Array.isArray(plural) ? plural : [plural];
   const single = payload.tool_call ?? payload.toolCall ?? payload.command;
   if (single !== undefined) return [single];
-  if (typeof payload.name === "string" || isAppDataActionName(payload.action)) return [payload];
+  if (
+    typeof payload.name === "string" ||
+    typeof payload.tool === "string" ||
+    typeof payload.tool_name === "string" ||
+    isRecord(payload.function) ||
+    isAppDataActionName(payload.action)
+  )
+    return [payload];
   return [];
 }
 
-function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): WorkspaceCommandCall[] {
+function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): {
+  calls: WorkspaceCommandCall[];
+  unrecognized: boolean;
+} {
   const calls: WorkspaceCommandCall[] = [];
+  let unrecognized = false;
   rawJsonToolCalls(payload).forEach((raw, index) => {
-    if (!isRecord(raw)) return;
+    if (!isRecord(raw)) {
+      unrecognized = true;
+      return;
+    }
     const requestedName = typeof raw.name === "string" ? raw.name.trim() : "";
     const directAction = isAppDataActionName(raw.action) ? raw.action.trim() : null;
     const nameAsAction = isAppDataActionName(requestedName) ? requestedName : null;
@@ -1206,9 +1224,23 @@ function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): Wor
       : directAction || nameAsAction
         ? "app_data"
         : null;
-    if (!workspaceName) return;
+    if (!workspaceName) {
+      // Validate nested envelopes per entry too: one recognized call cannot hide a dropped sibling.
+      if (rawJsonToolCalls(raw).some((call) => call !== raw)) {
+        const nested = parseJsonCommandCallsFromPayload(raw);
+        calls.push(...nested.calls);
+        unrecognized ||= nested.unrecognized;
+      } else {
+        const recovered = parseTextualWorkspaceCommandCalls(
+          JSON.stringify({ ...raw, ...(typeof raw.tool_name === "string" ? { name: raw.tool_name } : {}) }),
+        );
+        calls.push(...recovered);
+        unrecognized ||= recovered.length === 0;
+      }
+      return;
+    }
 
-    const parsedArguments = parseToolArgumentsValue(raw.arguments ?? raw.args ?? raw.input ?? {});
+    const parsedArguments = parseToolArgumentsValue(raw.arguments ?? raw.args ?? raw.input ?? raw.parameters ?? {});
     const argumentsWithRecoveredAction =
       workspaceName === "app_data" && (directAction || nameAsAction)
         ? {
@@ -1220,7 +1252,7 @@ function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): Wor
     const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : newToolCallId(workspaceName, index);
     calls.push({ id, name: workspaceName, arguments: argumentsWithRecoveredAction });
   });
-  return calls;
+  return { calls, unrecognized };
 }
 
 function parseTextualWorkspaceCommandCalls(content: string): WorkspaceCommandCall[] {
@@ -1365,7 +1397,9 @@ function stripWorkspaceCommands(content: string): string {
 
 export function parseAssistantWorkspaceAction(content: string): AssistantWorkspaceAction {
   const { content: contentWithoutJson, matches } = removeJsonActionFrames(content);
-  const jsonCommands = matches.flatMap((match) => parseJsonCommandCallsFromPayload(match.payload));
+  const parsedFrames = matches.map((match) => ({ ...match, ...parseJsonCommandCallsFromPayload(match.payload) }));
+  const jsonCommands = parsedFrames.flatMap((frame) => frame.calls);
+  const hasInvalidCommands = parsedFrames.some((frame) => frame.unrecognized);
   const textualCommands = parseTextualWorkspaceCommandCalls(contentWithoutJson);
   // If JSON frames are present, treat all prose outside them as protocol leakage.
   // Textual calls have no visible-text field, so retain their surrounding prose.
@@ -1383,23 +1417,25 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
   // phrase: in a tolerated multi-frame response, a read-only frame's phrase
   // must not be attributed to another frame's mutations.
   const understoodRequest =
-    matches
-      .filter((match) => parseJsonCommandCallsFromPayload(match.payload).some(isMutatingWorkspaceCommand))
+    parsedFrames
+      .filter((frame) => frame.calls.some(isMutatingWorkspaceCommand))
       .map((match) =>
         typeof match.payload.understoodRequest === "string" ? match.payload.understoodRequest.trim() : "",
       )
       .find((value) => value.length > 0)
       ?.slice(0, 2000) ?? null;
-  const commands = dedupeWorkspaceCommandCalls([
-    ...parseXmlCommandCalls(contentWithoutJson),
-    ...jsonCommands,
-    ...textualCommands,
-    ...parseBracketCommandCalls(contentWithoutJson),
-  ]);
-  const protocolValid = matches.length > 0;
+  const commands = hasInvalidCommands
+    ? []
+    : dedupeWorkspaceCommandCalls([
+        ...parseXmlCommandCalls(contentWithoutJson),
+        ...jsonCommands,
+        ...textualCommands,
+        ...parseBracketCommandCalls(contentWithoutJson),
+      ]);
+  const protocolValid = matches.length > 0 && !hasInvalidCommands;
   const explicitStop = [...matches].reverse().find((match) => jsonPayloadStopValue(match.payload) !== undefined);
   const explicitStopValue = explicitStop ? jsonPayloadStopValue(explicitStop.payload) : undefined;
-  const stop = explicitStopValue ?? (commands.length === 0 && protocolValid);
+  const stop = !hasInvalidCommands && (explicitStopValue ?? (commands.length === 0 && protocolValid));
   return {
     visibleText,
     commands,
@@ -1409,14 +1445,16 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
     understoodRequest,
     stop,
     protocolValid,
-    assistantHistoryContent: assistantHistoryContentForAction({
-      visibleText,
-      commands,
-      suggestions,
-      plan,
-      awaitingAuthorization,
-      stop,
-    }),
+    assistantHistoryContent: hasInvalidCommands
+      ? content
+      : assistantHistoryContentForAction({
+          visibleText,
+          commands,
+          suggestions,
+          plan,
+          awaitingAuthorization,
+          stop,
+        }),
   };
 }
 
@@ -1977,21 +2015,26 @@ export function resolveWorkspaceMutationVerification(
 }
 
 export function workspaceTextClaimsMutationCompletion(text: string): boolean {
-  const normalized = text.trim().replace(/\s+/gu, " ");
+  const normalized = text.trim().replace(/[’‘]/gu, "'").replace(/\s+/gu, " ");
   if (!normalized) return false;
+  if (/^(?:have|has|did|is|are|was|were)\b[^.!]*\?$/iu.test(normalized)) return false;
   const completedMutation =
     // #5830: "verified" is deliberately absent - it describes a READ, and it
     // is the exact word the guard's own coaching asks the model to produce.
-    "created|updated|changed|deleted|removed|renamed|wrote|written|fixed|implemented|built|installed|imported|exported|saved|enabled|disabled|assigned|linked|unlinked|generated|moved|copied|replaced";
+    "created|updated|changed|deleted|removed|renamed|wrote|written|fixed|implemented|built|installed|imported|exported|saved|enabled|disabled|assigned|linked|unlinked|generated|moved|copied|replaced|added|applied|edited|modified|set|inserted|completed";
+  const adverbs = "(?:(?:successfully|now|just|already)\\s+)*";
   return (
     new RegExp(
-      `\\b(?:i(?:'ve| have)?|we(?:'ve| have)?|it(?:'s| is)?|that(?:'s| is)?)\\s+(?:successfully\\s+)?(?:${completedMutation})\\b`,
+      `\\b(?:i(?:'ve| have)?|we(?:'ve| have)?|it(?:'s| is)?|that(?:'s| is)?)\\s+${adverbs}(?:${completedMutation})\\b`,
       "iu",
     ).test(normalized) ||
-    new RegExp(
-      `\\b(?:is|are|was|were|has been|have been)\\s+(?:successfully\\s+)?(?:${completedMutation})\\b`,
-      "iu",
-    ).test(normalized)
+    new RegExp(`\\b(?:is|are|was|were|has been|have been)\\s+${adverbs}(?:${completedMutation})\\b`, "iu").test(
+      normalized,
+    ) ||
+    new RegExp(`^(?:(?:the )?(?:edit|change|update)s?\\s+)${adverbs}(?:${completedMutation})\\b[^?]*[.!]?$`, "iu").test(
+      normalized,
+    ) ||
+    new RegExp(`^(?:${completedMutation}|done)[.!]*$`, "iu").test(normalized)
   );
 }
 
@@ -2070,9 +2113,8 @@ export type WorkspaceClaimAudit = {
  *
  * ACCEPTED RESIDUALS (this is a tripwire, not proof): a state read cannot be
  * semantically matched to the claim it backs, so a read of one thing can
- * pass an unrelated recap-shaped claim; and the claim DETECTOR only sees
- * subject-ful English ("I created..." - a bare participle "Created X." is
- * not detected, see #5830's open detector-design question).
+ * pass an unrelated recap-shaped claim; and the claim detector is an
+ * English-language tripwire, not a semantic proof of what the user asked.
  *
  * "unverified" and "staged" are tolerated mid-run without advancing the
  * watermark, so their debt stays visible to the terminal audit: a later
@@ -2683,6 +2725,7 @@ export class ProfessorMariWorkspaceService {
         };
 
         const rawContent = result.content ?? "";
+        debugLog?.("[debug/professor-mari] Raw response:\n%s", rawContent);
         const parsedAction = parseAssistantWorkspaceAction(rawContent);
         // #5725: Manual defers EVERY described mutation (empty-say command
         // frames - the post-approval pattern - still execute); Bypass never
@@ -2788,10 +2831,66 @@ export class ProfessorMariWorkspaceService {
           for (const chunk of chunkText(content)) args.onEvent({ type: "token", data: chunk });
           break;
         }
-        const claimAudit = auditWorkspaceCompletionClaim(action, commandResultsForContinuity, {
-          auditFrom: claimAuditWatermark,
-          hadPassedClaimAudit,
-        });
+        // Execute this frame before judging its claim; never execute a truncated frame.
+        let commandResults: WorkspaceCommandResult[] = [];
+        if (action.commands.length > 0 && !isLengthFinishReason(result.finishReason)) {
+          // #5725 Manual mode floor: a mutating command in a SILENT frame (no
+          // visible text, so the deferral above cannot describe anything) is
+          // only allowed in a run the user just approved. The flag is
+          // round-scoped; visible frames defer through shouldDeferMutations.
+          // Same superseded-run guard for the round-scoped shared write.
+          controller.signal.throwIfAborted();
+          this.activeRoundManualSilentMutationBlocked =
+            permissionsMode === "manual" && !action.visibleText && !manualApprovalArmed;
+          // #5748 ask-latch mirror: after this run has asked for approval, a
+          // SILENT mutating frame cannot be the user's answer either. Manual is
+          // carved out (its own floor plus manualApprovalArmed govern the
+          // post-Accept silent re-send) and Bypass never holds.
+          this.activeRoundAskLatchSilentMutationBlocked =
+            runAskedForApproval && !action.visibleText && permissionsMode !== "manual" && permissionsMode !== "bypass";
+          commandResults = await this.executeWorkspaceCommandBatch(
+            action.commands,
+            controller.signal,
+            workspaceTrace,
+            args.onEvent,
+          );
+          commandResultsForContinuity.push(...commandResults);
+          // #5740: upgrade the record's outcome to what the batch actually
+          // reported (results align 1:1 with the commands). Gated on this round
+          // carrying mutating commands so a later read-only round can never
+          // relabel an earlier round's failure as applied.
+          if (
+            runUnderstoodRequest !== null &&
+            this.latestUnderstoodRequest === runUnderstoodRequest &&
+            action.commands.some(isMutatingWorkspaceCommand)
+          ) {
+            // A store read-back mismatch is a persistence failure: the record
+            // must never say "applied" while the same result tells Mari not to
+            // claim success (the diagnostics line is the surface users paste).
+            const anyMutatingFailed = commandResults.some(
+              (commandResult, index) =>
+                isMutatingWorkspaceCommand(action.commands[index]!) &&
+                (!commandResult.success || appliedMutationReadBackMismatched(commandResult)),
+            );
+            // #5756: a round that staged a sensitive change applied nothing for
+            // it - report "held" so diagnostics never corroborate a completion
+            // claim the verification guard would refuse.
+            const anyStaged = commandResults.some(isStagedSensitiveMutation);
+            runUnderstoodRequest = {
+              ...runUnderstoodRequest,
+              outcome: anyMutatingFailed ? "failed" : anyStaged ? "held" : "applied",
+            };
+            this.latestUnderstoodRequest = runUnderstoodRequest;
+          }
+        }
+        const claimAudit =
+          (!action.protocolValid && action.commands.length === 0) ||
+          (action.commands.length > 0 && isLengthFinishReason(result.finishReason))
+            ? { issue: null, advanceWatermark: false }
+            : auditWorkspaceCompletionClaim(action, commandResultsForContinuity, {
+                auditFrom: claimAuditWatermark,
+                hadPassedClaimAudit,
+              });
         if (claimAudit.advanceWatermark) {
           claimAuditWatermark = commandResultsForContinuity.length;
           hadPassedClaimAudit = true;
@@ -2809,6 +2908,13 @@ export class ProfessorMariWorkspaceService {
             : midRunClaimRepairRounds <= MAX_MIDRUN_CLAIM_REPAIR_ROUNDS;
           if (withinRepairBudget) {
             messages.push({ role: "assistant", content: action.assistantHistoryContent });
+            if (commandResults.length > 0) {
+              messages.push({
+                role: "user",
+                content: formatCommandResultForPrompt(commandResults),
+                contextKind: "history",
+              });
+            }
             messages.push({
               role: "user",
               content:
@@ -2835,10 +2941,11 @@ export class ProfessorMariWorkspaceService {
         }
         if (action.commands.length === 0 && !action.stop) {
           if (!action.protocolValid) {
+            logger.warn("Professor Mari returned an invalid workspace command frame; requesting protocol repair");
             protocolRepairRounds += 1;
             if (protocolRepairRounds > maxProtocolRepairRounds) {
               const content =
-                "Professor Mari kept returning plain text instead of the required JSON command object, so I stopped before burning more requests. Ask her to continue and she can pick up from the saved trace.";
+                "Professor Mari kept returning invalid workspace command frames, so I stopped before burning more requests. Ask her to continue and she can pick up from the saved trace.";
               assistantText = appendVisibleText(assistantText, content);
               appendTraceStatus(workspaceTrace, content);
               args.onEvent({ type: "status", data: { content, kind: "info", level: "warning" } });
@@ -2859,7 +2966,7 @@ export class ProfessorMariWorkspaceService {
             role: "user",
             content: action.protocolValid
               ? "Continue the same workspace task. Return exactly one JSON object with commands to run now, or set stop to true if the task is complete."
-              : "Your previous assistant message violated the workspace protocol because it was not a JSON object. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.",
+              : "Your previous assistant message violated the workspace protocol: it was not a JSON object or contained an unrecognized command. Use only the listed command names and put each command in the commands array with name and arguments. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.",
             contextKind: "history",
           });
           continue;
@@ -2911,55 +3018,6 @@ export class ProfessorMariWorkspaceService {
 
         if (action.commands.length === 0) {
           break;
-        }
-
-        // #5725 Manual mode floor: a mutating command in a SILENT frame (no
-        // visible text, so the deferral above cannot describe anything) is
-        // only allowed in a run the user just approved. The flag is
-        // round-scoped; visible frames defer through shouldDeferMutations.
-        // Same superseded-run guard for the round-scoped shared write.
-        controller.signal.throwIfAborted();
-        this.activeRoundManualSilentMutationBlocked =
-          permissionsMode === "manual" && !action.visibleText && !manualApprovalArmed;
-        // #5748 ask-latch mirror: after this run has asked for approval, a
-        // SILENT mutating frame cannot be the user's answer either. Manual is
-        // carved out (its own floor plus manualApprovalArmed govern the
-        // post-Accept silent re-send) and Bypass never holds.
-        this.activeRoundAskLatchSilentMutationBlocked =
-          runAskedForApproval && !action.visibleText && permissionsMode !== "manual" && permissionsMode !== "bypass";
-        const commandResults = await this.executeWorkspaceCommandBatch(
-          action.commands,
-          controller.signal,
-          workspaceTrace,
-          args.onEvent,
-        );
-        commandResultsForContinuity.push(...commandResults);
-        // #5740: upgrade the record's outcome to what the batch actually
-        // reported (results align 1:1 with the commands). Gated on this round
-        // carrying mutating commands so a later read-only round can never
-        // relabel an earlier round's failure as applied.
-        if (
-          runUnderstoodRequest !== null &&
-          this.latestUnderstoodRequest === runUnderstoodRequest &&
-          action.commands.some(isMutatingWorkspaceCommand)
-        ) {
-          // A store read-back mismatch is a persistence failure: the record
-          // must never say "applied" while the same result tells Mari not to
-          // claim success (the diagnostics line is the surface users paste).
-          const anyMutatingFailed = commandResults.some(
-            (commandResult, index) =>
-              isMutatingWorkspaceCommand(action.commands[index]!) &&
-              (!commandResult.success || appliedMutationReadBackMismatched(commandResult)),
-          );
-          // #5756: a round that staged a sensitive change applied nothing for
-          // it - report "held" so diagnostics never corroborate a completion
-          // claim the verification guard would refuse.
-          const anyStaged = commandResults.some(isStagedSensitiveMutation);
-          runUnderstoodRequest = {
-            ...runUnderstoodRequest,
-            outcome: anyMutatingFailed ? "failed" : anyStaged ? "held" : "applied",
-          };
-          this.latestUnderstoodRequest = runUnderstoodRequest;
         }
 
         const repeatedFailure = commandResults
