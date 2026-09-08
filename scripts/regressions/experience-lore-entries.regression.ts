@@ -33,14 +33,22 @@
 //   9. EXACT SELECTION. A selection is the whole of what this call carries. A global
 //      lorebook's constant entry activates with no messages at all, so without this
 //      the player's one tick would drag in every constant in the product; this is a
-//      world-writing request, not a chat turn. Pinned in both directions: absent
-//      here, and still present for every OTHER lorebook caller.
+//      world-writing request, not a chat turn. Pinned in three directions: absent
+//      here; still present for every OTHER lorebook caller; and still present for a
+//      caller that passes forced ids WITHOUT asking for an exact selection, which is
+//      what every pre-existing forced-entry caller does.
 //  10. The ROUTE is what supplies the game generation triggers. ScanOptions defaults
 //      to ["chat"], so a route that forgets them refuses a game_setup entry with no
 //      error anyone could see. Part 1 pins the gate; this pins the caller.
 //  11. There are TWO walls, and the second one is the one the route cannot move. The
 //      per-book tokenBudget defaults to 2,048 and applies after the location budget,
 //      so inside an ordinary book the raised 3,000-token override buys nothing.
+//  12. A reported drop is a REAL drop. The exact-selection rule has to skip the
+//      ordinary scan rather than empty its inputs, and has to suppress the book
+//      filter rather than only the entry list — otherwise a picked CONSTANT the
+//      location budget dropped is re-activated (directly, or through the recursion a
+//      stray global book switches on) and the response names as set aside an entry
+//      it actually sent.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
@@ -244,11 +252,15 @@ async function createExperienceChat(name: string) {
  *  as a forced selection, so nothing here can be credited to ordinary scope-based
  *  activation. Omitting tokenBudget leaves the book on the schema's own 2,048-token
  *  default, which is what an ordinary player's book actually carries. */
-async function createBook(name: string, options: { tokenBudget?: number; isGlobal?: boolean } = {}) {
+async function createBook(
+  name: string,
+  options: { tokenBudget?: number; isGlobal?: boolean; recursiveScanning?: boolean } = {},
+) {
   const book = await lorebooks.create({
     name,
     ...(options.tokenBudget === undefined ? {} : { tokenBudget: options.tokenBudget }),
     isGlobal: options.isGlobal ?? false,
+    recursiveScanning: options.recursiveScanning ?? false,
   } as Parameters<typeof lorebooks.create>[0]);
   assert.ok(book);
   createdLorebookIds.push(book.id);
@@ -474,6 +486,56 @@ try {
       ambientScan.activatedEntryIds.includes(unticked.id),
       "A global constant still activates for every caller that did not ask for an exact selection",
     );
+
+    // ...and the case that actually distinguishes the two, which the line above
+    // does not: forced ids PRESENT and the ordinary scan still expected to run.
+    // /setup, the spatial projection, chats.routes, generate.routes, dry-run and
+    // marker-expander all pass forcedEntryIds for a location's own attached lore
+    // while still wanting the turn's ambient context. Deriving forcedEntriesOnly
+    // from "forcedEntryIds is non-empty" would strip that from every one of them.
+    const forcedIdsWithoutExactSelection = await processLorebooks(db, [], null, {
+      chatId: chat.id,
+      characterIds: [],
+      personaId: null,
+      forcedEntryIds: [picked.id],
+    });
+    assert.ok(
+      forcedIdsWithoutExactSelection.activatedEntryIds.includes(picked.id),
+      "A forced id still arrives for an ordinary caller",
+    );
+    assert.ok(
+      forcedIdsWithoutExactSelection.activatedEntryIds.includes(unticked.id),
+      "...and the ambient global comes with it — forcedEntriesOnly is an explicit opt-in, never implied by passing forced ids",
+    );
+
+    // Suppressing the ordinary scan is not by itself enough to keep the ambient
+    // book out of the POOL, and the pool is scanned a second time whenever the
+    // call lands on the recursive entry point — which it does as soon as a picked
+    // entry's own book has recursiveScanning switched on. So the entry list has to
+    // be suppressed as well as the scan: same tick, same absence, recursive book.
+    const recursiveBook = await createBook("Sinnoh Underground", { tokenBudget: 4_000, recursiveScanning: true });
+    const pickedFromRecursive = await lorebooks.createEntry({
+      lorebookId: recursiveBook.id,
+      name: "Oreburgh",
+      content: loreContent("RECURSIVEPICKMARK", 400),
+    } as Parameters<typeof lorebooks.createEntry>[0]);
+    assert.ok(pickedFromRecursive);
+
+    const recursiveChat = await createExperienceChat("exact selection, recursive book");
+    upstreamBodies = [];
+    const recursiveRes = await post(recursiveChat.id, { ...BASE_BODY, lorebookEntryIds: [pickedFromRecursive.id] });
+    assert.equal(recursiveRes.statusCode, 200, recursiveRes.body);
+    const recursivePrompt = systemPromptOf();
+    assert.ok(
+      recursivePrompt.includes("RECURSIVEPICKMARK"),
+      "The entry the player ticked arrives from a recursive book too",
+    );
+    assert.equal(
+      recursivePrompt.includes("UNTICKEDMARK"),
+      false,
+      "Recursion re-scans the entry pool, so the pool itself must hold only the selection — not just the first scan over it",
+    );
+    assert.equal(recursiveRes.json().lorebook.includedEntries, 1);
   }
 
   // ── 6. The ROUTE supplies the game triggers, not ScanOptions' ["chat"] default ──
@@ -551,7 +613,68 @@ try {
     }
   }
 
-  // ── 8. The wire count ceiling is a clean refusal, not a silent truncation ──
+  // ── 8. A reported drop is a real drop, and no global book can undo it ──
+  // Ten CONSTANT entries of 400 tokens each against the 3,000-token location wall,
+  // with the book's own budget raised out of the way so only that wall can bind.
+  //
+  // Two failures share this shape. Emptying the ordinary scan's INPUTS is not the
+  // same as skipping the scan: allEntries is the selection itself here, a constant
+  // needs no messages to activate, so a picked constant the location budget had
+  // just dropped came back through the ordinary scan one line later — while its
+  // skip record stayed on the response. Included plus skipped came to thirteen for
+  // a ten-id selection, which is exactly the disagreement the exact-selection rule
+  // exists to remove. The same re-admission is reachable through the recursive
+  // path, so the global book below is deliberately recursive: with the book filter
+  // left unsuppressed it joins effectiveLorebooks, turns anyRecursive on for a call
+  // that has no business recursing, and the recursive entry point re-scans the
+  // selection for itself. Neither half of the flag is decorative.
+  {
+    await createBook("Ambient recursive globals", { isGlobal: true, recursiveScanning: true });
+    const book = await createBook("Kalos", { tokenBudget: 8_000 });
+    const ids: string[] = [];
+    for (let index = 0; index < 10; index += 1) {
+      const entry = await lorebooks.createEntry({
+        lorebookId: book.id,
+        name: `Vault ${index}`,
+        content: loreContent(`HOLDMARK${index}`, 1_600),
+        order: 100 + index,
+        constant: true,
+      } as Parameters<typeof lorebooks.createEntry>[0]);
+      assert.ok(entry);
+      ids.push(entry.id);
+    }
+
+    const chat = await createExperienceChat("constant drops hold");
+    upstreamBodies = [];
+    const res = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: ids });
+    assert.equal(res.statusCode, 200, res.body);
+
+    const prompt = systemPromptOf();
+    assert.deepEqual(
+      [...Array(10).keys()].filter((index) => prompt.includes(`HOLDMARK${index}`)),
+      [0, 1, 2, 3, 4, 5, 6],
+      "Seven 400-token constants fit the 3,000-token wall and the other three stay out — a constant is not exempt from the budget it overran",
+    );
+
+    const skipped = res.json().lorebook.skippedEntries as Array<{ name: string; blockedBy: string }>;
+    assert.deepEqual(skipped.map((entry) => entry.name).sort(), ["Vault 7", "Vault 8", "Vault 9"]);
+    for (const entry of skipped) assert.equal(entry.blockedBy, "location");
+    for (const index of [7, 8, 9]) {
+      assert.equal(
+        prompt.includes(`HOLDMARK${index}`),
+        false,
+        `Vault ${index} is reported as set aside, so it must actually be absent — the response is not allowed to name an entry it sent`,
+      );
+    }
+    assert.equal(res.json().lorebook.includedEntries, 7);
+    assert.equal(
+      (res.json().lorebook.includedEntries as number) + skipped.length,
+      ids.length,
+      "Included plus set aside is the selection itself: the picker can reconcile against either number",
+    );
+  }
+
+  // ── 9. The wire count ceiling is a clean refusal, not a silent truncation ──
   {
     const chat = await createExperienceChat("count ceiling");
     const overflow = Array.from({ length: LIMITS.MAX_LOREBOOK_ENTRIES + 1 }, (_, index) => `missing-${index}`);

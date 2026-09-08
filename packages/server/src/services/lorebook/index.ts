@@ -1234,7 +1234,12 @@ export async function processLorebooks(
     relevantLorebooksById,
     options?.currentLocationTokenBudget,
   );
-  const ordinaryActivatedEntries = scanForActivatedEntries(messages, allEntries, scanOpts);
+  // Emptying the scan's INPUTS is not the same as skipping the scan: under an exact
+  // selection `allEntries` is the selection itself, and a constant entry activates
+  // here with no messages at all — so a picked constant the location budget had just
+  // dropped came straight back through this line while its skip record stayed on the
+  // response. The flag has to bind the call, not only its arguments.
+  const ordinaryActivatedEntries = forcedEntriesOnly ? [] : scanForActivatedEntries(messages, allEntries, scanOpts);
   const initialActivatedEntries = mergeActivatedEntries(ordinaryActivatedEntries, locationBudgetResult.selected);
   const baseBudgetResult = anyRecursive
     ? resolveBudgetAndRecursivelyActivateLorebookEntriesWithDiagnostics(

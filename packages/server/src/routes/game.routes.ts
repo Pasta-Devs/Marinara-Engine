@@ -10770,6 +10770,16 @@ export async function gameRoutes(app: FastifyInstance) {
   // with blockedBy naming which wall bound, so the response never lies about it —
   // and the picker budgets per book, against the book's own figure, for the same
   // reason. Both walls are pinned in experience-lore-entries.regression.ts.
+  //
+  // "Never lies" rides on forcedEntriesOnly below, and is not free. A picked
+  // CONSTANT needs no messages to activate, so while the ordinary scan still ran
+  // over the selection it re-admitted whatever this first wall had just dropped
+  // and the skip record went out beside the entry it claimed to have withheld.
+  // Skipping that scan closes the door for an ordinary book. One door is still
+  // open beneath it: if a picked entry's own book has recursiveScanning on, the
+  // recursive entry point re-scans the pool for itself and re-admits the same
+  // drops. That is the pre-existing scan-then-merge shape /setup and the spatial
+  // projection sit on too, tracked on #5943 rather than patched behind this flag.
   const EXPERIENCE_LORE_TOKEN_BUDGET = 3_000;
 
   const experienceGenerationSchema = z.object({
