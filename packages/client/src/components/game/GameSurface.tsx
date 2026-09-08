@@ -80,6 +80,7 @@ import { useConnections } from "../../hooks/use-connections";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { selectGameExperiencePackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useGenerate } from "../../hooks/use-generate";
+import { isVisibleGameMessage } from "../../lib/chat-message-visibility";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useGenerateSpatialMapDraft, useSpatialContext } from "../../hooks/use-spatial-context";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -3236,13 +3237,14 @@ function GameSurfaceComponent({
 
   const introPresentationStorageKey = `game-intro-presented:${activeChatId}`;
   const assistantTurnCount = useMemo(
-    () => messages.filter((m) => (m.role === "assistant" || m.role === "narrator") && !!m.content.trim()).length,
+    () => messages.filter((m) => (m.role === "assistant" || m.role === "narrator") && isVisibleGameMessage(m)).length,
     [messages],
   );
   const latestAssistantTurnForIntro = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i]!;
-      if (message.role === "assistant" || message.role === "narrator") return message;
+      if ((message.role === "assistant" || message.role === "narrator") && isVisibleGameMessage(message))
+        return message;
     }
     return null;
   }, [messages]);
@@ -3842,7 +3844,9 @@ function GameSurfaceComponent({
   // Process GM tags from the latest assistant message
   const latestAssistantMsg = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i]!.role === "assistant" || messages[i]!.role === "narrator") return messages[i];
+      const message = messages[i]!;
+      if ((message.role === "assistant" || message.role === "narrator") && isVisibleGameMessage(message))
+        return message;
     }
     return null;
   }, [messages]);
@@ -4060,6 +4064,7 @@ function GameSurfaceComponent({
   const combatLogEntries = useMemo(
     () =>
       messages
+        .filter(isVisibleGameMessage)
         .map((message) => ({
           id: message.id,
           role: message.role,
