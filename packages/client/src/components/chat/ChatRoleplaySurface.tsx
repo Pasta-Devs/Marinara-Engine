@@ -1252,7 +1252,7 @@ type RoleplaySurfaceProps = {
   onOpenScheduleEditor?: ComponentProps<typeof ChatCommonOverlays>["onOpenScheduleEditor"];
   onCloseSettings: () => void;
   onCloseGallery: () => void;
-  onIllustrate?: () => void;
+  onIllustrate?: (prompt?: string) => void;
   onIllustrateWithAgent?: (agentType: string) => void | Promise<void>;
   onGenerateBackground?: () => void | Promise<void>;
   onGenerateVideo?: () => void | Promise<void>;

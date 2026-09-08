@@ -28,6 +28,8 @@ const EDITABLE_PARAMETER_KEYS: Array<keyof EditableGenerationParameters> = [
   "reasoningEffort",
   "verbosity",
   "serviceTier",
+  "strictRoleFormatting",
+  "singleUserMessage",
   "assistantPrefill",
   "assistantReasoningPrefill",
   "customThinkingTags",
@@ -151,6 +153,15 @@ export function AdvancedParametersSection({
     // map even when it matches the editor fallback so an inherited preset value
     // cannot make a disabled parameter reappear in the provider request.
     sparse.enabledParameters = next.enabledParameters ?? STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS;
+    if (
+      next.strictRoleFormatting !== effectiveParams.strictRoleFormatting ||
+      next.singleUserMessage !== effectiveParams.singleUserMessage ||
+      params.strictRoleFormatting !== undefined ||
+      params.singleUserMessage !== undefined
+    ) {
+      sparse.strictRoleFormatting = next.strictRoleFormatting;
+      sparse.singleUserMessage = next.singleUserMessage;
+    }
     onChatParametersChange(sparse);
   };
   const toggleExpanded = () => setExpanded((open) => !open);
@@ -197,7 +208,7 @@ export function AdvancedParametersSection({
           </p>
           <GenerationParametersFields
             value={effectiveParams}
-            showOpenRouterServiceTier={conn?.provider === "openrouter"}
+            showServiceTier={conn?.provider === "openrouter" || conn?.provider === "nanogpt"}
             enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
             onChange={setParameters}
           />

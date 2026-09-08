@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   GENERATION_PARAMETER_SEND_KEYS,
+  customRequestHeadersSchema,
   normalizeThinkingTagPairs,
   type GenerationParameterSendKey,
   type GenerationParameterSendMap,
@@ -28,10 +29,13 @@ export type EditableGenerationParameters = Pick<
   | "reasoningEffort"
   | "verbosity"
   | "serviceTier"
+  | "strictRoleFormatting"
+  | "singleUserMessage"
   | "assistantPrefill"
   | "assistantReasoningPrefill"
   | "customThinkingTags"
   | "customParameters"
+  | "customHeaders"
   | "managedCustomParameters"
   | "enabledParameters"
 >;
@@ -40,7 +44,7 @@ type EditableGenerationParameterOverrides = Partial<EditableGenerationParameters
 
 const REASONING_LEVELS = [null, "low", "medium", "high", "xhigh", "maximum"] as const;
 const VERBOSITY_LEVELS = [null, "low", "medium", "high"] as const;
-const OPENROUTER_SERVICE_TIERS = [null, "flex", "priority"] as const;
+const SERVICE_TIERS = [null, "flex", "priority"] as const;
 const THINKING_TAG_CONTENT_PLACEHOLDER = "{{thinking}}";
 const PARAM_CHOICE_ACTIVE_CLASS = "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30";
 const PARAM_CHOICE_IDLE_CLASS =
@@ -73,6 +77,8 @@ export const CHAT_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   reasoningEffort: "maximum",
   verbosity: "high",
   serviceTier: null,
+  strictRoleFormatting: true,
+  singleUserMessage: false,
   assistantPrefill: "",
   assistantReasoningPrefill: "",
   customThinkingTags: [],
@@ -91,6 +97,8 @@ export const ROLEPLAY_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   reasoningEffort: "maximum",
   verbosity: "high",
   serviceTier: null,
+  strictRoleFormatting: true,
+  singleUserMessage: false,
   assistantPrefill: "",
   assistantReasoningPrefill: "",
   customThinkingTags: [],
@@ -164,6 +172,12 @@ export function parseEditableGenerationParameters(raw: unknown): EditableGenerat
   if (source.serviceTier === null || source.serviceTier === "flex" || source.serviceTier === "priority") {
     next.serviceTier = source.serviceTier;
   }
+  if (typeof source.strictRoleFormatting === "boolean") next.strictRoleFormatting = source.strictRoleFormatting;
+  if (typeof source.singleUserMessage === "boolean") next.singleUserMessage = source.singleUserMessage;
+  if (source.customHeaders !== undefined) {
+    const headers = customRequestHeadersSchema.safeParse(source.customHeaders);
+    if (headers.success) next.customHeaders = headers.data;
+  }
   if (typeof source.assistantPrefill === "string") {
     next.assistantPrefill = source.assistantPrefill;
   }
@@ -219,12 +233,14 @@ export function getEditableGenerationParameters(
 export function GenerationParametersFields({
   value,
   onChange,
-  showOpenRouterServiceTier = false,
+  showServiceTier = false,
+  showCustomHeaders = false,
   enabledParametersFallback = LEGACY_PARAMETER_SEND_DEFAULTS,
 }: {
   value: EditableGenerationParameters;
   onChange: (next: EditableGenerationParameters) => void;
-  showOpenRouterServiceTier?: boolean;
+  showServiceTier?: boolean;
+  showCustomHeaders?: boolean;
   enabledParametersFallback?: GenerationParameterSendMap;
 }) {
   const { t: localizeUi } = useUiTranslation();
@@ -349,6 +365,28 @@ export function GenerationParametersFields({
         </div>
       )}
       <div className="space-y-2">
+        <div className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+          <span className="inline-flex items-center gap-1">
+            {localizeUi("settings.generation.postProcessing.label")}
+            <HelpTooltip text={localizeUi("settings.generation.postProcessing.help")} size="0.625rem" />
+          </span>
+          <select
+            aria-label={localizeUi("settings.generation.postProcessing.label")}
+            className="mari-chrome-field mt-1 w-full rounded-md px-3 py-2 text-xs"
+            value={value.singleUserMessage ? "single" : value.strictRoleFormatting ? "apply" : "none"}
+            onChange={(event) =>
+              onChange({
+                ...value,
+                strictRoleFormatting: event.target.value === "apply",
+                singleUserMessage: event.target.value === "single",
+              })
+            }
+          >
+            <option value="apply">{localizeUi("settings.generation.postProcessing.apply")}</option>
+            <option value="none">{localizeUi("settings.generation.postProcessing.none")}</option>
+            <option value="single">{localizeUi("settings.generation.postProcessing.single")}</option>
+          </select>
+        </div>
         <div>
           <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.ui.generationparametersfields.assistantPrefill")}
@@ -394,19 +432,21 @@ export function GenerationParametersFields({
           value={value.customParameters}
           onChange={(nextValue) => set("customParameters", nextValue)}
         />
-        {showOpenRouterServiceTier && (
+        {showCustomHeaders && (
+          <CustomParametersInput
+            headers
+            value={value.customHeaders ?? {}}
+            onChange={(nextValue) => set("customHeaders", nextValue as Record<string, string>)}
+          />
+        )}
+        {showServiceTier && (
           <div>
             <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.ui.generationparametersfields.openrouterServiceTier")}
-              <HelpTooltip
-                text={localizeUi(
-                  "ui.ui.generationparametersfields.optionalOpenrouterRoutingTierDefaultSendsNoServiceTier",
-                )}
-                size="0.625rem"
-              />
+              {localizeUi("settings.generation.serviceTier.label")}
+              <HelpTooltip text={localizeUi("settings.generation.serviceTier.help")} size="0.625rem" />
             </span>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              {OPENROUTER_SERVICE_TIERS.map((tier) => (
+              {SERVICE_TIERS.map((tier) => (
                 <button
                   key={tier ?? "default"}
                   type="button"
@@ -655,15 +695,20 @@ function parseThinkingTagsDraft(draft: string): { ok: true; value: ThinkingTagPa
 function CustomParametersInput({
   value,
   onChange,
+  headers = false,
 }: {
   value: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
+  headers?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const serialized = stringifyCustomParameters(value);
   const [draft, setDraft] = useState(serialized);
   const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
+  const label = localizeUi(
+    headers ? "settings.connection.customHeaders.label" : "ui.ui.customparametersinput.customParameters",
+  );
 
   useEffect(() => {
     if (!focused && error === null) {
@@ -677,6 +722,10 @@ function CustomParametersInput({
       setError(parsed.error);
       return;
     }
+    if (headers && !customRequestHeadersSchema.safeParse(parsed.value).success) {
+      setError(localizeUi("settings.connection.customHeaders.invalid"));
+      return;
+    }
     setError(null);
     onChange(parsed.value);
     setDraft(stringifyCustomParameters(parsed.value));
@@ -685,9 +734,13 @@ function CustomParametersInput({
   return (
     <div>
       <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-        {localizeUi("ui.ui.customparametersinput.customParameters")}
+        {label}
         <HelpTooltip
-          text={localizeUi("ui.ui.customparametersinput.optionalRawJsonObjectMergedIntoTheProviderRequest")}
+          text={localizeUi(
+            headers
+              ? "settings.connection.customHeaders.help"
+              : "ui.ui.customparametersinput.optionalRawJsonObjectMergedIntoTheProviderRequest",
+          )}
           size="0.625rem"
         />
       </span>
@@ -711,16 +764,28 @@ function CustomParametersInput({
         rows={3}
         spellCheck={false}
         ariaInvalid={Boolean(error)}
-        title={localizeUi("ui.ui.customparametersinput.customParameters")}
-        ariaLabel={localizeUi("ui.ui.customparametersinput.customParameters")}
+        title={label}
+        ariaLabel={label}
         className={PARAM_TEXTAREA_CLASS}
-        placeholder={focused ? "" : localizeUi("ui.ui.customparametersinput.reasoningEffortHigh")}
+        placeholder={
+          focused
+            ? ""
+            : localizeUi(
+                headers
+                  ? "settings.connection.customHeaders.example"
+                  : "ui.ui.customparametersinput.reasoningEffortHigh",
+              )
+        }
       />
       {error ? (
         <p className="mt-1 text-[0.5625rem] text-amber-500">{error}</p>
       ) : (
         <p className="mt-1 text-[0.5625rem] text-[var(--muted-foreground)]/70">
-          {localizeUi("ui.ui.customparametersinput.acceptsStringsNumbersBooleansNullArraysAndNestedObjects")}
+          {localizeUi(
+            headers
+              ? "settings.connection.customHeaders.help"
+              : "ui.ui.customparametersinput.acceptsStringsNumbersBooleansNullArraysAndNestedObjects",
+          )}
         </p>
       )}
     </div>

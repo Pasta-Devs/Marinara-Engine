@@ -620,7 +620,7 @@ export class GoogleProvider extends BaseLLMProvider {
 
     const response = await llmFetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders },
+      headers: { ...this.customRequestHeaders, "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify(body),
       ...(options.signal ? { signal: options.signal } : {}),
     });
@@ -777,6 +777,7 @@ export class GoogleProvider extends BaseLLMProvider {
     const response = await llmFetch(url, {
       method: "POST",
       headers: {
+        ...this.customRequestHeaders,
         "Content-Type": "application/json",
         ...authHeaders,
       },
@@ -966,7 +967,7 @@ export class GoogleProvider extends BaseLLMProvider {
       const timeoutSignal = AbortSignal.timeout(timeoutMs);
       const response = await llmFetch(`${base}/models/${requestModel}:batchEmbedContents`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
+        headers: { ...this.customRequestHeaders, "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
           requests: texts.map((text) => ({
             model: `models/${requestModel}`,
@@ -993,7 +994,7 @@ export class GoogleProvider extends BaseLLMProvider {
       const timeoutSignal = AbortSignal.timeout(timeoutMs);
       const response = await llmFetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
+        headers: { ...this.customRequestHeaders, "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
           content: geminiEmbeddingContent(text),
         }),

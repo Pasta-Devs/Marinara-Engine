@@ -3427,19 +3427,25 @@ async function applyRetryResultEffects(args: {
 
             // Collect optional character visual context. Prefer avatar portraits
             // for references, then fall back to full-body sprites.
+            const subjectOnly = illustratorPromptReviewOverride?.subjectOnly === true;
             const useAvatarRefs =
-              usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
+              !subjectOnly &&
+              (usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                 ? chatMeta.illustratorUseAvatarReferences
-                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true;
+                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true);
             const includeCharacterAppearance =
-              usesChatIllustratorSettings && typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
+              !subjectOnly &&
+              (usesChatIllustratorSettings && typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
                 ? chatMeta.illustratorIncludeCharacterAppearance
-                : imagePromptAgent?.resolved.settings?.includeCharacterAppearance === true;
-            const spatialLocationReferenceImage = await resolveSpatialLocationReferenceImage({
-              db: app.db,
-              chatId,
-              projection: retryOwnerSpatialProjection?.ownerMode === "roleplay" ? retryOwnerSpatialProjection : null,
-            });
+                : imagePromptAgent?.resolved.settings?.includeCharacterAppearance === true);
+            const spatialLocationReferenceImage = subjectOnly
+              ? null
+              : await resolveSpatialLocationReferenceImage({
+                  db: app.db,
+                  chatId,
+                  projection:
+                    retryOwnerSpatialProjection?.ownerMode === "roleplay" ? retryOwnerSpatialProjection : null,
+                });
             assertRetryActive();
             let referenceImages: string[] | undefined;
             const retryIdentityId =

@@ -559,6 +559,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   private buildHeaders(): Record<string, string> {
     const apiKey = this.apiKey.trim();
     const h: Record<string, string> = {
+      ...this.customRequestHeaders,
       "Content-Type": "application/json",
       // Only send auth when a real key is present: a blank `Bearer ` (a decrypt
       // failure, a whitespace-only key, or an intentionally keyless local
@@ -1077,14 +1078,19 @@ export class OpenAIProvider extends BaseLLMProvider {
     return !!openrouterProvider && !this.isGenericCustomProvider() && this.baseUrl.includes("openrouter.ai");
   }
 
-  private resolveOpenRouterServiceTier(serviceTier?: string | null): "flex" | "priority" | null {
+  private resolveServiceTier(serviceTier?: string | null): "flex" | "priority" | null {
     if (serviceTier !== "flex" && serviceTier !== "priority") return null;
-    if (this.isGenericCustomProvider() || !this.baseUrl.includes("openrouter.ai")) return null;
+    if (
+      this.providerKind !== "nanogpt" &&
+      (this.isGenericCustomProvider() || !this.baseUrl.includes("openrouter.ai"))
+    ) {
+      return null;
+    }
     return serviceTier;
   }
 
-  private applyOpenRouterServiceTier(body: Record<string, unknown>, options: ChatOptions): void {
-    const serviceTier = this.resolveOpenRouterServiceTier(options.serviceTier);
+  private applyServiceTier(body: Record<string, unknown>, options: ChatOptions): void {
+    const serviceTier = this.resolveServiceTier(options.serviceTier);
     if (serviceTier) body.service_tier = serviceTier;
   }
 
@@ -1284,7 +1290,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
 
     this.applyOpenRouterPromptCaching(body, options);
-    this.applyOpenRouterServiceTier(body, options);
+    this.applyServiceTier(body, options);
     this.applyCustomParameters(body, options);
     // Local chat templates may ignore reasoning_effort. Apply this after custom
     // parameters so an explicit Reasoning Effort: Off choice remains authoritative.
@@ -1571,7 +1577,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
 
     this.applyOpenRouterPromptCaching(body, options);
-    this.applyOpenRouterServiceTier(body, options);
+    this.applyServiceTier(body, options);
     this.applyCustomParameters(body, options);
     this.enforceLocalInferenceThinkingDisable(body, options, suppressModelParameters);
     this.stripUnsupportedSamplerParameters(body, options);
@@ -2126,7 +2132,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
 
     if (!isOpenAIChatGPT) {
-      this.applyOpenRouterServiceTier(body, options);
+      this.applyServiceTier(body, options);
     }
 
     if (
