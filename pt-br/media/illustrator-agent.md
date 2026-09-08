@@ -71,6 +71,8 @@ Dois botões liga/desliga no card do Illustrator ajudam os personagens a ficarem
 
 O card do Illustrator tem um botão **Open Setup** (abrir a configuração). Ele abre a tela completa de configuração do agente, onde você define com que frequência o agente roda e dá a ele uma conexão de imagem própria.
 
+Defina **Run Interval** (intervalo de execução) como **0** para gerar apenas manualmente. Isso interrompe as execuções automáticas do Illustrator, inclusive os fundos automáticos de cena, mas mantém o agente instalado e disponível nas ações da Gallery. O padrão continua sendo **5**; escolha um intervalo positivo para retomar as execuções automáticas. Você também pode escolher 0 ao adicionar Illustrator a um chat.
+
 Também é possível criar uma imagem na hora, sem esperar. Abra a seção **Gallery** do chat e use o botão **Illustrate**. O Illustrator roda uma vez imediatamente, e o botão mostra **Generating...** enquanto trabalha. Isso é útil quando você quer uma imagem do momento atual e o agente ainda não desenhou nenhuma.
 
 ## Guias relacionados

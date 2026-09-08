@@ -115,6 +115,8 @@ Po włączeniu licznik startuje z wartości 50. Da się wpisać dowolną liczbę
 
 Ustawienie **Exclude Past Reasoning** jest domyślnie włączone. Trzyma zapisane myślenie i rozumowanie z wcześniejszych tur z dala od nowych promptów. Marinara nie wysyła tego rozumowania do modelu po raz drugi.
 
+Po wyłączeniu tej opcji pojawia się **Past reasoning blocks** (bloki wcześniejszego rozumowania). Domyślna wartość `1` zachowuje najnowszy dostępny blok rozumowania asystenta; `0` dołącza wszystkie dostępne bloki. Wybór jest zapisywany dla tego czatu i pozostaje zapisany po ponownym włączeniu wykluczania. Nie usuwa to zapisanych myśli. Ponownie wysyłane może być tylko rozumowanie obsługiwane przez bieżące połączenie.
+
 Zostaw je włączone, chyba że masz wyraźny powód, by podawać modelowi stare rozumowanie z powrotem.
 
 ## Image Captioning

@@ -238,6 +238,12 @@ La solution la plus propre sur le long terme consiste à placer le serveur derri
 
 ## Stockage et données
 
+### Le serveur ne revient pas après Restart Server
+
+Démarre Marinara avec `start.bat`, `start.sh`, `start-termux.sh` ou `pnpm start`. Ces commandes gardent le serveur rattaché à son lanceur et attendent la fin de l'ancien processus avant de démarrer son remplaçant. Le redémarrage depuis l'application ferme les connexions persistantes après quatre secondes et force la sortie après huit secondes si l'arrêt reste bloqué. Un arrêt forcé peut interrompre des écritures en attente et est signalé comme forcé dans les diagnostics. Les lancements directs avec `node` et les processus de surveillance des fichiers en développement ne sont pas remplacés automatiquement : arrête-les et relance-les depuis leur terminal. Docker continue d'utiliser la politique de redémarrage de son conteneur.
+
+Ne lance pas un autre serveur sur le même répertoire de données tant que l'ancien fonctionne encore. Si une ancienne build a laissé un processus actif, arrête-le d'abord ; ne supprime pas le bail d'écriture d'un serveur en cours d'exécution.
+
 ### Le démarrage indique qu'un autre processus utilise peut-être le répertoire de données
 
 Marinara n'autorise qu'un seul serveur en cours d'exécution à écrire dans un répertoire de données local. Si le démarrage signale **Another Marinara Engine process ... may be using** le répertoire, fermez l'autre processus Marinara et recommencez.

@@ -71,6 +71,8 @@ Zwei Schalter auf der Illustrator-Karte sorgen dafür, dass Charaktere durchgän
 
 Auf der Illustrator-Karte sitzt die Schaltfläche **Open Setup** (Einrichtung öffnen). Sie öffnet das vollständige Einrichtungsfenster des Agenten. Dort legst du fest, wie oft der Agent läuft, und gibst ihm eine eigene Bild-Verbindung.
 
+Setze **Run Interval** (Laufintervall) auf **0**, um ausschließlich manuell zu generieren. Damit stoppst du automatische Illustrator-Läufe einschließlich automatischer Szenenhintergründe. Der Agent bleibt installiert und für Galerieaktionen verfügbar. Der Standardwert bleibt **5**; ein positiver Wert aktiviert automatische Läufe wieder. Du kannst 0 auch wählen, wenn du Illustrator zu einem Chat hinzufügst.
+
 Ein Bild lässt sich auch jederzeit von Hand erzeugen, statt darauf zu warten. Öffne dazu die **Gallery** des Chats und klick auf die Schaltfläche **Illustrate** (Illustrieren). Der Illustrator läuft dann sofort einmal durch, währenddessen steht auf der Schaltfläche **Generating...**. Praktisch, wenn du ein Bild vom aktuellen Moment willst und der Agent noch keines gezeichnet hat.
 
 ## Verwandte Anleitungen

@@ -28,6 +28,8 @@ Marinara Engine 开箱即用，不配置也能跑。只有少数几件事才需�
 
 ### 导入自定义智能体
 
+自定义智能体可以在 **Context Sources**(上下文来源)中启用 **Previous output**(上次输出)，读取可见消息历史中自己最近一次成功的输出。使用 **JSON context output**(JSON 上下文输出)时，返回 `{"text":"main prompt content","agent-context":"private continuation context"}`。只有 `text` 会加入主提示词；可选的 `agent-context` 字段留给同一个智能体下次运行使用。**Hide output as spoilers**(将输出折叠为剧透)会把已保存的输出折叠起来，直到你展开查看。重新生成会排除正在替换的轮次，已删除的消息和未选中的备选回复都不能提供后续运行的上下文。
+
 外部智能体文件、文件夹和自定义仓库默认是锁住的。要放开，打开 **Settings → Advanced → Danger Zone**(设置 → 高级 → 危险区域) 并启用 **Allow custom Agent imports**(允许导入自定义智能体)。和 External Extensions 不同，这道由你自己控制的开关不需要配环境变量。开关打开之前，导入控件一直是灰的。
 
 每次导入都会先展示该智能体请求的权限，然后才存下来。权限必须逐项明确批准；打包的函数和工具选择不会一并导入；生成的 CSS 会经过净化；执行结果的动作也会和已批准的权限集合逐一核对。把开关关掉，外部导入的智能体就不再运行。在 Marinara 里自己创建的智能体，以及通过 **Download Agents** 安装的官方包，不受这道开关影响，照常可用。
@@ -313,7 +315,7 @@ Conversation 的日程控件默认使用浏览器或应用所在设备报告的�
 
 | 变量 | 默认值 | 作用 |
 | --- | --- | --- |
-| `DOCS_I18N_BASE_URL` | 官方 `docs-i18n` 分支 | 翻译文档包的下载地址（Settings → General → Documentation Language）。必须是公开的 `https://` 主机；分叉和镜像可以指向自己那份 `docs-i18n` 分支。 |
+| `DOCS_I18N_BASE_URL` | 官方 `docs-i18n` 分支 | 文档和界面语言包的下载来源。界面语言包位于 `ui/` 子树中。必须使用公开的 `https://` 主机；fork 和镜像可以指向自己的 `docs-i18n` 分支副本。 |
 | `GIPHY_API_KEY` | 空 | 用于 Conversation 模式里 GIF 搜索的 Giphy 密钥。未设置时搜索功能关闭。 |
 | `INTIFACE_URL` | `ws://127.0.0.1:12345` | Intiface 触感应用的默认地址。 |
 | `SPOTIFY_REDIRECT_URI` | 由请求推导 | 覆盖 Spotify 登录回调 URL。TLS 由上游处理时需要设置。 |

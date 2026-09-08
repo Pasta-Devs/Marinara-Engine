@@ -16,6 +16,8 @@ Marinara répartit ses agents en trois catégories dans le panneau **Agents** : 
 
 Un intervalle d'exécution signifie que l'agent s'exécute périodiquement, après un certain nombre de messages, les tiens et ceux de l'IA, au lieu de s'exécuter après chaque message. Cet intervalle se change dans la configuration de l'agent, jusqu'à 100.
 
+Illustrator accepte aussi **0** pour une génération uniquement manuelle : il reste disponible pour les actions de Gallery, mais ne s'exécute jamais automatiquement. Les autres agents conservent leurs intervalles positifs actuels.
+
 ## Writer Agents
 
 Les Writer Agents façonnent l'histoire ou le style. Soit ils ajoutent des consignes avant la réponse, soit ils nettoient la réponse après coup.

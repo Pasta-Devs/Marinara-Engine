@@ -238,6 +238,12 @@ Am saubersten löst du das langfristig, indem du den Server hinter HTTPS setzt. 
 
 ## Speicher und Daten
 
+### Der Server kehrt nach Restart Server nicht zurück
+
+Starte Marinara mit `start.bat`, `start.sh`, `start-termux.sh` oder `pnpm start`. So bleibt der Server an seinen Launcher gebunden, der auf das Ende des alten Prozesses wartet, bevor er einen Ersatz startet. Ein Neustart aus der Anwendung schließt verbleibende Verbindungen nach vier Sekunden und erzwingt nach acht Sekunden das Prozessende, wenn das Herunterfahren weiter festhängt. Ein erzwungenes Ende kann ausstehende Schreibvorgänge unterbrechen und wird in der Diagnose entsprechend vermerkt. Direkte `node`-Starts und Datei-Watcher im Entwicklungsbetrieb werden nicht automatisch ersetzt: Stoppe sie im Terminal und starte sie dort erneut. Docker verwendet weiterhin seine Container-Neustartrichtlinie.
+
+Starte keinen weiteren Server mit demselben Datenverzeichnis, solange der alte noch läuft. Hat ein älterer Build einen Prozess zurückgelassen, stoppe zuerst diesen Prozess. Entferne nicht die Schreib-Lease eines laufenden Servers.
+
 ### Beim Start heißt es, ein anderer Prozess verwende möglicherweise das Datenverzeichnis
 
 Nur ein laufender Marinara-Server darf in ein lokales Datenverzeichnis schreiben. Meldet der Start **Another Marinara Engine process ... may be using** für das Verzeichnis, beende den anderen Marinara-Prozess und starte erneut.

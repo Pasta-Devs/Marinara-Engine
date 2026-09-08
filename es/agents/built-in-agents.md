@@ -16,6 +16,8 @@ Marinara agrupa sus agentes en tres categorías en el panel **Agents**: **Writer
 
 Un intervalo de ejecución significa que el agente se ejecuta una vez cada varios mensajes del usuario y del asistente en lugar de después de cada mensaje. Puedes cambiar un intervalo de ejecución en la configuración del agente, hasta 100.
 
+Illustrator también acepta **0** para generar solo de forma manual: sigue disponible para las acciones de Gallery, pero nunca se ejecuta automáticamente. Los demás agentes conservan sus intervalos positivos actuales.
+
 ## Writer agents
 
 Los Writer agents dan forma a la historia o a la prosa. O bien añaden orientación antes de la respuesta, o bien limpian la respuesta después.

@@ -12,6 +12,8 @@ Quand tu viens d'une version qui embarquait les agents, cartes, appels ou jeux C
 
 Si tu utilises une langue de documentation téléchargée (**Settings** (Paramètres) → **General** → **Documentation Language**), le premier démarrage après une mise à jour vérifie aussi les changements de ce pack de langue et le rafraîchit automatiquement. Si la source de téléchargement est injoignable, Marinara conserve le pack installé (les guides qui y manquent s'affichent en anglais) et retente au démarrage suivant. Une mise à jour ne réinitialise jamais ton choix de langue.
 
+Les packs de langue de l'interface suivent un téléchargement séparé et manuel. Lors de la première mise à jour depuis une version qui incluait les traductions, l'interface revient à l'anglais. Sélectionne de nouveau ta langue dans **Settings** → **General** → **Language** (langue) pour télécharger son pack. Les mises à jour suivantes conservent les packs téléchargés dans le dossier de données. Utilise **Refresh language pack** (actualiser le pack de langue) pour obtenir des traductions à jour. Les packs manquants et les clés non traduites affichent l'anglais ; le démarrage ne télécharge jamais de pack d'interface.
+
 Pour savoir où vivent tes données et comment en enregistrer une copie, consulte [Sauvegarder et restaurer Marinara](data/backup-and-restore.md).
 
 ## Fais d'abord une sauvegarde

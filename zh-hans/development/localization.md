@@ -6,6 +6,10 @@ Marinara Engine 只本地化应用界面上的文字。模型提示词、用户�
 
 界面语言在 **Settings > General > App Behavior > Language**(设置 > 通用 > 应用行为 > 语言) 里选择。这里改的只是 Marinara 的控件和说明文字，不影响模型提示词、创作内容和聊天消息。
 
+选择英语以外的语言时，会在需要时下载对应的语言包。**Refresh language pack**(刷新语言包)可获取更新的翻译。下载的语言包保存在 `DATA_DIR/ui-packs`，可离线使用。下载失败不会改变当前语言或已安装的语言包。启动或更新时不会自动下载语言包。
+
+首次从内置翻译的版本升级时，之前选择的非英语语言会回退到英语。请重新选择该语言以下载语言包。用户内容和其他设置均不变。
+
 ## 支持的界面语言
 
 | 语言 | 语言文件 | 文字方向 |
@@ -23,17 +27,17 @@ Marinara Engine 只本地化应用界面上的文字。模型提示词、用户�
 | 俄语 | `ru.json` | 从左向右 |
 | 西班牙语 | `es.json` | 从左向右 |
 
-英文目录是翻译的源头。其余随应用一起打包的语言目录最初都是机器辅助翻译的结果，欢迎母语者提交修正。界面文案的提取工作还在进行中，因此还没有翻译键的文字会继续显示英文。
+英语作为源语言目录维护。社区目录最初借助机器翻译创建，欢迎熟练掌握相应语言的人士修正。界面文本提取仍在进行中，因此没有翻译键的文本会继续显示英语。
 
 ## 语言文件
 
-客户端语言文件位于：
+规范英语目录仍位于：
 
 ```text
-packages/client/src/localization/locales/
+packages/client/src/localization/locales/en.json
 ```
 
-每种 BCP-47 语言对应一个 JSON 文件，文件名就是它的标准语言代码，例如 `pl.json`、`ko.json` 或 `pt-BR.json`。Vite 会自动发现这些文件，所以新增一种语言不需要改动注册表。英语随应用一起加载，其他语言只在被选中时才加载。
+社区语言包位于 [`docs-i18n` 上的 `ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui)，与各文档语言文件夹分开。每个 BCP-47 语言代码使用一个 JSON 文件，例如 `ui/pl.json`、`ui/ko.json` 或 `ui/pt-BR.json`，并共用生成的 `ui/manifest.json`，其中记录文件大小和 SHA-256 哈希。请严格保留语言代码的大小写。即使没有阿拉伯语文档包，也支持阿拉伯语界面。英语随应用加载；社区语言包由用户明确请求下载，并从本地服务器读取。
 
 ```json
 {
@@ -57,9 +61,9 @@ packages/client/src/localization/locales/
 - 含义和语气与 `en.json` 保持一致，不要添加英文原文没有的行为描述或承诺。
 - 检查译好的标签在桌面端和移动端都放得下。
 
-社区语言在某个功能区的翻译准备期间，可以暂时缺少一部分键。缺失的键会回退到英文。未知的键、空翻译、格式错误的元数据以及被改动过的插值标记，都会让本地化检查失败。
+准备某个功能区域的翻译时，社区语言包可以暂时省略键。缺少的键会回退到英语。语言包验证器会报告覆盖率和过时的键，Engine 会忽略过时的键。空翻译（现有的有意留空的后缀例外除外）、格式错误的元数据，以及被改动的插值或富文本标记均无法通过验证。键重命名或删除后，应同步修改语言包，或通过 `[ui-i18n]` 后续议题跟踪。
 
-功能 PR 必须新增或更新标准英文键，但不必改动每一种社区语言。只有贡献者确实能给出可用译文时，才翻译社区语言的值。不要为了让各语言文件的键列表数量相同，就把英文值原样复制过去：运行时回退本来就会显示这段英文，把键留空还能避免给译者制造无谓的合并冲突。
+功能 PR 必须添加或更新规范英语键，但无需修改社区语言包。只有能提供有用的翻译时，才应翻译社区语言包中的值。不要仅为保持各语言文件的键列表一致而到处复制英语值：回退机制已经提供英语文本，省略键还可以避免给翻译者带来不必要的合并冲突。
 
 机器翻译可以作为初稿，前提是 PR 里注明了这一点。在把某种语言称为“已审校”之前，应该由母语者检查术语、语气、文字截断和移动端布局。
 
@@ -68,46 +72,45 @@ packages/client/src/localization/locales/
 只是改几个措辞的话，用 GitHub 的网页编辑器就够了：
 
 1. 打开
-   [`packages/client/src/localization/locales/`](../../packages/client/src/localization/locales/) 里的语言文件。
+   [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui) 里的语言文件。
 2. 点击铅笔图标编辑文件。需要时 GitHub 会提示先创建一个 fork。
 3. 只改译文的值。键名、`{{name}}` 这类对标点敏感的标记以及 JSON
    语法都要原样保留。
 4. 把改动提交到 fork 里一个专门的分支上。
-5. 向 Marinara Engine 的 **`staging`** 分支提交 Pull Request，不要提交到 `main`。
+5. 使用下面的命令刷新语言包清单并验证，然后向 **`docs-i18n`** 发起拉取请求，不要以 `staging` 或 `main` 为目标。
 6. 在 PR 描述里写明语言、修正后的含义，以及自己是母语者还是借助了机器翻译。
 
 标题写成 `Improve French UI translation` 这样的形式。同一种语言的多处相关修正可以合并到一个 PR 里。无关的代码改动要单独提。
 
 ## 提交一种新语言的翻译
 
-新增语言时，从最新的 `staging` 分支开始：
+添加新语言时，请保留一份 Engine 的 `staging` 工作副本作为英语源文件，并在 `docs-i18n` 上工作：
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine
-git checkout staging
+git checkout docs-i18n
 git pull
 git checkout -b translation/LOCALE
-pnpm install
 ```
 
 接着：
 
-1. 把 `en.json` 复制成一个符合 BCP-47 命名规范的语言文件，例如 `it.json` 或 `pt-PT.json`。
+1. 将 Engine 工作副本中的规范 `en.json` 复制到 `ui/<locale>.json`，例如 `ui/it.json` 或 `ui/pt-PT.json`。
 2. 让 `_meta.locale` 与去掉 `.json` 的文件名保持一致。
 3. 把 `_meta.direction` 设为 `ltr` 或 `rtl`。
 4. 按上面的规则翻译各个值。新增语言时最好把整份英文目录都翻译完，不过目录不完整也能回退到英文。
-5. 运行语言校验和仓库基线检查：
+5. 生成清单并运行语言包验证器（只需 Node.js，无需安装依赖）。它会根据 Engine 工作副本中的英语目录报告覆盖率：
 
    ```bash
-   pnpm localization:check
-   pnpm check
+   node scripts/ui-i18n/validate-packs.mjs /path/to/Engine/packages/client/src/localization/locales/en.json --write-manifest
+   node scripts/ui-i18n/validate-packs.mjs /path/to/Engine/packages/client/src/localization/locales/en.json
    ```
 
-6. 在 **Settings > General** 里选中这种语言，在桌面端和移动端各过一遍。检查长标签、工具提示、加载和错误状态，以及文字方向。
+6. 新语言还需要一个小型 Engine PR，将语言代码添加到 `packages/shared/src/utils/ui-locales.ts` 中的 `UI_LANGUAGE_CODES`；更新现有语言包无需修改 Engine。发布后，在 **Settings > General** 中选择该语言，并在桌面和移动设备上检查长标签、工具提示、加载和错误状态，以及文本方向。
 7. 把分支推到 fork，然后
    [提交 Pull Request](https://github.com/Pasta-Devs/Marinara-Engine/compare)，把
-   `Pasta-Devs/Marinara-Engine:staging` 选作目标分支。
+   `Pasta-Devs/Marinara-Engine:docs-i18n` 选作目标分支。
 
 PR 描述里要说明语言、译文来源、语言熟练度或审校程度、跑过的校验命令，以及哪些地方还需要母语者审校。如实填写 PR 模板，只勾选自己亲自验证过的手动项。
 
@@ -138,7 +141,7 @@ pnpm localization:ui-check
 
 ## 可下载智能体的界面
 
-Engine 自带的智能体界面使用 Engine 的语言文件。可下载的 capability 客户端在 Marinara-Agents 仓库里自行维护译文。
+Engine 自有的智能体界面使用规范英语和已下载的 `docs-i18n/ui` 语言包。可下载能力客户端的翻译由各自在 Marinara-Agents 仓库中维护。
 
 每个 capability 自定义元素都会通过 `lang` 和 `dir` 两个属性拿到当前选中的语言，此外还会收到：
 

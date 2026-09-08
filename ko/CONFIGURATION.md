@@ -28,6 +28,8 @@ AI 제공자 키, 캐릭터, 채팅 옵션 등 나머지는 거의 다 여기가
 
 ### 사용자 지정 에이전트 가져오기
 
+사용자 지정 에이전트는 **Context Sources**(컨텍스트 소스)에서 **Previous output**(이전 출력)을 켜서 표시 중인 메시지 기록에 있는 자신의 마지막 성공 출력을 읽을 수 있습니다. **JSON context output**(JSON 컨텍스트 출력)을 사용하면 `{"text":"main prompt content","agent-context":"private continuation context"}`를 반환하세요. 기본 프롬프트에는 `text`만 삽입되며, 선택 사항인 `agent-context` 필드는 같은 에이전트의 다음 실행에 사용됩니다. **Hide output as spoilers**(출력을 스포일러로 숨기기)는 저장된 출력을 펼칠 때까지 접어 둡니다. 재생성할 때는 교체할 턴이 제외되며, 삭제된 메시지나 비활성 스와이프는 후속 실행의 컨텍스트를 제공할 수 없습니다.
+
 외부 에이전트 파일, 폴더, 사용자 지정 저장소는 기본적으로 잠겨 있습니다. 허용하려면 **Settings → Advanced → Danger Zone**(설정 → 고급 → 위험 구역)을 열고 **Allow custom Agent imports**(사용자 지정 에이전트 가져오기 허용)를 켜세요. External Extensions와 달리 이 관문은 사용자가 직접 여는 것이라 환경 변수가 필요 없습니다. 켜기 전까지 가져오기 컨트롤은 회색으로 비활성 상태입니다.
 
 가져올 때마다 해당 에이전트가 요구하는 기능을 저장 전에 먼저 보여 줍니다. 권한은 반드시 명시적으로 승인해야 하고, 함께 들어 있는 함수와 도구 선택은 가져오지 않으며, 생성된 CSS는 정제하고, 실행 결과 동작은 승인된 기능 범위와 대조해 검사합니다. 관문을 다시 끄면 외부에서 가져온 에이전트는 실행이 멈춥니다. Marinara 안에서 만든 사용자 지정 에이전트와 **Download Agents**로 설치한 공식 패키지는 이 관문과 무관하게 계속 실행됩니다.
@@ -313,7 +315,7 @@ Conversation 스케줄 컨트롤은 브라우저나 앱 기기가 알려 준 시
 
 | 변수 | 기본값 | 설명 |
 | --- | --- | --- |
-| `DOCS_I18N_BASE_URL` | 공식 `docs-i18n` 브랜치 | 번역된 문서 팩을 다운로드하는 곳입니다(Settings → General → Documentation Language). 공개된 `https://` 호스트여야 하며, 포크나 미러는 자체적으로 관리하는 `docs-i18n` 브랜치를 가리키게 할 수 있습니다. |
+| `DOCS_I18N_BASE_URL` | 공식 `docs-i18n` 브랜치 | 문서와 UI 언어 팩의 다운로드 위치입니다. UI 팩은 `ui/` 하위 트리에 있습니다. 공개 `https://` 호스트여야 하며, 포크와 미러는 자체 `docs-i18n` 브랜치 사본을 지정할 수 있습니다. |
 | `GIPHY_API_KEY` | 비어 있음 | Conversation 모드에서 GIF를 검색할 때 쓰는 Giphy 키입니다. 설정하지 않으면 검색이 꺼집니다. |
 | `INTIFACE_URL` | `ws://127.0.0.1:12345` | Intiface 햅틱 앱의 기본 주소입니다. |
 | `SPOTIFY_REDIRECT_URI` | 요청에서 자동 판별 | Spotify 로그인 콜백 URL을 직접 지정합니다. TLS를 상위에서 처리할 때 설정하세요. |

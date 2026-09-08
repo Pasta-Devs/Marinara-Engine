@@ -16,6 +16,8 @@ Marinara dzieli agentów na trzy kategorie w panelu **Agents**: **Writer Agents*
 
 Odstęp uruchamiania oznacza, że agent działa raz na kilka wiadomości użytkownika i asystenta, a nie po każdej wiadomości. Odstęp uruchamiania zmienisz w konfiguracji agenta, maksymalnie do 100.
 
+Agent Illustrator przyjmuje też wartość **0**, która oznacza generowanie wyłącznie ręczne: pozostaje dostępny w działaniach galerii, ale nigdy nie uruchamia się automatycznie. Pozostali agenci zachowują dotychczasowe dodatnie odstępy uruchamiania.
+
 ## Agenci piszący
 
 Agenci piszący kształtują fabułę albo sam tekst. Dodają wskazówki przed odpowiedzią lub porządkują odpowiedź po jej wygenerowaniu.

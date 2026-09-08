@@ -28,6 +28,8 @@ Lebenszyklus und Speicherung der Pakete:
 
 ### Import eigener Agenten
 
+Eigene Agenten können unter **Context Sources** (Kontextquellen) die Option **Previous output** (vorherige Ausgabe) aktivieren, um ihre letzte erfolgreiche Ausgabe im sichtbaren Nachrichtenverlauf zu lesen. Gib bei **JSON context output** (Kontextausgabe als JSON) `{"text":"main prompt content","agent-context":"private continuation context"}` zurück. Nur `text` wird in den Haupt-Prompt eingefügt; das optionale Feld `agent-context` ist für den nächsten Lauf desselben Agenten bestimmt. **Hide output as spoilers** (Ausgabe als Spoiler verbergen) hält gespeicherte Ausgaben eingeklappt, bis du sie aufdeckst. Beim Neugenerieren wird der ersetzte Zug ausgeschlossen. Gelöschte Nachrichten und inaktive Swipes können keinen Fortsetzungskontext liefern.
+
 Externe Agent-Dateien, -Ordner und eigene Repositorys sind standardmäßig gesperrt. Um sie freizugeben, öffne **Settings → Advanced → Danger Zone** (Einstellungen → Erweitert → Gefahrenzone) und aktiviere **Allow custom Agent imports**. Anders als bei External Extensions braucht dieser vom Nutzer gesteuerte Schalter keine Umgebungsvariable. Bis zur Freigabe bleiben die Import-Bedienelemente ausgegraut.
 
 Vor dem Speichern zeigt jeder Import, welche Fähigkeiten der Agent anfordert. Berechtigungen musst du ausdrücklich bestätigen; mitgelieferte Funktionen und Tool-Auswahlen werden nicht importiert, generiertes CSS wird bereinigt, und Ergebnis-Aktionen prüft Marinara gegen die freigegebenen Fähigkeiten. Schaltest du den Schalter wieder aus, laufen extern importierte Agenten nicht mehr. In Marinara selbst erstellte eigene Agenten und offizielle Pakete aus **Download Agents** bleiben lauffähig und nutzen diesen Schalter nicht.
@@ -313,7 +315,7 @@ Anbieter für Szenen-Videos richtest du als Verbindungen in der App ein, nicht �
 
 | Variable                          | Standard                                   | Wirkung                                                                           |
 | --------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
-| `DOCS_I18N_BASE_URL`              | offizieller `docs-i18n`-Branch             | Woher übersetzte Dokumentations-Pakete geladen werden (Settings → General → Documentation Language). Muss ein öffentlicher `https://`-Host sein; Forks und Spiegel können auf ihre eigene Kopie des `docs-i18n`-Branch zeigen. |
+| `DOCS_I18N_BASE_URL`              | offizieller `docs-i18n`-Branch             | Quelle für die Sprachpakete der Dokumentation und der Oberfläche. Oberflächenpakete liegen im Unterverzeichnis `ui/`. Erfordert einen öffentlichen `https://`-Host; Forks und Spiegel können auf ihre eigene Kopie des Branches `docs-i18n` verweisen. |
 | `GIPHY_API_KEY`                   | leer                                       | Giphy-Key für die GIF-Suche im Conversation Mode. Ohne Wert bleibt die Suche aus. |
 | `INTIFACE_URL`                    | `ws://127.0.0.1:12345`                     | Standardadresse der Intiface-Haptik-App.                                           |
 | `SPOTIFY_REDIRECT_URI`            | aus der Anfrage abgeleitet                 | Abweichende Callback-URL für die Spotify-Anmeldung. Nötig, wenn TLS vorgelagert endet. |

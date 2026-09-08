@@ -71,6 +71,8 @@ Przełącznik **Send Avatar References** wysyła do dostawcy obrazów awatary po
 
 Na karcie agenta **Illustrator** jest przycisk **Open Setup** (pełna konfiguracja). Otwiera on pełny ekran konfiguracji agenta, gdzie ustawia się częstotliwość jego działania i przypisuje mu własne połączenie graficzne.
 
+Ustaw **Run Interval** (odstęp uruchamiania) na **0**, aby generować wyłącznie ręcznie. Wyłącza to automatyczne uruchomienia agenta Illustrator, w tym automatyczne tła scen, ale agent pozostaje zainstalowany i dostępny w działaniach galerii. Domyślna wartość nadal wynosi **5**; ustaw wartość dodatnią, aby wznowić automatyczne uruchomienia. Wartość 0 można też wybrać podczas dodawania agenta Illustrator do czatu.
+
 Obraz da się też zamówić od ręki, bez czekania. Otwórz sekcję **Gallery** danego czatu i użyj przycisku **Illustrate** (zilustruj). Agent **Illustrator** uruchamia się wtedy jednorazowo od razu, a przycisk pokazuje w trakcie pracy napis **Generating...**. Przydaje się to wtedy, gdy chcesz mieć obraz bieżącej chwili, a agent jeszcze nic nie narysował.
 
 ## Powiązane przewodniki

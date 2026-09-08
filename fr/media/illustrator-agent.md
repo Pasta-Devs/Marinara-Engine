@@ -71,6 +71,8 @@ Deux interrupteurs de la carte Illustrator aident les personnages à rester coh�
 
 La carte Illustrator comporte un bouton **Open Setup** (ouvrir la configuration). Il ouvre l'écran de configuration complet de l'agent, où tu règles sa fréquence de déclenchement et lui attribues sa propre connexion d'images.
 
+Règle **Run Interval** (intervalle d'exécution) sur **0** pour générer uniquement à la demande. Cela arrête les exécutions automatiques d'Illustrator, y compris ses arrière-plans de scène automatiques, tout en gardant l'agent installé et disponible pour les actions de Gallery. La valeur par défaut reste **5** ; choisis un intervalle positif pour reprendre les exécutions automatiques. Tu peux aussi choisir 0 lorsque tu ajoutes Illustrator à un chat.
+
 Il est aussi possible de créer une image à la demande, sans attendre. Ouvre la section **Gallery** du chat et utilise le bouton **Illustrate** (illustrer). L'agent Illustrator se lance immédiatement pour une passe, et le bouton affiche **Generating...** pendant le travail. Pratique quand tu veux une image du moment présent et que l'agent n'en a pas encore dessiné.
 
 ## Guides associés

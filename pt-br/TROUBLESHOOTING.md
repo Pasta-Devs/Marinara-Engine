@@ -238,6 +238,12 @@ A solução mais limpa a longo prazo é colocar o servidor atrás de HTTPS. Últ
 
 ## Armazenamento e dados
 
+### O servidor não volta após Restart Server
+
+Inicie Marinara com `start.bat`, `start.sh`, `start-termux.sh` ou `pnpm start`. Esses comandos mantêm o servidor ligado ao seu inicializador e aguardam o processo antigo terminar antes de iniciar o substituto. O reinício pelo aplicativo fecha conexões persistentes após quatro segundos e força a saída após oito segundos se o encerramento continuar travado. Um encerramento forçado pode interromper gravações pendentes e é registrado como forçado nos diagnósticos. Execuções diretas com `node` e processos que monitoram arquivos durante o desenvolvimento não são substituídos automaticamente: pare e reinicie esses processos pelo terminal. O Docker continua usando a política de reinício do contêiner.
+
+Não inicie outro servidor com o mesmo diretório de dados enquanto o anterior ainda estiver em execução. Se uma build antiga deixou um processo ativo, pare esse processo primeiro; não remova a concessão de gravação de um servidor em execução.
+
 ### A inicialização diz que outro processo pode estar usando o diretório de dados
 
 O Marinara permite que apenas um servidor em execução grave em um diretório de dados local. Se a inicialização informar **Another Marinara Engine process ... may be using** o diretório, encerre o outro processo do Marinara e tente de novo.

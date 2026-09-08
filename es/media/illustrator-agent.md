@@ -71,6 +71,8 @@ Dos interruptores en la tarjeta del Illustrator ayudan a que los personajes se v
 
 La tarjeta del Illustrator tiene un botón **Open Setup**. Abre la pantalla de configuración completa del agente, donde puedes definir con qué frecuencia se ejecuta el agente y darle su propia conexión de imagen.
 
+Establece **Run Interval** (intervalo de ejecución) en **0** para generar solo de forma manual. Esto detiene las ejecuciones automáticas de Illustrator, incluidos sus fondos de escena automáticos, pero mantiene al agente instalado y disponible para las acciones de Gallery. El valor predeterminado sigue siendo **5**; establece un intervalo positivo para reanudar las ejecuciones automáticas. También puedes elegir 0 al añadir Illustrator a un chat.
+
 También puedes crear una imagen bajo demanda en lugar de esperar. Abre la **Gallery** del chat y usa el botón **Illustrate**. El Illustrator se ejecuta una vez de inmediato y el botón muestra **Generating...** mientras trabaja. Esto es útil cuando quieres una imagen del momento actual y el agente todavía no ha dibujado ninguna.
 
 ## Guías relacionadas

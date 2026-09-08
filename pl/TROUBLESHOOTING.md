@@ -238,6 +238,12 @@ Najczystsze rozwiązanie na dłuższą metę to postawienie serwera za HTTPS. Os
 
 ## Pamięć masowa i dane
 
+### Restart Server nie uruchamia serwera ponownie
+
+Uruchamiaj aplikację Marinara za pomocą `start.bat`, `start.sh`, `start-termux.sh` lub `pnpm start`. Utrzymują one serwer pod kontrolą programu uruchamiającego i czekają na zakończenie starego procesu przed uruchomieniem nowego. Restart z aplikacji zamyka utrzymujące się połączenia po czterech sekundach i wymusza zakończenie po ośmiu sekundach, jeśli zamykanie nadal nie postępuje. Wymuszone zakończenie może przerwać oczekujące zapisy i jest oznaczane jako wymuszone w diagnostyce. Procesy uruchomione bezpośrednio przez `node` i procesy obserwujące pliki w trybie deweloperskim nie są automatycznie zastępowane: zatrzymaj je i uruchom ponownie w terminalu. Docker nadal korzysta ze swojej polityki restartu kontenera.
+
+Nie uruchamiaj drugiego serwera z tym samym katalogiem danych, gdy poprzedni nadal działa. Jeśli starsza wersja pozostawiła działający proces, najpierw go zatrzymaj; nie usuwaj dzierżawy zapisu działającego serwera.
+
 ### Przy uruchamianiu pojawia się informacja, że inny proces może używać katalogu danych
 
 Marinara Engine pozwala tylko jednemu działającemu serwerowi zapisywać w lokalnym katalogu danych. Jeśli przy uruchamianiu pojawi się komunikat **Another Marinara Engine process ... may be using** wskazujący ten katalog, zamknij drugi proces Marinara Engine i uruchom ponownie.

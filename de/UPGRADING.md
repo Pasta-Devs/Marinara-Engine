@@ -12,6 +12,8 @@ Kommst du von einer Version, die Erstanbieter-Agenten, Karten, Anrufe oder Conve
 
 Nutzt du eine heruntergeladene Doku-Sprache (**Settings** (Einstellungen) → **General** → **Documentation Language**), prüft Marinara beim ersten Start nach einem Update auch dieses Sprachpaket auf Änderungen und frischt es automatisch auf. Ist die Download-Quelle nicht erreichbar, behält Marinara das installierte Paket (fehlende Anleitungen erscheinen dann auf Englisch) und versucht es beim nächsten Start erneut. Ein Update setzt die Sprachwahl nie zurück.
 
+Sprachpakete für die Oberfläche werden separat und manuell heruntergeladen. Beim ersten Update von einer Version mit mitgelieferten Übersetzungen wechselt die Oberfläche zu Englisch. Wähle deine Sprache unter **Settings** → **General** → **Language** (Sprache) erneut aus, um ihr Paket herunterzuladen. Spätere Updates behalten heruntergeladene Pakete im Datenordner. Mit **Refresh language pack** (Sprachpaket aktualisieren) lädst du neuere Übersetzungen. Bei fehlenden Paketen oder nicht übersetzten Schlüsseln erscheint Englisch; beim Start wird nie ein Oberflächenpaket heruntergeladen.
+
 Wo die Daten liegen und wie du eine Kopie sicherst, steht unter [Marinara sichern und wiederherstellen](data/backup-and-restore.md).
 
 ## Vorher ein Backup anlegen

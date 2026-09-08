@@ -115,6 +115,8 @@ Ce champ s'adresse aux utilisateurs avancés. Une clé erronée suffit à faire 
 
 **Exclude Past Reasoning** (exclure le raisonnement passé) est activé par défaut. Ce réglage écarte des nouveaux prompts la réflexion et le raisonnement enregistrés lors des tours précédents. Ce raisonnement n'est donc pas renvoyé au modèle.
 
+Désactiver cette option fait apparaître **Past reasoning blocks** (blocs de raisonnement antérieurs). La valeur par défaut `1` conserve le bloc de raisonnement de l'assistant le plus récent parmi ceux disponibles ; `0` inclut tous les blocs disponibles. Le choix est enregistré pour ce chat et reste enregistré lorsque tu réactives l'exclusion. Cela ne supprime pas les pensées sauvegardées. Seul le raisonnement pris en charge par la connexion actuelle peut être renvoyé.
+
 Laisse-le activé, sauf raison précise de renvoyer l'ancien raisonnement dans le modèle.
 
 ## Image Captioning

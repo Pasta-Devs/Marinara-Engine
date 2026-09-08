@@ -28,6 +28,8 @@ Ciclo de vida e armazenamento dos pacotes:
 
 ### Importação de agentes personalizados
 
+Agentes personalizados podem ativar **Previous output** (saída anterior) em **Context Sources** (fontes de contexto) para ler sua última saída bem-sucedida no histórico visível de mensagens. Com **JSON context output** (saída de contexto em JSON), retorne `{"text":"main prompt content","agent-context":"private continuation context"}`. Apenas `text` entra no prompt principal; o campo opcional `agent-context` fica reservado para a próxima execução desse agente. **Hide output as spoilers** (ocultar a saída como spoiler) mantém as saídas salvas recolhidas até serem reveladas. A regeneração exclui o turno substituído, e mensagens excluídas ou swipes inativos não podem fornecer contexto de continuação.
+
 Arquivos, pastas e repositórios personalizados de agentes vêm bloqueados por padrão. Para liberar, abra **Settings → Advanced → Danger Zone** (Configurações → Avançado → Zona de perigo) e ative a opção **Allow custom Agent imports**. Diferente das extensões externas, essa trava é controlada pelo usuário e não depende de variável de ambiente. Os controles de importação ficam desativados até você ativá-la.
 
 Toda importação mostra as capacidades solicitadas pelo agente antes de salvar qualquer coisa. As permissões precisam ser aprovadas de forma explícita, funções embutidas e seleções de ferramentas não são importadas, o CSS gerado passa por sanitização e as ações de resultado são conferidas com base no conjunto de capacidades aprovado. Ao desligar a trava, os agentes importados de fora param de rodar. Os agentes personalizados criados dentro do Marinara e os pacotes oficiais instalados por **Download Agents** continuam funcionando e não dependem dessa trava.
@@ -313,7 +315,7 @@ Os provedores de vídeo de cena são configurados como conexões dentro do aplic
 
 | Variável | Padrão | O que faz |
 | --- | --- | --- |
-| `DOCS_I18N_BASE_URL` | a branch `docs-i18n` oficial | De onde os pacotes de documentação traduzida são baixados (Settings → General → Documentation Language). Precisa ser um host `https://` público; forks e espelhos podem apontar para a própria cópia da branch `docs-i18n`. |
+| `DOCS_I18N_BASE_URL` | a branch `docs-i18n` oficial | Origem dos downloads dos pacotes de idioma da documentação e da interface. Os pacotes da interface ficam na subárvore `ui/`. Precisa ser um host público `https://`; forks e espelhos podem apontar para sua própria cópia da branch `docs-i18n`. |
 | `GIPHY_API_KEY` | vazio | Chave do Giphy para a busca de GIFs no Conversation Mode. Sem ela, a busca fica desligada. |
 | `INTIFACE_URL` | `ws://127.0.0.1:12345` | Endereço padrão do aplicativo háptico Intiface. |
 | `SPOTIFY_REDIRECT_URI` | derivado da requisição | Substitui a URL de retorno do login do Spotify. Defina quando o TLS for tratado antes do servidor. |
