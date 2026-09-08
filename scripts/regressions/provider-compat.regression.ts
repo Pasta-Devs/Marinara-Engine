@@ -3036,6 +3036,30 @@ try {
         assert.match(JSON.stringify(result.providerMetadata?.geminiParts), /call-signature/u);
       }
     }
+    let cancelled = false;
+    globalThis.fetch = async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode(
+                sseFrames([{ candidates: [{ content: { parts: [{ text: "First chunk" }] } }] }]),
+              ),
+            );
+          },
+          cancel() {
+            cancelled = true;
+          },
+        }),
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    const iterator = new GoogleProvider("https://generativelanguage.googleapis.com", "test").chat(
+      [{ role: "user", content: "reason" }],
+      { model: "gemini-2.5-flash", reasoningEffort: "high", stream: true, signal: AbortSignal.timeout(3000) },
+    );
+    assert.equal((await iterator.next()).value, "First chunk");
+    await iterator.return(undefined);
+    assert.equal(cancelled, true, "Stopping a thinking stream must release its still-open response body");
   } finally {
     globalThis.fetch = originalGoogleFetch;
   }

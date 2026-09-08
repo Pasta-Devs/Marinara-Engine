@@ -1016,7 +1016,7 @@ export class GoogleProvider extends BaseLLMProvider {
       return;
     }
 
-    // ── SSE streaming path (no thinking) ──
+    // ── SSE streaming path ──
     const reader = response.body?.getReader();
     if (!reader) throw new Error("No response body");
 
@@ -1108,6 +1108,7 @@ export class GoogleProvider extends BaseLLMProvider {
       }
     } finally {
       if (options.signal) options.signal.removeEventListener("abort", onAbort);
+      await reader.cancel().catch(() => {});
     }
 
     if (!responseText) {
