@@ -10885,15 +10885,7 @@ export async function gameRoutes(app: FastifyInstance) {
           appearance: lorePersona?.appearance ?? "",
           scenario: lorePersona?.scenario ?? "",
         };
-        let loreChatCharacterIds: string[] = [];
-        try {
-          loreChatCharacterIds =
-            typeof chat.characterIds === "string"
-              ? ((JSON.parse(chat.characterIds) as string[]) ?? [])
-              : ((chat.characterIds as string[]) ?? []);
-        } catch {
-          loreChatCharacterIds = [];
-        }
+        const loreChatCharacterIds = parseChatCharacterIds(chat.characterIds);
         const loreCharacterIds = experienceSetupConfig
           ? getStoredPartyCharacterIds(meta, experienceSetupConfig, loreChatCharacterIds)
           : loreChatCharacterIds;
