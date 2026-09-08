@@ -165,6 +165,7 @@ import {
   musicAreaSlug,
   normalizeMusicEnemyTier,
   isContextMusicTag,
+  isEngineRollableSkillCheckTag,
   type MusicEnemyTier,
   scoreAmbient,
 } from "@marinara-engine/shared";
@@ -4925,12 +4926,16 @@ function GameSurfaceComponent({
       }
     }
 
-    // Skill checks from GM — prefer inline resolved results, otherwise resolve server-side
+    // Skill checks from GM — prefer inline resolved results, otherwise resolve
+    // server-side. A tag naming a system the engine does not implement (a
+    // success pool, a die that is not a d20) gets neither: the endpoint would
+    // answer it with a d20 and rewrite the GM's pool out of the saved message,
+    // so it is left standing exactly as written.
     if (tags.skillChecks.length > 0) {
       const sc = tags.skillChecks[0]!;
       if (sc.resolvedResult) {
         setPendingSkillCheck(sc.resolvedResult);
-      } else {
+      } else if (isEngineRollableSkillCheckTag(sc)) {
         skillCheck.mutate(
           {
             chatId: activeChatId,

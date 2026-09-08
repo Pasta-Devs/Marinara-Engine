@@ -500,6 +500,10 @@ import { addInventoryEntry, addLocationEntry, upsertQuest, addNpcEntry } from ".
 import { updateJournal } from "../services/generation/game-journal-runtime.js";
 import { buildGmFormatReminder } from "../services/game/gm-prompts.js";
 import {
+  loadSkillCheckModifierContext,
+  resolveSkillCheckTagsInContent,
+} from "../services/game/skill-check-resolution.service.js";
+import {
   applyMapUpdateCommand,
   getGameMapsFromMeta,
   parseMapUpdateCommands,
@@ -7241,6 +7245,28 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
 
+          // ── Game post-processing seam: verbs are stripped, then checks are rolled ──
+          // Two Game-mode passes share this point, and the order between them is load-bearing
+          // rather than incidental, so it is stated here once instead of implied twice.
+          //
+          // The verb pass DELETES text: a matched verb tag leaves `fullResponse` entirely. The
+          // check pass only REWRITES a `[skill_check:]` tag in place, never adding or removing a
+          // bracket tag. The dependency therefore runs one way only. Strip first and the roller
+          // sees exactly the text that survives into the saved turn; roll first and a check the
+          // strip was about to carry off would still have thrown a real die and read the chat's
+          // modifier snapshot to write numbers nothing will ever display.
+          //
+          // A turn carrying both gets both: the verb executes (further down, against the turn's
+          // saved message) and the resolved check rides the same content_replace frame and the
+          // same save, so the number the model reads back next turn is the engine's.
+          //
+          // A verb-only turn strips to empty, and the roller early-returns on empty content — it
+          // can neither make an empty response non-empty nor empty a non-empty one. The
+          // `!fullResponse.trim()` anchor gate below therefore reaches the same verdict whether
+          // or not a check was in the turn, which is what keeps the verb-only anchor path intact
+          // and keeps a mixed turn off it: a surviving check tag is content, so a mixed turn
+          // falls through to the ordinary saved-message path and executes its verbs there.
+
           // ── Parse and strip package-declared GM verbs (#5798) ──
           // Game mode only, and a narrow path of its own: `conversationCommandsEnabled` gates the
           // ENTIRE Conversation command surface, so flipping it here would arm every registered
@@ -7256,6 +7282,45 @@ export async function generateRoutes(app: FastifyInstance) {
                 fullResponse = verbScan.content;
                 contentReplaced = true;
               }
+            }
+          }
+
+          // ── Roll the GM's skill checks before anyone reads them ──
+          // The GM emits checks sparse and the engine owns the die, so every
+          // [skill_check:] tag that still owes a roll is resolved here and
+          // rewritten in place — all of them, not just the first, and including
+          // a tag whose self-reported d20 arithmetic fails the shared audit.
+          // This runs before the content_replace frame so the client renders the
+          // resolved text, and before the save so the number the model reads back
+          // next turn is the engine's, never its own invention.
+          //
+          // On a continue the whole message body is rewritten later from
+          // `fullResponse`; here `fullResponse` is still only the new segment,
+          // so already-resolved earlier text is never re-scanned.
+          //
+          // No try/catch here on purpose. A roll that cannot happen — the chat's
+          // modifiers failing to load is the realistic one — is the resolver's own
+          // failure to own, and it owns it by writing the tags back SPARSE rather
+          // than by throwing. Catching here and saving `fullResponse` unchanged is
+          // what saved the model's invented rolls/total/result, which is the whole
+          // dishonesty this path exists to end; it must not come back through the
+          // error door. The content therefore decides the frame and the save on
+          // both paths, because on both paths the text changed.
+          if (chatMode === "game" && !input.impersonate) {
+            const rolled = await resolveSkillCheckTagsInContent(fullResponse, {
+              loadContext: () => loadSkillCheckModifierContext(app.db, input.chatId),
+              chatId: input.chatId,
+            });
+            if (rolled.content !== fullResponse) {
+              fullResponse = rolled.content;
+              contentReplaced = true;
+              logger.debug(
+                "[generate/game] Resolved %d skill check tag(s) for chat %s (%d left as the GM wrote them, %d saved sparse)",
+                rolled.resolved,
+                input.chatId,
+                rolled.left,
+                rolled.sparse,
+              );
             }
           }
 

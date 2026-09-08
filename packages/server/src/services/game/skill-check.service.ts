@@ -26,6 +26,12 @@ export interface SkillCheckInput {
    * through the same modifier-application code path. Ignored if out of range.
    */
   preRolledD20?: number;
+  /**
+   * Die source, for tests and for callers that own their own RNG. Defaults to
+   * the shipped unseeded `Math.random()` roller — consolidating call sites onto
+   * this service deliberately did not change how the engine rolls.
+   */
+  rollD20?: () => number;
 }
 
 export interface SkillCheckResult {
@@ -172,6 +178,7 @@ export function mapSheetAttributesToRPG(
  */
 export function resolveSkillCheck(input: SkillCheckInput): SkillCheckResult {
   const modifier = input.skillModifier + input.attributeModifier;
+  const rollOne = input.rollD20 ?? d20;
 
   // Player-submitted [dice:1d20] short-circuits internal rolling so the
   // sheet's attribute modifier still applies on top of the player's number.
@@ -185,7 +192,7 @@ export function resolveSkillCheck(input: SkillCheckInput): SkillCheckResult {
   const useDisadvantage = !preRoll && input.disadvantage && !input.advantage;
   const rollTwice = useAdvantage || useDisadvantage;
 
-  const rolls = preRoll != null ? [preRoll] : rollTwice ? [d20(), d20()] : [d20()];
+  const rolls = preRoll != null ? [preRoll] : rollTwice ? [rollOne(), rollOne()] : [rollOne()];
   const usedRoll =
     preRoll != null
       ? preRoll
