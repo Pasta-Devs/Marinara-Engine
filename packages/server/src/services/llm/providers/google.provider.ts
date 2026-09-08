@@ -101,6 +101,14 @@ const GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platf
 const serviceAccountTokenCache = new Map<string, { accessToken: string; expiresAtMs: number }>();
 const LINKAPI_CONSOLE_HOSTS = new Set(["linkapi.ai", "www.linkapi.ai", "home.linkapi.ai"]);
 
+function supportsGoogleThinkingStreaming(baseUrl: string): boolean {
+  try {
+    return new URL(baseUrl).hostname === "generativelanguage.googleapis.com";
+  } catch {
+    return false;
+  }
+}
+
 function normalizeGoogleBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.replace(/\/+$/, "");
   try {
@@ -604,10 +612,10 @@ export class GoogleProvider extends BaseLLMProvider {
     // Stream the tools round whenever the caller wired a token sink and did not opt out.
     // The gate is deliberately narrower than the base `options.stream ?? !!options.onToken`
     // formula: a caller that sets `stream: true` without a sink (the agent tool loop) keeps
-    // the buffered path it uses today. Thinking turns also stay buffered, for the reason
-    // chat() documents below — proxies like linkapi.ai strip thought parts from SSE streams
-    // but return them in non-streaming responses.
-    const useStream = !!options.onToken && options.stream !== false && !thinkingConfig;
+    // the buffered path it uses today. Only the official endpoint streams thinking;
+    // unrecognized proxies retain the workaround for stripped thought parts.
+    const useStream =
+      !!options.onToken && options.stream !== false && (!thinkingConfig || supportsGoogleThinkingStreaming(base));
     const endpoint = useStream ? "streamGenerateContent" : "generateContent";
     const url =
       this.providerKind === "google_vertex"
@@ -870,10 +878,9 @@ export class GoogleProvider extends BaseLLMProvider {
         ? normalizeGoogleGenerativeLanguageBaseUrl(this.baseUrl)
         : normalizeGoogleBaseUrl(this.baseUrl);
 
-    // When thinking is enabled, force non-streaming (generateContent) because
-    // proxies like linkapi.ai strip thought parts from SSE streams but return
-    // them in non-streaming responses. Text is still yielded so SSE works.
-    const useStreaming = options.stream && !thinkingConfig;
+    // Proxies can strip thought parts from SSE; keep their buffered workaround.
+    // Google's official endpoint carries those parts in its stream.
+    const useStreaming = options.stream && (!thinkingConfig || supportsGoogleThinkingStreaming(base));
     const endpoint = useStreaming ? "streamGenerateContent" : "generateContent";
     const url =
       this.providerKind === "google_vertex"
@@ -977,7 +984,7 @@ export class GoogleProvider extends BaseLLMProvider {
       throw llmHttpErrorFromResponse(`${label} error ${response.status}: ${sanitizeApiError(errorText)}`, response);
     }
 
-    // ── Non-streaming path (also used when thinking is enabled) ──
+    // ── Non-streaming path (also used for proxy thinking turns) ──
     if (!useStreaming) {
       const json = JSON.parse(await readDecodedText()) as GeminiResponsePayload;
       const candidate = json.candidates?.[0];

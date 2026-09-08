@@ -2951,6 +2951,95 @@ try {
   const sseFrames = (frames: Array<Record<string, unknown>>) =>
     frames.map((frame) => `data: ${JSON.stringify(frame)}\n`).join("\n");
 
+  // #5904: the official endpoint streams reasoning in both generation paths.
+  // Keep the tail withheld until the token sink runs, so buffering cannot pass.
+  const originalGoogleFetch = globalThis.fetch;
+  try {
+    for (const withTools of [false, true]) {
+      let streamController: ReadableStreamDefaultController<Uint8Array>;
+      const encoder = new TextEncoder();
+      const thoughts: string[] = [];
+      const tokens: string[] = [];
+      let savedParts: unknown[] | undefined;
+      globalThis.fetch = async (input) => {
+        assert.match(
+          String(input),
+          /^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-2\.5-flash:streamGenerateContent\?alt=sse$/u,
+        );
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              streamController = controller;
+              controller.enqueue(
+                encoder.encode(
+                  sseFrames([
+                    { candidates: [{ content: { parts: [{ text: "Thinking", thought: true }] } }] },
+                    { candidates: [{ content: { parts: [{ text: "Answer" }] } }] },
+                  ]),
+                ),
+              );
+            },
+          }),
+          { headers: { "content-type": "text/event-stream" } },
+        );
+      };
+      const google = new GoogleProvider("https://generativelanguage.googleapis.com", "test");
+      const result = await google.chatComplete([{ role: "user", content: "reason" }], {
+        model: "gemini-2.5-flash",
+        stream: true,
+        reasoningEffort: "high",
+        signal: AbortSignal.timeout(3000),
+        onResponseParts: (parts) => {
+          savedParts = parts;
+        },
+        ...(withTools ? { tools: [rollDiceTool] } : {}),
+        onThinking: (chunk) => {
+          thoughts.push(chunk);
+        },
+        onToken: (chunk) => {
+          tokens.push(chunk);
+          streamController.enqueue(
+            encoder.encode(
+              sseFrames([
+                {
+                  candidates: [
+                    {
+                      content: {
+                        parts: [
+                          { thoughtSignature: "thought-signature" },
+                          ...(withTools
+                            ? [
+                                {
+                                  functionCall: { name: "roll_dice", args: { notation: "1d20" } },
+                                  thoughtSignature: "call-signature",
+                                },
+                              ]
+                            : []),
+                        ],
+                      },
+                      finishReason: "STOP",
+                    },
+                  ],
+                },
+              ]),
+            ),
+          );
+          streamController.close();
+        },
+      });
+      assert.deepEqual(thoughts, ["Thinking"]);
+      assert.deepEqual(tokens, ["Answer"]);
+      assert.equal(result.content, "Answer");
+      assert.match(JSON.stringify(result.providerMetadata?.geminiParts ?? savedParts), /thought-signature/u);
+      if (withTools) {
+        assert.equal(result.toolCalls[0]?.function.name, "roll_dice");
+        assert.match(JSON.stringify(result.providerMetadata?.geminiParts), /call-signature/u);
+      }
+    }
+  } finally {
+    globalThis.fetch = originalGoogleFetch;
+  }
+
   // Explicit debug logs the final serialized provider body, but not auth headers.
   const priorWarn = logger.warn;
   const priorLevel = logger.level;
@@ -3244,9 +3333,7 @@ try {
       functionCall: { id, name: "roll_dice", args: { notation: "1d20" } },
       thoughtSignature: `signature-${id}`,
     }));
-    geminiStreamFrames = [
-      { candidates: [{ content: { parts: identifiedParts }, finishReason: "STOP" }] },
-    ];
+    geminiStreamFrames = [{ candidates: [{ content: { parts: identifiedParts }, finishReason: "STOP" }] }];
     const identifiedResult = await gemini.chatComplete([{ role: "user", content: "roll twice" }], {
       model: "gemini-2.0-flash",
       tools: [rollDiceTool],
@@ -3265,11 +3352,13 @@ try {
             tool_calls: identifiedResult.toolCalls,
             ...(replayMetadata ? { providerMetadata: identifiedResult.providerMetadata } : {}),
           },
-          ...identifiedResult.toolCalls.map((call, index): ChatMessage => ({
-            role: "tool",
-            tool_call_id: call.id,
-            content: JSON.stringify({ total: 17 + index }),
-          })),
+          ...identifiedResult.toolCalls.map(
+            (call, index): ChatMessage => ({
+              role: "tool",
+              tool_call_id: call.id,
+              content: JSON.stringify({ total: 17 + index }),
+            }),
+          ),
         ],
         { model: "gemini-2.0-flash", tools: [rollDiceTool], onToken: () => {} },
       );
