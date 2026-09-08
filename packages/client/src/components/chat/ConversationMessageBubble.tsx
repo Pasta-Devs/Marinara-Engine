@@ -18,6 +18,7 @@ import {
   ConversationMessageTranslation,
   ConversationMessageSwipes,
   ConversationMessageName,
+  diceRollReplacesMessageContent,
   nameColorStyle,
   formatTimestamp,
   type MessageRenderContext,
@@ -306,18 +307,23 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
                     dotClassName="bg-[var(--muted-foreground)]/60"
                   />
                 </div>
-              ) : extra.diceRollResult ? (
+              ) : diceRollReplacesMessageContent(message.role, extra.diceRollResult) ? (
                 <DiceMessageContent diceRollResult={extra.diceRollResult} createdAt={message.createdAt} />
               ) : (
-                <MessageContent
-                  content={renderedContent}
-                  mentionNames={mentionNames}
-                  emojiMap={emojiMap}
-                  stickerMap={stickerMap}
-                  onImageOpen={(url) => onImageOpen(url)}
-                  selfCharacterId={selfCharacterId}
-                  galleryIndex={galleryIndex}
-                />
+                <>
+                  {extra.diceRollResult ? (
+                    <DiceMessageContent diceRollResult={extra.diceRollResult} createdAt={message.createdAt} />
+                  ) : null}
+                  <MessageContent
+                    content={renderedContent}
+                    mentionNames={mentionNames}
+                    emojiMap={emojiMap}
+                    stickerMap={stickerMap}
+                    onImageOpen={(url) => onImageOpen(url)}
+                    selfCharacterId={selfCharacterId}
+                    galleryIndex={galleryIndex}
+                  />
+                </>
               )}
             </div>
           )}

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { logger } from "../../packages/server/src/lib/logger.js";
 import {
   findKnownModel,
   isClaudeAdaptiveOnlyNoSamplingModel,
@@ -1618,10 +1619,29 @@ assert.equal(isOpenRouterApiUrl("https://openrouter.ai/api/v1"), true);
 assert.equal(isOpenRouterApiUrl("https://api.openrouter.ai/v1"), true);
 assert.equal(isOpenRouterApiUrl("https://openrouter.ai.example.com/v1"), false);
 assert.equal(isOpenRouterApiUrl("not a URL"), false);
-assert.equal(resolveMainGenerationToolChoice({ forceToolCall: true }, 0), "required");
-assert.equal(resolveMainGenerationToolChoice({ forceToolCall: "true" }, 0), "required");
-assert.equal(resolveMainGenerationToolChoice({ forceToolCall: true }, 1), "auto");
-assert.equal(resolveMainGenerationToolChoice({ forceToolCall: false }, 0), "auto");
+assert.equal(
+  resolveMainGenerationToolChoice({ chatMetadata: { forceToolCall: true }, enableChatTools: true, round: 0 }),
+  "required",
+);
+assert.equal(
+  resolveMainGenerationToolChoice({ chatMetadata: { forceToolCall: "true" }, enableChatTools: true, round: 0 }),
+  "required",
+);
+assert.equal(
+  resolveMainGenerationToolChoice({ chatMetadata: { forceToolCall: true }, enableChatTools: true, round: 1 }),
+  "auto",
+);
+assert.equal(
+  resolveMainGenerationToolChoice({ chatMetadata: { forceToolCall: false }, enableChatTools: true, round: 0 }),
+  "auto",
+);
+// Force To Call is a Function Calling panel setting and the panel hides it while tool use is
+// off, so a chat can hold one the user cannot see or clear. It must not reach a tool the
+// engine attached on its own.
+assert.equal(
+  resolveMainGenerationToolChoice({ chatMetadata: { forceToolCall: true }, enableChatTools: false, round: 0 }),
+  "auto",
+);
 assert.equal(normalizeCohereOpenAIBaseUrl("https://api.cohere.com"), "https://api.cohere.ai/compatibility/v1");
 assert.equal(normalizeCohereOpenAIBaseUrl("https://api.cohere.ai/"), "https://api.cohere.ai/compatibility/v1");
 assert.equal(normalizeCohereOpenAIBaseUrl("https://api.cohere.com/v1"), "https://api.cohere.ai/compatibility/v1");
@@ -2931,6 +2951,61 @@ try {
   const sseFrames = (frames: Array<Record<string, unknown>>) =>
     frames.map((frame) => `data: ${JSON.stringify(frame)}\n`).join("\n");
 
+  // Explicit debug logs the final serialized provider body, but not auth headers.
+  const priorWarn = logger.warn;
+  const priorLevel = logger.level;
+  const priorDebugAgents = process.env.DEBUG_AGENTS;
+  const promptLogs: unknown[][] = [];
+  let sentBody: unknown;
+  const loggingServer = createServer(async (request, response) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.from(chunk));
+    sentBody = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    response.writeHead(200, { "content-type": "text/event-stream" });
+    const frames =
+      request.url === "/messages"
+        ? [
+            { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Done" } },
+            { type: "message_stop" },
+          ]
+        : [{ candidates: [{ content: { parts: [{ text: "Done" }] }, finishReason: "STOP" }] }];
+    response.end(sseFrames(frames));
+  });
+  await new Promise<void>((resolve) => loggingServer.listen(0, "127.0.0.1", resolve));
+  try {
+    logger.level = "warn";
+    logger.warn = ((...args: unknown[]) => {
+      promptLogs.push(args);
+    }) as typeof logger.warn;
+    const address = loggingServer.address();
+    if (!address || typeof address === "string") throw new Error("Prompt logging fixture did not bind");
+    for (const Provider of [AnthropicProvider, GoogleProvider]) {
+      const provider = new Provider(`http://127.0.0.1:${address.port}`, "synthetic-auth-marker");
+      for (const debug of ["off", "ui", "agents"]) {
+        process.env.DEBUG_AGENTS = debug === "agents" ? "true" : "false";
+        promptLogs.length = 0;
+        await provider.chatComplete([{ role: "user", content: "Synthetic tool prompt" }], {
+          model: Provider === AnthropicProvider ? "claude-sonnet-4-20250514" : "gemini-2.0-flash",
+          tools: [rollDiceTool],
+          debugMode: debug === "ui",
+          customParameters: { temperature: 0.42 },
+          onToken: () => {},
+        });
+        assert.equal(promptLogs.length, debug === "off" ? 0 : 1);
+        if (debug !== "off") {
+          assert.deepEqual(promptLogs[0]![1], sentBody, "debug logs include final parameter/tool shaping");
+          assert.ok(!JSON.stringify(promptLogs).includes("synthetic-auth-marker"), "auth headers are not prompt data");
+        }
+      }
+    }
+  } finally {
+    logger.warn = priorWarn;
+    logger.level = priorLevel;
+    if (priorDebugAgents === undefined) delete process.env.DEBUG_AGENTS;
+    else process.env.DEBUG_AGENTS = priorDebugAgents;
+    await new Promise<void>((resolve) => loggingServer.close(() => resolve()));
+  }
+
   // Keep the upstream body open: errors and cancellation must release it without
   // waiting for the provider/proxy to finish sending the turn.
   for (const providerName of ["Gemini", "Anthropic"] as const) {
@@ -3162,6 +3237,56 @@ try {
       "a tool result must be named for the function that produced it, never `tool_result`",
     );
     assert.deepEqual(geminiTokens, ["You rolled a 17."], "the round after a tool result streams too");
+
+    // Provider-issued ids must pair each result with its call, even when two calls
+    // use the same function. Cover both raw-part replay and the fallback serializer.
+    const identifiedParts = ["roll-first", "roll-second"].map((id) => ({
+      functionCall: { id, name: "roll_dice", args: { notation: "1d20" } },
+      thoughtSignature: `signature-${id}`,
+    }));
+    geminiStreamFrames = [
+      { candidates: [{ content: { parts: identifiedParts }, finishReason: "STOP" }] },
+    ];
+    const identifiedResult = await gemini.chatComplete([{ role: "user", content: "roll twice" }], {
+      model: "gemini-2.0-flash",
+      tools: [rollDiceTool],
+      onToken: () => {},
+    });
+    geminiStreamFrames = [
+      { candidates: [{ content: { parts: [{ text: "Both rolls landed." }] }, finishReason: "STOP" }] },
+    ];
+    for (const replayMetadata of [true, false]) {
+      await gemini.chatComplete(
+        [
+          { role: "user", content: "roll twice" },
+          {
+            role: "assistant",
+            content: "",
+            tool_calls: identifiedResult.toolCalls,
+            ...(replayMetadata ? { providerMetadata: identifiedResult.providerMetadata } : {}),
+          },
+          ...identifiedResult.toolCalls.map((call, index): ChatMessage => ({
+            role: "tool",
+            tool_call_id: call.id,
+            content: JSON.stringify({ total: 17 + index }),
+          })),
+        ],
+        { model: "gemini-2.0-flash", tools: [rollDiceTool], onToken: () => {} },
+      );
+      const contents = geminiRequestBodies.at(-1)!.contents as Array<{ parts: unknown[] }>;
+      assert.deepEqual(
+        contents[1]!.parts,
+        replayMetadata ? identifiedParts : identifiedParts.map(({ functionCall }) => ({ functionCall })),
+        "both serialization paths must retain the provider's function-call ids",
+      );
+      assert.deepEqual(
+        contents.slice(2).map(({ parts }) => parts),
+        ["roll-first", "roll-second"].map((id, index) => [
+          { functionResponse: { id, name: "roll_dice", response: { total: 17 + index } } },
+        ]),
+        "each functionResponse must include the matching provider-issued id",
+      );
+    }
 
     // Two calls in one response with no ids of their own: the synthesized fallback ids are
     // built from a running index, so they must not collide.

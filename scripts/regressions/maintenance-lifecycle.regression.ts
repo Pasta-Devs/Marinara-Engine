@@ -24,7 +24,9 @@ assert.doesNotMatch(generateRouteSource, /encryptedReasoningCache/u);
 const reasoningRecoveryIndex = generateRouteSource.indexOf(
   "const pastReasoning = collectPastReasoningMetadata(",
 );
-const toolBranchIndex = generateRouteSource.indexOf("if (enableChatTools && provider.chatComplete)");
+// The branch is keyed on toolsAttached, not enableChatTools: Game Mode attaches the dice tool
+// without the chat's tool toggle being on.
+const toolBranchIndex = generateRouteSource.indexOf("if (toolsAttached && provider.chatComplete)");
 assert.ok(reasoningRecoveryIndex >= 0 && reasoningRecoveryIndex < toolBranchIndex);
 assert.match(
   generateRouteSource.slice(reasoningRecoveryIndex, toolBranchIndex),

@@ -22,7 +22,8 @@ import { ChatImagePreview } from "./ChatImagePreview";
 import { MessageActionButton } from "./MessageActionButton";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { useUIStore } from "../../stores/ui.store";
-import { AnimatedDiceRoll, isDiceRollResult, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
+import { AnimatedDiceRoll, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
+import { isDiceRollResult } from "../../lib/dice-roll-result";
 import type { CharacterMap } from "./chat-area.types";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -72,6 +73,15 @@ export function DiceMessageContent({
 }) {
   if (!isDiceRollResult(diceRollResult)) return null;
   return <AnimatedDiceRoll {...diceRollResult} mode="chat" animate={shouldAnimateDiceRollMessage(createdAt)} />;
+}
+
+/**
+ * A `/roll` message is nothing but its roll, so the card stands in for the text. An
+ * assistant turn that called the dice tool mid-narration has prose of its own, and the
+ * card sits alongside it instead of swallowing the message.
+ */
+export function diceRollReplacesMessageContent(role: string, diceRollResult: unknown): boolean {
+  return isDiceRollResult(diceRollResult) && role !== "assistant";
 }
 
 /** Everything the layout sub-components (Bubble, Line, Grouped) need, pre-resolved by the shell. */

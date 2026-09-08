@@ -626,6 +626,7 @@ function createGenerationSubmissionId(): string {
 import { useChatStore } from "../stores/chat.store";
 import { useAgentStore } from "../stores/agent.store";
 import { agentResultMatchesVisibleSwipe } from "../lib/agent-result-ownership";
+import { isDiceRollResult } from "../lib/dice-roll-result";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useTranslationStore } from "../stores/translation.store";
@@ -2136,8 +2137,18 @@ export function useGenerate() {
             }
 
             case "tool_result": {
+              const data = event.data as {
+                name?: unknown;
+                result?: unknown;
+                success?: unknown;
+                diceRollResult?: unknown;
+              };
+              // A dice roll the GM asked for is something the player is meant to see, so it
+              // escapes the debug-only gate and drives the same card /roll shows.
+              if (isDiceRollResult(data.diceRollResult) && isActiveChat()) {
+                useGameModeStore.getState().setDiceRollResult(data.diceRollResult);
+              }
               if (!debugMode) break;
-              const data = event.data as { name?: unknown; result?: unknown; success?: unknown };
               addDebugEntry({
                 phase: "tool_result",
                 toolResult: {

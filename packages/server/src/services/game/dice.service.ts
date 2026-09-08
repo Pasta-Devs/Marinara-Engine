@@ -31,3 +31,31 @@ export function rollDice(notation: string): DiceRollResult {
 
   return rollParsedDice(clampParsedDiceToLimits(parsed));
 }
+
+/**
+ * Read a successful `roll_dice` tool result back as the message-extra shape `/roll`
+ * writes, so a tool-called roll renders through the same animated dice card.
+ * Returns null for refusals, malformed payloads, or anything the card cannot draw.
+ */
+export function parseRollDiceToolResult(raw: string): DiceRollResult | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+  const payload = parsed as Record<string, unknown>;
+  const notation = typeof payload.notation === "string" ? payload.notation.trim() : "";
+  const rolls = Array.isArray(payload.rolls) ? payload.rolls : null;
+  const modifier = typeof payload.modifier === "number" ? payload.modifier : 0;
+  const total = payload.total;
+
+  if (!notation || !rolls || rolls.length === 0) return null;
+  if (!rolls.every((roll): roll is number => typeof roll === "number" && Number.isFinite(roll))) return null;
+  if (typeof total !== "number" || !Number.isFinite(total)) return null;
+  if (!Number.isFinite(modifier)) return null;
+
+  return { notation, rolls, modifier, total };
+}

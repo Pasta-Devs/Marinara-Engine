@@ -801,6 +801,21 @@ export function buildGmFormatReminder(
     `- [session_end: reason="goal achieved|good place to pause"] - only when the current session truly ends.`,
   );
 
+  // Game turns carry the roll_dice tool whether or not the chat has tool use switched on,
+  // so this block is unconditional. It is what stops the GM inventing numbers: without it
+  // the tool is attached and never called.
+  lines.push(
+    ``,
+    `DICE:`,
+    `- roll_dice is a real die you can throw. Call it the moment you need an actual number before you can keep writing - an attack, a save, damage, a random outcome the scene then reacts to - passing the notation (for example "1d20+3") and a short reason.`,
+    `- Never invent a die result. Wait for the number the tool gives you, then narrate what it means, once, in this same turn.`,
+    `- If roll_dice has already returned a skill check's roll, override the sparse-check instructions above: write a complete [skill_check: skill="Skill Name" dc="chosen DC" rolls="actual tool rolls joined with |" modifier="tool modifier" total="tool total" result="critical_success|success|failure|critical_failure" resolution="sum" dice="tool notation"] record using that result. Do not request another engine roll or stop at the attempt; narrate its consequence in this same turn. Use the sparse form only when no roll result is available.`,
+    ctx.playerDiceRollSubmitted
+      ? `- The player already threw for this turn. Use their roll rather than calling the tool again for the same action.`
+      : `- A skill check is still written down with the [skill_check: ...] tag above. roll_dice is how you get a number your narration needs in hand; it does not replace that record.`,
+    `- If the tool is not available to you on this connection, work from the tag alone and say nothing about tools.`,
+  );
+
   // The installed experience's own verbs, last in the block so the built-ins keep their order. Each
   // line already arrives fully rendered from the verb runtime; nothing here inspects or reformats it.
   const experienceGmVerbs = normalizePromptTextList(ctx.experienceGmVerbs);

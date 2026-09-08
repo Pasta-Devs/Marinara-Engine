@@ -69,6 +69,8 @@ A skill check tests whether you succeed at something risky, such as sneaking, sp
 
 A check plays out over two turns. The Game Master narrates up to the moment you try and stops there — it does not tell you whether it worked. The app rolls the die and shows you the banner. The Game Master then describes what your roll actually got you on its next turn. So a check you asked for lands as an attempt now and a consequence next.
 
+On a connection that supports the dice tool, the Game Master can instead obtain a real roll during generation and describe the outcome in that same turn. The dice card appears as soon as the tool returns; the completed check records that result without rolling again. Connections without tool support keep the two-turn flow above.
+
 The banner shows the skill and the target number, for example **Stealth Check** with **DC 15** next to it. DC stands for Difficulty Class. It is the number your roll must reach or beat.
 
 ### How the result is decided

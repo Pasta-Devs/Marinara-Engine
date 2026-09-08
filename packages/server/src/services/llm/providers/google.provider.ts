@@ -15,7 +15,8 @@ import {
   type LLMUsage,
 } from "../base-provider.js";
 import { shouldSuppressUnknownModelParameters } from "@marinara-engine/shared";
-import { getEmbeddingRequestTimeoutMs } from "../../../config/runtime-config.js";
+import { getEmbeddingRequestTimeoutMs, isDebugAgentsEnabled } from "../../../config/runtime-config.js";
+import { logDebugOverride } from "../../../lib/logger.js";
 import { decodePossiblyCompressedBody } from "../../../utils/security.js";
 
 /** A single Gemini response part (text, thought summary, or signature-only). */
@@ -465,20 +466,25 @@ function formatGoogleContents(
 ): Array<{ role: "user" | "model"; parts: Array<Record<string, unknown>> }> {
   const contents: Array<{ role: "user" | "model"; parts: Array<Record<string, unknown>> }> = [];
   const toolNamesById = new Map<string, string>();
+  const emittedToolIds = new Set<string>();
 
   for (const message of messages) {
     if (message.role === "system") continue;
 
     // Record every call id → name before the assistant branches diverge. A `tool` message
-    // names its functionResponse from this map, and Gemini pairs a response to its call by
-    // that name — so the replay branch below, which returns early, must not be the reason a
-    // round-two result arrives labelled "tool_result".
+    // names its functionResponse from this map, including when raw parts are replayed.
     if (message.role === "assistant" && message.tool_calls?.length) {
       for (const call of message.tool_calls) toolNamesById.set(call.id, call.function.name);
     }
 
     if (message.role === "assistant" && message.providerMetadata?.geminiParts) {
-      contents.push({ role: "model", parts: message.providerMetadata.geminiParts as Array<Record<string, unknown>> });
+      const parts = message.providerMetadata.geminiParts as Array<Record<string, unknown>>;
+      for (const part of parts) {
+        if (isRecord(part.functionCall) && typeof part.functionCall.id === "string") {
+          emittedToolIds.add(part.functionCall.id);
+        }
+      }
+      contents.push({ role: "model", parts });
       continue;
     }
 
@@ -486,7 +492,10 @@ function formatGoogleContents(
       const parts: Array<Record<string, unknown>> = [];
       if (message.content?.trim()) parts.push({ text: message.content });
       for (const call of message.tool_calls) {
-        parts.push({ functionCall: { name: call.function.name, args: parseToolArguments(call.function.arguments) } });
+        emittedToolIds.add(call.id);
+        parts.push({
+          functionCall: { id: call.id, name: call.function.name, args: parseToolArguments(call.function.arguments) },
+        });
       }
       contents.push({ role: "model", parts });
       continue;
@@ -496,7 +505,16 @@ function formatGoogleContents(
       const name = message.tool_call_id ? (toolNamesById.get(message.tool_call_id) ?? "tool_result") : "tool_result";
       contents.push({
         role: "user",
-        parts: [{ functionResponse: { name, response: parseToolResultContent(message.content || "") } }],
+        parts: [
+          {
+            functionResponse: {
+              // Match ids actually replayed to Gemini, not Engine's synthetic ids for id-less calls.
+              ...(message.tool_call_id && emittedToolIds.has(message.tool_call_id) ? { id: message.tool_call_id } : {}),
+              name,
+              response: parseToolResultContent(message.content || ""),
+            },
+          },
+        ],
       });
       continue;
     }
@@ -627,6 +645,11 @@ export class GoogleProvider extends BaseLLMProvider {
 
     this.applyCustomParameters(body, options);
     applyGoogleFunctionCallingMode(body, options.toolChoice);
+    logDebugOverride(
+      options.debugMode === true || isDebugAgentsEnabled(),
+      "[debug/gemini] final tool request:\n%j",
+      body,
+    );
     const authHeaders =
       this.providerKind === "google_vertex"
         ? await googleAuthHeadersForVertex(this.apiKey)

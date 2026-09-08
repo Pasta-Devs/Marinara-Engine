@@ -61,6 +61,21 @@ try {
   assert.ok(!JSON.stringify(events).includes("private"), "status must not leak prompts/reasoning/config secrets");
   assert.equal(context.agentDebug, undefined, "normal progress must not enable full prompt logging");
 
+  for (const agentProgress of [undefined, context.agentProgress]) {
+    await completeAgentCall(
+      { ...context, agentProgress, agentDebug: () => {} },
+      [config],
+      {
+        chatComplete: async (_messages: unknown, options: ChatOptions) => {
+          assert.equal(options.debugMode, true, "explicit agent debug reaches the final provider request");
+          return { content: "ok", toolCalls: [], finishReason: "stop" };
+        },
+      } as unknown as BaseLLMProvider,
+      [],
+      { model: "fixture" },
+    );
+  }
+
   const noUsage = {
     chatComplete: async (_messages: unknown, options: ChatOptions) => {
       assert.equal(options.stream, false);

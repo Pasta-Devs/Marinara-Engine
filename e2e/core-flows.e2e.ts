@@ -19460,6 +19460,9 @@ test("Home lifecycle stays bounded across repeated tab and chat navigation", asy
           module.useChatStore.getState().setActiveChatId(chatId);
         }, auditChat.id);
         await expect(page.locator('[data-component="HomeBrowserHub.HomePage"]')).toHaveCount(0);
+        // Home can disappear before the lazy Conversation surface mounts. Include
+        // its initialization in warm-up, not only in the measured navigation cycles.
+        await expect(page.locator('textarea[data-chat-composer="true"]')).toBeVisible();
         await page.evaluate(async () => {
           const module = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;
           module.useChatStore.getState().setActiveChatId(null);

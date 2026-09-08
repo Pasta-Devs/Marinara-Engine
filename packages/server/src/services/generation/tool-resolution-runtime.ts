@@ -87,6 +87,13 @@ export type ResolveGenerationToolsArgs = {
   gameSpotifyMusicEnabled: boolean;
   agentContext: AgentContext;
   emitMetadataPatch(patch: Record<string, unknown>): void;
+  /**
+   * Tools the mode itself needs, attached regardless of the chat's "Enable Tool Use"
+   * toggle. Deliberately separate from `enableChatTools`: flipping that on would also
+   * arm every other default-on tool, the Spotify credential lookup, and the
+   * local-endpoint `<available_functions>` prompt injection.
+   */
+  autoAttachToolNames?: readonly string[];
 };
 
 export type ResolveAgentGenerationToolsArgs = ResolveGenerationToolsArgs & {
@@ -95,6 +102,12 @@ export type ResolveAgentGenerationToolsArgs = ResolveGenerationToolsArgs & {
 
 export type ResolvedGenerationTools = {
   enableChatTools: boolean;
+  /**
+   * Whether this turn sends tools to the model at all — true when the chat toggle is on
+   * *or* when the mode auto-attached something. The tool loop branches on this;
+   * everything that must stay tied to the user's toggle keeps reading `enableChatTools`.
+   */
+  toolsAttached: boolean;
   chatResolvedToolNames: Set<string>;
   toolDefs: LLMToolDefinition[] | undefined;
   baseToolExecutionContext: ToolExecutionContext;
@@ -129,6 +142,39 @@ export function isChatToolEnabledByDefault(toolName: string): boolean {
   return !AGENT_ONLY_TOOL_NAMES.has(toolName) && !DEFAULT_OFF_TOOL_NAMES.has(toolName);
 }
 
+/**
+ * Game Mode rolls real dice instead of letting the GM invent numbers, so the dice tool
+ * rides along on every game turn. Only this one — the rest of the tool set still waits
+ * for the user to turn "Enable Tool Use" on.
+ */
+export const GAME_MODE_AUTO_ATTACH_TOOL_NAMES: readonly string[] = ["roll_dice"];
+
+/**
+ * Decide which tool definitions this chat turn sends to the model.
+ *
+ * - toggle off, nothing auto-attached → `undefined`, exactly as before this channel existed
+ * - toggle off, auto-attach names     → only those names
+ * - toggle on                         → the chat's set, plus any auto-attached name it missed
+ */
+export function resolveChatToolDefs(args: {
+  allToolDefs: LLMToolDefinition[];
+  enableChatTools: boolean;
+  activeToolIds: string[];
+  autoAttachToolNames: readonly string[];
+}): LLMToolDefinition[] | undefined {
+  const autoAttachNames = new Set(args.autoAttachToolNames.filter((name) => !AGENT_ONLY_TOOL_NAMES.has(name)));
+  if (!args.enableChatTools && autoAttachNames.size === 0) return undefined;
+
+  const hasToolFilter = args.activeToolIds.length > 0;
+  return args.allToolDefs.filter((toolDef) => {
+    const name = toolDef.function.name;
+    if (AGENT_ONLY_TOOL_NAMES.has(name)) return false;
+    if (autoAttachNames.has(name)) return true;
+    if (!args.enableChatTools) return false;
+    return hasToolFilter ? args.activeToolIds.includes(name) : isChatToolEnabledByDefault(name);
+  });
+}
+
 function parseExtra(extra: unknown): Record<string, unknown> {
   if (!extra) return {};
   try {
@@ -159,11 +205,20 @@ function booleanFalseText(value: unknown): boolean {
   return value === false || value === "false" || value === "0" || value === 0;
 }
 
-export function resolveMainGenerationToolChoice(
-  chatMetadata: Record<string, unknown>,
-  round: number,
-): "auto" | "required" {
-  return round === 0 && booleanText(chatMetadata.forceToolCall) ? "required" : "auto";
+/**
+ * Force To Call is a Function Calling panel setting, and the panel hides it whenever
+ * "Enable Tool Use" is off — so a chat can hold a stale `forceToolCall` the user can
+ * neither see nor clear. It only means anything while that toggle is on: a tool the
+ * engine attached by itself (Game Mode's dice) must never be forced by it, or every
+ * game turn would open with a roll the scene did not ask for.
+ */
+export function resolveMainGenerationToolChoice(args: {
+  chatMetadata: Record<string, unknown>;
+  enableChatTools: boolean;
+  round: number;
+}): "auto" | "required" {
+  const forced = args.round === 0 && args.enableChatTools && booleanText(args.chatMetadata.forceToolCall);
+  return forced ? "required" : "auto";
 }
 
 function isSpotifyMusicAgent(agent: ResolvedAgent): boolean {
@@ -360,6 +415,7 @@ async function loadToolDefinitions(args: {
   resolveTools: boolean;
   enableChatTools: boolean;
   activeToolIds: string[];
+  autoAttachToolNames: readonly string[];
 }): Promise<{
   toolDefs: LLMToolDefinition[] | undefined;
   allToolDefs: LLMToolDefinition[];
@@ -440,15 +496,12 @@ async function loadToolDefinitions(args: {
     }
   }
 
-  if (args.enableChatTools) {
-    const hasToolFilter = args.activeToolIds.length > 0;
-    toolDefs = hasToolFilter
-      ? allToolDefs.filter(
-          (toolDef) =>
-            args.activeToolIds.includes(toolDef.function.name) && !AGENT_ONLY_TOOL_NAMES.has(toolDef.function.name),
-        )
-      : allToolDefs.filter((toolDef) => isChatToolEnabledByDefault(toolDef.function.name));
-  }
+  toolDefs = resolveChatToolDefs({
+    allToolDefs,
+    enableChatTools: args.enableChatTools,
+    activeToolIds: args.activeToolIds,
+    autoAttachToolNames: args.autoAttachToolNames,
+  });
 
   return { toolDefs, allToolDefs, customToolDefs };
 }
@@ -668,11 +721,12 @@ async function resolveToolRuntime(
   }: ResolveAgentGenerationToolsArgs,
   options: {
     enableChatTools: boolean;
+    autoAttachToolNames: readonly string[];
     preloadSpotifyPlayback: boolean;
     restoreSpotifyAgentDefaultTools: boolean;
   },
 ): Promise<ResolvedGenerationTools> {
-  const { enableChatTools } = options;
+  const { autoAttachToolNames, enableChatTools } = options;
   const spotifyToolNames = new Set(DEFAULT_AGENT_TOOLS.spotify ?? []);
   for (const agent of resolvedAgents) {
     const agentSettings = parseSettings(agent.settings);
@@ -695,9 +749,10 @@ async function resolveToolRuntime(
     : [];
   const { allToolDefs, customToolDefs, ...loadedTools } = await loadToolDefinitions({
     customToolsStore,
-    resolveTools: enableChatTools || enableAgentTools,
+    resolveTools: enableChatTools || enableAgentTools || autoAttachToolNames.length > 0,
     enableChatTools,
     activeToolIds,
+    autoAttachToolNames,
   });
   let toolDefs = loadedTools.toolDefs;
 
@@ -954,6 +1009,9 @@ async function resolveToolRuntime(
 
   return {
     enableChatTools,
+    // An auto-attach name that resolved to nothing (retired tool, typo) leaves the turn
+    // exactly as it was before — no tool loop, no allowlist.
+    toolsAttached: enableChatTools || (toolDefs?.length ?? 0) > 0,
     chatResolvedToolNames,
     toolDefs,
     baseToolExecutionContext,
@@ -966,6 +1024,9 @@ export async function resolveAgentGenerationTools(
 ): Promise<ResolvedGenerationTools> {
   return resolveToolRuntime(args, {
     enableChatTools: false,
+    // Agent retries resolve their own tools from agent settings; mode auto-attach is a
+    // main-generation concern and never rides along here.
+    autoAttachToolNames: [],
     preloadSpotifyPlayback: false,
     restoreSpotifyAgentDefaultTools: args.gameSpotifyMusicEnabled,
   });
@@ -978,6 +1039,7 @@ export async function resolveGenerationTools(args: ResolveGenerationToolsArgs): 
     (!chatToolsExplicitlyDisabled && booleanText(args.chatMetadata.enableTools));
   return resolveToolRuntime(args, {
     enableChatTools,
+    autoAttachToolNames: args.autoAttachToolNames ?? [],
     preloadSpotifyPlayback: true,
     restoreSpotifyAgentDefaultTools: true,
   });

@@ -3,7 +3,7 @@ import type { AgentContext, AgentTaskProgress } from "@marinara-engine/shared";
 import type { BaseLLMProvider, ChatMessage, ChatOptions } from "../llm/base-provider.js";
 import { logger } from "../../lib/logger.js";
 
-/** Observe an existing call without changing its provider, streaming policy, or debug setting. */
+/** Observe an existing call while forwarding its explicit agent debug setting. */
 export async function completeAgentCall(
   context: AgentContext,
   agents: AgentTaskProgress["agents"],
@@ -11,6 +11,7 @@ export async function completeAgentCall(
   messages: ChatMessage[],
   options: ChatOptions,
 ) {
+  if (context.agentDebug && options.debugMode !== true) options = { ...options, debugMode: true };
   if (!context.agentProgress) return provider.chatComplete(messages, options);
   const startedAt = Date.now();
   const progress: AgentTaskProgress = {

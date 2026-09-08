@@ -43,18 +43,6 @@ function useReducedMotion(): boolean {
   return reducedMotion;
 }
 
-export function isDiceRollResult(value: unknown): value is DiceRollResult {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<DiceRollResult>;
-  return (
-    typeof candidate.notation === "string" &&
-    Array.isArray(candidate.rolls) &&
-    candidate.rolls.every((roll) => Number.isFinite(roll)) &&
-    Number.isFinite(candidate.modifier) &&
-    Number.isFinite(candidate.total)
-  );
-}
-
 export function shouldAnimateDiceRollMessage(createdAt: string | null | undefined): boolean {
   if (!createdAt) return false;
   const createdMs = Date.parse(createdAt);

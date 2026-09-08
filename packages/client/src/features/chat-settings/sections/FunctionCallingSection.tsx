@@ -12,6 +12,8 @@ export interface FunctionToolOption {
 }
 
 interface FunctionCallingSectionProps {
+  /** Game chats get the dice tool regardless of this toggle, so they need the extra context. */
+  isGameMode: boolean;
   enableTools: boolean | undefined;
   forceToolCall: boolean | undefined;
   activeToolIds: string[];
@@ -30,6 +32,7 @@ interface FunctionCallingSectionProps {
 }
 
 export function FunctionCallingSection({
+  isGameMode,
   enableTools,
   forceToolCall,
   activeToolIds,
@@ -76,9 +79,11 @@ export function FunctionCallingSection({
           labelClassName="text-xs font-medium"
         />
         <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1">
-          {enableTools
-            ? localizeUi("ui.chatSettings.functioncallingsection.ifEnabledThisChatCanUseGloballyEnabledTools")
-            : localizeUi("ui.chatSettings.functioncallingsection.ifDisabledNoFunctionsWillBeAvailable")}
+          {isGameMode
+            ? localizeUi("ui.chatSettings.functioncallingsection.gameChatsAlreadyRollRealDiceWithoutThis")
+            : enableTools
+              ? localizeUi("ui.chatSettings.functioncallingsection.ifEnabledThisChatCanUseGloballyEnabledTools")
+              : localizeUi("ui.chatSettings.functioncallingsection.ifDisabledNoFunctionsWillBeAvailable")}
         </p>
 
         {enableTools && (

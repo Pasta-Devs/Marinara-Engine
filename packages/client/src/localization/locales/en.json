@@ -4539,6 +4539,7 @@
   "ui.chatSettings.functioncallingsection.forceToCallTool": "Force To Call Tool",
   "ui.chatSettings.functioncallingsection.forceToCallToolDescription": "Require a compatible model to call one enabled function before it can answer. Some models may ignore this request.",
   "ui.chatSettings.functioncallingsection.functionCalling": "Function Calling",
+  "ui.chatSettings.functioncallingsection.gameChatsAlreadyRollRealDiceWithoutThis": "Game chats already roll real dice without this — it adds the rest of the tools, and each tool call costs an extra model round. Streaming keeps working on Gemini and Anthropic, except Gemini with thinking on. Claude and Grok subscription connections ignore tools entirely.",
   "ui.chatSettings.functioncallingsection.ifDisabledNoFunctionsWillBeAvailable": "If disabled, no functions will be available.",
   "ui.chatSettings.functioncallingsection.ifEnabledThisChatCanUseGloballyEnabledTools": "If enabled, this chat can use globally enabled tools (or any tools you add below).",
   "ui.chatSettings.functioncallingsection.newCustomFunction": "New Custom Function",

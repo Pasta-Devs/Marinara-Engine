@@ -18,7 +18,8 @@ import {
   isClaudeAdaptiveOnlyNoSamplingModel,
   shouldSuppressUnknownModelParameters,
 } from "@marinara-engine/shared";
-import { logger } from "../../../lib/logger.js";
+import { logger, logDebugOverride } from "../../../lib/logger.js";
+import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 
 const DEFAULT_CACHING_AT_DEPTH = 5;
 
@@ -451,6 +452,11 @@ export class AnthropicProvider extends BaseLLMProvider {
       );
     }
 
+    logDebugOverride(
+      options.debugMode === true || isDebugAgentsEnabled(),
+      "[debug/anthropic] final tool request:\n%j",
+      body,
+    );
     const response = await llmFetch(url, {
       method: "POST",
       headers: {
