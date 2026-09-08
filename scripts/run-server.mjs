@@ -11,9 +11,9 @@ for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     if (stopping) return;
     stopping = true;
     process.exitCode = 128 + (constants.signals[signal] ?? 0);
-    // Ctrl+C already reaches both processes sharing the terminal. Forward
-    // programmatic/pipe signals, without double-signalling a graceful close.
-    if (signal !== "SIGINT" || !process.stdin.isTTY) child?.kill(signal);
+    // PID-targeted signals do not reach the child, even in a terminal. The
+    // server's idempotent shutdown also tolerates a shared-console Ctrl+C.
+    child?.kill(signal);
     stopTimer = setTimeout(() => child?.kill("SIGKILL"), 10_000);
     stopTimer.unref();
   });

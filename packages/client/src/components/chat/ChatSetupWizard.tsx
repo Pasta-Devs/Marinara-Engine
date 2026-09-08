@@ -877,9 +877,10 @@ function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const { t } = useUiTranslation();
   const mode = chat.mode === "conversation" ? "conversation" : "roleplay";
   const [initial] = useState(() => captureChatWizardDefaults(chat));
-  const [saved] = useState(() => useUIStore.getState().chatWizardDefaults[mode]);
-  const [defaultsApplied, setDefaultsApplied] = useState(!!saved);
-  const [ready, setReady] = useState(!saved);
+  const saved = useUIStore((state) => state.chatWizardDefaults[mode]);
+  const settingsSyncReady = useUIStore((state) => state.settingsSyncReady);
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
+  const [ready, setReady] = useState(false);
   const [revision, setRevision] = useState(0);
   const pendingApply = useRef<Promise<unknown> | null>(null);
   const initialApplyDone = useRef(false);
@@ -900,17 +901,24 @@ function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   );
 
   useEffect(() => {
-    if (!saved || initialApplyDone.current) return;
+    if (!settingsSyncReady || initialApplyDone.current) return;
+    if (!saved) {
+      initialApplyDone.current = true;
+      setReady(true);
+      return;
+    }
     let active = true;
     pendingApply.current ??= apply(saved);
     void pendingApply.current
       .then(() => {
+        if (!active) return;
         initialApplyDone.current = true;
-        if (active) setReady(true);
+        setDefaultsApplied(true);
+        setReady(true);
       })
       .catch(() => {
-        initialApplyDone.current = true;
         if (!active) return;
+        initialApplyDone.current = true;
         toast.error(t("chat.wizard.defaults.failed"));
         setDefaultsApplied(false);
         setReady(true);
@@ -918,7 +926,7 @@ function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     return () => {
       active = false;
     };
-  }, [apply, saved, t]);
+  }, [apply, saved, settingsSyncReady, t]);
 
   const defaultsAction = (metadata: Record<string, unknown>) => (
     <button
@@ -949,7 +957,21 @@ function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     </button>
   );
 
-  if (!ready) return <WizardBackdrop onClose={onFinish} />;
+  if (!ready)
+    return (
+      <>
+        <WizardBackdrop onClose={onFinish} />
+        <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center p-3">
+          <div
+            role="status"
+            className={cn(NEUTRAL_PANEL_SHELL, "flex items-center gap-2 p-4 text-sm text-[var(--foreground)]")}
+          >
+            <Loader2 size="1rem" className="animate-spin" aria-hidden="true" />
+            {t("navigation.common.loading")}
+          </div>
+        </div>
+      </>
+    );
   const currentChat = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat;
   const props = { chat: currentChat, onFinish, defaultsApplied, defaultsAction };
   return mode === "conversation" ? (

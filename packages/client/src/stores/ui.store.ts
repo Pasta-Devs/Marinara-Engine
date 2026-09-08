@@ -568,6 +568,8 @@ export type MariPanelSortMode = "az" | "za" | "newest" | "oldest";
 export type MariEditViewMode = "easy" | "raw";
 
 interface UIState {
+  /** Transient: the initial cross-device settings fetch has settled. */
+  settingsSyncReady: boolean;
   showHomeBrowserAddressBar: boolean;
   showHomeBrowserDesktopBookmarksOnOtherTabs: boolean;
   showHomeBrowserMobileBookmarksOnOtherTabs: boolean;
@@ -1662,6 +1664,7 @@ export const useUIStore = create<UIState>()(
         if (!deferEditorLeave(state, patch, apply)) apply();
       };
       return {
+        settingsSyncReady: false,
         showHomeBrowserAddressBar: true,
         showHomeBrowserDesktopBookmarksOnOtherTabs: true,
         showHomeBrowserMobileBookmarksOnOtherTabs: true,

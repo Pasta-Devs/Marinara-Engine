@@ -346,7 +346,10 @@ export function useSettingsSync() {
         // Server unreachable at startup — run with local state only.
         lastPushed = serialize();
       } finally {
-        if (!disposed) ready = true;
+        if (!disposed) {
+          ready = true;
+          useUIStore.setState({ settingsSyncReady: true });
+        }
       }
     })();
 

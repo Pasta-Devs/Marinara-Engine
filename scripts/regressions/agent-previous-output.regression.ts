@@ -181,7 +181,9 @@ try {
     "SECRET_A",
   );
   assert.equal(await agents.getPreviousOutput(configs[0]!.id, "other-chat"), null);
-  assert.ok((await agents.listCustomRunsForChat(chat.id)).every((run) => run.hideOutput));
+  const customRuns = await agents.listCustomRunsForChat(chat.id);
+  assert.ok(customRuns.length > 0, "Successful custom runs must remain available");
+  assert.ok(customRuns.every((run) => run.hideOutput));
 } finally {
   await closeDB();
   rmSync(dataDir, { recursive: true, force: true });

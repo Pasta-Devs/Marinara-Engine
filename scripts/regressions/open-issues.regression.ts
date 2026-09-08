@@ -4264,9 +4264,16 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
     join(REPOSITORY_ROOT, "packages/client/src/components/agents/AgentEditor.tsx"),
     "utf8",
   );
+  const customResultInitializer =
+    /const customResultExample =[^;]{0,400}CUSTOM_AGENT_RESULT_EXAMPLES\[localResultType\]/u;
+  assert.doesNotMatch(
+    "const customResultExample = null; const unrelated = CUSTOM_AGENT_RESULT_EXAMPLES[localResultType];",
+    customResultInitializer,
+    "A later unrelated lookup must not satisfy the initializer check",
+  );
   assert.match(
     agentEditorSource,
-    /const customResultExample =[\s\S]{0,400}CUSTOM_AGENT_RESULT_EXAMPLES\[localResultType\]/u,
+    customResultInitializer,
     "The prompt preview must select the response example for the active result type",
   );
   assert.match(

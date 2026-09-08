@@ -90,7 +90,7 @@ async function main() {
   const shutdown = async (signal: NodeJS.Signals) => {
     if (isShuttingDown) {
       logger.warn("Received %s while shutdown is already in progress", signal);
-      process.exit(1);
+      return;
     }
 
     isShuttingDown = true;

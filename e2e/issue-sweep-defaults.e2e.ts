@@ -4,6 +4,82 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
+for (const mode of ["roleplay", "conversation"] as const) {
+  test(`${mode} wizard waits for saved defaults from another device`, async ({ page, request }) => {
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      chatHelpSeenModes: ["conversation", "roleplay"],
+      chatWizardDefaults: {},
+    });
+    let finishSync!: () => void;
+    let markRequested!: () => void;
+    const sync = new Promise<void>((resolve) => {
+      finishSync = resolve;
+    });
+    const requested = new Promise<void>((resolve) => {
+      markRequested = resolve;
+    });
+    await page.route("**/api/app-settings/ui", async (route) => {
+      if (route.request().method() !== "GET") return route.fulfill({ json: {} });
+      markRequested();
+      await sync;
+      await route.fulfill({
+        json: {
+          value: JSON.stringify({
+            __updatedAt: Date.now() + 60_000,
+            chatWizardDefaults: {
+              [mode]: {
+                name: "Saved on another device",
+                connectionId: null,
+                promptPresetId: null,
+                personaId: null,
+                personaCharacterId: null,
+                characterIds: [],
+                metadata: {},
+              },
+            },
+          }),
+        },
+      });
+    });
+    const response = await request.post("/api/chats", { data: { name: "Fresh setup", mode, characterIds: [] } });
+    expect(response.ok()).toBeTruthy();
+    const chat = await response.json();
+    await page.addInitScript(
+      ({ id, version }) => {
+        localStorage.setItem("marinara-active-chat-id", id);
+        localStorage.setItem("marinara:whats-new:seen-version", version);
+      },
+      { id: chat.id, version },
+    );
+    try {
+      await page.goto("/");
+      await requested;
+      await page.evaluate(async () => {
+        const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+        useChatStore.getState().setShouldOpenWizard(true);
+        useChatStore.getState().setShouldOpenSettings(true);
+      });
+      await expect(page.getByRole("status").filter({ hasText: "Loading" })).toBeVisible();
+      await expect(page.locator('[data-component="ChatSetupWizard"]')).toBeHidden();
+      finishSync();
+      const name = page.locator('[data-component="ChatSetupWizard"] input[type="text"]').first();
+      await expect(name).toHaveValue("Saved on another device");
+      await name.fill("My next choice");
+      await name.blur();
+      await expect
+        .poll(async () => (await (await request.get(`/api/chats/${chat.id}`)).json()).name)
+        .toBe("My next choice");
+      await expect(name).toHaveValue("My next choice");
+    } finally {
+      finishSync();
+      await request.delete(`/api/chats/${chat.id}`);
+    }
+  });
+}
+
 for (const theme of ["dark", "light"] as const) {
   for (const mode of ["roleplay", "conversation"] as const) {
     test(`${mode} wizard defaults save, survive reload, and reset without profiles (${theme})`, async ({
