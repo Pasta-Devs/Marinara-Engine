@@ -1205,7 +1205,9 @@ export async function processLorebooks(
   // Determine recursion settings from relevant enabled lorebooks only.
   const recursiveLorebooks = effectiveLorebooks.filter((b: { recursiveScanning: boolean }) => b.recursiveScanning);
   const recursiveLorebookIds = new Set(recursiveLorebooks.map((b) => b.id));
-  const anyRecursive = options?.enableRecursive || recursiveLorebookIds.size > 0;
+  // Exact selections are already activated explicitly. Re-scanning them can
+  // reintroduce constant entries that the selection budget has just excluded.
+  const anyRecursive = !forcedEntriesOnly && (options?.enableRecursive || recursiveLorebookIds.size > 0);
   const maxRecursionDepth =
     recursiveLorebooks.length > 0
       ? recursiveLorebooks.reduce((max: number, b: { maxRecursionDepth?: number }) => {

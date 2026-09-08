@@ -623,14 +623,12 @@ try {
   // just dropped came back through the ordinary scan one line later — while its
   // skip record stayed on the response. Included plus skipped came to thirteen for
   // a ten-id selection, which is exactly the disagreement the exact-selection rule
-  // exists to remove. The same re-admission is reachable through the recursive
-  // path, so the global book below is deliberately recursive: with the book filter
-  // left unsuppressed it joins effectiveLorebooks, turns anyRecursive on for a call
-  // that has no business recursing, and the recursive entry point re-scans the
-  // selection for itself. Neither half of the flag is decorative.
-  {
+  // exists to remove. Repeat with recursion enabled on the selected book itself:
+  // neither that setting nor an ambient recursive book may re-scan an exact
+  // selection and readmit its excluded constants.
+  for (const recursiveScanning of [false, true]) {
     await createBook("Ambient recursive globals", { isGlobal: true, recursiveScanning: true });
-    const book = await createBook("Kalos", { tokenBudget: 8_000 });
+    const book = await createBook("Kalos", { tokenBudget: 8_000, recursiveScanning });
     const ids: string[] = [];
     for (let index = 0; index < 10; index += 1) {
       const entry = await lorebooks.createEntry({
@@ -644,7 +642,7 @@ try {
       ids.push(entry.id);
     }
 
-    const chat = await createExperienceChat("constant drops hold");
+    const chat = await createExperienceChat(`constant drops hold (recursive=${recursiveScanning})`);
     upstreamBodies = [];
     const res = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: ids });
     assert.equal(res.statusCode, 200, res.body);
