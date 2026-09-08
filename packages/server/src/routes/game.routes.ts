@@ -10748,13 +10748,28 @@ export async function gameRoutes(app: FastifyInstance) {
   // spend. Modeled on /game/scene-wrap, with the illustrator's repair
   // round-trip instead of a blind retry.
   //
-  // Token ceiling for the player's own lorebook selection. The lorebook
-  // service's current-location default is 2,048 tokens — sized for the lore a
-  // location carries by itself, not for a selection somebody made by hand
-  // against a budget readout — and silently keeping 5 of 8 picked entries is
-  // the invisible-budget failure this feature exists to avoid. 3,000 tokens is
-  // the picker's own 12,000-character figure at the service's ceil(len/4)
-  // estimate, so the number the player is shown is the number the server spends.
+  // Token ceiling for the player's own lorebook selection, and it is the FIRST of
+  // two walls rather than the only one.
+  //
+  // This one is the lorebook service's current-location budget, which defaults to
+  // 2,048 tokens — sized for the lore a location carries by itself, not for a
+  // selection somebody made by hand against a budget readout — and silently
+  // keeping 5 of 8 picked entries is the invisible-budget failure this feature
+  // exists to avoid. 3,000 is the picker's own 12,000-character figure at the
+  // service's ceil(len/4) estimate, and this route is the only caller that raises
+  // it; every other one keeps 2,048.
+  //
+  // The SECOND wall is each lorebook's own tokenBudget, applied after this one in
+  // trySelectBudgetedLorebookEntry and not overridable by any caller — it belongs
+  // to whoever owns the book. Its schema default is 2,048 (db/schema/lorebooks.ts),
+  // which sits BELOW the number raised here, so inside a single book left on that
+  // default this override buys nothing: eight 350-token entries clear 3,000 and
+  // then five of them fit 2,048. Raising this does not make the player's whole
+  // selection arrive; what it does is stop the FIRST wall from cutting a selection
+  // that the book itself would have carried. The drops are reported either way,
+  // with blockedBy naming which wall bound, so the response never lies about it —
+  // and the picker budgets per book, against the book's own figure, for the same
+  // reason. Both walls are pinned in experience-lore-entries.regression.ts.
   const EXPERIENCE_LORE_TOKEN_BUDGET = 3_000;
 
   const experienceGenerationSchema = z.object({
@@ -10888,14 +10903,21 @@ export async function gameRoutes(app: FastifyInstance) {
           excludedLorebookIds: loreScopeExclusions.excludedLorebookIds,
           excludedSourceAgentIds: loreScopeExclusions.excludedSourceAgentIds,
           forcedEntryIds: input.lorebookEntryIds,
+          // The selection is exact. Without this the ordinary scope-based scan runs
+          // beside it and every global book — plus anything bound to the party, the
+          // persona or the chat — joins in, constants first, with no messages needed
+          // to activate them. That is right for a chat turn and wrong here: the
+          // player ticked a list, the readout reconciles against that list, and
+          // unpicked content would also spend the budget the list needs.
+          forcedEntriesOnly: true,
           // ScanOptions defaults these to ["chat"], which would silently refuse
           // an entry its author filtered to game_setup — the player would tick a
           // settlement and never learn why the world had not heard of it.
           generationTriggers: ["game_setup", "game"],
-          // The 2,048-token current-location default is sized for a location's
-          // own attached lore, not for a deliberate selection; the picker's own
-          // 12,000-character figure is what the player was shown, so that is the
-          // ceiling this call spends. Every other caller keeps 2,048.
+          // Raises the FIRST of the two walls above: the 2,048-token
+          // current-location default is sized for a location's own attached lore,
+          // not for a deliberate selection. The book's own tokenBudget still
+          // applies after it and no caller can move that one.
           currentLocationTokenBudget: EXPERIENCE_LORE_TOKEN_BUDGET,
           // A ticked entry is a selection, not a dice roll: probability: 25 would
           // otherwise drop it three times in four, silently and unreproducibly.

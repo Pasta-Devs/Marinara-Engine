@@ -30,6 +30,17 @@
 //   7. The wire count ceiling is LIMITS.MAX_LOREBOOK_ENTRIES — 101 ids is a clean
 //      400 rather than a silent truncation.
 //   8. A disabled entry cannot be smuggled in by ticking it.
+//   9. EXACT SELECTION. A selection is the whole of what this call carries. A global
+//      lorebook's constant entry activates with no messages at all, so without this
+//      the player's one tick would drag in every constant in the product; this is a
+//      world-writing request, not a chat turn. Pinned in both directions: absent
+//      here, and still present for every OTHER lorebook caller.
+//  10. The ROUTE is what supplies the game generation triggers. ScanOptions defaults
+//      to ["chat"], so a route that forgets them refuses a game_setup entry with no
+//      error anyone could see. Part 1 pins the gate; this pins the caller.
+//  11. There are TWO walls, and the second one is the one the route cannot move. The
+//      per-book tokenBudget defaults to 2,048 and applies after the location budget,
+//      so inside an ordinary book the raised 3,000-token override buys nothing.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
@@ -38,6 +49,7 @@ import { createLorebookEntrySchema } from "../../packages/shared/src/schemas/lor
 import type { LorebookEntry } from "../../packages/shared/src/types/lorebook.js";
 import { errorHandler } from "../../packages/server/src/middleware/error-handler.js";
 import { gameRoutes } from "../../packages/server/src/routes/game.routes.js";
+import { processLorebooks } from "../../packages/server/src/services/lorebook/index.js";
 import {
   passesForcedEntryActivationGates,
   scanForActivatedEntries,
@@ -228,10 +240,16 @@ async function createExperienceChat(name: string) {
   return chat;
 }
 
-/** An unbound, non-global book: it reaches the call ONLY as a forced selection,
- *  so nothing here can be credited to ordinary scope-based activation. */
-async function createBook(name: string, tokenBudget: number) {
-  const book = await lorebooks.create({ name, tokenBudget, isGlobal: false } as Parameters<typeof lorebooks.create>[0]);
+/** Unbound and non-global unless asked otherwise: such a book reaches the call ONLY
+ *  as a forced selection, so nothing here can be credited to ordinary scope-based
+ *  activation. Omitting tokenBudget leaves the book on the schema's own 2,048-token
+ *  default, which is what an ordinary player's book actually carries. */
+async function createBook(name: string, options: { tokenBudget?: number; isGlobal?: boolean } = {}) {
+  const book = await lorebooks.create({
+    name,
+    ...(options.tokenBudget === undefined ? {} : { tokenBudget: options.tokenBudget }),
+    isGlobal: options.isGlobal ?? false,
+  } as Parameters<typeof lorebooks.create>[0]);
   assert.ok(book);
   createdLorebookIds.push(book.id);
   return book;
@@ -283,7 +301,7 @@ try {
   // 3,000-token override takes all eight. The 2,048-token default it replaces would
   // take five and silently drop three — the invisible-budget failure this exists for.
   {
-    const book = await createBook("Kanto", 4_000);
+    const book = await createBook("Kanto", { tokenBudget: 4_000 });
     const ids: string[] = [];
     for (let index = 0; index < 8; index += 1) {
       const entry = await lorebooks.createEntry({
@@ -320,7 +338,7 @@ try {
   // entries EARLIER in the book do not. That is the order the plan promises to
   // describe rather than override.
   {
-    const book = await createBook("Johto", 8_000);
+    const book = await createBook("Johto", { tokenBudget: 8_000 });
     const ids: string[] = [];
     for (let index = 0; index < 10; index += 1) {
       const isConstant = index === 9;
@@ -373,7 +391,7 @@ try {
 
   // ── 4. A ticked entry is not a dice roll, through the route (D-13) ──
   {
-    const book = await createBook("Hoenn", 4_000);
+    const book = await createBook("Hoenn", { tokenBudget: 4_000 });
     const never = await lorebooks.createEntry({
       lorebookId: book.id,
       name: "Petalburg",
@@ -403,7 +421,137 @@ try {
     assert.equal(res.json().lorebook.includedEntries, 1);
   }
 
-  // ── 5. The wire count ceiling is a clean refusal, not a silent truncation ──
+  // ── 5. EXACT SELECTION: the ticked entries, and nothing riding along with them ──
+  // A GLOBAL lorebook is in scope for every chat in the product, and a constant
+  // entry needs no messages at all to activate — so the ordinary scan would hand
+  // this call content the player never ticked, on the strength of one tick
+  // somewhere else. That is wrong here in a way it is not wrong on a chat turn:
+  // this route writes a world from a deliberate selection, and the picker's own
+  // readout reconciles against the count it gets back.
+  {
+    const ambient = await createBook("Ambient globals", { isGlobal: true });
+    const unticked = await lorebooks.createEntry({
+      lorebookId: ambient.id,
+      name: "Never picked",
+      content: loreContent("UNTICKEDMARK", 400),
+      constant: true,
+    } as Parameters<typeof lorebooks.createEntry>[0]);
+    const pickedFrom = await createBook("Sinnoh", { tokenBudget: 4_000 });
+    const picked = await lorebooks.createEntry({
+      lorebookId: pickedFrom.id,
+      name: "Twinleaf",
+      content: loreContent("PICKEDMARK", 400),
+    } as Parameters<typeof lorebooks.createEntry>[0]);
+    assert.ok(unticked && picked);
+
+    const chat = await createExperienceChat("exact selection");
+    upstreamBodies = [];
+    const res = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [picked.id] });
+    assert.equal(res.statusCode, 200, res.body);
+
+    const prompt = systemPromptOf();
+    assert.ok(prompt.includes("PICKEDMARK"), "The entry the player ticked arrives");
+    assert.equal(
+      prompt.includes("UNTICKEDMARK"),
+      false,
+      "A global book's constant entry must not ride in on somebody else's tick — the selection is exact, not a floor",
+    );
+    assert.equal(
+      res.json().lorebook.includedEntries,
+      1,
+      "...so the count the picker reconciles against is the number of entries the player actually ticked",
+    );
+
+    // The other half of the contract: this is scoped to a caller that asked for
+    // it. Every ordinary lorebook consumer still gets global constants, which is
+    // the whole point of marking a book global.
+    const ambientScan = await processLorebooks(db, [], null, {
+      chatId: chat.id,
+      characterIds: [],
+      personaId: null,
+    });
+    assert.ok(
+      ambientScan.activatedEntryIds.includes(unticked.id),
+      "A global constant still activates for every caller that did not ask for an exact selection",
+    );
+  }
+
+  // ── 6. The ROUTE supplies the game triggers, not ScanOptions' ["chat"] default ──
+  // Part 1 pins the gate itself; this pins the caller. Without the route's own
+  // generationTriggers the entry below is refused, the world never hears of the
+  // place, and nothing anywhere says why.
+  {
+    const book = await createBook("Unova", { tokenBudget: 4_000 });
+    const setupOnly = await lorebooks.createEntry({
+      lorebookId: book.id,
+      name: "Nuvema (setup only)",
+      content: loreContent("TRIGGERMARK", 400),
+      generationTriggerFilterMode: "include",
+      generationTriggerFilters: ["game_setup"],
+    } as Parameters<typeof lorebooks.createEntry>[0]);
+    assert.ok(setupOnly);
+
+    const chat = await createExperienceChat("generation triggers");
+    upstreamBodies = [];
+    const res = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [setupOnly.id] });
+    assert.equal(res.statusCode, 200, res.body);
+    assert.ok(
+      systemPromptOf().includes("TRIGGERMARK"),
+      "The route must pass the game generation triggers explicitly — the ['chat'] default would refuse a game_setup entry silently",
+    );
+    assert.equal(res.json().lorebook.includedEntries, 1);
+  }
+
+  // ── 7. The second wall: the per-book budget, which the route cannot move ──
+  // This book carries the schema's own 2,048-token default because its owner never
+  // changed it, which is the ordinary case. The route's 3,000-token override gets
+  // all eight entries past the FIRST wall (8 × 350 = 2,800); the per-book budget
+  // then takes five and reports three, naming itself as the cause. This is the case
+  // the D-12 comment must not promise away: the override raises the location wall
+  // and nothing else.
+  {
+    const book = await createBook("Default-budget book");
+    const ids: string[] = [];
+    for (let index = 0; index < 8; index += 1) {
+      const entry = await lorebooks.createEntry({
+        lorebookId: book.id,
+        name: `Ward ${index}`,
+        content: loreContent(`WALLMARK${index}`, 1_400),
+        order: 100 + index,
+      } as Parameters<typeof lorebooks.createEntry>[0]);
+      assert.ok(entry);
+      ids.push(entry.id);
+    }
+
+    const chat = await createExperienceChat("per-book wall");
+    upstreamBodies = [];
+    const res = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: ids });
+    assert.equal(res.statusCode, 200, res.body);
+
+    const prompt = systemPromptOf();
+    assert.deepEqual(
+      [...Array(8).keys()].filter((index) => prompt.includes(`WALLMARK${index}`)),
+      [0, 1, 2, 3, 4],
+      "Inside a default book the per-book 2,048 binds below the raised location budget: 5 of 8, not 8 of 8",
+    );
+    assert.equal(res.json().lorebook.includedEntries, 5);
+
+    const skipped = res.json().lorebook.skippedEntries as Array<{ name: string; blockedBy: string }>;
+    assert.deepEqual(
+      skipped.map((entry) => entry.name).sort(),
+      ["Ward 5", "Ward 6", "Ward 7"],
+      "...and the three that did not fit are named",
+    );
+    for (const entry of skipped) {
+      assert.equal(
+        entry.blockedBy,
+        "lorebook",
+        "The response names the wall that actually bound — the book's own budget, not the location one",
+      );
+    }
+  }
+
+  // ── 8. The wire count ceiling is a clean refusal, not a silent truncation ──
   {
     const chat = await createExperienceChat("count ceiling");
     const overflow = Array.from({ length: LIMITS.MAX_LOREBOOK_ENTRIES + 1 }, (_, index) => `missing-${index}`);

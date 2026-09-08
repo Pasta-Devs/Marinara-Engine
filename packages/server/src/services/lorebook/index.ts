@@ -1013,6 +1013,13 @@ export async function processLorebooks(
     excludedSourceAgentIds?: string[];
     /** Entries explicitly attached to the exact current hierarchical location. */
     forcedEntryIds?: string[];
+    /** Assemble `forcedEntryIds` and NOTHING else: the ordinary scope-based scan is
+     *  not run at all, so no global book, no party/persona/chat-bound book and no
+     *  constant entry can join the result. For a caller whose ids are a person's own
+     *  selection rather than a turn's context — ambient additions there are content
+     *  nobody asked for, and they would also spend the budget the selection needs.
+     *  Omitted keeps the ordinary scan, so every existing caller is unchanged. */
+    forcedEntriesOnly?: boolean;
     /** Token ceiling for the forced entries alone. Omitted keeps the 2,048-token
      *  current-location default, which is sized for a location's own lore rather
      *  than for a caller that hands over a deliberate, player-made selection. */
@@ -1065,13 +1072,18 @@ export async function processLorebooks(
       }
     : undefined;
 
+  // An exact selection admits its own entries by id and nothing by scope, so the
+  // scope-based book filter is skipped outright rather than narrowed. Narrowing it
+  // would not close the hole: filterRelevantLorebooks admits every global book
+  // BEFORE it consults activeLorebookIds, so an empty list is not a refusal.
+  const forcedEntriesOnly = options?.forcedEntriesOnly === true;
   const allLorebooks = (await storage.list()) as unknown as Lorebook[];
   const requestedForcedEntryIds = uniqueStrings(options?.forcedEntryIds ?? []).slice(0, LIMITS.MAX_LOREBOOK_ENTRIES);
   let forcedEntries = (await storage.listEligibleEntriesByIds(requestedForcedEntryIds, {
     excludedLorebookIds: options?.excludedLorebookIds,
     excludedSourceAgentIds: options?.excludedSourceAgentIds,
   })) as unknown as LorebookEntry[];
-  const relevantLorebooks = filterRelevantLorebooks(allLorebooks, filters);
+  const relevantLorebooks = forcedEntriesOnly ? [] : filterRelevantLorebooks(allLorebooks, filters);
   const forcedLorebookIds = new Set(forcedEntries.map((entry) => entry.lorebookId));
   const effectiveLorebooks = Array.from(
     new Map(
@@ -1084,7 +1096,12 @@ export async function processLorebooks(
   const relevantLorebooksById = new Map(effectiveLorebooks.map((lorebook) => [lorebook.id, lorebook]));
 
   // Forced entries bypass normal ownership scope, but share the same active-entry safeguards and budgets.
-  const normallyActiveEntries = (await storage.listActiveEntries(filters)) as unknown as LorebookEntry[];
+  // Under an exact selection there is no ordinary set to merge with: allEntries is
+  // the forced entries alone, which is what keeps unpicked content out of the
+  // keyword scan, out of the recursion pool and out of the budgets below.
+  const normallyActiveEntries = forcedEntriesOnly
+    ? []
+    : ((await storage.listActiveEntries(filters)) as unknown as LorebookEntry[]);
   let allEntries = applyLorebookDefaults(
     Array.from(new Map([...normallyActiveEntries, ...forcedEntries].map((entry) => [entry.id, entry])).values()),
     relevantLorebooksById,
