@@ -455,7 +455,13 @@ function RegeneratingMessageContent({
   // reasoning: expose the action only after this swipe receives its first
   // reasoning chunk.
   const parsedExtra = typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {});
-  const cleanExtra = { ...parsedExtra, attachments: null, thinking: thinkingBuffer || null };
+  const cleanExtra = {
+    ...parsedExtra,
+    attachments: null,
+    roleplayDocuments: null,
+    diceRollResult: null,
+    thinking: thinkingBuffer || null,
+  };
   return (
     <ChatMessage
       message={{ ...msg, extra: cleanExtra, content: "" }}

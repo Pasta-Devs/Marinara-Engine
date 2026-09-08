@@ -88,6 +88,17 @@ import {
   materializeAssistantSpatialState,
 } from "../services/spatial-context/state-resolution.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { writeManualIllustratorPromptPlan } from "../services/generation/illustrator-manual-prompt-generation.js";
+import { isRoleplayCommandEnabled, type RoleplayPrivateCommand, type RoleplayDocument } from "@marinara-engine/shared";
+import {
+  appendRoleplayPromptTail,
+  buildRoleplayCommandsReminder,
+  buildRoleplayPersonalContext,
+  parseRoleplayCommands,
+  roleplayCommandKey,
+  RoleplayCommandStreamFilter,
+  type RoleplayCommand,
+} from "../services/generation/roleplay-commands.js";
 import { createPromptsStorage } from "../services/storage/prompts.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
@@ -245,7 +256,6 @@ import {
   appendGenerationTailMessages,
   canUseMessageForUserRegeneration,
   dedupeLastMessageWrappers,
-  findLastIndex,
   findTrackerContextInsertIndex,
   formatConversationInstructionsForWrap,
   extractFileAttachmentInputs,
@@ -1429,6 +1439,15 @@ export async function generateRoutes(app: FastifyInstance) {
 
       const regenerateContextCutoff =
         input.regenerateMessageId && typeof regenMsg?.createdAt === "string" ? regenMsg.createdAt : null;
+      const roleplayTimelineEnd = input.regenerateMessageId ?? input.continueMessageId;
+      const roleplayTimelineIndex = roleplayTimelineEnd
+        ? scopedMessages.findIndex((message) => message.id === roleplayTimelineEnd)
+        : -1;
+      const roleplayTimeline = [
+        ...(roleplayTimelineIndex < 0
+          ? scopedMessages
+          : scopedMessages.slice(0, roleplayTimelineIndex + (input.continueMessageId ? 1 : 0))),
+      ];
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
       const promptIdleDuration = resolvePromptIdleDuration(chatMessages, {
         excludeMessageId: currentTurnUserMessageId,
@@ -1513,6 +1532,12 @@ export async function generateRoutes(app: FastifyInstance) {
         impersonate: input.impersonate,
         impersonateBlockAgents: input.impersonateBlockAgents,
       });
+      const roleplayCommandAgentIds = new Set<string>();
+      if (chatMode === "roleplay" && !input.impersonate) {
+        if (isRoleplayCommandEnabled(chatMeta, "illustrate")) roleplayCommandAgentIds.add("illustrator");
+        if (isRoleplayCommandEnabled(chatMeta, "music") && activeMusicPlayerSource)
+          roleplayCommandAgentIds.add("spotify");
+      }
       const persistedChatActiveAgentIds: string[] = Array.isArray(chatMeta.activeAgentIds)
         ? (chatMeta.activeAgentIds as string[])
         : [];
@@ -1536,7 +1561,9 @@ export async function generateRoutes(app: FastifyInstance) {
         .filter((agentId) => !(gameSpotifyMusicEnabled && agentId === "spotify"));
       const customAgentImportsEnabled = (await getCustomAgentImportPolicy(app.db)).enabled;
       const allConfiguredPromptAgents =
-        chatEnableAgents && rawChatActiveAgentIds.length > 0 ? await agentsStore.list() : [];
+        (chatEnableAgents && rawChatActiveAgentIds.length > 0) || roleplayCommandAgentIds.size > 0
+          ? await agentsStore.list()
+          : [];
       const skippedImportedPromptAgents = customAgentImportsEnabled
         ? []
         : allConfiguredPromptAgents.filter((agent) => isExternallyImportedAgent(agent.type, agent.settings));
@@ -2068,6 +2095,7 @@ export async function generateRoutes(app: FastifyInstance) {
       let lastSavedMsg: any = null;
       let lastSavedSwipeIndex: number | null = null;
       let pendingIllustration: Promise<void> | null = null;
+      const pendingRoleplayMedia: Promise<void>[] = [];
       let pendingIllustratorBackground: (() => Promise<void>) | null = null;
       const collectedCommands: Array<{
         command: CharacterCommand;
@@ -3371,11 +3399,13 @@ export async function generateRoutes(app: FastifyInstance) {
             : null;
         const { enabledConfigs, resolvedAgents, agentConnectionWarnings } = await resolveAgentPipelineAgents({
           connections,
-          configuredAgents: pipelineConfiguredPromptAgents,
+          configuredAgents: chatEnableAgents
+            ? pipelineConfiguredPromptAgents
+            : pipelineConfiguredPromptAgents.filter((agent) => roleplayCommandAgentIds.has(agent.type)),
           chatId: input.chatId,
-          chatEnableAgents,
-          hasPerChatAgentList,
-          perChatAgentSet,
+          chatEnableAgents: chatEnableAgents || roleplayCommandAgentIds.size > 0,
+          hasPerChatAgentList: hasPerChatAgentList || roleplayCommandAgentIds.size > 0,
+          perChatAgentSet: new Set([...(chatEnableAgents ? perChatAgentSet : []), ...roleplayCommandAgentIds]),
           agentPromptTemplateSelections,
           chatProvider: agentChatProvider,
           chatConnectionId: connId ?? "",
@@ -3919,35 +3949,7 @@ export async function generateRoutes(app: FastifyInstance) {
         }
 
         const roleplayDmCommandsEnabled =
-          chatMode === "roleplay" && chatMeta.roleplayDmCommandsEnabled === true && !input.impersonate;
-        if (roleplayDmCommandsEnabled) {
-          const dmTargetHint =
-            charInfo
-              .map((character) => character.name.replace(/"/g, "'"))
-              .filter(Boolean)
-              .join(" | ") || "character name";
-          const dmCommandReminder = resolvePromptMacros(
-            [
-              `<dm_commands>`,
-              `Optional hidden command, use only when it naturally fits the scene:`,
-              `- [dm: character="${dmTargetHint}" message="short text"] - only if a roleplay character sends {{user}} a direct message through a phone, communicator, letter app, terminal, or similar in-world channel. Marinara strips the command from the roleplay reply and posts the full message into the linked conversation when one exists; otherwise it creates a new DM conversation with that character.`,
-              `Only use one of the listed character names/IDs. Do not use this command for incidental NPCs without a character card.`,
-              `Do not also quote the exact same direct-message text in the roleplay narration unless the user should see it in both places.`,
-              `</dm_commands>`,
-            ].join("\n"),
-          );
-          const lastUserIdx = findLastIndex(finalMessages, "user");
-          if (lastUserIdx >= 0) {
-            const target = finalMessages[lastUserIdx]!;
-            finalMessages[lastUserIdx] = { ...target, content: `${target.content}\n\n${dmCommandReminder}` };
-          } else {
-            finalMessages.push({ role: "user" as const, content: dmCommandReminder });
-          }
-          logger.debug(
-            "[generate/roleplay] Injected DM command reminder (%d chars) into last user message",
-            dmCommandReminder.length,
-          );
-        }
+          chatMode === "roleplay" && isRoleplayCommandEnabled(chatMeta, "dm") && !input.impersonate;
 
         if (input.continueMessageId) {
           finalMessages.push({
@@ -4300,6 +4302,7 @@ export async function generateRoutes(app: FastifyInstance) {
         });
         if (
           illustratorAgentForInterval &&
+          !roleplayCommandAgentIds.has("illustrator") &&
           (await shouldSkipAgentByMessageInterval({
             agentsStore,
             chatId: input.chatId,
@@ -4902,7 +4905,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const textRewriteAgentIds = new Set(textRewriteAgents.map((a) => a.id));
         const lorebookKeeperAgent = resolvedAgents.find((a) => a.type === "lorebook-keeper") ?? null;
         let pipelineAgents = resolvedAgents.filter(
-          (a) => !textRewriteAgentIds.has(a.id) && a.type !== "lorebook-keeper",
+          (a) => !textRewriteAgentIds.has(a.id) && a.type !== "lorebook-keeper" && !roleplayCommandAgentIds.has(a.type),
         );
         const trackerAgentTypes = getTrackerAgentTypes();
         const attachLorebooksToTrackers = chatMode === "roleplay" && chatMeta.attachLorebooksToTrackers === true;
@@ -4959,7 +4962,11 @@ export async function generateRoutes(app: FastifyInstance) {
           // only roll_dice is attached, and everything keyed on enableChatTools stays quiet.
           // Impersonation writes the player's own line rather than GM narration, so it is left
           // out: there is nothing for the GM to resolve and no turn for the card to belong to.
-          autoAttachToolNames: chatMode === "game" && !input.impersonate ? GAME_MODE_AUTO_ATTACH_TOOL_NAMES : [],
+          autoAttachToolNames:
+            !input.impersonate &&
+            (chatMode === "game" || (chatMode === "roleplay" && isRoleplayCommandEnabled(chatMeta, "roll")))
+              ? GAME_MODE_AUTO_ATTACH_TOOL_NAMES
+              : [],
         });
         const eligiblePipelineAgents: typeof pipelineAgents = [];
         for (const agent of pipelineAgents) {
@@ -5696,6 +5703,8 @@ export async function generateRoutes(app: FastifyInstance) {
         const TOKEN_CHUNK_SIZE = 6;
         const TOKEN_CHUNK_YIELD_EVERY = 64;
         let tokenChunksSinceYield = 0;
+        let roleplayCommandStreamFilter: RoleplayCommandStreamFilter | null = null;
+        const roleplayMediaRequests: Array<{ command: RoleplayCommand; messageId: string; swipeIndex: number }> = [];
         const spatialDirectiveStreamFilter =
           hierarchicalMapsEnabledForChat && (requestChatMode === "roleplay" || requestChatMode === "game")
             ? createAssistantSpatialDirectiveStreamFilter()
@@ -5716,7 +5725,8 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         };
         const sendTokenTextChunked = async (text: string) => {
-          const visibleText = spatialDirectiveStreamFilter?.push(text) ?? text;
+          const commandFiltered = roleplayCommandStreamFilter?.push(text) ?? text;
+          const visibleText = spatialDirectiveStreamFilter?.push(commandFiltered) ?? commandFiltered;
           if (visibleText) {
             recordReasoningDuration(visibleText);
             await emitTokenTextChunked(visibleText);
@@ -6343,6 +6353,38 @@ export async function generateRoutes(app: FastifyInstance) {
               ...(message.providerMetadata ? { providerMetadata: message.providerMetadata } : {}),
             }));
 
+          // Private state enters only the final responder request, after shared agent context.
+          const publicRoleplayPrompt = chatMode === "roleplay" ? toProviderMessages(preparedMessagesForGen) : null;
+          const roleplayPrivateAvailable =
+            Boolean(targetCharId) && (allCharacterIds.length === 1 || usesIndividualGroupGeneration);
+          let roleplayPersonalContext = "";
+          if (chatMode === "roleplay" && !input.impersonate) {
+            const personalCharacters = [...(await getGroupHistoryCharacterNamesById())].map(([id, name]) => ({
+              id,
+              name,
+            }));
+            roleplayPersonalContext = buildRoleplayPersonalContext({
+              messages: roleplayTimeline,
+              metadata: chatMeta,
+              characters: personalCharacters,
+              characterId: roleplayPrivateAvailable ? targetCharId : null,
+              individual: usesIndividualGroupGeneration,
+              format: wrapFormat,
+            });
+            appendRoleplayPromptTail(
+              preparedMessagesForGen,
+              roleplayPersonalContext,
+              buildRoleplayCommandsReminder({
+                metadata: chatMeta,
+                privateAvailable: roleplayPrivateAvailable,
+                availableAgentIds: new Set(resolvedAgents.map((agent) => agent.type)),
+                format: wrapFormat,
+                characterNames: charInfo.map((character) => character.name),
+              }),
+              wrapFormat,
+            );
+          }
+
           const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
             return postProcessMessages(messages, {
               ...parseStoredGenerationParameters(resolvedPreset?.parameters),
@@ -6353,7 +6395,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
           let finalPromptSent: ChatMessage[] = [];
           const rememberMainPromptPreviewForAgents = (messages: ChatMessage[]) => {
-            agentContext.memory._mainPromptPreview = promptPreviewForAgents(messages);
+            agentContext.memory._mainPromptPreview = promptPreviewForAgents(publicRoleplayPrompt ?? messages);
           };
           let effectiveMaxTokensForSend: number | undefined = maxTokens;
           const fitPromptForSend = (candidateMessages: ChatMessage[]): ChatMessage[] => {
@@ -6375,6 +6417,11 @@ export async function generateRoutes(app: FastifyInstance) {
           rememberMainPromptPreviewForAgents(initialProviderMessages);
 
           // Reset per-character accumulators
+          const roleplayRollEnabled =
+            chatMode === "roleplay" && !input.impersonate && isRoleplayCommandEnabled(chatMeta, "roll");
+          roleplayCommandStreamFilter =
+            chatMode === "roleplay" && !input.impersonate ? new RoleplayCommandStreamFilter(roleplayRollEnabled) : null;
+          if (chatMode === "roleplay") encryptedReasoningItems = undefined;
           fullResponse = "";
           fullThinking = "";
           providerThinking = "";
@@ -6468,13 +6515,25 @@ export async function generateRoutes(app: FastifyInstance) {
             await recordLongTermMemoryPromptAccepted({
               chatId: input.chatId,
               receipt: longTermMemoryRecallReceipt,
-              messages: messages.map(({ role, content }) => ({ role, content })),
+              messages: messages.map(({ role, content }) => {
+                const publicContent = roleplayPersonalContext
+                  ? content.replaceAll(roleplayPersonalContext, "")
+                  : content;
+                return {
+                  role,
+                  content:
+                    chatMode === "roleplay" && role === "assistant"
+                      ? parseRoleplayCommands(publicContent).content
+                      : publicContent,
+                };
+              }),
             });
           };
 
           if (toolsAttached && provider.chatComplete) {
             const maxToolRounds = getMaxToolRounds();
             let loopMessages: ChatMessage[] = initialProviderMessages;
+            let rollRequestAbort: AbortController | null = null;
             // Stream tokens in real-time via onToken callback.
             // Some providers (e.g. Gemini with thinking) return the entire response
             // in one chunk. Break large chunks into small pieces so the client sees
@@ -6487,12 +6546,18 @@ export async function generateRoutes(app: FastifyInstance) {
               fullResponse += chunk;
               if (holdForTextRewrite) {
                 recordReasoningDuration(chunk);
-                return;
+                roleplayCommandStreamFilter?.push(chunk);
+              } else {
+                await sendTokenTextChunked(chunk);
               }
-              await sendTokenTextChunked(chunk);
+              if (roleplayRollEnabled && roleplayCommandStreamFilter?.rollRequested) rollRequestAbort?.abort();
             };
 
             for (let round = 0; round < maxToolRounds; round++) {
+              const roundResponseStart = fullResponse.length;
+              rollRequestAbort = roleplayRollEnabled ? new AbortController() : null;
+              if (chatMode === "roleplay" && !input.impersonate)
+                roleplayCommandStreamFilter = new RoleplayCommandStreamFilter(roleplayRollEnabled);
               // Treat abort as a silent cancellation: stop the pipeline immediately.
               if (abortController.signal.aborted) {
                 return null;
@@ -6536,7 +6601,9 @@ export async function generateRoutes(app: FastifyInstance) {
                     onThinking,
                     onToken: input.streaming ? onToken : undefined,
                     openrouterProvider: conn.openrouterProvider ?? undefined,
-                    signal: abortController.signal,
+                    signal: rollRequestAbort
+                      ? AbortSignal.any([abortController.signal, rollRequestAbort.signal])
+                      : abortController.signal,
                     encryptedReasoningItems: excludePastReasoning ? undefined : encryptedReasoningItems,
                     onEncryptedReasoning: excludePastReasoning
                       ? undefined
@@ -6549,16 +6616,19 @@ export async function generateRoutes(app: FastifyInstance) {
                 await recordAcceptedLongTermMemoryPrompt(loopMessages);
               } catch (err: any) {
                 // If the error was caused by an abort, cancel silently and skip post-processing.
-                if (abortController.signal.aborted || (err && err.name === "AbortError")) {
+                if (!abortController.signal.aborted && rollRequestAbort?.signal.aborted) {
+                  result = { content: fullResponse.slice(roundResponseStart), toolCalls: [], finishReason: "stop" };
+                } else if (abortController.signal.aborted || (err && err.name === "AbortError")) {
                   return null;
-                }
-                throw err;
+                } else throw err;
               }
 
               // If abort was triggered during chat completion, exit before using the result.
               if (abortController.signal.aborted) {
                 return null;
               }
+              if (rollRequestAbort?.signal.aborted)
+                result = { ...result, content: fullResponse.slice(roundResponseStart), toolCalls: [] };
 
               // If provider doesn't support onToken (fell back to non-streaming),
               // write the content conventionally
@@ -6592,12 +6662,41 @@ export async function generateRoutes(app: FastifyInstance) {
               }
               finishReason = result.finishReason;
 
+              let textualRoleplayRoll = false;
+              const requestedRoll =
+                roleplayRollEnabled && !result.toolCalls.length
+                  ? parseRoleplayCommands(result.content ?? "").roll
+                  : undefined;
+              if (requestedRoll) {
+                textualRoleplayRoll = true;
+                fullResponse =
+                  fullResponse.slice(0, roundResponseStart) + (result.content ?? "").slice(0, requestedRoll.end);
+                result = {
+                  ...result,
+                  content: (result.content ?? "").slice(0, requestedRoll.start),
+                  providerMetadata: undefined,
+                  toolCalls: [
+                    {
+                      id: newId(),
+                      type: "function" as const,
+                      function: {
+                        name: "roll_dice",
+                        arguments: JSON.stringify({
+                          notation: requestedRoll.command.notation,
+                          reason: requestedRoll.command.reason,
+                        }),
+                      },
+                    },
+                  ],
+                };
+              }
+
               if (!result.toolCalls.length) break;
 
               loopMessages.push({
                 role: "assistant",
                 content: result.content ?? "",
-                tool_calls: result.toolCalls,
+                ...(textualRoleplayRoll ? {} : { tool_calls: result.toolCalls }),
                 ...(result.providerMetadata ? { providerMetadata: result.providerMetadata } : {}),
               });
 
@@ -6639,7 +6738,11 @@ export async function generateRoutes(app: FastifyInstance) {
                 // parsed result on the event so the client can show the card while the turn is
                 // still running, and remember it for the saved message. The raw tool result the
                 // model reads is untouched.
-                const cardEligible = chatMode === "game" && !input.impersonate && tr.name === "roll_dice" && tr.success;
+                const cardEligible =
+                  (chatMode === "game" || roleplayRollEnabled) &&
+                  !input.impersonate &&
+                  tr.name === "roll_dice" &&
+                  tr.success;
                 const rolled = cardEligible ? parseRollDiceToolResult(tr.result) : null;
                 if (rolled) toolDiceRollResult = rolled;
                 // A roll the model was handed but the player never sees cannot be diagnosed
@@ -6654,6 +6757,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     result: tr.result,
                     success: tr.success,
                     ...(rolled ? { diceRollResult: rolled } : {}),
+                    ...(rolled && chatMode === "roleplay" ? { mode: "roleplay" } : {}),
                   },
                 });
 
@@ -6740,12 +6844,22 @@ export async function generateRoutes(app: FastifyInstance) {
               }
 
               for (const tr of toolResults) {
-                loopMessages.push({
-                  role: "tool",
-                  content: formatToolExecutionResultForModel(tr),
-                  tool_call_id: tr.toolCallId,
-                });
+                loopMessages.push(
+                  textualRoleplayRoll
+                    ? {
+                        role: "user",
+                        content: `The engine resolved your roll request:\n${formatToolExecutionResultForModel(tr)}\nContinue the same reply from the interruption. Use this result; do not repeat the preceding narration or reroll this action.${round === maxToolRounds - 1 ? " No further rolls are available this turn." : ""}`,
+                      }
+                    : {
+                        role: "tool",
+                        content: formatToolExecutionResultForModel(tr),
+                        tool_call_id: tr.toolCallId,
+                      },
+                );
               }
+
+              if (roleplayRollEnabled)
+                roleplayCommandStreamFilter = new RoleplayCommandStreamFilter(roleplayRollEnabled);
 
               if (round === maxToolRounds - 1) {
                 // Reset per-character accumulator for final round content
@@ -6790,6 +6904,15 @@ export async function generateRoutes(app: FastifyInstance) {
                     onChatCompletionsReasoning: rememberChatCompletionsReasoning,
                   }),
                 );
+                const pendingRoll = roleplayRollEnabled
+                  ? parseRoleplayCommands(finalResult.content ?? "").roll
+                  : undefined;
+                if (pendingRoll) {
+                  finalResult.content = (finalResult.content ?? "").slice(0, pendingRoll.start);
+                  finalResult.providerMetadata = undefined;
+                  fullResponse = fullResponse.slice(0, prevLen) + finalResult.content;
+                  sendSseEvent(reply, { type: "roleplay_command_error", data: { rollLimit: true } });
+                }
                 if (finalResult.content && fullResponse.length === prevLen) {
                   await writeContentChunked(finalResult.content);
                 }
@@ -6969,6 +7092,31 @@ export async function generateRoutes(app: FastifyInstance) {
           }
 
           // ── Parse and strip hidden character commands ──
+          let roleplayPrivateCommands: RoleplayPrivateCommand[] = [];
+          let roleplayHadCommands = false;
+          const roleplayDocuments: RoleplayDocument[] = [];
+          const currentRoleplayMedia: RoleplayCommand[] = [];
+          if (chatMode === "roleplay" && !input.impersonate) {
+            const parsed = parseRoleplayCommands(fullResponse);
+            roleplayHadCommands = parsed.content !== fullResponse;
+            fullResponse = parsed.content;
+            if (!roleplayDmCommandsEnabled) fullResponse = parseDirectMessageCommands(fullResponse).cleanContent;
+            contentReplaced = true;
+            if (parsed.invalid) sendSseEvent(reply, { type: "roleplay_command_error", data: { invalid: true } });
+            for (const command of parsed.commands) {
+              if (!isRoleplayCommandEnabled(chatMeta, roleplayCommandKey(command))) continue;
+              if (
+                command.type === "notes" ||
+                command.type === "dismiss_notes" ||
+                command.type === "memory" ||
+                command.type === "dismiss_memory"
+              ) {
+                if (roleplayPrivateAvailable && targetCharId) roleplayPrivateCommands.push(command);
+              } else if (command.type === "document") {
+                roleplayDocuments.push({ type: command.documentType, title: command.title, content: command.content });
+              } else if (command.type !== "roll") currentRoleplayMedia.push(command);
+            }
+          }
           let parsedCommands: CharacterCommand[] = [];
           // Parallel to parsedCommands: per-command character attribution for merged
           // group conversations (null elsewhere — caller falls back to the message char).
@@ -7422,7 +7570,12 @@ export async function generateRoutes(app: FastifyInstance) {
           // Exception: if the model emitted character commands (e.g. [fetch:...]) with
           // no surrounding prose, treat the commands as the useful output. Skip saving
           // a blank assistant bubble but still return the commands so they execute.
-          if (!fullResponse.trim()) {
+          if (
+            !fullResponse.trim() &&
+            !roleplayPrivateCommands.length &&
+            !roleplayDocuments.length &&
+            !currentRoleplayMedia.length
+          ) {
             logger.warn(
               {
                 chatId: input.chatId,
@@ -7743,6 +7896,41 @@ export async function generateRoutes(app: FastifyInstance) {
             extraUpdate.contextInjections = contextInjections.length > 0 ? contextInjections : null;
             extraUpdate.conversationCommandContent =
               chatMode === "conversation" && !input.impersonate ? conversationCommandContent : null;
+            if (chatMode === "roleplay" && !input.impersonate) {
+              const previousExtra = input.continueMessageId
+                ? parseExtra((await chats.getMessage(savedMsg.id))?.extra)
+                : {};
+              roleplayPrivateCommands = [
+                ...(Array.isArray(previousExtra.roleplayPrivateCommands) ? previousExtra.roleplayPrivateCommands : []),
+                ...roleplayPrivateCommands,
+              ];
+              extraUpdate.roleplayPrivateCommands = roleplayPrivateCommands.length ? roleplayPrivateCommands : null;
+              extraUpdate.roleplayDocuments = [
+                ...(Array.isArray(previousExtra.roleplayDocuments) ? previousExtra.roleplayDocuments : []),
+                ...roleplayDocuments,
+              ];
+              extraUpdate.roleplayPrivateContext = Boolean(
+                roleplayPersonalContext || roleplayHadCommands || previousExtra.roleplayPrivateContext,
+              );
+              const privateOnly =
+                !savedMsg.content.trim() &&
+                roleplayPrivateCommands.length > 0 &&
+                !(extraUpdate.roleplayDocuments as unknown[]).length &&
+                !currentRoleplayMedia.length;
+              extraUpdate.roleplayPrivateOnly = privateOnly;
+              if (
+                privateOnly ||
+                previousExtra.roleplayPrivateOnly === true ||
+                parseExtra(regenMsg?.extra).roleplayPrivateOnly === true
+              )
+                extraUpdate.hiddenFromUser = privateOnly;
+              const timelineMessage = { ...savedMsg, extra: { ...parseExtra(savedMsg.extra), ...extraUpdate } };
+              const existingTimelineIndex = roleplayTimeline.findIndex((message) => message.id === savedMsg.id);
+              if (existingTimelineIndex >= 0) roleplayTimeline[existingTimelineIndex] = timelineMessage;
+              else roleplayTimeline.push(timelineMessage);
+              for (const command of currentRoleplayMedia)
+                roleplayMediaRequests.push({ command, messageId: savedMsg.id, swipeIndex: savedSwipeIndex ?? 0 });
+            }
             extraUpdate.generationReplay = buildGenerationReplay(input);
             extraUpdate.startsNewAssistantBubble = startsNewAssistantBubble;
             // Same message-extra /roll writes, so a GM-called roll survives a reload wherever
@@ -8016,7 +8204,16 @@ export async function generateRoutes(app: FastifyInstance) {
             // Add this character's response to the running context for the next character
             const inTurnMessage = {
               role: "assistant",
-              content: genResult.response,
+              content:
+                chatMode === "roleplay"
+                  ? conversationPromptHistoryContent(
+                      roleplayTimeline.find((message) => message.id === genResult.savedMsg?.id) ?? {
+                        role: "assistant",
+                        content: genResult.response,
+                      },
+                      chatMode,
+                    )
+                  : genResult.response,
               contextKind: "history",
               characterId: charId,
             } as const;
@@ -8250,7 +8447,10 @@ export async function generateRoutes(app: FastifyInstance) {
         // (pendingIllustration is hoisted above the follow-up loop.)
         const hasPostWork =
           !recoveredAlreadyAppliedOwnerTurn &&
-          (hasPostProcessingAgents || parallelResults.length > 0 || holdForTextRewrite);
+          (hasPostProcessingAgents ||
+            parallelResults.length > 0 ||
+            holdForTextRewrite ||
+            roleplayMediaRequests.length > 0);
         const latestAssistantMessageId =
           (lastSavedMsg as any)?.role === "assistant" ? ((lastSavedMsg as any)?.id ?? "") : "";
 
@@ -8466,7 +8666,7 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         };
 
-        if (hasPostWork && completedResponse && !abortController.signal.aborted) {
+        if (hasPostWork && (completedResponse || roleplayMediaRequests.length > 0) && !abortController.signal.aborted) {
           if (customAgentsWithLorebookTriggers.some((agent) => agent.phase === "post_processing")) {
             agentContext.triggeredLorebookEntriesByAgentId = await resolveTriggeredLorebookEntriesByAgentId([
               ...recentMsgs,
@@ -8730,6 +8930,115 @@ export async function generateRoutes(app: FastifyInstance) {
           }
 
           // Persist agent runs to DB + handle game state updates
+          const roleplayMediaTargets = new Map<AgentResult, { messageId: string; swipeIndex: number }>();
+          for (const request of roleplayMediaRequests) {
+            if (agentSignal.aborted) break;
+            const { command } = request;
+            if (command.type === "sound") {
+              pendingRoleplayMedia.push(
+                (async () => {
+                  try {
+                    const { generateRoleplaySoundEffect } = await import("./tts.routes.js");
+                    const audio = await generateRoleplaySoundEffect(
+                      app.db,
+                      command.description,
+                      typeof chatMeta.roleplaySoundConnectionId === "string"
+                        ? chatMeta.roleplaySoundConnectionId
+                        : null,
+                      requestDebug || isDebugAgentsEnabled(),
+                      agentSignal,
+                    );
+                    const attachment = {
+                      type: "audio/mpeg",
+                      roleplaySound: true,
+                      name: command.description,
+                      url: `/api/game-assets/file/${audio.path.split("/").map(encodeURIComponent).join("/")}`,
+                    };
+                    await chats.appendSwipeAttachment(request.messageId, request.swipeIndex, attachment);
+                    const message = await chats.appendMessageAttachmentForActiveSwipe(
+                      request.messageId,
+                      request.swipeIndex,
+                      attachment,
+                    );
+                    if (message) {
+                      sendSseEvent(reply, {
+                        type: "roleplay_sound",
+                        data: { messageId: request.messageId, ...attachment },
+                      });
+                    }
+                  } catch (error) {
+                    if (agentSignal.aborted) return;
+                    logger.error(error, "[roleplay/commands] Sound cue failed");
+                    sendSseEvent(reply, {
+                      type: "roleplay_command_error",
+                      data: { error: error instanceof Error ? error.message : "Sound generation failed" },
+                    });
+                  }
+                })(),
+              );
+              continue;
+            }
+            if (command.type !== "illustrate" && command.type !== "music") continue;
+            const agent = resolvedAgents.find(
+              (candidate) => candidate.type === (command.type === "illustrate" ? "illustrator" : "spotify"),
+            );
+            if (!agent) {
+              sendSseEvent(reply, {
+                type: "roleplay_command_error",
+                data: { error: "The requested media agent is unavailable." },
+              });
+              continue;
+            }
+            const sourceMessage = await chats.getMessage(request.messageId);
+            const sourceName = sourceMessage?.characterId
+              ? (await getGroupHistoryCharacterNamesById()).get(sourceMessage.characterId)
+              : undefined;
+            const context: AgentContext = {
+              ...postAgentContext,
+              mainResponse: `${sourceName ? `${sourceName}: ` : ""}${sourceMessage?.content ?? completedResponse}\n\nExplicit scene request: ${command.type === "illustrate" ? command.subject : command.mood}`,
+            };
+            try {
+              let result: AgentResult;
+              if (command.type === "illustrate") {
+                const plan = await writeManualIllustratorPromptPlan({
+                  illustratorAgent: agent,
+                  context,
+                  signal: agentSignal,
+                  debugLog,
+                  styleInstruction:
+                    typeof agentContext.memory._illustratorImageStyleInstruction === "string"
+                      ? agentContext.memory._illustratorImageStyleInstruction
+                      : undefined,
+                });
+                result = {
+                  agentId: agent.id,
+                  agentType: agent.type,
+                  type: "image_prompt",
+                  data: { ...plan.plan, shouldGenerate: true, generateBackground: false },
+                  success: true,
+                  error: null,
+                  tokensUsed: plan.tokensUsed,
+                  durationMs: 0,
+                };
+              } else {
+                const selected = await executeAgent(agent, context, agent.provider, agent.model, agent.toolContext);
+                [result] = (await applySpotifyAgentPlaybackFallbacks([selected], resolvedAgents, context)) as [
+                  AgentResult,
+                ];
+              }
+              roleplayMediaTargets.set(result, request);
+              sendAgentEvent(result, { finalized: result.agentType === "spotify" });
+              postResults.push(result);
+            } catch (error) {
+              if (agentSignal.aborted) break;
+              logger.error(error, "[roleplay/commands] Media request failed");
+              sendSseEvent(reply, {
+                type: "roleplay_command_error",
+                data: { error: error instanceof Error ? error.message : "Media request failed" },
+              });
+            }
+          }
+
           // Sort so game_state_update (world-state) is processed before dependent types
           // (character_tracker_update, persona_stats_update) that merge into the snapshot.
           const RESULT_ORDER: Record<string, number> = { game_state_update: 0 };
@@ -8760,7 +9069,12 @@ export async function generateRoutes(app: FastifyInstance) {
             return trackerFieldLocksAreEmpty(locks) ? null : JSON.stringify(locks);
           };
 
+          const defaultResultMessageId = messageId;
+          const defaultResultSwipeIndex = targetSwipeIndex;
           for (const result of sortedResults) {
+            const commandTarget = roleplayMediaTargets.get(result);
+            const messageId = commandTarget?.messageId ?? defaultResultMessageId;
+            const targetSwipeIndex = commandTarget?.swipeIndex ?? defaultResultSwipeIndex;
             const resultMessageId =
               result.agentType === "lorebook-keeper" && lorebookKeeperProcessedMessageId
                 ? lorebookKeeperProcessedMessageId
@@ -9845,14 +10159,14 @@ export async function generateRoutes(app: FastifyInstance) {
               const requestedBackground = illustratorRequestedBackground(illData.generateBackground);
               const automaticBackgroundsEnabled = illustratorBackgroundGenerationEnabled(chatMode, chatMeta);
               const storyboardSuppressesForeground =
-                storyboardOwnsAutomaticForeground && result.agentType === "illustrator";
+                !commandTarget && storyboardOwnsAutomaticForeground && result.agentType === "illustrator";
 
               // Always log what the illustrator decided
               logger.debug(
                 `[illustrator] shouldGenerate=${shouldGenerate}, generateBackground=${requestedBackground}, reason="${(illData.reason as string) ?? "none"}", prompt="${imagePrompt.slice(0, 500) || "(empty)"}"${illData.parseError ? " [JSON PARSE ERROR — raw: " + ((illData.raw as string) ?? "").slice(0, 300) + "]" : ""}`,
               );
 
-              if (automaticBackgroundsEnabled && illustratorBackgroundAgent) {
+              if (!commandTarget && automaticBackgroundsEnabled && illustratorBackgroundAgent) {
                 const backgroundAtDecision =
                   typeof chatMeta.background === "string" && chatMeta.background.trim()
                     ? chatMeta.background.trim()
@@ -10314,6 +10628,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       });
                     }
                   })();
+                  if (commandTarget && pendingIllustration) pendingRoleplayMedia.push(pendingIllustration);
                 } else {
                   logger.warn("[illustrator] Agent wants to generate but no image generation connection configured");
                   sendSseEvent(reply, {
@@ -10884,8 +11199,10 @@ export async function generateRoutes(app: FastifyInstance) {
       // Start the independent scene-background tail after tracker persistence,
       // then keep the SSE stream open for both visual jobs.
       const pendingBackground = pendingIllustratorBackground ? pendingIllustratorBackground() : null;
-      if (pendingIllustration || pendingBackground) {
-        await Promise.allSettled([pendingIllustration, pendingBackground].filter(Boolean) as Promise<void>[]);
+      if (pendingIllustration || pendingBackground || pendingRoleplayMedia.length) {
+        await Promise.allSettled(
+          [pendingIllustration, pendingBackground, ...pendingRoleplayMedia].filter(Boolean) as Promise<void>[],
+        );
       }
     } catch (err) {
       if (abortController.signal.aborted || isAbortLikeError(err)) {

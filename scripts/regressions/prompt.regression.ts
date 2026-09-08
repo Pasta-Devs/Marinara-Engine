@@ -1207,7 +1207,12 @@ const cases: RegressionCase[] = [
         "utf8",
       );
       assert.match(generateRouteSource, /shouldSuppressIllustratorForegroundForStoryboard\(\{/u);
-      assert.match(generateRouteSource, /if \(automaticBackgroundsEnabled && illustratorBackgroundAgent\)/u);
+      // Explicit image commands request foreground art; automatic backgrounds
+      // retain their independent setting when Storyboard owns foreground art.
+      assert.match(
+        generateRouteSource,
+        /if \(!commandTarget && automaticBackgroundsEnabled && illustratorBackgroundAgent\)/u,
+      );
       assert.match(generateRouteSource, /if \(!storyboardSuppressesForeground && shouldGenerate && imagePrompt\)/u);
     },
   },

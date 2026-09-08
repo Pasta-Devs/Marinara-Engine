@@ -2,6 +2,7 @@
 // Routes: Text-to-Speech
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
+import type { DB } from "../db/connection.js";
 import { z } from "zod";
 import { createHash, randomUUID } from "crypto";
 import { access, mkdir, readdir, rename, unlink, writeFile } from "fs/promises";
@@ -223,7 +224,9 @@ async function generateElevenLabsGameAudio(
   kind: "sfx" | "music",
   prompt: string,
   context?: GameAudioContext,
+  signal?: AbortSignal,
 ): Promise<{ tag: string; path: string; cached: boolean }> {
+  signal?.throwIfAborted();
   const normalizedPrompt = normalizeGameAudioPrompt(prompt);
   const hash = createHash("sha256").update(`${kind}\0${normalizedPrompt.toLowerCase()}`).digest("hex");
   let category: string;
@@ -283,7 +286,7 @@ async function generateElevenLabsGameAudio(
             force_instrumental: true,
           },
     ),
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
     policy: {
       allowLocal: false,
       allowedProtocols: ["https:"],
@@ -297,6 +300,7 @@ async function generateElevenLabsGameAudio(
   }
 
   const bytes = new Uint8Array(await response.arrayBuffer());
+  signal?.throwIfAborted();
   if (!resolveTTSAudioResponseContentType(response.headers.get("content-type"), bytes)) {
     throw new Error("ElevenLabs returned a non-audio response");
   }
@@ -312,6 +316,34 @@ async function generateElevenLabsGameAudio(
   }
   scheduleGameAssetManifestRebuild();
   return { tag, path: relativePath, cached: false };
+}
+
+/** Host command entry point using the same connection, cache, and file validation as Game audio. */
+export async function generateRoleplaySoundEffect(
+  db: DB,
+  prompt: string,
+  connectionId: string | null,
+  debugMode: boolean,
+  signal?: AbortSignal,
+) {
+  signal?.throwIfAborted();
+  const cfg = await resolveAudioConfig(createAppSettingsStorage(db), createConnectionsStorage(db), connectionId);
+  signal?.throwIfAborted();
+  if (cfg.source !== "elevenlabs" || cfg.elevenLabsGameSoundEffects !== true || !cfg.apiKey)
+    throw new Error("Choose an ElevenLabs audio connection with sound effect generation enabled.");
+  const normalized = normalizeGameAudioPrompt(prompt);
+  logDebugOverride(debugMode, "[debug/roleplay/sound] Prompt sent to audio provider:\n%s", normalized);
+  const key = `sfx\0${normalized.toLowerCase()}`;
+  let generation = gameAudioGenerationLocks.get(key);
+  if (!generation) {
+    generation = generateElevenLabsGameAudio(cfg, "sfx", normalized, undefined, signal).finally(() =>
+      gameAudioGenerationLocks.delete(key),
+    );
+    gameAudioGenerationLocks.set(key, generation);
+  }
+  const result = await generation;
+  signal?.throwIfAborted();
+  return result;
 }
 
 // ── Helpers ─────────────────────────────────────

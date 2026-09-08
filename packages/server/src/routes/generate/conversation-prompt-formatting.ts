@@ -90,6 +90,16 @@ export function conversationPromptHistoryContent(
   message: { role?: unknown; content?: unknown; extra?: unknown },
   chatMode: string,
 ): string {
+  if (chatMode === "roleplay" && message.role === "assistant") {
+    const documents = parseExtra(message.extra).roleplayDocuments;
+    if (Array.isArray(documents))
+      return [
+        typeof message.content === "string" ? message.content : "",
+        ...documents
+          .filter((document) => document && typeof document.title === "string" && typeof document.content === "string")
+          .map((document) => `Document: ${document.title}\n${document.content}`),
+      ].join("\n\n");
+  }
   if (chatMode === "conversation" && message.role === "assistant") {
     const commandContent = parseExtra(message.extra).conversationCommandContent;
     if (typeof commandContent === "string" && commandContent.trim()) {

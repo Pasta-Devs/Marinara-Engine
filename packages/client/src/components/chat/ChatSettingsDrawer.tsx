@@ -5,6 +5,7 @@ import { Fragment, lazy, Suspense, useState, useRef, useEffect, useMemo, useCall
 import { useQuery, useQueryClient, useQueries } from "@tanstack/react-query";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { RoleplayCommandsSettings } from "./RoleplayCommandsSettings";
 import {
   X,
   Users,
@@ -156,7 +157,12 @@ import { api } from "../../lib/api-client";
 import { readCharacterGreetings, type CharacterGreeting } from "../../lib/character-greetings";
 import { trackChatMetadataSave, waitForPendingChatMetadataSaves } from "../../lib/chat-metadata-save-barrier";
 import { createSerializedMutationQueue } from "../../lib/serialized-mutation-queue";
-import { appendLocalSidecarConnectionOption, filterLanguageGenerationConnections } from "../../lib/connection-filters";
+import {
+  appendLocalSidecarConnectionOption,
+  filterAudioGenerationConnections,
+  filterLanguageGenerationConnections,
+  isConnectionFlagTrue,
+} from "../../lib/connection-filters";
 import {
   deriveActiveLorebookViews,
   getChatActiveLorebookIds,
@@ -7000,20 +7006,6 @@ export function ChatSettingsDrawer({
 
                 {renderNoodleTimelineContextToggle()}
 
-                <SettingsSwitch
-                  label={localizeUi("ui.chat.chatsettingsdrawer.allowCharacterDms")}
-                  description={localizeUi("ui.chat.chatsettingsdrawer.addsAShortHiddenCommandReminderSoCharactersCan")}
-                  checked={metadata.roleplayDmCommandsEnabled === true}
-                  onChange={(checked) => updateMeta.mutate({ id: chat.id, roleplayDmCommandsEnabled: checked })}
-                  labelPosition="start"
-                  className={cn(
-                    "justify-between rounded-md px-3 py-2.5 text-left",
-                    metadata.roleplayDmCommandsEnabled === true
-                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-                  )}
-                  labelClassName="text-[0.6875rem] font-medium"
-                />
                 <DiscordMirrorControls
                   className="space-y-2"
                   webhookUrl={(metadata.discordWebhookUrl as string) ?? ""}
@@ -7190,6 +7182,27 @@ export function ChatSettingsDrawer({
               count={isGame ? gameAgentFeatureCount : visibleActiveAgentIds.length}
               help={localizeUi("ui.chat.chatsettingsdrawer.whenEnabledAiAgentsRunAutomaticallyDuringGenerationTo")}
             >
+              {isRoleplayMode && (
+                <RoleplayCommandsSettings
+                  chat={chat}
+                  installedAgentIds={
+                    new Set(availableAgents.filter((agent) => !agent.runtimeDisabled).map((agent) => agent.id))
+                  }
+                  characters={chatCharacters.map((character) => ({
+                    id: character.id,
+                    name: JSON.parse(character.data).name || character.id,
+                  }))}
+                  audioConnections={filterAudioGenerationConnections(
+                    (connections ?? []) as Array<{
+                      id: string;
+                      name: string;
+                      provider: string;
+                      audioSoundEffects?: string | boolean;
+                      profileImportReviewRequired?: unknown;
+                    }>,
+                  ).filter((connection) => isConnectionFlagTrue(connection.audioSoundEffects))}
+                />
+              )}
               {availableAgents.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--secondary)]/35 px-4 py-5 text-center">
                   <p className="text-xs font-medium text-[var(--foreground)]">

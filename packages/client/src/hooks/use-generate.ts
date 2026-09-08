@@ -2,6 +2,7 @@
 // React Query: Generation (streaming + agent pipeline)
 // ──────────────────────────────────────────────
 import { useCallback, useRef } from "react";
+import { audioManager } from "../lib/game-audio";
 import { characterDataSchema, normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { toast, type ExternalToast } from "sonner";
@@ -2142,11 +2143,20 @@ export function useGenerate() {
                 result?: unknown;
                 success?: unknown;
                 diceRollResult?: unknown;
+                mode?: string;
               };
               // A dice roll the GM asked for is something the player is meant to see, so it
               // escapes the debug-only gate and drives the same card /roll shows.
               if (isDiceRollResult(data.diceRollResult) && isActiveChat()) {
-                useGameModeStore.getState().setDiceRollResult(data.diceRollResult);
+                if (data.mode === "roleplay")
+                  toast(
+                    translate("roleplay.commands.roll.result", {
+                      notation: data.diceRollResult.notation,
+                      total: data.diceRollResult.total,
+                    }),
+                    { icon: "🎲" },
+                  );
+                else useGameModeStore.getState().setDiceRollResult(data.diceRollResult);
               }
               if (!debugMode) break;
               addDebugEntry({
@@ -2656,6 +2666,25 @@ export function useGenerate() {
               break;
             }
 
+            case "roleplay_command_error": {
+              const data = event.data as { invalid?: boolean; rollLimit?: boolean; error?: string };
+              toast.error(
+                data.rollLimit
+                  ? translate("roleplay.commands.roll.limit")
+                  : data.invalid
+                    ? translate("roleplay.commands.invalid")
+                    : translate("roleplay.commands.failed", { error: data.error ?? "" }),
+              );
+              break;
+            }
+            case "roleplay_sound": {
+              const data = event.data as { url?: string };
+              qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
+              if (isActiveChat() && data.url?.startsWith("/api/game-assets/file/sfx/")) {
+                audioManager.playSfx(decodeURIComponent(data.url.slice("/api/game-assets/file/".length)));
+              }
+              break;
+            }
             case "spotify_command": {
               const spotifyData = event.data as {
                 track?: { name?: string; artist?: string };

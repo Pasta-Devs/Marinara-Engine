@@ -8,6 +8,7 @@ import type { HapticFeedbackSensitivity } from "./haptic.js";
 import type { CustomEmojiSelectionPrefs } from "../schemas/custom-emoji.schema.js";
 import type { DiceRollResult } from "./game.js";
 import type { SpotifySourceType } from "./spotify.js";
+import type { RoleplayCommandToggles, RoleplayDocument, RoleplayPrivateCommand } from "./roleplay-command.js";
 
 export type { SpotifySourceType } from "./spotify.js";
 
@@ -460,6 +461,12 @@ export interface ChatMetadata {
   translationDisplayOnly?: boolean;
   /** Allow roleplay characters to create direct-message conversation chats with hidden [dm] commands. */
   roleplayDmCommandsEnabled?: boolean;
+  /** Hidden character commands are opt-in, independently of automatic agents. */
+  roleplayCommandsEnabled?: boolean;
+  roleplayCommandToggles?: RoleplayCommandToggles;
+  /** An actual group participant, used only for individual Roleplay generations. */
+  roleplayCommandNarratorId?: string | null;
+  roleplaySoundConnectionId?: string | null;
   /** Chat-scoped Intiface Central WebSocket URL for haptic manual and auto-connect. */
   hapticIntifaceUrl?: string | null;
   /** Haptic response style for any chat mode. Missing = standard. */
@@ -794,6 +801,13 @@ export interface MessageExtra {
    * like [selfie] remain part of the model-visible transcript.
    */
   conversationCommandContent?: string | null;
+  /** Private actions for this swipe, never replayed into shared prompt history. */
+  roleplayPrivateCommands?: RoleplayPrivateCommand[] | null;
+  /** Provider reasoning from a private turn must not be replayed into shared history. */
+  roleplayPrivateContext?: boolean;
+  /** This empty command-only turn was automatically hidden from the reader. */
+  roleplayPrivateOnly?: boolean;
+  roleplayDocuments?: RoleplayDocument[] | null;
   /** Professor Mari workspace trace shown on the home assistant transcript. */
   mariWorkspaceTimeline?: MariWorkspaceTraceItem[] | null;
   /** True when this Mari turn deferred mutating commands behind an Accept action (#5725 Manual mode). */

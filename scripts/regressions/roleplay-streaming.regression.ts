@@ -112,7 +112,7 @@ assert.match(
 );
 assert.match(
   generateRouteSource,
-  /fullResponse \+= chunk;\s*if \(holdForTextRewrite\) \{\s*recordReasoningDuration\(chunk\);\s*return;/u,
+  /fullResponse \+= chunk;\s*if \(holdForTextRewrite\) \{\s*recordReasoningDuration\(chunk\);/u,
   "Tool-streamed text-rewrite responses must still capture reasoning duration",
 );
 assert.match(

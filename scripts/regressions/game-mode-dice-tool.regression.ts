@@ -436,8 +436,8 @@ const generateRouteSource = readFileSync(
 
 assert.match(
   generateRouteSource,
-  /autoAttachToolNames: chatMode === "game" && !input\.impersonate \? GAME_MODE_AUTO_ATTACH_TOOL_NAMES : \[\]/u,
-  "only a game turn the GM is narrating may auto-attach the dice tool",
+  /autoAttachToolNames:\s*!input\.impersonate &&\s*\(chatMode === "game" \|\|\s*\(chatMode === "roleplay" && isRoleplayCommandEnabled\(chatMeta, "roll"\)\)\)\s*\? GAME_MODE_AUTO_ATTACH_TOOL_NAMES\s*: \[\]/u,
+  "Game keeps automatic dice; Roleplay requires its explicit roll opt-in, and impersonation gets neither",
 );
 assert.match(
   generateRouteSource,

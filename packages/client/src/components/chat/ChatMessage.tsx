@@ -4,6 +4,7 @@
 import { cn, copyToClipboard, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
+import { RoleplayCommandResults } from "./RoleplayCommandResults";
 import {
   normalizeCardAssetImageSyntax,
   resolveCardAssetUrl,
@@ -2994,6 +2995,7 @@ export const ChatMessage = memo(function ChatMessage({
           </>
         )}
       </div>
+      <RoleplayCommandResults documents={extra.roleplayDocuments} attachments={extra.attachments} />
       {(translatedText || isTranslating) && !showTranslationOnly && (
         <div className="mt-2 border-t border-white/10 pt-2">
           {isTranslating ? (
@@ -3475,7 +3477,7 @@ export const ChatMessage = memo(function ChatMessage({
             {!editing && extra.attachments?.length > 0 && !IMAGE_URL_RE.test(message.content.trim()) && (
               <div className="mt-1.5 flex flex-col items-center gap-2 px-3 pb-2">
                 {extra.attachments.map((att: any, i: number) =>
-                  att.type === "image" || att.type?.startsWith("image/") ? (
+                  att.roleplaySound === true ? null : att.type === "image" || att.type?.startsWith("image/") ? (
                     <div key={i} className="group/att relative inline-block">
                       <button
                         type="button"
@@ -3936,7 +3938,7 @@ export const ChatMessage = memo(function ChatMessage({
           {!editing && extra.attachments?.length > 0 && !IMAGE_URL_RE.test(message.content.trim()) && (
             <div className="mt-1.5 flex flex-col items-center gap-2 px-3 pb-2">
               {extra.attachments.map((att: any, i: number) =>
-                att.type === "image" || att.type?.startsWith("image/") ? (
+                att.roleplaySound === true ? null : att.type === "image" || att.type?.startsWith("image/") ? (
                   <div key={i} className="group/att relative inline-block">
                     <button
                       type="button"

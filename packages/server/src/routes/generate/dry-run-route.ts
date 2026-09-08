@@ -9,7 +9,15 @@ import {
   normalizeGameStoryboardKeyframeCount,
   type GenerationParameterSendMap,
   type LorebookEntryTimingState,
+  BUILT_IN_AGENTS,
+  isAgentConfigDeleted,
+  isBuiltInAgentRuntimeDisabled,
 } from "@marinara-engine/shared";
+import {
+  appendRoleplayPromptTail,
+  buildRoleplayCommandsReminder,
+  buildRoleplayPersonalContext,
+} from "../../services/generation/roleplay-commands.js";
 import { randomUUID } from "crypto";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
@@ -1626,6 +1634,44 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // Mirror the live route's provider-boundary macro guard so Peek Prompt is
     // both accurate and incapable of exposing late raw identity macros (#3704).
     finalMessages = resolveHistoryMessageMacros(finalMessages);
+
+    if (chatMode === "roleplay" && !impersonate) {
+      const personalCharacters = [...(await resolveCharacterNameMap(allCharacterIds, (id) => chars.getById(id)))].map(
+        ([id, name]) => ({ id, name }),
+      );
+      const target = promptTargetCharacterId ?? (allCharacterIds.length === 1 ? allCharacterIds[0]! : null);
+      const individual = dryRunGroupChatMode === "individual";
+      const endIndex = regenerateMessageId
+        ? scopedMessages.findIndex((message) => message.id === regenerateMessageId)
+        : -1;
+      const agentConfigs = await createAgentsStorage(app.db).list();
+      const availableAgentIds = new Set(
+        BUILT_IN_AGENTS.filter(
+          (agent) =>
+            !isBuiltInAgentRuntimeDisabled(agent.id) &&
+            !agentConfigs.some((config) => config.type === agent.id && isAgentConfigDeleted(config.settings)),
+        ).map((agent) => agent.id),
+      );
+      appendRoleplayPromptTail(
+        finalMessages,
+        buildRoleplayPersonalContext({
+          messages: endIndex >= 0 ? scopedMessages.slice(0, endIndex) : scopedMessages,
+          metadata: chatMeta,
+          characters: personalCharacters,
+          characterId: target,
+          individual,
+          format: wrapFormat,
+        }),
+        buildRoleplayCommandsReminder({
+          metadata: chatMeta,
+          privateAvailable: Boolean(target) && (allCharacterIds.length === 1 || individual),
+          availableAgentIds,
+          format: wrapFormat,
+          characterNames: personalCharacters.map((character) => character.name),
+        }),
+        wrapFormat,
+      );
+    }
 
     // ── Parameter normalization (mirror /api/generate) ──
     const modelLower = (conn.model ?? "").toLowerCase();
