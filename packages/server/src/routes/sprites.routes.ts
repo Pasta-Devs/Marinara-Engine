@@ -2,6 +2,7 @@
 // Routes: Character Sprite Upload, List & Serving
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
+import { isOpenAIGptImageModel, isOpenAIGptImage2Model, supportsOpenAIImageCustomSize } from "@marinara-engine/shared";
 import AdmZip from "adm-zip";
 import { execFile } from "child_process";
 import { existsSync, mkdirSync, readdirSync, unlinkSync, statSync, readFileSync } from "fs";
@@ -278,14 +279,6 @@ function ensureDir(dir: string) {
   }
 }
 
-function isOpenAIGptImageModel(model?: string): boolean {
-  return !!model && /^gpt-image-(?:1|1\.5|2)(?:$|-)/i.test(model.trim());
-}
-
-function isOpenAIGptImage2Model(model?: string): boolean {
-  return !!model && /^gpt-image-2(?:$|-)/i.test(model.trim());
-}
-
 export function resolveSpriteNativeTransparency(model: string | undefined, requested: boolean): boolean {
   return requested && !isOpenAIGptImage2Model(model);
 }
@@ -307,7 +300,7 @@ export function resolveSpriteSheetCanvas({
   const requestedSheetWidth = cols * preferredCellWidth;
   const requestedSheetHeight = rows * preferredCellHeight;
 
-  if (!isOpenAIGptImageModel(model) || (spriteType !== "full-body" && isOpenAIGptImage2Model(model))) {
+  if (!isOpenAIGptImageModel(model) || (spriteType !== "full-body" && supportsOpenAIImageCustomSize(model))) {
     return {
       sheetWidth: requestedSheetWidth,
       sheetHeight: requestedSheetHeight,
@@ -1199,7 +1192,7 @@ async function buildSpritePromptPlan(
     body.spriteType !== "full-body" &&
     !singlePortrait &&
     isOpenAIGptImageModel(imgModel) &&
-    !isOpenAIGptImage2Model(imgModel);
+    !supportsOpenAIImageCustomSize(imgModel);
   if (generateExpressionsIndividually && expressions.length > MAX_INDIVIDUAL_SPRITE_EXPRESSIONS) {
     expressions = expressions.slice(0, MAX_INDIVIDUAL_SPRITE_EXPRESSIONS);
   }

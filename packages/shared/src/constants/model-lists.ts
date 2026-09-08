@@ -838,6 +838,8 @@ export const ATLAS_CLOUD_VIDEO_MODELS: KnownModel[] = [
 
 const IMAGE_GEN_MODELS: KnownModel[] = [
   // OpenAI
+  { id: "gpt-image-2.5-flare", name: "GPT Image 2.5 Flare", context: 0, maxOutput: 0 },
+  { id: "gpt-image-2.5-sunburst", name: "GPT Image 2.5 Sunburst", context: 0, maxOutput: 0 },
   { id: "gpt-image-2", name: "GPT Image 2", context: 0, maxOutput: 0 },
   { id: "gpt-image-1.5", name: "GPT Image 1.5", context: 0, maxOutput: 0 },
   { id: "chatgpt-image-latest", name: "ChatGPT Image Latest", context: 0, maxOutput: 0 },

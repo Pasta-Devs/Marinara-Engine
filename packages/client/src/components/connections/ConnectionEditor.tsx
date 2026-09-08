@@ -78,6 +78,9 @@ import {
   ZAI_IMAGE_MODELS,
   VIDEO_GENERATION_SOURCES,
   inferImageSource,
+  isOpenAIGptImageModel,
+  isOpenAIGptImage25Model,
+  resolveOpenAIImageQuality,
   inferVideoSource,
   isLocalAuthProvider as isLocalAuthConnectionProvider,
   IMAGE_DEFAULTS_STORAGE_KEY,
@@ -432,13 +435,14 @@ export function ConnectionEditor() {
   useEffect(() => {
     if (!conn) return;
     const c = conn as Record<string, unknown>;
+    const model = typeof c.model === "string" ? c.model : "";
     setLocalName((c.name as string) ?? "");
     const provider = (c.provider as APIProvider) ?? "openai";
     setLocalProvider(provider);
     setLocalBaseUrl((c.baseUrl as string) ?? "");
     setLocalApiKey(""); // never pre-fill (it's masked)
     setClearStoredApiKeyOnSave(false);
-    setLocalModel(normalizeGrokCliEditorModel(provider, (c.model as string) ?? ""));
+    setLocalModel(normalizeGrokCliEditorModel(provider, model));
     setLocalMaxContext(normalizeConnectionMaxContext(provider, c.maxContext));
     setLocalMaxParallelJobs(normalizeMaxParallelJobs(c.maxParallelJobs));
     setLocalMaxRequestsPerMinute(
@@ -457,7 +461,7 @@ export function ConnectionEditor() {
       (c.provider as APIProvider) === "image_generation"
         ? ((c.imageGenerationSource as string) ??
           (c.imageService as string) ??
-          inferImageSource((c.model as string) ?? "", (c.baseUrl as string) ?? ""))
+          inferImageSource(model, (c.baseUrl as string) ?? ""))
         : "";
     const imageService = ((c.imageService as string | null) ?? (c.imageGenerationSource as string | null)) || null;
     const defaultsService = imageSourceToDefaultsService(imageService || imageGenerationSource);
@@ -469,13 +473,13 @@ export function ConnectionEditor() {
       (c.provider as APIProvider) === "video_generation"
         ? ((c.videoGenerationSource as string) ??
           explicitVideoService ??
-          inferVideoSource((c.model as string) ?? "", (c.baseUrl as string) ?? ""))
+          inferVideoSource(model, (c.baseUrl as string) ?? ""))
         : "";
     const storedVideoDefaults =
       (c.provider as APIProvider) === "video_generation" ? getStoredVideoGenerationDefaults(c.defaultParameters) : null;
     const videoDefaultsService = videoSelectionToDefaultsService(
       explicitVideoService || storedVideoDefaults?.service || videoGenerationSource,
-      (c.model as string) ?? "",
+      model,
       (c.baseUrl as string) ?? "",
     );
     const videoProviderSource = videoSourceToProviderOption(
@@ -486,11 +490,7 @@ export function ConnectionEditor() {
     setLocalImageService(imageService);
     setLocalImageEndpointId((c.imageEndpointId as string) ?? "");
     setLocalImagePromptInstructions((c.imagePromptInstructions as string) ?? "");
-    setLocalImageGenerationQuality(
-      c.imageGenerationQuality === "low" || c.imageGenerationQuality === "medium" || c.imageGenerationQuality === "high"
-        ? c.imageGenerationQuality
-        : "auto",
-    );
+    setLocalImageGenerationQuality(resolveOpenAIImageQuality(c.imageGenerationQuality, model));
     setLocalVideoGenerationSource(videoProviderSource);
     setLocalVideoService(videoDefaultsService);
     setLocalAudioSource((c.audioSource as string) || "elevenlabs");
@@ -618,9 +618,8 @@ export function ConnectionEditor() {
       : "";
   const selectedImageDefaultsService = imageSourceToDefaultsService(selectedImageService);
   const supportsGptImageQuality =
-    localProvider === "image_generation" &&
-    selectedImageService === "openai" &&
-    /^gpt-image-(?:1|1\.5|2)(?:$|-)/i.test(localModel.trim());
+    localProvider === "image_generation" && selectedImageService === "openai" && isOpenAIGptImageModel(localModel);
+  const effectiveImageGenerationQuality = resolveOpenAIImageQuality(localImageGenerationQuality, localModel);
   const selectedVideoService =
     localProvider === "video_generation"
       ? localVideoGenerationSource || localVideoService || effectiveVideoGenerationSource
@@ -819,7 +818,7 @@ export function ConnectionEditor() {
       imageEndpointId:
         isImageProvider && selectedImageService === "runpod_comfyui" ? localImageEndpointId || null : null,
       imagePromptInstructions: isImageProvider ? normalizeImagePromptInstructions(localImagePromptInstructions) : null,
-      imageGenerationQuality: isImageProvider ? localImageGenerationQuality : "auto",
+      imageGenerationQuality: isImageProvider ? effectiveImageGenerationQuality : "auto",
       videoGenerationSource: isVideoProvider ? selectedVideoProvider || null : null,
       videoService: isVideoProvider
         ? selectedVideoProvider === "swarmui"
@@ -929,7 +928,7 @@ export function ConnectionEditor() {
     localImageService,
     localImageEndpointId,
     localImagePromptInstructions,
-    localImageGenerationQuality,
+    effectiveImageGenerationQuality,
     localMaxTokensOverride,
     localClaudeFastMode,
     localTreatAsLocalEndpoint,
@@ -1050,7 +1049,7 @@ export function ConnectionEditor() {
       imageEndpointId:
         isImageProvider && selectedImageService === "runpod_comfyui" ? localImageEndpointId || null : null,
       imagePromptInstructions: isImageProvider ? normalizeImagePromptInstructions(localImagePromptInstructions) : null,
-      imageGenerationQuality: isImageProvider ? localImageGenerationQuality : "auto",
+      imageGenerationQuality: isImageProvider ? effectiveImageGenerationQuality : "auto",
       comfyuiWorkflow:
         isImageProvider || (isVideoProvider && (videoProvider === "comfyui" || videoProvider === "swarmui"))
           ? localComfyuiWorkflow || null
@@ -1096,7 +1095,7 @@ export function ConnectionEditor() {
     selectedImageService,
     localImageEndpointId,
     localImagePromptInstructions,
-    localImageGenerationQuality,
+    effectiveImageGenerationQuality,
     localComfyuiWorkflow,
     localClaudeFastMode,
     selectedImageDefaultsService,
@@ -2444,7 +2443,7 @@ export function ConnectionEditor() {
               help={localizeUi("ui.connections.connectioneditor.gptImageQualityHelp")}
             >
               <select
-                value={localImageGenerationQuality}
+                value={effectiveImageGenerationQuality}
                 onChange={(event) => {
                   setLocalImageGenerationQuality(event.target.value as ImageGenerationQuality);
                   markDirty();
@@ -2455,6 +2454,12 @@ export function ConnectionEditor() {
                 <option value="low">{localizeUi("ui.connections.connectioneditor.imageQualityLow")}</option>
                 <option value="medium">{localizeUi("ui.connections.connectioneditor.imageQualityMedium")}</option>
                 <option value="high">{localizeUi("ui.connections.connectioneditor.imageQualityHigh")}</option>
+                {isOpenAIGptImage25Model(localModel) && (
+                  <>
+                    <option value="xhigh">{localizeUi("ui.connections.connectioneditor.imageQualityExtraHigh")}</option>
+                    <option value="max">{localizeUi("ui.connections.connectioneditor.imageQualityMax")}</option>
+                  </>
+                )}
               </select>
             </FieldGroup>
           )}
