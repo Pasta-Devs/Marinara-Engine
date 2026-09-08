@@ -435,13 +435,14 @@ export function ConnectionEditor() {
   useEffect(() => {
     if (!conn) return;
     const c = conn as Record<string, unknown>;
+    const model = typeof c.model === "string" ? c.model : "";
     setLocalName((c.name as string) ?? "");
     const provider = (c.provider as APIProvider) ?? "openai";
     setLocalProvider(provider);
     setLocalBaseUrl((c.baseUrl as string) ?? "");
     setLocalApiKey(""); // never pre-fill (it's masked)
     setClearStoredApiKeyOnSave(false);
-    setLocalModel(normalizeGrokCliEditorModel(provider, (c.model as string) ?? ""));
+    setLocalModel(normalizeGrokCliEditorModel(provider, model));
     setLocalMaxContext(normalizeConnectionMaxContext(provider, c.maxContext));
     setLocalMaxParallelJobs(normalizeMaxParallelJobs(c.maxParallelJobs));
     setLocalMaxRequestsPerMinute(
@@ -460,7 +461,7 @@ export function ConnectionEditor() {
       (c.provider as APIProvider) === "image_generation"
         ? ((c.imageGenerationSource as string) ??
           (c.imageService as string) ??
-          inferImageSource((c.model as string) ?? "", (c.baseUrl as string) ?? ""))
+          inferImageSource(model, (c.baseUrl as string) ?? ""))
         : "";
     const imageService = ((c.imageService as string | null) ?? (c.imageGenerationSource as string | null)) || null;
     const defaultsService = imageSourceToDefaultsService(imageService || imageGenerationSource);
@@ -472,13 +473,13 @@ export function ConnectionEditor() {
       (c.provider as APIProvider) === "video_generation"
         ? ((c.videoGenerationSource as string) ??
           explicitVideoService ??
-          inferVideoSource((c.model as string) ?? "", (c.baseUrl as string) ?? ""))
+          inferVideoSource(model, (c.baseUrl as string) ?? ""))
         : "";
     const storedVideoDefaults =
       (c.provider as APIProvider) === "video_generation" ? getStoredVideoGenerationDefaults(c.defaultParameters) : null;
     const videoDefaultsService = videoSelectionToDefaultsService(
       explicitVideoService || storedVideoDefaults?.service || videoGenerationSource,
-      (c.model as string) ?? "",
+      model,
       (c.baseUrl as string) ?? "",
     );
     const videoProviderSource = videoSourceToProviderOption(
@@ -489,7 +490,7 @@ export function ConnectionEditor() {
     setLocalImageService(imageService);
     setLocalImageEndpointId((c.imageEndpointId as string) ?? "");
     setLocalImagePromptInstructions((c.imagePromptInstructions as string) ?? "");
-    setLocalImageGenerationQuality(resolveOpenAIImageQuality(c.imageGenerationQuality, c.model as string));
+    setLocalImageGenerationQuality(resolveOpenAIImageQuality(c.imageGenerationQuality, model));
     setLocalVideoGenerationSource(videoProviderSource);
     setLocalVideoService(videoDefaultsService);
     setLocalAudioSource((c.audioSource as string) || "elevenlabs");

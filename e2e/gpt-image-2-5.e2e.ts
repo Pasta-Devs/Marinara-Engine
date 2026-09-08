@@ -17,6 +17,8 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
   page,
   request,
 }, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   await seedUIState(page, { hasCompletedOnboarding: true, rightPanelOpen: false, sidebarOpen: false, theme: "dark" });
   await page.addInitScript(
     (appVersion) => localStorage.setItem("marinara:whats-new:seen-version", appVersion),
@@ -113,6 +115,16 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
     await expect(quality.locator("option")).toHaveCount(4);
     await expect(quality).toHaveValue("auto");
     await save("gpt-image-2", "auto");
+
+    await page.route(`**/api/connections/${id}`, async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({ response, json: { ...(await response.json()), model: 42, imageGenerationQuality: "max" } });
+    });
+    await page.reload();
+    await openConnection(page, id);
+    await expect(modelPanel).toBeVisible();
+    await expect(quality).toHaveCount(0);
+    expect(errors).toEqual([]);
   } finally {
     await request.delete(`/api/connections/${id}`);
   }
