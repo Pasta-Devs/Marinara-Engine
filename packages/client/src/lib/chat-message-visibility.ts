@@ -18,3 +18,13 @@ export function isMessageHiddenFromUser(message: ChatMessageVisibilityInput): bo
   if (extra.diceRollResult && typeof extra.diceRollResult === "object") return false;
   return !hasVisibleUserMessagePayload(message.content, extra.attachments);
 }
+
+/** Game narration and logs share one rule for readable turns, including hidden command anchors. */
+export function isVisibleGameMessage(message: ChatMessageVisibilityInput): boolean {
+  return (
+    !isMessageHiddenFromUser(message) &&
+    parseMessageExtraRecord(message.extra).commandOnly !== true &&
+    typeof message.content === "string" &&
+    message.content.trim().length > 0
+  );
+}

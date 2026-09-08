@@ -573,6 +573,7 @@ function freshSwipeMessageExtra(value: unknown): Record<string, unknown> {
     "reactions",
     "personaSnapshot",
   ]) {
+    if (current.commandOnly === true && (key === "hiddenFromAI" || key === "hiddenFromUser")) continue;
     if (Object.prototype.hasOwnProperty.call(current, key)) {
       next[key] = current[key];
     }
