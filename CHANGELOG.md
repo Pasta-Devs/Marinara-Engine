@@ -89,7 +89,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
-- Game narration has a Translate action and rejects stale translations after rerolls; automatic translation can start with the first response when enabled during setup (#5888).
+- Game narration has a Translate action and rejects stale translations after rerolls; automatic translation can start with the first response when enabled during setup. Delayed translations stay with their original chat when switching chats (#5888).
 - Push Story uses the current Director result with or without a preset marker, and Mari consolidates system context for local chat templates (#5931, #5932).
 - Storyboards accept more than six frames (up to the existing 200-section request safety ceiling) and retry unusable local planner output once without reasoning before falling back (#5886).
 - General Settings can place error messages and other notifications at the top or bottom, using the existing saved preferences (#5933).
