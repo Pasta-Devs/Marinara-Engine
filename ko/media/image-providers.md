@@ -61,7 +61,7 @@
 
 ## NovelAI
 
-기본 Base URL이 `https://image.novelai.net`인 클라우드 서비스입니다. NovelAI API 키가 필요합니다. 애니메이션풍 그림에 특화되어 있습니다. 정밀 참조 이미지처럼 비교적 새로운 기능은 V4.5 모델에서만 작동합니다.
+기본 Base URL이 `https://image.novelai.net`인 클라우드 서비스입니다. NovelAI API 키가 필요합니다. 애니메이션풍 그림에 특화되어 있습니다. V4, V4.5, V5 모델에서는 여러 캐릭터가 등장하는 스토리보드와 Illustrator 장면을 위해 위치 정보가 포함된 캐릭터별 프롬프트를 NovelAI가 자체 지원하는 형식으로 보냅니다. 정밀 참조 이미지처럼 비교적 새로운 기능은 V4.5 모델에서만 작동합니다.
 
 ## OpenRouter Images
 
@@ -183,7 +183,7 @@ Marinara는 플레이스홀더를 이용해 워크플로를 채웁니다. 값이
 | ComfyUI 및 RunPod Serverless (ComfyUI) | 최대 4장, 워크플로 플레이스홀더를 통해 |
 | Together AI, Pollinations, Stable Horde | 지원하지 않음 |
 
-NovelAI의 정밀 참조 이미지는 `nai-diffusion-4-5-full` 같은 V4.5 모델에서만 작동합니다. 다른 모델에 참조 이미지를 요청하면 생성이 실패하면서 이유를 알려 주는 메시지가 나옵니다.
+NovelAI의 정밀 참조 이미지는 `nai-diffusion-4-5-full` 같은 V4.5 모델에서만 작동합니다. NovelAI는 아직 V5용 Precise Reference를 출시하지 않았습니다. 다른 모델에 참조 이미지를 요청하면 Marinara는 참조 이미지 없이 이미지를 생성하고 서버 로그에 경고를 남깁니다.
 
 ## 이미지 생성 요청을 순서대로 처리하기
 

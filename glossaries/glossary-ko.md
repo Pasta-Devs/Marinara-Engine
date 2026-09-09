@@ -527,3 +527,11 @@ one to fix first: a Korean reader has no documentation for `{{lorebooksize::ID}}
 answer to the per-chat schedule question. Both are ordinary "English source moved on" drift and
 should be mirrored in the next cycle. R7's `extending/` pair is worth settling in the same pass,
 since both file names are legitimate per §3 and only the pairing is inverted.
+
+## Native NovelAI character descriptions (2026-09-09)
+
+In `media/illustrator-agent.md`, a native NovelAI character caption is a
+**캐릭터별 설명**: the description sent as a per-character image prompt,
+not a subtitle or text drawn on the image. Keep this sense distinct from captions
+on comic pages. The accompanying `media/image-providers.md` wording uses the same
+native character-prompt meaning.

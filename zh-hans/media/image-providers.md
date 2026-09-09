@@ -61,7 +61,7 @@
 
 ## NovelAI
 
-云端服务，默认 Base URL 是 `https://image.novelai.net`。需要 NovelAI 的 API 密钥。它专注于动漫风格的图像。部分较新的功能，比如精确参考图，只能在 V4.5 模型上使用。
+云端服务，默认 Base URL 是 `https://image.novelai.net`。需要 NovelAI 的 API 密钥。它专注于动漫风格的图像。使用 V4、V4.5 和 V5 模型时，Marinara 会为多角色分镜和 Illustrator 场景发送带位置的原生角色提示词。部分较新的功能，比如精确参考图，只能在 V4.5 模型上使用。
 
 ## OpenRouter Images
 
@@ -183,7 +183,7 @@ Marinara 通过占位符往工作流里填内容。把下面这些文本标记�
 | ComfyUI 和 RunPod Serverless (ComfyUI) | 最多 4 张，通过工作流占位符传入 |
 | Together AI、Pollinations、Stable Horde | 不支持 |
 
-NovelAI 的精确参考图只能在 V4.5 模型上使用，比如 `nai-diffusion-4-5-full`。在其他模型上请求参考图，生成会失败并给出明确提示。
+NovelAI 的精确参考图只能在 V4.5 模型上使用，比如 `nai-diffusion-4-5-full`。NovelAI 尚未为 V5 发布 Precise Reference。在其他模型上请求参考图时，Marinara 会在不使用参考图的情况下生成图像，并在服务器日志中记录警告。
 
 ## 图像生成请求排队
 

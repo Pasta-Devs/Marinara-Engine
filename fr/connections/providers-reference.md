@@ -89,6 +89,13 @@ Le champ **API Key** accepte l'un de ces trois types d'identifiants, et Marinara
 
 **xAI / Grok** propose les modèles Grok. Quand tu choisis ce fournisseur dans la fenêtre **Create Connection**, Marinara préremplit le modèle avec Grok 4.5. Rien ne t'empêche de le changer ensuite.
 
+## Z.AI
+
+- Où obtenir une clé : `https://z.ai/manage-apikey/apikey-list`
+- URL de base par défaut : `https://api.z.ai/api/paas/v4`
+
+**Z.AI** propose les modèles GLM (GLM 5.3, GLM 5.3 Flash et les précédents) sur sa propre API. La liste **Model** affiche les modèles GLM actuels, et **Fetch Models from API** la met à jour depuis ton compte. Les modèles GLM 5.3 raisonnent toujours : le réglage **Reasoning Effort** (effort de raisonnement) de ton preset est ramené aux trois niveaux acceptés par Z.AI : **Low** pour un effort faible, **High** pour un effort élevé et **Maximum** pour un effort maximal. Si tu ne le définis pas, Z.AI utilise sa valeur par défaut, **Maximum**. L'URL de base par défaut correspond au point d'accès facturé à l'usage. Le Coding Plan de Z.AI utilise un autre point d'accès que sa politique d'utilisation réserve aux outils de sa liste ; il ne faut donc pas s'attendre à ce qu'une clé de ce plan fonctionne ici.
+
 ## Claude (Subscription)
 
 - Clé API : aucune. Tu t'identifies dans un outil local à la place.

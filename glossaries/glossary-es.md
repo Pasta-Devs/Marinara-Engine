@@ -367,3 +367,11 @@ demonstrate them:
 - **Delta discipline**: mirror the English anchor placement exactly, match the pack file's own
   table padding, never reflow untouched lines, and never fix unrelated pre-existing pack issues
   in a delta PR (`i18n-brief.md`, 2026-09-01 cycle).
+
+## Native NovelAI character descriptions (2026-09-09)
+
+In `media/illustrator-agent.md`, a native NovelAI character caption is a
+**descripción de personaje**: the description sent as a per-character image prompt,
+not a subtitle or text drawn on the image. Keep this sense distinct from captions
+on comic pages. The accompanying `media/image-providers.md` wording uses the same
+native character-prompt meaning.

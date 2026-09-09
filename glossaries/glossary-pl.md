@@ -827,3 +827,11 @@ produced it can see Polish letters at all.
 - **RR-8** — process: PR #4235 records runtime verification against a throwaway
   data dir with a materialized pack (viewer categories, titles, diacritic search,
   Settings coverage counts, switch flows) as part of shipping validation.
+
+## Native NovelAI character descriptions (2026-09-09)
+
+In `media/illustrator-agent.md`, a native NovelAI character caption is a
+**opis postaci**: the description sent as a per-character image prompt,
+not a subtitle or text drawn on the image. Keep this sense distinct from captions
+on comic pages. The accompanying `media/image-providers.md` wording uses the same
+native character-prompt meaning.

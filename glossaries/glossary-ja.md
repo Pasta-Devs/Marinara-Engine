@@ -428,3 +428,11 @@ cycle can decide; do not quietly change them mid-task.
 | 12 | `プロンプト文` (3) where the pack's term is plain `プロンプト` (604). One is in a user-facing guide; two are in a `development/` PRD. Do **not** confuse these with `プロンプト文法` ("prompt grammar", `media/style-profiles.md:71`), which is correct | `conversation/profiles.md:53`, `development/hierarchical-locations-prd-v3.md:331`, `:712` |
 | 13 | `既定` / `既定値` (7) where the pack's term for EN *default* is `デフォルト` (608). Mixed registers for the same concept; `既定` is the more formal MS-style rendering | `extending/personal-extensions.md:67`, `extending/writing-personal-extensions.md:131`, `:207`, `noodle/settings.md:88`, `:89`, `TROUBLESHOOTING.md:402` |
 | 14 | 2 of TROUBLESHOOTING.md's 29 `###` headings are task headings, not symptom clauses, so they follow the pack default instead of the file's plain-form pattern. Arguably correct rather than residual — recorded so a heading sweep does not treat them as misses | `TROUBLESHOOTING.md:45`, `:143` |
+
+## Native NovelAI character descriptions (2026-09-09)
+
+In `media/illustrator-agent.md`, a native NovelAI character caption is a
+**キャラクターの記述**: the description sent as a per-character image prompt,
+not a subtitle or text drawn on the image. Keep this sense distinct from captions
+on comic pages. The accompanying `media/image-providers.md` wording uses the same
+native character-prompt meaning.

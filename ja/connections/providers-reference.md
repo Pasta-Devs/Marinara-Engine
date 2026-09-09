@@ -89,6 +89,13 @@
 
 **xAI / Grok**はGrokのモデルを提供しています。**Create Connection**ウィンドウでこのプロバイダーを選ぶと、モデルにはGrok 4.5があらかじめ入ります。あとから変更できます。
 
+## Z.AI
+
+- キーの入手先: `https://z.ai/manage-apikey/apikey-list`
+- デフォルトのBase URL: `https://api.z.ai/api/paas/v4`
+
+**Z.AI**は、GLMモデル(GLM 5.3、GLM 5.3 Flash、およびそれ以前のモデル)を独自のAPIで提供しています。**Model**ドロップダウンには現在のGLMモデルが表示され、**Fetch Models from API**でアカウントから一覧を更新できます。GLM 5.3モデルは常に推論を行います。プリセットの**Reasoning Effort**(推論の強度)は、Z.AIが受け付ける**Low**(低)、**High**(高)、**Maximum**(最大)の3段階に対応付けられます。未設定の場合は、Z.AIのデフォルトである**Maximum**が使われます。デフォルトのBase URLは従量課金用のエンドポイントです。Z.AIのCoding Planは別のエンドポイントを使い、利用規約では指定の一覧にあるツール専用とされています。そのため、この接続でCoding Planのキーが動作することは想定されていません。
+
 ## Claude (Subscription)
 
 - APIキー: 不要です。代わりにローカルのツールにサインインします。

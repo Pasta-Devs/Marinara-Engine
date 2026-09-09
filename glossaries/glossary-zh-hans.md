@@ -530,3 +530,11 @@ them is a separate, deliberate change.
   an Engine-side locale change, not a pack edit.
 - **P4 [R]** Do not fix unrelated pre-existing issues while mirroring a delta; the diff scoped to
   `zh-hans/` must show only the intended hunks. Residuals in §7.4 belong to a dedicated cleanup.
+
+## Native NovelAI character descriptions (2026-09-09)
+
+In `media/illustrator-agent.md`, a native NovelAI character caption is a
+**角色描述**: the description sent as a per-character image prompt,
+not a subtitle or text drawn on the image. Keep this sense distinct from captions
+on comic pages. The accompanying `media/image-providers.md` wording uses the same
+native character-prompt meaning.

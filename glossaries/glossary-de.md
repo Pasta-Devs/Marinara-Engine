@@ -538,3 +538,11 @@ Per R5 the `Ratenlimit` and `Anbindung` scheduling ruling still stands and is
 untouched by this review; residuals 3, 7 and 8 are new findings from the
 2026-09-01 re-derivation and inherit R4's "document, do not silently fix"
 treatment rather than any earlier scheduling decision.
+
+## Native NovelAI character descriptions (2026-09-09)
+
+In `media/illustrator-agent.md`, a native NovelAI character caption is a
+**Figurenbeschreibung**: the description sent as a per-character image prompt,
+not a subtitle or text drawn on the image. Keep this sense distinct from captions
+on comic pages. The accompanying `media/image-providers.md` wording uses the same
+native character-prompt meaning.

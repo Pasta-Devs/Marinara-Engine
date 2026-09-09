@@ -1,6 +1,5 @@
 {
   "language": "ru",
-  "sourceCommit": "a03e362f26fb9c54abd6043b0c389c414b111585",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -219,8 +218,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "4e601d9a9786437c8c7eed1e80e9ac891d8980429b763c3300baa16bd63cefb5",
-      "bytes": 16975
+      "sha256": "85b7a707dd7a8154104906b384f5a1ffcb732aecc7261d56a09deba78f4d10c5",
+      "bytes": 18504
     },
     {
       "path": "connections/subscription-clis.md",
@@ -519,13 +518,13 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "58e63428cbf7db6252862a4df362ff2dd9310d50f9cdb142af58cb85b11173ec",
-      "bytes": 12477
+      "sha256": "9d0bf7ecea53a8065693ce56b1fe3284d6a1e8b9aa28b18b7b9341c1498f0013",
+      "bytes": 16866
     },
     {
       "path": "media/image-providers.md",
-      "sha256": "88278966838f587266855fc6ba1ce8e04e16a417ad85060f97f8f2488c914385",
-      "bytes": 23753
+      "sha256": "e5125a80e244de3e649728063a234266d1143a5fc27930ad401a2c05f607fc84",
+      "bytes": 24147
     },
     {
       "path": "media/music.md",

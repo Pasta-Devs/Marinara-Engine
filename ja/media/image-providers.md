@@ -61,7 +61,7 @@
 
 ## NovelAI
 
-デフォルトのBase URLが`https://image.novelai.net`のクラウドサービスです。NovelAIのAPIキーが必要です。アニメ調のイラストを得意とします。精密な参照画像などの新しい機能は、V4.5系のモデルでしか動作しません。
+デフォルトのBase URLが`https://image.novelai.net`のクラウドサービスです。NovelAIのAPIキーが必要です。アニメ調のイラストを得意とします。V4、V4.5、V5モデルでは、複数のキャラクターを含むストーリーボードやIllustratorのシーンに対して、位置情報付きのキャラクタープロンプトをNovelAI標準の形式で送信します。精密な参照画像などの新しい機能は、V4.5系のモデルでしか動作しません。
 
 ## OpenRouter Images
 
@@ -183,7 +183,7 @@ Marinaraはプレースホルダーを使ってワークフローを埋めます
 | ComfyUIとRunPod Serverless (ComfyUI) | 最大4枚、ワークフローのプレースホルダー経由 |
 | Together AI、Pollinations、Stable Horde | 非対応 |
 
-NovelAIの精密な参照画像は、`nai-diffusion-4-5-full`のようなV4.5系モデルでしか動作しません。ほかのモデルで参照画像を指定すると、生成は失敗し、その理由がメッセージで表示されます。
+NovelAIの精密な参照画像は、`nai-diffusion-4-5-full`のようなV4.5系モデルでしか動作しません。NovelAIはV5向けのPrecise Referenceをまだ公開していません。ほかのモデルで参照画像を指定すると、Marinaraは参照画像なしで画像を生成し、サーバーログに警告を記録します。
 
 ## 画像生成リクエストを順番に処理
 

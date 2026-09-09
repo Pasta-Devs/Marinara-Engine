@@ -67,6 +67,18 @@ Dos interruptores en la tarjeta del Illustrator ayudan a que los personajes se v
 
 **Send Avatar References** envía los avatares de personajes y personas, o sus sprites (imágenes del personaje), al proveedor de imágenes como imágenes de referencia. Su texto de ayuda dice: "Send matching character and persona avatars or sprites as reference images when the provider supports them." Esto ayuda al modelo de imágenes a copiar una cara o un atuendo. No todos los proveedores aceptan imágenes de referencia, así que el efecto depende del proveedor que elegiste.
 
+## Varios personajes en NovelAI
+
+Cuando la conexión de imagen del Illustrator usa NovelAI con un modelo V4, V4.5 o V5, se pide al modelo que escribe el prompt una descripción adicional por cada personaje visible. Cada descripción incluye la apariencia, la expresión, la pose y la posición aproximada de ese personaje en el encuadre. Marinara compara las descripciones con la lista de personajes de la escena, descarta las que no puede asociar y envía las demás a NovelAI como prompts de personaje nativos junto al prompt principal de la escena. Esto evita que el pelo, la ropa y otros rasgos se mezclen entre personajes en las escenas de grupo.
+
+El número de descripciones depende del modelo. V5 acepta hasta 22 personajes, y V4 o V4.5 hasta 6. Las escenas con más personajes visibles conservan los más importantes y tratan al resto como figuras de fondo sin nombre.
+
+El modelo que escribe el prompt recibe instrucciones sobre el origen de los detalles de cada descripción. Los rasgos fijos provienen del campo **Appearance** (apariencia) del personaje o de la persona: si el campo ya contiene etiquetas Danbooru, se copian tal cual; si contiene prosa, el modelo la convierte en etiquetas. La ropa proviene del atuendo actual del tracker de personajes cuando está en funcionamiento, y también se convierte en etiquetas.
+
+Con **Attach Card Appearance** (adjuntar la apariencia de la tarjeta) activado, el modelo también recibe como referencia el texto completo de Appearance de todas las tarjetas y personas del chat, para que no se recorten las tarjetas largas o de varios personajes. Las tarjetas que describen a varios personajes en un solo campo Appearance con el formato `[NAME] tags | [NAME] tags` se desglosan por personaje. El modelo decide qué usar: copia los rasgos fijos en la descripción correspondiente, trata las etiquetas de ropa de la tarjeta como un valor predeterminado sobre el que tienen prioridad el tracker o la escena, e ignora a los personajes que no aparecen en ella. Cuando el modelo devuelve descripciones de personajes, Marinara no añade nada más al prompt. Cuando no devuelve ninguna, como ocurre en las escenas de un solo personaje, se añade la línea habitual de apariencia al prompt principal, igual que antes.
+
+No necesitas configurar nada. Las descripciones solo se usan con una conexión a NovelAI en su propio servidor, por lo que un proxy u otro proveedor no se ven afectados. Si activas **Review image prompts before sending** (revisar los prompts de imagen antes de enviarlos), el diálogo de revisión muestra las descripciones debajo del prompt principal para que veas qué se enviará. Allí son de solo lectura; puedes editar el prompt principal como siempre.
+
 ## Más ajustes y ejecutarlo a mano
 
 La tarjeta del Illustrator tiene un botón **Open Setup**. Abre la pantalla de configuración completa del agente, donde puedes definir con qué frecuencia se ejecuta el agente y darle su propia conexión de imagen.

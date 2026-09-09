@@ -683,3 +683,11 @@ the fix belongs upstream in `docs/`, not in the translation.
 |---|---|
 | 2026-09-01 | **Verification pass against the shipped pack.** Every terminology row re-greped for its prescribed term *and* its banned alternates, and every mechanical claim re-measured. Corrections: the `→` menu-path rule was stated as already-held when the pack is in fact 61-to-46 ASCII (new §7-G, check 23); check 17 was reported as 12 exceptions when it is 57 across 41 pairs (new §7-H); `असिस्टेंट` is the *assistant message role*, not a Professor Mari reservation; `बर्ताव`/`व्यवहार`, `तयशुदा` (= deterministic) and `हूबहू`/`अक्षरशः` were flat bans the pack contradicts, now sense-scoped or logged as unresolved splits; `अपने-आप` is 19-in-prose, not default-column-only; the spaced-postposition count was 54 against a measured 1,034. Added a sense-scoped-ban table so a grep stops producing false regressions, the U+0964-inside-the-Devanagari-block terminator trap, and re-measured counts for `मैसेज`, the boilerplate headings, `नैरेशन`, the fragment/cell definitions and §7-B. Confirmed exactly as shipped: all §1 register splits, the nukta measurements and 4-key split detector, §7-A, §7-C, §7-D's 18 link drifts, §7-E's 12/15, the default-column table, and every typography scan (digits, quotes, ZWJ/ZWNJ, NFC, NBSP, grouping, fences). |
 | 2026-09-01 | Second-generation glossary re-derived from the shipped pack, PR #4471, and the 2026-09-01 mirror-cycle notes, after the originals were lost to temp-directory cleanup. Added the measured residual inventory (A–F), the re-derived loanword gender list confirming the unified-masculine `नैरेशन` ruling, the ज़/फ़-only nukta measurement (with `ड़`/`ढ़` explicitly excluded from the rule), the `hi.json` 1.4%-coverage finding behind the byte-exact UI rule, the `अनुमति`/`परमिशन`/`इजाज़त` three-way sense split, and the mid-line-danda and hard-wrap tooling traps. |
+
+## Native NovelAI character descriptions (2026-09-09)
+
+In `media/illustrator-agent.md`, a native NovelAI character caption is a
+**कैरेक्टर का विवरण**: the description sent as a per-character image prompt,
+not a subtitle or text drawn on the image. Keep this sense distinct from captions
+on comic pages. The accompanying `media/image-providers.md` wording uses the same
+native character-prompt meaning.

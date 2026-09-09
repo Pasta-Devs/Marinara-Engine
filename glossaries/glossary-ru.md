@@ -618,3 +618,11 @@ this needs a phrasing decision (`список разрешенных полей`
 |---|---|
 | 2026-09-01 | Second-generation glossary re-derived from the shipped pack, PR #4281, and the 2026-09-01 mirror-cycle notes, after the originals were lost to temp-directory cleanup. Added measured residual inventory (A–E), the `ru.json` 1.4%-coverage finding behind the byte-exact UI rule, and the LRU negative finding. |
 | 2026-09-01 | **Verification pass against the 125 shipped files.** Corrected two rulings that the pack contradicts: `least-recently-used` and the noun `вытеснение` are both **attested** at `CONFIGURATION.md:155` (the earlier "no precedent" findings were MSYS-grep false negatives). Resolved the ellipsis ruling against `en.json` — the pack is correct except `UPGRADING.md:164`. Added sense-scoping to §3 with a measured false-positive table, after finding that 30 of the 88 "banned" alternates are live pack vocabulary in other senses (`подсказка` 103×, `запрос` 241×, `лорбука` 150× genitive …). Removed the wrong bans on `профиль настроек` (a distinct feature), `помощник` (the pack's own gloss for *agent*) and `ассистент` (the message role); added rows for tooltip, placeholder, settings profile, assistant role, and vectorization. Upgraded both §7 tooling traps from recorded rulings to **verified** with reproductions. Fixed citations for `widget`, `log`, `allowlist`, gender-neutrality, and the thousands separator; corrected the capitalized-`Вы` count (2 → 39, all sentence-initial), the em-dash per-line counts, and the `§8` cross-references (residuals live in §7). Added residuals F–H and checks 17–20. |
+
+## Native NovelAI character descriptions (2026-09-09)
+
+In `media/illustrator-agent.md`, a native NovelAI character caption is a
+**описание персонажа**: the description sent as a per-character image prompt,
+not a subtitle or text drawn on the image. Keep this sense distinct from captions
+on comic pages. The accompanying `media/image-providers.md` wording uses the same
+native character-prompt meaning.
