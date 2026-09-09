@@ -334,8 +334,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "94dc3f1d82d1cdd250477bb62ed1f7ad1d4544050418a5ca0b27fedb7fa782a2",
-      "bytes": 45906
+      "sha256": "c32bf8a94bb5e5e43e0f0f8b9a87a832a6d2cd1334bf90d6bcdb3b12ca4b78bf",
+      "bytes": 45963
     },
     {
       "path": "development/personal-extensions.md",
@@ -344,8 +344,8 @@
     },
     {
       "path": "extending/custom-tools.md",
-      "sha256": "a4507b142310724e6d450a25f635f1482c936f0493db090627a986a40f3c2b4f",
-      "bytes": 35800
+      "sha256": "0ad9707bc389cd0cab407777ad9b322700552d37319289b190082e8a05817163",
+      "bytes": 35841
     },
     {
       "path": "extending/personal-extensions.md",
@@ -379,8 +379,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "f574eb0b475280d0d3e7b712bffe4c257e28f69d84024e92f41bd899dfbb9118",
-      "bytes": 33957
+      "sha256": "bc0a5079e65ce919bd1497801457d6919118979bb1727fe8df16470897476d51",
+      "bytes": 34012
     },
     {
       "path": "game/hud-widgets.md",

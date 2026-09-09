@@ -14,7 +14,7 @@ Typische Einsatzzwecke für ein eigenes Tool:
 
 Ein eigenes Tool hängt nicht an einer Charakterkarte. Stattdessen schaltest du es für einen Chat ein oder hängst es an einen Agenten. Ein Agent ist ein Helfer, der parallel zum Chat läuft. Beide Wege beschreibt diese Anleitung weiter unten.
 
-Native Funktionsaufrufe erfordern eine Verbindung mit Tool-Unterstützung. Die Abonnementtransporte von Claude und Grok ignorieren native Tool-Definitionen. Deshalb zeigt Chat Settings einen Verfügbarkeitshinweis und deaktiviert die Tool-Bedienelemente für diese Verbindungen. Ihre Textbefehle und Würfel-Tags bleiben verfügbar. Game-Chats können eine separate Verbindung für die Tool-Planung wählen; Kosten und Verhalten erklärt [Optionale Tool-Planung und Lorebook-Suche](../game/getting-started.md#optional-tool-planning-and-lore-searches).
+Native Funktionsaufrufe erfordern eine Verbindung mit Tool-Unterstützung. Die Abonnementtransporte von Claude und Grok ignorieren native Tool-Definitionen. Deshalb zeigt **Chat Settings** (Chat-Einstellungen) einen Verfügbarkeitshinweis und deaktiviert die Tool-Bedienelemente für diese Verbindungen. Ihre Textbefehle und Würfel-Tags bleiben verfügbar. Game-Chats können eine separate Verbindung für die Tool-Planung wählen; Kosten und Verhalten erklärt [Optionale Tool-Planung und Lorebook-Suche](../game/getting-started.md#optional-tool-planning-and-lore-searches).
 
 Lorebook-Suchen ordnen Ergebnisse semantisch, wenn die aktivierten Einträge kompatible Vektoren haben. Conversation und Roleplay behalten die Textsuche bei, wenn die semantische Suche nicht verfügbar ist. Die Game-Lorebook-Suche muss separat eingeschaltet werden und meldet fehlende oder inkompatible Vektoren; sie vektorisiert nie automatisch ein Buch.
 

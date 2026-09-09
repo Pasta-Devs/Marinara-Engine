@@ -84,6 +84,8 @@ Game Mode 会发起三种不同的 AI 调用。搞清楚它们，就知道费用
 
 当前生效的模式会在菜单里显示 **On** 标记。想关掉 **Talk to Party** 或 **Talk to GM**，再点一次同一个菜单项即可，消息就会回到场景里。
 
+<a id="optional-tool-planning-and-lore-searches"></a>
+
 ## 可选的工具规划与世界设定搜索
 
 游戏中打开 **Chat Settings → Function Calling**(聊天设置→函数调用)。**Let the GM search lore**(允许 GM 搜索世界设定) 让 GM 按含义查找信息，无须同时启用所有其他可选工具。请先为相关世界书开启向量化，并将条目向量化。搜索会遵循已启用的世界书、文件夹以及当前聊天的条目开关，使用配置好的嵌入连接，也可能增加一次后续模型请求。

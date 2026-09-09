@@ -84,6 +84,8 @@ A barra de digitação tem um botãozinho de balão de fala ao lado do botão de
 
 O modo ativo mostra uma marca **On** no menu. Para desativar **Talk to Party** ou **Talk to GM**, clique de novo nessa mesma entrada do menu. As mensagens voltam a entrar na cena.
 
+<a id="optional-tool-planning-and-lore-searches"></a>
+
 ## Planejamento opcional de ferramentas e buscas de lore
 
 Durante o jogo, abra **Chat Settings → Function Calling** (configurações do chat → chamadas de função). **Let the GM search lore** (permitir que o GM busque lore) permite buscar informações pelo significado sem ativar todas as outras ferramentas opcionais. Primeiro ative a vetorização dos lorebooks relevantes e vetorize suas entradas. As buscas respeitam os livros e as pastas ativados e os controles de entradas específicos do chat. Elas usam a conexão de embeddings configurada e podem acrescentar uma solicitação de continuação ao modelo.

@@ -84,6 +84,8 @@ Na pasku wpisywania, obok przycisku dołączania plików, jest mały przycisk z 
 
 Aktywny tryb ma w menu znacznik **On**. Aby wyłączyć opcję **Talk to Party** albo **Talk to GM**, kliknij tę samą pozycję menu jeszcze raz. Wiadomości wracają wtedy do sceny.
 
+<a id="optional-tool-planning-and-lore-searches"></a>
+
 ## Opcjonalne planowanie narzędzi i wyszukiwanie w lorebookach
 
 Podczas gry otwórz **Chat Settings → Function Calling** (ustawienia czatu → wywoływanie funkcji). Opcja **Let the GM search lore** (pozwól postaci GM przeszukiwać lorebooki) umożliwia wyszukiwanie informacji według znaczenia bez włączania wszystkich pozostałych narzędzi opcjonalnych. Najpierw włącz wektoryzację odpowiednich lorebooków i zwektoryzuj ich wpisy. Wyszukiwanie uwzględnia włączone książki, foldery i przełączniki wpisów dla danego czatu. Korzysta ze skonfigurowanego połączenia do embeddingów i może wymagać dodatkowego zapytania do modelu.
