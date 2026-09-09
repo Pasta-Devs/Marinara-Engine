@@ -96,6 +96,12 @@ To ŻĄDANIE, a nie preferencja. Ustawienie zwinięcia wybrane przez gracza nigd
 
 Zasady bezpieczeństwa Engine mają pierwszeństwo. Pole jest przymusowo rozwijane zawsze, gdy widać pole tekstowe gracza, także na samym początku sceny przed powstaniem segmentu, oraz gdy działają kontrolki przejścia do kolejnego segmentu. Są one jedynym sposobem zakończenia tury; pakiet, który mógłby je ukryć, mógłby trwale zablokować gracza. Uchwyt nadal pokazuje wskaźnik uwagi przy oczekującej analizie sceny, generowaniu lub ponownej próbie generowania walki. Jeśli gracz rozwinie pole ręcznie podczas żądania, pozostaje ono otwarte do zakończenia żądania. Podobnie jak interfejsy 1.11 i 1.12 jest to miękki interfejs: pole działa niezależnie od zadeklarowanego `capabilityApi`. Etykieta 1.13 oznacza czas wprowadzenia, więc pakiet, który go wymaga, deklaruje 1.13.
 
+Polecenia modelu zadeklarowane przez pakiet działają tylko wtedy, gdy deklaruje on `chat-write`, jest zainstalowany i gotowy. To uprawnienie kontroluje też zapisy przez API trwałego magazynu pakietu, w tym wiadomości, metadane czatu, zdarzenia roleplay i migawki przestrzenne. `chat-read` kontroluje odczyty czatów, wiadomości, stanu gry i migawek przestrzennych. Te same kontrole obowiązują wewnątrz transakcji magazynu i blokad czatu; uprawnienie do zapisu nie daje automatycznie uprawnienia do odczytu. Wywołania magazynu należące do Engine pozostają zaufane.
+
+Widok szczegółów Download Agents pokazuje po instalacji uprawnienia zadeklarowane przez zainstalowaną wersję. Gdy wersja katalogowa żąda innych uprawnień, pokazuje je osobno. Instalowanie lub aktualizowanie kodu nadal wymaga istniejącej zgody przypisanej do dokładnej wersji i sumy kontrolnej; polecenia modelu nie pytają o osobną zgodę w każdej turze.
+
+To kontrole API, a nie izolowane środowisko JavaScript. Uprawnienia do sieci, magazynu i interfejsu są deklaracjami dostępu. Kod pakietu w przeglądarce i na serwerze pozostaje zaufanym kodem i ma dostęp do środowiska hosta; instaluj tylko pakiety, którym ufasz. Sprawdzana jest gotowość, a nie możliwość udostępniania plików, więc aktualizacja pozostawiająca pakiet w stanie `restart-required` wstrzymuje rozpoznawanie jego poleceń do restartu Engine.
+
 ## Pakiety początkowe
 
 - wszyscy dotychczas wbudowani agenci;

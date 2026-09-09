@@ -84,6 +84,14 @@ Na pasku wpisywania, obok przycisku dołączania plików, jest mały przycisk z 
 
 Aktywny tryb ma w menu znacznik **On**. Aby wyłączyć opcję **Talk to Party** albo **Talk to GM**, kliknij tę samą pozycję menu jeszcze raz. Wiadomości wracają wtedy do sceny.
 
+## Opcjonalne planowanie narzędzi i wyszukiwanie w lorebookach
+
+Podczas gry otwórz **Chat Settings → Function Calling** (ustawienia czatu → wywoływanie funkcji). Opcja **Let the GM search lore** (pozwól postaci GM przeszukiwać lorebooki) umożliwia wyszukiwanie informacji według znaczenia bez włączania wszystkich pozostałych narzędzi opcjonalnych. Najpierw włącz wektoryzację odpowiednich lorebooków i zwektoryzuj ich wpisy. Wyszukiwanie uwzględnia włączone książki, foldery i przełączniki wpisów dla danego czatu. Korzysta ze skonfigurowanego połączenia do embeddingów i może wymagać dodatkowego zapytania do modelu.
+
+Ustawienie **Game tool connection** (połączenie dla narzędzi gry) ma domyślną wartość **Same as narrator** (takie samo jak narrator), która zachowuje zwykłą pętlę narzędzi. Wybór innego połączenia uruchamia jedno osobne zapytanie planujące przed narracją. Ten model wybiera narzędzia, a narrator otrzymuje ich rzeczywiste wyniki jako tekst. Koszt dodatkowego zapytania obciąża wybrane połączenie; tańszy model może obniżyć koszty narzędzi, lecz wybrać inne narzędzia. Ten pojedynczy przebieg planowania nie może uruchomić drugiego wyszukiwania na podstawie pierwszego wyniku. Użyj **Same as narrator**, jeśli narrator ma rozumować przez kilka rund narzędzi.
+
+Połączenia subskrypcyjne Claude i Grok nie obsługują natywnych wywołań narzędzi. Odpowiednie kontrolki wyjaśniają to i są wyłączone, dopóki nie wybierzesz obsługiwanego połączenia narzędzi gry. Polecenia tekstowe i znaczniki kości nadal działają. Jeśli osobnego połączenia brakuje lub zapytanie do niego się nie powiedzie, tura zgłasza błąd zamiast po cichu kontynuować narrację bez żądanej pracy narzędzi.
+
 ## Włączanie agentów
 
 Agenci to opcjonalni pomocnicy AI, którzy działają obok postaci GM. Aby użyć ich w grze, otwórz podczas rozgrywki panel **Chat Settings**, przejdź do sekcji **Agents** i włącz opcję **Enable Agents**. Działający agenci podnoszą koszty, bo wysyłają dodatkowe zapytania.
