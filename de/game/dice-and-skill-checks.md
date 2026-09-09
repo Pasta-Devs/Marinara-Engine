@@ -42,6 +42,10 @@ Bei mehreren Würfeln oder mit Bonus stehen auch die Einzelwerte dabei:
 
 Der Game Master liest dieses Tag und erzählt passend zum Ergebnis weiter.
 
+Wenn der Game Master in einem Zug mehrmals würfelt, erhält jede Würfelkarte einen eigenen Platz in der Warteschlange. Schließe eine Karte, um die nächste zu sehen. Alle Würfe werden im aktiven Swipe (der alternativen Antwort) dieses Zugs gespeichert und bleiben nach dem Neuladen unter **Logs** (Protokolle) erhalten. Beim Fortsetzen bleiben frühere Würfe bestehen; beim erneuten Generieren entsteht ein eigener Satz für den neuen Swipe.
+
+Der Game Master kann auch in der Erzählung mit `[dice: 3d8+2]` einen Wurf anfordern. Die Engine liefert die tatsächlichen Zahlen und zeigt dieselbe animierte Karte. Das funktioniert auch mit reinen Textverbindungen, einschließlich Claude- und Grok-Abonnements. Es gelten dieselbe Notation und dieselben Grenzen wie im Würfelmenü.
+
 ## Eigene Würfelnotation
 
 Im Würfelmenü gibt es zusätzlich ein Textfeld für einen eigenen Wurf. Es versteht die übliche `NdM`-Notation: `N` ist die Anzahl der Würfel, `M` die Zahl der Seiten pro Würfel. Am Ende lässt sich ein Bonus oder ein Abzug anhängen.
@@ -67,6 +71,10 @@ Zwei Grenzen sind fest eingebaut: höchstens 100 Würfel auf einmal und höchste
 
 Eine Fertigkeitsprobe entscheidet, ob dir etwas Riskantes gelingt – anschleichen, einen Hinweis entdecken oder einen NPC (Nicht-Spieler-Charakter) überzeugen. Du startest eine Probe nicht selbst. Der Game Master fordert sie mitten in seiner Erzählung ein. Die App macht daraus einen animierten d20-Wurf mit einem Ergebnis-Banner.
 
+Eine per Text angeforderte Probe beginnt mit dem Versuch. Die Engine würfelt und sendet dann eine zusätzliche Modellanfrage mit den tatsächlichen Ergebnissen, damit der Game Master den Ausgang noch im selben Zug erzählen kann. So wird auch ein Entwurf korrigiert, der den Ausgang schon vor dem Wurf geraten hat. Die zusätzliche Anfrage sendet den Prompt erneut und verbraucht weitere Eingabe- und Ausgabetokens. Schlägt sie fehl, bleiben die ermittelten Ergebnisse erhalten, ohne einen geratenen oder unvollständigen Ausgang zu speichern.
+
+Bei einer Verbindung mit Unterstützung für das Würfel-Tool kann der Game Master bereits während der Generierung einen echten Wurf erhalten. Die Würfelkarte erscheint, sobald das Tool antwortet; die abgeschlossene Probe übernimmt dieses Ergebnis, ohne erneut zu würfeln. Jede ausgewertete Fertigkeitsprobe erhält ein eigenes Banner nach den wartenden Würfelkarten.
+
 Das Banner nennt die Fertigkeit und die Zielzahl, zum Beispiel **Stealth Check** und daneben **DC 15**. DC steht für Difficulty Class, also den Schwierigkeitsgrad: die Zahl, die dein Wurf erreichen oder übertreffen muss.
 
 ### Wie das Ergebnis zustande kommt
@@ -86,6 +94,12 @@ Zwei Würfelergebnisse setzen die Rechnung außer Kraft:
 - Eine natürliche 1 (der Würfel selbst zeigt 1) ist ein **CRITICAL FAILURE**. Sie misslingt immer, auch bei großen Modifikatoren.
 
 Das Banner zeigt eines von vier Ergebnissen: **CRITICAL SUCCESS**, **SUCCESS**, **FAILURE** oder **CRITICAL FAILURE**.
+
+### Andere Würfelsysteme
+
+Der Game Master kann eine andere Notation angeben, etwa `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. Solche Proben verwenden den festen Modifikator der Notation statt der d20-Modifikatoren des Charakterbogens und gelingen, wenn die Summe den DC erreicht. Die Regeln für eine natürliche 1 und eine natürliche 20 gelten nur für die oben beschriebene Standard-d20-Probe.
+
+Erfolgspools müssen sowohl den Schwellenwert pro Würfel als auch die benötigte Anzahl an Erfolgen angeben: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` würfelt sechs d10, zählt jeden Würfel mit mindestens 6 einmal und gelingt ab vier Erfolgen. Die Engine errät keinen fehlenden Schwellenwert und setzt weder explodierende Würfel noch Patzer oder andere besondere Poolregeln um. Ein Pool ohne gültigen Schwellenwert bleibt unaufgelöst; vom Modell erfundene Zahlen werden entfernt.
 
 ### Vorteil und Nachteil
 

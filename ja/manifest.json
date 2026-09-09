@@ -1,6 +1,6 @@
 {
   "language": "ja",
-  "sourceCommit": "8945372f4c744d1ce469aeec7f74efeb58a3bf20",
+  "sourceCommit": "a03e362f26fb9c54abd6043b0c389c414b111585",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -334,8 +334,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "dacec6697dcbeb1bfe17ffb352493fba45d23fb8ef04a079c424e0d05ce8e6f7",
-      "bytes": 26757
+      "sha256": "629c2139220f87f9a90fab65ad3455b64b5b8b8897b6639274905712d5bc393b",
+      "bytes": 28690
     },
     {
       "path": "development/personal-extensions.md",
@@ -344,8 +344,8 @@
     },
     {
       "path": "extending/custom-tools.md",
-      "sha256": "1d42efb9870e97484fff9a4e8acefaffc3d3fce436218fc05b40fb6febb539aa",
-      "bytes": 22149
+      "sha256": "05577b83c7365c04a07f33f55be629b6549a601b560c5b7c4ebc19ae6f173db3",
+      "bytes": 23232
     },
     {
       "path": "extending/personal-extensions.md",
@@ -369,8 +369,8 @@
     },
     {
       "path": "game/dice-and-skill-checks.md",
-      "sha256": "a1c3818bedc545a21d2a622881a3364f6a137ba08f112d4bf9e6a63ca25262ce",
-      "bytes": 7070
+      "sha256": "bcc1c08a6e0eb3fc387bed2a19385f34b200a7316fee25e50107fab888af1053",
+      "bytes": 10090
     },
     {
       "path": "game/game-assets.md",
@@ -379,8 +379,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "13afc1950f1b60fee7e4f4733b176cd1da6a84db1faa3a908311d54e9afb573c",
-      "bytes": 18186
+      "sha256": "f4ed42cb616a9d10ede3892d9feb914929650bd7c7b1ca81065cdaf67e97b82f",
+      "bytes": 20247
     },
     {
       "path": "game/hud-widgets.md",
