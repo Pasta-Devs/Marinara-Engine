@@ -1,3 +1,4 @@
+import { withLatestMessageReply } from "../../services/generation/message-reply.js";
 import type { FastifyInstance } from "fastify";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -691,7 +692,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           role: "user",
           characterId: null,
           content: userMessage,
-          extra: null,
+          extra: body.replyTo ? JSON.stringify({ replyTo: body.replyTo }) : null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           activeSwipeIndex: 0,
@@ -707,6 +708,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       conn.provider,
       conn.model,
     );
+    const latestReplyUserMessageId = [...chatMessages].reverse().find((message) => message.role === "user")?.id;
     let mappedMessages: DryRunPromptMessage[] = chatMessages.map((m: any) => {
       const extra = parseExtra(m.extra);
       const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
@@ -719,7 +721,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       return {
         id: typeof m.id === "string" ? m.id : null,
         role: m.role === "narrator" ? ("system" as const) : (m.role as "user" | "assistant" | "system"),
-        content: appendReadableAttachmentsToContent((m.content as string) ?? "", attachments),
+        content: withLatestMessageReply(
+          appendReadableAttachmentsToContent((m.content as string) ?? "", attachments),
+          extra.replyTo,
+          m.role === "user" && m.id === latestReplyUserMessageId,
+        ),
         contextKind: "history" as const,
         characterId: typeof m.characterId === "string" && m.characterId ? m.characterId : null,
         ...(personaSnapshotName ? { personaSnapshotName } : {}),

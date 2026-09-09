@@ -50,7 +50,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
-- Larger display and font sizes for high-resolution screens, message replies with a quoted preview, and automatic context-limit refresh for supported local inference backends (#6006, #6002, #6003).
+- Reply to a whole message or selected passage in Conversation and Roleplay. Quote previews stay in history while only the latest user turn repeats its quote to the model (#6002).
+- Larger display sizes (26, 30, and 34 px) and chat text up to 72 px improve readability on high-resolution displays (#6006).
+- Refresh the loaded context limit of local KoboldCpp, TabbyAPI, and llama.cpp-compatible connections when the page opens; offline or unsupported endpoints keep the saved limit (#6003).
 
 - Roleplay Commands now offer narrator-only dice rolls and combat, apply a named character’s RPG attribute modifiers, and pass named avatars and chat settings to Illustrator. Combat and illustration commands require their agents in the chat. Collapsed command notices reveal original requests on tap and let you edit or remove attached notes, reminders, and documents per swipe. Command settings and prompts are clearer (#5990).
 
@@ -108,6 +110,11 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Roleplay Chat Summary can now generate multiple explicit message ranges sequentially, keeping each result as its own chronological batch entry with per-range progress and retry status.
 
 ### Fixed
+
+- Roleplay DMs now mark new, reused, and linked Conversation threads unread, including after reload (#6000).
+- Roleplay streaming now applies the same display regexes and scope settings as completed messages, preserving incomplete fragments until a regex matches (#5994).
+- Desktop message actions stay grouped, and Conversation actions become keyboard accessible; mobile controls retain their spacing (#6005).
+- The hidden-turn gate now accepts actionable output from any mode's parsed commands or tools, so command-only Game replies keep their anchor without a blank visible message (#5902).
 
 - Accent Pulse avoids a WebKit rendering crash and recurring color and shadow transition bursts on touchscreens. Appearance keeps covered Home effects paused while the accent preview continues (#5988).
 - Mobile message action icons remain available after closing action dialogs such as Peek Prompt (#5825).

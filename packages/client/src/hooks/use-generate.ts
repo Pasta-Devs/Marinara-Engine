@@ -1212,6 +1212,7 @@ export function useGenerate() {
       presetId?: string;
       lorebookIds?: string[];
       userMessage?: string;
+      replyTo?: Message["extra"]["replyTo"];
       regenerateMessageId?: string;
       continueMessageId?: string;
       impersonate?: boolean;
@@ -1405,6 +1406,7 @@ export function useGenerate() {
             personaSnapshot,
             ...(submissionId ? { submissionId } : {}),
             ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
+            ...(params.replyTo ? { replyTo: params.replyTo } : {}),
           },
           createdAt: new Date().toISOString(),
         };

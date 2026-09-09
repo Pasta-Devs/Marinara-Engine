@@ -5169,7 +5169,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 </span>
                 <select
                   value={String(fontSize)}
-                  onChange={(e) => setFontSize(Number(e.target.value) as 12 | 14 | 16 | 17 | 19 | 22)}
+                  onChange={(e) => setFontSize(Number(e.target.value) as Parameters<typeof setFontSize>[0])}
                   className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
                 >
                   <option value="12">{localizeUi("ui.panels.appearancesettings.tiny")}</option>
@@ -5178,6 +5178,9 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   <option value="17">{localizeUi("ui.noodle.noodlehome.default")}</option>
                   <option value="19">{localizeUi("ui.panels.appearancesettings.large")}</option>
                   <option value="22">{localizeUi("ui.panels.appearancesettings.huge")}</option>
+                  <option value="26">{localizeUi("settings.appearance.displaySize.extraLarge")}</option>
+                  <option value="30">{localizeUi("settings.appearance.displaySize.extraExtraLarge")}</option>
+                  <option value="34">{localizeUi("settings.appearance.displaySize.maximum")}</option>
                 </select>
               </label>
 
@@ -5192,11 +5195,11 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   <input
                     type="range"
                     min={12}
-                    max={48}
+                    max={72}
                     step={1}
                     value={chatFontSize}
                     onChange={(e) => setChatFontSize(Number(e.target.value))}
-                    className="flex-1 accent-[var(--primary)]"
+                    className="min-w-0 flex-1 accent-[var(--primary)]"
                   />
                   <span className="text-xs tabular-nums text-[var(--muted-foreground)] w-8 text-right">
                     {chatFontSize}

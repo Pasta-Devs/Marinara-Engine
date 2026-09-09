@@ -86,7 +86,7 @@ export async function resolveConversationPresenceRuntime(args: {
   abortSignal: AbortSignal;
   writeSse: (payload: unknown) => void;
   endSse: () => void;
-  mapChatHistoryMessageForPrompt: (message: any) => Promise<GenerationPromptMessage>;
+  mapChatHistoryMessageForPrompt: (message: any, latestUserMessageId?: string) => Promise<GenerationPromptMessage>;
   resolveHistoryMessageMacros: (messages: GenerationPromptMessage[]) => GenerationPromptMessage[];
 }): Promise<{
   ended: boolean;
@@ -252,8 +252,9 @@ export async function resolveConversationPresenceRuntime(args: {
         chatMessages = chatMessages.slice(-args.contextMessageLimit);
       }
       finalMessages = [];
+      const latestUserMessageId = [...chatMessages].reverse().find((message) => message.role === "user")?.id;
       for (const message of chatMessages) {
-        finalMessages.push(await args.mapChatHistoryMessageForPrompt(message));
+        finalMessages.push(await args.mapChatHistoryMessageForPrompt(message, latestUserMessageId));
       }
       finalMessages = args.resolveHistoryMessageMacros(finalMessages);
     }

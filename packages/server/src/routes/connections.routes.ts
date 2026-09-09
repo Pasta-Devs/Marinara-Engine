@@ -24,6 +24,7 @@ import {
   normalizeVideoGenerationProfile,
 } from "@marinara-engine/shared";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { canRefreshLocalContext, fetchLocalContextLimit } from "../services/llm/local-context-limit.js";
 import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embedding.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
@@ -405,6 +406,25 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
   app.get("/", async () => {
     return storage.list();
+  });
+
+  app.post("/refresh-local-context", async () => {
+    const candidates = (await storage.list()).filter(canRefreshLocalContext);
+    const updated: string[] = [];
+    await Promise.all(
+      candidates.map(async (candidate) => {
+        const connection = await storage.getWithKey(candidate.id);
+        if (!connection) return;
+        const maxContext = await fetchLocalContextLimit(connection);
+        if (maxContext === null || maxContext === connection.maxContext) return;
+        const current = await storage.getById(connection.id);
+        // A settings save while the backend is answering wins over this background refresh.
+        if (!current || current.updatedAt !== connection.updatedAt) return;
+        await storage.update(connection.id, { maxContext });
+        updated.push(connection.id);
+      }),
+    );
+    return { updated };
   });
 
   app.get<{ Params: { filename: string } }>("/images/file/:filename", async (req, reply) => {

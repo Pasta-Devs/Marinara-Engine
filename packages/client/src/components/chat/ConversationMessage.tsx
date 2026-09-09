@@ -33,6 +33,7 @@ import {
   type MessageData,
   type MessageRenderContext,
 } from "./ConversationMessageShared";
+import { MessageReplyPreview } from "./MessageReplyPreview";
 import { ConversationMessageActions } from "./ConversationMessageActions";
 import { ConversationMessageGrouped } from "./ConversationMessageGrouped";
 import { ConversationMessageBubble } from "./ConversationMessageBubble";
@@ -1123,12 +1124,14 @@ export const ConversationMessage = memo(function ConversationMessage({
           isHiddenFromAI && cn("rounded-lg ring-1 saturate-75", CONVERSATION_MESSAGE_CHROME_RING_CLASS),
           multiSelectMode && isSelected && MESSAGE_SELECTION_SURFACE_CLASS,
         )}
+        tabIndex={0}
         data-message-id={message.id}
         data-message-role={message.role}
         data-card-css={message.characterId ?? undefined}
         data-grouped={isGrouped || undefined}
         onClick={handleMobileTap}
       >
+        {isUser && !isHiddenCollapsed && <MessageReplyPreview reply={extra.replyTo} />}
         <div
           className={cn("min-w-0 max-w-full", !isBubbleStyle && "flex gap-4")}
           data-component="ConversationMessage.Content"
@@ -1138,6 +1141,8 @@ export const ConversationMessage = memo(function ConversationMessage({
 
         {(!hideActions || (hasReasoning && !isUser)) && (
           <ConversationMessageActions
+            message={message}
+            name={displayName}
             isUser={isUser}
             showActions={showActions}
             forceShowActions={hideActions && hasReasoning ? true : forceShowActions}

@@ -507,37 +507,17 @@ try {
 
   // ── A verb-only turn keeps its turn ────────────────────────────────────────
   //
-  // A game turn that is nothing but verb tags strips to empty, and the two Conversation command
-  // counts the anchor gate was built on are both zero in game mode by construction. Without the verb
-  // count the gate says no, the turn takes the error branch, and writes that already validated are
-  // dropped (#5902 stays open for the generic surface; this closes the flagship path).
-  const anchorGateBase = {
-    impersonate: false,
-    parsedCommandCount: 0,
-    parsedRawCommandCount: 0,
-    spatialDirectiveDetected: false,
-  };
+  const anchorGateBase = { impersonate: false, hasActionableOutput: false, spatialDirectiveDetected: false };
   assert.equal(
-    shouldSaveHiddenGenerationAnchor({ ...anchorGateBase, gmVerbCallCount: 1 }),
+    shouldSaveHiddenGenerationAnchor({ ...anchorGateBase, hasActionableOutput: true }),
     true,
-    "a verb-only game turn must save the hidden anchor rather than error",
+    "any successfully parsed command-only turn gets a hidden anchor, including Game verbs and tools",
   );
+  assert.equal(shouldSaveHiddenGenerationAnchor(anchorGateBase), false, "empty and unrecognized output still errors");
   assert.equal(
-    shouldSaveHiddenGenerationAnchor({ ...anchorGateBase, gmVerbCallCount: 0 }),
+    shouldSaveHiddenGenerationAnchor({ ...anchorGateBase, impersonate: true, hasActionableOutput: true }),
     false,
-    "a genuinely empty game turn — no verbs, no commands — still errors, exactly as it does today",
-  );
-  assert.equal(
-    shouldSaveHiddenGenerationAnchor(anchorGateBase),
-    false,
-    "the count is optional, so every non-game caller keeps the behavior it has",
-  );
-  // An impersonated turn parses no verbs at all, so it can never reach this gate with a count — but
-  // the gate must refuse one anyway rather than let a future caller open a second impersonate hole.
-  assert.equal(
-    shouldSaveHiddenGenerationAnchor({ ...anchorGateBase, impersonate: true, gmVerbCallCount: 3 }),
-    false,
-    "an impersonated turn never anchors on a verb count",
+    "impersonation never executes assistant commands",
   );
 
   // ── Narration scan ─────────────────────────────────────────────────────────
@@ -545,7 +525,10 @@ try {
   const clean = parseAndStripGmVerbCalls('Rain sheets down. [weather:{"word":"storm","intensity":"heavy"}]', live);
   assert.equal(clean.matched, true);
   assert.equal(clean.content.trim(), "Rain sheets down.");
-  assert.deepEqual(clean.calls.map((call) => call.args), [{ word: "storm", intensity: "heavy" }]);
+  assert.deepEqual(
+    clean.calls.map((call) => call.args),
+    [{ word: "storm", intensity: "heavy" }],
+  );
 
   // A tag is stripped on the NAME match, never on validation success — a command the model got
   // slightly wrong is still a command, and leaving it in shows the player machinery.
@@ -671,7 +654,9 @@ try {
 
   // Provenance: a truthy OBJECT, or the storage guard treats the slot as unclaimed forever.
   const claimedSwipes = await chats.getSwipes(message.id);
-  const claim = JSON.parse((claimedSwipes.find((swipe: { index: number }) => swipe.index === 0)!.extra as string) ?? "{}");
+  const claim = JSON.parse(
+    (claimedSwipes.find((swipe: { index: number }) => swipe.index === 0)!.extra as string) ?? "{}",
+  );
   assert.equal(typeof claim["gmVerb:weather"], "object");
   assert.equal(claim["gmVerb:weather"].verb, "weather");
   assert.deepEqual(claim["gmVerb:weather"].args, { word: "storm" });
@@ -878,7 +863,10 @@ try {
   });
   assert.deepEqual((await readMetadata(chatId)).pixelforgeWeather, { word: "rain" });
   assert.equal(anonymousReply.frames.length, 1);
-  assert.equal(await claimGmVerb(chats, weatherVerb, { word: "rain" }, { chatId, messageId: "", swipeIndex: 0 }), false);
+  assert.equal(
+    await claimGmVerb(chats, weatherVerb, { word: "rain" }, { chatId, messageId: "", swipeIndex: 0 }),
+    false,
+  );
 
   // The write shape is `patchMetadata` and nothing else, so a state verb can only ever replace its
   // own key — never read-modify-write a whole metadata object and lose a concurrent turn's write.
@@ -926,7 +914,7 @@ try {
   // Scoped to the gate's own call rather than the bare field: the same count also rides the warn
   // payload a few lines above, and a pin that either one satisfies proves nothing about the gate.
   const anchorGateCall = generateRoute.match(
-    /shouldSaveHiddenGenerationAnchor\(\{[\s\S]*?gmVerbCallCount: collectedGmVerbCalls\.length,[\s\S]*?\}\)/,
+    /shouldSaveHiddenGenerationAnchor\(\{[\s\S]*?hasActionableOutput:[\s\S]*?collectedGmVerbCalls\.length > 0[\s\S]*?\}\)/,
   );
   assert.ok(anchorGateCall, "the hidden-anchor gate must see how many verbs this turn parsed");
   // Saving the anchor is only half of it: the execution site sits past the early return that path
@@ -995,7 +983,10 @@ try {
     (generateRoute.match(/type: "gm_verb"/g) ?? []).length +
       (
         readFileSync(
-          join(repositoryRoot, "packages/server/src/services/capability-packages/capability-gm-verb-runtime.service.ts"),
+          join(
+            repositoryRoot,
+            "packages/server/src/services/capability-packages/capability-gm-verb-runtime.service.ts",
+          ),
           "utf8",
         ).match(/type: "gm_verb"/g) ?? []
       ).length,

@@ -7,6 +7,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import type {
   Chat,
   ChatMode,
+  MessageReply,
   ConversationCallSession,
   ConversationPresenceStatus,
   PendingSpatialTransition,
@@ -255,6 +256,7 @@ interface ChatState {
   pendingNewChatOrigin: "home" | "sidebar" | null;
   /** Per-chat draft input text so typing isn't lost when navigating away. */
   inputDrafts: Map<string, string>;
+  replyDrafts: Map<string, MessageReply>;
   /** Per-chat structured movement staged for the next accepted owner turn. */
   pendingSpatialTransitions: Map<string, PendingSpatialTransitionDraft>;
   /** Whether the active composer contains non-whitespace input. */
@@ -305,6 +307,7 @@ interface ChatState {
   setShouldOpenWizardInShortcutMode: (v: boolean) => void;
   setPendingNewChatMode: (mode: ChatMode | null, origin?: "home" | "sidebar" | null) => void;
   setInputDraft: (chatId: string, text: string) => void;
+  setReplyDraft: (chatId: string, reply: MessageReply | null) => void;
   clearInputDraft: (chatId: string) => void;
   setPendingSpatialTransition: (chatId: string, draft: PendingSpatialTransitionDraft) => void;
   clearPendingSpatialTransition: (chatId: string, commandId?: string) => void;
@@ -384,6 +387,7 @@ export const useChatStore = create<ChatState>()(
     pendingNewChatMode: null,
     pendingNewChatOrigin: null,
     inputDrafts: loadDrafts(),
+    replyDrafts: new Map(),
     pendingSpatialTransitions: loadPendingSpatialTransitions(),
     hasCurrentInput: false,
     unreadCounts: new Map(),
@@ -744,6 +748,13 @@ export const useChatStore = create<ChatState>()(
         pendingNewChatOrigin: mode ? origin : null,
       }),
 
+    setReplyDraft: (chatId, reply) =>
+      set((state) => {
+        const replyDrafts = new Map(state.replyDrafts);
+        if (reply) replyDrafts.set(chatId, reply);
+        else replyDrafts.delete(chatId);
+        return { replyDrafts };
+      }),
     setInputDraft: (chatId: string, text: string) =>
       set((state) => {
         const m = new Map(state.inputDrafts);
@@ -1042,6 +1053,7 @@ export const useChatStore = create<ChatState>()(
         pendingNewChatMode: null,
         pendingNewChatOrigin: null,
         inputDrafts: new Map(),
+        replyDrafts: new Map(),
         pendingSpatialTransitions: new Map(),
         hasCurrentInput: false,
         unreadCounts: new Map(),

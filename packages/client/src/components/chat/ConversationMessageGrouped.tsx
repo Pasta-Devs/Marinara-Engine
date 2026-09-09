@@ -127,6 +127,7 @@ export function ConversationMessageGrouped({
     <div
       ref={msgRef}
       data-component="ConversationMessage.Grouped"
+      tabIndex={0}
       data-message-id={message.id}
       data-message-role={message.role}
       className={cn(
@@ -450,6 +451,8 @@ export function ConversationMessageGrouped({
       {/* Action bar */}
       {(!hideActions || hasReasoning) && (
         <ConversationMessageActions
+          message={message}
+          name={ctx.displayName}
           isUser={false}
           showActions={showActions}
           forceShowActions={hideActions && hasReasoning ? true : forceShowActions}

@@ -46,6 +46,7 @@ type ChatsStore = {
   }): Promise<{ id?: unknown; createdAt: string } | null>;
   updateMessageExtra(id: string, partial: Record<string, unknown>): Promise<unknown>;
   patchMetadata(id: string, patch: Record<string, unknown>): Promise<unknown>;
+  markAutonomousUnread(id: string, input: { characterId: string }): Promise<unknown>;
   remove(id: string): Promise<unknown>;
 };
 
@@ -150,6 +151,7 @@ async function runRoleplayDmCommand(
       content: messageText,
     });
     recordAssistantActivity(linkedConversationId, targetCharId, messageTimestampMsOf(dmMessage));
+    if (dmMessage) await args.chats.markAutonomousUnread(linkedConversationId, { characterId: targetCharId });
 
     args.sendAssistantAction({
       action: "dm_posted",
@@ -213,6 +215,7 @@ async function runRoleplayDmCommand(
       content: messageText,
     });
     recordAssistantActivity(targetChat.id, targetCharId, messageTimestampMsOf(dmMessage));
+    if (dmMessage) await args.chats.markAutonomousUnread(targetChat.id, { characterId: targetCharId });
   } catch (dmWriteErr) {
     if (createdNewChat) {
       try {

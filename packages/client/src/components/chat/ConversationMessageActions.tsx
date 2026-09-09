@@ -14,7 +14,8 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import type { MessageExtra } from "@marinara-engine/shared";
+import { ReplyToMessageButton } from "./MessageReplyPreview";
+import type { Message, MessageExtra } from "@marinara-engine/shared";
 import type { RefObject } from "react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
@@ -23,6 +24,8 @@ import { MESSAGE_ACTION_ICON_SIZE } from "./MessageActionButton";
 import { ReactionAddButton } from "./ReactionAddButton";
 
 export interface ConversationMessageActionsProps {
+  message: Pick<Message, "id" | "chatId" | "content">;
+  name: string;
   isUser: boolean;
   // Visibility
   showActions: boolean;
@@ -57,6 +60,8 @@ export interface ConversationMessageActionsProps {
 }
 
 export function ConversationMessageActions({
+  message,
+  name,
   isUser,
   showActions,
   forceShowActions,
@@ -87,26 +92,24 @@ export function ConversationMessageActions({
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   const visible = showActions || forceShowActions;
-  const tabIdx = visible ? undefined : -1;
   return (
     <div
       className={cn(
-        "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 transition-all md:gap-x-2",
+        "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 transition-all md:justify-start md:gap-x-2",
         visible
           ? "visible pointer-events-auto opacity-100"
-          : "invisible pointer-events-none opacity-0 group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 focus-within:visible focus-within:pointer-events-auto focus-within:opacity-100",
+          : "invisible pointer-events-none opacity-0 group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100",
         thinkingOnly && "max-sm:[&>*:not(.mari-message-thinking-action)]:hidden",
       )}
       data-component="ConversationMessage.Actions"
-      aria-hidden={!visible}
     >
       <MsgAction
         icon={copied ? "✓" : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
         onClick={onCopy}
         title={localizeUi("lorebook.editor.batch.copy")}
-        tabIndex={tabIdx}
       />
-      {onPickReaction && <ReactionAddButton onPick={onPickReaction} tabIndex={tabIdx} />}
+      {!thinkingOnly && <ReplyToMessageButton message={message} name={name} />}
+      {onPickReaction && <ReactionAddButton onPick={onPickReaction} />}
       <MsgAction
         icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
         onClick={onTranslate}
@@ -115,13 +118,11 @@ export function ConversationMessageActions({
             ? localizeUi("ui.chat.chatmessage.hideTranslation")
             : localizeUi("ui.chat.chatmessage.translate")
         }
-        tabIndex={tabIdx}
       />
       <MsgAction
         icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />}
         onClick={onEdit}
         title={localizeUi("ui.noodle.noodlepostcard.edit")}
-        tabIndex={tabIdx}
       />
       {canRegenerate && onRegenerate && (
         <MsgAction
@@ -129,7 +130,6 @@ export function ConversationMessageActions({
           onClick={onRegenerate}
           title={regenerateButtonTitle}
           className={regenerateGuidedClass}
-          tabIndex={tabIdx}
         />
       )}
       {onToggleHiddenFromAI && (
@@ -146,7 +146,6 @@ export function ConversationMessageActions({
               ? "text-[var(--marinara-chat-chrome-button-text-active)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
               : undefined
           }
-          tabIndex={tabIdx}
         />
       )}
       {isLastAssistantMessage && !isUser && onPeekPrompt && (
@@ -154,7 +153,6 @@ export function ConversationMessageActions({
           icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
           onClick={onPeekPrompt}
           title={localizeUi("ui.chat.chatmessage.peekPrompt")}
-          tabIndex={tabIdx}
         />
       )}
       {onBranch && (
@@ -162,7 +160,6 @@ export function ConversationMessageActions({
           icon={<GitBranch size={MESSAGE_ACTION_ICON_SIZE} />}
           onClick={onBranch}
           title={localizeUi("ui.chat.chatmessage.branchFromHere")}
-          tabIndex={tabIdx}
         />
       )}
       {generationReplay && (
@@ -170,7 +167,6 @@ export function ConversationMessageActions({
           icon={<ScrollText size={MESSAGE_ACTION_ICON_SIZE} />}
           onClick={onShowGenerationReplay}
           title={localizeUi("ui.chat.chatmessage.storedGuidance")}
-          tabIndex={tabIdx}
         />
       )}
       {hasReasoning && !isUser && (
@@ -180,7 +176,6 @@ export function ConversationMessageActions({
           title={t(
             reasoningSummaryUnavailable ? "chat.message.thoughts.unavailable.view" : "chat.message.thoughts.view",
           )}
-          tabIndex={tabIdx}
           className="mari-message-thinking-action"
           buttonRef={thinkingButtonRef}
         />
@@ -190,7 +185,6 @@ export function ConversationMessageActions({
           icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
           onClick={onDelete}
           title={localizeUi("lorebook.editor.batch.delete")}
-          tabIndex={tabIdx}
         />
       )}
     </div>

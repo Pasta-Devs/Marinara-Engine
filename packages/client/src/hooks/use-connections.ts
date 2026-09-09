@@ -2,6 +2,7 @@
 // React Query: Connection hooks
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import { useChatStore } from "../stores/chat.store";
@@ -13,6 +14,24 @@ export const connectionKeys = {
   list: () => [...connectionKeys.all, "list"] as const,
   detail: (id: string) => [...connectionKeys.all, "detail", id] as const,
 };
+
+/** Refresh once per page load, keeping startup and the saved connection usable if a backend is offline. */
+export function useRefreshLocalContext() {
+  const qc = useQueryClient();
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void api
+      .post<{ updated: string[] }>("/connections/refresh-local-context", {})
+      .then(({ updated }) => {
+        if (!updated.length) return;
+        void qc.invalidateQueries({ queryKey: connectionKeys.list() });
+        for (const id of updated) void qc.invalidateQueries({ queryKey: connectionKeys.detail(id) });
+      })
+      .catch((error) => console.warn("Local context refresh failed", error));
+  }, [qc]);
+}
 
 export function useConnections() {
   return useQuery({

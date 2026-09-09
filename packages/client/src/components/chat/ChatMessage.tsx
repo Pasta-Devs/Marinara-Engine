@@ -4,6 +4,7 @@
 import { cn, copyToClipboard, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
+import { MessageReplyPreview, ReplyToMessageButton } from "./MessageReplyPreview";
 import { RoleplayCommandResults } from "./RoleplayCommandResults";
 import { latestRoleplayParagraph } from "../../lib/roleplay-vn-paragraphs";
 import {
@@ -2489,55 +2490,58 @@ export const ChatMessage = memo(function ChatMessage({
     return charName ? [{ name: charName }] : [];
   }, [charName, scopedCharacterMap]);
 
-  const displayContent = useMemo(() => {
-    const macroContext = {
+  const formatDisplayContent = useCallback(
+    (content: string) => {
+      const macroContext = {
+        userName,
+        persona: {
+          name: userName,
+          description: personaDescription,
+          personality: personaPersonality,
+          backstory: personaBackstory,
+          appearance: personaAppearance,
+          scenario: personaScenario,
+        },
+        primaryCharacter: primaryCharInfo ?? { name: charName },
+        characters: macroCharacters,
+      };
+      // #3164: seed display randomness by message identity, not content — a
+      // content-based seed re-rolls every {{random}}/{{roll}} on each streamed
+      // chunk (visible churn) and on every edit. Swipes keep distinct picks.
+      const macroRandomSeed = `${message.id}:${message.activeSwipeIndex ?? 0}`;
+      const resolveDisplayMacros = createMessageMacroResolver(macroContext, { randomSeed: macroRandomSeed });
+      const text =
+        isUser || isSystem
+          ? content
+          : applyToAIOutput(content, {
+              depth: messageDepth,
+              resolveMacros: resolveDisplayMacros,
+              scopedMode: scopedRegexMode,
+              characterId: message.characterId,
+            });
+      return resolveDisplayMacros(text);
+    },
+    [
+      applyToAIOutput,
+      scopedRegexMode,
+      message.characterId,
+      charName,
+      isSystem,
+      isUser,
+      macroCharacters,
+      message.activeSwipeIndex,
+      messageDepth,
+      message.id,
+      personaAppearance,
+      personaBackstory,
+      personaDescription,
+      personaPersonality,
+      personaScenario,
+      primaryCharInfo,
       userName,
-      persona: {
-        name: userName,
-        description: personaDescription,
-        personality: personaPersonality,
-        backstory: personaBackstory,
-        appearance: personaAppearance,
-        scenario: personaScenario,
-      },
-      primaryCharacter: primaryCharInfo ?? { name: charName },
-      characters: macroCharacters,
-    };
-    // #3164: seed display randomness by message identity, not content — a
-    // content-based seed re-rolls every {{random}}/{{roll}} on each streamed
-    // chunk (visible churn) and on every edit. Swipes keep distinct picks.
-    const macroRandomSeed = `${message.id}:${message.activeSwipeIndex ?? 0}`;
-    const resolveDisplayMacros = createMessageMacroResolver(macroContext, { randomSeed: macroRandomSeed });
-    const text =
-      isUser || isSystem
-        ? message.content
-        : applyToAIOutput(message.content, {
-            depth: messageDepth,
-            resolveMacros: resolveDisplayMacros,
-            scopedMode: scopedRegexMode,
-            characterId: message.characterId,
-          });
-    return resolveDisplayMacros(text);
-  }, [
-    applyToAIOutput,
-    scopedRegexMode,
-    message.characterId,
-    charName,
-    isSystem,
-    isUser,
-    macroCharacters,
-    message.activeSwipeIndex,
-    message.content,
-    messageDepth,
-    message.id,
-    personaAppearance,
-    personaBackstory,
-    personaDescription,
-    personaPersonality,
-    personaScenario,
-    primaryCharInfo,
-    userName,
-  ]);
+    ],
+  );
+  const displayContent = useMemo(() => formatDisplayContent(message.content), [formatDisplayContent, message.content]);
 
   const displayName = isUser ? userName : charName;
   const avatarUrl = isUser
@@ -2731,19 +2735,26 @@ export const ChatMessage = memo(function ChatMessage({
   }, [message.id]);
 
   const renderedContent = useMemo(() => {
-    return renderContent(
-      text,
-      dialogueColor,
-      speakerColorMap,
-      boldDialogue,
-      htmlScopeClass,
-      quoteFormat,
-      selfCharacterId,
-      galleryIndex,
-      nameColorMap,
-      textShadowStr,
+    return (
+      <>
+        {isUser && <MessageReplyPreview reply={extra.replyTo} />}
+        {renderContent(
+          text,
+          dialogueColor,
+          speakerColorMap,
+          boldDialogue,
+          htmlScopeClass,
+          quoteFormat,
+          selfCharacterId,
+          galleryIndex,
+          nameColorMap,
+          textShadowStr,
+        )}
+      </>
     );
   }, [
+    extra.replyTo,
+    isUser,
     text,
     dialogueColor,
     speakerColorMap,
@@ -2758,7 +2769,7 @@ export const ChatMessage = memo(function ChatMessage({
   const renderStreamingText = useCallback(
     (streamText: string) =>
       renderContent(
-        streamText,
+        formatDisplayContent(streamText),
         dialogueColor,
         speakerColorMap,
         boldDialogue,
@@ -2770,6 +2781,7 @@ export const ChatMessage = memo(function ChatMessage({
         textShadowStr,
       ),
     [
+      formatDisplayContent,
       boldDialogue,
       dialogueColor,
       galleryIndex,
@@ -3648,7 +3660,7 @@ export const ChatMessage = memo(function ChatMessage({
             {/* Hover actions (tap to toggle on mobile) */}
             <div
               className={cn(
-                "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all group-hover:opacity-100 md:gap-x-2",
+                "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all group-hover:opacity-100 md:justify-start md:gap-x-2",
                 (showActions || editing) && "opacity-100",
                 showStreamingThinkingAction &&
                   "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
@@ -3659,6 +3671,7 @@ export const ChatMessage = memo(function ChatMessage({
                 onClick={handleCopy}
                 title={localizeUi("lorebook.editor.batch.copy")}
               />
+              {!isStreaming && <ReplyToMessageButton message={message} name={displayName} />}
               <ActionBtn
                 icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={() => translate(message.id, message.content, message.chatId)}
@@ -4118,7 +4131,7 @@ export const ChatMessage = memo(function ChatMessage({
           {/* Hover actions (tap to toggle on mobile) */}
           <div
             className={cn(
-              "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all group-hover:opacity-100 md:gap-x-2",
+              "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all group-hover:opacity-100 md:justify-start md:gap-x-2",
               (showActions || editing) && "opacity-100",
               showStreamingThinkingAction &&
                 "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
@@ -4129,6 +4142,7 @@ export const ChatMessage = memo(function ChatMessage({
               onClick={handleCopy}
               title={localizeUi("lorebook.editor.batch.copy")}
             />
+            {!isStreaming && <ReplyToMessageButton message={message} name={displayName} />}
             <ActionBtn
               icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
               onClick={() => translate(message.id, message.content, message.chatId)}

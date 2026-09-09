@@ -1,3 +1,4 @@
+import { useRefreshLocalContext } from "./hooks/use-connections";
 // ──────────────────────────────────────────────
 // App: Root component with layout
 // ──────────────────────────────────────────────
@@ -483,6 +484,7 @@ async function recoverFromVersionSkew(serverVersion: string) {
 }
 
 export function App() {
+  useRefreshLocalContext();
   const theme = useUIStore((s) => s.theme);
   const notificationPosition = useUIStore((s) => s.notificationPosition);
   const isLite = import.meta.env.VITE_MARINARA_LITE === "true";

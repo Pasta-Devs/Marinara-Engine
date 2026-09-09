@@ -458,6 +458,7 @@ import { handleConversationSideEffectCommand } from "../services/generation/conv
 import { handleConversationCallCommand } from "../services/generation/conversation-call-command-runtime.js";
 import { handleConversationMusicCommand } from "../services/generation/conversation-music-command-runtime.js";
 import { handleConversationReactCommand } from "../services/generation/conversation-react-command-runtime.js";
+import { withLatestMessageReply } from "../services/generation/message-reply.js";
 import { handleRoleplayDmCommand } from "../services/generation/roleplay-dm-command-runtime.js";
 import { handleConversationScheduleCommand } from "../services/generation/conversation-schedule-command-runtime.js";
 import { handleConversationCrossPostCommand } from "../services/generation/conversation-cross-post-command-runtime.js";
@@ -1104,6 +1105,7 @@ export async function generateRoutes(app: FastifyInstance) {
             extra: {
               ...(input.submissionId ? { submissionId: input.submissionId } : {}),
               ...(input.attachments.length ? { attachments: input.attachments } : {}),
+              ...(input.replyTo ? { replyTo: input.replyTo } : {}),
             },
           })
           .catch(releaseActiveGenerationAndRethrow);
@@ -1115,11 +1117,16 @@ export async function generateRoutes(app: FastifyInstance) {
 
       // Spatial owner-turn packages own message creation, so merge the
       // Engine-owned correlation into their durable row before generation.
-      if (input.pendingSpatialTransition && userMsg?.id && (input.attachments.length > 0 || input.submissionId)) {
+      if (
+        input.pendingSpatialTransition &&
+        userMsg?.id &&
+        (input.attachments.length > 0 || input.submissionId || input.replyTo)
+      ) {
         const updatedUserMsg = await chats
           .updateMessageExtra(userMsg.id, {
             ...(input.attachments.length ? { attachments: input.attachments } : {}),
             ...(input.submissionId ? { submissionId: input.submissionId } : {}),
+            ...(input.replyTo ? { replyTo: input.replyTo } : {}),
           })
           .catch(releaseActiveGenerationAndRethrow);
         if (updatedUserMsg) userMsg = updatedUserMsg;
@@ -1649,7 +1656,11 @@ export async function generateRoutes(app: FastifyInstance) {
           logger.warn(error, "[image-captioning] Failed to cache image captions for message %s", messageId);
         }
       };
-      const mapChatHistoryMessageForPrompt = async (m: any): Promise<GenerationPromptMessage> => {
+      const latestReplyUserMessageId = () => [...chatMessages].reverse().find((message) => message.role === "user")?.id;
+      const mapChatHistoryMessageForPrompt = async (
+        m: any,
+        latestUserMessageId = latestReplyUserMessageId(),
+      ): Promise<GenerationPromptMessage> => {
         const extra = parseExtra(m.extra);
         const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
         const attachments = normalizePromptAttachments(m.extra);
@@ -1670,7 +1681,11 @@ export async function generateRoutes(app: FastifyInstance) {
           typeof m.id === "string" ? m.id : null,
           attachmentInputs.updatedAttachments,
         );
-        let content = attachmentInputs.content;
+        let content = withLatestMessageReply(
+          attachmentInputs.content,
+          extra.replyTo,
+          m.role === "user" && m.id === latestUserMessageId,
+        );
         const userUploadedImages = attachments?.filter((a) => a.type?.startsWith("image/"));
         if (m.role === "assistant" && userUploadedImages?.length) {
           const photoName = userUploadedImages[0]?.filename ?? userUploadedImages[0]?.name;
@@ -7855,15 +7870,13 @@ export async function generateRoutes(app: FastifyInstance) {
               "[generate] Empty response after post-processing",
             );
             if (
-              (pendingGameStateToolCalls.length > 0 && !abortController.signal.aborted) ||
               shouldSaveHiddenGenerationAnchor({
                 impersonate: input.impersonate,
-                parsedCommandCount: parsedCommands.length,
-                parsedRawCommandCount,
-                // A game turn that is nothing but verb tags strips to empty. Without this the gate
-                // sees only the two Conversation counts — both zero in game mode — and the turn
-                // errors out, discarding writes that already validated (#5798, #5902).
-                gmVerbCallCount: collectedGmVerbCalls.length,
+                hasActionableOutput:
+                  parsedCommands.length > 0 ||
+                  parsedRawCommandCount > 0 ||
+                  collectedGmVerbCalls.length > 0 ||
+                  (pendingGameStateToolCalls.length > 0 && !abortController.signal.aborted),
                 spatialDirectiveDetected: assistantSpatialDirectiveDetected,
               })
             ) {
@@ -8417,17 +8430,36 @@ export async function generateRoutes(app: FastifyInstance) {
 
               if (responderDelay) {
                 const refreshedMessages = await chats.listMessages(input.chatId);
+                const latestUserMessageId = [...refreshedMessages]
+                  .reverse()
+                  .find((message) => message.role === "user")?.id;
                 for (const message of refreshedMessages) {
-                  if (
-                    message.role !== "user" ||
-                    knownConversationMessageIds.has(message.id) ||
-                    (supportsHiddenFromAI && isMessageHiddenFromAI(message))
-                  ) {
-                    continue;
+                  if (message.role !== "user" || (supportsHiddenFromAI && isMessageHiddenFromAI(message))) continue;
+                  const known = knownConversationMessageIds.has(message.id);
+                  const index = runningMessages.findIndex((item) => item.id === message.id);
+                  // Only an older quote needs rebuilding; preserve other already-formatted history.
+                  if (known && (index < 0 || !parseExtra(message.extra).replyTo)) continue;
+                  const mapped = await mapChatHistoryMessageForPrompt(message, latestUserMessageId);
+                  applyRegexScriptsToPromptMessages([mapped], await getPromptRegexScripts(), {
+                    resolveMacros: (value, randomSeed) =>
+                      resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+                    targetCharacterId: promptTargetCharacterId,
+                    targetPromptPresetId: presetId ?? null,
+                  });
+                  mapped.content = mapped.content.replace(/\n([ \t]*\n){2,}/g, "\n\n");
+                  let resolved = resolveHistoryMessageMacros([mapped])[0] ?? mapped;
+                  if (shouldPrefixGroupHistorySpeakers) {
+                    resolved =
+                      prefixGroupIndividualHistorySpeakers([resolved], {
+                        personaName,
+                        characterNamesById: await getGroupHistoryCharacterNamesById(),
+                      })[0] ?? resolved;
                   }
-                  knownConversationMessageIds.add(message.id);
-                  const mapped = await mapChatHistoryMessageForPrompt(message);
-                  runningMessages.push(resolveHistoryMessageMacros([mapped])[0] ?? mapped);
+                  if (known) runningMessages[index] = { ...runningMessages[index], ...resolved };
+                  else {
+                    knownConversationMessageIds.add(message.id);
+                    runningMessages.push(resolved);
+                  }
                 }
               }
               sendSseEvent(reply, { type: "typing", characters: [groupResponderName(charId)] });
