@@ -380,7 +380,7 @@ patched — or, worse, being copied as precedent.
 
 ## Native NovelAI character descriptions (2026-09-09)
 
-In `media/illustrator-agent.md`, a native NovelAI character caption is a
+In `media/illustrator-agent.md`, translate a native NovelAI character caption as
 **description de personnage**: the description sent as a per-character image prompt,
 not a subtitle or text drawn on the image. Keep this sense distinct from captions
 on comic pages. The accompanying `media/image-providers.md` wording uses the same

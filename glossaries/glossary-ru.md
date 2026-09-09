@@ -621,7 +621,7 @@ this needs a phrasing decision (`список разрешенных полей`
 
 ## Native NovelAI character descriptions (2026-09-09)
 
-In `media/illustrator-agent.md`, a native NovelAI character caption is a
+In `media/illustrator-agent.md`, translate a native NovelAI character caption as
 **описание персонажа**: the description sent as a per-character image prompt,
 not a subtitle or text drawn on the image. Keep this sense distinct from captions
 on comic pages. The accompanying `media/image-providers.md` wording uses the same
