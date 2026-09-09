@@ -15,7 +15,11 @@ async function fixture(request: APIRequestContext, art = false) {
     return value;
   };
   const cleanup = async () => {
-    for (const path of paths) await request.delete(path).catch(() => undefined);
+    for (const path of paths) {
+      const response = await request.delete(path);
+      // The empty-chat case already deletes its message before teardown.
+      expect(response.ok() || response.status() === 404, `Cleanup ${path}: HTTP ${response.status()}`).toBeTruthy();
+    }
   };
   try {
     const character = await create("/api/characters", { data: { name: "Mari", first_mes: "" } });
@@ -74,7 +78,8 @@ async function fixture(request: APIRequestContext, art = false) {
       cleanup,
     };
   } catch (error) {
-    await cleanup();
+    // A teardown failure must not replace the original setup failure.
+    await cleanup().catch(() => undefined);
     throw error;
   }
 }
