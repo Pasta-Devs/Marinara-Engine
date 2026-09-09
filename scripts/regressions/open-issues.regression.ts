@@ -5720,8 +5720,8 @@ assert.match(
 );
 assert.equal(
   roleplaySurfaceSource.match(/mergedGroupCharacterIds=\{activeChatCharacterIds\}/gu)?.length,
-  3,
-  "Historical, regenerating, and streaming Narrator messages must share the active avatar list",
+  6,
+  "Classic and VN historical, regenerating, and streaming Narrator messages must share the active avatar list",
 );
 assert.match(
   chatMessageSource,
