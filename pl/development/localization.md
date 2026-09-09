@@ -85,7 +85,7 @@ Przy drobnej poprawce sformułowania wystarczy edytor internetowy serwisu GitHub
 3. Zmień tylko przetłumaczoną wartość. Zachowaj jej klucz, wrażliwe na interpunkcję znaczniki, takie jak `{{name}}`,
    oraz składnię JSON.
 4. Zapisz zmianę w osobnej, wąsko zakrojonej gałęzi w swoim forku.
-5. Odśwież manifest pakietów i sprawdź je poniższym poleceniem, a następnie otwórz pull request wobec gałęzi **`docs-i18n`**, nie `staging` ani `main`.
+5. Odśwież manifest pakietów i sprawdź je poniższym poleceniem, a następnie otwórz pull request wobec gałęzi **`docs-i18n`**, nie `staging` ani `main`. ([`validate-packs.mjs`](#zg%C5%82oszenie-nowego-t%C5%82umaczenia))
 6. W opisie PR podaj język, wyjaśnij poprawione znaczenie i napisz, czy tłumaczenie pochodzi od osoby biegle
    władającej tym językiem, czy powstało z pomocą maszyny.
 

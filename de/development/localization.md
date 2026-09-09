@@ -85,7 +85,7 @@ Für eine kleine Formulierungskorrektur genügt der Web-Editor von GitHub:
 3. Ändere nur den übersetzten Wert. Der Schlüssel, zeichengenaue Platzhalter wie `{{name}}` und die JSON-Syntax
    bleiben erhalten.
 4. Committe die Änderung in deinem Fork auf einen eng umrissenen Branch.
-5. Aktualisiere das Paketmanifest und validiere es mit dem folgenden Befehl. Öffne dann einen Pull Request gegen **`docs-i18n`**, nicht gegen `staging` oder `main`.
+5. Aktualisiere das Paketmanifest und validiere es mit dem folgenden Befehl. Öffne dann einen Pull Request gegen **`docs-i18n`**, nicht gegen `staging` oder `main`. ([`validate-packs.mjs`](#eine-neue-lokalisierung-einreichen))
 6. Nenne in der PR-Beschreibung die Sprache, erläutere die korrigierte Bedeutung und gib an, ob du die Sprache
    fließend beherrschst oder maschinell nachgeholfen hast.
 

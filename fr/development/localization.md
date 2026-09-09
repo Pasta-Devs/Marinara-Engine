@@ -85,7 +85,7 @@ Pour une petite correction de formulation, l'éditeur web de GitHub suffit :
 3. Ne modifie que la valeur traduite. Conserve sa clé, les jetons sensibles à la ponctuation comme `{{name}}` et la
    syntaxe JSON.
 4. Enregistre le commit sur une branche dédiée dans ton fork.
-5. Actualise le manifeste et valide le pack avec la commande ci-dessous, puis ouvre un pull request vers **`docs-i18n`**, pas vers `staging` ni `main`.
+5. Actualise le manifeste et valide le pack avec la commande ci-dessous, puis ouvre un pull request vers **`docs-i18n`**, pas vers `staging` ni `main`. ([`validate-packs.mjs`](#proposer-une-nouvelle-langue))
 6. Dans la description de la PR, indique la langue, explique le sens corrigé et précise si tu parles couramment la
    langue ou si tu as utilisé une aide automatique.
 

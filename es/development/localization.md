@@ -76,7 +76,7 @@ Para una pequeña corrección de redacción, el editor web de GitHub es suficien
 2. Selecciona el icono de lápiz para editar el archivo. GitHub te ofrecerá crear una bifurcación si hace falta.
 3. Cambia solo el valor traducido. Conserva su clave, los tokens sensibles a la puntuación como `{{name}}` y la sintaxis JSON.
 4. Confirma el cambio en una rama enfocada de tu bifurcación.
-5. Actualiza el manifiesto y valida el paquete con el comando siguiente. Después abre un pull request contra **`docs-i18n`**, no contra `staging` ni `main`.
+5. Actualiza el manifiesto y valida el paquete con el comando siguiente. Después abre un pull request contra **`docs-i18n`**, no contra `staging` ni `main`. ([`validate-packs.mjs`](#enviar-una-nueva-localizaci%C3%B3n))
 6. En la descripción del PR, indica el idioma, explica el significado corregido y di si eres un hablante fluido o si usaste asistencia de máquina.
 
 Usa un título como `Improve French UI translation`. Varias correcciones relacionadas de una misma configuración regional pueden compartir un PR. Mantén separados los cambios de código no relacionados.

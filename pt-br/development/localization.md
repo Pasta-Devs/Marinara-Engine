@@ -82,7 +82,7 @@ Para uma pequena correção de redação, o editor web do GitHub já resolve:
 3. Mude apenas o valor traduzido. Preserve a chave, os marcadores sensíveis à pontuação, como `{{name}}`, e a sintaxe
    JSON.
 4. Faça o commit da mudança em uma branch focada dentro do seu fork.
-5. Atualize o manifesto e valide o pacote com o comando abaixo. Depois abra um pull request para **`docs-i18n`**, não para `staging` ou `main`.
+5. Atualize o manifesto e valide o pacote com o comando abaixo. Depois abra um pull request para **`docs-i18n`**, não para `staging` ou `main`. ([`validate-packs.mjs`](#enviar-uma-localiza%C3%A7%C3%A3o-nova))
 6. Na descrição do PR, diga qual é o idioma, explique o sentido corrigido e informe se você tem fluência no idioma
    ou usou ajuda de máquina.
 

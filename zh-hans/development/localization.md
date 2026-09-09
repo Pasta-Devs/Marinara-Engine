@@ -77,7 +77,7 @@ packages/client/src/localization/locales/en.json
 3. 只改译文的值。键名、`{{name}}` 这类对标点敏感的标记以及 JSON
    语法都要原样保留。
 4. 把改动提交到 fork 里一个专门的分支上。
-5. 使用下面的命令刷新语言包清单并验证，然后向 **`docs-i18n`** 发起拉取请求，不要以 `staging` 或 `main` 为目标。
+5. 使用下面的命令刷新语言包清单并验证，然后向 **`docs-i18n`** 发起拉取请求，不要以 `staging` 或 `main` 为目标。 ([`validate-packs.mjs`](#%E6%8F%90%E4%BA%A4%E4%B8%80%E7%A7%8D%E6%96%B0%E8%AF%AD%E8%A8%80%E7%9A%84%E7%BF%BB%E8%AF%91))
 6. 在 PR 描述里写明语言、修正后的含义，以及自己是母语者还是借助了机器翻译。
 
 标题写成 `Improve French UI translation` 这样的形式。同一种语言的多处相关修正可以合并到一个 PR 里。无关的代码改动要单独提。
