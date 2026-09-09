@@ -99,7 +99,7 @@ for (const [mode, style] of [
       await page.locator("textarea[data-chat-composer]").fill("I remember.");
       if (isMobile && mode === "conversation") {
         await page.getByRole("button", { name: "Emoji, GIFs, stickers & tools", exact: true }).click();
-        await page.getByRole("tab", { name: "Tools", exact: true }).click();
+        await page.getByRole("button", { name: "Tools", exact: true }).click();
       }
       const quick = page.getByRole("button", { name: "Quick replies", exact: true });
       if (await quick.isVisible()) {
@@ -119,6 +119,7 @@ for (const [mode, style] of [
       await expect(quote).toContainText("Dottore");
       await row.hover();
       if (!isMobile) {
+        await expect(row.locator(".mari-message-actions")).toHaveCSS("opacity", "1");
         const positions = await row.locator(".mari-message-actions > button").evaluateAll((buttons) =>
           buttons.slice(0, 3).map((button) => {
             const b = button.getBoundingClientRect();

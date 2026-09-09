@@ -18,6 +18,10 @@ for (const theme of ["dark", "light"] as const) {
     let textOnly = false;
     let outcomeFollowupHasTools: boolean | undefined;
     const provider = createServer(async (incoming, response) => {
+      if (incoming.method !== "POST") {
+        response.writeHead(404).end();
+        return;
+      }
       const chunks: Buffer[] = [];
       for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));

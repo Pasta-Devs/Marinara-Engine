@@ -213,6 +213,10 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
   let output =
     'She smiles. [notes: content="OFF_SECRET"] [document: title="Off document", content="Hidden while disabled"]';
   const provider = createServer(async (incoming, response) => {
+    if (incoming.method !== "POST") {
+      response.writeHead(404).end();
+      return;
+    }
     const chunks: Buffer[] = [];
     for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
     requests.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
@@ -504,6 +508,10 @@ test("Roleplay sound commands reuse cached audio and play the attachment URL", a
   const cachePath = resolve(cacheDirectory, `${hash}.mp3`);
   writeFileSync(cachePath, wave);
   const provider = createServer(async (incoming, response) => {
+    if (incoming.method !== "POST") {
+      response.writeHead(404).end();
+      return;
+    }
     for await (const _chunk of incoming) {
       /* drain the local model request */
     }
@@ -584,6 +592,10 @@ for (const native of [true, false]) {
     let resultMessageFound = false;
     let followupPrompt = "";
     const provider = createServer(async (incoming, response) => {
+      if (incoming.method !== "POST") {
+        response.writeHead(404).end();
+        return;
+      }
       const chunks: Buffer[] = [];
       for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
@@ -738,6 +750,10 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
     .png()
     .toBuffer();
   const provider = createServer(async (incoming, response) => {
+    if (incoming.method !== "POST") {
+      response.writeHead(404).end();
+      return;
+    }
     const chunks: Buffer[] = [];
     for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
     const data = Buffer.concat(chunks);
@@ -964,6 +980,10 @@ test("Roleplay gates Soundtrack and Documents and uses the selected Music DJ sou
     musicRequests: any[] = [];
   let agentEvents: any[] = [];
   const provider = createServer(async (incoming, response) => {
+    if (incoming.method !== "POST") {
+      response.writeHead(404).end();
+      return;
+    }
     const chunks: Buffer[] = [];
     for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
