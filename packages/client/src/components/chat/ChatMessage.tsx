@@ -5,6 +5,7 @@ import { cn, copyToClipboard, getAvatarCropStyle, isLegacyAvatarCrop } from "../
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
 import { RoleplayCommandResults } from "./RoleplayCommandResults";
+import { latestRoleplayParagraph } from "../../lib/roleplay-vn-paragraphs";
 import {
   normalizeCardAssetImageSyntax,
   resolveCardAssetUrl,
@@ -882,6 +883,8 @@ const EditTextarea = memo(function EditTextarea({
 interface ChatMessageProps {
   message: Message & { swipes?: Array<{ id: string; content: string }> };
   isStreaming?: boolean;
+  /** Compact paragraph presentation; full message actions stay in the history. */
+  visualNovel?: boolean;
   /** Whether the live Roleplay response has begun emitting visible output. */
   streamingOutputStarted?: boolean;
   /** Frame-throttled live content that receives the same formatter as committed messages. */
@@ -1758,6 +1761,7 @@ function NameColorText({ color, children }: { color?: string; children: ReactNod
 export const ChatMessage = memo(function ChatMessage({
   message,
   isStreaming,
+  visualNovel = false,
   streamingOutputStarted = false,
   streamingContent,
   onDelete,
@@ -1794,6 +1798,7 @@ export const ChatMessage = memo(function ChatMessage({
   const isSystem = message.role === "system";
   const isNarrator = message.role === "narrator";
   const isRoleplay = chatMode === "roleplay";
+  const vnPortraitScale = useUIStore((state) => (visualNovel ? state.roleplayVnPortraitScale : 1));
   const alwaysDisplaySwipeMenu = useUIStore((state) =>
     isRoleplay
       ? state.alwaysDisplayRoleplaySwipeMenu
@@ -2717,7 +2722,8 @@ export const ChatMessage = memo(function ChatMessage({
   );
 
   // Render content with dialogue highlighting (or HTML rendering)
-  const text = typeof displayContent === "string" ? displayContent : message.content;
+  const fullText = typeof displayContent === "string" ? displayContent : message.content;
+  const text = visualNovel ? latestRoleplayParagraph(fullText) : fullText;
   const isHtmlContent = containsChatHtml(text);
   const htmlScopeClass = useMemo(() => {
     const suffix = message.id.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -2782,7 +2788,7 @@ export const ChatMessage = memo(function ChatMessage({
     () =>
       translatedText
         ? renderContent(
-            translatedText,
+            visualNovel ? latestRoleplayParagraph(translatedText) : translatedText,
             dialogueColor,
             speakerColorMap,
             boldDialogue,
@@ -2796,6 +2802,7 @@ export const ChatMessage = memo(function ChatMessage({
         : null,
     [
       translatedText,
+      visualNovel,
       dialogueColor,
       speakerColorMap,
       boldDialogue,
@@ -3019,6 +3026,58 @@ export const ChatMessage = memo(function ChatMessage({
       )}
     </>
   );
+
+  if (visualNovel) {
+    return (
+      <div className="mari-roleplay-vn-dialogue flex min-w-0 gap-3 p-3 sm:gap-4 sm:p-4" data-vn-message-id={message.id}>
+        <div
+          className="relative shrink-0 self-start overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)]"
+          style={{ width: `min(${5 * vnPortraitScale}rem, 26vw)`, height: `min(${5 * vnPortraitScale}rem, 26vw)` }}
+        >
+          {displayAvatarUrl ? (
+            <img
+              src={displayAvatarUrl}
+              alt={displayName}
+              className="h-full w-full object-cover"
+              style={panelAvatarCropStyle}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-[var(--muted-foreground)]" aria-hidden="true">
+              {isUser ? <User size="1.75rem" /> : <Bot size="1.75rem" />}
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 truncate text-sm font-semibold text-[var(--marinara-chat-chrome-highlight-text)]">
+            {isMergedGroup ? (
+              mergedNameElement
+            ) : isNarrator ? (
+              localizeUi("ui.chat.chatmessage.narrator")
+            ) : (
+              <span style={solidNameColorStyle(msgNameColor)}>
+                <NameColorText color={msgNameColor}>{displayName}</NameColorText>
+              </span>
+            )}
+          </div>
+          <div
+            className="mari-message-content max-h-[min(30dvh,18rem)] overflow-y-auto overscroll-contain whitespace-pre-wrap break-words pr-1"
+            style={messageTextStyle}
+            tabIndex={0}
+            role="region"
+            aria-label={localizeUi("chat.roleplayVn.currentParagraph")}
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {isStreaming && streamingContent
+              ? streamingContent(renderStreamingText)
+              : showTranslationOnly
+                ? renderedTranslation
+                : renderedContent}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ─── System messages (shared across modes) ───
   if (isSystem) {

@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Added an optional Visual Novel display for Roleplay: completed paragraphs appear above the existing composer with dialogue portraits and configured sprites. Open the attached history arrow for the full transcript and all message actions. Choose Classic or Visual Novel during setup or in Appearance → Roleplay, with separate portrait and sprite scales.
+
 - Roleplay Commands settings stay responsive while saving rapid changes. Documents now offers All/Narrator access, Soundtrack requires Music DJ to be added with agents enabled and follows the selected music source, and the Combat prerequisite names the Combat agent.
 
 - Added opt-in Roleplay Commands in the Agents drawer for illustrations, in-world documents, sound cues, soundtrack changes, private personal notes, reminders, real dice rolls, and direct messages. Commands start off; existing DM opt-ins are preserved. Notes remember motives, secrets, lies, deceptions, cover stories, and plans across turns, with access limited to their character and an optional narrator selected in individual group mode. Notes, reminders, and documents follow the selected message swipe. Rolls return an engine-generated result before narration continues. Cancelling a sound cue detaches that turn without interrupting other chats waiting for the same audio.

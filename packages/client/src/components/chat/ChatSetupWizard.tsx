@@ -2032,6 +2032,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
 
 function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }: WizardWithDefaultsProps) {
   const { t: localizeUi } = useUiTranslation();
+  const defaultDisplayStyle = useUIStore((state) => state.roleplayDisplayStyle);
   const showCharacterIdentities = useUIStore((state) => state.showCharactersInPersonaPickers);
   const STEPS = ROLEPLAY_STEPS;
   const roleplayConnectionSelectId = useId();
@@ -2681,6 +2682,33 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
   function renderConnection() {
     return (
       <div className="space-y-4">
+        <fieldset className="space-y-2">
+          <legend className={WIZARD_FIELD_LABEL}>{localizeUi("chat.roleplayVn.displayStyle")}</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {(["classic", "visual-novel"] as const).map((style) => (
+              <label
+                key={style}
+                className={cn(
+                  "flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--primary)]",
+                  (metadata.roleplayDisplayStyle ?? defaultDisplayStyle) === style
+                    ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                    : "border-[var(--border)]",
+                )}
+              >
+                <input
+                  type="radio"
+                  name={`roleplay-display-${chat.id}`}
+                  value={style}
+                  checked={(metadata.roleplayDisplayStyle ?? defaultDisplayStyle) === style}
+                  onChange={() => updateMeta.mutate({ id: chat.id, roleplayDisplayStyle: style })}
+                  className="accent-[var(--primary)]"
+                />
+                {localizeUi(style === "classic" ? "chat.roleplayVn.classic" : "chat.roleplayVn.visualNovel")}
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("chat.roleplayVn.changeAnytime")}</p>
+        </fieldset>
         <div className="space-y-1.5">
           <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.characters.metadatatab.name")}</label>
           <input

@@ -146,6 +146,7 @@ import {
 } from "../../hooks/use-chats";
 import { useConnections } from "../../hooks/use-connections";
 import { useChatStore } from "../../stores/chat.store";
+import { parseChatMetadata } from "../../lib/chat-display";
 import { useOpenGameAssetsFolder, useRescanGameAssets } from "../../hooks/use-game-assets";
 import { chatKeys } from "../../hooks/use-chats";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
@@ -431,8 +432,8 @@ const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "roleplay-messages",
     tab: "appearance",
-    label: "Roleplay Messages",
-    description: "Roleplay bubbles, avatars, sprite scale, and message opacity.",
+    label: "Roleplay Presentation",
+    description: "Classic and Visual Novel display, avatars, sprites, and message opacity.",
     aliases: ["roleplay", "avatar", "sprite", "message", "bubble", "opacity", "portrait"],
   },
   {
@@ -1193,6 +1194,30 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     description: "Switch tracker temperature displays between Celsius and Fahrenheit.",
     aliases: ["tracker", "weather", "celsius", "fahrenheit"],
     kind: "Toggle",
+  },
+  {
+    id: "roleplay-vn-display",
+    sectionId: "roleplay-messages",
+    label: "Visual Novel display",
+    description: "Show one completed paragraph at a time above the composer.",
+    aliases: ["roleplay", "vn", "visual novel", "classic", "presentation", "history"],
+    kind: "Toggle",
+  },
+  {
+    id: "roleplay-vn-portrait-scale",
+    sectionId: "roleplay-messages",
+    label: "Dialogue portrait scale",
+    description: "Adjust Roleplay Visual Novel portraits.",
+    aliases: ["roleplay", "vn", "portrait", "scale"],
+    kind: "Slider",
+  },
+  {
+    id: "roleplay-vn-sprite-scale",
+    sectionId: "roleplay-messages",
+    label: "Full-body sprite scale",
+    description: "Adjust Roleplay Visual Novel full-body sprites.",
+    aliases: ["roleplay", "vn", "sprite", "scale"],
+    kind: "Slider",
   },
   {
     id: "roleplay-message-opacity",
@@ -4559,6 +4584,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setChatBackgroundBlur = useUIStore((s) => s.setChatBackgroundBlur);
   const resetAppearanceSettings = useUIStore((s) => s.resetAppearanceSettings);
   const activeChatId = useChatStore((s) => s.activeChatId);
+  const { data: appearanceChat } = useChat(activeChatId);
   const updateMeta = useUpdateChatMetadata();
   const setActiveSyncedTheme = useSetActiveTheme();
   const handleOpenFontsFolder = async () => {
@@ -4757,6 +4783,16 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setRoleplayNarratorAvatarCycling = useUIStore((s) => s.setRoleplayNarratorAvatarCycling);
   const roleplaySpriteScale = useUIStore((s) => s.roleplaySpriteScale);
   const setRoleplaySpriteScale = useUIStore((s) => s.setRoleplaySpriteScale);
+  const roleplayDisplayStyle = useUIStore((s) => s.roleplayDisplayStyle);
+  const setRoleplayDisplayStyle = useUIStore((s) => s.setRoleplayDisplayStyle);
+  const roleplayVnPortraitScale = useUIStore((s) => s.roleplayVnPortraitScale);
+  const setRoleplayVnPortraitScale = useUIStore((s) => s.setRoleplayVnPortraitScale);
+  const roleplayVnSpriteScale = useUIStore((s) => s.roleplayVnSpriteScale);
+  const setRoleplayVnSpriteScale = useUIStore((s) => s.setRoleplayVnSpriteScale);
+  const activeRoleplayStyle =
+    appearanceChat?.mode === "roleplay"
+      ? (parseChatMetadata(appearanceChat.metadata).roleplayDisplayStyle ?? roleplayDisplayStyle)
+      : roleplayDisplayStyle;
   const gameDialogueDisplayMode = useUIStore((s) => s.gameDialogueDisplayMode);
   const setGameDialogueDisplayMode = useUIStore((s) => s.setGameDialogueDisplayMode);
   const chatListBackgrounds = useUIStore((s) => s.chatListBackgrounds);
@@ -5660,6 +5696,57 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
             {...getSettingsSectionAnchorProps("roleplay-messages")}
           >
             <div className="flex flex-col gap-3">
+              <ToggleSetting
+                anchorId={getSettingsControlAnchorId("roleplay-vn-display")}
+                label={localizeUi("settings.roleplayVn.enabled")}
+                help={localizeUi("settings.roleplayVn.help")}
+                checked={activeRoleplayStyle === "visual-novel"}
+                onChange={(enabled) => {
+                  const style = enabled ? "visual-novel" : "classic";
+                  setRoleplayDisplayStyle(style);
+                  if (appearanceChat?.mode === "roleplay")
+                    updateMeta.mutate({ id: appearanceChat.id, roleplayDisplayStyle: style });
+                }}
+              />
+              <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("settings.roleplayVn.scope")}</p>
+              <div className="grid gap-3 rounded-lg border border-[var(--border)] p-3 sm:grid-cols-2">
+                <label
+                  id={getSettingsControlAnchorId("roleplay-vn-portrait-scale")}
+                  className="flex scroll-mt-3 min-w-0 flex-col gap-2 text-xs"
+                >
+                  <span>{localizeUi("ui.panels.appearancesettings.dialoguePortraitScale")}</span>
+                  <div className="flex min-h-11 items-center gap-2">
+                    <input
+                      type="range"
+                      min={0.75}
+                      max={1.75}
+                      step={0.05}
+                      value={roleplayVnPortraitScale}
+                      onChange={(event) => setRoleplayVnPortraitScale(Number(event.target.value))}
+                      className="min-w-0 flex-1 accent-[var(--primary)]"
+                    />
+                    <span className="w-10 text-right tabular-nums">{Math.round(roleplayVnPortraitScale * 100)}%</span>
+                  </div>
+                </label>
+                <label
+                  id={getSettingsControlAnchorId("roleplay-vn-sprite-scale")}
+                  className="flex scroll-mt-3 min-w-0 flex-col gap-2 text-xs"
+                >
+                  <span>{localizeUi("ui.panels.appearancesettings.fullBodySpriteScale")}</span>
+                  <div className="flex min-h-11 items-center gap-2">
+                    <input
+                      type="range"
+                      min={0.75}
+                      max={2.75}
+                      step={0.05}
+                      value={roleplayVnSpriteScale}
+                      onChange={(event) => setRoleplayVnSpriteScale(Number(event.target.value))}
+                      className="min-w-0 flex-1 accent-[var(--primary)]"
+                    />
+                    <span className="w-10 text-right tabular-nums">{Math.round(roleplayVnSpriteScale * 100)}%</span>
+                  </div>
+                </label>
+              </div>
               <label
                 id={getSettingsControlAnchorId("roleplay-message-opacity")}
                 className="flex scroll-mt-3 flex-col gap-1"

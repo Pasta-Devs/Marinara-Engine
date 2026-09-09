@@ -874,6 +874,10 @@ interface UIState {
   roleplayNarratorAvatarCycling: boolean;
   /** Default scale multiplier for Roleplay full-body sprites. */
   roleplaySpriteScale: number;
+  /** Default presentation for Roleplay chats without a saved choice. */
+  roleplayDisplayStyle: "classic" | "visual-novel";
+  roleplayVnPortraitScale: number;
+  roleplayVnSpriteScale: number;
   /** Scale multiplier for Game mode VN dialogue portraits. */
   gameAvatarScale: number;
   /** Scale multiplier for Game mode center full-body sprites. */
@@ -1178,6 +1182,9 @@ interface UIState {
   setRoleplayAvatarsScrollable: (v: boolean) => void;
   setRoleplayNarratorAvatarCycling: (v: boolean) => void;
   setRoleplaySpriteScale: (v: number) => void;
+  setRoleplayDisplayStyle: (v: "classic" | "visual-novel") => void;
+  setRoleplayVnPortraitScale: (v: number) => void;
+  setRoleplayVnSpriteScale: (v: number) => void;
   setGameAvatarScale: (v: number) => void;
   setGameFullBodySpriteScale: (v: number) => void;
   setTextStrokeWidth: (v: number) => void;
@@ -1404,6 +1411,9 @@ export function pickSyncedSettings(state: UIState) {
     roleplayAvatarsScrollable: state.roleplayAvatarsScrollable,
     roleplayNarratorAvatarCycling: state.roleplayNarratorAvatarCycling,
     roleplaySpriteScale: state.roleplaySpriteScale,
+    roleplayDisplayStyle: state.roleplayDisplayStyle,
+    roleplayVnPortraitScale: state.roleplayVnPortraitScale,
+    roleplayVnSpriteScale: state.roleplayVnSpriteScale,
     gameAvatarScale: state.gameAvatarScale,
     gameFullBodySpriteScale: state.gameFullBodySpriteScale,
     textStrokeWidth: state.textStrokeWidth,
@@ -1604,6 +1614,9 @@ export function pickPersistedUIState(state: UIState) {
     roleplayAvatarsScrollable: state.roleplayAvatarsScrollable,
     roleplayNarratorAvatarCycling: state.roleplayNarratorAvatarCycling,
     roleplaySpriteScale: state.roleplaySpriteScale,
+    roleplayDisplayStyle: state.roleplayDisplayStyle,
+    roleplayVnPortraitScale: state.roleplayVnPortraitScale,
+    roleplayVnSpriteScale: state.roleplayVnSpriteScale,
     gameAvatarScale: state.gameAvatarScale,
     gameFullBodySpriteScale: state.gameFullBodySpriteScale,
     textStrokeWidth: state.textStrokeWidth,
@@ -1843,6 +1856,9 @@ export const useUIStore = create<UIState>()(
         roleplayAvatarsScrollable: false,
         roleplayNarratorAvatarCycling: true,
         roleplaySpriteScale: 1,
+        roleplayDisplayStyle: "classic",
+        roleplayVnPortraitScale: 1,
+        roleplayVnSpriteScale: 1.35,
         gameAvatarScale: 1,
         gameFullBodySpriteScale: 1.35,
         textStrokeWidth: 0.5,
@@ -2686,6 +2702,11 @@ export const useUIStore = create<UIState>()(
         setRoleplaySpriteScale: (v) =>
           set({ roleplaySpriteScale: Math.max(ROLEPLAY_SPRITE_SCALE_MIN, Math.min(ROLEPLAY_SPRITE_SCALE_MAX, v)) }),
         setGameAvatarScale: (v) => set({ gameAvatarScale: Math.max(0.75, Math.min(1.75, v)) }),
+        setRoleplayDisplayStyle: (v) => set({ roleplayDisplayStyle: v }),
+        setRoleplayVnPortraitScale: (v) =>
+          set({ roleplayVnPortraitScale: Number.isFinite(v) ? Math.max(0.75, Math.min(1.75, v)) : 1 }),
+        setRoleplayVnSpriteScale: (v) =>
+          set({ roleplayVnSpriteScale: Number.isFinite(v) ? Math.max(0.75, Math.min(2.75, v)) : 1.35 }),
         setGameFullBodySpriteScale: (v) => set({ gameFullBodySpriteScale: Math.max(0.75, Math.min(2.75, v)) }),
         setTextStrokeWidth: (v) => set({ textStrokeWidth: Math.max(0, Math.min(5, v)) }),
         setTextStrokeColor: (v) => set({ textStrokeColor: v }),
@@ -2744,6 +2765,9 @@ export const useUIStore = create<UIState>()(
             roleplayAvatarsScrollable: false,
             roleplayNarratorAvatarCycling: true,
             roleplaySpriteScale: 1,
+            roleplayDisplayStyle: "classic",
+            roleplayVnPortraitScale: 1,
+            roleplayVnSpriteScale: 1.35,
             gameDialogueDisplayMode: "classic" as GameDialogueDisplayMode,
             gameNarrationCollapsed: false,
             chatListBackgrounds: "hover" as ChatListBackgroundMode,
