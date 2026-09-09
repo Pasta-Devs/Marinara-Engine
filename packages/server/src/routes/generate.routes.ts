@@ -1561,7 +1561,7 @@ export async function generateRoutes(app: FastifyInstance) {
           chatMeta.activeAgentIds.includes("combat")
         )
           roleplayCommandAgentIds.add("combat");
-        if (isRoleplayCommandEnabled(chatMeta, "music") && activeMusicPlayerSource)
+        if (isRoleplayCommandAllowed(chatMeta, "music", null) && activeMusicPlayerSource)
           roleplayCommandAgentIds.add("spotify");
       }
       const persistedChatActiveAgentIds: string[] = Array.isArray(chatMeta.activeAgentIds)

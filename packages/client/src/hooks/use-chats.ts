@@ -876,14 +876,14 @@ export function useUpdateChat() {
   });
 }
 
-export function useUpdateChatMetadata() {
+export function useUpdateChatMetadata(options?: { serialize?: boolean }) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...metadata }: { id: string; [key: string]: unknown }) => {
       const save = () => api.patch<Chat>(`/chats/${id}/metadata`, metadata);
       // Settings and ChatArea share this queue, including clears. Cache version
       // guards alone cannot stop a delayed older request overwriting the server.
-      return Object.hasOwn(metadata, "background") ? trackChatMetadataSave(id, save) : save();
+      return options?.serialize || Object.hasOwn(metadata, "background") ? trackChatMetadataSave(id, save) : save();
     },
     onMutate: async ({ id, ...metadata }) => {
       await qc.cancelQueries({ queryKey: chatKeys.detail(id) });
@@ -921,7 +921,7 @@ export function useUpdateChatMetadata() {
           updatedAt: context.previous.updatedAt,
         });
       }
-      if (Object.hasOwn(variables, "background")) {
+      if (options?.serialize || Object.hasOwn(variables, "background")) {
         // A later failed save may have captured an earlier optimistic value.
         // Reconcile with storage after all queued choices have settled.
         void waitForPendingChatMetadataSaves(variables.id).then(() =>

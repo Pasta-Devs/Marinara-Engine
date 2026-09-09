@@ -155,6 +155,35 @@ test("Roleplay command settings stay interactive during slow saves and preserve 
       roleplayDocumentAudience: "narrator",
       roleplayCommandNarratorId: characters[1]!.id,
     });
+    await page.unrouteAll({ behavior: "wait" });
+    let failedSaves = 0;
+    let releaseFailure!: () => void;
+    const pendingFailure = new Promise<void>((resolve) => {
+      releaseFailure = resolve;
+    });
+    await page.route(`**/api/chats/${chat.id}/metadata`, async (route) => {
+      if (route.request().postDataJSON()?.roleplayCommandToggles) {
+        failedSaves++;
+        await pendingFailure;
+        return route.fulfill({ status: 500, json: { error: "Synthetic save failure" } });
+      }
+      await route.continue();
+    });
+    try {
+      await toggle("Personal Notes");
+      await expect.poll(() => failedSaves).toBe(1);
+      await toggle("Documents");
+      await commands.getByRole("combobox", { name: "Who can roll dice", exact: true }).selectOption("narrator");
+    } finally {
+      releaseFailure();
+    }
+    await expect.poll(() => failedSaves).toBe(2);
+    await expect(documents).toBeChecked();
+    await expect(commands.getByRole("checkbox", { name: /^Personal Notes\b/u })).toBeChecked();
+    await expect.poll(stored).toMatchObject({
+      roleplayRollAudience: "narrator",
+      roleplayCommandToggles: { document: true, notes: true, roll: true },
+    });
     await page.reload();
     await expect
       .poll(async () =>
@@ -925,6 +954,159 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
   } finally {
     await fixture.cleanup();
     rmSync(resolve(avatarDirectory, avatarName), { force: true });
+    provider.closeAllConnections();
+    await new Promise<void>((resolve) => provider.close(() => resolve()));
+  }
+});
+
+test("Roleplay gates Soundtrack and Documents and uses the selected Music DJ source", async ({ page, request }) => {
+  const mainRequests: any[] = [],
+    musicRequests: any[] = [];
+  let agentEvents: any[] = [];
+  const provider = createServer(async (incoming, response) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
+    const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    const music = contentOf(body).includes("You are the Music DJ agent using");
+    (music ? musicRequests : mainRequests).push(body);
+    const content = music
+      ? JSON.stringify({ action: "none", mood: "Fixture silence" })
+      : 'The scene continues. [music: mood="COMMAND_MOOD"] [document: title="Letter" content="COMMAND_DOCUMENT"]';
+    response.writeHead(200, { "content-type": body.stream ? "text/event-stream" : "application/json" });
+    response.end(
+      body.stream
+        ? `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`
+        : JSON.stringify({ choices: [{ message: { role: "assistant", content }, finish_reason: "stop" }] }),
+    );
+  });
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  const address = provider.address();
+  if (!address || typeof address === "string") throw new Error("Fixture did not bind");
+  const fixture = await createFixture(request, `http://127.0.0.1:${address.port}/v1`, ["Alice", "Narrator"]);
+  const { chat, characters } = fixture;
+  const metadata = async (data: unknown) => {
+    const response = await request.patch(`/api/chats/${chat.id}/metadata`, { data });
+    expect(response.ok(), await response.text()).toBeTruthy();
+  };
+  const generate = async (characterId: string, musicPlayerSource = "spotify") => {
+    const response = await request.post("/api/generate", {
+      data: { chatId: chat.id, forCharacterId: characterId, musicPlayerSource, musicPlayerEnabled: true },
+    });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    const stream = await response.text();
+    const events = stream
+      .split("\n")
+      .filter((line) => line.startsWith("data: {"))
+      .map((line) => JSON.parse(line.slice(6)));
+    expect(events.filter((event) => event.type === "error")).toEqual([]);
+    agentEvents = events.filter((event) => event.type === "agent_result" && event.data.agentType === "spotify");
+    const messages = await (await request.get(`/api/chats/${chat.id}/messages`)).json();
+    return extra(messages.filter((message: any) => message.role === "assistant").at(-1).extra).roleplayCommandActivity;
+  };
+  try {
+    const agentResponse = await request.post("/api/agents", {
+      data: {
+        type: "spotify",
+        name: "Music DJ fixture",
+        phase: "post_processing",
+        connectionId: chat.connectionId,
+        promptTemplate: 'Return JSON with action "none" and a mood.',
+        settings: {
+          runInterval: 0,
+          musicProvider: "spotify",
+          enabledTools: [],
+          customCapabilities: { control_media: true },
+        },
+      },
+    });
+    expect(agentResponse.ok(), await agentResponse.text()).toBeTruthy();
+    fixture.resources.unshift(`/api/agents/${(await agentResponse.json()).id}`);
+    await metadata({
+      roleplayCommandsEnabled: true,
+      roleplayCommandToggles: { music: true, document: true },
+      roleplayDocumentAudience: "narrator",
+      roleplayCommandNarratorId: characters[1]!.id,
+    });
+    for (const settings of [
+      { enableAgents: false, activeAgentIds: ["spotify"] },
+      { enableAgents: true, activeAgentIds: [] },
+    ]) {
+      await metadata(settings);
+      expect(await generate(characters[0]!.id)).toEqual([]);
+      expect(contentOf(mainRequests.at(-1))).not.toContain("[music:");
+      expect(contentOf(mainRequests.at(-1))).not.toContain("[document:");
+      expect(musicRequests).toHaveLength(0);
+    }
+    await metadata({ enableAgents: true, activeAgentIds: ["spotify"] });
+    for (const [source, label, resultType] of [
+      ["spotify", "Spotify", "spotify_control"],
+      ["youtube", "YouTube", "youtube_control"],
+      ["custom", "Custom local music", "local_music_control"],
+    ]) {
+      const before = musicRequests.length;
+      const activity = await generate(characters[1]!.id, source);
+      expect(activity.map((item: any) => item.command.type)).toEqual(["music", "document"]);
+      expect(musicRequests).toHaveLength(before + 1);
+      const prompt = contentOf(musicRequests.at(-1));
+      expect(prompt).toContain(`You are the Music DJ agent using ${label}`);
+      expect(prompt).toContain("COMMAND_MOOD");
+      expect(activity[0].error).toBeUndefined();
+      expect(agentEvents.at(-1)?.data).toMatchObject({ resultType, success: true, data: { action: "none" } });
+    }
+    await metadata({ roleplayDocumentAudience: "all", enableAgents: false });
+    expect((await generate(characters[0]!.id)).map((item: any) => item.command.type)).toEqual(["document"]);
+
+    await page.route("**/api/capability-packages/agents", (route) =>
+      route.fulfill({
+        json: [
+          {
+            id: "spotify",
+            name: "Music DJ",
+            description: "Fixture",
+            author: "Fixture",
+            phase: "post_processing",
+            execution: "host",
+            enabledByDefault: false,
+            category: "misc",
+            modeAllowlist: ["roleplay"],
+            defaultPromptTemplate: "Fixture",
+          },
+        ],
+      }),
+    );
+    await openChat(page, chat.id);
+    const openCommands = async () => {
+      await page.evaluate(async () => {
+        const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+        useChatStore.getState().setShouldOpenSettings(true);
+      });
+      const header = page
+        .locator('[data-chat-settings-section="roleplay-agents"] [role="button"][aria-expanded]')
+        .first();
+      if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
+      const expand = page.getByRole("button", { name: "Expand Commands", exact: true });
+      if (await expand.isVisible()) await expand.click();
+    };
+    for (const [enabled, activeAgentIds] of [
+      [false, ["spotify"]],
+      [true, []],
+      [true, ["spotify"]],
+    ] as const) {
+      await metadata({ enableAgents: enabled, activeAgentIds });
+      await page.reload();
+      await openCommands();
+      const commands = page.locator("[data-roleplay-commands]");
+      const soundtrack = commands.getByRole("checkbox", { name: /^Soundtrack\b/u });
+      if (enabled && activeAgentIds.length) await expect(soundtrack).toBeChecked();
+      else {
+        await expect(soundtrack).toBeDisabled();
+        await expect(soundtrack).not.toBeChecked();
+        await expect(commands).toContainText("Add the Music DJ agent to this Roleplay chat and enable agents");
+      }
+      await expect(commands).toContainText("Add the Combat agent to this Roleplay chat");
+    }
+  } finally {
+    await fixture.cleanup();
     provider.closeAllConnections();
     await new Promise<void>((resolve) => provider.close(() => resolve()));
   }

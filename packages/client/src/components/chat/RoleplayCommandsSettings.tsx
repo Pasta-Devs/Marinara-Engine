@@ -23,7 +23,7 @@ export function RoleplayCommandsSettings({
   audioConnections: Array<{ id: string; name: string }>;
 }) {
   const { t } = useTranslation();
-  const update = useUpdateChatMetadata();
+  const update = useUpdateChatMetadata({ serialize: true });
   const metadata = chat.metadata;
   const enabled = roleplayCommandsEnabled(metadata);
   const individual = characters.length > 1 && metadata.groupChatMode === "individual";
@@ -42,7 +42,6 @@ export function RoleplayCommandsSettings({
           label={t("roleplay.commands.title")}
           description={t("roleplay.commands.enableDescription")}
           checked={enabled}
-          disabled={update.isPending}
           onChange={(value) => update.mutate({ id: chat.id, roleplayCommandsEnabled: value })}
           labelPosition="start"
           className={cn(
@@ -63,12 +62,19 @@ export function RoleplayCommandsSettings({
                     : key === "combat"
                       ? installedAgentIds.has("combat") && metadata.activeAgentIds?.includes("combat") === true
                       : key === "music"
-                        ? installedAgentIds.has("spotify")
+                        ? installedAgentIds.has("spotify") &&
+                          metadata.enableAgents === true &&
+                          metadata.activeAgentIds?.includes("spotify") === true
                         : key === "notes" || key === "memory"
                           ? privateAvailable
                           : true;
                 const checked = available && isRoleplayCommandEnabled(metadata, key);
-                const audienceKey = key === "roll" ? "roleplayRollAudience" : "roleplayCombatAudience";
+                const audienceKey =
+                  key === "roll"
+                    ? "roleplayRollAudience"
+                    : key === "document"
+                      ? "roleplayDocumentAudience"
+                      : "roleplayCombatAudience";
                 const showAudienceWarning = metadata[audienceKey] === "narrator" && (!privateAvailable || !hasNarrator);
                 return (
                   <div key={key} className="flex flex-col gap-2">
@@ -79,14 +85,14 @@ export function RoleplayCommandsSettings({
                           ? t(
                               key === "notes" || key === "memory"
                                 ? "roleplay.commands.individualRequired"
-                                : key === "illustrate" || key === "combat"
+                                : key === "illustrate"
                                   ? "roleplay.commands.agentAttachedRequired"
-                                  : "roleplay.commands.agentRequired",
+                                  : `roleplay.commands.${key}.agentRequired`,
                             )
                           : t(`roleplay.commands.${key}.description`)
                       }
                       checked={checked}
-                      disabled={!available || update.isPending}
+                      disabled={!available}
                       labelPosition="start"
                       onChange={(value) =>
                         update.mutate({
@@ -102,14 +108,13 @@ export function RoleplayCommandsSettings({
                       )}
                       labelClassName="text-[0.6875rem] font-medium"
                     />
-                    {checked && (key === "roll" || key === "combat") && (
+                    {checked && (key === "roll" || key === "combat" || key === "document") && (
                       <div className="flex flex-col gap-1.5 text-xs">
                         <label htmlFor={`${chat.id}:${key}-audience`}>{t(`roleplay.commands.${key}.audience`)}</label>
                         <select
                           id={`${chat.id}:${key}-audience`}
                           aria-describedby={showAudienceWarning ? `${chat.id}:${key}-audience-status` : undefined}
                           value={metadata[audienceKey] ?? "all"}
-                          disabled={update.isPending}
                           onChange={(event) => update.mutate({ id: chat.id, [audienceKey]: event.target.value })}
                           className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 focus-visible:outline focus-visible:outline-[var(--primary)]"
                         >
@@ -148,7 +153,6 @@ export function RoleplayCommandsSettings({
                       ? (metadata.roleplayCommandNarratorId ?? "")
                       : ""
                   }
-                  disabled={update.isPending}
                   onChange={(event) =>
                     update.mutate({ id: chat.id, roleplayCommandNarratorId: event.target.value || null })
                   }
@@ -178,7 +182,6 @@ export function RoleplayCommandsSettings({
                   id={`${chat.id}:command-sound-connection`}
                   aria-describedby={`${chat.id}:command-sound-description`}
                   value={metadata.roleplaySoundConnectionId ?? ""}
-                  disabled={update.isPending}
                   onChange={(event) =>
                     update.mutate({ id: chat.id, roleplaySoundConnectionId: event.target.value || null })
                   }

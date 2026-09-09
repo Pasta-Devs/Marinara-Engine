@@ -127,14 +127,16 @@ export function isRoleplayCommandAllowed(
   if (!isRoleplayCommandEnabled(metadata, key)) return false;
   if (
     (key === "roll" && metadata.roleplayRollAudience === "narrator") ||
-    (key === "combat" && metadata.roleplayCombatAudience === "narrator")
+    (key === "combat" && metadata.roleplayCombatAudience === "narrator") ||
+    (key === "document" && metadata.roleplayDocumentAudience === "narrator")
   ) {
     if (!characterId || characterId !== metadata.roleplayCommandNarratorId) return false;
   }
-  if (key === "illustrate" || key === "combat") {
+  if (key === "music" && metadata.enableAgents !== true) return false;
+  if (key === "illustrate" || key === "combat" || key === "music") {
     return (
       Array.isArray(metadata.activeAgentIds) &&
-      metadata.activeAgentIds.includes(key === "illustrate" ? "illustrator" : "combat")
+      metadata.activeAgentIds.includes(key === "illustrate" ? "illustrator" : key === "music" ? "spotify" : "combat")
     );
   }
   return true;
