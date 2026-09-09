@@ -50,6 +50,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Larger display and font sizes for high-resolution screens, message replies with a quoted preview, and automatic context-limit refresh for supported local inference backends (#6006, #6002, #6003).
+
 - Roleplay Commands now offer narrator-only dice rolls and combat, apply a named character’s RPG attribute modifiers, and pass named avatars and chat settings to Illustrator. Combat and illustration commands require their agents in the chat. Collapsed command notices reveal original requests on tap and let you edit or remove attached notes, reminders, and documents per swipe. Command settings and prompts are clearer (#5990).
 
 - Game chats can use a separate connection for one tool-planning request before narration and enable semantic lorebook search independently. Tool settings explain unsupported subscription connections, vectorization prerequisites, and the extra requests (#5955, #5957, #5958).
