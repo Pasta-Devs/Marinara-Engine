@@ -67,6 +67,18 @@ Przełącznik **Attach Card Appearance** dopisuje do promptu obrazu zapisany opi
 
 Przełącznik **Send Avatar References** wysyła do dostawcy obrazów awatary postaci i persony albo ich sprite'y jako obrazy referencyjne. Tekst pomocy brzmi: "Send matching character and persona avatars or sprites as reference images when the provider supports them." Dzięki temu model graficzny łatwiej odwzorowuje twarz albo strój. Nie każdy dostawca przyjmuje obrazy referencyjne, więc efekt zależy od wybranego dostawcy.
 
+## Wiele postaci w usłudze NovelAI
+
+Gdy połączenie graficzne agenta Illustrator korzysta z usługi NovelAI i modelu V4, V4.5 lub V5, model piszący prompt otrzymuje polecenie przygotowania dodatkowego opisu dla każdej widocznej postaci. Każdy opis zawiera wygląd, wyraz twarzy, pozę i przybliżone położenie danej postaci w kadrze. Marinara Engine sprawdza opisy względem listy postaci w scenie, odrzuca te, których nie da się dopasować, i wysyła pozostałe do usługi NovelAI jako natywne prompty postaci obok głównego promptu sceny. Dzięki temu włosy, ubrania i inne cechy nie mieszają się między postaciami w scenach grupowych.
+
+Liczba opisów zależy od modelu. V5 obsługuje do 22 postaci, a V4 i V4.5 do 6. W scenach z większą liczbą widocznych postaci zachowywane są najważniejsze, a reszta jest traktowana jako bezimienne tło.
+
+Model piszący prompt otrzymuje też wskazówki, skąd brać szczegóły opisów. Stałe cechy pochodzą z pola **Appearance** (wygląd) postaci lub persony: jeśli pole zawiera już tagi Danbooru, są kopiowane bez zmian, a jeśli zawiera zwykły tekst, model zamienia go na tagi. Ubranie pochodzi z bieżącego stroju zapisanego w trackerze postaci, gdy tracker działa, i również jest zamieniane na tagi.
+
+Po włączeniu **Attach Card Appearance** (dołącz wygląd z karty) model dostaje dodatkowo pełną treść pola Appearance każdej karty i persony w czacie jako materiał referencyjny, więc długie karty i karty zbiorowe nie są skracane. Karty opisujące kilka postaci w jednym polu Appearance w formacie `[NAME] tags | [NAME] tags` są rozpisywane osobno dla każdej postaci. Model decyduje, co wykorzystać: kopiuje stałe cechy do pasującego opisu, traktuje tagi ubrań z karty jako ustawienie domyślne, które tracker lub scena może zastąpić, i pomija postaci nieobecne w scenie. Gdy model zwróci opisy postaci, Marinara Engine niczego już nie dopisuje do promptu. Gdy ich nie zwróci, co dotyczy scen z jedną postacią, standardowy wiersz z wyglądem jest dopisywany do głównego promptu tak jak wcześniej.
+
+Nie trzeba niczego ustawiać. Opisy pojawiają się tylko przy połączeniu z własnym serwerem usługi NovelAI, więc połączenia przez proxy lub z innym dostawcą działają bez zmian. Po włączeniu **Review image prompts before sending** (sprawdź prompty obrazów przed wysłaniem) okno podglądu pokazuje opisy pod głównym promptem, aby można było zobaczyć, co zostanie wysłane. Opisy są tam tylko do odczytu; główny prompt można edytować jak zwykle.
+
 ## Więcej ustawień i ręczne uruchamianie
 
 Na karcie agenta **Illustrator** jest przycisk **Open Setup** (pełna konfiguracja). Otwiera on pełny ekran konfiguracji agenta, gdzie ustawia się częstotliwość jego działania i przypisuje mu własne połączenie graficzne.

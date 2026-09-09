@@ -89,6 +89,13 @@ Pole **API Key** przyjmuje jeden z trzech rodzajów poświadczeń, a Marinara sa
 
 **xAI / Grok** udostępnia modele Grok. Po wybraniu tego dostawcy w oknie **Create Connection** Marinara od razu wpisuje model Grok 4.5. Model można potem zmienić.
 
+## Z.AI
+
+- Skąd wziąć klucz: `https://z.ai/manage-apikey/apikey-list`
+- Domyślny adres bazowy: `https://api.z.ai/api/paas/v4`
+
+**Z.AI** udostępnia modele GLM (GLM 5.3, GLM 5.3 Flash i starsze) przez własne API. Lista rozwijana **Model** zawiera aktualne modele GLM, a przycisk **Fetch Models from API** odświeża ją na podstawie twojego konta. Modele GLM 5.3 zawsze korzystają z rozumowania: ustawienie **Reasoning Effort** (poziom rozumowania) w presecie jest przeliczane na trzy poziomy obsługiwane przez usługę Z.AI: **Low** (niski), **High** (wysoki) i **Maximum** (maksymalny). Jeśli pozostawisz je nieustawione, usługa użyje swojego poziomu domyślnego, czyli **Maximum**. Domyślny adres bazowy prowadzi do punktu końcowego rozliczanego za zużycie. Plan Coding Plan w usłudze Z.AI korzysta z innego punktu końcowego, który zgodnie z zasadami dostawcy jest zarezerwowany dla narzędzi z jego listy, więc nie należy oczekiwać, że klucz tego planu zadziała tutaj.
+
 ## Claude (Subscription)
 
 - Klucz API: brak. Zamiast tego logujesz się w lokalnym narzędziu.

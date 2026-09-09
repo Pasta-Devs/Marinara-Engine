@@ -61,7 +61,7 @@ Cloud-Dienst mit der Standard-Base-URL `https://api.together.xyz/v1`. Nötig ist
 
 ## NovelAI
 
-Cloud-Dienst mit der Standard-Base-URL `https://image.novelai.net`. Nötig ist ein API-Key von NovelAI. Der Schwerpunkt liegt auf Artwork im Anime-Stil. Einige neuere Funktionen wie präzise Referenzbilder laufen nur auf einem V4.5-Modell.
+Cloud-Dienst mit der Standard-Base-URL `https://image.novelai.net`. Nötig ist ein API-Key von NovelAI. Der Schwerpunkt liegt auf Artwork im Anime-Stil. Bei V4-, V4.5- und V5-Modellen sendet Marinara für Storyboard- und Illustrator-Szenen mit mehreren Figuren native Figuren-Prompts samt Positionen. Einige neuere Funktionen wie präzise Referenzbilder laufen nur auf einem V4.5-Modell.
 
 ## OpenRouter Images
 
@@ -183,7 +183,7 @@ Ein **Referenzbild** ist ein vorhandenes Bild, das du zusammen mit dem Prompt sc
 | ComfyUI und RunPod Serverless (ComfyUI) | Bis zu 4, über Workflow-Platzhalter |
 | Together AI, Pollinations, Stable Horde | Nicht unterstützt |
 
-Präzise Referenzbilder funktionieren bei NovelAI nur auf einem V4.5-Modell, etwa `nai-diffusion-4-5-full`. Forderst du Referenzen auf einem anderen Modell an, schlägt die Generierung mit einer klaren Meldung fehl.
+Präzise Referenzbilder funktionieren bei NovelAI nur auf einem V4.5-Modell, etwa `nai-diffusion-4-5-full`. NovelAI hat Precise Reference für V5 noch nicht veröffentlicht. Forderst du Referenzen auf einem anderen Modell an, erzeugt Marinara das Bild ohne sie und schreibt eine Warnung ins Server-Log.
 
 ## Bildanfragen in die Warteschlange stellen
 

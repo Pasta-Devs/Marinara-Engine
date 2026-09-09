@@ -61,7 +61,7 @@ Usługa w chmurze z domyślnym adresem `https://api.together.xyz/v1` w polu **Ba
 
 ## NovelAI
 
-Usługa w chmurze z domyślnym adresem `https://image.novelai.net` w polu **Base URL**. Wymaga klucza API do usługi NovelAI. Skupia się na grafice w stylu anime. Część nowszych funkcji, na przykład precyzyjne obrazy referencyjne, działa wyłącznie na modelu V4.5.
+Usługa w chmurze z domyślnym adresem `https://image.novelai.net` w polu **Base URL**. Wymaga klucza API do usługi NovelAI. Skupia się na grafice w stylu anime. Przy modelach V4, V4.5 i V5 Marinara Engine wysyła natywne prompty poszczególnych postaci wraz z ich pozycjami dla scen storyboardu i agenta Illustrator z wieloma postaciami. Część nowszych funkcji, na przykład precyzyjne obrazy referencyjne, działa wyłącznie na modelu V4.5.
 
 ## OpenRouter Images
 
@@ -183,7 +183,7 @@ Każda usługa ma też pola tekstowe **Prompt Prefix** oraz **Negative Prefix**.
 | ComfyUI i RunPod Serverless (ComfyUI) | Do 4, przez znaczniki w workflow |
 | Together AI, Pollinations, Stable Horde | Nieobsługiwane |
 
-Precyzyjne obrazy referencyjne w usłudze NovelAI działają wyłącznie na modelu V4.5, na przykład `nai-diffusion-4-5-full`. Przy żądaniu obrazów referencyjnych na innym modelu generowanie kończy się niepowodzeniem i czytelnym komunikatem.
+Precyzyjne obrazy referencyjne w usłudze NovelAI działają wyłącznie na modelu V4.5, na przykład `nai-diffusion-4-5-full`. Usługa NovelAI nie udostępniła jeszcze funkcji Precise Reference dla V5. Przy żądaniu obrazów referencyjnych na innym modelu Marinara Engine generuje obraz bez nich i zapisuje ostrzeżenie w logu serwera.
 
 ## Kolejkowanie żądań generowania obrazów
 

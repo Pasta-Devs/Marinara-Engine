@@ -597,3 +597,11 @@ UI strings                        byte-exact English; ellipsis exactly as en.jso
 gloss                             **English Label** (gloss em minúsculas) — once per file
 files                             LF · UTF-8 · no BOM · trailing newline · 125 .md + manifest
 ```
+
+## Native NovelAI character descriptions (2026-09-09)
+
+In `media/illustrator-agent.md`, translate a native NovelAI character caption as
+**descrição de personagem**: the description sent as a per-character image prompt,
+not a subtitle or text drawn on the image. Keep this sense distinct from captions
+on comic pages. The accompanying `media/image-providers.md` wording uses the same
+native character-prompt meaning.

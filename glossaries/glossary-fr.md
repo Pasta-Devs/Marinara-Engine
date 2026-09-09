@@ -377,3 +377,11 @@ patched — or, worse, being copied as precedent.
 - `prd-notes-fr.md` — 2026-09-01 mirror-cycle terminology notes.
 - `CONTRIBUTING.md:236` (`staging`) — French per-language conventions.
 - `packages/client/src/localization/locales/fr.json` — UI coverage reality check.
+
+## Native NovelAI character descriptions (2026-09-09)
+
+In `media/illustrator-agent.md`, translate a native NovelAI character caption as
+**description de personnage**: the description sent as a per-character image prompt,
+not a subtitle or text drawn on the image. Keep this sense distinct from captions
+on comic pages. The accompanying `media/image-providers.md` wording uses the same
+native character-prompt meaning.

@@ -89,6 +89,13 @@ O campo **API Key** aceita qualquer um destes três tipos de credencial, e Marin
 
 **xAI / Grok** mantém os modelos Grok. Ao escolher esse provedor na janela **Create Connection**, Marinara já preenche o modelo com Grok 4.5. Você pode trocar o modelo depois.
 
+## Z.AI
+
+- Onde conseguir a chave: `https://z.ai/manage-apikey/apikey-list`
+- URL base padrão: `https://api.z.ai/api/paas/v4`
+
+**Z.AI** oferece os modelos GLM (GLM 5.3, GLM 5.3 Flash e anteriores) pela própria API. A lista **Model** mostra os modelos GLM atuais, e **Fetch Models from API** a atualiza a partir da sua conta. Os modelos GLM 5.3 sempre usam raciocínio: o ajuste **Reasoning Effort** (esforço de raciocínio) do seu preset é convertido nos três níveis aceitos pela Z.AI: **Low** (baixo), **High** (alto) e **Maximum** (máximo). Se você não definir esse ajuste, será usado o padrão da Z.AI: **Maximum**. A URL base padrão é o endpoint com cobrança por uso. O Coding Plan da Z.AI usa outro endpoint que a política de uso reserva às ferramentas da lista do provedor, então não se espera que uma chave desse plano funcione aqui.
+
 ## Claude (Subscription)
 
 - Chave de API: nenhuma. Em vez disso, você faz login em uma ferramenta local.

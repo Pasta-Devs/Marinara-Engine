@@ -89,6 +89,13 @@
 
 **xAI / Grok**은 Grok 모델을 운영합니다. **Create Connection** 창에서 이 제공자를 고르면 Marinara가 모델을 Grok 4.5로 미리 채웁니다. 모델은 나중에 바꿀 수 있습니다.
 
+## Z.AI
+
+- 키를 받는 곳: `https://z.ai/manage-apikey/apikey-list`
+- 기본 Base URL: `https://api.z.ai/api/paas/v4`
+
+**Z.AI**는 자체 API로 GLM 모델(GLM 5.3, GLM 5.3 Flash와 이전 모델)을 제공합니다. **Model** 드롭다운에는 현재 GLM 모델이 표시되며, **Fetch Models from API**로 계정에서 목록을 새로 불러올 수 있습니다. GLM 5.3 모델은 항상 추론을 수행합니다. 프리셋의 **Reasoning Effort**(추론 강도)는 Z.AI가 지원하는 세 단계인 **Low**(낮음), **High**(높음), **Maximum**(최대)에 맞게 변환됩니다. 설정하지 않으면 Z.AI의 기본값인 **Maximum**을 사용합니다. 기본 Base URL은 사용량에 따라 과금되는 엔드포인트입니다. Z.AI의 Coding Plan은 별도의 엔드포인트를 사용하며, 이용 정책에 따라 지정된 목록의 도구에만 허용됩니다. 따라서 Coding Plan 키가 여기서 작동할 것으로 기대해서는 안 됩니다.
+
 ## Claude (Subscription)
 
 - API 키: 없음. 키 대신 로컬 도구에 로그인합니다.

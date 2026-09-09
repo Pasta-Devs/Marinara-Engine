@@ -89,6 +89,13 @@
 
 **xAI / Grok** 提供 Grok 系列模型。在 **Create Connection** 窗口里选中这家服务商时，Marinara 会把模型预填为 Grok 4.5，之后可以随时改。
 
+## Z.AI
+
+- 密钥获取地址：`https://z.ai/manage-apikey/apikey-list`
+- 默认基础 URL：`https://api.z.ai/api/paas/v4`
+
+**Z.AI** 通过自有 API 提供 GLM 模型（GLM 5.3、GLM 5.3 Flash 及更早的模型）。**Model** 下拉列表显示当前的 GLM 模型，**Fetch Models from API** 会从你的账户刷新列表。GLM 5.3 模型始终会进行推理：预设中的 **Reasoning Effort**(推理强度) 会映射到 Z.AI 支持的三个级别：**Low**(低)、**High**(高) 和 **Maximum**(最大)。不设置时会使用 Z.AI 的默认值 **Maximum**。默认基础 URL 是按用量付费的端点。Z.AI 的 Coding Plan 使用另一个端点，其使用政策仅允许列表中的指定工具使用，因此不应期待 Coding Plan 的密钥能在这里使用。
+
 ## Claude (Subscription)
 
 - API 密钥：不需要，改为登录一个本地工具。
