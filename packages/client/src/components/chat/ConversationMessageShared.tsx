@@ -664,6 +664,7 @@ export function ConversationMessageSwipes({ ctx }: { ctx: MessageRenderContext }
       swipeCount={swipeCount}
       onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
       onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
+      className={ctx.isBubbleStyle && isUser ? "justify-end" : undefined}
     />
   );
 }
