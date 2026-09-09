@@ -76,6 +76,104 @@ async function createFixture(request: APIRequestContext, baseUrl: string, names:
   };
 }
 
+test("Roleplay command settings stay interactive during slow saves and preserve rapid changes", async ({
+  page,
+  request,
+}, testInfo) => {
+  const fixture = await createFixture(request, "http://127.0.0.1:9/v1", ["Alice", "Narrator"]);
+  const { chat, characters } = fixture;
+  let releaseSave!: () => void;
+  const pendingSave = new Promise<void>((resolve) => {
+    releaseSave = resolve;
+  });
+  const patches: any[] = [];
+  try {
+    await openChat(page, chat.id);
+    await page.evaluate(async () => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      useChatStore.getState().setShouldOpenSettings(true);
+    });
+    const section = page.locator('[data-chat-settings-section="roleplay-agents"]');
+    const header = section.locator('[role="button"][aria-expanded]').first();
+    if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
+    const commands = page.locator("[data-roleplay-commands]");
+    await commands.getByRole("button", { name: "Expand Commands", exact: true }).click();
+    await page.route(`**/api/chats/${chat.id}/metadata`, async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      patches.push(route.request().postDataJSON());
+      if (patches.length === 1) await pendingSave;
+      await route.continue();
+    });
+    const toggle = async (label: string) => {
+      await commands
+        .locator("label")
+        .filter({ hasText: new RegExp(`^${label}$`, "u") })
+        .click();
+    };
+    const started = Date.now();
+    await toggle("Commands");
+    const documents = commands.getByRole("checkbox", { name: /^Documents\b/u });
+    await expect(documents).toBeVisible();
+    await expect.poll(() => patches.length).toBe(1);
+    await testInfo.attach("pending-save-controls", {
+      body: JSON.stringify({
+        elapsedMs: Date.now() - started,
+        networkSavePending: true,
+        documentsDisabled: await documents.isDisabled(),
+      }),
+      contentType: "application/json",
+    });
+    await page.screenshot({ path: testInfo.outputPath("pending-save.png"), animations: "disabled" });
+    await expect(documents).toBeEnabled({ timeout: 300 });
+    for (const label of ["Documents", "Personal Notes", "Rolls", "Personal Notes", "Personal Notes"]) {
+      await toggle(label);
+    }
+    const audience = commands.getByRole("combobox", { name: "Who can create documents", exact: true });
+    await expect(audience).toHaveValue("all");
+    await audience.selectOption("narrator");
+    await expect(audience).toHaveAccessibleDescription("Choose a Narrator character below to allow this command.");
+    await commands.getByRole("combobox", { name: /^Narrator character/u }).selectOption(characters[1]!.id);
+    await expect(audience).not.toHaveAttribute("aria-describedby");
+    await expect(documents).toBeChecked();
+    await expect(commands.getByRole("checkbox", { name: /^Personal Notes\b/u })).toBeChecked();
+    expect(patches).toHaveLength(1);
+    for (const theme of ["dark", "light"] as const) {
+      await page.evaluate(async (theme) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.setState({ theme });
+      }, theme);
+      await audience.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath(`command-settings-${theme}.png`), animations: "disabled" });
+    }
+    const bounds = await commands.boundingBox();
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
+    releaseSave();
+    const stored = async () => extra((await (await request.get(`/api/chats/${chat.id}`)).json()).metadata);
+    await expect.poll(stored).toMatchObject({
+      roleplayCommandsEnabled: true,
+      roleplayCommandToggles: { document: true, notes: true, roll: true },
+      roleplayDocumentAudience: "narrator",
+      roleplayCommandNarratorId: characters[1]!.id,
+    });
+    await page.reload();
+    await expect
+      .poll(async () =>
+        page.evaluate(async () => {
+          const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+          return useChatStore.getState().activeChat?.metadata;
+        }),
+      )
+      .toMatchObject({
+        roleplayCommandToggles: { document: true, notes: true, roll: true },
+        roleplayDocumentAudience: "narrator",
+      });
+  } finally {
+    releaseSave();
+    await page.unrouteAll({ behavior: "wait" });
+    await fixture.cleanup();
+  }
+});
+
 test("Roleplay commands default off, scope private notes, and follow swipes and branches", async ({
   page,
   request,

@@ -310,16 +310,21 @@ assert.doesNotMatch(visibleHistory, /ALICE_LIE/u);
 
 const scoped = {
   ...metadata,
-  roleplayCommandToggles: { roll: true, combat: true, illustrate: true },
+  roleplayCommandToggles: { roll: true, combat: true, illustrate: true, document: true },
   roleplayRollAudience: "narrator",
   roleplayCombatAudience: "narrator",
+  roleplayDocumentAudience: "narrator",
   activeAgentIds: ["combat", "illustrator"],
 };
-for (const key of ["roll", "combat"] as const) {
+for (const key of ["roll", "combat", "document"] as const) {
   assert.equal(isRoleplayCommandAllowed(scoped, key, "narrator"), true);
   for (const caller of ["alice", "deleted", null]) assert.equal(isRoleplayCommandAllowed(scoped, key, caller), false);
   assert.equal(
-    isRoleplayCommandAllowed({ ...scoped, roleplayRollAudience: "all", roleplayCombatAudience: "all" }, key, "alice"),
+    isRoleplayCommandAllowed(
+      { ...scoped, roleplayRollAudience: "all", roleplayCombatAudience: "all", roleplayDocumentAudience: "all" },
+      key,
+      "alice",
+    ),
     true,
   );
 }
@@ -338,11 +343,39 @@ for (const format of ["xml", "markdown", "none"] as const) {
     });
   assert.match(prompt("narrator"), /\[combat\]/u);
   assert.match(prompt("narrator"), /\[roll: character=/u);
+  assert.match(prompt("narrator"), /\[document:/u);
   assert.match(prompt("alice"), /\[illustrate:.*characters=/u);
-  assert.doesNotMatch(prompt("alice"), /\[roll:|\[combat\]/u);
-  assert.doesNotMatch(prompt(null), /\[roll:|\[combat\]/u);
+  assert.doesNotMatch(prompt("alice"), /\[roll:|\[combat\]|\[document:/u);
+  assert.doesNotMatch(prompt(null), /\[roll:|\[combat\]|\[document:/u);
   assert.doesNotMatch(prompt("narrator", new Set()), /\[illustrate:|\[combat\]/u);
   assert.doesNotMatch(prompt("narrator"), /\n\s*\n\s*-/u);
+}
+const soundtrack = {
+  ...metadata,
+  roleplayCommandToggles: { music: true },
+  enableAgents: true,
+  activeAgentIds: ["spotify"],
+};
+for (const [overrides, allowed] of [
+  [{}, true],
+  [{ enableAgents: false }, false],
+  [{ enableAgents: undefined }, false],
+  [{ activeAgentIds: [] }, false],
+  [{ roleplayCommandsEnabled: false }, false],
+] as const) {
+  const selected = { ...soundtrack, ...overrides };
+  assert.equal(isRoleplayCommandAllowed(selected, "music", "alice"), allowed);
+  for (const installed of [true, false]) {
+    const prompt = buildRoleplayCommandsReminder({
+      metadata: selected,
+      characterId: "alice",
+      privateAvailable: true,
+      availableAgentIds: new Set(installed ? ["spotify"] : []),
+      format: "xml",
+      characterNames: ["Alice"],
+    });
+    assert.equal(prompt.includes("[music:"), allowed && installed);
+  }
 }
 const newSyntax =
   '[combat] [illustrate: subject="The duel" characters="Alice, Narrator"] [roll: character="Alice" notation="d20" attribute="STR" reason="Lift the gate"]';
