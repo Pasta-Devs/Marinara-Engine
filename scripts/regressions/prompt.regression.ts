@@ -1785,7 +1785,7 @@ const cases: RegressionCase[] = [
       }
       assert.match(
         generateRouteSource,
-        /usesIndividualGroupGeneration && requestedNarrativeDirectorMode && directorAgent[\s\S]{0,700}appendSeparateAgentInjectionMessage\([\s\S]{0,400}requestedNarrativeDirectorMode === "random"/u,
+        /chatMode === "roleplay" && requestedNarrativeDirectorMode && directorAgent[\s\S]{0,700}appendSeparateAgentInjectionMessage\([\s\S]{0,400}requestedNarrativeDirectorMode === "random"/u,
         "individual group prompts should retain the armed Narrative Director instruction at the responder boundary",
       );
     },

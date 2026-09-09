@@ -74,28 +74,41 @@ for (const [mode, style] of [
       if (isMobile) await row.getByText(/A quiet laboratory/).click();
       else await row.hover();
       const reply = row.getByRole("button", { name: "Reply", exact: true });
+      if (mode === "conversation" && !isMobile) {
+        await page.mouse.move(0, 0);
+        await row.focus();
+        for (let step = 0; step < 8; step++) {
+          await page.keyboard.press("Tab");
+          if (await reply.evaluate((button) => button === document.activeElement)) break;
+        }
+        await expect(reply).toBeFocused();
+      }
       await reply.click();
       await expect(page.locator("[data-message-reply]")).toContainText("A quiet laboratory");
       await page.getByRole("button", { name: "Cancel reply", exact: true }).click();
       await expect(page.locator("[data-message-reply]")).toHaveCount(0);
-      if (!isMobile) await row.hover();
-      await row.evaluate((element) => {
-        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-        while (walker.nextNode()) {
-          const text = walker.currentNode.textContent ?? "";
-          const index = text.indexOf("selected phrase");
-          if (index < 0) continue;
-          const range = document.createRange();
-          range.setStart(walker.currentNode, index);
-          range.setEnd(walker.currentNode, index + "selected phrase".length);
-          window.getSelection()?.removeAllRanges();
-          window.getSelection()?.addRange(range);
-          break;
-        }
-      });
-      await reply.click();
-      await expect(page.locator("[data-message-reply]")).toContainText("selected phrase");
-      await expect(page.locator("[data-message-reply]")).not.toContainText("A quiet laboratory");
+      for (const fromElement of [true, false]) {
+        if (!isMobile) await row.hover();
+        await row.evaluate((element, fromElement) => {
+          const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+          while (walker.nextNode()) {
+            const text = walker.currentNode.textContent ?? "";
+            const index = text.indexOf("selected phrase");
+            if (index < 0) continue;
+            const range = document.createRange();
+            range.setStart(fromElement ? element : walker.currentNode, fromElement ? 0 : index);
+            range.setEnd(walker.currentNode, index + "selected phrase".length);
+            window.getSelection()?.removeAllRanges();
+            window.getSelection()?.addRange(range);
+            break;
+          }
+        }, fromElement);
+        await reply.click();
+        await expect(page.locator("[data-message-reply]")).toContainText("selected phrase");
+        await expect(page.locator("[data-message-reply]")).not.toContainText("in mind");
+        if (fromElement) await page.getByRole("button", { name: "Cancel reply", exact: true }).click();
+        else await expect(page.locator("[data-message-reply]")).not.toContainText("A quiet laboratory");
+      }
       await page.locator("textarea[data-chat-composer]").fill("I remember.");
       if (isMobile && mode === "conversation") {
         await page.getByRole("button", { name: "Emoji, GIFs, stickers & tools", exact: true }).click();

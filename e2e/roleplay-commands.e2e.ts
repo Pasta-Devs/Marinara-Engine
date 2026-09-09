@@ -214,6 +214,7 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
     'She smiles. [notes: content="OFF_SECRET"] [document: title="Off document", content="Hidden while disabled"]';
   const provider = createServer(async (incoming, response) => {
     if (incoming.method !== "POST") {
+      incoming.resume();
       response.writeHead(404).end();
       return;
     }
@@ -509,6 +510,7 @@ test("Roleplay sound commands reuse cached audio and play the attachment URL", a
   writeFileSync(cachePath, wave);
   const provider = createServer(async (incoming, response) => {
     if (incoming.method !== "POST") {
+      incoming.resume();
       response.writeHead(404).end();
       return;
     }
@@ -593,6 +595,7 @@ for (const native of [true, false]) {
     let followupPrompt = "";
     const provider = createServer(async (incoming, response) => {
       if (incoming.method !== "POST") {
+        incoming.resume();
         response.writeHead(404).end();
         return;
       }
@@ -751,6 +754,7 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
     .toBuffer();
   const provider = createServer(async (incoming, response) => {
     if (incoming.method !== "POST") {
+      incoming.resume();
       response.writeHead(404).end();
       return;
     }
@@ -981,6 +985,7 @@ test("Roleplay gates Soundtrack and Documents and uses the selected Music DJ sou
   let agentEvents: any[] = [];
   const provider = createServer(async (incoming, response) => {
     if (incoming.method !== "POST") {
+      incoming.resume();
       response.writeHead(404).end();
       return;
     }

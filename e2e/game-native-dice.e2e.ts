@@ -19,6 +19,7 @@ for (const theme of ["dark", "light"] as const) {
     let outcomeFollowupHasTools: boolean | undefined;
     const provider = createServer(async (incoming, response) => {
       if (incoming.method !== "POST") {
+        incoming.resume();
         response.writeHead(404).end();
         return;
       }

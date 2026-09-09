@@ -1656,10 +1656,10 @@ export async function generateRoutes(app: FastifyInstance) {
           logger.warn(error, "[image-captioning] Failed to cache image captions for message %s", messageId);
         }
       };
-      const latestReplyUserMessageId = () => [...chatMessages].reverse().find((message) => message.role === "user")?.id;
+      const initialLatestUserMessageId = [...chatMessages].reverse().find((message) => message.role === "user")?.id;
       const mapChatHistoryMessageForPrompt = async (
         m: any,
-        latestUserMessageId = latestReplyUserMessageId(),
+        latestUserMessageId = initialLatestUserMessageId,
       ): Promise<GenerationPromptMessage> => {
         const extra = parseExtra(m.extra);
         const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
@@ -1711,7 +1711,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
       const mappedMessages: GenerationPromptMessage[] = [];
       for (const message of chatMessages) {
-        mappedMessages.push(await mapChatHistoryMessageForPrompt(message));
+        mappedMessages.push(await mapChatHistoryMessageForPrompt(message, initialLatestUserMessageId));
       }
 
       // Attach current request's provider inputs to the last user message (they're already saved in extra,
@@ -4312,14 +4312,9 @@ export async function generateRoutes(app: FastifyInstance) {
               shouldRunDirectorSecretPlot = !input.regenerateMessageId;
             }
           }
-          if (!requestedNarrativeDirectorMode) {
-            resolvedAgents.splice(resolvedAgents.indexOf(directorAgent), 1);
-          } else {
-            directorAgent.settings = {
-              ...directorAgent.settings,
-              directorMode: requestedNarrativeDirectorMode,
-            };
-          }
+          // Push actions add their one-shot nudge at the responder boundary.
+          // Secret Plot has its own maintenance call; neither needs a second planning-model direction.
+          resolvedAgents.splice(resolvedAgents.indexOf(directorAgent), 1);
         }
 
         const illustratorAgentForInterval = resolvedAgents.find((a) => a.type === "illustrator");
@@ -5539,12 +5534,15 @@ export async function generateRoutes(app: FastifyInstance) {
           // Backwards compat: old caches stored plain string[], and some edited
           // caches may contain a mix of legacy strings and object-shaped entries.
           const cached = normalizeContextInjections(regenExtra.contextInjections);
-          // Secret plot is applied from Director memory, not from message cache (legacy entries ignored).
-          const cachedSansSecret = cached.filter((i) => i.agentType !== "secret-plot-driver");
+          // Director nudges are one-shot and Secret Plot comes from its enabled memory state.
+          // Never replay older planning directions or legacy Secret Plot Driver entries.
+          const reusableCachedInjections = cached.filter(
+            (i) => i.agentType !== "director" && i.agentType !== "secret-plot-driver",
+          );
 
-          if (cachedSansSecret && cachedSansSecret.length > 0) {
-            contextInjections = cachedSansSecret;
-            if (cachedSansSecret.some((injection) => injection.agentType === "long-term-memory")) {
+          if (reusableCachedInjections.length > 0) {
+            contextInjections = reusableCachedInjections;
+            if (reusableCachedInjections.some((injection) => injection.agentType === "long-term-memory")) {
               longTermMemoryRecallReceipt = null;
             }
           } else if (hasPreGenAgents) {
@@ -6364,7 +6362,7 @@ export async function generateRoutes(app: FastifyInstance) {
               targetedOnly: true,
             });
           }
-          if (usesIndividualGroupGeneration && requestedNarrativeDirectorMode && directorAgent) {
+          if (chatMode === "roleplay" && requestedNarrativeDirectorMode && directorAgent) {
             appendSeparateAgentInjectionMessage(
               targetScopedMessagesForGen,
               "director",

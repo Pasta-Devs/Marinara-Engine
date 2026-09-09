@@ -53,10 +53,15 @@ export function ReplyToMessageButton({
       disabled={!message.content.trim() || message.id.startsWith("__")}
       onClick={() => {
         const selection = window.getSelection();
-        const insideMessage = (node: Node | null | undefined) =>
-          node?.parentElement?.closest("[data-message-id]")?.getAttribute("data-message-id") === message.id;
+        const insideMessage = (node: Node | null | undefined) => {
+          const element = node instanceof Element ? node : node?.parentElement;
+          return element?.closest("[data-message-id]")?.getAttribute("data-message-id") === message.id;
+        };
         const selected =
-          insideMessage(selection?.anchorNode) && insideMessage(selection?.focusNode)
+          selection &&
+          !selection.isCollapsed &&
+          insideMessage(selection.anchorNode) &&
+          insideMessage(selection.focusNode)
             ? selection?.toString().trim()
             : "";
         useChatStore.getState().setReplyDraft(message.chatId, {

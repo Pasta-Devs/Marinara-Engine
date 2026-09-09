@@ -111,6 +111,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Narrative Director push actions add only the selected natural/random nudge, without an extra planning-model direction or stale cached direction on regeneration. Secret Plot runs only while enabled (#6008).
 - Roleplay DMs now mark new, reused, and linked Conversation threads unread, including after reload (#6000).
 - Roleplay streaming now applies the same display regexes and scope settings as completed messages, preserving incomplete fragments until a regex matches (#5994).
 - Desktop message actions stay grouped, and Conversation actions become keyboard accessible; mobile controls retain their spacing (#6005).

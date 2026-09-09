@@ -411,19 +411,20 @@ export async function connectionsRoutes(app: FastifyInstance) {
   app.post("/refresh-local-context", async () => {
     const candidates = (await storage.list()).filter(canRefreshLocalContext);
     const updated: string[] = [];
-    await Promise.all(
-      candidates.map(async (candidate) => {
-        const connection = await storage.getWithKey(candidate.id);
-        if (!connection) return;
-        const maxContext = await fetchLocalContextLimit(connection);
-        if (maxContext === null || maxContext === connection.maxContext) return;
-        const current = await storage.getById(connection.id);
-        // A settings save while the backend is answering wins over this background refresh.
-        if (!current || current.updatedAt !== connection.updatedAt) return;
-        await storage.update(connection.id, { maxContext });
-        updated.push(connection.id);
-      }),
-    );
+    // Each connection makes four bounded metadata probes; keep only three connections active at once.
+    for (let index = 0; index < candidates.length; index += 3) {
+      await Promise.all(
+        candidates.slice(index, index + 3).map(async (candidate) => {
+          const connection = await storage.getWithKey(candidate.id);
+          if (!connection) return;
+          const maxContext = await fetchLocalContextLimit(connection);
+          if (maxContext === null || maxContext === connection.maxContext) return;
+          if (await storage.updateContextIfUnchanged(connection, maxContext)) {
+            updated.push(connection.id);
+          }
+        }),
+      );
+    }
     return { updated };
   });
 

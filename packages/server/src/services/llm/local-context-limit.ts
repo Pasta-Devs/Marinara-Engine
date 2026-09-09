@@ -50,6 +50,7 @@ export async function fetchLocalContextLimit(connection: LocalConnection & { api
     endpoints.map(async (endpoint) => {
       try {
         const response = await safeFetch(`${root.href.replace(/\/+$/, "")}${endpoint}`, {
+          // Authenticated HTTP is normal for configured local providers. Every redirect stays on this exact origin.
           headers: connection.apiKey ? { Authorization: `Bearer ${connection.apiKey}` } : {},
           signal: AbortSignal.timeout(3000),
           maxResponseBytes: 128 * 1024,
