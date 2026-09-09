@@ -93,6 +93,8 @@ packages/client/src/localization/locales/en.json
 
 새 언어를 추가할 때는 영어 원문을 참조할 Engine `staging` 체크아웃을 준비하고 `docs-i18n`에서 작업하세요:
 
+`/path/to/Engine`은 `packages/client/src/localization/locales/en.json`이 있는 별도의 기존 `staging` 브랜치 체크아웃을 뜻합니다. 다음 명령은 번역 작업용 체크아웃을 추가로 만듭니다.
+
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine

@@ -96,6 +96,8 @@ PR с новой функциональностью должен добавит�
 
 Для нового языка сохраните рабочую копию Engine на ветке `staging` как источник английского текста и работайте в `docs-i18n`:
 
+`/path/to/Engine` — это отдельная существующая рабочая копия ветки `staging`, содержащая `packages/client/src/localization/locales/en.json`. Следующие команды создают дополнительную рабочую копию для переводов.
+
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine

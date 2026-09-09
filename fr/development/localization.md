@@ -96,6 +96,8 @@ tenir dans une seule PR. Garde à part les modifications de code sans rapport.
 
 Pour une nouvelle langue, conserve une copie de travail d'Engine sur `staging` comme source anglaise et travaille sur `docs-i18n` :
 
+`/path/to/Engine` désigne une copie de travail existante et distincte de la branche `staging`, contenant `packages/client/src/localization/locales/en.json`. Les commandes suivantes créent la copie supplémentaire destinée aux traductions.
+
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine

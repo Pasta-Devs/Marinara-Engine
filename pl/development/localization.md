@@ -96,6 +96,8 @@ jednego PR. Niezwiązane zmiany w kodzie zostaw osobno.
 
 Przy dodawaniu języka zachowaj kopię roboczą gałęzi `staging` silnika jako źródło angielskie, a pracuj w gałęzi `docs-i18n`:
 
+`/path/to/Engine` oznacza osobną, istniejącą kopię roboczą gałęzi `staging`, zawierającą `packages/client/src/localization/locales/en.json`. Poniższe polecenia tworzą dodatkową kopię do pracy nad tłumaczeniami.
+
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine

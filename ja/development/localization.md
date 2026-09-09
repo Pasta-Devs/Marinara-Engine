@@ -91,6 +91,8 @@ packages/client/src/localization/locales/en.json
 
 新しい言語を追加する場合は、英語の原文を参照するためにEngineの`staging`チェックアウトを用意し、`docs-i18n`で作業します。
 
+`/path/to/Engine` は、`packages/client/src/localization/locales/en.json` を含む、既存の別の `staging` ブランチのチェックアウトを指します。次のコマンドでは、翻訳用の追加チェックアウトを作成します。
+
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine

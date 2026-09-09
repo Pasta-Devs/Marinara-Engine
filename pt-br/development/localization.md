@@ -93,6 +93,8 @@ Deixe mudanças de código não relacionadas em outro lugar.
 
 Para um idioma novo, mantenha um checkout de Engine em `staging` como fonte em inglês e trabalhe em `docs-i18n`:
 
+`/path/to/Engine` indica um checkout existente e separado da branch `staging`, que contém `packages/client/src/localization/locales/en.json`. Os comandos a seguir criam o checkout adicional para as traduções.
+
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine

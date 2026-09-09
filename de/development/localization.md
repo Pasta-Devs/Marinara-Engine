@@ -96,6 +96,8 @@ sich einen PR teilen. Unabhängige Codeänderungen gehören separat.
 
 Behalte für eine neue Sprache einen Engine-Checkout von `staging` als englische Quelle und arbeite auf `docs-i18n`:
 
+`/path/to/Engine` bezeichnet einen separaten, vorhandenen Checkout des Branches `staging`, der `packages/client/src/localization/locales/en.json` enthält. Die folgenden Befehle erstellen den zusätzlichen Checkout für Übersetzungen.
+
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine

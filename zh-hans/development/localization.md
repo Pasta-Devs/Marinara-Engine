@@ -86,6 +86,8 @@ packages/client/src/localization/locales/en.json
 
 添加新语言时，请保留一份 Engine 的 `staging` 工作副本作为英语源文件，并在 `docs-i18n` 上工作：
 
+`/path/to/Engine` 指已存在的独立 `staging` 分支工作副本，其中包含 `packages/client/src/localization/locales/en.json`。以下命令会另行创建用于翻译的工作副本。
+
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine

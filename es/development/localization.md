@@ -85,6 +85,8 @@ Usa un título como `Improve French UI translation`. Varias correcciones relacio
 
 Para un idioma nuevo, conserva una copia de trabajo de Engine en `staging` como fuente en inglés y trabaja en `docs-i18n`:
 
+`/path/to/Engine` es una copia de trabajo existente y separada de la rama `staging`, que contiene `packages/client/src/localization/locales/en.json`. Los siguientes comandos crean la copia adicional para las traducciones.
+
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine
