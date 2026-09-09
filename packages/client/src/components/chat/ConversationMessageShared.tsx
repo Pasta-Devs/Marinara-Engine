@@ -642,33 +642,28 @@ export function ConversationMessageTranslation({
 }
 
 /** Compact swipe control — consistent style for all Conversation layouts. */
-export function ConversationMessageSwipes({
-  isUser,
-  messageId,
-  activeSwipeIndex,
-  swipeCount,
-  onSetActiveSwipe,
-  onCreateNextSwipe,
-  className,
-}: {
-  isUser: boolean;
-  messageId: string;
-  activeSwipeIndex: number;
-  swipeCount: number;
-  onSetActiveSwipe: (index: number) => void;
-  onCreateNextSwipe?: () => void;
-  className?: string;
-}) {
+export function ConversationMessageSwipes({ ctx }: { ctx: MessageRenderContext }) {
   const alwaysShow = useUIStore((state) => state.alwaysDisplayConversationSwipeMenu);
+  const {
+    message,
+    isUser,
+    hideActions,
+    isHiddenCollapsed,
+    hasSwipes,
+    swipeCount,
+    onSetActiveSwipe,
+    canRegenerate,
+    onRegenerate,
+  } = ctx;
+  if (hideActions || isHiddenCollapsed || (!hasSwipes && !(canRegenerate && onRegenerate))) return null;
   return (
     <SwipeJumpControl
       alwaysShow={alwaysShow && !isUser}
-      messageId={messageId}
-      activeSwipeIndex={activeSwipeIndex}
+      messageId={message.id}
+      activeSwipeIndex={message.activeSwipeIndex}
       swipeCount={swipeCount}
-      onSetActiveSwipe={onSetActiveSwipe}
-      onCreateNextSwipe={onCreateNextSwipe}
-      className={className}
+      onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
+      onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
     />
   );
 }

@@ -1518,19 +1518,6 @@ const CURRENT_CLOCK_TICKS_PER_SECOND = (() => {
   }
 })();
 
-const CURRENT_CONTAINER_WRITER_SCOPE_ID = (() => {
-  if (process.platform !== "linux" || process.env.MARINARA_DOCKER !== "true") return null;
-  try {
-    const bootId = readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
-    if (bootId) {
-      return createHash("sha256").update(`marinara-writer-lease-boot\n${bootId}`).digest("hex");
-    }
-  } catch {
-    return null;
-  }
-  return null;
-})();
-
 function writerLeaseBelongsToCurrentHost(record: StorageWriterLeaseRecord) {
   if (record.version === 2 || record.version === 4) {
     return Boolean(CURRENT_HOST_ID && record.hostId === CURRENT_HOST_ID);
@@ -1552,9 +1539,11 @@ async function startWriterLeaseLiveness(
   if (process.platform === "win32" || !scopeId) return null;
 
   const socketPath = writerLeaseLivenessPath(path);
-  // sockaddr_un is shortest on macOS (103 usable bytes). Stay below every
-  // supported POSIX limit instead of letting a platform silently truncate it.
-  if (Buffer.byteLength(socketPath) > 100) return null;
+  // Unix socket paths allow 107 bytes on Linux/Android, 103 on macOS.
+  // The default Termux install needs 101; reject oversized paths before
+  // Node can silently truncate them.
+  const maxPathBytes = process.platform === "linux" || process.platform === "android" ? 107 : 103;
+  if (Buffer.byteLength(socketPath) > maxPathBytes) return null;
 
   // Container PID namespaces can reuse the same internal PID after a recreation.
   // A socket on the shared data mount remains reachable while its writer lives,
@@ -1578,7 +1567,7 @@ async function startWriterLeaseLiveness(
     rmSync(socketPath, { force: true });
     logger.debug(
       { err: error, path: socketPath },
-      "[file-storage] Writer lease socket is unavailable; a stale container lease may require manual recovery.",
+      "[file-storage] Writer lease socket is unavailable; a stale writer lease may require manual recovery.",
     );
     return null;
   }
@@ -2343,8 +2332,18 @@ class FileTableStore {
 
   private async acquireWriterLease() {
     const path = writerLeasePath(this.rootDir);
-    const writerScopeId = this.testHooks?.writerLeaseScopeId ?? CURRENT_CONTAINER_WRITER_SCOPE_ID;
     const writerBootId = this.testHooks?.writerLeaseBootId ?? CURRENT_BOOT_ID;
+    // Container PID reuse and Android's restricted process visibility can
+    // make PID ownership uncertain. Reuse the kernel-owned socket proof,
+    // scoped to this boot; Termux enables it only for its app-private HOME.
+    const useLiveness =
+      (process.platform === "linux" && process.env.MARINARA_DOCKER === "true") ||
+      isTermuxPrivateHomeStorage(this.rootDir);
+    const writerScopeId =
+      this.testHooks?.writerLeaseScopeId ??
+      (useLiveness && writerBootId
+        ? createHash("sha256").update(`marinara-writer-lease-boot\n${writerBootId}`).digest("hex")
+        : null);
     const writerPidNamespace = this.testHooks?.writerLeasePidNamespace ?? CURRENT_PID_NAMESPACE;
     for (let attempt = 0; attempt < 10; attempt++) {
       const token = randomUUID();

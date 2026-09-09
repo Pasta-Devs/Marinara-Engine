@@ -30,6 +30,7 @@ import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./Gene
 import {
   HiddenFromAIConversationButton,
   ConversationMessageLightbox,
+  ConversationMessageSwipes,
   type MessageData,
   type MessageRenderContext,
 } from "./ConversationMessageShared";
@@ -1138,6 +1139,8 @@ export const ConversationMessage = memo(function ConversationMessage({
         >
           {isBubbleStyle ? <ConversationMessageBubble ctx={ctx} /> : <ConversationMessageLine ctx={ctx} />}
         </div>
+
+        <ConversationMessageSwipes ctx={ctx} />
 
         {(!hideActions || (hasReasoning && !isUser)) && (
           <ConversationMessageActions

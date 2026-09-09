@@ -98,7 +98,7 @@ export function ConversationMessageActions({
         "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 transition-all md:justify-start md:gap-x-2",
         visible
           ? "visible pointer-events-auto opacity-100"
-          : "invisible pointer-events-none opacity-0 group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+          : "invisible pointer-events-none opacity-0 max-md:hidden max-md:group-hover:flex max-md:group-focus-within:flex group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100",
         thinkingOnly && "max-sm:[&>*:not(.mari-message-thinking-action)]:hidden",
       )}
       data-component="ConversationMessage.Actions"

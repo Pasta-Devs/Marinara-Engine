@@ -111,8 +111,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
-- Conversation swipe controls align with the message text and avoid an extra empty row when hidden (#6009).
-- Termux storage uses the existing writer liveness check to recover a stopped server's lease without rebooting when PID ownership cannot be established, while keeping active writers protected (#6010).
+- Conversation swipe controls align with the start of the message row. Hidden mobile actions and disabled swipe controls no longer leave unused space below messages (#6009).
+- New Termux storage leases can recover after a stopped server without rebooting, even when Android cannot establish PID ownership. Active writers remain protected (#6010).
 
 - Narrative Director push actions add only the selected natural/random nudge, without an extra planning-model direction or stale cached direction on regeneration. Secret Plot runs only while enabled (#6008).
 - Roleplay DMs now mark new, reused, and linked Conversation threads unread, including after reload (#6000).

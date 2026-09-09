@@ -132,7 +132,10 @@ try {
     const containerLeaseHooks = { writerLeaseScopeId: "writer-lock-container-host" };
     const db = await createFileNativeDB(containerLeaseHooks);
     const leaseTemplate = readJson<LeaseRecord>(ownerPath(dir));
-    const socketPathIsSupported = process.platform !== "win32" && Buffer.byteLength(livenessPath(dir)) <= 100;
+    const socketPathIsSupported =
+      process.platform !== "win32" &&
+      Buffer.byteLength(livenessPath(dir)) <=
+        (process.platform === "linux" || process.platform === "android" ? 107 : 103);
     assert.equal(
       leaseTemplate.version,
       leaseTemplate.bootId ? 4 : socketPathIsSupported ? 3 : 2,
@@ -297,7 +300,11 @@ try {
       const afterReboot = await createFileNativeDB({ writerLeaseBootId: "writer-lock-current-boot" });
       assert.notEqual(readJson<LeaseRecord>(ownerPath(dir)).token, "stale-reused-pid-token");
       await afterReboot._fileStore.close();
+    }
 
+    // macOS has no process-start-time proof; exercise PID reuse only where
+    // the runtime implements it, using a valid v4 boot identity on each host.
+    if (leaseTemplate.hostId && leaseTemplate.bootId) {
       mkdirSync(leasePath(dir));
       writeFileSync(
         ownerPath(dir),
@@ -531,9 +538,13 @@ try {
       // "shareable" here so the HOME rule is what this proves).
       const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform")!;
       const previousHome = process.env.HOME;
-      const termuxHome = mkdtempSync(join(tmpdir(), "marinara-termux-home-"));
+      // Keep the real socket path at the 101 bytes used by the reported
+      // default Termux install, even on macOS with its longer temp directory.
+      const termuxHome = mkdtempSync("/tmp/me-termux-");
       tempDirs.push(termuxHome);
-      const termuxStorage = join(termuxHome, "Marinara-Engine", "packages", "server", "data", "storage");
+      const termuxStorage = join(termuxHome, "s".repeat(101 - Buffer.byteLength(livenessPath(termuxHome)) - 1));
+      assert.equal(Buffer.byteLength(livenessPath(termuxStorage)), 101);
+      const termuxHooks = { writerLeaseBootId: "termux-current-boot" };
       process.env.FILE_STORAGE_DIR = termuxStorage;
       mkdirSync(leasePath(termuxStorage), { recursive: true });
       writeFileSync(
@@ -550,10 +561,77 @@ try {
       try {
         Object.defineProperty(process, "platform", { ...platformDescriptor, value: "android" });
         process.env.HOME = termuxHome;
-        termuxDb = await createFileNativeDB();
+        termuxDb = await createFileNativeDB(termuxHooks);
         assert.notEqual(readJson<LeaseRecord>(ownerPath(termuxStorage)).token, "stale-termux-token");
+        const termuxLease = readJson<LeaseRecord>(ownerPath(termuxStorage));
+        assert.ok(termuxLease.scopeId, "Termux private-home leases enable the existing liveness proof");
+        assert.equal(existsSync(livenessPath(termuxStorage)), true, "the default Termux path fits a real socket");
+        await assert.rejects(
+          createFileNativeDB(termuxHooks),
+          StorageWriterLeaseError,
+          "a live Termux writer stays locked",
+        );
+        assert.equal(readJson<LeaseRecord>(ownerPath(termuxStorage)).token, termuxLease.token);
         await termuxDb._fileStore.close();
         termuxDb = undefined;
+        assert.equal(existsSync(leasePath(termuxStorage)), false, "clean Termux shutdown releases the lease");
+
+        // A real force-killed socket owner leaves ECONNREFUSED. Name our live
+        // PID with a fresh timestamp so neither PID proof can reclaim it.
+        mkdirSync(leasePath(termuxStorage));
+        await leaveStaleSocket(livenessPath(termuxStorage));
+        const crashedLease = { ...termuxLease, hostId: null, pid: process.pid, acquiredAt: new Date().toISOString() };
+        writeFileSync(ownerPath(termuxStorage), JSON.stringify({ ...crashedLease, scopeId: "another-boot" }));
+        await assert.rejects(
+          createFileNativeDB(termuxHooks),
+          StorageWriterLeaseError,
+          "a foreign socket scope stays locked",
+        );
+        writeFileSync(ownerPath(termuxStorage), JSON.stringify(crashedLease));
+        termuxDb = await createFileNativeDB(termuxHooks);
+        assert.notEqual(readJson<LeaseRecord>(ownerPath(termuxStorage)).token, crashedLease.token);
+        await termuxDb._fileStore.close();
+        termuxDb = undefined;
+
+        mkdirSync(leasePath(termuxStorage));
+        writeFileSync(ownerPath(termuxStorage), JSON.stringify(crashedLease));
+        await assert.rejects(
+          createFileNativeDB(termuxHooks),
+          StorageWriterLeaseError,
+          "a missing socket is not proof of exit",
+        );
+        writeFileSync(ownerPath(termuxStorage), JSON.stringify({ ...crashedLease, scopeId: undefined }));
+        await assert.rejects(
+          createFileNativeDB(termuxHooks),
+          StorageWriterLeaseError,
+          "an uncertain legacy owner without a socket stays locked",
+        );
+        rmSync(leasePath(termuxStorage), { recursive: true });
+
+        termuxDb = await createFileNativeDB({ writerLeaseBootId: "" });
+        assert.equal(
+          readJson<LeaseRecord>(ownerPath(termuxStorage)).scopeId,
+          undefined,
+          "no boot identity means no socket scope",
+        );
+        await termuxDb._fileStore.close();
+        termuxDb = undefined;
+
+        if (platformDescriptor.value === "linux" || platformDescriptor.value === "android") {
+          for (const pathBytes of [107, 108]) {
+            const storage = join(termuxHome, "s".repeat(pathBytes - Buffer.byteLength(livenessPath(termuxHome)) - 1));
+            process.env.FILE_STORAGE_DIR = storage;
+            termuxDb = await createFileNativeDB(termuxHooks);
+            assert.equal(
+              existsSync(livenessPath(storage)),
+              pathBytes === 107,
+              "Linux socket paths respect the kernel byte limit",
+            );
+            assert.equal(Boolean(readJson<LeaseRecord>(ownerPath(storage)).scopeId), pathBytes === 107);
+            await termuxDb._fileStore.close();
+            termuxDb = undefined;
+          }
+        }
 
         const outsideHome = useTempStorage("termux-outside-home");
         mkdirSync(leasePath(outsideHome));
@@ -571,6 +649,13 @@ try {
         symlinkSync(outsideHome, linkedOutsideHome, "dir");
         process.env.FILE_STORAGE_DIR = linkedOutsideHome;
         await assert.rejects(createFileNativeDB({ writerLeaseStorageIsMachineLocal: false }), StorageWriterLeaseError);
+        rmSync(leasePath(outsideHome), { recursive: true });
+        termuxDb = await createFileNativeDB(termuxHooks);
+        assert.equal(
+          readJson<LeaseRecord>(ownerPath(outsideHome)).scopeId,
+          undefined,
+          "a symlink outside Termux HOME does not enable its liveness scope",
+        );
       } finally {
         if (termuxDb) await termuxDb._fileStore.close();
         Object.defineProperty(process, "platform", platformDescriptor);

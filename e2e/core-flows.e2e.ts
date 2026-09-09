@@ -5898,6 +5898,15 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
           const row = page.locator(`[data-message-id="${messageId}"]`);
           const control = row.locator(".mari-message-swipes");
           await expect(control).toBeVisible();
+          if (layout !== "roleplay") {
+            const start = await row.evaluate(
+              (element) =>
+                element.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(element).paddingLeft),
+            );
+            expect
+              .soft(Math.abs((await control.boundingBox())!.x - start), `${layout} swipes align with the message row`)
+              .toBeLessThan(1);
+          }
           const input = control.getByRole("textbox");
           await expect(input).toHaveValue("1");
           // Compare the settled theme color, not WebKit's retained Oklab
@@ -6005,6 +6014,10 @@ for (const mode of ["conversation", "roleplay"] as const) {
       const row = page.locator(`[data-message-id="${message.id}"]`);
       const actions = row.locator(".mari-message-actions");
       await expect(row).toBeVisible();
+      if (mobile && mode === "conversation") {
+        await expect(actions).toBeHidden();
+        expect(await actions.evaluate((element) => element.getBoundingClientRect().height)).toBe(0);
+      }
       await expect(row.locator(".mari-message-swipes")).toBeVisible();
       await expect(row.getByRole("button", { name: "Previous swipe", exact: true })).toBeDisabled();
       await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 1", exact: true })).toHaveValue("1");

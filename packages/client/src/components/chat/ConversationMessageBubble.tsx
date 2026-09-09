@@ -16,7 +16,6 @@ import {
   ConversationMessageEditForm,
   ConversationMessageAttachments,
   ConversationMessageTranslation,
-  ConversationMessageSwipes,
   ConversationMessageName,
   diceRollReplacesMessageContent,
   nameColorStyle,
@@ -59,17 +58,11 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
     isHiddenCollapsed,
     hiddenFromAIHeader,
     onExpandHidden,
-    hideActions,
     hideTimestamp,
     showActions,
     forceShowActions,
     showMessageNumbers,
     messageIndex,
-    hasSwipes,
-    swipeCount,
-    onSetActiveSwipe,
-    canRegenerate,
-    onRegenerate,
     onImageOpen,
     onRemoveAttachment,
     translatedText,
@@ -344,20 +337,6 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
           )}
         </div>
       </div>
-
-      {/* Swipe controls — separate row so avatar never drifts */}
-      {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
-        <div className={cn("mt-1", isUser ? "flex justify-end" : "pl-12")}>
-          <ConversationMessageSwipes
-            isUser={isUser}
-            messageId={message.id}
-            activeSwipeIndex={message.activeSwipeIndex}
-            swipeCount={swipeCount}
-            onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
-            onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
-          />
-        </div>
-      )}
     </>
   );
 }

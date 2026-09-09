@@ -15,7 +15,6 @@ import {
   ConversationMessageEditForm,
   ConversationMessageAttachments,
   ConversationMessageTranslation,
-  ConversationMessageSwipes,
   ConversationMessageName,
   diceRollReplacesMessageContent,
   formatTimestamp,
@@ -53,17 +52,11 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
     isHiddenCollapsed,
     hiddenFromAIHeader,
     onExpandHidden,
-    hideActions,
     hideTimestamp,
     showActions,
     forceShowActions,
     showMessageNumbers,
     messageIndex,
-    hasSwipes,
-    swipeCount,
-    onSetActiveSwipe,
-    canRegenerate,
-    onRegenerate,
     onImageOpen,
     onRemoveAttachment,
     translatedText,
@@ -262,19 +255,6 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
               onImageOpen={onImageOpen}
               onRemove={onRemoveAttachment}
             />
-
-            {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
-              <div className="mt-1.5">
-                <ConversationMessageSwipes
-                  isUser={isUser}
-                  messageId={message.id}
-                  activeSwipeIndex={message.activeSwipeIndex}
-                  swipeCount={swipeCount}
-                  onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
-                  onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
-                />
-              </div>
-            )}
           </>
         )}
       </div>
