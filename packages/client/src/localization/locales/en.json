@@ -1428,6 +1428,7 @@
   "settings.transfer.importPreset": "Import Preset (JSON)",
   "settings.units.secondsShort": "{{value}} s",
   "settings.updates.channelPending": "Select a release channel",
+  "tasks.empty": "Nothing running right now",
   "tasks.kind.agents": "Agents",
   "tasks.kind.generation": "Chat",
   "tasks.kind.media": "Media",

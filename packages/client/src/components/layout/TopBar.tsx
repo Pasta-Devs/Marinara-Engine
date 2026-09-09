@@ -410,6 +410,8 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
           );
         })}
 
+        <EngineTasksMenu />
+
         {/* Settings */}
         <button
           onClick={() => handleRightPanelClick("settings")}
@@ -434,7 +436,6 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
         </button>
 
         <PersonalExtensionTopbarButtons />
-        <EngineTasksMenu />
         <PersonalExtensionContributionsMenu />
       </nav>
     </header>

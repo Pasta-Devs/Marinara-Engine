@@ -137,12 +137,6 @@ export function EngineTasksMenu() {
     return () => window.clearInterval(timer);
   }, [open]);
 
-  useEffect(() => {
-    if (taskCount === 0) setOpen(false);
-  }, [taskCount]);
-
-  if (taskCount === 0) return null;
-
   const sections = KIND_ORDER.map((kind) => ({ kind, items: tasks.filter((task) => task.kind === kind) })).filter(
     (section) => section.items.length > 0,
   );
@@ -161,6 +155,10 @@ export function EngineTasksMenu() {
           {taskCount}
         </span>
       </div>
+
+      {sections.length === 0 && (
+        <p className="px-2.5 py-3 text-[0.6875rem] text-[var(--muted-foreground)]">{t("tasks.empty")}</p>
+      )}
 
       {sections.map((section, index) => (
         <section
@@ -188,7 +186,7 @@ export function EngineTasksMenu() {
         onPointerEnter={() => setOpen(true)}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={t("tasks.openMenu", { count: taskCount })}
+        aria-label={taskCount > 0 ? t("tasks.openMenu", { count: taskCount }) : t("tasks.menuLabel")}
         title={t("tasks.title")}
         className={cn(
           "mari-topbar-action relative flex h-8 w-8 items-center justify-center rounded-lg p-0 transition-all active:scale-95 max-sm:h-7 max-sm:w-7",
@@ -198,13 +196,15 @@ export function EngineTasksMenu() {
         )}
       >
         <Activity aria-hidden="true" size={15} />
-        <span
-          role="status"
-          aria-live="polite"
-          className="absolute -right-0.5 -top-0.5 min-w-3.5 rounded-full bg-[var(--primary)] px-1 text-center text-[0.5625rem] font-bold leading-3.5 text-[var(--primary-foreground)]"
-        >
-          {Math.min(taskCount, 99)}
-        </span>
+        {taskCount > 0 && (
+          <span
+            role="status"
+            aria-live="polite"
+            className="absolute -right-0.5 -top-0.5 min-w-3.5 rounded-full bg-[var(--primary)] px-1 text-center text-[0.5625rem] font-bold leading-3.5 text-[var(--primary-foreground)]"
+          >
+            {Math.min(taskCount, 99)}
+          </span>
+        )}
       </button>
       {typeof document === "undefined" ? null : createPortal(menu, document.body)}
     </>
