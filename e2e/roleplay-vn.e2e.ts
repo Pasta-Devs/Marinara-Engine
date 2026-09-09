@@ -214,6 +214,7 @@ test("Roleplay wizard and Appearance persist the VN choice and art scales", asyn
     await page.reload();
     await expect(page.locator('[data-roleplay-presentation="classic"]')).toBeVisible();
     await expect(page.locator("[data-roleplay-vn]")).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath("classic.png"), animations: "disabled" });
     await page.evaluate(async () => {
       const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
       const ui = useUIStore.getState();
@@ -281,5 +282,42 @@ test("Roleplay VN bounds long paragraphs and handles an empty chat without art",
     await expect(page.locator(".mari-chat-input textarea")).toBeInViewport();
   } finally {
     await data.cleanup();
+  }
+});
+
+test("Roleplay VN follows the selected swipe and the next chat's display choice", async ({ page, request }) => {
+  const data = await fixture(request);
+  const other = await fixture(request);
+  try {
+    expect(
+      (
+        await request.post(`/api/chats/${data.chat.id}/messages/${data.message.id}/swipes`, {
+          data: { content: "An alternate opening.\n\nThe alternate paragraph." },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    expect(
+      (await request.patch(`/api/chats/${other.chat.id}/metadata`, { data: { roleplayDisplayStyle: "classic" } })).ok(),
+    ).toBeTruthy();
+    await open(page, data.chat.id);
+    const vn = page.locator("[data-roleplay-vn]");
+    await expect(vn).toContainText("The alternate paragraph.");
+    await vn.getByRole("button", { name: "Show chat history" }).click();
+    const message = page.locator(`[data-chat-scroll] [data-message-id="${data.message.id}"]`).first();
+    await message.click();
+    await message.getByRole("button", { name: "Previous swipe", exact: true }).click();
+    await expect(message).toContainText("The archive falls quiet.");
+    await vn.getByRole("button", { name: "Return to Visual Novel" }).click();
+    await expect(vn).toContainText("A small light flickers across the desk.");
+    await page.evaluate(async (chatId) => {
+      const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;
+      useChatStore.getState().setActiveChatId(chatId);
+    }, other.chat.id);
+    await expect(page.locator('[data-roleplay-presentation="classic"]')).toBeVisible();
+    await expect(page.locator("[data-roleplay-vn]")).toHaveCount(0);
+    await expect(page.locator("[data-chat-scroll]")).toContainText("The archive falls quiet.");
+  } finally {
+    await data.cleanup();
+    await other.cleanup();
   }
 });
