@@ -84,6 +84,16 @@ A barra de digitação tem um botãozinho de balão de fala ao lado do botão de
 
 O modo ativo mostra uma marca **On** no menu. Para desativar **Talk to Party** ou **Talk to GM**, clique de novo nessa mesma entrada do menu. As mensagens voltam a entrar na cena.
 
+<a id="optional-tool-planning-and-lore-searches"></a>
+
+## Planejamento opcional de ferramentas e buscas de lore
+
+Durante o jogo, abra **Chat Settings → Function Calling** (configurações do chat → chamadas de função). **Let the GM search lore** (permitir que o GM busque lore) permite buscar informações pelo significado sem ativar todas as outras ferramentas opcionais. Primeiro ative a vetorização dos lorebooks relevantes e vetorize suas entradas. As buscas respeitam os livros e as pastas ativados e os controles de entradas específicos do chat. Elas usam a conexão de embeddings configurada e podem acrescentar uma solicitação de continuação ao modelo.
+
+**Game tool connection** (conexão de ferramentas do jogo) usa **Same as narrator** (a mesma do narrador) por padrão, mantendo o ciclo normal de ferramentas. Escolher outra conexão executa uma única solicitação de planejamento separada antes da narração. Esse modelo escolhe as ferramentas, e o narrador recebe os resultados reais como texto. A solicitação adicional é cobrada na conexão selecionada; um modelo mais barato pode reduzir o custo das ferramentas, mas escolher ferramentas diferentes. Esse único passo de planejamento não pode encadear uma segunda busca a partir do primeiro resultado. Use **Same as narrator** quando quiser que o narrador raciocine ao longo de várias rodadas de ferramentas.
+
+As conexões de assinatura Claude e Grok não aceitam chamadas nativas de ferramentas. Os controles afetados explicam isso e ficam desativados até que uma conexão compatível para ferramentas de Game seja selecionada. Comandos de texto e tags de dados continuam funcionando. Se uma conexão separada estiver ausente ou sua solicitação falhar, o turno informa a falha em vez de narrar silenciosamente sem o trabalho solicitado às ferramentas.
+
 ## Ativar os agentes
 
 Os agentes são ajudantes de IA opcionais que rodam junto com o GM. Para usá-los em um jogo, abra **Chat Settings** (configurações do chat) durante a partida, vá até a seção **Agents** e ative **Enable Agents**. Manter agentes rodando aumenta o custo, porque eles fazem chamadas extras.

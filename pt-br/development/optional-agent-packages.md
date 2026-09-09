@@ -114,6 +114,12 @@ A base guarda o gerenciador de pacotes, o cliente do catálogo, os contratos gen
 
 O catálogo oficial é um documento JSON versionado e validado por esquema, obtido por HTTPS. Cada entrada de versão traz URLs de artefato imutáveis, digests SHA-256, tamanho em bytes, compatibilidade com o Engine, permissões e a informação de que o tempo de execução exige ou não reiniciar.
 
+Comandos do modelo declarados por um pacote só são executados se ele declarar `chat-write`, estiver instalado e estiver pronto. Essa permissão também controla gravações pela API de persistência do pacote, incluindo mensagens, metadados do chat, eventos de roleplay e snapshots espaciais. `chat-read` controla leituras de chats, mensagens, estado do jogo e snapshots espaciais. As mesmas verificações se aplicam dentro de transações de persistência e bloqueios do chat; uma permissão de gravação não concede implicitamente permissão de leitura. Chamadas de persistência do próprio motor continuam sendo confiáveis.
+
+Após a instalação, a visualização de detalhes de **Download Agents** (baixar agentes) mostra as permissões declaradas pela versão instalada. Quando a versão do catálogo solicita permissões diferentes, elas aparecem separadamente. Instalar ou atualizar código ainda exige a aprovação existente vinculada àquela versão e soma de verificação exatas; comandos do modelo não pedem aprovação separada a cada turno.
+
+São verificações de API, não um ambiente isolado de JavaScript. Permissões de rede, armazenamento e interface são declarações de acesso. O código do pacote no navegador e no servidor continua sendo código confiável e pode acessar o ambiente do host; instale apenas pacotes em que você confia. A verificação considera se o pacote está pronto, e não apenas se pode ser servido: uma atualização que o deixe em `restart-required` interrompe a resolução de seus comandos até o motor reiniciar.
+
 Quando o servidor inicia e há pelo menos um pacote oficial instalado, o host busca o catálogo uma vez, seleciona apenas as versões mais novas compatíveis com o Engine e com a API de capacidades em uso, verifica cada uma pelo fluxo normal de instalação e as instala antes de os pacotes entrarem em execução. Uma falha afeta só o pacote em que aconteceu. Os arquivos existentes e o estado do registro continuam utilizáveis se o catálogo estiver fora do ar ou se a verificação falhar, e falhas de prontidão do servidor usam o caminho de rollback para a versão anterior.
 
 O instalador precisa:

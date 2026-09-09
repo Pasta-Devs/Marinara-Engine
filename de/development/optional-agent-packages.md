@@ -115,6 +115,12 @@ In der Basis bleiben nur der Paketmanager, der Katalog-Client, die generischen V
 
 Der offizielle Katalog ist ein schemavalidiertes, versioniertes JSON-Dokument und wird über HTTPS geladen. Jeder Release-Eintrag nennt unveränderliche Artefakt-URLs, SHA-256-Prüfsummen, Dateigrößen in Byte, die Engine-Kompatibilität, die Berechtigungen und ob die Laufzeit einen Neustart braucht.
 
+Vom Paket deklarierte Modellbefehle laufen nur, wenn das Paket `chat-write` deklariert sowie installiert und bereit ist. Diese Berechtigung schützt auch Schreibzugriffe über die Persistenz-API des Pakets, einschließlich Nachrichten, Chat-Metadaten, Roleplay-Ereignissen und räumlichen Snapshots. `chat-read` schützt Lesezugriffe auf Chats, Nachrichten, Spielzustände und räumliche Snapshots. Dieselben Prüfungen gelten innerhalb von Persistenztransaktionen und Chat-Sperren; eine Schreibberechtigung gewährt nicht automatisch Leserechte. Engine-eigene Persistenzaufrufe bleiben vertrauenswürdig.
+
+Die Detailansicht von **Download Agents** (Agenten herunterladen) zeigt nach der Installation die deklarierten Berechtigungen der installierten Version. Fordert die Katalogversion andere Berechtigungen an, werden diese getrennt angezeigt. Installation oder Aktualisierung von Code erfordern weiterhin die bestehende Zustimmung, die an genau diese Version und Prüfsumme gebunden ist; Modellbefehle fragen nicht in jedem Zug erneut nach Zustimmung.
+
+Das sind API-Prüfungen, keine JavaScript-Sandbox. Netzwerk-, Speicher- und UI-Berechtigungen sind Zugriffsdeklarationen. Browser- und Servercode eines Pakets bleibt vertrauenswürdiger Code und kann auf seine Hostumgebung zugreifen; installiere nur Pakete, denen du vertraust. Geprüft wird die Bereitschaft statt der Auslieferbarkeit. Hinterlässt ein Update ein Paket im Zustand `restart-required`, werden seine Befehle bis zum Neustart der Engine nicht mehr aufgelöst.
+
 Beim Serverstart lädt der Host den Katalog genau einmal, sofern mindestens ein offizielles Paket installiert ist. Er wählt nur neuere Versionen aus, die zur laufenden Engine und zur Capability-API passen, prüft sie über die normale Installationsstrecke und installiert sie, bevor die Paket-Laufzeiten aktiv werden. Fehler bleiben auf das jeweilige Paket beschränkt. Ist der Katalog offline oder schlägt eine Prüfung fehl, bleiben vorhandene Dateien und der Registry-Stand nutzbar; scheitert die Bereitschaft einer Server-Laufzeit, greift der Rollback auf die Vorgängerversion.
 
 Der Installer muss:

@@ -14,6 +14,10 @@ Własne narzędzie przydaje się na przykład do tego:
 
 Własne narzędzie nie jest przypięte do karty postaci. Zamiast tego włącza się je dla czatu albo przypina do agenta. Agent to pomocnik działający obok czatu. Poniżej opisane są obie drogi.
 
+Natywne wywoływanie funkcji wymaga połączenia obsługującego narzędzia. Transporty subskrypcyjne Claude i Grok ignorują natywne definicje narzędzi, dlatego panel **Chat Settings** (ustawienia czatu) pokazuje informację o dostępności i wyłącza dla nich kontrolki narzędzi. Ich polecenia tekstowe i znaczniki kości pozostają dostępne. Czaty Game mogą wybrać osobne połączenie do planowania narzędzi; koszt i działanie opisuje sekcja [Opcjonalne planowanie narzędzi i wyszukiwanie w lorebookach](../game/getting-started.md#optional-tool-planning-and-lore-searches).
+
+Wyszukiwanie w lorebookach korzysta z rankingu semantycznego, gdy włączone wpisy mają zgodne wektory. Tryby Conversation i Roleplay zachowują dopasowanie tekstowe, gdy wyszukiwanie semantyczne jest niedostępne. Wyszukiwanie lore w Game wymaga osobnego włączenia i zgłasza brakujące lub niezgodne wektory; nigdy nie wektoryzuje książki automatycznie.
+
 ## Sekcja **Functions**
 
 Własne narzędzia tworzy się i porządkuje w panelu **Presets** (presety).

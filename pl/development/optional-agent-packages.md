@@ -114,6 +114,12 @@ W podstawie zostaje menedżer pakietów, klient katalogu, ogólne kontrakty poto
 
 Oficjalny katalog to wersjonowany dokument JSON o sprawdzanym schemacie, pobierany przez HTTPS. Każdy wpis wydania zawiera niezmienne adresy URL artefaktów, skróty SHA-256, rozmiary w bajtach, informacje o zgodności z silnikiem, uprawnienia oraz to, czy dane środowisko uruchomieniowe wymaga restartu.
 
+Polecenia modelu zadeklarowane przez pakiet działają tylko wtedy, gdy deklaruje on `chat-write`, jest zainstalowany i gotowy. To uprawnienie kontroluje też zapisy przez API trwałego magazynu pakietu, w tym wiadomości, metadane czatu, zdarzenia roleplay i migawki przestrzenne. `chat-read` kontroluje odczyty czatów, wiadomości, stanu gry i migawek przestrzennych. Te same kontrole obowiązują wewnątrz transakcji magazynu i blokad czatu; uprawnienie do zapisu nie daje automatycznie uprawnienia do odczytu. Wywołania magazynu należące do Engine pozostają zaufane.
+
+Widok szczegółów **Download Agents** (pobieranie agentów) pokazuje po instalacji uprawnienia zadeklarowane przez zainstalowaną wersję. Gdy wersja katalogowa żąda innych uprawnień, pokazuje je osobno. Instalowanie lub aktualizowanie kodu nadal wymaga istniejącej zgody przypisanej do dokładnej wersji i sumy kontrolnej; polecenia modelu nie pytają o osobną zgodę w każdej turze.
+
+To kontrole API, a nie izolowane środowisko JavaScript. Uprawnienia do sieci, magazynu i interfejsu są deklaracjami dostępu. Kod pakietu w przeglądarce i na serwerze pozostaje zaufanym kodem i ma dostęp do środowiska hosta; instaluj tylko pakiety, którym ufasz. Sprawdzana jest gotowość, a nie możliwość udostępniania plików, więc aktualizacja pozostawiająca pakiet w stanie `restart-required` wstrzymuje rozpoznawanie jego poleceń do restartu Engine.
+
 Przy starcie serwera host pobiera katalog jeden raz, o ile zainstalowany jest przynajmniej jeden oficjalny pakiet. Wybiera tylko nowsze wersje zgodne z działającym silnikiem i z API możliwości, weryfikuje je zwykłym potokiem instalacyjnym i instaluje jeszcze przed aktywacją środowisk uruchomieniowych pakietów. Awarie są izolowane osobno dla każdego pakietu. Gdy katalog jest niedostępny albo weryfikacja się nie powiedzie, dotychczasowe pliki i stan rejestru nadal działają, a niepowodzenie gotowości środowiska serwerowego korzysta ze ścieżki wycofania do poprzedniej wersji.
 
 Instalator musi:

@@ -84,6 +84,16 @@ La barra de entrada tiene un pequeño botón de globo de diálogo junto al botó
 
 El modo activo muestra un marcador **On** en el menú. Para desactivar **Talk to Party** o **Talk to GM**, haz clic otra vez en esa misma entrada del menú. Tus mensajes vuelven entonces a la escena.
 
+<a id="optional-tool-planning-and-lore-searches"></a>
+
+## Planificación opcional de herramientas y búsquedas de trasfondo
+
+Durante la partida, abre **Chat Settings → Function Calling** (ajustes del chat → llamadas a funciones). **Let the GM search lore** (permitir que el GM busque trasfondo) permite buscar información por su significado sin activar todas las demás herramientas opcionales. Primero activa la vectorización de los lorebooks pertinentes y vectoriza sus entradas. Las búsquedas respetan los libros y las carpetas activados, así como los interruptores de entradas específicos del chat. Usan la conexión de embeddings configurada y pueden añadir una petición de seguimiento al modelo.
+
+**Game tool connection** (conexión de herramientas del juego) usa por defecto **Same as narrator** (la misma que el narrador), que conserva el bucle normal de herramientas. Elegir otra conexión ejecuta una única petición de planificación independiente antes de la narración. Ese modelo elige las herramientas y el narrador recibe sus resultados reales como texto. La petición adicional se cobra en la conexión elegida; un modelo más barato puede reducir el coste de las herramientas, pero podría elegir otras. Este único paso de planificación no puede encadenar una segunda búsqueda a partir del primer resultado. Usa **Same as narrator** si quieres que el narrador razone durante varias rondas de herramientas.
+
+Las conexiones de suscripción de Claude y Grok no admiten llamadas nativas a herramientas. Los controles afectados lo explican y permanecen desactivados hasta que se elige una conexión de herramientas de Game compatible. Los comandos de texto y las etiquetas de dados siguen funcionando. Si falta una conexión independiente o falla su petición, el turno informa del fallo en lugar de narrar en silencio sin el trabajo solicitado a las herramientas.
+
 ## Activar agentes
 
 Los agentes son ayudantes de IA opcionales que se ejecutan junto al GM. Para usarlos en una partida, abre **Chat Settings** (Ajustes del chat) durante el juego, ve a la sección **Agents** y activa **Enable Agents**. Ejecutar agentes añade costo, porque hacen llamadas adicionales.

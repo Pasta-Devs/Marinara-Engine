@@ -42,6 +42,10 @@ Rzut kilkoma kośćmi albo rzut z premią pokazuje też części składowe:
 
 Postać Game Master czyta ten znacznik i buduje wokół wyniku swoją narrację.
 
+Gdy postać Game Master wykonuje kilka rzutów w jednej turze, każda karta rzutu zajmuje osobne miejsce w kolejce. Zamknij kartę, aby zobaczyć następną. Wszystkie rzuty zapisują się w aktywnym swipe'ie (alternatywnej odpowiedzi) tej tury i pozostają w **Logs** (dzienniku) po ponownym załadowaniu. Kontynuowanie tury zachowuje wcześniejsze rzuty; ponowne generowanie tworzy osobny zestaw dla nowego swipe'a.
+
+Postać Game Master może też zażądać rzutu w narracji przez `[dice: 3d8+2]`. Silnik podaje rzeczywiste wyniki i pokazuje tę samą animowaną kartę. Działa to na połączeniach obsługujących wyłącznie tekst, w tym subskrypcjach Claude i Grok. Obowiązują ten sam zapis i te same limity co w menu kości.
+
 ## Własny zapis rzutu
 
 W menu kości jest też pole tekstowe na własny rzut. Obowiązuje w nim standardowy zapis `NdM`. `N` to liczba kości, a `M` to liczba ścianek każdej z nich. Na końcu można dopisać premię albo karę.
@@ -67,6 +71,10 @@ Obowiązują dwa sztywne ograniczenia. Naraz można rzucić najwyżej 100 kość
 
 Test umiejętności sprawdza, czy ryzykowne działanie się powiedzie – skradanie, dostrzeżenie poszlaki albo przekonanie postaci NPC (postaci niezależnej). Testu umiejętności nie zaczyna się samodzielnie. Wywołuje go postać Game Master w swojej narracji. Aplikacja zamienia to na animowany rzut kością 20-ścienną z banerem wyniku.
 
+Test wywołany tekstem zaczyna się od próby działania. Silnik rozstrzyga rzuty, a potem wysyła jedno dodatkowe zapytanie do modelu z rzeczywistymi wynikami, aby postać Game Master mogła dokończyć opis skutków w tej samej turze. Koryguje to również szkic, który zgadywał skutek przed rzutem. Dodatkowe zapytanie ponownie wysyła prompt i zużywa więcej tokenów wejściowych i wyjściowych. Jeśli się nie powiedzie, tura zachowuje rozstrzygnięte wyniki bez zapisywania zgadywanego lub niepełnego opisu skutków.
+
+Na połączeniu obsługującym narzędzie kości postać Game Master może uzyskać rzeczywisty rzut już podczas generowania. Karta rzutu pojawia się po zwróceniu wyniku przez narzędzie; zakończony test zapisuje ten wynik bez ponownego rzucania. Każdy rozstrzygnięty test umiejętności dostaje osobny baner, po kartach rzutów czekających w kolejce.
+
 Baner pokazuje umiejętność i liczbę do osiągnięcia, na przykład **Stealth Check** (test skradania), a obok **DC 15**. DC to skrót od Difficulty Class, czyli poziomu trudności. Tę liczbę rzut musi osiągnąć albo przebić.
 
 ### Jak liczy się wynik
@@ -86,6 +94,12 @@ Dwa wyniki rzutu unieważniają całe liczenie:
 - Naturalna 1 (na samej kości wypada 1) to **CRITICAL FAILURE** (porażka krytyczna). Test zawsze kończy się porażką, nawet przy dużych modyfikatorach.
 
 Baner pokazuje jeden z czterech wyników: **CRITICAL SUCCESS**, **SUCCESS**, **FAILURE** albo **CRITICAL FAILURE**.
+
+### Inne systemy kości
+
+Postać Game Master może podać inny zapis, na przykład `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. Takie testy korzystają ze stałego modyfikatora z zapisu zamiast modyfikatorów d20 z arkusza postaci i kończą się sukcesem, gdy suma osiągnie DC. Zasady naturalnej 1 i naturalnej 20 dotyczą tylko standardowego testu d20 opisanego powyżej.
+
+Pula sukcesów wymaga podania zarówno progu dla pojedynczej kości, jak i wymaganej liczby sukcesów: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` rzuca sześcioma kośćmi d10, liczy każdą kość z wynikiem co najmniej 6 jako jeden sukces i zdaje test przy co najmniej czterech sukcesach. Silnik nie zgaduje brakującego progu ani nie implementuje eksplodujących kości, pechów czy innych specjalnych zasad puli. Pula bez poprawnego progu pozostaje nierozstrzygnięta, a liczby wymyślone przez model są usuwane.
 
 ### Ułatwienie i utrudnienie
 
