@@ -1464,9 +1464,13 @@ export function ChatRoleplaySurface({
   const [vnHistoryOpen, setVnHistoryOpen] = useState(false);
   const [vnHistoryHasDraft, setVnHistoryHasDraft] = useState(false);
   const pendingVnEdit = useRef<{ messageId?: string } | null>(null);
-  const latestVnMessage = messages?.findLast(
-    (message) => message.role !== "system" && !isMessageHiddenFromUser(message),
-  );
+  const latestVnMessage = useMemo(() => {
+    for (let index = (messages?.length ?? 0) - 1; index >= 0; index--) {
+      const message = messages![index]!;
+      if (message.role !== "system" && !isMessageHiddenFromUser(message)) return message;
+    }
+    return undefined;
+  }, [messages]);
   const queryClient = useQueryClient();
   const automaticStoryboardMessageRef = useRef<string | undefined>(undefined);
   const initialLoadSettledRef = useRef(false);
@@ -1716,7 +1720,8 @@ export function ChatRoleplaySurface({
   }, [activeChatId, messages]);
 
   // Keep an unsaved editor alive if its history is temporarily collapsed.
-  const showTranscript = !visualNovel || vnHistoryOpen || vnHistoryHasDraft;
+  const showHistory = !visualNovel || vnHistoryOpen;
+  const showTranscript = showHistory || vnHistoryHasDraft;
   const visibleMessages = showTranscript ? transcriptWindow.messages : [];
   const activeChatCharacterIds = useMemo(() => {
     const inactiveIds = new Set(readStringArray(chatMeta.inactiveCharacterIds));
@@ -2422,9 +2427,9 @@ export function ChatRoleplaySurface({
                   buttonClassName="border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[var(--marinara-chat-chrome-button-text-active)] hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
                 />
 
-                {showTranscript && !isStreaming && <CyoaChoices messages={messages} />}
+                {showHistory && !isStreaming && <CyoaChoices messages={messages} />}
 
-                {showTranscript && hasLiveStream && !regenerateMessageId && (
+                {showHistory && hasLiveStream && !regenerateMessageId && (
                   <StreamingIndicator
                     activeChatId={activeChatId}
                     chatCharIds={chatCharIds}
@@ -2462,8 +2467,9 @@ export function ChatRoleplaySurface({
                           vnHistoryOpen ? "chat.roleplayVn.hideHistory" : "chat.roleplayVn.showHistory",
                         )}
                         onClick={() => {
-                          if (vnHistoryOpen)
-                            setVnHistoryHasDraft(!!scrollRef.current?.querySelector("[data-chat-message-editor]"));
+                          setVnHistoryHasDraft(
+                            vnHistoryOpen && !!scrollRef.current?.querySelector("[data-chat-message-editor]"),
+                          );
                           setVnHistoryOpen((open) => !open);
                         }}
                       >

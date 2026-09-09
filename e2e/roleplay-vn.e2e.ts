@@ -14,63 +14,69 @@ async function fixture(request: APIRequestContext, art = false) {
     paths.unshift(`${path}/${value.id}`);
     return value;
   };
-  const character = await create("/api/characters", { data: { name: "Mari", first_mes: "" } });
-  if (art) {
-    const image = readFileSync(
-      new URL("../packages/client/public/sprites/mari/Mari_wave.png", import.meta.url),
-    ).toString("base64");
+  const cleanup = async () => {
+    for (const path of paths) await request.delete(path).catch(() => undefined);
+  };
+  try {
+    const character = await create("/api/characters", { data: { name: "Mari", first_mes: "" } });
+    if (art) {
+      const image = readFileSync(
+        new URL("../packages/client/public/sprites/mari/Mari_wave.png", import.meta.url),
+      ).toString("base64");
+      expect(
+        (
+          await request.post(`/api/characters/${character.id}/avatar`, {
+            data: {
+              avatar: readFileSync(
+                new URL("../packages/client/public/sprites/mari/Mari_profile.png", import.meta.url),
+              ).toString("base64"),
+              filename: "mari.png",
+            },
+          })
+        ).ok(),
+      ).toBeTruthy();
+      expect(
+        (
+          await request.post(`/api/sprites/${character.id}`, {
+            data: { expression: "full_neutral", image: `data:image/png;base64,${image}` },
+          })
+        ).ok(),
+      ).toBeTruthy();
+    }
+    const chat = await create("/api/chats", {
+      name: "Visual Novel proof",
+      mode: "roleplay",
+      characterIds: [character.id],
+    });
     expect(
       (
-        await request.post(`/api/characters/${character.id}/avatar`, {
+        await request.patch(`/api/chats/${chat.id}/metadata`, {
           data: {
-            avatar: readFileSync(
-              new URL("../packages/client/public/sprites/mari/Mari_profile.png", import.meta.url),
-            ).toString("base64"),
-            filename: "mari.png",
+            roleplayDisplayStyle: "visual-novel",
+            enableAgents: art,
+            activeAgentIds: art ? ["expression"] : [],
+            spriteCharacterIds: art ? [character.id] : [],
+            spriteDisplayModes: ["full-body"],
           },
         })
       ).ok(),
     ).toBeTruthy();
-    expect(
-      (
-        await request.post(`/api/sprites/${character.id}`, {
-          data: { expression: "full_neutral", image: `data:image/png;base64,${image}` },
-        })
-      ).ok(),
-    ).toBeTruthy();
+    const message = await create(`/api/chats/${chat.id}/messages`, {
+      role: "assistant",
+      characterId: character.id,
+      content:
+        'The archive falls quiet.\n\n"We have a new experiment," Mari says.\n\nA small light flickers across the desk.',
+    });
+    return {
+      chat,
+      character,
+      message,
+      cleanup,
+    };
+  } catch (error) {
+    await cleanup();
+    throw error;
   }
-  const chat = await create("/api/chats", {
-    name: "Visual Novel proof",
-    mode: "roleplay",
-    characterIds: [character.id],
-  });
-  expect(
-    (
-      await request.patch(`/api/chats/${chat.id}/metadata`, {
-        data: {
-          roleplayDisplayStyle: "visual-novel",
-          enableAgents: art,
-          activeAgentIds: art ? ["expression"] : [],
-          spriteCharacterIds: art ? [character.id] : [],
-          spriteDisplayModes: ["full-body"],
-        },
-      })
-    ).ok(),
-  ).toBeTruthy();
-  const message = await create(`/api/chats/${chat.id}/messages`, {
-    role: "assistant",
-    characterId: character.id,
-    content:
-      'The archive falls quiet.\n\n"We have a new experiment," Mari says.\n\nA small light flickers across the desk.',
-  });
-  return {
-    chat,
-    character,
-    message,
-    cleanup: async () => {
-      for (const path of paths) await request.delete(path).catch(() => undefined);
-    },
-  };
 }
 
 async function open(page: Page, chatId: string, theme: "dark" | "light" = "dark") {
@@ -138,6 +144,7 @@ for (const theme of ["dark", "light"] as const) {
       await page.screenshot({ path: info.outputPath(`history-${theme}.png`), animations: "disabled" });
       await vn.getByRole("button", { name: "Return to Visual Novel" }).click();
       await expect(vn).toContainText("The latest paragraph is edited.");
+      await expect(page.locator("[data-chat-scroll] [data-message-id]")).toHaveCount(0);
       await expect(input).toHaveValue("An unsent response stays here.");
     } finally {
       await data.cleanup();
@@ -287,8 +294,9 @@ test("Roleplay VN bounds long paragraphs and handles an empty chat without art",
 
 test("Roleplay VN follows the selected swipe and the next chat's display choice", async ({ page, request }) => {
   const data = await fixture(request);
-  const other = await fixture(request);
+  let other: Awaited<ReturnType<typeof fixture>> | undefined;
   try {
+    other = await fixture(request);
     expect(
       (
         await request.post(`/api/chats/${data.chat.id}/messages/${data.message.id}/swipes`, {
@@ -318,6 +326,44 @@ test("Roleplay VN follows the selected swipe and the next chat's display choice"
     await expect(page.locator("[data-chat-scroll]")).toContainText("The archive falls quiet.");
   } finally {
     await data.cleanup();
-    await other.cleanup();
+    await other?.cleanup();
+  }
+});
+
+test("Roleplay VN shows dice and image-only messages without findLast support", async ({ page, request }, info) => {
+  const data = await fixture(request);
+  try {
+    await page.addInitScript(() =>
+      Object.defineProperty(Array.prototype, "findLast", { value: undefined, configurable: true }),
+    );
+    const roll = await request.post(`/api/chats/${data.chat.id}/messages`, {
+      data: {
+        role: "user",
+        content: "/roll 1d20+3",
+        extra: { diceRollResult: { notation: "1d20+3", rolls: [12], modifier: 3, total: 15 } },
+      },
+    });
+    expect(roll.ok(), await roll.text()).toBeTruthy();
+    await open(page, data.chat.id);
+    const vn = page.locator("[data-roleplay-vn]");
+    await expect(vn.getByLabel(/Rolled 1d20\+3/)).toBeVisible();
+    await expect(vn).not.toContainText("/roll");
+    const attachment = await request.post(`/api/chats/${data.chat.id}/messages`, {
+      data: {
+        role: "user",
+        content: "",
+        extra: { attachments: [{ type: "image", url: "/sprites/mari/Mari_profile.png", filename: "portrait.png" }] },
+      },
+    });
+    expect(attachment.ok(), await attachment.text()).toBeTruthy();
+    await page.reload();
+    await expect(vn.getByRole("img", { name: "portrait.png", exact: true })).toBeVisible();
+    await page.screenshot({ path: info.outputPath("vn-attachment.png"), animations: "disabled" });
+    await vn.getByRole("button", { name: "Open portrait.png", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Image preview", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Close image", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Image preview", exact: true })).toHaveCount(0);
+  } finally {
+    await data.cleanup();
   }
 });
