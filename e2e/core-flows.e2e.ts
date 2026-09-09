@@ -2464,11 +2464,15 @@ test("Conversation message actions follow their messages on desktop and mobile",
           const firstButton = actionElement?.querySelector<HTMLElement>("button");
           if (!contentElement || !actionElement || !firstButton) return null;
           const contentBox = contentElement.getBoundingClientRect();
+          const swipeBox = element.querySelector<HTMLElement>(":scope > .mari-message-swipes")?.getBoundingClientRect();
           const actionBox = actionElement.getBoundingClientRect();
           const buttonBox = firstButton.getBoundingClientRect();
           return {
             position: getComputedStyle(actionElement).position,
-            verticalGap: actionBox.top - contentBox.bottom,
+            // Swipes now form their own footer row. Check the actual gaps
+            // around it, without counting its touch targets as empty space.
+            swipeGap: swipeBox ? swipeBox.top - contentBox.bottom : 0,
+            verticalGap: actionBox.top - (swipeBox?.bottom ?? contentBox.bottom),
             leftOffset: Math.abs(buttonBox.left - contentBox.left),
             actionBottom: actionBox.bottom,
             rowBottom: element.getBoundingClientRect().bottom,
@@ -2476,6 +2480,8 @@ test("Conversation message actions follow their messages on desktop and mobile",
         });
         expect(metrics).not.toBeNull();
         expect(metrics!.position).toBe("static");
+        expect(metrics!.swipeGap).toBeGreaterThanOrEqual(0);
+        expect(metrics!.swipeGap).toBeLessThanOrEqual(5);
         expect(metrics!.verticalGap).toBeGreaterThanOrEqual(0);
         expect(metrics!.verticalGap).toBeLessThanOrEqual(5);
         expect(metrics!.leftOffset).toBeLessThanOrEqual(6);
