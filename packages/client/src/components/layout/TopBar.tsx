@@ -26,6 +26,7 @@ import {
   PersonalExtensionContributionsMenu,
   PersonalExtensionTopbarButtons,
 } from "./PersonalExtensionContributionsMenu";
+import { EngineTasksMenu } from "./EngineTasksMenu";
 
 type RightPanelButtonPanel = "lorebooks" | "presets" | "connections" | "agents" | "personas";
 
@@ -433,6 +434,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
         </button>
 
         <PersonalExtensionTopbarButtons />
+        <EngineTasksMenu />
         <PersonalExtensionContributionsMenu />
       </nav>
     </header>

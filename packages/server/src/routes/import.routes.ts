@@ -2,6 +2,7 @@
 // Routes: Import (SillyTavern data)
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { registerTask, updateTask } from "../services/task-registry.js";
 import { execFile } from "child_process";
 import { inflateSync } from "node:zlib";
 import { platform, homedir } from "os";
@@ -1037,13 +1038,27 @@ export async function importRoutes(app: FastifyInstance) {
       reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
 
+    // Large libraries take minutes, so publish to the global task registry too — the SSE stream
+    // only reaches the tab that started the import.
+    const finishRegistryTask = registerTask({
+      id: "st-bulk-import",
+      kind: "transfer",
+      label: "Importing from SillyTavern",
+      phase: "importing",
+    });
     try {
       const result = await runSTBulkImport(resolved.path, options, app.db, (progress) => {
+        updateTask("st-bulk-import", {
+          phase: progress.category,
+          progress: { current: progress.current, total: progress.total || undefined },
+        });
         sendEvent("progress", progress);
       });
       sendEvent("done", result);
     } catch (err) {
       sendEvent("done", { success: false, error: (err as Error).message, imported: {}, errors: [] });
+    } finally {
+      finishRegistryTask();
     }
     reply.raw.end();
   });

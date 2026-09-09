@@ -30,6 +30,7 @@ import { mlxRuntimeService } from "./mlx-runtime.service.js";
 import { sidecarRuntimeService } from "./sidecar-runtime.service.js";
 import { assertSupportedLlamaCppModelPath, isSupportedLlamaCppModelFilename } from "./sidecar-model-files.js";
 import { logger } from "../../lib/logger.js";
+import { registerTask, updateTask } from "../task-registry.js";
 
 export const MODELS_DIR = join(getDataDir(), "models");
 export const CUSTOM_MODELS_DIR = join(MODELS_DIR, "custom");
@@ -825,6 +826,15 @@ class SidecarModelService {
     this.status = "downloading_model";
     this.downloadAbort = new AbortController();
     const destination = this.resolveModelPath(input.relativePath);
+    // Multi-GB and easy to forget about, so publish it to the global task registry.
+    const taskId = `sidecar-model:${input.relativePath}`;
+    const finishRegistryTask = registerTask({
+      id: taskId,
+      kind: "transfer",
+      label: input.label,
+      phase: "downloading",
+      abort: () => this.cancelDownload(),
+    });
 
     try {
       await downloadFileWithProgress({
@@ -836,7 +846,12 @@ class SidecarModelService {
           phase: "model",
           label: input.label,
         },
-        onProgress: (progress) => this.emitProgress(progress, onProgress),
+        onProgress: (progress) => {
+          updateTask(taskId, {
+            progress: { current: progress.downloaded, total: progress.total || undefined },
+          });
+          this.emitProgress(progress, onProgress);
+        },
       });
     } catch (error) {
       this.status = this.detectStatus();
@@ -848,6 +863,7 @@ class SidecarModelService {
       this.emitProgress(progress, onProgress);
       throw error;
     } finally {
+      finishRegistryTask();
       this.downloadAbort = null;
     }
   }

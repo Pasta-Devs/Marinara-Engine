@@ -1,6 +1,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { DEFAULT_MEDIA_GENERATION_CONCURRENCY } from "@marinara-engine/shared";
+import { randomUUID } from "node:crypto";
 import { logger } from "../../lib/logger.js";
+import { registerTask, updateTask } from "../task-registry.js";
 
 type MediaGenerationQueueTask<T> = () => Promise<T>;
 export type MediaGenerationPriority = "foreground" | "background";
@@ -238,6 +240,41 @@ export async function runMediaGenerationRequest<T>(args: {
   signal?: AbortSignal;
   /** Batch/automatic work should pass "background" so it can never occupy the
    *  last permit ahead of interactive requests. Defaults to foreground. */
+  priority?: MediaGenerationPriority;
+  /** Human label for the global task registry. Defaults to a generic one. */
+  label?: string;
+}): Promise<T> {
+  // Every image and video path funnels through here, so this is the one place that has to publish
+  // media work to the task registry. Re-entrant hops (the video fallback, generateImage's self-wrap)
+  // are already the parent's task — registering them again would show duplicate rows.
+  if (heldMediaPermit.getStore()) return runMediaGenerationRequestInner(args);
+
+  const taskId = `media:${randomUUID()}`;
+  const finishRegistryTask = registerTask({
+    id: taskId,
+    kind: "media",
+    label: args.label ?? "Media generation",
+    // Queue wait is often the longest part and was previously invisible to the client.
+    phase: "queued",
+  });
+  try {
+    return await runMediaGenerationRequestInner({
+      ...args,
+      task: () => {
+        updateTask(taskId, { phase: "running" });
+        return args.task();
+      },
+    });
+  } finally {
+    finishRegistryTask();
+  }
+}
+
+async function runMediaGenerationRequestInner<T>(args: {
+  connectionKey: string;
+  queue: boolean;
+  task: MediaGenerationQueueTask<T>;
+  signal?: AbortSignal;
   priority?: MediaGenerationPriority;
 }): Promise<T> {
   if (!args.queue) {

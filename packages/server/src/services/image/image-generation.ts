@@ -283,6 +283,7 @@ export async function generateImage(
     queue: false,
     signal: request.signal,
     priority: request.admissionMode?.kind === "background" ? "background" : "foreground",
+    label: "Generating image",
     task: () => generateImageUncapped(source, baseUrl, apiKey, serviceHint, request),
   });
 }

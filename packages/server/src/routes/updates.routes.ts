@@ -2,6 +2,7 @@
 // Updates: Check for new versions and apply updates
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
+import { finishTask, registerTask } from "../services/task-registry.js";
 import { logger } from "../lib/logger.js";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { execFile } from "child_process";
@@ -1033,6 +1034,7 @@ export async function updatesRoutes(app: FastifyInstance) {
       });
     }
     updateApplyInProgress = true;
+    registerTask({ id: "update-apply", kind: "transfer", label: "Updating Marinara Engine", phase: "applying" });
     let shutdownScheduled = false;
 
     try {
@@ -1272,7 +1274,12 @@ export async function updatesRoutes(app: FastifyInstance) {
         hint: `You can try running the update manually: ${getManualGitApplyCommand(channel, serverPlatform, manualPnpmCommand)}. If Corepack cannot launch pnpm ${pnpmVersion}, install the pinned version with npm install -g pnpm@${pnpmVersion} and rerun the command.`,
       });
     } finally {
-      if (!shutdownScheduled) updateApplyInProgress = false;
+      // A scheduled restart keeps the task visible until the process actually goes down, matching
+      // how updateApplyInProgress stays latched.
+      if (!shutdownScheduled) {
+        updateApplyInProgress = false;
+        finishTask("update-apply");
+      }
     }
   });
 }

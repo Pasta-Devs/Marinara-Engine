@@ -598,6 +598,7 @@ import {
   shouldDeferExpressionAgentEvent,
 } from "../services/generation/agent-event-dispatcher.js";
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
+import { registerTask, updateTask, finishTask } from "../services/task-registry.js";
 import {
   explicitlyRequestsTextRewrite,
   getTextRewritePendingState,
@@ -972,6 +973,16 @@ export async function generateRoutes(app: FastifyInstance) {
       swipeIndex: null,
     };
     activeGenerations.set(input.chatId, activeGenerationRecord);
+    // Publish to the global task registry so the top-bar activity menu can see this turn. The
+    // registry is purely observational; nothing below depends on it.
+    registerTask({
+      id: generationId,
+      kind: "generation",
+      label: "Generating reply",
+      chatId: input.chatId,
+      phase: "generating",
+      abort: () => abortController.abort(),
+    });
     const releaseActiveGeneration = () => {
       if (activeGenerations.get(input.chatId)?.abortController === abortController) {
         activeGenerations.delete(input.chatId);
@@ -981,6 +992,7 @@ export async function generateRoutes(app: FastifyInstance) {
       activeGenerationRecord.messageId = messageId;
       activeGenerationRecord.swipeIndex = swipeIndex;
       releaseActiveGeneration();
+      updateTask(generationId, { kind: "agents", label: "Running agents", phase: "agents" });
       const runs = activeAgentRuns.get(input.chatId) ?? new Set<ActiveGeneration>();
       runs.add(activeGenerationRecord);
       activeAgentRuns.set(input.chatId, runs);
@@ -11524,6 +11536,7 @@ export async function generateRoutes(app: FastifyInstance) {
       reply.raw.off("close", onClose);
       releaseActiveGeneration();
       releaseActiveAgentRun();
+      finishTask(generationId);
       if (!clientDisconnected && isSseReplyWritable(reply)) {
         reply.raw.end();
       }

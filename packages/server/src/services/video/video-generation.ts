@@ -134,6 +134,7 @@ export async function generateVideo(
     connectionKey: request.connectionKey ?? `${serviceHint || source}:${baseUrl}`,
     queue: request.queue === true,
     signal: request.signal,
+    label: "Generating video",
     task: () => generateVideoUnqueued(source, baseUrl, apiKey, serviceHint, request),
   });
 }

@@ -59,6 +59,7 @@ import { capabilityPackagesRoutes } from "./capability-packages.routes.js";
 import { customAgentRepositoriesRoutes } from "./custom-agent-repositories.routes.js";
 import { personalExtensionsRoutes } from "./personal-extensions.routes.js";
 import { notificationSoundRoutes } from "./notification-sound.routes.js";
+import { tasksRoutes } from "./tasks.routes.js";
 import { libraryFoldersRoutes } from "./library-folders.routes.js";
 import { androidLocalAuthRoutes } from "../middleware/android-local-auth.js";
 
@@ -77,6 +78,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(utilitySidecarRoutes, { prefix: "/api/utility-sidecar" });
   await app.register(customToolsRoutes, { prefix: "/api/custom-tools" });
   await app.register(generateRoutes, { prefix: "/api/generate" });
+  await app.register(tasksRoutes, { prefix: "/api/tasks" });
   await app.register(importRoutes, { prefix: "/api/import" });
   await app.register(backgroundsRoutes, { prefix: "/api/backgrounds" });
   await app.register(avatarsRoutes, { prefix: "/api/avatars" });
