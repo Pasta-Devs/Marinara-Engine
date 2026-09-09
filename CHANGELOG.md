@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Added Mission Control beside Settings: see active chat generations (including autonomous turns and each before/during/after agent phase), manual agent retries, Professor Mari work, media/audio generation, schedule generation, backups, downloads, imports, package installs, and updates with progress and cancellation where supported, then review the five most recent completed tasks and in-tab notifications in one timeline.
+
 - Added an optional Visual Novel display for Roleplay: completed paragraphs appear above the existing composer with dialogue portraits and configured sprites. Open the attached history arrow for the full transcript and all message actions. Choose Classic or Visual Novel during setup or in Appearance → Roleplay, with separate portrait and sprite scales. Dice results and image attachments remain visible.
 
 - Roleplay Commands settings stay responsive while saving rapid changes. Documents now offers All/Narrator access, Soundtrack requires Music DJ to be added with agents enabled and follows the selected music source, and the Combat prerequisite names the Combat agent.

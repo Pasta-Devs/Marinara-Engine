@@ -10,14 +10,17 @@
 // Producers opt in. Registering is two calls and never changes behaviour if skipped, so features
 // can join one at a time.
 
-/** Coarse grouping the UI renders as sections. Daemons/timers are deliberately not modelled. */
+/** Coarse grouping used by the UI. Idle daemons/timers are deliberately not modelled; finite work
+ *  they start (for example an automatic backup or autonomous reply) is. */
 export type TaskKind = "generation" | "agents" | "media" | "transfer";
 
 export interface TaskProgress {
-  /** Completed units (bytes, items, steps). */
+  /** Completed units. */
   current: number;
   /** Total units when known; omit for indeterminate work. */
   total?: number;
+  /** How the client should format the numbers. Defaults to a bare count. */
+  unit?: "bytes" | "items";
 }
 
 export interface TaskEntry {
@@ -30,8 +33,28 @@ export interface TaskEntry {
   startedAt: number;
   /** Free-form current stage, e.g. "waiting", "streaming", "downloading". */
   phase?: string;
+  /** Extra context for the row: the model, the provider, the item being imported. */
+  detail?: string;
   progress?: TaskProgress;
 }
+
+/** How a task ended. Producers that cannot tell report "completed". */
+export type TaskOutcome = "completed" | "failed" | "aborted";
+
+export interface FinishedTask {
+  id: string;
+  kind: TaskKind;
+  label: string;
+  detail?: string;
+  chatId?: string;
+  startedAt: number;
+  endedAt: number;
+  outcome: TaskOutcome;
+}
+
+/** How many finished tasks to keep. Small on purpose: this is a "what just happened" strip, not a
+ *  log. Anything that needs real history belongs in the server log. */
+const HISTORY_LIMIT = 5;
 
 interface TaskRecord extends TaskEntry {
   abort?: () => void;
@@ -41,6 +64,8 @@ interface TaskRecord extends TaskEntry {
 export type TaskSnapshot = TaskEntry & { cancellable: boolean };
 
 const tasks = new Map<string, TaskRecord>();
+/** Newest first, capped at HISTORY_LIMIT. */
+const history: FinishedTask[] = [];
 
 export interface RegisterTaskInput extends Omit<TaskEntry, "startedAt"> {
   startedAt?: number;
@@ -49,9 +74,9 @@ export interface RegisterTaskInput extends Omit<TaskEntry, "startedAt"> {
 }
 
 /** Add a task. Re-registering the same id replaces it. Returns a finish fn for `finally` blocks. */
-export function registerTask(input: RegisterTaskInput): () => void {
+export function registerTask(input: RegisterTaskInput): (outcome?: TaskOutcome) => void {
   tasks.set(input.id, { ...input, startedAt: input.startedAt ?? Date.now() });
-  return () => finishTask(input.id);
+  return (outcome) => finishTask(input.id, outcome);
 }
 
 /** Patch a live task. No-op once the task has finished, so late progress events are harmless. */
@@ -61,13 +86,35 @@ export function updateTask(id: string, patch: Partial<Omit<TaskEntry, "id">>): v
   tasks.set(id, { ...existing, ...patch });
 }
 
-export function finishTask(id: string): void {
+export function finishTask(id: string, outcome: TaskOutcome = "completed"): void {
+  const record = tasks.get(id);
+  if (!record) return;
   tasks.delete(id);
+  history.unshift({
+    id: record.id,
+    kind: record.kind,
+    label: record.label,
+    detail: record.detail,
+    chatId: record.chatId,
+    startedAt: record.startedAt,
+    endedAt: Date.now(),
+    outcome,
+  });
+  history.length = Math.min(history.length, HISTORY_LIMIT);
+}
+
+/** Recently finished tasks, newest first. */
+export function listTaskHistory(): FinishedTask[] {
+  return history.map((entry) => ({ ...entry }));
 }
 
 export function listTasks(): TaskSnapshot[] {
   return [...tasks.values()]
-    .map(({ abort, ...entry }) => ({ ...entry, cancellable: typeof abort === "function" }))
+    .map(({ abort, ...entry }) => ({
+      ...entry,
+      ...(entry.progress ? { progress: { ...entry.progress } } : {}),
+      cancellable: typeof abort === "function",
+    }))
     .sort((a, b) => a.startedAt - b.startedAt);
 }
 
@@ -81,4 +128,5 @@ export function abortTask(id: string): boolean {
 
 export function resetTaskRegistryForTests(): void {
   tasks.clear();
+  history.length = 0;
 }

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   abortTask,
   finishTask,
+  listTaskHistory,
   listTasks,
   registerTask,
   resetTaskRegistryForTests,
@@ -48,7 +49,10 @@ assert.equal(abortTask("missing"), false);
 updateTask("b", { progress: { current: 5, total: 10 }, phase: "downloading" });
 assert.deepEqual(listTasks().find((task) => task.id === "b")?.progress, { current: 5, total: 10 });
 assert.equal(listTasks().find((task) => task.id === "b")?.label, "Model", "patch must not clobber other fields");
-finishTask("b");
+const progressSnapshot = listTasks().find((task) => task.id === "b")?.progress;
+if (progressSnapshot) progressSnapshot.current = 99;
+assert.equal(listTasks().find((task) => task.id === "b")?.progress?.current, 5, "snapshots must be immutable");
+finishTask("b", "failed");
 updateTask("b", { phase: "downloading" });
 assert.equal(
   listTasks().some((task) => task.id === "b"),
@@ -59,6 +63,17 @@ assert.equal(
 finish();
 finish();
 assert.deepEqual(listTasks(), []);
+assert.deepEqual(
+  listTaskHistory().map(({ id, outcome }) => ({ id, outcome })),
+  [
+    { id: "a", outcome: "completed" },
+    { id: "b", outcome: "failed" },
+  ],
+  "finished tasks are newest first and retain their outcome",
+);
+const historySnapshot = listTaskHistory();
+historySnapshot[0]!.label = "mutated";
+assert.equal(listTaskHistory()[0]?.label, "Generating reply", "history snapshots must be immutable");
 
 // Nested media work must publish ONE row, not one per re-entrant hop (the video fallback and
 // generateImage's self-wrap both re-enter runMediaGenerationRequest under a held permit).
@@ -82,6 +97,7 @@ await runMediaGenerationRequest({
 });
 assert.deepEqual(seenWhileNested, [1, 1], "re-entrant media hops must not add duplicate task rows");
 assert.deepEqual(listTasks(), [], "media task must be removed when the request settles");
+assert.equal(listTaskHistory()[0]?.outcome, "completed");
 
 // A failing media task still clears its row.
 await assert.rejects(
@@ -95,5 +111,34 @@ await assert.rejects(
   }),
 );
 assert.deepEqual(listTasks(), []);
+assert.equal(listTaskHistory()[0]?.outcome, "failed");
+
+// An aborted media request is distinct from a provider failure and still clears its row.
+const mediaAbort = new AbortController();
+mediaAbort.abort();
+await assert.rejects(
+  runMediaGenerationRequest({
+    connectionKey: "check",
+    queue: false,
+    label: "Stopped media",
+    signal: mediaAbort.signal,
+    task: async () => undefined,
+  }),
+);
+assert.deepEqual(listTasks(), []);
+assert.equal(listTaskHistory()[0]?.outcome, "aborted");
+
+// Only the five newest completions are retained.
+resetTaskRegistryForTests();
+for (let index = 0; index < 7; index += 1) {
+  registerTask({ id: `history-${index}`, kind: "transfer", label: `History ${index}` })(
+    index === 6 ? "aborted" : "completed",
+  );
+}
+assert.deepEqual(
+  listTaskHistory().map(({ id }) => id),
+  ["history-6", "history-5", "history-4", "history-3", "history-2"],
+);
+assert.equal(listTaskHistory()[0]?.outcome, "aborted");
 
 console.log("task-registry self-check passed");

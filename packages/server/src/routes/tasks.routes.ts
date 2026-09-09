@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { abortTask, listTasks } from "../services/task-registry.js";
+import { abortTask, listTaskHistory, listTasks } from "../services/task-registry.js";
 import { logger } from "../lib/logger.js";
 
 export async function tasksRoutes(app: FastifyInstance) {
@@ -7,7 +7,7 @@ export async function tasksRoutes(app: FastifyInstance) {
    * GET /api/tasks
    * Everything the engine is currently working on. Polled by the top-bar activity menu.
    */
-  app.get("/", async () => ({ tasks: listTasks() }));
+  app.get("/", async () => ({ tasks: listTasks(), history: listTaskHistory() }));
 
   /**
    * POST /api/tasks/:id/abort

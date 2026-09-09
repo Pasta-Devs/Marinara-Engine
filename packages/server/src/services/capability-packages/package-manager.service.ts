@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve, sep } from "node:path";
@@ -30,6 +30,7 @@ import { safeFetch } from "../../utils/security.js";
 import { logger } from "../../lib/logger.js";
 import { getBuildBranch } from "../../config/build-info.js";
 import { sidecarSpeechService } from "../sidecar/sidecar-speech.service.js";
+import { registerTask, type TaskOutcome } from "../task-registry.js";
 
 const ROOT = join(DATA_DIR, "capability-packages");
 const VERSIONS = join(ROOT, "versions");
@@ -1390,7 +1391,22 @@ export const capabilityPackageManager = {
         `This Agent package changed after it was reviewed. Review the current ${entry.manifest.id} package and try again.`,
       );
     }
-    return installCatalogPackage(entry);
+    const finishRegistryTask = registerTask({
+      id: `package-install:${randomUUID()}`,
+      kind: "transfer",
+      label: "Installing package",
+      detail: `${entry.manifest.name} · v${entry.manifest.version}`,
+      phase: "installing",
+    });
+    let taskOutcome: TaskOutcome = "completed";
+    try {
+      return await installCatalogPackage(entry);
+    } catch (error) {
+      taskOutcome = "failed";
+      throw error;
+    } finally {
+      finishRegistryTask(taskOutcome);
+    }
   },
 
   async uninstall(packageId: string) {

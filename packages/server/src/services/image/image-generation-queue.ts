@@ -243,6 +243,8 @@ export async function runMediaGenerationRequest<T>(args: {
   priority?: MediaGenerationPriority;
   /** Human label for the global task registry. Defaults to a generic one. */
   label?: string;
+  /** Extra registry context, e.g. the provider the request goes to. */
+  detail?: string;
 }): Promise<T> {
   // Every image and video path funnels through here, so this is the one place that has to publish
   // media work to the task registry. Re-entrant hops (the video fallback, generateImage's self-wrap)
@@ -254,19 +256,23 @@ export async function runMediaGenerationRequest<T>(args: {
     id: taskId,
     kind: "media",
     label: args.label ?? "Media generation",
+    detail: args.detail,
     // Queue wait is often the longest part and was previously invisible to the client.
     phase: "queued",
   });
   try {
-    return await runMediaGenerationRequestInner({
+    const result = await runMediaGenerationRequestInner({
       ...args,
       task: () => {
         updateTask(taskId, { phase: "running" });
         return args.task();
       },
     });
-  } finally {
-    finishRegistryTask();
+    finishRegistryTask("completed");
+    return result;
+  } catch (error) {
+    finishRegistryTask(args.signal?.aborted ? "aborted" : "failed");
+    throw error;
   }
 }
 

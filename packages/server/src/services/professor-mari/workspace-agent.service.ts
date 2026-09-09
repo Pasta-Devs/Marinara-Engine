@@ -4,6 +4,7 @@
 import { constants, existsSync, lstatSync, readlinkSync, realpathSync } from "node:fs";
 import { copyFile, link, mkdir, readdir, readFile, rmdir, stat, unlink, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import type { FastifyInstance } from "fastify";
 import type {
@@ -46,6 +47,7 @@ import { decryptApiKey } from "../../utils/crypto.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { tryParseJsonRecord } from "../../lib/json-repair.js";
+import { registerTask, type TaskOutcome } from "../task-registry.js";
 import { PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE } from "./official-agent-knowledge.js";
 import {
   formatDocumentationRead,
@@ -2572,6 +2574,16 @@ export class ProfessorMariWorkspaceService {
     this.abortController?.abort();
     this.abortController = controller;
     this.active = true;
+    const finishRegistryTask = registerTask({
+      id: `professor-mari:${randomUUID()}`,
+      kind: "agents",
+      label: "Professor Mari is working",
+      detail: connection.model,
+      chatId: args.chatId,
+      phase: "workspace",
+      abort: () => controller.abort(),
+    });
+    let taskOutcome: TaskOutcome = "completed";
 
     const workspaceTrace: MariWorkspaceTraceItem[] = [];
     let assistantText = "";
@@ -3106,6 +3118,7 @@ export class ProfessorMariWorkspaceService {
       args.onEvent({ type: "metadata", data: { connection: connectionSummary(connection) ?? undefined } });
     } catch (err) {
       if (controller.signal.aborted) {
+        taskOutcome = "aborted";
         const hadPartialWorkspaceState =
           assistantText.trim().length > 0 || thinkingText.trim().length > 0 || workspaceTrace.length > 0;
         const content = assistantText.trim()
@@ -3125,6 +3138,7 @@ export class ProfessorMariWorkspaceService {
           );
         }
       } else {
+        taskOutcome = "failed";
         this.lastError = err instanceof Error ? err.message : String(err);
         // Persist whatever completed rounds produced before this failure — e.g. a proxy rate limit
         // that outlasted the retries — so the user does not lose the work and can ask Mari to
@@ -3153,6 +3167,7 @@ export class ProfessorMariWorkspaceService {
         throw err;
       }
     } finally {
+      finishRegistryTask(taskOutcome);
       if (this.abortController === controller) this.abortController = null;
       this.active = false;
     }

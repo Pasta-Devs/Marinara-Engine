@@ -848,13 +848,16 @@ class SidecarModelService {
         },
         onProgress: (progress) => {
           updateTask(taskId, {
-            progress: { current: progress.downloaded, total: progress.total || undefined },
+            progress: { current: progress.downloaded, total: progress.total || undefined, unit: "bytes" },
           });
           this.emitProgress(progress, onProgress);
         },
       });
+      finishRegistryTask("completed");
     } catch (error) {
       this.status = this.detectStatus();
+      // Record the outcome before any rethrow: the abort branch below returns early.
+      finishRegistryTask(isAbortError(error) ? "aborted" : "failed");
       if (isAbortError(error)) {
         throw new Error("Download cancelled");
       }
@@ -863,7 +866,6 @@ class SidecarModelService {
       this.emitProgress(progress, onProgress);
       throw error;
     } finally {
-      finishRegistryTask();
       this.downloadAbort = null;
     }
   }

@@ -33,6 +33,7 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
+import { registerTask } from "../services/task-registry.js";
 
 // OpenAI built-in voices used as fallback when the provider has no /audio/voices endpoint
 const OPENAI_FALLBACK_VOICES = ["alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"];
@@ -1447,9 +1448,25 @@ export async function ttsRoutes(app: FastifyInstance) {
     const lockKey = context ? `context\0${context.axis}\0${context.key}` : `${kind}\0${normalizedPrompt.toLowerCase()}`;
     let generation = gameAudioGenerationLocks.get(lockKey);
     if (!generation) {
-      generation = generateElevenLabsGameAudio(cfg, kind, normalizedPrompt, context).finally(() => {
-        gameAudioGenerationLocks.delete(lockKey);
+      const finishRegistryTask = registerTask({
+        id: `game-audio:${randomUUID()}`,
+        kind: "media",
+        label: kind === "music" ? "Generating music" : "Generating sound effect",
+        detail: normalizedPrompt,
+        phase: "generating_audio",
       });
+      generation = generateElevenLabsGameAudio(cfg, kind, normalizedPrompt, context)
+        .then((result) => {
+          finishRegistryTask("completed");
+          return result;
+        })
+        .catch((error) => {
+          finishRegistryTask("failed");
+          throw error;
+        })
+        .finally(() => {
+          gameAudioGenerationLocks.delete(lockKey);
+        });
       gameAudioGenerationLocks.set(lockKey, generation);
     }
     try {

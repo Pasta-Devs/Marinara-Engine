@@ -57,6 +57,7 @@ import { planProfileNoodleImport, type ProfileNoodleImportWarning } from "../ser
 import { getCapabilityService } from "../services/capability-packages/capability-service-registry.service.js";
 import { computePersonalExtensionHash } from "../services/extensions/personal-extension-hash.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
+import { registerTask, type TaskOutcome } from "../services/task-registry.js";
 import {
   AUTOMATIC_BACKUP_FILENAME,
   automaticBackupArchiveFilename,
@@ -3326,23 +3327,40 @@ export async function backupRoutes(app: FastifyInstance) {
         Date.now() - lastBackupMs >= automaticBackupPeriodMs(settings.frequency);
       if (!due) return;
 
-      const { removedBackups, omittedEntries } = await withAutomaticBackupLifecycleLock(() =>
-        writeAutomaticBackup(app, settings.retentionCount),
-      );
-      const current = await loadAutomaticBackupSettings();
-      await saveAutomaticBackupSettings({
-        ...current,
-        lastBackupAt: new Date().toISOString(),
-        lastError: null,
-        lastOmittedEntries: omittedEntries,
+      const finishRegistryTask = registerTask({
+        id: `automatic-backup:${randomUUID()}`,
+        kind: "transfer",
+        label: "Creating automatic backup",
+        phase: "backing_up",
       });
-      if (omittedEntries.length > 0) {
-        logger.warn(
-          "[backup] Automatic backup completed with %d omitted file(s); see RESTORE.txt in the archive",
-          omittedEntries.length,
+      let taskOutcome: TaskOutcome = "completed";
+      try {
+        const { removedBackups, omittedEntries } = await withAutomaticBackupLifecycleLock(() =>
+          writeAutomaticBackup(app, settings.retentionCount),
         );
+        const current = await loadAutomaticBackupSettings();
+        await saveAutomaticBackupSettings({
+          ...current,
+          lastBackupAt: new Date().toISOString(),
+          lastError: null,
+          lastOmittedEntries: omittedEntries,
+        });
+        if (omittedEntries.length > 0) {
+          logger.warn(
+            "[backup] Automatic backup completed with %d omitted file(s); see RESTORE.txt in the archive",
+            omittedEntries.length,
+          );
+        }
+        logger.info(
+          "[backup] Automatic backup completed; pruned %d expired automatic archive(s)",
+          removedBackups.length,
+        );
+      } catch (error) {
+        taskOutcome = "failed";
+        throw error;
+      } finally {
+        finishRegistryTask(taskOutcome);
       }
-      logger.info("[backup] Automatic backup completed; pruned %d expired automatic archive(s)", removedBackups.length);
     } catch (error) {
       const message = getBackupErrorMessage(error, "Automatic backup failed");
       try {
@@ -3508,8 +3526,15 @@ export async function backupRoutes(app: FastifyInstance) {
       downloadToken: randomBytes(32).toString("base64url"),
     };
     backupDownloadJobs.set(jobId, job);
+    const finishRegistryTask = registerTask({
+      id: `backup-download:${jobId}`,
+      kind: "transfer",
+      label: "Preparing backup download",
+      phase: "backing_up",
+    });
 
     job.workPromise = (async () => {
+      let taskOutcome: TaskOutcome = "completed";
       try {
         await flushDB();
         const { omittedEntries } = await writeFullBackupArchive(app, archivePath, backupName, tempDir);
@@ -3519,11 +3544,13 @@ export async function backupRoutes(app: FastifyInstance) {
         job.size = archiveStat.size;
         job.omittedCount = omittedEntries.length;
       } catch (error) {
+        taskOutcome = "failed";
         job.status = "failed";
         job.completedAt = Date.now();
         job.error = getBackupErrorMessage(error, "Backup download failed");
         logger.error(error, "[backup] Asynchronous backup download failed");
       } finally {
+        finishRegistryTask(taskOutcome);
         if (activeBackupDownloadJobId === jobId) activeBackupDownloadJobId = null;
       }
     })();

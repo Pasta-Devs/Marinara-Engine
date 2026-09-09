@@ -5,6 +5,7 @@
 // autonomous message polling, and busy-delay responses.
 
 import type { FastifyInstance } from "fastify";
+import { randomUUID } from "node:crypto";
 import { logger } from "../lib/logger.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
@@ -50,6 +51,7 @@ import {
   type MessageIntent,
 } from "../services/conversation/intent.service.js";
 import { parseConversationStatusOverrides } from "../services/generation/conversation-context-utils.js";
+import { registerTask, type TaskOutcome } from "../services/task-registry.js";
 
 function resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string {
   if (connection.baseUrl) return connection.baseUrl;
@@ -515,6 +517,15 @@ export async function conversationRoutes(app: FastifyInstance) {
     const scheduleTimeZone = requestedTimeZone ?? resolveConversationTimeZone(contextMeta);
     const scheduleNow = toZonedWallClockDate(new Date(), scheduleTimeZone);
     const { charData, provider, model } = context;
+    const finishScheduleTask = registerTask({
+      id: `schedule:${randomUUID()}`,
+      kind: "agents",
+      label: mode === "day" ? "Generating daily schedule" : "Generating weekly schedule",
+      detail: `${charData.name} · ${model}`,
+      ...(chatId ? { chatId } : {}),
+      phase: "generating_schedule",
+    });
+    let scheduleOutcome: TaskOutcome = "completed";
 
     try {
       if (mode === "day") {
@@ -557,8 +568,11 @@ export async function conversationRoutes(app: FastifyInstance) {
       );
       return reply.send({ schedule: fullSchedule });
     } catch (error) {
+      scheduleOutcome = "failed";
       logger.error(error instanceof Error ? error : undefined, "[schedule] Draft generation failed");
       return reply.status(502).send({ error: getScheduleGenerationError(error, "Schedule draft generation failed") });
+    } finally {
+      finishScheduleTask(scheduleOutcome);
     }
   });
 
@@ -576,12 +590,24 @@ export async function conversationRoutes(app: FastifyInstance) {
     const context = await resolveScheduleGenerationContext(chatId, characterId);
     if ("error" in context) return reply.status(context.errorStatus ?? 400).send({ error: context.error });
     const { charData, provider, model } = context;
+    const finishScheduleTask = registerTask({
+      id: `schedule-summary:${randomUUID()}`,
+      kind: "agents",
+      label: "Summarizing schedule",
+      detail: `${charData.name} · ${model}`,
+      ...(chatId ? { chatId } : {}),
+      phase: "summarizing_schedule",
+    });
+    let scheduleOutcome: TaskOutcome = "completed";
     try {
       const { summary } = await generateScheduleRoutineSummary(provider, model, charData.name, schedule, guidance);
       return reply.send({ summary, generatedAt: new Date().toISOString() });
     } catch (error) {
+      scheduleOutcome = "failed";
       logger.error(error instanceof Error ? error : undefined, "[schedule] Summary generation failed");
       return reply.status(502).send({ error: getScheduleGenerationError(error, "Schedule summary generation failed") });
+    } finally {
+      finishScheduleTask(scheduleOutcome);
     }
   });
 
@@ -693,50 +719,70 @@ export async function conversationRoutes(app: FastifyInstance) {
       }
 
       try {
-        logger.info("[schedule] Generating schedule for %s (%s)...", charData.name, charId);
-        const recentContinuityContext = existing
-          ? buildScheduleContinuityContext({ meta, charData, existingSchedule: existing })
-          : undefined;
-        const { schedule } = await generateCharacterSchedule(
-          provider,
-          model,
-          charData.name,
-          charData.description ?? "",
-          charData.personality ?? "",
-          userSchedulePreferences,
-          recentContinuityContext,
-          { timeZone: scheduleTimeZone },
-        );
-        logger.info("[schedule] Generated schedule for %s, days: %s", charData.name, Object.keys(schedule.days ?? {}));
-
-        const fullSchedule = preserveTimingSettings(
-          {
-            ...schedule,
-            weekStart: mondayStr,
-          },
-          existing,
-        );
-        newSchedules[charId] = fullSchedule;
-
-        // Update character's conversationStatus to match current schedule
-        const statusOverrides = parseConversationStatusOverrides(meta.conversationStatusOverrides);
-        const { status } = getEffectiveCurrentStatus(
-          fullSchedule,
-          statusOverrides[charId],
-          nowInstant,
-          "free time",
-          scheduleNow,
-        );
-        const extensions = {
-          ...(charData.extensions ?? {}),
-          conversationStatus: status,
-          conversationSchedule: fullSchedule,
-        };
-        await chars.update(charId, { extensions } as Partial<CharacterData>, undefined, {
-          skipVersionSnapshot: true,
+        const finishScheduleTask = registerTask({
+          id: `schedule:${randomUUID()}`,
+          kind: "agents",
+          label: "Generating weekly schedule",
+          detail: `${charData.name} · ${model}`,
+          ...(chatId ? { chatId } : {}),
+          phase: "generating_schedule",
         });
+        let scheduleOutcome: TaskOutcome = "completed";
+        try {
+          logger.info("[schedule] Generating schedule for %s (%s)...", charData.name, charId);
+          const recentContinuityContext = existing
+            ? buildScheduleContinuityContext({ meta, charData, existingSchedule: existing })
+            : undefined;
+          const { schedule } = await generateCharacterSchedule(
+            provider,
+            model,
+            charData.name,
+            charData.description ?? "",
+            charData.personality ?? "",
+            userSchedulePreferences,
+            recentContinuityContext,
+            { timeZone: scheduleTimeZone },
+          );
+          logger.info(
+            "[schedule] Generated schedule for %s, days: %s",
+            charData.name,
+            Object.keys(schedule.days ?? {}),
+          );
 
-        results[charId] = { status: "generated", schedule: fullSchedule };
+          const fullSchedule = preserveTimingSettings(
+            {
+              ...schedule,
+              weekStart: mondayStr,
+            },
+            existing,
+          );
+          newSchedules[charId] = fullSchedule;
+
+          // Update character's conversationStatus to match current schedule
+          const statusOverrides = parseConversationStatusOverrides(meta.conversationStatusOverrides);
+          const { status } = getEffectiveCurrentStatus(
+            fullSchedule,
+            statusOverrides[charId],
+            nowInstant,
+            "free time",
+            scheduleNow,
+          );
+          const extensions = {
+            ...(charData.extensions ?? {}),
+            conversationStatus: status,
+            conversationSchedule: fullSchedule,
+          };
+          await chars.update(charId, { extensions } as Partial<CharacterData>, undefined, {
+            skipVersionSnapshot: true,
+          });
+
+          results[charId] = { status: "generated", schedule: fullSchedule };
+        } catch (error) {
+          scheduleOutcome = "failed";
+          throw error;
+        } finally {
+          finishScheduleTask(scheduleOutcome);
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Schedule generation failed";
         logger.error(err instanceof Error ? err : undefined, "[schedule] ERROR for %s: %s", charData.name, msg);

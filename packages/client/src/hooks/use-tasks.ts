@@ -3,15 +3,35 @@ import { api } from "../lib/api-client";
 
 export type TaskKind = "generation" | "agents" | "media" | "transfer";
 
+export type TaskOutcome = "completed" | "failed" | "aborted";
+
+export interface TaskProgress {
+  current: number;
+  total?: number;
+  unit?: "bytes" | "items";
+}
+
 export interface EngineTask {
   id: string;
   kind: TaskKind;
   label: string;
+  detail?: string;
   chatId?: string;
   startedAt: number;
   phase?: string;
-  progress?: { current: number; total?: number };
+  progress?: TaskProgress;
   cancellable: boolean;
+}
+
+export interface FinishedTask {
+  id: string;
+  kind: TaskKind;
+  label: string;
+  detail?: string;
+  chatId?: string;
+  startedAt: number;
+  endedAt: number;
+  outcome: TaskOutcome;
 }
 
 /**
@@ -21,7 +41,7 @@ export interface EngineTask {
 export function useEngineTasks() {
   return useQuery({
     queryKey: ["engine-tasks"],
-    queryFn: ({ signal }) => api.get<{ tasks: EngineTask[] }>("/tasks", { signal }),
+    queryFn: ({ signal }) => api.get<{ tasks: EngineTask[]; history: FinishedTask[] }>("/tasks", { signal }),
     staleTime: 0,
     refetchIntervalInBackground: false,
     refetchInterval: (query) => (query.state.data?.tasks.length ? 1_000 : 5_000),

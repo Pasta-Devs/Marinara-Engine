@@ -168,6 +168,7 @@ import {
   resolveLorebookScopeExclusions,
 } from "../../services/lorebook/game-lorebook-scope.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
+import { registerTask, updateTask, type TaskOutcome } from "../../services/task-registry.js";
 import {
   finalizeCapabilityAgentResults,
   prepareCapabilityAgentContexts,
@@ -4239,6 +4240,16 @@ export async function registerRetryAgentsRoute(
     runs.add(activeAgentRun);
     activeAgentRuns.set(chatId, runs);
     const generationId = randomUUID();
+    const finishRegistryTask = registerTask({
+      id: `agent-retry:${generationId}`,
+      kind: "agents",
+      label: customLorebookBackfill ? "Backfilling lorebook" : "Running agents",
+      detail: agentTypes.join(", "),
+      chatId,
+      phase: "preparing",
+      abort: () => abortController.abort(),
+    });
+    let taskOutcome: TaskOutcome = "completed";
     const customLorebookReadBehindRunKeys = new Set<string>();
     let clientDisconnected = false;
     const stopSseKeepalive = startSseKeepalive(reply);
@@ -4607,7 +4618,17 @@ export async function registerRetryAgentsRoute(
         }
       }
       agentContext.agentProgress = (event) => {
-        if (!abortController.signal.aborted) sendSseEvent(reply, { type: "agent_progress", data: event });
+        if (abortController.signal.aborted) return;
+        const names = event.agents
+          .map((agent) => agent.name)
+          .filter(Boolean)
+          .join(", ");
+        updateTask(`agent-retry:${generationId}`, {
+          phase: event.agents[0]?.phase ?? "agents",
+          detail: names || undefined,
+          progress: event.receivedCharacters > 0 ? { current: event.receivedCharacters, unit: "items" } : undefined,
+        });
+        sendSseEvent(reply, { type: "agent_progress", data: event });
       };
       if (preGenerationAgentContext) preGenerationAgentContext.agentProgress = agentContext.agentProgress;
       if (debugMode) {
@@ -5013,7 +5034,11 @@ export async function registerRetryAgentsRoute(
       if (abortController.signal.aborted) return;
       sendSseEvent(reply, { type: "done", data: "" });
     } catch (err) {
-      if (abortController.signal.aborted) return;
+      if (abortController.signal.aborted) {
+        taskOutcome = "aborted";
+        return;
+      }
+      taskOutcome = "failed";
       const message =
         err instanceof Error
           ? (err as { cause?: unknown }).cause instanceof Error
@@ -5022,6 +5047,8 @@ export async function registerRetryAgentsRoute(
           : "Agent retry failed";
       sendSseEvent(reply, { type: "error", data: message });
     } finally {
+      if (abortController.signal.aborted) taskOutcome = "aborted";
+      finishRegistryTask(taskOutcome);
       const activeRunsForChat = activeAgentRuns.get(chatId);
       activeRunsForChat?.delete(activeAgentRun);
       if (activeRunsForChat?.size === 0) activeAgentRuns.delete(chatId);

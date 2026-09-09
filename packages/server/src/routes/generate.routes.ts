@@ -598,7 +598,7 @@ import {
   shouldDeferExpressionAgentEvent,
 } from "../services/generation/agent-event-dispatcher.js";
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
-import { registerTask, updateTask, finishTask } from "../services/task-registry.js";
+import { registerTask, updateTask, finishTask, type TaskOutcome } from "../services/task-registry.js";
 import {
   explicitlyRequestsTextRewrite,
   getTextRewritePendingState,
@@ -973,16 +973,6 @@ export async function generateRoutes(app: FastifyInstance) {
       swipeIndex: null,
     };
     activeGenerations.set(input.chatId, activeGenerationRecord);
-    // Publish to the global task registry so the top-bar activity menu can see this turn. The
-    // registry is purely observational; nothing below depends on it.
-    registerTask({
-      id: generationId,
-      kind: "generation",
-      label: "Generating reply",
-      chatId: input.chatId,
-      phase: "generating",
-      abort: () => abortController.abort(),
-    });
     const releaseActiveGeneration = () => {
       if (activeGenerations.get(input.chatId)?.abortController === abortController) {
         activeGenerations.delete(input.chatId);
@@ -992,7 +982,13 @@ export async function generateRoutes(app: FastifyInstance) {
       activeGenerationRecord.messageId = messageId;
       activeGenerationRecord.swipeIndex = swipeIndex;
       releaseActiveGeneration();
-      updateTask(generationId, { kind: "agents", label: "Running agents", phase: "agents" });
+      updateTask(generationId, {
+        kind: "agents",
+        label: "Running post-generation agents",
+        phase: "post_processing",
+        detail: undefined,
+        progress: undefined,
+      });
       const runs = activeAgentRuns.get(input.chatId) ?? new Set<ActiveGeneration>();
       runs.add(activeGenerationRecord);
       activeAgentRuns.set(input.chatId, runs);
@@ -1296,6 +1292,19 @@ export async function generateRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: "Generation ownership changed during setup" });
     }
     activeGeneration.backendUrl = baseUrl;
+    const generationDetail = [conn.provider, conn.model].filter(Boolean).join(" · ") || undefined;
+
+    // Setup can return early for invalid connections. Register only once the request is ready to
+    // enter the generation try/finally so every published task has a guaranteed finish path.
+    registerTask({
+      id: generationId,
+      kind: "generation",
+      label: input.autonomous ? "Generating autonomous reply" : "Generating reply",
+      chatId: input.chatId,
+      phase: "preparing",
+      detail: generationDetail,
+      abort: () => abortController.abort(),
+    });
 
     // Set up SSE headers
     startSseReply(reply, { "X-Accel-Buffering": "no" });
@@ -1313,6 +1322,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
     let generationComplete = false;
     let clientDisconnected = false;
+    let taskOutcome: TaskOutcome = "completed";
     const stopSseKeepalive = startSseKeepalive(reply);
 
     const onClose = () => {
@@ -1364,7 +1374,43 @@ export async function generateRoutes(app: FastifyInstance) {
 
     // ── SSE progress helper: tells the client what phase we're in ──
     const sendProgress = (phase: string) => {
+      const taskState: Record<string, { kind: "generation" | "agents"; label: string }> = {
+        agents: { kind: "agents", label: "Running pre-generation agents" },
+        lorebooks: { kind: "generation", label: "Preparing lorebook context" },
+        embedding: { kind: "generation", label: "Retrieving memory" },
+        assembling: { kind: "generation", label: "Assembling prompt" },
+        generating: {
+          kind: "generation",
+          label: input.autonomous ? "Generating autonomous reply" : "Generating reply",
+        },
+      };
+      const next = taskState[phase];
+      updateTask(generationId, {
+        ...(next ?? {}),
+        phase,
+        ...(next?.kind === "generation" ? { detail: generationDetail, progress: undefined } : {}),
+      });
       sendSseEvent(reply, { type: "progress", data: { phase } });
+    };
+
+    const reportAgentProgress = (event: {
+      agents: Array<{ name: string; phase: string }>;
+      stage: string;
+      receivedCharacters: number;
+    }) => {
+      const names = event.agents
+        .map((agent) => agent.name)
+        .filter(Boolean)
+        .join(", ");
+      const phase = event.agents[0]?.phase ?? "agents";
+      updateTask(generationId, {
+        kind: "agents",
+        label: phase === "post_processing" ? "Running post-generation agents" : "Running agents",
+        phase,
+        detail: names || undefined,
+        progress: event.receivedCharacters > 0 ? { current: event.receivedCharacters, unit: "items" } : undefined,
+      });
+      sendSseEvent(reply, { type: "agent_progress", data: event });
     };
 
     try {
@@ -1993,7 +2039,7 @@ export async function generateRoutes(app: FastifyInstance) {
             chatSummary: null,
             authorNotes: typeof chatMeta.authorNotes === "string" ? chatMeta.authorNotes : null,
             streaming: input.streaming,
-            agentProgress: (event) => sendSseEvent(reply, { type: "agent_progress", data: event }),
+            agentProgress: reportAgentProgress,
             ...(requestDebug
               ? {
                   agentDebug: (event: AgentCallDebugEvent) => {
@@ -4236,7 +4282,7 @@ export async function generateRoutes(app: FastifyInstance) {
             : {}),
           ...(Object.keys(triggeredLorebookEntriesByAgentId).length > 0 ? { triggeredLorebookEntriesByAgentId } : {}),
           streaming: input.streaming,
-          agentProgress: (event) => sendSseEvent(reply, { type: "agent_progress", data: event }),
+          agentProgress: reportAgentProgress,
           ...(requestDebug
             ? {
                 agentDebug: (event: AgentCallDebugEvent) => {
@@ -11513,8 +11559,10 @@ export async function generateRoutes(app: FastifyInstance) {
       }
     } catch (err) {
       if (abortController.signal.aborted || isAbortLikeError(err)) {
+        taskOutcome = "aborted";
         return;
       }
+      taskOutcome = "failed";
       if (!abortController.signal.aborted) {
         abortController.abort();
       }
@@ -11536,7 +11584,7 @@ export async function generateRoutes(app: FastifyInstance) {
       reply.raw.off("close", onClose);
       releaseActiveGeneration();
       releaseActiveAgentRun();
-      finishTask(generationId);
+      finishTask(generationId, taskOutcome);
       if (!clientDisconnected && isSseReplyWritable(reply)) {
         reply.raw.end();
       }

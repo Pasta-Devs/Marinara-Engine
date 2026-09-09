@@ -1046,21 +1046,24 @@ export async function importRoutes(app: FastifyInstance) {
       label: "Importing from SillyTavern",
       phase: "importing",
     });
+    let importFailed = false;
     try {
       const result = await runSTBulkImport(resolved.path, options, app.db, (progress) => {
         updateTask("st-bulk-import", {
           phase: progress.category,
-          progress: { current: progress.current, total: progress.total || undefined },
+          detail: progress.item,
+          progress: { current: progress.current, total: progress.total || undefined, unit: "items" },
         });
         sendEvent("progress", progress);
       });
       sendEvent("done", result);
     } catch (err) {
+      importFailed = true;
       sendEvent("done", { success: false, error: (err as Error).message, imported: {}, errors: [] });
     } finally {
-      finishRegistryTask();
+      finishRegistryTask(importFailed ? "failed" : "completed");
+      reply.raw.end();
     }
-    reply.raw.end();
   });
 
   /** Open a native OS folder picker dialog and return the selected path. */

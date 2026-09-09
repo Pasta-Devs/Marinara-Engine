@@ -1278,7 +1278,7 @@ export async function updatesRoutes(app: FastifyInstance) {
       // how updateApplyInProgress stays latched.
       if (!shutdownScheduled) {
         updateApplyInProgress = false;
-        finishTask("update-apply");
+        finishTask("update-apply", reply.statusCode >= 400 ? "failed" : "completed");
       }
     }
   });

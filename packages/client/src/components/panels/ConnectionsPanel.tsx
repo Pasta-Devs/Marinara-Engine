@@ -13,6 +13,7 @@ import {
   type TouchEvent,
 } from "react";
 import { Reorder, useDragControls } from "framer-motion";
+import { formatBytes } from "../../lib/format-bytes";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   connectionKeys,
@@ -137,11 +138,6 @@ function getConnectionFallbackIcon(provider: string) {
   if (provider === "video_generation") return <Film size="1rem" />;
   if (provider === "audio") return <Music size="1rem" />;
   return <Link size="1rem" />;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 function describeSpeechRuntimeUnavailable(runtime: SidecarSpeechRuntimeDiagnostics | null): string {
