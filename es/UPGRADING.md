@@ -12,6 +12,8 @@ Cuando actualizas desde una versión que traía agentes propios, mapas, llamadas
 
 Si usas un idioma de documentación descargado (**Settings** → **General** → **Documentation Language**), el primer arranque después de una actualización también revisa ese paquete de idioma y lo actualiza automáticamente si hubo cambios. Si no se puede llegar a la fuente de descarga, Marinara conserva tu paquete instalado (las guías que falten en él se muestran en inglés) y lo intenta de nuevo en el siguiente arranque. Una actualización nunca restablece tu elección de idioma.
 
+Los paquetes de idioma de la interfaz se descargan por separado y de forma manual. En la primera actualización desde una versión que incluía las traducciones, la interfaz vuelve al inglés; selecciona de nuevo tu idioma en **Settings** → **General** → **Language** (idioma) para descargar su paquete. Las actualizaciones posteriores conservan los paquetes descargados en la carpeta de datos. Usa **Refresh language pack** (actualizar el paquete de idioma) para obtener traducciones nuevas. Si falta un paquete o una clave no está traducida, se muestra el texto en inglés; el inicio nunca descarga un paquete de interfaz.
+
 Para saber dónde viven tus datos y cómo guardar una copia, consulta [Copia de seguridad y restauración de Marinara](data/backup-and-restore.md).
 
 ## Haz primero una copia de seguridad

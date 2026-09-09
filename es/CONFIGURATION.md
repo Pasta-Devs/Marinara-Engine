@@ -28,6 +28,8 @@ Ciclo de vida y almacenamiento de paquetes:
 
 ### Importaciones de agentes personalizados
 
+Los agentes personalizados pueden activar **Previous output** (salida anterior) en **Context Sources** (fuentes de contexto) para leer su última salida correcta en el historial visible de mensajes. Con **JSON context output** (salida de contexto en JSON), devuelve `{"text":"main prompt content","agent-context":"private continuation context"}`. Solo `text` se incorpora al prompt principal; el campo opcional `agent-context` queda reservado para la siguiente ejecución de ese agente. **Hide output as spoilers** (ocultar la salida como spoiler) mantiene las salidas guardadas contraídas hasta que las reveles. La regeneración excluye el turno que se reemplaza, y los mensajes eliminados o los swipes inactivos no pueden aportar contexto de continuación.
+
 Los archivos, las carpetas y los repositorios personalizados de agentes externos están bloqueados de forma predeterminada. Para permitirlos, abre **Settings → Advanced → Danger Zone** y activa **Allow custom Agent imports**. A diferencia de las extensiones externas, esta protección controlada por el usuario no requiere una variable de entorno. Los controles de importación permanecen atenuados hasta que se activa.
 
 Cada importación muestra las capacidades solicitadas por el agente antes de guardarlo. Los permisos deben aprobarse de forma explícita, no se importan las funciones incluidas ni las selecciones de herramientas, se sanea el CSS generado y se comprueban las acciones de resultado con el conjunto de capacidades aprobado. Desactivar de nuevo la opción impide que se ejecuten los agentes importados externamente. Los agentes personalizados creados en Marinara y los paquetes oficiales instalados mediante **Download Agents** siguen pudiendo ejecutarse y no dependen de esta protección.
@@ -313,7 +315,7 @@ Los proveedores de video de escena se configuran como conexiones dentro de la ap
 
 | Variable                          | Predeterminado                                    | Qué hace                                                                      |
 | --------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
-| `DOCS_I18N_BASE_URL`              | rama `docs-i18n` oficial                  | De dónde se descargan los paquetes de documentación traducida (**Settings** → **General** → **Documentation Language**). Debe ser un host `https://` público; los forks y espejos pueden apuntarla a su propia copia de la rama `docs-i18n`. |
+| `DOCS_I18N_BASE_URL`              | rama `docs-i18n` oficial                  | Origen de las descargas de los paquetes de idioma de la documentación y la interfaz. Los paquetes de interfaz están en el subárbol `ui/`. Debe ser un host público `https://`; las bifurcaciones y los espejos pueden apuntar a su propia copia de la rama `docs-i18n`. |
 | `GIPHY_API_KEY`                   | vacío                                      | Clave de Giphy para la búsqueda de GIFs en el modo Conversation. La búsqueda está desactivada cuando no se configura.          |
 | `INTIFACE_URL`                    | `ws://127.0.0.1:12345`                     | Dirección predeterminada para la app háptica Intiface.                                      |
 | `SPOTIFY_REDIRECT_URI`            | derivada de la solicitud                       | Anulación de la URL de callback de inicio de sesión de Spotify. Configúrala cuando TLS se maneja aguas arriba. |

@@ -28,6 +28,8 @@ Cykl życia pakietów i ich przechowywanie:
 
 ### Import własnych agentów
 
+Własny agent może włączyć **Previous output** (poprzedni wynik) w sekcji **Context Sources** (źródła kontekstu), aby odczytać swój ostatni pomyślny wynik z widocznej historii wiadomości. Przy włączonym **JSON context output** (wynik kontekstu w JSON) zwracaj `{"text":"main prompt content","agent-context":"private continuation context"}`. Do głównego promptu trafia tylko `text`; opcjonalne pole `agent-context` jest przeznaczone na następne uruchomienie tego samego agenta. **Hide output as spoilers** (ukryj wynik jako spoiler) zwija zapisane wyniki do czasu ich odsłonięcia. Regeneracja pomija zastępowaną turę, a usunięte wiadomości i nieaktywne swipy nie mogą dostarczać kontekstu kontynuacji.
+
 Zewnętrzne pliki agentów, foldery i własne repozytoria są domyślnie zablokowane. Żeby je dopuścić, otwórz sekcję **Settings → Advanced → Danger Zone** (ustawienia, zaawansowane, strefa zagrożenia) i włącz przełącznik **Allow custom Agent imports** (zezwolenie na import własnych agentów). W odróżnieniu od External Extensions ta blokada leży w rękach użytkownika i nie wymaga zmiennej środowiskowej. Dopóki jest wyłączona, kontrolki importu pozostają wyszarzone.
 
 Przy każdym imporcie widać, o jakie uprawnienia prosi agent, zanim cokolwiek zostanie zapisane. Uprawnienia trzeba zatwierdzić wprost, dołączone funkcje i wybory narzędzi nie są importowane, wygenerowany kod CSS przechodzi przez filtr, a działania wynikowe są sprawdzane względem zatwierdzonego zestawu uprawnień. Wyłączenie blokady zatrzymuje agentów zaimportowanych z zewnątrz. Agenci utworzeni w aplikacji Marinara Engine oraz pakiety oficjalne zainstalowane przez **Download Agents** działają dalej i tej blokady nie dotyczą.
@@ -313,7 +315,7 @@ Dostawców wideo sceny konfiguruje się jako połączenia w aplikacji, a nie jak
 
 | Zmienna | Domyślnie | Do czego służy |
 | --- | --- | --- |
-| `DOCS_I18N_BASE_URL` | oficjalna gałąź `docs-i18n` | Miejsce, z którego pobierają się pakiety przetłumaczonej dokumentacji (Settings → General → Documentation Language). Musi to być publiczny host `https://`; forki i kopie mogą wskazać własną wersję gałęzi `docs-i18n`. |
+| `DOCS_I18N_BASE_URL` | oficjalna gałąź `docs-i18n` | Miejsce pobierania pakietów językowych dokumentacji i interfejsu. Pakiety interfejsu znajdują się w poddrzewie `ui/`. Musi to być publiczny host `https://`; forki i kopie mogą wskazać własną wersję gałęzi `docs-i18n`. |
 | `GIPHY_API_KEY` | pusta | Klucz Giphy do wyszukiwania plików GIF w trybie Conversation. Bez niego wyszukiwanie jest wyłączone. |
 | `INTIFACE_URL` | `ws://127.0.0.1:12345` | Domyślny adres aplikacji haptycznej Intiface. |
 | `SPOTIFY_REDIRECT_URI` | wyliczany z żądania | Zmiana adresu zwrotnego logowania Spotify. Ustaw go, gdy TLS obsługuje warstwa przed serwerem. |

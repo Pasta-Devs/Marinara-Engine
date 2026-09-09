@@ -12,6 +12,8 @@ Ao atualizar a partir de uma versão que já vinha com agentes próprios, mapas,
 
 Se você usa um idioma de documentação baixado (**Settings** (Configurações) → **General** → **Documentation Language**), a primeira inicialização depois de uma atualização também verifica se o pacote daquele idioma mudou e o atualiza sozinha. Se a origem do download estiver fora do ar, Marinara mantém o pacote instalado (os guias que faltarem nele aparecem em inglês) e tenta de novo na inicialização seguinte. A escolha de idioma nunca é redefinida por uma atualização.
 
+Os pacotes de idioma da interface usam um fluxo separado de download manual. Na primeira atualização de uma versão que incluía as traduções, a interface volta ao inglês; selecione novamente seu idioma em **Settings** → **General** → **Language** (idioma) para baixar o pacote. Atualizações posteriores preservam os pacotes baixados na pasta de dados. Use **Refresh language pack** (atualizar o pacote de idioma) para obter traduções atualizadas. Pacotes ausentes e chaves sem tradução aparecem em inglês; a inicialização nunca baixa um pacote da interface.
+
 Para saber onde os dados ficam e como salvar uma cópia, veja [Fazer backup e restaurar Marinara](data/backup-and-restore.md).
 
 ## Faça um backup antes

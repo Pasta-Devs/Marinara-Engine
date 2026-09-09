@@ -9,6 +9,10 @@ texto em inglês, e não a chave de tradução nem um controle vazio.
 O idioma da interface se escolhe na seção **Settings > General > App Behavior > Language** (Configurações). A escolha muda
 os controles e as explicações do Marinara, não os prompts enviados ao modelo, o conteúdo criado por você nem as mensagens do chat.
 
+Ao selecionar um idioma diferente do inglês, o pacote é baixado se necessário. **Refresh language pack** (atualizar o pacote de idioma) busca novas traduções. Os pacotes baixados ficam em `DATA_DIR/ui-packs` e funcionam offline. Se um download falhar, o idioma atual e o pacote instalado permanecem intactos. Os pacotes nunca são baixados automaticamente na inicialização ou atualização.
+
+Na primeira atualização de uma versão que incluía as traduções, um idioma diferente do inglês selecionado antes volta ao inglês. Selecione o idioma novamente para baixá-lo. Nenhum conteúdo do usuário ou outro ajuste é alterado.
+
 ## Idiomas de interface com suporte
 
 | Idioma | Arquivo de locale | Direção |
@@ -26,21 +30,17 @@ os controles e as explicações do Marinara, não os prompts enviados ao modelo,
 | Russo | `ru.json` | Da esquerda para a direita |
 | Espanhol | `es.json` | Da esquerda para a direita |
 
-O catálogo em inglês é a fonte oficial, mantida pelo projeto. Os outros catálogos que já vêm no aplicativo nasceram de traduções feitas com ajuda de máquina e
-aceitam correções de quem tem fluência no idioma. A extração do texto da interface ainda está em andamento, então o texto sem chave traduzida
-continua aparecendo em inglês.
+O inglês é mantido como catálogo de origem. Os catálogos da comunidade começaram como traduções com assistência de máquina e aceitam correções de pessoas fluentes. A extração de textos da interface ainda está em andamento; textos sem chave de tradução continuam aparecendo em inglês.
 
 ## Arquivos de locale
 
-Os arquivos de locale do cliente ficam em:
+O catálogo canônico em inglês continua em:
 
 ```text
-packages/client/src/localization/locales/
+packages/client/src/localization/locales/en.json
 ```
 
-Cada locale BCP-47 usa um único arquivo JSON com o nome do locale canônico, como `pl.json`, `ko.json` ou
-`pt-BR.json`. O Vite encontra esses arquivos sozinho, então adicionar um locale não exige editar nenhum registro.
-O inglês carrega junto com o aplicativo; os demais locales só carregam quando são selecionados.
+Os pacotes da comunidade ficam em [`ui/` na branch `docs-i18n`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui), separados das pastas de idiomas da documentação. Cada idioma BCP-47 usa um arquivo JSON, como `ui/pl.json`, `ui/ko.json` ou `ui/pt-BR.json`, além do arquivo compartilhado e gerado `ui/manifest.json`, que contém tamanhos e hashes SHA-256. Preserve exatamente as maiúsculas e minúsculas do código de idioma. A interface em árabe funciona mesmo sem um pacote de documentação em árabe. O inglês carrega com o aplicativo; os pacotes da comunidade são baixados explicitamente e lidos pelo servidor local.
 
 ```json
 {
@@ -65,14 +65,9 @@ redação invalidaria todas as traduções.
 - Acompanhe o sentido e o tom do arquivo `en.json`. Não acrescente comportamentos nem promessas que o texto em inglês não faz.
 - Confira se as etiquetas traduzidas cabem na tela do computador e do celular.
 
-Os locales da comunidade podem ficar temporariamente sem algumas chaves enquanto a tradução de uma área do aplicativo é preparada. As chaves que faltam
-caem para o inglês. Chave desconhecida, tradução vazia, metadados malformados e marcador de interpolação alterado reprovam na verificação de
-localização.
+Os pacotes da comunidade podem omitir chaves temporariamente durante a preparação de uma tradução por área. Chaves ausentes usam o inglês. O validador de pacotes informa a cobertura e as chaves obsoletas, que Engine ignora. Traduções vazias (exceto as exceções existentes de sufixos intencionalmente vazios), metadados inválidos e alterações em tokens de interpolação ou texto formatado falham na validação. Replique renomeações e remoções de chaves nos pacotes ou acompanhe essas mudanças em uma issue `[ui-i18n]`.
 
-Um PR de funcionalidade precisa acrescentar ou atualizar a chave canônica em inglês, mas não precisa mexer em todos os locales da comunidade.
-Traduza um valor da comunidade só quando quem contribui puder oferecer uma tradução útil. Não duplique o valor em inglês
-nos arquivos de locale só para deixar as listas de chaves iguais: a alternativa em tempo de execução já entrega esse texto em
-inglês, e deixar a chave ausente evita conflitos de merge desnecessários para quem traduz.
+PRs de funcionalidades precisam adicionar ou atualizar a chave canônica em inglês, mas não precisam modificar os pacotes da comunidade. Traduza um valor da comunidade apenas quando puder oferecer uma tradução útil. Não copie o inglês em todos os arquivos só para igualar as listas de chaves: o fallback já fornece esse texto, e deixar a chave ausente evita conflitos de merge desnecessários para quem traduz.
 
 Traduções feitas por máquina são bem-vindas como rascunho inicial, desde que o PR diga que é esse o caso. Antes de descrever um locale como revisado,
 alguém com fluência no idioma precisa revisar a terminologia, o tom, os textos cortados e o layout no celular.
@@ -82,12 +77,12 @@ alguém com fluência no idioma precisa revisar a terminologia, o tom, os textos
 Para uma pequena correção de redação, o editor web do GitHub já resolve:
 
 1. Abra o locale em
-   [`packages/client/src/localization/locales/`](../../packages/client/src/localization/locales/).
+   [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
 2. Clique no ícone de lápis para editar o arquivo. Se precisar, o GitHub oferece a criação de um fork.
 3. Mude apenas o valor traduzido. Preserve a chave, os marcadores sensíveis à pontuação, como `{{name}}`, e a sintaxe
    JSON.
 4. Faça o commit da mudança em uma branch focada dentro do seu fork.
-5. Abra um pull request para a branch **`staging`** do Marinara Engine, não para `main`.
+5. Atualize o manifesto e valide o pacote com o comando abaixo. Depois abra um pull request para **`docs-i18n`**, não para `staging` ou `main`. ([`validate-packs.mjs`](#enviar-uma-localiza%C3%A7%C3%A3o-nova))
 6. Na descrição do PR, diga qual é o idioma, explique o sentido corrigido e informe se você tem fluência no idioma
    ou usou ajuda de máquina.
 
@@ -96,36 +91,36 @@ Deixe mudanças de código não relacionadas em outro lugar.
 
 ## Enviar uma localização nova
 
-Para um idioma novo, parta da versão mais recente da branch `staging`:
+Para um idioma novo, mantenha um checkout de Engine em `staging` como fonte em inglês e trabalhe em `docs-i18n`:
+
+`/path/to/Engine` indica um checkout existente e separado da branch `staging`, que contém `packages/client/src/localization/locales/en.json`. Os comandos a seguir criam o checkout adicional para as traduções.
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine
-git checkout staging
+git checkout docs-i18n
 git pull
 git checkout -b translation/LOCALE
-pnpm install
 ```
 
 Depois:
 
-1. Copie o arquivo `en.json` para um arquivo de locale BCP-47 com nome canônico, como `it.json` ou `pt-PT.json`.
+1. Copie o `en.json` canônico do checkout de Engine para `ui/<locale>.json`, por exemplo `ui/it.json` ou `ui/pt-PT.json`.
 2. Mantenha o campo `_meta.locale` igual ao nome do arquivo sem o `.json`.
 3. Defina o campo `_meta.direction` como `ltr` ou `rtl`.
 4. Traduza os valores seguindo as regras acima. Para um locale novo, o melhor é copiar o catálogo completo em inglês,
    mesmo que um catálogo incompleto possa cair para o inglês.
-5. Rode o validador de locale e a verificação básica do repositório:
+5. Gere o manifesto e execute o validador de pacotes (somente Node.js, sem dependências). Ele informa a cobertura em relação ao catálogo inglês do seu checkout de Engine:
 
    ```bash
-   pnpm localization:check
-   pnpm check
+   node scripts/ui-i18n/validate-packs.mjs /path/to/Engine/packages/client/src/localization/locales/en.json --write-manifest
+   node scripts/ui-i18n/validate-packs.mjs /path/to/Engine/packages/client/src/localization/locales/en.json
    ```
 
-6. Selecione o idioma na seção **Settings > General** e revise no computador e no celular. Confira as etiquetas longas,
-   as dicas, os estados de carregamento e de erro, e a direção do texto.
+6. Idiomas novos também precisam de um pequeno PR de Engine adicionando seu código a `UI_LANGUAGE_CODES` em `packages/shared/src/utils/ui-locales.ts`; atualizar pacotes existentes não exige mudanças em Engine. Depois da publicação, selecione o idioma em **Settings > General** e confira no computador e no celular. Verifique rótulos longos, dicas, estados de carregamento e erro e a direção do texto.
 7. Envie a branch para o seu fork e
    [abra um pull request](https://github.com/Pasta-Devs/Marinara-Engine/compare), escolhendo
-   `Pasta-Devs/Marinara-Engine:staging` como base.
+   `Pasta-Devs/Marinara-Engine:docs-i18n` como base.
 
 A descrição do PR deve identificar o locale, a origem da tradução, o nível de fluência ou revisão, os comandos de validação e
 qualquer parte que ainda precise da revisão de um falante nativo. Preencha o template do PR com honestidade e marque apenas os itens manuais que
@@ -168,8 +163,7 @@ tradutor da interface.
 
 ## Interfaces de Agentes que você baixa
 
-As telas de Agente que pertencem ao Engine usam os arquivos de locale do Engine. Os clientes de capacidade que você baixa mantêm o próprio texto traduzido no
-repositório Marinara-Agents.
+As telas de agentes pertencentes a Engine usam o inglês canônico e os pacotes baixados de `docs-i18n/ui`. Clientes de capacidades baixáveis mantêm suas próprias traduções no repositório Marinara-Agents.
 
 Todo elemento personalizado de capacidade recebe o locale selecionado pelos atributos `lang` e `dir` e também por:
 

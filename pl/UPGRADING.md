@@ -12,6 +12,8 @@ Przy aktualizacji z wersji, która miała wbudowanych agentów, mapy, rozmowy i 
 
 Przy pobranym języku dokumentacji (**Settings** (Ustawienia) → **General** (Ogólne) → **Documentation Language** (język dokumentacji)) pierwsze uruchomienie po aktualizacji sprawdza też, czy dany pakiet językowy się zmienił, i odświeża go automatycznie. Jeśli źródło pobierania jest nieosiągalne, Marinara zostawia zainstalowany pakiet (brakujące w nim przewodniki wyświetlają się po angielsku) i próbuje ponownie przy następnym starcie. Aktualizacja nigdy nie resetuje wyboru języka.
 
+Pakiety językowe interfejsu pobiera się osobno i ręcznie. Przy pierwszej aktualizacji z wersji zawierającej tłumaczenia interfejs wraca do języka angielskiego; wybierz ponownie swój język w **Settings** → **General** → **Language** (język), aby pobrać pakiet. Kolejne aktualizacje zachowują pobrane pakiety w folderze danych. Użyj **Refresh language pack** (odśwież pakiet językowy), aby pobrać nowsze tłumaczenia. Brakujące pakiety i nieprzetłumaczone klucze zastępuje angielski, a uruchomienie aplikacji nigdy nie pobiera pakietu interfejsu.
+
 Gdzie leżą dane i jak zapisać ich kopię, opisuje przewodnik [Kopia zapasowa i przywracanie danych aplikacji Marinara](data/backup-and-restore.md).
 
 ## Najpierw kopia zapasowa

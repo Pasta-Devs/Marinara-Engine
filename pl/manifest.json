@@ -1,10 +1,11 @@
 {
   "language": "pl",
+  "sourceCommit": "8945372f4c744d1ce469aeec7f74efeb58a3bf20",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "c17415094e4cb2fe3549bb4c241360d2922b9fc884fb15bd7fbbacb44dea8697",
-      "bytes": 35308
+      "sha256": "a2c24f58b25f94be84f7f23cb9e9f1d37b12caf47390afcce51e14cb2a12535e",
+      "bytes": 36032
     },
     {
       "path": "FAQ.md",
@@ -23,13 +24,13 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "890c32d57f053318fa8f2e97719951a2f0b8ec18348ad76f606f440a6f04d403",
-      "bytes": 43376
+      "sha256": "262700d0fb7c4d1c03af02dd4f3ef72c84986cab9953f09f8f58c72c9f34b3c0",
+      "bytes": 44398
     },
     {
       "path": "UPGRADING.md",
-      "sha256": "0352d573034acece95c25d05c5172d698d9e348efa118403b76967e4d987ce02",
-      "bytes": 14970
+      "sha256": "86ce805732c2058ceafecda8a9d3ba1cfef0428bed208d28099fb4b72d04e2f9",
+      "bytes": 15539
     },
     {
       "path": "agents/agents-overview.md",
@@ -43,8 +44,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "9d74d1a5f51aa316cb5c312228eeb63e131fb28b8c8cae9a9316ea35addf90e7",
-      "bytes": 27518
+      "sha256": "4b856a60108f3213bcae34dda95ee028f4a9c5b5729ef43225f753a212785e85",
+      "bytes": 27779
     },
     {
       "path": "agents/custom-agents.md",
@@ -318,8 +319,8 @@
     },
     {
       "path": "development/localization.md",
-      "sha256": "4827c03e7012658ee36fe58101084e1caaf78b29f3fed8ea6900ffcdaa945d16",
-      "bytes": 9629
+      "sha256": "fc6c68684522a10f0fdf7116819c7ac8783b586800e2e7ecce67157692154d4a",
+      "bytes": 11743
     },
     {
       "path": "development/ltx-director-storyboard.md",
@@ -518,8 +519,8 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "d3375aaacc1e96d797b1980a9601a2ca417548d304505d410000b178f9616341",
-      "bytes": 7492
+      "sha256": "a68e4a4272d76989b6427a72a4c0f7b8d5ad30a01b40a44ff19d3b7949c204b0",
+      "bytes": 7931
     },
     {
       "path": "media/image-providers.md",
@@ -568,8 +569,8 @@
     },
     {
       "path": "prompts/generation-parameters.md",
-      "sha256": "63d7fab8b2c5180b134e9f686b0fb76d3af01979c37068fbf5f11d4f67a2ce0b",
-      "bytes": 14879
+      "sha256": "38a704076b8852a4577417c7ec50e004d191d4cee7fb5db6128689290e1fe1b1",
+      "bytes": 15324
     },
     {
       "path": "prompts/macros.md",

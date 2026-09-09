@@ -11,6 +11,10 @@ Język interfejsu wybiera się w ustawieniach: **Settings > General > App Behavi
 Ustawienia). Ten wybór zmienia kontrolki i teksty pomocy aplikacji Marinara Engine, a nie prompty modeli,
 przygotowane treści ani wiadomości czatu.
 
+Wybranie języka innego niż angielski pobiera jego pakiet, jeśli jest potrzebny. **Refresh language pack** (odśwież pakiet językowy) pobiera nowsze tłumaczenia. Pobrane pakiety są przechowywane w `DATA_DIR/ui-packs` i działają offline. Nieudane pobranie nie zmienia bieżącego języka ani zainstalowanego pakietu. Pakiety nigdy nie są pobierane automatycznie podczas uruchamiania ani aktualizacji.
+
+Przy pierwszej aktualizacji z wersji zawierającej tłumaczenia wcześniej wybrany język inny niż angielski wraca do angielskiego. Wybierz język ponownie, aby go pobrać. Treści użytkownika i pozostałe ustawienia nie zmieniają się.
+
 ## Obsługiwane języki interfejsu
 
 | Język | Plik języka | Kierunek pisma |
@@ -28,21 +32,17 @@ przygotowane treści ani wiadomości czatu.
 | rosyjski | `ru.json` | Od lewej do prawej |
 | hiszpański | `es.json` | Od lewej do prawej |
 
-Katalog angielski jest utrzymywany jako źródło. Pozostałe dołączone katalogi powstały jako tłumaczenia maszynowe i
-czekają na poprawki od osób biegle władających danym językiem. Wyodrębnianie tekstów interfejsu wciąż trwa, więc
-fragmenty bez klucza tłumaczenia nadal wyświetlają się po angielsku.
+Katalog angielski jest utrzymywany jako źródło. Katalogi społecznościowe powstały z pomocą tłumaczenia maszynowego i czekają na poprawki od osób biegle władających danym językiem. Wyodrębnianie tekstów interfejsu nadal trwa, więc teksty bez klucza tłumaczenia pozostają angielskie.
 
 ## Pliki języków
 
-Pliki języków po stronie klienta znajdują się w:
+Kanoniczny katalog angielski nadal znajduje się w:
 
 ```text
-packages/client/src/localization/locales/
+packages/client/src/localization/locales/en.json
 ```
 
-Każdy język w standardzie BCP-47 ma jeden plik JSON nazwany kanonicznym kodem języka, na przykład `pl.json`,
-`ko.json` lub `pt-BR.json`. Vite znajduje te pliki automatycznie, więc dodanie języka nie wymaga edytowania rejestru.
-Angielski wczytuje się razem z aplikacją, pozostałe języki dopiero po wybraniu.
+Pakiety społecznościowe znajdują się w katalogu [`ui/` w gałęzi `docs-i18n`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui), oddzielnie od folderów językowych dokumentacji. Każdy język BCP-47 ma jeden plik JSON, na przykład `ui/pl.json`, `ui/ko.json` lub `ui/pt-BR.json`. Wspólny, generowany `ui/manifest.json` zawiera rozmiary plików i skróty SHA-256. Zachowaj dokładną wielkość liter w kodzie języka. Arabski interfejs działa także bez arabskiego pakietu dokumentacji. Angielski wczytuje się z aplikacją; pakiety społecznościowe są pobierane na wyraźne żądanie i odczytywane z lokalnego serwera.
 
 ```json
 {
@@ -67,14 +67,9 @@ zwykła korekta tekstu unieważniłaby wtedy każde tłumaczenie.
 - Trzymaj się znaczenia i tonu pliku `en.json`; nie dodawaj zachowań ani obietnic, których nie ma w źródle angielskim.
 - Sprawdź, czy przetłumaczone etykiety mieszczą się na ekranie komputera i telefonu.
 
-Katalogi społecznościowe mogą chwilowo pomijać klucze, kiedy trwa przygotowanie tłumaczenia dla danego obszaru
-funkcji. Brakujące klucze wracają do angielskiego. Nieznane klucze, puste tłumaczenia, błędne metadane i zmienione
-znaczniki interpolacji nie przechodzą kontroli lokalizacji.
+Pakiety społecznościowe mogą chwilowo pomijać klucze podczas przygotowywania tłumaczenia danego obszaru. Brakujące klucze korzystają z angielskiego. Walidator pakietów raportuje pokrycie i nieaktualne klucze, które silnik ignoruje. Puste tłumaczenia (poza istniejącymi, celowo pustymi przyrostkami), błędne metadane oraz zmienione znaczniki interpolacji lub tekstu sformatowanego nie przechodzą walidacji. Zmiany nazw i usunięcia kluczy trzeba odzwierciedlić w pakietach albo śledzić w zgłoszeniu `[ui-i18n]`.
 
-PR z nową funkcją musi dodać lub zaktualizować kanoniczny klucz angielski, ale nie musi ruszać każdego katalogu
-społecznościowego. Wartość społecznościową tłumacz tylko wtedy, gdy da się podać przydatne tłumaczenie. Nie powielaj
-angielskiej wartości w plikach języków tylko po to, żeby listy kluczy były równe: mechanizm awaryjny i tak poda ten
-angielski tekst, a brak klucza oszczędza tłumaczom niepotrzebnych konfliktów scalania.
+PR z nową funkcją musi dodać lub zaktualizować kanoniczny klucz angielski, ale nie musi zmieniać pakietów społecznościowych. Tłumacz wartość społecznościową tylko wtedy, gdy możesz podać przydatne tłumaczenie. Nie kopiuj angielskiej wartości do wszystkich plików językowych, aby wyrównać listy kluczy: mechanizm awaryjny już podaje ten tekst, a brak klucza oszczędza tłumaczom niepotrzebnych konfliktów scalania.
 
 Tłumaczenia maszynowe są mile widziane jako pierwsza wersja robocza, o ile PR wyraźnie je tak oznacza. Zanim język
 zostanie opisany jako sprawdzony, terminologię, ton, ucięte teksty i układ na telefonie musi przejrzeć osoba biegle
@@ -85,12 +80,12 @@ władająca tym językiem.
 Przy drobnej poprawce sformułowania wystarczy edytor internetowy serwisu GitHub:
 
 1. Otwórz plik języka w folderze
-   [`packages/client/src/localization/locales/`](../../packages/client/src/localization/locales/).
+   [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
 2. Kliknij ikonę ołówka, żeby edytować plik. GitHub sam zaproponuje utworzenie forka, jeśli będzie potrzebny.
 3. Zmień tylko przetłumaczoną wartość. Zachowaj jej klucz, wrażliwe na interpunkcję znaczniki, takie jak `{{name}}`,
    oraz składnię JSON.
 4. Zapisz zmianę w osobnej, wąsko zakrojonej gałęzi w swoim forku.
-5. Otwórz pull request wobec gałęzi **`staging`** w repozytorium Marinara Engine, a nie wobec `main`.
+5. Odśwież manifest pakietów i sprawdź je poniższym poleceniem, a następnie otwórz pull request wobec gałęzi **`docs-i18n`**, nie `staging` ani `main`. ([`validate-packs.mjs`](#zg%C5%82oszenie-nowego-t%C5%82umaczenia))
 6. W opisie PR podaj język, wyjaśnij poprawione znaczenie i napisz, czy tłumaczenie pochodzi od osoby biegle
    władającej tym językiem, czy powstało z pomocą maszyny.
 
@@ -99,36 +94,36 @@ jednego PR. Niezwiązane zmiany w kodzie zostaw osobno.
 
 ## Zgłoszenie nowego tłumaczenia
 
-Nowy język przygotowuje się na podstawie najnowszej gałęzi `staging`:
+Przy dodawaniu języka zachowaj kopię roboczą gałęzi `staging` silnika jako źródło angielskie, a pracuj w gałęzi `docs-i18n`:
+
+`/path/to/Engine` oznacza osobną, istniejącą kopię roboczą gałęzi `staging`, zawierającą `packages/client/src/localization/locales/en.json`. Poniższe polecenia tworzą dodatkową kopię do pracy nad tłumaczeniami.
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
 cd Marinara-Engine
-git checkout staging
+git checkout docs-i18n
 git pull
 git checkout -b translation/LOCALE
-pnpm install
 ```
 
 Następnie:
 
-1. Skopiuj `en.json` do pliku o kanonicznej nazwie BCP-47, na przykład `it.json` lub `pt-PT.json`.
+1. Skopiuj kanoniczny `en.json` z kopii roboczej silnika do `ui/<locale>.json`, na przykład `ui/it.json` lub `ui/pt-PT.json`.
 2. Ustaw `_meta.locale` na nazwę pliku bez `.json`.
 3. Ustaw `_meta.direction` na `ltr` albo `rtl`.
 4. Przetłumacz wartości zgodnie z powyższymi zasadami. Przy nowym języku lepiej przetłumaczyć cały angielski katalog,
    choć niekompletny katalog też zadziała dzięki powrotowi do angielskiego.
-5. Uruchom walidator języków i podstawową kontrolę repozytorium:
+5. Wygeneruj manifest i uruchom walidator pakietów (wystarczy Node.js, bez zależności). Raportuje on pokrycie względem katalogu angielskiego w kopii roboczej silnika:
 
    ```bash
-   pnpm localization:check
-   pnpm check
+   node scripts/ui-i18n/validate-packs.mjs /path/to/Engine/packages/client/src/localization/locales/en.json --write-manifest
+   node scripts/ui-i18n/validate-packs.mjs /path/to/Engine/packages/client/src/localization/locales/en.json
    ```
 
-6. Wybierz język w **Settings > General** i obejrzyj go na komputerze oraz na telefonie. Zwróć uwagę na długie
-   etykiety, podpowiedzi, ekrany ładowania i błędów oraz kierunek pisma.
+6. Nowy język wymaga też małego PR do silnika, który dodaje jego kod do `UI_LANGUAGE_CODES` w `packages/shared/src/utils/ui-locales.ts`; aktualizacje istniejących pakietów nie wymagają zmian w silniku. Po publikacji wybierz język w **Settings > General** i obejrzyj go na komputerze oraz telefonie. Sprawdź długie etykiety, podpowiedzi, stany ładowania i błędów oraz kierunek pisma.
 7. Wypchnij gałąź do swojego forka i
    [otwórz pull request](https://github.com/Pasta-Devs/Marinara-Engine/compare), wybierając
-   `Pasta-Devs/Marinara-Engine:staging` jako gałąź bazową.
+   `Pasta-Devs/Marinara-Engine:docs-i18n` jako gałąź bazową.
 
 W opisie PR podaj język, źródło tłumaczenia, poziom biegłości lub sprawdzenia, użyte polecenia walidacyjne oraz
 obszary, które wciąż wymagają przejrzenia przez rodzimego użytkownika języka. Wypełnij szablon PR uczciwie i zaznacz
@@ -172,8 +167,7 @@ wartości dynamiczne: tworzone przez użytkownika, generowane, zapisywane, promp
 
 ## Interfejsy pobieranych agentów
 
-Ekrany agentów należących do silnika korzystają z plików języków silnika. Pobierane klienty rozszerzeń przechowują
-własne tłumaczenia w repozytorium Marinara-Agents.
+Ekrany agentów należące do silnika używają kanonicznego angielskiego i pobranych pakietów `docs-i18n/ui`. Pobierane klienty rozszerzeń przechowują własne tłumaczenia w repozytorium Marinara-Agents.
 
 Każdy element niestandardowy rozszerzenia dostaje wybrany język przez atrybuty `lang` i `dir`, a także przez:
 

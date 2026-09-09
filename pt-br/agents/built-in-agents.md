@@ -16,6 +16,8 @@ Marinara separa os agentes em três categorias no painel **Agents**: **Writer Ag
 
 Um intervalo de execução faz o agente rodar uma vez a cada tantas mensagens do usuário e do assistente, em vez de rodar depois de cada mensagem. O intervalo pode ser alterado na configuração do agente, até o limite de 100.
 
+Illustrator também aceita **0** para geração apenas manual: continua disponível nas ações da Gallery, mas nunca executa automaticamente. Os outros agentes mantêm seus intervalos positivos atuais.
+
 ## Writer agents
 
 Os agentes de escrita moldam a história ou o texto. Eles acrescentam orientações antes da resposta ou dão um polimento na resposta depois de pronta.

@@ -115,6 +115,8 @@ Beim Aktivieren steht die Anzahl auf 50. Möglich ist jeder Wert von 1 bis 9999.
 
 **Exclude Past Reasoning** (früheres Reasoning ausschließen) ist standardmäßig an. Gespeicherte Denk- und Reasoning-Texte aus früheren Zügen bleiben damit aus neuen Prompts heraus. Dieses Reasoning geht also kein zweites Mal ans Modell.
 
+Wenn du die Option ausschaltest, erscheint **Past reasoning blocks** (frühere Reasoning-Blöcke). Der Standardwert `1` behält den neuesten verfügbaren Reasoning-Block des Assistenten; `0` nimmt alle verfügbaren Blöcke auf. Die Auswahl wird für diesen Chat gespeichert und bleibt auch beim erneuten Einschalten des Ausschlusses erhalten. Gespeicherte Gedanken werden dadurch nicht gelöscht. Es kann nur Reasoning erneut gesendet werden, das die aktuelle Verbindung unterstützt.
+
 Lass die Option an, solange du keinen klaren Grund hast, altes Reasoning erneut ins Modell zu füttern.
 
 ## Image Captioning

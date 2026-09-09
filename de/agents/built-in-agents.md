@@ -16,6 +16,8 @@ Marinara sortiert die Agenten im Panel **Agents** in drei Kategorien: **Writer A
 
 Ein Laufintervall bedeutet: Der Agent läuft nur alle paar Nutzer- und Assistenten-Nachrichten statt nach jeder Nachricht. Das Intervall lässt sich in der Einrichtung des Agenten ändern, bis maximal 100.
 
+Illustrator akzeptiert auch **0** für ausschließlich manuelle Generierung: Der Agent bleibt für Galerieaktionen verfügbar, läuft aber nie automatisch. Andere Agenten behalten ihre bisherigen positiven Laufintervalle.
+
 ## Writer-Agenten
 
 Writer-Agenten formen die Geschichte oder den Schreibstil. Entweder geben sie vor der Antwort eine Richtung vor, oder sie räumen die fertige Antwort auf.

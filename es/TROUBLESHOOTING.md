@@ -238,6 +238,12 @@ La solución más limpia a largo plazo es poner el servidor detrás de HTTPS. Co
 
 ## Almacenamiento y datos
 
+### El servidor no vuelve después de Restart Server
+
+Inicia Marinara con `start.bat`, `start.sh`, `start-termux.sh` o `pnpm start`. Estos mantienen el servidor vinculado a su lanzador y esperan a que el proceso anterior termine antes de iniciar su reemplazo. El reinicio desde la aplicación cierra las conexiones persistentes después de cuatro segundos y fuerza la salida después de ocho si el cierre sigue bloqueado. Una salida forzada puede interrumpir escrituras pendientes y queda registrada como forzada en los diagnósticos. Las ejecuciones directas con `node` y los procesos que vigilan archivos durante el desarrollo no se reemplazan automáticamente: detenlos y vuelve a iniciarlos desde su terminal. Docker sigue usando su política de reinicio de contenedores.
+
+No inicies otro servidor con el mismo directorio de datos mientras el anterior siga en ejecución. Si una versión antigua dejó un proceso activo, detenlo primero; no elimines la concesión de escritura de un servidor que sigue funcionando.
+
 ### El inicio dice que otro proceso puede estar usando el directorio de datos
 
 Marinara solo permite que un servidor en ejecución escriba en un directorio de datos local. Si el inicio indica que **Another Marinara Engine process ... may be using** el directorio, cierra el otro proceso de Marinara e inténtalo de nuevo.

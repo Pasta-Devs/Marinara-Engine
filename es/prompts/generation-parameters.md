@@ -115,6 +115,8 @@ Cuando lo activas, el conteo empieza en 50. Puedes fijar cualquier número de 1 
 
 **Exclude Past Reasoning** está activado de forma predeterminada. Mantiene el razonamiento y el pensamiento guardados de turnos anteriores fuera de los nuevos prompts. Ese razonamiento no se envía de nuevo al modelo.
 
+Al desactivarlo aparece **Past reasoning blocks** (bloques de razonamiento anteriores). El valor predeterminado `1` conserva el bloque de razonamiento del asistente más reciente que esté disponible; `0` incluye todos los bloques disponibles. La elección se guarda para este chat y se conserva al volver a activar la exclusión. Esto no borra los pensamientos guardados. Solo se puede reenviar el razonamiento compatible con la conexión actual.
+
 Déjalo activado a menos que tengas una razón clara para volver a alimentar el razonamiento antiguo al modelo.
 
 ## Image Captioning
