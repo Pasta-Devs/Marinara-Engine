@@ -341,7 +341,7 @@ export function buildRoleplayCommandsReminder(args: {
     );
   if (args.privateAvailable && enabled("notes"))
     lines.push(
-      '- [notes: content="your current personal notes"] replaces your notes about motives, secrets, beliefs, lies and plans. Preserve relevant details and keep it short; these notes are available to you and narrator alone. [dismiss_notes] clears your notes when they\'re no longer needed or relevant.',
+      '- [notes: content="your current personal notes"] creates or edits your notes about motives, secrets, beliefs, lies and plans. To edit existing notes, send their full updated contents; this replaces your previous notes. Preserve relevant details and keep it short; these notes are available to you and narrator alone. [dismiss_notes] clears your notes when they\'re no longer needed or relevant.',
     );
   if (args.privateAvailable && enabled("memory"))
     lines.push(
