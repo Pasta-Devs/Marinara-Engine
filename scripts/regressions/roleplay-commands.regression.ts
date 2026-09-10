@@ -345,6 +345,17 @@ for (const format of ["xml", "markdown", "none"] as const) {
     assert.equal(customHeading[1]!.content, "Latest");
   }
 }
+const incompleteContext = "<context>".repeat(20_000);
+const malformedMessages = [
+  { role: "user", content: incompleteContext, contextKind: "injection" },
+  { role: "user", content: "Latest", contextKind: "history" },
+];
+appendRoleplayPromptTail(malformedMessages, "PRIVATE", "", "xml");
+assert.equal(malformedMessages[0]!.content, incompleteContext, "unterminated Context stays untouched");
+assert.equal(malformedMessages[1]!.content, "Latest\n\n<context>\nPRIVATE\n</context>");
+const surroundedContext = [{ role: "user", content: "</context>\n<context>\nTRACKER\n</context>\nSUFFIX" }];
+appendRoleplayPromptTail(surroundedContext, "Literal $&", "", "xml");
+assert.equal(surroundedContext[0]!.content, "</context>\n<context>\nTRACKER\nLiteral $&\n</context>\nSUFFIX");
 assert.equal(
   buildRoleplayPersonalContext({
     messages: history,

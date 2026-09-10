@@ -1993,7 +1993,7 @@ function ImageDimensionRow({
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 sm:w-40">
         <DraftNumberInput
           value={width}
-          aria-label={localizeUi("settings.imageDimensions.width", { label })}
+          ariaLabel={localizeUi("settings.imageDimensions.width", { label })}
           min={64}
           max={4096}
           commitOnValidChange
@@ -2005,7 +2005,7 @@ function ImageDimensionRow({
         </span>
         <DraftNumberInput
           value={height}
-          aria-label={localizeUi("settings.imageDimensions.height", { label })}
+          ariaLabel={localizeUi("settings.imageDimensions.height", { label })}
           min={64}
           max={4096}
           commitOnValidChange

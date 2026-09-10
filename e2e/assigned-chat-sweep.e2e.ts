@@ -326,12 +326,14 @@ test("Character-sheet resolution migrates once and remains independent after a s
       }),
     );
     await open(page, data.chat.id, { imageBackgroundWidth: 1536, imageBackgroundHeight: 1024 });
-    await page.evaluate(() => {
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem("sheet-migration-seeded")) return;
       const old = JSON.parse(localStorage.getItem("marinara-engine-ui")!);
       old.version = 99;
       delete old.state.imageCharacterSheetWidth;
       delete old.state.imageCharacterSheetHeight;
       localStorage.setItem("marinara-engine-ui", JSON.stringify(old));
+      sessionStorage.setItem("sheet-migration-seeded", "true");
     });
     await page.reload();
     const openImageSettings = async () =>

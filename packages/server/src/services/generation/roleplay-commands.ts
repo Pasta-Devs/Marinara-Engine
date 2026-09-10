@@ -382,24 +382,21 @@ export function appendRoleplayPromptTail(
   if (personal) {
     // Trackers are an earlier injection, not necessarily the last user message.
     // Add private state only here, after the shared agent prompt has been copied.
-    const contextPattern =
-      format === "xml"
-        ? /<context>[\s\S]*?<\/context>/u
-        : format === "markdown"
-          ? /^#{1,2}[ \t]*Context[ \t]*$/mu
-          : /^Context:[ \t]*$/mu;
-    const contextMessage = [...messages]
-      .reverse()
-      .find(
-        (candidate) =>
-          candidate.role === "user" && candidate.contextKind !== "history" && contextPattern.test(candidate.content),
-      );
+    const contextPattern = format === "markdown" ? /^#{1,2}[ \t]*Context[ \t]*$/mu : /^Context:[ \t]*$/mu;
+    const contextMessage = [...messages].reverse().find((candidate) => {
+      if (candidate.role !== "user" || candidate.contextKind === "history") return false;
+      if (format !== "xml") return contextPattern.test(candidate.content);
+      const start = candidate.content.indexOf("<context>");
+      return start >= 0 && candidate.content.indexOf("</context>", start + "<context>".length) >= 0;
+    });
     if (contextMessage) {
-      if (format === "xml")
-        contextMessage.content = contextMessage.content.replace(contextPattern, (block) =>
-          block.replace(/<\/context>$/u, () => `${personal}\n</context>`),
+      if (format === "xml") {
+        const end = contextMessage.content.indexOf(
+          "</context>",
+          contextMessage.content.indexOf("<context>") + "<context>".length,
         );
-      else contextMessage.content += `\n\n${personal}`;
+        contextMessage.content = `${contextMessage.content.slice(0, end)}${personal}\n${contextMessage.content.slice(end)}`;
+      } else contextMessage.content += `\n\n${personal}`;
     } else
       message.content += `\n\n${format === "xml" ? `<context>\n${personal}\n</context>` : format === "markdown" ? `# Context\n${personal}` : `Context:\n${personal}`}`;
   }
