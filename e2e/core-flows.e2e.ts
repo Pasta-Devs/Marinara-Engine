@@ -2632,6 +2632,7 @@ test("bulk chat deletion uses the shared primary accent control", async ({ page 
     await seedUIState(page, {
       hasCompletedOnboarding: true,
       sidebarOpen: true,
+      appAccentPulseMode: false,
     });
     await page.addInitScript((activeChatId) => {
       localStorage.setItem("marinara-active-chat-id", activeChatId);
@@ -2704,6 +2705,7 @@ test("empty chat hover previews inherit the configured accent", async ({ page },
     await seedUIState(page, {
       hasCompletedOnboarding: true,
       sidebarOpen: true,
+      appAccentPulseMode: false,
     });
     await page.goto("/");
     await setAppAccentColor(page, "#14b8a6");
