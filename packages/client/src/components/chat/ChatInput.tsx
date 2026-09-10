@@ -272,7 +272,9 @@ export const ChatInput = memo(function ChatInput({
   const responseQueue = useChatStore((s) =>
     activeChatId ? (s.responseQueues.get(activeChatId) ?? EMPTY_RESPONSE_QUEUE) : EMPTY_RESPONSE_QUEUE,
   );
-  const replyDraft = useChatStore((s) => (activeChatId ? s.replyDrafts.get(activeChatId) : undefined));
+  const replyDraft = useChatStore((s) =>
+    mode === "conversation" && activeChatId ? s.replyDrafts.get(activeChatId) : undefined,
+  );
   const setReplyDraft = useChatStore((s) => s.setReplyDraft);
   const setInputDraft = useChatStore((s) => s.setInputDraft);
   const clearInputDraft = useChatStore((s) => s.clearInputDraft);

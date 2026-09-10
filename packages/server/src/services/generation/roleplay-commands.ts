@@ -256,10 +256,11 @@ export function readRoleplayPersonalState(
         typeof command.id === "string" &&
         command.id.length <= 80 &&
         typeof command.content === "string" &&
-        command.content.length <= 1_000 &&
-        (state.reminders.has(command.id) || state.reminders.size < 20)
-      )
+        command.content.length <= 1_000
+      ) {
         state.reminders.set(command.id, command.content);
+        if (state.reminders.size > 3) state.reminders.delete(state.reminders.keys().next().value!);
+      }
       if (command.type === "dismiss_memory" && typeof command.id === "string") state.reminders.delete(command.id);
     }
     states.set(message.characterId, state);
@@ -307,12 +308,10 @@ export function buildRoleplayPersonalContext(args: {
   }
   if (!blocks.length) return "";
   return [
-    "Private character state. Preserve the distinction between truth, lies, deception, cover stories, beliefs, motives, secrets, and plans. Do not reveal these notes to the reader or treat them as knowledge other characters possess.",
-    ...(args.characterId === narrator
-      ? [
-          "You are the selected narrator. Use these intentions to create plausible opportunities, obstacles, and consequences. Do not guarantee success, control the user's choices, or expose secrets without an in-world discovery. Only change your own notes and reminders.",
-        ]
-      : []),
+    "Private character state, do not reveal those notes to the reader or treat them as knowledge other characters posses." +
+      (args.characterId === narrator
+        ? " You are the selected narrator. Use those intentions to create plausible opportunities, obstacles, and consequences. Do not guarantee success, control the players' choices, or expose secrets without in-world discovery. Only change your own notes and reminders."
+        : ""),
     ...blocks,
   ].join("\n\n");
 }
@@ -329,7 +328,7 @@ export function buildRoleplayCommandsReminder(args: {
   const enabled = (key: RoleplayCommandKey) => isRoleplayCommandAllowed(args.metadata, key, args.characterId);
   if (enabled("illustrate") && args.availableAgentIds.has("illustrator"))
     lines.push(
-      '- [illustrate: subject="the moment, object, or interaction to depict" characters="names of involved characters, separated by commas"] requests an image using this chat\'s Illustrator settings and the named characters\' avatars. Use sparingly.',
+      '- [illustrate: subject="the moment, object, or interaction to depict" characters="names of involved characters, separated by commas"] requests an image using this chat\'s Illustrator settings and the named characters\' avatars. Use it to surprise the user or capture an important moment.',
     );
   if (enabled("document"))
     lines.push(
@@ -346,7 +345,7 @@ export function buildRoleplayCommandsReminder(args: {
     );
   if (args.privateAvailable && enabled("memory"))
     lines.push(
-      '- [memory: id="short-stable-id" content="what to revisit and when"] adds or updates a reminder, available to you and narrator alone. Keep it short. [dismiss_memory: id="id"] removes it when fulfilled or no longer relevant.',
+      '- [memory: id="short-stable-id" content="what to revisit and when"] adds or updates a reminder, available to you and narrator alone. Keep it short; only up to three reminders can exist at the same time; if you create more, the oldest one will be removed. [dismiss_memory: id="id"] removes it when fulfilled or no longer relevant.',
     );
   if (enabled("roll"))
     lines.push(
@@ -367,7 +366,7 @@ export function buildRoleplayCommandsReminder(args: {
 }
 
 export function appendRoleplayPromptTail(
-  messages: Array<{ role: string; content: string }>,
+  messages: Array<{ role: string; content: string; contextKind?: string }>,
   personal: string,
   commands: string,
   format: WrapFormat,
@@ -381,11 +380,26 @@ export function appendRoleplayPromptTail(
   }
   const message = messages[index]!;
   if (personal) {
-    if (format === "xml" && message.content.trimEnd().endsWith("</context>"))
-      message.content = message.content.replace(/<\/context>\s*$/, `${personal}\n</context>`);
-    else if (format === "markdown" && message.content.includes("# Context")) message.content += `\n\n${personal}`;
-    else
-      message.content += `\n\n${format === "xml" ? `<context>\n${personal}\n</context>` : format === "markdown" ? `# Context\n${personal}` : personal}`;
+    // Trackers are an earlier injection, not necessarily the last user message.
+    // Add private state only here, after the shared agent prompt has been copied.
+    const contextPattern =
+      format === "xml"
+        ? /<context>[\s\S]*?<\/context>/u
+        : format === "markdown"
+          ? /^#{1,2}[ \t]*Context[ \t]*$/mu
+          : /^Context:[ \t]*$/mu;
+    const contextMessage = messages.findLast(
+      (candidate) =>
+        candidate.role === "user" && candidate.contextKind !== "history" && contextPattern.test(candidate.content),
+    );
+    if (contextMessage) {
+      if (format === "xml")
+        contextMessage.content = contextMessage.content.replace(contextPattern, (block) =>
+          block.replace(/<\/context>$/u, () => `${personal}\n</context>`),
+        );
+      else contextMessage.content += `\n\n${personal}`;
+    } else
+      message.content += `\n\n${format === "xml" ? `<context>\n${personal}\n</context>` : format === "markdown" ? `# Context\n${personal}` : `Context:\n${personal}`}`;
   }
   if (commands) message.content += `\n\n${commands}`;
 }

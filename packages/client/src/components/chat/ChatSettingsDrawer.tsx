@@ -90,7 +90,7 @@ import { SceneInstructionsSection } from "../../features/chat-settings/sections/
 import { TranslationSection } from "../../features/chat-settings/sections/TranslationSection";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import type { AvatarCrop } from "@marinara-engine/shared";
-import { resolveScopedRegexMode } from "@marinara-engine/shared";
+import { isRoleplayCommandEnabled, resolveScopedRegexMode } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -5040,7 +5040,7 @@ export function ChatSettingsDrawer({
               style={{ order: CHAT_SETTINGS_ORDER.persona }}
               label={localizeUi("ui.chat.chatsettingsdrawer.party")}
               icon={<Users size="0.875rem" />}
-              count={chatCharIds.length + (chat.personaId ? 1 : 0)}
+              count={chatCharacters.length + (chat.personaId ? 1 : 0)}
               help={localizeUi("ui.chat.chatsettingsdrawer.yourInGamePartyPickAPersonaToPlay")}
             >
               <div className="space-y-1.5">
@@ -6972,6 +6972,21 @@ export function ChatSettingsDrawer({
               help={localizeUi("ui.chat.chatsettingsdrawer.linkToAnOocConversationAndOptionallyLetRoleplay")}
             >
               <div className="space-y-2">
+                <SettingsSwitch
+                  label={localizeUi("ui.chat.chatsettingsdrawer.allowCharacterDms")}
+                  description={localizeUi("roleplay.commands.dm.shortcutDescription")}
+                  checked={isRoleplayCommandEnabled(metadata, "dm")}
+                  onChange={(enabled) =>
+                    updateMeta.mutate({
+                      id: chat.id,
+                      ...(enabled ? { roleplayCommandsEnabled: true } : {}),
+                      roleplayCommandToggles: { ...metadata.roleplayCommandToggles, dm: enabled },
+                    })
+                  }
+                  labelPosition="start"
+                  className="min-h-11 justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
+                  labelClassName="text-xs font-medium"
+                />
                 {chat.connectedChatId ? (
                   (() => {
                     const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);

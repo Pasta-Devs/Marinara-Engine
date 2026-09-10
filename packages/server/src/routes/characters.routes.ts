@@ -1124,8 +1124,8 @@ export async function charactersRoutes(app: FastifyInstance) {
     const imageSettings = await loadImageGenerationUserSettings(app.db);
     const isCharacterSheet = body.purpose === "character-sheet";
     const dimensions = validateAvatarGenerationDimensions(
-      body.width ?? (isCharacterSheet ? imageSettings.background.width : imageSettings.portrait.width),
-      body.height ?? (isCharacterSheet ? imageSettings.background.height : imageSettings.portrait.height),
+      body.width ?? (isCharacterSheet ? imageSettings.characterSheet.width : imageSettings.portrait.width),
+      body.height ?? (isCharacterSheet ? imageSettings.characterSheet.height : imageSettings.portrait.height),
     );
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;
@@ -1176,8 +1176,8 @@ export async function charactersRoutes(app: FastifyInstance) {
     const imageSettings = await loadImageGenerationUserSettings(app.db);
     const isCharacterSheet = body.purpose === "character-sheet";
     const dimensions = validateAvatarGenerationDimensions(
-      body.width ?? (isCharacterSheet ? imageSettings.background.width : imageSettings.portrait.width),
-      body.height ?? (isCharacterSheet ? imageSettings.background.height : imageSettings.portrait.height),
+      body.width ?? (isCharacterSheet ? imageSettings.characterSheet.width : imageSettings.portrait.width),
+      body.height ?? (isCharacterSheet ? imageSettings.characterSheet.height : imageSettings.portrait.height),
     );
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;

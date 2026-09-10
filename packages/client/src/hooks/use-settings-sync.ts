@@ -106,6 +106,8 @@ function parseServerSettingsValue(value: string): {
   const updatedAt =
     typeof payload.__updatedAt === "number" && Number.isFinite(payload.__updatedAt) ? payload.__updatedAt : null;
   delete payload.__updatedAt;
+  payload.imageCharacterSheetWidth ??= payload.imageBackgroundWidth ?? 1280;
+  payload.imageCharacterSheetHeight ??= payload.imageBackgroundHeight ?? 720;
   return { settings: payload, updatedAt };
 }
 

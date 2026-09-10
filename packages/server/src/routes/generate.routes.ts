@@ -2642,6 +2642,7 @@ export async function generateRoutes(app: FastifyInstance) {
           );
 
           const assemblerInput: AssemblerInput = {
+            model: conn.model,
             agentHistoryMessageId: input.regenerateMessageId ?? undefined,
             deferMessagePostProcessing: true,
             db: app.db,
@@ -4336,9 +4337,9 @@ export async function generateRoutes(app: FastifyInstance) {
           meta: chatMeta,
           defaultAutoGenerateMode: storyboardAgentSettings.autoGenerateMode,
         });
-        if (
-          illustratorAgentForInterval &&
-          !roleplayCommandAgentIds.has("illustrator") &&
+        const skipAutomaticIllustrator =
+          !chatEnableAgents ||
+          !illustratorAgentForInterval ||
           (await shouldSkipAgentByMessageInterval({
             agentsStore,
             chatId: input.chatId,
@@ -4347,10 +4348,7 @@ export async function generateRoutes(app: FastifyInstance) {
             fallbackInterval: (getDefaultBuiltInAgentSettings("illustrator").runInterval as number) ?? 5,
             messages: allChatMessages,
             countUpcomingAssistantMessage: createsAssistantMessage,
-          }))
-        ) {
-          resolvedAgents.splice(resolvedAgents.indexOf(illustratorAgentForInterval), 1);
-        }
+          }));
 
         const illustratorPromptAgent = resolvedAgents.find((agent) => agent.type === "illustrator");
         if (illustratorPromptAgent) {
@@ -4944,7 +4942,9 @@ export async function generateRoutes(app: FastifyInstance) {
           (a) =>
             !textRewriteAgentIds.has(a.id) &&
             a.type !== "lorebook-keeper" &&
-            (!roleplayCommandAgentIds.has(a.type) || (a.type === "combat" && chatMeta.encounterActive === true)),
+            (a.type === "illustrator"
+              ? !skipAutomaticIllustrator
+              : !roleplayCommandAgentIds.has(a.type) || (a.type === "combat" && chatMeta.encounterActive === true)),
         );
         const trackerAgentTypes = getTrackerAgentTypes();
         const attachLorebooksToTrackers = chatMode === "roleplay" && chatMeta.attachLorebooksToTrackers === true;
@@ -9070,15 +9070,19 @@ export async function generateRoutes(app: FastifyInstance) {
             return { ...result, data: spriteData };
           };
 
+          const hasIllustrationCommand = roleplayMediaRequests.some((request) => request.command.type === "illustrate");
           let postResults = hasPostProcessingAgents
             ? [
                 ...(await pipeline.postGenerate(completedResponse, {
                   preGenInjections: contextInjections,
                   parallelResults,
+                  agentTypeFilter: (type) => type !== "illustrator" || !hasIllustrationCommand,
                 })),
                 ...parallelResults,
               ]
             : [...parallelResults];
+          // An explicit turn illustration takes precedence over an automatic decision.
+          if (hasIllustrationCommand) postResults = postResults.filter((result) => result.agentType !== "illustrator");
 
           if (lorebookKeeperAgent) {
             const historicalLorebookTarget = getLorebookKeeperAutomaticTarget(

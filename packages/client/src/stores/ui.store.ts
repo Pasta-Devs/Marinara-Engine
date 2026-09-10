@@ -763,6 +763,8 @@ interface UIState {
   imageGameHeight: number;
   imagePortraitWidth: number;
   imagePortraitHeight: number;
+  imageCharacterSheetWidth: number;
+  imageCharacterSheetHeight: number;
   imageSelfieWidth: number;
   imageSelfieHeight: number;
   imageStyleProfiles: ImageStyleProfileSettings;
@@ -1117,6 +1119,7 @@ interface UIState {
   setImageIllustrationDimensions: (width: number, height: number) => void;
   setImageGameDimensions: (width: number, height: number) => void;
   setImagePortraitDimensions: (width: number, height: number) => void;
+  setImageCharacterSheetDimensions: (width: number, height: number) => void;
   setImageSelfieDimensions: (width: number, height: number) => void;
   setImageStyleProfiles: (settings: ImageStyleProfileSettings) => void;
 
@@ -1348,6 +1351,8 @@ export function pickSyncedSettings(state: UIState) {
     imageGameHeight: state.imageGameHeight,
     imagePortraitWidth: state.imagePortraitWidth,
     imagePortraitHeight: state.imagePortraitHeight,
+    imageCharacterSheetWidth: state.imageCharacterSheetWidth,
+    imageCharacterSheetHeight: state.imageCharacterSheetHeight,
     imageSelfieWidth: state.imageSelfieWidth,
     imageSelfieHeight: state.imageSelfieHeight,
     [IMAGE_STYLE_PROFILES_STORAGE_KEY]: state.imageStyleProfiles,
@@ -1550,6 +1555,8 @@ export function pickPersistedUIState(state: UIState) {
     imageGameHeight: state.imageGameHeight,
     imagePortraitWidth: state.imagePortraitWidth,
     imagePortraitHeight: state.imagePortraitHeight,
+    imageCharacterSheetWidth: state.imageCharacterSheetWidth,
+    imageCharacterSheetHeight: state.imageCharacterSheetHeight,
     imageSelfieWidth: state.imageSelfieWidth,
     imageSelfieHeight: state.imageSelfieHeight,
     imageStyleProfiles: state.imageStyleProfiles,
@@ -1792,6 +1799,8 @@ export const useUIStore = create<UIState>()(
         imageGameHeight: 720,
         imagePortraitWidth: 1024,
         imagePortraitHeight: 1024,
+        imageCharacterSheetWidth: 1280,
+        imageCharacterSheetHeight: 720,
         imageSelfieWidth: 896,
         imageSelfieHeight: 1152,
         imageStyleProfiles: normalizeImageStyleProfileSettings(null),
@@ -2572,6 +2581,11 @@ export const useUIStore = create<UIState>()(
             imagePortraitWidth: clampImageDimension(width),
             imagePortraitHeight: clampImageDimension(height),
           }),
+        setImageCharacterSheetDimensions: (width, height) =>
+          set({
+            imageCharacterSheetWidth: clampImageDimension(width),
+            imageCharacterSheetHeight: clampImageDimension(height),
+          }),
         setImageSelfieDimensions: (width, height) =>
           set({
             imageSelfieWidth: clampImageDimension(width),
@@ -2910,7 +2924,7 @@ export const useUIStore = create<UIState>()(
     },
     {
       name: UI_PERSISTENCE.name,
-      // v98 -> v99: move legacy Noodle image dimensions to package settings.
+      // v99 -> v100: separate character-sheet dimensions from backgrounds.
       version: UI_PERSISTENCE.version,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
@@ -2956,6 +2970,10 @@ export const useUIStore = create<UIState>()(
         };
       }),
       migrate: (persisted: any, version: number) => {
+        if (version <= 99) {
+          persisted.imageCharacterSheetWidth ??= persisted.imageBackgroundWidth ?? 1280;
+          persisted.imageCharacterSheetHeight ??= persisted.imageBackgroundHeight ?? 720;
+        }
         if (version <= 98 && (persisted.imageNoodleWidth !== undefined || persisted.imageNoodleHeight !== undefined)) {
           try {
             localStorage.setItem(

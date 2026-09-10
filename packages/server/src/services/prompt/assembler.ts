@@ -122,6 +122,8 @@ export function resolveChoiceVariableValue(input: {
 
 /** Everything the assembler needs to produce a prompt. */
 export interface AssemblerInput {
+  /** Resolved model for this request, including connection overrides. */
+  model?: string;
   /** Generation routes format messages after audience filtering and context fitting. */
   deferMessagePostProcessing?: boolean;
   db: DB;
@@ -370,6 +372,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   // Build macro context (character names and primary card fields resolved from IDs)
   const macroCtx = await buildPromptMacroContext({
     db: input.db,
+    model: input.model,
     characterIds: input.characterIds,
     groupCharacterIds: input.groupCharacterIds,
     personaName: input.personaName,

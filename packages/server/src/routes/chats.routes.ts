@@ -2799,8 +2799,13 @@ export async function chatsRoutes(app: FastifyInstance) {
           })();
 
           const chatChoices = (chatMeta.presetChoices ?? {}) as Record<string, string | string[]>;
+          const connections = createConnectionsStorage(app.db);
+          const connection = chat.connectionId
+            ? await connections.getById(chat.connectionId)
+            : await connections.getDefault();
           const promptMacroContext = await buildPromptMacroContext({
             db: app.db,
+            model: connection?.model,
             characterIds: assistantCharacterIds,
             groupCharacterIds: assistantCharacterIds,
             personaName,
@@ -3009,6 +3014,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
           const assembled = await assemblePrompt({
             db: app.db,
+            model: connection?.model,
             preset: preset as any,
             sections: sections as any,
             groups: groups as any,

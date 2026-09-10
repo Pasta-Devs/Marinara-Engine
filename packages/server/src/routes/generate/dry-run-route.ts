@@ -1320,6 +1320,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       ]);
 
       const assemblerInput: AssemblerInput = {
+        model: conn.model,
         deferMessagePostProcessing: true,
         db: app.db,
         preset: preset as any,

@@ -56,7 +56,8 @@ import {
 import { getConnectedChatDisplayName } from "../../lib/chat-display";
 import { playConfiguredNotificationPing } from "../../lib/notification-sound";
 import { rememberBoundedSetValue } from "../../lib/bounded-set";
-import { messageHasPendingPostProcessing } from "../../lib/chat-message-extra";
+import { messageHasPendingPostProcessing, parseMessageExtraRecord } from "../../lib/chat-message-extra";
+import { normalizeSpriteExpressionMap } from "../../lib/sprite-expression-state";
 import { isMessageHiddenFromUser } from "../../lib/chat-message-visibility";
 import {
   getTranscriptRenderWindow,
@@ -1463,6 +1464,18 @@ export function ChatRoleplaySurface({
   const visualNovel = isRoleplay && (chatMeta.roleplayDisplayStyle ?? defaultDisplayStyle) === "visual-novel";
   const [vnHistoryOpen, setVnHistoryOpen] = useState(false);
   const [vnHistoryHasDraft, setVnHistoryHasDraft] = useState(false);
+  const [vnMediaTarget, setVnMediaTarget] = useState<HTMLDivElement | null>(null);
+  const pendingVnHistoryScroll = useRef(false);
+  const activeVnSpriteIds = useMemo(
+    () =>
+      Object.keys(
+        normalizeSpriteExpressionMap(
+          parseMessageExtraRecord(messages?.find((message) => message.id === lastAssistantMessageId)?.extra)
+            .spriteExpressions,
+        ),
+      ),
+    [messages, lastAssistantMessageId],
+  );
   const pendingVnEdit = useRef<{ messageId?: string } | null>(null);
   const latestVnMessage = useMemo(() => {
     for (let index = (messages?.length ?? 0) - 1; index >= 0; index--) {
@@ -1507,8 +1520,17 @@ export function ChatRoleplaySurface({
     const measure = () => {
       const top = Math.ceil(topChromeRef.current?.getBoundingClientRect().height ?? 0);
       const bottom = Math.ceil(inputChromeRef.current?.getBoundingClientRect().height ?? 0);
+      if (vnMediaTarget) {
+        vnMediaTarget.style.top = `${top + 8}px`;
+        vnMediaTarget.style.bottom = `${bottom}px`;
+      }
       const scrollElement = scrollRef.current;
       if (!scrollElement) return;
+      const historyBox = scrollElement.parentElement;
+      if (historyBox) {
+        historyBox.style.top = visualNovel && vnHistoryOpen ? `${top + 8}px` : "";
+        historyBox.style.bottom = visualNovel && vnHistoryOpen ? `${bottom}px` : "";
+      }
       const current = chromeInsetsRef.current;
       if (current.target === scrollElement && current.top === top && current.bottom === bottom) return;
       chromeInsetsRef.current = { target: scrollElement, top, bottom };
@@ -1533,6 +1555,7 @@ export function ChatRoleplaySurface({
     scrollRef,
     visualNovel,
     vnHistoryOpen,
+    vnMediaTarget,
   ]);
 
   useEffect(() => {
@@ -1543,6 +1566,7 @@ export function ChatRoleplaySurface({
     setVnHistoryOpen(false);
     setVnHistoryHasDraft(false);
     pendingVnEdit.current = null;
+    pendingVnHistoryScroll.current = false;
   }, [activeChatId]);
 
   const [transcriptWindowStart, setTranscriptWindowStart] = useState<number | null>(null);
@@ -1572,6 +1596,31 @@ export function ChatRoleplaySurface({
     [maxMountedMessages, messages, transcriptWindowStart],
   );
   const gotoRequest = useChatStore((state) => state.gotoRequest);
+  useLayoutEffect(() => {
+    if (!vnHistoryOpen || !pendingVnHistoryScroll.current) return;
+    pendingVnHistoryScroll.current = false;
+    const element = scrollRef.current;
+    if (!element) return;
+    let followOpening = true;
+    const scrollToLatest = () => {
+      if (followOpening) element.scrollTop = element.scrollHeight;
+    };
+    const stopFollowing = () => {
+      followOpening = false;
+    };
+    const frame = requestAnimationFrame(scrollToLatest);
+    // Images mount with the transcript. Keep the opening anchor while they load,
+    // but let the reader take over as soon as they interact with history.
+    element.addEventListener("load", scrollToLatest, true);
+    for (const event of ["wheel", "touchmove", "pointerdown", "keydown"])
+      element.addEventListener(event, stopFollowing, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      element.removeEventListener("load", scrollToLatest, true);
+      for (const event of ["wheel", "touchmove", "pointerdown", "keydown"])
+        element.removeEventListener(event, stopFollowing);
+    };
+  }, [vnHistoryOpen, scrollRef]);
   useEffect(() => {
     if (!visualNovel || vnHistoryOpen) return;
     const revealEditor = (event: Event) => {
@@ -1879,6 +1928,13 @@ export function ChatRoleplaySurface({
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
         {weatherEffects && <WeatherEffectsConnected paused={weatherEffectsPaused} />}
+        {visualNovel && !vnHistoryOpen && (
+          <div
+            ref={setVnMediaTarget}
+            data-roleplay-vn-media
+            className="pointer-events-none absolute inset-x-3 top-0 bottom-0 z-[4] flex items-end justify-center gap-2 overflow-hidden pb-2"
+          />
+        )}
         {showSpriteOverlay && (
           <Suspense fallback={null}>
             <SpriteOverlay
@@ -1892,7 +1948,9 @@ export function ChatRoleplaySurface({
               editing={spriteArrangeMode}
               spriteScale={spriteScale}
               expressionSpriteScale={expressionSpriteScale}
-              fullBodySpriteScale={visualNovel ? vnSpriteScale : fullBodySpriteScale}
+              fullBodySpriteScale={fullBodySpriteScale}
+              spriteScaleMultiplier={visualNovel ? vnSpriteScale : 1}
+              activeCharacterIds={visualNovel ? activeVnSpriteIds : undefined}
               spriteOpacity={spriteOpacity}
               expressionSpriteOpacity={expressionSpriteOpacity}
               fullBodySpriteOpacity={fullBodySpriteOpacity}
@@ -2265,7 +2323,14 @@ export function ChatRoleplaySurface({
               </Suspense>
             )}
 
-            <div data-chat-resource-drop-surface className="absolute inset-0 z-10 overflow-hidden">
+            <div
+              data-chat-resource-drop-surface
+              className={cn(
+                "absolute z-10 overflow-hidden",
+                visualNovel && vnHistoryOpen ? "mari-roleplay-input-column inset-x-0 mx-auto px-3 md:px-0" : "inset-0",
+                visualNovel && !vnHistoryOpen && "pointer-events-none",
+              )}
+            >
               <div
                 ref={scrollRef}
                 data-chat-scroll
@@ -2276,15 +2341,16 @@ export function ChatRoleplaySurface({
                   "rpg-chat-messages-mobile mari-messages-scroll relative h-full overflow-y-auto overflow-x-hidden",
                   centerCompact ? "px-3" : "px-3 md:px-8 lg:px-10 xl:px-12",
                   visualNovel && !vnHistoryOpen && "invisible pointer-events-none",
-                  visualNovel && vnHistoryOpen && "bg-[var(--background)]/95",
+                  visualNovel &&
+                    vnHistoryOpen &&
+                    "rounded-t-xl border border-b-0 border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)]",
                 )}
                 style={{
-                  paddingTop: "var(--mari-roleplay-content-padding-top, 16px)",
-                  paddingBottom:
-                    "calc(var(--mari-roleplay-content-padding-bottom, 16px) + var(--mari-message-editor-scroll-space, 0px))",
-                  scrollPaddingTop: "var(--mari-roleplay-scroll-padding-top, 16px)",
-                  scrollPaddingBottom:
-                    "calc(var(--mari-roleplay-scroll-padding-bottom, 16px) + var(--mari-message-editor-scroll-space, 0px))",
+                  paddingTop: visualNovel && vnHistoryOpen ? "16px" : "var(--mari-roleplay-content-padding-top, 16px)",
+                  paddingBottom: `calc(${visualNovel && vnHistoryOpen ? "16px" : "var(--mari-roleplay-content-padding-bottom, 16px)"} + var(--mari-message-editor-scroll-space, 0px))`,
+                  scrollPaddingTop:
+                    visualNovel && vnHistoryOpen ? "16px" : "var(--mari-roleplay-scroll-padding-top, 16px)",
+                  scrollPaddingBottom: `calc(${visualNovel && vnHistoryOpen ? "16px" : "var(--mari-roleplay-scroll-padding-bottom, 16px)"} + var(--mari-message-editor-scroll-space, 0px))`,
                 }}
               >
                 {hasNextPage && (
@@ -2454,10 +2520,19 @@ export function ChatRoleplaySurface({
               >
                 {visualNovel && (
                   <div className="relative mb-2" data-roleplay-vn>
-                    <div className="flex justify-center">
+                    <div
+                      className={cn(
+                        "flex justify-center",
+                        vnHistoryOpen &&
+                          "rounded-b-xl border border-t-0 border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)]",
+                      )}
+                    >
                       <button
                         type="button"
-                        className="flex min-h-11 min-w-16 items-center justify-center rounded-t-xl border border-b-0 border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-button-text)] hover:text-[var(--marinara-chat-chrome-highlight-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+                        className={cn(
+                          "relative flex h-6 w-10 items-center justify-center border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-button-text)] before:absolute before:-inset-x-1 before:-inset-y-2.5 hover:text-[var(--marinara-chat-chrome-highlight-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]",
+                          vnHistoryOpen ? "rounded-b-lg border-t-0" : "rounded-t-lg border-b-0",
+                        )}
                         aria-expanded={vnHistoryOpen}
                         aria-controls="roleplay-chat-history"
                         aria-label={localizeUi(
@@ -2467,13 +2542,17 @@ export function ChatRoleplaySurface({
                           vnHistoryOpen ? "chat.roleplayVn.hideHistory" : "chat.roleplayVn.showHistory",
                         )}
                         onClick={() => {
+                          if (!vnHistoryOpen) {
+                            setTranscriptWindowStart(null);
+                            pendingVnHistoryScroll.current = true;
+                          }
                           setVnHistoryHasDraft(
                             vnHistoryOpen && !!scrollRef.current?.querySelector("[data-chat-message-editor]"),
                           );
                           setVnHistoryOpen((open) => !open);
                         }}
                       >
-                        {vnHistoryOpen ? <ChevronDown size="1.25rem" /> : <ChevronUp size="1.25rem" />}
+                        {vnHistoryOpen ? <ChevronDown size="0.875rem" /> : <ChevronUp size="0.875rem" />}
                       </button>
                     </div>
                     {!vnHistoryOpen && (
@@ -2483,6 +2562,7 @@ export function ChatRoleplaySurface({
                             <RegeneratingMessageContent
                               msg={messages.find((message) => message.id === regenerateMessageId)!}
                               visualNovel
+                              visualNovelMediaTarget={vnMediaTarget}
                               chatMode="roleplay"
                               characterMap={characterMap}
                               personaInfo={personaInfo}
@@ -2509,6 +2589,7 @@ export function ChatRoleplaySurface({
                             key={`${activeChatId}:${latestVnMessage.id}:${latestVnMessage.activeSwipeIndex}`}
                             message={latestVnMessage}
                             visualNovel
+                            visualNovelMediaTarget={vnMediaTarget}
                             chatMode="roleplay"
                             characterMap={characterMap}
                             personaInfo={personaInfo}

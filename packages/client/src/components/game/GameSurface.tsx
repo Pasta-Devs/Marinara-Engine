@@ -10798,7 +10798,7 @@ function GameSurfaceComponent({
             }
             isDraftingMap={generateSetupMapDraft.isPending}
             isLinkingSharedWorld={Boolean(activePendingSharedWorldSetupApply)}
-            characters={characters}
+            characters={libraryCharacters}
             initialPartyCharacterIds={initialSetupPartyCharacterIds}
           />
           {activePendingSharedWorldSetupApply ? (

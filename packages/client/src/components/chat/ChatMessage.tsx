@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Chat: Message — mode-aware rendering
 // ──────────────────────────────────────────────
+import { createPortal } from "react-dom";
 import { cn, copyToClipboard, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
@@ -886,6 +887,7 @@ interface ChatMessageProps {
   isStreaming?: boolean;
   /** Compact paragraph presentation; full message actions stay in the history. */
   visualNovel?: boolean;
+  visualNovelMediaTarget?: HTMLElement | null;
   /** Whether the live Roleplay response has begun emitting visible output. */
   streamingOutputStarted?: boolean;
   /** Frame-throttled live content that receives the same formatter as committed messages. */
@@ -1763,6 +1765,7 @@ export const ChatMessage = memo(function ChatMessage({
   message,
   isStreaming,
   visualNovel = false,
+  visualNovelMediaTarget,
   streamingOutputStarted = false,
   streamingContent,
   onDelete,
@@ -3039,41 +3042,58 @@ export const ChatMessage = memo(function ChatMessage({
     </>
   );
 
+  const hasVnMediaTarget = visualNovel && !!visualNovelMediaTarget;
+  const renderRoleplayImage = (image: ReactNode, key: number) =>
+    hasVnMediaTarget ? createPortal(image, visualNovelMediaTarget!, `${message.id}:${key}`) : image;
   const roleplayAttachments = isRoleplay &&
     !editing &&
     extra.attachments?.length > 0 &&
     !IMAGE_URL_RE.test(message.content.trim()) && (
-      <div className="mt-1.5 flex flex-col items-center gap-2 px-3 pb-2">
+      <div className={hasVnMediaTarget ? "contents" : "mt-1.5 flex flex-col items-center gap-2 px-3 pb-2"}>
         {extra.attachments.map((att: any, i: number) =>
           att.roleplaySound === true ? null : att.type === "image" || att.type?.startsWith("image/") ? (
-            <div key={i} className="group/att relative inline-block">
-              <button
-                type="button"
-                onClick={() => openAttachmentImageLightbox(att, i)}
-                className="block"
-                title={localizeUi("ui.noodle.noodlepostcard.openImage")}
-                aria-label={localizeUi("ui.chat.chatmessage.openValue1", {
-                  value1: att.filename || att.name || localizeUi("ui.ui.spritegenerationmodal.image"),
-                })}
+            renderRoleplayImage(
+              <div
+                key={i}
+                className={cn(
+                  "group/att relative",
+                  hasVnMediaTarget
+                    ? "pointer-events-auto flex h-full min-h-0 min-w-0 max-w-3xl flex-1 items-end justify-center"
+                    : "inline-block",
+                )}
               >
-                <ChatImagePreview
-                  src={att.url || att.data}
-                  alt={att.filename || att.name || "image"}
-                  className="max-h-[70vh] max-w-full rounded-lg object-contain sm:max-h-[32rem]"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRemoveAttachment(i)}
-                aria-label={localizeUi("ui.chat.chatmessage.removeImageFromMessage")}
-                title={localizeUi("ui.chat.chatmessage.removeFromMessage")}
-                className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white/80 transition-opacity hover:bg-black/80 hover:text-white sm:opacity-0 sm:group-hover/att:opacity-100"
-              >
-                <X size="0.875rem" />
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => openAttachmentImageLightbox(att, i)}
+                  className={hasVnMediaTarget ? "flex h-full min-h-0 w-full items-end justify-center" : "block"}
+                  title={localizeUi("ui.noodle.noodlepostcard.openImage")}
+                  aria-label={localizeUi("ui.chat.chatmessage.openValue1", {
+                    value1: att.filename || att.name || localizeUi("ui.ui.spritegenerationmodal.image"),
+                  })}
+                >
+                  <ChatImagePreview
+                    src={att.url || att.data}
+                    alt={att.filename || att.name || "image"}
+                    className={cn(
+                      "max-w-full rounded-lg object-contain",
+                      hasVnMediaTarget ? "max-h-full" : "max-h-[70vh] sm:max-h-[32rem]",
+                    )}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveAttachment(i)}
+                  aria-label={localizeUi("ui.chat.chatmessage.removeImageFromMessage")}
+                  title={localizeUi("ui.chat.chatmessage.removeFromMessage")}
+                  className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white/80 transition-opacity hover:bg-black/80 hover:text-white sm:opacity-0 sm:group-hover/att:opacity-100"
+                >
+                  <X size="0.875rem" />
+                </button>
+              </div>,
+              i,
+            )
           ) : (
             <div
               key={i}
@@ -3671,7 +3691,6 @@ export const ChatMessage = memo(function ChatMessage({
                 onClick={handleCopy}
                 title={localizeUi("lorebook.editor.batch.copy")}
               />
-              {!isStreaming && <ReplyToMessageButton message={message} name={displayName} />}
               <ActionBtn
                 icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={() => translate(message.id, message.content, message.chatId)}
@@ -4142,7 +4161,9 @@ export const ChatMessage = memo(function ChatMessage({
               onClick={handleCopy}
               title={localizeUi("lorebook.editor.batch.copy")}
             />
-            {!isStreaming && <ReplyToMessageButton message={message} name={displayName} />}
+            {chatMode === "conversation" && !isStreaming && (
+              <ReplyToMessageButton message={message} name={displayName} />
+            )}
             <ActionBtn
               icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
               onClick={() => translate(message.id, message.content, message.chatId)}

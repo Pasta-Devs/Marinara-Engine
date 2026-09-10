@@ -508,8 +508,15 @@ export function createAgentPipeline(
      */
     async postGenerate(
       mainResponse: string,
-      options: { preGenInjections?: AgentInjection[]; parallelResults?: AgentResult[] } = {},
+      options: {
+        preGenInjections?: AgentInjection[];
+        parallelResults?: AgentResult[];
+        agentTypeFilter?: (agentType: string) => boolean;
+      } = {},
     ): Promise<AgentResult[]> {
+      const postAgents = agents.filter(
+        (agent) => agent.phase === "post_processing" && (options.agentTypeFilter?.(agent.type) ?? true),
+      );
       const fullContext: AgentContext = {
         ...baseContext,
         mainResponse,
@@ -517,13 +524,8 @@ export function createAgentPipeline(
         parallelResults: options.parallelResults ?? parallelPhaseResults,
       };
 
-      const preparedContext = preparePostContext
-        ? await preparePostContext(
-            agents.filter((agent) => agent.phase === "post_processing"),
-            fullContext,
-          )
-        : fullContext;
-      return runPostProcessingAgents(agents, preparedContext, wrappedOnResult, resolveAgentContext);
+      const preparedContext = preparePostContext ? await preparePostContext(postAgents, fullContext) : fullContext;
+      return runPostProcessingAgents(postAgents, preparedContext, wrappedOnResult, resolveAgentContext);
     },
 
     /** All results collected so far. */

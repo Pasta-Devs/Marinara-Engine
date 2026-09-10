@@ -30,6 +30,7 @@ let metadataPath = "/props";
 let metadataHook: (() => Promise<void>) | undefined;
 let metadataRedirect: string | undefined;
 const prompts: string[] = [];
+let mainResponse = "A fixture response.";
 const provider = createServer(async (req, res) => {
   if (req.method === "GET") {
     assert.equal(req.headers.authorization, "Bearer fixture");
@@ -53,7 +54,11 @@ const provider = createServer(async (req, res) => {
     ? JSON.stringify({ direction: "UNEXPECTED_DIRECTOR", text: "UNEXPECTED_DIRECTOR" })
     : prompt.includes("You are Narrative Director maintaining a hidden long-term arc")
       ? JSON.stringify({ overarchingArc: { description: "PLOT_FIXTURE", completed: false } })
-      : "A fixture response.";
+      : prompt.includes("manual_gallery_illustration_request")
+        ? JSON.stringify({ prompt: "A quiet laboratory", characters: [], aspectRatio: "landscape" })
+        : prompt.includes("ILLUSTRATOR_FIXTURE")
+          ? JSON.stringify({ shouldGenerate: false, reason: "No image needed for this fixture." })
+          : mainResponse;
   if (body.stream) {
     res.writeHead(200, { "content-type": "text/event-stream" });
     res.end(
@@ -184,6 +189,42 @@ try {
   const { characterDataSchema } = await import("../../packages/shared/src/schemas/character.schema.js");
   const character = await createCharactersStorage(db).create(characterDataSchema.parse({ name: "Dottore" }));
   assert.ok(character);
+  const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
+  const presets = createPromptsStorage(db);
+  const modelPreset = await presets.create({ name: "Model macro proof" });
+  assert.ok(modelPreset);
+  await presets.createSection({
+    presetId: modelPreset.id,
+    identifier: "main",
+    name: "Main",
+    content: "MODEL_PROOF={{model}}",
+  });
+  const modelChat = await chats.create({
+    name: "Model macro",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: connection.id,
+    promptPresetId: modelPreset.id,
+  });
+  assert.ok(modelChat);
+  await chats.patchMetadata(modelChat.id, { enableAgents: false });
+  const overrideConnection = await connections.create({
+    name: "Model override",
+    provider: "custom",
+    baseUrl: connection.baseUrl,
+    model: "override-model",
+    apiKey: "fixture",
+  });
+  assert.ok(overrideConnection);
+  for (const selected of [connection, overrideConnection]) {
+    const payload = { chatId: modelChat.id, connectionId: selected.id, userMessage: "Check the selected model." };
+    const preview = await app.inject({ method: "POST", url: "/api/generate/dryRun", payload });
+    assert.equal(preview.statusCode, 200, preview.body);
+    assert.ok(prompts.at(-1)!.includes(`MODEL_PROOF=${selected.model}`), prompts.at(-1));
+    const generated = await app.inject({ method: "POST", url: "/api/generate/", payload });
+    assert.equal(generated.statusCode, 200, generated.body);
+    assert.ok(prompts.at(-1)!.includes(`MODEL_PROOF=${selected.model}`), prompts.at(-1));
+  }
   for (const mode of ["conversation", "roleplay"] as const) {
     const chat = await chats.create({
       name: `Reply fixture ${mode}`,
@@ -346,6 +387,152 @@ try {
     "turning Secret Plot off preserves its saved arc",
   );
   replaceBuiltInAgentDefinitions([]);
+
+  replaceBuiltInAgentDefinitions([
+    {
+      id: "illustrator",
+      name: "Illustrator",
+      description: "Synthetic host cadence fixture",
+      phase: "post_processing",
+      enabledByDefault: false,
+      category: "writer",
+      defaultTools: [],
+      defaultPromptTemplate: "ILLUSTRATOR_FIXTURE",
+      modeAllowlist: ["roleplay"],
+    },
+  ]);
+  const illustrator = await agents.create({
+    type: "illustrator",
+    name: "Illustrator",
+    phase: "post_processing",
+    connectionId: connection.id,
+    promptTemplate: "ILLUSTRATOR_FIXTURE",
+    settings: { runInterval: 3 },
+  });
+  assert.ok(illustrator);
+  const artChat = await chats.create({
+    name: "Illustrator cadence",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: connection.id,
+    promptPresetId: null,
+  });
+  assert.ok(artChat);
+  await chats.patchMetadata(artChat.id, {
+    enableAgents: true,
+    activeAgentIds: ["illustrator"],
+    roleplayCommandsEnabled: true,
+    roleplayCommandToggles: { illustrate: true },
+  });
+  const illustrateTurn = async () => {
+    const before = prompts.length;
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/generate/",
+      payload: { chatId: artChat.id, userMessage: "The experiment continues." },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    assert.ok(!response.body.includes('"type":"error"'), response.body);
+    return prompts.slice(before).filter((prompt) => prompt.includes("ILLUSTRATOR_FIXTURE"));
+  };
+  assert.equal((await illustrateTurn()).length, 1, "Commands enabled must not remove automatic Illustrator");
+  assert.equal((await illustrateTurn()).length, 0, "two new messages are below Run Interval 3");
+  assert.equal((await illustrateTurn()).length, 1, "the next turn reaches the saved interval checkpoint");
+  await agents.update(illustrator.id, { settings: { runInterval: 0 } });
+  assert.equal((await illustrateTurn()).length, 0, "manual-only stays manual even with Commands enabled");
+  await agents.update(illustrator.id, { settings: { runInterval: 1 } });
+  await chats.patchMetadata(artChat.id, { enableAgents: false });
+  assert.equal((await illustrateTurn()).length, 0, "the automatic agent master switch is respected");
+  await chats.patchMetadata(artChat.id, { enableAgents: true });
+  mainResponse = '[illustrate: subject="The laboratory" characters="Dottore"] The scene changes.';
+  const commandRequests = await illustrateTurn();
+  assert.equal(commandRequests.length, 1, "an explicit illustration command replaces the automatic decision");
+  assert.match(commandRequests[0]!, /manual_gallery_illustration_request/);
+  mainResponse = "A fixture response.";
+  replaceBuiltInAgentDefinitions([]);
+
+  const characters = createCharactersStorage(db);
+  const removed = await characters.create(characterDataSchema.parse({ name: "Departing party member" }));
+  assert.ok(removed);
+  const savedGames = [];
+  for (let index = 0; index < 2; index++) {
+    const game = await chats.create({
+      name: `Party deletion ${index}`,
+      mode: "game",
+      characterIds: [removed.id, character.id, "npc:fixture"],
+      connectionId: null,
+      promptPresetId: null,
+    });
+    assert.ok(game);
+    await chats.patchMetadata(game.id, {
+      gamePartyCharacterIds: [removed.id, character.id, "npc:fixture"],
+      gameSetupConfig: {
+        gmCharacterId: removed.id,
+        partyCharacterIds: [removed.id, character.id],
+        title: "Preserve this",
+      },
+      keep: "unrelated",
+    });
+    const message = await chats.createMessage({
+      chatId: game.id,
+      role: "assistant",
+      characterId: removed.id,
+      content: "Preserve historical narration.",
+    });
+    savedGames.push({ game, message });
+  }
+  const otherChat = await chats.create({
+    name: "Historical conversation",
+    mode: "conversation",
+    characterIds: [removed.id],
+    connectionId: null,
+    promptPresetId: null,
+  });
+  assert.ok(otherChat);
+  await characters.remove(removed.id);
+  for (const { game, message } of savedGames) {
+    const saved = (await chats.getById(game.id))!;
+    const meta = JSON.parse(saved.metadata);
+    assert.deepEqual(JSON.parse(saved.characterIds), [character.id, "npc:fixture"]);
+    assert.deepEqual(meta.gamePartyCharacterIds, [character.id, "npc:fixture"]);
+    assert.deepEqual(meta.gameSetupConfig, {
+      gmCharacterId: null,
+      partyCharacterIds: [character.id],
+      title: "Preserve this",
+    });
+    assert.equal(meta.keep, "unrelated");
+    assert.equal((await chats.getMessage(message!.id))!.content, "Preserve historical narration.");
+  }
+  assert.deepEqual(
+    JSON.parse((await chats.getById(otherChat.id))!.characterIds),
+    [removed.id],
+    "non-Game history is untouched",
+  );
+
+  const { parseImageGenerationUserSettings } =
+    await import("../../packages/server/src/services/image/image-generation-settings.js");
+  assert.deepEqual(parseImageGenerationUserSettings(null).characterSheet, { width: 1280, height: 720 });
+  assert.deepEqual(
+    parseImageGenerationUserSettings(JSON.stringify({ imageBackgroundWidth: 1536, imageBackgroundHeight: 1024 }))
+      .characterSheet,
+    { width: 1536, height: 1024 },
+    "legacy sheet dimensions are preserved",
+  );
+  const imageSettings = parseImageGenerationUserSettings(
+    JSON.stringify({
+      imageBackgroundWidth: 2048,
+      imageBackgroundHeight: 1152,
+      imageCharacterSheetWidth: 1024,
+      imageCharacterSheetHeight: 768,
+    }),
+  );
+  assert.deepEqual(imageSettings.background, { width: 2048, height: 1152 });
+  assert.deepEqual(imageSettings.characterSheet, { width: 1024, height: 768 });
+  assert.deepEqual(
+    parseImageGenerationUserSettings(JSON.stringify({ imageCharacterSheetWidth: -1, imageCharacterSheetHeight: 9999 }))
+      .characterSheet,
+    { width: 64, height: 4096 },
+  );
 
   const source = await chats.create({
     name: "DM source",

@@ -4,8 +4,9 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 test.use({ actionTimeout: 10000 });
 
+const readMetadata = (chat: any) => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : chat.metadata);
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
-async function fixture(request: APIRequestContext, mode: "conversation" | "roleplay") {
+async function fixture(request: APIRequestContext, mode: "conversation" | "roleplay" | "game") {
   const character = await (
     await request.post("/api/characters", { data: { data: { name: "Dottore", first_mes: "" } } })
   ).json();
@@ -31,7 +32,7 @@ async function fixture(request: APIRequestContext, mode: "conversation" | "rolep
     },
   };
 }
-async function open(page: Page, chatId: string, state = {}) {
+async function open(page: Page, chatId: string, state = {}, waitForComposer = true) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await seedUIState(
     page,
@@ -55,10 +56,9 @@ async function open(page: Page, chatId: string, state = {}) {
     { chatId, version },
   );
   await page.goto("/");
-  await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
+  if (waitForComposer) await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
 }
 for (const [mode, style] of [
-  ["roleplay", "classic"],
   ["conversation", "classic"],
   ["conversation", "bubble"],
 ] as const) {
@@ -153,6 +153,52 @@ for (const [mode, style] of [
   });
 }
 
+test("Roleplay omits Reply from message actions and keeps the restored DM control in Connected Chats", async ({
+  page,
+  request,
+  isMobile,
+}) => {
+  const data = await fixture(request, "roleplay");
+  try {
+    await open(page, data.chat.id);
+    const row = page.locator(`[data-message-id="${data.message.id}"]`).first();
+    if (isMobile) await row.getByText(/A quiet laboratory/).click();
+    else await row.hover();
+    await expect(row.getByRole("button", { name: "Reply", exact: true })).toHaveCount(0);
+    await page.evaluate(async () => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      useChatStore.getState().setShouldOpenSettings(true);
+    });
+    const connected = page.locator('[data-chat-settings-section="roleplay-connected-chats"]');
+    const header = connected.locator('[role="button"][aria-expanded]').first();
+    if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
+    const toggle = connected.getByRole("checkbox", { name: /^Allow character DMs/ });
+    const label = connected.locator(`label[for="${await toggle.getAttribute("id")}"]`).first();
+    await expect(toggle).not.toBeChecked();
+    await label.click();
+    await expect(toggle).toBeChecked();
+    await expect
+      .poll(
+        async () =>
+          readMetadata(await (await request.get(`/api/chats/${data.chat.id}`)).json()).roleplayCommandToggles.dm,
+      )
+      .toBe(true);
+    await label.click();
+    await expect(toggle).not.toBeChecked();
+    await expect
+      .poll(
+        async () =>
+          readMetadata(await (await request.get(`/api/chats/${data.chat.id}`)).json()).roleplayCommandToggles.dm,
+      )
+      .toBe(false);
+    expect(readMetadata(await (await request.get(`/api/chats/${data.chat.id}`)).json()).roleplayCommandsEnabled).toBe(
+      true,
+    );
+  } finally {
+    await data.cleanup();
+  }
+});
+
 test("Roleplay streaming applies matching regex immediately and keeps incomplete fragments", async ({
   page,
   request,
@@ -224,6 +270,113 @@ test("4K maximum display and chat font keep the composer and scrolling usable", 
     await expect(input).toBeInViewport();
     await page.screenshot({ path: info.outputPath("4k-maximum-size.png") });
     await info.attach("4K maximum sizes", { path: info.outputPath("4k-maximum-size.png"), contentType: "image/png" });
+  } finally {
+    await data.cleanup();
+  }
+});
+
+test("Game setup offers library cards in both the GM and party pickers", async ({ page, request }, info) => {
+  const data = await fixture(request, "game");
+  try {
+    // A new game deliberately starts with no active party.
+    expect((await request.patch(`/api/chats/${data.chat.id}`, { data: { characterIds: [] } })).ok()).toBeTruthy();
+    await open(page, data.chat.id, {}, false);
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByRole("button", { name: /Character GM/ }).click();
+    const choices = page.getByRole("button", { name: /Dottore$/ });
+    await expect(choices).toHaveCount(2);
+    await choices.last().click();
+    await expect(page.getByText("Party Members (1 selected)", { exact: true })).toBeVisible();
+    await choices.first().click();
+    await expect(page.getByText("No characters found.", { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath("game-library-pickers.png") });
+  } finally {
+    await data.cleanup();
+  }
+});
+
+test("Character-sheet resolution migrates once and remains independent after a saved edit", async ({
+  page,
+  request,
+}, info) => {
+  const data = await fixture(request, "conversation");
+  try {
+    await page.route("**/api/capability-packages/agents", (route) =>
+      route.fulfill({
+        json: [
+          {
+            id: "illustrator",
+            name: "Illustrator",
+            description: "Settings fixture",
+            author: "Pasta Devs",
+            phase: "post_processing",
+            execution: "host",
+            enabledByDefault: false,
+            category: "misc",
+            modeAllowlist: ["roleplay"],
+            defaultPromptTemplate: "Return an image prompt.",
+          },
+        ],
+      }),
+    );
+    await open(page, data.chat.id, { imageBackgroundWidth: 1536, imageBackgroundHeight: 1024 });
+    await page.evaluate(() => {
+      const old = JSON.parse(localStorage.getItem("marinara-engine-ui")!);
+      old.version = 99;
+      delete old.state.imageCharacterSheetWidth;
+      delete old.state.imageCharacterSheetHeight;
+      localStorage.setItem("marinara-engine-ui", JSON.stringify(old));
+    });
+    await page.reload();
+    const openImageSettings = async () =>
+      page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        const ui = useUIStore.getState();
+        ui.openRightPanel("settings");
+        ui.setSettingsTab("generations");
+        ui.setSettingsTargetControlId("image-character-sheet-size");
+      });
+    await openImageSettings();
+    const sheets = page.locator("#settings-control-image-character-sheet-size input");
+    await expect(sheets.nth(0)).toHaveValue("1536");
+    await expect(sheets.nth(1)).toHaveValue("1024");
+    await sheets.nth(0).fill("768");
+    await sheets.nth(1).fill("1152");
+    await sheets.nth(1).blur();
+    const backgrounds = page.locator("#settings-control-image-background-size input");
+    await expect(backgrounds.nth(0)).toHaveValue("1536");
+    await expect(backgrounds.nth(1)).toHaveValue("1024");
+    await backgrounds.nth(0).fill("2048");
+    await backgrounds.nth(0).blur();
+    await page.reload();
+    await openImageSettings();
+    await expect(sheets.nth(0)).toHaveValue("768");
+    await expect(sheets.nth(1)).toHaveValue("1152");
+    await expect(backgrounds.nth(0)).toHaveValue("2048");
+    await sheets.nth(0).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath("independent-character-sheet-size.png") });
+    const saved = await page.evaluate(async () => {
+      const { pickSyncedSettings, useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      const state = pickSyncedSettings(useUIStore.getState());
+      return [state.imageCharacterSheetWidth, state.imageCharacterSheetHeight, state.imageBackgroundWidth];
+    });
+    expect(saved).toEqual([768, 1152, 2048]);
+  } finally {
+    await data.cleanup();
+  }
+});
+
+test("Conversation Help explains the Reply action", async ({ page, request }) => {
+  const data = await fixture(request, "conversation");
+  try {
+    await open(page, data.chat.id);
+    await page.evaluate(async () => {
+      const { requestChatHelp } = await import("/src/lib/chat-help-events.ts" as string);
+      requestChatHelp("conversation");
+    });
+    await page.getByRole("button", { name: /^Messages: Read the chat/ }).click();
+    await expect(page.getByText("Reply to this message or a selected passage.", { exact: true })).toBeVisible();
   } finally {
     await data.cleanup();
   }

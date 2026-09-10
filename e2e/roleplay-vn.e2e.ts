@@ -84,7 +84,7 @@ async function fixture(request: APIRequestContext, art = false) {
   }
 }
 
-async function open(page: Page, chatId: string, theme: "dark" | "light" = "dark") {
+async function open(page: Page, chatId: string, theme: "dark" | "light" = "dark", state = {}) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await seedUIState(
     page,
@@ -95,6 +95,7 @@ async function open(page: Page, chatId: string, theme: "dark" | "light" = "dark"
       chatHelpSeenModes: ["roleplay"],
       theme,
       appAccentPulseMode: false,
+      ...state,
     },
     "if-missing",
   );
@@ -362,13 +363,122 @@ test("Roleplay VN shows dice and image-only messages without findLast support", 
     });
     expect(attachment.ok(), await attachment.text()).toBeTruthy();
     await page.reload();
-    await expect(vn.getByRole("img", { name: "portrait.png", exact: true })).toBeVisible();
+    await expect(
+      page.locator("[data-roleplay-vn-media]").getByRole("img", { name: "portrait.png", exact: true }),
+    ).toBeVisible();
     await page.screenshot({ path: info.outputPath("vn-attachment.png"), animations: "disabled" });
-    await vn.getByRole("button", { name: "Open portrait.png", exact: true }).click();
+    await page
+      .locator("[data-roleplay-vn-media]")
+      .getByRole("button", { name: "Open portrait.png", exact: true })
+      .click();
     await expect(page.getByRole("dialog", { name: "Image preview", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Close image", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Image preview", exact: true })).toHaveCount(0);
   } finally {
     await data.cleanup();
+  }
+});
+
+test("VN history opens at the newest message and scene art respects size, activity, and layering", async ({
+  page,
+  request,
+}, info) => {
+  const data = await fixture(request, true);
+  const extras: string[] = [];
+  try {
+    const image = readFileSync(
+      new URL("../packages/client/public/sprites/mari/Mari_wave.png", import.meta.url),
+    ).toString("base64");
+    for (const name of ["Second active", "Inactive"]) {
+      const created = await request.post("/api/characters", { data: { data: { name, first_mes: "" } } });
+      expect(created.ok()).toBeTruthy();
+      const character = await created.json();
+      extras.push(character.id);
+      expect(
+        (
+          await request.post(`/api/sprites/${character.id}`, {
+            data: { expression: "full_neutral", image: `data:image/png;base64,${image}` },
+          })
+        ).ok(),
+      ).toBeTruthy();
+    }
+    const ids = [data.character.id, ...extras];
+    expect((await request.patch(`/api/chats/${data.chat.id}`, { data: { characterIds: ids } })).ok()).toBeTruthy();
+    expect(
+      (
+        await request.patch(`/api/chats/${data.chat.id}/metadata`, {
+          data: { spriteCharacterIds: ids, fullBodySpriteScale: 0.6 },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    for (let index = 0; index < 24; index++) {
+      expect(
+        (
+          await request.post(`/api/chats/${data.chat.id}/messages`, {
+            data: {
+              role: "assistant",
+              characterId: data.character.id,
+              content: `Earlier scene ${index}. ` + "History passage. ".repeat(20),
+            },
+          })
+        ).ok(),
+      ).toBeTruthy();
+    }
+    const latestResponse = await request.post(`/api/chats/${data.chat.id}/messages`, {
+      data: {
+        role: "assistant",
+        characterId: data.character.id,
+        content: "The newest turn.\n\nThe experiment is ready.",
+        extra: {
+          spriteExpressions: { [ids[0]!]: "neutral", [ids[1]!]: "neutral" },
+          attachments: [
+            { type: "image", url: "/illustrations/marinara-universal-preset.webp", filename: "Scene illustration" },
+          ],
+        },
+      },
+    });
+    expect(latestResponse.ok()).toBeTruthy();
+    const latest = await latestResponse.json();
+    await open(page, data.chat.id, "dark", { roleplayVnSpriteScale: 1 });
+    const vn = page.locator("[data-roleplay-vn]");
+    const art = page.locator("[data-roleplay-vn-media]");
+    await expect(art.getByRole("img", { name: "Scene illustration" })).toBeVisible();
+    await expect(vn.getByRole("img", { name: "Scene illustration" })).toHaveCount(0);
+    const artBox = await art.boundingBox();
+    const vnBox = await vn.boundingBox();
+    expect(artBox!.y + artBox!.height).toBeLessThanOrEqual(vnBox!.y + 1);
+    const sprites = page.getByRole("img", { name: /full.*sprite/i });
+    await expect(sprites).toHaveCount(3);
+    for (let index = 0; index < 3; index++) {
+      await expect(sprites.nth(index)).toHaveCSS("--game-sprite-scale", "0.6");
+      await expect(sprites.nth(index).locator("..")).toHaveCSS("opacity", index < 2 ? "1" : "0.45");
+    }
+    const expand = vn.getByRole("button", { name: "Show chat history" });
+    const expandBox = await expand.boundingBox();
+    expect(expandBox!.height).toBeLessThanOrEqual(28);
+    expect(expandBox!.width).toBeLessThanOrEqual(44);
+    await page.screenshot({ path: info.outputPath("vn-scene-layering.png"), animations: "disabled" });
+    await art.getByRole("button", { name: "Open Scene illustration" }).click();
+    await expect(page.getByRole("dialog", { name: "Image preview" })).toBeVisible();
+    await page.getByRole("button", { name: "Close image", exact: true }).click();
+    await expand.click();
+    const history = page.locator("[data-chat-scroll]");
+    await expect
+      .poll(() => history.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight))
+      .toBeLessThan(3);
+    await expect(history.locator(`[data-message-id="${latest.id}"]`).first()).toBeInViewport();
+    await expect(history.getByRole("button", { name: "Reply", exact: true })).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath("vn-history-bottom.png"), animations: "disabled" });
+    await history.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await vn.getByRole("button", { name: "Return to Visual Novel" }).click();
+    await expand.click();
+    await expect
+      .poll(() => history.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight))
+      .toBeLessThan(3);
+  } finally {
+    await data.cleanup();
+    for (const id of extras) await request.delete(`/api/characters/${id}`);
   }
 });

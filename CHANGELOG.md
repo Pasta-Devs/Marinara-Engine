@@ -52,7 +52,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Character sheet images have their own resolution setting under Image Generation, independent of backgrounds (#6022).
 
-- Reply to a whole message or selected passage in Conversation and Roleplay. Quote previews stay in history while only the latest user turn repeats its quote to the model (#6002).
+- Reply to a whole message or selected passage in Conversation. Quote previews stay in history while only the latest user turn repeats its quote to the model (#6002).
 - Larger display sizes (26, 30, and 34 px) and chat text up to 72 px improve readability on high-resolution displays (#6006).
 - Refresh the loaded context limit of local KoboldCpp, TabbyAPI, and llama.cpp-compatible connections when the page opens; offline or unsupported endpoints keep the saved limit (#6003).
 
@@ -112,6 +112,16 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Roleplay Chat Summary can now generate multiple explicit message ranges sequentially, keeping each result as its own chronological batch entry with per-range progress and retry status.
 
 ### Fixed
+
+- Roleplay command notes and reminders join the existing tracker Context block, with concise narrator guidance. Each character keeps the newest three active reminders; Illustrator command guidance highlights surprises and important moments (#6027).
+
+- Preset `{{model}}` macros now use the model selected for the generation or preview, including connection overrides (#6018).
+- Restored the character DM switch under Roleplay Connected Chats, using the same permissions as Roleplay Commands (#6019).
+- Illustrator respects its automatic Run Interval when Roleplay illustration commands are enabled; an explicit turn illustration takes precedence (#6020).
+- Deleting a library character removes it from Game parties and saved setup choices, and party counts ignore already deleted cards (#6021).
+- Reply actions appear only in Conversation, with an explanation in its Help legend (#6023).
+- Visual Novel history opens at the latest message with compact controls attached to its box. Sprites retain configured sizes, inactive characters fade, and turn illustrations appear above the message behind sprites and open at full size on tap (#6024).
+- New Game setup uses the character library for its Game Master and party pickers (#6025).
 
 - Conversation swipe controls align with the start of the message row. Hidden mobile actions and disabled swipe controls no longer leave unused space below messages (#6009).
 - New Termux storage leases can recover after a stopped server without rebooting, even when Android cannot establish PID ownership. Active writers remain protected (#6010).

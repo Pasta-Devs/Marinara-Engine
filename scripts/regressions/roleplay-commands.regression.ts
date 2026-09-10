@@ -25,6 +25,7 @@ import { conversationPromptHistoryContent } from "../../packages/server/src/rout
 import { generateRoleplaySoundEffect } from "../../packages/server/src/routes/tts.routes.js";
 import { prepareRoleplayRoll } from "../../packages/server/src/services/generation/roleplay-rolls.js";
 import type { RPGStatsConfig } from "../../packages/shared/src/types/character.js";
+import { buildCommittedTrackerContextBlock } from "../../packages/server/src/services/generation/committed-tracker-context.js";
 
 const cancelledSound = new AbortController();
 cancelledSound.abort();
@@ -184,6 +185,37 @@ assert.match(alice.notes, /ALICE_LIE/u);
 assert.doesNotMatch(alice.notes, /My cover story/u);
 assert.equal(alice.reminders.size, 1);
 assert.match(alice.reminders.get("key")!, /tonight/u);
+const remember = (id: string, content = id, characterId = "alice") => ({
+  role: "assistant",
+  characterId,
+  extra: { roleplayPrivateCommands: [{ type: "memory", id, content }] },
+});
+const threeReminders = [remember("oldest"), remember("second"), remember("third")];
+assert.deepEqual(
+  [...readRoleplayPersonalState(threeReminders).get("alice")!.reminders.keys()],
+  ["oldest", "second", "third"],
+);
+const overflow = readRoleplayPersonalState([
+  ...threeReminders,
+  remember("oldest", "updated"),
+  remember("fourth"),
+  remember("bob-one", "Bob only", "bob"),
+]);
+assert.deepEqual(
+  [...overflow.get("alice")!.reminders.keys()],
+  ["second", "third", "fourth"],
+  "updating an existing reminder preserves its creation order; the fourth evicts the oldest",
+);
+assert.equal(overflow.get("bob")!.reminders.size, 1, "the three-reminder cap belongs to each character");
+assert.deepEqual(
+  [
+    ...readRoleplayPersonalState(Array.from({ length: 25 }, (_, index) => remember(String(index))))
+      .get("alice")!
+      .reminders.keys(),
+  ],
+  ["22", "23", "24"],
+  "legacy history also resolves to the newest three active reminders",
+);
 const dismissed = readRoleplayPersonalState([
   ...history,
   {
@@ -234,6 +266,10 @@ for (const format of ["xml", "markdown", "none"] as const) {
   assert.doesNotMatch(context("alice"), /BOB_SECRET/u);
   assert.match(context("narrator"), /BOB_SECRET/u);
   assert.match(context("narrator"), /ALICE_LIE/u);
+  assert.equal(
+    context("narrator").split("\n\n")[0],
+    "Private character state, do not reveal those notes to the reader or treat them as knowledge other characters posses. You are the selected narrator. Use those intentions to create plausible opportunities, obstacles, and consequences. Do not guarantee success, control the players' choices, or expose secrets without in-world discovery. Only change your own notes and reminders.",
+  );
   assert.doesNotMatch(context("bob"), /ALICE_LIE/u);
   assert.equal(context("narrator", { roleplayCommandNarratorId: "deleted-character" }), "");
   assert.equal(context("alice", { roleplayCommandsEnabled: false }), "");
@@ -247,6 +283,11 @@ for (const format of ["xml", "markdown", "none"] as const) {
   assert.doesNotMatch(reminder, /\[illustrate:/u, "an unavailable image agent must not be offered");
   assert.doesNotMatch(reminder, /YOUR|LIES|DECEPTIONS|Maximum \d|\n\s*\n\s*-/u);
   assert.match(reminder, /keep it short/iu);
+  assert.ok(
+    reminder.includes(
+      "only up to three reminders can exist at the same time; if you create more, the oldest one will be removed.",
+    ),
+  );
   const section = format === "xml" ? "<commands>" : format === "markdown" ? "## Commands" : "Commands:";
   assert.ok(reminder.startsWith(section));
   const tracker =
@@ -268,6 +309,41 @@ for (const format of ["xml", "markdown", "none"] as const) {
   assert.ok(messages[2]!.content.indexOf(section) > messages[2]!.content.indexOf("ALICE_LIE"));
   if (format === "xml") assert.equal(messages[2]!.content.match(/<context>/gu)?.length, 1);
   if (format === "markdown") assert.match(messages[2]!.content, /### Alice's Personal Notes/u);
+  const committed = buildCommittedTrackerContextBlock({
+    chatEnableAgents: true,
+    activeAgentIds: ["world-state"],
+    latestGameState: { location: "TRACKER_LAB" },
+    chatMetadata: {},
+    wrapFormat: format,
+  });
+  assert.ok(committed);
+  const separated = [
+    { role: "user", content: tracker, contextKind: "history" },
+    { role: "user", content: committed, contextKind: "injection" },
+    { role: "system", content: "OUTPUT_FORMAT", contextKind: "injection" },
+    { role: "user", content: "LATEST_INPUT", contextKind: "history" },
+    { role: "assistant", content: "PREFILL", contextKind: "injection" },
+  ];
+  const privateState = context("narrator") + "\nLiteral $& and $' stay intact.";
+  const publicTracker = { ...separated[1] };
+  appendRoleplayPromptTail(separated, privateState, reminder, format);
+  assert.equal(separated[0]!.content, tracker, "historical Context text must not receive private state");
+  assert.ok(separated[1]!.content.includes(privateState), "private state joins the earlier tracker injection verbatim");
+  assert.equal(publicTracker.content, committed, "a copied public agent prompt remains private-state free");
+  assert.equal(separated[2]!.content, "OUTPUT_FORMAT");
+  assert.equal(separated[4]!.content, "PREFILL");
+  assert.ok(separated[3]!.content.includes(reminder));
+  assert.doesNotMatch(separated[3]!.content, /ALICE_LIE|BOB_SECRET/);
+  if (format === "xml") assert.equal(separated[1]!.content.match(/<context>/gu)?.length, 1);
+  if (format === "markdown") {
+    const customHeading = [
+      { role: "user", content: "##Context\nTRACKER", contextKind: "injection" },
+      { role: "user", content: "Latest" },
+    ];
+    appendRoleplayPromptTail(customHeading, privateState, "", format);
+    assert.ok(customHeading[0]!.content.includes(privateState));
+    assert.equal(customHeading[1]!.content, "Latest");
+  }
 }
 assert.equal(
   buildRoleplayPersonalContext({
@@ -345,6 +421,7 @@ for (const format of ["xml", "markdown", "none"] as const) {
   assert.match(prompt("narrator"), /\[roll: character=/u);
   assert.match(prompt("narrator"), /\[document:/u);
   assert.match(prompt("alice"), /\[illustrate:.*characters=/u);
+  assert.match(prompt("alice"), /surprise the user or capture an important moment/u);
   assert.doesNotMatch(prompt("alice"), /\[roll:|\[combat\]|\[document:/u);
   assert.doesNotMatch(prompt(null), /\[roll:|\[combat\]|\[document:/u);
   assert.doesNotMatch(prompt("narrator", new Set()), /\[illustrate:|\[combat\]/u);

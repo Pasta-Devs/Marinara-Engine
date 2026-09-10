@@ -5,6 +5,7 @@ import { and, asc, desc, eq, inArray, like, ne, or } from "../../db/file-query.j
 import type { DB } from "../../db/connection.js";
 import {
   characters,
+  chats,
   characterCardVersions,
   personas,
   personaCardVersions,
@@ -779,6 +780,45 @@ export function createCharactersStorage(db: DB) {
             .where(eq(lorebooks.id, lorebookId));
         }
         await tx.delete(characters).where(eq(characters.id, id));
+        const gameChats = await tx.select().from(chats).where(eq(chats.mode, "game"));
+        for (const chat of gameChats) {
+          let memberIds: unknown;
+          let metadata: Record<string, unknown>;
+          try {
+            memberIds = JSON.parse(chat.characterIds);
+            metadata = JSON.parse(chat.metadata);
+          } catch {
+            continue;
+          }
+          if (!Array.isArray(memberIds) || !metadata || typeof metadata !== "object" || Array.isArray(metadata))
+            continue;
+          const config = metadata.gameSetupConfig;
+          const setup =
+            config && typeof config === "object" && !Array.isArray(config)
+              ? (config as Record<string, unknown>)
+              : undefined;
+          const partyIds = Array.isArray(metadata.gamePartyCharacterIds) ? metadata.gamePartyCharacterIds : [];
+          const setupPartyIds = Array.isArray(setup?.partyCharacterIds) ? setup.partyCharacterIds : [];
+          if (
+            !memberIds.includes(id) &&
+            !partyIds.includes(id) &&
+            !setupPartyIds.includes(id) &&
+            setup?.gmCharacterId !== id
+          )
+            continue;
+          if (partyIds.includes(id)) metadata.gamePartyCharacterIds = partyIds.filter((memberId) => memberId !== id);
+          if (setup && setupPartyIds.includes(id))
+            setup.partyCharacterIds = setupPartyIds.filter((memberId) => memberId !== id);
+          if (setup?.gmCharacterId === id) setup.gmCharacterId = null;
+          await tx
+            .update(chats)
+            .set({
+              characterIds: JSON.stringify(memberIds.filter((memberId) => memberId !== id)),
+              metadata: JSON.stringify(metadata),
+              updatedAt: now(),
+            })
+            .where(eq(chats.id, chat.id));
+        }
         const groups = await tx.select().from(characterGroups);
         for (const group of groups) {
           let memberIds: string[];

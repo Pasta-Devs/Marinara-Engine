@@ -929,6 +929,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Input",
   },
   {
+    id: "image-character-sheet-size",
+    sectionId: "image-generation",
+    label: "Character sheets",
+    description: "Set character reference sheet dimensions independently of backgrounds.",
+    aliases: ["image", "resolution", "canvas", "character", "reference", "sheet"],
+    kind: "Input",
+  },
+  {
     id: "image-selfie-size",
     sectionId: "image-generation",
     label: "Selfie image size",
@@ -1985,6 +1993,7 @@ function ImageDimensionRow({
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 sm:w-40">
         <DraftNumberInput
           value={width}
+          aria-label={localizeUi("settings.imageDimensions.width", { label })}
           min={64}
           max={4096}
           commitOnValidChange
@@ -1996,6 +2005,7 @@ function ImageDimensionRow({
         </span>
         <DraftNumberInput
           value={height}
+          aria-label={localizeUi("settings.imageDimensions.height", { label })}
           min={64}
           max={4096}
           commitOnValidChange
@@ -4043,6 +4053,9 @@ function ImageGenerationSettings() {
   const imagePortraitWidth = useUIStore((s) => s.imagePortraitWidth);
   const imagePortraitHeight = useUIStore((s) => s.imagePortraitHeight);
   const setImagePortraitDimensions = useUIStore((s) => s.setImagePortraitDimensions);
+  const imageCharacterSheetWidth = useUIStore((s) => s.imageCharacterSheetWidth);
+  const imageCharacterSheetHeight = useUIStore((s) => s.imageCharacterSheetHeight);
+  const setImageCharacterSheetDimensions = useUIStore((s) => s.setImageCharacterSheetDimensions);
   const imageSelfieWidth = useUIStore((s) => s.imageSelfieWidth);
   const imageSelfieHeight = useUIStore((s) => s.imageSelfieHeight);
   const setImageSelfieDimensions = useUIStore((s) => s.setImageSelfieDimensions);
@@ -4088,6 +4101,14 @@ function ImageGenerationSettings() {
           width={imagePortraitWidth}
           height={imagePortraitHeight}
           onCommit={setImagePortraitDimensions}
+        />
+        <ImageDimensionRow
+          controlId="image-character-sheet-size"
+          label={localizeUi("settings.controls.characterSheets.label")}
+          help={localizeUi("settings.controls.characterSheets.help")}
+          width={imageCharacterSheetWidth}
+          height={imageCharacterSheetHeight}
+          onCommit={setImageCharacterSheetDimensions}
         />
         <ImageDimensionRow
           controlId="image-selfie-size"

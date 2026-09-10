@@ -277,7 +277,7 @@ export function buildCommittedTrackerContextBlock(args: {
   if (trackerParts.length === 0) return null;
 
   return args.wrapFormat === "none"
-    ? trackerParts.join("\n\n")
+    ? `Context:\n${trackerParts.join("\n\n")}`
     : args.wrapFormat === "xml"
       ? `<context>\n${trackerParts.map((part) => "    " + part.replace(/\n/g, "\n    ")).join("\n")}\n</context>`
       : `# Context\n*(Established state as of the last message. Do not re-describe — advance from here.)*\n${trackerParts.join("\n")}`;

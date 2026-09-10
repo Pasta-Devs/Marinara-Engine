@@ -9396,6 +9396,38 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
+    name: "prompt assembly resolves the request model and keeps an absent model empty",
+    async run() {
+      for (const model of [undefined, "vendor/model-a", "override-model-b"]) {
+        const result = await assemblePrompt({
+          db: undefined as unknown as DB,
+          model,
+          preset: {
+            id: "model-macro",
+            name: "Model macro",
+            sectionOrder: JSON.stringify(["main"]),
+            groupOrder: "[]",
+            wrapFormat: "xml",
+            parameters: "{}",
+            variableGroups: "[]",
+            variableValues: "{}",
+          },
+          sections: [promptSection({ id: "main", identifier: "main", name: "Main", content: "Model: {{model}}." })],
+          groups: [],
+          choiceBlocks: [],
+          chatChoices: {},
+          chatId: "model-macro",
+          characterIds: [],
+          personaName: "Mari",
+          personaDescription: "",
+          chatMessages: [],
+          disableLorebooks: true,
+        });
+        assert.ok(result.messages.some((message) => message.content.includes(`Model: ${model ?? ""}.`)));
+      }
+    },
+  },
+  {
     name: "impersonate assembly skips fallback preset sections but preserves dedicated impersonate presets",
     async run() {
       const chatMessages: ChatMLMessage[] = [
