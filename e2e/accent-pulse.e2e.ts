@@ -176,6 +176,25 @@ test.describe("Marinara accent defaults", () => {
     });
   }
 
+  test("new relationship and timer widgets follow the accent while saved colors survive", async ({ page }) => {
+    await seedUIState(page, { hasCompletedOnboarding: true });
+    await page.goto("/");
+    const widgets = await page.evaluate(async () => {
+      const { createDefaultGameHudWidget, normalizeGameHudWidgets } = await import(
+        "/src/components/game/GameWidgetSetupEditor.tsx" as string
+      );
+      return ["relationship_meter", "timer"].map((type) => {
+        const widget = createDefaultGameHudWidget(type, []);
+        const [saved] = normalizeGameHudWidgets([{ ...widget, accent: "#f472b6" }]);
+        return { defaultAccent: widget.accent, savedAccent: saved.accent };
+      });
+    });
+    expect(widgets).toEqual([
+      { defaultAccent: "var(--marinara-chat-chrome-accent)", savedAccent: "#f472b6" },
+      { defaultAccent: "var(--marinara-chat-chrome-accent)", savedAccent: "#f472b6" },
+    ]);
+  });
+
   for (const savedPulse of [undefined, false, true]) {
     test(`legacy preferences preserve color and Pulse=${String(savedPulse)}`, async ({ page }, testInfo) => {
       await page.addInitScript(
