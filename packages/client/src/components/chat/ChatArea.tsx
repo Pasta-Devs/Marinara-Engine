@@ -33,6 +33,7 @@ import {
 } from "../../hooks/use-chats";
 
 import { getCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
+import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useGenerate } from "../../hooks/use-generate";
 import { useGenerateGallerySelfie } from "../../hooks/use-gallery";
 import {
@@ -284,6 +285,7 @@ const shouldIgnoreIntuitiveSwipeTarget = (
   target: EventTarget | null,
   { allowEmptyMainComposer = false }: { allowEmptyMainComposer?: boolean } = {},
 ): boolean => {
+  if (hasActiveTextSelection()) return true;
   if (!(target instanceof Element)) return false;
   if (
     allowEmptyMainComposer &&
@@ -2509,6 +2511,7 @@ export const ChatArea = memo(function ChatArea() {
   const openedAtBottomChatIdRef = useRef<string | null>(null);
   const streamScrollFrameRef = useRef(0);
   const scrollToMessagesBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    if (hasActiveTextSelection()) return;
     const el = scrollRef.current;
     if (el) {
       el.scrollTo({ top: el.scrollHeight, behavior });

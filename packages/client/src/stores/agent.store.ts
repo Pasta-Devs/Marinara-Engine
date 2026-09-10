@@ -5,6 +5,7 @@ import { create } from "zustand";
 import {
   ECHO_CHAMBER_MESSAGE_LIMIT,
   enqueueEchoChamberMessages,
+  normalizeEchoChamberMessages,
   type EchoChamberMessage,
 } from "../lib/echo-chamber-queue";
 import type {
@@ -186,8 +187,8 @@ interface AgentState {
   dismissThoughtBubble: (index: number) => void;
   clearThoughtBubbles: () => void;
   addEchoMessage: (characterName: string, reaction: string) => void;
-  enqueueEchoMessages: (reactions: Array<{ characterName: string; reaction: string }>) => void;
-  setEchoMessages: (messages: Array<{ characterName: string; reaction: string; timestamp: number }>) => void;
+  enqueueEchoMessages: (reactions: unknown) => void;
+  setEchoMessages: (messages: unknown) => void;
   clearEchoMessages: () => void;
   setEchoVisibleCount: (count: number) => void;
   revealNextEchoMessage: () => void;
@@ -467,7 +468,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   setEchoMessages: (messages) =>
     set((state) => {
-      const nextMessages = messages.slice(-ECHO_CHAMBER_MESSAGE_LIMIT);
+      const nextMessages = normalizeEchoChamberMessages(messages, 0).slice(-ECHO_CHAMBER_MESSAGE_LIMIT);
       return {
         echoMessages: nextMessages,
         echoVisibleCount: Math.min(state.echoVisibleCount, nextMessages.length),

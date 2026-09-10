@@ -42,6 +42,7 @@ import { ConversationMessageLine } from "./ConversationMessageLine";
 import { MessageReactions } from "./MessageReactions";
 import { MessageThinkingModal } from "./MessageThinkingModal";
 import { useChatStore } from "../../stores/chat.store";
+import { hasActiveTextSelection } from "../../lib/text-selection";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { resolveMessageReasoningDisplay } from "../../lib/message-reasoning";
 import {
@@ -748,7 +749,7 @@ export const ConversationMessage = memo(function ConversationMessage({
         });
         return;
       }
-      if (!matchMedia("(pointer: coarse)").matches) return;
+      if (!matchMedia("(pointer: coarse)").matches || hasActiveTextSelection()) return;
       setShowActions((v) => !v);
     },
     [isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect],

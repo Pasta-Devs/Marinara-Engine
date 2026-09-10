@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Malformed Echo Chamber reactions no longer crash the chat. Native text selections pause automatic chat scrolling and take priority over touch shortcuts and composer focus handling (#6039).
 - Roleplay's notes command explicitly explains how characters can edit existing notes by supplying their full updated contents (#6039).
 
 - Added an optional Visual Novel display for Roleplay: completed paragraphs appear above the existing composer with dialogue portraits and configured sprites. Open the attached history arrow for the full transcript and all message actions. Choose Classic or Visual Novel during setup or in Appearance → Roleplay, with separate portrait and sprite scales. Dice results and image attachments remain visible.

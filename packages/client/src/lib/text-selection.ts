@@ -55,3 +55,18 @@ export function restoreTextSelectionAfterRender(snapshot: TextSelectionSnapshot)
     }
   };
 }
+
+/** Native selections belong to the browser, including selections inside editors. */
+export function hasActiveTextSelection(): boolean {
+  if (typeof document === "undefined") return false;
+  const active = document.activeElement;
+  if (
+    (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) &&
+    active.selectionStart !== null &&
+    active.selectionEnd !== null &&
+    active.selectionStart !== active.selectionEnd
+  )
+    return true;
+  const selection = document.getSelection();
+  return !!selection && !selection.isCollapsed;
+}

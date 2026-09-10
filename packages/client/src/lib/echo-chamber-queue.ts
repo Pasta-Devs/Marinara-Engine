@@ -24,6 +24,29 @@ export type EchoChamberMessage = {
   timestamp: number;
 };
 
+/** Validate agent/API output before it reaches message rendering. */
+export function normalizeEchoChamberMessages(value: unknown, now = Date.now()): EchoChamberMessage[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((message, index) => {
+    if (
+      !message ||
+      typeof message.characterName !== "string" ||
+      !message.characterName.trim() ||
+      typeof message.reaction !== "string" ||
+      !message.reaction.trim()
+    )
+      return [];
+    return [
+      {
+        characterName: message.characterName,
+        reaction: message.reaction,
+        timestamp:
+          typeof message.timestamp === "number" && Number.isFinite(message.timestamp) ? message.timestamp : now + index,
+      },
+    ];
+  });
+}
+
 export type EchoChamberQueueState = {
   messages: EchoChamberMessage[];
   visibleCount: number;
@@ -37,19 +60,15 @@ export type EchoChamberQueueState = {
  */
 export function enqueueEchoChamberMessages(
   state: EchoChamberQueueState,
-  reactions: Array<{ characterName: string; reaction: string }>,
+  reactions: unknown,
   now = Date.now(),
 ): EchoChamberQueueState {
-  if (reactions.length === 0) return state;
+  const incoming = normalizeEchoChamberMessages(reactions, now);
+  if (incoming.length === 0) return state;
 
   const currentMessages = state.messages.slice(-ECHO_CHAMBER_MESSAGE_LIMIT);
   const visibleBefore = Math.min(Math.max(0, state.visibleCount), currentMessages.length);
   const baselineBefore = Math.min(Math.max(0, state.baseline), currentMessages.length);
-  const incoming = reactions.map((reaction, index) => ({
-    characterName: reaction.characterName,
-    reaction: reaction.reaction,
-    timestamp: now + index,
-  }));
   const uncapped = [...currentMessages, ...incoming];
   const droppedCount = Math.max(0, uncapped.length - ECHO_CHAMBER_MESSAGE_LIMIT);
 

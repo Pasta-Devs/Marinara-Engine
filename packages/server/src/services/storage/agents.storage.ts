@@ -434,10 +434,15 @@ export function createAgentsStorage(db: DB) {
       for (const row of rows) {
         try {
           const data = JSON.parse(row.resultData);
-          const reactions = data?.reactions ?? [];
+          const reactions = Array.isArray(data?.reactions) ? data.reactions : [];
           const ts = new Date(row.createdAt).getTime();
           for (const r of reactions) {
-            if (r.characterName && r.reaction) {
+            if (
+              typeof r?.characterName === "string" &&
+              r.characterName.trim() &&
+              typeof r.reaction === "string" &&
+              r.reaction.trim()
+            ) {
               messages.push({ characterName: r.characterName, reaction: r.reaction, timestamp: ts });
             }
           }

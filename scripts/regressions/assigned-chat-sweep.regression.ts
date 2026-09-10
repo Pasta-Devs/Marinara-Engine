@@ -307,6 +307,41 @@ try {
     },
   ]);
   const agents = createAgentsStorage(db);
+  // Saved malformed Echo rows must not crash readers or drop valid siblings.
+  const echoChat = await chats.create({ name: "Echo validation", mode: "roleplay", characterIds: [] });
+  assert.ok(echoChat);
+  for (const reactions of [
+    {},
+    [
+      null,
+      { reaction: "Missing name" },
+      { characterName: 42, reaction: "Wrong name type" },
+      { characterName: "   ", reaction: "Blank name" },
+      { characterName: "Reader", reaction: {} },
+      { characterName: "Reader", reaction: " " },
+      { characterName: "Reader", reaction: "Valid saved reaction" },
+    ],
+  ]) {
+    await agents.saveRun({
+      agentConfigId: "echo-fixture",
+      chatId: echoChat.id,
+      messageId: null,
+      result: {
+        agentId: "echo-fixture",
+        agentType: "echo-chamber",
+        type: "echo_message",
+        data: { reactions },
+        tokensUsed: 0,
+        durationMs: 0,
+        success: true,
+        error: null,
+      },
+    });
+  }
+  assert.deepEqual(
+    (await agents.getEchoMessages(echoChat.id)).map(({ characterName, reaction }) => ({ characterName, reaction })),
+    [{ characterName: "Reader", reaction: "Valid saved reaction" }],
+  );
   const director = await agents.create({
     type: "director",
     name: "Narrative Director",

@@ -34,6 +34,7 @@ import { PendingTypingDots } from "./PendingTypingDots";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
 import { PinnedImageOverlay } from "./PinnedImageOverlay";
 import { useChatStore } from "../../stores/chat.store";
+import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useConversationGamesStore } from "../../stores/conversation-games.store";
 import { useUIStore } from "../../stores/ui.store";
 import { playConfiguredNotificationPing } from "../../lib/notification-sound";
@@ -576,6 +577,7 @@ export function ConversationView({
     keyboardOpen || composerFocused || hasLiveStream || hasDraftInput || isFetchingNextPage;
 
   const scrollToMessagesBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    if (hasActiveTextSelection()) return;
     const el = scrollRef.current;
     if (el) {
       el.scrollTo({ top: el.scrollHeight, behavior });

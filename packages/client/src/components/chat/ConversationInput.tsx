@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useChatStore } from "../../stores/chat.store";
+import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
@@ -2210,6 +2211,7 @@ export function ConversationInput({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onPointerDown={(event) => {
+          if (hasActiveTextSelection()) return;
           const target = event.target as HTMLElement;
           if (target.closest("button, input, textarea, select, a, [role='button']")) return;
           event.preventDefault();

@@ -467,8 +467,8 @@ assert.match(
   "active Roleplay tracker agents should expose their saved prompt templates",
 );
 assert.match(reducedAmbientEffectsHookSource, /manualPreference \|\| systemPreference/u);
-  assert.match(uiStoreSource, /version: UI_PERSISTENCE.version/u);
-  assert.ok(UI_PERSISTENCE.version >= 99, "the Roleplay persistence migration must remain applied");
+assert.match(uiStoreSource, /version: UI_PERSISTENCE.version/u);
+assert.ok(UI_PERSISTENCE.version >= 99, "the Roleplay persistence migration must remain applied");
 assert.match(globalStylesSource, /data-marinara-reduced-effects/u);
 const accentTransitionStyles =
   globalStylesSource.match(
@@ -1668,6 +1668,45 @@ assert.deepEqual(
   ],
   "tracker batch debug output should describe the real combined request",
 );
+
+// Agent output and persisted history are untrusted even when the API is typed.
+const malformedEchoReactions = [
+  null,
+  "not a reaction",
+  { reaction: "Missing name" },
+  { characterName: 42, reaction: "Wrong name type" },
+  { characterName: "   ", reaction: "Empty name" },
+  { characterName: "Watcher", reaction: { text: "Wrong reaction type" } },
+  { characterName: "Watcher", reaction: "  " },
+  { characterName: "Watcher", reaction: "A valid reaction" },
+];
+useAgentStore.getState().clearEchoMessages();
+useAgentStore.getState().enqueueEchoMessages(malformedEchoReactions);
+assert.deepEqual(
+  useAgentStore.getState().echoMessages.map(({ characterName, reaction }) => ({ characterName, reaction })),
+  [{ characterName: "Watcher", reaction: "A valid reaction" }],
+  "a malformed reaction must not enter the UI queue or hide valid siblings",
+);
+useAgentStore
+  .getState()
+  .setEchoMessages([
+    ...malformedEchoReactions,
+    { characterName: "Reader", reaction: "Valid saved reaction", timestamp: 12 },
+  ]);
+assert.equal(useAgentStore.getState().echoMessages.length, 2);
+assert.equal(useAgentStore.getState().echoMessages[0]?.timestamp, 7);
+assert.equal(useAgentStore.getState().echoMessages[1]?.timestamp, 12);
+for (const value of [null, {}, "malformed", 7]) {
+  useAgentStore.getState().enqueueEchoMessages(value);
+  assert.equal(useAgentStore.getState().echoMessages.length, 2);
+  useAgentStore.getState().setEchoMessages(value);
+  assert.equal(useAgentStore.getState().echoMessages.length, 0);
+  useAgentStore.getState().setEchoMessages([
+    { characterName: "A", reaction: "A" },
+    { characterName: "B", reaction: "B" },
+  ]);
+}
+useAgentStore.getState().clearEchoMessages();
 
 const queuedEchoBatch = enqueueEchoChamberMessages(
   {

@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useCallback, useRef } from "react";
 import { audioManager } from "../lib/game-audio";
+import { normalizeEchoChamberMessages } from "../lib/echo-chamber-queue";
 import { characterDataSchema, normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { toast, type ExternalToast } from "sonner";
@@ -2001,8 +2002,7 @@ export function useGenerate() {
                 // Push echo-chamber reactions to the dedicated echo store
                 if (result.agentType === "echo-chamber") {
                   const d = result.data as Record<string, unknown>;
-                  const reactions = (d.reactions as Array<{ characterName: string; reaction: string }>) ?? [];
-                  enqueueEchoMessages(reactions);
+                  enqueueEchoMessages(d.reactions);
                 }
 
                 // Push CYOA choices to the dedicated store
@@ -3686,8 +3686,7 @@ export function useGenerate() {
               if (result.success && result.data) {
                 if (result.agentType === "echo-chamber") {
                   const d = result.data as Record<string, unknown>;
-                  const reactions = (d.reactions as Array<{ characterName: string; reaction: string }>) ?? [];
-                  if (shouldApplyVisibleResult) enqueueEchoMessages(reactions);
+                  if (shouldApplyVisibleResult) enqueueEchoMessages(d.reactions);
                 }
                 // CYOA re-roll: push the freshly generated choices into the store
                 // so the buttons in CyoaChoices.tsx swap in immediately.
@@ -4084,9 +4083,9 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
     }
 
     case "echo-chamber": {
-      const reactions = (d.reactions as any[]) ?? [];
+      const reactions = normalizeEchoChamberMessages(d.reactions);
       if (!reactions.length) return null;
-      return reactions.map((r: any) => `💬 ${r.characterName}: ${r.reaction}`).join("\n");
+      return reactions.map((r) => `💬 ${r.characterName}: ${r.reaction}`).join("\n");
     }
 
     case "spotify": {
