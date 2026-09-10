@@ -1,5 +1,6 @@
 // Run: pnpm exec tsx scripts/regressions/toast-history.check.mjs
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { mergeRecentActivity } from "../../packages/client/src/lib/activity-history.ts";
 import { captureToastHistory } from "../../packages/client/src/lib/toast-history.ts";
 
@@ -66,5 +67,14 @@ assert.equal(merged[0].source, "toast");
 assert.equal(merged[0].occurredAt, 1_100);
 assert.equal(merged[1].source, "task");
 assert.equal(merged.at(-1).occurredAt, 850);
+
+// Capture must live in an always-rendered component. Mission Control moved into a lazily mounted
+// Settings tab once, which silently stopped capture until the user opened that tab.
+const capturePath = "packages/client/src/components/layout/TopBar.tsx";
+assert.match(
+  readFileSync(capturePath, "utf8"),
+  /useToastHistoryCapture\(\)/,
+  `${capturePath} must mount useToastHistoryCapture; a lazily mounted reader captures nothing`,
+);
 
 console.log("toast-history self-check passed");

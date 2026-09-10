@@ -1406,6 +1406,8 @@
   "settings.storageOptimization.found_one": "Found 1 abandoned avatar older than {{minutes}} minutes ({{size}}).",
   "settings.storageOptimization.found_other": "Found {{count}} abandoned avatars older than {{minutes}} minutes ({{size}}).",
   "settings.storageOptimization.scanning": "Checking avatar storage…",
+  "settings.tabs.activity.description": "Running missions, background work, and what just happened.",
+  "settings.tabs.activity.label": "Activity",
   "settings.tabs.addons.description": "Personal Extensions and custom themes.",
   "settings.tabs.addons.label": "Addons",
   "settings.tabs.advanced.description": "Admin access, updates, tools, backups, and danger zone.",

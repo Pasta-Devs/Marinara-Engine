@@ -26,7 +26,9 @@ import {
   PersonalExtensionContributionsMenu,
   PersonalExtensionTopbarButtons,
 } from "./PersonalExtensionContributionsMenu";
-import { EngineTasksMenu } from "./EngineTasksMenu";
+import { useTranslation } from "react-i18next";
+import { useEngineTasks } from "../../hooks/use-tasks";
+import { useToastHistoryCapture } from "../../hooks/use-toast-history";
 
 type RightPanelButtonPanel = "lorebooks" | "presets" | "connections" | "agents" | "personas";
 
@@ -90,6 +92,12 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
+  const setSettingsTab = useUIStore((s) => s.setSettingsTab);
+  const { t } = useTranslation();
+  const { data: engineTasks } = useEngineTasks();
+  const activeMissions = engineTasks?.tasks.length ?? 0;
+  // The top bar is always mounted; the Settings tab that shows this history is not.
+  useToastHistoryCapture();
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
@@ -410,11 +418,13 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
           );
         })}
 
-        <EngineTasksMenu />
-
-        {/* Settings */}
+        {/* Settings, doubling as the Mission Control indicator. */}
         <button
-          onClick={() => handleRightPanelClick("settings")}
+          onClick={() => {
+            // Background work has no other ambient signal, so send the click where the answer is.
+            if (activeMissions > 0) setSettingsTab("activity");
+            handleRightPanelClick("settings");
+          }}
           data-tour="panel-settings"
           data-topbar-hover-key="settings"
           aria-pressed={rightPanelOpen && rightPanel === "settings"}
@@ -427,9 +437,19 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
                   isTopbarHovered("settings") && cn(TOPBAR_FORCE_HOVER_CLASS, "text-gray-300"),
                 ),
           )}
-          title={localize("Settings")}
+          title={activeMissions > 0 ? localize("Settings") + " — " + t("tasks.missionControl") : localize("Settings")}
         >
           <Settings size={15} className={TOPBAR_ACCENT_ICON_CLASS} />
+          {activeMissions > 0 && (
+            <span
+              role="status"
+              aria-live="polite"
+              aria-label={t("tasks.openMenu", { count: activeMissions })}
+              className="absolute -right-0.5 -top-0.5 min-w-3.5 rounded-full bg-[var(--primary)] px-1 text-center text-[0.5625rem] font-bold leading-3.5 text-[var(--primary-foreground)]"
+            >
+              {Math.min(activeMissions, 99)}
+            </span>
+          )}
           {rightPanelOpen && rightPanel === "settings" && (
             <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full bg-gradient-to-r from-gray-400 to-gray-500" />
           )}

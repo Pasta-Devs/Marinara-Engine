@@ -26,6 +26,7 @@ import {
   type TrackerThoughtBubbleDisplay,
   type VisualTheme,
 } from "../../stores/ui.store";
+import { MissionControlSettings } from "./settings/MissionControlSettings";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn, copyToClipboard } from "../../lib/utils";
@@ -102,6 +103,7 @@ import {
   Search,
   Palette,
   Puzzle,
+  Radio,
   CloudRain,
   FileCode2,
   FileText,
@@ -199,6 +201,14 @@ type CustomFontFace = {
 };
 
 const TABS = [
+  {
+    id: "activity",
+    label: "Activity",
+    labelKey: "settings.tabs.activity.label",
+    icon: Radio,
+    description: "Running missions, background work, and what just happened.",
+    descriptionKey: "settings.tabs.activity.description",
+  },
   {
     id: "general",
     label: "General",
@@ -1585,6 +1595,7 @@ function getNativeConsoleShortcutHelp(): string {
 }
 
 const SETTINGS_COMPONENTS: Record<(typeof TABS)[number]["id"], React.FC> = {
+  activity: React.memo(MissionControlSettings),
   general: React.memo(GeneralSettings),
   appearance: React.memo(AppearanceSettings),
   generations: React.memo(GenerationsSettings),
