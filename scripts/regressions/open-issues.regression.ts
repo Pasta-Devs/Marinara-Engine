@@ -1012,7 +1012,7 @@ assert.throws(
 assert.deepEqual(HOME_CHAT_MODE_ACCENTS, {
   conversation: "oklch(0.79 0.16 205)",
   roleplay: "oklch(0.76 0.19 52)",
-  game: "oklch(0.73 0.21 345)",
+  game: "var(--marinara-chat-chrome-accent)",
 });
 
 const backgroundOrganization = normalizeBackgroundLibraryOrganization({

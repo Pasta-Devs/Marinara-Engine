@@ -124,9 +124,9 @@ function formatRecoveryError(error: unknown) {
 
 function getRecoveryChromeStyle(): CSSProperties {
   const { appAccentColor, chatChromeTextColor, theme } = useUIStore.getState();
-  const defaultAccent = getDefaultAppAccentColor(theme);
+  const defaultAccent = getDefaultAppAccentColor();
   const accentSource = appAccentColor.trim() || defaultAccent;
-  const accent = getCssColorFallback(accentSource, defaultAccent);
+  const accent = getCssColorFallback(accentSource, getCssColorFallback(defaultAccent, "currentColor"));
   const accentGradient = isCssGradient(accentSource) ? accentSource : getSolidAccentGradient(accent);
   const textColor = chatChromeTextColor.trim();
   const chromeText = textColor
@@ -331,7 +331,7 @@ function resolveCssColor(color: string, fallback: string) {
 }
 
 function getAccentCursorColors(accent: string, theme: "dark" | "light") {
-  const fallback = getDefaultAppAccentColor(theme);
+  const fallback = getCssColorFallback(getDefaultAppAccentColor(), "currentColor");
   const fill = normalizeCursorColorForSvg(resolveCssColor(accent, fallback), fallback);
   const stroke = theme === "light" ? "#1a1025" : "#050312";
 
@@ -685,9 +685,10 @@ export function App() {
     const root = document.documentElement;
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const accent = appAccentColor.trim();
-    const defaultAccent = getDefaultAppAccentColor(theme);
+    const defaultAccent = getDefaultAppAccentColor();
+    const defaultSolidAccent = getCssColorFallback(defaultAccent, "currentColor");
     const accentSource = themeAccentPulseConfig.source || accent || defaultAccent;
-    const solidAccent = getCssColorFallback(accentSource, defaultAccent);
+    const solidAccent = getCssColorFallback(accentSource, defaultSolidAccent);
     const accentIsGradient = isCssGradient(accentSource);
     const animatedAccentSource = appAccentRgbMode ? RAINBOW_GRADIENT_PRESET : accentSource;
     const animatedSolidAccent = getCssColorFallback(animatedAccentSource, solidAccent);
@@ -781,7 +782,7 @@ export function App() {
           : getSolidRgbAccent(animatedSolidAccent);
       // Resolve on the small probe before changing inherited tokens. Nested
       // color-mix() values can abort WebKit while it resolves control backgrounds.
-      const liveAccent = resolveCssColor(mixedAccent, defaultAccent);
+      const liveAccent = resolveCssColor(mixedAccent, defaultSolidAccent);
 
       const liveGradient = getSolidAccentGradient(liveAccent);
       if (appAccentRgbMode) {

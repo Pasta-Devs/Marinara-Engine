@@ -4592,7 +4592,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const defaultAppBackgroundColor = getDefaultAppBackgroundColor(theme);
   const displayedAppBackgroundColor =
     appBackgroundColor.trim().toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : appBackgroundColor;
-  const defaultAppAccentColor = getDefaultAppAccentColor(theme);
+  const defaultAppAccentColor = getDefaultAppAccentColor();
   const displayedAppAccentColor =
     appAccentColor.trim().toLowerCase() === defaultAppAccentColor.toLowerCase() ? "" : appAccentColor;
   const visualTheme = useUIStore((s) => s.visualTheme);
@@ -5065,9 +5065,9 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   gradient
                   compact
                   label={localizeUi("settings.controls.accentColor.label")}
-                  helpText="Colors the shared app accent layer: buttons, active icons, focus rings, highlights, panel outlines, and chat chrome. Accent Pulse animates this selected color."
+                  helpText={localizeUi("settings.controls.accentColor.help")}
                   emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
-                    value1: defaultAppAccentColor,
+                    value1: localizeUi("ui.ui.colorpicker.marinaraGradient"),
                   })}
                   emptyPreviewValue={defaultAppAccentColor}
                   clearLabel="Reset to default"

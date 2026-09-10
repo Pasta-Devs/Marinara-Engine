@@ -340,7 +340,9 @@ const ENGINE_RELEASE_URL = `https://github.com/Pasta-Devs/Marinara-Engine/releas
 const HOME_MODULE_ACCENTS = {
   cyan: "oklch(0.79 0.16 205)",
   orange: "oklch(0.76 0.19 52)",
+  // Explicit custom-widget palette choice; built-in interface accents follow the theme.
   pink: "oklch(0.73 0.21 345)",
+  accent: "var(--marinara-chat-chrome-accent)",
   violet: "oklch(0.72 0.17 303)",
 } as const;
 
@@ -363,7 +365,7 @@ const HOME_STARS = Array.from({ length: 42 }, (_, index) => ({
   size: 1 + ((index * 13) % 4),
   delay: -((index * 0.71) % 8),
   duration: 4.8 + ((index * 0.43) % 5),
-  color: [HOME_MODULE_ACCENTS.cyan, HOME_MODULE_ACCENTS.orange, HOME_MODULE_ACCENTS.pink, "oklch(0.92 0.04 303)"][
+  color: [HOME_MODULE_ACCENTS.cyan, HOME_MODULE_ACCENTS.orange, HOME_MODULE_ACCENTS.accent, "oklch(0.92 0.04 303)"][
     index % 4
   ],
 }));
@@ -2459,7 +2461,7 @@ export function HomeBrowserHub({
                 <BrowserBookmark
                   onClick={() => setFaqOpen(true)}
                   icon={<img src="/home/tab-icons/faq.png" alt="" className="h-4 w-4 object-contain" />}
-                  tone={HOME_MODULE_ACCENTS.pink}
+                  tone={HOME_MODULE_ACCENTS.accent}
                   tourTarget="home-faq"
                 >
                   {t("home.browser.faqTab")}
@@ -2557,7 +2559,7 @@ export function HomeBrowserHub({
                     setFaqOpen(true);
                   }}
                   icon={<img src="/home/tab-icons/faq.png" alt="" className="h-4 w-4 object-contain" />}
-                  tone={HOME_MODULE_ACCENTS.pink}
+                  tone={HOME_MODULE_ACCENTS.accent}
                 >
                   {t("home.browser.faqTab")}
                 </MobileBrowserBookmark>
@@ -2898,7 +2900,7 @@ export function HomeBrowserHub({
                       <FeedModule
                         eyebrow={t("home.characterOfDay.eyebrow")}
                         title={t("home.characterOfDay.title")}
-                        accent={HOME_MODULE_ACCENTS.pink}
+                        accent={HOME_MODULE_ACCENTS.accent}
                         className="h-full"
                       >
                         {characterOfDay ? (
@@ -3025,7 +3027,7 @@ export function HomeBrowserHub({
                       <FeedModule
                         eyebrow={t("home.community.eyebrow")}
                         title={t("home.community.title")}
-                        accent={HOME_MODULE_ACCENTS.pink}
+                        accent={HOME_MODULE_ACCENTS.accent}
                         className="h-full"
                       >
                         <div className="mari-home-widget-shortcut-list grid content-center gap-1">
@@ -3159,7 +3161,7 @@ export function HomeBrowserHub({
               const label = widgetManagerLabel(id);
               const customWidget = customWidgetsById.get(id);
               const tones = [
-                HOME_MODULE_ACCENTS.pink,
+                HOME_MODULE_ACCENTS.accent,
                 HOME_MODULE_ACCENTS.cyan,
                 HOME_MODULE_ACCENTS.orange,
                 HOME_MODULE_ACCENTS.violet,

@@ -98,7 +98,7 @@ const MODE_BADGES: Record<CatalogMode, { labelKey: string; className: string }> 
   game: {
     labelKey: "ui.agents.agentcatalogview.gameMode",
     className:
-      "border-[color-mix(in_srgb,var(--mari-logo-pink)_55%,var(--border))] bg-[color-mix(in_srgb,var(--mari-logo-pink)_18%,transparent)]",
+      "border-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_55%,var(--border))] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_18%,transparent)]",
   },
 };
 

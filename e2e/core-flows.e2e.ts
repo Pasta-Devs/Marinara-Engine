@@ -54,6 +54,8 @@ async function prepareFreshClient(page: Page) {
       hasCompletedOnboarding: true,
       rightPanelOpen: false,
       sidebarOpen: false,
+      // Keep unrelated color assertions stable; accent-pulse.e2e.ts covers the device defaults.
+      appAccentPulseMode: false,
       chatHelpSeenModes: ["conversation", "roleplay", "game"],
     },
     "if-missing",
@@ -11573,7 +11575,12 @@ test("Home recent chats use mode colors and show character sprites", async ({ pa
   const expectedAccents = [
     ["Cyan chat", "oklch(0.79 0.16 205)"],
     ["Orange story", "oklch(0.76 0.19 52)"],
-    ["Pink game", "oklch(0.73 0.21 345)"],
+    [
+      "Pink game",
+      await page
+        .locator("html")
+        .evaluate((element) => getComputedStyle(element).getPropertyValue("--marinara-chat-chrome-accent").trim()),
+    ],
   ] as const;
   for (const [chatName, accent] of expectedAccents) {
     const card = page.getByRole("button", { name: new RegExp(chatName) });
@@ -21521,7 +21528,11 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
         getComputedStyle(element).getPropertyValue("--mari-panel-gradient-start").trim(),
       ),
     )
-    .toBe("#f472b6");
+    .toBe(
+      await page
+        .locator("html")
+        .evaluate((element) => getComputedStyle(element).getPropertyValue("--marinara-app-accent-solid").trim()),
+    );
 
   await chatsButton.click();
   await expect(mobileChatSidebar).toBeVisible();
@@ -21550,8 +21561,9 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   expect(errors).toEqual([]);
 });
 
-test("Characters topbar underline uses the Characters pink", async ({ page }) => {
+test("Characters topbar underline follows the selected accent", async ({ page }) => {
   await page.goto("/");
+  await setAppAccentColor(page, "#1e90ff");
   await page.locator('[data-tour="panel-characters"]').click();
 
   const underline = page.locator('[data-component="CharactersTopbarUnderline"]');
@@ -21560,7 +21572,7 @@ test("Characters topbar underline uses the Characters pink", async ({ page }) =>
     .poll(() =>
       underline.evaluate((element) => getComputedStyle(element).getPropertyValue("--mari-panel-gradient-start").trim()),
     )
-    .toBe("#f472b6");
+    .toBe("#1e90ff");
 });
 
 test("Updates shows the installed channel before checks and after a failed check", async ({ page }) => {

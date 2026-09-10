@@ -15,7 +15,7 @@ import {
   type ScenePromptPreferences,
 } from "@marinara-engine/shared";
 import type { LegacyNoodleNavigationState as NoodleNavigationState } from "../lib/legacy-noodle-navigation";
-import { isCssGradient, RAINBOW_GRADIENT_PRESET } from "../lib/css-colors";
+import { isCssGradient, MARINARA_GRADIENT_PRESET, RAINBOW_GRADIENT_PRESET } from "../lib/css-colors";
 import { announceChatFloatingUiDismiss } from "../lib/chat-floating-ui-events";
 import { detectConversationTimeZone, normalizeConversationTimeZone } from "../lib/conversation-time-zone";
 import { BASIC_PANEL_SORT_OPTIONS, normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
@@ -232,8 +232,6 @@ export const TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR = "#09090b";
 export const DEFAULT_APP_BACKGROUND_DARK = "#050312";
 export const DEFAULT_APP_BACKGROUND_LIGHT = "#faf8ff";
 const DEFAULT_APP_BACKGROUNDS = new Set([DEFAULT_APP_BACKGROUND_DARK, DEFAULT_APP_BACKGROUND_LIGHT]);
-export const DEFAULT_APP_ACCENT_DARK = "#d4acfb";
-export const DEFAULT_APP_ACCENT_LIGHT = "#d4acfb";
 const LEGACY_DEFAULT_APP_ACCENTS = new Set(["#d4d4d4", "#1a1025"]);
 export const DEFAULT_CHAT_TEXT_DARK = "#d4d4d4";
 export const DEFAULT_CHAT_TEXT_LIGHT = "#1a1025";
@@ -295,8 +293,13 @@ function normalizeUserActivity(activity: string): string {
   return activity.replace(/\s+/g, " ").trim().slice(0, USER_ACTIVITY_MAX_LENGTH);
 }
 
-export function getDefaultAppAccentColor(theme: "dark" | "light") {
-  return theme === "light" ? DEFAULT_APP_ACCENT_LIGHT : DEFAULT_APP_ACCENT_DARK;
+export function getDefaultAppAccentColor() {
+  return MARINARA_GRADIENT_PRESET;
+}
+
+export function getDefaultAppAccentPulseMode() {
+  // Device input, not window width: a narrow desktop window still gets the desktop default.
+  return typeof window !== "undefined" && !window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 }
 
 export function getDefaultAppBackgroundColor(theme: "dark" | "light") {
@@ -1713,7 +1716,7 @@ export const useUIStore = create<UIState>()(
         theme: "dark" as const,
         appBackgroundColor: "",
         appAccentColor: "",
-        appAccentPulseMode: false,
+        appAccentPulseMode: getDefaultAppAccentPulseMode(),
         appAccentRgbMode: false,
         customCursorEnabled: true,
         reduceAmbientEffects: false,
@@ -2753,6 +2756,7 @@ export const useUIStore = create<UIState>()(
             theme: "dark" as const,
             appBackgroundColor: "",
             appAccentColor: "",
+            appAccentPulseMode: getDefaultAppAccentPulseMode(),
             appAccentRgbMode: false,
             customCursorEnabled: true,
             reduceAmbientEffects: false,
@@ -3359,9 +3363,6 @@ export const useUIStore = create<UIState>()(
         if (version <= 59 && persisted.appAccentRgbMode === undefined) {
           persisted.appAccentRgbMode = false;
         }
-        if (version <= 60 && persisted.appAccentPulseMode === undefined) {
-          persisted.appAccentPulseMode = false;
-        }
         const legacyAccentBeforeRgb = persisted.appAccentColorBeforeRgbMode;
         if (
           version <= 61 &&
@@ -3410,11 +3411,12 @@ export const useUIStore = create<UIState>()(
         }
         persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
         persisted.appBackgroundColor = normalizeAppBackgroundColor(persisted.appBackgroundColor);
-        persisted.appAccentPulseMode = persisted.appAccentPulseMode === true;
+        if (typeof persisted.appAccentPulseMode !== "boolean") {
+          persisted.appAccentPulseMode = getDefaultAppAccentPulseMode();
+        }
         if (version <= 60 && persisted.appAccentRgbMode === true) {
-          const persistedTheme = persisted.theme === "light" ? "light" : "dark";
-          const persistedAccentSource = persisted.appAccentColor || getDefaultAppAccentColor(persistedTheme);
-          if (!isCssGradient(persistedAccentSource)) {
+          // The old scheme default was solid, even though today's default is a gradient.
+          if (!persisted.appAccentColor || !isCssGradient(persisted.appAccentColor)) {
             persisted.appAccentPulseMode = true;
             persisted.appAccentRgbMode = false;
           }

@@ -184,7 +184,7 @@
   --card-foreground: #d4d4d4;
   --popover: #141414d9;
   --popover-foreground: #d4d4d4;
-  --primary: #d4acfb;
+  --primary: #ec4b97;
   --primary-foreground: #0a0a0a;
   --secondary: #1a1a2e;
   --secondary-foreground: #e8d4ff;
@@ -198,13 +198,13 @@
   --destructive-foreground: var(--primary-foreground);
   --border: #d4adfc33;
   --input: #d4adfc33;
-  --ring: #d4acfb;
+  --ring: var(--primary);
   --radius: 0.75rem;
   --sidebar: #08061a;
   --sidebar-foreground: #e8d4ff;
   --sidebar-border: #d4adfc22;
-  --sidebar-accent: #d4acfb1a;
-  --sidebar-accent-foreground: #d4acfb;
+  --sidebar-accent: color-mix(in srgb, var(--primary) 10%, transparent);
+  --sidebar-accent-foreground: var(--primary);
   --glow-primary: color-mix(in srgb, var(--primary) 15%, transparent);
   --glow-accent: color-mix(in srgb, var(--primary) 12%, transparent);
 
@@ -238,20 +238,8 @@
   --mari-logo-title-pink: #ec4899;
   --marinara-app-accent-solid: var(--primary);
   --marinara-app-accent-static: var(--primary);
-  --marinara-app-accent-gradient: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--marinara-app-accent-solid) 72%, var(--background) 28%),
-    var(--marinara-app-accent-solid),
-    color-mix(in srgb, var(--marinara-app-accent-solid) 76%, var(--foreground) 24%),
-    var(--marinara-app-accent-solid)
-  );
-  --marinara-app-accent-static-gradient: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--marinara-app-accent-static) 72%, var(--background) 28%),
-    var(--marinara-app-accent-static),
-    color-mix(in srgb, var(--marinara-app-accent-static) 76%, var(--foreground) 24%),
-    var(--marinara-app-accent-static)
-  );
+  --marinara-app-accent-gradient: linear-gradient(90deg, #ec4b97, #f29744, #36cdde);
+  --marinara-app-accent-static-gradient: linear-gradient(90deg, #ec4b97, #f29744, #36cdde);
   --marinara-chat-chrome-accent: var(--marinara-app-accent-solid);
   --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient);
   --marinara-chat-chrome-text: var(--card-foreground);
@@ -408,10 +396,10 @@
   --scrollbar-track: #1a1a2e40;
   --scrollbar-border: #0a0a0a66;
 
-  --marinara-custom-cursor-fill: #d4acfb;
+  --marinara-custom-cursor-fill: var(--primary);
   --marinara-custom-cursor-stroke: #050312;
-  --cursor-pink: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 3L10 20L12 12L20 10L3 3Z' fill='%23D4ACFB' stroke='%23050312' stroke-width='1'/%3E%3C/svg%3E")
-    3 3;
+  /* Legacy theme hook; App supplies a cursor painted with the current accent. */
+  --cursor-pink: none;
   --marinara-custom-cursor: var(--cursor-pink), auto;
 
   --y2k-pink: var(--primary);
@@ -422,7 +410,7 @@
   --y2k-lavender: #e8d4ff;
   --y2k-yellow: #fff5a8;
 
-  --pastel-rose: #ffd1e3;
+  --pastel-rose: var(--marinara-app-accent-solid);
   --pastel-lilac: #e0b8ff;
   --pastel-sky: #c5e7ff;
   --pastel-mint: #c7f5e8;
@@ -458,7 +446,7 @@
   --card-foreground: #1a1025;
   --popover: #ffffffee;
   --popover-foreground: #1a1025;
-  --primary: #d4acfb;
+  --primary: #ec4b97;
   --primary-foreground: #0a0a0a;
   --secondary: #f0eaf7;
   --secondary-foreground: #3a2960;
@@ -472,12 +460,12 @@
   --destructive-foreground: var(--primary-foreground);
   --border: #d4adfc44;
   --input: #d4adfc44;
-  --ring: #d4acfb;
+  --ring: var(--primary);
   --sidebar: #f5f0fc;
   --sidebar-foreground: #3a2960;
   --sidebar-border: #d4adfc33;
-  --sidebar-accent: #d4acfb18;
-  --sidebar-accent-foreground: #d4acfb;
+  --sidebar-accent: color-mix(in srgb, var(--primary) 9%, transparent);
+  --sidebar-accent-foreground: var(--primary);
   --glow-primary: color-mix(in srgb, var(--primary) 12%, transparent);
   --glow-accent: color-mix(in srgb, var(--primary) 8%, transparent);
   --marinara-music-player-shell-bg: color-mix(in srgb, var(--card) 94%, var(--secondary) 6%);
@@ -852,9 +840,9 @@
 }
 
 .mari-chat-logo-mode--game {
-  --mari-chat-logo-mode-color: var(--mari-logo-pink);
-  --mari-chat-logo-mode-color-deep: var(--mari-logo-pink-deep);
-  --mari-chat-logo-mode-text: #fff7fb;
+  --mari-chat-logo-mode-color: var(--marinara-app-accent-solid);
+  --mari-chat-logo-mode-color-deep: color-mix(in srgb, var(--marinara-app-accent-solid) 85%, var(--background));
+  --mari-chat-logo-mode-text: var(--primary-foreground);
 }
 
 .mari-chat-mode-action {
@@ -933,9 +921,9 @@
 }
 
 .mari-panel-gradient--characters {
-  --mari-panel-gradient-start: #f472b6;
-  --mari-panel-gradient-end: #f43f5e;
-  --mari-panel-gradient-text: #fff7fb;
+  --mari-panel-gradient-start: var(--marinara-app-accent-solid);
+  --mari-panel-gradient-end: color-mix(in srgb, var(--marinara-app-accent-solid) 76%, var(--foreground) 24%);
+  --mari-panel-gradient-text: var(--primary-foreground);
 }
 
 .mari-panel-gradient--lorebooks {
@@ -1176,9 +1164,9 @@
 }
 
 .mari-avatar-placeholder--character {
-  --mari-avatar-placeholder-start: #f472b6;
-  --mari-avatar-placeholder-end: #f43f5e;
-  --mari-avatar-placeholder-text: #fff7fb;
+  --mari-avatar-placeholder-start: var(--marinara-app-accent-solid);
+  --mari-avatar-placeholder-end: color-mix(in srgb, var(--marinara-app-accent-solid) 76%, var(--foreground) 24%);
+  --mari-avatar-placeholder-text: var(--primary-foreground);
 }
 
 .mari-avatar-placeholder--persona {
