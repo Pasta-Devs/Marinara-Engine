@@ -278,12 +278,6 @@ test("UX sweep: Background library mobile toolbar, accent marker and settled mod
   await expect(card.locator("[data-background-default-toggle]")).toHaveAttribute("aria-pressed", "true");
   const useButton = card.getByRole("button", { name: /Use .* for this chat/ });
   await useButton.click();
-  const marker = card.locator("[data-background-selection-indicator]");
-  await expect(marker).toBeVisible();
-  const markerBox = (await marker.boundingBox())!;
-  const cardBox = (await card.boundingBox())!;
-  expect(markerBox.x + markerBox.width).toBeGreaterThan(cardBox.x + cardBox.width);
-  expect(markerBox.y).toBeLessThan(cardBox.y);
   await expect(library).toBeHidden();
   await expect(page.getByRole("button", { name: "Clear selection", exact: true })).toHaveAttribute(
     "class",
@@ -291,6 +285,13 @@ test("UX sweep: Background library mobile toolbar, accent marker and settled mod
   );
   await page.getByRole("button", { name: "Browse library", exact: true }).click();
   await expect(library).toHaveCSS("opacity", "1");
+  await expect(library.locator(".mari-modal-panel")).toHaveCSS("transform", "none");
+  const marker = card.locator("[data-background-selection-indicator]");
+  await expect(marker).toBeVisible();
+  const markerBox = (await marker.boundingBox())!;
+  const cardBox = (await card.boundingBox())!;
+  expect(markerBox.x + markerBox.width).toBeGreaterThan(cardBox.x + cardBox.width);
+  expect(markerBox.y).toBeLessThan(cardBox.y);
   await page.screenshot({ path: testInfo.outputPath("background-library.png") });
   if (testInfo.project.name === "mobile-webkit") {
     await expect(library.locator(".mari-modal-backdrop")).toHaveCSS("backdrop-filter", "none");
