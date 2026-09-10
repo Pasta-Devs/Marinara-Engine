@@ -48,7 +48,7 @@
     "@types/adm-zip": "^0.5.8",
     "@types/node": "^24.12.2",
     "@types/pdf-parse": "^1.1.5",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "^5.9.3"
   }
 }
