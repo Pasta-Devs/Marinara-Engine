@@ -101,7 +101,8 @@ test.describe("Marinara accent defaults", () => {
       await picker.getByRole("button", { name: "Default Marinara Gradient", exact: true }).click();
       await picker.getByRole("button", { name: "Gay RGB rainbow", exact: true }).click();
       await picker.getByRole("button", { name: "Marinara Gradient", exact: true }).click();
-      await expect.poll(async () => (await readAccentPreferences(page)).color).toBe(MARINARA_GRADIENT_PRESET);
+      // Choosing the default preset restores the existing "follow default" sentinel.
+      await expect.poll(async () => (await readAccentPreferences(page)).color).toBe("");
       await page.getByRole("button", { name: "Reset Appearance", exact: true }).click();
       await expect
         .poll(() => readAccentPreferences(page))
