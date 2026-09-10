@@ -15,15 +15,20 @@ overrides:
   browserslist: 4.28.7
   fast-uri@>=3 <3.1.6: 3.1.6
   fast-uri@>=4 <4.1.3: 4.1.3
-  hono: 4.12.34
+  hono: 4.13.5
   ip-address: 10.3.1
-  js-yaml: 4.3.1
+  js-yaml: 4.3.2
   nanoid@3.3.12: 3.3.18
   postcss: 8.5.26
   protobufjs: 7.6.5
   qs: 6.16.0
   sharp@0.34.5: 0.35.4
   ws: 8.21.0
+
+patchedDependencies:
+  onnxruntime-node@1.24.3:
+    hash: 0d1b60c41ee69a662db0b7eadccbcfbbe973956a9661915466b313eec81fa56d
+    path: patches/onnxruntime-node@1.24.3.patch
 
 importers:
 
@@ -235,7 +240,7 @@ importers:
         version: 0.35.4
       onnxruntime-node:
         specifier: ^1.24.3
-        version: 1.24.3
+        version: 1.24.3(patch_hash=0d1b60c41ee69a662db0b7eadccbcfbbe973956a9661915466b313eec81fa56d)
       onnxruntime-web:
         specifier: ^1.27.0
         version: 1.27.0
@@ -1111,7 +1116,7 @@ packages:
     resolution: {integrity: sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA==}
     engines: {node: '>=20'}
     peerDependencies:
-      hono: 4.12.34
+      hono: 4.13.5
 
   '@huggingface/jinja@0.5.8':
     resolution: {integrity: sha512-ZdElB7DPS7QQS8ZnFc5RPPtkg+eN11z8AmIZWAyes6pSbwXqiFB/POVevvm01begdSX1ho9Gxln/F6qlQMsuaA==}
@@ -2547,8 +2552,8 @@ packages:
   hermes-parser@0.25.1:
     resolution: {integrity: sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA==}
 
-  hono@4.12.34:
-    resolution: {integrity: sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==}
+  hono@4.13.5:
+    resolution: {integrity: sha512-O6+/eCYRkzzzy0rPWwKLiGBR1nFuUPZynnwjxN1MBA62NNqbT0wQEzQyK2gSO5yDIDB336sXQleAhOHrzlYyKw==}
     engines: {node: '>=16.9.0'}
 
   html-parse-stringify@3.0.1:
@@ -2751,8 +2756,8 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@4.3.1:
-    resolution: {integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==}
+  js-yaml@4.3.2:
+    resolution: {integrity: sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==}
     hasBin: true
 
   jsesc@3.1.0:
@@ -4756,7 +4761,7 @@ snapshots:
       globals: 14.0.0
       ignore: 5.3.2
       import-fresh: 3.3.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       minimatch: 3.1.5
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
@@ -4833,9 +4838,9 @@ snapshots:
 
   '@fontsource/share-tech-mono@5.3.0': {}
 
-  '@hono/node-server@2.0.10(hono@4.12.34)':
+  '@hono/node-server@2.0.10(hono@4.13.5)':
     dependencies:
-      hono: 4.12.34
+      hono: 4.13.5
 
   '@huggingface/jinja@0.5.8': {}
 
@@ -5022,7 +5027,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.30.0(zod@3.25.76)':
     dependencies:
-      '@hono/node-server': 2.0.10(hono@4.12.34)
+      '@hono/node-server': 2.0.10(hono@4.13.5)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -5032,7 +5037,7 @@ snapshots:
       eventsource-parser: 3.1.1
       express: 5.2.1
       express-rate-limit: 8.6.2(express@5.2.1)
-      hono: 4.12.34
+      hono: 4.13.5
       jose: 6.2.9
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -6291,7 +6296,7 @@ snapshots:
     dependencies:
       hermes-estree: 0.25.1
 
-  hono@4.12.34: {}
+  hono@4.13.5: {}
 
   html-parse-stringify@3.0.1:
     dependencies:
@@ -6478,7 +6483,7 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@4.3.1:
+  js-yaml@4.3.2:
     dependencies:
       argparse: 2.0.1
 
@@ -6706,7 +6711,7 @@ snapshots:
       onnxruntime-common: 1.21.0
       tar: 7.5.22
 
-  onnxruntime-node@1.24.3:
+  onnxruntime-node@1.24.3(patch_hash=0d1b60c41ee69a662db0b7eadccbcfbbe973956a9661915466b313eec81fa56d):
     dependencies:
       adm-zip: 0.6.0
       global-agent: 3.0.0

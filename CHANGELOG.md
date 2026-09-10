@@ -117,6 +117,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Local runtime and ONNX dependency installation now extract archives into private, randomly named temporary directories, preventing pre-seeded symlinks from redirecting extracted files. Runtime retries retain the private directory. Updated Hono and YAML dependencies to their security-patched versions.
+
 - Roleplay command notes and reminders join the existing tracker Context block, with concise narrator guidance. Each character keeps the newest three active reminders; Illustrator command guidance highlights surprises and important moments (#6027).
 
 - Preset `{{model}}` macros now use the model selected for the generation or preview, including connection overrides (#6018).

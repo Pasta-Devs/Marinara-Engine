@@ -9,6 +9,7 @@ on:
       - packages/*/package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - patches/**
   schedule:
     - cron: "23 5 * * 1"
   workflow_dispatch:
