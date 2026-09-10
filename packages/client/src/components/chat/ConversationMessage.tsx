@@ -740,6 +740,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     (e: React.MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest("button, a, textarea")) return;
+      if (matchMedia("(pointer: coarse)").matches && hasActiveTextSelection()) return;
       if (multiSelectMode) {
         onToggleSelect?.({
           messageId: message.id,
@@ -749,7 +750,7 @@ export const ConversationMessage = memo(function ConversationMessage({
         });
         return;
       }
-      if (!matchMedia("(pointer: coarse)").matches || hasActiveTextSelection()) return;
+      if (!matchMedia("(pointer: coarse)").matches) return;
       setShowActions((v) => !v);
     },
     [isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect],

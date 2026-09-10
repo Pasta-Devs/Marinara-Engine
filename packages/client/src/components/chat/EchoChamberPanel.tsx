@@ -556,7 +556,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     let frame = window.requestAnimationFrame(() => {
       frame = window.requestAnimationFrame(() => {
         const scrollEl = scrollRef.current;
-        if (!scrollEl) return;
+        if (!scrollEl || hasActiveTextSelection()) return;
         scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: "auto" });
       });
     });

@@ -790,10 +790,17 @@ export function ConversationView({
       return;
     }
 
-    openedAtBottomChatIdRef.current = chatId;
-    userScrolledAwayRef.current = false;
-    isNearBottomRef.current = true;
-    scheduleScrollToMessagesBottom("auto");
+    const openAtBottom = () => {
+      if (hasActiveTextSelection()) return;
+      document.removeEventListener("selectionchange", openAtBottom);
+      openedAtBottomChatIdRef.current = chatId;
+      userScrolledAwayRef.current = false;
+      isNearBottomRef.current = true;
+      scheduleScrollToMessagesBottom("auto");
+    };
+    document.addEventListener("selectionchange", openAtBottom);
+    openAtBottom();
+    return () => document.removeEventListener("selectionchange", openAtBottom);
   }, [
     chatId,
     gotoRequest,

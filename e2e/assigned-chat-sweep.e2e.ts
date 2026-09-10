@@ -398,6 +398,11 @@ for (const mode of ["roleplay", "conversation"] as const) {
     isMobile,
   }, info) => {
     const data = await fixture(request, mode);
+    const landingChat = await (
+      await request.post("/api/chats", {
+        data: { name: "Before opening selected history", mode, characterIds: [] },
+      })
+    ).json();
     try {
       for (let index = 0; index < 8; index++) {
         const response = await request.post(`/api/chats/${data.chat.id}/messages`, {
@@ -409,15 +414,38 @@ for (const mode of ["roleplay", "conversation"] as const) {
         });
         expect(response.ok()).toBeTruthy();
       }
-      await open(page, data.chat.id, {
+      await open(page, landingChat.id, {
         editMessageOnDoubleClick: true,
         intuitiveSwipeNavigation: true,
         streamingSpeed: 100,
       });
+      // An existing browser selection must delay, rather than consume, the
+      // incoming chat's one-time initial scroll to its latest message.
+      await page.evaluate(async (chatId) => {
+        const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+        const marker = document.createElement("span");
+        marker.id = "native-selection-fixture";
+        marker.style.position = "fixed";
+        marker.textContent = "Selection while opening chat";
+        document.body.append(marker);
+        const range = document.createRange();
+        range.selectNodeContents(marker);
+        document.getSelection()!.removeAllRanges();
+        document.getSelection()!.addRange(range);
+        useChatStore.getState().setActiveChatId(chatId);
+      }, data.chat.id);
       const transcript = page.locator("[data-chat-scroll]:visible").first();
       const composer = page.locator("textarea[data-chat-composer]:visible");
       const lastRow = transcript.locator("[data-message-id]").last();
       await expect(lastRow).toContainText("Selection history 7");
+      await expect.poll(() => transcript.evaluate((el) => el.scrollTop)).toBe(0);
+      await page.evaluate(() => {
+        document.getSelection()?.removeAllRanges();
+        document.getElementById("native-selection-fixture")?.remove();
+      });
+      await expect
+        .poll(() => transcript.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop))
+        .toBeLessThan(3);
       const row = transcript.locator(`[data-message-id="${await lastRow.getAttribute("data-message-id")}"]`);
       await page.evaluate(async (chatId) => {
         const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
@@ -513,6 +541,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
         .toBeLessThan(3);
     } finally {
       await data.cleanup();
+      await request.delete(`/api/chats/${landingChat.id}`);
     }
   });
 }

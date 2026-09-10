@@ -2127,6 +2127,10 @@ export const ChatMessage = memo(function ChatMessage({
 
   const handleMobileTap = useCallback(
     (e: React.MouseEvent) => {
+      if (matchMedia("(pointer: coarse)").matches && hasActiveTextSelection()) {
+        lastQuickTapRef.current = null;
+        return;
+      }
       // In multi-select mode, clicking toggles selection on any device
       if (multiSelectMode) {
         onToggleSelect?.({
@@ -2139,10 +2143,6 @@ export const ChatMessage = memo(function ChatMessage({
       }
       // Only toggle on touch devices
       if (!matchMedia("(pointer: coarse)").matches) return;
-      if (hasActiveTextSelection()) {
-        lastQuickTapRef.current = null;
-        return;
-      }
       // Don't toggle when tapping buttons, links, or the edit textarea
       const target = e.target as HTMLElement;
       if (target.closest("button, a, textarea")) return;

@@ -21008,15 +21008,21 @@ test("mobile composers preserve history position and restore focus in Conversati
       while (!composerFocused && Date.now() < focusDeadline) {
         if (await showComposer.isVisible()) await activateControl(showComposer, testInfo);
         composerFocused = await textarea
-          .evaluate((element) => {
-            element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
-            element.focus();
-            return document.activeElement === element;
-          })
+          .evaluate(
+            (element) => {
+              element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
+              element.focus();
+              return document.activeElement === element;
+            },
+            undefined,
+            { timeout: 2_000 },
+          )
           .catch(() => false);
         if (!composerFocused) {
           await textarea.focus({ timeout: 2_000 }).catch(() => undefined);
-          composerFocused = await textarea.evaluate((element) => document.activeElement === element).catch(() => false);
+          composerFocused = await textarea
+            .evaluate((element) => document.activeElement === element, undefined, { timeout: 2_000 })
+            .catch(() => false);
         }
         if (!composerFocused) await page.waitForTimeout(250);
       }

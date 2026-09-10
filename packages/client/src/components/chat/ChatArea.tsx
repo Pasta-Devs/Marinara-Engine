@@ -2570,19 +2570,26 @@ export const ChatArea = memo(function ChatArea() {
 
     let frame = 0;
     const scrollWhenSurfaceIsReady = () => {
+      if (frame) cancelAnimationFrame(frame);
+      if (hasActiveTextSelection()) return;
       if (!scrollRef.current && !messagesEndRef.current) {
         frame = requestAnimationFrame(scrollWhenSurfaceIsReady);
         return;
       }
 
+      document.removeEventListener("selectionchange", scrollWhenSurfaceIsReady);
       openedAtBottomChatIdRef.current = activeChatId;
       userScrolledAwayRef.current = false;
       isNearBottomRef.current = true;
       scheduleScrollToMessagesBottom("auto");
     };
 
+    document.addEventListener("selectionchange", scrollWhenSurfaceIsReady);
     scrollWhenSurfaceIsReady();
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("selectionchange", scrollWhenSurfaceIsReady);
+    };
   }, [activeChatId, isFetchingNextPage, isLoading, loadedMessageCount, scheduleScrollToMessagesBottom]);
 
   useEffect(() => {
