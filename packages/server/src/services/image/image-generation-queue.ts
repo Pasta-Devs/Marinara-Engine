@@ -2,7 +2,14 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { DEFAULT_MEDIA_GENERATION_CONCURRENCY } from "@marinara-engine/shared";
 import { randomUUID } from "node:crypto";
 import { logger } from "../../lib/logger.js";
-import { registerTask, updateTask } from "../task-registry.js";
+import {
+  currentTaskContext,
+  currentTaskStage,
+  finishTaskStep,
+  registerTask,
+  updateTask,
+  upsertTaskStep,
+} from "../task-registry.js";
 
 type MediaGenerationQueueTask<T> = () => Promise<T>;
 export type MediaGenerationPriority = "foreground" | "background";
@@ -252,26 +259,55 @@ export async function runMediaGenerationRequest<T>(args: {
   if (heldMediaPermit.getStore()) return runMediaGenerationRequestInner(args);
 
   const taskId = `media:${randomUUID()}`;
-  const finishRegistryTask = registerTask({
-    id: taskId,
-    kind: "media",
-    label: args.label ?? "Media generation",
-    detail: args.detail,
-    // Queue wait is often the longest part and was previously invisible to the client.
-    phase: "queued",
-  });
+  const parentTaskId = currentTaskContext();
+  const parentStage = parentTaskId ? currentTaskStage(parentTaskId) : undefined;
+  const stopController = new AbortController();
+  const signal = args.signal ? AbortSignal.any([args.signal, stopController.signal]) : stopController.signal;
+  if (parentTaskId) {
+    upsertTaskStep(parentTaskId, {
+      id: taskId,
+      label: args.label ?? "Media generation",
+      detail: args.detail,
+      ...(parentStage ? { stage: parentStage } : {}),
+      state: "queued",
+    });
+  }
+  const finishRegistryTask = parentTaskId
+    ? null
+    : registerTask({
+        id: taskId,
+        kind: "media",
+        label: args.label ?? "Media generation",
+        detail: args.detail,
+        // Queue wait is often the longest part and was previously invisible to the client.
+        phase: "queued",
+        stopMode: "safe",
+        stop: () => stopController.abort(new Error("Media generation stopped")),
+      });
   try {
     const result = await runMediaGenerationRequestInner({
       ...args,
+      signal,
       task: () => {
-        updateTask(taskId, { phase: "running" });
+        if (parentTaskId)
+          upsertTaskStep(parentTaskId, {
+            id: taskId,
+            label: args.label ?? "Media generation",
+            detail: args.detail,
+            ...(parentStage ? { stage: parentStage } : {}),
+            state: "running",
+          });
+        else updateTask(taskId, { phase: "running", state: "running" });
         return args.task();
       },
     });
-    finishRegistryTask("completed");
+    if (parentTaskId) finishTaskStep(parentTaskId, taskId, "completed");
+    else finishRegistryTask?.("completed");
     return result;
   } catch (error) {
-    finishRegistryTask(args.signal?.aborted ? "aborted" : "failed");
+    const outcome = signal.aborted ? "aborted" : "failed";
+    if (parentTaskId) finishTaskStep(parentTaskId, taskId, outcome);
+    else finishRegistryTask?.(outcome);
     throw error;
   }
 }

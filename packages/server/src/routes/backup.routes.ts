@@ -57,7 +57,7 @@ import { planProfileNoodleImport, type ProfileNoodleImportWarning } from "../ser
 import { getCapabilityService } from "../services/capability-packages/capability-service-registry.service.js";
 import { computePersonalExtensionHash } from "../services/extensions/personal-extension-hash.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
-import { registerTask, type TaskOutcome } from "../services/task-registry.js";
+import { isTaskStopRequested, registerTask, updateTask, type TaskOutcome } from "../services/task-registry.js";
 import {
   AUTOMATIC_BACKUP_FILENAME,
   automaticBackupArchiveFilename,
@@ -3430,6 +3430,13 @@ export async function backupRoutes(app: FastifyInstance) {
   // Create a full backup folder
   app.post("/", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Backup creation" })) return;
+    const finishRegistryTask = registerTask({
+      id: `manual-backup:${randomUUID()}`,
+      kind: "transfer",
+      label: "Creating backup",
+      phase: "backing_up",
+    });
+    let taskOutcome: TaskOutcome = "completed";
     try {
       await flushDB();
       const dataDir = getDataDir();
@@ -3462,7 +3469,10 @@ export async function backupRoutes(app: FastifyInstance) {
         backupName,
       });
     } catch (err) {
+      taskOutcome = "failed";
       return sendBackupRouteError(reply, err, "Backup creation");
+    } finally {
+      finishRegistryTask(taskOutcome);
     }
   });
 
@@ -3471,6 +3481,13 @@ export async function backupRoutes(app: FastifyInstance) {
   // API. Preferred on Android where the on-disk data folder isn't reachable.
   app.post("/download", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
+    const finishRegistryTask = registerTask({
+      id: `backup-download:${randomUUID()}`,
+      kind: "transfer",
+      label: "Preparing backup download",
+      phase: "backing_up",
+    });
+    let taskOutcome: TaskOutcome = "completed";
     let tempDir: string | null = null;
     try {
       await flushDB();
@@ -3488,8 +3505,11 @@ export async function backupRoutes(app: FastifyInstance) {
         .header("X-Marinara-Backup-Omitted-Count", omittedEntries.length.toString())
         .send(createReadStream(archivePath));
     } catch (err) {
+      taskOutcome = "failed";
       if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => {});
       return sendBackupRouteError(reply, err, "Backup download");
+    } finally {
+      finishRegistryTask(taskOutcome);
     }
   });
 
@@ -3721,6 +3741,9 @@ export async function backupRoutes(app: FastifyInstance) {
     }
 
     let retainInputForPreview = false;
+    let profileImportTaskId: string | null = null;
+    let finishProfileImportTask: ((outcome?: TaskOutcome) => void) | null = null;
+    let profileImportOutcome: TaskOutcome = "completed";
     try {
       const envelope = importInput.envelope;
       if (!envelope || envelope.type !== "marinara_profile" || envelope.version !== 1) {
@@ -3759,12 +3782,31 @@ export async function backupRoutes(app: FastifyInstance) {
         };
       }
 
+      profileImportTaskId = `profile-import:${randomUUID()}`;
+      finishProfileImportTask = registerTask({
+        id: profileImportTaskId,
+        kind: "transfer",
+        label: "Importing profile",
+        phase: "importing",
+        progress: { current: 0, total: totalItems, unit: "items" },
+        stopMode: "safe",
+      });
+
       const sendEvent = (event: { type: string; data?: unknown; [key: string]: unknown }) => {
         if (wantsProgressStream && !reply.raw.destroyed) {
           reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
         }
       };
       const sendProgress = (progress: ProfileImportProgress) => {
+        if (profileImportTaskId && isTaskStopRequested(profileImportTaskId)) {
+          throw new Error("Profile import stopped");
+        }
+        if (profileImportTaskId) {
+          updateTask(profileImportTaskId, {
+            detail: progress.label,
+            progress: { current: progress.completedItems, total: progress.totalItems, unit: "items" },
+          });
+        }
         sendEvent({ type: "progress", data: progress });
       };
 
@@ -4215,6 +4257,7 @@ export async function backupRoutes(app: FastifyInstance) {
         }
         return payload;
       } catch (err) {
+        profileImportOutcome = profileImportTaskId && isTaskStopRequested(profileImportTaskId) ? "aborted" : "failed";
         if (wantsProgressStream) {
           const message = getBackupErrorMessage(err, "Profile import failed. Check the server logs for details.");
           if (!(err instanceof ProfileImportRequestError)) {
@@ -4237,6 +4280,7 @@ export async function backupRoutes(app: FastifyInstance) {
         return sendBackupRouteError(reply, err, "Profile import");
       }
     } finally {
+      finishProfileImportTask?.(profileImportOutcome);
       if (!retainInputForPreview) await importInput.cleanup?.();
     }
   };

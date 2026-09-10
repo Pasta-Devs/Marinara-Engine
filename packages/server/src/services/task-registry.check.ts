@@ -2,18 +2,25 @@
 import assert from "node:assert/strict";
 import {
   abortTask,
+  clearTaskHistory,
+  enterTaskContext,
+  finishTaskStep,
   finishTask,
+  isTaskStopRequested,
   listTaskHistory,
   listTasks,
   registerTask,
   resetTaskRegistryForTests,
+  requestTaskStop,
   updateTask,
+  updateTaskStage,
+  upsertTaskStep,
 } from "./task-registry.js";
 
 resetTaskRegistryForTests();
 assert.deepEqual(listTasks(), []);
 
-// Cancellable only when an abort handle was supplied.
+// Every root mission can receive a stop request. Immediate work also runs its abort handle.
 let aborted = false;
 const finish = registerTask({
   id: "a",
@@ -36,19 +43,26 @@ assert.deepEqual(
 );
 const [oldest, newest] = listed as [(typeof listed)[number], (typeof listed)[number]];
 assert.equal(newest.cancellable, true);
-assert.equal(oldest.cancellable, false);
+assert.equal(oldest.cancellable, true);
+assert.equal(oldest.stopMode, "safe");
+assert.equal(newest.stopMode, "immediate");
 assert.equal("abort" in oldest, false, "abort handle must not leak over the wire");
 
-// Abort routes to the handle; non-cancellable and unknown ids report false.
+// Stop routes to the handle, is idempotent, and marks safe work for boundary checks.
 assert.equal(abortTask("a"), true);
 assert.equal(aborted, true);
-assert.equal(abortTask("b"), false);
+assert.deepEqual(requestTaskStop("b"), { accepted: true, mode: "safe" });
+assert.equal(isTaskStopRequested("b"), true);
+assert.equal(listTasks().find((task) => task.id === "b")?.state, "stopping");
+assert.equal(abortTask("b"), true);
 assert.equal(abortTask("missing"), false);
 
 // Progress patches merge; late patches after finish are silently dropped.
 updateTask("b", { progress: { current: 5, total: 10 }, phase: "downloading" });
 assert.deepEqual(listTasks().find((task) => task.id === "b")?.progress, { current: 5, total: 10 });
 assert.equal(listTasks().find((task) => task.id === "b")?.label, "Model", "patch must not clobber other fields");
+upsertTaskStep("b", { id: "queued", label: "Queued child", stage: "before", state: "queued" });
+assert.equal(listTasks().find((task) => task.id === "b")?.children.length, 0, "stopping missions reject new work");
 const progressSnapshot = listTasks().find((task) => task.id === "b")?.progress;
 if (progressSnapshot) progressSnapshot.current = 99;
 assert.equal(listTasks().find((task) => task.id === "b")?.progress?.current, 5, "snapshots must be immutable");
@@ -128,7 +142,46 @@ await assert.rejects(
 assert.deepEqual(listTasks(), []);
 assert.equal(listTaskHistory()[0]?.outcome, "aborted");
 
+// Deep media work joins its active mission instead of publishing a duplicate root row/history item.
+resetTaskRegistryForTests();
+registerTask({ id: "turn", kind: "generation", label: "Generating reply" });
+enterTaskContext("turn");
+await runMediaGenerationRequest({
+  connectionKey: "check",
+  queue: false,
+  label: "Generating image",
+  task: async () => undefined,
+});
+assert.equal(listTasks().length, 1);
+assert.equal(listTasks()[0]?.children[0]?.label, "Generating image");
+assert.equal(listTasks()[0]?.children[0]?.state, "completed");
+assert.deepEqual(listTaskHistory(), []);
+
 // Only the five newest completions are retained.
+resetTaskRegistryForTests();
+registerTask({
+  id: "hierarchy",
+  kind: "generation",
+  label: "Generating reply",
+  stages: { before: "running", reply: "pending", after: "pending" },
+});
+upsertTaskStep("hierarchy", { id: "memory", label: "Retrieving memory", stage: "before", state: "running" });
+finishTaskStep("hierarchy", "memory");
+updateTaskStage("hierarchy", "before", "completed");
+updateTaskStage("hierarchy", "reply", "running");
+const hierarchy = listTasks()[0]!;
+assert.equal(hierarchy.children[0]?.state, "completed");
+assert.equal(hierarchy.stages?.reply, "running");
+hierarchy.children[0]!.label = "mutated";
+assert.equal(listTasks()[0]?.children[0]?.label, "Retrieving memory", "child snapshots must be immutable");
+upsertTaskStep("hierarchy", { id: "queued", label: "Queued child", state: "queued" });
+requestTaskStop("hierarchy");
+assert.equal(listTasks()[0]?.children.find((step) => step.id === "queued")?.state, "skipped");
+finishTask("hierarchy", "aborted");
+assert.equal(listTaskHistory()[0]?.outcome, "aborted", "a completed safe boundary after stop records aborted");
+clearTaskHistory();
+assert.deepEqual(listTaskHistory(), []);
+
 resetTaskRegistryForTests();
 for (let index = 0; index < 7; index += 1) {
   registerTask({ id: `history-${index}`, kind: "transfer", label: `History ${index}` })(

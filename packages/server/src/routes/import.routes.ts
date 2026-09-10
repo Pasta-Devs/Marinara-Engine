@@ -2,7 +2,7 @@
 // Routes: Import (SillyTavern data)
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { registerTask, updateTask } from "../services/task-registry.js";
+import { isTaskStopRequested, registerTask, updateTask } from "../services/task-registry.js";
 import { execFile } from "child_process";
 import { inflateSync } from "node:zlib";
 import { platform, homedir } from "os";
@@ -1047,8 +1047,13 @@ export async function importRoutes(app: FastifyInstance) {
       phase: "importing",
     });
     let importFailed = false;
+    let importStopped = false;
     try {
       const result = await runSTBulkImport(resolved.path, options, app.db, (progress) => {
+        if (isTaskStopRequested("st-bulk-import")) {
+          importStopped = true;
+          throw new Error("SillyTavern import stopped");
+        }
         updateTask("st-bulk-import", {
           phase: progress.category,
           detail: progress.item,
@@ -1058,10 +1063,10 @@ export async function importRoutes(app: FastifyInstance) {
       });
       sendEvent("done", result);
     } catch (err) {
-      importFailed = true;
+      importFailed = !importStopped;
       sendEvent("done", { success: false, error: (err as Error).message, imported: {}, errors: [] });
     } finally {
-      finishRegistryTask(importFailed ? "failed" : "completed");
+      finishRegistryTask(importStopped ? "aborted" : importFailed ? "failed" : "completed");
       reply.raw.end();
     }
   });

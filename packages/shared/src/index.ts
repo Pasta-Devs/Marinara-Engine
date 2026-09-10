@@ -40,6 +40,7 @@ export * from "./types/capability-runtime.js";
 export * from "./types/localization.js";
 export * from "./types/personal-extension.js";
 export * from "./types/home-feed.js";
+export * from "./types/task.js";
 
 // Schemas
 export * from "./schemas/chat.schema.js";

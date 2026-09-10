@@ -226,6 +226,7 @@ async function generateElevenLabsGameAudio(
   kind: "sfx" | "music",
   prompt: string,
   context?: GameAudioContext,
+  signal?: AbortSignal,
 ): Promise<{ tag: string; path: string; cached: boolean }> {
   const normalizedPrompt = normalizeGameAudioPrompt(prompt);
   const hash = createHash("sha256").update(`${kind}\0${normalizedPrompt.toLowerCase()}`).digest("hex");
@@ -286,7 +287,7 @@ async function generateElevenLabsGameAudio(
             force_instrumental: true,
           },
     ),
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
     policy: {
       allowLocal: false,
       allowedProtocols: ["https:"],
@@ -1448,20 +1449,22 @@ export async function ttsRoutes(app: FastifyInstance) {
     const lockKey = context ? `context\0${context.axis}\0${context.key}` : `${kind}\0${normalizedPrompt.toLowerCase()}`;
     let generation = gameAudioGenerationLocks.get(lockKey);
     if (!generation) {
+      const taskController = new AbortController();
       const finishRegistryTask = registerTask({
         id: `game-audio:${randomUUID()}`,
         kind: "media",
         label: kind === "music" ? "Generating music" : "Generating sound effect",
         detail: normalizedPrompt,
         phase: "generating_audio",
+        abort: () => taskController.abort(new Error("Audio generation stopped")),
       });
-      generation = generateElevenLabsGameAudio(cfg, kind, normalizedPrompt, context)
+      generation = generateElevenLabsGameAudio(cfg, kind, normalizedPrompt, context, taskController.signal)
         .then((result) => {
           finishRegistryTask("completed");
           return result;
         })
         .catch((error) => {
-          finishRegistryTask("failed");
+          finishRegistryTask(taskController.signal.aborted ? "aborted" : "failed");
           throw error;
         })
         .finally(() => {

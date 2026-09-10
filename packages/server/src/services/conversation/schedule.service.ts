@@ -49,6 +49,7 @@ export type WeekScheduleDraftMode = "rewrite" | "adjust" | "vary" | "repair";
 export type WeekScheduleDraftOptions = {
   draftMode?: WeekScheduleDraftMode;
   timeZone?: string;
+  signal?: AbortSignal;
 };
 
 const STATUS_KEYWORDS: Record<string, ConversationPresenceStatus> = {
@@ -238,7 +239,7 @@ export async function generateCharacterSchedule(
       { role: "system", content: systemPrompt },
       { role: "user", content: "Generate the schedule now." },
     ],
-    { model, temperature: getWeekScheduleTemperature(draftMode), maxTokens: scheduleMaxTokens },
+    { model, temperature: getWeekScheduleTemperature(draftMode), maxTokens: scheduleMaxTokens, signal: options.signal },
   );
 
   const content = result.content ?? "";
@@ -257,6 +258,7 @@ export async function generateCharacterDaySchedule(
   userSchedulePreferences?: string,
   daySchedulePreferences?: string,
   timeZone?: string,
+  signal?: AbortSignal,
 ): Promise<{ blocks: DaySchedule; raw: string }> {
   const globalGuidance = userSchedulePreferences?.trim() ?? "";
   const dayGuidance = daySchedulePreferences?.trim() ?? "";
@@ -296,7 +298,7 @@ export async function generateCharacterDaySchedule(
         content: dayGuidance ? `Apply this ${day} guidance: ${dayGuidance}` : `Create a visibly different ${day}.`,
       },
     ],
-    { model, temperature: 0.9, maxTokens: Math.min(provider.maxTokensOverrideValue ?? 4096, 4096) },
+    { model, temperature: 0.9, maxTokens: Math.min(provider.maxTokensOverrideValue ?? 4096, 4096), signal },
   );
 
   const content = result.content ?? "";
@@ -309,6 +311,7 @@ export async function generateScheduleRoutineSummary(
   characterName: string,
   schedule: WeekSchedule,
   userSchedulePreferences?: string,
+  signal?: AbortSignal,
 ): Promise<{ summary: string; raw: string }> {
   const systemPrompt = [
     `You summarize a fictional character's weekly autonomous conversation routine.`,
@@ -334,6 +337,7 @@ export async function generateScheduleRoutineSummary(
       temperature: 0.55,
       maxTokens: provider.maxTokensOverrideValue ?? ROUTINE_SUMMARY_DEFAULT_MAX_TOKENS,
       reasoningEffort: "low",
+      signal,
     },
   );
   const summary = (result.content ?? "")

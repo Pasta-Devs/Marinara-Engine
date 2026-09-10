@@ -1,57 +1,51 @@
+import type { EngineTasksResponse } from "@marinara-engine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { api } from "../lib/api-client";
 
-export type TaskKind = "generation" | "agents" | "media" | "transfer";
+export type {
+  FinishedTask,
+  MissionStage,
+  MissionStageState,
+  TaskKind,
+  TaskOutcome,
+  TaskProgress,
+  TaskSnapshot as EngineTask,
+  TaskState,
+  TaskStepSnapshot,
+  TaskStepState,
+  TaskStopMode,
+} from "@marinara-engine/shared";
 
-export type TaskOutcome = "completed" | "failed" | "aborted";
-
-export interface TaskProgress {
-  current: number;
-  total?: number;
-  unit?: "bytes" | "items";
-}
-
-export interface EngineTask {
-  id: string;
-  kind: TaskKind;
-  label: string;
-  detail?: string;
-  chatId?: string;
-  startedAt: number;
-  phase?: string;
-  progress?: TaskProgress;
-  cancellable: boolean;
-}
-
-export interface FinishedTask {
-  id: string;
-  kind: TaskKind;
-  label: string;
-  detail?: string;
-  chatId?: string;
-  startedAt: number;
-  endedAt: number;
-  outcome: TaskOutcome;
-}
-
-/**
- * Polls the global task registry. Fast while work is running, slow while idle, and paused while the
- * tab is hidden — a background tab has nothing to render.
- */
 export function useEngineTasks() {
   return useQuery({
     queryKey: ["engine-tasks"],
-    queryFn: ({ signal }) => api.get<{ tasks: EngineTask[]; history: FinishedTask[] }>("/tasks", { signal }),
+    queryFn: ({ signal }) => api.get<EngineTasksResponse>("/tasks", { signal }),
     staleTime: 0,
     refetchIntervalInBackground: false,
     refetchInterval: (query) => (query.state.data?.tasks.length ? 1_000 : 5_000),
   });
 }
 
-export function useAbortEngineTask() {
+export function useStopEngineTask() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   return useMutation({
-    mutationFn: (taskId: string) => api.post(`/tasks/${encodeURIComponent(taskId)}/abort`),
+    mutationFn: (taskId: string) => api.post(`/tasks/${encodeURIComponent(taskId)}/stop`),
+    onError: () => toast.error(t("tasks.stopFailed")),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["engine-tasks"] }),
   });
 }
+
+export function useClearEngineTaskHistory() {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  return useMutation({
+    mutationFn: () => api.delete("/tasks/history"),
+    onError: () => toast.error(t("tasks.clearFailed")),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["engine-tasks"] }),
+  });
+}
+
+export const useAbortEngineTask = useStopEngineTask;

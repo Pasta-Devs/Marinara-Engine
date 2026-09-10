@@ -598,7 +598,16 @@ import {
   shouldDeferExpressionAgentEvent,
 } from "../services/generation/agent-event-dispatcher.js";
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
-import { registerTask, updateTask, finishTask, type TaskOutcome } from "../services/task-registry.js";
+import {
+  finishTask,
+  finishTaskStep,
+  enterTaskContext,
+  registerTask,
+  updateTask,
+  updateTaskStage,
+  upsertTaskStep,
+  type TaskOutcome,
+} from "../services/task-registry.js";
 import {
   explicitlyRequestsTextRewrite,
   getTextRewritePendingState,
@@ -983,12 +992,14 @@ export async function generateRoutes(app: FastifyInstance) {
       activeGenerationRecord.swipeIndex = swipeIndex;
       releaseActiveGeneration();
       updateTask(generationId, {
-        kind: "agents",
-        label: "Running post-generation agents",
         phase: "post_processing",
         detail: undefined,
         progress: undefined,
       });
+      updateTaskStage(generationId, "reply", "completed");
+      finishTaskStep(generationId, "main-response", "completed");
+      updateTaskStage(generationId, "after", "running");
+      missionLifecycle.currentStage = "after";
       const runs = activeAgentRuns.get(input.chatId) ?? new Set<ActiveGeneration>();
       runs.add(activeGenerationRecord);
       activeAgentRuns.set(input.chatId, runs);
@@ -1304,7 +1315,9 @@ export async function generateRoutes(app: FastifyInstance) {
       phase: "preparing",
       detail: generationDetail,
       abort: () => abortController.abort(),
+      stages: { before: "running", reply: "pending", after: "pending" },
     });
+    enterTaskContext(generationId);
 
     // Set up SSE headers
     startSseReply(reply, { "X-Accel-Buffering": "no" });
@@ -1373,29 +1386,53 @@ export async function generateRoutes(app: FastifyInstance) {
     };
 
     // ── SSE progress helper: tells the client what phase we're in ──
+    const missionLifecycle: { currentStage: "before" | "reply" | "after" } = { currentStage: "before" };
+    let currentPreparationStepId: string | null = null;
     const sendProgress = (phase: string) => {
-      const taskState: Record<string, { kind: "generation" | "agents"; label: string }> = {
-        agents: { kind: "agents", label: "Running pre-generation agents" },
-        lorebooks: { kind: "generation", label: "Preparing lorebook context" },
-        embedding: { kind: "generation", label: "Retrieving memory" },
-        assembling: { kind: "generation", label: "Assembling prompt" },
-        generating: {
-          kind: "generation",
-          label: input.autonomous ? "Generating autonomous reply" : "Generating reply",
-        },
+      const preparationSteps: Record<string, string> = {
+        agents: "Running pre-generation agents",
+        lorebooks: "Preparing lorebook context",
+        embedding: "Retrieving memory",
+        assembling: "Assembling prompt",
       };
-      const next = taskState[phase];
       updateTask(generationId, {
-        ...(next ?? {}),
         phase,
-        ...(next?.kind === "generation" ? { detail: generationDetail, progress: undefined } : {}),
+        detail: generationDetail,
+        progress: undefined,
       });
+      const preparationLabel = preparationSteps[phase];
+      if (preparationLabel) {
+        if (currentPreparationStepId && currentPreparationStepId !== `phase:${phase}`) {
+          finishTaskStep(generationId, currentPreparationStepId);
+        }
+        currentPreparationStepId = `phase:${phase}`;
+        upsertTaskStep(generationId, {
+          id: currentPreparationStepId,
+          label: preparationLabel,
+          stage: "before",
+          state: "running",
+        });
+      } else if (phase === "generating") {
+        if (currentPreparationStepId) finishTaskStep(generationId, currentPreparationStepId);
+        currentPreparationStepId = null;
+        missionLifecycle.currentStage = "reply";
+        updateTaskStage(generationId, "before", "completed");
+        updateTaskStage(generationId, "reply", "running");
+        upsertTaskStep(generationId, {
+          id: "main-response",
+          label: input.autonomous ? "Generating autonomous reply" : "Generating reply",
+          detail: generationDetail,
+          stage: "reply",
+          state: "running",
+        });
+      }
       sendSseEvent(reply, { type: "progress", data: { phase } });
     };
 
     const reportAgentProgress = (event: {
+      callId: string;
       agents: Array<{ name: string; phase: string }>;
-      stage: string;
+      stage: "waiting" | "streaming" | "received" | "error" | "stopped";
       receivedCharacters: number;
     }) => {
       const names = event.agents
@@ -1403,11 +1440,23 @@ export async function generateRoutes(app: FastifyInstance) {
         .filter(Boolean)
         .join(", ");
       const phase = event.agents[0]?.phase ?? "agents";
-      updateTask(generationId, {
-        kind: "agents",
-        label: phase === "post_processing" ? "Running post-generation agents" : "Running agents",
-        phase,
-        detail: names || undefined,
+      const missionStage = phase === "post_processing" ? "after" : phase === "parallel" ? "reply" : "before";
+      const state =
+        event.stage === "received"
+          ? "completed"
+          : event.stage === "error"
+            ? "failed"
+            : event.stage === "stopped"
+              ? "aborted"
+              : event.stage === "waiting"
+                ? "queued"
+                : "running";
+      upsertTaskStep(generationId, {
+        id: `agent:${event.callId}`,
+        label: names || "Agent work",
+        detail: event.stage,
+        stage: missionStage,
+        state,
         progress: event.receivedCharacters > 0 ? { current: event.receivedCharacters, unit: "items" } : undefined,
       });
       sendSseEvent(reply, { type: "agent_progress", data: event });
@@ -8850,6 +8899,13 @@ export async function generateRoutes(app: FastifyInstance) {
           const chatLog = formatRoleplaySummaryChatLog(selectedMessages);
           const previousSummary = typeof chatMeta.summary === "string" ? chatMeta.summary.trim() : "";
           const globalSummaryPromptSettings = await appSettings.get(CHAT_SUMMARY_PROMPT_SETTINGS_KEY);
+          upsertTaskStep(generationId, {
+            id: "automatic-summary",
+            label: "Summarizing conversation",
+            detail: summaryModel,
+            stage: "after",
+            state: "running",
+          });
           const result = await summaryProvider.chatComplete(
             [
               {
@@ -11175,7 +11231,9 @@ export async function generateRoutes(app: FastifyInstance) {
         if (!recoveredAlreadyAppliedOwnerTurn && !abortController.signal.aborted) {
           try {
             await runAutomaticRoleplaySummary();
+            finishTaskStep(generationId, "automatic-summary", "completed");
           } catch (summaryErr) {
+            finishTaskStep(generationId, "automatic-summary", abortController.signal.aborted ? "aborted" : "failed");
             logger.warn(summaryErr, "[chat-summary] Automatic summary update failed");
           }
         }
@@ -11584,6 +11642,15 @@ export async function generateRoutes(app: FastifyInstance) {
       reply.raw.off("close", onClose);
       releaseActiveGeneration();
       releaseActiveAgentRun();
+      finishTaskStep(generationId, "main-response", taskOutcome);
+      updateTaskStage(
+        generationId,
+        missionLifecycle.currentStage,
+        taskOutcome === "completed" ? "completed" : taskOutcome,
+      );
+      if (missionLifecycle.currentStage !== "after") {
+        updateTaskStage(generationId, "after", taskOutcome === "completed" ? "skipped" : taskOutcome);
+      }
       finishTask(generationId, taskOutcome);
       if (!clientDisconnected && isSseReplyWritable(reply)) {
         reply.raw.end();

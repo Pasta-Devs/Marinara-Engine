@@ -168,7 +168,13 @@ import {
   resolveLorebookScopeExclusions,
 } from "../../services/lorebook/game-lorebook-scope.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
-import { registerTask, updateTask, type TaskOutcome } from "../../services/task-registry.js";
+import {
+  enterTaskContext,
+  registerTask,
+  updateTask,
+  upsertTaskStep,
+  type TaskOutcome,
+} from "../../services/task-registry.js";
 import {
   finalizeCapabilityAgentResults,
   prepareCapabilityAgentContexts,
@@ -4249,6 +4255,7 @@ export async function registerRetryAgentsRoute(
       phase: "preparing",
       abort: () => abortController.abort(),
     });
+    enterTaskContext(`agent-retry:${generationId}`);
     let taskOutcome: TaskOutcome = "completed";
     const customLorebookReadBehindRunKeys = new Set<string>();
     let clientDisconnected = false;
@@ -4626,6 +4633,29 @@ export async function registerRetryAgentsRoute(
         updateTask(`agent-retry:${generationId}`, {
           phase: event.agents[0]?.phase ?? "agents",
           detail: names || undefined,
+          progress: event.receivedCharacters > 0 ? { current: event.receivedCharacters, unit: "items" } : undefined,
+        });
+        const state =
+          event.stage === "received"
+            ? "completed"
+            : event.stage === "error"
+              ? "failed"
+              : event.stage === "stopped"
+                ? "aborted"
+                : event.stage === "waiting"
+                  ? "queued"
+                  : "running";
+        upsertTaskStep(`agent-retry:${generationId}`, {
+          id: `agent:${event.callId}`,
+          label: names || "Agent work",
+          detail: event.stage,
+          stage:
+            event.agents[0]?.phase === "post_processing"
+              ? "after"
+              : event.agents[0]?.phase === "parallel"
+                ? "reply"
+                : "before",
+          state,
           progress: event.receivedCharacters > 0 ? { current: event.receivedCharacters, unit: "items" } : undefined,
         });
         sendSseEvent(reply, { type: "agent_progress", data: event });

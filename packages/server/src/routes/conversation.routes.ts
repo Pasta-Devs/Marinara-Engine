@@ -517,6 +517,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const scheduleTimeZone = requestedTimeZone ?? resolveConversationTimeZone(contextMeta);
     const scheduleNow = toZonedWallClockDate(new Date(), scheduleTimeZone);
     const { charData, provider, model } = context;
+    const scheduleController = new AbortController();
     const finishScheduleTask = registerTask({
       id: `schedule:${randomUUID()}`,
       kind: "agents",
@@ -524,6 +525,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       detail: `${charData.name} · ${model}`,
       ...(chatId ? { chatId } : {}),
       phase: "generating_schedule",
+      abort: () => scheduleController.abort(new Error("Schedule generation stopped")),
     });
     let scheduleOutcome: TaskOutcome = "completed";
 
@@ -543,6 +545,7 @@ export async function conversationRoutes(app: FastifyInstance) {
           guidance,
           dayGuidance,
           scheduleTimeZone,
+          scheduleController.signal,
         );
         return reply.send({ day, blocks });
       }
@@ -560,6 +563,7 @@ export async function conversationRoutes(app: FastifyInstance) {
         {
           draftMode: parseWeekScheduleDraftMode(req.body.draftMode),
           timeZone: scheduleTimeZone,
+          signal: scheduleController.signal,
         },
       );
       const fullSchedule = preserveDraftScheduleFields(
@@ -568,7 +572,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       );
       return reply.send({ schedule: fullSchedule });
     } catch (error) {
-      scheduleOutcome = "failed";
+      scheduleOutcome = scheduleController.signal.aborted ? "aborted" : "failed";
       logger.error(error instanceof Error ? error : undefined, "[schedule] Draft generation failed");
       return reply.status(502).send({ error: getScheduleGenerationError(error, "Schedule draft generation failed") });
     } finally {
@@ -590,6 +594,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const context = await resolveScheduleGenerationContext(chatId, characterId);
     if ("error" in context) return reply.status(context.errorStatus ?? 400).send({ error: context.error });
     const { charData, provider, model } = context;
+    const summaryController = new AbortController();
     const finishScheduleTask = registerTask({
       id: `schedule-summary:${randomUUID()}`,
       kind: "agents",
@@ -597,13 +602,21 @@ export async function conversationRoutes(app: FastifyInstance) {
       detail: `${charData.name} · ${model}`,
       ...(chatId ? { chatId } : {}),
       phase: "summarizing_schedule",
+      abort: () => summaryController.abort(new Error("Schedule summary stopped")),
     });
     let scheduleOutcome: TaskOutcome = "completed";
     try {
-      const { summary } = await generateScheduleRoutineSummary(provider, model, charData.name, schedule, guidance);
+      const { summary } = await generateScheduleRoutineSummary(
+        provider,
+        model,
+        charData.name,
+        schedule,
+        guidance,
+        summaryController.signal,
+      );
       return reply.send({ summary, generatedAt: new Date().toISOString() });
     } catch (error) {
-      scheduleOutcome = "failed";
+      scheduleOutcome = summaryController.signal.aborted ? "aborted" : "failed";
       logger.error(error instanceof Error ? error : undefined, "[schedule] Summary generation failed");
       return reply.status(502).send({ error: getScheduleGenerationError(error, "Schedule summary generation failed") });
     } finally {
@@ -719,6 +732,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       }
 
       try {
+        const scheduleController = new AbortController();
         const finishScheduleTask = registerTask({
           id: `schedule:${randomUUID()}`,
           kind: "agents",
@@ -726,6 +740,7 @@ export async function conversationRoutes(app: FastifyInstance) {
           detail: `${charData.name} · ${model}`,
           ...(chatId ? { chatId } : {}),
           phase: "generating_schedule",
+          abort: () => scheduleController.abort(new Error("Schedule generation stopped")),
         });
         let scheduleOutcome: TaskOutcome = "completed";
         try {
@@ -741,7 +756,7 @@ export async function conversationRoutes(app: FastifyInstance) {
             charData.personality ?? "",
             userSchedulePreferences,
             recentContinuityContext,
-            { timeZone: scheduleTimeZone },
+            { timeZone: scheduleTimeZone, signal: scheduleController.signal },
           );
           logger.info(
             "[schedule] Generated schedule for %s, days: %s",
@@ -778,7 +793,7 @@ export async function conversationRoutes(app: FastifyInstance) {
 
           results[charId] = { status: "generated", schedule: fullSchedule };
         } catch (error) {
-          scheduleOutcome = "failed";
+          scheduleOutcome = scheduleController.signal.aborted ? "aborted" : "failed";
           throw error;
         } finally {
           finishScheduleTask(scheduleOutcome);
