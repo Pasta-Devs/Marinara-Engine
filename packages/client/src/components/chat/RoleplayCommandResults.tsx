@@ -5,6 +5,7 @@ import { getRoleplayCommandActivity, type RoleplayCommandActivity } from "@marin
 import { useUpdateMessageExtra } from "../../hooks/use-chats";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { ExpandedTextarea } from "../ui/ExpandedTextarea";
+import { RoleplayDocument } from "./RoleplayDocument";
 
 const actionClass =
   "min-h-11 rounded-lg px-3 text-sm text-[var(--primary)] hover:bg-[var(--primary)]/10 focus-visible:outline focus-visible:outline-[var(--primary)] disabled:opacity-40";
@@ -44,92 +45,103 @@ function CommandNotice({
     }
   };
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--primary)]/20" data-roleplay-command={command.type}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className="flex min-h-11 w-full items-center gap-2 px-3 py-3 text-left text-sm text-[var(--primary)] focus-visible:outline focus-visible:outline-[var(--primary)]"
-      >
-        <ChevronDown size="1rem" aria-hidden className={`shrink-0 ${open ? "rotate-180" : ""}`} />
-        <span className="min-w-0 break-words">
-          {t("roleplay.commands.activity.used", { character: characterName, command: command.type })}
-        </span>
-      </button>
-      {open && (
-        <div className="space-y-3 border-t border-[var(--primary)]/20 px-3 py-3 text-sm">
-          {item.deleted ? (
-            <p>{t("roleplay.commands.activity.deleted")}</p>
-          ) : (
-            content !== null && (
-              <div>
-                <p className="mb-1 font-medium">{t("roleplay.commands.activity.context")}</p>
-                <div className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words">{content}</div>
-                {!item.error && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      className={actionClass}
-                      disabled={pending}
-                      onClick={() => {
-                        setDraft(content);
-                        setEditing(true);
-                      }}
-                    >
-                      <Pencil size="0.875rem" aria-hidden className="mr-1 inline" />
-                      {t("roleplay.commands.activity.edit")}
-                    </button>
-                    <button
-                      type="button"
-                      className={actionClass}
-                      disabled={pending}
-                      onClick={async () => {
-                        if (
-                          await showConfirmDialog({
-                            title: t("roleplay.commands.activity.deleteTitle"),
-                            message: t("roleplay.commands.activity.deleteDescription"),
-                            confirmLabel: t("roleplay.commands.activity.delete"),
-                            cancelLabel: t("roleplay.commands.activity.cancel"),
-                          })
-                        )
-                          await save({ ...item, deleted: true });
-                      }}
-                    >
-                      <Trash2 size="0.875rem" aria-hidden className="mr-1 inline" />
-                      {t("roleplay.commands.activity.delete")}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )
-          )}
-          <div>
-            <p className="mb-1 font-medium">{t("roleplay.commands.activity.original")}</p>
-            <pre className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words font-mono text-xs">
-              {item.raw}
-            </pre>
-          </div>
-          {item.result && (
+    <div className="min-w-0 space-y-2 whitespace-normal" data-roleplay-command={command.type}>
+      {!item.deleted &&
+        !item.error &&
+        command.type === "document" &&
+        typeof command.title === "string" &&
+        content !== null && <RoleplayDocument document={command} />}
+      <div className="overflow-hidden rounded-lg border border-[var(--primary)]/20">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          className="flex min-h-11 w-full items-center gap-2 px-3 py-3 text-left text-sm text-[var(--primary)] focus-visible:outline focus-visible:outline-[var(--primary)]"
+        >
+          <ChevronDown size="1rem" aria-hidden className={`shrink-0 ${open ? "rotate-180" : ""}`} />
+          <span className="min-w-0 break-words">
+            {t("roleplay.commands.activity.used", { character: characterName, command: command.type })}
+          </span>
+        </button>
+        {open && (
+          <div className="space-y-3 border-t border-[var(--primary)]/20 px-3 py-3 text-sm">
+            {item.deleted ? (
+              <p>{t("roleplay.commands.activity.deleted")}</p>
+            ) : (
+              content !== null && (
+                <div>
+                  {command.type !== "document" && (
+                    <>
+                      <p className="mb-1 font-medium">{t("roleplay.commands.activity.context")}</p>
+                      <div className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words">{content}</div>
+                    </>
+                  )}
+                  {!item.error && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        className={actionClass}
+                        disabled={pending}
+                        onClick={() => {
+                          setDraft(content);
+                          setEditing(true);
+                        }}
+                      >
+                        <Pencil size="0.875rem" aria-hidden className="mr-1 inline" />
+                        {t("roleplay.commands.activity.edit")}
+                      </button>
+                      <button
+                        type="button"
+                        className={actionClass}
+                        disabled={pending}
+                        onClick={async () => {
+                          if (
+                            await showConfirmDialog({
+                              title: t("roleplay.commands.activity.deleteTitle"),
+                              message: t("roleplay.commands.activity.deleteDescription"),
+                              confirmLabel: t("roleplay.commands.activity.delete"),
+                              cancelLabel: t("roleplay.commands.activity.cancel"),
+                            })
+                          )
+                            await save({ ...item, deleted: true });
+                        }}
+                      >
+                        <Trash2 size="0.875rem" aria-hidden className="mr-1 inline" />
+                        {t("roleplay.commands.activity.delete")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            )}
             <div>
-              <p className="mb-1 font-medium">{t("roleplay.commands.activity.result")}</p>
+              <p className="mb-1 font-medium">{t("roleplay.commands.activity.original")}</p>
               <pre className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words font-mono text-xs">
-                {item.result}
+                {item.raw}
               </pre>
             </div>
-          )}
-          {item.error && <p>{t("roleplay.commands.failed", { error: item.error })}</p>}
-          {soundUrl && (
-            <audio
-              controls
-              preload="none"
-              src={soundUrl}
-              className="w-full max-w-full"
-              aria-label={t("roleplay.commands.sound.play")}
-            />
-          )}
-          {error && <p role="alert">{error}</p>}
-        </div>
-      )}
+            {item.result && (
+              <div>
+                <p className="mb-1 font-medium">{t("roleplay.commands.activity.result")}</p>
+                <pre className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words font-mono text-xs">
+                  {item.result}
+                </pre>
+              </div>
+            )}
+            {item.error && <p>{t("roleplay.commands.failed", { error: item.error })}</p>}
+            {soundUrl && (
+              <audio
+                controls
+                preload="none"
+                src={soundUrl}
+                className="w-full max-w-full"
+                aria-label={t("roleplay.commands.sound.play")}
+              />
+            )}
+            {error && <p role="alert">{error}</p>}
+          </div>
+        )}
+      </div>
       {editing && (
         <ExpandedTextarea
           open

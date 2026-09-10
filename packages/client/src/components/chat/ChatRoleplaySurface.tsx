@@ -2347,7 +2347,7 @@ export function ChatRoleplaySurface({
                   visualNovel && !vnHistoryOpen && "invisible pointer-events-none",
                   visualNovel &&
                     vnHistoryOpen &&
-                    "rounded-t-xl border border-b-0 border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)]",
+                    "rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)]",
                 )}
                 style={{
                   paddingTop: "var(--mari-roleplay-content-padding-top, 16px)",
@@ -2525,18 +2525,12 @@ export function ChatRoleplaySurface({
               >
                 {visualNovel && (
                   <div className="relative mb-2" data-roleplay-vn>
-                    <div
-                      className={cn(
-                        "flex justify-center",
-                        vnHistoryOpen &&
-                          "rounded-b-xl border border-t-0 border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)]",
-                      )}
-                    >
+                    <div className="flex justify-center">
                       <button
                         type="button"
                         className={cn(
                           "relative flex h-6 w-10 items-center justify-center border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-button-text)] before:absolute before:-inset-x-1 before:-inset-y-2.5 hover:text-[var(--marinara-chat-chrome-highlight-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]",
-                          vnHistoryOpen ? "rounded-b-lg border-t-0" : "rounded-t-lg border-b-0",
+                          vnHistoryOpen ? "-mt-px rounded-b-lg border-t-0" : "rounded-t-lg border-b-0",
                         )}
                         aria-expanded={vnHistoryOpen}
                         aria-controls="roleplay-chat-history"
@@ -2605,7 +2599,7 @@ export function ChatRoleplaySurface({
                             messageDepth={(messages?.length ?? 1) - 1 - (messages?.indexOf(latestVnMessage) ?? 0)}
                           />
                         ) : (
-                          <p className="p-4 text-sm text-[var(--muted-foreground)]">
+                          <p className="p-4 text-sm text-[var(--marinara-chat-chrome-text)]">
                             {localizeUi("chat.roleplayVn.empty")}
                           </p>
                         )}

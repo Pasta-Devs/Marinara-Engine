@@ -281,7 +281,7 @@ test("Roleplay VN bounds long paragraphs and handles an empty chat without art",
         })
       ).ok(),
     ).toBeTruthy();
-    await open(page, data.chat.id);
+    await open(page, data.chat.id, "dark", { chatChromeTextColor: "#14b8a6", appAccentColor: "#ff8800" });
     const paragraph = page.getByRole("region", { name: "Current paragraph" });
     await expect(paragraph).toContainText("A long paragraph remains readable");
     const bounds = await paragraph.boundingBox();
@@ -291,7 +291,11 @@ test("Roleplay VN bounds long paragraphs and handles an empty chat without art",
     await page.screenshot({ path: info.outputPath("long-paragraph.png"), animations: "disabled" });
     await request.delete(`/api/chats/${data.chat.id}/messages/${data.message.id}`);
     await page.reload();
-    await expect(page.locator("[data-roleplay-vn]")).toContainText("Send a message to begin the scene.");
+    await expect(page.getByText("Send a message to begin the scene.", { exact: true })).toHaveCSS(
+      "color",
+      "rgb(20, 184, 166)",
+    );
+    await page.screenshot({ path: info.outputPath("empty-scene-chroma.png"), animations: "disabled" });
     await expect(page.locator(".mari-chat-input textarea")).toBeInViewport();
   } finally {
     await data.cleanup();
@@ -468,6 +472,14 @@ test("VN history opens at the newest message and scene art respects size, activi
       .toBeLessThan(3);
     await expect(history.locator(`[data-message-id="${latest.id}"]`).first()).toBeInViewport();
     await expect(history.getByRole("button", { name: "Reply", exact: true })).toHaveCount(0);
+    const frame = history;
+    const collapse = vn.getByRole("button", { name: "Return to Visual Novel" });
+    await expect(frame).toHaveCSS("border-bottom-width", "1px");
+    const frameBox = (await frame.boundingBox())!;
+    const collapseBox = (await collapse.boundingBox())!;
+    expect(Math.abs(collapseBox.y - (frameBox.y + frameBox.height - 1))).toBeLessThanOrEqual(1);
+    expect(collapseBox.y + collapseBox.height).toBeGreaterThan(frameBox.y + frameBox.height + 10);
+    expect(Math.abs(collapseBox.x + collapseBox.width / 2 - (frameBox.x + frameBox.width / 2))).toBeLessThanOrEqual(1);
     await page.screenshot({ path: info.outputPath("vn-history-bottom.png"), animations: "disabled" });
     await history.evaluate((element) => {
       element.scrollTop = 0;

@@ -431,6 +431,9 @@ for (const format of ["xml", "markdown", "none"] as const) {
   assert.match(prompt("narrator"), /\[combat\]/u);
   assert.match(prompt("narrator"), /\[roll: character=/u);
   assert.match(prompt("narrator"), /\[document:/u);
+  assert.match(prompt("narrator"), /kind="note\|letter\|journal\|report\|poster\|terminal"/u);
+  assert.match(prompt("narrator"), /Supply plain text only; the Engine applies the built-in style/u);
+  assert.match(prompt("narrator"), /Do not generate HTML or CSS/u);
   assert.match(prompt("alice"), /\[illustrate:.*characters=/u);
   assert.match(prompt("alice"), /surprise the user or capture an important moment/u);
   assert.doesNotMatch(prompt("alice"), /\[roll:|\[combat\]|\[document:/u);

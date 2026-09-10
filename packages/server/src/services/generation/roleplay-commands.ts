@@ -332,7 +332,7 @@ export function buildRoleplayCommandsReminder(args: {
     );
   if (enabled("document"))
     lines.push(
-      '- [document: kind="letter|journal|report|poster|terminal" title="title" content="full text"] creates an in-world document. Do not repeat its contents in narration.',
+      '- [document: kind="note|letter|journal|report|poster|terminal" title="title" content="full text"] creates an in-world document. Supply plain text only; the Engine applies the built-in style for that kind. Do not generate HTML or CSS or repeat the document contents in narration.',
     );
   if (enabled("sound")) lines.push('- [sound: description="a brief sound effect"] plays a sound cue. Use sparingly.');
   if (enabled("music") && args.availableAgentIds.has("spotify"))

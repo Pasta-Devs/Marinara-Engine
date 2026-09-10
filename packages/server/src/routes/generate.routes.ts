@@ -3472,7 +3472,8 @@ export async function generateRoutes(app: FastifyInstance) {
 
         for (let index = resolvedAgents.length - 1; index >= 0; index--) {
           const agent = resolvedAgents[index]!;
-          if (builtInAgentTypes.has(agent.type)) continue;
+          // Illustrator gates automatic runs below; keep it available for extra command requests.
+          if (builtInAgentTypes.has(agent.type) || agent.type === "illustrator") continue;
 
           if (agent.phase !== "post_processing") {
             const activation = matchCustomAgentActivation(agent.settings, chatMessages);
@@ -9070,19 +9071,15 @@ export async function generateRoutes(app: FastifyInstance) {
             return { ...result, data: spriteData };
           };
 
-          const hasIllustrationCommand = roleplayMediaRequests.some((request) => request.command.type === "illustrate");
           let postResults = hasPostProcessingAgents
             ? [
                 ...(await pipeline.postGenerate(completedResponse, {
                   preGenInjections: contextInjections,
                   parallelResults,
-                  agentTypeFilter: (type) => type !== "illustrator" || !hasIllustrationCommand,
                 })),
                 ...parallelResults,
               ]
             : [...parallelResults];
-          // An explicit turn illustration takes precedence over an automatic decision.
-          if (hasIllustrationCommand) postResults = postResults.filter((result) => result.agentType !== "illustrator");
 
           if (lorebookKeeperAgent) {
             const historicalLorebookTarget = getLorebookKeeperAutomaticTarget(
@@ -10646,6 +10643,8 @@ export async function generateRoutes(app: FastifyInstance) {
                   });
                   // Queue image generation to run after the result loop so it doesn't
                   // block other agents (game state, trackers, rewrite agents).
+                  // Keep earlier images alive when automatic and command requests share a turn.
+                  if (pendingIllustration) pendingRoleplayMedia.push(pendingIllustration);
                   pendingIllustration = (async () => {
                     try {
                       const imgConnFull = resolvedImageConnection;

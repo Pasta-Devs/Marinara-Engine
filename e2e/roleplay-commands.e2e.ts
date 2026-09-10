@@ -11,7 +11,7 @@ const extra = (value: unknown): Record<string, any> => (typeof value === "string
 const contentOf = (body: any) => body.messages.map((message: any) => message.content).join("\n");
 const sharp = createRequire(new URL("../packages/server/package.json", import.meta.url))("sharp");
 
-async function openChat(page: Page, chatId: string) {
+async function openChat(page: Page, chatId: string, state = {}) {
   page.setDefaultTimeout(10_000);
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await seedUIState(page, {
@@ -21,6 +21,8 @@ async function openChat(page: Page, chatId: string) {
     chatHelpSeenModes: ["roleplay"],
     debugMode: false,
     streamingSpeed: 100,
+    appAccentPulseMode: false,
+    ...state,
   });
   await page.addInitScript(
     ({ id, version }) => {
@@ -338,9 +340,13 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
     expect(extra(noteMessage.extra).roleplayCommandActivity).toHaveLength(3);
     await page.reload();
     const document = page.locator("[data-roleplay-command-results]");
-    await expect(document).not.toContainText("Invitation");
+    await expect(document.getByRole("article", { name: "Invitation", exact: true })).toContainText("Meet at dawn.");
     await document.getByRole("button", { name: "Alice used document command!", exact: true }).click();
     await expect(document).toContainText("Meet at dawn.");
+    await testInfo.attach(`roleplay-document-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ animations: "disabled", path: testInfo.outputPath("roleplay-document.png") }),
+      contentType: "image/png",
+    });
     await expect(page.locator("body")).not.toContainText("ALICE_SECRET");
     await expect(page.locator("body")).not.toContainText("ALICE_REMINDER");
 
@@ -448,9 +454,11 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
       await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
       await expect(notice).toContainText("Removed from future context.");
     }
-    const afterDelete = await preview(alice);
-    expect(afterDelete).not.toMatch(/BATCH_SECRET|CONTINUED_SECRET|ALICE_SECRET|ALICE_REMINDER|BATCH_DOCUMENT/u);
-    expect(afterDelete).not.toContain("used notes command!");
+    // The notice updates optimistically; verify the persisted prompt after the PATCH completes.
+    await expect
+      .poll(() => preview(alice))
+      .not.toMatch(/BATCH_SECRET|CONTINUED_SECRET|ALICE_SECRET|ALICE_REMINDER|BATCH_DOCUMENT/u);
+    expect(await preview(alice)).not.toContain("used notes command!");
     // A delayed edit must stay on the original swipe, even after another swipe is selected.
     const beforeSwitch = (await rows()).find((message) => message.id === noteMessage.id);
     await request.put(`/api/chats/${chat.id}/messages/${noteMessage.id}/active-swipe`, { data: { index: 1 } });
@@ -747,6 +755,7 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
   let output = '[combat] [illustrate: subject="A duel" characters="Alice"]';
   const chatRequests: any[] = [],
     combatRequests: any[] = [],
+    automaticIllustrations: any[] = [],
     illustrationPlans: any[] = [];
   const imageRequests: { url: string; data: Buffer }[] = [];
   const portrait: Buffer = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#cc4477" } })
@@ -763,6 +772,9 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
     const data = Buffer.concat(chunks);
     if (incoming.url?.includes("/images/")) {
       imageRequests.push({ url: incoming.url, data });
+      // Finish the automatic image after the command image to exercise the complete SSE tail.
+      if (data.toString("utf8").includes("The quiet courtyard"))
+        await new Promise((resolve) => setTimeout(resolve, 300));
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ data: [{ b64_json: portrait.toString("base64") }] }));
       return;
@@ -776,6 +788,14 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
         prompt: "Alice at the gate",
         style: "ink sketch",
         characters: ["Narrator"],
+        aspectRatio: "square",
+      });
+    } else if (prompt.includes("CHAT_ILLUSTRATOR_MODE")) {
+      automaticIllustrations.push(body);
+      content = JSON.stringify({
+        shouldGenerate: true,
+        prompt: "The quiet courtyard",
+        characters: [],
         aspectRatio: "square",
       });
     } else if (prompt.includes("COMBAT_FIXTURE")) {
@@ -853,8 +873,9 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
       imagePromptInstructions: "IMAGE_CONNECTION_OVERRIDE",
     });
     const chatConnection = fixture.chat.connectionId;
+    let illustrator: any;
     for (const type of ["combat", "illustrator"]) {
-      await create("/api/agents", {
+      const agent = await create("/api/agents", {
         type,
         name: type,
         phase: "post_processing",
@@ -871,6 +892,7 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
           imageNegativePrompt: "NEGATIVE_OVERRIDE",
         },
       });
+      if (type === "illustrator") illustrator = agent;
     }
     const avatarUpdate = await request.patch(`/api/characters/${alice}`, {
       data: { data: { name: "Alice" }, avatarPath: `/api/avatars/file/${avatarName}` },
@@ -927,6 +949,40 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
       '[illustrate: subject="A duel" characters="Alice"]',
     );
 
+    const interval = async (runInterval: number) => {
+      const response = await request.patch(`/api/agents/${illustrator.id}`, {
+        data: { settings: { ...extra(illustrator.settings), runInterval } },
+      });
+      expect(response.ok(), await response.text()).toBeTruthy();
+    };
+    await metadata({ enableAgents: true });
+    await interval(3);
+    output = "The courtyard falls quiet.";
+    await generate(alice);
+    await generate(alice);
+    expect(automaticIllustrations).toHaveLength(0);
+    await generate(alice);
+    expect(automaticIllustrations).toHaveLength(1);
+    await expect.poll(() => imageRequests.length).toBe(2);
+
+    // A requested image bypasses the interval, and a due automatic image still runs on the same turn.
+    output = 'She lifts her sword. [illustrate: subject="A duel" characters="Alice"]';
+    await generate(alice);
+    expect(automaticIllustrations).toHaveLength(1);
+    expect(illustrationPlans).toHaveLength(2);
+    await interval(1);
+    const combined = await generate(alice);
+    expect(automaticIllustrations).toHaveLength(2);
+    expect(illustrationPlans).toHaveLength(3);
+    await expect.poll(() => imageRequests.length).toBe(5);
+    expect(extra(combined.extra).attachments).toHaveLength(2);
+
+    await interval(0);
+    output = "She lowers her sword.";
+    await generate(alice);
+    expect(automaticIllustrations).toHaveLength(2);
+    expect(imageRequests).toHaveLength(5);
+
     await page.route("**/api/capability-packages/agents", (route) =>
       route.fulfill({
         json: ["combat", "illustrator"].map((id) => ({
@@ -953,6 +1009,9 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
     if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
     const commands = page.locator("[data-roleplay-commands]");
     await commands.getByRole("button", { name: "Expand Commands", exact: true }).click();
+    await expect(commands).toContainText(
+      "Let characters request extra Illustrator images. Automatic runs still follow the agent's Run Interval.",
+    );
     await expect(commands.getByRole("checkbox", { name: /^Combat\b/u })).toBeChecked();
     await expect(commands.getByRole("checkbox", { name: /^Illustrations\b/u })).toBeChecked();
     const combatAudience = commands.getByRole("combobox", { name: "Who can start combat", exact: true });
@@ -1136,3 +1195,110 @@ test("Roleplay gates Soundtrack and Documents and uses the selected Music DJ sou
     await new Promise<void>((resolve) => provider.close(() => resolve()));
   }
 });
+
+for (const theme of ["dark", "light"] as const) {
+  test(`Roleplay documents use safe built-in styles in Classic and Visual Novel (${theme})`, async ({
+    page,
+    request,
+  }, info) => {
+    const fixture = await createFixture(request, "http://127.0.0.1:9/v1", ["Alice"]);
+    const kinds = ["note", "letter", "journal", "report", "poster", "terminal", "unknown"];
+    const content = "Dear traveller,\n\nThe archive opens at dawn. Bring the brass key.\n\n— The keeper";
+    const literalHtml = '<img src=x onerror="window.documentCommandExecuted=true"><style>body{display:none}</style>';
+    const activity = kinds.map((kind) => ({
+      command: {
+        type: "document",
+        documentType: kind,
+        title: `Archive ${kind}`,
+        content: kind === "terminal" ? literalHtml + "\n" + "0123456789".repeat(50) : content,
+      },
+      raw: `[document: kind="${kind}" title="Archive ${kind}" content="Original text"]`,
+    }));
+    try {
+      const legacy = await request.post(`/api/chats/${fixture.chat.id}/messages`, {
+        data: {
+          role: "assistant",
+          characterId: fixture.characters[0].id,
+          content: "An earlier letter.",
+          extra: {
+            roleplayDocuments: [{ type: "letter", title: "Saved letter", content: "A letter from an older save." }],
+          },
+        },
+      });
+      expect(legacy.ok(), await legacy.text()).toBeTruthy();
+      const response = await request.post(`/api/chats/${fixture.chat.id}/messages`, {
+        data: {
+          role: "assistant",
+          characterId: fixture.characters[0].id,
+          content: "She places the papers on the desk.",
+          extra: {
+            roleplayCommandActivity: [
+              ...activity,
+              { ...activity[0], deleted: true },
+              { ...activity[0], error: "Synthetic rejected document" },
+            ],
+          },
+        },
+      });
+      expect(response.ok(), await response.text()).toBeTruthy();
+      await openChat(page, fixture.chat.id, { theme });
+      await expect(page.getByRole("article", { name: "Saved letter", exact: true })).toContainText(
+        "A letter from an older save.",
+      );
+      for (const kind of kinds) {
+        const article = page.getByRole("article", { name: `Archive ${kind}`, exact: true });
+        await expect(article).toHaveCount(1);
+        await expect(article).toHaveAttribute("data-roleplay-document-kind", kind === "unknown" ? "document" : kind);
+        expect(await article.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+      }
+      const terminal = page.getByRole("article", { name: "Archive terminal", exact: true });
+      await expect(terminal).toContainText(literalHtml);
+      await expect(terminal.locator("img, style, script")).toHaveCount(0);
+      const letter = page.getByRole("article", { name: "Archive letter", exact: true });
+      await expect(letter.locator(".mari-roleplay-document-content")).toHaveCSS("white-space", "pre-wrap");
+      await letter.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: info.outputPath(`document-classic-${theme}.png`), animations: "disabled" });
+      await terminal.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: info.outputPath(`document-terminal-${theme}.png`), animations: "disabled" });
+
+      const notice = page.locator('[data-roleplay-command="document"]').filter({ has: letter });
+      await notice.getByRole("button", { name: "Alice used document command!", exact: true }).click();
+      await notice.getByRole("button", { name: "Edit", exact: true }).click();
+      const editor = page.locator('[data-component="ExpandedTextarea"]');
+      await editor.locator("textarea").fill("The archive now opens at noon.\nBring the silver key.");
+      await editor.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(editor).toBeHidden();
+      await page.reload();
+      await expect(letter).toContainText("The archive now opens at noon.");
+
+      expect(
+        (
+          await request.patch(`/api/chats/${fixture.chat.id}/metadata`, {
+            data: { roleplayDisplayStyle: "visual-novel" },
+          })
+        ).ok(),
+      ).toBeTruthy();
+      await page.reload();
+      const paragraph = page.getByRole("region", { name: "Current paragraph" });
+      await expect(paragraph.getByRole("article")).toHaveCount(kinds.length);
+      await expect(paragraph.getByRole("article", { name: "Archive letter", exact: true })).toContainText(
+        "Bring the silver key.",
+      );
+      await paragraph.getByRole("article", { name: "Archive letter", exact: true }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: info.outputPath(`document-vn-${theme}.png`), animations: "disabled" });
+      await expect(page.locator(".mari-chat-input textarea")).toBeInViewport();
+      await notice.getByRole("button", { name: "Alice used document command!", exact: true }).click();
+      await notice.getByRole("button", { name: "Delete", exact: true }).click();
+      const saved = page.waitForResponse(
+        (res) => res.request().method() === "PATCH" && res.url().includes("/extra?swipeIndex="),
+      );
+      await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+      expect((await saved).ok()).toBeTruthy();
+      await page.reload();
+      await expect(paragraph.getByRole("article")).toHaveCount(kinds.length - 1);
+      await expect(paragraph.getByRole("article", { name: "Archive letter", exact: true })).toHaveCount(0);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+}

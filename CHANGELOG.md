@@ -121,10 +121,11 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Preset `{{model}}` macros now use the model selected for the generation or preview, including connection overrides (#6018).
 - Restored the character DM switch under Roleplay Connected Chats, using the same permissions as Roleplay Commands (#6019).
-- Illustrator respects its automatic Run Interval when Roleplay illustration commands are enabled; an explicit turn illustration takes precedence (#6020).
+- Illustrator keeps its automatic Run Interval when Roleplay illustration commands are enabled. Character requests add extra images, including on turns with an automatic illustration (#6020).
 - Deleting a library character removes it from Game parties and saved setup choices, and party counts ignore already deleted cards (#6021).
 - Reply actions appear only in Conversation, with an explanation in its Help legend (#6023).
 - Visual Novel history opens at the latest message with compact controls attached to its box. Sprites retain configured sizes, inactive characters fade, and turn illustrations appear above the message behind sprites and open at full size on tap (#6024).
+- Visual Novel's expanded history border ends above its attached collapse arrow, and the empty-scene instruction follows the selected chat chroma text color (#6032).
 - New Game setup uses the character library for its Game Master and party pickers (#6025).
 
 - Conversation swipe controls align with the start of the message row. Hidden mobile actions and disabled swipe controls no longer leave unused space below messages (#6009).

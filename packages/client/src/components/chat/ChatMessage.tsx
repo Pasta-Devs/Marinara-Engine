@@ -2970,6 +2970,16 @@ export const ChatMessage = memo(function ChatMessage({
       statusLabel={hiddenFromAIStatusLabel}
     />
   ) : null;
+  const roleplayCommandResults = (
+    <RoleplayCommandResults
+      chatId={message.chatId}
+      messageId={message.id}
+      swipeIndex={message.activeSwipeIndex}
+      characterName={charName}
+      extra={extra}
+      isStreaming={!!isStreaming}
+    />
+  );
   const roleplayBubbleContent = isHiddenCollapsed ? (
     <HiddenFromAIMessageSummary
       roleplay={isRoleplay}
@@ -3022,14 +3032,7 @@ export const ChatMessage = memo(function ChatMessage({
           </>
         )}
       </div>
-      <RoleplayCommandResults
-        chatId={message.chatId}
-        messageId={message.id}
-        swipeIndex={message.activeSwipeIndex}
-        characterName={charName}
-        extra={extra}
-        isStreaming={!!isStreaming}
-      />
+      {roleplayCommandResults}
       {(translatedText || isTranslating) && !showTranslationOnly && (
         <div className="mt-2 border-t border-white/10 pt-2">
           {isTranslating ? (
@@ -3174,6 +3177,7 @@ export const ChatMessage = memo(function ChatMessage({
                   )}
                   {diceReplacesContent ? null : showTranslationOnly ? renderedTranslation : renderedContent}
                   {roleplayAttachments}
+                  {roleplayCommandResults}
                 </>
               )}
             </div>
