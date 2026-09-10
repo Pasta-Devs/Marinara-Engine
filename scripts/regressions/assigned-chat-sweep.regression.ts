@@ -79,6 +79,12 @@ app.decorate("db", db);
 app.setErrorHandler((await import("../../packages/server/src/middleware/error-handler.js")).errorHandler);
 await app.register(generateRoutes, { prefix: "/api/generate" });
 await app.register(connectionsRoutes, { prefix: "/api/connections" });
+await app.register((await import("../../packages/server/src/routes/prompts.routes.js")).promptsRoutes, {
+  prefix: "/api/prompts",
+});
+await app.register((await import("../../packages/server/src/routes/chats.routes.js")).chatsRoutes, {
+  prefix: "/api/chats",
+});
 try {
   await new Promise<void>((done) => provider.listen(0, "127.0.0.1", done));
   const address = provider.address();
@@ -208,6 +214,11 @@ try {
   });
   assert.ok(modelChat);
   await chats.patchMetadata(modelChat.id, { enableAgents: false });
+  for (const url of [`/api/prompts/${modelPreset.id}/preview`, `/api/chats/${modelChat.id}/peek-prompt`]) {
+    const response = await app.inject({ method: "POST", url, payload: { chatId: modelChat.id } });
+    assert.equal(response.statusCode, 200, response.body);
+    assert.ok(response.body.includes(`MODEL_PROOF=${connection.model}`), response.body);
+  }
   const overrideConnection = await connections.create({
     name: "Model override",
     provider: "custom",
