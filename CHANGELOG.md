@@ -50,6 +50,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Marinara Gradient brings the logo's pink, orange, and cyan to the color picker and becomes the default UI accent. Accent Pulse starts on for desktop and off for mobile; saved preferences remain editable and appearance resets restore the device default. Fixed pink interface accents now follow the selected accent or chrome text color (#6028).
+
 - Character sheet images have their own resolution setting under Image Generation, independent of backgrounds (#6022).
 
 - Reply to a whole message or selected passage in Conversation. Quote previews stay in history while only the latest user turn repeats its quote to the model (#6002).
