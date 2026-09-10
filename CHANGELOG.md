@@ -50,6 +50,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Character sheet images have their own resolution setting under Image Generation, independent of backgrounds (#6022).
+
 - Reply to a whole message or selected passage in Conversation and Roleplay. Quote previews stay in history while only the latest user turn repeats its quote to the model (#6002).
 - Larger display sizes (26, 30, and 34 px) and chat text up to 72 px improve readability on high-resolution displays (#6006).
 - Refresh the loaded context limit of local KoboldCpp, TabbyAPI, and llama.cpp-compatible connections when the page opens; offline or unsupported endpoints keep the saved limit (#6003).
