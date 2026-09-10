@@ -511,12 +511,9 @@ export function createAgentPipeline(
       options: {
         preGenInjections?: AgentInjection[];
         parallelResults?: AgentResult[];
-        agentTypeFilter?: (agentType: string) => boolean;
       } = {},
     ): Promise<AgentResult[]> {
-      const postAgents = agents.filter(
-        (agent) => agent.phase === "post_processing" && (options.agentTypeFilter?.(agent.type) ?? true),
-      );
+      const postAgents = agents.filter((agent) => agent.phase === "post_processing");
       const fullContext: AgentContext = {
         ...baseContext,
         mainResponse,
