@@ -75,7 +75,7 @@ export function registerTask(input: RegisterTaskInput): (outcome?: TaskOutcome) 
     ...entry,
     startedAt: input.startedAt ?? Date.now(),
     state: input.state ?? (input.phase === "queued" ? "queued" : "running"),
-    stopMode: input.stopMode ?? (abort ? "immediate" : "safe"),
+    stopMode: input.stopMode ?? (abort || stop ? "immediate" : "none"),
     stop: stop ?? abort,
     children: new Map(),
   });
@@ -171,7 +171,7 @@ export function listTasks(): TaskSnapshot[] {
         ...child,
         ...(child.progress ? { progress: { ...child.progress } } : {}),
       })),
-      cancellable: true,
+      cancellable: entry.stopMode !== "none",
     }))
     .sort((a, b) => a.startedAt - b.startedAt);
 }
@@ -181,13 +181,15 @@ export function requestTaskStop(id: string): { accepted: boolean; mode?: TaskSto
   if (!record) return { accepted: false };
   if (record.stopRequestedAt) return { accepted: true, mode: record.stopMode };
 
+  if (record.stopMode === "none") return { accepted: false };
+
   record.stopRequestedAt = Date.now();
   record.state = "stopping";
+  // Only queued children are certainly dead. A running child reports its own outcome when it
+  // unwinds; marking it aborted here would show a finished state while the work is still going.
   for (const [stepId, child] of record.children) {
     if (child.state === "queued") {
       record.children.set(stepId, { ...child, state: "skipped", endedAt: Date.now() });
-    } else if (child.state === "running") {
-      record.children.set(stepId, { ...child, state: "aborted", endedAt: Date.now() });
     }
   }
   record.stop?.();

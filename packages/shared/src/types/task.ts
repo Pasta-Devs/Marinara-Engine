@@ -1,7 +1,8 @@
 export type TaskKind = "generation" | "agents" | "media" | "transfer" | "maintenance";
 export type TaskOutcome = "completed" | "failed" | "aborted";
 export type TaskState = "queued" | "running" | "stopping";
-export type TaskStopMode = "immediate" | "safe";
+/** `none`: the producer neither aborts nor polls the stop flag, so it must not offer Stop. */
+export type TaskStopMode = "immediate" | "safe" | "none";
 export type MissionStage = "before" | "reply" | "after";
 export type TaskStepState = "queued" | "running" | "completed" | "failed" | "aborted" | "skipped";
 export type MissionStageState = "pending" | "running" | "completed" | "failed" | "aborted" | "skipped";
@@ -37,7 +38,7 @@ export interface TaskSnapshot {
   stopRequestedAt?: number;
   stages?: Partial<Record<MissionStage, MissionStageState>>;
   children: TaskStepSnapshot[];
-  /** Compatibility with the first Mission Control client. Root missions are always stoppable. */
+  /** Derived from `stopMode`. False when nothing would act on a stop request. */
   cancellable: boolean;
 }
 

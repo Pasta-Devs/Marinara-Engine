@@ -1045,6 +1045,8 @@ export async function importRoutes(app: FastifyInstance) {
       kind: "transfer",
       label: "Importing from SillyTavern",
       phase: "importing",
+      // Honoured in the progress callback below, between imported items.
+      stopMode: "safe",
     });
     let importFailed = false;
     let importStopped = false;

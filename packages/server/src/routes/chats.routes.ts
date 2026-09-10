@@ -1832,13 +1832,8 @@ export async function chatsRoutes(app: FastifyInstance) {
         }
       }
     }
-    const activeGenerations = (
-      app as unknown as {
-        activeGenerations?: Map<string, { abortController?: AbortController }>;
-      }
-    ).activeGenerations;
-    activeGenerations?.get(req.params.id)?.abortController?.abort();
-    activeGenerations?.delete(req.params.id);
+    app.activeGenerations?.get(req.params.id)?.abortController?.abort();
+    app.activeGenerations?.delete(req.params.id);
     clearChatActivity(req.params.id);
     // Disconnect from partner chat before deleting
     await storage.disconnectChat(req.params.id);

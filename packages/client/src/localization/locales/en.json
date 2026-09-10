@@ -1524,6 +1524,7 @@
   "tasks.stepState.skipped": "Skipped",
   "tasks.stop": "Stop",
   "tasks.stopHintImmediate": "Stops this mission and its child work.",
+  "tasks.stopHintNone": "This work cannot stop once it starts.",
   "tasks.stopHintSafe": "Stops safely after the current protected step.",
   "tasks.stopping": "Stopping",
   "tasks.stoppingSafely": "Stopping safely…",

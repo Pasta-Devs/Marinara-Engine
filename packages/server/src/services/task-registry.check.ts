@@ -20,7 +20,7 @@ import {
 resetTaskRegistryForTests();
 assert.deepEqual(listTasks(), []);
 
-// Every root mission can receive a stop request. Immediate work also runs its abort handle.
+// Stop is offered only where something acts on the request. Immediate work runs its abort handle.
 let aborted = false;
 const finish = registerTask({
   id: "a",
@@ -32,7 +32,7 @@ const finish = registerTask({
     aborted = true;
   },
 });
-registerTask({ id: "b", kind: "transfer", label: "Model", startedAt: 50 });
+registerTask({ id: "b", kind: "transfer", label: "Model", startedAt: 50, stopMode: "safe" });
 
 const listed = listTasks();
 assert.equal(listed.length, 2);
@@ -56,6 +56,35 @@ assert.equal(isTaskStopRequested("b"), true);
 assert.equal(listTasks().find((task) => task.id === "b")?.state, "stopping");
 assert.equal(abortTask("b"), true);
 assert.equal(abortTask("missing"), false);
+
+// A producer that neither aborts nor polls the flag must not advertise Stop, and a stop request
+// against it must be refused rather than parking the row in "stopping" forever.
+registerTask({ id: "sealed", kind: "transfer", label: "Installing package" });
+const sealed = listTasks().find((task) => task.id === "sealed")!;
+assert.equal(sealed.stopMode, "none");
+assert.equal(sealed.cancellable, false);
+assert.deepEqual(requestTaskStop("sealed"), { accepted: false });
+assert.equal(
+  listTasks().find((task) => task.id === "sealed")?.state,
+  "running",
+  "a refused stop must not change state",
+);
+finishTask("sealed");
+
+// Stopping skips queued children but leaves running ones alone: they report their own outcome.
+registerTask({ id: "tree", kind: "generation", label: "Generating reply", abort: () => {} });
+upsertTaskStep("tree", { id: "running-step", label: "Writing", state: "running" });
+upsertTaskStep("tree", { id: "queued-step", label: "Illustrating", state: "queued" });
+requestTaskStop("tree");
+const stopped = listTasks().find((task) => task.id === "tree")!;
+assert.equal(stopped.children.find((step) => step.id === "queued-step")?.state, "skipped");
+assert.equal(
+  stopped.children.find((step) => step.id === "running-step")?.state,
+  "running",
+  "a running child is still running until it unwinds",
+);
+finishTask("tree", "aborted");
+clearTaskHistory();
 
 // Progress patches merge; late patches after finish are silently dropped.
 updateTask("b", { progress: { current: 5, total: 10 }, phase: "downloading" });
@@ -164,6 +193,7 @@ registerTask({
   kind: "generation",
   label: "Generating reply",
   stages: { before: "running", reply: "pending", after: "pending" },
+  abort: () => {},
 });
 upsertTaskStep("hierarchy", { id: "memory", label: "Retrieving memory", stage: "before", state: "running" });
 finishTaskStep("hierarchy", "memory");

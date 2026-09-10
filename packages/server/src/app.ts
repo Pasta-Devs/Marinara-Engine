@@ -6,6 +6,7 @@ import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import { getDB, closeDB, type DB } from "./db/connection.js";
+import type { ActiveAgentRun } from "./routes/generate/retry-agents-route.js";
 import { registerRoutes } from "./routes/index.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { ipAllowlistHook } from "./middleware/ip-allowlist.js";
@@ -353,5 +354,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
 declare module "fastify" {
   interface FastifyInstance {
     db: DB;
+    /** Decorated in generate.routes.ts. Keyed by chat id; enforces one generation per chat. */
+    activeGenerations: Map<string, ActiveAgentRun>;
   }
 }

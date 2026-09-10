@@ -30,8 +30,7 @@ const moveSchema = z.object({
 // so letting them interleave races the runner and loses updates. Mirrors the
 // guard in generate.routes.ts and the autonomous scheduler.
 function generationInProgress(app: FastifyInstance, chatId: string): boolean {
-  const active = (app as unknown as { activeGenerations?: Map<string, unknown> }).activeGenerations;
-  return active?.has(chatId) ?? false;
+  return app.activeGenerations?.has(chatId) ?? false;
 }
 
 export async function turnGamesRoutes(app: FastifyInstance) {

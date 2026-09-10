@@ -304,20 +304,22 @@ function MissionRow({ task, now, onNavigate }: { task: EngineTask; now: number; 
             <span className="shrink-0 tabular-nums">{formatDuration(now - task.startedAt, t)}</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => stopTask.mutate(task.id)}
-          disabled={stopping}
-          aria-label={t("tasks.stopTask", { task: title })}
-          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-[0.6875rem] font-semibold text-[var(--muted-foreground)] transition-[background-color,color,transform] duration-150 hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-wait disabled:opacity-60"
-        >
-          {stopping ? (
-            <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={13} />
-          ) : (
-            <Square aria-hidden="true" size={11} />
-          )}
-          <span className="max-sm:sr-only">{stopping ? t("tasks.stopping") : t("tasks.stop")}</span>
-        </button>
+        {task.cancellable && (
+          <button
+            type="button"
+            onClick={() => stopTask.mutate(task.id)}
+            disabled={stopping}
+            aria-label={t("tasks.stopTask", { task: title })}
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-[0.6875rem] font-semibold text-[var(--muted-foreground)] transition-[background-color,color,transform] duration-150 hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-wait disabled:opacity-60"
+          >
+            {stopping ? (
+              <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={13} />
+            ) : (
+              <Square aria-hidden="true" size={11} />
+            )}
+            <span className="max-sm:sr-only">{stopping ? t("tasks.stopping") : t("tasks.stop")}</span>
+          </button>
+        )}
       </div>
 
       {task.stages && <StagePath stages={task.stages} />}
@@ -376,7 +378,11 @@ function MissionRow({ task, now, onNavigate }: { task: EngineTask; now: number; 
       )}
 
       <p className="mt-2 text-[0.625rem] text-[var(--muted-foreground)]">
-        {task.stopMode === "immediate" ? t("tasks.stopHintImmediate") : t("tasks.stopHintSafe")}
+        {task.stopMode === "immediate"
+          ? t("tasks.stopHintImmediate")
+          : task.stopMode === "safe"
+            ? t("tasks.stopHintSafe")
+            : t("tasks.stopHintNone")}
       </p>
     </article>
   );
