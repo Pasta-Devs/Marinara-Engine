@@ -3412,7 +3412,7 @@ export const useUIStore = create<UIState>()(
         persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
         persisted.appBackgroundColor = normalizeAppBackgroundColor(persisted.appBackgroundColor);
         if (typeof persisted.appAccentPulseMode !== "boolean") {
-          persisted.appAccentPulseMode = getDefaultAppAccentPulseMode();
+          persisted.appAccentPulseMode = persisted.appAccentRgbMode !== true && getDefaultAppAccentPulseMode();
         }
         if (version <= 60 && persisted.appAccentRgbMode === true) {
           // The old scheme default was solid, even though today's default is a gradient.

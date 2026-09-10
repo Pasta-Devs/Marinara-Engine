@@ -145,6 +145,37 @@ test.describe("Marinara accent defaults", () => {
       });
   });
 
+  for (const legacyColor of ["", "linear-gradient(90deg, #1e90ff, #22a6b3)"]) {
+    test(`legacy RGB keeps its animation choice (${legacyColor ? "gradient" : "scheme default"})`, async ({ page }) => {
+      await page.addInitScript(
+        ({ persistence, color }) => {
+          localStorage.setItem(
+            persistence.name,
+            JSON.stringify({
+              version: 60,
+              state: {
+                hasCompletedOnboarding: true,
+                chibiProfessorMariEnabled: false,
+                appAccentColor: color,
+                appAccentRgbMode: true,
+              },
+            }),
+          );
+        },
+        { persistence: UI_PERSISTENCE, color: legacyColor },
+      );
+      await page.goto("/");
+      await expect
+        .poll(() => readAccentPreferences(page))
+        .toEqual({
+          color: legacyColor,
+          pulse: !legacyColor,
+          rgb: !!legacyColor,
+          ready: true,
+        });
+    });
+  }
+
   for (const savedPulse of [undefined, false, true]) {
     test(`legacy preferences preserve color and Pulse=${String(savedPulse)}`, async ({ page }, testInfo) => {
       await page.addInitScript(
