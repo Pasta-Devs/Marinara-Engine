@@ -388,10 +388,12 @@ export function appendRoleplayPromptTail(
         : format === "markdown"
           ? /^#{1,2}[ \t]*Context[ \t]*$/mu
           : /^Context:[ \t]*$/mu;
-    const contextMessage = messages.findLast(
-      (candidate) =>
-        candidate.role === "user" && candidate.contextKind !== "history" && contextPattern.test(candidate.content),
-    );
+    const contextMessage = [...messages]
+      .reverse()
+      .find(
+        (candidate) =>
+          candidate.role === "user" && candidate.contextKind !== "history" && contextPattern.test(candidate.content),
+      );
     if (contextMessage) {
       if (format === "xml")
         contextMessage.content = contextMessage.content.replace(contextPattern, (block) =>

@@ -1518,8 +1518,8 @@ export function ChatRoleplaySurface({
 
   useLayoutEffect(() => {
     const measure = () => {
-      const top = Math.ceil(topChromeRef.current?.getBoundingClientRect().height ?? 0);
-      const bottom = Math.ceil(inputChromeRef.current?.getBoundingClientRect().height ?? 0);
+      let top = Math.ceil(topChromeRef.current?.getBoundingClientRect().height ?? 0);
+      let bottom = Math.ceil(inputChromeRef.current?.getBoundingClientRect().height ?? 0);
       if (vnMediaTarget) {
         vnMediaTarget.style.top = `${top + 8}px`;
         vnMediaTarget.style.bottom = `${bottom}px`;
@@ -1530,6 +1530,10 @@ export function ChatRoleplaySurface({
       if (historyBox) {
         historyBox.style.top = visualNovel && vnHistoryOpen ? `${top + 8}px` : "";
         historyBox.style.bottom = visualNovel && vnHistoryOpen ? `${bottom}px` : "";
+      }
+      if (visualNovel && vnHistoryOpen) {
+        top = 0;
+        bottom = 0;
       }
       const current = chromeInsetsRef.current;
       if (current.target === scrollElement && current.top === top && current.bottom === bottom) return;
@@ -2346,11 +2350,12 @@ export function ChatRoleplaySurface({
                     "rounded-t-xl border border-b-0 border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)]",
                 )}
                 style={{
-                  paddingTop: visualNovel && vnHistoryOpen ? "16px" : "var(--mari-roleplay-content-padding-top, 16px)",
-                  paddingBottom: `calc(${visualNovel && vnHistoryOpen ? "16px" : "var(--mari-roleplay-content-padding-bottom, 16px)"} + var(--mari-message-editor-scroll-space, 0px))`,
-                  scrollPaddingTop:
-                    visualNovel && vnHistoryOpen ? "16px" : "var(--mari-roleplay-scroll-padding-top, 16px)",
-                  scrollPaddingBottom: `calc(${visualNovel && vnHistoryOpen ? "16px" : "var(--mari-roleplay-scroll-padding-bottom, 16px)"} + var(--mari-message-editor-scroll-space, 0px))`,
+                  paddingTop: "var(--mari-roleplay-content-padding-top, 16px)",
+                  paddingBottom:
+                    "calc(var(--mari-roleplay-content-padding-bottom, 16px) + var(--mari-message-editor-scroll-space, 0px))",
+                  scrollPaddingTop: "var(--mari-roleplay-scroll-padding-top, 16px)",
+                  scrollPaddingBottom:
+                    "calc(var(--mari-roleplay-scroll-padding-bottom, 16px) + var(--mari-message-editor-scroll-space, 0px))",
                 }}
               >
                 {hasNextPage && (

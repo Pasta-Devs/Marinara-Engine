@@ -302,20 +302,25 @@ test("Character-sheet resolution migrates once and remains independent after a s
 }, info) => {
   const data = await fixture(request, "conversation");
   try {
-    await page.route("**/api/capability-packages/agents", (route) =>
+    await page.route("**/api/capability-packages/installed", (route) =>
       route.fulfill({
         json: [
           {
             id: "illustrator",
-            name: "Illustrator",
-            description: "Settings fixture",
-            author: "Pasta Devs",
-            phase: "post_processing",
-            execution: "host",
-            enabledByDefault: false,
-            category: "misc",
-            modeAllowlist: ["roleplay"],
-            defaultPromptTemplate: "Return an image prompt.",
+            version: "1.0.0",
+            status: "active",
+            readiness: "ready",
+            manifest: {
+              schemaVersion: 1,
+              id: "illustrator",
+              name: "Illustrator",
+              version: "1.0.0",
+              engine: { min: "2.0.0", maxExclusive: "3.0.0" },
+              kind: ["agent"],
+              entrypoints: { agents: "agents.json" },
+              permissions: ["agent-runtime"],
+              files: [],
+            },
           },
         ],
       }),
@@ -367,7 +372,7 @@ test("Character-sheet resolution migrates once and remains independent after a s
   }
 });
 
-test("Conversation Help explains the Reply action", async ({ page, request }) => {
+test("Conversation Help explains the Reply action", async ({ page, request, isMobile }) => {
   const data = await fixture(request, "conversation");
   try {
     await open(page, data.chat.id);
@@ -375,7 +380,9 @@ test("Conversation Help explains the Reply action", async ({ page, request }) =>
       const { requestChatHelp } = await import("/src/lib/chat-help-events.ts" as string);
       requestChatHelp("conversation");
     });
-    await page.getByRole("button", { name: /^Messages: Read the chat/ }).click();
+    const messagesHelp = page.getByRole("button", { name: /^Messages: Read the chat/ });
+    if (isMobile) await messagesHelp.click();
+    else await messagesHelp.hover();
     await expect(page.getByText("Reply to this message or a selected passage.", { exact: true })).toBeVisible();
   } finally {
     await data.cleanup();
