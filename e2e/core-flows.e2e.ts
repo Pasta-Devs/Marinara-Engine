@@ -14,6 +14,7 @@ import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
 import { mockUILanguagePacks } from "./ui-language-fixtures.js";
 import { seedUIState } from "./ui-state-fixture.js";
+import { UI_PERSISTENCE } from "../packages/client/src/lib/ui-persistence.js";
 
 const TRANSPARENT_GIF_BASE64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const TRANSPARENT_PNG_BASE64 =
@@ -7767,7 +7768,7 @@ test("legacy browser records are cleaned while extension imports stay locked", a
         };
       }),
     )
-    .toEqual({ version: 99, hasExtensionRecords: false, hasCleanupFlag: false });
+    .toEqual({ version: UI_PERSISTENCE.version, hasExtensionRecords: false, hasCleanupFlag: false });
 
   expect(
     await page.evaluate(
