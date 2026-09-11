@@ -2897,7 +2897,8 @@ export function SettingsPanel() {
           aria-label={localize("Settings categories")}
           className="grid grid-cols-3 gap-x-1.5 gap-y-1 rounded-xl border border-[var(--border)]/70 bg-[var(--background)]/32 p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)]"
         >
-          {TABS.map((tab) => {
+          {/* Activity is reached from the live Mission Control button in the panel header, not the grid. */}
+          {TABS.filter((tab) => tab.id !== "activity").map((tab) => {
             const Icon = tab.icon;
             const active = settingsTab === tab.id;
             return (

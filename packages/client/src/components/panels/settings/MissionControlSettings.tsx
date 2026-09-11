@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import {
+  FAILURE_TOAST_ID_PREFIX,
+  isUnwatchedMission,
   useClearEngineTaskHistory,
   useEngineTasks,
   useStopEngineTask,
@@ -252,9 +254,10 @@ function MissionRow({ task, now, onNavigate }: { task: EngineTask; now: number; 
   );
   const visibleChildren = expanded ? children : children.slice(0, 3);
   const stopping = task.state === "stopping" || (stopTask.isPending && stopTask.variables === task.id);
-  // A chat mission is already narrated by the streaming reply and the sidebar's generating flag, so
-  // its stage path and child rail only repeat what you are looking at. Background work has neither.
-  const detailed = !task.chatId;
+  // The open chat narrates its own turn, so its stage path and child rail only repeat what you are
+  // looking at. A turn in another chat, or background work, has no such narration.
+  const activeChatId = useChatStore((state) => state.activeChatId);
+  const detailed = isUnwatchedMission(task, activeChatId);
   const total = task.progress?.total;
   const percent = total && total > 0 ? Math.min(100, Math.round(((task.progress?.current ?? 0) / total) * 100)) : null;
 
@@ -478,7 +481,15 @@ export function MissionControlSettings() {
   const closeSettings = useUIStore((state) => state.closeRightPanel);
   const tasks = data?.tasks ?? EMPTY_TASKS;
   const taskHistory = data?.history ?? EMPTY_TASK_HISTORY;
-  const recent = useMemo(() => mergeRecentActivity(taskHistory, toastHistory), [taskHistory, toastHistory]);
+  // A failure toast restates a task row that is already here; keep one of them.
+  const recent = useMemo(
+    () =>
+      mergeRecentActivity(
+        taskHistory,
+        toastHistory.filter((entry) => !String(entry.id).startsWith(FAILURE_TOAST_ID_PREFIX)),
+      ),
+    [taskHistory, toastHistory],
+  );
 
   // Elapsed time only needs second precision while something runs. "3m ago" does not.
   useEffect(() => {

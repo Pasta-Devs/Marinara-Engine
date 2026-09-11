@@ -10,8 +10,24 @@ import {
   type LazyExoticComponent,
   type ReactNode,
 } from "react";
-import { X, Users, BookOpen, FileText, Link, Sparkles, Settings, VenetianMask, Bot, Puzzle } from "lucide-react";
+import {
+  X,
+  Users,
+  BookOpen,
+  FileText,
+  Link,
+  Sparkles,
+  Settings,
+  VenetianMask,
+  Bot,
+  Puzzle,
+  Radio,
+  ArrowLeft,
+} from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
+import { useChatStore } from "../../stores/chat.store";
+import { isUnwatchedMission, useEngineTasks } from "../../hooks/use-tasks";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { usePersonalExtensionContributions } from "../../lib/personal-extension-contributions";
 import { PersonalExtensionContributionIcon } from "../extensions/PersonalExtensionContributionIcon";
@@ -103,6 +119,55 @@ function PanelFallback() {
   );
 }
 
+/**
+ * Live entry to Mission Control inside Settings: pulses and counts while unwatched work runs, and
+ * toggles between the Activity view and the tab you came from.
+ */
+function MissionControlHeaderButton() {
+  const { t } = useTranslation();
+  const settingsTab = useUIStore((s) => s.settingsTab);
+  const setSettingsTab = useUIStore((s) => s.setSettingsTab);
+  const activeChatId = useChatStore((s) => s.activeChatId);
+  const { data } = useEngineTasks();
+  const [returnTab, setReturnTab] = useState("general");
+  const showing = settingsTab === "activity";
+  const running = (data?.tasks ?? []).filter((task) => isUnwatchedMission(task, activeChatId)).length;
+  const label = showing
+    ? t("tasks.returnToSettings")
+    : running
+      ? t("tasks.openMenu", { count: running })
+      : t("tasks.openMissionControl");
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (showing) return setSettingsTab(returnTab);
+        setReturnTab(settingsTab);
+        setSettingsTab("activity");
+      }}
+      aria-pressed={showing}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "mari-chrome-control mari-chrome-control--small relative flex shrink-0 items-center gap-1 p-1.5 active:scale-90",
+        showing && "text-[var(--primary)]",
+      )}
+    >
+      {showing ? <ArrowLeft size="0.875rem" /> : <Radio size="0.875rem" />}
+      {!showing && running > 0 && (
+        <>
+          <span className="text-[0.625rem] font-bold tabular-nums leading-none">{Math.min(running, 99)}</span>
+          <span
+            aria-hidden="true"
+            className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-[var(--primary)] motion-safe:animate-pulse"
+          />
+        </>
+      )}
+    </button>
+  );
+}
+
 export function RightPanel() {
   const { t: localizeUi } = useUiTranslation();
   const panel = useUIStore((s) => s.rightPanel);
@@ -152,6 +217,7 @@ export function RightPanel() {
           {contributionSurface && (
             <PersonalExtensionContributionSlot surface={contributionSurface} position="header" className="max-w-28" />
           )}
+          {panel === "settings" && <MissionControlHeaderButton />}
           <button
             onClick={close}
             aria-label={localizeUi("ui.layout.rightpanel.closePanel")}

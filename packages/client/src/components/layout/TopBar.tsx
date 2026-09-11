@@ -27,7 +27,7 @@ import {
   PersonalExtensionTopbarButtons,
 } from "./PersonalExtensionContributionsMenu";
 import { useTranslation } from "react-i18next";
-import { useEngineTasks } from "../../hooks/use-tasks";
+import { isUnwatchedMission, useBackgroundFailureToasts, useEngineTasks } from "../../hooks/use-tasks";
 import { useToastHistoryCapture } from "../../hooks/use-toast-history";
 
 type RightPanelButtonPanel = "lorebooks" | "presets" | "connections" | "agents" | "personas";
@@ -95,13 +95,15 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   const setSettingsTab = useUIStore((s) => s.setSettingsTab);
   const { t } = useTranslation();
   const { data: engineTasks } = useEngineTasks();
-  const activeMissions = engineTasks?.tasks.length ?? 0;
   // The top bar is always mounted; the Settings tab that shows this history is not.
   useToastHistoryCapture();
+  useBackgroundFailureToasts(engineTasks?.history);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const activeChatId = useChatStore((s) => s.activeChatId);
+  // Count only what nothing else shows. A badge lit by every reply you are watching gets ignored.
+  const activeMissions = (engineTasks?.tasks ?? []).filter((task) => isUnwatchedMission(task, activeChatId)).length;
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const characterDetailId = useUIStore((s) => s.characterDetailId);
