@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Roleplay's Visual Novel display portrait now honors configured character and persona Avatar Crops (#6044).
 - Image attachments in Roleplay and Conversation no longer come out squashed when the photo carries an EXIF rotation (most phone photos): the attachment compressor now reads the orientation tag before choosing the decode size, so the browser's rotated bitmap is resized with matching width and height (#6053).
+- Game Mode satellite calls that run on their own connection (Scene Analysis, the illustrator prompt rewriter, and the storyboard planner) no longer inherit the chat-wide generation parameters of the main roleplay connection, so an OpenRouter provider-routing object or other provider-specific custom parameter set for the main connection no longer breaks Scene Analysis on a different provider (#6049).
 - After a Game Mode session is concluded, the composer now says so and offers a New Session button in place of the silently disabled input, so play can continue without hunting for the action in the Session panel (#6045).
 - Added the `/send <message>` slash command to post a message as your persona without triggering generation (#6050).
 - The Termux and Linux launcher auto-update no longer aborts with "Cannot copy a socket file" when the previous server left its storage writer lease behind: the update snapshot skips the per-process lease directory and any socket or FIFO under the data directory (#6046).

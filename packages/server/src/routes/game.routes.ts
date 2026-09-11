@@ -1036,7 +1036,13 @@ async function summarizeIllustrationFromNarration(args: {
       sceneConnId,
       args.chat.connectionId,
     );
-    const parameters = resolveStoredGameGenerationParameters(args.meta, defaultGenerationParameters);
+    const parameters = resolveStoredGameGenerationParameters(args.meta, defaultGenerationParameters, {
+      includeChatParameters: inheritsChatGenerationParameters({
+        requestedConnectionId: sceneConnId,
+        resolvedConnectionId: conn.id,
+        chatConnectionId: args.chat.connectionId,
+      }),
+    });
     const provider = await createGameMainProvider(args.connections, conn, baseUrl);
     const messages = await buildIllustrationNarrationSummaryMessages({
       promptOverridesStorage: args.promptOverridesStorage,
@@ -1361,7 +1367,16 @@ async function createDynamicGameImagePromptGenerator(args: {
       return undefined;
     }
     const { conn, baseUrl, defaultGenerationParameters } = resolvedConnection;
-    const parameters = resolveStoredGameGenerationParameters(args.meta, defaultGenerationParameters);
+    const parameters = resolveStoredGameGenerationParameters(args.meta, defaultGenerationParameters, {
+      includeChatParameters: inheritsChatGenerationParameters({
+        requestedConnectionId:
+          readTrimmedString(args.meta.illustratorPromptConnectionId) ||
+          readTrimmedString(args.meta.gameSceneConnectionId) ||
+          readTrimmedString(args.setupConfig?.sceneConnectionId),
+        resolvedConnectionId: conn.id,
+        chatConnectionId: args.chat.connectionId,
+      }),
+    });
     const provider = await createGameMainProvider(args.connections, conn, baseUrl);
 
     return async (request) => {
@@ -3048,7 +3063,7 @@ function parseStoredGenerationParameters(raw: unknown): StoredGenerationParamete
   return result.success ? result.data : null;
 }
 
-function mergeStoredGenerationParameters(...sources: Array<unknown>): StoredGenerationParameters | null {
+export function mergeStoredGenerationParameters(...sources: Array<unknown>): StoredGenerationParameters | null {
   const merged: StoredGenerationParameters = {};
   for (const source of sources) {
     const parsed = parseStoredGenerationParameters(source);
@@ -3076,12 +3091,36 @@ function mergeEnabledParameters(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-function resolveStoredGameGenerationParameters(
+/**
+ * Chat-wide generation parameters (`meta.chatParameters`) are edited against the chat's own
+ * connection. A dedicated satellite connection (Scene Analysis, illustrator prompt, storyboard
+ * planner) must run on its own defaults only: provider-specific `customParameters` such as an
+ * OpenRouter `provider` routing object otherwise leak into a provider that rejects them.
+ * Without a dedicated connection the satellite falls back to the chat connection and inherits
+ * the chat parameters exactly as before.
+ */
+export function inheritsChatGenerationParameters(args: {
+  requestedConnectionId: string | null | undefined;
+  resolvedConnectionId: string;
+  chatConnectionId: string | null | undefined;
+}): boolean {
+  const requested = args.requestedConnectionId || null;
+  if (!requested) return true;
+  return requested === args.chatConnectionId || args.resolvedConnectionId === args.chatConnectionId;
+}
+
+export function resolveStoredGameGenerationParameters(
   meta: Record<string, unknown> | null | undefined,
   connectionDefaults: StoredGenerationParameters | null | undefined,
+  options: { includeChatParameters?: boolean } = {},
 ) {
+  const { includeChatParameters = true } = options;
   const setupConfig = (meta?.gameSetupConfig as Record<string, unknown> | null | undefined) ?? null;
-  return mergeStoredGenerationParameters(connectionDefaults, setupConfig?.generationParameters, meta?.chatParameters);
+  return mergeStoredGenerationParameters(
+    connectionDefaults,
+    setupConfig?.generationParameters,
+    includeChatParameters ? meta?.chatParameters : undefined,
+  );
 }
 
 function resolveGameModelAccessPolicy(args: {
@@ -11602,12 +11641,19 @@ export async function gameRoutes(app: FastifyInstance) {
 
     const meta = parseMeta(chat.metadata);
     const sceneConnId = (meta.gameSceneConnectionId as string) || null;
+    const requestedSceneConnId = input.connectionId ?? sceneConnId;
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
-      input.connectionId ?? sceneConnId,
+      requestedSceneConnId,
       chat.connectionId,
     );
-    const gameGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
+    const gameGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters, {
+      includeChatParameters: inheritsChatGenerationParameters({
+        requestedConnectionId: requestedSceneConnId,
+        resolvedConnectionId: conn.id,
+        chatConnectionId: chat.connectionId,
+      }),
+    });
     const enableGen = !!meta.enableSpriteGeneration;
     const enableAutoGen = enableGen && meta.gameImageAutoGenerationEnabled !== false;
     const storyboardBackgroundVisualEnabled = meta.gameStoryboardViewerDisplayMode === "background";
@@ -12293,10 +12339,18 @@ export async function gameRoutes(app: FastifyInstance) {
         sceneConnId,
         chat.connectionId,
       );
+      const includeChatParameters = inheritsChatGenerationParameters({
+        requestedConnectionId: sceneConnId,
+        resolvedConnectionId: conn.id,
+        chatConnectionId: chat.connectionId,
+      });
       const parameters =
         ownerMode === "game"
-          ? resolveStoredGameGenerationParameters(meta, defaultGenerationParameters)
-          : mergeStoredGenerationParameters(defaultGenerationParameters, meta.chatParameters);
+          ? resolveStoredGameGenerationParameters(meta, defaultGenerationParameters, { includeChatParameters })
+          : mergeStoredGenerationParameters(
+              defaultGenerationParameters,
+              includeChatParameters ? meta.chatParameters : undefined,
+            );
       const provider = await createGameMainProvider(connections, conn, baseUrl);
 
       const setupCfg = ownerMode === "game" ? ((meta.gameSetupConfig as Record<string, unknown> | null) ?? null) : null;
