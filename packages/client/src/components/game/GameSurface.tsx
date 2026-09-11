@@ -12541,6 +12541,9 @@ function GameSurfaceComponent({
                                 onIllustrate={handleManualSceneIllustration}
                                 spatialCapabilityEnabled={hierarchicalMapsActive}
                                 interruptMode={pendingInterruptMode}
+                                sessionConcluded={!sessionInteractive}
+                                onStartNewSession={handleStartNewSession}
+                                startNewSessionPending={startSessionLocked}
                               />
                             )
                           }
@@ -12635,6 +12638,9 @@ function GameSurfaceComponent({
                             onIllustrate={handleManualSceneIllustration}
                             spatialCapabilityEnabled={hierarchicalMapsActive}
                             interruptMode={pendingInterruptMode}
+                            sessionConcluded={!sessionInteractive}
+                            onStartNewSession={handleStartNewSession}
+                            startNewSessionPending={startSessionLocked}
                           />
                         )
                       }

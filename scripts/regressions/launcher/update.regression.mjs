@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -377,6 +378,23 @@ try {
   const galleryDir = join(defaultDataDir, "gallery");
   mkdirSync(galleryDir, { recursive: true });
   writeFileSync(join(galleryDir, "selfie.png"), "irreplaceable user data\n");
+  // #6046: a server that is still running (or died without releasing its lease)
+  // leaves the writer lease behind, including the live.sock liveness socket.
+  // fs.cp cannot copy a socket, so the snapshot used to abort and the launcher
+  // skipped the update. Unix sockets need a real listener; Windows has no
+  // filesystem socket entry, so only the directory exclusion is exercised there.
+  const storageDir = join(defaultDataDir, "storage");
+  const writerLeaseDir = join(storageDir, ".writer-lease");
+  mkdirSync(writerLeaseDir, { recursive: true });
+  writeFileSync(join(storageDir, "characters.json"), '{"sharded":true}\n');
+  writeFileSync(join(writerLeaseDir, "owner.json"), '{"pid":12,"hostId":null}\n');
+  const livenessSocket = process.platform === "win32" ? null : createServer();
+  if (livenessSocket) {
+    await new Promise((resolvePromise, rejectPromise) => {
+      livenessSocket.once("error", rejectPromise);
+      livenessSocket.listen(join(writerLeaseDir, "live.sock"), resolvePromise);
+    });
+  }
   symlinkSync(
     capabilityRuntimeDependencies,
     join(capabilityPackagesDir, "node_modules"),
@@ -413,6 +431,19 @@ try {
     "irreplaceable user data\n",
     "Launcher snapshots must keep user-created media",
   );
+  assert.equal(
+    readFileSync(join(snapshot.backupDir, "data", "storage", "characters.json"), "utf8"),
+    '{"sharded":true}\n',
+    "Launcher snapshots must keep sharded storage tables",
+  );
+  assert.equal(
+    existsSync(join(snapshot.backupDir, "data", "storage", ".writer-lease")),
+    false,
+    "Launcher snapshots must omit the per-process storage writer lease (#6046)",
+  );
+  if (livenessSocket) {
+    await new Promise((resolvePromise) => livenessSocket.close(resolvePromise));
+  }
 
   rmSync(defaultDataDir, { recursive: true, force: true });
   const restore = await restoreLauncherDataIfMissing({ root: fixtureRoot, backupRoot: fixtureBackupRoot, env: {} });

@@ -504,6 +504,8 @@
   "game.input.sayToGm": "Say to GM...",
   "game.input.sayToParty": "Say to party...",
   "game.input.sendTurn": "Send game turn",
+  "game.input.sessionConcluded": "Session concluded. Start a new session to keep playing.",
+  "game.input.startNewSession": "New Session",
   "game.setup.translation.help": "Translate narration from the first response using Google Translate. Enter a language code, such as en or pl. You can change the provider in Chat Settings → Translation.",
   "game.storyboard.generatingKeyframes": "Generating keyframes...",
   "game.storyboard.keyframeAlt": "Storyboard keyframe {{index}}",
