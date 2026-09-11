@@ -120,8 +120,21 @@ for (const theme of ["dark", "light"] as const) {
       await open(page, data.chat.id, theme);
       const vn = page.locator("[data-roleplay-vn]");
       await expect(vn).toContainText("A small light flickers across the desk.");
-      await expect(vn).not.toContainText("The archive falls quiet.");
       await expect(vn.getByRole("img", { name: "Mari", exact: true })).toBeVisible();
+      // Test paragraph progression in VN mode
+      const prevBtn = vn.getByRole("button", { name: "Previous paragraph" });
+      const nextBtn = vn.getByRole("button", { name: "Next paragraph" });
+      await expect(nextBtn).toBeDisabled();
+      await expect(prevBtn).toBeEnabled();
+      await prevBtn.click();
+      await expect(vn).toContainText('"We have a new experiment," Mari says.');
+      await prevBtn.click();
+      await expect(vn).toContainText("The archive falls quiet.");
+      await expect(prevBtn).toBeDisabled();
+      await nextBtn.click();
+      await expect(vn).toContainText('"We have a new experiment," Mari says.');
+      await nextBtn.click();
+      await expect(vn).toContainText("A small light flickers across the desk.");
       await expect(page.locator("[data-chat-scroll] [data-message-id]")).toHaveCount(0);
       const input = page.locator(".mari-chat-input textarea");
       await expect(input).toBeVisible();

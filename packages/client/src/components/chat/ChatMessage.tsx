@@ -7,7 +7,7 @@ import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
 import { MessageReplyPreview, ReplyToMessageButton } from "./MessageReplyPreview";
 import { RoleplayCommandResults } from "./RoleplayCommandResults";
-import { latestRoleplayParagraph } from "../../lib/roleplay-vn-paragraphs";
+import { splitRoleplayParagraphs } from "../../lib/roleplay-vn-paragraphs";
 import {
   normalizeCardAssetImageSyntax,
   resolveCardAssetUrl,
@@ -888,6 +888,10 @@ interface ChatMessageProps {
   isStreaming?: boolean;
   /** Compact paragraph presentation; full message actions stay in the history. */
   visualNovel?: boolean;
+  /** Explicit VN paragraph index to render instead of automatically picking the latest paragraph. */
+  visualNovelParagraphIndex?: number;
+  /** Callback notifying the total number of paragraphs available in this message for VN rendering. */
+  onVisualNovelParagraphCount?: (count: number) => void;
   visualNovelMediaTarget?: HTMLElement | null;
   /** Whether the live Roleplay response has begun emitting visible output. */
   streamingOutputStarted?: boolean;
@@ -1766,6 +1770,8 @@ export const ChatMessage = memo(function ChatMessage({
   message,
   isStreaming,
   visualNovel = false,
+  visualNovelParagraphIndex,
+  onVisualNovelParagraphCount,
   visualNovelMediaTarget,
   streamingOutputStarted = false,
   streamingContent,
@@ -2736,7 +2742,26 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Render content with dialogue highlighting (or HTML rendering)
   const fullText = typeof displayContent === "string" ? displayContent : message.content;
-  const text = visualNovel ? latestRoleplayParagraph(fullText) : fullText;
+  const vnParagraphs = useMemo(
+    () => (visualNovel ? splitRoleplayParagraphs(fullText, isStreaming) : []),
+    [fullText, isStreaming, visualNovel],
+  );
+
+  useEffect(() => {
+    if (visualNovel && onVisualNovelParagraphCount) {
+      onVisualNovelParagraphCount(Math.max(1, vnParagraphs.length));
+    }
+  }, [onVisualNovelParagraphCount, visualNovel, vnParagraphs.length]);
+
+  const text = visualNovel
+    ? vnParagraphs.length > 0
+      ? (vnParagraphs[
+          visualNovelParagraphIndex != null
+            ? Math.max(0, Math.min(vnParagraphs.length - 1, visualNovelParagraphIndex))
+            : vnParagraphs.length - 1
+        ] ?? "")
+      : ""
+    : fullText;
   const isHtmlContent = containsChatHtml(text);
   const htmlScopeClass = useMemo(() => {
     const suffix = message.id.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -2805,11 +2830,23 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Translated text is rendered through the same markdown pipeline as the
   // message so bold/italics/quotes format identically.
+  const vnTranslatedParagraphs = useMemo(
+    () => (visualNovel && translatedText ? splitRoleplayParagraphs(translatedText, false) : []),
+    [translatedText, visualNovel],
+  );
+  const translatedVnText =
+    vnTranslatedParagraphs.length > 0
+      ? (vnTranslatedParagraphs[
+          visualNovelParagraphIndex != null
+            ? Math.max(0, Math.min(vnTranslatedParagraphs.length - 1, visualNovelParagraphIndex))
+            : vnTranslatedParagraphs.length - 1
+        ] ?? "")
+      : "";
   const renderedTranslation = useMemo(
     () =>
       translatedText
         ? renderContent(
-            visualNovel ? latestRoleplayParagraph(translatedText) : translatedText,
+            visualNovel ? translatedVnText : translatedText,
             dialogueColor,
             speakerColorMap,
             boldDialogue,
@@ -2824,6 +2861,7 @@ export const ChatMessage = memo(function ChatMessage({
     [
       translatedText,
       visualNovel,
+      translatedVnText,
       dialogueColor,
       speakerColorMap,
       boldDialogue,

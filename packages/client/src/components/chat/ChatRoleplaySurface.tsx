@@ -18,7 +18,7 @@ import {
   type RefObject,
 } from "react";
 import { isMessageShadowedByLiveStream } from "../../lib/generation-stream-policy";
-import { latestRoleplayParagraph } from "../../lib/roleplay-vn-paragraphs";
+import { splitRoleplayParagraphs } from "../../lib/roleplay-vn-paragraphs";
 import {
   normalizeChatSummaryEntries,
   isLongTermMemoryChatSummaryPromptAllowed,
@@ -42,6 +42,8 @@ import {
   Settings2,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ArrowRightLeft,
   User,
   X,
@@ -337,11 +339,15 @@ function RoleplayLiveStreamText({
   emptyLabel,
   renderText,
   completedParagraphOnly = false,
+  paragraphIndex,
+  onParagraphCount,
 }: {
   chatId: string;
   emptyLabel: string;
   renderText: (text: string) => ReactNode;
   completedParagraphOnly?: boolean;
+  paragraphIndex?: number;
+  onParagraphCount?: (count: number) => void;
 }) {
   const [text, setText] = useState("");
   const textRef = useRef("");
@@ -355,7 +361,22 @@ function RoleplayLiveStreamText({
     const apply = () => {
       frame = null;
       const buffer = readBuffer();
-      const next = completedParagraphOnly ? latestRoleplayParagraph(buffer, true) : buffer;
+      let next = buffer;
+      if (completedParagraphOnly) {
+        const paragraphs = splitRoleplayParagraphs(buffer, true);
+        if (onParagraphCount) {
+          onParagraphCount(Math.max(1, paragraphs.length));
+        }
+        if (paragraphs.length > 0) {
+          const idx =
+            paragraphIndex != null
+              ? Math.max(0, Math.min(paragraphs.length - 1, paragraphIndex))
+              : paragraphs.length - 1;
+          next = paragraphs[idx] ?? "";
+        } else {
+          next = "";
+        }
+      }
       if (textRef.current !== next) {
         textRef.current = next;
         setText(next);
@@ -374,7 +395,7 @@ function RoleplayLiveStreamText({
       if (frame !== null) cancelAnimationFrame(frame);
       unsubscribe();
     };
-  }, [chatId, completedParagraphOnly]);
+  }, [chatId, completedParagraphOnly, onParagraphCount, paragraphIndex]);
 
   return <>{hasVisibleStreamText(text) ? renderText(text) : emptyLabel}</>;
 }
@@ -389,6 +410,9 @@ function StreamingIndicator({
   groupChatMode,
   expressionAvatarResolver,
   visualNovel = false,
+  visualNovelParagraphIndex,
+  onVisualNovelParagraphCount,
+  visualNovelMediaTarget,
 }: {
   activeChatId: string;
   chatCharIds: string[];
@@ -399,6 +423,9 @@ function StreamingIndicator({
   groupChatMode?: string;
   expressionAvatarResolver?: ExpressionAvatarResolver;
   visualNovel?: boolean;
+  visualNovelParagraphIndex?: number;
+  onVisualNovelParagraphCount?: (count: number) => void;
+  visualNovelMediaTarget?: HTMLElement | null;
 }) {
   const { t } = useTranslation();
   const thinkingBuffer = useChatStore((s) => s.thinkingBuffer);
@@ -411,6 +438,9 @@ function StreamingIndicator({
     <div className="animate-message-in">
       <ChatMessage
         visualNovel={visualNovel}
+        visualNovelParagraphIndex={visualNovelParagraphIndex}
+        onVisualNovelParagraphCount={onVisualNovelParagraphCount}
+        visualNovelMediaTarget={visualNovelMediaTarget}
         message={{
           id: "__streaming__",
           chatId: activeChatId,
@@ -435,6 +465,8 @@ function StreamingIndicator({
             emptyLabel={t("chat.message.thinking")}
             renderText={renderText}
             completedParagraphOnly={visualNovel}
+            paragraphIndex={visualNovelParagraphIndex}
+            onParagraphCount={onVisualNovelParagraphCount}
           />
         )}
         characterMap={characterMap}
@@ -451,9 +483,13 @@ function StreamingIndicator({
 
 function RegeneratingMessageContent({
   msg,
+  visualNovelParagraphIndex,
+  onVisualNovelParagraphCount,
   ...rest
 }: {
   msg: MessageWithSwipes;
+  visualNovelParagraphIndex?: number;
+  onVisualNovelParagraphCount?: (count: number) => void;
 } & Omit<ComponentProps<typeof ChatMessage>, "message" | "isStreaming">) {
   const { t } = useTranslation();
   const thinkingBuffer = useChatStore((s) => s.thinkingBuffer);
@@ -479,12 +515,16 @@ function RegeneratingMessageContent({
       message={{ ...msg, extra: cleanExtra, content: "" }}
       isStreaming
       streamingOutputStarted={streamingOutputStarted}
+      visualNovelParagraphIndex={visualNovelParagraphIndex}
+      onVisualNovelParagraphCount={onVisualNovelParagraphCount}
       streamingContent={(renderText) => (
         <RoleplayLiveStreamText
           chatId={msg.chatId}
           emptyLabel={t("chat.message.thinking")}
           renderText={renderText}
           completedParagraphOnly={rest.visualNovel}
+          paragraphIndex={visualNovelParagraphIndex}
+          onParagraphCount={onVisualNovelParagraphCount}
         />
       )}
       {...rest}
@@ -1477,13 +1517,74 @@ export function ChatRoleplaySurface({
     [messages, lastAssistantMessageId],
   );
   const pendingVnEdit = useRef<{ messageId?: string } | null>(null);
-  const latestVnMessage = useMemo(() => {
-    for (let index = (messages?.length ?? 0) - 1; index >= 0; index--) {
-      const message = messages![index]!;
-      if (message.role !== "system" && !isMessageHiddenFromUser(message)) return message;
-    }
-    return undefined;
+  const visibleVnMessages = useMemo(() => {
+    return (messages ?? []).filter((message) => message.role !== "system" && !isMessageHiddenFromUser(message));
   }, [messages]);
+  const latestVnMessage = visibleVnMessages[visibleVnMessages.length - 1];
+
+  // Visual Novel navigation: track selected message index and paragraph index within that message.
+  // By default (or when null), it stays on the latest message.
+  const [vnSelectedMessageId, setVnSelectedMessageId] = useState<string | null>(null);
+  const [vnParagraphIndex, setVnParagraphIndex] = useState<number | null>(null);
+  const [vnParagraphCount, setVnParagraphCount] = useState<number>(1);
+
+  // Active message in VN view:
+  const activeVnMessage = useMemo(() => {
+    if (vnSelectedMessageId) {
+      const found = visibleVnMessages.find((m) => m.id === vnSelectedMessageId);
+      if (found) return found;
+    }
+    return latestVnMessage;
+  }, [latestVnMessage, visibleVnMessages, vnSelectedMessageId]);
+
+  const activeVnMessageIndex = useMemo(() => {
+    return activeVnMessage ? visibleVnMessages.indexOf(activeVnMessage) : -1;
+  }, [activeVnMessage, visibleVnMessages]);
+
+  // Reset VN navigation when switching chats
+  useEffect(() => {
+    setVnSelectedMessageId(null);
+    setVnParagraphIndex(null);
+  }, [activeChatId]);
+
+  const currentParagraphIndex = vnParagraphIndex ?? Math.max(0, vnParagraphCount - 1);
+
+  // Navigation handlers
+  const canGoPreviousParagraph = currentParagraphIndex > 0 || (activeVnMessageIndex > 0 && !hasLiveStream);
+  const canGoNextParagraph =
+    currentParagraphIndex < vnParagraphCount - 1 ||
+    (activeVnMessageIndex >= 0 && activeVnMessageIndex < visibleVnMessages.length - 1 && !hasLiveStream);
+
+  const handlePreviousParagraph = useCallback(() => {
+    if (currentParagraphIndex > 0) {
+      setVnParagraphIndex(currentParagraphIndex - 1);
+    } else if (activeVnMessageIndex > 0 && !hasLiveStream) {
+      const prevMsg = visibleVnMessages[activeVnMessageIndex - 1];
+      if (prevMsg) {
+        setVnSelectedMessageId(prevMsg.id);
+        setVnParagraphIndex(null); // defaults to last paragraph of previous message
+      }
+    }
+  }, [activeVnMessageIndex, currentParagraphIndex, hasLiveStream, visibleVnMessages]);
+
+  const handleNextParagraph = useCallback(() => {
+    if (currentParagraphIndex < vnParagraphCount - 1) {
+      setVnParagraphIndex(currentParagraphIndex + 1);
+    } else if (activeVnMessageIndex >= 0 && activeVnMessageIndex < visibleVnMessages.length - 1 && !hasLiveStream) {
+      const nextMsg = visibleVnMessages[activeVnMessageIndex + 1];
+      if (nextMsg) {
+        setVnSelectedMessageId(nextMsg.id === latestVnMessage?.id ? null : nextMsg.id);
+        setVnParagraphIndex(0); // first paragraph of next message
+      }
+    }
+  }, [
+    activeVnMessageIndex,
+    currentParagraphIndex,
+    hasLiveStream,
+    latestVnMessage?.id,
+    visibleVnMessages,
+    vnParagraphCount,
+  ]);
   const queryClient = useQueryClient();
   const automaticStoryboardMessageRef = useRef<string | undefined>(undefined);
   const initialLoadSettledRef = useRef(false);
@@ -2562,6 +2663,8 @@ export function ChatRoleplaySurface({
                               msg={messages.find((message) => message.id === regenerateMessageId)!}
                               visualNovel
                               visualNovelMediaTarget={vnMediaTarget}
+                              visualNovelParagraphIndex={vnParagraphIndex ?? undefined}
+                              onVisualNovelParagraphCount={setVnParagraphCount}
                               chatMode="roleplay"
                               characterMap={characterMap}
                               personaInfo={personaInfo}
@@ -2574,6 +2677,9 @@ export function ChatRoleplaySurface({
                             <StreamingIndicator
                               activeChatId={activeChatId}
                               visualNovel
+                              visualNovelMediaTarget={vnMediaTarget}
+                              visualNovelParagraphIndex={vnParagraphIndex ?? undefined}
+                              onVisualNovelParagraphCount={setVnParagraphCount}
                               chatCharIds={chatCharIds}
                               mergedGroupCharacterIds={activeChatCharacterIds}
                               characterMap={characterMap}
@@ -2583,21 +2689,60 @@ export function ChatRoleplaySurface({
                               expressionAvatarResolver={expressionAvatarResolver}
                             />
                           )
-                        ) : latestVnMessage ? (
-                          <ChatMessage
-                            key={`${activeChatId}:${latestVnMessage.id}:${latestVnMessage.activeSwipeIndex}`}
-                            message={latestVnMessage}
-                            visualNovel
-                            visualNovelMediaTarget={vnMediaTarget}
-                            chatMode="roleplay"
-                            characterMap={characterMap}
-                            personaInfo={personaInfo}
-                            groupChatMode={groupChatMode}
-                            chatCharacterIds={chatCharIds}
-                            mergedGroupCharacterIds={activeChatCharacterIds}
-                            expressionAvatarResolver={expressionAvatarResolver}
-                            messageDepth={(messages?.length ?? 1) - 1 - (messages?.indexOf(latestVnMessage) ?? 0)}
-                          />
+                        ) : activeVnMessage ? (
+                          <div>
+                            <ChatMessage
+                              key={`${activeChatId}:${activeVnMessage.id}:${activeVnMessage.activeSwipeIndex}`}
+                              message={activeVnMessage}
+                              visualNovel
+                              visualNovelParagraphIndex={vnParagraphIndex ?? undefined}
+                              onVisualNovelParagraphCount={setVnParagraphCount}
+                              visualNovelMediaTarget={vnMediaTarget}
+                              chatMode="roleplay"
+                              characterMap={characterMap}
+                              personaInfo={personaInfo}
+                              groupChatMode={groupChatMode}
+                              chatCharacterIds={chatCharIds}
+                              mergedGroupCharacterIds={activeChatCharacterIds}
+                              expressionAvatarResolver={expressionAvatarResolver}
+                              messageDepth={(messages?.length ?? 1) - 1 - (messages?.indexOf(activeVnMessage) ?? 0)}
+                            />
+                            {(vnParagraphCount > 1 || visibleVnMessages.length > 1) && (
+                              <div
+                                data-roleplay-vn-navigation
+                                className="flex items-center justify-between border-t border-[var(--border)]/50 px-3 py-1.5 text-xs text-[var(--muted-foreground)]"
+                              >
+                                <button
+                                  type="button"
+                                  disabled={!canGoPreviousParagraph}
+                                  onClick={handlePreviousParagraph}
+                                  className="inline-flex items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)] disabled:opacity-30 disabled:pointer-events-none"
+                                  aria-label={localizeUi("chat.roleplayVn.previousParagraph")}
+                                  title={localizeUi("chat.roleplayVn.previousParagraph")}
+                                >
+                                  <ChevronLeft size="0.875rem" />
+                                  <span>{localizeUi("chat.roleplayVn.previousParagraph")}</span>
+                                </button>
+                                <span className="font-mono text-[0.6875rem] opacity-75">
+                                  {localizeUi("chat.roleplayVn.paragraphCounter", {
+                                    current: currentParagraphIndex + 1,
+                                    total: vnParagraphCount,
+                                  })}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={!canGoNextParagraph}
+                                  onClick={handleNextParagraph}
+                                  className="inline-flex items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)] disabled:opacity-30 disabled:pointer-events-none"
+                                  aria-label={localizeUi("chat.roleplayVn.nextParagraph")}
+                                  title={localizeUi("chat.roleplayVn.nextParagraph")}
+                                >
+                                  <span>{localizeUi("chat.roleplayVn.nextParagraph")}</span>
+                                  <ChevronRight size="0.875rem" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <p className="p-4 text-sm text-[var(--marinara-chat-chrome-text)]">
                             {localizeUi("chat.roleplayVn.empty")}
