@@ -40,60 +40,34 @@ const explicitlyIncluded = resolveStoredGameGenerationParameters(meta, sceneDefa
 });
 assert.deepEqual(explicitlyIncluded, inherited, "includeChatParameters: true matches the default behavior");
 
-// Guard: only a genuinely separate satellite connection opts out of the chat parameters.
+// Guard: only the chat's own connection inherits the chat parameters.
+const guard = (requestedConnectionId: string | null, resolvedConnectionId: string, chatConnectionId: string | null) =>
+  inheritsChatGenerationParameters({ requestedConnectionId, resolvedConnectionId, chatConnectionId });
+assert.equal(guard(null, "main", "main"), true, "no dedicated connection => the chat connection => inherit");
+assert.equal(guard("", "main", "main"), true, "blank dedicated connection id behaves like none");
+assert.equal(guard("main", "main", "main"), true, "dedicated connection that IS the chat connection => inherit");
+assert.equal(guard("scene", "scene", "main"), false, "dedicated scene connection => do not inherit");
 assert.equal(
-  inheritsChatGenerationParameters({
-    requestedConnectionId: null,
-    resolvedConnectionId: "main",
-    chatConnectionId: "main",
-  }),
-  true,
-  "no dedicated connection => the chat connection => inherit",
-);
-assert.equal(
-  inheritsChatGenerationParameters({
-    requestedConnectionId: "",
-    resolvedConnectionId: "main",
-    chatConnectionId: "main",
-  }),
-  true,
-  "blank dedicated connection id behaves like none",
-);
-assert.equal(
-  inheritsChatGenerationParameters({
-    requestedConnectionId: "main",
-    resolvedConnectionId: "main",
-    chatConnectionId: "main",
-  }),
-  true,
-  "dedicated connection that IS the chat connection => inherit",
-);
-assert.equal(
-  inheritsChatGenerationParameters({
-    requestedConnectionId: "scene",
-    resolvedConnectionId: "scene",
-    chatConnectionId: "main",
-  }),
-  false,
-  "dedicated scene connection => do not inherit",
-);
-assert.equal(
-  inheritsChatGenerationParameters({
-    requestedConnectionId: "scene",
-    resolvedConnectionId: "scene",
-    chatConnectionId: null,
-  }),
+  guard("scene", "scene", null),
   false,
   "dedicated scene connection with no chat connection => do not inherit",
 );
 assert.equal(
-  inheritsChatGenerationParameters({
-    requestedConnectionId: "random",
-    resolvedConnectionId: "main",
-    chatConnectionId: "main",
-  }),
-  true,
-  "random pool that lands on the chat connection => inherit",
+  guard(null, "agents-default", null),
+  false,
+  "fallback to the default agent connection with no chat connection => do not inherit",
+);
+assert.equal(
+  guard(null, "agents-default", "main"),
+  false,
+  "fallback to the default agent connection instead of the chat connection => do not inherit",
+);
+assert.equal(guard(null, "pool-member", "random"), true, "chat on the random pool, nothing requested => inherit");
+assert.equal(guard("random", "pool-member", "random"), true, "requesting the chat's own random pool => inherit");
+assert.equal(
+  guard("random", "pool-member", "main"),
+  false,
+  "dedicated random pool beside a fixed chat connection => do not inherit",
 );
 
 console.log("game-satellite-connection-parameters regression passed");

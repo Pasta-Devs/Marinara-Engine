@@ -3096,8 +3096,11 @@ function mergeEnabledParameters(
  * connection. A dedicated satellite connection (Scene Analysis, illustrator prompt, storyboard
  * planner) must run on its own defaults only: provider-specific `customParameters` such as an
  * OpenRouter `provider` routing object otherwise leak into a provider that rejects them.
- * Without a dedicated connection the satellite falls back to the chat connection and inherits
- * the chat parameters exactly as before.
+ *
+ * The chat parameters are inherited only when the resolved connection is the chat's own
+ * connection. A chat on the random pool has no single id to compare against, so it inherits
+ * whenever no dedicated connection was requested. A fallback to some other connection (for
+ * example the default agent connection) never inherits, even when nothing was requested.
  */
 export function inheritsChatGenerationParameters(args: {
   requestedConnectionId: string | null | undefined;
@@ -3105,8 +3108,9 @@ export function inheritsChatGenerationParameters(args: {
   chatConnectionId: string | null | undefined;
 }): boolean {
   const requested = args.requestedConnectionId || null;
-  if (!requested) return true;
-  return requested === args.chatConnectionId || args.resolvedConnectionId === args.chatConnectionId;
+  if (args.resolvedConnectionId === args.chatConnectionId) return true;
+  if (requested) return requested === args.chatConnectionId;
+  return args.chatConnectionId === "random";
 }
 
 export function resolveStoredGameGenerationParameters(
