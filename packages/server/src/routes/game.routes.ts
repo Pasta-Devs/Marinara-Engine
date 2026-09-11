@@ -1278,7 +1278,8 @@ export async function resolveDynamicGameImagePromptConnection(args: {
 }) {
   const explicitConnectionId = readTrimmedString(args.meta.illustratorPromptConnectionId);
   if (explicitConnectionId) {
-    return resolveConnection(args.connections, explicitConnectionId, null);
+    const resolved = await resolveConnection(args.connections, explicitConnectionId, null);
+    return { ...resolved, requestedConnectionId: explicitConnectionId };
   }
 
   let lastError: unknown;
@@ -1293,7 +1294,10 @@ export async function resolveDynamicGameImagePromptConnection(args: {
   );
   for (const candidateId of candidateIds) {
     try {
-      return await resolveConnection(args.connections, candidateId, null);
+      const resolved = await resolveConnection(args.connections, candidateId, null);
+      // Report the candidate that actually resolved: a stale scene id that matches the chat
+      // connection but no longer exists must not make the fallback look like the chat connection.
+      return { ...resolved, requestedConnectionId: candidateId };
     } catch (err) {
       lastError = err;
     }
@@ -1301,7 +1305,8 @@ export async function resolveDynamicGameImagePromptConnection(args: {
 
   const defaultAgentConnection = await args.connections.getDefaultForAgents();
   if (defaultAgentConnection) {
-    return resolveConnection(args.connections, defaultAgentConnection.id, null);
+    const resolved = await resolveConnection(args.connections, defaultAgentConnection.id, null);
+    return { ...resolved, requestedConnectionId: defaultAgentConnection.id };
   }
 
   throw lastError instanceof Error ? lastError : new Error("No text connection configured for dynamic image prompts");
@@ -1366,13 +1371,10 @@ async function createDynamicGameImagePromptGenerator(args: {
       );
       return undefined;
     }
-    const { conn, baseUrl, defaultGenerationParameters } = resolvedConnection;
+    const { conn, baseUrl, defaultGenerationParameters, requestedConnectionId } = resolvedConnection;
     const parameters = resolveStoredGameGenerationParameters(args.meta, defaultGenerationParameters, {
       includeChatParameters: inheritsChatGenerationParameters({
-        requestedConnectionId:
-          readTrimmedString(args.meta.illustratorPromptConnectionId) ||
-          readTrimmedString(args.meta.gameSceneConnectionId) ||
-          readTrimmedString(args.setupConfig?.sceneConnectionId),
+        requestedConnectionId,
         resolvedConnectionId: conn.id,
         chatConnectionId: args.chat.connectionId,
       }),
