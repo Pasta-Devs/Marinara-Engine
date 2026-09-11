@@ -2826,164 +2826,170 @@ export function SettingsPanel() {
 
   return (
     <div className="mari-settings-panel-chrome flex h-full flex-col overflow-hidden">
-      <div className="mari-editor-header mari-settings-search-header">
-        <div className="flex w-full items-center gap-2">
-          <label className="relative min-w-0 flex-1">
-            <Search
-              size="0.875rem"
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-            />
-            <input
-              value={settingsSearch}
-              onChange={(event) => setSettingsSearch(event.target.value)}
-              placeholder={localize("Search settings")}
-              className="mari-chrome-field h-9 w-full rounded-lg pl-8 pr-8 text-xs"
-            />
-            {settingsSearch && (
-              <button
-                type="button"
-                onClick={() => setSettingsSearch("")}
-                aria-label={localize("Clear settings search")}
-                className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-              >
-                <X size="0.75rem" />
-              </button>
-            )}
-          </label>
-        </div>
-        {settingsSearch.trim() && (
-          <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-[var(--border)]/70 bg-[var(--background)]/40 p-1.5">
-            {searchResults.length ? (
-              <div className="grid gap-1">
-                {searchResults.map((result) => {
-                  const section = result.section;
-                  const tab = TABS.find((entry) => entry.id === section.tab);
-                  const label = localize(result.type === "control" ? result.control.label : section.label);
-                  const description = localize(
-                    result.type === "control" ? result.control.description : section.description,
-                  );
-                  return (
-                    <button
-                      key={`${result.type}-${result.type === "control" ? result.control.id : section.id}`}
-                      type="button"
-                      onClick={() => jumpToSearchResult(result)}
-                      className="grid min-w-0 gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[var(--secondary)]/70"
-                    >
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-xs font-semibold text-[var(--foreground)]">{label}</span>
-                        <span className="shrink-0 rounded-full border border-[var(--border)]/70 px-1.5 py-px text-[0.5625rem] font-medium text-[var(--muted-foreground)]">
-                          {localize(result.type === "control" ? result.control.kind : "Section")}
-                        </span>
-                      </span>
-                      <span className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                        {tab ? t(tab.labelKey) : localize("Settings")} / {localize(section.label)} / {description}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="px-2 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                {localize("No matching settings.")}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--border)]/70 px-2.5 py-1.5">
-        <div
-          role="tablist"
-          aria-label={localize("Settings categories")}
-          className="grid grid-cols-3 gap-x-1.5 gap-y-1 rounded-xl border border-[var(--border)]/70 bg-[var(--background)]/32 p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)]"
-        >
-          {/* Activity is reached from the live Mission Control button in the panel header, not the grid. */}
-          {TABS.filter((tab) => tab.id !== "activity").map((tab) => {
-            const Icon = tab.icon;
-            const active = settingsTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                id={`settings-tab-${tab.id}`}
-                type="button"
-                role="tab"
-                aria-selected={settingsTab === tab.id}
-                aria-controls={`settings-panel-${tab.id}`}
-                tabIndex={settingsTab === tab.id ? 0 : -1}
-                onClick={() => setSettingsTab(tab.id)}
-                className={cn(
-                  "group relative isolate flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border px-1 py-0.5 text-center text-[0.625rem] font-semibold leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
-                  active
-                    ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_11%,transparent)]"
-                    : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border)]/80 hover:bg-[var(--secondary)]/60 hover:text-[var(--foreground)]",
-                )}
-                title={t(tab.descriptionKey)}
-              >
-                {active && (
-                  <>
-                    <span className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_18%,transparent),color-mix(in_srgb,var(--primary)_7%,transparent)_62%,transparent)]" />
-                    <span className="pointer-events-none absolute inset-x-3 bottom-0 h-px rounded-full bg-[var(--primary)]/60" />
-                  </>
-                )}
-                <span
-                  className={cn(
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-md border transition-colors",
-                    active
-                      ? "border-[var(--primary)]/35 bg-[var(--primary)]/16 text-[var(--primary)]"
-                      : "border-[var(--border)]/55 bg-[var(--secondary)]/45 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]",
-                  )}
-                >
-                  <Icon size="0.6875rem" />
-                </span>
-                <span className="w-full min-w-0 break-words px-0.5">{t(tab.labelKey)}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {activeSections.length > 1 && (
-          <div className="min-w-0 rounded-xl border border-[var(--border)]/60 bg-[var(--background)]/24 p-0.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)]">
-            <div className="flex max-w-full flex-wrap items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setQuickAccessOpen((open) => !open)}
-                aria-expanded={quickAccessOpen}
-                className={cn(
-                  "flex min-h-6 max-w-full items-center gap-1 rounded-lg border px-1.5 py-0.5 text-[0.625rem] font-semibold transition-colors",
-                  quickAccessOpen
-                    ? "border-[var(--primary)]/30 bg-[var(--primary)]/10 text-[var(--foreground)]"
-                    : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--secondary)]/60 hover:text-[var(--foreground)]",
-                )}
-                title={localize(quickAccessOpen ? "Collapse Quick Access" : "Expand Quick Access")}
-              >
-                <Tag size="0.6875rem" className="shrink-0" />
-                <span className="max-w-full truncate">
-                  {localize("Quick Access")} ({activeSections.length})
-                </span>
-                <ChevronDown
-                  size="0.625rem"
-                  className={cn("shrink-0 transition-transform", quickAccessOpen ? "rotate-180" : "")}
+      {/* Mission Control is not a settings category: search, tabs, and section chips would only
+          distract from it. Its header button is the way back. */}
+      {settingsTab !== "activity" && (
+        <>
+          <div className="mari-editor-header mari-settings-search-header">
+            <div className="flex w-full items-center gap-2">
+              <label className="relative min-w-0 flex-1">
+                <Search
+                  size="0.875rem"
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
                 />
-              </button>
-              {quickAccessOpen &&
-                activeSections.map((section) => (
+                <input
+                  value={settingsSearch}
+                  onChange={(event) => setSettingsSearch(event.target.value)}
+                  placeholder={localize("Search settings")}
+                  className="mari-chrome-field h-9 w-full rounded-lg pl-8 pr-8 text-xs"
+                />
+                {settingsSearch && (
                   <button
-                    key={section.id}
                     type="button"
-                    onClick={() => jumpToSection(section)}
-                    className="flex min-h-6 max-w-full min-w-0 items-center rounded-lg border border-[var(--border)]/65 bg-[var(--secondary)]/38 px-1.5 py-0.5 text-[0.625rem] font-semibold leading-tight text-[var(--muted-foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)] transition-all hover:border-[var(--primary)]/35 hover:bg-[var(--primary)]/11 hover:text-[var(--foreground)]"
-                    title={localizeUi("ui.panels.settingspanel.value1Value2", {
-                      value1: localize(section.label),
-                      value2: localize(section.description),
-                    })}
+                    onClick={() => setSettingsSearch("")}
+                    aria-label={localize("Clear settings search")}
+                    className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
                   >
-                    <span className="block max-w-full break-words">{localize(section.label)}</span>
+                    <X size="0.75rem" />
                   </button>
-                ))}
+                )}
+              </label>
             </div>
+            {settingsSearch.trim() && (
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-[var(--border)]/70 bg-[var(--background)]/40 p-1.5">
+                {searchResults.length ? (
+                  <div className="grid gap-1">
+                    {searchResults.map((result) => {
+                      const section = result.section;
+                      const tab = TABS.find((entry) => entry.id === section.tab);
+                      const label = localize(result.type === "control" ? result.control.label : section.label);
+                      const description = localize(
+                        result.type === "control" ? result.control.description : section.description,
+                      );
+                      return (
+                        <button
+                          key={`${result.type}-${result.type === "control" ? result.control.id : section.id}`}
+                          type="button"
+                          onClick={() => jumpToSearchResult(result)}
+                          className="grid min-w-0 gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[var(--secondary)]/70"
+                        >
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate text-xs font-semibold text-[var(--foreground)]">{label}</span>
+                            <span className="shrink-0 rounded-full border border-[var(--border)]/70 px-1.5 py-px text-[0.5625rem] font-medium text-[var(--muted-foreground)]">
+                              {localize(result.type === "control" ? result.control.kind : "Section")}
+                            </span>
+                          </span>
+                          <span className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                            {tab ? t(tab.labelKey) : localize("Settings")} / {localize(section.label)} / {description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="px-2 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localize("No matching settings.")}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+          <div className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--border)]/70 px-2.5 py-1.5">
+            <div
+              role="tablist"
+              aria-label={localize("Settings categories")}
+              className="grid grid-cols-3 gap-x-1.5 gap-y-1 rounded-xl border border-[var(--border)]/70 bg-[var(--background)]/32 p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)]"
+            >
+              {/* Activity is reached from the live Mission Control button in the panel header, not the grid. */}
+              {TABS.filter((tab) => tab.id !== "activity").map((tab) => {
+                const Icon = tab.icon;
+                const active = settingsTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    id={`settings-tab-${tab.id}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={settingsTab === tab.id}
+                    aria-controls={`settings-panel-${tab.id}`}
+                    tabIndex={settingsTab === tab.id ? 0 : -1}
+                    onClick={() => setSettingsTab(tab.id)}
+                    className={cn(
+                      "group relative isolate flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border px-1 py-0.5 text-center text-[0.625rem] font-semibold leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
+                      active
+                        ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_11%,transparent)]"
+                        : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border)]/80 hover:bg-[var(--secondary)]/60 hover:text-[var(--foreground)]",
+                    )}
+                    title={t(tab.descriptionKey)}
+                  >
+                    {active && (
+                      <>
+                        <span className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_18%,transparent),color-mix(in_srgb,var(--primary)_7%,transparent)_62%,transparent)]" />
+                        <span className="pointer-events-none absolute inset-x-3 bottom-0 h-px rounded-full bg-[var(--primary)]/60" />
+                      </>
+                    )}
+                    <span
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-md border transition-colors",
+                        active
+                          ? "border-[var(--primary)]/35 bg-[var(--primary)]/16 text-[var(--primary)]"
+                          : "border-[var(--border)]/55 bg-[var(--secondary)]/45 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]",
+                      )}
+                    >
+                      <Icon size="0.6875rem" />
+                    </span>
+                    <span className="w-full min-w-0 break-words px-0.5">{t(tab.labelKey)}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeSections.length > 1 && (
+              <div className="min-w-0 rounded-xl border border-[var(--border)]/60 bg-[var(--background)]/24 p-0.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)]">
+                <div className="flex max-w-full flex-wrap items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setQuickAccessOpen((open) => !open)}
+                    aria-expanded={quickAccessOpen}
+                    className={cn(
+                      "flex min-h-6 max-w-full items-center gap-1 rounded-lg border px-1.5 py-0.5 text-[0.625rem] font-semibold transition-colors",
+                      quickAccessOpen
+                        ? "border-[var(--primary)]/30 bg-[var(--primary)]/10 text-[var(--foreground)]"
+                        : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--secondary)]/60 hover:text-[var(--foreground)]",
+                    )}
+                    title={localize(quickAccessOpen ? "Collapse Quick Access" : "Expand Quick Access")}
+                  >
+                    <Tag size="0.6875rem" className="shrink-0" />
+                    <span className="max-w-full truncate">
+                      {localize("Quick Access")} ({activeSections.length})
+                    </span>
+                    <ChevronDown
+                      size="0.625rem"
+                      className={cn("shrink-0 transition-transform", quickAccessOpen ? "rotate-180" : "")}
+                    />
+                  </button>
+                  {quickAccessOpen &&
+                    activeSections.map((section) => (
+                      <button
+                        key={section.id}
+                        type="button"
+                        onClick={() => jumpToSection(section)}
+                        className="flex min-h-6 max-w-full min-w-0 items-center rounded-lg border border-[var(--border)]/65 bg-[var(--secondary)]/38 px-1.5 py-0.5 text-[0.625rem] font-semibold leading-tight text-[var(--muted-foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)] transition-all hover:border-[var(--primary)]/35 hover:bg-[var(--primary)]/11 hover:text-[var(--foreground)]"
+                        title={localizeUi("ui.panels.settingspanel.value1Value2", {
+                          value1: localize(section.label),
+                          value2: localize(section.description),
+                        })}
+                      >
+                        <span className="block max-w-full break-words">{localize(section.label)}</span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       <div className="relative min-h-0 flex-1">
         {TABS.map((tab) => {
