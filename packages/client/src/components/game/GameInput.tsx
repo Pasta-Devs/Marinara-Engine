@@ -677,10 +677,12 @@ export function GameInput({
             type="button"
             onClick={onStartNewSession}
             disabled={startNewSessionPending}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-xl bg-foreground/10 px-3 text-xs font-medium text-foreground/80 ring-1 ring-foreground/15 transition-colors hover:bg-foreground/15 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-xl bg-foreground/10 px-2 text-xs font-medium text-foreground/75 ring-1 ring-foreground/20 transition-colors hover:bg-foreground/15 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
+            title={t("game.input.startNewSession")}
+            aria-label={t("game.input.startNewSession")}
           >
             {startNewSessionPending ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-            {t("game.input.startNewSession")}
+            <span className="hidden sm:inline">{t("game.input.startNewSession")}</span>
           </button>
         )}
 
