@@ -3127,6 +3127,8 @@ export const ChatMessage = memo(function ChatMessage({
       </div>
     );
 
+  const vnAvatarCropStyle = expressionAvatarUrl ? {} : avatarCropStyle;
+
   if (visualNovel) {
     return (
       <>
@@ -3143,7 +3145,7 @@ export const ChatMessage = memo(function ChatMessage({
                 src={displayAvatarUrl}
                 alt={displayName}
                 className="h-full w-full object-cover"
-                style={panelAvatarCropStyle}
+                style={vnAvatarCropStyle}
               />
             ) : (
               <div

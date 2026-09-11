@@ -494,3 +494,36 @@ test("VN history opens at the newest message and scene art respects size, activi
     for (const id of extras) await request.delete(`/api/characters/${id}`);
   }
 });
+
+test("Roleplay VN portrait honors avatar crop and allows history expansion", async ({ page, request }) => {
+  const data = await fixture(request, true);
+  try {
+    const crop = { srcX: 0.2, srcY: 0.1, srcWidth: 0.5, srcHeight: 0.5 };
+    const charRes = await request.get(`/api/characters/${data.character.id}`);
+    expect(charRes.ok()).toBeTruthy();
+    const charJson = await charRes.json();
+    const rawData = JSON.parse(charJson.data);
+    rawData.extensions = { ...(rawData.extensions ?? {}), avatarCrop: crop };
+    expect((await request.patch(`/api/characters/${data.character.id}`, { data: { data: rawData } })).ok()).toBeTruthy();
+
+    await open(page, data.chat.id);
+    const vn = page.locator("[data-roleplay-vn]");
+    const avatarImg = vn.getByRole("img", { name: "Mari", exact: true });
+    await expect(avatarImg).toBeVisible();
+    await expect(avatarImg).toHaveCSS("position", "absolute");
+    await expect(avatarImg).toHaveCSS("width", "200%");
+    await expect(avatarImg).toHaveCSS("height", "200%");
+    await expect(avatarImg).toHaveCSS("top", "-20%");
+    await expect(avatarImg).toHaveCSS("left", "-40%");
+
+    const expandBtn = vn.getByRole("button", { name: "Show chat history" });
+    await expect(expandBtn).toBeVisible();
+    await expandBtn.click();
+    const history = page.locator("[data-chat-scroll]");
+    await expect(history).toBeVisible();
+    await expect(history.locator(`[data-message-id="${data.message.id}"]`).first()).toBeVisible();
+  } finally {
+    await data.cleanup();
+  }
+});
+
