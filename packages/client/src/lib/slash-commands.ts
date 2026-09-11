@@ -677,6 +677,18 @@ const COMMANDS: SlashCommand[] = [
     },
   },
   {
+    name: "send",
+    description: "Post a message as your persona without triggering generation",
+    usage: "/send <message>",
+    local: true,
+    async execute(args, ctx) {
+      const content = stripSingleWrappingQuotePair(args);
+      if (!content) return { handled: true, feedback: "Usage: /send <message>" };
+      await ctx.createMessage({ role: "user", content, characterId: null });
+      return { handled: true };
+    },
+  },
+  {
     name: "guided",
     aliases: ["narrator", "narrate", "nar"],
     description: "Steer the narrative — the AI will narrate events in the direction you describe",
