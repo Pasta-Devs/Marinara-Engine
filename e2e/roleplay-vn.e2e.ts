@@ -504,17 +504,23 @@ test("Roleplay VN portrait honors avatar crop and allows history expansion", asy
     const charJson = await charRes.json();
     const rawData = JSON.parse(charJson.data);
     rawData.extensions = { ...(rawData.extensions ?? {}), avatarCrop: crop };
-    expect((await request.patch(`/api/characters/${data.character.id}`, { data: { data: rawData } })).ok()).toBeTruthy();
+    expect(
+      (await request.patch(`/api/characters/${data.character.id}`, { data: { data: rawData } })).ok(),
+    ).toBeTruthy();
 
     await open(page, data.chat.id);
     const vn = page.locator("[data-roleplay-vn]");
     const avatarImg = vn.getByRole("img", { name: "Mari", exact: true });
     await expect(avatarImg).toBeVisible();
     await expect(avatarImg).toHaveCSS("position", "absolute");
-    await expect(avatarImg).toHaveCSS("width", "200%");
-    await expect(avatarImg).toHaveCSS("height", "200%");
-    await expect(avatarImg).toHaveCSS("top", "-20%");
-    await expect(avatarImg).toHaveCSS("left", "-40%");
+    expect(
+      await avatarImg.evaluate((element) => ({
+        width: element.style.width,
+        height: element.style.height,
+        top: element.style.top,
+        left: element.style.left,
+      })),
+    ).toEqual({ width: "200%", height: "200%", top: "-20%", left: "-40%" });
 
     const expandBtn = vn.getByRole("button", { name: "Show chat history" });
     await expect(expandBtn).toBeVisible();
@@ -526,4 +532,3 @@ test("Roleplay VN portrait honors avatar crop and allows history expansion", asy
     await data.cleanup();
   }
 });
-
