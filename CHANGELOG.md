@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Clicking "Manage package" from a feature agent's detail view now opens the agent's installed package rather than falling back to the first catalog entry (#6047).
 - Malformed Echo Chamber reactions no longer crash the chat. Native text selections pause automatic chat scrolling and take priority over touch shortcuts and composer focus handling (#6039).
 - Roleplay's notes command explicitly explains how characters can edit existing notes by supplying their full updated contents (#6039).
 

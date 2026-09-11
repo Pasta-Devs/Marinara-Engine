@@ -775,7 +775,7 @@ export function AppShell() {
         enabledForChat={selectedFeatureEnabledForChat}
         onEnabledForChatChange={setSelectedFeatureEnabledForChat}
         onClose={closeFeatureDetail}
-        onManagePackage={openAgentCatalog}
+        onManagePackage={() => openAgentCatalog(selectedFeaturePackage?.id)}
         capabilityProps={{
           debugMode,
           confirmAction: showConfirmDialog,
