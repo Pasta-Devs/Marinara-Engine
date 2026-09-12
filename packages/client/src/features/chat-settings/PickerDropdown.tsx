@@ -9,6 +9,7 @@ interface PickerDropdownProps {
   placeholder: string;
   children: ReactNode;
   footer?: ReactNode;
+  searchable?: boolean;
 }
 
 export function PickerDropdown({
@@ -18,6 +19,7 @@ export function PickerDropdown({
   placeholder,
   children,
   footer,
+  searchable = true,
 }: PickerDropdownProps) {
   const { t: localizeUi } = useUiTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -37,14 +39,18 @@ export function PickerDropdown({
       className="mt-2 rounded-lg ring-1 ring-[var(--border)] bg-[var(--card)] overflow-hidden"
     >
       <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-        <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
-        <input
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={placeholder}
-          autoFocus
-          className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-        />
+        {searchable && (
+          <>
+            <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
+            <input
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder={placeholder}
+              autoFocus
+              className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
+            />
+          </>
+        )}
         <button
           type="button"
           aria-label={localizeUi("ui.chatSettings.pickerdropdown.closePicker")}

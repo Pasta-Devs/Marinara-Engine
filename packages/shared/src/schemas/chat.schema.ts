@@ -115,8 +115,6 @@ export const reassignMessagePersonaSchema = z
     scope: z.enum(["unassigned", "persona", "all"]),
     sourcePersonaId: z.string().trim().min(1).optional(),
     sourcePersonaSource: z.enum(["persona", "character"]).optional(),
-    targetPersonaId: z.string().trim().min(1).nullable().optional(),
-    targetPersonaSource: z.enum(["persona", "character"]).nullable().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.scope === "persona" && !data.sourcePersonaId) {

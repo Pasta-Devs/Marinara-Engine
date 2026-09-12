@@ -2142,12 +2142,75 @@ export function createChatsStorage(db: DB) {
         return { updatedCount: 0, messageIds: [] };
       }
 
-      for (const id of matchingIds) {
-        await this.updateMessageExtra(id, { personaSnapshot: targetSnapshot });
-        const swipes = await this.getSwipes(id);
-        for (const swipe of swipes) {
-          await this.updateSwipeExtra(id, swipe.index, { personaSnapshot: targetSnapshot });
+      const swipes = await this.listSwipesByMessageIds(matchingIds);
+      const swipesByMessageId = new Map<string, typeof swipes>();
+      for (const swipe of swipes) {
+        parseExtraRecord(swipe.extra);
+        const messageSwipesForId = swipesByMessageId.get(swipe.messageId) ?? [];
+        messageSwipesForId.push(swipe);
+        swipesByMessageId.set(swipe.messageId, messageSwipesForId);
+      }
+      const userRowsById = new Map(userRows.map((row) => [row.id, row]));
+      const backups = new Map(
+        matchingIds.map((id) => {
+          const row = userRowsById.get(id)!;
+          const messageExtra = parseExtraRecord(row.extra);
+          return [
+            id,
+            {
+              messagePersonaSnapshot: messageExtra.personaSnapshot,
+              swipes: (swipesByMessageId.get(id) ?? []).map((swipe) => ({
+                index: swipe.index,
+                personaSnapshot: parseExtraRecord(swipe.extra).personaSnapshot,
+              })),
+            },
+          ];
+        }),
+      );
+      const touchedIds = new Set<string>();
+
+      try {
+        for (const id of matchingIds) {
+          touchedIds.add(id);
+          await this.updateMessageExtra(id, { personaSnapshot: targetSnapshot });
+          for (const swipe of swipesByMessageId.get(id) ?? []) {
+            await this.updateLoadedSwipeExtra(swipe, { personaSnapshot: targetSnapshot });
+          }
         }
+      } catch (err) {
+        const rollbackErrors: unknown[] = [];
+        for (const id of touchedIds) {
+          const backup = backups.get(id);
+          if (!backup) continue;
+          try {
+            await this.updateMessageExtra(id, { personaSnapshot: backup.messagePersonaSnapshot });
+          } catch (rollbackError) {
+            rollbackErrors.push(rollbackError);
+            logger.error(rollbackError, "reassignMessagePersonaSnapshots: failed to restore message %s", id);
+          }
+          for (const swipe of backup.swipes) {
+            try {
+              const loadedSwipe = swipesByMessageId.get(id)?.find((candidate) => candidate.index === swipe.index);
+              if (!loadedSwipe) continue;
+              await this.updateLoadedSwipeExtra(loadedSwipe, { personaSnapshot: swipe.personaSnapshot });
+            } catch (rollbackError) {
+              rollbackErrors.push(rollbackError);
+              logger.error(
+                rollbackError,
+                "reassignMessagePersonaSnapshots: failed to restore swipe %s[%d]",
+                id,
+                swipe.index,
+              );
+            }
+          }
+        }
+        if (rollbackErrors.length > 0) {
+          throw new AggregateError(
+            [err, ...rollbackErrors],
+            `reassignMessagePersonaSnapshots failed and rollback failed for ${rollbackErrors.length} writes`,
+          );
+        }
+        throw err;
       }
 
       return {
@@ -2476,16 +2539,28 @@ export function createChatsStorage(db: DB) {
     },
 
     /** Merge partial data into a swipe's extra JSON field. */
+    async updateLoadedSwipeExtra(
+      target: { id: string; messageId: string; index: number; extra: unknown },
+      partial: Record<string, unknown>,
+    ) {
+      return withPatchQueue(swipeExtraPatchQueues, `${target.messageId}:${target.index}`, async () => {
+        const existing = parseExtraRecord(target.extra);
+        await db
+          .update(messageSwipes)
+          .set({ extra: JSON.stringify({ ...existing, ...partial }) })
+          .where(and(eq(messageSwipes.messageId, target.messageId), eq(messageSwipes.id, target.id)));
+      });
+    },
+
     async updateSwipeExtra(messageId: string, swipeIndex: number, partial: Record<string, unknown>) {
       return withPatchQueue(swipeExtraPatchQueues, `${messageId}:${swipeIndex}`, async () => {
         const swipes = await this.getSwipes(messageId);
         const target = swipes.find((s: any) => s.index === swipeIndex);
         if (!target) return;
-        const existing = typeof target.extra === "string" ? JSON.parse(target.extra) : (target.extra ?? {});
-        const merged = { ...existing, ...partial };
+        const existing = parseExtraRecord(target.extra);
         await db
           .update(messageSwipes)
-          .set({ extra: JSON.stringify(merged) })
+          .set({ extra: JSON.stringify({ ...existing, ...partial }) })
           .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, target.id)));
       });
     },

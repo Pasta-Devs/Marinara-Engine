@@ -58,7 +58,6 @@ import {
   Wrench,
   Map as MapIcon,
   VenetianMask,
-  History as HistoryIcon,
 } from "lucide-react";
 import {
   NEUTRAL_PANEL_CLOSE_BUTTON,
@@ -74,7 +73,7 @@ import {
   type ChatToolbarFloatingPanelAnchor,
 } from "./ChatToolbarControls";
 import { PickerDropdown } from "../../features/chat-settings/PickerDropdown";
-import { PersonaHistoryReassignModal } from "../../features/chat-settings/sections/PersonaHistoryReassignModal";
+import { PersonaHistoryReassignDropdown } from "../../features/chat-settings/sections/PersonaHistoryReassignDropdown";
 import { ChatSettingsSection as Section } from "../../features/chat-settings/ChatSettingsSection";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
@@ -3466,7 +3465,6 @@ export function ChatSettingsDrawer({
   const [showLbPicker, setShowLbPicker] = useState(false);
   const [showToolPicker, setShowToolPicker] = useState(false);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
-  const [showPersonaHistoryModal, setShowPersonaHistoryModal] = useState(false);
   const [showCharacterIdentityGroups, setShowCharacterIdentityGroups] = useState(false);
   const [expandedCharacterIdentityGroups, setExpandedCharacterIdentityGroups] = useState<Set<string>>(new Set());
   const [showConnectionPicker, setShowConnectionPicker] = useState(false);
@@ -5105,6 +5103,10 @@ export function ChatSettingsDrawer({
                     {localizeUi("ui.chat.chatsettingsdrawer.noPersonaSelected")}
                   </p>
                 )}
+                <PersonaHistoryReassignDropdown
+                  chatId={chat.id}
+                  targetName={personas.find((persona) => persona.id === chat.personaId)?.name ?? null}
+                />
 
                 {!showPersonaPicker ? (
                   <button
@@ -5188,15 +5190,6 @@ export function ChatSettingsDrawer({
                     )}
                   </PickerDropdown>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => setShowPersonaHistoryModal(true)}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]"
-                >
-                  <HistoryIcon size="0.75rem" />
-                  <span>{localizeUi("ui.chat.chatsettingsdrawer.applyPersonaToEarlierMessages")}</span>
-                </button>
               </div>
 
               <div className="mt-2 space-y-1.5">
@@ -5624,14 +5617,14 @@ export function ChatSettingsDrawer({
                 </PickerDropdown>
               )}
 
-              <button
-                type="button"
-                onClick={() => setShowPersonaHistoryModal(true)}
-                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]"
-              >
-                <HistoryIcon size="0.75rem" />
-                <span>{localizeUi("ui.chat.chatsettingsdrawer.applyPersonaToEarlierMessages")}</span>
-              </button>
+              <PersonaHistoryReassignDropdown
+                chatId={chat.id}
+                targetName={
+                  chat.personaCharacterId
+                    ? (charNameMap.get(chat.personaCharacterId) ?? null)
+                    : (personas.find((persona) => persona.id === chat.personaId)?.name ?? null)
+                }
+              />
             </Section>
           )}
 
@@ -9474,19 +9467,6 @@ export function ChatSettingsDrawer({
 
       {/* Automatic summarization editor */}
       <SummariesEditorModal chat={chat} open={showSummariesModal} onClose={() => setShowSummariesModal(false)} />
-
-      {/* Historical Persona Reassignment Modal */}
-      <PersonaHistoryReassignModal
-        chatId={chat.id}
-        chatMode={chat.mode}
-        open={showPersonaHistoryModal}
-        onClose={() => setShowPersonaHistoryModal(false)}
-        personas={personas}
-        characters={characters.map((c) => ({
-          id: c.id,
-          data: typeof c.data === "string" ? JSON.parse(c.data) : c.data,
-        }))}
-      />
 
       {/* Agent Suite — stored agent data viewer/editor */}
       <AgentSuiteModal

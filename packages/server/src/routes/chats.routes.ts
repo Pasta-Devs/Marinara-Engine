@@ -2267,30 +2267,22 @@ export async function chatsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid request body" });
     }
 
-    const { scope, sourcePersonaId, sourcePersonaSource, targetPersonaId, targetPersonaSource } = parsed.data;
-
-    let targetSnapshot: Record<string, unknown> | null = null;
-
-    if (targetPersonaId) {
-      const targetIdentity = {
-        personaId: targetPersonaSource === "character" ? null : targetPersonaId,
-        personaCharacterId: targetPersonaSource === "character" ? targetPersonaId : null,
-      };
-      if (targetIdentity.personaCharacterId) {
-        if ((chat.mode ?? "") === "game") {
-          return reply.status(400).send({ error: "Character identities are not available in Game chats." });
-        }
-        if (!(await isValidCharacterIdentity(app.db, targetIdentity.personaCharacterId))) {
-          return reply.status(400).send({ error: "Selected character identity is invalid or unavailable." });
-        }
+    const { scope, sourcePersonaId, sourcePersonaSource } = parsed.data;
+    if (!chat.personaId && !chat.personaCharacterId) {
+      return reply.status(400).send({ error: "Select a persona before updating historical messages." });
+    }
+    if (chat.personaId) {
+      const personas = await createCharactersStorage(app.db).listPersonas();
+      if (!personas.some((persona) => persona.id === chat.personaId)) {
+        return reply.status(400).send({ error: "Selected persona is invalid or unavailable." });
       }
-      targetSnapshot = await buildPersonaSnapshotForChat(app, {
-        ...chat,
-        ...targetIdentity,
-      });
-      if (!targetSnapshot) {
-        return reply.status(404).send({ error: "Target persona not found" });
-      }
+    }
+    if (chat.personaCharacterId && !(await isValidCharacterIdentity(app.db, chat.personaCharacterId))) {
+      return reply.status(400).send({ error: "Selected character identity is invalid or unavailable." });
+    }
+    const targetSnapshot = await buildPersonaSnapshotForChat(app, chat);
+    if (!targetSnapshot) {
+      return reply.status(400).send({ error: "Select a persona before updating historical messages." });
     }
 
     const result = await storage.reassignMessagePersonaSnapshots(
