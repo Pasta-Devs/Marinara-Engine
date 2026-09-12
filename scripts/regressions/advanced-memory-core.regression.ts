@@ -738,6 +738,17 @@ try {
   routeApp.decorate("db", db);
   await routeApp.register(advancedMemoryRoutes, { prefix: "/api/chats" });
   try {
+    const invalidReindex = await routeApp.inject({
+      method: "POST",
+      url: `/api/chats/${joinedChat.id}/advanced-memory/reindex`,
+      payload: { debugMode: "invalid" },
+    });
+    assert.equal(invalidReindex.statusCode, 400);
+    assert.match(
+      invalidReindex.json().error,
+      /debugMode/,
+      "reindex exposes the same validation detail as initialization",
+    );
     const invalidSettings = { retrieveMinMessages: 10, retrieveMaxMessages: 2 };
     assert.equal(
       (

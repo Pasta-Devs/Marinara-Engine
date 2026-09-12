@@ -58,13 +58,15 @@ export async function advancedMemoryRoutes(app: FastifyInstance) {
     }),
   );
   app.post<{ Params: { id: string } }>(`${prefix}/cancel`, async (req) => service.cancel(req.params.id));
-  app.post<{ Params: { id: string } }>(`${prefix}/reindex`, async (req, reply) => {
-    const options = operationSchema.parse(req.body ?? {});
-    void service
-      .reindex(req.params.id, { debugMode: options.debugMode, blocking: true })
-      .catch((error) => logger.warn(error, "[advanced-memory] Reindex interrupted"));
-    return reply.status(202).send(await service.status(req.params.id));
-  });
+  app.post<{ Params: { id: string } }>(`${prefix}/reindex`, async (req, reply) =>
+    withMemoryDomainErrors(reply, async () => {
+      const options = operationSchema.parse(req.body ?? {});
+      void service
+        .reindex(req.params.id, { debugMode: options.debugMode, blocking: true })
+        .catch((error) => logger.warn(error, "[advanced-memory] Reindex interrupted"));
+      return reply.status(202).send(await service.status(req.params.id));
+    }),
+  );
   app.patch<{ Params: { id: string; recordId: string } }>(`${prefix}/records/:recordId`, async (req, reply) =>
     withMemoryDomainErrors(reply, () =>
       service.updateRecord(req.params.id, req.params.recordId, recordPatchSchema.parse(req.body)),
