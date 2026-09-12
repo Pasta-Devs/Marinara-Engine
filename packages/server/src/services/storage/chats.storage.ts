@@ -2142,6 +2142,11 @@ export function createChatsStorage(db: DB) {
       }
 
       return withPatchQueues(messageExtraPatchQueues, matchingIds, async () => {
+        const freshRows = await db
+          .select({ id: messages.id, extra: messages.extra })
+          .from(messages)
+          .where(inArray(messages.id, matchingIds));
+        const userRowsById = new Map(freshRows.map((row) => [row.id, row]));
         const swipes = await this.listSwipesByMessageIds(matchingIds);
         const swipesByMessageId = new Map<string, typeof swipes>();
         for (const swipe of swipes) {
@@ -2150,22 +2155,23 @@ export function createChatsStorage(db: DB) {
           messageSwipesForId.push(swipe);
           swipesByMessageId.set(swipe.messageId, messageSwipesForId);
         }
-        const userRowsById = new Map(userRows.map((row) => [row.id, row]));
         const backups = new Map(
-          matchingIds.map((id) => {
-            const row = userRowsById.get(id)!;
-            const messageExtra = parseExtraRecord(row.extra);
-            return [
-              id,
-              {
-                messagePersonaSnapshot: messageExtra.personaSnapshot,
-                swipes: (swipesByMessageId.get(id) ?? []).map((swipe) => ({
-                  index: swipe.index,
-                  personaSnapshot: parseExtraRecord(swipe.extra).personaSnapshot,
-                })),
-              },
-            ];
-          }),
+          matchingIds
+            .filter((id) => userRowsById.has(id))
+            .map((id) => {
+              const row = userRowsById.get(id)!;
+              const messageExtra = parseExtraRecord(row.extra);
+              return [
+                id,
+                {
+                  messagePersonaSnapshot: messageExtra.personaSnapshot,
+                  swipes: (swipesByMessageId.get(id) ?? []).map((swipe) => ({
+                    index: swipe.index,
+                    personaSnapshot: parseExtraRecord(swipe.extra).personaSnapshot,
+                  })),
+                },
+              ] as const;
+            }),
         );
         const updateMessageSnapshot = async (id: string, personaSnapshot: unknown) => {
           const row = await db.select({ extra: messages.extra }).from(messages).where(eq(messages.id, id)).limit(1);
@@ -2192,7 +2198,7 @@ export function createChatsStorage(db: DB) {
         const touchedIds = new Set<string>();
 
         try {
-          for (const id of matchingIds) {
+          for (const id of backups.keys()) {
             touchedIds.add(id);
             await updateMessageSnapshot(id, targetSnapshot);
             for (const swipe of swipesByMessageId.get(id) ?? []) {
@@ -2234,8 +2240,8 @@ export function createChatsStorage(db: DB) {
         }
 
         return {
-          updatedCount: matchingIds.length,
-          messageIds: matchingIds,
+          updatedCount: backups.size,
+          messageIds: [...backups.keys()],
         };
       });
     },
