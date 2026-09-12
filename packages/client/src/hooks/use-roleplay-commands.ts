@@ -24,18 +24,24 @@ export function useRestoreRoleplayInterrupt(chatId: string) {
       ),
     onSuccess: async ({ message, restoredMessages }, { activityIndex }) => {
       const receipt = getRoleplayCommandActivity(parseMessageExtraRecord(message.extra))[activityIndex]?.interruption;
-      for (const restored of restoredMessages) {
-        if (receipt?.targetMessageId === restored.id)
-          forgetUnchangedMessageContentEdit(chatId, restored, receipt.interruptedContent);
-      }
+      if (receipt?.restored)
+        forgetUnchangedMessageContentEdit(
+          chatId,
+          { id: receipt.targetMessageId, activeSwipeIndex: receipt.targetSwipeIndex },
+          receipt.interruptedContent,
+        );
       await Promise.all([
         qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) }),
         qc.invalidateQueries({ queryKey: chatKeys.messagePeek(chatId) }),
         qc.invalidateQueries({ queryKey: advancedMemoryKeys.status(chatId) }),
         qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) }),
-        ...[message, ...restoredMessages].map((row) =>
-          qc.invalidateQueries({ queryKey: [...chatKeys.all, "swipes", row.id] }),
-        ),
+        ...[
+          ...new Set([
+            message.id,
+            ...restoredMessages.map((row) => row.id),
+            ...(receipt ? [receipt.targetMessageId] : []),
+          ]),
+        ].map((messageId) => qc.invalidateQueries({ queryKey: [...chatKeys.all, "swipes", messageId] })),
       ]);
     },
   });

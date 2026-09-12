@@ -166,6 +166,56 @@ test("Roleplay interruptions trim the latest message and restore its original sa
     await expect
       .poll(async () => (await stored()).find((message) => message.id === nextTarget.id)?.content)
       .toBe("A later manual correction must stay intact.");
+
+    narrative = "Alice reaches the door before she can finish speaking.";
+    await page.locator("textarea[data-chat-composer]").fill(original);
+    await page.locator(".mari-chat-send-btn").click();
+    await expect(page.getByText(narrative, { exact: true })).toBeVisible();
+    await expect(page.locator(".mari-chat-send-btn .lucide-send")).toBeVisible();
+    const inactiveTarget = (await stored()).filter((message) => message.role === "user").at(-1);
+    const alternateContent = "An alternate message stays selected during Restore.";
+    const alternate = await request.post(`/api/chats/${chat.id}/messages/${inactiveTarget.id}/swipes`, {
+      data: { content: alternateContent, silent: true },
+    });
+    expect(alternate.ok(), await alternate.text()).toBeTruthy();
+    await page.reload();
+    const inactiveBubble = page.locator(`[data-message-id="${inactiveTarget.id}"]`);
+    // Complete both edits through the real UI: the matching cut text remains in
+    // the recent-edit overlay even after its PATCH has settled.
+    for (const content of ["A temporary completed correction.", interrupted]) {
+      await inactiveBubble.getByRole("button", { name: "Edit", exact: true }).click();
+      await inactiveBubble.locator("textarea[data-chat-message-editor]").fill(content);
+      await inactiveBubble.getByRole("button", { name: "Save edit", exact: true }).click();
+      await expect(inactiveBubble.locator("textarea[data-chat-message-editor]")).toHaveCount(0);
+      await expect
+        .poll(async () => (await stored()).find((message) => message.id === inactiveTarget.id)?.content)
+        .toBe(content);
+    }
+    await inactiveBubble.getByRole("button", { name: "Next swipe", exact: true }).click();
+    await expect(inactiveBubble).toContainText(alternateContent);
+    await expect
+      .poll(async () => (await stored()).find((message) => message.id === inactiveTarget.id)?.activeSwipeIndex)
+      .toBe(1);
+    await notice.getByRole("button", { name: "Alice used interrupt command!", exact: true }).click();
+    await restore.click();
+    await expect(notice.getByRole("status")).toHaveText("Original message restored.");
+    await expect(inactiveBubble).toContainText(alternateContent);
+    expect((await stored()).find((message) => message.id === inactiveTarget.id)?.activeSwipeIndex).toBe(1);
+    await inactiveBubble.getByRole("button", { name: "Previous swipe", exact: true }).click();
+    await expect(inactiveBubble).toContainText("reveal the secret");
+    await expect
+      .poll(async () => (await stored()).find((message) => message.id === inactiveTarget.id)?.content)
+      .toBe(original);
+    const restoredTarget = (await stored()).find((message) => message.id === inactiveTarget.id);
+    expect(
+      await page.evaluate(
+        async ({ chatId, message }) => {
+          const { preserveRecentMessageContentEdit } = await import("/src/hooks/use-chats.ts" as string);
+          return preserveRecentMessageContentEdit(chatId, message).content;
+        },
+        { chatId: chat.id, message: restoredTarget },
+      ),
+    ).toBe(original);
   } finally {
     releaseRestore();
     await page.unrouteAll({ behavior: "wait" });

@@ -2051,7 +2051,16 @@ export function createChatsStorage(db: DB) {
           if (item.command.type !== "interrupt" || !receipt || item.error || item.deleted || receipt.restored) continue;
           const restored = await changeInterruptionTarget(owner, receipt, true, locked);
           if (restored) restoredMessages.push(restored);
-          if (options.permanent) item.interruption = { ...receipt, restored: true };
+          if (options.permanent) {
+            const swipe = (await readSwipes(receipt.targetMessageId)).find((row) =>
+              receipt.targetSwipeId ? row.id === receipt.targetSwipeId : row.index === receipt.targetSwipeIndex,
+            );
+            item.interruption = {
+              ...receipt,
+              targetSwipeIndex: swipe?.index ?? receipt.targetSwipeIndex,
+              restored: true,
+            };
+          }
         }
         if (options.permanent) {
           const selected = options.activityIndex === undefined ? null : activity[options.activityIndex];

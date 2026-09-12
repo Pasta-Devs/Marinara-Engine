@@ -171,7 +171,11 @@ export function forgetRecentMessageContentEdit(chatId: string, messageId: string
   return true;
 }
 
-export function forgetUnchangedMessageContentEdit(chatId: string, message: Message, previousContent: string) {
+export function forgetUnchangedMessageContentEdit(
+  chatId: string,
+  message: Pick<Message, "id" | "activeSwipeIndex">,
+  previousContent: string,
+) {
   const edit = recentMessageContentEdits.get(message.id);
   if (
     edit?.chatId === chatId &&

@@ -358,7 +358,7 @@ export function buildRoleplayCommandsReminder(args: {
     );
   if (enabled("combat") && args.availableAgentIds.has("combat"))
     lines.push("- [combat] asks the Combat agent to start an encounter when the scene turns to combat.");
-  if (args.interruptAvailable !== false && enabled("interrupt"))
+  if (args.interruptAvailable === true && enabled("interrupt"))
     lines.push(
       '- [interrupt: part="at least three words quoted verbatim through the interruption point"] cuts off only the latest user or other-character message at that point. Use only when your character can plausibly intervene with the abilities and freedom they currently have. Continue from the cut; the removed continuation has not happened.',
     );

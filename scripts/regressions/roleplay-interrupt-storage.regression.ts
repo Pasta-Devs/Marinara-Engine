@@ -144,7 +144,21 @@ try {
   );
   await storage.reconcileRoleplayInterruption(assistant.owner.id);
   await storage.setActiveSwipe(assistant.target.id, 0);
-  await storage.restoreRoleplayInterruption(assistant.owner.id);
+  const inactiveRestore = await storage.restoreRoleplayInterruption(assistant.owner.id, {
+    permanent: true,
+    activityIndex: 0,
+  });
+  assert.equal(
+    extra(inactiveRestore.message).roleplayCommandActivity[0].interruption.targetSwipeIndex,
+    1,
+    "Restore reports the target swipe's current index after renumbering",
+  );
+  assert.equal(
+    extra((await storage.getSwipes(assistant.owner.id))[0]!).roleplayCommandActivity[0].interruption.targetSwipeIndex,
+    1,
+    "The corrected target index is persisted on the owner's swipe receipt",
+  );
+  assert.equal((await storage.getMessage(assistant.target.id))?.activeSwipeIndex, 0);
   assert.equal(
     (await storage.getMessage(assistant.target.id))?.content,
     "An unrelated original alternative.",
@@ -300,8 +314,11 @@ try {
     }) as typeof builder.set;
     return builder;
   }) as typeof db.update;
-  await assert.rejects(commit(rollback.owner.id, rollback.target.id), /injected receipt/);
-  db.update = update;
+  try {
+    await assert.rejects(commit(rollback.owner.id, rollback.target.id), /injected receipt/);
+  } finally {
+    db.update = update;
+  }
   assert.equal(
     (await storage.getMessage(rollback.target.id))?.content,
     original,

@@ -356,23 +356,25 @@ for (const format of ["xml", "markdown", "none"] as const) {
     availableAgentIds: new Set(),
     format,
     characterNames: ["Alice"],
+    interruptAvailable: true,
   });
   assert.match(interruptReminder, /at least three words quoted verbatim/u);
   assert.match(interruptReminder, /only the latest user or other-character message/u);
   assert.match(interruptReminder, /can plausibly intervene/u);
   assert.match(interruptReminder, /Continue from the cut/u);
-  assert.equal(
-    buildRoleplayCommandsReminder({
-      metadata: { roleplayCommandsEnabled: true, roleplayCommandToggles: { interrupt: true } },
-      privateAvailable: true,
-      availableAgentIds: new Set(),
-      format,
-      characterNames: ["Alice"],
-      interruptAvailable: false,
-    }),
-    "",
-    "continuations or missing targets must not advertise interrupt",
-  );
+  for (const interruptAvailable of [false, undefined])
+    assert.equal(
+      buildRoleplayCommandsReminder({
+        metadata: { roleplayCommandsEnabled: true, roleplayCommandToggles: { interrupt: true } },
+        privateAvailable: true,
+        availableAgentIds: new Set(),
+        format,
+        characterNames: ["Alice"],
+        interruptAvailable,
+      }),
+      "",
+      "continuations or missing targets must not advertise interrupt",
+    );
   const tracker =
     format === "xml"
       ? "<context>\nTRACKER\n</context>"
