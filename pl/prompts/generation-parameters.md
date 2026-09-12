@@ -1,6 +1,6 @@
 # Parametry generowania
 
-Ten przewodnik wyjaśnia parametry generowania w aplikacji Marinara Engine. To ustawienia, które decydują o tym, jak AI pisze każdą odpowiedź – na przykład **Temperature** (losowość) i **Max Output Tokens** (maksymalna długość odpowiedzi). Ustawia się je osobno dla każdego czatu, w panelu **Advanced Parameters** (parametry zaawansowane).
+Ten przewodnik wyjaśnia parametry generowania w aplikacji Marinara Engine. To ustawienia, które decydują o tym, jak AI pisze każdą odpowiedź – na przykład **Temperature** (losowość) i **Max Output Tokens** (maksymalna długość odpowiedzi). Presety i połączenia dostarczają wartości domyślne; w panelu **Advanced Parameters** (parametry zaawansowane) możesz je nadpisać dla każdego czatu.
 
 ## Do czego służą parametry generowania
 
@@ -60,7 +60,7 @@ W sekcji **Advanced Parameters** danego czatu przełącznik Send jest domyślnie
 
 ## Wartości domyślne
 
-Nowe czaty startują z wbudowanego zestawu wartości. Tabela poniżej pokazuje te wartości początkowe oraz to, czy każda z nich jest domyślnie wysyłana.
+Tabela pokazuje wartości zastępcze wyświetlane w edytorze parametrów i domyślny stan przełączników Send. Nie muszą to być wartości wysyłane do modelu: bez presetu generowanie zaczyna się od `4096` tokenów wyjściowych, przed zastosowaniem wartości połączenia i czatu. Następnie reguły trybu mogą ustawić `8192` dla aktywnej sceny lub `16384` dla trybu Game. Wiersz **Effective** pokazuje wynikową wartość.
 
 | Parametr | Wartość początkowa | Wysyłane domyślnie |
 |---|---|---|

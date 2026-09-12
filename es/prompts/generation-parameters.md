@@ -1,6 +1,6 @@
 # Parámetros de generación
 
-Esta guía explica los parámetros de generación de Marinara Engine. Son los ajustes que controlan cómo escribe la IA cada respuesta, como **Temperature** (Temperatura) y **Max Output Tokens** (Máximo de tokens de salida). Los cambias por chat en el panel **Advanced Parameters** (Parámetros avanzados).
+Esta guía explica los parámetros de generación de Marinara Engine. Son los ajustes que controlan cómo escribe la IA cada respuesta, como **Temperature** (Temperatura) y **Max Output Tokens** (Máximo de tokens de salida). Los presets y las conexiones aportan valores predeterminados; el panel **Advanced Parameters** (parámetros avanzados) permite sustituirlos para cada chat.
 
 ## Qué hacen los parámetros de generación
 
@@ -60,7 +60,7 @@ En los **Advanced Parameters** de un chat, solo **Max Output Tokens** y **Reason
 
 ## Valores predeterminados
 
-Los chats nuevos parten de una base integrada. La tabla de abajo muestra esos valores iniciales y si cada uno se envía de forma predeterminada.
+La tabla muestra los valores de respaldo del editor de parámetros y el estado predeterminado de los interruptores Send. No son necesariamente los valores que recibe el modelo: sin un preset, la generación parte de `4096` tokens de salida antes de aplicar los valores de la conexión y del chat. Después, las reglas del modo pueden fijar `8192` para una escena activa o `16384` para Game Mode. La línea **Effective** muestra el valor resuelto.
 
 | Parámetro | Valor inicial | Enviado de forma predeterminada |
 |---|---|---|

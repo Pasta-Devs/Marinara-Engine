@@ -1,6 +1,6 @@
 # Generierungsparameter
 
-In dieser Anleitung erfährst du, was die Generierungsparameter in Marinara Engine tun. Sie steuern, wie die KI jede Antwort schreibt – dazu gehören **Temperature** (Zufälligkeit) und **Max Output Tokens** (maximale Antwortlänge). Eingestellt werden sie pro Chat im Panel **Advanced Parameters** (erweiterte Parameter).
+In dieser Anleitung erfährst du, was die Generierungsparameter in Marinara Engine tun. Sie steuern, wie die KI jede Antwort schreibt – dazu gehören **Temperature** (Zufälligkeit) und **Max Output Tokens** (maximale Antwortlänge). Presets und Verbindungen liefern die Standardwerte; im Panel **Advanced Parameters** (erweiterte Parameter) legst du abweichende Werte für jeden Chat fest.
 
 ## Was Generierungsparameter bewirken
 
@@ -60,7 +60,7 @@ In den **Advanced Parameters** eines Chats steht der Send-Schalter standardmäß
 
 ## Standardwerte
 
-Neue Chats starten von einer eingebauten Grundlinie. Die Tabelle zeigt diese Startwerte und ob der jeweilige Parameter standardmäßig mitgeschickt wird.
+Die Tabelle zeigt die Ersatzwerte im Parametereditor und die Standardstellung der Send-Schalter. Das sind nicht unbedingt die Werte, die das Modell erhält: Ohne Preset beginnt die Generierung mit `4096` Ausgabetokens, bevor Verbindungs- und Chatwerte angewendet werden. Danach können Modusregeln `8192` für eine aktive Szene oder `16384` für Game festlegen. Die Zeile **Effective** zeigt den aufgelösten Wert.
 
 | Parameter | Startwert | Standardmäßig gesendet |
 |---|---|---|
