@@ -4160,18 +4160,17 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
     }
 
     case "illustrator": {
-      if (d.generated === true && typeof d.chosen === "string") {
-        return `🎨 ${translate("agents.illustrator.decision.backgroundGenerated")}`;
-      }
       const reason = typeof d.reason === "string" ? d.reason.trim() : "";
       const prompt = typeof d.prompt === "string" ? d.prompt.trim() : "";
       const style = typeof d.style === "string" ? d.style.trim() : "";
       const status =
-        d.shouldGenerate === false
-          ? translate("agents.illustrator.decision.skipped")
-          : d.shouldGenerate === true && prompt
-            ? translate("agents.illustrator.decision.requested")
-            : translate("agents.illustrator.decision.invalid");
+        d.generated === true && typeof d.chosen === "string" && d.chosen.trim()
+          ? translate("agents.illustrator.decision.backgroundGenerated")
+          : d.shouldGenerate === false
+            ? translate("agents.illustrator.decision.skipped")
+            : d.shouldGenerate === true && prompt
+              ? translate("agents.illustrator.decision.requested")
+              : translate("agents.illustrator.decision.invalid");
       return `🎨 ${status}${reason ? ` — ${reason}` : ""}${style ? ` (${style})` : ""}`;
     }
 

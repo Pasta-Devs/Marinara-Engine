@@ -105,10 +105,15 @@ assert.equal(
   "🎨 Illustration requested",
 );
 assert.equal(
-  bubble("illustrator", "Illustrator", { generated: true, chosen: "scene.png" }),
-  "🎨 Scene background generated",
+  bubble("illustrator", "Illustrator", { generated: true, chosen: "scene.png", reason: "The scene changed." }),
+  "🎨 Scene background generated — The scene changed.",
 );
-for (const data of [{}, { shouldGenerate: true, prompt: " " }, { shouldGenerate: "true", prompt: "The laboratory." }]) {
+for (const data of [
+  {},
+  { generated: true, chosen: " " },
+  { shouldGenerate: true, prompt: " " },
+  { shouldGenerate: "true", prompt: "The laboratory." },
+]) {
   assert.equal(
     bubble("illustrator", "Illustrator", data),
     "🎨 Illustrator returned no usable image decision or prompt",

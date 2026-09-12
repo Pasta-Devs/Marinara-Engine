@@ -146,6 +146,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Mobile character reordering keeps Chat Settings still during the drag; swiping outside the handle continues to scroll normally (#6098).
 - Roleplay message actions keep their tapped state when opening menus on iPhone, suppress native tap flashes, and use direct tray buttons for recipient controls (#6092, #6094).
 - Community and Field Notes shortcuts fit within their widget padding, including Firefox desktop layouts (#6093).
 - Illustrator activity shows skipped image decisions and their reasons, and distinguishes an image request from an unusable decision (#6096).

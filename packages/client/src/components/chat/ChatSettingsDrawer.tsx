@@ -2908,6 +2908,7 @@ export function ChatSettingsDrawer({
   };
 
   const { startTouchDrag: startCharacterReorderTouchDrag } = useTouchFolderDrag({
+    autoScrollEdgePx: 0,
     onActivate: (characterId) => {
       const idx = chatCharIds.indexOf(characterId);
       if (idx < 0) return;
@@ -5681,7 +5682,7 @@ export function ChatSettingsDrawer({
                           )}
                         >
                           <div
-                            className="cursor-grab text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors active:cursor-grabbing"
+                            className="cursor-grab touch-none text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors active:cursor-grabbing"
                             title={localizeUi("ui.lorebooks.lorebookentryrow.dragToReorder")}
                             onTouchStart={(event) => {
                               event.stopPropagation();

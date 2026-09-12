@@ -58,6 +58,91 @@ async function open(page: Page, chatId: string, state = {}, waitForComposer = tr
   await page.goto("/");
   if (waitForComposer) await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
 }
+test("mobile character reordering keeps Settings still and restores scrolling", async ({
+  page,
+  request,
+  isMobile,
+  browserName,
+}) => {
+  test.skip(!isMobile || browserName !== "chromium", "Uses native Chromium touch input.");
+  const data = await fixture(request, "roleplay");
+  const cards = [data.character];
+  try {
+    for (const name of ["Narrator", "Mari", "Collei"]) {
+      cards.push(await (await request.post("/api/characters", { data: { data: { name, first_mes: "" } } })).json());
+    }
+    await request.patch(`/api/chats/${data.chat.id}`, { data: { characterIds: cards.map((card) => card.id) } });
+    await open(page, data.chat.id);
+    await page.evaluate(async () => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      useChatStore.getState().setShouldOpenSettings(true);
+    });
+    const section = page.locator('[data-chat-settings-section="roleplay-characters"]');
+    const header = section.locator('[role="button"][aria-expanded]').first();
+    if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
+    const rows = section.locator('[data-touch-reorder-item="chat-settings-character"]');
+    const handle = rows.first().getByTitle("Drag to reorder", { exact: true });
+    await handle.scrollIntoViewIfNeeded();
+    const scroller = page.locator(".mari-chat-settings-drawer .overflow-y-auto").first();
+    await rows.first().evaluate((el) => el.scrollIntoView({ block: "center" }));
+    const startScroll = await scroller.evaluate((el) => el.scrollTop);
+    const source = (await handle.boundingBox())!;
+    const target = (await rows.nth(1).boundingBox())!;
+    const x = source.x + source.width / 2;
+    const y = source.y + source.height / 2;
+    const endY = target.y + target.height - 4;
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+    for (let i = 1; i <= 8; i++) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x, y: y + ((endY - y) * i) / 8 }],
+      });
+    }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect
+      .poll(async () => (await (await request.get(`/api/chats/${data.chat.id}`)).json()).characterIds)
+      .toEqual([cards[1].id, cards[0].id, cards[2].id, cards[3].id]);
+    expect(await scroller.evaluate((el) => el.scrollTop)).toBe(startScroll);
+    const edgeHandle = rows.first().getByTitle("Drag to reorder", { exact: true });
+    await scroller.evaluate((el) => {
+      const row = el.querySelector('[data-touch-reorder-item="chat-settings-character"]')!;
+      el.scrollTop += row.getBoundingClientRect().top - el.getBoundingClientRect().top - 16;
+    });
+    const edgeScroll = await scroller.evaluate((el) => el.scrollTop);
+    const edge = (await edgeHandle.boundingBox())!;
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: edge.x + edge.width / 2, y: edge.y + edge.height / 2 }],
+    });
+    await expect(
+      page.locator('body > [data-touch-reorder-item="chat-settings-character"][aria-hidden="true"]'),
+    ).toBeVisible();
+    await page.waitForTimeout(200);
+    expect(
+      await scroller.evaluate((el) => el.scrollTop),
+      "Active drag near the panel edge must not scroll Settings",
+    ).toBe(edgeScroll);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+    await expect(
+      page.locator('body > [data-touch-reorder-item="chat-settings-character"][aria-hidden="true"]'),
+    ).toHaveCount(0);
+    const rect = (await scroller.boundingBox())!;
+    const sx = rect.x + rect.width - 12;
+    const sy = rect.y + rect.height / 2;
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: sx, y: sy }] });
+    for (let i = 1; i <= 8; i++) {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: sx, y: sy - i * 12 }] });
+    }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(edgeScroll + 20);
+    await cdp.detach();
+  } finally {
+    await data.cleanup();
+    for (const card of cards.slice(1)) await request.delete(`/api/characters/${card.id}`);
+  }
+});
+
 for (const [mode, style] of [
   ["conversation", "classic"],
   ["conversation", "bubble"],
