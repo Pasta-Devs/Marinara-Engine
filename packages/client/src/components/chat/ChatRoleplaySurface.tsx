@@ -1527,6 +1527,7 @@ export function ChatRoleplaySurface({
   const [vnSelectedMessageId, setVnSelectedMessageId] = useState<string | null>(null);
   const [vnParagraphIndex, setVnParagraphIndex] = useState<number | null>(null);
   const [vnParagraphCount, setVnParagraphCount] = useState<number>(1);
+  const pendingVnPrevious = useRef<string | null>(null);
 
   // Active message in VN view:
   const activeVnMessage = useMemo(() => {
@@ -1541,16 +1542,27 @@ export function ChatRoleplaySurface({
     return activeVnMessage ? visibleVnMessages.indexOf(activeVnMessage) : -1;
   }, [activeVnMessage, visibleVnMessages]);
 
-  // Reset VN navigation when switching chats
+  // Reset VN navigation when switching chats or when live stream starts/ends
   useEffect(() => {
     setVnSelectedMessageId(null);
     setVnParagraphIndex(null);
-  }, [activeChatId]);
+    pendingVnPrevious.current = null;
+  }, [activeChatId, hasLiveStream]);
+
+  useEffect(() => {
+    const index = visibleVnMessages.findIndex((message) => message.id === pendingVnPrevious.current);
+    if (index > 0) {
+      pendingVnPrevious.current = null;
+      setVnSelectedMessageId(visibleVnMessages[index - 1]!.id);
+      setVnParagraphIndex(null);
+    }
+  }, [visibleVnMessages]);
 
   const currentParagraphIndex = vnParagraphIndex ?? Math.max(0, vnParagraphCount - 1);
 
   // Navigation handlers
-  const canGoPreviousParagraph = currentParagraphIndex > 0 || (activeVnMessageIndex > 0 && !hasLiveStream);
+  const canGoPreviousParagraph =
+    !isFetchingNextPage && (currentParagraphIndex > 0 || ((activeVnMessageIndex > 0 || hasNextPage) && !hasLiveStream));
   const canGoNextParagraph =
     currentParagraphIndex < vnParagraphCount - 1 ||
     (activeVnMessageIndex >= 0 && activeVnMessageIndex < visibleVnMessages.length - 1 && !hasLiveStream);
@@ -1564,10 +1576,23 @@ export function ChatRoleplaySurface({
         setVnSelectedMessageId(prevMsg.id);
         setVnParagraphIndex(null); // defaults to last paragraph of previous message
       }
+    } else if (!hasLiveStream && hasNextPage && !isFetchingNextPage && activeVnMessage) {
+      pendingVnPrevious.current = activeVnMessage.id;
+      onLoadMore();
     }
-  }, [activeVnMessageIndex, currentParagraphIndex, hasLiveStream, visibleVnMessages]);
+  }, [
+    activeVnMessage,
+    activeVnMessageIndex,
+    currentParagraphIndex,
+    hasLiveStream,
+    hasNextPage,
+    isFetchingNextPage,
+    onLoadMore,
+    visibleVnMessages,
+  ]);
 
   const handleNextParagraph = useCallback(() => {
+    pendingVnPrevious.current = null;
     if (currentParagraphIndex < vnParagraphCount - 1) {
       setVnParagraphIndex(currentParagraphIndex + 1);
     } else if (activeVnMessageIndex >= 0 && activeVnMessageIndex < visibleVnMessages.length - 1 && !hasLiveStream) {
@@ -2707,7 +2732,7 @@ export function ChatRoleplaySurface({
                               expressionAvatarResolver={expressionAvatarResolver}
                               messageDepth={(messages?.length ?? 1) - 1 - (messages?.indexOf(activeVnMessage) ?? 0)}
                             />
-                            {(vnParagraphCount > 1 || visibleVnMessages.length > 1) && (
+                            {(vnParagraphCount > 1 || visibleVnMessages.length > 1 || hasNextPage) && (
                               <div
                                 data-roleplay-vn-navigation
                                 className="flex items-center justify-between border-t border-[var(--border)]/50 px-3 py-1.5 text-xs text-[var(--muted-foreground)]"

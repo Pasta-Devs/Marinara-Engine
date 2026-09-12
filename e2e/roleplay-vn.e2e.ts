@@ -171,11 +171,71 @@ for (const theme of ["dark", "light"] as const) {
   });
 }
 
+for (const translationOnly of [false, true]) {
+  test(`Roleplay VN shows aligned translations and preserves mismatched source (${translationOnly})`, async ({
+    page,
+    request,
+  }) => {
+    const data = await fixture(request);
+    try {
+      await request.patch(`/api/chats/${data.chat.id}/metadata`, { data: { translationDisplayOnly: translationOnly } });
+      await open(page, data.chat.id);
+      const paragraph = page.getByRole("region", { name: "Current paragraph" });
+      for (const translation of ["Uno.\n\nDos.\n\nTres.", "Merged translation."]) {
+        await page.evaluate(
+          async ({ id, source, translation }) => {
+            const { useTranslationStore } = await import("/src/stores/translation.store.ts" as string);
+            useTranslationStore.getState().setTranslation(id, translation, source);
+          },
+          { id: data.message.id, source: data.message.content, translation },
+        );
+        if (translation.startsWith("Uno")) {
+          await expect(paragraph).toContainText("Tres.");
+          await page.getByRole("button", { name: "Previous paragraph" }).click();
+          await expect(paragraph).toContainText("Dos.");
+          if (!translationOnly) await expect(paragraph).toContainText("We have a new experiment");
+        } else {
+          await expect(paragraph).toContainText("We have a new experiment");
+          await expect(paragraph).not.toContainText("Merged translation");
+        }
+      }
+    } finally {
+      await data.cleanup();
+    }
+  });
+}
+
+test("Roleplay VN loads preceding pages without opening history", async ({ page, request }) => {
+  const data = await fixture(request);
+  try {
+    for (const content of ["Middle turn.", "Newest turn."]) {
+      expect(
+        (
+          await request.post(`/api/chats/${data.chat.id}/messages`, {
+            data: { role: "assistant", characterId: data.character.id, content },
+          })
+        ).ok(),
+      ).toBeTruthy();
+    }
+    await open(page, data.chat.id, "dark", { messagesPerPage: 1 });
+    const paragraph = page.getByRole("region", { name: "Current paragraph" });
+    await expect(paragraph).toContainText("Newest turn.");
+    await page.getByRole("button", { name: "Previous paragraph" }).click();
+    await expect(paragraph).toContainText("Middle turn.");
+    await page.getByRole("button", { name: "Previous paragraph" }).click();
+    await expect(paragraph).toContainText("A small light flickers across the desk.");
+    await expect(page.locator("[data-chat-scroll] [data-message-id]")).toHaveCount(0);
+  } finally {
+    await data.cleanup();
+  }
+});
+
 test("Roleplay VN waits for complete streaming paragraphs and discards old swipe text", async ({ page, request }) => {
   const data = await fixture(request);
   try {
     await open(page, data.chat.id);
     const paragraph = page.getByRole("region", { name: "Current paragraph" });
+    await page.getByRole("button", { name: "Previous paragraph" }).click();
     await page.evaluate(
       async ({ chatId, messageId, characterId }) => {
         const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;

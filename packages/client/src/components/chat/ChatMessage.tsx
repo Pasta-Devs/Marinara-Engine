@@ -2753,15 +2753,12 @@ export const ChatMessage = memo(function ChatMessage({
     }
   }, [onVisualNovelParagraphCount, visualNovel, vnParagraphs.length]);
 
-  const text = visualNovel
-    ? vnParagraphs.length > 0
-      ? (vnParagraphs[
-          visualNovelParagraphIndex != null
-            ? Math.max(0, Math.min(vnParagraphs.length - 1, visualNovelParagraphIndex))
-            : vnParagraphs.length - 1
-        ] ?? "")
-      : ""
-    : fullText;
+  const activeVnParagraphIndex =
+    visualNovelParagraphIndex != null
+      ? Math.max(0, Math.min(vnParagraphs.length - 1, visualNovelParagraphIndex))
+      : vnParagraphs.length - 1;
+
+  const text = visualNovel ? (vnParagraphs.length > 0 ? (vnParagraphs[activeVnParagraphIndex] ?? "") : "") : fullText;
   const isHtmlContent = containsChatHtml(text);
   const htmlScopeClass = useMemo(() => {
     const suffix = message.id.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -2834,19 +2831,20 @@ export const ChatMessage = memo(function ChatMessage({
     () => (visualNovel && translatedText ? splitRoleplayParagraphs(translatedText, false) : []),
     [translatedText, visualNovel],
   );
-  const translatedVnText =
-    vnTranslatedParagraphs.length > 0
-      ? (vnTranslatedParagraphs[
-          visualNovelParagraphIndex != null
-            ? Math.max(0, Math.min(vnTranslatedParagraphs.length - 1, visualNovelParagraphIndex))
-            : vnTranslatedParagraphs.length - 1
-        ] ?? "")
-      : "";
+  // In VN mode, ensure translated paragraphs map one-to-one with source paragraphs.
+  // If paragraph counts diverge, disable paragraph-level translation to avoid mismatched content.
+  const hasMatchingVnTranslation =
+    visualNovel && vnTranslatedParagraphs.length > 0 && vnTranslatedParagraphs.length === vnParagraphs.length;
+
+  const translatedVnText = hasMatchingVnTranslation ? (vnTranslatedParagraphs[activeVnParagraphIndex] ?? "") : "";
+
+  const effectiveTranslationText = visualNovel ? (hasMatchingVnTranslation ? translatedVnText : null) : translatedText;
+
   const renderedTranslation = useMemo(
     () =>
-      translatedText
+      effectiveTranslationText
         ? renderContent(
-            visualNovel ? translatedVnText : translatedText,
+            effectiveTranslationText,
             dialogueColor,
             speakerColorMap,
             boldDialogue,
@@ -2859,9 +2857,7 @@ export const ChatMessage = memo(function ChatMessage({
           )
         : null,
     [
-      translatedText,
-      visualNovel,
-      translatedVnText,
+      effectiveTranslationText,
       dialogueColor,
       speakerColorMap,
       boldDialogue,
@@ -2882,7 +2878,7 @@ export const ChatMessage = memo(function ChatMessage({
   // content, so switching swipes or editing never shows a stale translation
   // in place of the real text.
   const showTranslationOnly =
-    translationDisplayOnly && !!translatedText && !isTranslating && translationSource === message.content;
+    translationDisplayOnly && !!effectiveTranslationText && !isTranslating && translationSource === message.content;
 
   const handleCopy = () => {
     copyToClipboard(message.content);
@@ -3224,6 +3220,11 @@ export const ChatMessage = memo(function ChatMessage({
                   {diceReplacesContent ? null : showTranslationOnly ? renderedTranslation : renderedContent}
                   {roleplayAttachments}
                   {roleplayCommandResults}
+                  {renderedTranslation && !showTranslationOnly && (
+                    <div className="translation-text mt-2 whitespace-pre-wrap border-t border-[var(--border)] pt-2">
+                      {renderedTranslation}
+                    </div>
+                  )}
                 </>
               )}
             </div>

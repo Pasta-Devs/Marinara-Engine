@@ -2852,9 +2852,11 @@ export const ChatArea = memo(function ChatArea() {
   }, [pageCount, isFetchingNextPage]);
 
   const handleLoadMore = useCallback(() => {
-    if (!scrollRef.current || !hasNextPage || isFetchingNextPage) return;
-    prevScrollHeightRef.current = scrollRef.current.scrollHeight;
-    isLoadingMoreRef.current = true;
+    if (!hasNextPage || isFetchingNextPage) return;
+    if (scrollRef.current) {
+      prevScrollHeightRef.current = scrollRef.current.scrollHeight;
+      isLoadingMoreRef.current = true;
+    }
     fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
