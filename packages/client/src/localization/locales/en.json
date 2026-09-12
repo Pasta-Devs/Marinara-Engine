@@ -602,6 +602,7 @@
   "home.assistant.prompt": "Hey, having trouble finding something? Looking for a Chats tab? Let me help!",
   "home.assistant.searchAction": "Find this in Marinara",
   "home.assistant.searchPlaceholder": "What are you looking for?",
+  "home.assistant.searchPlaceholderMobile": "Looking for…?",
   "home.browser.achievements": "Achievements",
   "home.browser.address": "marinara/home",
   "home.browser.addressLabel": "Current Marinara address: {{address}}",
