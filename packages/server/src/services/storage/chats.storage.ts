@@ -2141,81 +2141,103 @@ export function createChatsStorage(db: DB) {
         return { updatedCount: 0, messageIds: [] };
       }
 
-      const swipes = await this.listSwipesByMessageIds(matchingIds);
-      const swipesByMessageId = new Map<string, typeof swipes>();
-      for (const swipe of swipes) {
-        parseExtraRecord(swipe.extra);
-        const messageSwipesForId = swipesByMessageId.get(swipe.messageId) ?? [];
-        messageSwipesForId.push(swipe);
-        swipesByMessageId.set(swipe.messageId, messageSwipesForId);
-      }
-      const userRowsById = new Map(userRows.map((row) => [row.id, row]));
-      const backups = new Map(
-        matchingIds.map((id) => {
-          const row = userRowsById.get(id)!;
-          const messageExtra = parseExtraRecord(row.extra);
-          return [
-            id,
-            {
-              messagePersonaSnapshot: messageExtra.personaSnapshot,
-              swipes: (swipesByMessageId.get(id) ?? []).map((swipe) => ({
-                index: swipe.index,
-                personaSnapshot: parseExtraRecord(swipe.extra).personaSnapshot,
-              })),
-            },
-          ];
-        }),
-      );
-      const touchedIds = new Set<string>();
-
-      try {
-        for (const id of matchingIds) {
-          touchedIds.add(id);
-          await this.updateMessageExtra(id, { personaSnapshot: targetSnapshot });
-          for (const swipe of swipesByMessageId.get(id) ?? []) {
-            await this.updateSwipeExtra(id, swipe.index, { personaSnapshot: targetSnapshot });
-          }
+      return withPatchQueues(messageExtraPatchQueues, matchingIds, async () => {
+        const swipes = await this.listSwipesByMessageIds(matchingIds);
+        const swipesByMessageId = new Map<string, typeof swipes>();
+        for (const swipe of swipes) {
+          parseExtraRecord(swipe.extra);
+          const messageSwipesForId = swipesByMessageId.get(swipe.messageId) ?? [];
+          messageSwipesForId.push(swipe);
+          swipesByMessageId.set(swipe.messageId, messageSwipesForId);
         }
-      } catch (err) {
-        const rollbackErrors: unknown[] = [];
-        for (const id of touchedIds) {
-          const backup = backups.get(id);
-          if (!backup) continue;
-          try {
-            await this.updateMessageExtra(id, { personaSnapshot: backup.messagePersonaSnapshot });
-          } catch (rollbackError) {
-            rollbackErrors.push(rollbackError);
-            logger.error(rollbackError, "reassignMessagePersonaSnapshots: failed to restore message %s", id);
-          }
-          for (const swipe of backup.swipes) {
-            try {
-              const loadedSwipe = swipesByMessageId.get(id)?.find((candidate) => candidate.index === swipe.index);
-              if (!loadedSwipe) continue;
-              await this.updateSwipeExtra(id, loadedSwipe.index, { personaSnapshot: swipe.personaSnapshot });
-            } catch (rollbackError) {
-              rollbackErrors.push(rollbackError);
-              logger.error(
-                rollbackError,
-                "reassignMessagePersonaSnapshots: failed to restore swipe %s[%d]",
-                id,
-                swipe.index,
-              );
+        const userRowsById = new Map(userRows.map((row) => [row.id, row]));
+        const backups = new Map(
+          matchingIds.map((id) => {
+            const row = userRowsById.get(id)!;
+            const messageExtra = parseExtraRecord(row.extra);
+            return [
+              id,
+              {
+                messagePersonaSnapshot: messageExtra.personaSnapshot,
+                swipes: (swipesByMessageId.get(id) ?? []).map((swipe) => ({
+                  index: swipe.index,
+                  personaSnapshot: parseExtraRecord(swipe.extra).personaSnapshot,
+                })),
+              },
+            ];
+          }),
+        );
+        const updateMessageSnapshot = async (id: string, personaSnapshot: unknown) => {
+          const row = await db.select({ extra: messages.extra }).from(messages).where(eq(messages.id, id)).limit(1);
+          const existing = parseExtraRecord(row[0]?.extra);
+          await db
+            .update(messages)
+            .set({ extra: JSON.stringify({ ...existing, personaSnapshot }) })
+            .where(eq(messages.id, id));
+        };
+        const updateSwipeSnapshot = async (messageId: string, index: number, personaSnapshot: unknown) => {
+          const rows = await db
+            .select({ id: messageSwipes.id, extra: messageSwipes.extra })
+            .from(messageSwipes)
+            .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.index, index)))
+            .limit(1);
+          const row = rows[0];
+          if (!row) return;
+          const existing = parseExtraRecord(row.extra);
+          await db
+            .update(messageSwipes)
+            .set({ extra: JSON.stringify({ ...existing, personaSnapshot }) })
+            .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, row.id)));
+        };
+        const touchedIds = new Set<string>();
+
+        try {
+          for (const id of matchingIds) {
+            touchedIds.add(id);
+            await updateMessageSnapshot(id, targetSnapshot);
+            for (const swipe of swipesByMessageId.get(id) ?? []) {
+              await updateSwipeSnapshot(id, swipe.index, targetSnapshot);
             }
           }
+        } catch (err) {
+          const rollbackErrors: unknown[] = [];
+          for (const id of touchedIds) {
+            const backup = backups.get(id);
+            if (!backup) continue;
+            try {
+              await updateMessageSnapshot(id, backup.messagePersonaSnapshot);
+            } catch (rollbackError) {
+              rollbackErrors.push(rollbackError);
+              logger.error(rollbackError, "reassignMessagePersonaSnapshots: failed to restore message %s", id);
+            }
+            for (const swipe of backup.swipes) {
+              try {
+                await updateSwipeSnapshot(id, swipe.index, swipe.personaSnapshot);
+              } catch (rollbackError) {
+                rollbackErrors.push(rollbackError);
+                logger.error(
+                  rollbackError,
+                  "reassignMessagePersonaSnapshots: failed to restore swipe %s[%d]",
+                  id,
+                  swipe.index,
+                );
+              }
+            }
+          }
+          if (rollbackErrors.length > 0) {
+            throw new AggregateError(
+              [err, ...rollbackErrors],
+              `reassignMessagePersonaSnapshots failed and rollback failed for ${rollbackErrors.length} writes`,
+            );
+          }
+          throw err;
         }
-        if (rollbackErrors.length > 0) {
-          throw new AggregateError(
-            [err, ...rollbackErrors],
-            `reassignMessagePersonaSnapshots failed and rollback failed for ${rollbackErrors.length} writes`,
-          );
-        }
-        throw err;
-      }
 
-      return {
-        updatedCount: matchingIds.length,
-        messageIds: matchingIds,
-      };
+        return {
+          updatedCount: matchingIds.length,
+          messageIds: matchingIds,
+        };
+      });
     },
 
     /** Atomically append an attachment to a message's extra JSON field. */
