@@ -780,8 +780,11 @@ export function createCharactersStorage(db: DB) {
             .where(eq(lorebooks.id, lorebookId));
         }
         await tx.delete(characters).where(eq(characters.id, id));
-        const gameChats = await tx.select().from(chats).where(eq(chats.mode, "game"));
-        for (const chat of gameChats) {
+        // Every chat, not only Game: otherwise a deleted card's id stays in a Roleplay or
+        // Conversation chat's member list and Chat Settings counts it (#6084). The Game
+        // party/setup branches below are no-ops for the other modes.
+        const memberChats = await tx.select().from(chats);
+        for (const chat of memberChats) {
           let memberIds: unknown;
           let metadata: Record<string, unknown>;
           try {

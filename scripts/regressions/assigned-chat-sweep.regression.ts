@@ -551,8 +551,8 @@ try {
   }
   assert.deepEqual(
     JSON.parse((await chats.getById(otherChat.id))!.characterIds),
-    [removed.id],
-    "non-Game history is untouched",
+    [],
+    "Conversation membership also drops the deleted card (#6084)",
   );
 
   const { parseImageGenerationUserSettings } =
