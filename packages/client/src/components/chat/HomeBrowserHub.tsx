@@ -877,8 +877,11 @@ function FloatingProfessorMari({
   const [phase, setPhase] = useState<"arriving" | "idle" | "map" | "shrug">(
     professorMariNavigatorRuntime.hasAppeared ? "idle" : "arriving",
   );
-  const [mode, setMode] = useState<"prompt" | "input" | "success" | "failure">("prompt");
+  const [mode, setMode] = useState<"input" | "success" | "failure">("input");
   const [query, setQuery] = useState("");
+  const [mobile, setMobile] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches,
+  );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const appearanceTimerRef = useRef<number | null>(null);
   const arrivalCompleteTimerRef = useRef<number | null>(null);
@@ -927,7 +930,7 @@ function FloatingProfessorMari({
   const returnToIdle = useCallback(() => {
     clearTimers();
     pendingNavigationTargetRef.current = null;
-    setMode("prompt");
+    setMode("input");
     setPhase("idle");
     setQuery("");
   }, [clearTimers]);
@@ -943,7 +946,7 @@ function FloatingProfessorMari({
       setDragLayout(null);
       setDragging(false);
       setMinimized(false);
-      setMode("prompt");
+      setMode("input");
       setPhase("idle");
       setQuery("");
       setVisible(pageActive);
@@ -958,6 +961,14 @@ function FloatingProfessorMari({
       focusFrameRef.current = null;
       inputRef.current?.focus();
     });
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 639px)");
+    const syncMobile = () => setMobile(mediaQuery.matches);
+    syncMobile();
+    mediaQuery.addEventListener("change", syncMobile);
+    return () => mediaQuery.removeEventListener("change", syncMobile);
   }, []);
 
   useEffect(() => {
@@ -1332,13 +1343,6 @@ function FloatingProfessorMari({
     setMinimized(true);
     setVisible(false);
   };
-  const openInput = () => {
-    clearTimers();
-    pendingNavigationTargetRef.current = null;
-    setMode("input");
-    setPhase("idle");
-    queueInputFocus();
-  };
   const returnToSearch = () => {
     clearTimers();
     pendingNavigationTargetRef.current = null;
@@ -1493,15 +1497,7 @@ function FloatingProfessorMari({
                 ? t("home.assistant.notFound")
                 : t("home.assistant.prompt")}
         </p>
-        {!dragging && mode === "prompt" ? (
-          <button
-            type="button"
-            onClick={openInput}
-            className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected mari-accent-animated mt-2 h-8 px-3 text-[0.6875rem] font-extrabold"
-          >
-            {t("home.assistant.navigate")}
-          </button>
-        ) : !dragging && mode === "input" ? (
+        {!dragging && mode === "input" ? (
           <form onSubmit={submitNavigation} className="relative mt-2">
             <input
               ref={inputRef}
@@ -1510,7 +1506,8 @@ function FloatingProfessorMari({
               onKeyDown={(event) => {
                 if (event.key === "Escape") returnToIdle();
               }}
-              placeholder={t("home.assistant.searchPlaceholder")}
+              aria-label={t("home.assistant.searchPlaceholder")}
+              placeholder={t(mobile ? "home.assistant.searchPlaceholderMobile" : "home.assistant.searchPlaceholder")}
               className="mari-chrome-field h-9 w-full rounded-lg pl-3 pr-9 text-xs"
             />
             <button

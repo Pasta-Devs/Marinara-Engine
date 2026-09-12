@@ -11802,6 +11802,18 @@ test("Professor Mari visibly arrives on Home and navigates without AI", async ({
 
   const assistant = page.locator('aside[aria-label="Professor Mari assistant"]');
   await expect(assistant).toBeVisible({ timeout: 6_000 });
+  const navigationInput = assistant.getByRole("textbox");
+  await expect(navigationInput).toBeVisible();
+  await expect(navigationInput).toHaveAttribute(
+    "placeholder",
+    testInfo.project.name.includes("mobile") ? "Looking for…?" : "What are you looking for?",
+  );
+  await expect(navigationInput).not.toBeFocused();
+  await expect(assistant.getByRole("button", { name: "Help Me Navigate", exact: true })).toHaveCount(0);
+  await navigationInput.fill("unfinished destination");
+  await navigationInput.press("Escape");
+  await expect(navigationInput).toBeVisible();
+  await expect(navigationInput).toHaveValue("");
   await expect(
     assistant.getByText("Hey, having trouble finding something? Looking for a Chats tab? Let me help!", {
       exact: true,
@@ -11835,7 +11847,6 @@ test("Professor Mari visibly arrives on Home and navigates without AI", async ({
   }
   await recallButton.click();
   await expect(assistant).toBeVisible();
-  const navigationInput = assistant.getByPlaceholder("What are you looking for?");
   await expect(navigationInput).toBeFocused();
   await navigationInput.fill("quantum spaghetti cupboard");
   await navigationInput.press("Enter");
@@ -11863,6 +11874,7 @@ test("Professor Mari visibly arrives on Home and navigates without AI", async ({
   await page.getByRole("tab", { name: "Home", exact: true }).click();
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible();
   await expect(assistant).toBeVisible({ timeout: 1_000 });
+  await expect(navigationInput).toBeVisible();
 
   const chatResponse = await page.request.post("/api/chats", {
     data: {
@@ -11921,8 +11933,7 @@ test("Professor Mari opens a named character directly in its editor", async ({ p
         })),
       )
       .toEqual({ paused: undefined, reduced: "true" });
-    await assistant.getByRole("button", { name: "Help Me Navigate", exact: true }).click();
-    const navigationInput = assistant.getByPlaceholder("What are you looking for?");
+    const navigationInput = assistant.getByRole("textbox");
     await navigationInput.fill(resourceName);
     await navigationInput.press("Enter");
     await expect(assistant.getByText("Here, found it!", { exact: true })).toBeVisible();
