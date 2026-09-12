@@ -682,6 +682,282 @@ try {
     "an imported dependent before duplicate sources resolves their final local IDs",
   );
 
+  const dependencySource = await chats.create({
+    name: "Standalone dependency source",
+    mode: "roleplay",
+    characterIds: ["alice"],
+    connectionId: connection!.id,
+  });
+  assert(dependencySource);
+  await chats.createMessagesBatch(
+    dependencySource.id,
+    Array.from({ length: 4 }, (_, index) => ({
+      role: "user" as const,
+      content: `${index === 3 ? "SCENE_CHANGE " : ""}Dependency source turn ${index}: the compass promise.`,
+    })),
+  );
+  const dependencyMessages = await chats.listMessages(dependencySource.id);
+  const dependencySettings = {
+    ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+    enabled: true,
+    maxContextTokens: 4096,
+    summaryBudgetTokens: 512,
+    knowledgeStarts: { alice: null },
+  };
+  await chats.patchMetadata(dependencySource.id, {
+    groupChatMode: "individual",
+    advancedMemory: dependencySettings,
+    summaryEntries: [
+      {
+        id: "required-manual-summary",
+        kind: "rolling",
+        origin: "manual",
+        content: "CORRECTED_GOLD compass",
+        enabled: true,
+        title: "Required correction",
+        sourceMode: "range",
+        messageIds: dependencyMessages.slice(0, 2).map((message) => message.id),
+        rangeStartIndex: 1,
+        rangeEndIndex: 2,
+        tokenEstimate: 6,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
+  });
+  await memory.initialize(dependencySource.id);
+  const dependencyPrepared = await memory.prepare({
+    chatId: dependencySource.id,
+    messages: dependencyMessages,
+    audienceCharacterIds: [],
+    audienceMode: "owner",
+    budgetTokens: 3000,
+  });
+  assert(dependencyPrepared.receipt.checkpointId);
+  await memory.updateRecord(dependencySource.id, dependencyPrepared.receipt.checkpointId, {
+    content: "IMPORTED_MISSING_SUMMARY_CORRECTION",
+  });
+  const sourceManualScene = (await memory.status(dependencySource.id)).records.find(
+    (record) => record.kind === "scene" && record.content && !record.audienceCharacterIds.length,
+  );
+  assert(sourceManualScene);
+  await memory.updateRecord(dependencySource.id, sourceManualScene.id, {
+    content: "IMPORTED_DISABLED_SCENE_CORRECTION",
+  });
+  const dependencyExport = await memory.exportMemory(dependencySource.id);
+  const exportedDependency = dependencyExport.records.find(
+    (entry) => entry.record.id === dependencyPrepared.receipt.checkpointId,
+  );
+  assert(
+    exportedDependency?.valid &&
+      exportedDependency.record.dependencies.some((dependency) => dependency.id === "summary:required-manual-summary"),
+  );
+
+  const dependencyTarget = await chats.create({
+    name: "Standalone dependency target",
+    mode: "roleplay",
+    characterIds: ["alice"],
+    connectionId: connection!.id,
+  });
+  assert(dependencyTarget);
+  await chats.createMessagesBatch(
+    dependencyTarget.id,
+    dependencyMessages.map((message) => ({ role: "user" as const, content: message.content })),
+  );
+  const targetMessages = await chats.listMessages(dependencyTarget.id);
+  await chats.patchMetadata(dependencyTarget.id, {
+    groupChatMode: "individual",
+    advancedMemory: { ...dependencySettings, knowledgeStarts: { alice: targetMessages[2]!.id } },
+  });
+  await memory.initialize(dependencyTarget.id);
+  const localScene = (await memory.status(dependencyTarget.id)).records.find(
+    (record) => record.kind === "scene" && record.content && !record.audienceCharacterIds.length,
+  );
+  assert(localScene);
+  await memory.updateRecord(dependencyTarget.id, localScene.id, {
+    content: "LOCAL_CORRECTION_UNCHANGED",
+    enabled: false,
+  });
+  const beforeImportMetadata = (await chats.getById(dependencyTarget.id))!.metadata;
+  const importWithMissingDependencies = {
+    ...dependencyExport,
+    records: [
+      ...dependencyExport.records,
+      {
+        ...exportedDependency,
+        record: {
+          ...exportedDependency.record,
+          id: "valid-import-control",
+          kind: "temporary",
+          sceneId: `temporary-${dependencyMessages[1]!.id}`,
+          audienceCharacterIds: [],
+          content: "VALID_IMPORTED_CONTROL",
+          dependencies: [],
+        },
+      },
+      {
+        ...exportedDependency,
+        record: {
+          ...exportedDependency.record,
+          id: "missing-record-control",
+          kind: "continuity",
+          sceneId: `continuity-${dependencyMessages[2]!.id}`,
+          audienceCharacterIds: [],
+          content: "MISSING_RECORD_CORRECTION",
+          dependencies: [{ id: "record:unavailable-record", revision: "unknown" }],
+        },
+      },
+      {
+        ...exportedDependency,
+        record: {
+          ...exportedDependency.record,
+          id: "macro-control",
+          kind: "temporary",
+          sceneId: `temporary-${dependencyMessages[2]!.id}`,
+          audienceCharacterIds: [],
+          content: "INCOMPATIBLE_MACRO_CORRECTION",
+          dependencies: [{ id: "macro-variables", revision: "not-the-target-variables" }],
+        },
+      },
+    ],
+  };
+  const dependencyImport = await memory.importMemory(dependencyTarget.id, importWithMissingDependencies);
+  for (const content of [
+    "IMPORTED_MISSING_SUMMARY_CORRECTION",
+    "MISSING_RECORD_CORRECTION",
+    "INCOMPATIBLE_MACRO_CORRECTION",
+  ]) {
+    const imported = dependencyImport.records.find((record) => record.content === content);
+    assert(
+      imported && !imported.enabled,
+      `${content} remains inspectable but disabled without its source dependencies`,
+    );
+  }
+  assert(
+    dependencyImport.records.some(
+      (record) =>
+        record.kind === "excerpt" &&
+        record.audienceCharacterIds.includes("alice") &&
+        record.messageIds.includes(targetMessages[0]!.id) &&
+        !record.enabled,
+    ),
+    "an imported excerpt outside current character knowledge is disabled",
+  );
+  assert(
+    dependencyImport.records.some(
+      (record) => record.kind === "excerpt" && !record.audienceCharacterIds.length && record.enabled,
+    ),
+    "valid imported source records stay enabled",
+  );
+  assert(
+    dependencyImport.records.some((record) => record.content === "VALID_IMPORTED_CONTROL" && record.enabled),
+    "a newly inserted compatible memory stays enabled",
+  );
+  const retainedLocal = dependencyImport.records.find((record) => record.id === localScene.id);
+  assert.equal(retainedLocal?.content, "LOCAL_CORRECTION_UNCHANGED");
+  assert.equal(retainedLocal?.enabled, false);
+  assert.equal(
+    (await chats.getById(dependencyTarget.id))!.metadata,
+    beforeImportMetadata,
+    "standalone memory import does not change target metadata authority",
+  );
+
+  const maintenanceTarget = await chats.create({
+    name: "Disabled import maintenance",
+    mode: "roleplay",
+    characterIds: ["alice"],
+    connectionId: connection!.id,
+  });
+  assert(maintenanceTarget);
+  await chats.createMessagesBatch(
+    maintenanceTarget.id,
+    dependencyMessages.map((message) => ({ role: "user" as const, content: message.content })),
+  );
+  await chats.patchMetadata(maintenanceTarget.id, { groupChatMode: "individual", advancedMemory: dependencySettings });
+  const maintenanceImport = await memory.importMemory(maintenanceTarget.id, dependencyExport);
+  const disabledImportedScene = maintenanceImport.records.find(
+    (record) => record.content === "IMPORTED_DISABLED_SCENE_CORRECTION",
+  );
+  assert(disabledImportedScene && !disabledImportedScene.enabled && disabledImportedScene.manualOverride);
+  await memory.initialize(maintenanceTarget.id);
+  const maintenanceStatus = await memory.status(maintenanceTarget.id);
+  assert.equal(
+    maintenanceStatus.job.status,
+    "ready",
+    "disabled unsupported manual imports do not block initialization",
+  );
+  assert.deepEqual(
+    maintenanceStatus.records.find((record) => record.id === disabledImportedScene.id),
+    disabledImportedScene,
+    "maintenance preserves the disabled correction for inspection",
+  );
+  const maintainedPrompt = await memory.prepare({
+    chatId: maintenanceTarget.id,
+    messages: await chats.listMessages(maintenanceTarget.id),
+    audienceCharacterIds: [],
+    audienceMode: "owner",
+    budgetTokens: 1000,
+  });
+  assert(
+    ![
+      maintainedPrompt.chatSummary,
+      maintainedPrompt.currentSceneSummary,
+      maintainedPrompt.recalledScenes,
+      maintainedPrompt.recalledMessages,
+    ].some((part) => part?.includes("IMPORTED_DISABLED_SCENE_CORRECTION")),
+    "disabled correction text remains excluded from generation",
+  );
+  await memory.updateRecord(maintenanceTarget.id, disabledImportedScene.id, { enabled: true });
+  await assert.rejects(
+    memory.initialize(maintenanceTarget.id),
+    /manually corrected memory.*changed source messages/iu,
+    "enabled stale manual corrections still require explicit review",
+  );
+  assert.equal(
+    (await memory.status(maintenanceTarget.id)).records.find((record) => record.id === disabledImportedScene.id)
+      ?.content,
+    "IMPORTED_DISABLED_SCENE_CORRECTION",
+  );
+
+  await memory.updateRecord(maintenanceTarget.id, disabledImportedScene.id, { enabled: false });
+  const editedExcerpt = (await memory.status(maintenanceTarget.id)).records.find(
+    (record) => record.kind === "excerpt" && !record.audienceCharacterIds.length && record.messageIds.length === 3,
+  );
+  assert(editedExcerpt);
+  await memory.updateRecord(maintenanceTarget.id, editedExcerpt.id, {
+    content: "DISABLED_EXCERPT_CORRECTION",
+    enabled: false,
+  });
+  await chats.updateMessageContent(
+    editedExcerpt.messageIds[0]!,
+    "The source promise changed after editing this excerpt.",
+  );
+  const beforeExcerptMaintenance = (await memory.status(maintenanceTarget.id)).records.find(
+    (record) => record.id === editedExcerpt.id,
+  );
+  await memory.initialize(maintenanceTarget.id);
+  const afterExcerptMaintenance = await memory.status(maintenanceTarget.id);
+  assert.equal(
+    afterExcerptMaintenance.job.status,
+    "ready",
+    "a disabled corrected excerpt does not block maintenance after its source changes",
+  );
+  assert.deepEqual(
+    afterExcerptMaintenance.records.find((record) => record.id === editedExcerpt.id),
+    beforeExcerptMaintenance,
+    "the disabled excerpt remains unchanged and inspectable",
+  );
+  await memory.updateRecord(maintenanceTarget.id, editedExcerpt.id, { enabled: true });
+  await assert.rejects(
+    memory.initialize(maintenanceTarget.id),
+    /manually corrected memory.*changed source messages/iu,
+    "re-enabled stale excerpt corrections retain the explicit-review guard",
+  );
+  assert.equal(
+    (await memory.status(maintenanceTarget.id)).records.find((record) => record.id === editedExcerpt.id)?.content,
+    "DISABLED_EXCERPT_CORRECTION",
+  );
+
   const joinedChat = await chats.create({
     name: "Joined waiter cancellation",
     mode: "roleplay",

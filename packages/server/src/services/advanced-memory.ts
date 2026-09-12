@@ -1061,7 +1061,11 @@ export function createAdvancedMemoryService(db: DB) {
           const candidate = buildRecord(ctx, scene, "scene", audience, source, "pending");
           const previousRecord = existing.find((item) => sameIdentity(item, candidate));
           if (previousRecord) candidate.id = previousRecord.id;
-          let record = previousRecord && recordValid(ctx, previousRecord) ? previousRecord : undefined;
+          // Disabled records remain inspectable; maintenance must not rebuild over their corrections.
+          let record =
+            previousRecord && (!previousRecord.enabled || recordValid(ctx, previousRecord))
+              ? previousRecord
+              : undefined;
           if (!record) {
             await progress(ctx, { stage: "summarizing", completed: index, total: scenes.length }, options);
             const entries = sourceEntries(ctx, source, false).filter(
@@ -1094,7 +1098,10 @@ export function createAdvancedMemoryService(db: DB) {
           const candidate = buildRecord(ctx, scene, "excerpt", audience, chunk, logMessages(ctx, chunk));
           const previousRecord = existing.find((item) => sameIdentity(item, candidate));
           if (previousRecord) candidate.id = previousRecord.id;
-          const record = previousRecord && recordValid(ctx, previousRecord) ? previousRecord : candidate;
+          const record =
+            previousRecord && (!previousRecord.enabled || recordValid(ctx, previousRecord))
+              ? previousRecord
+              : candidate;
           if (record === candidate) await put(ctx, candidate, options);
           await embedRecord(ctx, record, embeddingOptions, options);
         }
@@ -2039,6 +2046,17 @@ export function createAdvancedMemoryService(db: DB) {
           .where(eq(advancedMemoryRecords.id, record.id));
       }
       await refreshTransferredRecords(chatId, importedRecordIds);
+      const refreshedContext = await context(chatId);
+      const refreshedRecords = await records(chatId);
+      const newlyImported = new Set(importedRecordIds);
+      for (const record of refreshedRecords) {
+        if (!newlyImported.has(record.id) || !record.enabled) continue;
+        if (recordValid(refreshedContext, record) && dependenciesValid(record, refreshedRecords, refreshedContext))
+          continue;
+        // Keep unsupported imported corrections inspectable, without advertising them as usable memory.
+        record.enabled = false;
+        await db.update(advancedMemoryRecords).set({ enabled: 0 }).where(eq(advancedMemoryRecords.id, record.id));
+      }
       return { imported, ...(await status(chatId)) };
     });
   }
