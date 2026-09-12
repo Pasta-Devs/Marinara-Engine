@@ -212,6 +212,7 @@ const SHARDED_TABLES = [
   "ooc_influences",
   "conversation_notes",
   "memory_chunks",
+  "advanced_memory_records",
   "chat_folders",
   "api_connection_folders",
   "custom_themes",

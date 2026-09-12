@@ -623,7 +623,9 @@ function parseChatMetadataReadKeys(source: string): string[] {
     if (binding) bound.add(binding[1]!);
   }
   for (const name of bound) {
-    for (const read of source.matchAll(new RegExp(`\\b${escapedForPattern(name)}\\s*\\??\\.\\s*([a-z][a-zA-Z0-9]*)`, "g"))) {
+    for (const read of source.matchAll(
+      new RegExp(`\\b${escapedForPattern(name)}\\s*\\??\\.\\s*([a-z][a-zA-Z0-9]*)`, "g"),
+    )) {
       keys.push(read[1]!);
     }
   }
@@ -761,18 +763,22 @@ assert.deepEqual(
 );
 // The honest boundary of the whole derivation, and the half of it that a count can express: a write
 // handed a variable or a helper's return value, in either write shape. Its keys cannot be read from
-// here at all, so the COUNT is pinned — a twenty-first fails this regression until someone reads it
-// by hand and either widens a walk above or adds the namespace to
-// ENGINE_OWNED_METADATA_KEY_PREFIXES. Eighteen are `patchMetadata`/`updateMetadata` calls; the other
+// here at all, so the COUNT is pinned — another opaque call fails until someone reads it by hand
+// and either widens a walk above or adds the namespace to ENGINE_OWNED_METADATA_KEY_PREFIXES.
+// Nineteen are `patchMetadata`/`updateMetadata` calls; the other
 // two are route PATCHes, and neither is a live gap today — one is the mutation hook's own
 // implementation, whose keys the client-mutation arm reads at its call sites instead, and the other
 // is a debounced scene patch assembled into a variable whose four keys the literal beside it repeats
-// verbatim. The other half of the boundary — a read off a parameter inside a helper — has no count
+// verbatim. The twenty-first call is st-chat.importer.ts passing `remappedMetadata`: it preserves
+// existing metadata, remaps Advanced Memory knowledge/narrator settings and roster anchors, and
+// rewrites summary, summaryEntries, and lastAutomaticSummaryMessageId. `advancedMemory` is now reserved;
+// `summary` and `last` already were. This is an audited variable payload, not a newly ignored literal.
+// The other half of the boundary — a read off a parameter inside a helper — has no count
 // to pin, which is why sub-source 7 exists rather than a seventh sweep. The docs state both limits.
 assert.equal(
   unreadableWriteCalls,
-  20,
-  `chat-metadata writes this sweep cannot read statically changed: expected 20, found ${unreadableWriteCalls}. ` +
+  21,
+  `chat-metadata writes this sweep cannot read statically changed: expected 21, found ${unreadableWriteCalls}. ` +
     "This count is a boundary marker, not a budget, so do not simply edit the number to match. Read the " +
     "call this added by hand — the sites are listed below — and decide what it writes: if it commits a key " +
     "under a namespace that is not already in ENGINE_OWNED_METADATA_KEY_PREFIXES, add that namespace (or " +
@@ -782,9 +788,18 @@ assert.equal(
 );
 
 const ownedPrefixes = new Set<string>(ENGINE_OWNED_METADATA_KEY_PREFIXES);
-const unpinnedPrefixes = [...new Set([...engineMetadataKeys].map((key) => /^[a-z]+/.exec(key)?.[0] ?? key))]
-  .filter((prefix) => !ownedPrefixes.has(prefix))
-  .sort();
+const unpinnedPrefixes = [
+  ...new Set(
+    [...engineMetadataKeys]
+      .filter(
+        (key) =>
+          !ENGINE_OWNED_METADATA_KEY_PREFIXES.some(
+            (owned) => key === owned || (key.startsWith(owned) && /^[A-Z]/.test(key.charAt(owned.length))),
+          ),
+      )
+      .map((key) => /^[a-z]+/.exec(key)?.[0] ?? key),
+  ),
+].sort();
 assert.deepEqual(
   unpinnedPrefixes,
   [],
@@ -819,6 +834,20 @@ assert.match(
   gmVerbMetadataKeyIssue("conversation-calls", "conversationCallsEnabled") ?? "",
   /engine-owned metadata namespace "conversationCalls"/,
 );
+// Advanced Memory belongs to the host: package IDs must not claim its settings or coordinator.
+for (const [packageId, metadataKey] of [
+  ["advanced", "advancedMemory"],
+  ["advanced", "advancedMemoryState"],
+  ["advanced", "advancedMemoryRosterChanges"],
+  ["advanced-memory", "advancedMemory"],
+  ["advanced-memory", "advancedMemoryState"],
+  ["advanced-memory", "advancedMemoryRosterChanges"],
+] as const) {
+  assert.ok(engineMetadataKeys.has(metadataKey), `the protected Advanced Memory key ${metadataKey} exists`);
+  assert.match(gmVerbMetadataKeyIssue(packageId, metadataKey) ?? "", /engine-owned metadata namespace/);
+}
+assert.equal(gmVerbMetadataKeyIssue("advanced-tools", "advancedToolsEnabled"), null);
+assert.equal(gmVerbMetadataKeyIssue("advanced", "advancedToolsEnabled"), null);
 // Denylist, exact match on a namespace only the index-signature sweep can find: the shipped
 // `background` package normalizes to `background`, which is an Engine chat-metadata key itself.
 assert.ok(engineMetadataKeys.has("background"), "the undeclared key behind the `background` refusal is real");
@@ -895,10 +924,7 @@ refusesVerb(
   { ...weatherVerb, description: "Line one.\u2028Line two." },
   "a Unicode line separator breaks the prompt line too",
 );
-refusesVerb(
-  { ...weatherVerb, description: "Set the sky.\tThen stop." },
-  "a tab is refused as a control character",
-);
+refusesVerb({ ...weatherVerb, description: "Set the sky.\tThen stop." }, "a tab is refused as a control character");
 refusesVerb({ ...weatherVerb, metadataKey: undefined }, "a state verb must name its metadata key");
 refusesVerb({ ...standingVerb, metadataKey: "pixelforgeStanding" }, "an event verb must not squat a key");
 refusesVerb({ ...weatherVerb, effect: "broadcast" }, "an unknown effect is refused");
