@@ -66,7 +66,6 @@ export type ChatDeleteGuardResult = { allowed: true } | { allowed: false; reason
 
 const metadataPatchQueues = new Map<string, Promise<void>>();
 const messageExtraPatchQueues = new Map<string, Promise<void>>();
-const swipeExtraPatchQueues = new Map<string, Promise<void>>();
 
 /**
  * LOCK ORDER (#5599/#5600): the message patch queue is always acquired
@@ -2174,7 +2173,7 @@ export function createChatsStorage(db: DB) {
           touchedIds.add(id);
           await this.updateMessageExtra(id, { personaSnapshot: targetSnapshot });
           for (const swipe of swipesByMessageId.get(id) ?? []) {
-            await this.updateLoadedSwipeExtra(swipe, { personaSnapshot: targetSnapshot });
+            await this.updateSwipeExtra(id, swipe.index, { personaSnapshot: targetSnapshot });
           }
         }
       } catch (err) {
@@ -2192,7 +2191,7 @@ export function createChatsStorage(db: DB) {
             try {
               const loadedSwipe = swipesByMessageId.get(id)?.find((candidate) => candidate.index === swipe.index);
               if (!loadedSwipe) continue;
-              await this.updateLoadedSwipeExtra(loadedSwipe, { personaSnapshot: swipe.personaSnapshot });
+              await this.updateSwipeExtra(id, loadedSwipe.index, { personaSnapshot: swipe.personaSnapshot });
             } catch (rollbackError) {
               rollbackErrors.push(rollbackError);
               logger.error(
@@ -2539,21 +2538,8 @@ export function createChatsStorage(db: DB) {
     },
 
     /** Merge partial data into a swipe's extra JSON field. */
-    async updateLoadedSwipeExtra(
-      target: { id: string; messageId: string; index: number; extra: unknown },
-      partial: Record<string, unknown>,
-    ) {
-      return withPatchQueue(swipeExtraPatchQueues, `${target.messageId}:${target.index}`, async () => {
-        const existing = parseExtraRecord(target.extra);
-        await db
-          .update(messageSwipes)
-          .set({ extra: JSON.stringify({ ...existing, ...partial }) })
-          .where(and(eq(messageSwipes.messageId, target.messageId), eq(messageSwipes.id, target.id)));
-      });
-    },
-
     async updateSwipeExtra(messageId: string, swipeIndex: number, partial: Record<string, unknown>) {
-      return withPatchQueue(swipeExtraPatchQueues, `${messageId}:${swipeIndex}`, async () => {
+      return withPatchQueue(messageExtraPatchQueues, messageId, async () => {
         const swipes = await this.getSwipes(messageId);
         const target = swipes.find((s: any) => s.index === swipeIndex);
         if (!target) return;
@@ -2567,7 +2553,7 @@ export function createChatsStorage(db: DB) {
 
     /** Atomically append an attachment to a swipe's extra JSON field. */
     async appendSwipeAttachment(messageId: string, swipeIndex: number, attachment: Record<string, unknown>) {
-      return withPatchQueue(swipeExtraPatchQueues, `${messageId}:${swipeIndex}`, async () => {
+      return withPatchQueue(messageExtraPatchQueues, messageId, async () => {
         const swipes = await this.getSwipes(messageId);
         const target = swipes.find((s: any) => s.index === swipeIndex);
         if (!target) return;
