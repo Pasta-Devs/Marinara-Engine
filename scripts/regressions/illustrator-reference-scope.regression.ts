@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { buildUncaptionedCharacterAppearanceBlock } from "../../packages/server/src/services/image/character-prompts.js";
 import { resolveIllustratorCharacterReferences } from "../../packages/server/src/services/image/illustrator-references.js";
 
 const cards = [
@@ -36,4 +37,14 @@ assert.doesNotMatch(group.appearanceBlock ?? "", /unrelated|duplicate|ambiguous/
 assert.deepEqual((await resolve([], "An empty landscape.")).characterIds, []);
 assert.deepEqual((await resolve([], "")).characterIds, [], "Backgrounds must not inherit a solo-chat avatar");
 
+const globalAppearance = await resolve(["Doctor Ash", "Elena Vale"]);
+assert.equal(
+  buildUncaptionedCharacterAppearanceBlock(
+    globalAppearance.appearanceSources,
+    ["Doctor Ash", "Elena Vale"],
+    [{ name: "Doctor Ash", prompt: "boy, new outfit", position: { x: 0.3, y: 0.5 } }],
+  ),
+  "Elena Vale's Appearance: global appearance",
+  "partial captions retain resolved library appearances as well as active-chat cards",
+);
 console.info("Illustrator reference scope regression passed");

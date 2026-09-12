@@ -12,7 +12,7 @@ Change these settings only when you want to fix a specific problem. This guide l
 
 ## Where to find them
 
-Generation parameters live in each chat, not in a global menu.
+Edit base values under **Presets > Parameters**, connection values under **Connections > Default Parameters**, and chat overrides under **Chat Settings > Advanced Parameters**.
 
 1. Open the chat you want to change.
 2. Open **Chat Settings** (the gear icon for the active chat).
@@ -131,19 +131,21 @@ At the bottom of **Advanced Parameters**, the **Save as Connection Default** but
 
 The button only appears for a normal, saved connection. It is hidden for the random connection pool and for the built-in local model.
 
-The **Reset to Defaults** button below it clears every per-chat parameter change and returns this chat to the mode's baseline.
+The **Reset to Defaults** button below it clears every per-chat parameter change and returns this chat to its inherited settings.
 
 ## How defaults layer and override
 
-Your effective parameters come from three layers. Each layer wins over the one before it, one setting at a time.
+Parameters are resolved one field at a time, in this order:
 
-1. The mode baseline. This is the built-in starting point for the chat's mode.
-2. The connection's saved defaults. These are the values you stored with **Save as Connection Default**.
-3. This chat's **Advanced Parameters**. These are the values you set right here, and they win.
+1. The selected preset's **Parameters**, or built-in generation defaults when no preset is used (temperature `1`, maximum output `4096`). In Roleplay, a connection's preset override takes precedence over the chat's selected preset.
+2. The connection's **Default Parameters**.
+3. This chat's **Advanced Parameters**.
+4. Mode rules: an active scene chat sets output to `8192`, reasoning to **Maximum**, and verbosity to **High**. Game sets output to `16384` and reasoning to **Maximum**, with temperature/top-p at `1` and top-k, min-p, and repetition penalties at `0`. Gemma Game connections keep their sampling settings and use an output budget of at least `16384`.
+5. Output limits: Game applies the model's known output limit, and the connection's **Max Output Tokens override** caps requests in every mode. Available context can reduce the output budget further.
 
-So a value you set in **Advanced Parameters** always beats the connection default and the mode baseline.
+The **Effective** line beside a parameter shows the saved value and its winning layer, including mode rules and output caps. In the connection editor it uses the currently open chat with that connection, or a Roleplay baseline when no chat is open. Save edits to refresh it. A disabled Send switch is shown as **not sent**; providers can still impose required parameters or normalize unsupported values. Custom Parameters and context fitting may further change the final request.
 
-Game Mode is a special case. Game Mode sets some parameters on its own to keep its structured turns working. In Game Mode, a few of your **Advanced Parameters** changes may not fully apply. This is expected.
+For example, a preset at `8192` and this chat at `16384` show **Effective: 16384 · this chat**. A connection output cap of `4096` changes that to **Effective: 4096 · output token cap**. Resetting chat parameters exposes the next applicable layer; it does not remove preset or mode rules.
 
 ## Some models ignore some parameters
 

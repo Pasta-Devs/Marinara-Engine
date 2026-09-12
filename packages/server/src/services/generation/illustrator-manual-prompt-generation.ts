@@ -1,4 +1,5 @@
 import type { AgentContext } from "@marinara-engine/shared";
+import { NOVELAI_V5_MAX_CHARACTER_PROMPTS } from "../image/character-prompts.js";
 import { logger } from "../../lib/logger.js";
 import { normalizeAgentContextSize, renderAgentPromptTemplate } from "../agents/agent-executor.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
@@ -25,6 +26,8 @@ export type ManualIllustratorPromptPlan = {
   characters: string[];
   aspectRatio: "portrait" | "landscape" | "square" | "";
   reason: string;
+  /** Raw NovelAI character captions; validated against characters at dispatch time. */
+  characterPrompts: unknown[];
 };
 
 export type ManualIllustratorPromptResult = {
@@ -67,7 +70,7 @@ function normalizeCharacterNames(value: unknown): string[] {
         .filter(Boolean)
         .map((name) => name.slice(0, 120)),
     ),
-  ).slice(0, 16);
+  ).slice(0, NOVELAI_V5_MAX_CHARACTER_PROMPTS);
 }
 
 function normalizeAspectRatio(value: unknown): ManualIllustratorPromptPlan["aspectRatio"] {
@@ -163,6 +166,7 @@ export function parseManualIllustratorPromptPlan(value: unknown): ManualIllustra
     characters: normalizeCharacterNames(record.characters ?? record.visibleCharacters),
     aspectRatio: normalizeAspectRatio(record.aspectRatio ?? record.aspect_ratio),
     reason: readTrimmedString(record.reason).slice(0, 500),
+    characterPrompts: Array.isArray(record.characterPrompts) ? record.characterPrompts.slice(0, 32) : [],
   };
 }
 
@@ -232,6 +236,7 @@ export function buildManualIllustratorPromptMessages(args: {
   contextSize: unknown;
   selectedPromptTemplate?: string;
   styleInstruction?: string;
+  characterPromptInstruction?: string;
   imagePromptInstructions?: string;
   request?: string;
 }): ChatMessage[] {
@@ -249,6 +254,7 @@ export function buildManualIllustratorPromptMessages(args: {
     args.styleInstruction
       ? `Additional Image Style instruction for the image prompt you write: ${args.styleInstruction}\nCombine it with the selected Illustrator prompt mode. It may refine rendering and visual treatment, but it must not replace or weaken the selected format, layout, framing, or text requirements.`
       : "No visual style profile is selected. Infer only the visual treatment supported by the scene context.",
+    args.characterPromptInstruction?.trim() ?? "",
     args.imagePromptInstructions
       ? `<image_prompting_instructions>\nApply these image-backend instructions when writing the provider-ready prompt. They are instructions, not text to copy into the prompt:\n${args.imagePromptInstructions}\n</image_prompting_instructions>`
       : "",
@@ -295,6 +301,7 @@ export async function writeManualIllustratorPromptPlan(args: {
   illustratorAgent: ResolvedAgent;
   context: AgentContext;
   styleInstruction?: string;
+  characterPromptInstruction?: string;
   imagePromptInstructions?: string;
   request?: string;
   signal?: AbortSignal;
@@ -311,6 +318,7 @@ export async function writeManualIllustratorPromptPlan(args: {
     contextSize: args.illustratorAgent.settings.contextSize,
     selectedPromptTemplate,
     styleInstruction: args.styleInstruction,
+    characterPromptInstruction: args.characterPromptInstruction,
     imagePromptInstructions: args.imagePromptInstructions,
     request: args.request,
   });

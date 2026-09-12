@@ -1,3 +1,4 @@
+import { allowsDefaultChatModel } from "./local-context-limit.js";
 import type { ChatCompletionResult, ChatMessage, ChatOptions, LLMUsage } from "./base-provider.js";
 import { BaseLLMProvider } from "./base-provider.js";
 import { createLLMProvider } from "./provider-registry.js";
@@ -88,7 +89,7 @@ export function isFallbackConnectionUsable(
   return (
     !!fallbackConnection &&
     fallbackConnection.id !== primaryConnectionId &&
-    !!fallbackConnection.model?.trim() &&
+    (!!fallbackConnection.model?.trim() || allowsDefaultChatModel(fallbackConnection)) &&
     !!fallbackBaseUrl.trim()
   );
 }

@@ -4000,7 +4000,7 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
 });
 
 for (const { panel, endpoint, sections } of [
-  { panel: "presets", endpoint: "/api/prompts", sections: ["Overview", "Sections", "Prompts", "Regex"] },
+  { panel: "presets", endpoint: "/api/prompts", sections: ["Overview", "Sections", "Prompts", "Parameters", "Regex"] },
   { panel: "lorebooks", endpoint: "/api/lorebooks", sections: ["Overview", "Entries"] },
 ]) {
   test(`${panel} keeps themed section navigation in the editor topbar`, async ({ page, request }, testInfo) => {

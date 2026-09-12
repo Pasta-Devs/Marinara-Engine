@@ -1,3 +1,4 @@
+import { useEffectiveGenerationParameters } from "../../../hooks/use-effective-generation-parameters";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { ChevronDown, Save, Settings2 } from "lucide-react";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
@@ -82,10 +83,15 @@ export function AdvancedParametersSection({
   };
   const conn = connectionId ? connections.find((connection) => connection.id === connectionId) : null;
   const canSaveConnectionDefaults = !!connectionId && connectionId !== "random" && conn?.isLocalSidecar !== true;
-  const defaults = getEditableGenerationParameters(strictModeDefaults, conn?.defaultParameters);
   const imageCaptioningDefaults = parseConnectionImageCaptioningDefaults(conn?.defaultParameters);
   const saveDefaults = useSaveConnectionDefaults();
   const [expanded, setExpanded] = useState(false);
+  const preview = useEffectiveGenerationParameters(connectionId, expanded);
+  const awaitingDefaults = preview.canPreview && !preview.data;
+  const defaults = getEditableGenerationParameters(
+    strictModeDefaults,
+    preview.data?.inheritedParameters ?? conn?.defaultParameters,
+  );
   const params = (metadata.chatParameters as Record<string, unknown>) ?? {};
   const effectiveParams = getEditableGenerationParameters(defaults, params);
   const excludeReasoningEnabled = excludePastReasoning !== false;
@@ -138,6 +144,7 @@ export function AdvancedParametersSection({
   ]);
 
   const setParameters = (next: EditableGenerationParameters) => {
+    if (awaitingDefaults) return;
     const editableKeys = new Set<string>(EDITABLE_PARAMETER_KEYS);
     const sparse: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(params)) {
@@ -206,12 +213,31 @@ export function AdvancedParametersSection({
           <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
             {localizeUi("settings.customGenerationParameters.availabilityHint")}
           </p>
-          <GenerationParametersFields
-            value={effectiveParams}
-            showServiceTier={conn?.provider === "openrouter" || conn?.provider === "nanogpt"}
-            enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
-            onChange={setParameters}
-          />
+          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+            {localizeUi(
+              preview.isError
+                ? "generationParameters.effective.unavailable"
+                : awaitingDefaults
+                  ? "generationParameters.effective.loading"
+                  : "generationParameters.effective.hint",
+            )}
+          </p>
+          {preview.isError && (
+            <AgentSettingsActionButton type="button" onClick={() => void preview.refetch()}>
+              {localizeUi("generationParameters.effective.retry")}
+            </AgentSettingsActionButton>
+          )}
+          <fieldset disabled={awaitingDefaults} className="min-w-0 disabled:opacity-60">
+            <GenerationParametersFields
+              effectiveParameters={preview.data?.parameters}
+              provider={typeof conn?.provider === "string" ? conn.provider : undefined}
+              model={typeof conn?.model === "string" ? conn.model : undefined}
+              value={effectiveParams}
+              showServiceTier={conn?.provider === "openrouter" || conn?.provider === "nanogpt"}
+              enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
+              onChange={setParameters}
+            />
+          </fieldset>
           <div className="space-y-2 pt-3">
             <SettingsSwitch
               label={localizeUi("ui.chatSettings.advancedparameterssection.limitContextMessages")}
@@ -343,6 +369,7 @@ export function AdvancedParametersSection({
             <AgentSettingsActionButton
               type="button"
               variant="primary"
+              disabled={awaitingDefaults || saveDefaults.isPending}
               onClick={() => {
                 saveDefaults.mutate({
                   id: connectionId,

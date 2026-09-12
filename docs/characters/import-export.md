@@ -65,7 +65,7 @@ Open a character in the editor, then click **Export character** in the top toolb
 | **Compatible JSON** | Plain Chara Card V2 JSON with no Marinara wrapper. | Sharing to other apps that read JSON cards. |
 | **Compatible PNG Card** | A Chara Card V2 image with the card data baked into the picture. | Apps and sites that expect a PNG card, such as SillyTavern, Chub, and Risu. |
 
-Choose **Marinara Native** when you want to keep everything. Choose one of the **Compatible** formats when the file is going to another tool. The two compatible formats drop Marinara-only extras like sprites and gallery images.
+Choose **Marinara Native** when you want to keep everything. Choose one of the **Compatible** formats when the file is going to another tool. The two compatible formats drop Marinara-only extras like sprites and gallery images. They append non-empty **Backstory** and **Appearance** fields to the standard Description so other V2 readers retain that identity information. Those fields move out of the exported extensions to avoid duplication when reimported. Your saved card stays unchanged; **Marinara Native** keeps its separate fields.
 
 ## Exporting many characters at once
 

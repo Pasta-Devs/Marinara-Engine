@@ -932,7 +932,8 @@ try {
   // Ordering, because the two live in one `if`/fallthrough: the gate must be consulted BEFORE the
   // empty-response error is sent, or a verb-only turn is told it produced nothing.
   assert.ok(
-    generateRoute.indexOf(anchorGateCall[0]) < generateRoute.indexOf("The AI returned an empty response."),
+    generateRoute.indexOf(anchorGateCall[0]) <
+      generateRoute.indexOf('sendSseEvent(reply, { type: "error", data: emptyResponseMessage })'),
     "the verb count must reach the anchor gate ahead of the empty-response error frame",
   );
 

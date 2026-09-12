@@ -55,6 +55,7 @@ export type IllustratorReferenceResolution = {
   referenceNames: string[];
   referenceLine: string | null;
   appearanceNames: string[];
+  appearanceSources: Array<{ name: string; appearance: string }>;
   appearanceBlock: string | null;
 };
 
@@ -550,14 +551,14 @@ export async function resolveIllustratorCharacterReferences(args: {
   const orderedSources = orderedSelectedSources.slice(0, maxReferences);
   const referenceImages: string[] = [];
   const referenceNames: string[] = [];
-  const appearanceLines: string[] = [];
+  const appearanceSources: IllustratorReferenceResolution["appearanceSources"] = [];
   const appearanceNames: string[] = [];
 
   const pushAppearanceLine = (name: string, appearance: string | null | undefined) => {
     const trimmed = normalizeIllustratorAppearance(appearance);
     if (!trimmed || appearanceNames.includes(name)) return;
     appearanceNames.push(name);
-    appearanceLines.push(`${name}'s Appearance: ${trimmed}`);
+    appearanceSources.push({ name, appearance: trimmed });
   };
 
   for (const source of orderedSources) {
@@ -610,8 +611,12 @@ export async function resolveIllustratorCharacterReferences(args: {
         ? `Attached are reference images of ${referenceNames.join(", ")}. Use them only to preserve character likeness and visual identity; the written scene prompt is authoritative for composition, setting, action, mood, framing, and whether any text appears.`
         : null,
     appearanceNames,
+    appearanceSources,
     // No "Character appearance notes:" header: every consumer appends this straight to an image
     // prompt, so the label is only ever read by a diffusion model as something to draw.
-    appearanceBlock: appearanceLines.length > 0 ? appearanceLines.join("\n") : null,
+    appearanceBlock:
+      appearanceSources.length > 0
+        ? appearanceSources.map(({ name, appearance }) => `${name}'s Appearance: ${appearance}`).join("\n")
+        : null,
   };
 }

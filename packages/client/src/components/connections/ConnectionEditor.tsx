@@ -1,3 +1,5 @@
+import { isLanguageGenerationConnection } from "../../lib/connection-filters";
+import { useEffectiveGenerationParameters } from "../../hooks/use-effective-generation-parameters";
 // ──────────────────────────────────────────────
 // Full-Page Connection Editor
 // Click a connection → opens this editor (like presets/characters)
@@ -314,6 +316,10 @@ export function ConnectionEditor() {
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
 
   const { data: conn, isLoading } = useConnection(connectionDetailId);
+  const parameterPreview = useEffectiveGenerationParameters(
+    connectionDetailId,
+    !!conn && isLanguageGenerationConnection(conn),
+  );
   const updateConnection = useUpdateConnection();
   const deleteConnection = useDeleteConnection();
   const testConnection = useTestConnection();
@@ -662,7 +668,12 @@ export function ConnectionEditor() {
                   : localProvider === "video_generation" &&
                       (selectedVideoProvider === "comfyui" || selectedVideoProvider === "swarmui")
                     ? undefined
-                    : API_KEY_LINKS[localProvider];
+                    : localProvider === "zai"
+                      ? {
+                          label: t("connections.mediaSources.zai.apiKeyLink"),
+                          url: "https://z.ai/manage-apikey/apikey-list",
+                        }
+                      : API_KEY_LINKS[localProvider];
 
   useEffect(() => {
     if (localProvider !== "image_generation" || !selectedImageDefaultsService) {
@@ -2711,7 +2722,20 @@ export function ConnectionEditor() {
                   <p className="mb-3 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                     {localizeUi("settings.customGenerationParameters.availabilityHint")}
                   </p>
+                  <p className="mb-3 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi(
+                      parameterPreview.isError
+                        ? "generationParameters.effective.unavailable"
+                        : parameterPreview.data?.chatName
+                          ? "generationParameters.effective.connectionChat"
+                          : "generationParameters.effective.connectionBaseline",
+                      { chat: parameterPreview.data?.chatName },
+                    )}
+                  </p>
                   <GenerationParametersFields
+                    effectiveParameters={parameterPreview.data?.parameters}
+                    provider={localProvider}
+                    model={localModel}
                     value={localDefaultParameters}
                     showServiceTier={localProvider === "openrouter" || localProvider === "nanogpt"}
                     showCustomHeaders={

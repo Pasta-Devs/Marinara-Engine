@@ -1,3 +1,4 @@
+import { registerParameterPreviewRoute } from "./generate/parameter-preview-route.js";
 // ──────────────────────────────────────────────
 // Routes: Generation (SSE Streaming with Tool Use + Agent Pipeline)
 // ──────────────────────────────────────────────
@@ -155,6 +156,12 @@ import {
 } from "../services/image/spatial-location-reference.js";
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
+import {
+  buildUncaptionedCharacterAppearanceBlock,
+  readCharacterPrompts,
+  resolveNovelAiCharacterPromptLimit,
+  supportsNovelAiCharacterPrompts,
+} from "../services/image/character-prompts.js";
 import { resolveCustomAgentStyleProfileId } from "../services/generation/custom-agent-image-settings.js";
 import { buildSpotifyDjConstraints } from "../services/spotify/spotify-dj-constraints.js";
 import {
@@ -199,6 +206,7 @@ import {
   illustratorRequestedBackground,
   illustratorTrackerLocationChanged,
   resolveIllustratorImageConnectionId,
+  resolveIllustratorCharacterPromptInstruction,
   resolveIllustratorPromptStyle,
 } from "../services/generation/illustrator-background-generation.js";
 import {
@@ -394,6 +402,7 @@ import {
   tryClaimCustomLorebookReadBehindRun,
 } from "./generate/lorebook-keeper-utils.js";
 import { registerDryRunRoute } from "./generate/dry-run-route.js";
+import { describeEmptyModelResponse, sentOutputBudget } from "../services/generation/empty-response-reason.js";
 import { registerRawRoute } from "./generate/raw-route.js";
 import { registerRetryAgentsRoute, type ActiveAgentRun } from "./generate/retry-agents-route.js";
 import { fingerprintChatSummary } from "../services/prompt/chat-summary-fingerprint.js";
@@ -4365,6 +4374,24 @@ export async function generateRoutes(app: FastifyInstance) {
           } catch (error) {
             logger.warn(error, "[illustrator] Failed to resolve image style instruction for the prompt writer");
           }
+          try {
+            const { instruction: characterPromptInstruction } = await resolveIllustratorCharacterPromptInstruction({
+              connections,
+              illustratorAgent: illustratorPromptAgent,
+              chatMode: requestChatMode,
+              chatMetadata: chatMeta,
+            });
+            if (characterPromptInstruction) {
+              agentContext.memory._illustratorCharacterPromptInstruction = characterPromptInstruction;
+              const attachCardAppearance =
+                typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
+                  ? chatMeta.illustratorIncludeCharacterAppearance
+                  : illustratorPromptAgent.settings.includeCharacterAppearance === true;
+              if (attachCardAppearance) agentContext.memory._illustratorCaptionAppearanceReference = true;
+            }
+          } catch (error) {
+            logger.warn(error, "[illustrator] Failed to resolve character prompt instruction for the prompt writer");
+          }
         }
 
         // Populate writable lorebook IDs for the lorebook-keeper agent
@@ -7853,6 +7880,16 @@ export async function generateRoutes(app: FastifyInstance) {
           // no surrounding prose, treat the commands as the useful output. Skip saving
           // a blank assistant bubble but still return the commands so they execute.
           if (!fullResponse.trim() && !roleplayActivity.length && !currentRoleplayMedia.length) {
+            // Say what the provider reported instead of a generic retry line. An
+            // always-reasoning model that spends its whole output budget thinking
+            // arrives here with finish_reason "length" and reasoning tokens at the
+            // cap; the fix is a setting, not a retry (#5963).
+            const emptyResponseMessage = describeEmptyModelResponse({
+              finishReason,
+              usage,
+              maxTokens: sentOutputBudget(effectiveMaxTokensForSend, conn.maxTokensOverride),
+              hadThinking: providerThinking.trim().length > 0 || fullThinking.trim().length > 0,
+            });
             logger.warn(
               {
                 chatId: input.chatId,
@@ -7865,6 +7902,10 @@ export async function generateRoutes(app: FastifyInstance) {
                 contentReplaced,
                 chatMode,
                 groupChatMode,
+                finishReason: finishReason ?? null,
+                completionTokens: usage?.completionTokens ?? null,
+                completionReasoningTokens: usage?.completionReasoningTokens ?? null,
+                maxTokens: sentOutputBudget(effectiveMaxTokensForSend, conn.maxTokensOverride) ?? null,
               },
               "[generate] Empty response after post-processing",
             );
@@ -7964,11 +8005,10 @@ export async function generateRoutes(app: FastifyInstance) {
                 characterId: targetCharId,
               };
             }
-            logger.warn(`[generate] Empty response from model for chat ${input.chatId} (char: ${targetCharId})`);
-            sendSseEvent(reply, {
-              type: "error",
-              data: "The AI returned an empty response. Try sending your message again.",
-            });
+            logger.warn(
+              `[generate] Empty response from model for chat ${input.chatId} (char: ${targetCharId}): ${emptyResponseMessage}`,
+            );
+            sendSseEvent(reply, { type: "error", data: emptyResponseMessage });
             return null;
           }
 
@@ -10653,6 +10693,21 @@ export async function generateRoutes(app: FastifyInstance) {
                       const galleryStore = createGalleryStorage(app.db);
 
                       const imgModel = imgConnFull.model || "";
+                      const characterPromptLimit = supportsNovelAiCharacterPrompts(imgConnFull)
+                        ? resolveNovelAiCharacterPromptLimit(imgModel)
+                        : 0;
+                      const illustratorCharacterPrompts = readCharacterPrompts(
+                        illData,
+                        illCharacters.filter((name): name is string => typeof name === "string"),
+                        characterPromptLimit,
+                      );
+                      if (illustratorCharacterPrompts.length > 0) {
+                        logger.debug(
+                          "[illustrator] Sending %d native NovelAI character caption(s): %s",
+                          illustratorCharacterPrompts.length,
+                          illustratorCharacterPrompts.map((entry) => entry.name).join(", "),
+                        );
+                      }
                       const imgBaseUrl = imgConnFull.baseUrl || "https://image.pollinations.ai";
                       const imgApiKey = imgConnFull.apiKey || "";
                       const imgSource = (imgConnFull as any).imageGenerationSource || imgModel;
@@ -10763,12 +10818,23 @@ export async function generateRoutes(app: FastifyInstance) {
                         includePersonaWhenMentionedInPrompt: false,
                         maxReferences: spatialLocationReferenceImage ? 5 : 6,
                       });
-                      if (includeCharacterAppearance && referenceResolution.appearanceBlock) {
-                        fullPrompt += `\n\n${referenceResolution.appearanceBlock}`;
-                        logger.debug(
-                          "[illustrator] Added character appearance notes for: %s",
-                          referenceResolution.appearanceNames.join(", "),
-                        );
+                      if (includeCharacterAppearance) {
+                        const appearanceBlock =
+                          illustratorCharacterPrompts.length > 0
+                            ? buildUncaptionedCharacterAppearanceBlock(
+                                [
+                                  ...agentContext.characters,
+                                  ...(agentContext.persona ? [agentContext.persona] : []),
+                                  ...referenceResolution.appearanceSources,
+                                ],
+                                illCharacters.filter((name): name is string => typeof name === "string"),
+                                illustratorCharacterPrompts,
+                              )
+                            : referenceResolution.appearanceBlock;
+                        if (appearanceBlock) {
+                          fullPrompt += `\n\n${appearanceBlock}`;
+                          logger.debug("[illustrator] Added appearance for characters without native captions");
+                        }
                       }
                       if (useAvatarRefs && referenceResolution.referenceImages.length > 0) {
                         if (referenceResolution.referenceLine && !suppressReferencePromptLine)
@@ -10857,6 +10923,9 @@ export async function generateRoutes(app: FastifyInstance) {
                             imageDefaults,
                             quality: resolveConnectionImageQuality(imgConnFull),
                             referenceImages: illustratorRefImages,
+                            ...(illustratorCharacterPrompts.length > 0
+                              ? { characterPrompts: illustratorCharacterPrompts }
+                              : {}),
                             debugMode: input.debugMode,
                             fallback: providerAwareImageFallback,
                             onFallback,
@@ -11625,6 +11694,7 @@ export async function generateRoutes(app: FastifyInstance) {
     return reply.send({ aborted: true, count: abortControllers.length });
   });
 
+  await registerParameterPreviewRoute(app);
   await registerDryRunRoute(app);
   await registerRawRoute(app);
   await registerRetryAgentsRoute(app, activeCustomLorebookReadBehindRuns, activeAgentRuns);

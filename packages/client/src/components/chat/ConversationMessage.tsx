@@ -1,3 +1,4 @@
+import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
 // ──────────────────────────────────────────────
 // Chat: Conversation message shell
 // Resolves character/persona identity, builds render context,
@@ -184,6 +185,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const conversationAvatarShape = useUIStore((s) => s.conversationAvatarShape);
   const activeChatMetadata = useChatStore((s) => s.activeChat?.metadata);
+  const presetVariables = useMessagePresetVariables(`${message.id}:${message.activeSwipeIndex ?? 0}`);
   const scopedRegexMode = useMemo(() => parseChatMetadata(activeChatMetadata).scopedRegexMode, [activeChatMetadata]);
   const { applyToAIOutput } = useApplyRegex();
 
@@ -329,6 +331,7 @@ export const ConversationMessage = memo(function ConversationMessage({
 
   const macroContext = useMemo(
     () => ({
+      variables: presetVariables,
       userName: displayName,
       persona: {
         name: displayName,
@@ -347,6 +350,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     }),
     [
       displayName,
+      presetVariables,
       msgPersona,
       personaInfo?.appearance,
       personaInfo?.backstory,

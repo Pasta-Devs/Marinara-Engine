@@ -251,5 +251,5 @@ export function appendRoundGeminiParts(
 
 /** Whether the connection uses the OpenAI-style message shape that can carry a partial reasoning prefill. */
 export function supportsAssistantReasoningPrefill(provider: string): boolean {
-  return ["openai", "openrouter", "nanogpt", "xai", "mistral", "cohere", "arli", "custom"].includes(provider);
+  return ["openai", "openrouter", "nanogpt", "xai", "mistral", "cohere", "arli", "zai", "custom"].includes(provider);
 }
