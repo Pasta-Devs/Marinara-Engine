@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   buildBackupRestoreNotes,
+  collectBackupDirectorySourcesForRegression,
   inspectStoredBackupArchiveForRegression,
   isPermittedLargeStoredBackupEntry,
   limitAutomaticBackupOmissionHistory,
@@ -362,6 +363,25 @@ try {
   );
 } finally {
   await rm(zipFixtureRoot, { recursive: true, force: true });
+}
+
+const storageFixtureRoot = await mkdtemp(join(tmpdir(), "marinara-backup-lease-regression-"));
+try {
+  await mkdir(join(storageFixtureRoot, ".writer-lease"));
+  await mkdir(join(storageFixtureRoot, "tables", ".writer-lease"), { recursive: true });
+  await writeFile(join(storageFixtureRoot, ".writer-lease", "owner.json"), "{}", "utf8");
+  await writeFile(join(storageFixtureRoot, "tables", ".writer-lease", "keep.json"), "{}", "utf8");
+  await writeFile(join(storageFixtureRoot, "tables", "settings.json"), "{}", "utf8");
+  assert.deepEqual(
+    (await collectBackupDirectorySourcesForRegression(storageFixtureRoot, "marinara-automatic-backup/storage")).sort(),
+    [
+      "marinara-automatic-backup/storage/tables/.writer-lease/keep.json",
+      "marinara-automatic-backup/storage/tables/settings.json",
+    ],
+    "full backups must leave out the top-level storage writer lease and nothing else",
+  );
+} finally {
+  await rm(storageFixtureRoot, { recursive: true, force: true });
 }
 
 const timestampedName = automaticBackupArchiveFilename(new Date("2026-07-27T20:00:00.000Z"));

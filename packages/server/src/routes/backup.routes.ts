@@ -28,7 +28,7 @@ import { StringDecoder } from "string_decoder";
 import { randomBytes, randomUUID } from "crypto";
 import { createInflateRaw, inflateRawSync } from "zlib";
 import AdmZip from "adm-zip";
-import { FILE_BACKED_TABLES } from "../db/file-backed-store.js";
+import { FILE_BACKED_TABLES, STORAGE_WRITER_LEASE_FILENAME } from "../db/file-backed-store.js";
 import { migrateLegacyNoodleAccountRow } from "../db/noodle-platform-migration.js";
 import { migrateLegacyNoodlePostAccessRow } from "../db/noodle-access-migration.js";
 import { getFileTableConfig, isFileTable, type AnyFileTable } from "../db/file-schema.js";
@@ -3006,6 +3006,11 @@ async function readProfileImportRequest(req: FastifyRequest): Promise<ProfileImp
   }
 }
 
+/** Test seam for proving which files under a data directory a full backup collects. */
+export async function collectBackupDirectorySourcesForRegression(sourceDir: string, entryRoot: string) {
+  return (await collectDirectoryZipSources(sourceDir, entryRoot)).map((source) => source.entryName);
+}
+
 /** Production-reader seam for proving that a full backup remains loadable by profile import. */
 export async function readStoredBackupImportForRegression(filePath: string, safePath: string) {
   const zip = await readProfileZipArchive(filePath);
@@ -3078,6 +3083,8 @@ async function collectDirectoryZipSources(
     for (const entry of entries) {
       const fullPath = join(current, entry.name);
       if (entry.isDirectory()) {
+        // The writer lease is per-process runtime state; a restored copy blocks startup on another host (#6083).
+        if (current === sourceDir && entry.name === STORAGE_WRITER_LEASE_FILENAME) continue;
         stack.push(fullPath);
         continue;
       }
