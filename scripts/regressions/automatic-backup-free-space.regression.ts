@@ -30,6 +30,8 @@ try {
   closeDb = closeDB;
   app.decorate("db", await getDB());
   const { backupRoutes } = await import("../../packages/server/src/routes/backup.routes.js");
+  const { AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES } =
+    await import("../../packages/server/src/services/backup/automatic-backup-retention.js");
   const backups = join(root, "backups");
   await fs.mkdir(backups, { recursive: true });
   const previousPath = join(backups, "marinara-automatic-backup.zip");
@@ -82,8 +84,17 @@ try {
   assert.equal(bytes.readUInt32LE(0), 0x04034b50, "available space permits a real ZIP write");
   assert.notDeepEqual(bytes, previousBytes);
   assert.ok(new AdmZip(bytes).getEntries().some((entry) => entry.entryName.endsWith("/RESTORE.txt")));
+
+  await enable(false);
+  freeBytes = bytes.length + AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES - 1;
+  await enable(true);
+  const boundaryRefusal = await waitFor((value) => typeof value.lastError === "string");
+  assert.match(boundaryRefusal.lastError, /Not enough free space/u);
+  assert.equal(spaceChecks, 3);
+  assert.deepEqual(await fs.readFile(join(backups, archives[0]!)), bytes, "metadata counts toward the space budget");
+  assert.deepEqual(await fs.readdir(backups), archives, "boundary refusal leaves no pending ZIP or rotation");
   console.info(
-    "Automatic backup refuses insufficient space, preserves the previous archive, and succeeds after space is freed.",
+    "Automatic backup includes ZIP metadata in its space budget, preserves the previous archive, and succeeds after space is freed.",
   );
 } finally {
   await app.close();

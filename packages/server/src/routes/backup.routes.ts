@@ -3171,8 +3171,23 @@ async function writeFullBackupArchive(
     entryName: `${backupName}/RESTORE.txt`,
     buildData: () => Buffer.from(buildBackupRestoreNotes([...omittedEntries]), "utf8"),
   });
-  // Stored entries make the file sizes the archive size, apart from headers.
-  await beforeWrite?.(sources.reduce((total, source) => total + ("filePath" in source ? source.size : 0), 0));
+  if (beforeWrite) {
+    // ponytail: reserve ZIP64 records and every possible omission line; use a shared writer
+    // estimator if the ZIP layout or deferred entries beyond RESTORE.txt change.
+    let archiveBytes =
+      ZIP64_EOCD_MIN_SIZE +
+      ZIP64_EOCD_LOCATOR_SIZE +
+      ZIP_EOCD_MIN_SIZE +
+      Buffer.byteLength(buildBackupRestoreNotes([""]), "utf8");
+    for (const source of sources) {
+      const payloadBytes =
+        "filePath" in source ? source.size : "data" in source ? source.data.length : source.buildData().length;
+      const headerBytes = 30 + 20 + 46 + 28 + 24 + 2 * Buffer.byteLength(source.entryName, "utf8");
+      const omissionLineBytes = 3 + Buffer.byteLength(JSON.stringify(source.entryName), "utf8");
+      archiveBytes += payloadBytes + headerBytes + omissionLineBytes;
+    }
+    await beforeWrite(archiveBytes);
+  }
   await writeStoredZipArchive(outputPath, sources, {
     skipFailedFileEntries: true,
     entryLimitBytes: Number.MAX_SAFE_INTEGER,
