@@ -171,6 +171,21 @@ export function forgetRecentMessageContentEdit(chatId: string, messageId: string
   return true;
 }
 
+export function forgetUnchangedMessageContentEdit(
+  chatId: string,
+  message: Pick<Message, "id" | "activeSwipeIndex">,
+  previousContent: string,
+) {
+  const edit = recentMessageContentEdits.get(message.id);
+  if (
+    edit?.chatId === chatId &&
+    edit.content === previousContent &&
+    (edit.activeSwipeIndex === null || edit.activeSwipeIndex === message.activeSwipeIndex)
+  ) {
+    recentMessageContentEdits.delete(message.id);
+  }
+}
+
 export function preserveRecentMessageContentEdit(chatId: string, message: Message): Message {
   pruneRecentMessageContentEdits();
   const normalizedMessage = normalizeHydratedMessage(message);
@@ -1744,6 +1759,8 @@ export function useSetActiveSwipe(chatId: string | null) {
       qc.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) =>
         replaceCachedMessage(old, messageId, (msg) => ({ ...msg, ...normalizedUpdated })),
       );
+      // Switching an interruption's owner can also restore or cut its predecessor.
+      qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
     },
     onError: (_err, _vars, context) => {

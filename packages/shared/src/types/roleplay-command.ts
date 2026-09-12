@@ -8,6 +8,7 @@ export const ROLEPLAY_COMMAND_KEYS = [
   "roll",
   "combat",
   "dm",
+  "interrupt",
 ] as const;
 
 export type RoleplayCommandKey = (typeof ROLEPLAY_COMMAND_KEYS)[number];
@@ -34,7 +35,8 @@ export type RoleplayCommand =
   | { type: "music"; mood: string }
   | { type: "roll"; notation: string; reason: string; character?: string; attribute?: string }
   | { type: "combat" }
-  | { type: "dm"; character: string; message: string };
+  | { type: "dm"; character: string; message: string }
+  | { type: "interrupt"; part: string };
 
 export interface RoleplayCommandActivity {
   command: RoleplayCommand;
@@ -43,6 +45,15 @@ export interface RoleplayCommandActivity {
   deleted?: boolean;
   error?: string;
   result?: string;
+  /** Exact before/after text makes interruption reversible without overwriting later edits. */
+  interruption?: {
+    targetMessageId: string;
+    targetSwipeIndex: number;
+    targetSwipeId?: string;
+    originalContent: string;
+    interruptedContent: string;
+    restored?: boolean;
+  };
 }
 
 /** Read current records, or reconstruct editable context from older message extras. */

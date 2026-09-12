@@ -24,6 +24,7 @@ import { collectPastReasoningMetadata } from "../../packages/server/src/services
 import { conversationPromptHistoryContent } from "../../packages/server/src/routes/generate/conversation-prompt-formatting.js";
 import { generateRoleplaySoundEffect } from "../../packages/server/src/routes/tts.routes.js";
 import { prepareRoleplayRoll } from "../../packages/server/src/services/generation/roleplay-rolls.js";
+import { prepareRoleplayInterruption } from "../../packages/server/src/services/generation/roleplay-interrupt.js";
 import type { RPGStatsConfig } from "../../packages/shared/src/types/character.js";
 import { buildCommittedTrackerContextBlock } from "../../packages/server/src/services/generation/committed-tracker-context.js";
 
@@ -154,6 +155,60 @@ assert.equal(rollFilter.push(rollText), "I try the lock. ");
 assert.equal(rollFilter.rollRequested, true);
 assert.equal(rollFilter.push("More invented outcomes"), "");
 assert.equal(parseRoleplayCommands(rollText).roll?.command.notation, "1d20+3");
+
+const interruptRaw = '[interrupt: part="I really hate myself!"]';
+const interruption = parseRoleplayCommands(`Before ${interruptRaw} After`);
+assert.equal(interruption.content, "Before  After");
+assert.deepEqual(interruption.commands, [{ type: "interrupt", part: "I really hate myself!" }]);
+assert.equal(interruption.activity[0]?.raw, interruptRaw);
+assert.equal(parseRoleplayCommands('[interrupt: part=""]').invalid, 1);
+assert.equal(parseRoleplayCommands('[interrupt: part="unfinished').invalid, 1);
+for (let split = 0; split <= interruptRaw.length; split++) {
+  const filter = new RoleplayCommandStreamFilter();
+  assert.equal(
+    filter.push(`Before ${interruptRaw.slice(0, split)}`) +
+      filter.push(`${interruptRaw.slice(split)} After`) +
+      filter.flush(),
+    "Before  After",
+    "interrupt commands stay hidden across every stream split",
+  );
+}
+const cut = (content: string, part: string) => {
+  const result = prepareRoleplayInterruption(content, part);
+  assert.equal(result.ok, true, result.ok ? undefined : result.error);
+  return result.ok ? result.content : "";
+};
+assert.equal(
+  cut('Mari cries. "And I really hate myself! I want to just finish myself already!"', "I really hate myself!"),
+  'Mari cries. "And I really hate myself—"',
+);
+assert.equal(
+  cut("Mari reaches for the heavy door. She steps outside.", "for the heavy door."),
+  "Mari reaches for the heavy door—",
+);
+assert.equal(cut("“Please listen to me!” She leaves.", "Please listen to me!”"), "“Please listen to me—”");
+assert.equal(cut("„Proszę zostań tutaj jeszcze chwilę!” Odchodzi.", "Proszę zostań tutaj"), "„Proszę zostań tutaj—“");
+assert.equal(cut('He said, "Don\'t leave me here!" and turned.', "Don't leave me"), 'He said, "Don\'t leave me—"');
+assert.equal(
+  cut("The girls' hands reach upward. Then they fall.", "The girls' hands reach"),
+  "The girls' hands reach—",
+);
+assert.equal(cut('He measures the board at 6" and moves away.', 'the board at 6"'), 'He measures the board at 6"—');
+assert.equal(cut("She says [one] (two) three.* and leaves.", "[one] (two) three.*"), "She says [one] (two) three.*—");
+assert.equal(cut("Zażółć gęślą jaźń. Potem odejdź.", "Zażółć gęślą jaźń."), "Zażółć gęślą jaźń—");
+assert.equal(cut("こんにちは 世界 皆さん。続けます。", "こんにちは 世界 皆さん。"), "こんにちは 世界 皆さん—");
+for (const [content, part] of [
+  ["Only two words here.", "two words"],
+  ["One two three.", "one two three"],
+  ["One two three.", "One  two three"],
+  ["One two three.", "one.* two three"],
+  ["one two three; one two three", "one two three"],
+  ["a a a a", "a a a"],
+]) {
+  const result = prepareRoleplayInterruption(content!, part!);
+  assert.equal(result.ok, false, "invalid or ambiguous literal quotes must leave source content untouched");
+  if (!result.ok) assert.ok(result.error);
+}
 
 const history = [
   { role: "assistant", characterId: "alice", extra: { roleplayPrivateCommands: parsed.commands } },
@@ -294,6 +349,32 @@ for (const format of ["xml", "markdown", "none"] as const) {
   );
   const section = format === "xml" ? "<commands>" : format === "markdown" ? "## Commands" : "Commands:";
   assert.ok(reminder.startsWith(section));
+  assert.doesNotMatch(reminder, /\[interrupt:/u, "interrupt remains opt-in");
+  const interruptReminder = buildRoleplayCommandsReminder({
+    metadata: { roleplayCommandsEnabled: true, roleplayCommandToggles: { interrupt: true } },
+    privateAvailable: true,
+    availableAgentIds: new Set(),
+    format,
+    characterNames: ["Alice"],
+    interruptAvailable: true,
+  });
+  assert.match(interruptReminder, /at least three words quoted verbatim/u);
+  assert.match(interruptReminder, /only the latest user or other-character message/u);
+  assert.match(interruptReminder, /can plausibly intervene/u);
+  assert.match(interruptReminder, /Continue from the cut/u);
+  for (const interruptAvailable of [false, undefined])
+    assert.equal(
+      buildRoleplayCommandsReminder({
+        metadata: { roleplayCommandsEnabled: true, roleplayCommandToggles: { interrupt: true } },
+        privateAvailable: true,
+        availableAgentIds: new Set(),
+        format,
+        characterNames: ["Alice"],
+        interruptAvailable,
+      }),
+      "",
+      "continuations or missing targets must not advertise interrupt",
+    );
   const tracker =
     format === "xml"
       ? "<context>\nTRACKER\n</context>"

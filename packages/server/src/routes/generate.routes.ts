@@ -80,7 +80,12 @@ import type {
   ResolvedSpatialTravel,
   ThinkingTagPair,
 } from "@marinara-engine/shared";
-import { createChatsStorage, withChatMetadataPatchQueue } from "../services/storage/chats.storage.js";
+import {
+  createChatsStorage,
+  RoleplayInterruptionConflictError,
+  withChatMetadataPatchQueue,
+} from "../services/storage/chats.storage.js";
+import { updateInterruptedPromptHistory } from "../services/generation/roleplay-interrupt-context.js";
 import {
   commitSpatialOwnerTurn,
   findAppliedSpatialOwnerTurn,
@@ -853,7 +858,9 @@ export async function generateRoutes(app: FastifyInstance) {
   const appSettings = createAppSettingsStorage(app.db);
 
   type ActiveGeneration = ActiveAgentRun;
-  const activeGenerations = new Map<string, ActiveGeneration>();
+  const activeGenerations =
+    (app as unknown as { activeGenerations?: Map<string, ActiveGeneration> }).activeGenerations ??
+    new Map<string, ActiveGeneration>();
   const activeAgentRuns = new Map<string, Set<ActiveGeneration>>();
   const activeCustomLorebookReadBehindRuns = new Set<string>();
 
@@ -1329,6 +1336,7 @@ export async function generateRoutes(app: FastifyInstance) {
     const onFallback = createReplyFallbackNotifier(reply);
 
     let generationComplete = false;
+    let restoredRoleplayInterruption = false;
     let clientDisconnected = false;
     const stopSseKeepalive = startSseKeepalive(reply);
 
@@ -1401,6 +1409,31 @@ export async function generateRoutes(app: FastifyInstance) {
         generationComplete = true;
         sendSseEvent(reply, { type: "done", data: "" });
         return;
+      }
+
+      // A reroll must see the complete input, even when its old swipe interrupted it.
+      if (requestChatMode === "roleplay" && !input.impersonate && input.regenerateMessageId) {
+        const previous = await chats.getMessage(input.regenerateMessageId);
+        if (previous?.chatId === input.chatId) {
+          const activity = getRoleplayCommandActivity(parseExtra(previous.extra));
+          try {
+            const restored = await chats.restoreRoleplayInterruption(previous.id, { permanent: false });
+            restoredRoleplayInterruption = restored.restoredMessages.length > 0;
+            for (const message of restored.restoredMessages) {
+              sendSseEvent(reply, {
+                type: "roleplay_interrupted_message",
+                data: {
+                  message,
+                  previousContent: activity.find((item) => item.interruption?.targetMessageId === message.id)
+                    ?.interruption?.interruptedContent,
+                },
+              });
+            }
+          } catch (error) {
+            if (!(error instanceof RoleplayInterruptionConflictError)) throw error;
+            logger.debug("[interrupt] Preserving edited input during regeneration: %s", error.message);
+          }
+        }
       }
 
       // Get chat messages
@@ -2532,6 +2565,7 @@ export async function generateRoutes(app: FastifyInstance) {
           runningMessagesForFollowUp = [...mappedMessages];
           finalMessages = [...runningMessagesForFollowUp];
         }
+        const roleplayHistoryBodies = new Map(mappedMessages.map((message) => [message.id, message.content]));
         if (regenerateUserSourceMessage) {
           regenerateUserMessage = buildUserMessageRegenerationPromptFromSource(regenerateUserSourceMessage);
         }
@@ -5864,6 +5898,7 @@ export async function generateRoutes(app: FastifyInstance) {
         let receivedThinking = false;
         let allResponses: string[] = [];
         const allResponseSegments: NonNullable<AgentContext["mainResponseSegments"]> = [];
+        const roleplayResponseIndexes = new Map<string, number>();
         let continuedMessageRewriteSource: string | null = null;
         const generatedExpressionTargetIds = new Set<string>();
         const recordExpressionTarget = (savedMsg: any, fallbackCharacterId: string | null) => {
@@ -6588,6 +6623,27 @@ export async function generateRoutes(app: FastifyInstance) {
           const roleplayPrivateAvailable =
             Boolean(targetCharId) && (allCharacterIds.length === 1 || usesIndividualGroupGeneration);
           const roleplayCallerId = roleplayPrivateAvailable && speaksOnlyTargetCharacter ? targetCharId : null;
+          const latestRoleplayMessage = roleplayTimeline.at(-1);
+          const roleplayInterruptionTarget =
+            chatMode === "roleplay" &&
+            !input.impersonate &&
+            !input.continueMessageId &&
+            latestRoleplayMessage &&
+            (latestRoleplayMessage.role === "user" || latestRoleplayMessage.role === "assistant") &&
+            !(
+              speaksOnlyTargetCharacter &&
+              latestRoleplayMessage.role === "assistant" &&
+              latestRoleplayMessage.characterId === targetCharId
+            ) &&
+            preparedMessagesForGen.some(
+              (message) => message.contextKind === "history" && message.id === latestRoleplayMessage.id,
+            )
+              ? {
+                  id: latestRoleplayMessage.id,
+                  activeSwipeIndex: latestRoleplayMessage.activeSwipeIndex ?? 0,
+                  content: latestRoleplayMessage.content,
+                }
+              : null;
           const roleplayRollEnabled =
             chatMode === "roleplay" &&
             !input.impersonate &&
@@ -6651,6 +6707,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 format: wrapFormat,
                 characterNames: charInfo.map((character) => character.name),
                 characterId: roleplayCallerId,
+                interruptAvailable: Boolean(roleplayInterruptionTarget),
               }),
               wrapFormat,
             );
@@ -7494,6 +7551,8 @@ export async function generateRoutes(app: FastifyInstance) {
             for (const activity of parsed.activity) {
               const { command } = activity;
               if (!isRoleplayCommandAllowed(chatMeta, roleplayCommandKey(command), roleplayCallerId)) continue;
+              if (command.type === "interrupt" && abortController.signal.aborted)
+                activity.error = "Interruption was not applied because generation was cancelled.";
               if (
                 command.type === "notes" ||
                 command.type === "dismiss_notes" ||
@@ -8444,10 +8503,58 @@ export async function generateRoutes(app: FastifyInstance) {
             if (advancedMemoryReceipt) extraUpdate.advancedMemoryReceipt = advancedMemoryReceipt;
             const persistentAttachments = resolveUserRegenerationPersistentAttachments(regenMsg ?? {});
             if (persistentAttachments) extraUpdate.attachments = persistentAttachments;
-            const refreshedMsg =
-              savedSwipeIndex !== null
-                ? await chats.updateMessageExtraForSwipe(savedMsg.id, savedSwipeIndex, extraUpdate)
-                : await chats.updateMessageExtra(savedMsg.id, extraUpdate);
+            let refreshedMsg;
+            if (roleplayActivity.some((item) => item.command.type === "interrupt")) {
+              const committed = await chats.commitRoleplayInterruption({
+                messageId: savedMsg.id,
+                swipeIndex: savedSwipeIndex ?? savedMsg.activeSwipeIndex ?? 0,
+                extraUpdate,
+                target: roleplayInterruptionTarget,
+                signal: abortController.signal,
+              });
+              refreshedMsg = committed.message;
+              const interrupted = committed.interruptedMessage;
+              if (interrupted && roleplayInterruptionTarget) {
+                sendSseEvent(reply, {
+                  type: "roleplay_interrupted_message",
+                  data: { message: interrupted, previousContent: roleplayInterruptionTarget.content },
+                });
+                for (const source of [...allChatMessages, ...advancedSourceMessages, ...roleplayTimeline]) {
+                  if (source.id === interrupted.id) Object.assign(source, interrupted);
+                }
+                const previousBody = roleplayHistoryBodies.get(interrupted.id);
+                const interruption = getRoleplayCommandActivity(parseExtra(refreshedMsg?.extra)).find(
+                  (item) => item.command.type === "interrupt" && item.interruption?.targetMessageId === interrupted.id,
+                );
+                if (!previousBody || interruption?.command.type !== "interrupt")
+                  throw new Error("Interrupted history changed during prompt formatting; retry generation.");
+                {
+                  const nextBody = updateInterruptedPromptHistory(
+                    [...mappedMessages, ...finalMessages, ...runningMessagesForFollowUp, ...messagesForGen],
+                    {
+                      id: interrupted.id,
+                      originalContent: roleplayInterruptionTarget.content,
+                      interruptedContent: interrupted.content,
+                      part: interruption.command.part,
+                    },
+                    previousBody,
+                    wrapFormat,
+                  );
+                  roleplayHistoryBodies.set(interrupted.id, nextBody);
+                }
+                const responseIndex = roleplayResponseIndexes.get(interrupted.id);
+                if (responseIndex !== undefined) {
+                  allResponses[responseIndex] = interrupted.content;
+                  if (allResponseSegments[responseIndex])
+                    allResponseSegments[responseIndex]!.content = interrupted.content;
+                }
+              }
+            } else {
+              refreshedMsg =
+                savedSwipeIndex !== null
+                  ? await chats.updateMessageExtraForSwipe(savedMsg.id, savedSwipeIndex, extraUpdate)
+                  : await chats.updateMessageExtra(savedMsg.id, extraUpdate);
+            }
 
             const savedMessagePayload =
               holdForTextRewrite && !input.impersonate
@@ -8700,6 +8807,7 @@ export async function generateRoutes(app: FastifyInstance) {
               knownConversationMessageIds.add(genResult.savedMsg.id);
             }
             recordExpressionTarget(genResult.savedMsg, charId);
+            if (genResult.savedMsg?.id) roleplayResponseIndexes.set(genResult.savedMsg.id, allResponses.length);
             allResponses.push(genResult.response);
             allResponseSegments.push({ characterId: charId, characterName: charName, content: genResult.response });
             for (const cmd of genResult.commands) {
@@ -8714,6 +8822,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
             // Add this character's response to the running context for the next character
             const inTurnMessage = {
+              id: genResult.savedMsg?.id,
               role: "assistant",
               content:
                 chatMode === "roleplay"
@@ -8734,8 +8843,10 @@ export async function generateRoutes(app: FastifyInstance) {
                 personaName,
                 characterNamesById,
               });
+              roleplayHistoryBodies.set(inTurnMessage.id, (prefixed ?? inTurnMessage).content);
               runningMessages.push(prefixed ?? inTurnMessage);
             } else {
+              roleplayHistoryBodies.set(inTurnMessage.id, inTurnMessage.content);
               runningMessages.push(inTurnMessage);
             }
           }
@@ -11785,6 +11896,22 @@ export async function generateRoutes(app: FastifyInstance) {
           : "Generation failed";
       sendSseEvent(reply, { type: "error", data: message });
     } finally {
+      if (restoredRoleplayInterruption && input.regenerateMessageId) {
+        try {
+          const reconciled = await chats.reconcileRoleplayInterruption(input.regenerateMessageId);
+          if (reconciled.interruptedMessage) {
+            const receipt = getRoleplayCommandActivity(parseExtra(reconciled.message?.extra)).find(
+              (item) => item.interruption?.targetMessageId === reconciled.interruptedMessage?.id,
+            )?.interruption;
+            sendSseEvent(reply, {
+              type: "roleplay_interrupted_message",
+              data: { message: reconciled.interruptedMessage, previousContent: receipt?.originalContent },
+            });
+          }
+        } catch (error) {
+          logger.warn(error, "[interrupt] Could not reconcile the selected response after regeneration");
+        }
+      }
       for (const runKey of customLorebookReadBehindRunKeys) {
         activeCustomLorebookReadBehindRuns.delete(runKey);
       }
@@ -11803,7 +11930,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
   // Expose the active generation registry for status/abort routes and other
   // external consumers that read the decorated Fastify property.
-  app.decorate("activeGenerations", activeGenerations);
+  if (!app.hasDecorator("activeGenerations")) app.decorate("activeGenerations", activeGenerations);
 
   /**
    * GET /api/generate/status/:chatId
