@@ -253,6 +253,14 @@ export type GameStoryboardViewerDisplayMode = "floating" | "background";
 
 /** Extra metadata stored on a chat. */
 export interface ChatMetadata {
+  /** Opt-in coordinated Roleplay context and scene memory. */
+  advancedMemory?: import("./advanced-memory.js").AdvancedMemorySettings;
+  /** Durable maintenance checkpoint; model calls never hold a storage transaction. */
+  advancedMemoryState?: import("./advanced-memory.js").AdvancedMemoryJob & {
+    sourceFingerprint?: string;
+    boundaryMessageId?: string | null;
+    activeSceneId?: string | null;
+  };
   /** Roleplay presentation only; omitted chats use the Appearance default. */
   roleplayDisplayStyle?: "classic" | "visual-novel";
   /** Chat-local tracker icon overrides keyed by persona id, unique character id, or tracker character slot. */

@@ -106,7 +106,8 @@ const reservedGmTagNames = new Set<string>(RESERVED_GM_TAG_NAMES);
  *
  *  Derived, and pinned by `capability-gm-verbs.regression.ts`, from:
  *    1. every top-level key of `ChatMetadata` (`packages/shared/src/types/chat.ts`), reduced to its
- *       leading lowercase run: `gameSetupConfig` → `game`, `lorebookTokenBudget` → `lorebook`;
+ *       leading lowercase run: `gameSetupConfig` → `game`, `lorebookTokenBudget` → `lorebook`,
+ *       unless an explicitly narrower compound namespace such as `advancedMemory` already covers it;
  *    2. every engine-owned `*_METADATA_KEY` constant in the server, reduced the same way — these
  *       are keys no interface declares (`metadataWriteOrdinals`, the write-ordinal mirror);
  *    3. the keys that live in the interface's `[key: string]: unknown` index signature instead of
@@ -132,9 +133,10 @@ const reservedGmTagNames = new Set<string>(RESERVED_GM_TAG_NAMES);
  *
  *  What the derivation CANNOT see, stated plainly, in two shapes. A write whose payload is a
  *  variable or a helper's return value (`patchMetadata(id, hydratedMeta)`, or the same shape on the
- *  metadata route) commits keys no static sweep in this repository can read; there are twenty such
- *  calls, and the regression pins that count, so a twenty-first fails until someone reads it by
- *  hand. And a read that happens INSIDE a helper, off a parameter rather than off a name a sweep
+ *  metadata route) commits keys no static sweep in this repository can read; there are twenty-one
+ *  such calls, and the regression pins that count so a new one fails until someone reads it by
+ *  hand. The Advanced Memory import remap is the twenty-first, audited under `advancedMemory`, `summary`,
+ *  and `last`. And a read that happens INSIDE a helper, off a parameter rather than off a name a sweep
  *  recognizes, is interprocedural and out of reach of every read arm here: `spatialContext` is
  *  written into chat metadata by the hierarchical-maps package's own client — code that ships from
  *  the Agents repository, so no write site here names it — and read back by
@@ -144,6 +146,7 @@ const reservedGmTagNames = new Set<string>(RESERVED_GM_TAG_NAMES);
  *  Everything else is derived. */
 export const ENGINE_OWNED_METADATA_KEY_PREFIXES = Object.freeze([
   "active",
+  "advancedMemory",
   "agent",
   "applied",
   "archived",
@@ -243,14 +246,18 @@ function extendsEngineOwnedPrefix(prefix: string): boolean {
 
 /** The three key-ownership rules (#5798 decision D1), as one reusable check: the key is the
  *  package's normalized id followed by a non-empty suffix starting at an uppercase boundary, and
- *  the normalized id is not an engine-owned namespace. Returns the refusal reason, or `null` when
- *  the key is the package's to write. Keys are flat and top-level because that is what the shipped
+ *  neither the normalized id nor its target key uses an engine-owned namespace. Returns the refusal
+ *  reason, or `null` when the key is the package's to write. Keys are flat and top-level because that is what the shipped
  *  reconciler already reads; an engine-owned subtree stays the recorded alternative. */
 export function gmVerbMetadataKeyIssue(packageId: string, metadataKey: string): string | null {
   const prefix = camelCaseCapabilityPackageId(packageId);
   if (!prefix) return "A verb table needs an owning package id to check metadata key ownership";
   if (extendsEngineOwnedPrefix(prefix)) {
     return `Package "${packageId}" normalizes to the engine-owned metadata namespace "${prefix}" and cannot own chat metadata keys`;
+  }
+  // A shorter package ID (e.g. `advanced`) must not claim a narrower host key (`advancedMemory`).
+  if (extendsEngineOwnedPrefix(metadataKey)) {
+    return `metadataKey "${metadataKey}" belongs to an engine-owned metadata namespace`;
   }
   if (!metadataKey.startsWith(prefix)) {
     return `metadataKey must start with "${prefix}" so the key belongs to package "${packageId}"`;

@@ -177,6 +177,8 @@ export interface ChatOptions {
   maxTokens?: number;
   /** Total context window limit for prompt + completion tokens. */
   maxContext?: number;
+  /** Managed context must fail visibly instead of silently trimming scene history or instructions. */
+  preserveContext?: boolean;
   topP?: number;
   topK?: number;
   minP?: number;
@@ -291,7 +293,10 @@ export interface ContextFitResult {
   trimmed: boolean;
 }
 
-type ContextFitOptions = Pick<ChatOptions, "maxContext" | "maxTokens" | "tools" | "suppressModelParameters">;
+type ContextFitOptions = Pick<
+  ChatOptions,
+  "maxContext" | "maxTokens" | "tools" | "suppressModelParameters" | "preserveContext"
+>;
 
 const CHARS_PER_TOKEN = 4;
 const MESSAGE_OVERHEAD_TOKENS = 6;
@@ -326,7 +331,7 @@ function minDefined(...values: Array<number | undefined>): number | undefined {
   return result;
 }
 
-function estimateTextTokens(text: string): number {
+export function estimateTextTokens(text: string): number {
   return Math.ceil(Array.from(text).length / CHARS_PER_TOKEN);
 }
 
@@ -378,8 +383,18 @@ function estimateMessageTokens(message: ChatMessage): number {
   return total;
 }
 
-function estimateMessagesTokens(messages: ChatMessage[]): number {
+export function estimateMessagesTokens(messages: ChatMessage[]): number {
   return messages.reduce((sum, message) => sum + estimateMessageTokens(message), 0);
+}
+
+/** Same estimator and reserves as provider fitting, without mutating the request or reducing the reply. */
+export function measureContextBudget(messages: ChatMessage[], options: ContextFitOptions & { maxContext: number }) {
+  const maxContext = normalizePositiveInteger(options.maxContext) ?? 1;
+  const reservedTokens = contextSafetyMargin(maxContext) + estimateToolDefinitionTokens(options.tools);
+  const maxTokens = normalizePositiveInteger(options.maxTokens) ?? 0;
+  const inputBudget = Math.max(0, maxContext - reservedTokens - maxTokens);
+  const estimatedTokens = estimateMessagesTokens(messages);
+  return { maxContext, reservedTokens, maxTokens, inputBudget, estimatedTokens, fits: estimatedTokens <= inputBudget };
 }
 
 function cloneMessages(messages: ChatMessage[]): ChatMessage[] {
@@ -480,6 +495,25 @@ export function fitMessagesToContext(
   );
   const estimatedTokensBefore = estimateMessagesTokens(messages);
   const toolTokens = estimateToolDefinitionTokens(options.tools);
+
+  if (maxContext && options.preserveContext) {
+    const budget = measureContextBudget(messages, { ...options, maxContext });
+    if (!budget.fits) {
+      throw new Error(
+        "Advanced Memory: the complete request exceeds the context cap. Reduce fixed prompt content, attachments or the reply reserve, or increase the cap.",
+      );
+    }
+    return {
+      messages,
+      maxContext,
+      maxTokens: requestedMaxTokens,
+      inputBudget: budget.inputBudget,
+      reservedTokens: budget.reservedTokens,
+      estimatedTokensBefore,
+      estimatedTokensAfter: estimatedTokensBefore,
+      trimmed: false,
+    };
+  }
 
   if (!maxContext) {
     return {

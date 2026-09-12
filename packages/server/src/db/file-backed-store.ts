@@ -397,6 +397,7 @@ const BUILT_IN_FILE_BACKED_TABLES = [
   "ooc_influences",
   "conversation_notes",
   "memory_chunks",
+  "advanced_memory_records",
   "chat_folders",
   "api_connection_folders",
   "custom_themes",
@@ -477,6 +478,7 @@ const SHARD_KEY_COLUMNS: Record<string, string> = {
   ooc_influences: "targetChatId",
   conversation_notes: "targetChatId",
   memory_chunks: "chatId",
+  advanced_memory_records: "chatId",
   mari_workspace_context: "chatId",
 };
 // Deliberately mutable, unlike the arrays it mirrors: SHARDED_TABLES aliases
@@ -511,6 +513,7 @@ const LAZY_UNIT_TABLES: ReadonlySet<string> =
         "messages",
         "message_swipes",
         "memory_chunks",
+        "advanced_memory_records",
         "agent_runs",
         "agent_memory",
         "chat_images",
@@ -784,6 +787,7 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
     { parent: "chats", child: "agent_memory", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "chat_images", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "memory_chunks", parentKey: "id", childKey: "chatId" },
+    { parent: "chats", child: "advanced_memory_records", parentKey: "id", childKey: "chatId" },
     // #5073: a Mari workspace chat's attached context is scoped to it and must
     // not outlive it (a leaked shard + stale injection into a reused chat id).
     { parent: "chats", child: "mari_workspace_context", parentKey: "id", childKey: "chatId" },
@@ -1812,6 +1816,7 @@ function defaultForColumn(column: ColumnMeta) {
  */
 const VECTOR_TEXT_COLUMNS: Record<string, ReadonlySet<string>> = {
   memory_chunks: new Set(["embedding"]),
+  advanced_memory_records: new Set(["embedding"]),
   lorebook_entries: new Set(["embedding"]),
 };
 

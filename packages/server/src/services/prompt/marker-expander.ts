@@ -27,6 +27,7 @@ import { getCustomAgentImportPolicy } from "../agents/custom-agent-import-policy
 import { processLorebooks, type LorebookFinalContentResolver, type LorebookScanResult } from "../lorebook/index.js";
 import { cardPromptText } from "./card-text.js";
 import { wrapContent } from "./format-engine.js";
+import { advancedMemoryMarkerContent, type AdvancedMemoryPromptParts } from "./advanced-memory-prompt.js";
 import { sanitizeExampleDialoguePromptLeaf, sanitizePromptLeaf } from "./prompt-escaping.js";
 
 /** World-info positions a lorebook marker can place: position 0 (before) and position 1 (after). */
@@ -55,6 +56,7 @@ export interface MarkerContext {
   /** Optional scan-only messages for lorebook matching. */
   lorebookScanMessages?: ChatMLMessage[];
   chatSummary: string | null;
+  advancedMemory?: AdvancedMemoryPromptParts;
   wrapFormat: WrapFormat;
   /** When false, agent_data markers expand to empty strings */
   enableAgents: boolean;
@@ -189,7 +191,12 @@ export async function expandMarker(
     case "chat_history":
       return expandChatHistory(config, ctx);
     case "chat_summary":
+      if (ctx.advancedMemory) return { content: advancedMemoryMarkerContent(config.type, ctx.advancedMemory) };
       return expandChatSummary(ctx, macroOptions);
+    case "current_scene_summary":
+    case "recalled_scenes":
+    case "recalled_messages":
+      return { content: ctx.advancedMemory ? advancedMemoryMarkerContent(config.type, ctx.advancedMemory) : "" };
     case "dialogue_examples":
       return expandDialogueExamples(config, ctx);
     case "agent_data":

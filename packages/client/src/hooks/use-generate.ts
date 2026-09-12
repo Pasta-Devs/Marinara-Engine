@@ -43,6 +43,8 @@ import { startSceneWithPromptPreferences } from "../lib/scene-generation";
 import { translate } from "../localization/i18n";
 import { waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
 import { agentKeys } from "./use-agents";
+import { advancedMemoryKeys, ADVANCED_MEMORY_SETTINGS_EVENT } from "./use-advanced-memory";
+import type { AdvancedMemoryJob, AdvancedMemoryReceipt, AdvancedMemoryStatus } from "@marinara-engine/shared";
 import { discardPendingGameStatePatch } from "./use-game-state-patcher";
 import { spatialContextKeys } from "./use-spatial-context";
 import {
@@ -1737,6 +1739,7 @@ export function useGenerate() {
         qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
         return true;
       };
+      const shownAdvancedMemoryJobs = new Set<string>();
 
       // Safety net: guarantees the Mari work-status pill clears for this
       // chat on every termination path (done, error, abort, unexpected
@@ -1793,6 +1796,37 @@ export function useGenerate() {
           { disconnectOnResume: true },
         )) {
           switch (event.type) {
+            case "advanced_memory_status": {
+              const data = event.data as { chatId?: string; job?: AdvancedMemoryJob } | undefined;
+              if (data?.chatId !== params.chatId || !data.job) break;
+              const job = data.job;
+              qc.setQueryData<AdvancedMemoryStatus>(advancedMemoryKeys.status(params.chatId), (current) =>
+                current ? { ...current, job } : current,
+              );
+              void qc.invalidateQueries({ queryKey: advancedMemoryKeys.status(params.chatId) });
+              const jobId = job.id ?? params.chatId;
+              if (
+                job.blocking !== false &&
+                ["running", "needs_confirmation", "error"].includes(job.status) &&
+                !shownAdvancedMemoryJobs.has(jobId)
+              ) {
+                shownAdvancedMemoryJobs.add(jobId);
+                useUIStore.getState().setChatSettingsSectionExpanded("roleplay-memory-recall", true);
+                window.dispatchEvent(
+                  new CustomEvent(ADVANCED_MEMORY_SETTINGS_EVENT, { detail: { chatId: params.chatId } }),
+                );
+              }
+              break;
+            }
+            case "advanced_memory_receipt": {
+              const data = event.data as { chatId?: string; receipt?: AdvancedMemoryReceipt } | undefined;
+              if (data?.chatId !== params.chatId || !data.receipt) break;
+              qc.setQueryData<AdvancedMemoryStatus>(advancedMemoryKeys.status(params.chatId), (current) =>
+                current ? { ...current, latestReceipt: data.receipt } : current,
+              );
+              void qc.invalidateQueries({ queryKey: advancedMemoryKeys.status(params.chatId) });
+              break;
+            }
             case "spatial_transition_committed": {
               const transitionData = event.data as
                 | {

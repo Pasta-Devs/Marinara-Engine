@@ -13,6 +13,7 @@ import {
   BUILT_IN_AGENTS,
   isAgentConfigDeleted,
   isBuiltInAgentRuntimeDisabled,
+  normalizeAdvancedMemorySettings,
 } from "@marinara-engine/shared";
 import {
   appendRoleplayPromptTail,
@@ -21,6 +22,13 @@ import {
 } from "../../services/generation/roleplay-commands.js";
 import { randomUUID } from "crypto";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
+import { createAdvancedMemoryService, selectAdvancedMemoryMessages } from "../../services/advanced-memory.js";
+import { prepareAdvancedMemoryContext } from "../../services/generation/advanced-memory-context.js";
+import {
+  ADVANCED_MEMORY_MARKER_TYPES,
+  createAdvancedMemoryPlacement,
+  type AdvancedMemoryPlacement,
+} from "../../services/prompt/advanced-memory-prompt.js";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
 import { createCharactersStorage } from "../../services/storage/characters.storage.js";
@@ -122,6 +130,7 @@ import { resolveGameGmPromptTemplate } from "../../services/generation/game-gm-p
 
 type WrapFormat = "xml" | "markdown" | "none";
 type DryRunPromptMessage = {
+  id?: string | null;
   role: "system" | "user" | "assistant";
   content: string;
   images?: string[];
@@ -603,6 +612,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // Pull existing messages, apply the same conversation-start + context limit filtering
     const allChatMessages = await chats.listMessages(chatId);
     const chatMode = (chat.mode as string) ?? "roleplay";
+    const advancedMemorySettings = normalizeAdvancedMemorySettings(chatMeta.advancedMemory);
+    const advancedMemoryEnabled = chatMode === "roleplay" && advancedMemorySettings.enabled;
+    const advancedMemoryService = advancedMemoryEnabled ? createAdvancedMemoryService(app.db) : null;
+    let advancedMemoryPlacements: AdvancedMemoryPlacement[] = [];
     const dryRunActiveAgentIds = Array.isArray(chatMeta.activeAgentIds) ? (chatMeta.activeAgentIds as string[]) : [];
     const dryRunChatEnableAgents = shouldEnableAgentsForGeneration({
       chatEnableAgents: chatMeta.enableAgents === true,
@@ -618,7 +631,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         break;
       }
     }
-    const scopedMessages = startIdx > 0 ? allChatMessages.slice(startIdx) : allChatMessages;
+    const scopedMessages = !advancedMemoryEnabled && startIdx > 0 ? allChatMessages.slice(startIdx) : allChatMessages;
     let chatMessages = supportsHiddenFromAI
       ? scopedMessages.filter((message: any) => !isMessageHiddenFromAI(message))
       : scopedMessages;
@@ -626,6 +639,15 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       typeof body.regenerateMessageId === "string" && body.regenerateMessageId.trim()
         ? body.regenerateMessageId.trim()
         : null;
+    const advancedRegenerationIndex = regenerateMessageId
+      ? allChatMessages.findIndex((message) => message.id === regenerateMessageId)
+      : -1;
+    if (advancedMemoryEnabled && regenerateMessageId && advancedRegenerationIndex < 0) {
+      return reply.status(404).send({ error: "Regenerated message not found" });
+    }
+    const advancedMemorySourceMessages =
+      advancedRegenerationIndex >= 0 ? allChatMessages.slice(0, advancedRegenerationIndex) : allChatMessages;
+    if (advancedMemoryEnabled) chatMessages = advancedMemorySourceMessages;
     if (chatMode === "roleplay" && regenerateMessageId) {
       const index = scopedMessages.findIndex((message) => message.id === regenerateMessageId);
       if (index >= 0) {
@@ -656,7 +678,12 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       ? resolveRegenerationGameStateAnchor(scopedMessages, regenerateMessageId)
       : resolveVisibleGameStateAnchor(allChatMessages);
     const contextMessageLimit = chatMeta.contextMessageLimit as number | null;
-    if (contextMessageLimit && contextMessageLimit > 0 && chatMessages.length > contextMessageLimit) {
+    if (
+      !advancedMemoryEnabled &&
+      contextMessageLimit &&
+      contextMessageLimit > 0 &&
+      chatMessages.length > contextMessageLimit
+    ) {
       chatMessages = chatMessages.slice(-contextMessageLimit);
     }
 
@@ -763,26 +790,41 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       mode: chatMode,
       allowEmpty: true,
     });
+    const dryRunGroupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
     const promptTargetCharacterId =
       typeof body.forCharacterId === "string" && characterIds.includes(body.forCharacterId)
         ? body.forCharacterId
-        : null;
+        : advancedMemoryEnabled && dryRunGroupChatMode === "individual" && !impersonate
+          ? (characterIds[0] ?? null)
+          : null;
     const promptCharacterIds = resolvePromptCharacterIdsForTarget(characterIds, promptTargetCharacterId);
     const promptGroupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
-    const dryRunGroupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
     const deferCharacterMacros =
       characterIds.length > 1 &&
       dryRunGroupChatMode === "individual" &&
       (promptGroupResponseOrder !== "manual" || chatMode === "conversation") &&
       !impersonate;
     const audienceCharacterIds = impersonate ? [] : promptTargetCharacterId ? [promptTargetCharacterId] : characterIds;
+    if (advancedMemoryService) {
+      const allowedIds = new Set(
+        selectAdvancedMemoryMessages(
+          advancedMemorySourceMessages,
+          advancedMemorySettings,
+          audienceCharacterIds.length ? audienceCharacterIds : characterIds,
+          dryRunGroupChatMode === "individual",
+        ).map((message) => message.id),
+      );
+      mappedMessages = mappedMessages.filter(
+        (message) => message.id === "__dryrun_user__" || (message.id && allowedIds.has(message.id)),
+      );
+    }
     if (audienceCharacterIds.length > 0) {
       mappedMessages = filterPromptMessagesForCharacterAudience(mappedMessages, audienceCharacterIds);
     }
 
     let summaryEmbeddingSource: Awaited<ReturnType<typeof resolveMemoryRecallEmbeddingSource>> | null = null;
     let summaryVectorizerAvailable = false;
-    if (chatMode === "roleplay" && chatMeta.semanticSummaryRetrievalEnabled === true) {
+    if (!advancedMemoryEnabled && chatMode === "roleplay" && chatMeta.semanticSummaryRetrievalEnabled === true) {
       try {
         summaryEmbeddingSource = await resolveMemoryRecallEmbeddingSource(app.db, {
           chatMetadata: chatMeta,
@@ -802,14 +844,16 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         logger.warn(error, "[dryRun] Roleplay summary embedding setup failed; keeping all summaries in context");
       }
     }
-    const activeChatSummary = await resolveRoleplayChatSummaryForPrompt({
-      chatMode,
-      chatMetadata: chatMeta,
-      messages: mappedMessages,
-      excludeMessageIds: regenerateMessageId ? [regenerateMessageId] : undefined,
-      vectorizerAvailable: summaryVectorizerAvailable,
-      embeddingOptions: { embeddingSource: summaryEmbeddingSource },
-    });
+    const activeChatSummary = advancedMemoryEnabled
+      ? null
+      : await resolveRoleplayChatSummaryForPrompt({
+          chatMode,
+          chatMetadata: chatMeta,
+          messages: mappedMessages,
+          excludeMessageIds: regenerateMessageId ? [regenerateMessageId] : undefined,
+          vectorizerAvailable: summaryVectorizerAvailable,
+          embeddingOptions: { embeddingSource: summaryEmbeddingSource },
+        });
 
     // Persona resolution (same strategy as generation; read-only)
     let personaId: string | null = null;
@@ -980,6 +1024,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         | "persona"
         | "characters"
         | "chatSummary"
+        | "currentSceneSummary"
+        | "recalledScenes"
+        | "recalledMessages"
         | "lorebook"
         | "trackers"
         | "history"
@@ -998,6 +1045,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         "persona",
         "characters",
         "chatSummary",
+        "currentSceneSummary",
+        "recalledScenes",
+        "recalledMessages",
         "lorebook",
         "trackers",
         "history",
@@ -1179,6 +1229,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
       const historyMessages = includeHistory
         ? (mappedMessages.map((m: any) => ({
+            id: m.id,
             role: m.role,
             content: m.content,
             contextKind: "history" as const,
@@ -1215,6 +1266,18 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
       // Assemble finalMessages in the requested order.
       for (const key of order) {
+        const memoryType = {
+          chatSummary: "chat_summary",
+          currentSceneSummary: "current_scene_summary",
+          recalledScenes: "recalled_scenes",
+          recalledMessages: "recalled_messages",
+        } as const;
+        if (advancedMemoryEnabled && key in memoryType) {
+          const placement = createAdvancedMemoryPlacement(memoryType[key as keyof typeof memoryType], wrapFormat);
+          advancedMemoryPlacements.push(placement);
+          finalMessages.push({ role: placement.role, content: placement.token, contextKind: "prompt" });
+          continue;
+        }
         if (key === "extensionBlocks") {
           finalMessages.push(...extensionBlocks);
           continue;
@@ -1348,6 +1411,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         })(),
         chatMessages: mappedMessages,
         chatSummary: resolvedInjectChatSummary ? activeChatSummary : null,
+        ...(advancedMemoryEnabled ? { advancedMemory: {}, deferAdvancedMemory: true } : {}),
         enableAgents: false,
         activeAgentIds: [],
         activeLorebookIds: resolvedInjectLorebook
@@ -1396,6 +1460,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ...assembled.macroAgentData,
       };
       finalMessages = assembled.messages;
+      advancedMemoryPlacements = assembled.advancedMemoryPlacements ?? [];
       temperature = assembled.parameters.temperature;
       maxTokens = assembled.parameters.maxTokens;
       topP = assembled.parameters.topP ?? 1;
@@ -1496,7 +1561,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     }
 
     // Optional injection: chat summary (when not handled by preset assembler)
-    if (!usePromptParts && !effectivePresetId && resolvedInjectChatSummary) {
+    if (!advancedMemoryEnabled && !usePromptParts && !effectivePresetId && resolvedInjectChatSummary) {
       const summary = activeChatSummary ?? "";
       if (summary) {
         const block = wrapContent(summary, "Chat Summary", wrapFormat);
@@ -1504,6 +1569,22 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
         finalMessages.splice(insertAt, 0, { role: "system", content: block });
       }
+    }
+
+    if (advancedMemoryEnabled && advancedMemoryPlacements.length === 0) {
+      advancedMemoryPlacements = ADVANCED_MEMORY_MARKER_TYPES.map((type) =>
+        createAdvancedMemoryPlacement(type, wrapFormat),
+      );
+      const firstHistoryIndex = finalMessages.findIndex((message) => message.contextKind === "history");
+      finalMessages.splice(
+        firstHistoryIndex >= 0 ? firstHistoryIndex : finalMessages.length,
+        0,
+        ...advancedMemoryPlacements.map((placement) => ({
+          role: placement.role,
+          content: placement.token,
+          contextKind: "prompt" as const,
+        })),
+      );
     }
 
     // Optional injection: lorebooks (only for preset-less flows; presets handle lorebooks in the assembler)
@@ -1787,12 +1868,49 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       });
     };
 
-    const fit = fitMessagesForModelAccess({
-      messages: limitPastReasoningMetadata(toProviderMessages(finalMessages as any), chatMeta),
-      policy: { ...modelAccessPolicy, effectiveMaxContext },
-      maxTokens,
-    });
-    const providerMessages = prepareProviderMessages(fit.messages);
+    let advancedContext: Awaited<ReturnType<typeof prepareAdvancedMemoryContext>> | null = null;
+    try {
+      if (advancedMemoryService) {
+        advancedContext = await prepareAdvancedMemoryContext({
+          service: advancedMemoryService,
+          chatId,
+          settings: advancedMemorySettings,
+          sourceMessages: advancedMemorySourceMessages,
+          messages: finalMessages,
+          placements: advancedMemoryPlacements,
+          audienceCharacterIds,
+          audienceMode: impersonate ? "owner" : undefined,
+          maxContext: Math.min(effectiveMaxContext ?? Infinity, connectionMaxContext ?? Infinity),
+          maxTokens,
+          query:
+            userMessage ||
+            [...advancedMemorySourceMessages].reverse().find((message) => message.role === "user")?.content,
+          readOnly: true,
+          toProviderMessages: (messages) =>
+            prepareProviderMessages(limitPastReasoningMetadata(toProviderMessages(messages), chatMeta)),
+        });
+      }
+    } catch (err) {
+      logger.error(err, "[dryRun] Advanced Memory preparation failed");
+      const message = err instanceof Error ? err.message : "Dry run memory preparation failed";
+      if (streaming && !returnPrompt) {
+        startSseReply(reply, { "X-Accel-Buffering": "no" });
+        sendSseEvent(reply, { type: "error", data: message });
+        sendSseEvent(reply, { type: "done", data: "" });
+        reply.raw.end();
+        return;
+      }
+      return reply.status(500).send({ error: message });
+    }
+    const fit = advancedContext
+      ? { messages: advancedContext.providerMessages, maxTokensForSend: advancedContext.maxTokens }
+      : fitMessagesForModelAccess({
+          messages: limitPastReasoningMetadata(toProviderMessages(finalMessages as any), chatMeta),
+          policy: { ...modelAccessPolicy, effectiveMaxContext },
+          maxTokens,
+        });
+    if (advancedContext) effectiveMaxContext = advancedContext.maxContext;
+    const providerMessages = advancedContext ? fit.messages : prepareProviderMessages(fit.messages);
     const maxTokensForSend = fit.maxTokensForSend;
 
     // Prompt preview mode: return the exact prompt shape that would be sent.
@@ -1807,6 +1925,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             ...(message.providerMetadata ? { providerMetadata: message.providerMetadata } : {}),
           })),
           wrapFormat,
+          ...(advancedContext
+            ? {
+                advancedMemory: {
+                  ...advancedContext.receipt,
+                  placements: advancedContext.placements,
+                },
+              }
+            : {}),
         },
         parameters: {
           provider: conn.provider,
@@ -1873,7 +1999,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       };
 
       try {
+        if (advancedContext)
+          await advancedMemoryService!.validatePrepared(chatId, advancedMemorySourceMessages, advancedContext.receipt);
         const result = await provider.chatComplete(providerMessages as any, {
+          preserveContext: Boolean(advancedContext),
           model: conn.model,
           temperature,
           maxTokens: maxTokensForSend,
@@ -1938,7 +2067,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     reply.header("x-dryrun-runid", runId);
 
     try {
+      if (advancedContext)
+        await advancedMemoryService!.validatePrepared(chatId, advancedMemorySourceMessages, advancedContext.receipt);
       const result = await provider.chatComplete(providerMessages as any, {
+        preserveContext: Boolean(advancedContext),
         model: conn.model,
         temperature,
         maxTokens: maxTokensForSend,

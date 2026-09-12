@@ -1,0 +1,42 @@
+.mari-memory-wheel {
+  aspect-ratio: 6 / 7;
+  background-image: url("/sprites/mari/generated/professor-mari-memory-wheel.png");
+  background-size: 400% 228.5714%;
+  background-position: 0 50%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
+.mari-memory-wheel[data-running="true"] {
+  animation: mari-memory-wheel-run 640ms steps(4) infinite;
+}
+
+.mari-memory-progress {
+  appearance: none;
+  border: 0;
+  background: var(--border);
+}
+
+.mari-memory-progress::-webkit-progress-bar {
+  background: var(--border);
+}
+
+.mari-memory-progress::-webkit-progress-value {
+  background: var(--marinara-app-accent-solid);
+}
+
+.mari-memory-progress::-moz-progress-bar {
+  background: var(--marinara-app-accent-solid);
+}
+
+@keyframes mari-memory-wheel-run {
+  to {
+    background-position: 133.3333% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-memory-wheel[data-running="true"] {
+    animation: none;
+  }
+}

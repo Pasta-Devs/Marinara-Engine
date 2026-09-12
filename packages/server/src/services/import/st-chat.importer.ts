@@ -4,7 +4,14 @@
 import type { DB } from "../../db/connection.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createSpatialContextStorage } from "../storage/spatial-context.storage.js";
-import { normalizeTextForMatch, SPATIAL_CONTEXT_LIMITS, type ChatMode } from "@marinara-engine/shared";
+import {
+  normalizeTextForMatch,
+  normalizeChatSummaryEntries,
+  compileChatSummaryEntries,
+  SPATIAL_CONTEXT_LIMITS,
+  type ChatMode,
+} from "@marinara-engine/shared";
+import { copyAdvancedMemoryRecords, remapAdvancedMemoryMetadata } from "../advanced-memory-transfer.js";
 import {
   latestTrustedTimestamp,
   normalizeTimestampOverrides,
@@ -27,6 +34,7 @@ interface STChatMessageExtra extends Record<string, unknown> {
 }
 
 interface STChatMessage {
+  marinara_message_id?: unknown;
   name?: string;
   original_avatar?: unknown;
   is_user?: boolean;
@@ -44,6 +52,7 @@ interface STChatMessage {
 }
 
 interface ParsedSTChatMessageInput {
+  sourceMessageId?: string;
   role: "system" | "user" | "assistant" | "narrator";
   characterId: string | null;
   content: string;
@@ -166,6 +175,7 @@ function normalizeSpeakerKey(value: unknown): string {
 }
 
 const INTERNAL_EXTRA_KEYS = new Set([
+  "advancedMemoryReceipt",
   "cachedPrompt",
   "chatCompletionsReasoning",
   "chatSummaryFingerprint",
@@ -393,6 +403,9 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       const createdAt = parseTrustedTimestamp(stMsg.send_date);
 
       parsedMsgInputs.push({
+        ...(typeof stMsg.marinara_message_id === "string" && stMsg.marinara_message_id.trim()
+          ? { sourceMessageId: stMsg.marinara_message_id }
+          : {}),
         role,
         characterId: messageCharacterId,
         content,
@@ -407,7 +420,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   }
 
   const msgInputs = normalizeTranscriptTimestamps(parsedMsgInputs, opts?.timestampOverrides).map(
-    ({ parsedCreatedAt, ...input }) => {
+    ({ parsedCreatedAt, sourceMessageId: _sourceMessageId, ...input }) => {
       messageTimestamps.push(input.createdAt);
       return input;
     },
@@ -444,6 +457,8 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       opts?.groupId ?? chat.groupId ?? chat.id,
     );
     delete importedMetadata.spatialContextHistory;
+    delete importedMetadata.advancedMemoryTransfer;
+    delete importedMetadata.advancedMemoryState;
     await storage.patchMetadata(
       chat.id,
       {
@@ -456,6 +471,70 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   }
 
   const importedMessageIds = await storage.createMessagesBatch(chat.id, msgInputs, chatTimestamps);
+  const sourceIdCounts = new Map<string, number>();
+  for (const message of parsedMsgInputs)
+    if (message.sourceMessageId) {
+      sourceIdCounts.set(message.sourceMessageId, (sourceIdCounts.get(message.sourceMessageId) ?? 0) + 1);
+    }
+  const sourceToImportedMessageId = new Map(
+    parsedMsgInputs.flatMap((message, index) =>
+      message.sourceMessageId && sourceIdCounts.get(message.sourceMessageId) === 1 && importedMessageIds[index]
+        ? [[message.sourceMessageId, importedMessageIds[index]!] as const]
+        : [],
+    ),
+  );
+  if (importedMode === "roleplay" && marinaraMetadata.advancedMemory) {
+    const existing = await storage.getById(chat.id);
+    const metadata = existing?.metadata ? (JSON.parse(existing.metadata) as Record<string, unknown>) : {};
+    const remappedMetadata = remapAdvancedMemoryMetadata(metadata, sourceToImportedMessageId, characterIds);
+    const messageIndexes = new Map(importedMessageIds.map((id, index) => [id, index + 1]));
+    const entries = normalizeChatSummaryEntries(metadata.summaryEntries, {
+      legacySummary: typeof metadata.summary === "string" ? metadata.summary : null,
+    }).flatMap((entry) => {
+      if (!entry.messageIds?.length) return [entry];
+      if (!entry.messageIds.every((id) => sourceToImportedMessageId.has(id))) {
+        return entry.origin === "automated"
+          ? []
+          : [
+              {
+                ...entry,
+                enabled: false,
+                messageIds: undefined,
+                hiddenMessageIds: undefined,
+                rangeStartIndex: undefined,
+                rangeEndIndex: undefined,
+              },
+            ];
+      }
+      const ids = entry.messageIds.map((id) => sourceToImportedMessageId.get(id)!);
+      return [
+        {
+          ...entry,
+          messageIds: ids,
+          hiddenMessageIds: entry.hiddenMessageIds?.flatMap((id) => sourceToImportedMessageId.get(id) ?? []),
+          rangeStartIndex: Math.min(...ids.map((id) => messageIndexes.get(id)!)),
+          rangeEndIndex: Math.max(...ids.map((id) => messageIndexes.get(id)!)),
+        },
+      ];
+    });
+    remappedMetadata.summaryEntries = entries;
+    remappedMetadata.summary = compileChatSummaryEntries(entries);
+    const previousSummaryAnchor = metadata.lastAutomaticSummaryMessageId;
+    remappedMetadata.lastAutomaticSummaryMessageId =
+      typeof previousSummaryAnchor === "string" ? (sourceToImportedMessageId.get(previousSummaryAnchor) ?? null) : null;
+    await storage.patchMetadata(chat.id, remappedMetadata, { touchUpdatedAt: false });
+    await copyAdvancedMemoryRecords({
+      db,
+      chatId: chat.id,
+      records: marinaraMetadata.advancedMemoryTransfer,
+      sourceMessages: parsedMsgInputs.flatMap((message) =>
+        message.sourceMessageId ? [{ ...message, id: message.sourceMessageId }] : [],
+      ),
+      messageIds: sourceToImportedMessageId,
+      characterIds,
+      metadata: remappedMetadata,
+    });
+  }
   const spatialStorage = createSpatialContextStorage();
   for (const candidate of importedSpatialHistory) {
     if (!isRecord(candidate)) continue;

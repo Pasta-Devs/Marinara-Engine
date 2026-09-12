@@ -135,6 +135,7 @@ import { HomeCreditsModal } from "./HomeCreditsModal";
 import { HomeBrowserHub } from "./HomeBrowserHub";
 import { NewChatConnectionGate } from "./NewChatConnectionGate";
 import { ChatCommonOverlays, preloadChatSettingsDrawer, type ChatSettingsInitialSection } from "./ChatCommonOverlays";
+import { ADVANCED_MEMORY_SETTINGS_EVENT } from "../../hooks/use-advanced-memory";
 import { CreatorNotesCssInjector, type CardCssMode, type PersonaCssRow } from "./CreatorNotesCssInjector";
 import type { ChatModeFilter } from "../../lib/card-css";
 import {
@@ -632,6 +633,16 @@ export const ChatArea = memo(function ChatArea() {
     };
     window.addEventListener(CHAT_RESOURCE_AGENT_SETUP_EVENT, openAgentSetup);
     return () => window.removeEventListener(CHAT_RESOURCE_AGENT_SETUP_EVENT, openAgentSetup);
+  }, [handleOpenSettingsPanel]);
+
+  useEffect(() => {
+    const openMemorySettings = (event: Event) => {
+      const chatId = (event as CustomEvent<{ chatId?: string }>).detail?.chatId;
+      if (chatId !== useChatStore.getState().activeChatId) return;
+      handleOpenSettingsPanel(undefined, { initialSection: "memory-recall" });
+    };
+    window.addEventListener(ADVANCED_MEMORY_SETTINGS_EVENT, openMemorySettings);
+    return () => window.removeEventListener(ADVANCED_MEMORY_SETTINGS_EVENT, openMemorySettings);
   }, [handleOpenSettingsPanel]);
 
   useEffect(() => {
