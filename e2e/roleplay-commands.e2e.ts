@@ -490,7 +490,7 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
     output = "She considers her next move.";
     await generate(alice);
     const editedPrompt = contentOf(requests.at(-1));
-    expect(editedPrompt).toContain("Do not recap scenes or repeat chat history; use [memory] for reminders.");
+    expect(editedPrompt).toContain("Do not recap scenes or repeat chat history.");
     expect(editedPrompt).toContain("1–3 short bullets, under 80 words total");
     expect(editedPrompt).toContain("EDITED_BATCH_SECRET");
     expect(editedPrompt).toContain("EDITED_REMINDER: retrieve the key tomorrow");
