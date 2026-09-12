@@ -12,7 +12,7 @@ Ne modifie ces réglages que pour corriger un problème précis. Vers la fin, ce
 
 ## Où les trouver
 
-Les paramètres de génération vivent dans chaque chat, pas dans un menu global.
+Modifie les valeurs de base dans **Presets > Parameters** (presets > paramètres), et celles de la connexion dans **Connections > Default Parameters** (connexions > paramètres par défaut). Les valeurs propres au chat se règlent dans **Chat Settings > Advanced Parameters** (réglages du chat > paramètres avancés).
 
 1. Ouvre le chat à modifier.
 2. Ouvre **Chat Settings** (réglages du chat), l'icône d'engrenage du chat actif.
@@ -131,19 +131,21 @@ Tout en bas de **Advanced Parameters**, le bouton **Save as Connection Default**
 
 Le bouton n'apparaît que pour une connexion normale et enregistrée. Il reste masqué pour le pool de connexions aléatoires et pour le modèle local intégré.
 
-Le bouton **Reset to Defaults** (rétablir les valeurs par défaut), juste en dessous, efface toutes les modifications de paramètres propres au chat et ramène ce chat à la base du mode.
+Le bouton **Reset to Defaults** (rétablir les valeurs par défaut), juste en dessous, efface toutes les modifications de paramètres propres au chat et rétablit ses réglages hérités.
 
 ## Superposition et priorité des valeurs par défaut
 
-Les paramètres effectifs viennent de trois couches. Chaque couche l'emporte sur la précédente, réglage par réglage.
+Les paramètres sont déterminés champ par champ, dans cet ordre :
 
-1. La base du mode. C'est le point de départ intégré pour le mode du chat.
-2. Les valeurs par défaut enregistrées sur la connexion. Ce sont celles que tu as stockées avec **Save as Connection Default**.
-3. La section **Advanced Parameters** de ce chat. Ce sont les valeurs que tu définis ici même, et elles gagnent.
+1. Les **Parameters** (paramètres) du preset sélectionné, ou les valeurs de génération intégrées si aucun preset n'est utilisé (température `1`, sortie maximale `4096`). En Roleplay, le preset imposé par la connexion prend le pas sur celui sélectionné dans le chat.
+2. Les **Default Parameters** (paramètres par défaut) de la connexion.
+3. Les **Advanced Parameters** de ce chat.
+4. Règles du mode : un chat de scène actif fixe la sortie à `8192`, le raisonnement à **Maximum** et la verbosité à **High**. Game Mode fixe la sortie à `16384` et le raisonnement à **Maximum**, avec température/top-p à `1`, et top-k, min-p et les pénalités de répétition à `0`. Les connexions Gemma de Game Mode conservent leurs réglages d'échantillonnage et utilisent un budget de sortie d'au moins `16384`.
+5. Limites de sortie : Game Mode applique la limite de sortie connue du modèle, et le **Max Output Tokens override** (plafond personnalisé de tokens de sortie) de la connexion plafonne les requêtes dans tous les modes. Le contexte disponible peut encore réduire le budget de sortie.
 
-Une valeur définie dans **Advanced Parameters** bat donc toujours la valeur par défaut de la connexion et la base du mode.
+La ligne **Effective** (valeur effective) à côté d'un paramètre affiche la valeur enregistrée et la couche qui l'emporte, y compris les règles du mode et les plafonds de sortie. Dans l'éditeur de connexions, elle utilise le chat ouvert avec cette connexion, ou une base Roleplay si aucun chat n'est ouvert. Enregistre tes modifications pour actualiser l'affichage. Un interrupteur Send désactivé apparaît comme **not sent** ; les fournisseurs peuvent malgré tout imposer des paramètres obligatoires ou adapter des valeurs non prises en charge. Custom Parameters et l'ajustement au contexte peuvent encore modifier la requête finale.
 
-Game Mode est un cas à part. Game Mode fixe lui-même certains paramètres pour que ses tours structurés continuent de fonctionner. Dans Game Mode, quelques-unes de tes modifications dans **Advanced Parameters** ne s'appliquent donc pas entièrement. C'est normal.
+Par exemple, un preset à `8192` et ce chat à `16384` donnent **Effective: 16384 · this chat**. Un plafond de sortie de `4096` sur la connexion remplace cet affichage par **Effective: 4096 · output token cap**. Réinitialiser les paramètres du chat fait réapparaître la couche applicable suivante ; cela ne supprime pas les règles du preset ou du mode.
 
 ## Certains modèles ignorent certains paramètres
 

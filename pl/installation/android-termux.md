@@ -21,7 +21,7 @@ Najprostsza droga prowadzi przez aplikację Marinara Engine na Android. APK to p
 5. Kiedy Android zapyta, przyznaj uprawnienie **Run commands in Termux environment** (uruchamianie poleceń w środowisku Termux).
 6. Jeśli Termux zablokuje konfigurację, aplikacja skopiuje za ciebie polecenie `allow-external-apps`. Wklej je raz do terminala Termux, a potem znów dotknij przycisku **Install / Start Marinara**.
 7. Poczekaj, aż Termux zainstaluje zależności i zbuduje aplikację Marinara Engine. Pierwsze budowanie trwa kilka minut.
-8. Po zakończeniu pracy Termux wróć do aplikacji Marinara Engine. Aplikacja połączy się i zaloguje automatycznie, gdy lokalny serwer będzie gotowy.
+8. Po zakończeniu pracy Termux wróć do aplikacji Marinara Engine. Aplikacja połączy się i zaloguje automatycznie, gdy lokalny serwer będzie gotowy. Jeśli wolisz przeglądarkę, wybierz **Open in browser** (otwórz w przeglądarce) na ekranie uruchamiania. Aplikacja zapamięta wybór i tam również zaloguje cię automatycznie.
 
 Jeśli wygodniejsza jest ikona na ekranie głównym, która otwiera Marinara jak zwykłą aplikację, ta sama aplikacja na Android to zapewnia. Jest nakładką na serwer w środowisku Termux, więc najpierw trzeba skonfigurować sam serwer. Nie da się przy tym pominąć systemowych komunikatów instalacyjnych ani pytań o uprawnienia, ale aplikacja nie prosi o konfigurowanie żadnego sekretu instalacyjnego Marinara.
 
@@ -55,7 +55,9 @@ Wskazówka: żeby dostać ikonę przypominającą aplikację, otwórz menu przeg
 
 ## Ponowne uruchamianie aplikacji Marinara Engine
 
-Po pierwszej konfiguracji instalacji już się nie powtarza. Otwórz Termux i uruchom:
+Przy instalacji przez APK otwórz aplikację Marinara Engine i dotknij **Install / Start Marinara**, jeśli serwer jest zatrzymany. Aplikacja korzysta z już działającego, uwierzytelnionego serwera. Żeby przełączyć się między aplikacją a przeglądarką, użyj **Open in browser** na ekranie uruchamiania, a następnie **Retry connection** (ponów połączenie). Z aplikacji wrócisz tam przez **Settings > General > App Behavior > Open Android launcher (app or browser)** (ustawienia > ogólne > zachowanie aplikacji > otwórz ekran uruchamiania Android (aplikacja lub przeglądarka)). Automatyczne logowanie w przeglądarce wymaga aktualizacji zarówno APK, jak i aplikacji Marinara Engine. Nie otwieraj ponownie z historii wygasłego odnośnika jednorazowego.
+
+Przy ręcznej instalacji w środowisku Termux po pierwszej konfiguracji nie trzeba powtarzać instalacji. Otwórz aplikację Termux i uruchom:
 
 ```
 cd Marinara-Engine

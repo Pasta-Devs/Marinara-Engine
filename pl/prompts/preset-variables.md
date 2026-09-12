@@ -18,7 +18,7 @@ Zachowanie zmiennej zależy od jej opcji i od dwóch przełączników. Domyślni
 
 **Multi-Select** (wybór wielokrotny). Włącz przełącznik **Multi-Select**, żeby użytkownik mógł wskazać więcej niż jedną opcję. Domyślnie zaznaczone wartości łączą się w jeden tekst za pomocą separatora. Separator to krótkie pole tekstowe, a domyślnie jest to przecinek ze spacją. Na przykład opcje Romance, Fantasy i Action połączone przez `, ` dają tekst "Romance, Fantasy, Action".
 
-**Random Pick** (losowy wybór). Przy włączonym przełączniku **Multi-Select** pojawia się przełącznik **Random Pick**. Kiedy **Random Pick** jest włączony, aplikacja przy każdym generowaniu losuje jedną z zaznaczonych opcji. Przydaje się to dla urozmaicenia: użytkownik wybiera pulę opcji, a każda odpowiedź losuje z niej jedną.
+**Random Pick** (losowy wybór). Dla zmiennej z pojedynczym wyborem aplikacja Marinara Engine losowo zaznacza opcję przy każdym nowym czacie. Możesz ją zmienić przed potwierdzeniem, a zapisany wybór pozostaje stały do następnej edycji. Przy włączonym **Multi-Select** aplikacja losuje jedną z zaznaczonych opcji przy każdym generowaniu. Przydaje się to dla urozmaicenia: użytkownik wybiera pulę opcji, a każda odpowiedź losuje z niej jedną.
 
 ## Dodawanie zmiennej presetu
 
@@ -63,3 +63,5 @@ Jeśli zmienna o dokładnie takiej nazwie istnieje, symbol zastępczy zmienia si
 
 - [Edytor presetów i menedżer promptów](presets.md)
 - [Makra promptów](macros.md)
+
+Zmienne presetu są rozwijane także w powitaniach postaci, również dla wyborów potwierdzonych już po utworzeniu powitania. Oryginalne powitanie pozostaje edytowalne i zachowuje swoje makra.

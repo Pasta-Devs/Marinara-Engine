@@ -18,7 +18,7 @@ Wie sich eine Variable verhält, hängt von ihren Optionen und zwei Schaltern ab
 
 **Multi-Select.** Aktiviere den Schalter **Multi-Select** (Mehrfachauswahl), damit sich mehrere Optionen gleichzeitig wählen lassen. Die gewählten Werte werden dann mit einem Trennzeichen aneinandergehängt. Das Trennzeichen steht in einem kurzen Textfeld, standardmäßig Komma plus Leerzeichen. Aus den Optionen Romance, Fantasy und Action wird mit `, ` also der Text „Romance, Fantasy, Action“.
 
-**Random Pick.** Sobald **Multi-Select** an ist, erscheint der Schalter **Random Pick** (Zufallsauswahl). Ist er aktiv, greift die App bei jeder Generierung zufällig eine der gewählten Optionen heraus. Das sorgt für Abwechslung: Du legst einen Pool fest, und jede Antwort zieht ein Element daraus.
+**Random Pick** (Zufallsauswahl). Bei einer Variable mit Einfachauswahl wählt Marinara für jeden neuen Chat zufällig eine Option vor. Du kannst sie vor dem Bestätigen ändern. Die gespeicherte Auswahl bleibt bestehen, bis du sie bearbeitest. Mit aktiviertem **Multi-Select** wählt die App bei jeder Generierung zufällig eine der ausgewählten Optionen. Das sorgt für Abwechslung: Du legst einen Pool fest, und jede Antwort zieht ein Element daraus.
 
 ## Eine Preset-Variable anlegen
 
@@ -63,3 +63,5 @@ Gibt es eine Variable mit genau diesem Namen, wird der Platzhalter zum gewählte
 
 - [Preset-Editor und Prompt Manager](presets.md)
 - [Prompt-Makros](macros.md)
+
+Preset-Variablen werden auch in Charakter-Begrüßungen aufgelöst, einschließlich einer Auswahl, die erst nach dem Erstellen der Begrüßung bestätigt wurde. Die ursprüngliche Begrüßung bleibt mit ihren Makros bearbeitbar.

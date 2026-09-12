@@ -21,7 +21,7 @@ F-Droid 是面向 Android 的免费开源应用商店。Marinara 的自动设置
 5. Android 询问时，授予 **Run commands in Termux environment**(在 Termux 环境中运行命令) 权限。
 6. 如果 Termux 拦下了这次配置，应用会帮你复制好一条 `allow-external-apps` 命令。把这条命令粘贴到 Termux 里执行一次，然后再点一次 **Install / Start Marinara**。
 7. 等 Termux 装好依赖并构建 Marinara。首次构建要花几分钟。
-8. Termux 完成后返回 Marinara Engine 应用。本地服务器就绪后，应用会自动连接并登录。
+8. Termux 完成后返回 Marinara Engine 应用。本地服务器就绪后，应用会自动连接并登录。如果更习惯用浏览器，在启动界面选择 **Open in browser**(在浏览器中打开)。这个选择会被记住，浏览器也会自动登录。
 
 想要一个像普通应用一样点开就用的主屏幕图标，这个 Android 应用同样能提供。它只是 Termux 服务器外面的一层壳，所以得先把服务器配好，也绕不开 Android 的安装和权限提示，但不会要求你配置任何 Marinara 安装密钥。
 
@@ -55,7 +55,9 @@ Marinara 监听 `PORT`(应用使用的网络端口) 指定的端口，默认是 
 
 ## 再次启动 Marinara
 
-首次配置完成后就不用再装一遍了。打开 Termux 运行：
+使用 APK 时，打开 Marinara；如果服务器已停止，点击 **Install / Start Marinara**。已经运行并通过认证的服务器会被直接复用。要在应用和浏览器之间切换，在启动界面设置 **Open in browser**，然后点击 **Retry connection**(重试连接)。从应用内可以通过 **Settings > General > App Behavior > Open Android launcher (app or browser)**(设置 → 常规 → 应用行为 → 打开 Android 启动界面(应用或浏览器)) 返回。浏览器自动登录需要同时更新 APK 和 Engine。不要从历史记录中重复使用已过期的一次性链接。
+
+如果是在 Termux 中手动安装，首次配置完成后就不用再装一遍了。打开 Termux 运行：
 
 ```
 cd Marinara-Engine

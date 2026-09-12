@@ -21,7 +21,7 @@ Termux는 여기에서 설치하세요: [F-Droid의 Termux](https://f-droid.org/
 5. Android가 물어보면 **Run commands in Termux environment**(Termux 환경에서 명령 실행) 권한을 허용하세요.
 6. Termux가 설정을 막는다면 앱이 `allow-external-apps` 명령을 대신 복사해 줍니다. 그 명령을 Termux에 한 번 붙여넣은 다음 **Install / Start Marinara**를 다시 누르세요.
 7. Termux가 의존성을 설치하고 Marinara를 빌드할 때까지 기다리세요. 첫 빌드는 몇 분 걸립니다.
-8. Termux 작업이 끝나면 Marinara Engine 앱으로 돌아오세요. 로컬 서버가 준비되면 앱이 자동으로 연결하고 로그인합니다.
+8. Termux 작업이 끝나면 Marinara Engine 앱으로 돌아오세요. 로컬 서버가 준비되면 앱이 자동으로 연결하고 로그인합니다. 브라우저를 쓰려면 런처에서 **Open in browser**(브라우저에서 열기)를 선택하세요. 선택이 저장되며 브라우저에서도 자동으로 로그인합니다.
 
 일반 앱처럼 홈 화면 아이콘으로 Marinara를 열고 싶다면 이 Android 앱이 그 아이콘을 제공합니다. Termux 서버를 감싸는 껍데기이므로 서버를 먼저 설정해야 합니다. Android의 설치 확인 창과 권한 요청을 건너뛰지는 못하지만 Marinara 설치 비밀 값을 설정하라고 요구하지 않습니다.
 
@@ -55,7 +55,9 @@ Marinara는 `PORT`(앱이 사용하는 네트워크 포트)에 지정된 포트�
 
 ## Marinara 다시 시작하기
 
-처음 설정을 마친 뒤에는 설치를 반복할 필요가 없습니다. Termux를 열고 다음을 실행하세요:
+APK를 사용하는 경우 Marinara를 열고, 서버가 멈춰 있으면 **Install / Start Marinara**를 누르세요. 이미 실행 중이고 인증된 서버는 그대로 사용합니다. 앱과 브라우저를 전환하려면 런처에서 **Open in browser**를 설정한 뒤 **Retry connection**(연결 다시 시도)을 누르세요. 앱 안에서는 **Settings > General > App Behavior > Open Android launcher (app or browser)**(설정 > 일반 > 앱 동작 > Android 런처 열기(앱 또는 브라우저))로 런처에 돌아갈 수 있습니다. 브라우저 자동 로그인에는 APK와 Engine을 모두 업데이트해야 합니다. 만료된 일회용 링크를 방문 기록에서 다시 사용하지 마세요.
+
+Termux에 수동으로 설치했다면 처음 설정을 마친 뒤에는 설치를 반복할 필요가 없습니다. Termux를 열고 다음을 실행하세요:
 
 ```
 cd Marinara-Engine

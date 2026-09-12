@@ -12,7 +12,7 @@ Zmieniaj te ustawienia tylko wtedy, gdy chcesz rozwiązać konkretny problem. Po
 
 ## Gdzie ich szukać
 
-Parametry generowania należą do konkretnego czatu, a nie do globalnego menu.
+Wartości bazowe edytuj w **Presets > Parameters** (presety > parametry), a wartości połączenia w **Connections > Default Parameters** (połączenia > parametry domyślne). Ustawienia tego czatu znajdziesz w **Chat Settings > Advanced Parameters** (ustawienia czatu > parametry zaawansowane).
 
 1. Otwórz czat, w którym chcesz coś zmienić.
 2. Otwórz panel **Chat Settings** (ustawienia czatu), czyli ikonę koła zębatego przy aktywnym czacie.
@@ -131,19 +131,21 @@ Na dole sekcji **Advanced Parameters** przycisk **Save as Connection Default** z
 
 Przycisk pojawia się tylko przy zwykłym, zapisanym połączeniu. Nie ma go przy losowej puli połączeń ani przy wbudowanym modelu lokalnym.
 
-Przycisk **Reset to Defaults** poniżej kasuje wszystkie zmiany parametrów wprowadzone w tym czacie i przywraca wartości bazowe trybu.
+Przycisk **Reset to Defaults** poniżej kasuje wszystkie zmiany parametrów wprowadzone w tym czacie i przywraca jego odziedziczone ustawienia.
 
 ## Jak nakładają się i nadpisują wartości domyślne
 
-Obowiązujące parametry powstają z trzech warstw. Każda warstwa wygrywa z poprzednią, ustawienie po ustawieniu.
+Parametry są ustalane osobno dla każdego pola, w tej kolejności:
 
-1. Wartości bazowe trybu. To wbudowany punkt startowy dla trybu, w którym działa czat.
-2. Wartości domyślne zapisane w połączeniu. To wartości zapisane przyciskiem **Save as Connection Default**.
-3. Sekcja **Advanced Parameters** tego czatu. To wartości ustawione tutaj i właśnie one wygrywają.
+1. Sekcja **Parameters** (parametry) wybranego presetu albo wbudowane wartości domyślne generowania, jeśli nie używasz presetu (temperatura `1`, maksymalna długość odpowiedzi `4096`). W trybie Roleplay preset przypisany w połączeniu ma pierwszeństwo przed presetem wybranym w czacie.
+2. Sekcja **Default Parameters** (parametry domyślne) połączenia.
+3. Sekcja **Advanced Parameters** tego czatu.
+4. Reguły trybu: aktywny czat sceny ustawia limit odpowiedzi na `8192`, rozumowanie na **Maximum**, a szczegółowość na **High**. Tryb Game Mode ustawia limit odpowiedzi na `16384` i rozumowanie na **Maximum**, temperaturę/top-p na `1`, a top-k, min-p i kary za powtórzenia na `0`. Połączenia z modelami Gemma w trybie Game Mode zachowują swoje ustawienia próbkowania i używają budżetu odpowiedzi wynoszącego co najmniej `16384`.
+5. Limity odpowiedzi: tryb Game Mode uwzględnia znany limit wyjścia modelu, a **Max Output Tokens override** (własny limit tokenów odpowiedzi) połączenia ogranicza żądania w każdym trybie. Dostępny kontekst może dodatkowo zmniejszyć budżet odpowiedzi.
 
-Wartość ustawiona w sekcji **Advanced Parameters** zawsze bije wartość domyślną połączenia i wartość bazową trybu.
+Wiersz **Effective** (obowiązująca wartość) obok parametru pokazuje zapisaną wartość i warstwę, która ma pierwszeństwo, z uwzględnieniem reguł trybu oraz limitów odpowiedzi. W edytorze połączenia korzysta z aktualnie otwartego czatu używającego tego połączenia albo z wartości bazowych trybu Roleplay, gdy żaden czat nie jest otwarty. Zapisz zmiany, żeby odświeżyć wskazanie. Wyłączony przełącznik Send jest pokazany jako **not sent**; dostawcy nadal mogą wymuszać wymagane parametry lub dostosowywać nieobsługiwane wartości. Custom Parameters i dopasowanie do kontekstu mogą dodatkowo zmienić ostateczne żądanie.
 
-Game Mode to przypadek szczególny. Tryb Game Mode część parametrów ustawia sam, żeby jego uporządkowane tury działały poprawnie. W trybie Game Mode część zmian z sekcji **Advanced Parameters** może więc nie zadziałać w pełni. Tak ma być.
+Na przykład preset z wartością `8192` i ten czat z wartością `16384` dają **Effective: 16384 · this chat**. Limit odpowiedzi połączenia wynoszący `4096` zmienia wskazanie na **Effective: 4096 · output token cap**. Zresetowanie parametrów czatu odsłania następną obowiązującą warstwę; nie usuwa reguł presetu ani trybu.
 
 ## Część modeli ignoruje część parametrów
 

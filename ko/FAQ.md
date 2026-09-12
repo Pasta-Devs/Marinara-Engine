@@ -44,7 +44,7 @@ http://192.168.1.42:7860
 
 Android에서는 [최신 APK를 직접 다운로드](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)할 수도 있습니다. Termux를 통해 휴대폰에서 Marinara가 실행됩니다. 설치에 서명 키, 비밀번호, 로컬 접근 비밀 값은 필요하지 않습니다. Android 권한 확인은 [Android (Termux) 설치 가이드](installation/android-termux.md)를 참고하세요. iPhone과 iPad는 [iOS / iPadOS PWA 가이드](installation/ios-pwa.md)를 참고하세요.
 
-Android 래퍼는 APK가 관리하는 Termux 서버를 열 때 자동으로 로그인합니다. 비공개 인증 정보는 같은 휴대폰의 다른 브라우저에서 서버를 의도적으로 열 때만 표시됩니다. `/android-login`을 열고 Termux에서 `cat ~/.marinara-engine/android-secret`을 실행한 다음 표시된 값을 붙여 넣으세요. 로컬 `mari` CLI도 런처가 관리하는 같은 비밀 값을 자동으로 읽습니다. 수동 Termux 설치에는 localhost와 네트워크 접근의 일반 규칙이 적용됩니다.
+Android 래퍼는 앱이나 브라우저에서 자동으로 로그인합니다. 런처에서 **Open in browser**(브라우저에서 열기)를 선택하고 **Retry connection**(연결 다시 시도)을 누르세요. 서버가 멈춰 있으면 **Install / Start Marinara**를 사용하세요. 선택은 저장됩니다. 앱 안의 **Settings > General > App Behavior > Open Android launcher (app or browser)**(설정 > 일반 > 앱 동작 > Android 런처 열기(앱 또는 브라우저))에서 선택 화면으로 돌아갈 수 있습니다. 브라우저를 자동으로 인증해 열려면 APK와 Engine을 모두 업데이트하세요. 이전 APK에서는 여전히 `/android-login`으로 수동 로그인할 수 있습니다. 로컬 `mari` CLI는 런처가 관리하는 비밀값을 자동으로 읽으며, Termux 수동 설치는 일반 localhost 규칙을 따릅니다.
 
 ## 채팅 모드 3가지는 무엇인가요?
 

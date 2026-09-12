@@ -1,15 +1,16 @@
 {
   "language": "hi",
+  "sourceCommit": "5e3dd361e6b7c90c13712d1d4a3fa9bcaaef8d10",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "9e3713ea3f9a6337259b58473edd7c611668f0c3cc68b4b6b09eea7c2ed70e2c",
-      "bytes": 68692
+      "sha256": "8f50b94a5a756c5b86963c42c79dc7c70a931b34c9c20ddf350f8f86493c88c5",
+      "bytes": 68784
     },
     {
       "path": "FAQ.md",
-      "sha256": "9099fc79ee6a2c4160a253eb69da5f0ad82d8cf3048328454e300f057715c447",
-      "bytes": 43607
+      "sha256": "a436ee51dc9593430fbcfd4894a4a50f7eef70069b1d9c75c652490b5614dde9",
+      "bytes": 44112
     },
     {
       "path": "INSTALLATION.md",
@@ -23,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "bea7b77d17f502c684af3dc43935f16502009dca32c4d2a9afac77292c3c1384",
-      "bytes": 81322
+      "sha256": "663d0de59fb0632c5f57bc9007c932c8ccb5ac809bca85cd53d9f24943994e9f",
+      "bytes": 82621
     },
     {
       "path": "UPGRADING.md",
@@ -33,8 +34,8 @@
     },
     {
       "path": "agents/agents-overview.md",
-      "sha256": "9ac614674d699247b4194c612e61cc7842376e50de09964886a3c8c4979678b0",
-      "bytes": 20510
+      "sha256": "47e240f70e668d6ce8deb3516172c68ba887d01e75490008d366ccf0b6697d10",
+      "bytes": 20511
     },
     {
       "path": "agents/approvals-and-agent-suite.md",
@@ -118,8 +119,8 @@
     },
     {
       "path": "characters/import-export.md",
-      "sha256": "0c87e282f69205e84118809229f33573287b77e9b0b286a8fba3a382a7ae0e4b",
-      "bytes": 12560
+      "sha256": "f24aa3cbbaa64a3333864cb3fe7888eeaf51c86ce120b0950b7dbeb7621dd0ed",
+      "bytes": 13399
     },
     {
       "path": "characters/library-organization.md",
@@ -433,8 +434,8 @@
     },
     {
       "path": "installation/android-termux.md",
-      "sha256": "e101ac71ef4ca265109c093992176127ea3264bc2d6bf9f4b17fcdcc33f53a83",
-      "bytes": 13056
+      "sha256": "ebb2fca4bbdc128c8f60ca10e37a60d2f9c60a6be1650a3d9e2226c06415b612",
+      "bytes": 14923
     },
     {
       "path": "installation/containers.md",
@@ -568,8 +569,8 @@
     },
     {
       "path": "prompts/generation-parameters.md",
-      "sha256": "7af26253c4e1e4247f0d54dd1b37f322e1fd0657f100f2f846d448b24e6bd719",
-      "bytes": 31594
+      "sha256": "049e1a385079e8d2b3ebaf6f05d2f5a822fd916a21175cb43be94bea8b1e106e",
+      "bytes": 34349
     },
     {
       "path": "prompts/macros.md",
@@ -578,8 +579,8 @@
     },
     {
       "path": "prompts/preset-variables.md",
-      "sha256": "ba16884049b0714627e8bdb3916bbbf90a3bd7b29fb0463bfbcfb9bbf31ed10d",
-      "bytes": 13496
+      "sha256": "ced0c5845093377e14aa01845c2b9a0345465c5fec507f31df0068db45c0e414",
+      "bytes": 14252
     },
     {
       "path": "prompts/presets.md",

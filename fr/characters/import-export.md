@@ -65,7 +65,7 @@ Ouvre un personnage dans l'éditeur, puis clique sur **Export character** (expor
 | **Compatible JSON** | Du JSON Chara Card V2 simple, sans l'enveloppe Marinara. | Partager la fiche vers d'autres applications qui lisent les fiches JSON. |
 | **Compatible PNG Card** | Une image Chara Card V2 avec les données de la fiche intégrées à l'image. | Les applications et les sites qui attendent une fiche PNG, comme SillyTavern, Chub et Risu. |
 
-Choisis **Marinara Native** pour tout conserver. Choisis l'un des formats **Compatible** quand le fichier part vers un autre outil. Ces deux formats compatibles abandonnent les éléments propres à Marinara, comme les sprites et les images de la galerie.
+Choisis **Marinara Native** pour tout conserver. Choisis l'un des formats **Compatible** quand le fichier part vers un autre outil. Ces deux formats compatibles abandonnent les éléments propres à Marinara, comme les sprites et les images de la galerie. Ils ajoutent les champs **Backstory** (histoire du personnage) et **Appearance** (apparence) non vides à la Description standard, afin que les autres lecteurs V2 conservent ces informations sur le personnage. Ces champs sont retirés des extensions exportées pour éviter les doublons lors d'une réimportation. Ta fiche enregistrée ne change pas ; **Marinara Native** conserve les champs séparés.
 
 ## Exporter plusieurs personnages d'un coup
 

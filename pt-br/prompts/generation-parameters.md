@@ -12,7 +12,7 @@ Só mude essas configurações quando quiser resolver um problema específico. P
 
 ## Onde encontrar
 
-Os parâmetros de geração ficam dentro de cada chat, não em um menu global.
+Edite os valores base em **Presets > Parameters** (presets > parâmetros) e os valores da conexão em **Connections > Default Parameters** (conexões > parâmetros padrão). As substituições do chat ficam em **Chat Settings > Advanced Parameters** (configurações do chat > parâmetros avançados).
 
 1. Abra o chat que você quer mudar.
 2. Abra **Chat Settings** (configurações do chat, no ícone de engrenagem do chat ativo).
@@ -131,19 +131,21 @@ No fim da seção **Advanced Parameters**, o botão **Save as Connection Default
 
 O botão só aparece para uma conexão normal e salva. Ele fica escondido para o conjunto de conexões aleatórias e para o modelo local embutido.
 
-O botão **Reset to Defaults**, logo abaixo, apaga toda alteração de parâmetro feita naquele chat e devolve o chat à base do modo.
+O botão **Reset to Defaults**, logo abaixo, apaga toda alteração de parâmetro feita naquele chat e restaura as configurações herdadas.
 
 ## Como os padrões se sobrepõem
 
-Os parâmetros que valem na prática vêm de três camadas. Cada camada vence a anterior, uma configuração de cada vez.
+Os parâmetros são resolvidos campo a campo, nesta ordem:
 
-1. A base do modo. É o ponto de partida embutido para o modo daquele chat.
-2. Os padrões salvos na conexão. São os valores que você guardou com **Save as Connection Default**.
-3. A seção **Advanced Parameters** daquele chat. São os valores definidos ali mesmo, e eles vencem.
+1. Os **Parameters** (parâmetros) do preset selecionado, ou os padrões de geração integrados quando nenhum preset é usado (temperatura `1`, saída máxima `4096`). Em Roleplay, o preset definido como substituição na conexão tem prioridade sobre o preset selecionado no chat.
+2. Os **Default Parameters** (parâmetros padrão) da conexão.
+3. Os **Advanced Parameters** desse chat.
+4. Regras do modo: um chat de cena ativo define a saída como `8192`, o raciocínio como **Maximum** e a verbosidade como **High**. Game Mode define a saída como `16384` e o raciocínio como **Maximum**, com temperatura/top-p em `1` e top-k, min-p e penalidades de repetição em `0`. Conexões Gemma em Game Mode mantêm as configurações de amostragem e usam um orçamento de saída de pelo menos `16384`.
+5. Limites de saída: Game Mode aplica o limite de saída conhecido do modelo, e o **Max Output Tokens override** (limite personalizado de tokens de saída) da conexão limita as requisições em todos os modos. O contexto disponível pode reduzir ainda mais o orçamento de saída.
 
-Ou seja: um valor definido em **Advanced Parameters** sempre vence o padrão da conexão e a base do modo.
+A linha **Effective** (valor efetivo) ao lado de um parâmetro mostra o valor salvo e a camada que prevalece, incluindo regras do modo e limites de saída. No editor de conexões, ela usa o chat aberto com essa conexão ou uma base de Roleplay quando não há chat aberto. Salve as alterações para atualizar a indicação. Um botão Send desativado aparece como **not sent**; os provedores ainda podem impor parâmetros obrigatórios ou ajustar valores não aceitos. Custom Parameters e o ajuste ao contexto podem alterar ainda mais a requisição final.
 
-Game Mode é um caso à parte. Game Mode define alguns parâmetros por conta própria para manter os turnos estruturados funcionando. Em Game Mode, algumas mudanças feitas em **Advanced Parameters** podem não valer por completo. Isso é esperado.
+Por exemplo, um preset em `8192` e esse chat em `16384` mostram **Effective: 16384 · this chat**. Um limite de saída de `4096` na conexão muda isso para **Effective: 4096 · output token cap**. Redefinir os parâmetros do chat revela a próxima camada aplicável; não remove as regras do preset nem do modo.
 
 ## Alguns modelos ignoram alguns parâmetros
 

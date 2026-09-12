@@ -65,7 +65,7 @@ Dasselbe Fenster **Import Character** übernimmt auch Stapel-Importe. Wähle meh
 | **Compatible JSON** | Reines Chara-Card-V2-JSON ohne Marinara-Hülle. | Weitergabe an andere Apps, die JSON-Karten lesen. |
 | **Compatible PNG Card** | Ein Chara-Card-V2-Bild mit den Kartendaten fest im Bild. | Apps und Seiten, die eine PNG-Karte erwarten, etwa SillyTavern, Chub und Risu. |
 
-Nimm **Marinara Native**, wenn wirklich alles erhalten bleiben soll. Nimm eines der **Compatible**-Formate, wenn die Datei zu einem anderen Werkzeug wandert. Die beiden kompatiblen Formate lassen Marinara-eigene Extras wie Sprites und Galerie-Bilder weg.
+Nimm **Marinara Native**, wenn wirklich alles erhalten bleiben soll. Nimm eines der **Compatible**-Formate, wenn die Datei zu einem anderen Werkzeug wandert. Die beiden kompatiblen Formate lassen Marinara-eigene Extras wie Sprites und Galerie-Bilder weg. Nicht leere Felder **Backstory** (Hintergrundgeschichte) und **Appearance** (Aussehen) werden an die standardmäßige Description angehängt, damit andere V2-Programme diese Charakterinformationen behalten. Aus den exportierten Erweiterungen werden diese Felder entfernt, damit sie beim erneuten Import nicht doppelt vorkommen. Deine gespeicherte Karte bleibt unverändert; **Marinara Native** behält die getrennten Felder.
 
 ## Viele Charaktere auf einmal exportieren
 

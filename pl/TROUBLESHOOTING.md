@@ -307,11 +307,9 @@ Instalacje środowiska Termux zarządzane przez plik APK chronią localhost pryw
 
 Błąd wymieniający źródło `null` oznacza, że starsza para APK/serwer przepuściła nieprzejrzyste źródło WebView Androida do ogólnej kontroli CSRF przed prywatnym uzgadnianiem. Edycja `.env` tego nie naprawi: dosłowna wartość `null` jest celowo ignorowana, a globalne zaufanie nieprzejrzystemu źródłu osłabiłoby każdą trasę API zmieniającą dane. Zaktualizuj APK i Engine; obecne trasy logowania Androida sprawdzają własny jednorazowy dowód albo sekret instalacji, a `null` wszędzie indziej pozostaje odrzucane.
 
-Ręcznego uwierzytelniania lokalnej przeglądarki wymaga tylko osobna przeglądarka na tym samym telefonie. Otwórz w niej `/android-login` i wklej wartość wyświetloną przez to polecenie w aplikacji Termux:
+Żeby otworzyć przeglądarkę na tym samym telefonie, na ekranie uruchamiania Android wybierz **Open in browser** (otwórz w przeglądarce) i dotknij **Retry connection** (ponów połączenie). Aktualne APK i aplikacja Marinara Engine uwierzytelnią ją automatycznie; nie trzeba wpisywać sekretu. Po ponownym uruchomieniu serwera albo wygaśnięciu sesji otwórz przeglądarkę ponownie tą samą akcją. Z aplikacji wrócisz na ekran uruchamiania przez **Settings > General > App Behavior > Open Android launcher (app or browser)** (ustawienia > ogólne > zachowanie aplikacji > otwórz ekran uruchamiania Android (aplikacja lub przeglądarka)).
 
-```bash
-cat ~/.marinara-engine/android-secret
-```
+Przy starszych plikach APK nadal można użyć `/android-login` i wartości z `cat ~/.marinara-engine/android-secret`. Odnośnik do przeglądarki wygasa po minucie i działa tylko raz. Po wygaśnięciu otwórz przeglądarkę ponownie z ekranu uruchamiania, zamiast używać odnośnika z historii.
 
 Lokalne narzędzie `mari` CLI automatycznie odczytuje ten sam plik. Kod 401 oznacza, że wklejony sekret albo wezwanie uwierzytelniające zostało odrzucone; odśwież `/android-login` i wklej bieżącą wartość. Kod 503 oznacza, że serwer dostał skonfigurowany sekret w złym formacie. Uruchom ponownie za pomocą `./start-termux.sh`. Jeśli program uruchamiający zgłosi, że plik sekretu jest nieprawidłowy albo pusty, wróć do aplikacji na system Android i dotknij **Install / Start Marinara**, żeby APK utworzył go ponownie. Nie umieszczaj tego sekretu na zrzutach ekranu ani w zgłoszeniach problemów.
 

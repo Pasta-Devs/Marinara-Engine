@@ -65,7 +65,7 @@
 | **Compatible JSON** | 纯 Chara Card V2 格式的 JSON，不带 Marinara 的外层包装。 | 分享给其他能读 JSON 角色卡的应用。 |
 | **Compatible PNG Card** | Chara Card V2 图像，角色卡数据直接嵌在图片里。 | 需要 PNG 角色卡的应用和网站，比如 SillyTavern、Chub、Risu。 |
 
-想把所有内容原样留住就选 **Marinara Native**。文件要交给别的工具时，选两种 **Compatible** 格式之一。这两种兼容格式会丢掉立绘、图库图片这类 Marinara 专有的附加内容。
+想把所有内容原样留住就选 **Marinara Native**。文件要交给别的工具时，选两种 **Compatible** 格式之一。这两种兼容格式会丢掉立绘、图库图片这类 Marinara 专有的附加内容。非空的 **Backstory**(背景故事) 和 **Appearance**(外貌) 字段会附加到标准 Description 中，让其他 V2 读取工具也能保留这些角色信息。这些字段会从导出的扩展信息中移除，避免重新导入时重复。保存的角色卡不会改变；**Marinara Native** 会保留独立字段。
 
 ## 一次导出多个角色
 

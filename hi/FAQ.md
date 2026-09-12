@@ -44,7 +44,7 @@ http://192.168.1.42:7860
 
 Android पर [नया APK सीधे डाउनलोड](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk) भी कर सकते हैं। यह Termux के ज़रिए Marinara को फ़ोन पर ही लोकल चलाता है। इंस्टॉल करने के लिए साइनिंग की, पासवर्ड या लोकल एक्सेस सीक्रेट की ज़रूरत नहीं है; Android की अनुमति वाले प्रॉम्प्ट के लिए [Android (Termux) इंस्टॉलेशन गाइड](installation/android-termux.md) देखें। iPhone और iPad के लिए [iOS / iPadOS PWA गाइड](installation/ios-pwa.md) देखें।
 
-Android रैपर APK के ज़रिए मैनेज किया गया Termux सर्वर खोलते समय अपने-आप साइन इन करता है। निजी क्रेडेंशियल सिर्फ़ उस यूज़र को दिखता है जो उसी फ़ोन पर सर्वर को जान-बूझकर किसी दूसरे ब्राउज़र में खोलता है: `/android-login` खोलें, Termux में `cat ~/.marinara-engine/android-secret` चलाएँ और दिखी हुई वैल्यू पेस्ट करें। लोकल `mari` CLI लॉन्चर के मैनेज किए उसी सीक्रेट को अपने-आप पढ़ती है। मैन्युअल Termux इंस्टॉल में localhost और नेटवर्क एक्सेस के सामान्य नियम ही लागू रहते हैं।
+Android रैपर ऐप या ब्राउज़र में अपने आप लॉगिन कर देता है। लॉन्चर में **Open in browser** (ब्राउज़र में खोलें) चुनें और **Retry connection** (कनेक्शन फिर आज़माएँ) पर टैप करें। सर्वर बंद हो तो **Install / Start Marinara** इस्तेमाल करें। यह चुनाव याद रहता है। ऐप के अंदर **Settings > General > App Behavior > Open Android launcher (app or browser)** (सेटिंग → सामान्य → ऐप का व्यवहार → Android लॉन्चर खोलें (ऐप या ब्राउज़र)) से इस चुनाव पर वापस जा सकते हैं। अपने आप प्रमाणीकरण करके ब्राउज़र खोलने के लिए APK और Engine दोनों अपडेट करें। पुराने APK में `/android-login` पर मैन्युअल लॉगिन अब भी उपलब्ध है। लोकल `mari` CLI लॉन्चर से मैनेज होने वाला सीक्रेट अपने आप पढ़ लेती है। Termux में मैन्युअल इंस्टॉल पर localhost के सामान्य नियम बने रहते हैं।
 
 ## तीन चैट मोड कौन से हैं?
 

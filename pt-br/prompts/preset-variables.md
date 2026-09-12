@@ -18,7 +18,7 @@ O comportamento da variável depende das opções dela e de dois botões liga/de
 
 **Multi-Select.** Ative o botão liga/desliga **Multi-Select** (seleção múltipla) para que o usuário escolha mais de uma opção. Por padrão, os valores selecionados são unidos por um separador. O separador é um campo de texto curto, e o padrão é uma vírgula seguida de espaço. Por exemplo: as opções Romance, Fantasy e Action unidas por `, ` viram o texto "Romance, Fantasy, Action".
 
-**Random Pick.** Com o **Multi-Select** ativado, aparece o botão liga/desliga **Random Pick** (escolha aleatória). Com o **Random Pick** ativado, o aplicativo sorteia uma das opções selecionadas pelo usuário a cada geração. Isso ajuda a variar: o usuário monta um conjunto de opções, e cada resposta puxa uma delas.
+**Random Pick** (escolha aleatória). Para uma variável de seleção única, o Marinara pré-seleciona uma opção aleatória em cada chat novo. Você pode alterá-la antes de confirmar, e a escolha salva permanece fixa até ser editada. Com **Multi-Select** ativado, o aplicativo sorteia uma das opções selecionadas pelo usuário a cada geração. Isso ajuda a variar: o usuário monta um conjunto de opções, e cada resposta puxa uma delas.
 
 ## Como adicionar uma variável de preset
 
@@ -63,3 +63,5 @@ Se existir uma variável com exatamente esse nome, o marcador vira o valor escol
 
 - [Editor de presets e gerenciador de prompts](presets.md)
 - [Macros de prompt](macros.md)
+
+As variáveis de preset também são resolvidas nas saudações dos personagens, inclusive escolhas confirmadas depois que a saudação foi criada. A saudação original continua editável, com as macros intactas.
