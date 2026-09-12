@@ -10,7 +10,7 @@ const roleplayPanels = readSource("packages/client/src/components/chat/RoleplayH
 const chatHelp = readSource("packages/client/src/components/chat/ChatHelpOverlay.tsx");
 const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
 const branchSelector = readSource("packages/client/src/components/chat/ChatBranchSelector.tsx");
-const cardLibrary = readSource("packages/client/src/components/characters/CharacterLibraryView.tsx");
+const cardLibrary = readSource("packages/client/src/components/characters/CardLibraryPreview.tsx");
 const agentCatalog = readSource("packages/client/src/components/agents/AgentCatalogView.tsx");
 const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
 const inventoryPanel = readSource(
@@ -73,8 +73,13 @@ assert.match(
 );
 assert.match(
   roleplayHud,
-  /left: pos\.left, transform: pos\.centered \? "translateX\(-50%\)"/u,
-  "the mobile Agents menu must center from its rendered width",
+  /dropdownRef\.current\?\.offsetWidth[\s\S]*Math\.max\(8, Math\.round\(\(window\.innerWidth - dropdownWidth\) \/ 2\)\)/u,
+  "the mobile Agents menu must center from its rendered width with an eight-pixel viewport inset",
+);
+assert.match(
+  roleplayHud,
+  /style=\{\{ top: pos\.top, left: pos\.left \}\}/u,
+  "the Agents menu must leave transform to its entrance animation instead of overriding pixel centering",
 );
 assert.match(
   roleplayHud,

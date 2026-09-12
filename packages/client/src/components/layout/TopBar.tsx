@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { MOBILE_SHELL_MEDIA_QUERY, useUIStore } from "../../stores/ui.store";
+import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
 import { SpotifyMiniPlayer } from "../spotify/SpotifyMiniPlayer";
@@ -83,11 +83,7 @@ const TOPBAR_FORCE_HOVER_CLASS = "bg-[var(--accent)]";
 const TOPBAR_ACCENT_ICON_CLASS = "mari-topbar-accent-icon mari-accent-animated";
 const CHAT_TOPBAR_GRADIENT_ID = "mari-topbar-chats-gradient";
 
-function isMobileTopbarNavigation() {
-  return typeof window !== "undefined" && window.matchMedia(MOBILE_SHELL_MEDIA_QUERY).matches;
-}
-
-export function TopBar() {
+export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boolean }) {
   const localize = useLocalizedUiText();
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
@@ -117,7 +113,6 @@ export function TopBar() {
   const [spotifyDesktopViewport, setSpotifyDesktopViewport] = useState(false);
   const [spotifyUseFloatingFallback, setSpotifyUseFloatingFallback] = useState(false);
   const [hoveredTopbarKey, setHoveredTopbarKey] = useState<string | null>(null);
-  const [mobileTopbarNavigation, setMobileTopbarNavigation] = useState(isMobileTopbarNavigation);
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
   const musicDjInstalled = installedCapabilities.some(
     (capability) => capability.id === "spotify" && capability.status === "active",
@@ -160,9 +155,9 @@ export function TopBar() {
   const isTopbarHovered = (key: string) => hoveredTopbarKey === key;
 
   const prepareMobileTopbarNavigation = useCallback(() => {
-    if (!isMobileTopbarNavigation()) return;
+    if (!mobileTopbarNavigation) return;
     closeAllDetails();
-  }, [closeAllDetails]);
+  }, [closeAllDetails, mobileTopbarNavigation]);
 
   const handleSidebarClick = useCallback(() => {
     prepareMobileTopbarNavigation();
@@ -181,10 +176,10 @@ export function TopBar() {
     window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
     setActiveChatId(null);
     closeAllDetails();
-    if (!isMobileTopbarNavigation()) return;
+    if (!mobileTopbarNavigation) return;
     setSidebarOpen(false);
     closeRightPanel();
-  }, [closeAllDetails, closeRightPanel, setActiveChatId, setSidebarOpen]);
+  }, [closeAllDetails, closeRightPanel, mobileTopbarNavigation, setActiveChatId, setSidebarOpen]);
 
   const handleTopbarPointerOver = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType !== "mouse") return;
@@ -198,14 +193,6 @@ export function TopBar() {
   };
 
   const clearTopbarHover = useCallback(() => setHoveredTopbarKey(null), []);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
-    const syncMobileNavigation = () => setMobileTopbarNavigation(mediaQuery.matches);
-    syncMobileNavigation();
-    mediaQuery.addEventListener("change", syncMobileNavigation);
-    return () => mediaQuery.removeEventListener("change", syncMobileNavigation);
-  }, []);
 
   useEffect(() => {
     const header = headerRef.current;
@@ -267,16 +254,17 @@ export function TopBar() {
     };
   }, [clearTopbarHover]);
 
+  const chatsActive = sidebarOpen && (!mobileTopbarNavigation || !rightPanelOpen);
   const chatsButton = (
     <button
       key="chats"
       onClick={handleSidebarClick}
-      aria-pressed={sidebarOpen}
+      aria-pressed={chatsActive}
       data-tour="sidebar-toggle"
       data-topbar-hover-key="chats"
       className={cn(
         TOPBAR_BUTTON_CLASS,
-        sidebarOpen
+        chatsActive
           ? cn(TOPBAR_ACTIVE_BUTTON_CLASS, !mobileTopbarNavigation && "mari-topbar-chat-gradient-icon")
           : cn(
               "text-[var(--muted-foreground)]",
@@ -297,7 +285,7 @@ export function TopBar() {
           </linearGradient>
         </defs>
       </MessageSquareText>
-      {sidebarOpen && (
+      {chatsActive && (
         <span className="mari-topbar-chat-gradient-underline absolute -bottom-0.5 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full" />
       )}
     </button>

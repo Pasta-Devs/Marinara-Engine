@@ -17,6 +17,11 @@ export interface ProviderDefinition {
 
 export const LOCAL_AUTH_PROVIDERS = ["openai_chatgpt", "claude_subscription", "grok_subscription"] as const;
 
+/** These subscription transports send text only; they ignore native tool schemas. */
+export function supportsNativeToolCalls(provider: string | null | undefined): boolean {
+  return !!provider && provider !== "claude_subscription" && provider !== "grok_subscription";
+}
+
 export function isLocalAuthProvider(provider: string | null | undefined): boolean {
   return LOCAL_AUTH_PROVIDERS.includes(provider as (typeof LOCAL_AUTH_PROVIDERS)[number]);
 }

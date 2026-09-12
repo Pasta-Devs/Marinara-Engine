@@ -10,9 +10,59 @@ export const managedGenerationParameterValueSchema = z.object({
 
 export const promptRoleSchema = z.enum(["system", "user", "assistant"]);
 
+const RESERVED_REQUEST_HEADERS = new Set([
+  "authorization",
+  "proxy-authorization",
+  "cookie",
+  "host",
+  "content-length",
+  "transfer-encoding",
+  "connection",
+  "upgrade",
+  "expect",
+  "content-encoding",
+  "content-type",
+  "te",
+  "trailer",
+  "x-api-key",
+  "api-key",
+  "x-goog-api-key",
+  "__proto__",
+  "constructor",
+  "prototype",
+  "anthropic-version",
+  "accept-encoding",
+]);
+
+/** Connection-only, non-secret API options; authentication and transport stay host-managed. */
+export const customRequestHeadersSchema = z
+  .record(
+    z
+      .string()
+      .max(2048)
+      .regex(/^[\t\x20-\x7e\x80-\xff]*$/),
+  )
+  .superRefine((headers, ctx) => {
+    if (Object.keys(headers).length > 32)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "At most 32 custom headers are allowed." });
+    const seen = new Set<string>();
+    for (const name of Object.keys(headers)) {
+      const lower = name.toLowerCase();
+      if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$/.test(name) || RESERVED_REQUEST_HEADERS.has(lower) || seen.has(lower)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [name],
+          message: "Invalid, duplicate, or host-managed header name.",
+        });
+      }
+      seen.add(lower);
+    }
+  });
+
 export const injectionPositionSchema = z.enum(["ordered", "depth"]);
 
 export const wrapFormatSchema = z.enum(["xml", "markdown", "none"]);
+export const scopedRegexModeSchema = z.enum(["disabled", "exclusive", "chat"]);
 
 export const markerTypeSchema = z.enum([
   "character",
@@ -64,6 +114,7 @@ export const generationParametersSchema = z.object({
     .max(20)
     .default([]),
   customParameters: z.record(z.unknown()).default({}),
+  customHeaders: customRequestHeadersSchema.optional(),
   managedCustomParameters: z.record(managedGenerationParameterValueSchema).default({}),
   enabledParameters: z
     .object({
@@ -145,6 +196,7 @@ export const createPromptPresetSchema = z.object({
   variableValues: z.record(z.string()).default({}),
   parameters: generationParametersSchema.default({}),
   wrapFormat: wrapFormatSchema.default("xml"),
+  scopedRegexMode: scopedRegexModeSchema.default("disabled"),
   isDefault: z.boolean().default(false),
   author: z.string().default(""),
 });
@@ -161,6 +213,7 @@ export const updatePromptPresetSchema = z.object({
   variableValues: z.record(z.string()).optional(),
   parameters: generationParametersSchema.partial().optional(),
   wrapFormat: wrapFormatSchema.optional(),
+  scopedRegexMode: scopedRegexModeSchema.optional(),
   author: z.string().optional(),
   defaultChoices: z.record(z.union([z.string(), z.array(z.string())])).optional(),
 });

@@ -115,6 +115,8 @@ When you enable it, the count starts at 50. You can set any number from 1 to 999
 
 **Exclude Past Reasoning** is on by default. It keeps saved thinking and reasoning from earlier turns out of new prompts. That reasoning is not sent to the model again.
 
+Turning it off reveals **Past reasoning blocks**. The default is `1`, keeping the most recent available assistant reasoning block; `0` includes all available blocks. The choice is saved for this chat and stays saved when you turn exclusion back on. This does not delete stored thoughts. Only reasoning supported by the current connection can be replayed.
+
 Leave it on unless you have a clear reason to feed old reasoning back into the model.
 
 ## Image Captioning

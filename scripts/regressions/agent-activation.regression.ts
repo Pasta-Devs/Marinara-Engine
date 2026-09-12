@@ -43,8 +43,10 @@ assert.match(
   /const activatedTextRewriteRunAgents = textRewriteRunAgents\.filter\(\s*\(agent\) => !inactivePostProcessingAgentIds\.has\(agent\.id\),\s*\);/u,
   "Text-rewrite agents must honor the same completed-response activation check",
 );
+const postGenerationStart = generateRouteSource.indexOf("if (hasPostWork &&");
+assert.ok(postGenerationStart >= 0, "The post-generation entrypoint must exist");
 const postGenerationSource = generateRouteSource.slice(
-  generateRouteSource.indexOf("if (hasPostWork && completedResponse"),
+  postGenerationStart,
   generateRouteSource.indexOf("// ── Text rewrite/editing agents"),
 );
 assert.match(postGenerationSource, /content: completedResponse,/u, "Lorebook triggers must receive the completed response");
@@ -65,8 +67,8 @@ assert.match(
 );
 assert.match(
   generateRouteSource,
-  /const hasPostWork =\s*!recoveredAlreadyAppliedOwnerTurn\s*&&\s*\(hasPostProcessingAgents \|\| parallelResults\.length > 0 \|\| holdForTextRewrite\);/u,
-  "Held responses must keep the outer post-work path reachable when every custom rewrite agent is inactive",
+  /const hasPostWork =\s*!recoveredAlreadyAppliedOwnerTurn\s*&&\s*\(hasPostProcessingAgents\s*\|\|\s*parallelResults\.length > 0\s*\|\|\s*holdForTextRewrite\s*\|\|\s*roleplayMediaRequests\.length > 0\);/u,
+  "Held responses and explicit media commands must keep post-work reachable when every custom rewrite agent is inactive",
 );
 assert.match(
   generateRouteSource,

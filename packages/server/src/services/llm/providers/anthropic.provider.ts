@@ -18,7 +18,8 @@ import {
   isClaudeAdaptiveOnlyNoSamplingModel,
   shouldSuppressUnknownModelParameters,
 } from "@marinara-engine/shared";
-import { logger } from "../../../lib/logger.js";
+import { logger, logDebugOverride } from "../../../lib/logger.js";
+import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 
 const DEFAULT_CACHING_AT_DEPTH = 5;
 
@@ -359,6 +360,12 @@ export class AnthropicProvider extends BaseLLMProvider {
     const maxTokens = this.applyMaxTokensCap(contextFit.maxTokens ?? configuredMaxTokens);
 
     const url = `${this.baseUrl}/messages`;
+
+    // Stream the tools round whenever the caller wired a token sink and did not opt out. The
+    // gate is deliberately narrower than the base `options.stream ?? !!options.onToken`
+    // formula: a caller that sets `stream: true` without a sink (the agent tool loop) keeps
+    // the buffered path it uses today.
+    const useStream = !!options.onToken && options.stream !== false;
     const systemMessages = messages.filter((m) => m.role === "system" && m.content?.trim());
     const enableCaching = options.enableCaching ?? false;
     const cacheControl = buildAnthropicCacheControl(options);
@@ -383,7 +390,7 @@ export class AnthropicProvider extends BaseLLMProvider {
       ...(systemField !== undefined ? { system: systemField } : {}),
       messages: applyCacheControlToPayloadMessage(formattedMessages, cacheControlMessageIndex, cacheControl),
       tools: formatAnthropicTools(options.tools),
-      stream: false,
+      stream: useStream,
       ...(this.shouldSendParameter(options, "temperature") && options.temperature !== undefined
         ? { temperature: clampAnthropicTemperature(options.temperature) }
         : {}),
@@ -445,15 +452,21 @@ export class AnthropicProvider extends BaseLLMProvider {
       );
     }
 
+    logDebugOverride(
+      options.debugMode === true || isDebugAgentsEnabled(),
+      "[debug/anthropic] final tool request:\n%j",
+      body,
+    );
     const response = await llmFetch(url, {
       method: "POST",
       headers: {
+        ...this.customRequestHeaders,
         "Content-Type": "application/json",
         ...(this.apiKey.trim() ? { "x-api-key": this.apiKey.trim() } : {}),
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify(body),
-      bufferResponse: true,
+      bufferResponse: !useStream,
       ...(options.signal ? { signal: options.signal } : {}),
     });
 
@@ -465,34 +478,191 @@ export class AnthropicProvider extends BaseLLMProvider {
       );
     }
 
-    const json = (await response.json()) as AnthropicMessageResponse;
-    const blocks = Array.isArray(json.content) ? json.content : [];
-    const text = blocks
-      .filter((block) => block.type === "text" && typeof block.text === "string")
-      .map((block) => block.text)
-      .join("");
-    for (const block of blocks) {
-      if (block.type === "thinking" && typeof block.thinking === "string") options.onThinking?.(block.thinking);
-    }
-    if (text && options.onToken) await options.onToken(text);
+    if (!useStream) {
+      const json = (await response.json()) as AnthropicMessageResponse;
+      const blocks = Array.isArray(json.content) ? json.content : [];
+      const text = blocks
+        .filter((block) => block.type === "text" && typeof block.text === "string")
+        .map((block) => block.text)
+        .join("");
+      for (const block of blocks) {
+        if (block.type === "thinking" && typeof block.thinking === "string") options.onThinking?.(block.thinking);
+      }
+      if (text && options.onToken) await options.onToken(text);
 
-    const toolCalls = blocks
-      .map((block) => anthropicToolCallFromBlock(block))
-      .filter((call): call is LLMToolCall => call !== null);
+      const toolCalls = blocks
+        .map((block) => anthropicToolCallFromBlock(block))
+        .filter((call): call is LLMToolCall => call !== null);
+      return {
+        content: text || null,
+        toolCalls,
+        finishReason: toolCalls.length > 0 ? "tool_calls" : normalizeAnthropicFinishReason(json.stop_reason),
+        usage:
+          typeof json.usage?.input_tokens === "number" && typeof json.usage.output_tokens === "number"
+            ? {
+                promptTokens: json.usage.input_tokens,
+                completionTokens: json.usage.output_tokens,
+                totalTokens: json.usage.input_tokens + json.usage.output_tokens,
+                ...(json.usage.cache_read_input_tokens
+                  ? { cachedPromptTokens: json.usage.cache_read_input_tokens }
+                  : {}),
+                ...(json.usage.cache_creation_input_tokens
+                  ? { cacheWritePromptTokens: json.usage.cache_creation_input_tokens }
+                  : {}),
+              }
+            : undefined,
+      };
+    }
+
+    // ── SSE streaming path (tools attached) ──
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("No response body");
+
+    const onAbort = () => reader.cancel().catch(() => {});
+    if (options.signal) {
+      if (options.signal.aborted) {
+        await reader.cancel().catch(() => {});
+        return { content: null, toolCalls: [], finishReason: "abort", usage: undefined };
+      }
+      options.signal.addEventListener("abort", onAbort, { once: true });
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let currentBlockType = "text"; // track whether we're in a thinking or text block
+    let content = "";
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let cachedTokens = 0;
+    let cacheWriteTokens = 0;
+    let finishReason = "stop";
+    let sawStopReason = false;
+    let finished = false;
+
+    // tool_use blocks are keyed by their content-block index, not by a single current-block
+    // slot: parallel tool calls are legal (the engine never sets disable_parallel_tool_use),
+    // so two blocks can be open at once and their input_json_delta frames interleave.
+    const toolBlocks = new Map<number, { id: string; name: string; partialJson: string }>();
+    let lastToolBlockIndex = -1;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+        const lines = buffer.split(/\r?\n/);
+        buffer = done ? "" : (lines.pop() ?? "");
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const data = trimmed.slice(5).trimStart();
+
+          let event: {
+            type: string;
+            error?: unknown;
+            index?: number;
+            message?: { usage?: AnthropicUsage };
+            content_block?: { type: string; id?: string; name?: string };
+            delta?: {
+              type: string;
+              text?: string;
+              thinking?: string;
+              partial_json?: string;
+              stop_reason?: string | null;
+            };
+            usage?: { output_tokens?: number };
+          };
+          try {
+            event = JSON.parse(data) as typeof event;
+          } catch {
+            // Skip malformed lines
+            continue;
+          }
+
+          if (event.type === "error") {
+            throw new Error(`Anthropic stream error: ${formatAnthropicStreamError(event.error)}`);
+          }
+          if (event.type === "message_start" && event.message?.usage) {
+            inputTokens = event.message.usage.input_tokens ?? 0;
+            outputTokens = event.message.usage.output_tokens ?? 0;
+            cachedTokens = event.message.usage.cache_read_input_tokens ?? 0;
+            cacheWriteTokens = event.message.usage.cache_creation_input_tokens ?? 0;
+          }
+          if (event.type === "message_delta" && event.usage?.output_tokens != null) {
+            outputTokens = event.usage.output_tokens;
+          }
+          if (event.type === "message_delta" && typeof event.delta?.stop_reason === "string") {
+            finishReason = normalizeAnthropicFinishReason(event.delta.stop_reason);
+            sawStopReason = true;
+          }
+          if (event.type === "content_block_start" && event.content_block) {
+            currentBlockType = event.content_block.type;
+            if (event.content_block.type === "tool_use") {
+              lastToolBlockIndex = typeof event.index === "number" ? event.index : toolBlocks.size;
+              toolBlocks.set(lastToolBlockIndex, {
+                id: typeof event.content_block.id === "string" ? event.content_block.id : "",
+                name: typeof event.content_block.name === "string" ? event.content_block.name : "",
+                partialJson: "",
+              });
+            }
+          }
+          if (event.type === "content_block_delta") {
+            if (event.delta?.type === "input_json_delta") {
+              const index = typeof event.index === "number" ? event.index : lastToolBlockIndex;
+              const block = toolBlocks.get(index);
+              if (block && typeof event.delta.partial_json === "string") block.partialJson += event.delta.partial_json;
+            } else if (currentBlockType === "thinking" && event.delta?.thinking) {
+              options.onThinking?.(event.delta.thinking);
+            } else if (event.delta?.text) {
+              content += event.delta.text;
+              if (options.onToken) await options.onToken(event.delta.text);
+            }
+          }
+          if (event.type === "message_stop") {
+            finished = true;
+            break;
+          }
+        }
+        if (done || finished) break;
+      }
+    } finally {
+      if (options.signal) options.signal.removeEventListener("abort", onAbort);
+      // Release the upstream socket on early completion, provider errors, and
+      // rejected token callbacks, not only when the body reaches its end.
+      await reader.cancel().catch(() => {});
+    }
+
+    const toolCalls: LLMToolCall[] = [];
+    for (const index of [...toolBlocks.keys()].sort((a, b) => a - b)) {
+      const block = toolBlocks.get(index)!;
+      const call = anthropicToolCallFromBlock({
+        type: "tool_use",
+        id: block.id,
+        name: block.name,
+        // An accumulated empty string means the model opened the block and sent no
+        // arguments; parseToolArguments folds that to `{}` the same as invalid JSON.
+        input: parseToolArguments(block.partialJson),
+      });
+      if (call) toolCalls.push(call);
+    }
+
+    // A tools round may carry only tool_use blocks and no prose.
+    if (!content && !sawStopReason && toolCalls.length === 0 && !options.signal?.aborted) {
+      throw new Error(`Anthropic stream completed without text (finish reason: ${finishReason})`);
+    }
+
     return {
-      content: text || null,
+      content: content || null,
       toolCalls,
-      finishReason: toolCalls.length > 0 ? "tool_calls" : normalizeAnthropicFinishReason(json.stop_reason),
+      finishReason: options.signal?.aborted ? "abort" : toolCalls.length > 0 ? "tool_calls" : finishReason,
       usage:
-        typeof json.usage?.input_tokens === "number" && typeof json.usage.output_tokens === "number"
+        inputTokens || outputTokens || cachedTokens || cacheWriteTokens
           ? {
-              promptTokens: json.usage.input_tokens,
-              completionTokens: json.usage.output_tokens,
-              totalTokens: json.usage.input_tokens + json.usage.output_tokens,
-              ...(json.usage.cache_read_input_tokens ? { cachedPromptTokens: json.usage.cache_read_input_tokens } : {}),
-              ...(json.usage.cache_creation_input_tokens
-                ? { cacheWritePromptTokens: json.usage.cache_creation_input_tokens }
-                : {}),
+              promptTokens: inputTokens,
+              completionTokens: outputTokens,
+              totalTokens: inputTokens + outputTokens,
+              ...(cachedTokens ? { cachedPromptTokens: cachedTokens } : {}),
+              ...(cacheWriteTokens ? { cacheWritePromptTokens: cacheWriteTokens } : {}),
             }
           : undefined,
     };
@@ -638,6 +808,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     const response = await llmFetch(url, {
       method: "POST",
       headers: {
+        ...this.customRequestHeaders,
         "Content-Type": "application/json",
         ...(this.apiKey.trim() ? { "x-api-key": this.apiKey.trim() } : {}),
         "anthropic-version": "2023-06-01",

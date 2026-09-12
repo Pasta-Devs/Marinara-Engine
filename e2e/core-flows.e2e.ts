@@ -12,6 +12,9 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
+import { mockUILanguagePacks } from "./ui-language-fixtures.js";
+import { seedUIState } from "./ui-state-fixture.js";
+import { UI_PERSISTENCE } from "../packages/client/src/lib/ui-persistence.js";
 
 const TRANSPARENT_GIF_BASE64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const TRANSPARENT_PNG_BASE64 =
@@ -45,23 +48,22 @@ function collectUnexpectedErrors(page: Page) {
 }
 
 async function prepareFreshClient(page: Page) {
+  await seedUIState(
+    page,
+    {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: false,
+      sidebarOpen: false,
+      // Keep unrelated color assertions stable; accent-pulse.e2e.ts covers the device defaults.
+      appAccentPulseMode: false,
+      chatHelpSeenModes: ["conversation", "roleplay", "game"],
+    },
+    "if-missing",
+  );
   await page.addInitScript((appVersion) => {
     if (sessionStorage.getItem("marinara:e2e:show-whats-new") !== "true") {
       localStorage.setItem("marinara:whats-new:seen-version", appVersion);
     }
-    if (localStorage.getItem("marinara-engine-ui")) return;
-    localStorage.setItem(
-      "marinara-engine-ui",
-      JSON.stringify({
-        state: {
-          hasCompletedOnboarding: true,
-          rightPanelOpen: false,
-          sidebarOpen: false,
-          chatHelpSeenModes: ["conversation", "roleplay", "game"],
-        },
-        version: 65,
-      }),
-    );
   }, APP_VERSION);
 }
 
@@ -116,23 +118,7 @@ async function installMockVisualViewport(page: Page) {
 }
 
 async function prepareOnboardingReplay(page: Page) {
-  await page.addInitScript(() => {
-    const storageKey = "marinara-engine-ui";
-    let persisted: { state?: Record<string, unknown>; version?: number } = {};
-    try {
-      persisted = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as typeof persisted;
-    } catch {
-      // Replace malformed browser-local state with the minimal replay fixture.
-    }
-    persisted.state = {
-      ...(persisted.state ?? {}),
-      hasCompletedOnboarding: false,
-      rightPanelOpen: false,
-      sidebarOpen: false,
-    };
-    persisted.version ??= 65;
-    localStorage.setItem(storageKey, JSON.stringify(persisted));
-  });
+  await seedUIState(page, { hasCompletedOnboarding: false, rightPanelOpen: false, sidebarOpen: false }, "merge");
 }
 
 async function setAppAccentColor(page: Page, color: string) {
@@ -202,23 +188,13 @@ async function readScopedCssVariableColor(scope: Locator, variableName: string) 
 async function openEditorSection(editor: Locator, label: string) {
   const compactMenuButton = editor.getByRole("button", { name: "Editor sections" });
   const navigation = editor.getByRole("navigation", { name: "Editor sections" });
-  const desktopRail = editor.locator(".mari-editor-tab-rail");
-  await expect
-    .poll(
-      async () =>
-        (await compactMenuButton.isVisible()) || (await navigation.isVisible()) || (await desktopRail.isVisible()),
-    )
-    .toBe(true);
+  await expect.poll(async () => (await compactMenuButton.isVisible()) || (await navigation.isVisible())).toBe(true);
   if (await compactMenuButton.isVisible()) {
     await compactMenuButton.click();
     await editor
       .getByRole("menu", { name: "Editor sections" })
       .getByRole("menuitemradio", { name: label, exact: true })
       .click();
-    return;
-  }
-  if (await desktopRail.isVisible()) {
-    await desktopRail.getByRole("button", { name: label, exact: true }).click();
     return;
   }
   await navigation.getByRole("button", { name: label, exact: true }).click();
@@ -524,6 +500,10 @@ test("Appearance distinguishes the square avatar-shape preview from the circular
   await page.getByRole("tab", { name: "Appearance" }).click();
 
   const circle = page.locator('[data-avatar-shape-preview="circle"]');
+  await page
+    .getByRole("group", { name: "Appearance by chat mode" })
+    .getByRole("button", { name: "Conversation", exact: true })
+    .click();
   const square = page.locator('[data-avatar-shape-preview="square"]');
   await expect(circle).toBeVisible();
   await expect(square).toBeVisible();
@@ -542,6 +522,10 @@ test("Art scale sliders stay interactive at the largest display size", async ({ 
   await page.getByRole("tab", { name: "Appearance" }).click();
 
   const exerciseSlider = async (controlId: string) => {
+    await page
+      .getByRole("group", { name: "Appearance by chat mode" })
+      .getByRole("button", { name: controlId.includes("roleplay") ? "Roleplay" : "Game", exact: true })
+      .click();
     const control = page.locator(`#${controlId}`);
     const slider = control.locator('input[type="range"]');
     await control.scrollIntoViewIfNeeded();
@@ -582,6 +566,10 @@ test("Art scale sliders stay interactive at the largest display size", async ({ 
     "settings-control-game-full-body-sprite-scale",
   ];
   for (const controlId of controlIds) await exerciseSlider(controlId);
+  await page
+    .getByRole("group", { name: "Appearance by chat mode" })
+    .getByRole("button", { name: "App", exact: true })
+    .click();
   await page.locator("#settings-control-display-size select").selectOption("22");
   for (const controlId of controlIds) await exerciseSlider(controlId);
 });
@@ -660,6 +648,7 @@ test("gradient Accent Pulse keeps animating while Appearance settings are open",
 });
 
 test("Android status bar setting reads and updates the native bridge", async ({ page }) => {
+  await mockUILanguagePacks(page);
   await page.addInitScript(() => {
     const nativeWindow = window as Window & {
       MarinaraAndroid?: {
@@ -1769,6 +1758,12 @@ test("message deletion uses unified chroma controls and selection states", async
     await expect(dialog.getByRole("button", { name: "Delete more" })).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Cancel" })).toBeVisible();
 
+    // Compare idle theme colors, not pointer hover or WebKit's retained transition serialization.
+    await page.mouse.move(0, 0);
+    await dialogActions.evaluateAll((buttons) => {
+      for (const button of buttons) (button as HTMLElement).style.transition = "none";
+    });
+
     const readChromeStyles = (locator: typeof dialogActions) =>
       locator.evaluateAll((buttons) =>
         buttons.map((button) => {
@@ -2087,79 +2082,130 @@ test("mobile Roleplay context and edit controls keep their chrome and space", as
   }
 });
 
-test("mobile Roleplay Peek prompt keeps its tapped action visible and labels prompt totals clearly", async ({
-  page,
-}, testInfo) => {
-  test.skip(!testInfo.project.name.includes("mobile"), "The sticky action state is mobile-only.");
+for (const layout of ["Roleplay", "Classic Conversation", "Bubble Conversation"] as const) {
+  for (const theme of ["dark", "light"] as const) {
+    test(`mobile ${layout} Peek prompt keeps its tapped action visible and labels prompt totals clearly (${theme})`, async ({
+      page,
+    }, testInfo) => {
+      test.skip(!testInfo.project.name.includes("mobile"), "The sticky action state is mobile-only.");
 
-  let chatId: string | null = null;
-  try {
-    const chatResponse = await page.request.post("/api/chats", {
-      data: { name: "Mobile Roleplay Peek Prompt Smoke", mode: "roleplay", characterIds: [] },
+      let chatId: string | null = null;
+      let characterId: string | null = null;
+      try {
+        const characterResponse = await page.request.post("/api/characters", {
+          data: { data: { name: "Action fixture" } },
+        });
+        expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
+        characterId = ((await characterResponse.json()) as { id: string }).id;
+        const chatResponse = await page.request.post("/api/chats", {
+          data: {
+            name: "Mobile message action proof",
+            mode: layout === "Roleplay" ? "roleplay" : "conversation",
+            characterIds: [characterId],
+          },
+        });
+        expect(chatResponse.ok(), await chatResponse.text()).toBeTruthy();
+        const chat = (await chatResponse.json()) as { id: string };
+        chatId = chat.id;
+        const otherResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+          data: { role: "user", content: "A different message." },
+        });
+        expect(otherResponse.ok(), await otherResponse.text()).toBeTruthy();
+        const otherMessage = (await otherResponse.json()) as { id: string };
+        const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+          data: {
+            role: "assistant",
+            characterId,
+            content: "A mobile prompt action remains within reach.",
+            extra: {
+              cachedPrompt: [
+                { role: "system", content: "Stay in character." },
+                { role: "user", content: "Continue the scene." },
+              ],
+            },
+          },
+        });
+        expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
+        const message = (await messageResponse.json()) as { id: string };
+
+        await prepareFreshClient(page);
+        await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+        await page.goto("/");
+        await page.evaluate(
+          async ({ layout, theme }) => {
+            const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+              useUIStore: {
+                getState: () => {
+                  setChatChromeTextColor: (value: string) => void;
+                  setTheme: (value: "dark" | "light") => void;
+                  setConversationMessageStyle: (value: "classic" | "bubble") => void;
+                };
+              };
+            };
+            const ui = useUIStore.getState();
+            ui.setTheme(theme);
+            ui.setConversationMessageStyle(layout === "Bubble Conversation" ? "bubble" : "classic");
+            ui.setChatChromeTextColor(theme === "dark" ? "#14b8a6" : "#17645c");
+          },
+          { layout, theme },
+        );
+
+        const messageRow = page.locator(`[data-message-id="${message.id}"]`);
+        await messageRow.scrollIntoViewIfNeeded();
+        await messageRow.dispatchEvent("click");
+        const peekPrompt = messageRow.getByRole("button", { name: "Peek prompt", exact: true });
+        const copy = messageRow.getByRole("button", { name: "Copy", exact: true });
+        await expect(peekPrompt).toBeVisible();
+        await expect(copy).toBeVisible();
+        const actionColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
+        await expect(peekPrompt).toHaveCSS("color", actionColor);
+
+        await peekPrompt.tap();
+        await expect(page.getByRole("heading", { name: "Assembled Prompt" })).toBeVisible();
+        await expect(page.getByText(/^2 sections · ~\d+ tokens$/u)).toBeVisible();
+        await expect(page.getByText(/&middot;/u)).toHaveCount(0);
+        await expect(peekPrompt).toBeAttached();
+        await expect(peekPrompt).toHaveCSS("color", actionColor);
+        await expect(copy).toHaveCSS("color", actionColor);
+
+        await testInfo.attach(`mobile-roleplay-peek-prompt-${testInfo.project.name}.png`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: "image/png",
+        });
+        await page.getByRole("button", { name: "Close assembled prompt", exact: true }).tap();
+        await expect(page.getByRole("heading", { name: "Assembled Prompt" })).toHaveCount(0);
+        await expect(messageRow.locator(".mari-message-actions")).toHaveCSS("opacity", "1");
+        await expect(peekPrompt.locator("svg")).toBeVisible();
+        await expect(peekPrompt).toHaveCSS("color", actionColor);
+        // A touch action must not create an animated transform layer underneath
+        // the dialog: iOS can leave that SVG layer unpainted after dismissal.
+        await expect(peekPrompt).not.toHaveCSS("transition-property", "all");
+        await peekPrompt.tap();
+        await expect(page.getByRole("heading", { name: "Assembled Prompt" })).toBeVisible();
+        await page.getByRole("button", { name: "Close assembled prompt", exact: true }).tap();
+        await expect(page.getByRole("heading", { name: "Assembled Prompt" })).toHaveCount(0);
+        await expect(messageRow.locator(".mari-message-actions")).toHaveCSS("opacity", "1");
+
+        await messageRow.getByRole("button", { name: "Delete", exact: true }).tap();
+        const deleteDialog = page.getByRole("dialog", { name: "Delete message", exact: true });
+        await expect(deleteDialog).toBeVisible();
+        await deleteDialog.getByRole("button", { name: "Cancel", exact: true }).tap();
+        await expect(deleteDialog).toBeHidden();
+        await expect(messageRow.locator(".mari-message-actions")).toHaveCSS("opacity", "1");
+        await expect(peekPrompt.locator("svg")).toBeVisible();
+        await page.screenshot({ path: testInfo.outputPath("message-actions-after-dialogs.png") });
+
+        const otherMessageRow = page.locator(`[data-message-id="${otherMessage.id}"]`);
+        await otherMessageRow.getByText("A different message.", { exact: true }).tap();
+        await expect(messageRow.locator(".mari-message-actions")).toHaveCSS("opacity", "0");
+        await expect(otherMessageRow.locator(".mari-message-actions")).toHaveCSS("opacity", "1");
+      } finally {
+        if (chatId) await bestEffortDelete(page.request, `/api/chats/${chatId}?force=true`);
+        if (characterId) await bestEffortDelete(page.request, `/api/characters/${characterId}`);
+      }
     });
-    expect(chatResponse.ok(), await chatResponse.text()).toBeTruthy();
-    const chat = (await chatResponse.json()) as { id: string };
-    chatId = chat.id;
-    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
-      data: {
-        role: "assistant",
-        content: "A mobile prompt action remains within reach.",
-        extra: {
-          cachedPrompt: [
-            { role: "system", content: "Stay in character." },
-            { role: "user", content: "Continue the scene." },
-          ],
-        },
-      },
-    });
-    expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
-    const message = (await messageResponse.json()) as { id: string };
-
-    await prepareFreshClient(page);
-    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
-    await page.goto("/");
-    await page.evaluate(async () => {
-      const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
-        useUIStore: { getState: () => { setChatChromeTextColor: (value: string) => void } };
-      };
-      useUIStore.getState().setChatChromeTextColor("#14b8a6");
-    });
-
-    const messageRow = page.locator(`[data-message-id="${message.id}"]`);
-    await messageRow.scrollIntoViewIfNeeded();
-    await messageRow.dispatchEvent("click");
-    const peekPrompt = messageRow.getByRole("button", { name: "Peek prompt", exact: true });
-    const copy = messageRow.getByRole("button", { name: "Copy", exact: true });
-    await expect(peekPrompt).toBeVisible();
-    await expect(copy).toBeVisible();
-    const actionColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
-    await expect(peekPrompt).toHaveCSS("color", actionColor);
-
-    await peekPrompt.tap();
-    await expect(page.getByRole("heading", { name: "Assembled Prompt" })).toBeVisible();
-    await expect(page.getByText(/^2 sections · ~\d+ tokens$/u)).toBeVisible();
-    await expect(page.getByText(/&middot;/u)).toHaveCount(0);
-    await expect(peekPrompt).toBeAttached();
-    await expect(peekPrompt).toHaveCSS("color", actionColor);
-    await expect(copy).toHaveCSS("color", actionColor);
-
-    await testInfo.attach(`mobile-roleplay-peek-prompt-${testInfo.project.name}.png`, {
-      body: await page.screenshot({ fullPage: true }),
-      contentType: "image/png",
-    });
-    await page.getByRole("button", { name: "Close assembled prompt", exact: true }).tap();
-    await expect(page.getByRole("heading", { name: "Assembled Prompt" })).toHaveCount(0);
-    await expect(peekPrompt.locator("svg")).toBeVisible();
-    await expect(peekPrompt).toHaveCSS("color", actionColor);
-    // A touch action must not create an animated transform layer underneath
-    // the dialog: iOS can leave that SVG layer unpainted after dismissal.
-    await expect(peekPrompt).not.toHaveCSS("transition-property", "all");
-    await peekPrompt.tap();
-    await expect(page.getByRole("heading", { name: "Assembled Prompt" })).toBeVisible();
-  } finally {
-    if (chatId) await bestEffortDelete(page.request, `/api/chats/${chatId}?force=true`);
   }
-});
+}
 
 test("mobile Conversation editing exposes the final line before text changes", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "The mobile message-editor scroll buffer is mobile-only.");
@@ -2421,11 +2467,15 @@ test("Conversation message actions follow their messages on desktop and mobile",
           const firstButton = actionElement?.querySelector<HTMLElement>("button");
           if (!contentElement || !actionElement || !firstButton) return null;
           const contentBox = contentElement.getBoundingClientRect();
+          const swipeBox = element.querySelector<HTMLElement>(":scope > .mari-message-swipes")?.getBoundingClientRect();
           const actionBox = actionElement.getBoundingClientRect();
           const buttonBox = firstButton.getBoundingClientRect();
           return {
             position: getComputedStyle(actionElement).position,
-            verticalGap: actionBox.top - contentBox.bottom,
+            // Swipes now form their own footer row. Check the actual gaps
+            // around it, without counting its touch targets as empty space.
+            swipeGap: swipeBox ? swipeBox.top - contentBox.bottom : 0,
+            verticalGap: actionBox.top - (swipeBox?.bottom ?? contentBox.bottom),
             leftOffset: Math.abs(buttonBox.left - contentBox.left),
             actionBottom: actionBox.bottom,
             rowBottom: element.getBoundingClientRect().bottom,
@@ -2433,6 +2483,8 @@ test("Conversation message actions follow their messages on desktop and mobile",
         });
         expect(metrics).not.toBeNull();
         expect(metrics!.position).toBe("static");
+        expect(metrics!.swipeGap).toBeGreaterThanOrEqual(0);
+        expect(metrics!.swipeGap).toBeLessThanOrEqual(5);
         expect(metrics!.verticalGap).toBeGreaterThanOrEqual(0);
         expect(metrics!.verticalGap).toBeLessThanOrEqual(5);
         expect(metrics!.leftOffset).toBeLessThanOrEqual(6);
@@ -2577,18 +2629,13 @@ test("bulk chat deletion uses the shared primary accent control", async ({ page 
   const chats = (await Promise.all(chatResponses.map((response) => response.json()))) as Array<{ id: string }>;
 
   try {
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: true,
+      appAccentPulseMode: false,
+    });
     await page.addInitScript((activeChatId) => {
       localStorage.setItem("marinara-active-chat-id", activeChatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            sidebarOpen: true,
-          },
-          version: 75,
-        }),
-      );
     }, chats[0]!.id);
     await page.goto("/");
     await setAppAccentColor(page, "#14b8a6");
@@ -2655,17 +2702,10 @@ test("empty chat hover previews inherit the configured accent", async ({ page },
   const chat = (await response.json()) as { id: string };
 
   try {
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            sidebarOpen: true,
-          },
-          version: 75,
-        }),
-      );
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: true,
+      appAccentPulseMode: false,
     });
     await page.goto("/");
     await setAppAccentColor(page, "#14b8a6");
@@ -3425,7 +3465,7 @@ test("Character favorite tags and stars inherit the configured accent color", as
     await expect(favoriteToggle).toHaveAttribute("data-favorite", "true");
     await expect(favoriteToggle).toHaveCSS("color", accentColor);
     expect(await favoriteToggle.getAttribute("class")).not.toMatch(/amber|yellow/iu);
-    await editor.getByTitle("Back").click();
+    await editor.getByTitle("Back", { exact: true }).click();
 
     await rightPanel.getByRole("button", { name: "Open Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
@@ -3518,6 +3558,8 @@ test("Character row actions can add a resource to the active chat without draggi
     await expect(page.locator("[data-chat-resource-drop-surface]")).toBeVisible();
     await page.locator('[data-tour="panel-characters"]').click();
 
+    // This action proof needs one character, not the shard's accumulated catalog.
+    await page.getByRole("textbox", { name: "Search characters", exact: true }).fill(characterName);
     const folderRow = page.locator(`[data-character-folder-id="${group.id}"]`);
     const folderHeader = folderRow.locator(':scope > [role="button"]');
     await folderHeader.click();
@@ -3957,6 +3999,70 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
   }
 });
 
+for (const { panel, endpoint, sections } of [
+  { panel: "presets", endpoint: "/api/prompts", sections: ["Overview", "Sections", "Prompts", "Regex"] },
+  { panel: "lorebooks", endpoint: "/api/lorebooks", sections: ["Overview", "Entries"] },
+]) {
+  test(`${panel} keeps themed section navigation in the editor topbar`, async ({ page, request }, testInfo) => {
+    const name = `Topbar ${panel} ${Date.now().toString(36)}`;
+    const response = await request.post(endpoint, { data: { name } });
+    expect(response.ok()).toBeTruthy();
+    const resource = (await response.json()) as { id: string };
+    try {
+      await page.goto("/");
+      await page.locator(`[data-tour="panel-${panel}"]`).click();
+      if (panel === "presets") {
+        await page
+          .locator('[data-touch-drag-card="preset"]')
+          .filter({ hasText: name })
+          .locator("[data-preset-open-action]")
+          .click({ position: { x: 8, y: 8 } });
+      } else {
+        await page.getByText(name, { exact: true }).first().click();
+      }
+      const editor = page.locator(".mari-editor-shell");
+      const header = editor.locator(".mari-editor-header");
+      await expect(header).toBeVisible();
+      const compact = header.getByRole("button", { name: "Editor sections", exact: true });
+      const tabs = header.getByRole("navigation", { name: "Editor sections", exact: true });
+      const mobile = testInfo.project.name.includes("mobile");
+      if (mobile) {
+        await expect(compact).toBeVisible();
+      } else {
+        await expect(compact).toBeHidden();
+        await expect(tabs.getByRole("button")).toHaveCount(sections.length);
+        const [identity, navigation] = await Promise.all([
+          header.locator(".mari-editor-header-main").boundingBox(),
+          tabs.boundingBox(),
+        ]);
+        expect(identity).not.toBeNull();
+        expect(navigation).not.toBeNull();
+        if (identity && navigation) {
+          expect(
+            Math.abs(identity.y + identity.height / 2 - (navigation.y + navigation.height / 2)),
+          ).toBeLessThanOrEqual(1);
+          expect(identity.x + identity.width).toBeLessThanOrEqual(navigation.x);
+        }
+      }
+      for (const section of sections) await openEditorSection(editor, section);
+      for (const theme of ["dark", "light"]) {
+        await page.evaluate((value) => {
+          document.documentElement.dataset.theme = value;
+        }, theme);
+        const activeControl = mobile ? compact : tabs.locator('[aria-current="page"]');
+        await expect(activeControl).toHaveCSS(
+          "color",
+          await readScopedCssVariableColor(header, "--marinara-editor-text"),
+        );
+        await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
+        await testInfo.attach(`${panel}-${theme}`, { body: await page.screenshot(), contentType: "image/png" });
+      }
+    } finally {
+      await bestEffortDelete(request, `${endpoint}/${resource.id}`);
+    }
+  });
+}
+
 test("Character and Persona avatar actions stay separated and visually balanced", async ({ page }, testInfo) => {
   const mobileProject = (page.viewportSize()?.width ?? 768) < 768;
   if (!mobileProject) await page.setViewportSize({ width: 2560, height: 900 });
@@ -4036,7 +4142,6 @@ test("Character and Persona avatar actions stay separated and visually balanced"
 
     const header = editor.locator(".mari-editor-header");
     const navigation = header.locator(".mari-editor-navigation");
-    const desktopRail = editor.locator(".mari-editor-tab-rail");
     const actions = header.locator(".mari-editor-actions");
     const compactMenuButton = navigation.getByRole("button", { name: "Editor sections" });
     const desktopTabs = navigation.getByRole("navigation", { name: "Editor sections" });
@@ -4074,8 +4179,15 @@ test("Character and Persona avatar actions stay separated and visually balanced"
       }
       const selectedMenuItem = compactMenu.getByRole("menuitemradio", { checked: true });
       await expect(selectedMenuItem).toBeFocused();
+      const selectedIndex = await selectedMenuItem.evaluate((element) =>
+        Array.from(element.parentElement!.querySelectorAll('[role="menuitemradio"]')).indexOf(element),
+      );
       await selectedMenuItem.press("ArrowDown");
-      await expect(compactMenu.getByRole("menuitemradio").nth(1)).toBeFocused();
+      await expect(
+        compactMenu
+          .getByRole("menuitemradio")
+          .nth((selectedIndex + 1) % (await compactMenu.getByRole("menuitemradio").count())),
+      ).toBeFocused();
       await page.keyboard.press("Escape");
       await expect(compactMenu).toHaveCount(0);
       await expect(compactMenuButton).toBeFocused();
@@ -4085,94 +4197,122 @@ test("Character and Persona avatar actions stay separated and visually balanced"
     if (mobileProject) {
       await verifyCompactNavigation();
     } else {
-      if (panel === "characters") {
-        for (const width of [767, 768, 1024, 1800, 2560]) {
-          await page.setViewportSize({ width, height: 900 });
-          if (width === 767) {
-            await expect(desktopRail).toBeHidden();
-            const mobilePanel = page.locator('[data-component="RightPanelMobile"]');
-            if (await mobilePanel.isVisible()) {
-              await mobilePanel.getByRole("button", { name: "Close panel", exact: true }).click();
-              await expect(mobilePanel).toHaveCount(0);
-            }
-            await verifyCompactNavigation();
-          } else {
-            await expect(desktopRail).toBeVisible();
-            await expect(navigation).toBeHidden();
-            await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
-          }
-        }
-      }
-      await page.setViewportSize({ width: 1800, height: 900 });
-      if (panel === "characters") {
-        await expect(desktopRail).toBeVisible();
-        await expect(navigation).toBeHidden();
-        await desktopRail.getByRole("button", { name: "Card", exact: true }).click();
-        await expect(editor.getByRole("heading", { name: /^Card\b/u })).toBeVisible();
-      } else {
-        await verifyCompactNavigation();
-      }
-
-      if (panel !== "characters") {
-        let compactTabsWidth: number | null = null;
-        for (const width of [1900, 2000, 2100, 2200, 2300, 2400]) {
-          await page.setViewportSize({ width, height: 900 });
-          if (
-            (await desktopTabs.isVisible()) &&
-            (await desktopTabs.locator(".mari-editor-tab svg").first().isHidden())
-          ) {
-            compactTabsWidth = width;
-            break;
-          }
-        }
-        expect(compactTabsWidth).not.toBeNull();
+      // The fixture keeps the 320px resource panel open. Exercise both sides
+      // of each container-density boundary, not just the viewport breakpoint.
+      const rootFontSize = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+      for (const width of [
+        56 * rootFontSize + 320,
+        1280,
+        1440,
+        80 * rootFontSize + 321,
+        1800,
+        96 * rootFontSize + 321,
+        108 * rootFontSize + 321,
+        2560,
+      ]) {
+        await page.setViewportSize({ width, height: 900 });
+        await testInfo.attach(`${panel}-topbar-${width}`, {
+          body: await page.screenshot(),
+          contentType: "image/png",
+        });
+        await testInfo.attach(`${panel}-geometry-${width}`, {
+          body: JSON.stringify(
+            await header.evaluate((element) => ({
+              width: element.clientWidth,
+              scrollWidth: element.scrollWidth,
+              rootFont: getComputedStyle(document.documentElement).fontSize,
+              items: Array.from(element.children).map((child) => ({
+                className: child.className,
+                width: child.getBoundingClientRect().width,
+              })),
+            })),
+          ),
+          contentType: "application/json",
+        });
         await expect(desktopTabs).toBeVisible();
         await expect(compactMenuButton).toBeHidden();
-        const compactTabBoxes = await desktopTabs.locator(".mari-editor-tab").evaluateAll((tabs) =>
-          tabs.map((tab) => {
-            const box = tab.getBoundingClientRect();
-            return { left: box.left, right: box.right };
-          }),
-        );
-        for (let index = 1; index < compactTabBoxes.length; index += 1) {
-          expect(compactTabBoxes[index]!.left - compactTabBoxes[index - 1]!.right).toBeGreaterThanOrEqual(-0.5);
-        }
-        await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
-      }
-
-      await page.setViewportSize({ width: 2560, height: 900 });
-      if (panel === "characters") {
-        await expect(desktopRail).toBeVisible();
-        await expect(navigation).toBeHidden();
-      } else {
-        await expect(desktopTabs).toBeVisible();
-        await expect(compactMenuButton).toBeHidden();
-        await expect(desktopTabs.locator(".mari-editor-tab svg").first()).toBeVisible();
-        const [headerBox, navigationBox, firstActionBox, tabBoxes] = await Promise.all([
+        await expect(editor.locator(".mari-editor-tab-rail")).toHaveCount(0);
+        await expect(desktopTabs.getByRole("button")).toHaveCount(panel === "characters" ? 9 : 8);
+        const [headerBox, identityBox, navigationBox, firstActionBox, tabBoxes] = await Promise.all([
           header.boundingBox(),
+          header.locator(".mari-editor-header-main").boundingBox(),
           navigation.boundingBox(),
           actions.locator(".mari-editor-action").first().boundingBox(),
           desktopTabs.locator(".mari-editor-tab").evaluateAll((tabs) =>
             tabs.map((tab) => {
               const box = tab.getBoundingClientRect();
-              return { left: box.left, right: box.right, height: box.height };
+              const label = tab.querySelector("span")!;
+              return {
+                left: box.left,
+                right: box.right,
+                top: box.top,
+                height: box.height,
+                labelFits: label.scrollWidth <= label.clientWidth,
+              };
             }),
           ),
         ]);
         expect(headerBox).not.toBeNull();
+        expect(identityBox).not.toBeNull();
         expect(navigationBox).not.toBeNull();
+        if (identityBox && navigationBox) {
+          expect(
+            Math.abs(identityBox.y + identityBox.height / 2 - (navigationBox.y + navigationBox.height / 2)),
+          ).toBeLessThanOrEqual(1);
+          expect(identityBox.x + identityBox.width).toBeLessThanOrEqual(navigationBox.x);
+        }
         if (headerBox && navigationBox) {
-          expect(navigationBox.width).toBeLessThan(headerBox.width * 0.65);
+          expect(navigationBox.y).toBeGreaterThanOrEqual(headerBox.y);
+          expect(navigationBox.y + navigationBox.height).toBeLessThanOrEqual(headerBox.y + headerBox.height);
+        }
+        if (navigationBox && firstActionBox) {
+          expect(navigationBox.x + navigationBox.width).toBeLessThanOrEqual(firstActionBox.x);
         }
         for (let index = 1; index < tabBoxes.length; index += 1) {
           expect(tabBoxes[index]!.left - tabBoxes[index - 1]!.right).toBeGreaterThanOrEqual(-0.5);
           expect(tabBoxes[index]!.left - tabBoxes[index - 1]!.right).toBeLessThanOrEqual(5);
+          expect(tabBoxes[index]!.top).toBe(tabBoxes[0]!.top);
         }
+        for (const tabBox of tabBoxes) expect(tabBox.labelFits).toBe(true);
         if (firstActionBox) {
           for (const tabBox of tabBoxes) expect(Math.abs(tabBox.height - firstActionBox.height)).toBeLessThanOrEqual(1);
         }
         await expect(header.evaluate((element) => element.scrollWidth <= element.clientWidth)).resolves.toBe(true);
       }
+      await desktopTabs.getByRole("button", { name: "Card", exact: true }).click();
+      await expect(desktopTabs.getByRole("button", { name: "Card", exact: true })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      await expect(desktopTabs.locator(".mari-editor-tab svg").first()).toBeVisible();
+
+      await page.setViewportSize({ width: 56 * rootFontSize + 319, height: 900 });
+      await expect(compactMenuButton).toBeVisible();
+      await expect(compactMenuButton).toHaveText("Card");
+      await openEditorSection(editor, "Metadata");
+      await verifyCompactNavigation();
+
+      await page.setViewportSize({ width: 767, height: 900 });
+      const mobilePanel = page.locator('[data-component="RightPanelMobile"]');
+      if (await mobilePanel.isVisible()) {
+        await mobilePanel.getByRole("button", { name: "Close panel", exact: true }).click();
+        await expect(mobilePanel).toHaveCount(0);
+      }
+      await verifyCompactNavigation();
+      await page.setViewportSize({ width: 2560, height: 900 });
+      await expect(desktopTabs).toBeVisible();
+    }
+
+    for (const theme of ["dark", "light"]) {
+      await page.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      const activeControl = mobileProject ? compactMenuButton : desktopTabs.locator('[aria-current="page"]');
+      await expect(activeControl).toHaveCSS(
+        "color",
+        await readScopedCssVariableColor(header, "--marinara-editor-text"),
+      );
+      await testInfo.attach(`${panel}-${theme}`, { body: await page.screenshot(), contentType: "image/png" });
     }
 
     const [titleLineBox, titleInputBox, bylineBox] = await Promise.all([
@@ -4192,11 +4332,9 @@ test("Character and Persona avatar actions stay separated and visually balanced"
       );
       if ((page.viewportSize()?.width ?? 768) >= 768) {
         expect(bylineBox.x - (titleInputBox.x + titleInputBox.width)).toBeLessThanOrEqual(10);
-        if (panel !== "characters") {
-          const navigationBox = await navigation.boundingBox();
-          expect(navigationBox).not.toBeNull();
-          if (navigationBox) expect(navigationBox.x - (bylineBox.x + bylineBox.width)).toBeLessThanOrEqual(24);
-        }
+        const navigationBox = await navigation.boundingBox();
+        expect(navigationBox).not.toBeNull();
+        if (navigationBox) expect(navigationBox.x - (bylineBox.x + bylineBox.width)).toBeLessThanOrEqual(24);
         const creatorFits = await byline
           .locator(".mari-editor-byline-creator")
           .evaluate((element) => element.scrollWidth <= element.clientWidth);
@@ -4476,7 +4614,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
     await openEditorSection(editor, "Metadata");
-    await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).toHaveCount(0);
+    await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).not.toBeInViewport();
     await expect(
       editor
         .getByRole("navigation", { name: "Editor sections" })
@@ -4488,7 +4626,10 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(editor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
     await expect(editor.getByText(/Character sheet reference is active/u)).toBeVisible();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
-    await editor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await editor
+      .locator('[data-editor-section="sprites"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     const sheetDialog = page.getByRole("dialog", { name: "Create Character Sheet" });
     await expect(sheetDialog).toBeVisible();
     await expect(sheetDialog.getByText("Character Sheet Prompt", { exact: true })).toBeVisible();
@@ -4511,7 +4652,10 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(editor.getByRole("button", { name: "Delete selected" })).toBeVisible();
     await expect(editor.getByRole("button", { name: "Set as avatar" })).toHaveCount(0);
     await editor.getByRole("button", { name: "Cancel selection", exact: true }).click();
-    await editor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await editor
+      .locator('[data-editor-section="gallery"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     await expect(sheetDialog).toBeVisible();
     await expect(sheetDialog.getByText("Character Sheet Prompt", { exact: true })).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -4528,12 +4672,15 @@ test("Character and persona sheets persist an explicit reference choice and fall
       .click({ position: { x: 2, y: 2 } });
     const personaEditor = page.locator(".mari-editor-shell");
     await expect(personaEditor).toBeVisible();
-    await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toHaveCount(0);
+    await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).not.toBeInViewport();
     await openEditorSection(personaEditor, "Sprites");
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(personaEditor.getByAltText(`${personaName} character sheet`)).toBeVisible();
     await expect(personaEditor.getByRole("checkbox", { name: "Use as reference image" })).toBeChecked();
-    await personaEditor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await personaEditor
+      .locator('[data-editor-section="sprites"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     await expect(sheetDialog).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await openEditorSection(personaEditor, "Gallery");
@@ -4545,7 +4692,10 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(personaEditor.getByRole("button", { name: "Delete selected" })).toBeVisible();
     await expect(personaEditor.getByRole("button", { name: "Set as avatar" })).toHaveCount(0);
     await personaEditor.getByRole("button", { name: "Cancel selection", exact: true }).click();
-    await personaEditor.getByRole("button", { name: "Create with AI", exact: true }).click();
+    await personaEditor
+      .locator('[data-editor-section="gallery"]')
+      .getByRole("button", { name: "Create with AI", exact: true })
+      .click();
     await expect(sheetDialog).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
@@ -4821,15 +4971,7 @@ test("expanded character editors keep native keyboard and quote caret behavior",
   const character = (await createResponse.json()) as { id: string };
 
   try {
-    await page.addInitScript(() => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      persisted.state.quoteFormat = "typographic";
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
-    });
+    await seedUIState(page, { hasCompletedOnboarding: true, quoteFormat: "typographic" }, "merge");
     await page.goto("/");
     await page.locator('[data-tour="panel-characters"]').click();
     await page.getByText(characterName, { exact: true }).first().click();
@@ -5163,6 +5305,65 @@ test("character schedules export the live draft and import safely", async ({ pag
   }
 });
 
+test("agent connection warning borders follow the configured accent", async ({ page, request }, testInfo) => {
+  const created = await request.post("/api/chats", {
+    data: {
+      name: "Agent connection warning",
+      mode: "roleplay",
+      characterIds: [],
+      connectionId: "synthetic-agent-warning-connection",
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const chat = (await created.json()) as { id: string };
+  const message =
+    'Echo Chamber and Illustrator agents are using the default agent connection "Fixture model" (local-fixture). If this is a paid API model, agent calls may bill that provider.';
+  try {
+    await page.route("**/api/generate", (route) =>
+      route.fulfill({
+        contentType: "text/event-stream",
+        body: [
+          { type: "agent_warning", data: { code: "default_agent_connection_active", message } },
+          { type: "done", data: {} },
+        ]
+          .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+          .join(""),
+      }),
+    );
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await setAppAccentColor(page, "#14b8a6");
+    await page.locator("textarea.mari-chat-input-textarea").fill("Show the model warning");
+    await page.locator("button.mari-chat-send-btn").click();
+    const warning = page.locator('[data-sonner-toast][data-type="warning"]').filter({ hasText: message });
+    await expect(warning).toBeVisible();
+    await testInfo.attach(`agent-warning-initial-${testInfo.project.name}.png`, {
+      body: await page.screenshot({ animations: "disabled" }),
+      contentType: "image/png",
+    });
+    for (const theme of ["dark", "light"] as const) {
+      await page.evaluate(async (nextTheme) => {
+        const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+        useUIStore.getState().setTheme(nextTheme);
+      }, theme);
+      for (const accent of ["#14b8a6", "#1256aa"]) {
+        await setAppAccentColor(page, accent);
+        const border = await readCssVariableColor(page, "--marinara-chat-chrome-panel-border");
+        expect(border).not.toBe(await readCssVariableColor(page, "--border"));
+        await expect(warning).toHaveCSS("border-top-color", border);
+      }
+      await testInfo.attach(`agent-warning-${theme}-${testInfo.project.name}.png`, {
+        body: await page.screenshot({ animations: "disabled" }),
+        contentType: "image/png",
+      });
+    }
+    await warning.getByRole("button", { name: "Close toast", exact: true }).click();
+    await expect(warning).toBeHidden();
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("provider concurrency errors appear in generation toasts", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Generation error toast regression is covered on desktop.");
 
@@ -5444,7 +5645,7 @@ test("stopped and refused generations keep sent text cleared and accept the firs
       options: { delaySave?: boolean; failFirstSave?: boolean } = {},
     ) => {
       const message = page.locator(`[data-message-id="${messageId}"]`);
-      if (mobile) await message.click();
+      if (mobile) await message.locator(".mari-message-content").first().click();
       else await message.hover();
       await message.getByTitle("Edit", { exact: true }).click();
       const editor = message.locator("textarea");
@@ -5640,6 +5841,399 @@ test("stopped and refused generations keep sent text cleared and accept the firs
   }
 });
 
+test("Conversation swipe controls match Roleplay sizing and chat-chrome colors", async ({
+  page,
+  request,
+}, testInfo) => {
+  const fixtures: Array<{ chatId: string; messageId: string; layout: "roleplay" | "classic" | "bubble" | "grouped" }> =
+    [];
+  try {
+    for (const layout of ["roleplay", "classic", "bubble", "grouped"] as const) {
+      const created = await request.post("/api/chats", {
+        data: {
+          name: `${layout} swipe parity`,
+          mode: layout === "roleplay" ? "roleplay" : "conversation",
+          characterIds: [],
+        },
+      });
+      expect(created.ok()).toBeTruthy();
+      const { id: chatId } = (await created.json()) as { id: string };
+      const content =
+        layout === "grouped"
+          ? '<speaker="Alice">A synthetic grouped response.</speaker><speaker="Bob">Another synthetic turn.</speaker>'
+          : "A synthetic response for comparing the same swipe controls in each layout.";
+      const saved = await request.post(`/api/chats/${chatId}/messages`, { data: { role: "assistant", content } });
+      expect(saved.ok()).toBeTruthy();
+      const { id: messageId } = (await saved.json()) as { id: string };
+      fixtures.push({ chatId, messageId, layout });
+      const alternate = await request.post(`/api/chats/${chatId}/messages/${messageId}/swipes`, {
+        data: { content, silent: true },
+      });
+      expect(alternate.ok()).toBeTruthy();
+    }
+    await page.goto("/");
+    await setAppAccentColor(page, "#38bdf8");
+    const viewport = page.viewportSize()!;
+    for (const width of testInfo.project.name.includes("mobile") ? [320, viewport.width] : [viewport.width]) {
+      await page.setViewportSize({ width, height: viewport.height });
+      for (const theme of ["dark", "light"] as const) {
+        let roleplayMetrics: unknown;
+        for (const { chatId, messageId, layout } of fixtures) {
+          await page.evaluate(
+            async ({ id, style, nextTheme }) => {
+              const { useChatStore } = (await import("/src/stores/chat.store.ts" as string)) as {
+                useChatStore: { getState: () => { setActiveChatId: (id: string) => void } };
+              };
+              const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+                useUIStore: {
+                  getState: () => {
+                    setConversationMessageStyle: (style: "classic" | "bubble") => void;
+                    setTheme: (theme: "dark" | "light") => void;
+                    setChatChromeTextColor: (color: string) => void;
+                  };
+                };
+              };
+              const ui = useUIStore.getState();
+              ui.setConversationMessageStyle(style === "bubble" ? "bubble" : "classic");
+              ui.setTheme(nextTheme);
+              ui.setChatChromeTextColor(nextTheme === "dark" ? "#c2dce5" : "#263a47");
+              useChatStore.getState().setActiveChatId(id);
+            },
+            { id: chatId, style: layout, nextTheme: theme },
+          );
+          // Theme/chroma reach CSS through an effect. Wait for that update
+          // before capturing expected colors, especially on Linux WebKit.
+          await expect
+            .poll(() => readCssVariableColor(page, "--marinara-chat-chrome-text"))
+            .toBe(theme === "dark" ? "rgb(194, 220, 229)" : "rgb(38, 58, 71)");
+          const row = page.locator(`[data-message-id="${messageId}"]`);
+          const control = row.locator(".mari-message-swipes");
+          await expect(control).toBeVisible();
+          if (layout !== "roleplay") {
+            const start = await row.evaluate(
+              (element) =>
+                element.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(element).paddingLeft),
+            );
+            expect
+              .soft(Math.abs((await control.boundingBox())!.x - start), `${layout} swipes align with the message row`)
+              .toBeLessThan(1);
+          }
+          const input = control.getByRole("textbox");
+          await expect(input).toHaveValue("1");
+          // Compare the settled theme color, not WebKit's retained Oklab
+          // serialization from the color transition between test themes.
+          await input.evaluate((element) => {
+            element.style.transition = "none";
+          });
+          const metrics = await control.evaluate((element) => {
+            const button = element.querySelector("button")!;
+            const field = element.querySelector("input")!;
+            const icon = button.querySelector("svg")!;
+            const styles = getComputedStyle(element);
+            return {
+              height: element.getBoundingClientRect().height,
+              gap: styles.gap,
+              padding: styles.padding,
+              fontSize: styles.fontSize,
+              buttonWidth: button.getBoundingClientRect().width,
+              buttonHeight: button.getBoundingClientRect().height,
+              iconWidth: icon.getBoundingClientRect().width,
+              inputWidth: field.getBoundingClientRect().width,
+              inputHeight: field.getBoundingClientRect().height,
+              inputFontSize: getComputedStyle(field).fontSize,
+              inputRadius: getComputedStyle(field).borderRadius,
+            };
+          });
+          if (layout === "roleplay") roleplayMetrics = metrics;
+          else expect.soft(metrics, `${layout} ${theme} ${width}px matches Roleplay`).toEqual(roleplayMetrics);
+          const actionColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
+          await expect.soft(control).toHaveCSS("color", actionColor, { timeout: 500 });
+          await expect.soft(control).toHaveCSS("border-top-width", "0px", { timeout: 500 });
+          await expect.soft(control).toHaveCSS("background-color", "rgba(0, 0, 0, 0)", { timeout: 500 });
+          await expect
+            .soft(input)
+            .toHaveCSS("color", await readCssVariableColor(page, "--marinara-chat-message-action-text-hover"), {
+              timeout: 500,
+            });
+          await testInfo.attach(`${layout}-swipes-${theme}-${width}.png`, {
+            body: await row.screenshot({ animations: "disabled" }),
+            contentType: "image/png",
+          });
+          // Wait for persistence, not just the optimistic counter, before the next interaction.
+          const selectSwipe = async (index: number, action: () => Promise<void>) => {
+            const saved = page.waitForResponse(
+              (response) =>
+                response.url().endsWith(`/messages/${messageId}/active-swipe`) &&
+                response.request().method() === "PUT" &&
+                response.request().postDataJSON().index === index,
+            );
+            await action();
+            expect(((await (await saved).json()) as { activeSwipeIndex: number }).activeSwipeIndex).toBe(index);
+            await expect(input).toHaveValue(String(index + 1));
+          };
+          await selectSwipe(1, () => control.getByRole("button", { name: "Next swipe", exact: true }).click());
+          await selectSwipe(0, () => control.getByRole("button", { name: "Previous swipe", exact: true }).click());
+          await selectSwipe(1, () => input.fill("2"));
+          await input.press("Enter");
+          await expect(control.getByRole("button", { name: "Previous swipe", exact: true })).toBeEnabled();
+          await selectSwipe(0, () => input.fill("1"));
+          await input.press("Enter");
+          await expect(control.getByRole("button", { name: "Previous swipe", exact: true })).toBeDisabled();
+        }
+      }
+    }
+  } finally {
+    for (const { chatId } of fixtures) await bestEffortDelete(request, `/api/chats/${chatId}?force=true`);
+  }
+});
+
+for (const mode of ["conversation", "roleplay"] as const) {
+  test(`${mode} message actions fit mobile rows and first-swipe preferences persist independently`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const mobile = testInfo.project.name.includes("mobile");
+    const preference =
+      mode === "conversation" ? "alwaysDisplayConversationSwipeMenu" : "alwaysDisplayRoleplaySwipeMenu";
+    const otherPreference =
+      mode === "conversation" ? "alwaysDisplayRoleplaySwipeMenu" : "alwaysDisplayConversationSwipeMenu";
+    const response = await request.post("/api/chats", {
+      data: { name: `${mode} action controls`, mode, characterIds: [], connectionId: "swipe-controls-fixture" },
+    });
+    expect(response.ok()).toBeTruthy();
+    const chat = (await response.json()) as { id: string };
+    try {
+      const userResponse = await request.post(`/api/chats/${chat.id}/messages`, {
+        data: { role: "user", content: "A synthetic request for a story." },
+      });
+      expect(userResponse.ok()).toBeTruthy();
+      const userMessage = (await userResponse.json()) as { id: string };
+      const messageResponse = await request.post(`/api/chats/${chat.id}/messages`, {
+        data: {
+          role: "assistant",
+          content:
+            "A synthetic first response with enough text to fill a readable message box. All message tools should remain easy to select.",
+        },
+      });
+      expect(messageResponse.ok()).toBeTruthy();
+      const message = (await messageResponse.json()) as { id: string };
+      await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+      await page.route("**/api/generate", (route) =>
+        route.fulfill({ status: 503, json: { error: "Synthetic generation boundary reached." } }),
+      );
+      await page.goto("/");
+      const row = page.locator(`[data-message-id="${message.id}"]`);
+      const actions = row.locator(".mari-message-actions");
+      await expect(row).toBeVisible();
+      if (mobile && mode === "conversation") {
+        await expect(actions).toBeHidden();
+        expect(await actions.evaluate((element) => element.getBoundingClientRect().height)).toBe(0);
+      }
+      await expect(row.locator(".mari-message-swipes")).toBeVisible();
+      await expect(row.getByRole("button", { name: "Previous swipe", exact: true })).toBeDisabled();
+      await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 1", exact: true })).toHaveValue("1");
+      await expect(page.locator(`[data-message-id="${userMessage.id}"] .mari-message-swipes`)).toHaveCount(0);
+
+      const userRow = page.locator(`[data-message-id="${userMessage.id}"]`);
+      if (mobile) await userRow.locator(".mari-message-content").first().tap();
+      else await userRow.hover();
+      const userActions = userRow.locator(".mari-message-actions");
+      await expect.poll(() => userActions.evaluate((bar) => getComputedStyle(bar).opacity)).toBe("1");
+      const copy = await userActions.locator('button[title="Copy"]').boundingBox();
+      const translate = await userActions.locator('button[title="Translate"]').boundingBox();
+      const edit = await userActions.locator('button[title="Edit"]').boundingBox();
+      expect(copy!.x).toBeLessThan(translate!.x);
+      expect(translate!.x).toBeLessThan(edit!.x);
+      await testInfo.attach(`${mode}-user-actions-${testInfo.project.name}.png`, {
+        body: await userRow.screenshot(),
+        contentType: "image/png",
+      });
+      if (mobile) await row.locator(".mari-message-content").first().tap();
+      else await row.hover();
+      await expect.poll(() => actions.evaluate((bar) => getComputedStyle(bar).opacity)).toBe("1");
+      await expect(row.locator("textarea")).toHaveCount(0);
+      await testInfo.attach(`${mode}-message-controls-${testInfo.project.name}.png`, {
+        body: await row.screenshot(),
+        contentType: "image/png",
+      });
+
+      const viewport = page.viewportSize()!;
+      for (const width of mobile ? [320, viewport.width] : [viewport.width]) {
+        await page.setViewportSize({ width, height: viewport.height });
+        const bar = await actions.boundingBox();
+        expect(bar).not.toBeNull();
+        const buttons = await actions.locator("button").filter({ visible: true }).all();
+        expect(buttons.length).toBeGreaterThanOrEqual(5);
+        let previous: { x: number; y: number; width: number } | null = null;
+        for (const button of buttons) {
+          const box = await button.boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.width).toBeGreaterThanOrEqual(mobile ? 24 : 32);
+          expect(box!.height).toBeGreaterThanOrEqual(32);
+          expect(box!.x).toBeGreaterThanOrEqual(bar!.x);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(bar!.x + bar!.width + 1);
+          if (previous && Math.abs(previous.y - box!.y) < 1) {
+            expect(box!.x - previous.x - previous.width).toBeGreaterThanOrEqual(mobile ? -1 : 6);
+          }
+          if (mobile && previous) expect(Math.abs(previous.y - box!.y)).toBeLessThan(1);
+          const icon = button.locator("svg").first();
+          if (mobile && (await icon.count())) {
+            const iconBox = await icon.boundingBox();
+            expect(iconBox!.width).toBeGreaterThanOrEqual(14);
+            expect(iconBox!.width).toBeLessThanOrEqual(16);
+          }
+          previous = box;
+        }
+        await testInfo.attach(`${mode}-actions-${width}-${testInfo.project.name}.png`, {
+          body: await row.screenshot(),
+          contentType: "image/png",
+        });
+      }
+
+      await page.evaluate(async () => {
+        const module = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+        module.useUIStore.getState().setTheme("light");
+      });
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+      await testInfo.attach(`${mode}-light-controls-${testInfo.project.name}.png`, {
+        body: await row.screenshot(),
+        contentType: "image/png",
+      });
+      await page.evaluate(async () => {
+        const module = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
+        module.useUIStore.getState().setTheme("dark");
+      });
+
+      const regeneration = page.waitForRequest((req) => req.url().endsWith("/api/generate") && req.method() === "POST");
+      await row.getByRole("button", { name: "Generate next swipe", exact: true }).click();
+      if (mobile) {
+        await page
+          .getByRole("dialog", { name: "Regenerate Message", exact: true })
+          .getByRole("button", { name: "Regenerate", exact: true })
+          .click();
+      }
+      expect((await regeneration).postDataJSON()).toMatchObject({ chatId: chat.id, regenerateMessageId: message.id });
+      const generationToast = page
+        .locator("[data-sonner-toast]")
+        .filter({ hasText: "Synthetic generation boundary reached." });
+      await expect(generationToast).toBeVisible();
+      await generationToast.getByRole("button", { name: "Close toast", exact: true }).click();
+      await expect(generationToast).toBeHidden();
+
+      const readSynced = async () => {
+        const result = await request.get("/api/app-settings/ui");
+        const { value } = (await result.json()) as { value: string | null };
+        return JSON.parse(value || "{}") as Record<string, unknown>;
+      };
+      const openAppearance = async () => {
+        await page.locator('[data-tour="panel-settings"]').click();
+        await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+        await page
+          .getByRole("group", { name: "Appearance by chat mode" })
+          .getByRole("button", { name: mode === "conversation" ? "Conversation" : "Roleplay", exact: true })
+          .click();
+      };
+      const closeSettings = async () => {
+        await page.evaluate(async () => {
+          const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+            useUIStore: { getState: () => { closeRightPanel: () => void } };
+          };
+          useUIStore.getState().closeRightPanel();
+        });
+      };
+      const toggle = page
+        .locator(`#settings-control-${mode}-always-display-swipe-menu`)
+        .getByLabel("Always display swipe menu", { exact: true });
+      const toggleLabel = page
+        .locator(`#settings-control-${mode}-always-display-swipe-menu`)
+        .getByText("Always display swipe menu", { exact: true });
+      const otherToggle = page
+        .locator(`#settings-control-${mode === "conversation" ? "roleplay" : "conversation"}-always-display-swipe-menu`)
+        .getByLabel("Always display swipe menu", { exact: true });
+      const expectOtherToggleChecked = async () => {
+        const modes = page.getByRole("group", { name: "Appearance by chat mode" });
+        await modes
+          .getByRole("button", { name: mode === "conversation" ? "Roleplay" : "Conversation", exact: true })
+          .click();
+        await expect(otherToggle).toBeChecked();
+        await modes
+          .getByRole("button", { name: mode === "conversation" ? "Conversation" : "Roleplay", exact: true })
+          .click();
+      };
+      await openAppearance();
+      await expect(toggle).toBeChecked();
+      await expectOtherToggleChecked();
+      await toggleLabel.scrollIntoViewIfNeeded();
+      await testInfo.attach(`${mode}-swipe-settings-${testInfo.project.name}.png`, {
+        body: await page.screenshot(),
+        contentType: "image/png",
+      });
+      await toggleLabel.click();
+      await expect(toggle).not.toBeChecked();
+      await expectOtherToggleChecked();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      await closeSettings();
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+      await page.reload();
+      await expect(row).toBeVisible();
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+
+      // Resetting unrelated appearance choices must not undo the explicit swipe-menu opt-out.
+      await page.evaluate(async () => {
+        const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
+          useUIStore: { getState: () => { resetAppearanceSettings: () => void } };
+        };
+        useUIStore.getState().resetAppearanceSettings();
+      });
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+
+      // A server blob from before these preferences existed must not reset a saved opt-out.
+      const legacy = await readSynced();
+      delete legacy[preference];
+      delete legacy[otherPreference];
+      legacy.__updatedAt = Date.now() + 1000;
+      await request.put("/api/app-settings/ui", { data: { value: JSON.stringify(legacy) } });
+      await page.reload();
+      await expect(row).toBeVisible();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      await expect(row.locator(".mari-message-swipes")).toHaveCount(0);
+      await openAppearance();
+      await expect(toggle).not.toBeChecked();
+      await expectOtherToggleChecked();
+      await toggleLabel.click();
+      await expect(toggle).toBeChecked();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(true);
+      await closeSettings();
+      await expect(row.locator(".mari-message-swipes")).toBeVisible();
+      await openAppearance();
+      await toggleLabel.click();
+      await expect(toggle).not.toBeChecked();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      await closeSettings();
+
+      const alternate = await request.post(`/api/chats/${chat.id}/messages/${message.id}/swipes`, {
+        data: { content: "A synthetic regenerated response.", silent: true },
+      });
+      expect(alternate.ok()).toBeTruthy();
+      await page.reload();
+      await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true })).toBeVisible();
+      await expect.poll(async () => (await readSynced())[preference]).toBe(false);
+      if (mode === "conversation") {
+        await openAppearance();
+        await page
+          .locator("#settings-control-conversation-layout")
+          .getByRole("button", { name: /Bubbles/ })
+          .click();
+        await closeSettings();
+        await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true })).toBeVisible();
+      }
+    } finally {
+      await bestEffortDelete(request, `/api/chats/${chat.id}?force=true`);
+    }
+  });
+}
+
 test("empty focused chat composers keep keyboard swipe navigation", async ({ page, request }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Keyboard swipe navigation is covered on desktop.");
 
@@ -5659,18 +6253,12 @@ test("empty focused chat composers keep keyboard swipe navigation", async ({ pag
   expect(swipeResponse.ok()).toBeTruthy();
 
   try {
+    await seedUIState(page, {
+      intuitiveSwipeNavigation: true,
+      intuitiveSwipeRerollLatest: false,
+    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            intuitiveSwipeNavigation: true,
-            intuitiveSwipeRerollLatest: false,
-          },
-          version: 87,
-        }),
-      );
     }, chat.id);
     await page.goto("/");
 
@@ -5749,17 +6337,9 @@ test("mobile transcript swipes navigate Conversation and Roleplay alternatives",
     // Safe alongside each page's own chat-id writer: the two scripts touch
     // disjoint keys, so their (documented-as-undefined) relative order
     // cannot matter.
-    await page.context().addInitScript(() => {
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            intuitiveSwipeNavigation: true,
-            intuitiveSwipeRerollLatest: false,
-          },
-          version: 87,
-        }),
-      );
+    await seedUIState(page.context(), {
+      intuitiveSwipeNavigation: true,
+      intuitiveSwipeRerollLatest: false,
     });
 
     for (const fixture of fixtures) {
@@ -5825,15 +6405,14 @@ test("goto keeps stale CYOA choices out of the chat tail", async ({ page, reques
   const imported = (await importResponse.json()) as { chatId: string };
 
   try {
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      messagesPerPage: 100,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: { hasCompletedOnboarding: true, messagesPerPage: 100, sidebarOpen: false, rightPanelOpen: false },
-          version: 87,
-        }),
-      );
     }, imported.chatId);
     await page.goto("/");
 
@@ -5861,14 +6440,8 @@ test("typographic quotes do not pull the Roleplay caret behind later text", asyn
   const chat = (await chatResponse.json()) as { id: string };
 
   try {
+    await seedUIState(page, { hasCompletedOnboarding: true, quoteFormat: "typographic" }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      persisted.state.quoteFormat = "typographic";
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -5915,14 +6488,8 @@ test("desktop Roleplay composition keeps ambient work off the input path and gro
   const chat = (await chatResponse.json()) as { id: string };
 
   try {
+    await seedUIState(page, { hasCompletedOnboarding: true, appAccentPulseMode: true }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      persisted.state.appAccentPulseMode = true;
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -6034,15 +6601,12 @@ test("desktop Echo Chamber commits its per-chat size and corner before reload", 
     expect(metadataResponse.ok()).toBeTruthy();
 
     await page.setViewportSize({ width: 1280, height: 900 });
+    await seedUIState(
+      page,
+      { hasCompletedOnboarding: true, echoChamberOpen: true, echoChamberSide: "bottom-right" },
+      "merge",
+    );
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      persisted.state.echoChamberOpen = true;
-      persisted.state.echoChamberSide = "bottom-right";
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -6100,14 +6664,8 @@ test("mobile Roleplay composition avoids draft rewrites and pauses ambient rende
   const chat = (await chatResponse.json()) as { id: string };
 
   try {
+    await seedUIState(page, { hasCompletedOnboarding: true, quoteFormat: "typographic" }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      persisted.state.quoteFormat = "typographic";
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -6148,13 +6706,8 @@ test("held Roleplay deletion defers draft persistence and autosizing until a rel
   const chat = (await chatResponse.json()) as { id: string };
 
   try {
+    await seedUIState(page, { hasCompletedOnboarding: true }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.hasCompletedOnboarding = true;
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -6408,7 +6961,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
 
       const savedRow = page.locator(`[data-message-id="${savedMessage.id}"]`);
       if (testInfo.project.name.includes("mobile")) {
-        await savedRow.click();
+        await savedRow.getByText("A completed response with saved reasoning.", { exact: true }).click();
       } else {
         await savedRow.hover();
       }
@@ -6424,7 +6977,9 @@ for (const mode of ["roleplay", "conversation"] as const) {
 
       const unavailableRow = page.locator(`[data-message-id="${unavailableMessage.id}"]`);
       if (testInfo.project.name.includes("mobile")) {
-        await unavailableRow.click();
+        await unavailableRow
+          .getByText("A response whose provider omitted its reasoning summary.", { exact: true })
+          .click();
       } else {
         await unavailableRow.hover();
       }
@@ -6494,6 +7049,10 @@ test("Roleplay can show streaming reasoning inline and control automatic collaps
     await page.getByRole("tab", { name: "Appearance" }).click();
 
     const showControl = page.locator("#settings-control-show-roleplay-thinking-in-messages");
+    await page
+      .getByRole("group", { name: "Appearance by chat mode" })
+      .getByRole("button", { name: "Roleplay", exact: true })
+      .click();
     const keepControl = page.locator("#settings-control-keep-roleplay-thinking-expanded");
     const showToggle = showControl.getByRole("checkbox", { name: "Show Thinking In Messages" });
     const keepToggle = keepControl.getByRole("checkbox", { name: "Don't Collapse Thinking" });
@@ -6633,14 +7192,8 @@ test("Roleplay rewrite streaming follows the rendered message height", async ({ 
         body: events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""),
       });
     });
+    await seedUIState(page, { enableStreaming: true, streamingSpeed: 90 }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.enableStreaming = true;
-      persisted.state.streamingSpeed = 90;
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -6665,10 +7218,9 @@ test("Roleplay rewrite streaming follows the rendered message height", async ({ 
     await expect
       .poll(() => scroller.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight))
       .toBeLessThan(40);
-
-    await page.locator("button.mari-chat-send-btn").click();
   } finally {
-    await page.request.delete(`/api/chats/${chat.id}`);
+    await updateLiveReasoningState(page, chat.id, "stop").catch(() => undefined);
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}`);
   }
 });
 
@@ -6730,14 +7282,8 @@ test("editing the preceding Roleplay message keeps one live stream row", async (
         body: events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""),
       });
     });
+    await seedUIState(page, { enableStreaming: true, streamingSpeed: 55 }, "merge");
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.enableStreaming = true;
-      persisted.state.streamingSpeed = 55;
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -6761,10 +7307,9 @@ test("editing the preceding Roleplay message keeps one live stream row", async (
     await expect(userMessage.locator("textarea")).toHaveCount(0);
     await expect(liveStream).toHaveCount(1);
     await expect(visibleAssistantRows).toHaveCount(1);
-
-    await page.locator("button.mari-chat-send-btn").click();
   } finally {
-    await page.request.delete(`/api/chats/${chat.id}`);
+    await updateLiveReasoningState(page, chat.id, "stop").catch(() => undefined);
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}`);
   }
 });
 
@@ -6990,17 +7535,18 @@ test("desktop Tracker scales into either Roleplay gutter without shifting chat",
       data: { enableAgents: true, activeAgentIds: [] },
     });
     expect(metadataResponse.ok()).toBeTruthy();
+    await seedUIState(
+      page,
+      {
+        trackerPanelEnabled: true,
+        trackerPanelOpen: false,
+        trackerPanelSide: "left",
+        trackerPanelSizeProfile: "expanded",
+        trackerPanelHideHudWidgets: false,
+      },
+      "merge",
+    );
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
-        state: Record<string, unknown>;
-        version: number;
-      };
-      persisted.state.trackerPanelEnabled = true;
-      persisted.state.trackerPanelOpen = false;
-      persisted.state.trackerPanelSide = "left";
-      persisted.state.trackerPanelSizeProfile = "expanded";
-      persisted.state.trackerPanelHideHudWidgets = false;
-      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
       localStorage.setItem("marinara-active-chat-id", chatId);
     }, chat.id);
     await page.goto("/");
@@ -7226,7 +7772,7 @@ test("legacy browser records are cleaned while extension imports stay locked", a
         };
       }),
     )
-    .toEqual({ version: 99, hasExtensionRecords: false, hasCleanupFlag: false });
+    .toEqual({ version: UI_PERSISTENCE.version, hasExtensionRecords: false, hasCleanupFlag: false });
 
   expect(
     await page.evaluate(
@@ -8133,18 +8679,9 @@ test("chat Help overlay labels visible controls in every mode", async ({ page, r
       }
     }
 
+    await seedUIState(page, { chatHelpSeenModes: ["conversation", "roleplay", "game"] }, "merge");
     await page.addInitScript((activeChatId) => {
       localStorage.setItem("marinara-active-chat-id", activeChatId);
-      const storageKey = "marinara-engine-ui";
-      const persisted = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as {
-        state?: Record<string, unknown>;
-        version?: number;
-      };
-      persisted.state = {
-        ...(persisted.state ?? {}),
-        chatHelpSeenModes: ["conversation", "roleplay", "game"],
-      };
-      localStorage.setItem(storageKey, JSON.stringify(persisted));
     }, chats[0]!.id);
     await page.goto("/");
 
@@ -8412,18 +8949,9 @@ test("the first conversation opens Help once after setup", async ({ page, reques
     const chats = (await upstream.json()) as Array<{ id: string }>;
     await route.fulfill({ response: upstream, json: chats.filter((candidate) => candidate.id === chat.id) });
   });
+  await seedUIState(page, { chatHelpSeenModes: ["roleplay", "game"] }, "merge");
   await page.addInitScript((activeChatId) => {
     localStorage.setItem("marinara-active-chat-id", activeChatId);
-    const storageKey = "marinara-engine-ui";
-    const persisted = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as {
-      state?: Record<string, unknown>;
-      version?: number;
-    };
-    persisted.state = {
-      ...(persisted.state ?? {}),
-      chatHelpSeenModes: ["roleplay", "game"],
-    };
-    localStorage.setItem(storageKey, JSON.stringify(persisted));
   }, chat.id);
 
   try {
@@ -8670,13 +9198,10 @@ test("preset import and save-export feedback follow the active accent", async ({
     await titleInput.fill(`Unsaved Theme Feedback ${suffix}`);
     await waitForEditorDirty(page);
     await editor.locator(".mari-editor-header-main > button").first().click();
-    const unsavedFeedback = editor.getByText("You have unsaved changes.", { exact: true }).locator("..");
-    await expect(unsavedFeedback).toBeVisible();
-    await expect(unsavedFeedback).toHaveCSS("color", expectedEditorAccent);
-    await testInfo.attach(`preset-unsaved-accent-${testInfo.project.name}.png`, {
-      body: await page.screenshot({ fullPage: true }),
-      contentType: "image/png",
-    });
+    await expect(editor).toHaveCount(0);
+    await expect
+      .poll(async () => (await (await request.get(`/api/prompts/${preset.id}`)).json()).name)
+      .toBe(`Unsaved Theme Feedback ${suffix}`);
   } finally {
     await bestEffortDelete(request, `/api/prompts/${preset.id}`);
   }
@@ -9654,23 +10179,9 @@ test("Game widget editing and log deletion follow Chroma while weather effects r
         body: JSON.stringify({ scannedAt: "2026-08-22T00:00:00.000Z", count: 0, assets: {}, byCategory: {} }),
       });
     });
+    await seedUIState(page, { gameTextSpeed: 100, chatHelpSeenModes: ["conversation", "roleplay", "game"] }, "merge");
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      const stored = JSON.parse(localStorage.getItem("marinara-engine-ui") || '{"state":{}}') as {
-        state?: Record<string, unknown>;
-        version?: number;
-      };
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          ...stored,
-          state: {
-            ...(stored.state ?? {}),
-            gameTextSpeed: 100,
-            gameTutorialDisabled: true,
-          },
-        }),
-      );
     }, chat.id);
     await page.goto("/");
     await setAppAccentColor(page, "#ec4899");
@@ -9951,24 +10462,10 @@ test("Game character sheet Retry remains a draft until Save", async ({ page, req
       ).ok(),
     ).toBeTruthy();
 
-    await page.addInitScript(
-      ({ activeChatId }) => {
-        localStorage.setItem("marinara-active-chat-id", activeChatId);
-        const stored = JSON.parse(localStorage.getItem("marinara-engine-ui") || '{"state":{}}') as {
-          state?: Record<string, unknown>;
-          version?: number;
-        };
-        localStorage.setItem(
-          "marinara-engine-ui",
-          JSON.stringify({
-            ...stored,
-            state: { ...(stored.state ?? {}), gameTutorialDisabled: true },
-            version: 82,
-          }),
-        );
-      },
-      { activeChatId: chat.id },
-    );
+    await seedUIState(page, { chatHelpSeenModes: ["conversation", "roleplay", "game"] }, "merge");
+    await page.addInitScript((activeChatId) => {
+      localStorage.setItem("marinara-active-chat-id", activeChatId);
+    }, chat.id);
 
     const readStoredCard = async () => {
       const response = await request.get(`/api/chats/${chat.id}`);
@@ -10625,20 +11122,14 @@ test("Game history above the dialogue box opens a historical Peek Prompt", async
       },
     });
 
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: false,
+      sidebarOpen: false,
+      gameDialogueDisplayMode: "stacked",
+    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            rightPanelOpen: false,
-            sidebarOpen: false,
-            gameDialogueDisplayMode: "stacked",
-          },
-          version: 65,
-        }),
-      );
     }, chat.id);
     await page.goto("/");
     const peekButton = page.locator('[data-component="GameNarration.PeekPrompt"]').first();
@@ -11086,7 +11577,12 @@ test("Home recent chats use mode colors and show character sprites", async ({ pa
   const expectedAccents = [
     ["Cyan chat", "oklch(0.79 0.16 205)"],
     ["Orange story", "oklch(0.76 0.19 52)"],
-    ["Pink game", "oklch(0.73 0.21 345)"],
+    [
+      "Pink game",
+      await page
+        .locator("html")
+        .evaluate((element) => getComputedStyle(element).getPropertyValue("--marinara-chat-chrome-accent").trim()),
+    ],
   ] as const;
   for (const [chatName, accent] of expectedAccents) {
     const card = page.getByRole("button", { name: new RegExp(chatName) });
@@ -11945,9 +12441,306 @@ test("custom generation parameters become reusable chat controls", async ({ page
   }
 });
 
-test("UI language selection loads locale files and persists across reloads", async ({ page }) => {
+test("Mobile Roleplay quick picker matches the character selector surface", async ({ page, isMobile }, testInfo) => {
+  test.skip(!isMobile, "The combined quick picker is mobile-only.");
+  const characterIds: string[] = [];
+  let chatId: string | undefined;
+  try {
+    for (const name of ["Picker botanist", "Picker librarian"]) {
+      const response = await page.request.post("/api/characters", { data: { data: { name } } });
+      expect(response.ok()).toBeTruthy();
+      characterIds.push(((await response.json()) as { id: string }).id);
+    }
+    const response = await page.request.post("/api/chats", {
+      data: { name: "Roleplay picker surface fixture", mode: "roleplay", characterIds },
+    });
+    expect(response.ok()).toBeTruthy();
+    chatId = ((await response.json()) as { id: string }).id;
+    const metadataResponse = await page.request.patch(`/api/chats/${chatId}/metadata`, {
+      data: { groupChatMode: "individual", groupResponseOrder: "sequential" },
+    });
+    expect(metadataResponse.ok(), await metadataResponse.text()).toBeTruthy();
+    const messageResponse = await page.request.post(`/api/chats/${chatId}/messages`, {
+      data: { role: "assistant", content: "The garden is ready for inspection." },
+    });
+    expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chatId);
+    await page.goto("/");
+    await expect(page.getByText("The garden is ready for inspection.", { exact: true })).toBeVisible();
+    for (const theme of ["dark", "light", "custom"] as const) {
+      await page.evaluate(async (theme) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        const ui = useUIStore.getState();
+        ui.setTheme(theme === "light" ? "light" : "dark");
+        ui.setAppBackgroundColor(theme === "custom" ? "#0b1920" : "");
+        ui.setChatChromeTextColor(theme === "custom" ? "#22d3ee" : "");
+      }, theme);
+      await page.getByTitle("Trigger character response", { exact: true }).click();
+      const characterPicker = page.getByText("Trigger Response", { exact: true }).locator("..");
+      await expect(characterPicker).toBeVisible();
+      const surface = await characterPicker.evaluate((element) => getComputedStyle(element).backgroundColor);
+      expect(surface).not.toMatch(/^(?:transparent|rgba\([^)]*,\s*0\))$/u);
+      await page.getByTitle("Trigger character response", { exact: true }).click();
+      await page.getByTitle("Quick Switcher", { exact: true }).click();
+      const picker = page.locator(".fixed[data-chat-floating-panel]");
+      await expect(picker).toBeVisible();
+      for (const tab of ["Connections", "Personas"]) {
+        await picker.getByRole("button", { name: tab, exact: true }).click();
+        await testInfo.attach(`roleplay-picker-${theme}-${tab}`, {
+          body: await page.screenshot(),
+          contentType: "image/png",
+        });
+        await expect(picker).toHaveCSS("background-color", surface);
+        const bounds = await picker.boundingBox();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+      }
+      await page.getByTitle("Quick Switcher", { exact: true }).click();
+    }
+  } finally {
+    if (chatId) await bestEffortDelete(page.request, `/api/chats/${chatId}`);
+    await Promise.all(characterIds.map((id) => bestEffortDelete(page.request, `/api/characters/${id}`)));
+  }
+});
+
+test("Agents menu groups outputs under their own reports and preserves output controls", async ({ page }, testInfo) => {
+  const response = await page.request.post("/api/chats", {
+    data: { name: "Grouped agent activity fixture", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  let customText = "Saved garden notes.";
+  await page.route(`**/api/agents/runs/${chat.id}/custom`, (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "activity-custom-run",
+          agentConfigId: "custom-config",
+          agentType: "custom-notes",
+          agentName: "Garden notes",
+          chatId: chat.id,
+          messageId: "fixture-message",
+          resultType: "custom",
+          resultData: { text: customText },
+          tokensUsed: 12,
+          durationMs: 100,
+          success: true,
+          error: null,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/agents/runs/activity-custom-run", async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    const body = route.request().postDataJSON() as { resultData?: { text?: string } } | null;
+    expect(body?.resultData?.text).toEqual(expect.any(String));
+    customText = body!.resultData!.text!;
+    await route.fulfill({ json: { success: true } });
+  });
+  try {
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "assistant", content: "A quiet day in the garden." },
+    });
+    expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    await page.goto("/");
+    await expect(page.getByText("A quiet day in the garden.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Agents & Actions", exact: true }).click();
+    await page.evaluate(async (chatId) => {
+      const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
+      const store = useAgentStore.getState();
+      store.setProcessingRun("activity-run", true, chatId);
+      for (const [type, name] of [
+        ["echo-chamber", "Echo Chamber"],
+        ["world-state", "World State"],
+        ["custom-notes", "Garden notes"],
+      ]) {
+        store.updateTaskProgress(chatId, "activity-run", {
+          callId: type,
+          agents: [{ id: `${type}-config`, type, name, phase: "post_processing" }],
+          stage: "received",
+          receivedChunks: 10,
+          receivedCharacters: 50,
+          elapsedMs: 2000,
+        });
+      }
+      // Two concurrent calls for an agent must retain separate metrics, but not duplicate its outputs.
+      store.setProcessingRun("overlapping-run", true, chatId);
+      store.updateTaskProgress(chatId, "overlapping-run", {
+        callId: "echo-overlap",
+        agents: [{ id: "echo-chamber-config", type: "echo-chamber", name: "Echo Chamber", phase: "parallel" }],
+        stage: "received",
+        receivedChunks: 2,
+        receivedCharacters: 15,
+        elapsedMs: 1000,
+      });
+      store.addThoughtBubble("echo-chamber", "Echo Chamber", "The readers loved the garden.");
+      store.addThoughtBubble("world-state", "World State", "Location: Garden. Weather: Sunny.");
+      store.addThoughtBubble("legacy-agent", "Legacy agent", "Output without progress remains available.");
+      store.setProcessingRun("activity-run", false, chatId);
+      store.setProcessingRun("overlapping-run", false, chatId);
+    }, chat.id);
+    const status = page.getByRole("region", { name: "Agent task status" });
+    const echo = status.locator('[data-agent-activity="echo-chamber"]');
+    const world = status.locator('[data-agent-activity="world-state"]');
+    await expect(echo.getByText("The readers loved the garden.", { exact: true })).toBeVisible();
+    await expect(echo.getByText("Output received", { exact: true })).toHaveCount(2);
+    await expect(echo.getByText("Location: Garden. Weather: Sunny.", { exact: true })).toHaveCount(0);
+    await expect(world.getByText("Location: Garden. Weather: Sunny.", { exact: true })).toBeVisible();
+    await expect(page.getByText("The readers loved the garden.", { exact: true })).toHaveCount(1);
+    await expect(page.getByText("Output without progress remains available.", { exact: true })).toBeVisible();
+    await echo.locator("[data-agent-output]").scrollIntoViewIfNeeded();
+    await testInfo.attach("agent-activity-grouping", { body: await page.screenshot(), contentType: "image/png" });
+    expect(
+      await echo.evaluate((block) => {
+        const metrics = block.querySelectorAll("dl");
+        const output = block.querySelector("[data-agent-output]");
+        const lastMetrics = metrics[metrics.length - 1];
+        return (
+          !!lastMetrics &&
+          !!output &&
+          !!(lastMetrics.compareDocumentPosition(output) & Node.DOCUMENT_POSITION_FOLLOWING)
+        );
+      }),
+    ).toBe(true);
+    await echo.getByRole("button", { name: "Dismiss output from Echo Chamber" }).click();
+    await expect(echo.getByText("The readers loved the garden.", { exact: true })).toHaveCount(0);
+    await expect(echo.getByText("Output received", { exact: true })).toHaveCount(2);
+    await expect(world.getByText("Location: Garden. Weather: Sunny.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Clear all", exact: true }).click();
+    await expect(page.getByText("Output without progress remains available.", { exact: true })).toHaveCount(0);
+    const custom = status.locator('[data-agent-activity="custom-notes"]');
+    await expect(custom.getByText("Saved garden notes.", { exact: true })).toBeVisible();
+    await custom.getByTitle("Edit output", { exact: true }).click();
+    await custom.getByRole("textbox").fill("Edited garden notes.");
+    await custom.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(custom.getByText("Edited garden notes.", { exact: true })).toBeVisible();
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setTheme("light");
+    });
+    await custom.scrollIntoViewIfNeeded();
+    await testInfo.attach("agent-activity-saved-output-light", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    // A reload has no live telemetry; the saved custom-output fallback must remain usable.
+    await page.reload();
+    await page.getByRole("button", { name: "Agents & Actions", exact: true }).click();
+    await page.getByRole("button", { name: /Custom outputs/ }).click();
+    await expect(page.getByText("Edited garden notes.", { exact: true })).toBeVisible();
+  } finally {
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}`);
+  }
+});
+
+test("Agents menu shows private-content-free progress, timings and reported usage", async ({ page }, testInfo) => {
+  const response = await page.request.post("/api/chats", {
+    data: { name: "Agent progress fixture", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  try {
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "assistant", content: "Agent status fixture." },
+    });
+    expect(messageResponse.ok()).toBeTruthy();
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+    await expect(page.getByText("Agent status fixture.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Agents & Actions", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Agent task status" })).toHaveCount(0);
+    const update = async (stage: "waiting" | "streaming" | "received", extra = {}) => {
+      await page.evaluate(
+        async ({ chatId, stage, extra }) => {
+          const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
+          const store = useAgentStore.getState();
+          store.setProcessingRun("progress-run", true, chatId);
+          store.updateTaskProgress(chatId, "progress-run", {
+            callId: "progress-call",
+            agents: [{ id: "tracker", type: "world-state", name: "World tracker", phase: "post_processing" }],
+            stage,
+            receivedChunks: 0,
+            receivedCharacters: 0,
+            elapsedMs: 0,
+            ...extra,
+          });
+          store.updateTaskProgress("another-chat", "other-run", {
+            callId: "private-other",
+            agents: [{ id: "other", type: "other", name: "Other chat tracker", phase: "pre_generation" }],
+            stage: "waiting",
+            receivedChunks: 0,
+            receivedCharacters: 0,
+            elapsedMs: 0,
+          });
+        },
+        { chatId: chat.id, stage, extra },
+      );
+    };
+    await update("waiting");
+    const status = page.getByRole("region", { name: "Agent task status" });
+    await expect(status.getByText("World tracker", { exact: true })).toBeVisible();
+    await expect(status.getByText("Post-generation", { exact: true })).toBeVisible();
+    await expect(status.getByText("Waiting for first output", { exact: true })).toBeVisible();
+    await expect(status.getByText("Not reported", { exact: true })).toHaveCount(3);
+    await expect(page.getByText("Other chat tracker", { exact: true })).toHaveCount(0);
+    await update("streaming", { receivedChunks: 17, receivedCharacters: 300, ttftMs: 125, elapsedMs: 700 });
+    await expect(status.getByText("17 chunks · 300 characters received", { exact: true })).toBeVisible();
+    await expect(status.getByText("Receiving output", { exact: true })).toBeVisible();
+    await expect(status.getByText("Not reported", { exact: true })).toHaveCount(2);
+    await expect
+      .poll(async () =>
+        status.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return bounds.left >= 7 && bounds.right <= window.innerWidth - 7;
+        }),
+      )
+      .toBe(true);
+    await testInfo.attach("agent-progress-streaming", { body: await page.screenshot(), contentType: "image/png" });
+    await update("received", {
+      receivedChunks: 20,
+      receivedCharacters: 370,
+      ttftMs: 125,
+      elapsedMs: 2000,
+      promptTokens: 123,
+      completionTokens: 45,
+    });
+    await expect(status.getByText("Output received", { exact: true })).toBeVisible();
+    await expect(status.locator("dd", { hasText: /^123$/ })).toBeVisible();
+    await expect(status.locator("dd", { hasText: /^45$/ })).toBeVisible();
+    await expect(status.getByText("Not reported", { exact: true })).toHaveCount(0);
+    await expect(status.getByText("World tracker", { exact: true })).toHaveCount(1);
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setTheme("light");
+    });
+    await testInfo.attach("agent-progress-reported-usage-light", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    await update("streaming", { receivedChunks: 21, receivedCharacters: 400, ttftMs: 125, elapsedMs: 2300 });
+    await page.evaluate(async (chatId) => {
+      const { useAgentStore } = await import("/src/stores/agent.store.ts" as string);
+      useAgentStore.getState().setProcessingRun("progress-run", false, chatId);
+    }, chat.id);
+    await expect(status.getByText("Stopped", { exact: true })).toBeVisible();
+    const elapsed = status
+      .locator("dl div")
+      .filter({ has: page.locator("dt", { hasText: /^Elapsed$/ }) })
+      .locator("dd");
+    const frozen = await elapsed.innerText();
+    await page.waitForTimeout(1100);
+    await expect(elapsed).toHaveText(frozen);
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
+test("UI language selection downloads packs on demand and persists across reloads", async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   const errors = collectUnexpectedErrors(page);
+  const packs = await mockUILanguagePacks(page);
   const languageSelect = page.locator("#settings-control-language select");
 
   // UI settings are normally synchronized through a single server record. Keep
@@ -11975,8 +12768,23 @@ test("UI language selection loads locale files and persists across reloads", asy
     await expect(languageSelect).toBeVisible({ timeout: 30_000 });
   };
 
+  // Upgrade: an old non-English selection without a local pack is a clean English fallback.
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("ui-pack-upgrade-fixture")) return;
+    sessionStorage.setItem("ui-pack-upgrade-fixture", "true");
+    const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{}}');
+    persisted.state = { ...persisted.state, language: "pl" };
+    localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
+  });
   await page.goto("/");
   await openGeneralSettings();
+  await expect(languageSelect).toHaveValue("en");
+  await expect(page.getByText("App Behavior", { exact: true })).toBeVisible();
+  expect(packs.downloads).toEqual([]);
+  await testInfo.attach("ui-language-pack-before-download", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   for (const locale of ["en", "ar", "de", "es", "fr", "hi", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"]) {
     await expect(languageSelect.locator(`option[value="${locale}"]`)).toHaveCount(1);
   }
@@ -11986,6 +12794,17 @@ test("UI language selection loads locale files and persists across reloads", asy
   await expect(page.getByPlaceholder("Szukaj w ustawieniach")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Ogólne" })).toBeVisible();
   await expect(page.getByText("Potwierdzaj przed usunięciem", { exact: true })).toBeVisible();
+
+  expect(packs.downloads).toEqual(["pl"]);
+  await page.getByRole("button", { name: "Refresh language pack", exact: true }).click();
+  await expect.poll(() => packs.downloads).toEqual(["pl", "pl"]);
+  await expect(page.getByRole("button", { name: "Refresh language pack", exact: true })).toBeEnabled();
+  await testInfo.attach("ui-language-pack-downloaded", { body: await page.screenshot(), contentType: "image/png" });
+  packs.setOffline(true);
+  await page.getByRole("button", { name: "Refresh language pack", exact: true }).click();
+  await expect(page.getByText("Could not download the language pack.", { exact: false })).toBeVisible();
+  await expect(languageSelect).toHaveValue("pl");
+  packs.setOffline(false);
   await expect(page.locator('[data-tour="panel-settings"]')).toHaveAttribute("title", "Ustawienia");
   await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe("pl");
   await expect.poll(() => page.evaluate(() => document.documentElement.dir)).toBe("ltr");
@@ -12108,7 +12927,8 @@ test("UI language selection loads locale files and persists across reloads", asy
   await openGeneralSettings();
   await expect(languageSelect).toHaveValue("en");
   await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe("en");
-  expect(errors).toEqual([]);
+  // The deliberately failed refresh is the only expected browser resource error.
+  expect(errors).toEqual(["Failed to load resource: the server responded with a status of 502 (Bad Gateway)"]);
 });
 
 test("incomplete synced settings preserve disabled Game text effects and repair the server blob", async ({ page }) => {
@@ -13252,7 +14072,9 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
 
   const openExpandedLocalModel = async () => {
     const rightPanel = page.locator('[data-component="RightPanel"]');
-    await page.locator('[data-tour="panel-connections"]').click();
+    const connectionsButton = page.locator('[data-tour="panel-connections"]');
+    await expect(connectionsButton).toBeVisible();
+    if ((await connectionsButton.getAttribute("aria-pressed")) !== "true") await connectionsButton.click();
     await expect(rightPanel).toBeVisible();
     const localModelLabel = rightPanel.getByText("Local Model", { exact: true });
     await localModelLabel.evaluate((element) => element.parentElement?.parentElement?.click());
@@ -16727,20 +17549,14 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
     expect(vectorizeRequestCount).toBe(vectorizeCountBeforeCancel);
 
     await vectorPanel.locator("label").filter({ hasText: "Query Messages" }).locator("input").fill("8");
-    await page.locator(".mari-editor-header").getByRole("button").first().click();
-    const unsavedWarning = page.getByText("You have unsaved changes", { exact: true });
-    await expect(unsavedWarning).toBeVisible();
-    const discardCloseButton = page.getByRole("button", { name: "Discard & close", exact: true });
-    const saveCloseButton = page.getByRole("button", { name: "Save & close", exact: true });
     const backButton = page.locator(".mari-editor-header").getByRole("button").first();
     delayCloseSave = true;
-    await saveCloseButton.click();
+    await backButton.click();
     await closeSaveStarted.promise;
-    await expect(discardCloseButton).toBeDisabled();
-    await expect(saveCloseButton).toBeDisabled();
     await expect(backButton).toBeDisabled();
     releaseCloseSave.resolve();
-    await expect(unsavedWarning).toBeVisible();
+    await expect(page.getByText("Deliberate save failure", { exact: true }).first()).toBeVisible();
+    await expect(vectorPanel.locator("label").filter({ hasText: "Query Messages" }).locator("input")).toHaveValue("8");
     await expect(page.locator(".mari-editor-header").getByText(lorebookName, { exact: true })).toBeVisible();
   } finally {
     if (lorebookId) await request.delete(`/api/lorebooks/${lorebookId}`).catch(() => undefined);
@@ -17487,7 +18303,7 @@ test("Home Community and clock widgets are useful, timezone-aware, and optional"
 
   await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
-  await expect(widgetManager.getByRole("switch")).toHaveCount(9);
+  await expect(widgetManager.getByRole("switch")).toHaveCount(10);
   for (const label of [
     "Your guide — Professor Mari",
     "Continue chatting — Recent chats",
@@ -17912,20 +18728,8 @@ test("Character of the Day stays vertically centered inside its mobile widget", 
       // The floating Professor Mari assistant popup overlaps the widget's
       // action row on the iPhone-profile viewport and intercepts the "View
       // character" click. It is unrelated to the layout under test.
-      const storageKey = "marinara-engine-ui";
-      let persisted: { state?: Record<string, unknown>; version?: number } = {};
-      try {
-        const parsed = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as unknown;
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          persisted = parsed as typeof persisted;
-        }
-      } catch {
-        // Replace malformed browser-local state with the minimal fixture.
-      }
-      persisted.state = { ...(persisted.state ?? {}), professorMariNavigationEnabled: false };
-      persisted.version ??= 65;
-      localStorage.setItem(storageKey, JSON.stringify(persisted));
     });
+    await seedUIState(page, { professorMariNavigationEnabled: false }, "merge");
     await page.goto("/");
 
     const characterWidget = page.locator('[data-home-widget-id="character"]');
@@ -18039,7 +18843,7 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
   await expect(widgetManager).toBeVisible();
-  await expect(widgetManager.getByRole("switch")).toHaveCount(9);
+  await expect(widgetManager.getByRole("switch")).toHaveCount(10);
   await activateControl(widgetManager.getByRole("switch", { name: "Hide Your shelf — Achievements" }), testInfo);
   await expect(page.locator('[data-home-widget-id="achievements"]')).toHaveCount(0);
   await expect
@@ -18736,6 +19540,9 @@ test("Home lifecycle stays bounded across repeated tab and chat navigation", asy
           module.useChatStore.getState().setActiveChatId(chatId);
         }, auditChat.id);
         await expect(page.locator('[data-component="HomeBrowserHub.HomePage"]')).toHaveCount(0);
+        // Home can disappear before the lazy Conversation surface mounts. Include
+        // its initialization in warm-up, not only in the measured navigation cycles.
+        await expect(page.locator('textarea[data-chat-composer="true"]')).toBeVisible();
         await page.evaluate(async () => {
           const module = (await import("/src/stores/chat.store.ts" as string)) as PageChatStoreModule;
           module.useChatStore.getState().setActiveChatId(null);
@@ -19120,6 +19927,10 @@ test("Roleplay reduced paint effects preserve semantic and custom styling", asyn
     await page.locator('[data-tour="panel-settings"]').click();
     await page.getByRole("tab", { name: "Appearance" }).click();
     const reducedPaintToggle = page.getByLabel("Reduced paint effects");
+    await page
+      .getByRole("group", { name: "Appearance by chat mode" })
+      .getByRole("button", { name: "Roleplay", exact: true })
+      .click();
     await reducedPaintToggle.scrollIntoViewIfNeeded();
     await page.getByText("Reduced paint effects", { exact: true }).click();
     await expect(reducedPaintToggle).toBeChecked();
@@ -20197,15 +21008,21 @@ test("mobile composers preserve history position and restore focus in Conversati
       while (!composerFocused && Date.now() < focusDeadline) {
         if (await showComposer.isVisible()) await activateControl(showComposer, testInfo);
         composerFocused = await textarea
-          .evaluate((element) => {
-            element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
-            element.focus();
-            return document.activeElement === element;
-          })
+          .evaluate(
+            (element) => {
+              element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
+              element.focus();
+              return document.activeElement === element;
+            },
+            undefined,
+            { timeout: 2_000 },
+          )
           .catch(() => false);
         if (!composerFocused) {
           await textarea.focus({ timeout: 2_000 }).catch(() => undefined);
-          composerFocused = await textarea.evaluate((element) => document.activeElement === element).catch(() => false);
+          composerFocused = await textarea
+            .evaluate((element) => document.activeElement === element, undefined, { timeout: 2_000 })
+            .catch(() => false);
         }
         if (!composerFocused) await page.waitForTimeout(250);
       }
@@ -20719,7 +21536,11 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
         getComputedStyle(element).getPropertyValue("--mari-panel-gradient-start").trim(),
       ),
     )
-    .toBe("#f472b6");
+    .toBe(
+      await page
+        .locator("html")
+        .evaluate((element) => getComputedStyle(element).getPropertyValue("--marinara-app-accent-solid").trim()),
+    );
 
   await chatsButton.click();
   await expect(mobileChatSidebar).toBeVisible();
@@ -20748,8 +21569,9 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   expect(errors).toEqual([]);
 });
 
-test("Characters topbar underline uses the Characters pink", async ({ page }) => {
+test("Characters topbar underline follows the selected accent", async ({ page }) => {
   await page.goto("/");
+  await setAppAccentColor(page, "#1e90ff");
   await page.locator('[data-tour="panel-characters"]').click();
 
   const underline = page.locator('[data-component="CharactersTopbarUnderline"]');
@@ -20758,7 +21580,60 @@ test("Characters topbar underline uses the Characters pink", async ({ page }) =>
     .poll(() =>
       underline.evaluate((element) => getComputedStyle(element).getPropertyValue("--mari-panel-gradient-start").trim()),
     )
-    .toBe("#f472b6");
+    .toBe("#1e90ff");
+});
+
+test("Updates shows the installed channel before checks and after a failed check", async ({ page }) => {
+  await page.route("**/api/updates/channel", (route) => route.fulfill({ json: { channel: "staging" } }));
+  await page.route("**/api/updates/check*", (route) =>
+    route.fulfill({ status: 502, json: { error: "Offline fixture" } }),
+  );
+  await page.goto("/");
+  await page.locator('[data-tour="panel-settings"]').click();
+  await page.getByRole("tab", { name: "Advanced" }).click();
+  const channel = page.getByLabel("Release Channel");
+  await expect(channel).toHaveValue("staging");
+  await page.getByRole("button", { name: "Check for Updates" }).click();
+  await expect(page.getByRole("button", { name: "Check for Updates" })).toBeEnabled();
+  await expect(channel).toHaveValue("staging");
+  await channel.selectOption("stable");
+  await expect(channel).toHaveValue("stable");
+});
+
+test("clearing Roleplay trackers requires confirmation and Cancel preserves state", async ({ page, request }) => {
+  const created = await request.post("/api/chats", {
+    data: { name: "Tracker clear confirmation", mode: "roleplay", characterIds: [] },
+  });
+  expect(created.ok()).toBeTruthy();
+  const chat = await created.json();
+  try {
+    await request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { enableAgents: true, activeAgentIds: ["world-state"] },
+    });
+    await request.patch(`/api/chats/${chat.id}/game-state`, { data: { location: "Protected location", manual: true } });
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    await page.goto("/");
+    await page
+      .getByRole("button", { name: /^Agents & Actions/ })
+      .filter({ visible: true })
+      .click();
+    await page.getByRole("button", { name: "Clear Trackers", exact: true }).click();
+    const dialog = page.getByRole("dialog").filter({ hasText: "Clear all trackers for this chat?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect((await (await request.get(`/api/chats/${chat.id}/game-state`)).json()).location).toBe("Protected location");
+    await page
+      .getByRole("button", { name: /^Agents & Actions/ })
+      .filter({ visible: true })
+      .click();
+    await page.getByRole("button", { name: "Clear Trackers", exact: true }).click();
+    await dialog.getByRole("button", { name: "Clear Trackers", exact: true }).click();
+    await expect
+      .poll(async () => (await (await request.get(`/api/chats/${chat.id}/game-state`)).json()).location)
+      .toBeNull();
+  } finally {
+    await bestEffortDelete(request, `/api/chats/${chat.id}`);
+  }
 });
 
 test("mobile Docker update checks offer the selected staging image", async ({ page }, testInfo) => {
@@ -20939,20 +21814,14 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
         body: Buffer.from(TRANSPARENT_GIF_BASE64, "base64"),
       });
     });
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: false,
+      sidebarOpen: false,
+      gameTextSpeed: 100,
+    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            rightPanelOpen: false,
-            sidebarOpen: false,
-            gameTextSpeed: 100,
-          },
-          version: 65,
-        }),
-      );
     }, chat.id);
 
     await page.goto("/");
@@ -21185,20 +22054,14 @@ test("Game HUD compacts on tablet widths when its surface mounts after the widge
       await route.continue();
     });
 
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      rightPanelOpen: false,
+      sidebarOpen: false,
+      gameTextSpeed: 100,
+    });
     await page.addInitScript((chatId) => {
       localStorage.setItem("marinara-active-chat-id", chatId);
-      localStorage.setItem(
-        "marinara-engine-ui",
-        JSON.stringify({
-          state: {
-            hasCompletedOnboarding: true,
-            rightPanelOpen: false,
-            sidebarOpen: false,
-            gameTextSpeed: 100,
-          },
-          version: 65,
-        }),
-      );
     }, chat.id);
 
     await page.goto("/");

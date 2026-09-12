@@ -35,8 +35,8 @@ interface GameModeStore {
   isSetupActive: boolean;
   /** Current step in the setup wizard. */
   setupStep: number;
-  /** Last dice roll result (for animation). */
-  diceRollResult: DiceRollResult | null;
+  /** Rolls waiting for their own animation, in arrival order. */
+  diceRollResults: DiceRollResult[];
   /** Character sheet modal state. */
   characterSheetOpen: boolean;
   characterSheetCharId: string | null;
@@ -60,6 +60,7 @@ interface GameModeStore {
   setSetupActive: (active: boolean) => void;
   setSetupStep: (step: number) => void;
   setDiceRollResult: (result: DiceRollResult | null) => void;
+  dismissDiceRollResult: () => void;
   openCharacterSheet: (charId: string) => void;
   closeCharacterSheet: () => void;
   togglePartyChat: () => void;
@@ -228,7 +229,7 @@ const INITIAL_STATE = {
   npcs: [],
   isSetupActive: false,
   setupStep: 0,
-  diceRollResult: null,
+  diceRollResults: [],
   characterSheetOpen: false,
   characterSheetCharId: null,
   partyChatExpanded: false,
@@ -241,7 +242,15 @@ export const useGameModeStore = create<GameModeStore>((set) => ({
   ...INITIAL_STATE,
 
   setActiveGame: (gameId, sessionChatId, partyChatId) =>
-    set({ activeGameId: gameId, activeSessionChatId: sessionChatId ?? null, partyChatId: partyChatId ?? null }),
+    set((state) => ({
+      activeGameId: gameId,
+      activeSessionChatId: sessionChatId ?? null,
+      partyChatId: partyChatId ?? null,
+      diceRollResults:
+        gameId === state.activeGameId && (sessionChatId ?? null) === state.activeSessionChatId
+          ? state.diceRollResults
+          : [],
+    })),
   setGameState: (state) => set({ gameState: state }),
   setCurrentMap: (map) =>
     set((s) => {
@@ -342,7 +351,9 @@ export const useGameModeStore = create<GameModeStore>((set) => ({
     }),
   setSetupActive: (active) => set({ isSetupActive: active }),
   setSetupStep: (step) => set({ setupStep: step }),
-  setDiceRollResult: (result) => set({ diceRollResult: result }),
+  setDiceRollResult: (result) =>
+    set((state) => ({ diceRollResults: result ? [...state.diceRollResults, result] : [] })),
+  dismissDiceRollResult: () => set((state) => ({ diceRollResults: state.diceRollResults.slice(1) })),
   openCharacterSheet: (charId) => set({ characterSheetOpen: true, characterSheetCharId: charId }),
   closeCharacterSheet: () => set({ characterSheetOpen: false, characterSheetCharId: null }),
   togglePartyChat: () => set((s) => ({ partyChatExpanded: !s.partyChatExpanded })),

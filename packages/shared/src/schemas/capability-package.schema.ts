@@ -193,7 +193,11 @@ const capabilityPackageManifestBaseSchema = z
 // 1.14: roleplay-tracker and tracker-panel UI contribution slots, package-aware
 //        prompt placement, and package-agent post-processing lifecycle hooks.
 // 1.15: packages can resolve their current embedding connection without reactivation.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 15 } as const);
+// 1.16: package-declared Game Master verbs — a hash-pinned `gm-verbs.json` asset the engine renders
+//        into the GM prompt, parses back out of the turn, and either writes into the package's own
+//        chat-metadata key or delivers live as a `gm_verb` event (soft seam: read from the asset
+//        regardless of declared capabilityApi; declare 1.16 only to REQUIRE it. Needs `chat-write`).
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 16 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

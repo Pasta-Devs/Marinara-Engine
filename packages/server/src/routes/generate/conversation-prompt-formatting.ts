@@ -1,4 +1,4 @@
-import type { WrapFormat } from "@marinara-engine/shared";
+import { getRoleplayDocuments, type WrapFormat } from "@marinara-engine/shared";
 
 import type { GenerationPromptMessage } from "../../services/generation/prompt-message-scope.js";
 import { wrapContent } from "../../services/prompt/format-engine.js";
@@ -90,6 +90,16 @@ export function conversationPromptHistoryContent(
   message: { role?: unknown; content?: unknown; extra?: unknown },
   chatMode: string,
 ): string {
+  if (chatMode === "roleplay" && message.role === "assistant") {
+    const documents = getRoleplayDocuments(parseExtra(message.extra));
+    if (Array.isArray(documents))
+      return [
+        typeof message.content === "string" ? message.content : "",
+        ...documents
+          .filter((document) => document && typeof document.title === "string" && typeof document.content === "string")
+          .map((document) => `Document: ${document.title}\n${document.content}`),
+      ].join("\n\n");
+  }
   if (chatMode === "conversation" && message.role === "assistant") {
     const commandContent = parseExtra(message.extra).conversationCommandContent;
     if (typeof commandContent === "string" && commandContent.trim()) {

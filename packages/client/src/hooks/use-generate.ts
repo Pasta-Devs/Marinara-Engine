@@ -2,10 +2,13 @@
 // React Query: Generation (streaming + agent pipeline)
 // ──────────────────────────────────────────────
 import { useCallback, useRef } from "react";
+import { audioManager } from "../lib/game-audio";
+import { normalizeEchoChamberMessages } from "../lib/echo-chamber-queue";
 import { characterDataSchema, normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { toast, type ExternalToast } from "sonner";
 import { api, ApiError, isPassiveStreamDisconnect } from "../lib/api-client";
+import { recordClientRuntimeEvent } from "../lib/client-runtime-diagnostics";
 import {
   formatAgentFailuresToast,
   illustratorRetryTargetsForFailures,
@@ -59,6 +62,7 @@ import {
   resolveChatPersonaCandidate,
   type AgentWriteApprovalProposal,
   type AgentCallDebugEvent,
+  type AgentTaskProgress,
   type CharacterCardFieldUpdate,
   type EditableCharacterCardField,
   type MariGuidedPlanStep,
@@ -76,6 +80,7 @@ type RetryAgentsOptions = {
   secretPlotRerollMode?: "full" | "turn_only";
   agentPromptTemplateIds?: Record<string, string>;
   illustratorPromptReviewOverride?: {
+    subjectOnly?: boolean;
     resultData: Record<string, unknown>;
     prompt: string;
     negativePrompt?: string;
@@ -99,7 +104,7 @@ function withIllustratorFailureTargets(
 }
 
 /** Show a persistent, copyable error toast and log to console */
-function showError(msg: string, options?: Pick<ExternalToast, "action">) {
+function showError(msg: string, options?: Pick<ExternalToast, "action" | "id">) {
   const formatted = formatGenerationParameterError(msg);
   console.error("[Generation]", msg);
   toast.error(formatted, { duration: 15000, ...options });
@@ -623,6 +628,7 @@ function createGenerationSubmissionId(): string {
 import { useChatStore } from "../stores/chat.store";
 import { useAgentStore } from "../stores/agent.store";
 import { agentResultMatchesVisibleSwipe } from "../lib/agent-result-ownership";
+import { isDiceRollResult } from "../lib/dice-roll-result";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useTranslationStore } from "../stores/translation.store";
@@ -1207,6 +1213,7 @@ export function useGenerate() {
       presetId?: string;
       lorebookIds?: string[];
       userMessage?: string;
+      replyTo?: Message["extra"]["replyTo"];
       regenerateMessageId?: string;
       continueMessageId?: string;
       impersonate?: boolean;
@@ -1400,6 +1407,7 @@ export function useGenerate() {
             personaSnapshot,
             ...(submissionId ? { submissionId } : {}),
             ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
+            ...(params.replyTo ? { replyTo: params.replyTo } : {}),
           },
           createdAt: new Date().toISOString(),
         };
@@ -1878,6 +1886,13 @@ export function useGenerate() {
               break;
             }
 
+            case "agent_progress": {
+              useAgentStore
+                .getState()
+                .updateTaskProgress(params.chatId, agentProcessingRunId, event.data as AgentTaskProgress);
+              break;
+            }
+
             case "agent_warning": {
               showAgentWarning(event.data, params.chatId);
               break;
@@ -1987,8 +2002,7 @@ export function useGenerate() {
                 // Push echo-chamber reactions to the dedicated echo store
                 if (result.agentType === "echo-chamber") {
                   const d = result.data as Record<string, unknown>;
-                  const reactions = (d.reactions as Array<{ characterName: string; reaction: string }>) ?? [];
-                  enqueueEchoMessages(reactions);
+                  enqueueEchoMessages(d.reactions);
                 }
 
                 // Push CYOA choices to the dedicated store
@@ -2126,8 +2140,40 @@ export function useGenerate() {
             }
 
             case "tool_result": {
+              const data = event.data as {
+                name?: unknown;
+                result?: unknown;
+                success?: unknown;
+                diceRollResult?: unknown;
+                mode?: string;
+              };
+              if (data.success === false && isActiveChat()) {
+                let reason = "";
+                try {
+                  const result = typeof data.result === "string" ? JSON.parse(data.result) : data.result;
+                  if (result && typeof result.error === "string") reason = result.error.trim().slice(0, 250);
+                } catch {
+                  /* Keep malformed/raw tool output in debug only. */
+                }
+                const tool =
+                  typeof data.name === "string" ? data.name.slice(0, 80) : translate("generation.tools.unknown");
+                showError(
+                  translate("generation.tools.failed", {
+                    tool,
+                    reason: reason || translate("generation.tools.noResult"),
+                  }),
+                  {
+                    id: `tool-failure-${params.chatId}-${tool}`,
+                  },
+                );
+              }
+              // A dice roll the GM asked for is something the player is meant to see, so it
+              // escapes the debug-only gate and drives the same card /roll shows.
+              if (isDiceRollResult(data.diceRollResult) && isActiveChat()) {
+                // Roleplay keeps the result inside its collapsed command notice.
+                if (data.mode !== "roleplay") useGameModeStore.getState().setDiceRollResult(data.diceRollResult);
+              }
               if (!debugMode) break;
-              const data = event.data as { name?: unknown; result?: unknown; success?: unknown };
               addDebugEntry({
                 phase: "tool_result",
                 toolResult: {
@@ -2303,6 +2349,23 @@ export function useGenerate() {
             case "metadata_patch": {
               qc.invalidateQueries({ queryKey: chatKeys.detail(params.chatId) });
               qc.invalidateQueries({ queryKey: lorebookKeys.active(params.chatId) });
+              break;
+            }
+
+            case "gm_verb": {
+              // A package-declared GM event verb (#5798). Addressed by an explicit packageId on the
+              // envelope rather than by a convention field inside the payload, so nothing has to
+              // agree about where the address lives. Transient by design: one synchronous dispatch,
+              // no queue and no replay, so a package not yet mounted simply misses it.
+              const verbEvent = event.data as { packageId?: string } | null;
+              if (verbEvent?.packageId) {
+                dispatchCapabilityClientEvent({
+                  packageId: verbEvent.packageId,
+                  type: event.type,
+                  chatId: params.chatId,
+                  data: event.data,
+                });
+              }
               break;
             }
 
@@ -2618,6 +2681,25 @@ export function useGenerate() {
               break;
             }
 
+            case "roleplay_command_error": {
+              const data = event.data as { invalid?: boolean; rollLimit?: boolean; error?: string };
+              toast.error(
+                data.rollLimit
+                  ? translate("roleplay.commands.roll.limit")
+                  : data.invalid
+                    ? translate("roleplay.commands.invalid")
+                    : translate("roleplay.commands.failed", { error: data.error ?? "" }),
+              );
+              break;
+            }
+            case "roleplay_sound": {
+              const data = event.data as { url?: string };
+              qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
+              if (isActiveChat() && data.url?.startsWith("/api/game-assets/file/sfx/")) {
+                audioManager.playSfx(decodeURIComponent(data.url.slice("/api/game-assets/file/".length)));
+              }
+              break;
+            }
             case "spotify_command": {
               const spotifyData = event.data as {
                 track?: { name?: string; artist?: string };
@@ -2651,6 +2733,7 @@ export function useGenerate() {
             }
 
             case "illustration": {
+              recordClientRuntimeEvent("image-arrived");
               illustrationSettled = true;
               const illData = event.data as {
                 messageId: string;
@@ -2658,11 +2741,10 @@ export function useGenerate() {
                 reason?: string;
               };
               toast(illData.reason ? `🎨 ${illData.reason}` : "🎨 Scene illustration generated");
-              // During streaming the real message is deferred — refreshing now
-              // would insert it into the cache alongside the StreamingIndicator,
-              // causing a duplicate flash. The finally block's authoritative
-              // refresh will pick up the illustration attachment from DB.
-              if (!streamingEnabled && !isGameGeneration) {
+              // Roleplay can already have handed off to the durable row while other
+              // agents still own this stream. Show its saved image immediately;
+              // only defer when the live message presentation still owns the row.
+              if (!isGameGeneration && canRefreshCurrentMessagesNow()) {
                 await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
               }
               void qc.invalidateQueries({ queryKey: ["gallery", params.chatId] });
@@ -3604,8 +3686,7 @@ export function useGenerate() {
               if (result.success && result.data) {
                 if (result.agentType === "echo-chamber") {
                   const d = result.data as Record<string, unknown>;
-                  const reactions = (d.reactions as Array<{ characterName: string; reaction: string }>) ?? [];
-                  if (shouldApplyVisibleResult) enqueueEchoMessages(reactions);
+                  if (shouldApplyVisibleResult) enqueueEchoMessages(d.reactions);
                 }
                 // CYOA re-roll: push the freshly generated choices into the store
                 // so the buttons in CyoaChoices.tsx swap in immediately.
@@ -3698,6 +3779,12 @@ export function useGenerate() {
               });
               break;
             }
+            case "agent_progress": {
+              useAgentStore
+                .getState()
+                .updateTaskProgress(chatId, agentProcessingRunId, event.data as AgentTaskProgress);
+              break;
+            }
             case "agents_retry_failed": {
               hasError = true;
               const failedList = event.data as Array<{
@@ -3733,6 +3820,29 @@ export function useGenerate() {
               }
               break;
             }
+            case "metadata_patch": {
+              // The retry route emits this and this switch had no case for it, so a metadata write on
+              // a retried turn never reached the package until the chat was reopened. Load-bearing
+              // for GM state verbs (#5798): props re-delivery after the refetch IS the delivery
+              // mechanism — there is no second event carrying the value.
+              qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
+              qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+              break;
+            }
+            case "gm_verb": {
+              // GM verbs do not run on the agents-retry route today. The case is here anyway so the
+              // next wiring does not have to rediscover that this switch is a twin of the main one.
+              const verbEvent = event.data as { packageId?: string } | null;
+              if (verbEvent?.packageId) {
+                dispatchCapabilityClientEvent({
+                  packageId: verbEvent.packageId,
+                  type: event.type,
+                  chatId,
+                  data: event.data,
+                });
+              }
+              break;
+            }
             case "game_map_update": {
               const map = event.data as GameMap | null;
               if (map) applyGameMapUpdate(qc, chatId, map);
@@ -3747,6 +3857,7 @@ export function useGenerate() {
               break;
             }
             case "illustration": {
+              recordClientRuntimeEvent("image-arrived");
               const illData = event.data as { messageId: string; imageUrl: string; reason?: string };
               toast(illData.reason ? `🎨 ${illData.reason}` : "🎨 Scene illustration generated");
               // Refresh messages so the illustration attachment appears
@@ -3972,9 +4083,9 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
     }
 
     case "echo-chamber": {
-      const reactions = (d.reactions as any[]) ?? [];
+      const reactions = normalizeEchoChamberMessages(d.reactions);
       if (!reactions.length) return null;
-      return reactions.map((r: any) => `💬 ${r.characterName}: ${r.reaction}`).join("\n");
+      return reactions.map((r) => `💬 ${r.characterName}: ${r.reaction}`).join("\n");
     }
 
     case "spotify": {

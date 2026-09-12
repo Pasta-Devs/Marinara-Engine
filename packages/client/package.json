@@ -8,7 +8,7 @@
     "build": "node ./scripts/build.mjs",
     "clean": "node -e \"const fs=require('fs');['dist','tsconfig.tsbuildinfo','node_modules/.cache/eslint'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
     "preview": "vite preview",
-    "lint": "eslint . --cache --cache-strategy content --cache-location node_modules/.cache/eslint/.eslintcache"
+    "lint": "eslint . --cache --cache-strategy content --cache-location node_modules/.cache/eslint/.eslintcache && tsc -p ../../scripts/regressions/tsconfig.client-lanes.json"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

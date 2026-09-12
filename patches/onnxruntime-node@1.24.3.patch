@@ -1,0 +1,14 @@
+diff --git a/script/install-utils.js b/script/install-utils.js
+--- a/script/install-utils.js
++++ b/script/install-utils.js
+@@ -152,8 +152,8 @@ async function resolvePackage(type, index, packageName, version) {
+         }
+ 
+         // Create a temporary directory
+-        const tempDir = path.join(os.tmpdir(), `onnxruntime-node-pkgs_${Date.now()}`);
+-        fs.mkdirSync(tempDir, { recursive: true });
++        // Exclusive, private directory: never reuse an attacker-prepared path.
++        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onnxruntime-node-pkgs_'));
+ 
+         try {
+           const packageFilePath = path.join(tempDir, packageFileName);

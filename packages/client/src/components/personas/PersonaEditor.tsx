@@ -114,6 +114,10 @@ import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { Modal } from "../ui/Modal";
 import { EditorTabNavigation } from "../ui/EditorTabNavigation";
+import { useEditorSections } from "../../hooks/use-editor-sections";
+import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
+import { LazyEditorSection } from "../ui/LazyEditorSection";
+import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -1280,6 +1284,12 @@ export function PersonaEditor() {
   // what asynchronous save/upload continuations read, so reconciliation never
   // depends on a render having happened; the state is what re-renders the UI.
   const [formData, setFormDataState] = useState<PersonaFormData | null>(null);
+  const { contentRef, scrollToSection } = useEditorSections(
+    personaId,
+    !!formData,
+    personaInitialTab ?? "metadata",
+    setActiveTab,
+  );
   const formDataRef = useRef<PersonaFormData | null>(null);
   const [baselineForm, setBaselineFormState] = useState<PersonaFormData | null>(null);
   const baselineFormRef = useRef<PersonaFormData | null>(null);
@@ -1306,7 +1316,7 @@ export function PersonaEditor() {
   const [mutationKind, setMutationKind] = useState<PersonaMutationKind | null>(null);
   const formatQuotes = useQuoteFormatter();
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
-  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const commitFormData = useCallback((next: PersonaFormData | null) => {
@@ -1741,7 +1751,8 @@ export function PersonaEditor() {
     if (!deleteToken) return;
     try {
       await deletePersona.mutateAsync(deletedPersonaId);
-      if (isCurrentEditorSession(session) && loadedPersonaIdRef.current === deletedPersonaId) closeDetail();
+      if (isCurrentEditorSession(session) && loadedPersonaIdRef.current === deletedPersonaId)
+        leaveWithoutSaving(closeDetail);
     } catch (error) {
       if (!isCurrentEditorSession(session) || loadedPersonaIdRef.current !== deletedPersonaId) return;
       console.error("[PersonaEditor] Delete failed:", error);
@@ -1821,33 +1832,10 @@ export function PersonaEditor() {
   const handleClose = useCallback(() => {
     // Read immediate refs so a local Back click cannot race a write or draft update.
     if (mutationTokenRef.current) return;
-    const draft = formDataRef.current;
-    const baseline = baselineFormRef.current;
-    const dirtyNow =
-      draft !== null && baseline !== null && personaFieldsDifferingFromBaseline(draft, baseline).length > 0;
-    if (dirtyNow) {
-      setShowUnsavedWarning(true);
-      return;
-    }
     closeDetail();
   }, [closeDetail]);
 
-  const keepEditing = useCallback(() => {
-    setShowUnsavedWarning(false);
-  }, []);
-
-  const discardAndNavigate = useCallback(() => {
-    // A write may have started after the warning opened; never discard under it.
-    if (mutationTokenRef.current) return;
-    closeDetail();
-  }, [closeDetail]);
-
-  const handleSaveAndClose = useCallback(async () => {
-    if (mutationTokenRef.current) return;
-    const savedAndClean = await handleSave();
-    // Only close when the save landed and no edit made during it is still unsaved.
-    if (savedAndClean && !mutationTokenRef.current) closeDetail();
-  }, [closeDetail, handleSave]);
+  useEditorLeaveSave(`personaDetailId:${personaId}`, dirty, handleSave, mutationBusy);
 
   if (isLoading || !formData) {
     return (
@@ -2050,7 +2038,7 @@ export function PersonaEditor() {
           </div>
         </div>
 
-        <EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
+        <EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={scrollToSection} />
 
         <div className="mari-editor-actions flex">
           <button
@@ -2068,47 +2056,12 @@ export function PersonaEditor() {
         </div>
       </div>
 
-      {/* ── Unsaved changes warning ── */}
-      {showUnsavedWarning && (
-        <div className="flex items-center gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
-          <AlertTriangle size="0.9375rem" className="shrink-0 text-amber-500" />
-          <p className="flex-1 text-xs font-medium text-amber-500">
-            {localizeUi("ui.personas.personaeditor.youHaveUnsavedChangesCloseWithoutSaving")}
-          </p>
-          <button
-            type="button"
-            onClick={keepEditing}
-            className="rounded-lg px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
-          >
-            {localizeUi("ui.personas.personaeditor.keepEditing")}
-          </button>
-          {/* Blocked while a Persona write is in flight: it cannot be cancelled, so
-              "discard" would drop local state while the server still persists it. */}
-          <button
-            type="button"
-            onClick={discardAndNavigate}
-            disabled={mutationBusy}
-            className="rounded-lg bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-500 transition-all hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-amber-500/15"
-          >
-            {localizeUi("ui.personas.personaeditor.discardClose")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSaveAndClose()}
-            disabled={mutationBusy}
-            className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex rounded-lg px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {localizeUi("ui.personas.personaeditor.saveClose")}
-          </button>
-        </div>
-      )}
-
       {/* ── Body ── */}
       <div className="mari-editor-body">
         {/* Tab Content */}
-        <div className="mari-editor-content @max-5xl:p-4">
+        <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
           <div className="mari-editor-content-inner">
-            {activeTab === "metadata" && (
+            <section data-editor-section="metadata">
               <PersonaMetadataTab
                 personaId={personaId}
                 formData={formData}
@@ -2125,47 +2078,53 @@ export function PersonaEditor() {
                 hasUnsavedChanges={dirty}
                 avatarMutationBusy={mutationBusy}
               />
-            )}
-            {activeTab === "card" && <PersonaCardTab formData={formData} updateField={updateField} />}
-            {activeTab === "convo" && (
-              // Key by the edited persona so the Convo fields' transient state resets on
-              // switch — the editor reuses this instance across personas.
+            </section>
+            <section data-editor-section="card">
+              <PersonaCardTab formData={formData} updateField={updateField} />
+            </section>
+            <section data-editor-section="convo">
               <PersonaConvoTab
                 key={personaId ?? "new-persona"}
                 personaId={personaId}
                 formData={formData}
                 updateField={updateField}
               />
-            )}
-            {activeTab === "lorebook" && personaId && (
-              <PersonaLorebookTab personaId={personaId} personaName={formData.name} />
-            )}
-            {activeTab === "colors" && (
+            </section>
+            <LazyEditorSection key={`lorebook:${personaId}`} id="lorebook">
+              {personaId && <PersonaLorebookTab personaId={personaId} personaName={formData.name} />}
+            </LazyEditorSection>
+            <LazyEditorSection key={`sprites:${personaId}`} id="sprites">
+              {personaId && (
+                <PersonaSpritesTab
+                  personaId={personaId}
+                  personaName={formData.name}
+                  defaultAppearance={formData.appearance || formData.description}
+                  defaultAvatarUrl={avatarPreview}
+                  characterSheetImageId={formData.characterSheetImageId}
+                  useCharacterSheetAsReference={formData.useCharacterSheetAsReference}
+                  updateField={updateField}
+                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                />
+              )}
+            </LazyEditorSection>
+            <LazyEditorSection key={`gallery:${personaId}`} id="gallery">
+              {personaId && (
+                <PersonaGalleryTab
+                  personaId={personaId}
+                  personaName={formData.name}
+                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                  editorBusy={mutationBusy}
+                  galleryAvatarPending={mutationKind === "gallery-avatar"}
+                  onSetAvatar={handleSetGalleryAvatar}
+                />
+              )}
+            </LazyEditorSection>
+            <section data-editor-section="colors">
               <PersonaColorsTab formData={formData} updateField={updateField} avatarUrl={avatarPreview} />
-            )}
-            {activeTab === "sprites" && personaId && (
-              <PersonaSpritesTab
-                personaId={personaId}
-                personaName={formData.name}
-                defaultAppearance={formData.appearance || formData.description}
-                defaultAvatarUrl={avatarPreview}
-                characterSheetImageId={formData.characterSheetImageId}
-                useCharacterSheetAsReference={formData.useCharacterSheetAsReference}
-                updateField={updateField}
-                onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
-              />
-            )}
-            {activeTab === "gallery" && personaId && (
-              <PersonaGalleryTab
-                personaId={personaId}
-                personaName={formData.name}
-                onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
-                editorBusy={mutationBusy}
-                galleryAvatarPending={mutationKind === "gallery-avatar"}
-                onSetAvatar={handleSetGalleryAvatar}
-              />
-            )}
-            {activeTab === "stats" && <PersonaStatsTab formData={formData} updateField={updateField} />}
+            </section>
+            <section data-editor-section="stats">
+              <PersonaStatsTab formData={formData} updateField={updateField} />
+            </section>
           </div>
         </div>
       </div>

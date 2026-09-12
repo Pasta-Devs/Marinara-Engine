@@ -9,6 +9,9 @@ import { showAppUpdatePrompt } from "./lib/app-update-prompt";
 import { initializeLocalization } from "./localization/i18n";
 import { LocalizationProvider } from "./localization/LocalizationProvider";
 import { useUIStore } from "./stores/ui.store";
+import { APP_VERSION } from "@marinara-engine/shared";
+import { formatRuntimeBuild } from "./lib/runtime-build";
+import { recordClientReload, registerClientRuntimeDiagnostics } from "./lib/client-runtime-diagnostics";
 import "./styles/globals.css";
 
 // Installed capability clients can outlive the Engine build that produced
@@ -17,6 +20,7 @@ import "./styles/globals.css";
 // client is imported.
 Object.assign(globalThis, { React, ReactDOM });
 
+registerClientRuntimeDiagnostics(formatRuntimeBuild(APP_VERSION, __MARINARA_BUILD_COMMIT__));
 // Prevent Chrome/Edge from sleeping this tab
 startKeepAlive();
 installCsrfFetchShim();
@@ -61,7 +65,10 @@ function registerServiceWorker() {
         const updateSW = registerSW({
           immediate: true,
           onNeedRefresh() {
-            showAppUpdatePrompt(() => updateSW(true));
+            showAppUpdatePrompt(() => {
+              recordClientReload("service-worker-update");
+              return updateSW(true);
+            });
           },
           onRegisteredSW(_swUrl: string, registration?: ServiceWorkerRegistration) {
             if (!registration) {

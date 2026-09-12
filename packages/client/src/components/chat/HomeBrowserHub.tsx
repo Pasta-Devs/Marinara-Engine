@@ -87,6 +87,7 @@ import { HomeFaq } from "./HomeFaq";
 import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
 import { HomeProfessorMariChat, ProfessorMariPixelScene } from "./HomeProfessorMariChat";
 import { RecentChats } from "./RecentChats";
+import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
 
 const MARI_ASSISTANT_ARRIVAL_SHEET = "/sprites/mari/generated/professor-mari-assistant-sheet.png";
 const MARI_ASSISTANT_IDLE = "/sprites/mari/generated/professor-mari-assistant-idle.png";
@@ -129,6 +130,7 @@ const HOME_WIDGET_VISIBILITY_STORAGE_KEY = "marinara:home:widget-visibility:v2";
 const LEGACY_HOME_WIDGET_VISIBILITY_STORAGE_KEY = "marinara:home:widget-visibility:v1";
 const HOME_CUSTOM_WIDGET_KNOWN_STORAGE_KEY = "marinara:home:custom-widget-known:v1";
 const HOME_WIDGET_IDS = [
+  "character-library",
   "professor",
   "whats-new",
   "recent",
@@ -287,6 +289,7 @@ function BrowserPackageTabIcon({
 }
 const DEFAULT_HOME_WIDGET_ORDER = [
   "recent",
+  "character-library",
   "professor",
   "learn",
   "whats-new",
@@ -308,6 +311,7 @@ type HomeGridColumns = 1 | 2 | 3 | 4;
 type HomeWidgetSlot = HomeWidgetId | null;
 type HomeWidgetLayouts = Record<HomeGridColumns, HomeWidgetSlot[]>;
 const HOME_WIDGET_LABEL_KEYS: Record<BuiltInHomeWidgetId, string> = {
+  "character-library": "home.widgets.characterLibrary",
   professor: "home.widgets.professor",
   recent: "home.widgets.recent",
   "whats-new": "home.widgets.whatsNew",
@@ -319,6 +323,7 @@ const HOME_WIDGET_LABEL_KEYS: Record<BuiltInHomeWidgetId, string> = {
   achievements: "home.widgets.achievements",
 };
 const HOME_WIDGET_MANAGER_LABEL_KEYS: Record<BuiltInHomeWidgetId, { name: string; purpose: string }> = {
+  "character-library": { name: "home.widgets.characterLibrary", purpose: "home.characterLibrary.description" },
   professor: { name: "home.professorMari.eyebrow", purpose: "home.widgets.professor" },
   recent: { name: "home.recentChats.eyebrow", purpose: "home.recentChats.title" },
   "whats-new": { name: "home.whatsNew.eyebrow", purpose: "home.widgets.whatsNew" },
@@ -335,7 +340,9 @@ const ENGINE_RELEASE_URL = `https://github.com/Pasta-Devs/Marinara-Engine/releas
 const HOME_MODULE_ACCENTS = {
   cyan: "oklch(0.79 0.16 205)",
   orange: "oklch(0.76 0.19 52)",
+  // Explicit custom-widget palette choice; built-in interface accents follow the theme.
   pink: "oklch(0.73 0.21 345)",
+  accent: "var(--marinara-chat-chrome-accent)",
   violet: "oklch(0.72 0.17 303)",
 } as const;
 
@@ -358,7 +365,7 @@ const HOME_STARS = Array.from({ length: 42 }, (_, index) => ({
   size: 1 + ((index * 13) % 4),
   delay: -((index * 0.71) % 8),
   duration: 4.8 + ((index * 0.43) % 5),
-  color: [HOME_MODULE_ACCENTS.cyan, HOME_MODULE_ACCENTS.orange, HOME_MODULE_ACCENTS.pink, "oklch(0.92 0.04 303)"][
+  color: [HOME_MODULE_ACCENTS.cyan, HOME_MODULE_ACCENTS.orange, HOME_MODULE_ACCENTS.accent, "oklch(0.92 0.04 303)"][
     index % 4
   ],
 }));
@@ -421,7 +428,10 @@ function readHomeWidgetVisibility(): HomeWidgetId[] {
 }
 
 function homeWidgetSpotCount(columns: HomeGridColumns, visibleWidgets: readonly HomeWidgetId[]) {
-  return visibleWidgets.reduce((total, id) => total + (id === "recent" ? (columns === 1 ? 2 : 4) : 1), 0);
+  return visibleWidgets.reduce(
+    (total, id) => total + (id === "recent" || id === "character-library" ? (columns === 1 ? 2 : 4) : 1),
+    0,
+  );
 }
 
 function homeEmptySlotCount(columns: HomeGridColumns, visibleWidgets: readonly HomeWidgetId[]) {
@@ -737,6 +747,8 @@ function FeedModule({
   art,
   artClassName,
   className,
+  onOpen,
+  openLabel,
   children,
 }: {
   eyebrow: string;
@@ -747,6 +759,8 @@ function FeedModule({
   art?: string;
   artClassName?: string;
   className?: string;
+  onOpen?: () => void;
+  openLabel?: string;
   children: ReactNode;
 }) {
   const style = { "--home-module-accent": accent } as CSSProperties;
@@ -758,6 +772,15 @@ function FeedModule({
         className,
       )}
     >
+      {onOpen && (
+        <button
+          type="button"
+          data-home-widget-open
+          aria-label={openLabel ?? title}
+          onClick={onOpen}
+          className="absolute inset-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-app-accent-solid)]"
+        />
+      )}
       <span
         className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[color-mix(in_srgb,var(--home-module-accent)_11%,transparent)] blur-3xl"
         aria-hidden="true"
@@ -774,6 +797,7 @@ function FeedModule({
         className={cn(
           "relative z-[1] flex min-w-0 items-end justify-between gap-3 pr-8",
           description ? "mb-1.5" : "mb-3",
+          onOpen && "pointer-events-none [&_button]:pointer-events-auto [&_a]:pointer-events-auto",
         )}
       >
         <div className="min-w-0">
@@ -787,7 +811,14 @@ function FeedModule({
         </div>
         {action}
       </header>
-      <div className="relative z-[1] min-h-0 flex-1">{children}</div>
+      <div
+        className={cn(
+          "relative z-[1] min-h-0 flex-1",
+          onOpen && "pointer-events-none [&_button]:pointer-events-auto [&_a]:pointer-events-auto",
+        )}
+      >
+        {children}
+      </div>
     </section>
   );
 }
@@ -2430,7 +2461,7 @@ export function HomeBrowserHub({
                 <BrowserBookmark
                   onClick={() => setFaqOpen(true)}
                   icon={<img src="/home/tab-icons/faq.png" alt="" className="h-4 w-4 object-contain" />}
-                  tone={HOME_MODULE_ACCENTS.pink}
+                  tone={HOME_MODULE_ACCENTS.accent}
                   tourTarget="home-faq"
                 >
                   {t("home.browser.faqTab")}
@@ -2528,7 +2559,7 @@ export function HomeBrowserHub({
                     setFaqOpen(true);
                   }}
                   icon={<img src="/home/tab-icons/faq.png" alt="" className="h-4 w-4 object-contain" />}
-                  tone={HOME_MODULE_ACCENTS.pink}
+                  tone={HOME_MODULE_ACCENTS.accent}
                 >
                   {t("home.browser.faqTab")}
                 </MobileBrowserBookmark>
@@ -2731,8 +2762,28 @@ export function HomeBrowserHub({
                         art="/home/story-comet.png"
                         artClassName={HOME_CARD_ART_CLASS}
                         className="h-full"
+                        onOpen={() => openProfessorMariTarget({ kind: "chats" })}
+                        openLabel={t("home.recentChats.open")}
                       >
                         <RecentChats />
+                      </FeedModule>
+                    </HomeWidgetFrame>
+
+                    <HomeWidgetFrame {...widgetFrameProps("character-library")}>
+                      <FeedModule
+                        eyebrow={t("home.widgets.characterLibrary")}
+                        title={t("home.characterLibrary.title")}
+                        accent={HOME_MODULE_ACCENTS.cyan}
+                        className="h-full"
+                        onOpen={() => useUIStore.getState().openCharacterLibrary()}
+                        openLabel={t("home.characterLibrary.open")}
+                      >
+                        <HomeCharacterLibrary
+                          characters={characterCatalog.data ?? []}
+                          loading={characterCatalog.isLoading}
+                          error={characterCatalog.isError}
+                          onRetry={() => void characterCatalog.refetch()}
+                        />
                       </FeedModule>
                     </HomeWidgetFrame>
 
@@ -2849,7 +2900,7 @@ export function HomeBrowserHub({
                       <FeedModule
                         eyebrow={t("home.characterOfDay.eyebrow")}
                         title={t("home.characterOfDay.title")}
-                        accent={HOME_MODULE_ACCENTS.pink}
+                        accent={HOME_MODULE_ACCENTS.accent}
                         className="h-full"
                       >
                         {characterOfDay ? (
@@ -2976,7 +3027,7 @@ export function HomeBrowserHub({
                       <FeedModule
                         eyebrow={t("home.community.eyebrow")}
                         title={t("home.community.title")}
-                        accent={HOME_MODULE_ACCENTS.pink}
+                        accent={HOME_MODULE_ACCENTS.accent}
                         className="h-full"
                       >
                         <div className="mari-home-widget-shortcut-list grid content-center gap-1">
@@ -3110,7 +3161,7 @@ export function HomeBrowserHub({
               const label = widgetManagerLabel(id);
               const customWidget = customWidgetsById.get(id);
               const tones = [
-                HOME_MODULE_ACCENTS.pink,
+                HOME_MODULE_ACCENTS.accent,
                 HOME_MODULE_ACCENTS.cyan,
                 HOME_MODULE_ACCENTS.orange,
                 HOME_MODULE_ACCENTS.violet,

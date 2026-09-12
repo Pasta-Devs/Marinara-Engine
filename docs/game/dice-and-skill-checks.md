@@ -42,6 +42,10 @@ A roll with more than one die or with a bonus also shows the parts:
 
 The Game Master reads that tag and narrates around the result.
 
+When the Game Master rolls several times in one turn, each dice card gets its own place in the queue. Dismiss a card to see the next one. All rolls are saved on that turn's active swipe and remain in **Logs** after a reload. Continuing a turn keeps its earlier rolls; regenerating creates a separate set for the new swipe.
+
+The Game Master can also request a roll in narration with `[dice: 3d8+2]`. The engine supplies the real numbers and shows the same animated card. This works on text-only connections, including Claude and Grok subscriptions. It uses the same notation and limits as the dice menu.
+
 ## Custom dice notation
 
 The dice menu also has a text field for a custom roll. It uses standard `NdM` notation. `N` is how many dice to roll and `M` is how many sides each die has. You can add a bonus or a penalty at the end.
@@ -61,11 +65,15 @@ Some more examples you can type:
 - `4d8-1` rolls four 8-sided dice and subtracts 1.
 - `2d6+3` rolls two 6-sided dice and adds 3.
 
-There are two hard limits. You can roll at most 100 dice at once, and each die can have at most 1000 sides. If you ask for more, the app trims your request down to those limits instead of refusing it. If your text is not valid `NdM` notation, the roll fails and you get an error that names the expected format.
+There are two hard limits. You can roll at most 100 dice at once, and each die can have at most 1000 sides. If you ask for more, the app trims your request down to those limits instead of refusing it, and the result card shows the trimmed notation, so typing `500d6` gives you a `100d6` card for the hundred dice it actually rolled. If your text is not valid dice notation — `NdM`, or a bare `dM` like `d20` — the roll fails and you get an error that names the expected format.
 
 ## Skill checks
 
 A skill check tests whether you succeed at something risky, such as sneaking, spotting a clue, or convincing an NPC. You do not start a skill check yourself. The Game Master calls for one inside its narration. The app then turns it into an animated d20 roll with a result banner.
+
+A text-requested check begins with the attempt. The engine resolves the dice, then makes one additional model request with the actual results so the Game Master can finish the outcome in the same turn. This also corrects a draft that guessed an outcome before the roll existed. The extra request sends the prompt again and uses more input and output tokens. If it fails, the turn keeps the resolved results without saving a guessed or partial outcome.
+
+On a connection that supports the dice tool, the Game Master can instead obtain a real roll during generation. The dice card appears as soon as the tool returns; the completed check records that result without rolling again. Every resolved skill check receives its own banner, following any queued dice cards.
 
 The banner shows the skill and the target number, for example **Stealth Check** with **DC 15** next to it. DC stands for Difficulty Class. It is the number your roll must reach or beat.
 
@@ -87,12 +95,20 @@ Two rolls override the math:
 
 The banner shows one of four results: **CRITICAL SUCCESS**, **SUCCESS**, **FAILURE**, or **CRITICAL FAILURE**.
 
+### Other dice systems
+
+The Game Master can specify another notation, such as `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. These checks use the notation's flat modifier instead of d20 character-sheet modifiers and succeed when the total reaches the DC. Natural-1 and natural-20 rules apply only to the standard d20 check above.
+
+Success pools must state both the per-die threshold and the number of successes needed: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` rolls six d10s, counts each die showing at least 6 once, and succeeds with at least four successes. The engine does not guess a missing threshold or implement exploding dice, botches, or other special pool rules. A pool without a valid threshold stays unresolved, with any model-invented numbers removed.
+
 ### Advantage and disadvantage
 
 The Game Master can call a check with advantage or with disadvantage. A check is never rolled with both at the same time.
 
 - With advantage, the app rolls two 20-sided dice and keeps the higher one.
 - With disadvantage, the app rolls two dice and keeps the lower one.
+
+If the Game Master ever asks for both at once, the app leaves that check alone instead of guessing which one it meant, so you get no banner for it.
 
 When either one is active, the banner shows the mode next to the DC, and it marks which die it used.
 

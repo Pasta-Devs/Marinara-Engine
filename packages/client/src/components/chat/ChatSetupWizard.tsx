@@ -41,12 +41,19 @@ import { useSidecarStore } from "../../stores/sidecar.store";
 import { api } from "../../lib/api-client";
 import { appendLocalSidecarConnectionOption } from "../../lib/connection-filters";
 import { resolveConversationSelfieSetup } from "../../lib/conversation-selfie-setup";
+import {
+  captureChatWizardDefaults,
+  readChatMetadata,
+  wizardDefaultsMetadataPatch,
+  type ChatWizardDefaults,
+} from "../../lib/chat-wizard-defaults";
 import { getAgentRunIntervalMeta } from "../../lib/agent-cadence";
 import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { buildCharacterIdentityGroups } from "../../lib/character-identity-groups";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import { resolveMessageMacros } from "../../lib/chat-macros";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
+import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import {
   CONVERSATION_COMMAND_AGENT_IDS,
   CONVERSATION_COMMAND_KEYS,
@@ -203,6 +210,11 @@ const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<{
 interface ChatSetupWizardProps {
   chat: Chat;
   onFinish: () => void;
+}
+
+interface WizardWithDefaultsProps extends ChatSetupWizardProps {
+  defaultsApplied: boolean;
+  defaultsAction: (metadata: Record<string, unknown>) => React.ReactNode;
 }
 
 type ConnectionSetupOption = {
@@ -383,18 +395,6 @@ function WizardSelect({
   );
 }
 
-function readChatMetadata(chat: Chat): Record<string, unknown> {
-  const raw = (chat as unknown as { metadata?: string | Record<string, unknown> }).metadata;
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
-  }
-  return raw ?? {};
-}
-
 function readChatActiveAgentIds(chat: Chat): string[] {
   const metadata = readChatMetadata(chat);
   const activeIds = metadata.activeAgentIds;
@@ -418,9 +418,9 @@ function isConversationCommandToggleEnabled(
   return toggles[command] !== false;
 }
 
-function normalizePositiveInteger(value: unknown, fallback: number, max: number): number {
+function normalizePositiveInteger(value: unknown, fallback: number, max: number, min = 1): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.max(1, Math.min(max, Math.trunc(value)));
+  return Math.max(min, Math.min(max, Math.trunc(value)));
 }
 
 function normalizeAgentMaxTokens(value: unknown): number {
@@ -823,13 +823,13 @@ function PersonaPicker({
 function SetupGenerationParametersPanel({
   enabled,
   value,
-  showOpenRouterServiceTier,
+  showServiceTier,
   onEnabledChange,
   onChange,
 }: {
   enabled: boolean;
   value: EditableGenerationParameters;
-  showOpenRouterServiceTier: boolean;
+  showServiceTier: boolean;
   onEnabledChange: (enabled: boolean) => void;
   onChange: (next: EditableGenerationParameters) => void;
 }) {
@@ -860,11 +860,7 @@ function SetupGenerationParametersPanel({
       </button>
       {enabled && (
         <div className="mt-3 border-t border-[var(--border)] pt-3">
-          <GenerationParametersFields
-            value={value}
-            showOpenRouterServiceTier={showOpenRouterServiceTier}
-            onChange={onChange}
-          />
+          <GenerationParametersFields value={value} showServiceTier={showServiceTier} onChange={onChange} />
         </div>
       )}
     </div>
@@ -873,24 +869,124 @@ function SetupGenerationParametersPanel({
 
 export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const chatMode = (chat as unknown as { mode?: string }).mode ?? "roleplay";
-
-  if (chatMode === "conversation") {
-    return <ConversationQuickSetup chat={chat} onFinish={onFinish} />;
-  }
-
   // Game mode has its own wizard in GameSurface — skip the roleplay wizard
-  if (chatMode === "game") {
-    return null;
-  }
+  if (chatMode === "game") return null;
+  return <SavedChatSetupWizard key={chat.id} chat={chat} onFinish={onFinish} />;
+}
 
-  return <RoleplaySetupWizard chat={chat} onFinish={onFinish} />;
+function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
+  const { t } = useUiTranslation();
+  const mode = chat.mode === "conversation" ? "conversation" : "roleplay";
+  const [initial] = useState(() => captureChatWizardDefaults(chat));
+  const saved = useUIStore((state) => state.chatWizardDefaults[mode]);
+  const settingsSyncReady = useUIStore((state) => state.settingsSyncReady);
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const pendingApply = useRef<Promise<unknown> | null>(null);
+  const initialApplyDone = useRef(false);
+  const updateChat = useUpdateChat();
+  const updateMeta = useUpdateChatMetadata();
+  const queryClient = useQueryClient();
+  const apply = useCallback(
+    async (defaults: ChatWizardDefaults, reset = false) => {
+      const { metadata, ...fields } = defaults;
+      await updateChat.mutateAsync({ id: chat.id, ...fields });
+      const latest = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat;
+      await updateMeta.mutateAsync({
+        id: chat.id,
+        ...(reset ? wizardDefaultsMetadataPatch(captureChatWizardDefaults(latest), defaults) : metadata),
+      });
+    },
+    [chat, queryClient, updateChat, updateMeta],
+  );
+
+  useEffect(() => {
+    if (!settingsSyncReady || initialApplyDone.current) return;
+    if (!saved) {
+      initialApplyDone.current = true;
+      setReady(true);
+      return;
+    }
+    let active = true;
+    pendingApply.current ??= apply(saved);
+    void pendingApply.current
+      .then(() => {
+        if (!active) return;
+        initialApplyDone.current = true;
+        setDefaultsApplied(true);
+        setReady(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        initialApplyDone.current = true;
+        toast.error(t("chat.wizard.defaults.failed"));
+        setDefaultsApplied(false);
+        setReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [apply, saved, settingsSyncReady, t]);
+
+  const defaultsAction = (metadata: Record<string, unknown>) => (
+    <button
+      type="button"
+      className={WIZARD_GHOST_BUTTON_CLASS}
+      onClick={async () => {
+        if (defaultsApplied) {
+          setReady(false);
+          try {
+            await apply(initial, true);
+            useUIStore.getState().setChatWizardDefaults(mode, null);
+            setDefaultsApplied(false);
+            setRevision((value) => value + 1);
+          } catch {
+            toast.error(t("chat.wizard.defaults.failed"));
+          } finally {
+            setReady(true);
+          }
+        } else {
+          const latest = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat;
+          useUIStore.getState().setChatWizardDefaults(mode, captureChatWizardDefaults(latest, metadata));
+          setDefaultsApplied(true);
+          toast.success(t("chat.wizard.defaults.saved"));
+        }
+      }}
+    >
+      {t(defaultsApplied ? "chat.wizard.defaults.reset" : "chat.wizard.defaults.save")}
+    </button>
+  );
+
+  if (!ready)
+    return (
+      <>
+        <WizardBackdrop onClose={onFinish} />
+        <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center p-3">
+          <div
+            role="status"
+            className={cn(NEUTRAL_PANEL_SHELL, "flex items-center gap-2 p-4 text-sm text-[var(--foreground)]")}
+          >
+            <Loader2 size="1rem" className="animate-spin" aria-hidden="true" />
+            {t("navigation.common.loading")}
+          </div>
+        </div>
+      </>
+    );
+  const currentChat = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat;
+  const props = { chat: currentChat, onFinish, defaultsApplied, defaultsAction };
+  return mode === "conversation" ? (
+    <ConversationQuickSetup key={revision} {...props} />
+  ) : (
+    <RoleplaySetupWizard key={revision} {...props} />
+  );
 }
 
 // ──────────────────────────────────────────────
 // Conversation Quick Setup — Discord-style "New DM" picker
 // ──────────────────────────────────────────────
 
-function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
+function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsAction }: WizardWithDefaultsProps) {
   const { t: localizeUi } = useUiTranslation();
   const showCharacterIdentities = useUIStore((state) => state.showCharactersInPersonaPickers);
   const [step, setStep] = useState(0);
@@ -912,11 +1008,19 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
   const [scheduleState, setScheduleState] = useState<"idle" | "generating" | "done">("idle");
-  const [autonomousEnabled, setAutonomousEnabled] = useState(true);
-  const [generateSchedule, setGenerateSchedule] = useState(false);
-  const [promptPresetTouched, setPromptPresetTouched] = useState(false);
-  const [customConversationPromptEnabled, setCustomConversationPromptEnabled] = useState(false);
-  const [conversationSystemPromptDraft, setConversationSystemPromptDraft] = useState(DEFAULT_CONVERSATION_PROMPT);
+  const [autonomousEnabled, setAutonomousEnabled] = useState(() => readChatMetadata(chat).autonomousMessages !== false);
+  const [generateSchedule, setGenerateSchedule] = useState(
+    () => readChatMetadata(chat).conversationSchedulesEnabled === true,
+  );
+  const [promptPresetTouched, setPromptPresetTouched] = useState(defaultsApplied);
+  const [customConversationPromptEnabled, setCustomConversationPromptEnabled] = useState(
+    () => !!readChatMetadata(chat).customSystemPrompt,
+  );
+  const [conversationSystemPromptDraft, setConversationSystemPromptDraft] = useState(() =>
+    typeof readChatMetadata(chat).customSystemPrompt === "string"
+      ? (readChatMetadata(chat).customSystemPrompt as string)
+      : DEFAULT_CONVERSATION_PROMPT,
+  );
   const defaultPromptPresetAppliedRef = useRef<string | null>(null);
   const selectedConnectionChatIdRef = useRef(chat.id);
   const latestChatConnectionIdRef = useRef(chat.connectionId);
@@ -959,7 +1063,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
 
   // Track whether the user has manually edited the chat name.
   // If not, auto-rename to match the selected character name(s).
-  const [userEditedName, setUserEditedName] = useState(false);
+  const [userEditedName, setUserEditedName] = useState(defaultsApplied);
 
   const characters = useMemo(
     () =>
@@ -1015,7 +1119,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
     return readChatMetadata(chat);
   }, [chat]);
   const [commandsEnabled, setCommandsEnabled] = useState(
-    () => metadata.conversationSetupComplete === true && metadata.characterCommands !== false,
+    () => (defaultsApplied || metadata.conversationSetupComplete === true) && metadata.characterCommands !== false,
   );
   const [conversationCommandToggles, setConversationCommandToggles] = useState<
     Partial<Record<ConversationCommandKey, boolean>>
@@ -1394,7 +1498,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
         <SetupGenerationParametersPanel
           enabled={customizeParameters}
           value={generationParameters}
-          showOpenRouterServiceTier={selectedConnection?.provider === "openrouter"}
+          showServiceTier={selectedConnection?.provider === "openrouter" || selectedConnection?.provider === "nanogpt"}
           onEnabledChange={setCustomizeParameters}
           onChange={setGenerationParameters}
         />
@@ -1903,6 +2007,18 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
         primaryLabel={isLast ? "Start Chatting" : "Next"}
         primaryIcon={isLast ? <MessageCircle size="0.75rem" /> : <ChevronRight size="0.75rem" />}
         primaryDisabled={isLast && (!hasConnection || !hasCharacters)}
+        secondaryAction={
+          isLast
+            ? defaultsAction({
+                autonomousMessages: autonomousEnabled,
+                conversationSchedulesEnabled: generateSchedule,
+                characterCommands: commandsEnabled,
+                conversationCommandToggles,
+                chatParameters: customizeParameters ? generationParameters : null,
+                customSystemPrompt: customConversationPromptEnabled ? conversationSystemPromptDraft : null,
+              })
+            : undefined
+        }
         busyContent={busyContent}
       >
         {content}
@@ -1915,8 +2031,9 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
 // Roleplay Setup Wizard — step-by-step guided setup
 // ──────────────────────────────────────────────
 
-function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
+function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }: WizardWithDefaultsProps) {
   const { t: localizeUi } = useUiTranslation();
+  const defaultDisplayStyle = useUIStore((state) => state.roleplayDisplayStyle);
   const showCharacterIdentities = useUIStore((state) => state.showCharactersInPersonaPickers);
   const STEPS = ROLEPLAY_STEPS;
   const roleplayConnectionSelectId = useId();
@@ -2183,7 +2300,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   // Track whether the user has manually edited the chat name.
   // The Connection step's Name input flips this to true onBlur when the
   // user changes it, which suppresses auto-rename on character selection.
-  const [userEditedName, setUserEditedName] = useState(false);
+  const [userEditedName, setUserEditedName] = useState(defaultsApplied);
 
   // Build an auto-generated chat name from character IDs
   const buildAutoName = useCallback(
@@ -2212,7 +2329,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
 
   // Auto-select the default preset for new chats
   useEffect(() => {
-    if (!chat.promptPresetId && defaultPreset?.id) {
+    if (!defaultsApplied && !chat.promptPresetId && defaultPreset?.id) {
       updateChat.mutate({ id: chat.id, promptPresetId: defaultPreset.id });
     }
   }, [defaultPreset?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2458,7 +2575,12 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         contextSize: normalizePositiveInteger(mergedSettings.contextSize, DEFAULT_AGENT_CONTEXT_SIZE, 200),
         maxTokens: normalizeAgentMaxTokens(mergedSettings.maxTokens),
         runInterval: intervalMeta
-          ? normalizePositiveInteger(mergedSettings.runInterval, intervalMeta.defaultValue, intervalMeta.max)
+          ? normalizePositiveInteger(
+              mergedSettings.runInterval,
+              intervalMeta.defaultValue,
+              intervalMeta.max,
+              intervalMeta.min,
+            )
           : null,
         setup: buildInitialAgentAddSetupState({
           agentId: agent.id,
@@ -2570,6 +2692,33 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   function renderConnection() {
     return (
       <div className="space-y-4">
+        <fieldset className="space-y-2">
+          <legend className={WIZARD_FIELD_LABEL}>{localizeUi("chat.roleplayVn.displayStyle")}</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {(["classic", "visual-novel"] as const).map((style) => (
+              <label
+                key={style}
+                className={cn(
+                  "flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--primary)]",
+                  (metadata.roleplayDisplayStyle ?? defaultDisplayStyle) === style
+                    ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                    : "border-[var(--border)]",
+                )}
+              >
+                <input
+                  type="radio"
+                  name={`roleplay-display-${chat.id}`}
+                  value={style}
+                  checked={(metadata.roleplayDisplayStyle ?? defaultDisplayStyle) === style}
+                  onChange={() => updateMeta.mutate({ id: chat.id, roleplayDisplayStyle: style })}
+                  className="accent-[var(--primary)]"
+                />
+                {localizeUi(style === "classic" ? "chat.roleplayVn.classic" : "chat.roleplayVn.visualNovel")}
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("chat.roleplayVn.changeAnytime")}</p>
+        </fieldset>
         <div className="space-y-1.5">
           <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.characters.metadatatab.name")}</label>
           <input
@@ -2618,7 +2767,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         <SetupGenerationParametersPanel
           enabled={customizeParameters}
           value={generationParameters}
-          showOpenRouterServiceTier={selectedConnection?.provider === "openrouter"}
+          showServiceTier={selectedConnection?.provider === "openrouter" || selectedConnection?.provider === "nanogpt"}
           onEnabledChange={setCustomizeParameters}
           onChange={setGenerationParameters}
         />
@@ -2628,18 +2777,24 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
 
   function renderPreset() {
     return (
-      <WizardSelect
-        value={chat.promptPresetId ?? ""}
-        ariaLabel={localizeUi("chat.toolbar.preset")}
-        options={[
-          { value: "", label: localizeUi("ui.game.gamesurfacecomponent.none") },
-          ...((presets ?? []) as Array<{ id: string; name: string; isDefault?: boolean | string }>).map((preset) => ({
-            value: preset.id,
-            label: preset.name,
-          })),
-        ]}
-        onChange={(nextValue) => setPreset(nextValue || null)}
-      />
+      <div className="space-y-4">
+        <WizardSelect
+          value={chat.promptPresetId ?? ""}
+          ariaLabel={localizeUi("chat.toolbar.preset")}
+          options={[
+            { value: "", label: localizeUi("ui.game.gamesurfacecomponent.none") },
+            ...((presets ?? []) as Array<{ id: string; name: string; isDefault?: boolean | string }>).map((preset) => ({
+              value: preset.id,
+              label: preset.name,
+            })),
+          ]}
+          onChange={(nextValue) => setPreset(nextValue || null)}
+        />
+        <section className="space-y-2 border-t border-[var(--border)] pt-4">
+          <h4 className="text-sm font-semibold">{localizeUi("chat.setup.pickBackground")}</h4>
+          <ActiveChatBackgroundPicker />
+        </section>
+      </div>
     );
   }
 
@@ -3125,7 +3280,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                       {agentAddIntervalMeta.label}
                     </span>
                     <DraftNumberInput
-                      min={1}
+                      min={agentAddIntervalMeta.min ?? 1}
                       max={agentAddIntervalMeta.max}
                       value={agentAddPreview.runInterval}
                       onCommit={(value) => {
@@ -3133,7 +3288,10 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                           current
                             ? {
                                 ...current,
-                                runInterval: Math.max(1, Math.min(agentAddIntervalMeta.max, value)),
+                                runInterval: Math.max(
+                                  agentAddIntervalMeta.min ?? 1,
+                                  Math.min(agentAddIntervalMeta.max, value),
+                                ),
                               }
                             : current,
                         );
@@ -3145,6 +3303,11 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                     <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
                       {agentAddIntervalMeta.help}
                     </span>
+                    {agentAddPreview.agent.id === "illustrator" && (
+                      <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
+                        {localizeUi("agents.illustrator.manualOnlyIntervalHelp")}
+                      </span>
+                    )}
                   </label>
                 )}
 
@@ -3374,15 +3537,18 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             primaryIcon={isLast ? <Check size="0.75rem" /> : <ChevronRight size="0.75rem" />}
             primaryDisabled={nextDisabled}
             secondaryAction={
-              <button
-                type="button"
-                onClick={() => setShortcutMode(true)}
-                title={localizeUi("chat.settingsProfile.wizard.applyDescription")}
-                className={WIZARD_SECONDARY_BUTTON_CLASS}
-              >
-                <span className="hidden xs:inline sm:inline">{localizeUi("chat.settingsProfile.wizard.action")}</span>
-                <span className="inline xs:hidden sm:hidden">{localizeUi("chat.settingsProfile.label")}</span>
-              </button>
+              <>
+                {isLast && defaultsAction({ chatParameters: customizeParameters ? generationParameters : null })}
+                <button
+                  type="button"
+                  onClick={() => setShortcutMode(true)}
+                  title={localizeUi("chat.settingsProfile.wizard.applyDescription")}
+                  className={WIZARD_SECONDARY_BUTTON_CLASS}
+                >
+                  <span className="hidden xs:inline sm:inline">{localizeUi("chat.settingsProfile.wizard.action")}</span>
+                  <span className="inline xs:hidden sm:hidden">{localizeUi("chat.settingsProfile.label")}</span>
+                </button>
+              </>
             }
           >
             {stepRenderers[currentStep.key]?.()}

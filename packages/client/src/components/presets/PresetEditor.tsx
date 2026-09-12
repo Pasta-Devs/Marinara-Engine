@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
 // Full-Page Preset Editor
-// Tabs: Overview · Sections · Prompts
+// Tabs: Overview · Sections · Prompts · Regex
 // ──────────────────────────────────────────────
 import {
   useState,
@@ -69,6 +69,8 @@ import {
   Copy,
   Camera,
   Loader2,
+  Regex,
+  Pencil,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -79,6 +81,8 @@ import { api } from "../../lib/api-client";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import {
   isStockMarinaraUniversalPreset,
+  resolveScopedRegexMode,
+  type ScopedRegexMode,
   type MarkerType,
   type PromptPreset,
   type PromptSection,
@@ -87,11 +91,15 @@ import {
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { EditorTabNavigation } from "../ui/EditorTabNavigation";
+import { useEditorSections } from "../../hooks/use-editor-sections";
+import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
+import { hasEditorLeaveHandler, leaveWithoutSaving } from "../../lib/editor-leave";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
 import { handleTextareaTab } from "../../lib/textarea-editing";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
+import { useRegexScripts } from "../../hooks/use-regex-scripts";
 
 // ── Input caret helpers ──
 type TextSelection = { start: number; end: number };
@@ -146,6 +154,7 @@ const TABS = [
   { id: "overview", label: "Overview", icon: FileText },
   { id: "sections", label: "Sections", icon: Layers },
   { id: "prompts", label: "Prompts", icon: MessageSquare },
+  { id: "regex", label: "Regex", icon: Regex },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -280,6 +289,12 @@ export function PresetEditor() {
   const reorderVariables = useReorderVariables();
 
   const [activeTab, setActiveTab] = useState<TabId>(() => presetDetailInitialTab ?? "overview");
+  const { contentRef, scrollToSection } = useEditorSections(
+    presetDetailId,
+    !!data,
+    presetDetailInitialTab ?? "overview",
+    setActiveTab,
+  );
   useEffect(() => {
     setActiveTab(presetDetailInitialTab ?? "overview");
   }, [presetDetailId, presetDetailInitialTab]);
@@ -288,7 +303,7 @@ export function PresetEditor() {
   useEffect(() => {
     setEditorDirty(dirty);
   }, [dirty, setEditorDirty]);
-  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+
   const [showSaved, setShowSaved] = useState(false);
   const [stockCopyError, setStockCopyError] = useState<string | null>(null);
   const [stockCopyPending, setStockCopyPending] = useState(false);
@@ -300,8 +315,10 @@ export function PresetEditor() {
   const [localAuthor, setLocalAuthor] = useState("");
   const [localConversationPrompt, setLocalConversationPrompt] = useState("");
   const [localGamePrompt, setLocalGamePrompt] = useState("");
+  const [localScopedRegexMode, setLocalScopedRegexMode] = useState<ScopedRegexMode>("disabled");
   const hydratedPresetIdRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
+  const editRevisionRef = useRef(0);
   const formatQuotes = useQuoteFormatter();
 
   useEffect(() => {
@@ -320,6 +337,7 @@ export function PresetEditor() {
     setLocalAuthor(p.author ?? "");
     setLocalConversationPrompt(p.conversationPrompt ?? "");
     setLocalGamePrompt(p.gamePrompt ?? "");
+    setLocalScopedRegexMode(resolveScopedRegexMode(p.scopedRegexMode));
   }, [data, presetDetailId]);
 
   useEffect(() => {
@@ -328,12 +346,8 @@ export function PresetEditor() {
   }, [presetDetailId]);
 
   const handleClose = useCallback(() => {
-    if (dirty) {
-      setShowUnsavedWarning(true);
-      return;
-    }
     closePresetDetail();
-  }, [dirty, closePresetDetail]);
+  }, [closePresetDetail]);
 
   const handleCreateStockCopy = useCallback(async () => {
     if (!presetDetailId || stockCopyPending) return;
@@ -356,7 +370,8 @@ export function PresetEditor() {
   }, [duplicatePreset, localizeUi, openPresetDetail, presetDetailId, presetDetailInitialTab, stockCopyPending]);
 
   const handleSave = useCallback(async () => {
-    if (!presetDetailId) return;
+    if (!presetDetailId) return false;
+    const revision = editRevisionRef.current;
     const payload: { id: string } & Record<string, unknown> = {
       id: presetDetailId,
       name: localName,
@@ -365,11 +380,14 @@ export function PresetEditor() {
       author: localAuthor,
       conversationPrompt: localConversationPrompt,
       gamePrompt: localGamePrompt,
+      scopedRegexMode: localScopedRegexMode,
     };
     await updatePreset.mutateAsync(payload);
+    if (editRevisionRef.current !== revision) return false;
     setDirty(false);
     setShowSaved(true);
     setTimeout(() => setShowSaved(false), 1500);
+    return true;
   }, [
     presetDetailId,
     localName,
@@ -378,6 +396,7 @@ export function PresetEditor() {
     localAuthor,
     localConversationPrompt,
     localGamePrompt,
+    localScopedRegexMode,
     updatePreset,
   ]);
 
@@ -415,10 +434,14 @@ export function PresetEditor() {
     ) {
       return;
     }
-    deletePreset.mutate(presetDetailId, { onSuccess: () => closePresetDetail() });
+    deletePreset.mutate(presetDetailId, { onSuccess: () => leaveWithoutSaving(closePresetDetail) });
   }, [closePresetDetail, data?.preset, deletePreset, localizeUi, presetDetailId]);
 
-  const markDirty = useCallback(() => setDirty(true), []);
+  useEditorLeaveSave(`presetDetailId:${presetDetailId}`, dirty, handleSave, updatePreset.isPending);
+  const markDirty = useCallback(() => {
+    editRevisionRef.current += 1;
+    setDirty(true);
+  }, []);
 
   // Parse sections in order
   const sectionOrder = useMemo(() => {
@@ -561,7 +584,7 @@ export function PresetEditor() {
           />
         </div>
 
-        <EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
+        <EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={scrollToSection} />
 
         <div className="mari-editor-actions flex">
           <button
@@ -613,47 +636,12 @@ export function PresetEditor() {
         </div>
       )}
 
-      {/* Unsaved warning */}
-      {showUnsavedWarning && (
-        <div className="flex items-center justify-between bg-[var(--marinara-editor-accent)]/10 px-4 py-2 text-xs text-[var(--marinara-editor-accent)]">
-          <span>{localizeUi("ui.presets.preseteditor.youHaveUnsavedChanges")}</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowUnsavedWarning(false)}
-              className="mari-editor-action mari-editor-action--compact px-3 py-1"
-            >
-              {localizeUi("ui.presets.preseteditor.keepEditing")}
-            </button>
-            <button
-              onClick={() => closePresetDetail()}
-              className="rounded-lg px-3 py-1 text-[var(--destructive)] hover:bg-[var(--destructive)]/15"
-            >
-              {localizeUi("ui.presets.preseteditor.discard")}
-            </button>
-            <button
-              onClick={async () => {
-                try {
-                  await handleSave();
-                  closePresetDetail();
-                } catch {
-                  // Keep the editor open so the user can fix the failed save.
-                }
-              }}
-              className="mari-editor-action mari-editor-action--primary mari-editor-action--compact px-3 py-1"
-            >
-              {localizeUi("ui.presets.preseteditor.saveClose")}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── Body ── */}
       <div className="mari-editor-body">
         {/* Content area */}
-        <div className="mari-editor-content @max-5xl:p-4">
+        <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
           <div className="mari-editor-content-inner space-y-6">
-            {/* ── Overview Tab ── */}
-            {activeTab === "overview" && (
+            <section data-editor-section="overview">
               <OverviewTab
                 preset={data.preset}
                 name={localName}
@@ -679,10 +667,8 @@ export function PresetEditor() {
                 sectionCount={orderedSections.length}
                 groupCount={data.groups?.length ?? 0}
               />
-            )}
-
-            {/* ── Sections Tab ── */}
-            {activeTab === "sections" && (
+            </section>
+            <section data-editor-section="sections">
               <SectionsTab
                 presetId={presetDetailId}
                 sections={orderedSections}
@@ -703,10 +689,8 @@ export function PresetEditor() {
                 hasLorebookMarker={sectionHasLorebookMarker}
                 parentChatHasLorebook={parentChatHasLorebook}
               />
-            )}
-
-            {/* ── Prompts Tab ── */}
-            {activeTab === "prompts" && (
+            </section>
+            <section data-editor-section="prompts">
               <PromptsTab
                 conversationPrompt={localConversationPrompt}
                 onConversationPromptChange={(v) => {
@@ -719,9 +703,119 @@ export function PresetEditor() {
                   markDirty();
                 }}
               />
-            )}
+            </section>
+            <section data-editor-section="regex">
+              <PresetRegexTab
+                presetId={presetDetailId}
+                mode={localScopedRegexMode}
+                onModeChange={(mode) => {
+                  setLocalScopedRegexMode(mode);
+                  markDirty();
+                }}
+              />
+            </section>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PresetRegexTab({
+  presetId,
+  mode,
+  onModeChange,
+}: {
+  presetId: string;
+  mode: ScopedRegexMode;
+  onModeChange: (mode: ScopedRegexMode) => void;
+}) {
+  const { t } = useUiTranslation();
+  const { data: scripts } = useRegexScripts();
+  const openRegexDetail = useUIStore((s) => s.openRegexDetail);
+  const editorDirty = useUIStore((s) => s.editorDirty);
+  const linkedScripts = useMemo(
+    () =>
+      (scripts ?? []).filter((script) => {
+        try {
+          const ids: unknown = JSON.parse(script.targetPromptPresetIds);
+          return Array.isArray(ids) && ids.includes(presetId);
+        } catch {
+          return false;
+        }
+      }),
+    [scripts, presetId],
+  );
+  const openScript = async (id: string) => {
+    if (editorDirty && !hasEditorLeaveHandler(useUIStore.getState())) {
+      const proceed = await showConfirmDialog({
+        title: t("ui.characters.characterregexsection.unsavedChanges"),
+        message: t("presets.regex.unsavedChanges"),
+        confirmLabel: t("ui.characters.characterregexsection.discardContinue"),
+        tone: "destructive",
+      });
+      if (!proceed) return;
+    }
+    openRegexDetail(id, { defaultPresetIds: [presetId], returnTo: { presetId } });
+  };
+
+  return (
+    <div className="space-y-6" data-preset-regex>
+      <div className="mari-editor-panel space-y-3 p-4">
+        <label className="flex flex-wrap items-center justify-between gap-3 text-sm font-medium">
+          {t("presets.regex.defaultMode")}
+          <select
+            className="mari-editor-input px-3 py-2 text-sm"
+            value={mode}
+            onChange={(event) => onModeChange(event.target.value as ScopedRegexMode)}
+          >
+            <option value="disabled">{t("ui.agents.agenteditor.disabled")}</option>
+            <option value="exclusive">{t("ui.chat.chatsettingsdrawer.exclusive")}</option>
+            <option value="chat">{t("ui.chat.chatsettingsdrawer.chat")}</option>
+          </select>
+        </label>
+        <p className="text-xs text-[var(--marinara-editor-muted)]">{t("presets.regex.defaultHelp")}</p>
+      </div>
+      <div className="mari-editor-panel space-y-3 p-4">
+        <h3 className="text-sm font-medium">{t("ui.characters.characterregexsection.regexScripts")}</h3>
+        <p className="text-xs text-[var(--marinara-editor-muted)]">{t("presets.regex.linkedHelp")}</p>
+        <button type="button" className="mari-editor-action inline-flex" onClick={() => void openScript("__new__")}>
+          <Plus size="1rem" />
+          {t("ui.characters.characterregexsection.createRegex")}
+        </button>
+        <label className="flex flex-wrap items-center gap-3 text-sm">
+          {t("presets.regex.addExisting")}
+          <select
+            value=""
+            className="mari-editor-input min-w-0 max-w-full px-3 py-2 text-sm"
+            onChange={(event) => {
+              if (event.target.value) void openScript(event.target.value);
+            }}
+          >
+            <option value="">{t("presets.regex.chooseScript")}</option>
+            {(scripts ?? [])
+              .filter((script) => !linkedScripts.includes(script))
+              .map((script) => (
+                <option key={script.id} value={script.id}>
+                  {script.name}
+                </option>
+              ))}
+          </select>
+        </label>
+        {linkedScripts.length === 0 && (
+          <p className="text-xs text-[var(--marinara-editor-muted)]">{t("presets.regex.noScripts")}</p>
+        )}
+        {linkedScripts.map((script) => (
+          <button
+            key={script.id}
+            type="button"
+            className="mari-editor-action flex w-full items-center justify-between gap-2 text-left"
+            onClick={() => void openScript(script.id)}
+          >
+            <span className="min-w-0 truncate">{script.name}</span>
+            <Pencil size="1rem" className="shrink-0" />
+          </button>
+        ))}
       </div>
     </div>
   );

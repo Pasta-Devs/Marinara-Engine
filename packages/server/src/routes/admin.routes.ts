@@ -3,7 +3,6 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { eq, ne } from "../db/file-query.js";
-import { spawn } from "node:child_process";
 import { existsSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
 import { MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY, PROFESSOR_MARI_ID, TTS_SETTINGS_KEY } from "@marinara-engine/shared";
@@ -14,6 +13,7 @@ import { ADMIN_RESTART_RATE_LIMIT, AVATAR_STORAGE_RATE_LIMIT } from "../middlewa
 import { logger } from "../lib/logger.js";
 import { isDockerRuntime } from "../config/runtime-config.js";
 import { noteSessionExitKind } from "../lib/session-postmortem.js";
+import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
 import {
   ABANDONED_AVATAR_MIN_AGE_MS,
   collectCharacterAvatarPaths,
@@ -32,8 +32,6 @@ type ExpungeScope =
   | "connections"
   | "automation"
   | "media";
-
-const GRACEFUL_RESTART_TIMEOUT_MS = 30_000;
 
 const ALL_EXPUNGE_SCOPES: ExpungeScope[] = [
   "chats",
@@ -80,37 +78,29 @@ export async function adminRoutes(app: FastifyInstance) {
       if (restartScheduled) {
         return reply.status(409).send({ error: "Server restart is already scheduled" });
       }
+      const docker = isDockerRuntime();
+      if (!docker && process.env.MARINARA_RESTART_SUPERVISOR !== String(process.ppid)) {
+        return reply.status(409).send({
+          error:
+            "Restart is unavailable for an unmanaged server. Start Marinara with its platform launcher or pnpm start; restart a development watcher from its terminal.",
+        });
+      }
+      const exitCode = docker ? 0 : 75;
 
       restartScheduled = true;
       setTimeout(() => {
         void (async () => {
-          const forceCloseTimer = setTimeout(() => {
-            logger.warn("Forcing server restart after %dms", GRACEFUL_RESTART_TIMEOUT_MS);
-            app.server.closeAllConnections();
-          }, GRACEFUL_RESTART_TIMEOUT_MS);
-          forceCloseTimer.unref();
+          armShutdownDeadline(app, "restart", { exitCode });
           try {
             // #5506 diagnostics: name this ending so the next startup reports
             // an operator restart instead of an external kill.
             noteSessionExitKind("restart");
             await app.close();
-            if (!isDockerRuntime()) {
-              const child = spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
-                cwd: process.cwd(),
-                detached: true,
-                env: process.env,
-                stdio: "inherit",
-                windowsHide: true,
-              });
-              child.unref();
-            }
             logger.info("Server restart requested from Advanced Settings");
-            process.exit(0);
+            process.exit(exitCode);
           } catch (error) {
             logger.error(error, "Graceful server restart failed");
             process.exit(1);
-          } finally {
-            clearTimeout(forceCloseTimer);
           }
         })();
       }, 750);

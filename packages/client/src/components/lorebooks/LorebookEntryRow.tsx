@@ -98,6 +98,8 @@ interface Props {
   previewMatch?: "matched" | "constant";
   mapBacklinks?: Array<{ chatId: string; locationId: string; locationName: string }>;
   onUpdateEntry?: LorebookEntryUpdateHandler;
+  /** Override only this row's enabled control; content edits keep their existing scope. */
+  chatEnabled?: { enabled: boolean; onChange: (enabled: boolean) => Promise<unknown> };
 }
 
 type LorebookEntryUpdateHandler = (
@@ -225,6 +227,7 @@ export function LorebookEntryRow({
   previewMatch,
   mapBacklinks = [],
   onUpdateEntry,
+  chatEnabled,
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const updateEntry = useUpdateLorebookEntry();
@@ -234,7 +237,7 @@ export function LorebookEntryRow({
   // ── Inline-control optimistic state ──
   // We keep a local mirror of the entry's fields so the inputs feel snappy
   // while the mutation flushes. React Query invalidation will reconcile.
-  const [localEnabled, setLocalEnabled] = useState(entry.enabled);
+  const [localEnabled, setLocalEnabled] = useState(entry.enabled && (chatEnabled?.enabled ?? true));
   const [localStatus, setLocalStatus] = useState<EntryStatus>(deriveStatus(entry));
   const [localPosition, setLocalPosition] = useState(entry.position);
   const [localDepth, setLocalDepth] = useState(entry.depth);
@@ -264,7 +267,6 @@ export function LorebookEntryRow({
     if (pendingOutletNameRef.current === previousOutletName) {
       pendingOutletNameRef.current = entry.outletName;
     }
-    setLocalEnabled(entry.enabled);
     setLocalStatus(deriveStatus(entry));
     setLocalPosition(entry.position);
     setLocalDepth(entry.depth);
@@ -273,6 +275,10 @@ export function LorebookEntryRow({
     setLocalName(entry.name);
     setLocalUseRegex(entry.useRegex ?? false);
   }, [entry]);
+
+  useEffect(() => {
+    setLocalEnabled(entry.enabled && (chatEnabled?.enabled ?? true));
+  }, [entry.enabled, chatEnabled?.enabled]);
 
   useEffect(() => {
     if (!showMobileControls) return;
@@ -383,9 +389,10 @@ export function LorebookEntryRow({
     (next: boolean) => {
       const previous = localEnabled;
       setLocalEnabled(next);
-      patch({ enabled: next }, { onError: () => setLocalEnabled(previous) });
+      if (chatEnabled) void chatEnabled.onChange(next).catch(() => setLocalEnabled(previous));
+      else patch({ enabled: next }, { onError: () => setLocalEnabled(previous) });
     },
-    [localEnabled, patch],
+    [localEnabled, patch, chatEnabled],
   );
 
   const handleUseRegexToggle = useCallback(
@@ -616,13 +623,30 @@ export function LorebookEntryRow({
           onMouseDown={(e) => e.stopPropagation()}
         >
           <SettingsSwitch
-            ariaLabel={localEnabled ? "Disable entry" : "Enable entry"}
+            ariaLabel={
+              chatEnabled
+                ? localizeUi(
+                    localEnabled
+                      ? "chat.settings.inlineLorebook.disableForChat"
+                      : "chat.settings.inlineLorebook.enableForChat",
+                  )
+                : localizeUi(
+                    localEnabled
+                      ? "ui.lorebooks.lorebookentryrow.disableEntry"
+                      : "ui.lorebooks.lorebookentryrow.enableEntry",
+                  )
+            }
             title={
-              localEnabled
-                ? localizeUi("ui.lorebooks.lorebookentryrow.entryEnabled")
-                : localizeUi("ui.lorebooks.lorebookentryrow.entryDisabled")
+              chatEnabled && !entry.enabled
+                ? localizeUi("chat.settings.inlineLorebook.globallyDisabled")
+                : chatEnabled
+                  ? localizeUi("chat.settings.inlineLorebook.chatScope")
+                  : localEnabled
+                    ? localizeUi("ui.lorebooks.lorebookentryrow.entryEnabled")
+                    : localizeUi("ui.lorebooks.lorebookentryrow.entryDisabled")
             }
             checked={localEnabled}
+            disabled={!!chatEnabled && !entry.enabled}
             onChange={handleEnabledChange}
             className="p-0 hover:bg-transparent"
           />

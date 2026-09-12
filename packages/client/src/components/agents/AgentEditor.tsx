@@ -335,6 +335,11 @@ const CUSTOM_AGENT_CONTEXT_SOURCE_META: Array<{
   requiredCapability?: CustomAgentCapability;
 }> = [
   {
+    id: "previousOutput",
+    label: "agents.context.previousOutput.label",
+    description: "agents.context.previousOutput.description",
+  },
+  {
     id: "chatHistory",
     label: "ui.agents.agenteditor.contextSource.chatHistory.label",
     description: "ui.agents.agenteditor.contextSource.chatHistory.description",
@@ -753,6 +758,7 @@ export function AgentEditor() {
   const [localAuthor, setLocalAuthor] = useState("");
   const [localPromptTemplates, setLocalPromptTemplates] = useState<AgentPromptTemplateOption[]>([]);
   const [localResultType, setLocalResultType] = useState<CustomAgentResultType>("context_injection");
+  const [localOutputOptions, setLocalOutputOptions] = useState({ jsonContextOutput: false, hideOutput: false });
   const [localCustomCapabilities, setLocalCustomCapabilities] = useState<CustomAgentCapabilityMap>({});
   const [localContextSources, setLocalContextSources] = useState<CustomAgentContextSources>(() => ({
     ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES,
@@ -940,6 +946,10 @@ export function AgentEditor() {
       setLocalCustomCapabilities(normalizeCustomAgentCapabilities(settings));
       setLocalContextSources(normalizeCustomAgentContextSources(settings));
       setLocalResultType(normalizeCustomResultType(settings.resultType));
+      setLocalOutputOptions({
+        jsonContextOutput: settings.jsonContextOutput === true,
+        hideOutput: settings.hideOutput === true,
+      });
       setLocalIncludePreGenInjections(settings.includePreGenInjections === true);
       setLocalIncludeParallelResults(settings.includeParallelResults === true);
       setLocalPrompt(dbConfig.promptTemplate || "");
@@ -983,6 +993,7 @@ export function AgentEditor() {
       setLocalCustomCapabilities({});
       setLocalContextSources({ ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES });
       setLocalResultType("context_injection");
+      setLocalOutputOptions({ jsonContextOutput: false, hideOutput: false });
       setLocalIncludePreGenInjections(false);
       setLocalIncludeParallelResults(false);
       setLocalLorebookWriteEnabled(false);
@@ -1040,6 +1051,7 @@ export function AgentEditor() {
       setLocalCustomCapabilities({});
       setLocalContextSources({ ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES });
       setLocalResultType("context_injection");
+      setLocalOutputOptions({ jsonContextOutput: false, hideOutput: false });
       setLocalIncludePreGenInjections(false);
       setLocalIncludeParallelResults(false);
       setLocalLorebookWriteEnabled(false);
@@ -1352,6 +1364,7 @@ export function AgentEditor() {
         ...(isEditingCustomAgent ? { customCapabilities } : {}),
         ...(isEditingCustomAgent ? { contextSources: localContextSources } : {}),
         ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
+        ...(isEditingCustomAgent ? localOutputOptions : {}),
         ...(isEditingCustomAgent ? { triggerLorebooksForAgentCalls: localTriggerLorebooksForAgentCalls } : {}),
         ...(activationKeywords.length > 0
           ? {
@@ -1467,6 +1480,7 @@ export function AgentEditor() {
     localDescription,
     localPhase,
     localResultType,
+    localOutputOptions,
     localCustomCapabilities,
     localContextSources,
     localConnectionId,
@@ -1576,6 +1590,7 @@ export function AgentEditor() {
       ...(isEditingCustomAgent ? { customCapabilities } : {}),
       ...(isEditingCustomAgent ? { contextSources: localContextSources } : {}),
       ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
+      ...(isEditingCustomAgent ? localOutputOptions : {}),
       ...(isEditingCustomAgent ? { triggerLorebooksForAgentCalls: localTriggerLorebooksForAgentCalls } : {}),
       ...(activationKeywords.length > 0 ? { activationKeywords, activationScanDepth } : {}),
       ...(mayIncludeTurnData && localIncludePreGenInjections ? { includePreGenInjections: true } : {}),
@@ -1853,7 +1868,17 @@ export function AgentEditor() {
   );
   const selectedVisibleToolCount = localEnabledTools.filter((toolName) => visibleToolNames.has(toolName)).length;
   const availableVisibleToolCount = visibleToolNames.size;
-  const customResultExample = CUSTOM_AGENT_RESULT_EXAMPLES[localResultType];
+  const customResultExample =
+    localResultType === "context_injection" && localOutputOptions.jsonContextOutput
+      ? {
+          format: "json" as const,
+          value: JSON.stringify(
+            { text: "Content for the main prompt", "agent-context": "Private context for my next run" },
+            null,
+            2,
+          ),
+        }
+      : CUSTOM_AGENT_RESULT_EXAMPLES[localResultType];
   const customPromptPlaceholder = `${localizeUi(
     customResultExample.format === "json"
       ? "ui.agents.agenteditor.writePromptForJsonResultExample"
@@ -2192,6 +2217,26 @@ export function AgentEditor() {
                   );
                 })}
               </div>
+              {localResultType === "context_injection" && (
+                <EditorSwitchRow
+                  label={localizeUi("agents.output.jsonContext.label")}
+                  description={localizeUi("agents.output.jsonContext.description")}
+                  checked={localOutputOptions.jsonContextOutput}
+                  onChange={(checked) => {
+                    setLocalOutputOptions((value) => ({ ...value, jsonContextOutput: checked }));
+                    markDirty();
+                  }}
+                />
+              )}
+              <EditorSwitchRow
+                label={localizeUi("agents.output.hide.label")}
+                description={localizeUi("agents.output.hide.description")}
+                checked={localOutputOptions.hideOutput}
+                onChange={(checked) => {
+                  setLocalOutputOptions((value) => ({ ...value, hideOutput: checked }));
+                  markDirty();
+                }}
+              />
               {localResultType === "text_rewrite" && (
                 <p className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[0.625rem] leading-relaxed text-amber-200">
                   {localizeUi("ui.agents.agenteditor.textRewriteAgentsAlwaysSaveAsPostProcessingTheir")}{" "}
@@ -2756,11 +2801,19 @@ export function AgentEditor() {
                       if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
                       e.preventDefault();
                       const delta = e.key === "ArrowUp" ? 1 : -1;
-                      setLocalRunInterval(stepCadenceValue(localRunInterval, delta, customRunIntervalMeta.max));
+                      setLocalRunInterval(
+                        stepCadenceValue(localRunInterval, delta, customRunIntervalMeta.max, customRunIntervalMeta.min),
+                      );
                       markDirty();
                     }}
                     onChange={(e) => {
-                      setLocalRunInterval(parseOptionalCadenceInputValue(e.target.value, customRunIntervalMeta.max));
+                      setLocalRunInterval(
+                        parseOptionalCadenceInputValue(
+                          e.target.value,
+                          customRunIntervalMeta.max,
+                          customRunIntervalMeta.min,
+                        ),
+                      );
                       markDirty();
                     }}
                     className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 pr-8 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
@@ -2770,7 +2823,9 @@ export function AgentEditor() {
                       type="button"
                       aria-label={localizeUi("ui.agents.agenteditor.increaseTriggerCadence")}
                       onClick={() => {
-                        setLocalRunInterval(stepCadenceValue(localRunInterval, 1, customRunIntervalMeta.max));
+                        setLocalRunInterval(
+                          stepCadenceValue(localRunInterval, 1, customRunIntervalMeta.max, customRunIntervalMeta.min),
+                        );
                         markDirty();
                       }}
                       className="flex h-4 w-5 items-center justify-center text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
@@ -2781,7 +2836,9 @@ export function AgentEditor() {
                       type="button"
                       aria-label={localizeUi("ui.agents.agenteditor.decreaseTriggerCadence")}
                       onClick={() => {
-                        setLocalRunInterval(stepCadenceValue(localRunInterval, -1, customRunIntervalMeta.max));
+                        setLocalRunInterval(
+                          stepCadenceValue(localRunInterval, -1, customRunIntervalMeta.max, customRunIntervalMeta.min),
+                        );
                         markDirty();
                       }}
                       className="flex h-4 w-5 items-center justify-center text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
@@ -2997,12 +3054,12 @@ export function AgentEditor() {
               <div className="flex items-center gap-3">
                 <input
                   type="number"
-                  min={1}
+                  min={0}
                   max={100}
                   value={localRunInterval}
                   onChange={(e) => {
                     const v = e.target.value;
-                    setLocalRunInterval(v === "" ? "" : Math.max(1, Math.min(100, parseInt(v) || 1)));
+                    setLocalRunInterval(v === "" ? "" : Math.max(0, Math.min(100, parseInt(v) || 0)));
                     markDirty();
                   }}
                   placeholder="5"
@@ -3014,6 +3071,9 @@ export function AgentEditor() {
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.agents.agenteditor.theIllustratorCanOnlyCreateANewImageOnce")}
+              </p>
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("agents.illustrator.manualOnlyIntervalHelp")}
               </p>
             </FieldGroup>
           )}

@@ -306,6 +306,21 @@ export function createConnectionsStorage(db: DB) {
       return this.getById(id);
     },
 
+    /** Commit background metadata only while the captured connection is still current. */
+    async updateContextIfUnchanged(expected: typeof apiConnections.$inferSelect, maxContext: number): Promise<boolean> {
+      return db.transaction(async (tx) => {
+        const [current] = await tx.select().from(apiConnections).where(eq(apiConnections.id, expected.id));
+        // Compare stored scalar fields too: two settings saves can share the same millisecond timestamp.
+        if (
+          !current ||
+          Object.entries(current).some(([key, value]) => value !== expected[key as keyof typeof expected])
+        )
+          return false;
+        await tx.update(apiConnections).set({ maxContext, updatedAt: now() }).where(eq(apiConnections.id, expected.id));
+        return true;
+      });
+    },
+
     async update(id: string, data: Partial<CreateConnectionInput>) {
       const existing = await this.getById(id);
       if (!existing) return null;

@@ -1,3 +1,4 @@
+import { useRefreshLocalContext } from "./hooks/use-connections";
 // ──────────────────────────────────────────────
 // App: Root component with layout
 // ──────────────────────────────────────────────
@@ -36,7 +37,8 @@ import {
 import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
 import { api, requestTimeoutSignal } from "./lib/api-client";
-import { forceRefreshSpa } from "./lib/browser-runtime";
+import { forceRefreshSpa, reloadBrowser } from "./lib/browser-runtime";
+import { recordClientError } from "./lib/client-runtime-diagnostics";
 import { showAppUpdatePrompt } from "./lib/app-update-prompt";
 import { formatRuntimeBuild, getServerRuntimeBuild, isRuntimeBuildCurrent } from "./lib/runtime-build";
 import {
@@ -122,9 +124,9 @@ function formatRecoveryError(error: unknown) {
 
 function getRecoveryChromeStyle(): CSSProperties {
   const { appAccentColor, chatChromeTextColor, theme } = useUIStore.getState();
-  const defaultAccent = getDefaultAppAccentColor(theme);
+  const defaultAccent = getDefaultAppAccentColor();
   const accentSource = appAccentColor.trim() || defaultAccent;
-  const accent = getCssColorFallback(accentSource, defaultAccent);
+  const accent = getCssColorFallback(accentSource, getCssColorFallback(defaultAccent, "currentColor"));
   const accentGradient = isCssGradient(accentSource) ? accentSource : getSolidAccentGradient(accent);
   const textColor = chatChromeTextColor.trim();
   const chromeText = textColor
@@ -150,6 +152,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
+    recordClientError("render-error", error);
     console.error("[AppRecoveryBoundary] Unhandled render error", error, info.componentStack);
   }
 
@@ -162,7 +165,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
     } catch {
       /* ignore storage reset errors */
     }
-    window.location.reload();
+    reloadBrowser("reset-ui");
   };
 
   render() {
@@ -190,7 +193,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => window.location.reload()}
+                  onClick={() => reloadBrowser("render-recovery")}
                   className="mari-chrome-control mari-chrome-control--selected px-3 py-2 text-sm"
                 >
                   {t("ui.app.recovery.reload")}
@@ -245,7 +248,7 @@ function escapeSvgAttribute(value: string) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-let cursorColorProbe: HTMLSpanElement | null = null;
+let colorProbe: HTMLSpanElement | null = null;
 let cursorCanvasContext: CanvasRenderingContext2D | null | undefined;
 
 function clampCursorColorByte(value: number) {
@@ -304,30 +307,32 @@ function normalizeCursorColorForSvg(color: string, fallback: string) {
   return normalizeCursorColorWithCanvas(clean) || clean;
 }
 
-function resolveCursorColor(color: string, fallback: string) {
+function resolveCssColor(color: string, fallback: string) {
   if (typeof document === "undefined") return fallback;
-  if (!cursorColorProbe) {
-    cursorColorProbe = document.createElement("span");
-    cursorColorProbe.setAttribute("aria-hidden", "true");
-    cursorColorProbe.style.position = "fixed";
-    cursorColorProbe.style.pointerEvents = "none";
-    cursorColorProbe.style.visibility = "hidden";
-    cursorColorProbe.style.width = "0";
-    cursorColorProbe.style.height = "0";
-    document.body.appendChild(cursorColorProbe);
-  } else if (!cursorColorProbe.isConnected) {
-    document.body.appendChild(cursorColorProbe);
+  if (!colorProbe) {
+    colorProbe = document.createElement("span");
+    colorProbe.setAttribute("aria-hidden", "true");
+    colorProbe.style.position = "fixed";
+    colorProbe.style.pointerEvents = "none";
+    colorProbe.style.visibility = "hidden";
+    colorProbe.style.width = "0";
+    colorProbe.style.height = "0";
+    colorProbe.style.transition = "none";
+    document.body.appendChild(colorProbe);
+  } else if (!colorProbe.isConnected) {
+    document.body.appendChild(colorProbe);
   }
 
-  cursorColorProbe.style.color = "";
-  cursorColorProbe.style.color = color;
-  if (!cursorColorProbe.style.color) return fallback;
+  colorProbe.style.color = "";
+  colorProbe.style.color = color;
+  if (!colorProbe.style.color) return fallback;
 
-  return normalizeCursorColorForSvg(getComputedStyle(cursorColorProbe).color, fallback);
+  return getComputedStyle(colorProbe).color || fallback;
 }
 
 function getAccentCursorColors(accent: string, theme: "dark" | "light") {
-  const fill = resolveCursorColor(accent, getDefaultAppAccentColor(theme));
+  const fallback = getCssColorFallback(getDefaultAppAccentColor(), "currentColor");
+  const fill = normalizeCursorColorForSvg(resolveCssColor(accent, fallback), fallback);
   const stroke = theme === "light" ? "#1a1025" : "#050312";
 
   return { fill, stroke };
@@ -472,13 +477,16 @@ function isTextEntryFocused() {
 
 async function recoverFromVersionSkew(serverVersion: string) {
   await forceRefreshSpa({
+    reason: "version-update",
     queryParamKey: "v",
     queryParamValue: serverVersion,
   });
 }
 
 export function App() {
+  useRefreshLocalContext();
   const theme = useUIStore((s) => s.theme);
+  const notificationPosition = useUIStore((s) => s.notificationPosition);
   const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
   const fontSize = useUIStore((s) => s.fontSize);
   const language = useUIStore((s) => s.language);
@@ -503,8 +511,6 @@ export function App() {
     () => getThemeAccentPulseConfig(activeCustomTheme?.css),
     [activeCustomTheme?.css],
   );
-  const pauseChromeEffectsForAppearance =
-    appearanceSettingsActive && !appAccentRgbMode && !appAccentPulseMode && !themeAccentPulseConfig.enabled;
   useLegacyThemeMigration();
   useSettingsSync();
   const showDownloadModal = useSidecarStore((s) => s.showDownloadModal);
@@ -647,12 +653,9 @@ export function App() {
 
   useEffect(() => {
     const root = document.documentElement;
+    // Keep the accent preview independent of Home's covered ambient effects.
     const syncEffectsPausedState = () => {
-      const paused = !(
-        document.visibilityState === "visible" &&
-        document.hasFocus() &&
-        !pauseChromeEffectsForAppearance
-      );
+      const paused = !(document.visibilityState === "visible" && document.hasFocus() && !appearanceSettingsActive);
       if (!paused) {
         delete root.dataset.marinaraEffectsPaused;
       } else {
@@ -676,15 +679,16 @@ export function App() {
       window.removeEventListener("pagehide", syncEffectsPausedState);
       delete root.dataset.marinaraEffectsPaused;
     };
-  }, [pauseChromeEffectsForAppearance]);
+  }, [appearanceSettingsActive]);
 
   useEffect(() => {
     const root = document.documentElement;
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const accent = appAccentColor.trim();
-    const defaultAccent = getDefaultAppAccentColor(theme);
+    const defaultAccent = getDefaultAppAccentColor();
+    const defaultSolidAccent = getCssColorFallback(defaultAccent, "currentColor");
     const accentSource = themeAccentPulseConfig.source || accent || defaultAccent;
-    const solidAccent = getCssColorFallback(accentSource, defaultAccent);
+    const solidAccent = getCssColorFallback(accentSource, defaultSolidAccent);
     const accentIsGradient = isCssGradient(accentSource);
     const animatedAccentSource = appAccentRgbMode ? RAINBOW_GRADIENT_PRESET : accentSource;
     const animatedSolidAccent = getCssColorFallback(animatedAccentSource, solidAccent);
@@ -772,10 +776,13 @@ export function App() {
     };
 
     const applyLiveAccent = () => {
-      const liveAccent =
+      const mixedAccent =
         animatedAccentIsGradient && animatedGradientStops.length > 1
           ? getGradientRgbAccent(animatedGradientStops)
           : getSolidRgbAccent(animatedSolidAccent);
+      // Resolve on the small probe before changing inherited tokens. Nested
+      // color-mix() values can abort WebKit while it resolves control backgrounds.
+      const liveAccent = resolveCssColor(mixedAccent, defaultSolidAccent);
 
       const liveGradient = getSolidAccentGradient(liveAccent);
       if (appAccentRgbMode) {
@@ -823,10 +830,7 @@ export function App() {
 
       accentAnimationTimer = window.setTimeout(() => {
         accentAnimationTimer = null;
-        if (
-          !accentAnimationEnabled ||
-          !canRunAccentAnimation(reducedMotionQuery, pauseChromeEffectsForAppearance || reduceAmbientEffects)
-        ) {
+        if (!accentAnimationEnabled || !canRunAccentAnimation(reducedMotionQuery, reduceAmbientEffects)) {
           stopAccentAnimation();
           return;
         }
@@ -845,10 +849,7 @@ export function App() {
     };
 
     const syncAccentAnimationState = () => {
-      if (
-        accentAnimationEnabled &&
-        canRunAccentAnimation(reducedMotionQuery, pauseChromeEffectsForAppearance || reduceAmbientEffects)
-      ) {
+      if (accentAnimationEnabled && canRunAccentAnimation(reducedMotionQuery, reduceAmbientEffects)) {
         if (isTextEntryFocused()) {
           // Root accent ticks invalidate styles across the entire Roleplay
           // surface in Firefox. Freeze the current accent while the user is
@@ -867,9 +868,8 @@ export function App() {
     };
 
     if (accentAnimationEnabled) {
-      // Keep the custom cursor on the selected solid accent. Resolving a
-      // color-mix() cursor through getComputedStyle on every live accent tick
-      // causes a synchronous style flush that becomes noticeable in long sessions.
+      // Keep the custom cursor on the selected solid accent. Resolving it after
+      // live root-token writes forces a synchronous app-wide style flush.
       applyCursorAccent(solidAccent);
       setAccentModeDataset();
     } else {
@@ -914,7 +914,6 @@ export function App() {
     appAccentPulseMode,
     appAccentRgbMode,
     customCursorEnabled,
-    pauseChromeEffectsForAppearance,
     reduceAmbientEffects,
     theme,
     themeAccentPulseConfig.enabled,
@@ -1119,8 +1118,8 @@ export function App() {
         }}
       >
         <Toaster
-          position="top-center"
-          swipeDirections={["left", "right", "top"]}
+          position={notificationPosition === "bottom" ? "bottom-center" : "top-center"}
+          swipeDirections={["left", "right", notificationPosition === "bottom" ? "bottom" : "top"]}
           offset="4rem"
           theme={theme}
           closeButton
@@ -1129,7 +1128,7 @@ export function App() {
           toastOptions={{
             style: {
               background: "var(--card)",
-              border: "1px solid var(--border)",
+              border: "1px solid var(--marinara-chat-chrome-panel-border)",
               color: "var(--foreground)",
               userSelect: "text",
               WebkitUserSelect: "text",

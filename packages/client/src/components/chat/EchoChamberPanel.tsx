@@ -19,6 +19,7 @@ import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import type { EchoChamberSide, EchoChamberSize } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
+import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useChat } from "../../hooks/use-chats";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useGenerate } from "../../hooks/use-generate";
@@ -312,6 +313,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
 
   // Auto-scroll when a new message becomes visible
   useEffect(() => {
+    if (hasActiveTextSelection()) return;
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
         top: scrollRef.current.scrollHeight,
@@ -554,7 +556,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     let frame = window.requestAnimationFrame(() => {
       frame = window.requestAnimationFrame(() => {
         const scrollEl = scrollRef.current;
-        if (!scrollEl) return;
+        if (!scrollEl || hasActiveTextSelection()) return;
         scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: "auto" });
       });
     });

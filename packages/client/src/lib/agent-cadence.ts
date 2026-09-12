@@ -3,6 +3,7 @@ export type AgentRunIntervalMeta = {
   unit: string;
   help: string;
   defaultValue: number;
+  min?: number;
   max: number;
 };
 
@@ -16,6 +17,7 @@ export function getAgentRunIntervalMeta(agentType: string, isBuiltIn = true): Ag
         unit: "messages",
         help: "How many user and assistant messages should pass before the Illustrator is allowed to create another image.",
         defaultValue: 5,
+        min: 0,
         max: 100,
       };
     case "lorebook-keeper":
@@ -52,21 +54,21 @@ export function getCadenceInputValue(value: number | ""): string {
   return value === 1 ? EVERY_RUN_LABEL : String(value);
 }
 
-export function parseOptionalCadenceInputValue(value: string, max: number): number | "" {
+export function parseOptionalCadenceInputValue(value: string, max: number, min = 1): number | "" {
   const trimmed = value.trim();
   if (trimmed === "") return "";
   if (EVERY_RUN_LABEL.toLowerCase().startsWith(trimmed.toLowerCase())) return 1;
 
   const parsed = parseInt(trimmed, 10);
-  return Number.isFinite(parsed) ? Math.max(1, Math.min(max, parsed)) : 1;
+  return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : 1;
 }
 
-export function parseCadenceInputValue(value: string, fallback: number, max: number): number {
-  const parsed = parseOptionalCadenceInputValue(value, max);
+export function parseCadenceInputValue(value: string, fallback: number, max: number, min = 1): number {
+  const parsed = parseOptionalCadenceInputValue(value, max, min);
   return parsed === "" ? fallback : parsed;
 }
 
-export function stepCadenceValue(value: number | "", delta: number, max: number): number {
+export function stepCadenceValue(value: number | "", delta: number, max: number, min = 1): number {
   const current = value === "" ? 1 : value;
-  return Math.max(1, Math.min(max, current + delta));
+  return Math.max(min, Math.min(max, current + delta));
 }

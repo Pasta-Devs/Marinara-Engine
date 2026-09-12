@@ -14,6 +14,10 @@ You might want a custom tool to do things like these:
 
 A custom tool is not attached to a character card. Instead, you turn it on for a chat, or you attach it to an agent. An agent is a helper that runs alongside your chat. Both paths are covered below.
 
+Native function calling requires a tool-capable connection. Claude and Grok subscription transports ignore native tool definitions, so Chat Settings shows an availability notice and disables the tool controls for those connections. Their text commands and dice tags remain available. Game chats can select a separate tool-planning connection; see [Optional tool planning and lore searches](../game/getting-started.md#optional-tool-planning-and-lore-searches) for its cost and behavior.
+
+Lorebook searches use semantic ranking when enabled lore entries have compatible vectors. Conversation and Roleplay retain text matching when semantic search is unavailable. Game lore search has its own opt-in and reports missing or incompatible vectors; it never vectorizes a book automatically.
+
 ## The Functions section
 
 You create and manage custom tools in the **Presets** panel.

@@ -98,7 +98,7 @@ const MODE_BADGES: Record<CatalogMode, { labelKey: string; className: string }> 
   game: {
     labelKey: "ui.agents.agentcatalogview.gameMode",
     className:
-      "border-[color-mix(in_srgb,var(--mari-logo-pink)_55%,var(--border))] bg-[color-mix(in_srgb,var(--mari-logo-pink)_18%,transparent)]",
+      "border-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_55%,var(--border))] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-accent)_18%,transparent)]",
   },
 };
 
@@ -202,6 +202,25 @@ export function AgentCatalogView() {
   const selected =
     (catalog.data?.packages ?? []).find((item) => item.manifest.id === selectedId) ?? packages[0] ?? null;
   const selectedInstalled = selected ? installedById.get(selected.manifest.id) : undefined;
+  const installedPermissions = selectedInstalled?.manifest.permissions;
+  const permissionGroups = selected
+    ? [
+        ...(selectedInstalled
+          ? [
+              {
+                kind: "installed",
+                version: selectedInstalled.version,
+                permissions: selectedInstalled.manifest.permissions,
+              },
+            ]
+          : []),
+        ...(!installedPermissions ||
+        installedPermissions.length !== selected.manifest.permissions.length ||
+        selected.manifest.permissions.some((permission) => !installedPermissions.includes(permission))
+          ? [{ kind: "available", version: selected.manifest.version, permissions: selected.manifest.permissions }]
+          : []),
+      ]
+    : [];
   const selectedVersionComparison = selectedInstalled
     ? compareCapabilityPackageVersions(selected.manifest.version, selectedInstalled.version)
     : 0;
@@ -734,14 +753,38 @@ export function AgentCatalogView() {
                     {localizeUi("ui.agents.agentcatalogview.trustedCodeAccessNotice")}
                   </p>
                 )}
-                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {selected.manifest.permissions.map((permission) => (
-                    <li key={permission} className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
-                      <Check size="0.85rem" className="text-[var(--marinara-chat-chrome-highlight-text)]" />
-                      {permission.replaceAll("-", " ")}
-                    </li>
-                  ))}
-                </ul>
+                <p className="mt-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
+                  {localizeUi("ui.agents.agentcatalogview.permissionScopeNotice")}
+                </p>
+                {permissionGroups.map((group) => (
+                  <div key={group.kind} className="mt-3">
+                    <h4 className="text-xs font-medium">
+                      {localizeUi(
+                        group.kind === "installed"
+                          ? "ui.agents.agentcatalogview.installedPermissions"
+                          : "ui.agents.agentcatalogview.availablePermissions",
+                        { version: group.version },
+                      )}
+                    </h4>
+                    {group.permissions.length > 0 ? (
+                      <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {group.permissions.map((permission) => (
+                          <li
+                            key={permission}
+                            className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]"
+                          >
+                            <Check size="0.85rem" className="text-[var(--marinara-chat-chrome-highlight-text)]" />
+                            {permission.replaceAll("-", " ")}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                        {localizeUi("ui.agents.agentcatalogview.noPermissions")}
+                      </p>
+                    )}
+                  </div>
+                ))}
               </section>
 
               <AgentVersionHistory packageId={selected.manifest.id} />

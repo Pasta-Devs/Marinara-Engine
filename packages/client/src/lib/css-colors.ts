@@ -1,3 +1,5 @@
+export const MARINARA_GRADIENT_PRESET = "linear-gradient(90deg, #ec4b97, #f29744, #36cdde)";
+
 export const RAINBOW_GRADIENT_PRESET =
   "linear-gradient(90deg, #ff4d6d, #ff9f1c, #ffe66d, #2ec4b6, #3a86ff, #8338ec, #ff4d6d)";
 

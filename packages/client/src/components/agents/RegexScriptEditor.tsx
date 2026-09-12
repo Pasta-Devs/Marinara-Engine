@@ -232,6 +232,7 @@ export function RegexScriptEditor() {
   const { t: localizeUi } = useUiTranslation();
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const regexDetailDefaultCharacterIds = useUIStore((s) => s.regexDetailDefaultCharacterIds);
+  const regexDetailDefaultPresetIds = useUIStore((s) => s.regexDetailDefaultPresetIds);
   const regexDetailReturn = useUIStore((s) => s.regexDetailReturn);
   const closeRegexDetail = useUIStore((s) => s.closeRegexDetail);
   const openRegexDetail = useUIStore((s) => s.openRegexDetail);
@@ -331,8 +332,9 @@ export function RegexScriptEditor() {
       setLocalTargetCharacterIds(targetCharacterIds);
       setLocalCharacterScopeEnabled(targetCharacterIds.length > 0);
       const targetPromptPresetIds = parseStringArray(dbRow.targetPromptPresetIds);
-      setLocalTargetPromptPresetIds(targetPromptPresetIds);
-      setLocalPromptPresetScopeEnabled(targetPromptPresetIds.length > 0);
+      const presetScope = [...new Set([...targetPromptPresetIds, ...(regexDetailDefaultPresetIds ?? [])])];
+      setLocalTargetPromptPresetIds(presetScope);
+      setLocalPromptPresetScopeEnabled(presetScope.length > 0);
       setLocalOrder(dbRow.order);
       setLocalMinDepth(dbRow.minDepth);
       setLocalMaxDepth(dbRow.maxDepth);
@@ -350,16 +352,19 @@ export function RegexScriptEditor() {
       const defaultScope = regexDetailDefaultCharacterIds ?? [];
       setLocalTargetCharacterIds(defaultScope);
       setLocalCharacterScopeEnabled(defaultScope.length > 0);
-      setLocalTargetPromptPresetIds([]);
-      setLocalPromptPresetScopeEnabled(false);
+      setLocalTargetPromptPresetIds(regexDetailDefaultPresetIds ?? []);
+      setLocalPromptPresetScopeEnabled((regexDetailDefaultPresetIds?.length ?? 0) > 0);
       setLocalOrder(0);
       setLocalMinDepth(null);
       setLocalMaxDepth(null);
     }
-    setDirty(false);
+    setDirty(
+      !!dbRow &&
+        (regexDetailDefaultPresetIds ?? []).some((id) => !parseStringArray(dbRow.targetPromptPresetIds).includes(id)),
+    );
     setSaveError(null);
     setTestInput("");
-  }, [regexDetailId, dbRow, regexDetailDefaultCharacterIds]);
+  }, [regexDetailId, dbRow, regexDetailDefaultCharacterIds, regexDetailDefaultPresetIds]);
 
   // Regex validity check
   const regexError = useMemo(() => {
@@ -459,6 +464,10 @@ export function RegexScriptEditor() {
         const updatePayload = { ...payload };
         if (dbRow.findRegex === localFindRegex) delete updatePayload.findRegex;
         await updateScript.mutateAsync({ id: dbRow.id, ...updatePayload });
+        // Preset targets supplied by navigation are a one-shot draft, not a permanent constraint.
+        if (useUIStore.getState().regexDetailId === dbRow.id) {
+          useUIStore.setState({ regexDetailDefaultPresetIds: null });
+        }
       } else {
         const created = (await createScript.mutateAsync(payload)) as RegexScriptRow | undefined;
         if (created?.id) {

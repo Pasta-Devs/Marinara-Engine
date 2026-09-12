@@ -10,6 +10,9 @@ import type { FastifyInstance } from "fastify";
 import { evaluateRequestOriginTrust } from "../middleware/csrf-protection.js";
 
 export async function csrfDiagnosticsRoutes(app: FastifyInstance) {
+  // The global onRequest hook checks this body-free POST exactly like the upload.
+  app.post("/upload-preflight", async (_request, reply) => reply.code(204).send());
+
   app.get("/origin-status", async (request) => {
     const verdict = evaluateRequestOriginTrust(request);
     return {

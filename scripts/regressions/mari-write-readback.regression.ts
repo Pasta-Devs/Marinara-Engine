@@ -357,7 +357,9 @@ const emitterGate =
   '...(isRecord(result.readBack) && result.readBack.status === "verified" ? [READ_BACK_VERIFIED_SENTINEL] : isRecord(result.readBack) && result.readBack.status === "mismatch" ? [READ_BACK_MISMATCH_SENTINEL] : []),';
 const dryRunGate = '...(isRecord(result) && result.mode === "dry-run" ? [MARI_DRY_RUN_SENTINEL] : []),';
 assert.ok(
-  workspaceAgentFlat.includes(`${emitterGate} ${dryRunGate} \`Command: \${command}\``),
+  // #5786: the command is flattened to one line before entering the engine
+  // region, so a newline in it can never mint a forged engine line.
+  workspaceAgentFlat.includes(`${emitterGate} ${dryRunGate} \`Command: \${engineLineText(command)}\``),
   "the mari-CLI runtime must emit the read-back gate, then the dry-run gate, immediately before its Command header",
 );
 assert.ok(
@@ -366,8 +368,10 @@ assert.ok(
 );
 // Debt semantics: a self-verified mutation never pays off an earlier one.
 assert.ok(
-  workspaceAgentFlat.includes("if (!appliedMutationReadBackVerified(result)) unverifiedMutationSeen = true;"),
-  "each applied mutation carries its OWN verification debt",
+  workspaceAgentFlat.includes(
+    "if (inScope && !appliedMutationReadBackVerified(result)) unverifiedMutationSeen = true;",
+  ),
+  "each applied mutation carries its OWN verification debt, judged inside the claim's audit scope",
 );
 // The #5740 record treats a read-back mismatch as a failure, matching the
 // do-not-claim-success coaching on the same result.

@@ -19,6 +19,11 @@ import {
   appendChatSummaryEntryToMetadata,
   BUILT_IN_TOOLS,
   isJsonRecord,
+  isWithinDiceLimits,
+  MAX_DICE_COUNT,
+  MAX_DICE_SIDES,
+  parseDiceNotation,
+  rollParsedDice,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
 } from "@marinara-engine/shared";
 
@@ -41,12 +46,18 @@ function createToolArgumentsValidator(
   if ("$async" in validate && validate.$async === true) {
     throw new Error("Async tool parameter schemas are not supported");
   }
-  return (args) =>
-    validate(args)
-      ? null
-      : ajv.errorsText(validate.errors, {
-          dataVar: "arguments",
-        });
+  return (args) => {
+    if (validate(args)) return null;
+    const errors = validate.errors ?? [];
+    const text = ajv.errorsText(errors, { dataVar: "arguments" });
+    // "must be equal to one of the allowed values" does not say which, and the model has to
+    // guess. Name them, so a refusal is something it can act on in the next round.
+    const allowed = errors
+      .filter((error) => error.keyword === "enum")
+      .map((error) => (error.params as { allowedValues?: unknown[] }).allowedValues)
+      .find((values): values is unknown[] => Array.isArray(values) && values.length > 0);
+    return allowed ? `${text} (${allowed.join(", ")})` : text;
+  };
 }
 
 export interface ToolExecutionResult {
@@ -204,7 +215,11 @@ type SpotifyPlayRequestBody = {
 const spotifyTrackIndexCache = new Map<string, SpotifyTrackIndexCacheEntry>();
 
 export interface ToolExecutionContext {
+  /** Apply the active chat's character attributes before the shared dice service rolls. */
+  prepareDiceRoll?: (args: Record<string, unknown>) => Record<string, unknown>;
   gameState?: Record<string, unknown>;
+  /** Returns a stored patch, or an explicit pending patch until the turn is saved. */
+  applyGameStateUpdate?: (update: { type: string; value: string }) => Promise<Record<string, unknown>>;
   chatMeta?: Record<string, unknown>;
   hiddenContext?: CustomToolHiddenContext;
   /** The character whose turn invoked the tool (Conversation mode; used by update_about_me). */
@@ -305,9 +320,9 @@ async function executeBuiltInTool(
 ): Promise<unknown> {
   switch (name) {
     case "roll_dice":
-      return rollDice(args);
+      return rollDice(context?.prepareDiceRoll ? context.prepareDiceRoll(args) : args);
     case "update_game_state":
-      return updateGameState(args, context?.gameState);
+      return updateGameState(args, context?.applyGameStateUpdate);
     case "set_expression":
       return setExpression(args);
     case "trigger_event":
@@ -491,50 +506,73 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
   const notation = String(args.notation ?? "1d6");
   const reason = String(args.reason ?? "");
 
-  // Parse notation: NdS+M or NdS-M
-  const match = notation.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
-  if (!match) {
-    return { error: `Invalid dice notation: ${notation}`, hint: "Use format like 2d6, 1d20+5, 3d8-2" };
+  const parsed = parseDiceNotation(notation);
+  if (!parsed) {
+    return { error: `Invalid dice notation: ${notation}`, hint: "Use format like 2d6, d20+5, 3d8-2" };
   }
 
-  const count = parseInt(match[1]!, 10);
-  const sides = parseInt(match[2]!, 10);
-  const modifier = match[3] ? parseInt(match[3], 10) : 0;
-
-  if (count < 1 || count > 100 || sides < 2 || sides > 1000) {
-    return { error: "Dice values out of range (1-100 dice, 2-1000 sides)" };
+  // Refuse rather than clamp. A result that quietly rolled 100 dice for a model
+  // that asked for 500 is a lie the model has no way to notice.
+  if (!isWithinDiceLimits(parsed) || parsed.sides < 2) {
+    return { error: `Dice values out of range (1-${MAX_DICE_COUNT} dice, 2-${MAX_DICE_SIDES} sides)` };
   }
 
-  const rolls: number[] = [];
-  for (let i = 0; i < count; i++) {
-    rolls.push(Math.floor(Math.random() * sides) + 1);
-  }
+  const { rolls, modifier, total } = rollParsedDice(parsed);
+  // Sum the dice directly rather than re-deriving it as total - modifier. The
+  // two agree now that the grammar refuses any notation whose range of totals
+  // could leave the exact integers, so this is not a workaround for drift — it
+  // is what the field means, and it keeps meaning it without leaning on that
+  // guarantee holding forever.
   const sum = rolls.reduce((a, b) => a + b, 0);
-  const total = sum + modifier;
 
   return {
-    notation,
+    notation: parsed.notation,
     rolls,
     sum,
     modifier,
     total,
     reason,
-    display: `🎲 ${notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**`,
+    display: `🎲 ${parsed.notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**`,
   };
 }
 
-function updateGameState(args: Record<string, unknown>, _gameState?: Record<string, unknown>): Record<string, unknown> {
-  // Returns the update instruction — the client/agent pipeline applies it
+// The only two update types the generation route writes back to the game state.
+// Everything else this tool used to accept was answered with `applied: true` and
+// then silently dropped. The manifest enum is what the model is actually held to —
+// argument validation rejects a dead type before the executor runs — so the guard
+// below is defence in depth for any caller that reaches it without that schema.
+export const PERSISTED_GAME_STATE_UPDATE_TYPES = ["location_change", "time_advance"] as const;
+
+async function updateGameState(
+  args: Record<string, unknown>,
+  applyUpdate?: ToolExecutionContext["applyGameStateUpdate"],
+): Promise<Record<string, unknown>> {
+  const type = String(args.type ?? "");
+  if (!(PERSISTED_GAME_STATE_UPDATE_TYPES as readonly string[]).includes(type)) {
+    return {
+      error: `update_game_state cannot apply "${type}".`,
+      hint: "Only location_change and time_advance are stored. Describe stat, inventory and quest changes in the narration instead.",
+      supportedTypes: [...PERSISTED_GAME_STATE_UPDATE_TYPES],
+    };
+  }
+
+  const value = typeof args.value === "string" ? args.value.trim() : "";
+  if (!value) throw new Error("A non-empty location or time value is required.");
+  if (!applyUpdate) throw new Error("Game-state writes are not available in this context.");
+  const stored = await applyUpdate({ type, value });
+  const field = type === "location_change" ? "location" : "time";
+  if (stored[field] !== value) throw new Error("The requested game-state value was not stored.");
   return {
-    applied: true,
+    applied: stored.pending !== true,
+    ...(stored.pending === true
+      ? { pending: true, note: "Queued for this turn. The change is not applied until this response is saved." }
+      : {}),
     update: {
       type: args.type,
-      target: args.target,
-      key: args.key,
-      value: args.value,
+      value,
       description: args.description ?? "",
     },
-    display: `📊 ${args.type}: ${args.target} — ${args.key} → ${args.value}`,
+    display: `📊 ${type} → ${value}`,
   };
 }
 

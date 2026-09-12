@@ -631,6 +631,12 @@ export function buildGmFormatReminder(
     playerDiceRollSubmitted?: boolean;
     /** Built-in systems an installed experience replaces with its own. Undeclared systems stay built-in. */
     experienceProvidedSystems?: { inventory?: boolean };
+    /** Rendered COMMANDS lines for the verbs an installed experience declares (#5798). They belong
+     *  in this reminder rather than in the system message because the reminder is what the engine
+     *  parses back out of the turn, and because the game system message is rebuilt wholesale by
+     *  `injectGameGmPromptRuntime` — anything spliced into it there would be overwritten. Empty or
+     *  absent (the normal case, and every case today) renders nothing at all. */
+    experienceGmVerbs?: string[];
   },
 ): string {
   const lines: string[] = [];
@@ -757,15 +763,21 @@ export function buildGmFormatReminder(
     `- [choices: "Option A"|"Option B"|"Option C"] - only for explicit player-facing options that require a selection.`,
   );
 
+  // The engine supplies numbers before the GM writes outcome narration.
   if (ctx.playerDiceRollSubmitted) {
     lines.push(
-      `- [skill_check: skill="Skill Name" dc="1-20" rolls="player's d20 result" modifier="situational or player-card modifier" total="roll + modifier" result="critical_success|success|failure|critical_failure" mode="normal" resolution="sum" dice="1d20"] - if the player presented you with a [dice: ...] roll, start the turn with the check tag, use the player's roll as the base, choose the DC fairly (5 trivial, 10 routine under pressure, 15 hard, 20 desperate), and narrate the consequences in the same turn. If using another die or a dice pool, include its exact notation in dice (for example dice="6d10"), set resolution="successes" when counting qualifying dice, and report the count as the total without pretending the pool was added.`,
+      `- [skill_check: skill="Skill Name" dc="1-20" rolls="the player's d20 result"] - use the player's exact die and choose a fair DC (5 trivial, 10 routine under pressure, 15 hard, 20 desperate). Do NOT write modifier, total or result: the engine applies their character-sheet modifiers.`,
     );
   } else {
     lines.push(
-      `- [skill_check: skill="Skill Name" dc="1-20" rolls="1-20" modifier="situational or player-card modifier" total="roll + modifier" result="critical_success|success|failure|critical_failure" mode="normal" resolution="sum" dice="1d20"] - only when uncertainty or the player's actions should be resolved mechanically. Abandon positivity bias: choose the DC fairly (5 trivial, 10 routine under pressure, 15 hard, 20 desperate), roll honestly, and narrate the consequence in the same turn. If using another die or a dice pool, include its exact notation in dice (for example dice="6d10"), set resolution="successes" when counting qualifying dice, and report the count as the total without pretending the pool was added.`,
+      `- [skill_check: skill="Skill Name" dc="1-20"] - request a d20 check only when uncertainty matters. Choose a fair DC (5 trivial, 10 routine under pressure, 15 hard, 20 desperate). Do NOT invent rolls, modifier, total or result: the engine supplies the die and character-sheet modifiers.`,
     );
   }
+  lines.push(
+    `- [dice: 3d8+2] - request any NdM roll with an optional flat modifier, even without a tools API. The engine rolls it, capped at 100 dice and 1000 sides per die. Never write the numbers yourself.`,
+    `- For other checks, declare the actual notation: [skill_check: skill="Endurance" dc="12" dice="3d6+2"]. These use the notation's modifier, not d20 character-sheet modifiers. For a pool, declare the per-die threshold and required successes: [skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]. Each die at or above threshold counts once; dc is the number of successes needed. Exploding dice, botches, or other special pool rules are not implemented. Never invent pool results or omit its threshold.`,
+    `- Place unresolved roll requests before any outcome that depends on them. Describe the attempt, then stop. The engine will send the real results back for you to finish this same turn; do not guess success or failure before receiving them.`,
+  );
 
   lines.push(
     ...(ctx.enableQuickTimeEvents === false
@@ -789,6 +801,26 @@ export function buildGmFormatReminder(
     `- [party_change: character="Exact Character Name" change="add|remove"] - only when someone truly joins or leaves the party. Use remove when a party member dies, permanently departs, or is no longer traveling with the player.`,
     `- [session_end: reason="goal achieved|good place to pause"] - only when the current session truly ends.`,
   );
+
+  // Game turns carry the roll_dice tool whether or not the chat has tool use switched on,
+  // so this block is unconditional. It is what stops the GM inventing numbers: without it
+  // the tool is attached and never called.
+  lines.push(
+    ``,
+    `DICE:`,
+    `- roll_dice is a real die you can throw. Call it the moment you need an actual number before you can keep writing - an attack, a save, damage, a random outcome the scene then reacts to - passing the notation (for example "1d20+3") and a short reason.`,
+    `- Never invent a die result. Wait for the number the tool gives you, then narrate what it means, once, in this same turn.`,
+    `- If roll_dice has already returned a skill check's roll, override the sparse-check instructions above: write a complete [skill_check: skill="Skill Name" dc="chosen DC" rolls="actual tool rolls joined with |" modifier="tool modifier" total="tool total" result="critical_success|success|failure|critical_failure" resolution="sum" dice="tool notation"] record using that result. Do not request another engine roll or stop at the attempt; narrate its consequence in this same turn. Use the sparse form only when no roll result is available.`,
+    ctx.playerDiceRollSubmitted
+      ? `- The player already threw for this turn. Use their roll rather than calling the tool again for the same action.`
+      : `- A skill check is still written down with the [skill_check: ...] tag above. roll_dice is how you get a number your narration needs in hand; it does not replace that record.`,
+    `- If the tool is not available to you on this connection, work from the tag alone and say nothing about tools.`,
+  );
+
+  // The installed experience's own verbs, last in the block so the built-ins keep their order. Each
+  // line already arrives fully rendered from the verb runtime; nothing here inspects or reformats it.
+  const experienceGmVerbs = normalizePromptTextList(ctx.experienceGmVerbs);
+  if (experienceGmVerbs.length > 0) lines.push(...experienceGmVerbs);
 
   if (ctx.gameActiveState === "combat") {
     lines.push(

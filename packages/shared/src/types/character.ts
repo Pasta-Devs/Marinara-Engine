@@ -66,6 +66,8 @@ export interface CharacterExtensions {
    *  `chats.metadata.characterSchedules`. Per-chat opt-out lives on the chat as
    *  `conversationSchedulesEnabled`. */
   conversationSchedule?: import("../utils/conversation-presence.js").WeekSchedule;
+  /** Renew the weekly Conversation schedule when its week ends. Defaults on when a schedule exists. */
+  conversationScheduleAutoRenew?: boolean;
   /** Marinara Engine: pronunciation override used when sending this character's name to TTS. */
   phoneticName?: string;
   /** Marinara Engine (Conversation mode ONLY): display name shown as the sender label

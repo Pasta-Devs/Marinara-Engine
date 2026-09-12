@@ -590,7 +590,7 @@ export async function conversationRoutes(app: FastifyInstance) {
   // ─────────────────────────────────────────────
   app.post<{
     Body: {
-      chatId: string;
+      chatId?: string;
       forceRefresh?: boolean;
       characterIds?: string[];
       scheduleGenerationPreferences?: string;
@@ -606,25 +606,25 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
     const userSchedulePreferences = typeof rawPrefs === "string" ? rawPrefs.trim() : "";
 
-    const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
-    if (chat.mode !== "conversation") return reply.status(400).send({ error: "Not a conversation chat" });
+    const chat = chatId ? await chats.getById(chatId) : null;
+    if (chatId && !chat) return reply.status(404).send({ error: "Chat not found" });
+    if (chat && chat.mode !== "conversation") return reply.status(400).send({ error: "Not a conversation chat" });
     const requestedTimeZone = normalizePromptTimeZone(req.body.timeZone);
     if (req.body.timeZone != null && !requestedTimeZone) {
       return reply.status(400).send({ error: "timeZone must be a valid IANA timezone" });
     }
-    if (requestedTimeZone) await rememberConversationTimeZone(requestedTimeZone);
+    if (requestedTimeZone && chatId) await rememberConversationTimeZone(requestedTimeZone);
 
     // Resolve connection (need decrypted API key; "random" is a sentinel, not a persisted connection id)
     const { conn, error: connectionError } = await resolveConversationScheduleConnection(
       connections,
-      chat.connectionId,
+      chat?.connectionId ?? null,
     );
     if (!conn) return reply.status(400).send({ error: connectionError ?? "No connection configured" });
     const baseUrl = resolveBaseUrl(conn);
     if (!baseUrl) return reply.status(400).send({ error: "No base URL" });
 
-    const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+    const meta = chat ? (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})) : {};
     if (requestedTimeZone) meta.conversationTimeZone = requestedTimeZone;
     const scheduleTimeZone = requestedTimeZone ?? resolveConversationTimeZone(meta);
     const nowInstant = new Date();
@@ -634,9 +634,9 @@ export async function conversationRoutes(app: FastifyInstance) {
     const characterIds: string[] =
       Array.isArray(req.body.characterIds) && req.body.characterIds.length > 0
         ? req.body.characterIds
-        : typeof chat.characterIds === "string"
+        : typeof chat?.characterIds === "string"
           ? JSON.parse(chat.characterIds)
-          : chat.characterIds;
+          : (chat?.characterIds ?? []);
 
     const provider = await createConversationAgentProvider(conn, baseUrl);
     const model = conn.model ?? "";
@@ -674,6 +674,11 @@ export async function conversationRoutes(app: FastifyInstance) {
       // The character owns its schedule; the chat map is only a cache, so a
       // legacy chat-only schedule still counts as existing.
       const existing = readCharacterSchedule(charData) ?? existingSchedules[charId];
+      if (existing && !forceRefresh && charData.extensions?.conversationScheduleAutoRenew === false) {
+        newSchedules[charId] = existing;
+        results[charId] = { status: "renewal_disabled" };
+        continue;
+      }
       if (existing && !forceRefresh && !scheduleNeedsRefresh(existing, scheduleNow)) {
         newSchedules[charId] = existing;
         results[charId] =
@@ -745,20 +750,21 @@ export async function conversationRoutes(app: FastifyInstance) {
         .filter(([, result]) => result.status === "generated" || result.status === "shared")
         .map(([id]) => id);
       if (changedCharIds.length > 0) {
-        await chats.patchMetadata(chatId, (current) => {
-          const currentSchedules: CharacterSchedules = hasSchedules(current.characterSchedules)
-            ? (current.characterSchedules as CharacterSchedules)
-            : {};
-          const mergedSchedules: CharacterSchedules = { ...currentSchedules };
-          for (const id of changedCharIds) {
-            mergedSchedules[id] = preserveTimingSettings(newSchedules[id]!, currentSchedules[id]);
-          }
-          return {
-            conversationSchedulesEnabled: true,
-            characterSchedules: mergedSchedules,
-            scheduleWeekStart: mondayStr,
-          };
-        });
+        if (chatId)
+          await chats.patchMetadata(chatId, (current) => {
+            const currentSchedules: CharacterSchedules = hasSchedules(current.characterSchedules)
+              ? (current.characterSchedules as CharacterSchedules)
+              : {};
+            const mergedSchedules: CharacterSchedules = { ...currentSchedules };
+            for (const id of changedCharIds) {
+              mergedSchedules[id] = preserveTimingSettings(newSchedules[id]!, currentSchedules[id]);
+            }
+            return {
+              conversationSchedulesEnabled: true,
+              characterSchedules: mergedSchedules,
+              scheduleWeekStart: mondayStr,
+            };
+          });
       }
       // Other chats pick the new schedule up on their next resolve, because it
       // now lives on the character card rather than in each chat's metadata.
@@ -791,8 +797,11 @@ export async function conversationRoutes(app: FastifyInstance) {
       string,
       { status: string; activity: string; schedule?: WeekSchedule; override?: object; lastContact?: string }
     > = {};
+    let needsRefresh = false;
 
     for (const charId of characterIds) {
+      const charRow = await chars.getById(charId);
+      const charData = charRow ? (JSON.parse(charRow.data as string) as CharacterData) : null;
       const schedule = schedules[charId];
       if (!schedule) {
         const { status, activity, override } = getEffectiveCurrentStatus(
@@ -802,14 +811,13 @@ export async function conversationRoutes(app: FastifyInstance) {
           "",
           scheduleNow,
         );
-        const charRow = await chars.getById(charId);
         if (charRow) {
-          const charData = JSON.parse(charRow.data as string) as CharacterData;
-          const currentExtensions = (charData.extensions as Record<string, unknown> | undefined) ?? {};
+          const currentData = charData!;
+          const currentExtensions = (currentData.extensions as Record<string, unknown> | undefined) ?? {};
           // The card's status is global. Only reset it when the character truly
           // has no schedule — if it has one and this chat simply has schedules
           // switched off, writing here would clear presence in every other chat.
-          const characterOwnsSchedule = !!readCharacterSchedule(charData);
+          const characterOwnsSchedule = !!readCharacterSchedule(currentData);
           if (
             !characterOwnsSchedule &&
             (currentExtensions.conversationStatus !== status || currentExtensions.conversationActivity !== activity)
@@ -834,17 +842,21 @@ export async function conversationRoutes(app: FastifyInstance) {
         "free time",
         scheduleNow,
       );
+      if (
+        scheduleNeedsRefresh(schedule, scheduleNow) &&
+        charData?.extensions?.conversationScheduleAutoRenew !== false
+      ) {
+        needsRefresh = true;
+      }
 
       // Sync the character's conversationStatus in the database
-      const charRow = await chars.getById(charId);
       if (charRow) {
-        const charData = JSON.parse(charRow.data as string) as CharacterData;
         if (
-          charData.extensions?.conversationStatus !== status ||
-          charData.extensions?.conversationActivity !== activity
+          charData!.extensions?.conversationStatus !== status ||
+          charData!.extensions?.conversationActivity !== activity
         ) {
           const extensions = {
-            ...(charData.extensions ?? {}),
+            ...(charData!.extensions ?? {}),
             conversationStatus: status,
             conversationActivity: activity,
           };
@@ -859,7 +871,7 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     return reply.send({
       statuses,
-      needsRefresh: Object.values(schedules).some((schedule) => scheduleNeedsRefresh(schedule, scheduleNow)),
+      needsRefresh,
     });
   });
 

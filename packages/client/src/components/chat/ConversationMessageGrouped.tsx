@@ -60,9 +60,6 @@ export function ConversationMessageGrouped({
     hideTimestamp,
     showMessageNumbers,
     messageIndex,
-    hasSwipes,
-    swipeCount,
-    onSetActiveSwipe,
     renderedContent,
     onImageOpen,
     onRemoveAttachment,
@@ -119,14 +116,13 @@ export function ConversationMessageGrouped({
   };
   const hasTranslationContent = Boolean(translatedText || isTranslating);
   const hasAttachmentContent = (extra.attachments?.length ?? 0) > 0 && !IMAGE_URL_RE.test(renderedContent.trim());
-  const hasSwipeContent = !hideActions && (hasSwipes || Boolean(canRegenerate && onRegenerate));
-  const hasTrailingContent =
-    isStreaming || (!isHiddenCollapsed && (hasTranslationContent || hasAttachmentContent || hasSwipeContent));
+  const hasTrailingContent = isStreaming || (!isHiddenCollapsed && (hasTranslationContent || hasAttachmentContent));
 
   return (
     <div
       ref={msgRef}
       data-component="ConversationMessage.Grouped"
+      tabIndex={0}
       data-message-id={message.id}
       data-message-role={message.role}
       className={cn(
@@ -396,11 +392,11 @@ export function ConversationMessageGrouped({
         })
       )}
 
-      {/* Trailing content (cursor, translation, attachments, swipes): kept in a
+      {/* Trailing content (cursor, translation, attachments): kept in a
           [data-card-css] wrapper so themes retain the reach they had when the
           attribute lived on the block root — but only rendered when it has
           content, so container-styling themes can't paint an empty box. The
-          action row stays OUTSIDE the wrapper because it is app chrome, like
+          control rows stay OUTSIDE the wrapper because they are app chrome, like
           the reaction chip rows. */}
       {hasTrailingContent && (
         <div {...cardCssProps}>
@@ -429,26 +425,18 @@ export function ConversationMessageGrouped({
                   onRemove={onRemoveAttachment}
                 />
               </div>
-
-              {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
-                <div className="ml-14 mt-1.5">
-                  <ConversationMessageSwipes
-                    messageId={message.id}
-                    activeSwipeIndex={message.activeSwipeIndex}
-                    swipeCount={swipeCount}
-                    onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
-                    onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
-                  />
-                </div>
-              )}
             </>
           )}
         </div>
       )}
 
+      <ConversationMessageSwipes ctx={ctx} />
+
       {/* Action bar */}
       {(!hideActions || hasReasoning) && (
         <ConversationMessageActions
+          message={message}
+          name={ctx.displayName}
           isUser={false}
           showActions={showActions}
           forceShowActions={hideActions && hasReasoning ? true : forceShowActions}

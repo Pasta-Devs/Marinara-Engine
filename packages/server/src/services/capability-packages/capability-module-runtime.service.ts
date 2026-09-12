@@ -62,7 +62,11 @@ type CapabilityActivationContext = {
   };
 };
 
-async function createCapabilityRuntimeHost(app: FastifyInstance, packageId: string): Promise<CapabilityRuntimeHost> {
+async function createCapabilityRuntimeHost(
+  app: FastifyInstance,
+  packageId: string,
+  permissions: readonly string[],
+): Promise<CapabilityRuntimeHost> {
   const agents = app.db ? createAgentsStorage(app.db) : null;
   const config = await agents?.getByType(packageId);
   const embeddings = app.db
@@ -95,7 +99,7 @@ async function createCapabilityRuntimeHost(app: FastifyInstance, packageId: stri
       debugOverride: (overrideEnabled: boolean, message: string, ...args: CapabilityRuntimeLogArgument[]) =>
         logDebugOverride(overrideEnabled, message, ...args),
     }),
-    persistence: createCapabilityPersistenceHost(app.db),
+    persistence: createCapabilityPersistenceHost(app.db, permissions),
     resources: createCapabilityResourceHost(app.db),
   });
 }
@@ -214,7 +218,7 @@ class CapabilityModuleRuntime {
         dataDir: DATA_DIR,
         package: installed,
         api: {
-          runtime: await createCapabilityRuntimeHost(app, installed.id),
+          runtime: await createCapabilityRuntimeHost(app, installed.id, installed.manifest.permissions ?? []),
           registerTurnGameEngine: (engine) => trackCleanup(registerTurnGameEngine(engine)),
           registerConversationCommand: (registration) => {
             if (registration.handler && !installed.manifest.permissions?.includes("conversation-actions")) {

@@ -281,6 +281,13 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const method = (init?.method ?? "GET").toUpperCase();
   if (UNSAFE_METHODS.has(method)) {
     headers.set(CSRF_HEADER, CSRF_HEADER_VALUE);
+    if (init?.body instanceof FormData) {
+      // Check the same unsafe-request gate before a proxy buffers a large upload.
+      await request<void>("/csrf/upload-preflight", {
+        method: "POST",
+        signal: requestTimeoutSignal(10_000, init.signal),
+      });
+    }
   }
 
   // Only default string bodies to JSON; FormData/Blob/etc. need browser-managed headers.

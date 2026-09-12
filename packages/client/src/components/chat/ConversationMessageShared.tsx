@@ -18,9 +18,12 @@ import { renderInlineWithCustomEmojis } from "../../lib/custom-emoji-render";
 import { renderWithStickerBlocks } from "../../lib/sticker-render";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { ImagePromptPanel } from "./ImagePromptPanel";
+import { ChatImagePreview } from "./ChatImagePreview";
 import { MessageActionButton } from "./MessageActionButton";
 import { SwipeJumpControl } from "./SwipeJumpControl";
-import { AnimatedDiceRoll, isDiceRollResult, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
+import { useUIStore } from "../../stores/ui.store";
+import { AnimatedDiceRoll, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
+import { isDiceRollResult } from "../../lib/dice-roll-result";
 import type { CharacterMap } from "./chat-area.types";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -70,6 +73,15 @@ export function DiceMessageContent({
 }) {
   if (!isDiceRollResult(diceRollResult)) return null;
   return <AnimatedDiceRoll {...diceRollResult} mode="chat" animate={shouldAnimateDiceRollMessage(createdAt)} />;
+}
+
+/**
+ * A `/roll` message is nothing but its roll, so the card stands in for the text. An
+ * assistant turn that called the dice tool mid-narration has prose of its own, and the
+ * card sits alongside it instead of swallowing the message.
+ */
+export function diceRollReplacesMessageContent(role: string, diceRollResult: unknown): boolean {
+  return isDiceRollResult(diceRollResult) && role !== "assistant";
 }
 
 /** Everything the layout sub-components (Bubble, Line, Grouped) need, pre-resolved by the shell. */
@@ -562,7 +574,7 @@ export function ConversationMessageAttachments({
               className="block cursor-zoom-in rounded-lg text-left"
               title={localizeUi("ui.noodle.noodlepostcard.openImage")}
             >
-              <img
+              <ChatImagePreview
                 src={att.url || att.data}
                 alt={att.filename || att.name || "image"}
                 className="max-h-[70vh] max-w-full rounded-lg object-contain sm:max-h-[32rem]"
@@ -630,34 +642,29 @@ export function ConversationMessageTranslation({
 }
 
 /** Compact swipe control — consistent style for all Conversation layouts. */
-export function ConversationMessageSwipes({
-  messageId,
-  activeSwipeIndex,
-  swipeCount,
-  onSetActiveSwipe,
-  onCreateNextSwipe,
-  className,
-}: {
-  messageId: string;
-  activeSwipeIndex: number;
-  swipeCount: number;
-  onSetActiveSwipe: (index: number) => void;
-  onCreateNextSwipe?: () => void;
-  className?: string;
-}) {
+export function ConversationMessageSwipes({ ctx }: { ctx: MessageRenderContext }) {
+  const alwaysShow = useUIStore((state) => state.alwaysDisplayConversationSwipeMenu);
+  const {
+    message,
+    isUser,
+    hideActions,
+    isHiddenCollapsed,
+    hasSwipes,
+    swipeCount,
+    onSetActiveSwipe,
+    canRegenerate,
+    onRegenerate,
+  } = ctx;
+  if (hideActions || isHiddenCollapsed || (!hasSwipes && !(canRegenerate && onRegenerate))) return null;
   return (
     <SwipeJumpControl
-      messageId={messageId}
-      activeSwipeIndex={activeSwipeIndex}
+      alwaysShow={alwaysShow && !isUser}
+      messageId={message.id}
+      activeSwipeIndex={message.activeSwipeIndex}
       swipeCount={swipeCount}
-      onSetActiveSwipe={onSetActiveSwipe}
-      onCreateNextSwipe={onCreateNextSwipe}
-      className={cn(
-        "inline-flex items-center gap-0.5 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]",
-        className,
-      )}
-      buttonClassName="rounded-sm p-0.5 transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
-      inputClassName="h-[1.25rem] w-[2rem] border-none bg-transparent text-center text-[0.625rem] outline-none"
+      onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
+      onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
+      className={ctx.isBubbleStyle && isUser ? "justify-end" : undefined}
     />
   );
 }

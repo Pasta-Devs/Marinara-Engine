@@ -656,9 +656,10 @@ export function createLorebooksStorage(db: DB) {
      */
     async listEligibleEntriesByIds(
       entryIds: string[],
-      filters?: { excludedLorebookIds?: string[]; excludedSourceAgentIds?: string[] },
+      filters?: { excludedLorebookIds?: string[]; excludedSourceAgentIds?: string[]; unlimited?: boolean },
     ): Promise<LorebookEntry[]> {
-      const requestedIds = uniqueStrings(entryIds).slice(0, LIMITS.MAX_LOREBOOK_ENTRIES);
+      const ids = uniqueStrings(entryIds);
+      const requestedIds = filters?.unlimited ? ids : ids.slice(0, LIMITS.MAX_LOREBOOK_ENTRIES);
       if (requestedIds.length === 0) return [];
 
       const entryRows = await db

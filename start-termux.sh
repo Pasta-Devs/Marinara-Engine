@@ -708,7 +708,7 @@ cd packages/server
 # Preserve Node's real exit status. The launcher's session-wide tee has already
 # made update, build, and server output durable for the next support report.
 set +e
-node dist/index.js
+node ../../scripts/run-server.mjs dist/index.js
 MARINARA_SERVER_STATUS=$?
 set -e
 if [ "$MARINARA_SERVER_STATUS" -ne 0 ]; then

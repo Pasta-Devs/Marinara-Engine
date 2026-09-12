@@ -1,7 +1,15 @@
+import { recordClientReload, type ClientReloadReason } from "./client-runtime-diagnostics";
+
 type ForceRefreshSpaOptions = {
   queryParamKey?: string;
   queryParamValue?: string;
+  reason?: ClientReloadReason;
 };
+
+export function reloadBrowser(reason: ClientReloadReason) {
+  recordClientReload(reason);
+  window.location.reload();
+}
 
 async function getServiceWorkerRegistrations() {
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
@@ -40,8 +48,10 @@ export async function clearBrowserRuntimeCaches() {
 export async function forceRefreshSpa({
   queryParamKey = "spa_refresh",
   queryParamValue = Date.now().toString(),
+  reason = "settings-refresh",
 }: ForceRefreshSpaOptions = {}) {
   await clearBrowserRuntimeCaches();
+  recordClientReload(reason);
   replaceCurrentUrl(queryParamKey, queryParamValue);
 }
 
@@ -75,9 +85,9 @@ export function registerPreloadErrorRecovery() {
       sessionStorage.setItem(PRELOAD_RECOVERY_AT_KEY, Date.now().toString());
       // We handle recovery via a full reload; stop Vite from also rethrowing.
       event.preventDefault();
-      void forceRefreshSpa({ queryParamKey: "chunk_reload" }).catch(() => {
+      void forceRefreshSpa({ queryParamKey: "chunk_reload", reason: "chunk-recovery" }).catch(() => {
         // Cache clearing failed; attempt a plain reload as a last resort.
-        window.location.reload();
+        reloadBrowser("chunk-recovery");
       });
     } catch {
       // sessionStorage unavailable or recovery failed → let Vite rethrow the error.

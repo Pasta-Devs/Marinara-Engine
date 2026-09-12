@@ -18,6 +18,18 @@ trustPolicy: off
 confirmModulesPurge: false
 blockExoticSubdeps: true
 
+patchedDependencies:
+  onnxruntime-node@1.24.3: patches/onnxruntime-node@1.24.3.patch
+
+# GHSA-vwc7-r8mq-g2x9 needs a pre-existing destination symlink. Both extraction
+# callers (sidecar and the patched ONNX installer) now use private mkdtemp roots.
+# archive-extraction-security.regression.ts proves containment and retry privacy.
+# ponytail: remove this exception and the ONNX patch when upstream ships a fix;
+# any new adm-zip extraction caller must preserve the same private-root invariant.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vwc7-r8mq-g2x9
+
 # Native/build dependencies permitted to run install scripts.
 onlyBuiltDependencies:
   - esbuild

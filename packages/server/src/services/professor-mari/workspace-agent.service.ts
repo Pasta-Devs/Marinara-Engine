@@ -86,7 +86,16 @@ import { getMariDbService } from "../mari-db/mari-db.service.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 import { getProfessorMariWorkspaceSkillsService } from "./workspace-skills.service.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
-import { getWorkspaceShellSandboxStatus, spawnWorkspaceSandboxedShell } from "./workspace-shell-sandbox.js";
+import {
+  detectUnreviewedSensitiveChanges,
+  restoreReplacedStoreLinks,
+  getWorkspaceShellSandboxStatus,
+  killSandboxedProcessTree,
+  snapshotSensitiveWorkspaceFiles,
+  spawnWorkspaceSandboxedShell,
+  type SensitiveScanResult,
+  type SensitiveWorkspaceSnapshot,
+} from "./workspace-shell-sandbox.js";
 import { personalServerExtensionRuntime } from "../extensions/personal-server-extension-runtime.js";
 import { isLocalInferenceBaseUrl } from "../../middleware/ip-allowlist.js";
 import {
@@ -182,6 +191,9 @@ const MAX_PROTOCOL_REPAIR_ROUNDS = 2;
 // the actual work.
 const MAX_PROTOCOL_REPAIR_ROUNDS_LOCAL_SIDECAR = 6;
 const MAX_VERIFICATION_REPAIR_ROUNDS = 2;
+// #5819: mid-run completion claims get their own budget so catching a false
+// claim early in a batch cannot starve the terminal check at the end of it.
+const MAX_MIDRUN_CLAIM_REPAIR_ROUNDS = 2;
 const MAX_REPEATED_COMMAND_FAILURES = 3;
 const MAX_HISTORY_MESSAGES = 40;
 const MAX_PARALLEL_READONLY_COMMANDS = 4;
@@ -504,7 +516,11 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
         js: { type: "string" },
         serverJs: { type: "string" },
         activate: { type: "boolean" },
-        apply: { type: "boolean" },
+        apply: {
+          type: "boolean",
+          description:
+            "Set true for a requested change so it is saved or staged for review. False is an invisible preview: it saves nothing and creates no review card. Updates and deletes preview unless explicitly true.",
+        },
         reason: { type: "string" },
         data: {
           type: "object",
@@ -748,7 +764,7 @@ Revising a saved memory (read its full text, edit it, then write the whole new c
 {"say":"Found the memory. I'll read its full text before editing.","commands":[{"name":"app_data","arguments":{"action":"instruction.get","id":"memory-id"}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"instruction.update","id":"memory-id","data":{"content":"...the full memory text with the requested change applied..."},"reason":"User asked to reword this memory","apply":true}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"agent.create","data":{"name":"Image Marker","description":"Turns IMG_PROMPT markers into image prompts.","resultType":"image_prompt","activationKeywords":["IMG_PROMPT:"],"activationScanDepth":4,"settings":{"customCapabilities":{"trigger_image_generation":true}}},"reason":"User requested a marker-triggered image agent","apply":true}}],"stop":false}
-{"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.updateEntry","entryId":"entry-id","patch":{"content":"new content"},"reason":"Update requested by user","apply":false}}],"stop":false}
+{"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.updateEntry","entryId":"entry-id","patch":{"content":"new content"},"reason":"Update requested by user","apply":true}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.deleteEntry","entryId":"entry-id","reason":"User asked to delete this entry","apply":true}}],"stop":false}
 
 Available command schemas:
@@ -1175,17 +1191,31 @@ export function isAppDataActionName(value: unknown): value is string {
 
 function rawJsonToolCalls(payload: Record<string, unknown>): unknown[] {
   const plural = payload.tool_calls ?? payload.toolCalls ?? payload.commands ?? payload.calls;
-  if (Array.isArray(plural)) return plural;
+  if (plural !== undefined) return Array.isArray(plural) ? plural : [plural];
   const single = payload.tool_call ?? payload.toolCall ?? payload.command;
   if (single !== undefined) return [single];
-  if (typeof payload.name === "string" || isAppDataActionName(payload.action)) return [payload];
+  if (
+    typeof payload.name === "string" ||
+    typeof payload.tool === "string" ||
+    typeof payload.tool_name === "string" ||
+    isRecord(payload.function) ||
+    isAppDataActionName(payload.action)
+  )
+    return [payload];
   return [];
 }
 
-function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): WorkspaceCommandCall[] {
+function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): {
+  calls: WorkspaceCommandCall[];
+  unrecognized: boolean;
+} {
   const calls: WorkspaceCommandCall[] = [];
+  let unrecognized = false;
   rawJsonToolCalls(payload).forEach((raw, index) => {
-    if (!isRecord(raw)) return;
+    if (!isRecord(raw)) {
+      unrecognized = true;
+      return;
+    }
     const requestedName = typeof raw.name === "string" ? raw.name.trim() : "";
     const directAction = isAppDataActionName(raw.action) ? raw.action.trim() : null;
     const nameAsAction = isAppDataActionName(requestedName) ? requestedName : null;
@@ -1194,9 +1224,23 @@ function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): Wor
       : directAction || nameAsAction
         ? "app_data"
         : null;
-    if (!workspaceName) return;
+    if (!workspaceName) {
+      // Validate nested envelopes per entry too: one recognized call cannot hide a dropped sibling.
+      if (rawJsonToolCalls(raw).some((call) => call !== raw)) {
+        const nested = parseJsonCommandCallsFromPayload(raw);
+        calls.push(...nested.calls);
+        unrecognized ||= nested.unrecognized;
+      } else {
+        const recovered = parseTextualWorkspaceCommandCalls(
+          JSON.stringify({ ...raw, ...(typeof raw.tool_name === "string" ? { name: raw.tool_name } : {}) }),
+        );
+        calls.push(...recovered);
+        unrecognized ||= recovered.length === 0;
+      }
+      return;
+    }
 
-    const parsedArguments = parseToolArgumentsValue(raw.arguments ?? raw.args ?? raw.input ?? {});
+    const parsedArguments = parseToolArgumentsValue(raw.arguments ?? raw.args ?? raw.input ?? raw.parameters ?? {});
     const argumentsWithRecoveredAction =
       workspaceName === "app_data" && (directAction || nameAsAction)
         ? {
@@ -1208,7 +1252,7 @@ function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): Wor
     const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : newToolCallId(workspaceName, index);
     calls.push({ id, name: workspaceName, arguments: argumentsWithRecoveredAction });
   });
-  return calls;
+  return { calls, unrecognized };
 }
 
 function parseTextualWorkspaceCommandCalls(content: string): WorkspaceCommandCall[] {
@@ -1353,7 +1397,9 @@ function stripWorkspaceCommands(content: string): string {
 
 export function parseAssistantWorkspaceAction(content: string): AssistantWorkspaceAction {
   const { content: contentWithoutJson, matches } = removeJsonActionFrames(content);
-  const jsonCommands = matches.flatMap((match) => parseJsonCommandCallsFromPayload(match.payload));
+  const parsedFrames = matches.map((match) => ({ ...match, ...parseJsonCommandCallsFromPayload(match.payload) }));
+  const jsonCommands = parsedFrames.flatMap((frame) => frame.calls);
+  const hasInvalidCommands = parsedFrames.some((frame) => frame.unrecognized);
   const textualCommands = parseTextualWorkspaceCommandCalls(contentWithoutJson);
   // If JSON frames are present, treat all prose outside them as protocol leakage.
   // Textual calls have no visible-text field, so retain their surrounding prose.
@@ -1371,23 +1417,25 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
   // phrase: in a tolerated multi-frame response, a read-only frame's phrase
   // must not be attributed to another frame's mutations.
   const understoodRequest =
-    matches
-      .filter((match) => parseJsonCommandCallsFromPayload(match.payload).some(isMutatingWorkspaceCommand))
+    parsedFrames
+      .filter((frame) => frame.calls.some(isMutatingWorkspaceCommand))
       .map((match) =>
         typeof match.payload.understoodRequest === "string" ? match.payload.understoodRequest.trim() : "",
       )
       .find((value) => value.length > 0)
       ?.slice(0, 2000) ?? null;
-  const commands = dedupeWorkspaceCommandCalls([
-    ...parseXmlCommandCalls(contentWithoutJson),
-    ...jsonCommands,
-    ...textualCommands,
-    ...parseBracketCommandCalls(contentWithoutJson),
-  ]);
-  const protocolValid = matches.length > 0;
+  const commands = hasInvalidCommands
+    ? []
+    : dedupeWorkspaceCommandCalls([
+        ...parseXmlCommandCalls(contentWithoutJson),
+        ...jsonCommands,
+        ...textualCommands,
+        ...parseBracketCommandCalls(contentWithoutJson),
+      ]);
+  const protocolValid = matches.length > 0 && !hasInvalidCommands;
   const explicitStop = [...matches].reverse().find((match) => jsonPayloadStopValue(match.payload) !== undefined);
   const explicitStopValue = explicitStop ? jsonPayloadStopValue(explicitStop.payload) : undefined;
-  const stop = explicitStopValue ?? (commands.length === 0 && protocolValid);
+  const stop = !hasInvalidCommands && (explicitStopValue ?? (commands.length === 0 && protocolValid));
   return {
     visibleText,
     commands,
@@ -1397,14 +1445,16 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
     understoodRequest,
     stop,
     protocolValid,
-    assistantHistoryContent: assistantHistoryContentForAction({
-      visibleText,
-      commands,
-      suggestions,
-      plan,
-      awaitingAuthorization,
-      stop,
-    }),
+    assistantHistoryContent: hasInvalidCommands
+      ? content
+      : assistantHistoryContentForAction({
+          visibleText,
+          commands,
+          suggestions,
+          plan,
+          awaitingAuthorization,
+          stop,
+        }),
   };
 }
 
@@ -1796,14 +1846,43 @@ const STAGED_SENSITIVE_CHANGE_PREFIX = "Staged sensitive file change for user ap
 // or by marker-shaped text embedded in the command string or row content.
 const MARI_DRY_RUN_SENTINEL = "Dry-run: the mari CLI ran without --apply, so no changes were saved.";
 
+// #5786: a bash result can also report staged changes - the post-execution
+// scan reverts an unreviewed sensitive write and stages it for approval. A
+// bash output can never carry the prefix at position zero (the engine-written
+// "Command:" header owns it), so the staged line lives in the ENGINE region:
+// the lines the engine composes before its own "\nstdout:" / "\nstderr:"
+// markers. Script text is appended only after those markers, so scoping the
+// search to the region before the FIRST marker keeps this unforgeable by
+// echoed text, exactly like the position-zero contract it mirrors.
+// Model- or filesystem-authored text that the engine interpolates into its
+// own region (the command string, staged paths) is flattened to one line
+// first: a newline inside it could otherwise start a forged engine line or
+// inject an early stdout marker that truncates the region.
+function engineLineText(value: string): string {
+  return value.replace(/[\r\n]+/gu, " ");
+}
+
+function bashEngineRegion(output: string): string {
+  const markers = [output.indexOf("\nstdout:"), output.indexOf("\nstderr:")].filter((index) => index >= 0);
+  return markers.length > 0 ? output.slice(0, Math.min(...markers)) : output;
+}
+
 function isStagedSensitiveMutation(result: WorkspaceCommandResult): boolean {
+  if (!result.success) return false;
+  if ((result.name === "write" || result.name === "edit") && result.output.startsWith(STAGED_SENSITIVE_CHANGE_PREFIX)) {
+    return true;
+  }
   return (
-    result.success &&
-    (result.name === "write" || result.name === "edit") &&
-    result.output.startsWith(STAGED_SENSITIVE_CHANGE_PREFIX)
+    result.name === "bash" &&
+    result.output.startsWith("Command: ") &&
+    bashEngineRegion(result.output).includes(`\n${STAGED_SENSITIVE_CHANGE_PREFIX}`)
   );
 }
 
+// A bash run that both persisted normal writes AND staged a sensitive hit
+// resolves as staged only: the round's completion claims are still
+// intercepted (the safe direction), at the cost of not demanding a re-read
+// for the normal writes in that same round. Accepted under-claiming.
 function isAppliedWorkspaceMutation(result: WorkspaceCommandResult): boolean {
   if (!result.success || result.name === "dependency") return false;
   const command = commandCallForResult(result);
@@ -1877,6 +1956,7 @@ function mutationMismatchKey(result: WorkspaceCommandResult): string {
 
 export function resolveWorkspaceMutationVerification(
   results: readonly WorkspaceCommandResult[],
+  auditFrom = 0,
 ): WorkspaceMutationVerification {
   // Debt semantics: every applied mutation that does not carry its own
   // store-verified read-back adds a verification DEBT, and only a successful
@@ -1885,12 +1965,19 @@ export function resolveWorkspaceMutationVerification(
   // pay off an earlier file/bash/mismatched mutation's debt (the review
   // proved the previous single-boolean form did exactly that, which would
   // have weakened the silent-persistence-failure guard).
+  // #5819/#5830: auditFrom scopes the judgment to results since the last
+  // audited claim (the caller's watermark), so one early success can no
+  // longer vouch for every later claim in the run. Mismatch tracking stays
+  // GLOBAL on purpose: a store-observed persistence failure anywhere in the
+  // run must shadow every later claim until its same-key verified retry.
   let mutationSeen = false;
   let stagedSeen = false;
   let unverifiedMutationSeen = false;
   const mismatchKeys = new Set<string>();
-  for (const result of results) {
+  for (const [index, result] of results.entries()) {
+    const inScope = index >= auditFrom;
     if (isStagedSensitiveMutation(result)) {
+      if (!inScope) continue;
       // #5756: a staged change is not applied, so it creates no verification
       // debt and no read can pay one off for it. It leaves an earlier applied
       // mutation's verification standing - the round still resolves "staged",
@@ -1900,7 +1987,7 @@ export function resolveWorkspaceMutationVerification(
       continue;
     }
     if (isAppliedWorkspaceMutation(result)) {
-      mutationSeen = true;
+      if (inScope) mutationSeen = true;
       // A store-observed persistence failure is POSITIVE knowledge and must
       // not be forgettable: unlike ordinary debt, no read clears it. Only a
       // later store-VERIFIED apply of the SAME mutation target - an
@@ -1909,10 +1996,15 @@ export function resolveWorkspaceMutationVerification(
       // successful mutation ever launders the failure into a claimable round.
       if (appliedMutationReadBackMismatched(result)) mismatchKeys.add(mutationMismatchKey(result));
       else if (appliedMutationReadBackVerified(result)) mismatchKeys.delete(mutationMismatchKey(result));
-      if (!appliedMutationReadBackVerified(result)) unverifiedMutationSeen = true;
+      if (inScope && !appliedMutationReadBackVerified(result)) unverifiedMutationSeen = true;
       continue;
     }
-    if (unverifiedMutationSeen && result.success && isReadOnlyWorkspaceCommand(commandCallForResult(result))) {
+    if (
+      inScope &&
+      unverifiedMutationSeen &&
+      result.success &&
+      isReadOnlyWorkspaceCommand(commandCallForResult(result))
+    ) {
       unverifiedMutationSeen = false;
     }
   }
@@ -1923,28 +2015,149 @@ export function resolveWorkspaceMutationVerification(
 }
 
 export function workspaceTextClaimsMutationCompletion(text: string): boolean {
-  const normalized = text.trim().replace(/\s+/gu, " ");
+  const normalized = text.trim().replace(/[’‘]/gu, "'").replace(/\s+/gu, " ");
   if (!normalized) return false;
+  if (/^(?:have|has|did|is|are|was|were)\b[^.!]*\?$/iu.test(normalized)) return false;
   const completedMutation =
-    "created|updated|changed|deleted|removed|renamed|wrote|written|fixed|implemented|built|installed|imported|exported|saved|enabled|disabled|assigned|linked|unlinked|generated|moved|copied|replaced|verified";
+    // #5830: "verified" is deliberately absent - it describes a READ, and it
+    // is the exact word the guard's own coaching asks the model to produce.
+    "created|updated|changed|deleted|removed|renamed|wrote|written|fixed|implemented|built|installed|imported|exported|saved|enabled|disabled|assigned|linked|unlinked|generated|moved|copied|replaced|added|applied|edited|modified|set|inserted|completed";
+  const adverbs = "(?:(?:successfully|now|just|already)\\s+)*";
   return (
     new RegExp(
-      `\\b(?:i(?:'ve| have)?|we(?:'ve| have)?|it(?:'s| is)?|that(?:'s| is)?)\\s+(?:successfully\\s+)?(?:${completedMutation})\\b`,
+      `\\b(?:i(?:'ve| have)?|we(?:'ve| have)?|it(?:'s| is)?|that(?:'s| is)?)\\s+${adverbs}(?:${completedMutation})\\b`,
       "iu",
     ).test(normalized) ||
-    new RegExp(`\\b(?:is|was|has been)\\s+(?:successfully\\s+)?(?:${completedMutation})\\b`, "iu").test(normalized)
+    new RegExp(`\\b(?:is|are|was|were|has been|have been)\\s+${adverbs}(?:${completedMutation})\\b`, "iu").test(
+      normalized,
+    ) ||
+    new RegExp(`^(?:(?:the )?(?:edit|change|update)s?\\s+)${adverbs}(?:${completedMutation})\\b[^?]*[.!]?$`, "iu").test(
+      normalized,
+    ) ||
+    new RegExp(`^(?:${completedMutation}|done)[.!]*$`, "iu").test(normalized)
   );
 }
 
-export function workspaceActionNeedsVerification(
+/**
+ * A mutating-SHAPED command that did not apply: a failed create/update, an
+ * apply:false preview, a mari-CLI dry-run. The resolver cannot see these
+ * ("none" means "nothing I can see", not "nothing happened"), but to a claim
+ * audit they are active evidence of NON-completion - no escape hatch may
+ * pass a claim over a scope that contains one.
+ */
+function isUnappliedMutationAttempt(result: WorkspaceCommandResult): boolean {
+  const call = commandCallForResult(result);
+  if (!isMutatingWorkspaceCommand(call) && !isPreviewOnlyAppDataCommand(call)) return false;
+  return !isAppliedWorkspaceMutation(result) && !isStagedSensitiveMutation(result);
+}
+
+function scopeHasUnappliedMutationAttempt(results: readonly WorkspaceCommandResult[], auditFrom: number): boolean {
+  return results.slice(auditFrom).some(isUnappliedMutationAttempt);
+}
+
+/**
+ * Debt-style variant for the verified branch: an unapplied attempt is
+ * outstanding until a LATER successful state read - the coaching's own
+ * "read, then answer from what it shows" - so a run that fails a step,
+ * verifies another, and then actually looks can converge.
+ */
+function scopeHasOutstandingUnappliedAttempt(results: readonly WorkspaceCommandResult[], auditFrom: number): boolean {
+  let outstanding = false;
+  for (const result of results.slice(auditFrom)) {
+    if (isUnappliedMutationAttempt(result)) outstanding = true;
+    else if (outstanding && isSuccessfulStateRead(result)) outstanding = false;
+  }
+  return outstanding;
+}
+
+/**
+ * A read of WORKSPACE STATE. Documentation reads (docs_search/docs_read)
+ * never qualify - knowing what the manual says cannot back a claim about
+ * what the store holds.
+ */
+function isSuccessfulStateRead(result: WorkspaceCommandResult): boolean {
+  if (!result.success) return false;
+  const call = commandCallForResult(result);
+  if (call.name === "docs_search" || call.name === "docs_read") return false;
+  return isReadOnlyWorkspaceCommand(call);
+}
+
+function scopeHasSuccessfulStateRead(results: readonly WorkspaceCommandResult[], auditFrom: number): boolean {
+  return results.slice(auditFrom).some(isSuccessfulStateRead);
+}
+
+export type WorkspaceClaimAudit = {
+  issue: WorkspaceMutationVerification | null;
+  /**
+   * True when this claim consumed its evidence (a verified scope, or the
+   * read that backed a recap): the caller moves the watermark so the same
+   * evidence can never vouch for a later claim too.
+   */
+  advanceWatermark: boolean;
+};
+
+/**
+ * #5819: every completion claim is audited - not just the run's final frame -
+ * and judged against the results since the LAST audited claim, so "created
+ * the first, now doing the second" checks the first step specifically, and a
+ * skipped step's empty scope is caught instead of riding an earlier success.
+ *
+ * #5830: a claim about work from BEFORE this scope (an earlier run, or steps
+ * already audited) is backable by a successful STATE read - the exact action
+ * the coaching demands - so a truthful recap converges instead of looping
+ * into the repair budget; a terminal summary directly after a passed audit
+ * needs nothing new. A bare claim with nothing behind it at all stays
+ * challenged, and NEITHER escape applies to a scope containing a failed,
+ * preview, or dry-run mutating attempt - "none" to the resolver, but active
+ * evidence of non-completion to the audit.
+ *
+ * ACCEPTED RESIDUALS (this is a tripwire, not proof): a state read cannot be
+ * semantically matched to the claim it backs, so a read of one thing can
+ * pass an unrelated recap-shaped claim; and the claim detector is an
+ * English-language tripwire, not a semantic proof of what the user asked.
+ *
+ * "unverified" and "staged" are tolerated mid-run without advancing the
+ * watermark, so their debt stays visible to the terminal audit: a later
+ * frame can still read the change back, and the user can still accept a
+ * staged one.
+ */
+export function auditWorkspaceCompletionClaim(
   action: Pick<AssistantWorkspaceAction, "commands" | "stop" | "visibleText">,
   results: readonly WorkspaceCommandResult[],
-): WorkspaceMutationVerification | null {
-  if (action.commands.length > 0 || !action.stop || !workspaceTextClaimsMutationCompletion(action.visibleText)) {
-    return null;
+  options: { auditFrom?: number; hadPassedClaimAudit?: boolean } = {},
+): WorkspaceClaimAudit {
+  const auditFrom = options.auditFrom ?? 0;
+  const hadPassedClaimAudit = options.hadPassedClaimAudit ?? false;
+  if (!workspaceTextClaimsMutationCompletion(action.visibleText)) {
+    return { issue: null, advanceWatermark: false };
   }
-  const verification = resolveWorkspaceMutationVerification(results);
-  return verification === "verified" ? null : verification;
+  const verification = resolveWorkspaceMutationVerification(results, auditFrom);
+  const isTerminal = action.commands.length === 0 && action.stop;
+  if (verification === "verified") {
+    // A verified scope that ALSO contains an unapplied mutating attempt
+    // (failed/preview/dry-run) cannot vouch for a claim that may span both:
+    // demand the read the coaching asks for, which clears the outstanding
+    // attempt and lets the retry pass. Over-challenging is the accepted
+    // direction; silently blessing a failed step is not.
+    if (scopeHasOutstandingUnappliedAttempt(results, auditFrom)) {
+      return { issue: isTerminal ? "unverified" : null, advanceWatermark: false };
+    }
+    return { issue: null, advanceWatermark: true };
+  }
+  if (verification === "mismatch") return { issue: "mismatch", advanceWatermark: false };
+  if (verification === "none") {
+    // Escape hatches exist for truthful RECAPS of work outside this scope.
+    // A scope containing any mutating-shaped attempt that did not apply is
+    // not a recap scope - it is a failure being papered over - so both
+    // escapes are denied outright there (strict: not clearable by a read,
+    // because there is no applied evidence for the read to confirm).
+    if (!scopeHasUnappliedMutationAttempt(results, auditFrom)) {
+      if (scopeHasSuccessfulStateRead(results, auditFrom)) return { issue: null, advanceWatermark: true };
+      if (isTerminal && hadPassedClaimAudit) return { issue: null, advanceWatermark: false };
+    }
+    return { issue: "none", advanceWatermark: false };
+  }
+  return { issue: isTerminal ? verification : null, advanceWatermark: false };
 }
 
 function workspaceCommandValidationIssue(command: WorkspaceCommandCall): string | null {
@@ -2485,6 +2698,9 @@ export class ProfessorMariWorkspaceService {
       const repeatedFailureCounts = new Map<string, number>();
       let protocolRepairRounds = 0;
       let verificationRepairRounds = 0;
+      let midRunClaimRepairRounds = 0;
+      let claimAuditWatermark = 0;
+      let hadPassedClaimAudit = false;
       // protocolRepairRounds resets on every productive round, so a model that alternates malformed
       // and good frames could otherwise refund the round budget indefinitely. Cap the TOTAL refunds
       // for the whole task so repeated formatting stumbles cannot drive unbounded requests; past the
@@ -2509,6 +2725,7 @@ export class ProfessorMariWorkspaceService {
         };
 
         const rawContent = result.content ?? "";
+        debugLog?.("[debug/professor-mari] Raw response:\n%s", rawContent);
         const parsedAction = parseAssistantWorkspaceAction(rawContent);
         // #5725: Manual defers EVERY described mutation (empty-say command
         // frames - the post-approval pattern - still execute); Bypass never
@@ -2614,21 +2831,102 @@ export class ProfessorMariWorkspaceService {
           for (const chunk of chunkText(content)) args.onEvent({ type: "token", data: chunk });
           break;
         }
-        const verificationIssue = workspaceActionNeedsVerification(action, commandResultsForContinuity);
+        // Execute this frame before judging its claim; never execute a truncated frame.
+        let commandResults: WorkspaceCommandResult[] = [];
+        if (action.commands.length > 0 && !isLengthFinishReason(result.finishReason)) {
+          // #5725 Manual mode floor: a mutating command in a SILENT frame (no
+          // visible text, so the deferral above cannot describe anything) is
+          // only allowed in a run the user just approved. The flag is
+          // round-scoped; visible frames defer through shouldDeferMutations.
+          // Same superseded-run guard for the round-scoped shared write.
+          controller.signal.throwIfAborted();
+          this.activeRoundManualSilentMutationBlocked =
+            permissionsMode === "manual" && !action.visibleText && !manualApprovalArmed;
+          // #5748 ask-latch mirror: after this run has asked for approval, a
+          // SILENT mutating frame cannot be the user's answer either. Manual is
+          // carved out (its own floor plus manualApprovalArmed govern the
+          // post-Accept silent re-send) and Bypass never holds.
+          this.activeRoundAskLatchSilentMutationBlocked =
+            runAskedForApproval && !action.visibleText && permissionsMode !== "manual" && permissionsMode !== "bypass";
+          commandResults = await this.executeWorkspaceCommandBatch(
+            action.commands,
+            controller.signal,
+            workspaceTrace,
+            args.onEvent,
+          );
+          commandResultsForContinuity.push(...commandResults);
+          // #5740: upgrade the record's outcome to what the batch actually
+          // reported (results align 1:1 with the commands). Gated on this round
+          // carrying mutating commands so a later read-only round can never
+          // relabel an earlier round's failure as applied.
+          if (
+            runUnderstoodRequest !== null &&
+            this.latestUnderstoodRequest === runUnderstoodRequest &&
+            action.commands.some(isMutatingWorkspaceCommand)
+          ) {
+            // A store read-back mismatch is a persistence failure: the record
+            // must never say "applied" while the same result tells Mari not to
+            // claim success (the diagnostics line is the surface users paste).
+            const anyMutatingFailed = commandResults.some(
+              (commandResult, index) =>
+                isMutatingWorkspaceCommand(action.commands[index]!) &&
+                (!commandResult.success || appliedMutationReadBackMismatched(commandResult)),
+            );
+            // #5756: a round that staged a sensitive change applied nothing for
+            // it - report "held" so diagnostics never corroborate a completion
+            // claim the verification guard would refuse.
+            const anyStaged = commandResults.some(isStagedSensitiveMutation);
+            runUnderstoodRequest = {
+              ...runUnderstoodRequest,
+              outcome: anyMutatingFailed ? "failed" : anyStaged ? "held" : "applied",
+            };
+            this.latestUnderstoodRequest = runUnderstoodRequest;
+          }
+        }
+        const claimAudit =
+          (!action.protocolValid && action.commands.length === 0) ||
+          (action.commands.length > 0 && isLengthFinishReason(result.finishReason))
+            ? { issue: null, advanceWatermark: false }
+            : auditWorkspaceCompletionClaim(action, commandResultsForContinuity, {
+                auditFrom: claimAuditWatermark,
+                hadPassedClaimAudit,
+              });
+        if (claimAudit.advanceWatermark) {
+          claimAuditWatermark = commandResultsForContinuity.length;
+          hadPassedClaimAudit = true;
+        }
+        const verificationIssue = claimAudit.issue;
         if (verificationIssue) {
-          verificationRepairRounds += 1;
-          if (verificationRepairRounds <= MAX_VERIFICATION_REPAIR_ROUNDS) {
+          // #5819: mid-run claims draw on their own budget, so catching a
+          // false step-claim early in a batch cannot starve the terminal
+          // check that ends the run.
+          const terminalClaim = action.commands.length === 0 && action.stop;
+          if (terminalClaim) verificationRepairRounds += 1;
+          else midRunClaimRepairRounds += 1;
+          const withinRepairBudget = terminalClaim
+            ? verificationRepairRounds <= MAX_VERIFICATION_REPAIR_ROUNDS
+            : midRunClaimRepairRounds <= MAX_MIDRUN_CLAIM_REPAIR_ROUNDS;
+          if (withinRepairBudget) {
             messages.push({ role: "assistant", content: action.assistantHistoryContent });
+            if (commandResults.length > 0) {
+              messages.push({
+                role: "user",
+                content: formatCommandResultForPrompt(commandResults),
+                contextKind: "history",
+              });
+            }
             messages.push({
               role: "user",
               content:
-                verificationIssue === "none"
-                  ? "Your previous reply claimed the requested workspace change was complete, but no mutating command succeeded in this run. Do not repeat the completion claim. Use a read command to inspect the requested state; if it is missing, perform the mutation, then verify it with another read before setting stop to true."
-                  : verificationIssue === "mismatch"
-                    ? "Your previous reply claimed a change was complete, but the store read-back observed that a change in this run did NOT persist as intended (see readBack.mismatches on that result). Do not claim success. Tell the user plainly which change failed to persist and what the store observed; you may retry the mutation once if a retry is sensible - a retry whose result confirms the persisted state clears this."
-                    : verificationIssue === "staged"
-                      ? "Your previous reply claimed a change was complete, but at least one change in this run was only staged for the user's approval and has NOT been applied. Do not claim it is done, and do not re-run the mutation - the change is already staged and re-running it cannot apply it. Restate plainly which changes are applied and which are awaiting the user's approval, then stop."
-                      : "A mutating workspace command succeeded, but no successful read verified the resulting state. Run a confirmatory read now. Only claim completion after that read confirms the change. Do it matter-of-factly - never apologize or present the check as fixing a mistake; report the confirmed state plainly.",
+                verificationIssue === "none" && !terminalClaim
+                  ? "You claimed a step was completed, but no command output since your last verified claim backs it up. Do not repeat the claim. First run a read that shows the state you claimed; if the work is genuinely missing, perform it and verify it with another read before moving on. Never redo work a read shows already exists."
+                  : verificationIssue === "none"
+                    ? "Your previous reply claimed the requested workspace change was complete, but no mutating command succeeded in this run. Do not repeat the completion claim. Use a read command to inspect the requested state; if it is missing, perform the mutation, then verify it with another read before setting stop to true. If an earlier run already completed the work, answer from what the read shows - never redo work that already exists."
+                    : verificationIssue === "mismatch"
+                      ? "Your previous reply claimed a change was complete, but the store read-back observed that a change in this run did NOT persist as intended (see readBack.mismatches on that result). Do not claim success. Tell the user plainly which change failed to persist and what the store observed; you may retry the mutation once if a retry is sensible - a retry whose result confirms the persisted state clears this."
+                      : verificationIssue === "staged"
+                        ? "Your previous reply claimed a change was complete, but at least one change in this run was only staged for the user's approval and has NOT been applied. Do not claim it is done, and do not re-run the mutation - the change is already staged and re-running it cannot apply it. Restate plainly which changes are applied and which are awaiting the user's approval, then stop."
+                        : "A mutating workspace command succeeded, but no successful read verified the resulting state. Run a confirmatory read now. Only claim completion after that read confirms the change. Do it matter-of-factly - never apologize or present the check as fixing a mistake; report the confirmed state plainly.",
               contextKind: "history",
             });
             continue;
@@ -2643,10 +2941,11 @@ export class ProfessorMariWorkspaceService {
         }
         if (action.commands.length === 0 && !action.stop) {
           if (!action.protocolValid) {
+            logger.warn("Professor Mari returned an invalid workspace command frame; requesting protocol repair");
             protocolRepairRounds += 1;
             if (protocolRepairRounds > maxProtocolRepairRounds) {
               const content =
-                "Professor Mari kept returning plain text instead of the required JSON command object, so I stopped before burning more requests. Ask her to continue and she can pick up from the saved trace.";
+                "Professor Mari kept returning invalid workspace command frames, so I stopped before burning more requests. Ask her to continue and she can pick up from the saved trace.";
               assistantText = appendVisibleText(assistantText, content);
               appendTraceStatus(workspaceTrace, content);
               args.onEvent({ type: "status", data: { content, kind: "info", level: "warning" } });
@@ -2667,7 +2966,7 @@ export class ProfessorMariWorkspaceService {
             role: "user",
             content: action.protocolValid
               ? "Continue the same workspace task. Return exactly one JSON object with commands to run now, or set stop to true if the task is complete."
-              : "Your previous assistant message violated the workspace protocol because it was not a JSON object. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.",
+              : "Your previous assistant message violated the workspace protocol: it was not a JSON object or contained an unrecognized command. Use only the listed command names and put each command in the commands array with name and arguments. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.",
             contextKind: "history",
           });
           continue;
@@ -2721,55 +3020,6 @@ export class ProfessorMariWorkspaceService {
           break;
         }
 
-        // #5725 Manual mode floor: a mutating command in a SILENT frame (no
-        // visible text, so the deferral above cannot describe anything) is
-        // only allowed in a run the user just approved. The flag is
-        // round-scoped; visible frames defer through shouldDeferMutations.
-        // Same superseded-run guard for the round-scoped shared write.
-        controller.signal.throwIfAborted();
-        this.activeRoundManualSilentMutationBlocked =
-          permissionsMode === "manual" && !action.visibleText && !manualApprovalArmed;
-        // #5748 ask-latch mirror: after this run has asked for approval, a
-        // SILENT mutating frame cannot be the user's answer either. Manual is
-        // carved out (its own floor plus manualApprovalArmed govern the
-        // post-Accept silent re-send) and Bypass never holds.
-        this.activeRoundAskLatchSilentMutationBlocked =
-          runAskedForApproval && !action.visibleText && permissionsMode !== "manual" && permissionsMode !== "bypass";
-        const commandResults = await this.executeWorkspaceCommandBatch(
-          action.commands,
-          controller.signal,
-          workspaceTrace,
-          args.onEvent,
-        );
-        commandResultsForContinuity.push(...commandResults);
-        // #5740: upgrade the record's outcome to what the batch actually
-        // reported (results align 1:1 with the commands). Gated on this round
-        // carrying mutating commands so a later read-only round can never
-        // relabel an earlier round's failure as applied.
-        if (
-          runUnderstoodRequest !== null &&
-          this.latestUnderstoodRequest === runUnderstoodRequest &&
-          action.commands.some(isMutatingWorkspaceCommand)
-        ) {
-          // A store read-back mismatch is a persistence failure: the record
-          // must never say "applied" while the same result tells Mari not to
-          // claim success (the diagnostics line is the surface users paste).
-          const anyMutatingFailed = commandResults.some(
-            (commandResult, index) =>
-              isMutatingWorkspaceCommand(action.commands[index]!) &&
-              (!commandResult.success || appliedMutationReadBackMismatched(commandResult)),
-          );
-          // #5756: a round that staged a sensitive change applied nothing for
-          // it - report "held" so diagnostics never corroborate a completion
-          // claim the verification guard would refuse.
-          const anyStaged = commandResults.some(isStagedSensitiveMutation);
-          runUnderstoodRequest = {
-            ...runUnderstoodRequest,
-            outcome: anyMutatingFailed ? "failed" : anyStaged ? "held" : "applied",
-          };
-          this.latestUnderstoodRequest = runUnderstoodRequest;
-        }
-
         const repeatedFailure = commandResults
           .filter((commandResult) => !commandResult.success)
           .map((commandResult) => {
@@ -2809,7 +3059,10 @@ export class ProfessorMariWorkspaceService {
             totalTokens: totalUsage.totalTokens + finalUsage.totalTokens,
           };
           const finalAction = parseAssistantWorkspaceAction(finalResult.content ?? "");
-          const finalVerificationIssue = workspaceActionNeedsVerification(finalAction, commandResultsForContinuity);
+          const finalVerificationIssue = auditWorkspaceCompletionClaim(finalAction, commandResultsForContinuity, {
+            auditFrom: claimAuditWatermark,
+            hadPassedClaimAudit,
+          }).issue;
           if (finalVerificationIssue) {
             const content =
               "Professor Mari reached the workspace command limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.";
@@ -3115,6 +3368,16 @@ ${sections.join("\n\n")}
     onToken?: (chunk: string) => void,
     debugLog?: (message: string, ...values: unknown[]) => void,
   ): Promise<ChatCompletionResult> {
+    // Local chat templates commonly accept a single system message at index 0.
+    // Keep trusted context in that role, including context added after history,
+    // on every command round without modifying the stored conversation.
+    const systemMessages = messages.filter((message) => message.role === "system");
+    messages = [
+      ...(systemMessages.length
+        ? [{ role: "system" as const, content: systemMessages.map((message) => message.content).join("\n\n") }]
+        : []),
+      ...messages.filter((message) => message.role !== "system"),
+    ];
     const options: ChatOptions = onToken
       ? {
           ...baseOptions,
@@ -3650,63 +3913,216 @@ ${sections.join("\n\n")}
         "This command touches a supply-chain-sensitive file (package manifests, launcher, installer, or workflow files). The shell sandbox blocks writes to those silently, so the command cannot work as intended. To change one, use the write or edit command - it stages the change for the user's approval. To copy content OUT of one, read it and write the copy to the destination instead.",
       );
     }
+    // #5786: the deny list is spawn-time-only, so a command can create a NEW
+    // sensitive-by-name file no rule covers. Fingerprint the sensitive set
+    // before the run; whatever changed unreviewed afterwards is reverted and
+    // staged for approval - the net under the pre-execution heuristics above.
+    const sensitiveSnapshot = await snapshotSensitiveWorkspaceFiles(this.workspaceRoot);
     const sandboxed = await spawnWorkspaceSandboxedShell({
       command,
       workspaceRoot: this.workspaceRoot,
       env: process.env,
     });
-    return new Promise<string>((resolveRun, rejectRun) => {
-      const child = sandboxed.child;
-      let stdout = "";
-      let stderr = "";
-      let settled = false;
-      let timedOut = false;
-      const finish = (callback: () => void) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        signal.removeEventListener("abort", abortHandler);
-        void sandboxed.cleanup().finally(callback);
-      };
-      const killChild = () => {
-        child.kill();
-      };
-      const abortHandler = () => {
-        killChild();
-        finish(() => rejectRun(new Error("aborted")));
-      };
-      const timer = setTimeout(() => {
-        timedOut = true;
-        killChild();
-      }, timeoutSeconds * 1000);
-      timer.unref?.();
-      if (signal.aborted) abortHandler();
-      else signal.addEventListener("abort", abortHandler, { once: true });
-      child.stdout?.on("data", (chunk) => {
-        stdout += String(chunk);
-        if (stdout.length > COMMAND_OUTPUT_LIMIT) stdout = stdout.slice(0, COMMAND_OUTPUT_LIMIT);
+    type SandboxRun = { stdout: string; stderr: string; exitCode: number | null; timedOut: boolean };
+    const ABORT_TEARDOWN_GRACE_MS = 5_000;
+    const KILL_ESCALATION_MS = 2_000;
+    let aborted = false;
+    let run: SandboxRun;
+    try {
+      run = await new Promise<SandboxRun>((resolveRun, rejectRun) => {
+        const child = sandboxed.child;
+        let stdout = "";
+        let stderr = "";
+        let settled = false;
+        let timedOut = false;
+        let graceTimer: NodeJS.Timeout | null = null;
+        let hardKillTimer: NodeJS.Timeout | null = null;
+        const finish = (callback: () => void) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          if (graceTimer) clearTimeout(graceTimer);
+          // A stale escalation must never fire a raw group SIGKILL at a pid
+          // the OS may have recycled after the tree already died.
+          if (hardKillTimer) clearTimeout(hardKillTimer);
+          signal.removeEventListener("abort", abortHandler);
+          void sandboxed.cleanup().finally(callback);
+        };
+        let killIssued = false;
+        const killChild = () => {
+          // #5892: group kill - the detached spawn makes the child a group
+          // leader, so backgrounded grandchildren die with it (the macOS
+          // teardown-survivor residual). Escalates for TERM-trapping trees.
+          // Idempotent: abort and timeout can BOTH fire, and a second call
+          // would overwrite hardKillTimer, orphaning the first escalation to
+          // SIGKILL a possibly recycled process group after close.
+          if (killIssued) return;
+          killIssued = true;
+          killSandboxedProcessTree(child, "SIGTERM");
+          hardKillTimer = setTimeout(() => killSandboxedProcessTree(child, "SIGKILL"), KILL_ESCALATION_MS);
+          hardKillTimer.unref?.();
+        };
+        const abortHandler = () => {
+          aborted = true;
+          killChild();
+          // Do NOT settle here: the post-execution scan must not race a
+          // dying child's final writes, so the close handler (or the grace
+          // timer below, if the child ignores the kill) settles instead.
+          graceTimer = setTimeout(() => {
+            finish(() => resolveRun({ stdout, stderr, exitCode: null, timedOut }));
+          }, ABORT_TEARDOWN_GRACE_MS);
+          graceTimer.unref?.();
+        };
+        const timer = setTimeout(() => {
+          timedOut = true;
+          killChild();
+          // Same bounded settle as the abort path: without it, a child that
+          // swallows the kill leaves the promise unsettled forever and the
+          // post-execution scan never runs at all.
+          graceTimer = setTimeout(() => {
+            finish(() => resolveRun({ stdout, stderr, exitCode: null, timedOut }));
+          }, ABORT_TEARDOWN_GRACE_MS);
+          graceTimer.unref?.();
+        }, timeoutSeconds * 1000);
+        timer.unref?.();
+        if (signal.aborted) abortHandler();
+        else signal.addEventListener("abort", abortHandler, { once: true });
+        child.stdout?.on("data", (chunk) => {
+          stdout += String(chunk);
+          if (stdout.length > COMMAND_OUTPUT_LIMIT) stdout = stdout.slice(0, COMMAND_OUTPUT_LIMIT);
+        });
+        child.stderr?.on("data", (chunk) => {
+          stderr += String(chunk);
+          if (stderr.length > COMMAND_OUTPUT_LIMIT) stderr = stderr.slice(0, COMMAND_OUTPUT_LIMIT);
+        });
+        child.on("error", (err) => finish(() => rejectRun(err)));
+        child.on("close", (exitCode) => finish(() => resolveRun({ stdout, stderr, exitCode, timedOut })));
       });
-      child.stderr?.on("data", (chunk) => {
-        stderr += String(chunk);
-        if (stderr.length > COMMAND_OUTPUT_LIMIT) stderr = stderr.slice(0, COMMAND_OUTPUT_LIMIT);
-      });
-      child.on("error", (err) => finish(() => rejectRun(err)));
-      child.on("close", (exitCode) =>
-        finish(() => {
-          const output = compactOutput(
-            [
-              `Command: ${command}`,
-              `Sandbox: ${sandboxed.backend} (network denied; writes confined to workspace)`,
-              `Exit code: ${exitCode}${timedOut ? ` (timeout after ${timeoutSeconds}s)` : ""}`,
-              stdout ? `\nstdout:\n${stdout.trimEnd()}` : "",
-              stderr ? `\nstderr:\n${stderr.trimEnd()}` : "",
-            ].join("\n"),
-          );
-          if (timedOut || exitCode !== 0) rejectRun(new Error(output));
-          else resolveRun(output);
-        }),
+    } catch (err) {
+      // Spawn failure: the round's result is discarded, but a write that
+      // already landed must still be reverted and surfaced as pending.
+      await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      throw err;
+    }
+    if (aborted) {
+      // The child has closed (or exhausted its teardown grace); revert and
+      // stage the aftermath, then report the abort as before.
+      await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+      throw new Error("aborted");
+    }
+    const stagedLines = await this.revertAndStageSensitiveAftermath(sensitiveSnapshot);
+    const output = compactOutput(
+      [
+        `Command: ${engineLineText(command)}`,
+        `Sandbox: ${sandboxed.backend} (network denied; writes confined to workspace)`,
+        // Engine region: staged lines sit BEFORE the stdout/stderr markers,
+        // where script text cannot reach - isStagedSensitiveMutation keys on
+        // exactly this placement.
+        ...stagedLines,
+        `Exit code: ${run.exitCode}${run.timedOut ? ` (timeout after ${timeoutSeconds}s)` : ""}`,
+        run.stdout ? `\nstdout:\n${run.stdout.trimEnd()}` : "",
+        run.stderr ? `\nstderr:\n${run.stderr.trimEnd()}` : "",
+      ].join("\n"),
+    );
+    if (run.timedOut || run.exitCode !== 0) throw new Error(output);
+    return output;
+  }
+
+  /**
+   * #5786: revert every sensitive file the run changed without review and
+   * stage each one through the normal approval pipeline. Returns the engine
+   * lines describing what happened. Capped so a hostile command cannot mint
+   * unbounded approval cards; everything past the cap is still reverted.
+   */
+  private async revertAndStageSensitiveAftermath(snapshot: SensitiveWorkspaceSnapshot): Promise<string[]> {
+    const MAX_POSTEXEC_STAGED = 5;
+    let linkLines: string[] = [];
+    try {
+      linkLines = await restoreReplacedStoreLinks(snapshot);
+    } catch (err) {
+      logger.error(err, "[mari] Store-link integrity pass failed");
+      linkLines = ["Store-link integrity check failed; treat package-store paths as unreviewed."];
+    }
+    let scan: SensitiveScanResult;
+    try {
+      scan = await detectUnreviewedSensitiveChanges(this.workspaceRoot, snapshot);
+    } catch (err) {
+      logger.error(err, "[mari] Post-execution sensitive-file scan failed");
+      return ["Post-execution sensitive-file scan failed; treat this run's file changes as unreviewed."];
+    }
+    const lines: string[] = [...linkLines];
+    if (snapshot.entryCapExceeded || scan.entryCapExceeded) {
+      lines.push(
+        "Post-execution scan stopped at its entry cap; part of the workspace went uninspected - treat this run's file changes as unreviewed.",
       );
-    });
+    }
+    for (const path of new Set([...snapshot.unscannable, ...scan.unscannable])) {
+      lines.push(
+        `Post-execution scan could not inspect ${engineLineText(path)}; treat its contents as unreviewed and ask the user to check it.`,
+      );
+    }
+    let stagedCount = 0;
+    for (const hit of scan.hits) {
+      const shownPath = engineLineText(hit.relativePath);
+      try {
+        if (hit.attributionUncertain) {
+          // The pre-run walk could not see this subtree, so "created" may
+          // simply mean "previously invisible" - deleting here could destroy
+          // a pre-existing user file. Report, never delete.
+          lines.push(
+            `Sensitive file ${shownPath} appeared under a path the pre-run snapshot could not inspect; left in place unreviewed - ask the user to check it.`,
+          );
+          continue;
+        }
+        if (hit.change === "created") {
+          await unlink(hit.absolutePath);
+        } else if (hit.beforeContent !== null) {
+          // Bytes, not text: a utf8 round-trip would corrupt binary
+          // lockfiles (bun.lockb) on restore.
+          await writeFile(hit.absolutePath, hit.beforeContent);
+        } else {
+          lines.push(
+            `Unreviewed change to sensitive file ${shownPath} could not be reverted (pre-run content was not retainable); ask the user to inspect it.`,
+          );
+          continue;
+        }
+        if (hit.afterContent === null) {
+          lines.push(
+            `Reverted unreviewed sensitive file ${hit.change === "created" ? "creation" : "change"}: ${shownPath} (not stageable for review: binary, oversize, unreadable, or not a regular file).`,
+          );
+          continue;
+        }
+        // Count actual cards, not loop positions: earlier report-only hits
+        // must not consume approval slots.
+        if (stagedCount >= MAX_POSTEXEC_STAGED) {
+          lines.push(
+            `Reverted unreviewed sensitive file change: ${shownPath} (approval cap reached; re-run for this file alone).`,
+          );
+          continue;
+        }
+        const approval = await this.workspaceChangeReviews.stageSensitiveFileChange({
+          absolutePath: hit.absolutePath,
+          afterContent: hit.afterContent,
+          // Attribution-neutral on purpose: a concurrent legitimate writer
+          // (the user's editor, an approval applying mid-run) can also land
+          // in this window; the staged card restores either way.
+          reason:
+            "Changed during a sandboxed shell command without review; reverted and staged by the post-execution scan.",
+          sessionId: SESSION_ID,
+        });
+        stagedCount += 1;
+        lines.push(`${STAGED_SENSITIVE_CHANGE_PREFIX} ${engineLineText(approval.path)}`);
+      } catch (err) {
+        logger.error(err, "[mari] Could not revert/stage a sensitive file the sandbox run changed");
+        lines.push(
+          `Unreviewed change to sensitive file ${shownPath} could not be fully processed; ask the user to inspect it.`,
+        );
+      }
+    }
+    if (lines.length > 0) {
+      logger.warn("[mari] Post-execution scan intercepted %d unreviewed sensitive file change(s)", scan.hits.length);
+    }
+    return lines;
   }
 
   private async commandDependency(args: Record<string, unknown>): Promise<string> {
@@ -3750,7 +4166,7 @@ ${sections.join("\n\n")}
             ? [READ_BACK_MISMATCH_SENTINEL]
             : []),
         ...(isRecord(result) && result.mode === "dry-run" ? [MARI_DRY_RUN_SENTINEL] : []),
-        `Command: ${command}`,
+        `Command: ${engineLineText(command)}`,
         `Exit code: ${result.ok === false ? 1 : 0} (direct mari runtime)`,
         "",
         "stdout:",

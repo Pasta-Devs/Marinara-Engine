@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "tsx watch --ignore ./data --ignore ../shared/dist --ignore ./node_modules --ignore ../../node_modules src/index.ts --marinara-dev-watch",
     "build": "node ./scripts/build.mjs",
-    "start": "node dist/index.js",
+    "start": "node ../../scripts/run-server.mjs dist/index.js",
     "clean": "node -e \"const fs=require('fs');['dist','tsconfig.tsbuildinfo'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
     "lint": "tsc -b ../shared && tsc --noEmit && tsc -p ../../scripts/regressions/tsconfig.character-activity.json"
   },

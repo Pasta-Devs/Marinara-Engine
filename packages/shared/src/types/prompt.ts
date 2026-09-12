@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 
 import type { ThinkingTagPair } from "../utils/thinking-tags.js";
+import type { ScopedRegexMode } from "./regex.js";
 
 export const MARINARA_UNIVERSAL_PRESET_NAME = "Marinara's Universal Preset";
 export const MARINARA_UNIVERSAL_PRESET_AUTHOR = "Marinara";
@@ -77,6 +78,8 @@ export interface PromptPreset {
   parameters: GenerationParameters;
   /** Auto-wrapping format: XML (default) or Markdown */
   wrapFormat: WrapFormat;
+  /** Display default for character-scoped regex; an explicit chat choice overrides it. */
+  scopedRegexMode?: ScopedRegexMode;
   /** Saved default variable selections (variableName → value or values) */
   defaultChoices: Record<string, string | string[]>;
   /** Whether this is the built-in default preset */
@@ -233,7 +236,7 @@ export interface GenerationParameters {
   reasoningEffort: "low" | "medium" | "high" | "xhigh" | "maximum" | null;
   /** Output verbosity for models that support it (GPT-5+) */
   verbosity: "low" | "medium" | "high" | null;
-  /** OpenRouter-only service tier. Null uses the provider/default tier. */
+  /** OpenRouter/NanoGPT service tier. Null uses default routing. */
   serviceTier: "flex" | "priority" | null;
   /** Optional assistant-role prefill appended after the final user message. */
   assistantPrefill: string;
@@ -243,6 +246,8 @@ export interface GenerationParameters {
   customThinkingTags: ThinkingTagPair[];
   /** Raw provider request parameters merged into the outgoing request body. */
   customParameters: Record<string, unknown>;
+  /** Connection-only non-secret HTTP header options; never sent as JSON parameters. */
+  customHeaders?: Record<string, string>;
   /** Values for reusable user-defined numeric provider parameters, keyed by definition ID. */
   managedCustomParameters: ManagedGenerationParameterValueMap;
   /** Per-parameter request switches. Missing map preserves legacy send behavior. */
@@ -257,7 +262,7 @@ export interface GenerationParameters {
   stopSequences: string[];
   /** Strict role formatting: system first, then alternating user/assistant. Sections after chat_history become user role. */
   strictRoleFormatting: boolean;
-  /** Send entire prompt + chat history as a single user message */
+  /** Send chat history as one user message, keeping the leading system prompt separate. */
   singleUserMessage: boolean;
 }
 

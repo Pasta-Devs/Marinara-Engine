@@ -5,19 +5,21 @@ colors:
   void-night: "#050312"
   soft-silver: "#d4d4d4"
   ink-glass: "#141414d9"
-  blush-primary: "#ffb3d9"
-  blush-primary-foreground: "#0a0a0a"
+  marinara-pink: "#ec4b97"
+  marinara-orange: "#f29744"
+  marinara-cyan: "#36cdde"
+  accent: "var(--marinara-app-accent-solid)"
+  accent-foreground: "#0a0a0a"
   deep-violet: "#1a1a2e"
   lavender-text: "#e8d4ff"
   muted-orchid: "#d4adfc"
   plum-accent: "#2a1a3e"
   frost-text: "#f0e8ff"
-  danger-rose: "#ff6b9d"
+  destructive: "var(--destructive)"
   orchid-border: "#d4adfc33"
   sidebar-night: "#08061a"
   light-blush-bg: "#faf8ff"
   light-ink: "#1a1025"
-  light-rose-primary: "#e0709a"
   light-panel: "#ffffffee"
   sillytavern-blue: "#4a72b0"
 typography:
@@ -66,8 +68,8 @@ spacing:
   xl: "20px"
 components:
   button-primary:
-    backgroundColor: "{colors.blush-primary}"
-    textColor: "{colors.blush-primary-foreground}"
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-foreground}"
     rounded: "{rounded.sm}"
     padding: "8px 20px"
   surface-glass:
@@ -88,25 +90,25 @@ components:
 
 **Creative North Star: "The Velvet Game Console"**
 
-Marinara should feel like a lovingly built story machine: visual, intimate, a little magical, and still practical enough for power users who live in settings panels. The default surface is dark because the main play moment is long-form chat, roleplay, or game mode in a focused evening setting, where bright white UI would fight the scene. Light mode exists for comfort and accessibility, but the brand signal lives in blush, violet, soft glow, character art, and compact tools.
+Marinara should feel like a lovingly built story machine: visual, intimate, a little magical, and still practical enough for power users who live in settings panels. The default surface is dark because the main play moment is long-form chat, roleplay, or game mode in a focused evening setting, where bright white UI would fight the scene. Light mode exists for comfort and accessibility, but the brand signal lives in the logo gradient, violet surfaces, soft glow, character art, and compact tools.
 
 The system rejects sterile SaaS dashboards, bland SillyTavern cloning, generic Discord surfaces, and developer-only control panels. Even dense controls should feel like part of an immersive engine, not a spreadsheet of toggles.
 
 **Key Characteristics:**
 
-- Dark blush-violet shell with soft silver text and clear contrast.
+- Dark violet shell with logo-color accents with soft silver text and clear contrast.
 - Compact control density, large enough tap targets, no hidden hover-only essentials.
 - Character and scene surfaces may be expressive; settings and editing surfaces stay calm.
 - Mobile layouts are first-class play surfaces, not reduced desktop leftovers.
 
 ## 2. Colors
 
-The palette is a nocturne of near-black violet, soft silver, rose-blush primary actions, and lavender support colors.
+The palette is a nocturne of near-black violet, soft silver, logo-gradient accents, and lavender support colors.
 
 ### Primary
 
-- **Blush Primary** (`#ffb3d9`): Main action color, active icons, highlighted controls, and glow accents in the dark theme.
-- **Light Rose Primary** (`#e0709a`): Light theme equivalent for primary actions and active states.
+- **Marinara Gradient** (`linear-gradient(90deg, #ec4b97, #f29744, #36cdde)`): Default accent in both dark and light mode, available in the shared gradient picker. Use the existing accent and chrome text tokens for controls; solid-color consumers use the first stop when Pulse is off.
+- **Accent Pulse**: On by default for desktop devices and off for mobile devices. Respect reduced motion and saved device preferences. Users can select any supported solid color or gradient and toggle Pulse independently.
 
 ### Secondary
 
@@ -130,7 +132,7 @@ The palette is a nocturne of near-black violet, soft silver, rose-blush primary 
 
 ### Named Rules
 
-**The Blush Is Earned Rule.** Blush primary is for actions, selection, and emotional emphasis. Do not flood every panel with pink.
+**The Accent Follows the User Rule.** Use accent or chrome text tokens for actions, selection, and emphasis. Do not hard-code pink interface accents; logo artwork and user-selectable color palettes retain their intended colors.
 
 **The Compatibility Theme Rule.** The SillyTavern visual theme is a compatibility skin, not the source of Marinara's default visual identity.
 
@@ -165,7 +167,7 @@ Marinara uses a hybrid of tonal layering, soft glow, and selective frosted surfa
 - **Glass Strong** (`0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.1)`): Modals, strong popovers, and elevated shell panels.
 - **Control Lift** (`0 2px 6px rgba(0, 0, 0, 0.2)`): Primary compact buttons at rest.
 - **Control Hover Lift** (`0 3px 8px rgba(0, 0, 0, 0.3)`): Buttons that rise on hover or focus.
-- **Character Glow** (`0 0 12px rgba(255, 179, 217, 0.25), 0 4px 12px rgba(0, 0, 0, 0.15)`): Avatar rings, roleplay focus, and expressive character states.
+- **Character Glow** (`0 0 12px color-mix(in srgb, var(--primary) 25%, transparent), 0 4px 12px rgba(0, 0, 0, 0.15)`): Avatar rings, roleplay focus, and expressive character states.
 
 ### Named Rules
 
@@ -176,7 +178,7 @@ Marinara uses a hybrid of tonal layering, soft glow, and selective frosted surfa
 ### Buttons
 
 - **Shape:** Compact rounded rectangles with 4px to 8px radius for tools; circular icon buttons for icon-only actions.
-- **Primary:** Blush Primary background with dark foreground in dark mode; Light Rose Primary with light foreground in light mode.
+- **Primary:** Use the selected accent tokens and `--primary-foreground` in both color schemes.
 - **Hover / Focus:** Small lift, glow, or border contrast. Focus states must be visible without relying on color alone.
 - **Secondary / Ghost:** Use muted violet surfaces, borders, and icon color shifts. Do not invent large pill buttons for every action.
 
@@ -197,11 +199,11 @@ Marinara uses a hybrid of tonal layering, soft glow, and selective frosted surfa
 
 - **Style:** Tokenized input stroke, muted violet or card background, 8px radius, readable contrast.
 - **Focus:** Ring color uses the primary token, with visible outline or border shift.
-- **Error / Disabled:** Error state uses Danger Rose plus text or icon. Disabled controls reduce opacity but must remain readable.
+- **Error / Disabled:** Error state uses `--destructive` plus text or icon. Disabled controls reduce opacity but must remain readable.
 
 ### Navigation
 
-- **Style:** Persistent sidebars use Sidebar Night, compact labels, active blush or lavender accents, and enough contrast for long sessions.
+- **Style:** Persistent sidebars use Sidebar Night, compact labels, active theme accents, and enough contrast for long sessions.
 - **Mobile Treatment:** Navigation and settings controls must be touch-friendly, avoid hover-only disclosure, and keep primary chat/game actions reachable.
 
 ### Chat, Roleplay, and Game Surfaces
@@ -221,7 +223,7 @@ Conversation mode can use familiar message bubbles, but roleplay and game mode s
 ### Don't:
 
 - **Don't** turn Marinara into a sterile SaaS dashboard with gray card grids and dry enterprise spacing.
-- **Don't** make it a bland SillyTavern clone. Compatibility themes may exist, but Marinara's default should keep its own blush-violet visual novel identity.
+- **Don't** make it a bland SillyTavern clone. Compatibility themes may exist, but Marinara's default should keep its own logo-gradient visual novel identity.
 - **Don't** make it feel like a generic Discord clone. Chat familiarity is useful, but roleplay and game mode need their own atmosphere.
 - **Don't** build developer-only control panels that assume technical confidence. Advanced settings still need clear labels, forgiving defaults, and helpful validation.
 - **Don't** use colored side-stripe borders, decorative gradient text, nested cards, or glassmorphism as the default layout answer.

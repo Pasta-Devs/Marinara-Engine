@@ -330,6 +330,20 @@ export interface AgentCallDebugEvent {
   batchedAgentTypes?: string[];
 }
 
+/** Content-free progress for the normal Agents menu, independent of prompt/debug logging. */
+export interface AgentTaskProgress {
+  callId: string;
+  agents: Array<{ id: string; type: string; name: string; phase: string }>;
+  stage: "waiting" | "streaming" | "received" | "error" | "stopped";
+  receivedChunks: number;
+  receivedCharacters: number;
+  /** First received text or reasoning chunk; unavailable for non-streaming calls. */
+  ttftMs?: number;
+  elapsedMs: number;
+  promptTokens?: number;
+  completionTokens?: number;
+}
+
 /** Shared context passed to every agent. */
 export interface AgentContext {
   /**
@@ -415,6 +429,9 @@ export interface AgentContext {
   } | null;
   /** The agent's own persistent memory (key-value) */
   memory: Record<string, unknown>;
+  /** Host resolves only this agent's output on the visible message history. */
+  loadPreviousOutput?: (agentConfigId: string) => Promise<unknown>;
+  previousOutput?: { agentType: string; text: string };
   /** All lorebook IDs the agent can write to */
   writableLorebookIds: string[] | null;
   /** Chat summary text (if any) — helps agents avoid duplicating summarized info */
@@ -424,6 +441,7 @@ export interface AgentContext {
   /** Lorebook entries activated for the main generation on this turn. */
   activatedLorebookEntries?: Array<{
     id: string;
+    name?: string;
     content: string;
   }>;
   /** Per-lorebook total entry counts (for {{lorebooksize::ID}} macro in agent prompts). */
@@ -461,6 +479,8 @@ export interface AgentContext {
   streaming?: boolean;
   /** Emits full agent call diagnostics for the client debug console. */
   agentDebug?: (event: AgentCallDebugEvent) => void;
+  /** Lightweight provider progress; never includes prompts, reasoning, or response content. */
+  agentProgress?: (event: AgentTaskProgress) => void;
   /** Abort signal — when triggered, agent execution should stop. Typed as `any` to avoid DOM/Node lib dependency. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   signal?: any;
@@ -584,6 +604,7 @@ export const CUSTOM_AGENT_CONTEXT_SOURCE_IDS = [
   "authorNotes",
   "trackerData",
   "recalledMemories",
+  "previousOutput",
 ] as const;
 
 export type CustomAgentContextSource = (typeof CUSTOM_AGENT_CONTEXT_SOURCE_IDS)[number];
@@ -598,6 +619,7 @@ export const DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES: CustomAgentContextSources = {
   authorNotes: false,
   trackerData: false,
   recalledMemories: false,
+  previousOutput: false,
 };
 
 export function normalizeCustomAgentContextSources(settings: unknown): CustomAgentContextSources {

@@ -43,14 +43,11 @@ export function shouldSuppressAssistantSpatialMutation(input: {
 
 export function shouldSaveHiddenGenerationAnchor(input: {
   impersonate?: boolean;
-  parsedCommandCount: number;
-  parsedRawCommandCount: number;
+  /** True only when a mode's parser produced commands or tool calls, not merely tag-like text. */
+  hasActionableOutput: boolean;
   spatialDirectiveDetected: boolean;
 }): boolean {
-  return Boolean(
-    input.spatialDirectiveDetected ||
-    (!input.impersonate && (input.parsedCommandCount > 0 || input.parsedRawCommandCount > 0)),
-  );
+  return input.spatialDirectiveDetected || (!input.impersonate && input.hasActionableOutput);
 }
 
 export function resolveSpatialGenerationOrigin(input: {

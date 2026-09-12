@@ -16,8 +16,8 @@ import {
   ConversationMessageEditForm,
   ConversationMessageAttachments,
   ConversationMessageTranslation,
-  ConversationMessageSwipes,
   ConversationMessageName,
+  diceRollReplacesMessageContent,
   nameColorStyle,
   formatTimestamp,
   type MessageRenderContext,
@@ -58,17 +58,11 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
     isHiddenCollapsed,
     hiddenFromAIHeader,
     onExpandHidden,
-    hideActions,
     hideTimestamp,
     showActions,
     forceShowActions,
     showMessageNumbers,
     messageIndex,
-    hasSwipes,
-    swipeCount,
-    onSetActiveSwipe,
-    canRegenerate,
-    onRegenerate,
     onImageOpen,
     onRemoveAttachment,
     translatedText,
@@ -306,18 +300,23 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
                     dotClassName="bg-[var(--muted-foreground)]/60"
                   />
                 </div>
-              ) : extra.diceRollResult ? (
+              ) : diceRollReplacesMessageContent(message.role, extra.diceRollResult) ? (
                 <DiceMessageContent diceRollResult={extra.diceRollResult} createdAt={message.createdAt} />
               ) : (
-                <MessageContent
-                  content={renderedContent}
-                  mentionNames={mentionNames}
-                  emojiMap={emojiMap}
-                  stickerMap={stickerMap}
-                  onImageOpen={(url) => onImageOpen(url)}
-                  selfCharacterId={selfCharacterId}
-                  galleryIndex={galleryIndex}
-                />
+                <>
+                  {extra.diceRollResult ? (
+                    <DiceMessageContent diceRollResult={extra.diceRollResult} createdAt={message.createdAt} />
+                  ) : null}
+                  <MessageContent
+                    content={renderedContent}
+                    mentionNames={mentionNames}
+                    emojiMap={emojiMap}
+                    stickerMap={stickerMap}
+                    onImageOpen={(url) => onImageOpen(url)}
+                    selfCharacterId={selfCharacterId}
+                    galleryIndex={galleryIndex}
+                  />
+                </>
               )}
             </div>
           )}
@@ -338,19 +337,6 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
           )}
         </div>
       </div>
-
-      {/* Swipe controls — separate row so avatar never drifts */}
-      {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
-        <div className={cn("mt-1", isUser ? "flex justify-end" : "pl-12")}>
-          <ConversationMessageSwipes
-            messageId={message.id}
-            activeSwipeIndex={message.activeSwipeIndex}
-            swipeCount={swipeCount}
-            onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
-            onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
-          />
-        </div>
-      )}
     </>
   );
 }

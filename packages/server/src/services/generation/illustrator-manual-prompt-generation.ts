@@ -233,6 +233,7 @@ export function buildManualIllustratorPromptMessages(args: {
   selectedPromptTemplate?: string;
   styleInstruction?: string;
   imagePromptInstructions?: string;
+  request?: string;
 }): ChatMessage[] {
   const promptModeInstruction = normalizeManualIllustratorPromptModeInstruction(args.selectedPromptTemplate ?? "");
   const systemPrompt = [
@@ -267,6 +268,7 @@ export function buildManualIllustratorPromptMessages(args: {
   const instruction = [
     "<manual_gallery_illustration_request>",
     "Write the image-model prompt now for the current scene. The Illustration button has already selected the output type.",
+    ...(args.request ? [`Depict this explicit request: ${args.request}`] : []),
     "</manual_gallery_illustration_request>",
   ].join("\n");
   const last = messages.at(-1);
@@ -294,6 +296,7 @@ export async function writeManualIllustratorPromptPlan(args: {
   context: AgentContext;
   styleInstruction?: string;
   imagePromptInstructions?: string;
+  request?: string;
   signal?: AbortSignal;
   debugLog?: (message: string, ...args: unknown[]) => void;
 }): Promise<ManualIllustratorPromptResult> {
@@ -309,6 +312,7 @@ export async function writeManualIllustratorPromptPlan(args: {
     selectedPromptTemplate,
     styleInstruction: args.styleInstruction,
     imagePromptInstructions: args.imagePromptInstructions,
+    request: args.request,
   });
   args.debugLog?.(
     "[debug/illustrator/manual-illustration-prompt] messages:\n%s",

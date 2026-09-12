@@ -593,11 +593,24 @@ function schemaPrimaryKeyColumn(table: AnyFileTable) {
   return getFileTableConfig(table).columns.find((column) => column.primary) ?? null;
 }
 
+/**
+ * Profile export/import covers the ENGINE's tables only, and this map is how
+ * that boundary is enforced: it is built from the schema barrel, so a table a
+ * capability package registered at runtime (file-backed-store's registerTables)
+ * has no entry here and every loop below skips it.
+ *
+ * That exclusion is deliberate, not an oversight to "fix" by consulting the
+ * live registry. A profile snapshot is portable user data that may be restored
+ * into a different Engine install, where the package that owns those rows may
+ * not exist — importing them would be a restore-time failure or a silent orphan
+ * with no schema to validate against. Package data still persists normally and
+ * is captured by a full data-directory backup, which is scoped to one install.
+ */
 const profileTableObjects = new Map<string, AnyFileTable>();
 for (const candidate of Object.values(schema)) {
   if (!isFileTable(candidate)) continue;
   const tableName = schemaTableName(candidate);
-  if (tableName && FILE_BACKED_TABLES.includes(tableName as (typeof FILE_BACKED_TABLES)[number])) {
+  if (tableName && FILE_BACKED_TABLES.includes(tableName)) {
     profileTableObjects.set(tableName, candidate);
   }
 }

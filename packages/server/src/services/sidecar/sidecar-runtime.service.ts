@@ -6,6 +6,7 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -420,7 +421,7 @@ class SidecarRuntimeService {
         continue;
       }
 
-      const isTemporaryArtifact = /\.(extract|zip)$/i.test(entry.name) || entry.name.endsWith(".tar.gz");
+      const isTemporaryArtifact = /\.(extract(?:-[a-z0-9]+)?|zip)$/i.test(entry.name) || entry.name.endsWith(".tar.gz");
       if (isTemporaryArtifact || (entry.isDirectory() && !options.preserveRuntimeDirectories)) {
         rmSync(fullPath, { recursive: true, force: true });
       }
@@ -465,7 +466,8 @@ class SidecarRuntimeService {
       const directoryName = `${LLAMA_CPP_RUNTIME_MANIFEST.releaseTag}-${match.variant}`;
       finalDirectory = ensureWithinRuntimeDir(join(RUNTIME_DIR, directoryName));
       archivePath = ensureWithinRuntimeDir(join(RUNTIME_DIR, match.asset.name));
-      extractDirectory = ensureWithinRuntimeDir(join(RUNTIME_DIR, `${directoryName}.extract`));
+      // A private, exclusive directory prevents pre-seeded destination symlinks.
+      extractDirectory = mkdtempSync(ensureWithinRuntimeDir(join(RUNTIME_DIR, `${directoryName}.extract-`)));
 
       if (existsSync(finalDirectory)) {
         rmSync(finalDirectory, { recursive: true, force: true });
@@ -581,9 +583,11 @@ class SidecarRuntimeService {
 
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       if (options.resetExtractDirectory ?? true) {
-        rmSync(options.extractDirectory, { recursive: true, force: true });
+        // Keep the private directory itself intact across retries.
+        for (const name of readdirSync(options.extractDirectory)) {
+          rmSync(join(options.extractDirectory, name), { recursive: true, force: true });
+        }
       }
-      mkdirSync(options.extractDirectory, { recursive: true });
 
       await retry(
         async () => {
@@ -620,7 +624,6 @@ class SidecarRuntimeService {
         return;
       } catch (error) {
         lastError = error;
-        rmSync(options.extractDirectory, { recursive: true, force: true });
         rmSync(options.archivePath, { force: true });
         if (attempt >= 2 || isAbortError(error)) {
           throw error;

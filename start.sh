@@ -442,4 +442,4 @@ fi
 
 # Start server
 cd packages/server
-exec node dist/index.js
+exec node ../../scripts/run-server.mjs dist/index.js

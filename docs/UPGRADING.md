@@ -12,6 +12,11 @@ When upgrading from a version that bundled first-party agents, maps, calls, or C
 
 If you use a downloaded documentation language (**Settings** → **General** → **Documentation Language**), the first start after an update also checks that language pack for changes and refreshes it automatically. If the download source cannot be reached, Marinara keeps your installed pack (any guides missing from it show in English) and tries again on the next start. Your language choice is never reset by an update.
 
+UI language packs use a separate, manual download flow. On the first upgrade from bundled UI translations,
+the interface returns to English; reselect your language in **Settings** → **General** → **Language** to download
+its pack. Later updates keep downloaded packs in the data folder. Use **Refresh language pack** for updated
+translations; missing packs or untranslated keys display English, and startup never downloads a UI pack.
+
 To learn where your data lives and how to save a copy, see [Backing Up and Restoring Marinara](data/backup-and-restore.md).
 
 ## Back up first

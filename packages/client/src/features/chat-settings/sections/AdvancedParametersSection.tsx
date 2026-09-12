@@ -28,6 +28,8 @@ const EDITABLE_PARAMETER_KEYS: Array<keyof EditableGenerationParameters> = [
   "reasoningEffort",
   "verbosity",
   "serviceTier",
+  "strictRoleFormatting",
+  "singleUserMessage",
   "assistantPrefill",
   "assistantReasoningPrefill",
   "customThinkingTags",
@@ -50,6 +52,7 @@ interface AdvancedParametersSectionProps {
   onChatParametersChange: (chatParameters: Record<string, unknown>) => void;
   onContextMessageLimitChange: (value: number | null) => void;
   onExcludePastReasoningChange: (value: boolean) => void;
+  onPastReasoningLimitChange: (value: number) => void;
   onImageCaptioningChange: (patch: {
     imageCaptioningEnabled?: boolean;
     imageCaptioningConnectionId?: string | null;
@@ -68,6 +71,7 @@ export function AdvancedParametersSection({
   onChatParametersChange,
   onContextMessageLimitChange,
   onExcludePastReasoningChange,
+  onPastReasoningLimitChange,
   onImageCaptioningChange,
 }: AdvancedParametersSectionProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -149,6 +153,15 @@ export function AdvancedParametersSection({
     // map even when it matches the editor fallback so an inherited preset value
     // cannot make a disabled parameter reappear in the provider request.
     sparse.enabledParameters = next.enabledParameters ?? STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS;
+    if (
+      next.strictRoleFormatting !== effectiveParams.strictRoleFormatting ||
+      next.singleUserMessage !== effectiveParams.singleUserMessage ||
+      params.strictRoleFormatting !== undefined ||
+      params.singleUserMessage !== undefined
+    ) {
+      sparse.strictRoleFormatting = next.strictRoleFormatting;
+      sparse.singleUserMessage = next.singleUserMessage;
+    }
     onChatParametersChange(sparse);
   };
   const toggleExpanded = () => setExpanded((open) => !open);
@@ -195,7 +208,7 @@ export function AdvancedParametersSection({
           </p>
           <GenerationParametersFields
             value={effectiveParams}
-            showOpenRouterServiceTier={conn?.provider === "openrouter"}
+            showServiceTier={conn?.provider === "openrouter" || conn?.provider === "nanogpt"}
             enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
             onChange={setParameters}
           />
@@ -246,6 +259,25 @@ export function AdvancedParametersSection({
               )}
               labelClassName="text-xs font-medium"
             />
+            {!excludeReasoningEnabled && (
+              <label className="block space-y-1 px-1">
+                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                  {localizeUi("chatSettings.advanced.pastReasoningLimit")}
+                </span>
+                <DraftNumberInput
+                  ariaLabel={localizeUi("chatSettings.advanced.pastReasoningLimit")}
+                  min={0}
+                  max={9999}
+                  value={typeof metadata.pastReasoningLimit === "number" ? metadata.pastReasoningLimit : 1}
+                  onCommit={(value) => onPastReasoningLimitChange(Math.max(0, Math.min(9999, Math.floor(value))))}
+                  selectOnFocus
+                  className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                />
+                <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
+                  {localizeUi("chatSettings.advanced.pastReasoningLimitHint")}
+                </span>
+              </label>
+            )}
             <SettingsSwitch
               label={localizeUi("ui.chatSettings.advancedparameterssection.imageCaptioning")}
               description={

@@ -2,10 +2,7 @@ import type { TextDirection } from "@marinara-engine/shared";
 
 export const DEFAULT_APP_LANGUAGE = "en";
 
-/**
- * Locale files are discovered at build time, so community translations do not
- * require this union to be edited when a new BCP-47 locale is added.
- */
+/** Persisted BCP-47 choice, normalized against the shared language registry. */
 export type AppLanguage = string;
 
 export interface LocaleMetadata {

@@ -364,7 +364,7 @@ assert.ok(
 assert.match(deleteScope, /if \(!deleteToken\) return;/u);
 assert.match(
   deleteSuccessScope,
-  /if \(isCurrentEditorSession\(session\) && loadedPersonaIdRef\.current === deletedPersonaId\) closeDetail\(\);/u,
+  /if \(isCurrentEditorSession\(session\) && loadedPersonaIdRef\.current === deletedPersonaId\)\s+leaveWithoutSaving\(closeDetail\);/u,
 );
 assert.doesNotMatch(deleteFinallyScope, /closeDetail\(\)/u);
 assert.match(deleteFinallyScope, /finishMutation\(deleteToken\);/u);
@@ -379,15 +379,14 @@ assert.match(
 );
 assert.doesNotMatch(deleteFailureScope, /closeDetail\(\)/u);
 
-// Local Back reads immediate state: writes silently block it, clean drafts close,
-// and value-dirty drafts require the existing disposition.
+// Local Back blocks in-flight writes; the shared leave handler saves dirty drafts.
 const closeScope = balanced(editor, "const handleClose = useCallback(", "local Back", "=> {");
 assert.match(closeScope, /if \(mutationTokenRef\.current\) return;/u);
-assert.match(closeScope, /const draft = formDataRef\.current;/u);
-assert.match(closeScope, /const baseline = baselineFormRef\.current;/u);
-assert.match(closeScope, /personaFieldsDifferingFromBaseline\(draft, baseline\)\.length > 0/u);
-const discardScope = balanced(editor, "const discardAndNavigate = useCallback(", "Discard & Close", "=> {");
-assert.match(discardScope, /if \(mutationTokenRef\.current\) return;/u);
-assert.doesNotMatch(between(saveScope, "} catch (error) {", "} finally {", "save failure"), /adoptAuthoritativePersona|commitBaseline|reconcileVersionedPersonaEditorSave/u);
+assert.match(closeScope, /closeDetail\(\);/u);
+assert.match(editor, /useEditorLeaveSave\(`personaDetailId:\$\{personaId\}`, dirty, handleSave, mutationBusy\);/u);
+assert.doesNotMatch(
+  between(saveScope, "} catch (error) {", "} finally {", "save failure"),
+  /adoptAuthoritativePersona|commitBaseline|reconcileVersionedPersonaEditorSave/u,
+);
 
 process.stdout.write("Persona client contract regression passed.\n");

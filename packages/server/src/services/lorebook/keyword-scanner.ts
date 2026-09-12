@@ -221,6 +221,10 @@ export function passesForcedEntryActivationGates(entry: LorebookEntry, options: 
   ) {
     return false;
   }
+  // Short-circuit BEFORE the shared decision map is read or written: seeding a
+  // `true` into `probabilityDecisions` would suppress the roll on the ordinary
+  // keyword path too, because the same map is reused across the whole scan.
+  if (options.ignoreProbability) return true;
   const existingDecision = options.probabilityDecisions?.get(entry.id);
   if (existingDecision !== undefined) return existingDecision;
   const passes = passesProbabilityGate(entry, options.random ?? Math.random);
@@ -396,7 +400,8 @@ function applyGroupSelection(entries: ActivatedEntry[], random: () => number): A
   const result: ActivatedEntry[] = [...ungrouped];
 
   for (const [, groupEntries] of grouped) {
-    const selected = pickWeightedGroupEntry(groupEntries, random);
+    const stickyEntries = groupEntries.filter((entry) => entry.sticky);
+    const selected = pickWeightedGroupEntry(stickyEntries.length > 0 ? stickyEntries : groupEntries, random);
     if (selected) result.push(selected);
   }
 
@@ -438,6 +443,11 @@ export interface ScanOptions {
   pinnedScanMessages?: ScanMessage[];
   /** Ignore sticky/cooldown/delay runtime state for preview/debug scans. */
   ignoreTiming?: boolean;
+  /** Skip the probability roll for explicitly selected entries. Read ONLY by
+   *  `passesForcedEntryActivationGates` — `scanForActivatedEntries` never looks
+   *  at it, so a keyword match still rolls in the same call. An entry a caller
+   *  named by id is a selection, not a dice roll. */
+  ignoreProbability?: boolean;
   /** True while scanning content surfaced by a prior lorebook activation. */
   recursionPass?: boolean;
   /** Shared per-generation probability rolls, including recursive scan passes. */

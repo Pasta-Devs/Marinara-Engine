@@ -23,6 +23,7 @@ import { assemblePrompt, type AssemblerInput } from "../services/prompt/index.js
 import { cardPromptText } from "../services/prompt/card-text.js";
 import { resolveLorebookScopeExclusions } from "../services/lorebook/game-lorebook-scope.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
@@ -519,8 +520,13 @@ export async function promptsRoutes(app: FastifyInstance) {
       storage.listChoiceBlocksForPreset(req.params.id),
     ]);
 
+    const connections = createConnectionsStorage(app.db);
+    const connection = chat.connectionId
+      ? await connections.getById(chat.connectionId)
+      : await connections.getDefault();
     const assemblerInput: AssemblerInput = {
       db: app.db,
+      model: connection?.model,
       preset: preset as any,
       sections: sections as any,
       groups: groups as any,

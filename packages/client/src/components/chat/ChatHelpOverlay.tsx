@@ -13,6 +13,7 @@ import {
   Pencil,
   Play,
   RefreshCw,
+  Reply,
   ScrollText,
   Search,
   Shield,
@@ -287,6 +288,7 @@ const PADDED_TARGET_IDS = new Set<HelpTargetId>([
 const ACTIONS_BY_MODE: Record<ChatMode, HelpActionDefinition[]> = {
   conversation: [
     { icon: Copy, labelKey: "chat.help.actions.copy" },
+    { icon: Reply, labelKey: "chat.help.actions.reply" },
     { icon: SmilePlus, labelKey: "chat.help.actions.react" },
     { icon: Languages, labelKey: "chat.help.actions.translate" },
     { icon: Pencil, labelKey: "chat.help.actions.edit" },

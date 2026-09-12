@@ -83,7 +83,7 @@ export function isDocsPackInstalled(code: string): boolean {
   return existsSync(join(docsPackRoot(code), "manifest.json"));
 }
 
-function docsPackBaseUrl(): string {
+export function docsPackBaseUrl(): string {
   const configured = process.env.DOCS_I18N_BASE_URL?.trim();
   const base = configured || DEFAULT_BASE_URL;
   return base.replace(/\/+$/, "");
@@ -98,7 +98,7 @@ function docsPackBaseUrl(): string {
  */
 const RAW_GITHUB_RE = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)$/;
 
-async function resolvePinnedBase(base: string): Promise<string> {
+export async function resolvePinnedBase(base: string): Promise<string> {
   const match = base.match(RAW_GITHUB_RE);
   if (!match) return base;
   const owner = match[1]!;
@@ -190,7 +190,7 @@ export function validateDocsPackManifest(raw: unknown, expectedLanguage: string)
   };
 }
 
-async function fetchPackBytes(url: string, maximum: number): Promise<Buffer> {
+export async function fetchPackBytes(url: string, maximum: number): Promise<Buffer> {
   const response = await safeFetch(url, {
     // Forks/mirrors are allowed, so no hostname pin — integrity rests on the
     // per-file sha256 checks. https-only and the default reserved-IP blocking
@@ -205,7 +205,7 @@ async function fetchPackBytes(url: string, maximum: number): Promise<Buffer> {
   return Buffer.from(await response.arrayBuffer());
 }
 
-async function fetchPackFile(url: string, file: DocsPackManifestFile): Promise<Buffer> {
+export async function fetchPackFile(url: string, file: DocsPackManifestFile): Promise<Buffer> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= FILE_FETCH_ATTEMPTS; attempt++) {
     try {

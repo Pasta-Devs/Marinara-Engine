@@ -8,10 +8,19 @@
 // Returns clean content + extracted commands.
 // ──────────────────────────────────────────────
 
-import type { DirectionCommand, DirectionEffect, SkillCheckResult, WidgetUpdate } from "@marinara-engine/shared";
+import {
+  parseSkillCheckTagBody,
+  readGmTagAttributes,
+  type DirectionCommand,
+  type DirectionEffect,
+  type SkillCheckTag,
+  type WidgetUpdate,
+} from "@marinara-engine/shared";
 
-const MAX_DICE_COUNT = 100;
-const MAX_DICE_SIDES = 1000;
+// The check-tag reader lives in shared so the server reads a GM tag exactly the
+// way this parser does — including the d20 audit that decides whether the GM's
+// own numbers are trustworthy.
+export type { SkillCheckTag };
 
 export interface CombatEncounterTag {
   enemies: Array<{
@@ -30,20 +39,6 @@ export interface CombatEncounterTag {
    * `null` means the GM explicitly requested no extra allies.
    */
   allies?: string[] | null;
-}
-
-export interface SkillCheckTag {
-  skill: string;
-  dc: number;
-  advantage?: boolean;
-  disadvantage?: boolean;
-  resolvedResult?: SkillCheckResult;
-  /**
-   * Player-submitted d20 echoed by the GM when a `[dice:1d20]` was rolled
-   * before the check. Forwarded to the server resolver so the sheet's
-   * attribute modifier is applied on top of the player's number.
-   */
-  preRolledD20?: number;
 }
 
 export interface ElementAttackTag {
@@ -132,10 +127,9 @@ function parseQteMatch(match: RegExpMatchArray): { actions: string[]; timer: num
 
 function parseTagAttributes(body: string): Map<string, string> {
   const values = new Map<string, string>();
-  const attributes = Array.from(body.matchAll(/(\w+)\s*=\s*("[^"]*"|'[^']*'|[^\s\]]+)/g));
-  for (const match of attributes) {
-    const key = match[1]?.trim().toLowerCase();
-    const rawValue = match[2]?.trim();
+  for (const attribute of readGmTagAttributes(body)) {
+    const key = attribute.key.trim().toLowerCase();
+    const rawValue = attribute.rawValue.trim();
     if (!key || !rawValue) continue;
     values.set(key, rawValue.replace(/^['"]|['"]$/g, ""));
   }
@@ -298,174 +292,6 @@ function stripMapUpdateTag(text: string): string {
 /** Remove dangling closers left behind by malformed or partially stripped tags. */
 function stripDanglingTagClosers(text: string): string {
   return text.replace(/^\s*[\]}]+\s*$/gm, "");
-}
-
-function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
-  const attributes = Array.from(body.matchAll(/(\w+)=("[^"]*"|'[^']*'|[^\s\]]+)/g));
-  if (attributes.length === 0) return null;
-
-  const values = new Map<string, string>();
-  for (const match of attributes) {
-    const key = match[1]?.trim().toLowerCase();
-    const rawValue = match[2]?.trim();
-    if (!key || !rawValue) continue;
-    values.set(key, rawValue.replace(/^['"]|['"]$/g, ""));
-  }
-
-  const skill = values.get("skill")?.trim() ?? "";
-  const dc = Number.parseInt(values.get("dc") ?? "", 10);
-  if (!skill || Number.isNaN(dc)) return null;
-
-  const tag: SkillCheckTag = { skill, dc };
-  const raw = body.toLowerCase();
-  if (values.get("mode") === "advantage" || raw.includes(" advantage")) tag.advantage = true;
-  if (values.get("mode") === "disadvantage" || raw.includes(" disadvantage")) tag.disadvantage = true;
-
-  const rollsValue = values.get("rolls");
-  const modifier = Number.parseInt(values.get("modifier") ?? "", 10);
-  const total = Number.parseInt(values.get("total") ?? "", 10);
-  const resultValue = values.get("result")?.trim().toLowerCase();
-  const modeValue = values.get("mode")?.trim().toLowerCase();
-  const resolution: SkillCheckResult["resolution"] =
-    values.get("resolution")?.trim().toLowerCase() === "successes" ? "successes" : "sum";
-
-  if (!rollsValue || Number.isNaN(modifier) || Number.isNaN(total) || !resultValue) {
-    // Sparse tag — server resolver will roll + apply modifier. If the GM echoed
-    // a single integer in rolls="...", treat it as a player-submitted d20.
-    if (rollsValue) {
-      const trimmed = rollsValue.trim();
-      if (/^-?\d+$/.test(trimmed)) {
-        const n = Number.parseInt(trimmed, 10);
-        if (Number.isInteger(n) && n >= 1 && n <= 20) tag.preRolledD20 = n;
-      }
-    }
-    return tag;
-  }
-
-  const normalizedMode: SkillCheckResult["rollMode"] =
-    modeValue === "advantage" || tag.advantage
-      ? "advantage"
-      : modeValue === "disadvantage" || tag.disadvantage
-        ? "disadvantage"
-        : "normal";
-
-  const explicitUsedRoll = Number.parseInt(values.get("used") ?? "", 10);
-  const inferredRollFromTotal = total - modifier;
-  const parsedRolls = parseSkillCheckRolls(rollsValue, inferredRollFromTotal);
-  const rolls = parsedRolls.rolls;
-  if (rolls.length === 0) return tag;
-
-  const usedRoll = Number.isFinite(explicitUsedRoll)
-    ? explicitUsedRoll
-    : rolls.includes(inferredRollFromTotal)
-      ? inferredRollFromTotal
-      : normalizedMode === "advantage"
-        ? Math.max(...rolls)
-        : normalizedMode === "disadvantage"
-          ? Math.min(...rolls)
-          : rolls[0]!;
-
-  const normalizedResult = resultValue.replace(/\s+/g, "_");
-  const criticalSuccess = normalizedResult === "critical_success";
-  const criticalFailure = normalizedResult === "critical_failure";
-  const success = criticalSuccess ? true : criticalFailure ? false : normalizedResult === "success";
-
-  // Dice notation the GM declared. Only trusted as a label; a non-d20 value is
-  // how a pool system (V20 and friends) tells the card what to draw.
-  const hasDeclaredDice = values.has("dice");
-  const declaredDice = values.get("dice")?.trim().toLowerCase();
-  const diceMatch = declaredDice?.match(/^(\d*)d(\d+)$/);
-  const declaredCount = Number.parseInt(diceMatch?.[1] || "1", 10);
-  const declaredSides = Number.parseInt(diceMatch?.[2] ?? "", 10);
-  const declaredDiceValue =
-    diceMatch &&
-    Number.isSafeInteger(declaredCount) &&
-    Number.isSafeInteger(declaredSides) &&
-    declaredCount >= 1 &&
-    declaredCount <= MAX_DICE_COUNT &&
-    declaredSides >= 1 &&
-    declaredSides <= MAX_DICE_SIDES &&
-    declaredCount === rolls.length &&
-    rolls.every((roll) => roll >= 1 && roll <= declaredSides)
-      ? declaredDice
-      : undefined;
-
-  // A plain single-die d20 check is the one shape whose rules we know, so it is
-  // the one shape we can audit. If the GM's own arithmetic disagrees, drop the
-  // resolved result and let the server resolver roll it properly. Pool systems
-  // are left alone — we cannot second-guess rules the engine does not implement.
-  const declaredD20 = !!diceMatch && declaredCount === 1 && declaredSides === 20;
-  const isImplicitD20Notation = parsedRolls.notation
-    ? parsedRolls.notation.count === 1 && parsedRolls.notation.sides === 20
-    : rolls.length === 1;
-  const implicitD20 = !hasDeclaredDice && isImplicitD20Notation;
-  if (hasDeclaredDice && !declaredDiceValue) return tag;
-  if (!hasDeclaredDice && !isImplicitD20Notation) return tag;
-  if (
-    hasDeclaredDice &&
-    parsedRolls.notation &&
-    (declaredCount !== parsedRolls.notation.count || declaredSides !== parsedRolls.notation.sides)
-  ) {
-    return tag;
-  }
-
-  const dice = declaredDiceValue ?? parsedRolls.notation?.dice;
-
-  const isPlainD20Check =
-    resolution === "sum" && rolls.length === 1 && normalizedMode === "normal" && (implicitD20 || declaredD20);
-  if (isPlainD20Check) {
-    const actualRoll = rolls[0]!;
-    const rollIsD20 = actualRoll >= 1 && actualRoll <= 20;
-    const usedRollHolds = usedRoll === actualRoll;
-    const arithmeticHolds = actualRoll + modifier === total;
-    const outcomeHolds = criticalSuccess || criticalFailure || success === total >= dc;
-    if (!rollIsD20 || !usedRollHolds || !arithmeticHolds || !outcomeHolds) return tag;
-  }
-
-  tag.resolvedResult = {
-    skill,
-    dc,
-    rolls,
-    usedRoll,
-    modifier,
-    total,
-    success,
-    criticalSuccess,
-    criticalFailure,
-    rollMode: normalizedMode,
-    resolution,
-    dice,
-  };
-
-  return tag;
-}
-
-function parseSkillCheckRolls(
-  rollsValue: string,
-  inferredRollFromTotal: number,
-): { rolls: number[]; notation?: { dice: string; count: number; sides: number } } {
-  const trimmed = rollsValue.trim();
-  const diceNotationMatch = trimmed.match(/^((\d+)?d(\d+))(?:[+-]\d+)?$/i);
-  if (diceNotationMatch) {
-    const count = Number.parseInt(diceNotationMatch[2] ?? "1", 10);
-    const sides = Number.parseInt(diceNotationMatch[3] ?? "", 10);
-    if (count === 1 && inferredRollFromTotal >= 1 && inferredRollFromTotal <= sides) {
-      return {
-        rolls: [inferredRollFromTotal],
-        notation: { dice: diceNotationMatch[1]!.toLowerCase(), count, sides },
-      };
-    }
-    return { rolls: [] };
-  }
-
-  return {
-    rolls: rollsValue
-      .split(/[|,]/)
-      .map((entry) => entry.trim())
-      .filter((entry) => /^-?\d+$/.test(entry))
-      .map((entry) => Number.parseInt(entry, 10))
-      .filter((entry) => Number.isFinite(entry)),
-  };
 }
 
 function splitQuotedParams(text: string): string[] {

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { LorebookEntry, LorebookFolder } from "@marinara-engine/shared";
 import { useCreateLorebookEntry, useLorebookEntries, useLorebookFolders } from "../../../hooks/use-lorebooks";
 import { LorebookEntryRow } from "../../../components/lorebooks/LorebookEntryRow";
+import { useUpdateChatLorebookEntry } from "../../../hooks/use-chats";
 
 interface RawCharacterRow {
   id: string;
@@ -12,6 +13,8 @@ interface RawCharacterRow {
 
 interface InlineLorebookEntriesEditorProps {
   lorebookId: string;
+  chatId: string;
+  entryStateOverrides?: Record<string, { enabled?: boolean }>;
   lorebookName: string;
   characterRows: RawCharacterRow[];
   onClose: () => void;
@@ -22,6 +25,8 @@ const VISIBLE_ENTRY_STEP = 30;
 
 export function InlineLorebookEntriesEditor({
   lorebookId,
+  chatId,
+  entryStateOverrides,
   lorebookName,
   characterRows,
   onClose,
@@ -30,6 +35,7 @@ export function InlineLorebookEntriesEditor({
   const entriesQuery = useLorebookEntries(lorebookId);
   const foldersQuery = useLorebookFolders(lorebookId);
   const createEntry = useCreateLorebookEntry();
+  const updateChatEntry = useUpdateChatLorebookEntry();
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [visibleEntryCount, setVisibleEntryCount] = useState(INITIAL_VISIBLE_ENTRY_COUNT);
@@ -169,6 +175,10 @@ export function InlineLorebookEntriesEditor({
             <LorebookEntryRow
               key={entry.id}
               entry={entry}
+              chatEnabled={{
+                enabled: entryStateOverrides?.[entry.id]?.enabled !== false,
+                onChange: (enabled) => updateChatEntry.mutateAsync({ chatId, entryId: entry.id, enabled }),
+              }}
               lorebookId={lorebookId}
               isExpanded={expandedEntryId === entry.id}
               onToggleExpand={() => setExpandedEntryId((current) => (current === entry.id ? null : entry.id))}

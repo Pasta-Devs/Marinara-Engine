@@ -103,7 +103,7 @@ export function NewGameExperienceChooser({
             gameExperienceId: selectedId,
             // The host validates the fields it needs above and preserves the package-owned payload here.
             // Keeping the opaque config nested prevents Zod from stripping unknown experience fields.
-            experienceConfig: cfg,
+            experienceConfig: cfg.experienceConfig ?? cfg,
           } as unknown,
           preferences: "",
           chatId: activeChatId,

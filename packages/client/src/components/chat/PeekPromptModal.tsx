@@ -548,6 +548,7 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
 
   return (
     <div
+      data-chat-floating-panel
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 max-md:pt-[env(safe-area-inset-top)]"
       onClick={onClose}
     >

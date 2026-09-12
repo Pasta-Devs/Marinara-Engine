@@ -1187,7 +1187,7 @@ export function TTSConfigCard() {
   };
 
   const handlePreview = () => {
-    if (ttsState === "playing" || ttsState === "loading") {
+    if (ttsState === "playing" || ttsState === "loading" || ttsState === "blocked") {
       ttsService.stop();
       return;
     }
@@ -1416,7 +1416,7 @@ export function TTSConfigCard() {
       ? "Select an ElevenLabs voice first"
       : !enabled
         ? "Enable TTS first"
-        : ttsState === "playing"
+        : ttsState === "playing" || ttsState === "blocked"
           ? "Stop preview"
           : "Preview voice";
   const updateVoiceAssignments = (nextAssignments: TTSVoiceAssignment[]) => {
@@ -2326,7 +2326,7 @@ export function TTSConfigCard() {
               disabled={previewDisabled}
               className={cn(
                 "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs ring-1 transition-all",
-                ttsState === "playing"
+                ttsState === "playing" || ttsState === "blocked"
                   ? "bg-sky-500/10 text-sky-400 ring-sky-400/30 hover:bg-sky-500/20"
                   : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:text-[var(--foreground)] hover:ring-sky-400/60",
                 previewDisabled && "cursor-not-allowed opacity-50",
@@ -2335,14 +2335,14 @@ export function TTSConfigCard() {
             >
               {ttsState === "loading" ? (
                 <Loader2 size="0.75rem" className="animate-spin" />
-              ) : ttsState === "playing" ? (
+              ) : ttsState === "playing" || ttsState === "blocked" ? (
                 <Square size="0.75rem" />
               ) : (
                 <Play size="0.75rem" />
               )}
               {ttsState === "loading"
                 ? localizeUi("ui.panels.ttsconfigcard.loading")
-                : ttsState === "playing"
+                : ttsState === "playing" || ttsState === "blocked"
                   ? localizeUi("ui.chat.summarypopover.stop")
                   : localizeUi("settings.notifications.customSound.actions.preview")}
             </button>

@@ -1,4 +1,7 @@
+import type { ClientRuntimeDiagnostics } from "./client-runtime-diagnostics";
+
 export interface SupportDiagnostics {
+  clientRuntime?: ClientRuntimeDiagnostics;
   version: string;
   build: string;
   commit: string | null;
@@ -33,7 +36,12 @@ export interface SupportDiagnostics {
    */
   previousSession?:
     | { status: "unknown"; reason: string }
-    | { status: "ended"; exitKind: "clean" | "crash" | "restart"; exitedAt: string | null; exitCode: number | null }
+    | {
+        status: "ended";
+        exitKind: "clean" | "crash" | "restart" | "forced";
+        exitedAt: string | null;
+        exitCode: number | null;
+      }
     | {
         status: "unclean";
         record: {
@@ -142,6 +150,7 @@ const SESSION_EXIT_LABELS: Record<string, string> = {
   clean: "shut down cleanly",
   crash: "ended in a server crash (details in the server log)",
   restart: "restarted itself for an update or a settings restart",
+  forced: "was stopped before its shutdown could finish, so the very last changes may not have been saved",
 };
 
 function formatPreviousSession(diagnostics: SupportDiagnostics): string {
@@ -187,6 +196,9 @@ export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): strin
     }`,
     `Client OS: ${available(diagnostics.clientOs)}`,
     `Browser / app shell: ${available(diagnostics.browser)}`,
+    // Like the existing server fields, this is an English technical support
+    // report, not UI copy. Event names are stable diagnostic protocol values.
+    `Client runtime: ${diagnostics.clientRuntime ? JSON.stringify(diagnostics.clientRuntime) : "Unavailable"}`,
     `GPU: ${available(diagnostics.gpu)}`,
     `Active connection: ${available(diagnostics.connectionName)}`,
     `Connection provider: ${available(diagnostics.connectionProvider)}`,

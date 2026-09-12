@@ -21,6 +21,7 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { updateCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
+import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
@@ -64,6 +65,7 @@ import { QuickConnectionSwitcher } from "./QuickConnectionSwitcher";
 import { QuickPersonaSwitcher } from "./QuickPersonaSwitcher";
 import { QuickSwitcherMobile } from "./QuickSwitcherMobile";
 import { SlashCommandFeedback } from "./SlashCommandFeedback";
+import { MessageReplyPreview } from "./MessageReplyPreview";
 import { QuickReplyMenu, type QuickReplyAction } from "./QuickReplyMenu";
 import { getChatInputShellClass } from "./chat-input-styles";
 import { MariSuggestionChips } from "./MariSuggestionChips";
@@ -198,7 +200,7 @@ interface ChatInputProps {
     options?: { immediate?: boolean },
   ) => void | Promise<void>;
   onPeekPrompt?: () => void;
-  onIllustrate?: () => void | Promise<void>;
+  onIllustrate?: (prompt?: string) => void | Promise<void>;
   combatAgentEnabled?: boolean;
   onStartEncounter?: () => void;
   interactionsLocked?: boolean;
@@ -271,6 +273,10 @@ export const ChatInput = memo(function ChatInput({
   const responseQueue = useChatStore((s) =>
     activeChatId ? (s.responseQueues.get(activeChatId) ?? EMPTY_RESPONSE_QUEUE) : EMPTY_RESPONSE_QUEUE,
   );
+  const replyDraft = useChatStore((s) =>
+    mode === "conversation" && activeChatId ? s.replyDrafts.get(activeChatId) : undefined,
+  );
+  const setReplyDraft = useChatStore((s) => s.setReplyDraft);
   const setInputDraft = useChatStore((s) => s.setInputDraft);
   const clearInputDraft = useChatStore((s) => s.clearInputDraft);
   const setCurrentInputPresence = useChatStore((s) => s.setCurrentInputPresence);
@@ -1027,6 +1033,8 @@ export const ChatInput = memo(function ChatInput({
     const submittedAttachments = attachments;
     const submittedCompletions = completions;
     const restoreSubmittedDraft = () => {
+      if (replyDraft && !useChatStore.getState().replyDrafts.has(submittingChatId))
+        setReplyDraft(submittingChatId, replyDraft);
       const activeChatIdAfterFailure = useChatStore.getState().activeChatId;
       const currentValue = textareaRef.current?.value ?? "";
       const canRestoreVisibleDraft = activeChatIdAfterFailure === submittingChatId && currentValue.length === 0;
@@ -1058,21 +1066,29 @@ export const ChatInput = memo(function ChatInput({
     replaceAttachments([]);
     clearInputDraft(activeChatId);
     clearResponseQueue(activeChatId);
+    setReplyDraft(activeChatId, null);
 
     // Manual mode: only create the user message, no auto-generation
     if (groupResponseOrder === "manual") {
       try {
         if (canSubmitSpatialMove && pendingSpatialTransition) {
-          await commitSpatialOwnerTurn.mutateAsync({
+          const committed = await commitSpatialOwnerTurn.mutateAsync({
             chatId: activeChatId,
             content: message,
             transition: pendingSpatialTransition.transition,
             ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
           });
+          if (replyDraft)
+            await updateMessageExtra.mutateAsync({ messageId: committed.message.id, extra: { replyTo: replyDraft } });
           requestChatScrollToBottom({ chatId: activeChatId, behavior: "auto" });
           return;
         }
-        const created = await createMessage.mutateAsync({ role: "user", content: message, characterId: null });
+        const created = await createMessage.mutateAsync({
+          role: "user",
+          content: message,
+          characterId: null,
+          ...(replyDraft ? { extra: { replyTo: replyDraft } } : {}),
+        });
         requestChatScrollToBottom({ chatId: activeChatId, behavior: "auto" });
         if (pendingAttachments.length) {
           await updateMessageExtra.mutateAsync({
@@ -1093,6 +1109,7 @@ export const ChatInput = memo(function ChatInput({
         chatId: activeChatId,
         connectionId: null,
         userMessage: message,
+        ...(replyDraft ? { replyTo: replyDraft } : {}),
         ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
         ...(canSubmitSpatialMove && pendingSpatialTransition
           ? { pendingSpatialTransition: pendingSpatialTransition.transition }
@@ -1132,6 +1149,8 @@ export const ChatInput = memo(function ChatInput({
     completions,
     onPeekPrompt,
     quoteFormat,
+    replyDraft,
+    setReplyDraft,
     canSubmitSpatialMove,
     pendingSpatialTransition,
     availableCapabilityIds,
@@ -1285,6 +1304,7 @@ export const ChatInput = memo(function ChatInput({
     replaceAttachments([]);
     clearInputDraft(submittingChatId);
     clearResponseQueue(submittingChatId);
+    setReplyDraft(submittingChatId, null);
 
     let createdMessageId: string | null = null;
     try {
@@ -1292,6 +1312,7 @@ export const ChatInput = memo(function ChatInput({
         role: "user",
         content: message,
         characterId: null,
+        ...(replyDraft ? { extra: { replyTo: replyDraft } } : {}),
       });
       createdMessageId = created.id;
       if (pendingAttachments.length) {
@@ -1301,6 +1322,8 @@ export const ChatInput = memo(function ChatInput({
         });
       }
     } catch (error) {
+      if (replyDraft && !useChatStore.getState().replyDrafts.has(submittingChatId))
+        setReplyDraft(submittingChatId, replyDraft);
       let rollbackFailed = false;
       if (createdMessageId) {
         try {
@@ -1354,6 +1377,8 @@ export const ChatInput = memo(function ChatInput({
     clearResponseQueue,
     handleSend,
     quoteFormat,
+    replyDraft,
+    setReplyDraft,
     mode,
     availableCapabilityIds,
     localizeUi,
@@ -2005,6 +2030,10 @@ export const ChatInput = memo(function ChatInput({
       )}
       <MariSuggestionChips chips={chipRowChips} onSelect={handleMariChipSelect} disabled={isInputBusy} />
 
+      {replyDraft && (
+        <MessageReplyPreview reply={replyDraft} onCancel={() => activeChatId && setReplyDraft(activeChatId, null)} />
+      )}
+
       {/* Main input container */}
       <div
         ref={inputBarRef}
@@ -2013,6 +2042,7 @@ export const ChatInput = memo(function ChatInput({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onPointerDown={(event) => {
+          if (hasActiveTextSelection()) return;
           const target = event.target as HTMLElement;
           if (target.closest("button, input, textarea, select, a, [role='button']")) return;
           event.preventDefault();
