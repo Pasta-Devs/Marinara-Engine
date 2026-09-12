@@ -2028,6 +2028,134 @@ export function createChatsStorage(db: DB) {
       return flipped;
     },
 
+    /**
+     * Aggregate historical persona attribution summaries for all user messages in a chat.
+     */
+    async getPersonaAttributionsSummary(chatId: string) {
+      const userRows = await db
+        .select({ id: messages.id, extra: messages.extra })
+        .from(messages)
+        .where(and(eq(messages.chatId, chatId), eq(messages.role, "user")));
+
+      let unassignedCount = 0;
+      const identityMap = new Map<
+        string,
+        {
+          personaId: string;
+          source: "persona" | "character";
+          name: string;
+          avatarUrl?: string | null;
+          count: number;
+        }
+      >();
+
+      for (const row of userRows) {
+        const extra = parseExtraRecord(row.extra);
+        const snapshot = extra.personaSnapshot as
+          | {
+              personaId?: unknown;
+              source?: unknown;
+              name?: unknown;
+              avatarUrl?: unknown;
+            }
+          | null
+          | undefined;
+
+        const personaId = typeof snapshot?.personaId === "string" ? snapshot.personaId.trim() : "";
+        if (!personaId) {
+          unassignedCount++;
+          continue;
+        }
+
+        const source = snapshot?.source === "character" ? ("character" as const) : ("persona" as const);
+        const name = typeof snapshot?.name === "string" && snapshot.name.trim() ? snapshot.name.trim() : "You";
+        const avatarUrl = typeof snapshot?.avatarUrl === "string" ? snapshot.avatarUrl : null;
+        const key = `${source}:${personaId}`;
+
+        const existing = identityMap.get(key);
+        if (existing) {
+          existing.count++;
+          if (!existing.avatarUrl && avatarUrl) existing.avatarUrl = avatarUrl;
+        } else {
+          identityMap.set(key, {
+            personaId,
+            source,
+            name,
+            avatarUrl,
+            count: 1,
+          });
+        }
+      }
+
+      return {
+        unassignedCount,
+        allUserMessageCount: userRows.length,
+        identities: Array.from(identityMap.values()),
+      };
+    },
+
+    /**
+     * Bulk-reassign or clear historical persona snapshots on user messages and their swipes.
+     */
+    async reassignMessagePersonaSnapshots(
+      chatId: string,
+      filter: {
+        scope: "unassigned" | "persona" | "all";
+        sourcePersonaId?: string;
+        sourcePersonaSource?: "persona" | "character";
+      },
+      targetSnapshot: Record<string, unknown> | null,
+    ): Promise<{ updatedCount: number; messageIds: string[] }> {
+      const userRows = await db
+        .select({ id: messages.id, extra: messages.extra })
+        .from(messages)
+        .where(and(eq(messages.chatId, chatId), eq(messages.role, "user")));
+
+      const matchingIds: string[] = [];
+
+      for (const row of userRows) {
+        const extra = parseExtraRecord(row.extra);
+        const snapshot = extra.personaSnapshot as
+          | {
+              personaId?: unknown;
+              source?: unknown;
+            }
+          | null
+          | undefined;
+
+        const personaId = typeof snapshot?.personaId === "string" ? snapshot.personaId.trim() : "";
+        const source = snapshot?.source === "character" ? "character" : "persona";
+
+        if (filter.scope === "unassigned") {
+          if (!personaId) matchingIds.push(row.id);
+        } else if (filter.scope === "persona") {
+          const targetSource = filter.sourcePersonaSource ?? "persona";
+          if (personaId === filter.sourcePersonaId && source === targetSource) {
+            matchingIds.push(row.id);
+          }
+        } else if (filter.scope === "all") {
+          matchingIds.push(row.id);
+        }
+      }
+
+      if (matchingIds.length === 0) {
+        return { updatedCount: 0, messageIds: [] };
+      }
+
+      for (const id of matchingIds) {
+        await this.updateMessageExtra(id, { personaSnapshot: targetSnapshot });
+        const swipes = await this.getSwipes(id);
+        for (const swipe of swipes) {
+          await this.updateSwipeExtra(id, swipe.index, { personaSnapshot: targetSnapshot });
+        }
+      }
+
+      return {
+        updatedCount: matchingIds.length,
+        messageIds: matchingIds,
+      };
+    },
+
     /** Atomically append an attachment to a message's extra JSON field. */
     async appendMessageAttachment(id: string, attachment: Record<string, unknown>) {
       return withPatchQueue(messageExtraPatchQueues, id, async () => {

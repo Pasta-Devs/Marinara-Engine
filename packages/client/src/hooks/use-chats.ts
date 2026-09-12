@@ -38,6 +38,8 @@ import type {
   DaySummaryEntry,
   WeekSummaryEntry,
   HomeFeedSnapshot,
+  ChatPersonaAttributionsSummary,
+  ReassignMessagePersonaInput,
 } from "@marinara-engine/shared";
 
 import { useRollingBackfillStore } from "../stores/backfill.store";
@@ -50,6 +52,7 @@ export const chatKeys = {
   messages: (chatId: string) => [...chatKeys.all, "messages", chatId] as const,
   messageCount: (chatId: string) => [...chatKeys.all, "messageCount", chatId] as const,
   messagePeek: (chatId: string) => [...chatKeys.all, "messagePeek", chatId] as const,
+  personaAttributions: (chatId: string) => [...chatKeys.all, "personaAttributions", chatId] as const,
   memories: (chatId: string) => [...chatKeys.all, "memories", chatId] as const,
   notes: (chatId: string) => [...chatKeys.all, "notes", chatId] as const,
   group: (groupId: string) => [...chatKeys.all, "group", groupId] as const,
@@ -1443,6 +1446,33 @@ export function useUpdateMessageExtra(chatId: string | null) {
         qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
         qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
       }
+    },
+  });
+}
+
+/** Get aggregated historical persona attribution statistics for a chat */
+export function useChatPersonaAttributions(chatId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: chatKeys.personaAttributions(chatId ?? ""),
+    queryFn: () => api.get<ChatPersonaAttributionsSummary>(`/chats/${chatId}/messages/persona-attributions`),
+    enabled: !!chatId && enabled,
+    staleTime: 30 * 1000,
+  });
+}
+
+/** Reassign or clear historical persona snapshots on user messages across scopes */
+export function useReassignMessagePersonas(chatId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ReassignMessagePersonaInput) =>
+      api.post<{ success: boolean; updatedCount: number }>(`/chats/${chatId}/messages/reassign-persona`, payload),
+    onSuccess: () => {
+      if (!chatId) return;
+      qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.messagePeek(chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.personaAttributions(chatId) });
+      qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
     },
   });
 }

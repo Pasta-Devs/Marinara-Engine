@@ -979,6 +979,20 @@ export interface ConversationNote {
   createdAt: string;
 }
 
+export interface HistoricalPersonaIdentitySummary {
+  personaId: string;
+  source: "persona" | "character";
+  name: string;
+  avatarUrl?: string | null;
+  count: number;
+}
+
+export interface ChatPersonaAttributionsSummary {
+  unassignedCount: number;
+  allUserMessageCount: number;
+  identities: HistoricalPersonaIdentitySummary[];
+}
+
 export function normalizeManualTrackerAgentTypes(value: unknown): Record<string, boolean> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const manualTypes: Record<string, boolean> = {};

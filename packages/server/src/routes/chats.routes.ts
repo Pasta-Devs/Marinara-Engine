@@ -20,6 +20,7 @@ import {
   estimateChatSummaryTokens,
   getChatSummaryMessageIdsToUnhideAfterDelete,
   markAutonomousUnreadSchema,
+  reassignMessagePersonaSchema,
   nameToXmlTag,
   normalizeChatSummaryEntries,
   resolveMacros,
@@ -2247,6 +2248,63 @@ export async function chatsRoutes(app: FastifyInstance) {
       return { updated };
     },
   );
+
+  // Get historical persona attribution summaries across all user messages in a chat
+  app.get<{ Params: { chatId: string } }>("/:chatId/messages/persona-attributions", async (req, reply) => {
+    const chat = await storage.getById(req.params.chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    const summary = await storage.getPersonaAttributionsSummary(req.params.chatId);
+    return summary;
+  });
+
+  // Reassign historical persona snapshots on user messages
+  app.post<{ Params: { chatId: string } }>("/:chatId/messages/reassign-persona", async (req, reply) => {
+    const chat = await storage.getById(req.params.chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+
+    const parsed = reassignMessagePersonaSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid request body" });
+    }
+
+    const { scope, sourcePersonaId, sourcePersonaSource, targetPersonaId, targetPersonaSource } = parsed.data;
+
+    let targetSnapshot: Record<string, unknown> | null = null;
+
+    if (targetPersonaId) {
+      const targetIdentity = {
+        personaId: targetPersonaSource === "character" ? null : targetPersonaId,
+        personaCharacterId: targetPersonaSource === "character" ? targetPersonaId : null,
+      };
+      if (targetIdentity.personaCharacterId) {
+        if ((chat.mode ?? "") === "game") {
+          return reply.status(400).send({ error: "Character identities are not available in Game chats." });
+        }
+        if (!(await isValidCharacterIdentity(app.db, targetIdentity.personaCharacterId))) {
+          return reply.status(400).send({ error: "Selected character identity is invalid or unavailable." });
+        }
+      }
+      targetSnapshot = await buildPersonaSnapshotForChat(app, {
+        ...chat,
+        ...targetIdentity,
+      });
+      if (!targetSnapshot) {
+        return reply.status(404).send({ error: "Target persona not found" });
+      }
+    }
+
+    const result = await storage.reassignMessagePersonaSnapshots(
+      req.params.chatId,
+      {
+        scope,
+        sourcePersonaId,
+        sourcePersonaSource,
+      },
+      targetSnapshot,
+    );
+
+    return { success: true, updatedCount: result.updatedCount };
+  });
 
   // Get game state for a specific message + swipe (does not fall back to latest)
   app.get<{

@@ -1768,6 +1768,26 @@ const cases: RegressionCase[] = [
         ],
       );
 
+      // Reassigned persona snapshot name reflects immediately into historical speaker prefixing
+      const reassignedPersonaName = readPersonaSnapshotName({
+        personaSnapshot: { personaId: "new-identity", name: "Reassigned Hero" },
+      });
+      const updatedMessages = prefixGroupIndividualHistorySpeakers(
+        [
+          {
+            role: "user" as const,
+            content: "A decree from the old Persona.",
+            personaSnapshotName: reassignedPersonaName,
+          },
+          { role: "assistant" as const, content: "An answer.", characterId: "dottore" },
+        ],
+        {
+          personaName: "Mari",
+          characterNamesById: new Map([["dottore", "Dottore"]]),
+        },
+      );
+      assert.equal(updatedMessages[0]?.content, "Reassigned Hero: A decree from the old Persona.");
+
       const generateRouteSource = readFileSync(
         new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
         "utf8",

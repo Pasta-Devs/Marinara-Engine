@@ -63,6 +63,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added an "Apply persona to earlier messages…" action in Chat Settings to reassign historical user message attribution across messages sent without a persona, messages sent as a specific persona, or all user messages in the chat (#6043).
+
 - Marinara Gradient brings the logo's pink, orange, and cyan to the color picker and becomes the default UI accent. Accent Pulse starts on for desktop and off for mobile; saved preferences remain editable and appearance resets restore the device default. Fixed pink interface accents now follow the selected accent or chrome text color (#6028).
 
 - Character sheet images have their own resolution setting under Image Generation, independent of backgrounds (#6022).

@@ -110,8 +110,27 @@ export const markAutonomousUnreadSchema = z.object({
   count: z.number().int().positive().max(100).optional().default(1),
 });
 
+export const reassignMessagePersonaSchema = z
+  .object({
+    scope: z.enum(["unassigned", "persona", "all"]),
+    sourcePersonaId: z.string().trim().min(1).optional(),
+    sourcePersonaSource: z.enum(["persona", "character"]).optional(),
+    targetPersonaId: z.string().trim().min(1).nullable().optional(),
+    targetPersonaSource: z.enum(["persona", "character"]).nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.scope === "persona" && !data.sourcePersonaId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sourcePersonaId"],
+        message: "sourcePersonaId is required when scope is 'persona'",
+      });
+    }
+  });
+
 export type CreateChatInput = z.infer<typeof createChatSchema>;
 export type CreateMessageInput = z.infer<typeof createMessageSchema>;
 export type GenerateRequestInput = z.infer<typeof generateRequestSchema>;
 export type SummariesPatchInput = z.infer<typeof summariesPatchSchema>;
 export type MarkAutonomousUnreadInput = z.infer<typeof markAutonomousUnreadSchema>;
+export type ReassignMessagePersonaInput = z.infer<typeof reassignMessagePersonaSchema>;
