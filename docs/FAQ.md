@@ -137,6 +137,8 @@ AI models can only hold so much text at once, so old messages fall out of view i
 - **Memory Recall** searches earlier messages and quietly adds the most relevant bits back into the prompt. Turn it on in **Chat Settings** under **Memory Recall**.
 - Summaries compress old messages into short recaps. Roleplay chats use **Chat Summary**, and Conversation chats use **Automatic Summarization**.
 
+For automatic Roleplay context management, enable **Advanced Memory Recall (Alpha)** in **Chat Settings → Memory Recall**. It keeps recent history, maintains bounded continuity, and selectively recalls older scenes within your chosen estimated context cap. Setup, progress and editing stay in the drawer. Older Individual group chats may need one-time confirmation of each character's knowledge range.
+
 For setup and details, see [Memory and Summaries](agents/memory.md).
 
 ## How do I back up my data?

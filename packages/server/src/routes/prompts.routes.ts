@@ -15,6 +15,7 @@ import {
   updateChoiceBlockSchema,
   createFolderEntry,
   isStockMarinaraUniversalPreset,
+  normalizeAdvancedMemorySettings,
   type LorebookEntryTimingState,
 } from "@marinara-engine/shared";
 import type { ExportEnvelope } from "@marinara-engine/shared";
@@ -31,6 +32,7 @@ import AdmZip from "adm-zip";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
+import { forwardPromptPreview } from "./generate/prompt-preview.js";
 
 const PROMPT_IMAGES_DIR = join(DATA_DIR, "prompts", "images");
 const PROMPT_IMAGE_URL_PREFIX = "/api/prompts/images/file/";
@@ -479,6 +481,17 @@ export async function promptsRoutes(app: FastifyInstance) {
           : ((chat.metadata as Record<string, unknown>) ?? {});
     } catch {
       chatMeta = {};
+    }
+    if (chat.mode === "roleplay" && normalizeAdvancedMemorySettings(chatMeta.advancedMemory).enabled) {
+      const preview = await forwardPromptPreview(app, req, { chatId, presetId: preset.id, presetChoices: choices });
+      if (preview.statusCode >= 400) return reply.status(preview.statusCode).send(preview.body);
+      const messages = preview.body.prompt?.messages ?? [];
+      return {
+        messages,
+        parameters: preview.body.parameters ?? {},
+        messageCount: messages.length,
+        advancedMemory: preview.body.prompt?.advancedMemory,
+      };
     }
     const lorebookScopeExclusions = resolveLorebookScopeExclusions(chat.mode, chatMeta);
     const mappedMessages = chatMessages.map((m: any) => ({

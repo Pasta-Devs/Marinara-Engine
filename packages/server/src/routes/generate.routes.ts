@@ -1,3 +1,12 @@
+import { createAdvancedMemoryService, selectAdvancedMemoryMessages } from "../services/advanced-memory.js";
+import { prepareAdvancedMemoryContext } from "../services/generation/advanced-memory-context.js";
+import { measureContextBudget } from "../services/llm/base-provider.js";
+import {
+  resolveAdvancedMemoryPrompt,
+  createAdvancedMemoryPlacement,
+  ADVANCED_MEMORY_MARKER_TYPES,
+  type AdvancedMemoryPlacement,
+} from "../services/prompt/advanced-memory-prompt.js";
 import { registerParameterPreviewRoute } from "./generate/parameter-preview-route.js";
 // ──────────────────────────────────────────────
 // Routes: Generation (SSE Streaming with Tool Use + Agent Pipeline)
@@ -8,6 +17,8 @@ import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import {
   generateRequestSchema,
+  normalizeAdvancedMemorySettings,
+  type AdvancedMemoryReceipt,
   BUILT_IN_AGENTS,
   getDefaultBuiltInAgentSettings,
   isBuiltInAgentHostManaged,
@@ -554,6 +565,7 @@ import {
 } from "../services/conversation/conversation-profiles.js";
 import {
   filterPromptMessagesForCharacterAudience,
+  filterPromptHistoryByMessageIds,
   scopeIndividualGroupMessagesForTarget,
   type GenerationPromptMessage,
 } from "../services/generation/prompt-message-scope.js";
@@ -825,6 +837,7 @@ export async function generateRoutes(app: FastifyInstance) {
   const isDebug = logger.isLevelEnabled("debug");
 
   const chats = createChatsStorage(app.db);
+  const advancedMemory = createAdvancedMemoryService(app.db);
   const connections = createConnectionsStorage(app.db);
   const presets = createPromptsStorage(app.db);
   const chars = createCharactersStorage(app.db);
@@ -1393,6 +1406,36 @@ export async function generateRoutes(app: FastifyInstance) {
       // Get chat messages
       const allChatMessages = await chats.listMessages(input.chatId);
       const chatMode = requestChatMode;
+      const advancedMemorySettings = normalizeAdvancedMemorySettings(chatMeta.advancedMemory);
+      const advancedMemoryEnabled = chatMode === "roleplay" && advancedMemorySettings.enabled;
+      // Resolve historical time before user start markers: later resets must not hide an older swipe target.
+      const advancedTargetIndex =
+        advancedMemoryEnabled && (input.regenerateMessageId || input.continueMessageId)
+          ? allChatMessages.findIndex(
+              (message) => message.id === (input.regenerateMessageId ?? input.continueMessageId),
+            )
+          : -1;
+      const operationMessages =
+        advancedTargetIndex >= 0 ? allChatMessages.slice(0, advancedTargetIndex + 1) : allChatMessages;
+      const advancedSourceMessages =
+        advancedTargetIndex >= 0
+          ? allChatMessages.slice(0, advancedTargetIndex + (input.continueMessageId ? 1 : 0))
+          : allChatMessages;
+      if (advancedMemoryEnabled) {
+        const memoryStatus = await advancedMemory.status(input.chatId);
+        if (memoryStatus.missingKnowledgeCharacterIds.length) {
+          // Confirm access before any pre-generation agent can receive ambiguous history.
+          await advancedMemory.initialize(input.chatId, {
+            signal: abortController.signal,
+            blocking: true,
+            onProgress: (job) =>
+              sendSseEvent(reply, { type: "advanced_memory_status", data: { chatId: input.chatId, job } }),
+          });
+          throw new Error(
+            "Advanced Memory: confirm the missing character knowledge ranges in Chat Settings before generating.",
+          );
+        }
+      }
       const startsNewAssistantBubble =
         chatMode === "roleplay" &&
         !input.autonomous &&
@@ -1408,14 +1451,14 @@ export async function generateRoutes(app: FastifyInstance) {
 
       // ── Conversation-start filter: find the latest "isConversationStart" marker ──
       let startIdx = 0;
-      for (let i = allChatMessages.length - 1; i >= 0; i--) {
-        const extra = parseExtra(allChatMessages[i]!.extra);
+      for (let i = operationMessages.length - 1; i >= 0; i--) {
+        const extra = parseExtra(operationMessages[i]!.extra);
         if (extra.isConversationStart) {
           startIdx = i;
           break;
         }
       }
-      const scopedMessages = startIdx > 0 ? allChatMessages.slice(startIdx) : allChatMessages;
+      const scopedMessages = startIdx > 0 ? operationMessages.slice(startIdx) : operationMessages;
       let chatMessages = supportsHiddenFromAI
         ? scopedMessages.filter((message: any) => !isMessageHiddenFromAI(message))
         : scopedMessages;
@@ -1524,7 +1567,12 @@ export async function generateRoutes(app: FastifyInstance) {
       // ── Context message limit (from chat metadata, off by default) ──
       const lorebookKeeperSettings = getLorebookKeeperSettings(chatMeta);
       const contextMessageLimit = chatMeta.contextMessageLimit as number | null;
-      if (contextMessageLimit && contextMessageLimit > 0 && chatMessages.length > contextMessageLimit) {
+      if (
+        !advancedMemoryEnabled &&
+        contextMessageLimit &&
+        contextMessageLimit > 0 &&
+        chatMessages.length > contextMessageLimit
+      ) {
         chatMessages = chatMessages.slice(-contextMessageLimit);
       }
       const pastReasoning = collectPastReasoningMetadata(
@@ -1661,8 +1709,10 @@ export async function generateRoutes(app: FastifyInstance) {
         if (!messageId || !updatedAttachments) return;
         try {
           await chats.updateMessageExtra(messageId, { attachments: updatedAttachments });
+          return true;
         } catch (error) {
           logger.warn(error, "[image-captioning] Failed to cache image captions for message %s", messageId);
+          return false;
         }
       };
       const initialLatestUserMessageId = [...chatMessages].reverse().find((message) => message.role === "user")?.id;
@@ -1686,10 +1736,14 @@ export async function generateRoutes(app: FastifyInstance) {
           signal: abortController.signal,
           debugMode: requestDebug,
         });
-        await persistPromptAttachmentCaptions(
+        const captionsPersisted = await persistPromptAttachmentCaptions(
           typeof m.id === "string" ? m.id : null,
           attachmentInputs.updatedAttachments,
         );
+        if (advancedMemoryEnabled && captionsPersisted) {
+          // Keep our own cache write in the prepared source snapshot; unrelated edits still fail revision checks.
+          m.extra = JSON.stringify({ ...extra, attachments: attachmentInputs.updatedAttachments });
+        }
         let content = withLatestMessageReply(
           attachmentInputs.content,
           extra.replyTo,
@@ -2187,6 +2241,7 @@ export async function generateRoutes(app: FastifyInstance) {
         let currentIterationSavedMsg: typeof lastSavedMsg = null;
         let recoveredAlreadyAppliedOwnerTurn = false;
         let finalMessages: GenerationPromptMessage[] = [...runningMessagesForFollowUp];
+        let advancedMemoryPlacements: AdvancedMemoryPlacement[] = [];
         let longTermMemoryRecallReceipt: LongTermMemoryRecallReceipt | undefined;
         let longTermMemoryPromptRecorded = false;
         const ownerSpatialProjection = await ownerSpatialProjectionPromise;
@@ -2258,17 +2313,19 @@ export async function generateRoutes(app: FastifyInstance) {
         const { suppressModelParameters, connectionMaxContext } = modelAccessPolicy;
         let effectiveMaxContext = modelAccessPolicy.effectiveMaxContext;
 
-        const activeChatSummary = await resolveRoleplayChatSummaryForPrompt({
-          chatMode,
-          chatMetadata: chatMeta,
-          messages: currentInputMessages(),
-          excludeMessageIds: input.regenerateMessageId ? [input.regenerateMessageId] : undefined,
-          vectorizerAvailable: memoryRecallVectorizerAvailable,
-          embeddingOptions: {
-            embeddingSource: memoryRecallEmbeddingSource,
-            signal: abortController.signal,
-          },
-        });
+        const activeChatSummary = advancedMemoryEnabled
+          ? null
+          : await resolveRoleplayChatSummaryForPrompt({
+              chatMode,
+              chatMetadata: chatMeta,
+              messages: currentInputMessages(),
+              excludeMessageIds: input.regenerateMessageId ? [input.regenerateMessageId] : undefined,
+              vectorizerAvailable: memoryRecallVectorizerAvailable,
+              embeddingOptions: {
+                embeddingSource: memoryRecallEmbeddingSource,
+                signal: abortController.signal,
+              },
+            });
         const runtimeSectionEligibleAgentTypes = buildRuntimeAgentSectionEligibleTypes({
           enableAgents: chatEnableAgents,
           activeAgentIds: chatActiveAgentIds,
@@ -2310,6 +2367,24 @@ export async function generateRoutes(app: FastifyInstance) {
             ? input.forCharacterId
             : null;
         const promptCharacterIds = resolvePromptCharacterIdsForTarget(characterIds, promptTargetCharacterId);
+        const advancedAgentSourceIds = advancedMemoryEnabled
+          ? new Set(
+              selectAdvancedMemoryMessages(
+                advancedSourceMessages,
+                advancedMemorySettings,
+                promptCharacterIds,
+                promptGroupChatMode === "individual",
+              ).map((message) => message.id),
+            )
+          : null;
+        const sharedPromptForAgents = (messages: GenerationPromptMessage[]) =>
+          advancedAgentSourceIds
+            ? filterPromptHistoryByMessageIds(
+                resolveAdvancedMemoryPrompt(messages, advancedMemoryPlacements, {}),
+                advancedAgentSourceIds,
+                new Set(advancedSourceMessages.map((message) => message.id)),
+              )
+            : messages;
         const deferConversationLorebookScanToResponder =
           chatMode === "conversation" &&
           characterIds.length > 1 &&
@@ -2682,6 +2757,7 @@ export async function generateRoutes(app: FastifyInstance) {
             chatMessages: mappedMessages,
             lorebookScanMessages: toLorebookScanMessages(),
             chatSummary: activeChatSummary,
+            ...(advancedMemoryEnabled ? { advancedMemory: {}, deferAdvancedMemory: true } : {}),
             enableAgents: chatEnableAgents,
             activeAgentIds: chatActiveAgentIds,
             activeLorebookIds: chatActiveLorebookIds,
@@ -2749,6 +2825,7 @@ export async function generateRoutes(app: FastifyInstance) {
             knowledgeRouterActivationPassCompleted = true;
           }
           finalMessages = assembled.messages;
+          advancedMemoryPlacements = assembled.advancedMemoryPlacements ?? [];
           presetOwnsAgentPlacement = true;
           characterAdvancedPromptsInjected = true;
           temperature = assembled.parameters.temperature;
@@ -3621,7 +3698,22 @@ export async function generateRoutes(app: FastifyInstance) {
           });
         }
 
-        if (chatMode === "roleplay" && !resolvedPreset) {
+        if (advancedMemoryEnabled && advancedMemoryPlacements.length === 0) {
+          advancedMemoryPlacements = ADVANCED_MEMORY_MARKER_TYPES.map((type) =>
+            createAdvancedMemoryPlacement(type, wrapFormat),
+          );
+          const historyIndex = finalMessages.findIndex((message) => message.contextKind === "history");
+          finalMessages.splice(
+            historyIndex < 0 ? finalMessages.length : historyIndex,
+            0,
+            ...advancedMemoryPlacements.map((placement) => ({
+              role: placement.role,
+              content: placement.token,
+              contextKind: "prompt" as const,
+            })),
+          );
+        }
+        if (chatMode === "roleplay" && !resolvedPreset && !advancedMemoryEnabled) {
           finalMessages = appendFallbackChatSummaryToSystemPrompt(
             finalMessages,
             activeChatSummary,
@@ -3943,7 +4035,7 @@ export async function generateRoutes(app: FastifyInstance) {
             .filter(Boolean)
             .join("\n\n");
           replaceConversationContextMacro(finalMessages, "memories", conversationMemoriesBlockValue);
-        } else if (enableMemoryRecall && memoryRecallVectorizerAvailable) {
+        } else if (!advancedMemoryEnabled && enableMemoryRecall && memoryRecallVectorizerAvailable) {
           memoryRecallAttempted = true;
           recalledAgentVectorMemories = await injectMemoryRecallContext({
             db: app.db,
@@ -3959,7 +4051,12 @@ export async function generateRoutes(app: FastifyInstance) {
             wrapFormat,
           });
         }
-        if (customAgentVectorAccessEnabled && memoryRecallVectorizerAvailable && !memoryRecallAttempted) {
+        if (
+          !advancedMemoryEnabled &&
+          customAgentVectorAccessEnabled &&
+          memoryRecallVectorizerAvailable &&
+          !memoryRecallAttempted
+        ) {
           recalledAgentVectorMemories = await injectMemoryRecallContext({
             db: app.db,
             messages: [],
@@ -4066,7 +4163,11 @@ export async function generateRoutes(app: FastifyInstance) {
           resolvedAgents.length > 0
             ? Math.max(...resolvedAgents.map((a) => normalizeAgentContextSize(a.settings.contextSize)))
             : 5;
-        const agentSlice = chatMessages.slice(-agentContextSize);
+        const agentSlice = (
+          advancedAgentSourceIds
+            ? chatMessages.filter((message) => advancedAgentSourceIds.has(message.id))
+            : chatMessages
+        ).slice(-agentContextSize);
         const resolvedAgentSlice = resolveHistoryMessageMacros(
           agentSlice.map((message: any) => ({
             ...message,
@@ -5115,7 +5216,7 @@ export async function generateRoutes(app: FastifyInstance) {
         if (chatMode !== "roleplay") appendLocalEndpointTools(finalMessages, toolDefs);
         // Pre-generation prompt-patch agents read the assembled prompt here; this is overwritten
         // with the fitted provider prompt before each main model call.
-        agentContext.memory._mainPromptPreview = promptPreviewForAgents(finalMessages);
+        agentContext.memory._mainPromptPreview = promptPreviewForAgents(sharedPromptForAgents(finalMessages));
         const resolveAgentContext = async (agent: AgentExecConfig, context: AgentContext): Promise<AgentContext> => {
           const resolvedContext = customLorebookReadBehindTargets.get(agent.id)?.context ?? context;
           const trackerContext = applyTrackerLorebookContextPolicy({
@@ -5677,7 +5778,7 @@ export async function generateRoutes(app: FastifyInstance) {
             chatId: input.chatId,
             chatMode,
             characterIds: promptCharacterIds,
-            messages: finalMessages.map(({ role, content }) => ({ role, content })),
+            messages: sharedPromptForAgents(finalMessages).map(({ role, content }) => ({ role, content })),
             signal: agentSignal,
             debugMode: requestDebug || isDebug,
           });
@@ -6482,7 +6583,8 @@ export async function generateRoutes(app: FastifyInstance) {
             }));
 
           // Private state enters only the final responder request, after shared agent context.
-          const publicRoleplayPrompt = chatMode === "roleplay" ? toProviderMessages(preparedMessagesForGen) : null;
+          const publicRoleplayPrompt =
+            chatMode === "roleplay" ? toProviderMessages(sharedPromptForAgents(preparedMessagesForGen)) : null;
           const roleplayPrivateAvailable =
             Boolean(targetCharId) && (allCharacterIds.length === 1 || usesIndividualGroupGeneration);
           const roleplayCallerId = roleplayPrivateAvailable && speaksOnlyTargetCharacter ? targetCharId : null;
@@ -6562,12 +6664,70 @@ export async function generateRoutes(app: FastifyInstance) {
             });
           };
 
+          let advancedMemoryReceipt: AdvancedMemoryReceipt | undefined;
+          let advancedPreparedProviderMessages: ChatMessage[] | undefined;
+          if (advancedMemoryEnabled) {
+            const prepared = await prepareAdvancedMemoryContext({
+              service: advancedMemory,
+              chatId: input.chatId,
+              settings: advancedMemorySettings,
+              sourceMessages: advancedSourceMessages,
+              messages: preparedMessagesForGen,
+              placements: advancedMemoryPlacements,
+              audienceCharacterIds,
+              audienceMode: input.impersonate ? "owner" : undefined,
+              maxContext: effectiveMaxContext ?? connectionMaxContext,
+              maxTokens,
+              tools: gameToolConnection ? undefined : responderToolDefs,
+              query: currentInputMessages()
+                .slice(-4)
+                .map((message) => message.content)
+                .join("\n"),
+              signal: abortController.signal,
+              debugMode: requestDebug,
+              blocking: true,
+              onProgress: (job) =>
+                sendSseEvent(reply, { type: "advanced_memory_status", data: { chatId: input.chatId, job } }),
+              toProviderMessages: (messages) =>
+                prepareProviderMessages(limitPastReasoningMetadata(toProviderMessages(messages), chatMeta)),
+            });
+            advancedPreparedProviderMessages = prepared.providerMessages;
+            advancedMemoryReceipt = prepared.receipt;
+            effectiveMaxContext = prepared.maxContext;
+            maxTokens = prepared.maxTokens;
+            sendSseEvent(reply, {
+              type: "advanced_memory_receipt",
+              data: { chatId: input.chatId, receipt: prepared.receipt },
+            });
+            logDebugOverride(
+              requestDebug || isDebugAgentsEnabled(),
+              "[advanced-memory] Prepared context %j",
+              prepared.receipt,
+            );
+          }
           let finalPromptSent: ChatMessage[] = [];
           const rememberMainPromptPreviewForAgents = (messages: ChatMessage[]) => {
             agentContext.memory._mainPromptPreview = promptPreviewForAgents(publicRoleplayPrompt ?? messages);
           };
           let effectiveMaxTokensForSend: number | undefined = maxTokens;
-          const fitPromptForSend = (candidateMessages: ChatMessage[]): ChatMessage[] => {
+          const fitPromptForSend = async (candidateMessages: ChatMessage[]): Promise<ChatMessage[]> => {
+            if (advancedMemoryEnabled) {
+              if (advancedMemoryReceipt)
+                await advancedMemory.validatePrepared(input.chatId, advancedSourceMessages, advancedMemoryReceipt);
+              const messages = limitPastReasoningMetadata(candidateMessages, chatMeta);
+              const budget = measureContextBudget(messages, {
+                maxContext: effectiveMaxContext!,
+                maxTokens,
+                tools: gameToolConnection ? undefined : responderToolDefs,
+              });
+              if (!budget.fits)
+                throw new Error(
+                  "Advanced Memory: this tool follow-up or continuation exceeds the context cap. Increase the cap or reduce the tool result or reply space.",
+                );
+              finalPromptSent = messages;
+              effectiveMaxTokensForSend = maxTokens;
+              return messages;
+            }
             const fit = fitMessagesForModelAccess({
               messages: limitPastReasoningMetadata(candidateMessages, chatMeta),
               policy: { ...modelAccessPolicy, effectiveMaxContext },
@@ -6579,9 +6739,9 @@ export async function generateRoutes(app: FastifyInstance) {
             return fit.messages;
           };
 
-          const initialProviderMessages = prepareProviderMessages(
-            fitPromptForSend(toProviderMessages(preparedMessagesForGen)),
-          );
+          const initialProviderMessages = advancedPreparedProviderMessages
+            ? await fitPromptForSend(advancedPreparedProviderMessages)
+            : prepareProviderMessages(await fitPromptForSend(toProviderMessages(preparedMessagesForGen)));
           finalPromptSent = initialProviderMessages;
           rememberMainPromptPreviewForAgents(initialProviderMessages);
 
@@ -6697,6 +6857,7 @@ export async function generateRoutes(app: FastifyInstance) {
           };
 
           const textChatOptions: ChatOptions = {
+            ...(advancedMemoryEnabled ? { preserveContext: true } : {}),
             model: conn.model,
             temperature,
             maxTokens: effectiveMaxTokensForSend,
@@ -6792,7 +6953,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   // usage, signatures and encrypted reasoning belong to this pass only.
                   result = { content: null, toolCalls: gameToolPlan.toolCalls, finishReason: "tool_calls" };
                 } else {
-                  loopMessages = fitPromptForSend(loopMessages);
+                  loopMessages = await fitPromptForSend(loopMessages);
                   rememberMainPromptPreviewForAgents(loopMessages);
                   logPromptSentToModel(
                     loopMessages,
@@ -6801,6 +6962,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   result = await withLlmRequestTimeout(chatGenerationTimeoutMs, () =>
                     provider.chatComplete!(loopMessages, {
                       model: conn.model,
+                      preserveContext: advancedMemoryEnabled,
                       temperature,
                       maxTokens: effectiveMaxTokensForSend,
                       maxContext: effectiveMaxContext,
@@ -7091,7 +7253,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
               if (gameToolPlan) {
                 narratorMessages = prepareProviderMessages(
-                  fitPromptForSend([
+                  await fitPromptForSend([
                     ...initialProviderMessages,
                     {
                       role: "user",
@@ -7126,12 +7288,13 @@ export async function generateRoutes(app: FastifyInstance) {
               if (round === maxToolRounds - 1) {
                 // Reset per-character accumulator for final round content
                 const prevLen = fullResponse.length;
-                loopMessages = fitPromptForSend(loopMessages);
+                loopMessages = await fitPromptForSend(loopMessages);
                 rememberMainPromptPreviewForAgents(loopMessages);
                 logPromptSentToModel(loopMessages, "Prompt sent to model (final tool follow-up)");
                 const finalResult = await withLlmRequestTimeout(chatGenerationTimeoutMs, () =>
                   provider.chatComplete!(loopMessages, {
                     model: conn.model,
+                    preserveContext: advancedMemoryEnabled,
                     temperature,
                     maxTokens: effectiveMaxTokensForSend,
                     maxContext: effectiveMaxContext,
@@ -7744,7 +7907,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 ...generalRolls.checkResults.map(formatSkillCheckResultSummary),
                 ...generalRolls.diceRolls.map((result) => `🎲 ${result.notation} = ${result.total}`),
               ].join("\n");
-              const continuationMessages = fitPromptForSend([
+              const continuationMessages = await fitPromptForSend([
                 ...narratorMessages,
                 { role: "assistant", content: fullResponse },
                 {
@@ -8278,6 +8441,7 @@ export async function generateRoutes(app: FastifyInstance) {
             // reflects the last generation instead of a best-effort rescan.
             extraUpdate.lorebookScan = lorebookScanSnapshot;
             extraUpdate.chatSummaryFingerprint = fingerprintChatSummary(chatMeta.summary);
+            if (advancedMemoryReceipt) extraUpdate.advancedMemoryReceipt = advancedMemoryReceipt;
             const persistentAttachments = resolveUserRegenerationPersistentAttachments(regenMsg ?? {});
             if (persistentAttachments) extraUpdate.attachments = persistentAttachments;
             const refreshedMsg =
@@ -8803,6 +8967,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
         const runAutomaticRoleplaySummary = async () => {
           if (
+            advancedMemoryEnabled ||
             !latestAssistantMessageId ||
             !isRoleplaySummaryMode(chatMode) ||
             !isAutomaticRoleplaySummaryEnabled(chatMeta) ||
@@ -11523,7 +11688,11 @@ export async function generateRoutes(app: FastifyInstance) {
           for (const ci of charInfo) {
             charNameMap[ci.id] = ci.name;
           }
-          if (memoryRecallVectorizerAvailable) {
+          if (advancedMemoryEnabled) {
+            void advancedMemory
+              .initialize(input.chatId, { debugMode: requestDebug, blocking: false })
+              .catch((error) => logger.error(error, "[advanced-memory] Background maintenance failed"));
+          } else if (memoryRecallVectorizerAvailable) {
             chunkAndEmbedMessages(
               app.db,
               input.chatId,

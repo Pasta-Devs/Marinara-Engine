@@ -23,6 +23,8 @@ import {
   reassignMessagePersonaSchema,
   nameToXmlTag,
   normalizeChatSummaryEntries,
+  normalizeAdvancedMemorySettings,
+  type AdvancedMemoryReceipt,
   resolveMacros,
   summariesPatchSchema,
   coerceGameStateTextValue,
@@ -87,6 +89,9 @@ import {
 import { generateMissingConversationSummaries } from "../services/conversation/auto-summary.service.js";
 import { clearChatActivity, recordUserReaction } from "../services/conversation/autonomous.service.js";
 import { rebuildMemoryChunks } from "../services/memory-recall.js";
+import { createAdvancedMemoryService } from "../services/advanced-memory.js";
+import { copyAdvancedMemoryRecords, remapAdvancedMemoryMetadata } from "../services/advanced-memory-transfer.js";
+import { forwardPromptPreview } from "./generate/prompt-preview.js";
 import { wrapContent } from "../services/prompt/format-engine.js";
 import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../services/prompt/chat-summary-fingerprint.js";
 import { newId } from "../utils/id-generator.js";
@@ -1115,6 +1120,28 @@ export async function chatsRoutes(app: FastifyInstance) {
         const hasStartedChat =
           existingMetadata.conversationSetupComplete === true ||
           existingMessages.some((message) => message.role === "user" || message.role === "assistant");
+        if (existing.mode === "roleplay") {
+          await storage.patchMetadata(req.params.id, (current) => {
+            const settings = normalizeAdvancedMemorySettings(current.advancedMemory);
+            const knowledgeStarts = { ...settings.knowledgeStarts };
+            // A roster change is an administrative anchor, not permission to know earlier scenes.
+            for (const id of addedIds) delete knowledgeStarts[id];
+            const afterMessageId = existingMessages.at(-1)?.id ?? null;
+            const previousEvents = Array.isArray(current.advancedMemoryRosterChanges)
+              ? current.advancedMemoryRosterChanges
+              : [];
+            return {
+              advancedMemoryRosterChanges: [
+                ...previousEvents,
+                ...addedIds.map((characterId) => ({ characterId, action: "joined", afterMessageId })),
+                ...removedIds.map((characterId) => ({ characterId, action: "left", afterMessageId })),
+              ],
+              ...(current.advancedMemory
+                ? { advancedMemory: { ...settings, knowledgeStarts, knowledgeConfirmed: false } }
+                : {}),
+            };
+          });
+        }
         if (existing.mode === "roleplay" && !hasStartedChat && addedIds.length > 0) {
           roleplayTrackerCharacterIdsToSeed = addedIds;
         }
@@ -2650,14 +2677,19 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
     const chatMeta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const chatMode = (chat.mode as string) ?? "roleplay";
+    const advancedMemoryEnabled =
+      chatMode === "roleplay" && normalizeAdvancedMemorySettings(chatMeta.advancedMemory).enabled;
     const chatSummaryFingerprint = fingerprintChatSummary(chatMeta.summary);
     const visibleGameStateAnchor = resolveVisibleGameStateAnchor(chatMessages);
     const supportsHiddenFromAI = chatMode === "conversation" || chatMode === "roleplay";
 
-    const readCachedPrompt = (
+    const readCachedPrompt = async (
       extra: Record<string, unknown>,
       allowHistoricalCache = false,
-    ): { messages: Array<{ role: string; content: string }>; generationInfo?: Record<string, unknown> } | null => {
+    ): Promise<{
+      messages: Array<{ role: string; content: string }>;
+      generationInfo?: Record<string, unknown>;
+    } | null> => {
       const cachedPrompt = Array.isArray(extra.cachedPrompt)
         ? extra.cachedPrompt
             .map((entry) => {
@@ -2669,6 +2701,24 @@ export async function chatsRoutes(app: FastifyInstance) {
             .filter((entry): entry is { role: string; content: string } => entry !== null)
         : [];
       if (cachedPrompt.length === 0) return null;
+      if (advancedMemoryEnabled) {
+        const receipt = extra.advancedMemoryReceipt;
+        if (!isRecord(receipt) || !Object.prototype.hasOwnProperty.call(receipt, "sourceEndMessageId")) return null;
+        const end =
+          receipt.sourceEndMessageId === null
+            ? -1
+            : chatMessages.findIndex((message) => message.id === receipt.sourceEndMessageId);
+        if (receipt.sourceEndMessageId !== null && end < 0) return null;
+        try {
+          await createAdvancedMemoryService(app.db).validatePrepared(
+            chat.id,
+            chatMessages.slice(0, end + 1),
+            receipt as unknown as AdvancedMemoryReceipt,
+          );
+        } catch {
+          return null;
+        }
+      }
 
       // Newer prompt caches record the summary fingerprint used at generation time.
       // Older v1.6.1-era caches did not; those are still exact debug-log prompts,
@@ -2702,21 +2752,21 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     if (promptSourceMessage?.role === "assistant") {
       const extra = parseExtra(promptSourceMessage.extra) as Record<string, unknown>;
-      let cached = readCachedPrompt(extra, Boolean(requestedMessage));
+      let cached = await readCachedPrompt(extra, Boolean(requestedMessage));
 
       // If message-level extra doesn't have it (swipe overwrite), check swipes.
       if (!cached && promptSourceMessage.id) {
         const swipes = await storage.getSwipes(promptSourceMessage.id);
         const activeSwipe = swipes.find((s: any) => s.index === promptSourceMessage.activeSwipeIndex);
         if (activeSwipe) {
-          cached = readCachedPrompt(
+          cached = await readCachedPrompt(
             parseExtra(activeSwipe.extra) as Record<string, unknown>,
             Boolean(requestedMessage),
           );
         }
         if (!cached) {
           for (const sw of swipes) {
-            cached = readCachedPrompt(parseExtra(sw.extra) as Record<string, unknown>, Boolean(requestedMessage));
+            cached = await readCachedPrompt(parseExtra(sw.extra) as Record<string, unknown>, Boolean(requestedMessage));
             if (cached) break;
           }
         }
@@ -2739,6 +2789,21 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     if (requestedMessage) {
       return reply.status(404).send({ error: "No exact saved prompt is available for this turn" });
+    }
+
+    if (advancedMemoryEnabled) {
+      const preview = await forwardPromptPreview(app, req, { chatId: chat.id });
+      if (preview.statusCode >= 400) return reply.status(preview.statusCode).send(preview.body);
+      return {
+        messages: preview.body.prompt?.messages ?? [],
+        parameters: preview.body.parameters ?? null,
+        advancedMemory: preview.body.prompt?.advancedMemory,
+        chatMode,
+        source: "assembled",
+        exact: false,
+        generationInfo: null,
+        agentNote: "This is a read-only preview using the current character knowledge and memory settings.",
+      };
     }
 
     const ownerSpatialProjection = await resolveOwnerSpatialProjection(req.params.id, {}, chatMeta);
@@ -3526,6 +3591,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   const EXPORT_REASONING_EXTRA_KEYS = new Set(["thinking", "reasoning", "reasoning_content", "reasoning_details"]);
 
   const INTERNAL_EXPORT_EXTRA_KEYS = new Set([
+    "advancedMemoryReceipt",
     "cachedPrompt",
     "chatCompletionsReasoning",
     "chatSummaryFingerprint",
@@ -3773,6 +3839,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       };
     }
 
+    const advancedMemoryTransfer =
+      chat.mode === "roleplay" ? await createAdvancedMemoryService(app.db).exportTransferRecords(chat.id) : [];
     const lines: string[] = [
       JSON.stringify({
         user_name: persona?.name ?? "User",
@@ -3786,6 +3854,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             ...jsonlMetadata,
             mode: chat.mode,
             spatialContextHistory,
+            ...(advancedMemoryTransfer.length ? { advancedMemoryTransfer } : {}),
           },
         },
       }),
@@ -3832,6 +3901,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           is_system: msg.role === "system",
           role: msg.role,
           character_id: msg.characterId,
+          marinara_message_id: msg.id,
           mes: activeContent,
           ...(thinking
             ? {
@@ -3985,6 +4055,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     const sourceSummaryEntries = normalizeChatSummaryEntries(sourceMeta.summaryEntries, {
       legacySummary: typeof sourceMeta.summary === "string" ? sourceMeta.summary : null,
     });
+    const advancedMemoryTransfer =
+      sourceChat.mode === "roleplay"
+        ? await createAdvancedMemoryService(app.db).exportTransferRecords(sourceChat.id)
+        : [];
     const isSceneChat = sourceMeta.sceneStatus === "active" || !!sourceMeta.sceneOriginChatId;
     if (isSceneChat) {
       return reply.status(400).send({ error: "Scene chats cannot be branched" });
@@ -4027,7 +4101,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     // Copy metadata (preset, lorebooks, agents, persona settings, etc.) from source chat
     // but keep branch labels separate from the stable thread name.
-    const settingsToKeep = { ...sourceMeta };
+    let settingsToKeep = { ...sourceMeta };
     for (const key of ["summary", "summaryEntries", "lastAutomaticSummaryMessageId", "daySummaries", "weekSummaries"]) {
       delete settingsToKeep[key];
     }
@@ -4156,6 +4230,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       inheritedAutomaticEntry && typeof sourceMeta.lastAutomaticSummaryMessageId === "string"
         ? sourceToBranchedMessageId.get(sourceMeta.lastAutomaticSummaryMessageId)
         : undefined;
+    const branchCharacterIds = resolveChatCharacterIds(newChat.characterIds);
+    settingsToKeep = remapAdvancedMemoryMetadata(settingsToKeep, sourceToBranchedMessageId, branchCharacterIds);
     // #5406: `settingsToKeep` is the source metadata verbatim, which carries its
     // `metadataWriteOrdinals` mirror. Inherit the source's write-ordinal counter too, or the
     // branch's first allocation would come in BELOW the stamps it just copied and invert the
@@ -4176,6 +4252,17 @@ export async function chatsRoutes(app: FastifyInstance) {
         ? { lastAutomaticSummaryMessageId: inheritedLastAutomaticSummaryMessageId }
         : {}),
     });
+    if (sourceChat.mode === "roleplay") {
+      await copyAdvancedMemoryRecords({
+        db: app.db,
+        chatId: newChat.id,
+        records: advancedMemoryTransfer,
+        sourceMessages: msgs,
+        messageIds: sourceToBranchedMessageId,
+        characterIds: branchCharacterIds,
+        metadata: { ...settingsToKeep, summaryEntries: inheritedEntries },
+      });
+    }
 
     // Fix updatedAt: createMessage sets the chat's updatedAt to each message's
     // (preserved) timestamp, so after the loop the branched chat's updatedAt is

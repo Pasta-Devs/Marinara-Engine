@@ -33,7 +33,8 @@ export function ChatSettingsSection({
   // Remembered state wins once it exists; otherwise fall back to initialOpen.
   const [open, setOpen] = useState(rememberedOpen ?? initialOpen);
   useEffect(() => {
-    if (rememberedOpen === undefined && initialOpen) setOpen(true);
+    if (rememberedOpen !== undefined) setOpen(rememberedOpen);
+    else if (initialOpen) setOpen(true);
   }, [initialOpen, rememberedOpen]);
   const toggleOpen = () => {
     const next = !open;

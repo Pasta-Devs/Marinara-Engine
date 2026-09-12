@@ -106,6 +106,139 @@ try {
   const chatStorage = (await import("../../packages/server/src/services/storage/chats.storage.js")).createChatsStorage(
     db,
   );
+  const { advancedMemoryRecords } = await import("../../packages/server/src/db/schema/advanced-memory.js");
+  const { eq } = await import("../../packages/server/src/db/file-query.js");
+  const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
+  const { remapAdvancedMemoryMetadata } =
+    await import("../../packages/server/src/services/advanced-memory-transfer.js");
+  const { importSTChat } = await import("../../packages/server/src/services/import/st-chat.importer.js");
+  const sourceMessages = await chatStorage.listMessages(root.id);
+  const remappedKnowledge = remapAdvancedMemoryMetadata(
+    {
+      advancedMemory: {
+        enabled: true,
+        knowledgeConfirmed: true,
+        knowledgeStarts: { existing: middle.id, beginning: null, future: "omitted-message" },
+      },
+      advancedMemoryState: { activeSceneId: "old-scene" },
+    },
+    new Map([[middle.id, "copied-middle"]]),
+    ["existing", "beginning", "future", "new-character"],
+  );
+  assert.deepEqual((remappedKnowledge.advancedMemory as any).knowledgeStarts, {
+    existing: "copied-middle",
+    beginning: null,
+  });
+  assert.equal((remappedKnowledge.advancedMemory as any).knowledgeConfirmed, false);
+  assert.equal(
+    remappedKnowledge.advancedMemoryState,
+    undefined,
+    "a missing or future knowledge anchor must never become permission from the beginning",
+  );
+  const future = sourceMessages.at(-1)!;
+  await chatStorage.patchMetadata(root.id, { advancedMemory: { enabled: true } });
+  const memoryService = createAdvancedMemoryService(db);
+  const memoryFixture = (
+    id: string,
+    sceneId: string,
+    ids: string[],
+    content: string,
+    enabled = 1,
+    manualOverride = 0,
+  ) => ({
+    id,
+    chatId: root.id,
+    sceneId,
+    kind: "scene",
+    status: "closed",
+    startMessageId: ids[0]!,
+    endMessageId: ids.at(-1)!,
+    messageIds: JSON.stringify(ids),
+    audienceCharacterIds: "[]",
+    content,
+    title: "Retained scene",
+    timeline: null,
+    enabled,
+    manualOverride,
+    sourceFingerprint: "",
+    dependencies: "[]",
+    embedding: null,
+    embeddingSpaceId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  await db
+    .insert(advancedMemoryRecords)
+    .values([
+      memoryFixture(`scene-${first.id}`, `scene-${first.id}`, [first.id], ""),
+      memoryFixture("edited-disabled-scene", `scene-${first.id}`, [first.id], "USER_CORRECTED_MEMORY", 0, 1),
+      memoryFixture(`scene-${middle.id}`, `scene-${middle.id}`, [middle.id, future.id], ""),
+      memoryFixture("future-scene-variant", `scene-${middle.id}`, [middle.id, future.id], "FUTURE_SECRET"),
+    ]);
+  await memoryService.refreshTransferredRecords(root.id);
+  const memoryBranchResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${root.id}/branch`,
+    payload: { upToMessageId: middle.id },
+  });
+  assert.equal(memoryBranchResponse.statusCode, 200);
+  const memoryBranch = memoryBranchResponse.json();
+  const memoryBranchMessages = await chatStorage.listMessages(memoryBranch.id);
+  const branchedMemories = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, memoryBranch.id));
+  assert.equal(
+    branchedMemories.some((record) => record.content.includes("FUTURE_SECRET")),
+    false,
+  );
+  const retainedCorrection = branchedMemories.find((record) => record.content === "USER_CORRECTED_MEMORY");
+  assert.equal(retainedCorrection?.enabled, 0, "disabled corrections stay disabled on a branch");
+  assert.equal(retainedCorrection?.manualOverride, 1);
+  assert.deepEqual(JSON.parse(retainedCorrection!.messageIds), [memoryBranchMessages[0]!.id]);
+  const reopened = branchedMemories.find((record) => record.id === `scene-${memoryBranchMessages[1]!.id}`);
+  assert.equal(reopened?.status, "open", "a branch inside a scene must not inherit the future ending");
+  assert.equal(reopened?.content, "");
+  assert.equal(reopened?.endMessageId, memoryBranchMessages[1]!.id);
+
+  const transcript = await app.inject({ method: "GET", url: `/api/chats/${root.id}/export` });
+  assert.equal(transcript.statusCode, 200);
+  const importedMemory = await importSTChat(transcript.body, db, { mode: "roleplay" });
+  assert.equal(importedMemory.success, true);
+  const importedRows = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, importedMemory.chatId!));
+  const importedMessages = await chatStorage.listMessages(importedMemory.chatId!);
+  const importedIds = new Set(importedMessages.map((message) => message.id));
+  assert.equal(importedRows.length, 4, "native transcript export/import keeps the supported scene archive");
+  for (const record of importedRows) {
+    assert.ok(
+      JSON.parse(record.messageIds).every((id: string) => importedIds.has(id)),
+      "import remaps every source ID",
+    );
+    assert.equal(record.embedding, null, "imported vectors must be rebuilt for the current embedding space");
+  }
+  assert.equal(importedRows.find((record) => record.content === "USER_CORRECTED_MEMORY")?.enabled, 0);
+  const changedTranscript = transcript.body
+    .split("\n")
+    .map((line: string, index: number) => {
+      const value = JSON.parse(line);
+      if (index === 2) value.mes = "The imported source was edited.";
+      return JSON.stringify(value);
+    })
+    .join("\n");
+  const changedImport = await importSTChat(changedTranscript, db, { mode: "roleplay" });
+  const changedRows = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, changedImport.chatId!));
+  assert.equal(
+    changedRows.some((record) => record.content === "FUTURE_SECRET"),
+    false,
+    "changed imported source text must not bless an old derived scene as current",
+  );
+
   const game = await create("Branch-scoped GM state", "game");
   const keptGameMessage = await addMessage(game.id, '[widget: clues, add: "First clue"]', "assistant");
   const omittedGameMessage = await addMessage(game.id, '[widget: clues, add: "Future clue"]', "assistant");
@@ -447,6 +580,25 @@ try {
   const survivingChild = await app.inject({ method: "GET", url: `/api/chats/${branch.id}` });
   assert.equal(survivingChild.statusCode, 200);
   assert.equal(survivingChild.json().metadata.branchParentChatId, root.id);
+
+  const profileExport = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
+  assert.equal(profileExport.statusCode, 200, profileExport.body);
+  const profile = profileExport.json();
+  const backedUpRecords = profile.data.fileStorage.tables.advanced_memory_records;
+  assert.ok(Array.isArray(backedUpRecords), "native backups must discover the managed memory table");
+  const backedUpCorrection = backedUpRecords.find((record: { id: string }) => record.id === retainedCorrection!.id);
+  assert.ok(backedUpCorrection);
+  await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, retainedCorrection!.id));
+  const profileImport = await app.inject({ method: "POST", url: "/api/backup/import-profile", payload: profile });
+  assert.equal(profileImport.statusCode, 200, profileImport.body);
+  const restoredCorrection = (
+    await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, retainedCorrection!.id))
+  )[0];
+  assert.deepEqual(
+    restoredCorrection,
+    backedUpCorrection,
+    "profile restore retains source anchors and manual/disabled provenance",
+  );
 } finally {
   await app?.close();
   rmSync(dataDir, { recursive: true, force: true });

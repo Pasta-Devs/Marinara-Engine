@@ -1,0 +1,7 @@
+# Professor Mari memory wheel
+
+Generated with the built-in image generation tool on 2026-09-12. Character reference: `professor-mari-assistant-idle.png`.
+
+Use case: stylized-concept. Make a TRUE TRANSPARENT PNG sprite sheet, not an illustration on a black backdrop. Reference image identifies Professor Mari: blonde wavy hair, large black glasses, blue eyes, navy hoodie, gray trousers, dark shoes. Draw exactly four equal animation cels horizontally: Professor Mari running inside a hamster exercise wheel. Pixel art, chunky crisp square pixels matching reference. Four frames must visibly differ: frame 1 left leg extends forward right leg back; frame 2 both knees bent crossing, body slightly up; frame 3 right leg forward left leg back; frame 4 both knees bent crossing, body down. Wheel spokes rotate between frames. All wheel centers and diameters identical; each wheel including feet entirely contained in its own 384px-wide tile on a 1536×1024 canvas. Center row vertically, wheel approximately 330px high. Keep transparent padding around all cels. Transparent empty spaces inside wheels. Flat pixel colors, no gradients, shadows, atmospheric glow, black background, gray background, checkerboard, labels, or text. Character stays the same identity in all four frames. Four cels only. Real alpha transparency is essential for a UI asset.
+
+The UI displays the center 384×448 area of each frame and steps through the four frames. Reduced-motion users see the first frame. The original PNG and alpha are preserved without image postprocessing.

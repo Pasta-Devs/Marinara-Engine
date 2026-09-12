@@ -287,7 +287,10 @@ import {
   DIRECTOR_SECRET_PLOT_LAST_MESSAGE_KEY,
   shouldRunDirectorSecretPlotMaintenance,
 } from "../../packages/server/src/services/generation/director-secret-plot-runtime.js";
-import { filterPromptMessagesForCharacterAudience } from "../../packages/server/src/services/generation/prompt-message-scope.js";
+import {
+  filterPromptHistoryByMessageIds,
+  filterPromptMessagesForCharacterAudience,
+} from "../../packages/server/src/services/generation/prompt-message-scope.js";
 import {
   mergeAdjacentMessages,
   squashLeadingSystemMessages,
@@ -790,6 +793,11 @@ import {
   type WorkspaceCommandResult,
 } from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import { fitMessagesForModelAccess } from "../../packages/server/src/services/generation/model-access-policy.js";
+import {
+  resolveAdvancedMemoryPrompt,
+  describeAdvancedMemoryPlacements,
+  type AdvancedMemoryPromptParts,
+} from "../../packages/server/src/services/prompt/advanced-memory-prompt.js";
 import {
   assemblePrompt,
   appendFallbackChatSummaryToSystemPrompt,
@@ -8969,6 +8977,227 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
+    name: "advanced memory history selection retains complete wrappers and synthetic current input",
+    run() {
+      const messages = [
+        { id: "first", role: "user" as const, contextKind: "history" as const, content: "<chat_history>\nOld." },
+        { id: "middle", role: "assistant" as const, contextKind: "history" as const, content: "Kept." },
+        { id: "third", role: "user" as const, contextKind: "history" as const, content: "Later.\n</chat_history>" },
+        {
+          id: "last",
+          role: "assistant" as const,
+          contextKind: "history" as const,
+          content: "<last_message>\nLast.\n</last_message>",
+        },
+      ];
+      const sourceIds = new Set(messages.map((message) => message.id));
+      assert.equal(
+        filterPromptHistoryByMessageIds(messages, new Set(["middle"]), sourceIds)[0]?.content,
+        "<last_message>\nKept.\n</last_message>",
+      );
+      const withCurrentInput = [
+        ...messages,
+        {
+          id: "__dryrun_user__",
+          role: "user" as const,
+          contextKind: "history" as const,
+          content: "Unsaved current input.",
+        },
+      ];
+      const selected = filterPromptHistoryByMessageIds(withCurrentInput, new Set(["middle"]), sourceIds);
+      assert.deepEqual(
+        selected.map((message) => message.id),
+        ["middle", "__dryrun_user__"],
+      );
+      assert.equal(selected[0]?.content, "<chat_history>\nKept.\n</chat_history>");
+      assert.match(selected[1]?.content ?? "", /<last_message>\nUnsaved current input\./u);
+      assert.equal(messages[1]?.content, "Kept.", "filtering must preserve the reusable snapshot");
+    },
+  },
+  {
+    name: "advanced memory markers preserve scoped placement, formatting, fallback and empty groups",
+    async run() {
+      const parts: AdvancedMemoryPromptParts = {
+        chatSummary: "CONTINUITY_FACT",
+        currentSceneSummary: "OPEN_SCENE_FACT",
+        recalledScenes: "OLD_SCENE_FACT",
+        recalledMessages: "#12 Mari: EXACT_OLD_WORDS",
+      };
+      for (const format of ["xml", "markdown", "none"] as const) {
+        const marker = (id: string, type: string, extra: Partial<AssemblerInput["sections"][number]> = {}) =>
+          promptSection({
+            id,
+            name: id,
+            identifier: id,
+            isMarker: "true",
+            markerConfig: JSON.stringify({ type }),
+            ...extra,
+          });
+        const sections = [
+          promptSection({ id: "main", identifier: "main", name: "Instructions", content: "STABLE_RULE" }),
+          marker("hidden_summary", "chat_summary", { groupId: "disabled" }),
+          marker("old_scene", "recalled_scenes", { groupId: "memory" }),
+          marker("history", "chat_history"),
+          marker("my_summary", "chat_summary", { role: "user" }),
+          marker("duplicate_summary", "chat_summary"),
+          marker("disabled_excerpt", "recalled_messages", { enabled: "false" }),
+        ];
+        const input: AssemblerInput = {
+          db: undefined as unknown as DB,
+          preset: {
+            id: "advanced-memory-markers",
+            name: "Memory fixture",
+            sectionOrder: JSON.stringify(sections.map((section) => section.id)),
+            groupOrder: JSON.stringify(["disabled", "memory"]),
+            wrapFormat: format,
+            parameters: JSON.stringify({}),
+            variableGroups: "[]",
+            variableValues: "{}",
+          },
+          sections,
+          groups: [
+            { id: "disabled", name: "Hidden group", enabled: "false" },
+            { id: "memory", name: "Memory group", enabled: "true" },
+          ].map((group) => ({
+            ...group,
+            presetId: "advanced-memory-markers",
+            parentGroupId: null,
+            order: 0,
+            createdAt: "",
+          })),
+          choiceBlocks: [],
+          chatChoices: {},
+          chatId: "advanced-memory-markers",
+          characterIds: [],
+          personaName: "Mari",
+          personaDescription: "",
+          chatMessages: [{ role: "user", content: "LIVE_WORDS" }],
+          chatSummary: "LEGACY_UNSCOPED_SECRET",
+          advancedMemory: parts,
+          previewOnly: true,
+        };
+        const assembled = await assemblePrompt(input);
+        const text = assembled.messages.map((message) => message.content).join("\n");
+        for (const fact of Object.values(parts)) assert.equal(text.split(fact!).length - 1, 1, fact!);
+        assert.doesNotMatch(text, /LEGACY_UNSCOPED_SECRET|duplicate_summary|hidden_summary|disabled_excerpt/u);
+        assert.match(text, /Below is a small excerpt from earlier chat history/u);
+        const summaryIndex = assembled.messages.findIndex((message) => message.content.includes("CONTINUITY_FACT"));
+        assert.ok(
+          text.indexOf("CONTINUITY_FACT") > text.indexOf("LIVE_WORDS"),
+          "explicit summary placement stays after history, including merged user sections",
+        );
+        assert.equal(assembled.messages[summaryIndex]?.role, "user");
+        assert.ok(
+          text.indexOf("EXACT_OLD_WORDS") < text.indexOf("LIVE_WORDS"),
+          "missing markers fall back before history",
+        );
+        if (format === "xml") assert.match(text, /<my_summary>/u);
+        if (format === "markdown") {
+          assert.match(text, /## my_summary/u);
+          assert.doesNotMatch(text, /<my_summary>|<recalled_messages>/u);
+        }
+        if (format === "none") assert.doesNotMatch(text, /<my_summary>|## my_summary|## Recalled/u);
+
+        const deferred = await assemblePrompt({ ...input, deferAdvancedMemory: true });
+        const preparedSnapshot = JSON.stringify(deferred.messages);
+        assert.doesNotMatch(preparedSnapshot, /CONTINUITY_FACT|EXACT_OLD_WORDS|LEGACY_UNSCOPED_SECRET/u);
+        const resolved = resolveAdvancedMemoryPrompt(deferred.messages, deferred.advancedMemoryPlacements!, parts);
+        assert.deepEqual(resolved, assembled.messages, "preview and late per-responder rendering agree");
+        const empty = resolveAdvancedMemoryPrompt(deferred.messages, deferred.advancedMemoryPlacements!, {});
+        const emptyText = empty.map((message) => message.content).join("\n");
+        assert.match(emptyText, /STABLE_RULE/u);
+        assert.match(emptyText, /LIVE_WORDS/u);
+        assert.doesNotMatch(emptyText, /Memory group|memory_group|Below is|Below are|MARINARA_ADVANCED_MEMORY/u);
+        assert.equal(
+          JSON.stringify(deferred.messages),
+          preparedSnapshot,
+          "budget probes must not mutate the prepared prompt",
+        );
+
+        const characterSections = [
+          ...input.sections.slice(0, 3),
+          promptSection({
+            id: "other_profile",
+            identifier: "other_profile",
+            name: "Other Profile",
+            groupId: "memory",
+            content: "CHARACTER_ONLY_PROFILE",
+          }),
+          ...input.sections.slice(3),
+        ];
+        const characterGrouped = await assemblePrompt({
+          ...input,
+          deferAdvancedMemory: true,
+          deferMessagePostProcessing: true,
+          sections: characterSections,
+          preset: { ...input.preset, sectionOrder: JSON.stringify(characterSections.map((section) => section.id)) },
+          groups: input.groups.map((group) => (group.id === "memory" ? { ...group, name: "Dottore" } : group)),
+        });
+        const characterScoped = scopeIndividualGroupMessagesForTarget(characterGrouped.messages, "visitor", [
+          { id: "dottore", name: "Dottore" },
+          { id: "visitor", name: "Visitor" },
+        ]);
+        const scopedText = resolveAdvancedMemoryPrompt(
+          characterScoped,
+          characterGrouped.advancedMemoryPlacements!,
+          parts,
+        )
+          .map((message) => message.content)
+          .join("\n");
+        for (const fact of Object.values(parts))
+          assert.equal(scopedText.split(fact!).length - 1, 1, "scoped-away slots still emit once");
+        assert.ok(scopedText.indexOf("OLD_SCENE_FACT") < scopedText.indexOf("LIVE_WORDS"));
+        if (format !== "none")
+          assert.doesNotMatch(
+            scopedText,
+            /CHARACTER_ONLY_PROFILE/u,
+            "memory group guards must not prevent ordinary character profile scoping",
+          );
+        const scenePlacement = describeAdvancedMemoryPlacements(
+          characterScoped,
+          characterGrouped.advancedMemoryPlacements!,
+        ).find((placement) => placement.markerType === "recalled_scenes")!;
+        assert.equal(
+          scenePlacement.fallback,
+          format !== "none",
+          "placement receipt reports a scoped-away authored group",
+        );
+
+        const deferredSquash = await assemblePrompt({
+          ...input,
+          deferAdvancedMemory: true,
+          deferMessagePostProcessing: true,
+          preset: { ...input.preset, parameters: JSON.stringify({ squashSystemMessages: true }) },
+          sections: [sections[0]!, sections[3]!],
+          chatMessages: [
+            { id: "old-narrator", role: "system", content: "OLD_NARRATOR_SECRET" },
+            { id: "current-user", role: "user", content: "LIVE_WORDS" },
+          ],
+        });
+        assert.ok(
+          deferredSquash.messages.some((message) => message.id === "old-narrator" && message.contextKind === "history"),
+          "deferred system squashing must preserve narrator source IDs",
+        );
+        const selectedNarrator = filterPromptHistoryByMessageIds(
+          deferredSquash.messages,
+          new Set(["current-user"]),
+          new Set(["old-narrator", "current-user"]),
+        );
+        assert.doesNotMatch(
+          resolveAdvancedMemoryPrompt(selectedNarrator, deferredSquash.advancedMemoryPlacements!, {})
+            .map((message) => message.content)
+            .join("\n"),
+          /OLD_NARRATOR_SECRET/u,
+        );
+
+        const disabled = await assemblePrompt({ ...input, advancedMemory: undefined });
+        const disabledText = disabled.messages.map((message) => message.content).join("\n");
+        assert.match(disabledText, /LEGACY_UNSCOPED_SECRET/u);
+        assert.doesNotMatch(disabledText, /OPEN_SCENE_FACT|OLD_SCENE_FACT|EXACT_OLD_WORDS|Below is|Below are/u);
+      }
+    },
+  },
+  {
     name: "chat summary without marker appends to the system prompt block",
     async run() {
       const result = await assemblePrompt({
@@ -9067,7 +9296,9 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
         "utf8",
       );
-      const fallbackBranchStart = generateRouteSource.indexOf('if (chatMode === "roleplay" && !resolvedPreset) {');
+      const fallbackBranchStart = generateRouteSource.indexOf(
+        'if (chatMode === "roleplay" && !resolvedPreset && !advancedMemoryEnabled) {',
+      );
       const fallbackBranchEnd = generateRouteSource.indexOf("\n        }", fallbackBranchStart);
       assert.notEqual(fallbackBranchStart, -1);
       assert.notEqual(fallbackBranchEnd, -1);
