@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  extractCharacterCardCastMembers,
   ANIME_GAME_PROMPT_TEMPLATE_ID,
   ANIME_GAME_SYSTEM_PROMPT,
   ANIME_GAME_VIDEO_PROMPT_TEMPLATE_ID,
@@ -10905,6 +10906,74 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       const unrelatedLongName: Array<Record<string, unknown>> = [{ name: "Mari Calder" }];
       applyTrackerCharacterCardIdentity(unrelatedLongName, [{ id: "party-card", name: "Mari" }]);
       assert.deepEqual(unrelatedLongName, [{ name: "Mari Calder" }]);
+
+      // Multi-character cards: two distinctly named members of one card stay separate.
+      const castCard = { id: "resort-card", name: "Vacation Resort", avatarPath: "/api/avatars/file/resort.png" };
+      const castBatch: Array<Record<string, unknown>> = [
+        { characterId: "resort-card", name: "Ana", mood: "Playful", avatarPath: "/api/avatars/file/resort.png" },
+        { characterId: "resort-card", name: "Julia", mood: "Sleeping" },
+      ];
+      const castMatches = applyTrackerCharacterCardIdentity(castBatch, [castCard]);
+      assert.equal(castMatches.has("resort-card"), false);
+      assert.deepEqual(castBatch, [
+        { characterId: "resort-card:cast:ana", name: "Ana", mood: "Playful", avatarPath: null, avatarCrop: null },
+        { characterId: "resort-card:cast:julia", name: "Julia", mood: "Sleeping" },
+      ]);
+
+      // A lone member on a later turn keeps the cast identity when earlier state remembers the cast.
+      const loneMember: Array<Record<string, unknown>> = [{ characterId: "resort-card", name: "Ana", mood: "Bored" }];
+      applyTrackerCharacterCardIdentity(loneMember, [castCard], {
+        previousCharacters: [{ characterId: "resort-card:cast:julia", name: "Julia" }],
+      });
+      assert.deepEqual(loneMember, [{ characterId: "resort-card:cast:ana", name: "Ana", mood: "Bored" }]);
+
+      // A model echoing a cast id resolves to the same member, and duplicates merge.
+      const echoedCast: Array<Record<string, unknown>> = [
+        { characterId: "resort-card:cast:ana", name: "Ana", mood: "Smug" },
+        { characterId: "resort-card", name: "ana", outfit: "hoodie" },
+      ];
+      applyTrackerCharacterCardIdentity(echoedCast, [castCard]);
+      assert.deepEqual(echoedCast, [
+        { characterId: "resort-card:cast:ana", name: "ana", mood: "Smug", outfit: "hoodie" },
+      ]);
+
+      // Without cast evidence a single differently named entry still canonicalizes to the card.
+      const soloAlias: Array<Record<string, unknown>> = [{ characterId: "resort-card", name: "Ana" }];
+      const soloMatches = applyTrackerCharacterCardIdentity(soloAlias, [castCard]);
+      assert.equal(soloMatches.has("resort-card"), true);
+      assert.equal(soloAlias[0]?.name, "Vacation Resort");
+
+      // A card whose text lists its cast is multi-character from the first turn:
+      // the old merged row named after the card is dropped, and bare member names link to the card.
+      const declaredCastCard = {
+        ...castCard,
+        description:
+          "[PREMISE]\nA trip.\n\n[CHARACTER: Ana]\nFull Name: Ana\nAge: 20\n\n[CHARACTER: Julia]\nFull Name: Julia\nAge: 41",
+      };
+      assert.deepEqual(extractCharacterCardCastMembers(declaredCastCard), ["Ana", "Julia"]);
+      assert.deepEqual(
+        extractCharacterCardCastMembers({ name: "Mira", description: "[CHARACTER: Mira]\nA lone knight." }),
+        [],
+      );
+      assert.deepEqual(
+        extractCharacterCardCastMembers({
+          name: "Party",
+          description: "Name: Rook\nRole: scout\n\nName: Vale\nRole: mage",
+        }),
+        ["Rook", "Vale"],
+      );
+      const declaredBatch: Array<Record<string, unknown>> = [
+        {
+          characterId: "resort-card",
+          name: "Vacation Resort",
+          mood: "Excited",
+          avatarPath: "/api/avatars/file/resort.png",
+        },
+        { name: "Julia", mood: "Sleeping" },
+      ];
+      const declaredMatches = applyTrackerCharacterCardIdentity(declaredBatch, [declaredCastCard]);
+      assert.equal(declaredMatches.has("resort-card"), false);
+      assert.deepEqual(declaredBatch, [{ characterId: "resort-card:cast:julia", name: "Julia", mood: "Sleeping" }]);
 
       assert.equal(
         canonicalizeGamePartySpeakerLabels(
