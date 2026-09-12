@@ -20,7 +20,9 @@ import {
 } from "../../packages/server/src/services/import/profile-import-assets.js";
 import {
   AUTOMATIC_BACKUP_FILENAME,
+  AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES,
   automaticBackupArchiveFilename,
+  automaticBackupFreeSpaceError,
   isAutomaticBackupFilename,
   listAutomaticBackupFiles,
   normalizeAutomaticBackupRetentionCount,
@@ -44,6 +46,19 @@ assert.equal(
 );
 assert.deepEqual(limitAutomaticBackupOmissionHistory(["kept", 42, "also-kept"]), ["kept", "also-kept"]);
 assert.equal(limitAutomaticBackupOmissionHistory(["x".repeat(256 * 1024 + 1)]).length, 0);
+const archiveBytes = 5 * 1024 ** 3;
+assert.equal(
+  automaticBackupFreeSpaceError(archiveBytes + AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES, archiveBytes),
+  null,
+);
+assert.equal(
+  automaticBackupFreeSpaceError(archiveBytes + AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES - 1, archiveBytes),
+  "Not enough free space for the automatic backup: 5.2 GiB free, about 5.3 GiB needed.",
+);
+assert.equal(
+  automaticBackupFreeSpaceError(0, 100 * 1024 ** 2),
+  "Not enough free space for the automatic backup: 0 MiB free, about 356 MiB needed.",
+);
 
 const backupRouteSource = await readFile(
   new URL("../../packages/server/src/routes/backup.routes.ts", import.meta.url),
@@ -56,6 +71,11 @@ assert.match(
 assert.match(
   backupRouteSource,
   /withAutomaticBackupLifecycleLock\(\(\) =>\s*pruneAutomaticBackupFiles\(backupsRoot, next\.retentionCount\)/u,
+);
+assert.match(
+  backupRouteSource,
+  /statfs\(backupsRoot\)[\s\S]*?automaticBackupFreeSpaceError\(/u,
+  "the automatic backup must check the backups disk before writing its archive",
 );
 assert.equal(
   isPermittedLargeStoredBackupEntry(
