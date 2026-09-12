@@ -49,6 +49,8 @@ strumieniowy i gotowy do przywrócenia, co przy **Download Backup** – razem z 
 jeśli taki istnieje. Trzymaj osobną kopię poza folderem danych aplikacji Marinara Engine, jeśli chcesz zabezpieczyć się przed awarią
 dysku, wyczyszczeniem pamięci aplikacji albo resetem urządzenia.
 
+Każde wykonanie wymaga miejsca na jeszcze jedno pełne archiwum na dysku z folderem `backups/`, ponieważ poprzednia kopia pozostaje zachowana do czasu ukończenia nowej. Jeśli miejsca nie wystarcza, Marinara pomija ten przebieg i wyświetla przyczynę obok przełącznika **Automatic Backups**. Po zwolnieniu miejsca ponowi próbę przy następnej kontroli.
+
 ## Export Profile
 
 Opcja **Export Profile** tworzy mniejszy plik z danymi konta. Multimedia też się w nim znajdują, więc awatary, obrazy i własny dźwięk powiadomień wędrują razem z resztą.

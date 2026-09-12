@@ -49,6 +49,8 @@ dasselbe wiederherstellbare, gestreamte Archivformat wie **Download Backup** –
 dem Verschlüsselungs-Key, sofern eine existiert. Halte eine separate Kopie außerhalb des Marinara-Datenordners bereit, wenn du dich
 gegen einen Festplattenausfall, gelöschten App-Speicher oder ein zurückgesetztes Gerät absichern willst.
 
+Für jeden Durchlauf muss auf dem Datenträger mit dem Ordner `backups/` Platz für ein weiteres vollständiges Archiv frei sein, da das vorherige Archiv erhalten bleibt, bis das neue fertig ist. Reicht der Platz nicht aus, überspringt Marinara diesen Durchlauf und zeigt den Grund neben **Automatic Backups** an. Sobald wieder Platz frei ist, versucht Marinara es bei der nächsten Prüfung erneut.
+
 ## Export Profile
 
 **Export Profile** erzeugt eine kleinere Datei mit den Kontodaten. Medien sind enthalten, also kommen Avatare, Bilder und der eigene Benachrichtigungston mit.

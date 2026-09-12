@@ -49,6 +49,8 @@ formato de arquivo restaurável e transmitido em fluxo do **Download Backup**, i
 existe um. Guarde uma cópia separada fora da pasta de dados do Marinara para se proteger contra um disco perdido, um armazenamento
 do aplicativo apagado ou um dispositivo restaurado de fábrica.
 
+Cada execução precisa de espaço livre para mais um arquivo completo no disco que contém `backups/`, pois o arquivo anterior é mantido até que o novo esteja pronto. Se não houver espaço suficiente, o Marinara pula essa execução e mostra o motivo ao lado do controle **Automatic Backups**. Depois que houver espaço livre, ele tentará novamente na próxima verificação.
+
 ## Export Profile
 
 O botão **Export Profile** cria um arquivo menor, com os dados da conta. As mídias entram junto, então avatares, imagens e o som de notificação personalizado também vão no arquivo.

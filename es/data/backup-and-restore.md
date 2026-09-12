@@ -49,6 +49,8 @@ Usan el mismo formato de archivo restaurable y transmitido que **Download Backup
 la clave de cifrado cuando existe uno. Mantén una copia aparte, fuera de la carpeta de datos de Marinara, si necesitas protección
 frente a un disco perdido, un almacenamiento de la app borrado o un restablecimiento del dispositivo.
 
+Cada ejecución necesita espacio libre para un archivo completo adicional en el disco que contiene `backups/`, ya que la copia anterior se conserva hasta que termina la nueva. Si no hay espacio suficiente, Marinara omite esa ejecución y muestra el motivo junto al control **Automatic Backups**. Una vez liberado espacio, vuelve a intentarlo en la siguiente comprobación.
+
 ## Export Profile
 
 **Export Profile** crea un archivo más pequeño con los datos de tu cuenta. Los medios se incluyen, así que los avatares, las imágenes y tu sonido de notificación personalizado también vienen con él.
