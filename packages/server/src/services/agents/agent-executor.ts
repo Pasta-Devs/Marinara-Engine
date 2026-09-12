@@ -33,6 +33,7 @@ import {
   publicAgentOutput,
   getDefaultAgentPrompt,
   flattenAgentConditionalMacros,
+  extractCharacterCardCastMembers,
   normalizeRpgStatPools,
   resolveMacros,
   extractLeadingThinkingBlocks,
@@ -2861,6 +2862,12 @@ function buildLoreBlock(context: AgentContext, sources: CustomAgentContextSource
     parts.push(`<characters>`);
     for (const char of context.characters) {
       parts.push(`<character id="${char.id}" name="${char.name}">`);
+      const castMembers = extractCharacterCardCastMembers(char);
+      if (castMembers.length > 0) {
+        parts.push(
+          `This card describes several people: ${castMembers.join(", ")}. Treat each as a separate character; the card name itself is not a character.`,
+        );
+      }
       pushLoreField(parts, "Description", char.description, CHARACTER_LORE_DESCRIPTION_LIMIT);
       pushLoreField(parts, "Personality", char.personality, CHARACTER_LORE_FIELD_LIMIT);
       pushLoreField(parts, "Backstory", char.backstory, CHARACTER_LORE_FIELD_LIMIT);
@@ -3070,7 +3077,7 @@ function buildAgentExtras(
   if (agentTypes.includes("character-tracker") && context.characters.length > 0) {
     parts.push(`<character_tracker_cards>`);
     parts.push(
-      "A character card may describe several people (for example a scenario card with a cast). Track each of them as a separate entry: set characterId to that card's id and name to the person's own name. Never fold several people into one entry named after the card. When an earlier state lists a member under an id ending in `:cast:<name>`, reuse that id.",
+      "A character card may describe several people (for example a scenario card with a cast). Track each of them as a separate entry: set characterId to that card's id and name to the person's own name. Never fold several people into one entry named after the card. If the current state or history lists an entry named after such a card, replace it with one entry per person who is actually present. When an earlier state lists a member under an id ending in `:cast:<name>`, reuse that id.",
     );
     parts.push(`</character_tracker_cards>`);
   }

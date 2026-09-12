@@ -6,7 +6,9 @@ import {
   applyTrackerFieldLocksToGameStatePatch,
   generationParametersSchema,
   normalizeInventoryTrackerRows,
+  extractCharacterCardCastMembers,
   normalizeTextForMatch,
+  type CharacterCardCastSource,
   normalizeSummaryTailMessages,
   normalizeWorldCustomFields,
   normalizeThinkingTagPairs,
@@ -1525,7 +1527,7 @@ export function collectLatestTrackerCharacterHistory(
   return history;
 }
 
-type TrackerCharacterCardIdentity = {
+type TrackerCharacterCardIdentity = CharacterCardCastSource & {
   id: string;
   name: string;
   avatarPath?: string | null;
@@ -1621,8 +1623,11 @@ export function parseTrackerCastCharacterId(value: unknown): { cardId: string; n
  * Some cards describe several people (a scenario card with a cast). The
  * tracker reports each of them with the card's id and their own name. Merging
  * those would erase everyone but the last one, so a card is treated as a
- * multi-character card when the batch carries two or more distinctly named
- * members for it, or when `previousCharacters` already holds a cast id for it.
+ * multi-character card when its own text lists a cast (see
+ * `extractCharacterCardCastMembers`), when the batch carries two or more
+ * distinctly named members for it, or when `previousCharacters` already holds
+ * a cast id for it. An entry that merely repeats the title of a card with a
+ * known cast is dropped: it is the old merged row, not a person.
  * Cast members keep their own name under a `<cardId>:cast:<name>` id, do not
  * inherit the card avatar, and are not reported in the returned card-id set,
  * so the NPC avatar path (library, stored, or generated portraits) applies.
@@ -1643,6 +1648,24 @@ export function applyTrackerCharacterCardIdentity(
   }
   for (const name of duplicateNames) cardsByName.delete(name);
   const canonicalCardNamesByKey = new Map([...cardsByName].map(([key, card]) => [key, card.name]));
+
+  // Cards whose text lists a cast are multi-character from the first turn on,
+  // and a bare member name (no id) links to its card through this map.
+  const declaredCastCardIds = new Set<string>();
+  const cardsByCastMember = new Map<string, TrackerCharacterCardIdentity>();
+  const ambiguousCastMembers = new Set<string>();
+  for (const card of cards) {
+    const members = extractCharacterCardCastMembers(card);
+    if (members.length === 0) continue;
+    declaredCastCardIds.add(card.id);
+    for (const member of members) {
+      const key = normalizeTextForMatch(member);
+      if (!key || cardsByName.has(key)) continue;
+      if (cardsByCastMember.has(key) && cardsByCastMember.get(key) !== card) ambiguousCastMembers.add(key);
+      else cardsByCastMember.set(key, card);
+    }
+  }
+  for (const key of ambiguousCastMembers) cardsByCastMember.delete(key);
 
   type ResolvedTrackerCharacter = {
     character: Record<string, unknown>;
@@ -1667,7 +1690,11 @@ export function applyTrackerCharacterCardIdentity(
       cardsById.get(trackerCharacterIdKey(character)) ??
       cardsByName.get(nameKey) ??
       (explicitCanonicalName ? cardsByName.get(normalizeTextForMatch(explicitCanonicalName)) : undefined);
-    if (!card) return { character, card: undefined, isCardName: false, castNameKey: "", viaCastId: false };
+    if (!card) {
+      const castCard = nameKey ? cardsByCastMember.get(nameKey) : undefined;
+      if (castCard) return { character, card: castCard, isCardName: false, castNameKey: nameKey, viaCastId: false };
+      return { character, card: undefined, isCardName: false, castNameKey: "", viaCastId: false };
+    }
 
     const cardNameKey = normalizeTextForMatch(card.name);
     const isCardName =
@@ -1679,7 +1706,7 @@ export function applyTrackerCharacterCardIdentity(
 
   // Multi-character cards: remembered from earlier snapshots, or evidenced by
   // this batch naming two or more distinct members of the same card.
-  const castCardIds = new Set<string>();
+  const castCardIds = new Set<string>(declaredCastCardIds);
   for (const previous of options.previousCharacters ?? []) {
     const parsed = parseTrackerCastCharacterId(previous.characterId);
     const card = parsed ? cardsById.get(parsed.cardId.toLowerCase()) : undefined;
@@ -1714,6 +1741,12 @@ export function applyTrackerCharacterCardIdentity(
   for (const { character, card, isCardName, castNameKey } of resolved) {
     if (!card) {
       canonicalCharacters.push(character);
+      continue;
+    }
+
+    if (declaredCastCardIds.has(card.id) && isCardName) {
+      // The card is a cast, so a row carrying the card's own title is the old
+      // merged entry (or the scenario itself), never one of the people on it.
       continue;
     }
 
