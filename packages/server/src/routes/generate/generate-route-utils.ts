@@ -1590,9 +1590,47 @@ export function canonicalizeGamePartySpeakerLabels(content: string, canonicalNam
   );
 }
 
+const TRACKER_CAST_ID_SEPARATOR = ":cast:";
+
+/**
+ * Character id for one member of a multi-character card: `<cardId>:cast:<normalized name>`.
+ * Cast ids stay stable across turns so locks, manual edits, NPC avatars, and
+ * continuity keep pointing at the same person even when the card itself is one row.
+ */
+export function buildTrackerCastCharacterId(cardId: string, name: unknown): string {
+  return `${cardId}${TRACKER_CAST_ID_SEPARATOR}${normalizeTextForMatch(name)}`;
+}
+
+export function parseTrackerCastCharacterId(value: unknown): { cardId: string; nameKey: string } | null {
+  if (typeof value !== "string") return null;
+  const index = value.indexOf(TRACKER_CAST_ID_SEPARATOR);
+  if (index <= 0) return null;
+  const cardId = value.slice(0, index).trim();
+  const nameKey = normalizeTextForMatch(value.slice(index + TRACKER_CAST_ID_SEPARATOR.length));
+  return cardId && nameKey ? { cardId, nameKey } : null;
+}
+
+/**
+ * Canonicalize tracked characters against the chat's character cards.
+ *
+ * A tracked entry that matches a card by id, exact name, or an explicit alias
+ * takes the card's id, name, and avatar, and duplicates collapse into one row.
+ * That keeps single-character cards stable when a model drifts between
+ * "Mari" and 'Marisol "Mari"'.
+ *
+ * Some cards describe several people (a scenario card with a cast). The
+ * tracker reports each of them with the card's id and their own name. Merging
+ * those would erase everyone but the last one, so a card is treated as a
+ * multi-character card when the batch carries two or more distinctly named
+ * members for it, or when `previousCharacters` already holds a cast id for it.
+ * Cast members keep their own name under a `<cardId>:cast:<name>` id, do not
+ * inherit the card avatar, and are not reported in the returned card-id set,
+ * so the NPC avatar path (library, stored, or generated portraits) applies.
+ */
 export function applyTrackerCharacterCardIdentity(
   characters: Array<Record<string, unknown>>,
   cards: TrackerCharacterCardIdentity[],
+  options: { previousCharacters?: ReadonlyArray<Record<string, unknown>> } = {},
 ): Set<string> {
   const cardsById = new Map(cards.map((card) => [card.id.trim().toLowerCase(), card]));
   const cardsByName = new Map<string, TrackerCharacterCardIdentity>();
@@ -1606,37 +1644,102 @@ export function applyTrackerCharacterCardIdentity(
   for (const name of duplicateNames) cardsByName.delete(name);
   const canonicalCardNamesByKey = new Map([...cardsByName].map(([key, card]) => [key, card.name]));
 
-  const matchedIds = new Set<string>();
-  const canonicalCharacters: Array<Record<string, unknown>> = [];
-  const canonicalIndexByCardId = new Map<string, number>();
-  for (const character of characters) {
+  type ResolvedTrackerCharacter = {
+    character: Record<string, unknown>;
+    card: TrackerCharacterCardIdentity | undefined;
+    /** The entry names the card itself (exact name, explicit alias, or no name at all). */
+    isCardName: boolean;
+    /** Normalized member name when the entry names someone other than the card. */
+    castNameKey: string;
+    viaCastId: boolean;
+  };
+
+  const resolved: ResolvedTrackerCharacter[] = characters.map((character) => {
+    const nameKey = trackerCharacterNameKey(character);
+    const castId = parseTrackerCastCharacterId(character.characterId);
+    const castCard = castId ? cardsById.get(castId.cardId.toLowerCase()) : undefined;
+    if (castId && castCard) {
+      return { character, card: castCard, isCardName: false, castNameKey: nameKey || castId.nameKey, viaCastId: true };
+    }
+
     const explicitCanonicalName = resolveExplicitCanonicalName(character.name, canonicalCardNamesByKey);
     const card =
       cardsById.get(trackerCharacterIdKey(character)) ??
-      cardsByName.get(trackerCharacterNameKey(character)) ??
+      cardsByName.get(nameKey) ??
       (explicitCanonicalName ? cardsByName.get(normalizeTextForMatch(explicitCanonicalName)) : undefined);
+    if (!card) return { character, card: undefined, isCardName: false, castNameKey: "", viaCastId: false };
+
+    const cardNameKey = normalizeTextForMatch(card.name);
+    const isCardName =
+      !nameKey ||
+      nameKey === cardNameKey ||
+      (!!explicitCanonicalName && normalizeTextForMatch(explicitCanonicalName) === cardNameKey);
+    return { character, card, isCardName, castNameKey: isCardName ? "" : nameKey, viaCastId: false };
+  });
+
+  // Multi-character cards: remembered from earlier snapshots, or evidenced by
+  // this batch naming two or more distinct members of the same card.
+  const castCardIds = new Set<string>();
+  for (const previous of options.previousCharacters ?? []) {
+    const parsed = parseTrackerCastCharacterId(previous.characterId);
+    const card = parsed ? cardsById.get(parsed.cardId.toLowerCase()) : undefined;
+    if (card) castCardIds.add(card.id);
+  }
+  const memberNamesByCard = new Map<string, Set<string>>();
+  for (const entry of resolved) {
+    if (!entry.card) continue;
+    if (entry.viaCastId) castCardIds.add(entry.card.id);
+    if (!entry.castNameKey) continue;
+    const members = memberNamesByCard.get(entry.card.id) ?? new Set<string>();
+    members.add(entry.castNameKey);
+    memberNamesByCard.set(entry.card.id, members);
+  }
+  for (const [cardId, members] of memberNamesByCard) {
+    if (members.size >= 2) castCardIds.add(cardId);
+  }
+
+  const matchedIds = new Set<string>();
+  const canonicalCharacters: Array<Record<string, unknown>> = [];
+  const canonicalIndexByKey = new Map<string, number>();
+  const pushOrMerge = (key: string, next: Record<string, unknown>) => {
+    const existingIndex = canonicalIndexByKey.get(key);
+    if (existingIndex === undefined) {
+      canonicalIndexByKey.set(key, canonicalCharacters.length);
+      canonicalCharacters.push(next);
+    } else {
+      canonicalCharacters[existingIndex] = { ...canonicalCharacters[existingIndex], ...next };
+    }
+  };
+
+  for (const { character, card, isCardName, castNameKey } of resolved) {
     if (!card) {
       canonicalCharacters.push(character);
       continue;
     }
 
-    const canonicalCharacter = {
+    if (castCardIds.has(card.id) && !isCardName && castNameKey) {
+      const castId = buildTrackerCastCharacterId(card.id, castNameKey);
+      const castCharacter: Record<string, unknown> = {
+        ...character,
+        characterId: castId,
+        name: typeof character.name === "string" ? character.name.trim() : castNameKey,
+      };
+      // A member never wears the card's portrait; NPC avatar enrichment finds their own.
+      if (card.avatarPath && castCharacter.avatarPath === card.avatarPath) {
+        castCharacter.avatarPath = null;
+        castCharacter.avatarCrop = null;
+      }
+      pushOrMerge(castId, castCharacter);
+      continue;
+    }
+
+    pushOrMerge(`card:${card.id}`, {
       ...character,
       characterId: card.id,
       name: card.name,
       avatarPath: card.avatarPath ?? null,
       avatarCrop: card.avatarCrop ?? null,
-    };
-    const existingIndex = canonicalIndexByCardId.get(card.id);
-    if (existingIndex === undefined) {
-      canonicalIndexByCardId.set(card.id, canonicalCharacters.length);
-      canonicalCharacters.push(canonicalCharacter);
-    } else {
-      canonicalCharacters[existingIndex] = {
-        ...canonicalCharacters[existingIndex],
-        ...canonicalCharacter,
-      };
-    }
+    });
     matchedIds.add(card.id);
   }
   characters.splice(0, characters.length, ...canonicalCharacters);

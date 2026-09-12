@@ -110,6 +110,8 @@ Picks the best matching background image for the current scene from your uploade
 
 Tracks the characters present, plus their mood, actions, appearance, outfit, thoughts, and per-character stats such as HP. It can also create portrait images for new characters that have none.
 
+A single card that describes several people, such as a scenario card with a cast, is tracked as separate characters. Each member keeps their own name, mood, outfit, thoughts, and portrait instead of being folded into one entry named after the card.
+
 When a recurring character returns after leaving the scene, Character Tracker reuses their latest saved stats and custom fields for continuity. Characters backed by cards also receive their configured RPG pools and attributes as grounding, and always retain the card's avatar and crop. Automatically generated portraits remain limited to NPCs without a matching character card.
 
 - **Phase**: Post-Processing.

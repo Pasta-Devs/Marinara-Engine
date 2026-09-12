@@ -9815,8 +9815,10 @@ export async function generateRoutes(app: FastifyInstance) {
                   snapBeforeUpdate ??
                   trackerBaseGameStateSnapshot ??
                   (allowLatestGameStateFallback ? await gameStateStore.getLatest(input.chatId) : null);
-                const cardCharacterIds = applyTrackerCharacterCardIdentity(chars, charInfo);
                 const oldChars = parseJsonField<any[]>(previousCharacterSnapshot?.presentCharacters, []);
+                const cardCharacterIds = applyTrackerCharacterCardIdentity(chars, charInfo, {
+                  previousCharacters: [...oldChars, ...characterTrackerHistory],
+                });
                 preserveTrackerCharacterUiFields(chars, oldChars);
                 preserveTrackerCharacterUiFields(chars, characterTrackerHistory);
                 const characterLockState = previousCharacterSnapshot

@@ -10906,6 +10906,42 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       applyTrackerCharacterCardIdentity(unrelatedLongName, [{ id: "party-card", name: "Mari" }]);
       assert.deepEqual(unrelatedLongName, [{ name: "Mari Calder" }]);
 
+      // Multi-character cards: two distinctly named members of one card stay separate.
+      const castCard = { id: "resort-card", name: "Vacation Resort", avatarPath: "/api/avatars/file/resort.png" };
+      const castBatch: Array<Record<string, unknown>> = [
+        { characterId: "resort-card", name: "Ana", mood: "Playful", avatarPath: "/api/avatars/file/resort.png" },
+        { characterId: "resort-card", name: "Julia", mood: "Sleeping" },
+      ];
+      const castMatches = applyTrackerCharacterCardIdentity(castBatch, [castCard]);
+      assert.equal(castMatches.has("resort-card"), false);
+      assert.deepEqual(castBatch, [
+        { characterId: "resort-card:cast:ana", name: "Ana", mood: "Playful", avatarPath: null, avatarCrop: null },
+        { characterId: "resort-card:cast:julia", name: "Julia", mood: "Sleeping" },
+      ]);
+
+      // A lone member on a later turn keeps the cast identity when earlier state remembers the cast.
+      const loneMember: Array<Record<string, unknown>> = [{ characterId: "resort-card", name: "Ana", mood: "Bored" }];
+      applyTrackerCharacterCardIdentity(loneMember, [castCard], {
+        previousCharacters: [{ characterId: "resort-card:cast:julia", name: "Julia" }],
+      });
+      assert.deepEqual(loneMember, [{ characterId: "resort-card:cast:ana", name: "Ana", mood: "Bored" }]);
+
+      // A model echoing a cast id resolves to the same member, and duplicates merge.
+      const echoedCast: Array<Record<string, unknown>> = [
+        { characterId: "resort-card:cast:ana", name: "Ana", mood: "Smug" },
+        { characterId: "resort-card", name: "ana", outfit: "hoodie" },
+      ];
+      applyTrackerCharacterCardIdentity(echoedCast, [castCard]);
+      assert.deepEqual(echoedCast, [
+        { characterId: "resort-card:cast:ana", name: "ana", mood: "Smug", outfit: "hoodie" },
+      ]);
+
+      // Without cast evidence a single differently named entry still canonicalizes to the card.
+      const soloAlias: Array<Record<string, unknown>> = [{ characterId: "resort-card", name: "Ana" }];
+      const soloMatches = applyTrackerCharacterCardIdentity(soloAlias, [castCard]);
+      assert.equal(soloMatches.has("resort-card"), true);
+      assert.equal(soloAlias[0]?.name, "Vacation Resort");
+
       assert.equal(
         canonicalizeGamePartySpeakerLabels(
           '[Marisol "Mari"] [main] [happy]: "Ready."\n\nMarisol "Mari" crosses the room.',

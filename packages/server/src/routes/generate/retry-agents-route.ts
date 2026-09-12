@@ -3066,7 +3066,12 @@ async function applyRetryResultEffects(args: {
             previousCharacters = [];
           }
         }
-        applyTrackerCharacterCardIdentity(presentCharacters, agentContext.characters);
+        applyTrackerCharacterCardIdentity(presentCharacters, agentContext.characters, {
+          previousCharacters: [
+            ...previousCharacters,
+            ...((agentContext.characterTrackerHistory ?? []) as unknown as Array<Record<string, unknown>>),
+          ],
+        });
         preserveTrackerCharacterUiFields(presentCharacters, previousCharacters);
         preserveTrackerCharacterUiFields(
           presentCharacters,

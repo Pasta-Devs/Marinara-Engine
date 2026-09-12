@@ -3067,6 +3067,14 @@ function buildAgentExtras(
     if (characterPromptBlock) parts.push(characterPromptBlock);
   }
 
+  if (agentTypes.includes("character-tracker") && context.characters.length > 0) {
+    parts.push(`<character_tracker_cards>`);
+    parts.push(
+      "A character card may describe several people (for example a scenario card with a cast). Track each of them as a separate entry: set characterId to that card's id and name to the person's own name. Never fold several people into one entry named after the card. When an earlier state lists a member under an id ending in `:cast:<name>`, reuse that id.",
+    );
+    parts.push(`</character_tracker_cards>`);
+  }
+
   if (agentTypes.includes("character-tracker") && context.characterTrackerHistory?.length) {
     parts.push(`<character_tracker_history>`);
     parts.push(
