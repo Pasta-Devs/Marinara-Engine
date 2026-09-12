@@ -589,3 +589,51 @@ test("Echo Chamber rejects malformed saved and live reactions without crashing t
     await data.cleanup();
   }
 });
+
+test("Roleplay recipient actions share the tray and keep their menus visible", async ({
+  page,
+  request,
+  isMobile,
+}, info) => {
+  const data = await fixture(request, "roleplay");
+  const narrator = await (await request.post("/api/characters", { data: { data: { name: "Narrator" } } })).json();
+  try {
+    expect(
+      (
+        await request.patch(`/api/chats/${data.chat.id}`, { data: { characterIds: [data.character.id, narrator.id] } })
+      ).ok(),
+    ).toBeTruthy();
+    await open(page, data.chat.id);
+    const row = page.locator(`[data-message-id="${data.message.id}"]`).first();
+    if (isMobile) await row.getByText(/A quiet laboratory/).tap();
+    else await row.hover();
+    const actions = row.locator(".mari-message-actions");
+    const hide = actions.getByRole("button", { name: "Choose who to hide this from", exact: true });
+    const start = actions.getByRole("button", { name: "Mark as new start", exact: true });
+    for (const button of [hide, start]) {
+      expect(
+        await button.evaluate((element) => element.parentElement?.classList.contains("mari-message-actions")),
+      ).toBe(true);
+    }
+    if (isMobile) await hide.tap();
+    else await hide.click();
+    const menu = page.getByRole("menu", { name: "Choose which characters cannot see this message" });
+    await expect(menu).toBeVisible();
+    await menu.getByRole("menuitemcheckbox", { name: "Hide from Narrator", exact: true }).click();
+    await expect(menu.getByRole("menuitemcheckbox", { name: "Hide from Narrator", exact: true })).toBeChecked();
+    if (isMobile) await expect(actions).toHaveCSS("opacity", "1");
+    await expect(menu).toBeInViewport();
+    await menu.screenshot({ path: info.outputPath("recipient-menu.png"), animations: "disabled" });
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(actions.getByRole("button", { name: "Change who this is hidden from" })).toBeFocused();
+    await start.click();
+    const startMenu = page.getByRole("menu", { name: "Choose whose context starts at this message", exact: true });
+    await expect(startMenu).toBeVisible();
+    await page.locator("textarea[data-chat-composer]").click();
+    await expect(startMenu).toHaveCount(0);
+  } finally {
+    await data.cleanup();
+    await request.delete(`/api/characters/${narrator.id}`);
+  }
+});

@@ -4160,11 +4160,19 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
     }
 
     case "illustrator": {
-      const shouldGenerate = d.shouldGenerate as boolean;
-      if (!shouldGenerate) return null;
-      const style = d.style as string;
-      const reason = d.reason as string;
-      return `🎨 ${reason || "Generating scene illustration"}${style ? ` (${style})` : ""}`;
+      if (d.generated === true && typeof d.chosen === "string") {
+        return `🎨 ${translate("agents.illustrator.decision.backgroundGenerated")}`;
+      }
+      const reason = typeof d.reason === "string" ? d.reason.trim() : "";
+      const prompt = typeof d.prompt === "string" ? d.prompt.trim() : "";
+      const style = typeof d.style === "string" ? d.style.trim() : "";
+      const status =
+        d.shouldGenerate === false
+          ? translate("agents.illustrator.decision.skipped")
+          : d.shouldGenerate === true && prompt
+            ? translate("agents.illustrator.decision.requested")
+            : translate("agents.illustrator.decision.invalid");
+      return `🎨 ${status}${reason ? ` — ${reason}` : ""}${style ? ` (${style})` : ""}`;
     }
 
     case "lorebook-keeper": {
