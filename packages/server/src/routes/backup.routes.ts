@@ -6,7 +6,21 @@ import { Transform } from "node:stream";
 import { extname, join, relative } from "path";
 import { createReadStream, createWriteStream, existsSync, readdirSync, statSync } from "fs";
 import type { Dirent, WriteStream } from "fs";
-import { chmod, cp, mkdir, copyFile, readFile, readdir, writeFile, stat, mkdtemp, rm, open, rename } from "fs/promises";
+import {
+  chmod,
+  cp,
+  mkdir,
+  copyFile,
+  readFile,
+  readdir,
+  writeFile,
+  stat,
+  statfs,
+  mkdtemp,
+  rm,
+  open,
+  rename,
+} from "fs/promises";
 import type { FileHandle } from "fs/promises";
 import { tmpdir } from "os";
 import { pipeline } from "stream/promises";
@@ -61,6 +75,7 @@ import {
   AUTOMATIC_BACKUP_FILENAME,
   automaticBackupArchiveFilename,
   automaticBackupExists,
+  automaticBackupFreeSpaceError,
   normalizeAutomaticBackupRetentionCount,
   parseAutomaticBackupRetentionCount,
   pruneAutomaticBackupFiles,
@@ -3109,6 +3124,7 @@ async function writeFullBackupArchive(
   outputPath: string,
   backupName: string,
   workingDir: string,
+  beforeWrite?: (archiveBytes: number) => Promise<void>,
 ) {
   const dataDir = getDataDir();
   const omittedEntries = new Set<string>();
@@ -3155,6 +3171,8 @@ async function writeFullBackupArchive(
     entryName: `${backupName}/RESTORE.txt`,
     buildData: () => Buffer.from(buildBackupRestoreNotes([...omittedEntries]), "utf8"),
   });
+  // Stored entries make the file sizes the archive size, apart from headers.
+  await beforeWrite?.(sources.reduce((total, source) => total + ("filePath" in source ? source.size : 0), 0));
   await writeStoredZipArchive(outputPath, sources, {
     skipFailedFileEntries: true,
     entryLimitBytes: Number.MAX_SAFE_INTEGER,
@@ -3181,7 +3199,24 @@ async function writeAutomaticBackup(app: FastifyInstance, retentionCount: number
     } else {
       await rm(legacyPreviousPath, { force: true });
     }
-    const { omittedEntries } = await writeFullBackupArchive(app, pendingPath, "marinara-automatic-backup", workingDir);
+    const { omittedEntries } = await writeFullBackupArchive(
+      app,
+      pendingPath,
+      "marinara-automatic-backup",
+      workingDir,
+      async (archiveBytes) => {
+        // A run that cannot fit would fail with ENOSPC and be retried in full every hour; refuse it up front (#6087).
+        const freeBytes = await statfs(backupsRoot)
+          .then((fsStat) => Number(fsStat.bavail) * Number(fsStat.bsize))
+          .catch((error) => {
+            const logError = error instanceof Error ? error : new Error(String(error));
+            logger.warn(logError, "[backup] Could not read free disk space; writing the automatic backup unchecked");
+            return null;
+          });
+        const error = freeBytes === null ? null : automaticBackupFreeSpaceError(freeBytes, archiveBytes);
+        if (error) throw new Error(error);
+      },
+    );
     const hadPreviousBackup = existsSync(finalPath);
     try {
       if (hadPreviousBackup) {

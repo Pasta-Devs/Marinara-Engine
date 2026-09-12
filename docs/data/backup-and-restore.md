@@ -49,6 +49,10 @@ restorable, streamed archive format as **Download Backup**, including uploaded m
 one exists. Keep a separate copy outside Marinara's data folder if you need protection from a lost disk, erased app
 storage, or a device reset.
 
+Each run needs free space for one more full archive on the disk that holds `backups/`, because the previous archive
+is kept until the new one is complete. If there is not enough room, Marinara skips that run and shows the reason next
+to the Automatic Backups control; it tries again on the next check once space is freed.
+
 ## Export Profile
 
 **Export Profile** creates a smaller file with your account data. Media is included, so avatars, images, and your custom notification sound come along too.
