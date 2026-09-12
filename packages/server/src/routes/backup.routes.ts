@@ -3208,7 +3208,11 @@ async function writeAutomaticBackup(app: FastifyInstance, retentionCount: number
         // A run that cannot fit would fail with ENOSPC and be retried in full every hour; refuse it up front (#6087).
         const freeBytes = await statfs(backupsRoot)
           .then((fsStat) => Number(fsStat.bavail) * Number(fsStat.bsize))
-          .catch(() => null);
+          .catch((error) => {
+            const logError = error instanceof Error ? error : new Error(String(error));
+            logger.warn(logError, "[backup] Could not read free disk space; writing the automatic backup unchecked");
+            return null;
+          });
         const error = freeBytes === null ? null : automaticBackupFreeSpaceError(freeBytes, archiveBytes);
         if (error) throw new Error(error);
       },
