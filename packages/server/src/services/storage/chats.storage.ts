@@ -2110,9 +2110,7 @@ export function createChatsStorage(db: DB) {
         .from(messages)
         .where(and(eq(messages.chatId, chatId), eq(messages.role, "user")));
 
-      const matchingIds: string[] = [];
-
-      for (const row of userRows) {
+      const matchesScope = (row: { extra: unknown }) => {
         const extra = parseExtraRecord(row.extra);
         const snapshot = extra.personaSnapshot as
           | {
@@ -2121,20 +2119,19 @@ export function createChatsStorage(db: DB) {
             }
           | null
           | undefined;
-
         const personaId = typeof snapshot?.personaId === "string" ? snapshot.personaId.trim() : "";
         const source = snapshot?.source === "character" ? "character" : "persona";
 
-        if (filter.scope === "unassigned") {
-          if (!personaId) matchingIds.push(row.id);
-        } else if (filter.scope === "persona") {
-          const targetSource = filter.sourcePersonaSource ?? "persona";
-          if (personaId === filter.sourcePersonaId && source === targetSource) {
-            matchingIds.push(row.id);
-          }
-        } else if (filter.scope === "all") {
-          matchingIds.push(row.id);
+        if (filter.scope === "unassigned") return !personaId;
+        if (filter.scope === "persona") {
+          return personaId === filter.sourcePersonaId && source === (filter.sourcePersonaSource ?? "persona");
         }
+        return filter.scope === "all";
+      };
+      const matchingIds: string[] = [];
+
+      for (const row of userRows) {
+        if (matchesScope(row)) matchingIds.push(row.id);
       }
 
       if (matchingIds.length === 0) {
@@ -2146,8 +2143,12 @@ export function createChatsStorage(db: DB) {
           .select({ id: messages.id, extra: messages.extra })
           .from(messages)
           .where(inArray(messages.id, matchingIds));
+        const inScopeIds = freshRows.filter(matchesScope).map((row) => row.id);
+        if (inScopeIds.length === 0) {
+          return { updatedCount: 0, messageIds: [] };
+        }
         const userRowsById = new Map(freshRows.map((row) => [row.id, row]));
-        const swipes = await this.listSwipesByMessageIds(matchingIds);
+        const swipes = await this.listSwipesByMessageIds(inScopeIds);
         const swipesByMessageId = new Map<string, typeof swipes>();
         for (const swipe of swipes) {
           parseExtraRecord(swipe.extra);
@@ -2156,22 +2157,20 @@ export function createChatsStorage(db: DB) {
           swipesByMessageId.set(swipe.messageId, messageSwipesForId);
         }
         const backups = new Map(
-          matchingIds
-            .filter((id) => userRowsById.has(id))
-            .map((id) => {
-              const row = userRowsById.get(id)!;
-              const messageExtra = parseExtraRecord(row.extra);
-              return [
-                id,
-                {
-                  messagePersonaSnapshot: messageExtra.personaSnapshot,
-                  swipes: (swipesByMessageId.get(id) ?? []).map((swipe) => ({
-                    index: swipe.index,
-                    personaSnapshot: parseExtraRecord(swipe.extra).personaSnapshot,
-                  })),
-                },
-              ] as const;
-            }),
+          inScopeIds.map((id) => {
+            const row = userRowsById.get(id)!;
+            const messageExtra = parseExtraRecord(row.extra);
+            return [
+              id,
+              {
+                messagePersonaSnapshot: messageExtra.personaSnapshot,
+                swipes: (swipesByMessageId.get(id) ?? []).map((swipe) => ({
+                  index: swipe.index,
+                  personaSnapshot: parseExtraRecord(swipe.extra).personaSnapshot,
+                })),
+              },
+            ] as const;
+          }),
         );
         const updateMessageSnapshot = async (id: string, personaSnapshot: unknown) => {
           const row = await db.select({ extra: messages.extra }).from(messages).where(eq(messages.id, id)).limit(1);
@@ -2198,7 +2197,7 @@ export function createChatsStorage(db: DB) {
         const touchedIds = new Set<string>();
 
         try {
-          for (const id of backups.keys()) {
+          for (const id of inScopeIds) {
             touchedIds.add(id);
             await updateMessageSnapshot(id, targetSnapshot);
             for (const swipe of swipesByMessageId.get(id) ?? []) {
@@ -2240,8 +2239,8 @@ export function createChatsStorage(db: DB) {
         }
 
         return {
-          updatedCount: backups.size,
-          messageIds: [...backups.keys()],
+          updatedCount: inScopeIds.length,
+          messageIds: inScopeIds,
         };
       });
     },
