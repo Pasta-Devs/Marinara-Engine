@@ -341,7 +341,7 @@ export function buildRoleplayCommandsReminder(args: {
     );
   if (args.privateAvailable && enabled("notes"))
     lines.push(
-      '- [notes: content="your current personal notes"] creates or edits your notes about motives, secrets, beliefs, lies and plans. To edit existing notes, send their full updated contents; this replaces your previous notes. Preserve relevant details and keep it short; these notes are available to you and narrator alone. [dismiss_notes] clears your notes when they\'re no longer needed or relevant.',
+      '- [notes: content="brief private state and plans"] keeps private state that should guide future turns: unspoken thoughts, changed attitudes, secrets, and pending plans. Do not recap scenes or repeat chat history. To edit existing notes, send their full updated contents; this replaces your previous notes. Keep only still-relevant details in 1–3 short bullets, under 80 words total. Notes are available to you and the narrator alone. [dismiss_notes] clears them when no longer needed.',
     );
   if (args.privateAvailable && enabled("memory"))
     lines.push(

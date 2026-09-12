@@ -429,6 +429,40 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
     await note.getByRole("button", { name: "Alice used notes command!", exact: true }).click();
     await note.getByRole("button", { name: "Edit", exact: true }).click();
     const editor = page.locator('[data-component="ExpandedTextarea"]');
+    const checkEditorColors = async (command: string) => {
+      for (const theme of ["dark", "light"] as const) {
+        await page.evaluate(async (theme) => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          useUIStore.getState().setTheme(theme);
+          useUIStore.getState().setAppAccentColor("#3b9fe8");
+          useUIStore.getState().setChatChromeTextColor(theme === "dark" ? "#d4d4d4" : "#242424");
+        }, theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        const colors = await editor.evaluate((element) => {
+          const probe = element.ownerDocument.createElement("span");
+          element.append(probe);
+          probe.style.color = "var(--marinara-chat-chrome-panel-muted)";
+          const text = getComputedStyle(probe).color;
+          probe.style.color = "var(--marinara-chat-chrome-button-text)";
+          const icon = getComputedStyle(probe).color;
+          probe.remove();
+          return { text, icon };
+        });
+        await testInfo.attach(`${command}-editor-${theme}`, {
+          body: await page.screenshot({
+            animations: "disabled",
+            path: testInfo.outputPath(`${command}-editor-${theme}.png`),
+          }),
+          contentType: "image/png",
+        });
+        await expect(editor.getByText(/^\d+ characters$/u)).toHaveCSS("color", colors.text);
+        await expect(editor.getByRole("button", { name: "Cancel", exact: true }).first()).toHaveCSS(
+          "color",
+          colors.icon,
+        );
+      }
+    };
+    await checkEditorColors("notes");
     await editor.locator("textarea").fill("EDITED_BATCH_SECRET");
     const editUrl = `**/api/chats/${chat.id}/messages/*/extra?swipeIndex=*`;
     await page.route(editUrl, (route) => route.fulfill({ status: 500, json: { error: "Synthetic save failure" } }), {
@@ -442,6 +476,27 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
     expect(await preview(narrator)).toContain("EDITED_BATCH_SECRET");
     expect(await preview(bob)).not.toContain("EDITED_BATCH_SECRET");
     await expect(note).toContainText('[notes: content="BATCH_SECRET"]');
+    const memory = page.locator('[data-roleplay-command="memory"]').last();
+    await memory.getByRole("button", { name: "Alice used memory command!", exact: true }).click();
+    await memory.getByRole("button", { name: "Edit", exact: true }).click();
+    await checkEditorColors("memory");
+    await editor.locator("textarea").fill("EDITED_REMINDER: retrieve the key tomorrow");
+    await editor.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(editor).toBeHidden();
+    await memory.getByRole("button", { name: "Edit", exact: true }).click();
+    await editor.locator("textarea").fill("CANCELED_REMINDER");
+    await editor.getByRole("button", { name: "Cancel", exact: true }).first().click();
+    await expect(editor).toBeHidden();
+    output = "She considers her next move.";
+    await generate(alice);
+    const editedPrompt = contentOf(requests.at(-1));
+    expect(editedPrompt).toContain("Do not recap scenes or repeat chat history.");
+    expect(editedPrompt).toContain("1–3 short bullets, under 80 words total");
+    expect(editedPrompt).toContain("EDITED_BATCH_SECRET");
+    expect(editedPrompt).toContain("EDITED_REMINDER: retrieve the key tomorrow");
+    expect(editedPrompt).not.toMatch(/ALICE_REMINDER|CANCELED_REMINDER|\[notes: content="BATCH_SECRET"\]/u);
+    expect(await preview(narrator)).toContain("EDITED_REMINDER: retrieve the key tomorrow");
+    expect(await preview(bob)).not.toContain("EDITED_REMINDER");
     await testInfo.attach(`roleplay-command-edit-${testInfo.project.name}.png`, {
       body: await page.screenshot({ animations: "disabled", path: testInfo.outputPath("roleplay-command-edit.png") }),
       contentType: "image/png",
