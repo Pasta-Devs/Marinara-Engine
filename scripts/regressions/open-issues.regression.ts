@@ -6611,8 +6611,8 @@ assert.match(backupRoutesSource, /PROFILE_IMPORT_MEMORY_WARNING_BYTES/u);
 assert.match(backupRoutesSource, /PROFILE_IMPORT_ARCHIVE_LIMIT_BYTES = 2 \* 1024 \* 1024 \* 1024/u);
 assert.match(
   backupRoutesSource,
-  /limits: \{ fields: 0, parts: 1, files: 1, fileSize: PROFILE_IMPORT_ARCHIVE_LIMIT_BYTES \}/u,
-  "profile archive imports must accept only one bounded file part",
+  /limits: \{ fields: 0, parts: 1, files: 1,/u,
+  "profile archive imports must accept only one file part",
 );
 assert.match(
   backupRoutesSource,

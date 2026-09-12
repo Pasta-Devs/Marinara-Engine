@@ -89,6 +89,7 @@ try {
     "Endpoints accepting 1536 must not be capped",
   );
   for (const [width, height] of [
+    [512, 512],
     [960, 1440],
     [1440, 960],
     [2048, 2048],

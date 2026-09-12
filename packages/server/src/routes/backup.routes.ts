@@ -2973,10 +2973,10 @@ async function readProfileImportRequest(req: FastifyRequest): Promise<ProfileImp
   const uploadDir = await mkdtemp(join(tmpdir(), "marinara-profile-import-"));
   const archivePath = join(uploadDir, "profile.zip");
   try {
-    // Stream uploads to disk so large profile archives do not need to fit in server memory.
+    // Full backups can exceed the profile export limit; stream them to disk before validating their contents.
     let receivedFile = false;
     for await (const part of req.parts({
-      limits: { fields: 0, parts: 1, files: 1, fileSize: PROFILE_IMPORT_ARCHIVE_LIMIT_BYTES },
+      limits: { fields: 0, parts: 1, files: 1, fileSize: Number.MAX_SAFE_INTEGER },
     })) {
       if (part.type !== "file") throw new ProfileImportRequestError("No profile archive uploaded.");
       if (receivedFile) throw new ProfileImportRequestError("Only one profile archive is allowed.");
@@ -4296,7 +4296,7 @@ export async function backupRoutes(app: FastifyInstance) {
   app.post(
     "/import-profile",
     {
-      bodyLimit: PROFILE_IMPORT_ARCHIVE_LIMIT_BYTES,
+      bodyLimit: Number.MAX_SAFE_INTEGER,
       config: { rateLimit: BACKUP_RATE_LIMIT },
       preParsing: profileImportJsonBodyLimit,
     },

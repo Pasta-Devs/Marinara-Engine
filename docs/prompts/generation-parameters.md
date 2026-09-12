@@ -1,6 +1,6 @@
 # Generation Parameters
 
-This guide explains the generation parameters in Marinara Engine. These are the settings that control how the AI writes each reply, such as **Temperature** and **Max Output Tokens**. You change them per chat in the **Advanced Parameters** panel.
+This guide explains the generation parameters in Marinara Engine. These are the settings that control how the AI writes each reply, such as **Temperature** and **Max Output Tokens**. Presets and connections provide defaults; the **Advanced Parameters** panel provides overrides for each chat.
 
 ## What generation parameters do
 
@@ -60,7 +60,7 @@ In a chat's **Advanced Parameters**, only **Max Output Tokens** and **Reasoning 
 
 ## Default values
 
-New chats start from a built-in baseline. The table below shows those starting values and whether each one is sent by default.
+The table shows fallback values displayed by the parameter editor and the default Send switches. These are not necessarily the values sent to the model: without a preset, generation starts at `4096` output tokens before connection and chat overrides. Mode rules can then set `8192` for an active scene or `16384` for Game. The **Effective** line shows the resolved value.
 
 | Parameter | Starting value | Sent by default |
 |---|---|---|

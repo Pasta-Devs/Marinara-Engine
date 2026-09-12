@@ -102,6 +102,13 @@ try {
       ),
     );
     profileZip.addFile(zipAssetPath, validPng);
+    const unprivilegedUpload = await app.inject({
+      method: "POST",
+      url: "/api/backup/import-profile?preview=true",
+      remoteAddress: "203.0.113.10",
+      ...multipartUpload("profile.zip", profileZip.toBuffer()),
+    });
+    assert.equal(unprivilegedUpload.statusCode, 403, "remote ZIP uploads must require privileged access");
     const zipPreviewResponse = await app.inject({
       method: "POST",
       url: "/api/backup/import-profile?preview=true",

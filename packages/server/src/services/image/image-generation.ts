@@ -700,7 +700,12 @@ function imageFetch(url: string | URL, init?: RequestInit, options: ImageFetchOp
       allowedProtocols: ["https:", "http:"],
       flagName: "IMAGE_LOCAL_URLS_ENABLED",
     },
-    agentOptions: options.agentOptions,
+    // The request deadline must not be cut short by Undici's five-minute idle timeout.
+    agentOptions: {
+      headersTimeout: IMAGE_GEN_TIMEOUT,
+      bodyTimeout: IMAGE_GEN_TIMEOUT,
+      ...options.agentOptions,
+    },
     keepAliveInitialDelayMs: options.keepAliveInitialDelayMs,
     maxResponseBytes: MAX_IMAGE_RESPONSE_BYTES,
     decodeCompressedResponse: true,
@@ -712,9 +717,10 @@ function localImageBackendFetch(
   init?: RequestInit,
   options: { timeoutMs?: number; keepAliveInitialDelayMs?: number } = {},
 ) {
+  const timeoutMs = options.timeoutMs ?? resolveComfyUiImageGenerationTimeoutMs();
   return imageFetch(url, init, {
     allowLocal: true,
-    agentOptions: options.timeoutMs ? { bodyTimeout: options.timeoutMs, headersTimeout: options.timeoutMs } : undefined,
+    agentOptions: { bodyTimeout: timeoutMs, headersTimeout: timeoutMs },
     keepAliveInitialDelayMs: options.keepAliveInitialDelayMs,
   });
 }

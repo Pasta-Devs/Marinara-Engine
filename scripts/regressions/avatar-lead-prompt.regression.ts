@@ -5,6 +5,7 @@
 // that sentence became a prose clause inside a tag prompt, which NovelAI and Illustrious-style
 // checkpoints treat as noise. The profile's avatar subject tags already say what the image is.
 import assert from "node:assert/strict";
+import { compileImagePrompt, DEFAULT_IMAGE_STYLE_PROFILES } from "../../packages/shared/src/index.js";
 import { buildAvatarPortraitLeadPrompt } from "../../packages/server/src/services/image/avatar-generation-prompt.js";
 
 const subjectTags = "solo, upper body, looking at viewer, centered composition";
@@ -45,5 +46,26 @@ assert.equal(
   "Create a polished character avatar portrait for Character.",
   "blank names fall back to the generic label",
 );
+
+// #6074: LoRA syntax in either style field must leave the character appearance intact.
+const appearance = "silver-furred fox-woman, braided crown, persimmon kimono, embroidered moonflowers";
+for (const promptMode of ["natural", "hybrid", "tagged", "danbooru"] as const) {
+  const profile = {
+    ...DEFAULT_IMAGE_STYLE_PROFILES[0]!,
+    promptMode,
+    positiveTags: "<lora:portrait-style:0.8>, detailed face",
+    negativeTags: "<lora:negative-style:1.2>, blurry",
+    subjectTags: { avatar: subjectTags },
+  };
+  const compiled = compileImagePrompt({
+    kind: "avatar",
+    prompt: buildAvatarPortraitLeadPrompt({ name: "Lyra", profileSubjectTags: subjectTags, promptMode }),
+    userPositive: appearance,
+    styleProfiles: { defaultProfileId: profile.id, profiles: [profile] },
+  });
+  assert.ok(compiled.prompt.includes(appearance), `${promptMode} must preserve the complete appearance`);
+  assert.ok(compiled.prompt.includes("<lora:portrait-style:0.8>"));
+  assert.ok(compiled.negativePrompt.includes("<lora:negative-style:1.2>"));
+}
 
 console.log("Avatar lead prompt regression passed.");
