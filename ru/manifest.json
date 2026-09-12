@@ -1,6 +1,6 @@
 {
   "language": "ru",
-  "sourceCommit": "adf82e522677af079ebb930b9e0556940c9c8c87",
+  "sourceCommit": "3acccc21cde85e1718e26af4620cf9d654e07c6c",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -264,8 +264,8 @@
     },
     {
       "path": "data/backup-and-restore.md",
-      "sha256": "8c1054195ac7bc74a4e67c4766a67ee2d59ed276144f5ba0569553d6ef4f8f2f",
-      "bytes": 16551
+      "sha256": "384773d20a7ee3af1fb53510606eb62157f8822d0ce273524289f73dce8f0091",
+      "bytes": 17183
     },
     {
       "path": "data/clearing-data.md",
