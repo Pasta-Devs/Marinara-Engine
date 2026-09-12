@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Corrected the Agents overview page's catalog summary, which said 33 one-click packages (6 Writer, 9 Tracker, 18 Misc) while the linked per-agent reference and the README both say 36 (6 Writer, 11 Tracker, 19 Misc) (#6063).
+
 - Visual Novel paragraph navigation now loads older messages across history pages, shows matching translations alongside the source, and preserves source text when translated paragraph counts differ (#6044).
 
 - Roleplay's Visual Novel display now supports paragraph-by-paragraph progression with previous and next navigation controls, allowing users to step through all paragraphs of a turn and preceding messages without opening the full history view (#6044).
