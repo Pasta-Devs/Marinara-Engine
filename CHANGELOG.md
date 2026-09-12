@@ -4,6 +4,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Automatic backups now check that the disk holding `backups/` has room for the next archive, including metadata and restore notes, before writing it. A run that would not fit is skipped with a clear message in Settings instead of filling the disk and retrying the full write every hour (#6087).
+- Deleting a character card now removes it from every Roleplay and Conversation chat it belonged to, as it already did for Game parties, and the Characters count in Chat Settings counts only cards that still exist (#6084).
+
 - Download Backup and automatic backups no longer include the storage writer lease, so a data folder restored by hand from the archive starts without the "Another Marinara Engine process may be using" error (#6083).
 
 - Updated ZIP handling to adm-zip 0.6.1 to block extraction through destination symlinks and removed the temporary dependency-audit exception (#6075).
@@ -70,6 +73,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Moved the agent connection bulk assignment control from the Agents panel to Connections -> Defaults -> Agents.
 
 ### Added
+
+- Chat search accepts a message number such as `#67` and jumps to that message, including older history (#6090).
 
 - Added an inline "Apply persona to earlier messages…" action in Chat Settings that applies the currently selected persona to messages sent without a persona, messages sent as a specific persona, or all user messages in the chat (#6043).
 - Added effective generation values and their winning preset, connection, chat, mode, or output-cap source to parameter settings, plus an editor for preset parameters (#6052). Parameter edits wait for inherited values to load so a slow response cannot discard an override.
@@ -143,6 +148,11 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Roleplay Chat Summary can now generate multiple explicit message ranges sequentially, keeping each result as its own chronological batch entry with per-range progress and retry status.
 
 ### Fixed
+
+- Mobile character reordering keeps Chat Settings still during the drag; swiping outside the handle continues to scroll normally (#6098).
+- Roleplay message actions keep their tapped state when opening menus on iPhone, suppress native tap flashes, and use direct tray buttons for recipient controls (#6092, #6094).
+- Community and Field Notes shortcuts fit within their widget padding, including Firefox desktop layouts (#6093).
+- Illustrator activity shows skipped image decisions and their reasons, and distinguishes an image request from an unusable decision (#6096).
 
 - Full-backup ZIP imports again accept archives larger than 2 GiB through the existing streaming restore path (#6091).
 - Image generation now honors the configured timeout while waiting for provider response headers and image data, avoiding an early five-minute failure on slow local or hosted image backends (#6074).

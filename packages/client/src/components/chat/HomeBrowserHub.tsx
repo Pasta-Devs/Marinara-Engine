@@ -712,7 +712,7 @@ function HomeWidgetShortcut({
   description: string;
 }) {
   const className =
-    "mari-home-widget-shortcut flex min-h-10 w-full items-center gap-2.5 rounded-xl px-2 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--home-module-accent)_10%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]";
+    "mari-home-widget-shortcut flex min-h-0 w-full items-center gap-2.5 rounded-xl px-2 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--home-module-accent)_10%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]";
   const content = (
     <>
       <img src={icon} alt="" className="mari-home-widget-shortcut__icon h-7 w-7 shrink-0 object-contain" />
@@ -2990,7 +2990,7 @@ export function HomeBrowserHub({
                         accent={HOME_MODULE_ACCENTS.cyan}
                         className="h-full"
                       >
-                        <div className="mari-home-widget-shortcut-list grid content-center gap-1">
+                        <div className="mari-home-widget-shortcut-list grid h-full grid-rows-3 gap-1">
                           {[
                             {
                               icon: "/home/tab-icons/documentation.png",
@@ -3030,7 +3030,7 @@ export function HomeBrowserHub({
                         accent={HOME_MODULE_ACCENTS.accent}
                         className="h-full"
                       >
-                        <div className="mari-home-widget-shortcut-list grid content-center gap-1">
+                        <div className="mari-home-widget-shortcut-list grid h-full grid-rows-3 gap-1">
                           <HomeWidgetShortcut
                             href="https://discord.com/invite/KdAkTg94ME"
                             onClick={() => trackHomeAction("discord_clicked")}

@@ -2152,11 +2152,13 @@ for (const layout of ["Roleplay", "Classic Conversation", "Bubble Conversation"]
 
         const messageRow = page.locator(`[data-message-id="${message.id}"]`);
         await messageRow.scrollIntoViewIfNeeded();
-        await messageRow.dispatchEvent("click");
+        if (layout === "Roleplay") await messageRow.hover();
+        else await messageRow.dispatchEvent("click");
         const peekPrompt = messageRow.getByRole("button", { name: "Peek prompt", exact: true });
         const copy = messageRow.getByRole("button", { name: "Copy", exact: true });
         await expect(peekPrompt).toBeVisible();
         await expect(copy).toBeVisible();
+        await expect(peekPrompt).toHaveCSS("-webkit-tap-highlight-color", "rgba(0, 0, 0, 0)");
         const actionColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
         await expect(peekPrompt).toHaveCSS("color", actionColor);
 
@@ -9069,7 +9071,7 @@ test("message search stays before Chat Settings and jumps to unloaded history", 
             ? "Ancient clue: needleXYZ would match a regular expression."
             : `${mode} history message ${index + 1}.`;
       const messageResponse = await request.post(`/api/chats/${chat.id}/messages`, {
-        data: { role: "user", content },
+        data: { role: "user", content, extra: index === 2 ? { hiddenFromUser: true } : {} },
       });
       expect(messageResponse.ok()).toBeTruthy();
     }
@@ -9115,6 +9117,22 @@ test("message search stays before Chat Settings and jumps to unloaded history", 
 
       await expect(targetMessage).toBeVisible({ timeout: 30_000 });
       await expect(targetMessage).toBeInViewport();
+      const searchInput = searchPanel.getByRole("searchbox", { name: "Search messages in this chat" });
+      await searchInput.fill("#6");
+      await expect(searchPanel.getByRole("status")).toHaveText("1 match");
+      await expect(searchPanel.locator("button").filter({ hasText: "needleXYZ" })).toHaveCount(1);
+      await searchInput.press("Enter");
+      await expect(
+        page
+          .locator("[data-chat-scroll]")
+          .getByText("Ancient clue: needleXYZ would match a regular expression.", { exact: true }),
+      ).toBeInViewport();
+      for (const query of ["#3", "#0", "#99999999999999999999"]) {
+        await searchInput.fill(query);
+        await expect(searchPanel.getByRole("status")).toHaveText("0 matches");
+      }
+      await searchInput.fill("#5");
+      await expect(searchPanel.locator("button").filter({ hasText: "needle.* is a literal phrase" })).toHaveCount(1);
       await searchPanel.getByRole("button", { name: "Close message search" }).click();
     }
   } finally {

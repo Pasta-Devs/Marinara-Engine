@@ -5,6 +5,7 @@ export const AUTOMATIC_BACKUP_FILENAME = "marinara-automatic-backup.zip";
 export const AUTOMATIC_BACKUP_RETENTION_MIN = 1;
 export const AUTOMATIC_BACKUP_RETENTION_MAX = 9_999;
 export const DEFAULT_AUTOMATIC_BACKUP_RETENTION_COUNT = 1;
+export const AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES = 256 * 1024 * 1024;
 
 export type AutomaticBackupFile = {
   filename: string;
@@ -26,6 +27,18 @@ export function normalizeAutomaticBackupRetentionCount(value: unknown): number {
     return DEFAULT_AUTOMATIC_BACKUP_RETENTION_COUNT;
   }
   return Math.min(AUTOMATIC_BACKUP_RETENTION_MAX, Math.max(AUTOMATIC_BACKUP_RETENTION_MIN, Math.trunc(value)));
+}
+
+function formatBackupBytes(bytes: number): string {
+  const gib = bytes / 1024 ** 3;
+  return gib >= 1 ? `${gib.toFixed(1)} GiB` : `${Math.ceil(bytes / 1024 ** 2)} MiB`;
+}
+
+/** Settings-panel message when the backups disk cannot hold the next archive, or null when it can. */
+export function automaticBackupFreeSpaceError(freeBytes: number, archiveBytes: number): string | null {
+  const requiredBytes = archiveBytes + AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES;
+  if (freeBytes >= requiredBytes) return null;
+  return `Not enough free space for the automatic backup: ${formatBackupBytes(freeBytes)} free, about ${formatBackupBytes(requiredBytes)} needed.`;
 }
 
 export function automaticBackupArchiveFilename(date: Date, uniqueSuffix = ""): string {

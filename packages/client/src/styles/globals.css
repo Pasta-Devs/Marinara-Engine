@@ -6088,6 +6088,10 @@ strong {
   font-size: 0.6875rem;
 }
 
+.mari-message {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ─────────────────────────────────────────────
    18. RESPONSIVE / MOBILE
    ───────────────────────────────────────────── */

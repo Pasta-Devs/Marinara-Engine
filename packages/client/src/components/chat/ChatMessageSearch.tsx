@@ -79,8 +79,12 @@ export function ChatMessageSearch({ chatId }: { chatId: string }) {
   const results = useMemo<SearchResult[]>(() => {
     const normalizedQuery = normalizeTextForMatch(query.trim());
     if (!normalizedQuery) return [];
+    const messageNumber = /^#\d+$/u.test(normalizedQuery) ? Number(normalizedQuery.slice(1)) : null;
     return (messages ?? []).flatMap((message, index) =>
-      !isMessageHiddenFromUser(message) && normalizeTextForMatch(message.content).includes(normalizedQuery)
+      !isMessageHiddenFromUser(message) &&
+      (messageNumber === null
+        ? normalizeTextForMatch(message.content).includes(normalizedQuery)
+        : index + 1 === messageNumber)
         ? [{ message, messageNumber: index + 1 }]
         : [],
     );

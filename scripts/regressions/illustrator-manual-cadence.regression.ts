@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import ts from "typescript";
 import {
   getAgentRunIntervalMeta,
   parseCadenceInputValue,
@@ -62,6 +63,62 @@ assert.equal(
   true,
   "ordinary interval gating remains intact",
 );
+
+// Persona and character turns share the same interval, irrespective of recipient visibility.
+const mixedHistory = [
+  { id: "checkpoint", role: "assistant" },
+  { id: "persona", role: "user", personaId: "mari" },
+  { id: "character", role: "assistant", characterId: "dottore", extra: { hiddenFromAICharacterIds: ["narrator"] } },
+];
+const mixedCadence = {
+  ...base,
+  agentsStore: {
+    async getLastSuccessfulRunByType() {
+      return { messageId: "checkpoint" };
+    },
+  },
+  settings: { runInterval: 3 },
+};
+assert.equal(await shouldSkipAgentByMessageInterval({ ...mixedCadence, messages: mixedHistory.slice(0, 2) }), true);
+assert.equal(await shouldSkipAgentByMessageInterval({ ...mixedCadence, messages: mixedHistory }), false);
+
+// Run the production formatter without booting browser hooks in Node.
+const hookSource = readFileSync(new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url), "utf8");
+const sourceFile = ts.createSourceFile("use-generate.ts", hookSource, ts.ScriptTarget.Latest, true);
+const formatter = sourceFile.statements.find(
+  (statement) => ts.isFunctionDeclaration(statement) && statement.name?.text === "formatAgentBubble",
+);
+assert.ok(formatter);
+const compiled = ts.transpileModule(formatter.getText(sourceFile), {
+  compilerOptions: { target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const english = JSON.parse(
+  readFileSync(new URL("../../packages/client/src/localization/locales/en.json", import.meta.url), "utf8"),
+);
+const bubble = new Function("translate", `${compiled}; return formatAgentBubble;`)((key: string) => english[key]);
+assert.equal(
+  bubble("illustrator", "Illustrator", { shouldGenerate: false, reason: "The scene has not changed." }),
+  "🎨 No illustration requested this time — The scene has not changed.",
+);
+assert.equal(
+  bubble("illustrator", "Illustrator", { shouldGenerate: true, prompt: "The laboratory." }),
+  "🎨 Illustration requested",
+);
+assert.equal(
+  bubble("illustrator", "Illustrator", { generated: true, chosen: "scene.png", reason: "The scene changed." }),
+  "🎨 Scene background generated — The scene changed.",
+);
+for (const data of [
+  {},
+  { generated: true, chosen: " " },
+  { shouldGenerate: true, prompt: " " },
+  { shouldGenerate: "true", prompt: "The laboratory." },
+]) {
+  assert.equal(
+    bubble("illustrator", "Illustrator", data),
+    "🎨 Illustrator returned no usable image decision or prompt",
+  );
+}
 
 const manualRoute = readFileSync(
   new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
