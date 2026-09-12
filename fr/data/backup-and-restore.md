@@ -49,7 +49,7 @@ horodatés. Elles utilisent le même format d'archive restaurable et diffusée e
 compris, ainsi que le fichier de clé de chiffrement quand il existe. Garde une copie séparée hors du dossier de données de
 Marinara pour te protéger d'un disque perdu, d'un stockage d'application effacé ou d'une réinitialisation de l'appareil.
 
-Chaque exécution nécessite assez d’espace libre pour une archive complète supplémentaire sur le disque contenant `backups/`, car l’archive précédente est conservée jusqu’à ce que la nouvelle soit terminée. Si l’espace est insuffisant, Marinara ignore cette exécution et affiche la raison à côté du réglage **Automatic Backups**. Une fois de l’espace libéré, Marinara réessaie lors de la prochaine vérification.
+Chaque exécution nécessite assez d'espace libre pour une archive complète supplémentaire sur le disque contenant `backups/`, car l'archive précédente est conservée jusqu'à ce que la nouvelle soit terminée. Si l'espace est insuffisant, Marinara ignore cette exécution et affiche la raison à côté du réglage **Automatic Backups**. Une fois de l'espace libéré, Marinara réessaie lors de la prochaine vérification.
 
 ## Export Profile
 
