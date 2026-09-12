@@ -97,6 +97,10 @@ function readCommand(type: string, body: string): RoleplayCommand | null {
     }
     case "combat":
       return { type };
+    case "interrupt": {
+      const part = field("part", 8_000);
+      return part ? { type, part } : null;
+    }
     default:
       return null;
   }
@@ -323,6 +327,7 @@ export function buildRoleplayCommandsReminder(args: {
   format: WrapFormat;
   characterNames: string[];
   characterId?: string | null;
+  interruptAvailable?: boolean;
 }): string {
   const lines: string[] = [];
   const enabled = (key: RoleplayCommandKey) => isRoleplayCommandAllowed(args.metadata, key, args.characterId);
@@ -353,6 +358,10 @@ export function buildRoleplayCommandsReminder(args: {
     );
   if (enabled("combat") && args.availableAgentIds.has("combat"))
     lines.push("- [combat] asks the Combat agent to start an encounter when the scene turns to combat.");
+  if (args.interruptAvailable !== false && enabled("interrupt"))
+    lines.push(
+      '- [interrupt: part="at least three words quoted verbatim through the interruption point"] cuts off only the latest user or other-character message at that point. Use only when your character can plausibly intervene with the abilities and freedom they currently have. Continue from the cut; the removed continuation has not happened.',
+    );
   if (enabled("dm"))
     lines.push(
       `- [dm: character="${args.characterNames.map((name) => name.replace(/"/g, "'")).join(" | ")}" message="short text"] sends the user an in-world direct message from a listed character. Use an appropriate phone, letter or terminal; do not repeat the message in narration.`,

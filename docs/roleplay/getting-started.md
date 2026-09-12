@@ -91,6 +91,14 @@ You can view, edit, and re-run a saved snippet. An edit changes only what is use
 
 The Narrative Director has a **Push Story** button above the chat box. It arms the Director for the next reply only. The Narrative Director can also hold a hidden long-term arc called **Secret Plot**. See [Narrative Director and Secret Plot](narrative-director.md) for both.
 
+## Character interruptions
+
+In **Chat Settings → Agents → Roleplay Commands**, enable **Interruptions** to let characters cut off the latest message when a verbal or physical intervention is plausible. It starts off and does not need a downloadable agent.
+
+The model uses `[interrupt: part="a verbatim phrase of at least three words"]`. Marinara matches that phrase only in the message immediately before the reply, retains text through the phrase, and replaces the ending with an interruption dash. Dialogue keeps its closing quote; actions do not gain one. A missing or ambiguous match leaves the message unchanged.
+
+Open the reply's command information and choose **Restore original message** to recover the original message. Rerolling first restores the full original input, so the new reply can choose whether to interrupt. Selecting an existing swipe applies that swipe's interruption unless you explicitly restored it. Later manual edits are preserved instead of being overwritten by an old interruption.
+
 ## Echo Chamber
 
 **Echo Chamber** is an optional agent that adds a live audience reacting to your scene. It works like a streaming chat that posts a new reaction on a timer. Turn it on in **Chat Settings**, under **Agents**, on the **Echo Chamber** card. The panel floats over the scene and can collapse to a small pill.

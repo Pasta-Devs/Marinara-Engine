@@ -11,6 +11,170 @@ const extra = (value: unknown): Record<string, any> => (typeof value === "string
 const contentOf = (body: any) => body.messages.map((message: any) => message.content).join("\n");
 const sharp = createRequire(new URL("../packages/server/package.json", import.meta.url))("sharp");
 
+test("Roleplay interruptions trim the latest message and restore its original safely", async ({
+  page,
+  request,
+}, info) => {
+  test.setTimeout(90_000);
+  let narrative = "Alice catches the handle and asks her to wait.";
+  const requests: any[] = [];
+  const provider = createServer(async (incoming, response) => {
+    if (incoming.method !== "POST") {
+      incoming.resume();
+      response.writeHead(404).end();
+      return;
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
+    requests.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+    response.writeHead(200, { "content-type": "text/event-stream", connection: "close" });
+    response.end(
+      `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: `[interrupt: part="I will unlock the door"] ${narrative}` }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+    );
+  });
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  const address = provider.address();
+  if (!address || typeof address === "string") throw new Error("Fixture did not bind");
+  const fixture = await createFixture(request, `http://127.0.0.1:${address.port}/v1`, ["Alice"]);
+  const { chat } = fixture;
+  const original = '"I will unlock the door and then reveal the secret."';
+  const interrupted = '"I will unlock the door—"';
+  let releaseRestore = () => {};
+  try {
+    const metadata = await request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { roleplayCommandsEnabled: true },
+    });
+    expect(metadata.ok(), await metadata.text()).toBeTruthy();
+    await openChat(page, chat.id);
+    await page.evaluate(async () => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      useChatStore.getState().setShouldOpenSettings(true);
+    });
+    const section = page.locator('[data-chat-settings-section="roleplay-agents"]');
+    const header = section.locator('[role="button"][aria-expanded]').first();
+    if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
+    const commands = page.locator("[data-roleplay-commands]");
+    await commands.getByRole("button", { name: "Expand Commands", exact: true }).click();
+    const toggle = commands.getByRole("checkbox", { name: /^Interruptions\b/u });
+    await expect(toggle).not.toBeChecked();
+    await toggle.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath("interrupt-settings-disabled.png"), animations: "disabled" });
+    await commands
+      .locator("label")
+      .filter({ hasText: /^Interruptions$/u })
+      .click();
+    await expect(toggle).toBeChecked();
+    await expect
+      .poll(async () => extra((await (await request.get(`/api/chats/${chat.id}`)).json()).metadata))
+      .toMatchObject({ roleplayCommandToggles: { interrupt: true } });
+    await page.screenshot({ path: info.outputPath("interrupt-settings-enabled.png"), animations: "disabled" });
+    await page.getByRole("button", { name: "Close chat settings", exact: true }).click();
+    await page.locator("textarea[data-chat-composer]").fill(original);
+    await page.locator(".mari-chat-send-btn").click();
+    const notice = page.locator('[data-roleplay-command="interrupt"]').last();
+    await expect(notice).toBeVisible();
+    await expect(page.locator(".mari-chat-send-btn .lucide-send")).toBeVisible();
+    const stored = async () => (await (await request.get(`/api/chats/${chat.id}/messages`)).json()) as any[];
+    const messages = await stored();
+    const source = messages.filter((message) => message.role === "assistant").at(-1);
+    const target = messages.filter((message) => message.role === "user").at(-1);
+    expect(target.content).toBe(interrupted);
+    expect(source.content).not.toContain("[interrupt");
+    expect(contentOf(requests.at(-1))).toContain("[interrupt:");
+    expect(extra(source.extra).roleplayCommandActivity[0].interruption).toMatchObject({
+      targetMessageId: target.id,
+      originalContent: original,
+      interruptedContent: interrupted,
+    });
+    const targetBubble = page.locator(`[data-message-id="${target.id}"]`);
+    await expect(targetBubble).toContainText("I will unlock the door");
+    await expect(targetBubble).not.toContainText("reveal the secret");
+    const disclosure = notice.getByRole("button", { name: "Alice used interrupt command!", exact: true });
+    await disclosure.focus();
+    await page.keyboard.press("Enter");
+    await expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    await expect(notice.getByRole("button", { name: "Edit", exact: true })).toHaveCount(0);
+    await expect(notice.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
+    const restore = notice.getByRole("button", { name: "Restore original message", exact: true });
+    await expect(restore).toBeEnabled();
+    for (const theme of ["dark", "light"] as const) {
+      await page.evaluate(async (theme) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setTheme(theme);
+        useUIStore.getState().setAppAccentColor("#3b9fe8");
+      }, theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      const accent = await restore.evaluate((element) => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--primary)";
+        element.append(probe);
+        const color = getComputedStyle(probe).color;
+        probe.remove();
+        return color;
+      });
+      await expect(restore).toHaveCSS("color", accent);
+      const commandText = notice.locator("pre").first();
+      const panelTextColor = await commandText.evaluate((element) => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--marinara-chat-chrome-panel-text)";
+        element.append(probe);
+        const color = getComputedStyle(probe).color;
+        probe.remove();
+        return color;
+      });
+      await expect(commandText).toHaveCSS("color", panelTextColor);
+      await expect(commandText).toHaveCSS("-webkit-text-stroke-width", "0px");
+      await expect(commandText).toHaveCSS("text-shadow", "none");
+      await notice.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: info.outputPath(`interrupt-${theme}.png`), animations: "disabled" });
+    }
+    const pendingRestore = new Promise<void>((resolve) => {
+      releaseRestore = resolve;
+    });
+    await page.route(`**/api/chats/${chat.id}/messages/${source.id}/interrupt/restore`, async (route) => {
+      expect(route.request().postDataJSON()).toEqual({ swipeIndex: 0, activityIndex: 0 });
+      await pendingRestore;
+      await route.continue();
+    });
+    await restore.click();
+    await expect(restore).toBeDisabled();
+    releaseRestore();
+    await expect(notice.getByRole("status")).toHaveText("Original message restored.");
+    await expect(restore).toHaveCount(0);
+    await expect(targetBubble).toContainText("reveal the secret");
+    await expect.poll(async () => (await stored()).find((message) => message.id === target.id)?.content).toBe(original);
+    await page.reload();
+    await notice.getByRole("button", { name: "Alice used interrupt command!", exact: true }).click();
+    await expect(notice.getByRole("status")).toHaveText("Original message restored.");
+    await expect(restore).toHaveCount(0);
+
+    narrative = "Alice steps between her and the lock this time.";
+    await page.locator("textarea[data-chat-composer]").fill(original);
+    await page.locator(".mari-chat-send-btn").click();
+    await expect(page.getByText(narrative, { exact: true })).toBeVisible();
+    await expect(page.locator(".mari-chat-send-btn .lucide-send")).toBeVisible();
+    const nextTarget = (await stored()).filter((message) => message.role === "user").at(-1);
+    const edited = await request.patch(`/api/chats/${chat.id}/messages/${nextTarget.id}`, {
+      data: { content: "A later manual correction must stay intact." },
+    });
+    expect(edited.ok(), await edited.text()).toBeTruthy();
+    await page.reload();
+    await notice.getByRole("button", { name: "Alice used interrupt command!", exact: true }).click();
+    await restore.click();
+    await expect(notice.getByRole("alert")).toContainText("Could not restore the message:");
+    await expect(restore).toBeEnabled();
+    await expect
+      .poll(async () => (await stored()).find((message) => message.id === nextTarget.id)?.content)
+      .toBe("A later manual correction must stay intact.");
+  } finally {
+    releaseRestore();
+    await page.unrouteAll({ behavior: "wait" });
+    await fixture.cleanup();
+    provider.closeAllConnections();
+    await new Promise<void>((resolve) => provider.close(() => resolve()));
+  }
+});
+
 async function openChat(page: Page, chatId: string, state = {}) {
   page.setDefaultTimeout(10_000);
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));

@@ -483,6 +483,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         : [],
     ),
   );
+  await storage.remapRoleplayInterruptionTargets(chat.id, sourceToImportedMessageId);
   if (importedMode === "roleplay" && marinaraMetadata.advancedMemory) {
     const existing = await storage.getById(chat.id);
     const metadata = existing?.metadata ? (JSON.parse(existing.metadata) as Record<string, unknown>) : {};

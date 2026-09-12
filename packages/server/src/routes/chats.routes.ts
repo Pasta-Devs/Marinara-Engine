@@ -59,6 +59,8 @@ import type {
 import {
   createChatsStorage,
   InvalidMessageCursorError,
+  RoleplayInterruptionConflictError,
+  readRoleplayInterruption,
   parseMessageCursor,
   withChatMetadataPatchQueue,
 } from "../services/storage/chats.storage.js";
@@ -2192,6 +2194,31 @@ export async function chatsRoutes(app: FastifyInstance) {
     return updated;
   });
 
+  // Restore a command-owned cut only while both response and target still match its receipt.
+  app.post<{ Params: { chatId: string; messageId: string } }>(
+    "/:chatId/messages/:messageId/interrupt/restore",
+    async (req, reply) => {
+      const body = z
+        .object({ swipeIndex: z.number().int().nonnegative(), activityIndex: z.number().int().nonnegative() })
+        .safeParse(req.body);
+      if (!body.success) return reply.status(400).send({ error: "Valid swipeIndex and activityIndex are required." });
+      const message = await storage.getMessage(req.params.messageId);
+      if (!message || message.chatId !== req.params.chatId)
+        return reply.status(404).send({ error: "Message not found" });
+      const active = (app as unknown as { activeGenerations?: Map<string, unknown> }).activeGenerations;
+      if (active?.has(req.params.chatId))
+        return reply
+          .status(409)
+          .send({ error: "Wait for the current generation to finish before restoring this message." });
+      try {
+        return await storage.restoreRoleplayInterruption(message.id, { ...body.data, permanent: true });
+      } catch (error) {
+        if (error instanceof RoleplayInterruptionConflictError) return reply.status(409).send({ error: error.message });
+        throw error;
+      }
+    },
+  );
+
   // Update message extra (partial merge) — also syncs to the active swipe
   app.patch<{ Params: { chatId: string; messageId: string }; Querystring: { swipeIndex?: string } }>(
     "/:chatId/messages/:messageId/extra",
@@ -3865,30 +3892,36 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     for (const msg of exportedMessages) {
       const rawMessageExtra = parseExportMetadata(msg.extra);
-      const messageExtra = sanitizeJsonlMessageExtra(rawMessageExtra);
+      const normalizeInterruptionExtra = (extra: Record<string, unknown>) =>
+        storage.prepareRoleplayInterruptionExtraForCopy(extra, (content, target) =>
+          resolveExportMessageContent({ content, characterId: target.characterId }),
+        );
+      const messageExtra = await normalizeInterruptionExtra(sanitizeJsonlMessageExtra(rawMessageExtra));
       const thinking = includeReasoning ? getExportThinking(rawMessageExtra) : null;
       const swipes = await storage.getSwipes(msg.id);
       const activeContent = msg.content;
       const exportSwipes =
         swipes.length > 0
-          ? swipes.map((swipe: { index: number; content: string; extra?: unknown; createdAt?: string }) => ({
-              index: swipe.index,
-              content:
-                swipe.index === msg.activeSwipeIndex
-                  ? activeContent
-                  : resolveExportMessageContent({
-                      content:
-                        chat.mode === "game" && (msg.role === "assistant" || msg.role === "narrator")
-                          ? applyMessageSegmentEdits(swipe.content, metadata, msg.id)
-                          : swipe.content,
-                      characterId: msg.characterId,
-                    }),
-              extra:
-                swipe.index === msg.activeSwipeIndex
-                  ? messageExtra
-                  : sanitizeJsonlMessageExtra(parseExportMetadata(swipe.extra)),
-              createdAt: swipe.createdAt,
-            }))
+          ? await Promise.all(
+              swipes.map(async (swipe: { index: number; content: string; extra?: unknown; createdAt?: string }) => ({
+                index: swipe.index,
+                content:
+                  swipe.index === msg.activeSwipeIndex
+                    ? activeContent
+                    : resolveExportMessageContent({
+                        content:
+                          chat.mode === "game" && (msg.role === "assistant" || msg.role === "narrator")
+                            ? applyMessageSegmentEdits(swipe.content, metadata, msg.id)
+                            : swipe.content,
+                        characterId: msg.characterId,
+                      }),
+                extra:
+                  swipe.index === msg.activeSwipeIndex
+                    ? messageExtra
+                    : await normalizeInterruptionExtra(sanitizeJsonlMessageExtra(parseExportMetadata(swipe.extra))),
+                createdAt: swipe.createdAt,
+              })),
+            )
           : [
               {
                 index: 0,
@@ -4149,7 +4182,9 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     for (const msg of msgs) {
       const swipes = await storage.getSwipes(msg.id);
-      const messageExtra = sanitizeBranchedMessageExtra(parseExportMetadata(msg.extra));
+      const messageExtra = await storage.prepareRoleplayInterruptionExtraForCopy(
+        sanitizeBranchedMessageExtra(parseExportMetadata(msg.extra)),
+      );
       const clearSummaryHidden = droppedHiddenIds.has(msg.id) && !inheritedHiddenIds.has(msg.id);
       if (clearSummaryHidden && messageExtra.hiddenFromAI === true) {
         delete messageExtra.hiddenFromAI;
@@ -4158,17 +4193,23 @@ export async function chatsRoutes(app: FastifyInstance) {
         Number.isInteger(msg.activeSwipeIndex) && msg.activeSwipeIndex >= 0 ? msg.activeSwipeIndex : 0;
       const copiedSwipes =
         swipes.length > 0
-          ? swipes.map((swipe: { index: number; content: string; extra?: unknown; createdAt?: string | null }) => {
-              const swipeExtra = sanitizeBranchedMessageExtra(parseExportMetadata(swipe.extra));
-              if (clearSummaryHidden && swipeExtra.hiddenFromAI === true) delete swipeExtra.hiddenFromAI;
-              const extra = swipe.index === activeSwipeIndex ? { ...swipeExtra, ...messageExtra } : swipeExtra;
-              return {
-                index: swipe.index,
-                content: swipe.index === activeSwipeIndex ? msg.content : swipe.content,
-                extra,
-                createdAt: swipe.createdAt ?? null,
-              };
-            })
+          ? await Promise.all(
+              swipes.map(
+                async (swipe: { index: number; content: string; extra?: unknown; createdAt?: string | null }) => {
+                  const swipeExtra = await storage.prepareRoleplayInterruptionExtraForCopy(
+                    sanitizeBranchedMessageExtra(parseExportMetadata(swipe.extra)),
+                  );
+                  if (clearSummaryHidden && swipeExtra.hiddenFromAI === true) delete swipeExtra.hiddenFromAI;
+                  const extra = swipe.index === activeSwipeIndex ? { ...swipeExtra, ...messageExtra } : swipeExtra;
+                  return {
+                    index: swipe.index,
+                    content: swipe.index === activeSwipeIndex ? msg.content : swipe.content,
+                    extra,
+                    createdAt: swipe.createdAt ?? null,
+                  };
+                },
+              ),
+            )
           : [
               {
                 index: 0,
@@ -4199,11 +4240,33 @@ export async function chatsRoutes(app: FastifyInstance) {
       if (upToMessageId && msg.id === upToMessageId) break;
     }
 
+    // A branch ending before the interrupting response keeps the full preceding message.
+    // Copy only; never restore or otherwise mutate the source chat while branching.
+    for (const omittedMessage of msgs.slice(sourceCutoffIndex + 1)) {
+      const omittedActivity = (
+        await storage.prepareRoleplayInterruptionExtraForCopy(parseExportMetadata(omittedMessage.extra))
+      ).roleplayCommandActivity;
+      if (Array.isArray(omittedActivity))
+        for (const item of omittedActivity) {
+          const receipt = readRoleplayInterruption(item?.interruption);
+          if (!receipt || receipt.restored || item.deleted || item.error) continue;
+          const copiedIndex = copiedSourceMessages.findIndex((message) => message.id === receipt.targetMessageId);
+          const copied = copiedMessageInputs[copiedIndex];
+          if (!copied) continue;
+          const swipe = copied.swipes?.find((candidate) => candidate.index === receipt.targetSwipeIndex);
+          if (swipe?.content === receipt.interruptedContent) {
+            swipe.content = receipt.originalContent;
+            if (copied.activeSwipeIndex === swipe.index && copied.content === receipt.interruptedContent)
+              copied.content = receipt.originalContent;
+          }
+        }
+    }
     const branchedMessageIds = await storage.createMessagesBatch(newChat.id, copiedMessageInputs);
     copiedSourceMessages.forEach((msg, index) => {
       const branchedId = branchedMessageIds[index];
       if (branchedId) sourceToBranchedMessageId.set(msg.id, branchedId);
     });
+    await storage.remapRoleplayInterruptionTargets(newChat.id, sourceToBranchedMessageId);
     const forkSourceMessage = copiedSourceMessages.at(-1);
 
     if (sourceChat.mode === "game" && settingsToKeep.gameJournal) {
@@ -4275,7 +4338,12 @@ export async function chatsRoutes(app: FastifyInstance) {
           db: app.db,
           chatId: newChat.id,
           records: advancedMemoryTransfer,
-          sourceMessages: msgs,
+          // A prefix branch may have recovered an interrupted source. Its older derived
+          // memories must fail the existing digest check instead of being revalidated.
+          sourceMessages: msgs.map((message, index) => ({
+            ...message,
+            content: copiedMessageInputs[index]?.content ?? message.content,
+          })),
           messageIds: sourceToBranchedMessageId,
           characterIds: branchCharacterIds,
           metadata: { ...settingsToKeep, summaryEntries: inheritedEntries },

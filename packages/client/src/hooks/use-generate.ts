@@ -639,6 +639,7 @@ import {
   applyRecentMessageContentEditsToData,
   chatKeys,
   forgetRecentMessageContentEdit,
+  forgetUnchangedMessageContentEdit,
   preserveRecentMessageContentEdit,
   rememberRecentMessageContentEdit,
 } from "./use-chats";
@@ -2492,6 +2493,21 @@ export function useGenerate() {
               if (!params.autonomous) {
                 toast.info("The model repeated its previous message, so it was not posted.");
               }
+              break;
+            }
+
+            case "roleplay_interrupted_message": {
+              const { message, previousContent } = event.data as { message: Message; previousContent: string };
+              if (
+                message.chatId !== params.chatId ||
+                typeof message.id !== "string" ||
+                typeof previousContent !== "string"
+              )
+                break;
+              await qc.cancelQueries({ queryKey: chatKeys.messages(params.chatId), exact: true });
+              forgetUnchangedMessageContentEdit(params.chatId, message, previousContent);
+              if (persistedMessages.has(message.id)) persistedMessages.set(message.id, message);
+              upsertPersistedMessages(qc, params.chatId, [message]);
               break;
             }
 

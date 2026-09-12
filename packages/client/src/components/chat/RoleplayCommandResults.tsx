@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getRoleplayCommandActivity, type RoleplayCommandActivity } from "@marinara-engine/shared";
 import { useUpdateMessageExtra } from "../../hooks/use-chats";
+import { useRestoreRoleplayInterrupt } from "../../hooks/use-roleplay-commands";
+import { useChatStore } from "../../stores/chat.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { ExpandedTextarea } from "../ui/ExpandedTextarea";
 import { RoleplayDocument } from "./RoleplayDocument";
@@ -16,12 +18,14 @@ function CommandNotice({
   soundUrl,
   pending,
   update,
+  restore,
 }: {
   item: RoleplayCommandActivity;
   characterName: string;
   soundUrl?: string;
   pending: boolean;
   update: (item: RoleplayCommandActivity) => Promise<unknown>;
+  restore: () => Promise<unknown>;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -51,7 +55,10 @@ function CommandNotice({
         command.type === "document" &&
         typeof command.title === "string" &&
         content !== null && <RoleplayDocument document={command} />}
-      <div className="overflow-hidden rounded-lg border border-[var(--primary)]/20">
+      <div
+        className="overflow-hidden rounded-lg border border-[var(--primary)]/20 text-[var(--marinara-chat-chrome-panel-text)]"
+        style={{ WebkitTextStroke: "0px", textShadow: "none" }}
+      >
         <button
           type="button"
           aria-expanded={open}
@@ -129,6 +136,34 @@ function CommandNotice({
               </div>
             )}
             {item.error && <p>{t("roleplay.commands.failed", { error: item.error })}</p>}
+            {command.type === "interrupt" &&
+              item.interruption &&
+              !item.deleted &&
+              !item.error &&
+              (item.interruption.restored ? (
+                <p role="status">{t("roleplay.commands.interrupt.restored")}</p>
+              ) : (
+                <button
+                  type="button"
+                  className={actionClass}
+                  disabled={pending}
+                  onClick={async () => {
+                    setError("");
+                    try {
+                      await restore();
+                    } catch (error) {
+                      setError(
+                        t("roleplay.commands.interrupt.restoreFailed", {
+                          error: error instanceof Error ? error.message : t("roleplay.commands.activity.saveFailed"),
+                        }),
+                      );
+                    }
+                  }}
+                >
+                  <RotateCcw size="0.875rem" aria-hidden className="mr-1 inline" />
+                  {t("roleplay.commands.interrupt.restore")}
+                </button>
+              ))}
             {soundUrl && (
               <audio
                 controls
@@ -201,6 +236,10 @@ export function RoleplayCommandResults({
 }) {
   const { t } = useTranslation();
   const mutation = useUpdateMessageExtra(chatId);
+  const restore = useRestoreRoleplayInterrupt(chatId);
+  const chatGenerating = useChatStore(
+    (state) => state.abortControllers.has(chatId) || (state.isStreaming && state.streamingChatId === chatId),
+  );
   const activity = getRoleplayCommandActivity(extra);
   const sounds = Array.isArray(extra.attachments)
     ? extra.attachments.filter(
@@ -219,7 +258,8 @@ export function RoleplayCommandResults({
           key={`${messageId}:${swipeIndex}:${index}`}
           item={item}
           characterName={characterName}
-          pending={isStreaming || mutation.isPending}
+          pending={isStreaming || chatGenerating || mutation.isPending || restore.isPending}
+          restore={() => restore.mutateAsync({ messageId, swipeIndex, activityIndex: index })}
           soundUrl={
             item.command.type === "sound"
               ? sounds.find((sound) => sound.name === (item.command as { description: string }).description)?.url
