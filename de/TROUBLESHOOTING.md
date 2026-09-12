@@ -307,11 +307,9 @@ Von der APK verwaltete Termux-Installationen schützen localhost mit einem priva
 
 Ein Fehler, der den Ursprung `null` nennt, bedeutet, dass ein älteres APK/Server-Paar den undurchsichtigen WebView-Ursprung von Android vor dem privaten Handshake an die allgemeine CSRF-Prüfung weitergegeben hat. Das lässt sich nicht durch Bearbeiten von `.env` beheben: Der Literalwert `null` wird absichtlich ignoriert, und globales Vertrauen in einen undurchsichtigen Ursprung würde jede unsichere API-Route schwächen. Aktualisiere APK und Engine; aktuelle Android-Anmelderouten prüfen ihren eigenen einmaligen Nachweis oder installationsbezogenen Geheimwert, während `null` überall sonst abgelehnt bleibt.
 
-Nur ein separater Browser auf demselben Handy braucht die manuelle lokale Browser-Authentifizierung. Öffne darin `/android-login` und füge den Wert aus diesem Termux-Befehl ein:
+Wähle im Android-Launcher **Open in browser** (im Browser öffnen) und tippe auf **Retry connection** (Verbindung erneut versuchen), um einen Browser auf demselben Handy zu öffnen. Eine aktuelle APK und Engine melden ihn automatisch an; du musst keinen Geheimwert eingeben. Nutze diese Aktion erneut, wenn der Server neu gestartet wurde oder die Sitzung abgelaufen ist. Aus der App kommst du über **Settings > General > App Behavior > Open Android launcher (app or browser)** (Einstellungen > Allgemein > App-Verhalten > Android-Launcher öffnen (App oder Browser)) zum Launcher zurück.
 
-```bash
-cat ~/.marinara-engine/android-secret
-```
+Mit älteren APKs kannst du weiterhin `/android-login` und den Wert aus `cat ~/.marinara-engine/android-secret` nutzen. Ein Browser-Link gilt eine Minute lang und funktioniert nur einmal. Öffne bei einem abgelaufenen Link den Browser erneut über den Launcher, statt den Link aus dem Verlauf wiederzuverwenden.
 
 Die lokale `mari`-CLI liest dieselbe Datei automatisch. 401 bedeutet, dass der eingefügte Geheimwert oder eine Authentifizierungs-Challenge abgelehnt wurde; lade `/android-login` neu und füge den aktuellen Wert ein. 503 bedeutet, dass der Server einen fehlerhaft konfigurierten Geheimwert erhalten hat. Starte über `./start-termux.sh` neu. Meldet der Launcher, seine Geheimwertdatei sei ungültig oder leer, kehr zur Android-App zurück und tipp auf **Install / Start Marinara**, damit die APK sie neu anlegt. Zeig diesen Geheimwert nie in Screenshots oder Problemberichten.
 

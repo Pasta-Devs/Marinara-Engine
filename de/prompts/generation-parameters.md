@@ -1,6 +1,6 @@
 # Generierungsparameter
 
-In dieser Anleitung erfährst du, was die Generierungsparameter in Marinara Engine tun. Sie steuern, wie die KI jede Antwort schreibt – dazu gehören **Temperature** (Zufälligkeit) und **Max Output Tokens** (maximale Antwortlänge). Eingestellt werden sie pro Chat im Panel **Advanced Parameters** (erweiterte Parameter).
+In dieser Anleitung erfährst du, was die Generierungsparameter in Marinara Engine tun. Sie steuern, wie die KI jede Antwort schreibt – dazu gehören **Temperature** (Zufälligkeit) und **Max Output Tokens** (maximale Antwortlänge). Presets und Verbindungen liefern die Standardwerte; im Panel **Advanced Parameters** (erweiterte Parameter) legst du abweichende Werte für jeden Chat fest.
 
 ## Was Generierungsparameter bewirken
 
@@ -12,7 +12,7 @@ Ein Parameter macht Antworten zum Beispiel zufälliger und kreativer. Ein andere
 
 ## Wo du sie findest
 
-Generierungsparameter stecken in jedem einzelnen Chat, nicht in einem globalen Menü.
+Die Basiswerte bearbeitest du unter **Presets > Parameters** (Presets > Parameter), die Verbindungswerte unter **Connections > Default Parameters** (Verbindungen > Standardparameter). Chat-spezifische Werte legst du unter **Chat Settings > Advanced Parameters** (Chat-Einstellungen > Erweiterte Parameter) fest.
 
 1. Öffne den Chat, den du ändern willst.
 2. Öffne **Chat Settings** (Chat-Einstellungen) über das Zahnradsymbol des aktiven Chats.
@@ -60,7 +60,7 @@ In den **Advanced Parameters** eines Chats steht der Send-Schalter standardmäß
 
 ## Standardwerte
 
-Neue Chats starten von einer eingebauten Grundlinie. Die Tabelle zeigt diese Startwerte und ob der jeweilige Parameter standardmäßig mitgeschickt wird.
+Die Tabelle zeigt die Ersatzwerte im Parametereditor und die Standardstellung der Send-Schalter. Das sind nicht unbedingt die Werte, die das Modell erhält: Ohne Preset beginnt die Generierung mit `4096` Ausgabetokens, bevor Verbindungs- und Chatwerte angewendet werden. Danach können Modusregeln `8192` für eine aktive Szene oder `16384` für Game festlegen. Die Zeile **Effective** zeigt den aufgelösten Wert.
 
 | Parameter | Startwert | Standardmäßig gesendet |
 |---|---|---|
@@ -131,19 +131,21 @@ Ganz unten in **Advanced Parameters** schreibt die Schaltfläche **Save as Conne
 
 Die Schaltfläche erscheint nur bei einer normalen, gespeicherten Verbindung. Beim Zufallspool an Verbindungen und beim eingebauten lokalen Modell bleibt sie ausgeblendet.
 
-Die Schaltfläche **Reset to Defaults** (auf Standard zurücksetzen) darunter verwirft jede Parameteränderung dieses Chats und stellt die Grundlinie des Modus wieder her.
+Die Schaltfläche **Reset to Defaults** (auf Standard zurücksetzen) darunter verwirft jede Parameteränderung dieses Chats und stellt seine geerbten Einstellungen wieder her.
 
 ## Wie Standards sich schichten und überschreiben
 
-Die tatsächlich wirksamen Parameter entstehen aus drei Schichten. Jede Schicht schlägt die vorherige, und zwar Einstellung für Einstellung.
+Die Parameter werden einzeln in dieser Reihenfolge aufgelöst:
 
-1. Die Grundlinie des Modus. Das ist der eingebaute Startpunkt für den Modus des Chats.
-2. Die gespeicherten Standards der Verbindung. Das sind die Werte, die du mit **Save as Connection Default** hinterlegt hast.
-3. Die **Advanced Parameters** dieses Chats. Das sind die Werte, die du direkt hier setzt – sie gewinnen.
+1. Die **Parameters** (Parameter) des gewählten Presets, oder die eingebauten Generierungsstandards ohne Preset (Temperatur `1`, maximale Ausgabe `4096`). In Roleplay hat die Preset-Zuweisung der Verbindung Vorrang vor dem im Chat gewählten Preset.
+2. Die **Default Parameters** (Standardparameter) der Verbindung.
+3. Die **Advanced Parameters** dieses Chats.
+4. Modusregeln: Ein aktiver Szenen-Chat setzt die Ausgabe auf `8192`, Reasoning auf **Maximum** und Verbosity auf **High**. Game Mode setzt die Ausgabe auf `16384` und Reasoning auf **Maximum**, Temperatur/top-p auf `1` sowie top-k, min-p und Wiederholungsstrafen auf `0`. Gemma-Verbindungen in Game Mode behalten ihre Sampling-Einstellungen und nutzen ein Ausgabebudget von mindestens `16384`.
+5. Ausgabelimits: Game Mode berücksichtigt das bekannte Ausgabelimit des Modells. Der **Max Output Tokens override** (Override für maximale Ausgabetokens) der Verbindung begrenzt Anfragen in jedem Modus. Der verfügbare Kontext kann das Ausgabebudget weiter reduzieren.
 
-Ein Wert aus **Advanced Parameters** schlägt also immer den Verbindungsstandard und die Grundlinie des Modus.
+Die Zeile **Effective** (wirksamer Wert) neben einem Parameter zeigt den gespeicherten Wert und die maßgebliche Schicht, einschließlich Modusregeln und Ausgabelimits. Im Verbindungseditor bezieht sie sich auf den aktuell geöffneten Chat mit dieser Verbindung, sonst auf eine Roleplay-Basis ohne offenen Chat. Speichere Änderungen, um die Anzeige zu aktualisieren. Ein deaktivierter Send-Schalter erscheint als **not sent**. Anbieter können trotzdem Pflichtparameter vorgeben oder nicht unterstützte Werte anpassen. Custom Parameters und die Anpassung an das Kontextfenster können die endgültige Anfrage weiter verändern.
 
-Game Mode ist ein Sonderfall. Game Mode setzt einige Parameter selbst, damit seine strukturierten Züge funktionieren. Im Game Mode greifen deshalb manche Änderungen aus **Advanced Parameters** nicht vollständig. Das ist so gewollt.
+Ein Preset mit `8192` und dieser Chat mit `16384` zeigen zum Beispiel **Effective: 16384 · this chat**. Ein Ausgabelimit der Verbindung von `4096` ändert das in **Effective: 4096 · output token cap**. Das Zurücksetzen der Chat-Parameter legt die nächste anwendbare Schicht frei; Preset- und Modusregeln bleiben bestehen.
 
 ## Manche Modelle ignorieren manche Parameter
 

@@ -307,11 +307,9 @@ As instalações do Termux gerenciadas pelo APK protegem o localhost com um segr
 
 Um erro que menciona a origem `null` significa que uma combinação antiga de APK e servidor deixou a origem opaca da WebView do Android chegar à verificação geral de CSRF antes da troca privada. Editar `.env` não corrige isso: o valor literal `null` é ignorado de propósito, e confiar globalmente em uma origem opaca enfraqueceria todas as rotas inseguras da API. Atualize o APK e o Engine; as rotas atuais de login do Android verificam uma prova própria de uso único ou um segredo por instalação, enquanto `null` continua rejeitado em todo o resto.
 
-Apenas um navegador separado no mesmo celular precisa de autenticação manual do navegador local. Nesse navegador, abra `/android-login` e cole o valor exibido por este comando do Termux:
+Para abrir um navegador no mesmo telefone, selecione **Open in browser** (abrir no navegador) no inicializador Android e toque em **Retry connection** (tentar conectar novamente). Com o APK e o Engine atualizados, a autenticação é automática; não é preciso inserir um segredo. Use essa ação novamente depois de reiniciar o servidor ou quando a sessão expirar. Dentro do aplicativo, volte ao inicializador por **Settings > General > App Behavior > Open Android launcher (app or browser)** (configurações > geral > comportamento do aplicativo > abrir o inicializador Android (aplicativo ou navegador)).
 
-```bash
-cat ~/.marinara-engine/android-secret
-```
+APKs antigos ainda podem usar `/android-login` com o valor de `cat ~/.marinara-engine/android-secret`. Um link de navegador expira após um minuto e funciona uma única vez. Se expirar, abra o navegador novamente pelo inicializador em vez de reutilizar o link do histórico.
 
 A CLI local `mari` lê o mesmo arquivo automaticamente. Um erro 401 significa que o segredo colado ou um desafio de autenticação foi rejeitado; recarregue `/android-login` e cole o valor atual. Um erro 503 significa que o servidor recebeu um segredo configurado em formato inválido. Reinicie pelo `./start-termux.sh`; se o inicializador informar que o arquivo de segredo está inválido ou vazio, volte ao aplicativo Android e toque em **Install / Start Marinara** para o APK criá-lo de novo. Não coloque esse segredo em capturas de tela nem em relatos de problemas.
 

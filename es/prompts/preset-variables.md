@@ -18,7 +18,7 @@ El comportamiento de una variable depende de sus opciones y de dos interruptores
 
 **Multi-Select** (selección múltiple). Activa el interruptor **Multi-Select** para permitir que los usuarios elijan más de una opción. De forma predeterminada, los valores seleccionados se unen con un separador. El separador es un campo de texto corto, y el valor predeterminado es una coma y un espacio. Por ejemplo, las opciones Romance, Fantasy y Action unidas con `, ` se convierten en el texto "Romance, Fantasy, Action".
 
-**Random Pick** (elección aleatoria). Cuando **Multi-Select** está activado, aparece un interruptor **Random Pick**. Con **Random Pick** activado, la app elige al azar una de las opciones seleccionadas por el usuario cada vez que genera. Esto es útil para dar variedad: el usuario elige un grupo de opciones, y cada respuesta toma una de ese grupo.
+**Random Pick** (elección aleatoria). Para una variable de selección única, Marinara preselecciona una opción al azar en cada chat nuevo. Puedes cambiarla antes de confirmar, y la elección guardada permanece fija hasta que la edites. Con **Multi-Select** activado, la app elige al azar una de las opciones seleccionadas por el usuario cada vez que genera. Esto da variedad: el usuario elige un grupo de opciones, y cada respuesta toma una de ese grupo.
 
 ## Añadir una variable de preset
 
@@ -63,3 +63,5 @@ Si existe una variable con ese nombre exacto, el marcador de posición se convie
 
 - [Preset Editor and Prompt Manager](presets.md)
 - [Prompt Macros](macros.md)
+
+Las variables del preset también se resuelven en los saludos de los personajes, incluidas las elecciones confirmadas después de crear el saludo. El saludo original sigue siendo editable y conserva sus macros.

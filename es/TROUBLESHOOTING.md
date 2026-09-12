@@ -307,11 +307,9 @@ Las instalaciones de Termux gestionadas por el APK protegen localhost con un sec
 
 Un error que menciona el origen `null` significa que una pareja antigua de APK y servidor dejó que el origen opaco del WebView de Android llegara a la comprobación general de CSRF antes del intercambio privado. Editar `.env` no puede corregirlo: el valor literal `null` se ignora deliberadamente, y confiar globalmente en un origen opaco debilitaría todas las rutas inseguras de la API. Actualiza el APK y Engine; las rutas actuales de inicio de sesión de Android verifican su propia prueba de un solo uso o secreto por instalación, mientras `null` sigue rechazado en el resto.
 
-Solo un navegador independiente del mismo teléfono necesita autenticación manual de navegador local. En ese navegador, abre `/android-login` y pega el valor que muestra este comando de Termux:
+Para abrir un navegador en el mismo teléfono, selecciona **Open in browser** (abrir en el navegador) en el lanzador de Android y toca **Retry connection** (reintentar conexión). Con el APK y Engine actualizados, la autenticación es automática y no necesitas introducir ningún secreto. Vuelve a abrirlo con esta acción tras reiniciar el servidor o cuando caduque la sesión. Desde la app, vuelve al lanzador mediante **Settings > General > App Behavior > Open Android launcher (app or browser)** (ajustes > general > comportamiento de la app > abrir el lanzador de Android (app o navegador)).
 
-```bash
-cat ~/.marinara-engine/android-secret
-```
+Los APK anteriores pueden seguir usando `/android-login` con el valor de `cat ~/.marinara-engine/android-secret`. El enlace del navegador caduca al cabo de un minuto y solo funciona una vez. Si caduca, vuelve a abrir el navegador desde el lanzador en lugar de reutilizar el enlace del historial.
 
 La CLI local `mari` lee el mismo archivo automáticamente. Un 401 significa que se rechazó el secreto pegado o un desafío de autenticación; vuelve a cargar `/android-login` y pega el valor actual. Un 503 significa que el servidor recibió un secreto configurado con un formato incorrecto. Reinicia mediante `./start-termux.sh`; si el lanzador indica que su archivo de secreto no es válido o está vacío, vuelve a la app de Android y toca **Install / Start Marinara** para que el APK lo aprovisione otra vez. No incluyas este secreto en capturas de pantalla ni en informes de problemas.
 

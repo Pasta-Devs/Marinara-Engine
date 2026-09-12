@@ -307,11 +307,9 @@ Les installations Termux gérées par l'APK protègent localhost avec un secret 
 
 Une erreur qui nomme l'origine `null` indique qu'une ancienne paire APK/serveur a laissé l'origine opaque de la WebView Android atteindre le contrôle CSRF général avant l'échange privé. Modifier `.env` ne peut pas corriger cela : la valeur littérale `null` est volontairement ignorée, et faire globalement confiance à une origine opaque affaiblirait toutes les routes API non sûres. Mets à jour l'APK et Engine ; les routes de connexion Android actuelles vérifient leur propre preuve à usage unique ou secret par installation, tandis que `null` reste rejeté partout ailleurs.
 
-Seul un navigateur distinct sur le même téléphone nécessite une authentification manuelle du navigateur local. Dans ce navigateur, ouvre `/android-login` et colle la valeur affichée par cette commande Termux :
+Pour ouvrir un navigateur sur le même téléphone, choisis **Open in browser** (ouvrir dans le navigateur) dans le lanceur Android, puis appuie sur **Retry connection** (réessayer la connexion). Avec l'APK et Marinara Engine à jour, l'authentification est automatique : aucun secret à saisir. Réutilise cette action après un redémarrage du serveur ou l'expiration de la session. Depuis l'application, reviens au lanceur par **Settings > General > App Behavior > Open Android launcher (app or browser)** (réglages > général > comportement de l'application > ouvrir le lanceur Android (application ou navigateur)).
 
-```bash
-cat ~/.marinara-engine/android-secret
-```
+Les anciens APK peuvent toujours utiliser `/android-login` avec la valeur de `cat ~/.marinara-engine/android-secret`. Un lien de navigateur expire après une minute et ne fonctionne qu'une fois. S'il a expiré, rouvre le navigateur depuis le lanceur au lieu de réutiliser le lien dans l'historique.
 
 La CLI `mari` locale lit automatiquement le même fichier. Une erreur 401 signifie que le secret collé ou une demande d'authentification a été refusé ; recharge `/android-login` et colle la valeur actuelle. Une erreur 503 signifie que le serveur a reçu un secret configuré au mauvais format. Redémarre avec `./start-termux.sh` ; si le lanceur signale que son fichier de secret est incorrect ou vide, retourne dans l'application Android et appuie sur **Install / Start Marinara** pour que l'APK le crée à nouveau. Ne mets pas ce secret dans une capture d'écran ou un rapport de problème.
 

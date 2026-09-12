@@ -307,11 +307,9 @@ APK가 관리하는 Termux 설치는 설치마다 다른 비공개 비밀 값으
 
 출처 `null`을 언급하는 오류는 오래된 APK와 서버 조합이 비공개 핸드셰이크보다 먼저 Android WebView의 불투명한 출처를 일반 CSRF 검사에 전달했다는 뜻입니다. `.env`를 수정해도 해결되지 않습니다. 리터럴 `null`은 의도적으로 무시되며 불투명한 출처를 전역으로 신뢰하면 안전하지 않은 모든 API 경로가 약해집니다. APK와 Engine을 업데이트하세요. 현재 Android 로그인 경로는 자체 일회용 증명이나 설치별 비밀 값을 검증하고 다른 모든 곳에서는 `null`을 계속 거부합니다.
 
-같은 휴대폰의 별도 브라우저만 수동 로컬 브라우저 인증이 필요합니다. 해당 브라우저에서 `/android-login`을 열고 다음 Termux 명령으로 표시된 값을 붙여 넣으세요.
+같은 휴대폰의 브라우저로 열려면 Android 런처에서 **Open in browser**(브라우저에서 열기)를 선택하고 **Retry connection**(연결 다시 시도)을 누르세요. APK와 Engine이 최신 버전이면 자동으로 인증하므로 비밀값을 입력할 필요가 없습니다. 서버를 재시작하거나 세션이 만료된 뒤에도 이 동작으로 다시 여세요. 앱 안에서는 **Settings > General > App Behavior > Open Android launcher (app or browser)**(설정 > 일반 > 앱 동작 > Android 런처 열기(앱 또는 브라우저))로 런처에 돌아갈 수 있습니다.
 
-```bash
-cat ~/.marinara-engine/android-secret
-```
+이전 APK에서는 계속 `/android-login`에 `cat ~/.marinara-engine/android-secret`의 값을 사용할 수 있습니다. 브라우저 링크는 1분 뒤에 만료되며 한 번만 사용할 수 있습니다. 만료되면 방문 기록의 링크를 재사용하지 말고 런처에서 브라우저를 다시 여세요.
 
 로컬 `mari` CLI도 같은 파일을 자동으로 읽습니다. 401은 붙여 넣은 비밀 값이나 인증 챌린지가 거부되었다는 뜻입니다. `/android-login`을 새로 고치고 현재 값을 붙여 넣으세요. 503은 서버가 잘못된 형식으로 설정된 비밀 값을 받았다는 뜻입니다. `./start-termux.sh`로 다시 시작하세요. 런처에서 비밀 파일이 잘못되었거나 비어 있다고 알리면 Android 앱으로 돌아가 **Install / Start Marinara**를 탭하여 APK가 다시 만들게 하세요. 이 비밀 값을 스크린샷이나 문제 보고서에 넣지 마세요.
 

@@ -65,7 +65,7 @@ Otwórz postać w edytorze, a potem kliknij przycisk **Export character** (ekspo
 | **Compatible JSON** | Zwykły plik JSON w formacie Chara Card V2, bez nakładki aplikacji Marinara Engine. | Udostępniania innym aplikacjom, które czytają karty JSON. |
 | **Compatible PNG Card** | Obrazek Chara Card V2 z danymi karty zapisanymi wewnątrz obrazu. | Aplikacji i stron, które oczekują karty PNG, takich jak SillyTavern, Chub i Risu. |
 
-Wybierz **Marinara Native**, jeśli chcesz zachować wszystko. Wybierz jeden z formatów **Compatible**, jeśli plik trafia do innego narzędzia. Oba formaty zgodne pomijają dodatki charakterystyczne dla aplikacji Marinara Engine, takie jak sprite'y i obrazy z galerii.
+Wybierz **Marinara Native**, jeśli chcesz zachować wszystko. Wybierz jeden z formatów **Compatible**, jeśli plik trafia do innego narzędzia. Oba formaty zgodne pomijają dodatki charakterystyczne dla aplikacji Marinara Engine, takie jak sprite'y i obrazy z galerii. Niepuste pola **Backstory** (historia postaci) i **Appearance** (wygląd) są dopisywane do standardowego pola Description, żeby inne aplikacje odczytujące format V2 zachowały te informacje o postaci. Pola te są usuwane z eksportowanych rozszerzeń, aby nie dublowały się przy ponownym imporcie. Zapisana karta pozostaje bez zmian; format **Marinara Native** zachowuje osobne pola.
 
 ## Eksportowanie wielu postaci naraz
 

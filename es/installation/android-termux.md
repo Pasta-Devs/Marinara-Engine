@@ -21,7 +21,7 @@ La ruta más fácil usa la app de Android de Marinara Engine. Un APK es un archi
 5. Cuando Android lo pida, concede el permiso **Run commands in Termux environment** (Ejecutar comandos en el entorno de Termux).
 6. Si Termux bloquea la configuración, la app copia por ti un comando `allow-external-apps`. Pega ese comando en Termux una vez y luego toca **Install / Start Marinara** de nuevo.
 7. Espera mientras Termux instala las dependencias y compila Marinara. La primera compilación tarda unos minutos.
-8. Vuelve a la app Marinara Engine cuando Termux termine. La app se conecta e inicia sesión automáticamente cuando el servidor local está listo.
+8. Vuelve a la app Marinara Engine cuando Termux termine. La app se conecta e inicia sesión automáticamente cuando el servidor local está listo. Selecciona **Open in browser** (abrir en el navegador) en el lanzador si prefieres usar tu navegador. La elección se guarda y el inicio de sesión también es automático allí.
 
 Si prefieres un icono en la pantalla de inicio que abra Marinara como una app normal, esta misma app de Android lo ofrece. Es una envoltura alrededor del servidor de Termux, así que el servidor debe configurarse primero. No puede saltarse los avisos de instalación y de permisos de Android, pero no te pide configurar ningún secreto de instalación de Marinara.
 
@@ -55,7 +55,9 @@ Consejo: para obtener un icono parecido al de una app, abre el menú de tu naveg
 
 ## Iniciar Marinara de nuevo
 
-Después de la primera configuración, no repites la instalación. Abre Termux y ejecuta:
+Con el APK, abre Marinara y toca **Install / Start Marinara** si el servidor está detenido. Reutiliza un servidor que ya esté en marcha y autenticado. Para cambiar entre la app y el navegador, usa **Open in browser** en el lanzador y luego **Retry connection** (reintentar conexión). Desde la app, vuelve allí mediante **Settings > General > App Behavior > Open Android launcher (app or browser)** (ajustes > general > comportamiento de la app > abrir el lanzador de Android (app o navegador)). El inicio de sesión automático en el navegador necesita tanto el APK como Engine actualizados. No reutilices desde el historial un enlace de un solo uso que haya caducado.
+
+En una instalación manual de Termux, después de la primera configuración no repites la instalación. Abre Termux y ejecuta:
 
 ```
 cd Marinara-Engine

@@ -18,7 +18,7 @@ Le comportement d'une variable dépend de ses options et de deux interrupteurs. 
 
 **Multi-Select.** Active l'interrupteur **Multi-Select** (sélection multiple) pour autoriser plusieurs options à la fois. Par défaut, les valeurs retenues sont assemblées avec un séparateur. Le séparateur est un petit champ de texte, et vaut par défaut une virgule suivie d'une espace. Par exemple, les options Romance, Fantasy et Action assemblées avec `, ` donnent le texte "Romance, Fantasy, Action".
 
-**Random Pick.** Quand **Multi-Select** est activé, un interrupteur **Random Pick** (tirage aléatoire) apparaît. Avec **Random Pick** activé, l'application tire au sort une des options retenues à chaque génération. Pratique pour varier : tu constitues un vivier d'options, et chaque réponse en pioche une.
+**Random Pick** (tirage aléatoire). Pour une variable à choix unique, Marinara présélectionne une option au hasard à chaque nouveau chat. Tu peux la changer avant de confirmer ; le choix enregistré reste ensuite fixe jusqu'à ta prochaine modification. Avec **Multi-Select** activé, l'application tire au sort une des options retenues à chaque génération. Pratique pour varier : tu constitues un vivier d'options, et chaque réponse en pioche une.
 
 ## Ajouter une variable de preset
 
@@ -63,3 +63,5 @@ S'il existe une variable portant exactement ce nom, l'emplacement prend la valeu
 
 - [Éditeur de preset et Prompt Manager](presets.md)
 - [Macros de prompt](macros.md)
+
+Les variables de preset sont aussi résolues dans les messages d'accueil des personnages, y compris les choix confirmés après la création du message. Le message d'accueil original reste modifiable avec ses macros intactes.

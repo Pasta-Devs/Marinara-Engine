@@ -65,7 +65,7 @@
 | **Compatible JSON** | Marinara 전용 정보를 뺀 순수 Chara Card V2 JSON입니다. | JSON 카드를 읽는 다른 앱에 공유할 때 |
 | **Compatible PNG Card** | 카드 데이터를 그림 안에 담은 Chara Card V2 이미지입니다. | SillyTavern, Chub, Risu처럼 PNG 카드를 쓰는 앱과 사이트 |
 
-전부 그대로 유지하고 싶다면 **Marinara Native**를 고르세요. 파일을 다른 도구로 넘길 때는 **Compatible** 형식 중 하나를 고르세요. 호환 형식 2가지는 스프라이트나 갤러리 이미지처럼 Marinara에만 있는 부가 정보를 버립니다.
+전부 그대로 유지하고 싶다면 **Marinara Native**를 고르세요. 파일을 다른 도구로 넘길 때는 **Compatible** 형식 중 하나를 고르세요. 호환 형식 2가지는 스프라이트나 갤러리 이미지처럼 Marinara에만 있는 부가 정보를 버립니다. 비어 있지 않은 **Backstory**(배경 이야기)와 **Appearance**(외모) 필드는 표준 Description에 덧붙여 다른 V2 지원 도구에서도 캐릭터 정보를 유지합니다. 다시 가져올 때 중복되지 않도록 이 필드들은 내보내는 확장 정보에서 제거합니다. 저장된 카드는 바뀌지 않으며 **Marinara Native**는 별도 필드를 유지합니다.
 
 ## 캐릭터 여러 개 한꺼번에 내보내기
 

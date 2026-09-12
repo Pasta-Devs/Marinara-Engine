@@ -44,7 +44,7 @@ http://192.168.1.42:7860
 
 Androidでは、[最新のAPKを直接ダウンロード](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)することもできます。Termuxを通じてスマートフォン内でMarinaraが動きます。インストールに署名キー、パスワード、ローカルアクセス用シークレットは必要ありません。Androidの権限確認については[Android(Termux)インストールガイド](installation/android-termux.md)を参照してください。iPhoneとiPadについては[iOS / iPadOS PWAガイド](installation/ios-pwa.md)を参照してください。
 
-Androidラッパーは、APKが管理するTermuxサーバーを開くと自動的にログインします。非公開の認証情報が見えるのは、同じスマートフォンの別のブラウザーで意図的にサーバーを開く場合だけです。`/android-login`を開き、Termuxで`cat ~/.marinara-engine/android-secret`を実行して、表示された値を貼り付けます。ローカルの`mari` CLIも、ランチャーが管理する同じシークレットを自動で読み込みます。手動のTermuxインストールでは、localhostとネットワークアクセスに通常の規則が適用されます。
+Androidラッパーは、アプリでもブラウザーでも自動的にサインインします。ランチャーで**Open in browser**(ブラウザーで開く)を選び、**Retry connection**(接続を再試行)をタップします。サーバーが停止している場合は**Install / Start Marinara**を使います。この選択は保存されます。アプリ内の**Settings > General > App Behavior > Open Android launcher (app or browser)**(設定 > 一般 > アプリの動作 > Androidランチャーを開く(アプリまたはブラウザー))から、この選択画面に戻れます。ブラウザーを自動で認証して開くには、APKとEngineの両方を更新してください。古いAPKでは、引き続き`/android-login`で手動サインインできます。ローカルの`mari` CLIはランチャーが管理するシークレットを自動で読み取り、Termuxへの手動インストールでは通常のlocalhostルールが適用されます。
 
 ## 3つのチャットモードとは?
 

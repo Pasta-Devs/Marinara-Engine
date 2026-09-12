@@ -307,11 +307,9 @@ Android 应用只是套在 Termux 外面的一层轻壳。Termux 是 Android 上
 
 提到来源 `null` 的错误表示，旧版 APK 和服务器组合让 Android WebView 的不透明来源在私密握手前进入了通用 CSRF 检查。编辑 `.env` 无法修复：字面值 `null` 会被有意忽略，而全局信任不透明来源会削弱所有不安全的 API 路由。请更新 APK 和 Engine；当前 Android 登录路由会验证自己的单次证明或每次安装的密钥，其他地方仍会拒绝 `null`。
 
-只有同一部手机上的单独浏览器需要手动本地浏览器认证。在那个浏览器中打开 `/android-login`，然后粘贴以下 Termux 命令显示的值：
+要在同一部手机的浏览器中打开应用，在 Android 启动界面选择 **Open in browser**(在浏览器中打开)，然后点击 **Retry connection**(重试连接)。当前版本的 APK 和 Engine 会自动完成认证，不需要输入密钥。服务器重启或会话过期后，也通过这个操作重新打开。应用内可以通过 **Settings > General > App Behavior > Open Android launcher (app or browser)**(设置 → 常规 → 应用行为 → 打开 Android 启动界面(应用或浏览器)) 返回启动界面。
 
-```bash
-cat ~/.marinara-engine/android-secret
-```
+旧版 APK 仍可在 `/android-login` 使用 `cat ~/.marinara-engine/android-secret` 显示的值。浏览器链接会在一分钟后过期，而且只能用一次。链接过期后，应从启动界面重新打开浏览器，不要复用历史记录中的链接。
 
 本地 `mari` CLI 会自动读取同一个文件。401 表示粘贴的密钥或认证质询遭到拒绝；请重新加载 `/android-login` 并粘贴当前值。503 表示服务器收到的已配置密钥格式错误。请通过 `./start-termux.sh` 重新启动。如果启动脚本报告密钥文件无效或为空，请回到 Android 应用并点击 **Install / Start Marinara**，让 APK 重新生成。不要把这个密钥放进截图或问题报告。
 

@@ -21,7 +21,7 @@ Am einfachsten geht es mit der Android-App von Marinara Engine. Eine APK ist die
 5. Erteile die Berechtigung **Run commands in Termux environment** (Befehle in der Termux-Umgebung ausführen), sobald Android danach fragt.
 6. Blockiert Termux die Einrichtung, kopiert die App einen `allow-external-apps`-Befehl für dich. Füge ihn einmal in Termux ein und tippe danach erneut auf **Install / Start Marinara**.
 7. Warte, bis Termux die Abhängigkeiten installiert und Marinara gebaut hat. Der erste Build dauert ein paar Minuten.
-8. Kehr zur Marinara-Engine-App zurück, wenn Termux fertig ist. Sobald der lokale Server bereit ist, verbindet sich die App und meldet sich automatisch an.
+8. Kehr zur Marinara-Engine-App zurück, wenn Termux fertig ist. Sobald der lokale Server bereit ist, verbindet sich die App und meldet sich automatisch an. Wähle im Launcher **Open in browser** (im Browser öffnen), wenn du lieber deinen Browser nutzt. Die Auswahl wird gespeichert, und auch dort erfolgt die Anmeldung automatisch.
 
 Du hättest gern ein Symbol auf dem Startbildschirm, das Marinara wie eine gewöhnliche App öffnet? Genau das liefert diese Android-App mit. Sie ist allerdings nur eine Hülle um den Termux-Server, der also zuerst eingerichtet sein muss. Die Installations- und Berechtigungsabfragen von Android lassen sich damit nicht umgehen, aber du musst keinen Marinara-Installationsgeheimwert konfigurieren.
 
@@ -55,7 +55,9 @@ Tipp: Für ein App-ähnliches Symbol öffnest du das Browser-Menü und wählst d
 
 ## Marinara erneut starten
 
-Nach der ersten Einrichtung entfällt die Installation. Öffne Termux und führe aus:
+Öffne bei einer APK-Installation Marinara und tippe auf **Install / Start Marinara**, wenn der Server gestoppt ist. Ein bereits laufender, authentifizierter Server wird weiterverwendet. Mit **Open in browser** im Launcher und anschließend **Retry connection** (Verbindung erneut versuchen) wechselst du zwischen App und Browser. Aus der App kommst du über **Settings > General > App Behavior > Open Android launcher (app or browser)** (Einstellungen > Allgemein > App-Verhalten > Android-Launcher öffnen (App oder Browser)) dorthin zurück. Die automatische Browser-Anmeldung benötigt eine aktuelle APK und Engine. Öffne keinen abgelaufenen Einmal-Link aus dem Browserverlauf erneut.
+
+Bei einer manuellen Termux-Installation entfällt nach der ersten Einrichtung die Installation. Öffne Termux und führe aus:
 
 ```
 cd Marinara-Engine

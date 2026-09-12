@@ -1,6 +1,6 @@
 # Parámetros de generación
 
-Esta guía explica los parámetros de generación de Marinara Engine. Son los ajustes que controlan cómo escribe la IA cada respuesta, como **Temperature** (Temperatura) y **Max Output Tokens** (Máximo de tokens de salida). Los cambias por chat en el panel **Advanced Parameters** (Parámetros avanzados).
+Esta guía explica los parámetros de generación de Marinara Engine. Son los ajustes que controlan cómo escribe la IA cada respuesta, como **Temperature** (Temperatura) y **Max Output Tokens** (Máximo de tokens de salida). Los presets y las conexiones aportan valores predeterminados; el panel **Advanced Parameters** (parámetros avanzados) permite sustituirlos para cada chat.
 
 ## Qué hacen los parámetros de generación
 
@@ -12,7 +12,7 @@ Cambia estos ajustes solo cuando quieras arreglar un problema concreto. Esta gu�
 
 ## Dónde encontrarlos
 
-Los parámetros de generación viven en cada chat, no en un menú global.
+Edita los valores base en **Presets > Parameters** (presets > parámetros) y los de la conexión en **Connections > Default Parameters** (conexiones > parámetros predeterminados). Los ajustes específicos del chat están en **Chat Settings > Advanced Parameters** (ajustes del chat > parámetros avanzados).
 
 1. Abre el chat que quieres cambiar.
 2. Abre **Chat Settings** (Ajustes del chat) (el icono de engranaje del chat activo).
@@ -60,7 +60,7 @@ En los **Advanced Parameters** de un chat, solo **Max Output Tokens** y **Reason
 
 ## Valores predeterminados
 
-Los chats nuevos parten de una base integrada. La tabla de abajo muestra esos valores iniciales y si cada uno se envía de forma predeterminada.
+La tabla muestra los valores de respaldo del editor de parámetros y el estado predeterminado de los interruptores Send. No son necesariamente los valores que recibe el modelo: sin un preset, la generación parte de `4096` tokens de salida antes de aplicar los valores de la conexión y del chat. Después, las reglas del modo pueden fijar `8192` para una escena activa o `16384` para Game Mode. La línea **Effective** muestra el valor resuelto.
 
 | Parámetro | Valor inicial | Enviado de forma predeterminada |
 |---|---|---|
@@ -131,19 +131,21 @@ En la parte inferior de **Advanced Parameters**, el botón **Save as Connection 
 
 El botón solo aparece para una conexión normal y guardada. Está oculto para el grupo de conexiones aleatorias y para el modelo local integrado.
 
-El botón **Reset to Defaults** (Restablecer valores predeterminados) debajo de él borra cada cambio de parámetro por chat y devuelve este chat a la base del modo.
+El botón **Reset to Defaults** (restablecer valores predeterminados) que aparece debajo borra todos los cambios de parámetros de este chat y recupera sus ajustes heredados.
 
 ## Cómo se superponen y sustituyen los valores predeterminados
 
-Tus parámetros efectivos vienen de tres capas. Cada capa gana sobre la anterior, un ajuste a la vez.
+Los parámetros se resuelven campo por campo, en este orden:
 
-1. La base del modo. Este es el punto de partida integrado para el modo del chat.
-2. Los valores predeterminados guardados de la conexión. Son los valores que almacenaste con **Save as Connection Default**.
-3. Los **Advanced Parameters** de este chat. Son los valores que fijas aquí mismo, y ganan.
+1. Los **Parameters** (parámetros) del preset seleccionado, o los valores de generación integrados si no se usa un preset (temperatura `1`, salida máxima `4096`). En Roleplay, el preset asignado en la conexión tiene prioridad sobre el seleccionado en el chat.
+2. Los **Default Parameters** (parámetros predeterminados) de la conexión.
+3. Los **Advanced Parameters** de este chat.
+4. Reglas del modo: un chat de escena activo fija la salida en `8192`, el razonamiento en **Maximum** y la verbosidad en **High**. Game Mode fija la salida en `16384` y el razonamiento en **Maximum**, con temperatura/top-p en `1` y top-k, min-p y penalizaciones de repetición en `0`. Las conexiones Gemma de Game Mode conservan sus ajustes de muestreo y usan un presupuesto de salida de al menos `16384`.
+5. Límites de salida: Game Mode aplica el límite de salida conocido del modelo, y el **Max Output Tokens override** (límite personalizado de tokens de salida) de la conexión limita las solicitudes en todos los modos. El contexto disponible puede reducir aún más el presupuesto de salida.
 
-Así que un valor que fijas en **Advanced Parameters** siempre vence al valor predeterminado de la conexión y a la base del modo.
+La línea **Effective** (valor efectivo) junto a un parámetro muestra el valor guardado y la capa que prevalece, incluidas las reglas del modo y los límites de salida. En el editor de conexiones usa el chat abierto que utilice esa conexión, o una base de Roleplay si no hay ningún chat abierto. Guarda los cambios para actualizarla. Un interruptor Send desactivado aparece como **not sent**; los proveedores aún pueden imponer parámetros obligatorios o adaptar valores no compatibles. Custom Parameters y el ajuste al contexto pueden modificar aún más la solicitud final.
 
-Game Mode es un caso especial. Game Mode fija algunos parámetros por su cuenta para mantener funcionando sus turnos estructurados. En Game Mode, algunos de tus cambios en **Advanced Parameters** pueden no aplicarse por completo. Esto es lo esperado.
+Por ejemplo, un preset en `8192` y este chat en `16384` muestran **Effective: 16384 · this chat**. Un límite de salida de `4096` en la conexión lo cambia a **Effective: 4096 · output token cap**. Restablecer los parámetros del chat deja visible la siguiente capa aplicable; no elimina las reglas del preset ni del modo.
 
 ## Algunos modelos ignoran algunos parámetros
 

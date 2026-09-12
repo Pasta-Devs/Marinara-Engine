@@ -21,7 +21,7 @@ Termuxは[Termux on F-Droid](https://f-droid.org/en/packages/com.termux/)から�
 5. Androidから求められたら、**Run commands in Termux environment**(Termux環境でコマンドを実行)の権限を許可します。
 6. Termuxが準備を止めてしまう場合は、アプリが`allow-external-apps`のコマンドをコピーしてくれます。そのコマンドをTermuxに1回貼り付けて実行し、もう一度**Install / Start Marinara**をタップします。
 7. Termuxが依存関係をインストールし、Marinaraをビルドするまで待ちます。最初のビルドには数分かかります。
-8. Termuxの処理が終わったらMarinara Engineアプリに戻ります。ローカルサーバーの準備ができると、アプリが自動的に接続してログインします。
+8. Termuxの処理が終わったらMarinara Engineアプリに戻ります。ローカルサーバーの準備ができると、アプリが自動的に接続してログインします。ブラウザーを使いたい場合は、ランチャーで**Open in browser**(ブラウザーで開く)を選びます。この選択は保存され、ブラウザーでも自動的にサインインします。
 
 普通のアプリと同じようにホーム画面のアイコンからMarinaraを開きたい場合も、このAndroidアプリが対応しています。ただしTermuxのサーバーを包む仕組みなので、先にサーバーの準備が必要です。Androidのインストール確認や権限の確認を省くことはできませんが、Marinaraのインストール用シークレットを設定するよう求められることはありません。
 
@@ -55,7 +55,9 @@ Marinaraは`PORT`(アプリが使うネットワークのポート)で指定し�
 
 ## Marinaraを次回以降に起動する
 
-最初の準備が済めば、インストールをやり直す必要はありません。Termuxを開いて次を実行します。
+APKを使っている場合はMarinaraを開き、サーバーが停止していれば**Install / Start Marinara**をタップします。認証済みのサーバーがすでに動いていれば、そのサーバーを再利用します。アプリとブラウザーを切り替えるには、ランチャーの**Open in browser**を設定してから**Retry connection**(接続を再試行)を使います。アプリ内からは**Settings > General > App Behavior > Open Android launcher (app or browser)**(設定 > 一般 > アプリの動作 > Androidランチャーを開く(アプリまたはブラウザー))でランチャーに戻れます。ブラウザーへの自動サインインには、APKとEngineの両方の更新が必要です。期限切れの使い捨てリンクを履歴から開き直さないでください。
+
+Termuxに手動でインストールした場合、最初の準備が済めばインストールをやり直す必要はありません。Termuxを開いて次を実行します。
 
 ```
 cd Marinara-Engine

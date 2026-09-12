@@ -44,7 +44,7 @@ http://192.168.1.42:7860
 
 Android 上还可以[直接下载最新 APK](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk)，通过 Termux 把 Marinara 跑在手机本地。安装不需要签名密钥、密码或本地访问密钥；Android 权限提示见 [Android (Termux) 安装指南](installation/android-termux.md)。iPhone 和 iPad 用户见 [iOS / iPadOS PWA 指南](installation/ios-pwa.md)。
 
-Android 外壳打开由 APK 管理的 Termux 服务器时会自动登录。私密凭据只会在用户有意用同一部手机的其他浏览器打开服务器时出现：打开 `/android-login`，在 Termux 中运行 `cat ~/.marinara-engine/android-secret`，然后粘贴显示的值。本地 `mari` CLI 也会自动读取由启动脚本管理的同一密钥。手动安装 Termux 时仍采用普通的 localhost 和网络访问规则。
+Android 包装应用会在应用内或浏览器中自动登录。在启动界面选择 **Open in browser**(在浏览器中打开)，然后点击 **Retry connection**(重试连接)；服务器停止时使用 **Install / Start Marinara**。这个选择会被记住。应用内的 **Settings > General > App Behavior > Open Android launcher (app or browser)**(设置 → 常规 → 应用行为 → 打开 Android 启动界面(应用或浏览器)) 可以返回选择界面。要使用自动认证并打开浏览器的功能，需要同时更新 APK 和 Engine。旧版 APK 仍可通过 `/android-login` 手动登录。本地 `mari` CLI 会自动读取启动脚本管理的密钥，手动安装的 Termux 则保留正常的 localhost 规则。
 
 ## 三种聊天模式分别是什么？
 
