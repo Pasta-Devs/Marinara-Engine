@@ -126,7 +126,7 @@ for (const spec of [
   { kind: "Character", path: "/api/characters", sections: 9, last: "Advanced", lastId: "advanced" },
   { kind: "Persona", path: "/api/characters/personas", sections: 8, last: "Stats", lastId: "stats" },
   { kind: "Lorebook", path: "/api/lorebooks", sections: 2, last: "Entries", lastId: "entries" },
-  { kind: "Preset", path: "/api/prompts", sections: 4, last: "Regex", lastId: "regex" },
+  { kind: "Preset", path: "/api/prompts", sections: 5, last: "Regex", lastId: "regex" },
 ]) {
   test(`UX sweep: ${spec.kind} sections scroll and leaving saves without discarding a failed draft`, async ({
     page,

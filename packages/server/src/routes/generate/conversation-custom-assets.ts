@@ -1,3 +1,4 @@
+import { allowsDefaultChatModel } from "../../services/llm/local-context-limit.js";
 import {
   normalizeCustomEmojiSelection,
   normalizeTextForMatch,
@@ -105,7 +106,7 @@ export async function selectCustomAssetNamesByToolCall(
   const timeout = setTimeout(() => controller.abort(new Error("custom-emoji tool-call timeout")), 5000);
   try {
     const conn = await connections.getWithKey(connectionId);
-    if (!conn?.model) return null;
+    if (!conn || (!conn.model && !allowsDefaultChatModel(conn))) return null;
     const fallbackConnection = await connections.getFallbackForAgents();
     const provider = withConnectionFallbackProvider({
       primary: createLLMProvider(

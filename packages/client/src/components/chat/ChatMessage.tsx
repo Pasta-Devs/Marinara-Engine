@@ -1,3 +1,4 @@
+import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
 // ──────────────────────────────────────────────
 // Chat: Message — mode-aware rendering
 // ──────────────────────────────────────────────
@@ -2431,6 +2432,7 @@ export const ChatMessage = memo(function ChatMessage({
   // Select the raw metadata (stable while tokens stream) and parse it in a memo so
   // we don't JSON-parse the whole chat metadata on every store tick during streaming.
   const activeChatMetadata = useChatStore((s) => s.activeChat?.metadata);
+  const presetVariables = useMessagePresetVariables(`${message.id}:${message.activeSwipeIndex ?? 0}`);
   const scopedRegexMode = useMemo(() => parseChatMetadata(activeChatMetadata).scopedRegexMode, [activeChatMetadata]);
 
   const scopedCharacterMap = useMemo(() => {
@@ -2508,6 +2510,7 @@ export const ChatMessage = memo(function ChatMessage({
   const formatDisplayContent = useCallback(
     (content: string) => {
       const macroContext = {
+        variables: presetVariables,
         userName,
         persona: {
           name: userName,
@@ -2539,6 +2542,7 @@ export const ChatMessage = memo(function ChatMessage({
     [
       applyToAIOutput,
       scopedRegexMode,
+      presetVariables,
       message.characterId,
       charName,
       isSystem,

@@ -1474,6 +1474,7 @@ const SETTINGS_PRIMARY_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--
 const SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS =
   "mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected text-[0.625rem]";
 type MarinaraAndroidBridge = {
+  openLauncher?: (token?: string) => void;
   openConsole?: {
     (token: string): void;
     (): void;
@@ -1559,14 +1560,25 @@ function AndroidStatusBarSetting() {
   }
 
   return (
-    <ToggleSetting
-      anchorId={getSettingsControlAnchorId("android-status-bar")}
-      label={t("settings.application.androidStatusBar.label")}
-      checked={visible}
-      onChange={handleChange}
-      help={help}
-      disabled={!supported}
-    />
+    <>
+      <ToggleSetting
+        anchorId={getSettingsControlAnchorId("android-status-bar")}
+        label={t("settings.application.androidStatusBar.label")}
+        checked={visible}
+        onChange={handleChange}
+        help={help}
+        disabled={!supported}
+      />
+      {typeof getMarinaraAndroidBridge()?.openLauncher === "function" && (
+        <button
+          type="button"
+          className={SETTINGS_BUTTON_CLASS}
+          onClick={() => getMarinaraAndroidBridge()?.openLauncher?.(getAndroidBridgeToken() ?? undefined)}
+        >
+          {t("settings.application.androidLauncher")}
+        </button>
+      )}
+    </>
   );
 }
 

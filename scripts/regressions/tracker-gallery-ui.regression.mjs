@@ -229,8 +229,8 @@ assert.equal(
 );
 assert.equal(
   (advancedParameters.match(/<AgentSettingsActionButton/gu) ?? []).length,
-  2,
-  "Advanced Parameters save and reset actions must reuse the shared action button",
+  3,
+  "Advanced Parameters retry, save, and reset actions must reuse the shared action button",
 );
 assert.doesNotMatch(
   chatSettingsDrawer,

@@ -6,6 +6,13 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 
 export type ImagePromptReviewKind = "background" | "illustration" | "portrait" | "sprite" | "avatar" | "video";
 
+export type ImagePromptReviewCharacterPrompt = {
+  name: string;
+  prompt: string;
+  negativePrompt?: string;
+  position?: { x: number; y: number };
+};
+
 export type ImagePromptReviewItem = {
   id: string;
   kind: ImagePromptReviewKind;
@@ -16,6 +23,8 @@ export type ImagePromptReviewItem = {
   height?: number;
   details?: string;
   maxLength?: number;
+  /** Native per-character captions (NovelAI). Shown read-only; they ride along with the review result. */
+  characterPrompts?: ImagePromptReviewCharacterPrompt[];
 };
 
 export type ImagePromptOverride = {
@@ -154,6 +163,40 @@ export function ImagePromptReviewModal({
                       spellCheck={false}
                       className="min-h-24 resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 font-mono text-xs leading-relaxed text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/70 focus:border-[var(--primary)]"
                     />
+                  </div>
+                )}
+                {item.characterPrompts && item.characterPrompts.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                      {localizeUi("ui.ui.imagepromptreviewmodal.characterPrompts", {
+                        value1: item.characterPrompts.length,
+                      })}
+                    </span>
+                    <ul className="flex flex-col gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 font-mono text-xs leading-relaxed text-[var(--foreground)]">
+                      {item.characterPrompts.map((character, index) => (
+                        <li key={`${item.id}-character-${index}`} className="flex flex-col gap-0.5">
+                          <span className="font-semibold">
+                            {character.name}
+                            {character.position ? (
+                              <span className="ml-2 font-normal text-[var(--muted-foreground)]">
+                                {localizeUi("ui.ui.imagepromptreviewmodal.characterPosition", {
+                                  value1: character.position.x.toFixed(2),
+                                  value2: character.position.y.toFixed(2),
+                                })}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="whitespace-pre-wrap break-words">{character.prompt}</span>
+                          {character.negativePrompt ? (
+                            <span className="whitespace-pre-wrap break-words text-[var(--muted-foreground)]">
+                              {localizeUi("ui.ui.imagepromptreviewmodal.characterNegative", {
+                                value1: character.negativePrompt,
+                              })}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </label>

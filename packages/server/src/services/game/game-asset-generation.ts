@@ -1,3 +1,4 @@
+import { supportsNovelAiCharacterPrompts } from "../image/character-prompts.js";
 // ──────────────────────────────────────────────
 // Game: On-the-fly Asset Generation
 //
@@ -147,10 +148,9 @@ export function resolveSceneIllustrationGenerationConcurrency(
 export function supportsSceneIllustrationStructuredCharacterPrompts(
   req: Pick<SceneIllustrationGenRequest, "imgSource" | "imgModel" | "imgBaseUrl" | "imgService">,
 ): boolean {
-  if (resolveSceneIllustrationImageBackend(req) !== "novelai") return false;
-  if (!req.imgBaseUrl.toLowerCase().includes("novelai.net")) return false;
-  return /^nai-diffusion-(?:4(?:-(?:curated-preview|full))?|4-5(?:-(?:curated|full))?|5(?:-(?:curated|full))?)$/i.test(
-    req.imgModel.trim(),
+  return (
+    resolveSceneIllustrationImageBackend(req) === "novelai" &&
+    supportsNovelAiCharacterPrompts({ baseUrl: req.imgBaseUrl, model: req.imgModel })
   );
 }
 

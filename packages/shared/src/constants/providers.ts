@@ -141,7 +141,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     id: "nanogpt",
     name: "NanoGPT",
     defaultBaseUrl: "https://nano-gpt.com/api/v1",
-    modelsEndpoint: "/models",
+    // Detailed catalog: the plain one omits context_length and max_output_tokens.
+    modelsEndpoint: "/models?detailed=true",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
@@ -159,6 +160,17 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     id: "arli",
     name: "Arli AI",
     defaultBaseUrl: "https://api.arliai.com/v1",
+    modelsEndpoint: "/models",
+    supportsStreaming: true,
+    usesAuthHeader: true,
+    apiKeyHeader: null,
+  },
+  zai: {
+    id: "zai",
+    name: "Z.AI",
+    // Pay-as-you-go endpoint. The Coding Plan endpoint (/api/coding/paas/v4)
+    // is licensed for Z.AI's listed tools only, so it is not the default here.
+    defaultBaseUrl: "https://api.z.ai/api/paas/v4",
     modelsEndpoint: "/models",
     supportsStreaming: true,
     usesAuthHeader: true,

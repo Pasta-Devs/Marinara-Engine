@@ -89,6 +89,13 @@ The **API Key** field accepts any one of these three credential types, and Marin
 
 **xAI / Grok** runs the Grok models. When you pick this provider in the **Create Connection** modal, Marinara prefills the model with Grok 4.5. You can change the model afterward.
 
+## Z.AI
+
+- Where to get a key: `https://z.ai/manage-apikey/apikey-list`
+- Default base URL: `https://api.z.ai/api/paas/v4`
+
+**Z.AI** serves the GLM models (GLM 5.3, GLM 5.3 Flash, and earlier) on their own API. The **Model** dropdown lists the current GLM models, and **Fetch Models from API** refreshes it from your account. GLM 5.3 models always reason: the **Reasoning Effort** in your preset is mapped onto the three levels Z.AI accepts (Low, High, Maximum), and leaving it unset uses Z.AI's default (Maximum). The default base URL is the pay-as-you-go endpoint. Z.AI's Coding Plan uses a different endpoint that their usage policy reserves for the tools on their list, so a Coding Plan key is not expected to work here.
+
 ## Claude (Subscription)
 
 - API key: none. You sign in to a local tool instead.

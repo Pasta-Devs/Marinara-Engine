@@ -37,6 +37,15 @@ export function supportsXhighReasoningEffort(model: string): boolean {
   );
 }
 
+/**
+ * GLM 5.2 and GLM 5.3 accept `reasoning_effort: "max"` on Z.AI's native
+ * endpoint, so a preset set to Maximum should reach it instead of being
+ * lowered to `high` on the way to the provider.
+ */
+export function isZaiMaxReasoningEffortModel(model: string): boolean {
+  return /(?:^|\/)glm-5\.[23](?:$|[-:])/u.test(model.toLowerCase());
+}
+
 export function isOpenAIGpt56Model(model: string): boolean {
   return model.toLowerCase().startsWith("gpt-5.6");
 }
@@ -75,7 +84,10 @@ export function resolveProviderReasoningEffort(args: {
     isClaudeAdaptiveOnlyNoSamplingModel(modelLower);
   const supportsXhigh = supportsXhighReasoningEffort(modelLower);
   const supportsMax =
-    isOpenAIGpt6AstraModel(modelLower) || isOpenAIGpt56Model(modelLower) || isNativeAnthropicAdaptiveOnly;
+    isOpenAIGpt6AstraModel(modelLower) ||
+    isOpenAIGpt56Model(modelLower) ||
+    isNativeAnthropicAdaptiveOnly ||
+    (providerLower === "zai" && isZaiMaxReasoningEffortModel(modelLower));
 
   if (args.reasoningEffort === "maximum") {
     return supportsMax ? "max" : supportsXhigh ? "xhigh" : "high";
@@ -551,6 +563,8 @@ export const MOONSHOT_MODELS: KnownModel[] = [
 
 // Z.AI / GLM (from #model_zai_select)
 export const ZAI_MODELS: KnownModel[] = [
+  { id: "glm-5.3", name: "glm-5.3", context: 1000000, maxOutput: 128000 },
+  { id: "glm-5.3-flash", name: "glm-5.3-flash", context: 1000000, maxOutput: 128000 },
   { id: "glm-5.2", name: "glm-5.2", context: 1000000, maxOutput: 128000 },
   { id: "glm-5.1", name: "glm-5.1", context: 200_000, maxOutput: 128_000 },
   { id: "glm-5", name: "glm-5", context: 200000, maxOutput: 128000 },
@@ -1042,6 +1056,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   nanogpt: [], // NanoGPT aggregator — models fetched dynamically via API
   xai: XAI_MODELS,
   arli: [], // Arli AI — models fetched dynamically via the /models endpoint
+  zai: ZAI_MODELS,
   // Seed OAI-compatible endpoints with the OpenAI catalog; remote /models still merge on top.
   custom: [...OPENAI_MODELS, ...ZAI_MODELS],
   image_generation: IMAGE_GEN_MODELS,

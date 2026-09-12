@@ -546,6 +546,31 @@ const compatibleSpriteSource = {
   },
 };
 const compatibleSpriteCard = buildCompatibleCharacterExport(compatibleSpriteSource, portableSprites);
+const portableIdentitySource = {
+  name: "Portable identity",
+  description: "Original <description> & formatting.",
+  extensions: { backstory: "A history.\nWith a second line.", appearance: "Silver hair.", retained: true },
+};
+const portableIdentity = buildCompatibleCharacterExport(portableIdentitySource);
+assert.equal(
+  portableIdentity.data.description,
+  "Original <description> & formatting.\n\nBackstory:\nA history.\nWith a second line.\n\nAppearance:\nSilver hair.",
+  "V2 JSON and PNG exports include Marinara-only identity fields in the standard description",
+);
+assert.equal(portableIdentity.data.extensions.backstory, undefined);
+assert.equal(portableIdentity.data.extensions.appearance, undefined);
+assert.equal(portableIdentity.data.extensions.retained, true);
+assert.equal(portableIdentitySource.extensions.backstory, "A history.\nWith a second line.");
+assert.equal(portableIdentitySource.description, "Original <description> & formatting.");
+assert.equal(
+  buildCompatibleCharacterExport(portableIdentity.data).data.description,
+  portableIdentity.data.description,
+  "re-exporting a compatible card must not duplicate the merged identity fields",
+);
+assert.equal(
+  buildCompatibleCharacterExport({ description: "Unchanged", extensions: {} }).data.description,
+  "Unchanged",
+);
 assert.equal(
   compatibleSpriteSource.extensions.characterSheetImageId,
   "local-gallery-id",

@@ -5,6 +5,11 @@ import { logger } from "../../lib/logger.js";
 
 type LocalConnection = { provider: string; baseUrl?: string | null; treatAsLocalEndpoint?: unknown };
 
+/** Local inference servers and Grok CLI can use their currently loaded/default model. */
+export function allowsDefaultChatModel(connection: LocalConnection): boolean {
+  return connection.provider === "grok_subscription" || canRefreshLocalContext(connection);
+}
+
 export function canRefreshLocalContext(connection: LocalConnection): boolean {
   return (
     (connection.provider === "custom" || connection.provider === "openai") &&

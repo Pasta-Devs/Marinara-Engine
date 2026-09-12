@@ -18,7 +18,7 @@ A variable's behavior depends on its options and two toggles. By default a varia
 
 **Multi-Select.** Turn on the **Multi-Select** toggle to let users pick more than one option. By default the selected values are joined together with a separator. The separator is a short text field, and the default is a comma and a space. For example, options Romance, Fantasy, and Action joined with `, ` become the text "Romance, Fantasy, Action".
 
-**Random Pick.** When **Multi-Select** is on, a **Random Pick** toggle appears. With **Random Pick** on, the app picks one of the user's selected options at random each time it generates. This is useful for variety: the user chooses a pool of options, and each reply draws one from that pool.
+**Random Pick.** For a single-select variable, Marinara preselects a random option for each new chat. You can change it before confirming, and the saved choice stays fixed until you edit it. With **Multi-Select** on, the app picks one of the user's selected options at random each time it generates. This is useful for variety: the user chooses a pool of options, and each reply draws one from that pool.
 
 ## Adding a preset variable
 
@@ -63,3 +63,5 @@ If a variable with that exact name exists, the placeholder becomes the chosen va
 
 - [Preset Editor and Prompt Manager](presets.md)
 - [Prompt Macros](macros.md)
+
+Preset variables also resolve in character greetings, including choices confirmed after a greeting was created. The original greeting stays editable with its macros intact.

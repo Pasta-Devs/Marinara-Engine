@@ -82,10 +82,17 @@ function sanitizeChoiceSelection(
 
 function fallbackChoiceSelection(variable: VariableData): string | string[] | undefined {
   if (variable.multiSelect) return [];
+  if (variable.randomPick && variable.options.length > 0) {
+    return variable.options[Math.floor(Math.random() * variable.options.length)].value;
+  }
   return variable.options[0]?.value;
 }
 
-export function ChoiceSelectionModal({
+export function ChoiceSelectionModal(props: ChoiceSelectionModalProps) {
+  return <ChatChoiceSelectionModal key={`${props.chatId}:${props.presetId}`} {...props} />;
+}
+
+function ChatChoiceSelectionModal({
   open,
   onClose,
   presetId,
@@ -135,6 +142,12 @@ export function ChoiceSelectionModal({
     }
   }, [data?.preset]);
 
+  const fallbackSelections = useMemo(
+    () =>
+      Object.fromEntries(variables.map((variable) => [variable.variableName, fallbackChoiceSelection(variable) ?? ""])),
+    [variables],
+  );
+
   // Base selections derived from existing choices / defaults / first option.
   // Pure derivation — no setState, no flicker on open.
   const baseSelections = useMemo<Record<string, string | string[]>>(() => {
@@ -144,17 +157,17 @@ export function ChoiceSelectionModal({
       const existing = existingChoices[v.variableName];
       const saved = defaultChoices[v.variableName];
       if (existing !== undefined) {
-        initial[v.variableName] = sanitizeChoiceSelection(v, existing) ?? fallbackChoiceSelection(v) ?? "";
-      } else if (saved !== undefined) {
-        initial[v.variableName] = sanitizeChoiceSelection(v, saved) ?? fallbackChoiceSelection(v) ?? "";
+        initial[v.variableName] = sanitizeChoiceSelection(v, existing) ?? fallbackSelections[v.variableName] ?? "";
+      } else if (saved !== undefined && !(v.randomPick && !v.multiSelect)) {
+        initial[v.variableName] = sanitizeChoiceSelection(v, saved) ?? fallbackSelections[v.variableName] ?? "";
       } else if (v.multiSelect) {
         initial[v.variableName] = [];
-      } else if (v.options.length > 0) {
-        initial[v.variableName] = v.options[0].value;
+      } else {
+        initial[v.variableName] = fallbackSelections[v.variableName] ?? "";
       }
     }
     return initial;
-  }, [variables, existingChoices, defaultChoices]);
+  }, [variables, existingChoices, defaultChoices, fallbackSelections]);
 
   // User overrides (only written when user clicks an option).
   // Reset when modal re-opens so stale overrides don't persist.
@@ -240,7 +253,7 @@ export function ChoiceSelectionModal({
                       {localizeUi("ui.presets.choiceselectionmodal.booleanToggle")}
                     </span>
                   )}
-                  {v.multiSelect && (
+                  {(v.multiSelect || v.randomPick) && (
                     <span className="flex items-center gap-0.5 rounded bg-[var(--accent)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--foreground)]">
                       {v.randomPick ? (
                         <>
@@ -296,6 +309,7 @@ export function ChoiceSelectionModal({
                       return (
                         <button
                           key={opt.id}
+                          aria-pressed={isSelected}
                           onClick={() => toggleMulti(v.variableName, opt.value)}
                           className={cn(
                             "flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-all",
@@ -369,6 +383,7 @@ export function ChoiceSelectionModal({
                       return (
                         <button
                           key={opt.id}
+                          aria-pressed={isSelected}
                           onClick={() => setOverrides((prev) => ({ ...prev, [v.variableName]: opt.value }))}
                           className={cn(
                             "flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-all",

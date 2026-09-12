@@ -1,3 +1,4 @@
+import { allowsDefaultChatModel } from "../llm/local-context-limit.js";
 import {
   BUILT_IN_AGENTS,
   DEFAULT_AGENT_TOOLS,
@@ -287,7 +288,7 @@ async function resolveAgentConnectionProvider(args: {
   }
 
   const model = typeof agentConn.model === "string" ? agentConn.model.trim() : "";
-  if (!model) {
+  if (!model && !allowsDefaultChatModel(agentConn)) {
     return {
       entry: null,
       unavailableReason: "no model is selected",

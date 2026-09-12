@@ -15,6 +15,11 @@ import {
   isNativeGlmEndpoint,
 } from "../../packages/server/src/services/llm/providers/glm-request-compat.js";
 import {
+  describeEmptyModelResponse,
+  sentOutputBudget,
+  GENERIC_EMPTY_RESPONSE_MESSAGE,
+} from "../../packages/server/src/services/generation/empty-response-reason.js";
+import {
   applyAnthropicToolChoice,
   AnthropicProvider,
   supportsAnthropicThinkingDisable,
@@ -1516,6 +1521,117 @@ assert.equal(
 assert.equal(glm53CustomGatewayReasoningEffort("z-ai/glm-5.3", "http://192.168.1.20:11434/v1", "none"), null);
 assert.equal(glm53CustomGatewayReasoningEffort("some-model", "https://gateway.example.com/v1", "none"), null);
 assert.equal(glm53CustomGatewayReasoningEffort("z-ai/glm-5.2", "https://gateway.example.com/v1", "none"), null);
+
+// Native Z.AI provider (#5963): the shared resolver promotes a Maximum preset
+// to "max" for GLM 5.2 / 5.3 instead of lowering it to "high" on the way to
+// glm53ReasoningEffort. Only the named provider is promoted -- the resolver has
+// no base URL, so a Custom connection to api.z.ai keeps its previous behavior.
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.3", reasoningEffort: "maximum" }), "max");
+assert.equal(
+  resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.3-flash", reasoningEffort: "maximum" }),
+  "max",
+);
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.2", reasoningEffort: "maximum" }), "max");
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.1", reasoningEffort: "maximum" }), "high");
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.3", reasoningEffort: "high" }), "high");
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.3", reasoningEffort: "low" }), "low");
+assert.equal(resolveProviderReasoningEffort({ provider: "zai", model: "glm-5.3", reasoningEffort: undefined }), null);
+assert.equal(
+  resolveProviderReasoningEffort({ provider: "custom", model: "glm-5.3", reasoningEffort: "maximum" }),
+  "high",
+  "a Custom connection is not promoted by the resolver",
+);
+assert.equal(findKnownModel("zai", "glm-5.3")?.context, 1000000);
+assert.equal(findKnownModel("zai", "glm-5.3-flash")?.maxOutput, 128000);
+
+const zaiGlm53MaxBody: Record<string, unknown> = {};
+applyGlmThinkingParameters(zaiGlm53MaxBody, {
+  model: "glm-5.3",
+  baseUrl: "https://api.z.ai/api/paas/v4",
+  providerKind: "zai",
+  reasoningEffort: "max",
+});
+assert.deepEqual(zaiGlm53MaxBody, { thinking: { type: "enabled" }, reasoning_effort: "max" });
+
+const zaiGlm53DefaultBody: Record<string, unknown> = {};
+applyGlmThinkingParameters(zaiGlm53DefaultBody, {
+  model: "glm-5.3-flash",
+  baseUrl: "https://api.z.ai/api/paas/v4",
+  providerKind: "zai",
+  reasoningEffort: undefined,
+});
+assert.deepEqual(
+  zaiGlm53DefaultBody,
+  { thinking: { type: "enabled" } },
+  "no configured effort leaves Z.AI's own default (max) in place",
+);
+
+// An empty reply says what the provider reported (#5963).
+assert.equal(
+  describeEmptyModelResponse({
+    finishReason: "length",
+    usage: { completionTokens: 8192, completionReasoningTokens: 8190 },
+    maxTokens: 8192,
+    hadThinking: true,
+  }),
+  "The model used its whole output budget (8192 of 8192 output tokens, 8190 of them reasoning) before writing any visible text. Raise Max Tokens or lower Reasoning Effort, then try again.",
+);
+assert.equal(
+  describeEmptyModelResponse({ finishReason: "length", hadThinking: false }),
+  "The model used its whole output budget before writing any visible text. Raise Max Tokens or lower Reasoning Effort, then try again.",
+  "finish_reason alone is enough to name the cap",
+);
+assert.equal(
+  describeEmptyModelResponse({
+    finishReason: "stop",
+    usage: { completionTokens: 4096, completionReasoningTokens: 4000 },
+    maxTokens: 4096,
+    hadThinking: true,
+  }),
+  "The model used its whole output budget (4096 of 4096 output tokens, 4000 of them reasoning) before writing any visible text. Raise Max Tokens or lower Reasoning Effort, then try again.",
+  "completion at the cap with hidden thinking is the cap even when finish says stop",
+);
+assert.equal(
+  describeEmptyModelResponse({ finishReason: "sensitive", hadThinking: true }),
+  'The provider stopped the reply for content policy (finish reason "sensitive") and returned no text.',
+);
+assert.equal(
+  describeEmptyModelResponse({
+    finishReason: "stop",
+    usage: { completionTokens: 700, completionReasoningTokens: 700 },
+    maxTokens: 8192,
+    hadThinking: true,
+  }),
+  'The model finished reasoning (700 reasoning tokens, finish reason "stop") but returned no visible text. Try again, or lower Reasoning Effort.',
+);
+assert.equal(
+  describeEmptyModelResponse({ finishReason: "stop", hadThinking: false }),
+  'The AI returned an empty response (finish reason "stop"). Try sending your message again.',
+);
+assert.equal(describeEmptyModelResponse({ hadThinking: false }), GENERIC_EMPTY_RESPONSE_MESSAGE);
+for (const finishReason of ["sensitive", "model_context_window_exceeded"]) {
+  assert.equal(
+    describeEmptyModelResponse({ finishReason, hadThinking: true, usage: { completionTokens: 16 }, maxTokens: 16 }),
+    describeEmptyModelResponse({ finishReason, hadThinking: false }),
+    "explicit provider stop reasons take priority over token-budget inference",
+  );
+}
+// The quoted budget is the one the provider sent: the route's number capped by the
+// connection override, as BaseLLMProvider.applyMaxTokensCap does on the way out.
+// Seen live 2026-09-11: override 16, route 4096, wire max_tokens=16, message said "16 of 4096".
+assert.equal(sentOutputBudget(4096, 16), 16);
+assert.equal(sentOutputBudget(4096, null), 4096);
+assert.equal(sentOutputBudget(4096, 0), 4096, "a zero override is no override");
+assert.equal(sentOutputBudget(undefined, 16), undefined, "no route budget stays unknown");
+assert.equal(
+  describeEmptyModelResponse({
+    finishReason: "length",
+    usage: { completionTokens: 16, completionReasoningTokens: 16 },
+    maxTokens: sentOutputBudget(4096, 16),
+    hadThinking: true,
+  }),
+  "The model used its whole output budget (16 of 16 output tokens, 16 of them reasoning) before writing any visible text. Raise Max Tokens or lower Reasoning Effort, then try again.",
+);
 
 const nanogptMandatoryGlmBody: Record<string, unknown> = {};
 applyGlmThinkingParameters(nanogptMandatoryGlmBody, {

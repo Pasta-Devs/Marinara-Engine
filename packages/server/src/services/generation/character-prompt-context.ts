@@ -3,6 +3,7 @@ import {
   nameToXmlTag,
   normalizeRpgStatPools,
   resolveMacros,
+  templateReferencesAnyMacro,
   type CharacterMacroProfile,
   type MacroContext,
   type RPGStatsConfig,
@@ -218,15 +219,8 @@ function contentIncludesResolvedField(content: string, fieldValue: string): bool
   return marker.length > 0 && content.includes(marker);
 }
 
-function macroAliasPattern(alias: string): RegExp {
-  return new RegExp(`\\{\\{[\\s\\S]*?\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b[\\s\\S]*?\\}\\}`, "i");
-}
-
 function sourceReferencesAnyMacro(sources: readonly string[], aliases: readonly string[]): boolean {
-  return aliases.some((alias) => {
-    const pattern = macroAliasPattern(alias);
-    return sources.some((source) => pattern.test(source));
-  });
+  return sources.some((source) => templateReferencesAnyMacro(source, aliases));
 }
 
 export function injectIdentityFallbackMessages(args: {

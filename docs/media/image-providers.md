@@ -61,7 +61,7 @@ Cloud service with the default Base URL `https://api.together.xyz/v1`. It needs 
 
 ## NovelAI
 
-Cloud service with the default Base URL `https://image.novelai.net`. It needs a NovelAI API key. It focuses on anime style art. Some newer features, like precise reference images, only work on a V4.5 model.
+Cloud service with the default Base URL `https://image.novelai.net`. It needs a NovelAI API key. It focuses on anime style art. On V4, V4.5, and V5 models, Marinara sends native per-character prompts with positions for multi-character storyboards and Illustrator scenes. Some newer features, like precise reference images, only work on a V4.5 model.
 
 ## OpenRouter Images
 
@@ -183,7 +183,7 @@ A **reference image** is an existing picture you send along with your prompt. It
 | ComfyUI and RunPod Serverless (ComfyUI) | Up to 4, through workflow placeholders |
 | Together AI, Pollinations, Stable Horde | Not supported |
 
-NovelAI precise reference images only work on a V4.5 model, such as `nai-diffusion-4-5-full`. If you request references on another model, generation fails with a clear message.
+NovelAI precise reference images only work on a V4.5 model, such as `nai-diffusion-4-5-full`. NovelAI has not yet released Precise Reference for V5. If references are requested on another model, Marinara renders the image without them and records a warning in the server log.
 
 ## Queue image generation requests
 

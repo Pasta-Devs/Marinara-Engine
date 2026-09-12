@@ -284,7 +284,7 @@ function hashStringToUint32(value: string): number {
   return hash >>> 0;
 }
 
-function seededUnitRandom(seed: string): number {
+export function seededUnitRandom(seed: string): number {
   let state = hashStringToUint32(seed) || 0x9e3779b9;
   state ^= state << 13;
   state ^= state >>> 17;
@@ -1542,6 +1542,26 @@ function parseIfCondition(body: string): string | null {
 function parseElseIfCondition(body: string): string | null {
   const match = body.match(/^else\s+if(?:\s+([\s\S]*))?$/i);
   return match ? (match[1] ?? "").trim() : null;
+}
+
+/** Detect authored field references without treating comments or literal prose as macros. */
+export function templateReferencesAnyMacro(template: string, names: readonly string[]): boolean {
+  const aliases = new Set(names.map((name) => name.toLowerCase()));
+  for (const [, body] of stripMacroComments(template).matchAll(/\{\{([^{}]*?)\}\}/g)) {
+    if (aliases.has(body!.toLowerCase())) return true;
+    const condition = parseIfCondition(body!.trim()) ?? parseElseIfCondition(body!.trim());
+    if (condition === null) continue;
+    if (
+      parseConditionComparisons(condition).some(({ left, right }) =>
+        [left, right].some(
+          (operand) =>
+            operand !== undefined && stripOuterQuotes(operand) === null && aliases.has(normalizeConditionKey(operand)),
+        ),
+      )
+    )
+      return true;
+  }
+  return false;
 }
 
 function findConditionalStart(input: string, fromIndex: number): ConditionalStartTag | null {

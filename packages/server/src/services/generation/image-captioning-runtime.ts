@@ -1,3 +1,4 @@
+import { allowsDefaultChatModel } from "../llm/local-context-limit.js";
 import { LOCAL_SIDECAR_CONNECTION_ID, parseConnectionImageCaptioningDefaults } from "@marinara-engine/shared";
 
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
@@ -144,7 +145,7 @@ export async function resolveImageCaptioningRuntime(args: {
         : activeConnection?.id === captionConnectionId
           ? activeConnection
           : await connections.getWithKey(captionConnectionId);
-    if (!captionConnection?.model) {
+    if (!captionConnection || (!captionConnection.model && !allowsDefaultChatModel(captionConnection))) {
       logger.warn("[image-captioning] Captioning connection %s was not found", captionConnectionId);
       return DISABLED_IMAGE_CAPTIONING;
     }

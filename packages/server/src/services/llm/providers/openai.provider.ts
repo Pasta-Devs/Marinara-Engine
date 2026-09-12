@@ -117,6 +117,7 @@ type OpenAIProviderKind =
   | "mistral"
   | "cohere"
   | "arli"
+  | "zai"
   | "custom"
   | "openai-chatgpt"
   | "local-sidecar";
@@ -600,6 +601,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         return "Cohere OpenAI-compatible API";
       case "arli":
         return "Arli AI API";
+      case "zai":
+        return "Z.AI API";
       case "local-sidecar":
         return "Local sidecar OpenAI-compatible endpoint";
       case "openai-chatgpt":
