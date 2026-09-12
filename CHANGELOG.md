@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Added opt-in Advanced Memory Recall (Alpha) for Roleplay: automatic scene summaries, bounded continuity, relevant historical excerpts, and character-aware context management, with resumable setup and preset placement controls (#6102).
+
 - Professor Mari's Home navigation field is ready to type into without an extra button click, with a shorter “Looking for…?” placeholder on mobile (#6099).
 
 - Automatic backups now check that the disk holding `backups/` has room for the next archive, including metadata and restore notes, before writing it. A run that would not fit is skipped with a clear message in Settings instead of filling the disk and retrying the full write every hour (#6087).
