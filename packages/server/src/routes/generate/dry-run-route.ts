@@ -1868,8 +1868,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       });
     };
 
-    const advancedContext = advancedMemoryService
-      ? await prepareAdvancedMemoryContext({
+    let advancedContext: Awaited<ReturnType<typeof prepareAdvancedMemoryContext>> | null = null;
+    try {
+      if (advancedMemoryService) {
+        advancedContext = await prepareAdvancedMemoryContext({
           service: advancedMemoryService,
           chatId,
           settings: advancedMemorySettings,
@@ -1886,8 +1888,20 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           readOnly: true,
           toProviderMessages: (messages) =>
             prepareProviderMessages(limitPastReasoningMetadata(toProviderMessages(messages), chatMeta)),
-        })
-      : null;
+        });
+      }
+    } catch (err) {
+      logger.error(err, "[dryRun] Advanced Memory preparation failed");
+      const message = err instanceof Error ? err.message : "Dry run memory preparation failed";
+      if (streaming && !returnPrompt) {
+        startSseReply(reply, { "X-Accel-Buffering": "no" });
+        sendSseEvent(reply, { type: "error", data: message });
+        sendSseEvent(reply, { type: "done", data: "" });
+        reply.raw.end();
+        return;
+      }
+      return reply.status(500).send({ error: message });
+    }
     const fit = advancedContext
       ? { messages: advancedContext.providerMessages, maxTokensForSend: advancedContext.maxTokens }
       : fitMessagesForModelAccess({

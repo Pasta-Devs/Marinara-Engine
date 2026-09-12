@@ -3839,8 +3839,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       };
     }
 
+    const exportedMessages = msgs.map((message) => ({ ...message, content: resolveExportMessageContent(message) }));
     const advancedMemoryTransfer =
-      chat.mode === "roleplay" ? await createAdvancedMemoryService(app.db).exportTransferRecords(chat.id) : [];
+      chat.mode === "roleplay"
+        ? await createAdvancedMemoryService(app.db).exportTransferRecords(chat.id, exportedMessages)
+        : [];
     const lines: string[] = [
       JSON.stringify({
         user_name: persona?.name ?? "User",
@@ -3860,12 +3863,12 @@ export async function chatsRoutes(app: FastifyInstance) {
       }),
     ];
 
-    for (const msg of msgs) {
+    for (const msg of exportedMessages) {
       const rawMessageExtra = parseExportMetadata(msg.extra);
       const messageExtra = sanitizeJsonlMessageExtra(rawMessageExtra);
       const thinking = includeReasoning ? getExportThinking(rawMessageExtra) : null;
       const swipes = await storage.getSwipes(msg.id);
-      const activeContent = resolveExportMessageContent(msg);
+      const activeContent = msg.content;
       const exportSwipes =
         swipes.length > 0
           ? swipes.map((swipe: { index: number; content: string; extra?: unknown; createdAt?: string }) => ({
@@ -4252,18 +4255,6 @@ export async function chatsRoutes(app: FastifyInstance) {
         ? { lastAutomaticSummaryMessageId: inheritedLastAutomaticSummaryMessageId }
         : {}),
     });
-    if (sourceChat.mode === "roleplay") {
-      await copyAdvancedMemoryRecords({
-        db: app.db,
-        chatId: newChat.id,
-        records: advancedMemoryTransfer,
-        sourceMessages: msgs,
-        messageIds: sourceToBranchedMessageId,
-        characterIds: branchCharacterIds,
-        metadata: { ...settingsToKeep, summaryEntries: inheritedEntries },
-      });
-    }
-
     // Fix updatedAt: createMessage sets the chat's updatedAt to each message's
     // (preserved) timestamp, so after the loop the branched chat's updatedAt is
     // the last source message's original time. Reset it to now so the branch
@@ -4279,6 +4270,17 @@ export async function chatsRoutes(app: FastifyInstance) {
     // ensures that branching a branch at an earlier point finds the correct tracker state
     // for that specific message, not just the latest snapshot in the source chat.
     try {
+      if (sourceChat.mode === "roleplay") {
+        await copyAdvancedMemoryRecords({
+          db: app.db,
+          chatId: newChat.id,
+          records: advancedMemoryTransfer,
+          sourceMessages: msgs,
+          messageIds: sourceToBranchedMessageId,
+          characterIds: branchCharacterIds,
+          metadata: { ...settingsToKeep, summaryEntries: inheritedEntries },
+        });
+      }
       const spatialStore = createSpatialContextStorage();
       const spatialBootstrap = await spatialStore.getBootstrap(req.params.id);
       if (spatialBootstrap) {

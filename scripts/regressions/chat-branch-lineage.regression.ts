@@ -201,6 +201,41 @@ try {
   assert.equal(reopened?.content, "");
   assert.equal(reopened?.endMessageId, memoryBranchMessages[1]!.id);
 
+  const { chats: chatsTable, messages: messagesTable } = await import("../../packages/server/src/db/schema/chats.js");
+  const rowIds = async (table: typeof chatsTable | typeof messagesTable | typeof advancedMemoryRecords) =>
+    (await db.select().from(table)).map((row) => row.id).sort();
+  const beforeFailedBranch = await Promise.all([
+    rowIds(chatsTable),
+    rowIds(messagesTable),
+    rowIds(advancedMemoryRecords),
+  ]);
+  const originalInsert = db.insert;
+  let failedMemoryCopy = false;
+  db.insert = (table) => {
+    if (table === advancedMemoryRecords && !failedMemoryCopy) {
+      failedMemoryCopy = true;
+      throw new Error("Injected Advanced Memory branch copy failure");
+    }
+    return originalInsert(table);
+  };
+  try {
+    const failedBranch = await app.inject({
+      method: "POST",
+      url: `/api/chats/${root.id}/branch`,
+      payload: { upToMessageId: middle.id },
+    });
+    assert.equal(failedBranch.statusCode, 500);
+    assert.equal(failedMemoryCopy, true, "the injected failure must occur inside memory transfer");
+  } finally {
+    db.insert = originalInsert;
+  }
+  assert.deepEqual(
+    await Promise.all([rowIds(chatsTable), rowIds(messagesTable), rowIds(advancedMemoryRecords)]),
+    beforeFailedBranch,
+    "a failed memory copy must roll back the new branch and keep all original rows",
+  );
+  assert.deepEqual(await chatStorage.listMessages(root.id), sourceMessages);
+
   const transcript = await app.inject({ method: "GET", url: `/api/chats/${root.id}/export` });
   assert.equal(transcript.statusCode, 200);
   const importedMemory = await importSTChat(transcript.body, db, { mode: "roleplay" });
@@ -229,6 +264,7 @@ try {
     })
     .join("\n");
   const changedImport = await importSTChat(changedTranscript, db, { mode: "roleplay" });
+  assert.equal(changedImport.success, true);
   const changedRows = await db
     .select()
     .from(advancedMemoryRecords)
@@ -237,6 +273,55 @@ try {
     changedRows.some((record) => record.content === "FUTURE_SECRET"),
     false,
     "changed imported source text must not bless an old derived scene as current",
+  );
+
+  const macroChat = await create("Macro memory export");
+  await chatStorage.patchMetadata(macroChat.id, { advancedMemory: { enabled: true } });
+  const macroMessage = await addMessage(macroChat.id, "A promise made to {{user}}.");
+  await db.insert(advancedMemoryRecords).values([
+    {
+      ...memoryFixture(`scene-${macroMessage.id}`, `scene-${macroMessage.id}`, [macroMessage.id], ""),
+      chatId: macroChat.id,
+    },
+    {
+      ...memoryFixture("macro-memory", `scene-${macroMessage.id}`, [macroMessage.id], "THE_PROMISE"),
+      chatId: macroChat.id,
+    },
+  ]);
+  await memoryService.refreshTransferredRecords(macroChat.id);
+  const macroTranscript = await app.inject({ method: "GET", url: `/api/chats/${macroChat.id}/export` });
+  assert.equal(macroTranscript.statusCode, 200);
+  const exportedMacroMessage = JSON.parse(macroTranscript.body.split("\n")[1]);
+  assert.equal(exportedMacroMessage.mes, "A promise made to User.");
+  const macroImport = await importSTChat(macroTranscript.body, db, { mode: "roleplay" });
+  assert.equal(macroImport.success, true);
+  const macroRows = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, macroImport.chatId!));
+  assert.equal(
+    macroRows.find((record) => record.content === "THE_PROMISE")?.enabled,
+    1,
+    "valid enabled memory survives JSONL macro resolution with the exact exported source digest",
+  );
+  const tamperedMacro = macroTranscript.body
+    .split("\n")
+    .map((line: string, index: number) => {
+      const value = JSON.parse(line);
+      if (index === 1) value.mes = "A different promise.";
+      return JSON.stringify(value);
+    })
+    .join("\n");
+  const tamperedMacroImport = await importSTChat(tamperedMacro, db, { mode: "roleplay" });
+  assert.equal(tamperedMacroImport.success, true);
+  const tamperedMacroRows = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, tamperedMacroImport.chatId!));
+  assert.equal(
+    tamperedMacroRows.some((record) => record.content === "THE_PROMISE"),
+    false,
+    "resolved-content digests must still reject changed imported source text",
   );
 
   const game = await create("Branch-scoped GM state", "game");

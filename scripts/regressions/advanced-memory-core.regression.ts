@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
+import { createRequire } from "node:module";
 
 const directory = mkdtempSync(join(tmpdir(), "marinara-advanced-memory-core-"));
 process.env.DATA_DIR = directory;
@@ -76,6 +77,26 @@ const { createAdvancedMemoryService } = await import("../../packages/server/src/
 const { createConnectionSchema } = await import("../../packages/shared/src/schemas/connection.schema.ts");
 const { DEFAULT_ADVANCED_MEMORY_SETTINGS } = await import("../../packages/shared/src/types/advanced-memory.ts");
 const db = await createFileNativeDB();
+const { advancedMemoryRecords } = await import("../../packages/server/src/db/schema/advanced-memory.ts");
+const fullRecordReads = new Map<string, number>();
+const select = db.select.bind(db);
+db.select = ((...args: unknown[]) => {
+  const query = (select as (...args: unknown[]) => any)(...args);
+  const from = query.from.bind(query);
+  query.from = (table: unknown) => {
+    const builder = from(table);
+    if (table === advancedMemoryRecords) {
+      const where = builder.where.bind(builder);
+      builder.where = (condition: { left?: unknown; right?: unknown }) => {
+        if (condition.left === advancedMemoryRecords.chatId && typeof condition.right === "string")
+          fullRecordReads.set(condition.right, (fullRecordReads.get(condition.right) ?? 0) + 1);
+        return where(condition);
+      };
+    }
+    return builder;
+  };
+  return query;
+}) as typeof db.select;
 const chats = createChatsStorage(db);
 const memory = createAdvancedMemoryService(db);
 try {
@@ -131,6 +152,11 @@ try {
   const resumedFirst = requests.filter((request) => request.kind === "classify")[classifiedBeforeResume]!;
   assert(!resumedFirst.text.includes('"content":"Message 0:'), "resume uses the durable classification checkpoint");
   assert.equal((await memory.status(chat.id)).job.status, "ready");
+  assert(
+    (fullRecordReads.get(chat.id) ?? 0) <= 8,
+    "initializing 800 messages reads the archive only a bounded number of times",
+  );
+
   const settledRequests = requests.length;
   await memory.initialize(chat.id);
   assert.equal(requests.length, settledRequests, "unchanged messages reuse summaries and vectors");
@@ -482,6 +508,14 @@ try {
     readOnly: true,
   });
   assert.equal(requests.length, beforeLexical);
+
+  assert(exactRecall.recalledRecordIds.length > 0);
+  assert(
+    exactRecall.recalledRecordIds.every(
+      (id) => id in exactRecall.receipt.recordRevisions && id !== exactRecall.receipt.checkpointId,
+    ),
+    "optional recall exposes actual persisted record IDs separately from mandatory summary revisions",
+  );
   assert(
     exactRecall.recalledMessages?.includes("returns on Tuesday"),
     "lexical recall includes the later correction exactly",
@@ -557,6 +591,235 @@ try {
     1,
     "resume never repeats the completed paid summary batch",
   );
+
+  const resumeSource = await chats.listMessages(resumeChat.id);
+  const resumePrepared = await memory.prepare({
+    chatId: resumeChat.id,
+    messages: resumeSource,
+    audienceCharacterIds: [],
+    budgetTokens: 1000,
+  });
+  assert(resumePrepared.receipt.checkpointId && resumePrepared.currentSceneSummary);
+  await memory.updateRecord(resumeChat.id, resumePrepared.receipt.checkpointId, {
+    content: "IMPORTED_CONTINUITY_CORRECTION",
+  });
+  const memoryExport = await memory.exportMemory(resumeChat.id);
+  const importChat = await chats.create({
+    name: "Standalone memory identity",
+    mode: "roleplay",
+    characterIds: [],
+    connectionId: connection!.id,
+  });
+  assert(importChat);
+  await chats.patchMetadata(importChat.id, {
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      maxContextTokens: 4096,
+      summaryBudgetTokens: 512,
+    },
+  });
+  await chats.createMessagesBatch(
+    importChat.id,
+    resumeSource.map((message) => ({ role: message.role as "user" | "assistant", content: message.content })),
+  );
+  const importSource = await chats.listMessages(importChat.id);
+  const readsBeforeImport = fullRecordReads.get(importChat.id) ?? 0;
+  const importedMemory = await memory.importMemory(importChat.id, memoryExport);
+  assert(importedMemory.imported > 100);
+  assert(
+    (fullRecordReads.get(importChat.id) ?? 0) - readsBeforeImport <= 4,
+    "standalone import reuses one archive snapshot across records",
+  );
+  const importedContinuity = importedMemory.records.find(
+    (record) => record.kind === "continuity" && record.content === "IMPORTED_CONTINUITY_CORRECTION",
+  );
+  assert(
+    importedContinuity && importedContinuity.sceneId === `continuity-${importSource[449]!.id}`,
+    "continuity import keeps its actual boundary anchor rather than the record's first source message",
+  );
+  assert(
+    importedMemory.records.some(
+      (record) => record.kind === "temporary" && record.sceneId === `temporary-${importSource[449]!.id}`,
+    ),
+  );
+  const importedPrepared = await memory.prepare({
+    chatId: importChat.id,
+    messages: importSource,
+    audienceCharacterIds: [],
+    budgetTokens: 1000,
+  });
+  assert.equal(importedPrepared.chatSummary, "IMPORTED_CONTINUITY_CORRECTION");
+  assert.equal(
+    importedPrepared.receipt.checkpointId,
+    importedContinuity.id,
+    "preparation reuses the imported correction without a duplicate checkpoint",
+  );
+  assert.equal(
+    (await memory.importMemory(importChat.id, memoryExport)).imported,
+    0,
+    "repeat import preserves local identities and edits",
+  );
+
+  const { eq } = await import("../../packages/server/src/db/file-query.ts");
+  await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, importedContinuity.id));
+  const reorderedExport = {
+    ...memoryExport,
+    records: [...memoryExport.records].sort(
+      (left, right) => Number(right.record.kind === "continuity") - Number(left.record.kind === "continuity"),
+    ),
+  };
+  assert.equal((await memory.importMemory(importChat.id, reorderedExport)).imported, 1);
+  const reorderedPrepared = await memory.prepare({
+    chatId: importChat.id,
+    messages: importSource,
+    audienceCharacterIds: [],
+    budgetTokens: 1000,
+  });
+  assert.equal(
+    reorderedPrepared.chatSummary,
+    "IMPORTED_CONTINUITY_CORRECTION",
+    "an imported dependent before duplicate sources resolves their final local IDs",
+  );
+
+  const joinedChat = await chats.create({
+    name: "Joined waiter cancellation",
+    mode: "roleplay",
+    characterIds: [],
+    connectionId: connection!.id,
+  });
+  assert(joinedChat);
+  await chats.patchMetadata(joinedChat.id, {
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      maxContextTokens: 4096,
+      summaryBudgetTokens: 512,
+    },
+  });
+  await chats.createMessagesBatch(joinedChat.id, [
+    { role: "user", content: "A compass promise." },
+    { role: "assistant", content: "SCENE_CHANGE A new room." },
+  ]);
+  let releaseSummary: () => void = () => {};
+  let summaryEntered: () => void = () => {};
+  const heldSummary = new Promise<void>((resolve) => {
+    releaseSummary = resolve;
+  });
+  const enteredSummary = new Promise<void>((resolve) => {
+    summaryEntered = resolve;
+  });
+  beforeSummary = async () => {
+    summaryEntered();
+    await heldSummary;
+  };
+  const sharedInitialization = memory.initialize(joinedChat.id);
+  await enteredSummary;
+  try {
+    const waiterController = new AbortController();
+    const waiter = memory.initialize(joinedChat.id, { signal: waiterController.signal, blocking: true });
+    const cancelledWait = assert.rejects(waiter, /joined waiter stopped/iu);
+    waiterController.abort(new Error("joined waiter stopped"));
+    await cancelledWait;
+  } finally {
+    releaseSummary();
+  }
+  await sharedInitialization;
+  assert.equal(
+    (await memory.status(joinedChat.id)).job.status,
+    "ready",
+    "cancelling a joined caller does not stop shared preparation",
+  );
+
+  const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
+  const Fastify = requireServer("fastify") as typeof import("fastify").default;
+  const { advancedMemoryRoutes } = await import("../../packages/server/src/routes/advanced-memory.routes.js");
+  const routeApp = Fastify();
+  routeApp.decorate("db", db);
+  await routeApp.register(advancedMemoryRoutes, { prefix: "/api/chats" });
+  try {
+    const invalidSettings = { retrieveMinMessages: 10, retrieveMaxMessages: 2 };
+    assert.equal(
+      (
+        await routeApp.inject({
+          method: "POST",
+          url: `/api/chats/${joinedChat.id}/advanced-memory/initialize`,
+          payload: { settings: invalidSettings },
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await routeApp.inject({
+          method: "PATCH",
+          url: `/api/chats/${joinedChat.id}/advanced-memory/settings`,
+          payload: invalidSettings,
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await routeApp.inject({
+          method: "PATCH",
+          url: `/api/chats/${importChat.id}/advanced-memory/records/${reorderedPrepared.receipt.checkpointId}`,
+          payload: { content: "   " },
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await routeApp.inject({
+          method: "PATCH",
+          url: `/api/chats/${joinedChat.id}/advanced-memory/records/not-found`,
+          payload: { enabled: false },
+        })
+      ).statusCode,
+      404,
+    );
+    assert.equal(
+      (
+        await routeApp.inject({
+          method: "GET",
+          url: `/api/chats/${joinedChat.id}/advanced-memory/records/not-found/sources`,
+        })
+      ).statusCode,
+      404,
+    );
+  } finally {
+    await routeApp.close();
+  }
+  const failureApp = Fastify();
+  failureApp.decorate(
+    "db",
+    new Proxy(db, {
+      get(target, key, receiver) {
+        if (key === "select")
+          return () => {
+            throw new Error("Unexpected storage failure");
+          };
+        return Reflect.get(target, key, receiver);
+      },
+    }),
+  );
+  await failureApp.register(advancedMemoryRoutes, { prefix: "/api/chats" });
+  try {
+    assert.equal(
+      (
+        await failureApp.inject({
+          method: "PATCH",
+          url: `/api/chats/${joinedChat.id}/advanced-memory/settings`,
+          payload: {},
+        })
+      ).statusCode,
+      500,
+      "unknown storage failures remain server errors",
+    );
+  } finally {
+    await failureApp.close();
+  }
 
   const markerChat = await chats.create({
     name: "Historical marker compaction",

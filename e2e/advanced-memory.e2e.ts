@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import type { AdvancedMemoryStatus, Message } from "@marinara-engine/shared";
+import { DEFAULT_ADVANCED_MEMORY_SETTINGS } from "@marinara-engine/shared";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
@@ -28,7 +29,12 @@ async function createFixture(request: APIRequestContext) {
   const [character, narrator] = characters;
   if (!character || !narrator) throw new Error("Expected both fixture characters");
   const response = await request.post("/api/chats", {
-    data: { name: "Advanced memory UI proof", mode: "roleplay", characterIds: characters.map(({ id }) => id) },
+    data: {
+      name: "Advanced memory UI proof",
+      mode: "roleplay",
+      characterIds: characters.map(({ id }) => id),
+      connectionId: "synthetic-advanced-memory-ui-connection",
+    },
   });
   expect(response.ok()).toBeTruthy();
   const chat = (await response.json()) as { id: string };
@@ -76,7 +82,7 @@ async function openChat(page: Page, chatId: string) {
     chatHelpSeenModes: ["conversation", "roleplay", "game"],
     appAccentPulseMode: false,
     reduceAmbientEffects: false,
-    chatSettingsExpandedSections: { "roleplay-memory-recall": true },
+    chatSettingsExpandedSections: { "roleplay-memory-recall": false },
   });
   await page.addInitScript(
     ({ chatId, version }) => {
@@ -100,6 +106,25 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
   test.setTimeout(90_000);
   const fixture = await createFixture(request);
   const { character, narrator, firstMessage, lastMessage } = fixture;
+  const knowledgeMessages = [
+    ...Array.from({ length: 102 }, (_, index) => ({
+      ...firstMessage,
+      id: `historical-${index}`,
+      createdAt: new Date(Date.UTC(2020, 0, 1, 0, index)).toISOString(),
+      content: `Historical message ${index + 1}`,
+    })),
+    ...fixture.messages,
+  ].map((message, index) => ({ ...message, rowid: index + 1 }));
+  const knowledgeRequests: URL[] = [];
+  await page.route(`**/api/chats/${fixture.chat.id}/messages?limit=50*`, async (route) => {
+    const url = new URL(route.request().url());
+    knowledgeRequests.push(url);
+    const before = url.searchParams.get("before");
+    const beforeId = before ? decodeURIComponent(before.split("|")[1] ?? "") : null;
+    const end = beforeId ? knowledgeMessages.findIndex(({ id }) => id === beforeId) : knowledgeMessages.length;
+    expect(end).toBeGreaterThanOrEqual(0);
+    return route.fulfill({ json: knowledgeMessages.slice(Math.max(0, end - 50), end) });
+  });
   const status: AdvancedMemoryStatus = {
     settings: {
       enabled: false,
@@ -110,7 +135,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       retrieveMinMessages: 3,
       retrieveMaxMessages: 10,
       narratorCharacterId: null,
-      knowledgeStarts: { [narrator.id]: null },
+      knowledgeStarts: { [narrator.id]: "historical-0" },
       knowledgeConfirmed: false,
     },
     job: { status: "idle", stage: "idle", completed: 0, total: 4, error: null },
@@ -163,6 +188,17 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await openChat(page, fixture.chat.id);
     const drawer = page.locator(".mari-chat-settings-drawer");
     const settings = drawer.locator('[data-component="AdvancedMemorySettings"]');
+    const memorySection = drawer.locator('[data-chat-settings-section="roleplay-memory-recall"]');
+    const memoryHeader = memorySection.locator(':scope > [role="button"]');
+    await expect(memoryHeader).toHaveAttribute("aria-expanded", "false");
+    await page.evaluate((chatId) => {
+      window.dispatchEvent(new CustomEvent("marinara:advanced-memory-settings", { detail: { chatId } }));
+    }, fixture.chat.id);
+    await expect(memoryHeader).toHaveAttribute("aria-expanded", "true");
+    await memoryHeader.click();
+    await expect(memoryHeader).toHaveAttribute("aria-expanded", "false");
+    await expect(settings).toHaveCount(0);
+    await memoryHeader.click();
     const advancedToggle = settings.getByRole("checkbox", { name: /^Advanced Memory Recall \(Alpha\)/ });
     await expect(advancedToggle).not.toBeChecked();
     await settings.getByText("Advanced Memory Recall (Alpha)", { exact: true }).click();
@@ -182,17 +218,32 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await page.keyboard.press("Tab");
     await expect(confirmation.getByRole("combobox", { name: "Dottore", exact: true })).toBeFocused();
     await confirmation.getByRole("combobox", { name: "Dottore", exact: true }).selectOption("beginning");
+    await expect(confirmation).toContainText("Showing messages 55–104");
+    await expect(confirmation.getByRole("option", { name: "#55 — Historical message 55", exact: true })).toHaveCount(1);
+    await expect(confirmation.locator("option")).toHaveCount(52);
+    await confirmation.getByRole("button", { name: "Older messages", exact: true }).click();
+    await expect(confirmation).toContainText("Showing messages 5–54");
+    await confirmation.getByRole("button", { name: "Older messages", exact: true }).click();
+    await expect(confirmation).toContainText("Showing messages 1–4");
+    await expect(confirmation.getByRole("button", { name: "Older messages", exact: true })).toBeDisabled();
+    await confirmation.getByRole("combobox", { name: "Dottore", exact: true }).selectOption("historical-2");
+    await confirmation.getByRole("button", { name: "Newer messages", exact: true }).click();
+    await expect(confirmation.getByRole("combobox", { name: "Dottore", exact: true })).toHaveValue("historical-2");
+    await expect(confirmation.getByRole("option", { name: "Saved selection (outside this page)" })).toHaveCount(1);
+    expect(knowledgeRequests.every((url) => url.searchParams.get("limit") === "50")).toBe(true);
+    expect(knowledgeRequests.some((url) => url.searchParams.has("before"))).toBe(true);
     await confirm.click();
     await expect.poll(() => initializeBodies.length).toBe(1);
     expect(initializeBodies[0]?.settings).toMatchObject({
       knowledgeConfirmed: true,
-      knowledgeStarts: { [character.id]: null, [narrator.id]: null },
+      knowledgeStarts: { [character.id]: "historical-2", [narrator.id]: "historical-0" },
     });
     expect(status.settings.initialProcessingModel).toBe("main");
 
     const progress = drawer.locator('[data-component="AdvancedMemoryProgress"]');
     await expect(progress).toContainText("This may take a while.");
     await expect(progress.getByRole("progressbar")).toHaveAttribute("value", "1");
+    await expect(progress).toContainText("1 of 4 work units completed");
     const wheel = progress.locator(".mari-memory-wheel");
     await expect(wheel).toHaveCSS("animation-name", "mari-memory-wheel-run");
     await expect(wheel).toHaveCSS("background-image", /professor-mari-memory-wheel\.png/);
@@ -212,7 +263,9 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await progress.getByRole("button", { name: "Resume processing", exact: true }).click();
     await expect.poll(() => initializeBodies.length).toBe(2);
     await expect(progress.getByRole("progressbar")).toHaveAttribute("value", "1");
-    status.job = { ...status.job, status: "ready", stage: "ready", completed: 4 };
+    status.job = { ...status.job, total: 1 };
+    await expect(progress).toContainText("1 of 1 work unit completed");
+    status.job = { ...status.job, status: "ready", stage: "ready", completed: 4, total: 4 };
     status.records = [
       {
         id: "scene-proof",
@@ -240,8 +293,8 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     ];
     await expect(progress).toContainText("Memory is ready");
     await settings.getByRole("button", { name: "Review character knowledge", exact: true }).click();
-    await expect(confirmation.getByRole("combobox", { name: "Dottore", exact: true })).toHaveValue("beginning");
-    await expect(confirmation.getByRole("combobox", { name: "Narrator", exact: true })).toHaveValue("beginning");
+    await expect(confirmation.getByRole("combobox", { name: "Dottore", exact: true })).toHaveValue("historical-2");
+    await expect(confirmation.getByRole("combobox", { name: "Narrator", exact: true })).toHaveValue("historical-0");
     await confirmation.getByRole("combobox", { name: "Dottore", exact: true }).selectOption(lastMessage.id);
     await confirm.click();
     await expect.poll(() => initializeBodies.length).toBe(3);
@@ -283,6 +336,65 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(drawer.getByRole("checkbox", { name: /^Enable Memory Recall/ })).not.toBeChecked();
     await drawer.getByRole("button", { name: "Access memories for this chat", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Memories for This Chat", exact: true })).toBeVisible();
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("Advanced Memory keeps background errors quiet and opens the drawer for errors without a blocking flag", async ({
+  page,
+  request,
+}) => {
+  const fixture = await createFixture(request);
+  const status: AdvancedMemoryStatus = {
+    settings: { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled: true },
+    job: { status: "idle", stage: "idle", completed: 0, total: 0, error: null },
+    missingKnowledgeCharacterIds: [],
+    records: [],
+    helperModel: "Mock helper",
+    summaryModel: "Mock summaries",
+    warnings: [],
+  };
+  let generationRequests = 0;
+  await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory`, (route) => route.fulfill({ json: status }));
+  await page.route("**/api/generate", (route) => {
+    generationRequests += 1;
+    status.job = {
+      id: `error-${generationRequests}`,
+      status: "error",
+      stage: "idle",
+      completed: 0,
+      total: 0,
+      error: "Synthetic memory preparation failed",
+      ...(generationRequests === 1 ? { blocking: false } : {}),
+    };
+    return route.fulfill({
+      contentType: "text/event-stream",
+      body: [
+        { type: "advanced_memory_status", data: { chatId: fixture.chat.id, job: status.job } },
+        { type: "done", data: {} },
+      ]
+        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+        .join(""),
+    });
+  });
+  try {
+    await openChat(page, fixture.chat.id);
+    const drawer = page.locator(".mari-chat-settings-drawer");
+    await drawer.getByRole("button", { name: "Close chat settings", exact: true }).click();
+    const composer = page.locator("textarea[data-chat-composer]");
+    await composer.fill("Check the background memory job");
+    await page.locator("button.mari-chat-send-btn").click();
+    await expect.poll(() => generationRequests).toBe(1);
+    await expect(drawer).toBeHidden();
+    await expect(page.locator("button.mari-chat-send-btn .lucide-send")).toBeVisible();
+    await composer.fill("Check the blocking memory job");
+    await page.locator("button.mari-chat-send-btn").click();
+    await expect.poll(() => generationRequests).toBe(2);
+    await expect(drawer).toBeVisible();
+    await expect(drawer.locator('[data-component="AdvancedMemoryProgress"]')).toContainText(
+      "Synthetic memory preparation failed",
+    );
   } finally {
     await fixture.cleanup();
   }

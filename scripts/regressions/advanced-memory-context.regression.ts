@@ -45,10 +45,15 @@ const service = {
       currentSceneSummary: null,
       recalledScenes: null,
       recalledMessages: recall,
+      recalledRecordIds: recall ? ["recalled-variant", "recalled-excerpt"] : [],
       receipt: {
         sourceFingerprint: "fixture",
         policyRevision: "fixture",
-        recordRevisions: {},
+        recordRevisions: {
+          "continuity-variant": "continuity-revision",
+          "temporary-variant": "temporary-revision",
+          ...(recall ? { "recalled-variant": "scene-revision", "recalled-excerpt": "excerpt-revision" } : {}),
+        },
         estimatedTokensBefore: 0,
         estimatedTokensAfter: 0,
         budgetTokens: input.budgetTokens,
@@ -86,6 +91,11 @@ recall = "Optional old promise ".repeat(3000);
 const limited = await prepareAdvancedMemoryContext({ ...input, maxContext: 12_000 });
 assert.ok(limited.messages.length < roomy.messages.length);
 assert.equal(limited.receipt.recalledMessageIds.length, 0, "discard optional excerpts before further cutting history");
+assert.deepEqual(
+  limited.receipt.recordRevisions,
+  { "continuity-variant": "continuity-revision", "temporary-variant": "temporary-revision" },
+  "dropped optional recall must not invalidate the request, while retained continuity still does",
+);
 assert.equal(limited.messages.filter((message) => message.content.includes("Earlier events remain")).length, 1);
 assert.ok(measureContextBudget(limited.providerMessages, { maxContext: 12_000, maxTokens: 4096 }).fits);
 assert.ok(limited.providerMessages.some((message) => message.content.includes("Character rules")));

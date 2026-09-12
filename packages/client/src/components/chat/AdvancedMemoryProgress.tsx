@@ -63,7 +63,7 @@ export function AdvancedMemoryProgress({
             className="mari-memory-progress h-2 w-full overflow-hidden rounded-full"
           />
           <p className="text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
-            {t("chat.advancedMemory.completed", { completed: job.completed, total: job.total })}
+            {t("chat.advancedMemory.completed", { completed: job.completed, total: job.total, count: job.total })}
           </p>
         </>
       )}

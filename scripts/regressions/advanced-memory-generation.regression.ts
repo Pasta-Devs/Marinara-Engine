@@ -282,6 +282,37 @@ try {
   assert.ok(!presetPreview.body.includes("PREVIEW_PRIVATE_SECRET"));
   assert.equal(modelCalls, beforePreview, "all preview entry points must remain read-only without model calls");
 
+  for (const streaming of [false, true]) {
+    const oversizedPreview = await app.inject({
+      method: "POST",
+      url: "/api/generate/dryRun",
+      payload: {
+        chatId: previewChat.id,
+        streaming,
+        skipPreset: true,
+        presetText: "Required fixed instruction. ".repeat(10_000),
+      },
+    });
+    if (streaming) {
+      assert.equal(oversizedPreview.statusCode, 200);
+      assert.match(oversizedPreview.headers["content-type"] ?? "", /text\/event-stream/u);
+      const events = oversizedPreview.body
+        .split("\n\n")
+        .filter((line) => line.startsWith("data: "))
+        .map((line) => JSON.parse(line.slice(6)));
+      assert.deepEqual(
+        events.map((event) => event.type),
+        ["error", "done"],
+      );
+      assert.match(events[0].data, /fixed instructions.*context cap/u);
+    } else {
+      assert.equal(oversizedPreview.statusCode, 500);
+      assert.match(oversizedPreview.json().error, /fixed instructions.*context cap/u);
+      assert.equal(oversizedPreview.json().runId, undefined, "preparation failed before a run was started");
+    }
+  }
+  assert.equal(modelCalls, beforePreview, "preparation failures cannot start model calls");
+
   const impersonation = await app.inject({
     method: "POST",
     url: "/api/generate/",

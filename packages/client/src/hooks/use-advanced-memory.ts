@@ -77,10 +77,14 @@ export function useAdvancedMemorySources(chatId: string, recordId: string | null
   });
 }
 
-export function useAdvancedMemoryKnowledgeMessages(chatId: string, enabled: boolean) {
+export function useAdvancedMemoryKnowledgeMessages(chatId: string, enabled: boolean, before?: string) {
   return useQuery({
-    queryKey: ["advanced-memory-knowledge-messages", chatId],
-    queryFn: ({ signal }) => api.get<Message[]>(`/chats/${chatId}/messages`, { signal }),
+    queryKey: ["advanced-memory-knowledge-messages", chatId, before],
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ limit: "50" });
+      if (before) params.set("before", before);
+      return api.get<Array<Message & { rowid: number }>>(`/chats/${chatId}/messages?${params}`, { signal });
+    },
     enabled: !!chatId && enabled,
     staleTime: 0,
   });

@@ -13,6 +13,7 @@ interface ChatSettingsSectionProps {
   help?: string;
   style?: CSSProperties;
   initialOpen?: boolean;
+  forceOpen?: boolean;
   contentClassName?: string;
   children: ReactNode;
 }
@@ -25,17 +26,24 @@ export function ChatSettingsSection({
   help,
   style,
   initialOpen = false,
+  forceOpen = false,
   contentClassName,
   children,
 }: ChatSettingsSectionProps) {
   const rememberedOpen = useUIStore((s) => (id ? s.chatSettingsExpandedSections[id] : undefined));
   const setSectionExpanded = useUIStore((s) => s.setChatSettingsSectionExpanded);
   // Remembered state wins once it exists; otherwise fall back to initialOpen.
-  const [open, setOpen] = useState(rememberedOpen ?? initialOpen);
+  const [open, setOpen] = useState(forceOpen || (rememberedOpen ?? initialOpen));
   useEffect(() => {
     if (rememberedOpen !== undefined) setOpen(rememberedOpen);
     else if (initialOpen) setOpen(true);
   }, [initialOpen, rememberedOpen]);
+  // Explicit navigation opens once; a later user collapse must still win.
+  useEffect(() => {
+    if (!forceOpen) return;
+    setOpen(true);
+    if (id) setSectionExpanded(id, true);
+  }, [forceOpen, id, setSectionExpanded]);
   const toggleOpen = () => {
     const next = !open;
     setOpen(next);

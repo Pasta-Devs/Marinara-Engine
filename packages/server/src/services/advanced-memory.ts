@@ -94,6 +94,7 @@ type Context = {
   characterIds: string[];
   names: Map<string, string>;
   individual: boolean;
+  recordCache?: StoredRecord[];
 };
 type Scene = { id: string; start: number; end: number; closed: boolean };
 const activeOperations = new Map<string, { controller: AbortController; promise: Promise<void> }>();
@@ -394,6 +395,10 @@ export function createAdvancedMemoryService(db: DB) {
     );
   }
 
+  async function operationRecords(ctx: Context): Promise<StoredRecord[]> {
+    return (ctx.recordCache ??= await records(ctx.chatId));
+  }
+
   function recordValid(ctx: Context, record: StoredRecord, source = ctx.messages): boolean {
     const byId = new Map(source.map((message) => [message.id, message]));
     const covered = record.messageIds.map((id) => byId.get(id));
@@ -455,7 +460,7 @@ export function createAdvancedMemoryService(db: DB) {
     const fresh = await validateSnapshot(ctx, selected, options);
     const end = fresh.messages.findIndex((message) => message.id === ctx.messages.at(-1)?.id);
     const asOf = { ...fresh, messages: fresh.messages.slice(0, end + 1) };
-    if (!recordValid(asOf, record) || !dependenciesValid(record, await records(ctx.chatId), asOf))
+    if (!recordValid(asOf, record) || !dependenciesValid(record, await operationRecords(ctx), asOf))
       throw new Error("Memory sources or summary corrections changed during preparation; retry");
     const row = {
       ...record,
@@ -481,6 +486,11 @@ export function createAdvancedMemoryService(db: DB) {
         .set({ ...row, enabled: existing.enabled ? 1 : 0 })
         .where(eq(advancedMemoryRecords.id, record.id));
     else await db.insert(advancedMemoryRecords).values(row);
+    const cached = await operationRecords(ctx);
+    const index = cached.findIndex((item) => item.id === record.id);
+    const stored = { ...record, enabled: existing?.enabled ?? record.enabled };
+    if (index < 0) cached.push(stored);
+    else cached[index] = stored;
   }
 
   async function progress(ctx: Context, patch: Partial<AdvancedMemoryJob>, options: AdvancedMemoryOperationOptions) {
@@ -527,7 +537,7 @@ export function createAdvancedMemoryService(db: DB) {
     )[0];
     const cacheRecord = cachedRow ? readStored(cachedRow) : null;
     const savedWork =
-      cacheRecord && recordValid(ctx, cacheRecord) && dependenciesValid(cacheRecord, await records(ctx.chatId), ctx)
+      cacheRecord && recordValid(ctx, cacheRecord) && dependenciesValid(cacheRecord, await operationRecords(ctx), ctx)
         ? object(cachedRow?.summaryWork)
         : {};
     const completed = Object.fromEntries(
@@ -927,7 +937,7 @@ export function createAdvancedMemoryService(db: DB) {
       // Commit classification independently of summarization so cancellation never repeats completed paid batches.
       const through = batch.at(-1)!.index;
       const knownStarts = new Set([0, ...boundaries]);
-      for (const record of await records(ctx.chatId)) {
+      for (const record of await operationRecords(ctx)) {
         if (record.id === record.sceneId && record.kind === "scene" && recordValid(ctx, record)) {
           const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
           if (start >= 0 && start <= through) knownStarts.add(start);
@@ -977,7 +987,7 @@ export function createAdvancedMemoryService(db: DB) {
       );
       throw new Error("Confirm each character's historical knowledge range before preparing memory");
     }
-    const existing = await records(chatId);
+    const existing = await operationRecords(ctx);
     const state = object(ctx.metadata.advancedMemoryState);
     const processedIndex =
       typeof state.processedMessageId === "string"
@@ -1121,12 +1131,22 @@ export function createAdvancedMemoryService(db: DB) {
     const current = activeOperations.get(chatId);
     if (current)
       return (async () => {
-        const abort = () => current.controller.abort(options.signal?.reason);
-        if (options.signal?.aborted) abort();
+        abortIfNeeded(options.signal);
+        let rejectWait: (reason?: unknown) => void = () => {};
+        const cancelled = new Promise<never>((_, reject) => {
+          rejectWait = reject;
+        });
+        const abort = () => rejectWait(options.signal?.reason ?? new Error("Advanced Memory wait cancelled"));
         options.signal?.addEventListener("abort", abort, { once: true });
         try {
-          if (options.blocking) await progress(await context(chatId), { blocking: true }, options);
-          await current.promise;
+          // This caller owns its wait; only the initiating caller or explicit Cancel owns shared work.
+          await Promise.race([
+            (async () => {
+              if (options.blocking) await progress(await context(chatId), { blocking: true }, options);
+              await current.promise;
+            })(),
+            cancelled,
+          ]);
           abortIfNeeded(options.signal);
         } finally {
           options.signal?.removeEventListener("abort", abort);
@@ -1165,6 +1185,7 @@ export function createAdvancedMemoryService(db: DB) {
   function sameIdentity(left: StoredRecord, right: StoredRecord) {
     return (
       left.kind === right.kind &&
+      (left.kind !== "scene" || (left.id === left.sceneId) === (right.id === right.sceneId)) &&
       left.sceneId === right.sceneId &&
       audienceMatches(left, right.audienceCharacterIds) &&
       left.messageIds.join("\0") === right.messageIds.join("\0")
@@ -1335,7 +1356,7 @@ export function createAdvancedMemoryService(db: DB) {
     if (ctx.individual && !audience.length && input.audienceMode !== "owner")
       throw new Error("Individual Advanced Memory requires a responding character");
     const eligible = allowed(ctx, sources, audience);
-    const available = (await records(ctx.chatId)).filter((record) => recordValid(ctx, record));
+    const available = (await operationRecords(ctx)).filter((record) => recordValid(ctx, record));
     const indexes = new Map(sources.map((message, index) => [message.id, index]));
     const budget = Math.floor(input.budgetTokens) - 192; // Reserve component introductions and source labels; the caller rechecks the complete preset.
     if (!Number.isFinite(budget) || budget < 128)
@@ -1626,6 +1647,7 @@ export function createAdvancedMemoryService(db: DB) {
           .map((item) => item.text)
           .join("\n\n") || null,
       recalledMessages: logMessages(ctx, excerpts) || null,
+      recalledRecordIds: [...new Set(recalledRecords.map((record) => record.id))],
       receipt,
     };
   }
@@ -1827,8 +1849,9 @@ export function createAdvancedMemoryService(db: DB) {
     }
   }
 
-  async function exportTransferRecords(chatId: string) {
+  async function exportTransferRecords(chatId: string, sourceMessages?: readonly AdvancedMemoryMessage[]) {
     const ctx = await context(chatId);
+    const sourceById = new Map((sourceMessages ?? ctx.messages).map((message) => [message.id, message]));
     const current = await records(chatId);
     const indexes = new Map(ctx.messages.map((message, index) => [message.id, index + 1]));
     return current.map((record) => ({
@@ -1843,7 +1866,7 @@ export function createAdvancedMemoryService(db: DB) {
       valid: recordValid(ctx, record) && dependenciesValid(record, current, ctx),
       sourceDigest: advancedMemorySourceFingerprint(
         record.messageIds
-          .map((id) => ctx.messages.find((message) => message.id === id))
+          .map((id) => sourceById.get(id))
           .filter((message): message is AdvancedMemoryMessage => !!message),
       ),
     }));
@@ -1931,8 +1954,10 @@ export function createAdvancedMemoryService(db: DB) {
         const item = object(object(raw).record);
         if (typeof item.id === "string") recordIdMap.set(item.id, newId());
       }
+      const existing = await operationRecords(ctx);
       let imported = 0;
       const importedRecordIds: string[] = [];
+      const importedRecords: StoredRecord[] = [];
       for (const raw of data.records as unknown[]) {
         const transfer = object(raw);
         const value = object(transfer.record);
@@ -1951,8 +1976,15 @@ export function createAdvancedMemoryService(db: DB) {
         const sceneStart = typeof value.startMessageId === "string" ? idMap.get(value.startMessageId) : undefined;
         const sceneEnd = typeof value.endMessageId === "string" ? idMap.get(value.endMessageId) : undefined;
         if (!sceneStart || !sceneEnd) continue;
-        const sceneId = `scene-${sceneStart}`;
-        const scaffold = value.id === value.sceneId;
+        const kindPrefix = value.kind === "continuity" || value.kind === "temporary" ? value.kind : "scene";
+        const oldAnchor =
+          typeof value.sceneId === "string" && value.sceneId.startsWith(`${kindPrefix}-`)
+            ? value.sceneId.slice(kindPrefix.length + 1)
+            : undefined;
+        const sceneAnchor = oldAnchor ? idMap.get(oldAnchor) : undefined;
+        if (!sceneAnchor) continue;
+        const sceneId = `${kindPrefix}-${sceneAnchor}`;
+        const scaffold = value.kind === "scene" && value.id === value.sceneId;
         const record = readStored({
           ...value,
           id: scaffold ? sceneId : recordIdMap.get(String(value.id))!,
@@ -1971,14 +2003,13 @@ export function createAdvancedMemoryService(db: DB) {
           sourceFingerprint: fingerprint(ctx, source, audience),
         });
         record.dependencies = record.dependencies.map((dependency) =>
-          dependency.id === "boundary"
-            ? { ...dependency, revision: idMap.get(dependency.revision) ?? "" }
-            : dependency.id.startsWith("record:")
-              ? { ...dependency, id: `record:${recordIdMap.get(dependency.id.slice(7)) ?? "missing"}` }
-              : dependency,
+          dependency.id === "boundary" ? { ...dependency, revision: idMap.get(dependency.revision) ?? "" } : dependency,
         );
-        const previous = (await records(chatId)).find((item) => sameIdentity(item, record));
-        if (previous) continue; // Import never overwrites local user corrections.
+        const previous = existing.find((item) => sameIdentity(item, record));
+        if (previous) {
+          recordIdMap.set(String(value.id), previous.id);
+          continue; // Import never overwrites local user corrections.
+        }
         await db.insert(advancedMemoryRecords).values({
           ...record,
           messageIds: JSON.stringify(record.messageIds),
@@ -1988,8 +2019,24 @@ export function createAdvancedMemoryService(db: DB) {
           manualOverride: record.manualOverride ? 1 : 0,
           embedding: null,
         });
+        recordIdMap.set(String(value.id), record.id);
+        existing.push(record);
         imported++;
         importedRecordIds.push(record.id);
+        importedRecords.push(record);
+      }
+      // Export order is not a dependency order: a later duplicate may resolve to an existing local ID.
+      for (const record of importedRecords) {
+        if (!record.dependencies.some((dependency) => dependency.id.startsWith("record:"))) continue;
+        record.dependencies = record.dependencies.map((dependency) =>
+          dependency.id.startsWith("record:")
+            ? { ...dependency, id: `record:${recordIdMap.get(dependency.id.slice(7)) ?? "missing"}` }
+            : dependency,
+        );
+        await db
+          .update(advancedMemoryRecords)
+          .set({ dependencies: JSON.stringify(record.dependencies) })
+          .where(eq(advancedMemoryRecords.id, record.id));
       }
       await refreshTransferredRecords(chatId, importedRecordIds);
       return { imported, ...(await status(chatId)) };

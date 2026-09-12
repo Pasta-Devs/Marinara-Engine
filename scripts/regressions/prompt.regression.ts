@@ -796,6 +796,7 @@ import { fitMessagesForModelAccess } from "../../packages/server/src/services/ge
 import {
   resolveAdvancedMemoryPrompt,
   describeAdvancedMemoryPlacements,
+  createAdvancedMemoryPlacement,
   type AdvancedMemoryPromptParts,
 } from "../../packages/server/src/services/prompt/advanced-memory-prompt.js";
 import {
@@ -9024,6 +9025,23 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         recalledMessages: "#12 Mari: EXACT_OLD_WORDS",
       };
       for (const format of ["xml", "markdown", "none"] as const) {
+        const headingParts = { chatSummary: "# A user heading\n<private>Literal tags & content</private>" };
+        const headingPlacement = createAdvancedMemoryPlacement("chat_summary", format);
+        for (const includeSlot of [true, false]) {
+          const headingText = resolveAdvancedMemoryPrompt(
+            [{ content: includeSlot ? headingPlacement.token : "LIVE_WORDS" }],
+            [headingPlacement],
+            headingParts,
+          )
+            .map((message) => message.content)
+            .join("\n");
+          assert.ok(headingText.includes("<private>Literal tags & content</private>"));
+          assert.ok(
+            headingText.includes(format === "markdown" ? "\\# A user heading" : "# A user heading"),
+            "authored and fallback memory slots use the existing format-specific leaf handling",
+          );
+          if (format === "markdown") assert.doesNotMatch(headingText, /^# A user heading$/mu);
+        }
         const marker = (id: string, type: string, extra: Partial<AssemblerInput["sections"][number]> = {}) =>
           promptSection({
             id,

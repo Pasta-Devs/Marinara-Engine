@@ -45,6 +45,7 @@ export function AdvancedMemorySettings({
   const [confirmKnowledge, setConfirmKnowledge] = useState(false);
   const [knowledgeCharacterIds, setKnowledgeCharacterIds] = useState<string[]>([]);
   const [knowledgeChoices, setKnowledgeChoices] = useState<Record<string, string>>({});
+  const [knowledgeCursors, setKnowledgeCursors] = useState<Array<string | undefined>>([undefined]);
   const knowledgePanelRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!settings.enabled) setConfirmKnowledge(false);
@@ -57,7 +58,9 @@ export function AdvancedMemorySettings({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [confirmKnowledge]);
-  const messages = useAdvancedMemoryKnowledgeMessages(chatId, confirmKnowledge);
+  const messages = useAdvancedMemoryKnowledgeMessages(chatId, confirmKnowledge, knowledgeCursors.at(-1));
+  const firstKnowledgeMessage = messages.data?.[0];
+  const lastKnowledgeMessage = messages.data?.at(-1);
   const missing = status.data?.missingKnowledgeCharacterIds ?? [];
   const running = status.data?.job.status === "running";
   const disabled = action.isPending || running || status.isLoading || status.isError;
@@ -66,6 +69,7 @@ export function AdvancedMemorySettings({
     if (individual && missing.length > 0) {
       setKnowledgeCharacterIds(missing);
       setKnowledgeChoices({});
+      setKnowledgeCursors([undefined]);
       setConfirmKnowledge(true);
     } else {
       action.mutate({ action: "initialize" });
@@ -84,6 +88,7 @@ export function AdvancedMemorySettings({
     }
     setKnowledgeCharacterIds(ids);
     setKnowledgeChoices(choices);
+    setKnowledgeCursors([undefined]);
     setConfirmKnowledge(true);
   };
   const confirmAndInitialize = () => {
@@ -302,10 +307,15 @@ export function AdvancedMemorySettings({
                   )}
                 </option>
                 <option value="beginning">{t("chat.advancedMemory.fromBeginning")}</option>
-                {(messages.data ?? []).map((message, index) => (
+                {knowledgeChoices[id] &&
+                  knowledgeChoices[id] !== "beginning" &&
+                  !messages.data?.some((message) => message.id === knowledgeChoices[id]) && (
+                    <option value={knowledgeChoices[id]}>{t("chat.advancedMemory.selectedOutsidePage")}</option>
+                  )}
+                {(messages.data ?? []).map((message) => (
                   <option key={message.id} value={message.id}>
                     {t("chat.advancedMemory.messageChoice", {
-                      number: index + 1,
+                      number: message.rowid,
                       excerpt: message.content.replace(/\s+/gu, " ").slice(0, 90),
                     })}
                   </option>
@@ -313,6 +323,42 @@ export function AdvancedMemorySettings({
               </select>
             </label>
           ))}
+          <div className="space-y-2">
+            {firstKnowledgeMessage && lastKnowledgeMessage && (
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {t("chat.advancedMemory.knowledgePage", {
+                  start: firstKnowledgeMessage.rowid,
+                  end: lastKnowledgeMessage.rowid,
+                })}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={actionClass}
+                disabled={
+                  messages.isFetching || action.isPending || !firstKnowledgeMessage || firstKnowledgeMessage.rowid <= 1
+                }
+                onClick={() => {
+                  if (!firstKnowledgeMessage) return;
+                  setKnowledgeCursors((current) => [
+                    ...current,
+                    `${firstKnowledgeMessage.createdAt}|${encodeURIComponent(firstKnowledgeMessage.id)}`,
+                  ]);
+                }}
+              >
+                {t("chat.advancedMemory.olderMessages")}
+              </button>
+              <button
+                type="button"
+                className={actionClass}
+                disabled={messages.isFetching || action.isPending || knowledgeCursors.length <= 1}
+                onClick={() => setKnowledgeCursors((current) => current.slice(0, -1))}
+              >
+                {t("chat.advancedMemory.newerMessages")}
+              </button>
+            </div>
+          </div>
           <button
             type="button"
             onClick={confirmAndInitialize}

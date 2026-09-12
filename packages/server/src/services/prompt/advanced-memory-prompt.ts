@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { MarkerType, PromptRole, WrapFormat } from "@marinara-engine/shared";
 import { pruneEmptyPromptWrappers } from "../generation/runtime-agent-sections.js";
 import { wrapContent } from "./format-engine.js";
+import { sanitizePromptLeaf } from "./prompt-escaping.js";
 
 /** Already audience-filtered, format-neutral memory. An empty object enables the placement slots. */
 export interface AdvancedMemoryPromptParts {
@@ -124,11 +125,8 @@ export function resolveAdvancedMemoryPrompt<T extends { content: string }>(
   const result = messages.map((message) => ({ ...message }));
   const fallbackMessages: T[] = [];
   for (const placement of placements) {
-    const rendered = wrapContent(
-      advancedMemoryMarkerContent(placement.markerType, parts),
-      placement.sectionName,
-      placement.format,
-    );
+    const content = sanitizePromptLeaf(advancedMemoryMarkerContent(placement.markerType, parts), placement.format);
+    const rendered = wrapContent(content, placement.sectionName, placement.format);
     let emitted = false;
     const pattern = new RegExp(`(^[ \\t]*)?${placement.token}`, "gm");
     for (const message of result) {
@@ -146,11 +144,7 @@ export function resolveAdvancedMemoryPrompt<T extends { content: string }>(
       fallbackMessages.push({
         role: "system",
         contextKind: "prompt",
-        content: wrapContent(
-          advancedMemoryMarkerContent(placement.markerType, parts),
-          MEMORY_COMPONENTS[placement.markerType].name,
-          placement.format,
-        ),
+        content: wrapContent(content, MEMORY_COMPONENTS[placement.markerType].name, placement.format),
       } as unknown as T);
     }
   }

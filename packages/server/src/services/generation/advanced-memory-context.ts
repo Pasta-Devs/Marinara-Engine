@@ -79,6 +79,9 @@ export async function prepareAdvancedMemoryContext(
       });
       providerMessages = input.toProviderMessages(messages);
       budget = measureContextBudget(providerMessages, { maxContext, maxTokens, tools: input.tools });
+      for (const recordId of prepared.recalledRecordIds) {
+        delete prepared.receipt.recordRevisions[recordId];
+      }
       prepared.receipt.recalledMessageIds = [];
       prepared.receipt.recalledSceneIds = [];
       prepared.receipt.reasons.push("Optional recall omitted to fit the complete formatted request.");

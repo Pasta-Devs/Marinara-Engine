@@ -1806,7 +1806,7 @@ export function useGenerate() {
               void qc.invalidateQueries({ queryKey: advancedMemoryKeys.status(params.chatId) });
               const jobId = job.id ?? params.chatId;
               if (
-                job.blocking &&
+                job.blocking !== false &&
                 ["running", "needs_confirmation", "error"].includes(job.status) &&
                 !shownAdvancedMemoryJobs.has(jobId)
               ) {

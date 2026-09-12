@@ -3488,7 +3488,7 @@ export function ChatSettingsDrawer({
   const [memoryView, setMemoryView] = useState<"advanced" | "standard" | null>(null);
   const advancedMemoryStatus = useAdvancedMemoryStatus(chat.id, open && isRoleplayMode);
   const advancedMemoryEnabled = isRoleplayMode && advancedMemoryStatus.data?.settings.enabled === true;
-  useEffect(() => setMemoryView(null), [advancedMemoryEnabled]);
+  useEffect(() => setMemoryView(null), [advancedMemoryEnabled, chat.id]);
   const [inlineResourceEditor, setInlineResourceEditor] = useState<{
     kind: "character" | "persona" | "lorebook";
     id: string;
@@ -6358,7 +6358,7 @@ export function ChatSettingsDrawer({
               label={localizeUi("ui.chat.chatsettingsdrawer.autonomousMessaging")}
               icon={<Bot size="0.875rem" />}
               help={localizeUi("ui.chat.chatsettingsdrawer.charactersCanMessageYouUnpromptedBasedOnTheirPersonality")}
-              initialOpen={initialSection === "autonomous"}
+              forceOpen={open && initialSection === "autonomous"}
             >
               <div className="space-y-2">
                 {/* Enable autonomous messages toggle */}
@@ -9438,7 +9438,7 @@ export function ChatSettingsDrawer({
           {!isConversation && import.meta.env.VITE_MARINARA_LITE !== "true" && (
             <Section
               id={`${chatMode}-memory-recall`}
-              initialOpen={initialSection === "memory-recall"}
+              forceOpen={open && initialSection === "memory-recall"}
               style={{ order: CHAT_SETTINGS_ORDER.memoryRecall }}
               label={localizeUi("ui.chat.chatsettingsdrawer.memoryRecall")}
               icon={<Brain size="0.875rem" />}
