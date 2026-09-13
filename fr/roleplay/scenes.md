@@ -42,7 +42,7 @@ Autre option : lancer une scène sans description. Tape seulement la commande, �
 
 Si la conversation ne contient encore aucun message, Marinara te demande d'ajouter une description ou de discuter un peu avant de pouvoir planifier une scène.
 
-Un personnage peut lui aussi proposer de lancer une scène. Dans ce cas, la même fenêtre **Scene Prompt Setup** s'ouvre, avec une ligne du type "[Character] wants to start a scene." Choisis le **POV** et le **Tense**, puis clique sur **Plan Scene** comme d'habitude – ou clique sur **Cancel** pour refuser.
+Un personnage peut lui aussi proposer de lancer une scène. Dans ce cas, la même fenêtre **Scene Prompt Setup** s'ouvre, avec une ligne du type "[Character] wants to start a scene." Choisis le **Prompt preset**, le **POV** et le **Tense**, puis clique sur **Plan Scene** comme d'habitude – ou clique sur **Cancel** pour refuser.
 
 ## La barre de scène : End Scene, Discard, Convert et Back to conversation
 

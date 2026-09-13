@@ -43,7 +43,7 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "770d7b96a523128534c87b003102dd32118fa647a1e58e63dbb8663d812ad436",
+      "sha256": "b7b7aa1fd3411440da3eedc6c6c3339c702c5501066d100812aa12923ece7f72",
       "bytes": 42841
     },
     {
@@ -618,8 +618,8 @@
     },
     {
       "path": "roleplay/scenes.md",
-      "sha256": "412641b667dd8625a627cbfa7b47e54eb83cd2714b42c5dffa7e4914d3388350",
-      "bytes": 12565
+      "sha256": "05633e4b3ea0e42041bded9e43c440efaea5e14f0a404620c1f96d80bf8b4d67",
+      "bytes": 12584
     },
     {
       "path": "settings/settings-overview.md",

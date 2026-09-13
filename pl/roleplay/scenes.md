@@ -42,7 +42,7 @@ Scenę da się też rozpocząć bez opisu. Wpisz samą komendę, jeśli w czacie
 
 Jeśli w czacie Conversation nie ma jeszcze żadnych wiadomości, Marinara prosi o dopisanie opisu albo o wcześniejszą rozmowę, bo bez tego nie zaplanuje sceny.
 
-O rozpoczęcie sceny może poprosić także postać. Wtedy otwiera się to samo okno **Scene Prompt Setup**, z komunikatem w rodzaju "[Character] wants to start a scene." Wybierz **POV** i **Tense**, a potem kliknij przycisk **Plan Scene** tak samo jak wcześniej, albo kliknij przycisk **Cancel**, żeby odmówić.
+O rozpoczęcie sceny może poprosić także postać. Wtedy otwiera się to samo okno **Scene Prompt Setup**, z komunikatem w rodzaju "[Character] wants to start a scene." Wybierz **Prompt preset**, **POV** i **Tense**, a potem kliknij przycisk **Plan Scene** tak samo jak wcześniej, albo kliknij przycisk **Cancel**, żeby odmówić.
 
 ## Pasek sceny: End Scene, Discard, Convert i Back to conversation
 

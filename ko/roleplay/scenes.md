@@ -42,7 +42,7 @@ Marinara가 장면을 구성한 뒤 새 Roleplay 채팅으로 엽니다. 채팅 
 
 채팅에 메시지가 하나도 없으면 Marinara는 장면을 구성하기 전에 설명을 덧붙이거나 먼저 대화를 나누라고 안내합니다.
 
-캐릭터 쪽에서 장면을 시작하자고 제안하기도 합니다. 이때도 같은 **Scene Prompt Setup** 창이 열리고 "[Character] wants to start a scene." 같은 문구가 함께 표시됩니다. 똑같이 **POV**와 **Tense**를 고른 뒤 **Plan Scene**을 클릭하면 되고, 거절하려면 **Cancel**을 클릭하세요.
+캐릭터 쪽에서 장면을 시작하자고 제안하기도 합니다. 이때도 같은 **Scene Prompt Setup** 창이 열리고 "[Character] wants to start a scene." 같은 문구가 함께 표시됩니다. 똑같이 **Prompt preset**, **POV**와 **Tense**를 고른 뒤 **Plan Scene**을 클릭하면 되고, 거절하려면 **Cancel**을 클릭하세요.
 
 ## 장면 바: End Scene, Discard, Convert, Back to conversation
 
