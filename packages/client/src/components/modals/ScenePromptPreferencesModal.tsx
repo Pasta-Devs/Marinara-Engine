@@ -35,14 +35,23 @@ export function ScenePromptPreferencesModal({
   onCancel,
 }: ScenePromptPreferencesModalProps) {
   const { t: localizeUi } = useUiTranslation();
-  const { data: presets = [], isLoading: presetsLoading } = usePresets();
+  const {
+    data: presetData,
+    isLoading: presetsLoading,
+    isError: presetsError,
+    isFetching: presetsFetching,
+    refetch: retryPresets,
+  } = usePresets();
+  const presets = presetData ?? [];
+  const presetsUnverified = presetData === undefined;
+  const presetLoadFailed = presetsError && presetsUnverified;
   const initial = normalizeScenePromptPreferences(initialPreferences);
   const [pov, setPov] = useState<ScenePromptPov>(initial.pov);
   const [tense, setTense] = useState<ScenePromptTense>(initial.tense);
   const [extraInstructions, setExtraInstructions] = useState(initial.extraInstructions ?? "");
   const [promptPresetId, setPromptPresetId] = useState(initial.promptPresetId ?? "");
   const unavailablePreset =
-    !!promptPresetId && !presetsLoading && !presets.some((preset) => preset.id === promptPresetId);
+    !!promptPresetId && !presetsUnverified && !presets.some((preset) => preset.id === promptPresetId);
 
   useEffect(() => {
     const next = normalizeScenePromptPreferences(initialPreferences);
@@ -98,7 +107,11 @@ export function ScenePromptPreferencesModal({
             className="mari-preset-native-select min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)] disabled:opacity-50"
           >
             <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-            {unavailablePreset && <option value={promptPresetId}>{localizeUi("scene.setup.unavailablePreset")}</option>}
+            {promptPresetId && (presetsUnverified || unavailablePreset) && (
+              <option value={promptPresetId}>
+                {localizeUi(presetsUnverified ? "scene.setup.unverifiedPreset" : "scene.setup.unavailablePreset")}
+              </option>
+            )}
             {presets.map((preset) => (
               <option key={preset.id} value={preset.id}>
                 {preset.name}
@@ -114,6 +127,19 @@ export function ScenePromptPreferencesModal({
             </span>
           )}
         </label>
+        {presetLoadFailed && (
+          <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-[var(--foreground)]">
+            <span>{localizeUi("scene.setup.loadPresetsFailed")}</span>
+            <button
+              type="button"
+              disabled={presetsFetching}
+              onClick={() => void retryPresets()}
+              className="min-h-10 rounded-lg border border-[var(--border)] px-3 py-2 font-semibold transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            >
+              {localizeUi("scene.setup.retryPresets")}
+            </button>
+          </div>
+        )}
 
         <OptionGroup label={localizeUi("ui.modals.scenepromptpreferencesmodal.pov")}>
           {POV_OPTIONS.map((option) => (
@@ -162,7 +188,7 @@ export function ScenePromptPreferencesModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={presetsLoading || unavailablePreset}
+            disabled={!!promptPresetId && (presetsUnverified || unavailablePreset)}
             className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {localizeUi("ui.modals.scenepromptpreferencesmodal.planScene")}

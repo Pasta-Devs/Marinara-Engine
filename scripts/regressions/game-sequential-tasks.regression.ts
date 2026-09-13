@@ -18,6 +18,7 @@ const { registerSequentialGameTasks, retainSequentialGameTask } =
   await import("../../packages/server/src/services/game/sequential-tasks.js");
 const { sidecarRoutes } = await import("../../packages/server/src/routes/sidecar.routes.js");
 const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
+const { gameRoutes } = await import("../../packages/server/src/routes/game.routes.js");
 const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
@@ -63,6 +64,7 @@ await app.register(
 );
 await app.register(sidecarRoutes, { prefix: "/api/sidecar" });
 await app.register(generateRoutes, { prefix: "/api/generate" });
+await app.register(gameRoutes, { prefix: "/api/game" });
 try {
   const chat = await chats.create({ name: "Sequential Game", mode: "game", characterIds: [] });
   assert.ok(chat);
@@ -233,6 +235,224 @@ try {
         sequential ? peak === 1 : peak > 1,
         "explicit Game agent retries honor the selected concurrency policy",
       );
+    }
+
+    // Exercise model-producing Game routes, including work that outlives the
+    // initial conclusion response and recaps scoped through session selection.
+    let releaseKeeper = () => {};
+    let keeperStarted = () => {};
+    let mapCalls = 0;
+    let recapCalls = 0;
+    OpenAIProvider.prototype.chatComplete = async (messages) => {
+      const text = messages.map((message) => message.content).join("\n");
+      active++;
+      peak = Math.max(peak, active);
+      try {
+        let content = '{"summary":"The gate was opened."}';
+        if (text.includes("You are Marinara's Game Lorebook Keeper.")) {
+          await new Promise<void>((done) => {
+            releaseKeeper = done;
+            keeperStarted();
+          });
+          content = '{"entries":[]}';
+        } else if (text.includes("Generate the map.")) {
+          mapCalls++;
+          await delay();
+          content = JSON.stringify({
+            type: "node",
+            name: "Courtyard",
+            description: "Quiet",
+            nodes: [],
+            edges: [],
+            partyPosition: "gate",
+          });
+        } else if (text.includes("Generate the session recap.")) {
+          recapCalls++;
+          await delay();
+          content = "The gate stands open as the next session begins.";
+        }
+        return { content, toolCalls: [], finishReason: "stop" };
+      } finally {
+        active--;
+      }
+    };
+    const gamePost = (path: string, payload: Record<string, unknown>) =>
+      app.inject({ method: "POST", url: `/api/game/${path}`, payload });
+    const mapPayload = { chatId: generatedChat.id, locationType: "courtyard" };
+    try {
+      for (const sequential of [false, true]) {
+        await chats.patchMetadata(generatedChat.id, { gameSequentialAgents: sequential });
+        peak = 0;
+        const responses = await Promise.all([
+          gamePost("narrate", { chatId: generatedChat.id }),
+          gamePost("map/generate", mapPayload),
+        ]);
+        assert.ok(
+          responses.every((response) => response.statusCode === 200),
+          responses.map((response) => response.body).join("\n"),
+        );
+        assert.equal(peak, sequential ? 1 : 2, "actual map generation shares the opted-in chat queue");
+      }
+
+      for (const endpoint of ["session/conclude", "session/conclude/apply-json"]) {
+        const concluding = await chats.create({
+          name: endpoint,
+          mode: "game",
+          characterIds: [],
+          connectionId: narratorConnection.id,
+        });
+        assert(concluding);
+        await chats.patchMetadata(concluding.id, {
+          gameSequentialAgents: true,
+          gameLorebookKeeperEnabled: true,
+          gameSessionStatus: "active",
+        });
+        const started = new Promise<void>((done) => {
+          keeperStarted = done;
+        });
+        const response = await gamePost(endpoint, {
+          chatId: concluding.id,
+          streaming: false,
+          rawJson: '{"summary":"The gate was opened."}',
+        });
+        assert.equal(response.statusCode, 200, response.body);
+        await started;
+        const beforeMaps = mapCalls;
+        const mapRequest = gamePost("map/generate", { chatId: concluding.id, locationType: "courtyard" }).then(
+          (result) => result,
+        );
+        await delay();
+        assert.equal(mapCalls, beforeMaps, `${endpoint} retains the background Keeper after its HTTP reply`);
+        releaseKeeper();
+        const result = await mapRequest;
+        assert.equal(result.statusCode, 200, result.body);
+        assert.equal(
+          JSON.parse((await chats.getById(concluding.id))!.metadata).gameLorebookKeeperLastRun.status,
+          "success",
+        );
+      }
+
+      for (const explicitSource of [false, true]) {
+        const gameId = `sequence-session-${explicitSource}`;
+        const canonical = await chats.create({
+          name: "Canonical — Session 1",
+          mode: "game",
+          characterIds: [],
+          groupId: gameId,
+          connectionId: narratorConnection.id,
+        });
+        const branch = await chats.create({
+          name: "Branch — Session 1",
+          mode: "game",
+          characterIds: [],
+          groupId: gameId,
+          connectionId: narratorConnection.id,
+        });
+        assert(canonical && branch);
+        const selected = explicitSource ? branch : canonical;
+        for (const session of [canonical, branch]) {
+          await chats.patchMetadata(session.id, {
+            gameSequentialAgents: session.id === selected.id,
+            gameSessionNumber: 1,
+            gameSessionStatus: "concluded",
+            gamePreviousSessionSummaries: [{ summary: "The gate was opened." }],
+            ...(session.id === branch.id ? { branchName: "Alternative gate" } : {}),
+          });
+        }
+        const background = await gamePost("media", { chatId: selected.id });
+        assert.equal(background.statusCode, 200);
+        const beforeRecaps = recapCalls;
+        const nextSession = gamePost("session/start", {
+          gameId,
+          ...(explicitSource ? { sourceChatId: selected.id } : {}),
+        }).then((result) => result);
+        await delay();
+        assert.equal(recapCalls, beforeRecaps, "recap waits for the selected/source session's background task");
+        releaseMedia();
+        const response = await nextSession;
+        assert.equal(response.statusCode, 200, response.body);
+        const { sessionChat, sessionNumber } = response.json();
+        assert.equal(sessionNumber, 2);
+        assert.equal(recapCalls, beforeRecaps + 1);
+        assert.equal(
+          JSON.parse(sessionChat.metadata).gameSequentialAgents,
+          true,
+          "the new session retains the selected session's opt-in",
+        );
+        assert.equal(sessionChat.name.startsWith(explicitSource ? "Branch" : "Canonical"), true);
+      }
+
+      const gameId = "sequence-session-owner-change";
+      const previous = await chats.create({
+        name: "Owner — Session 1",
+        mode: "game",
+        characterIds: [],
+        groupId: gameId,
+        connectionId: narratorConnection.id,
+      });
+      assert(previous);
+      const concluded = {
+        gameSequentialAgents: true,
+        gameSessionStatus: "concluded",
+        gamePreviousSessionSummaries: [{ summary: "The gate was opened." }],
+      };
+      await chats.patchMetadata(previous.id, { ...concluded, gameSessionNumber: 1 });
+      await gamePost("media", { chatId: previous.id });
+      const releasePrevious = releaseMedia;
+      const beforeRecaps = recapCalls;
+      const waitingStart = gamePost("session/start", { gameId }).then((result) => result);
+      await delay();
+      const current = await chats.create({
+        name: "Owner — Session 2",
+        mode: "game",
+        characterIds: [],
+        groupId: gameId,
+        connectionId: narratorConnection.id,
+      });
+      assert(current);
+      await chats.patchMetadata(current.id, {
+        ...concluded,
+        gameSessionNumber: 2,
+        gamePreviousSessionSummaries: [
+          ...concluded.gamePreviousSessionSummaries,
+          { summary: "The courtyard was explored." },
+        ],
+      });
+      await gamePost("media", { chatId: current.id });
+      try {
+        releasePrevious();
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const previousMap = await Promise.race([
+            gamePost("map/generate", { chatId: previous.id, locationType: "courtyard" }),
+            new Promise<never>((_, reject) => {
+              timeout = setTimeout(
+                () => reject(new Error("The previous owner's queue must be released before requeueing")),
+                1000,
+              );
+            }),
+          ]);
+          assert.equal(previousMap.statusCode, 200, previousMap.body);
+        } finally {
+          clearTimeout(timeout);
+        }
+        assert.equal(
+          recapCalls,
+          beforeRecaps,
+          "changed session ownership requeues the recap behind the current owner's media",
+        );
+        releaseMedia();
+        const started = await waitingStart;
+        assert.equal(started.statusCode, 200, started.body);
+        assert.equal(started.json().sessionNumber, 3);
+        assert.equal(recapCalls, beforeRecaps + 1);
+      } finally {
+        releasePrevious();
+        releaseMedia();
+      }
+    } finally {
+      releaseKeeper();
+      releaseMedia();
     }
   } finally {
     OpenAIProvider.prototype.chatComplete = originalComplete;

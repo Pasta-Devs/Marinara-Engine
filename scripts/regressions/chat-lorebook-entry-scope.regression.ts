@@ -13,12 +13,14 @@ const requireServer = createRequire(new URL("../../packages/server/package.json"
 const Fastify = requireServer("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
-const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
+const { createChatsStorage, withChatMetadataPatchQueue } =
+  await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
 const { lorebooksRoutes } = await import("../../packages/server/src/routes/lorebooks.routes.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { processLorebooks } = await import("../../packages/server/src/services/lorebook/index.js");
 const { characterDataSchema } = await import("../../packages/shared/src/index.js");
+const { chats: chatsTable } = await import("../../packages/server/src/db/schema/index.js");
 const db = await getDB();
 const chats = createChatsStorage(db);
 const lorebooks = createLorebooksStorage(db);
@@ -168,6 +170,84 @@ try {
   await lorebooks.remove(book.id);
   await assertRemovedState([other.id]);
   assert.deepEqual(JSON.parse((await chats.getById(a.id))!.metadata).activeLorebookIds, []);
+
+  for (const kind of ["entry", "folder", "book"] as const) {
+    const rollbackBook = await lorebooks.create({ name: `Atomic ${kind}` });
+    const rollbackFolder = await lorebooks.createFolder(rollbackBook.id, { name: "Atomic folder" });
+    const rollbackEntry = await lorebooks.createEntry({
+      lorebookId: rollbackBook.id,
+      folderId: rollbackFolder!.id,
+      name: "Atomic entry",
+    });
+    await seedRemovedState([rollbackEntry.id]);
+    await chats.patchMetadata(a.id, { activeLorebookIds: [rollbackBook.id] });
+    const before = await Promise.all([chats.getById(a.id), chats.getById(b.id)]);
+    const remove = () =>
+      kind === "entry"
+        ? lorebooks.removeEntry(rollbackEntry.id)
+        : kind === "folder"
+          ? lorebooks.removeFolder(rollbackFolder!.id, rollbackBook.id, true)
+          : lorebooks.remove(rollbackBook.id);
+    const originalUpdate = db.update;
+    let metadataWrites = 0;
+    db.update = ((table: Parameters<typeof db.update>[0]) => {
+      if (table === chatsTable && ++metadataWrites === 2) throw new Error("Injected metadata cleanup failure");
+      return originalUpdate.call(db, table);
+    }) as typeof db.update;
+    try {
+      await assert.rejects(remove(), /Injected metadata cleanup failure/);
+    } finally {
+      db.update = originalUpdate;
+    }
+    assert.ok(await lorebooks.getById(rollbackBook.id), `${kind}: book deletion rolls back`);
+    assert.ok(await lorebooks.getFolder(rollbackFolder!.id, rollbackBook.id), `${kind}: folder deletion rolls back`);
+    assert.ok(await lorebooks.getEntry(rollbackEntry.id), `${kind}: entry deletion rolls back`);
+    for (const row of before) {
+      const after = await chats.getById(row!.id);
+      assert.equal(after!.metadata, row!.metadata, `${kind}: earlier metadata writes roll back`);
+      assert.equal(after!.writeOrdinalCounter, row!.writeOrdinalCounter);
+    }
+    await remove();
+    await assertRemovedState([rollbackEntry.id]);
+    await lorebooks.remove(rollbackBook.id);
+  }
+
+  const queuedBook = await lorebooks.create({ name: "Queued deletion" });
+  let releaseMetadata = () => {};
+  const metadataGate = new Promise<void>((resolve) => {
+    releaseMetadata = resolve;
+  });
+  const queuedEdit = withChatMetadataPatchQueue(a.id, async () => {
+    await metadataGate;
+    await chats.patchMetadata(a.id, { unrelatedQueuedSetting: "retained" }, { metadataQueueHeld: true });
+  });
+  let deletionFinished = false;
+  const queuedDelete = lorebooks.remove(queuedBook.id).then(() => {
+    deletionFinished = true;
+  });
+  try {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(deletionFinished, false, "Deletion waits for queued metadata edits");
+    const lateEntry = await lorebooks.createEntry({ lorebookId: queuedBook.id, name: "Added while deletion waits" });
+    const lateChat = await chats.create({ name: "Added while deletion waits", mode: "roleplay", characterIds: [] });
+    assert.ok(lateChat);
+    await chats.patchMetadata(lateChat.id, {
+      activeLorebookIds: [queuedBook.id],
+      entryStateOverrides: { [lateEntry.id]: { enabled: false } },
+      entryTimingStates: { [lateEntry.id]: { cooldownRemaining: 1 } },
+    });
+    releaseMetadata();
+    await Promise.all([queuedEdit, queuedDelete]);
+    const lateMetadata = JSON.parse((await chats.getById(lateChat.id))!.metadata);
+    assert.deepEqual(lateMetadata.activeLorebookIds, []);
+    assert.deepEqual(lateMetadata.entryStateOverrides, {});
+    assert.deepEqual(lateMetadata.entryTimingStates, {});
+    assert.equal(await lorebooks.getEntry(lateEntry.id), null);
+    assert.equal(JSON.parse((await chats.getById(a.id))!.metadata).unrelatedQueuedSetting, "retained");
+  } finally {
+    releaseMetadata();
+    await Promise.allSettled([queuedEdit, queuedDelete]);
+  }
 
   const searchableBook = await lorebooks.create({ name: "Search" });
   const searchable = await lorebooks.createEntry({

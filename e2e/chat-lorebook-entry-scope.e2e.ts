@@ -3,6 +3,55 @@ import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+
+test("shared entry duplication keeps a pending enabled change", async ({ page, request }) => {
+  const book = await (await request.post("/api/lorebooks", { data: { name: "Pending shared toggle" } })).json();
+  const entry = await (
+    await request.post(`/api/lorebooks/${book.id}/entries`, { data: { name: "Pending entry", enabled: true } })
+  ).json();
+  let releasePatch = () => {};
+  const patchGate = new Promise<void>((resolve) => {
+    releasePatch = resolve;
+  });
+  let patchStarted = false;
+  try {
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+    await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
+    await page.route(`**/api/lorebooks/${book.id}/entries/${entry.id}`, async (route) => {
+      if (route.request().method() === "PATCH") {
+        patchStarted = true;
+        await patchGate;
+      }
+      await route.continue();
+    });
+    await page.goto("/");
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openLorebookDetail(id);
+    }, book.id);
+    const row = page.locator(`[data-lorebook-entry-row-id="${entry.id}"]`);
+    await expect(row).toBeVisible();
+    await row
+      .locator("label")
+      .filter({ has: page.getByRole("checkbox", { name: "Disable entry", exact: true }) })
+      .click();
+    await expect.poll(() => patchStarted).toBe(true);
+    await row.getByRole("button", { name: "Duplicate entry", exact: true }).click();
+    await expect
+      .poll(async () => {
+        const entries = await (await request.get(`/api/lorebooks/${book.id}/entries`)).json();
+        expect(entries.find((candidate: { id: string }) => candidate.id === entry.id)?.enabled).toBe(true);
+        return entries.find((candidate: { id: string }) => candidate.id !== entry.id)?.enabled;
+      })
+      .toBe(false);
+  } finally {
+    releasePatch();
+    await page.close();
+    await request.delete(`/api/lorebooks/${book.id}`).catch(() => undefined);
+  }
+});
+
 for (const mode of ["game", "roleplay", "conversation"] as const) {
   test(`${mode} entry switches affect only this chat`, async ({ page, request }, testInfo) => {
     const a = await (

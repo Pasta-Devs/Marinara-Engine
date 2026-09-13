@@ -611,19 +611,16 @@ export function createLorebooksStorage(db: DB) {
     },
 
     async remove(id: string) {
-      const entries = await db
-        .select({ id: lorebookEntries.id })
-        .from(lorebookEntries)
-        .where(eq(lorebookEntries.lorebookId, id));
-      await db.transaction(async (tx) => {
-        await tx.delete(lorebookCharacterLinks).where(eq(lorebookCharacterLinks.lorebookId, id));
-        await tx.delete(lorebookPersonaLinks).where(eq(lorebookPersonaLinks.lorebookId, id));
-        await tx.delete(lorebooks).where(eq(lorebooks.id, id));
-      });
-      await createChatsStorage(db).pruneLorebookChatMetadata(
-        entries.map((entry) => entry.id),
-        id,
-      );
+      await createChatsStorage(db).pruneLorebookChatMetadata(async () => {
+        const entries = await db
+          .select({ id: lorebookEntries.id })
+          .from(lorebookEntries)
+          .where(eq(lorebookEntries.lorebookId, id));
+        await db.delete(lorebookCharacterLinks).where(eq(lorebookCharacterLinks.lorebookId, id));
+        await db.delete(lorebookPersonaLinks).where(eq(lorebookPersonaLinks.lorebookId, id));
+        await db.delete(lorebooks).where(eq(lorebooks.id, id));
+        return entries.map((entry) => entry.id);
+      }, id);
     },
 
     // ── Entries ──
@@ -1136,8 +1133,10 @@ export function createLorebooksStorage(db: DB) {
     },
 
     async removeEntry(id: string) {
-      await db.delete(lorebookEntries).where(eq(lorebookEntries.id, id));
-      await createChatsStorage(db).pruneLorebookChatMetadata([id]);
+      await createChatsStorage(db).pruneLorebookChatMetadata(async () => {
+        await db.delete(lorebookEntries).where(eq(lorebookEntries.id, id));
+        return [id];
+      });
     },
 
     // ── Folders ──
@@ -1232,21 +1231,26 @@ export function createLorebooksStorage(db: DB) {
       const ownerLorebookId = folder.lorebookId as string;
       // Cascade: delete the folder, every descendant folder, and all their entries.
       if (cascade) {
-        const subtreeIds = collectFolderSubtreeIds(
-          (await this.listFolders(ownerLorebookId)) as unknown as Array<{ id: string; parentFolderId: string | null }>,
-          folderId,
-        );
-        const removedEntries = await db
-          .select({ id: lorebookEntries.id })
-          .from(lorebookEntries)
-          .where(and(eq(lorebookEntries.lorebookId, ownerLorebookId), inArray(lorebookEntries.folderId, subtreeIds)));
-        await db
-          .delete(lorebookEntries)
-          .where(and(eq(lorebookEntries.lorebookId, ownerLorebookId), inArray(lorebookEntries.folderId, subtreeIds)));
-        await db
-          .delete(lorebookFolders)
-          .where(and(eq(lorebookFolders.lorebookId, ownerLorebookId), inArray(lorebookFolders.id, subtreeIds)));
-        await createChatsStorage(db).pruneLorebookChatMetadata(removedEntries.map((entry) => entry.id));
+        await createChatsStorage(db).pruneLorebookChatMetadata(async () => {
+          const subtreeIds = collectFolderSubtreeIds(
+            (await this.listFolders(ownerLorebookId)) as unknown as Array<{
+              id: string;
+              parentFolderId: string | null;
+            }>,
+            folderId,
+          );
+          const removedEntries = await db
+            .select({ id: lorebookEntries.id })
+            .from(lorebookEntries)
+            .where(and(eq(lorebookEntries.lorebookId, ownerLorebookId), inArray(lorebookEntries.folderId, subtreeIds)));
+          await db
+            .delete(lorebookEntries)
+            .where(and(eq(lorebookEntries.lorebookId, ownerLorebookId), inArray(lorebookEntries.folderId, subtreeIds)));
+          await db
+            .delete(lorebookFolders)
+            .where(and(eq(lorebookFolders.lorebookId, ownerLorebookId), inArray(lorebookFolders.id, subtreeIds)));
+          return removedEntries.map((entry) => entry.id);
+        });
         return;
       }
       // Entries in this folder fall back to root...

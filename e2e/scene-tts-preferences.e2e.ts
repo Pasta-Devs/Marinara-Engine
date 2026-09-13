@@ -93,6 +93,99 @@ test("Scene setup remembers the selected preset and handles a deleted selection"
   }
 });
 
+test("Scene setup retries a failed preset load without discarding the saved selection", async ({
+  page,
+  request,
+}, testInfo) => {
+  const preset = await (await request.post("/api/prompts", { data: { name: "Recovered scene preset" } })).json();
+  let allowPresets = false;
+  try {
+    await prepare(page, "light");
+    await seedUIState(
+      page,
+      {
+        scenePromptPreferences: {
+          pov: "second_person",
+          tense: "present",
+          extraInstructions: "",
+          promptPresetId: preset.id,
+        },
+      },
+      "merge",
+    );
+    await page.route("**/api/prompts", (route) =>
+      allowPresets
+        ? route.continue()
+        : route.fulfill({ status: 503, json: { error: "Synthetic unavailable service" } }),
+    );
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const scene = (await import(
+        "/src/lib/scene-generation.ts" as string
+      )) as typeof import("../packages/client/src/lib/scene-generation");
+      void scene.requestScenePromptPreferences();
+    });
+    const dialog = page.getByRole("dialog", { name: "Scene Prompt Setup", exact: true });
+    const select = dialog.getByRole("combobox", { name: "Prompt preset", exact: false });
+    const submit = dialog.getByRole("button", { name: "Plan Scene", exact: true });
+    await expect(dialog.getByRole("alert")).toContainText("Could not load prompt presets");
+    await expect(dialog.getByText("Choose another preset or None", { exact: false })).toHaveCount(0);
+    await expect(select).toHaveValue(preset.id);
+    await expect(submit).toBeDisabled();
+    await page.screenshot({ path: testInfo.outputPath("scene-preset-load-error-light.png") });
+    await select.selectOption("");
+    await expect(submit).toBeEnabled();
+    // Reopen with the unchanged saved ID: clearing the draft must not discard the remembered selection.
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.evaluate(async () => {
+      const scene = (await import(
+        "/src/lib/scene-generation.ts" as string
+      )) as typeof import("../packages/client/src/lib/scene-generation");
+      void scene.requestScenePromptPreferences();
+    });
+    await expect(dialog.getByRole("button", { name: "Retry loading presets", exact: true })).toBeVisible();
+    allowPresets = true;
+    await dialog.getByRole("button", { name: "Retry loading presets", exact: true }).click();
+    await expect(select).toHaveValue(preset.id);
+    await expect(select.locator("option:checked")).toHaveText("Recovered scene preset");
+    await expect(submit).toBeEnabled();
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("scene-preset-retry-light.png") });
+  } finally {
+    await page.close();
+    await request.delete(`/api/prompts/${preset.id}`);
+  }
+});
+
+test("Scene setup can continue with None while the preset list is loading", async ({ page }) => {
+  await prepare(page, "dark");
+  let releasePresets!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    releasePresets = resolve;
+  });
+  await page.route("**/api/prompts", async (route) => {
+    await pending;
+    await route.fulfill({ json: [] });
+  });
+  try {
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const scene = (await import(
+        "/src/lib/scene-generation.ts" as string
+      )) as typeof import("../packages/client/src/lib/scene-generation");
+      void scene.requestScenePromptPreferences();
+    });
+    const dialog = page.getByRole("dialog", { name: "Scene Prompt Setup", exact: true });
+    await expect(dialog.getByRole("combobox", { name: "Prompt preset", exact: false })).toBeDisabled();
+    const submit = dialog.getByRole("button", { name: "Plan Scene", exact: true });
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(dialog).toBeHidden();
+  } finally {
+    releasePresets();
+  }
+});
+
 test("TTS playback filters keep compatible defaults and save independent choices", async ({
   page,
   request,

@@ -3853,7 +3853,7 @@ export function GameNarration({
   // allowed over the advance controls, so this is the only thing telling the player the
   // turn is not finished.
   const narrationNeedsAttention =
-    (outcomeNarrationFailed && !isStreaming) ||
+    (outcomeNarrationFailed && !isStreaming && !scenePreparing) ||
     (!!sceneAnalysisFailed && !active) ||
     (!!generationFailed && !isStreaming && !scenePreparing && !sceneAnalysisFailed && !!onRetryGeneration) ||
     !!combatGenerationFailed ||

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { TTS_API_KEY_MASK, ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
 import {
   buildTTSVoiceRequests,
@@ -189,6 +190,58 @@ assert.equal(legacyConfigWithoutDialoguePause.skipTagContent, false);
 assert.equal(legacyConfigWithoutDialoguePause.skipCodeBlocks, true);
 assert.equal(legacyConfigWithoutDialoguePause.skipBracketedText, false);
 const filteredConfig = ttsConfigSchema.parse({ skipTagContent: true, skipBracketedText: true });
+// Exercise the component's cache helpers without mounting its browser-only combat surface.
+const combatSource = ts.createSourceFile(
+  "GameCombatUI.tsx",
+  readFileSync(join(repositoryRoot, "packages/client/src/components/game/GameCombatUI.tsx"), "utf8"),
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.TSX,
+);
+const combatCacheFunctions = ["hashCombatVoiceKey", "buildCombatVoiceConfigSignature", "buildCombatVoiceLineKey"];
+const combatCacheCode = combatCacheFunctions
+  .map((name) => {
+    const declaration = combatSource.statements.find(
+      (statement) => ts.isFunctionDeclaration(statement) && statement.name?.text === name,
+    );
+    assert.ok(declaration, `${name} remains available for the combat cache regression`);
+    return declaration.getText(combatSource);
+  })
+  .join("\n");
+const combatCache = new Function(
+  `${ts.transpileModule(combatCacheCode, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText}
+   return { signature: buildCombatVoiceConfigSignature, key: buildCombatVoiceLineKey };`,
+)() as {
+  signature: (config: typeof filteredConfig) => string;
+  key: (
+    signature: string,
+    line: { character: string; type: string; content: string },
+    chunks: string[],
+    voice?: string,
+  ) => string;
+};
+const combatLine = { character: "Mari", type: "main", content: "Strike! [Private tactic] <secret>Wait.</secret>" };
+const combatConfig = ttsConfigSchema.parse({});
+const combatSignature = combatCache.signature(combatConfig);
+const combatKey = combatCache.key(combatSignature, combatLine, splitTTSChunks(combatLine.content, combatConfig));
+for (const flag of ["skipTagContent", "skipCodeBlocks", "skipBracketedText"] as const) {
+  const changed = { ...combatConfig, [flag]: !combatConfig[flag] };
+  assert.notEqual(combatCache.signature(changed), combatSignature, `${flag} must invalidate combat audio`);
+  assert.notEqual(
+    combatCache.key(combatCache.signature(changed), combatLine, splitTTSChunks(combatLine.content, changed)),
+    combatKey,
+  );
+}
+assert.notEqual(
+  combatCache.key(combatSignature, combatLine, ["Strike!", "Wait."]),
+  combatCache.key(combatSignature, combatLine, ["Strike! Wait."]),
+  "A changed filtered chunk boundary cannot reuse audio by chunk index",
+);
+assert.notEqual(
+  combatCache.key(combatSignature, combatLine, ["Strike!"]),
+  combatCache.key(combatSignature, combatLine, ["Wait."]),
+  "Combat audio is keyed to the text actually spoken",
+);
 assert.equal(
   cleanTTSInputText("Visible <simulation>private <b>nested</b> planning</simulation> ending.", filteredConfig),
   "Visible ending.",

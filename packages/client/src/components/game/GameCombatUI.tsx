@@ -564,6 +564,9 @@ function buildCombatVoiceConfigSignature(config?: TTSConfig | null): string {
     config.baseUrl,
     config.model,
     config.voice,
+    config.skipTagContent ? "skip-tags" : "read-tags",
+    config.skipCodeBlocks !== false ? "skip-code" : "read-code",
+    config.skipBracketedText ? "skip-brackets" : "read-brackets",
     config.narratorVoiceEnabled ? "narrator-voice" : "narrator-global",
     config.narratorVoice,
     config.voiceMode,
@@ -577,9 +580,14 @@ function buildCombatVoiceConfigSignature(config?: TTSConfig | null): string {
   ].join("|");
 }
 
-function buildCombatVoiceLineKey(configSignature: string, line: PartyDialogueLine, voice?: string): string {
+function buildCombatVoiceLineKey(
+  configSignature: string,
+  line: PartyDialogueLine,
+  chunks: string[],
+  voice?: string,
+): string {
   return `combat-voice-v1:${hashCombatVoiceKey(
-    [configSignature, line.character, line.type, line.expression ?? "", voice ?? "", line.content].join("\n"),
+    [configSignature, line.character, line.type, line.expression ?? "", voice ?? "", JSON.stringify(chunks)].join("\n"),
   )}`;
 }
 
@@ -880,7 +888,7 @@ export function GameCombatUI({
         ...line,
         chunks,
         voice: voice || undefined,
-        voiceKey: buildCombatVoiceLineKey(combatVoiceConfigSignature, line, voice),
+        voiceKey: buildCombatVoiceLineKey(combatVoiceConfigSignature, line, chunks, voice),
       });
     }
 
