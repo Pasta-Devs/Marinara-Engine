@@ -23,12 +23,12 @@
     "@huggingface/transformers": "^3.8.1",
     "@marinara-engine/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
-    "adm-zip": "^0.6.0",
+    "adm-zip": "^0.6.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "buttplug": "4.0.1",
     "dotenv": "^16.6.1",
-    "fastify": "^5.11.0",
+    "fastify": "^5.12.1",
     "jsonrepair": "^3.15.0",
     "nanoid": "^5.1.16",
     "pdf-parse": "^2.4.5",
@@ -42,7 +42,7 @@
     "@img/sharp-wasm32": "0.35.3",
     "onnxruntime-node": "^1.24.3",
     "onnxruntime-web": "^1.27.0",
-    "sharp": "^0.35.3"
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",

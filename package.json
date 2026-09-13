@@ -62,7 +62,7 @@
     "@playwright/test": "^1.61.0",
     "@types/adm-zip": "^0.5.8",
     "@types/node": "^24.12.2",
-    "adm-zip": "^0.6.0",
+    "adm-zip": "^0.6.1",
     "esbuild": "^0.28.1",
     "prettier": "^3.8.3"
   },
