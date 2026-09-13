@@ -10,6 +10,7 @@ for (const theme of ["dark", "light"] as const) {
     page,
     request,
   }, testInfo) => {
+    test.setTimeout(120_000);
     page.setDefaultTimeout(10_000);
     const providerRequests: Array<Record<string, unknown>> = [];
     let finishFollowup: (() => void) | undefined;

@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- The native-dice browser regression has a longer total test budget for its multi-stage WebKit scenario, while individual action and assertion timeouts remain unchanged (#6141).
+
 - Chat Help now updates its layout when the window crosses the mobile breakpoint, onboarding tooltips respect the available height on short desktop windows, and Conversation schedule labels and ungrouped persona headings follow the selected interface language (#6140).
 
 - Added a remembered prompt preset choice when creating a Roleplay scene, configurable speech filters for tagged text, bracketed text, and code blocks, and an opt-in setting to run Game tasks one at a time within a chat (#6108, #6112, #6107).
