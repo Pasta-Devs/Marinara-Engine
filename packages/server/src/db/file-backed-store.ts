@@ -865,6 +865,11 @@ const tableMetasByObject = new WeakMap<object, TableMeta>();
 const columnMetasByObject = new WeakMap<object, ColumnMeta>();
 const tableMetasByName = new Map<string, TableMeta>();
 
+/** Live lookup, so consumers that snapshot the schema at load still see package tables registered later. */
+export function getRegisteredFileTable(name: string): Table | undefined {
+  return tableMetasByName.get(name)?.table;
+}
+
 function tableNameOf(table: Table): string {
   return getFileTableConfig(table).name;
 }
