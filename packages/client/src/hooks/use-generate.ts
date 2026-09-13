@@ -45,6 +45,7 @@ import { waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barri
 import { agentKeys } from "./use-agents";
 import { advancedMemoryKeys, ADVANCED_MEMORY_SETTINGS_EVENT } from "./use-advanced-memory";
 import type { AdvancedMemoryJob, AdvancedMemoryReceipt, AdvancedMemoryStatus } from "@marinara-engine/shared";
+import { shouldOpenAdvancedMemorySettings } from "../lib/advanced-memory-settings";
 import { discardPendingGameStatePatch } from "./use-game-state-patcher";
 import { spatialContextKeys } from "./use-spatial-context";
 import {
@@ -1847,11 +1848,7 @@ export function useGenerate() {
               );
               void qc.invalidateQueries({ queryKey: advancedMemoryKeys.status(params.chatId) });
               const jobId = job.id ?? params.chatId;
-              if (
-                job.blocking !== false &&
-                ["running", "needs_confirmation", "error"].includes(job.status) &&
-                !shownAdvancedMemoryJobs.has(jobId)
-              ) {
+              if (shouldOpenAdvancedMemorySettings(job) && !shownAdvancedMemoryJobs.has(jobId)) {
                 shownAdvancedMemoryJobs.add(jobId);
                 useUIStore.getState().setChatSettingsSectionExpanded("roleplay-memory-recall", true);
                 window.dispatchEvent(
