@@ -10,6 +10,8 @@ TTS 请求由应用自己的服务器转发。服务商的 API 密钥会加密�
 
 开启 TTS 并不会让应用自己开口。它只是让每条消息上的 **Speak**(朗读) 按钮和 **Auto-play** 选项显示出来。读什么、什么时候读，仍然由你决定。
 
+同一组播放设置还提供**Skip text inside HTML and custom tags**(跳过HTML及自定义标签内的文字)、**Skip fenced code blocks**(跳过围栏代码块)和**Skip text inside square brackets**(跳过方括号内的文字)。默认跳过代码块，另外两个过滤选项默认关闭。标签过滤会移除标签包围的文字，例如隐藏的`<simulation>...</simulation>`块，但会保留用于选择语音的说话人标签。这些过滤选项同时适用于手动播放和自动播放，包括Game旁白及Roleplay说话人提取。
+
 ## 第 1 步：开启 TTS 并选择 Source
 
 1. 打开 **Connections** 面板，展开 **Text to Speech** 卡片。

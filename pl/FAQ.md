@@ -127,6 +127,8 @@ Modele AI mieszczą naraz ograniczoną ilość tekstu, więc w długich czatach 
 - **Memory Recall** przeszukuje wcześniejsze wiadomości i po cichu dokłada do promptu najbardziej pasujące fragmenty. Włącz tę funkcję w panelu **Chat Settings** w sekcji **Memory Recall**.
 - Podsumowania skracają stare wiadomości do krótkich streszczeń. Czaty w trybie Roleplay używają funkcji **Chat Summary**, a czaty w trybie Conversation – funkcji **Automatic Summarization**.
 
+Aby automatycznie zarządzać kontekstem Roleplay, włącz **Advanced Memory Recall (Alpha)** (zaawansowane przywoływanie pamięci) w **Chat Settings → Memory Recall**. Funkcja zachowuje niedawną historię, utrzymuje ograniczone podsumowanie ciągłości i wybiórczo przywołuje starsze sceny w ramach wybranego szacunkowego limitu kontekstu. Konfiguracja, postęp i edycja pozostają w panelu bocznym. Starsze czaty grupowe w trybie Individual mogą wymagać jednorazowego potwierdzenia zakresu wiedzy każdej postaci.
+
 Konfigurację i szczegóły opisuje przewodnik [Memory Recall i podsumowania czatu](agents/memory.md).
 
 ## Jak utworzyć kopię zapasową danych?

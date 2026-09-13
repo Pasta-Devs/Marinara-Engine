@@ -144,7 +144,7 @@ Créer un outil ne suffit pas à ce que l'IA s'en serve. Tu dois aussi activer l
 2. Ouvre la section **Function Calling** (son icône est une clé à molette).
 3. Active **Enable Tool Use** (autoriser l'usage des outils). Sa description indique **Allow AI to call functions (dice rolls, game state, etc.)**. Ce réglage est désactivé par défaut dans un nouveau chat.
 
-Avec **Enable Tool Use** activé et aucun outil ajouté en dessous, le chat peut utiliser tous les outils activés globalement. Cela comprend les outils intégrés, comme les jets de dés et la recherche dans les lorebooks, ainsi que chaque outil personnalisé que tu as activé dans la section **Functions**. Pour limiter un chat à une sélection précise, ajoute des outils spécifiques :
+Quand **Enable Tool Use** est activé et qu'aucun outil n'est ajouté en dessous, le chat peut utiliser tous les outils activés globalement et pris en charge dans ce chat. Cela comprend les outils intégrés et tous les outils personnalisés activés dans **Functions**. Les chats Game exigent aussi **Let the GM search lore** (autoriser le MJ à rechercher dans le lore) pour `search_lorebook` ; activer Tool Use ne suffit pas à autoriser les recherches dans les lorebooks. Pour limiter un chat à une sélection, ajoute des outils précis :
 
 1. Clique sur **Add Functions** (ajouter des fonctions). Un sélecteur s'ouvre avec un champ de recherche.
 2. Coche les outils voulus. La liste mélange les outils intégrés et tes propres outils personnalisés.

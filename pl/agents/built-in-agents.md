@@ -110,7 +110,9 @@ Wybiera najlepiej pasujące tło do bieżącej sceny spośród wgranych obrazów
 
 Śledzi obecne postacie, a przy tym ich nastrój, działania, wygląd, strój, myśli i statystyki osobne dla każdej postaci, na przykład HP. Potrafi też tworzyć portrety nowych postaci, które jeszcze ich nie mają.
 
-Kiedy stała postać wraca po zniknięciu ze sceny, Character Tracker sięga po jej ostatnie zapisane statystyki i pola własne, żeby zachować ciągłość. Postacie oparte na kartach dostają dodatkowo skonfigurowane pule i atrybuty RPG jako punkt odniesienia oraz zawsze zachowują awatar i kadrowanie z karty. Automatycznie generowane portrety powstają wyłącznie dla postaci NPC bez pasującej karty postaci.
+Jedna karta opisująca kilka osób, na przykład karta scenariusza z obsadą, może śledzić każdą z nich osobno. Oznacz każdą osobę w treści karty nagłówkiem `[CHARACTER: Name]` lub polem `Name:`, aby tracker mógł powiązać zgłoszonych członków obsady z ich kartą. Każda osoba zachowuje własne imię, nastrój, strój, myśli i portret. Stary wpis nazwany tak jak karta pozostaje, dopóki tracker nie zgłosi konkretnej osoby, która go zastąpi. Postacie dodane ręcznie zachowują swoją ręczną tożsamość, nawet jeśli ich imię pasuje do zadeklarowanej osoby z obsady.
+
+Kiedy powracająca postać znów pojawia się w scenie, Character Tracker używa jej ostatnich zapisanych statystyk i pól własnych, aby zachować ciągłość. Postacie oparte na kartach otrzymują też skonfigurowane pule i atrybuty RPG jako punkt odniesienia. Wpisy kart opisujących jedną postać zachowują awatar i kadrowanie karty. Osoby z karty wielopostaciowej używają własnych portretów przez tę samą bibliotekę, zapisany awatar lub opcjonalne generowanie portretów co postacie NPC; nie dziedziczą wspólnego portretu karty.
 
 - **Faza**: Post-Processing.
 - **Gdzie działa**: Roleplay.

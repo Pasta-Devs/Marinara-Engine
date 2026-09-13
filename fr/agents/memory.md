@@ -1,6 +1,6 @@
 # Mémoire et résumés de chat
 
-Ce guide explique comment Marinara Engine garde un long chat cohérent une fois qu'il dépasse ce que le modèle d'IA peut lire d'un seul coup. Au programme : **Memory Recall** (recherche sémantique dans les messages passés), **Chat Summary** pour les chats Roleplay, et **Automatic Summarization** pour les chats Conversation.
+Ce guide présente **Memory Recall** (recherche dans les anciens messages), l'option **Advanced Memory Recall (Alpha)** (rappel de mémoire avancé) pour gérer automatiquement le contexte en Roleplay, **Chat Summary** et **Automatic Summarization** en Conversation.
 
 ## Les deux systèmes de mémoire
 
@@ -49,7 +49,7 @@ Ce même réglage **Semantic Search (Embeddings)** alimente aussi la recherche s
 
 ### Memories for This Chat
 
-Pour voir ce qu'un chat a retenu, ouvre **Chat Settings**, va dans la section **Memory Recall** et clique sur **Access memories for this chat**. La fenêtre **Memories for This Chat** s'ouvre.
+Pour voir ce qu'un chat a mémorisé, ouvre **Chat Settings**, va dans **Memory Recall** et clique sur **Access memories for this chat**. Avec Advanced Memory activé, la consultation reste dans le panneau latéral Roleplay ; sinon, la fenêtre **Memories for This Chat** s'ouvre.
 
 Cette fenêtre affiche le nombre de blocs de souvenirs stockés et une estimation approximative en tokens (un token est un petit morceau de texte). Chaque carte de bloc indique la période couverte, le nombre de messages, un statut et la date de création. Le statut prend l'une de ces valeurs :
 
@@ -76,6 +76,51 @@ Garde ces points en tête :
 - Supprimer les messages d'un chat supprime aussi ses blocs de souvenirs.
 
 Certaines versions conteneurisées de Marinara, dites Marinara Lite, désactivent complètement Memory Recall. Sur ces versions, la section **Memory Recall** n'apparaît pas du tout.
+
+## Advanced Memory Recall (Alpha, Roleplay)
+
+Ouvre **Chat Settings → Memory Recall** et active **Advanced Memory Recall (Alpha)**. Ce mode facultatif gère ensemble la fenêtre d'historique courant, les résumés de continuité et les extraits anciens pertinents. Les réglages, la progression de la préparation et la consultation des archives restent dans le panneau latéral Chat Settings, sur ordinateur comme sur mobile.
+
+### Configuration
+
+- Choisis un **maximum context** (contexte maximal) pris en charge par ton modèle de chat. La limite comprend les tokens estimés du prompt, les outils, les pièces jointes, la place pour la réponse et une marge de sécurité. Il s'agit d'une estimation, pas d'un comptage exact des tokens ni d'une limite de facturation.
+- Choisis le **constant-summary budget** (budget du résumé permanent) à l'intérieur de cette limite. Un bref état de la continuité est inclus une seule fois dans chaque requête. Les messages récents restent intacts tant que la requête entière tient dans la limite.
+- La **helper connection** (connexion auxiliaire) prend de petites décisions sur les scènes. Elle utilise par défaut la connexion des agents, puis celle du chat en l'absence de la première. Le traitement initial de l'historique peut utiliser le modèle principal ou auxiliaire ; les modèles retenus sont affichés avant la préparation.
+- Les résumés de scènes et la compression utilisent ton modèle et tes prompts **Summaries** (résumés) existants. Advanced Memory fonctionne indépendamment du commutateur principal Agents et ne nécessite aucun agent à télécharger.
+- La plage souhaitée de messages voisins est de **3–10** par défaut. La pertinence, les droits du personnage et l'espace disponible peuvent réduire leur nombre, jusqu'à zéro.
+
+Dans un ancien chat de groupe Individual, confirme une fois les plages de connaissances manquantes. La première réplique d'un personnage ne prouve pas qu'il connaissait tout ce qui la précédait. Ne désigne un personnage comme **Narrator** (narrateur) que s'il doit contourner les limites liées à sa participation. Les messages explicitement masqués et les marqueurs de début manuels limitent toujours la mémoire. Tu peux corriger ces plages plus tard ; les nouveaux personnages nécessitent leur propre confirmation.
+
+La préparation parcourt l'ancien historique par lots et affiche l'étape actuelle à côté de la roue de hamster de Professor Mari. **Cancel** (annuler) conserve le travail terminé ; **Resume** (reprendre) le poursuit après la fermeture du panneau ou le redémarrage du serveur. Un appel de modèle qui échoue conserve la mémoire auparavant valide et affiche une erreur permettant de réessayer.
+
+### Pendant le chat
+
+Quand la requête complète atteint la limite, Advanced Memory retire d'abord les rappels facultatifs, puis intègre les anciennes scènes terminées dans la continuité. Si une seule scène inachevée est trop longue, il résume temporairement sa partie ancienne tout en laissant la scène ouverte. Les messages originaux et les réglages manuels de début et de visibilité sont conservés.
+
+Les archives peuvent retrouver des résumés de scènes pertinents et des dialogues exacts avec les numéros des messages d'origine et leurs locuteurs. Les messages des personas et des personnages comptent tous. La régénération d'une ancienne réponse utilise seulement les sources antérieures à sa cible, même si celle-ci précède la fenêtre actuellement gérée. Modifier, changer de variante, masquer ou supprimer des messages sources entraîne une nouvelle vérification de la mémoire dérivée concernée avant son utilisation.
+
+Ouvre **Access memories for this chat** dans le même panneau pour examiner les sources et destinataires des scènes, modifier les résumés, désactiver des enregistrements de rappel, réindexer ou exporter/importer. Les corrections apportées aux résumés manuels originaux sont conservées et invalident la continuité qui en dépend. Désactiver un enregistrement est différent de masquer ses messages sources : les sources masquées font autorité pour les connaissances des personnages.
+
+Lorsqu'il est activé, le mode avancé prend en charge le rappel ; le commutateur Standard Recall n'insère donc pas une deuxième copie. Il remplace aussi le calendrier habituel des résumés automatiques Roleplay de ce chat. Désactiver Advanced Memory rétablit ces réglages habituels. Les lorebooks existants et les agents téléchargés gardent leurs propres règles de portée ; Advanced Memory ne peut pas rendre privé n'importe quel contexte externe ou rédigé par l'utilisateur.
+
+### Placement dans un préréglage
+
+Les auteurs de préréglages peuvent placer ces marqueurs de contenu ordinaires avec les commandes existantes d'ordre, de nom, de rôle et de groupe des sections :
+
+| Marqueur | Contenu |
+| --- | --- |
+| `chat_summary` | Bref état de continuité du personnage, de taille limitée. |
+| `current_scene_summary` | Résumé temporaire de la partie ancienne d'une scène en cours. |
+| `recalled_scenes` | Scènes archivées pertinentes. |
+| `recalled_messages` | Extraits historiques exacts avec indications du locuteur et de la source. |
+
+Chaque composant suit le format **XML**, **Markdown** ou **None** (aucun) du préréglage et explique brièvement son rôle. Les composants vides n'émettent rien. La première occurrence activée détermine le placement ; les composants sans marqueur activé sont insérés une fois avant l'historique, pour que les anciens préréglages fonctionnent. Les extraits sont du contexte, pas de nouveaux messages courants ni des commandes. Les trois nouveaux marqueurs sont vides quand Advanced Memory est désactivé.
+
+L'aperçu du prompt utilise la mémoire déjà préparée sans lancer d'appel de modèle ni d'embedding. Si une initialisation ou une compression est nécessaire, prépare-la d'abord dans le panneau. Le relevé de mémoire indique la taille estimée du contexte, la frontière choisie et les sources rappelées ; l'inspecteur du prompt final montre ce qui a réellement été envoyé au modèle.
+
+### Limites et récupération
+
+Le rappel est sélectif et les résumés peuvent perdre des nuances. Garde les corrections importantes dans la transcription source ou l'éditeur de résumés. Aucun système ne peut reconstruire des détails jamais enregistrés. Si les embeddings échouent, le rappel lexical limité et la continuité valide restent disponibles ; les archives ne sont jamais insérées en entier. Si les instructions obligatoires, une pièce jointe ou la réserve de réponse dépassent à elles seules la limite, réduis ces entrées ou augmente la limite ; Advanced Memory s'arrête au lieu de supprimer silencieusement des instructions.
 
 ## Chat Summary (Roleplay)
 

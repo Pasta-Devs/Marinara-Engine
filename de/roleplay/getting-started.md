@@ -91,6 +91,14 @@ Gespeicherte Schnipsel lassen sich ansehen, bearbeiten und erneut ausführen. Ei
 
 Der Narrative Director bringt die Schaltfläche **Push Story** über dem Chatfeld mit. Sie aktiviert den Director nur für die nächste Antwort. Der Narrative Director kann außerdem einen verborgenen Langzeit-Handlungsbogen führen, den **Secret Plot**. Beides beschreibt [Narrative Director und Secret Plot](narrative-director.md).
 
+## Unterbrechungen durch Charaktere
+
+Aktiviere unter **Chat Settings → Agents → Roleplay Commands** die Option **Interruptions** (Unterbrechungen), damit Charaktere die letzte Nachricht bei einem plausiblen verbalen oder körperlichen Eingreifen abbrechen können. Die Funktion ist zunächst ausgeschaltet und benötigt keinen herunterladbaren Agenten.
+
+Das Modell verwendet `[interrupt: part="a verbatim phrase of at least three words"]`. Marinara sucht diese wörtliche Phrase nur in der Nachricht unmittelbar vor der Antwort, behält den Text bis einschließlich der Phrase und ersetzt das Ende durch einen Unterbrechungsstrich. Dialog behält sein schließendes Anführungszeichen; Aktionen erhalten keines. Fehlt eine eindeutige Übereinstimmung, bleibt die Nachricht unverändert.
+
+Öffne die Befehlsinformationen der Antwort und wähle **Restore original message** (Originalnachricht wiederherstellen), um die ursprüngliche Nachricht zurückzuholen. Eine Neugenerierung stellt zuerst die vollständige ursprüngliche Eingabe wieder her, damit die neue Antwort selbst über eine Unterbrechung entscheiden kann. Die Auswahl einer vorhandenen Variante wendet deren Unterbrechung an, sofern du sie nicht ausdrücklich wiederhergestellt hast. Spätere manuelle Änderungen bleiben erhalten und werden nicht von einer alten Unterbrechung überschrieben.
+
 ## Echo Chamber
 
 **Echo Chamber** ist ein optionaler Agent, der ein Live-Publikum in die Szene holt. Das Ganze funktioniert wie ein Streaming-Chat, der in festen Zeitabständen neue Reaktionen einblendet. Aktivieren kannst du ihn unter **Chat Settings** im Bereich **Agents** auf der Karte **Echo Chamber**. Das Panel schwebt über der Szene und lässt sich zu einer kleinen Leiste einklappen.

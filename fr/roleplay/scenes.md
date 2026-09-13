@@ -26,10 +26,11 @@ Voici la marche à suivre :
 ```
 
 3. Appuie sur Enter. La fenêtre **Scene Prompt Setup** (configuration du prompt de scène) s'ouvre.
-4. Sous **POV**, choisis le point de vue du texte : **First Person**, **Second Person** ou **Third Person**.
-5. Sous **Tense** (le temps), choisis **Past**, **Present** ou **Future**.
-6. Si tu le souhaites, écris des consignes dans le champ **Extra instructions** (instructions supplémentaires) pour orienter la scène.
-7. Clique sur **Plan Scene** (planifier la scène).
+4. Choisis un **Prompt preset** (préréglage de prompt) pour la nouvelle scène, ou garde **None** (aucun). Marinara mémorise ce choix pour la scène suivante. Les instructions propres à la scène continuent de s'appliquer avec le préréglage sélectionné.
+5. Sous **POV**, choisis le point de vue du texte : **First Person**, **Second Person** ou **Third Person**.
+6. Sous **Tense** (le temps), choisis **Past**, **Present** ou **Future**.
+7. Si tu le souhaites, écris des consignes dans le champ **Extra instructions** (instructions supplémentaires) pour orienter la scène.
+8. Clique sur **Plan Scene** (planifier la scène).
 
 Marinara planifie la scène et l'ouvre comme un nouveau chat de roleplay. La nouvelle scène apparaît dans la liste des chats et s'ouvre toute seule, avec un message d'accueil qui plante la situation. Si tu changes d'avis dans la fenêtre de configuration, clique sur **Cancel** (annuler) : aucune scène n'est créée.
 

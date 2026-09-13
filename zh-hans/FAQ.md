@@ -127,6 +127,8 @@ AI 模型一次能装下的文字量有限，聊得久了，早先的消息就�
 - **Memory Recall**(记忆功能) 会去翻检早先的消息，悄悄把最相关的片段重新塞回提示词。在 **Chat Settings** 的 **Memory Recall** 里开启。
 - 摘要则把旧消息压缩成简短的回顾。Roleplay 聊天用 **Chat Summary**(聊天摘要)，Conversation 聊天用 **Automatic Summarization**(自动摘要)。
 
+要自动管理 Roleplay 上下文，在 **Chat Settings → Memory Recall** 中启用 **Advanced Memory Recall (Alpha)**(高级记忆功能 Alpha 版)。它会保留近期历史，用有限篇幅维持剧情连贯，并在你选择的预估上下文上限内，有选择地找回旧场景。设置、进度和编辑都在抽屉中完成。已有的 Individual(独立) 群聊可能需要一次性确认每个角色的知识范围。
+
 配置方法和细节见[记忆功能与聊天摘要](agents/memory.md)。
 
 ## 数据怎么备份？

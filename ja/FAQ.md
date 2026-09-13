@@ -127,6 +127,8 @@ AIモデルが一度に扱える文章の量には限りがあるので、長い
 - **Memory Recall**(記憶の呼び出し)は過去のメッセージを検索し、関連の深い部分だけをそっとプロンプトに挿入します。**Chat Settings**の**Memory Recall**でオンにします。
 - 要約は古いメッセージを短くまとめます。Roleplayのチャットでは**Chat Summary**、Conversationのチャットでは**Automatic Summarization**を使います。
 
+Roleplayのコンテキストを自動管理するには、**Chat Settings → Memory Recall**で**Advanced Memory Recall (Alpha)**(高度な記憶の呼び出し・アルファ版)をオンにしてください。直近の履歴を残し、長さを制限した継続用の要約を保ち、選んだ推定コンテキスト上限の範囲で古いシーンを選択的に呼び出します。設定、進捗、編集はドロワー内で行います。以前からあるIndividual(個別)グループチャットでは、各キャラクターの知識範囲を一度確認する必要がある場合があります。
+
 設定方法と詳細は[Memory Recallとチャットの要約](agents/memory.md)を参照してください。
 
 ## データをバックアップするには?

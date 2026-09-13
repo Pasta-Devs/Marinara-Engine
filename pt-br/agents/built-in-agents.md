@@ -110,7 +110,9 @@ Escolhe, entre os planos de fundo que você enviou, a imagem que melhor combina 
 
 Acompanha os personagens presentes, além do humor, das ações, da aparência, da roupa, dos pensamentos e dos atributos de cada um, como o HP. Ele também cria imagens de retrato para personagens novos que ainda não têm nenhuma.
 
-Quando um personagem recorrente volta depois de sair de cena, o Character Tracker reaproveita os atributos e os campos personalizados salvos mais recentemente, para manter a continuidade. Os personagens que têm card também recebem, como base, os medidores e os atributos de RPG configurados, e sempre mantêm o avatar e o recorte do card. Os retratos gerados automaticamente continuam limitados aos NPCs (personagens não jogáveis) sem card de personagem correspondente.
+Uma única ficha que descreve várias pessoas, como uma ficha de cenário com um elenco, pode acompanhá-las separadamente. Marque cada pessoa no texto da ficha com um cabeçalho `[CHARACTER: Name]` ou um campo `Name:` para que o rastreador associe os membros informados à ficha. Cada membro mantém seu próprio nome, humor, roupa, pensamentos e retrato. Uma entrada antiga com o nome da ficha permanece até que o rastreador informe um membro individual para substituí-la. Personagens adicionados manualmente mantêm sua identidade manual mesmo quando o nome coincide com um membro declarado do elenco.
+
+Quando um personagem recorrente volta depois de sair da cena, Character Tracker reutiliza as últimas estatísticas e os campos personalizados salvos para manter a continuidade. Personagens vinculados a fichas também recebem suas reservas e seus atributos RPG configurados como referência. Entradas de fichas com um único personagem mantêm o avatar e o recorte da ficha. Membros de uma ficha com vários personagens usam seus próprios retratos pela mesma biblioteca, pelos avatares salvos ou pela geração opcional de retratos dos NPCs; eles não herdam o retrato compartilhado da ficha.
 
 - **Fase**: Post-Processing.
 - **Onde funciona**: Roleplay.

@@ -65,13 +65,13 @@ Algunos ejemplos más que puedes escribir:
 - `4d8-1` tira cuatro dados de 8 caras y resta 1.
 - `2d6+3` tira dos dados de 6 caras y suma 3.
 
-Hay dos límites estrictos. Puedes tirar como máximo 100 dados a la vez, y cada dado puede tener como máximo 1000 caras. Si pides más, la app recorta tu solicitud hasta esos límites en lugar de rechazarla. Si tu texto no es una notación `NdM` válida, la tirada falla y recibes un error que nombra el formato esperado.
+Hay dos límites estrictos. Puedes tirar como máximo 100 dados a la vez y cada dado puede tener hasta 1000 caras. Si pides más, la aplicación reduce tu solicitud a esos límites en lugar de rechazarla, y la tarjeta de resultado muestra la notación reducida: escribir `500d6` genera una tarjeta `100d6` para los cien dados que realmente tiró. Si el texto no es una notación de dados válida – `NdM` o un simple `dM` como `d20` –, la tirada falla y aparece un error que indica el formato esperado.
 
 ## Pruebas de habilidad
 
 Una prueba de habilidad comprueba si tienes éxito en algo arriesgado, como escabullirte, detectar una pista o convencer a un NPC (personaje no jugador). Tú no inicias una prueba de habilidad por tu cuenta. El Game Master la solicita dentro de su narración. La app la convierte entonces en una tirada de d20 animada con un banner de resultado.
 
-Una prueba solicitada mediante texto comienza con el intento. El motor resuelve los dados y después envía una petición adicional al modelo con los resultados reales para que el Game Master termine el desenlace en ese mismo turno. Esto también corrige un borrador que haya adivinado el desenlace antes de que existiera la tirada. La petición adicional vuelve a enviar el prompt y consume más tokens de entrada y salida. Si falla, el turno conserva los resultados resueltos sin guardar un desenlace inventado o parcial.
+Una prueba solicitada por texto empieza con el intento. El motor resuelve los dados y realiza una solicitud adicional al modelo con los resultados reales para que el Game Master complete el desenlace en el mismo turno. También corrige borradores que adivinaron el resultado antes de la tirada. La solicitud adicional vuelve a enviar el prompt y consume más tokens de entrada y salida. Si falla, el turno conserva los resultados resueltos en su registro sin guardar un desenlace inventado o parcial. Un aviso con el botón **Regenerate turn** (regenerar turno) permanece en el turno, incluso después de recargar el chat.
 
 En una conexión compatible con la herramienta de dados, el Game Master puede obtener una tirada real durante la generación. La tarjeta aparece en cuanto responde la herramienta; la prueba completada registra ese resultado sin volver a tirar. Cada prueba de habilidad resuelta recibe su propio aviso de resultado después de las tarjetas de dados en cola.
 
@@ -100,6 +100,8 @@ El banner muestra uno de cuatro resultados: **CRITICAL SUCCESS**, **SUCCESS**, *
 El Game Master puede indicar otra notación, como `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. Estas pruebas usan el modificador fijo de la notación en lugar de los modificadores de d20 de la ficha del personaje y tienen éxito cuando el total alcanza la DC. Las reglas del 1 y el 20 naturales solo se aplican a la prueba estándar de d20 descrita arriba.
 
 Las reservas de éxitos deben indicar tanto el umbral por dado como el número de éxitos necesarios: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` tira seis d10, cuenta una vez cada dado que muestre al menos 6 y tiene éxito con un mínimo de cuatro éxitos. El motor no adivina un umbral ausente ni implementa dados explosivos, pifias u otras reglas especiales de reservas. Una reserva sin un umbral válido queda sin resolver y se eliminan los números inventados por el modelo.
+
+Las solicitudes no compatibles, como `4d6kh3`, `3d6!` o `4dF`, no se tiran. El motor registra la notación no compatible y elimina los números inventados de los registros de pruebas. La misma solicitud adicional de narración indica al Game Master que deje esos resultados abiertos y explique qué debe aclararse en una notación compatible; no sustituye silenciosamente el sistema de dados.
 
 ### Ventaja y desventaja
 

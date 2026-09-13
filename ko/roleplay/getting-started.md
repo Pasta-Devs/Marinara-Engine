@@ -91,6 +91,14 @@ HUD 줄에 있는 반짝임 버튼을 누르면 **Agents & Actions**(에이전�
 
 Narrative Director는 채팅 입력란 위에 **Push Story**(스토리 전개) 버튼을 둡니다. 이 버튼을 누르면 바로 다음 답변에만 Director가 한 번 작동합니다. Narrative Director는 **Secret Plot**(비밀 플롯)이라는 숨겨진 장기 전개도 품고 있을 수 있습니다. 두 기능은 [Narrative Director와 Secret Plot](narrative-director.md)에서 설명합니다.
 
+## 캐릭터의 말 끊기
+
+**Chat Settings → Agents → Roleplay Commands**에서 **Interruptions**(말 끊기)를 켜면 말이나 행동으로 개입할 수 있는 상황에서 캐릭터가 최신 메시지를 중간에 끊을 수 있습니다. 기본값은 꺼짐이며 다운로드하는 에이전트가 필요하지 않습니다.
+
+모델은 `[interrupt: part="a verbatim phrase of at least three words"]`를 사용합니다. Marinara는 답변 바로 앞 메시지에서만 이 구절을 찾고, 구절 끝까지 남긴 뒤 끝부분을 중단을 나타내는 대시로 바꿉니다. 대화는 닫는 따옴표를 유지하고 행동에는 따옴표를 추가하지 않습니다. 일치하는 부분이 없거나 여러 곳이라 모호하면 메시지를 바꾸지 않습니다.
+
+답변의 명령 정보를 열고 **Restore original message**(원본 메시지 복원)를 선택하면 원본 메시지로 되돌릴 수 있습니다. 재생성할 때는 먼저 원본 입력 전체를 복원하므로 새 답변이 다시 말 끊기 여부를 선택할 수 있습니다. 기존 스와이프를 선택하면 명시적으로 복원한 경우가 아닌 한 그 스와이프의 중단 내용을 적용합니다. 나중에 수동으로 편집한 내용은 이전 중단 내용으로 덮어쓰지 않고 유지합니다.
+
 ## Echo Chamber
 
 **Echo Chamber**는 장면에 반응하는 실시간 관객을 붙여 주는 선택형 에이전트입니다. 일정 시간마다 새 반응을 올리는 스트리밍 채팅처럼 동작합니다. **Chat Settings**의 **Agents** 안, **Echo Chamber** 카드에서 켜세요. 패널은 장면 위에 떠 있으며 작은 알약 모양으로 접을 수 있습니다.

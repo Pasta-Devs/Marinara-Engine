@@ -65,13 +65,13 @@ Kilka innych przykładów do wpisania:
 - `4d8-1` to rzut czterema kośćmi 8-ściennymi i odjęcie 1.
 - `2d6+3` to rzut dwiema kośćmi 6-ściennymi i dodanie 3.
 
-Obowiązują dwa sztywne ograniczenia. Naraz można rzucić najwyżej 100 kośćmi, a każda kość ma najwyżej 1000 ścianek. Przy większych wartościach aplikacja nie odrzuca żądania, tylko przycina je do tych limitów. Jeśli tekst nie jest poprawnym zapisem `NdM`, rzut się nie udaje i pojawia się błąd z nazwą oczekiwanego formatu.
+Obowiązują dwa sztywne limity. Możesz rzucić najwyżej 100 kośćmi naraz, a każda kość może mieć najwyżej 1000 ścianek. Jeśli poprosisz o więcej, aplikacja ograniczy żądanie do tych limitów zamiast je odrzucać, a karta wyniku pokaże ograniczoną notację: wpisanie `500d6` daje więc kartę `100d6` dla stu kości, którymi faktycznie rzucono. Jeśli tekst nie jest poprawną notacją kości – `NdM` lub samym `dM`, takim jak `d20` – rzut nie powiedzie się i pojawi się błąd wskazujący wymagany format.
 
 ## Testy umiejętności
 
 Test umiejętności sprawdza, czy ryzykowne działanie się powiedzie – skradanie, dostrzeżenie poszlaki albo przekonanie postaci NPC (postaci niezależnej). Testu umiejętności nie zaczyna się samodzielnie. Wywołuje go postać Game Master w swojej narracji. Aplikacja zamienia to na animowany rzut kością 20-ścienną z banerem wyniku.
 
-Test wywołany tekstem zaczyna się od próby działania. Silnik rozstrzyga rzuty, a potem wysyła jedno dodatkowe zapytanie do modelu z rzeczywistymi wynikami, aby postać Game Master mogła dokończyć opis skutków w tej samej turze. Koryguje to również szkic, który zgadywał skutek przed rzutem. Dodatkowe zapytanie ponownie wysyła prompt i zużywa więcej tokenów wejściowych i wyjściowych. Jeśli się nie powiedzie, tura zachowuje rozstrzygnięte wyniki bez zapisywania zgadywanego lub niepełnego opisu skutków.
+Test zażądany w tekście zaczyna się od próby działania. Silnik rozstrzyga rzut, a następnie wykonuje jedno dodatkowe żądanie do modelu z rzeczywistymi wynikami, aby postać Game Master mogła opisać rezultat w tej samej turze. Poprawia to również szkic, który zgadywał wynik przed rzutem. Dodatkowe żądanie ponownie wysyła prompt i zużywa więcej tokenów wejściowych oraz wyjściowych. Jeśli zawiedzie, tura zachowuje rozstrzygnięte wyniki w dzienniku, bez zapisywania zgadywanego lub częściowego rezultatu. Przy turze pozostaje komunikat z przyciskiem **Regenerate turn** (wygeneruj turę ponownie), także po ponownym załadowaniu czatu.
 
 Na połączeniu obsługującym narzędzie kości postać Game Master może uzyskać rzeczywisty rzut już podczas generowania. Karta rzutu pojawia się po zwróceniu wyniku przez narzędzie; zakończony test zapisuje ten wynik bez ponownego rzucania. Każdy rozstrzygnięty test umiejętności dostaje osobny baner, po kartach rzutów czekających w kolejce.
 
@@ -100,6 +100,8 @@ Baner pokazuje jeden z czterech wyników: **CRITICAL SUCCESS**, **SUCCESS**, **F
 Postać Game Master może podać inny zapis, na przykład `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. Takie testy korzystają ze stałego modyfikatora z zapisu zamiast modyfikatorów d20 z arkusza postaci i kończą się sukcesem, gdy suma osiągnie DC. Zasady naturalnej 1 i naturalnej 20 dotyczą tylko standardowego testu d20 opisanego powyżej.
 
 Pula sukcesów wymaga podania zarówno progu dla pojedynczej kości, jak i wymaganej liczby sukcesów: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` rzuca sześcioma kośćmi d10, liczy każdą kość z wynikiem co najmniej 6 jako jeden sukces i zdaje test przy co najmniej czterech sukcesach. Silnik nie zgaduje brakującego progu ani nie implementuje eksplodujących kości, pechów czy innych specjalnych zasad puli. Pula bez poprawnego progu pozostaje nierozstrzygnięta, a liczby wymyślone przez model są usuwane.
+
+Nieobsługiwane żądania, takie jak `4d6kh3`, `3d6!` lub `4dF`, nie powodują rzutu. Silnik zapisuje nieobsługiwaną notację w logu i usuwa wymyślone liczby z rekordów testów. To samo dodatkowe żądanie narracji każe postaci Game Master pozostawić te wyniki otwarte i wyjaśnić, co trzeba doprecyzować w obsługiwanej notacji; nie podmienia po cichu systemu kości.
 
 ### Ułatwienie i utrudnienie
 

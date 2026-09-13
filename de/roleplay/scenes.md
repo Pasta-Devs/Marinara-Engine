@@ -26,10 +26,11 @@ So geht's:
 ```
 
 3. Drück Enter. Das Fenster **Scene Prompt Setup** (Szenen-Einrichtung) öffnet sich.
-4. Leg unter **POV** die Erzählperspektive fest: **First Person**, **Second Person** oder **Third Person**.
-5. Wähl unter **Tense** die Zeitform: **Past**, **Present** oder **Future**.
-6. Ins Feld **Extra instructions** (zusätzliche Anweisungen) kannst du optional Notizen schreiben, um die Szene zu lenken.
-7. Klick auf **Plan Scene**.
+4. Wähle eine **Prompt preset** (Prompt-Vorlage) für die neue Szene oder lasse **None** (keine) ausgewählt. Marinara merkt sich diese Auswahl für die nächste Szene. Die eigenen Anweisungen der Szene gelten weiterhin zusammen mit der ausgewählten Vorlage.
+5. Leg unter **POV** die Erzählperspektive fest: **First Person**, **Second Person** oder **Third Person**.
+6. Wähl unter **Tense** die Zeitform: **Past**, **Present** oder **Future**.
+7. Ins Feld **Extra instructions** (zusätzliche Anweisungen) kannst du optional Notizen schreiben, um die Szene zu lenken.
+8. Klick auf **Plan Scene**.
 
 Marinara plant die Szene und öffnet sie als neuen Roleplay-Chat. Die neue Szene taucht in der Chatliste auf und öffnet sich automatisch, mit einer Eröffnungsnachricht, die die Situation setzt. Wenn du es dir im Einrichtungsfenster anders überlegst, klick auf **Cancel** – dann entsteht keine Szene.
 

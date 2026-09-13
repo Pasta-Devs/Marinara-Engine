@@ -65,13 +65,13 @@ Outros exemplos que você pode digitar:
 - `4d8-1` rola quatro dados de 8 lados e subtrai 1.
 - `2d6+3` rola dois dados de 6 lados e soma 3.
 
-Existem dois limites rígidos. São no máximo 100 dados por rolagem, e cada dado tem no máximo 1000 lados. Se você pedir mais que isso, Marinara reduz o pedido até esses limites, em vez de recusar. Se o texto não for uma notação `NdM` válida, a rolagem falha e aparece um erro informando o formato esperado.
+Há dois limites fixos. Você pode rolar no máximo 100 dados de uma vez, e cada dado pode ter até 1000 lados. Se pedir mais, o aplicativo reduz a solicitação a esses limites em vez de recusá-la, e o cartão de resultado mostra a notação reduzida: digitar `500d6` gera um cartão `100d6` para os cem dados que realmente foram rolados. Se o texto não for uma notação de dados válida – `NdM` ou um simples `dM` como `d20` –, a rolagem falha e aparece um erro que informa o formato esperado.
 
 ## Testes de perícia
 
 Um teste de perícia decide se você tem sucesso em algo arriscado, como se esgueirar, notar uma pista ou convencer um NPC (personagem não jogável). Quem começa o teste não é você: o Game Master pede o teste dentro da narração. Marinara transforma o pedido em uma rolagem animada de d20, com uma faixa de resultado.
 
-Um teste solicitado por texto começa com a tentativa. O motor resolve os dados e faz uma solicitação adicional ao modelo com os resultados reais para que o Game Master conclua o desfecho no mesmo turno. Isso também corrige um rascunho que tenha adivinhado o desfecho antes da rolagem. A solicitação adicional envia o prompt novamente e consome mais tokens de entrada e saída. Se ela falhar, o turno preserva os resultados resolvidos sem salvar um desfecho inventado ou parcial.
+Um teste solicitado no texto começa pela tentativa. O motor resolve os dados e faz uma solicitação adicional ao modelo com os resultados reais para que o Game Master conclua o desfecho no mesmo turno. Isso também corrige um rascunho que adivinhou o resultado antes da rolagem. A solicitação adicional reenvia o prompt e usa mais tokens de entrada e saída. Se ela falhar, o turno mantém os resultados resolvidos no registro sem salvar um desfecho inventado ou parcial. Um aviso com o botão **Regenerate turn** (regenerar turno) permanece no turno, inclusive após recarregar o chat.
 
 Em uma conexão compatível com a ferramenta de dados, o Game Master pode obter uma rolagem real durante a geração. O cartão aparece assim que a ferramenta responde; o teste concluído registra esse resultado sem rolar novamente. Cada teste de habilidade resolvido recebe seu próprio banner, depois dos cartões de dados na fila.
 
@@ -100,6 +100,8 @@ A faixa mostra um de quatro resultados: **CRITICAL SUCCESS**, **SUCCESS**, **FAI
 O Game Master pode indicar outra notação, como `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. Esses testes usam o modificador fixo da notação em vez dos modificadores de d20 da ficha do personagem e têm sucesso quando o total atinge a DC. As regras do 1 e do 20 naturais se aplicam apenas ao teste padrão de d20 descrito acima.
 
 As paradas de sucessos precisam informar tanto o limiar por dado quanto o número de sucessos necessários: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` rola seis d10, conta uma vez cada dado com resultado de pelo menos 6 e passa com no mínimo quatro sucessos. O motor não adivinha um limiar ausente nem implementa dados explosivos, regras de botch ou outras regras especiais de paradas. Uma parada sem um limiar válido fica sem resolução, e os números inventados pelo modelo são removidos.
+
+Solicitações não compatíveis, como `4d6kh3`, `3d6!` ou `4dF`, não são roladas. O motor registra a notação não compatível e remove números inventados dos registros de testes. A mesma solicitação adicional de narração orienta o Game Master a deixar esses resultados em aberto e explicar o que precisa ser esclarecido em uma notação compatível; ela não substitui silenciosamente o sistema de dados.
 
 ### Vantagem e desvantagem
 

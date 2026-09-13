@@ -144,7 +144,7 @@ Criar uma ferramenta não faz a IA usá-la. Também é preciso ativar o uso de f
 2. Abra a seção **Function Calling**. O ícone dela é uma chave inglesa.
 3. Ative a opção **Enable Tool Use** (permitir o uso de ferramentas). A descrição dela diz **Allow AI to call functions (dice rolls, game state, etc.)**. Em um chat novo, ela vem desativada.
 
-Com a opção **Enable Tool Use** ativada e nenhuma ferramenta adicionada abaixo, o chat pode usar todas as ferramentas ativadas globalmente. Ou seja, as ferramentas integradas, como rolagem de dados e busca em lorebook, mais todas as ferramentas personalizadas que você deixou ativadas na seção **Functions**. Para limitar o chat a um conjunto escolhido, adicione ferramentas específicas:
+Com **Enable Tool Use** ativado e nenhuma ferramenta adicionada abaixo, o chat pode usar todas as ferramentas ativadas globalmente que sejam compatíveis com esse chat. Isso inclui as ferramentas integradas e todas as personalizadas que você ativou em **Functions**. Os chats Game também exigem **Let the GM search lore** (permitir que o GM pesquise lore) para `search_lorebook`; ativar Tool Use sozinho não habilita consultas a lorebooks. Para limitar um chat a um conjunto específico, adicione ferramentas determinadas:
 
 1. Clique em **Add Functions** (adicionar funções). Uma janela de seleção abre com um campo de busca.
 2. Marque as ferramentas que quiser. A lista mistura as ferramentas integradas e as suas ferramentas personalizadas.

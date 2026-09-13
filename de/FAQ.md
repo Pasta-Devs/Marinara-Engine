@@ -127,6 +127,8 @@ KI-Modelle können immer nur eine begrenzte Textmenge auf einmal überblicken. I
 - **Memory Recall** (Gedächtnis-Abruf) durchsucht frühere Nachrichten und schiebt die passendsten Stellen unauffällig wieder in den Prompt. Einschalten kannst du das in den **Chat Settings** unter **Memory Recall**.
 - Zusammenfassungen verdichten alte Nachrichten zu kurzen Rückblicken. Roleplay-Chats nutzen dafür **Chat Summary**, Conversation-Chats **Automatic Summarization**.
 
+Aktiviere für die automatische Kontextverwaltung in Roleplay **Advanced Memory Recall (Alpha)** (erweiterter Erinnerungsabruf) unter **Chat Settings → Memory Recall**. Die Funktion behält den jüngsten Verlauf, pflegt eine begrenzte Kontinuitätszusammenfassung und ruft passende ältere Szenen innerhalb deiner gewählten geschätzten Kontextgrenze ab. Einrichtung, Fortschritt und Bearbeitung bleiben in der Seitenleiste. Bei älteren Individual-Gruppenchats musst du möglicherweise den Wissensbereich jedes Charakters einmal bestätigen.
+
 Einrichtung und Details stehen unter [Gedächtnis und Zusammenfassungen](agents/memory.md).
 
 ## Wie sichere ich meine Daten?

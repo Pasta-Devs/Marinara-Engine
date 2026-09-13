@@ -1,6 +1,6 @@
 # Memory Recall i podsumowania czatu
 
-Ten przewodnik wyjaśnia, jak Marinara Engine pilnuje spójności długiego czatu, gdy ten przerośnie ilość tekstu, którą model AI czyta naraz. Opisuje sekcję **Memory Recall** (wyszukiwanie semantyczne w starszych wiadomościach), panel **Chat Summary** (podsumowanie czatu) w czatach Roleplay oraz sekcję **Automatic Summarization** (automatyczne podsumowywanie) w czatach Conversation.
+Ten przewodnik opisuje **Memory Recall** (wyszukiwanie w dawnych wiadomościach), opcjonalną funkcję **Advanced Memory Recall (Alpha)** (zaawansowane przywoływanie pamięci) do automatycznego zarządzania kontekstem Roleplay, **Chat Summary** oraz **Automatic Summarization** w trybie Conversation.
 
 ## Dwa systemy pamięci
 
@@ -49,7 +49,7 @@ To samo ustawienie **Semantic Search (Embeddings)** napędza też wyszukiwanie s
 
 ### Memories for This Chat
 
-Żeby zobaczyć, co czat zapamiętał, otwórz panel **Chat Settings**, przejdź do sekcji **Memory Recall** i kliknij przycisk **Access memories for this chat**. Otwiera się okno **Memories for This Chat** (wspomnienia z tego czatu).
+Aby zobaczyć, co czat zapamiętał, otwórz **Chat Settings**, przejdź do sekcji **Memory Recall** i kliknij **Access memories for this chat**. Przy włączonej funkcji Advanced Memory przeglądarka pozostaje w panelu bocznym Roleplay; w przeciwnym razie otwiera się okno **Memories for This Chat**.
 
 Okno pokazuje liczbę zapisanych fragmentów wspomnień i przybliżony szacunek w tokenach. Każda karta fragmentu zawiera zakres dat, którego dotyczy, liczbę wiadomości, status oraz datę utworzenia. Status ma jedną z trzech wartości:
 
@@ -76,6 +76,51 @@ Warto pamiętać o kilku rzeczach:
 - Usunięcie wiadomości czatu kasuje też jego fragmenty wspomnień.
 
 Niektóre kontenerowe wersje aplikacji Marinara Engine, znane jako Marinara Lite, wyłączają sekcję **Memory Recall** całkowicie. Na tych wersjach sekcja **Memory Recall** w ogóle się nie pojawia.
+
+## Advanced Memory Recall (Alpha, Roleplay)
+
+Otwórz **Chat Settings → Memory Recall** i włącz **Advanced Memory Recall (Alpha)**. Ten opcjonalny tryb wspólnie zarządza oknem bieżącej historii, podsumowaniami ciągłości i istotnymi starszymi fragmentami. Ustawienia, postęp przygotowania i przeglądarka archiwum pozostają w panelu bocznym Chat Settings na komputerze i telefonie.
+
+### Konfiguracja
+
+- Wybierz **maximum context** (maksymalny kontekst) obsługiwany przez model czatu. Limit obejmuje szacowane tokeny promptu, narzędzia, załączniki, miejsce na odpowiedź i margines bezpieczeństwa. To oszacowanie, a nie dokładny tokenizer ani limit rozliczeń.
+- W ramach tego limitu wybierz **constant-summary budget** (budżet stałego podsumowania). Każde żądanie zawiera jedną krótką migawkę ciągłości. Niedawne wiadomości pozostają nieskompresowane, dopóki całe żądanie mieści się w limicie.
+- **helper connection** (połączenie pomocnicze) podejmuje drobne decyzje o scenach. Domyślnie używa połączenia agentów, a gdy go brak – połączenia czatu. Początkowe przetwarzanie historii może korzystać z modelu głównego lub pomocniczego; wybrane modele są pokazane przed przygotowaniem.
+- Podsumowania scen i kompresja korzystają z dotychczasowego modelu i promptów **Summaries** (podsumowania). Advanced Memory działa niezależnie od głównego przełącznika Agents i nie wymaga pobierania agenta.
+- Preferowany zakres sąsiednich wiadomości to domyślnie **3–10**. Trafność, dostęp postaci i wolne miejsce mogą ograniczyć liczbę wiadomości, także do zera.
+
+W starszym czacie grupowym Individual potwierdź raz brakujące zakresy wiedzy postaci. Pierwsza wypowiedź postaci nie dowodzi, że znała całą wcześniejszą historię. Wybierz konkretną postać jako **Narrator** (narrator) tylko wtedy, gdy powinna omijać ograniczenia wynikające z uczestnictwa. Jawnie ukryte wiadomości i ręczne znaczniki początku nadal ograniczają pamięć. Zakresy można później poprawić; nowo dodane postacie wymagają własnego potwierdzenia.
+
+Przygotowanie przetwarza starszą historię partiami i pokazuje bieżący etap obok kołowrotka chomika Professor Mari. **Cancel** (anuluj) zachowuje ukończoną pracę; **Resume** (wznów) kontynuuje ją po zamknięciu panelu lub ponownym uruchomieniu serwera. Nieudane wywołanie modelu zachowuje wcześniejszą poprawną pamięć i pokazuje błąd z możliwością ponowienia.
+
+### Podczas rozmowy
+
+Gdy całe żądanie osiąga limit, Advanced Memory najpierw usuwa opcjonalnie przywołane treści, a potem przenosi starsze zakończone sceny do podsumowania ciągłości. Jeśli jedna niedokończona scena jest zbyt długa, tymczasowo podsumowuje jej starszą część, pozostawiając scenę otwartą. Oryginalne wiadomości oraz ręczne ustawienia początku i widoczności zostają zachowane.
+
+Archiwum może odzyskać istotne podsumowania scen i dokładne dialogi z oryginalnymi numerami wiadomości oraz mówcami. Liczą się wiadomości person i postaci. Ponowne generowanie wcześniejszej odpowiedzi korzysta tylko ze źródeł sprzed niej, również gdy odpowiedź poprzedza bieżące zarządzane okno. Edycja, zmiana wariantu, ukrycie lub usunięcie wiadomości źródłowych powoduje ponowne sprawdzenie zależnej pamięci przed użyciem.
+
+Otwórz **Access memories for this chat** w tym samym panelu, aby obejrzeć źródła scen i ich odbiorców, edytować podsumowania, wyłączać rekordy przywoływania, przebudować indeks lub eksportować i importować. Poprawki oryginalnych ręcznych podsumowań zostają zachowane i unieważniają zależne podsumowanie ciągłości. Wyłączenie rekordu różni się od ukrycia wiadomości źródłowych: to ukrycie źródła rozstrzyga, co postać może wiedzieć.
+
+Włączony tryb zaawansowany przejmuje przywoływanie, więc przełącznik Standard Recall nie dokłada drugiej kopii. Zastępuje też zwykły harmonogram automatycznych podsumowań Roleplay w tym czacie. Wyłączenie Advanced Memory przywraca normalne ustawienia. Istniejące lorebooki i pobierane agenty zachowują własne zasady zakresu; Advanced Memory nie może zapewnić prywatności dowolnym treściom użytkownika ani kontekstowi zewnętrznemu.
+
+### Rozmieszczenie w presecie
+
+Autorzy presetów mogą rozmieszczać te zwykłe znaczniki treści za pomocą istniejących ustawień kolejności sekcji, nazwy, roli i grupy:
+
+| Znacznik | Treść |
+| --- | --- |
+| `chat_summary` | Ograniczona migawka ciągłości dla postaci. |
+| `current_scene_summary` | Tymczasowe podsumowanie starszej części trwającej sceny. |
+| `recalled_scenes` | Istotne sceny z archiwum. |
+| `recalled_messages` | Dokładne fragmenty historii z etykietami mówców i źródeł. |
+
+Każdy element używa formatu presetu **XML**, **Markdown** lub **None** (brak) i zawiera krótkie wyjaśnienie przeznaczenia. Puste elementy niczego nie emitują. Pierwsze włączone wystąpienie wyznacza położenie; elementy bez włączonego znacznika trafiają jeden raz przed historię, więc starsze presety działają. Fragmenty są kontekstem, a nie nowymi bieżącymi wiadomościami ani poleceniami. Trzy nowe znaczniki są puste przy wyłączonej funkcji Advanced Memory.
+
+Podgląd promptu używa już przygotowanej pamięci bez uruchamiania wywołań modeli ani embeddingów. Jeśli potrzebna jest inicjalizacja lub kompresja, najpierw przygotuj ją w panelu. Raport użycia pamięci pokazuje szacowany rozmiar kontekstu, wybraną granicę i przywołane źródła; inspektor końcowego promptu pokazuje treść faktycznie wysłaną do modelu.
+
+### Ograniczenia i odzyskiwanie
+
+Przywoływanie jest wybiórcze, a podsumowania mogą pomijać niuanse. Ważne poprawki przechowuj w transkrypcie źródłowym lub edytorze podsumowań. Żaden system nie odtworzy niezapisanych szczegółów. Jeśli embeddingi zawiodą, nadal dostępne są ograniczone wyszukiwanie leksykalne i poprawne podsumowanie ciągłości; całe archiwum nigdy nie trafia do promptu. Jeśli same obowiązkowe instrukcje, załącznik lub rezerwa odpowiedzi nie mieszczą się w limicie, zmniejsz te dane albo zwiększ limit; Advanced Memory zatrzymuje się zamiast po cichu usuwać instrukcje.
 
 ## Chat Summary (Roleplay)
 

@@ -110,7 +110,9 @@ Wählt aus den hochgeladenen Hintergründen das Bild, das am besten zur aktuelle
 
 Führt die anwesenden Charaktere mit, dazu Stimmung, Handlungen, Aussehen, Kleidung, Gedanken und charakterbezogene Werte wie HP. Für neue Charaktere ohne Bild kann er außerdem Porträts erzeugen.
 
-Kehrt ein wiederkehrender Charakter in die Szene zurück, greift Character Tracker für die Kontinuität auf dessen zuletzt gespeicherte Werte und eigene Felder zurück. Charaktere mit hinterlegter Karte bekommen zusätzlich ihre konfigurierten RPG-Pools und Attribute als Grundlage mit und behalten immer Avatar und Bildausschnitt der Karte. Automatisch erzeugte Porträts bleiben auf NPCs ohne passende Charakterkarte beschränkt.
+Eine einzelne Karte, die mehrere Personen beschreibt, etwa eine Szenariokarte mit einer Besetzung, kann diese getrennt verfolgen. Kennzeichne jede Person im Kartentext mit einer Überschrift `[CHARACTER: Name]` oder einem Feld `Name:`, damit der Tracker gemeldete Mitglieder ihrer Karte zuordnen kann. Jedes Mitglied behält seinen eigenen Namen, seine Stimmung, Kleidung, Gedanken und sein Porträt. Ein alter Eintrag mit dem Namen der Karte bleibt bestehen, bis der Tracker ein einzelnes Mitglied meldet, das ihn ersetzt. Manuell hinzugefügte Charaktere behalten ihre manuelle Identität, auch wenn ihr Name zu einem deklarierten Besetzungsmitglied passt.
+
+Kehrt ein wiederkehrender Charakter nach dem Verlassen der Szene zurück, verwendet Character Tracker seine zuletzt gespeicherten Werte und benutzerdefinierten Felder für die Kontinuität. Kartenbasierte Charaktere erhalten außerdem ihre konfigurierten RPG-Pools und Attribute als Grundlage. Einträge für Einzelcharakterkarten behalten den Avatar und Bildausschnitt der Karte. Mitglieder einer Mehrcharakterkarte verwenden ihre eigenen Porträts über denselben Bibliotheks-, gespeicherten Avatar- oder optionalen Porträtgenerierungsweg wie NPCs; sie übernehmen nicht das gemeinsame Kartenporträt.
 
 - **Phase**: Post-Processing.
 - **Wo er funktioniert**: Roleplay.

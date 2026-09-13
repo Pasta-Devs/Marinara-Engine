@@ -10,6 +10,8 @@ La app envía las solicitudes de TTS a través de su propio servidor. Tu API key
 
 Activar TTS no hace que nada hable por sí solo. Solo revela el botón **Speak** (Hablar) en cada mensaje y las opciones de **Auto-play** (Reproducción automática). Tú sigues eligiendo qué se lee y cuándo.
 
+Los mismos ajustes de reproducción permiten activar **Skip text inside HTML and custom tags** (omitir texto dentro de etiquetas HTML y personalizadas), **Skip fenced code blocks** (omitir bloques de código delimitados) o **Skip text inside square brackets** (omitir texto entre corchetes). Los bloques de código se omiten de forma predeterminada; los otros dos filtros empiezan desactivados. El filtro de etiquetas elimina el texto encerrado, como un bloque oculto `<simulation>...</simulation>`, pero conserva las etiquetas de hablante usadas para elegir voces. Estos filtros se aplican a la reproducción manual y automática, incluida la narración Game y la identificación de hablantes en Roleplay.
+
 ## Paso 1: Activa TTS y elige un Source
 
 1. Abre el panel **Connections** y expande la tarjeta **Text to Speech**.

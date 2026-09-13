@@ -144,7 +144,7 @@ Samo utworzenie narzędzia nie sprawia, że AI z niego korzysta. Trzeba jeszcze 
 2. Rozwiń sekcję **Function Calling** – jej ikoną jest klucz.
 3. Włącz przełącznik **Enable Tool Use** (zezwolenie na korzystanie z narzędzi). Jego opis brzmi **Allow AI to call functions (dice rolls, game state, etc.)**. W nowym czacie jest domyślnie wyłączony.
 
-Kiedy przełącznik **Enable Tool Use** jest włączony, a niżej nie dodano żadnych narzędzi, czat może korzystać ze wszystkich globalnie włączonych narzędzi. To znaczy z narzędzi wbudowanych, takich jak rzuty kością i wyszukiwanie w lorebookach, oraz z każdego własnego narzędzia włączonego w sekcji **Functions**. Żeby ograniczyć czat do wybranego zestawu, dodaj konkretne narzędzia:
+Gdy **Enable Tool Use** jest włączone, a poniżej nie dodano narzędzi, czat może korzystać ze wszystkich globalnie włączonych narzędzi obsługiwanych w tym czacie. Obejmuje to narzędzia wbudowane i wszystkie własne narzędzia włączone w sekcji **Functions**. W czatach Game użycie `search_lorebook` wymaga także **Let the GM search lore** (zezwól GM na przeszukiwanie lore); samo włączenie Tool Use nie uruchamia wyszukiwania w lorebookach. Aby ograniczyć czat do wybranego zestawu, dodaj konkretne narzędzia:
 
 1. Kliknij przycisk **Add Functions** (dodanie funkcji). Otwiera się okno wyboru z polem wyszukiwania.
 2. Zaznacz narzędzia, które mają być dostępne. Lista miesza narzędzia wbudowane z własnymi.

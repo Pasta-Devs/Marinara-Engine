@@ -10,6 +10,8 @@ Aplikacja wysyła żądania TTS przez własny serwer. Marinara szyfruje klucz AP
 
 Samo włączenie TTS niczego jeszcze nie odczyta. Odsłania tylko przycisk **Speak** (Mów) przy każdej wiadomości oraz opcje **Auto-play** (automatyczne odtwarzanie). O tym, co i kiedy zostanie przeczytane, nadal decydujesz sam.
 
+Te same ustawienia odtwarzania pozwalają też włączyć **Skip text inside HTML and custom tags** (pomijaj tekst wewnątrz znaczników HTML i własnych znaczników), **Skip fenced code blocks** (pomijaj ogrodzone bloki kodu) lub **Skip text inside square brackets** (pomijaj tekst w nawiasach kwadratowych). Bloki kodu są domyślnie pomijane; pozostałe dwa filtry są początkowo wyłączone. Filtrowanie znaczników usuwa ich zawartość, na przykład ukryty blok `<simulation>...</simulation>`, ale zachowuje znaczniki mówców używane do wyboru głosów. Filtry działają przy ręcznym i automatycznym odtwarzaniu, także dla narracji Game i rozpoznawania mówców w Roleplay.
+
 ## Krok 1: włącz TTS i wybierz Source
 
 1. Otwórz panel **Connections** i rozwiń sekcję **Text to Speech**.

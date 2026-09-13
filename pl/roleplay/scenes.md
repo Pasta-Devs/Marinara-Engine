@@ -26,10 +26,11 @@ Wykonaj kolejno te kroki:
 ```
 
 3. Naciśnij Enter. Otwiera się okno **Scene Prompt Setup** (konfiguracja promptu sceny).
-4. W sekcji **POV** wybierz sposób narracji: **First Person**, **Second Person** albo **Third Person**.
-5. W sekcji **Tense** wybierz **Past**, **Present** albo **Future**.
-6. W polu **Extra instructions** (dodatkowe wskazówki) możesz wpisać uwagi, które pokierują sceną.
-7. Kliknij przycisk **Plan Scene**.
+4. Wybierz **Prompt preset** (preset promptu) dla nowej sceny lub pozostaw **None** (brak). Aplikacja Marinara Engine zapamiętuje ten wybór dla kolejnej sceny. Instrukcje samej sceny nadal obowiązują obok wybranego presetu.
+5. W sekcji **POV** wybierz sposób narracji: **First Person**, **Second Person** albo **Third Person**.
+6. W sekcji **Tense** wybierz **Past**, **Present** albo **Future**.
+7. W polu **Extra instructions** (dodatkowe wskazówki) możesz wpisać uwagi, które pokierują sceną.
+8. Kliknij przycisk **Plan Scene**.
 
 Marinara planuje scenę i otwiera ją jako nowy czat roleplay. Nowa scena pojawia się na liście czatów i otwiera się automatycznie, a wiadomość otwierająca opisuje sytuację. Jeśli w oknie konfiguracji zmienisz zdanie, kliknij przycisk **Cancel** – wtedy żadna scena nie powstanie.
 

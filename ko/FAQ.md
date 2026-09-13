@@ -127,6 +127,8 @@ AI 모델이 한 번에 담을 수 있는 글의 양은 정해져 있습니다. 
 - **Memory Recall**(기억 회상)은 이전 메시지를 검색해 가장 관련 있는 부분만 조용히 프롬프트에 다시 넣습니다. **Chat Settings**의 **Memory Recall**에서 켜세요.
 - 요약은 오래된 메시지를 짧게 압축합니다. Roleplay 채팅은 **Chat Summary**(채팅 요약)를, Conversation 채팅은 **Automatic Summarization**(자동 요약)을 씁니다.
 
+Roleplay 컨텍스트를 자동으로 관리하려면 **Chat Settings → Memory Recall**에서 **Advanced Memory Recall (Alpha)**(고급 기억 회상 알파)를 켜세요. 최근 기록을 유지하고, 제한된 분량으로 이야기의 연속성을 보존하며, 선택한 예상 컨텍스트 한도 안에서 과거 장면을 선별해 불러옵니다. 설정, 진행 상황, 편집은 설정 서랍 안에서 처리합니다. 기존 Individual(개별) 그룹 채팅은 각 캐릭터의 지식 범위를 한 번 확인해야 할 수 있습니다.
+
 설정 방법과 자세한 내용은 [Memory Recall과 채팅 요약](agents/memory.md)에서 설명합니다.
 
 ## 데이터는 어떻게 백업하나요?

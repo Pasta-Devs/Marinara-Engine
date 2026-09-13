@@ -91,6 +91,14 @@ HUD 那一行里的星光按钮会打开 **Agents & Actions**(智能体与操作
 
 Narrative Director 在输入框上方有一个 **Push Story** 按钮，按下后只对下一条回复生效。Narrative Director 还能维护一条隐藏的长期故事线，叫 **Secret Plot**。两者详见 [Narrative Director 与 Secret Plot](narrative-director.md)。
 
+## 角色打断
+
+在 **Chat Settings → Agents → Roleplay Commands** 中启用 **Interruptions**(打断)，角色就可以在合理的言语或身体介入场景下，截断最新消息。默认关闭，不需要下载智能体。
+
+模型使用 `[interrupt: part="a verbatim phrase of at least three words"]`。Marinara 只会在回复紧前面的那条消息中匹配这个原文片段，保留到片段末尾的内容，并将结尾改为表示打断的破折号。对话会保留右引号，动作不会被额外加上引号。没有匹配或匹配不唯一时，消息保持不变。
+
+打开回复的命令信息，选择 **Restore original message**(恢复原始消息)，即可恢复原文。重新生成时会先恢复完整的原始输入，让新回复重新决定是否打断。选择已有的备选回复时，会应用那条回复的打断，除非你已经明确恢复了原文。之后的手动编辑会保留，不会被旧的打断覆盖。
+
 ## Echo Chamber
 
 **Echo Chamber** 是一个可选智能体，会给场景加上一批实时观众来做出反应。它的效果像直播弹幕，按定时器不断刷出新反应。开关在 **Chat Settings** 的 **Agents** 里，位于 **Echo Chamber** 卡片上。这个面板浮在场景上方，也可以收起成一个小胶囊。

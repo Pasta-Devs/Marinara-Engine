@@ -91,6 +91,14 @@ Tu peux consulter, modifier et relancer un fragment enregistré. Une modificatio
 
 Le **Narrative Director** dispose d'un bouton **Push Story** au-dessus de la zone de saisie. Il n'arme le Director que pour la réponse suivante. Le **Narrative Director** peut aussi garder un arc caché à long terme, appelé **Secret Plot**. Voir [Narrative Director et Secret Plot](narrative-director.md) pour les deux.
 
+## Interruptions par les personnages
+
+Dans **Chat Settings → Agents → Roleplay Commands**, active **Interruptions** (interruptions) pour permettre aux personnages de couper le dernier message lorsqu'une intervention verbale ou physique est plausible. Cette fonction est désactivée au départ et ne nécessite aucun agent à télécharger.
+
+Le modèle utilise `[interrupt: part="a verbatim phrase of at least three words"]`. Marinara cherche cette expression exacte uniquement dans le message précédant immédiatement la réponse, conserve le texte jusqu'à l'expression incluse et remplace la fin par un tiret d'interruption. Le dialogue garde son guillemet fermant ; les actions n'en reçoivent pas. Si la correspondance manque ou est ambiguë, le message reste intact.
+
+Ouvre les informations de commande de la réponse et choisis **Restore original message** (restaurer le message original) pour récupérer le message initial. La régénération restaure d'abord l'entrée originale complète, afin que la nouvelle réponse puisse choisir de l'interrompre ou non. Sélectionner une variante existante applique son interruption, sauf si tu as explicitement restauré le message. Les modifications manuelles ultérieures sont conservées au lieu d'être écrasées par une ancienne interruption.
+
 ## Echo Chamber
 
 **Echo Chamber** est un agent facultatif qui ajoute un public en direct réagissant à ta scène. Il fonctionne comme un chat de streaming qui publie une nouvelle réaction à intervalle régulier. Active-le dans la section **Chat Settings**, sous **Agents**, sur la carte **Echo Chamber**. Le panneau flotte au-dessus de la scène et se replie en petite pastille.

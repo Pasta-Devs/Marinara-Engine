@@ -144,7 +144,7 @@ AI 以 `x` 为 2、`y` 为 3 调用 `add_numbers` 时，工具返回的和是 5�
 2. 展开 **Function Calling** 区块，图标是一把扳手。
 3. 开启 **Enable Tool Use**(启用工具调用)，它的说明写着 **Allow AI to call functions (dice rolls, game state, etc.)**。新聊天默认是关闭的。
 
-只开了 **Enable Tool Use**、下面没有添加任何工具时，这个聊天可以使用所有全局启用的工具，也就是掷骰、世界书搜索这些内置工具，加上在 **Functions** 区块里开启了开关的每个自定义工具。想把某个聊天限定在指定的一组工具上，就添加具体的工具：
+开启**Enable Tool Use**且未在下方添加工具时，聊天可以使用所有已在全局启用、且该聊天支持的工具。其中包括内置工具，以及你在**Functions**区块启用的所有自定义工具。Game聊天使用`search_lorebook`还需要开启**Let the GM search lore**(允许GM搜索设定)；仅开启Tool Use不会启用世界书查询。要将聊天限制为一组指定工具，请添加具体工具：
 
 1. 点击 **Add Functions**(添加函数)，会打开一个带搜索框的选择器。
 2. 勾选需要的工具。列表里内置工具和自定义工具是混在一起的。

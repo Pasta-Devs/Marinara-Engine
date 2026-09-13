@@ -144,7 +144,7 @@ Ein Tool zu erstellen reicht nicht – die KI nutzt es erst, wenn du die Tool-Nu
 2. Öffne den Bereich **Function Calling** – sein Symbol ist ein Schraubenschlüssel.
 3. Aktiviere **Enable Tool Use** (Tool-Nutzung erlauben). Die Beschreibung dazu lautet **Allow AI to call functions (dice rolls, game state, etc.)**. In einem neuen Chat ist die Option aus.
 
-Ist **Enable Tool Use** aktiv und darunter kein Tool eingetragen, darf der Chat alle global aktivierten Tools nutzen. Das umfasst die eingebauten Tools wie Würfelwürfe und Lorebook-Suche sowie jedes eigene Tool, das du im Bereich **Functions** eingeschaltet hast. Für eine engere Auswahl trägst du bestimmte Tools ein:
+Wenn **Enable Tool Use** eingeschaltet ist und darunter keine Tools hinzugefügt wurden, kann der Chat alle global aktivierten Tools verwenden, die in diesem Chat unterstützt werden. Dazu gehören integrierte Tools und alle eigenen Tools, die du im Abschnitt **Functions** eingeschaltet hast. Game-Chats benötigen für `search_lorebook` zusätzlich **Let the GM search lore** (den GM Lore durchsuchen lassen); Tool Use allein aktiviert keine Lorebook-Suche. Um einen Chat auf eine Auswahl zu begrenzen, füge bestimmte Tools hinzu:
 
 1. Klick auf **Add Functions** (Funktionen hinzufügen). Es öffnet sich eine Auswahl mit Suchfeld.
 2. Hake die gewünschten Tools an. Die Liste mischt eingebaute und eigene Tools.

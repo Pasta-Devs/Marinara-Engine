@@ -127,6 +127,8 @@ Os modelos de IA só conseguem segurar uma quantidade limitada de texto de uma v
 - O **Memory Recall** busca nas mensagens anteriores e recoloca discretamente os trechos mais relevantes no prompt. Ative em **Chat Settings**, na seção **Memory Recall**.
 - Os resumos comprimem as mensagens antigas em recapitulações curtas. Os chats de Roleplay usam **Chat Summary**, e os chats Conversation usam **Automatic Summarization**.
 
+Para gerenciar automaticamente o contexto de Roleplay, ative **Advanced Memory Recall (Alpha)** (recuperação avançada de memória) em **Chat Settings → Memory Recall**. A função mantém o histórico recente, preserva uma continuidade de tamanho limitado e recupera seletivamente cenas antigas dentro do limite estimado de contexto escolhido. Configuração, progresso e edição permanecem no painel lateral. Chats de grupo Individual antigos podem precisar de uma confirmação única do intervalo de conhecimento de cada personagem.
+
 Para a configuração e os detalhes, veja [Memory Recall e resumos do chat](agents/memory.md).
 
 ## Como faço backup dos meus dados?

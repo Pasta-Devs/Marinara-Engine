@@ -26,10 +26,11 @@
 ```
 
 3. Enter를 누르세요. **Scene Prompt Setup**(장면 프롬프트 설정) 창이 열립니다.
-4. **POV**(시점)에서 서술 시점을 고르세요. **First Person**, **Second Person**, **Third Person** 중 하나입니다.
-5. **Tense**(시제)에서 **Past**, **Present**, **Future** 중 하나를 고르세요.
-6. 필요하면 **Extra instructions**(추가 지침) 입력란에 장면을 이끌 지시를 적으세요.
-7. **Plan Scene**(장면 계획)을 클릭하세요.
+4. 새 장면의 **Prompt preset**(프롬프트 프리셋)을 선택하거나 **None**(없음)으로 두세요. Marinara는 다음 장면에서도 이 선택을 기억합니다. 장면 자체의 지침은 선택한 프리셋과 함께 계속 적용됩니다.
+5. **POV**(시점)에서 서술 시점을 고르세요. **First Person**, **Second Person**, **Third Person** 중 하나입니다.
+6. **Tense**(시제)에서 **Past**, **Present**, **Future** 중 하나를 고르세요.
+7. 필요하면 **Extra instructions**(추가 지침) 입력란에 장면을 이끌 지시를 적으세요.
+8. **Plan Scene**(장면 계획)을 클릭하세요.
 
 Marinara가 장면을 구성한 뒤 새 Roleplay 채팅으로 엽니다. 채팅 목록에 새 장면이 나타나고 자동으로 열리며, 상황을 잡아 주는 여는 메시지가 함께 표시됩니다. 설정 창에서 마음이 바뀌었다면 **Cancel**(취소)을 클릭하세요. 장면은 만들어지지 않습니다.
 

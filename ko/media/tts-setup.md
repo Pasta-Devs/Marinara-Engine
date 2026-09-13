@@ -10,6 +10,8 @@ TTS 요청은 앱이 자체 서버를 거쳐 보냅니다. 제공자 API 키는 
 
 TTS를 켜기만 해서는 아무것도 말하지 않습니다. 각 메시지의 **Speak**(말하기) 버튼과 **Auto-play**(자동 재생) 항목이 나타날 뿐입니다. 무엇을 언제 읽을지는 직접 고릅니다.
 
+같은 재생 설정에서 **Skip text inside HTML and custom tags**(HTML 및 사용자 정의 태그 안의 텍스트 건너뛰기), **Skip fenced code blocks**(구분자로 둘러싼 코드 블록 건너뛰기), **Skip text inside square brackets**(대괄호 안의 텍스트 건너뛰기)도 설정할 수 있습니다. 코드 블록은 기본적으로 건너뛰며, 나머지 두 필터는 처음에는 꺼져 있습니다. 태그 필터는 숨겨진 `<simulation>...</simulation>` 블록처럼 태그 안의 텍스트를 제거하지만, 음성 선택에 사용하는 화자 태그는 유지합니다. 이 필터는 수동 및 자동 재생에 모두 적용되며, Game 서술과 Roleplay 화자 추출에도 적용됩니다.
+
 ## 1단계: TTS 켜고 Source 고르기
 
 1. **Connections** 패널을 열고 **Text to Speech** 카드를 펼치세요.

@@ -91,6 +91,14 @@ Você pode ver, editar e rodar de novo um trecho salvo. A edição muda só o qu
 
 O Narrative Director tem um botão **Push Story** acima da caixa de mensagem. Ele prepara o Director para a próxima resposta, e só para ela. O Narrative Director também pode guardar um arco de longo prazo escondido, chamado **Secret Plot**. Veja [Narrative Director e Secret Plot](narrative-director.md) para conhecer os dois.
 
+## Interrupções dos personagens
+
+Em **Chat Settings → Agents → Roleplay Commands**, ative **Interruptions** (interrupções) para permitir que personagens cortem a última mensagem quando uma intervenção verbal ou física for plausível. A função começa desativada e não exige nenhum agente baixado.
+
+O modelo usa `[interrupt: part="a verbatim phrase of at least three words"]`. Marinara procura essa frase literal somente na mensagem imediatamente anterior à resposta, mantém o texto até a frase inclusive e substitui o final por um travessão de interrupção. Diálogos mantêm as aspas de fechamento; ações não recebem aspas. Se não houver correspondência ou ela for ambígua, a mensagem não muda.
+
+Abra as informações de comandos da resposta e escolha **Restore original message** (restaurar mensagem original) para recuperar a mensagem inicial. Regenerar restaura primeiro a entrada original completa, para que a nova resposta decida se interrompe. Selecionar uma variante existente aplica a interrupção dela, a menos que você a tenha restaurado explicitamente. Edições manuais posteriores são preservadas em vez de serem sobrescritas por uma interrupção antiga.
+
 ## Echo Chamber
 
 **Echo Chamber** é um agente opcional que acrescenta uma plateia ao vivo reagindo à cena. Funciona como um chat de transmissão que publica uma reação nova de tempos em tempos. Ative na seção **Chat Settings**, em **Agents**, no card **Echo Chamber**. O painel flutua sobre a cena e pode ser recolhido até virar uma pequena pílula.

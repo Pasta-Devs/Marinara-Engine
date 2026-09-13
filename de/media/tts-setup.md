@@ -10,6 +10,8 @@ Die App schickt TTS-Anfragen über den eigenen Server. Marinara speichert den AP
 
 TTS einzuschalten bringt noch nichts zum Sprechen. Es blendet lediglich die Schaltfläche **Speak** (Vorlesen) an jeder Nachricht und die Optionen unter **Auto-play** (automatische Wiedergabe) ein. Was wann vorgelesen wird, entscheidest weiterhin du.
 
+In denselben Wiedergabeeinstellungen kannst du auch **Skip text inside HTML and custom tags** (Text in HTML- und eigenen Tags überspringen), **Skip fenced code blocks** (abgegrenzte Codeblöcke überspringen) oder **Skip text inside square brackets** (Text in eckigen Klammern überspringen) aktivieren. Codeblöcke werden standardmäßig übersprungen; die anderen beiden Filter sind zunächst ausgeschaltet. Der Tag-Filter entfernt den eingeschlossenen Text, etwa einen verborgenen Block `<simulation>...</simulation>`, behält aber Sprecher-Tags für die Stimmenauswahl bei. Die Filter gelten für manuelle und automatische Wiedergabe, einschließlich Game-Erzählung und Sprechererkennung in Roleplay.
+
 ## Schritt 1: TTS aktivieren und eine Source wählen
 
 1. Öffne das Panel **Connections** und klapp die Karte **Text to Speech** auf.

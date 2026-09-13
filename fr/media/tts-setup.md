@@ -10,6 +10,8 @@ L'application fait passer les requêtes TTS par son propre serveur. Marinara chi
 
 Activer le TTS ne déclenche aucune lecture en soi. Cela fait seulement apparaître le bouton **Speak** (lire à voix haute) sur chaque message et les options **Auto-play** (lecture automatique). C'est toi qui décides ce qui est lu, et quand.
 
+Les mêmes réglages de lecture proposent aussi **Skip text inside HTML and custom tags** (ignorer le texte dans les balises HTML et personnalisées), **Skip fenced code blocks** (ignorer les blocs de code délimités) et **Skip text inside square brackets** (ignorer le texte entre crochets). Les blocs de code sont ignorés par défaut ; les deux autres filtres sont initialement désactivés. Le filtre de balises retire le texte contenu, par exemple un bloc caché `<simulation>...</simulation>`, mais conserve les balises de locuteur utilisées pour choisir les voix. Ces filtres s'appliquent à la lecture manuelle et automatique, y compris à la narration Game et à l'identification des locuteurs en Roleplay.
+
 ## Étape 1 : activer le TTS et choisir une Source
 
 1. Ouvre le panneau **Connections** et déploie la carte **Text to Speech**.

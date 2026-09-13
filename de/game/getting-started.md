@@ -90,9 +90,13 @@ Der aktive Modus trägt im Menü die Markierung **On**. Um **Talk to Party** ode
 
 Öffne während des Spiels **Chat Settings → Function Calling** (Chat-Einstellungen → Funktionsaufrufe). Mit **Let the GM search lore** (GM im Weltwissen suchen lassen) kann der GM Informationen nach ihrer Bedeutung suchen, ohne alle anderen optionalen Tools einzuschalten. Aktiviere zunächst die Vektorisierung für die betreffenden Lorebooks und vektorisiere ihre Einträge. Die Suche berücksichtigt aktivierte Bücher, Ordner und die Eintragsschalter des jeweiligen Chats. Sie nutzt die konfigurierte Embedding-Verbindung und kann eine weitere Modellanfrage auslösen.
 
+Game-Chats benötigen **Let the GM search lore** für Lorebook-Tool-Abfragen, auch wenn **Enable Tool Use** eingeschaltet ist. Bei ausgeschalteter Option ist `search_lorebook` in der Tool-Auswahl nicht verfügbar. Ein bereits ausgewählter Eintrag bleibt mit einer Erklärung sichtbar, damit du ihn entfernen oder die Lore-Suche wieder einschalten kannst.
+
 **Game tool connection** (Verbindung für Game-Tools) steht standardmäßig auf **Same as narrator** (wie der Erzähler), wodurch die normale Tool-Schleife erhalten bleibt. Eine andere Verbindung führt vor der Erzählung genau eine separate Planungsanfrage aus. Dieses Modell wählt die Tools; der Erzähler erhält ihre tatsächlichen Ergebnisse als Text. Die zusätzliche Anfrage wird über die ausgewählte Verbindung abgerechnet. Ein günstigeres Modell kann die Tool-Kosten senken, aber andere Tools wählen. Dieser einzelne Planungsschritt kann aus dem ersten Ergebnis keine zweite Suche ableiten. Nutze **Same as narrator**, wenn der Erzähler mehrere Tool-Runden durchdenken soll.
 
 Claude- und Grok-Abonnementverbindungen unterstützen keine nativen Tool-Aufrufe. Die betroffenen Bedienelemente erklären das und bleiben deaktiviert, bis eine unterstützte Game-Tool-Verbindung ausgewählt ist. Textbefehle und Würfel-Tags funktionieren weiterhin. Fehlt eine separate Verbindung oder schlägt ihre Anfrage fehl, meldet der Zug den Fehler, statt still ohne die angeforderte Tool-Arbeit zu erzählen.
+
+Wenn deine lokalen Modelle begrenzten GPU-Speicher gemeinsam nutzen, öffne **Chat Settings → Agents** und aktiviere **Run Game tasks one at a time** (Game-Aufgaben nacheinander ausführen). Erzählung, Agenten und Szenenmedien warten innerhalb dieses Game-Chats aufeinander. Die Option ist zunächst ausgeschaltet und reserviert die GPU nicht gegenüber anderen Chats oder Anwendungen. Die vorhandenen Abbruchfunktionen bleiben während der Ausführung und beim Warten verfügbar.
 
 ## Agenten aktivieren
 

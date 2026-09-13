@@ -1,6 +1,6 @@
 # Memory Recall und Chat-Zusammenfassungen
 
-In dieser Anleitung erfährst du, wie Marinara Engine einen langen Chat zusammenhängend hält, sobald er länger wird, als das KI-Modell auf einmal lesen kann. Es geht um **Memory Recall** (semantische Suche über frühere Nachrichten), **Chat Summary** (Chat-Zusammenfassung) für Roleplay-Chats und **Automatic Summarization** (automatische Zusammenfassung) für Conversation-Chats.
+Diese Anleitung erklärt **Memory Recall** (Suche in früheren Nachrichten), das optionale **Advanced Memory Recall (Alpha)** (erweiterter Erinnerungsabruf) für die automatische Kontextverwaltung in Roleplay, **Chat Summary** und **Automatic Summarization** in Conversation.
 
 ## Die zwei Gedächtnissysteme
 
@@ -49,7 +49,7 @@ Dieselbe Einstellung **Semantic Search (Embeddings)** treibt auch die semantisch
 
 ### Memories for This Chat
 
-Was ein Chat gespeichert hat, zeigt **Chat Settings** im Abschnitt **Memory Recall**: Klick dort auf **Access memories for this chat**. Damit öffnet sich das Fenster **Memories for This Chat**.
+Um die Erinnerungen eines Chats anzusehen, öffne **Chat Settings**, gehe zum Bereich **Memory Recall** und klicke auf **Access memories for this chat**. Bei aktiviertem Advanced Memory bleibt die Ansicht in der Roleplay-Seitenleiste; andernfalls öffnet sich das Fenster **Memories for This Chat**.
 
 Das Fenster nennt die Anzahl gespeicherter Chunks – also abgelegter Textabschnitte – und eine grobe Schätzung in Tokens, den kleinen Textstücken, in denen KI-Modelle rechnen. Jede Chunk-Karte zeigt den abgedeckten Zeitraum, die Anzahl der Nachrichten, einen Status und den Zeitpunkt der Erstellung. Als Status erscheint eines von drei Kürzeln:
 
@@ -76,6 +76,51 @@ Behalte diese Punkte im Hinterkopf:
 - Löschst du die Nachrichten eines Chats, verschwinden auch dessen Chunks.
 
 Einige Container-Builds von Marinara, bekannt als Marinara Lite, deaktivieren **Memory Recall** vollständig. Dort taucht der Abschnitt **Memory Recall** überhaupt nicht auf.
+
+## Advanced Memory Recall (Alpha, Roleplay)
+
+Öffne **Chat Settings → Memory Recall** und aktiviere **Advanced Memory Recall (Alpha)**. Dieser optionale Modus verwaltet das aktuelle Verlaufsfenster, Kontinuitätszusammenfassungen und relevante ältere Auszüge gemeinsam. Einstellungen, Einrichtungsfortschritt und Archivansicht bleiben auf Desktop und Mobilgeräten in der Chat-Settings-Seitenleiste.
+
+### Einrichtung
+
+- Wähle einen **maximum context** (maximalen Kontext), den dein Chatmodell unterstützt. Die Grenze umfasst geschätzte Prompt-Tokens, Werkzeuge, Anhänge, Antwortplatz und Sicherheitsreserve. Sie ist eine Schätzung, kein exakter Tokenizer oder Abrechnungslimit.
+- Wähle innerhalb dieser Grenze das **constant-summary budget** (Budget der dauerhaften Zusammenfassung). Eine kurze Kontinuitätsübersicht wird einmal pro Anfrage eingefügt. Jüngste Nachrichten bleiben ungekürzt, solange die gesamte Anfrage hineinpasst.
+- Die **helper connection** (Hilfsverbindung) trifft kleine Szenenentscheidungen. Standardmäßig nutzt sie die Agentenverbindung, ersatzweise die Chatverbindung. Die erste Verarbeitung des Verlaufs kann das Haupt- oder Hilfsmodell verwenden; die tatsächlich gewählten Modelle werden vor der Vorbereitung angezeigt.
+- Szenenzusammenfassungen und Verdichtung verwenden dein vorhandenes **Summaries**-Modell (Zusammenfassungen) und dessen Prompts. Advanced Memory läuft unabhängig vom Hauptschalter Agents und benötigt keinen herunterladbaren Agenten.
+- Der bevorzugte Bereich benachbarter Nachrichten beträgt standardmäßig **3–10**. Relevanz, Charakterzugriff und verfügbarer Platz können zu weniger Nachrichten führen, auch zu keiner.
+
+Bestätige bei einem älteren Individual-Gruppenchat fehlende Wissensbereiche einmal. Die erste gesprochene Zeile eines Charakters belegt nicht, dass er alles davor kannte. Wähle einen tatsächlichen Charakter nur dann als **Narrator** (Erzähler), wenn er Teilnahmegrenzen umgehen soll. Ausdrücklich ausgeblendete Nachrichten und manuelle Startmarkierungen schränken die Erinnerung weiterhin ein. Du kannst diese Bereiche später korrigieren; neu hinzugefügte Charaktere benötigen eine eigene Bestätigung.
+
+Die Vorbereitung verarbeitet ältere Nachrichten stapelweise und zeigt den aktuellen Schritt neben Professor Maris Hamsterrad. **Cancel** (Abbrechen) behält abgeschlossene Arbeit; **Resume** (Fortsetzen) macht nach dem Schließen der Seitenleiste oder einem Serverneustart weiter. Ein fehlgeschlagener Modellaufruf bewahrt bisher gültige Erinnerungen und zeigt einen Fehler zum erneuten Versuch.
+
+### Während des Chats
+
+Erreicht die vollständige Anfrage die Grenze, entfernt Advanced Memory zuerst optionale Abrufe und übernimmt dann ältere abgeschlossene Szenen in die Kontinuität. Ist eine einzelne offene Szene zu groß, fasst es vorübergehend deren älteren Teil zusammen, ohne die Szene zu schließen. Originalnachrichten sowie manuelle Start- und Sichtbarkeitseinstellungen bleiben erhalten.
+
+Das Archiv kann relevante Szenenzusammenfassungen und wortgetreue Dialoge mit ursprünglichen Nachrichtennummern und Sprechern abrufen. Persona- und Charakternachrichten zählen gleichermaßen. Die Neugenerierung einer früheren Antwort verwendet nur Quellen vor dem Ziel, auch wenn dieses vor dem aktuell verwalteten Fenster liegt. Bearbeiten, Variantenwechsel, Ausblenden oder Löschen von Quellnachrichten löst vor der Nutzung eine erneute Prüfung der betroffenen abgeleiteten Erinnerungen aus.
+
+Öffne **Access memories for this chat** in derselben Seitenleiste, um Szenenquellen und Empfängerkreise zu prüfen, Zusammenfassungen zu bearbeiten, Abrufdatensätze zu deaktivieren, neu zu indexieren oder zu exportieren/importieren. Korrekturen ursprünglicher manueller Zusammenfassungen bleiben erhalten und machen davon abhängige Kontinuität ungültig. Einen Datensatz zu deaktivieren ist etwas anderes, als seine Quellnachrichten auszublenden: Ausgeblendete Quellen bestimmen verbindlich das Charakterwissen.
+
+Im aktivierten erweiterten Modus übernimmt dieser den Abruf, sodass der Schalter Standard Recall keine zweite Kopie einfügt. Er ersetzt auch den gewöhnlichen Zeitplan automatischer Roleplay-Zusammenfassungen für diesen Chat. Das Abschalten von Advanced Memory stellt diese normalen Einstellungen wieder her. Bestehende Lorebooks und herunterladbare Agenten behalten ihre eigenen Geltungsregeln; Advanced Memory kann beliebige selbst verfasste oder externe Kontexte nicht privat machen.
+
+### Platzierung im Preset
+
+Preset-Autoren können diese normalen Inhaltsmarker mit den bestehenden Einstellungen für Reihenfolge, Name, Rolle und Gruppe der Abschnitte platzieren:
+
+| Marker | Inhalt |
+| --- | --- |
+| `chat_summary` | Begrenzte Kontinuitätsübersicht des Charakters. |
+| `current_scene_summary` | Vorübergehende Zusammenfassung des älteren Teils einer laufenden Szene. |
+| `recalled_scenes` | Relevante archivierte Szenen. |
+| `recalled_messages` | Wortgetreue Verlaufsauszüge mit Sprecher- und Quellenangaben. |
+
+Jeder Bestandteil folgt dem Preset-Format **XML**, **Markdown** oder **None** (keine Formatierung) und erklärt kurz seinen Zweck. Leere Bestandteile geben nichts aus. Das erste aktivierte Vorkommen bestimmt die Platzierung; Bestandteile ohne aktivierten Marker werden einmal vor dem Verlauf eingefügt, damit ältere Presets funktionieren. Auszüge sind Kontext, keine neuen aktuellen Nachrichten oder Befehle. Bei ausgeschaltetem Advanced Memory bleiben die drei neuen Marker leer.
+
+Die Prompt-Vorschau verwendet bereits vorbereitete Erinnerungen, ohne Modell- oder Embedding-Aufrufe zu starten. Sind Initialisierung oder Verdichtung nötig, bereite sie zuerst in der Seitenleiste vor. Der Erinnerungsnachweis zeigt die geschätzte Kontextgröße, die gewählte Grenze und die abgerufenen Quellen; der Inspektor des endgültigen Prompts zeigt, was tatsächlich an das Modell ging.
+
+### Grenzen und Wiederherstellung
+
+Der Abruf ist selektiv, und Zusammenfassungen können Nuancen verlieren. Halte wichtige Korrekturen im Quellverlauf oder Zusammenfassungseditor fest. Kein System kann nie aufgezeichnete Details rekonstruieren. Scheitern Embeddings, bleiben begrenzter lexikalischer Abruf und gültige Kontinuität verfügbar; das Archiv wird nie vollständig eingefügt. Passen Pflichtanweisungen, ein Anhang oder die Antwortreserve allein nicht hinein, verkleinere diese Eingaben oder erhöhe die Grenze; Advanced Memory stoppt, statt stillschweigend Anweisungen zu löschen.
 
 ## Chat Summary (Roleplay)
 

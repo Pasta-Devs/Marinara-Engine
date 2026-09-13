@@ -90,9 +90,13 @@ Le mode actif affiche un marqueur **On** dans le menu. Pour désactiver **Talk t
 
 Pendant la partie, ouvre **Chat Settings → Function Calling** (réglages du chat → appels de fonctions). **Let the GM search lore** (laisser le GM rechercher dans le lore) permet au GM de chercher des informations par leur sens sans activer tous les autres outils facultatifs. Active d'abord la vectorisation des lorebooks concernés et vectorise leurs entrées. Les recherches respectent les livres et dossiers activés ainsi que les interrupteurs d'entrées propres au chat. Elles utilisent la connexion d'embeddings configurée et peuvent ajouter une requête de suivi au modèle.
 
+Les chats Game exigent **Let the GM search lore** pour les recherches dans les lorebooks par outil, même quand **Enable Tool Use** est activé. Lorsque l'option est désactivée, `search_lorebook` est indisponible dans le sélecteur d'outils. Un élément déjà sélectionné reste visible avec une explication, pour que tu puisses le retirer ou réactiver la recherche de lore.
+
 **Game tool connection** (connexion des outils du jeu) vaut par défaut **Same as narrator** (comme le narrateur), ce qui conserve la boucle d'outils habituelle. Choisir une autre connexion lance une seule requête de planification séparée avant la narration. Ce modèle choisit les outils, puis le narrateur reçoit leurs résultats réels sous forme de texte. La requête supplémentaire est facturée sur la connexion choisie ; un modèle moins cher peut réduire le coût des outils, mais choisir d'autres outils. Cette unique phase de planification ne peut pas enchaîner une deuxième recherche à partir du premier résultat. Utilise **Same as narrator** pour que le narrateur raisonne sur plusieurs cycles d'outils.
 
 Les connexions par abonnement Claude et Grok ne prennent pas en charge les appels natifs aux outils. Les contrôles concernés l'expliquent et restent désactivés tant qu'une connexion compatible pour les outils de Game n'est pas choisie. Les commandes textuelles et les balises de dés fonctionnent toujours. Si une connexion séparée manque ou si sa requête échoue, le tour signale l'échec au lieu de poursuivre discrètement la narration sans le travail demandé aux outils.
+
+Si tes modèles locaux partagent une mémoire GPU limitée, ouvre **Chat Settings → Agents** et active **Run Game tasks one at a time** (exécuter les tâches Game une par une). La narration, les agents et les médias de scène s'attendent dans ce chat Game. L'option est désactivée par défaut et ne réserve pas le GPU face aux autres chats ou applications. Les commandes d'annulation existantes restent disponibles pendant l'exécution et l'attente.
 
 ## Activer les agents
 

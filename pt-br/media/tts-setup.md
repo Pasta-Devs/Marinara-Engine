@@ -10,6 +10,8 @@ O aplicativo envia as requisições de TTS pelo próprio servidor. Marinara crip
 
 Ativar o TTS não faz nada falar sozinho. Isso só revela o botão **Speak** (falar) em cada mensagem e as opções de **Auto-play** (leitura automática). A escolha do que é lido e de quando isso acontece continua sendo sua.
 
+Os mesmos ajustes de reprodução também permitem ativar **Skip text inside HTML and custom tags** (ignorar texto dentro de tags HTML e personalizadas), **Skip fenced code blocks** (ignorar blocos de código delimitados) ou **Skip text inside square brackets** (ignorar texto entre colchetes). Os blocos de código são ignorados por padrão; os outros dois filtros começam desativados. O filtro de tags remove o texto contido nelas, como um bloco oculto `<simulation>...</simulation>`, mas preserva as tags de falante usadas para escolher vozes. Esses filtros se aplicam à reprodução manual e automática, incluindo a narração Game e a identificação de falantes em Roleplay.
+
 ## Etapa 1: ative o TTS e escolha um Source
 
 1. Abra o painel **Connections** e expanda o card **Text to Speech**.

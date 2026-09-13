@@ -90,9 +90,13 @@ Aktywny tryb ma w menu znacznik **On**. Aby wyłączyć opcję **Talk to Party**
 
 Podczas gry otwórz **Chat Settings → Function Calling** (ustawienia czatu → wywoływanie funkcji). Opcja **Let the GM search lore** (pozwól postaci GM przeszukiwać lorebooki) umożliwia wyszukiwanie informacji według znaczenia bez włączania wszystkich pozostałych narzędzi opcjonalnych. Najpierw włącz wektoryzację odpowiednich lorebooków i zwektoryzuj ich wpisy. Wyszukiwanie uwzględnia włączone książki, foldery i przełączniki wpisów dla danego czatu. Korzysta ze skonfigurowanego połączenia do embeddingów i może wymagać dodatkowego zapytania do modelu.
 
+W czatach Game wyszukiwanie w lorebookach przez narzędzia wymaga **Let the GM search lore**, nawet gdy **Enable Tool Use** jest włączone. Przy wyłączonej opcji `search_lorebook` jest niedostępne w selektorze narzędzi. Wcześniej wybrana pozycja pozostaje widoczna z wyjaśnieniem, aby można było ją usunąć lub ponownie włączyć wyszukiwanie lore.
+
 Ustawienie **Game tool connection** (połączenie dla narzędzi gry) ma domyślną wartość **Same as narrator** (takie samo jak narrator), która zachowuje zwykłą pętlę narzędzi. Wybór innego połączenia uruchamia jedno osobne zapytanie planujące przed narracją. Ten model wybiera narzędzia, a narrator otrzymuje ich rzeczywiste wyniki jako tekst. Koszt dodatkowego zapytania obciąża wybrane połączenie; tańszy model może obniżyć koszty narzędzi, lecz wybrać inne narzędzia. Ten pojedynczy przebieg planowania nie może uruchomić drugiego wyszukiwania na podstawie pierwszego wyniku. Użyj **Same as narrator**, jeśli narrator ma rozumować przez kilka rund narzędzi.
 
 Połączenia subskrypcyjne Claude i Grok nie obsługują natywnych wywołań narzędzi. Odpowiednie kontrolki wyjaśniają to i są wyłączone, dopóki nie wybierzesz obsługiwanego połączenia narzędzi gry. Polecenia tekstowe i znaczniki kości nadal działają. Jeśli osobnego połączenia brakuje lub zapytanie do niego się nie powiedzie, tura zgłasza błąd zamiast po cichu kontynuować narrację bez żądanej pracy narzędzi.
+
+Jeśli lokalne modele współdzielą ograniczoną pamięć GPU, otwórz **Chat Settings → Agents** i włącz **Run Game tasks one at a time** (wykonuj zadania Game pojedynczo). Narracja, agenci i multimedia sceny czekają na siebie w obrębie tego czatu Game. Opcja jest domyślnie wyłączona i nie rezerwuje GPU względem innych czatów ani aplikacji. Obecne przyciski anulowania pozostają dostępne podczas pracy i oczekiwania.
 
 ## Włączanie agentów
 

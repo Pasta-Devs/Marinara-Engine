@@ -65,13 +65,13 @@ Weitere Beispiele zum Ausprobieren:
 - `4d8-1` wirft vier 8-seitige Würfel und zieht 1 ab.
 - `2d6+3` wirft zwei 6-seitige Würfel und addiert 3.
 
-Zwei Grenzen sind fest eingebaut: höchstens 100 Würfel auf einmal und höchstens 1000 Seiten pro Würfel. Verlangst du mehr, lehnt die App den Wurf nicht ab, sondern stutzt ihn auf diese Grenzen zurecht. Entspricht der Text keiner gültigen `NdM`-Notation, scheitert der Wurf und du bekommst eine Fehlermeldung, die das erwartete Format nennt.
+Es gelten zwei feste Grenzen. Du kannst höchstens 100 Würfel gleichzeitig werfen, und jeder Würfel darf maximal 1000 Seiten haben. Forderst du mehr an, begrenzt die App die Anfrage, statt sie abzulehnen. Die Ergebniskarte zeigt die begrenzte Notation: Aus `500d6` wird eine `100d6`-Karte für die hundert tatsächlich geworfenen Würfel. Ist dein Text keine gültige Würfelnotation – `NdM` oder ein einzelnes `dM` wie `d20` –, schlägt der Wurf fehl und eine Fehlermeldung nennt das erwartete Format.
 
 ## Fertigkeitsproben
 
 Eine Fertigkeitsprobe entscheidet, ob dir etwas Riskantes gelingt – anschleichen, einen Hinweis entdecken oder einen NPC (Nicht-Spieler-Charakter) überzeugen. Du startest eine Probe nicht selbst. Der Game Master fordert sie mitten in seiner Erzählung ein. Die App macht daraus einen animierten d20-Wurf mit einem Ergebnis-Banner.
 
-Eine per Text angeforderte Probe beginnt mit dem Versuch. Die Engine würfelt und sendet dann eine zusätzliche Modellanfrage mit den tatsächlichen Ergebnissen, damit der Game Master den Ausgang noch im selben Zug erzählen kann. So wird auch ein Entwurf korrigiert, der den Ausgang schon vor dem Wurf geraten hat. Die zusätzliche Anfrage sendet den Prompt erneut und verbraucht weitere Eingabe- und Ausgabetokens. Schlägt sie fehl, bleiben die ermittelten Ergebnisse erhalten, ohne einen geratenen oder unvollständigen Ausgang zu speichern.
+Eine im Text angeforderte Probe beginnt mit dem Versuch. Die Engine würfelt und stellt dann eine zusätzliche Modellanfrage mit den tatsächlichen Ergebnissen, damit der Game Master den Ausgang in derselben Runde abschließen kann. Das korrigiert auch einen Entwurf, der vor dem Wurf ein Ergebnis geraten hat. Die zusätzliche Anfrage sendet den Prompt erneut und verbraucht weitere Eingabe- und Ausgabe-Tokens. Scheitert sie, behält die Runde die gewürfelten Ergebnisse im Protokoll, ohne einen geratenen oder unvollständigen Ausgang zu speichern. Ein Hinweis mit der Schaltfläche **Regenerate turn** (Runde neu generieren) bleibt an der Runde sichtbar, auch nach dem Neuladen des Chats.
 
 Bei einer Verbindung mit Unterstützung für das Würfel-Tool kann der Game Master bereits während der Generierung einen echten Wurf erhalten. Die Würfelkarte erscheint, sobald das Tool antwortet; die abgeschlossene Probe übernimmt dieses Ergebnis, ohne erneut zu würfeln. Jede ausgewertete Fertigkeitsprobe erhält ein eigenes Banner nach den wartenden Würfelkarten.
 
@@ -100,6 +100,8 @@ Das Banner zeigt eines von vier Ergebnissen: **CRITICAL SUCCESS**, **SUCCESS**, 
 Der Game Master kann eine andere Notation angeben, etwa `[skill_check: skill="Endurance" dc="12" dice="3d6+2"]`. Solche Proben verwenden den festen Modifikator der Notation statt der d20-Modifikatoren des Charakterbogens und gelingen, wenn die Summe den DC erreicht. Die Regeln für eine natürliche 1 und eine natürliche 20 gelten nur für die oben beschriebene Standard-d20-Probe.
 
 Erfolgspools müssen sowohl den Schwellenwert pro Würfel als auch die benötigte Anzahl an Erfolgen angeben: `[skill_check: skill="Intimidation" dc="4" dice="6d10" resolution="successes" threshold="6"]` würfelt sechs d10, zählt jeden Würfel mit mindestens 6 einmal und gelingt ab vier Erfolgen. Die Engine errät keinen fehlenden Schwellenwert und setzt weder explodierende Würfel noch Patzer oder andere besondere Poolregeln um. Ein Pool ohne gültigen Schwellenwert bleibt unaufgelöst; vom Modell erfundene Zahlen werden entfernt.
+
+Nicht unterstützte Anfragen wie `4d6kh3`, `3d6!` oder `4dF` werden nicht gewürfelt. Die Engine protokolliert die nicht unterstützte Notation und entfernt erfundene Zahlen aus Probenaufzeichnungen. Dieselbe zusätzliche Erzählanfrage weist den Game Master an, diese Ausgänge offenzulassen und zu erklären, was in unterstützter Notation präzisiert werden muss; sie ersetzt nicht stillschweigend das Würfelsystem.
 
 ### Vorteil und Nachteil
 
