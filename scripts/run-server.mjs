@@ -11,9 +11,10 @@ for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     if (stopping) return;
     stopping = true;
     process.exitCode = 128 + (constants.signals[signal] ?? 0);
-    // PID-targeted signals do not reach the child, even in a terminal. The
-    // server's idempotent shutdown also tolerates a shared-console Ctrl+C.
-    child?.kill(signal);
+    // Windows already broadcasts console Ctrl+C to the server. child.kill()
+    // force-terminates it there, preventing its graceful shutdown from flushing saves.
+    // POSIX still needs forwarding for signals addressed only to this launcher.
+    if (process.platform !== "win32") child?.kill(signal);
     stopTimer = setTimeout(() => child?.kill("SIGKILL"), 10_000);
     stopTimer.unref();
   });

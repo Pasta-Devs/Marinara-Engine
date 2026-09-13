@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:net";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 
 const root = resolve(import.meta.dirname, "../..");
 const serverRequire = createRequire(join(root, "packages/server/package.json"));
@@ -20,7 +21,7 @@ const child = spawn(
   [
     join(root, "scripts/run-server.mjs"),
     "--import",
-    serverRequire.resolve("tsx/esm"),
+    pathToFileURL(serverRequire.resolve("tsx/esm")).href,
     join(root, "scripts/regressions/fixtures/restart-server.ts"),
   ],
   {
@@ -64,8 +65,10 @@ async function waitForPid(previous?: number): Promise<number> {
   }
   assert.fail(`Server did not become ready: ${output}`);
 }
+let serverPid: number | undefined;
 try {
   const original = await waitForPid();
+  serverPid = original;
   const invalid = await fetch(`${base}/api/admin/restart`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -79,6 +82,7 @@ try {
   });
   assert.equal(restarted.status, 202);
   const replacement = await waitForPid(original);
+  serverPid = replacement;
   assert.notEqual(replacement, original);
   assert.throws(() => process.kill(original, 0), "The old process must be gone before its replacement serves");
   assert.ok(!output.includes("writer lease"), output);
@@ -90,6 +94,14 @@ try {
     assert.ok(pkg.scripts.start.includes("scripts/run-server.mjs"), `${manifest} must supervise pnpm start`);
   }
 } finally {
+  // Windows kill does not forward to descendants; clean up the fixture server first.
+  if (process.platform === "win32" && serverPid) {
+    try {
+      process.kill(serverPid, "SIGTERM");
+    } catch {
+      /* already stopped */
+    }
+  }
   child.kill("SIGTERM");
   await exited;
   rmSync(dir, { recursive: true, force: true });

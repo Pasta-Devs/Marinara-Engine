@@ -1,9 +1,10 @@
 // Exercise the production entrypoint: a PID-targeted interrupt must reach the
 // server even with a TTY, and duplicate terminal signals must not cut off close.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import { createConnection, createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -17,6 +18,33 @@ const address = probe.address();
 assert.ok(address && typeof address !== "string");
 const port = address.port;
 await new Promise<void>((done) => probe.close(() => done()));
+// PID-targeted kill is forceful on Windows. Exercise its actual console delivery instead.
+if (process.platform === "win32") {
+  try {
+    execFileSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        join(root, "scripts/regressions/fixtures/windows-console-shutdown.ps1"),
+        "-Root",
+        root,
+        "-Loader",
+        pathToFileURL(serverRequire.resolve("tsx/esm")).href,
+        "-DataDir",
+        dir,
+        "-Port",
+        String(port),
+      ],
+      { stdio: "inherit", timeout: 45_000 },
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  process.exit(0);
+}
 const child = spawn(
   process.execPath,
   [
@@ -26,7 +54,7 @@ const child = spawn(
     "data:text/javascript,Object.defineProperty(process.stdin,'isTTY',{value:true})",
     join(root, "scripts/run-server.mjs"),
     "--import",
-    serverRequire.resolve("tsx/esm"),
+    pathToFileURL(serverRequire.resolve("tsx/esm")).href,
     join(root, "packages/server/src/index.ts"),
   ],
   {

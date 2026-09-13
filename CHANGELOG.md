@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- In progress: address the September issue sweep for lorebooks, Game dice and generation, scene and speech settings, and Windows shutdown.
+- Windows Ctrl+C now lets the server finish saving before the launcher exits; restart and shutdown regressions use portable loader URLs and include a native Windows console check (#6119, #6135).
 
 - Added an opt-in Roleplay interrupt command: characters can cut off the latest dialogue or action, with Restore and full original context on rerolls (#6109).
 - Kept Roleplay command details readable in light themes when the chat uses a custom message text color.
