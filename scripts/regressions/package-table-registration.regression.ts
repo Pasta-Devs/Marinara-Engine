@@ -30,6 +30,7 @@ const { fileTable, text } = await import("../../packages/server/src/db/file-sche
 const { eq } = await import("../../packages/server/src/db/file-query.js");
 const { createFileNativeDB, FILE_BACKED_TABLES } = await import("../../packages/server/src/db/file-backed-store.js");
 const { chats } = await import("../../packages/server/src/db/schema/index.js");
+const { getMariDbService } = await import("../../packages/server/src/services/mari-db/mari-db.service.js");
 
 /** Every path under `root`, so a rejected name cannot create anything unnoticed. */
 function treeSnapshot(root: string): string[] {
@@ -137,6 +138,11 @@ async function registersAndPersists() {
     db._fileStore.registerTables([packageNotes]);
     const afterReregister = await db.select().from(packageNotes);
     assert.equal(afterReregister.length, 1, "re-registration must not reset a live table");
+
+    // Mari's DB service snapshots table metadata at module load, before any
+    // package registers; it must still resolve a registered package table.
+    const listed = await getMariDbService(db).executeCli({ argv: ["db", "list", "package_demo_notes", "--json"] });
+    assert.match(JSON.stringify(listed), /note-1/, "Professor Mari can read a registered package table");
 
     await db._fileStore.flush();
     const shardDir = join(dir, "tables", "package_demo_notes");

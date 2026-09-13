@@ -9,7 +9,12 @@ import { basename, join, resolve } from "node:path";
 import { eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
-import { CASCADE_DANGLING_EXEMPT_PREFIXES, CASCADES, FILE_BACKED_TABLES } from "../../db/file-backed-store.js";
+import {
+  CASCADE_DANGLING_EXEMPT_PREFIXES,
+  CASCADES,
+  FILE_BACKED_TABLES,
+  getRegisteredFileTable,
+} from "../../db/file-backed-store.js";
 import { getFileTableConfig, isFileTable, type AnyFileColumn, type AnyFileTable } from "../../db/file-schema.js";
 import * as schema from "../../db/schema/index.js";
 import { getFileStorageDir, getMonorepoRoot, isCustomToolScriptEnabled } from "../../config/runtime-config.js";
@@ -415,28 +420,30 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   regex_scripts: ["trimStrings", "placement", "targetCharacterIds", "targetPromptPresetIds"],
 };
 
+function buildTableMeta(table: Parameters<typeof getFileTableConfig>[0]): TableMeta {
+  const config = getFileTableConfig(table);
+  const columns = config.columns.map((column) => ({
+    key: column.key,
+    dbName: column.name,
+    column,
+    primary: column.primary,
+    notNull: column.isNotNull,
+  }));
+  return {
+    name: config.name,
+    table,
+    columns,
+    byKey: new Map(columns.map((column) => [column.key, column])),
+    primaryKey: columns.find((column) => column.primary)?.key ?? null,
+  };
+}
+
 function buildTableMetas() {
   const metas = new Map<string, TableMeta>();
   for (const candidate of Object.values(schema)) {
     if (!isFileTable(candidate)) continue;
-    const table = candidate;
-    const config = getFileTableConfig(table);
-    const name = config.name;
-    if (!FILE_BACKED_TABLE_SET.has(name)) continue;
-    const columns = config.columns.map((column) => ({
-      key: column.key,
-      dbName: column.name,
-      column,
-      primary: column.primary,
-      notNull: column.isNotNull,
-    }));
-    metas.set(name, {
-      name,
-      table,
-      columns,
-      byKey: new Map(columns.map((column) => [column.key, column])),
-      primaryKey: columns.find((column) => column.primary)?.key ?? null,
-    });
+    const meta = buildTableMeta(candidate);
+    if (FILE_BACKED_TABLE_SET.has(meta.name)) metas.set(meta.name, meta);
   }
   return metas;
 }
@@ -715,8 +722,14 @@ function deepMerge(base: unknown, patch: unknown): unknown {
 }
 
 function getMeta(table: string): TableMeta {
-  const meta = TABLE_METAS.get(table);
-  if (!meta) throw new Error(`Unknown file-backed table: ${table}`);
+  let meta = TABLE_METAS.get(table);
+  if (!meta) {
+    // Capability packages register their tables after this module loads (registerTables).
+    const registered = getRegisteredFileTable(table);
+    if (!registered) throw new Error(`Unknown file-backed table: ${table}`);
+    meta = buildTableMeta(registered);
+    TABLE_METAS.set(table, meta);
+  }
   return meta;
 }
 
