@@ -121,14 +121,14 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
     if (ungroupedList.length > 0) {
       parsedGroups.push({
         id: UNGROUPED_PERSONA_GROUP_ID,
-        name: "Ungrouped",
+        name: localizeUi("ui.chat.personapicker.ungrouped"),
         memberIds: ungroupedList.map((p) => p.id),
         members: ungroupedList,
       });
     }
 
     return { groups: parsedGroups };
-  }, [normalizedSearch, rawPersonaGroups, personaMap, visiblePersonas]);
+  }, [localizeUi, normalizedSearch, rawPersonaGroups, personaMap, visiblePersonas]);
 
   const visibleCharacterGroups = useMemo(
     () =>

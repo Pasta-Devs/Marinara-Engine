@@ -223,21 +223,6 @@ async function dragChatResource(page: Page, source: Locator, target: Locator) {
   }
 }
 
-async function expectHomeContentFits(page: Page) {
-  const home = page.locator('[data-component="ChatArea.EmptyState"]');
-  await expect
-    .poll(async () => {
-      return home.evaluate((homeElement) => {
-        const contentElement = homeElement.querySelector<HTMLElement>('[data-component="ChatArea.HomeContent"]');
-        if (!contentElement) return false;
-        const homeRect = homeElement.getBoundingClientRect();
-        const contentRect = contentElement.getBoundingClientRect();
-        return contentRect.top >= homeRect.top - 1 && contentRect.bottom <= homeRect.bottom + 1;
-      });
-    })
-    .toBe(true);
-}
-
 async function expectHomeWidgetHeightsMatch(page: Page, baseline: number) {
   await expect
     .poll(async () => {
@@ -7924,7 +7909,6 @@ test("external Agent imports require the Danger Zone gate and explicit capabilit
     await page.locator('[data-tour="panel-settings"]').click();
     await page.getByRole("tab", { name: "Advanced" }).click();
     const agentImportToggle = page.getByLabel("Allow custom Agent imports");
-    const extensionImportToggle = page.getByLabel("Allow third-party extension imports");
     await expect(agentImportToggle).toBeEnabled();
     await expect(agentImportToggle).not.toBeChecked();
     expect(
@@ -8649,6 +8633,55 @@ test("chat toolbar panels close when their trigger is clicked again across modes
       request.delete(`/api/chats/${gameChat.id}`),
     ]);
   }
+});
+
+test("chat Help overlay responds to viewport changes with unchanged target geometry", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 800 });
+  await page.goto("/");
+  await page.waitForFunction(() => "React" in globalThis && "ReactDOM" in globalThis);
+  await page.evaluate(async () => {
+    const { ChatHelpOverlay } = (await import("/src/components/chat/ChatHelpOverlay.tsx" as string)) as {
+      ChatHelpOverlay: unknown;
+    };
+    const { requestChatHelp } = (await import(
+      "/src/lib/chat-help-events.ts" as string
+    )) as typeof import("../packages/client/src/lib/chat-help-events");
+    const runtime = globalThis as typeof globalThis & {
+      React: { createElement: (component: unknown, props: Record<string, unknown>) => unknown };
+      ReactDOM: { createRoot: (mount: HTMLElement) => { render: (element: unknown) => void } };
+    };
+    // A fixed-size surface exposes viewport changes that do not move any measured target.
+    const surface = document.createElement("div");
+    surface.dataset.chatMode = "conversation";
+    surface.style.cssText = "position:fixed;top:20px;left:20px;width:200px;height:200px";
+    document.body.prepend(surface);
+    const mount = document.createElement("div");
+    document.body.append(mount);
+    runtime.ReactDOM.createRoot(mount).render(
+      runtime.React.createElement(ChatHelpOverlay, {
+        mode: "conversation",
+        activeChatId: "fixed-help-viewport-fixture",
+        isFirstChat: false,
+        autoOpenBlocked: true,
+      }),
+    );
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    requestChatHelp("conversation");
+  });
+
+  const overlay = page.locator('[data-chat-help-overlay="conversation"]');
+  const legend = overlay.locator("[data-chat-help-legend]");
+  await expect(legend).toBeVisible();
+  await page.setViewportSize({ width: 767, height: 800 });
+  await expect(legend).toHaveCount(0);
+  await expect(
+    overlay.getByRole("button", {
+      name: "Tap a section you want to learn more about or this button to exit the help overlay.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 800, height: 800 });
+  await expect(legend).toBeVisible();
 });
 
 test("chat Help overlay labels visible controls in every mode", async ({ page, request }, testInfo) => {
@@ -18868,7 +18901,6 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await page.keyboard.press("Escape");
   await expect(faqWindow).toBeHidden();
 
-  const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
   await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
   await expect(widgetManager).toBeVisible();

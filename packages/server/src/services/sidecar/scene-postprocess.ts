@@ -101,7 +101,7 @@ function sanitizeSpotifyTrack(
   const uri =
     typeof raw === "string"
       ? sanitizeString(raw)
-      : raw && typeof raw === "object"
+      : typeof raw === "object"
         ? sanitizeString((raw as Record<string, unknown>).uri)
         : null;
   if (!uri) return null;

@@ -508,6 +508,6 @@ export function CapabilityElement({
     lang: locale,
     dir: direction,
     class: className,
-    key: `${packageId}:${clientModule.version ?? "registered"}:${clientModule.attempt}:${runtimeError ?? "ready"}`,
+    key: `${packageId}:${clientModule.version ?? "registered"}:${clientModule.attempt}`,
   });
 }

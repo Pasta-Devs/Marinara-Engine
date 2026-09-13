@@ -1556,7 +1556,7 @@ function colorNamesInNodes(
     if (typeof node === "number") return node;
     if (isCodeNode(node) || isColoredContext(node)) return node;
 
-    if (node && typeof node === "object" && "props" in node) {
+    if (typeof node === "object" && "props" in node) {
       const element = node as React.ReactElement;
       const props = element.props as Record<string, unknown>;
       if (props.children !== undefined) {

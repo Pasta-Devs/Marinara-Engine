@@ -33,7 +33,6 @@ import {
   CUSTOM_AGENT_RESULT_TYPE_IDS,
 } from "../../packages/client/src/lib/custom-agent-result-examples.js";
 import { estimateGameSessionHistoryTokens } from "../../packages/client/src/lib/game-session-history.js";
-import { MAX_FILE_SIZES } from "../../packages/shared/src/constants/defaults.js";
 import {
   buildCompatibleCharacterExport,
   validateCharacterGalleryReferences,
@@ -10224,10 +10223,6 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   const gameMapSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/components/game/GameMap.tsx"), "utf8");
   const generateRouteSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/server/src/routes/generate.routes.ts"),
-    "utf8",
-  );
-  const retryAgentsRouteSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/server/src/routes/generate/retry-agents-route.ts"),
     "utf8",
   );
   const turnGameBotRunnerSource = readFileSync(

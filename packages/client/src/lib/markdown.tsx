@@ -665,8 +665,6 @@ export function renderMarkdownBlocks(
     // Render the unclosed fence as regular text
     textBuffer.push("```" + codeLang);
     textBuffer.push(...codeBuffer);
-    codeBuffer = [];
-    inCodeBlock = false;
   }
 
   // ── Flush remaining buffers ──

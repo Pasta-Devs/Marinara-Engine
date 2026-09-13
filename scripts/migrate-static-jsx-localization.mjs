@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { basename, extname, relative, resolve, sep } from "node:path";
+import { relative, resolve, sep } from "node:path";
 import ts from "../packages/client/node_modules/typescript/lib/typescript.js";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");

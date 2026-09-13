@@ -6404,12 +6404,11 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
         if (duplicate) {
           recordSkippedTheme(`"${importedThemeName}" is already synced.`);
         } else {
-          const created = await createTheme.mutateAsync({
+          await createTheme.mutateAsync({
             name: importedThemeName,
             css: importedThemeCss,
             installedAt: new Date().toISOString(),
           });
-          workingThemes = [created, ...workingThemes];
           imported++;
         }
       }

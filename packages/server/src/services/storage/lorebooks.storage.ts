@@ -1379,7 +1379,7 @@ export function createLorebooksStorage(db: DB) {
     async searchEntries(query: string) {
       const text = query.trim().toLowerCase();
       if (!text) return [];
-      const rows = await db.select().from(lorebookEntries).orderBy(lorebookEntries.order);
+      const rows = await db.select(lorebookEntries).from(lorebookEntries).orderBy(lorebookEntries.order);
       return rows
         .filter((row) =>
           [row.name, row.content, ...parseStringArray(row.keys)].some(

@@ -459,7 +459,6 @@ import {
   isConversationCommandEnabled,
 } from "../services/generation/conversation-command-runtime.js";
 import {
-  DIRECTOR_SECRET_PLOT_DEFAULT_RUN_INTERVAL,
   DIRECTOR_SECRET_PLOT_LAST_MESSAGE_KEY,
   appendSecretPlotSystemMessage,
   buildDirectorSecretPlotAgent,
@@ -3539,7 +3538,6 @@ export async function generateRoutes(app: FastifyInstance) {
           temperature,
           maxTokens,
           topP,
-          topK,
           minP,
           frequencyPenalty,
           presencePenalty,
@@ -4431,11 +4429,10 @@ export async function generateRoutes(app: FastifyInstance) {
         const directorAgent = resolvedAgents.find((a) => a.type === "director");
         let directorSecretPlotAgent: ResolvedAgent | null = null;
         let directorSecretPlotMemory: Record<string, unknown> = {};
-        let directorSecretPlotRunInterval = DIRECTOR_SECRET_PLOT_DEFAULT_RUN_INTERVAL;
         let shouldRunDirectorSecretPlot = false;
         if (directorAgent) {
           const secretPlotEnabled = resolveDirectorSecretPlotEnabled(directorAgent.settings, chatMeta, chatMode);
-          directorSecretPlotRunInterval = resolveDirectorSecretPlotRunInterval(directorAgent.settings, chatMeta);
+          const directorSecretPlotRunInterval = resolveDirectorSecretPlotRunInterval(directorAgent.settings, chatMeta);
           directorAgent.settings = {
             ...directorAgent.settings,
             secretPlotEnabled,

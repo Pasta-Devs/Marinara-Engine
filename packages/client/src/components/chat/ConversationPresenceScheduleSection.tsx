@@ -35,9 +35,12 @@ const STATUS_COLORS: Record<ConversationPresenceStatus, string> = {
   offline: "bg-gray-400",
 };
 
-function statusLabel(status: ConversationPresenceStatus): string {
-  return status === "offline" ? "Offline" : status === "dnd" ? "Busy" : status === "idle" ? "Away" : "Online";
-}
+const STATUS_LABEL_KEYS: Record<ConversationPresenceStatus, string> = {
+  online: "chat.presence.status.online",
+  idle: "chat.presence.status.away",
+  dnd: "chat.presence.status.busy",
+  offline: "chat.presence.status.offline",
+};
 
 function parseClock(value?: string): number | null {
   if (!value) return null;
@@ -51,9 +54,9 @@ function parseClock(value?: string): number | null {
   return hours * 60 + minutes;
 }
 
-function formatScheduleTimeRange(value: string) {
+function formatScheduleTimeRange(value: string, locale: string) {
   const [start, end] = value.split("-");
-  const formatter = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+  const formatter = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" });
   const formatPart = (part?: string) => {
     const minutes = parseClock(part);
     if (minutes == null) return part ?? "";
@@ -87,7 +90,7 @@ function getUpcomingScheduleBlocks(schedule?: WeekSchedule, limit = 4, timeZone?
         dayOffset,
         blockIndex,
         time: block.time,
-        activity: block.activity || statusLabel(block.status),
+        activity: block.activity,
         status: block.status,
         startsAt: dayOffset * 1440 + start,
       });
@@ -102,27 +105,25 @@ function getScheduledDayCount(schedule?: WeekSchedule): number {
   return CONVERSATION_SCHEDULE_DAYS.filter((day) => (schedule.days[day] ?? []).length > 0).length;
 }
 
-type ScheduleSummary = { text: string; kind: "day-count" | "message" };
-
-function getSummaryText(
+function getSummaryKey(
   schedulesEnabled: boolean,
   hasGeneratedSchedules: boolean,
   schedule?: WeekSchedule,
-): ScheduleSummary {
+): string | null {
   const dayCount = getScheduledDayCount(schedule);
-  if (!schedulesEnabled && !hasGeneratedSchedules)
-    return { text: "Autonomous scheduling is off and no schedule has been generated yet.", kind: "message" };
-  if (!schedulesEnabled) return { text: "Autonomous scheduling is off.", kind: "message" };
-  if (!hasGeneratedSchedules || !schedule)
-    return { text: "Autonomous scheduling is on, but no schedule has been generated yet.", kind: "message" };
-  if (dayCount > 0) return { text: `${dayCount} day${dayCount === 1 ? "" : "s"} scheduled`, kind: "day-count" };
-  return { text: "Schedule exists, but nothing is upcoming yet.", kind: "message" };
+  if (!schedulesEnabled && !hasGeneratedSchedules) return "chat.presence.schedule.offWithoutSchedule";
+  if (!schedulesEnabled) return "chat.presence.schedule.off";
+  if (!hasGeneratedSchedules || !schedule) return "chat.presence.schedule.onWithoutSchedule";
+  if (dayCount > 0) return null;
+  return "chat.presence.schedule.nothingUpcoming";
 }
 
-function dayLabel(block: UpcomingScheduleBlock): string {
-  if (block.dayOffset === 0) return "Today";
-  if (block.dayOffset === 1) return "Tomorrow";
-  return block.day;
+function dayLabel(block: UpcomingScheduleBlock, locale: string, localizeUi: (key: string) => string): string {
+  if (block.dayOffset === 0) return localizeUi("chat.presence.schedule.today");
+  if (block.dayOffset === 1) return localizeUi("chat.presence.schedule.tomorrow");
+  // The shared day order starts on Monday, as did January 1, 2024.
+  const dayIndex = CONVERSATION_SCHEDULE_DAYS.indexOf(block.day);
+  return new Intl.DateTimeFormat(locale, { weekday: "long" }).format(new Date(2024, 0, 1 + dayIndex));
 }
 
 export function ConversationPresenceScheduleSection({
@@ -132,7 +133,8 @@ export function ConversationPresenceScheduleSection({
   hasGeneratedSchedules,
   onOpenScheduleEditor,
 }: ConversationPresenceScheduleSectionProps) {
-  const { t: localizeUi } = useUiTranslation();
+  const { t: localizeUi, i18n } = useUiTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
   const [expanded, setExpanded] = useState(false);
   const conversationTimeZone = useUIStore((state) => state.conversationTimeZone);
   const upcomingBlocks = useMemo(
@@ -141,8 +143,14 @@ export function ConversationPresenceScheduleSection({
   );
   const nextBlock = upcomingBlocks[0];
   const extraBlocks = upcomingBlocks.slice(1);
-  const badge = schedulesEnabled ? (schedule ? "Active" : "Ready") : "Off";
-  const summary = getSummaryText(schedulesEnabled, hasGeneratedSchedules, schedule);
+  const badge = localizeUi(
+    schedulesEnabled
+      ? schedule
+        ? "chat.presence.schedule.activeBadge"
+        : "chat.presence.schedule.readyBadge"
+      : "chat.presence.schedule.offBadge",
+  );
+  const summaryKey = getSummaryKey(schedulesEnabled, hasGeneratedSchedules, schedule);
 
   const openEditor = (day?: string | null) => {
     if (!onOpenScheduleEditor) return;
@@ -167,8 +175,8 @@ export function ConversationPresenceScheduleSection({
               {badge}
             </span>
           </div>
-          {summary.kind !== "day-count" && (
-            <p className="mt-1 text-[0.625rem] leading-4 text-[var(--muted-foreground)]/82">{summary.text}</p>
+          {summaryKey && (
+            <p className="mt-1 text-[0.625rem] leading-4 text-[var(--muted-foreground)]/82">{localizeUi(summaryKey)}</p>
           )}
         </div>
 
@@ -193,9 +201,11 @@ export function ConversationPresenceScheduleSection({
                   {localizeUi("onboarding.actions.next")}
                 </span>
                 <span className="shrink-0 text-[var(--muted-foreground)]/55">·</span>
-                <span className="shrink-0 font-medium text-[var(--muted-foreground)]">{dayLabel(nextBlock)}</span>
+                <span className="shrink-0 font-medium text-[var(--muted-foreground)]">
+                  {dayLabel(nextBlock, locale, localizeUi)}
+                </span>
                 <span className="shrink-0 text-[var(--muted-foreground)]/55">·</span>
-                <span className="min-w-0 truncate tabular-nums">{formatScheduleTimeRange(nextBlock.time)}</span>
+                <span className="min-w-0 truncate tabular-nums">{formatScheduleTimeRange(nextBlock.time, locale)}</span>
               </div>
               {extraBlocks.length > 0 && (
                 <button
@@ -213,7 +223,7 @@ export function ConversationPresenceScheduleSection({
               )}
             </div>
             <div className="mt-0.5 break-words pl-3 text-[0.625rem] leading-4 text-[var(--muted-foreground)]/86">
-              {nextBlock.activity}
+              {nextBlock.activity || localizeUi(STATUS_LABEL_KEYS[nextBlock.status])}
             </div>
           </div>
 
@@ -228,12 +238,12 @@ export function ConversationPresenceScheduleSection({
                 >
                   <div className="flex min-w-0 items-center gap-1.5 text-[0.625rem] text-[var(--muted-foreground)]/82">
                     <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_COLORS[block.status])} />
-                    <span className="shrink-0 font-medium">{dayLabel(block)}</span>
+                    <span className="shrink-0 font-medium">{dayLabel(block, locale, localizeUi)}</span>
                     <span className="shrink-0 text-[var(--muted-foreground)]/55">·</span>
-                    <span className="min-w-0 truncate tabular-nums">{formatScheduleTimeRange(block.time)}</span>
+                    <span className="min-w-0 truncate tabular-nums">{formatScheduleTimeRange(block.time, locale)}</span>
                   </div>
                   <div className="mt-0.5 break-words pl-3 text-[0.625rem] leading-4 text-[var(--muted-foreground)]/82">
-                    {block.activity}
+                    {block.activity || localizeUi(STATUS_LABEL_KEYS[block.status])}
                   </div>
                 </button>
               ))}

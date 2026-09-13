@@ -50,7 +50,6 @@ import {
   DEFAULT_CONVERSATION_PROMPT,
   getDefaultAgentPrompt,
   replaceBuiltInAgentDefinitions,
-  GAME_GM_BUILT_IN_PROMPT_TEMPLATES,
   GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES,
   GAME_VIDEO_PROMPT_TEMPLATE,
   STORYBOARD_OPTIMIZED_IMAGE_PROMPT_TEMPLATE_ID,
@@ -661,7 +660,6 @@ import {
   buildBackgroundProviderPrompt,
   buildNpcPortraitProviderPrompt,
   buildSceneIllustrationProviderPrompt,
-  chatBackgroundTags,
   safeGeneratedAssetSlug,
 } from "../../packages/server/src/services/game/game-asset-generation.js";
 import { MAPS_LOCATION_ARTWORK } from "../../packages/server/src/services/prompt-overrides/registry/game-assets.js";

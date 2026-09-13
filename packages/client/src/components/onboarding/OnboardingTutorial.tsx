@@ -361,7 +361,7 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
     };
   }
 
-  const minScrollableHeight = isMobile ? 220 : 340;
+  const minScrollableHeight = 340;
   const preferredVerticalSide = available.bottom >= available.top ? "bottom" : "top";
   let placement = side;
 
@@ -383,7 +383,7 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
     placement = available.right >= available.left ? "right" : "left";
   }
 
-  let maxHeight = vh - VIEWPORT_MARGIN * 2;
+  let maxHeight: number;
 
   let top = 0;
   let left = 0;

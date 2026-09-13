@@ -655,6 +655,8 @@ function MessageActionLegend({ mode }: { mode: ChatMode }) {
 
 function measurementsSignature(rootRect: Rect | null, targets: MeasuredTarget[]) {
   return JSON.stringify([
+    window.innerWidth,
+    window.innerHeight,
     rootRect,
     targets.map(({ id, rect }) => [
       id,

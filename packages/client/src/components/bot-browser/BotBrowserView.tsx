@@ -3656,9 +3656,7 @@ function DetailView({
               </div>
             ) : (
               <div className="py-4 text-xs italic text-[var(--muted-foreground)]">
-                {loading
-                  ? localizeUi("ui.botBrowser.detailview.loadingCharacterDetails")
-                  : localizeUi("ui.botBrowser.detailview.noDetailedDefinitionAvailableYouCanStillImportThis")}
+                {localizeUi("ui.botBrowser.detailview.noDetailedDefinitionAvailableYouCanStillImportThis")}
               </div>
             )}
           </div>

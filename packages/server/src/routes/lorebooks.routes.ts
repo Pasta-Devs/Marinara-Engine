@@ -178,7 +178,7 @@ function parseRecord(raw: unknown): Record<string, unknown> {
       return {};
     }
   }
-  return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  return typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
 }
 
 function normalizeCachedLorebookScan(raw: unknown): CachedLorebookScan | null {
