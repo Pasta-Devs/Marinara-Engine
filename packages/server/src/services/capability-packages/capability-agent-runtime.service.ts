@@ -1,6 +1,7 @@
 import type { AgentContext, AgentResult } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import type { AgentExecConfig } from "../agents/agent-executor.js";
+import { createAgentConcurrencyLimiter } from "../agents/agent-concurrency.js";
 import { withDeadline } from "./capability-prompt-context.service.js";
 import { getCapabilityService } from "./capability-service-registry.service.js";
 
@@ -75,30 +76,35 @@ export async function finalizeCapabilityAgentResults(
   const prepared = context.memory._capabilityAgentContexts;
   const preparedByType =
     prepared && typeof prepared === "object" && !Array.isArray(prepared) ? (prepared as Record<string, unknown>) : {};
+  const runFinalizer = context.sequentialExecution
+    ? createAgentConcurrencyLimiter(1)
+    : <T>(task: () => Promise<T>) => task();
 
   return Promise.all(
-    results.map(async (result) => {
-      const agent = agentById.get(result.agentId);
-      const runtime = agent ? runtimeFor(agent.type) : null;
-      if (!agent || !runtime?.finalizeResult) return result;
-      try {
-        return await withDeadline(
-          runtime.finalizeResult({
-            agent,
-            context,
-            preparedContext: preparedByType[agent.type],
-            result,
-          }),
-          `agent-runtime finalizeResult ${agent.type}`,
-        );
-      } catch (error) {
-        logger.warn(error, "Capability agent result finalization failed for %s", agent.type);
-        return {
-          ...result,
-          success: false,
-          error: error instanceof Error ? error.message : "Capability agent result validation failed",
-        };
-      }
-    }),
+    results.map((result) =>
+      runFinalizer(async () => {
+        const agent = agentById.get(result.agentId);
+        const runtime = agent ? runtimeFor(agent.type) : null;
+        if (!agent || !runtime?.finalizeResult) return result;
+        try {
+          return await withDeadline(
+            runtime.finalizeResult({
+              agent,
+              context,
+              preparedContext: preparedByType[agent.type],
+              result,
+            }),
+            `agent-runtime finalizeResult ${agent.type}`,
+          );
+        } catch (error) {
+          logger.warn(error, "Capability agent result finalization failed for %s", agent.type);
+          return {
+            ...result,
+            success: false,
+            error: error instanceof Error ? error.message : "Capability agent result validation failed",
+          };
+        }
+      }),
+    ),
   );
 }

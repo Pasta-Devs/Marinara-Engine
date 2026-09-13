@@ -43,6 +43,7 @@ import {
 } from "@marinara-engine/shared";
 import { isSidecarRuntimeInstallEnabled } from "../config/runtime-config.js";
 import { isAdminAuthorized, requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 
 const quantizationSchema = z.enum(["q8_0", "q4_k_m"]);
 const speechModelIdSchema = z.enum(
@@ -89,6 +90,7 @@ async function requireConversationCallsForSpeech(reply: FastifyReply): Promise<b
 }
 
 export const sidecarRoutes: FastifyPluginAsync = async (app) => {
+  registerSequentialGameTasks(app, ["/analyze-scene"]);
   app.get("/status", async () => {
     void sidecarProcessService
       .syncForCurrentConfig({ suppressKnownFailure: true, allowRuntimeInstall: false })

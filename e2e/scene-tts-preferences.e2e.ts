@@ -152,13 +152,12 @@ test("Game dice narration failures offer regeneration and Peek keeps planner usa
     await request.patch(`/api/chats/${chat.id}/metadata`, {
       data: { enableAgents: false, gameId: chat.id, gameSessionStatus: "active", gameIntroPresented: true },
     });
-    await request.post(`/api/chats/${chat.id}/messages`, {
+    const historical = await request.post(`/api/chats/${chat.id}/messages`, {
       data: {
         role: "assistant",
         content: "The old gate waits.",
         extra: {
           cachedPrompt: [{ role: "system", content: "Narrate the outcome." }],
-          generationInfo: { provider: "google", model: "narrator", tokensPrompt: 11 },
           gameToolPlanning: {
             provider: "openai",
             model: "cheap-planner",
@@ -166,6 +165,10 @@ test("Game dice narration failures offer regeneration and Peek keeps planner usa
           },
         },
       },
+    });
+    const historicalId = (await historical.json()).id;
+    await request.patch(`/api/chats/${chat.id}/messages/${historicalId}/extra`, {
+      data: { generationInfo: { provider: "google", model: "narrator", tokensPrompt: 11 } },
     });
     await request.post(`/api/chats/${chat.id}/messages`, { data: { role: "user", content: "Open the gate." } });
     const failed = await (

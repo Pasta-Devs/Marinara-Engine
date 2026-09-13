@@ -16,6 +16,8 @@ import { useUIStore } from "../stores/ui.store";
 type AnalyzeSceneInput = Omit<SceneAnalysisRequest, "debugMode"> & {
   /** When provided, uses a regular connection instead of sidecar. */
   chatId?: string;
+  /** Scope sidecar work to the chat without selecting a regular connection. */
+  ownerChatId?: string;
   connectionId?: string;
 };
 
@@ -53,6 +55,7 @@ async function analyzeScene(input: AnalyzeSceneInput): Promise<SceneAnalysis> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      chatId: input.ownerChatId,
       narration: input.narration,
       playerAction: input.playerAction,
       context: input.context,

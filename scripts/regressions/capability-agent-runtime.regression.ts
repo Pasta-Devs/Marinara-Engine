@@ -82,7 +82,7 @@ const retryBatchSource = retryRouteSource.slice(retryBatchStart, retryBatchEnd);
 assert.ok(retryBatchStart >= 0 && retryBatchEnd > retryBatchStart);
 assert.match(
   retryBatchSource,
-  /prepareCapabilityAgentContexts\(groupAgents, group\.context\)[\s\S]*executeAgentBatch\(configs, preparedGroupContext/u,
+  /prepareCapabilityAgentContexts\(groupAgents, group\.context\)[\s\S]*executeAgentBatch\(\s*configs,\s*preparedGroupContext/u,
   "manual Agent reruns must prepare capability runtime context before building provider requests",
 );
 const retryFinalizeStart = retryRouteSource.indexOf("results = await Promise.all(");
@@ -97,5 +97,39 @@ assert.match(
 await assert.rejects(withDeadline(new Promise(() => undefined), "agent-runtime regression", 5), /exceeded 5ms/);
 
 release();
+let activeFinalizers = 0;
+let peakFinalizers = 0;
+const finishRelease = registerCapabilityService("agent-runtime:memory-nag", {
+  finalizeResult: async ({ result: input }: { result: AgentResult }) => {
+    activeFinalizers++;
+    peakFinalizers = Math.max(peakFinalizers, activeFinalizers);
+    try {
+      await new Promise<void>((done) => setTimeout(done, 10));
+      return input;
+    } finally {
+      activeFinalizers--;
+    }
+  },
+});
+try {
+  const agents = [agent, { ...agent, id: "second-finalizer" }];
+  const results = [result, { ...result, agentId: "second-finalizer" }];
+  for (const sequentialExecution of [false, true]) {
+    peakFinalizers = 0;
+    const finalized = await finalizeCapabilityAgentResults(results, agents, {
+      ...context,
+      chatMode: "game",
+      sequentialExecution,
+    });
+    assert.deepEqual(finalized, results);
+    assert.equal(
+      peakFinalizers,
+      sequentialExecution ? 1 : 2,
+      "package finalizers share the opt-in Game sequence even when they start extra model work",
+    );
+  }
+} finally {
+  finishRelease();
+}
 resetCapabilityServices();
 console.info("Capability agent runtime regression passed");

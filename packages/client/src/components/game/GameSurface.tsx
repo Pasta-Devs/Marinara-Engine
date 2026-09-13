@@ -5138,6 +5138,7 @@ function GameSurfaceComponent({
       if (useSidecar) {
         sceneAnalysis.mutate(
           {
+            ownerChatId: activeChatId,
             narration: tags.cleanContent,
             context: analysisContext,
           },
@@ -6737,6 +6738,7 @@ function GameSurfaceComponent({
       let selectedTrack: SceneSpotifyTrackSelection | null = null;
       if (useSidecar) {
         const result = await sceneAnalysis.mutateAsync({
+          ownerChatId: activeChatId,
           narration: tags.cleanContent,
           context: { ...sceneContext, availableSpotifyTracks },
         });
@@ -10395,7 +10397,7 @@ function GameSurfaceComponent({
       );
     } else {
       sceneAnalysis.mutate(
-        { narration: tags.cleanContent, context },
+        { ownerChatId: activeChatId, narration: tags.cleanContent, context },
         {
           onSuccess: (result) => {
             onSuccess(result);

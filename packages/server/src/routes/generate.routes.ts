@@ -840,7 +840,7 @@ function replaceConversationContextMacro(
 }
 
 export async function generateRoutes(app: FastifyInstance) {
-  registerSequentialGameTasks(app, ["/"]);
+  registerSequentialGameTasks(app, ["/", "/retry-agents"]);
   const isDebug = logger.isLevelEnabled("debug");
 
   const chats = createChatsStorage(app.db);
@@ -5438,6 +5438,8 @@ export async function generateRoutes(app: FastifyInstance) {
               })()
             : Promise.resolve([] as AgentInjection[]);
 
+          if (agentContext.sequentialExecution) await preGenPromise;
+
           // Build the knowledge retrieval promise
           // Wrapped in try/catch so a KR failure (LLM error, parse error, etc.) never
           // aborts the whole generation — knowledge retrieval is an optional enhancement,
@@ -5490,6 +5492,8 @@ export async function generateRoutes(app: FastifyInstance) {
                 }
               })()
             : Promise.resolve(null);
+
+          if (agentContext.sequentialExecution) await krPromise;
 
           // Build the knowledge router promise
           // Wrapped in try/catch so a router failure (LLM error, parse error, etc.)

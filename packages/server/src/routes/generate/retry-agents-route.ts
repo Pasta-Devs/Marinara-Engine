@@ -46,6 +46,7 @@ import {
   type ResolvedAgent,
 } from "../../services/agents/agent-pipeline.js";
 import { executeAgent, executeAgentBatch, normalizeAgentContextSize } from "../../services/agents/agent-executor.js";
+import { createAgentConcurrencyLimiter } from "../../services/agents/agent-concurrency.js";
 import type { BaseLLMProvider } from "../../services/llm/base-provider.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../../services/llm/local-sidecar.js";
 import { createLLMProvider } from "../../services/llm/provider-registry.js";
@@ -1063,6 +1064,7 @@ async function buildRetryAgentContext(args: {
     embeddingOptions: { embeddingSource },
   });
   const agentContext: AgentContext = {
+    sequentialExecution: chatMode === "game" && chatMeta.gameSequentialAgents === true,
     chatId,
     chatMode,
     wrapFormat,
@@ -2437,9 +2439,10 @@ async function executeRetryBatches(
   }
 
   const results: AgentResult[] = [];
+  const runProviderJob = agentContext.sequentialExecution ? createAgentConcurrencyLimiter(1) : undefined;
   const groupSettled = await settleAgentJobsWithConcurrencyLimit(
     jobGroups,
-    AGENT_PHASE_MAX_CONCURRENT_GROUPS,
+    agentContext.sequentialExecution ? 1 : AGENT_PHASE_MAX_CONCURRENT_GROUPS,
     async (group) => {
       const groupAgents = group.agents.map((agent) => agent.resolved);
       const preparedGroupContext = await prepareCapabilityAgentContexts(groupAgents, group.context);
@@ -2453,7 +2456,14 @@ async function executeRetryBatches(
 
       if (regularBatchAgents.length > 0) {
         const configs = regularBatchAgents.map((agent) => agent.resolved);
-        const batchResults = await executeAgentBatch(configs, preparedGroupContext, group.provider, group.model);
+        const batchResults = await executeAgentBatch(
+          configs,
+          preparedGroupContext,
+          group.provider,
+          group.model,
+          undefined,
+          runProviderJob,
+        );
         for (const result of batchResults) {
           const entry = regularBatchAgents.find(
             (agent) => agent.resolved.id === result.agentId || agent.resolved.type === result.agentType,
@@ -4871,13 +4881,18 @@ export async function registerRetryAgentsRoute(
             })
           : result,
       );
+      const runFinalizer = agentContext.sequentialExecution
+        ? createAgentConcurrencyLimiter(1)
+        : <T>(task: () => Promise<T>) => task();
       results = await Promise.all(
-        results.map(async (result) => {
-          const entry = nonLorebookAgents.find((agent) => agent.resolved.id === result.agentId);
-          const preparedContext = preparedCapabilityContexts.get(result.agentId);
-          if (!entry || !preparedContext) return result;
-          return (await finalizeCapabilityAgentResults([result], [entry.resolved], preparedContext))[0] ?? result;
-        }),
+        results.map((result) =>
+          runFinalizer(async () => {
+            const entry = nonLorebookAgents.find((agent) => agent.resolved.id === result.agentId);
+            const preparedContext = preparedCapabilityContexts.get(result.agentId);
+            if (!entry || !preparedContext) return result;
+            return (await finalizeCapabilityAgentResults([result], [entry.resolved], preparedContext))[0] ?? result;
+          }),
+        ),
       );
       let rawLorebookKeeperRunEntries: Array<{ messageId: string; swipeIndex: number; result: AgentResult }> = [];
       if (lorebookKeeperAgent) {

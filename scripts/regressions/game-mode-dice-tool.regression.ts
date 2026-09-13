@@ -452,7 +452,7 @@ assert.match(
 );
 assert.match(
   generateRouteSource,
-  /toolChoice: resolveMainGenerationToolChoice\(\{ chatMetadata: chatMeta, enableChatTools, round \}\)/u,
+  /resolveMainGenerationToolChoice\(\{ chatMetadata: chatMeta, enableChatTools, round \}\)/u,
   "the tool choice must be told whether the user's toggle is on, not just what the chat metadata holds",
 );
 assert.match(
