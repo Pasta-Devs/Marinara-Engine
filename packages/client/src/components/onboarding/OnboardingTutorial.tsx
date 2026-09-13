@@ -293,7 +293,7 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
     : Math.min(TUTORIAL_DESKTOP_WIDTH, vw - VIEWPORT_MARGIN * 2);
   const GAP = isMobile ? 8 : 16;
   const topOffset = getTutorialTopOffset();
-  const availableViewportHeight = Math.max(200, vh - topOffset - VIEWPORT_MARGIN);
+  const availableViewportHeight = Math.max(0, vh - topOffset - VIEWPORT_MARGIN);
   const side = step.side ?? "right";
   const available = {
     right: vw - (rect.left + rect.width + GAP + PAD) - VIEWPORT_MARGIN,
@@ -324,7 +324,7 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
       top,
       left,
       width: TOOLTIP_W,
-      maxHeight: `${Math.max(200, vh - top - VIEWPORT_MARGIN)}px`,
+      maxHeight: `${Math.max(0, vh - top - VIEWPORT_MARGIN)}px`,
       overflowY: "auto",
       overflowX: "hidden",
       overscrollBehavior: "contain",
@@ -354,7 +354,7 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
       top,
       left,
       width: TOOLTIP_W,
-      maxHeight: `${Math.max(200, vh - top - VIEWPORT_MARGIN)}px`,
+      maxHeight: `${Math.max(0, vh - top - VIEWPORT_MARGIN)}px`,
       overflowY: "auto",
       overflowX: "hidden",
       overscrollBehavior: "contain",
@@ -693,7 +693,7 @@ function OnboardingTutorialInner() {
 
   const isCentered = isMobileViewport || currentStep.centerCard || !currentStep.target || !targetRect;
   const centeredTopOffset = getTutorialTopOffset();
-  const centeredCardMaxHeight = Math.max(220, getViewportHeight() - centeredTopOffset - 16);
+  const centeredCardMaxHeight = Math.max(0, getViewportHeight() - centeredTopOffset - 16);
 
   const pickerSlot = currentStep.docsLanguagePicker ? (
     <div className="mb-4 flex flex-col gap-3 text-left">

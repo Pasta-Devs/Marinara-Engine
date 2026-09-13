@@ -181,24 +181,38 @@ const constantsEnd = tutorial.indexOf("const TUTORIAL_CARD_CLASS", constantsStar
 const helpersStart = tutorial.indexOf("function getViewportWidth");
 const helpersEnd = tutorial.indexOf("// ─── Card content", helpersStart);
 assert.ok(constantsStart >= 0 && constantsEnd > constantsStart && helpersStart >= 0 && helpersEnd > helpersStart);
-const tooltipSource = `${tutorial.slice(constantsStart, constantsEnd)}\n${tutorial.slice(helpersStart, helpersEnd)}\ncomputeTooltipStyle;`;
+const centeredSizing = tutorial.match(/const centeredTopOffset =[^;]+;\s*const centeredCardMaxHeight =[^;]+;/u)?.[0];
+assert.ok(centeredSizing, "centered tutorial sizing must be exercised too");
+const tooltipSource = `${tutorial.slice(constantsStart, constantsEnd)}\n${tutorial.slice(helpersStart, helpersEnd)}\n({ computeTooltipStyle, centeredHeight: () => { ${centeredSizing} return centeredCardMaxHeight; } });`;
 const viewport = { innerWidth: 800, innerHeight: 320 };
-const computeTooltipStyle = runInNewContext(
+const { computeTooltipStyle, centeredHeight } = runInNewContext(
   ts.transpileModule(tooltipSource, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText,
   {
     window: viewport,
     document: { querySelector: () => ({ getBoundingClientRect: () => ({ bottom: 48 }) }) },
   },
 );
-for (const side of ["top", "bottom", "left", "right"]) {
-  const style = computeTooltipStyle(
-    { left: 100, top: 500, width: 500, height: 44 },
-    { target: "home-documentation", side },
-  );
-  assert.ok(style.top >= 60, `${side}: tutorial must remain below the topbar`);
-  assert.ok(style.top + Number.parseFloat(style.maxHeight) <= 304, `${side}: tutorial must fit the short viewport`);
-  assert.equal(style.overflowY, "auto", "long tutorial content must remain scrollable");
+for (const height of [320, 220]) {
+  viewport.innerHeight = height;
+  for (const width of [800, 390]) {
+    viewport.innerWidth = width;
+    for (const target of ["home-documentation", "panel-settings", "sidebar-toggle", "chat-mode-roleplay"]) {
+      for (const side of ["top", "bottom", "left", "right"]) {
+        const top = target === "home-documentation" ? 500 : target === "chat-mode-roleplay" ? 80 : 8;
+        const style = computeTooltipStyle({ left: 100, top, width: 500, height: 44 }, { target, side });
+        const margin = width < 640 ? 12 : 16;
+        assert.ok(style.top >= 60, `${target}/${side}: tutorial must remain below the topbar`);
+        assert.ok(
+          style.top + Number.parseFloat(style.maxHeight) <= height - margin,
+          `${width}x${height} ${target}/${side}: tutorial must fit the short viewport`,
+        );
+        assert.equal(style.overflowY, "auto", "long tutorial content must remain scrollable");
+      }
+    }
+    assert.equal(centeredHeight(), height - 60 - 16, "centered cards must also use the actual available height");
+  }
 }
+viewport.innerWidth = 800;
 viewport.innerHeight = 600;
 const normalStyle = computeTooltipStyle(
   { left: 100, top: 200, width: 500, height: 20 },

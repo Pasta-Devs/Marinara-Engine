@@ -8643,11 +8643,16 @@ test("chat Help overlay responds to viewport changes with unchanged target geome
     const { ChatHelpOverlay } = (await import("/src/components/chat/ChatHelpOverlay.tsx" as string)) as {
       ChatHelpOverlay: unknown;
     };
-    const { requestChatHelp } = (await import(
-      "/src/lib/chat-help-events.ts" as string
-    )) as typeof import("../packages/client/src/lib/chat-help-events");
+    const { ChatHelpButton } = (await import("/src/components/chat/ChatHelpButton.tsx" as string)) as {
+      ChatHelpButton: unknown;
+    };
     const runtime = globalThis as typeof globalThis & {
-      React: { createElement: (component: unknown, props: Record<string, unknown>) => unknown };
+      React: {
+        Fragment: unknown;
+        createElement: (component: unknown, props: Record<string, unknown> | null, ...children: unknown[]) => unknown;
+        useState: (initial: boolean) => [boolean, (value: boolean) => void];
+        useEffect: (effect: () => void, dependencies: unknown[]) => void;
+      };
       ReactDOM: { createRoot: (mount: HTMLElement) => { render: (element: unknown) => void } };
     };
     // A fixed-size surface exposes viewport changes that do not move any measured target.
@@ -8656,18 +8661,28 @@ test("chat Help overlay responds to viewport changes with unchanged target geome
     surface.style.cssText = "position:fixed;top:20px;left:20px;width:200px;height:200px";
     document.body.prepend(surface);
     const mount = document.createElement("div");
+    mount.dataset.helpViewportFixture = "true";
+    mount.style.cssText = "position:fixed;top:20px;left:20px;z-index:10000";
     document.body.append(mount);
-    runtime.ReactDOM.createRoot(mount).render(
-      runtime.React.createElement(ChatHelpOverlay, {
-        mode: "conversation",
-        activeChatId: "fixed-help-viewport-fixture",
-        isFirstChat: false,
-        autoOpenBlocked: true,
-      }),
-    );
-    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-    requestChatHelp("conversation");
+    function HelpFixture() {
+      const [ready, setReady] = runtime.React.useState(false);
+      // Reveal the real trigger after the child overlay has registered its event listener.
+      runtime.React.useEffect(() => setReady(true), []);
+      return runtime.React.createElement(
+        runtime.React.Fragment,
+        null,
+        runtime.React.createElement(ChatHelpOverlay, {
+          mode: "conversation",
+          activeChatId: "fixed-help-viewport-fixture",
+          isFirstChat: false,
+          autoOpenBlocked: true,
+        }),
+        ready ? runtime.React.createElement(ChatHelpButton, { mode: "conversation" }) : null,
+      );
+    }
+    runtime.ReactDOM.createRoot(mount).render(runtime.React.createElement(HelpFixture, null));
   });
+  await page.locator("[data-help-viewport-fixture]").getByRole("button", { name: "Help", exact: true }).click();
 
   const overlay = page.locator('[data-chat-help-overlay="conversation"]');
   const legend = overlay.locator("[data-chat-help-legend]");
