@@ -7,6 +7,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import type {
   Chat,
   ChatMode,
+  Message,
   MessageReply,
   ConversationCallSession,
   ConversationPresenceStatus,
@@ -213,6 +214,8 @@ interface ChatState {
   streamBuffers: Map<string, string>;
   /** Persisted assistant row currently represented by each chat's live streaming row. */
   streamedMessageIds: Map<string, string>;
+  /** Completed generated replies awaiting their first VN display, including inactive chats. */
+  pendingVnReplies: Map<string, Pick<Message, "id" | "activeSwipeIndex" | "content">>;
   thinkingBuffer: string;
   /** Per-chat live thinking text for active generations. */
   thinkingBuffers: Map<string, string>;
@@ -279,6 +282,7 @@ interface ChatState {
   setActiveChatId: (id: string | null) => void;
   setStreaming: (streaming: boolean, chatId?: string) => void;
   setStreamedMessageId: (chatId: string, messageId: string | null) => void;
+  setPendingVnReply: (chatId: string, reply: Pick<Message, "id" | "activeSwipeIndex" | "content"> | null) => void;
   setMariPhase: (chatId: string, phase: "thinking" | "updating" | "idle") => void;
   setAbortController: (chatId: string, controller: AbortController | null) => void;
   setBackgroundIllustration: (chatId: string, pending: boolean) => void;
@@ -368,6 +372,7 @@ export const useChatStore = create<ChatState>()(
     streamBuffer: "",
     streamBuffers: new Map(),
     streamedMessageIds: new Map(),
+    pendingVnReplies: new Map(),
     thinkingBuffer: "",
     thinkingBuffers: new Map(),
     abortControllers: new Map(),
@@ -515,6 +520,13 @@ export const useChatStore = create<ChatState>()(
         const next = new Map(state.mariPhaseByChatId);
         next.set(chatId, phase);
         return { mariPhaseByChatId: next };
+      }),
+    setPendingVnReply: (chatId, reply) =>
+      set((state) => {
+        const pendingVnReplies = new Map(state.pendingVnReplies);
+        if (reply) pendingVnReplies.set(chatId, reply);
+        else pendingVnReplies.delete(chatId);
+        return { pendingVnReplies };
       }),
     setAbortController: (chatId, controller) =>
       set((state) => {
@@ -1037,6 +1049,7 @@ export const useChatStore = create<ChatState>()(
         streamBuffer: "",
         streamBuffers: new Map(),
         streamedMessageIds: new Map(),
+        pendingVnReplies: new Map(),
         thinkingBuffer: "",
         thinkingBuffers: new Map(),
         abortControllers: new Map(),

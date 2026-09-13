@@ -1521,6 +1521,7 @@ export function ChatRoleplaySurface({
     return (messages ?? []).filter((message) => message.role !== "system" && !isMessageHiddenFromUser(message));
   }, [messages]);
   const latestVnMessage = visibleVnMessages[visibleVnMessages.length - 1];
+  const pendingVnReply = useChatStore((s) => s.pendingVnReplies.get(activeChatId));
 
   // Visual Novel navigation: track selected message index and paragraph index within that message.
   // By default (or when null), it stays on the latest message.
@@ -1542,7 +1543,7 @@ export function ChatRoleplaySurface({
     return activeVnMessage ? visibleVnMessages.indexOf(activeVnMessage) : -1;
   }, [activeVnMessage, visibleVnMessages]);
 
-  // Reset VN navigation when switching chats or when live stream starts/ends
+  // Reset VN navigation when switching chats or when live stream starts/ends.
   useEffect(() => {
     setVnSelectedMessageId(null);
     setVnParagraphIndex(null);
@@ -1557,6 +1558,23 @@ export function ChatRoleplaySurface({
       setVnParagraphIndex(null);
     }
   }, [visibleVnMessages]);
+
+  // Consume only a generated reply, once its durable row replaces the stream.
+  // Edits, cached swipes, and history navigation never create this marker.
+  useEffect(() => {
+    if (
+      hasLiveStream ||
+      !pendingVnReply ||
+      latestVnMessage?.id !== pendingVnReply.id ||
+      latestVnMessage.activeSwipeIndex !== pendingVnReply.activeSwipeIndex ||
+      latestVnMessage.content !== pendingVnReply.content
+    )
+      return;
+    setVnSelectedMessageId(null);
+    setVnParagraphIndex(0);
+    pendingVnPrevious.current = null;
+    useChatStore.getState().setPendingVnReply(activeChatId, null);
+  }, [activeChatId, hasLiveStream, latestVnMessage, pendingVnReply]);
 
   const currentParagraphIndex = vnParagraphIndex ?? Math.max(0, vnParagraphCount - 1);
 

@@ -14,6 +14,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Windows Ctrl+C now lets the server finish saving before the launcher exits; restart and shutdown regressions use portable loader URLs and include a native Windows console check (#6119, #6135).
 
+- Fixed Roleplay Visual Novel mode starting newly generated multi-paragraph replies on the final paragraph instead of the first, while preserving paragraph navigation after edits and selecting existing swipes.
+
 - Added an opt-in Roleplay interrupt command: characters can cut off the latest dialogue or action, with Restore and full original context on rerolls (#6109).
 - Kept Roleplay command details readable in light themes when the chat uses a custom message text color.
 
