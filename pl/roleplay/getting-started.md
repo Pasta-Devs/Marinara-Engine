@@ -91,6 +91,14 @@ Zapisany fragment można obejrzeć, edytować i uruchomić ponownie. Edycja zmie
 
 Nad polem czatu Narrative Director ma przycisk **Push Story**. Uzbraja on tego agenta wyłącznie na następną odpowiedź. Narrative Director może też prowadzić ukryty, długofalowy wątek o nazwie **Secret Plot**. Oba opisuje przewodnik [Narrative Director i Secret Plot](narrative-director.md).
 
+## Przerywanie wypowiedzi i działań
+
+W sekcji **Chat Settings → Agents → Roleplay Commands** włącz **Interruptions** (przerywanie), aby postacie mogły przerwać ostatnią wiadomość, gdy słowna lub fizyczna interwencja jest wiarygodna. Opcja jest domyślnie wyłączona i nie wymaga pobieranego agenta.
+
+Model używa `[interrupt: part="a verbatim phrase of at least three words"]`. Aplikacja Marinara Engine szuka tej frazy tylko w wiadomości bezpośrednio poprzedzającej odpowiedź, zachowuje tekst do końca frazy i zastępuje jego zakończenie pauzą oznaczającą przerwanie. Dialog zachowuje zamykający cudzysłów; opis działania go nie zyskuje. Brak dopasowania lub niejednoznaczne dopasowanie pozostawia wiadomość bez zmian.
+
+Otwórz informacje o poleceniach użytych w odpowiedzi i wybierz **Restore original message** (przywróć oryginalną wiadomość), aby odzyskać pełną treść. Ponowne generowanie najpierw przywraca pełną oryginalną wiadomość wejściową, więc nowa odpowiedź może zdecydować, czy ją przerwać. Wybranie istniejącego wariantu odpowiedzi stosuje przypisane mu przerwanie, chyba że wiadomość została jawnie przywrócona. Późniejsze ręczne zmiany są zachowywane i nie zostaną nadpisane przez wcześniejsze przerwanie.
+
 ## Echo Chamber
 
 **Echo Chamber** to opcjonalny agent, który dodaje do sceny reagującą na żywo publiczność. Działa jak czat na streamingu, w którym co jakiś czas pojawia się nowa reakcja. Włącz go w panelu **Chat Settings**, w sekcji **Agents**, na karcie **Echo Chamber**. Panel unosi się nad sceną i da się go zwinąć do małego kafelka.
