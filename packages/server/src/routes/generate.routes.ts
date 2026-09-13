@@ -1,3 +1,4 @@
+import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 import { createAdvancedMemoryService, selectAdvancedMemoryMessages } from "../services/advanced-memory.js";
 import { prepareAdvancedMemoryContext } from "../services/generation/advanced-memory-context.js";
 import { measureContextBudget } from "../services/llm/base-provider.js";
@@ -839,6 +840,7 @@ function replaceConversationContextMacro(
 }
 
 export async function generateRoutes(app: FastifyInstance) {
+  registerSequentialGameTasks(app, ["/"]);
   const isDebug = logger.isLevelEnabled("debug");
 
   const chats = createChatsStorage(app.db);
@@ -2058,6 +2060,7 @@ export async function generateRoutes(app: FastifyInstance) {
             ...characterActivityAgents.map((agent) => normalizeAgentContextSize(agent.settings.contextSize)),
           );
           const routingContext: AgentContext = {
+            sequentialExecution: chatMode === "game" && chatMeta.gameSequentialAgents === true,
             chatId: input.chatId,
             chatMode,
             wrapFormat: normalizePromptWrapFormat(resolvedPreset?.wrapFormat),
@@ -4294,6 +4297,7 @@ export async function generateRoutes(app: FastifyInstance) {
         };
 
         const agentContext: AgentContext = {
+          sequentialExecution: chatMode === "game" && chatMeta.gameSequentialAgents === true,
           chatId: input.chatId,
           chatMode,
           wrapFormat,
@@ -4862,7 +4866,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 .filter((e: LorebookEntry) => {
                   if (source === "chat_active" && e.constant === true) return false;
                   const ov = entryStateOverrides[e.id];
-                  const isEnabled = ov?.enabled ?? e.enabled !== false;
+                  const isEnabled = e.enabled !== false && ov?.enabled !== false;
                   if (!isEnabled) return false;
                   // Project the ephemeral override here so the exhaustion check uses
                   // the per-chat remaining count, not the stale global default.
@@ -7029,8 +7033,10 @@ export async function generateRoutes(app: FastifyInstance) {
                       presencePenalty: presencePenalty || undefined,
                       minP: minP || undefined,
                       stop: stopSequences.length ? stopSequences : undefined,
-                      tools: responderToolDefs,
-                      toolChoice: resolveMainGenerationToolChoice({ chatMetadata: chatMeta, enableChatTools, round }),
+                      tools: supportsNativeToolCalls(conn.provider) ? responderToolDefs : undefined,
+                      toolChoice: supportsNativeToolCalls(conn.provider)
+                        ? resolveMainGenerationToolChoice({ chatMetadata: chatMeta, enableChatTools, round })
+                        : undefined,
                       debugMode: requestDebug,
                       enableCaching: conn.enableCaching === "true",
                       anthropicExtendedCacheTtl: conn.anthropicExtendedCacheTtl === "true",
@@ -7488,6 +7494,7 @@ export async function generateRoutes(app: FastifyInstance) {
           }
 
           let contentReplaced = false;
+          let gameOutcomeNarrationFailed = false;
 
           // Some models inline reasoning blocks instead of using provider-native
           // thinking channels. Lift those blocks into message.extra.thinking.
@@ -7883,6 +7890,8 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
 
+          // The outcome rewrite must see the commands it is asked to retain or reject.
+          const gameDraftWithCommands = fullResponse;
           if (hierarchicalMapsEnabledForChat && (requestChatMode === "roleplay" || requestChatMode === "game")) {
             const parsedSpatial = extractAssistantSpatialDirective(fullResponse);
             assistantSpatialDirectiveDetected = parsedSpatial.directive !== null;
@@ -7957,7 +7966,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 },
               });
             }
-            if (rolled.resolved || generalRolls.rolled) {
+            if (rolled.resolved || generalRolls.rolled || generalRolls.unresolved.length || rolled.sparse) {
               // The first draft predates these results. Rewrite it with the real
               // outcomes in context, including on providers without a tools API.
               const records = [...fullResponse.matchAll(createGameRollTagRegex())].map((match) => match[0]);
@@ -7968,10 +7977,10 @@ export async function generateRoutes(app: FastifyInstance) {
               ].join("\n");
               const continuationMessages = await fitPromptForSend([
                 ...narratorMessages,
-                { role: "assistant", content: fullResponse },
+                { role: "assistant", content: gameDraftWithCommands },
                 {
                   role: "user",
-                  content: `The engine has now rolled the requested dice:\n${resolvedSummary}\nRewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now. Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. If another request remains unresolved, leave its outcome open. Include only commands still justified by these outcomes. Return only the complete revised GM narration in the game's language.`,
+                  content: `The engine has now rolled the requested dice:\n${resolvedSummary || "No dice were rolled."}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse ? "\nSome checks could not be rolled and remain unresolved." : ""}\nRewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now. Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them. Only commands in your revised output will execute. Return only the complete revised GM narration in the game's language.`,
                 },
               ]);
               logPromptSentToModel(continuationMessages, "Game narration after engine rolls");
@@ -8026,6 +8035,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   input.chatId,
                 );
                 narration = "";
+                gameOutcomeNarrationFailed = true;
               } finally {
                 await followup.return?.().catch((closeError: unknown) => {
                   logger.warn(closeError, "[generate/game] Failed to close the outcome narration stream");
@@ -8034,7 +8044,11 @@ export async function generateRoutes(app: FastifyInstance) {
               // Keep the engine's records exactly once, even if the rewrite
               // echoed or changed them. On failure, save the real results rather
               // than the first draft's guessed outcome or a partial replacement.
-              narration = narration.replace(createGameRollTagRegex(), "").trim() || resolvedSummary;
+              narration = narration.replace(createGameRollTagRegex(), "").trim();
+              if (!narration) {
+                gameOutcomeNarrationFailed = true;
+                sendSseEvent(reply, { type: "game_outcome_narration_failed", data: { chatId: input.chatId } });
+              }
               fullResponse = [narration, ...records].join("\n");
               if (hierarchicalMapsEnabledForChat) {
                 const spatial = extractAssistantSpatialDirective(fullResponse);
@@ -8397,6 +8411,7 @@ export async function generateRoutes(app: FastifyInstance) {
             });
           } else if (savedMsg?.id) {
             const extraUpdate: Record<string, unknown> = {
+              ...(chatMode === "game" ? { gameOutcomeNarrationFailed } : {}),
               ...(gameToolPlan && gameToolConnection
                 ? {
                     gameToolPlanning: {
@@ -8688,7 +8703,7 @@ export async function generateRoutes(app: FastifyInstance) {
         if (hasParallelAgents && !abortController.signal.aborted) {
           deferParallelAgentEvents = true;
           parallelAgentStartPending = true;
-          parallelPromise = pipeline.runParallel();
+          if (!agentContext.sequentialExecution) parallelPromise = pipeline.runParallel();
         }
 
         // ── Run generation ──
@@ -9001,6 +9016,9 @@ export async function generateRoutes(app: FastifyInstance) {
         // ────────────────────────────────────────
         // Await parallel agents that were started alongside the generation
         let parallelResults: AgentResult[] = [];
+        if (hasParallelAgents && agentContext.sequentialExecution && !abortController.signal.aborted) {
+          parallelPromise = pipeline.runParallel();
+        }
         if (parallelPromise) {
           try {
             const completedParallelResults = await parallelPromise;
@@ -11301,6 +11319,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       });
                     }
                   })();
+                  if (agentContext.sequentialExecution) await pendingIllustration;
                   if (commandTarget && pendingIllustration) pendingRoleplayMedia.push(pendingIllustration);
                 } else {
                   logger.warn("[illustrator] Agent wants to generate but no image generation connection configured");
@@ -11875,6 +11894,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
       // Start the independent scene-background tail after tracker persistence,
       // then keep the SSE stream open for both visual jobs.
+      if (chatMode === "game" && chatMeta.gameSequentialAgents === true) await pendingIllustration;
       const pendingBackground = pendingIllustratorBackground ? pendingIllustratorBackground() : null;
       if (pendingIllustration || pendingBackground || pendingRoleplayMedia.length) {
         await Promise.allSettled(

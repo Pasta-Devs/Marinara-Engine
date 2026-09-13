@@ -70,7 +70,10 @@ export function FunctionCallingSection({
   // A random-pool choice is resolved by the server at generation time; an
   // unselected narrator must still allow configuring the chat in advance.
   const nativeToolsAvailable = toolProvider ? supportsNativeToolCalls(toolProvider) : !(isGameMode && toolConnectionId);
-  const inactiveTools = availableTools.filter((tool) => !activeToolIds.includes(tool.id));
+  const loreSearchUnavailable = isGameMode && !gameLorebookSearch;
+  const inactiveTools = availableTools.filter(
+    (tool) => !activeToolIds.includes(tool.id) && !(loreSearchUnavailable && tool.name === "search_lorebook"),
+  );
   const visibleInactiveTools = inactiveTools.filter((tool) =>
     tool.name.toLowerCase().includes(toolSearch.toLowerCase()),
   );
@@ -121,11 +124,23 @@ export function FunctionCallingSection({
               description={localizeUi("chat.settings.tools.loreSearchHelp")}
               checked={gameLorebookSearch}
               disabled={!nativeToolsAvailable}
-              onChange={onGameLorebookSearchChange}
+              onChange={(enabled) => {
+                if (!enabled) {
+                  onPendingToolIdsChange((previous) =>
+                    previous.filter((id) => availableTools.find((tool) => tool.id === id)?.name !== "search_lorebook"),
+                  );
+                }
+                onGameLorebookSearchChange(enabled);
+              }}
               labelPosition="start"
               className="justify-between rounded-lg bg-[var(--secondary)] px-3 py-2.5 text-left"
               labelClassName="text-xs font-medium"
             />
+            {loreSearchUnavailable && (
+              <p className="px-1 text-xs text-[var(--muted-foreground)]">
+                {localizeUi("chat.settings.tools.loreSearchDisabled")}
+              </p>
+            )}
           </>
         )}
         {!nativeToolsAvailable && (
@@ -178,21 +193,30 @@ export function FunctionCallingSection({
             />
             {activeToolIds.length === 0 ? (
               <p className="text-[0.6875rem] text-[var(--muted-foreground)] px-1">
-                {localizeUi("ui.chatSettings.functioncallingsection.allGloballyEnabledToolsAreAvailableToThisChat")}
+                {localizeUi("chat.settings.tools.availableDefaults")}
               </p>
             ) : (
               <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
                 {activeToolIds.map((toolId) => {
                   const tool = availableTools.find((item) => item.id === toolId);
                   if (!tool) return null;
+                  const unavailable = loreSearchUnavailable && tool.name === "search_lorebook";
                   return (
                     <div
                       key={tool.id}
-                      className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-lg px-3 py-2 ring-1",
+                        unavailable
+                          ? "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)]"
+                          : "bg-[var(--primary)]/10 ring-[var(--primary)]/30",
+                      )}
                     >
-                      <Wrench size="0.875rem" className="text-[var(--primary)]" />
+                      <Wrench size="0.875rem" className={unavailable ? "shrink-0" : "shrink-0 text-[var(--primary)]"} />
                       <div className="flex-1 min-w-0">
                         <span className="block truncate text-xs">{tool.name}</span>
+                        {unavailable && (
+                          <span className="block text-xs">{localizeUi("chat.settings.tools.loreSearchDisabled")}</span>
+                        )}
                       </div>
                       <button
                         onClick={() => onToggleTool(tool.id)}

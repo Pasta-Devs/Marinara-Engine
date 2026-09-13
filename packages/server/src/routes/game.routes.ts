@@ -10,6 +10,7 @@ import { eq } from "../db/file-query.js";
 import { IMPORTED_GAME_ENGINE_ANCHOR_PREFIX } from "../db/file-backed-store.js";
 import { chats as chatsTable } from "../db/schema/index.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
+import { registerSequentialGameTasks, retainSequentialGameTask } from "../services/game/sequential-tasks.js";
 import { isLocalInferenceBaseUrl } from "../middleware/ip-allowlist.js";
 import { readImageDimensionsFromFile } from "../utils/image-metadata.js";
 import { createChatsStorage, METADATA_WRITE_ORDINALS_KEY } from "../services/storage/chats.storage.js";
@@ -3326,6 +3327,7 @@ function gameGenOptions(
 const SESSION_SUMMARY_CHARS_PER_TOKEN = 4;
 const SESSION_SUMMARY_MIN_TRANSCRIPT_CHARS = 256;
 const GAME_SETUP_MIN_OUTPUT_TOKENS = 16_384;
+const EXPERIENCE_GENERATION_MIN_OUTPUT_TOKENS = 1_024;
 const SESSION_CONCLUSION_MIN_OUTPUT_TOKENS = 8192;
 const CAMPAIGN_PROGRESSION_MIN_OUTPUT_TOKENS = SESSION_CONCLUSION_MIN_OUTPUT_TOKENS;
 const GAME_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -5937,6 +5939,22 @@ async function serializeGameTurnStoryboard(args: {
 }
 
 export async function gameRoutes(app: FastifyInstance) {
+  registerSequentialGameTasks(app, [
+    "/setup",
+    "/session/conclude",
+    "/session/regenerate-lorebook",
+    "/session/regenerate-conclusion",
+    "/session/update-campaign-progression",
+    "/character-sheet/regenerate",
+    "/party/recruit",
+    "/:chatId/experience-generation",
+    "/party-turn",
+    "/scene-wrap",
+    "/storyboard/generate",
+    "/generate-scene-video",
+    "/generate-assets/preview",
+    "/generate-assets",
+  ]);
   // Startup-wide storyboard recovery is gone (#5592 Phase 2): the per-request
   // sweeps below use storyboardRecoveryCutoff(), whose boot-time floor marks
   // every pre-boot in-progress row failed the first time its chat is read.
@@ -6731,6 +6749,9 @@ export async function gameRoutes(app: FastifyInstance) {
         characterIds: setupConfig.partyCharacterIds,
         personaId: setupPersonaId,
         activeLorebookIds: setupConfig.activeLorebookIds,
+        entryStateOverrides: (meta.entryStateOverrides ?? meta.lorebookEntryStateOverrides) as
+          | Record<string, { ephemeral?: number | null; enabled?: boolean }>
+          | undefined,
         excludedLorebookIds: setupLorebookScopeExclusions.excludedLorebookIds,
         excludedSourceAgentIds: setupLorebookScopeExclusions.excludedSourceAgentIds,
         generationTriggers: ["game_setup", "game"],
@@ -10772,7 +10793,8 @@ export async function gameRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { chatId: string } }>(
     "/:chatId/experience-generation",
-    { bodyLimit: 64 * 1024 },
+    // Entry IDs can outgrow 64 KiB before their selected content reaches the model context limit.
+    { bodyLimit: 1024 * 1024 },
     async (req, reply) => {
       const input = experienceGenerationSchema.parse(req.body ?? {});
       const chats = createChatsStorage(app.db);
@@ -10862,6 +10884,9 @@ export async function gameRoutes(app: FastifyInstance) {
           personaId: lorePersonaId,
           excludedLorebookIds: loreScopeExclusions.excludedLorebookIds,
           excludedSourceAgentIds: loreScopeExclusions.excludedSourceAgentIds,
+          entryStateOverrides: (meta.entryStateOverrides ?? meta.lorebookEntryStateOverrides) as
+            | Record<string, { ephemeral?: number | null; enabled?: boolean }>
+            | undefined,
           forcedEntryIds: input.lorebookEntryIds,
           // The selection is exact. Without this the ordinary scope-based scan runs
           // beside it and every global book — plus anything bound to the party, the
@@ -11036,6 +11061,8 @@ export async function gameRoutes(app: FastifyInstance) {
           return { raw, finishReason };
         };
 
+        // Honor deliberately small package/connection caps; reject only context-induced collapse.
+        const minimumOutputTokens = Math.min(EXPERIENCE_GENERATION_MIN_OUTPUT_TOKENS, maxTokens);
         let attemptMessages = baseMessages;
         let lastRaw = "";
         let lastFinishReason: string | null = null;
@@ -11047,18 +11074,30 @@ export async function gameRoutes(app: FastifyInstance) {
           });
           // This one-shot prompt has no disposable history. Dropping its system
           // tail would silently discard lore the player explicitly selected.
-          if (fit.trimmed) {
+          const availableOutputTokens = fit.maxTokens ?? options.maxTokens ?? maxTokens;
+          if (fit.trimmed || availableOutputTokens < minimumOutputTokens) {
             return reply.code(422).send({
               code: "context_limit",
               truncated: false,
-              error: lorebookSelectionRequested
-                ? "The selected lorebook entries and world-generation instructions exceed this connection's context window. Choose a larger-context connection, fewer lore entries, or shorter instructions."
-                : "The world-generation instructions exceed this connection's context window. Choose a larger-context connection or shorten the instructions.",
+              error:
+                availableOutputTokens < minimumOutputTokens
+                  ? `The world-generation selection leaves only ${availableOutputTokens} tokens for the answer; at least ${minimumOutputTokens} are needed. Choose a larger-context connection, fewer lore entries, or shorter instructions.`
+                  : lorebookSelectionRequested
+                    ? "The selected lorebook entries and world-generation instructions exceed this connection's context window. Choose a larger-context connection, fewer lore entries, or shorter instructions."
+                    : "The world-generation instructions exceed this connection's context window. Choose a larger-context connection or shorten the instructions.",
               estimatedInputTokens: fit.estimatedTokensBefore,
               inputBudget: fit.inputBudget,
+              availableOutputTokens,
+              minimumOutputTokens,
             });
           }
-          options.maxTokens = fit.maxTokens ?? options.maxTokens;
+          options.maxTokens = availableOutputTokens;
+          debugLog(
+            "[debug/game/experience-generation] attempt=%d fittedMaxTokens=%d inputTokens=%d",
+            attempt,
+            availableOutputTokens,
+            fit.estimatedTokensBefore,
+          );
           let raw: string;
           let finishReason: string | null;
           try {
@@ -11088,7 +11127,7 @@ export async function gameRoutes(app: FastifyInstance) {
           if (finishReason === "length") {
             return reply.code(422).send({
               error:
-                "The model's JSON was cut off before it finished. Increase the connection's max output tokens and try again.",
+                "The model's JSON was cut off before it finished. Choose a larger-context connection, reduce the selected content, or increase the output limit if the context has room.",
               truncated: true,
               raw: raw.slice(0, 20_000),
               finishReason,
@@ -11138,7 +11177,7 @@ export async function gameRoutes(app: FastifyInstance) {
             if (isLikelyTruncatedJsonResponse(raw, finishReason ?? undefined)) {
               return reply.code(422).send({
                 error:
-                  "The model's JSON was cut off before it finished. Increase the connection's max output tokens and try again.",
+                  "The model's JSON was cut off before it finished. Choose a larger-context connection, reduce the selected content, or increase the output limit if the context has room.",
                 truncated: true,
                 raw: raw.slice(0, 20_000),
                 finishReason,
@@ -13030,9 +13069,12 @@ export async function gameRoutes(app: FastifyInstance) {
           frameResults[index] = await renderStoryboardFrame(frame);
         }
       };
-      const requestedFrameWorkerLimit = videoRuntime
-        ? GAME_STORYBOARD_VIDEO_FRAME_CONCURRENCY
-        : GAME_STORYBOARD_IMAGE_FRAME_CONCURRENCY;
+      const requestedFrameWorkerLimit =
+        meta.gameSequentialAgents === true
+          ? 1
+          : videoRuntime
+            ? GAME_STORYBOARD_VIDEO_FRAME_CONCURRENCY
+            : GAME_STORYBOARD_IMAGE_FRAME_CONCURRENCY;
       const frameWorkerLimit = resolveSceneIllustrationGenerationConcurrency(
         {
           imgSource,
@@ -13052,7 +13094,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const releaseBackgroundStoryboardLock = releaseStoryboardLock;
       releaseStoryboardLock = null;
 
-      void (async () => {
+      const backgroundRendering = (async () => {
         const backgroundTimeout = setTimeout(() => {
           backgroundController.abort(
             new Error(
@@ -13128,6 +13170,7 @@ export async function gameRoutes(app: FastifyInstance) {
           releaseBackgroundStoryboardLock?.();
         }
       })();
+      retainSequentialGameTask(req, backgroundRendering);
 
       return {
         storyboard: initialStoryboard,
@@ -13779,9 +13822,10 @@ export async function gameRoutes(app: FastifyInstance) {
           };
         }
       };
-      const portraitPreviewWorkerCount = input.queueImageGenerationRequests
-        ? 1
-        : Math.min(GAME_ASSET_PORTRAIT_CONCURRENCY, input.npcsNeedingAvatars.length);
+      const portraitPreviewWorkerCount =
+        meta.gameSequentialAgents === true || input.queueImageGenerationRequests
+          ? 1
+          : Math.min(GAME_ASSET_PORTRAIT_CONCURRENCY, input.npcsNeedingAvatars.length);
       await Promise.all(Array.from({ length: portraitPreviewWorkerCount }, () => runPortraitPreviewWorker()));
       items.push(...portraitPreviewItems.filter((item): item is PreviewAssetItem => item !== null));
     }
@@ -14252,9 +14296,10 @@ export async function gameRoutes(app: FastifyInstance) {
             }
           }
         };
-        const portraitWorkerCount = input.queueImageGenerationRequests
-          ? 1
-          : Math.min(GAME_ASSET_PORTRAIT_CONCURRENCY, input.npcsNeedingAvatars.length);
+        const portraitWorkerCount =
+          meta.gameSequentialAgents === true || input.queueImageGenerationRequests
+            ? 1
+            : Math.min(GAME_ASSET_PORTRAIT_CONCURRENCY, input.npcsNeedingAvatars.length);
         await Promise.all(Array.from({ length: portraitWorkerCount }, () => runPortraitWorker()));
 
         // Persist avatar URLs to NPC list in metadata

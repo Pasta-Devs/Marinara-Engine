@@ -307,6 +307,61 @@ try {
     assert.equal(Object.prototype.hasOwnProperty.call(empty.json(), "lorebook"), false);
   }
 
+  // Large ID payloads pass parsing, and a per-chat disable wins over explicit selection.
+  {
+    const response = await post("missing-chat", {
+      ...BASE_BODY,
+      lorebookEntryIds: Array.from({ length: 3_000 }, (_, index) => `entry-${String(index).padStart(30, "0")}`),
+    });
+    assert.equal(response.statusCode, 404, "Thousands of IDs must reach route validation instead of a generic 413");
+    const book = await createBook("Per-chat world selection");
+    const entry = await lorebooks.createEntry({
+      lorebookId: book.id,
+      name: "Hidden history",
+      content: "CHATDISABLEDMARK",
+    } as Parameters<typeof lorebooks.createEntry>[0]);
+    assert.ok(entry);
+    const chat = await createExperienceChat("Per-chat world override");
+    for (const key of ["entryStateOverrides", "lorebookEntryStateOverrides"]) {
+      await chats.patchMetadata(chat.id, () => ({
+        entryStateOverrides: undefined,
+        [key]: { [entry.id]: { enabled: false } },
+      }));
+      upstreamBodies = [];
+      const result = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [entry.id] });
+      assert.equal(result.statusCode, 200, result.body);
+      assert.equal(result.json().lorebook.includedEntries, 0);
+      assert.ok(!systemPromptOf().includes("CHATDISABLEDMARK"));
+    }
+  }
+
+  // A context fit must leave useful answer space before spending a provider call.
+  {
+    const chat = await createExperienceChat("Answer headroom");
+    await connections.update(conn.id, { maxContext: 4_096 });
+    const book = await createBook("Near-cap history");
+    const entry = await lorebooks.createEntry({
+      lorebookId: book.id,
+      name: "History",
+      content: "World history. ".repeat(850),
+    } as Parameters<typeof lorebooks.createEntry>[0]);
+    assert.ok(entry);
+    upstreamBodies = [];
+    const tooTight = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [entry.id] });
+    assert.equal(tooTight.statusCode, 422, tooTight.body);
+    assert.equal(tooTight.json().code, "context_limit");
+    assert.ok(tooTight.json().availableOutputTokens < tooTight.json().minimumOutputTokens);
+    assert.equal(upstreamBodies.length, 0, "Collapsed reply budgets must be refused without billing");
+    for (const connectionCap of [false, true]) {
+      if (connectionCap) await connections.update(conn.id, { maxTokensOverride: 256 });
+      upstreamBodies = [];
+      const deliberate = await post(chat.id, { ...BASE_BODY, ...(connectionCap ? {} : { maxTokens: 256 }) });
+      assert.equal(deliberate.statusCode, 200, deliberate.body);
+      assert.equal(upstreamBodies.length, 1, "An explicitly small output limit remains supported");
+    }
+    await connections.update(conn.id, { maxContext: 32_768, maxTokensOverride: null });
+  }
+
   // Exact selections include complete entries, including explicitly picked outlets.
   {
     const book = await createBook("Kanto", { tokenBudget: 4_000 });
@@ -674,8 +729,9 @@ try {
       assert.equal(rejected.json().code, "context_limit");
       assert.equal(rejected.json().truncated, false);
       assert.equal(upstreamBodies.length, 0, "Oversized selections and instructions must never reach the provider");
-      if (lorebookEntryIds) assert.match(rejected.json().error, /lorebook entries/);
+      if (lorebookEntryIds) assert.match(rejected.json().error, /lore/);
     }
+    await connections.update(conn.id, { maxContext: 2_048 });
     upstreamBodies = [];
     providerContent = "invalid response ".repeat(300);
     const repair = await post(chat.id, BASE_BODY);

@@ -503,8 +503,6 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     // into a non-first-linked character is cleared from the right card.
     const linkedCharacterId = await resolveEmbeddedCharacterId(app.db, req.params.id);
 
-    const chatsStorage = createChatsStorage(app.db);
-    await chatsStorage.removeLorebookFromChatMetadata(req.params.id);
     await storage.remove(req.params.id);
 
     if (linkedCharacterId) {

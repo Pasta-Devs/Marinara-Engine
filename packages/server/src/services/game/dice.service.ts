@@ -22,6 +22,7 @@ import {
   type DiceRollResult,
   type SkillCheckResult,
 } from "@marinara-engine/shared";
+import { logger } from "../../lib/logger.js";
 
 export { isDiceNotation } from "@marinara-engine/shared";
 
@@ -76,15 +77,31 @@ export function resolveGameDiceRequests(
   content: string,
   knownRolls: readonly DiceRollResult[] = [],
   roll: (notation: string) => DiceRollResult = rollDice,
-): { content: string; diceRolls: DiceRollResult[]; checkResults: SkillCheckResult[]; rolled: number } {
+): {
+  content: string;
+  diceRolls: DiceRollResult[];
+  checkResults: SkillCheckResult[];
+  rolled: number;
+  unresolved: string[];
+} {
   const diceRolls: DiceRollResult[] = [];
   const checkResults: SkillCheckResult[] = [];
   let rolled = 0;
+  const unresolved: string[] = [];
+  const reportUnresolved = (request: string, reason: string) => {
+    logger.warn({ request: request.slice(0, 200) }, "[game/dice] Unresolved roll request: %s", reason);
+    if (unresolved.length < 8) unresolved.push(`${request.slice(0, 200)}: ${reason}`);
+  };
   const resolved = content.replace(createGameRollTagRegex(), (original, kind: string, body: string) => {
     if (kind.toLowerCase() === "dice") {
       const notation = parseDiceNotation(body);
       // A resolved [dice: NdM = total (...)] record is not a new request.
-      if (!notation) return original;
+      if (!notation) {
+        const recorded = /^([^\s=]+)\s*=\s*-?\d+\s*\([^)]*\)\s*$/u.exec(body.trim());
+        if (!recorded || !parseDiceNotation(recorded[1]!))
+          reportUnresolved(body, "Unsupported dice notation. Use NdM with an optional +K or -K modifier.");
+        return original;
+      }
       const result = roll(notation.notation);
       diceRolls.push(result);
       rolled++;
@@ -98,13 +115,17 @@ export function resolveGameDiceRequests(
     const declared = tag.declaredDice ? parseDiceNotation(tag.declaredDice) : null;
     const notation = declared ? clampParsedDiceToLimits(declared) : null;
     const resolution = tag.declaredResolution ?? "sum";
+    const sparse = (reason: string) => {
+      reportUnresolved(`${tag.skill} (${tag.declaredDice ?? "no dice declared"})`, reason);
+      return serializeSparseSkillCheckTag({ ...tag, preRolledD20: undefined });
+    };
     if (
       !notation ||
       (resolution !== "sum" && resolution !== "successes") ||
       !Number.isSafeInteger(tag.dc) ||
       tag.dc < 1
     )
-      return original;
+      return sparse("The declared dice or resolution cannot be rolled; no outcome has been determined.");
 
     const attributes = new Map(
       readGmTagAttributes(body).map((attribute) => [
@@ -112,7 +133,7 @@ export function resolveGameDiceRequests(
         attribute.rawValue.replace(/^["']|["']$/g, ""),
       ]),
     );
-    if (Number(attributes.get("dc")) !== tag.dc) return original;
+    if (Number(attributes.get("dc")) !== tag.dc) return sparse("The check needs a valid difficulty.");
     const threshold = Number(attributes.get("threshold"));
     if (
       resolution === "successes" &&
@@ -120,7 +141,7 @@ export function resolveGameDiceRequests(
     ) {
       // A pool without its per-die threshold has no defined counting rule.
       // Keep the request, but never keep numbers the model invented for it.
-      return serializeSparseSkillCheckTag(tag).replace(/]$/, ' resolution="successes"]');
+      return sparse("Success pools need a per-die threshold within the die range and no modifier.");
     }
 
     const declaredRolls = attributes.get("rolls")?.split(/[|,]/).map(Number);
@@ -157,5 +178,5 @@ export function resolveGameDiceRequests(
     const record = serializeResolvedSkillCheckTag(check);
     return resolution === "successes" ? record.replace(/]$/, ` threshold="${threshold}"]`) : record;
   });
-  return { content: resolved, diceRolls, checkResults, rolled };
+  return { content: resolved, diceRolls, checkResults, rolled, unresolved };
 }

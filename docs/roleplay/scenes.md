@@ -26,10 +26,11 @@ Follow these steps:
 ```
 
 3. Press Enter. The **Scene Prompt Setup** window opens.
-4. Under **POV**, pick how the writing is framed: **First Person**, **Second Person**, or **Third Person**.
-5. Under **Tense**, pick **Past**, **Present**, or **Future**.
-6. Optionally, type notes in the **Extra instructions** box to steer the scene.
-7. Click **Plan Scene**.
+4. Choose a **Prompt preset** for the new scene, or leave it at **None**. Marinara remembers this choice for the next scene. The scene's own setup instructions still apply alongside the selected preset.
+5. Under **POV**, pick how the writing is framed: **First Person**, **Second Person**, or **Third Person**.
+6. Under **Tense**, pick **Past**, **Present**, or **Future**.
+7. Optionally, type notes in the **Extra instructions** box to steer the scene.
+8. Click **Plan Scene**.
 
 Marinara plans the scene and opens it as a new roleplay chat. You should see the new scene appear in your chat list and open automatically, with an opening message that sets the situation. If you change your mind at the setup window, click **Cancel** and no scene is created.
 

@@ -28,6 +28,7 @@ import {
 import { collectEffectivelyDisabledFolderIds, collectFolderSubtreeIds } from "@marinara-engine/shared";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 import { toPaginatedList } from "../../utils/list-pagination.js";
+import { createChatsStorage } from "./chats.storage.js";
 
 function normalizeLorebookEntryLimit(value: unknown): number {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -610,11 +611,19 @@ export function createLorebooksStorage(db: DB) {
     },
 
     async remove(id: string) {
+      const entries = await db
+        .select({ id: lorebookEntries.id })
+        .from(lorebookEntries)
+        .where(eq(lorebookEntries.lorebookId, id));
       await db.transaction(async (tx) => {
         await tx.delete(lorebookCharacterLinks).where(eq(lorebookCharacterLinks.lorebookId, id));
         await tx.delete(lorebookPersonaLinks).where(eq(lorebookPersonaLinks.lorebookId, id));
         await tx.delete(lorebooks).where(eq(lorebooks.id, id));
       });
+      await createChatsStorage(db).pruneLorebookChatMetadata(
+        entries.map((entry) => entry.id),
+        id,
+      );
     },
 
     // ── Entries ──
@@ -1128,6 +1137,7 @@ export function createLorebooksStorage(db: DB) {
 
     async removeEntry(id: string) {
       await db.delete(lorebookEntries).where(eq(lorebookEntries.id, id));
+      await createChatsStorage(db).pruneLorebookChatMetadata([id]);
     },
 
     // ── Folders ──
@@ -1226,12 +1236,17 @@ export function createLorebooksStorage(db: DB) {
           (await this.listFolders(ownerLorebookId)) as unknown as Array<{ id: string; parentFolderId: string | null }>,
           folderId,
         );
+        const removedEntries = await db
+          .select({ id: lorebookEntries.id })
+          .from(lorebookEntries)
+          .where(and(eq(lorebookEntries.lorebookId, ownerLorebookId), inArray(lorebookEntries.folderId, subtreeIds)));
         await db
           .delete(lorebookEntries)
           .where(and(eq(lorebookEntries.lorebookId, ownerLorebookId), inArray(lorebookEntries.folderId, subtreeIds)));
         await db
           .delete(lorebookFolders)
           .where(and(eq(lorebookFolders.lorebookId, ownerLorebookId), inArray(lorebookFolders.id, subtreeIds)));
+        await createChatsStorage(db).pruneLorebookChatMetadata(removedEntries.map((entry) => entry.id));
         return;
       }
       // Entries in this folder fall back to root...
@@ -1358,13 +1373,16 @@ export function createLorebooksStorage(db: DB) {
 
     /** Search entries by keyword match in name/content/keys. */
     async searchEntries(query: string) {
-      const pattern = `%${query}%`;
-      const rows = await db
-        .select()
-        .from(lorebookEntries)
-        .where(like(lorebookEntries.name, pattern))
-        .orderBy(lorebookEntries.order);
-      return rows.map((r) => parseEntryRow(r as Record<string, unknown>));
+      const text = query.trim().toLowerCase();
+      if (!text) return [];
+      const rows = await db.select().from(lorebookEntries).orderBy(lorebookEntries.order);
+      return rows
+        .filter((row) =>
+          [row.name, row.content, ...parseStringArray(row.keys)].some(
+            (value) => typeof value === "string" && value.toLowerCase().includes(text),
+          ),
+        )
+        .map((row) => parseEntryRow(row as Record<string, unknown>));
     },
   };
 }

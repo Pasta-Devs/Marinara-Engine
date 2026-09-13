@@ -481,7 +481,8 @@ export function normalizeScenePromptPreferences(value: unknown): ScenePromptPref
       : DEFAULT_SCENE_PROMPT_PREFERENCES.tense;
   const extraInstructions =
     typeof raw.extraInstructions === "string" ? raw.extraInstructions.trim().slice(0, 2000) : "";
-  return { pov, tense, extraInstructions };
+  const promptPresetId = typeof raw.promptPresetId === "string" ? raw.promptPresetId.trim() || null : null;
+  return { pov, tense, extraInstructions, promptPresetId };
 }
 
 export function normalizeConversationMessageStyle(value: unknown): ConversationMessageStyle {

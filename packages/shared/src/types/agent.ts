@@ -346,6 +346,8 @@ export interface AgentTaskProgress {
 
 /** Shared context passed to every agent. */
 export interface AgentContext {
+  /** Serialize model calls for Game chats sharing limited GPU memory. */
+  sequentialExecution?: boolean;
   /**
    * Prose to read instead of the recent messages.
    *

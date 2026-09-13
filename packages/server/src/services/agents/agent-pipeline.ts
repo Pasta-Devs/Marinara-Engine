@@ -290,13 +290,17 @@ async function executePhase(
   if (phaseAgents.length === 0) return [];
 
   const groups = groupByProviderModel(phaseAgents).flatMap(splitGroupForParallelJobs);
+  const groupLimit = context.sequentialExecution ? 1 : AGENT_PHASE_MAX_CONCURRENT_GROUPS;
   const connectionLimits = new Map<number, number>();
   for (const group of groups) {
     const key = providerKey(group.provider);
     connectionLimits.set(key, Math.min(connectionLimits.get(key) ?? group.maxParallelJobs, group.maxParallelJobs));
   }
   const connectionLimiters = new Map(
-    Array.from(connectionLimits, ([key, limit]) => [key, createAgentConcurrencyLimiter(limit)]),
+    Array.from(connectionLimits, ([key, limit]) => [
+      key,
+      createAgentConcurrencyLimiter(context.sequentialExecution ? 1 : limit),
+    ]),
   );
 
   logger.debug(
@@ -316,7 +320,7 @@ async function executePhase(
     );
   }
 
-  const settled = await settleAgentJobsWithConcurrencyLimit(groups, AGENT_PHASE_MAX_CONCURRENT_GROUPS, (group) =>
+  const settled = await settleAgentJobsWithConcurrencyLimit(groups, groupLimit, (group) =>
     executeGroup(group, context, connectionLimiters.get(providerKey(group.provider))!, onResult, resolveAgentContext),
   );
 

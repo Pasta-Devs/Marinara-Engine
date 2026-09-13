@@ -5,7 +5,13 @@ import { dirname, join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { TTS_API_KEY_MASK, ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
-import { buildTTSVoiceRequests, findTTSCharacterIdBySpeakerName } from "../../packages/client/src/lib/tts-dialogue.ts";
+import {
+  buildTTSVoiceRequests,
+  cleanTTSInputText,
+  splitTTSChunks,
+  filterTTSText,
+  findTTSCharacterIdBySpeakerName,
+} from "../../packages/client/src/lib/tts-dialogue.ts";
 import { buildExtractedRoleplayTTSVoiceRequests } from "../../packages/client/src/lib/tts-roleplay-speaker-extractor.ts";
 import { normalizeTTSPlaybackDelayMs, ttsService } from "../../packages/client/src/lib/tts-service.ts";
 import {
@@ -179,6 +185,46 @@ try {
 
 const legacyConfigWithoutDialoguePause = ttsConfigSchema.parse({});
 assert.equal(legacyConfigWithoutDialoguePause.dialoguePauseMs, 1000);
+assert.equal(legacyConfigWithoutDialoguePause.skipTagContent, false);
+assert.equal(legacyConfigWithoutDialoguePause.skipCodeBlocks, true);
+assert.equal(legacyConfigWithoutDialoguePause.skipBracketedText, false);
+const filteredConfig = ttsConfigSchema.parse({ skipTagContent: true, skipBracketedText: true });
+assert.equal(
+  cleanTTSInputText("Visible <simulation>private <b>nested</b> planning</simulation> ending.", filteredConfig),
+  "Visible ending.",
+);
+assert.equal(
+  cleanTTSInputText("Visible <!-- <unclosed> --> <div>card</div> ending.", filteredConfig),
+  "Visible ending.",
+);
+assert.equal(
+  cleanTTSInputText("<div>Readable card</div> [aside]", legacyConfigWithoutDialoguePause),
+  "Readable card [aside]",
+);
+assert.deepEqual(splitTTSChunks("Before.\n```xml\n<secret>hidden</secret>\n```\nAfter.", filteredConfig), [
+  "Before.",
+  "After.",
+]);
+assert.equal(cleanTTSInputText("Before '''\nprivate code\n''' after.", filteredConfig), "Before after.");
+assert.equal(
+  cleanTTSInputText("Before ```text\nspoken code\n``` after.", { skipCodeBlocks: false }),
+  "Before spoken code after.",
+);
+assert.equal(
+  cleanTTSInputText("Before [private aside] [linked aside](https://example.invalid) after.", filteredConfig),
+  "Before after.",
+);
+assert.deepEqual(
+  buildTTSVoiceRequests(
+    '<speaker="Mari">"Hello." <simulation>"Do not read."</simulation></speaker>',
+    filteredConfig,
+  ).map((request) => ({ text: request.text, speaker: request.speaker })),
+  [{ text: "Hello.", speaker: "Mari" }],
+);
+assert.ok(
+  !filterTTSText("Visible <simulation>secret thought</simulation>", filteredConfig).includes("secret"),
+  "Speaker extraction must receive filtered text",
+);
 
 const legacySubSecondPause = ttsConfigSchema.parse({ dialoguePauseMs: 300 });
 assert.equal(legacySubSecondPause.dialoguePauseMs, 1000);

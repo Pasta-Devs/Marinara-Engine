@@ -74,12 +74,15 @@ export function serializeSparseSkillCheckTag(request: {
   disadvantage?: boolean;
   preRolledD20?: number;
   declaredDice?: string;
+  declaredResolution?: string;
 }): string {
   const parts = [`[skill_check: skill="${serializeSkillCheckAttribute(request.skill)}"`, `dc="${request.dc}"`];
   if (request.preRolledD20 != null) parts.push(`rolls="${request.preRolledD20}"`);
   if (request.advantage && !request.disadvantage) parts.push(`mode="advantage"`);
   else if (request.disadvantage && !request.advantage) parts.push(`mode="disadvantage"`);
   if (request.declaredDice) parts.push(`dice="${serializeSkillCheckAttribute(request.declaredDice)}"`);
+  if (request.declaredResolution)
+    parts.push(`resolution="${serializeSkillCheckAttribute(request.declaredResolution)}"`);
   return `${parts.join(" ")}]`;
 }
 

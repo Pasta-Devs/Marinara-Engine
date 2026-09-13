@@ -467,7 +467,8 @@ export function LorebookEntryRow({
         entry: {
           ...entry,
           name: localName.trim() || entry.name,
-          enabled: localEnabled,
+          // Duplicates belong to the shared book, not this chat's override.
+          enabled: entry.enabled,
           constant,
           selective,
           position: localPosition,
@@ -483,7 +484,6 @@ export function LorebookEntryRow({
       lorebookId,
       entry,
       localName,
-      localEnabled,
       localStatus,
       localPosition,
       localDepth,

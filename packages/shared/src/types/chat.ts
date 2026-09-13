@@ -621,6 +621,8 @@ export interface ChatMetadata {
   gameGmToolConnectionId?: string | null;
   /** Let the GM query already-vectorized lore without enabling the other optional tools. */
   gameLorebookSearch?: boolean;
+  /** Serialize narration, agents, and scene media within this Game chat. */
+  gameSequentialAgents?: boolean;
   /** Master visibility/runtime switch for manual Game Mode scene videos. */
   gameSceneVideosEnabled?: boolean;
   /** Selected Game Mode scene/storyboard video prompt template. */
@@ -883,6 +885,10 @@ export interface MessageExtra {
   diceRollResult?: DiceRollResult | null;
   /** Every Game roll in this swipe, in execution order. Older turns use diceRollResult. */
   diceRollResults?: DiceRollResult[] | null;
+  /** Real roll records survived, but the separate outcome narration request failed. */
+  gameOutcomeNarrationFailed?: boolean;
+  /** Separate tool planner billing; never added to the narrator model's usage. */
+  gameToolPlanning?: GameToolPlanningInfo | null;
   /**
    * Cached pipeline injections (prose-guardian, director, knowledge-retrieval, etc.)
    * saved with this assistant message — reused when regenerating that swipe unless refreshed.
@@ -905,6 +911,13 @@ export interface MessageExtra {
     impersonateBlockAgents?: boolean;
     impersonatePromptTemplate?: string | null;
   } | null;
+}
+
+export interface GameToolPlanningInfo {
+  connectionId?: string;
+  model: string;
+  provider: string;
+  usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number } | null;
 }
 
 /** Metadata about how a message was generated. */

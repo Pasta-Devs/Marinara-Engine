@@ -16,6 +16,7 @@ const requireServer = createRequire(new URL("../../packages/server/package.json"
 const Fastify = requireServer("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
+const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createGameStateStorage } = await import("../../packages/server/src/services/storage/game-state.storage.js");
@@ -119,7 +120,9 @@ const connections = createConnectionsStorage(db);
 const lorebooks = createLorebooksStorage(db);
 const app = Fastify();
 app.decorate("db", db);
+app.decorate("activeGenerations", new Map());
 await app.register(generateRoutes, { prefix: "/api/generate" });
+await app.register(chatsRoutes, { prefix: "/api/chats" });
 try {
   const planner = await connections.create({
     name: "Planner",
@@ -180,6 +183,14 @@ try {
       assert.equal(extra.gameToolPlanning.model, "cheap-planner");
       assert.equal(extra.gameToolPlanning.usage.totalTokens, 10);
       assert.equal(extra.generationInfo.tokensPrompt, 11, "planner usage cannot be charged to the narrator model");
+      const peekResponse = await app.inject({ method: "POST", url: `/api/chats/${chat.id}/peek-prompt`,
+        payload: { messageId: saved.id } });
+      assert.equal(peekResponse.statusCode, 200, peekResponse.body);
+      const peek = peekResponse.json();
+      assert.equal(peek.gameToolPlanning.model, "cheap-planner");
+      assert.equal(peek.gameToolPlanning.provider, "openai");
+      assert.deepEqual(peek.gameToolPlanning.usage, { promptTokens: 7, completionTokens: 3 });
+      assert.equal(peek.generationInfo.tokensPrompt, 11, "Peek keeps planner cost separate from the narrator");
       assert.doesNotMatch(JSON.stringify(extra), /PRIVATE PLANNER|private-signature/);
       if (!noCalls) assert.match(response.body, /"diceRollResult":/);
     }
@@ -258,7 +269,7 @@ try {
     content: "Harbor master",
     keys: [],
   });
-  await lorebooks.updateEntryEmbedding(unrelated.id, [0, 1, 0, 0], "fixture");
+  await lorebooks.updateEntryEmbedding(unrelated.id, [0.214, Math.sqrt(1 - 0.214 ** 2), 0, 0], "fixture");
   await lorebooks.updateEntryEmbedding(relevant.id, [1, 0, 0, 0], "fixture");
   let embeddedQueries = 0;
   const args = {
@@ -287,9 +298,9 @@ try {
         label: "Synthetic query vectors",
         embed: async (texts: string[]) => {
           embeddedQueries++;
-          assert.equal(texts[0], "who runs the docks");
+          assert.ok(["who runs the docks", "subatomic particle beam"].includes(texts[0]!));
           return [
-            [1, 0, 0, 0],
+            texts[0] === "subatomic particle beam" ? [0, 0, 0, 1] : [1, 0, 0, 0],
             [0, 1, 0, 0],
             [0, 0, 1, 0],
             [0, 0, 0, 1],
@@ -303,6 +314,7 @@ try {
   assert.deepEqual(semantic.toolDefs?.map((tool) => tool.function.name).sort(), ["roll_dice", "search_lorebook"]);
   const found = await semantic.baseToolExecutionContext.searchLorebook!("who runs the docks");
   assert.equal(found[0].name, "Elena", "meaning finds the relevant entry despite no literal query match");
+  assert.equal(found.length, 1, "Calibrated zero-score entries are not reported as semantic matches");
   assert.equal(embeddedQueries, 1);
   const disabled = await resolveGenerationTools({
     ...args,
@@ -321,13 +333,89 @@ try {
       (entry: any) => entry.name === "Elena",
     ),
   );
+  const missingVector = await lorebooks.createEntry({
+    lorebookId: book.id,
+    name: "Smuggler tunnels",
+    content: "who runs the docks at night",
+  });
+  const noVector = await lorebooks.createEntry({
+    lorebookId: book.id,
+    name: "Secret ledger",
+    content: "who runs the docks",
+    excludeFromVectorization: true,
+  });
+  const staleVector = await lorebooks.createEntry({
+    lorebookId: book.id,
+    name: "Docks ledger",
+    keys: ["who runs the docks"],
+    content: "Exact key with an incompatible vector",
+  });
+  await lorebooks.updateEntryEmbedding(staleVector.id, [0, 1, 0, 0], "old-model");
+  await lorebooks.updateEntry(relevant.id, { keys: ["who runs the docks"] });
+  await lorebooks.updateEntryEmbedding(relevant.id, [1, 0, 0, 0], "fixture");
+  const globallyDisabled = await lorebooks.createEntry({
+    lorebookId: book.id,
+    name: "Globally disabled",
+    content: "who runs the docks",
+    enabled: false,
+  });
+  const outsideBook = await lorebooks.create({ name: "Unattached lore" });
+  await lorebooks.createEntry({ lorebookId: outsideBook.id, name: "Outside this chat", content: "who runs the docks" });
+  const mixed = await semantic.baseToolExecutionContext.searchLorebook!("who runs the docks");
+  assert.deepEqual(
+    new Set(mixed.map((row: any) => row.name)),
+    new Set(["Elena", "Smuggler tunnels", "Secret ledger", "Docks ledger"]),
+  );
+  assert.equal(mixed.length, 4, "Literal and semantic matches are combined without duplicates");
+  const mixedScoped = await resolveGenerationTools({
+    ...args,
+    chatMetadata: {
+      gameLorebookSearch: true,
+      entryStateOverrides: {
+        [missingVector.id]: { enabled: false },
+        [noVector.id]: { enabled: false },
+        [globallyDisabled.id]: { enabled: true },
+      },
+    },
+  });
+  assert.deepEqual(
+    new Set(
+      (await mixedScoped.baseToolExecutionContext.searchLorebook!("who runs the docks")).map((row: any) => row.name),
+    ),
+    new Set(["Elena", "Docks ledger"]),
+  );
+  assert.deepEqual(
+    await semantic.baseToolExecutionContext.searchLorebook!("subatomic particle beam"),
+    [],
+    "An unrelated query produces no results",
+  );
+  assert.deepEqual(
+    await semantic.baseToolExecutionContext.searchLorebook!("   "),
+    [],
+    "Empty queries do not enumerate entries",
+  );
   await lorebooks.clearEntryEmbeddings(book.id);
+  const queriesBeforeMissingVectors = embeddedQueries;
   const noVectors = await resolveGenerationTools(args);
   await assert.rejects(
     () => noVectors.baseToolExecutionContext.searchLorebook!("who runs the docks"),
     /No vectorized lore entries/,
   );
-  assert.equal(embeddedQueries, 2, "no vectors means no embedding request or automatic vectorization");
+  assert.equal(
+    embeddedQueries,
+    queriesBeforeMissingVectors,
+    "no vectors means no embedding request or automatic vectorization",
+  );
+  const textOnly = await resolveGenerationTools({
+    ...args,
+    agentContext: { ...args.agentContext, chatMode: "roleplay" },
+  });
+  assert.deepEqual(
+    new Set(
+      (await textOnly.baseToolExecutionContext.searchLorebook!("who runs the docks")).map((row: any) => row.name),
+    ),
+    new Set(["Elena", "Smuggler tunnels", "Secret ledger", "Docks ledger"]),
+  );
 } finally {
   OpenAIProvider.prototype.chatComplete = originalPlanner;
   [ClaudeSubscriptionProvider.prototype.chat, GrokSubscriptionProvider.prototype.chat, GoogleProvider.prototype.chat] =

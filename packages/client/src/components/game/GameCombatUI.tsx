@@ -873,7 +873,7 @@ export function GameCombatUI({
       const voice = resolveTTSVoiceForSpeaker(ttsConfig, line.character);
       if (ttsConfig.source === "elevenlabs" && !voice) continue;
 
-      const chunks = splitTTSChunks(line.content);
+      const chunks = splitTTSChunks(line.content, ttsConfig);
       if (chunks.length === 0) continue;
 
       lines.push({

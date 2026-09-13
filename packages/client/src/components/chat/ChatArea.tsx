@@ -87,6 +87,7 @@ import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
 import {
   buildTTSVoiceRequests,
+  filterTTSText,
   findTTSCharacterIdBySpeakerName,
   withTTSVoiceRequestCacheKeys,
 } from "../../lib/tts-dialogue";
@@ -2706,7 +2707,7 @@ export const ChatArea = memo(function ChatArea() {
       if (mode === "roleplay" && cfg.roleplaySpeakerExtractorEnabled) {
         try {
           const extracted = await extractRoleplayTTSSpeakers({
-            message: lastMsg.content,
+            message: filterTTSText(lastMsg.content, cfg),
             group: getChatDisplayName(chat) || characterNames.join(", "),
             user: personaInfo?.name || "User",
             characters: characterNames,

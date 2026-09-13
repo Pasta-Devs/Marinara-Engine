@@ -93,6 +93,7 @@ export async function startSceneWithPromptPreferences(options: StartSceneOptions
       initiatorCharId: options.initiatorCharId ?? null,
       plan,
       connectionId: options.connectionId ?? null,
+      promptPresetId: preferences.promptPresetId ?? null,
     });
 
     useChatStore.getState().setActiveChatId(response.chatId);

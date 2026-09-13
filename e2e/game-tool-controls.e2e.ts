@@ -92,6 +92,34 @@ for (const theme of ["dark", "light"] as const) {
       await expect(tools()).not.toBeChecked();
       await section.evaluate((element) => element.scrollIntoView({ block: "start" }));
       await page.screenshot({ path: testInfo.outputPath(`game-tool-controls-${theme}.png`) });
+      await section.locator("label").filter({ has: page.getByLabel("Enable Tool Use", { exact: true }) }).click();
+      await expect.poll(async () => (await metadata()).enableTools).toBe(true);
+      await section.getByRole("button", { name: "Add Functions", exact: true }).click();
+      await section.getByRole("button", { name: /^search_lorebook / }).click();
+      await section.getByRole("button", { name: "Add 1 Function", exact: true }).click();
+      await section.locator("label").filter({ has: page.getByLabel("Let the GM search lore", { exact: true }) }).click();
+      await expect.poll(async () => (await metadata()).gameLorebookSearch).toBe(false);
+      await expect(
+        section.getByText("search_lorebook is unavailable while “Let the GM search lore” is off.", { exact: true }),
+      ).toHaveCount(2);
+      await section.getByRole("button", { name: "Remove from chat", exact: true }).click();
+      await section.getByRole("button", { name: "Add Functions", exact: true }).click();
+      await expect(section.getByRole("button", { name: /^search_lorebook / })).toHaveCount(0);
+      await section.locator("label").filter({ has: page.getByLabel("Let the GM search lore", { exact: true }) }).click();
+      await expect(section.getByRole("button", { name: /^search_lorebook / })).toBeVisible();
+      const agents = page.locator('[data-chat-settings-section="game-agents"]');
+      await agents.locator('[role="button"][aria-expanded]').click();
+      const sequential = agents.getByLabel("Run Game tasks one at a time", { exact: true });
+      await expect(sequential).not.toBeChecked();
+      await agents.locator("label").filter({ has: page.getByLabel("Run Game tasks one at a time", { exact: true }) }).click();
+      await expect.poll(async () => (await metadata()).gameSequentialAgents).toBe(true);
+      await expect(agents).toContainText("in this chat");
+      await sequential.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath(`game-sequential-tasks-${theme}.png`) });
+      await page.reload();
+      section = await openTools();
+      await agents.locator('[role="button"][aria-expanded]').click();
+      await expect(sequential).toBeChecked();
       await section.getByRole("combobox", { name: "Game tool connection", exact: true }).selectOption("");
       await expect(tools()).toBeDisabled();
       await expect.poll(async () => (await metadata()).gameGmToolConnectionId).toBeNull();

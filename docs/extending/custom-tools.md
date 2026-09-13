@@ -144,7 +144,7 @@ Creating a tool does not make the AI use it. You must also turn tool use on for 
 2. Open the **Function Calling** section (its icon is a wrench).
 3. Turn on **Enable Tool Use**. Its description reads **Allow AI to call functions (dice rolls, game state, etc.)**. It is off by default for a new chat.
 
-With **Enable Tool Use** on and no tools added below, the chat can use all globally enabled tools. That means the built-in tools, like dice rolls and lorebook search, plus every custom tool you have switched on in the **Functions** section. To limit a chat to a chosen set, add specific tools:
+With **Enable Tool Use** on and no tools added below, the chat can use all globally enabled tools supported in that chat. That includes built-in tools plus every custom tool you have switched on in the **Functions** section. Game chats also require **Let the GM search lore** for `search_lorebook`; enabling Tool Use alone does not enable lorebook lookups. To limit a chat to a chosen set, add specific tools:
 
 1. Click **Add Functions**. A picker opens with a search box.
 2. Check the tools you want. The list mixes built-in tools and your own custom tools.

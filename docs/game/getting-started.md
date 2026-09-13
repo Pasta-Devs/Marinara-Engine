@@ -88,9 +88,13 @@ The active mode shows an **On** marker in the menu. To turn **Talk to Party** or
 
 Open **Chat Settings → Function Calling** during play. **Let the GM search lore** lets the GM look up information by meaning without enabling every other optional tool. Enable vectorization for the relevant lorebooks and vectorize their entries first. Searches respect enabled books, folders, and chat-specific entry switches. They use the configured embedding connection and can add a model follow-up request.
 
+Game chats require **Let the GM search lore** for lorebook tool lookups, even when **Enable Tool Use** is on. While it is off, `search_lorebook` is unavailable in the tool picker; an already selected entry stays visible with an explanation so you can remove it or turn lore search back on.
+
 **Game tool connection** defaults to **Same as narrator**, which keeps the normal tool loop. Choosing another connection runs one separate planning request before narration. That model chooses the tools, and the narrator receives their actual results as text. The extra request is charged to the selected connection; a cheaper model can reduce tool costs, but may choose different tools. This single planning pass cannot chain a second lookup from the first result. Use **Same as narrator** when you want the narrator to reason through several tool rounds.
 
 Claude and Grok subscription connections do not support native tool calls. The affected controls explain this and are disabled unless a supported Game tool connection is selected. Text commands and dice tags still work. If a separate connection is missing or its request fails, the turn reports the failure instead of silently narrating without the requested tool work.
+
+If your local models share limited GPU memory, open **Chat Settings → Agents** and enable **Run Game tasks one at a time**. Narration, agents, and scene media wait for one another within that Game chat. It starts off, and it does not reserve the GPU against other chats or applications. Existing cancellation controls remain available while work is running or waiting.
 
 ## Turning on agents
 

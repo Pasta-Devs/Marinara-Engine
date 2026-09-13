@@ -511,30 +511,46 @@ try {
   const groupedConversation = (await app.inject({ method: "GET", url: `/api/chats/${conversation.id}` })).json();
   assert.equal(typeof groupedConversation.groupId, "string");
 
+  const presetResponse = await app.inject({ method: "POST", url: "/api/prompts", payload: { name: "Scene preset" } });
+  assert.equal(presetResponse.statusCode, 200);
+  const scenePresetId = presetResponse.json().id;
+  const sceneCreatePayload = {
+    originChatId: conversation.id,
+    promptPresetId: scenePresetId,
+    initiatorCharId: null,
+    plan: {
+      name: "Converted roleplay scene",
+      description: "A quiet laboratory after midnight.",
+      scenario: "Verify cross-mode lineage remains separate.",
+      firstMessage: "The instruments hum softly.",
+      background: null,
+      characterIds: [],
+      systemPrompt: "Keep the scene concise.",
+      rating: "sfw",
+      relationshipHistory: "A regression fixture.",
+      participationGuide: "Continue the scene.",
+    },
+  };
+  for (const promptPresetId of [42, "missing-preset"]) {
+    const rejected = await app.inject({
+      method: "POST",
+      url: "/api/scene/create",
+      payload: { ...sceneCreatePayload, promptPresetId },
+    });
+    assert.equal(rejected.statusCode, 400, "Unavailable scene presets must not silently fall back");
+  }
   const sceneCreateResponse = await app.inject({
     method: "POST",
     url: "/api/scene/create",
-    payload: {
-      originChatId: conversation.id,
-      initiatorCharId: null,
-      plan: {
-        name: "Converted roleplay scene",
-        description: "A quiet laboratory after midnight.",
-        scenario: "Verify cross-mode lineage remains separate.",
-        firstMessage: "The instruments hum softly.",
-        background: null,
-        characterIds: [],
-        systemPrompt: "Keep the scene concise.",
-        rating: "sfw",
-        relationshipHistory: "A regression fixture.",
-        participationGuide: "Continue the scene.",
-      },
-    },
+    payload: sceneCreatePayload,
   });
   assert.equal(sceneCreateResponse.statusCode, 200);
   const sceneChatId = sceneCreateResponse.json().chatId;
   const sceneChat = (await app.inject({ method: "GET", url: `/api/chats/${sceneChatId}` })).json();
   assert.equal(sceneChat.mode, "roleplay");
+  assert.equal(sceneChat.promptPresetId, scenePresetId);
+  const sceneMetadata = typeof sceneChat.metadata === "string" ? JSON.parse(sceneChat.metadata) : sceneChat.metadata;
+  assert.match(sceneMetadata.sceneSystemPrompt, /^Keep the scene concise\./);
   assert.equal(sceneChat.groupId, null, "A converted scene must not join the conversation branch group");
 
   const distinctSceneGroupId = "scene-owned-branch-group";

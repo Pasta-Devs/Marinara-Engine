@@ -34,6 +34,8 @@ import {
   resolveConversationTimeZone,
 } from "../conversation/timezone.js";
 
+const LORE_SEARCH_MIN_SIMILARITY = 0.25;
+
 type CustomToolsStore = {
   listEnabled(): Promise<
     Array<{
@@ -812,6 +814,8 @@ async function resolveToolRuntime(
   }
 
   const searchLorebookForTools = async (query: string, category?: string | null, requireVectors = false) => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return [];
     const entries = await lorebooksStore.listActiveEntries({
       chatId,
       characterIds: resolveToolLorebookCharacterIds(promptCharacterIds, lorebookCharacterIds),
@@ -829,20 +833,36 @@ async function resolveToolRuntime(
     const vectorized = eligible.filter(
       (entry: any) => !entry.excludeFromVectorization && Array.isArray(entry.embedding) && entry.embedding.length > 0,
     );
+    const toResult = (entry: any, similarity?: number) => ({
+      name: entry.name,
+      content: entry.content,
+      tag: entry.tag,
+      keys: entry.keys as string[],
+      ...(similarity === undefined ? {} : { similarity }),
+    });
+    // Literal hits remain searchable while vectors are missing, stale, or deliberately excluded.
+    const results = new Map(
+      eligible
+        .filter((entry: any) =>
+          [entry.name, entry.content, ...(Array.isArray(entry.keys) ? entry.keys : [])].some(
+            (value) => typeof value === "string" && value.toLowerCase().includes(normalizedQuery),
+          ),
+        )
+        .map((entry: any) => [entry.id, toResult(entry)]),
+    );
     if (vectorized.length) {
       try {
         const matches = await semanticShortlistLorebookEntries(vectorized, query, {
           ...lorebookEmbeddingOptions,
           topK: 20,
         });
-        if (matches)
-          return matches.map(({ entry, similarity }) => ({
-            name: entry.name,
-            content: entry.content,
-            tag: entry.tag,
-            keys: entry.keys,
-            similarity,
-          }));
+        if (matches) {
+          // A low calibrated floor rejects noise without inheriting automatic-activation limits.
+          for (const { entry, similarity } of matches) {
+            if (similarity >= LORE_SEARCH_MIN_SIMILARITY) results.set(entry.id, toResult(entry, similarity));
+          }
+          return [...results.values()].slice(0, 20);
+        }
         if (requireVectors)
           throw new Error(
             "Lore search embeddings are unavailable or incompatible. Check the embedding connection and re-vectorize the lorebook.",
@@ -856,24 +876,7 @@ async function resolveToolRuntime(
         "No vectorized lore entries are available. Vectorize an enabled lorebook before using Game lore search.",
       );
     }
-    const normalizedQuery = query.toLowerCase();
-    return eligible
-      .filter((entry: any) => {
-        const nameMatch = typeof entry.name === "string" && entry.name.toLowerCase().includes(normalizedQuery);
-        const contentMatch = typeof entry.content === "string" && entry.content.toLowerCase().includes(normalizedQuery);
-        const keyMatch =
-          Array.isArray(entry.keys) &&
-          entry.keys.some((key: unknown) => typeof key === "string" && key.toLowerCase().includes(normalizedQuery));
-        const categoryMatch = !category || entry.tag === category;
-        return categoryMatch && (nameMatch || contentMatch || keyMatch);
-      })
-      .slice(0, 20)
-      .map((entry: any) => ({
-        name: entry.name,
-        content: entry.content,
-        tag: entry.tag,
-        keys: entry.keys as string[],
-      }));
+    return [...results.values()].slice(0, 20);
   };
 
   const updateChatMetadataForTools = async (patchOrUpdater: MetadataPatchInput): Promise<MetadataPatch> => {
@@ -1093,7 +1096,9 @@ export async function resolveGenerationTools(args: ResolveGenerationToolsArgs): 
             ? ["search_lorebook"]
             : []),
         ]
-      : [],
+      : args.agentContext.chatMode === "roleplay"
+        ? (args.autoAttachToolNames ?? []).filter((name) => name === "roll_dice")
+        : [],
     preloadSpotifyPlayback: true,
     restoreSpotifyAgentDefaultTools: true,
   });

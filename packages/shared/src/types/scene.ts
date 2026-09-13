@@ -61,6 +61,7 @@ export interface ScenePromptPreferences {
   pov: ScenePromptPov;
   tense: ScenePromptTense;
   extraInstructions?: string;
+  promptPresetId?: string | null;
 }
 
 /** Request body for POST /scene/create. */
@@ -73,6 +74,8 @@ export interface SceneCreateRequest {
   plan: SceneFullPlan;
   /** Connection to use for the scene's generations. */
   connectionId?: string | null;
+  /** Optional preset for the scene's generations, alongside its scene instructions. */
+  promptPresetId?: string | null;
 }
 
 /** Response from POST /scene/create. */

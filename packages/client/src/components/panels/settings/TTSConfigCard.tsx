@@ -956,6 +956,9 @@ export function TTSConfigCard() {
   const [autoplayGame, setAutoplayGame] = useState(false);
   const [progressivePlayback, setProgressivePlayback] = useState(false);
   const [dialogueOnly, setDialogueOnly] = useState(false);
+  const [skipTagContent, setSkipTagContent] = useState(false);
+  const [skipCodeBlocks, setSkipCodeBlocks] = useState(true);
+  const [skipBracketedText, setSkipBracketedText] = useState(false);
   const [roleplaySpeakerExtractorEnabled, setRoleplaySpeakerExtractorEnabled] = useState(false);
   const [roleplaySpeakerExtractorConnectionId, setRoleplaySpeakerExtractorConnectionId] = useState("");
   const [roleplaySpeakerExtractorEmotionsEnabled, setRoleplaySpeakerExtractorEmotionsEnabled] = useState(false);
@@ -1027,6 +1030,9 @@ export function TTSConfigCard() {
     setAutoplayGame(savedConfig.autoplayGame);
     setProgressivePlayback(savedConfig.progressivePlayback ?? false);
     setDialogueOnly(savedConfig.dialogueOnly ?? false);
+    setSkipTagContent(savedConfig.skipTagContent ?? false);
+    setSkipCodeBlocks(savedConfig.skipCodeBlocks ?? true);
+    setSkipBracketedText(savedConfig.skipBracketedText ?? false);
     setRoleplaySpeakerExtractorEnabled(savedConfig.roleplaySpeakerExtractorEnabled ?? false);
     setRoleplaySpeakerExtractorConnectionId(savedConfig.roleplaySpeakerExtractorConnectionId ?? "");
     setRoleplaySpeakerExtractorEmotionsEnabled(savedConfig.roleplaySpeakerExtractorEmotionsEnabled ?? false);
@@ -1102,6 +1108,9 @@ export function TTSConfigCard() {
     autoplayGame,
     progressivePlayback,
     dialogueOnly,
+    skipTagContent,
+    skipCodeBlocks,
+    skipBracketedText,
     roleplaySpeakerExtractorEnabled,
     roleplaySpeakerExtractorConnectionId,
     roleplaySpeakerExtractorEmotionsEnabled,
@@ -2296,6 +2305,30 @@ export function TTSConfigCard() {
                 </div>
               </FieldRow>
             )}
+            <ToggleRow
+              label={localizeUi("tts.filters.tags")}
+              checked={skipTagContent}
+              onChange={(value) => {
+                setSkipTagContent(value);
+                mark({ skipTagContent: value });
+              }}
+            />
+            <ToggleRow
+              label={localizeUi("tts.filters.code")}
+              checked={skipCodeBlocks}
+              onChange={(value) => {
+                setSkipCodeBlocks(value);
+                mark({ skipCodeBlocks: value });
+              }}
+            />
+            <ToggleRow
+              label={localizeUi("tts.filters.brackets")}
+              checked={skipBracketedText}
+              onChange={(value) => {
+                setSkipBracketedText(value);
+                mark({ skipBracketedText: value });
+              }}
+            />
           </div>
 
           <div className="flex items-center gap-2 rounded-xl border border-sky-400/15 bg-sky-400/5 px-2.5 py-2">

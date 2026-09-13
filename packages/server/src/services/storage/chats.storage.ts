@@ -36,6 +36,7 @@ import {
   memoryChunks,
   conversationCallSessions,
   conversationCallMessages,
+  lorebookEntries,
 } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { existsSync, rmSync } from "fs";
@@ -69,6 +70,22 @@ export const CONVERSATION_NOTES_BUDGET_CHARS = 4000;
 export type MetadataPatch = Record<string, unknown>;
 export type MetadataUpdater = (current: MetadataPatch) => MetadataPatch | Promise<MetadataPatch>;
 export type ChatDeleteGuardResult = { allowed: true } | { allowed: false; reason: string };
+
+function lorebookEntryStateRemovalPatch(metadata: MetadataPatch, entryIds: ReadonlySet<string>): MetadataPatch {
+  const patch: MetadataPatch = {};
+  for (const key of [
+    "entryStateOverrides",
+    "entryTimingStates",
+    "lorebookEntryStateOverrides",
+    "lorebookEntryTimingStates",
+  ]) {
+    const value = metadata[key];
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    if (!Object.keys(value).some((id) => entryIds.has(id))) continue;
+    patch[key] = Object.fromEntries(Object.entries(value).filter(([id]) => !entryIds.has(id)));
+  }
+  return patch;
+}
 
 const metadataPatchQueues = new Map<string, Promise<void>>();
 const messageExtraPatchQueues = new Map<string, Promise<void>>();
@@ -1523,6 +1540,21 @@ export function createChatsStorage(db: DB) {
         const raw = typeof patchOrUpdater === "function" ? await patchOrUpdater({ ...current }) : patchOrUpdater;
         const patch = stripOrdinalMirrorKey(raw);
         const merged = mergeMetadataPatch(current, patch);
+        // Explicitly detaching a pinned book resets its chat-local entry state.
+        // Temporary exclusions retain it so disabling/re-enabling a book is reversible.
+        if (Array.isArray(patch.activeLorebookIds) && Array.isArray(current.activeLorebookIds)) {
+          const attachedBookIds = patch.activeLorebookIds;
+          const removedBookIds = current.activeLorebookIds.filter((bookId) => !attachedBookIds.includes(bookId));
+          if (removedBookIds.length > 0) {
+            const entries = await db
+              .select({ id: lorebookEntries.id })
+              .from(lorebookEntries)
+              .where(inArray(lorebookEntries.lorebookId, removedBookIds));
+            const cleanup = lorebookEntryStateRemovalPatch(merged, new Set(entries.map((entry) => entry.id)));
+            Object.assign(patch, cleanup);
+            Object.assign(merged, cleanup);
+          }
+        }
         // #5406: allocate inline rather than through allocateWriteOrdinal — the queue is
         // already held here, and folding the counter into the same row update makes the stamp
         // and the counter bump one atomic write, so a crash can never leave a mirror entry
@@ -1624,20 +1656,26 @@ export function createChatsStorage(db: DB) {
       );
     },
 
-    async removeLorebookFromChatMetadata(lorebookId: string) {
+    async pruneLorebookChatMetadata(entryIds: string[], lorebookId?: string) {
+      const removedEntryIds = new Set(entryIds);
       const allChats = await this.list();
       for (const chat of allChats) {
         const metadata = parseMetadata(chat.metadata);
-        if (!Array.isArray(metadata.activeLorebookIds)) continue;
-
-        const nextActiveLorebookIds = metadata.activeLorebookIds.filter((id) => id !== lorebookId);
-        if (nextActiveLorebookIds.length === metadata.activeLorebookIds.length) continue;
+        const hasBook =
+          lorebookId &&
+          ["activeLorebookIds", "excludedLorebookIds"].some(
+            (key) => Array.isArray(metadata[key]) && metadata[key].includes(lorebookId),
+          );
+        if (!hasBook && Object.keys(lorebookEntryStateRemovalPatch(metadata, removedEntryIds)).length === 0) continue;
 
         await this.patchMetadata(chat.id, (current) => {
-          const currentLorebookIds = Array.isArray(current.activeLorebookIds) ? current.activeLorebookIds : [];
-          return {
-            activeLorebookIds: currentLorebookIds.filter((id) => id !== lorebookId),
-          };
+          const patch = lorebookEntryStateRemovalPatch(current, removedEntryIds);
+          if (lorebookId) {
+            for (const key of ["activeLorebookIds", "excludedLorebookIds"]) {
+              if (Array.isArray(current[key])) patch[key] = current[key].filter((id) => id !== lorebookId);
+            }
+          }
+          return patch;
         });
       }
     },

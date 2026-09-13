@@ -13,6 +13,7 @@ import { join, extname } from "path";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { createPromptsStorage } from "../services/storage/prompts.storage.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../services/llm/connection-fallback-provider.js";
@@ -310,11 +311,16 @@ export async function sceneRoutes(app: FastifyInstance) {
   // injects description as narrator + firstMessage as character message,
   // stores conversation history as hidden context in metadata.
   app.post<{ Body: SceneCreateRequest }>("/create", async (req, reply) => {
-    const { originChatId, initiatorCharId, plan, connectionId } = req.body;
+    const { originChatId, initiatorCharId, plan, connectionId, promptPresetId } = req.body;
 
     // Validate origin chat
     const originChat = await chats.getById(originChatId);
     if (!originChat) return reply.status(404).send({ error: "Origin chat not found" });
+    if (promptPresetId !== undefined && promptPresetId !== null && typeof promptPresetId !== "string")
+      return reply.status(400).send({ error: "Prompt preset must be an ID or null" });
+    const selectedPresetId = promptPresetId?.trim() || null;
+    if (selectedPresetId && !(await createPromptsStorage(app.db).getById(selectedPresetId)))
+      return reply.status(400).send({ error: "The selected scene prompt preset no longer exists" });
 
     // Resolve participants — use plan's characterIds if present, else all origin chars
     const originCharIds = parseCharacterIds(originChat.characterIds);
@@ -333,9 +339,7 @@ export async function sceneRoutes(app: FastifyInstance) {
       groupId: null,
       personaId: originChat.personaId,
       personaCharacterId: originChat.personaCharacterId ?? null,
-      // Scene chats use the generated sceneSystemPrompt as their prompt source.
-      // Copying the origin conversation preset can make those instructions clash.
-      promptPresetId: null,
+      promptPresetId: selectedPresetId,
       connectionId: connectionId ?? originChat.connectionId,
     });
 

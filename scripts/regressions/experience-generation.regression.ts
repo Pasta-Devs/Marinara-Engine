@@ -201,7 +201,7 @@ try {
     assert.equal(res.statusCode, 422, res.body);
     const body = res.json();
     assert.equal(body.truncated, true, "truncation flagged");
-    assert.ok(String(body.error).includes("max output tokens"), "actionable truncation message");
+    assert.ok(String(body.error).includes("larger-context"), "actionable truncation message");
     assert.equal(upstreamBodies.length, 1, "no futile retry after truncation");
   }
 

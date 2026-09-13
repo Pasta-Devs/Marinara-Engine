@@ -17,8 +17,10 @@ const { getDB, closeDB } = await import("../../packages/server/src/db/connection
 const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
+const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { resolveGameDiceRequests } = await import("../../packages/server/src/services/game/dice.service.js");
-const { parseSkillCheckTagBody, createSkillCheckTagRegex } = await import("../../packages/shared/dist/index.js");
+const { parseSkillCheckTagBody, createSkillCheckTagRegex, characterDataSchema, getRoleplayCommandActivity } =
+  await import("../../packages/shared/dist/index.js");
 const { readDiceRollResults } = await import("../../packages/client/src/lib/dice-roll-result.js");
 const { ClaudeSubscriptionProvider } =
   await import("../../packages/server/src/services/llm/providers/claude-subscription.provider.js");
@@ -33,9 +35,29 @@ assert.deepEqual(
 assert.match(resolved.content, /^Before \[dice: 3d1\+2 = 5/);
 assert.match(resolved.content, /between \[dice: d1-2 = -1/);
 assert.equal(resolveGameDiceRequests(resolved.content).rolled, 0, "stored dice records are not new requests");
+assert.deepEqual(
+  resolveGameDiceRequests(resolved.content).unresolved,
+  [],
+  "stored records are not diagnostic failures",
+);
 assert.equal(resolveGameDiceRequests("[dice: 500d5000]").diceRolls[0]?.notation, "100d1000");
 for (const invalid of ["0d6", "d0", "no dice", "1d6+9007199254740991"]) {
-  assert.equal(resolveGameDiceRequests(`[dice: ${invalid}]`).rolled, 0, invalid);
+  const result = resolveGameDiceRequests(`[dice: ${invalid}]`);
+  assert.equal(result.rolled, 0, invalid);
+  assert.match(result.unresolved[0]!, /Unsupported dice notation/);
+}
+for (const declaration of ['dice="4d6kh3"', 'dice="3d6!"', 'dice="4dF"', 'resolution="successes"']) {
+  const result = resolveGameDiceRequests(
+    `[skill_check: skill="Unsupported" dc="4" ${declaration} rolls="6|6" total="12" result="success"]`,
+  );
+  assert.equal(result.rolled, 0);
+  assert.equal(result.unresolved.length, 1);
+  assert.doesNotMatch(result.content, /rolls=|total=|result=/);
+  assert.ok(
+    result.content.toLowerCase().includes(declaration.toLowerCase()),
+    `sparse records preserve the rule: ${result.content}`,
+  );
+  assert.equal(resolveGameDiceRequests(result.content).rolled, 0, "sparse pools cannot become an implicit d20");
 }
 assert.deepEqual(readDiceRollResults(resolved.diceRolls), resolved.diceRolls);
 assert.deepEqual(readDiceRollResults(resolved.diceRolls[0]), [resolved.diceRolls[0]]);
@@ -80,12 +102,29 @@ assert.equal(
 
 const calls: ChatMessage[][] = [];
 let failContinuation = false;
+let roleplay = false;
+let unsupportedOnly = false;
 const raw =
   'He does not see you. [skill_check: skill="Stealth" dc="40" rolls="2"] You escape unseen. [dice: 3d1+2] [skill_check: skill="Pool" dc="6" dice="6d1" resolution="successes" threshold="1"]';
 async function* scriptedChat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage> {
   calls.push(structuredClone(messages));
-  if (messages.at(-1)?.content.includes("The engine has now rolled the requested dice:")) {
+  assert.equal(options.tools, undefined, "subscription transports never receive native tool schemas");
+  if (roleplay) {
+    if (messages.at(-1)?.content.includes("The engine resolved your roll request:")) {
+      assert.match(messages.at(-1)!.content, /"total":[12]/);
+      yield "The real die total is below three; the lock stays shut.";
+    } else {
+      yield 'Mari reaches for the lock. [roll: character="Mari" notation="1d2" reason="The lock opens on a total of three"] The lock springs open without a real roll.';
+    }
+  } else if (messages.at(-1)?.content.includes("The engine has now rolled the requested dice:")) {
     assert.equal(options.tools, undefined, "outcome continuation needs no native tools schema");
+    if (unsupportedOnly) {
+      assert.match(messages.at(-1)!.content, /No dice were rolled/);
+      assert.match(messages.at(-1)!.content, /4d6kh3/);
+      assert.match(messages.at(-1)!.content, /Unresolved requests/);
+      yield "The outcome is still open: use supported NdM notation to request this roll.";
+      return { promptTokens: 10, completionTokens: 5, totalTokens: 15, finishReason: "stop" };
+    }
     assert.match(messages.at(-1)!.content, /Stealth/);
     assert.match(messages.at(-1)!.content, /3d1\+2 = 5/);
     if (failContinuation) {
@@ -94,7 +133,7 @@ async function* scriptedChat(messages: ChatMessage[], options: ChatOptions): Asy
     }
     yield "The guard spots you. The pool succeeds. [dice: d1 = 999]";
   } else {
-    yield raw;
+    yield unsupportedOnly ? "The attack wins with a fabricated total. [dice: 4d6kh3]" : raw;
   }
   return { promptTokens: 10, completionTokens: 5, totalTokens: 15, finishReason: "stop" };
 }
@@ -150,6 +189,15 @@ try {
       );
       if (!failure) assert.match(saved.content, /The guard spots you/);
       const extra = JSON.parse(saved.extra);
+      assert.equal(extra.gameOutcomeNarrationFailed, failure);
+      assert.equal(response.body.includes('"type":"game_outcome_narration_failed"'), failure);
+      if (failure) {
+        assert.equal(
+          saved.content.replace(/\[(?:dice|skill_check):[^\]]+\]/gi, "").trim(),
+          "",
+          "failure keeps the real log records without repeating their totals as prose",
+        );
+      }
       assert.deepEqual(extra.diceRollResults, [{ notation: "3d1+2", rolls: [1, 1, 1], modifier: 2, total: 5 }]);
       const checks = [...saved.content.matchAll(createSkillCheckTagRegex())].map((match) =>
         parseSkillCheckTagBody(match[1]!),
@@ -159,6 +207,50 @@ try {
       assert.equal(checks[1]?.resolvedResult?.total, 6);
       assert.match(response.body, /"diceRollResult":\{"notation":"3d1\+2"/, "the text roll uses the live card event");
     }
+    failContinuation = false;
+    unsupportedOnly = true;
+    calls.length = 0;
+    const unsupported = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: chat.id } });
+    assert.ok(!unsupported.body.includes('"type":"error"'), unsupported.body);
+    assert.equal(calls.length, 2, "even an unsupported-only request gets one bounded clarification pass");
+    const unresolved = (await chats.listMessages(chat.id)).at(-1)!;
+    assert.match(unresolved.content, /outcome is still open/);
+    assert.doesNotMatch(unresolved.content, /fabricated total/);
+    assert.ok(!unsupported.body.includes('"diceRollResult":'), "unsupported notation is never silently substituted");
+    unsupportedOnly = false;
+
+    roleplay = true;
+    const character = await createCharactersStorage(db).create(characterDataSchema.parse({ name: "Mari" }));
+    assert(character);
+    const rp = await chats.create({
+      name: "Roleplay text roll",
+      mode: "roleplay",
+      characterIds: [character.id],
+      connectionId: connection.id,
+      promptPresetId: null,
+    });
+    assert(rp);
+    await chats.patchMetadata(rp.id, {
+      enableAgents: false,
+      enableTools: false,
+      roleplayCommandsEnabled: true,
+      roleplayCommandToggles: { roll: true },
+    });
+    await chats.createMessage({ chatId: rp.id, role: "user", content: "Try the lock; roll before resolving it." });
+    calls.length = 0;
+    const rpResponse = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: rp.id } });
+    assert.ok(!rpResponse.body.includes('"type":"error"'), rpResponse.body);
+    assert.equal(calls.length, 2, "Roleplay text commands use the real roll loop without a native tool transport");
+    const rpSaved = (await chats.listMessages(rp.id)).at(-1)!;
+    assert.match(rpSaved.content, /real die total is below three/);
+    assert.doesNotMatch(rpSaved.content, /springs open without a real roll|\[roll:/);
+    const activities = getRoleplayCommandActivity(JSON.parse(rpSaved.extra));
+    assert.equal(activities.length, 1);
+    assert.equal(activities[0]?.command.type, "roll");
+    assert.equal(activities[0]?.error, undefined);
+    assert.ok([1, 2].includes(JSON.parse(activities[0]!.result!).total));
+    assert.match(rpResponse.body, /"diceRollResult":\{"notation":"1d2"/);
+    roleplay = false;
   }
 } finally {
   ClaudeSubscriptionProvider.prototype.chat = originalClaude;

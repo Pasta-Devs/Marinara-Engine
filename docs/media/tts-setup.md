@@ -124,6 +124,8 @@ Under the **Auto-play** heading, each toggle tells the app to read one kind of n
 
 Auto-play fires only once, on the newest reply, at the moment it finishes. It does not re-read old messages when you reopen or scroll a chat.
 
+The same playback settings also let you **Skip text inside HTML and custom tags**, **Skip fenced code blocks**, or **Skip text inside square brackets**. Code blocks are skipped by default; the other two filters start off. Tag filtering removes the enclosed text, such as a hidden `<simulation>...</simulation>` block, while preserving speaker tags used to select voices. These filters apply to manual playback and auto-play, including Game narration and Roleplay speaker extraction.
+
 ## Speaking a single message
 
 Once TTS is on, a **Speak** button (a microphone icon) appears in the toolbar under each character or narrator message. It reads that one message on demand.

@@ -48,8 +48,11 @@ import type {
   ChatMemoryRecallExportPayload,
   ChatMemoryRecallImportResult,
   ChatSummaryEntry,
+  GameToolPlanningInfo,
   ExportEnvelope,
   GameNpc,
+  Lorebook,
+  LorebookEntry,
   LorebookEntryTimingState,
   PresentCharacter,
   RPGStatsConfig,
@@ -82,7 +85,7 @@ import { restoreBranchHudLists, trimJournalForBranch } from "../services/game/br
 import { applyAllSegmentEdits, applyMessageSegmentEdits } from "../services/game/segment-edits.js";
 import type { Journal } from "../services/game/journal.service.js";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
-import { processLorebooks } from "../services/lorebook/index.js";
+import { filterRelevantLorebooks, processLorebooks } from "../services/lorebook/index.js";
 import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
 import {
   resolveChatSummaryConnection,
@@ -1364,24 +1367,46 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string; entryId: string } }>("/:id/lorebook-entries/:entryId", async (req, reply) => {
     const parsed = z.object({ enabled: z.boolean() }).strict().safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: "enabled must be a boolean" });
-    const entry = await createLorebooksStorage(app.db).getEntry(req.params.entryId);
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    const lorebooks = createLorebooksStorage(app.db);
+    const entry = (await lorebooks.getEntry(req.params.entryId)) as unknown as LorebookEntry | null;
     if (!entry) return reply.status(404).send({ error: "Lorebook entry not found" });
+    const book = await lorebooks.getById(String(entry.lorebookId));
+    const metadata = parseChatMetadata(chat.metadata);
+    const characterIds = resolveActiveCharacterIds(resolveChatCharacterIds(chat.characterIds), metadata, {
+      mode: chat.mode,
+      allowEmpty: true,
+    });
+    const identity = await resolveChatUserIdentity(createCharactersStorage(app.db), chat);
+    if (identity?.source === "character" && !characterIds.includes(identity.id)) characterIds.push(identity.id);
+    if (
+      !book ||
+      !filterRelevantLorebooks([book as unknown as Lorebook], {
+        chatId: chat.id,
+        characterIds,
+        personaId: identity?.source === "persona" ? identity.id : null,
+        activeLorebookIds: Array.isArray(metadata.activeLorebookIds) ? (metadata.activeLorebookIds as string[]) : [],
+        ...resolveLorebookScopeExclusions(chat.mode, metadata),
+      }).length
+    )
+      return reply.status(404).send({ error: "Lorebook entry not available in this chat" });
     if (parsed.data.enabled && !entry.enabled) {
       return reply.status(409).send({ error: "Enable this entry in its lorebook first" });
     }
-    // Merge one flag inside the existing serialized metadata write. In-flight
-    // ephemeral countdowns and changes to other entries must survive.
+    // Preserve a running countdown; re-enabling an exhausted entry starts its authored budget again.
     const updated = await storage.patchMetadata(req.params.id, (current) => {
-      const overrides = (current.entryStateOverrides ?? {}) as Record<
-        string,
-        { enabled?: boolean; ephemeral?: number | null }
-      >;
-      return {
-        entryStateOverrides: {
-          ...overrides,
-          [req.params.entryId]: { ...overrides[req.params.entryId], enabled: parsed.data.enabled },
-        },
+      const overrides = {
+        ...(resolveEntryStateOverrides(current.entryStateOverrides ?? current.lorebookEntryStateOverrides) ?? {}),
       };
+      const override = { ...overrides[req.params.entryId] };
+      if (parsed.data.enabled) {
+        delete override.enabled;
+        if (typeof override.ephemeral === "number" && override.ephemeral <= 0) delete override.ephemeral;
+      } else override.enabled = false;
+      if (Object.keys(override).length) overrides[req.params.entryId] = override;
+      else delete overrides[req.params.entryId];
+      return { entryStateOverrides: overrides };
     });
     if (!updated) return reply.status(404).send({ error: "Chat not found" });
     return normalizeChatForResponse(updated);
@@ -2716,6 +2741,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     ): Promise<{
       messages: Array<{ role: string; content: string }>;
       generationInfo?: Record<string, unknown>;
+      gameToolPlanning?: GameToolPlanningInfo;
     } | null> => {
       const cachedPrompt = Array.isArray(extra.cachedPrompt)
         ? extra.cachedPrompt
@@ -2758,9 +2784,28 @@ export async function chatsRoutes(app: FastifyInstance) {
         return null;
       }
 
+      const planner = extra.gameToolPlanning;
+      const plannerUsage = isRecord(planner) && isRecord(planner.usage) ? planner.usage : null;
+      const readPlannerTokens = (key: string) => {
+        const value = plannerUsage?.[key];
+        return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+      };
       return {
         messages: cachedPrompt,
         generationInfo: isRecord(extra.generationInfo) ? extra.generationInfo : undefined,
+        gameToolPlanning:
+          isRecord(planner) && typeof planner.model === "string" && typeof planner.provider === "string"
+            ? {
+                model: planner.model,
+                provider: planner.provider,
+                usage: plannerUsage
+                  ? {
+                      promptTokens: readPlannerTokens("promptTokens"),
+                      completionTokens: readPlannerTokens("completionTokens"),
+                    }
+                  : null,
+              }
+            : undefined,
       };
     };
 
@@ -2807,6 +2852,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           source: "cached",
           exact: true,
           generationInfo: cached.generationInfo ?? null,
+          gameToolPlanning: cached.gameToolPlanning ?? null,
           agentNote: requestedMessage
             ? "This is the exact cached text prompt sent for the selected turn."
             : "This is the cached text prompt saved after provider preparation for the active assistant swipe.",

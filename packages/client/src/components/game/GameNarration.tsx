@@ -385,6 +385,8 @@ interface GameNarrationProps {
   generationFailed?: boolean;
   /** Retry the GM generation */
   onRetryGeneration?: () => void;
+  /** Regenerate the saved turn when its separate outcome narration failed. */
+  onRetryTurn?: () => void;
   /** Whether direction effects (cinematic overlays) are currently playing */
   directionsActive?: boolean;
   /** Whether a validated saved narration position exists for the current assistant message. */
@@ -832,7 +834,7 @@ function getGameSegmentVoiceRequest(
   if (segment.type !== "dialogue" && segment.type !== "narration") return null;
 
   if (segment.type === "dialogue") {
-    const chunks = splitTTSChunks(segment.content);
+    const chunks = splitTTSChunks(segment.content, config);
     if (chunks.length === 0) return null;
     const tone = resolveGameSegmentTtsEmotion(segment);
     const voice = resolveTTSVoiceForSpeaker(
@@ -851,7 +853,7 @@ function getGameSegmentVoiceRequest(
   }
 
   if (config.dialogueOnly) return null;
-  const chunks = splitTTSChunks(segment.content);
+  const chunks = splitTTSChunks(segment.content, config);
   if (chunks.length === 0) return null;
   const voice = resolveTTSNarratorVoice(config);
   if (config.source === "elevenlabs" && !voice) return null;
@@ -992,6 +994,7 @@ export function GameNarration({
   onSkipScene,
   generationFailed,
   onRetryGeneration,
+  onRetryTurn,
   directionsActive,
   hasStoredNarrationPosition,
   restoredSegmentIndex,
@@ -1368,6 +1371,8 @@ export function GameNarration({
     return null;
   }, [messages]);
 
+  const outcomeNarrationFailed =
+    !!latestAssistant && parseMessageExtraRecord(latestAssistant.extra).gameOutcomeNarrationFailed === true;
   const lastAutoTranslation = useRef<{ id: string; source: string } | null>(null);
   useEffect(() => {
     if (!parsedActiveChatMetadata.autoTranslate || isStreaming || !latestAssistant || generationFailed) return;
@@ -3848,6 +3853,7 @@ export function GameNarration({
   // allowed over the advance controls, so this is the only thing telling the player the
   // turn is not finished.
   const narrationNeedsAttention =
+    (outcomeNarrationFailed && !isStreaming) ||
     (!!sceneAnalysisFailed && !active) ||
     (!!generationFailed && !isStreaming && !scenePreparing && !sceneAnalysisFailed && !!onRetryGeneration) ||
     !!combatGenerationFailed ||
@@ -4884,6 +4890,21 @@ export function GameNarration({
               </div>
             )}
 
+            {outcomeNarrationFailed && !isStreaming && !scenePreparing && (
+              <div
+                role="status"
+                className="flex flex-wrap items-center gap-2 py-3 text-sm text-[var(--muted-foreground)]"
+              >
+                <span>{localizeUi("ui.game.gamenarration.outcomeNarrationFailed")}</span>
+                {onRetryTurn && (
+                  <button type="button" onClick={onRetryTurn} className={NARRATION_ACTION_BTN}>
+                    <RefreshCw size={12} />
+                    {localizeUi("ui.game.gamenarration.retryOutcomeNarration")}
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* GM generation failed — show inline retry */}
             {generationFailed && !isStreaming && !scenePreparing && !sceneAnalysisFailed && onRetryGeneration && (
               <div className="flex items-center gap-2 py-3">
@@ -4898,7 +4919,7 @@ export function GameNarration({
               </div>
             )}
 
-            {!scenePreparing && !active && !isStreaming && !sceneAnalysisFailed && (
+            {!scenePreparing && !active && !isStreaming && !sceneAnalysisFailed && !outcomeNarrationFailed && (
               <p className="text-sm text-[var(--muted-foreground)]">
                 {localizeUi("ui.game.gamenarration.sendAnActionToBeginTheScene")}
               </p>

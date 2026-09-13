@@ -97,6 +97,15 @@ for (const mode of ["game", "roleplay", "conversation"] as const) {
         .blur();
       await expect.poll(async () => (await globalEntry()).content).toBe("Updated shared dock lore");
       expect((await globalEntry()).enabled, "content edits cannot leak the chat's disabled flag").toBe(true);
+      await row.getByRole("button", { name: "Duplicate entry", exact: true }).click();
+      await expect
+        .poll(
+          async () =>
+            (await (await request.get(`/api/lorebooks/${book.id}/entries`)).json()).find(
+              (candidate: { id: string }) => candidate.id !== entry.id,
+            )?.enabled,
+        )
+        .toBe(true);
       await page.reload();
       row = await openEditor();
       await expect(row.getByRole("checkbox", { name: "Enable entry for this chat", exact: true })).not.toBeChecked();
@@ -104,9 +113,7 @@ for (const mode of ["game", "roleplay", "conversation"] as const) {
         .locator("label")
         .filter({ has: page.getByRole("checkbox", { name: "Enable entry for this chat", exact: true }) })
         .click();
-      await expect
-        .poll(async () => (await metadata(a.id)).entryStateOverrides[entry.id])
-        .toEqual({ ephemeral: 3, enabled: true });
+      await expect.poll(async () => (await metadata(a.id)).entryStateOverrides[entry.id]).toEqual({ ephemeral: 3 });
       await request.patch(`/api/lorebooks/${book.id}/entries/${entry.id}`, { data: { enabled: false } });
       await page.reload();
       row = await openEditor();

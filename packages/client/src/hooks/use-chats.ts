@@ -31,6 +31,7 @@ import type {
   ChatMemoryRecallExportPayload,
   ChatMemoryRecallImportResult,
   ChatSummaryEntry,
+  GameToolPlanningInfo,
   ConversationNote,
   ExportEnvelope,
   Message,
@@ -1562,6 +1563,7 @@ export function usePeekPrompt() {
           durationMs?: number | null;
           finishReason?: string | null;
         } | null;
+        gameToolPlanning?: GameToolPlanningInfo | null;
         agentNote?: string;
       }>(`/chats/${chatId}/peek-prompt`, messageId ? { messageId } : {});
     },
