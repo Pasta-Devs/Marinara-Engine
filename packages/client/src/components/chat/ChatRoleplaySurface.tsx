@@ -117,8 +117,6 @@ import {
   useGenerateGameTurnStoryboard,
 } from "../../hooks/use-game-storyboards";
 
-const settledLatestVnMessageIds = new Map<string, string | null>();
-
 type ChatData = ComponentProps<typeof ChatCommonOverlays>["chat"];
 
 const RoleplayHUD = lazy(async () => {
@@ -1523,9 +1521,7 @@ export function ChatRoleplaySurface({
     return (messages ?? []).filter((message) => message.role !== "system" && !isMessageHiddenFromUser(message));
   }, [messages]);
   const latestVnMessage = visibleVnMessages[visibleVnMessages.length - 1];
-  const latestVnMessageRevision = latestVnMessage
-    ? JSON.stringify([latestVnMessage.id, latestVnMessage.activeSwipeIndex ?? 0, latestVnMessage.content])
-    : null;
+  const pendingVnReply = useChatStore((s) => s.pendingVnReplies.get(activeChatId));
 
   // Visual Novel navigation: track selected message index and paragraph index within that message.
   // By default (or when null), it stays on the latest message.
@@ -1533,13 +1529,6 @@ export function ChatRoleplaySurface({
   const [vnParagraphIndex, setVnParagraphIndex] = useState<number | null>(null);
   const [vnParagraphCount, setVnParagraphCount] = useState<number>(1);
   const pendingVnPrevious = useRef<string | null>(null);
-  const previousVnStreamRef = useRef({ chatId: activeChatId, active: hasLiveStream });
-  const streamStartMessageRef = useRef<{
-    chatId: string;
-    id: string | null;
-    activeSwipeIndex: number | null;
-    content: string | null;
-  } | null>(null);
 
   // Active message in VN view:
   const activeVnMessage = useMemo(() => {
@@ -1555,36 +1544,11 @@ export function ChatRoleplaySurface({
   }, [activeVnMessage, visibleVnMessages]);
 
   // Reset VN navigation when switching chats or when live stream starts/ends.
-  // A completed stream with a changed reply is a new turn, so begin it at its
-  // first paragraph. Empty/cancelled streams keep the existing selection.
   useEffect(() => {
-    const chatChanged = previousVnStreamRef.current.chatId !== activeChatId;
-    const streamStarted = !chatChanged && !previousVnStreamRef.current.active && hasLiveStream;
-    const streamFinished = !chatChanged && previousVnStreamRef.current.active && !hasLiveStream;
-    if (streamStarted) {
-      streamStartMessageRef.current = {
-        chatId: activeChatId,
-        id: latestVnMessage?.id ?? null,
-        activeSwipeIndex: latestVnMessage?.activeSwipeIndex ?? null,
-        content: latestVnMessage?.content ?? null,
-      };
-    }
-    const streamedReplyChanged =
-      streamFinished &&
-      streamStartMessageRef.current?.chatId === activeChatId &&
-      (streamStartMessageRef.current.id !== (latestVnMessage?.id ?? null) ||
-        streamStartMessageRef.current.activeSwipeIndex !== (latestVnMessage?.activeSwipeIndex ?? null) ||
-        streamStartMessageRef.current.content !== (latestVnMessage?.content ?? null));
-    if (chatChanged || streamStarted || streamFinished) {
-      setVnSelectedMessageId(null);
-      setVnParagraphIndex(streamFinished && streamedReplyChanged ? 0 : null);
-      pendingVnPrevious.current = null;
-    }
-    if (chatChanged) {
-      streamStartMessageRef.current = null;
-    }
-    previousVnStreamRef.current = { chatId: activeChatId, active: hasLiveStream };
-  }, [activeChatId, hasLiveStream, latestVnMessage]);
+    setVnSelectedMessageId(null);
+    setVnParagraphIndex(null);
+    pendingVnPrevious.current = null;
+  }, [activeChatId, hasLiveStream]);
 
   useEffect(() => {
     const index = visibleVnMessages.findIndex((message) => message.id === pendingVnPrevious.current);
@@ -1595,18 +1559,22 @@ export function ChatRoleplaySurface({
     }
   }, [visibleVnMessages]);
 
-  // A fast stream can save a new message and finish before React paints the
-  // live-stream state. Detect the new latest message directly in that case.
+  // Consume only a generated reply, once its durable row replaces the stream.
+  // Edits, cached swipes, and history navigation never create this marker.
   useEffect(() => {
-    const currentRevision = latestVnMessageRevision;
-    const previousId = settledLatestVnMessageIds.get(activeChatId);
-    if (!hasLiveStream && settledLatestVnMessageIds.has(activeChatId) && previousId !== currentRevision) {
-      setVnSelectedMessageId(null);
-      setVnParagraphIndex(0);
-      pendingVnPrevious.current = null;
-    }
-    if (!hasLiveStream) settledLatestVnMessageIds.set(activeChatId, currentRevision);
-  }, [activeChatId, hasLiveStream, latestVnMessageRevision]);
+    if (
+      hasLiveStream ||
+      !pendingVnReply ||
+      latestVnMessage?.id !== pendingVnReply.id ||
+      latestVnMessage.activeSwipeIndex !== pendingVnReply.activeSwipeIndex ||
+      latestVnMessage.content !== pendingVnReply.content
+    )
+      return;
+    setVnSelectedMessageId(null);
+    setVnParagraphIndex(0);
+    pendingVnPrevious.current = null;
+    useChatStore.getState().setPendingVnReply(activeChatId, null);
+  }, [activeChatId, hasLiveStream, latestVnMessage, pendingVnReply]);
 
   const currentParagraphIndex = vnParagraphIndex ?? Math.max(0, vnParagraphCount - 1);
 

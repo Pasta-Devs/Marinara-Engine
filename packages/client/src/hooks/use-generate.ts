@@ -1274,6 +1274,7 @@ export function useGenerate() {
         }
       };
       useChatStore.getState().setAbortController(params.chatId, abortController);
+      useChatStore.getState().setPendingVnReply(params.chatId, null);
       useChatStore.getState().clearThinkingBuffer(params.chatId);
 
       // Helper: returns true when this generation's chat is the one the user is viewing.
@@ -1479,6 +1480,23 @@ export function useGenerate() {
       let typewriterBufferUntil = 0;
       let roleplayTypewriterCharsPerSecond: number | null = null;
       const persistedMessages = new Map<string, Message>();
+      let vnReplyPublished = false;
+      const publishVnReply = (message: Message | null) => {
+        if (
+          vnReplyPublished ||
+          chatModeForGeneration !== "roleplay" ||
+          params.impersonate ||
+          params.turnGameBots ||
+          abortController.signal.aborted ||
+          useChatStore.getState().abortControllers.get(params.chatId) !== abortController ||
+          !message ||
+          assistantMessagesBeforeGeneration.fingerprints.get(message.id) === assistantMessageFingerprint(message)
+        )
+          return;
+        vnReplyPublished = true;
+        const { id, activeSwipeIndex, content } = message;
+        useChatStore.getState().setPendingVnReply(params.chatId, { id, activeSwipeIndex, content });
+      };
       let sawGroupTurn = false;
       let currentGroupTurnSavedMessage: Message | null = null;
       let heldTextRewriteMessage: Message | null = null;
@@ -2613,6 +2631,7 @@ export function useGenerate() {
                 if (pendingText.length > 0 || typingActive) await waitForTypewriterDrain();
                 const savedMessage = persistedMessages.get(message.id);
                 if (savedMessage) upsertPersistedMessages(qc, params.chatId, [savedMessage]);
+                publishVnReply(savedMessage ?? null);
                 if (useChatStore.getState().streamingChatId === params.chatId) {
                   setStreaming(false);
                 }
@@ -3245,6 +3264,7 @@ export function useGenerate() {
           });
         }
         if (stillOwnerAtCleanupStart) {
+          if (sawDoneEvent || passiveStreamSettled) publishVnReply(latestAssistantMessage(persistedMessages.values()));
           useChatStore.getState().clearPerChatState(params.chatId);
           useChatStore.getState().setAbortController(params.chatId, null);
           useChatStore.getState().setBackgroundIllustration(params.chatId, false);
