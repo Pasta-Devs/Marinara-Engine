@@ -21,7 +21,7 @@ import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { useGameAssetStore } from "../../stores/game-asset.store";
-import { NewGameExperienceChooser } from "./NewGameExperienceChooser";
+import { LegacyExperienceSetupDialog } from "./LegacyExperienceSetupDialog";
 import {
   gameAssetKeys,
   useGameAssetManifest,
@@ -83,12 +83,19 @@ import {
   useCapabilityClientModuleState,
   useInstalledCapabilityPackages,
 } from "../../hooks/use-capability-packages";
+import { type InstalledCapabilityPackage } from "@marinara-engine/shared";
 import { useGenerate } from "../../hooks/use-generate";
 import { isVisibleGameMessage } from "../../lib/chat-message-visibility";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useGenerateSpatialMapDraft, useSpatialContext } from "../../hooks/use-spatial-context";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { spriteKeys, useUploadAvatar, useUploadPersonaAvatar, type SpriteInfo } from "../../hooks/use-characters";
+import {
+  characterKeys,
+  spriteKeys,
+  useUploadAvatar,
+  useUploadPersonaAvatar,
+  type SpriteInfo,
+} from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api, getJsonRepairRequest, type JsonRepairRequest } from "../../lib/api-client";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
@@ -3059,7 +3066,17 @@ function GameSurfaceComponent({
   const [startGameRequested, setStartGameRequested] = useState(false);
   const [startSessionRequested, setStartSessionRequested] = useState(false);
   const [dismissedSetupWizardChatId, setDismissedSetupWizardChatId] = useState<string | null>(null);
+  /** An activated experience whose manifest declares no `contributions.gameSurface.setup`: it owns its
+   *  whole setup form, so the wizard is swapped for that package's own dialog, the way the body swap
+   *  worked before the setup seam. Held here rather than in the wizard because a child of step 0 cannot
+   *  replace the wizard it is mounted inside. Null on the seam path, which swaps nothing. */
+  const [legacyExperienceSetup, setLegacyExperienceSetup] = useState<InstalledCapabilityPackage | null>(null);
   const [activeReadable, setActiveReadable] = useState<JournalReadable | null>(null);
+  // The selection belongs to the chat it was made in, so switching chats must not show the previous
+  // chat's package setup in front of the next chat's wizard.
+  useEffect(() => {
+    setLegacyExperienceSetup(null);
+  }, [activeChatId]);
   const readableQueueRef = useRef<JournalReadable[]>([]);
   const recentMusicHistoryRef = useRef<string[]>(normalizeRecentMusicHistory(chatMeta.gameRecentMusic));
   const recentSpotifyTrackHistoryRef = useRef<string[]>(
@@ -10762,8 +10779,8 @@ function GameSurfaceComponent({
       }
     };
 
-    /** Renders the built-in wizard with the given Experiences block injected into its first step. */
-    const classicSetup = (experiencesSlot: ReactNode) => (
+    /** The built-in wizard, which now owns the Experiences block inside its own first step. */
+    const classicSetup = (
       <>
         <Suspense
           fallback={
@@ -10773,7 +10790,8 @@ function GameSurfaceComponent({
           }
         >
           <GameSetupWizard
-            experiencesSlot={experiencesSlot}
+            experienceSelectionEnabled={needsCreation}
+            onLegacyExperienceSelected={setLegacyExperienceSetup}
             onComplete={(config, preferences, conns, wizardGameName, mapPlan) => {
               const queueSetupMapPlan = (chatId: string) => {
                 if (activeChatIdRef.current !== chatId) return false;
@@ -10808,6 +10826,13 @@ function GameSurfaceComponent({
                     onError: (error) => {
                       if (activeChatIdRef.current !== chatId) return;
                       if (!handleJsonRepairError(error)) clearPendingSetupMapPlan(chatId);
+                    },
+                    onSettled: () => {
+                      // A capability package can write a persona or a lorebook during setup — the shared
+                      // world apply flow does — so a failure at either step still leaves records the
+                      // client knows nothing about. `.all`, since the lists are also cached per category.
+                      queryClient.invalidateQueries({ queryKey: characterKeys.personas });
+                      queryClient.invalidateQueries({ queryKey: lorebookKeys.all });
                     },
                   },
                 );
@@ -10940,17 +10965,26 @@ function GameSurfaceComponent({
         {imagePromptReviewModal}
       </>
     );
-    // The chooser renders the built-in wizard until an experience is activated, then hands it the body.
+    // An experience that declares no setup block draws its own form INSTEAD of the wizard, the way the
+    // body swap worked before the seam. Every other path keeps all seven wizard steps mounted.
     return (
       <>
-        <NewGameExperienceChooser
-          activeChatId={activeChatId}
-          onCancelSetup={dismissSetupWizard}
-          onSetupError={handleJsonRepairError}
-          renderClassicWizard={(experiencesSlot) => classicSetup(experiencesSlot)}
-        />
-        {/* Mounted OUTSIDE the chooser so it is reachable from both setup paths — an experience draws its
-            own wizard body, and a malformed-JSON opening has to stay repairable there too. */}
+        {legacyExperienceSetup ? (
+          <LegacyExperienceSetupDialog
+            experience={legacyExperienceSetup}
+            activeChatId={activeChatId}
+            onCancelSetup={() => {
+              setLegacyExperienceSetup(null);
+              dismissSetupWizard();
+            }}
+            onDeselect={() => setLegacyExperienceSetup(null)}
+            onSetupError={handleJsonRepairError}
+          />
+        ) : (
+          classicSetup
+        )}
+        {/* Mounted OUTSIDE both setup paths so it is reachable from either — a pre-seam experience draws
+            its own wizard body, and a malformed-JSON opening has to stay repairable there too. */}
         <GameJsonRepairModal
           request={jsonRepairRequest}
           onClose={() => setJsonRepairRequest(null)}

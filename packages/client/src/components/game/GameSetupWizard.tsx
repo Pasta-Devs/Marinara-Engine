@@ -1,17 +1,7 @@
 // ──────────────────────────────────────────────
 // Game: Setup Wizard (initial game setup modal)
 // ──────────────────────────────────────────────
-import {
-  lazy,
-  Suspense,
-  useState,
-  useMemo,
-  useCallback,
-  useEffect,
-  useRef,
-  type ChangeEvent,
-  type ReactNode,
-} from "react";
+import { lazy, Suspense, useState, useMemo, useCallback, useEffect, useRef, type ChangeEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
@@ -61,6 +51,9 @@ import {
   type Persona,
   type AvatarCrop,
 } from "@marinara-engine/shared";
+import { NewGameExperienceChooser } from "./NewGameExperienceChooser";
+import { selectGameExperiencePackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
+import { type InstalledCapabilityPackage } from "@marinara-engine/shared";
 import { getCharacterTitle } from "../../lib/character-display";
 import { api } from "../../lib/api-client";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -126,8 +119,14 @@ function normalizeCapabilitySetupSelectionKind(
 }
 
 interface GameSetupWizardProps {
-  /** Optional block rendered with the other pre-start choices, used to offer installed game experiences. */
-  experiencesSlot?: ReactNode;
+  /** Whether the Experiences block is offered at all. False for a chat that already has a game: only
+   *  `/game/create` can stamp `gameExperienceId`, so offering the choice on a re-entered setup would draw
+   *  a control whose answer is discarded. */
+  experienceSelectionEnabled: boolean;
+  /** Reports an activated experience whose manifest declares no `contributions.gameSurface.setup`: it owns
+   *  its whole setup form, so the host has to hand the body over to it instead of drawing this wizard.
+   *  The host swaps, since a child of step 0 cannot replace the wizard it is mounted inside. */
+  onLegacyExperienceSelected: (experience: InstalledCapabilityPackage) => void;
   onComplete: (
     config: GameSetupConfig,
     preferences: string,
@@ -471,7 +470,8 @@ function normalizeGameLanguage(language: string): string {
 }
 
 export function GameSetupWizard({
-  experiencesSlot,
+  experienceSelectionEnabled,
+  onLegacyExperienceSelected,
   onComplete,
   onCancel,
   isLoading,
@@ -567,6 +567,9 @@ export function GameSetupWizard({
     preferences: false,
   });
   const [importedSetupNotice, setImportedSetupNotice] = useState<string | null>(null);
+  /** The activated experience's id. The wizard owns the selection because the two things it interacts
+   *  with — restoring an imported setup and authoring the setup config — both live here. */
+  const [activeExperienceId, setActiveExperienceId] = useState<string | null>(null);
   const setupImportInputRef = useRef<HTMLInputElement>(null);
   const pendingImportedGenerationParametersRef = useRef<Partial<EditableGenerationParameters> | null>(null);
   const importedGenerationParametersRef = useRef<Partial<GenerationParameters> | null>(null);
@@ -574,6 +577,40 @@ export function GameSetupWizard({
     GameSetupConfig,
     "artStylePrompt" | "generatedArtStylePrompt" | "useCampaignArtStyle" | "imageStyleProfileId"
   > | null>(null);
+
+  // The same two lines GameSurface resolves the game's surface package by, so the block can never offer
+  // something that would not mount. Resolved here rather than in the chooser because the wizard is what
+  // needs the MANIFEST: what the experience asks the wizard to collect is declared in it.
+  const { data: installedCapabilityPackages } = useInstalledCapabilityPackages(experienceSelectionEnabled);
+  const gameExperiences = useMemo(
+    () => selectGameExperiencePackages(installedCapabilityPackages),
+    [installedCapabilityPackages],
+  );
+  /** Resolved, not remembered: a package uninstalled while setup is open must not stay selected. Forced
+   *  off entirely when the choice cannot be recorded, so a hidden block cannot leave a live selection. */
+  const activeExperience = useMemo(
+    () => (experienceSelectionEnabled ? (gameExperiences.find((exp) => exp.id === activeExperienceId) ?? null) : null),
+    [experienceSelectionEnabled, gameExperiences, activeExperienceId],
+  );
+  const handleActiveExperienceChange = useCallback(
+    (nextId: string | null) => {
+      if (!nextId) {
+        setActiveExperienceId(null);
+        return;
+      }
+      const experience = gameExperiences.find((exp) => exp.id === nextId) ?? null;
+      if (!experience) return;
+      // A package that declares no setup block still owns its whole setup form, so the host hands the
+      // body over instead of drawing this wizard. Keyed off the ABSENCE of the declaration, never off a
+      // package id or version.
+      if (!experience.manifest.contributions?.gameSurface?.setup) {
+        onLegacyExperienceSelected(experience);
+        return;
+      }
+      setActiveExperienceId(nextId);
+    },
+    [gameExperiences, onLegacyExperienceSelected],
+  );
 
   const sidecarStatus = useSidecarStore((s) => s.status);
   const sidecarConfig = useSidecarStore((s) => s.config);
@@ -583,6 +620,17 @@ export function GameSetupWizard({
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
   const sidecarAvailable = !!sidecarConfig.modelPath && sidecarStatus !== "not_downloaded";
+
+  // Escape closes setup, matching the backdrop click and the X button. Skipped while a launch is in
+  // flight, and while the template picker owns the screen, so Escape dismisses the topmost thing only.
+  useEffect(() => {
+    if (isLoading || spatialTemplatePickerOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isLoading, spatialTemplatePickerOpen, onCancel]);
 
   // Fetch sidecar status on mount so the dropdown is populated without visiting Connections first
   useEffect(() => {
@@ -1431,8 +1479,15 @@ export function GameSetupWizard({
                       )}
                     </div>
 
-                    {/* Absent when nothing provides an experience, leaving this step exactly as it was. */}
-                    {experiencesSlot}
+                    {/* Absent when the choice cannot be recorded, leaving this step exactly as it was. */}
+                    {experienceSelectionEnabled && (
+                      <NewGameExperienceChooser
+                        experiences={gameExperiences}
+                        activeId={activeExperience?.id ?? null}
+                        onActiveIdChange={handleActiveExperienceChange}
+                        disabled={isLoading}
+                      />
+                    )}
 
                     <div>
                       <label className={GAME_SETUP_FIELD_LABEL}>{localizeUi("ui.game.gamesetupwizard.gameName")}</label>
