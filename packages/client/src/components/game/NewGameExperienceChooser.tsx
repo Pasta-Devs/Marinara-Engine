@@ -56,10 +56,10 @@ export function NewGameExperienceChooser({
             </p>
             <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
               {activeExperience
-                ? localizeUi("ui.game.newgameexperiencechooser.value1WillRunThisGameTurnItOffTo", {
+                ? localizeUi("ui.game.newgameexperiencechooser.value1IsOnForThisGameItUsesEverything", {
                     value1: activeExperience.manifest.name,
                   })
-                : localizeUi("ui.game.newgameexperiencechooser.runThisGameWithADownloadedExperienceInsteadOf")}
+                : localizeUi("ui.game.newgameexperiencechooser.playThisGameThroughADownloadedExperienceTheSetup")}
             </p>
           </div>
         </div>
