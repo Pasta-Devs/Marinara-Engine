@@ -585,8 +585,10 @@ export function GameSetupWizard({
   const [experienceSeedInput, setExperienceSeedInput] = useState<string>(() => String(experienceSeed));
   /** What a declared requirement overwrote and what it wrote in its place, so turning the Experience
    *  back off can put the player's own value back — and only while the value on screen is still the one
-   *  the seam wrote. Null whenever the seam has changed nothing. */
-  const appliedCustomWidgetsRef = useRef<{ applied: boolean; previous: boolean } | null>(null);
+   *  the seam wrote. Per EXPERIENCE: the id of the one that declared it rides along, because switching
+   *  straight from one Experience to another has to settle the first one's requirement before the
+   *  second one's can be applied. Null whenever the seam has changed nothing. */
+  const appliedCustomWidgetsRef = useRef<{ experienceId: string; applied: boolean; previous: boolean } | null>(null);
   const setupImportInputRef = useRef<HTMLInputElement>(null);
   const pendingImportedGenerationParametersRef = useRef<Partial<EditableGenerationParameters> | null>(null);
   const importedGenerationParametersRef = useRef<Partial<GenerationParameters> | null>(null);
@@ -637,6 +639,11 @@ export function GameSetupWizard({
    *  same way with no host change. */
   const declaredEnableCustomWidgets =
     activeExperience?.manifest.contributions?.gameSurface?.setup?.requires?.enableCustomWidgets;
+  /** Which Experience the declaration above belongs to, or null when none is active. Kept beside it
+   *  because the applied record is per Experience and has to be matched against the Experience that is
+   *  live now — an id, not the resolved package, so a refetch that rebuilds equal objects changes
+   *  nothing here. */
+  const declaringExperienceId = activeExperience?.id ?? null;
   /** An Experience that declares `setup` hands the host its setup answers; one that does not is handled
    *  elsewhere entirely. Keyed off the DECLARATION, never off a package id or version. */
   const experienceDeclaresSetup = Boolean(activeExperience?.manifest.contributions?.gameSurface?.setup);
@@ -973,21 +980,39 @@ export function GameSetupWizard({
   // the `requires` block; `enableCustomWidgets` is simply the only key the vocabulary has today.
   useEffect(() => {
     const applied = appliedCustomWidgetsRef.current;
-    if (declaredEnableCustomWidgets === undefined) {
-      // The Experience is off, or declares no expectation. Put back what the seam overwrote, unless the
-      // player has changed it since — then their value is the newer answer and it stands.
+    if (!declaringExperienceId || declaredEnableCustomWidgets === undefined) {
+      // The Experience is off, or declares no expectation — the same state either way. Put back what the
+      // seam overwrote, unless the player has changed it since — then their value is the newer answer
+      // and it stands.
       appliedCustomWidgetsRef.current = null;
       if (applied && enableCustomWidgets === applied.applied) setEnableCustomWidgets(applied.previous);
       return;
     }
-    // Applied once per activation: flipping the control afterwards is the player's call, not a state to
-    // be corrected.
-    if (applied) return;
-    if (enableCustomWidgetsTouched) return;
-    if (enableCustomWidgets === declaredEnableCustomWidgets) return;
-    appliedCustomWidgetsRef.current = { applied: declaredEnableCustomWidgets, previous: enableCustomWidgets };
+    // A record left by a DIFFERENT Experience means the player switched straight from one to another.
+    // Settle that one first, by the same rule as toggling it off — the player's own value goes back only
+    // while the control still holds what the seam wrote — and then apply the newly active Experience's
+    // declaration below against what the settle left standing.
+    const stale = applied && applied.experienceId !== declaringExperienceId ? applied : null;
+    let settled = enableCustomWidgets;
+    if (stale) {
+      appliedCustomWidgetsRef.current = null;
+      if (enableCustomWidgets === stale.applied) settled = stale.previous;
+    }
+    // Applied once per activation: a record already standing for THIS Experience, a control the player
+    // has answered themselves, or a value that already matches all leave the control alone — flipping it
+    // afterwards is the player's call, not a state to be corrected. Only a just-settled restore still
+    // has to land.
+    if ((applied && !stale) || enableCustomWidgetsTouched || settled === declaredEnableCustomWidgets) {
+      if (settled !== enableCustomWidgets) setEnableCustomWidgets(settled);
+      return;
+    }
+    appliedCustomWidgetsRef.current = {
+      experienceId: declaringExperienceId,
+      applied: declaredEnableCustomWidgets,
+      previous: settled,
+    };
     setEnableCustomWidgets(declaredEnableCustomWidgets);
-  }, [declaredEnableCustomWidgets, enableCustomWidgets, enableCustomWidgetsTouched]);
+  }, [declaringExperienceId, declaredEnableCustomWidgets, enableCustomWidgets, enableCustomWidgetsTouched]);
 
   useEffect(() => {
     if (!gameSystemPromptEdited) {
