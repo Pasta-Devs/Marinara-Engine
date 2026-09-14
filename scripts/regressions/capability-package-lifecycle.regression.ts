@@ -87,6 +87,7 @@ function seedWhisperModels() {
 
 try {
   const {
+    bestEffortInstalledEntryId,
     capabilityCatalogSchema,
     parseCapabilityCatalogWithCompat,
     capabilityPackageManifestSchema,
@@ -1893,6 +1894,38 @@ try {
     tolerantInstalled.map((item) => item.id),
     ["registry-survivor"],
     "an unparseable installed manifest is dropped on its own; every other entry still loads",
+  );
+
+  // Dropping the entry from the in-memory list is only half the job. Every write persists that list,
+  // so without a carry-through the first install, uninstall, update or declined update after a
+  // downgrade erases the unreadable row for good and the package cannot come back when the Engine is
+  // upgraded again. Exercise a real write through the manager rather than the fixture helper.
+  const removedSurvivor = await capabilityPackageManager.uninstall("registry-survivor");
+  assert.ok(removedSurvivor, "the readable entry uninstalls normally while an unreadable one sits beside it");
+  const rewrittenRegistry = JSON.parse(readFileSync(registryPath, "utf8")) as {
+    schemaVersion: number;
+    packages: Array<{ id?: string; manifest?: { contributions?: unknown } }>;
+  };
+  assert.equal(rewrittenRegistry.schemaVersion, 1, "the carry-through must not disturb the registry envelope");
+  assert.deepEqual(
+    rewrittenRegistry.packages.map((item) => item.id),
+    ["registry-from-the-future"],
+    "a write keeps the unreadable entry in the file instead of erasing it",
+  );
+  assert.deepEqual(
+    rewrittenRegistry.packages[0]?.manifest?.contributions,
+    { slots: ["chat-settings"], holograms: { enabled: true } },
+    "the carried entry is kept verbatim, including the manifest this Engine cannot parse",
+  );
+  assert.equal(
+    bestEffortInstalledEntryId(rewrittenRegistry.packages[0]),
+    "registry-from-the-future",
+    "the carried entry stays identifiable, which is what keeps a reinstall of that id from duplicating it",
+  );
+  assert.deepEqual(
+    (await capabilityPackageManager.installed()).map((item) => item.id),
+    [],
+    "the carried entry is still never handed to a caller as an installed package",
   );
 
   const { getFileTableConfig, isFileTable } = await import("../../packages/server/src/db/file-schema.js");

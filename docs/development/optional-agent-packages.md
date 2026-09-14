@@ -549,6 +549,13 @@ saying what the Experience expects if the player sets it otherwise. Nothing in t
 force-disable a host setting the package did not name — Agents in particular are never touched by it,
 because a future agent adapted to an Experience should still be the player's call.
 
+Two host behaviours ship with the block. While an Experience that declares `setup` is active, the
+wizard does not offer its spatial-map options: the Experience owns its own world, so no map draft is
+requested, no map-builder handoff is armed, and the template picker does not run for that game. And the
+Experiences block is offered only while a new game is being created, because only game creation records
+the Experience on the chat; an Experience therefore cannot be switched on for an existing chat that is
+back in setup.
+
 `seed` and `config` both write into the same `experienceConfig` record, so a manifest whose `config`
 names `seed.key` is refused by the schema rather than accepted. The failure it prevents is silent:
 the literal would replace the player's seed with a constant, the package would accept the number
@@ -560,8 +567,10 @@ if your package _requires_ the Engine-drawn fields, since doing so refuses the i
 older than this one. Note the direction that bites: an Engine older than 1.17 does not merely ignore
 the block, it cannot parse a manifest that carries it, and drops the entry from the catalog with only
 a server-side warning. Installed packages are handled per entry too — one unreadable installed
-manifest is dropped with a warning instead of failing the whole installed-packages registry — so a
-downgrade costs you that package rather than every package.
+manifest is skipped, with a single warning, instead of failing the whole installed-packages registry.
+The skipped entry is also kept in the registry file rather than erased by the next write, so the
+package is still there and works again once the Engine is upgraded past it. A downgrade costs you the
+use of that package while you are rolled back, not the package itself and not every other package.
 
 ## Initial packages
 

@@ -286,6 +286,18 @@ function assertNotDowngrade(current: InstalledCapabilityPackage | undefined, nex
   }
 }
 
+/** Raw installed entries the last read could not parse, kept so the next write can put them
+ *  back instead of erasing them. Every `writeRegistry` caller reads the registry first in the
+ *  same operation (install, uninstall, update, decline, runtime status, rollback — verified by
+ *  grepping the call sites), so the stash is always the one that belongs to the file being
+ *  rewritten. */
+let unreadableRegistryEntries: Array<{ id: string; entry: unknown }> = [];
+
+/** Ids already warned about. The registry is read on roughly sixteen paths, so warning per read
+ *  would fill the log with the same line; once per process per id says it as often as it needs
+ *  saying. */
+const warnedUnreadableRegistryIds = new Set<string>();
+
 async function readRegistry() {
   try {
     // Per-entry tolerant, the same shape the catalog read uses: an installed
@@ -293,10 +305,13 @@ async function readRegistry() {
     // and left behind by a downgrade) is dropped with a warn instead of failing
     // the whole document, which would break EVERY capability-package operation
     // for every other installed package at once.
-    const { registry, droppedIds } = parseInstalledCapabilityRegistryWithCompat(
+    const { registry, droppedEntries } = parseInstalledCapabilityRegistryWithCompat(
       JSON.parse(await readFile(REGISTRY, "utf8")),
     );
-    for (const id of droppedIds) {
+    unreadableRegistryEntries = droppedEntries;
+    for (const { id } of droppedEntries) {
+      if (warnedUnreadableRegistryIds.has(id)) continue;
+      warnedUnreadableRegistryIds.add(id);
       logger.warn(
         "Skipped installed capability package %s: this Engine version cannot parse its manifest (likely installed by a newer Engine)",
         id,
@@ -304,15 +319,27 @@ async function readRegistry() {
     }
     return registry;
   } catch (error) {
-    if (!existsSync(REGISTRY)) return { schemaVersion: 1 as const, packages: [] };
+    if (!existsSync(REGISTRY)) {
+      unreadableRegistryEntries = [];
+      return { schemaVersion: 1 as const, packages: [] };
+    }
     throw error;
   }
 }
 
 async function writeRegistry(packages: InstalledCapabilityPackage[]) {
   await mkdir(ROOT, { recursive: true });
+  // Entries this Engine could not read are appended verbatim rather than dropped on the floor.
+  // Skipping them in memory only costs the user that package until the Engine is upgraded again;
+  // writing the parsed list back over the file costs it permanently, and the first install,
+  // uninstall, update or declined update after a downgrade would do exactly that. An id being
+  // written now wins, so reinstalling a package while still rolled back leaves one row, not two.
+  const writtenIds = new Set(packages.map((installed) => installed.id));
+  const carried = unreadableRegistryEntries.filter(({ id }) => !writtenIds.has(id)).map(({ entry }) => entry);
   const temporary = `${REGISTRY}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, JSON.stringify({ schemaVersion: 1, packages }, null, 2), { mode: 0o600 });
+  await writeFile(temporary, JSON.stringify({ schemaVersion: 1, packages: [...packages, ...carried] }, null, 2), {
+    mode: 0o600,
+  });
   await rename(temporary, REGISTRY);
 }
 

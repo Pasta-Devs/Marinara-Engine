@@ -487,12 +487,17 @@ const installedCapabilityRegistryEnvelopeSchema = installedCapabilityRegistrySch
 export type InstalledCapabilityRegistryParseResult = {
   registry: z.infer<typeof installedCapabilityRegistrySchema>;
   /** Installed entries this Engine cannot parse — typically a package installed by
-   *  a NEWER Engine and left behind by a downgrade. Dropped rather than fatal.
-   *  Identified best-effort so operators can name what vanished. */
-  droppedIds: string[];
+   *  a NEWER Engine and left behind by a downgrade. Dropped from `registry` rather
+   *  than fatal, and handed back RAW beside a best-effort id, because the registry
+   *  file is the only copy there is: a caller that rewrites it has to be able to
+   *  put them back, and one that logs about them has to be able to name them. */
+  droppedEntries: Array<{ id: string; entry: unknown }>;
 };
 
-function bestEffortInstalledEntryId(entry: unknown): string {
+/** Best-effort id for an installed registry entry, readable or not. Exported so a caller
+ *  carrying an unreadable entry through a write can match it against the packages it is
+ *  about to write and avoid persisting the same id twice. */
+export function bestEffortInstalledEntryId(entry: unknown): string {
   if (entry && typeof entry === "object" && !Array.isArray(entry)) {
     const record = entry as Record<string, unknown>;
     if (typeof record.id === "string" && record.id) return record.id;
@@ -510,17 +515,20 @@ function bestEffortInstalledEntryId(entry: unknown): string {
  *  installed manifest fail EVERY capability-package operation: a user who
  *  installs a package built for a newer Engine and then downgrades loses not
  *  that package but the whole registry. Same shape as
- *  `parseCapabilityCatalogWithCompat`, for the same reason. */
+ *  `parseCapabilityCatalogWithCompat`, for the same reason, except that the dropped
+ *  entries come back raw rather than as a count and a list of ids: a catalog is
+ *  re-downloaded on the next read, but the registry file is the only copy there is,
+ *  so whoever rewrites it has to be able to put them back. */
 export function parseInstalledCapabilityRegistryWithCompat(input: unknown): InstalledCapabilityRegistryParseResult {
   const envelope = installedCapabilityRegistryEnvelopeSchema.parse(input);
   const packages: z.infer<typeof installedCapabilityPackageSchema>[] = [];
-  const droppedIds: string[] = [];
+  const droppedEntries: Array<{ id: string; entry: unknown }> = [];
   for (const entry of envelope.packages) {
     const parsed = installedCapabilityPackageSchema.safeParse(entry);
     if (parsed.success) packages.push(parsed.data);
-    else droppedIds.push(bestEffortInstalledEntryId(entry));
+    else droppedEntries.push({ id: bestEffortInstalledEntryId(entry), entry });
   }
-  return { registry: { ...envelope, packages }, droppedIds };
+  return { registry: { ...envelope, packages }, droppedEntries };
 }
 
 const packagedAgentPromptTemplateSchema = z
