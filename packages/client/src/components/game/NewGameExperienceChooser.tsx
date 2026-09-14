@@ -3,7 +3,7 @@
 // the selection, so no package is named here and this file stays presentational. Activating one no longer
 // swaps the wizard body: the wizard stays where it is and the experience's own questions are drawn inside
 // this block. The choice travels in the setup config.
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Gamepad2, Sparkles } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { type InstalledCapabilityPackage } from "@marinara-engine/shared";
@@ -83,36 +83,39 @@ export function NewGameExperienceChooser({
             experiences.map((exp) => {
               const isActive = exp.id === activeId;
               return (
-                // Same row+switch the host uses for its own on/off options ("customize parameters").
-                <button
-                  key={exp.id}
-                  type="button"
-                  role="switch"
-                  aria-checked={isActive}
-                  disabled={disabled}
-                  onClick={() => onActiveIdChange(isActive ? null : exp.id)}
-                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-transparent"
-                >
-                  <div className="min-w-0">
-                    <span className="block text-xs font-medium text-[var(--foreground)]">{exp.manifest.name}</span>
-                    <span className="line-clamp-2 block text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
-                      {exp.manifest.description}
-                    </span>
-                  </div>
-                  <div
-                    className={cn(
-                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                      isActive ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                    )}
+                <Fragment key={exp.id}>
+                  {/* Same row+switch the host uses for its own on/off options ("customize parameters"). */}
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isActive}
+                    disabled={disabled}
+                    onClick={() => onActiveIdChange(isActive ? null : exp.id)}
+                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-transparent"
                   >
+                    <div className="min-w-0">
+                      <span className="block text-xs font-medium text-[var(--foreground)]">{exp.manifest.name}</span>
+                      <span className="line-clamp-2 block text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
+                        {exp.manifest.description}
+                      </span>
+                    </div>
                     <div
                       className={cn(
-                        "h-4 w-4 rounded-full bg-white transition-transform",
-                        isActive && "translate-x-3.5",
+                        "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                        isActive ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                       )}
-                    />
-                  </div>
-                </button>
+                    >
+                      <div
+                        className={cn(
+                          "h-4 w-4 rounded-full bg-white transition-transform",
+                          isActive && "translate-x-3.5",
+                        )}
+                      />
+                    </div>
+                  </button>
+                  {/* The active experience's declared fields (the world seed today), under its own row. */}
+                  {isActive && children}
+                </Fragment>
               );
             })
           ) : (
@@ -126,8 +129,6 @@ export function NewGameExperienceChooser({
               </button>
             </div>
           )}
-          {/* The active experience's declared fields (the world seed today), drawn under its own row. */}
-          {activeExperience && children}
         </div>
       )}
     </div>

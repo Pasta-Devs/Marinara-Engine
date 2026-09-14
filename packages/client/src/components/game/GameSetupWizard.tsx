@@ -32,6 +32,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Timer,
+  Dices,
 } from "lucide-react";
 import {
   ANIME_GAME_PROMPT_TEMPLATE_ID,
@@ -53,6 +54,7 @@ import {
 } from "@marinara-engine/shared";
 import { NewGameExperienceChooser } from "./NewGameExperienceChooser";
 import { selectGameExperiencePackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
+import { MAX_GAME_EXPERIENCE_SEED, isValidSeed, parseSeedInput, randomSeed } from "../../lib/game-experience-seed";
 import { type InstalledCapabilityPackage } from "@marinara-engine/shared";
 import { getCharacterTitle } from "../../lib/character-display";
 import { api } from "../../lib/api-client";
@@ -570,6 +572,11 @@ export function GameSetupWizard({
   /** The activated experience's id. The wizard owns the selection because the two things it interacts
    *  with — restoring an imported setup and authoring the setup config — both live here. */
   const [activeExperienceId, setActiveExperienceId] = useState<string | null>(null);
+  /** The world seed, as a NUMBER. Rolled once per wizard mount so a player who never opens the field
+   *  still starts a different world every time, and kept separately from the text being typed so an
+   *  unusable keystroke leaves the last accepted value standing instead of writing nothing. */
+  const [experienceSeed, setExperienceSeed] = useState<number>(randomSeed);
+  const [experienceSeedInput, setExperienceSeedInput] = useState<string>(() => String(experienceSeed));
   const setupImportInputRef = useRef<HTMLInputElement>(null);
   const pendingImportedGenerationParametersRef = useRef<Partial<EditableGenerationParameters> | null>(null);
   const importedGenerationParametersRef = useRef<Partial<GenerationParameters> | null>(null);
@@ -611,6 +618,9 @@ export function GameSetupWizard({
     },
     [gameExperiences, onLegacyExperienceSelected],
   );
+  /** The active experience's seed declaration, or null when it asks for no seed. What the field writes
+   *  under, and whether it is drawn at all, both come from the manifest rather than from a package id. */
+  const experienceSeedField = activeExperience?.manifest.contributions?.gameSurface?.setup?.seed ?? null;
 
   const sidecarStatus = useSidecarStore((s) => s.status);
   const sidecarConfig = useSidecarStore((s) => s.config);
@@ -997,16 +1007,25 @@ export function GameSetupWizard({
 
   const spatialMapTargetLocationCountValid =
     normalizeSpatialMapTargetLocationCount(spatialMapTargetLocationCountInput) !== null;
+  /** Only meaningful while the seed field is on screen: a seed the wizard is not collecting cannot be
+   *  wrong. An unusable one refuses Start rather than quietly starting a world built from something
+   *  other than the number the player is looking at. */
+  const experienceSeedValid = !experienceSeedField || parseSeedInput(experienceSeedInput) !== null;
   const canStart =
     !!gmConnectionId &&
+    experienceSeedValid &&
     (!enableAgents || !hierarchicalMapsInstalled || !draftSpatialMap || spatialMapTargetLocationCountValid);
   const canStartMessage = !gmConnectionId
     ? localizeUi("ui.game.gamesetupwizard.selectAConnectionOnTheFirstStepBeforeStarting")
-    : !spatialMapTargetLocationCountValid && enableAgents && hierarchicalMapsInstalled && draftSpatialMap
-      ? localizeUi("ui.game.gamesetupwizard.chooseAnyWholeNumberFrom1ToValue1Places", {
-          value1: SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT,
+    : !experienceSeedValid
+      ? localizeUi("ui.game.gamesetupwizard.chooseAWorldSeedBetween0AndValue1Before", {
+          value1: MAX_GAME_EXPERIENCE_SEED,
         })
-      : null;
+      : !spatialMapTargetLocationCountValid && enableAgents && hierarchicalMapsInstalled && draftSpatialMap
+        ? localizeUi("ui.game.gamesetupwizard.chooseAnyWholeNumberFrom1ToValue1Places", {
+            value1: SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT,
+          })
+        : null;
   const normalizedLanguage = normalizeGameLanguage(language);
   const illustratorEnabled = enableAgents && illustratorInstalled && enableSpriteGeneration;
   const musicDjEnabled = enableAgents && musicDjInstalled && enableSpotifyDj;
@@ -1276,6 +1295,27 @@ export function GameSetupWizard({
       gameGmPromptTemplateId: gamePresentation === "anime" ? ANIME_GAME_PROMPT_TEMPLATE_ID : null,
       gameSystemPrompt: customGameSystemPrompt,
       gameSpecialInstructions: trimmedGameSpecialInstructions || null,
+      // Last in the literal so nothing above can clobber it, and a conditional SPREAD rather than a
+      // conditional value: `continueExistingSetup` merges `{...stored, ...submitted}`, so a key present
+      // with an explicit `undefined` would wipe an existing chat's stored experienceConfig. With no
+      // experience active these two keys are absent entirely.
+      //
+      // Gated on the new-game flag as well as on the selection, because only `/game/create` stamps the
+      // top-level `gameExperienceId` the Experience's own routes read. Emitting it on a re-entered setup
+      // would leave a chat whose config claims an Experience that never mounts.
+      ...(experienceSelectionEnabled && activeExperience
+        ? {
+            gameExperienceId: activeExperience.id,
+            experienceConfig: {
+              // The manifest's own literals FIRST and the seed LAST, so a manifest that named the seed
+              // key in both blocks cannot replace the player's number with a constant.
+              ...(activeExperience.manifest.contributions?.gameSurface?.setup?.config ?? {}),
+              ...(experienceSeedField && isValidSeed(experienceSeed)
+                ? { [experienceSeedField.key]: experienceSeed >>> 0 }
+                : {}),
+            },
+          }
+        : {}),
     };
   };
 
@@ -1486,7 +1526,79 @@ export function GameSetupWizard({
                         activeId={activeExperience?.id ?? null}
                         onActiveIdChange={handleActiveExperienceChange}
                         disabled={isLoading}
-                      />
+                      >
+                        {/* Drawn by the host, not by the package: declaring `setup.seed` is all it takes
+                            to get this field, so it is on screen before the package's own bundle loads. */}
+                        {experienceSeedField && (
+                          <div className="rounded-md border border-[var(--border)] bg-[var(--secondary)]/40 px-2 py-2">
+                            <label
+                              className="block text-[0.625rem] font-medium text-[var(--foreground)]"
+                              htmlFor="game-setup-experience-seed"
+                            >
+                              {experienceSeedField.label ?? localizeUi("ui.game.gamesetupwizard.worldSeed")}
+                            </label>
+                            <div className="mt-1 flex items-center gap-2">
+                              <input
+                                id="game-setup-experience-seed"
+                                type="number"
+                                min={0}
+                                max={MAX_GAME_EXPERIENCE_SEED}
+                                step={1}
+                                inputMode="numeric"
+                                value={experienceSeedInput}
+                                disabled={isLoading}
+                                aria-invalid={!experienceSeedValid}
+                                aria-describedby="game-setup-experience-seed-help"
+                                onChange={(event) => {
+                                  const raw = event.target.value;
+                                  setExperienceSeedInput(raw);
+                                  // An unusable entry keeps the last accepted number in state: the field
+                                  // goes red and Start is refused rather than a world being built from
+                                  // something other than what is on screen.
+                                  const parsed = parseSeedInput(raw);
+                                  if (parsed !== null) setExperienceSeed(parsed);
+                                }}
+                                className={cn(
+                                  "min-h-11 min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none ring-1 transition-all disabled:cursor-wait disabled:opacity-50",
+                                  experienceSeedValid
+                                    ? "ring-[var(--border)] focus:ring-[var(--primary)]/40"
+                                    : "ring-[var(--destructive)] focus:ring-[var(--destructive)]",
+                                )}
+                              />
+                              <button
+                                type="button"
+                                disabled={isLoading}
+                                onClick={() => {
+                                  const next = randomSeed();
+                                  setExperienceSeed(next);
+                                  setExperienceSeedInput(String(next));
+                                }}
+                                title={localizeUi(
+                                  "ui.game.gamesetupwizard.replacesTheSeedWithANewRandomNumberIncluding",
+                                )}
+                                aria-label={localizeUi(
+                                  "ui.game.gamesetupwizard.replacesTheSeedWithANewRandomNumberIncluding",
+                                )}
+                                className="flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 disabled:cursor-wait disabled:opacity-50"
+                              >
+                                <Dices size={13} />
+                                {localizeUi("ui.game.gamesetupwizard.randomize")}
+                              </button>
+                            </div>
+                            <span
+                              id="game-setup-experience-seed-help"
+                              className={cn(
+                                "mt-1 block text-[0.5625rem] leading-relaxed",
+                                experienceSeedValid ? "text-[var(--muted-foreground)]" : "text-[var(--destructive)]",
+                              )}
+                            >
+                              {localizeUi("ui.game.gamesetupwizard.theSameSeedAndTheSameAnswersBuildThe", {
+                                value1: MAX_GAME_EXPERIENCE_SEED,
+                              })}
+                            </span>
+                          </div>
+                        )}
+                      </NewGameExperienceChooser>
                     )}
 
                     <div>
