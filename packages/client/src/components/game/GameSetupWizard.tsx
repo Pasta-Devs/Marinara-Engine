@@ -535,6 +535,11 @@ export function GameSetupWizard({
   const [activeLorebookIds, setActiveLorebookIds] = useState<string[]>([]);
   const [lbSearch, setLbSearch] = useState("");
   const [enableCustomWidgets, setEnableCustomWidgets] = useState(true);
+  /** Whether the player has answered the custom-widgets question themselves. Same pattern as
+   *  `promptPresetTouched` below: an untouched control is the host's to pre-set from a manifest
+   *  declaration, a touched one is the player's own answer and the seam only explains what the
+   *  Experience expected of it. */
+  const [enableCustomWidgetsTouched, setEnableCustomWidgetsTouched] = useState(false);
   const [manualWidgetSetupEnabled, setManualWidgetSetupEnabled] = useState(false);
   const [customHudWidgets, setCustomHudWidgets] = useState(() =>
     normalizeGameHudWidgets([createDefaultGameHudWidget("progress_bar", [])]),
@@ -577,6 +582,10 @@ export function GameSetupWizard({
    *  unusable keystroke leaves the last accepted value standing instead of writing nothing. */
   const [experienceSeed, setExperienceSeed] = useState<number>(randomSeed);
   const [experienceSeedInput, setExperienceSeedInput] = useState<string>(() => String(experienceSeed));
+  /** What a declared requirement overwrote and what it wrote in its place, so turning the Experience
+   *  back off can put the player's own value back — and only while the value on screen is still the one
+   *  the seam wrote. Null whenever the seam has changed nothing. */
+  const appliedCustomWidgetsRef = useRef<{ applied: boolean; previous: boolean } | null>(null);
   const setupImportInputRef = useRef<HTMLInputElement>(null);
   const pendingImportedGenerationParametersRef = useRef<Partial<EditableGenerationParameters> | null>(null);
   const importedGenerationParametersRef = useRef<Partial<GenerationParameters> | null>(null);
@@ -621,6 +630,15 @@ export function GameSetupWizard({
   /** The active experience's seed declaration, or null when it asks for no seed. What the field writes
    *  under, and whether it is drawn at all, both come from the manifest rather than from a package id. */
   const experienceSeedField = activeExperience?.manifest.contributions?.gameSurface?.setup?.seed ?? null;
+  /** What the active Experience declares it expects of the host's own settings. `requires` is a CLOSED
+   *  key set with exactly one member today, so this is a boolean or nothing at all. Read from the
+   *  manifest rather than from a package id, so a second Experience declaring the same key behaves the
+   *  same way with no host change. */
+  const declaredEnableCustomWidgets =
+    activeExperience?.manifest.contributions?.gameSurface?.setup?.requires?.enableCustomWidgets;
+  /** An Experience that declares `setup` hands the host its setup answers; one that does not is handled
+   *  elsewhere entirely. Keyed off the DECLARATION, never off a package id or version. */
+  const experienceDeclaresSetup = Boolean(activeExperience?.manifest.contributions?.gameSurface?.setup);
 
   const sidecarStatus = useSidecarStore((s) => s.status);
   const sidecarConfig = useSidecarStore((s) => s.config);
@@ -682,6 +700,10 @@ export function GameSetupWizard({
   );
   const hasInstalledAgents = installedAgentIds.size > 0;
   const hierarchicalMapsInstalled = installedAgentIds.has("hierarchical-maps");
+  /** D18: an Experience that declares setup owns its own world, so the wizard's spatial-map workflow —
+   *  the AI draft call, the manual builder handoff and the template picker — steps aside while one is
+   *  active, and the config it would have written stays exactly what it is with no workflow chosen. */
+  const spatialMapWorkflowAvailable = enableAgents && hierarchicalMapsInstalled && !experienceDeclaresSetup;
   const musicDjInstalled = installedAgentIds.has("spotify");
   const lorebookKeeperInstalled = installedAgentIds.has("lorebook-keeper");
   const illustratorInstalled = installedAgentIds.has("illustrator");
@@ -939,6 +961,28 @@ export function GameSetupWizard({
     }
   }, [defaultPreset?.id, promptPresetId, promptPresetTouched]);
 
+  // A declared requirement is applied VISIBLY and REVERSIBLY, never silently: the host pre-sets the
+  // control only while the player has not answered it themselves, says on the Features step what the
+  // Experience expects either way, and leaves the control editable (WARNED, not enforced). Generic over
+  // the `requires` block; `enableCustomWidgets` is simply the only key the vocabulary has today.
+  useEffect(() => {
+    const applied = appliedCustomWidgetsRef.current;
+    if (declaredEnableCustomWidgets === undefined) {
+      // The Experience is off, or declares no expectation. Put back what the seam overwrote, unless the
+      // player has changed it since — then their value is the newer answer and it stands.
+      appliedCustomWidgetsRef.current = null;
+      if (applied && enableCustomWidgets === applied.applied) setEnableCustomWidgets(applied.previous);
+      return;
+    }
+    // Applied once per activation: flipping the control afterwards is the player's call, not a state to
+    // be corrected.
+    if (applied) return;
+    if (enableCustomWidgetsTouched) return;
+    if (enableCustomWidgets === declaredEnableCustomWidgets) return;
+    appliedCustomWidgetsRef.current = { applied: declaredEnableCustomWidgets, previous: enableCustomWidgets };
+    setEnableCustomWidgets(declaredEnableCustomWidgets);
+  }, [declaredEnableCustomWidgets, enableCustomWidgets, enableCustomWidgetsTouched]);
+
   useEffect(() => {
     if (!gameSystemPromptEdited) {
       setGameSystemPromptDraft(effectiveGameSystemPrompt);
@@ -954,12 +998,16 @@ export function GameSetupWizard({
       setSpatialTemplateSelection(null);
       setSpatialTemplatePickerOpen(false);
     }
+    // D18 again: the picker is unmounted while an Experience declaring setup is active, so the flag that
+    // mounts it must not stay raised — Escape closes the wizard by that flag.
+    if (experienceDeclaresSetup) setSpatialTemplatePickerOpen(false);
     if (!musicDjInstalled) setEnableSpotifyDj(false);
     if (!lorebookKeeperInstalled) setEnableLorebookKeeper(false);
     if (!illustratorInstalled) {
       setEnableSpriteGeneration(false);
     }
   }, [
+    experienceDeclaresSetup,
     hierarchicalMapsInstalled,
     illustratorInstalled,
     installedAgentsLoading,
@@ -1014,14 +1062,14 @@ export function GameSetupWizard({
   const canStart =
     !!gmConnectionId &&
     experienceSeedValid &&
-    (!enableAgents || !hierarchicalMapsInstalled || !draftSpatialMap || spatialMapTargetLocationCountValid);
+    (!spatialMapWorkflowAvailable || !draftSpatialMap || spatialMapTargetLocationCountValid);
   const canStartMessage = !gmConnectionId
     ? localizeUi("ui.game.gamesetupwizard.selectAConnectionOnTheFirstStepBeforeStarting")
     : !experienceSeedValid
       ? localizeUi("ui.game.gamesetupwizard.chooseAWorldSeedBetween0AndValue1Before", {
           value1: MAX_GAME_EXPERIENCE_SEED,
         })
-      : !spatialMapTargetLocationCountValid && enableAgents && hierarchicalMapsInstalled && draftSpatialMap
+      : !spatialMapTargetLocationCountValid && spatialMapWorkflowAvailable && draftSpatialMap
         ? localizeUi("ui.game.gamesetupwizard.chooseAnyWholeNumberFrom1ToValue1Places", {
             value1: SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT,
           })
@@ -1158,6 +1206,11 @@ export function GameSetupWizard({
       setEnableGameMusic(config.enableGameMusic !== false);
       setActiveLorebookIds(config.activeLorebookIds ?? []);
       setLbSearch("");
+      // An imported setup is the player's own answer to every question in it, so it counts as touching
+      // the custom-widgets control: an Experience activated afterwards explains what it expects rather
+      // than overwriting what was just restored, and there is nothing left for toggling it off to undo.
+      setEnableCustomWidgetsTouched(true);
+      appliedCustomWidgetsRef.current = null;
       setEnableCustomWidgets(config.enableCustomWidgets !== false);
       setManualWidgetSetupEnabled(importedWidgets.length > 0);
       setCustomHudWidgets(
@@ -1234,19 +1287,15 @@ export function GameSetupWizard({
       difficulty,
       combatStyle,
       spatialMapInstructions:
-        enableAgents && hierarchicalMapsInstalled && draftSpatialMap
-          ? spatialMapInstructions.trim() || undefined
-          : undefined,
+        spatialMapWorkflowAvailable && draftSpatialMap ? spatialMapInstructions.trim() || undefined : undefined,
       gameWorldMapMode:
-        enableAgents && hierarchicalMapsInstalled && (draftSpatialMap || manualSpatialMap || templateSpatialMap)
+        spatialMapWorkflowAvailable && (draftSpatialMap || manualSpatialMap || templateSpatialMap)
           ? "hierarchical"
           : "standard",
-      spatialMapDraftSize:
-        enableAgents && hierarchicalMapsInstalled && draftSpatialMap ? spatialMapDraftSize : undefined,
+      spatialMapDraftSize: spatialMapWorkflowAvailable && draftSpatialMap ? spatialMapDraftSize : undefined,
       spatialMapTargetLocationCount:
-        enableAgents && hierarchicalMapsInstalled && draftSpatialMap ? spatialMapTargetLocationCount : undefined,
-      spatialMapGroundingMode:
-        enableAgents && hierarchicalMapsInstalled && draftSpatialMap ? spatialMapGroundingMode : undefined,
+        spatialMapWorkflowAvailable && draftSpatialMap ? spatialMapTargetLocationCount : undefined,
+      spatialMapGroundingMode: spatialMapWorkflowAvailable && draftSpatialMap ? spatialMapGroundingMode : undefined,
       rating,
       gmMode,
       gmCharacterId: gmMode === "character" && gmCharacterId ? gmCharacterId : undefined,
@@ -1410,7 +1459,7 @@ export function GameSetupWizard({
         shareLabels: buildSetupShareLabels(),
       },
       gameName.trim() || undefined,
-      enableAgents && hierarchicalMapsInstalled && draftSpatialMap
+      spatialMapWorkflowAvailable && draftSpatialMap
         ? {
             mode: "ai" as const,
             size: spatialMapDraftSize,
@@ -1419,9 +1468,9 @@ export function GameSetupWizard({
             sourceLorebookIds: spatialMapGroundingMode === "setup" ? [] : activeLorebookIds,
             instructions: spatialMapInstructions.trim() || undefined,
           }
-        : enableAgents && hierarchicalMapsInstalled && manualSpatialMap
+        : spatialMapWorkflowAvailable && manualSpatialMap
           ? { mode: "manual" as const }
-          : enableAgents && hierarchicalMapsInstalled && templateSpatialMap
+          : spatialMapWorkflowAvailable && templateSpatialMap
             ? spatialTemplateSelection
               ? spatialTemplateSelection.kind === "shared-world"
                 ? { mode: "shared-world" as const, selection: spatialTemplateSelection }
@@ -2978,6 +3027,7 @@ export function GameSetupWizard({
                       <button
                         onClick={() => {
                           const nextEnabled = !enableCustomWidgets;
+                          setEnableCustomWidgetsTouched(true);
                           setEnableCustomWidgets(nextEnabled);
                           if (!nextEnabled) setManualWidgetSetupEnabled(false);
                         }}
@@ -3013,6 +3063,30 @@ export function GameSetupWizard({
                           />
                         </div>
                       </button>
+                      {/* The declared requirement, said out loud beside the control it governs. It stays
+                          on screen after the player overrides it, reading as an unmet expectation: the
+                          Experience's ask stays visible, and the answer stays the player's. */}
+                      {declaredEnableCustomWidgets !== undefined && activeExperience && (
+                        <p
+                          role="status"
+                          className={cn(
+                            "mt-2 text-[0.55rem] leading-relaxed",
+                            enableCustomWidgets === declaredEnableCustomWidgets
+                              ? "text-[var(--muted-foreground)]"
+                              : "text-amber-700 dark:text-amber-400/80",
+                          )}
+                        >
+                          {declaredEnableCustomWidgets
+                            ? localizeUi("ui.game.gamesetupwizard.value1ExpectsCustomHudWidgetsToBeOn", {
+                                value1: activeExperience.manifest.name,
+                              })
+                            : localizeUi("ui.game.gamesetupwizard.value1ExpectsCustomHudWidgetsToBeOff", {
+                                value1: activeExperience.manifest.name,
+                              })}
+                          {enableCustomWidgets !== declaredEnableCustomWidgets &&
+                            ` ${localizeUi("ui.game.gamesetupwizard.yourOwnAnswerIsWhatThisGameWillUse")}`}
+                        </p>
+                      )}
                       {enableCustomWidgets && (
                         <div className="mt-3 space-y-3 border-t border-[var(--border)] pt-3">
                           <GameWidgetFileControls
@@ -3211,7 +3285,10 @@ export function GameSetupWizard({
                   </>
                 )}
 
-                {step === 5 && enableAgents && hierarchicalMapsInstalled && (
+                {/* D18: an Experience that declares setup owns its own world, so this whole block —
+                    and the map plan, the builder handoff and the picker it arms — steps aside while one
+                    is active. */}
+                {step === 5 && spatialMapWorkflowAvailable && (
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
                       <MapIcon size={12} className="mr-1 inline" />
@@ -3902,7 +3979,7 @@ export function GameSetupWizard({
           </motion.div>
         </AnimatePresence>
       </div>
-      {spatialTemplatePickerOpen && (
+      {spatialTemplatePickerOpen && spatialMapWorkflowAvailable && (
         <CapabilityElement
           packageId="hierarchical-maps"
           view="setup"
