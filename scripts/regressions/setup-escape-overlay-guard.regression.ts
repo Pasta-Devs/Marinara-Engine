@@ -45,6 +45,14 @@ const releaseOnce = registerModalOverlay();
 releaseOnce();
 releaseOnce();
 assert.equal(isModalOverlayOpen(), false, "A stale release must never push the count below zero");
+
+// A count driven negative would read as zero here and only show up on the NEXT dialog, whose
+// registration it would swallow — Escape re-armed under an open dialog, which is the whole failure. So
+// the state a stale release leaves behind has to be a clean zero, not a debt.
+const releaseAfterStale = registerModalOverlay();
+assert.equal(isModalOverlayOpen(), true, "A stale release must not leave a debt that swallows the next dialog");
+releaseAfterStale();
+assert.equal(isModalOverlayOpen(), false, "That dialog closing hands Escape back like any other");
 __resetModalOverlayRegistryForTests();
 
 // ── 2. The call sites stay wired ──
