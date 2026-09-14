@@ -176,6 +176,58 @@ try {
     /prepareBeforeStart requires the .*game-surface.* slot/,
   );
 
+  // Capability API 1.17: the game-surface setup vocabulary. Three optional keys,
+  // all bounded, `requires` deliberately a CLOSED key set rather than an open
+  // record so it cannot become a silent-override mechanism.
+  const setupManifest = capabilityPackageManifestSchema.parse({
+    ...manifestV2,
+    id: "setup-declaring-experience",
+    capabilityApi: { major: 1, minor: 17 },
+    contributions: {
+      slots: ["game-surface"],
+      gameSurface: {
+        surfaceClass: "pixel-surface",
+        setup: {
+          seed: { key: "seed", label: "World seed" },
+          config: { generate: true, packWanted: true },
+          requires: { enableCustomWidgets: false },
+        },
+      },
+    },
+  });
+  assert.deepEqual(setupManifest.contributions?.gameSurface?.setup, {
+    seed: { key: "seed", label: "World seed" },
+    config: { generate: true, packWanted: true },
+    requires: { enableCustomWidgets: false },
+  });
+  assert.equal(getCapabilityApiCompatibilityIssue(setupManifest), null);
+  assert.throws(
+    () =>
+      capabilityPackageManifestSchema.parse({
+        ...setupManifest,
+        contributions: {
+          slots: ["game-surface"],
+          gameSurface: { setup: { requires: { enableAgents: true } } },
+        },
+      }),
+    /enableAgents/,
+    "setup.requires is a closed key set — the seam never force-writes a host setting it does not name",
+  );
+  // A config literal naming the seed key would overwrite the player's seed with a
+  // constant, and the package's own reader accepts the number without complaint.
+  assert.throws(
+    () =>
+      capabilityPackageManifestSchema.parse({
+        ...setupManifest,
+        contributions: {
+          slots: ["game-surface"],
+          gameSurface: { setup: { seed: { key: "seed" }, config: { seed: 7 } } },
+        },
+      }),
+    /setup\.config must not declare the seed key/,
+    "setup.config must not name setup.seed.key",
+  );
+
   const forwardCompatibleCatalog = capabilityCatalogSchema.parse({
     schemaVersion: 1,
     generatedAt: "2026-07-16T00:00:00.000Z",
@@ -1817,6 +1869,31 @@ try {
   assert.deepEqual(getCapabilityService("hot-game:runtime"), { active: true });
   await capabilityModuleRuntime.deactivatePackage(hotGame.id);
   assert.equal(getCapabilityService("hot-game:runtime"), null, "Hot uninstall must remove game contributions");
+
+  // D-20: the installed-package registry is per-entry tolerant. One manifest this
+  // Engine cannot parse (a package installed by a NEWER Engine and left behind by a
+  // downgrade) must drop that entry alone, not fail every capability-package
+  // operation for every other installed package.
+  const survivingEntry = installedPackage("registry-survivor", ["agent"]);
+  writeRegistry([survivingEntry]);
+  const tolerantRegistry = JSON.parse(readFileSync(registryPath, "utf8")) as {
+    schemaVersion: number;
+    packages: unknown[];
+  };
+  tolerantRegistry.packages.push({
+    ...installedPackage("registry-from-the-future", ["agent"]),
+    manifest: {
+      ...installedPackage("registry-from-the-future", ["agent"]).manifest,
+      contributions: { slots: ["chat-settings"], holograms: { enabled: true } },
+    },
+  });
+  writeFileSync(registryPath, JSON.stringify(tolerantRegistry, null, 2));
+  const tolerantInstalled = await capabilityPackageManager.installed();
+  assert.deepEqual(
+    tolerantInstalled.map((item) => item.id),
+    ["registry-survivor"],
+    "an unparseable installed manifest is dropped on its own; every other entry still loads",
+  );
 
   const { getFileTableConfig, isFileTable } = await import("../../packages/server/src/db/file-schema.js");
   const packageTable = {};

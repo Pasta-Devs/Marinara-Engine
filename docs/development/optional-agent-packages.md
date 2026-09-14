@@ -76,7 +76,7 @@ change between installations. Parent deletion leaves child lineage untouched.
 
 Capability API 1.8 adds package-provided Game experiences, per-turn Game prompt context, and resource writes.
 
-A package may provide an entire Game mode rather than an addition to the built-in one. It declares the `game-surface` slot and is chosen while a game is created, from the Experiences block of the setup wizard; the choice is recorded on the game and fixed for its lifetime, so an experience is never switched on or off part-way through a run. The surface draws its own HUD, menus, and combat over the shared narration, and declares which built-in systems it replaces. Anything left undeclared stays built-in, so an experience opts out only of what it actually implements. The optional `contributions.gameSurface.surfaceClass` names a class the Engine applies to the game area while that surface is mounted, letting the package's stylesheet restyle the shared chrome that renders outside its own element.
+A package may provide an entire Game mode rather than an addition to the built-in one. It declares the `game-surface` slot and is chosen while a game is created, from the Experiences block of the setup wizard; the choice is recorded on the game and fixed for its lifetime, so an experience is never switched on or off part-way through a run. Choosing an experience does not replace the wizard: the setup wizard's own steps still run around the Experiences block, and from Capability API 1.17 a package declares the extra fields it needs the wizard to collect (see below) rather than taking the wizard's place. The surface draws its own HUD, menus, and combat over the shared narration, and declares which built-in systems it replaces. Anything left undeclared stays built-in, so an experience opts out only of what it actually implements. The optional `contributions.gameSurface.surfaceClass` names a class the Engine applies to the game area while that surface is mounted, letting the package's stylesheet restyle the shared chrome that renders outside its own element.
 
 Packages holding the `prompt-context` permission contribute text to the system prompt of each generated Game turn, so a package that owns live state can keep the model consistent with what the player is looking at. A contribution may also declare which built-in game systems it replaces, and Engine then stops instructing the model to drive them. Contributions are collected per turn and are never required: a contributor that returns nothing is skipped, and one that throws, or that does not settle within its deadline, is logged and skipped without affecting generation.
 
@@ -510,6 +510,58 @@ scope are ignored. A module/runtime failure blocks startup rather than treating 
 context as success. On reload, the package must report readiness from its saved world. The
 server prompt-context contributor remains read-only and subject to its short deadline; do not
 use it for world generation or as a long-running startup barrier.
+
+### Capability API 1.17: Experience-declared game setup
+
+Capability API 1.17 also lets a `game-surface` Experience declare what the game-creation wizard collects
+on its behalf, so a package can retire its own setup dialog instead of asking the player the same
+questions twice in two different styles. The whole block is optional, and a package that declares no
+`setup` keeps the legacy behaviour exactly: the Engine swaps the wizard body for the package's own
+inline setup dialog, as it has since 1.8.
+
+The declaration lives at `contributions.gameSurface.setup` and has three optional keys:
+
+```json
+"setup": {
+  "seed": { "key": "seed", "label": "World seed" },
+  "config": { "generate": true, "packWanted": true },
+  "requires": { "enableCustomWidgets": false }
+}
+```
+
+`seed` asks the Engine to render its own numeric world-seed field, with a randomize control, inside
+the Experiences block. The player sees the number before confirming, and the Engine writes it to
+`experienceConfig[seed.key]` — a key inside the package's own config namespace, capped at 120
+characters to match the server's `experienceConfig` key limit. `label` overrides the Engine's default
+field wording. The Engine never sends a non-number: an empty or unparseable field blocks Start rather
+than writing a string the package would quietly hash into an unrelated world.
+
+`config` is a flat set of scalar literals (boolean, number or string) the Engine copies verbatim into
+`experienceConfig`. The Engine does not read them and does not know what they mean; they exist so a
+package whose setup dialog used to record a fixed answer can keep recording it after the dialog is
+gone. Keys are capped at 120 characters for the same reason `seed.key` is.
+
+`requires` is a **closed** key set, not an open record, and today it carries exactly one key:
+`enableCustomWidgets`. An open record here would be a silent-override mechanism wearing a
+declaration's clothes, so the vocabulary grows one reviewed key at a time. Declared values are
+advisory, not enforced: the Engine leaves the matching wizard control editable and shows a line
+saying what the Experience expects if the player sets it otherwise. Nothing in this block can
+force-disable a host setting the package did not name — Agents in particular are never touched by it,
+because a future agent adapted to an Experience should still be the player's call.
+
+`seed` and `config` both write into the same `experienceConfig` record, so a manifest whose `config`
+names `seed.key` is refused by the schema rather than accepted. The failure it prevents is silent:
+the literal would replace the player's seed with a constant, the package would accept the number
+without complaint, and every player would get the same world while looking at a different number.
+
+Like 1.11 through 1.16 this is a soft seam on the delivery side — the Engine reads `setup` regardless
+of the declared `capabilityApi`, so an older package is unaffected. Declare `capabilityApi` 1.17 only
+if your package _requires_ the Engine-drawn fields, since doing so refuses the install on every Engine
+older than this one. Note the direction that bites: an Engine older than 1.17 does not merely ignore
+the block, it cannot parse a manifest that carries it, and drops the entry from the catalog with only
+a server-side warning. Installed packages are handled per entry too — one unreadable installed
+manifest is dropped with a warning instead of failing the whole installed-packages registry — so a
+downgrade costs you that package rather than every package.
 
 ## Initial packages
 

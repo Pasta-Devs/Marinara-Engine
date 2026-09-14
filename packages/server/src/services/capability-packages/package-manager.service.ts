@@ -12,7 +12,7 @@ import {
   GM_VERB_TABLE_ASSET_PATH,
   GM_VERB_TABLE_MAX_BYTES,
   isInstalledCapabilityReady,
-  installedCapabilityRegistrySchema,
+  parseInstalledCapabilityRegistryWithCompat,
   packagedAgentDefinitionsSchema,
   capabilityReleaseNotesSchema,
   type CapabilityCatalog,
@@ -288,7 +288,21 @@ function assertNotDowngrade(current: InstalledCapabilityPackage | undefined, nex
 
 async function readRegistry() {
   try {
-    return installedCapabilityRegistrySchema.parse(JSON.parse(await readFile(REGISTRY, "utf8")));
+    // Per-entry tolerant, the same shape the catalog read uses: an installed
+    // manifest this Engine cannot parse (a package installed by a NEWER Engine
+    // and left behind by a downgrade) is dropped with a warn instead of failing
+    // the whole document, which would break EVERY capability-package operation
+    // for every other installed package at once.
+    const { registry, droppedIds } = parseInstalledCapabilityRegistryWithCompat(
+      JSON.parse(await readFile(REGISTRY, "utf8")),
+    );
+    for (const id of droppedIds) {
+      logger.warn(
+        "Skipped installed capability package %s: this Engine version cannot parse its manifest (likely installed by a newer Engine)",
+        id,
+      );
+    }
+    return registry;
   } catch (error) {
     if (!existsSync(REGISTRY)) return { schemaVersion: 1 as const, packages: [] };
     throw error;

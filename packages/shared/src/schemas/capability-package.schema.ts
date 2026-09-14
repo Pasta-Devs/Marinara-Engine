@@ -92,6 +92,59 @@ const capabilityPackageManifestBaseSchema = z
               .regex(/^[a-z][a-z0-9-]*$/)
               .max(60)
               .optional(),
+            /** What this Experience needs the game-creation wizard to collect or to write on its
+             *  behalf. Declared rather than pushed at runtime, so the wizard can draw the fields on
+             *  first paint instead of waiting for the package's own client bundle. Every key is
+             *  optional: a package that declares no `setup` block changes nothing about the wizard.
+             *
+             *  - `seed` asks the host to render its own numeric world-seed field and write the value
+             *    under `experienceConfig[seed.key]`.
+             *  - `config` is a set of literals the host copies verbatim into `experienceConfig`. The
+             *    host never reads them; they exist so a package can retire its own setup dialog
+             *    without losing the answers that dialog used to record.
+             *  - `requires` is a CLOSED key set, not an open record — an open record would be a
+             *    silent-override mechanism wearing a declaration's clothes. Declared values are
+             *    advisory: the host surfaces what the Experience expects and leaves the control
+             *    editable.
+             *
+             *  `seed` and `config` both write into the same `experienceConfig` record, so a manifest
+             *  naming `seed.key` in `config` is refused rather than silently pinning every player's
+             *  world to one constant. Requires Capability API 1.17. */
+            setup: z
+              .object({
+                seed: z
+                  .object({
+                    /** Key inside the package's own `experienceConfig` the host writes the seed to. The
+                     *  120-character ceiling mirrors the server's `experienceConfig` key limit. */
+                    key: z.string().min(1).max(120),
+                    /** Overrides the host's default field label when the package wants its own word. */
+                    label: z.string().min(1).max(60).optional(),
+                  })
+                  .strict()
+                  .optional(),
+                /** Literals copied verbatim into `experienceConfig`. Scalars only: the host writes them
+                 *  without interpreting them, and a nested value would invite one. */
+                config: z.record(z.string().min(1).max(120), z.union([z.boolean(), z.number(), z.string()])).optional(),
+                requires: z
+                  .object({
+                    enableCustomWidgets: z.boolean().optional(),
+                  })
+                  .strict()
+                  .optional(),
+              })
+              .strict()
+              .superRefine((setup, ctx) => {
+                const seedKey = setup.seed?.key;
+                if (!seedKey || !setup.config) return;
+                if (Object.hasOwn(setup.config, seedKey)) {
+                  ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ["config", seedKey],
+                    message: `setup.config must not declare the seed key "${seedKey}" — the literal would overwrite the player's seed.`,
+                  });
+                }
+              })
+              .optional(),
           })
           .strict()
           .optional(),
@@ -200,6 +253,12 @@ const capabilityPackageManifestBaseSchema = z
 //        chat-metadata key or delivers live as a `gm_verb` event (soft seam: read from the asset
 //        regardless of declared capabilityApi; declare 1.16 only to REQUIRE it. Needs `chat-write`).
 // 1.17: opted-in Experience surfaces prepare before startup and supply first-turn world context.
+//        Also in 1.17:
+// 1.17: contributions.gameSurface.setup — an Experience declares what the game-creation wizard
+//        collects for it: a host-drawn numeric world seed (`seed`), literals copied verbatim into
+//        `experienceConfig` (`config`), and the advisory host settings it expects (`requires`, a
+//        closed key set). Declarative so the wizard draws the fields on first paint (soft seam:
+//        read regardless of declared capabilityApi; declare 1.17 only to REQUIRE it).
 export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 17 } as const);
 
 const capabilityApiVersionSchema = z
@@ -418,6 +477,51 @@ export const installedCapabilityRegistrySchema = z
     packages: z.array(installedCapabilityPackageSchema),
   })
   .strict();
+
+/** Envelope-only registry shape, derived from the real schema so the two cannot
+ *  drift, exactly as the catalog envelope above is. */
+const installedCapabilityRegistryEnvelopeSchema = installedCapabilityRegistrySchema
+  .extend({ packages: z.array(z.unknown()) })
+  .strip();
+
+export type InstalledCapabilityRegistryParseResult = {
+  registry: z.infer<typeof installedCapabilityRegistrySchema>;
+  /** Installed entries this Engine cannot parse — typically a package installed by
+   *  a NEWER Engine and left behind by a downgrade. Dropped rather than fatal.
+   *  Identified best-effort so operators can name what vanished. */
+  droppedIds: string[];
+};
+
+function bestEffortInstalledEntryId(entry: unknown): string {
+  if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+    const record = entry as Record<string, unknown>;
+    if (typeof record.id === "string" && record.id) return record.id;
+    const manifest = record.manifest;
+    if (manifest && typeof manifest === "object" && !Array.isArray(manifest)) {
+      const id = (manifest as Record<string, unknown>).id;
+      if (typeof id === "string" && id) return id;
+    }
+  }
+  return "(unidentifiable entry)";
+}
+
+/** Parse the installed-package registry, tolerating individual entries this
+ *  Engine is too old to understand. All-or-nothing parsing makes one unreadable
+ *  installed manifest fail EVERY capability-package operation: a user who
+ *  installs a package built for a newer Engine and then downgrades loses not
+ *  that package but the whole registry. Same shape as
+ *  `parseCapabilityCatalogWithCompat`, for the same reason. */
+export function parseInstalledCapabilityRegistryWithCompat(input: unknown): InstalledCapabilityRegistryParseResult {
+  const envelope = installedCapabilityRegistryEnvelopeSchema.parse(input);
+  const packages: z.infer<typeof installedCapabilityPackageSchema>[] = [];
+  const droppedIds: string[] = [];
+  for (const entry of envelope.packages) {
+    const parsed = installedCapabilityPackageSchema.safeParse(entry);
+    if (parsed.success) packages.push(parsed.data);
+    else droppedIds.push(bestEffortInstalledEntryId(entry));
+  }
+  return { registry: { ...envelope, packages }, droppedIds };
+}
 
 const packagedAgentPromptTemplateSchema = z
   .object({
