@@ -10,6 +10,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - The spatial-map options are not offered for a game run through an Experience (#6181).
 - The Experiences block now appears only while creating a new game, so an Experience can no longer be turned on for an existing chat that is back in setup (#6181).
 - A downloaded Experience published before this change keeps its own setup dialog (#6181).
+- Escape now closes game setup from either setup path, and closes only the topmost dialog: dismissing the malformed-JSON repair box no longer dismisses the setup behind it (#6181).
 
 - Scenes now offer the selected preset’s variables before entering the new chat and wait for confirmed choices to save (#6184).
 - Trackers can update or remove individual rows while keeping untouched values and field locks; existing full-list responses remain supported (#6185).

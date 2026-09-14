@@ -12,6 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import {
   NEUTRAL_PANEL_CLOSE_BUTTON,
   NEUTRAL_PANEL_CLOSE_ICON_SIZE,
@@ -75,10 +76,14 @@ export function LegacyExperienceSetupDialog({
   }, [selectedId, onDeselect]);
 
   // Escape closes the package's setup, matching the backdrop click and the wizard this panel replaces.
+  // Skipped while a `Modal` is stacked above this panel — the malformed-JSON repair dialog is mounted over
+  // it on purpose — because `Modal` takes Escape from a `document` listener that does not stop
+  // propagation, so one press would otherwise close that dialog AND cancel the setup behind it.
   useEffect(() => {
     if (!selectedId || launching) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCancelSetup();
+      if (event.key !== "Escape" || isModalOverlayOpen()) return;
+      onCancelSetup();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

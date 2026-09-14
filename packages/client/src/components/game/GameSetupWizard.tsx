@@ -55,6 +55,7 @@ import {
 import { NewGameExperienceChooser } from "./NewGameExperienceChooser";
 import { selectGameExperiencePackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { MAX_GAME_EXPERIENCE_SEED, isValidSeed, parseSeedInput, randomSeed } from "../../lib/game-experience-seed";
+import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import { type InstalledCapabilityPackage } from "@marinara-engine/shared";
 import { getCharacterTitle } from "../../lib/character-display";
 import { api } from "../../lib/api-client";
@@ -650,11 +651,16 @@ export function GameSetupWizard({
   const sidecarAvailable = !!sidecarConfig.modelPath && sidecarStatus !== "not_downloaded";
 
   // Escape closes setup, matching the backdrop click and the X button. Skipped while a launch is in
-  // flight, and while the template picker owns the screen, so Escape dismisses the topmost thing only.
+  // flight, while the template picker owns the screen, and while any `Modal` is stacked above the wizard,
+  // so Escape dismisses the topmost thing only. That last guard is load-bearing: `Modal` closes on Escape
+  // from a `document` listener that does not stop propagation, and the malformed-JSON repair dialog is
+  // mounted over setup on purpose, so without it one press would close the dialog AND dismiss the setup
+  // the player is recovering (deleting a still-empty setup chat with it).
   useEffect(() => {
     if (isLoading || spatialTemplatePickerOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCancel();
+      if (event.key !== "Escape" || isModalOverlayOpen()) return;
+      onCancel();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

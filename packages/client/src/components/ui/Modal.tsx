@@ -15,6 +15,7 @@ import {
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
+import { registerModalOverlay } from "../../lib/modal-overlay-registry";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -103,6 +104,16 @@ export function Modal({
       }
     };
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Announce the open overlay to screens that draw their own full-page shell
+  // rather than a modal (the game setup wizard, an Experience's setup dialog).
+  // The Escape handler below listens on `document` and does not stop
+  // propagation, so those screens' own `window` listeners hear the same press;
+  // this registration is how they know to stand down while a dialog is on top.
+  useEffect(() => {
+    if (!open) return;
+    return registerModalOverlay();
+  }, [open]);
 
   // Close on Escape
   useEffect(() => {
