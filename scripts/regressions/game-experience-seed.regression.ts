@@ -7,9 +7,13 @@
 // instead, so the player gets a world unrelated to the number the wizard showed them, with no error
 // anywhere. That silence is the whole reason this lane exists.
 //
-// The rule this pins: `parseSeedInput` returns EITHER null (the caller keeps its last accepted value and
-// refuses Start) OR a uint32 integer. It never returns a string, a NaN, a negative, a fraction or anything
-// above 0xffffffff — for any input the field can hold, including partially typed and pasted values.
+// The rule this pins: the field accepts DIGITS ONLY, with optional surrounding whitespace, and
+// `parseSeedInput` returns EITHER null (the caller keeps its last accepted value and refuses Start) OR the
+// uint32 those digits spell. Nothing is salvaged out of a value that is not all digits: `Number.parseInt`
+// on its own reads "1.5" as 1, "12abc" as 12, "1e3" as 1 and "0x10" as 0, so the world would be built from
+// a number the player never saw. Refusing is visible; quietly building a different world is not. It never
+// returns a string, a NaN, a negative, a fraction or anything above 0xffffffff — for any input the field
+// can hold, including partially typed and pasted values.
 import assert from "node:assert/strict";
 import {
   MAX_GAME_EXPERIENCE_SEED,
@@ -36,27 +40,47 @@ function assertWritable(raw: string) {
   return parsed;
 }
 
-// Refused outright. Each one keeps the last accepted seed standing and marks the field invalid, rather
-// than writing a value the package cannot use.
-for (const raw of ["", " ", "\t\n", "abc", "-1", "-12", "4294967296", "99999999999", "NaN", "Infinity", "one"])
+// Not all digits, so refused outright rather than salvaged. Each one keeps the last accepted seed standing
+// and marks the field invalid, so the player is told instead of getting a world built from a number they
+// never saw. `1e3`, `0x10` and `+5` are the ones worth staring at: each is a number a JavaScript reader
+// would happily accept, and each would mean something different to the package than it looks like here.
+for (const raw of [
+  "12abc",
+  "1.5",
+  "3.999",
+  "+5",
+  "1e3",
+  "0x10",
+  "-0.5",
+  "2 3",
+  "4294967295.9",
+  "-1",
+  "-12",
+  "NaN",
+  "Infinity",
+  "one",
+  "abc",
+  "",
+  " ",
+  "\t\n",
+])
   assert.equal(parseSeedInput(raw), null, `${JSON.stringify(raw)} should not produce a seed`);
 
-// Accepted, including both ends of the range.
-assert.equal(parseSeedInput("0"), 0, "0 is a usable seed");
-assert.equal(parseSeedInput("4294967295"), MAX_GAME_EXPERIENCE_SEED, "The top of the uint32 range is a usable seed");
-assert.equal(parseSeedInput("123456"), 123456, "A plain number round-trips");
+// All digits, but past the ceiling. The digits-only test is not enough on its own; the range check still runs.
+for (const raw of ["4294967296", "99999999999"])
+  assert.equal(parseSeedInput(raw), null, `${JSON.stringify(raw)} is digits but outside the uint32 range`);
+
+// Accepted, including both ends of the range. The value is exactly the number the digits spell, and the
+// SHAPE never degrades: null, or a writable uint32.
+assert.equal(assertWritable("0"), 0, "0 is a usable seed");
+assert.equal(assertWritable("4294967295"), MAX_GAME_EXPERIENCE_SEED, "The top of the uint32 range is a usable seed");
+assert.equal(assertWritable("123456"), 123456, "A plain number round-trips");
+assert.equal(assertWritable("0012"), 12, "Leading zeroes are read as decimal, never as octal");
 
 // Surrounding whitespace is tolerated rather than refused: a pasted seed carries it, and the number the
 // player can see on screen is the number the world is built from.
-assert.equal(parseSeedInput(" 7 "), 7, "Whitespace around a seed is trimmed, not treated as a typo");
-assert.equal(parseSeedInput("\n42\t"), 42, "Any surrounding whitespace is tolerated");
-
-// Values the field can hold mid-typing or receive from a paste. Whatever the coercion decides for each
-// one, the SHAPE never degrades: null, or a writable uint32.
-for (const raw of ["12abc", "1.5", "3.999", "0012", "+5", " 7 ", "2 3", "1e3", "0x10", "-0.5", "4294967295.9"])
-  assertWritable(raw);
-assert.equal(assertWritable("1.5"), 1, "A fraction is truncated to its whole part rather than written as a fraction");
-assert.equal(assertWritable("12abc"), 12, "A numeric prefix is read as that number rather than written as text");
+assert.equal(assertWritable(" 7 "), 7, "Whitespace around a seed is trimmed, not treated as a typo");
+assert.equal(assertWritable("\n42\t"), 42, "Any surrounding whitespace is tolerated");
 
 // The validator the wizard gates Start on agrees with the parser.
 for (const value of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, MAX_GAME_EXPERIENCE_SEED + 1])
@@ -77,4 +101,4 @@ for (let draw = 0; draw < 500; draw += 1) {
 }
 assert.ok(seen.size > 1, "randomSeed must not return one constant");
 
-console.log("World-seed coercion never yields a non-number or an out-of-range seed.");
+console.log("World-seed coercion accepts digits only and never yields a non-number or an out-of-range seed.");
