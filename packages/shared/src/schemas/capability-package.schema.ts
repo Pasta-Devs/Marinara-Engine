@@ -254,14 +254,13 @@ const capabilityPackageManifestBaseSchema = z
 //        into the GM prompt, parses back out of the turn, and either writes into the package's own
 //        chat-metadata key or delivers live as a `gm_verb` event (soft seam: read from the asset
 //        regardless of declared capabilityApi; declare 1.16 only to REQUIRE it. Needs `chat-write`).
-// 1.17: opted-in Experience surfaces prepare before startup and supply first-turn world context.
-//        Also in 1.17:
-// 1.17: contributions.gameSurface.setup — an Experience declares what the game-creation wizard
-//        collects for it: a host-drawn numeric world seed (`seed`), literals copied verbatim into
-//        `experienceConfig` (`config`), and the host settings it requires (`requires`, a closed key
-//        set, enforced while the Experience is active). Declarative so the wizard draws the fields on
-//        first paint (soft seam: read regardless of declared capabilityApi; declare 1.17 only to
-//        REQUIRE it).
+// 1.17: opted-in Experience surfaces prepare before startup and supply first-turn world context
+//        (`prepareBeforeStart`); and `contributions.gameSurface.setup`, by which an Experience declares
+//        what the game-creation wizard collects for it: a host-drawn numeric world seed (`seed`),
+//        literals copied verbatim into `experienceConfig` (`config`), and the host settings it
+//        requires (`requires`, a closed key set, enforced while the Experience is active). Declarative
+//        so the wizard draws the fields on first paint (soft seam: read regardless of declared
+//        capabilityApi; declare 1.17 only to REQUIRE it).
 export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 17 } as const);
 
 const capabilityApiVersionSchema = z
