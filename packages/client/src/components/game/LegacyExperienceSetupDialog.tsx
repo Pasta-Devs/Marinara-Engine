@@ -7,12 +7,13 @@
 // Deletable, whole, once every installed game-surface package declares `setup`. Nothing else depends on it:
 // the seam path never mounts this file. No package is named here — the fallback keys off the ABSENCE of a
 // declared `setup` block, never off a package id or version.
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
+import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import {
   NEUTRAL_PANEL_CLOSE_BUTTON,
   NEUTRAL_PANEL_CLOSE_ICON_SIZE,
@@ -67,6 +68,13 @@ export function LegacyExperienceSetupDialog({
   // list cannot unmount the setup that is currently running, and pinned until the list arrives, so a
   // pending read cannot close the dialog the frame it opens.
   const selectedId = activeExperience?.id ?? (launching || !experiences ? experience.id : null);
+
+  // The panel is a dialog in its own right, not a `Modal`, so it owns its focus scope: focus moves into
+  // the panel when it opens, Tab stays inside it, and focus goes back to whatever opened it when it closes.
+  // The wizard that held the Experience switch is unmounted by the time this mounts, so the restore
+  // falls back to the opener the hook captured; nothing can be restored into an unmounted tree.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogFocusScope(Boolean(selectedId), panelRef);
 
   // Uninstalled mid-setup: hand the player back to the built-in wizard rather than leaving an empty
   // dialog up. Pre-seam this fell out of the chooser's early return; the dialog now lives above the
@@ -165,6 +173,7 @@ export function LegacyExperienceSetupDialog({
         {/* NEUTRAL_PANEL_SHELL remaps the theme tokens to the chrome palette inside the panel, the same
             way the built-in wizard does. Without it the package's setup comes out tinted. */}
         <motion.div
+          ref={panelRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="game-experience-setup-title"

@@ -1640,11 +1640,9 @@ export function GameSetupWizard({
                                   setExperienceSeed(next);
                                   setExperienceSeedInput(String(next));
                                 }}
-                                title={localizeUi(
-                                  "ui.game.gamesetupwizard.replacesTheSeedWithANewRandomNumberIncluding",
-                                )}
+                                title={localizeUi("ui.game.gamesetupwizard.replacesTheCurrentSeedWithANewRandomNumber")}
                                 aria-label={localizeUi(
-                                  "ui.game.gamesetupwizard.replacesTheSeedWithANewRandomNumberIncluding",
+                                  "ui.game.gamesetupwizard.replacesTheCurrentSeedWithANewRandomNumber",
                                 )}
                                 className="flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 disabled:cursor-wait disabled:opacity-50"
                               >

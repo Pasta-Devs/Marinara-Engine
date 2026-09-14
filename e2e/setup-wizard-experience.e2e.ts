@@ -18,7 +18,7 @@ const APP_VERSION = (
 const SEED_LABEL = "World seed";
 const SEED_KEY = "seed";
 const MAX_SEED = 4_294_967_295;
-const RANDOMIZE_HINT = "Replaces the seed with a new random number, including one you typed.";
+const RANDOMIZE_HINT = "Replaces the current seed with a new random number, even one you typed yourself.";
 
 const SEAM_EXPERIENCE = { id: "setup-seam-fixture", name: "Setup Seam Fixture" };
 const LEGACY_EXPERIENCE = { id: "legacy-seam-fixture", name: "Legacy Seam Fixture" };

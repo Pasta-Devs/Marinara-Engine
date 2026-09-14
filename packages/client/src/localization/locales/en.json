@@ -5811,7 +5811,7 @@
   "ui.game.gamesetupwizard.quickTimeEventsDescription": "Let the GM offer timed reactions. Turn this off for screen-reader or untimed play.",
   "ui.game.gamesetupwizard.randomize": "Randomize",
   "ui.game.gamesetupwizard.recommendedUseAStrongStateOfTheArtImage": "Recommended: use a strong state-of-the-art image model for storyboard images, or something equivalent to Google Nano Banana 2 Lite.",
-  "ui.game.gamesetupwizard.replacesTheSeedWithANewRandomNumberIncluding": "Replaces the seed with a new random number, including one you typed.",
+  "ui.game.gamesetupwizard.replacesTheCurrentSeedWithANewRandomNumber": "Replaces the current seed with a new random number, even one you typed yourself.",
   "ui.game.gamesetupwizard.resetToSelected": "Reset to selected",
   "ui.game.gamesetupwizard.reuseAGameSetup": "Reuse a game setup",
   "ui.game.gamesetupwizard.sceneEffectsConnection": "Scene Effects Connection",
