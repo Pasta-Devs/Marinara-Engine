@@ -55,6 +55,7 @@ import { arch, platform, release } from "node:os";
 import { execFileSync } from "node:child_process";
 import { getRuntimeMemorySnapshot } from "./utils/runtime-memory.js";
 import { getLastFreeze } from "./lib/freeze-detector.js";
+import { guardLoggerAgainstLostOutput } from "./lib/logger.js";
 import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
 
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
@@ -99,6 +100,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     bodyLimit: MAX_UPLOAD_BYTES, // General-route default; transfer routes opt into streamed or unbounded imports.
     ...(https && { https }),
   });
+  // Fastify builds its own Pino instance; give it the same dead-terminal
+  // tolerance as the shared logger so a hung-up console cannot crash the close.
+  guardLoggerAgainstLostOutput(app.log);
 
   // Reject attacker-controlled DNS names before CORS or loopback trust can
   // treat a rebound browser request as same-origin local traffic.

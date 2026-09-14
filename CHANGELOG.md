@@ -49,6 +49,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Peek Prompt now shows the Game tool planner’s model and token usage separately from narration (#6130).
 
 - Windows Ctrl+C now lets the server finish saving before the launcher exits; restart and shutdown regressions use portable loader URLs and include a native Windows console check (#6119, #6135).
+- Closing the terminal window that runs `start.sh` or `start-termux.sh` (or losing that SSH session) now shuts the server down the same way Ctrl+C does instead of ending it on the spot: pending saves are written, the local-model sidecar is stopped, the storage writer lease is released, and the next start no longer reports a force-quit. The shutdown also completes when the terminal is already gone, which previously left the server stuck until the launcher force-killed it (#6183).
 
 - Fixed Roleplay Visual Novel mode starting newly generated multi-paragraph replies on the final paragraph instead of the first, while preserving paragraph navigation after edits and selecting existing swipes.
 

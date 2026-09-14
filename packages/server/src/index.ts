@@ -119,6 +119,18 @@ async function main() {
   process.on("SIGINT", () => {
     void shutdown("SIGINT");
   });
+  // Closing the terminal window (or losing an SSH session) hangs up the whole
+  // launcher job, so the server receives SIGHUP directly - a relay from the
+  // supervisor cannot arrive first. Without a listener Node ends the process
+  // on the spot: debounced saves are dropped, the sidecar is not reaped, the
+  // storage writer lease stays behind for the next start to reclaim, and the
+  // session is stamped as a force-quit (#6183). Windows raises SIGHUP for a
+  // closed console through a different mechanism (#6119) and is left as is.
+  if (process.platform !== "win32") {
+    process.on("SIGHUP", () => {
+      void shutdown("SIGHUP");
+    });
+  }
 
   try {
     await app.listen({ port, host });
