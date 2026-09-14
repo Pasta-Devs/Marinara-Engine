@@ -23,6 +23,16 @@ const RANDOMIZE_HINT = "Replaces the seed with a new random number, including on
 const SEAM_EXPERIENCE = { id: "setup-seam-fixture", name: "Setup Seam Fixture" };
 const LEGACY_EXPERIENCE = { id: "legacy-seam-fixture", name: "Legacy Seam Fixture" };
 
+// Both proofs below are desktop-only: the seam is layout-independent, so one viewport proves it. The gate
+// is declared at file scope rather than inside each test body on purpose. An in-body `test.skip` runs only
+// after Playwright has built the test's fixtures, so a desktop-only spec still launches a browser in every
+// project just to skip — and a project whose browser cannot start reports a failure instead of a skip. A
+// file-scope modifier is evaluated first, and this one reads only the `isMobile` device option (the
+// modifier callback is handed fixtures, not `testInfo`), so no browser is launched for the projects that
+// skip. `isMobile` is the device flag the mobile projects carry and the desktop project does not, which is
+// the same split the project names describe.
+test.skip(({ isMobile }) => isMobile, "The setup seam and its pre-seam fallback are covered on desktop.");
+
 /** A game-surface manifest. `setup` present is the seam path; absent is the pre-seam body swap. */
 function gameSurfaceManifest(experience: { id: string; name: string }, declaresSetup: boolean) {
   return {
@@ -112,7 +122,6 @@ test("a declared setup keeps every wizard step and draws the Experience's own fi
   page,
   request,
 }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("desktop"), "The setup seam is covered on desktop.");
   test.setTimeout(90_000);
 
   const suffix = `${testInfo.project.name}-${Date.now().toString(36)}`;
@@ -228,7 +237,6 @@ test("an Experience that declares no setup block still draws its own setup form 
   page,
   request,
 }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("desktop"), "The pre-seam fallback is covered on desktop.");
   test.setTimeout(90_000);
 
   const suffix = `${testInfo.project.name}-${Date.now().toString(36)}`;
