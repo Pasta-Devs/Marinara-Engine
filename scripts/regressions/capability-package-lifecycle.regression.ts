@@ -87,9 +87,9 @@ function seedWhisperModels() {
 
 try {
   const {
-    bestEffortInstalledEntryId,
     capabilityCatalogSchema,
     parseCapabilityCatalogWithCompat,
+    parseInstalledCapabilityRegistryWithCompat,
     capabilityPackageManifestSchema,
     compareCapabilityPackageVersions,
     getCapabilityApiCompatibilityIssue,
@@ -1917,9 +1917,9 @@ try {
     { slots: ["chat-settings"], holograms: { enabled: true } },
     "the carried entry is kept verbatim, including the manifest this Engine cannot parse",
   );
-  assert.equal(
-    bestEffortInstalledEntryId(rewrittenRegistry.packages[0]),
-    "registry-from-the-future",
+  assert.deepEqual(
+    parseInstalledCapabilityRegistryWithCompat(rewrittenRegistry).droppedEntries.map((dropped) => dropped.id),
+    ["registry-from-the-future"],
     "the carried entry stays identifiable, which is what keeps a reinstall of that id from duplicating it",
   );
   assert.deepEqual(

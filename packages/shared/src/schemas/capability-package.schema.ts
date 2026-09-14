@@ -494,10 +494,11 @@ export type InstalledCapabilityRegistryParseResult = {
   droppedEntries: Array<{ id: string; entry: unknown }>;
 };
 
-/** Best-effort id for an installed registry entry, readable or not. Exported so a caller
- *  carrying an unreadable entry through a write can match it against the packages it is
- *  about to write and avoid persisting the same id twice. */
-export function bestEffortInstalledEntryId(entry: unknown): string {
+/** Best-effort id for an installed registry entry, readable or not. Module-local: what
+ *  callers need is the id already attached to each `droppedEntries` row below, which is
+ *  what lets one carrying an unreadable entry through a write match it against the
+ *  packages it is about to write and avoid persisting the same id twice. */
+function bestEffortInstalledEntryId(entry: unknown): string {
   if (entry && typeof entry === "object" && !Array.isArray(entry)) {
     const record = entry as Record<string, unknown>;
     if (typeof record.id === "string" && record.id) return record.id;
