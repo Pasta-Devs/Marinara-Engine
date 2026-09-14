@@ -544,10 +544,17 @@ gone. Keys are capped at 120 characters for the same reason `seed.key` is.
 `requires` is a **closed** key set, not an open record, and today it carries exactly one key:
 `enableCustomWidgets`. An open record here would be a silent-override mechanism wearing a
 declaration's clothes, so the vocabulary grows one reviewed key at a time. Declared values are
-advisory, not enforced: the Engine leaves the matching wizard control editable and shows a line
-saying what the Experience expects if the player sets it otherwise. Nothing in this block can
-force-disable a host setting the package did not name — Agents in particular are never touched by it,
-because a future agent adapted to an Experience should still be the player's call.
+**enforced** while the Experience is active: the Engine sets the matching wizard control to the
+declared value, locks it so it cannot be toggled, and says beside it which Experience did that and
+why. The lock is reversible, not permanent. Turning the Experience off, or replacing it with one that
+requires nothing, unlocks the control and puts back the value the player had before the lock, and an
+imported setup file cannot reach past the lock either: under enforcement the imported answer becomes
+the value waiting behind it. Switching straight from one declaring Experience to another keeps the
+lock, applies the new declared value, and still remembers the player's own answer rather than the
+first Experience's requirement. Because the vocabulary is a closed key set, a package can only lock a
+setting the Engine has reviewed and agreed to hand over; nothing in this block reaches a setting the
+package did not name. Agents in particular are never in it, because a future agent adapted to an
+Experience should still be the player's call.
 
 Two host behaviours ship with the block. While an Experience that declares `setup` is active, the
 wizard does not offer its spatial-map options: the Experience owns its own world, so no map draft is

@@ -536,11 +536,6 @@ export function GameSetupWizard({
   const [activeLorebookIds, setActiveLorebookIds] = useState<string[]>([]);
   const [lbSearch, setLbSearch] = useState("");
   const [enableCustomWidgets, setEnableCustomWidgets] = useState(true);
-  /** Whether the player has answered the custom-widgets question themselves. Same pattern as
-   *  `promptPresetTouched` below: an untouched control is the host's to pre-set from a manifest
-   *  declaration, a touched one is the player's own answer and the seam only explains what the
-   *  Experience expected of it. */
-  const [enableCustomWidgetsTouched, setEnableCustomWidgetsTouched] = useState(false);
   const [manualWidgetSetupEnabled, setManualWidgetSetupEnabled] = useState(false);
   const [customHudWidgets, setCustomHudWidgets] = useState(() =>
     normalizeGameHudWidgets([createDefaultGameHudWidget("progress_bar", [])]),
@@ -583,12 +578,12 @@ export function GameSetupWizard({
    *  unusable keystroke leaves the last accepted value standing instead of writing nothing. */
   const [experienceSeed, setExperienceSeed] = useState<number>(randomSeed);
   const [experienceSeedInput, setExperienceSeedInput] = useState<string>(() => String(experienceSeed));
-  /** What a declared requirement overwrote and what it wrote in its place, so turning the Experience
-   *  back off can put the player's own value back — and only while the value on screen is still the one
-   *  the seam wrote. Per EXPERIENCE: the id of the one that declared it rides along, because switching
-   *  straight from one Experience to another has to settle the first one's requirement before the
-   *  second one's can be applied. Null whenever the seam has changed nothing. */
-  const appliedCustomWidgetsRef = useRef<{ experienceId: string; applied: boolean; previous: boolean } | null>(null);
+  /** The value the custom-widgets control held before an Experience's requirement locked it, so turning
+   *  the Experience off can hand the control back holding the player's own answer. Captured ONCE, when
+   *  enforcement starts, and never re-captured while it lasts: switching straight from one declaring
+   *  Experience to another keeps enforcing and keeps this value, so what comes back is the player's
+   *  answer rather than the first Experience's requirement. Null whenever nothing is enforced. */
+  const enforcedCustomWidgetsRef = useRef<{ previous: boolean } | null>(null);
   const setupImportInputRef = useRef<HTMLInputElement>(null);
   const pendingImportedGenerationParametersRef = useRef<Partial<EditableGenerationParameters> | null>(null);
   const importedGenerationParametersRef = useRef<Partial<GenerationParameters> | null>(null);
@@ -633,17 +628,19 @@ export function GameSetupWizard({
   /** The active experience's seed declaration, or null when it asks for no seed. What the field writes
    *  under, and whether it is drawn at all, both come from the manifest rather than from a package id. */
   const experienceSeedField = activeExperience?.manifest.contributions?.gameSurface?.setup?.seed ?? null;
-  /** What the active Experience declares it expects of the host's own settings. `requires` is a CLOSED
-   *  key set with exactly one member today, so this is a boolean or nothing at all. Read from the
-   *  manifest rather than from a package id, so a second Experience declaring the same key behaves the
-   *  same way with no host change. */
+  /** What the active Experience REQUIRES of the host's own settings. `requires` is a CLOSED key set with
+   *  exactly one member today, so this is a boolean or nothing at all. Read from the manifest rather than
+   *  from a package id, so a second Experience declaring the same key behaves the same way with no host
+   *  change. */
   const declaredEnableCustomWidgets =
     activeExperience?.manifest.contributions?.gameSurface?.setup?.requires?.enableCustomWidgets;
-  /** Which Experience the declaration above belongs to, or null when none is active. Kept beside it
-   *  because the applied record is per Experience and has to be matched against the Experience that is
-   *  live now — an id, not the resolved package, so a refetch that rebuilds equal objects changes
-   *  nothing here. */
+  /** Which Experience the declaration above belongs to, or null when none is active. An id, not the
+   *  resolved package, so a refetch that rebuilds equal objects re-runs nothing. */
   const declaringExperienceId = activeExperience?.id ?? null;
+  /** Whether the custom-widgets control is currently locked to a declared value. Keyed off the
+   *  DECLARATION, so the control is the player's again the moment the Experience is turned off or
+   *  replaced by one that requires nothing. */
+  const customWidgetsEnforced = declaredEnableCustomWidgets !== undefined;
   /** An Experience that declares `setup` hands the host its setup answers; one that does not is handled
    *  elsewhere entirely. Keyed off the DECLARATION, never off a package id or version. */
   const experienceDeclaresSetup = Boolean(activeExperience?.manifest.contributions?.gameSurface?.setup);
@@ -974,45 +971,31 @@ export function GameSetupWizard({
     }
   }, [defaultPreset?.id, promptPresetId, promptPresetTouched]);
 
-  // A declared requirement is applied VISIBLY and REVERSIBLY, never silently: the host pre-sets the
-  // control only while the player has not answered it themselves, says on the Features step what the
-  // Experience expects either way, and leaves the control editable (WARNED, not enforced). Generic over
-  // the `requires` block; `enableCustomWidgets` is simply the only key the vocabulary has today.
+  // A declared requirement is ENFORCED, not merely explained: while the Experience that declared it is
+  // on, the host sets the control to the declared value, LOCKS it, and says beside it why. Reversible
+  // rather than permanent: turning the Experience off hands the control back holding the value it had
+  // before the lock. Generic over the `requires` block; `enableCustomWidgets` is simply the only key the
+  // vocabulary has today.
   useEffect(() => {
-    const applied = appliedCustomWidgetsRef.current;
     if (!declaringExperienceId || declaredEnableCustomWidgets === undefined) {
-      // The Experience is off, or declares no expectation — the same state either way. Put back what the
-      // seam overwrote, unless the player has changed it since — then their value is the newer answer
-      // and it stands.
-      appliedCustomWidgetsRef.current = null;
-      if (applied && enableCustomWidgets === applied.applied) setEnableCustomWidgets(applied.previous);
+      // The Experience is off, or requires nothing. The same state either way: unlock the control and
+      // put back what it held before enforcement started.
+      const enforced = enforcedCustomWidgetsRef.current;
+      if (!enforced) return;
+      enforcedCustomWidgetsRef.current = null;
+      setEnableCustomWidgets(enforced.previous);
       return;
     }
-    // A record left by a DIFFERENT Experience means the player switched straight from one to another.
-    // Settle that one first, by the same rule as toggling it off — the player's own value goes back only
-    // while the control still holds what the seam wrote — and then apply the newly active Experience's
-    // declaration below against what the settle left standing.
-    const stale = applied && applied.experienceId !== declaringExperienceId ? applied : null;
-    let settled = enableCustomWidgets;
-    if (stale) {
-      appliedCustomWidgetsRef.current = null;
-      if (enableCustomWidgets === stale.applied) settled = stale.previous;
-    }
-    // Applied once per activation: a record already standing for THIS Experience, a control the player
-    // has answered themselves, or a value that already matches all leave the control alone — flipping it
-    // afterwards is the player's call, not a state to be corrected. Only a just-settled restore still
-    // has to land.
-    if ((applied && !stale) || enableCustomWidgetsTouched || settled === declaredEnableCustomWidgets) {
-      if (settled !== enableCustomWidgets) setEnableCustomWidgets(settled);
-      return;
-    }
-    appliedCustomWidgetsRef.current = {
-      experienceId: declaringExperienceId,
-      applied: declaredEnableCustomWidgets,
-      previous: settled,
-    };
+    // Captured only when enforcement begins. Switching straight from one declaring Experience to another
+    // never re-captures, so the value waiting behind the lock stays the player's own instead of becoming
+    // the Experience they just switched away from.
+    if (!enforcedCustomWidgetsRef.current) enforcedCustomWidgetsRef.current = { previous: enableCustomWidgets };
+    if (enableCustomWidgets === declaredEnableCustomWidgets) return;
     setEnableCustomWidgets(declaredEnableCustomWidgets);
-  }, [declaringExperienceId, declaredEnableCustomWidgets, enableCustomWidgets, enableCustomWidgetsTouched]);
+    // The same follow-on the control's own click handler applies, so a control locked off cannot leave a
+    // manual widget setup armed underneath it.
+    if (!declaredEnableCustomWidgets) setManualWidgetSetupEnabled(false);
+  }, [declaringExperienceId, declaredEnableCustomWidgets, enableCustomWidgets]);
 
   useEffect(() => {
     if (!gameSystemPromptEdited) {
@@ -1237,12 +1220,16 @@ export function GameSetupWizard({
       setEnableGameMusic(config.enableGameMusic !== false);
       setActiveLorebookIds(config.activeLorebookIds ?? []);
       setLbSearch("");
-      // An imported setup is the player's own answer to every question in it, so it counts as touching
-      // the custom-widgets control: an Experience activated afterwards explains what it expects rather
-      // than overwriting what was just restored, and there is nothing left for toggling it off to undo.
-      setEnableCustomWidgetsTouched(true);
-      appliedCustomWidgetsRef.current = null;
-      setEnableCustomWidgets(config.enableCustomWidgets !== false);
+      // An imported setup is the player's own answer to every question in it, but it cannot overrule a
+      // requirement that is being enforced: under a lock the imported answer becomes the value waiting
+      // behind it, so turning the Experience off later restores what the import asked for rather than
+      // what the control held when the import ran.
+      const importedEnableCustomWidgets = config.enableCustomWidgets !== false;
+      if (enforcedCustomWidgetsRef.current) {
+        enforcedCustomWidgetsRef.current = { previous: importedEnableCustomWidgets };
+      } else {
+        setEnableCustomWidgets(importedEnableCustomWidgets);
+      }
       setManualWidgetSetupEnabled(importedWidgets.length > 0);
       setCustomHudWidgets(
         importedWidgets.length > 0
@@ -3056,13 +3043,19 @@ export function GameSetupWizard({
                     {/* Custom Widgets Toggle */}
                     <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
                       <button
+                        type="button"
+                        aria-pressed={enableCustomWidgets}
+                        disabled={customWidgetsEnforced}
                         onClick={() => {
+                          if (customWidgetsEnforced) return;
                           const nextEnabled = !enableCustomWidgets;
-                          setEnableCustomWidgetsTouched(true);
                           setEnableCustomWidgets(nextEnabled);
                           if (!nextEnabled) setManualWidgetSetupEnabled(false);
                         }}
-                        className="flex w-full items-center justify-between gap-2 text-left"
+                        className={cn(
+                          "flex w-full items-center justify-between gap-2 text-left",
+                          customWidgetsEnforced && "cursor-not-allowed opacity-50",
+                        )}
                       >
                         <div className="flex items-center gap-2">
                           <Sparkles
@@ -3094,28 +3087,19 @@ export function GameSetupWizard({
                           />
                         </div>
                       </button>
-                      {/* The declared requirement, said out loud beside the control it governs. It stays
-                          on screen after the player overrides it, reading as an unmet expectation: the
-                          Experience's ask stays visible, and the answer stays the player's. */}
-                      {declaredEnableCustomWidgets !== undefined && activeExperience && (
-                        <p
-                          role="status"
-                          className={cn(
-                            "mt-2 text-[0.55rem] leading-relaxed",
-                            enableCustomWidgets === declaredEnableCustomWidgets
-                              ? "text-[var(--muted-foreground)]"
-                              : "text-amber-700 dark:text-amber-400/80",
-                          )}
-                        >
+                      {/* Why the control above cannot be touched, said beside the control itself rather
+                          than left for the player to work out from a toggle that will not move. Drawn only
+                          while the lock is on, so turning the Experience off takes the explanation with
+                          the lock. */}
+                      {customWidgetsEnforced && activeExperience && (
+                        <p role="status" className="mt-2 text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">
                           {declaredEnableCustomWidgets
-                            ? localizeUi("ui.game.gamesetupwizard.value1ExpectsCustomHudWidgetsToBeOn", {
+                            ? localizeUi("ui.game.gamesetupwizard.value1TurnsCustomHudWidgetsOnForThisGame", {
                                 value1: activeExperience.manifest.name,
                               })
-                            : localizeUi("ui.game.gamesetupwizard.value1ExpectsCustomHudWidgetsToBeOff", {
+                            : localizeUi("ui.game.gamesetupwizard.value1TurnsCustomHudWidgetsOffForThisGame", {
                                 value1: activeExperience.manifest.name,
                               })}
-                          {enableCustomWidgets !== declaredEnableCustomWidgets &&
-                            ` ${localizeUi("ui.game.gamesetupwizard.yourOwnAnswerIsWhatThisGameWillUse")}`}
                         </p>
                       )}
                       {enableCustomWidgets && (

@@ -103,9 +103,11 @@ const capabilityPackageManifestBaseSchema = z
              *    host never reads them; they exist so a package can retire its own setup dialog
              *    without losing the answers that dialog used to record.
              *  - `requires` is a CLOSED key set, not an open record — an open record would be a
-             *    silent-override mechanism wearing a declaration's clothes. Declared values are
-             *    advisory: the host surfaces what the Experience expects and leaves the control
-             *    editable.
+             *    silent-override mechanism wearing a declaration's clothes, so a package can only
+             *    lock a setting the host has reviewed. Declared values are ENFORCED while the
+             *    Experience is active: the host sets the matching control to the declared value,
+             *    locks it, and says beside it why. Reversible, not permanent: turning the
+             *    Experience off unlocks the control and puts back the player's earlier value.
              *
              *  `seed` and `config` both write into the same `experienceConfig` record, so a manifest
              *  naming `seed.key` in `config` is refused rather than silently pinning every player's
@@ -256,9 +258,10 @@ const capabilityPackageManifestBaseSchema = z
 //        Also in 1.17:
 // 1.17: contributions.gameSurface.setup — an Experience declares what the game-creation wizard
 //        collects for it: a host-drawn numeric world seed (`seed`), literals copied verbatim into
-//        `experienceConfig` (`config`), and the advisory host settings it expects (`requires`, a
-//        closed key set). Declarative so the wizard draws the fields on first paint (soft seam:
-//        read regardless of declared capabilityApi; declare 1.17 only to REQUIRE it).
+//        `experienceConfig` (`config`), and the host settings it requires (`requires`, a closed key
+//        set, enforced while the Experience is active). Declarative so the wizard draws the fields on
+//        first paint (soft seam: read regardless of declared capabilityApi; declare 1.17 only to
+//        REQUIRE it).
 export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 17 } as const);
 
 const capabilityApiVersionSchema = z

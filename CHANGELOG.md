@@ -6,7 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Turning on a downloaded Experience no longer replaces the game setup wizard. The wizard's own steps, including Party, still apply to an Experience game, and the Experience adds its own settings inside the Experiences block (#6181).
 - An Experience that asks for a world seed now shows an editable seed with a randomize button in the Experiences block, so the number is visible before the game is created (#6181).
-- An Experience's expectation about custom widgets is pre-set and explained beside that control, and can still be changed (#6181).
+- An Experience's requirement about custom widgets is applied while the Experience is on: the control shows the required value and is locked, a line says why, and your earlier choice comes back when the Experience is turned off (#6181).
 - The spatial-map options are not offered for a game run through an Experience (#6181).
 - The Experiences block now appears only while creating a new game, so an Experience can no longer be turned on for an existing chat that is back in setup (#6181).
 - A downloaded Experience published before this change keeps its own setup dialog (#6181).

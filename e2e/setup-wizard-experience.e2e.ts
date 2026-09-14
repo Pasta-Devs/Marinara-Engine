@@ -203,30 +203,46 @@ test("a declared setup keeps every wizard step and draws the Experience's own fi
     await expect(dialog.getByText(/^Party Members \(\d+ selected\)$/u)).toBeVisible();
     await expect(dialog.getByText(characterName, { exact: true }).first()).toBeVisible();
 
-    // The declared requirement is explained beside the control it governs, and the control stays the
-    // player's to answer: flipping it leaves the Experience's expectation on screen, unmet.
+    // The declared requirement is ENFORCED, not merely explained: the control holds the required value,
+    // cannot be toggled, and says beside itself why.
     for (const heading of ["Goals", "Lorebooks", "Features"]) {
       await dialog.getByRole("button", { name: "Next", exact: true }).click();
       await expect(dialog.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     }
-    const requirement = dialog.getByRole("status").filter({ hasText: "expects custom HUD widgets" });
-    await expect(requirement).toHaveText(`${SEAM_EXPERIENCE.name} expects custom HUD widgets to be off.`);
+    const requirement = dialog.getByRole("status").filter({ hasText: "custom HUD widgets" });
+    await expect(requirement).toHaveText(`${SEAM_EXPERIENCE.name} turns custom HUD widgets off for this game.`);
     const widgetsControl = dialog.getByRole("button").filter({ hasText: "Custom HUD Widgets" });
     const widgetsCard = dialog
       .locator("div")
       .filter({ has: page.getByRole("button").filter({ hasText: "Custom HUD Widgets" }) })
-      .filter({ has: page.getByRole("status").filter({ hasText: "expects custom HUD widgets" }) })
+      .filter({ has: page.getByRole("status").filter({ hasText: "custom HUD widgets" }) })
       .last();
     await expect(widgetsCard).toBeVisible();
-    await widgetsControl.click();
-    await expect(requirement).toContainText("Your own answer is what this game will use.");
+    await expect(widgetsControl).toBeDisabled();
+    await expect(widgetsControl).toHaveAttribute("aria-pressed", "false");
+    // Off means off all the way down: the manual widget-setup pane the control opens is gone with it.
+    await expect(dialog.getByText("Build Widget Setup", { exact: true })).toHaveCount(0);
 
-    // Walking the steps never discards the seed: it is wizard state, not step state.
+    // Turning the Experience off unlocks the control and hands back the value it held before the lock,
+    // which for a fresh wizard is the default: on.
     for (const heading of ["Lorebooks", "Goals", "Party", "World", "Connection"]) {
       await dialog.getByRole("button", { name: "Back", exact: true }).click();
       await expect(dialog.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     }
+    // Walking the steps never discards the seed: it is wizard state, not step state.
     await expect(dialog.getByLabel(SEED_LABEL)).toHaveValue("123456");
+    await experienceSwitch.click();
+    // Off, and the block folds itself away again because nothing inside it still has to be answered. The
+    // host-drawn seed field going with it is the proof, the same way its absence proved the Experience was
+    // off before it was ever switched on.
+    await expect(dialog.getByLabel(SEED_LABEL)).toHaveCount(0);
+    for (const heading of ["World", "Party", "Goals", "Lorebooks", "Features"]) {
+      await dialog.getByRole("button", { name: "Next", exact: true }).click();
+      await expect(dialog.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    }
+    await expect(widgetsControl).toBeEnabled();
+    await expect(widgetsControl).toHaveAttribute("aria-pressed", "true");
+    await expect(dialog.getByRole("status").filter({ hasText: "custom HUD widgets" })).toHaveCount(0);
   } finally {
     await request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
     await request.delete(`/api/characters/${character.id}`).catch(() => undefined);
