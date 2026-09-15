@@ -1706,12 +1706,16 @@ export function createAdvancedMemoryService(db: DB) {
     const cached = available.find(
       (record) =>
         (record.id === candidate.id ||
-          (sameIdentity(record, candidate) && hash(record.dependencies) === hash(candidate.dependencies))) &&
+          (sameIdentity(record, candidate) &&
+            hash(record.dependencies.filter((dependency) => dependency.id !== "budget")) ===
+              hash(candidate.dependencies.filter((dependency) => dependency.id !== "budget")))) &&
         record.enabled &&
         recordValid(ctx, record) &&
-        dependenciesValid(record, available, ctx),
+        dependenciesValid(record, available, ctx) &&
+        tokenSize(renderMemoryRecord(record, indexes)) <= budget,
     );
-    if (cached && tokenSize(renderMemoryRecord(cached, indexes)) <= budget) return cached;
+    // A budget change alone does not require another summary when the saved text still fits.
+    if (cached) return cached;
     const contentBudget = budget - tokenSize(renderMemoryRecord({ ...candidate, content: "" }, indexes));
     if (contentBudget < 1)
       throw new Error("The story timeframe and source labels exceed the summary budget; increase the summary budget");
