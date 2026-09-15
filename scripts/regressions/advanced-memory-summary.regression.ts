@@ -147,6 +147,36 @@ try {
     records.some((record) => record.kind === "excerpt" && record.content.includes("The frogs sang")),
     "only historical excerpts retain verbatim source text",
   );
+  const repeated = await createChat("Repeated scene and continuity preparation");
+  await chats.createMessagesBatch(
+    repeated.id,
+    Array.from({ length: 6 }, (_, index) => ({
+      role: index % 2 ? ("assistant" as const) : ("user" as const),
+      content:
+        index % 2 ? "The following morning, we moved to another location." : "We explored the island. ".repeat(200),
+      createdAt: new Date(Date.now() + 1000 + index).toISOString(),
+    })),
+  );
+  const repeatedMessages = await chats.listMessages(repeated.id);
+  await Promise.all([memory.initialize(repeated.id), memory.initialize(repeated.id)]);
+  let checkpointId: string | null = null;
+  const beforeRepeatedSummaries = requests.length;
+  for (const budgetTokens of [1400, 1336, 1272, 1400]) {
+    await memory.initialize(repeated.id);
+    const prepared = await memory.prepare({
+      chatId: repeated.id,
+      messages: repeatedMessages,
+      audienceCharacterIds: [],
+      budgetTokens,
+    });
+    checkpointId ??= prepared.receipt.checkpointId;
+    assert(checkpointId, "the bounded context must create a continuity summary");
+    assert.equal(prepared.receipt.checkpointId, checkpointId, "a fitting summary survives context-budget adjustments");
+    const archive = (await memory.status(repeated.id)).records;
+    assert.equal(archive.filter((record) => record.kind === "scene" && record.status === "closed").length, 4);
+    assert.equal(archive.filter((record) => record.kind === "continuity").length, 1, "one record per unchanged range");
+  }
+  assert.equal(requests.length, beforeRepeatedSummaries, "repeated preparation makes no duplicate model calls");
   const cjkChat = await createChat("CJK scene detection and complete summary chunks");
   const cjkSource = await chats.listMessages(cjkChat.id);
   const cjkText = "漢あ한𠀀😀".repeat(4000);

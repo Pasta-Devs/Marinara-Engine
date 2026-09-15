@@ -3209,6 +3209,12 @@ body {
     );
 }
 
+/* Image grids use their cards' hover feedback without resampling or filtering the artwork. */
+.mari-home-widget:is(.mari-home-widget--recent, .mari-home-widget--character-library) {
+  --mari-home-widget-hover-transform: none;
+  --mari-home-widget-hover-filter: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .mari-home-widget > :not(.mari-home-widget__drag-handle) {
     transform-origin: center;
