@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Refresh compatible dependency and CI-action versions while preserving the supported Node, schema and native-runtime compatibility pins.
+
 - Starting a Conversation or Roleplay chat from a character card keeps that character selected when saved wizard defaults are applied (#6284).
 - CI isolates language checks from live agent-catalog availability and gives cold native server startup its own deadline while preserving the restart deadline.
 - Roleplay documents choose one of three built-in styles for each document kind and keep that choice with the saved command. Real dice rolls appear inside the reply where they were requested, using the existing dice animation and preserving their results after reload (#6279).
