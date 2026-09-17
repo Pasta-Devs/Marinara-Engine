@@ -1,6 +1,37 @@
 # Game Mode: walka
 
-Ten przewodnik wyjaśnia, jak działa walka w trybie Game Mode aplikacji Marinara Engine. Znajdziesz tu opis początku starcia, menu akcji oraz matematyki rzutów kośćmi stojącej za każdym trafieniem. Dalej opisane są efekty statusu, reakcje żywiołów, mechaniki bossów, łupy, kontrolka **Interrupt** i Quick-Time Events. Walkę prowadzi Game Master (GM, mistrz gry) sterowany przez AI – postać, która opowiada twoją przygodę.
+Ten przewodnik wyjaśnia walkę w trybie Game Mode aplikacji Marinara Engine. W kroku **World** (świat) kreatora wybierz **Classic** (walka z menu) lub **Tactical** (walka na siatce) w polu **Combat Preference** (preferowany rodzaj walki). Game Master sterowany przez AI (GM, mistrz gry) ustala starcie i opisuje wyniki, a silnik rozstrzyga akcje bojowe.
+
+## Walka taktyczna i teren
+
+W walce taktycznej drużyna i wrogowie zajmują pola planszy. Wybierz jednostkę drużyny, sprawdź jej zasięg ruchu, wybierz cel ruchu i akcję, a następnie potwierdź. Każda jednostka drużyny może działać przed fazą wroga. Prognoza ataku pokazuje przewidywane skutki przed zatwierdzeniem.
+
+Przy tworzeniu gry Tactical opcjonalne ustawienia pola bitwy pozwalają wybrać ziarno, rozmiar oraz wskazówki dotyczące terenu dla postaci GM. Puste pole ziarna oznacza wygenerowanie go automatycznie. Ziarno to liczba całkowita od 0 do 4294967295, włącznie z zerem. Odtwarza planszę przy tych samych uczestnikach starcia, opisie terenu i pozostałych danych generatora; nie wymusza tej samej historii ani tych samych wrogów u postaci GM.
+
+GM podaje środowisko sceny, formację i krótki opis terenu. Silnik tworzy dokładny układ pól i pozycje początkowe. Opis może wskazywać obszary terenu i bariery przy środku lub krawędzi mapy. Wskazówki to prośba do postaci GM, a nie gwarancja przełożenia każdego słowa na pole. Zaakceptowane pole bitwy jest zapisywane, więc odświeżenie przywraca tę samą planszę.
+
+Silnik sprawdza opis i wynikowy układ. Zachowuje żądany teren, zapewniając możliwość dotarcia do uczestników starcia. Jeśli ograniczeń nie da się pogodzić, walka zgłasza problem. Przycisk **Use generated terrain** (użycie wygenerowanego terenu) jawnie rozpoczyna walkę bez odrzuconych elementów; nie usuwa ich po cichu. Dokładne mapy malowane ręcznie i edytor pola bitwy nie są jeszcze dostępne.
+
+| Teren | Ruch pieszy | Obrona i uniki |
+| --- | --- | --- |
+| Równiny | Koszt 1 punktu ruchu | Bez premii |
+| Las | Koszt 2 punktów ruchu | +1 obrony, +15 punktów procentowych uniku |
+| Ruiny | Koszt 1 punktu ruchu | +1 obrony, +10 punktów procentowych uniku |
+| Góra, woda, ściana | Blokuje ruch pieszy | Bez premii |
+
+Jednostki z ustaloną zdolnością lotu lub teleportacji mogą poruszać się inaczej:
+
+- **Ruch pieszy** prowadzi przez dostępne pola gruntu. Wrogie jednostki blokują drogę; ruchu nie można zakończyć na zajętym polu.
+- **Lot** pozwala przekraczać teren i jednostki po drodze za jeden punkt ruchu na pole, również w lesie. Jednostka może zawisnąć nad polem zwykle blokującym ruch, ale nie nad inną jednostką.
+- **Teleportacja** ignoruje teren i jednostki po drodze. Cel musi mieścić się w zasięgu ruchu, być pusty i dostępny pieszo. Nie można zakończyć ruchu w ścianie, na górze ani nad wodą bez podłoża.
+
+Oba specjalne rodzaje ruchu korzystają z aktualnej puli ruchu i odległości liczonej wzdłuż wierszy i kolumn. Zachowują premie terenu docelowego do obrony i uniku. To prosty model płaskiej siatki: nie uwzględnia wysokości, sufitów ani kosztów i wymogów widoczności konkretnych zaklęć.
+
+Walka taktyczna korzysta z faz drużyny i wroga zamiast indywidualnej inicjatywy z gier stołowych. Ściany blokujące ruch nie blokują jeszcze ataków dystansowych na podstawie linii widzenia. Osłony, profile zasad gier stołowych i pełny system walki przywoływanych stworzeń to osobne przyszłe prace.
+
+## Walka klasyczna
+
+Dalsze sekcje o menu akcji i matematyce rzutów opisują walkę Classic. Uczestniczy w niej cała drużyna, ale wybrane polecenie steruje pierwszym żyjącym członkiem drużyny; pozostali towarzysze działają automatycznie.
 
 ## Początek starcia
 

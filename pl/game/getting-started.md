@@ -31,7 +31,7 @@ Przy tworzeniu czatu w trybie Game Mode otwiera się **kreator konfiguracji**. M
 Siedem kroków wygląda tak:
 
 1. **Connection.** Ustaw nazwę gry, wybierz połączenie dla postaci GM i opcjonalnie połączenie do efektów scenicznych. Efekty sceniczne domyślnie korzystają z opcji **Local Model (Gemma)**.
-2. **World.** Ustaw gatunek, realia, ton, poziom trudności, klasyfikację treści i język.
+2. **World.** Ustaw gatunek, realia, ton, poziom trudności, klasyfikację treści i język. Wybierz **Classic** (walka z menu) lub **Tactical** (walka na siatce) w polu **Combat Preference** (preferowany rodzaj walki). Gry Tactical oferują też opcjonalne ziarno pola bitwy, rozmiar i wskazówki dotyczące terenu.
 3. **Party.** Wybierz personę (postać, w którą się wcielasz), tryb **Game Master Mode** oraz członków drużyny.
 4. **Goals.** Powiedz postaci GM, czego oczekujesz od przygody.
 5. **Lorebooks.** Podłącz lorebooki, których fakty postać GM ma traktować jako kanon. Lorebook to zbiór faktów o twoim świecie. Zobacz [Lorebooki](../lorebooks/overview.md).
@@ -39,6 +39,8 @@ Siedem kroków wygląda tak:
 7. **GM.** Wybierz styl prezentacji i przejrzyj zaawansowane instrukcje dla postaci GM, zanim świat powstanie.
 
 Na koniec kliknij przycisk **Start Game** (rozpoczęcie gry).
+
+W grach Tactical puste opcje pola bitwy pozwalają postaci GM dobrać opis do sceny, a silnikowi wygenerować planszę. Stałe ziarno pozwala odtworzyć wynik dla tych samych danych starcia; wskazówki dotyczące terenu proszą postać GM o elementy takie jak zrujnowana ściana czy polana. Zasady ruchu, premie terenu i błędy generowania opisuje przewodnik [Game Mode: walka](combat.md#tactical-battles-and-terrain).
 
 ### Wartości domyślne, które warto znać
 
