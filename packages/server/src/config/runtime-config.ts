@@ -154,12 +154,12 @@ export function loadRuntimeEnv() {
   const envPath = getEnvFilePath();
   ensureEnvFileExists(envPath);
   if (existsSync(envPath)) {
-    const result = dotenv.config({ path: envPath });
+    const result = dotenv.config({ path: envPath, quiet: true });
     if (result.parsed) {
       envFileKeys = new Set(Object.keys(result.parsed));
     }
   } else {
-    dotenv.config();
+    dotenv.config({ quiet: true });
   }
 
   normalizeRuntimeTimezoneEnv();

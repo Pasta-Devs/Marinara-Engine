@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Refresh compatible dependency and CI-action versions while preserving the supported Node, schema and native-runtime compatibility pins.
+- Refresh compatible dependency and CI-action versions while preserving the supported Node, schema and native-runtime compatibility pins. The sandbox regression fixture also resolves macOS temporary-directory aliases before comparing canonical store links.
 
 - Starting a Conversation or Roleplay chat from a character card keeps that character selected when saved wizard defaults are applied (#6284).
 - CI isolates language checks from live agent-catalog availability and gives cold native server startup its own deadline while preserving the restart deadline.
