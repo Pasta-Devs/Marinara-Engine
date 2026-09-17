@@ -39,7 +39,7 @@ O motor deve controlar rolagens reais, alvos legais, movimento, limites de açõ
 
 [A issue #5955](https://github.com/Pasta-Devs/Marinara-Engine/issues/5955) cobre recuperação semântica de lorebooks e um caminho opcional por ferramenta. A recuperação complementa os perfis: ajuda o GM a encontrar informações relevantes, enquanto perfis explícitos tornam mecânicas comuns consistentes e testáveis. Evite uma consulta separada para cada rolagem comum.
 
-Comece pelas primitivas suportadas de testes, turnos e recursos. Um perfil d20 e um perfil de paradas de d10 exigem regras de resolução diferentes; um não é apenas o outro renomeado. A cobertura futura deve incluir iniciativa, testes opostos, dano e mitigação, condições e uso de recursos. Documente casos não suportados e deixe explícita a arbitragem do GM.
+Comece pelas primitivas suportadas de testes, turnos e recursos. Um perfil d20 e um perfil de pool de dados d10 exigem regras de resolução diferentes; um não é apenas o outro renomeado. A cobertura futura deve incluir iniciativa, testes opostos, dano e mitigação, condições e uso de recursos. Documente casos não suportados e deixe explícita a arbitragem do GM.
 
 O jogo tático de mesa também exige regras compartilhadas de linha de visão e cobertura. A grade atual bloqueia movimento por paredes, mas ataques à distância baseados em distância podem atravessá-las. Atualize resolução, IA, contra-ataques, previsões e sobreposições de ameaça juntos. Preserve as fases atuais de grupo e inimigos; iniciativa individual é um perfil de regras selecionável separado.
 
