@@ -433,13 +433,20 @@ test("Character-sheet resolution migrates once and remains independent after a s
     const sheets = page.locator("#settings-control-image-character-sheet-size input");
     await expect(sheets.nth(0)).toHaveValue("1536");
     await expect(sheets.nth(1)).toHaveValue("1024");
+    // Click before filling so edits start in the viewport after the Settings focus jump.
+    await sheets.nth(0).click();
     await sheets.nth(0).fill("768");
+    await expect(sheets.nth(0)).toHaveValue("768");
+    await sheets.nth(1).click();
     await sheets.nth(1).fill("1152");
+    await expect(sheets.nth(1)).toHaveValue("1152");
     await sheets.nth(1).blur();
     const backgrounds = page.locator("#settings-control-image-background-size input");
     await expect(backgrounds.nth(0)).toHaveValue("1536");
     await expect(backgrounds.nth(1)).toHaveValue("1024");
+    await backgrounds.nth(0).click();
     await backgrounds.nth(0).fill("2048");
+    await expect(backgrounds.nth(0)).toHaveValue("2048");
     await backgrounds.nth(0).blur();
     await page.reload();
     await openImageSettings();
