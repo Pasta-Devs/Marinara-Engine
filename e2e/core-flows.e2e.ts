@@ -13171,6 +13171,11 @@ test("UI language selection downloads packs on demand and persists across reload
   test.setTimeout(90_000);
   const errors = collectUnexpectedErrors(page);
   const packs = await mockUILanguagePacks(page);
+  // Settings also loads the agent catalog; its upstream availability is not
+  // part of the language-download failure handling exercised below.
+  await page.route("**/api/capability-packages/catalog", (route) =>
+    route.fulfill({ json: { schemaVersion: 1, generatedAt: "2026-09-17T00:00:00.000Z", packages: [] } }),
+  );
   const languageSelect = page.locator("#settings-control-language select");
 
   // UI settings are normally synchronized through a single server record. Keep

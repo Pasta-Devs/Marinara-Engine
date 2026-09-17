@@ -39,12 +39,14 @@ export function readRoleplayDiceRolls(text: string, extra: Record<string, unknow
         typeof expected === "number" &&
         Number.isSafeInteger(expected) &&
         expected >= 0 &&
-        typeof anchor === "string"
+        typeof anchor === "string" &&
+        anchor.length > 0
       ) {
-        if (expected <= text.length && text.slice(Math.max(0, expected - anchor.length), expected) === anchor)
-          offset = expected;
-        else if (anchor && text.indexOf(anchor) >= 0 && text.indexOf(anchor) === text.lastIndexOf(anchor))
-          offset = text.indexOf(anchor) + anchor.length;
+        const currentAnchor =
+          expected === 0 ? text.slice(0, anchor.length) : text.slice(Math.max(0, expected - anchor.length), expected);
+        if (expected <= text.length && currentAnchor === anchor) offset = expected;
+        else if (text.indexOf(anchor) >= 0 && text.indexOf(anchor) === text.lastIndexOf(anchor))
+          offset = text.indexOf(anchor) + (expected === 0 ? 0 : anchor.length);
       }
       return [{ index, offset, result: item.result }];
     })

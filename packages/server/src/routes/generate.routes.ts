@@ -8717,10 +8717,10 @@ export async function generateRoutes(app: FastifyInstance) {
                       : null;
                 if (offset !== null) {
                   activity.contentOffset = Math.max(0, savedMsg.content.length - fullResponse.length) + offset;
-                  activity.contentAnchor = savedMsg.content.slice(
-                    Math.max(0, activity.contentOffset - 80),
-                    activity.contentOffset,
-                  );
+                  activity.contentAnchor =
+                    activity.contentOffset === 0
+                      ? savedMsg.content.slice(0, 80)
+                      : savedMsg.content.slice(Math.max(0, activity.contentOffset - 80), activity.contentOffset);
                 }
               }
               extraUpdate.roleplayCommandActivity = [...getRoleplayCommandActivity(previousExtra), ...roleplayActivity];

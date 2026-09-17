@@ -5,6 +5,85 @@ import { seedUIState } from "./ui-state-fixture.js";
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 for (const mode of ["roleplay", "conversation"] as const) {
+  test(`${mode} card launch preserves its character when applying saved wizard defaults`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const characterResponse = await request.post("/api/characters", {
+      data: { data: { name: "Selected from the library" } },
+    });
+    expect(characterResponse.ok()).toBeTruthy();
+    const character = await characterResponse.json();
+    let chatId: string | undefined;
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      professorMariNavigationEnabled: false,
+      chatHelpSeenModes: ["conversation", "roleplay"],
+      chatWizardDefaults: {
+        [mode]: {
+          name: "Saved setup",
+          connectionId: null,
+          promptPresetId: null,
+          personaId: null,
+          personaCharacterId: null,
+          characterIds: [],
+          metadata: {},
+        },
+      },
+    });
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
+    try {
+      await page.goto("/");
+      await page.evaluate(async (id) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().openCharacterLibrary(id);
+      }, character.id);
+      const library = page.locator('[data-component="CharacterLibraryView"]');
+      await library.getByRole("button", { name: "Chat Now", exact: true }).click();
+      const created = page.waitForResponse(
+        (response) => response.url().endsWith("/api/chats") && response.request().method() === "POST",
+      );
+      await page
+        .getByRole("dialog", { name: "Choose a chat mode" })
+        .getByRole("button", {
+          name: mode === "conversation" ? /^Conversation/ : /^Roleplay/,
+        })
+        .click();
+      chatId = (await (await created).json()).id;
+      const wizard = page.locator('[data-component="ChatSetupWizard"]');
+      await expect(wizard.locator('input[type="text"]').first()).toHaveValue("Saved setup");
+      await wizard.getByRole("button", { name: "Next", exact: true }).click();
+      await wizard.getByRole("button", { name: "Next", exact: true }).click();
+      const choices = page.getByRole("dialog", { name: "Configure Preset Variables" });
+      await expect(
+        choices.or(wizard.getByRole("heading", { name: "Persona & Characters", exact: true })),
+      ).toBeVisible();
+      if (await choices.isVisible())
+        await choices.getByRole("button", { name: "Confirm Choices", exact: true }).click();
+      await expect
+        .poll(async () => {
+          const chat = await (await request.get(`/api/chats/${chatId}`)).json();
+          return typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : chat.characterIds;
+        })
+        .toEqual([character.id]);
+      if (mode === "conversation") {
+        await expect(wizard.getByTitle("Selected from the library", { exact: true })).toBeVisible();
+      } else {
+        await expect(wizard.getByRole("button", { name: "Remove", exact: true })).toHaveCount(1);
+      }
+      await testInfo.attach("selected-character", {
+        body: await page.screenshot({ path: testInfo.outputPath("selected-character.png") }),
+        contentType: "image/png",
+      });
+    } finally {
+      if (chatId) await request.delete(`/api/chats/${chatId}`);
+      await request.delete(`/api/characters/${character.id}`);
+    }
+  });
+
   test(`${mode} wizard waits for saved defaults from another device`, async ({ page, request }) => {
     await seedUIState(page, {
       hasCompletedOnboarding: true,

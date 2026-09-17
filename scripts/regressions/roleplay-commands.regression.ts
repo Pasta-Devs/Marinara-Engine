@@ -46,6 +46,13 @@ assert.deepEqual(
 assert.deepEqual(positions("Edited Before after", [inlineRoll]), [13], "an unchanged unique anchor follows an edit");
 assert.deepEqual(positions("All replaced", [inlineRoll]), [12], "a lost anchor leaves the real roll at the end");
 assert.deepEqual(positions("Changed Before Before after", [inlineRoll]), [27], "ambiguous anchors do not guess");
+const leadingRoll = { ...inlineRoll, contentOffset: 0, contentAnchor: "After the roll" };
+assert.deepEqual(positions("After the roll", [leadingRoll]), [0]);
+assert.deepEqual(positions("Edited After the roll", [leadingRoll]), [7], "a leading roll follows its unique suffix");
+assert.deepEqual(positions("All replaced", [leadingRoll]), [12]);
+assert.deepEqual(positions("After the roll twice: After the roll", [leadingRoll]), [0]);
+assert.deepEqual(positions("New After the roll twice: After the roll", [leadingRoll]), [40]);
+assert.deepEqual(positions("Edited", [{ ...leadingRoll, contentAnchor: "" }]), [6], "empty anchors cannot pin a roll");
 assert.deepEqual(
   positions("Before after", [{ ...inlineRoll, contentOffset: undefined }]),
   [12],

@@ -49,8 +49,11 @@ const exited = new Promise((done) => child.once("exit", done));
 const base = `http://127.0.0.1:${port}`;
 async function waitForPid(previous?: number): Promise<number> {
   const started = Date.now();
+  // The first boot transpiles the full server on cold native CI runners.
+  // A supervised restart reuses that cache and retains its tighter deadline.
+  const timeoutMs = previous === undefined ? 20_000 : 10_000;
   let lastError: unknown;
-  while (Date.now() - started < 10_000) {
+  while (Date.now() - started < timeoutMs) {
     if (child.exitCode !== null) assert.fail(`Supervisor exited: ${output}`);
     let body: { pid: number; parent: number } | undefined;
     try {
@@ -61,6 +64,7 @@ async function waitForPid(previous?: number): Promise<number> {
     }
     if (body && body.pid !== previous) {
       assert.equal(body.parent, child.pid, "Replacement must remain owned by the launcher");
+      console.log(`${previous === undefined ? "Initial startup" : "Supervised restart"}: ${Date.now() - started}ms`);
       return body.pid;
     }
     await new Promise((done) => setTimeout(done, 100));

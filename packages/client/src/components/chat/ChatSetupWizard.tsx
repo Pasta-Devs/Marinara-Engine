@@ -909,7 +909,11 @@ function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       return;
     }
     let active = true;
-    pendingApply.current ??= apply(saved);
+    pendingApply.current ??= apply({
+      ...saved,
+      // A card launch is an explicit participant choice, ahead of saved defaults.
+      characterIds: initial.characterIds.length ? initial.characterIds : saved.characterIds,
+    });
     void pendingApply.current
       .then(() => {
         if (!active) return;
@@ -927,7 +931,7 @@ function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     return () => {
       active = false;
     };
-  }, [apply, saved, settingsSyncReady, t]);
+  }, [apply, initial.characterIds, saved, settingsSyncReady, t]);
 
   const defaultsAction = (metadata: Record<string, unknown>) => (
     <button
