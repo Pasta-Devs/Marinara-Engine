@@ -7,7 +7,7 @@ import { cn, copyToClipboard, getAvatarCropStyle, isLegacyAvatarCrop } from "../
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
 import { MessageReplyPreview, ReplyToMessageButton } from "./MessageReplyPreview";
-import { RoleplayCommandResults } from "./RoleplayCommandResults";
+import { RoleplayCommandResults, RoleplayDiceRoll, replaceRoleplayDiceMarkers } from "./RoleplayCommandResults";
 import { splitRoleplayParagraphs } from "../../lib/roleplay-vn-paragraphs";
 import {
   normalizeCardAssetImageSyntax,
@@ -20,7 +20,7 @@ import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effect
 import { PendingTypingDots } from "./PendingTypingDots";
 import { ChatImagePreview } from "./ChatImagePreview";
 import { recordClientRuntimeEvent } from "../../lib/client-runtime-diagnostics";
-import { isDiceRollResult } from "../../lib/dice-roll-result";
+import { isDiceRollResult, readRoleplayDiceRolls } from "../../lib/dice-roll-result";
 import { DiceMessageContent, diceRollReplacesMessageContent } from "./ConversationMessageShared";
 import {
   User,
@@ -2798,26 +2798,68 @@ export const ChatMessage = memo(function ChatMessage({
     return `mari-html-message-${suffix || "content"}`;
   }, [message.id]);
 
+  const inlineRoleplayRolls = useMemo(() => {
+    const rolls = isRoleplay && !isUser ? readRoleplayDiceRolls(fullText, extra) : [];
+    let paragraphStart = 0;
+    if (visualNovel) {
+      for (let index = 0; index <= activeVnParagraphIndex; index++) {
+        const paragraph = vnParagraphs[index] ?? "";
+        paragraphStart = fullText.indexOf(paragraph, paragraphStart);
+        if (paragraphStart < 0) break;
+        if (index < activeVnParagraphIndex) paragraphStart += paragraph.length;
+      }
+    }
+    return rolls
+      .map((roll) => ({ ...roll, offset: roll.offset - paragraphStart }))
+      .filter((roll) => paragraphStart >= 0 && roll.offset >= 0 && roll.offset <= text.length);
+  }, [isRoleplay, isUser, fullText, extra, visualNovel, activeVnParagraphIndex, vnParagraphs, text.length]);
+
   const renderedContent = useMemo(() => {
+    const renderPart = (part: string) =>
+      renderContent(
+        part,
+        dialogueColor,
+        speakerColorMap,
+        boldDialogue,
+        htmlScopeClass,
+        quoteFormat,
+        selfCharacterId,
+        galleryIndex,
+        nameColorMap,
+        textShadowStr,
+      );
+    let markerPrefix = "\uE000";
+    while (text.includes(markerPrefix)) markerPrefix = "\uE000" + markerPrefix;
+    const slots = new Map<string, ReactNode>();
+    let markedText = text;
+    for (const roll of inlineRoleplayRolls) {
+      const marker = `${markerPrefix}${roll.index}\uE001`;
+      slots.set(
+        marker,
+        <RoleplayDiceRoll
+          key={`roll-${message.id}-${message.activeSwipeIndex}-${roll.index}`}
+          result={roll.result}
+          createdAt={message.createdAt}
+        />,
+      );
+    }
+    for (const roll of [...inlineRoleplayRolls].reverse()) {
+      const marker = `${markerPrefix}${roll.index}\uE001`;
+      markedText = markedText.slice(0, roll.offset) + marker + markedText.slice(roll.offset);
+    }
+    const prose = replaceRoleplayDiceMarkers(renderPart(markedText), slots);
     return (
       <>
         {isUser && <MessageReplyPreview reply={extra.replyTo} />}
-        {renderContent(
-          text,
-          dialogueColor,
-          speakerColorMap,
-          boldDialogue,
-          htmlScopeClass,
-          quoteFormat,
-          selfCharacterId,
-          galleryIndex,
-          nameColorMap,
-          textShadowStr,
-        )}
+        {prose}
       </>
     );
   }, [
+    inlineRoleplayRolls,
     extra.replyTo,
+    message.id,
+    message.activeSwipeIndex,
+    message.createdAt,
     isUser,
     text,
     dialogueColor,
@@ -2912,6 +2954,20 @@ export const ChatMessage = memo(function ChatMessage({
   // in place of the real text.
   const showTranslationOnly =
     translationDisplayOnly && !!effectiveTranslationText && !isTranslating && translationSource === message.content;
+  // A translation has no reliable source-text offsets. Keep its visible
+  // paragraph's rolls after the translated prose, preserving their real values.
+  const renderedTranslationOnly = (
+    <>
+      {renderedTranslation}
+      {inlineRoleplayRolls.map((roll) => (
+        <RoleplayDiceRoll
+          key={`translated-roll-${message.id}-${message.activeSwipeIndex}-${roll.index}`}
+          result={roll.result}
+          createdAt={message.createdAt}
+        />
+      ))}
+    </>
+  );
 
   const handleCopy = () => {
     copyToClipboard(message.content);
@@ -3098,7 +3154,7 @@ export const ChatMessage = memo(function ChatMessage({
             {diceRollResult ? (
               <DiceMessageContent diceRollResult={diceRollResult} createdAt={message.createdAt} />
             ) : null}
-            {diceReplacesContent ? null : showTranslationOnly ? renderedTranslation : renderedContent}
+            {diceReplacesContent ? null : showTranslationOnly ? renderedTranslationOnly : renderedContent}
             {isStreaming && (
               <span className="ml-0.5 inline-block h-4 w-[0.125rem] animate-pulse rounded-full bg-blue-400" />
             )}
@@ -3250,7 +3306,7 @@ export const ChatMessage = memo(function ChatMessage({
                   {diceRollResult && (
                     <DiceMessageContent diceRollResult={diceRollResult} createdAt={message.createdAt} />
                   )}
-                  {diceReplacesContent ? null : showTranslationOnly ? renderedTranslation : renderedContent}
+                  {diceReplacesContent ? null : showTranslationOnly ? renderedTranslationOnly : renderedContent}
                   {roleplayAttachments}
                   {roleplayCommandResults}
                   {renderedTranslation && !showTranslationOnly && (
@@ -3393,7 +3449,7 @@ export const ChatMessage = memo(function ChatMessage({
                     {diceRollResult ? (
                       <DiceMessageContent diceRollResult={diceRollResult} createdAt={message.createdAt} />
                     ) : null}
-                    {diceReplacesContent ? null : showTranslationOnly ? renderedTranslation : renderedContent}
+                    {diceReplacesContent ? null : showTranslationOnly ? renderedTranslationOnly : renderedContent}
                   </div>
                 )}
               </div>
@@ -4129,7 +4185,7 @@ export const ChatMessage = memo(function ChatMessage({
                       {diceRollResult ? (
                         <DiceMessageContent diceRollResult={diceRollResult} createdAt={message.createdAt} />
                       ) : null}
-                      {diceReplacesContent ? null : showTranslationOnly ? renderedTranslation : renderedContent}
+                      {diceReplacesContent ? null : showTranslationOnly ? renderedTranslationOnly : renderedContent}
                       {isStreaming && (
                         <span className="ml-0.5 inline-block h-4 w-[0.125rem] animate-pulse rounded-full bg-white/70" />
                       )}

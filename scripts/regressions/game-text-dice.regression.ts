@@ -21,7 +21,8 @@ const { createCharactersStorage } = await import("../../packages/server/src/serv
 const { resolveGameDiceRequests } = await import("../../packages/server/src/services/game/dice.service.js");
 const { parseSkillCheckTagBody, createSkillCheckTagRegex, characterDataSchema, getRoleplayCommandActivity } =
   await import("../../packages/shared/dist/index.js");
-const { readDiceRollResults } = await import("../../packages/client/src/lib/dice-roll-result.js");
+const { readDiceRollResults, readRoleplayDiceRolls } =
+  await import("../../packages/client/src/lib/dice-roll-result.js");
 const { ClaudeSubscriptionProvider } =
   await import("../../packages/server/src/services/llm/providers/claude-subscription.provider.js");
 const { GrokSubscriptionProvider } =
@@ -111,8 +112,12 @@ async function* scriptedChat(messages: ChatMessage[], options: ChatOptions): Asy
   assert.equal(options.tools, undefined, "subscription transports never receive native tool schemas");
   if (roleplay) {
     if (messages.at(-1)?.content.includes("The engine resolved your roll request:")) {
-      assert.match(messages.at(-1)!.content, /"total":[12]/);
-      yield "The real die total is below three; the lock stays shut.";
+      assert.match(messages.at(-1)!.content, /"total":[123]/);
+      if (calls.length === 2) {
+        yield 'The real die total is below three; the lock stays shut. She tries the window. [roll: character="Mari" notation="2d2-1"] An invented second outcome.';
+      } else {
+        yield "The window stays shut too.";
+      }
     } else {
       yield 'Mari reaches for the lock. [roll: character="Mari" notation="1d2" reason="The lock opens on a total of three"] The lock springs open without a real roll.';
     }
@@ -249,15 +254,25 @@ try {
     calls.length = 0;
     const rpResponse = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: rp.id } });
     assert.ok(!rpResponse.body.includes('"type":"error"'), rpResponse.body);
-    assert.equal(calls.length, 2, "Roleplay text commands use the real roll loop without a native tool transport");
+    assert.equal(calls.length, 3, "each Roleplay roll resumes with its own real result without native tools");
     const rpSaved = (await chats.listMessages(rp.id)).at(-1)!;
     assert.match(rpSaved.content, /real die total is below three/);
     assert.doesNotMatch(rpSaved.content, /springs open without a real roll|\[roll:/);
     const activities = getRoleplayCommandActivity(JSON.parse(rpSaved.extra));
-    assert.equal(activities.length, 1);
+    assert.equal(activities.length, 2);
     assert.equal(activities[0]?.command.type, "roll");
     assert.equal(activities[0]?.error, undefined);
     assert.ok([1, 2].includes(JSON.parse(activities[0]!.result!).total));
+    assert.ok([1, 2, 3].includes(JSON.parse(activities[1]!.result!).total));
+    const inlineRolls = readRoleplayDiceRolls(rpSaved.content, JSON.parse(rpSaved.extra));
+    assert.deepEqual(
+      inlineRolls.map(({ offset }) => rpSaved.content.slice(0, offset)),
+      [
+        "Mari reaches for the lock.",
+        "Mari reaches for the lock. The real die total is below three; the lock stays shut. She tries the window.",
+      ],
+    );
+    assert.doesNotMatch(rpSaved.content, /invented second outcome/);
     assert.match(rpResponse.body, /"diceRollResult":\{"notation":"1d2"/);
     roleplay = false;
   }

@@ -45,6 +45,10 @@ export interface RoleplayCommandActivity {
   deleted?: boolean;
   error?: string;
   result?: string;
+  /** Saved presentation choices belong to this command occurrence and message swipe. */
+  documentStyle?: number;
+  contentOffset?: number;
+  contentAnchor?: string;
   /** Exact before/after text makes interruption reversible without overwriting later edits. */
   interruption?: {
     targetMessageId: string;

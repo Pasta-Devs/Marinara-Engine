@@ -22,6 +22,7 @@ type RequestBody = {
 const requests: RequestBody[] = [];
 let beforeSummary: (() => Promise<void>) | undefined;
 let partial = false;
+let sceneNeedsReasoningBudget = true;
 const summary = "Maukie promised to return the compass before dawn.";
 let summaryResponse = summary;
 const server = createServer(async (request, response) => {
@@ -48,6 +49,8 @@ const server = createServer(async (request, response) => {
         .filter((item) => item.content.startsWith("The following morning,"))
         .map(({ messageId }) => ({ messageId })),
     });
+    incomplete = sceneNeedsReasoningBudget && (body.max_output_tokens ?? 0) < 2048;
+    if (incomplete) content = "";
   } else {
     const callback = beforeSummary;
     beforeSummary = undefined;
@@ -134,6 +137,15 @@ async function createChat(name: string, hardCap?: number, omitReasoning = false)
 try {
   const chat = await createChat("Astra short summary");
   await memory.initialize(chat.id);
+  const sceneRequest = requests.find((item) => item.instructions?.startsWith("Identify scene transitions"))!;
+  assert.equal(sceneRequest.max_output_tokens, 2048, "scene decisions reserve context-bounded reasoning space");
+  assert.equal(sceneRequest.reasoning?.effort, "low", "scene decisions request efficient reasoning too");
+  const sceneCapped = await createChat("Explicit scene output cap", 256);
+  const sceneRequestStart = requests.length;
+  await assert.rejects(memory.initialize(sceneCapped.id), /scene helper.*output limit/i);
+  assert.equal(requests.length, sceneRequestStart + 1, "truncated classification does not trigger paid retries");
+  assert.equal(requests.at(-1)!.max_output_tokens, 256, "scene classification respects the connection cap");
+  sceneNeedsReasoningBudget = false;
   const body = requests.find((item) => !item.instructions?.startsWith("Identify scene transitions"))!;
   assert(body.max_output_tokens! >= 2048, "short retained memory does not starve reasoning of completion tokens");
   assert(

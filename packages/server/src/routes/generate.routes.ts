@@ -6804,6 +6804,7 @@ export async function generateRoutes(app: FastifyInstance) {
             !input.impersonate &&
             isRoleplayCommandAllowed(chatMeta, "roll", roleplayCallerId);
           const roleplayActivity: RoleplayCommandActivity[] = [];
+          const roleplayRollPrefixes = new Map<RoleplayCommandActivity, string>();
           const responderToolDefs =
             chatMode === "roleplay"
               ? toolDefs
@@ -7359,7 +7360,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     } catch {
                       /* The tool result reports invalid input. */
                     }
-                    roleplayActivity.push({
+                    const activity: RoleplayCommandActivity = {
                       command: {
                         type: "roll",
                         notation: String(args?.notation ?? ""),
@@ -7376,7 +7377,9 @@ export async function generateRoutes(app: FastifyInstance) {
                           : `roll_dice(${call.function.arguments})`,
                       ...(!tr.success ? { error: tr.result } : {}),
                       ...(tr.success ? { result: tr.result } : {}),
-                    });
+                    };
+                    roleplayActivity.push(activity);
+                    roleplayRollPrefixes.set(activity, parseRoleplayCommands(fullResponse).content);
                   }
                 }
                 if (tr.name === "update_game_state" && tr.success) {
@@ -7709,6 +7712,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 if (!roleplayPrivateAvailable || !targetCharId) continue;
               }
               if (command.type === "roll") continue; // Recorded with its actual tool result.
+              if (command.type === "document") activity.documentStyle = Math.floor(Math.random() * 3);
               const requiredAgent =
                 command.type === "illustrate"
                   ? "illustrator"
@@ -8700,6 +8704,25 @@ export async function generateRoutes(app: FastifyInstance) {
               const previousExtra = input.continueMessageId
                 ? parseExtra((await chats.getMessage(savedMsg.id))?.extra)
                 : {};
+              for (const [activity, rawPrefix] of roleplayRollPrefixes) {
+                const prefix = stripSpacesBeforeLineBreaks(rawPrefix).trim();
+                const anchor = prefix.slice(-80);
+                const prefixStart = fullResponse.indexOf(prefix);
+                const anchorStart = fullResponse.indexOf(anchor);
+                const offset =
+                  prefixStart >= 0
+                    ? prefixStart + prefix.length
+                    : anchor && anchorStart >= 0 && anchorStart === fullResponse.lastIndexOf(anchor)
+                      ? anchorStart + anchor.length
+                      : null;
+                if (offset !== null) {
+                  activity.contentOffset = Math.max(0, savedMsg.content.length - fullResponse.length) + offset;
+                  activity.contentAnchor = savedMsg.content.slice(
+                    Math.max(0, activity.contentOffset - 80),
+                    activity.contentOffset,
+                  );
+                }
+              }
               extraUpdate.roleplayCommandActivity = [...getRoleplayCommandActivity(previousExtra), ...roleplayActivity];
               // New records own their editable context; legacy extras are read only as a fallback.
               extraUpdate.roleplayPrivateCommands = null;

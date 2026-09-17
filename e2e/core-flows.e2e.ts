@@ -73,6 +73,7 @@ async function installMockVisualViewport(page: Page) {
       height: null as number | null,
       offsetTop: 0,
       pageTop: 0,
+      scale: 1,
     };
     const viewport = new EventTarget();
     Object.defineProperties(viewport, {
@@ -81,7 +82,7 @@ async function installMockVisualViewport(page: Page) {
       offsetLeft: { configurable: true, get: () => 0 },
       pageLeft: { configurable: true, get: () => 0 },
       pageTop: { configurable: true, get: () => state.pageTop },
-      scale: { configurable: true, get: () => 1 },
+      scale: { configurable: true, get: () => state.scale },
       width: { configurable: true, get: () => window.innerWidth },
     });
     Object.defineProperty(window, "visualViewport", {
@@ -90,10 +91,11 @@ async function installMockVisualViewport(page: Page) {
     });
     Object.defineProperty(window, "__setMarinaraVisualViewport", {
       configurable: true,
-      value: (height: number, offsetTop: number, pageTop = offsetTop, layoutHeight?: number) => {
+      value: (height: number, offsetTop: number, pageTop = offsetTop, layoutHeight?: number, scale = 1) => {
         state.height = height;
         state.offsetTop = offsetTop;
         state.pageTop = pageTop;
+        state.scale = scale;
         if (layoutHeight !== undefined) {
           Object.defineProperty(window, "innerHeight", {
             configurable: true,
@@ -20648,6 +20650,54 @@ test("mobile Load More clears the collapsed Echo Chamber", async ({ page }, test
       .toBeGreaterThanOrEqual(8);
   } finally {
     await page.request.delete(`/api/chats/${chat.id}?force=true`).catch(() => undefined);
+  }
+});
+
+test("pinch zoom keeps the Roleplay layout size and does not open keyboard mode", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "Pinch zoom applies to touch viewports.");
+  const response = await page.request.post("/api/chats", {
+    data: { name: "Roleplay pinch zoom", mode: "roleplay", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  try {
+    await installMockVisualViewport(page);
+    await prepareFreshClient(page);
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+    await page.goto("/");
+    const shell = page.locator('.mari-app[data-chat-surface-active="true"]');
+    await expect(shell).toBeVisible();
+    const original = await shell.boundingBox();
+    expect(original).not.toBeNull();
+    const height = await page.evaluate(() => window.innerHeight);
+    await page.evaluate((height) => {
+      (
+        window as typeof window & {
+          __setMarinaraVisualViewport: (
+            height: number,
+            top: number,
+            pageTop: number,
+            layout: number,
+            scale: number,
+          ) => void;
+        }
+      ).__setMarinaraVisualViewport(height / 2, 80, 80, height, 2);
+    }, height);
+    await expect(page.locator("html")).not.toHaveAttribute("data-mari-software-keyboard-open");
+    await expect.poll(async () => (await shell.boundingBox())?.height).toBe(original!.height);
+    await expect.poll(async () => (await shell.boundingBox())?.y).toBe(original!.y);
+    // Returning to normal scale must still let the real keyboard resize the shell.
+    await page.evaluate(() => {
+      (
+        window as typeof window & {
+          __setMarinaraVisualViewport: (height: number, top: number) => void;
+        }
+      ).__setMarinaraVisualViewport(360, 0);
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-mari-software-keyboard-open", "");
+    await expect.poll(async () => (await shell.boundingBox())?.height).toBe(360);
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}?force=true`);
   }
 });
 

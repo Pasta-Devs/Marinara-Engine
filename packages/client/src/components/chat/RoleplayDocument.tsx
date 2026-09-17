@@ -12,7 +12,13 @@ const DOCUMENT_LABELS = {
   document: "roleplay.commands.document.kind.document",
 } as const;
 
-export function RoleplayDocument({ document }: { document: Extract<RoleplayCommand, { type: "document" }> }) {
+export function RoleplayDocument({
+  document,
+  styleVariant = 0,
+}: {
+  document: Extract<RoleplayCommand, { type: "document" }>;
+  styleVariant?: number;
+}) {
   const { t } = useTranslation();
   const requestedKind = typeof document.documentType === "string" ? document.documentType.trim().toLowerCase() : "";
   const kind = Object.hasOwn(DOCUMENT_LABELS, requestedKind)
@@ -20,12 +26,14 @@ export function RoleplayDocument({ document }: { document: Extract<RoleplayComma
     : "document";
   const label = t(DOCUMENT_LABELS[kind]);
   const title = document.title.trim() || label;
+  const variant = Number.isInteger(styleVariant) && styleVariant >= 0 && styleVariant < 3 ? styleVariant : 0;
 
   return (
     <article
       aria-label={title}
       data-roleplay-document-kind={kind}
-      className={`mari-roleplay-document mari-roleplay-document--${kind}`}
+      data-roleplay-document-style={variant}
+      className={`mari-roleplay-document mari-roleplay-document--${kind} mari-roleplay-document--style-${variant}`}
     >
       <header className="mari-roleplay-document-heading">
         <p className="mari-roleplay-document-kind">{label}</p>

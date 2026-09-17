@@ -630,9 +630,15 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
     expect(contentOf(requests.at(-1))).toContain("<commands>");
     expect(noteMessage.content).not.toContain("ALICE_SECRET");
     expect(extra(noteMessage.extra).roleplayCommandActivity).toHaveLength(3);
+    const documentStyle = extra(noteMessage.extra).roleplayCommandActivity[2].documentStyle;
+    expect([0, 1, 2]).toContain(documentStyle);
     await page.reload();
     const document = page.locator("[data-roleplay-command-results]");
     await expect(document.getByRole("article", { name: "Invitation", exact: true })).toContainText("Meet at dawn.");
+    await expect(document.getByRole("article", { name: "Invitation", exact: true })).toHaveAttribute(
+      "data-roleplay-document-style",
+      String(documentStyle),
+    );
     await document.getByRole("button", { name: "Alice used document command!", exact: true }).click();
     await expect(document).toContainText("Meet at dawn.");
     await testInfo.attach(`roleplay-document-${testInfo.project.name}.png`, {
@@ -941,6 +947,8 @@ for (const native of [true, false]) {
     page,
     request,
   }, testInfo) => {
+    const prefix = native ? "<strong>I attempt the lock." : "**I attempt the lock.";
+    const suffix = native ? "</strong>" : "**";
     let finishFollowup: (() => void) | undefined;
     let total = 0;
     let requestCount = 0;
@@ -963,7 +971,7 @@ for (const native of [true, false]) {
         response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason: finishReason }] })}\n\n`);
       if (requestCount === 1) {
         firstRequestTools = (body.tools ?? []).map((tool: any) => tool.function?.name);
-        write({ content: "I attempt the lock." });
+        write({ content: prefix });
         if (native) {
           write(
             {
@@ -1013,7 +1021,7 @@ for (const native of [true, false]) {
         }
         response.flushHeaders();
         finishFollowup = () => {
-          write({ content: ` The engine rolled ${total}; the lock opens.` }, "stop");
+          write({ content: ` The engine rolled ${total}; the lock opens.${suffix}` }, "stop");
           response.end("data: [DONE]\n\n");
         };
       }
@@ -1060,7 +1068,7 @@ for (const native of [true, false]) {
             }),
           { timeout: 20_000 },
         )
-        .toEqual({ streaming: true, text: native ? "I attempt the lock." : "I attempt the lock. " });
+        .toEqual({ streaming: true, text: native ? prefix : prefix + " " });
       await expect(page.locator("body")).not.toContainText("INVENTED_OUTCOME");
       await testInfo.attach(`roleplay-roll-${native}-${testInfo.project.name}.png`, {
         body: await page.screenshot({ animations: "disabled", path: testInfo.outputPath("roleplay-roll.png") }),
@@ -1078,11 +1086,63 @@ for (const native of [true, false]) {
       expect(activity).toHaveLength(1);
       expect(JSON.parse(activity[0].result).total).toBe(total);
       expect(JSON.parse(activity[0].result).modifier).toBe(4);
+      expect(activity[0].contentOffset).toBe(prefix.length);
+      const inlineDice = page.locator(`[data-message-id="${saved.id}"] [data-roleplay-inline-roll]`);
+      await expect(inlineDice).toHaveCount(1);
+      await expect(inlineDice.locator(".dice-roll-total")).toContainText(String(total));
+      const formatted = page
+        .locator(`[data-message-id="${saved.id}"] strong`)
+        .filter({ has: page.locator("[data-roleplay-inline-roll]") });
+      await expect(formatted).toContainText("I attempt the lock.");
+      await expect(formatted).toContainText("the lock opens.");
+      await expect(inlineDice.locator(".dice-roll-card")).toHaveClass(/is-settled/u);
+      await page.screenshot({ path: testInfo.outputPath("roleplay-inline-dice.png"), animations: "disabled" });
+      const order = await inlineDice.evaluate((element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element.closest("strong")!);
+        range.setEndBefore(element);
+        const before = range.toString();
+        range.selectNodeContents(element.closest("strong")!);
+        range.setStartAfter(element);
+        return { before, after: range.toString() };
+      });
+      expect(order.before).toContain("I attempt the lock.");
+      expect(order.after).toContain("the lock opens.");
+      const diceBounds = await inlineDice.boundingBox();
+      expect(diceBounds!.x).toBeGreaterThanOrEqual(0);
+      expect(diceBounds!.x + diceBounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
       const notice = page.locator('[data-roleplay-command="roll"]');
       await expect(notice).not.toContainText("1d6+3");
       await notice.getByRole("button", { name: "Alice used roll command!", exact: true }).click();
       await expect(notice).toContainText("1d6+3");
       await expect(notice).toContainText(String(total));
+      expect(requestCount).toBe(2);
+      await page.reload();
+      await expect(inlineDice).toHaveCount(1);
+      await expect(inlineDice.locator(".dice-roll-card")).toHaveClass(/is-settled/u);
+      expect(
+        (
+          await request.patch(`/api/chats/${fixture.chat.id}/metadata`, {
+            data: { translationDisplayOnly: true },
+          })
+        ).ok(),
+      ).toBeTruthy();
+      expect(
+        (
+          await request.patch(`/api/chats/${fixture.chat.id}/messages/${saved.id}/extra`, {
+            data: {
+              translation: "Próbuję otworzyć zamek. Wynik rzutu rozstrzyga próbę.",
+              translationSource: saved.content,
+            },
+          })
+        ).ok(),
+      ).toBeTruthy();
+      await page.reload();
+      await expect(page.locator(`[data-message-id="${saved.id}"]`)).toContainText("Próbuję otworzyć zamek.");
+      await expect(page.locator(`[data-message-id="${saved.id}"]`)).not.toContainText("I attempt the lock.");
+      await expect(inlineDice).toHaveCount(1);
+      await expect(inlineDice.locator(".dice-roll-total")).toContainText(String(total));
+      await expect(inlineDice.locator(".dice-roll-card")).toHaveClass(/is-settled/u);
       expect(requestCount).toBe(2);
     } finally {
       finishFollowup?.();
@@ -1552,15 +1612,18 @@ for (const theme of ["dark", "light"] as const) {
     const kinds = ["note", "letter", "journal", "report", "poster", "terminal", "unknown"];
     const content = "Dear traveller,\n\nThe archive opens at dawn. Bring the brass key.\n\n— The keeper";
     const literalHtml = '<img src=x onerror="window.documentCommandExecuted=true"><style>body{display:none}</style>';
-    const activity = kinds.map((kind) => ({
-      command: {
-        type: "document",
-        documentType: kind,
-        title: `Archive ${kind}`,
-        content: kind === "terminal" ? literalHtml + "\n" + "0123456789".repeat(50) : content,
-      },
-      raw: `[document: kind="${kind}" title="Archive ${kind}" content="Original text"]`,
-    }));
+    const activity = [0, 1, 2].flatMap((style) =>
+      kinds.map((kind) => ({
+        documentStyle: style,
+        command: {
+          type: "document",
+          documentType: kind,
+          title: `Archive ${kind} (${style})`,
+          content: kind === "terminal" ? literalHtml + "\n" + "0123456789".repeat(50) : content,
+        },
+        raw: `[document: kind="${kind}" title="Archive ${kind} (${style})" content="Original text"]`,
+      })),
+    );
     try {
       const legacy = await request.post(`/api/chats/${fixture.chat.id}/messages`, {
         data: {
@@ -1592,16 +1655,27 @@ for (const theme of ["dark", "light"] as const) {
       await expect(page.getByRole("article", { name: "Saved letter", exact: true })).toContainText(
         "A letter from an older save.",
       );
-      for (const kind of kinds) {
-        const article = page.getByRole("article", { name: `Archive ${kind}`, exact: true });
+      for (const item of activity) {
+        const kind = item.command.documentType;
+        const article = page.getByRole("article", { name: item.command.title, exact: true });
+        await expect(article).toHaveAttribute("data-roleplay-document-style", String(item.documentStyle));
         await expect(article).toHaveCount(1);
         await expect(article).toHaveAttribute("data-roleplay-document-kind", kind === "unknown" ? "document" : kind);
         expect(await article.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
       }
-      const terminal = page.getByRole("article", { name: "Archive terminal", exact: true });
+      for (const style of [0, 1, 2]) {
+        for (const kind of ["letter", "poster", "terminal"]) {
+          const article = page.getByRole("article", { name: `Archive ${kind} (${style})`, exact: true });
+          await article.screenshot({
+            path: info.outputPath(`document-${kind}-${style}-${theme}.png`),
+            animations: "disabled",
+          });
+        }
+      }
+      const terminal = page.getByRole("article", { name: "Archive terminal (0)", exact: true });
       await expect(terminal).toContainText(literalHtml);
       await expect(terminal.locator("img, style, script")).toHaveCount(0);
-      const letter = page.getByRole("article", { name: "Archive letter", exact: true });
+      const letter = page.getByRole("article", { name: "Archive letter (0)", exact: true });
       await expect(letter.locator(".mari-roleplay-document-content")).toHaveCSS("white-space", "pre-wrap");
       await letter.scrollIntoViewIfNeeded();
       await page.screenshot({ path: info.outputPath(`document-classic-${theme}.png`), animations: "disabled" });
@@ -1627,11 +1701,11 @@ for (const theme of ["dark", "light"] as const) {
       ).toBeTruthy();
       await page.reload();
       const paragraph = page.getByRole("region", { name: "Current paragraph" });
-      await expect(paragraph.getByRole("article")).toHaveCount(kinds.length);
-      await expect(paragraph.getByRole("article", { name: "Archive letter", exact: true })).toContainText(
+      await expect(paragraph.getByRole("article")).toHaveCount(activity.length);
+      await expect(paragraph.getByRole("article", { name: "Archive letter (0)", exact: true })).toContainText(
         "Bring the silver key.",
       );
-      await paragraph.getByRole("article", { name: "Archive letter", exact: true }).scrollIntoViewIfNeeded();
+      await paragraph.getByRole("article", { name: "Archive letter (0)", exact: true }).scrollIntoViewIfNeeded();
       await page.screenshot({ path: info.outputPath(`document-vn-${theme}.png`), animations: "disabled" });
       await expect(page.locator(".mari-chat-input textarea")).toBeInViewport();
       await notice.getByRole("button", { name: "Alice used document command!", exact: true }).click();
@@ -1642,8 +1716,8 @@ for (const theme of ["dark", "light"] as const) {
       await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
       expect((await saved).ok()).toBeTruthy();
       await page.reload();
-      await expect(paragraph.getByRole("article")).toHaveCount(kinds.length - 1);
-      await expect(paragraph.getByRole("article", { name: "Archive letter", exact: true })).toHaveCount(0);
+      await expect(paragraph.getByRole("article")).toHaveCount(activity.length - 1);
+      await expect(paragraph.getByRole("article", { name: "Archive letter (0)", exact: true })).toHaveCount(0);
     } finally {
       await fixture.cleanup();
     }

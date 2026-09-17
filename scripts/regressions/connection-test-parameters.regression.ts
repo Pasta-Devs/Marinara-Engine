@@ -15,6 +15,11 @@ let db:
 const app = Fastify();
 const requests: Record<string, unknown>[] = [];
 const provider = createServer(async (request, response) => {
+  if (request.method === "GET" && request.url === "/v1/models") {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ data: [{ id: "L3-8B-Stheno-v3.2" }] }));
+    return;
+  }
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const body = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
@@ -43,6 +48,35 @@ try {
   await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
   const address = provider.address();
   assert.ok(address && typeof address !== "string");
+  for (const host of ["localhost", "127.0.0.1"]) {
+    const local = await storage.create({
+      name: "LM Studio model discovery",
+      provider: "custom",
+      baseUrl: `http://${host}:${address.port}/v1`,
+      apiKey: "",
+      model: "",
+      treatAsLocalEndpoint: true,
+    });
+    const models = await app.inject({ method: "GET", url: `/api/connections/${local.id}/models` });
+    assert.equal(models.statusCode, 200, models.body);
+    assert.deepEqual(models.json().models, [{ id: "L3-8B-Stheno-v3.2", name: "L3-8B-Stheno-v3.2" }]);
+  }
+  const stoppedProvider = createServer();
+  await new Promise<void>((resolve) => stoppedProvider.listen(0, "127.0.0.1", resolve));
+  const stoppedAddress = stoppedProvider.address();
+  assert.ok(stoppedAddress && typeof stoppedAddress !== "string");
+  await new Promise<void>((resolve) => stoppedProvider.close(() => resolve()));
+  const unreachable = await storage.create({
+    name: "Stopped local provider",
+    provider: "custom",
+    baseUrl: `http://127.0.0.1:${stoppedAddress.port}/v1`,
+    apiKey: "",
+    model: "",
+  });
+  const failedModels = await app.inject({ method: "GET", url: `/api/connections/${unreachable.id}/models` });
+  assert.equal(failedModels.statusCode, 502);
+  assert.match(failedModels.json().error, /ECONNREFUSED/);
+  assert.match(failedModels.json().error, /from the Marinara server/);
   for (const defaults of [
     {},
     { temperature: 1, topP: 0.8, maxTokens: 2048, frequencyPenalty: 0.2, stopSequences: ["end"] },

@@ -27,6 +27,39 @@ import { prepareRoleplayRoll } from "../../packages/server/src/services/generati
 import { prepareRoleplayInterruption } from "../../packages/server/src/services/generation/roleplay-interrupt.js";
 import type { RPGStatsConfig } from "../../packages/shared/src/types/character.js";
 import { buildCommittedTrackerContextBlock } from "../../packages/server/src/services/generation/committed-tracker-context.js";
+import { readRoleplayDiceRolls } from "../../packages/client/src/lib/dice-roll-result.js";
+
+const rollResult = JSON.stringify({ notation: "2d1+3", rolls: [1, 1], modifier: 3, total: 5 });
+const inlineRoll = {
+  command: { type: "roll", notation: "2d1+3" },
+  raw: '[roll: notation="2d1+3"]',
+  result: rollResult,
+  contentOffset: 6,
+  contentAnchor: "Before",
+};
+const positions = (text: string, activity: unknown[]) =>
+  readRoleplayDiceRolls(text, { roleplayCommandActivity: activity }).map(({ offset }) => offset);
+assert.deepEqual(
+  positions("Before after", [inlineRoll, { ...inlineRoll, contentOffset: 12, contentAnchor: "after" }]),
+  [6, 12],
+);
+assert.deepEqual(positions("Edited Before after", [inlineRoll]), [13], "an unchanged unique anchor follows an edit");
+assert.deepEqual(positions("All replaced", [inlineRoll]), [12], "a lost anchor leaves the real roll at the end");
+assert.deepEqual(positions("Changed Before Before after", [inlineRoll]), [27], "ambiguous anchors do not guess");
+assert.deepEqual(
+  positions("Before after", [{ ...inlineRoll, contentOffset: undefined }]),
+  [12],
+  "legacy rolls remain visible",
+);
+assert.deepEqual(
+  positions("Before after", [
+    { ...inlineRoll, deleted: true },
+    { ...inlineRoll, error: "Failed" },
+    { ...inlineRoll, result: "{}" },
+    { ...inlineRoll, result: "not JSON" },
+  ]),
+  [],
+);
 
 const cancelledSound = new AbortController();
 cancelledSound.abort();
