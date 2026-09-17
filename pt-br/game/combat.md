@@ -1,6 +1,39 @@
 # Game Mode: combate
 
-Este guia explica como funciona o combate no Game Mode do Marinara Engine. Aqui você vê como uma luta começa, o que faz cada ação do menu e qual é a matemática de dados por trás de cada golpe. O guia também trata dos efeitos de status, das reações elementais, das mecânicas de chefe, do loot, do controle **Interrupt** e dos Quick-Time Events. Quem conduz o combate é o Game Master (GM), ou seja, o mestre do jogo: o personagem controlado pela IA que narra a aventura.
+Este guia explica o combate no Game Mode do Marinara Engine. Na etapa **World** (mundo) do assistente, escolha **Classic** (combate por menus) ou **Tactical** (combate em grade) em **Combat Preference** (preferência de combate). O Game Master de IA (GM) define o encontro e narra os resultados; o motor resolve as ações de combate.
+
+<a id="tactical-battles-and-terrain"></a>
+
+## Batalhas táticas e terreno
+
+O combate tático posiciona seu grupo e os inimigos no campo de batalha. Selecione uma unidade, confira o alcance de movimento, escolha destino e ação e confirme. Cada unidade do grupo pode agir antes da fase inimiga. As previsões de ataque mostram as consequências esperadas antes da confirmação.
+
+Ao criar uma partida Tactical, as opções do campo permitem escolher uma semente, um tamanho e orientações de terreno para o GM. Deixe a semente vazia para gerar uma. Ela é um número inteiro de 0 a 4294967295, incluindo zero. Reproduz o tabuleiro com os mesmos combatentes, descrição de terreno e demais entradas da geração; não obriga o GM a criar a mesma história ou os mesmos inimigos.
+
+O GM fornece ambiente, formação e uma descrição breve do terreno. O motor cria as casas e posições iniciais exatas. A descrição pode pedir áreas e barreiras perto do centro ou das bordas do mapa. As orientações são pedidos ao GM, não uma garantia de que cada palavra vire uma casa. O campo aceito fica salvo; recarregar restaura esse tabuleiro.
+
+O motor verifica a descrição e a disposição resultante. Preserva o terreno pedido e garante a acessibilidade do encontro. Se as restrições forem incompatíveis, o combate informa o problema. **Use generated terrain** (usar terreno gerado) inicia explicitamente sem os elementos rejeitados; não os apaga silenciosamente. Mapas pintados à mão com precisão e um editor de campo de batalha ainda não estão disponíveis.
+
+| Terreno | Caminhada | Defesa e esquiva |
+| --- | --- | --- |
+| Planície | Custa 1 ponto de movimento | Sem bônus |
+| Floresta | Custa 2 pontos de movimento | +1 de defesa, +15 pontos percentuais de esquiva |
+| Ruínas | Custa 1 ponto de movimento | +1 de defesa, +10 pontos percentuais de esquiva |
+| Montanha, água, parede | Bloqueia caminhada | Sem bônus |
+
+Unidades com capacidade estabelecida de voo ou teletransporte podem se mover de outra forma:
+
+- **Caminhada** segue casas de chão alcançáveis. Inimigos bloqueiam o caminho; não é possível terminar em uma casa ocupada.
+- **Voo** atravessa terreno e unidades intermediárias por um ponto de movimento por casa, incluindo florestas. Uma unidade voadora pode pairar sobre uma casa normalmente bloqueada, mas não terminar sobre outra unidade.
+- **Teletransporte** ignora terreno e unidades intermediárias. O destino precisa estar no alcance, desocupado e ser transitável a pé. Não pode terminar dentro de uma parede, sobre montanha nem sobre água sem apoio.
+
+Os dois movimentos especiais usam a capacidade atual de movimento e a distância ortogonal entre casas. Mantêm os bônus de defesa e esquiva do terreno de destino. Esse modelo simples de grade plana não representa altitude, tetos nem custos ou exigências de visão específicos de magias.
+
+O combate tático usa fases do grupo e dos inimigos, em vez de iniciativa individual de RPG de mesa. Paredes que bloqueiam movimento ainda não bloqueiam ataques à distância pela linha de visão. Cobertura, perfis de regras de mesa e combate completo com invocações são trabalhos futuros separados.
+
+## Batalhas clássicas
+
+As próximas seções sobre menus de ações e cálculos de dados descrevem o combate Classic. Todo o grupo participa, mas o comando escolhido controla o primeiro combatente vivo do grupo; os demais companheiros agem automaticamente.
 
 ## Começar um encontro
 

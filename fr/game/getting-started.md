@@ -31,7 +31,7 @@ Quand tu crées un chat en Game Mode, un **assistant de configuration** s'ouvre.
 Voici les sept étapes :
 
 1. **Connection** (connexion). Donne un nom à la partie, choisis la connexion du GM et, si tu veux, une connexion pour les effets de scène. Les effets de scène utilisent **Local Model (Gemma)** par défaut.
-2. **World** (le monde). Règle le genre, l'univers, le ton, la difficulté, la classification du contenu et la langue.
+2. **World.** Définis le genre, le cadre, le ton, la difficulté, la classification du contenu et la langue. Choisis **Classic** (combat par menus) ou **Tactical** (combat sur grille) sous **Combat Preference** (préférence de combat). Les parties Tactical proposent aussi une graine, une taille et des indications de terrain facultatives.
 3. **Party** (l'équipe). Choisis ton persona, c'est-à-dire le personnage que tu incarnes, le **Game Master Mode** (mode du Game Master) et, au besoin, des membres de l'équipe.
 4. **Goals** (objectifs). Dis au GM ce que tu attends de l'aventure.
 5. **Lorebooks**. Rattache les lorebooks dont les faits doivent faire foi pour le GM. Un lorebook est un recueil de faits sur ton univers. Voir [Lorebooks](../lorebooks/overview.md).
@@ -39,6 +39,8 @@ Voici les sept étapes :
 7. **GM**. Choisis le style de présentation et relis les instructions avancées du GM avant la construction du monde.
 
 Une fois l'assistant terminé, clique sur **Start Game**.
+
+Dans une partie Tactical, laisse les options du champ de bataille vides pour que le GM choisisse une description adaptée à la scène et que le moteur génère le plateau. Une graine fixe reproduit la génération pour les mêmes données de rencontre ; les indications demandent au GM des éléments comme un mur en ruine ou une clairière. Consulte [Game Mode : le combat](combat.md#tactical-battles-and-terrain) pour les règles de déplacement, les bonus de terrain et les échecs de génération.
 
 ### Valeurs par défaut à connaître
 

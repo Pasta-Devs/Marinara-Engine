@@ -1,6 +1,39 @@
 # Game Mode: Combate
 
-Esta guía explica el combate en el Game Mode (modo de juego) de Marinara Engine. Cubre cómo empieza una pelea, el menú de acciones y las matemáticas de dados detrás de cada golpe. También explica los efectos de estado, las reacciones elementales, las mecánicas de jefe, el botín, el control **Interrupt** (Interrumpir) y los Quick-Time Events. El combate lo dirige el Game Master (GM) de la IA (director del juego), el personaje que narra tu aventura.
+Esta guía explica el combate del Game Mode de Marinara Engine. En el paso **World** (Mundo) del asistente, elige **Classic** (Combate con menús) o **Tactical** (Combate en cuadrícula) en **Combat Preference** (Preferencia de combate). El Game Master de IA (GM) plantea el encuentro y narra los resultados; el motor resuelve las acciones.
+
+<a id="tactical-battles-and-terrain"></a>
+
+## Batallas tácticas y terreno
+
+El combate táctico sitúa al grupo y a los enemigos en un campo de batalla. Selecciona una unidad del grupo, consulta su alcance de movimiento, elige destino y acción y confirma. Cada unidad puede actuar antes de la fase enemiga. Las previsiones de ataque muestran las consecuencias esperadas antes de confirmar.
+
+Al crear una partida Tactical, puedes elegir opcionalmente una semilla, un tamaño e indicaciones de terreno para el GM. Deja la semilla vacía para generarla. Es un entero entre 0 y 4294967295, incluido cero. Reproduce el tablero cuando los combatientes, la descripción del terreno y las demás entradas del generador son iguales; no obliga al GM a crear la misma historia ni los mismos enemigos.
+
+El GM proporciona el entorno, la formación y una descripción breve del terreno. El motor crea las casillas y posiciones iniciales exactas. La descripción puede pedir áreas de terreno y barreras cerca del centro o de un borde. Las indicaciones son una petición al GM, no una garantía de convertir cada palabra en una casilla. El campo aceptado se guarda, por lo que recargar restaura ese tablero.
+
+El motor comprueba la descripción y la distribución resultante. Conserva el terreno solicitado y garantiza que el encuentro sea accesible. Si las restricciones son incompatibles, el combate informa del problema. **Use generated terrain** (Usar terreno generado) comienza explícitamente sin los elementos rechazados; no los elimina en silencio. Los mapas pintados a mano con precisión y el editor de campos de batalla aún no están disponibles.
+
+| Terreno | Caminar | Defensa y evasión |
+| --- | --- | --- |
+| Llanura | Cuesta 1 punto de movimiento | Sin bonificación |
+| Bosque | Cuesta 2 puntos de movimiento | +1 de defensa, +15 puntos porcentuales de evasión |
+| Ruinas | Cuesta 1 punto de movimiento | +1 de defensa, +10 puntos porcentuales de evasión |
+| Montaña, agua, muro | Bloquea el movimiento a pie | Sin bonificación |
+
+Las unidades con una capacidad establecida de vuelo o teletransporte pueden moverse de otra manera:
+
+- **Caminar** sigue casillas de suelo accesibles. Los enemigos bloquean el paso; no se puede terminar en una casilla ocupada.
+- **Volar** cruza terreno y unidades intermedias por un punto de movimiento por casilla, incluidos los bosques. Una unidad voladora puede mantenerse sobre una casilla normalmente bloqueada, pero no terminar sobre otra unidad.
+- **El teletransporte** ignora terreno y unidades intermedias. El destino debe estar dentro del alcance, desocupado y ser transitable a pie. No puede terminar dentro de un muro, sobre una montaña ni sobre agua sin apoyo.
+
+Ambos movimientos especiales usan la capacidad de movimiento actual y la distancia ortogonal entre casillas. Conservan las bonificaciones de defensa y evasión del destino. Este modelo sencillo de cuadrícula plana no representa altitud, techos ni costos o requisitos de visión de hechizos específicos.
+
+El combate táctico usa fases del grupo y del enemigo, no iniciativa individual de juegos de mesa. Los muros que bloquean el movimiento todavía no bloquean ataques a distancia por línea de visión. Cobertura, perfiles de reglas de mesa y combate completo con invocaciones son trabajos futuros separados.
+
+## Batallas clásicas
+
+Las siguientes secciones sobre menús y cálculos de dados describen el combate Classic. Participa todo el grupo, pero la orden elegida controla al primer combatiente vivo del grupo; los demás compañeros actúan automáticamente.
 
 ## Iniciar un encuentro
 

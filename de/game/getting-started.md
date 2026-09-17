@@ -31,7 +31,7 @@ Beim Anlegen eines Game-Mode-Chats öffnet sich ein Einrichtungsassistent mit si
 Die sieben Schritte:
 
 1. **Connection.** Vergib den Spielnamen, wähle die GM-Verbindung und optional eine Verbindung für Szeneneffekte. Für Szeneneffekte ist **Local Model (Gemma)** vorbelegt.
-2. **World.** Lege Genre, Schauplatz, Ton, Schwierigkeit, Inhaltsfreigabe und Sprache fest.
+2. **World.** Lege Genre, Schauplatz, Ton, Schwierigkeit, Inhaltsfreigabe und Sprache fest. Wähle unter **Combat Preference** (bevorzugte Kampfart) zwischen **Classic** (Menükämpfen) und **Tactical** (Rasterkämpfen). Tactical-Spiele bieten außerdem optionale Einstellungen für Schlachtfeld-Seed, Größe und Geländehinweise.
 3. **Party.** Wähle deine Persona (den Charakter, den du spielst), den **Game Master Mode** und eventuelle Partymitglieder.
 4. **Goals.** Sag dem GM, was du dir vom Abenteuer erhoffst.
 5. **Lorebooks.** Hänge die Lorebooks an, deren Fakten der GM als verbindlich behandeln soll. Ein Lorebook ist eine Sammlung von Hintergrundwissen zur Welt. Mehr dazu unter [Lorebooks](../lorebooks/overview.md).
@@ -39,6 +39,8 @@ Die sieben Schritte:
 7. **GM.** Wähle den Präsentationsstil und sieh dir die erweiterten GM-Anweisungen an, bevor die Welt gebaut wird.
 
 Zum Schluss klickst du auf **Start Game**.
+
+Wenn du bei Tactical-Spielen die Schlachtfeldoptionen leer lässt, wählt der GM eine zur Szene passende Vorgabe und die Engine erzeugt das Spielfeld. Ein fester Seed reproduziert die Generierung bei gleichen Begegnungseingaben; mit Geländehinweisen bittest du den GM etwa um eine verfallene Mauer oder Waldlichtung. [Game Mode: Kampf](combat.md#tactical-battles-and-terrain) beschreibt Bewegungsregeln, Geländeboni und Generierungsfehler.
 
 ### Standardwerte, die du kennen solltest
 

@@ -1,6 +1,39 @@
 # Game Mode: Kampf
 
-In dieser Anleitung erfährst du, wie der Kampf im Game Mode von Marinara Engine abläuft. Sie zeigt, wie eine Kampfbegegnung beginnt, was das Aktionsmenü bietet und welche Würfelmathematik hinter jedem Treffer steckt. Dazu kommen Statuseffekte, elementare Reaktionen, Boss-Mechaniken, Beute, die **Interrupt**-Schaltfläche (unterbrechen) und Quick-Time-Events. Den Kampf leitet der KI-Game-Master (GM) – der Charakter, der dein Abenteuer erzählt.
+Dieser Leitfaden erklärt Kämpfe im Game Mode von Marinara Engine. Wähle im Einrichtungsschritt **World** (Welt) unter **Combat Preference** (bevorzugte Kampfart) zwischen **Classic** (Menükämpfen) und **Tactical** (Rasterkämpfen). Der KI-Game-Master (GM) legt die Begegnung fest und erzählt die Ergebnisse; die Engine wertet Kampfaktionen aus.
+
+<a id="tactical-battles-and-terrain"></a>
+
+## Taktische Kämpfe und Gelände
+
+Im taktischen Kampf stehen deine Gruppe und die Gegner auf einem Schlachtfeld. Wähle eine Gruppeneinheit, prüfe ihre Bewegungsreichweite, wähle Ziel und Aktion und bestätige sie. Jede Gruppeneinheit kann vor der Gegnerphase handeln. Angriffsvorschauen zeigen die erwarteten Folgen vor der Bestätigung.
+
+Beim Erstellen eines Tactical-Spiels kannst du optional Seed, Größe und Geländehinweise für den GM festlegen. Bei leerem Seed-Feld wird ein Seed erzeugt. Er ist eine ganze Zahl von 0 bis 4294967295, einschließlich null. Bei gleichen Kämpfern, gleicher Geländevorgabe und gleichen weiteren Eingaben reproduziert er das Spielfeld; er zwingt den GM nicht zu derselben Geschichte oder denselben Gegnern.
+
+Der GM liefert Umgebung, Formation und eine kurze Geländevorgabe. Die Engine erzeugt daraus genaue Felder und Startpositionen. Vorgaben können Geländeabschnitte und Barrieren nahe der Kartenmitte oder am Rand verlangen. Geländehinweise sind ein Wunsch an den GM, keine Garantie, dass jedes Wort zu einem Feld wird. Das akzeptierte Schlachtfeld wird gespeichert und beim Neuladen wiederhergestellt.
+
+Die Engine prüft Vorgabe und Ergebnis. Sie erhält das angeforderte Gelände und stellt zugleich die Erreichbarkeit sicher. Lassen sich die Bedingungen nicht vereinbaren, meldet der Kampf das Problem. **Use generated terrain** (generiertes Gelände verwenden) startet ausdrücklich ohne die abgelehnten Geländeelemente; sie werden nicht stillschweigend entfernt. Exakt handgezeichnete Karten und ein Schlachtfeldeditor sind noch nicht verfügbar.
+
+| Gelände | Gehen | Verteidigung und Ausweichen |
+| --- | --- | --- |
+| Ebene | Kostet 1 Bewegungspunkt | Kein Bonus |
+| Wald | Kostet 2 Bewegungspunkte | +1 Verteidigung, +15 Prozentpunkte Ausweichen |
+| Ruinen | Kostet 1 Bewegungspunkt | +1 Verteidigung, +10 Prozentpunkte Ausweichen |
+| Berg, Wasser, Wand | Blockiert Gehen | Kein Bonus |
+
+Einheiten mit einer etablierten Flug- oder Teleportationsfähigkeit können sich anders bewegen:
+
+- **Gehen** folgt erreichbaren Bodenfeldern. Gegner versperren den Weg; auf belegten Feldern darf eine Bewegung nicht enden.
+- **Fliegen** überquert Gelände und dazwischenstehende Einheiten für einen Bewegungspunkt pro Feld, auch im Wald. Eine fliegende Einheit darf über einem sonst blockierten Feld schweben, aber nicht auf einer anderen Einheit enden.
+- **Teleportation** ignoriert Gelände und Einheiten unterwegs. Das Ziel muss in Bewegungsreichweite liegen, frei und begehbar sein. Eine Teleportation darf nicht in einer Wand, auf einem Bergfeld oder über Wasser ohne Untergrund enden.
+
+Beide Sonderbewegungen nutzen das aktuelle Bewegungsbudget und die orthogonale Felddistanz. Verteidigungs- und Ausweichboni des Zielfelds bleiben erhalten. Dieses einfache, flache Rastermodell bildet Höhe, Decken sowie zauberspezifische Kosten und Sichtanforderungen nicht ab.
+
+Taktische Kämpfe verwenden Gruppen- und Gegnerphasen statt individueller Tabletop-Initiative. Wände, die Bewegung blockieren, unterbrechen noch keine Sichtlinien für Fernangriffe. Deckung, Tabletop-Regelprofile und vollständige Beschwörungskämpfe sind gesonderte spätere Arbeiten.
+
+## Klassische Kämpfe
+
+Die folgenden Abschnitte über Aktionsmenüs und Würfelberechnungen beschreiben Classic-Kämpfe. Alle Gruppenmitglieder nehmen teil, aber dein gewählter Befehl steuert den ersten lebenden Kämpfer der Gruppe; die übrigen Begleiter handeln automatisch.
 
 ## Eine Kampfbegegnung beginnt
 

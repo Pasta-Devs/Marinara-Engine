@@ -1,6 +1,6 @@
 {
   "language": "hi",
-  "sourceCommit": "95db530c1284a3c40066830f6921ebc1dd281c0b",
+  "sourceCommit": "1f2e965c34f77b19a1457439f61e291300e163c7",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -308,6 +308,11 @@
       "bytes": 74525
     },
     {
+      "path": "development/game-combat-roadmap.md",
+      "sha256": "746b00f45cf295f28688048ebb56f1b8b42ae346c40c685c4c50598c43a8ff00",
+      "bytes": 17062
+    },
+    {
       "path": "development/hierarchical-locations-prd-v3.md",
       "sha256": "5b2a78181f5dbddc7172d569e5b17b343bd2e390850bbe26ad571618fe35718f",
       "bytes": 203800
@@ -364,8 +369,8 @@
     },
     {
       "path": "game/combat.md",
-      "sha256": "0b942146754566f0d6f11416fbf38cf6831b20394a6519ef8f9dd9b630819d4e",
-      "bytes": 18005
+      "sha256": "2205eafcbacea055b7bbf7f396aabc89b51eeeeb9a1834c32ee4f448f9c385f7",
+      "bytes": 25233
     },
     {
       "path": "game/dice-and-skill-checks.md",
@@ -379,8 +384,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "f6d75e6b5c80151a8b921ad318d33650cf200c0a83a7e282e76d2293de4adc6b",
-      "bytes": 35643
+      "sha256": "5408d612fcc2253a71bd4a8133eb02d763be31070c4f45240a2ba3f50c0e1d57",
+      "bytes": 36841
     },
     {
       "path": "game/hud-widgets.md",

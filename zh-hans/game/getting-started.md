@@ -31,7 +31,7 @@ Game Mode 是 Marinara 的聊天模式之一，另外两种是 Conversation(对�
 七步分别是：
 
 1. **Connection。** 设置游戏名称，选择 GM 连接，可以再选一个跑场景效果的连接。场景效果默认用 **Local Model (Gemma)**。
-2. **World。** 设置题材、背景设定、基调、难度、内容分级和语言。
+2. **World.** 设置类型、背景、基调、难度、内容分级和语言。在 **Combat Preference**(战斗偏好) 中选择 **Classic**(菜单战斗) 或 **Tactical**(网格战斗)。Tactical 游戏还提供可选的战场种子、尺寸和地形指引。
 3. **Party。** 选择你的用户角色（也就是你扮演的角色）、**Game Master Mode**(游戏主持人模式)，以及队伍成员。
 4. **Goals。** 告诉 GM 你想从这场冒险里得到什么。
 5. **Lorebooks。** 挂上世界书，里面的设定 GM 会当作正典。世界书就是一组世界背景设定条目。见[世界书](../lorebooks/overview.md)。
@@ -39,6 +39,8 @@ Game Mode 是 Marinara 的聊天模式之一，另外两种是 Conversation(对�
 7. **GM。** 在生成世界之前，选择呈现方式并检查 GM 的高级指令。
 
 填完之后点击 **Start Game**(开始游戏)。
+
+在 Tactical 游戏中留空战场选项，GM 会选择符合场景的简述，引擎据此生成棋盘。固定种子可在遭遇输入相同时复现生成结果；地形指引则向 GM 请求残墙或林间空地等要素。移动规则、地形加成和生成失败说明见 [Game Mode：战斗](combat.md#tactical-battles-and-terrain)。
 
 ### 值得先了解的默认值
 

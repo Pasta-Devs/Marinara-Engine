@@ -31,7 +31,7 @@ Cuando creas un chat de Game Mode, se abre un **setup wizard** (asistente de con
 Los siete pasos son:
 
 1. **Connection.** Define el nombre de la partida, elige la conexión del GM y, si quieres, define una conexión para los efectos de escena. Los efectos de escena usan de forma predeterminada **Local Model (Gemma)**.
-2. **World.** Define el género, la ambientación, el tono, la dificultad, la clasificación de contenido y el idioma.
+2. **World.** Define el género, la ambientación, el tono, la dificultad, la clasificación de contenido y el idioma. Elige **Classic** (Combate con menús) o **Tactical** (Combate en cuadrícula) en **Combat Preference** (Preferencia de combate). Las partidas Tactical también ofrecen semilla, tamaño e indicaciones de terreno opcionales.
 3. **Party.** Elige tu persona (el personaje que interpretas), el **Game Master Mode** (modo del director del juego) y los miembros del grupo.
 4. **Goals.** Dile al GM qué esperas de la aventura.
 5. **Lorebooks.** Adjunta los lorebooks (libros de trasfondo) cuyos datos el GM debe tratar como canon. Un lorebook es un conjunto de datos de trasfondo del mundo. Consulta [Lorebooks](../lorebooks/overview.md).
@@ -39,6 +39,8 @@ Los siete pasos son:
 7. **GM.** Elige el estilo de presentación y revisa las instrucciones avanzadas del GM antes de que se construya el mundo.
 
 Cuando termines, haz clic en **Start Game**.
+
+En partidas Tactical, dejar vacías las opciones del campo permite que el GM elija una descripción adecuada a la escena y que el motor genere el tablero. Una semilla fija reproduce la generación con las mismas entradas del encuentro; las indicaciones piden al GM elementos como un muro en ruinas o un claro del bosque. Consulta [Game Mode: Combate](combat.md#tactical-battles-and-terrain) para las reglas de movimiento, las bonificaciones del terreno y los errores de generación.
 
 ### Valores predeterminados que conviene conocer
 

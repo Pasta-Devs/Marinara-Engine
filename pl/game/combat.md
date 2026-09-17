@@ -2,6 +2,8 @@
 
 Ten przewodnik wyjaśnia walkę w trybie Game Mode aplikacji Marinara Engine. W kroku **World** (świat) kreatora wybierz **Classic** (walka z menu) lub **Tactical** (walka na siatce) w polu **Combat Preference** (preferowany rodzaj walki). Game Master sterowany przez AI (GM, mistrz gry) ustala starcie i opisuje wyniki, a silnik rozstrzyga akcje bojowe.
 
+<a id="tactical-battles-and-terrain"></a>
+
 ## Walka taktyczna i teren
 
 W walce taktycznej drużyna i wrogowie zajmują pola planszy. Wybierz jednostkę drużyny, sprawdź jej zasięg ruchu, wybierz cel ruchu i akcję, a następnie potwierdź. Każda jednostka drużyny może działać przed fazą wroga. Prognoza ataku pokazuje przewidywane skutki przed zatwierdzeniem.

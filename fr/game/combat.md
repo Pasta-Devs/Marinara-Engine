@@ -1,6 +1,39 @@
 # Game Mode : le combat
 
-Ce guide explique le combat dans le Game Mode de Marinara Engine. Au programme : comment un combat démarre, le menu d'actions et les jets de dés derrière chaque coup. Tu y trouves aussi les effets de statut, les réactions élémentaires, les mécaniques de boss, le butin, le bouton **Interrupt** (interrompre) et les Quick-Time Events. Le combat est mené par le Game Master (GM), le maître du jeu : c'est le personnage qui narre ton aventure.
+Ce guide explique les combats du Game Mode de Marinara Engine. Dans l'étape **World** (monde) de l'assistant, choisis **Classic** (combat par menus) ou **Tactical** (combat sur grille) sous **Combat Preference** (préférence de combat). Le Game Master (GM) piloté par l'IA établit la rencontre et raconte les résultats ; le moteur résout les actions de combat.
+
+<a id="tactical-battles-and-terrain"></a>
+
+## Combats tactiques et terrain
+
+Le combat tactique place ton groupe et les ennemis sur un champ de bataille. Sélectionne une unité, examine sa portée de déplacement, choisis une destination et une action, puis confirme. Chaque unité du groupe peut agir avant la phase ennemie. Les prévisions d'attaque montrent les conséquences attendues avant la validation.
+
+À la création d'une partie Tactical, les réglages facultatifs du champ de bataille permettent de choisir une graine, une taille et des indications de terrain pour le GM. Laisse la graine vide pour en générer une. C'est un entier compris entre 0 et 4294967295, zéro inclus. Elle reproduit le plateau lorsque les combattants, la description du terrain et les autres données de génération sont identiques ; elle n'impose pas la même histoire ni les mêmes ennemis au GM.
+
+Le GM fournit l'environnement, la formation et une courte description du terrain. Le moteur crée les cases et les positions de départ exactes. La description peut demander des zones de terrain et des obstacles près du centre ou d'un bord. Les indications sont une demande au GM, pas la garantie que chaque mot devienne une case. Le champ de bataille accepté est enregistré : actualiser restaure ce plateau.
+
+Le moteur vérifie la description et la disposition obtenue. Il préserve le terrain demandé tout en assurant l'accessibilité de la rencontre. Si les contraintes sont incompatibles, le combat signale le problème. **Use generated terrain** (utiliser un terrain généré) démarre explicitement sans les éléments refusés ; il ne les efface pas en silence. Les cartes dessinées case par case et l'éditeur de champ de bataille ne sont pas encore disponibles.
+
+| Terrain | Marche | Défense et esquive |
+| --- | --- | --- |
+| Plaine | Coûte 1 point de déplacement | Aucun bonus |
+| Forêt | Coûte 2 points de déplacement | +1 en défense, +15 points de pourcentage d'esquive |
+| Ruines | Coûte 1 point de déplacement | +1 en défense, +10 points de pourcentage d'esquive |
+| Montagne, eau, mur | Bloque la marche | Aucun bonus |
+
+Les unités disposant d'une capacité de vol ou de téléportation établie peuvent se déplacer autrement :
+
+- **La marche** suit les cases de sol accessibles. Les ennemis bloquent le passage ; une unité ne peut pas terminer sur une case occupée.
+- **Le vol** franchit le terrain et les unités intermédiaires pour un point par case, forêt comprise. Une unité volante peut rester au-dessus d'une case autrement bloquée, mais pas terminer sur une autre unité.
+- **La téléportation** ignore le terrain et les unités intermédiaires. La destination doit être à portée, libre et praticable à pied. Elle ne peut pas se trouver dans un mur, sur une montagne ou au-dessus de l'eau sans support.
+
+Ces deux déplacements spéciaux utilisent le budget actuel et la distance orthogonale entre cases. Ils conservent les bonus de défense et d'esquive du terrain d'arrivée. Ce modèle simple de grille plane ne représente ni altitude, ni plafonds, ni coûts ou exigences de visibilité propres aux sorts.
+
+Le combat tactique utilise des phases du groupe et des ennemis, sans initiative individuelle de jeu de rôle sur table. Les murs qui bloquent le déplacement ne bloquent pas encore les attaques à distance par ligne de vue. Couverture, profils de règles sur table et combats complets avec invocations feront l'objet de travaux distincts.
+
+## Combats classiques
+
+Les sections suivantes sur le menu d'actions et les calculs des dés décrivent le combat Classic. Tout le groupe participe, mais la commande choisie contrôle son premier combattant vivant ; les autres compagnons agissent automatiquement.
 
 ## Le début d'une rencontre
 
