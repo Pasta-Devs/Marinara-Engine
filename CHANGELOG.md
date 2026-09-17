@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Roleplay interruption instructions explicitly cover dialogue and actions, with a concrete example of a plausible intervention (#6281).
+
 - Tactical Game Mode can combine a GM terrain brief with a reusable battlefield seed and size. Requested terrain is validated and preserved, with an explicit generated-terrain fallback when a layout cannot be used. Flying and teleporting units gain distinct movement rules while retaining terrain defense and evasion bonuses. Malformed saved grids are excluded from GM battlefield summaries (#6265).
 - Added a contributor roadmap separating combat participation from battlefield rules, with follow-up plans for summoning and versioned tabletop rules profiles (#6265).
 - Codex contributors review locally with CodeRabbit and resolve valid findings before requesting PR review, reducing use of the repository's shared review quota. Documented false positives or purely pedantic suggestions do not block review.

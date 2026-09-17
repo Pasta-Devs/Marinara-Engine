@@ -360,7 +360,7 @@ export function buildRoleplayCommandsReminder(args: {
     lines.push("- [combat] asks the Combat agent to start an encounter when the scene turns to combat.");
   if (args.interruptAvailable === true && enabled("interrupt"))
     lines.push(
-      '- [interrupt: part="at least three words quoted verbatim through the interruption point"] cuts off only the latest user or other-character message at that point. Use only when your character can plausibly intervene with the abilities and freedom they currently have. Continue from the cut; the removed continuation has not happened.',
+      '- [interrupt: part="at least three words quoted verbatim through the interruption point"] cuts off only the latest user or other-character message at that point, either dialogue or action. Use only when your character can plausibly intervene with the abilities and freedom they currently have, example: you interrupt a spiraling monologue by hushing someone. Continue from the cut; the removed continuation has not happened.',
     );
   if (enabled("dm"))
     lines.push(
