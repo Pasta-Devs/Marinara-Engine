@@ -31,15 +31,15 @@ Brak rodzaju ruchu oznacza ruch pieszy w starszych starciach. Jawnie podany nieo
 
 Oddziel przemieszczanie, dozwolone cele i zajętość pól. Teleportacja przez ścianę nie pozwala zakończyć ruchu w jej wnętrzu. Początkowa płaska siatka nie odwzorowuje wysokości, sufitów, wymogów widoczności zaklęć ani ograniczonego czasu lotu; opisz to ograniczenie zamiast deklarować pełne zasady gier stołowych. Używaj tych samych reguł legalności ruchu w podglądach, rozstrzyganiu, animacji ścieżki i AI wrogów.
 
-## Zasady gier stołowych: wbudowane profile i narzędzia referencyjne dla postaci GM
+## Zasady gier stołowych: wbudowane profile i narzędzia referencyjne dla GM-a
 
 Priorytetem jest rozgrywka podobna do 5e i V20, a nie pełna gra o kolekcjonowaniu stworzeń. Dodawaj ograniczone, wersjonowane profile zasad w późniejszych zmianach. Wybierz dokładną edycję i obsługiwany podzbiór, zanim nazwiesz profil implementacją danego systemu.
 
 Silnik powinien odpowiadać za rzeczywiste rzuty, legalne cele, ruch, pule akcji, zużycie zasobów i wyniki liczbowe. GM interpretuje fikcję, wybiera obsługiwaną operację, określa zamiary NPC i opisuje rzeczywisty wynik. Tekst wyszukany w lorebookach może dostarczać źródeł i zasad kampanii, ale nie może omijać mechanizmu rozstrzygania ani zmieniać wyników rzutów.
 
-[Zgłoszenie #5955](https://github.com/Pasta-Devs/Marinara-Engine/issues/5955) obejmuje semantyczne wyszukiwanie w lorebookach i opcjonalny dostęp przez narzędzie. Wyszukiwanie uzupełnia profile: pomaga postaci GM znaleźć informacje, a jawne profile zasad zapewniają spójne i testowalne mechaniki. Unikaj osobnego wyszukiwania dla każdego zwykłego rzutu.
+[Zgłoszenie #5955](https://github.com/Pasta-Devs/Marinara-Engine/issues/5955) obejmuje semantyczne wyszukiwanie w lorebookach i opcjonalny dostęp przez narzędzie. Wyszukiwanie uzupełnia profile: pomaga GM-a znaleźć informacje, a jawne profile zasad zapewniają spójne i testowalne mechaniki. Unikaj osobnego wyszukiwania dla każdego zwykłego rzutu.
 
-Zacznij od obsługiwanych podstaw testów, tur i zasobów. Profil oparty na d20 i profil puli d10 potrzebują różnych zasad rozstrzygania; jeden nie jest drugim pod nową nazwą. Przyszły zakres powinien obejmować inicjatywę, testy przeciwstawne, obrażenia i ich redukcję, stany oraz zużycie zasobów. Dokumentuj nieobsługiwane przypadki i jawnie pozostawiaj decyzję postaci GM.
+Zacznij od obsługiwanych podstaw testów, tur i zasobów. Profil oparty na d20 i profil puli d10 potrzebują różnych zasad rozstrzygania; jeden nie jest drugim pod nową nazwą. Przyszły zakres powinien obejmować inicjatywę, testy przeciwstawne, obrażenia i ich redukcję, stany oraz zużycie zasobów. Dokumentuj nieobsługiwane przypadki i jawnie pozostawiaj decyzję GM-a.
 
 Taktyczna gra stołowa potrzebuje też wspólnych zasad linii widzenia i osłon. Obecna siatka blokuje ruch przez ściany, lecz ataki dystansowe oparte na odległości mogą je przekraczać. Aktualizuj wspólnie mechanizm rozstrzygania, AI, kontrataki, prognozy i nakładki zagrożeń. Zachowaj obecne fazy drużyny i wroga; indywidualna inicjatywa to osobny wybierany profil zasad.
 
@@ -49,7 +49,7 @@ Pierwszy etap może być niewielki: jedno aktywne stworzenie na stronę, własne
 
 Utrzymuj jeden skład oparty na trwałych identyfikatorach oraz identyfikatory aktywnych miejsc. Wyliczaj rezerwy i stan nieprzytomności zamiast utrzymywać konkurujące tablice. HP, zasoby i stany własnych stworzeń są trwałe; generator starć nie powinien wymyślać ich od nowa w każdej walce. Określ jawnie aktualizację stanów stworzeń rezerwowych.
 
-Łapanie, ewolucja, hodowla, walki podwójne, czas trwania tymczasowego przywołania i przywoływanie taktyczne to osobne dodatki. Podsumowanie postaci GM musi odróżniać nieprzytomne stworzenie od rannego trenera.
+Łapanie, ewolucja, hodowla, walki podwójne, czas trwania tymczasowego przywołania i przywoływanie taktyczne to osobne dodatki. Podsumowanie GM-a musi odróżniać nieprzytomne stworzenie od rannego trenera.
 
 ## Trwałość danych i dowody działania
 
