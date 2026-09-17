@@ -19,7 +19,7 @@
     "lint": "node scripts/generate-feature-registries.mjs && tsc --noEmit"
   },
   "dependencies": {
-    "zod": "^3.25.76"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
