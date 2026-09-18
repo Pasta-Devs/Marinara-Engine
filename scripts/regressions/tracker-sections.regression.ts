@@ -28,6 +28,7 @@ const trackerTypes = [
   "quest",
   "custom-tracker",
   "inventory-tracker",
+  "beholder",
 ];
 replaceBuiltInAgentDefinitions(
   trackerTypes.map((id) => ({
@@ -77,6 +78,8 @@ try {
   });
   for (const type of trackerTypes)
     await agents.create({ type, name: type, phase: "post_processing", connectionId: connection.id });
+  const beholder = await agents.getByType("beholder");
+  assert.ok(beholder);
   for (const wrapFormat of ["xml", "markdown", "none"] as const) {
     const preset = await presets.create({ name: `Tracker positions ${wrapFormat}`, wrapFormat });
     assert.ok(preset);
@@ -119,6 +122,19 @@ try {
       gamePlayerNotes: "PLAYER_NOTE_SENTINEL",
     });
     const prior = await chats.createMessage({ chatId: chat.id, role: "assistant", content: "Earlier story." });
+    await agents.saveRun({
+      agentConfigId: beholder.id,
+      chatId: chat.id,
+      messageId: prior.id,
+      result: {
+        type: "beholder",
+        data: { characters: [{ name: "BEHOLDER_SENTINEL", body: { head: { bare: true } } }] },
+        tokensUsed: 0,
+        durationMs: 1,
+        success: true,
+        error: null,
+      },
+    });
     const snapshot = {
       chatId: chat.id,
       messageId: prior.id,
@@ -152,9 +168,14 @@ try {
       "QUEST_SENTINEL",
       "CUSTOM_SENTINEL",
       "INVENTORY_SENTINEL",
+      "BEHOLDER_SENTINEL",
     ];
     const verify = (prompt: string, positions = sentinels.map(() => "section")) => {
       assert.ok(!prompt.includes("__MARINARA_RUNTIME_AGENT_SECTION__"));
+      if (wrapFormat !== "none") {
+        const physicalState = wrapFormat === "xml" ? "<physical_state>" : "## Physical State";
+        assert.equal(prompt.split(physicalState).length - 1, 1, "Beholder retains its Physical State wrapper");
+      }
       for (const [index, sentinel] of sentinels.entries()) {
         assert.equal(
           prompt.split(sentinel).length - 1,
