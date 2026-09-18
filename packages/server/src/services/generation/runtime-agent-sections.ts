@@ -5,6 +5,7 @@ import {
   nameToXmlTag,
   type ChatMode,
 } from "@marinara-engine/shared";
+import { COMMITTED_TRACKER_AGENT_TYPES } from "./committed-tracker-context.js";
 import type { AgentInjection } from "../agents/agent-pipeline.js";
 import { resolveAgentResultType } from "../agents/agent-executor.js";
 
@@ -104,6 +105,11 @@ export function buildRuntimeAgentSectionEligibleTypes(input: {
   for (const agent of BUILT_IN_AGENTS) {
     if (!activeAgentIds.has(agent.id)) continue;
     if (input.chatMode && !isAgentAvailableInChatMode(input.chatMode, agent.id)) continue;
+    // Trackers place their committed state, not a fresh pre-generation result.
+    if (COMMITTED_TRACKER_AGENT_TYPES.has(agent.id)) {
+      eligible.add(agent.id);
+      continue;
+    }
     if (agent.phase !== "pre_generation") continue;
     const resultType = resolveAgentResultType({ type: agent.id, settings: getDefaultBuiltInAgentSettings(agent.id) });
     if (resultType !== "context_injection" && resultType !== "director_event") {

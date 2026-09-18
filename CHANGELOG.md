@@ -4,6 +4,13 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Browser regression fixtures resolve dependencies from Vite's transformed imports instead of expiring resource timings. Wizard persistence checks wait for the settings drawer before reloading and preserve the original error if timeout cleanup fails (#6303, #6304).
+
+- Built-in tracker Agent Sections use the selected turn's saved state at their preset positions, without repeating that data in the automatic context. Trackers without an active section retain their usual placement (#6308).
+
+- Settings search opens Game Assets in Imports, where the existing asset browser, uploads and rescan controls live (#6309).
+- Home and its browser header identify installed staging builds beside the version, independently of the selected update target (#6307).
+
 - Game difficulty now affects enemy AI decision consistency in Classic and Tactical, while companions retain their own competence. Older title-case settings work throughout combat, encounters and loot; the current Traditional damage modifiers affect enemies only and are explicitly reserved for that ruleset.
 - Combat accepts and saves campaign weather, applying rain's elemental modifiers, tagged projectile/sight penalties, and Tactical snow movement costs. Sheltered or uncertain exposure is neutral; conditions remain visible with weather animations off and stay fixed across reloads.
 - Game creation retains Battlefield Size while removing the unused campaign Battlefield Seed control and “current style” from Classic. New battles receive individual internal seeds, while saved battle maps and restarts retain theirs.

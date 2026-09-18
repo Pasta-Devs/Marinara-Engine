@@ -211,6 +211,7 @@ for (const theme of ["dark", "light"] as const) {
           await expect(wizard.getByRole("button", { name: "Close setup", exact: true })).toBeVisible();
         }
       };
+      let failed = false;
       try {
         const firstId = await create("Initial setup");
         await page.addInitScript((id) => {
@@ -251,6 +252,9 @@ for (const theme of ["dark", "light"] as const) {
           contentType: "image/png",
         });
         await wizard.getByRole("button", { name: "Close setup", exact: true }).click();
+        // Closing setup opens the lazy settings drawer. Let its imports finish
+        // before WebKit navigates away and cancels the old document's requests.
+        await expect(page.getByRole("button", { name: "Close chat settings", exact: true })).toBeVisible();
         const nextId = await create("Fresh setup");
         await page.evaluate((id) => localStorage.setItem("marinara-active-chat-id", id), nextId);
         await page.reload();
@@ -270,8 +274,17 @@ for (const theme of ["dark", "light"] as const) {
           .toBeNull();
         expect(await (await request.get("/api/chat-presets")).json()).toEqual(profilesBefore);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+      } catch (error) {
+        failed = true;
+        throw error;
       } finally {
-        for (const id of ids) await request.delete(`/api/chats/${id}`);
+        for (const id of ids) {
+          await request.delete(`/api/chats/${id}`).catch((error) => {
+            // A timed-out test may already have disposed its request context.
+            // Preserve the original failure instead of replacing it with cleanup.
+            if (!failed) throw error;
+          });
+        }
       }
     });
   }

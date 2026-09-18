@@ -25,6 +25,7 @@ import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createAgentsStorage } from "../storage/agents.storage.js";
 import { getCustomAgentImportPolicy } from "../agents/custom-agent-import-policy.service.js";
 import { processLorebooks, type LorebookFinalContentResolver, type LorebookScanResult } from "../lorebook/index.js";
+import { COMMITTED_TRACKER_AGENT_TYPES } from "../generation/committed-tracker-context.js";
 import { cardPromptText } from "./card-text.js";
 import { wrapContent } from "./format-engine.js";
 import { advancedMemoryMarkerContent, type AdvancedMemoryPromptParts } from "./advanced-memory-prompt.js";
@@ -583,18 +584,9 @@ async function expandAgentData(config: MarkerConfig, ctx: MarkerContext): Promis
   const agentType = config.agentType;
   if (!agentType) return { content: "" };
 
-  // Tracker agent types are now always injected directly by the generation
-  // route (as a single formatted system message) regardless of preset
-  // configuration. Skip them here to avoid duplicate data.
-  const AUTO_INJECTED_TRACKERS = new Set([
-    "world-state",
-    "quest",
-    "character-tracker",
-    "persona-stats",
-    "custom-tracker",
-    "inventory-tracker",
-  ]);
-  if (AUTO_INJECTED_TRACKERS.has(agentType)) return { content: "" };
+  // Generation supplies committed tracker state through runtimeAgentData.
+  // Never fall back to a raw agent run, which can belong to a discarded swipe.
+  if (COMMITTED_TRACKER_AGENT_TYPES.has(agentType)) return { content: "" };
 
   // Generation only runs agents explicitly added to the chat. If none are active,
   // prompt sections must not keep replaying the last saved output forever.

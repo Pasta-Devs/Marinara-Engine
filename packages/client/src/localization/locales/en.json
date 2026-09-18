@@ -941,6 +941,7 @@
   "home.browser.showDesktopBookmarksOnOtherTabsHelp": "Show bookmarks when a desktop tab is not Home.",
   "home.browser.showMobileBookmarksOnOtherTabs": "Other-tab bookmarks (mobile)",
   "home.browser.showMobileBookmarksOnOtherTabsHelp": "Show bookmarks when a mobile tab is not Home.",
+  "home.browser.stagingVersion": "v{{version}} (STAGING)",
   "home.browser.tabsLabel": "Home destinations",
   "home.browser.version": "v{{version}}",
   "home.browser.widgets": "Widgets",

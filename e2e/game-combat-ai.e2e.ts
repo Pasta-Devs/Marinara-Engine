@@ -1,3 +1,4 @@
+import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -220,12 +221,10 @@ test("Combat AI Classic items spend only after the accepted action executes", as
     await expect(page.getByRole("heading", { name: "What shall we cook tonight?", exact: true })).toBeVisible({
       timeout: 40000,
     });
+    await prepareViteFixtureDependencies(page);
     await page.evaluate(async (id) => {
       const { GameCombatUI } = await import("/src/components/game/GameCombatUI.tsx" as string);
-      const dependencyUrl = (name: string) =>
-        performance
-          .getEntriesByType("resource")
-          .find((entry) => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
+      const dependencyUrl = window.__viteFixtureDependencyUrl;
       const { default: React } = await import(dependencyUrl("react"));
       const { default: ReactDOM } = await import(dependencyUrl("react-dom_client"));
       const { QueryClient, QueryClientProvider } = await import(dependencyUrl("@tanstack_react-query"));

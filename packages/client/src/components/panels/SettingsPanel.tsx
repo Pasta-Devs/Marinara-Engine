@@ -386,7 +386,7 @@ const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   },
   {
     id: "game-assets",
-    tab: "generations",
+    tab: "import",
     label: "Game Assets",
     description: "Asset folders for music, ambience, sprites, and backgrounds.",
     aliases: ["assets", "music", "ambient", "sfx", "sprites", "backgrounds", "folder"],

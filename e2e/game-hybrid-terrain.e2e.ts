@@ -1,3 +1,4 @@
+import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { expect, test, type APIRequestContext, type Page, type TestInfo } from "@playwright/test";
 import type {
   TacticalBattlefieldBrief,
@@ -161,17 +162,11 @@ async function mountBattle(
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?", exact: true })).toBeVisible({
     timeout: 40_000,
   });
-  // The fixture must not depend on the browser retaining dependency timing entries after reload.
-  await page.evaluate(() => performance.clearResourceTimings());
+  await prepareViteFixtureDependencies(page);
   await page.evaluate(
     async (props) => {
       const { TacticalCombatUI } = await import("/src/components/game/TacticalCombatUI.tsx" as string);
-      const entry = await (await fetch("/src/main.tsx")).text();
-      const dependencyUrl = (name: string) => {
-        const url = entry.match(new RegExp(`"([^"\\n]*/deps/${name}\\.js[^"\\n]*)"`))?.[1];
-        if (!url) throw new Error(`Vite entry is missing the ${name} dependency`);
-        return url;
-      };
+      const dependencyUrl = window.__viteFixtureDependencyUrl;
       const { default: React } = await import(dependencyUrl("react"));
       const { default: ReactDOM } = await import(dependencyUrl("react-dom_client"));
       const { QueryClient, QueryClientProvider } = await import(dependencyUrl("@tanstack_react-query"));

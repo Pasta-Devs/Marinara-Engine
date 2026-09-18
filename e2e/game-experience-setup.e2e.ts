@@ -1,3 +1,4 @@
+import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -64,13 +65,11 @@ async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountO
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?", exact: true })).toBeVisible({
     timeout: 40_000,
   });
+  await prepareViteFixtureDependencies(page);
   await page.evaluate(
     async ({ isNewGame, chatMetadata, characters }) => {
       const { GameSetupWizard } = await import("/src/components/game/GameSetupWizard.tsx" as string);
-      const dependencyUrl = (name: string) =>
-        performance
-          .getEntriesByType("resource")
-          .find((entry) => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
+      const dependencyUrl = window.__viteFixtureDependencyUrl;
       const { default: React } = await import(dependencyUrl("react"));
       const { default: ReactDOM } = await import(dependencyUrl("react-dom_client"));
       const { QueryClient, QueryClientProvider } = await import(dependencyUrl("@tanstack_react-query"));

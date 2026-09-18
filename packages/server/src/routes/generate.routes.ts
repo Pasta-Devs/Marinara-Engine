@@ -5101,6 +5101,10 @@ export async function generateRoutes(app: FastifyInstance) {
           beholderState: latestBeholderState,
           chatMetadata: chatMeta,
           wrapFormat,
+          placeSection: (agentType, content) => {
+            const tokens = runtimeAgentSectionTokens.get(agentType);
+            return !!tokens && replaceRuntimeAgentSection(finalMessages, tokens, content);
+          },
           dedupeLastMessageWrappers,
           findTrackerContextInsertIndex,
         });
