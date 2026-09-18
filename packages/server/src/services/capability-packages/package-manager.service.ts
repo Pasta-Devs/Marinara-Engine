@@ -501,6 +501,12 @@ export function getCapabilityPackageInstallIssue(manifest: CapabilityCatalogPack
   if (manifest.kind.includes("ruleset") && !declaresRuleset) {
     return `Ruleset packages must list ${RULESET_ASSET_PATH} in contributions.assets.paths`;
   }
+  // And the other way round: the kind is what makes the contribution explicit, in the catalog and
+  // to the registry, so a package cannot slip a ruleset in under another kind. Whether the asset is
+  // hash-pinned in files[] is already the manifest schema's rule for every declared asset.
+  if (declaresRuleset && !manifest.kind.includes("ruleset")) {
+    return `Packages that list ${RULESET_ASSET_PATH} must declare the "ruleset" kind`;
+  }
   return null;
 }
 
@@ -1281,6 +1287,14 @@ export const capabilityPackageManager = {
     for (const installed of (await readRegistry()).packages) {
       const declared = installed.manifest.contributions?.assets?.paths ?? [];
       if (!declared.some((path) => tryNormalize(path) === RULESET_ASSET_PATH)) continue;
+      if (!installed.manifest.kind.includes("ruleset")) {
+        logger.warn(
+          "[capability/rulesets] Package %s lists %s without the ruleset kind; its ruleset is refused",
+          installed.id,
+          RULESET_ASSET_PATH,
+        );
+        continue;
+      }
       if (!isInstalledCapabilityReady(installed)) {
         logger.info(
           "[capability/rulesets] Package %s is not ready (status=%s); its ruleset stays unavailable until restart",

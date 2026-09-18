@@ -330,4 +330,42 @@ function assertRefused(input: unknown, pattern: RegExp, message: string) {
   );
 }
 
+// The kind makes the contribution explicit: a ruleset cannot ride in under another kind.
+{
+  const { getCapabilityPackageInstallIssue } =
+    await import("../../packages/server/src/services/capability-packages/package-manager.service.js");
+  assert.match(
+    getCapabilityPackageInstallIssue({
+      kind: ["agent"],
+      permissions: [],
+      restartRequired: false,
+      entrypoints: {},
+      contributions: { assets: { paths: ["ruleset.json"] } },
+    } as unknown as Parameters<typeof getCapabilityPackageInstallIssue>[0]) ?? "",
+    /must declare the "ruleset" kind/,
+  );
+  // A declared asset that is not hash-pinned never gets that far: the manifest schema refuses it.
+  const unpinned = capabilityPackageManifestSchema.safeParse({
+    schemaVersion: 2,
+    capabilityApi: { major: 1, minor: 20 },
+    builtAgainst: { engineVersion: "2.4.7", engineCommit: "0".repeat(40) },
+    id: "ruleset-unpinned",
+    name: "Unpinned",
+    version: "1.0.0",
+    description: "A ruleset asset missing from files.",
+    engine: { min: "2.4.7", maxExclusive: "3.0.0" },
+    kind: ["ruleset"],
+    permissions: [],
+    restartRequired: false,
+    entrypoints: {},
+    contributions: { assets: { paths: ["ruleset.json"] } },
+    files: [{ path: "README.md", bytes: 10, sha256: "b".repeat(64) }],
+  });
+  assert.equal(unpinned.success, false);
+  assert.match(
+    JSON.stringify(unpinned.success ? "" : unpinned.error.issues),
+    /must be listed in the package file manifest/,
+  );
+}
+
 console.info("game ruleset registry regressions passed.");

@@ -687,7 +687,9 @@ exactly like `gm-verbs.json`: listed in `contributions.assets.paths` and hash-pi
 The snippet shows only the keys that matter to a ruleset; the usual manifest fields (`name`,
 `version`, `description`, `engine`, `builtAgainst`) are still required.
 
-A ruleset package needs no permission, no server or client entrypoint and no agent. Nothing in the
+A ruleset package needs no permission, no server or client entrypoint and no agent. The kind and the
+asset go together: a package of kind `ruleset` must list `ruleset.json`, and a package that lists
+`ruleset.json` must declare the kind, so a ruleset cannot ride in under another kind. Nothing in the
 file is executed: there are no expression strings, and a mechanic that no resolution kind expresses
 is an Engine change that adds a kind, not something a ruleset can do. The format, the first-party 5e
 file and the reasons behind its shape are in
