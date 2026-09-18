@@ -4,6 +4,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Image connections support fal.ai text-to-image generation, with FLUX starter models, custom model endpoints and parameters, and the existing image previews and gallery (#6312).
+- Connection tests retain fast results after automatically saving edited settings.
+
 - Browser regression fixtures resolve dependencies from Vite's transformed imports instead of expiring resource timings. Wizard persistence checks wait for the settings drawer before reloading and preserve the original error if timeout cleanup fails (#6303, #6304).
 
 - Built-in tracker Agent Sections use the selected turn's saved state at their preset positions, without repeating that data in the automatic context. Trackers without an active section retain their usual placement (#6308).

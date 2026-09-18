@@ -104,10 +104,13 @@ export function useUpdateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => api.patch(`/connections/${id}`, data),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: connectionKeys.list() });
-      qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) });
-    },
+    // Auto-save before testing must finish refreshing the editor before a fast
+    // test response arrives, otherwise hydration clears the new result.
+    onSuccess: (_data, variables) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
+      ]),
   });
 }
 

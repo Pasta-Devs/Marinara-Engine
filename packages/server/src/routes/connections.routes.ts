@@ -9,6 +9,7 @@ import {
   ATLAS_CLOUD_IMAGE_MODELS,
   ATLAS_CLOUD_VIDEO_MODELS,
   ZAI_IMAGE_MODELS,
+  FAL_IMAGE_MODELS,
   IMAGE_DEFAULTS_STORAGE_KEY,
   MODEL_LISTS,
   VIDEO_DEFAULTS_STORAGE_KEY,
@@ -46,6 +47,7 @@ import {
   resolveConnectionImageQuality,
 } from "../services/image/image-generation-defaults.js";
 import { buildVeniceApiUrl, normalizeVeniceImageModels } from "../services/image/venice-image.js";
+import { buildFalImageUrl } from "../services/image/fal-image.js";
 import { isImageLocalUrlsEnabled, isProviderLocalUrlsEnabled } from "../config/runtime-config.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
 import {
@@ -700,6 +702,16 @@ export async function connectionsRoutes(app: FastifyInstance) {
           latencyMs: Date.now() - start,
           modelName: conn.model,
         };
+      } else if (conn.provider === "image_generation" && imageSource === "fal") {
+        if (!conn.apiKey?.trim()) throw new Error("fal.ai requires an API key");
+        buildFalImageUrl(baseUrl, conn.model);
+        return {
+          success: true,
+          message:
+            "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
+          latencyMs: Date.now() - start,
+          modelName: conn.model,
+        };
       } else if (conn.provider === "image_generation" && imageSource === "horde") {
         // Horde: heartbeat is the lightweight health endpoint for the public API.
         testUrl = buildHordeUrl(baseUrl, "status/heartbeat");
@@ -866,6 +878,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
       }
       if (conn.provider === "image_generation" && imageSource === "zai") {
         return { models: ZAI_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };
+      }
+      if (conn.provider === "image_generation" && imageSource === "fal") {
+        return { models: FAL_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };
       }
       baseUrl = normalizeConnectionTestBaseUrl(baseUrl, conn.provider);
       const lowerBase = baseUrl.toLowerCase();

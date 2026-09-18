@@ -63,6 +63,7 @@ import {
 } from "./comfyui-reference-placeholders.js";
 import { buildVeniceApiUrl, buildVeniceImageRequest, parseVeniceImageResponse } from "./venice-image.js";
 import { buildZaiImageRequest, buildZaiImageUrl, parseZaiImageUrl } from "./zai-image.js";
+import { buildFalImageUrl } from "./fal-image.js";
 import { buildAtlasCloudImageRequest, runAtlasCloudPrediction } from "../media/atlas-cloud.js";
 
 // sharp is an optional native module (no prebuilds on some platforms like Termux).
@@ -202,6 +203,7 @@ const EXPLICIT_IMAGE_SOURCES = new Set([
   "xai",
   "venice",
   "zai",
+  "fal",
   "atlas",
   "comfyui",
   "swarmui",
@@ -360,6 +362,8 @@ async function generateImageUncapped(
             return generateVenice(normalizedBaseUrl, apiKey, scopedRequest);
           case "zai":
             return generateZai(normalizedBaseUrl, apiKey, scopedRequest);
+          case "fal":
+            return generateFal(normalizedBaseUrl, apiKey, scopedRequest);
           case "atlas":
             return generateAtlasCloudImage(normalizedBaseUrl, apiKey, scopedRequest);
           case "comfyui":
@@ -1497,6 +1501,45 @@ async function generateZai(baseUrl: string, apiKey: string, request: ImageGenReq
     throw new Error("Z.AI image generation returned invalid JSON");
   }
   return downloadImageUrl(parseZaiImageUrl(response), request.privateImageResultOrigin, request.signal);
+}
+
+async function generateFal(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
+  if (!apiKey.trim()) throw new Error("fal.ai requires an API key");
+  const body = withImageCustomParameters(request, {
+    prompt: request.negativePrompt?.trim()
+      ? `${request.prompt.trim()}\n\nDo not include: ${request.negativePrompt.trim()}.`
+      : request.prompt.trim(),
+    image_size: { width: request.width ?? 1024, height: request.height ?? 1024 },
+    num_images: 1,
+  });
+  logDebugOverride(
+    request.debugMode === true,
+    "[debug/image/fal] final request payload:\n%s",
+    imagePayloadForLog(body),
+  );
+  const resp = await imageFetch(
+    buildFalImageUrl(baseUrl, request.model),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Key ${apiKey}` },
+      body: JSON.stringify(body),
+      signal: imageRequestSignal(request),
+    },
+    { allowLocal: request.allowLocalUrls },
+  );
+  const responseText = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`fal.ai image generation failed (${resp.status}): ${sanitizeErrorText(responseText)}`);
+  }
+  let response: { images?: { url?: unknown }[] };
+  try {
+    response = JSON.parse(responseText);
+  } catch {
+    throw new Error("fal.ai image generation returned invalid JSON");
+  }
+  const url = response?.images?.[0]?.url;
+  if (typeof url !== "string" || !url.trim()) throw new Error("fal.ai response did not contain an image URL");
+  return downloadImageUrl(url.trim(), request.privateImageResultOrigin, request.signal);
 }
 
 async function generateAtlasCloudImage(

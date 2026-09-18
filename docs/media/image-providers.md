@@ -1,6 +1,6 @@
 # Image Generation Providers and Setup
 
-This guide explains how to connect an image generation service to Marinara Engine. It also covers what each of the 17 services needs. Image generation powers scene illustrations, selfies, scene backgrounds, and generated avatars, portraits, and sprites.
+This guide explains how to connect an image generation service to Marinara Engine. It also covers what each service needs. Image generation powers scene illustrations, selfies, scene backgrounds, and generated avatars, portraits, and sprites.
 
 You set up image generation as a special kind of connection. Once one image connection works, every image feature in the app can use it.
 
@@ -23,7 +23,7 @@ If **Test Image** returns a picture, your connection is ready. If it fails, chec
 
 ## Choosing a service
 
-The 17 services fall into three groups. Cloud services need an API key and an account. Free services need no key. Local services run image software on your own computer.
+The services fall into three groups. Cloud services need an API key and an account. Free services need no key. Local services run image software on your own computer.
 
 The table below shows each service at a glance. Details and quirks follow in the per-service sections.
 
@@ -38,6 +38,7 @@ The table below shows each service at a glance. Details and quirks follow in the
 | Venice.ai | Yes | Cloud |
 | Z.AI | Yes | Cloud |
 | Atlas Cloud | Yes | Cloud |
+| fal.ai | Yes | Cloud |
 | NanoGPT | Yes | Cloud |
 | Block Entropy | Yes | Cloud |
 | RunPod Serverless (ComfyUI) | Yes | Cloud |
@@ -82,6 +83,12 @@ Cloud service with the default Base URL `https://api.z.ai/api/paas/v4`. It needs
 ## Atlas Cloud
 
 Cloud service with the default Base URL `https://api.atlascloud.ai/api/v1`. It needs an Atlas Cloud API key. Marinara supplies a small starter catalog for Nano Banana, Gemini Flash Image, and FLUX 1.1 Pro, and you can type another exact Atlas Cloud image model ID. Jobs run asynchronously, so Marinara starts the generation and polls Atlas Cloud until the image is ready. Common text-to-image controls are mapped automatically; reference images are sent for model IDs that advertise image-to-image, edit, or Kontext behavior. Because Atlas model schemas can differ, check the selected model's Atlas Cloud documentation when using another model ID.
+
+## fal.ai
+
+Cloud service with the default **Base URL** `https://fal.run`. Create an API key at [fal.ai](https://fal.ai/dashboard/keys), then select **fal.ai** in the image service grid. The starter **Model** list offers `fal-ai/flux/schnell` and `fal-ai/flux/dev`; you can type another text-to-image endpoint ID with a compatible input/output schema. **Test Connection** checks the configuration only. **Test Image** sends a real generation request and uses your fal.ai credits.
+
+Marinara sends the prompt and requested dimensions, then downloads the first returned image into its existing image workflow. Negative prompts are appended as text instructions. Use **Custom Parameters** for model-specific options such as `seed`, `num_inference_steps`, or `image_size`. This integration uses synchronous text-to-image requests; it does not send reference images or resume interrupted jobs. Check the selected model's [API reference](https://fal.ai/models/fal-ai/flux/schnell/api) for its supported inputs.
 
 ## NanoGPT
 

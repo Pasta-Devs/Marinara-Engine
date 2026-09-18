@@ -652,29 +652,31 @@ export function ConnectionEditor() {
         ? { label: "Get your Venice API key", url: "https://venice.ai/settings/api" }
         : localProvider === "image_generation" && selectedImageService === "zai"
           ? { label: t("connections.mediaSources.zai.apiKeyLink"), url: "https://z.ai/manage-apikey/apikey-list" }
-          : (localProvider === "image_generation" && selectedImageService === "atlas") ||
-              (localProvider === "video_generation" && selectedVideoDefaultsService === "atlas")
-            ? {
-                label: t("connections.mediaSources.atlas.apiKeyLink"),
-                url: "https://www.atlascloud.ai/user/api-keys",
-              }
-            : localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
-              ? API_KEY_LINKS.xai
-              : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
-                ? selectedVideoProvider === "nanogpt"
-                  ? API_KEY_LINKS.nanogpt
-                  : API_KEY_LINKS.openrouter
-                : localProvider === "video_generation" && selectedVideoDefaultsService === "seedance"
-                  ? { label: "Open Seedance API docs", url: "https://seedance2.ai/api-docs" }
-                  : localProvider === "video_generation" &&
-                      (selectedVideoProvider === "comfyui" || selectedVideoProvider === "swarmui")
-                    ? undefined
-                    : localProvider === "zai"
-                      ? {
-                          label: t("connections.mediaSources.zai.apiKeyLink"),
-                          url: "https://z.ai/manage-apikey/apikey-list",
-                        }
-                      : API_KEY_LINKS[localProvider];
+          : localProvider === "image_generation" && selectedImageService === "fal"
+            ? { label: t("connections.mediaSources.fal.apiKeyLink"), url: "https://fal.ai/dashboard/keys" }
+            : (localProvider === "image_generation" && selectedImageService === "atlas") ||
+                (localProvider === "video_generation" && selectedVideoDefaultsService === "atlas")
+              ? {
+                  label: t("connections.mediaSources.atlas.apiKeyLink"),
+                  url: "https://www.atlascloud.ai/user/api-keys",
+                }
+              : localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
+                ? API_KEY_LINKS.xai
+                : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
+                  ? selectedVideoProvider === "nanogpt"
+                    ? API_KEY_LINKS.nanogpt
+                    : API_KEY_LINKS.openrouter
+                  : localProvider === "video_generation" && selectedVideoDefaultsService === "seedance"
+                    ? { label: "Open Seedance API docs", url: "https://seedance2.ai/api-docs" }
+                    : localProvider === "video_generation" &&
+                        (selectedVideoProvider === "comfyui" || selectedVideoProvider === "swarmui")
+                      ? undefined
+                      : localProvider === "zai"
+                        ? {
+                            label: t("connections.mediaSources.zai.apiKeyLink"),
+                            url: "https://z.ai/manage-apikey/apikey-list",
+                          }
+                        : API_KEY_LINKS[localProvider];
 
   useEffect(() => {
     if (localProvider !== "image_generation" || !selectedImageDefaultsService) {
@@ -1134,11 +1136,18 @@ export function ConnectionEditor() {
     }
     setTestResult(null);
     testConnection.mutate(connectionDetailId, {
-      onSuccess: (data) => setTestResult(data as { success: boolean; message: string; latencyMs: number }),
+      onSuccess: (data) =>
+        setTestResult({
+          ...data,
+          message:
+            selectedImageService === "fal" && data.success
+              ? t("connections.mediaSources.fal.configured")
+              : data.message,
+        }),
       onError: (err) =>
         setTestResult({ success: false, message: err instanceof Error ? err.message : "Failed", latencyMs: 0 }),
     });
-  }, [connectionDetailId, dirty, handleSave, testConnection]);
+  }, [connectionDetailId, dirty, handleSave, testConnection, selectedImageService, t]);
 
   const handleTestMessage = useCallback(async () => {
     if (!connectionDetailId) return;
@@ -1833,15 +1842,17 @@ export function ConnectionEditor() {
                             ? t("connections.mediaSources.arli.name")
                             : src.name;
                   const sourceDescription =
-                    src.id === "atlas"
-                      ? t("connections.mediaSources.atlas.imageDescription")
-                      : src.id === "swarmui"
-                        ? t("connections.mediaSources.swarmui.imageDescription")
-                        : src.id === "zai"
-                          ? t("connections.mediaSources.zai.imageDescription")
-                          : src.id === "arli"
-                            ? t("connections.mediaSources.arli.imageDescription")
-                            : src.description;
+                    src.id === "fal"
+                      ? t("connections.mediaSources.fal.imageDescription")
+                      : src.id === "atlas"
+                        ? t("connections.mediaSources.atlas.imageDescription")
+                        : src.id === "swarmui"
+                          ? t("connections.mediaSources.swarmui.imageDescription")
+                          : src.id === "zai"
+                            ? t("connections.mediaSources.zai.imageDescription")
+                            : src.id === "arli"
+                              ? t("connections.mediaSources.arli.imageDescription")
+                              : src.description;
                   return (
                     <button
                       key={src.id}
@@ -1857,6 +1868,9 @@ export function ConnectionEditor() {
                         }
                         if (src.id === "zai" && !ZAI_IMAGE_MODELS.some((model) => model.id === localModel.trim())) {
                           setLocalModel("glm-image");
+                        }
+                        if (src.id === "fal" && selectedImageService !== "fal") {
+                          setLocalModel("fal-ai/flux/schnell");
                         }
                         markDirty();
                       }}
@@ -3218,7 +3232,9 @@ export function ConnectionEditor() {
 
             <p className="text-[0.625rem] text-[var(--muted-foreground)]">
               <strong>{localizeUi("ui.connections.connectioneditor.testConnection")}</strong>{" "}
-              {localizeUi("ui.connections.connectioneditor.verifiesYourApiKeyAgainstTheProviderCatalogOr")}
+              {selectedImageService === "fal"
+                ? t("connections.mediaSources.fal.testHelp")
+                : localizeUi("ui.connections.connectioneditor.verifiesYourApiKeyAgainstTheProviderCatalogOr")}
               {!isMediaGenerationProvider && (
                 <>
                   {" "}
