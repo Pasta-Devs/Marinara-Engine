@@ -54,6 +54,7 @@ type WizardMountOptions = {
 
 /** Mount the wizard on its own so a case can drive it without a surrounding chat. */
 async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountOptions): Promise<Locator> {
+  await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await seedUIState(page, {
     hasCompletedOnboarding: true,
     sidebarOpen: false,

@@ -152,7 +152,9 @@ for (const theme of ["dark", "light"] as const) {
     await expect(section.locator('input[type="file"]')).toHaveCount(1);
     await testInfo.attach(`assets-${theme}`, { body: await page.screenshot(), contentType: "image/png" });
     await section.getByRole("button", { name: "Asset Browser", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Close assets", exact: true })).toBeVisible();
+    if (testInfo.project.name.includes("mobile"))
+      await page.getByRole("button", { name: "Search in folder", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Search in folder", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   });
 
