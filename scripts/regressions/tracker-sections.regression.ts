@@ -88,6 +88,13 @@ try {
     await presets.createSection({ presetId: preset.id, identifier: "start", name: "Start", content: "SECTION_START" });
     const sections = [];
     for (const type of trackerTypes) {
+      await presets.createSection({
+        presetId: preset.id,
+        identifier: `${type}-start`,
+        name: `${type} start`,
+        groupId: group.id,
+        content: `TRACKER_START:${type}`,
+      });
       const section = await presets.createSection({
         presetId: preset.id,
         identifier: type,
@@ -99,6 +106,13 @@ try {
       });
       assert.ok(section);
       sections.push(section);
+      await presets.createSection({
+        presetId: preset.id,
+        identifier: `${type}-end`,
+        name: `${type} end`,
+        groupId: group.id,
+        content: `TRACKER_END:${type}`,
+      });
     }
     await presets.createSection({ presetId: preset.id, identifier: "end", name: "End", content: "SECTION_END" });
     await presets.createSection({
@@ -189,6 +203,14 @@ try {
           positions[index] === "section",
           `${sentinel} has its requested placement`,
         );
+        if (positions[index] === "section") {
+          const start = prompt.indexOf(`TRACKER_START:${trackerTypes[index]}`);
+          const end = prompt.indexOf(`TRACKER_END:${trackerTypes[index]}`);
+          assert.ok(
+            start >= 0 && start < prompt.indexOf(sentinel) && prompt.indexOf(sentinel) < end,
+            `${sentinel} belongs to its own tracker section`,
+          );
+        }
       }
       assert.equal(prompt.split("PLAYER_NOTE_SENTINEL").length - 1, 1, "Notes stay in shared context once");
     };
