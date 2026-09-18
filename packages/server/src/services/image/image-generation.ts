@@ -1505,6 +1505,10 @@ async function generateZai(baseUrl: string, apiKey: string, request: ImageGenReq
 
 async function generateFal(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
   if (!apiKey.trim()) throw new Error("fal.ai requires an API key");
+  const numImages = request.imageDefaults?.customParameters?.num_images;
+  if (numImages !== undefined && numImages !== 1) {
+    throw new Error("fal.ai image generation supports exactly one output per request");
+  }
   const body = withImageCustomParameters(request, {
     prompt: request.negativePrompt?.trim()
       ? `${request.prompt.trim()}\n\nDo not include: ${request.negativePrompt.trim()}.`

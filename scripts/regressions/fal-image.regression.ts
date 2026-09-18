@@ -12,6 +12,8 @@ import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 import { connectionsRoutes } from "../../packages/server/src/routes/connections.routes.js";
 import { createConnectionsStorage } from "../../packages/server/src/services/storage/connections.storage.js";
 import { generateImage } from "../../packages/server/src/services/image/image-generation.js";
+import { buildFalImageUrl } from "../../packages/server/src/services/image/fal-image.js";
+import { resolveConnectionImageDefaults } from "../../packages/server/src/services/image/image-generation-defaults.js";
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const requests: { url: string; authorization?: string; body: Record<string, unknown> }[] = [];
@@ -52,6 +54,12 @@ try {
   const address = provider.address();
   assert.ok(address && typeof address === "object");
   baseUrl = `http://127.0.0.1:${address.port}`;
+  assert.equal(buildFalImageUrl("https://fal.run"), "https://fal.run/fal-ai/flux/schnell");
+  assert.equal(buildFalImageUrl("http://localhost:1234/proxy"), "http://127.0.0.1:1234/proxy/fal-ai/flux/schnell");
+  assert.equal(buildFalImageUrl("http://[::1]:1234"), "http://[::1]:1234/fal-ai/flux/schnell");
+  for (const insecure of ["http://fal.run", "http://example.com", "http://localhost.example.com", "ftp://fal.run"]) {
+    assert.throws(() => buildFalImageUrl(insecure), /requires HTTPS/);
+  }
   const generate = (model = "fal-ai/flux/schnell", signal?: AbortSignal) =>
     generateImage("fal", `${baseUrl}/proxy/`, "fixture-key", "fal", {
       prompt: "moonlit laboratory",
@@ -81,6 +89,20 @@ try {
     await assert.rejects(generate(model), /model endpoint ID/);
   }
   assert.equal(requests.length, beforeInvalid, "Invalid endpoint IDs fail before any request");
+  for (const num_images of [2, 0, null, "1"]) {
+    await assert.rejects(
+      generateImage("fal", baseUrl, "fixture-key", "fal", {
+        prompt: "one image",
+        allowLocalUrls: true,
+        imageDefaults: resolveConnectionImageDefaults({
+          imageService: "fal",
+          defaultParameters: JSON.stringify({ customParameters: { num_images } }),
+        }),
+      }),
+      /exactly one output/,
+    );
+  }
+  assert.equal(requests.length, beforeInvalid, "Extra images must be rejected before spending credits");
   for (const [mode, error] of [
     ["error", /422.*Unsupported image_size/],
     ["invalid", /invalid JSON/],
