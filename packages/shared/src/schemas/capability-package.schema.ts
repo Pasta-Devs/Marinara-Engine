@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { agentResultTypeSchema } from "./agent.schema.js";
+import { RULESET_ASSET_PATH } from "./ruleset.schema.js";
 
 /** Caps mirrored by the Marinara-Agents catalog build. Kept here so a hostile or
  *  broken notes document cannot push an unbounded string into a modal. */
 export const MAX_RELEASE_NOTE_CHARACTERS = 1000;
 export const MAX_RELEASE_NOTE_VERSIONS = 20;
 
-export const capabilityPackageKindSchema = z.enum(["agent", "maps", "conversation-calls", "turn-game"]);
+export const capabilityPackageKindSchema = z.enum(["agent", "maps", "conversation-calls", "turn-game", "ruleset"]);
 export const capabilityPermissionSchema = z.enum([
   "agent-runtime",
   "chat-read",
@@ -229,7 +230,11 @@ const capabilityPackageManifestBaseSchema = z
 //        turn, validates the call against the package's own JSON Schema, and hands the arguments to
 //        the package's handler. Not a soft seam: the API only exists on an engine this new, so a
 //        package that needs it must declare 1.19. Needs `tools`.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 19 } as const);
+// 1.20: Game Mode rulesets — a hash-pinned `ruleset.json` asset the engine validates as data and
+//        offers as a game's rules (resolution kind, character sheet, rests, GM guidance). Not a
+//        soft seam: a ruleset package is useless on an engine that cannot read it, so declaring
+//        the asset requires 1.20 and an older engine refuses the install cleanly. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 20 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -372,6 +377,19 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "assets"],
           message: "contributions.assets requires schemaVersion 2 and capabilityApi 1.10 or newer",
+        });
+      }
+    }
+    // A ruleset is the whole point of the package that ships one, so it is a hard 1.20 requirement
+    // rather than a soft seam: an older Engine refuses the install instead of installing a package
+    // that then does nothing.
+    if (manifest.contributions?.assets?.paths.includes(RULESET_ASSET_PATH)) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 20)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message: `${RULESET_ASSET_PATH} requires schemaVersion 2 and capabilityApi 1.20 or newer`,
         });
       }
     }

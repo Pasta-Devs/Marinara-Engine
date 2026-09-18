@@ -64,6 +64,7 @@ export * from "./schemas/avatar-crop.schema.js";
 export * from "./schemas/spatial-context.schema.js";
 export * from "./schemas/capability-package.schema.js";
 export * from "./schemas/gm-verb-table.schema.js";
+export * from "./schemas/ruleset.schema.js";
 export * from "./schemas/personal-extension.schema.js";
 export * from "./schemas/folder.schema.js";
 export * from "./schemas/scene-analysis.schema.js";

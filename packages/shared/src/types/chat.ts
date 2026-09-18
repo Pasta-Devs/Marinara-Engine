@@ -604,6 +604,9 @@ export interface ChatMetadata {
   gameCombatStyle?: import("./game.js").GameCombatStyle;
   /** Live tactical (grid) battle snapshot — restored on page refresh while a tactical fight is in progress. */
   gameTacticalCombatSnapshot?: import("../features/tactical-combat/types.js").TacticalCombatState | null;
+  /** The ruleset this game was created on, pinned for the game's lifetime. Absent means
+   *  `engine-legacy`: the Engine's own rules, exactly as before rulesets existed. */
+  gameRuleset?: import("../schemas/ruleset.schema.js").RulesetRef;
   /** User's initial game setup preferences */
   gameSetupConfig?: import("./game.js").GameSetupConfig | null;
   /** Immutable creation-time setup retained for viewing and sharing after the campaign changes. */

@@ -1,0 +1,1109 @@
+{
+  "$comment": "First-party 5e ruleset on SRD 5.1. Every id here is this file's own choice: the Engine never looks for 'level', 'dex' or 'slots'. A $comment key is allowed on any object and ignored.",
+  "schemaVersion": 1,
+  "id": "5e-2014",
+  "version": 1,
+  "name": "5e (SRD 5.1)",
+  "edition": "System Reference Document 5.1, 2014 rules",
+  "license": {
+    "spdx": "CC-BY-4.0",
+    "attribution": "This work includes material taken from the System Reference Document 5.1 (\"SRD 5.1\") by Wizards of the Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at https://creativecommons.org/licenses/by/4.0/legalcode."
+  },
+  "coverage": {
+    "checks": true,
+    "saves": true,
+    "sheet": true,
+    "resources": true,
+    "rests": true,
+    "combat": false,
+    "summary": "Ability checks, skill checks, saving throws, the full character sheet, spell slots, hit dice, class resources, conditions and rests. Battles use Marinara's default combat, not 5e combat."
+  },
+  "resolution": {
+    "kind": "dice-sum",
+    "dice": {
+      "count": 1,
+      "sides": 20
+    },
+    "abilityModifier": {
+      "op": "floorHalfMinusTen"
+    },
+    "proficiency": {
+      "bonus": {
+        "derived": "proficiency_bonus"
+      }
+    },
+    "proficiencyTiers": [
+      {
+        "id": "none",
+        "label": "Not proficient",
+        "multiplier": 0
+      },
+      {
+        "id": "half",
+        "label": "Half proficiency",
+        "multiplier": 0.5,
+        "round": "down"
+      },
+      {
+        "id": "proficient",
+        "label": "Proficient",
+        "multiplier": 1
+      },
+      {
+        "id": "expertise",
+        "label": "Expertise",
+        "multiplier": 2
+      }
+    ],
+    "advantage": true,
+    "naturals": {
+      "$comment": "2014 rules: a natural 20 or 1 decides attack rolls only. Checks and saves are pure arithmetic, unlike Marinara's own rules.",
+      "check": "none",
+      "save": "none"
+    },
+    "difficultyLadder": [
+      {
+        "label": "Very easy",
+        "dc": 5
+      },
+      {
+        "label": "Easy",
+        "dc": 10
+      },
+      {
+        "label": "Medium",
+        "dc": 15
+      },
+      {
+        "label": "Hard",
+        "dc": 20
+      },
+      {
+        "label": "Very hard",
+        "dc": 25
+      },
+      {
+        "label": "Nearly impossible",
+        "dc": 30
+      }
+    ]
+  },
+  "sheet": {
+    "version": 1,
+    "sections": [
+      {
+        "id": "identity",
+        "label": "Identity"
+      },
+      {
+        "id": "combat",
+        "label": "Combat"
+      },
+      {
+        "id": "spellcasting",
+        "label": "Spellcasting"
+      }
+    ],
+    "abilities": [
+      {
+        "id": "str",
+        "label": "Strength",
+        "short": "STR",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      },
+      {
+        "id": "dex",
+        "label": "Dexterity",
+        "short": "DEX",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      },
+      {
+        "id": "con",
+        "label": "Constitution",
+        "short": "CON",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      },
+      {
+        "id": "int",
+        "label": "Intelligence",
+        "short": "INT",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      },
+      {
+        "id": "wis",
+        "label": "Wisdom",
+        "short": "WIS",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      },
+      {
+        "id": "cha",
+        "label": "Charisma",
+        "short": "CHA",
+        "min": 1,
+        "max": 30,
+        "default": 10
+      }
+    ],
+    "saves": [
+      {
+        "id": "str_save",
+        "label": "Strength save",
+        "ability": "str"
+      },
+      {
+        "id": "dex_save",
+        "label": "Dexterity save",
+        "ability": "dex"
+      },
+      {
+        "id": "con_save",
+        "label": "Constitution save",
+        "ability": "con"
+      },
+      {
+        "id": "int_save",
+        "label": "Intelligence save",
+        "ability": "int"
+      },
+      {
+        "id": "wis_save",
+        "label": "Wisdom save",
+        "ability": "wis"
+      },
+      {
+        "id": "cha_save",
+        "label": "Charisma save",
+        "ability": "cha"
+      }
+    ],
+    "saveTiers": ["none", "proficient"],
+    "skills": [
+      {
+        "id": "acrobatics",
+        "label": "Acrobatics",
+        "ability": "dex"
+      },
+      {
+        "id": "animal_handling",
+        "label": "Animal Handling",
+        "ability": "wis"
+      },
+      {
+        "id": "arcana",
+        "label": "Arcana",
+        "ability": "int"
+      },
+      {
+        "id": "athletics",
+        "label": "Athletics",
+        "ability": "str"
+      },
+      {
+        "id": "deception",
+        "label": "Deception",
+        "ability": "cha"
+      },
+      {
+        "id": "history",
+        "label": "History",
+        "ability": "int"
+      },
+      {
+        "id": "insight",
+        "label": "Insight",
+        "ability": "wis"
+      },
+      {
+        "id": "intimidation",
+        "label": "Intimidation",
+        "ability": "cha"
+      },
+      {
+        "id": "investigation",
+        "label": "Investigation",
+        "ability": "int"
+      },
+      {
+        "id": "medicine",
+        "label": "Medicine",
+        "ability": "wis"
+      },
+      {
+        "id": "nature",
+        "label": "Nature",
+        "ability": "int"
+      },
+      {
+        "id": "perception",
+        "label": "Perception",
+        "ability": "wis"
+      },
+      {
+        "id": "performance",
+        "label": "Performance",
+        "ability": "cha"
+      },
+      {
+        "id": "persuasion",
+        "label": "Persuasion",
+        "ability": "cha"
+      },
+      {
+        "id": "religion",
+        "label": "Religion",
+        "ability": "int"
+      },
+      {
+        "id": "sleight_of_hand",
+        "label": "Sleight of Hand",
+        "ability": "dex"
+      },
+      {
+        "id": "stealth",
+        "label": "Stealth",
+        "ability": "dex"
+      },
+      {
+        "id": "survival",
+        "label": "Survival",
+        "ability": "wis"
+      }
+    ],
+    "fields": [
+      {
+        "id": "level",
+        "label": "Level",
+        "type": "number",
+        "min": 1,
+        "max": 20,
+        "default": 1,
+        "section": "identity"
+      },
+      {
+        "id": "class",
+        "label": "Class",
+        "type": "text",
+        "maxLength": 80,
+        "section": "identity"
+      },
+      {
+        "id": "subclass",
+        "label": "Subclass",
+        "type": "text",
+        "maxLength": 80,
+        "section": "identity"
+      },
+      {
+        "id": "race",
+        "label": "Race",
+        "type": "text",
+        "maxLength": 80,
+        "section": "identity"
+      },
+      {
+        "id": "background",
+        "label": "Background",
+        "type": "text",
+        "maxLength": 80,
+        "section": "identity"
+      },
+      {
+        "id": "alignment",
+        "label": "Alignment",
+        "type": "text",
+        "maxLength": 40,
+        "section": "identity"
+      },
+      {
+        "id": "xp",
+        "label": "Experience points",
+        "type": "number",
+        "min": 0,
+        "max": 999999,
+        "default": 0,
+        "section": "identity"
+      },
+      {
+        "id": "ac",
+        "label": "Armor Class",
+        "type": "number",
+        "min": 0,
+        "max": 40,
+        "default": 10,
+        "section": "combat"
+      },
+      {
+        "id": "speed",
+        "label": "Speed (ft)",
+        "type": "number",
+        "min": 0,
+        "max": 300,
+        "default": 30,
+        "section": "combat"
+      },
+      {
+        "id": "initiative_misc",
+        "label": "Initiative bonus (other)",
+        "type": "number",
+        "min": -10,
+        "max": 20,
+        "default": 0,
+        "section": "combat"
+      },
+      {
+        "id": "hp_max",
+        "label": "Hit point maximum",
+        "type": "number",
+        "min": 1,
+        "max": 999,
+        "default": 8,
+        "section": "combat"
+      },
+      {
+        "id": "hit_die",
+        "label": "Hit die",
+        "type": "enum",
+        "values": ["d6", "d8", "d10", "d12"],
+        "default": "d8",
+        "section": "combat"
+      },
+      {
+        "id": "spellcasting_ability",
+        "label": "Spellcasting ability",
+        "type": "enum",
+        "values": ["none", "int", "wis", "cha"],
+        "valueLabels": {
+          "none": "None",
+          "int": "Intelligence",
+          "wis": "Wisdom",
+          "cha": "Charisma"
+        },
+        "default": "none",
+        "section": "spellcasting"
+      },
+      {
+        "id": "slots_max_1",
+        "label": "1st-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_2",
+        "label": "2nd-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_3",
+        "label": "3rd-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_4",
+        "label": "4th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_5",
+        "label": "5th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_6",
+        "label": "6th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_7",
+        "label": "7th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_8",
+        "label": "8th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "slots_max_9",
+        "label": "9th-level slots",
+        "type": "number",
+        "min": 0,
+        "max": 9,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "pact_slots_max",
+        "label": "Pact Magic slots",
+        "type": "number",
+        "min": 0,
+        "max": 4,
+        "default": 0,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "pact_slot_level",
+        "label": "Pact slot level",
+        "type": "number",
+        "min": 1,
+        "max": 5,
+        "default": 1,
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      }
+    ],
+    "derived": [
+      {
+        "id": "proficiency_bonus",
+        "label": "Proficiency bonus",
+        "op": "stepTable",
+        "from": {
+          "field": "level"
+        },
+        "table": [
+          [1, 2],
+          [5, 3],
+          [9, 4],
+          [13, 5],
+          [17, 6]
+        ],
+        "section": "identity"
+      },
+      {
+        "id": "initiative",
+        "label": "Initiative",
+        "op": "sum",
+        "of": [
+          {
+            "abilityMod": "dex"
+          },
+          {
+            "field": "initiative_misc"
+          }
+        ],
+        "section": "combat"
+      },
+      {
+        "id": "passive_perception",
+        "label": "Passive Perception",
+        "op": "sum",
+        "of": [
+          {
+            "const": 10
+          },
+          {
+            "skillMod": "perception"
+          }
+        ],
+        "section": "combat"
+      },
+      {
+        "id": "spell_save_dc",
+        "label": "Spell save DC",
+        "op": "sum",
+        "of": [
+          {
+            "const": 8
+          },
+          {
+            "derived": "proficiency_bonus"
+          },
+          {
+            "abilityModFromField": "spellcasting_ability"
+          }
+        ],
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      },
+      {
+        "id": "spell_attack",
+        "label": "Spell attack bonus",
+        "op": "sum",
+        "of": [
+          {
+            "derived": "proficiency_bonus"
+          },
+          {
+            "abilityModFromField": "spellcasting_ability"
+          }
+        ],
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        }
+      }
+    ],
+    "lists": [
+      {
+        "id": "attacks",
+        "label": "Attacks",
+        "section": "combat",
+        "maxItems": 20,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 80,
+            "required": true
+          },
+          {
+            "id": "ability",
+            "label": "Ability",
+            "type": "enum",
+            "values": ["str", "dex", "con", "int", "wis", "cha"]
+          },
+          {
+            "id": "proficient",
+            "label": "Proficient",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "id": "bonus",
+            "label": "Other bonus",
+            "type": "number",
+            "min": -5,
+            "max": 10,
+            "default": 0
+          },
+          {
+            "id": "damage",
+            "label": "Damage dice",
+            "type": "dice",
+            "example": "1d8"
+          },
+          {
+            "id": "damage_type",
+            "label": "Damage type",
+            "type": "text",
+            "maxLength": 30
+          }
+        ]
+      },
+      {
+        "id": "spells",
+        "label": "Spells",
+        "section": "spellcasting",
+        "hideWhen": {
+          "field": "spellcasting_ability",
+          "equals": "none"
+        },
+        "maxItems": 150,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 80,
+            "required": true
+          },
+          {
+            "id": "level",
+            "label": "Level",
+            "type": "number",
+            "min": 0,
+            "max": 9,
+            "default": 0
+          },
+          {
+            "id": "prepared",
+            "label": "Prepared",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "id": "ritual",
+            "label": "Ritual",
+            "type": "boolean",
+            "default": false
+          },
+          {
+            "id": "concentration",
+            "label": "Concentration",
+            "type": "boolean",
+            "default": false
+          },
+          {
+            "id": "notes",
+            "label": "Notes",
+            "type": "text",
+            "maxLength": 300
+          }
+        ]
+      },
+      {
+        "id": "features",
+        "label": "Features and traits",
+        "maxItems": 60,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 80,
+            "required": true
+          },
+          {
+            "id": "text",
+            "label": "Description",
+            "type": "longtext",
+            "maxLength": 800
+          }
+        ]
+      },
+      {
+        "$comment": "Ki, Rage, Sorcery Points, Channel Divinity, Bardic Inspiration and the like, without shipping class tables. Each row is a live pool.",
+        "id": "counters",
+        "label": "Class resources",
+        "maxItems": 12,
+        "pools": {
+          "nameColumn": "name",
+          "maxColumn": "max",
+          "rechargeColumn": "recharge"
+        },
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 40,
+            "required": true
+          },
+          {
+            "id": "max",
+            "label": "Maximum",
+            "type": "number",
+            "min": 0,
+            "max": 99,
+            "default": 1
+          },
+          {
+            "id": "recharge",
+            "label": "Recharges on",
+            "type": "enum",
+            "values": ["short", "long", "none"],
+            "valueLabels": {
+              "short": "Short rest",
+              "long": "Long rest",
+              "none": "Never"
+            },
+            "default": "long"
+          }
+        ]
+      },
+      {
+        "id": "proficiencies",
+        "label": "Other proficiencies and languages",
+        "maxItems": 40,
+        "columns": [
+          {
+            "id": "name",
+            "label": "Name",
+            "type": "text",
+            "maxLength": 80,
+            "required": true
+          }
+        ]
+      }
+    ],
+    "live": {
+      "$comment": "Fast-changing state. Starts from the build when a game copies the sheet, and lives with the game-state snapshot so a swipe rewinds it.",
+      "pools": [
+        {
+          "id": "hp",
+          "label": "Hit points",
+          "max": {
+            "field": "hp_max"
+          },
+          "allowTemp": true
+        },
+        {
+          "id": "hit_dice",
+          "label": "Hit dice",
+          "max": {
+            "field": "level"
+          }
+        },
+        {
+          "id": "slots_1",
+          "label": "1st-level slots",
+          "max": {
+            "field": "slots_max_1"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_2",
+          "label": "2nd-level slots",
+          "max": {
+            "field": "slots_max_2"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_3",
+          "label": "3rd-level slots",
+          "max": {
+            "field": "slots_max_3"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_4",
+          "label": "4th-level slots",
+          "max": {
+            "field": "slots_max_4"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_5",
+          "label": "5th-level slots",
+          "max": {
+            "field": "slots_max_5"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_6",
+          "label": "6th-level slots",
+          "max": {
+            "field": "slots_max_6"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_7",
+          "label": "7th-level slots",
+          "max": {
+            "field": "slots_max_7"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_8",
+          "label": "8th-level slots",
+          "max": {
+            "field": "slots_max_8"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "slots_9",
+          "label": "9th-level slots",
+          "max": {
+            "field": "slots_max_9"
+          },
+          "group": "slots",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        },
+        {
+          "id": "pact_slots",
+          "label": "Pact Magic slots",
+          "max": {
+            "field": "pact_slots_max"
+          },
+          "group": "pact",
+          "hideWhen": {
+            "field": "spellcasting_ability",
+            "equals": "none"
+          }
+        }
+      ],
+      "tracks": [
+        {
+          "id": "death_save_successes",
+          "label": "Death save successes",
+          "min": 0,
+          "max": 3
+        },
+        {
+          "id": "death_save_failures",
+          "label": "Death save failures",
+          "min": 0,
+          "max": 3
+        },
+        {
+          "id": "exhaustion",
+          "label": "Exhaustion",
+          "min": 0,
+          "max": 6
+        }
+      ],
+      "text": [
+        {
+          "id": "concentration",
+          "label": "Concentrating on",
+          "maxLength": 80
+        }
+      ],
+      "conditions": [
+        {
+          "id": "blinded",
+          "label": "Blinded"
+        },
+        {
+          "id": "charmed",
+          "label": "Charmed"
+        },
+        {
+          "id": "deafened",
+          "label": "Deafened"
+        },
+        {
+          "id": "frightened",
+          "label": "Frightened"
+        },
+        {
+          "id": "grappled",
+          "label": "Grappled"
+        },
+        {
+          "id": "incapacitated",
+          "label": "Incapacitated"
+        },
+        {
+          "id": "invisible",
+          "label": "Invisible"
+        },
+        {
+          "id": "paralyzed",
+          "label": "Paralyzed"
+        },
+        {
+          "id": "petrified",
+          "label": "Petrified"
+        },
+        {
+          "id": "poisoned",
+          "label": "Poisoned"
+        },
+        {
+          "id": "prone",
+          "label": "Prone"
+        },
+        {
+          "id": "restrained",
+          "label": "Restrained"
+        },
+        {
+          "id": "stunned",
+          "label": "Stunned"
+        },
+        {
+          "id": "unconscious",
+          "label": "Unconscious"
+        }
+      ]
+    }
+  },
+  "rests": [
+    {
+      "$comment": "Spending hit dice is a player choice made on the sheet; the rest itself does not spend them.",
+      "id": "short",
+      "label": "Short rest",
+      "restore": [
+        {
+          "pool": "pact_slots",
+          "to": "max"
+        },
+        {
+          "listPools": "counters",
+          "recharge": ["short"],
+          "to": "max"
+        }
+      ]
+    },
+    {
+      "id": "long",
+      "label": "Long rest",
+      "restore": [
+        {
+          "pool": "hp",
+          "to": "max"
+        },
+        {
+          "poolGroup": "slots",
+          "to": "max"
+        },
+        {
+          "pool": "pact_slots",
+          "to": "max"
+        },
+        {
+          "pool": "hit_dice",
+          "by": {
+            "fractionOfMax": 0.5,
+            "round": "down",
+            "min": 1
+          }
+        },
+        {
+          "listPools": "counters",
+          "recharge": ["short", "long"],
+          "to": "max"
+        },
+        {
+          "track": "exhaustion",
+          "by": {
+            "const": -1
+          }
+        },
+        {
+          "track": "death_save_successes",
+          "to": 0
+        },
+        {
+          "track": "death_save_failures",
+          "to": 0
+        }
+      ],
+      "clear": {
+        "text": ["concentration"]
+      }
+    }
+  ],
+  "gm": {
+    "checkGuidance": "This game uses 5e rules from SRD 5.1. Call for an ability check, skill check or saving throw only when the outcome is uncertain and failure is interesting. Name the skill or the save and set a DC from the ladder below. Never add modifiers, never state a total and never decide the result: the Engine applies the character sheet and reports the outcome. A natural 20 or natural 1 has no special effect on checks or saves.",
+    "sheetGuidance": "The character sheets below are authoritative. A character can only cast a spell that is on their sheet and only with a slot they still have. When a character spends or regains a resource, takes damage, heals, gains or loses a condition, or rests, record it with the sheet command. If a command is refused, the fiction did not happen: narrate around it.",
+    "sheetSummary": {
+      "fields": ["level", "class", "ac", "speed"],
+      "derived": ["proficiency_bonus", "passive_perception", "spell_save_dc", "spell_attack"],
+      "lists": [
+        {
+          "list": "spells",
+          "nameColumn": "name",
+          "groupBy": "level",
+          "onlyWhen": "prepared"
+        },
+        {
+          "list": "attacks",
+          "nameColumn": "name"
+        }
+      ]
+    }
+  }
+}

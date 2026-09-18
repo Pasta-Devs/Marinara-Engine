@@ -12,6 +12,8 @@ import {
   getCapabilityApiCompatibilityIssue,
   GM_VERB_TABLE_ASSET_PATH,
   GM_VERB_TABLE_MAX_BYTES,
+  RULESET_ASSET_PATH,
+  RULESET_MAX_BYTES,
   isInstalledCapabilityReady,
   installedCapabilityRegistrySchema,
   installedCapabilityPackageSchema,
@@ -486,6 +488,18 @@ export function getCapabilityPackageInstallIssue(manifest: CapabilityCatalogPack
   }
   if (manifest.permissions.includes("routes") && !manifest.restartRequired) {
     return "Packages with privileged routes must require a restart";
+  }
+  // The ruleset IS the package, so one that declares the kind without the asset would install and
+  // then do nothing at all.
+  const declaresRuleset = (manifest.contributions?.assets?.paths ?? []).some((path) => {
+    try {
+      return normalizeArchivePath(path) === RULESET_ASSET_PATH;
+    } catch {
+      return false;
+    }
+  });
+  if (manifest.kind.includes("ruleset") && !declaresRuleset) {
+    return `Ruleset packages must list ${RULESET_ASSET_PATH} in contributions.assets.paths`;
   }
   return null;
 }
@@ -1249,6 +1263,60 @@ export const capabilityPackageManager = {
       );
       return null;
     }
+  },
+
+  /** Every ready package's `ruleset.json`, verified, for the ruleset registry. Same discipline as
+   *  `gmVerbTableSource`: declared as an asset, hash-pinned in `files[]`, refused on its DECLARED
+   *  size before the read, and re-verified against the install-time hash. A ruleset is inert data
+   *  that needs no permission, so there is no permission gate here. Never throws. */
+  async rulesetSources(): Promise<Array<{ packageId: string; data: Buffer }>> {
+    const sources: Array<{ packageId: string; data: Buffer }> = [];
+    const tryNormalize = (path: string): string | null => {
+      try {
+        return normalizeArchivePath(path);
+      } catch {
+        return null;
+      }
+    };
+    for (const installed of (await readRegistry()).packages) {
+      const declared = installed.manifest.contributions?.assets?.paths ?? [];
+      if (!declared.some((path) => tryNormalize(path) === RULESET_ASSET_PATH)) continue;
+      if (!isInstalledCapabilityReady(installed)) {
+        logger.info(
+          "[capability/rulesets] Package %s is not ready (status=%s); its ruleset stays unavailable until restart",
+          installed.id,
+          installed.status,
+        );
+        continue;
+      }
+      const declaration = installed.manifest.files.find((item) => tryNormalize(item.path) === RULESET_ASSET_PATH);
+      if (!declaration) {
+        logger.warn(
+          "[capability/rulesets] Package %s declares %s as an asset but does not list it in files[]",
+          installed.id,
+          RULESET_ASSET_PATH,
+        );
+        continue;
+      }
+      if (declaration.bytes > RULESET_MAX_BYTES) {
+        logger.warn(
+          "[capability/rulesets] Package %s declares a %d-byte ruleset over the %d-byte ceiling; refused unread",
+          installed.id,
+          declaration.bytes,
+          RULESET_MAX_BYTES,
+        );
+        continue;
+      }
+      try {
+        sources.push({
+          packageId: installed.id,
+          data: (await readVerifiedInstalledPackageFile(installed, RULESET_ASSET_PATH)).data,
+        });
+      } catch (error) {
+        logger.error(error, "[capability/rulesets] Ruleset for %s failed integrity verification", installed.id);
+      }
+    }
+    return sources;
   },
 
   async markRuntimeStatus(

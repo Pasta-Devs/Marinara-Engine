@@ -664,6 +664,52 @@ Desktop uses a browse list with an adjacent detail region. Mobile uses one pane 
 
 An extraction is complete only when the base production client and server bundles no longer contain the package implementation, a fresh install cannot activate it without downloading the package, an upgraded install retains it, and package install/update/uninstall passes on desktop, mobile, and Termux-compatible filesystems.
 
+### Capability API 1.20: Game Mode rulesets
+
+A ruleset is a game's rules as validated data: a resolution kind the Engine already implements, a
+character sheet declared from a closed set of primitives, rests, and guidance for the Game Master
+prompt. A package ships it as the reserved-filename asset `ruleset.json`, discovered by convention
+exactly like `gm-verbs.json`: listed in `contributions.assets.paths` and hash-pinned in `files[]`.
+
+```json
+{
+  "schemaVersion": 2,
+  "capabilityApi": { "major": 1, "minor": 20 },
+  "id": "ruleset-5e-2014",
+  "kind": ["ruleset"],
+  "permissions": [],
+  "entrypoints": {},
+  "contributions": { "assets": { "paths": ["ruleset.json"] } },
+  "files": [{ "path": "ruleset.json", "sha256": "<sha256 of the file>", "bytes": 25767 }]
+}
+```
+
+The snippet shows only the keys that matter to a ruleset; the usual manifest fields (`name`,
+`version`, `description`, `engine`, `builtAgainst`) are still required.
+
+A ruleset package needs no permission, no server or client entrypoint and no agent. Nothing in the
+file is executed: there are no expression strings, and a mechanic that no resolution kind expresses
+is an Engine change that adds a kind, not something a ruleset can do. The format, the first-party 5e
+file and the reasons behind its shape are in
+[`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md).
+
+This is not a soft seam. A ruleset package does nothing on an Engine that cannot read it, so a
+manifest that lists `ruleset.json` must declare Capability API 1.20, and an older Engine refuses the
+install cleanly.
+
+The Engine refuses the asset on its declared size above 256 KB before reading it, re-verifies it
+against the install-time hash, and validates it with the strict shared schema
+(`packages/shared/src/schemas/ruleset.schema.ts`). A file it cannot use is dropped with one log line
+that names the package and the first few `path: message` problems. Two packages that declare the same
+ruleset id resolve to the first in package-id order, and the other is dropped with a log line.
+`engine-legacy` and `traditional` are Engine-owned ids a file may not claim.
+
+A game pins its ruleset once, at creation, as `chat.metadata.gameRuleset`. No pin means the Engine's
+own rules, exactly as before. A pin the install cannot honour (the package is gone, or the installed
+definition is older than the pinned version) is reported as unavailable and never reinterpreted as
+another ruleset. The pin is matched on the ruleset id and on the package that supplied it, so
+another package claiming the same id does not take over an existing game.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema
