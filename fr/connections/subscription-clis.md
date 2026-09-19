@@ -98,6 +98,14 @@ Deux particularités du CLI Grok. Il ne fait pas de streaming (affichage au fil 
 
 Pour charger les modèles Grok, utilise le bouton **Fetch Models from Grok CLI** dans la section **Model**.
 
+## Durée du cache de prompts Claude
+
+Dans l'éditeur de connexion Claude, **Prompt Caching → Extended token caching (1 hour)** demande un cache d'une heure pour permettre des pauses plus longues entre les messages. Il faut Claude Code **2.1.242 ou une version ultérieure**. Marinara transmet ce réglage pour la requête sans modifier tes paramètres Claude enregistrés.
+
+Quand l'option est désactivée, les conversations principales et les requêtes de l'Agent SDK conservent le comportement par défaut de Claude : actuellement une heure pour l'usage par abonnement dans les limites du forfait, et cinq minutes pour l'usage supplémentaire, les crédits ou la facturation API. Les sous-agents de Claude Code utilisent cinq minutes sans configuration distincte ; certaines requêtes auxiliaires contrôlées par le serveur peuvent utiliser une heure. Les variables d'environnement du CLI qui remplacent cette valeur restent prioritaires. Consulte [le cache de prompts de Claude Code](https://code.claude.com/docs/en/prompt-caching).
+
+Les journaux de débogage distinguent les écritures en cache de cinq minutes et d'une heure à partir de l'usage indiqué par le SDK. Les coûts équivalents utilisent les multiplicateurs habituels des tokens de l'API, pas ta facture d'abonnement. Si le SDK ne fournit pas la répartition par durée, l'estimation reste inconnue.
+
 ## Pourquoi il n'y a pas de champ de clé API
 
 Chez les trois fournisseurs par abonnement, les champs **API Key** et **Base URL** sont masqués. C'est voulu. L'identification vit à l'intérieur du CLI, sur la machine du serveur : tu n'as donc rien à taper dans Marinara.

@@ -1,6 +1,6 @@
 {
   "language": "es",
-  "sourceCommit": "119de3f03e1dfb100789234f0d4d54d741da3fe8",
+  "sourceCommit": "d71106851",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -224,8 +224,8 @@
     },
     {
       "path": "connections/subscription-clis.md",
-      "sha256": "17daf2b46bac2aae62e85abb5239463a8ca55bb7d1bd98b2fc0c47a82b07bc75",
-      "bytes": 8086
+      "sha256": "bb147130a278738f9cc108f54d6cf08e5ba7eb9438c1359133b4ba2c4b8e8f16",
+      "bytes": 9423
     },
     {
       "path": "conversation/calls.md",

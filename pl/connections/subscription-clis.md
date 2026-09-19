@@ -98,6 +98,14 @@ Grok CLI ma dwie osobliwości. Nie obsługuje streamingu, czyli tekstu pojawiaj�
 
 Modele Grok wczytasz przyciskiem **Fetch Models from Grok CLI** w sekcji **Model**.
 
+## Czas przechowywania promptów w pamięci podręcznej Claude
+
+W edytorze połączenia Claude opcja **Prompt Caching → Extended token caching (1 hour)** żąda przechowywania cache przez godzinę, co pozwala na dłuższe przerwy między wiadomościami. Wymaga Claude Code w wersji **2.1.242 lub nowszej**. Aplikacja Marinara przekazuje to ustawienie dla danego żądania, bez zmieniania zapisanych ustawień Claude.
+
+Gdy opcja jest wyłączona, główne rozmowy i żądania Agent SDK korzystają z domyślnych ustawień Claude: obecnie godziny dla użycia w ramach limitów subskrypcji oraz pięciu minut dla dodatkowego użycia, kredytów lub rozliczeń API. Własne podagenty Claude Code korzystają z pięciu minut, jeśli nie skonfigurowano ich osobno; wybrane żądania pomocnicze sterowane przez serwer mogą korzystać z godziny. Istniejące zmienne środowiskowe CLI nadpisujące tę wartość nadal mają pierwszeństwo. Zobacz [pamięć podręczną promptów w Claude Code](https://code.claude.com/docs/en/prompt-caching).
+
+Logi debugowania rozróżniają zapisy cache na pięć minut i na godzinę na podstawie danych o użyciu zgłaszanych przez SDK. Odpowiedniki kosztów korzystają ze standardowych mnożników cen tokenów API, a nie z rachunku za subskrypcję. Gdy SDK nie podaje podziału zapisów według czasu przechowywania, szacowany koszt pozostaje nieznany.
+
 ## Dlaczego nie ma pola na klucz API
 
 U wszystkich trzech dostawców abonamentowych pola **API Key** i **Base URL** są ukryte. Tak ma być. Logowanie siedzi wewnątrz narzędzia CLI na komputerze z serwerem, więc w aplikacji Marinara Engine nie ma czego wpisywać.

@@ -98,6 +98,14 @@ Grok CLI 有两点比较特别。一是它不支持流式输出，回复会一�
 
 要加载 Grok 模型列表，用 **Model** 区域里的 **Fetch Models from Grok CLI** 按钮。
 
+## Claude 提示词缓存时长
+
+Claude 连接编辑器中的 **Prompt Caching → Extended token caching (1 hour)** 会请求保留 1 小时的缓存，方便在消息之间暂停更长时间。需要 Claude Code **2.1.242 或更高版本**。Marinara 只为当前请求传入这个设置，不会修改已保存的 Claude 设置。
+
+关闭后，主对话和 Agent SDK 请求沿用 Claude 的默认行为：目前，订阅套餐额度内的使用保留 1 小时，额外用量、积分或 API 计费保留 5 分钟。Claude Code 自身的子代理在未单独配置时使用 5 分钟；部分由服务器控制的辅助请求可能使用 1 小时。覆盖这个值的现有 CLI 环境变量仍然优先。参见 [Claude Code 提示词缓存](https://code.claude.com/docs/en/prompt-caching)。
+
+调试日志根据 SDK 返回的用量，分别记录 5 分钟和 1 小时的缓存写入。费用折算使用标准 API Token 价格倍率，并不代表订阅账单；如果 SDK 没有按缓存时长提供写入明细，估算费用就会保持未知。
+
 ## 为什么没有 API 密钥输入框
 
 这 3 个订阅服务商都会隐藏 **API Key** 和 **Base URL** 输入框，这是有意为之。登录信息保存在服务器那台机器的 CLI 里，所以没有什么需要往 Marinara 里填。
