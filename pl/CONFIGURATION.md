@@ -202,6 +202,10 @@ Logowanie po stronie przeglądarki jest osobne i `LOG_LEVEL` nie ma na nie wpły
 
 Limit czasu to najdłuższy czas, jaki serwer czeka na powolne zadanie, zanim je przerwie. Zadania multimedialne, takie jak generowanie obrazów i wideo, bywają powolne, więc ich limity są domyślnie wysokie. Wszystkie wartości limitów podaje się w milisekundach, chyba że nazwa mówi inaczej.
 
+Otwórz **Settings → Advanced → Request timeouts**, aby ustawić w sekundach limity dla tekstu, agentów, promptów obrazów w Game, obrazów, wideo, ComfyUI i embeddingów. Wyższe limity dają wolnym lokalnym backendom więcej czasu na zakończenie pracy, ale nie mogą obejść limitu narzuconego przez dostawcę. Zapis wymaga uprawnień administratora serwera.
+
+Te ustawienia obejmują wszystkie profile i są zapisywane obok aktywnego pliku `.env` jako `.env.timeouts.json` (lub `<custom-env-path>.timeouts.json`). Mają pierwszeństwo przed odpowiednimi zmiennymi środowiskowymi bez przepisywania `.env`. Zmiany dla tekstu, agentów, promptów obrazów w Game i embeddingów obowiązują od następnego żądania. Uruchom ponownie serwer, aby zastosować zmiany dotyczące multimediów i zainstalowanych pakietów agentów. Aby wrócić do konfiguracji środowiskowej, usuń plik ustawień limitów czasu i uruchom ponownie serwer.
+
 | Zmienna | Domyślnie | Do czego służy |
 | --- | --- | --- |
 | `CHAT_GENERATION_TIMEOUT_MS` | `300000` (5 minut) | Limit czasu na nagłówki dostawcy i pierwszy token oraz limit przerwy między fragmentami przy zwykłym generowaniu w trybach Conversation, Roleplay i Game, a także budżet czasu na pierwszy bajt dla generowania w tle, które nie ma własnego limitu (odświeżanie osi czasu w zakładce Noodle, odpowiedzi kont Noodler). Dozwolony zakres: `10000`-`3600000`. Nie zmienia limitów dla agentów, multimediów, embeddingów ani narzędzi. |

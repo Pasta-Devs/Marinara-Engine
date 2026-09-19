@@ -202,6 +202,10 @@ O log do navegador é separado e não obedece a `LOG_LEVEL`.
 
 Um tempo limite é o tempo máximo que o servidor espera por uma tarefa lenta antes de desistir. Tarefas de mídia, como a geração de imagens e de vídeos, podem demorar, então os tempos limite delas já vêm generosos. Todos os valores de tempo limite são em milissegundos, salvo quando o nome diz outra coisa.
 
+Abra **Settings → Advanced → Request timeouts** para ajustar em segundos os limites de texto, agentes, prompts de imagem do Game, imagens, vídeos, ComfyUI e embeddings. Limites maiores dão mais tempo para backends locais lentos terminarem, mas não podem substituir um limite imposto pelo próprio provedor. É preciso ter acesso de administração do servidor para salvar.
+
+Essas configurações valem para todos os perfis e são salvas ao lado do `.env` ativo como `.env.timeouts.json` (ou `<custom-env-path>.timeouts.json`). Elas têm prioridade sobre as variáveis de ambiente correspondentes sem reescrever seu `.env`. Mudanças de texto, agentes, prompts de imagem do Game e embeddings valem para novas solicitações. Reinicie o servidor para aplicar mudanças de mídia e atualizar os pacotes de agentes instalados. Para voltar à configuração do ambiente, remova o arquivo de tempos limite e reinicie o servidor.
+
 | Variável | Padrão | O que faz |
 | --- | --- | --- |
 | `CHAT_GENERATION_TIMEOUT_MS` | `300000` (5 minutos) | Tempo limite de cabeçalhos do provedor, de primeiro token e entre pedaços da resposta nas gerações comuns de Conversation, Roleplay e Game, além do prazo até o primeiro byte para gerações em segundo plano que não têm tempo limite próprio (atualização da linha do tempo do Noodle, respostas do Noodler). Faixa válida: `10000`-`3600000`. Não altera os tempos limite de agentes, mídia, embeddings ou ferramentas. |
