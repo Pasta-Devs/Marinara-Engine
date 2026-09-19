@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { DEFAULT_COMFYUI_DEFAULTS } from "../../packages/shared/src/constants/image-generation-defaults.js";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import type { Socket } from "node:net";
@@ -129,6 +130,17 @@ try {
   );
   const result = await generateImage("swarmui", `http://127.0.0.1:${address.port}`, "regression-token", "swarmui", {
     prompt: "timeout regression",
+    referenceImage: png.toString("base64"),
+    imageDefaults: {
+      version: 1,
+      service: "comfyui",
+      seed: 7,
+      comfyui: {
+        ...DEFAULT_COMFYUI_DEFAULTS,
+        saveToBackend: true,
+        loras: [{ model: "character.safetensors", strength: 0.7 }],
+      },
+    },
   });
   assert.equal(result.mimeType, "image/png");
   assert.equal(result.base64, png.toString("base64"));
@@ -137,6 +149,10 @@ try {
   assert.match(webSocketCookie, /(?:^|;\s*)swarm_token=regression-token(?:;|$)/u);
   assert.equal(generationBody?.session_id, "regression-session");
   assert.equal(generationBody?.prompt, "timeout regression");
+  assert.equal(generationBody?.donotsave, false);
+  assert.equal(generationBody?.loras, "character.safetensors");
+  assert.equal(generationBody?.loraweights, "0.7");
+  assert.equal(generationBody?.promptimages, `data:image/png;base64,${png.toString("base64")}`);
 } finally {
   for (const socket of upgradedSockets) socket.destroy();
   await new Promise<void>((resolve, reject) => {

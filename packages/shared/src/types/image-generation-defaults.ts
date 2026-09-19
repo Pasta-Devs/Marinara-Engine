@@ -27,6 +27,8 @@ export interface ComfyUiDefaults {
   denoisingStrength: number;
   clipSkip: number | null;
   uploadPlaceholderOnMissingReference: boolean;
+  /** SwarmUI: also keep generated images in the backend's output folder. */
+  saveToBackend?: boolean;
   loras: ComfyUiLoraSetting[];
 }
 

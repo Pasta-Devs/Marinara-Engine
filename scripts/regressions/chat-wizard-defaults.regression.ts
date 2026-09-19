@@ -30,6 +30,7 @@ const chat = {
   }),
 } as unknown as Chat;
 const saved = captureChatWizardDefaults(chat, { autonomousMessages: false, characterCommands: true });
+assert.ok(!Object.hasOwn(saved, "name"), "Reusable setup must not capture the conversation name");
 assert.deepEqual(saved.characterIds, ["a", "b"]);
 assert.equal(saved.connectionId, "connection");
 assert.equal(saved.personaId, null);

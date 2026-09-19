@@ -4,6 +4,18 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Settings now groups text, agent, image, video, ComfyUI and embedding timeout controls for slow backends. Saved limits persist across restarts; media and installed-package changes identify when a restart is needed (#6363).
+- Built-in agents can select which context sources they receive, and preserve those selections on save, export and reload. Grouped agents retain the union of their selected sources (#6356).
+- SwarmUI image connections can keep generated files in the backend, send selected LoRAs and their weights, and pass reference images through the native generation API (#6350).
+- Completion sounds and browser/native alerts wait until automatic output translation has finished saving, including a fallback notification if translation fails (#6352).
+- OpenAI-compatible agent calls finish at the stream's completion marker even when the provider keeps the HTTP connection open (#6349).
+- Saved chat defaults reuse setup choices without capturing or overwriting the new chat's name (#6355).
+- The mobile chat setup wizard keeps its footer inside the available screen when Commands are expanded (#6354).
+- Long Game narration can use more of the mobile screen while short messages stay compact (#6351).
+- Agent category buttons show their full labels, and the Personas empty state now reads “No personas yet” (#6357, #6358).
+- Home lifecycle checks scale their heap allowance with the warmed app while retaining structural leak checks. Storage shutdown regressions use production logging and verify that every autosave exit hook is released (#6353, #6360).
+- Claude cache-duration documentation distinguishes Agent SDK requests from Claude Code subagents; all ten translated guides now explain the setting (#6344).
+
 - Game Mode rulesets can lend their character sheets to battles with a new optional `battle` block. A fight starts on the sheet's health, energy and spell slots, and the health lost or regained and the resources spent are written back when it ends. The block names which sheet lists supply skills: a row picked from a catalog becomes a usable skill when its catalog entry describes what it does, and rows in other lists, typed by hand, or without that description are left out. Health is carried as a share of the maximum both ways, because the numbers in battle are Marinara's: a character at half health on the sheet starts at half the battle's health bar. Battles still use Marinara's own combat math, attack rolls, saving throws and concentration are not applied, an abandoned fight writes nothing back, and a ruleset without the block leaves combat unchanged. Ruleset packages that ship the block need Capability API 1.22.
 - Returning to a chat while a background translation is being saved now replaces the old translation correctly when Show Only Translation is enabled (#6337).
 - Game Features switches share consistent track sizing and thumb spacing, including custom HUD widgets and narrow mobile layouts (#6339).

@@ -11,7 +11,7 @@ import * as schema from "../db/schema/index.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { ADMIN_RESTART_RATE_LIMIT, AVATAR_STORAGE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { logger } from "../lib/logger.js";
-import { isDockerRuntime } from "../config/runtime-config.js";
+import { getRequestTimeoutSettings, saveRequestTimeoutSettings, isDockerRuntime } from "../config/runtime-config.js";
 import { noteSessionExitKind } from "../lib/session-postmortem.js";
 import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
 import {
@@ -66,6 +66,12 @@ function isValidScope(scope: unknown): scope is ExpungeScope {
 
 export async function adminRoutes(app: FastifyInstance) {
   let restartScheduled = false;
+
+  app.get("/request-timeouts", () => getRequestTimeoutSettings());
+  app.put("/request-timeouts", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Request timeout settings" })) return;
+    return saveRequestTimeoutSettings(req.body);
+  });
 
   app.post<{ Body: { confirm?: boolean } }>(
     "/restart",

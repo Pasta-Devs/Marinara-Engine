@@ -3934,6 +3934,16 @@ function ImageGenerationDefaultsPanel({
                   className="bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]"
                   labelClassName="text-[var(--foreground)]"
                 />
+                {source === "swarmui" && (
+                  <SettingsCheckbox
+                    label={localizeUi("connections.mediaSources.swarmui.saveToBackend")}
+                    description={localizeUi("connections.mediaSources.swarmui.saveToBackendHelp")}
+                    checked={comfyui.saveToBackend === true}
+                    onChange={(checked) => updateComfyUi({ saveToBackend: checked })}
+                    className="bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]"
+                    labelClassName="text-[var(--foreground)]"
+                  />
+                )}
                 <ComfyUiLoraSettings
                   idPrefix="image-comfyui"
                   value={comfyui.loras}

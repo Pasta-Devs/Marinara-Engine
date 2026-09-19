@@ -19,6 +19,8 @@ dist/
 
 # Environment (may contain encryption keys)
 .env
+.env.timeouts.json
+.env.timeouts.json.*.tmp
 .env.local
 .env.production
 

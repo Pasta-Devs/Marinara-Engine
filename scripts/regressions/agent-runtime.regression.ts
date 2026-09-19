@@ -24,6 +24,7 @@ import { agentResultTypeSchema } from "../../packages/shared/src/schemas/agent.s
 import { resolveTrackerRowsUpdate } from "../../packages/shared/src/utils/tracker-updates.js";
 import {
   AGENT_RESULT_TYPE_VALUES,
+  getAgentContextSources,
   type AgentContext,
   type AgentResult,
 } from "../../packages/shared/src/types/agent.js";
@@ -31,6 +32,7 @@ import {
 class RecordingProvider extends BaseLLMProvider {
   calls = 0;
   options: ChatOptions[] = [];
+  messages: ChatMessage[][] = [];
 
   constructor(private readonly content = JSON.stringify({ text: "ok" })) {
     super("http://localhost", "");
@@ -40,8 +42,9 @@ class RecordingProvider extends BaseLLMProvider {
     return;
   }
 
-  override async chatComplete(_messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+  override async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
     this.calls += 1;
+    this.messages.push(messages);
     this.options.push(options);
     return {
       content: this.content,
@@ -712,3 +715,35 @@ for (const batchSize of [512, 4096, 32768]) {
 }
 
 console.log("Agent runtime regression checks passed.");
+
+// Built-in defaults stay intact; explicit selections also control batched prompts.
+assert.equal(getAgentContextSources({ settings: {} }).characters, true);
+assert.equal(getAgentContextSources({ settings: {} }).previousOutput, false);
+assert.equal(getAgentContextSources({ isCustomAgent: true, settings: {} }).characters, false);
+const selectedSources = { chatHistory: true, characters: false, persona: false };
+assert.equal(
+  getAgentContextSources({ settings: JSON.stringify({ contextSources: selectedSources }) }).characters,
+  false,
+);
+const selectiveAgent = {
+  ...makeAgent("world-state", "game_state_update"),
+  settings: { ...makeAgent("world-state").settings, contextSources: selectedSources },
+};
+const selectiveContext: AgentContext = {
+  ...context,
+  characters: [{ id: "char", name: "Alice", description: "UNIQUE_CHARACTER_CONTEXT" }],
+  persona: { name: "Reader", description: "UNIQUE_PERSONA_CONTEXT" },
+};
+const selectiveProvider = new RecordingProvider('{"weather":"rain"}');
+await executeAgent(selectiveAgent, selectiveContext, selectiveProvider, "agent-model");
+assert.doesNotMatch(JSON.stringify(selectiveProvider.messages), /UNIQUE_CHARACTER_CONTEXT|UNIQUE_PERSONA_CONTEXT/);
+const unionProvider = new RecordingProvider('{"world-state":{"weather":"rain"},"quest":{"quests":[]}}');
+await executeAgentBatch(
+  [selectiveAgent, makeAgent("quest", "quest_update")],
+  selectiveContext,
+  unionProvider,
+  "agent-model",
+);
+assert.equal(unionProvider.calls, 1, "agents with different context selections still share one request");
+assert.match(JSON.stringify(unionProvider.messages), /UNIQUE_CHARACTER_CONTEXT/);
+assert.match(JSON.stringify(unionProvider.messages), /UNIQUE_PERSONA_CONTEXT/);

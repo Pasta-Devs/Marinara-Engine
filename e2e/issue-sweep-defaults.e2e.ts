@@ -54,7 +54,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
         .click();
       chatId = (await (await created).json()).id;
       const wizard = page.locator('[data-component="ChatSetupWizard"]');
-      await expect(wizard.locator('input[type="text"]').first()).toHaveValue("Saved setup");
+      await expect(wizard.locator('input[type="text"]').first()).not.toHaveValue("Saved setup");
       await wizard.getByRole("button", { name: "Next", exact: true }).click();
       await wizard.getByRole("button", { name: "Next", exact: true }).click();
       const choices = page.getByRole("dialog", { name: "Configure Preset Variables" });
@@ -145,7 +145,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
       await expect(page.locator('[data-component="ChatSetupWizard"]')).toBeHidden();
       finishSync();
       const name = page.locator('[data-component="ChatSetupWizard"] input[type="text"]').first();
-      await expect(name).toHaveValue("Saved on another device");
+      await expect(name).toHaveValue("Fresh setup");
       await name.fill("My next choice");
       await name.blur();
       await expect
@@ -246,7 +246,7 @@ for (const theme of ["dark", "light"] as const) {
               mode,
             ),
           )
-          .toBe(`Saved ${mode}`);
+          .toBeUndefined();
         await testInfo.attach(`${mode}-defaults-${theme}`, {
           body: await page.screenshot({ path: testInfo.outputPath("wizard.png") }),
           contentType: "image/png",
@@ -259,7 +259,7 @@ for (const theme of ["dark", "light"] as const) {
         await page.evaluate((id) => localStorage.setItem("marinara-active-chat-id", id), nextId);
         await page.reload();
         await open();
-        await expect(nameInput).toHaveValue(`Saved ${mode}`);
+        await expect(nameInput).toHaveValue("Fresh setup");
         await lastStep();
         await wizard.getByRole("button", { name: "Reset defaults", exact: true }).click();
         await expect(nameInput).toHaveValue("Fresh setup");

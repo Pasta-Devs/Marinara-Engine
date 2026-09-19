@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "../../packages/server/src/db/file-query.js";
 import { fileTable, isFileUniqueConstraintError, text } from "../../packages/server/src/db/file-schema.js";
-import { createFileNativeDB, encodeShardKey } from "../../packages/server/src/db/file-backed-store.js";
+// Exercise storage shutdown without pino-pretty's unrelated worker lifetime.
+// Keep error logs, but use the same stdout transport as the production server.
+process.env.NODE_ENV = "production";
+const { createFileNativeDB, encodeShardKey } = await import("../../packages/server/src/db/file-backed-store.js");
+const beforeExitListeners = process.listenerCount("beforeExit");
 import { appSettings, customStickers, noodleInteractions } from "../../packages/server/src/db/schema/index.js";
 
 const appSettingsShardPath = (root: string, key: string) =>
@@ -357,3 +361,9 @@ try {
 } finally {
   rmSync(uniqueStorageDir, { recursive: true, force: true });
 }
+
+assert.equal(
+  process.listenerCount("beforeExit"),
+  beforeExitListeners,
+  "every closed store releases its autosave exit hook, including failed closes",
+);

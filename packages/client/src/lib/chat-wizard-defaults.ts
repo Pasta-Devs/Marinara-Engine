@@ -7,7 +7,6 @@ import { getChatCharacterIds } from "./chat-macros";
 
 export type ChatWizardMode = "conversation" | "roleplay";
 export interface ChatWizardDefaults {
-  name: string;
   connectionId: string | null;
   promptPresetId: string | null;
   personaId: string | null;
@@ -36,7 +35,6 @@ export function captureChatWizardDefaults(chat: Chat, overrides: Record<string, 
     };
   }
   return {
-    name: chat.name,
     connectionId: chat.connectionId ?? null,
     promptPresetId: chat.promptPresetId ?? null,
     personaId: chat.personaId ?? null,

@@ -29,7 +29,7 @@ import {
   MIN_AGENT_MAX_TOKENS,
   normalizeTrackerHiddenFields,
   normalizeCustomAgentCapabilities,
-  normalizeCustomAgentContextSources,
+  getAgentContextSources,
   previousAgentOutputText,
   publicAgentOutput,
   getDefaultAgentPrompt,
@@ -118,25 +118,7 @@ export interface AgentExecConfig {
   isCustomAgent: boolean;
 }
 
-const ALL_AGENT_CONTEXT_SOURCES: CustomAgentContextSources = {
-  chatHistory: true,
-  characters: true,
-  persona: true,
-  activatedLorebookEntries: true,
-  chatSummary: true,
-  authorNotes: true,
-  trackerData: true,
-  recalledMemories: true,
-  previousOutput: false,
-};
-
-function getAgentContextSources(
-  config: Pick<AgentExecConfig, "isCustomAgent" | "settings">,
-): CustomAgentContextSources {
-  return config.isCustomAgent || isRecord(config.settings.contextSources)
-    ? normalizeCustomAgentContextSources(config.settings)
-    : ALL_AGENT_CONTEXT_SOURCES;
-}
+const ALL_AGENT_CONTEXT_SOURCES = getAgentContextSources({ settings: {} });
 
 function getBatchContextSources(configs: Array<Pick<AgentExecConfig, "isCustomAgent" | "settings">>) {
   const combined: CustomAgentContextSources = {
@@ -1960,7 +1942,7 @@ function shouldRunAgentIndividually(config: Pick<AgentExecConfig, "type" | "sett
   return (
     config.type === "illustrator" ||
     config.type === "beholder" ||
-    normalizeCustomAgentContextSources(config.settings).previousOutput ||
+    getAgentContextSources(config).previousOutput ||
     config.settings.jsonContextOutput === true ||
     customAgentHasCapability(config.settings, "trigger_image_generation") ||
     config.type === "lorebook-keeper" ||

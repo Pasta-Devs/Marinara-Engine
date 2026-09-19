@@ -208,6 +208,10 @@ Browser logging is separate and is not controlled by `LOG_LEVEL`.
 
 ## Timeouts
 
+Open **Settings → Advanced → Request timeouts** to adjust text, agent, Game image-prompt, image, video, ComfyUI and embedding limits in seconds. Higher limits help slow local backends finish; they cannot override a limit enforced by the provider itself. Server administration access is required to save.
+
+These settings apply to every profile and are saved beside the active `.env` as `.env.timeouts.json` (or `<custom-env-path>.timeouts.json`). They override the corresponding environment variables without rewriting your `.env`. Text, agent, Game image-prompt and embedding changes apply to new requests. Restart the server for media changes and installed agent packages. To return to environment-based configuration, remove the timeout settings file and restart the server.
+
 A timeout is the longest time the server waits for a slow job before giving up. Media jobs like image and video generation can be slow, so their timeouts are generous by default. All timeout values are in milliseconds unless the name says otherwise.
 
 | Variable                               | Default                              | What it does                                                                                                                                                                                                                                                                                                                                                 |

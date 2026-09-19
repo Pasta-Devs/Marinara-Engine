@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
+import { randomUUID } from "node:crypto";
+import { REQUEST_TIMEOUTS, requestTimeoutSettingsSchema, type RequestTimeoutSettings } from "@marinara-engine/shared";
 import { logger as sharedLogger } from "../lib/logger.js";
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -162,6 +164,7 @@ export function loadRuntimeEnv() {
     dotenv.config({ quiet: true });
   }
 
+  applySavedRequestTimeouts();
   normalizeRuntimeTimezoneEnv();
 
   envLoaded = true;
@@ -194,6 +197,7 @@ export function reloadRuntimeEnv(): EnvReloadResult {
       delete process.env[key];
     }
     envFileKeys = new Set();
+    applySavedRequestTimeouts();
     return { added: [], updated: [], removed, unchanged: [] };
   }
 
@@ -226,6 +230,7 @@ export function reloadRuntimeEnv(): EnvReloadResult {
     }
   }
 
+  applySavedRequestTimeouts();
   normalizeRuntimeTimezoneEnv();
   envFileKeys = newKeys;
   return { added, updated, removed, unchanged };
@@ -784,4 +789,49 @@ export function isAutoCreateDefaultConnectionDisabled(value = process.env.AUTO_C
 export function logStorageDiagnostics(logger: { info(...args: any[]): void } = sharedLogger) {
   logger.info("[storage] DATA_DIR=%s", getDataDir());
   logger.info("[storage] FILE_STORAGE_DIR=%s", getFileStorageDir());
+}
+
+/** Kept beside the active .env, so server-wide preferences survive profile changes. */
+function requestTimeoutSettingsPath() {
+  return `${getEnvFilePath()}.timeouts.json`;
+}
+
+function applySavedRequestTimeouts() {
+  const path = requestTimeoutSettingsPath();
+  if (!existsSync(path)) return;
+  try {
+    const settings = requestTimeoutSettingsSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+    for (const [key, spec] of Object.entries(REQUEST_TIMEOUTS)) {
+      process.env[spec.env] = String(settings[key as keyof RequestTimeoutSettings] * spec.unit);
+    }
+  } catch (error) {
+    setImmediate(() => sharedLogger.warn(error, "Ignoring invalid saved request timeout settings"));
+  }
+}
+
+export function getRequestTimeoutSettings(): RequestTimeoutSettings {
+  return Object.fromEntries(
+    Object.entries(REQUEST_TIMEOUTS).map(([key, spec]) => {
+      const seconds = Number(process.env[spec.env]) / spec.unit;
+      return [
+        key,
+        Number.isInteger(seconds) && seconds >= 10 && seconds <= spec.maxSeconds ? seconds : spec.defaultSeconds,
+      ];
+    }),
+  ) as RequestTimeoutSettings;
+}
+
+export function saveRequestTimeoutSettings(input: unknown): RequestTimeoutSettings {
+  const settings = requestTimeoutSettingsSchema.parse(input);
+  const path = requestTimeoutSettingsPath();
+  const temporaryPath = `${path}.${randomUUID()}.tmp`;
+  mkdirSync(dirname(path), { recursive: true });
+  try {
+    writeFileSync(temporaryPath, JSON.stringify(settings, null, 2) + "\n", { mode: 0o600, flag: "wx" });
+    renameSync(temporaryPath, path);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
+  applySavedRequestTimeouts();
+  return settings;
 }

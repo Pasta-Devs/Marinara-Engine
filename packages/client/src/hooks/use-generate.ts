@@ -1286,6 +1286,11 @@ export function useGenerate() {
       const isActiveChat = () => useChatStore.getState().activeChatId === params.chatId;
       const isGameGeneration = getCachedChatMode(qc, params.chatId) === "game";
       let outputTranslationConfig: ReturnType<typeof getChatTranslationConfig> | null = null;
+      const completionNotifications: Array<() => void> = [];
+      const notifyWhenReady = (notify: () => void) => {
+        if (outputTranslationConfig) completionNotifications.push(notify);
+        else notify();
+      };
       const shouldRefreshGameState = shouldRefreshGameStateAfterGeneration(qc, params.chatId);
       let spriteChangeReceived = false;
 
@@ -2359,9 +2364,11 @@ export function useGenerate() {
                   const soundOn = isRpMode
                     ? useUIStore.getState().rpNotificationSound
                     : useUIStore.getState().convoNotificationSound;
-                  playConfiguredNotificationPing(
-                    soundOn && !messageHasPendingPostProcessing(previousGroupMessage),
-                    useUIStore.getState().notificationSoundsOnlyWhenUnfocused,
+                  notifyWhenReady(() =>
+                    playConfiguredNotificationPing(
+                      soundOn && !messageHasPendingPostProcessing(previousGroupMessage),
+                      useUIStore.getState().notificationSoundsOnlyWhenUnfocused,
+                    ),
                   );
                 }
                 // Reset the stream buffer for the new character
@@ -3337,7 +3344,9 @@ export function useGenerate() {
         }
         if (isGameGeneration && sawDoneEvent && receivedContent) {
           const uiState = useUIStore.getState();
-          playConfiguredNotificationPing(uiState.gameNotificationSound, uiState.notificationSoundsOnlyWhenUnfocused);
+          notifyWhenReady(() =>
+            playConfiguredNotificationPing(uiState.gameNotificationSound, uiState.notificationSoundsOnlyWhenUnfocused),
+          );
           gameTurnLoadedSoundPlayed = true;
         }
         // Re-sort sidebar so this chat floats to the top
@@ -3389,7 +3398,9 @@ export function useGenerate() {
             : isRp
               ? uiState.rpNotificationSound
               : uiState.convoNotificationSound;
-          playConfiguredNotificationPing(soundEnabled, uiState.notificationSoundsOnlyWhenUnfocused);
+          notifyWhenReady(() =>
+            playConfiguredNotificationPing(soundEnabled, uiState.notificationSoundsOnlyWhenUnfocused),
+          );
         }
         const partialContent = normalizeLineBreakSpacing(fullBuffer + pendingText).trim();
         let unpersistedPartialMessage: Message | null = null;
@@ -3510,17 +3521,19 @@ export function useGenerate() {
               title: replyNotificationTitle(chat?.mode ?? chatModeForGeneration, characterName),
               tag: `marinara-chat-${params.chatId}`,
             };
-            void showLocalMessageNotification({
-              ...notification,
-              enabled: params.autonomous
-                ? uiState.conversationBrowserNotifications
-                : uiState.generationBrowserNotifications,
-            });
-            showNativeMessageNotification({
-              ...notification,
-              enabled: params.autonomous
-                ? uiState.conversationMobileNotifications
-                : uiState.generationMobileNotifications,
+            notifyWhenReady(() => {
+              void showLocalMessageNotification({
+                ...notification,
+                enabled: params.autonomous
+                  ? uiState.conversationBrowserNotifications
+                  : uiState.generationBrowserNotifications,
+              });
+              showNativeMessageNotification({
+                ...notification,
+                enabled: params.autonomous
+                  ? uiState.conversationMobileNotifications
+                  : uiState.generationMobileNotifications,
+              });
             });
           }
         }
@@ -3533,7 +3546,8 @@ export function useGenerate() {
         }
         window.dispatchEvent(new CustomEvent("marinara:generation-complete", { detail: { chatId: params.chatId } }));
 
-        // Auto-translate newly generated assistant messages if enabled
+        // Translation includes saving the result; notify only once that work settles.
+        const translations: Promise<void>[] = [];
         if (receivedContent) {
           try {
             if (outputTranslationConfig) {
@@ -3548,9 +3562,7 @@ export function useGenerate() {
                   (!store.translations[id] || store.translationSources[id] !== textToTranslate) &&
                   !store.hiddenTranslationIds[id]
                 ) {
-                  void translateMessage(qc, id, textToTranslate, outputTranslationConfig, params.chatId).catch(
-                    () => {},
-                  );
+                  translations.push(translateMessage(qc, id, textToTranslate, outputTranslationConfig, params.chatId));
                 }
               }
             }
@@ -3558,6 +3570,9 @@ export function useGenerate() {
             /* non-critical — don't block generation cleanup */
           }
         }
+        void Promise.allSettled(translations).then(() => {
+          for (const notify of completionNotifications) notify();
+        });
       }
       if (receivedContent || passiveStreamRecovered || spatialTransitionCommitted) return true;
       return await confirmDurableSubmittedUserTurn();

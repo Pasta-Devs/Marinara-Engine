@@ -642,6 +642,26 @@ export function normalizeCustomAgentContextSources(settings: unknown): CustomAge
   return normalized;
 }
 
+/** Built-in agents retain their existing context unless the user explicitly configures sources. */
+export function getAgentContextSources(config: {
+  isCustomAgent?: boolean;
+  settings: unknown;
+}): CustomAgentContextSources {
+  const settings = parseAgentSettingsRecord(config.settings);
+  if (config.isCustomAgent || isRecord(settings.contextSources)) return normalizeCustomAgentContextSources(settings);
+  return {
+    chatHistory: true,
+    characters: true,
+    persona: true,
+    activatedLorebookEntries: true,
+    chatSummary: true,
+    authorNotes: true,
+    trackerData: true,
+    recalledMemories: true,
+    previousOutput: false,
+  };
+}
+
 export interface CustomAgentImportPolicy {
   enabled: boolean;
 }

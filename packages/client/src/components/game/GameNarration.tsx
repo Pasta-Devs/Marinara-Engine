@@ -5201,7 +5201,7 @@ export function GameNarration({
                             onPointerDown={(event) => handleMobileSegmentPointerDown(event, active)}
                             onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
                             className={cn(
-                              "game-narration-prose max-h-40 overflow-y-auto rounded-xl border px-3 py-2.5 sm:max-h-48",
+                              "game-narration-prose max-h-[45svh] overflow-y-auto rounded-xl border px-3 py-2.5 md:max-h-48",
                               active.partyType === "thought"
                                 ? "border-purple-400/10 bg-purple-950/20"
                                 : active.partyType === "whisper"
@@ -5310,7 +5310,7 @@ export function GameNarration({
                   onPointerDown={(event) => handleMobileSegmentPointerDown(event, active)}
                   onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
                   className={cn(
-                    "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2.5 sm:max-h-48 dark:border-white/10 dark:bg-black/35",
+                    "relative game-narration-prose max-h-[45svh] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2.5 md:max-h-48 dark:border-white/10 dark:bg-black/35",
                     activeSegmentActionButtons && "pr-16",
                   )}
                 >
@@ -5387,7 +5387,7 @@ export function GameNarration({
                 <div
                   ref={activeSegmentScrollRef}
                   className={cn(
-                    "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-amber-400/20 bg-amber-950/20 px-3 py-2.5 sm:max-h-48",
+                    "relative game-narration-prose max-h-[45svh] overflow-y-auto rounded-xl border border-amber-400/20 bg-amber-950/20 px-3 py-2.5 md:max-h-48",
                     (activeCopyButton || activeTranslateButton) && "pr-16",
                   )}
                 >

@@ -167,6 +167,7 @@ import {
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
+import { RequestTimeoutSettings } from "./settings/RequestTimeoutSettings";
 import { CustomGenerationParametersSettings } from "./settings/CustomGenerationParametersSettings";
 import { ExternalExtensionsSettings, PersonalExtensionsSettings } from "./settings/PersonalExtensionsSettings";
 import { usePersonalExtensionPolicy, useSetExternalExtensionsEnabled } from "../../hooks/use-personal-extensions";
@@ -278,6 +279,7 @@ type SettingsSectionId =
   | "admin-access"
   | "updates"
   | "support-diagnostics"
+  | "request-timeouts"
   | "parameters"
   | "message-tools"
   | "backup-export"
@@ -519,6 +521,13 @@ const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "Support Diagnostics",
     description: "Copy technical details for support tickets.",
     aliases: ["support", "diagnostics", "system info", "gpu", "model", "ticket", "bug report"],
+  },
+  {
+    id: "request-timeouts",
+    tab: "advanced",
+    label: "Request timeouts",
+    description: "Adjust how long text, agents and media wait for a slow backend.",
+    aliases: ["timeout", "slow", "koboldcpp", "images", "video", "seconds", "backend"],
   },
   {
     id: "parameters",
@@ -8567,6 +8576,14 @@ function AdvancedSettings() {
             {localizeUi("ui.panels.advancedsettings.copySupportDiagnostics")}
           </button>
         </SearchableSettingTarget>
+      </SettingsSection>
+
+      <SettingsSection
+        title={localizeUi("settings.timeouts.title")}
+        icon={<Gauge size="0.875rem" />}
+        {...getSettingsSectionAnchorProps("request-timeouts")}
+      >
+        <RequestTimeoutSettings />
       </SettingsSection>
 
       <SettingsSection

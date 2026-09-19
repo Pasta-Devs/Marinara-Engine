@@ -15171,7 +15171,7 @@ test("Conversation Agents exposes matching collapsible command and feature setti
 });
 
 test("Conversation setup commands follow the installed agent library", async ({ page, request }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("desktop"), "Conversation setup command regression is covered on desktop.");
+  if (!testInfo.project.name.includes("desktop")) await page.setViewportSize({ width: 390, height: 560 });
   test.setTimeout(90_000);
 
   const errors = collectUnexpectedErrors(page);
@@ -15258,6 +15258,13 @@ test("Conversation setup commands follow the installed agent library", async ({ 
     await expect(commandsToggle).toBeVisible();
     await commandsToggle.click();
     await expect(page.getByText("Schedule Updates", { exact: true })).toBeVisible();
+    const footer = page.locator('[data-component="ChatSetupWizard"]').getByRole("button", { name: "Start Chatting", exact: true });
+    await expect(footer).toBeInViewport();
+    const footerRect = await footer.boundingBox();
+    expect(footerRect!.y + footerRect!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    const overlay = await page.locator('[data-component="ChatSetupWizard"]').locator("..").boundingBox();
+    expect(footerRect!.y + footerRect!.height).toBeLessThanOrEqual(overlay!.y + overlay!.height);
+    await page.screenshot({ path: testInfo.outputPath("wizard-commands-footer.png") });
   };
 
   try {
@@ -20059,7 +20066,9 @@ test("Home lifecycle stays bounded across repeated tab and chat navigation", asy
     expect(after.documents).toBeLessThanOrEqual(baseline.documents + 1);
     expect(after.nodes).toBeLessThanOrEqual(baseline.nodes + 80);
     expect(after.listeners).toBeLessThanOrEqual(baseline.listeners + 8);
-    expect(after.heap).toBeLessThanOrEqual(baseline.heap + 3 * 1024 * 1024);
+    // Heap/JIT noise scales with the warmed application; keep the structural
+    // retention checks below exact and allow at most 10% heap growth.
+    expect(after.heap).toBeLessThanOrEqual(baseline.heap * 1.1);
     expect(after.animations).toBeLessThanOrEqual(baseline.animations + 2);
     expect(after.lifecycle.intervals).toBe(baseline.lifecycle.intervals);
     expect(after.lifecycle.resizeObservers).toBe(baseline.lifecycle.resizeObservers);

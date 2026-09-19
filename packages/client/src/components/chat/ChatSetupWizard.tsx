@@ -262,7 +262,7 @@ type AgentAddPreview = {
 
 const WIZARD_PANEL_CLASS = cn(
   NEUTRAL_PANEL_SHELL,
-  "mari-chat-setup-wizard pointer-events-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden sm:max-h-[min(90dvh,44rem)]",
+  "mari-chat-setup-wizard pointer-events-auto flex max-h-full w-full max-w-lg flex-col overflow-hidden sm:max-h-[min(100%,44rem)]",
 );
 
 const WIZARD_FIELD_LABEL = "text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]";
@@ -890,8 +890,16 @@ function SavedChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const queryClient = useQueryClient();
   const apply = useCallback(
     async (defaults: ChatWizardDefaults, reset = false) => {
-      const { metadata, ...fields } = defaults;
-      await updateChat.mutateAsync({ id: chat.id, ...fields });
+      const { metadata, connectionId, promptPresetId, personaId, personaCharacterId, characterIds } = defaults;
+      // Older saved templates still contain a name. Apply only reusable setup fields.
+      await updateChat.mutateAsync({
+        id: chat.id,
+        connectionId,
+        promptPresetId,
+        personaId,
+        personaCharacterId,
+        characterIds,
+      });
       const latest = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat;
       await updateMeta.mutateAsync({
         id: chat.id,
