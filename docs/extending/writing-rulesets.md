@@ -15,7 +15,7 @@ Both are described in full under [Resolution kinds](#resolution-kinds).
 
 A mechanic that does not fit either shape cannot be written in a ruleset file. Taking the highest die of a pool, roll-under percentile checks, symbol dice, and opposed pools are examples. Each of those needs a new resolution kind inside the Engine, which is a code contribution with tests, not a JSON file. If your system needs one, open a feature request on the Engine repository and describe the mechanic with a few worked rolls. Those worked rolls become the tests.
 
-Combat is separate too. Battles run on Marinara's own combat, in whichever Combat Preference the game was created with. A ruleset cannot change how a battle is resolved. What it can do is lend the battle the numbers on its character sheets, with an optional `battle` block: see [Battles](#battles-lending-the-sheet-to-marinaras-combat).
+Combat is in between. Battles you can play today run on Marinara's own combat, in whichever Combat Preference the game was created with, and a ruleset cannot change how one of those is resolved. What it can do is lend the battle the numbers on its character sheets, with an optional `battle` block: see [Battles](#battles-lending-the-sheet-to-marinaras-combat). A ruleset may ALSO describe how a fight would be resolved by its own rules, with an optional `combat` block: see [Combat](#combat-a-fight-your-own-rules-resolve). That block is written and checked in full today, and nothing plays on it yet.
 
 ## Quickstart
 
@@ -51,6 +51,7 @@ You may add a `"$comment": "..."` line to any object in the file to leave yourse
 | `gm`            | The text the Game Master model is given, and which sheet values it sees for each character.       |
 | `catalogs`      | Optional. Ready-made entries the sheet editor offers, so players do not type long lists by hand.  |
 | `battle`        | Optional. What a battle may read from the sheet, and what it writes back afterwards.              |
+| `combat`        | Optional. How a fight is resolved by your own rules. Written and checked today; not playable yet. |
 | `layers`        | Optional. Variants of your ruleset a player turns on when a game is created.                      |
 
 The file may be up to 256 KB. Text that ends up in a prompt (names, labels, Game Master text) cannot contain line breaks, square brackets, or double curly braces.
@@ -312,11 +313,16 @@ What is compared is deliberately narrow:
 
 So rewording or renaming an entry can reach characters who already picked it, if they accept it. Changing what a number means cannot, and will not: that column is the player's once the row is theirs.
 
-### `mechanics`, for later
+### `mechanics`: what an entry does in numbers
 
-An entry may carry an optional `mechanics` block that says what it does in numbers: `kind` (`attack`, `heal`, `buff`, `debuff`, `utility`), `range`, `area`, `targets`, `friendlyFire`, `amount` (dice such as `2d6`, or a flat number), `damageType`, `attackRoll`, `save` (one of your sheet's saves, and what a success does), `cost` (which pool using it spends), `perCostStep`, `concentration`, and `reaction`.
+An entry may carry an optional `mechanics` block that says what it does in numbers: `kind` (`attack`, `heal`, `buff`, `debuff`, `utility`), `range`, `area`, `targets`, `targetCount`, `friendlyFire`, `amount` (dice such as `2d6`, or a flat number), `damageType`, `attackRoll`, `autoHit`, `save` (one of your sheet's saves, and what a success does), `applies` (conditions it puts on what it touches), `temporary` (temporary points on the health pool), `scales` (an amount that grows with the sheet), `cost` (which pool using it spends), `perCostStep`, `budget` (which part of the action economy it spends), `concentration`, and `reaction`.
 
-The picker shows this block as one line. A battle reads part of it, but only when your ruleset opts in with a [`battle` block](#battles-lending-the-sheet-to-marinaras-combat), and only the parts Marinara's own combat has somewhere to put. It reads `kind`, `range`, `area`, `friendlyFire`, `amount`, `damageType` and `cost`. Four fields stay in the file and are never read or applied by a battle: `attackRoll`, `save`, `concentration` and `perCostStep`. The vocabulary is closed, so a key or a value that is not in the list above is refused instead of being quietly ignored.
+The picker shows this block as one line. Who reads the rest depends on which block your ruleset opted in with:
+
+- With a [`combat` block](#combat-a-fight-your-own-rules-resolve), all of it is read except `range`, `area`, `friendlyFire` and `reaction`, which wait for the slices that give a fight positions and reaction windows.
+- With only a [`battle` block](#battles-lending-the-sheet-to-marinaras-combat), a battle reads `kind`, `range`, `area`, `friendlyFire`, `amount`, `damageType` and `cost`, because those are the parts Marinara's own combat has somewhere to put.
+
+The vocabulary is closed, so a key or a value that is not in the list above is refused instead of being quietly ignored.
 
 `cost` is also what the Game Master's `use` command pays, outside battle, which is the next section.
 
@@ -455,7 +461,171 @@ A catalog entry's `mechanics` block is read like this:
   `mechanics` off an entry whose effect only makes sense outside a battle.
 
 `coverage.combat` is separate and still means what it meant: set it only when battles really do
-follow your system's rules, which no ruleset can do from a file today.
+follow your system's rules.
+
+## Combat: a fight your own rules resolve
+
+The `battle` block above lends a fight the sheet's numbers while the arithmetic stays Marinara's.
+The optional `combat` block is the other thing: it says how a fight is RESOLVED by your rules. It
+parameterises a combat kind the Engine owns, exactly as `resolution` parameterises a check kind, and
+every name in it is yours. There is one kind today.
+
+**Nothing plays on it yet.** This release is the format and the resolver behind it, with no screen,
+no menu and no saved battle. A ruleset that declares `combat` still fights the way it did before
+until a later release wires it up. Write it now if you want it ready; nothing changes for your
+players today.
+
+```json
+"combat": {
+  "kind": "attack-vs-defense",
+  "health": { "pool": "grit" },
+  "defense": { "derived": "guard" },
+  "initiative": { "dice": { "count": 2, "sides": 6 }, "modifier": { "abilityMod": "wits" } },
+  "attackRoll": { "dice": { "count": 2, "sides": 6 } },
+  "economy": { "budgets": [{ "id": "act", "label": "Action", "per": "turn", "count": 1 }] },
+  "attacks": [
+    {
+      "list": "gear",
+      "budget": "act",
+      "name": "name",
+      "toHit": { "ability": { "column": "swing" } },
+      "damage": { "dice": { "column": "damage" }, "ability": { "column": "swing" }, "type": { "column": "harm" } }
+    }
+  ],
+  "abilities": [{ "list": "knacks", "budget": "act" }],
+  "standard": ["dodge", "help"],
+  "conditions": [
+    { "condition": "shaken", "effects": ["own-attacks-disadvantage", "ends-on-damage"] },
+    { "condition": "pinned", "effects": ["cannot-act", "speed-zero"] }
+  ]
+}
+```
+
+That is the whole Ember Roads block. The resolver can run a whole fight on it, which is what the
+regression does, and no player sees one yet. The 5e draft uses the same keys for a d20 system:
+
+```json
+"combat": {
+  "kind": "attack-vs-defense",
+  "health": { "pool": "hp" },
+  "defense": { "field": "ac" },
+  "initiative": { "dice": { "count": 1, "sides": 20 }, "modifier": { "derived": "initiative" } },
+  "attackRoll": {
+    "dice": { "count": 1, "sides": 20 },
+    "advantage": true,
+    "naturals": { "max": "critical", "min": "miss" },
+    "critical": "double-dice"
+  },
+  "economy": {
+    "budgets": [
+      { "id": "action", "label": "Action", "per": "turn", "count": 1 },
+      { "id": "bonus", "label": "Bonus action", "per": "turn", "count": 1 },
+      { "id": "reaction", "label": "Reaction", "per": "turn", "count": 1 }
+    ],
+    "movement": { "field": "speed" }
+  },
+  "abilities": [
+    {
+      "list": "spells",
+      "onlyWhen": "prepared",
+      "alwaysWhen": { "column": "level", "equals": 0 },
+      "budget": "action",
+      "toHit": { "derived": "spell_attack" },
+      "saveDifficulty": { "derived": "spell_save_dc" }
+    }
+  ],
+  "concentration": { "text": "concentration", "save": "con_save", "floor": 10, "fromDamage": 0.5 }
+}
+```
+
+### Every key
+
+- `kind`: `"attack-vs-defense"`. One side rolls dice against the other's defense; a hit does damage.
+- `health`: required. The live pool a fight takes away, as `battle.health` is. Its temporary buffer,
+  if the pool allows one, is what damage drains first.
+- `defense`: required, a value reference. A field the player enters, or a derived value you compute.
+- `initiative`: required. The dice rolled once at the start, and an optional modifier reference. A
+  tie goes to the higher modifier, and then to the order the fight was set up in.
+- `attackRoll`: required. The dice, whether the system rolls twice and keeps one (`advantage`), what
+  the extreme faces of a single die do (`naturals.max`: `critical`, `hit` or `none`; `naturals.min`:
+  `miss` or `none`), and what a critical hit does to the damage (`critical`: `double-dice` rolls the
+  damage dice again, `max-dice` adds their highest faces once, `none` is a plain hit). Lucky faces
+  need a single die, exactly as they do for checks. Saving throws inside a fight roll these same
+  dice.
+- `economy`: required. `budgets` is what a turn may hold: an id, a label, `per` (`turn` refills at
+  the start of the holder's own turn, `round` when a new round begins) and a `count`. The FIRST
+  budget you declare is the main one, and is what a standard action spends. `movement` is an
+  optional value reference. It is checked and stored today and nothing reads it yet (see Not yet).
+- `attacks`: optional. Sheet lists whose rows are weapons. `name` is the text column the row is
+  named by, `damage.dice` the dice column, and each of `toHit.ability`, `toHit.proficiency`,
+  `toHit.bonus`, `damage.ability`, `damage.bonus` and `damage.type` names a column of the same list.
+  An `ability` column is an `enum` holding one of your ability ids; a value that is not one adds
+  nothing. A `proficiency` column is a `boolean`, and where it is set your proficiency bonus is
+  added. A row with no readable dice is not an attack, so rope in the same list is just rope.
+- `abilities`: optional. Sheet lists whose catalog-marked rows are abilities, filtered exactly as
+  `battle.skills` are with `onlyWhen` and `alwaysWhen`. What each one does is that entry's own
+  `mechanics`; the block says which `budget` they spend by default, the `toHit` an entry that rolls
+  to hit adds, and the `saveDifficulty` an entry's save is rolled against. An entry that asks for a
+  save, its own or one that ends a condition it applies, is refused when the list it lands in has
+  no `saveDifficulty`: a save against nothing would always succeed.
+- `standard`: optional, from the closed list `dash`, `disengage`, `dodge`, `help`, `hide`, `ready`.
+  Today `dodge` (attacks against the dodger are rolled twice and the worse kept) and `help` (the
+  helped ally's next attack is rolled twice and the better kept) are resolved, `dash` and
+  `disengage` are recorded for the movement slice, and `hide` and `ready` are accepted and do
+  nothing yet.
+- `conditions`: optional. Maps YOUR condition ids onto what they do, so the sheet's conditions and
+  the fight's are one record and a poisoned character is still poisoned afterwards. The effects are
+  a closed list: `own-attacks-advantage`, `own-attacks-disadvantage`, `attacks-against-advantage`,
+  `attacks-against-disadvantage`, `attacks-against-adjacent-advantage`,
+  `attacks-against-far-disadvantage`, `attacks-from-adjacent-critical`, `cannot-act`,
+  `cannot-react`, `speed-zero`, `half-move-to-stand` and `ends-on-damage`. `failsSaves` names saves
+  the condition fails without rolling. The effects that need distance or movement
+  (`attacks-against-adjacent-advantage`, `attacks-against-far-disadvantage`,
+  `attacks-from-adjacent-critical`, `speed-zero`, `half-move-to-stand`), plus `cannot-react`, are
+  checked and stored today and change nothing in a fight yet (see Not yet).
+- `concentration`: optional. The live `text` field that records what is being held, the `save` that
+  damage forces, the `floor` under that difficulty, and `fromDamage`, the share of the damage taken
+  that sets it when it is higher. Starting a second ability that concentrates ends the first, and
+  losing the save ends it and takes the conditions it was holding with it.
+- `dying`: optional, `kind: "saves"`. The two tracks that count the rolls (how many it takes is each
+  track's own maximum), the `dice`, `succeedAt`, what the extreme faces do (`naturals.max`:
+  `revive-1` or `success`; `naturals.min`: `one-failure` or `two-failures`), what damage while down
+  costs (`damageWhileDown`, `criticalWhileDown`) and the `condition` a downed character is in.
+  Without this block a character at zero is simply down, and healing brings them back.
+- `damageTypes`: optional. The types your system has, matched without case.
+- `threat`: optional. `tiers`, the scale an opponent is picked from: an id, a label, a `health` band,
+  a `defense`, a `toHit`, a `damagePerRound` band and a `saveDifficulty`. It is checked now and read
+  when creatures arrive, so nothing lands off your scale.
+
+### What a fight reads from `mechanics`
+
+`kind` decides whether the `amount` is damage or healing; `utility` entries and anything marked
+`reaction` are left off the menu. `attackRoll` makes it roll against the target's defense with the
+list's `toHit`; `autoHit` skips that entirely. `save` rolls the target's own save against the list's
+`saveDifficulty`, and `onSuccess` decides whether a success takes half or nothing. `targetCount` is
+how many it may be pointed at. An ability that rolls no attack (an area everyone saves against,
+something that simply hits) rolls its dice ONCE for all of them, and one that rolls to hit each
+target rolls its dice again for each hit. `applies` puts conditions on what it
+affects, each with a `duration` of `instant` (no clock of its own: it stays until something takes it
+off), `until-save` (which needs `saveEnds` beside it) or `{ "rounds": n }`, and an optional
+`saveEnds` naming the save and whether it is repeated at `turn-end` or `turn-start`. `temporary`
+grants temporary points on the health pool, and they never stack: the bigger buffer stands.
+`scales` grows the amount by the extra DICE its table gives for the value it reads. `cost` is paid
+through the sheet's own `use` command, and `budget` overrides which part of the economy it spends.
+
+### Not yet
+
+Said plainly, because a ruleset should not claim what the Engine does not do:
+
+- **Nothing is playable.** No screen, no saved battle, no opponent that picks its own actions.
+- **No positions**: no distance, reach, ranges, areas on a map, cover, movement or opportunity
+  attacks. `range`, `area` and `economy.movement` are carried and not read.
+- **No reactions**, so nothing interrupts a turn, and `cannot-react` changes nothing yet.
+- **No ready-made opponents.** A fight's opponents are stat blocks handed to the resolver; a
+  bestiary you can ship in your ruleset is a later release.
+- **One attack per action**, with no extra attacks, no multiattack and no recharge.
+- Conditions do what the closed effect list can say and no more. A condition that gives
+  disadvantage on ability checks, or resistance to everything, is a plain record on the sheet today.
 
 ## Layers: variants of your own ruleset
 

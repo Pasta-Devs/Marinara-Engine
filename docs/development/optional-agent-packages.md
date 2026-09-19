@@ -664,6 +664,33 @@ Desktop uses a browse list with an adjacent detail region. Mobile uses one pane 
 
 An extraction is complete only when the base production client and server bundles no longer contain the package implementation, a fresh install cannot activate it without downloading the package, an upgraded install retains it, and package install/update/uninstall passes on desktop, mobile, and Termux-compatible filesystems.
 
+### Capability API 1.26: ruleset combat
+
+A ruleset may carry an optional top-level `combat` block saying how a fight is RESOLVED by its own
+numbers: what is rolled and against what, the action economy, which sheet lists are attacks and
+which are abilities, what its conditions do, concentration, what happens to a character at zero, the
+damage types it has and the scale an opponent is picked from. The same release lets a catalog
+entry's `mechanics` say how many targets it takes, that it always lands, what conditions it applies,
+what temporary points it grants, how it grows with the sheet and which budget it spends.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 26 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Nothing plays on it yet: this release is the shared resolver and the format, with no route, no
+session and no user interface behind them. A ruleset that declares `combat` still fights its
+battles the way it did before until a later release wires the fight up.
+
+Not a soft seam, for the same reason as 1.20 through 1.25: an Engine that cannot read `combat` or
+the new `mechanics` keys refuses the whole ruleset file, or the catalog file that holds them, so
+install reads the verified bytes of `ruleset.json` and of every declared `catalogs/<id>.json` and
+refuses either one under an older declaration. No permission, and no change for a ruleset with
+neither.
+
 ### Capability API 1.25: ruleset layers and world guidance
 
 A ruleset may declare an optional top-level `layers` array: named variants of itself (Low magic, Hard

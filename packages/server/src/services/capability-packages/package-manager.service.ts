@@ -509,6 +509,20 @@ function entriesCarryScaledRows(entries: unknown): boolean {
   });
 }
 
+/** The `mechanics` keys a fight reads, which are new keys in the same strict file: an Engine that
+ *  does not know them refuses whichever file holds them. Read structurally, for the same reason
+ *  `entriesCarryScaledRows` is. */
+const COMBAT_MECHANICS_KEYS = ["targetCount", "autoHit", "applies", "temporary", "scales", "budget"] as const;
+
+function entriesCarryCombatMechanics(entries: unknown): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) => {
+    const mechanics = entry && typeof entry === "object" ? (entry as { mechanics?: unknown }).mechanics : undefined;
+    if (!mechanics || typeof mechanics !== "object") return false;
+    return COMBAT_MECHANICS_KEYS.some((key) => (mechanics as Record<string, unknown>)[key] !== undefined);
+  });
+}
+
 /** `rulesetDocument` is the package's own `ruleset.json`, parsed, when the install already has its
  *  verified bytes. Catalogs live INSIDE that file, so the manifest alone cannot show them, and the
  *  gate that keeps a package off an Engine too old to serve them has to read it. `catalogDocuments`
@@ -550,6 +564,7 @@ export function getCapabilityPackageInstallIssue(
       ? (rulesetDocument as {
           catalogs?: unknown;
           battle?: unknown;
+          combat?: unknown;
           resolution?: unknown;
           layers?: unknown;
           gm?: unknown;
@@ -570,9 +585,12 @@ export function getCapabilityPackageInstallIssue(
     // A row whose number the ruleset keeps up to date is a new key in a strict file, inline or in a
     // catalog asset, so an Engine that does not know it refuses the file that holds it.
     const scaledIssue = "A ruleset with scaled catalog rows requires schemaVersion 2 and capabilityApi 1.23 or newer";
+    const mechanicsIssue =
+      "A ruleset whose catalog mechanics reach a fight requires schemaVersion 2 and capabilityApi 1.26 or newer";
     for (const catalog of catalogs) {
       const header = catalog && typeof catalog === "object" ? (catalog as { asset?: unknown; entries?: unknown }) : {};
       if (entriesCarryScaledRows(header.entries) && !declaresApi(23)) return scaledIssue;
+      if (entriesCarryCombatMechanics(header.entries) && !declaresApi(26)) return mechanicsIssue;
       const asset = header.asset;
       if (typeof asset !== "string") continue;
       // A path that does not normalize is never a declared one, whatever else failed to normalize.
@@ -583,6 +601,7 @@ export function getCapabilityPackageInstallIssue(
       const document = catalogDocuments?.get(normalized);
       const fileEntries = document && typeof document === "object" ? (document as { entries?: unknown }).entries : null;
       if (entriesCarryScaledRows(fileEntries) && !declaresApi(23)) return scaledIssue;
+      if (entriesCarryCombatMechanics(fileEntries) && !declaresApi(26)) return mechanicsIssue;
     }
   }
   // The battle block lives inside the ruleset file too, so it is read the same way and for the same
@@ -609,6 +628,11 @@ export function getCapabilityPackageInstallIssue(
   const gm = ruleset?.gm && typeof ruleset.gm === "object" ? (ruleset.gm as { worldGuidance?: unknown }) : undefined;
   if (gm?.worldGuidance !== undefined && !declaresApi(25)) {
     return "A ruleset with gm.worldGuidance requires schemaVersion 2 and capabilityApi 1.25 or newer";
+  }
+  // The combat block is one more key in the same strict file, read the same way and for the same
+  // reason. An inline catalog whose mechanics reach a fight is checked with the catalogs above.
+  if (ruleset?.combat && typeof ruleset.combat === "object" && !declaresApi(26)) {
+    return "A ruleset with a combat block requires schemaVersion 2 and capabilityApi 1.26 or newer";
   }
   return null;
 }

@@ -674,7 +674,17 @@ try {
       "the host still advertises the layer seam introduced in API 1.25",
     );
     const manifest = (minor: number) => ({ ...installed[0]!.manifest, capabilityApi: { major: 1, minor } });
-    const withLayers = JSON.parse(emberText);
+    /** The example without the keys that gate on a LATER declaration, so these cases are answered
+     *  by the layer gate rather than by the one that came after it. */
+    const layerFixture = () => {
+      const doc = JSON.parse(emberText);
+      delete doc.combat;
+      for (const entry of doc.catalogs?.[0]?.entries ?? []) {
+        for (const key of ["targetCount", "autoHit", "applies", "temporary", "budget"]) delete entry.mechanics?.[key];
+      }
+      return doc;
+    };
+    const withLayers = layerFixture();
     assert.match(
       getCapabilityPackageInstallIssue(manifest(24) as any, withLayers) ?? "",
       /A ruleset with layers requires schemaVersion 2 and capabilityApi 1\.25 or newer/,
@@ -683,7 +693,7 @@ try {
     assert.equal(getCapabilityPackageInstallIssue(manifest(25) as any, withLayers), null);
 
     // The base world-generation slot is a new key in the same strict file, gated the same way.
-    const worldOnly = JSON.parse(emberText);
+    const worldOnly = layerFixture();
     delete worldOnly.layers;
     worldOnly.gm.worldGuidance = "Build a world of long roads and short springs.";
     assert.match(
@@ -693,7 +703,7 @@ try {
     assert.equal(getCapabilityPackageInstallIssue(manifest(25) as any, worldOnly), null);
 
     // A ruleset with neither installs on the declaration it always needed.
-    const neither = JSON.parse(emberText);
+    const neither = layerFixture();
     delete neither.layers;
     delete neither.battle;
     delete neither.catalogs;

@@ -1,17 +1,29 @@
 # Versioned combat rulesets: implementation handoff
 
+> **Status header, September 19, 2026.** The `5e-2014` adapter this document reserves is being built
+> as a DATA-DRIVEN combat kind rather than a per-system TypeScript adapter: a ruleset declares an
+> optional `combat` block and the Engine owns the kind that resolves it, exactly as it owns the
+> resolution kinds that resolve a check. The reasoning, the architecture and the slices are in
+> `game-rulesets-and-sheets-implementation.md` § Real ruleset combat, and the work is tracked on
+> [issue #6361](https://github.com/Pasta-Devs/Marinara-Engine/issues/6361). Everything else in this
+> document stands: the Traditional ruleset and its accepted speed behaviour, the product contract,
+> the rule that difficulty belongs to the ruleset and never becomes a damage multiplier, the
+> director's single server-owned ledger, the reaction and legendary windows, and the save, UI and
+> rollout contract. The data-driven kind is held to those invariants, and the first slice is shared,
+> pure and unwired: no routes, no session and no user interface.
+
 Status: implementation proposal, September 17, 2026. The AI overhaul does not implement these rulesets. Traditional's speed-follow-up requirement is accepted product direction; thresholds and other defaults below are proposals for tuning. Implement against current `staging`, after checking related work.
 
 ## Product contract
 
 Keep four choices independent:
 
-| Choice | What it controls | Examples |
-| --- | --- | --- |
-| Presentation | Spatial information and input | Classic menus; Tactical grid |
-| Participation | Who fights | Party; future Summoning |
-| Ruleset | Legal actions, resources, turn timing, resolution | Traditional; explicitly versioned 5e; V20 |
-| Controller | Who chooses a legal action | Player; local AI; GM bosses |
+| Choice        | What it controls                                  | Examples                                  |
+| ------------- | ------------------------------------------------- | ----------------------------------------- |
+| Presentation  | Spatial information and input                     | Classic menus; Tactical grid              |
+| Participation | Who fights                                        | Party; future Summoning                   |
+| Ruleset       | Legal actions, resources, turn timing, resolution | Traditional; explicitly versioned 5e; V20 |
+| Controller    | Who chooses a legal action                        | Player; local AI; GM bosses               |
 
 A Cautious Mage must remain cautious in either presentation. Changing ruleset changes what the Mage is allowed to do, not its personality. Summoning is a participation system, not a third rules engine; its first presentation can be non-spatial. No mode may invent grid distance when no position model exists.
 
@@ -70,19 +82,19 @@ Keep ruleset-specific sheets in a discriminated union. Do not force all resource
 
 Proposed starting balance:
 
-| Rule | Proposed v1 behavior |
-| --- | --- |
-| Initiative | Descending effective Speed, stable encounter tie order; no extra activation for ties or high speed |
-| Tactical scheduling | Party phase followed by enemy phase; player may choose unacted party units, automatic units use speed order |
-| Classic scheduling | Unified descending effective-Speed order; UI queues manual commands then resolves current legal targets at each slot |
-| Movement | Explicit movement budget independent of Speed. Suggested default 4 tiles, with bounded class/ability adjustments |
-| Attack Speed | Effective Speed, with only explicitly modeled penalties/bonuses; no fictional weapon weight |
-| Follow-up threshold | Attacker Attack Speed at least defender Attack Speed + 5; configurable only as a validated ruleset option |
-| Eligible action | Basic attack or a skill explicitly marked `allowsSpeedFollowUp`; default false for skills |
-| Exchange | Initiator strike → legal surviving defender counter → eligible surviving initiator follow-up |
-| Faster defender | One legal counter in v1; a defender follow-up is a separate balance option, default off |
-| MP | Explicit pool and per-skill cost, deducted once per chosen skill activation; follow-up costs must be specified by that skill |
-| Movement refresh | Once at the next ordinary activation; counter/follow-up never refresh it |
+| Rule                | Proposed v1 behavior                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Initiative          | Descending effective Speed, stable encounter tie order; no extra activation for ties or high speed                           |
+| Tactical scheduling | Party phase followed by enemy phase; player may choose unacted party units, automatic units use speed order                  |
+| Classic scheduling  | Unified descending effective-Speed order; UI queues manual commands then resolves current legal targets at each slot         |
+| Movement            | Explicit movement budget independent of Speed. Suggested default 4 tiles, with bounded class/ability adjustments             |
+| Attack Speed        | Effective Speed, with only explicitly modeled penalties/bonuses; no fictional weapon weight                                  |
+| Follow-up threshold | Attacker Attack Speed at least defender Attack Speed + 5; configurable only as a validated ruleset option                    |
+| Eligible action     | Basic attack or a skill explicitly marked `allowsSpeedFollowUp`; default false for skills                                    |
+| Exchange            | Initiator strike → legal surviving defender counter → eligible surviving initiator follow-up                                 |
+| Faster defender     | One legal counter in v1; a defender follow-up is a separate balance option, default off                                      |
+| MP                  | Explicit pool and per-skill cost, deducted once per chosen skill activation; follow-up costs must be specified by that skill |
+| Movement refresh    | Once at the next ordinary activation; counter/follow-up never refresh it                                                     |
 
 The threshold of 5 and exchange ordering are Marinara proposals, not a claim to reproduce any particular game's rules. The maintainer requested the faster attacking unit to strike twice; implementing defensive doubling is not required by that request.
 
@@ -134,15 +146,15 @@ Use a bounded saved pending-action stack with parent/trigger IDs for supported n
 
 ## Implementation sequence and exit evidence
 
-| Slice | Work | Smallest useful proof |
-| --- | --- | --- |
-| 1 | Inventory existing resolvers, define pinned identity and legacy adapter | Legacy saves and both current presentations reproduce their prior behavior |
-| 2 | Implement Traditional activation/exchange and explicit resource accounting | Speed boundary matrix; one initiation/round; MP and cooldown accounting |
-| 3 | Wire previews, UI selection and saved accepted events | Preview/resolution agreement; refresh/import/checkpoint tests; desktop/mobile screenshots |
-| 4 | Add declaration/effect boundaries, optional reactions, boss anticipation and after-turn windows | No selection farming or future-command leakage; AI may pass; costs/refresh/refunds correct; no ordinary extra turn or doubling |
-| 5 | Implement a stated 5e-2014 subset from primary references | Edition-specific positive/negative examples for every supported action |
-| 6 | Audit and implement a stated V20 subset | Verified initiative, resource limits and damage examples; no accidental 5e/Traditional math |
-| 7 | Adapt Summoning budgets/command ownership | Spawn/dismiss/death timing, population cap and no summon-based action multiplication |
+| Slice | Work                                                                                            | Smallest useful proof                                                                                                          |
+| ----- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | Inventory existing resolvers, define pinned identity and legacy adapter                         | Legacy saves and both current presentations reproduce their prior behavior                                                     |
+| 2     | Implement Traditional activation/exchange and explicit resource accounting                      | Speed boundary matrix; one initiation/round; MP and cooldown accounting                                                        |
+| 3     | Wire previews, UI selection and saved accepted events                                           | Preview/resolution agreement; refresh/import/checkpoint tests; desktop/mobile screenshots                                      |
+| 4     | Add declaration/effect boundaries, optional reactions, boss anticipation and after-turn windows | No selection farming or future-command leakage; AI may pass; costs/refresh/refunds correct; no ordinary extra turn or doubling |
+| 5     | Implement a stated 5e-2014 subset from primary references                                       | Edition-specific positive/negative examples for every supported action                                                         |
+| 6     | Audit and implement a stated V20 subset                                                         | Verified initiative, resource limits and damage examples; no accidental 5e/Traditional math                                    |
+| 7     | Adapt Summoning budgets/command ownership                                                       | Spawn/dismiss/death timing, population cap and no summon-based action multiplication                                           |
 
 Traditional acceptance cases: speed gap 4 vs 5; equal speed; counter kills attacker; first strike kills target; first strike misses; incapacitation mid-exchange; ranged counter unavailable; cooldown/MP insufficient; player/AI/GM use identical legality; two fast units still initiate only once each; legendary action does not reset those flags; round refresh restores budgets once; unknown version fails safely.
 

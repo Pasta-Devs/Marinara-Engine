@@ -3214,6 +3214,193 @@
                     "reaction": {
                       "type": "boolean"
                     },
+                    "targetCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 20
+                    },
+                    "autoHit": {
+                      "type": "boolean"
+                    },
+                    "applies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "condition": {
+                            "type": "string",
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "duration": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "const": "instant"
+                              },
+                              {
+                                "type": "string",
+                                "const": "until-save"
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "rounds": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 1000
+                                  },
+                                  "$comment": {}
+                                },
+                                "required": [
+                                  "rounds"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "saveEnds": {
+                            "type": "object",
+                            "properties": {
+                              "save": {
+                                "type": "string",
+                                "maxLength": 40,
+                                "pattern": "^[a-z][a-z0-9_]*$"
+                              },
+                              "at": {
+                                "type": "string",
+                                "enum": [
+                                  "turn-end",
+                                  "turn-start"
+                                ]
+                              },
+                              "$comment": {}
+                            },
+                            "required": [
+                              "save",
+                              "at"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "$comment": {}
+                        },
+                        "required": [
+                          "condition",
+                          "duration"
+                        ],
+                        "additionalProperties": false,
+                        "if": {
+                          "properties": {
+                            "duration": {
+                              "const": "until-save"
+                            }
+                          },
+                          "required": [
+                            "duration"
+                          ]
+                        },
+                        "then": {
+                          "required": [
+                            "saveEnds"
+                          ]
+                        }
+                      },
+                      "maxItems": 4
+                    },
+                    "temporary": {
+                      "type": "object",
+                      "properties": {
+                        "dice": {
+                          "type": "string",
+                          "maxLength": 40,
+                          "pattern": "^\\d{1,3}d\\d{1,4}(?:[+-]\\d{1,4})?$"
+                        },
+                        "flat": {
+                          "type": "integer"
+                        },
+                        "$comment": {}
+                      },
+                      "additionalProperties": false
+                    },
+                    "scales": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "object",
+                          "properties": {
+                            "const": {
+                              "type": "number"
+                            },
+                            "field": {
+                              "type": "string",
+                              "maxLength": 40,
+                              "pattern": "^[a-z][a-z0-9_]*$"
+                            },
+                            "derived": {
+                              "type": "string",
+                              "maxLength": 40,
+                              "pattern": "^[a-z][a-z0-9_]*$"
+                            },
+                            "abilityScore": {
+                              "type": "string",
+                              "maxLength": 40,
+                              "pattern": "^[a-z][a-z0-9_]*$"
+                            },
+                            "abilityMod": {
+                              "type": "string",
+                              "maxLength": 40,
+                              "pattern": "^[a-z][a-z0-9_]*$"
+                            },
+                            "abilityModFromField": {
+                              "type": "string",
+                              "maxLength": 40,
+                              "pattern": "^[a-z][a-z0-9_]*$"
+                            },
+                            "skillMod": {
+                              "type": "string",
+                              "maxLength": 40,
+                              "pattern": "^[a-z][a-z0-9_]*$"
+                            },
+                            "saveMod": {
+                              "type": "string",
+                              "maxLength": 40,
+                              "pattern": "^[a-z][a-z0-9_]*$"
+                            },
+                            "$comment": {}
+                          },
+                          "additionalProperties": false
+                        },
+                        "table": {
+                          "type": "array",
+                          "items": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "items": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ]
+                          },
+                          "minItems": 1,
+                          "maxItems": 100
+                        },
+                        "$comment": {}
+                      },
+                      "required": [
+                        "from",
+                        "table"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "budget": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
                     "$comment": {}
                   },
                   "required": [
@@ -3376,6 +3563,935 @@
       },
       "required": [
         "health"
+      ],
+      "additionalProperties": false
+    },
+    "combat": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "attack-vs-defense"
+        },
+        "health": {
+          "type": "object",
+          "properties": {
+            "pool": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "$comment": {}
+          },
+          "required": [
+            "pool"
+          ],
+          "additionalProperties": false
+        },
+        "defense": {
+          "type": "object",
+          "properties": {
+            "const": {
+              "type": "number"
+            },
+            "field": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "derived": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "abilityScore": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "abilityMod": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "abilityModFromField": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "skillMod": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "saveMod": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "$comment": {}
+          },
+          "additionalProperties": false
+        },
+        "initiative": {
+          "type": "object",
+          "properties": {
+            "dice": {
+              "type": "object",
+              "properties": {
+                "count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10
+                },
+                "sides": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 1000
+                },
+                "$comment": {}
+              },
+              "required": [
+                "count",
+                "sides"
+              ],
+              "additionalProperties": false
+            },
+            "modifier": {
+              "type": "object",
+              "properties": {
+                "const": {
+                  "type": "number"
+                },
+                "field": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "derived": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "abilityScore": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "abilityMod": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "abilityModFromField": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "skillMod": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "saveMod": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "$comment": {}
+              },
+              "additionalProperties": false
+            },
+            "$comment": {}
+          },
+          "required": [
+            "dice"
+          ],
+          "additionalProperties": false
+        },
+        "attackRoll": {
+          "type": "object",
+          "properties": {
+            "dice": {
+              "type": "object",
+              "properties": {
+                "count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10
+                },
+                "sides": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 1000
+                },
+                "$comment": {}
+              },
+              "required": [
+                "count",
+                "sides"
+              ],
+              "additionalProperties": false
+            },
+            "advantage": {
+              "type": "boolean",
+              "default": false
+            },
+            "naturals": {
+              "type": "object",
+              "properties": {
+                "max": {
+                  "type": "string",
+                  "enum": [
+                    "critical",
+                    "hit",
+                    "none"
+                  ],
+                  "default": "none"
+                },
+                "min": {
+                  "type": "string",
+                  "enum": [
+                    "miss",
+                    "none"
+                  ],
+                  "default": "none"
+                },
+                "$comment": {}
+              },
+              "additionalProperties": false,
+              "default": {}
+            },
+            "critical": {
+              "type": "string",
+              "enum": [
+                "double-dice",
+                "max-dice",
+                "none"
+              ],
+              "default": "none"
+            },
+            "$comment": {}
+          },
+          "required": [
+            "dice"
+          ],
+          "additionalProperties": false
+        },
+        "economy": {
+          "type": "object",
+          "properties": {
+            "budgets": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "per": {
+                    "type": "string",
+                    "enum": [
+                      "turn",
+                      "round"
+                    ]
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "default": 1
+                  },
+                  "$comment": {}
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "per"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 8
+            },
+            "movement": {
+              "type": "object",
+              "properties": {
+                "const": {
+                  "type": "number"
+                },
+                "field": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "derived": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "abilityScore": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "abilityMod": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "abilityModFromField": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "skillMod": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "saveMod": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "$comment": {}
+              },
+              "additionalProperties": false
+            },
+            "$comment": {}
+          },
+          "required": [
+            "budgets"
+          ],
+          "additionalProperties": false
+        },
+        "attacks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "list": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "budget": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "toHit": {
+                "type": "object",
+                "properties": {
+                  "ability": {
+                    "type": "object",
+                    "properties": {
+                      "column": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "proficiency": {
+                    "type": "object",
+                    "properties": {
+                      "column": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "bonus": {
+                    "type": "object",
+                    "properties": {
+                      "column": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "$comment": {}
+                },
+                "additionalProperties": false,
+                "default": {}
+              },
+              "damage": {
+                "type": "object",
+                "properties": {
+                  "dice": {
+                    "type": "object",
+                    "properties": {
+                      "column": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "ability": {
+                    "type": "object",
+                    "properties": {
+                      "column": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "bonus": {
+                    "type": "object",
+                    "properties": {
+                      "column": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "type": {
+                    "type": "object",
+                    "properties": {
+                      "column": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "$comment": {}
+                },
+                "required": [
+                  "dice"
+                ],
+                "additionalProperties": false
+              },
+              "$comment": {}
+            },
+            "required": [
+              "list",
+              "budget",
+              "name",
+              "damage"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 8
+        },
+        "abilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "list": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "onlyWhen": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "alwaysWhen": {
+                "type": "object",
+                "properties": {
+                  "column": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "equals": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 4000
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  },
+                  "$comment": {}
+                },
+                "required": [
+                  "column",
+                  "equals"
+                ],
+                "additionalProperties": false
+              },
+              "budget": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "toHit": {
+                "type": "object",
+                "properties": {
+                  "const": {
+                    "type": "number"
+                  },
+                  "field": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "derived": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "abilityScore": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "abilityMod": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "abilityModFromField": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "skillMod": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "saveMod": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "$comment": {}
+                },
+                "additionalProperties": false
+              },
+              "saveDifficulty": {
+                "type": "object",
+                "properties": {
+                  "const": {
+                    "type": "number"
+                  },
+                  "field": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "derived": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "abilityScore": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "abilityMod": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "abilityModFromField": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "skillMod": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "saveMod": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "$comment": {}
+                },
+                "additionalProperties": false
+              },
+              "$comment": {}
+            },
+            "required": [
+              "list",
+              "budget"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 8
+        },
+        "standard": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "dash",
+              "disengage",
+              "dodge",
+              "help",
+              "hide",
+              "ready"
+            ]
+          },
+          "maxItems": 6
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "effects": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "own-attacks-advantage",
+                    "own-attacks-disadvantage",
+                    "attacks-against-advantage",
+                    "attacks-against-disadvantage",
+                    "attacks-against-adjacent-advantage",
+                    "attacks-against-far-disadvantage",
+                    "attacks-from-adjacent-critical",
+                    "cannot-act",
+                    "cannot-react",
+                    "speed-zero",
+                    "half-move-to-stand",
+                    "ends-on-damage"
+                  ]
+                },
+                "maxItems": 12,
+                "default": []
+              },
+              "failsSaves": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "minItems": 1,
+                "maxItems": 12
+              },
+              "$comment": {}
+            },
+            "required": [
+              "condition"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 80
+        },
+        "concentration": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "save": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "floor": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "fromDamage": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            },
+            "$comment": {}
+          },
+          "required": [
+            "text",
+            "save",
+            "floor",
+            "fromDamage"
+          ],
+          "additionalProperties": false
+        },
+        "dying": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "saves"
+                },
+                "successes": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "failures": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "dice": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    },
+                    "sides": {
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 1000
+                    },
+                    "$comment": {}
+                  },
+                  "required": [
+                    "count",
+                    "sides"
+                  ],
+                  "additionalProperties": false
+                },
+                "succeedAt": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000
+                },
+                "naturals": {
+                  "type": "object",
+                  "properties": {
+                    "max": {
+                      "type": "string",
+                      "enum": [
+                        "revive-1",
+                        "success",
+                        "none"
+                      ],
+                      "default": "none"
+                    },
+                    "min": {
+                      "type": "string",
+                      "enum": [
+                        "two-failures",
+                        "one-failure",
+                        "none"
+                      ],
+                      "default": "none"
+                    },
+                    "$comment": {}
+                  },
+                  "additionalProperties": false,
+                  "default": {}
+                },
+                "damageWhileDown": {
+                  "type": "string",
+                  "enum": [
+                    "one-failure",
+                    "two-failures",
+                    "none"
+                  ],
+                  "default": "none"
+                },
+                "criticalWhileDown": {
+                  "type": "string",
+                  "enum": [
+                    "one-failure",
+                    "two-failures",
+                    "none"
+                  ],
+                  "default": "none"
+                },
+                "condition": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "$comment": {}
+              },
+              "required": [
+                "kind",
+                "successes",
+                "failures",
+                "dice",
+                "succeedAt"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "damageTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "maxItems": 40
+        },
+        "threat": {
+          "type": "object",
+          "properties": {
+            "tiers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "health": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000
+                      }
+                    ]
+                  },
+                  "defense": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "toHit": {
+                    "type": "integer",
+                    "minimum": -20,
+                    "maximum": 50
+                  },
+                  "damagePerRound": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 10000
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 10000
+                      }
+                    ]
+                  },
+                  "saveDifficulty": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "$comment": {}
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "health",
+                  "defense",
+                  "toHit",
+                  "damagePerRound",
+                  "saveDifficulty"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 40
+            },
+            "$comment": {}
+          },
+          "required": [
+            "tiers"
+          ],
+          "additionalProperties": false
+        },
+        "$comment": {}
+      },
+      "required": [
+        "kind",
+        "health",
+        "defense",
+        "initiative",
+        "attackRoll",
+        "economy"
       ],
       "additionalProperties": false
     },

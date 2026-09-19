@@ -72,6 +72,14 @@
         "op": "sum",
         "of": [{ "const": 4 }, { "field": "toughness" }, { "abilityMod": "brawn" }],
         "section": "about"
+      },
+      {
+        "$comment": "What a blow has to beat. Two six-sided dice average seven, so a Guard of six or seven is an even fight.",
+        "id": "guard",
+        "label": "Guard",
+        "op": "sum",
+        "of": [{ "const": 6 }, { "abilityMod": "wits" }],
+        "section": "about"
       }
     ],
     "lists": [
@@ -82,7 +90,17 @@
         "maxItems": 20,
         "columns": [
           { "id": "name", "label": "Name", "type": "text", "maxLength": 60, "required": true },
-          { "id": "notes", "label": "Notes", "type": "text", "maxLength": 200 }
+          { "id": "notes", "label": "Notes", "type": "text", "maxLength": 200 },
+          {
+            "$comment": "A piece of gear with damage dice is something you can swing. The rest of the list is rope and lamp oil, and a fight simply never offers it.",
+            "id": "swing",
+            "label": "Rolls with",
+            "type": "enum",
+            "values": ["brawn", "wits", "heart"],
+            "default": "brawn"
+          },
+          { "id": "damage", "label": "Damage dice", "type": "dice", "example": "1d6" },
+          { "id": "harm", "label": "Kind of harm", "type": "text", "maxLength": 20 }
         ]
       },
       {
@@ -124,7 +142,8 @@
       "tracks": [{ "id": "heat", "label": "Heat", "min": 0, "max": 5, "default": 0 }],
       "conditions": [
         { "id": "shaken", "label": "Shaken" },
-        { "id": "wounded", "label": "Wounded" }
+        { "id": "wounded", "label": "Wounded" },
+        { "id": "pinned", "label": "Pinned" }
       ]
     }
   },
@@ -244,7 +263,7 @@
               "list": "knacks",
               "values": {
                 "name": "Coldfire Toss",
-                "notes": "Throw a sealed jar. Everyone near where it lands is burned, friends included."
+                "notes": "Throw a sealed jar. It burns up to three of those you pick, and a friend can be one of them."
               }
             }
           ],
@@ -253,9 +272,11 @@
             "range": 12,
             "area": { "shape": "burst", "size": 4 },
             "targets": "any",
+            "targetCount": 3,
             "friendlyFire": true,
             "amount": { "dice": "2d6" },
-            "damageType": "coldfire"
+            "damageType": "coldfire",
+            "applies": [{ "condition": "shaken", "duration": { "rounds": 2 } }]
           }
         },
         {
@@ -268,7 +289,7 @@
               "list": "knacks",
               "values": {
                 "name": "Hold the Line",
-                "notes": "Spend 1 Luck to steady the party. Clear Shaken from one ally who can hear you."
+                "notes": "Spend 1 Luck to steady one ally who can hear you. In a fight they gain 2 temporary Grit."
               }
             }
           ],
@@ -277,6 +298,7 @@
             "kind": "buff",
             "range": 4,
             "targets": "ally",
+            "temporary": { "flat": 2 },
             "cost": [{ "pool": "luck", "amount": 1 }]
           }
         }
@@ -288,6 +310,32 @@
     "health": { "pool": "grit" },
     "energy": { "pool": "luck" },
     "skills": [{ "list": "knacks" }]
+  },
+  "combat": {
+    "$comment": "How a fight is resolved by these rules. Nothing here is borrowed from another system: two six-sided dice plus the stat you swing with, against a Guard, with no advantage, no lucky faces, no criticals and one thing to do a turn. The battle block above is what an Engine that cannot read this one falls back to.",
+    "kind": "attack-vs-defense",
+    "health": { "pool": "grit" },
+    "defense": { "derived": "guard" },
+    "initiative": { "dice": { "count": 2, "sides": 6 }, "modifier": { "abilityMod": "wits" } },
+    "attackRoll": { "dice": { "count": 2, "sides": 6 } },
+    "economy": {
+      "budgets": [{ "id": "act", "label": "Action", "per": "turn", "count": 1 }]
+    },
+    "attacks": [
+      {
+        "list": "gear",
+        "budget": "act",
+        "name": "name",
+        "toHit": { "ability": { "column": "swing" } },
+        "damage": { "dice": { "column": "damage" }, "ability": { "column": "swing" }, "type": { "column": "harm" } }
+      }
+    ],
+    "abilities": [{ "list": "knacks", "budget": "act" }],
+    "standard": ["dodge", "help"],
+    "conditions": [
+      { "condition": "shaken", "effects": ["own-attacks-disadvantage", "ends-on-damage"] },
+      { "condition": "pinned", "effects": ["cannot-act", "speed-zero"] }
+    ]
   },
   "layers": [
     {

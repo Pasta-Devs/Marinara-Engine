@@ -70,8 +70,21 @@ function requireOneHideComparison(node) {
   }
 }
 
+// A condition that lasts until a save needs the save that ends it, or nothing would ever take it
+// off. That is a refinement too, so the editor is told here. The node is found by its shape.
+function requireSaveEndsUntilSave(node) {
+  if (Array.isArray(node)) return node.forEach(requireSaveEndsUntilSave);
+  if (!node || typeof node !== "object") return;
+  Object.values(node).forEach(requireSaveEndsUntilSave);
+  if (node.type === "object" && node.properties?.condition && node.properties.duration && node.properties.saveEnds) {
+    node.if = { properties: { duration: { const: "until-save" } }, required: ["duration"] };
+    node.then = { required: ["saveEnds"] };
+  }
+}
+
 const schema = zodToJsonSchema(rulesetDefinitionSchema, { $refStrategy: "none", target: "jsonSchema7" });
 requireOneCatalogSource(schema);
+requireSaveEndsUntilSave(schema);
 boundScaledColumns(schema);
 requireOneHideComparison(schema);
 allowAnnotations(schema);

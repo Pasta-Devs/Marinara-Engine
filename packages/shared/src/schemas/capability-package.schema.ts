@@ -262,7 +262,15 @@ const capabilityPackageManifestBaseSchema = z
 //        soft seam, for the same reason as 1.20 through 1.24: an engine that cannot read `layers`
 //        or `gm.worldGuidance` refuses the whole ruleset file, so a package that ships either one
 //        declares 1.25. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 25 } as const);
+// 1.26: ruleset combat. A ruleset may carry an optional `combat` block saying how a fight is
+//        RESOLVED by its own numbers (what is rolled against what, the action economy, conditions,
+//        concentration, dying and the threat scale), and a catalog entry's `mechanics` may say how
+//        many targets it takes, that it always lands, what conditions it applies, what temporary
+//        points it grants, how it grows with the sheet and which budget it spends. Not a soft seam,
+//        for the same reason as 1.20 through 1.25: an Engine that cannot read `combat` or the new
+//        `mechanics` keys refuses the whole ruleset file, or the catalog file that holds them, so a
+//        package that ships either declares 1.26. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 26 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

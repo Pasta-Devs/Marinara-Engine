@@ -47,6 +47,16 @@ function ruleset(edit: (doc: Record<string, any>) => void = () => {}): string {
   edit(doc);
   return JSON.stringify(doc, null, 2);
 }
+/** The keys of the example that gate on a LATER declaration than the case at hand is about, so a
+ *  case about catalogs is not answered by the gate that came after them. */
+function withoutLaterGates(doc: Record<string, any>): void {
+  delete doc.layers;
+  delete doc.combat;
+  for (const entry of doc.catalogs?.[0]?.entries ?? []) {
+    for (const key of ["targetCount", "autoHit", "applies", "temporary", "budget"]) delete entry.mechanics?.[key];
+  }
+}
+
 const parsedOrThrow = (text: string): RulesetDefinition => {
   const parsed = parseRulesetDefinition(JSON.parse(text));
   assert.ok(parsed.ok, `the example must stay usable: ${parsed.ok ? "" : parsed.issues.join("; ")}`);
@@ -254,6 +264,9 @@ const catalogFile = (entries: unknown[], catalog = "knacks") =>
     (doc) => {
       doc.sheet.saves = [{ id: "nerve", label: "Nerve", ability: "heart" }];
       doc.sheet.live.pools[0].group = "embers";
+      // A fight has to have something to roll that save against, so a ruleset that gains saves
+      // says what that is on the list the entry lands in.
+      for (const source of doc.combat?.abilities ?? []) source.saveDifficulty = { const: 8 };
     },
   );
   assert.deepEqual(declared, [], "a save the sheet declares and a pool group are both usable costs");
@@ -422,9 +435,9 @@ const installedPackages = packages.map((fixture) => {
   ];
   const manifest = {
     schemaVersion: 2,
-    // 1.25, because the example ruleset carries the combat bridge's battle block, a scaled catalog
-    // row and a layer now.
-    capabilityApi: { major: 1, minor: 25 },
+    // 1.26, because the example ruleset carries the combat bridge's battle block, a scaled catalog
+    // row, a layer, a combat block and catalog mechanics a fight reads.
+    capabilityApi: { major: 1, minor: 26 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     id: packageId,
     name: fixture.id,
@@ -506,8 +519,8 @@ try {
           ruleset((doc) => {
             delete doc.catalogs;
             delete doc.battle;
-            // Layers have a gate of their own, proven in the layers regression.
-            delete doc.layers;
+            // Layers and combat have gates of their own, proven in their own regressions.
+            withoutLaterGates(doc);
           }),
         ),
       ),
@@ -555,7 +568,7 @@ try {
     const withoutScaled = JSON.parse(
       ruleset((doc) => {
         for (const entry of doc.catalogs[0].entries) for (const row of entry.rows) delete row.scaled;
-        delete doc.layers;
+        withoutLaterGates(doc);
       }),
     );
     assert.equal(
@@ -566,8 +579,8 @@ try {
     // The install path holds the verified bytes of every declared asset, so the same gate reads a
     // scaled row out of a catalog FILE rather than only out of the ruleset.
     const assetRuleset = JSON.parse(packages[0]!.ruleset);
-    // Layers gate on 1.25 of their own accord, which these cases are not about.
-    delete assetRuleset.layers;
+    // Layers and combat gate on their own declarations, which these cases are not about.
+    withoutLaterGates(assetRuleset);
     const assetPath = rulesetCatalogAssetPath("knacks");
     const scaledFile = JSON.parse(packages[0]!.catalog);
     assert.match(

@@ -1,6 +1,6 @@
 # Game Mode rulesets and ruleset character sheets: implementation handoff
 
-Status: in progress. Written September 18, 2026 against `staging` at `459f8b85` (v2.4.6). Slice 1 (the shared schema, the pin, the registry and Capability API 1.20) slice 2 (the `dice-sum` resolver, `who=`, and the Game Master reminder swap) slice 3 (sheets on cards and personas) slice 4 (the Rules choice, the pin at creation, copy-at-setup and setup sharing) slice 5 (the in-game sheet, live state and the `[sheet:]` command) slice 7a (the community lanes) slice 8a (the catalog format, its route and Capability API 1.21) the combat bridge (the `battle` block, the shared helpers and Capability API 1.22) slice 8c (scaled catalog values, the `use` command, Refresh from ruleset and Capability API 1.23) slice 7b (the `dice-pool` resolution kind, the `with=`, `threshold=` and `bonus=` tag attributes and Capability API 1.24) and layers L1 (variants a ruleset ships in its own file, the wizard's layer toggles, the `gm.worldGuidance` slot and Capability API 1.25) are implemented, client half included; every later slice is still a proposal. § Format decisions records where the implemented format differs from the first draft and why. It complements `game-combat-rulesets-implementation.md` (the combat handoff). Where the two differ, § Relationship to the combat handoff says so and asks for sign-off rather than quietly overriding it.
+Status: in progress. Written September 18, 2026 against `staging` at `459f8b85` (v2.4.6). Slice 1 (the shared schema, the pin, the registry and Capability API 1.20) slice 2 (the `dice-sum` resolver, `who=`, and the Game Master reminder swap) slice 3 (sheets on cards and personas) slice 4 (the Rules choice, the pin at creation, copy-at-setup and setup sharing) slice 5 (the in-game sheet, live state and the `[sheet:]` command) slice 7a (the community lanes) slice 8a (the catalog format, its route and Capability API 1.21) the combat bridge (the `battle` block, the shared helpers and Capability API 1.22) slice 8c (scaled catalog values, the `use` command, Refresh from ruleset and Capability API 1.23) slice 7b (the `dice-pool` resolution kind, the `with=`, `threshold=` and `bonus=` tag attributes and Capability API 1.24) layers L1 (variants a ruleset ships in its own file, the wizard's layer toggles, the `gm.worldGuidance` slot and Capability API 1.25) and real ruleset combat C1 (the `combat` block, the pure resolver, the mechanics additions and Capability API 1.26; shared only, nothing playable yet) are implemented, client half included where there is one; every later slice is still a proposal. § Format decisions records where the implemented format differs from the first draft and why. It complements `game-combat-rulesets-implementation.md` (the combat handoff). Where the two differ, § Relationship to the combat handoff says so and asks for sign-off rather than quietly overriding it.
 
 Companion file: [`ruleset-5e-2014.example.json`](ruleset-5e-2014.example.json), the first ruleset definition, the precise statement of what "the whole sheet" means, and the file the slice 1 regression validates. The authority for the format is the zod schema in `packages/shared/src/schemas/ruleset.schema.ts`.
 
@@ -202,6 +202,95 @@ Slice L1 of § Open decisions item 5: a layer is a variant a ruleset ships INSID
 - **The client half is built on the same two helpers.** `GameSetupRulesChooser` draws one checkbox per layer under the chosen ruleset, disables the one a checked layer rules out and names it, and `packages/client/src/lib/ruleset-layers.ts` holds the pure part: the toggle, the options record, and the restore that drops a layer id the installed definition no longer has. `useGameRuleset` applies the pin's layers once, so every in-game reader sees the effective definition and the sheet heads itself with the ruleset's name and the active layers. The picker filters with `visibleCatalogEntries`, which narrows what is offered and nothing else: Refresh from ruleset and the scaled columns read the catalog straight from the query, and the character and persona editors pass no options at all, so they hide nothing. `scripts/regressions/ruleset-layers-client.regression.ts` pins all of it.
 - **Capability API 1.25**, read from the bytes, exactly as `catalogs` under 1.21, `battle` under 1.22, `scaled` under 1.23 and `dice-pool` under 1.24: a non-empty `layers` array, or a base `gm.worldGuidance`, needs the declaration.
 - **Proven on all three examples.** Ember Roads gains "Hard winter" (harsher ladder, both guidance slots, and a rule hiding the knacks that cost Grit from the picker), Gravewatch gains "The long night" (a ladder of successes with per-step targets, which is what makes the point that nothing here is d20-shaped), and the 5e draft gains "Low magic" (two values off the spellcasting enum) plus a conflicting "High magic". `scripts/regressions/game-ruleset-layers.regression.ts` pins the schema refusals, the application on every combination of every example, the same-reference case, the fallback, the route's refusals and frozen pin, the reminder, the world prompt and the 1.25 gate.
+
+## Real ruleset combat
+
+**The decision.** Asked whether combat should be a per-ruleset TypeScript adapter or data, the user
+ruled on [#6361](https://github.com/Pasta-Devs/Marinara-Engine/issues/6361): "do whatever is needed
+in order to get the truest version of 5e combat we can accomplish, and the order of PRs is up to
+you." So a `combat` block joins `resolution` as validated data that parameterises an Engine-owned
+kind, the combat handoff's reserved `5e-2014` adapter becomes the 5e package's own data, and the
+standing rule still holds: the FORMAT is never 5e-shaped. Fidelity comes from a rich closed
+vocabulary plus the package's data, not from a file that can name one system's words.
+
+**The architecture.** Four seams, in this order:
+
+1. A pure shared resolver, `packages/shared/src/features/ruleset-combat/`, with no I/O, an injected
+   roller and a plain serialisable state. Everything that acts picks an id off one legal menu.
+2. One server-owned session on the combat director's existing ledger, as a third `style` beside
+   `classic` and `tactical`: the same storage row, revision, idempotency, mutex, windows and single
+   "pick a candidate id" model call. No second ledger.
+3. The existing shells, driven through the `directed` prop they already accept, with the option menu
+   in place of the hardcoded one and the real roll in the log.
+4. The bridge steps aside per ruleset: a ruleset that declares `combat` never takes the `battle`
+   path, and `coverage.combat` finally means something.
+
+**The slices.** C1 the schema and the resolver (this one). C2 bestiary catalogs, stat-block actions,
+multiattack and recharge, the threat clamp, and the 5e package's creatures and enriched spells. C3
+the director's `ruleset` style: session, routes, persistence, enemy choices over the menu, the
+Classic shell on real numbers, `coverage.combat` true. C4 the Tactical shell: movement, reach and
+ranges, areas, cover, opportunity attacks. C5 reactions through the director's windows, legendary
+actions, contests and the remaining conditions.
+
+### What C1 settled
+
+- **The block is optional, absent rather than empty, and lives beside `battle`.** A ruleset may
+  carry both: the bridge is what an Engine too old for `combat` falls back to, and a fight never
+  uses both. Capability API 1.26, read from the ruleset's own bytes exactly as `catalogs` under
+  1.21, `battle` under 1.22, `scaled` under 1.23, `dice-pool` under 1.24 and `layers` under 1.25.
+- **One kind, `attack-vs-defense`**, parameterised the way `dice-sum` is: the dice for initiative and
+  for an attack are declared, so a 2d6 system needs no kind of its own. Saving throws inside a fight
+  roll the attack dice, because a `dice-pool` ruleset has no total to compare with a difficulty; the
+  authoring guide says so.
+- **Every name is the ruleset's, and every one is cross-checked**: the health pool is a declared live
+  pool that does not start empty, the defense and the initiative modifier are value references, an
+  attack's columns are columns of the list it names and of the right type, an ability list is
+  filtered exactly as `battle.skills` is, conditions map the sheet's own ids onto a closed effect
+  list, concentration names a live text and a save, dying names two different tracks, budgets have
+  unique ids, and `attacks[].budget`, `abilities[].budget` and `mechanics.budget` name a declared
+  budget.
+- **The action economy is a list of budgets**, each `per` turn or round with a count. The FIRST
+  declared budget is the main one and is what a standard action spends: a convention rather than a
+  key, because a standard action is the Engine's own and the alternative was a second way to say
+  "action" in every file.
+- **`mechanics` grew six keys, all optional and additive**: `targetCount`, `autoHit`, `applies`
+  (condition, duration, optional save that ends it), `temporary`, `scales` (extra DICE from a step
+  table over a value reference) and `budget`. `rulesetCatalogEntryIssues` checks them, so an inline
+  catalog and an asset catalog are held to the same rule.
+- **Sheet-backed and block-backed combatants.** A party member READS through `evaluateRulesetSheet`,
+  `resolveRulesetValueRef`, `readRulesetLive` and `rulesetCheckModifier`, and WRITES through
+  `applyRulesetSheetOp` on a live blob carried inside the encounter, so health, resources,
+  conditions and concentration are the sheet's during the fight and after it, and a reload mid-fight
+  is exact. An opponent is a plain stat block and lives in the encounter only.
+- **The menu is the only place legality lives.** `rulesetCombatOptions` offers what the actor can
+  afford right now, priced by a dry run of the sheet's own `use` command (`planRulesetUse`, reused
+  rather than re-implemented), including the upcast: a higher pool of the same family, with
+  `perCostStep` adding its dice once per step between the declared pool and the paying one.
+- **The definition is a parameter, not part of the state.** `rulesetCombatOptions`,
+  `applyRulesetCombatChoice`, `advanceRulesetTurn` and `rulesetEncounterSummary` all take the
+  definition the pin resolves to. The state carries `{ id, version }` so a persisted fight says what
+  resolved it, and stays small enough to persist: a party member's catalogs are narrowed to the
+  entries their own rows point at.
+- **Events carry the arithmetic**, never a conclusion: the dice as they fell, the modifier, the
+  total, the defense or difficulty it met, what a resistance did to it and what is left. A log can
+  print "17 + 5 = 22 against 15: hit, 9 slashing" without doing any arithmetic of its own.
+- **Nothing throws.** An illegal choice returns the state it was given, unchanged by identity, and
+  one `refused` event with a reason from a closed list.
+- **What C1 deliberately does not do**, with the seams left in place and said out loud in the
+  authoring guide: positions, distance, reach, ranges, areas on a map, cover and movement (`range`,
+  `area`, `economy.movement` and the four distance-reading condition effects are validated and
+  unread); reactions and their windows (`cannot-react`, and a `reaction` entry is off the menu);
+  bestiaries, multiattack and recharge; and who an opponent chooses to attack. Nothing is playable
+  yet: there is no route, no session and no screen.
+- **Proven on both examples with scripted dice.** `scripts/regressions/game-ruleset-combat-core.regression.ts`
+  pins the schema refusals, the mechanics cross-checks, initiative and both tiebreaks, the menu, the
+  action economy, hits, misses, lucky faces, criticals, advantage and disadvantage cancelling,
+  typed damage with resist, vulnerable and immune, temporary points first, saves for half and for
+  nothing, an area sharing one damage roll, a slot spent through the sheet and refused when empty,
+  the upcast, a scaled cantrip, conditions with save-ends and durations, concentration broken by
+  damage and replaced by a second ability, dying with a revival on a lucky face and death on three
+  failures, healing from zero, victory, defeat, the summary, the 1.26 install gate and a fight
+  carried through `JSON.parse(JSON.stringify(...))` mid-battle.
 
 ## Architecture
 
