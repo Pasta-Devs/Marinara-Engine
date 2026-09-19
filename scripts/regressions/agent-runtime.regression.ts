@@ -747,3 +747,26 @@ await executeAgentBatch(
 assert.equal(unionProvider.calls, 1, "agents with different context selections still share one request");
 assert.match(JSON.stringify(unionProvider.messages), /UNIQUE_CHARACTER_CONTEXT/);
 assert.match(JSON.stringify(unionProvider.messages), /UNIQUE_PERSONA_CONTEXT/);
+
+let previousOutputLoads = 0;
+const previousContext: AgentContext = {
+  ...selectiveContext,
+  loadPreviousOutput: async (agentId) => {
+    assert.equal(agentId, selectiveAgent.id);
+    previousOutputLoads++;
+    return { "agent-context": "BUILT_IN_PRIVATE_PREVIOUS_CONTEXT" };
+  },
+};
+const previousProvider = new RecordingProvider('{"weather":"rain"}');
+await executeAgent(
+  { ...selectiveAgent, settings: { ...selectiveAgent.settings, contextSources: { previousOutput: true } } },
+  previousContext,
+  previousProvider,
+  "agent-model",
+);
+assert.equal(previousOutputLoads, 1);
+assert.match(JSON.stringify(previousProvider.messages), /BUILT_IN_PRIVATE_PREVIOUS_CONTEXT/);
+const noPreviousProvider = new RecordingProvider('{"weather":"rain"}');
+await executeAgent(selectiveAgent, previousContext, noPreviousProvider, "agent-model");
+assert.equal(previousOutputLoads, 1, "disabled previous output must not be loaded");
+assert.doesNotMatch(JSON.stringify(noPreviousProvider.messages), /BUILT_IN_PRIVATE_PREVIOUS_CONTEXT/);

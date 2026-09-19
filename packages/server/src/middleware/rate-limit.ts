@@ -44,6 +44,11 @@ export const ADMIN_RESTART_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+export const REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT = {
+  max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 /**
  * Operator corrections to Beholder's physical state.
  *
@@ -95,6 +100,14 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
   {
     pattern: /^\/api\/admin\/restart(?:\?|$)/,
     rule: { key: "admin-restart", limit: ADMIN_RESTART_RATE_LIMIT.max, windowMs: ADMIN_RESTART_RATE_LIMIT.timeWindow },
+  },
+  {
+    pattern: /^\/api\/admin\/request-timeouts(?:\?|$)/,
+    rule: {
+      key: "request-timeout-settings",
+      limit: REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT.max,
+      windowMs: REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT.timeWindow,
+    },
   },
   { pattern: /^\/api\/updates\/apply(?:\?|$)/, rule: { key: "updates-apply", limit: 5, windowMs: 60_000 } },
   {

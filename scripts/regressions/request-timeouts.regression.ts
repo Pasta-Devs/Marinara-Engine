@@ -13,6 +13,7 @@ const root = mkdtempSync(join(tmpdir(), "marinara-timeouts-"));
 process.env.MARINARA_ENV_FILE = join(root, ".env");
 process.env.NODE_ENV = "production";
 process.env.DATA_DIR = root;
+delete process.env.MARINARA_E2E_DISABLE_RATE_LIMIT;
 writeFileSync(process.env.MARINARA_ENV_FILE, "# Keep this configuration intact\nCHAT_GENERATION_TIMEOUT_MS=420000\n");
 for (const { env } of Object.values(REQUEST_TIMEOUTS)) delete process.env[env];
 const require = createRequire(new URL("../../packages/server/package.json", import.meta.url));
@@ -20,20 +21,39 @@ const Fastify = require("fastify");
 const { adminRoutes } = await import("../../packages/server/src/routes/admin.routes.js");
 const config = await import("../../packages/server/src/config/runtime-config.js");
 const app = Fastify();
-await app.register(adminRoutes, { prefix: "/admin" });
+const { rateLimitHook, REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT } =
+  await import("../../packages/server/src/middleware/rate-limit.js");
+app.addHook("onRequest", rateLimitHook);
+await app.register(adminRoutes, { prefix: "/api/admin" });
 try {
   const originalEnv = readFileSync(process.env.MARINARA_ENV_FILE, "utf8");
-  const defaults = (await app.inject({ url: "/admin/request-timeouts" })).json();
+  const defaults = (await app.inject({ url: "/api/admin/request-timeouts" })).json();
   assert.equal(defaults.chat, 420);
   assert.equal(defaults.comfyui, 2400);
   const settings = { ...defaults, chat: 1200, agents: 1800, images: 3600, comfyui: 7200 };
   const rejected = await app.inject({
     method: "PUT",
-    url: "/admin/request-timeouts",
+    url: "/api/admin/request-timeouts",
     payload: settings,
     remoteAddress: "203.0.113.10",
   });
   assert.equal(rejected.statusCode, 403);
+  for (let i = 1; i < REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT.max; i++) {
+    const attempt = await app.inject({
+      method: "PUT",
+      url: "/api/admin/request-timeouts",
+      payload: settings,
+      remoteAddress: "203.0.113.10",
+    });
+    assert.equal(attempt.statusCode, 403);
+  }
+  const throttled = await app.inject({
+    method: "PUT",
+    url: "/api/admin/request-timeouts",
+    payload: settings,
+    remoteAddress: "203.0.113.10",
+  });
+  assert.equal(throttled.statusCode, 429);
   for (const invalid of [
     { ...settings, chat: 0 },
     { ...settings, chat: 3601 },
@@ -43,7 +63,7 @@ try {
   ]) {
     assert.equal(requestTimeoutSettingsSchema.safeParse(invalid).success, false);
   }
-  const saved = await app.inject({ method: "PUT", url: "/admin/request-timeouts", payload: settings });
+  const saved = await app.inject({ method: "PUT", url: "/api/admin/request-timeouts", payload: settings });
   assert.equal(saved.statusCode, 200, saved.body);
   assert.deepEqual(saved.json(), settings);
   assert.equal(config.getChatGenerationTimeoutMs(), 1_200_000);

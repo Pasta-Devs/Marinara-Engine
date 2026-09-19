@@ -64,6 +64,37 @@ try {
   assert.equal(completed.toolCalls[0]?.function.arguments, '{"ok":true}');
   assert.equal(completed.usage?.totalTokens, 13);
 
+  // The public streaming path must also cancel an open response.
+  let readerCancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    start(stream) {
+      stream.enqueue(
+        new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Complete."}}]}\n\ndata: [DONE]\n\n'),
+      );
+    },
+    cancel() {
+      readerCancelled = true;
+    },
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(body, { headers: { "content-type": "text/event-stream" } });
+  const chatAbort = new AbortController();
+  const chatWatchdog = setTimeout(() => chatAbort.abort(), 750);
+  try {
+    let streamed = "";
+    for await (const chunk of provider.chat([{ role: "user", content: "Continue." }], {
+      model: "fixture",
+      signal: chatAbort.signal,
+    }))
+      streamed += chunk;
+    assert.equal(chatAbort.signal.aborted, false);
+    assert.equal(streamed, "Complete.");
+    assert.equal(readerCancelled, true, "chat() cancels an HTTP body left open after [DONE]");
+  } finally {
+    clearTimeout(chatWatchdog);
+    globalThis.fetch = originalFetch;
+  }
+
   sendDone = false;
   const abort = new AbortController();
   const stalled = provider.chatComplete([{ role: "user", content: "Continue." }], {

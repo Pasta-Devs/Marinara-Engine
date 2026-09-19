@@ -3571,7 +3571,13 @@ export function useGenerate() {
           }
         }
         void Promise.allSettled(translations).then(() => {
-          for (const notify of completionNotifications) notify();
+          for (const notify of completionNotifications) {
+            try {
+              notify();
+            } catch (error) {
+              console.warn("[Generation] Completion notification failed:", error);
+            }
+          }
         });
       }
       if (receivedContent || passiveStreamRecovered || spatialTransitionCommitted) return true;

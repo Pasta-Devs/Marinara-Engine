@@ -2169,9 +2169,7 @@ export function AgentEditor() {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {CUSTOM_AGENT_CONTEXT_SOURCE_META.map((source) => {
                 const allowed =
-                  !!builtIn ||
-                  !source.requiredCapability ||
-                  localCustomCapabilities[source.requiredCapability] === true;
+                  !source.requiredCapability || localCustomCapabilities[source.requiredCapability] === true;
                 return (
                   <EditorSwitchRow
                     key={source.id}

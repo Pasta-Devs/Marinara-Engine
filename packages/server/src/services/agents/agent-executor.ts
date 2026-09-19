@@ -743,7 +743,7 @@ export async function executeAgent(
   const startTime = Date.now();
 
   try {
-    if (config.isCustomAgent && getAgentContextSources(config).previousOutput) {
+    if (getAgentContextSources(config).previousOutput) {
       const data = await context.loadPreviousOutput?.(config.id);
       context = { ...context, previousOutput: { agentType: config.type, text: previousAgentOutputText(data) } };
     }

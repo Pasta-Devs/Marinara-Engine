@@ -89,6 +89,10 @@ test("agent categories fit and built-in context selections survive save, export 
       useUIStore.getState().openAgentDetail("world-state");
     });
     const characters = page.getByRole("checkbox", { name: /^Characters\b/ });
+    await expect(page.getByRole("checkbox", { name: /^Recalled memories\b/ })).toBeDisabled();
+    const previousOutput = page.getByRole("checkbox", { name: /^Previous output\b/ });
+    await expect(previousOutput).toBeEnabled();
+    await previousOutput.press("Space");
     await expect(characters).toBeChecked();
     await characters.focus();
     await characters.press("Space");
@@ -100,6 +104,7 @@ test("agent categories fit and built-in context selections survive save, export 
     };
     await expect.poll(async () => (await saved()).contextSources?.characters).toBe(false);
     expect((await saved()).contextSources.chatHistory).toBe(true);
+    expect((await saved()).contextSources.previousOutput).toBe(true);
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export agent", exact: true }).click();
     const exported = new AdmZip(readFileSync((await (await download).path())!));
@@ -112,6 +117,7 @@ test("agent categories fit and built-in context selections survive save, export 
     });
     await expect(characters).not.toBeChecked();
     await expect(page.getByRole("checkbox", { name: /^Persona\b/ })).not.toBeChecked();
+    await expect(previousOutput).toBeChecked();
     await page.screenshot({ path: info.outputPath("built-in-context.png") });
     await page.route("**/api/personas", (route) => route.fulfill({ json: [] }));
     await page.evaluate(async () => {
@@ -250,6 +256,6 @@ test("request timeouts can be found, saved and reloaded in Advanced Settings", a
     ).toBeInViewport();
     await page.screenshot({ path: info.outputPath("request-timeouts.png") });
   } finally {
-    await request.put("/api/admin/request-timeouts", { data: original });
+    await request.put("/api/admin/request-timeouts", { data: original, failOnStatusCode: true });
   }
 });

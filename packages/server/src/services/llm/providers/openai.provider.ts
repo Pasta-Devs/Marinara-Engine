@@ -1456,6 +1456,8 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     } finally {
       if (options.signal) options.signal.removeEventListener("abort", onAbort);
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
     }
     this.emitChatCompletionsReasoning(options, reasoningMetadata);
     if (streamUsage) return finishReason ? { ...streamUsage, finishReason } : streamUsage;

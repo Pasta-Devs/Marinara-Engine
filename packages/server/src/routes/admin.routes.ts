@@ -9,7 +9,11 @@ import { MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY, PROFESSOR_MARI_ID, TTS_SETTINGS_K
 import { DATA_DIR } from "../utils/data-dir.js";
 import * as schema from "../db/schema/index.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
-import { ADMIN_RESTART_RATE_LIMIT, AVATAR_STORAGE_RATE_LIMIT } from "../middleware/rate-limit.js";
+import {
+  ADMIN_RESTART_RATE_LIMIT,
+  AVATAR_STORAGE_RATE_LIMIT,
+  REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT,
+} from "../middleware/rate-limit.js";
 import { logger } from "../lib/logger.js";
 import { getRequestTimeoutSettings, saveRequestTimeoutSettings, isDockerRuntime } from "../config/runtime-config.js";
 import { noteSessionExitKind } from "../lib/session-postmortem.js";
@@ -68,7 +72,7 @@ export async function adminRoutes(app: FastifyInstance) {
   let restartScheduled = false;
 
   app.get("/request-timeouts", () => getRequestTimeoutSettings());
-  app.put("/request-timeouts", async (req, reply) => {
+  app.put("/request-timeouts", { config: { rateLimit: REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Request timeout settings" })) return;
     return saveRequestTimeoutSettings(req.body);
   });
