@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../services/llm/connection-fallback-provider.js";
+import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import {
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   PROVIDERS,
@@ -111,6 +112,7 @@ async function translateWithAI(
     input.systemPrompt?.trim() || DEFAULT_TRANSLATION_SYSTEM_PROMPT,
     input.targetLanguage,
   );
+  const { enabledParameters } = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
   const result = await provider.chatComplete(
     [
       {
@@ -122,7 +124,12 @@ async function translateWithAI(
         content: `Translate the following text to ${input.targetLanguage}:\n\n${input.text}`,
       },
     ],
-    { model: conn.model, temperature: 0.3 },
+    {
+      model: conn.model,
+      temperature: 0.3,
+      maxTokens: resolveStoredMaxTokens(conn.defaultParameters, provider.maxTokensOverrideValue ?? 4096),
+      enabledParameters: { maxTokens: enabledParameters?.maxTokens },
+    },
   );
 
   return { translatedText: (result.content ?? "").trim() };

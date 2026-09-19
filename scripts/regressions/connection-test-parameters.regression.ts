@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 import { connectionsRoutes } from "../../packages/server/src/routes/connections.routes.js";
+import { translateRoutes } from "../../packages/server/src/routes/translate.routes.js";
 import { createConnectionsStorage } from "../../packages/server/src/services/storage/connections.storage.js";
 
 const previousDirectory = process.env.FILE_STORAGE_DIR;
@@ -45,6 +46,7 @@ try {
   const storage = createConnectionsStorage(db);
   app.decorate("db", db);
   await app.register(connectionsRoutes, { prefix: "/api/connections" });
+  await app.register(translateRoutes, { prefix: "/api/translate" });
   await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
   const address = provider.address();
   assert.ok(address && typeof address !== "string");
@@ -114,6 +116,39 @@ try {
     assert.equal(sent.frequency_penalty, defaults.frequencyPenalty);
     if (defaults.stopSequences) assert.deepEqual(sent.stop, defaults.stopSequences);
     assert.deepEqual(sent.messages, [{ role: "user", content: "hi" }]);
+  }
+
+  // Translation uses the selected connection's budget, rather than the provider's 4096 default (#6366).
+  for (const [maxTokensOverride, defaults, expected] of [
+    [8192, {}, 8192],
+    [4096, {}, 4096],
+    [1024, {}, 1024],
+    [null, {}, 4096],
+    [null, { maxTokens: 8192 }, 8192],
+    [8192, { maxTokens: 2048 }, 2048],
+    [4096, { maxTokens: 8192 }, 4096],
+    [8192, { maxTokens: 2048, enabledParameters: { maxTokens: false } }, undefined],
+  ] as const) {
+    const connection = await storage.create({
+      name: "Translation budget fixture",
+      provider: "custom",
+      baseUrl: `http://127.0.0.1:${address.port}/v1`,
+      apiKey: "",
+      model: "fixture-model",
+      maxContext: 32768,
+      maxTokensOverride,
+    });
+    await storage.updateDefaultParameters(connection.id, defaults);
+    const translated = await app.inject({
+      method: "POST",
+      url: "/api/translate/",
+      payload: { provider: "ai", connectionId: connection.id, text: "Cześć", targetLanguage: "English" },
+    });
+    assert.equal(translated.statusCode, 200, translated.body);
+    assert.equal(translated.json().translatedText, "hello");
+    const sent = requests.at(-1)!;
+    assert.equal(sent.max_tokens, expected, `translation budget: ${JSON.stringify({ maxTokensOverride, defaults })}`);
+    assert.equal(sent.temperature, 0.3, "translation keeps its dedicated sampling temperature");
   }
 
   const localDefault = await storage.create({

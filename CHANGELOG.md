@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- AI translations use the selected connection's output-token budget and cap instead of always defaulting to 4,096; the existing Max Tokens setting also controls the translation fallback (#6366).
 - Advanced Settings now groups text, agent, image, video, ComfyUI and embedding timeout controls for slow backends. Saved limits persist across restarts; media and installed-package changes identify when a restart is needed (#6363).
 - Built-in agents can select which context sources they receive, and preserve those selections on save, export and reload. Grouped agents retain the union of their selected sources (#6356).
 - SwarmUI image connections can keep generated files in the backend, send selected LoRAs and their weights, and pass reference images through the native generation API (#6350).
