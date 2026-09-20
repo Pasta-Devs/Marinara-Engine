@@ -230,9 +230,10 @@ for (const theme of ["dark", "light"] as const) {
         pauseRequests = true;
         await dialog.getByRole("button", { name: action, exact: true }).click();
         await expect.poll(() => !!pendingRequest.release).toBe(true);
-        if (action === "Regenerate Monday")
+        if (action === "Regenerate Monday") {
+          await expect(dialog.getByRole("textbox", { name: "Monday block activity", exact: true })).toBeDisabled();
           await dialog.getByRole("button", { name: `Close Edit ${name} Schedule`, exact: true }).click();
-        else await page.keyboard.press("Escape");
+        } else await page.keyboard.press("Escape");
         await expect(dialog).toBeHidden();
         pauseRequests = false;
         pendingRequest.release!();

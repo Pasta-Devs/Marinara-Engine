@@ -1175,7 +1175,7 @@ export function CharacterScheduleEditorModal({
           </div>
         </details>
 
-        <fieldset disabled={isGeneratingWeek} className="min-w-0 space-y-2">
+        <fieldset disabled={generationBusy} className="min-w-0 space-y-2">
           {CONVERSATION_SCHEDULE_DAYS.map((day) => {
             const blocks = draft.days[day] ?? [];
             const expanded = expandedDay === day;
