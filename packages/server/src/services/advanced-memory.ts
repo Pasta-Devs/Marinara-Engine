@@ -209,7 +209,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "archive-before-context-start-v1", // Invalidate cached prompts without rebuilding valid source archives.
+    "archive-before-context-start-v2", // Invalidate cached prompts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -220,6 +220,13 @@ function preparationPolicyRevision(ctx: Context): string {
 
 function fingerprint(ctx: Context, messages: readonly AdvancedMemoryMessage[], audience: string[]): string {
   return hash([advancedMemorySourceFingerprint(messages), policyFingerprint(ctx), [...audience].sort()]);
+}
+
+function sharedStartMessageId(messages: readonly AdvancedMemoryMessage[]): string {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    if (object(messages[index]!.extra).isConversationStart === true) return messages[index]!.id;
+  }
+  return "";
 }
 
 function abortIfNeeded(signal?: AbortSignal): void {
@@ -1748,6 +1755,7 @@ export function createAdvancedMemoryService(db: DB) {
         revision: hash([record.content, record.enabled, record.updatedAt]),
       })),
       { id: "boundary", revision: boundary ?? "" },
+      { id: "shared-start", revision: sharedStartMessageId(ctx.messages) },
       { id: "budget", revision: String(budget) },
     ];
     const allIds = new Set([
@@ -1895,12 +1903,14 @@ export function createAdvancedMemoryService(db: DB) {
     ) {
       receipt.reasons.push("unverified-summary-omitted");
     }
+    const sharedStart = sharedStartMessageId(sources);
     const previous = available
       .filter(
         (record) =>
           record.kind === "continuity" &&
           record.enabled &&
           recallAudienceMatches(ctx, record, audience) &&
+          record.dependencies.find((dependency) => dependency.id === "shared-start")?.revision === sharedStart &&
           summarySize(record) <= summaryBudget &&
           dependenciesValid(record, available, ctx),
       )
@@ -1911,11 +1921,10 @@ export function createAdvancedMemoryService(db: DB) {
       .filter((item) => item.boundary && indexes.has(item.boundary))
       .sort((a, b) => indexes.get(b.boundary)! - indexes.get(a.boundary)!)[0];
     // A shared manual cutoff moves raw turns into memory, not out of the archive.
-    let boundaryIndex = previous ? indexes.get(previous.boundary)! : -1;
-    for (let index = 0; index < sources.length; index++) {
-      if (object(sources[index]!.extra).isConversationStart === true)
-        boundaryIndex = Math.max(boundaryIndex, index - 1);
-    }
+    let boundaryIndex = Math.max(
+      previous ? indexes.get(previous.boundary)! : -1,
+      sharedStart ? indexes.get(sharedStart)! - 1 : -1,
+    );
     const initialBoundary = boundaryIndex >= 0 ? sources[boundaryIndex]!.id : null;
     let live = eligible.filter((message) => indexes.get(message.id)! > boundaryIndex);
     let archived = eligible.filter((message) => indexes.get(message.id)! <= boundaryIndex);
