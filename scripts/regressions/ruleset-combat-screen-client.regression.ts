@@ -995,6 +995,25 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     "Still standing: Thorn Lurker (3/12)",
     "Sheets: the 5e (SRD 5.1) sheets were kept up to date while the fight ran, so every cost is already paid. Do not change those numbers again.",
   ]);
+
+  // A condition that OUTLIVES the fight is the Game Master's to end, as it is at a table: the thing
+  // that would lift a charm is the spell's own terms or the fiction, never arithmetic, so the recap
+  // names who is still carrying one and hands over the command rather than guessing. The condition
+  // the dying rule puts on somebody at zero is deliberately not in that list, because it comes off
+  // when they are healed or stabilised and the rules already say so.
+  const charmed = {
+    ...summary,
+    party: [
+      { ...summary.party[0]!, conditions: ["charmed"] },
+      { ...summary.party[1]!, health: 0, down: true, dying: true, stable: false, conditions: ["unconscious"] },
+    ],
+  };
+  const charmedRecap = rulesetCombatRecapLines(fiveE, charmed);
+  const still = charmedRecap.find((line) => line.startsWith("Still affected:"));
+  assert.ok(still, `the recap must name a lingering condition: ${JSON.stringify(charmedRecap)}`);
+  assert.match(still, /Brenna \(Charmed\)/u, still);
+  assert.doesNotMatch(still, /Corwin/u, "the dying rule's own condition is not a ruling to make");
+  assert.match(still, /op="condition"/u, "and the Game Master is given the command that ends it");
 }
 
 // ── The board: everything on it came off the view, and nothing was worked out here ──

@@ -338,7 +338,9 @@ function attackActions(
       label: name,
       budget: source.budget,
       targets: { side: "enemy", count: 1 },
-      ...(strikes !== undefined ? { strikes } : {}),
+      // A row its own column holds to one strike keeps none in hand: a crossbow is one shot a turn
+      // however many attacks its wielder has. Said per ROW, because the count is the list's.
+      ...(strikes !== undefined && columnValue(row, source.strikesCappedBy?.column) !== true ? { strikes } : {}),
       ...(reach !== undefined ? { reach } : {}),
       // A row whose long distance came out shorter than its ordinary one is the player's row, not
       // the ruleset's rule, so it is read as having nothing beyond the ordinary one.

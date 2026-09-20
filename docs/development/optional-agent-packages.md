@@ -1070,6 +1070,28 @@ Use the existing startup-readiness declaration independently when the world must
 be prepared before the opening turn. Declare API 1.18 as the package minimum;
 older hosts cannot interpret this setup declaration.
 
+### Capability API 1.32: a weapon that caps its own strikes
+
+An attack source may declare `strikesCappedBy`, a boolean column of its own list. Where that column
+is set on a row, that row buys a single strike however many `strikes` the list buys, so a weapon
+that fires once a turn stays one shot while the rest of the list swings as often as the sheet says.
+SRD 5.1's Loading property is the sentence it exists for: "you can fire only one piece of ammunition
+when you use an action, bonus action, or reaction to fire it, regardless of the number of attacks
+you can normally make."
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 32 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+It needs `strikes` beside it and is refused without one, because a list that buys one strike a spend
+already holds every row to one. Not a soft seam, for the same reason as 1.20 through 1.31: an Engine
+that cannot read the key refuses the whole ruleset file, so a package that ships it declares 1.32.
+No permission.
+
 ### Capability API 1.31: host generation integrations
 
 Server packages can call `api.runtime.integrations` to use the current Engine's LLM, image and video services. Declare capability API 1.31 in the package manifest and check that the integration host is available during activation. Older Engines reject the newer API requirement before activating the package. Provider operations require the `network` permission; saving, staging and removing media require `storage`.

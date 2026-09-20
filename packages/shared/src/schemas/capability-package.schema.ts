@@ -304,7 +304,13 @@ const capabilityPackageManifestBaseSchema = z
 //        1.20 through 1.29: an Engine that cannot read these keys refuses the whole ruleset file,
 //        so a package that ships any of them declares 1.30. No permission.
 // 1.31: live host LLM, image and video integrations for downloadable packages.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 31 } as const);
+// 1.32: a weapon that is one strike a turn whatever its wielder's count. An attack source may
+//        declare `strikesCappedBy`, a boolean column of its own list that holds ITS row to a single
+//        strike however many `strikes` the list buys. SRD 5.1's Loading is the sentence it exists
+//        for. Not a soft seam, for the same reason as 1.20 through 1.31: an Engine that cannot read
+//        the key refuses the whole ruleset file, so a package that ships it declares 1.32. No
+//        permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 32 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

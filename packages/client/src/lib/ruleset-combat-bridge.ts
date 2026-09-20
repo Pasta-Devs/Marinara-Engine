@@ -94,6 +94,29 @@ export function rulesetCombatRecapLines(definition: RulesetDefinition, summary: 
   lines.push(
     `Sheets: the ${definition.name} sheets were kept up to date while the fight ran, so every cost is already paid. Do not change those numbers again.`,
   );
+  // A condition does not expire because the fighting stopped. It is still on the sheet, and the
+  // thing that would end it, a spell's own terms, a night's rest, somebody's help, is a ruling
+  // rather than arithmetic, so it is the Game Master's to make and they are told they have it.
+  // Not the one the ruleset's own dying rule puts on somebody at zero: that comes off when they are
+  // healed or stabilised, which the rules already say, and asking the Game Master to rule on it
+  // would invite them to wake a dying character by fiat.
+  const dyingCondition = combat?.dying?.condition;
+  const lingeringOf = (member: RulesetEncounterSummary["party"][number]) =>
+    member.conditions.filter((id) => id !== dyingCondition);
+  const lingering = summary.party.filter((member) => lingeringOf(member).length > 0);
+  if (lingering.length > 0) {
+    const who = lingering
+      .map(
+        (member) =>
+          `${member.name} (${lingeringOf(member)
+            .map((id) => conditionLabel.get(id) ?? id)
+            .join(", ")})`,
+      )
+      .join("; ");
+    lines.push(
+      `Still affected: ${who}. These stay until you take them off. Decide whether the fiction ends one, and write [sheet: who="Name" op="condition" condition="Name" state="off"] when it does.`,
+    );
+  }
   return lines;
 }
 

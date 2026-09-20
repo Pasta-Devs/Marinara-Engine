@@ -1534,6 +1534,13 @@ const combatAttackSourceSchema = z
      *  are in hand every row of a list that declares this costs no budget at all. A list that says
      *  nothing buys one strike a spend, which is what every fight did before this existed. */
     strikes: rulesetValueRefSchema.optional(),
+    /** A boolean column that holds ITS OWN row to a single strike, whatever `strikes` says. Some
+     *  weapons are one shot a turn however many attacks their wielder has: SRD 5.1's Loading is
+     *  exactly this sentence, "you can fire only one piece of ammunition when you use an action ...
+     *  regardless of the number of attacks you can normally make". Without a column the whole list
+     *  shares one count, which is right for swords and wrong for a crossbow. Meaningless without
+     *  `strikes`, and refused there, because a list that buys one strike already caps every row. */
+    strikesCappedBy: combatColumnSchema.optional(),
     toHit: z
       .object({
         /** An enum column holding an ability id. Another value adds nothing, exactly as
@@ -2559,6 +2566,13 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         if (source.strikes.const !== undefined && source.strikes.const < 1) {
           issue([...path, "strikes", "const"], "One spend buys at least one strike");
         }
+      } else if (source.strikesCappedBy) {
+        // A list that buys one strike a spend already holds every row to one, so a cap there is an
+        // author saying something the fight could never read.
+        issue(
+          [...path, "strikesCappedBy"],
+          "strikesCappedBy holds a row to one strike, and this list buys one strike a spend anyway",
+        );
       }
       const list = listById.get(source.list);
       if (!list) return issue([...path, "list"], `Unknown list "${source.list}"`);
@@ -2576,6 +2590,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       // An ability column is an enum of ability ids; a value that is not one adds nothing, exactly
       // as `abilityModFromField` reads one.
       column(source.toHit.ability?.column, "enum", [...path, "toHit", "ability", "column"]);
+      column(source.strikesCappedBy?.column, "boolean", [...path, "strikesCappedBy", "column"]);
       column(source.toHit.proficiency?.column, "boolean", [...path, "toHit", "proficiency", "column"]);
       column(source.toHit.bonus?.column, "number", [...path, "toHit", "bonus", "column"]);
       column(source.damage.dice.column, "dice", [...path, "damage", "dice", "column"]);
@@ -2729,8 +2744,15 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           }
         }
       }
-    } else if (combat.damageKinds) {
-      issue(at("damageKinds"), "damageKinds maps damage onto a wound track's kinds, and health is a pool");
+    } else if ("pool" in combat.health && combat.damageKinds) {
+      // Only when health really IS a pool. `checkHealth` also answers null for a track it could not
+      // read at all, and that file has already been told what is wrong with the track; telling its
+      // author to point health at a wound track, which is what they did, would send them looking in
+      // the wrong place.
+      issue(
+        at("damageKinds"),
+        "damageKinds maps damage onto a wound track's kinds, and health is a pool, which has nowhere to keep one: point health at a wound track if what KIND a wound was still matters after the blow",
+      );
     }
 
     if (combat.threat) {
@@ -3333,12 +3355,15 @@ export function rulesetCatalogEntryIssues(
     // mark that clears itself?) a ruleset whose fights are fought on a track is refused the key.
     // Either block may point health at one: `battle` lends the Engine's own fights the sheet's
     // numbers and reads a track as the levels still clear, with no buffer either.
-    const trackHealth =
-      definition.combat && "track" in definition.combat.health
-        ? definition.combat.health.track
-        : definition.battle && "track" in definition.battle.health
-          ? definition.battle.health.track
-          : null;
+    // Only a track this sheet really declares WITH levels: health pointed at a name the sheet does
+    // not have, or at a plain bounded number, is a broken file that has already been told so, and
+    // calling it a wound track here would send its author looking in the wrong place.
+    const woundTrack = (health: { pool: string } | { track: string } | undefined) => {
+      if (!health || !("track" in health)) return null;
+      const declared = definition.sheet.live.tracks.find((track) => track.id === health.track);
+      return declared?.levels?.length ? health.track : null;
+    };
+    const trackHealth = woundTrack(definition.combat?.health) ?? woundTrack(definition.battle?.health);
     if (mechanics?.temporary && trackHealth) {
       add(
         [index, "mechanics", "temporary"],

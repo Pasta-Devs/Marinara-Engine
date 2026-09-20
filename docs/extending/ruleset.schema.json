@@ -5353,6 +5353,21 @@
                 },
                 "additionalProperties": false
               },
+              "strikesCappedBy": {
+                "type": "object",
+                "properties": {
+                  "column": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "$comment": {}
+                },
+                "required": [
+                  "column"
+                ],
+                "additionalProperties": false
+              },
               "toHit": {
                 "type": "object",
                 "properties": {

@@ -518,6 +518,35 @@ for (const marks of ["per-blow", "per-point"] as const) {
     );
   };
 
+  // A refusal says what is really wrong. `checkHealth` answers null for pool health, for a track
+  // nobody declared and for a plain track, so the pool message has to ask whether health is a POOL
+  // rather than trusting that null: an author who pointed at a broken track has already been told
+  // about the track, and "point health at a wound track" would send them looking in the wrong place.
+  for (const [label, edit] of [
+    ["an unknown track", (doc: Record<string, any>) => (doc.combat.health = { track: "nowhere" })],
+    [
+      "a plain track",
+      (doc: Record<string, any>) => {
+        doc.sheet.live.tracks.push({ id: "plain", label: "Plain", min: 0, max: 4 });
+        doc.combat.health = { track: "plain" };
+      },
+    ],
+  ] as Array<[string, (doc: Record<string, any>) => void]>) {
+    const result = parseRulesetDefinition(trackDocument(edit));
+    // Before reading the issues at all: an accepted document has none, and every assertion below
+    // would then pass by saying nothing about a refusal that had quietly disappeared.
+    assert.equal(result.ok, false, `${label} must be refused`);
+    const issues = result.ok ? [] : result.issues;
+    assert.ok(
+      !issues.some((issue) => /health is a pool/.test(issue)),
+      `${label} must not be called a pool: ${JSON.stringify(issues)}`,
+    );
+    assert.ok(
+      !issues.some((issue) => /Health is the wound track/.test(issue)),
+      `${label} is not a wound track either: ${JSON.stringify(issues)}`,
+    );
+  }
+
   // Health naming a track nobody declared, and a track with no levels to mark.
   refuse((doc) => {
     doc.combat.health = { track: "nowhere" };

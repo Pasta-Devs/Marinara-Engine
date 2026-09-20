@@ -1532,7 +1532,10 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
   };
   /** And the keys that say what one turn can do, a release later still, for the same reason. */
   const withoutTurnEconomy = (doc: Record<string, any>) => {
-    for (const source of doc.combat?.attacks ?? []) delete source.strikes;
+    for (const source of doc.combat?.attacks ?? []) {
+      delete source.strikes;
+      delete source.strikesCappedBy;
+    }
     for (const entry of doc.combat?.conditions ?? []) {
       for (const key of ["saves", "whileSourceInSight", "endsWhenSourceDown"]) delete entry[key];
       entry.effects = (entry.effects ?? []).filter(
@@ -1780,6 +1783,26 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
   assert.match(
     refusal(withCombat((combat) => (combat.attacks[0].strikes = { const: 0 }))),
     /One spend buys at least one strike/,
+  );
+  // A cap names a boolean column of the list it caps, and says nothing on a list that buys one
+  // strike a spend anyway.
+  assert.match(
+    refusal(
+      withCombat((combat) => {
+        combat.attacks[0].strikes = { const: 2 };
+        combat.attacks[0].strikesCappedBy = { column: "damage" };
+      }),
+    ),
+    /Must name a boolean column/,
+  );
+  assert.match(
+    refusal(
+      withCombat((combat) => {
+        delete combat.attacks[0].strikes;
+        combat.attacks[0].strikesCappedBy = { column: "finesse" };
+      }),
+    ),
+    /this list buys one strike a spend anyway/,
   );
   assert.match(
     refusal(
@@ -2121,7 +2144,7 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
         .filter((row) => row.list === list)
         .map((row) => row.row),
     );
-  const weapon = (name: string, ability: string, damage: string, type: string, finesse: boolean) => ({
+  const weapon = (name: string, ability: string, damage: string, type: string, finesse: boolean, loading = false) => ({
     name,
     ability,
     proficient: true,
@@ -2129,6 +2152,7 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
     damage,
     damage_type: type,
     finesse,
+    loading,
     reach: 5,
     range: 0,
     long_range: 0,
@@ -2139,7 +2163,12 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
       saves: { dex_save: "proficient" },
       fields: { level: 7, ac: 15, speed: 30, hp_max: 44, attacks_per_action: strikes },
       lists: {
-        attacks: [weapon("Rapier", "dex", "1d8", "piercing", true), weapon("Club", "str", "1d4", "bludgeoning", false)],
+        attacks: [
+          weapon("Rapier", "dex", "1d8", "piercing", true),
+          weapon("Club", "str", "1d4", "bludgeoning", false),
+          // One shot a turn however many attacks its wielder has: SRD Loading.
+          weapon("Crossbow", "dex", "1d8", "piercing", false, true),
+        ],
         features: featRows(ids, "features"),
         counters: featRows(ids, "counters"),
       },
@@ -2162,6 +2191,15 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
     // them is neither refused nor charged, and a fourth asks for a budget again.
     let state = fight(fiveE, [rogue([], 3), sack()], 20, 1);
     assert.equal(who(state, "vess").actions[0]!.strikes, 3, "the sheet's own number, read once");
+    // SRD Loading: a crossbow is one shot a turn however many attacks its wielder has, and
+    // `strikesCappedBy` is what says so per ROW while the count stays the list's.
+    const crossbow = who(state, "vess").actions.find((action) => action.label === "Crossbow")!;
+    assert.equal(crossbow.strikes, undefined, "a capped row buys no strikes to keep in hand");
+    assert.equal(
+      who(state, "vess").actions.find((action) => action.label === "Club")!.strikes,
+      3,
+      "and the rest of the list is untouched by one row's cap",
+    );
     let step = act(fiveE, state, { actorId: "vess", optionId: "attack:0:0", targetIds: ["sack"] }, 18, 5);
     assert.deepEqual(
       step.events.map((event) => event.type),
@@ -2696,7 +2734,10 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
     // be the same event for the same event, numbers included.
     const stripped = parsedOrThrow(
       variant(fiveEText, (doc) => {
-        for (const source of doc.combat.attacks ?? []) delete source.strikes;
+        for (const source of doc.combat.attacks ?? []) {
+          delete source.strikes;
+          delete source.strikesCappedBy;
+        }
         for (const entry of doc.combat.conditions ?? []) {
           for (const key of ["saves", "whileSourceInSight", "endsWhenSourceDown"]) delete entry[key];
           entry.effects = (entry.effects ?? []).filter(

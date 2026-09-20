@@ -1385,7 +1385,10 @@ const traveller = (live: unknown = {}): RulesetCombatantInput => ({
     }
     // And the keys that say what one turn can do, a release later still: a case about the bestiary
     // gate has to leave the gate above it nothing to fire on.
-    for (const source of doc.combat?.attacks ?? []) delete source.strikes;
+    for (const source of doc.combat?.attacks ?? []) {
+      delete source.strikes;
+      delete source.strikesCappedBy;
+    }
     delete doc.combat?.standardEffects;
     for (const entry of doc.combat?.conditions ?? []) {
       for (const key of ["saves", "whileSourceInSight", "endsWhenSourceDown"]) delete entry[key];

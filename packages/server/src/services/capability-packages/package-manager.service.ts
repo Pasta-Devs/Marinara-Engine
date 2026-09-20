@@ -802,6 +802,19 @@ export function getCapabilityPackageInstallIssue(
       return "A ruleset that says what one turn can do requires schemaVersion 2 and capabilityApi 1.29 or newer";
     }
   }
+  // A weapon held to one strike by a column of its own row. Same file, same reading, same reason as
+  // everything above: an Engine that does not know the key refuses the whole ruleset.
+  if (combat && !declaresApi(32)) {
+    const capped = Array.isArray(combat.attacks)
+      ? combat.attacks.some(
+          (source) =>
+            !!source && typeof source === "object" && (source as Record<string, unknown>).strikesCappedBy !== undefined,
+        )
+      : false;
+    if (capped) {
+      return "A ruleset whose weapons cap their own strikes requires schemaVersion 2 and capabilityApi 1.32 or newer";
+    }
+  }
   // Wound tracks. `levels` and `kinds` on a live track, and the track `resolution.penaltyFrom`
   // names, are new keys in the same strict file, so the reading and the reason are the same as
   // everything above: an Engine that does not know them refuses the whole ruleset.

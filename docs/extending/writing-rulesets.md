@@ -217,6 +217,8 @@ Anything that reads a number names it with a value reference, which is an object
 
 Plenty of systems do not count hit points at all. They have a column of boxes, each worse than the last, and you tick one when you get hurt. Give a `live.tracks` entry `levels` and `kinds` and it stops being a number on a scale and becomes one of those:
 
+**Which shape does your system want?** A pool records how MUCH harm landed; a track records how much AND what kind each piece of it was. If your system says a wound is bashing, lethal or aggravated, and which one it was still matters after the blow, because aggravated heals slower or cannot be soaked or is what finally kills, then that kind has to live somewhere after the roll, and only a mark carries one. A pool of points cannot: once damage is subtracted it is just a smaller number, and nothing on the sheet remembers which points were which. That is why `combat.damageKinds` is refused on a ruleset whose health is a pool rather than being quietly ignored. A pool can still have `damageTypes`, and an opponent can still resist or be immune to them, because that is a question about how much of the blow lands rather than about what the wound is afterwards.
+
 ```json
 {
   "id": "harm",
@@ -672,7 +674,11 @@ same keys for a d20 system:
   `strikes` is an optional value reference saying how many strikes ONE spend of this list's budget
   buys: taking a row with none in hand spends the budget and puts the rest in hand, and while any
   are in hand every row that declares `strikes` costs no budget at all, so a different weapon, a
-  different target and a walk between them all fall out of the menu on their own. The strikes in
+  different target and a walk between them all fall out of the menu on their own. `strikesCappedBy`
+  names a boolean column that holds ITS OWN row to a single strike however many the list buys, for
+  the weapons that fire once a turn whatever their wielder's count: SRD 5.1's Loading property is
+  the sentence it exists for. It is meaningless, and refused, on a list that buys one strike a
+  spend anyway. The strikes in
   hand are the COMBATANT's, not one list's: a character whose two weapon lists both declare
   `strikes` spends from the same handful whichever row they swing. They are cleared at the end of
   the turn that bought them. A list that says nothing buys one strike a spend, which is what
@@ -748,8 +754,9 @@ same keys for a d20 system:
   costs (`damageWhileDown`, `criticalWhileDown`) and the `condition` a downed character is in.
   Without this block a character at zero is simply down, and healing brings them back.
 - `damageTypes`: optional. The types your system has, matched without case.
-- `damageKinds`: required when `health` names a wound track, and refused when it names a pool. It
-  says which of the track's `kinds` a blow marks and how many boxes it ticks. `default` is what
+- `damageKinds`: required when `health` names a wound track, and refused when it names a pool,
+  because only a mark carries a kind and a pool of points has nowhere to keep one (see Wound tracks
+  above). It says which of the track's `kinds` a blow marks and how many boxes it ticks. `default` is what
   anything unmapped lands as, including a blow that carries no type at all, and `byType` maps your
   own `damageTypes` onto kinds, with its keys matched without case as the types themselves are, so
   `"Fire"` and `"fire"` are one key and naming both is refused. `marks` has no default because the

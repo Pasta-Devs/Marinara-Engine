@@ -672,6 +672,13 @@
             "default": false
           },
           {
+            "$comment": "Set on a weapon that fires once a turn however many attacks its wielder has. The combat block names this column as strikesCappedBy; nothing in the Engine knows the word \"loading\".",
+            "id": "loading",
+            "label": "Loading",
+            "type": "boolean",
+            "default": false
+          },
+          {
             "id": "damage",
             "label": "Damage dice",
             "type": "dice",
@@ -1800,6 +1807,7 @@
     },
     "attacks": [
       {
+        "$comment": "SRD 5.1 Loading: \"you can fire only one piece of ammunition when you use an action ... regardless of the number of attacks you can normally make.\" `strikes` is the list's count; `strikesCappedBy` names a column that holds its own row to one, so a crossbow stays one shot while a sword swings as often as the sheet says.",
         "list": "attacks",
         "budget": "action",
         "name": "name",
@@ -1838,7 +1846,8 @@
         },
         "strikes": {
           "field": "attacks_per_action"
-        }
+        },
+        "strikesCappedBy": { "column": "loading" }
       }
     ],
     "abilities": [
