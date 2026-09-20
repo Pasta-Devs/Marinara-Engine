@@ -383,7 +383,10 @@ export async function generateScheduleRoutineSummary(
 const generatedBlocksSchema = z
   .array(
     z.object({
-      time: z.string().trim().min(1),
+      time: z
+        .string()
+        .trim()
+        .regex(/^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$/),
       activity: z.string().trim().min(1),
       status: z.string().optional(),
     }),

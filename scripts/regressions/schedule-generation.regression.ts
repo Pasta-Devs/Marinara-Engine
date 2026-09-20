@@ -147,7 +147,13 @@ try {
     assert.equal(response.statusCode, 502, `${invalid}: ${response.body}`);
     assert.match(response.json().error, /model returned (invalid schedule JSON|an empty or invalid schedule)/);
   }
-  for (const invalid of ["{}", '{"blocks": []}', '{"blocks": [{"time": "", "activity": "sleep"}]}']) {
+  for (const invalid of [
+    "{}",
+    '{"blocks": []}',
+    '{"blocks": [{"time": "", "activity": "sleep"}]}',
+    '{"blocks": [{"time": "later", "activity": "sleep"}]}',
+    '{"blocks": [{"time": "25:00-26:75", "activity": "sleep"}]}',
+  ]) {
     content = invalid;
     response = await draft({ connectionId: override.id, mode: "day", day: "Monday" });
     assert.equal(response.statusCode, 502, response.body);
