@@ -55,9 +55,9 @@ export function AtlasCloudModelOptions({ model, value, onChange }: Props) {
   };
 
   let body;
-  if (!settledModel.trim()) {
+  if (!model.trim()) {
     body = <StatusLine>{t("connections.mediaSources.atlas.modelOptions.enterModel")}</StatusLine>;
-  } else if (schema.isLoading) {
+  } else if (model !== settledModel || schema.isLoading) {
     body = (
       <StatusLine>
         <Loader2 size="0.75rem" className="animate-spin" />

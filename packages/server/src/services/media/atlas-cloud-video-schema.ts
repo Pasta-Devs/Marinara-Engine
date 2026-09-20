@@ -82,9 +82,9 @@ export function parseAtlasCloudModelSchema(document: unknown): AtlasCloudModelIn
   const schemas = components && isRecord(components.schemas) ? components.schemas : null;
   const input = schemas && isRecord(schemas.Input) ? schemas.Input : isRecord(document.properties) ? document : null;
   if (!input || !isRecord(input.properties)) return null;
-  const properties: Record<string, AtlasCloudSchemaProperty> = {};
+  const properties: Record<string, AtlasCloudSchemaProperty> = Object.create(null);
   for (const [name, rawProperty] of Object.entries(input.properties)) {
-    if (!isRecord(rawProperty)) continue;
+    if (name === "__proto__" || name === "constructor" || !isRecord(rawProperty)) continue;
     const rawEnum = Array.isArray(rawProperty.enum)
       ? rawProperty.enum.filter(
           (entry): entry is string | number => typeof entry === "string" || typeof entry === "number",
@@ -238,13 +238,14 @@ function describeModelOptionProblem(
   schema: AtlasCloudModelInputSchema,
   body: Record<string, unknown>,
 ): string | null {
-  const property = schema.properties[name];
+  const property = Object.hasOwn(schema.properties, name) ? schema.properties[name] : undefined;
   if (!property) return "the model has no such input";
   if (isManagedKey(name, schema) || name in body) return "Marinara sets this input itself";
   if (property.enum && !property.enum.includes(value as string | number)) return "not one of the model's choices";
   if (property.type === "boolean" && typeof value !== "boolean") return "expected true or false";
   if (property.type === "string" && typeof value !== "string") return "expected text";
   if (property.type === "array" && !Array.isArray(value)) return "expected a list";
+  if (property.type === "object" && !isRecord(value)) return "expected an object";
   if (property.type === "number" || property.type === "integer") {
     if (typeof value !== "number" || !Number.isFinite(value)) return "expected a number";
     if (property.type === "integer" && !Number.isInteger(value)) return "expected a whole number";

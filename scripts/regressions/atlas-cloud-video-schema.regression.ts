@@ -258,6 +258,7 @@ const normalized = normalizeVideoGenerationProfile({
         seed: 7,
         loras: [{ path: "a" }],
         "motion-strength.v2": 0.5,
+        prototype: "cinematic",
         ["x".repeat(65)]: 1,
         ["__proto__"]: 1,
         constructor: 1,
@@ -276,6 +277,7 @@ assert.deepEqual(normalized.atlas.modelOptions, {
     seed: 7,
     loras: [{ path: "a" }],
     "motion-strength.v2": 0.5,
+    prototype: "cinematic",
   },
 });
 assert.equal(
@@ -286,6 +288,35 @@ assert.deepEqual(
   normalizeVideoGenerationProfile({ service: "atlas", atlas: { durationSeconds: 5 } }).profile.atlas.modelOptions,
   {},
 );
+
+// Ordinary schema inputs named `prototype` are safe; inherited object keys are not inputs.
+const objectInput = { ...common, model: "vendor/model" };
+const objectOptions = parseAtlasCloudModelSchema({
+  properties: {
+    prompt: { type: "string" },
+    prototype: { type: "string" },
+    metadata: { type: "object" },
+    ["__proto__"]: { type: "string" },
+    constructor: { type: "string" },
+  },
+});
+assert.ok(objectOptions);
+assert.deepEqual(
+  listAtlasCloudModelOptionFields(objectOptions).map((field) => field.name),
+  ["prototype", "metadata"],
+);
+assert.deepEqual(
+  adaptAtlasCloudVideoRequest(
+    { ...objectInput, modelOptions: { prototype: "cinematic", metadata: { scene: 1 } } },
+    objectOptions,
+  ).body,
+  { model: objectInput.model, prompt: common.prompt.trim(), prototype: "cinematic", metadata: { scene: 1 } },
+);
+for (const metadata of [null, [], "scene", 1, true]) {
+  const invalidObject = adaptAtlasCloudVideoRequest({ ...objectInput, modelOptions: { metadata } }, objectOptions);
+  assert.equal(Object.hasOwn(invalidObject.body, "metadata"), false);
+  assert.ok(invalidObject.adjustments.some((note) => note.includes("expected an object")));
+}
 
 // Fetch Models reads the live catalog: only generation models of the requested kind, hidden entries
 // skipped, image-to-video ahead of text-to-video because every scene video animates an image.

@@ -65,7 +65,7 @@ const ATLAS_CLOUD_MODEL_OPTION_MAX_STRING_LENGTH = 4_000;
 const ATLAS_CLOUD_MODEL_OPTION_MAX_JSON_LENGTH = 8_000;
 const ATLAS_CLOUD_MODEL_OPTION_MAX_KEY_LENGTH = 64;
 /** Names that would reach Object.prototype instead of becoming an own property. */
-const UNSAFE_OBJECT_KEYS: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"]);
+const UNSAFE_OBJECT_KEYS: ReadonlySet<string> = new Set(["__proto__", "constructor"]);
 
 export const DEFAULT_SEEDANCE_VIDEO_DEFAULTS: SeedanceVideoDefaults = {
   durationSeconds: 5,
