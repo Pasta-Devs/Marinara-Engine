@@ -38,6 +38,7 @@ The table below shows each service at a glance. Details and quirks follow in the
 | Venice.ai | Yes | Cloud |
 | Z.AI | Yes | Cloud |
 | Atlas Cloud | Yes | Cloud |
+| MuAPI | Yes | Cloud |
 | fal.ai | Yes | Cloud |
 | NanoGPT | Yes | Cloud |
 | Block Entropy | Yes | Cloud |
@@ -83,6 +84,10 @@ Cloud service with the default Base URL `https://api.z.ai/api/paas/v4`. It needs
 ## Atlas Cloud
 
 Cloud service with the default Base URL `https://api.atlascloud.ai/api/v1`. It needs an Atlas Cloud API key. **Fetch Models** loads Atlas Cloud's current text-to-image and image-to-image catalog. If the catalog cannot be reached, Marinara shows a small starter list for Nano Banana, Gemini Flash Image, and FLUX 1.1 Pro instead, and you can always type an exact Atlas Cloud image model ID. Jobs run asynchronously, so Marinara starts the generation and polls Atlas Cloud until the image is ready. Common text-to-image controls are mapped automatically; reference images are sent for model IDs that advertise image-to-image, edit, or Kontext behavior. Because Atlas model schemas can differ, check the selected model's Atlas Cloud documentation when using another model ID.
+
+## MuAPI
+
+Cloud service with the default Base URL `https://api.muapi.ai/v1`. It needs a MuAPI API key. MuAPI exposes an OpenAI-compatible `GET /models` catalog and `POST /images/generations` image endpoint, so **Fetch Models from API** loads the models available to your account and Marinara sends the selected model, prompt, count, and requested size in the JSON request. The provider returns a URL or image data; Marinara downloads the result through its normal image-result safety checks. This integration currently supports text-to-image requests only and does not send reference images. See the [MuAPI OpenAI-compatible API documentation](https://muapi.ai/docs/openai-compatible) for model availability and account setup.
 
 ## fal.ai
 

@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Added MuAPI as an image-generation service. Marinara can discover the account's OpenAI-compatible model catalog and generate text-to-image results through MuAPI's `/v1/images/generations` endpoint; reference-image edits remain unsupported in this integration.
+
 - Advanced Memory resumes unfinished summaries without replaying failed compactions or reporting completed scene detection as new work (#6461).
 
 - Advanced Memory retains earlier scenes across shared “Mark as new start” cutoffs, shows automatic cutoffs in chat, and updates them when manual flags move or are removed. Hidden messages and character knowledge limits remain respected (#6450).

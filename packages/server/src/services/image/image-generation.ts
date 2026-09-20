@@ -63,6 +63,7 @@ import { buildVeniceApiUrl, buildVeniceImageRequest, parseVeniceImageResponse } 
 import { buildZaiImageRequest, buildZaiImageUrl, parseZaiImageUrl } from "./zai-image.js";
 import { buildFalImageUrl } from "./fal-image.js";
 import { buildAtlasCloudImageRequest, runAtlasCloudPrediction } from "../media/atlas-cloud.js";
+import { buildMuApiUrl } from "./muapi-image.js";
 
 // sharp is an optional native module (no prebuilds on some platforms like Termux).
 // Lazy-load so the server boots even when sharp is missing. The Draw Things img2img
@@ -130,6 +131,7 @@ const EXPLICIT_IMAGE_SOURCES = new Set([
   "zai",
   "fal",
   "atlas",
+  "muapi",
   "comfyui",
   "swarmui",
   "automatic1111",
@@ -184,7 +186,11 @@ export function imageAdmissionKey(normalizedBaseUrl: string, resolvedSource: str
   // OpenAI-compatible backends accept the origin, the `/v1` form, and the full endpoint path as
   // spellings of one endpoint, so the base URL alone would let work under one spelling ignore
   // foreground work recorded under another. Key on the URL the request actually goes to.
-  if (resolvedSource === "openai") return openAIImagesUrl(normalizedBaseUrl, "generations");
+  if (resolvedSource === "openai" || resolvedSource === "muapi") {
+    return resolvedSource === "muapi"
+      ? buildMuApiUrl(normalizedBaseUrl, "images/generations")
+      : openAIImagesUrl(normalizedBaseUrl, "generations");
+  }
   if (resolvedSource === "nanogpt") return nanoGPTImagesUrl(normalizedBaseUrl);
   return normalizedBaseUrl;
 }
@@ -265,6 +271,8 @@ async function generateImageUncapped(
         switch (resolvedSource) {
           case "openai":
             return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
+          case "muapi":
+            return generateMuApi(normalizedBaseUrl, apiKey, scopedRequest);
           case "arli":
             return generateArli(normalizedBaseUrl, apiKey, scopedRequest);
           case "nanogpt":
@@ -949,10 +957,11 @@ async function readOpenAIImageResult(
   resp: Response,
   request: ImageGenRequest,
   operation: "generation" | "edit",
+  providerName = "OpenAI",
 ): Promise<ImageGenResult> {
   if (!resp.ok) {
     const errText = await resp.text().catch(() => "Unknown error");
-    throw new Error(`OpenAI image ${operation} failed (${resp.status}): ${sanitizeErrorText(errText)}`);
+    throw new Error(`${providerName} image ${operation} failed (${resp.status}): ${sanitizeErrorText(errText)}`);
   }
 
   const data = (await resp.json()) as {
@@ -967,7 +976,7 @@ async function readOpenAIImageResult(
       : data && typeof data === "object"
         ? Object.keys(data).join(", ")
         : "none";
-    throw new Error(`No image data in OpenAI response (fields: ${fields || "none"})`);
+    throw new Error(`No image data in ${providerName} response (fields: ${fields || "none"})`);
   }
 
   return { base64: b64, mimeType: "image/png", ext: "png" };
@@ -1241,6 +1250,28 @@ async function generateOpenAI(baseUrl: string, apiKey: string, request: ImageGen
   );
 
   return readOpenAIImageResult(resp, request, "generation");
+}
+
+async function generateMuApi(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
+  const references = openAIReferenceImages(request);
+  if (references.length > 0) {
+    throw new Error("MuAPI image generation currently supports text-to-image requests only; remove reference images.");
+  }
+
+  const body: Record<string, unknown> = {
+    prompt: openAITextPrompt(request),
+    n: 1,
+    size: openAIImageSize(request),
+  };
+  if (request.model) body.model = request.model;
+
+  const resp = await fetchImageWithSizeFallback(
+    buildMuApiUrl(baseUrl, "images/generations"),
+    apiKey,
+    JSON.stringify(withImageCustomParameters(request, body)),
+    request,
+  );
+  return readOpenAIImageResult(resp, request, "generation", "MuAPI");
 }
 
 function xAIImagesUrl(baseUrl: string, endpoint: "generations" | "edits"): string {

@@ -752,6 +752,13 @@ export const IMAGE_GENERATION_SOURCES: ImageGenSource[] = [
     requiresApiKey: true,
   },
   {
+    id: "muapi",
+    name: "MuAPI",
+    description: "OpenAI-compatible image generation across MuAPI's hosted model catalog.",
+    defaultBaseUrl: "https://api.muapi.ai/v1",
+    requiresApiKey: true,
+  },
+  {
     id: "fal",
     name: "fal.ai",
     description: "Text-to-image generation with FLUX and other fal.ai models.",
@@ -1016,6 +1023,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
     m === "venice" ||
     m === "zai" ||
     m === "atlas" ||
+    m === "muapi" ||
     m === "fal" ||
     m === "comfyui" ||
     m === "swarmui" ||
@@ -1033,6 +1041,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
   if (u.includes("venice.ai")) return "venice";
   if (u.includes("api.z.ai")) return "zai";
   if (u.includes("atlascloud.ai")) return "atlas";
+  if (u.includes("muapi.ai")) return "muapi";
   if (u.includes("arliai.com")) return "arli";
   if (m.startsWith("fal-ai/")) return "fal";
   if (m === "glm-image" || m.startsWith("cogview")) return "zai";

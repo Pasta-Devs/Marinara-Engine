@@ -655,29 +655,31 @@ export function ConnectionEditor() {
           ? { label: t("connections.mediaSources.zai.apiKeyLink"), url: "https://z.ai/manage-apikey/apikey-list" }
           : localProvider === "image_generation" && selectedImageService === "fal"
             ? { label: t("connections.mediaSources.fal.apiKeyLink"), url: "https://fal.ai/dashboard/keys" }
-            : (localProvider === "image_generation" && selectedImageService === "atlas") ||
-                (localProvider === "video_generation" && selectedVideoDefaultsService === "atlas")
-              ? {
-                  label: t("connections.mediaSources.atlas.apiKeyLink"),
-                  url: "https://www.atlascloud.ai/user/api-keys",
-                }
-              : localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
-                ? API_KEY_LINKS.xai
-                : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
-                  ? selectedVideoProvider === "nanogpt"
-                    ? API_KEY_LINKS.nanogpt
-                    : API_KEY_LINKS.openrouter
-                  : localProvider === "video_generation" && selectedVideoDefaultsService === "seedance"
-                    ? { label: "Open Seedance API docs", url: "https://seedance2.ai/api-docs" }
-                    : localProvider === "video_generation" &&
-                        (selectedVideoProvider === "comfyui" || selectedVideoProvider === "swarmui")
-                      ? undefined
-                      : localProvider === "zai"
-                        ? {
-                            label: t("connections.mediaSources.zai.apiKeyLink"),
-                            url: "https://z.ai/manage-apikey/apikey-list",
-                          }
-                        : API_KEY_LINKS[localProvider];
+            : localProvider === "image_generation" && selectedImageService === "muapi"
+              ? { label: t("connections.mediaSources.muapi.apiKeyLink"), url: "https://muapi.ai/access-keys" }
+              : (localProvider === "image_generation" && selectedImageService === "atlas") ||
+                  (localProvider === "video_generation" && selectedVideoDefaultsService === "atlas")
+                ? {
+                    label: t("connections.mediaSources.atlas.apiKeyLink"),
+                    url: "https://www.atlascloud.ai/user/api-keys",
+                  }
+                : localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
+                  ? API_KEY_LINKS.xai
+                  : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
+                    ? selectedVideoProvider === "nanogpt"
+                      ? API_KEY_LINKS.nanogpt
+                      : API_KEY_LINKS.openrouter
+                    : localProvider === "video_generation" && selectedVideoDefaultsService === "seedance"
+                      ? { label: "Open Seedance API docs", url: "https://seedance2.ai/api-docs" }
+                      : localProvider === "video_generation" &&
+                          (selectedVideoProvider === "comfyui" || selectedVideoProvider === "swarmui")
+                        ? undefined
+                        : localProvider === "zai"
+                          ? {
+                              label: t("connections.mediaSources.zai.apiKeyLink"),
+                              url: "https://z.ai/manage-apikey/apikey-list",
+                            }
+                          : API_KEY_LINKS[localProvider];
 
   useEffect(() => {
     if (localProvider !== "image_generation" || !selectedImageDefaultsService) {

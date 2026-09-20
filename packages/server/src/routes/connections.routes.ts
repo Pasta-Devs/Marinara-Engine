@@ -49,6 +49,7 @@ import {
 } from "../services/image/image-generation-defaults.js";
 import { buildVeniceApiUrl, normalizeVeniceImageModels } from "../services/image/venice-image.js";
 import { buildFalImageUrl } from "../services/image/fal-image.js";
+import { buildMuApiUrl, DEFAULT_MUAPI_BASE_URL, parseMuApiModels } from "../services/image/muapi-image.js";
 import { isImageLocalUrlsEnabled, isProviderLocalUrlsEnabled } from "../config/runtime-config.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
 import {
@@ -949,6 +950,35 @@ export async function connectionsRoutes(app: FastifyInstance) {
         }
         return body.slice(0, 300);
       };
+
+      if (conn.provider === "image_generation" && imageSource === "muapi") {
+        const res = await safeFetch(buildMuApiUrl(conn.baseUrl || DEFAULT_MUAPI_BASE_URL, "models"), {
+          headers,
+          policy: localUrlPolicyForProvider(conn.provider, imageSource),
+          maxResponseBytes: 5 * 1024 * 1024,
+          decodeCompressedResponse: true,
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          return reply.status(502).send({
+            error: `MuAPI returned ${res.status}: ${sanitizeProviderBody(body)}`,
+          });
+        }
+        const text = await res.text();
+        let json: unknown;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          return reply.status(502).send({
+            error: `Failed to fetch MuAPI models: ${sanitizeProviderBody(text)}`,
+          });
+        }
+        const models = parseMuApiModels(json);
+        if (!models) {
+          return reply.status(502).send({ error: "MuAPI returned an invalid models response" });
+        }
+        return { models };
+      }
 
       // Stability AI: v2beta has task-specific generation endpoints, not /models.
       // Validate the key via v1 account, then either fetch legacy v1 engines or return the curated v2beta list.
