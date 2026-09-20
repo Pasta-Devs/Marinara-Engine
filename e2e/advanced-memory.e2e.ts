@@ -199,10 +199,23 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
   const initializeBodies: Array<{ settings?: Record<string, unknown> }> = [];
   let reindexRequests = 0;
   let resetRequests = 0;
+  let deleteSceneRequests = 0;
+  let failSceneDelete = true;
   let releaseResume: (() => void) | undefined;
   await page.route(`**/api/chats/${fixture.chat.id}/advanced-memory**`, async (route) => {
     const pathname = new URL(route.request().url()).pathname;
     const method = route.request().method();
+    if (method === "DELETE" && pathname.includes("/records/")) {
+      deleteSceneRequests += 1;
+      if (failSceneDelete) {
+        failSceneDelete = false;
+        return route.fulfill({ status: 500, json: { error: "Scene deletion failed; please retry." } });
+      }
+      const record = status.records.find((item) => item.id === pathname.split("/").at(-1));
+      if (!record) throw new Error("Expected the selected scene summary");
+      status.records = status.records.filter((item) => item.kind !== "scene" || item.sceneId !== record.sceneId);
+      return route.fulfill({ json: status });
+    }
     if (method === "DELETE") {
       resetRequests += 1;
       status.records = [];
@@ -371,7 +384,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     status.job = { ...status.job, status: "ready", stage: "ready", completed: 4, total: 4 };
     status.records = [
       {
-        id: "scene-proof",
+        id: "scene-summary-proof",
         chatId: fixture.chat.id,
         sceneId: "scene-proof",
         kind: "scene",
@@ -523,12 +536,35 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     }
     await inspector.scrollIntoViewIfNeeded();
     await captureThemes(page, info, "advanced-memory-inspector");
+    await inspector.getByRole("button", { name: /^Scene #1\b/ }).click();
+    const deleteSceneButton = inspector.getByRole("button", { name: "Delete scene memory", exact: true });
+    await deleteSceneButton.click();
+    const deleteSceneDialog = page.getByRole("dialog", { name: "Delete scene memory", exact: true });
+    await expect(deleteSceneDialog).toContainText("Delete Scene #1 for Dottore, Narrator?");
+    await expect(deleteSceneDialog).toContainText("Original chat messages stay intact.");
+    await captureThemes(page, info, "advanced-memory-delete-confirm", deleteSceneDialog);
+    await deleteSceneDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(deleteSceneRequests).toBe(0);
+    await expect(inspector.getByRole("textbox", { name: "Summary text", exact: true })).toHaveValue(
+      "Correction: the notebook is green.",
+    );
+    await deleteSceneButton.click();
+    await deleteSceneDialog.getByRole("button", { name: "Delete scene memory", exact: true }).click();
+    await expect(
+      page.getByText("Advanced Memory: Scene deletion failed; please retry.", { exact: true }),
+    ).toBeVisible();
+    await expect(deleteSceneButton).toBeEnabled();
+    await deleteSceneButton.click();
+    await deleteSceneDialog.getByRole("button", { name: "Delete scene memory", exact: true }).click();
+    await expect.poll(() => deleteSceneRequests).toBe(2);
+    await expect(inspector.locator("ul > li")).toHaveCount(11);
+    expect(resetRequests).toBe(0);
     await inspector.getByRole("button", { name: "Delete all memories", exact: true }).click();
     const resetDialog = page.getByRole("dialog", { name: "Delete all memories", exact: true });
     await expect(resetDialog).toContainText("Original chat messages and your settings will stay intact.");
     await resetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
     expect(resetRequests).toBe(0);
-    await expect(inspector.locator("ul > li")).toHaveCount(12);
+    await expect(inspector.locator("ul > li")).toHaveCount(11);
     await inspector.getByRole("button", { name: "Delete all memories", exact: true }).click();
     await resetDialog.getByRole("button", { name: "Delete all memories", exact: true }).click();
     await expect.poll(() => resetRequests).toBe(1);

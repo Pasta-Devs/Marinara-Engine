@@ -109,6 +109,25 @@ export function AdvancedMemoryInspector({
     setDraft(record.content);
     setShowSources(false);
   };
+  const deleteScene = async (record: AdvancedMemoryRecord) => {
+    const confirmed = await showConfirmDialog({
+      title: t("chat.advancedMemory.deleteScene"),
+      message: t("chat.advancedMemory.deleteSceneConfirm", { scene: recordTitle(record), audience: audience(record) }),
+      confirmLabel: t("chat.advancedMemory.deleteScene"),
+      cancelLabel: t("chat.advancedMemory.cancelSetup"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    action.mutate(
+      { action: "delete-record", recordId: record.id },
+      {
+        onSuccess: () => {
+          setSelectedId(null);
+          setShowSources(false);
+        },
+      },
+    );
+  };
   const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
@@ -320,6 +339,17 @@ export function AdvancedMemoryInspector({
                 </article>
               ))}
             </div>
+          )}
+          {selected.kind === "scene" && selected.id !== selected.sceneId && (
+            <button
+              type="button"
+              className={`${buttonClass} min-h-11 w-full text-[var(--destructive)]`}
+              disabled={pending}
+              onClick={() => void deleteScene(selected)}
+            >
+              <Trash2 size="0.875rem" aria-hidden="true" />
+              {t("chat.advancedMemory.deleteScene")}
+            </button>
           )}
         </div>
       ) : (

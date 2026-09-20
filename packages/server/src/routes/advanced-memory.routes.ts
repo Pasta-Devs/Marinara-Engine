@@ -19,6 +19,7 @@ const validationErrors = new Set([
   "Select a narrator from this chat's characters",
   "A character knowledge range points to a message that no longer exists",
   "Memory text must contain between 1 and 500000 characters",
+  "Only a saved scene summary can be deleted",
   "Invalid Advanced Memory export",
 ]);
 
@@ -87,6 +88,9 @@ export async function advancedMemoryRoutes(app: FastifyInstance) {
   );
   app.get<{ Params: { id: string; recordId: string } }>(`${prefix}/records/:recordId/sources`, async (req, reply) =>
     withMemoryDomainErrors(reply, () => service.getSources(req.params.id, req.params.recordId)),
+  );
+  app.delete<{ Params: { id: string; recordId: string } }>(`${prefix}/records/:recordId`, async (req, reply) =>
+    withMemoryDomainErrors(reply, () => service.deleteRecord(req.params.id, req.params.recordId)),
   );
   app.get<{ Params: { id: string } }>(`${prefix}/export`, async (req, reply) =>
     reply

@@ -14,6 +14,7 @@ process.env.LOG_LEVEL = "silent";
 process.env.MARINARA_LITE = "true";
 
 type RequestBody = {
+  requestPath?: string;
   instructions?: string;
   input?: Array<{ content: string | Array<{ text: string }> }> | string[];
   max_output_tokens?: number;
@@ -35,7 +36,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   assert(request.url?.endsWith("/responses"), "the actual Astra adapter uses Responses");
-  requests.push(body);
+  requests.push({ ...body, requestPath: request.url });
   const input = (body.input as Array<{ content: string | Array<{ text: string }> }>)
     .flatMap((item) => (typeof item.content === "string" ? item.content : item.content.map((part) => part.text)))
     .join("\n");
@@ -163,7 +164,7 @@ try {
     "low",
     "Astra maps the utility's efficient reasoning option to supported low effort",
   );
-  assert(JSON.stringify(body.input).includes("under 409 tokens"), "visible summary target remains short");
+  assert(body.instructions?.includes("Aim for about 1024 tokens"), "the scene recap target remains concise");
   const records = (await memory.status(chat.id)).records;
   assert.equal(records.find((record) => record.kind === "scene" && record.status === "closed")?.content, summary);
   assert(
@@ -458,6 +459,60 @@ try {
     "the corrected date survives continuity preparation unchanged",
   );
 
+  const deletedChat = await createChat("Delete one shared scene summary");
+  await chats.update(deletedChat.id, { characterIds: ["maukie", "powers"] });
+  await chats.patchMetadata(deletedChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: { ...settings, knowledgeStarts: { maukie: null, powers: null } },
+  });
+  await memory.initialize(deletedChat.id);
+  const deletionStatus = await memory.status(deletedChat.id);
+  const deletedScene = deletionStatus.records.find(
+    (record) => record.kind === "scene" && record.content && record.audienceCharacterIds.length,
+  )!;
+  const openScene = deletionStatus.records.find((record) => record.kind === "scene" && record.status === "open")!;
+  const deleteUrl = `/chats/${deletedChat.id}/advanced-memory/records/${deletedScene.id}`;
+  assert.equal(
+    (await app.inject({ method: "DELETE", url: `/chats/${chat.id}/advanced-memory/records/${deletedScene.id}` }))
+      .statusCode,
+    404,
+    "deletion is scoped to the specified chat",
+  );
+  assert.equal(
+    (await app.inject({ method: "DELETE", url: `/chats/${deletedChat.id}/advanced-memory/records/${openScene.id}` }))
+      .statusCode,
+    400,
+    "deleting a recap cannot destroy its structural scene boundary",
+  );
+  const sourceBeforeDelete = await chats.listMessages(deletedChat.id);
+  const deleted = await app.inject({ method: "DELETE", url: deleteUrl });
+  assert.equal(deleted.statusCode, 200);
+  assert(
+    !deleted
+      .json()
+      .records.some((record: { kind: string; content: string }) => record.kind === "scene" && record.content),
+    "deletion also removes the equivalent shared copy hidden behind the character summary",
+  );
+  assert.equal((await app.inject({ method: "GET", url: `${deleteUrl}/sources` })).statusCode, 404);
+  await assert.rejects(memory.updateRecord(deletedChat.id, deletedScene.id, { enabled: true }), /not found/);
+  const beforeMaintenance = requests.length;
+  await memory.initialize(deletedChat.id);
+  await memory.reindex(deletedChat.id);
+  assert.equal(requests.length, beforeMaintenance, "preparation never pays to recreate the deleted recap");
+  const afterDelete = await memory.status(deletedChat.id);
+  assert(!afterDelete.records.some((record) => record.id === deletedScene.id));
+  assert(
+    afterDelete.records.some((record) => record.id === openScene.id),
+    "the ongoing scene remains available",
+  );
+  assert.deepEqual(await chats.listMessages(deletedChat.id), sourceBeforeDelete, "source messages are untouched");
+  const deletionMarker = (
+    await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, deletedScene.id))
+  )[0]!;
+  assert.equal(deletionMarker.content, "");
+  assert.equal(deletionMarker.embedding, null);
+  assert.equal(deletionMarker.summaryWork, null);
+
   const withoutReasoning = await createChat("Explicitly omitted reasoning parameter", undefined, true);
   const withoutReasoningStart = requests.length;
   await memory.initialize(withoutReasoning.id);
@@ -494,7 +549,65 @@ try {
     "resume requests a complete summary instead of reusing truncated text",
   );
 
-  const stalled = await createChat("Resume stalled scene compaction");
+  const sceneOnly = await createChat("Scene-only helper summary with a 65k context");
+  const helper = await connections.create(
+    createConnectionSchema.parse({
+      name: "Selected Advanced Memory helper",
+      provider: "openai",
+      model: "gpt-6-astra",
+      baseUrl: `${baseUrl}/helper`,
+      apiKey: "test-key",
+      maxContext: 131_072,
+      treatAsLocalEndpoint: true,
+    }),
+  );
+  assert(helper);
+  await chats.patchMetadata(sceneOnly.id, {
+    advancedMemory: { ...settings, maxContextTokens: 65_000, helperConnectionId: helper.id },
+    summaryMaxTokens: 256,
+  });
+  const sceneOnlySource = await chats.listMessages(sceneOnly.id);
+  const wholeScene = `SCENE_START ${"Maukie explored the coast and returned the compass. ".repeat(1500)} SCENE_END`;
+  await chats.updateMessageContent(sceneOnlySource[0]!.id, wholeScene);
+  await chats.updateMessageContent(sceneOnlySource[1]!.id, "The following morning, ONGOING_SCENE_ONLY.");
+  summaryResponse = `${summary} `.repeat(100);
+  const sceneOnlyStart = requests.length;
+  await memory.initialize(sceneOnly.id);
+  const sceneOnlyRequests = requests.slice(sceneOnlyStart);
+  const sceneSummaryRequests = sceneOnlyRequests.filter(
+    (item) => !item.instructions?.startsWith("Identify scene transitions"),
+  );
+  assert.equal(sceneSummaryRequests.length, 1, "a scene fitting the context uses one summary request");
+  assert(
+    sceneOnlyRequests.every((item) => item.requestPath === "/v1/helper/responses"),
+    "scene detection and summaries use the selected helper rather than the ordinary summary connection",
+  );
+  const sceneSummaryRequest = sceneSummaryRequests[0]!;
+  const sceneInput = (sceneSummaryRequest.input as Array<{ content: string | Array<{ text: string }> }>)
+    .flatMap((item) => (typeof item.content === "string" ? item.content : item.content.map((part) => part.text)))
+    .join("\n");
+  assert.equal(sceneInput, `#1 User: ${wholeScene}`, "the summary user message contains only its eligible scene");
+  assert.doesNotMatch(sceneSummaryRequest.instructions!, /appendable continuation|only NEW durable|ordered summaries/);
+  assert.match(sceneSummaryRequest.instructions!, /Return only valid JSON/);
+  assert(
+    measureContextBudget(
+      [
+        { role: "system", content: sceneSummaryRequest.instructions! },
+        { role: "user", content: sceneInput },
+      ],
+      { maxContext: 65_000, maxTokens: sceneSummaryRequest.max_output_tokens },
+    ).fits,
+    "the helper request obeys the Advanced Memory context limit",
+  );
+  assert.equal(
+    (await memory.status(sceneOnly.id)).records.find((record) => record.kind === "scene" && record.status === "closed")
+      ?.content,
+    summaryResponse.trim(),
+    "a completed scene recap is retained without forcing it into the constant-summary budget",
+  );
+  summaryResponse = summary;
+
+  const stalled = await createChat("Resume stalled continuity compaction");
   await connections.update(stalled.connectionId!, { maxContext: 65_000 });
   await chats.patchMetadata(stalled.id, { advancedMemory: { ...settings, maxContextTokens: 65_000 } });
   const stalledSource = await chats.listMessages(stalled.id);
@@ -508,6 +621,7 @@ try {
       role: "assistant",
       content: "The following morning, FUTURE_SCENE_SOURCE: we sailed away.",
       createdAt: new Date(Date.parse(stalledSource.at(-1)!.createdAt) + 2).toISOString(),
+      extra: { isConversationStart: true },
     },
   ]);
   beforeSummary = async () => {
@@ -515,16 +629,19 @@ try {
       summaryResponse = "Maukie bought a map and promised to return the compass. ".repeat(200);
     };
   };
+  const stalledInput = {
+    chatId: stalled.id,
+    messages: await chats.listMessages(stalled.id),
+    audienceCharacterIds: [],
+    budgetTokens: 3000,
+  };
   const stalledStart = requests.length;
-  await assert.rejects(memory.initialize(stalled.id), /could not compact/);
+  await assert.rejects(memory.prepare(stalledInput), /could not compact/);
   const completedScenes = (await memory.status(stalled.id)).records.filter(
     (record) => record.kind === "scene" && record.content,
   );
-  assert.equal(completedScenes.length, 1, "the earlier completed scene survives a later compaction failure");
+  assert.equal(completedScenes.length, 2, "completed scenes survive a later continuity compaction failure");
   const stalledRequests = requests.slice(stalledStart);
-  const firstSceneRequest = stalledRequests.find(
-    (item) => !item.instructions?.startsWith("Identify scene transitions"),
-  )!;
   assert(
     stalledRequests
       .filter((item) => !item.instructions?.startsWith("Identify scene transitions"))
@@ -532,43 +649,37 @@ try {
     "scene summaries never receive messages from a later scene",
   );
   const stillOversizedStart = requests.length;
-  await assert.rejects(createAdvancedMemoryService(db).initialize(stalled.id), /could not compact.*512-token/);
+  await assert.rejects(createAdvancedMemoryService(db).prepare(stalledInput), /could not compact.*summary limit/);
   assert.equal(requests.length - stillOversizedStart, 1, "a still-oversized retry makes one fresh compaction attempt");
   assert.equal(
     (await memory.status(stalled.id)).records.filter((record) => record.kind === "scene" && record.content).length,
-    1,
-    "oversized text is never accepted or silently truncated into a scene summary",
+    2,
+    "the completed archive is kept even when continuity still exceeds its strict size limit",
   );
   summaryResponse = "Maukie bought a map at the market.";
   const resumeStart = requests.length;
-  // The HTTP route owns a separate service instance, like resuming after a server restart.
-  const resumed = await app.inject({
-    method: "POST",
-    url: `/chats/${stalled.id}/advanced-memory/initialize`,
-    payload: {},
+  const stages: string[] = [];
+  const resumed = await createAdvancedMemoryService(db).prepare({
+    ...stalledInput,
+    onProgress: (job) => stages.push(job.stage),
   });
-  assert.equal(resumed.statusCode, 202);
-  for (let attempt = 0; attempt < 100 && (await memory.status(stalled.id)).job.status === "running"; attempt++)
-    await new Promise((resolve) => setTimeout(resolve, 10));
   const resumedStatus = await memory.status(stalled.id);
   assert.equal(
     resumedStatus.job.status,
     "ready",
     "Resume retries the failed compaction instead of replaying its error",
   );
-  assert.notEqual(
-    resumed.json().job.stage,
-    "classifying",
-    "Resume does not announce already completed boundary detection",
-  );
+  assert(!stages.includes("classifying"), "Resume does not announce already completed boundary detection");
+  assert(resumed.chatSummary?.includes(summaryResponse), "the retried continuity uses the completed short result");
   assert(resumedStatus.records.some((record) => record.content === summaryResponse));
   const resumedRequests = requests.slice(resumeStart);
   assert.equal(resumedRequests.length, 1, "only the unfinished compaction needs another model call");
   assert(!resumedRequests[0]!.instructions?.startsWith("Identify scene transitions"));
-  assert.notDeepEqual(
-    resumedRequests[0]!.input,
-    firstSceneRequest.input,
-    "the completed first scene is not regenerated",
+  assert.match(resumedRequests[0]!.instructions!, /supplied recap is still too long/);
+  assert.deepEqual(
+    resumedStatus.records.filter((record) => record.kind === "scene" && record.content),
+    completedScenes,
+    "completed scene records are unchanged by continuity recovery",
   );
   summaryResponse = summary;
 
@@ -633,6 +744,86 @@ try {
     "ready",
     "canceling one joined caller does not abort shared preparation",
   );
+  await connections.update(sceneOnly.connectionId!, { maxContext: 131_072 });
+  const restartChat = await chats.create({
+    name: "Resume 19 saved summaries after a server restart",
+    mode: "roleplay",
+    characterIds: [],
+    connectionId: sceneOnly.connectionId,
+  });
+  assert(restartChat);
+  await chats.patchMetadata(restartChat.id, {
+    advancedMemory: {
+      ...settings,
+      maxContextTokens: 65_000,
+      helperConnectionId: helper.id,
+      initialProcessingModel: "main",
+    },
+  });
+  await chats.createMessagesBatch(
+    restartChat.id,
+    Array.from({ length: 1000 }, (_, index) => ({
+      role: index % 2 ? ("assistant" as const) : ("user" as const),
+      content: `${index > 0 && index % 48 === 0 ? "The following morning, " : ""}SCENE_${Math.floor(index / 48) + 1}: message ${index + 1}.`,
+    })),
+  );
+  let restartSummaryCalls = 0;
+  beforeSummary = async function stopAtTwentieth() {
+    summaryResponse = `Saved scene ${++restartSummaryCalls}: ${summary}`;
+    if (restartSummaryCalls === 20) partial = true;
+    else beforeSummary = stopAtTwentieth;
+  };
+  const restartStart = requests.length;
+  await assert.rejects(memory.initialize(restartChat.id), /output limit.*complet/i);
+  const completedBeforeRestart = (await memory.status(restartChat.id)).records.filter(
+    (record) => record.kind === "scene" && record.content,
+  );
+  assert.equal(completedBeforeRestart.length, 19, "nineteen paid summaries are complete before interruption");
+  assert(
+    requests
+      .slice(restartStart)
+      .every((item) =>
+        item.instructions?.startsWith("Identify scene transitions")
+          ? item.requestPath === "/v1/responses"
+          : item.requestPath === "/v1/helper/responses",
+      ),
+    "the initial main-model choice applies to detection while summaries still use the helper",
+  );
+  await db._fileStore.close();
+  const restartedDb = await createFileNativeDB();
+  const restartedMemory = createAdvancedMemoryService(restartedDb);
+  const restartedApp = require("fastify")();
+  restartedApp.decorate("db", restartedDb);
+  await restartedApp.register(advancedMemoryRoutes, { prefix: "/chats" });
+  partial = false;
+  summaryResponse = `Saved scene 20: ${summary}`;
+  const restartedRequestStart = requests.length;
+  try {
+    const resumed = await restartedApp.inject({
+      method: "POST",
+      url: `/chats/${restartChat.id}/advanced-memory/initialize`,
+      payload: {},
+    });
+    assert.equal(resumed.statusCode, 202);
+    assert.notEqual(resumed.json().job.stage, "classifying");
+    await restartedMemory.initialize(restartChat.id);
+    const recovered = await restartedMemory.status(restartChat.id);
+    assert.equal(recovered.job.status, "ready");
+    assert.deepEqual(
+      recovered.records.filter((record) => completedBeforeRestart.some((saved) => saved.id === record.id)),
+      completedBeforeRestart,
+      "completed summaries are reused from disk byte-for-byte after restarting",
+    );
+    assert.equal(requests.length - restartedRequestStart, 1, "Resume calls the model only for unfinished scene 20");
+    assert(JSON.stringify(requests.at(-1)!.input).includes("SCENE_20:"));
+    assert(!JSON.stringify(requests.at(-1)!.input).includes("SCENE_21:"), "the ongoing scene is not summarized early");
+    assert.equal(recovered.records.filter((record) => record.kind === "scene" && record.status === "open").length, 1);
+  } finally {
+    await restartedApp.close();
+    await restartedDb._fileStore.close();
+    summaryResponse = summary;
+  }
+
   console.info(
     "Advanced Memory summary regression passed (Astra Responses budgets, partial output, exact excerpts, acknowledged starts and joined cancellation).",
   );

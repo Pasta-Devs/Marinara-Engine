@@ -4,6 +4,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Advanced Memory uses its selected helper for scene recaps, separates archived scenes from the constant-summary size limit, and sends standalone summary instructions with only the eligible source material. Completed summaries and scene detection survive Resume after an update (#6461).
+- Individual scene memories can be deleted from their editor after confirmation. Original chat messages are kept, and routine preparation does not recreate the deleted summary.
+
 - The schedule editor can generate a week one day at a time using seven smaller requests, preserves the draft on failure, and stops generation when closed (#6449). It offers connection selection and persistent errors, rejects incomplete or overlapping generated days, displays full-day blocks, prevents competing edits during generation, and refreshes the week date after day regeneration (#6455).
 
 - Advanced Memory resumes unfinished summaries without replaying failed compactions or reporting completed scene detection as new work (#6461).

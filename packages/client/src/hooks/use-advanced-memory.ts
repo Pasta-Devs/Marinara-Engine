@@ -39,6 +39,7 @@ type AdvancedMemoryAction =
   | { action: "initialize"; settings?: Partial<AdvancedMemorySettings>; debugMode?: boolean }
   | { action: "cancel" | "reindex" | "reset" }
   | { action: "record"; recordId: string; patch: { content?: string; enabled?: boolean } }
+  | { action: "delete-record"; recordId: string }
   | { action: "import"; envelope: unknown };
 
 export function useAdvancedMemoryAction(chatId: string) {
@@ -64,6 +65,8 @@ export function useAdvancedMemoryAction(chatId: string) {
         }
         case "record":
           return api.patch<AdvancedMemoryStatus>(`${base}/records/${request.recordId}`, request.patch);
+        case "delete-record":
+          return api.delete<AdvancedMemoryStatus>(`${base}/records/${request.recordId}`);
         case "initialize":
           return api.post<AdvancedMemoryStatus>(`${base}/initialize`, {
             settings: request.settings,
