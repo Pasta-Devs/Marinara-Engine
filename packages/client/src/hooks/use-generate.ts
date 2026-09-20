@@ -1897,6 +1897,7 @@ export function useGenerate() {
                 current ? { ...current, latestReceipt: data.receipt } : current,
               );
               void qc.invalidateQueries({ queryKey: advancedMemoryKeys.status(params.chatId) });
+              void qc.invalidateQueries({ queryKey: chatKeys.detail(params.chatId) });
               break;
             }
             case "spatial_transition_committed": {

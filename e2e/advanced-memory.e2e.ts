@@ -73,7 +73,7 @@ async function createFixture(request: APIRequestContext) {
   };
 }
 
-async function openChat(page: Page, chatId: string) {
+async function openChat(page: Page, chatId: string, openSettings = true) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await seedUIState(page, {
     hasCompletedOnboarding: true,
@@ -93,11 +93,61 @@ async function openChat(page: Page, chatId: string) {
   );
   await page.goto("/");
   await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
-  await page.evaluate(async () => {
-    const module = await import("/src/stores/chat.store.ts" as string);
-    module.useChatStore.getState().setShouldOpenSettings(true);
-  });
+  if (openSettings)
+    await page.evaluate(async () => {
+      const module = await import("/src/stores/chat.store.ts" as string);
+      module.useChatStore.getState().setShouldOpenSettings(true);
+    });
 }
+
+test("Advanced Memory shows and moves existing start markers for automatic cutoffs", async ({
+  page,
+  request,
+}, info) => {
+  const fixture = await createFixture(request);
+  const marker = page.locator('[data-advanced-memory-start="true"]');
+  const update = async (contextStarts: NonNullable<AdvancedMemoryStatus["job"]["contextStarts"]>, enabled = true) => {
+    const response = await request.patch(`/api/chats/${fixture.chat.id}/metadata`, {
+      data: {
+        advancedMemory: { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled },
+        advancedMemoryState: { status: "ready", stage: "ready", completed: 2, total: 2, error: null, contextStarts },
+      },
+    });
+    expect(response.ok()).toBeTruthy();
+  };
+  try {
+    await update([]);
+    await openChat(page, fixture.chat.id, false);
+    await expect(marker).toHaveCount(0);
+    await captureThemes(page, info, "automatic-cutoff-before");
+    await update([{ messageId: fixture.firstMessage.id, audienceCharacterIds: [] }]);
+    await page.reload();
+    await expect(marker).toHaveCount(1);
+    await expect(page.locator(`[data-message-id="${fixture.firstMessage.id}"]`).locator(marker)).toBeVisible();
+    await expect(marker).toContainText("New Start: All");
+    await expect(marker).toHaveAttribute(
+      "title",
+      "Advanced Memory starts live context here. Earlier messages remain available as memories.",
+    );
+    await captureThemes(page, info, "automatic-cutoff-shared");
+    await update([
+      { messageId: fixture.lastMessage.id, audienceCharacterIds: [fixture.character.id, fixture.narrator.id] },
+    ]);
+    await page.reload();
+    await expect(marker).toHaveCount(1);
+    await expect(page.locator(`[data-message-id="${fixture.lastMessage.id}"]`).locator(marker)).toBeVisible();
+    await expect(marker).toContainText("New Start: Dottore");
+    await expect(marker).toContainText("New Start: Narrator");
+    await expect(marker).not.toContainText("New Start: All");
+    await captureThemes(page, info, "automatic-cutoff-characters");
+    await update([], false);
+    await page.reload();
+    await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
+    await expect(marker).toHaveCount(0);
+  } finally {
+    await fixture.cleanup();
+  }
+});
 
 test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable progress and editable scenes", async ({
   page,
