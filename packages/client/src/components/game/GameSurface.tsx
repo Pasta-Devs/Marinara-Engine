@@ -191,11 +191,12 @@ import {
   type RulesetLiveState,
   type RulesetSheetEnvelope,
 } from "@marinara-engine/shared";
-import { GameNarration } from "./GameNarration";
+import { GameNarration, parseNarrationSegments } from "./GameNarration";
 import { formatNarration } from "./game-narration-format";
 import { GameInput } from "./GameInput";
 import { GameMapPanel, MobileMapButton } from "./GameMap";
 import { GamePartyBar } from "./GamePartyBar";
+import { addUniqueLibrarySpeakerAvatars, type SpeakerAvatarEntry } from "./game-speaker-avatar";
 import { GameCharacterSheet } from "@/components/game/GameCharacterSheet";
 import type { GameCharacterSheetGameCard, GameCharacterSheetRuleset } from "@/components/game/GameCharacterSheet";
 import { describeRefusedSheetCommands } from "./GameRulesetSheet";
@@ -3839,29 +3840,6 @@ function GameSurfaceComponent({
     });
   }, []);
   const activeExperienceChrome = experienceSurfaceActive ? experienceChrome : null;
-
-  const librarySpeakerAvatars = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        url: string;
-        crop?: AvatarCrop | null;
-        nameColor?: string;
-        dialogueColor?: string;
-      }
-    >();
-    // Selected cards are resolved by characterIds; never borrow an unrelated card by name.
-    // Experiences can still supply their own cast portraits, excluding the player persona.
-    const extra = activeExperienceAvatars?.speakerAvatars;
-    if (extra?.size) {
-      const playerKey = personaInfo?.name ? normalizeTextForMatch(personaInfo.name) : "";
-      for (const [key, info] of extra) {
-        if (!key || key === playerKey || map.has(key)) continue;
-        map.set(key, info);
-      }
-    }
-    return map;
-  }, [activeExperienceAvatars, personaInfo?.name]);
 
   // Fallback avatar for the player persona when it has none, so the player's dialogue shows one too.
   const effectivePersonaInfo = useMemo(() => {
@@ -9965,6 +9943,39 @@ function GameSurfaceComponent({
       })),
     [visibleNarrationMessages, characterMap],
   );
+
+  const librarySpeakerAvatars = useMemo(() => {
+    const map = new Map<string, SpeakerAvatarEntry>();
+    // Selected cards are resolved by characterIds; never borrow an unrelated card by name.
+    // Experiences can still supply their own cast portraits, excluding the player persona.
+    const extra = activeExperienceAvatars?.speakerAvatars;
+    if (extra?.size) {
+      const playerKey = personaInfo?.name ? normalizeTextForMatch(personaInfo.name) : "";
+      for (const [key, info] of extra) {
+        if (!key || key === playerKey || map.has(key)) continue;
+        map.set(key, info);
+      }
+    }
+    // A scene timeline can lag the currently rendered turn. Recover only speakers
+    // emitted by the production narration parser, and only from a unique library name.
+    const renderedSpeakers = new Set<string>();
+    for (const message of narrationMessages) {
+      if (message.role !== "assistant" || !isVisibleGameMessage(message)) continue;
+      for (const segment of parseNarrationSegments(message, new Map())) {
+        if (segment.type === "dialogue" && segment.speaker) {
+          const key = normalizeTextForMatch(segment.speaker);
+          if (key) renderedSpeakers.add(key);
+        }
+      }
+    }
+    const protectedNames = [
+      ...characters.filter((character) => character.avatarUrl).map((character) => character.name),
+      ...(personaInfo?.name ? [personaInfo.name] : []),
+      ...npcs.filter((npc) => npc.avatarUrl).map((npc) => npc.name),
+    ];
+    addUniqueLibrarySpeakerAvatars(map, renderedSpeakers, libraryCharacters, protectedNames);
+    return map;
+  }, [activeExperienceAvatars, characters, libraryCharacters, narrationMessages, npcs, personaInfo?.name]);
 
   const sessionStatus = (chatMeta.gameSessionStatus as string) || "active";
   const sessionInteractive = sessionStatus !== "concluded";
