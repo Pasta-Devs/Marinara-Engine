@@ -61,7 +61,7 @@ export const useTranslationStore = create<TranslationStore>((set) => ({
       const seeded: Record<string, string> = {};
       const seededSources: Record<string, string> = {};
       for (const msg of messages) {
-        if (!msg.extra) continue;
+        if (!msg.extra || s.translating[msg.id]) continue;
         try {
           const extra = typeof msg.extra === "string" ? JSON.parse(msg.extra) : msg.extra;
           if (
@@ -81,10 +81,11 @@ export const useTranslationStore = create<TranslationStore>((set) => ({
           // Skip messages with malformed extra JSON
         }
       }
-      // Merge with existing (in-flight translations win over seeded)
+      // Server translations can arrive after an older result was seeded on chat
+      // navigation. Persisted extras win unless a manual translation is in flight.
       return {
-        translations: { ...seeded, ...s.translations },
-        translationSources: { ...seededSources, ...s.translationSources },
+        translations: { ...s.translations, ...seeded },
+        translationSources: { ...s.translationSources, ...seededSources },
       };
     }),
 }));

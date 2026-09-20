@@ -295,10 +295,12 @@ export function useGenerationStatus(chatId: string | null, enabled = true) {
   return useQuery({
     queryKey: ["generation-status", chatId ?? ""],
     queryFn: ({ signal }) =>
-      api.get<{ active: boolean }>(`/generate/status/${encodeURIComponent(chatId ?? "")}`, { signal }),
+      api.get<{ active: boolean; translating?: boolean }>(`/generate/status/${encodeURIComponent(chatId ?? "")}`, {
+        signal,
+      }),
     enabled: !!chatId && enabled,
     staleTime: 0,
-    refetchInterval: (query) => (query.state.data?.active ? 1_000 : false),
+    refetchInterval: (query) => (query.state.data?.active || query.state.data?.translating ? 1_000 : false),
   });
 }
 
@@ -338,7 +340,7 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
     // Re-enabling the query must not adopt a cached active status from before
     // a local stream took ownership. Wait for the fresh server response.
     if (checkingGeneration) return;
-    if (generationStatus?.active) {
+    if (generationStatus?.active || generationStatus?.translating) {
       orphanedGeneration.current = chatId;
     } else if (generationStatus?.active === false && orphanedGeneration.current === chatId) {
       orphanedGeneration.current = null;
@@ -354,7 +356,16 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
         void queryClient.invalidateQueries({ queryKey });
       }
     }
-  }, [chatId, enabled, canRecover, localAgentsProcessing, checkingGeneration, generationStatus?.active, queryClient]);
+  }, [
+    chatId,
+    enabled,
+    canRecover,
+    localAgentsProcessing,
+    checkingGeneration,
+    generationStatus?.active,
+    generationStatus?.translating,
+    queryClient,
+  ]);
   const query = useInfiniteQuery({
     queryKey: chatKeys.messages(chatId ?? ""),
     queryFn: ({ pageParam, signal }) => {

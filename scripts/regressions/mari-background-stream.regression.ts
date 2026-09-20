@@ -29,7 +29,7 @@ assert.match(apiClient, /export function isPassiveStreamDisconnect\(/u, "the cla
 assert.match(apiClient, /if \(error instanceof StreamResumeDisconnectError\) return true;/u);
 
 const useGenerate = readSource("packages/client/src/hooks/use-generate.ts");
-assert.match(useGenerate, /import \{ api, ApiError, isPassiveStreamDisconnect \} from "\.\.\/lib\/api-client";/u);
+assert.match(useGenerate, /import \{[^}]*\bisPassiveStreamDisconnect\b[^}]*\} from "\.\.\/lib\/api-client";/u);
 assert.doesNotMatch(
   useGenerate,
   /function isPassiveStreamDisconnect/u,

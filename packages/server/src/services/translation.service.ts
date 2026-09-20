@@ -82,6 +82,17 @@ export async function translateGeneratedMessage(
   const text = input.mode === "game" ? stripGmTagsKeepReadables(swipe.content) : swipe.content;
   if (!text.trim() || (extra.translationSource === text && typeof extra.translation === "string" && extra.translation))
     return null;
+  // Game can backfill older narration in the browser. Mark this source before
+  // the provider call so a reconnect cannot start a second automatic attempt.
+  if (
+    !(await chats.updateMessageExtraForSwipe(
+      message.id,
+      swipe.index,
+      { automaticTranslationSource: swipe.content },
+      swipe.content,
+    ))
+  )
+    return null;
   const { config } = input;
   const { translatedText } = await translateText(
     db,

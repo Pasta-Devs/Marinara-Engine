@@ -21,7 +21,7 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
     let translation: ServerResponse | undefined;
     let translationRequests = 0;
     const provider = createServer(async (req, res) => {
-      if (req.method !== "POST") {
+      if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
         req.resume();
         res.writeHead(404).end();
         return;
@@ -192,6 +192,26 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
       await run("The archive is quiet.");
       await expect.poll(() => !!translation).toBe(true);
       expect(await counts()).toEqual({ browser: 0, native: 0, sound: 0 });
+      await expect
+        .poll(async () => (await (await request.get(`/api/generate/status/${chat.id}`)).json()).active)
+        .toBe(false);
+      await expect
+        .poll(() =>
+          page.evaluate(async (id) => {
+            const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+            return useChatStore.getState().abortControllers.has(id);
+          }, chat.id),
+        )
+        .toBe(false);
+      // A translation still in flight must not reject the next same-chat turn.
+      // Abort that new turn before it produces prose; it must not cancel the
+      // previous turn's independent translation or completion notification.
+      generation = undefined;
+      const nextTurn = request.post("/api/generate", { data: { chatId: chat.id, connectionId: connection.id } });
+      await expect.poll(() => !!generation).toBe(true);
+      await request.post("/api/generate/abort", { data: { chatId: chat.id } });
+      expect((await nextTurn).status()).toBe(200);
+      expect(await counts()).toEqual({ browser: 0, native: 0, sound: 0 });
       releaseTranslation("W archiwum panuje cisza.");
       await expect.poll(counts).toEqual({ browser: 1, native: 1, sound: 1 });
 
@@ -222,7 +242,7 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
       translation = undefined;
       await page.reload();
       if (mode === "game") {
-        // Game Narration also backfills its visible untranslated row when auto-translation is enabled.
+        // Enabling translation still backfills older, never-attempted Game narration.
         await expect.poll(() => !!translation).toBe(true);
         releaseTranslation("Tłumaczenie wcześniejszej wiadomości.");
         await expect
@@ -245,6 +265,9 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
       await page.close();
       releaseGeneration("The page can close safely.");
       await expect.poll(() => !!translation).toBe(true);
+      const reopened = await page.context().newPage();
+      await reopened.goto("/");
+      await expect(reopened.locator("body")).toContainText("The page can close safely.");
       releaseTranslation("Tłumaczenie zapisane bez otwartej strony.");
       await expect
         .poll(() => savedTranslation("The page can close safely."))
@@ -261,6 +284,8 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
           });
           throw error;
         });
+      await expect(reopened.locator("body")).toContainText("Tłumaczenie zapisane bez otwartej strony.");
+      await reopened.close();
       expect(translationRequests).toBe(mode === "game" ? 4 : 3);
     } finally {
       if (!page.isClosed()) await page.unrouteAll({ behavior: "ignoreErrors" });

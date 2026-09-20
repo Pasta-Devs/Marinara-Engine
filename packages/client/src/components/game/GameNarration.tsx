@@ -51,6 +51,7 @@ import { normalizeSpriteExpressionKey, resolveSpriteExpression } from "../../lib
 import { DIALOGUE_QUOTE_CAPTURE_GROUP_PATTERN_SOURCE, stripSurroundingDialogueQuotes } from "../../lib/dialogue-quotes";
 import type { SpriteInfo } from "../../hooks/use-characters";
 import { useTranslate } from "../../hooks/use-translate";
+import { useGenerationStatus } from "../../hooks/use-chats";
 import { useTranslationStore } from "../../stores/translation.store";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
@@ -1463,8 +1464,13 @@ export function GameNarration({
   const outcomeNarrationFailed =
     !!latestAssistant && parseMessageExtraRecord(latestAssistant.extra).gameOutcomeNarrationFailed === true;
   const lastAutoTranslation = useRef<{ id: string; source: string } | null>(null);
+  const serverTranslation = useGenerationStatus(
+    latestAssistant?.chatId ?? null,
+    !!parsedActiveChatMetadata.autoTranslate && !isStreaming,
+  );
   useEffect(() => {
     if (!parsedActiveChatMetadata.autoTranslate || isStreaming || !latestAssistant || generationFailed) return;
+    if (useChatStore.getState().abortControllers.has(latestAssistant.chatId)) return;
     if (
       translationConfig.chatId !== latestAssistant.chatId ||
       translationConfig.outputTargetLanguage !==
@@ -1477,7 +1483,17 @@ export function GameNarration({
     if (useTranslationStore.getState().hiddenTranslationIds[latestAssistant.id]) return;
     const source = getGameTranslationSource(latestAssistant);
     if (!source || translating[latestAssistant.id]) return;
+    if (serverTranslation.data?.active || serverTranslation.data?.translating) {
+      lastAutoTranslation.current = { id: latestAssistant.id, source };
+      return;
+    }
+    if (serverTranslation.isPending || serverTranslation.isFetching) return;
     const extra = parseMessageExtraRecord(latestAssistant.extra);
+    if (
+      typeof extra.automaticTranslationSource === "string" &&
+      gameTranslationMatchesMessage(latestAssistant, extra.automaticTranslationSource)
+    )
+      return; // The server owns this attempt; a failed translation stays manually retryable.
     if (
       typeof extra.translation === "string" &&
       gameTranslationMatchesMessage(
@@ -1505,6 +1521,10 @@ export function GameNarration({
     translations,
     translationSources,
     translationConfig,
+    serverTranslation.data?.active,
+    serverTranslation.data?.translating,
+    serverTranslation.isPending,
+    serverTranslation.isFetching,
   ]);
 
   // Wheel-nav builds a flat chronological list of log entries — one per visible

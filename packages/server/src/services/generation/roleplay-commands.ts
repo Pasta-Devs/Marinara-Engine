@@ -362,7 +362,7 @@ export function buildRoleplayCommandsReminder(args: {
     );
   if (enabled("roll"))
     lines.push(
-      '- [roll: character="participant name" notation="1d20" attribute="Strength" modifier="+2" dc="15" reason="action and success rule"] requests a real roll; use roll_dice with the same fields when available. You may target any chat participant, including the user\'s persona by name. Attribute is optional; the engine adds the assigned attribute modifier, so do not add it yourself. Optional modifier adds a situational bonus/penalty once; dc sets the total needed to succeed. Set the stakes first, stop after the command, and wait for the result before narrating the outcome. Never invent results or reroll an action.',
+      '- [roll: character="participant name" notation="1d20" attribute="Strength" modifier="+2" dc="15" reason="action being attempted"] requests a real roll; use roll_dice with the same fields when available. You may target any chat participant, including the user\'s persona by name. Attribute is optional; the engine adds the assigned attribute modifier, so do not add it yourself. Optional modifier adds a situational bonus/penalty once; optional dc sets the total needed to succeed. Keep DCs and modifiers in command/tool fields, not narration. Stop after the command and wait for the result before narrating the outcome. Never invent results or reroll an action.',
     );
   if (enabled("combat") && args.availableAgentIds.has("combat"))
     lines.push("- [combat] asks the Combat agent to start an encounter when the scene turns to combat.");

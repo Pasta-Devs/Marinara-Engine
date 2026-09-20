@@ -7,7 +7,7 @@ import { normalizeEchoChamberMessages } from "../lib/echo-chamber-queue";
 import { characterDataSchema, normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { toast, type ExternalToast } from "sonner";
-import { api, ApiError, isPassiveStreamDisconnect } from "../lib/api-client";
+import { api, ApiError, isPassiveStreamDisconnect, requestTimeoutSignal } from "../lib/api-client";
 import { recordClientRuntimeEvent } from "../lib/client-runtime-diagnostics";
 import {
   formatAgentFailuresToast,
@@ -1046,6 +1046,22 @@ async function waitForServerGenerationToSettle(chatId: string, signal: AbortSign
     await wait(PASSIVE_STREAM_SETTLE_POLL_MS, signal);
   }
   return false;
+}
+
+async function waitForServerTranslationToSettle(qc: QueryClient, chatId: string) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < PASSIVE_STREAM_SETTLE_MAX_WAIT_MS) {
+    try {
+      const status = await api.get<{ translating?: boolean }>(`/generate/status/${encodeURIComponent(chatId)}`, {
+        signal: requestTimeoutSignal(15_000),
+      });
+      if (!status.translating) break;
+    } catch {
+      // Keep the independent completion notification pending through a reconnect.
+    }
+    await wait(PASSIVE_STREAM_SETTLE_POLL_MS);
+  }
+  await qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
 }
 
 function isAbortError(error: unknown) {
@@ -3556,14 +3572,22 @@ export function useGenerate() {
         }
         window.dispatchEvent(new CustomEvent("marinara:generation-complete", { detail: { chatId: params.chatId } }));
 
-        // The server saves automatic translations before completing generation, even without a tab.
-        for (const notify of completionNotifications) {
-          try {
-            notify();
-          } catch (error) {
-            console.warn("[Generation] Completion notification failed:", error);
-          }
-        }
+        // Translation runs independently on the server. Wait for persistence
+        // before notifying, without retaining the browser's generation lock.
+        const translation = waitForOutputTranslation
+          ? waitForServerTranslationToSettle(qc, params.chatId)
+          : Promise.resolve();
+        void translation
+          .finally(() => {
+            for (const notify of completionNotifications) {
+              try {
+                notify();
+              } catch (error) {
+                console.warn("[Generation] Completion notification failed:", error);
+              }
+            }
+          })
+          .catch(() => {});
       }
       if (receivedContent || passiveStreamRecovered || spatialTransitionCommitted) return true;
       return await confirmDurableSubmittedUserTurn();

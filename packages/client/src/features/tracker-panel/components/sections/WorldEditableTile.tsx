@@ -16,6 +16,7 @@ export function WorldRenderedEdit({
   className,
   inputClassName,
   showEditHint = true,
+  controlsSide = "right",
   locked = false,
   lockMode = false,
   onToggleLock,
@@ -28,6 +29,7 @@ export function WorldRenderedEdit({
   className?: string;
   inputClassName?: string;
   showEditHint?: boolean;
+  controlsSide?: "left" | "right";
   locked?: boolean;
   lockMode?: boolean;
   onToggleLock?: () => void;
@@ -131,13 +133,15 @@ export function WorldRenderedEdit({
         locked &&
           "bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--foreground)_30%,transparent)]",
         className,
+        controlsSide === "left" && "pl-5",
       )}
     >
       {children}
       {(lockMode || locked) && (
         <span
           className={cn(
-            "pointer-events-none absolute right-0.5 top-0.5 z-[12] flex h-3.5 w-3.5 items-center justify-center rounded-[2px] bg-[var(--background)]/58 shadow-[0_0_6px_color-mix(in_srgb,var(--foreground)_10%,transparent)] ring-1 ring-[var(--border)] transition-opacity duration-150 [@media(pointer:coarse)]:h-4 [@media(pointer:coarse)]:w-4",
+            "pointer-events-none absolute top-0.5 z-[12] flex h-3.5 w-3.5 items-center justify-center rounded-[2px] bg-[var(--background)]/58 shadow-[0_0_6px_color-mix(in_srgb,var(--foreground)_10%,transparent)] ring-1 ring-[var(--border)] transition-opacity duration-150 [@media(pointer:coarse)]:h-4 [@media(pointer:coarse)]:w-4",
+            controlsSide === "left" ? "left-0.5" : "right-0.5",
             locked ? "text-[var(--foreground)] opacity-90" : "text-[var(--muted-foreground)] opacity-50",
           )}
           aria-hidden="true"
@@ -152,7 +156,8 @@ export function WorldRenderedEdit({
       {showEditHint && !lockMode && !locked && (
         <span
           className={cn(
-            "pointer-events-none absolute right-0.5 top-0.5 z-[12] flex h-3 w-3 translate-y-0.5 items-center justify-center rounded-[2px] bg-[var(--background)]/58 text-[var(--muted-foreground)] opacity-0 shadow-[0_0_6px_color-mix(in_srgb,var(--foreground)_10%,transparent)] ring-1 ring-[var(--border)] transition-[opacity,transform] duration-150 group-hover/world-edit:translate-y-0 group-hover/world-edit:opacity-70 group-focus-visible/world-edit:translate-y-0 group-focus-visible/world-edit:opacity-80 max-md:translate-y-0 max-md:opacity-45",
+            "pointer-events-none absolute top-0.5 z-[12] flex h-3 w-3 translate-y-0.5 items-center justify-center rounded-[2px] bg-[var(--background)]/58 text-[var(--muted-foreground)] opacity-0 shadow-[0_0_6px_color-mix(in_srgb,var(--foreground)_10%,transparent)] ring-1 ring-[var(--border)] transition-[opacity,transform] duration-150 group-hover/world-edit:translate-y-0 group-hover/world-edit:opacity-70 group-focus-visible/world-edit:translate-y-0 group-focus-visible/world-edit:opacity-80 max-md:translate-y-0 max-md:opacity-45",
+            controlsSide === "left" ? "left-0.5" : "right-0.5",
           )}
           aria-hidden="true"
         >

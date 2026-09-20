@@ -888,6 +888,7 @@ function replaceConversationContextMacro(
 }
 
 export async function generateRoutes(app: FastifyInstance) {
+  const pendingTranslations = new Map<string, number>();
   registerSequentialGameTasks(app, ["/", "/retry-agents"]);
   const isDebug = logger.isLevelEnabled("debug");
 
@@ -1440,6 +1441,47 @@ export async function generateRoutes(app: FastifyInstance) {
     // ── SSE progress helper: tells the client what phase we're in ──
     const sendProgress = (phase: string) => {
       sendSseEvent(reply, { type: "progress", data: { phase } });
+    };
+
+    const translationMessages = new Map<string, number>();
+    const outputTranslationConfig =
+      chatMeta.autoTranslate === true ? getChatTranslationConfig(input.chatId, chatMeta) : null;
+    let translationAfterFailure = false;
+    const dispatchAutomaticTranslations = (afterGenerationFailure = false) => {
+      // Translation survives a passive disconnect but owns no SSE or generation
+      // lock: a slow translation must not prevent the user from sending again.
+      if (
+        !outputTranslationConfig ||
+        (!afterGenerationFailure && abortController.signal.aborted) ||
+        translationMessages.size === 0
+      )
+        return;
+      const messagesToTranslate = [...translationMessages];
+      translationMessages.clear();
+      pendingTranslations.set(input.chatId, (pendingTranslations.get(input.chatId) ?? 0) + 1);
+      void (async () => {
+        try {
+          for (const [messageId, swipeIndex] of messagesToTranslate) {
+            if (!afterGenerationFailure && abortController.signal.aborted) break;
+            try {
+              await translateGeneratedMessage(app.db, {
+                chatId: input.chatId,
+                messageId,
+                swipeIndex,
+                mode: requestChatMode,
+                config: outputTranslationConfig,
+                debugMode: requestDebug,
+              });
+            } catch (error) {
+              logger.warn(error, "[translate] Automatic translation failed for message %s", messageId);
+            }
+          }
+        } finally {
+          const remaining = (pendingTranslations.get(input.chatId) ?? 1) - 1;
+          if (remaining > 0) pendingTranslations.set(input.chatId, remaining);
+          else pendingTranslations.delete(input.chatId);
+        }
+      })();
     };
 
     try {
@@ -2283,9 +2325,6 @@ export async function generateRoutes(app: FastifyInstance) {
       let lastSavedSwipeIndex: number | null = null;
       let pendingIllustration: Promise<void> | null = null;
       const pendingRoleplayMedia: Promise<void>[] = [];
-      const translationMessages = new Map<string, number>();
-      const outputTranslationConfig =
-        chatMeta.autoTranslate === true ? getChatTranslationConfig(input.chatId, chatMeta) : null;
       let pendingIllustratorBackground: (() => Promise<void>) | null = null;
       const collectedCommands: Array<{
         command: CharacterCommand;
@@ -8669,6 +8708,15 @@ export async function generateRoutes(app: FastifyInstance) {
           // Empty messageId on the paths that save no message; that costs the claim, never the effect.
           if (savedMsg?.id && savedSwipeIndex !== null && outputTranslationConfig && !input.impersonate) {
             translationMessages.set(savedMsg.id, savedSwipeIndex);
+            // Persist ownership before message_saved can trigger Game's legacy
+            // browser backfill, which also runs when navigating between chats.
+            savedMsg =
+              (await chats.updateMessageExtraForSwipe(
+                savedMsg.id,
+                savedSwipeIndex,
+                { automaticTranslationSource: savedMsg.content },
+                savedMsg.content,
+              )) ?? savedMsg;
           }
           await executeCollectedGmVerbCalls({ messageId: savedMsg?.id ?? "", swipeIndex: savedSwipeIndex ?? 0 });
           await persistGameStateToolCalls(savedMsg?.id ?? "", savedSwipeIndex ?? 0);
@@ -12394,29 +12442,7 @@ export async function generateRoutes(app: FastifyInstance) {
         if (abortController.signal.aborted) return;
       }
 
-      // Rewriting agents and command execution have finished; translate each final saved swipe.
-      // This work belongs to the server and survives a passive browser disconnect.
-      if (outputTranslationConfig) {
-        for (const [messageId, swipeIndex] of translationMessages) {
-          try {
-            const translated = await translateGeneratedMessage(
-              app.db,
-              {
-                chatId: input.chatId,
-                messageId,
-                swipeIndex,
-                mode: chatMode,
-                config: outputTranslationConfig,
-                debugMode: requestDebug,
-              },
-              onFallback,
-            );
-            if (translated) sendSseEvent(reply, { type: "message_saved", data: translated });
-          } catch (error) {
-            logger.warn(error, "[translate] Automatic translation failed for message %s", messageId);
-          }
-        }
-      }
+      dispatchAutomaticTranslations();
 
       // Signal completion before the slow illustration tail. The client keeps
       // listening until the HTTP stream closes, so late illustration events can
@@ -12437,6 +12463,8 @@ export async function generateRoutes(app: FastifyInstance) {
       if (abortController.signal.aborted || isAbortLikeError(err)) {
         return;
       }
+      // A later error cancels remaining generation work, not an already saved reply's translation.
+      translationAfterFailure = true;
       if (!abortController.signal.aborted) {
         abortController.abort();
       }
@@ -12448,6 +12476,7 @@ export async function generateRoutes(app: FastifyInstance) {
           : "Generation failed";
       sendSseEvent(reply, { type: "error", data: message });
     } finally {
+      dispatchAutomaticTranslations(translationAfterFailure);
       if (restoredRoleplayInterruption && input.regenerateMessageId) {
         try {
           const reconciled = await chats.reconcileRoleplayInterruption(input.regenerateMessageId);
@@ -12491,6 +12520,7 @@ export async function generateRoutes(app: FastifyInstance) {
    */
   app.get<{ Params: { chatId: string } }>("/status/:chatId", async (req) => ({
     active: activeGenerations.has(req.params.chatId) || (activeAgentRuns.get(req.params.chatId)?.size ?? 0) > 0,
+    translating: pendingTranslations.has(req.params.chatId),
   }));
 
   /**
