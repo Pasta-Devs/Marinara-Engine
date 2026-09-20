@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import type { AdvancedMemoryStatus, Message } from "@marinara-engine/shared";
 import { DEFAULT_ADVANCED_MEMORY_SETTINGS } from "@marinara-engine/shared";
@@ -7,7 +7,7 @@ import { seedUIState } from "./ui-state-fixture.js";
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 test.use({ actionTimeout: 10_000 });
 
-async function captureThemes(page: Page, info: TestInfo, name: string) {
+async function captureThemes(page: Page, info: TestInfo, name: string, target?: Locator) {
   for (const theme of ["light", "dark"] as const) {
     await page.evaluate(async (theme) => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -15,7 +15,7 @@ async function captureThemes(page: Page, info: TestInfo, name: string) {
       useUIStore.getState().setAppAccentColor("#3b9fe8");
     }, theme);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-    await page.screenshot({ path: info.outputPath(`${name}-${theme}.png`), animations: "disabled" });
+    await (target ?? page).screenshot({ path: info.outputPath(`${name}-${theme}.png`), animations: "disabled" });
   }
 }
 
@@ -409,15 +409,17 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
         return { y, height, rowY: row.y, rowHeight: row.height };
       }),
     );
-    await captureThemes(page, info, "advanced-memory-scene-spacing");
+    await captureThemes(page, info, "advanced-memory-scene-spacing", inspector.locator("ul"));
     expect(cardBounds[0]!.height, "long summaries have a compact three-line preview").toBeLessThan(300);
-    expect(cardBounds[0]!.y - cardBounds[0]!.rowY, "clamped text must not shift the button baseline down").toBeLessThan(
-      2,
-    );
-    expect(cardBounds[0]!.rowHeight - cardBounds[0]!.height, "the row fits its visible card").toBeLessThan(2);
-    expect(cardBounds[1]!.y - cardBounds[0]!.y - cardBounds[0]!.height, "scene cards follow each other").toBeLessThan(
-      20,
-    );
+    const topGap = cardBounds[0]!.y - cardBounds[0]!.rowY;
+    const rowSlack = cardBounds[0]!.rowHeight - cardBounds[0]!.height;
+    const cardGap = cardBounds[1]!.y - cardBounds[0]!.y - cardBounds[0]!.height;
+    expect(topGap).toBeGreaterThanOrEqual(0);
+    expect(topGap, "clamped text must not shift the button baseline down").toBeLessThan(2);
+    expect(rowSlack).toBeGreaterThanOrEqual(0);
+    expect(rowSlack, "the row fits its visible card").toBeLessThan(2);
+    expect(cardGap).toBeGreaterThanOrEqual(0);
+    expect(cardGap, "scene cards follow each other").toBeLessThan(20);
     await expect(inspector.getByText("Exact words from the notebook conversation.")).toHaveCount(0);
     await inspector.getByRole("button", { name: /Scene #1/ }).click();
     await expect(inspector).toContainText("Story timeframe: Before the experiment");
@@ -465,7 +467,9 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     );
     for (let index = 1; index < longRows.length; index++) {
       expect(longRows[index]!.height).toBeLessThan(300);
-      expect(longRows[index]!.y - longRows[index - 1]!.y - longRows[index - 1]!.height).toBeLessThan(20);
+      const gap = longRows[index]!.y - longRows[index - 1]!.y - longRows[index - 1]!.height;
+      expect(gap).toBeGreaterThanOrEqual(0);
+      expect(gap).toBeLessThan(20);
     }
     await inspector.scrollIntoViewIfNeeded();
     await captureThemes(page, info, "advanced-memory-inspector");
@@ -474,7 +478,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(resetDialog).toContainText("Original chat messages and your settings will stay intact.");
     await resetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
     expect(resetRequests).toBe(0);
-    await expect(inspector.locator("ul > li")).toHaveCount(2);
+    await expect(inspector.locator("ul > li")).toHaveCount(12);
     await inspector.getByRole("button", { name: "Delete all memories", exact: true }).click();
     await resetDialog.getByRole("button", { name: "Delete all memories", exact: true }).click();
     await expect.poll(() => resetRequests).toBe(1);

@@ -1814,7 +1814,10 @@ try {
   const backlogSource = await chats.listMessages(backlog.id);
   const recentCheck = await memory.getSceneCheck(backlog.id);
   assert(recentCheck);
-  await memory.commitSceneCheck(backlog.id, recentCheck, { starts: [{ messageId: backlogSource[117]!.id }] });
+  assert(
+    await memory.commitSceneCheck(backlog.id, recentCheck, { starts: [{ messageId: backlogSource[117]!.id }] }),
+    "the recent-only checkpoint must be committed before backfill",
+  );
   const beforeBackfill = requests.length;
   const pauseBackfill = new AbortController();
   await assert.rejects(

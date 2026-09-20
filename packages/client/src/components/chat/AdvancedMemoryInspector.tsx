@@ -44,9 +44,7 @@ export function AdvancedMemoryInspector({
     const all = status.data?.records ?? [];
     const sceneKey = (record: AdvancedMemoryRecord) => JSON.stringify([record.sceneId, record.messageIds]);
     const characterScenes = new Set(
-      all
-        .filter((record) => record.kind === "scene" && record.audienceCharacterIds.length && record.enabled)
-        .map(sceneKey),
+      all.filter((record) => record.kind === "scene" && record.audienceCharacterIds.length).map(sceneKey),
     );
     return all
       .filter(

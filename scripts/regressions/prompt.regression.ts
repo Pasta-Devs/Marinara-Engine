@@ -9116,6 +9116,28 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         };
         const assembled = await assemblePrompt(input);
         const text = assembled.messages.map((message) => message.content).join("\n");
+        const automaticMemory = await assemblePrompt({
+          ...input,
+          sections: [sections[0]!, sections[3]!],
+          groups: [],
+          preset: {
+            ...input.preset,
+            sectionOrder: JSON.stringify(["main", "history"]),
+            parameters: JSON.stringify({ strictRoleFormatting: true, squashSystemMessages: true }),
+          },
+        });
+        assert.equal(automaticMemory.messages[0]?.role, "system");
+        for (const fact of Object.values(parts))
+          assert(
+            automaticMemory.messages[0]!.content.includes(fact!),
+            "default formatting merges automatic memory into the system prompt",
+          );
+        assert(
+          automaticMemory.messages[0]!.content.indexOf("STABLE_RULE") <
+            automaticMemory.messages[0]!.content.indexOf("OLD_SCENE_FACT"),
+        );
+        assert.equal(automaticMemory.messages[1]?.role, "user");
+        assert(automaticMemory.messages[1]?.content.includes("LIVE_WORDS"));
         for (const fact of Object.values(parts)) assert.equal(text.split(fact!).length - 1, 1, fact!);
         assert.doesNotMatch(text, /LEGACY_UNSCOPED_SECRET|duplicate_summary|hidden_summary|disabled_excerpt/u);
         assert.match(text, /Below is a small excerpt from earlier chat history/u);
