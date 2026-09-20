@@ -60,9 +60,11 @@ for (const theme of ["dark", "light"] as const) {
     let failDay: string | null = "week";
     const pendingRequest: { release?: () => void } = {};
     let pauseRequests = false;
+    let cancelledFixture = false;
     const newWeekStart = "2026-09-14T00:00:00.000Z";
     await page.route("**/api/conversation/schedule/draft", async (route) => {
       const body = route.request().postDataJSON() as DraftRequest;
+      const activity = `${cancelledFixture ? "Cancelled" : "New"} ${body.day}`;
       calls.push(body);
       if (pauseRequests)
         await new Promise<void>((resolve) => {
@@ -78,12 +80,18 @@ for (const theme of ["dark", "light"] as const) {
           json: {
             day: body.day,
             weekStart: newWeekStart,
-            blocks: [{ time: "00:00-00:00", activity: `New ${body.day}`, status: "online" }],
+            blocks: [{ time: "00:00-00:00", activity, status: "online" }],
           },
         });
       } else {
         await route.fulfill({ json: { schedule: { ...body.schedule, weekStart: newWeekStart } } });
       }
+    });
+    await page.route("**/api/conversation/schedule/summary", async (route) => {
+      await new Promise<void>((resolve) => {
+        pendingRequest.release = resolve;
+      });
+      await route.fulfill({ json: { summary: "Cancelled summary", generatedAt: new Date().toISOString() } });
     });
     const storedSchedule = async () => {
       const row = await (await request.get(`/api/characters/${character.id}`)).json();
@@ -179,6 +187,26 @@ for (const theme of ["dark", "light"] as const) {
       await expect(dialog).toBeVisible();
       expect(calls).toHaveLength(1);
       expect((await storedSchedule()).days.Monday?.[0]?.activity).toBe("New Monday");
+      cancelledFixture = true;
+      for (const action of ["Regenerate Monday", "Generate summary"]) {
+        if (action === "Regenerate Monday") await mondayToggle.click();
+        pauseRequests = true;
+        await dialog.getByRole("button", { name: action, exact: true }).click();
+        await expect.poll(() => !!pendingRequest.release).toBe(true);
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+        await expect(dialog).toBeHidden();
+        pauseRequests = false;
+        pendingRequest.release!();
+        pendingRequest.release = undefined;
+        await manager.getByRole("button", { name: `Edit ${name} schedule`, exact: true }).click();
+        await expect(dialog.getByRole("button", { name: "Generate summary", exact: true })).toBeEnabled();
+        await mondayToggle.click();
+        await expect(dialog.getByRole("textbox", { name: "Monday block activity", exact: true })).toHaveValue(
+          "New Monday",
+        );
+        await mondayToggle.click();
+        expect((await storedSchedule()).routineSummary ?? "").toBe("");
+      }
     } finally {
       pendingRequest.release?.();
       await request.delete(`/api/characters/${character.id}`);

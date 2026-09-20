@@ -371,7 +371,7 @@ export function CharacterScheduleEditorModal({
   const [weekDraftMode, setWeekDraftMode] = useState<WeekDraftMode>(() => (schedule ? "adjust" : "rewrite"));
   const draftRef = useRef(draft);
   const scheduleFileInputRef = useRef<HTMLInputElement | null>(null);
-  const weekGenerationAbortRef = useRef<AbortController | null>(null);
+  const generationAbortRef = useRef<AbortController | null>(null);
   const generationErrorRef = useRef<HTMLDivElement | null>(null);
   const availableConnections = filterLanguageGenerationConnections(
     (connections ?? []) as Array<
@@ -397,7 +397,7 @@ export function CharacterScheduleEditorModal({
 
   useEffect(
     () => () => {
-      weekGenerationAbortRef.current?.abort();
+      generationAbortRef.current?.abort();
     },
     [open, characterId],
   );
@@ -425,6 +425,8 @@ export function CharacterScheduleEditorModal({
     setGenerationConnectionId(null);
     setIsGeneratingWeek(false);
     setWeekGenerationDay(null);
+    setIsGeneratingSummary(false);
+    setGeneratingDay(null);
   }, [characterId, open]);
 
   useEffect(() => {
@@ -531,17 +533,24 @@ export function CharacterScheduleEditorModal({
 
   const generateSummary = async () => {
     if (!validateDailyCap()) return;
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
     setGenerationError("");
     setIsGeneratingSummary(true);
     try {
-      const result = await api.post<RoutineSummaryResponse>("/conversation/schedule/summary", {
-        chatId,
-        characterId,
-        schedule: currentSchedule,
-        guidance: generationGuidance,
-        connectionId,
-        debugMode: useUIStore.getState().debugMode,
-      });
+      const result = await api.post<RoutineSummaryResponse>(
+        "/conversation/schedule/summary",
+        {
+          chatId,
+          characterId,
+          schedule: currentSchedule,
+          guidance: generationGuidance,
+          connectionId,
+          debugMode: useUIStore.getState().debugMode,
+        },
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
       const nextDraft = {
         ...draftRef.current,
         routineSummary: result.summary,
@@ -553,20 +562,24 @@ export function CharacterScheduleEditorModal({
       onSave(characterId, draftToSchedule(nextDraft, schedule));
       setSummaryStale(false);
     } catch (error) {
+      if (controller.signal.aborted) return;
       const message =
         error instanceof Error
           ? error.message
           : localizeUi("ui.chat.characterscheduleeditormodal.failedToGenerateRoutineSummary");
       setGenerationError(message);
     } finally {
-      setIsGeneratingSummary(false);
+      if (generationAbortRef.current === controller) {
+        generationAbortRef.current = null;
+        setIsGeneratingSummary(false);
+      }
     }
   };
 
   const generateWeek = async () => {
     if (!validateDailyCap()) return;
     const controller = new AbortController();
-    weekGenerationAbortRef.current = controller;
+    generationAbortRef.current = controller;
     setGenerationError("");
     setIsGeneratingWeek(true);
     try {
@@ -628,8 +641,8 @@ export function CharacterScheduleEditorModal({
           : localizeUi("ui.chat.characterscheduleeditormodal.failedToRegenerateSchedule");
       setGenerationError(message);
     } finally {
-      if (weekGenerationAbortRef.current === controller) {
-        weekGenerationAbortRef.current = null;
+      if (generationAbortRef.current === controller) {
+        generationAbortRef.current = null;
         setIsGeneratingWeek(false);
         setWeekGenerationDay(null);
       }
@@ -638,24 +651,31 @@ export function CharacterScheduleEditorModal({
 
   const generateDay = async (day: string) => {
     if (!validateDailyCap()) return;
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
     setGenerationError("");
     setGeneratingDay(day);
     setDayGenerationStatus((current) => ({ ...current, [day]: `Regenerating ${day}...` }));
     const previousBlocks = draft.days[day] ?? [];
     const specificGuidance = dayGuidance[day]?.trim() ?? "";
     try {
-      const result = await api.post<DraftDayResponse>("/conversation/schedule/draft", {
-        chatId,
-        characterId,
-        mode: "day",
-        day,
-        schedule: currentSchedule,
-        guidance: generationGuidance,
-        dayGuidance: specificGuidance,
-        timeZone: useUIStore.getState().conversationTimeZone,
-        connectionId,
-        debugMode: useUIStore.getState().debugMode,
-      });
+      const result = await api.post<DraftDayResponse>(
+        "/conversation/schedule/draft",
+        {
+          chatId,
+          characterId,
+          mode: "day",
+          day,
+          schedule: currentSchedule,
+          guidance: generationGuidance,
+          dayGuidance: specificGuidance,
+          timeZone: useUIStore.getState().conversationTimeZone,
+          connectionId,
+          debugMode: useUIStore.getState().debugMode,
+        },
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
       applyDraftAndMarkSummaryStale((current) => ({
         ...current,
         days: { ...current.days, [result.day]: result.blocks },
@@ -675,6 +695,7 @@ export function CharacterScheduleEditorModal({
         );
       }
     } catch (error) {
+      if (controller.signal.aborted) return;
       setDayGenerationStatus((current) => ({ ...current, [day]: `Failed to regenerate ${day}` }));
       const message =
         error instanceof Error
@@ -682,7 +703,10 @@ export function CharacterScheduleEditorModal({
           : localizeUi("ui.chat.characterscheduleeditormodal.failedToRegenerateValue1", { value1: day });
       setGenerationError(message);
     } finally {
-      setGeneratingDay(null);
+      if (generationAbortRef.current === controller) {
+        generationAbortRef.current = null;
+        setGeneratingDay(null);
+      }
     }
   };
 
