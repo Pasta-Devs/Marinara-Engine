@@ -2,7 +2,7 @@
 // Atlas Cloud: model-specific video inputs
 // ──────────────────────────────────────────────
 import { useEffect, useState } from "react";
-import { Loader2, RotateCcw } from "lucide-react";
+import { AlertTriangle, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
   AtlasCloudModelLimits,
@@ -153,7 +153,8 @@ function ModelLimits({ limits }: { limits: AtlasCloudModelLimits }) {
   return (
     <div className="space-y-1">
       {!limits.acceptsReferenceImage && (
-        <p className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[0.625rem] text-amber-400 ring-1 ring-amber-400/20">
+        <p className="flex items-start gap-1.5 rounded-md bg-amber-500/10 px-2 py-1.5 text-[0.625rem] font-medium text-amber-400">
+          <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0" />
           {t("connections.mediaSources.atlas.modelOptions.noReferenceImage")}
         </p>
       )}
