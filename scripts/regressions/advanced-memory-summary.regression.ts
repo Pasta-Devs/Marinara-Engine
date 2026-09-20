@@ -494,6 +494,84 @@ try {
     "resume requests a complete summary instead of reusing truncated text",
   );
 
+  const stalled = await createChat("Resume stalled scene compaction");
+  await connections.update(stalled.connectionId!, { maxContext: 65_000 });
+  await chats.patchMetadata(stalled.id, { advancedMemory: { ...settings, maxContextTokens: 65_000 } });
+  const stalledSource = await chats.listMessages(stalled.id);
+  await chats.createMessagesBatch(stalled.id, [
+    {
+      role: "user",
+      content: "SECOND_SCENE_SOURCE: Maukie bought a map at the market.",
+      createdAt: new Date(Date.parse(stalledSource.at(-1)!.createdAt) + 1).toISOString(),
+    },
+    {
+      role: "assistant",
+      content: "The following morning, FUTURE_SCENE_SOURCE: we sailed away.",
+      createdAt: new Date(Date.parse(stalledSource.at(-1)!.createdAt) + 2).toISOString(),
+    },
+  ]);
+  beforeSummary = async () => {
+    beforeSummary = async () => {
+      summaryResponse = "Maukie bought a map and promised to return the compass. ".repeat(200);
+    };
+  };
+  const stalledStart = requests.length;
+  await assert.rejects(memory.initialize(stalled.id), /could not compact/);
+  const completedScenes = (await memory.status(stalled.id)).records.filter(
+    (record) => record.kind === "scene" && record.content,
+  );
+  assert.equal(completedScenes.length, 1, "the earlier completed scene survives a later compaction failure");
+  const stalledRequests = requests.slice(stalledStart);
+  const firstSceneRequest = stalledRequests.find(
+    (item) => !item.instructions?.startsWith("Identify scene transitions"),
+  )!;
+  assert(
+    stalledRequests
+      .filter((item) => !item.instructions?.startsWith("Identify scene transitions"))
+      .every((item) => !JSON.stringify(item.input).includes("FUTURE_SCENE_SOURCE")),
+    "scene summaries never receive messages from a later scene",
+  );
+  const stillOversizedStart = requests.length;
+  await assert.rejects(createAdvancedMemoryService(db).initialize(stalled.id), /could not compact.*512-token/);
+  assert.equal(requests.length - stillOversizedStart, 1, "a still-oversized retry makes one fresh compaction attempt");
+  assert.equal(
+    (await memory.status(stalled.id)).records.filter((record) => record.kind === "scene" && record.content).length,
+    1,
+    "oversized text is never accepted or silently truncated into a scene summary",
+  );
+  summaryResponse = "Maukie bought a map at the market.";
+  const resumeStart = requests.length;
+  // The HTTP route owns a separate service instance, like resuming after a server restart.
+  const resumed = await app.inject({
+    method: "POST",
+    url: `/chats/${stalled.id}/advanced-memory/initialize`,
+    payload: {},
+  });
+  assert.equal(resumed.statusCode, 202);
+  for (let attempt = 0; attempt < 100 && (await memory.status(stalled.id)).job.status === "running"; attempt++)
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  const resumedStatus = await memory.status(stalled.id);
+  assert.equal(
+    resumedStatus.job.status,
+    "ready",
+    "Resume retries the failed compaction instead of replaying its error",
+  );
+  assert.notEqual(
+    resumed.json().job.stage,
+    "classifying",
+    "Resume does not announce already completed boundary detection",
+  );
+  assert(resumedStatus.records.some((record) => record.content === summaryResponse));
+  const resumedRequests = requests.slice(resumeStart);
+  assert.equal(resumedRequests.length, 1, "only the unfinished compaction needs another model call");
+  assert(!resumedRequests[0]!.instructions?.startsWith("Identify scene transitions"));
+  assert.notDeepEqual(
+    resumedRequests[0]!.input,
+    firstSceneRequest.input,
+    "the completed first scene is not regenerated",
+  );
+  summaryResponse = summary;
+
   const joined = await createChat("Concurrent preparation requests");
   await chats.patchMetadata(joined.id, {
     advancedMemoryState: { status: "error", error: "Previous preparation failed" },

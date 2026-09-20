@@ -690,7 +690,8 @@ export function createAdvancedMemoryService(db: DB) {
       return pieces;
     });
     if (!parts.length) return "";
-    for (let pass = 0; pass < 12; pass++) {
+    const maxPasses = 12;
+    for (let pass = 0; pass < maxPasses; pass++) {
       const batches: string[][] = [];
       for (const text of parts) {
         const last = batches.at(-1);
@@ -698,9 +699,15 @@ export function createAdvancedMemoryService(db: DB) {
         else batches.push([text]);
       }
       const outputs: string[] = [];
+      const passKeys: string[] = [];
       for (const batch of batches) {
         abortIfNeeded(options.signal);
-        const instruction = `${combinePrompt}\n\nSummarize only the supplied eligible source material. Preserve corrections, chronological order and explicit story-time anchors; distinguish plans, beliefs, and events. An unknown story timeframe stays unknown; source message numbers show order, not elapsed time. Do not add facts from outside these sources. Keep the result under ${summaryTarget} tokens.\n\n${batch.join("\n\n")}`;
+        const batchText = batch.join("\n\n");
+        const shortening =
+          pass > 0
+            ? `\nThe supplied recap is still too long (about ${tokenSize(batchText)} tokens). Rewrite it more concisely, prioritizing durable events and outcomes. Do not expand it or repeat facts.`
+            : "";
+        const instruction = `${combinePrompt}\n\nSummarize only the supplied eligible source material. Preserve corrections, chronological order and explicit story-time anchors; distinguish plans, beliefs, and events. An unknown story timeframe stays unknown; source message numbers show order, not elapsed time. Do not add facts from outside these sources. Keep the result under ${summaryTarget} tokens.${shortening}\n\n${batchText}`;
         logDebugOverride(
           options.debugMode === true || process.env.DEBUG_AGENTS === "true",
           "[advanced-memory] Summary prompt for %s (%s): %s\n%s",
@@ -726,7 +733,16 @@ export function createAdvancedMemoryService(db: DB) {
           prompt,
           instruction,
         ]);
+        passKeys.push(cacheKey);
         let text = completed[cacheKey];
+        // Retain completed batches, but retry a cached compaction that cannot advance on resume.
+        if (
+          text &&
+          pass > 0 &&
+          tokenSize(text) > budget &&
+          (tokenSize(text) >= tokenSize(batchText) || pass === maxPasses - 1)
+        )
+          text = undefined;
         if (!text) {
           const result = await resolved.provider.chatComplete(
             [
@@ -763,11 +779,20 @@ export function createAdvancedMemoryService(db: DB) {
         outputs.push(text);
       }
       if (outputs.length === 1 && tokenSize(outputs[0]!) <= budget) return outputs[0]!;
-      if (pass > 0 && outputs.join("").length >= parts.join("").length)
-        throw new Error("The summary model could not compact this history within the chosen budget");
+      if (pass === maxPasses - 1 || (pass > 0 && tokenSize(outputs.join("\n\n")) >= tokenSize(parts.join("\n\n")))) {
+        // Earlier work is reusable; this failed pass must get a fresh attempt on Resume.
+        for (const key of passKeys) delete completed[key];
+        await db
+          .update(advancedMemoryRecords)
+          .set({ summaryWork: JSON.stringify(completed) })
+          .where(eq(advancedMemoryRecords.id, cacheOwner.id));
+        break;
+      }
       parts = outputs;
     }
-    throw new Error("The summary model could not compact this history within the chosen budget");
+    throw new Error(
+      `The summary model could not compact this history within the ${budget}-token memory-summary limit. Resume processing retries the unfinished summary; completed work is kept.`,
+    );
   }
 
   function buildRecord(
@@ -1148,20 +1173,21 @@ export function createAdvancedMemoryService(db: DB) {
       state.classifiedSourceFingerprint === fingerprint(ctx, ctx.messages.slice(0, classifiedIndex + 1), [])
     )
       from = Math.max(from, classifiedIndex + 1);
+    const needsClassification = options.detectScenes !== false && from < ctx.messages.length;
     await progress(
       ctx,
       {
         id: newId(),
         blocking: options.blocking ?? true,
         status: "running",
-        stage: "classifying",
-        completed: Math.min(from, ctx.messages.length),
-        total: ctx.messages.length,
+        stage: needsClassification ? "classifying" : state.stage === "indexing" ? "indexing" : "summarizing",
+        completed: needsClassification ? Math.min(from, ctx.messages.length) : 0,
+        total: needsClassification ? ctx.messages.length : Math.min(starts.size, ctx.messages.length),
         error: null,
       },
       options,
     );
-    if (options.detectScenes !== false && from < ctx.messages.length)
+    if (needsClassification)
       for (const start of await classify(ctx, from, options, processedIndex < 0)) starts.add(start);
     const ordered = [...starts].filter((index) => index < ctx.messages.length).sort((a, b) => a - b);
     const scenes: Scene[] = ordered.map((start, index) => ({
