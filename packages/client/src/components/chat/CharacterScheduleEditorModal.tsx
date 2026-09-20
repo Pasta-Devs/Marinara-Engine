@@ -924,7 +924,10 @@ export function CharacterScheduleEditorModal({
               </span>
             )}
           </summary>
-          <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(12rem,0.8fr)]">
+          <fieldset
+            disabled={generationBusy}
+            className="mt-3 min-w-0 grid gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(12rem,0.8fr)]"
+          >
             <div className="space-y-1.5 text-xs">
               <span className="font-medium">
                 {localizeUi("ui.chat.characterscheduleeditormodal.chatTalkativeness")}
@@ -1068,7 +1071,7 @@ export function CharacterScheduleEditorModal({
                 </label>
               </div>
             </details>
-          </div>
+          </fieldset>
         </details>
 
         <details

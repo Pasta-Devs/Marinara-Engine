@@ -166,6 +166,8 @@ for (const theme of ["dark", "light"] as const) {
       await weekButton.click();
       await expect(dialog.getByRole("status")).toHaveText("Generating Monday (1/7)…");
       await expect(picker).toBeDisabled();
+      await expect(dialog.getByLabel("Chat talkativeness", { exact: true })).toBeDisabled();
+      await expect(dialog.getByLabel(/^Wait before checking in/)).toBeDisabled();
       await expect(dialog.getByRole("button", { name: "Save schedule", exact: true })).toBeDisabled();
       await expect(dialog.getByRole("textbox", { name: "Monday block activity", exact: true })).toHaveValue(
         "Unsaved routine",
@@ -232,6 +234,7 @@ for (const theme of ["dark", "light"] as const) {
         await expect.poll(() => !!pendingRequest.release).toBe(true);
         if (action === "Regenerate Monday") {
           await expect(dialog.getByRole("textbox", { name: "Monday block activity", exact: true })).toBeDisabled();
+          await expect(dialog.getByLabel("Chat talkativeness", { exact: true })).toBeDisabled();
           await dialog.getByRole("button", { name: `Close Edit ${name} Schedule`, exact: true }).click();
         } else await page.keyboard.press("Escape");
         await expect(dialog).toBeHidden();
