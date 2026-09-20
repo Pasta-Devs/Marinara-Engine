@@ -106,6 +106,51 @@ db.select = ((...args: unknown[]) => {
 }) as typeof db.select;
 const chats = createChatsStorage(db);
 const memory = createAdvancedMemoryService(db);
+const createChat = chats.create.bind(chats);
+chats.create = async (input) => {
+  const chat = await createChat(input);
+  if (chat) await chats.patchMetadata(chat.id, { summaryMaxTokens: 512 });
+  return chat;
+};
+// Legacy continuity/temporary records remain importable and deletable, but are no
+// longer produced by prompt preparation or used instead of canonical Chat Summaries.
+async function seedLegacyRecord(
+  chatId: string,
+  kind: "continuity" | "temporary",
+  boundary: string,
+  template?: Awaited<ReturnType<typeof memory.status>>["records"][number],
+) {
+  const base =
+    template ??
+    (await memory.status(chatId)).records.find(
+      (record) => record.kind === "scene" && record.content && record.status === "closed",
+    );
+  assert(base);
+  const id = `legacy-${kind}-${chatId}`;
+  const { startIndex: _start, endIndex: _end, embeddingStatus: _embedding, ...stored } = base;
+  const dependencies = [
+    ...base.dependencies,
+    { id: "boundary", revision: boundary },
+    { id: "shared-start", revision: "" },
+    { id: "budget", revision: "512" },
+  ];
+  await db.insert(advancedMemoryRecords).values({
+    ...stored,
+    id,
+    kind,
+    sceneId: `${kind}-${boundary}`,
+    content: "Legacy continuity",
+    enabled: 1,
+    manualOverride: 0,
+    messageIds: JSON.stringify(base.messageIds),
+    audienceCharacterIds: JSON.stringify(base.audienceCharacterIds),
+    dependencies: JSON.stringify(dependencies),
+    embedding: null,
+    embeddingSpaceId: null,
+  });
+  return id;
+}
+
 try {
   const connection = await createConnectionsStorage(db).create(
     createConnectionSchema.parse({
@@ -176,6 +221,7 @@ try {
   });
   assert.equal(requests.length, settledRequests, "preview makes no provider or embedding call");
   assert.equal(readonly.messageIds.length, 800);
+  const summariesBeforePrepare = requests.filter((request) => request.kind === "summary").length;
   const prepared = await memory.prepare({
     chatId: chat.id,
     messages: source,
@@ -183,9 +229,8 @@ try {
     budgetTokens: 1200,
   });
   assert(prepared.currentSceneSummary, "a large ongoing scene gets a temporary prefix summary");
-  assert(prepared.chatSummary?.includes("source timeframe (summary corrections take precedence): Spring 14"));
-  assert(prepared.currentSceneSummary.includes("story timeframe: Spring 15"));
-  assert(prepared.chatSummary.includes("Messages #1–#400"), "continuity retains canonical chronology");
+  assert.equal(prepared.chatSummary, null, "scene recaps do not populate a parallel constant-summary store");
+  assert(prepared.currentSceneSummary.includes("Spring 15"), "ongoing-source excerpts retain source dates");
   assert(prepared.messageIds.includes(source.at(-1)!.id), "the latest message remains exact history");
   assert(prepared.receipt.estimatedTokensAfter <= 1200);
   await memory.validatePrepared(chat.id, source, prepared.receipt);
@@ -194,87 +239,17 @@ try {
     "prefix compression leaves the scene open",
   );
 
-  assert(prepared.receipt.checkpointId);
-  const originalCheckpointId = prepared.receipt.checkpointId;
-  const oversizedCorrection = "CORRECTED_GOLD compass. ".repeat(500);
-  await memory.updateRecord(chat.id, originalCheckpointId, { content: oversizedCorrection });
-  const compactedCorrection = await memory.prepare({
-    chatId: chat.id,
-    messages: source,
-    audienceCharacterIds: [],
-    budgetTokens: 1200,
-  });
   assert(
-    compactedCorrection.chatSummary?.includes("CORRECTED_GOLD"),
-    "oversized user correction supplies the derived summary",
-  );
-  assert.notEqual(compactedCorrection.receipt.checkpointId, originalCheckpointId);
-  assert.equal(
-    (await memory.status(chat.id)).records.find((record) => record.id === originalCheckpointId)?.content,
-    oversizedCorrection.trim(),
-    "the original user edit is preserved exactly",
-  );
-  const beforeCachedCorrection = requests.length;
-  await memory.prepare({
-    chatId: chat.id,
-    messages: source,
-    audienceCharacterIds: [],
-    budgetTokens: 1200,
-    readOnly: true,
-  });
-  assert.equal(requests.length, beforeCachedCorrection, "derived correction is reusable in read-only preparation");
-  await memory.updateRecord(chat.id, originalCheckpointId, { enabled: false });
-  const disabledCorrection = await memory.prepare({
-    chatId: chat.id,
-    messages: source,
-    audienceCharacterIds: [],
-    budgetTokens: 1200,
-  });
-  assert(
-    !disabledCorrection.chatSummary?.includes("CORRECTED_GOLD"),
-    "disabled correction is excluded from rebuilt required continuity",
-  );
-  assert.notEqual(disabledCorrection.receipt.checkpointId, originalCheckpointId);
-  assert.equal(
-    (await memory.status(chat.id)).records.find((record) => record.id === originalCheckpointId)?.enabled,
-    false,
-  );
-  await memory.validatePrepared(chat.id, source, disabledCorrection.receipt);
-  const temporaryOriginal = (await memory.status(chat.id)).records.find(
-    (record) => record.kind === "temporary" && record.id in disabledCorrection.receipt.recordRevisions,
-  );
-  assert(temporaryOriginal);
-  await memory.updateRecord(chat.id, temporaryOriginal.id, { content: oversizedCorrection });
-  const temporaryCorrected = await memory.prepare({
-    chatId: chat.id,
-    messages: source,
-    audienceCharacterIds: [],
-    budgetTokens: 1200,
-  });
-  assert(
-    temporaryCorrected.currentSceneSummary?.includes("CORRECTED_GOLD"),
-    "oversized open-scene corrections supply a smaller derivative",
+    !(await memory.status(chat.id)).records.some(
+      (record) => record.kind === "continuity" || record.kind === "temporary",
+    ),
+    "reading memory never saves a new summary",
   );
   assert.equal(
-    (await memory.status(chat.id)).records.find((record) => record.id === temporaryOriginal.id)?.content,
-    oversizedCorrection.trim(),
+    requests.filter((request) => request.kind === "summary").length,
+    summariesBeforePrepare,
+    "prompt fitting adds no summary calls",
   );
-  await memory.updateRecord(chat.id, temporaryOriginal.id, { enabled: false });
-  const temporaryDisabled = await memory.prepare({
-    chatId: chat.id,
-    messages: source,
-    audienceCharacterIds: [],
-    budgetTokens: 1200,
-  });
-  assert(
-    !temporaryDisabled.currentSceneSummary?.includes("CORRECTED_GOLD"),
-    "a disabled temporary correction is not silently injected",
-  );
-  assert.equal(
-    (await memory.status(chat.id)).records.find((record) => record.id === temporaryOriginal.id)?.enabled,
-    false,
-  );
-  await memory.validatePrepared(chat.id, source, temporaryDisabled.receipt);
 
   const historicalSource = source.slice(0, 80);
   const historicalStart = requests.length;
@@ -716,8 +691,10 @@ try {
     audienceCharacterIds: [],
     budgetTokens: 1000,
   });
-  assert(resumePrepared.receipt.checkpointId && resumePrepared.currentSceneSummary);
-  await memory.updateRecord(resumeChat.id, resumePrepared.receipt.checkpointId, {
+  assert(resumePrepared.currentSceneSummary);
+  const legacyId = await seedLegacyRecord(resumeChat.id, "continuity", resumeSource[449]!.id);
+  await seedLegacyRecord(resumeChat.id, "temporary", resumeSource[449]!.id);
+  await memory.updateRecord(resumeChat.id, legacyId, {
     content: "IMPORTED_CONTINUITY_CORRECTION",
   });
   const memoryExport = await memory.exportMemory(resumeChat.id);
@@ -766,17 +743,7 @@ try {
     audienceCharacterIds: [],
     budgetTokens: 1000,
   });
-  assert(importedPrepared.chatSummary?.endsWith("\nIMPORTED_CONTINUITY_CORRECTION"));
-  assert(
-    importedPrepared.chatSummary.includes(
-      "source timeframe (summary corrections take precedence): unknown (use message order)",
-    ),
-  );
-  assert.equal(
-    importedPrepared.receipt.checkpointId,
-    importedContinuity.id,
-    "preparation reuses the imported correction without a duplicate checkpoint",
-  );
+  assert.equal(importedPrepared.chatSummary, null, "legacy continuity cannot replace Chat Summaries");
   assert.equal(
     (await memory.importMemory(importChat.id, memoryExport)).imported,
     0,
@@ -798,10 +765,7 @@ try {
     audienceCharacterIds: [],
     budgetTokens: 1000,
   });
-  assert(
-    reorderedPrepared.chatSummary?.endsWith("\nIMPORTED_CONTINUITY_CORRECTION"),
-    "an imported dependent before duplicate sources resolves their final local IDs",
-  );
+  assert.equal(reorderedPrepared.chatSummary, null, "import order cannot re-enable the retired continuity store");
 
   const dependencySource = await chats.create({
     name: "Standalone dependency source",
@@ -862,14 +826,18 @@ try {
     audienceMode: "owner",
     budgetTokens: 3000,
   });
-  assert(dependencyPrepared.receipt.checkpointId);
-  await memory.updateRecord(dependencySource.id, dependencyPrepared.receipt.checkpointId, {
+  assert(dependencyPrepared.chatSummary?.includes("CORRECTED_GOLD"));
+  const legacyDependencyId = await seedLegacyRecord(
+    dependencySource.id,
+    "continuity",
+    dependencyMessages[2]!.id,
+    sourceManualScene,
+  );
+  await memory.updateRecord(dependencySource.id, legacyDependencyId, {
     content: "IMPORTED_MISSING_SUMMARY_CORRECTION",
   });
   const dependencyExport = await memory.exportMemory(dependencySource.id);
-  const exportedDependency = dependencyExport.records.find(
-    (entry) => entry.record.id === dependencyPrepared.receipt.checkpointId,
-  );
+  const exportedDependency = dependencyExport.records.find((entry) => entry.record.id === legacyDependencyId);
   assert(
     exportedDependency?.valid &&
       exportedDependency.record.dependencies.some((dependency) => dependency.id === "summary:required-manual-summary"),
@@ -1189,7 +1157,7 @@ try {
       (
         await routeApp.inject({
           method: "PATCH",
-          url: `/api/chats/${importChat.id}/advanced-memory/records/${reorderedPrepared.receipt.checkpointId}`,
+          url: `/api/chats/${chat.id}/advanced-memory/records/${(await memory.status(chat.id)).records.find((record) => record.content)!.id}`,
           payload: { content: "   " },
         })
       ).statusCode,
@@ -1214,6 +1182,23 @@ try {
       ).statusCode,
       404,
     );
+    const legacyTemplate = (await memory.status(chat.id)).records.find((record) => record.content)!;
+    for (const kind of ["continuity", "temporary"] as const) {
+      const legacy = await seedLegacyRecord(chat.id, kind, source[449]!.id, legacyTemplate);
+      const beforeDelete = await chats.listMessages(chat.id);
+      const response = await routeApp.inject({
+        method: "DELETE",
+        url: `/api/chats/${chat.id}/advanced-memory/records/${legacy}`,
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      assert(!response.json().records.some((record: { id: string }) => record.id === legacy));
+      assert.deepEqual(
+        await chats.listMessages(chat.id),
+        beforeDelete,
+        "deleting legacy summaries preserves source messages",
+      );
+      await seedLegacyRecord(chat.id, kind, source[449]!.id, legacyTemplate);
+    }
     const beforeReset = await memory.status(chat.id);
     assert.deepEqual(
       new Set(beforeReset.records.map((record) => record.kind)),
@@ -1680,8 +1665,8 @@ try {
       audienceCharacterIds: [],
       budgetTokens: 3000,
     });
-    const rejectedPreparation = assert.rejects(pendingPreparation, /being reset|changed|abort/iu);
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    const preparationBeforeReset = await pendingPreparation;
+    await memory.validatePrepared(deferredHistory.id, pendingSource, preparationBeforeReset.receipt);
     releaseInitialSummary();
     await resetTransactionEntered;
     await assert.rejects(
@@ -1689,18 +1674,30 @@ try {
       /being reset/iu,
       "pending prepare cannot overwrite the reset operation after its initialization wait",
     );
-    const queuedPreview = memory.prepare({
+    await assert.rejects(
+      memory.prepare({
+        chatId: deferredHistory.id,
+        messages: pendingSource,
+        audienceCharacterIds: [],
+        budgetTokens: 3000,
+        readOnly: true,
+      }),
+      /being reset/iu,
+    );
+    releaseResetTransaction();
+    await pendingInitialization;
+    await queuedReset;
+    await assert.rejects(
+      memory.validatePrepared(deferredHistory.id, pendingSource, preparationBeforeReset.receipt),
+      /changed/iu,
+    );
+    const postResetPreview = await memory.prepare({
       chatId: deferredHistory.id,
       messages: pendingSource,
       audienceCharacterIds: [],
       budgetTokens: 3000,
       readOnly: true,
     });
-    releaseResetTransaction();
-    await pendingInitialization;
-    await queuedReset;
-    await rejectedPreparation;
-    const postResetPreview = await queuedPreview;
     await memory.validatePrepared(deferredHistory.id, pendingSource, postResetPreview.receipt);
     assert.deepEqual(
       (await memory.status(deferredHistory.id)).records,

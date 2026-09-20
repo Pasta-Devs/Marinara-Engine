@@ -37,7 +37,11 @@ const prompt: Input["messages"] = [
 ];
 const calls: Array<{ budget: number; readOnly?: boolean }> = [];
 let recall = "";
+let cacheValid = true;
 const service = {
+  async validatePrepared() {
+    if (!cacheValid) throw new Error("Memory sources changed");
+  },
   async prepare(input: Parameters<Input["service"]["prepare"]>[0]) {
     calls.push({ budget: input.budgetTokens, readOnly: input.readOnly });
     const count = Math.min(source.length, Math.max(1, Math.floor((input.budgetTokens - 256) / 1010)));
@@ -88,6 +92,26 @@ assert.equal(
 );
 assert.equal(calls.length, 1);
 assert.ok(!roomy.providerMessages.some((message) => message.content.includes("__MARINARA_ADVANCED_MEMORY_")));
+const reused = await prepareAdvancedMemoryContext({ ...input, cachedSnapshots: [roomy.snapshot] });
+assert.equal(calls.length, 1, "a valid swipe snapshot bypasses memory preparation");
+assert.deepEqual(reused.providerMessages, roomy.providerMessages);
+assert(
+  !roomy.snapshot.prepared.receipt.reasons.includes("reused-swipe-memory"),
+  "reuse cannot mutate the saved original",
+);
+const beforeInvalid = calls.length;
+for (const cachedSnapshot of [
+  { ...roomy.snapshot, prepared: null },
+  { ...roomy.snapshot, audienceCharacterIds: ["another-character"] },
+  { ...roomy.snapshot, audienceMode: "owner" },
+]) {
+  await prepareAdvancedMemoryContext({ ...input, cachedSnapshots: [cachedSnapshot] });
+}
+assert.equal(calls.length, beforeInvalid + 3, "malformed and differently scoped snapshots are not reused");
+cacheValid = false;
+await prepareAdvancedMemoryContext({ ...input, cachedSnapshots: [roomy.snapshot] });
+assert.equal(calls.length, beforeInvalid + 4, "changed sources or access require fresh preparation");
+cacheValid = true;
 
 recall = "Optional old promise ".repeat(3000);
 const limited = await prepareAdvancedMemoryContext({ ...input, maxContext: 12_000 });
@@ -101,6 +125,14 @@ assert.deepEqual(
 assert.equal(limited.messages.filter((message) => message.content.includes("Earlier events remain")).length, 1);
 assert.ok(measureContextBudget(limited.providerMessages, { maxContext: 12_000, maxTokens: 4096 }).fits);
 assert.ok(limited.providerMessages.some((message) => message.content.includes("Character rules")));
+assert.equal(limited.snapshot.prepared.recalledMessages, null, "a saved snapshot contains only memory actually sent");
+const beforeLimitedReuse = calls.length;
+const reusedLimited = await prepareAdvancedMemoryContext({ ...input, cachedSnapshots: [limited.snapshot] });
+assert.equal(calls.length, beforeLimitedReuse);
+assert(!JSON.stringify(reusedLimited.providerMessages).includes("Optional old promise"));
+const tighter = await prepareAdvancedMemoryContext({ ...input, cachedSnapshots: [roomy.snapshot], maxContext: 12_000 });
+assert(calls.length > beforeLimitedReuse, "a saved history that exceeds a new context cap must be refitted");
+assert(measureContextBudget(tighter.providerMessages, { maxContext: 12_000, maxTokens: 4096 }).fits);
 
 recall = "";
 const preview = await prepareAdvancedMemoryContext({ ...input, readOnly: true });

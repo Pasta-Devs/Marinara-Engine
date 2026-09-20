@@ -132,7 +132,7 @@ try {
   assert.deepEqual(off.receipt.recalledMessageIds, []);
   assert.equal(off.recalledMessages, null);
   assert.equal(off.recalledScenes, null);
-  assert(off.chatSummary, "required continuity is independent of optional recall");
+  assert.equal(off.chatSummary, null, "scene recall does not create a second constant-summary store");
   assert.equal(calls.length, beforeOff, "disabled recall does not request a query embedding");
 
   await memory.updateSettings(chat.id, { retrieveMaxScenes: 50, retrieveMinMessages: 0, retrieveMaxMessages: 0 });

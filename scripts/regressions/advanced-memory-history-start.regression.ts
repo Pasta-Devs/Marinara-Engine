@@ -305,20 +305,13 @@ try {
       .every((record) => record.messageIds.every((id) => !liveIds.has(id))),
     "a scene crossing the live cutoff must not be recalled in full",
   );
-  const continuityRequests = requests
-    .slice(beforeMovedStart)
-    .map((request) => request.text)
-    .join("\n");
-  assert.match(continuityRequests, /ARCHIVED_CORRECTION/, "archived manual corrections remain available");
+  assert.match(movedStart.chatSummary ?? "", /ARCHIVED_CORRECTION/, "archived manual corrections remain available");
   assert.doesNotMatch(
-    continuityRequests,
+    movedStart.chatSummary ?? "",
     /OVERLAPPING_CORRECTION|LIVE_CORRECTION/,
-    "continuity never consumes manual summaries covering live messages",
+    "constants never duplicate live ranges",
   );
-  const checkpoint = (await memory.status(chat.id)).records.find(
-    (record) => record.id === movedStart.receipt.checkpointId,
-  );
-  assert(checkpoint && checkpoint.messageIds.every((id) => !liveIds.has(id)));
+  assert.equal(requests.length, beforeMovedStart, "reading ranged constants makes no helper call");
   const afterMovedStart = requests.length;
   const movedPreview = await memory.prepare({
     chatId: chat.id,

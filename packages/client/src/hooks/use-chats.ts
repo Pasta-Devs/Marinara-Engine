@@ -1044,12 +1044,14 @@ export function useUpdateChatSummaries() {
 export type SummaryEntryOperation =
   | { operation: "replace"; entry: Partial<ChatSummaryEntry> & { id: string; content: string } }
   | { operation: "delete"; entryId?: string; entryIds?: string[] }
-  | { operation: "toggle"; entryId: string; enabled: boolean }
+  | { operation: "toggle"; entryId?: string; entryIds?: string[]; enabled: boolean }
   | { operation: "reorder"; entryIds: string[] };
 
 function useSummaryEntryMutation() {
   const qc = useQueryClient();
   return useMutation({
+    // Keep returned summary snapshots ordered while allowing other rows to stay usable.
+    scope: { id: "summary-entry-edits" },
     mutationFn: ({ chatId, ...body }: { chatId: string } & SummaryEntryOperation) =>
       api.patch<Chat>(`/chats/${chatId}/summary-entries`, body),
     onMutate: ({ chatId }) => ({ metadataVersion: captureChatMetadataVersion(chatId) }),
@@ -1059,7 +1061,7 @@ function useSummaryEntryMutation() {
       } else {
         qc.invalidateQueries({ queryKey: chatKeys.detail(vars.chatId) });
       }
-      qc.invalidateQueries({ queryKey: chatKeys.list() });
+      // The PATCH returns the updated chat; syncCachedChat already refreshes its list entry.
       qc.invalidateQueries({ queryKey: lorebookKeys.active(vars.chatId) });
       // Only delete changes message visibility (it unhides server-side), so scope
       // the message-list refetch to that operation rather than every summary edit.
@@ -1096,9 +1098,9 @@ export function useToggleSummaryEntry() {
   const mutation = useSummaryEntryMutation();
   return {
     ...mutation,
-    mutate: (input: { chatId: string; entryId: string; enabled: boolean }) =>
+    mutate: (input: { chatId: string; entryId?: string; entryIds?: string[]; enabled: boolean }) =>
       mutation.mutate({ ...input, operation: "toggle" }),
-    mutateAsync: (input: { chatId: string; entryId: string; enabled: boolean }) =>
+    mutateAsync: (input: { chatId: string; entryId?: string; entryIds?: string[]; enabled: boolean }) =>
       mutation.mutateAsync({ ...input, operation: "toggle" }),
   };
 }

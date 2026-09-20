@@ -109,11 +109,14 @@ export function AdvancedMemoryInspector({
     setDraft(record.content);
     setShowSources(false);
   };
-  const deleteScene = async (record: AdvancedMemoryRecord) => {
+  const deleteSummary = async (record: AdvancedMemoryRecord) => {
     const confirmed = await showConfirmDialog({
-      title: t("chat.advancedMemory.deleteScene"),
-      message: t("chat.advancedMemory.deleteSceneConfirm", { scene: recordTitle(record), audience: audience(record) }),
-      confirmLabel: t("chat.advancedMemory.deleteScene"),
+      title: t("chat.advancedMemory.deleteSummary"),
+      message: t("chat.advancedMemory.deleteSummaryConfirm", {
+        scene: recordTitle(record),
+        audience: audience(record),
+      }),
+      confirmLabel: t("chat.advancedMemory.deleteSummary"),
       cancelLabel: t("chat.advancedMemory.cancelSetup"),
       tone: "destructive",
     });
@@ -340,15 +343,15 @@ export function AdvancedMemoryInspector({
               ))}
             </div>
           )}
-          {selected.kind === "scene" && selected.id !== selected.sceneId && (
+          {selected.kind !== "excerpt" && selected.id !== selected.sceneId && (
             <button
               type="button"
               className={`${buttonClass} min-h-11 w-full text-[var(--destructive)]`}
               disabled={pending}
-              onClick={() => void deleteScene(selected)}
+              onClick={() => void deleteSummary(selected)}
             >
               <Trash2 size="0.875rem" aria-hidden="true" />
-              {t("chat.advancedMemory.deleteScene")}
+              {t("chat.advancedMemory.deleteSummary")}
             </button>
           )}
         </div>

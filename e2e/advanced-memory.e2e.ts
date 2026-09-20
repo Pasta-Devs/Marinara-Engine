@@ -214,7 +214,9 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       }
       const record = status.records.find((item) => item.id === pathname.split("/").at(-1));
       if (!record) throw new Error("Expected the selected scene summary");
-      status.records = status.records.filter((item) => item.kind !== "scene" || item.sceneId !== record.sceneId);
+      status.records = status.records.filter((item) =>
+        record.kind === "scene" ? item.kind !== "scene" || item.sceneId !== record.sceneId : item.id !== record.id,
+      );
       return route.fulfill({ json: status });
     }
     if (method === "DELETE") {
@@ -547,9 +549,9 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await inspector.scrollIntoViewIfNeeded();
     await captureThemes(page, info, "advanced-memory-inspector");
     await inspector.getByRole("button", { name: /^Scene #1\b/ }).click();
-    const deleteSceneButton = inspector.getByRole("button", { name: "Delete scene memory", exact: true });
+    const deleteSceneButton = inspector.getByRole("button", { name: "Delete summary", exact: true });
     await deleteSceneButton.click();
-    const deleteSceneDialog = page.getByRole("dialog", { name: "Delete scene memory", exact: true });
+    const deleteSceneDialog = page.getByRole("dialog", { name: "Delete summary", exact: true });
     await expect(deleteSceneDialog).toContainText("Delete Scene #1 for Dottore, Narrator?");
     await expect(deleteSceneDialog).toContainText("Original chat messages stay intact.");
     await captureThemes(page, info, "advanced-memory-delete-confirm", deleteSceneDialog);
@@ -559,16 +561,36 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
       "Correction: the notebook is green.",
     );
     await deleteSceneButton.click();
-    await deleteSceneDialog.getByRole("button", { name: "Delete scene memory", exact: true }).click();
+    await deleteSceneDialog.getByRole("button", { name: "Delete summary", exact: true }).click();
     await expect(
       page.getByText("Advanced Memory: Scene deletion failed; please retry.", { exact: true }),
     ).toBeVisible();
     await expect(deleteSceneButton).toBeEnabled();
     await deleteSceneButton.click();
-    await deleteSceneDialog.getByRole("button", { name: "Delete scene memory", exact: true }).click();
+    await deleteSceneDialog.getByRole("button", { name: "Delete summary", exact: true }).click();
     await expect.poll(() => deleteSceneRequests).toBe(2);
     await expect(inspector.locator("ul > li")).toHaveCount(11);
     expect(resetRequests).toBe(0);
+    for (const kind of ["continuity", "temporary"] as const) {
+      const legacy = {
+        ...status.records[0]!,
+        id: `old-${kind}`,
+        sceneId: `old-${kind}-source`,
+        kind,
+        title: kind === "continuity" ? "Continuity" : "Ongoing scene",
+        content: "Unwanted old summary",
+      };
+      status.records.push(legacy);
+      await expect(inspector.getByRole("button", { name: new RegExp(`^${legacy.title}`) })).toBeVisible();
+      await inspector.getByRole("button", { name: new RegExp(`^${legacy.title}`) }).click();
+      const remove = inspector.getByRole("button", { name: "Delete summary", exact: true });
+      await remove.scrollIntoViewIfNeeded();
+      await captureThemes(page, info, `delete-${kind}`);
+      await remove.click();
+      await deleteSceneDialog.getByRole("button", { name: "Delete summary", exact: true }).click();
+      await expect(inspector.locator("ul > li")).toHaveCount(11);
+      expect(status.records.some((record) => record.id === legacy.id)).toBe(false);
+    }
     await inspector.getByRole("button", { name: "Delete all memories", exact: true }).click();
     const resetDialog = page.getByRole("dialog", { name: "Delete all memories", exact: true });
     await expect(resetDialog).toContainText("Original chat messages and your settings will stay intact.");
@@ -578,7 +600,9 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await inspector.getByRole("button", { name: "Delete all memories", exact: true }).click();
     await resetDialog.getByRole("button", { name: "Delete all memories", exact: true }).click();
     await expect.poll(() => resetRequests).toBe(1);
-    await expect(inspector).toContainText("Prepared scenes and continuity summaries will appear here.");
+    await expect(inspector).toContainText(
+      "Prepared scene summaries appear here. Constant summaries are in Chat Summaries.",
+    );
     await expect(settings.getByRole("button", { name: "Prepare existing history", exact: true })).toBeVisible();
     await settings.getByRole("button", { name: "Review character knowledge", exact: true }).click();
     await expect(confirmation).toBeVisible();

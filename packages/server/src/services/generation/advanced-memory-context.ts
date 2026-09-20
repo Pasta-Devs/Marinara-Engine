@@ -1,4 +1,5 @@
 import type { AdvancedMemorySettings, PreparedAdvancedMemory } from "@marinara-engine/shared";
+import { z } from "zod";
 import type {
   AdvancedMemoryMessage,
   AdvancedMemoryOperationOptions,
@@ -11,6 +12,35 @@ import {
   type AdvancedMemoryPlacement,
 } from "../prompt/advanced-memory-prompt.js";
 import { filterPromptHistoryByMessageIds, type GenerationPromptMessage } from "./prompt-message-scope.js";
+
+// Swipe extras can also come from imports or edits. Validate their shape before reuse.
+const memorySnapshotSchema = z.object({
+  audienceCharacterIds: z.array(z.string()),
+  audienceMode: z.literal("owner").optional(),
+  prepared: z.object({
+    messageIds: z.array(z.string()),
+    chatSummary: z.string().nullable(),
+    currentSceneSummary: z.string().nullable(),
+    recalledScenes: z.string().nullable(),
+    recalledMessages: z.string().nullable(),
+    recalledRecordIds: z.array(z.string()),
+    receipt: z.object({
+      sourceEndMessageId: z.string().nullable().optional(),
+      sourceFingerprint: z.string(),
+      policyRevision: z.string(),
+      recordRevisions: z.record(z.string()),
+      estimatedTokensBefore: z.number().finite().nonnegative(),
+      estimatedTokensAfter: z.number().finite().nonnegative(),
+      budgetTokens: z.number().finite().positive(),
+      boundaryMessageId: z.string().nullable(),
+      checkpointId: z.string().nullable(),
+      recalledSceneIds: z.array(z.string()),
+      recalledMessageIds: z.array(z.string()),
+      reasons: z.array(z.string()),
+    }),
+  }),
+});
+export type AdvancedMemorySnapshot = z.infer<typeof memorySnapshotSchema>;
 
 /** Reuse the prepared prompt: budgeting must not run lorebooks or agents a second time. */
 export async function prepareAdvancedMemoryContext(
@@ -28,9 +58,12 @@ export async function prepareAdvancedMemoryContext(
     tools?: LLMToolDefinition[];
     query?: string;
     readOnly?: boolean;
+    /** Oldest swipe first; legacy replies acquire a snapshot on their next generation. */
+    cachedSnapshots?: readonly unknown[];
     toProviderMessages: (messages: GenerationPromptMessage[]) => ChatMessage[];
   },
 ) {
+  input.signal?.throwIfAborted();
   const maxContext = Math.min(input.settings.maxContextTokens, input.maxContext ?? Infinity);
   // Unknown-model connections may omit max_tokens. Still reserve room for an answer.
   const maxTokens = input.maxTokens ?? 4096;
@@ -50,9 +83,33 @@ export async function prepareAdvancedMemoryContext(
     );
   }
   let prepared: PreparedAdvancedMemory | undefined;
+  const audienceCharacterIds = [...new Set(input.audienceCharacterIds)].sort();
+  const rejectedReceipts = new Set<string>();
+  for (const value of input.cachedSnapshots ?? []) {
+    const cached = memorySnapshotSchema.safeParse(value);
+    if (
+      !cached.success ||
+      cached.data.audienceMode !== input.audienceMode ||
+      JSON.stringify(cached.data.audienceCharacterIds) !== JSON.stringify(audienceCharacterIds)
+    )
+      continue;
+    const receiptKey = JSON.stringify(cached.data.prepared.receipt);
+    if (rejectedReceipts.has(receiptKey)) continue;
+    try {
+      await input.service.validatePrepared(input.chatId, input.sourceMessages, cached.data.prepared.receipt);
+      input.signal?.throwIfAborted();
+      prepared = cached.data.prepared;
+      break;
+    } catch {
+      // Changed history, access, memory edits or a reset invalidate the old snapshot.
+      input.signal?.throwIfAborted();
+      rejectedReceipts.add(receiptKey);
+    }
+  }
   // Usually one pass. The extra passes account for formatted history, macros and media estimates.
   for (let attempt = 0; attempt < 6 && budgetTokens > 0; attempt++) {
-    prepared = await input.service.prepare({
+    const reusedSnapshot = !!prepared;
+    prepared ??= await input.service.prepare({
       chatId: input.chatId,
       messages: input.sourceMessages,
       audienceCharacterIds: input.audienceCharacterIds,
@@ -84,6 +141,9 @@ export async function prepareAdvancedMemoryContext(
       }
       prepared.receipt.recalledMessageIds = [];
       prepared.receipt.recalledSceneIds = [];
+      prepared.recalledMessages = null;
+      prepared.recalledScenes = null;
+      prepared.recalledRecordIds = [];
       prepared.receipt.reasons.push("Optional recall omitted to fit the complete formatted request.");
     }
     if (budget.fits) {
@@ -93,16 +153,22 @@ export async function prepareAdvancedMemoryContext(
       ).estimatedTokens;
       prepared.receipt.estimatedTokensAfter = budget.estimatedTokens;
       prepared.receipt.budgetTokens = budget.inputBudget;
+      if (reusedSnapshot && !prepared.receipt.reasons.includes("reused-swipe-memory"))
+        prepared.receipt.reasons.push("reused-swipe-memory");
       return {
         messages,
         providerMessages,
         receipt: prepared.receipt,
         maxContext,
         maxTokens,
+        snapshot: { audienceCharacterIds, audienceMode: input.audienceMode, prepared } satisfies AdvancedMemorySnapshot,
         placements: describeAdvancedMemoryPlacements(selected, input.placements),
       };
     }
-    budgetTokens -= budget.estimatedTokens - budget.inputBudget + 64;
+    // A saved selection may come from a larger cap. Refit against today's full
+    // allowance before using overflow to refine a newly prepared selection.
+    if (!reusedSnapshot) budgetTokens -= budget.estimatedTokens - budget.inputBudget + 64;
+    prepared = undefined;
   }
   throw new Error(
     "Advanced Memory: the remaining scene or required input cannot fit the context cap. Increase the cap or reduce attachments, fixed instructions or reply space.",

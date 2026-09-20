@@ -25,6 +25,7 @@ const { createAdvancedMemoryService } = await import("../../packages/server/src/
 const { characterDataSchema, DEFAULT_ADVANCED_MEMORY_SETTINGS } = await import("../../packages/shared/dist/index.js");
 const prompts: string[] = [];
 let modelCalls = 0;
+const modelCallKinds: string[] = [];
 const provider = createServer(async (req, res) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
@@ -41,6 +42,7 @@ const provider = createServer(async (req, res) => {
   const prompt = JSON.stringify(body.messages);
   const classification = prompt.includes("Identify scene transitions");
   const summary = prompt.includes("Summarize only the supplied eligible source material");
+  modelCallKinds.push(classification ? "scene" : summary ? "summary" : "main");
   const content = classification
     ? '{"starts":[]}'
     : summary
@@ -136,6 +138,7 @@ try {
   assert.ok(chat);
   chatId = chat.id;
   await chats.patchMetadata(chat.id, {
+    summaryMaxTokens: 512,
     enableAgents: false,
     enableMemoryRecall: true,
     groupChatMode: "individual",
@@ -184,13 +187,40 @@ try {
   assert.ok(generated.body.includes('"type":"advanced_memory_receipt"'));
   const sent = prompts.at(-1)!;
   assert.ok(sent.includes("MANDATORY_FIXTURE"));
-  assert.ok(sent.includes("SUMMARY_FIXTURE"), "oversized ongoing scene must receive its temporary summary");
+  assert.ok(sent.includes("Earlier context omitted"), "an oversized ongoing scene retains bounded source excerpts");
+  assert(!modelCallKinds.includes("summary"), "main generation never invokes the summary helper");
   assert.ok(sent.includes("HISTORY_9"), `recent actual history stays in context: ${sent.slice(-1800)}`);
   assert.ok(!sent.includes("PRIVATE_SCENE_SECRET"), "a different character's hidden scene cannot leak");
   assert.ok(!sent.includes("FUTURE_LEGACY_SECRET"), "legacy unscoped summary cannot bypass managed placement");
   assert.ok(!sent.includes("__MARINARA_ADVANCED_MEMORY_"));
   const target = (await chats.listMessages(chat.id)).at(-1)!;
   assert.ok(JSON.parse(target.extra as string).advancedMemoryReceipt);
+  const originalMemory = JSON.parse(target.extra as string).advancedMemorySnapshot;
+  assert(originalMemory.prepared.currentSceneSummary, "the original swipe retains its budget-compaction summary");
+  await memory.checkScenesAfterGeneration(chat.id, { blocking: false });
+  const beforeSwipe = modelCalls;
+  const regenerated = await generate(target.id);
+  assert.equal(modelCalls, beforeSwipe + 1, "regeneration reuses existing continuity without a helper call");
+  assert.doesNotMatch(regenerated.body, /"stage":"compacting"/u);
+  assert.match(regenerated.body, /reused-swipe-memory/u);
+  const continued = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: chat.id, forCharacterId: second.id, continueMessageId: target.id },
+  });
+  assert.equal(continued.statusCode, 200, continued.body);
+  assert(!continued.body.includes('"type":"error"'), continued.body);
+  assert.equal(
+    JSON.parse((await chats.getMessage(target.id))!.extra).advancedMemorySnapshot.prepared.receipt.sourceFingerprint,
+    originalMemory.prepared.receipt.sourceFingerprint,
+    "continuation must not replace the memory for regenerating the whole reply",
+  );
+  await memory.checkScenesAfterGeneration(chat.id, { blocking: false });
+  const afterContinuation = modelCalls;
+  const regeneratedAfterContinuation = await generate(target.id);
+  assert.deepEqual(modelCallKinds.slice(afterContinuation), ["main"]);
+  assert.doesNotMatch(regeneratedAfterContinuation.body, /"stage":"compacting"/u);
+  assert.match(regeneratedAfterContinuation.body, /reused-swipe-memory/u);
   const generatedMetadata = JSON.parse((await chats.getById(chat.id))!.metadata);
   assert.equal(generatedMetadata.advancedMemoryState.contextStarts.length, 1);
   assert.deepEqual(generatedMetadata.advancedMemoryState.contextStarts[0].audienceCharacterIds, [second.id]);
@@ -335,6 +365,24 @@ try {
   const beforeSharedStart = await chats.listMessages(chat.id);
   const sharedStart = beforeSharedStart.find((message) => message.content.includes("HISTORY_8:"))!;
   await chats.updateMessageExtra(sharedStart.id, { isConversationStart: true });
+  await chats.patchMetadata(chat.id, {
+    summaryEntries: [
+      {
+        id: "pre-marker-constant",
+        kind: "rolling",
+        origin: "manual",
+        title: "Earlier history",
+        content: "SUMMARY_FIXTURE: An old promise remains unresolved.",
+        enabled: true,
+        sourceMode: "range",
+        rangeStartIndex: 2,
+        rangeEndIndex: 3,
+        messageIds: beforeSharedStart.slice(1, 3).map((message) => message.id),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
+  });
   await generate();
   const markedPrompt = JSON.parse(prompts.at(-1)!) as Array<{ role: string; content: string }>;
   assert(
@@ -372,11 +420,11 @@ try {
       "historical regeneration uses the prefix before later manual starts",
     );
     assert.ok(prompts.at(-1)!.includes("HISTORY_9"));
+    assert.ok(prompts.at(-1)!.includes("Spring 14"), `${wrapFormat} main-provider prompt retains known story time`);
     assert.ok(
-      prompts.at(-1)!.includes("story timeframe: Spring 14"),
-      `${wrapFormat} main-provider prompt retains known story time`,
+      /(?:Messages #2–#|#2 User:)/u.test(prompts.at(-1)!),
+      `${wrapFormat} memory has canonical source positions`,
     );
-    assert.ok(prompts.at(-1)!.includes("Messages #2–#"), `${wrapFormat} memory has canonical source positions`);
     assert.ok(
       !prompts.at(-1)!.includes("PRIVATE_SCENE_SECRET_DATE"),
       `${wrapFormat} memory cannot borrow another character's hidden date`,

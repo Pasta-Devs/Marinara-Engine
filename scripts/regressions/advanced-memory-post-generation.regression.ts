@@ -21,14 +21,20 @@ const { createAgentsStorage } = await import("../../packages/server/src/services
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
-const { DEFAULT_ADVANCED_MEMORY_SETTINGS, characterDataSchema, replaceBuiltInAgentDefinitions } =
-  await import("../../packages/shared/dist/index.js");
+const {
+  DEFAULT_ADVANCED_MEMORY_SETTINGS,
+  characterDataSchema,
+  replaceBuiltInAgentDefinitions,
+  createChatSummaryEntry,
+} = await import("../../packages/shared/dist/index.js");
 const calls: Array<{
   kind: string;
   messages: Array<{ role: string; content: string }>;
   streaming?: boolean;
   path?: string;
+  maxTokens?: number;
 }> = [];
+let summaryGate: Promise<void> | undefined;
 let finishStream: (() => void) | undefined;
 let streamFinished = false;
 let streamGate: Promise<void> | undefined;
@@ -60,7 +66,14 @@ const provider = createServer(async (req, res) => {
       : prompt.includes("Summarize only the supplied eligible source material")
         ? "summary"
         : "main";
-  calls.push({ kind, messages, streaming: body.stream, path: req.url });
+  calls.push({
+    kind,
+    messages,
+    streaming: body.stream,
+    path: req.url,
+    maxTokens: body.max_output_tokens ?? body.max_completion_tokens ?? body.max_tokens,
+  });
+  if (kind === "summary" && summaryGate) await summaryGate;
   const content =
     kind === "tracker"
       ? '{"values":{"weather":"clear"}}'
@@ -268,6 +281,42 @@ try {
   }
   await createConnectionsStorage(db).update(connection.id, { provider: "custom", model: "fixture" });
 
+  const swipeTarget = (await chats.listMessages(chat.id)).at(-1)!;
+  for (let swipe = 0; swipe < 3; swipe++) {
+    calls.length = 0;
+    const regenerated = await generate({ regenerateMessageId: swipeTarget.id });
+    assert.deepEqual(
+      calls.map((call) => call.kind),
+      ["main"],
+      "unchanged swipes reuse their original memory without retrieval or helper calls",
+    );
+    assert.doesNotMatch(regenerated.body, /"stage":"compacting"/u);
+    assert(JSON.stringify(calls[0]!.messages).includes("ARCHIVED_RECAP"));
+    assert(!JSON.stringify(calls[0]!.messages).includes("LATEST_SWIPE_CACHE_MUST_NOT_WIN"));
+    if (swipe === 0) {
+      const active = await chats.getMessage(swipeTarget.id);
+      const changedSnapshot = JSON.parse(active!.extra).advancedMemorySnapshot;
+      changedSnapshot.prepared.recalledMessages = "LATEST_SWIPE_CACHE_MUST_NOT_WIN";
+      await chats.updateMessageExtra(swipeTarget.id, { advancedMemorySnapshot: changedSnapshot });
+    }
+  }
+  for (const swipe of await chats.getSwipes(swipeTarget.id))
+    await chats.updateMessageExtraForSwipe(swipeTarget.id, swipe.index, { advancedMemorySnapshot: null });
+  calls.length = 0;
+  await generate({ regenerateMessageId: swipeTarget.id });
+  assert.deepEqual(
+    calls.map((call) => call.kind),
+    ["embedding", "main"],
+    "legacy replies prepare their first snapshot once",
+  );
+  calls.length = 0;
+  await generate({ regenerateMessageId: swipeTarget.id });
+  assert.deepEqual(
+    calls.map((call) => call.kind),
+    ["main"],
+    "later legacy swipes reuse the first available snapshot",
+  );
+
   replaceBuiltInAgentDefinitions([
     {
       id: "custom-tracker",
@@ -360,6 +409,217 @@ try {
     "an ongoing scene is still not indexed",
   );
   assert.equal((await memory.status(chat.id)).job.blocking, false, "post-generation work remains background activity");
+
+  await chats.updateMessageExtra((await chats.listMessages(chat.id))[0]!.id, { hiddenFromAI: true });
+  calls.length = 0;
+  const revised = await generate({ regenerateMessageId: swipeTarget.id });
+  assert.doesNotMatch(revised.body, /reused-swipe-memory/u, "a visibility change invalidates the old swipe memory");
+  assert.doesNotMatch(
+    JSON.stringify(calls.find((call) => call.kind === "main")!.messages),
+    /ARCHIVED_RECAP|ARCHIVED_SOURCE_ONLY|LATEST_SWIPE_CACHE_MUST_NOT_WIN/u,
+    "a saved recap cannot bypass changed source visibility",
+  );
+  const constantsChat = await chats.create({
+    name: "Existing ranged constants",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: connection.id,
+  });
+  assert(constantsChat);
+  chatIds.push(constantsChat.id);
+  await createConnectionsStorage(db).update(connection.id, {
+    provider: "openai",
+    model: "gpt-6-astra",
+    maxContext: 65_000,
+    maxTokensOverride: 256,
+  });
+  const constantText = "EXISTING_RANGE_SUMMARY ".repeat(1450); // ~8k, below the configured 10k cap.
+  await chats.patchMetadata(constantsChat.id, {
+    enableAgents: false,
+    summaryMaxTokens: 12_000,
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      maxContextTokens: 65_000,
+      summaryBudgetTokens: 10_000,
+      sceneCheckInterval: 100,
+    },
+  });
+  const older = await chats.createMessage({
+    chatId: constantsChat.id,
+    role: "user",
+    content: "ALREADY_SUMMARIZED_RAW ".repeat(5000),
+  });
+  assert(older);
+  await chats.createMessage({
+    chatId: constantsChat.id,
+    role: "user",
+    content: "The ongoing scene continues.",
+    extra: { isConversationStart: true },
+  });
+  await chats.patchMetadata(constantsChat.id, {
+    summaryEntries: [
+      createChatSummaryEntry({
+        id: "existing-ranged-summary",
+        content: constantText,
+        enabled: true,
+        origin: "manual",
+        rangeStartIndex: 1,
+        rangeEndIndex: 1,
+      }),
+    ],
+  });
+  // Ready archive, no closed scene. Generation must neither recompress constants nor call a helper.
+  await memory.initialize(constantsChat.id);
+  calls.length = 0;
+  const generateConstants = () =>
+    app.inject({
+      method: "POST",
+      url: "/api/generate/",
+      payload: { chatId: constantsChat.id, forCharacterId: character.id, streaming: true },
+    });
+  const firstConstants = await generateConstants();
+  assert(!firstConstants.body.includes('"type":"error"'), firstConstants.body);
+  assert.doesNotMatch(firstConstants.body, /"stage":"compacting"/u);
+  await memory.checkScenesAfterGeneration(constantsChat.id, { blocking: false });
+  assert.deepEqual(
+    calls.map((call) => call.kind),
+    ["main"],
+    "8k of constants under a 10k cap triggers no summary call, regardless of raw-history size",
+  );
+  assert(JSON.stringify(calls[0]!.messages).includes(constantText.trim()), "the existing constant is included intact");
+  assert(!JSON.stringify(calls[0]!.messages).includes("ALREADY_SUMMARIZED_RAW"));
+  const beforeConstants = JSON.parse((await chats.getById(constantsChat.id))!.metadata).summaryEntries;
+  assert.equal(beforeConstants.length, 1, "no parallel continuity store is populated");
+  assert(!(await memory.status(constantsChat.id)).records.some((record) => record.kind === "continuity"));
+
+  const largeConstants = [{ ...beforeConstants[0], content: "CONSTANTS_ONLY_SOURCE ".repeat(2400) }];
+  await chats.patchMetadata(constantsChat.id, { summaryEntries: largeConstants });
+  let releaseHelper!: () => void;
+  summaryGate = new Promise<void>((resolve) => {
+    releaseHelper = resolve;
+  });
+  calls.length = 0;
+  const beforeCombine = await generateConstants();
+  assert(!beforeCombine.body.includes('"type":"error"'), beforeCombine.body);
+  await waitFor(async () => calls.some((call) => call.kind === "summary"));
+  assert.equal(calls[0]!.kind, "main", "constant consolidation follows the main reply");
+  const combinedRequest = calls.find((call) => call.kind === "summary")!;
+  assert.equal(
+    combinedRequest.maxTokens,
+    12_000,
+    "Chat Summary output size overrides the helper connection's 256-token setting",
+  );
+  assert(JSON.stringify(combinedRequest.messages).includes("CONSTANTS_ONLY_SOURCE"));
+  assert.doesNotMatch(
+    JSON.stringify(combinedRequest.messages),
+    /ALREADY_SUMMARIZED_RAW|ongoing scene continues|character continues/iu,
+    "consolidation receives only selected summaries",
+  );
+  try {
+    const duringCombine = await Promise.race([
+      generateConstants(),
+      delay(3000).then(() => {
+        throw new Error("Main generation waited for the background helper");
+      }),
+    ]);
+    assert(!duringCombine.body.includes('"type":"error"'), duringCombine.body);
+    assert.equal(
+      calls.filter((call) => call.kind === "main").length,
+      2,
+      "a held background helper cannot block another reply",
+    );
+  } finally {
+    releaseHelper();
+    summaryGate = undefined;
+  }
+  await memory.checkScenesAfterGeneration(constantsChat.id, { blocking: false });
+  const combinedEntries = JSON.parse((await chats.getById(constantsChat.id))!.metadata).summaryEntries;
+  assert.equal(combinedEntries.filter((entry: { enabled: boolean }) => entry.enabled).length, 1);
+  assert.equal(
+    combinedEntries.find((entry: { id: string }) => entry.id === "existing-ranged-summary").enabled,
+    false,
+    "combining disables its old source instead of leaving both active",
+  );
+  assert(combinedEntries.find((entry: { enabled: boolean }) => entry.enabled).content.includes("ARCHIVED_RECAP"));
+  assert(
+    !(await memory.status(constantsChat.id)).records.some((record) => record.kind === "continuity"),
+    "new constants live only in Chat Summaries",
+  );
+  const partialChat = await chats.create({
+    name: "Reuse existing summary ranges",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: connection.id,
+  });
+  assert(partialChat);
+  chatIds.push(partialChat.id);
+  await chats.patchMetadata(partialChat.id, {
+    enableAgents: false,
+    summaryMaxTokens: 1024,
+    advancedMemory: {
+      ...DEFAULT_ADVANCED_MEMORY_SETTINGS,
+      enabled: true,
+      maxContextTokens: 8192,
+      summaryBudgetTokens: 3000,
+    },
+  });
+  for (const content of ["ALREADY_COVERED_A", "ALREADY_COVERED_B", "UNCOVERED_NEW_EVENT", "SCENE_CHANGE present day"]) {
+    await chats.createMessage({
+      chatId: partialChat.id,
+      role: "user",
+      content,
+      ...(content.startsWith("SCENE_CHANGE") ? { extra: { isConversationStart: true } } : {}),
+    });
+  }
+  const manual = createChatSummaryEntry({
+    id: "kept-range",
+    origin: "manual",
+    enabled: true,
+    content: "EXISTING_RANGE_CORRECTION",
+    sourceMode: "range",
+    rangeStartIndex: 1,
+    rangeEndIndex: 2,
+  });
+  await chats.patchMetadata(partialChat.id, { summaryEntries: [manual] });
+  await memory.initialize(partialChat.id);
+  const partialSource = await chats.listMessages(partialChat.id);
+  const beforeAddition = await memory.prepare({
+    chatId: partialChat.id,
+    messages: partialSource,
+    audienceCharacterIds: [],
+    budgetTokens: 5000,
+  });
+  calls.length = 0;
+  await memory.checkScenesAfterGeneration(partialChat.id);
+  assert.deepEqual(
+    calls.map((call) => call.kind),
+    ["summary"],
+    "only uncovered scene messages need a new constant",
+  );
+  assert.equal(calls[0]!.maxTokens, 1024);
+  const additionPrompt = JSON.stringify(calls[0]!.messages);
+  assert(additionPrompt.includes("UNCOVERED_NEW_EVENT"));
+  assert.doesNotMatch(additionPrompt, /ALREADY_COVERED|EXISTING_RANGE_CORRECTION|present day/u);
+  const addedEntries = JSON.parse((await chats.getById(partialChat.id))!.metadata).summaryEntries;
+  assert.equal(addedEntries.length, 2);
+  assert.deepEqual(addedEntries[0], manual, "pre-existing ranged constants remain intact");
+  assert.equal(addedEntries[1].rangeStartIndex, 3);
+  assert.equal(addedEntries[1].rangeEndIndex, 3);
+  await memory.validatePrepared(partialChat.id, partialSource, beforeAddition.receipt);
+  const beforeRepeat = calls.length;
+  await memory.checkScenesAfterGeneration(partialChat.id);
+  assert.equal(calls.length, beforeRepeat, "completed constant ranges are not generated again");
+  await chats.patchMetadata(partialChat.id, {
+    summaryEntries: addedEntries.map((entry: { id: string; enabled: boolean }) =>
+      entry.id === manual.id ? { ...entry, enabled: false } : entry,
+    ),
+  });
+  await assert.rejects(
+    memory.validatePrepared(partialChat.id, partialSource, beforeAddition.receipt),
+    /summary corrections changed/u,
+    "manual activation changes still invalidate a saved swipe",
+  );
 } finally {
   finishStream?.();
   for (const chatId of chatIds) await memory.cancel(chatId);

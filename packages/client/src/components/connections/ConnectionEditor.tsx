@@ -531,12 +531,17 @@ export function ConnectionEditor() {
     setVideoDefaultsExpanded(!!storedVideoDefaults);
     setDirty(false);
     setSaveError(null);
-    setTestResult(null);
     setMsgResult(null);
     setImgTestResult(null);
     setVidTestResult(null);
     setClaudeDiagResult(null);
   }, [conn]);
+
+  // Saving before a test refetches `conn`; that hydration can finish after the test.
+  // Clear results when changing the selected connection, not on its save/refetch.
+  useEffect(() => {
+    setTestResult(null);
+  }, [connectionDetailId]);
 
   const comfyWorkflowValidation = useMemo(() => {
     const wf = localComfyuiWorkflow;

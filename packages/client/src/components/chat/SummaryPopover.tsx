@@ -404,6 +404,7 @@ export function SummaryPopover({
   const [expandedEntryIds, setExpandedEntryIds] = useState<Set<string>>(() => new Set());
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(() => new Set());
   const [combiningEntries, setCombiningEntries] = useState(false);
+  const [pendingToggleIds, setPendingToggleIds] = useState<Set<string>>(() => new Set());
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [draftEntry, setDraftEntry] = useState<ChatSummaryEntry | null>(null);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
@@ -684,7 +685,6 @@ export function SummaryPopover({
   const entryMutationPending =
     updateSummaryEntry.isPending ||
     deleteSummaryEntry.isPending ||
-    toggleSummaryEntry.isPending ||
     reorderSummaryEntries.isPending ||
     isBatchGenerating;
   const automaticSummariesOn = automaticSummaryEnabled;
@@ -1298,10 +1298,17 @@ export function SummaryPopover({
 
   const handleToggleEntry = useCallback(
     async (entry: ChatSummaryEntry, enabled: boolean) => {
+      setPendingToggleIds((current) => new Set(current).add(entry.id));
       try {
         await toggleSummaryEntry.mutateAsync({ chatId, entryId: entry.id, enabled });
       } catch {
         toast.error(localizeUi("ui.chat.summarypopover.couldNotUpdateSummaryEntry"));
+      } finally {
+        setPendingToggleIds((current) => {
+          const next = new Set(current);
+          next.delete(entry.id);
+          return next;
+        });
       }
     },
     [chatId, toggleSummaryEntry, localizeUi],
@@ -1313,9 +1320,11 @@ export function SummaryPopover({
     if (entriesToUpdate.length === 0) return;
 
     try {
-      for (const entry of entriesToUpdate) {
-        await toggleSummaryEntry.mutateAsync({ chatId, entryId: entry.id, enabled: nextEnabled });
-      }
+      await toggleSummaryEntry.mutateAsync({
+        chatId,
+        entryIds: entriesToUpdate.map((entry) => entry.id),
+        enabled: nextEnabled,
+      });
       if (nextEnabled) setShowInactiveSummaries(false);
     } catch {
       toast.error(localizeUi("ui.chat.summarypopover.couldNotUpdateSummaryEntries"));
@@ -2311,7 +2320,7 @@ export function SummaryPopover({
                     <button
                       type="button"
                       onClick={() => void handleToggleAllEntries()}
-                      disabled={entryMutationPending}
+                      disabled={entryMutationPending || toggleSummaryEntry.isPending}
                       className="rounded-md px-1 py-0.5 text-[0.625rem] font-semibold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {enabledEntryCount === 0
@@ -2382,7 +2391,7 @@ export function SummaryPopover({
                           editing={editingEntryId === entry.id}
                           draftEntry={editingEntryId === entry.id ? draftEntry : null}
                           textareaRef={entryTextareaRef}
-                          mutationPending={entryMutationPending}
+                          mutationPending={entryMutationPending || pendingToggleIds.has(entry.id)}
                           selected={selectedEntryIds.has(entry.id)}
                           onDragReadyChange={(ready) => setDragReadyEntryIndex(ready ? entryIndex : null)}
                           onDragStart={(event) => handleSummaryDragStart(entryIndex, event)}

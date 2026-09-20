@@ -1,6 +1,9 @@
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 import { createAdvancedMemoryService, selectAdvancedMemoryMessages } from "../services/advanced-memory.js";
-import { prepareAdvancedMemoryContext } from "../services/generation/advanced-memory-context.js";
+import {
+  prepareAdvancedMemoryContext,
+  type AdvancedMemorySnapshot,
+} from "../services/generation/advanced-memory-context.js";
 import { measureContextBudget } from "../services/llm/base-provider.js";
 import {
   resolveAdvancedMemoryPrompt,
@@ -6974,11 +6977,17 @@ export async function generateRoutes(app: FastifyInstance) {
           };
 
           let advancedMemoryReceipt: AdvancedMemoryReceipt | undefined;
+          let advancedMemorySnapshot: AdvancedMemorySnapshot | undefined;
           let advancedPreparedProviderMessages: ChatMessage[] | undefined;
           if (advancedMemoryEnabled) {
             const prepared = await prepareAdvancedMemoryContext({
               service: advancedMemory,
               chatId: input.chatId,
+              cachedSnapshots: input.regenerateMessageId
+                ? (await chats.getSwipes(input.regenerateMessageId)).map(
+                    (swipe) => parseExtra(swipe.extra).advancedMemorySnapshot,
+                  )
+                : undefined,
               settings: advancedMemorySettings,
               sourceMessages: advancedSourceMessages,
               messages: preparedMessagesForGen,
@@ -7002,6 +7011,7 @@ export async function generateRoutes(app: FastifyInstance) {
             });
             advancedPreparedProviderMessages = prepared.providerMessages;
             advancedMemoryReceipt = prepared.receipt;
+            advancedMemorySnapshot = prepared.snapshot;
             effectiveMaxContext = prepared.maxContext;
             maxTokens = prepared.maxTokens;
             sendSseEvent(reply, {
@@ -9007,6 +9017,10 @@ export async function generateRoutes(app: FastifyInstance) {
             extraUpdate.lorebookScan = lorebookScanSnapshot;
             extraUpdate.chatSummaryFingerprint = fingerprintChatSummary(chatMeta.summary);
             if (advancedMemoryReceipt) extraUpdate.advancedMemoryReceipt = advancedMemoryReceipt;
+            // A continuation has its own prompt, but regenerating the whole message
+            // must still reuse the memory from before that message first began.
+            if (advancedMemorySnapshot && !input.continueMessageId)
+              extraUpdate.advancedMemorySnapshot = advancedMemorySnapshot;
             const persistentAttachments = resolveUserRegenerationPersistentAttachments(regenMsg ?? {});
             if (persistentAttachments) extraUpdate.attachments = persistentAttachments;
             let refreshedMsg;

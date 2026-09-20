@@ -21,7 +21,8 @@ const MEMORY_COMPONENTS = {
   current_scene_summary: {
     key: "currentSceneSummary",
     name: "Current Scene Summary",
-    introduction: "Below is a summary of the earlier part of the current scene; the scene is still ongoing.",
+    introduction:
+      "Below is earlier context from the current scene; the scene is still ongoing. Any omitted source text is marked explicitly.",
   },
   recalled_scenes: {
     key: "recalledScenes",

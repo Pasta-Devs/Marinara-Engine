@@ -407,7 +407,7 @@ export function normalizeChatForResponse<T extends { metadata?: unknown; charact
 type SummaryEntriesPatchBody =
   | { operation: "replace"; entry: Partial<ChatSummaryEntry> & { id: string; content: string } }
   | { operation: "delete"; entryId?: string; entryIds?: string[] }
-  | { operation: "toggle"; entryId: string; enabled: boolean }
+  | { operation: "toggle"; entryId?: string; entryIds?: string[]; enabled: boolean }
   | { operation: "reorder"; entryIds: string[] };
 
 async function loadLatestChatGameSnapshot(
@@ -1485,8 +1485,15 @@ export async function chatsRoutes(app: FastifyInstance) {
       }
       deleteEntryIds = requestedIds as string[];
     } else if (body.operation === "toggle") {
-      if (typeof body.entryId !== "string" || !body.entryId.trim() || typeof body.enabled !== "boolean") {
-        return reply.status(400).send({ error: "toggle requires entryId and enabled" });
+      const ids = body.entryIds ?? [body.entryId];
+      if (
+        !Array.isArray(ids) ||
+        !ids.length ||
+        !ids.every((id) => typeof id === "string" && id.trim()) ||
+        new Set(ids).size !== ids.length ||
+        typeof body.enabled !== "boolean"
+      ) {
+        return reply.status(400).send({ error: "toggle requires entryId or unique entryIds and enabled" });
       }
     } else if (body.operation === "reorder") {
       if (
@@ -1538,8 +1545,9 @@ export async function chatsRoutes(app: FastifyInstance) {
         nextEntries = entries.filter((entry) => !deletedIds.has(entry.id));
       } else if (body.operation === "toggle") {
         const now = new Date().toISOString();
+        const toggledIds = new Set(body.entryIds ?? [body.entryId]);
         nextEntries = entries.map((entry) =>
-          entry.id === body.entryId ? { ...entry, enabled: body.enabled, updatedAt: now } : entry,
+          toggledIds.has(entry.id) ? { ...entry, enabled: body.enabled, updatedAt: now } : entry,
         );
       } else if (body.operation === "reorder") {
         const entriesById = new Map(entries.map((entry) => [entry.id, entry]));

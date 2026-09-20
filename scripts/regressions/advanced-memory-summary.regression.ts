@@ -128,7 +128,11 @@ async function createChat(name: string, hardCap?: number, omitReasoning = false)
     await connections.updateDefaultParameters(connection.id, { enabledParameters: { reasoningEffort: false } });
   const chat = await chats.create({ name, mode: "roleplay", characterIds: [], connectionId: connection.id });
   assert(chat);
-  await chats.patchMetadata(chat.id, { advancedMemory: settings, summaryConnectionId: connection.id });
+  await chats.patchMetadata(chat.id, {
+    advancedMemory: settings,
+    summaryConnectionId: connection.id,
+    summaryMaxTokens: 4096,
+  });
   await chats.createMessagesBatch(chat.id, [
     {
       role: "user",
@@ -143,28 +147,29 @@ try {
   const chat = await createChat("Astra short summary");
   await memory.initialize(chat.id);
   const sceneRequest = requests.find((item) => item.instructions?.startsWith("Identify scene transitions"))!;
-  assert.equal(sceneRequest.max_output_tokens, 2048, "scene decisions reserve context-bounded reasoning space");
+  assert.equal(sceneRequest.max_output_tokens, 4096, "scene decisions use Chat Summary output size");
   assert.equal(sceneRequest.reasoning?.effort, "low", "scene decisions request efficient reasoning too");
   const sceneCapped = await createChat("Explicit scene output cap", 256);
   const sceneRequestStart = requests.length;
-  await assert.rejects(memory.initialize(sceneCapped.id), /scene helper.*output limit/i);
-  assert.equal(requests.length, sceneRequestStart + 1, "truncated classification does not trigger paid retries");
-  assert.equal(requests.at(-1)!.max_output_tokens, 256, "scene classification respects the connection cap");
+  await memory.initialize(sceneCapped.id);
+  assert(requests.length > sceneRequestStart);
+  assert.equal(
+    requests.at(-1)!.max_output_tokens,
+    4096,
+    "the helper connection cannot replace Chat Summary output size",
+  );
   sceneNeedsReasoningBudget = false;
   const body = requests.find((item) => !item.instructions?.startsWith("Identify scene transitions"))!;
   assert(body.instructions?.includes("self-contained historical recap"));
   assert(body.instructions?.includes('Omit "current situation", "open tensions"'));
   assert(body.max_output_tokens! >= 2048, "short retained memory does not starve reasoning of completion tokens");
-  assert(
-    body.max_output_tokens! <= Math.floor(settings.maxContextTokens / 3),
-    "completion reserve stays context bounded",
-  );
+  assert.equal(body.max_output_tokens, 4096, "summary output is not clamped to a fraction of context");
   assert.equal(
     body.reasoning?.effort,
     "low",
     "Astra maps the utility's efficient reasoning option to supported low effort",
   );
-  assert(body.instructions?.includes("Aim for about 1024 tokens"), "the scene recap target remains concise");
+  assert(!body.instructions?.includes("1024 tokens"), "scene recaps have no hidden output target");
   const records = (await memory.status(chat.id)).records;
   assert.equal(records.find((record) => record.kind === "scene" && record.status === "closed")?.content, summary);
   assert(
@@ -294,12 +299,10 @@ try {
     narratorMemory.chatSummary?.includes("Narrator alone keeps"),
     "archived narrator memory retains narrator macros",
   );
-  const narratorContinuity = (await memory.status(narratorChat.id)).records.find(
-    (record) => record.id === narratorMemory.receipt.checkpointId,
-  );
-  assert(
-    narratorContinuity?.dependencies.some((dependency) => dependency.id === `record:${earlySharedScene.id}`),
-    "the narrator uses the existing shared summary when older history is compacted",
+  assert.equal(
+    narratorMemory.receipt.checkpointId,
+    null,
+    "constants use Chat Summaries, not separate continuity records",
   );
   const ownerMemory = await memory.prepare({
     chatId: narratorChat.id,
@@ -338,7 +341,6 @@ try {
   summaryResponse = `${summary} `.repeat(16);
   await Promise.all([memory.initialize(repeated.id), memory.initialize(repeated.id)]);
   summaryResponse = summary;
-  let checkpointId: string | null = null;
   const beforeRepeatedSummaries = requests.length;
   for (const budgetTokens of [1400, 1336, 1272, 1400]) {
     await memory.initialize(repeated.id);
@@ -348,14 +350,15 @@ try {
       audienceCharacterIds: [],
       budgetTokens,
     });
-    checkpointId ??= prepared.receipt.checkpointId;
-    assert(checkpointId, "the bounded context must create a continuity summary");
-    assert.equal(prepared.receipt.checkpointId, checkpointId, "a fitting summary survives context-budget adjustments");
+    assert(prepared.receipt.estimatedTokensAfter <= budgetTokens);
     const archive = (await memory.status(repeated.id)).records;
     assert.equal(archive.filter((record) => record.kind === "scene" && record.status === "closed").length, 4);
-    assert.equal(archive.filter((record) => record.kind === "continuity").length, 1, "one record per unchanged range");
+    assert(
+      !archive.some((record) => record.kind === "continuity"),
+      "context adjustments never create continuity records",
+    );
   }
-  assert.equal(requests.length, beforeRepeatedSummaries + 1, "the continuity model is called once across all budgets");
+  assert.equal(requests.length, beforeRepeatedSummaries, "prompt preparation never calls a summary model");
   const cjkChat = await createChat("CJK scene detection and complete summary chunks");
   const cjkSource = await chats.listMessages(cjkChat.id);
   const cjkText = "漢あ한𠀀😀".repeat(4000);
@@ -445,6 +448,13 @@ try {
   await memory.updateRecord(correctedDate.id, correctedScene.id, {
     content: "Correction: the meeting was June 12, not June 10.",
   });
+  await memory.prepare({
+    chatId: correctedDate.id,
+    messages: await chats.listMessages(correctedDate.id),
+    audienceCharacterIds: [],
+    budgetTokens: 700,
+  });
+  await memory.checkScenesAfterGeneration(correctedDate.id);
   const correctedMemory = await memory.prepare({
     chatId: correctedDate.id,
     messages: await chats.listMessages(correctedDate.id),
@@ -522,7 +532,8 @@ try {
     "the connection's explicit parameter omission is preserved",
   );
 
-  const capped = await createChat("Explicit output cap", 256);
+  const capped = await createChat("Explicit Chat Summary output cap", 8192);
+  await chats.patchMetadata(capped.id, { summaryMaxTokens: 256 });
   const requestStart = requests.length;
   await assert.rejects(memory.initialize(capped.id), /256 of 256 output tokens, 256 of them reasoning/);
   assert.equal(
@@ -532,7 +543,7 @@ try {
   );
   assert(
     requests.slice(requestStart).every((item) => item.max_output_tokens! <= 256),
-    "the connection hard cap remains authoritative",
+    "the explicit Chat Summary output size remains authoritative",
   );
 
   const truncated = await createChat("Truncated summary");
@@ -565,7 +576,7 @@ try {
   assert(helper);
   await chats.patchMetadata(sceneOnly.id, {
     advancedMemory: { ...settings, maxContextTokens: 65_000, helperConnectionId: helper.id },
-    summaryMaxTokens: 256,
+    summaryMaxTokens: 8192,
   });
   const sceneOnlySource = await chats.listMessages(sceneOnly.id);
   const wholeScene = `SCENE_START ${"Maukie explored the coast and returned the compass. ".repeat(1500)} SCENE_END`;
@@ -608,83 +619,8 @@ try {
   );
   summaryResponse = summary;
 
-  const stalled = await createChat("Resume stalled continuity compaction");
-  await connections.update(stalled.connectionId!, { maxContext: 65_000 });
-  await chats.patchMetadata(stalled.id, { advancedMemory: { ...settings, maxContextTokens: 65_000 } });
-  const stalledSource = await chats.listMessages(stalled.id);
-  await chats.createMessagesBatch(stalled.id, [
-    {
-      role: "user",
-      content: "SECOND_SCENE_SOURCE: Maukie bought a map at the market.",
-      createdAt: new Date(Date.parse(stalledSource.at(-1)!.createdAt) + 1).toISOString(),
-    },
-    {
-      role: "assistant",
-      content: "The following morning, FUTURE_SCENE_SOURCE: we sailed away.",
-      createdAt: new Date(Date.parse(stalledSource.at(-1)!.createdAt) + 2).toISOString(),
-      extra: { isConversationStart: true },
-    },
-  ]);
-  beforeSummary = async () => {
-    beforeSummary = async () => {
-      summaryResponse = "Maukie bought a map and promised to return the compass. ".repeat(200);
-    };
-  };
-  const stalledInput = {
-    chatId: stalled.id,
-    messages: await chats.listMessages(stalled.id),
-    audienceCharacterIds: [],
-    budgetTokens: 3000,
-  };
-  const stalledStart = requests.length;
-  await memory.initialize(stalled.id);
-  await assert.rejects(memory.prepare(stalledInput), /could not compact/);
-  const completedScenes = (await memory.status(stalled.id)).records.filter(
-    (record) => record.kind === "scene" && record.content,
-  );
-  assert.equal(completedScenes.length, 2, "completed scenes survive a later continuity compaction failure");
-  const stalledRequests = requests.slice(stalledStart);
-  assert(
-    stalledRequests
-      .filter((item) => !item.instructions?.startsWith("Identify scene transitions"))
-      .every((item) => !JSON.stringify(item.input).includes("FUTURE_SCENE_SOURCE")),
-    "scene summaries never receive messages from a later scene",
-  );
-  const stillOversizedStart = requests.length;
-  await assert.rejects(createAdvancedMemoryService(db).prepare(stalledInput), /could not compact.*summary limit/);
-  assert.equal(requests.length - stillOversizedStart, 1, "a still-oversized retry makes one fresh compaction attempt");
-  assert.equal(
-    (await memory.status(stalled.id)).records.filter((record) => record.kind === "scene" && record.content).length,
-    2,
-    "the completed archive is kept even when continuity still exceeds its strict size limit",
-  );
-  summaryResponse = "Maukie bought a map at the market.";
-  const resumeStart = requests.length;
-  const stages: string[] = [];
-  const resumed = await createAdvancedMemoryService(db).prepare({
-    ...stalledInput,
-    onProgress: (job) => stages.push(job.stage),
-  });
-  const resumedStatus = await memory.status(stalled.id);
-  assert.equal(
-    resumedStatus.job.status,
-    "ready",
-    "Resume retries the failed compaction instead of replaying its error",
-  );
-  assert(!stages.includes("classifying"), "Resume does not announce already completed boundary detection");
-  assert(resumed.chatSummary?.includes(summaryResponse), "the retried continuity uses the completed short result");
-  assert(resumedStatus.records.some((record) => record.content === summaryResponse));
-  const resumedRequests = requests.slice(resumeStart);
-  assert.equal(resumedRequests.length, 1, "only the unfinished compaction needs another model call");
-  assert(!resumedRequests[0]!.instructions?.startsWith("Identify scene transitions"));
-  assert.match(resumedRequests[0]!.instructions!, /supplied recap is still too long/);
-  assert.deepEqual(
-    resumedStatus.records.filter((record) => record.kind === "scene" && record.content),
-    completedScenes,
-    "completed scene records are unchanged by continuity recovery",
-  );
-  summaryResponse = summary;
-
+  // Main prompt preparation no longer performs continuity compaction. Its
+  // background replacement and exact output setting are covered by post-generation regression.
   const joined = await createChat("Concurrent preparation requests");
   await chats.patchMetadata(joined.id, {
     advancedMemoryState: { status: "error", error: "Previous preparation failed" },

@@ -74,7 +74,7 @@ assert.deepEqual(
   }),
   {
     temperature: 0.42,
-    enabledParameters: { temperature: true, topP: false, reasoningEffort: false },
+    enabledParameters: { temperature: true, topP: false, reasoningEffort: false, maxTokens: true },
   },
 );
 assert.deepEqual(
@@ -82,7 +82,7 @@ assert.deepEqual(
     enabledParameters: { temperature: true, topP: false, reasoningEffort: false },
   }),
   {
-    enabledParameters: { temperature: false, topP: false, reasoningEffort: false },
+    enabledParameters: { temperature: false, topP: false, reasoningEffort: false, maxTokens: true },
   },
 );
 

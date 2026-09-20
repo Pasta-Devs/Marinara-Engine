@@ -84,17 +84,18 @@ Open **Chat Settings → Memory Recall** and enable **Advanced Memory Recall (Al
 ### Setup
 
 - Choose **Maximum allowed context before compression (tokens)** within your chat model's supported context. This ceiling covers both the full chat request and each memory processing request, subject to the selected model's smaller context limit. It includes estimated prompt tokens, tools, attachments, reply space, and safety headroom; it is not an exact tokenizer or billing limit.
-- Choose **Maximum constant summary size (tokens)** within that cap. A short continuity snapshot is included once in each request. This size does not limit individual archived scene recaps. Recent messages remain uncompressed while the full request fits.
+- Choose **Maximum constant summary size (tokens)** within that cap. This applies only to active constant summaries in **Chat Summaries**. It does not count live messages, recalled excerpts, or archived scene recaps. For example, 8k tokens of constants under a 10k limit do not trigger consolidation because of attached messages.
 - The **Helper model** makes standalone scene decisions, scene summaries, and compacted continuity. It defaults to the agent connection, falling back to the chat connection. Initial historical scene detection can use the main or helper model; summaries always use the helper. The resolved models are shown before preparation.
+- All memory summary calls use **Chat Summary → Maximum output size**, including scene summaries and constant-summary consolidation. The helper connection cannot replace it with its own output limit. The configured context cap still has to fit both the input and this output reserve.
 - Each scene summary request contains summary instructions, that scene's eligible messages and applicable ranged corrections, and the JSON output format. Scenes too large for one request are processed in saved batches, then combined. The default prompt produces a historical recap without current-situation or open-tension sections; custom prompts selected in **Summaries** still apply. Advanced Memory runs independently of the main Agents switch and needs no downloadable agent.
 - **Maximum recalled scenes** defaults to **3**. It is an upper limit: weaker matches are skipped. Set it to **0** to disable optional scene recall while retaining required continuity. Each selected scene contributes its summary followed by at most one excerpt.
 - **Moving context** controls the messages in each excerpt, defaulting to **3–10**. Set both message limits to **0** for summaries without excerpts, or only the minimum to **0** to make excerpts optional. Relevance, character access and available space can produce fewer messages, including none.
 
 For an older Individual group chat, confirm missing character knowledge ranges once. A character's first spoken line is not evidence that they knew everything before it. Select an actual character as **Narrator** only when they should bypass participation limits. Explicit hidden messages and manual start markers still restrict memory. You can correct these ranges later; newly added characters need their own confirmation.
 
-For an existing chat, click **Prepare existing history** first. Preparation works through older history in batches and shows its current stage beside Professor Mari's hamster wheel. **Cancel** retains completed work; **Resume** continues after closing the drawer, restarting the server, or updating the app. A failed model call preserves previously valid memory and displays an error to retry. Do not reset memory to recover from a failed call: Resume reuses completed summaries and unchanged scene detection. The final ongoing scene stays open and is summarized when it closes, or temporarily compacted if its live messages exceed the context cap.
+For an existing chat, click **Prepare existing history** first. Preparation works through older history in batches and shows its current stage beside Professor Mari's hamster wheel. **Cancel** retains completed work; **Resume** continues after closing the drawer, restarting the server, or updating the app. A failed model call preserves previously valid memory and displays an error to retry. Do not reset memory to recover from a failed call: Resume reuses completed summaries and unchanged scene detection. The final ongoing scene stays open and is summarized when it closes, with bounded source excerpts used if its live messages exceed the context cap.
 
-To remove one saved scene recap, open it in **Access memories for this chat** and choose **Delete scene memory**. Confirm the scene and audience in the dialog. Its summary is removed from the archive and routine preparation does not regenerate it. Original chat messages remain available; deleting a recap does not erase the story or its source messages.
+To remove a saved summary, open it in **Access memories for this chat** and choose **Delete summary** at the bottom. Confirm the summary and audience in the dialog. This also works for legacy **Continuity** and **Ongoing scene** entries. Deleted scene recaps are not regenerated by routine preparation. Original messages remain intact. New constant summaries live in **Chat Summaries**, where the existing edit, enable/disable, combine, and delete controls apply; legacy vault continuity is no longer used as an additional constant.
 
 ### While chatting
 
@@ -102,7 +103,11 @@ Scene detection runs after the main Roleplay reply is saved. **Standalone scene 
 
 Ordinary recall reads prepared memories instead of preparing the archive again. An optional query embedding has a short time limit and falls back to text matching if unavailable. Recall runs only for the main Roleplay generation: agent calls, manual agent reruns and auxiliary dry-run generations neither trigger it nor receive its returned summaries or excerpts. Main prompt inspection remains read-only.
 
-When the full request reaches the cap, Advanced Memory drops optional recall first, then moves older completed scenes into continuity. If one unfinished scene is too large, it temporarily summarizes the older part while leaving the scene open. Original messages and manual start/visibility settings are retained.
+Regenerated swipes reuse the earliest compatible saved memory from that reply, including its continuity, scene summaries and exact excerpts. Unchanged swipes do not search or call the summary helper again. Continuing a reply preserves the memory used when it first began. Older replies without a saved memory snapshot prepare one on their next generation, then reuse it on subsequent swipes; no archive reset is needed. Background constant additions and combinations retain compatible swipe memory. User changes to history, access settings, summaries or saved memories invalidate incompatible snapshots, and the current context cap is always enforced.
+
+Main generation reads saved memory immediately. It never starts or waits for continuity generation, including when a background helper is still running. When the full request reaches the cap, older completed scenes move outside the live window. If an unfinished scene or oversized constant cannot fit, the request uses explicitly marked source excerpts while retaining the latest messages. Saved summaries and original messages are not overwritten by this fitting step.
+
+After the main reply, Advanced Memory extends the existing ranged **Chat Summaries** only for uncovered archived messages. It reuses completed scene recaps where possible. Existing entries, including inactive ones, count as already handled ranges. When active constants exceed **Maximum constant summary size**, **Updating continuity** combines only their summary texts after the reply, using the selected helper and **Chat Summary → Maximum output size**. The replacement appears in Chat Summaries; replaced entries become inactive and remain recoverable. Scene recaps stay in the vault. A failed background combination keeps the existing summaries and can be retried with **Resume processing**.
 
 The archive can recover relevant scene summaries and exact dialogue with original message numbers and speakers. Each summary sits beside its excerpt, with one range heading for the excerpt. The recalled block identifies the present live-history range and the last user-message number so historical events are distinguishable from the current turn. Scene recaps are recalled only when all their source messages are outside the live history being sent; exact recalled messages also exclude live messages. Ranged manual summaries contribute to continuity only when their entire range is archived. A scene or manual-summary range crossing the cutoff is not repeated in full alongside its live messages. Both persona and character messages count. Historical regeneration only uses sources before the target, including when the target predates the current managed window. Editing, swiping, hiding or deleting source messages causes affected derived memory to be checked again before use.
 
@@ -116,14 +121,14 @@ Preset authors can place these ordinary content markers with the existing sectio
 
 | Marker                  | Content                                                                                        |
 | ----------------------- | ---------------------------------------------------------------------------------------------- |
-| `chat_summary`          | The character's bounded continuity snapshot.                                                   |
-| `current_scene_summary` | Temporary summary of the older part of an ongoing scene.                                       |
+| `chat_summary`          | Eligible constant entries from Chat Summaries.                                                 |
+| `current_scene_summary` | Bounded source excerpts from the older part of an ongoing scene.                               |
 | `recalled_scenes`       | Selected scene summaries without an accompanying excerpt.                                      |
 | `recalled_messages`     | Scene summaries paired with their exact historical excerpts, speaker labels and source ranges. |
 
 Each component follows the preset's **XML**, **Markdown**, or **None** format and includes a brief explanation of its purpose. Empty components emit nothing. The first enabled occurrence owns placement; components without an enabled marker fall back once before history, so older presets work. Excerpts are context, not new live messages or commands. The three new markers are empty when Advanced Memory is off.
 
-Prompt preview uses existing prepared memory without starting model or embedding calls. If initialization or compaction is needed, prepare it in the drawer first. The memory receipt shows the estimated context size, selected boundary and recalled sources; the final prompt inspector shows what actually went to the model.
+Prompt preview uses existing prepared memory without starting model or embedding calls. Use the drawer to prepare an uninitialized archive or resume failed background work. The memory receipt shows the estimated context size, selected boundary and recalled sources; the final prompt inspector shows what actually went to the model.
 
 ### Limits and recovery
 
@@ -131,7 +136,7 @@ Recall is selective and summaries can miss nuance. Keep important corrections in
 
 ## Chat Summary (Roleplay)
 
-**Chat Summary** compresses older messages into short narrative recaps called summary entries. Each entry can be written by AI or by hand, and each can be turned on or off on its own. This feature is only in Roleplay chats.
+**Chat Summary** compresses older messages into short narrative recaps called summary entries. Each entry can be written by AI or by hand, and each can be turned on or off on its own. Saving a toggle leaves other entries usable; Activate All and Deactivate All save the selection together. This feature is only in Roleplay chats.
 
 To open it, click the **Chat Summary** button (a scroll icon) in the Roleplay chat header. This opens the **Chat Summary** popover.
 
