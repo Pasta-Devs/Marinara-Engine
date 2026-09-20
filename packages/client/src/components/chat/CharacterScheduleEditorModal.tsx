@@ -736,8 +736,6 @@ export function CharacterScheduleEditorModal({
     }
   };
 
-  const scheduleTransferDisabled = isGeneratingSummary || isGeneratingWeek || !!generatingDay;
-
   return (
     <Modal
       open={open}
@@ -1353,7 +1351,7 @@ export function CharacterScheduleEditorModal({
             <button
               type="button"
               onClick={() => scheduleFileInputRef.current?.click()}
-              disabled={scheduleTransferDisabled}
+              disabled={generationBusy}
               className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Upload size="0.75rem" />
@@ -1362,7 +1360,7 @@ export function CharacterScheduleEditorModal({
             <button
               type="button"
               onClick={exportSchedule}
-              disabled={scheduleTransferDisabled}
+              disabled={generationBusy}
               className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Download size="0.75rem" />
