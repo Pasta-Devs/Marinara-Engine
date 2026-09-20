@@ -73,7 +73,7 @@ All six services make short clips from your image. They differ in speed, clip le
 - **Google AI Studio (Veo)**: strong quality, but fixed to 4, 6, or 8 seconds. It uses 8 seconds when it animates an image.
 - **xAI Imagine**: 1 to 15 second clips. It uses a shorter prompt limit than the other services.
 - **OpenRouter Video**: 1 to 60 seconds, and lets you type any video model your OpenRouter account supports.
-- **Atlas Cloud**: 1 to 60 seconds with curated Veo 3.1 and Seedance 2.0 starter models. You can type another exact Atlas Cloud video model ID; model-specific duration, resolution, and reference-image limits still apply.
+- **Atlas Cloud**: **Fetch Models** loads Atlas Cloud's current video catalog, image-to-video models first, each with its starting price per second of output. If the catalog cannot be reached, Marinara shows Veo 3.1 and Seedance 2.0 starter models instead. You can also type an exact Atlas Cloud video model ID; model-specific duration, resolution, and reference-image limits still apply.
 
 ### Atlas Cloud model differences
 

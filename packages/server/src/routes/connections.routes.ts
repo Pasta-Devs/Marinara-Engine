@@ -59,6 +59,7 @@ import {
 } from "../utils/security.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { buildAtlasCloudTestReferenceImage } from "../services/media/atlas-cloud-video-schema.js";
+import { fetchAtlasCloudModels } from "../services/media/atlas-cloud.js";
 import {
   buildNanoGptVideoUrl,
   fetchNanoGptVideoModels,
@@ -212,6 +213,21 @@ export function parseComfyLoaderModelNames(info: unknown, nodeName: string, inpu
   const options = input[0];
   if (!Array.isArray(options)) return null;
   return options.filter((option): option is string => typeof option === "string");
+}
+
+/** Atlas Cloud's live catalog, or the curated starter list when the catalog cannot be read. */
+async function listAtlasCloudModels(
+  baseUrl: string,
+  kind: "image" | "video",
+  starterModels: ReadonlyArray<{ id: string; name: string }>,
+): Promise<Array<{ id: string; name: string }>> {
+  try {
+    const models = await fetchAtlasCloudModels(baseUrl, kind);
+    if (models.length > 0) return models;
+  } catch (error) {
+    logger.warn(error, "[atlas-cloud] could not read the %s model catalog; using the starter list", kind);
+  }
+  return starterModels.map((model) => ({ id: model.id, name: model.name }));
 }
 
 function localUrlPolicyForProvider(provider: string, imageSource: string) {
@@ -831,7 +847,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
         conn.provider === "video_generation" ? resolveVideoGenerationSource(conn as any, conn.baseUrl || "") : "";
       if (conn.provider === "video_generation") {
         if (videoSource === "atlas") {
-          return { models: ATLAS_CLOUD_VIDEO_MODELS.map((model) => ({ id: model.id, name: model.name })) };
+          return {
+            models: await listAtlasCloudModels(
+              conn.baseUrl || DEFAULT_ATLAS_CLOUD_VIDEO_BASE_URL,
+              "video",
+              ATLAS_CLOUD_VIDEO_MODELS,
+            ),
+          };
         }
         if (videoSource === "nanogpt") {
           const models = await fetchNanoGptVideoModels(
@@ -875,7 +897,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         conn.provider === "image_generation" ? resolveImageGenerationSource(conn as any, baseUrl) : "";
       const mediaSource = imageSource || videoSource;
       if (conn.provider === "image_generation" && imageSource === "atlas") {
-        return { models: ATLAS_CLOUD_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };
+        return { models: await listAtlasCloudModels(baseUrl, "image", ATLAS_CLOUD_IMAGE_MODELS) };
       }
       if (conn.provider === "image_generation" && imageSource === "zai") {
         return { models: ZAI_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };

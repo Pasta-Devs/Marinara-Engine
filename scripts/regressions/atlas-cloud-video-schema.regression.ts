@@ -5,6 +5,10 @@ import {
   buildAtlasCloudModelSchemaUrl,
   parseAtlasCloudModelSchema,
 } from "../../packages/server/src/services/media/atlas-cloud-video-schema.js";
+import {
+  buildAtlasCloudCatalogUrl,
+  parseAtlasCloudCatalog,
+} from "../../packages/server/src/services/media/atlas-cloud.js";
 
 // Atlas Cloud models do not share one input shape. Each fixture below mirrors the published
 // `Input` schema of a real model family so the request Marinara sends is one that model accepts.
@@ -146,5 +150,43 @@ assert.equal("aspect_ratio" in squareRequest.body, false);
 assert.ok(squareRequest.adjustments.some((note) => note.includes("aspect ratio 16:9 is not offered")));
 
 assert.throws(() => adaptAtlasCloudVideoRequest({ ...common, model: "  " }, ranged), /requires a model/);
+
+// Fetch Models reads the live catalog: only generation models of the requested kind, hidden entries
+// skipped, image-to-video ahead of text-to-video because every scene video animates an image.
+assert.equal(buildAtlasCloudCatalogUrl("https://api.atlascloud.ai/v1/"), "https://api.atlascloud.ai/api/v1/models");
+assert.equal(buildAtlasCloudCatalogUrl("https://api.atlascloud.ai"), "https://api.atlascloud.ai/api/v1/models");
+const catalog = {
+  data: [
+    { model: "vendor/chat", displayName: "Chat", categories: ["LLM"] },
+    {
+      model: "vendor/t2v",
+      displayName: "Text Clip",
+      categories: ["TEXT-TO-VIDEO"],
+      price: { actual: { base_price: "0.05" } },
+    },
+    {
+      model: "vendor/i2v",
+      displayName: "Image Clip",
+      categories: ["IMAGE-TO-VIDEO"],
+      price: { actual: { base_price: "0.018" } },
+    },
+    { model: "vendor/i2v", displayName: "Duplicate", categories: ["IMAGE-TO-VIDEO"] },
+    { model: "vendor/hidden", displayName: "Hidden", categories: ["IMAGE-TO-VIDEO"], display_console: false },
+    { model: "vendor/upscale", displayName: "Upscale", categories: ["VIDEO-TO-VIDEO"] },
+    {
+      model: "vendor/t2i",
+      displayName: "Still",
+      categories: ["TEXT-TO-IMAGE"],
+      price: { actual: { base_price: "0.01" } },
+    },
+    { displayName: "No ID", categories: ["IMAGE-TO-VIDEO"] },
+  ],
+};
+assert.deepEqual(parseAtlasCloudCatalog(catalog, "video"), [
+  { id: "vendor/i2v", name: "Image Clip · image-to-video · from $0.018/s" },
+  { id: "vendor/t2v", name: "Text Clip · text-to-video · from $0.05/s" },
+]);
+assert.deepEqual(parseAtlasCloudCatalog(catalog, "image"), [{ id: "vendor/t2i", name: "Still · text-to-image" }]);
+assert.deepEqual(parseAtlasCloudCatalog({ error: "nope" }, "video"), []);
 
 console.log("atlas-cloud-video-schema regression passed");

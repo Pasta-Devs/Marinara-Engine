@@ -82,7 +82,7 @@ Cloud service with the default Base URL `https://api.z.ai/api/paas/v4`. It needs
 
 ## Atlas Cloud
 
-Cloud service with the default Base URL `https://api.atlascloud.ai/api/v1`. It needs an Atlas Cloud API key. Marinara supplies a small starter catalog for Nano Banana, Gemini Flash Image, and FLUX 1.1 Pro, and you can type another exact Atlas Cloud image model ID. Jobs run asynchronously, so Marinara starts the generation and polls Atlas Cloud until the image is ready. Common text-to-image controls are mapped automatically; reference images are sent for model IDs that advertise image-to-image, edit, or Kontext behavior. Because Atlas model schemas can differ, check the selected model's Atlas Cloud documentation when using another model ID.
+Cloud service with the default Base URL `https://api.atlascloud.ai/api/v1`. It needs an Atlas Cloud API key. **Fetch Models** loads Atlas Cloud's current text-to-image and image-to-image catalog. If the catalog cannot be reached, Marinara shows a small starter list for Nano Banana, Gemini Flash Image, and FLUX 1.1 Pro instead, and you can always type an exact Atlas Cloud image model ID. Jobs run asynchronously, so Marinara starts the generation and polls Atlas Cloud until the image is ready. Common text-to-image controls are mapped automatically; reference images are sent for model IDs that advertise image-to-image, edit, or Kontext behavior. Because Atlas model schemas can differ, check the selected model's Atlas Cloud documentation when using another model ID.
 
 ## fal.ai
 

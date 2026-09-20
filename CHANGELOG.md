@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- **Fetch Models** on an Atlas Cloud image or video connection loads Atlas Cloud's current catalog instead of a fixed starter list. Video models list image-to-video first and show their starting price per second; the starter list remains the fallback when the catalog cannot be reached.
 - Atlas Cloud scene videos fit each request to the selected model's published input schema: the source illustration goes to the image field the model declares, resolution and aspect ratio become a `size` where the model requires one, clip length snaps to a length the model offers, and fields the model does not declare are left out. **Test Video** supplies a plain first frame to image-to-video models, and the server log reports when a text-to-video model cannot use the source illustration.
 
 - The Roleplay swipe media regression follows the continuation behavior shipped in #6396, so the node regression lane passes again on `staging`.
