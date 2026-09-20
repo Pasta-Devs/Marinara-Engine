@@ -661,14 +661,17 @@ function ConversationStartMarkers({
   characterIds,
   characters,
   panel,
+  memoryStartCharacterIds,
 }: {
   sharedStart: boolean;
   characterIds: string[];
   characters: AIVisibilityCharacter[];
   panel?: boolean;
+  memoryStartCharacterIds?: string[];
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const targetedCharacters = characterIds
+  sharedStart ||= memoryStartCharacterIds?.length === 0;
+  const targetedCharacters = [...new Set([...characterIds, ...(memoryStartCharacterIds ?? [])])]
     .map((id) => characters.find((character) => character.id === id))
     .filter((character): character is AIVisibilityCharacter => Boolean(character));
   if (!sharedStart && targetedCharacters.length === 0) return null;
@@ -690,7 +693,11 @@ function ConversationStartMarkers({
   ];
 
   return (
-    <div className={cn("w-full", panel ? "mb-1 px-1" : "mb-0.5 px-2")}>
+    <div
+      className={cn("w-full", panel ? "mb-1 px-1" : "mb-0.5 px-2")}
+      data-advanced-memory-start={memoryStartCharacterIds ? "true" : undefined}
+      title={memoryStartCharacterIds ? localizeUi("chat.advancedMemory.contextStartHelp") : undefined}
+    >
       {sharedStart && panel && (
         <div
           aria-hidden="true"
@@ -941,6 +948,7 @@ interface ChatMessageProps {
   onEdit?: (messageId: string, content: string) => void | Promise<void>;
   onSetActiveSwipe?: (messageId: string, index: number) => void;
   onToggleConversationStart?: ToggleConversationStart;
+  memoryStartCharacterIds?: string[];
   onToggleHiddenFromAI?: ToggleHiddenFromAI;
   onPeekPrompt?: () => void;
   onBranch?: (messageId: string) => void;
@@ -1816,6 +1824,7 @@ export const ChatMessage = memo(function ChatMessage({
   onEdit,
   onSetActiveSwipe,
   onToggleConversationStart,
+  memoryStartCharacterIds,
   onToggleHiddenFromAI,
   onPeekPrompt,
   onBranch,
@@ -3746,6 +3755,7 @@ export const ChatMessage = memo(function ChatMessage({
             )}
 
             <ConversationStartMarkers
+              memoryStartCharacterIds={memoryStartCharacterIds}
               sharedStart={isConversationStart}
               characterIds={conversationStartForCharacterIds}
               characters={aiVisibilityCharacters}
@@ -4170,6 +4180,7 @@ export const ChatMessage = memo(function ChatMessage({
           )}
 
           <ConversationStartMarkers
+            memoryStartCharacterIds={memoryStartCharacterIds}
             sharedStart={isConversationStart}
             characterIds={conversationStartForCharacterIds}
             characters={aiVisibilityCharacters}

@@ -191,6 +191,9 @@ try {
   assert.ok(!sent.includes("__MARINARA_ADVANCED_MEMORY_"));
   const target = (await chats.listMessages(chat.id)).at(-1)!;
   assert.ok(JSON.parse(target.extra as string).advancedMemoryReceipt);
+  const generatedMetadata = JSON.parse((await chats.getById(chat.id))!.metadata);
+  assert.equal(generatedMetadata.advancedMemoryState.contextStarts.length, 1);
+  assert.deepEqual(generatedMetadata.advancedMemoryState.contextStarts[0].audienceCharacterIds, [second.id]);
   await memory.initialize(chat.id, { blocking: false });
   const beforePreview = modelCalls;
   const preview = await app.inject({
@@ -345,6 +348,31 @@ try {
   assert.ok(unconfirmed.body.includes('"status":"needs_confirmation"'), unconfirmed.body);
   assert.ok(unconfirmed.body.includes('"blocking":true'), unconfirmed.body);
   assert.equal(modelCalls, unconfirmedCalls, "missing knowledge cannot be sent to a model before confirmation");
+
+  const beforeSharedStart = await chats.listMessages(chat.id);
+  const sharedStart = beforeSharedStart.find((message) => message.content.includes("HISTORY_8:"))!;
+  await chats.updateMessageExtra(sharedStart.id, { isConversationStart: true });
+  await generate();
+  const markedPrompt = JSON.parse(prompts.at(-1)!) as Array<{ role: string; content: string }>;
+  assert(
+    markedPrompt.some((message) => message.role === "system" && message.content.includes("SUMMARY_FIXTURE")),
+    "actual generation keeps pre-marker memory in the system prompt",
+  );
+  assert(
+    !markedPrompt.some((message) => message.role !== "system" && /HISTORY_[0-7]:/.test(message.content)),
+    "actual generation respects the live-history start marker",
+  );
+  assert(!prompts.at(-1)!.includes("PRIVATE_SCENE_SECRET"));
+  const markedCalls = modelCalls;
+  const markedPreview = await app.inject({
+    method: "POST",
+    url: "/api/generate/dryRun",
+    payload: { chatId: chat.id, forCharacterId: second.id, returnPrompt: true },
+  });
+  assert.equal(markedPreview.statusCode, 200, markedPreview.body);
+  assert(markedPreview.body.includes("SUMMARY_FIXTURE"));
+  assert.equal(modelCalls, markedCalls, "preview reuses the pre-marker memory without provider calls");
+  await chats.updateMessageExtra(sharedStart.id, { isConversationStart: false });
 
   await chats.createMessage({
     chatId: chat.id,

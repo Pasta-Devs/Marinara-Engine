@@ -123,6 +123,7 @@
   "chat.advancedMemory.confirmAndInitialize": "Confirm ranges and prepare history",
   "chat.advancedMemory.confirmKnowledge": "Confirm character knowledge",
   "chat.advancedMemory.contextCap": "Maximum allowed context before compression (tokens)",
+  "chat.advancedMemory.contextStartHelp": "Advanced Memory starts live context here. Earlier messages remain available as memories.",
   "chat.advancedMemory.defaultAgentConnection": "Default agent connection",
   "chat.advancedMemory.deleteAll": "Delete all memories",
   "chat.advancedMemory.deleteAllConfirm": "Delete all Advanced Memory scenes, summaries, excerpts, and saved progress for this chat? Original chat messages and your settings will stay intact. Use Prepare existing history to start again.",

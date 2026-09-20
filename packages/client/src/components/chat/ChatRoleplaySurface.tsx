@@ -29,6 +29,7 @@ import {
   STORYBOARD_AGENT_ID,
   type GameTurnStoryboard,
   type ChatSummaryEntry,
+  type AdvancedMemoryJob,
   type MarkerConfig,
   type PromptGroup,
   type PromptSection,
@@ -1472,6 +1473,22 @@ export function ChatRoleplaySurface({
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
+  const memoryContextStarts = useMemo(() => {
+    const starts = new Map<string, string[]>();
+    if (chatMeta.advancedMemory?.enabled !== true) return starts;
+    const entries = (chatMeta.advancedMemoryState as AdvancedMemoryJob | undefined)?.contextStarts;
+    if (!Array.isArray(entries)) return starts;
+    for (const entry of entries) {
+      if (!entry || typeof entry.messageId !== "string" || !Array.isArray(entry.audienceCharacterIds)) continue;
+      const previous = starts.get(entry.messageId);
+      const audience = readStringArray(entry.audienceCharacterIds);
+      starts.set(
+        entry.messageId,
+        previous?.length === 0 || !audience.length ? [] : [...new Set([...(previous ?? []), ...audience])],
+      );
+    }
+    return starts;
+  }, [chatMeta.advancedMemory?.enabled, chatMeta.advancedMemoryState]);
   const activeAgentIds = chatMeta.activeAgentIds;
   const enabledConversationCapabilities =
     chatMeta.enableAgents === true
@@ -2657,6 +2674,7 @@ export function ChatRoleplaySurface({
                           onToggleSelect={onToggleSelectMessage}
                           storyboard={inlineStoryboard}
                           storyboardGenerating={inlineStoryboardGenerating}
+                          memoryStartCharacterIds={memoryContextStarts.get(msg.id)}
                         />
                       ) : (
                         <ChatMessage
@@ -2690,6 +2708,7 @@ export function ChatRoleplaySurface({
                           onToggleSelect={onToggleSelectMessage}
                           storyboard={inlineStoryboard}
                           storyboardGenerating={inlineStoryboardGenerating}
+                          memoryStartCharacterIds={memoryContextStarts.get(msg.id)}
                         />
                       )}
                     </div>
@@ -2800,6 +2819,7 @@ export function ChatRoleplaySurface({
                             <ChatMessage
                               key={`${activeChatId}:${activeVnMessage.id}:${activeVnMessage.activeSwipeIndex}`}
                               message={activeVnMessage}
+                              memoryStartCharacterIds={memoryContextStarts.get(activeVnMessage.id)}
                               visualNovel
                               visualNovelSpeech={vnSpeech}
                               onVisualNovelSpeechParagraph={setVnParagraphIndex}
