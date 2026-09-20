@@ -209,7 +209,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "timeframe-labels-v1", // Invalidate cached prompts without rebuilding valid source archives.
+    "shared-narrator-v1", // Invalidate cached prompts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -275,6 +275,13 @@ export function selectAdvancedMemoryMessages(
       (message.content.trim().length > 0 || (Array.isArray(extra.attachments) && extra.attachments.length > 0))
     );
   });
+}
+
+// The shared scene archive follows the narrator's view without storing another character copy.
+function audienceView(ctx: Context, audience: string[]): string[] {
+  return !audience.length && ctx.individual && ctx.settings.narratorCharacterId
+    ? [ctx.settings.narratorCharacterId]
+    : audience;
 }
 
 function allowed(
@@ -495,7 +502,11 @@ export function createAdvancedMemoryService(db: DB) {
     if (!covered.length || covered.some((message) => !message)) return false;
     if (record.sourceFingerprint !== fingerprint(ctx, covered as AdvancedMemoryMessage[], record.audienceCharacterIds))
       return false;
-    const eligibleIds = new Set(allowed(ctx, source, record.audienceCharacterIds).map((message) => message.id));
+    const archiveAudience =
+      record.kind === "scene" || record.kind === "excerpt"
+        ? audienceView(ctx, record.audienceCharacterIds)
+        : record.audienceCharacterIds;
+    const eligibleIds = new Set(allowed(ctx, source, archiveAudience).map((message) => message.id));
     const structural = record.kind === "scene" && record.id === record.sceneId;
     // A partial summary may be empty while retaining discontiguous audience-scoped coverage.
     if (!structural && record.messageIds.some((id) => !eligibleIds.has(id))) return false;
@@ -1158,7 +1169,9 @@ export function createAdvancedMemoryService(db: DB) {
       ...(embeddingSource ? { embeddingSource } : {}),
       signal: options.signal,
     };
-    const audiences = ctx.individual ? [[], ...ctx.characterIds.map((id) => [id])] : [[]];
+    const audiences = ctx.individual
+      ? [[], ...ctx.characterIds.filter((id) => id !== ctx.settings.narratorCharacterId).map((id) => [id])]
+      : [[]];
     const retained = new Set<string>();
     const summaryCache = new Map<string, string>();
     for (let index = 0; index < scenes.length; index++) {
@@ -1169,7 +1182,9 @@ export function createAdvancedMemoryService(db: DB) {
       retained.add(scaffold.id);
       const groups = new Map<string, { audience: string[]; source: AdvancedMemoryMessage[] }>();
       for (const audience of audiences) {
-        const allowedIds = new Set(allowed(ctx, ctx.messages, audience).map((message) => message.id));
+        const allowedIds = new Set(
+          allowed(ctx, ctx.messages, audienceView(ctx, audience)).map((message) => message.id),
+        );
         const source = fullSource.filter((message) => allowedIds.has(message.id));
         if (!source.length) continue;
         const sourceIds = new Set(source.map((message) => message.id));
@@ -1178,7 +1193,9 @@ export function createAdvancedMemoryService(db: DB) {
         const key = hash([
           audience.length ? "characters" : "owner",
           source.map((message) => message.id),
-          sourceEntries(ctx, source, false).map((entry) => renderEntry(ctx, entry.content, audience)),
+          sourceEntries(ctx, source, false).map((entry) =>
+            renderEntry(ctx, entry.content, audienceView(ctx, audience)),
+          ),
           existing
             .filter(
               (record) =>
@@ -1219,7 +1236,9 @@ export function createAdvancedMemoryService(db: DB) {
           );
           const inputs = [
             logMessages(ctx, source),
-            ...entries.map((entry) => `User-corrected summary:\n${renderEntry(ctx, entry.content, audience)}`),
+            ...entries.map(
+              (entry) => `User-corrected summary:\n${renderEntry(ctx, entry.content, audienceView(ctx, audience))}`,
+            ),
             ...corrections.map((item) => `User-corrected scene summary (honor its corrections):\n${item.content}`),
           ];
           const summaryKey = hash(inputs);
@@ -1647,6 +1666,18 @@ export function createAdvancedMemoryService(db: DB) {
     );
   }
 
+  function recallAudienceMatches(ctx: Context, record: StoredRecord, audience: string[]): boolean {
+    if (
+      ctx.individual &&
+      audience.length === 1 &&
+      audience[0] === ctx.settings.narratorCharacterId &&
+      (record.kind === "scene" || record.kind === "excerpt") &&
+      !record.audienceCharacterIds.length
+    )
+      return true;
+    return audienceMatches(record, audience);
+  }
+
   function sameIdentity(left: StoredRecord, right: StoredRecord) {
     return (
       left.kind === right.kind &&
@@ -1700,7 +1731,7 @@ export function createAdvancedMemoryService(db: DB) {
         record.content &&
         record.enabled &&
         recordValid(ctx, record) &&
-        audienceMatches(record, audience) &&
+        recallAudienceMatches(ctx, record, audience) &&
         record.messageIds.every((id) => sourceIds.has(id)),
     );
     const covered = new Set(sceneSummaries.flatMap((record) => record.messageIds));
@@ -1867,7 +1898,7 @@ export function createAdvancedMemoryService(db: DB) {
         (record) =>
           record.kind === "continuity" &&
           record.enabled &&
-          audienceMatches(record, audience) &&
+          recallAudienceMatches(ctx, record, audience) &&
           summarySize(record) <= summaryBudget &&
           dependenciesValid(record, available, ctx),
       )
@@ -1959,12 +1990,12 @@ export function createAdvancedMemoryService(db: DB) {
     const eligibleIds = new Set(eligible.map((message) => message.id));
     const disabledSceneIds = new Set(
       available
-        .filter((record) => record.kind === "scene" && !record.enabled && audienceMatches(record, audience))
+        .filter((record) => record.kind === "scene" && !record.enabled && recallAudienceMatches(ctx, record, audience))
         .map((record) => record.sceneId),
     );
     const disabledSourceIds = new Set(
       available
-        .filter((record) => record.kind === "scene" && !record.enabled && audienceMatches(record, audience))
+        .filter((record) => record.kind === "scene" && !record.enabled && recallAudienceMatches(ctx, record, audience))
         .flatMap((record) => record.messageIds),
     );
     const candidates = available.filter(
@@ -1972,7 +2003,8 @@ export function createAdvancedMemoryService(db: DB) {
         (record.kind === "scene" || (record.kind === "excerpt" && ctx.settings.retrieveMaxMessages > 0)) &&
         record.content &&
         record.enabled &&
-        audienceMatches(record, audience) &&
+        recallAudienceMatches(ctx, record, audience) &&
+        record.messageIds.every((id) => eligibleIds.has(id)) &&
         !disabledSceneIds.has(record.sceneId) &&
         record.messageIds.some((id) => !liveIds.has(id)),
     );
@@ -2040,7 +2072,8 @@ export function createAdvancedMemoryService(db: DB) {
         !record.content ||
         !record.enabled ||
         !record.timeline ||
-        !audienceMatches(record, audience)
+        !recallAudienceMatches(ctx, record, audience) ||
+        record.messageIds.some((id) => !eligibleIds.has(id))
       )
         continue;
       for (const id of record.messageIds) sceneTimeframes.set(id, record.timeline);

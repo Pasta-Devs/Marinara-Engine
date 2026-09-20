@@ -162,7 +162,7 @@
   "chat.advancedMemory.missingConnection": "Selected connection is unavailable",
   "chat.advancedMemory.movingContext": "Moving context",
   "chat.advancedMemory.narrator": "Narrator",
-  "chat.advancedMemory.narratorHelp": "Only this character can recall history beyond participation boundaries. Messages hidden from AI remain excluded.",
+  "chat.advancedMemory.narratorHelp": "The narrator automatically uses the shared scene archive across character participation boundaries, without separate scene copies. Messages hidden from the narrator or all AI remain excluded.",
   "chat.advancedMemory.newerMessages": "Newer messages",
   "chat.advancedMemory.none": "None",
   "chat.advancedMemory.noSearchResults": "No matching scenes or memories.",
