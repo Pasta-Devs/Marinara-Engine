@@ -40,13 +40,28 @@ export function AdvancedMemoryInspector({
   const [showSources, setShowSources] = useState(false);
   const [search, setSearch] = useState("");
   const sources = useAdvancedMemorySources(chatId, showSources ? selectedId : null);
-  const records = useMemo(
-    () =>
-      (status.data?.records ?? [])
-        .filter((record) => record.kind !== "excerpt")
-        .sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex),
-    [status.data?.records],
-  );
+  const records = useMemo(() => {
+    const all = status.data?.records ?? [];
+    const sceneKey = (record: AdvancedMemoryRecord) => JSON.stringify([record.sceneId, record.messageIds]);
+    const characterScenes = new Set(
+      all
+        .filter((record) => record.kind === "scene" && record.audienceCharacterIds.length && record.enabled)
+        .map(sceneKey),
+    );
+    return all
+      .filter(
+        (record) =>
+          record.kind !== "excerpt" &&
+          !(
+            record.kind === "scene" &&
+            !record.audienceCharacterIds.length &&
+            record.enabled &&
+            !record.manualOverride &&
+            characterScenes.has(sceneKey(record))
+          ),
+      )
+      .sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex);
+  }, [status.data?.records]);
   const sceneNumbers = new Map(
     [...new Set(records.filter((record) => record.kind === "scene").map((record) => record.sceneId))].map(
       (id, index) => [id, index + 1],
@@ -326,13 +341,13 @@ export function AdvancedMemoryInspector({
               {t("chat.advancedMemory.noSearchResults")}
             </p>
           )}
-          <ul className="space-y-2">
+          <ul className="flex flex-col gap-2">
             {filteredRecords.map((record) => (
               <li key={record.id}>
                 <button
                   type="button"
                   onClick={() => openRecord(record)}
-                  className="w-full space-y-1 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-left hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  className="block w-full space-y-1 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-left hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                 >
                   <span className="block break-words text-xs font-semibold">{recordTitle(record)}</span>
                   <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">

@@ -331,8 +331,8 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
         startIndex: 1,
         endIndex: 2,
         messageIds: fixture.messages.map(({ id }) => id),
-        audienceCharacterIds: [character.id],
-        content: "The laboratory promise concerns a blue notebook.",
+        audienceCharacterIds: [character.id, narrator.id],
+        content: "The laboratory promise concerns a blue notebook. ".repeat(80),
         title: "The laboratory promise",
         timeline: "Before the experiment",
         enabled: true,
@@ -370,6 +370,11 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     status.records.push(
       {
         ...status.records[0]!,
+        id: "owner-scene-copy",
+        audienceCharacterIds: [],
+      },
+      {
+        ...status.records[0]!,
         id: "excerpt-proof",
         kind: "excerpt",
         content: "Exact words from the notebook conversation.",
@@ -396,6 +401,23 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(inspector).toContainText("No matching scenes or memories.");
     await search.fill("");
     await expect(inspector.locator("ul > li")).toHaveCount(2);
+    await expect(inspector.getByRole("button", { name: /Scene #1/ })).toContainText("Dottore, Narrator");
+    const cardBounds = await inspector.locator("ul > li > button").evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const { y, height } = button.getBoundingClientRect();
+        const row = button.parentElement!.getBoundingClientRect();
+        return { y, height, rowY: row.y, rowHeight: row.height };
+      }),
+    );
+    await captureThemes(page, info, "advanced-memory-scene-spacing");
+    expect(cardBounds[0]!.height, "long summaries have a compact three-line preview").toBeLessThan(300);
+    expect(cardBounds[0]!.y - cardBounds[0]!.rowY, "clamped text must not shift the button baseline down").toBeLessThan(
+      2,
+    );
+    expect(cardBounds[0]!.rowHeight - cardBounds[0]!.height, "the row fits its visible card").toBeLessThan(2);
+    expect(cardBounds[1]!.y - cardBounds[0]!.y - cardBounds[0]!.height, "scene cards follow each other").toBeLessThan(
+      20,
+    );
     await expect(inspector.getByText("Exact words from the notebook conversation.")).toHaveCount(0);
     await inspector.getByRole("button", { name: /Scene #1/ }).click();
     await expect(inspector).toContainText("Story timeframe: Before the experiment");
@@ -423,6 +445,28 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await inspector.getByRole("button", { name: "Reindex", exact: true }).click();
     await expect.poll(() => reindexRequests).toBe(1);
     expect(status.records[0]?.enabled).toBe(false);
+    for (let index = 0; index < 10; index++) {
+      status.records.push({
+        ...status.records[0]!,
+        id: `long-scene-${index}`,
+        sceneId: `long-scene-${index}`,
+        startIndex: 5 + index * 2,
+        endIndex: 6 + index * 2,
+        content: "A long historical recap with several events and their outcomes. ".repeat(100),
+      });
+    }
+    await expect(inspector.locator("ul > li")).toHaveCount(12);
+    await inspector.locator("ul > li").last().scrollIntoViewIfNeeded();
+    const longRows = await inspector.locator("ul > li").evaluateAll((rows) =>
+      rows.map((row) => {
+        const { y, height } = row.getBoundingClientRect();
+        return { y, height };
+      }),
+    );
+    for (let index = 1; index < longRows.length; index++) {
+      expect(longRows[index]!.height).toBeLessThan(300);
+      expect(longRows[index]!.y - longRows[index - 1]!.y - longRows[index - 1]!.height).toBeLessThan(20);
+    }
     await inspector.scrollIntoViewIfNeeded();
     await captureThemes(page, info, "advanced-memory-inspector");
     await inspector.getByRole("button", { name: "Delete all memories", exact: true }).click();

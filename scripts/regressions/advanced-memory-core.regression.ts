@@ -1618,11 +1618,16 @@ try {
   const beforeDeferred = classifyCount();
   await memory.maintain(deferredHistory.id);
   assert.equal(classifyCount(), beforeDeferred);
-  await memory.initialize(deferredHistory.id);
+  await memory.prepare({
+    chatId: deferredHistory.id,
+    messages: await chats.listMessages(deferredHistory.id),
+    audienceCharacterIds: [],
+    budgetTokens: 3000,
+  });
   assert.equal(
     classifyCount(),
     beforeDeferred + 1,
-    "explicit initialization segments history previously refreshed without classification",
+    "automatic preparation segments history previously refreshed without classification",
   );
   await chats.createMessage({
     chatId: deferredHistory.id,
@@ -1791,6 +1796,50 @@ try {
   assert(restarted.records.some((record) => record.kind === "scene" && record.content));
   assert(restarted.records.some((record) => record.kind === "excerpt"));
   assert.deepEqual(await chats.listMessages(resetChat.id), preservedResetSource);
+  const backlog = await chats.create({
+    name: "Initial history behind a recent-only scene checkpoint",
+    mode: "roleplay",
+    characterIds: [],
+    connectionId: connection!.id,
+  });
+  assert(backlog);
+  await memory.updateSettings(backlog.id, { enabled: true, maxContextTokens: 4096, summaryBudgetTokens: 512 });
+  await chats.createMessagesBatch(
+    backlog.id,
+    Array.from({ length: 120 }, (_, index) => ({
+      role: "user" as const,
+      content: `${[30, 75, 117].includes(index) ? "SCENE_CHANGE " : ""}Historical event ${index}. ${"The journey continued. ".repeat(20)}`,
+    })),
+  );
+  const backlogSource = await chats.listMessages(backlog.id);
+  const recentCheck = await memory.getSceneCheck(backlog.id);
+  assert(recentCheck);
+  await memory.commitSceneCheck(backlog.id, recentCheck, { starts: [{ messageId: backlogSource[117]!.id }] });
+  const beforeBackfill = requests.length;
+  const pauseBackfill = new AbortController();
+  await assert.rejects(
+    memory.initialize(backlog.id, {
+      signal: pauseBackfill.signal,
+      onProgress: (event) => {
+        if (event.stage === "classifying" && event.completed > 0) pauseBackfill.abort(new Error("pause backfill"));
+      },
+    }),
+  );
+  await memory.prepare({ chatId: backlog.id, messages: backlogSource, audienceCharacterIds: [], budgetTokens: 50000 });
+  const historicalCalls = requests.slice(beforeBackfill).filter((request) => request.kind === "classify");
+  assert(historicalCalls.length > 1, "initial history spans multiple provider context windows");
+  assert(backlogSource.every((message) => historicalCalls.some((request) => request.text.includes(message.id))));
+  assert.deepEqual(
+    (await memory.status(backlog.id)).records
+      .filter((record) => record.kind === "scene" && record.status === "closed")
+      .map((record) => [record.startIndex, record.endIndex]),
+    [
+      [1, 30],
+      [31, 75],
+      [76, 117],
+    ],
+    "recent-only closed scaffolds must not cause initial preparation to skip older scenes",
+  );
   console.info(
     "Advanced Memory core regression passed (800 messages, resume, scope, compaction, previews, corrections and races).",
   );

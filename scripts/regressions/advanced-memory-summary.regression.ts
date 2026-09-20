@@ -91,6 +91,8 @@ const { measureContextBudget } = await import("../../packages/server/src/service
 const require = createRequire(new URL("../../packages/server/package.json", import.meta.url));
 const app = require("fastify")();
 const db = await createFileNativeDB();
+const { advancedMemoryRecords } = await import("../../packages/server/src/db/schema/advanced-memory.ts");
+const { eq } = await import("../../packages/server/src/db/file-query.ts");
 const chats = createChatsStorage(db);
 const memory = createAdvancedMemoryService(db);
 const connections = createConnectionsStorage(db);
@@ -147,6 +149,8 @@ try {
   assert.equal(requests.at(-1)!.max_output_tokens, 256, "scene classification respects the connection cap");
   sceneNeedsReasoningBudget = false;
   const body = requests.find((item) => !item.instructions?.startsWith("Identify scene transitions"))!;
+  assert(body.instructions?.includes("self-contained historical recap"));
+  assert(body.instructions?.includes('Omit "current situation", "open tensions"'));
   assert(body.max_output_tokens! >= 2048, "short retained memory does not starve reasoning of completion tokens");
   assert(
     body.max_output_tokens! <= Math.floor(settings.maxContextTokens / 3),
@@ -163,6 +167,55 @@ try {
   assert(
     records.some((record) => record.kind === "excerpt" && record.content.includes("The frogs sang")),
     "only historical excerpts retain verbatim source text",
+  );
+  const sharedChat = await createChat("Two characters remember the same history");
+  await chats.update(sharedChat.id, { characterIds: ["maukie", "powers"] });
+  await chats.patchMetadata(sharedChat.id, {
+    groupChatMode: "individual",
+    advancedMemory: { ...settings, knowledgeStarts: { maukie: null, powers: null } },
+  });
+  const beforeShared = requests.length;
+  await memory.initialize(sharedChat.id);
+  const sharedScenes = (await memory.status(sharedChat.id)).records.filter(
+    (record) => record.kind === "scene" && record.status === "closed" && record.audienceCharacterIds.length,
+  );
+  assert.equal(sharedScenes.length, 1, "characters with identical sources share one scene record");
+  assert.deepEqual(sharedScenes[0]!.audienceCharacterIds, ["maukie", "powers"]);
+  assert.equal(
+    requests.slice(beforeShared).filter((item) => !item.instructions?.startsWith("Identify scene transitions")).length,
+    1,
+    "the common scene is summarized once, including the owner archive",
+  );
+  const sharedRow = (
+    await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, sharedScenes[0]!.id))
+  )[0]!;
+  for (const character of ["maukie", "powers"]) {
+    await db.insert(advancedMemoryRecords).values({
+      ...sharedRow,
+      id: `legacy-${character}`,
+      audienceCharacterIds: JSON.stringify([character]),
+      content: `An earlier separately generated recap for ${character}.`,
+    });
+  }
+  const beforeReuse = requests.length;
+  await memory.initialize(sharedChat.id);
+  assert.equal(requests.length, beforeReuse, "unchanged shared scenes need no further generation");
+  assert(!(await memory.status(sharedChat.id)).records.some((record) => record.id.startsWith("legacy-")));
+  await memory.updateRecord(sharedChat.id, sharedScenes[0]!.id, { content: "A shared manual correction." });
+  await memory.initialize(sharedChat.id);
+  assert.equal(
+    (await memory.status(sharedChat.id)).records.find((record) => record.id === sharedScenes[0]!.id)?.content,
+    "A shared manual correction.",
+  );
+  const sharedSource = await chats.listMessages(sharedChat.id);
+  await chats.updateMessageExtra(sharedSource[0]!.id, { hiddenFromAICharacterIds: ["maukie"] });
+  await memory.initialize(sharedChat.id);
+  const restrictedScenes = (await memory.status(sharedChat.id)).records.filter(
+    (record) => record.kind === "scene" && record.content && record.embeddingStatus !== "stale",
+  );
+  assert(
+    !restrictedScenes.some((record) => record.audienceCharacterIds.includes("maukie")),
+    "a previously shared scene cannot grant a character hidden history after its scope changes",
   );
   const repeated = await createChat("Repeated scene and continuity preparation");
   await chats.createMessagesBatch(

@@ -637,7 +637,7 @@ export function createAdvancedMemoryService(db: DB) {
     const resolved = await connection(ctx, false);
     if (!resolved.ok) throw new Error(resolved.error);
     const global = await appSettings.get(CHAT_SUMMARY_PROMPT_SETTINGS_KEY);
-    const prompt = resolveChatSummaryPrompt({ chatMetadata: ctx.metadata, globalSettingsValue: global });
+    const prompt = `${resolveChatSummaryPrompt({ chatMetadata: ctx.metadata, globalSettingsValue: global })}\n\nFor Advanced Memory, write a self-contained historical recap of the supplied events, not an appendable continuation. Omit "current situation", "open tensions", unresolved-thread lists, predictions, and next steps. Record what happened and its outcomes without treating past states as current.`;
     const combinePrompt = resolveChatSummaryCombinePrompt(global);
     const storedConnection = await connections.getById(resolved.connectionId);
     const modelLimit = resolveModelAccessPolicy({
@@ -1118,7 +1118,6 @@ export function createAdvancedMemoryService(db: DB) {
       const end = ctx.messages.findIndex((message) => message.id === record.endMessageId);
       if (index < 0 || end < index) continue;
       starts.add(index);
-      if (!prefixUnchanged && record.status === "closed" && index <= from) from = end + 1;
     }
     const classifiedIndex =
       typeof state.classifiedMessageId === "string"
@@ -1160,15 +1159,41 @@ export function createAdvancedMemoryService(db: DB) {
       signal: options.signal,
     };
     const audiences = ctx.individual ? [[], ...ctx.characterIds.map((id) => [id])] : [[]];
+    const retained = new Set<string>();
+    const summaryCache = new Map<string, string>();
     for (let index = 0; index < scenes.length; index++) {
       const scene = scenes[index]!;
       const fullSource = ctx.messages.slice(scene.start, scene.end + 1);
       const scaffold = buildRecord(ctx, scene, "scene", [], fullSource, "");
       await put(ctx, scaffold, options);
+      retained.add(scaffold.id);
+      const groups = new Map<string, { audience: string[]; source: AdvancedMemoryMessage[] }>();
       for (const audience of audiences) {
         const allowedIds = new Set(allowed(ctx, ctx.messages, audience).map((message) => message.id));
         const source = fullSource.filter((message) => allowedIds.has(message.id));
         if (!source.length) continue;
+        const sourceIds = new Set(source.map((message) => message.id));
+        // Equal history can share one character record. Keep distinct corrections,
+        // disabled choices and audience-dependent macros separate.
+        const key = hash([
+          audience.length ? "characters" : "owner",
+          source.map((message) => message.id),
+          sourceEntries(ctx, source, false).map((entry) => renderEntry(ctx, entry.content, audience)),
+          existing
+            .filter(
+              (record) =>
+                (record.manualOverride || !record.enabled) &&
+                audienceMatches(record, audience) &&
+                record.messageIds.every((id) => sourceIds.has(id)),
+            )
+            .map((record) => record.id),
+        ]);
+        const group = groups.get(key);
+        if (group) group.audience.push(...audience);
+        else groups.set(key, { audience: [...audience], source });
+      }
+      for (const { audience, source } of groups.values()) {
+        audience.sort();
         if (scene.closed) {
           const candidate = buildRecord(ctx, scene, "scene", audience, source, "pending");
           const previousRecord = existing.find((item) => sameIdentity(item, candidate));
@@ -1178,22 +1203,28 @@ export function createAdvancedMemoryService(db: DB) {
             previousRecord && (!previousRecord.enabled || recordValid(ctx, previousRecord))
               ? previousRecord
               : undefined;
+          const entries = sourceEntries(ctx, source, false).filter(
+            (entry) => entry.messageIds?.length || entry.rangeStartIndex,
+          );
+          const sourceIds = new Set(source.map((message) => message.id));
+          const corrections = existing.filter(
+            (item) =>
+              item.kind === "scene" &&
+              item.manualOverride &&
+              item.enabled &&
+              audienceMatches(item, audience) &&
+              recordValid(ctx, item) &&
+              dependenciesValid(item, existing, ctx) &&
+              item.messageIds.every((id) => sourceIds.has(id)),
+          );
+          const inputs = [
+            logMessages(ctx, source),
+            ...entries.map((entry) => `User-corrected summary:\n${renderEntry(ctx, entry.content, audience)}`),
+            ...corrections.map((item) => `User-corrected scene summary (honor its corrections):\n${item.content}`),
+          ];
+          const summaryKey = hash(inputs);
           if (!record) {
             await progress(ctx, { stage: "summarizing", completed: index, total: scenes.length }, options);
-            const entries = sourceEntries(ctx, source, false).filter(
-              (entry) => entry.messageIds?.length || entry.rangeStartIndex,
-            );
-            const sourceIds = new Set(source.map((message) => message.id));
-            const corrections = existing.filter(
-              (item) =>
-                item.kind === "scene" &&
-                item.manualOverride &&
-                item.enabled &&
-                audienceMatches(item, audience) &&
-                recordValid(ctx, item) &&
-                dependenciesValid(item, existing, ctx) &&
-                item.messageIds.every((id) => sourceIds.has(id)),
-            );
             candidate.dependencies = [
               ...entries.map((entry) => ({ id: `summary:${entry.id}`, revision: hash(entry) })),
               ...corrections.map((item) => ({
@@ -1204,20 +1235,14 @@ export function createAdvancedMemoryService(db: DB) {
                 ? [{ id: "macro-variables", revision: hash(normalizeChatMacroVariables(ctx.metadata.macroVariables)) }]
                 : []),
             ];
-            candidate.content = await summarize(
-              ctx,
-              [
-                logMessages(ctx, source),
-                ...entries.map((entry) => `User-corrected summary:\n${renderEntry(ctx, entry.content, audience)}`),
-                ...corrections.map((item) => `User-corrected scene summary (honor its corrections):\n${item.content}`),
-              ],
-              Math.min(1024, ctx.settings.summaryBudgetTokens),
-              options,
-              candidate,
-            );
+            candidate.content =
+              summaryCache.get(summaryKey) ??
+              (await summarize(ctx, inputs, Math.min(1024, ctx.settings.summaryBudgetTokens), options, candidate));
             await put(ctx, candidate, options);
             record = candidate;
           }
+          if (record.enabled && !record.manualOverride) summaryCache.set(summaryKey, record.content);
+          retained.add(record.id);
           await embedRecord(ctx, record, embeddingOptions, options);
         }
         await progress(ctx, { stage: "indexing", completed: index, total: scenes.length }, options);
@@ -1231,11 +1256,23 @@ export function createAdvancedMemoryService(db: DB) {
               ? previousRecord
               : candidate;
           if (record === candidate) await put(ctx, candidate, options);
+          retained.add(record.id);
           await embedRecord(ctx, record, embeddingOptions, options);
         }
       }
     }
     await validateSnapshot(ctx, ctx.messages, options);
+    // Replacement records are complete before removing superseded generated scopes/ranges.
+    // User corrections and explicit exclusions always remain available.
+    for (const record of await operationRecords(ctx)) {
+      if (
+        (record.kind === "scene" || record.kind === "excerpt") &&
+        record.enabled &&
+        !record.manualOverride &&
+        !retained.has(record.id)
+      )
+        await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, record.id));
+    }
     await chats.patchMetadata(
       chatId,
       (fresh) => ({
@@ -1249,6 +1286,13 @@ export function createAdvancedMemoryService(db: DB) {
           processedMessageId: ctx.messages.at(-1)?.id ?? null,
           sourceFingerprint: fingerprint(ctx, ctx.messages, []),
           activeSceneId: scenes.at(-1)?.id ?? null,
+          ...(options.detectScenes !== false
+            ? {
+                classifiedMessageId: ctx.messages.at(-1)?.id ?? null,
+                classifiedSourceFingerprint: fingerprint(ctx, ctx.messages, []),
+                historyClassified: true,
+              }
+            : {}),
           ...(options.detectScenes !== false || !Object.prototype.hasOwnProperty.call(state, "sceneCheckMessageId")
             ? {
                 sceneCheckMessageId: ctx.messages.at(-1)?.id ?? null,
@@ -1594,7 +1638,9 @@ export function createAdvancedMemoryService(db: DB) {
     );
   }
 
-  function audienceMatches(record: StoredRecord, audience: string[]) {
+  function audienceMatches(record: StoredRecord, audience: string[], exact = false) {
+    if (!exact && audience.length && (record.kind === "scene" || record.kind === "excerpt"))
+      return audience.every((id) => record.audienceCharacterIds.includes(id));
     return (
       record.audienceCharacterIds.length === audience.length &&
       record.audienceCharacterIds.every((id) => audience.includes(id))
@@ -1606,7 +1652,7 @@ export function createAdvancedMemoryService(db: DB) {
       left.kind === right.kind &&
       (left.kind !== "scene" || (left.id === left.sceneId) === (right.id === right.sceneId)) &&
       left.sceneId === right.sceneId &&
-      audienceMatches(left, right.audienceCharacterIds) &&
+      audienceMatches(left, right.audienceCharacterIds, true) &&
       left.messageIds.join("\0") === right.messageIds.join("\0")
     );
   }
@@ -2109,8 +2155,16 @@ export function createAdvancedMemoryService(db: DB) {
     if (activeOperations.get(input.chatId)?.resetting)
       throw new Error("Advanced Memory is being reset; prepare again when it finishes");
     const ctx = await context(input.chatId);
-    if (input.messages.at(-1)?.id === ctx.messages.at(-1)?.id)
-      await initialize(input.chatId, { ...input, blocking: true, detectScenes: false });
+    if (input.messages.at(-1)?.id === ctx.messages.at(-1)?.id) {
+      const state = object(ctx.metadata.advancedMemoryState);
+      const classifiedIndex = ctx.messages.findIndex((message) => message.id === state.classifiedMessageId);
+      const classified =
+        state.historyClassified === true &&
+        (classifiedIndex >= 0 || state.classifiedMessageId === null) &&
+        state.classifiedSourceFingerprint === fingerprint(ctx, ctx.messages.slice(0, classifiedIndex + 1), []);
+      // A recent-window tracker checkpoint is not proof that older history was ever classified.
+      await initialize(input.chatId, { ...input, blocking: true, detectScenes: !classified });
+    }
     let prepared!: PreparedAdvancedMemory;
     await runMemoryOperation(
       input.chatId,

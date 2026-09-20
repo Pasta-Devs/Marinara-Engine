@@ -249,11 +249,11 @@ try {
   await waitForSceneCheck(chat.id);
   assert.deepEqual(
     calls.slice(beforeCustom).map((call) => call.kind),
-    ["main", "tracker"],
-    "Authorized user-created trackers share the scene decision too",
+    ["scene", "main", "tracker"],
+    "changed knowledge settings reclassify history once, then authorized trackers share later scene decisions",
   );
   assert.ok(
-    !JSON.stringify(calls.slice(beforeCustom)).includes("HIDDEN_SCENE_SECRET"),
+    !JSON.stringify(calls.slice(beforeCustom).filter((call) => call.kind !== "scene")).includes("HIDDEN_SCENE_SECRET"),
     "The shared tracker request cannot receive the responding character's hidden history through the scene helper",
   );
 
