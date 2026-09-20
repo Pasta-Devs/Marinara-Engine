@@ -633,8 +633,6 @@ import { agentResultMatchesVisibleSwipe } from "../lib/agent-result-ownership";
 import { isDiceRollResult } from "../lib/dice-roll-result";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameStateStore } from "../stores/game-state.store";
-import { useTranslationStore } from "../stores/translation.store";
-import { getChatTranslationConfig, translateMessage } from "./use-translate";
 import { useUIStore } from "../stores/ui.store";
 import {
   applyRecentMessageContentEditsToData,
@@ -656,7 +654,6 @@ import {
   resolveGameExperiencePackageId,
 } from "../lib/capability-client-events";
 import { messageHasPendingPostProcessing, parseMessageExtraRecord } from "../lib/chat-message-extra";
-import { stripGmTagsKeepReadables } from "../lib/game-tag-parser";
 import type { APIConnection, Chat, GameMap, Message } from "@marinara-engine/shared";
 
 function sortMessagesByCreatedAt(messages: Message[]): Message[] {
@@ -1285,10 +1282,10 @@ export function useGenerate() {
       // buffer, etc.) so that a background chat's events don't corrupt the active view.
       const isActiveChat = () => useChatStore.getState().activeChatId === params.chatId;
       const isGameGeneration = getCachedChatMode(qc, params.chatId) === "game";
-      let outputTranslationConfig: ReturnType<typeof getChatTranslationConfig> | null = null;
+      let waitForOutputTranslation = false;
       const completionNotifications: Array<() => void> = [];
       const notifyWhenReady = (notify: () => void) => {
-        if (outputTranslationConfig) completionNotifications.push(notify);
+        if (waitForOutputTranslation) completionNotifications.push(notify);
         else notify();
       };
       const shouldRefreshGameState = shouldRefreshGameStateAfterGeneration(qc, params.chatId);
@@ -1835,9 +1832,7 @@ export function useGenerate() {
         // Capture settled settings before the stream can outlive this chat's mounted view/cache.
         const translationChat = getCachedChatForGeneration(qc, params.chatId);
         const translationMeta = parseChatMetadata(translationChat?.metadata);
-        outputTranslationConfig = translationMeta.autoTranslate
-          ? getChatTranslationConfig(params.chatId, translationMeta)
-          : null;
+        waitForOutputTranslation = translationMeta.autoTranslate === true;
         const currentBackground = getActiveChatBackgroundForGeneration(params.chatId);
 
         for await (const event of api.streamEvents(
@@ -3561,39 +3556,14 @@ export function useGenerate() {
         }
         window.dispatchEvent(new CustomEvent("marinara:generation-complete", { detail: { chatId: params.chatId } }));
 
-        // Translation includes saving the result; notify only once that work settles.
-        const translations: Promise<void>[] = [];
-        if (receivedContent) {
+        // The server saves automatic translations before completing generation, even without a tab.
+        for (const notify of completionNotifications) {
           try {
-            if (outputTranslationConfig) {
-              const store = useTranslationStore.getState();
-              for (const [id, msg] of persistedMessages) {
-                const textToTranslate = isGameGeneration
-                  ? stripGmTagsKeepReadables(msg.content ?? "").trim()
-                  : (msg.content ?? "");
-                if (
-                  msg.role === "assistant" &&
-                  textToTranslate &&
-                  (!store.translations[id] || store.translationSources[id] !== textToTranslate) &&
-                  !store.hiddenTranslationIds[id]
-                ) {
-                  translations.push(translateMessage(qc, id, textToTranslate, outputTranslationConfig, params.chatId));
-                }
-              }
-            }
-          } catch {
-            /* non-critical — don't block generation cleanup */
+            notify();
+          } catch (error) {
+            console.warn("[Generation] Completion notification failed:", error);
           }
         }
-        void Promise.allSettled(translations).then(() => {
-          for (const notify of completionNotifications) {
-            try {
-              notify();
-            } catch (error) {
-              console.warn("[Generation] Completion notification failed:", error);
-            }
-          }
-        });
       }
       if (receivedContent || passiveStreamRecovered || spatialTransitionCommitted) return true;
       return await confirmDurableSubmittedUserTurn();

@@ -86,11 +86,11 @@ for (const kind of ["chat", "character", "persona"] as const) {
         return parent;
       });
       const scrollTop = () => scroller.evaluate((element) => element.scrollTop);
-      const startScroll = await scrollTop();
+      let startScroll = await scrollTop();
       const handle = source.getByTitle(kind === "chat" ? "Drag chat" : `Drag ${kind}`, { exact: true });
       const box = await handle.boundingBox();
       expect(box).not.toBeNull();
-      const primary: Finger = { identifier: 11, clientX: box!.x + box!.width / 2, clientY: box!.y + box!.height / 2 };
+      let primary: Finger = { identifier: 11, clientX: box!.x + box!.width / 2, clientY: box!.y + box!.height / 2 };
       const preview = page.locator(
         `body > [${kind === "chat" ? "data-chat-id" : "data-touch-drag-card"}][aria-hidden="true"]`,
       );
@@ -153,15 +153,26 @@ for (const kind of ["chat", "character", "persona"] as const) {
         await expect.poll(scrollTop).toBe(0);
         await touch(panel, "touchend", [primary], [secondary]);
       } else {
-        await source.evaluate((element) =>
-          element.addEventListener("dragstart", () => element.setAttribute("data-proof-dragging", "true"), {
-            once: true,
-          }),
-        );
+        // Escape removes the preview and cancels without moving the row or opening its editor.
+        const originalDraggable = await source.getAttribute("draggable");
         await page.mouse.move(primary.clientX, primary.clientY);
         await page.mouse.down();
         await page.mouse.move(primary.clientX + 50, primary.clientY, { steps: 8 });
-        await expect(source).toHaveAttribute("data-proof-dragging", "true");
+        await expect(preview).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(preview).toHaveCount(0);
+        await page.mouse.up();
+        await expect(source).toHaveAttribute("draggable", originalDraggable!);
+        // Canceling removes the root drop zone, so scroll anchoring may move this row.
+        const restart = await handle.boundingBox();
+        expect(restart).not.toBeNull();
+        primary = { ...primary, clientX: restart!.x + restart!.width / 2, clientY: restart!.y + restart!.height / 2 };
+        startScroll = await scrollTop();
+        await page.mouse.move(primary.clientX, primary.clientY);
+        await page.mouse.down();
+        await page.mouse.move(primary.clientX + 50, primary.clientY, { steps: 8 });
+        await expect(preview).toBeVisible();
+        await expect(preview).toContainText(item.name);
         await page.mouse.wheel(0, 250);
         await expect.poll(scrollTop).toBeGreaterThan(startScroll + 100);
         await page.mouse.wheel(0, -5000);
@@ -180,6 +191,7 @@ for (const kind of ["chat", "character", "persona"] as const) {
         await page.mouse.move(finalFinger.clientX, finalFinger.clientY, { steps: 8 });
         await page.screenshot({ path: testInfo.outputPath(`${kind}-drag-scroll.png`) });
         await page.mouse.up();
+        await expect(preview).toHaveCount(0);
       }
       await expect
         .poll(async () => {

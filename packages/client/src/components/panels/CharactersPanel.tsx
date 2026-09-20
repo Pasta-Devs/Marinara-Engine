@@ -633,7 +633,7 @@ export function CharactersPanel() {
     }
   }, []);
 
-  const { startTouchDrag: startCharacterTouchDrag } = useTouchFolderDrag({
+  const { startTouchDrag: startCharacterTouchDrag, startMouseDrag: startCharacterMouseDrag } = useTouchFolderDrag({
     onActivate: (characterId) => {
       suppressCharacterClickRef.current = true;
       setDraggedCharacterId(characterId);
@@ -1113,6 +1113,22 @@ export function CharactersPanel() {
                     <div
                       key={memberId}
                       data-touch-drag-card="character"
+                      onMouseDown={(event) => {
+                        const ids = getDraggedCharacterIds(memberId);
+                        startCharacterMouseDrag(event, memberId, {
+                          chatResourcePayload: {
+                            version: 1,
+                            kind: "character",
+                            ids,
+                            label:
+                              ids.length === 1
+                                ? memberName
+                                : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", {
+                                    count: ids.length,
+                                  }),
+                          },
+                        });
+                      }}
                       onClick={() => {
                         if (suppressCharacterClickRef.current) return;
                         if (selectionMode) {
@@ -1464,6 +1480,22 @@ export function CharactersPanel() {
               key={char.id}
               data-character-id={char.id}
               data-touch-drag-card="character"
+              onMouseDown={(event) => {
+                const ids = getDraggedCharacterIds(char.id);
+                startCharacterMouseDrag(event, char.id, {
+                  chatResourcePayload: {
+                    version: 1,
+                    kind: "character",
+                    ids,
+                    label:
+                      ids.length === 1
+                        ? charName
+                        : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", {
+                            count: ids.length,
+                          }),
+                  },
+                });
+              }}
               onClick={() => {
                 if (suppressCharacterClickRef.current) return;
                 if (selectionMode) {

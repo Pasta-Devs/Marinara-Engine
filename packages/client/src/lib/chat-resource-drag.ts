@@ -23,6 +23,7 @@ export type ChatResourceDragPayload = {
 };
 
 let activeChatResourceDrag: ChatResourceDragPayload | null = null;
+let mouseDrag = false;
 let pendingChatAgentSetup: { chatId: string; ids: string[] } | null = null;
 
 /**
@@ -69,6 +70,15 @@ export function beginChatResourceTouchDrag(payload: ChatResourceDragPayload, tou
   activeChatResourceTouchDrag = payload;
   activeTouchIdentifier = touchIdentifier;
   touchDragListeners.forEach((listener) => listener());
+}
+
+export function beginChatResourceMouseDrag(payload: ChatResourceDragPayload) {
+  activeChatResourceDrag = payload;
+  mouseDrag = true;
+}
+
+export function getActiveChatResourceMouseDrag() {
+  return mouseDrag ? activeChatResourceDrag : null;
 }
 
 export function parseChatResourceDragPayload(value: unknown): ChatResourceDragPayload | null {
@@ -122,6 +132,7 @@ export function getActiveChatResourceDrag() {
 
 export function clearActiveChatResourceDrag() {
   activeChatResourceDrag = null;
+  mouseDrag = false;
   activeTouchIdentifier = null;
   if (activeChatResourceTouchDrag) {
     activeChatResourceTouchDrag = null;

@@ -213,6 +213,23 @@ async function getChatCharacterIds(request: APIRequestContext, chatId: string): 
 }
 
 async function dragChatResource(page: Page, source: Locator, target: Locator) {
+  const kind = await source.getAttribute("data-touch-drag-card");
+  if (kind === "character" || kind === "persona") {
+    const handle = source.getByTitle(`Drag ${kind}`, { exact: true });
+    const start = await handle.boundingBox();
+    const end = await target.boundingBox();
+    expect(start).not.toBeNull();
+    expect(end).not.toBeNull();
+    await page.mouse.move(start!.x + start!.width / 2, start!.y + start!.height / 2);
+    await page.mouse.down();
+    try {
+      await page.mouse.move(end!.x + end!.width / 2, end!.y + end!.height / 2, { steps: 8 });
+      await expect(page.locator(".mari-chat-drop-zone")).toBeVisible();
+    } finally {
+      await page.mouse.up();
+    }
+    return;
+  }
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
   try {
     await source.dispatchEvent("dragstart", { dataTransfer });

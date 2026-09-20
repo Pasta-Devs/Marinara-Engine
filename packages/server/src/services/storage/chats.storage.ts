@@ -2392,7 +2392,12 @@ export function createChatsStorage(db: DB) {
     },
 
     /** Merge partial data into a specific swipe and mirror it to the message only if that swipe is active. */
-    async updateMessageExtraForSwipe(id: string, swipeIndex: number, partial: Record<string, unknown>) {
+    async updateMessageExtraForSwipe(
+      id: string,
+      swipeIndex: number,
+      partial: Record<string, unknown>,
+      expectedContent?: string,
+    ) {
       return withPatchQueue(messageExtraPatchQueues, id, async () => {
         const msg = await this.getMessage(id);
         if (!msg) return null;
@@ -2401,6 +2406,12 @@ export function createChatsStorage(db: DB) {
         if (!targetSwipe) return null;
 
         const swipeExtra = parseExtraRecord(targetSwipe.extra);
+        // A delayed automatic translation must not replace an edit or a translation the user hid.
+        if (
+          expectedContent !== undefined &&
+          (targetSwipe.content !== expectedContent || swipeExtra.translationHidden === true)
+        )
+          return null;
         await db
           .update(messageSwipes)
           .set({ extra: JSON.stringify({ ...swipeExtra, ...partial }) })

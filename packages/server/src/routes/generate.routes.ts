@@ -13,11 +13,13 @@ import { registerParameterPreviewRoute } from "./generate/parameter-preview-rout
 // Routes: Generation (SSE Streaming with Tool Use + Agent Pipeline)
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
+import { translateGeneratedMessage } from "../services/translation.service.js";
 import { randomUUID } from "crypto";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import {
   generateRequestSchema,
+  getChatTranslationConfig,
   normalizeAdvancedMemorySettings,
   type AdvancedMemoryReceipt,
   BUILT_IN_AGENTS,
@@ -2281,6 +2283,9 @@ export async function generateRoutes(app: FastifyInstance) {
       let lastSavedSwipeIndex: number | null = null;
       let pendingIllustration: Promise<void> | null = null;
       const pendingRoleplayMedia: Promise<void>[] = [];
+      const translationMessages = new Map<string, number>();
+      const outputTranslationConfig =
+        chatMeta.autoTranslate === true ? getChatTranslationConfig(input.chatId, chatMeta) : null;
       let pendingIllustratorBackground: (() => Promise<void>) | null = null;
       const collectedCommands: Array<{
         command: CharacterCommand;
@@ -8662,6 +8667,9 @@ export async function generateRoutes(app: FastifyInstance) {
             savedSwipeIndex = 0;
           }
           // Empty messageId on the paths that save no message; that costs the claim, never the effect.
+          if (savedMsg?.id && savedSwipeIndex !== null && outputTranslationConfig && !input.impersonate) {
+            translationMessages.set(savedMsg.id, savedSwipeIndex);
+          }
           await executeCollectedGmVerbCalls({ messageId: savedMsg?.id ?? "", swipeIndex: savedSwipeIndex ?? 0 });
           await persistGameStateToolCalls(savedMsg?.id ?? "", savedSwipeIndex ?? 0);
 
@@ -12384,6 +12392,30 @@ export async function generateRoutes(app: FastifyInstance) {
           logger.warn(turnGameErr, "[turn-game] Failed to resume pending bot turns after Conversation reply");
         }
         if (abortController.signal.aborted) return;
+      }
+
+      // Rewriting agents and command execution have finished; translate each final saved swipe.
+      // This work belongs to the server and survives a passive browser disconnect.
+      if (outputTranslationConfig) {
+        for (const [messageId, swipeIndex] of translationMessages) {
+          try {
+            const translated = await translateGeneratedMessage(
+              app.db,
+              {
+                chatId: input.chatId,
+                messageId,
+                swipeIndex,
+                mode: chatMode,
+                config: outputTranslationConfig,
+                debugMode: requestDebug,
+              },
+              onFallback,
+            );
+            if (translated) sendSseEvent(reply, { type: "message_saved", data: translated });
+          } catch (error) {
+            logger.warn(error, "[translate] Automatic translation failed for message %s", messageId);
+          }
+        }
       }
 
       // Signal completion before the slow illustration tail. The client keeps

@@ -1,17 +1,8 @@
 import { create } from "zustand";
 
 // ── Translation config (set from chat metadata) ──
-export interface TranslationConfig {
-  chatId?: string;
-  provider: "ai" | "deeplx" | "deepl" | "google";
-  inputTargetLanguage: string;
-  outputTargetLanguage: string;
-  connectionId?: string;
-  inputSystemPrompt?: string;
-  outputSystemPrompt?: string;
-  deeplApiKey?: string;
-  deeplxUrl?: string;
-}
+export type { TranslationConfig } from "@marinara-engine/shared";
+import type { TranslationConfig } from "@marinara-engine/shared";
 
 // ── Zustand store for translation cache ──
 interface TranslationStore {

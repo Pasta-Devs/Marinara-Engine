@@ -7,47 +7,11 @@ import type { Message } from "@marinara-engine/shared";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
 import { parseMessageExtraRecord } from "../lib/chat-message-extra";
-import { parseChatMetadata } from "../lib/chat-display";
 import { useTranslationStore, type TranslationConfig } from "../stores/translation.store";
 import { chatKeys, replaceCachedMessage } from "./use-chats";
 
 const translationPersistenceQueues = new Map<string, Promise<void>>();
 const pendingTranslations = new Map<string, { text: string; request: Promise<void> }>();
-
-export function getChatTranslationConfig(chatId: string, metadata: unknown): TranslationConfig {
-  const chatMeta = parseChatMetadata(metadata);
-  const legacyTargetLanguage =
-    (typeof chatMeta.translationTargetLang === "string" ? chatMeta.translationTargetLang.trim() : "") || "en";
-  const legacySystemPrompt = typeof chatMeta.translationPrompt === "string" ? chatMeta.translationPrompt : undefined;
-  const inputSystemPrompt =
-    chatMeta.translationInputPrompt === undefined
-      ? legacySystemPrompt
-      : typeof chatMeta.translationInputPrompt === "string"
-        ? chatMeta.translationInputPrompt
-        : undefined;
-  const outputSystemPrompt =
-    chatMeta.translationOutputPrompt === undefined
-      ? legacySystemPrompt
-      : typeof chatMeta.translationOutputPrompt === "string"
-        ? chatMeta.translationOutputPrompt
-        : undefined;
-  return {
-    chatId,
-    provider: chatMeta.translationProvider ?? "google",
-    // Cleared fields retain the legacy/default language.
-    inputTargetLanguage:
-      (typeof chatMeta.translationInputTargetLang === "string" ? chatMeta.translationInputTargetLang.trim() : "") ||
-      legacyTargetLanguage,
-    outputTargetLanguage:
-      (typeof chatMeta.translationOutputTargetLang === "string" ? chatMeta.translationOutputTargetLang.trim() : "") ||
-      legacyTargetLanguage,
-    connectionId: chatMeta.translationConnectionId,
-    inputSystemPrompt,
-    outputSystemPrompt,
-    deeplApiKey: chatMeta.translationDeeplApiKey,
-    deeplxUrl: chatMeta.translationDeeplxUrl,
-  };
-}
 
 function enqueueTranslationPersistence(
   queryClient: QueryClient,

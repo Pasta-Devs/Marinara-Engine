@@ -46,3 +46,50 @@ export function normalizeTranslatorSettings(value: unknown): Record<string, unkn
   }
   return settings;
 }
+
+export interface TranslationConfig {
+  chatId?: string;
+  provider: "ai" | "deeplx" | "deepl" | "google";
+  inputTargetLanguage: string;
+  outputTargetLanguage: string;
+  connectionId?: string;
+  inputSystemPrompt?: string;
+  outputSystemPrompt?: string;
+  deeplApiKey?: string;
+  deeplxUrl?: string;
+}
+
+export function getChatTranslationConfig(chatId: string, metadata: unknown): TranslationConfig {
+  const chatMeta = normalizeTranslatorSettings(metadata);
+  const legacyTargetLanguage =
+    (typeof chatMeta.translationTargetLang === "string" ? chatMeta.translationTargetLang.trim() : "") || "en";
+  const legacySystemPrompt = typeof chatMeta.translationPrompt === "string" ? chatMeta.translationPrompt : undefined;
+  const inputSystemPrompt =
+    chatMeta.translationInputPrompt === undefined
+      ? legacySystemPrompt
+      : typeof chatMeta.translationInputPrompt === "string"
+        ? chatMeta.translationInputPrompt
+        : undefined;
+  const outputSystemPrompt =
+    chatMeta.translationOutputPrompt === undefined
+      ? legacySystemPrompt
+      : typeof chatMeta.translationOutputPrompt === "string"
+        ? chatMeta.translationOutputPrompt
+        : undefined;
+  return {
+    chatId,
+    provider: (chatMeta.translationProvider as TranslationConfig["provider"] | undefined) ?? "google",
+    // Cleared fields retain the legacy/default language.
+    inputTargetLanguage:
+      (typeof chatMeta.translationInputTargetLang === "string" ? chatMeta.translationInputTargetLang.trim() : "") ||
+      legacyTargetLanguage,
+    outputTargetLanguage:
+      (typeof chatMeta.translationOutputTargetLang === "string" ? chatMeta.translationOutputTargetLang.trim() : "") ||
+      legacyTargetLanguage,
+    connectionId: chatMeta.translationConnectionId as string | undefined,
+    inputSystemPrompt,
+    outputSystemPrompt,
+    deeplApiKey: chatMeta.translationDeeplApiKey as string | undefined,
+    deeplxUrl: chatMeta.translationDeeplxUrl as string | undefined,
+  };
+}

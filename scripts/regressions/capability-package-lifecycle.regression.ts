@@ -1918,7 +1918,9 @@ try {
   assert.equal(getCapabilityService("readiness:success"), null, "Runtime stop must remove ready contributions");
   const runtimeSnapshotsRoot = join(dataDir, "capability-runtime-snapshots");
   assert.equal(
-    existsSync(runtimeSnapshotsRoot) ? readdirSync(runtimeSnapshotsRoot).length : 0,
+    existsSync(runtimeSnapshotsRoot)
+      ? readdirSync(runtimeSnapshotsRoot).filter((entry) => entry !== "node_modules").length
+      : 0,
     0,
     "runtime snapshots are retained during activation and removed at stop",
   );
