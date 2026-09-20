@@ -1218,7 +1218,7 @@ export function AgentEditor() {
 
   const allConnections =
     (connections as
-      | Array<{ id: string; name: string; provider: string; defaultForAgents?: boolean | string }>
+      | Array<{ id: string; name: string; provider: string; model?: string; defaultForAgents?: boolean | string }>
       | undefined) ?? [];
 
   /**
@@ -2448,7 +2448,7 @@ export function AgentEditor() {
                 )}
               {llmConnections.map((conn) => (
                 <option key={conn.id} value={conn.id}>
-                  {conn.name} ({conn.provider})
+                  {conn.name} ({conn.model || conn.provider})
                 </option>
               ))}
             </select>

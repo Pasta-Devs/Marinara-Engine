@@ -17,6 +17,7 @@ import {
   Download,
   Check,
   FolderPlus,
+  Loader2,
   ArrowUpDown,
   ShieldCheck,
   TriangleAlert,
@@ -30,9 +31,14 @@ import {
   useDeleteAgent,
   useAgentImportPolicy,
   useImportAgent,
+  useUpdateAgent,
+  useUpdateAgentByType,
   useUploadAgentImage,
   type AgentConfigRow,
 } from "../../hooks/use-agents";
+import { useConnections } from "../../hooks/use-connections";
+import { appendLocalSidecarConnectionOption, type ConnectionProviderLike } from "../../lib/connection-filters";
+import { useSidecarStore } from "../../stores/sidecar.store";
 import {
   useCapabilityAgentRegistry,
   useCapabilityCatalog,
@@ -90,6 +96,7 @@ import {
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { AgentArtwork } from "../agents/AgentArtwork";
+import { AgentRoutingModal } from "../agents/AgentRoutingModal";
 import { AgentModeFilter, type AgentModeFilterValue } from "../agents/AgentModeFilter";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -99,6 +106,7 @@ import { RulesetImportReviewModal } from "../agents/RulesetImportReviewModal";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { ApiError } from "../../lib/api-client";
+import { settleAgentConnectionAssignments } from "../../lib/agent-routing-bulk";
 
 type JsonRecord = Record<string, unknown>;
 type NormalizedAgentImport = NonNullable<ReturnType<typeof normalizeAgentImportEntry>>;
@@ -240,6 +248,14 @@ export function AgentsPanel() {
   const importAgent = useImportAgent();
   const importRuleset = useImportRuleset();
   const removeRuleset = useRemoveRuleset();
+  const updateAgent = useUpdateAgent();
+  const updateAgentByType = useUpdateAgentByType();
+  const { data: connectionsList } = useConnections();
+  const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
+  const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
+  const [bulkConnectionId, setBulkConnectionId] = useState("");
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [routingOpen, setRoutingOpen] = useState(false);
   const { data: agentImportPolicy, isLoading: agentImportPolicyLoading } = useAgentImportPolicy();
   const deleteAgent = useDeleteAgent();
   const uninstallCapabilityPackage = useUninstallCapabilityPackage();
@@ -357,6 +373,63 @@ export function AgentsPanel() {
     () => availableBuiltInAgents.filter((agent) => !deletedBuiltInTypes.has(agent.id)),
     [availableBuiltInAgents, deletedBuiltInTypes],
   );
+  const bulkConnectionOptions = useMemo(
+    () =>
+      appendLocalSidecarConnectionOption(
+        (connectionsList ?? []) as ConnectionProviderLike[],
+        import.meta.env.VITE_MARINARA_LITE !== "true" && sidecarModelDownloaded,
+        sidecarModelDisplayName,
+      ),
+    [connectionsList, sidecarModelDownloaded, sidecarModelDisplayName],
+  );
+  const customAgentConfigs = useMemo(
+    () => visibleAgentConfigs.filter((config) => !builtInAgentIds.has(config.type)),
+    [visibleAgentConfigs, builtInAgentIds],
+  );
+  const bulkAssignTargetCount = visibleBuiltInAgents.length + customAgentConfigs.length;
+  const handleBulkAssignConnection = async () => {
+    if (bulkAssigning || bulkAssignTargetCount === 0) return;
+    const nextConnectionId = bulkConnectionId || null;
+    const optionName = bulkConnectionId
+      ? (bulkConnectionOptions.find((option) => option.id === bulkConnectionId)?.name ?? bulkConnectionId)
+      : localizeUi("ui.panels.agentspanel.bulkConnectionAgentDefault");
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.panels.agentspanel.bulkConnectionApply"),
+      message: localizeUi("ui.panels.agentspanel.bulkConnectionConfirm", {
+        value1: String(bulkAssignTargetCount),
+        value2: optionName,
+      }),
+    });
+    if (!confirmed) return;
+    setBulkAssigning(true);
+    try {
+      const assignments = [
+        ...visibleBuiltInAgents.map((agent) => ({
+          name: agent.name,
+          apply: () => updateAgentByType.mutateAsync({ agentType: agent.id, connectionId: nextConnectionId }),
+        })),
+        ...customAgentConfigs.map((config) => ({
+          name: config.name,
+          apply: () => updateAgent.mutateAsync({ id: config.id, connectionId: nextConnectionId }),
+        })),
+      ];
+      const { failedNames } = await settleAgentConnectionAssignments(assignments);
+      if (failedNames.length) {
+        toast.error(localizeUi("agentRouting.saveFailed", { names: failedNames.join(", ") }));
+      } else {
+        toast.success(
+          localizeUi("ui.panels.agentspanel.bulkConnectionDone", {
+            value1: String(bulkAssignTargetCount),
+            value2: optionName,
+          }),
+        );
+      }
+    } catch {
+      toast.error(localizeUi("ui.panels.agentspanel.bulkConnectionFailed"));
+    } finally {
+      setBulkAssigning(false);
+    }
+  };
   // Custom agents = DB entries whose type doesn't match any built-in
   const customAgents = useMemo(
     () =>
@@ -1257,6 +1330,59 @@ export function AgentsPanel() {
           title={localizeUi("ui.panels.agentspanel.selectAgents")}
         >
           <Check size="0.8125rem" />
+        </button>
+      </div>
+
+      <button type="button" className="mari-chrome-control w-full text-xs" onClick={() => setRoutingOpen(true)}>
+        {localizeUi("agentRouting.title")}
+      </button>
+      {routingOpen && (
+        <AgentRoutingModal
+          onClose={() => setRoutingOpen(false)}
+          rows={[
+            ...visibleBuiltInAgents.map((agent) => {
+              const config = visibleAgentConfigs.find((row) => row.type === agent.id);
+              return {
+                id: config?.id ?? agent.id,
+                type: agent.id,
+                name: config?.name ?? agent.name,
+                description: config?.description ?? agent.description,
+                connectionId: config?.connectionId ?? null,
+                builtin: true,
+              };
+            }),
+            ...customAgentConfigs.map((config) => ({ ...config, builtin: false })),
+          ]}
+        />
+      )}
+
+      <div className="flex items-center gap-2">
+        <select
+          value={bulkConnectionId}
+          onChange={(event) => setBulkConnectionId(event.target.value)}
+          disabled={bulkAssigning || bulkAssignTargetCount === 0}
+          className="mari-chrome-field h-8 min-w-0 flex-1 px-2 py-0 text-[0.6875rem]"
+          aria-label={localizeUi("ui.panels.agentspanel.bulkConnectionLabel")}
+        >
+          <option value="">{localizeUi("ui.panels.agentspanel.bulkConnectionAgentDefault")}</option>
+          {bulkConnectionOptions.map((connection) => (
+            <option key={connection.id ?? ""} value={connection.id ?? ""}>
+              {connection.name} · {connection.model || localizeUi("agentRouting.automaticModel")}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => void handleBulkAssignConnection()}
+          disabled={bulkAssigning || bulkAssignTargetCount === 0}
+          className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 shrink-0 px-2 text-[0.6875rem]"
+          title={localizeUi("ui.panels.agentspanel.bulkConnectionLabel")}
+        >
+          {bulkAssigning ? (
+            <Loader2 size="0.75rem" className="animate-spin" />
+          ) : (
+            localizeUi("ui.panels.agentspanel.bulkConnectionApply")
+          )}
         </button>
       </div>
 
