@@ -33,7 +33,15 @@ export type RoleplayCommand =
   | { type: "document"; documentType: string; title: string; content: string }
   | { type: "sound"; description: string }
   | { type: "music"; mood: string }
-  | { type: "roll"; notation: string; reason: string; character?: string; attribute?: string }
+  | {
+      type: "roll";
+      notation: string;
+      reason: string;
+      character?: string;
+      attribute?: string;
+      modifier?: number;
+      dc?: number;
+    }
   | { type: "combat" }
   | { type: "dm"; character: string; message: string }
   | { type: "interrupt"; part: string };

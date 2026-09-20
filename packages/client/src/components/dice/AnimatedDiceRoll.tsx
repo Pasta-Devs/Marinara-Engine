@@ -58,6 +58,7 @@ export function AnimatedDiceRoll({
   rolls,
   modifier,
   total,
+  dc,
   accentColor,
   mode = "chat",
   animate = false,
@@ -136,7 +137,15 @@ export function AnimatedDiceRoll({
         <span className="dice-roll-header-mark" aria-hidden="true">
           ✦
         </span>
-        <span>{notation}</span>
+        <span>
+          {notation}
+          {dc !== undefined && (
+            <>
+              {" "}
+              · {localizeUi("ui.dice.animatedskillcheckresult.dc")} {dc}
+            </>
+          )}
+        </span>
       </div>
 
       <div

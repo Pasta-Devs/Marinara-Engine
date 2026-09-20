@@ -401,6 +401,8 @@ export interface DiceRollResult {
   modifier: number;
   /** Final total */
   total: number;
+  /** Optional difficulty class declared before the roll. */
+  dc?: number;
 }
 
 /** Result of a skill check resolution. */

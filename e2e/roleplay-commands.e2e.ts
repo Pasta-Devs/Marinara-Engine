@@ -1106,11 +1106,11 @@ test("Roleplay sound commands reuse cached audio and play the attachment URL", a
   }
 });
 
-for (const [native, targetKind] of [
-  [true, "character"],
-  [false, "character"],
-  [true, "persona"],
-  [false, "persona-character"],
+for (const [native, targetKind, modifier, dc] of [
+  [true, "character", undefined, undefined],
+  [false, "character", undefined, undefined],
+  [true, "persona", 2, 7],
+  [false, "persona-character", -6, 10],
 ] as const) {
   test(`Roleplay resolves a ${native ? "native" : "textual"} roll for ${targetKind} before continuing the streamed reply`, async ({
     page,
@@ -1124,6 +1124,8 @@ for (const [native, targetKind] of [
     let firstStreamClosed = false;
     let firstRequestTools: string[] = [];
     let rollTargets: string[] = [];
+    let rollProperties: Record<string, any> = {};
+    let resolved: Record<string, any> = {};
     let resultMessageFound = false;
     let followupPrompt = "";
     const roller = targetKind === "character" ? "Alice" : "Narrator";
@@ -1143,7 +1145,8 @@ for (const [native, targetKind] of [
         response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason: finishReason }] })}\n\n`);
       if (requestCount === 1) {
         firstRequestTools = (body.tools ?? []).map((tool: any) => tool.function?.name);
-        rollTargets = body.tools?.[0]?.function?.parameters?.properties?.character?.enum ?? [];
+        rollProperties = body.tools?.[0]?.function?.parameters?.properties ?? {};
+        rollTargets = rollProperties.character?.enum ?? [];
         write({ content: prefix });
         if (native) {
           write(
@@ -1155,7 +1158,13 @@ for (const [native, targetKind] of [
                   type: "function",
                   function: {
                     name: "roll_dice",
-                    arguments: JSON.stringify({ notation: "1d6+3", character: target, attribute: "Strength" }),
+                    arguments: JSON.stringify({
+                      notation: "1d6+3",
+                      character: target,
+                      attribute: "Strength",
+                      modifier,
+                      dc,
+                    }),
                   },
                 },
               ],
@@ -1171,7 +1180,7 @@ for (const [native, targetKind] of [
           });
           write({ content: " [ro" });
           write({
-            content: `ll: character="${target}" notation="1d6+3" attribute="Strength" reason="Need four"] INVENTED_OUTCOME`,
+            content: `ll: character="${target}" notation="1d6+3" attribute="Strength" reason="Try the lock"${modifier !== undefined ? ` modifier="${modifier}" dc="${dc}"` : ""}] INVENTED_OUTCOME`,
           });
         }
       } else {
@@ -1188,13 +1197,14 @@ for (const [native, targetKind] of [
           const result = native
             ? JSON.parse(resultMessage?.content ?? "{}")
             : JSON.parse(resultMessage?.content?.split("\n")[1] ?? "{}");
+          resolved = result;
           total = result.total ?? 0;
         } catch {
           total = 0; // Assert malformed results in the test body so its cleanup can finish the response.
         }
         response.flushHeaders();
         finishFollowup = () => {
-          write({ content: ` The engine rolled ${total}; the lock opens.${suffix}` }, "stop");
+          write({ content: ` The engine rolled ${total}; the attempt is resolved.${suffix}` }, "stop");
           response.end("data: [DONE]\n\n");
         };
       }
@@ -1229,16 +1239,20 @@ for (const [native, targetKind] of [
         data: { roleplayCommandsEnabled: true, roleplayCommandToggles: { roll: true } },
       });
       expect(metadataResponse.ok(), await metadataResponse.text()).toBeTruthy();
-      await openChat(page, fixture.chat.id);
+      await openChat(page, fixture.chat.id, { theme: native ? "dark" : "light" });
       await page.locator("textarea[data-chat-composer]").fill("Try the lock.");
       await page.locator(".mari-chat-send-btn").click();
       await expect.poll(() => Boolean(finishFollowup)).toBe(true);
       expect(firstRequestTools).toEqual(["roll_dice"]);
       expect(rollTargets).toContain(target);
+      expect(rollProperties.modifier.type).toBe("integer");
+      expect(rollProperties.dc.type).toBe("integer");
+      expect(resolved.dc).toBe(dc);
+      expect(resolved.success).toBe(dc !== undefined ? total >= dc : undefined);
       expect(resultMessageFound).toBe(true);
       expect(followupPrompt).not.toContain("INVENTED_OUTCOME");
-      expect(total).toBeGreaterThanOrEqual(5);
-      expect(total).toBeLessThanOrEqual(10);
+      expect(total).toBeGreaterThanOrEqual(5 + (modifier ?? 0));
+      expect(total).toBeLessThanOrEqual(10 + (modifier ?? 0));
       if (!native) await expect.poll(() => firstStreamClosed).toBe(true);
       await expect(page.getByText(`1d6+3: ${total}`, { exact: true })).not.toBeVisible();
       // WebKit can buffer these tiny SSE frames until the 15-second keepalive
@@ -1260,7 +1274,9 @@ for (const [native, targetKind] of [
       });
       finishFollowup!();
       finishFollowup = undefined;
-      await expect(page.getByText(new RegExp(`The engine rolled ${total}; the lock opens\\.`, "u"))).toBeVisible();
+      await expect(
+        page.getByText(new RegExp(`The engine rolled ${total}; the attempt is resolved\\.`, "u")),
+      ).toBeVisible();
       const messages = await (await request.get(`/api/chats/${fixture.chat.id}/messages`)).json();
       const saved = messages.filter((message: any) => message.role === "assistant").at(-1);
       expect(saved.content).not.toContain("[roll");
@@ -1269,16 +1285,21 @@ for (const [native, targetKind] of [
       const activity = extra(saved.extra).roleplayCommandActivity;
       expect(activity).toHaveLength(1);
       expect(JSON.parse(activity[0].result).total).toBe(total);
-      expect(JSON.parse(activity[0].result).modifier).toBe(4);
+      expect(JSON.parse(activity[0].result).modifier).toBe(4 + (modifier ?? 0));
+      expect(JSON.parse(activity[0].result).dc).toBe(dc);
+      expect(activity[0].command.modifier).toBe(modifier);
+      expect(activity[0].command.dc).toBe(dc);
       expect(activity[0].contentOffset).toBe(prefix.length);
       const inlineDice = page.locator(`[data-message-id="${saved.id}"] [data-roleplay-inline-roll]`);
       await expect(inlineDice).toHaveCount(1);
+      if (dc !== undefined) await expect(inlineDice.locator(".dice-roll-header")).toContainText(`DC ${dc}`);
+      else await expect(inlineDice.locator(".dice-roll-header")).not.toContainText("DC");
       await expect(inlineDice.locator(".dice-roll-total")).toContainText(String(total));
       const formatted = page
         .locator(`[data-message-id="${saved.id}"] strong`)
         .filter({ has: page.locator("[data-roleplay-inline-roll]") });
       await expect(formatted).toContainText("I attempt the lock.");
-      await expect(formatted).toContainText("the lock opens.");
+      await expect(formatted).toContainText("the attempt is resolved.");
       await expect(inlineDice.locator(".dice-roll-card")).toHaveClass(/is-settled/u);
       await page.screenshot({ path: testInfo.outputPath("roleplay-inline-dice.png"), animations: "disabled" });
       const order = await inlineDice.evaluate((element) => {
@@ -1291,7 +1312,7 @@ for (const [native, targetKind] of [
         return { before, after: range.toString() };
       });
       expect(order.before).toContain("I attempt the lock.");
-      expect(order.after).toContain("the lock opens.");
+      expect(order.after).toContain("the attempt is resolved.");
       const diceBounds = await inlineDice.boundingBox();
       expect(diceBounds!.x).toBeGreaterThanOrEqual(0);
       expect(diceBounds!.x + diceBounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
@@ -1303,6 +1324,8 @@ for (const [native, targetKind] of [
       expect(requestCount).toBe(2);
       await page.reload();
       await expect(inlineDice).toHaveCount(1);
+      if (dc !== undefined) await expect(inlineDice.locator(".dice-roll-header")).toContainText(`DC ${dc}`);
+      else await expect(inlineDice.locator(".dice-roll-header")).not.toContainText("DC");
       await expect(inlineDice.locator(".dice-roll-card")).toHaveClass(/is-settled/u);
       expect(
         (
@@ -1325,6 +1348,8 @@ for (const [native, targetKind] of [
       await expect(page.locator(`[data-message-id="${saved.id}"]`)).toContainText("Próbuję otworzyć zamek.");
       await expect(page.locator(`[data-message-id="${saved.id}"]`)).not.toContainText("I attempt the lock.");
       await expect(inlineDice).toHaveCount(1);
+      if (dc !== undefined) await expect(inlineDice.locator(".dice-roll-header")).toContainText(`DC ${dc}`);
+      else await expect(inlineDice.locator(".dice-roll-header")).not.toContainText("DC");
       await expect(inlineDice.locator(".dice-roll-total")).toContainText(String(total));
       await expect(inlineDice.locator(".dice-roll-card")).toHaveClass(/is-settled/u);
       expect(requestCount).toBe(2);

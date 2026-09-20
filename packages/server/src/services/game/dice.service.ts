@@ -71,8 +71,10 @@ export function parseRollDiceToolResult(raw: string): DiceRollResult | null {
   if (!rolls.every((roll): roll is number => typeof roll === "number" && Number.isFinite(roll))) return null;
   if (typeof total !== "number" || !Number.isFinite(total)) return null;
   if (!Number.isFinite(modifier)) return null;
+  const dc = payload.dc;
+  if (dc !== undefined && (typeof dc !== "number" || !Number.isSafeInteger(dc))) return null;
 
-  return { notation, rolls, modifier, total };
+  return { notation, rolls, modifier, total, ...(dc !== undefined ? { dc } : {}) };
 }
 
 /** Fresh regex so callers can collect or remove the same narration roll records. */

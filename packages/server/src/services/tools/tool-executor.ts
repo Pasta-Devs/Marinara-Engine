@@ -502,9 +502,18 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
   const notation = String(args.notation ?? "1d6");
   const reason = String(args.reason ?? "");
 
-  const parsed = parseDiceNotation(notation);
+  let parsed = parseDiceNotation(notation);
   if (!parsed) {
     return { error: `Invalid dice notation: ${notation}`, hint: "Use format like 2d6, d20+5, 3d8-2" };
+  }
+
+  // Arguments were schema-validated before Roleplay added the assigned attribute bonus.
+  const situationalModifier = args.modifier as number | undefined;
+  const dc = args.dc as number | undefined;
+  if (situationalModifier) {
+    const combined = parsed.modifier + situationalModifier;
+    parsed = parseDiceNotation(`${parsed.dice}${combined > 0 ? "+" : ""}${combined || ""}`);
+    if (!parsed) return { error: "The adjusted roll exceeds the supported numeric range." };
   }
 
   // Refuse rather than clamp. A result that quietly rolled 100 dice for a model
@@ -528,7 +537,8 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
     modifier,
     total,
     reason,
-    display: `🎲 ${parsed.notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**`,
+    ...(dc !== undefined ? { dc, success: total >= dc } : {}),
+    display: `🎲 ${parsed.notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**${dc !== undefined ? ` (DC ${dc})` : ""}`,
   };
 }
 

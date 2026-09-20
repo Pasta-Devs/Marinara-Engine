@@ -7335,6 +7335,8 @@ export async function generateRoutes(app: FastifyInstance) {
                           reason: requestedRoll.command.reason,
                           character: requestedRoll.command.character,
                           attribute: requestedRoll.command.attribute,
+                          modifier: requestedRoll.command.modifier,
+                          dc: requestedRoll.command.dc,
                         }),
                       },
                     },
@@ -7419,6 +7421,8 @@ export async function generateRoutes(app: FastifyInstance) {
                         reason: String(args?.reason ?? ""),
                         ...(typeof args?.character === "string" ? { character: args.character } : {}),
                         ...(typeof args?.attribute === "string" ? { attribute: args.attribute } : {}),
+                        ...(typeof args?.modifier === "number" ? { modifier: args.modifier } : {}),
+                        ...(typeof args?.dc === "number" ? { dc: args.dc } : {}),
                       },
                       raw:
                         textualRoleplayRoll && requestedRoll
