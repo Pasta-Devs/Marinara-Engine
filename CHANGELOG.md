@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- The Game Mode ruleset development plan records what the tracked systems (World of Darkness, Chronicles of Darkness, Exalted, Fate) still need: a health track of named levels with a penalty each, damage kinds that sort and upgrade, and a resolver that reads the penalty.
+
 - The Roleplay swipe media regression follows the continuation behavior shipped in #6396, so the node regression lane passes again on `staging`.
 
 - Roleplay `/continue` and `/cont` display their streamed text inside the original reply, preserving its existing content and newline preference; an empty send still creates a separate reply (#6394).
